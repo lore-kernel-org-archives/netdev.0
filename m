@@ -1,53 +1,121 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 01/53] xfrm: initialise xfrm_policy_gc_work statically
-Date: Tue, 25 Nov 2008 20:26:33 +0300
-Message-ID: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 09/53] netns xfrm: per-netns xfrm_state counts
+Date: Tue, 25 Nov 2008 20:26:41 +0300
+Message-ID: <1227634045-27534-9-git-send-email-adobriyan@gmail.com>
+References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-4-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-5-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-6-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-7-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-8-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:28929 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754081AbYKYRXa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:23:30 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1144223ugf.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:23:28 -0800 (PST)
+Received: from nf-out-0910.google.com ([64.233.182.190]:3932 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402AbYKYRXy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:23:54 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so28136nfc.21
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:23:51 -0800 (PST)
+In-Reply-To: <1227634045-27534-8-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- net/xfrm/xfrm_policy.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ include/net/netns/xfrm.h |    1 +
+ net/xfrm/xfrm_state.c    |   14 +++++++-------
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 1785488..ea3456d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -55,7 +55,6 @@ static struct xfrm_policy_afinfo *xfrm_policy_afinfo[NPROTO];
+diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+index dbbc0e9..492b471 100644
+--- a/include/net/netns/xfrm.h
++++ b/include/net/netns/xfrm.h
+@@ -17,6 +17,7 @@ struct netns_xfrm {
+ 	struct hlist_head	*state_bysrc;
+ 	struct hlist_head	*state_byspi;
+ 	unsigned int		state_hmask;
++	unsigned int		state_num;
+ };
  
- static struct kmem_cache *xfrm_dst_cache __read_mostly;
+ #endif
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index de08ed9..7ecf6ee 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -45,7 +45,6 @@ u32 sysctl_xfrm_acq_expires __read_mostly = 30;
+ static DEFINE_SPINLOCK(xfrm_state_lock);
  
--static struct work_struct xfrm_policy_gc_work;
- static HLIST_HEAD(xfrm_policy_gc_list);
- static DEFINE_SPINLOCK(xfrm_policy_gc_lock);
+ static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
+-static unsigned int xfrm_state_num;
+ static unsigned int xfrm_state_genid;
  
-@@ -296,6 +295,7 @@ static void xfrm_policy_gc_task(struct work_struct *work)
- 	hlist_for_each_entry_safe(policy, entry, tmp, &gc_list, bydst)
- 		xfrm_policy_gc_kill(policy);
+ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
+@@ -548,7 +547,7 @@ int __xfrm_state_delete(struct xfrm_state *x)
+ 		hlist_del(&x->bysrc);
+ 		if (x->id.spi)
+ 			hlist_del(&x->byspi);
+-		xfrm_state_num--;
++		init_net.xfrm.state_num--;
+ 		spin_unlock(&xfrm_state_lock);
+ 
+ 		/* All xfrm_state objects are created by xfrm_state_alloc.
+@@ -650,7 +649,7 @@ EXPORT_SYMBOL(xfrm_state_flush);
+ void xfrm_sad_getinfo(struct xfrmk_sadinfo *si)
+ {
+ 	spin_lock_bh(&xfrm_state_lock);
+-	si->sadcnt = xfrm_state_num;
++	si->sadcnt = init_net.xfrm.state_num;
+ 	si->sadhcnt = init_net.xfrm.state_hmask;
+ 	si->sadhmcnt = xfrm_state_hashmax;
+ 	spin_unlock_bh(&xfrm_state_lock);
+@@ -754,7 +753,7 @@ static void xfrm_hash_grow_check(int have_hash_collision)
+ {
+ 	if (have_hash_collision &&
+ 	    (init_net.xfrm.state_hmask + 1) < xfrm_state_hashmax &&
+-	    xfrm_state_num > init_net.xfrm.state_hmask)
++	    init_net.xfrm.state_num > init_net.xfrm.state_hmask)
+ 		schedule_work(&xfrm_hash_work);
  }
-+static DECLARE_WORK(xfrm_policy_gc_work, xfrm_policy_gc_task);
  
- /* Rule must be locked. Release descentant resources, announce
-  * entry dead. The rule must be unlinked from lists to the moment.
-@@ -2425,7 +2425,6 @@ static void __init xfrm_policy_init(void)
+@@ -855,7 +854,7 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
+ 			x->lft.hard_add_expires_seconds = sysctl_xfrm_acq_expires;
+ 			x->timer.expires = jiffies + sysctl_xfrm_acq_expires*HZ;
+ 			add_timer(&x->timer);
+-			xfrm_state_num++;
++			init_net.xfrm.state_num++;
+ 			xfrm_hash_grow_check(x->bydst.next != NULL);
+ 		} else {
+ 			x->km.state = XFRM_STATE_DEAD;
+@@ -935,7 +934,7 @@ static void __xfrm_state_insert(struct xfrm_state *x)
+ 
+ 	wake_up(&km_waitq);
+ 
+-	xfrm_state_num++;
++	init_net.xfrm.state_num++;
+ 
+ 	xfrm_hash_grow_check(x->bydst.next != NULL);
+ }
+@@ -1047,7 +1046,7 @@ static struct xfrm_state *__find_acq_core(unsigned short family, u8 mode, u32 re
+ 		h = xfrm_src_hash(daddr, saddr, family);
+ 		hlist_add_head(&x->bysrc, init_net.xfrm.state_bysrc+h);
+ 
+-		xfrm_state_num++;
++		init_net.xfrm.state_num++;
+ 
+ 		xfrm_hash_grow_check(x->bydst.next != NULL);
  	}
+@@ -2089,6 +2088,7 @@ int __net_init xfrm_state_init(struct net *net)
+ 		goto out_byspi;
+ 	net->xfrm.state_hmask = ((sz / sizeof(struct hlist_head)) - 1);
  
- 	INIT_LIST_HEAD(&xfrm_policy_all);
--	INIT_WORK(&xfrm_policy_gc_work, xfrm_policy_gc_task);
- 	register_netdevice_notifier(&xfrm_dev_notifier);
- }
++	net->xfrm.state_num = 0;
+ 	INIT_WORK(&xfrm_state_gc_work, xfrm_state_gc_task);
+ 	return 0;
  
 -- 
 1.5.6.5
