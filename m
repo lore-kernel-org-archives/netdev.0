@@ -1,209 +1,119 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT v2 PATCH] DCB: fix kconfig option
-Date: Mon, 24 Nov 2008 17:19:44 -0800
-Message-ID: <20081125011944.25229.57479.stgit@gitlost.lost>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: WARNING: at net/sched/sch_generic.c:219
+ dev_watchdog+0xfe/0x17e() with tg3 network
+Date: Mon, 24 Nov 2008 17:52:23 -0800
+Message-ID: <20081125015223.GA9151@xw6200.broadcom.net>
+References: <1226403067.7685.1598.camel@twins>
+ <491E49AA.60407@gmail.com> <20081118065006.GC24654@1wt.eu>
+ <20081120031101.GD26448@xw6200.broadcom.net>
+ <20081120053746.GB15168@1wt.eu>
+ <20081120184310.GB27712@xw6200.broadcom.net>
+ <20081120212637.GB23844@1wt.eu>
+ <20081120215318.GB27907@xw6200.broadcom.net>
+ <20081124132744.GB24851@1wt.eu> <20081124215247.GA29696@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, randy.dunlap@oracle.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Roger Heflin" <rogerheflin@gmail.com>,
+	"Peter Zijlstra" <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: "Willy Tarreau" <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:34540
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753054AbYKYBUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 20:20:06 -0500
+Received: from mms3.broadcom.com ([216.31.210.19]:4949 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753064AbYKYBwi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Nov 2008 20:52:38 -0500
+In-Reply-To: <20081124215247.GA29696@1wt.eu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the netlink option for DCB is necessary to actually be useful,
-simplified the Kconfig option.  In addition, added useful help text for the
-Kconfig option.
+On Mon, Nov 24, 2008 at 01:52:47PM -0800, Willy Tarreau wrote:
+> Hi Matt,
+> 
+> just a follow-up.
+> 
+> On Mon, Nov 24, 2008 at 02:27:44PM +0100, Willy Tarreau wrote:
+> > Hi Matt,
+> > 
+> > On Thu, Nov 20, 2008 at 01:53:18PM -0800, Matt Carlson wrote:
+> > > > Today, with the notebook connected to a gig switch, I could not reproduce
+> > > > the problem, even after one hour of approximately the same workload. I'll
+> > > > retry with the original 100 Mbps switch on monday.
+> > 
+> > fairly easier now with the same switch. I just have to transfer 100k objects
+> > over HTTP via this switch to see the problem happen :
+> > 
+> > tg3: eth0: The system may be re-ordering memory-mapped I/O cycles to the network device, attempting to recover. Please report the problem to the driver maintainer and include system chipset information.
+> > tg3: tg3_stop_block timed out, ofs=1400 enable_bit=2
+> > tg3: tg3_stop_block timed out, ofs=c00 enable_bit=2
+> > tg3: eth0: Link is down.
+> > tg3: eth0: Link is up at 100 Mbps, full duplex.
+> > tg3: eth0: Flow control is on for TX and on for RX.
+> > 
+> > The switch is an el-cheapo D-Link 10/100. Note that this time I did not see
+> > any warning. Maybe I did not wait long enough though.
+> 
+> Got it again, just had to be patient to fire a second test :
+> 
+> WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0x1a4/0x1b0()
+> NETDEV WATCHDOG: eth0 (tg3): transmit timed out
+> Modules linked in: nfs lockd sunrpc mtdblock mtd_blkdevs slram mtd xt_tcpudp x_tables usbhid usb_storage ehci_hcd uhci_hcd usbcore snd_pcm_oss snd_mixer_oss snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd soundcore snd_page_alloc tg3 libphy ide_cs yenta_socket rsrc_nonstatic [last unloaded: ip_tables]
+> Pid: 0, comm: swapper Not tainted 2.6.27-wt2-wtap #1
+>  [<b01254a7>] warn_slowpath+0x67/0x90
+>  [<b01741a9>] ? get_slab+0x9/0x70
+>  [<b03d21af>] ? pskb_copy+0x2f/0x160
+>  [<b03aa332>] ? input_defuzz_abs_event+0x12/0xa0
+>  [<b03aa574>] ? input_handle_event+0x14/0x2a0
+>  [<b03b3d76>] ? synaptics_process_packet+0x2b6/0x3d0
+>  [<b0108a48>] ? native_io_delay+0x8/0x40
+>  [<b02ab4c9>] ? strlen+0x9/0x20
+>  [<b02a961e>] ? strlcpy+0x1e/0x60
+>  [<b03dbfbc>] ? netdev_drivername+0x3c/0x40
+>  [<b03e7c84>] dev_watchdog+0x1a4/0x1b0
+>  [<b013a27e>] ? run_hrtimer_pending+0xe/0xb0
+>  [<b03e7ae0>] ? dev_watchdog+0x0/0x1b0
+>  [<b012d548>] ? timer_stats_account_timer+0x38/0x40
+>  [<b03e7ae0>] ? dev_watchdog+0x0/0x1b0
+>  [<b012dbbc>] run_timer_softirq+0xac/0x170
+>  [<b013f863>] ? tick_periodic+0x33/0x70
+>  [<b013f8b7>] ? tick_handle_periodic+0x17/0x70
+>  [<b03e7ae0>] ? dev_watchdog+0x0/0x1b0
+>  [<b0129ae4>] __do_softirq+0x84/0xa0
+>  [<b0129b35>] do_softirq+0x35/0x40
+>  [<b0129bf6>] irq_exit+0x66/0x70
+>  [<b0105869>] do_IRQ+0x49/0x90
+>  [<b013bc30>] ? sched_clock_cpu+0xb0/0x100
+>  [<b010449b>] common_interrupt+0x23/0x28
+>  [<b0305158>] ? acpi_safe_halt+0x1b/0x29
+>  [<b0305b07>] acpi_idle_enter_c1+0xa6/0x117
+>  [<b03c096b>] cpuidle_idle_call+0x6b/0xa0
+>  [<b010206f>] cpu_idle+0x4f/0x70
+>  [<b04458dd>] rest_init+0x4d/0x50
+>  =======================
+> ---[ end trace 1cc3b74458d87dab ]---
+> tg3: eth0: transmit timed out, resetting
+> tg3: DEBUG: MAC_TX_STATUS[0000000b] MAC_RX_STATUS[00000006]
+> tg3: DEBUG: RDMAC_STATUS[00000000] WDMAC_STATUS[00000008]
+> tg3: tg3_stop_block timed out, ofs=1400 enable_bit=2
+> tg3: tg3_stop_block timed out, ofs=c00 enable_bit=2
+> tg3: tg3_stop_block timed out, ofs=4c00 enable_bit=2
+> tg3: eth0: Link is down.
+> tg3: eth0: Link is up at 100 Mbps, full duplex.
+> tg3: eth0: Flow control is on for TX and on for RX.
+> 
+> The ease with which I reproduce it here clearly indicates that this is
+> related to the switch, probably just the fact that it is at 100 Mbps.
+> Unfortunately this evening I must go, but I still have one 100 Mbps
+> switch somewhere at home, I'll reproduce the same test ASAP in order
+> to bisect the issue.
+> 
+> Regards,
+> Willy
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Does turning off flow control help at all?
 
- drivers/net/Kconfig            |    4 ++--
- drivers/net/ixgbe/Makefile     |    2 +-
- drivers/net/ixgbe/ixgbe.h      |    2 +-
- drivers/net/ixgbe/ixgbe_main.c |   10 +++++-----
- include/linux/netdevice.h      |    4 ++--
- net/Makefile                   |    4 ++--
- net/dcb/Kconfig                |   24 +++++++++++++++++-------
- net/dcb/dcbnl.c                |    2 +-
- 8 files changed, 31 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index efd461d..75f9f7f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2451,10 +2451,10 @@ config IXGBE_DCA
- 	  driver.  DCA is a method for warming the CPU cache before data
- 	  is used, with the intent of lessening the impact of cache misses.
- 
--config IXGBE_DCBNL
-+config IXGBE_DCB
- 	bool "Data Center Bridging (DCB) Support"
- 	default n
--	depends on IXGBE && DCBNL
-+	depends on IXGBE && DCB
- 	---help---
- 	  Say Y here if you want to use Data Center Bridging (DCB) in the
- 	  driver.
-diff --git a/drivers/net/ixgbe/Makefile b/drivers/net/ixgbe/Makefile
-index 3228e50..6e7ef76 100644
---- a/drivers/net/ixgbe/Makefile
-+++ b/drivers/net/ixgbe/Makefile
-@@ -35,4 +35,4 @@ obj-$(CONFIG_IXGBE) += ixgbe.o
- ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o \
-               ixgbe_82598.o ixgbe_phy.o
- 
--ixgbe-$(CONFIG_IXGBE_DCBNL) +=  ixgbe_dcb.o ixgbe_dcb_82598.o ixgbe_dcb_nl.o
-+ixgbe-$(CONFIG_IXGBE_DCB) +=  ixgbe_dcb.o ixgbe_dcb_82598.o ixgbe_dcb_nl.o
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 9509aee..6cbf26e 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -327,7 +327,7 @@ enum ixgbe_boards {
- };
- 
- extern struct ixgbe_info ixgbe_82598_info;
--#ifdef CONFIG_IXGBE_DCBNL
-+#ifdef CONFIG_IXGBE_DCB
- extern struct dcbnl_rtnl_ops dcbnl_ops;
- extern int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
-                               struct ixgbe_dcb_config *dst_dcb_cfg,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 6620397..667a646 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1914,7 +1914,7 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
- 	}
- }
- 
--#ifdef CONFIG_IXGBE_DCBNL
-+#ifdef CONFIG_IXGBE_DCB
- /*
-  * ixgbe_configure_dcb - Configure DCB hardware
-  * @adapter: ixgbe adapter struct
-@@ -1960,7 +1960,7 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
- 	ixgbe_set_rx_mode(netdev);
- 
- 	ixgbe_restore_vlan(adapter);
--#ifdef CONFIG_IXGBE_DCBNL
-+#ifdef CONFIG_IXGBE_DCB
- 	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
- 		netif_set_gso_max_size(netdev, 32768);
- 		ixgbe_configure_dcb(adapter);
-@@ -2749,7 +2749,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct pci_dev *pdev = adapter->pdev;
- 	unsigned int rss;
--#ifdef CONFIG_IXGBE_DCBNL
-+#ifdef CONFIG_IXGBE_DCB
- 	int j;
- 	struct tc_configuration *tc;
- #endif
-@@ -2768,7 +2768,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
- 	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
- 
--#ifdef CONFIG_IXGBE_DCBNL
-+#ifdef CONFIG_IXGBE_DCB
- 	/* Configure DCB traffic classes */
- 	for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
- 		tc = &adapter->dcb_cfg.tc_config[j];
-@@ -4120,7 +4120,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
- 		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
- 
--#ifdef CONFIG_IXGBE_DCBNL
-+#ifdef CONFIG_IXGBE_DCB
- 	netdev->dcbnl_ops = &dcbnl_ops;
- #endif
- 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6095af5..65cfb01 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -43,7 +43,7 @@
- 
- #include <net/net_namespace.h>
- #include <net/dsa.h>
--#ifdef CONFIG_DCBNL
-+#ifdef CONFIG_DCB
- #include <net/dcbnl.h>
- #endif
- 
-@@ -846,7 +846,7 @@ struct net_device
- #define GSO_MAX_SIZE		65536
- 	unsigned int		gso_max_size;
- 
--#ifdef CONFIG_DCBNL
-+#ifdef CONFIG_DCB
- 	/* Data Center Bridging netlink ops */
- 	struct dcbnl_rtnl_ops *dcbnl_ops;
- #endif
-diff --git a/net/Makefile b/net/Makefile
-index e5af3dc..ba44604 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -56,8 +56,8 @@ obj-$(CONFIG_NETLABEL)		+= netlabel/
- obj-$(CONFIG_IUCV)		+= iucv/
- obj-$(CONFIG_RFKILL)		+= rfkill/
- obj-$(CONFIG_NET_9P)		+= 9p/
--ifeq ($(CONFIG_DCBNL),y)
--obj-$(CONFIG_DCB)		+= dcb/
-+ifneq ($(CONFIG_DCB),)
-+obj-y				+= dcb/
- endif
- 
- ifeq ($(CONFIG_NET),y)
-diff --git a/net/dcb/Kconfig b/net/dcb/Kconfig
-index bdf3880..4066d59 100644
---- a/net/dcb/Kconfig
-+++ b/net/dcb/Kconfig
-@@ -1,12 +1,22 @@
- config DCB
--        tristate "Data Center Bridging support"
--
--config DCBNL
--	bool "Data Center Bridging netlink interface support"
--	depends on DCB
-+	bool "Data Center Bridging support"
- 	default n
- 	---help---
--	  This option turns on the netlink interface
--	  (dcbnl) for Data Center Bridging capable devices.
-+	  This enables support for configuring Data Center Bridging (DCB)
-+	  features on DCB capable Ethernet adapters via rtnetlink.  Say 'Y'
-+	  if you have a DCB capable Ethernet adapter which supports this
-+	  interface and you are connected to a DCB capable switch.
-+
-+	  DCB is a collection of Ethernet enhancements which allow DCB capable
-+	  NICs and switches to support network traffic with differing
-+	  requirements (highly reliable, no drops vs. best effort vs. low
-+	  latency) to co-exist on Ethernet.
-+
-+	  DCB features include:
-+	    Enhanced Transmission Selection (aka Priority Grouping) - provides a
-+	      framework for assigning bandwidth guarantees to traffic classes.
-+	    Priority-based Flow Control (PFC) - a MAC control pause frame which
-+	      works at the granularity of the 802.1p priority instead of the
-+	      link (802.3x).
- 
- 	  If unsure, say N.
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index b2bda3f..79a351d 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -48,7 +48,7 @@
-  */
- 
- MODULE_AUTHOR("Lucy Liu, <lucy.liu@intel.com>");
--MODULE_DESCRIPTION("Data Center Bridging generic netlink interface");
-+MODULE_DESCRIPTION("Data Center Bridging netlink interface");
- MODULE_LICENSE("GPL");
- 
- /**************** DCB attribute policies *************************************/
 
