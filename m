@@ -1,87 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 02/39] wimax: declarations for the in-kernel WiMAX API
-Date: Mon, 24 Nov 2008 16:12:22 -0800
-Message-ID: <20081124161222.10927011@extreme>
-References: <cover.1227562829.git.inaky@linux.intel.com>
-	<8deda2d5304761622a3744cd3e9a39551490bced.1227562829.git.inaky@linux.intel.com>
-	<20081124143326.58fdcbed@extreme>
-	<200811241543.33830.inaky@linux.intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: [PATCH] ethtool: Make possible speeds known
+Date: Mon, 24 Nov 2008 16:35:35 -0800 (PST)
+Message-ID: <200811250035.QAA27779@tardy.cup.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=X-roman8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:32953 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753991AbYKYAM0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Nov 2008 19:12:26 -0500
-In-Reply-To: <200811241543.33830.inaky@linux.intel.com>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:17385 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752343AbYKYAfn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 19:35:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 24 Nov 2008 15:43:33 -0800
-Inaky Perez-Gonzalez <inaky@linux.intel.com> wrote:
 
-> On Monday 24 November 2008, Stephen Hemminger wrote:
-> > On Mon, 24 Nov 2008 13:50:25 -0800
-> >
-> > Inaky Perez-Gonzalez <inaky@linux.intel.com> wrote:
-> > > [...snip...]
-> > > + */ 
-> > > +struct wimax_dev {
-> > > +	struct net_device *net_dev;
-> > > +	struct list_head id_table_node;
-> > > +	struct list_head pipe_list;
-> > > +	struct wimax_pipe *pipe_msg;
-> > > +	struct mutex mutex;		/* Protects all members and API calls */
-> > > +	enum wimax_st state;
-> > > +
-> > > +	int (*op_msg_from_user)(struct wimax_dev *wimax_dev,
-> > > +				const void *, size_t,
-> > > +				const struct genl_info *info);
-> > > +	int (*op_rfkill_sw_toggle)(struct wimax_dev *wimax_dev,
-> > > +				   enum wimax_rf_state);
-> > > +	int (*op_reset)(struct wimax_dev *wimax_dev);
-> >
-> > Move function pointers separate from data??
-> 
-> Most devices will have only a single adapter, so I thought it was not worth 
-> the overhead of the double dereference when average you will have a single 
-> copy.
-> 
-> > > +	struct genl_family gnl_family;
-> >
-> > Isn't family for all of wimax not per device?
-> 
-> Nope, it is per device. One generic netlink family per device (named "WiMAX 
-> DEVICENAME"). 
-> 
-> Makes it very easy in user and kernel space, no need for the overhead of 
-> having an extra attribute for the destination interface.
-> 
-> > > +	struct rfkill *rfkill;
-> > > +	struct input_dev *rfkill_input;
-> > > +	unsigned rf_hw:1;
-> > > +	unsigned rf_sw:1;
-> >
-> > don't bother with bitfield overhead make them u8
-> 
-> sure
-> 
-> > > +	char name[32];
-> > > +};
-> >
-> > Why have name in this data structure? Do you handle network device
-> > renames properly?
-> 
-> This is a physical name, not the network interface name (recommended name in 
-> the members documentation is DRIVERNAME:physical path.
-> 
-> The reason is it is used to register different things (rfkill device, input 
-> device for rfkill, threads). It being tied to the physical path makes it easy 
-> to map and not vulnerable to renames.
-> 
-> Now it might be too short, that's another matter.
+Certain Broadcom 10Gb Ethernet solutions (e.g. the 57711E) can have a
+10Gb port split into multiple virtual NICs each with an instance of
+the bnx2x driver.  These virtual NICs can be configured for any speed
+which is an integer multiple of 100 Mb/s from 100 to 10,000 Mbit/s
+inclusive.  Since this is "normal" for such systems an "Unknown!" is
+not indicated.
 
-Then shouldn't it be a 'struct device' and live in sysfs class hierarchy??
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
+
+---
+
+Rather than make a wholesale change to the existing "speed vetting"
+code, it seemed least invasive to escape-out to a new routine in the
+default case.  Should other "unfamiliar" speeds surface in the future
+the checks can be put there.
+
+Where the original would say this:
+
+	Speed: Unknown! (1600)
+
+for a FlexNIC link set to 1600 Mbit/s the changed version will
+say:
+
+	Speed: 1600Mb/s
+
+There is presently no way to alter this speed setting from within the
+host, so there is no need/point to altering the ethtool "set" path.
+
+--- ethtool.c.orig	2008-11-17 11:53:40.000000000 -0800
++++ ethtool.c	2008-11-17 13:14:55.000000000 -0800
+@@ -806,6 +806,14 @@ static void dump_advertised(struct ethto
+ 		fprintf(stdout, "No\n");
+ }
+ 
++static void vet_unfamiliar_speed(struct ethtool_cmd *ep)
++{
++	if ((!ep->speed) || (ep->speed % 100))
++		fprintf(stdout, "Unknown! (%i)\n", ep->speed);
++	else
++		fprintf(stdout,"%dMb/s\n",ep->speed); 
++}
++
+ static int dump_ecmd(struct ethtool_cmd *ep)
+ {
+ 	dump_supported(ep);
+@@ -829,7 +837,7 @@ static int dump_ecmd(struct ethtool_cmd 
+ 		fprintf(stdout, "10000Mb/s\n");
+ 		break;
+ 	default:
+-		fprintf(stdout, "Unknown! (%i)\n", ep->speed);
++		vet_unfamiliar_speed(ep);
+ 		break;
+ 	};
+ 
