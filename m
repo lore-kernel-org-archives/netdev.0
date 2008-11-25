@@ -1,63 +1,56 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: more info on ipsec-related invalid trusize
-Date: Tue, 25 Nov 2008 07:28:57 +0300
-Message-ID: <20081125042752.GA4085@x200.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] Could we avoid touching dst->refcount in some cases ?
+Date: Tue, 25 Nov 2008 05:43:32 +0100
+Message-ID: <492B8274.6080609@cosmosbay.com>
+References: <492A6C94.7030308@cosmosbay.com>	<87y6z9h33h.fsf@basil.nowhere.org>	<492A7E85.3060502@cosmosbay.com> <20081124.153954.215777060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: andi@firstfloor.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:5681 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753630AbYKYEZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 23:25:05 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so954902eyi.37
-        for <netdev@vger.kernel.org>; Mon, 24 Nov 2008 20:25:03 -0800 (PST)
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([86.65.150.130]:47680 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752955AbYKYEnl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 23:43:41 -0500
+In-Reply-To: <20081124.153954.215777060.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-http://bugzilla.kernel.org/show_bug.cgi?id=10996
-http://marc.info/?l=linux-netdev&m=122641698504902&w=2
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Mon, 24 Nov 2008 11:14:29 +0100
+>=20
+>> So maybe we could make ip_append_data() (or its callers) a
+>> litle bit smarter, avoiding increment/decrement if possible.
+>=20
+> These ideas are interesting but hard to make work.
+>=20
+> I think the receive path has more chance of getting gains
+> from this, to be honest.
+>=20
+> One third (effectively) of TCP stream packets are ACKs and
+> freed immediately.  This means that the looked up route does
+> not escape the packet receive path.  So we could elide the
+> counter increment in that case.
+>=20
+> In fact, once we queue even TCP data, there is no need for
+> that cached skb->dst route any longer.
+>=20
+> So pretty much all TCP packets could avoid the dst refcounting
+> on receive.
 
-SKB BUG: Invalid truesize (344) len=134, sizeof(sk_buff)=216
+Very interesting. So we could try the following path :
 
-This correlates with ping6 the box to death with the following IPsec
-configuration and entering/leaving tcpdumping on the other end.
+1) First try to release dst when queueing skb to various queues
+(UDP, TCP, ...) while its hot. Reader wont have to release it
+while its cold.
 
-Numbers are always the same.
+2) Check if we can handle the input path without any refcount
+   dirtying ?
 
-It _looks_like_ IPv4 ping is fine, but I haven't experimented much.
+To make the transition easy, we could use a bit on skb to mark
+dst being not refcounted (ie no dst_release() should be done on it)
 
 
-#!/usr/sbin/setkey -f
-flush;
-spdflush;
-
-add 192.168.0.1 192.168.0.42 ah 15700 -A hmac-md5 "1234567890123456";
-add 192.168.0.1 192.168.0.42 esp 15701 -E 3des-cbc "123456789012123456789012";
-
-add 192.168.0.42 192.168.0.1 ah 24500 -A hmac-md5 "1234567890123456";
-add 192.168.0.42 192.168.0.1 esp 24501 -E 3des-cbc "123456789012123456789012";
-
-spdadd 192.168.0.42 192.168.0.1 any -P out ipsec
-	esp/transport//require
-	ah/transport//require;
-
-spdadd 192.168.0.1 192.168.0.42 any -P in ipsec
-	esp/transport//require
-	ah/transport//require;
-
-# ipv6
-add -6 fe80::218:f3ff:fea2:9f90 fe80::21b:38ff:feaf:2249 ah 4242 -A hmac-md5 "1234567890123457";
-add -6 fe80::218:f3ff:fea2:9f90 fe80::21b:38ff:feaf:2249 esp 4243 -E 3des-cbc "123456789012123456789012";
-
-add -6 fe80::21b:38ff:feaf:2249 fe80::218:f3ff:fea2:9f90 ah 4244 -A hmac-md5 "1234567890123457";
-add -6 fe80::21b:38ff:feaf:2249 fe80::218:f3ff:fea2:9f90 esp 4245 -E 3des-cbc "123456789012123456789012";
-
-spdadd fe80::21b:38ff:feaf:2249 fe80::218:f3ff:fea2:9f90 any -P out ipsec
-	esp/transport//require
-	ah/transport//require;
-
-spdadd fe80::218:f3ff:fea2:9f90 fe80::21b:38ff:feaf:2249 any -P in ipsec
-	esp/transport//require
-	ah/transport//require;
