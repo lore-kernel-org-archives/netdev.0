@@ -1,43 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next/-mm/mainline] net/hp-plus: fix link errors
-Date: Tue, 25 Nov 2008 13:41:45 -0800 (PST)
-Message-ID: <20081125.134145.66227024.davem@davemloft.net>
-References: <20081121.163335.255948683.davem@davemloft.net>
-	<20081125095952.f25e8286.randy.dunlap@oracle.com>
-	<20081125181800.7502d395@lxorguk.ukuu.org.uk>
+Subject: Re: [BUILD_FAILURE] linux-next: 20081125 - 8390 network driver
+ build fails
+Date: Tue, 25 Nov 2008 13:42:15 -0800 (PST)
+Message-ID: <20081125.134215.146717314.davem@davemloft.net>
+References: <492C562E.9090302@oracle.com>
+	<20081125195756.12317499@lxorguk.ukuu.org.uk>
+	<492C5B52.6090803@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org, jgarzik@pobox.com,
-	akpm@linux-foundation.org, shemminger@vyatta.com
-To: alan@lxorguk.ukuu.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40017
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753891AbYKYVlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 16:41:45 -0500
-In-Reply-To: <20081125181800.7502d395@lxorguk.ukuu.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alan@lxorguk.ukuu.org.uk, kamalesh@linux.vnet.ibm.com,
+	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, p_gortmaker@yahoo.com,
+	netdev@vger.kernel.org, mel@csn.ul.ie,
+	shemminger@linux-foundation.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <492C5B52.6090803@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Tue, 25 Nov 2008 18:18:00 +0000
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Tue, 25 Nov 2008 12:08:50 -0800
 
-> > WARNING: drivers/net/8390p: 'ei_set_multicast_list' exported twice. Previous export was in drivers/net/8390.ko
-> > WARNING: drivers/net/8390p: 'ei_get_stats' exported twice. Previous export was in drivers/net/8390.ko
-> > WARNING: drivers/net/8390p: 'ei_start_xmit' exported twice. Previous export was in drivers/net/8390.ko
-> > WARNING: drivers/net/8390p: 'ei_tx_timeout' exported twice. Previous export was in drivers/net/8390.ko
-> 
-> bash-3.2$ grep ei_set_multicast drivers/net/*c
-> bash-3.2$ grep ei_set_multicast  drivers/net/*h
-> bash-3.2$ grep ei_set_multicast  include/linux/*h
-> bash-3.2$ 
+> Looks like it's due to CONFIG_COMPAT_NET_DEV_OPS.
 
-Wrong tree.
+Right, I've asked Stephen Hemminger to fix this.
 
-We added code that splits the struct netdev function pointers out into
-a seperate structure.  In order to make initialization of the
-netdev_ops members work inside of the driver (and keep it const), we
-exported some of these 8390 library symbols.
+> Dave, no need to drop my hp-plus driver patch.
 
-Anyways, Stephen you have to do something about this.
+Yes, I knew this :)
