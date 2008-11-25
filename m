@@ -1,49 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: make skb_truesize_bug() call WARN()
-Date: Tue, 25 Nov 2008 13:54:34 -0800 (PST)
-Message-ID: <20081125.135434.164058659.davem@davemloft.net>
-References: <1227631323.3109.7.camel@achroite>
-	<20081125095432.04d73b01@infradead.org>
-	<1227636139.3109.11.camel@achroite>
+Subject: Re: [PATCH] net: udp_unhash() can test if sk is hashed
+Date: Tue, 25 Nov 2008 13:55:30 -0800 (PST)
+Message-ID: <20081125.135530.251944444.davem@davemloft.net>
+References: <492C5F53.2090901@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: arjan@infradead.org, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57970
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57974
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752649AbYKYVyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 16:54:35 -0500
-In-Reply-To: <1227636139.3109.11.camel@achroite>
+	by vger.kernel.org with ESMTP id S1752716AbYKYVza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 16:55:30 -0500
+In-Reply-To: <492C5F53.2090901@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmVuIEh1dGNoaW5ncyA8Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbT4NCkRhdGU6IFR1
-ZSwgMjUgTm92IDIwMDggMTg6MDI6MTkgKzAwMDANCg0KPiBPbiBUdWUsIDIwMDgtMTEtMjUgYXQg
-MDk6NTQgLTA4MDAsIEFyamFuIHZhbiBkZSBWZW4gd3JvdGU6DQo+ID4gT24gVHVlLCAyNSBOb3Yg
-MjAwOCAxNjo0MjowMyArMDAwMA0KPiA+IEJlbiBIdXRjaGluZ3MgPGJodXRjaGluZ3NAc29sYXJm
-bGFyZS5jb20+IHdyb3RlOg0KPiA+IA0KPiA+ID4gT24gVHVlLCAyMDA4LTExLTI1IGF0IDA4OjMy
-IC0wODAwLCBBcmphbiB2YW4gZGUgVmVuIHdyb3RlOg0KPiA+ID4gPiBGcm9tIDk3YThhYjUyMGMz
-Nzg1NjhlMTcyYzU1NWExNTZiNDY5MTM3YTM4MjggTW9uIFNlcCAxNyAwMDowMDowMA0KPiA+ID4g
-PiAyMDAxIEZyb206IEFyamFuIHZhbiBkZSBWZW4gPGFyamFuQGxpbnV4LmludGVsLmNvbT4NCj4g
-PiA+ID4gRGF0ZTogVHVlLCAyNSBOb3YgMjAwOCAwODozMDowNCAtMDgwMA0KPiA+ID4gPiBTdWJq
-ZWN0OiBbUEFUQ0hdIG5ldDogbWFrZSBza2JfdHJ1ZXNpemVfYnVnKCkgY2FsbCBXQVJOKCkNCj4g
-PiA+ID4gDQo+ID4gPiA+IFRoZSB0cnVlc2l6ZSBtZXNzYWdlIGNoZWNrIGlzIGltcG9ydGFudCBl
-bm91Z2ggdG8gbWFrZSBpdCBwcmludA0KPiA+ID4gPiAiQlVHIiB0byB0aGUgdXNlciBjb25zb2xl
-Li4uIGxldHMgYWxzbyBtYWtlIGl0IGltcG9ydGFudCBlbm91Z2ggdG8NCj4gPiA+ID4gc3BpdCBh
-IGJhY2t0cmFjZS9tb2R1bGUgbGlzdCBldGMgc28gdGhhdCBrZXJuZWxvb3BzLm9yZyBjYW4gdHJh
-Y2sNCj4gPiA+ID4gdGhlbS4NCj4gWy4uLl0NCj4gPiA+IO+7v1RoZSBidWcgcmVwb3J0cyBJJ3Zl
-IHNlZW4gKHdpdGggbXkgRGViaWFuIGhhdCBvbiwgbm90IHJlbGF0aW5nIHRvDQo+ID4gPiBzZmMp
-IHNob3cgdGhhdCBjb25maWd1cmF0aW9ucyB0aGF0IHRyaWdnZXIgdGhpcyB3YXJuaW5nIGFyZSBs
-aWtlbHkgdG8NCj4gPiA+IHRyaWdnZXIgbWFueSB0aW1lcyBvdmVyIGFuZCB0aGVyZSdzIG5vdGhp
-bmcgdGhlIHVzZXIgY2FuIGRvIGFib3V0DQo+ID4gPiBpdC4gIFNvIGJ5IGFsbCBtZWFucyBkbyBt
-YWtlIHRoZSB3YXJuaW5nIG1vcmUgb2J2aW91cywgYnV0IHBsZWFzZQ0KPiA+ID4gbWFrZSBpdCBX
-QVJOX09OX09OQ0UgYW5kIHRoZW4gdXNlIHByaW50ayBxdWFsaWZpZWQgYnkgbmV0X3JhdGVsaW1p
-dCgpLg0KPiA+ID4gDQo+ID4gDQo+ID4gaWYgdGhlcmUncyBubyB2YWx1ZSBpbiB0aG9zZSBzdWJz
-ZXF1ZW50IHByaW50aydzLi4gd2h5IG5vdCBqdXN0IHRoaXM/DQo+IFsuLi5dDQo+IA0KPiBJIHRo
-aW5rIHRoZXJlIG1heSBiZSBzb21lIHZhbHVlIGluIHRoZW06IHVzZXJzIHdobyB3YW50IHRvIGhl
-bHAgZGVidWcNCj4gdGhpcyBjYW4gZXhwZXJpbWVudCB0byBzZWUgd2hpY2ggY29uZmlndXJhdGlv
-bnMgb3IgdHJhZmZpYyB0eXBlcyBkbyBvcg0KPiBkb24ndCByZXN1bHQgaW4gaW52YWxpZCB0cnVl
-c2l6ZS4NCg0KQWdyZWVkLCBuZXRsaW1pdCdpbmcgdGhpcyBpcyB0aGUgYmVzdCB3YXkgdG8gZ28u
-DQo=
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 25 Nov 2008 21:25:55 +0100
+
+> Impact: Optimization
+> 
+> Like done in inet_unhash(), we can avoid taking a chain lock if
+> socket is not hashed in udp_unhash()
+> 
+> Triggered by close(socket(AF_INET, SOCK_DGRAM, 0));
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+Applied, thanks Eric.
