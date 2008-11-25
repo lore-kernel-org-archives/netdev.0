@@ -1,40 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] tc: policing requires a rate estimator
-Date: Tue, 25 Nov 2008 19:38:52 +0100
-Message-ID: <492C463C.5000202@trash.net>
-References: <20081125101656.52348bdd@extreme>	<20081125102113.371db7b1@extreme>	<492C44AD.1010007@trash.net> <20081125103319.19de15c3@extreme>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [BUILD_FAILURE] linux-next: 20081125 - 8390 network driver build
+ fails
+Date: Tue, 25 Nov 2008 10:39:09 -0800
+Message-ID: <492C464D.4080704@oracle.com>
+References: <20081125213738.881b425e.sfr@canb.auug.org.au> <20081125182542.GA4914@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33638 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017AbYKYSjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 13:39:04 -0500
-In-Reply-To: <20081125103319.19de15c3@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	p_gortmaker@yahoo.com, netdev@vger.kernel.org, mel@csn.ul.ie
+To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20081125182542.GA4914@linux.vnet.ibm.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 25 Nov 2008 19:32:13 +0100
-> Patrick McHardy <kaber@trash.net> wrote:
+Kamalesh Babulal wrote:
+> Hi Stephen,
 > 
->>>
->>> --- a/net/sched/act_police.c	2008-11-25 10:15:50.000000000 -0800
->>> +++ b/net/sched/act_police.c	2008-11-25 10:17:54.000000000 -0800
->>> @@ -182,6 +182,12 @@ override:
->>>  		R_tab = qdisc_get_rtab(&parm->rate, tb[TCA_POLICE_RATE]);
->>>  		if (R_tab == NULL)
->>>  			goto failure;
->>> +
->>> +		if (!est && !gen_estimator_active(&police->tcf_rate_est)) {
->>> +			err = -EINVAL;
->>> +			goto failure;
->> This leaks the R_tab reference.
+> 	allyesconfig build of next-20081125 kernel over x86_32 box fails with
+> error message.
 > 
-> The previous patch added a put at the failure: tag.
+> drivers/net/8390p.o: In function `ei_get_stats':
+> /usr/local/autobench/autotest/tmp/build/linux/drivers/net/lib8390.c:889: multiple definition of `ei_get_stats'
+> drivers/net/8390.o:/usr/local/autobench/var/tmp/build/linux/drivers/net/lib8390.c:889: first defined here
+> ld: Warning: size of symbol `ei_get_stats' changed from 106 in drivers/net/8390.o to 148 in drivers/net/8390p.o
+> drivers/net/8390p.o: In function `ei_start_xmit':
+> /usr/local/autobench/autotest/tmp/build/linux/drivers/net/lib8390.c:310: multiple definition of `ei_start_xmit'
+> drivers/net/8390.o:/usr/local/autobench/var/tmp/build/linux/drivers/net/lib8390.c:310: first defined here
+> ld: Warning: size of symbol `ei_start_xmit' changed from 598 in drivers/net/8390.o to 610 in drivers/net/8390p.o
+> drivers/net/8390p.o: In function `ei_tx_timeout':
+> /usr/local/autobench/autotest/tmp/build/linux/drivers/net/lib8390.c:263: multiple definition of `ei_tx_timeout'
+> drivers/net/8390.o:/usr/local/autobench/var/tmp/build/linux/drivers/net/lib8390.c:263: first defined here
+> drivers/net/8390p.o: In function `ei_set_multicast_list':
+> /usr/local/autobench/autotest/tmp/build/linux/drivers/net/lib8390.c:999: multiple definition of `ei_set_multicast_list'
+> drivers/net/8390.o:/usr/local/autobench/var/tmp/build/linux/drivers/net/lib8390.c:999: first defined here
+> make[2]: *** [drivers/net/built-in.o] Error 1
 
-I missed that, sorry.
+Hi,
+I just reported this on netdev and said that DaveM might want to drop a patch
+that I had submitted.  Anyway, I'm looking into it.
 
+Thanks.
