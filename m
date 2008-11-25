@@ -1,55 +1,52 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: respin of hso patches for linux-2.6.28-rc6 hso_mutex.patch
  [patch 4/6]
-Date: Tue, 25 Nov 2008 10:42:13 +0000
-Message-ID: <20081125104213.03b280c5@lxorguk.ukuu.org.uk>
-References: <492ABECF.5050307@option.com>
-	<20081125.003427.90695589.davem@davemloft.net>
-	<20081125102043.0f318a8d@lxorguk.ukuu.org.uk>
+Date: Tue, 25 Nov 2008 03:11:50 -0800 (PST)
+Message-ID: <20081125.031150.170595881.davem@davemloft.net>
+References: <20081125102043.0f318a8d@lxorguk.ukuu.org.uk>
 	<20081125.022246.102969955.davem@davemloft.net>
+	<20081125104213.03b280c5@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: D.Barow@option.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:60685 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752302AbYKYKmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 05:42:06 -0500
-In-Reply-To: <20081125.022246.102969955.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081125104213.03b280c5-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> I thought this was a network driver?
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Date: Tue, 25 Nov 2008 10:42:13 +0000
 
-It's both, but the resource handling mess is on the tty side, and several
-of the chunks (modem control etc) directly hit the tty parts and will
-clash with other tty layer changes.
+> That patch series is a complete mix:
 > 
-> If so, this poor guy has respun these patches so many times
-> my head is spinning, and making him wait for one more procedural
-> thing is just a good way to deter yet another developer.
+> 1, 3 and 6 are network
+> 2 is a broken tty layer patch
+> 4 is a broken tty layer patch
+> 5 is an ok tty layer patch
+> 
+> 5 will go into the tty tree
+> 
+> 2 and 4 clash with the tty tree already and don't deal with the tty side
+> locking at all sanely.
+> 
+> So I've no problem with the network parts (1,3,6) going into the netdev
+> tree but the other bits will make a mess if they do so.
 
-Well if you check the list I sent him a set of patches to review in
-response to his posting. Those patches implement proper tty side
-refcounting and have a chance of actually fixing the problems.
+Actually Alan, can you do me a favor?
 
-> I'm not leaving all of them out, most of them looked perfectly
-> fine and didn't do any "tty" stuff.
+These patches were not numbered, and when you say patch N it's ambiguous
+(especially since they arrived on the mailing list in a different
+order than they arrived in my private inbox, the latter of which is
+the order I applied them to my tree).
 
-That patch series is a complete mix:
+So please let me know which patches exactly are which and I'll do the
+reverting.
 
-1, 3 and 6 are network
-2 is a broken tty layer patch
-4 is a broken tty layer patch
-5 is an ok tty layer patch
-
-5 will go into the tty tree
-
-2 and 4 clash with the tty tree already and don't deal with the tty side
-locking at all sanely.
-
-So I've no problem with the network parts (1,3,6) going into the netdev
-tree but the other bits will make a mess if they do so.
+Thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
