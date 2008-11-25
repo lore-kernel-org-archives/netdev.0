@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 43/53] netns xfrm: KM reporting in netns
-Date: Tue, 25 Nov 2008 20:27:15 +0300
-Message-ID: <1227634045-27534-43-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 46/53] netns xfrm: flush SA/SPDs on netns stop
+Date: Tue, 25 Nov 2008 20:27:18 +0300
+Message-ID: <1227634045-27534-46-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -44,111 +44,81 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-40-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-41-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-42-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-43-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.179]:36183 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754225AbYKYRZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:26 -0500
-Received: by ik-out-1112.google.com with SMTP id c29so47752ika.5
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:24 -0800 (PST)
-In-Reply-To: <1227634045-27534-42-git-send-email-adobriyan@gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.190]:3932 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754499AbYKYRZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:34 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so28136nfc.21
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:32 -0800 (PST)
+In-Reply-To: <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+SA/SPD doesn't pin netns (and it shouldn't), so get rid of them by hand.
+
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/xfrm.h    |    4 ++--
- net/ipv6/mip6.c       |    3 ++-
- net/xfrm/xfrm_state.c |    4 ++--
- net/xfrm/xfrm_user.c  |    5 ++---
- 4 files changed, 8 insertions(+), 8 deletions(-)
+ net/xfrm/xfrm_policy.c |   14 ++++++++++++++
+ net/xfrm/xfrm_state.c  |    8 ++++++++
+ 2 files changed, 22 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 52e784f..f3ea160 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -552,7 +552,7 @@ struct xfrm_mgr
- 	struct xfrm_policy	*(*compile_policy)(struct sock *sk, int opt, u8 *data, int len, int *dir);
- 	int			(*new_mapping)(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);
- 	int			(*notify_policy)(struct xfrm_policy *x, int dir, struct km_event *c);
--	int			(*report)(u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr);
-+	int			(*report)(struct net *net, u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr);
- 	int			(*migrate)(struct xfrm_selector *sel, u8 dir, u8 type, struct xfrm_migrate *m, int num_bundles, struct xfrm_kmaddress *k);
- };
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 7c7bb54..fcf8c92 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2441,9 +2441,23 @@ out_byidx:
  
-@@ -1471,7 +1471,7 @@ extern int xfrm_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
- 
- extern int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);
- extern void km_policy_expired(struct xfrm_policy *pol, int dir, int hard, u32 pid);
--extern int km_report(u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr);
-+extern int km_report(struct net *net, u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr);
- 
- extern void xfrm_input_init(void);
- extern int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq);
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index 31295c8..f995e19 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -205,6 +205,7 @@ static inline int mip6_report_rl_allow(struct timeval *stamp,
- 
- static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb, struct flowi *fl)
+ static void xfrm_policy_fini(struct net *net)
  {
-+	struct net *net = xs_net(x);
- 	struct inet6_skb_parm *opt = (struct inet6_skb_parm *)skb->cb;
- 	struct ipv6_destopt_hao *hao = NULL;
- 	struct xfrm_selector sel;
-@@ -247,7 +248,7 @@ static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb, struct
- 		sel.sport_mask = htons(~0);
- 	sel.ifindex = fl->oif;
++	struct xfrm_audit audit_info;
+ 	unsigned int sz;
+ 	int dir;
  
--	err = km_report(IPPROTO_DSTOPTS, &sel,
-+	err = km_report(net, IPPROTO_DSTOPTS, &sel,
- 			(hao ? (xfrm_address_t *)&hao->addr : NULL));
++	flush_work(&net->xfrm.policy_hash_work);
++#ifdef CONFIG_XFRM_SUB_POLICY
++	audit_info.loginuid = -1;
++	audit_info.sessionid = -1;
++	audit_info.secid = 0;
++	xfrm_policy_flush(net, XFRM_POLICY_TYPE_SUB, &audit_info);
++#endif
++	audit_info.loginuid = -1;
++	audit_info.sessionid = -1;
++	audit_info.secid = 0;
++	xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, &audit_info);
++	flush_work(&xfrm_policy_gc_work);
++
+ 	WARN_ON(!list_empty(&net->xfrm.policy_all));
  
-  out:
+ 	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 21db37a..d594b5a 100644
+index d594b5a..662e47b 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -1833,7 +1833,7 @@ int km_migrate(struct xfrm_selector *sel, u8 dir, u8 type,
- EXPORT_SYMBOL(km_migrate);
- #endif
+@@ -2114,8 +2114,16 @@ out_bydst:
  
--int km_report(u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr)
-+int km_report(struct net *net, u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr)
+ void xfrm_state_fini(struct net *net)
  {
- 	int err = -EINVAL;
- 	int ret;
-@@ -1842,7 +1842,7 @@ int km_report(u8 proto, struct xfrm_selector *sel, xfrm_address_t *addr)
- 	read_lock(&xfrm_km_lock);
- 	list_for_each_entry(km, &xfrm_km_list, list) {
- 		if (km->report) {
--			ret = km->report(proto, sel, addr);
-+			ret = km->report(net, proto, sel, addr);
- 			if (!ret)
- 				err = ret;
- 		}
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 3e32ec2..b7240d5 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2520,10 +2520,9 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
++	struct xfrm_audit audit_info;
+ 	unsigned int sz;
  
--static int xfrm_send_report(u8 proto, struct xfrm_selector *sel,
--			    xfrm_address_t *addr)
-+static int xfrm_send_report(struct net *net, u8 proto,
-+			    struct xfrm_selector *sel, xfrm_address_t *addr)
- {
--	struct net *net = &init_net;
- 	struct sk_buff *skb;
++	flush_work(&net->xfrm.state_hash_work);
++	audit_info.loginuid = -1;
++	audit_info.sessionid = -1;
++	audit_info.secid = 0;
++	xfrm_state_flush(net, IPSEC_PROTO_ANY, &audit_info);
++	flush_work(&net->xfrm.state_gc_work);
++
+ 	WARN_ON(!list_empty(&net->xfrm.state_all));
  
- 	skb = nlmsg_new(xfrm_report_msgsize(), GFP_ATOMIC);
+ 	sz = (net->xfrm.state_hmask + 1) * sizeof(struct hlist_head);
 -- 
 1.5.6.5
 
