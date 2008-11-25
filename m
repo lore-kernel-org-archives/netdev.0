@@ -1,34 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: more info on ipsec-related invalid trusize
-Date: Tue, 25 Nov 2008 18:52:16 +0800
-Message-ID: <E1L4vWi-0006zm-PX@gondolin.me.apana.org.au>
-References: <20081125042752.GA4085@x200.localdomain>
-Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com (Alexey Dobriyan)
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v2] pkt_sched: sch_drr: Fix drr_dequeue() loop
+Date: Tue, 25 Nov 2008 12:42:20 +0100
+Message-ID: <492BE49C.6060408@trash.net>
+References: <20081124125150.GB16755@ff.dom.local>	<492AA96C.6000807@trash.net>	<20081124134516.GD16755@ff.dom.local> <20081124.154720.219944704.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48593 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751334AbYKYLhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 06:37:18 -0500
-In-Reply-To: <20081125042752.GA4085@x200.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:56340 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750963AbYKYLma (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 06:42:30 -0500
+In-Reply-To: <20081124.154720.219944704.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> http://bugzilla.kernel.org/show_bug.cgi?id=10996
-> http://marc.info/?l=linux-netdev&m=122641698504902&w=2
-> 
-> SKB BUG: Invalid truesize (344) len=134, sizeof(sk_buff)=216
-> 
-> This correlates with ping6 the box to death with the following IPsec
-> configuration and entering/leaving tcpdumping on the other end.
+David Miller wrote:
+> Things seem to have settled, thus I have applied Patrick's version
+> of the fix.
 
-It's a known problem.  When we expand packet headers in IPsec
-we're not adjusting the truesize.
+Thanks.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> But I encourage people to add the necessary framework such that
+> such unwanted configurations can be in fact detected at ->init()
+> time and thus properly warned about.
+> 
+> Silent packet dropping really upsets users.
+
+The packets won't be dropped, the qdisc will simply wait until the
+throttled inner qdisc becomes active again.
+
+Refusing incorrect changes in ->init() is not easy because at least
+HFSC can switch between work-conserving and non-work-conserving
+through ->change(), so the upper qdisc would have to be able to
+perform validation before the change is made. This is additionally
+complicated by the fact that (in case of HFSC) it can't be determined
+by looking only at the class that is currently changed, the use
+of a upper-limit curve on any class makes it non-work-conserving.
+
+Perhaps its best to ignore this special case and always treat HFSC
+as non-work-conserving, I haven't seen a configuration which uses
+a hierarchical qdisc as inner qdisc so far.
+
