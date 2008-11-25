@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 30/53] netns xfrm: policy insertion in netns
-Date: Tue, 25 Nov 2008 20:27:02 +0300
-Message-ID: <1227634045-27534-30-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 35/53] netns xfrm: xfrm_policy_check in netns
+Date: Tue, 25 Nov 2008 20:27:07 +0300
+Message-ID: <1227634045-27534-35-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -31,183 +31,81 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-27-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-28-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-29-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-30-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-31-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-32-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-33-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-34-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:3932 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752770AbYKYRYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:24:50 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so28136nfc.21
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:24:49 -0800 (PST)
-In-Reply-To: <1227634045-27534-29-git-send-email-adobriyan@gmail.com>
+Received: from ey-out-2122.google.com ([74.125.78.24]:41378 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbYKYRZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:05 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so23508eyi.37
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:02 -0800 (PST)
+In-Reply-To: <1227634045-27534-34-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- net/xfrm/xfrm_policy.c |   46 ++++++++++++++++++++++++----------------------
- 1 files changed, 24 insertions(+), 22 deletions(-)
+ include/net/xfrm.h     |    3 ++-
+ net/xfrm/xfrm_policy.c |    5 +++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 1dc4ff0..158848f 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -992,12 +992,13 @@ static inline int __xfrm_policy_check2(struct sock *sk, int dir,
+ 				       struct sk_buff *skb,
+ 				       unsigned int family, int reverse)
+ {
++	struct net *net = dev_net(skb->dev);
+ 	int ndir = dir | (reverse ? XFRM_POLICY_MASK + 1 : 0);
+ 
+ 	if (sk && sk->sk_policy[XFRM_POLICY_IN])
+ 		return __xfrm_policy_check(sk, ndir, skb, family);
+ 
+-	return	(!init_net.xfrm.policy_count[dir] && !skb->sp) ||
++	return	(!net->xfrm.policy_count[dir] && !skb->sp) ||
+ 		(skb->dst->flags & DST_NOPOLICY) ||
+ 		__xfrm_policy_check(sk, ndir, skb, family);
+ }
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index aefbb56..11fee87 100644
+index 7c88a25..8097c99 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -326,22 +326,22 @@ static inline unsigned int idx_hash(struct net *net, u32 index)
- 	return __idx_hash(index, net->xfrm.policy_idx_hmask);
- }
- 
--static struct hlist_head *policy_hash_bysel(struct xfrm_selector *sel, unsigned short family, int dir)
-+static struct hlist_head *policy_hash_bysel(struct net *net, struct xfrm_selector *sel, unsigned short family, int dir)
+@@ -1894,6 +1894,7 @@ static inline int secpath_has_nontransport(struct sec_path *sp, int k, int *idxp
+ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+ 			unsigned short family)
  {
--	unsigned int hmask = init_net.xfrm.policy_bydst[dir].hmask;
-+	unsigned int hmask = net->xfrm.policy_bydst[dir].hmask;
- 	unsigned int hash = __sel_hash(sel, family, hmask);
- 
- 	return (hash == hmask + 1 ?
--		&init_net.xfrm.policy_inexact[dir] :
--		init_net.xfrm.policy_bydst[dir].table + hash);
-+		&net->xfrm.policy_inexact[dir] :
-+		net->xfrm.policy_bydst[dir].table + hash);
- }
- 
--static struct hlist_head *policy_hash_direct(xfrm_address_t *daddr, xfrm_address_t *saddr, unsigned short family, int dir)
-+static struct hlist_head *policy_hash_direct(struct net *net, xfrm_address_t *daddr, xfrm_address_t *saddr, unsigned short family, int dir)
- {
--	unsigned int hmask = init_net.xfrm.policy_bydst[dir].hmask;
-+	unsigned int hmask = net->xfrm.policy_bydst[dir].hmask;
- 	unsigned int hash = __addr_hash(daddr, saddr, family, hmask);
- 
--	return init_net.xfrm.policy_bydst[dir].table + hash;
-+	return net->xfrm.policy_bydst[dir].table + hash;
- }
- 
- static void xfrm_dst_hash_transfer(struct hlist_head *list,
-@@ -508,7 +508,7 @@ static void xfrm_hash_resize(struct work_struct *work)
- 
- /* Generate new index... KAME seems to generate them ordered by cost
-  * of an absolute inpredictability of ordering of rules. This will not pass. */
--static u32 xfrm_gen_index(int dir)
-+static u32 xfrm_gen_index(struct net *net, int dir)
- {
- 	static u32 idx_generator;
- 
-@@ -523,7 +523,7 @@ static u32 xfrm_gen_index(int dir)
- 		idx_generator += 8;
- 		if (idx == 0)
- 			idx = 8;
--		list = init_net.xfrm.policy_byidx + idx_hash(&init_net, idx);
-+		list = net->xfrm.policy_byidx + idx_hash(net, idx);
- 		found = 0;
- 		hlist_for_each_entry(p, entry, list, byidx) {
- 			if (p->index == idx) {
-@@ -553,6 +553,7 @@ static inline int selector_cmp(struct xfrm_selector *s1, struct xfrm_selector *s
- 
- int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- {
-+	struct net *net = xp_net(policy);
++	struct net *net = dev_net(skb->dev);
  	struct xfrm_policy *pol;
- 	struct xfrm_policy *delpol;
- 	struct hlist_head *chain;
-@@ -560,7 +561,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 	struct dst_entry *gc_list;
- 
- 	write_lock_bh(&xfrm_policy_lock);
--	chain = policy_hash_bysel(&policy->selector, policy->family, dir);
-+	chain = policy_hash_bysel(net, &policy->selector, policy->family, dir);
- 	delpol = NULL;
- 	newpos = NULL;
- 	hlist_for_each_entry(pol, entry, chain, bydst) {
-@@ -587,27 +588,27 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 	else
- 		hlist_add_head(&policy->bydst, chain);
- 	xfrm_pol_hold(policy);
--	init_net.xfrm.policy_count[dir]++;
-+	net->xfrm.policy_count[dir]++;
- 	atomic_inc(&flow_cache_genid);
- 	if (delpol) {
- 		hlist_del(&delpol->bydst);
- 		hlist_del(&delpol->byidx);
- 		list_del(&delpol->walk.all);
--		init_net.xfrm.policy_count[dir]--;
-+		net->xfrm.policy_count[dir]--;
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+ 	int npols = 0;
+@@ -1938,7 +1939,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
  	}
--	policy->index = delpol ? delpol->index : xfrm_gen_index(dir);
--	hlist_add_head(&policy->byidx, init_net.xfrm.policy_byidx+idx_hash(&init_net, policy->index));
-+	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir);
-+	hlist_add_head(&policy->byidx, net->xfrm.policy_byidx+idx_hash(net, policy->index));
- 	policy->curlft.add_time = get_seconds();
- 	policy->curlft.use_time = 0;
- 	if (!mod_timer(&policy->timer, jiffies + HZ))
- 		xfrm_pol_hold(policy);
--	list_add(&policy->walk.all, &init_net.xfrm.policy_all);
-+	list_add(&policy->walk.all, &net->xfrm.policy_all);
- 	write_unlock_bh(&xfrm_policy_lock);
  
- 	if (delpol)
- 		xfrm_policy_kill(delpol);
--	else if (xfrm_bydst_should_resize(&init_net, dir, NULL))
--		schedule_work(&init_net.xfrm.policy_hash_work);
-+	else if (xfrm_bydst_should_resize(net, dir, NULL))
-+		schedule_work(&net->xfrm.policy_hash_work);
+ 	if (!pol)
+-		pol = flow_cache_lookup(&init_net, &fl, family, fl_dir,
++		pol = flow_cache_lookup(net, &fl, family, fl_dir,
+ 					xfrm_policy_lookup);
  
- 	read_lock_bh(&xfrm_policy_lock);
- 	gc_list = NULL;
-@@ -652,7 +653,7 @@ struct xfrm_policy *xfrm_policy_bysel_ctx(u8 type, int dir,
- 
- 	*err = 0;
- 	write_lock_bh(&xfrm_policy_lock);
--	chain = policy_hash_bysel(sel, sel->family, dir);
-+	chain = policy_hash_bysel(&init_net, sel, sel->family, dir);
- 	ret = NULL;
- 	hlist_for_each_entry(pol, entry, chain, bydst) {
- 		if (pol->type == type &&
-@@ -955,7 +956,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(u8 type, struct flowi *fl,
- 		return NULL;
- 
- 	read_lock_bh(&xfrm_policy_lock);
--	chain = policy_hash_direct(daddr, saddr, family, dir);
-+	chain = policy_hash_direct(&init_net, daddr, saddr, family, dir);
- 	ret = NULL;
- 	hlist_for_each_entry(pol, entry, chain, bydst) {
- 		err = xfrm_policy_match(pol, fl, type, family, dir);
-@@ -1070,7 +1071,7 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(struct sock *sk, int dir, struc
- static void __xfrm_policy_link(struct xfrm_policy *pol, int dir)
- {
- 	struct net *net = xp_net(pol);
--	struct hlist_head *chain = policy_hash_bysel(&pol->selector,
-+	struct hlist_head *chain = policy_hash_bysel(net, &pol->selector,
- 						     pol->family, dir);
- 
- 	list_add(&pol->walk.all, &net->xfrm.policy_all);
-@@ -1116,6 +1117,7 @@ EXPORT_SYMBOL(xfrm_policy_delete);
- 
- int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- {
-+	struct net *net = xp_net(pol);
- 	struct xfrm_policy *old_pol;
- 
+ 	if (IS_ERR(pol)) {
+@@ -1961,7 +1962,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+ 	npols ++;
  #ifdef CONFIG_XFRM_SUB_POLICY
-@@ -1128,7 +1130,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- 	sk->sk_policy[dir] = pol;
- 	if (pol) {
- 		pol->curlft.add_time = get_seconds();
--		pol->index = xfrm_gen_index(XFRM_POLICY_MAX+dir);
-+		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir);
- 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
- 	}
- 	if (old_pol)
-@@ -2595,7 +2597,7 @@ static struct xfrm_policy * xfrm_migrate_policy_find(struct xfrm_selector *sel,
- 	u32 priority = ~0U;
- 
- 	read_lock_bh(&xfrm_policy_lock);
--	chain = policy_hash_direct(&sel->daddr, &sel->saddr, sel->family, dir);
-+	chain = policy_hash_direct(&init_net, &sel->daddr, &sel->saddr, sel->family, dir);
- 	hlist_for_each_entry(pol, entry, chain, bydst) {
- 		if (xfrm_migrate_selector_match(sel, &pol->selector) &&
- 		    pol->type == type) {
+ 	if (pols[0]->type != XFRM_POLICY_TYPE_MAIN) {
+-		pols[1] = xfrm_policy_lookup_bytype(&init_net, XFRM_POLICY_TYPE_MAIN,
++		pols[1] = xfrm_policy_lookup_bytype(net, XFRM_POLICY_TYPE_MAIN,
+ 						    &fl, family,
+ 						    XFRM_POLICY_IN);
+ 		if (pols[1]) {
 -- 
 1.5.6.5
 
