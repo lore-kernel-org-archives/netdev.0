@@ -1,57 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: avoid a pair of dst_hold()/dst_release() in
- ip_append_data()
-Date: Mon, 24 Nov 2008 15:55:31 -0800 (PST)
-Message-ID: <20081124.155531.135918197.davem@davemloft.net>
-References: <87y6z9h33h.fsf@basil.nowhere.org>
-	<492A7E85.3060502@cosmosbay.com>
-	<492A8F05.3080509@cosmosbay.com>
+Subject: Re: netfilter 01/03: ctnetlink: fix conntrack creation race
+Date: Mon, 24 Nov 2008 16:05:47 -0800 (PST)
+Message-ID: <20081124.160547.137623297.davem@davemloft.net>
+References: <20081124134427.462.77824.sendpatchset@x2.localnet>
+	<20081124134428.462.23305.sendpatchset@x2.localnet>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, netdev@vger.kernel.org, minyard@acm.org,
-	christian@myri.com
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50240
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754133AbYKXXzc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Nov 2008 18:55:32 -0500
-In-Reply-To: <492A8F05.3080509@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20081124134428.462.23305.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 24 Nov 2008 12:24:53 +0100
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 24 Nov 2008 14:44:36 +0100 (MET)
 
-> [PATCH] net: avoid a pair of dst_hold()/dst_release() in ip_append_data()
+>     netfilter: ctnetlink: fix conntrack creation race
+>     
+>     Conntrack creation through ctnetlink has two races:
+>     
+>     - the timer may expire and free the conntrack concurrently, causing an
+>       invalid memory access when attempting to put it in the hash tables
+>     
+>     - an identical conntrack entry may be created in the packet processing
+>       path in the time between the lookup and hash insertion
+>     
+>     Hold the conntrack lock between the lookup and insertion to avoid this.
+>     
+>     Reported-by: Zoltan Borbely <bozo@andrews.hu>
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 > 
-> We can reduce pressure on dst entry refcount that slowdown UDP transmit
-> path on SMP machines. This pressure is visible on RTP servers when
-> delivering content to mediagateways, especially big ones, handling
-> thousand of streams. Several cpus send UDP frames to the same
-> destination, hence use the same dst entry.
-> 
-> This patch makes ip_append_data() eventually steal the refcount its
-> callers had to take on the dst entry.
-> 
-> This doesnt avoid all refcounting, but still gives speedups on SMP,
-> on UDP/RAW transmit path
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Ok, this looks fine to me, thanks Eric.  Although as you know
-I'm not a big fan of pass by reference arguments :-)
-
-Thinking more I believe we can do similar tricks for all TCP
-transmit traffic.
-
-Packets bound to sockets never outlive those sockets (and thus
-their cached routes) unless we skb_orphan().
-
-The only not covered case is where the socket cached route
-is reset or changed.  We could defer the dst put until the
-transmit queue reaches a certain point, kind of like a retransmit
-queue RCU :-)
-
-Just some ideas...
+Applied.
