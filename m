@@ -1,118 +1,55 @@
-From: Olivier Fourdan <ofourdan@redhat.com>
-Subject: [PATCH] ip maddr =?windows-1252?Q?show=94_on_an_infiniband?=
- =?windows-1252?Q?_address_causes_a_stack_corruption?=
-Date: Tue, 25 Nov 2008 12:36:22 +0000
-Message-ID: <492BF146.5010808@redhat.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 05/10] tcp: make tcp_sacktag_one able to handle partial
+ skb too
+Date: Tue, 25 Nov 2008 15:44:05 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811251538020.31282@wrl-59.cs.helsinki.fi>
+References: <1227536527-29713-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1227536527-29713-5-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1227536527-29713-6-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20081124.211524.133482462.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010100080606090206060303"
-To: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-840998227-1227620645=:31282"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:52750 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752068AbYKYMg0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Nov 2008 07:36:26 -0500
-Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
-	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id mAPCaON4019015
-	for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 07:36:24 -0500
-Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
-	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id mAPCaOih031655
-	for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 07:36:24 -0500
-Received: from ofourdan.csb (dhcp-1-85.fab.redhat.com [10.33.1.85])
-	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id mAPCaNZe018287
-	for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 07:36:23 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:50178 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745AbYKYNoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 08:44:08 -0500
+In-Reply-To: <20081124.211524.133482462.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010100080606090206060303
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Hi,
+---696208474-840998227-1227620645=:31282
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-ìip maddr showî on an infiniband address causes a stack corruption 
-because the length of the address for Infiniband (20 bytes, as 
-described in kernel doc Documentation/infiniband/ipoib.txt) does not 
-fit on the 16 bytes of the field in which it gets stored.
+On Mon, 24 Nov 2008, David Miller wrote:
 
-The proposed patch increases the size of the hardware address from 4 
-__u32 to 8 and also adds a check to avoid overriding the available 
-size while parsing the hardware address.
+> From: "Ilpo J‰rvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Mon, 24 Nov 2008 16:22:02 +0200
+> 
+> > This is preparatory work for SACK combiner patch which may
+> > have to count TCP state changes for only a part of the skb
+> > because it will intentionally avoids splitting skb to SACKed
+> > and not sacked parts.
+> > 
+> > Signed-off-by: Ilpo J‰rvinen <ilpo.jarvinen@helsinki.fi>
+> 
+> Applied.
+> 
+> Although we need desperately to simplify this function at
+> some point.  Anything past 6 arguments and you're going onto
+> the stack on just about every cpu.
 
-This bug affects current upstream code AFAICT.
+Sure, I made a note about that in the combine change which makes things 
+much worse yet :-), which you obviously didn't read... ;-) I certainly 
+was going to do that but didn't seem so useful to waste too much time 
+early on it until I had a well working solution to the actual problem :-).
 
-Hope this helps,
-Cheers,
-Olivier.
-
-
---------------010100080606090206060303
-Content-Type: text/x-patch;
- name="iproute2-2.6.26-check-hwaddr-size.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: inline;
- filename="iproute2-2.6.26-check-hwaddr-size.patch"
-
-‚Äúip maddr show ib0‚Äù causes a stack corruption because the length of the address
-for Infiniband (20 see kernel doc Documentation/infiniband/ipoib.txt) does not 
-fit on the 16 bytes of the field in which it gets stored.
-
-The proposed patch increases the size of the hardware address from 4 u32 to 8 
-and adds a check to avoid overriding the available size while parsing the 
-hardware address.
-
-This bug affects current upstream code and should be reported upstream.
-
- include/utils.h |    2 +-
- ip/ipmaddr.c    |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
-
---- iproute2-2.6.26/include/utils.h.hwaddrsize	2008-11-25 11:02:30.000000000 +0000
-+++ iproute2-2.6.26/include/utils.h	2008-11-25 11:08:28.000000000 +0000
-@@ -46,7 +46,7 @@
- 	__u8 bytelen;
- 	__s16 bitlen;
- 	__u32 flags;
--	__u32 data[4];
-+	__u32 data[8];
- } inet_prefix;
- 
- #define PREFIXLEN_SPECIFIED 1
---- iproute2-2.6.26/ip/ipmaddr.c.hwaddrsize	2008-11-25 11:02:51.000000000 +0000
-+++ iproute2-2.6.26/ip/ipmaddr.c	2008-11-25 11:08:26.000000000 +0000
-@@ -43,11 +43,11 @@
- 	exit(-1);
- }
- 
--static int parse_hex(char *str, unsigned char *addr)
-+static int parse_hex(char *str, unsigned char *addr, size_t size)
- {
- 	int len=0;
- 
--	while (*str) {
-+	while (*str && (len < 2 * size)) {
- 		int tmp;
- 		if (str[1] == 0)
- 			return -1;
-@@ -104,7 +104,7 @@
- 
- 		m.addr.family = AF_PACKET;
- 
--		len = parse_hex(hexa, (unsigned char*)&m.addr.data);
-+		len = parse_hex(hexa, (unsigned char*)&m.addr.data, sizeof (m.addr.data));
- 		if (len >= 0) {
- 			struct ma_info *ma = malloc(sizeof(m));
- 
-@@ -176,7 +176,7 @@
- 
- 		m.addr.family = AF_INET6;
- 
--		len = parse_hex(hexa, (unsigned char*)&m.addr.data);
-+		len = parse_hex(hexa, (unsigned char*)&m.addr.data, sizeof (m.addr.data));
- 		if (len >= 0) {
- 			struct ma_info *ma = malloc(sizeof(m));
- 
-
-
---------------010100080606090206060303--
+-- 
+ i.
+---696208474-840998227-1227620645=:31282--
