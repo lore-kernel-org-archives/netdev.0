@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: niu: ethtool -s support?
-Date: Tue, 25 Nov 2008 13:31:24 -0800 (PST)
-Message-ID: <20081125.133124.74121407.davem@davemloft.net>
-References: <20081125133530.GA1633@schweikert.ch>
+Subject: Re: [PATCH -next/-mm/mainline] net/hp-plus: fix link errors
+Date: Tue, 25 Nov 2008 13:41:45 -0800 (PST)
+Message-ID: <20081125.134145.66227024.davem@davemloft.net>
+References: <20081121.163335.255948683.davem@davemloft.net>
+	<20081125095952.f25e8286.randy.dunlap@oracle.com>
+	<20081125181800.7502d395@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david@schweikert.ch
+Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org, jgarzik@pobox.com,
+	akpm@linux-foundation.org, shemminger@vyatta.com
+To: alan@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47305
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40017
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752350AbYKYVbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 16:31:25 -0500
-In-Reply-To: <20081125133530.GA1633@schweikert.ch>
+	by vger.kernel.org with ESMTP id S1753891AbYKYVlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 16:41:45 -0500
+In-Reply-To: <20081125181800.7502d395@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Schweikert <david@schweikert.ch>
-Date: Tue, 25 Nov 2008 14:35:30 +0100
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Tue, 25 Nov 2008 18:18:00 +0000
 
-> Hi,
+> > WARNING: drivers/net/8390p: 'ei_set_multicast_list' exported twice. Previous export was in drivers/net/8390.ko
+> > WARNING: drivers/net/8390p: 'ei_get_stats' exported twice. Previous export was in drivers/net/8390.ko
+> > WARNING: drivers/net/8390p: 'ei_start_xmit' exported twice. Previous export was in drivers/net/8390.ko
+> > WARNING: drivers/net/8390p: 'ei_tx_timeout' exported twice. Previous export was in drivers/net/8390.ko
 > 
-> It is apparently not possible to set the link parameters on a niu
-> interface (speed, duplex mode, auto-negotiation) with ethtool.
-> Is support for it planned?
+> bash-3.2$ grep ei_set_multicast drivers/net/*c
+> bash-3.2$ grep ei_set_multicast  drivers/net/*h
+> bash-3.2$ grep ei_set_multicast  include/linux/*h
+> bash-3.2$ 
 
-Yes, at some point, although that work is pretty low priority
-to be honest.
+Wrong tree.
+
+We added code that splits the struct netdev function pointers out into
+a seperate structure.  In order to make initialization of the
+netdev_ops members work inside of the driver (and keep it const), we
+exported some of these 8390 library symbols.
+
+Anyways, Stephen you have to do something about this.
