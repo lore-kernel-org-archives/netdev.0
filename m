@@ -1,32 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUILD_FAILURE] linux-next: 20081125 - 8390 network driver
- build fails
-Date: Tue, 25 Nov 2008 13:42:15 -0800 (PST)
-Message-ID: <20081125.134215.146717314.davem@davemloft.net>
-References: <492C562E.9090302@oracle.com>
-	<20081125195756.12317499@lxorguk.ukuu.org.uk>
-	<492C5B52.6090803@oracle.com>
+Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m
+ driver
+Date: Tue, 25 Nov 2008 13:43:52 -0800 (PST)
+Message-ID: <20081125.134352.27718659.davem@davemloft.net>
+References: <cover.1227562829.git.inaky@linux.intel.com>
+	<20081125.004736.149304104.davem@davemloft.net>
+	<200811250857.10919.inaky@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, kamalesh@linux.vnet.ibm.com,
-	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, p_gortmaker@yahoo.com,
-	netdev@vger.kernel.org, mel@csn.ul.ie,
-	shemminger@linux-foundation.org
-To: randy.dunlap@oracle.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <492C5B52.6090803@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: inaky@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40943
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755354AbYKYVnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 16:43:53 -0500
+In-Reply-To: <200811250857.10919.inaky@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Tue, 25 Nov 2008 12:08:50 -0800
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Date: Tue, 25 Nov 2008 08:57:10 -0800
 
-> Looks like it's due to CONFIG_COMPAT_NET_DEV_OPS.
+> On Tuesday 25 November 2008, David Miller wrote:
+> > From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+> > Date: Mon, 24 Nov 2008 13:50:23 -0800
+> >
+> > > This patchset (or the linux-wimax GIT tree at git.kernel.org) merges
+> > > the WiMAX subsystem and driver for the Intel 2400m Wireless WiMAX
+> > > connection to the tree. We'd like to get it in for the 2.6.29 merge
+> > > window.
+> >
+> > You've made this difficult by creating the dependency on
+> > the USB changes.
+> >
+> > So I can't, for example, merge this into the networking tree.
+> > Is there some way you can make the driver work without the
+> > USB changes even with some hack?
+> 
+> I know, but there was little choice. The error paths for device 
+> recovery depend on those changes. That's why I suggest posting 
+> through gregkh's tree once you guys give your approval. Then after
+> it goes into the first merge window and it permeates to your tree,
+> I'll rebase the linux-wimax tree to have you as upstream.
 
-Right, I've asked Stephen Hemminger to fix this.
-
-> Dave, no need to drop my hp-plus driver patch.
-
-Yes, I knew this :)
+Ok, maybe that's what we'll have to do.
