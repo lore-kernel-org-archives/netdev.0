@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 44/53] netns xfrm: ->dst_lookup in netns
-Date: Tue, 25 Nov 2008 20:27:16 +0300
-Message-ID: <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 42/53] netns xfrm: pass netns with KM notifications
+Date: Tue, 25 Nov 2008 20:27:14 +0300
+Message-ID: <1227634045-27534-42-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -43,148 +43,101 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-39-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-40-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-41-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-42-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-43-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:41393 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754053AbYKYRZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:28 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so23517eyi.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:27 -0800 (PST)
-In-Reply-To: <1227634045-27534-43-git-send-email-adobriyan@gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.169]:29237 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754491AbYKYRZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:22 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so1144716ugf.37
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:21 -0800 (PST)
+In-Reply-To: <1227634045-27534-41-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+SA and SPD flush are executed with NULL SA and SPD respectively, for
+these cases pass netns explicitly from userspace socket.
+
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/xfrm.h      |    3 ++-
- net/ipv4/xfrm4_policy.c |    7 ++++---
- net/ipv6/xfrm6_policy.c |    7 ++++---
- net/xfrm/xfrm_policy.c  |    7 ++++---
- 4 files changed, 14 insertions(+), 10 deletions(-)
+ include/net/xfrm.h   |    1 +
+ net/key/af_key.c     |    2 ++
+ net/xfrm/xfrm_user.c |    6 ++++--
+ 3 files changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index f3ea160..b16d4c0 100644
+index e027179..52e784f 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -266,7 +266,8 @@ struct xfrm_policy_afinfo {
- 	unsigned short		family;
- 	struct dst_ops		*dst_ops;
- 	void			(*garbage_collect)(struct net *net);
--	struct dst_entry	*(*dst_lookup)(int tos, xfrm_address_t *saddr,
-+	struct dst_entry	*(*dst_lookup)(struct net *net, int tos,
-+					       xfrm_address_t *saddr,
- 					       xfrm_address_t *daddr);
- 	int			(*get_saddr)(xfrm_address_t *saddr, xfrm_address_t *daddr);
- 	struct dst_entry	*(*find_bundle)(struct flowi *fl, struct xfrm_policy *policy);
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index a881ca3..e1cf9ed 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -18,7 +18,8 @@
- static struct dst_ops xfrm4_dst_ops;
- static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
+@@ -256,6 +256,7 @@ struct km_event
+ 	u32	seq;
+ 	u32	pid;
+ 	u32	event;
++	struct net *net;
+ };
  
--static struct dst_entry *xfrm4_dst_lookup(int tos, xfrm_address_t *saddr,
-+static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
-+					  xfrm_address_t *saddr,
- 					  xfrm_address_t *daddr)
- {
- 	struct flowi fl = {
-@@ -36,7 +37,7 @@ static struct dst_entry *xfrm4_dst_lookup(int tos, xfrm_address_t *saddr,
- 	if (saddr)
- 		fl.fl4_src = saddr->a4;
+ struct net_device;
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index a0d8498..ea7755a 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1739,6 +1739,7 @@ static int pfkey_flush(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hd
+ 	c.seq = hdr->sadb_msg_seq;
+ 	c.pid = hdr->sadb_msg_pid;
+ 	c.event = XFRM_MSG_FLUSHSA;
++	c.net = &init_net;
+ 	km_state_notify(NULL, &c);
  
--	err = __ip_route_output_key(&init_net, &rt, &fl);
-+	err = __ip_route_output_key(net, &rt, &fl);
- 	dst = &rt->u.dst;
- 	if (err)
- 		dst = ERR_PTR(err);
-@@ -48,7 +49,7 @@ static int xfrm4_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
- 	struct dst_entry *dst;
- 	struct rtable *rt;
+ 	return 0;
+@@ -2693,6 +2694,7 @@ static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, struct sadb_msg
+ 	c.event = XFRM_MSG_FLUSHPOLICY;
+ 	c.pid = hdr->sadb_msg_pid;
+ 	c.seq = hdr->sadb_msg_seq;
++	c.net = &init_net;
+ 	km_policy_notify(NULL, 0, &c);
  
--	dst = xfrm4_dst_lookup(0, NULL, daddr);
-+	dst = xfrm4_dst_lookup(&init_net, 0, NULL, daddr);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
+ 	return 0;
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index ab8b138..3e32ec2 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1418,6 +1418,7 @@ static int xfrm_flush_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	c.event = nlh->nlmsg_type;
+ 	c.seq = nlh->nlmsg_seq;
+ 	c.pid = nlh->nlmsg_pid;
++	c.net = net;
+ 	km_state_notify(NULL, &c);
  
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 2df8a78..d7a5b8b 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -27,7 +27,8 @@
- static struct dst_ops xfrm6_dst_ops;
- static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
- 
--static struct dst_entry *xfrm6_dst_lookup(int tos, xfrm_address_t *saddr,
-+static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
-+					  xfrm_address_t *saddr,
- 					  xfrm_address_t *daddr)
- {
- 	struct flowi fl = {};
-@@ -38,7 +39,7 @@ static struct dst_entry *xfrm6_dst_lookup(int tos, xfrm_address_t *saddr,
- 	if (saddr)
- 		memcpy(&fl.fl6_src, saddr, sizeof(fl.fl6_src));
- 
--	dst = ip6_route_output(&init_net, NULL, &fl);
-+	dst = ip6_route_output(net, NULL, &fl);
- 
- 	err = dst->error;
- 	if (dst->error) {
-@@ -54,7 +55,7 @@ static int xfrm6_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
- 	struct dst_entry *dst;
- 	struct net_device *dev;
- 
--	dst = xfrm6_dst_lookup(0, NULL, daddr);
-+	dst = xfrm6_dst_lookup(&init_net, 0, NULL, daddr);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 7ebbdd6..2b0a80b 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -92,7 +92,7 @@ int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
+ 	return 0;
+@@ -1569,6 +1570,7 @@ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	c.event = nlh->nlmsg_type;
+ 	c.seq = nlh->nlmsg_seq;
+ 	c.pid = nlh->nlmsg_pid;
++	c.net = net;
+ 	km_policy_notify(NULL, 0, &c);
  	return 0;
  }
+@@ -2084,7 +2086,7 @@ static int xfrm_aevent_state_notify(struct xfrm_state *x, struct km_event *c)
  
--static inline struct dst_entry *__xfrm_dst_lookup(int tos,
-+static inline struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos,
- 						  xfrm_address_t *saddr,
- 						  xfrm_address_t *daddr,
- 						  int family)
-@@ -104,7 +104,7 @@ static inline struct dst_entry *__xfrm_dst_lookup(int tos,
- 	if (unlikely(afinfo == NULL))
- 		return ERR_PTR(-EAFNOSUPPORT);
- 
--	dst = afinfo->dst_lookup(tos, saddr, daddr);
-+	dst = afinfo->dst_lookup(net, tos, saddr, daddr);
- 
- 	xfrm_policy_put_afinfo(afinfo);
- 
-@@ -116,6 +116,7 @@ static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos,
- 						xfrm_address_t *prev_daddr,
- 						int family)
+ static int xfrm_notify_sa_flush(struct km_event *c)
  {
-+	struct net *net = xs_net(x);
- 	xfrm_address_t *saddr = &x->props.saddr;
- 	xfrm_address_t *daddr = &x->id.daddr;
- 	struct dst_entry *dst;
-@@ -129,7 +130,7 @@ static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x, int tos,
- 		daddr = x->coaddr;
- 	}
+-	struct net *net = &init_net;
++	struct net *net = c->net;
+ 	struct xfrm_usersa_flush *p;
+ 	struct nlmsghdr *nlh;
+ 	struct sk_buff *skb;
+@@ -2446,7 +2448,7 @@ nlmsg_failure:
  
--	dst = __xfrm_dst_lookup(tos, saddr, daddr, family);
-+	dst = __xfrm_dst_lookup(net, tos, saddr, daddr, family);
+ static int xfrm_notify_policy_flush(struct km_event *c)
+ {
+-	struct net *net = &init_net;
++	struct net *net = c->net;
+ 	struct nlmsghdr *nlh;
+ 	struct sk_buff *skb;
  
- 	if (!IS_ERR(dst)) {
- 		if (prev_saddr != saddr)
 -- 
 1.5.6.5
 
