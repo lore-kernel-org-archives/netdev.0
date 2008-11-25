@@ -1,7 +1,8 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] tc: check for errors from gen_replace_estimator
-Date: Tue, 25 Nov 2008 10:16:56 -0800
-Message-ID: <20081125101656.52348bdd@extreme>
+Subject: [PATCH 2/2] tc: policing requires a rate estimator
+Date: Tue, 25 Nov 2008 10:21:13 -0800
+Message-ID: <20081125102113.371db7b1@extreme>
+References: <20081125101656.52348bdd@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -9,154 +10,103 @@ Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47118 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:47125 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752076AbYKYSVW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752190AbYKYSVW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 25 Nov 2008 13:21:22 -0500
+In-Reply-To: <20081125101656.52348bdd@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gen_replace_estimator can return errors, but they were being ignored.
+Found that while trying average rate policing, it was possible to
+request average rate policing without a rate estimator. This results
+in no policing which is harmless but incorrect.
+
+Since policing could be setup in two steps, need to check
+in the kernel.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/net/sched/act_police.c	2008-11-25 10:02:05.000000000 -0800
-+++ b/net/sched/act_police.c	2008-11-25 10:15:50.000000000 -0800
-@@ -185,14 +185,21 @@ override:
+---
+ include/net/gen_stats.h  |    1 +
+ net/core/gen_estimator.c |   30 +++++++++++++++++++++++++++---
+ net/sched/act_police.c   |   16 ++++++++++++----
+ 3 files changed, 40 insertions(+), 7 deletions(-)
+
+--- a/net/sched/act_police.c	2008-11-25 10:15:50.000000000 -0800
++++ b/net/sched/act_police.c	2008-11-25 10:17:54.000000000 -0800
+@@ -182,6 +182,12 @@ override:
+ 		R_tab = qdisc_get_rtab(&parm->rate, tb[TCA_POLICE_RATE]);
+ 		if (R_tab == NULL)
+ 			goto failure;
++
++		if (!est && !gen_estimator_active(&police->tcf_rate_est)) {
++			err = -EINVAL;
++			goto failure;
++		}
++
  		if (parm->peakrate.rate) {
  			P_tab = qdisc_get_rtab(&parm->peakrate,
  					       tb[TCA_POLICE_PEAKRATE]);
--			if (P_tab == NULL) {
--				qdisc_put_rtab(R_tab);
-+			if (P_tab == NULL)
- 				goto failure;
--			}
- 		}
- 	}
--	/* No failure allowed after this point */
-+
- 	spin_lock_bh(&police->tcf_lock);
-+	if (est) {
-+		err = gen_replace_estimator(&police->tcf_bstats,
-+					    &police->tcf_rate_est,
-+					    &police->tcf_lock, est);
-+		if (err)
-+			goto failure_unlock;
-+	}
-+
-+	/* No failure allowed after this point */
- 	if (R_tab != NULL) {
- 		qdisc_put_rtab(police->tcfp_R_tab);
- 		police->tcfp_R_tab = R_tab;
-@@ -217,10 +224,6 @@ override:
+--- a/include/net/gen_stats.h	2008-11-25 10:14:52.000000000 -0800
++++ b/include/net/gen_stats.h	2008-11-25 10:16:52.000000000 -0800
+@@ -45,5 +45,6 @@ extern void gen_kill_estimator(struct gn
+ extern int gen_replace_estimator(struct gnet_stats_basic *bstats,
+ 				 struct gnet_stats_rate_est *rate_est,
+ 				 spinlock_t *stats_lock, struct nlattr *opt);
++extern int gen_estimator_active(const struct gnet_stats_rate_est *rate_est);
  
- 	if (tb[TCA_POLICE_AVRATE])
- 		police->tcfp_ewma_rate = nla_get_u32(tb[TCA_POLICE_AVRATE]);
--	if (est)
--		gen_replace_estimator(&police->tcf_bstats,
--				      &police->tcf_rate_est,
--				      &police->tcf_lock, est);
+ #endif
+--- a/net/core/gen_estimator.c	2008-11-25 10:14:52.000000000 -0800
++++ b/net/core/gen_estimator.c	2008-11-25 10:16:52.000000000 -0800
+@@ -242,6 +242,7 @@ int gen_new_estimator(struct gnet_stats_
  
- 	spin_unlock_bh(&police->tcf_lock);
- 	if (ret != ACT_P_CREATED)
-@@ -238,7 +241,13 @@ override:
- 	a->priv = police;
- 	return ret;
- 
-+failure_unlock:
-+	spin_unlock_bh(&police->tcf_lock);
- failure:
-+	if (P_tab)
-+		qdisc_put_rtab(P_tab);
-+	if (R_tab)
-+		qdisc_put_rtab(R_tab);
- 	if (ret == ACT_P_CREATED)
- 		kfree(police);
- 	return err;
---- a/net/sched/sch_api.c	2008-11-25 10:02:05.000000000 -0800
-+++ b/net/sched/sch_api.c	2008-11-25 10:07:21.000000000 -0800
-@@ -897,10 +897,10 @@ static int qdisc_change(struct Qdisc *sc
- 	sch->stab = stab;
- 
- 	if (tca[TCA_RATE])
--		gen_replace_estimator(&sch->bstats, &sch->rate_est,
--				      qdisc_root_sleeping_lock(sch),
--				      tca[TCA_RATE]);
--	return 0;
-+		err = gen_replace_estimator(&sch->bstats, &sch->rate_est,
-+					    qdisc_root_sleeping_lock(sch),
-+					    tca[TCA_RATE]);
-+	return err;
+ 	return 0;
  }
++EXPORT_SYMBOL(gen_new_estimator);
  
- struct check_loop_arg
---- a/net/sched/sch_cbq.c	2008-11-25 10:02:05.000000000 -0800
-+++ b/net/sched/sch_cbq.c	2008-11-25 10:07:21.000000000 -0800
-@@ -1806,10 +1806,10 @@ cbq_change_class(struct Qdisc *sch, u32 
- 		sch_tree_unlock(sch);
- 
- 		if (tca[TCA_RATE])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
--					      qdisc_root_sleeping_lock(sch),
--					      tca[TCA_RATE]);
--		return 0;
-+			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+						    qdisc_root_sleeping_lock(sch),
-+						    tca[TCA_RATE]);
-+		return err;
+ static void __gen_kill_estimator(struct rcu_head *head)
+ {
+@@ -275,6 +276,7 @@ void gen_kill_estimator(struct gnet_stat
+ 		call_rcu(&e->e_rcu, __gen_kill_estimator);
  	}
+ }
++EXPORT_SYMBOL(gen_kill_estimator);
  
- 	if (parentid == TC_H_ROOT)
---- a/net/sched/sch_drr.c	2008-11-25 10:02:05.000000000 -0800
-+++ b/net/sched/sch_drr.c	2008-11-25 10:07:21.000000000 -0800
-@@ -88,10 +88,10 @@ static int drr_change_class(struct Qdisc
- 		sch_tree_unlock(sch);
+ /**
+  * gen_replace_estimator - replace rate estimator configuration
+@@ -295,8 +297,30 @@ int gen_replace_estimator(struct gnet_st
+ 	gen_kill_estimator(bstats, rate_est);
+ 	return gen_new_estimator(bstats, rate_est, stats_lock, opt);
+ }
++EXPORT_SYMBOL(gen_replace_estimator);
++
++/**
++ * gen_estimator_active - test if estimator is currently in use
++ * @rate_est: rate estimator statistics
++ *
++ * Returns 1 if estimator is active, and 0 if not.
++ */
++int gen_estimator_active(const struct gnet_stats_rate_est *rate_est)
++{
++	int idx;
++	struct gen_estimator *e;
  
- 		if (tca[TCA_RATE])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
--					      qdisc_root_sleeping_lock(sch),
--					      tca[TCA_RATE]);
--		return 0;
-+			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+						    qdisc_root_sleeping_lock(sch),
-+						    tca[TCA_RATE]);
-+		return err;
- 	}
++	ASSERT_RTNL();
  
- 	cl = kzalloc(sizeof(struct drr_class), GFP_KERNEL);
-@@ -106,10 +106,15 @@ static int drr_change_class(struct Qdisc
- 	if (cl->qdisc == NULL)
- 		cl->qdisc = &noop_qdisc;
- 
--	if (tca[TCA_RATE])
--		gen_replace_estimator(&cl->bstats, &cl->rate_est,
--				      qdisc_root_sleeping_lock(sch),
--				      tca[TCA_RATE]);
-+	if (tca[TCA_RATE]) {
-+		err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+					    qdisc_root_sleeping_lock(sch),
-+					    tca[TCA_RATE]);
-+		if (err) {
-+			kfree(cl);
-+			return err;
+-EXPORT_SYMBOL(gen_kill_estimator);
+-EXPORT_SYMBOL(gen_new_estimator);
+-EXPORT_SYMBOL(gen_replace_estimator);
++	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
++		if (!elist[idx].timer.function)
++			continue;
++
++		list_for_each_entry(e, &elist[idx].list, list) {
++			if (e->rate_est == rate_est)
++				return 1;
 +		}
 +	}
- 
- 	sch_tree_lock(sch);
- 	qdisc_class_hash_insert(&q->clhash, &cl->common);
---- a/net/sched/sch_hfsc.c	2008-11-25 10:02:05.000000000 -0800
-+++ b/net/sched/sch_hfsc.c	2008-11-25 10:07:21.000000000 -0800
-@@ -1035,10 +1035,10 @@ hfsc_change_class(struct Qdisc *sch, u32
- 		sch_tree_unlock(sch);
- 
- 		if (tca[TCA_RATE])
--			gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
- 					      qdisc_root_sleeping_lock(sch),
- 					      tca[TCA_RATE]);
--		return 0;
-+		return err;
- 	}
- 
- 	if (parentid == TC_H_ROOT)
++	return 0;
++}
++EXPORT_SYMBOL(gen_estimator_active);
