@@ -1,121 +1,150 @@
-From: dann frazier <dannf@hp.com>
-Subject: [PATCH] Fix soft lockups/OOM issues w/ unix garbage collector
-Date: Tue, 25 Nov 2008 16:17:13 -0700
-Message-ID: <20081125231712.GA30297@ldl.fc.hp.com>
-References: <20081120220326.GE24416@ldl.fc.hp.com>
+From: Frederik Deweerdt <frederik.deweerdt@xprog.eu>
+Subject: Re: [resend take 3 0/4] Distributed storage.
+Date: Wed, 26 Nov 2008 00:47:07 +0100
+Message-ID: <20081125234707.GG5324@gambetta>
+References: <12276238703113-git-send-email-zbr@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eteo@redhat.com, davem@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="FL5UXtIhxfXey3p5"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:47876 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752084AbYKYXRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 18:17:21 -0500
+Received: from nf-out-0910.google.com ([64.233.182.191]:3118 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751403AbYKYXrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 18:47:12 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so113118nfc.21
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 15:47:10 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20081120220326.GE24416@ldl.fc.hp.com>
+In-Reply-To: <12276238703113-git-send-email-zbr@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an implementation of David Miller's suggested fix in:
-  https://bugzilla.redhat.com/show_bug.cgi?id=470201
 
-Paraphrasing the description from the above report, it makes sendmsg()
-block while UNIX garbage collection is in progress. This avoids a
-situation where child processes continue to queue new FDs over a
-AF_UNIX socket to a parent which is in the exit path and running
-garbage collection on these FDs. This contention can result in soft
-lockups and oom-killing of unrelated processes.
+--FL5UXtIhxfXey3p5
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: dann frazier <dannf@hp.com>
----
- include/net/af_unix.h |    1 +
- net/unix/af_unix.c    |    2 ++
- net/unix/garbage.c    |   18 +++++++++++++++---
- 3 files changed, 18 insertions(+), 3 deletions(-)
+Hello Evgeniy,
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index c29ff1d..1614d78 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -9,6 +9,7 @@
- extern void unix_inflight(struct file *fp);
- extern void unix_notinflight(struct file *fp);
- extern void unix_gc(void);
-+extern void wait_for_unix_gc(void);
+The attached patch is needed to compile against 2.6.28-rc6 (changes in
+block_devices_operations), I added a few cleanups as well.
+
+Regards,
+Frederik
+
+Signed-off-by: Frederik Deweerdt <frederik.deweerdt@gmail.com>
+
+--FL5UXtIhxfXey3p5
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline; filename=dst
+
+diff --git a/drivers/block/dst/dcore.c b/drivers/block/dst/dcore.c
+index fea201b..cd84435 100644
+--- a/drivers/block/dst/dcore.c
++++ b/drivers/block/dst/dcore.c
+@@ -109,17 +109,17 @@ static int dst_request(struct request_queue *q, struct bio *bio)
+ /*
+  * Open/close callbacks for appropriate block device.
+  */
+-static int dst_bdev_open(struct inode *inode, struct file *filp)
++static int dst_bdev_open(struct block_device *bdev, fmode_t mode)
+ {
+-	struct dst_node *n = inode->i_bdev->bd_disk->private_data;
++	struct dst_node *n = bdev->bd_disk->private_data;
  
- #define UNIX_HASH_SIZE	256
- 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 8bde9bf..b0785ef 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1341,6 +1341,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
-+	wait_for_unix_gc();
- 	err = scm_send(sock, msg, siocb->scm);
- 	if (err < 0)
- 		return err;
-@@ -1491,6 +1492,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
-+	wait_for_unix_gc();
- 	err = scm_send(sock, msg, siocb->scm);
- 	if (err < 0)
- 		return err;
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index 6d4a9a8..cf1b0b0 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -80,6 +80,7 @@
- #include <linux/file.h>
- #include <linux/proc_fs.h>
- #include <linux/mutex.h>
-+#include <linux/wait.h>
- 
- #include <net/sock.h>
- #include <net/af_unix.h>
-@@ -91,6 +92,7 @@
- static LIST_HEAD(gc_inflight_list);
- static LIST_HEAD(gc_candidates);
- static DEFINE_SPINLOCK(unix_gc_lock);
-+static DECLARE_WAIT_QUEUE_HEAD(unix_gc_wait);
- 
- unsigned int unix_tot_inflight;
- 
-@@ -266,12 +268,21 @@ static void inc_inflight_move_tail(struct unix_sock *u)
- 		list_move_tail(&u->link, &gc_candidates);
+ 	dst_node_get(n);
+ 	return 0;
  }
  
--/* The external entry point: unix_gc() */
-+static bool gc_in_progress = false;
- 
--void unix_gc(void)
-+void wait_for_unix_gc(void)
+-static int dst_bdev_release(struct inode *inode, struct file *filp)
++static int dst_bdev_release(struct gendisk *disk, fmode_t mode)
  {
--	static bool gc_in_progress = false;
-+	int error;
+-	struct dst_node *n = inode->i_bdev->bd_disk->private_data;
++	struct dst_node *n = disk->private_data;
+ 
+ 	dst_node_put(n);
+ 	return 0;
+@@ -377,7 +377,7 @@ static void dst_node_cleanup(struct dst_node *n)
+ 
+ 	if (n->bdev) {
+ 		sync_blockdev(n->bdev);
+-		blkdev_put(n->bdev);
++		blkdev_put(n->bdev, FMODE_READ|FMODE_WRITE);
+ 	}
+ 
+ 	dst_state_lock(st);
+@@ -502,7 +502,7 @@ static int dst_setup_export(struct dst_node *n, struct dst_ctl *ctl,
+ 	return 0;
+ 
+ err_out_cleanup:
+-	blkdev_put(n->bdev);
++	blkdev_put(n->bdev, FMODE_READ|FMODE_WRITE);
+ 	n->bdev = NULL;
+ 
+ 	return err;
+diff --git a/drivers/block/dst/export.c b/drivers/block/dst/export.c
+index c6bb0a5..122fe75 100644
+--- a/drivers/block/dst/export.c
++++ b/drivers/block/dst/export.c
+@@ -271,13 +271,13 @@ static void dst_state_cleanup_export(struct dst_state *st)
+ 
+ 			if (p)
+ 				bio_put(p->bio);
+-			
 +
-+	do {
-+		error = wait_event_interruptible(unix_gc_wait,
-+						 gc_in_progress == false);
-+	} while(error);
-+}
+ 			dprintk("%s: st: %p, refcnt: %d, list_empty: %d, p: %p.\n",
+ 				__func__, st, atomic_read(&st->refcnt),
+ 				list_empty(&st->request_list), p);
+ 		}
+ 	}
+-	
++
+ 	dst_state_put(st);
+ }
  
-+/* The external entry point: unix_gc() */
-+void unix_gc(void)
-+{
- 	struct unix_sock *u;
- 	struct unix_sock *next;
- 	struct sk_buff_head hitlist;
-@@ -376,6 +387,7 @@ void unix_gc(void)
- 	/* All candidates should have been detached by now. */
- 	BUG_ON(!list_empty(&gc_candidates));
- 	gc_in_progress = false;
-+	wake_up(&unix_gc_wait);
+@@ -288,14 +288,14 @@ static void dst_state_cleanup_export(struct dst_state *st)
+  */
+ static int dst_accept(void *init_data, void *schedule_data)
+ {
+-	struct dst_state *main = schedule_data;
++	struct dst_state *main_st = schedule_data;
+ 	struct dst_node *n = init_data;
+ 	struct dst_state *st;
+ 	int err;
  
-  out:
- 	spin_unlock(&unix_gc_lock);
+-	while (n->trans_scan_timeout && !main->need_exit) {
+-		dprintk("%s: main: %p, n: %p.\n", __func__, main, n);
+-		st = dst_accept_client(main);
++	while (n->trans_scan_timeout && !main_st->need_exit) {
++		dprintk("%s: main_st: %p, n: %p.\n", __func__, main_st, n);
++		st = dst_accept_client(main_st);
+ 		if (IS_ERR(st))
+ 			continue;
+ 
+@@ -326,14 +326,14 @@ static int dst_accept(void *init_data, void *schedule_data)
+ 		dst_state_cleanup_export(st);
+ 	}
+ 
+-	dprintk("%s: freeing listening socket st: %p.\n", __func__, main);
+-	
+-	dst_state_lock(main);
+-	dst_poll_exit(main);
+-	dst_state_socket_release(main);
+-	dst_state_unlock(main);
+-	dst_state_put(main);
+-	dprintk("%s: freed listening socket st: %p.\n", __func__, main);
++	dprintk("%s: freeing listening socket st: %p.\n", __func__, main_st);
++
++	dst_state_lock(main_st);
++	dst_poll_exit(main_st);
++	dst_state_socket_release(main_st);
++	dst_state_unlock(main_st);
++	dst_state_put(main_st);
++	dprintk("%s: freed listening socket st: %p.\n", __func__, main_st);
+ 
+ 	return 0;
+ }
+
+--FL5UXtIhxfXey3p5--
