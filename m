@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 45/53] netns xfrm: ->get_saddr in netns
-Date: Tue, 25 Nov 2008 20:27:17 +0300
-Message-ID: <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 50/53] netns xfrm: AH/ESP in netns!
+Date: Tue, 25 Nov 2008 20:27:22 +0300
+Message-ID: <1227634045-27534-50-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -46,121 +46,134 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-42-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-43-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-46-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-47-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-48-git-send-email-adobriyan@gmail.com>
+ <1227634045-27534-49-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:40948 "EHLO
+Received: from ey-out-2122.google.com ([74.125.78.24]:41393 "EHLO
 	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbYKYRZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:30 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so23228eyi.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:29 -0800 (PST)
-In-Reply-To: <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
+	with ESMTP id S1754028AbYKYRZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:44 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so23517eyi.37
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:42 -0800 (PST)
+In-Reply-To: <1227634045-27534-49-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- include/net/xfrm.h      |    2 +-
- net/ipv4/xfrm4_policy.c |    5 +++--
- net/ipv6/xfrm6_policy.c |    5 +++--
- net/xfrm/xfrm_policy.c  |    7 ++++---
- 4 files changed, 11 insertions(+), 8 deletions(-)
+ net/ipv4/ah4.c  |    4 +++-
+ net/ipv4/esp4.c |    4 +++-
+ net/ipv6/ah6.c  |    3 ++-
+ net/ipv6/esp6.c |    3 ++-
+ 4 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index b16d4c0..d076f3d 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -269,7 +269,7 @@ struct xfrm_policy_afinfo {
- 	struct dst_entry	*(*dst_lookup)(struct net *net, int tos,
- 					       xfrm_address_t *saddr,
- 					       xfrm_address_t *daddr);
--	int			(*get_saddr)(xfrm_address_t *saddr, xfrm_address_t *daddr);
-+	int			(*get_saddr)(struct net *net, xfrm_address_t *saddr, xfrm_address_t *daddr);
- 	struct dst_entry	*(*find_bundle)(struct flowi *fl, struct xfrm_policy *policy);
- 	void			(*decode_session)(struct sk_buff *skb,
- 						  struct flowi *fl,
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index e1cf9ed..2ad24ba 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -44,12 +44,13 @@ static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
- 	return dst;
- }
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 750426b..e878e49 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -201,6 +201,7 @@ out:
  
--static int xfrm4_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
-+static int xfrm4_get_saddr(struct net *net,
-+			   xfrm_address_t *saddr, xfrm_address_t *daddr)
+ static void ah4_err(struct sk_buff *skb, u32 info)
  {
- 	struct dst_entry *dst;
- 	struct rtable *rt;
++	struct net *net = dev_net(skb->dev);
+ 	struct iphdr *iph = (struct iphdr *)skb->data;
+ 	struct ip_auth_hdr *ah = (struct ip_auth_hdr *)(skb->data+(iph->ihl<<2));
+ 	struct xfrm_state *x;
+@@ -209,7 +210,7 @@ static void ah4_err(struct sk_buff *skb, u32 info)
+ 	    icmp_hdr(skb)->code != ICMP_FRAG_NEEDED)
+ 		return;
  
--	dst = xfrm4_dst_lookup(&init_net, 0, NULL, daddr);
-+	dst = xfrm4_dst_lookup(net, 0, NULL, daddr);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
+-	x = xfrm_state_lookup(&init_net, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET);
++	x = xfrm_state_lookup(net, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET);
+ 	if (!x)
+ 		return;
+ 	printk(KERN_DEBUG "pmtu discovery on SA AH/%08x/%08x\n",
+@@ -314,6 +315,7 @@ static struct net_protocol ah4_protocol = {
+ 	.handler	=	xfrm4_rcv,
+ 	.err_handler	=	ah4_err,
+ 	.no_policy	=	1,
++	.netns_ok	=	1,
+ };
  
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index d7a5b8b..97ab068 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -50,12 +50,13 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
- 	return dst;
- }
+ static int __init ah4_init(void)
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 3595012..18bb383 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -413,6 +413,7 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
  
--static int xfrm6_get_saddr(xfrm_address_t *saddr, xfrm_address_t *daddr)
-+static int xfrm6_get_saddr(struct net *net,
-+			   xfrm_address_t *saddr, xfrm_address_t *daddr)
+ static void esp4_err(struct sk_buff *skb, u32 info)
  {
- 	struct dst_entry *dst;
- 	struct net_device *dev;
++	struct net *net = dev_net(skb->dev);
+ 	struct iphdr *iph = (struct iphdr *)skb->data;
+ 	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)(skb->data+(iph->ihl<<2));
+ 	struct xfrm_state *x;
+@@ -421,7 +422,7 @@ static void esp4_err(struct sk_buff *skb, u32 info)
+ 	    icmp_hdr(skb)->code != ICMP_FRAG_NEEDED)
+ 		return;
  
--	dst = xfrm6_dst_lookup(&init_net, 0, NULL, daddr);
-+	dst = xfrm6_dst_lookup(net, 0, NULL, daddr);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
+-	x = xfrm_state_lookup(&init_net, (xfrm_address_t *)&iph->daddr, esph->spi, IPPROTO_ESP, AF_INET);
++	x = xfrm_state_lookup(net, (xfrm_address_t *)&iph->daddr, esph->spi, IPPROTO_ESP, AF_INET);
+ 	if (!x)
+ 		return;
+ 	NETDEBUG(KERN_DEBUG "pmtu discovery on SA ESP/%08x/%08x\n",
+@@ -618,6 +619,7 @@ static struct net_protocol esp4_protocol = {
+ 	.handler	=	xfrm4_rcv,
+ 	.err_handler	=	esp4_err,
+ 	.no_policy	=	1,
++	.netns_ok	=	1,
+ };
  
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 2b0a80b..7c7bb54 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1187,7 +1187,7 @@ int __xfrm_sk_clone_policy(struct sock *sk)
- }
- 
- static int
--xfrm_get_saddr(xfrm_address_t *local, xfrm_address_t *remote,
-+xfrm_get_saddr(struct net *net, xfrm_address_t *local, xfrm_address_t *remote,
- 	       unsigned short family)
+ static int __init esp4_init(void)
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 6ae014b..52449f7 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -407,6 +407,7 @@ out:
+ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		    int type, int code, int offset, __be32 info)
  {
- 	int err;
-@@ -1195,7 +1195,7 @@ xfrm_get_saddr(xfrm_address_t *local, xfrm_address_t *remote,
++	struct net *net = dev_net(skb->dev);
+ 	struct ipv6hdr *iph = (struct ipv6hdr*)skb->data;
+ 	struct ip_auth_hdr *ah = (struct ip_auth_hdr*)(skb->data+offset);
+ 	struct xfrm_state *x;
+@@ -415,7 +416,7 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	    type != ICMPV6_PKT_TOOBIG)
+ 		return;
  
- 	if (unlikely(afinfo == NULL))
- 		return -EINVAL;
--	err = afinfo->get_saddr(local, remote);
-+	err = afinfo->get_saddr(net, local, remote);
- 	xfrm_policy_put_afinfo(afinfo);
- 	return err;
- }
-@@ -1207,6 +1207,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, struct flowi *fl,
- 		      struct xfrm_state **xfrm,
- 		      unsigned short family)
+-	x = xfrm_state_lookup(&init_net, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET6);
++	x = xfrm_state_lookup(net, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET6);
+ 	if (!x)
+ 		return;
+ 
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 68f2af8..c2f2501 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -356,6 +356,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
+ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		     int type, int code, int offset, __be32 info)
  {
-+	struct net *net = xp_net(policy);
- 	int nx;
- 	int i, error;
- 	xfrm_address_t *daddr = xfrm_flowi_daddr(fl, family);
-@@ -1225,7 +1226,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, struct flowi *fl,
- 			local = &tmpl->saddr;
- 			family = tmpl->encap_family;
- 			if (xfrm_addr_any(local, family)) {
--				error = xfrm_get_saddr(&tmp, remote, family);
-+				error = xfrm_get_saddr(net, &tmp, remote, family);
- 				if (error)
- 					goto fail;
- 				local = &tmp;
++	struct net *net = dev_net(skb->dev);
+ 	struct ipv6hdr *iph = (struct ipv6hdr*)skb->data;
+ 	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)(skb->data + offset);
+ 	struct xfrm_state *x;
+@@ -364,7 +365,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	    type != ICMPV6_PKT_TOOBIG)
+ 		return;
+ 
+-	x = xfrm_state_lookup(&init_net, (xfrm_address_t *)&iph->daddr, esph->spi, IPPROTO_ESP, AF_INET6);
++	x = xfrm_state_lookup(net, (xfrm_address_t *)&iph->daddr, esph->spi, IPPROTO_ESP, AF_INET6);
+ 	if (!x)
+ 		return;
+ 	printk(KERN_DEBUG "pmtu discovery on SA ESP/%08x/%pI6\n",
 -- 
 1.5.6.5
 
