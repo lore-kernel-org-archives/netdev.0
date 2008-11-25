@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 46/53] netns xfrm: flush SA/SPDs on netns stop
-Date: Tue, 25 Nov 2008 20:27:18 +0300
-Message-ID: <1227634045-27534-46-git-send-email-adobriyan@gmail.com>
+Subject: [PATCH 36/53] netns xfrm: xfrm_route_forward() in netns
+Date: Tue, 25 Nov 2008 20:27:08 +0300
+Message-ID: <1227634045-27534-36-git-send-email-adobriyan@gmail.com>
 References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-2-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-3-git-send-email-adobriyan@gmail.com>
@@ -37,88 +37,63 @@ References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-33-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-34-git-send-email-adobriyan@gmail.com>
  <1227634045-27534-35-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-36-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-37-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-38-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-39-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-40-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-41-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-42-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-43-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-44-git-send-email-adobriyan@gmail.com>
- <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
 Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
 	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:3932 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754499AbYKYRZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:34 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so28136nfc.21
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:32 -0800 (PST)
-In-Reply-To: <1227634045-27534-45-git-send-email-adobriyan@gmail.com>
+Received: from ey-out-2122.google.com ([74.125.78.24]:41393 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754005AbYKYRZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 12:25:07 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so23517eyi.37
+        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 09:25:05 -0800 (PST)
+In-Reply-To: <1227634045-27534-35-git-send-email-adobriyan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SA/SPD doesn't pin netns (and it shouldn't), so get rid of them by hand.
-
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- net/xfrm/xfrm_policy.c |   14 ++++++++++++++
- net/xfrm/xfrm_state.c  |    8 ++++++++
- 2 files changed, 22 insertions(+), 0 deletions(-)
+ include/net/xfrm.h     |    4 +++-
+ net/xfrm/xfrm_policy.c |    3 ++-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 158848f..36c8cff 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1050,7 +1050,9 @@ extern int __xfrm_route_forward(struct sk_buff *skb, unsigned short family);
+ 
+ static inline int xfrm_route_forward(struct sk_buff *skb, unsigned short family)
+ {
+-	return	!init_net.xfrm.policy_count[XFRM_POLICY_OUT] ||
++	struct net *net = dev_net(skb->dev);
++
++	return	!net->xfrm.policy_count[XFRM_POLICY_OUT] ||
+ 		(skb->dst->flags & DST_NOXFRM) ||
+ 		__xfrm_route_forward(skb, family);
+ }
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 7c7bb54..fcf8c92 100644
+index 8097c99..54b50a2 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -2441,9 +2441,23 @@ out_byidx:
+@@ -2044,6 +2044,7 @@ EXPORT_SYMBOL(__xfrm_policy_check);
  
- static void xfrm_policy_fini(struct net *net)
+ int __xfrm_route_forward(struct sk_buff *skb, unsigned short family)
  {
-+	struct xfrm_audit audit_info;
- 	unsigned int sz;
- 	int dir;
++	struct net *net = dev_net(skb->dev);
+ 	struct flowi fl;
  
-+	flush_work(&net->xfrm.policy_hash_work);
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+	audit_info.loginuid = -1;
-+	audit_info.sessionid = -1;
-+	audit_info.secid = 0;
-+	xfrm_policy_flush(net, XFRM_POLICY_TYPE_SUB, &audit_info);
-+#endif
-+	audit_info.loginuid = -1;
-+	audit_info.sessionid = -1;
-+	audit_info.secid = 0;
-+	xfrm_policy_flush(net, XFRM_POLICY_TYPE_MAIN, &audit_info);
-+	flush_work(&xfrm_policy_gc_work);
-+
- 	WARN_ON(!list_empty(&net->xfrm.policy_all));
+ 	if (xfrm_decode_session(skb, &fl, family) < 0) {
+@@ -2052,7 +2053,7 @@ int __xfrm_route_forward(struct sk_buff *skb, unsigned short family)
+ 		return 0;
+ 	}
  
- 	for (dir = 0; dir < XFRM_POLICY_MAX * 2; dir++) {
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index d594b5a..662e47b 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -2114,8 +2114,16 @@ out_bydst:
+-	return xfrm_lookup(&init_net, &skb->dst, &fl, NULL, 0) == 0;
++	return xfrm_lookup(net, &skb->dst, &fl, NULL, 0) == 0;
+ }
+ EXPORT_SYMBOL(__xfrm_route_forward);
  
- void xfrm_state_fini(struct net *net)
- {
-+	struct xfrm_audit audit_info;
- 	unsigned int sz;
- 
-+	flush_work(&net->xfrm.state_hash_work);
-+	audit_info.loginuid = -1;
-+	audit_info.sessionid = -1;
-+	audit_info.secid = 0;
-+	xfrm_state_flush(net, IPSEC_PROTO_ANY, &audit_info);
-+	flush_work(&net->xfrm.state_gc_work);
-+
- 	WARN_ON(!list_empty(&net->xfrm.state_all));
- 
- 	sz = (net->xfrm.state_hmask + 1) * sizeof(struct hlist_head);
 -- 
 1.5.6.5
 
