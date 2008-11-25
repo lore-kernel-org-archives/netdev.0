@@ -1,39 +1,74 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH -next/-mm/mainline] net/hp-plus: fix link errors
-Date: Tue, 25 Nov 2008 18:18:00 +0000
-Message-ID: <20081125181800.7502d395@lxorguk.ukuu.org.uk>
-References: <20081120211724.09b94026.randy.dunlap@oracle.com>
-	<20081121.163335.255948683.davem@davemloft.net>
-	<20081125095952.f25e8286.randy.dunlap@oracle.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] Naming interrupt vectors/ixgbe
+Date: Tue, 25 Nov 2008 10:20:24 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0811251019190.6404@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <18732.7795.484291.202338@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jgarzik@pobox.com, akpm@linux-foundation.org
-To: Randy Dunlap <randy.dunlap@oracle.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Robert.Olsson@data.slu.se" <Robert.Olsson@data.slu.se>
+To: Robert Olsson <robert@robur.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:36926 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752317AbYKYST3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 13:19:29 -0500
-In-Reply-To: <20081125095952.f25e8286.randy.dunlap@oracle.com>
+Received: from mga01.intel.com ([192.55.52.88]:43506 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750963AbYKYSUc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2008 13:20:32 -0500
+In-Reply-To: <18732.7795.484291.202338@robur.slu.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> WARNING: drivers/net/8390p: 'ei_set_multicast_list' exported twice. Previous export was in drivers/net/8390.ko
-> WARNING: drivers/net/8390p: 'ei_get_stats' exported twice. Previous export was in drivers/net/8390.ko
-> WARNING: drivers/net/8390p: 'ei_start_xmit' exported twice. Previous export was in drivers/net/8390.ko
-> WARNING: drivers/net/8390p: 'ei_tx_timeout' exported twice. Previous export was in drivers/net/8390.ko
+On Tue, 25 Nov 2008, Robert Olsson wrote:
 
-bash-3.2$ grep ei_set_multicast drivers/net/*c
-bash-3.2$ grep ei_set_multicast  drivers/net/*h
-bash-3.2$ grep ei_set_multicast  include/linux/*h
-bash-3.2$ 
+> 
+> Same syntax for ixgbe driver.
+> 
+> Cheers
+> 				--ro
+> 
+> Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+> 
+> 
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+> index 7548fb7..88717e6 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -1187,6 +1187,7 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
+>  	struct net_device *netdev = adapter->netdev;
+>  	irqreturn_t (*handler)(int, void *);
+>  	int i, vector, q_vectors, err;
+> +	int ri=0, ti=0;
 
-bash-3.2$ nm drivers/net/*o|grep ei_set_mu
-nm: Warning: 'drivers/net/chelsio' is not an ordinary file
-nm: Warning: 'drivers/net/hamradio' is not an ordinary file
+Tiny nit, ri = 0, ti = 0;
 
+I can live with it though.
 
-Confused of South Wales
+>  
+>  	/* Decrement for Other and TCP Timer vectors */
+>  	q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
+> @@ -1201,10 +1202,19 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
+>                           &ixgbe_msix_clean_many)
+>  	for (vector = 0; vector < q_vectors; vector++) {
+>  		handler = SET_HANDLER(&adapter->q_vector[vector]);
+> -		sprintf(adapter->name[vector], "%s:v%d-%s",
+> -		        netdev->name, vector,
+> -		        (handler == &ixgbe_msix_clean_rx) ? "Rx" :
+> -		         ((handler == &ixgbe_msix_clean_tx) ? "Tx" : "TxRx"));
+> +
+> +		if(handler == &ixgbe_msix_clean_rx) {
+> +			sprintf(adapter->name[vector], "%s-%s-%d",
+> +				netdev->name, "rx", ri++);
+> +		}
+> +		else if(handler == &ixgbe_msix_clean_tx) {
+> +			sprintf(adapter->name[vector], "%s-%s-%d",
+> +				netdev->name, "tx", ti++);
+> +		}
+> +		else 
+> +			sprintf(adapter->name[vector], "%s-%s-%d",
+> +				netdev->name, "TxRx", vector);	
+> +
+>  		err = request_irq(adapter->msix_entries[vector].vector,
+>  		                  handler, 0, adapter->name[vector],
+>  		                  &(adapter->q_vector[vector]));
 
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
