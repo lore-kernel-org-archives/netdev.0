@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 01/39] wimax: documentation for the stack
-Date: Tue, 25 Nov 2008 23:38:57 -0800
-Message-ID: <10a8e175b91fbc2053ba4a4e844bae6be25ecce9.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 35/39] i2400m/SDIO: read transactions from the SDIO device
+Date: Tue, 25 Nov 2008 23:39:31 -0800
+Message-ID: <d60fd6fed329d980398596d8836095015d429cd0.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,103 +18,276 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
+This code implements reading from the SDIO device; when data is ready
+the SDIO IRQ is fired and that will allocate an skb, put all the data
+there and then pass it to the generic driver for processing and delivery.
+
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- Documentation/wimax/README.wimax |   86 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 86 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/wimax/README.wimax
+ drivers/net/wimax/i2400m/sdio-rx.c |  255 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 255 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
 
-diff --git a/Documentation/wimax/README.wimax b/Documentation/wimax/README.wimax
+diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
 new file mode 100644
-index 0000000..5f6a0a1
+index 0000000..fe1d277
 --- /dev/null
-+++ b/Documentation/wimax/README.wimax
-@@ -0,0 +1,86 @@
-+   Linux kernel WiMAX stack
++++ b/drivers/net/wimax/i2400m/sdio-rx.c
+@@ -0,0 +1,255 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * SDIO RX handling
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
++ *  - Initial implementation
++ *
++ *
++ * This handles the RX path on SDIO.
++ *
++ * The SDIO bus driver calls the "irq" routine when data is available.
++ * This is not a traditional interrupt routine since the SDIO bus
++ * driver calls us from its irq thread context.  Because of this
++ * sleeping in the SDIO RX IRQ routine is okay.
++ *
++ * From there on, we obtain the size of the data that is available,
++ * allocate an skb, copy it and then pass it to the generic driver's
++ * RX routine [i2400m_rx()].
++ *
++ * ROADMAP
++ *
++ * i2400ms_irq()
++ *   i2400ms_rx()
++ *     __i2400ms_rx_get_size()
++ *     i2400m_rx()
++ *
++ * i2400ms_rx_setup()
++ *
++ * i2400ms_rx_release()
++ */
++#include <linux/workqueue.h>
++#include <linux/wait.h>
++#include <linux/skbuff.h>
++#include <linux/mmc/sdio.h>
++#include <linux/mmc/sdio_func.h>
++#include "i2400m-sdio.h"
 +
-+   (C) 2008 Intel Corporation < linux-wimax@intel.com >
++#define D_SUBMODULE sdio_rx
++#include "sdio-debug-levels.h"
 +
-+   This provides a basic Linux kernel WiMAX stack to provide a common
-+   control API for WiMAX devices, usable from kernel and user space.
 +
-+Design
++/*
++ * Read and return the amount of bytes available for RX
++ *
++ * The RX size has to be read like this: byte reads of three
++ * sequential locations; then glue'em together.
++ *
++ * sdio_readl() doesn't work.
++ */
++ssize_t __i2400ms_rx_get_size(struct i2400ms *i2400ms)
++{
++	int ret, cnt, val;
++	ssize_t rx_size;
++	unsigned xfer_size_addr;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &i2400ms->func->dev;
 +
-+   The WiMAX stack is designed to provide for common WiMAX control
-+   services to current and future WiMAX devices from any vendor.
++	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
++	xfer_size_addr = I2400MS_INTR_GET_SIZE_ADDR;
++	rx_size = 0;
++	for (cnt = 0; cnt < 3; cnt++) {
++		val = sdio_readb(func, xfer_size_addr + cnt, &ret);
++		if (ret < 0) {
++			dev_err(dev, "RX: Can't read byte %d of RX size from "
++				"0x%08x: %d\n", cnt, xfer_size_addr + cnt, ret);
++			rx_size = ret;
++			goto error_read;
++		}
++		rx_size = rx_size << 8 | (val & 0xff);
++	}
++	d_printf(6, dev, "RX: rx_size is %ld\n", (long) rx_size);
++error_read:
++	d_fnend(7, dev, "(i2400ms %p) = %ld\n", i2400ms, (long) rx_size);
++	return rx_size;
++}
 +
-+   Because currently there is only one and we don't know what would be the
-+   common services, the APIs it currently provides are very minimal.
-+   However, it is done in such a way that it is easily extensible to
-+   accommodate future requirements.
 +
-+   The stack works by embedding a struct wimax_dev in your device's
-+   control structures. This provides a set of callbacks that the WiMAX
-+   stack will call in order to implement control operations requested by
-+   the user. As well, the stack provides API functions that the driver
-+   calls to notify about changes of state in the device.
++/*
++ * Read data from the device (when in normal)
++ *
++ * Allocate an SKB of the right size, read the data in and then
++ * deliver it to the generic layer.
++ *
++ * We also check for a reboot barker. That means the device died and
++ * we have to reboot it.
++ */
++static
++void i2400ms_rx(struct i2400ms *i2400ms)
++{
++	int ret;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++	struct i2400m *i2400m = &i2400ms->i2400m;
++	struct sk_buff *skb;
++	ssize_t rx_size;
 +
-+   The stack exports the API calls needed to control the device to user
-+   space using generic netlink as a marshalling mechanism. You can access
-+   them using your own code or use the wrappers provided for your
-+   convenience in libwimax (in the wimax-tools package).
++	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
++	rx_size = __i2400ms_rx_get_size(i2400ms);
++	if (rx_size < 0) {
++		ret = rx_size;
++		goto error_get_size;
++	}
++	ret = -ENOMEM;
++	skb = alloc_skb(rx_size, GFP_ATOMIC);
++	if (NULL == skb) {
++		dev_err(dev, "RX: unable to alloc skb\n");
++		goto error_alloc_skb;
++	}
 +
-+   For detailed information on the stack, please see
-+   include/net/wimax.h.
++	ret = sdio_memcpy_fromio(func, skb->data,
++				 I2400MS_DATA_ADDR, rx_size);
++	if (ret < 0) {
++		dev_err(dev, "RX: SDIO data read failed: %d\n", ret);
++		goto error_memcpy_fromio;
++	}
++	/* Check if device has reset */
++	if (!memcmp(skb->data, i2400m_NBOOT_BARKER,
++		    sizeof(i2400m_NBOOT_BARKER))
++	    || !memcmp(skb->data, i2400m_SBOOT_BARKER,
++		       sizeof(i2400m_SBOOT_BARKER))) {
++		ret = i2400m_dev_reset_handle(i2400m);
++		kfree_skb(skb);
++	} else {
++		skb_put(skb, rx_size);
++		i2400m_rx(i2400m, skb);
++	}
++	d_fnend(7, dev, "(i2400ms %p) = void\n", i2400ms);
++	return;
 +
-+Usage
++error_memcpy_fromio:
++	kfree_skb(skb);
++error_alloc_skb:
++error_get_size:
++	d_fnend(7, dev, "(i2400ms %p) = %d\n", i2400ms, ret);
++	return;
++}
 +
-+   For usage in a driver (registration, API, etc) please refer to the
-+   instructions in the header file include/net/wimax.h.
 +
-+   When a device is registered with the WiMAX stack, a set of control
-+   files will appear under the wimax/ subdirectory in the device's sysfs
-+   directory that the user can tweak for control.
++/*
++ * Process an interrupt from the SDIO card
++ *
++ * FIXME: need to process other events that are not just ready-to-read
++ *
++ * Checks there is data ready and then proceeds to read it.
++ */
++static
++void i2400ms_irq(struct sdio_func *func)
++{
++	int ret;
++	struct i2400ms *i2400ms = sdio_get_drvdata(func);
++	struct i2400m *i2400m = &i2400ms->i2400m;
++	struct device *dev = &func->dev;
++	int val;
 +
-+   The device's sysfs directory can be found with find:
++	d_fnstart(6, dev, "(i2400ms %p)\n", i2400ms);
++	val = sdio_readb(func, I2400MS_INTR_STATUS_ADDR, &ret);
++	if (ret < 0) {
++		dev_err(dev, "RX: Can't read interrupt status: %d\n", ret);
++		goto error_no_irq;
++	}
++	if (!val) {
++		dev_err(dev, "RX: BUG? got IRQ but no interrupt ready?\n");
++		goto error_no_irq;
++	}
++	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
++	if (WARN_ON(i2400m->boot_mode))
++		dev_err(dev, "RX: SW BUG? boot mode and IRQ is up?\n");
++	else
++		i2400ms_rx(i2400ms);
++error_no_irq:
++	d_fnend(6, dev, "(i2400ms %p) = void\n", i2400ms);
++	return;
++}
 +
-+$ find /sys/devices -name net:wmx0
-+/sys/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/net:wmx0
 +
-+   Where wmx0 is the network device name of your device. Note the paths
-+   will vary from system to system.
++/*
++ * Setup SDIO RX
++ *
++ * Hooks up the IRQ handler and then enables IRQs.
++ */
++int i2400ms_rx_setup(struct i2400ms *i2400ms)
++{
++	int result;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
 +
-+sysfs: controlling debug output from the stack
++	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
++	sdio_claim_host(func);
++	result = sdio_claim_irq(func, i2400ms_irq);
++	if (result < 0) {
++		dev_err(dev, "Cannot claim IRQ: %d\n", result);
++		goto error_irq_claim;
++	}
++	result = 0;
++	sdio_writeb(func, 1, I2400MS_INTR_ENABLE_ADDR, &result);
++	if (result < 0) {
++		sdio_release_irq(func);
++		dev_err(dev, "Failed to enable interrupts %d\n", result);
++	}
++error_irq_claim:
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
++	return result;
++}
 +
-+   The WiMAX stack is compiled, by default, with debug messages that can
-+   be used to diagnose issues. By default, said messages are disabled.
 +
-+   By tweaking the values reported in the wimax/debug-levels file, each
-+   submodule in the stack can be made to be verbose about its operation.
++/*
++ * Tear down SDIO RX
++ *
++ * Disables IRQs in the device and removes the IRQ handler.
++ */
++void i2400ms_rx_release(struct i2400ms *i2400ms)
++{
++	int result;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
 +
-+   To see the current debug levels:
-+
-+$ cd /sys/devices/...../net:wmx0
-+$ cat wimax/debug_levels
-+0 id_table
-+7 op_msg
-+0 op_open
-+0 op_reset
-+0 op_rfkill
-+0 stack
-+
-+   In this example, the id_table submodule has a debug level of 7 (very
-+   verbose).
-+
-+   To increase the debug level of, for example, the op_rfkill sumodule,
-+   just write:
-+
-+$ echo 3 op_rfkill > wimax/debug_levels
-+
-+   Increasing numbers yield increasing debug information; for details of
-+   what is each, check the source.
-+
-+   To reset any level to minimum operation, set its level to zero.
-+
-+sysfs: finding generic netlink information (deprecated)
-+
-+   The files wimax/gnl_family_id and wimax/gnl_version contain information
-+   about the generic netlink registration for each device.
-+
-+   These files are deprecated.
++	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
++	sdio_claim_host(func);
++	sdio_writeb(func, 0, I2400MS_INTR_ENABLE_ADDR, &result);
++	sdio_release_irq(func);
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
++}
 -- 
 1.5.6.5
