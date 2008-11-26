@@ -1,80 +1,60 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: ixp4xx_hss MAX_CHAN_DEVICES
-Date: Wed, 26 Nov 2008 12:19:56 +0100
-Message-ID: <m363mahgyr.fsf@maximus.localdomain>
-References: <b0438a630811190317u715f1376j830133591ec497b9@mail.gmail.com>
-	<m3fxlksncm.fsf@maximus.localdomain>
-	<b0438a630811240203mdc431aev8b1bb9e8c924ac7e@mail.gmail.com>
-	<b0438a630811240415n6a1a0b23lf7ac37925d04a6b3@mail.gmail.com>
-	<m3prkl14pf.fsf@maximus.localdomain>
-	<b0438a630811240912v16db8ef8v660cb844979fe912@mail.gmail.com>
-	<m3tz9wsmut.fsf@maximus.localdomain>
-	<b0438a630811250851p18f5feabx7e744978555fa1d1@mail.gmail.com>
-	<m3bpw3ic0q.fsf@maximus.localdomain>
-	<b0438a630811260202q443d558fw1a3d8193d7f3e7d4@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter: ctnetlink: fix GFP_KERNEL allocation under spinlock
+Date: Wed, 26 Nov 2008 12:23:08 +0100
+Message-ID: <492D319C.4060008@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
-To: =?iso-8859-2?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:36669 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751706AbYKZLT7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 06:19:59 -0500
-In-Reply-To: <b0438a630811260202q443d558fw1a3d8193d7f3e7d4@mail.gmail.com>
- ("Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez=22's?= message of "Wed\, 26 Nov
- 2008 11\:02\:20 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------020606090005080809050303"
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"Miguel =C1ngel =C1lvarez" <gotzoncabanes@gmail.com> writes:
+This is a multi-part message in MIME format.
+--------------020606090005080809050303
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
->> Basically MVIP divides your entire frame into 2 or 4 parts.
->>
-> Sure. But... It is automatically activated when the frame length is
-> greater than 256 or should it be explicitelly set?
+This patch for 2.6.28 fixes a GFP_KERNEL allocation under spinlock
+in ctnetlink that was missed in the conntrack creation race fix.
 
-You must set the number of (packetized) pipes.
-=46or channelized data, there is apparently no difference.
+Please apply, thanks.
 
-> OK... I understand the concept, but I am not sure about how this is
-> integrated with your driver (or the NPE). I mean... When I use your
-> driver, I obtain two interfaces hdlc0 and hdlc1 (one per HSS). If I
-> had only a packetized stream, I could open a socket to the interface
-> and send the data. No problem (I think) in it.
-> But if I want to have four streams (one per E1), is your driver
-> prepare to deal with this, or should I manage to create four
-> interfaces per HSS?
+--------------020606090005080809050303
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
 
-The driver is currently missing the MVIP code.
+commit 49a12376315f651decfa67c07041e2d0c2e04968
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Wed Nov 26 12:16:50 2008 +0100
 
-> In the first case... Is it related with set_hdlc_chan function? The
-> name could suggest this, but then it does nothing for MODE_HDLC but
-> MODE_RAW and MODE_G704.
+    netfilter: ctnetlink: fix GFP_KERNEL allocation under spinlock
+    
+    The previous fix for the conntrack creation race (netfilter: ctnetlink:
+    fix conntrack creation race) missed a GFP_KERNEL allocation that is
+    now performed while holding a spinlock. Switch to GFP_ATOMIC.
+    
+    Reported-and-tested-by: Zoltan Borbely <bozo@andrews.hu>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-That's for channelized data.
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 3b009a3..5f4a651 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1138,7 +1138,7 @@ ctnetlink_create_conntrack(struct nlattr *cda[],
+ 		}
+ 	}
+ 
+-	nf_ct_acct_ext_add(ct, GFP_KERNEL);
++	nf_ct_acct_ext_add(ct, GFP_ATOMIC);
+ 
+ #if defined(CONFIG_NF_CONNTRACK_MARK)
+ 	if (cda[CTA_MARK])
 
-> In the second case... I understand that if I have to add the new
-> interfaces, they should be network interfaces. Where do you recommend
-> me to do it?
-
-I'd have to look at it.
-
-> In both cases... How can the user direct his data to one E1 or the ot=
-her?
-
-Each "member" E1 is connected to its respective HDLC controller
-("packetized pipe"), and these have "TX" and "RX-free" queues (one set
-per each HDLC).
-
-> In my case (bad luck...) we have a legacy mode of connection, so I
-> cannot use any of the methods described. I "just" need something
-> similar to the IxHssAccPktPortConnection in the Intel Software
-> Library...
-
-Sure, you can use this raw HDLC + packet interface. One stream per
-(member) E1/T1 (or, to be precise, one stream per 1, 1/2 or 1/4 of the
-physical interface).
---=20
-Krzysztof Halasa
+--------------020606090005080809050303--
