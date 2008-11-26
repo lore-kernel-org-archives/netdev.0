@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 30/39] i2400m/USB: read transactions from the USB device
-Date: Tue, 25 Nov 2008 23:39:26 -0800
-Message-ID: <2fdbd74a176fcd49de87b6e3fff53a716144f950.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 28/39] i2400m/USB: firmware upload backend
+Date: Tue, 25 Nov 2008 23:39:24 -0800
+Message-ID: <51a90e6a8de0d40bcafb72a497661447a487d106.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,31 +18,24 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This code implements reading from the USB device; it uses a simple
-adaptive algorithm so it doesn't preallocate huge buffers that then
-are underused. When a transaction is read, it is passed to the generic
-driver for processing and delivery.
-
-All is done in a kthread sitting on a loop. We need a thread context
-to run USB autopm functions and to process the received data (can get
-to be heavy in processing time). It is dedicated to a single task, so
-it has less overhead than a workqueue.
+This implements the backends for the generic driver (i2400m) to be
+able to load firmware to the USB device.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/usb-rx.c |  417 +++++++++++++++++++++++++++++++++++++
- 1 files changed, 417 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/usb-rx.c
+ drivers/net/wimax/i2400m/usb-fw.c |  340 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 340 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/usb-fw.c
 
-diff --git a/drivers/net/wimax/i2400m/usb-rx.c b/drivers/net/wimax/i2400m/usb-rx.c
+diff --git a/drivers/net/wimax/i2400m/usb-fw.c b/drivers/net/wimax/i2400m/usb-fw.c
 new file mode 100644
-index 0000000..074cc1f
+index 0000000..5ad287c
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/usb-rx.c
-@@ -0,0 +1,417 @@
++++ b/drivers/net/wimax/i2400m/usb-fw.c
+@@ -0,0 +1,340 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * USB RX handling
++ * Firmware uploader's USB specifics
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -76,386 +69,309 @@ index 0000000..074cc1f
 + *
 + * Intel Corporation <linux-wimax@intel.com>
 + * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ *  - Initial implementation
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - Use skb_clone(), break up processing in chunks
-+ *  - Split transport/device specific
-+ *  - Make buffer size dynamic to exert less memory pressure
++ *  - Initial implementation
 + *
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - bus generic/specific split
 + *
-+ * This handles the RX path on USB.
++ * THE PROCEDURE
 + *
-+ * When a notification is received that says 'there is RX data ready',
-+ * we call i2400mu_rx_kick(); that wakes up the RX kthread, which
-+ * reads a buffer from USB and passes it to i2400m_rx() in the generic
-+ * handling code. The RX buffer has an specific format that is
-+ * described in rx.c.
++ * See fw.c for the generic description of this procedure.
 + *
-+ * We use a kernel thread in a loop because:
++ * This file implements only the USB specifics. It boils down to how
++ * to send a command and waiting for an acknowledgement from the
++ * device.
 + *
-+ *  - we want to be able to call the USB power management get/put
-+ *    functions (blocking) before each transaction.
++ * This code (and process) is single threaded. It assumes it is the
++ * only thread poking around (guaranteed by fw.c).
 + *
-+ *  - We might get a lot of notifications and we don't want to submit
-+ *    a zillion reads; by serializing, we are throttling.
++ * COMMAND EXECUTION
 + *
-+ *  - RX data processing can get heavy enough so that it is not
-+ *    appropiate for doing it in the USB callback; thus we run it in a
-+ *    process context.
++ * A write URB is posted with the buffer to the bulk output endpoint.
 + *
-+ * We provide a read buffer of an arbitrary size (short of a page); if
-+ * the callback reports -EOVERFLOW, it means it was too small, so we
-+ * just double the size and retry (being careful to append, as
-+ * sometimes the device provided some data). Every now and then we
-+ * check if the average packet size is smaller than the current packet
-+ * size and if so, we halve it. At the end, the size of the
-+ * preallocated buffer should be following the average received
-+ * transaction size, adapting dynamically to it.
++ * ACK RECEPTION
++ *
++ * We just post a URB to the notification endpoint and wait for
++ * data. We repeat until we get all the data we expect (as indicated
++ * by the call from the bus generic code).
++ *
++ * The data is not read from the bulk in endpoint for boot mode.
 + *
 + * ROADMAP
 + *
-+ * i2400mu_rx_kick()		   Called from notif.c when we get a
-+ *   			           'data ready' notification
-+ * i2400mu_rxd()                   Kernel RX daemon
-+ *   i2400mu_rx()                  Receive USB data
-+ *   i2400m_rx()                   Send data to generic i2400m RX handling
++ * i2400mu_bus_bm_cmd_send
++ *   i2400m_bm_cmd_prepare...
++ *   i2400mu_tx_bulk_out
 + *
-+ * i2400mu_rx_setup()              called from i2400mu_bus_dev_start()
-+ *
-+ * i2400mu_rx_release()            called from i2400mu_bus_dev_stop()
++ * i2400mu_bus_bm_wait_for_ack
++ *   i2400m_notif_submit
 + */
-+#include <linux/workqueue.h>
 +#include <linux/usb.h>
 +#include "i2400m-usb.h"
 +
 +
-+#define D_SUBMODULE rx
++#define D_SUBMODULE fw
 +#include "usb-debug-levels.h"
 +
-+/*
-+ * Dynamic RX size
-+ *
-+ * We can't let the rx_size be a multiple of 512 bytes (the RX
-+ * endpoint's max packet size). On some USB host controllers (we
-+ * haven't been able to fully characterize which), if the device is
-+ * about to send (for example) X bytes and we only post a buffer to
-+ * receive n*512, it will fail to mark that as babble (so that
-+ * i2400mu_rx() [case -EOVERFLOW] can resize the buffer and get the
-+ * rest).
-+ *
-+ * So on growing or shrinking, if it is a multiple of the
-+ * maxpacketsize, we remove some (instead of incresing some, so in a
-+ * buddy allocator we try to waste less space).
-+ *
-+ * Note we also need a hook for this on i2400mu_rx() -- when we do the
-+ * first read, we are sure we won't hit this spot because
-+ * i240mm->rx_size has been set properly. However, if we have to
-+ * double because of -EOVERFLOW, when we launch the read to get the
-+ * rest of the data, we *have* to make sure that also is not a
-+ * multiple of the max_pkt_size.
-+ */
-+
-+static
-+size_t i2400mu_rx_size_grow(struct i2400mu *i2400mu)
-+{
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+	size_t rx_size;
-+	const size_t max_pkt_size = 512;
-+
-+	rx_size = 2 * i2400mu->rx_size;
-+	if (rx_size % max_pkt_size == 0) {
-+		rx_size -= 8;
-+		d_printf(1, dev,
-+			 "RX: expected size grew to %zu [adjusted -8] "
-+			 "from %zu\n",
-+			 rx_size, i2400mu->rx_size);
-+	} else
-+		d_printf(1, dev,
-+			 "RX: expected size grew to %zu from %zu\n",
-+			 rx_size, i2400mu->rx_size);
-+	return rx_size;
-+}
-+
-+
-+static
-+void i2400mu_rx_size_maybe_shrink(struct i2400mu *i2400mu)
-+{
-+	const size_t max_pkt_size = 512;
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+
-+	if (unlikely(i2400mu->rx_size_cnt >= 100
-+		     && i2400mu->rx_size_auto_shrink)) {
-+		size_t avg_rx_size =
-+			i2400mu->rx_size_acc / i2400mu->rx_size_cnt;
-+		size_t new_rx_size = i2400mu->rx_size / 2;
-+		if (avg_rx_size < new_rx_size) {
-+			if (new_rx_size % max_pkt_size == 0) {
-+				new_rx_size -= 8;
-+				d_printf(1, dev,
-+					 "RX: expected size shrank to %zu "
-+					 "[adjusted -8] from %zu\n",
-+					 new_rx_size, i2400mu->rx_size);
-+			} else
-+				d_printf(1, dev,
-+					 "RX: expected size shrank to %zu "
-+					 "from %zu\n",
-+					 new_rx_size, i2400mu->rx_size);
-+			i2400mu->rx_size = new_rx_size;
-+			i2400mu->rx_size_cnt = 0;
-+			i2400mu->rx_size_acc = i2400mu->rx_size;
-+		}
-+	}
-+}
 +
 +/*
-+ * Receive a message with payloads from the USB bus into an skb
++ * Synchronous write to the device
 + *
-+ * @i2400mu: USB device descriptor
-+ * @rx_skb: skb where to place the received message
-+ *
-+ * Deals with all the USB-specifics of receiving, dynamically
-+ * increasing the buffer size if so needed. Returns the payload in the
-+ * skb, ready to process. On a zero-length packet, we retry.
-+ *
-+ * On soft USB errors, we retry (until they become too frequent and
-+ * then are promoted to hard); on hard USB errors, we reset the
-+ * device. On other errors (skb realloacation, we just drop it and
-+ * hope for the next invocation to solve it).
-+ *
-+ * Returns: pointer to the skb if ok, ERR_PTR on error.
-+ *   NOTE: this function might realloc the skb (if it is too small),
-+ *   so always update with the one returned.
-+ *   ERR_PTR() is < 0 on error.
++ * Takes care of updating EDC counts and thus, handle device errors.
 + */
 +static
-+struct sk_buff *i2400mu_rx(struct i2400mu *i2400mu, struct sk_buff *rx_skb)
++ssize_t i2400mu_tx_bulk_out(struct i2400mu *i2400mu, void *buf, size_t buf_size)
 +{
-+	int result = 0;
++	int result;
 +	struct device *dev = &i2400mu->usb_iface->dev;
-+	int usb_pipe, read_size, rx_size, do_autopm;
++	int len;
 +	struct usb_endpoint_descriptor *epd;
-+	const size_t max_pkt_size = 512;
++	int pipe, do_autopm = 1;
 +
-+	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
-+	do_autopm = atomic_read(&i2400mu->do_autopm);
-+	result = do_autopm ?
-+		usb_autopm_get_interface(i2400mu->usb_iface) : 0;
++	result = usb_autopm_get_interface(i2400mu->usb_iface);
 +	if (result < 0) {
-+		dev_err(dev, "RX: can't get autopm: %d\n", result);
++		dev_err(dev, "BM-CMD: can't get autopm: %d\n", result);
 +		do_autopm = 0;
 +	}
-+	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_BULK_IN);
-+	usb_pipe = usb_rcvbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_BULK_OUT);
++	pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
 +retry:
-+	rx_size = skb_end_pointer(rx_skb) - rx_skb->data - rx_skb->len;
-+	if (unlikely(rx_size % max_pkt_size == 0)) {
-+		rx_size -= 8;
-+		d_printf(1, dev, "RX: rx_size adapted to %d [-8]\n", rx_size);
-+	}
-+	result = usb_bulk_msg(
-+		i2400mu->usb_dev, usb_pipe, rx_skb->data + rx_skb->len,
-+		rx_size, &read_size, HZ);
-+	usb_mark_last_busy(i2400mu->usb_dev);
++	result = usb_bulk_msg(i2400mu->usb_dev, pipe, buf, buf_size, &len, HZ);
 +	switch (result) {
 +	case 0:
-+		if (read_size == 0)
-+			goto retry;	/* ZLP, just resubmit */
-+		skb_put(rx_skb, read_size);
++		if (len != buf_size) {
++			dev_err(dev, "BM-CMD: short write (%u B vs %zu "
++				"expected)\n", len, buf_size);
++			result = -EIO;
++			break;
++		}
++		result = len;
 +		break;
 +	case -EINVAL:			/* while removing driver */
 +	case -ENODEV:			/* dev disconnect ... */
 +	case -ENOENT:			/* just ignore it */
-+	case -ESHUTDOWN:
++	case -ESHUTDOWN:		/* and exit */
 +	case -ECONNRESET:
++		result = -ESHUTDOWN;
 +		break;
-+	case -EOVERFLOW: {		/* too small, reallocate */
-+		struct sk_buff *new_skb;
-+		rx_size = i2400mu_rx_size_grow(i2400mu);
-+		if (rx_size <= (1 << 16))	/* cap it */
-+			i2400mu->rx_size = rx_size;
-+		else if (printk_ratelimit()) {
-+			dev_err(dev, "BUG? rx_size up to %d\n", rx_size);
-+			result = -EINVAL;
-+			goto out;
-+		}
-+		skb_put(rx_skb, read_size);
-+		new_skb = skb_copy_expand(rx_skb, 0, rx_size - rx_skb->len,
-+					  GFP_KERNEL);
-+		if (new_skb == NULL) {
-+			if (printk_ratelimit())
-+				dev_err(dev, "RX: Can't reallocate skb to %d; "
-+					"RX dropped\n", rx_size);
-+			kfree(rx_skb);
-+			result = 0;
-+			goto out;	/* drop it...*/
-+		}
-+		kfree_skb(rx_skb);
-+		rx_skb = new_skb;
-+		i2400mu->rx_size_cnt = 0;
-+		i2400mu->rx_size_acc = i2400mu->rx_size;
-+		d_printf(1, dev, "RX: size changed to %d, received %d, "
-+			 "copied %d, capacity %ld\n",
-+			 rx_size, read_size, rx_skb->len,
-+			 (long) (skb_end_pointer(new_skb) - new_skb->head));
-+		goto retry;
-+	}
-+		/* In most cases, it happens due to the hardware scheduling a
-+		 * read when there was no data - unfortunately, we have no way
-+		 * to tell this timeout from a USB timeout. So we just ignore
-+		 * it. */
-+	case -ETIMEDOUT:
-+		dev_err(dev, "RX: timeout: %d\n", result);
-+		result = 0;
++	case -ETIMEDOUT:			/* bah... */
 +		break;
-+	default:			/* Any error */
++	default:				/* any other? */
 +		if (edc_inc(&i2400mu->urb_edc,
-+			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME))
-+			goto error_reset;
-+		dev_err(dev, "RX: error receiving URB: %d, retrying\n", result);
++			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME)) {
++				dev_err(dev, "BM-CMD: maximum errors in "
++					"URB exceeded; resetting device\n");
++				usb_queue_reset_device(i2400mu->usb_iface);
++				result = -ENODEV;
++				break;
++		}
++		dev_err(dev, "BM-CMD: URB error %d, retrying\n",
++			result);
 +		goto retry;
 +	}
++	result = len;
++	if (do_autopm)
++		usb_autopm_put_interface(i2400mu->usb_iface);
++	return result;
++}
++
++
++/*
++ * Send a boot-mode command over the bulk-out pipe
++ *
++ * Command can be a raw command, which requires no preparation (and
++ * which might not even be following the command format). Checks that
++ * the right amount of data was transfered.
++ *
++ * To satisfy USB requirements (no onstack, vmalloc or in data segment
++ * buffers), we copy the command to i2400m->bm_cmd_buf and send it from
++ * there.
++ *
++ * @flags: pass thru from i2400m_bm_cmd()
++ * @return: cmd_size if ok, < 0 errno code on error.
++ */
++ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *i2400m,
++				const struct i2400m_bootrom_header *_cmd,
++				size_t cmd_size, int flags)
++{
++	ssize_t result;
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
++	struct i2400m_bootrom_header *cmd;
++	size_t cmd_size_a = ALIGN(cmd_size, 16);	/* USB restriction */
++
++	d_fnstart(8, dev, "(i2400m %p cmd %p size %zu)\n",
++		  i2400m, _cmd, cmd_size);
++	result = -E2BIG;
++	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
++		goto error_too_big;
++	memcpy(i2400m->bm_cmd_buf, _cmd, cmd_size);
++	cmd = i2400m->bm_cmd_buf;
++	if (cmd_size_a > cmd_size)			/* Zero pad space */
++		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
++	if ((flags & I2400M_BM_CMD_RAW) == 0) {
++		if (WARN_ON(i2400m_brh_get_response_required(cmd) == 0))
++			dev_warn(dev, "SW BUG: response_required == 0\n");
++		i2400m_bm_cmd_prepare(cmd);
++	}
++	result = i2400mu_tx_bulk_out(i2400mu, i2400m->bm_cmd_buf, cmd_size);
++	if (result < 0) {
++		dev_err(dev, "boot-mode cmd %d: cannot send: %zd\n",
++			opcode, result);
++		goto error_cmd_send;
++	}
++	if (result != cmd_size) {		/* all was transferred? */
++		dev_err(dev, "boot-mode cmd %d: incomplete transfer "
++			"(%zu vs %zu submitted)\n",  opcode, result, cmd_size);
++		result = -EIO;
++		goto error_cmd_size;
++	}
++error_cmd_size:
++error_cmd_send:
++error_too_big:
++	d_fnend(8, dev, "(i2400m %p cmd %p size %zu) = %zd\n",
++		i2400m, _cmd, cmd_size, result);
++	return result;
++}
++
++
++static
++void __i2400mu_bm_notif_cb(struct urb *urb)
++{
++	complete(urb->context);
++}
++
++
++/*
++ * submit a read to the notification endpoint
++ *
++ * @i2400m: device descriptor
++ * @urb: urb to use
++ * @completion: completion varible to complete when done
++ *
++ * Data is always read to i2400m->bm_ack_buf
++ */
++static
++int i2400mu_notif_submit(struct i2400mu *i2400mu, struct urb *urb,
++			 struct completion *completion)
++{
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct usb_endpoint_descriptor *epd;
++	int pipe;
++
++	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_NOTIFICATION);
++	pipe = usb_rcvintpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++	usb_fill_int_urb(urb, i2400mu->usb_dev, pipe,
++			 i2400m->bm_ack_buf, I2400M_BM_ACK_BUF_SIZE,
++			 __i2400mu_bm_notif_cb, completion,
++			 epd->bInterval);
++	return usb_submit_urb(urb, GFP_KERNEL);
++}
++
++
++/*
++ * Read an ack from  the notification endpoint
++ *
++ * @i2400m:
++ * @_ack: pointer to where to store the read data
++ * @ack_size: how many bytes we should read
++ *
++ * Returns: < 0 errno code on error; otherwise, amount of received bytes.
++ *
++ * Submits a notification read, appends the read data to the given ack
++ * buffer and then repeats (until @ack_size bytes have been
++ * received).
++ */
++ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *i2400m,
++				    struct i2400m_bootrom_header *_ack,
++				    size_t ack_size)
++{
++	ssize_t result = -ENOMEM;
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct urb notif_urb;
++	void *ack = _ack;
++	size_t offset, len;
++	long val;
++	int do_autopm = 1;
++	DECLARE_COMPLETION_ONSTACK(notif_completion);
++
++	d_fnstart(8, dev, "(i2400m %p ack %p size %zu)\n",
++		  i2400m, ack, ack_size);
++	BUG_ON(_ack == i2400m->bm_ack_buf);
++	result = usb_autopm_get_interface(i2400mu->usb_iface);
++	if (result < 0) {
++		dev_err(dev, "BM-ACK: can't get autopm: %d\n", (int) result);
++		do_autopm = 0;
++	}
++	usb_init_urb(&notif_urb);	/* ready notifications */
++	usb_get_urb(&notif_urb);
++	offset = 0;
++	while (offset < ack_size) {
++		init_completion(&notif_completion);
++		result = i2400mu_notif_submit(i2400mu, &notif_urb,
++					      &notif_completion);
++		if (result < 0)
++			goto error_notif_urb_submit;
++		val = wait_for_completion_interruptible_timeout(
++			&notif_completion, HZ);
++		if (val == 0) {
++			result = -ETIMEDOUT;
++			usb_kill_urb(&notif_urb);	/* Timedout */
++			goto error_notif_wait;
++		}
++		if (val == -ERESTARTSYS) {
++			result = -EINTR;		/* Interrupted */
++			usb_kill_urb(&notif_urb);
++			goto error_notif_wait;
++		}
++		result = notif_urb.status;		/* How was the ack? */
++		switch (result) {
++		case 0:
++			break;
++		case -EINVAL:			/* while removing driver */
++		case -ENODEV:			/* dev disconnect ... */
++		case -ENOENT:			/* just ignore it */
++		case -ESHUTDOWN:		/* and exit */
++		case -ECONNRESET:
++			result = -ESHUTDOWN;
++			goto error_dev_gone;
++		default:				/* any other? */
++			usb_kill_urb(&notif_urb);	/* Timedout */
++			if (edc_inc(&i2400mu->urb_edc,
++				    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME))
++				goto error_exceeded;
++			dev_err(dev, "BM-ACK: URB error %d, "
++				"retrying\n", notif_urb.status);
++			continue;	/* retry */
++		}
++		if (notif_urb.actual_length == 0) {
++			d_printf(6, dev, "ZLP received, retrying\n");
++			continue;
++		}
++		/* Got data, append it to the buffer */
++		len = min(ack_size - offset, (size_t) notif_urb.actual_length);
++		memcpy(ack + offset, i2400m->bm_ack_buf, len);
++		offset += len;
++	}
++	result = offset;
++error_notif_urb_submit:
++error_notif_wait:
++error_dev_gone:
 +out:
 +	if (do_autopm)
 +		usb_autopm_put_interface(i2400mu->usb_iface);
-+	d_fnend(4, dev, "(i2400mu %p) = %p\n", i2400mu, rx_skb);
-+	return rx_skb;
-+
-+error_reset:
-+	dev_err(dev, "RX: maximum errors in URB exceeded; "
-+		"resetting device\n");
-+	usb_queue_reset_device(i2400mu->usb_iface);
-+	rx_skb = ERR_PTR(result);
-+	goto out;
-+}
-+
-+
-+/*
-+ * Kernel thread for USB reception of data
-+ *
-+ * This thread waits for a kick; once kicked, it will allocate an skb
-+ * and receive a single message to it from USB (using
-+ * i2400mu_rx()). Once received, it is passed to the generic i2400m RX
-+ * code for processing.
-+ *
-+ * When done processing, it runs some dirty statistics to verify if
-+ * the last 100 messages received were smaller than half of the
-+ * current RX buffer size. In that case, the RX buffer size is
-+ * halved. This will helps lowering the pressure on the memory
-+ * allocator.
-+ *
-+ * Hard errors force the thread to exit.
-+ */
-+static
-+int i2400mu_rxd(void *_i2400mu)
-+{
-+	int result = 0;
-+	struct i2400mu *i2400mu = _i2400mu;
-+	struct i2400m *i2400m = &i2400mu->i2400m;
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
-+	size_t pending;
-+	int rx_size;
-+	struct sk_buff *rx_skb;
-+
-+	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
-+	while (1) {
-+		d_printf(2, dev, "TX: waiting for messages\n");
-+		pending = 0;
-+		wait_event_interruptible(
-+			i2400mu->rx_wq,
-+			(kthread_should_stop()	/* check this first! */
-+			 || (pending = atomic_read(&i2400mu->rx_pending_count)))
-+			);
-+		if (kthread_should_stop())
-+			break;
-+		if (pending == 0)
-+			continue;
-+		rx_size = i2400mu->rx_size;
-+		d_printf(2, dev, "RX: reading up to %d bytes\n", rx_size);
-+		rx_skb = __netdev_alloc_skb(net_dev, rx_size, GFP_KERNEL);
-+		if (rx_skb == NULL) {
-+			dev_err(dev, "RX: can't allocate skb [%d bytes]\n",
-+				rx_size);
-+			msleep(50);	/* give it some time? */
-+			continue;
-+		}
-+
-+		/* Receive the message with the payloads */
-+		rx_skb = i2400mu_rx(i2400mu, rx_skb);
-+		result = PTR_ERR(rx_skb);
-+		if (IS_ERR(rx_skb))
-+			goto out;
-+		atomic_dec(&i2400mu->rx_pending_count);
-+		if (rx_skb->len == 0) {	/* some ignorable condition */
-+			kfree_skb(rx_skb);
-+			continue;
-+		}
-+
-+		/* Deliver the message to the generic i2400m code */
-+		i2400mu->rx_size_cnt++;
-+		i2400mu->rx_size_acc += rx_skb->len;
-+		result = i2400m_rx(i2400m, rx_skb);
-+		if (result == -EIO
-+		    && edc_inc(&i2400mu->urb_edc,
-+			       EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME)) {
-+			goto error_reset;
-+		}
-+
-+		/* Maybe adjust RX buffer size */
-+		i2400mu_rx_size_maybe_shrink(i2400mu);
-+	}
-+	result = 0;
-+out:
-+	d_fnend(4, dev, "(i2400mu %p) = %d\n", i2400mu, result);
++	d_fnend(8, dev, "(i2400m %p ack %p size %zu) = %zd\n",
++		i2400m, ack, ack_size, result);
 +	return result;
 +
-+error_reset:
-+	dev_err(dev, "RX: maximum errors in received buffer exceeded; "
++error_exceeded:
++	dev_err(dev, "bm: maximum errors in notification URB exceeded; "
 +		"resetting device\n");
 +	usb_queue_reset_device(i2400mu->usb_iface);
 +	goto out;
 +}
-+
-+
-+/*
-+ * Start reading from the device
-+ *
-+ * @i2400m: device instance
-+ *
-+ * Notify the RX thread that there is data pending.
-+ */
-+void i2400mu_rx_kick(struct i2400mu *i2400mu)
-+{
-+	struct i2400m *i2400m = &i2400mu->i2400m;
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+
-+	d_fnstart(3, dev, "(i2400mu %p)\n", i2400m);
-+	atomic_inc(&i2400mu->rx_pending_count);
-+	wake_up_all(&i2400mu->rx_wq);
-+	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
-+}
-+
-+
-+int i2400mu_rx_setup(struct i2400mu *i2400mu)
-+{
-+	int result = 0;
-+	struct i2400m *i2400m = &i2400mu->i2400m;
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
-+
-+	i2400mu->rx_kthread = kthread_run(i2400mu_rxd, i2400mu, "%s-rx",
-+					  wimax_dev->name);
-+	if (IS_ERR(i2400mu->rx_kthread)) {
-+		result = PTR_ERR(i2400mu->rx_kthread);
-+		dev_err(dev, "RX: cannot start thread: %d\n", result);
-+	}
-+	return result;
-+}
-+
-+void i2400mu_rx_release(struct i2400mu *i2400mu)
-+{
-+	kthread_stop(i2400mu->rx_kthread);
-+}
-+
 -- 
 1.5.6.5
