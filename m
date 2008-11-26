@@ -1,44 +1,42 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 05/39] wimax: debug macros and debug settings for the WiMAX stack
-Date: Wed, 26 Nov 2008 14:40:24 -0800
-Message-ID: <ff25717bf78b6831db361b925f7081d5d6faf876.1227691434.git.inaky@linux.intel.com>
+Subject: [PATCH 03/39] wimax: constants and definitions to interact with user space
+Date: Wed, 26 Nov 2008 14:40:22 -0800
+Message-ID: <999a8be21ed5a6c6d5960789783b38bf51dfd3c3.1227691434.git.inaky@linux.intel.com>
 References: <cover.1227691434.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:44410 "EHLO
+Received: from mga10.intel.com ([192.55.52.92]:43324 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752539AbYKZWlM (ORCPT
+	with ESMTP id S1752189AbYKZWlM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:12 -0500
 In-Reply-To: <cover.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This file contains a simple debug framework that is used in the stack;
-it allows the debug level to be controlled at compile-time (so the
-debug code is optimized out) and at run-time (for what wasn't compiled
-out).
+This file defines the user/kernel API protocol through generic
+netlink.
+
+User space can copy it verbatim and use it.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax/debug.h |  495 +++++++++++++++++++++++++++++++++++++++++++
- net/wimax/debug-levels.h    |   42 ++++
- 2 files changed, 537 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax/debug.h
- create mode 100644 net/wimax/debug-levels.h
+ include/linux/wimax.h |  235 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 235 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/wimax.h
 
-diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
+diff --git a/include/linux/wimax.h b/include/linux/wimax.h
 new file mode 100644
-index 0000000..2987c7d
+index 0000000..f9d6a17
 --- /dev/null
-+++ b/include/linux/wimax/debug.h
-@@ -0,0 +1,495 @@
++++ b/include/linux/wimax.h
+@@ -0,0 +1,235 @@
 +/*
-+ * Linux WiMAX
-+ * Collection of tools to manage debug operations.
++ * Linux WiMax
++ * API for user space
 + *
 + *
-+ * Copyright (C) 2005-2007 Intel Corporation
++ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
@@ -56,526 +54,218 @@ index 0000000..2987c7d
 + * 02110-1301, USA.
 + *
 + *
-+ * Don't #include this file directly, read on!
++ * This file declares the user/kernel protocol that is spoken over
++ * Generic Netlink, as well as any type declaration that is to be used
++ * by kernel and user space.
 + *
++ * It is intended for user space to clone it verbatim to use it as a
++ * primary reference for definitions.
 + *
-+ * EXECUTING DEBUGGING ACTIONS OR NOT
-+ *
-+ * The main thing this framework provides is decission power to take a
-+ * debug action (like printing a message) if the current debug level
-+ * allows it.
-+ *
-+ * The decission power is at two levels: at compile-time (what does
-+ * not make it is compiled out) and at run-time. The run-time
-+ * selection is done per-submodule (as they are declared by the user
-+ * of the framework).
-+ *
-+ * A call to d_test(L) (L being the target debug level) returns true
-+ * if the action should be taken because the current debug levels
-+ * allow it (both compile and run time).
-+ *
-+ * It follows that a call to d_test() that can be determined to be
-+ * always false at compile time will get the code depending on it
-+ * compiled out by optimization.
-+ *
-+ *
-+ * DEBUG LEVELS
-+ *
-+ * It is up to the caller to define how much a debugging level is.
-+ *
-+ * Convention sets 0 as "no debug" (so an action marked as debug level 0
-+ * will always be taken). The increasing debug levels are used for
-+ * increased verbosity.
-+ *
-+ *
-+ * USAGE
-+ *
-+ * Group the code in modules and submodules inside each module [which
-+ * in most cases maps to Linux modules and .c files that compose
-+ * those].
-+ *
-+ *
-+ * For each module, there is:
-+ *
-+ *  - a MODULENAME (single word, legal C identifier)
-+ *
-+ *  - a debug-levels.h header file that declares the list of
-+ *    submodules and that is included by all .c files that use
-+ *    the debugging tools. The file name can be anything.
-+ *
-+ *  - some (optional) .c code to manipulate the runtime debug levels
-+ *    (through sysfs). This has to be attached to some sysfs point.
-+ *
-+ * The debug-levels.h file would look like:
-+ *
-+ *     #ifndef __debug_levels__h__
-+ *     #define __debug_levels__h__
-+ *
-+ *     #define D_MODULENAME modulename
-+ *     #define D_MASTER 10
-+ *
-+ *     #include <linux/wimax/debug.h>
-+ *
-+ *     enum d_module {
-+ *             D_SUBMODULE_DECLARE(submodule_1),
-+ *             D_SUBMODULE_DECLARE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DECLARE(submodule_N)
-+ *     };
-+ *
-+ *     #endif
-+ *
-+ * D_MASTER is the maximum compile-time debug level; any debug actions
-+ * above this will be out. D_MODULENAME is the module name (legal C
-+ * identifier), which has to be unique for each module (to avoid
-+ * namespace collisions during linkage). Note those #defines need to
-+ * be done before #including debug.h
-+ *
-+ * We declare N different submodules whose debug level can be
-+ * independently controlled during runtime.
-+ *
-+ * In a .c file of the module (and only in one of them), define the
-+ * following code:
-+ *
-+ *     struct d_level D_LEVEL[] = {
-+ *             D_SUBMODULE_DEFINE(submodule_1),
-+ *             D_SUBMODULE_DEFINE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DEFINE(submodule_N),
-+ *     };
-+ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+ *
-+ *     static
-+ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
-+ *                 d_level_show, d_level_store);
-+ *
-+ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
-+ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
-+ * #defined also in this file.
-+ *
-+ * Of course, the levels can be manipulated using other mechanisms;
-+ * d_level_show() and d_level_store() are provided for
-+ * convenience. However, it should be remembered that even if this
-+ * will show attached to some particular instance of a device, the
-+ * settings are *global*.
-+ *
-+ *
-+ * On each submodule (for example, .c files), the debug infrastructure
-+ * should be included like this:
-+ *
-+ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
-+ *     #include "debug-levels.h"
-+ *
-+ * after #including all your include files.
-+ *
-+ *
-+ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
-+ * d_fnend(), d_printf(), d_dump()].
-+ *
-+ * If their debug level is greater than D_MASTER, they will be
-+ * compiled out.
-+ *
-+ * If their debug level is lower or equal than D_MASTER but greater
-+ * than the current debug level of their submodule, they'll be
-+ * ignored.
-+ *
-+ * Otherwise, the action will be performed.
++ * Stuff intended for kernel usage as well as full protocol and stack
++ * documentation is rooted in include/net/wimax.h.
 + */
-+#ifndef __debug__h__
-+#define __debug__h__
++
++#ifndef __LINUX__WIMAX_H__
++#define __LINUX__WIMAX_H__
 +
 +#include <linux/types.h>
-+#include <linux/device.h>
 +
-+
-+/* Backend stuff */
-+
-+/*
-+ * Debug backend: generate a message header from a 'struct device'
-+ *
-+ * @head: buffer where to place the header
-+ * @head_size: length of @head
-+ * @dev: pointer to device used to generate a header from. If NULL,
-+ *     an empty ("") header is generated.
-+ */
-+static inline
-+void __d_head(char *head, size_t head_size,
-+	      struct device *dev)
-+{
-+	if (dev == NULL)
-+		head[0] = 0;
-+	else if ((unsigned long)dev < 4096) {
-+		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
-+		WARN_ON(1);
-+	} else
-+		snprintf(head, head_size, "%s %s: ",
-+			 dev_driver_string(dev), dev->bus_id);
-+}
-+
-+
-+/*
-+ * Debug backend: log some message if debugging is enabled
-+ *
-+ * @l: intended debug level
-+ * @tag: tag to prefix the message with
-+ * @dev: 'struct device' associated to this message
-+ * @f: printf-like format and arguments
-+ *
-+ * Note this is optimized out if it doesn't pass the compile-time
-+ * check; however, it is *always* compiled. This is useful to make
-+ * sure the printf-like formats and variables are always checked and
-+ * they don't get bit rot if you have all the debugging disabled.
-+ */
-+#define _d_printf(l, tag, dev, f, a...)					\
-+do {									\
-+	char head[64];							\
-+	if (!d_test(l))							\
-+		break;							\
-+	__d_head(head, sizeof(head), dev);				\
-+	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
-+} while (0 && dev)
-+
-+
-+/*
-+ * CPP sintatic sugar to generate A_B like symbol names when one of
-+ * the arguments is a a preprocessor #define.
-+ */
-+#define __D_PASTE__(varname, modulename) varname##_##modulename
-+#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
-+#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
-+
-+
-+/*
-+ * Store a submodule's runtime debug level and name
-+ */
-+struct d_level {
-+	unsigned level;
-+	const char *name;
++enum {
++	/**
++	 * Version of the interface (unsigned decimal, MMm, max 25.5)
++	 * M - Major: change if removing or modifying an existing call.
++	 * m - minor: change when adding a new call
++	 */
++	WIMAX_GNL_VERSION = 00,
++	/* Generic NetLink attributes */
++	WIMAX_GNL_ATTR_INVALID = 0x00,
++	WIMAX_GNL_ATTR_MAX = 5,
 +};
 +
 +
 +/*
-+ * List of available submodules and their debug levels
++ * Generic NetLink operations
 + *
-+ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
-+ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
-+ * convenience.
-+ *
-+ * This array and the size are defined on some .c file that is part of
-+ * the current module.
++ * Most of these map to an API call; _OP_ stands for operation, _RP_
++ * for reply and _RE_ for report (aka: signal).
 + */
-+#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
-+#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
-+
-+extern struct d_level D_LEVEL[];
-+extern size_t D_LEVEL_SIZE;
-+
-+
-+/*
-+ * Frontend stuff
-+ *
-+ *
-+ * Stuff you need to declare prior to using the actual "debug" actions
-+ * (defined below).
-+ */
-+
-+#ifndef D_MODULENAME
-+#error D_MODULENAME is not defined in your debug-levels.h file
-+/**
-+ * D_MODULE - Name of the current module
-+ *
-+ * #define in your module's debug-levels.h, making sure it is
-+ * unique. This has to be a legal C identifier.
-+ */
-+#define D_MODULENAME undefined_modulename
-+#endif
-+
-+
-+#ifndef D_MASTER
-+#warning D_MASTER not defined, but debug.h included! [see docs]
-+/**
-+ * D_MASTER - Compile time maximum debug level
-+ *
-+ * #define in your debug-levels.h file to the maximum debug level the
-+ * runtime code will be allowed to have. This allows you to provide a
-+ * main knob.
-+ *
-+ * Anything above that level will be optimized out of the compile.
-+ *
-+ * Defaults to zero (no debug code compiled in).
-+ *
-+ * Maximum one definition per module (at the debug-levels.h file).
-+ */
-+#define D_MASTER 0
-+#endif
-+
-+
-+#ifndef D_SUBMODULE
-+#error D_SUBMODULE not defined, but debug.h included! [see docs]
-+/**
-+ * D_SUBMODULE - Name of the current submodule
-+ *
-+ * #define in your submodule .c file before #including debug-levels.h
-+ * to the name of the current submodule as previously declared and
-+ * defined with D_SUBMODULE_DECLARE() (in your module's
-+ * debug-levels.h) and D_SUBMODULE_DEFINE().
-+ *
-+ * This is used to provide runtime-control over the debug levels.
-+ *
-+ * Maximum one per .c file! Can be shared among different .c files
-+ * (meaning they belong to the same submodule categorization).
-+ */
-+#define D_SUBMODULE undefined_module
-+#endif
-+
-+
-+/**
-+ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Declare in the module's debug-levels.h header file as:
-+ *
-+ * enum d_module {
-+ *         D_SUBMODULE_DECLARE(submodule_1),
-+ *         D_SUBMODULE_DECLARE(submodule_2),
-+ *         D_SUBMODULE_DECLARE(submodule_3),
-+ * };
-+ *
-+ * Some corresponding .c file needs to have a matching
-+ * D_SUBMODULE_DEFINE().
-+ */
-+#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
-+
-+
-+/**
-+ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Use once per module (in some .c file) as:
-+ *
-+ * static
-+ * struct d_level d_level_SUBMODULENAME[] = {
-+ *         D_SUBMODULE_DEFINE(submodule_1),
-+ *         D_SUBMODULE_DEFINE(submodule_2),
-+ *         D_SUBMODULE_DEFINE(submodule_3),
-+ * };
-+ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
-+ *
-+ * Matching D_SUBMODULE_DECLARE()s have to be present in a
-+ * debug-levels.h header file.
-+ */
-+#define D_SUBMODULE_DEFINE(_name)		\
-+[__D_SUBMODULE_##_name] = {			\
-+	.level = 0,				\
-+	.name = #_name				\
-+}
-+
-+
-+
-+/* The actual "debug" operations */
-+
-+
-+/**
-+ * d_test - Returns true if debugging should be enabled
-+ *
-+ * @l: intended debug level (unsigned)
-+ *
-+ * If the master debug switch is enabled and the current settings are
-+ * higher or equal to the requested level, then debugging
-+ * output/actions should be enabled.
-+ *
-+ * NOTE:
-+ *
-+ * This needs to be coded so that it can be evaluated in compile
-+ * time; this is why the ugly BUG_ON() is placed in there, so the
-+ * D_MASTER evaluation compiles all out if it is compile-time false.
-+ */
-+#define d_test(l)							\
-+({									\
-+	unsigned __l = l;	/* type enforcer */			\
-+	(D_MASTER) >= __l						\
-+	&& ({								\
-+		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE); \
-+		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
-+	});								\
-+})
-+
-+
-+/**
-+ * d_fnstart - log message at function start if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
-+
-+
-+/**
-+ * d_fnend - log message at function end if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
-+
-+
-+/**
-+ * d_printf - log message if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
-+
-+
-+/**
-+ * d_dump - log buffer hex dump if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_dump(l, dev, ptr, size)			\
-+do {							\
-+	char head[64];					\
-+	if (!d_test(l))					\
-+		break;					\
-+	__d_head(head, sizeof(head), dev);		\
-+	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
-+		       ((void *) ptr), (size), 0);	\
-+} while (0 && dev)
-+
-+
-+
-+
-+/*
-+ * Exporting the runtime debug levels via sysfs
-+ *
-+ * The d_level_{store,show}() manipulators defined below can be used
-+ * to define the following:
-+ *
-+ *     static
-+ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
-+ *                 d_level_show, d_level_store);
-+ *
-+ * Then the 'debug_levels' device attribute variable has to be
-+ * registered with the corresponding 'struct device'.
-+ *
-+ * Note these are attached to a device-specific struct even if they
-+ * are global. So if debugging is increased through the deviceX's
-+ * sysfs controls, the increase will affect all instances of the code,
-+ * not only those of deviceX.
-+ *
-+ * There is no good "global" place to attach them (the module doesn't
-+ * exist when linked into the kernel, for example). For now, it does
-+ * the trick.
-+ */
-+
-+
-+/*
-+ * Shows a list of the module name and current debug level
-+ */
-+static inline
-+ssize_t d_level_show(struct device *dev, struct device_attribute *attr,
-+		     char *buf)
-+{
-+	ssize_t result = 0;
-+	unsigned itr;
-+
-+	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
-+		result += scnprintf(buf + result, PAGE_SIZE - result,
-+				    "%u %s\n",
-+				    D_LEVEL[itr].level, D_LEVEL[itr].name);
-+	return result;
-+}
-+
-+
-+/*
-+ * Takes a (new) log level and module name and sets it
-+ */
-+static inline
-+ssize_t d_level_store(struct device *dev, struct device_attribute *attr,
-+		      const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	unsigned level, itr;
-+	char name[32];
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u %31s\n", &level, name) != 2) {
-+		dev_err(dev, "error: expecting 'LEVEL SUBMODULENAME'; "
-+			"can't parse '%s'\n", buf);
-+		goto error_bad_values;
-+	}
-+	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
-+		if (!strcmp(D_LEVEL[itr].name, name)) {
-+			D_LEVEL[itr].level = level;
-+			return size;
-+		}
-+	dev_err(dev, "error: trying to set debug level for "
-+		"unknown debug submodule '%s'\n", name);
-+	result = -ENXIO;
-+error_bad_values:
-+	return result;
-+}
-+
-+
-+#endif /* #ifndef __debug__h__ */
-diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
-new file mode 100644
-index 0000000..f52d064
---- /dev/null
-+++ b/net/wimax/debug-levels.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Linux WiMAX Stack
-+ * Debug levels control file for the wimax module
-+ *
-+ *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
-+
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME wimax
-+#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
-+
-+#include <linux/wimax/debug.h>
-+
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(id_table),
-+	D_SUBMODULE_DECLARE(op_msg),
-+	D_SUBMODULE_DECLARE(op_open),
-+	D_SUBMODULE_DECLARE(op_reset),
-+	D_SUBMODULE_DECLARE(op_rfkill),
-+	D_SUBMODULE_DECLARE(stack),
++enum {
++	WIMAX_GNL_OP_MSG_FROM_USER,	/* User to kernel message */
++	WIMAX_GNL_OP_MSG_TO_USER,	/* Kernel to user message */
++	WIMAX_GNL_OP_OPEN,	/* Open a handle to a wimax device */
++	WIMAX_GNL_OP_UNUSED,	/* Unused */
++	WIMAX_GNL_OP_RFKILL,	/* Run wimax_rfkill() */
++	WIMAX_GNL_RP_IFINFO,	/* Reply to OPEN: Interface info */
++	WIMAX_GNL_RP_RESULT,	/* Reply: result of operation */
++	WIMAX_GNL_OP_RESET,	/* Run wimax_rfkill() */
++	WIMAX_GNL_RE_STATE_CHANGE,	/* Report: status change */
++	WIMAX_GNL_OP_MAX,
 +};
 +
-+#endif /* #ifndef __debug_levels__h__ */
++
++/* Message from user / to user */
++enum {
++	WIMAX_GNL_MSG_DATA = 1,
++};
++
++
++/*
++ * wimax_rfkill()
++ *
++ * The state of the radio (ON/OFF) is mapped to the rfkill subsystem's
++ * switch state (DISABLED/ENABLED).
++ */
++enum wimax_rf_state {
++	WIMAX_RF_OFF = 0,	/* Radio is off, rfkill on/enabled */
++	WIMAX_RF_ON = 1,	/* Radio is on, rfkill off/disabled */
++	WIMAX_RF_QUERY = 2,
++};
++
++/* Attributes */
++enum {
++	WIMAX_GNL_RFKILL_STATE = 1,
++};
++
++
++/*
++ * wimax_open()
++ *
++ * Attributes for the interface-info reply
++ */
++enum {
++	WIMAX_GNL_IFINFO_MC_GROUPS = 1,
++	WIMAX_GNL_IFINFO_MC_GROUP,
++	WIMAX_GNL_IFINFO_MC_NAME,
++	WIMAX_GNL_IFINFO_MC_ID,
++	WIMAX_GNL_IFINFO_MAX,		/* Used by user space */
++};
++
++
++/*
++ * Attributes for the result-of-operation
++ */
++enum {
++	WIMAX_GNL_RESULT_CODE = 1,
++};
++
++
++/*
++ * Attributes for the Report State Change
++ *
++ * For now we just have the old and new states; new attributes might
++ * be added later on.
++ */
++enum {
++	WIMAX_GNL_STCH_STATE_OLD = 1,
++	WIMAX_GNL_STCH_STATE_NEW,
++};
++
++
++/**
++ * enum wimax_st - The different states of a WiMAX device
++ * @__WIMAX_ST_NULL: The device structure has been allocated and zeroed,
++ *     but still wimax_dev_add() hasn't been called. There is no state.
++ *
++ * @WIMAX_ST_DOWN: The device has been registered with the WiMAX and
++ *     networking stacks, but it is not initialized (normally that is
++ *     done with 'ifconfig DEV up' [or equivalent], which can upload
++ *     firmware and enable communications with the device).
++ *     In this state, the device is powered down and using as less
++ *     power as possible.
++ *     This state is the default after a call to wimax_dev_add(). It
++ *     is ok to have drivers move directly to %WIMAX_ST_UNINITIALIZED
++ *     or %WIMAX_ST_RADIO_OFF in _probe() after the call to
++ *     wimax_dev_add().
++ *     It is recommended that the driver leaves this state when
++ *     calling 'ifconfig DEV up' and enters it back on 'ifconfig DEV
++ *     down'.
++ *
++ * @__WIMAX_ST_QUIESCING: The device is being torn down, so no API
++ *     operations are allowed to proceed except the ones needed to
++ *     complete the device clean up process.
++ *
++ * @WIMAX_ST_UNINITIALIZED: [optional] Communication with the device
++ *     is setup, but the device still requires some configuration
++ *     before being operational.
++ *     Some WiMAX API calls might work.
++ *
++ * @WIMAX_ST_RADIO_OFF: The device is fully up; radio is off (wether
++ *     by hardware or software switches).
++ *     It is recommended to always leave the device in this state
++ *     after initialization.
++ *
++ * @WIMAX_ST_READY: The device is fully up and radio is on.
++ *
++ * @WIMAX_ST_SCANNING: [optional] The device has been instructed to
++ *     scan. In this state, the device cannot be actively connected to
++ *     a network.
++ *
++ * @WIMAX_ST_CONNECTING: The device is connecting to a network. This
++ *     state exists because in some devices, the connect process can
++ *     include a number of negotiations between user space, kernel
++ *     space and the device. User space needs to know what the device
++ *     is doing. If the connect sequence in a device is atomic and
++ *     fast, the device can transition directly to CONNECTED
++ *
++ * @WIMAX_ST_CONNECTED: The device is connected to a network.
++ *
++ * @__WIMAX_ST_INVALID: This is an invalid state used to mark the
++ *     maximum numeric value of states.
++ *
++ * Description:
++ *
++ * Transitions from one state to another one are atomic and can only
++ * be caused in kernel space with wimax_state_change(). To read the
++ * state, use wimax_state_get().
++ *
++ * States starting with __ are internal and shall not be used or
++ * referred to by drivers. They look ugly, but that's the point -- if
++ * any use is made non-internal to the stack, it is easier to catch on
++ * review.
++ *
++ * All API operations [with well defined exceptions] will take the
++ * device mutex before starting and then check the state. If the state
++ * is %__WIMAX_ST_NULL, %WIMAX_ST_DOWN, %WIMAX_ST_UNINITIALIZED or
++ * %__WIMAX_ST_QUIESCING, it will drop the lock and quit with
++ * -%EINVAL, -%ENOMEDIUM, -%ENOTCONN or -%ESHUTDOWN.
++ *
++ * The order of the definitions is important, so we can do numerical
++ * comparisons (eg: < %WIMAX_ST_RADIO_OFF means the device is not ready
++ * to operate).
++ */
++/*
++ * The allowed state transitions are described in the table below
++ * (states in rows can go to states in columns where there is an X):
++ *
++ *                                  UNINI   RADIO READY SCAN CONNEC CONNEC
++ *             NULL DOWN QUIESCING TIALIZED  OFF        NING  TING   TED
++ * NULL         -    x
++ * DOWN              -      x        x       x
++ * QUIESCING         x      -
++ * UNINITIALIZED            x        -       x
++ * RADIO_OFF                x                -     x
++ * READY                    x                x     -     x     x      x
++ * SCANNING                 x                x     x     -     x      x
++ * CONNECTING               x                x     x     x     -      x
++ * CONNECTED                x                x     x                  -
++ *
++ * This table not available in kernel-doc because the formatting messes it up.
++ */
++ enum wimax_st {
++	__WIMAX_ST_NULL = 0,
++	WIMAX_ST_DOWN,
++	__WIMAX_ST_QUIESCING,
++	WIMAX_ST_UNINITIALIZED,
++	WIMAX_ST_RADIO_OFF,
++	WIMAX_ST_READY,
++	WIMAX_ST_SCANNING,
++	WIMAX_ST_CONNECTING,
++	WIMAX_ST_CONNECTED,
++	__WIMAX_ST_INVALID			/* Always keep last */
++};
++
++
++#endif /* #ifndef __LINUX__WIMAX_H__ */
 -- 
 1.5.6.5
 
