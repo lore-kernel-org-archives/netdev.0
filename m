@@ -1,8 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 05/39] wimax: debug macros and debug settings for the WiMAX
-	stack
-Date: Tue, 25 Nov 2008 23:39:01 -0800
-Message-ID: <d08a55edb0fbdce13dce7815a3a29377030ad1c1.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 11/39] wimax: RF-kill framework integration
+Date: Tue, 25 Nov 2008 23:39:07 -0800
+Message-ID: <3cda1cf2d890cdeab19b221051dc02e17b718453.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,31 +18,34 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This file contains a simple debug framework that is used in the stack;
-it allows the debug level to be controlled at compile-time (so the
-debug code is optimized out) and at run-time (for what wasn't compiled
-out).
+Provide most of the RF-Kill integration for WiMAX drivers so that all
+device drivers have to do is after wimax_dev_add() is call
+wimax_report_rfkill_{hw,sw}() to update initial state and then every
+time it changes.
+
+Provides wimax_rfkill() for the kernel to call to set software RF-Kill
+status and/or query current hardware and software switch status.
+
+Exports wimax_rfkill() over generic netlink to user space.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax/debug.h |  495 +++++++++++++++++++++++++++++++++++++++++++
- net/wimax/debug-levels.h    |   42 ++++
- 2 files changed, 537 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax/debug.h
- create mode 100644 net/wimax/debug-levels.h
+ net/wimax/op-rfkill.c |  546 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 546 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/op-rfkill.c
 
-diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
+diff --git a/net/wimax/op-rfkill.c b/net/wimax/op-rfkill.c
 new file mode 100644
-index 0000000..2987c7d
+index 0000000..1b7167f
 --- /dev/null
-+++ b/include/linux/wimax/debug.h
-@@ -0,0 +1,495 @@
++++ b/net/wimax/op-rfkill.c
+@@ -0,0 +1,546 @@
 +/*
 + * Linux WiMAX
-+ * Collection of tools to manage debug operations.
++ * RF-kill framework integration
 + *
 + *
-+ * Copyright (C) 2005-2007 Intel Corporation
++ * Copyright (C) 2008 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
@@ -61,525 +63,528 @@ index 0000000..2987c7d
 + * 02110-1301, USA.
 + *
 + *
-+ * Don't #include this file directly, read on!
++ * This integrates into the Linux Kernel rfkill susbystem so that the
++ * drivers just have to do the bare minimal work, which is providing a
++ * method to set the software RF-Kill switch and to report changes in
++ * the software and hardware switch status.
 + *
++ * A non-polled generic rfkill device is embedded into the WiMAX
++ * subsystem's representation of a device.
 + *
-+ * EXECUTING DEBUGGING ACTIONS OR NOT
++ * FIXME: Need polled support? use a timer or add the implementation
++ *     to the stack.
 + *
-+ * The main thing this framework provides is decission power to take a
-+ * debug action (like printing a message) if the current debug level
-+ * allows it.
++ * All device drivers have to do is after wimax_dev_init(), call
++ * wimax_report_rfkill_hw() and wimax_report_rfkill_sw() to update
++ * initial state and then every time it changes. See wimax.h:struct
++ * wimax_dev for more information.
 + *
-+ * The decission power is at two levels: at compile-time (what does
-+ * not make it is compiled out) and at run-time. The run-time
-+ * selection is done per-submodule (as they are declared by the user
-+ * of the framework).
++ * ROADMAP
 + *
-+ * A call to d_test(L) (L being the target debug level) returns true
-+ * if the action should be taken because the current debug levels
-+ * allow it (both compile and run time).
++ * wimax_gnl_doit_rfkill()      User space calling wimax_rfkill()
++ *   wimax_rfkill()             Kernel calling wimax_rfkill()
++ *     __wimax_rf_toggle_radio()
 + *
-+ * It follows that a call to d_test() that can be determined to be
-+ * always false at compile time will get the code depending on it
-+ * compiled out by optimization.
++ * wimax_rfkill_toggle_radio()  RF-Kill subsytem calling
++ *   __wimax_rf_toggle_radio()
 + *
++ * __wimax_rf_toggle_radio()
++ *   wimax_dev->op_rfkill_sw_toggle() Driver backend
++ *   __wimax_state_change()
 + *
-+ * DEBUG LEVELS
++ * wimax_report_rfkill_sw()     Driver reports state change
++ *   __wimax_state_change()
 + *
-+ * It is up to the caller to define how much a debugging level is.
++ * wimax_report_rfkill_hw()     Driver reports state change
++ *   __wimax_state_change()
 + *
-+ * Convention sets 0 as "no debug" (so an action marked as debug level 0
-+ * will always be taken). The increasing debug levels are used for
-+ * increased verbosity.
-+ *
-+ *
-+ * USAGE
-+ *
-+ * Group the code in modules and submodules inside each module [which
-+ * in most cases maps to Linux modules and .c files that compose
-+ * those].
-+ *
-+ *
-+ * For each module, there is:
-+ *
-+ *  - a MODULENAME (single word, legal C identifier)
-+ *
-+ *  - a debug-levels.h header file that declares the list of
-+ *    submodules and that is included by all .c files that use
-+ *    the debugging tools. The file name can be anything.
-+ *
-+ *  - some (optional) .c code to manipulate the runtime debug levels
-+ *    (through sysfs). This has to be attached to some sysfs point.
-+ *
-+ * The debug-levels.h file would look like:
-+ *
-+ *     #ifndef __debug_levels__h__
-+ *     #define __debug_levels__h__
-+ *
-+ *     #define D_MODULENAME modulename
-+ *     #define D_MASTER 10
-+ *
-+ *     #include <linux/wimax/debug.h>
-+ *
-+ *     enum d_module {
-+ *             D_SUBMODULE_DECLARE(submodule_1),
-+ *             D_SUBMODULE_DECLARE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DECLARE(submodule_N)
-+ *     };
-+ *
-+ *     #endif
-+ *
-+ * D_MASTER is the maximum compile-time debug level; any debug actions
-+ * above this will be out. D_MODULENAME is the module name (legal C
-+ * identifier), which has to be unique for each module (to avoid
-+ * namespace collisions during linkage). Note those #defines need to
-+ * be done before #including debug.h
-+ *
-+ * We declare N different submodules whose debug level can be
-+ * independently controlled during runtime.
-+ *
-+ * In a .c file of the module (and only in one of them), define the
-+ * following code:
-+ *
-+ *     struct d_level D_LEVEL[] = {
-+ *             D_SUBMODULE_DEFINE(submodule_1),
-+ *             D_SUBMODULE_DEFINE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DEFINE(submodule_N),
-+ *     };
-+ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+ *
-+ *     static
-+ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
-+ *                 d_level_show, d_level_store);
-+ *
-+ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
-+ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
-+ * #defined also in this file.
-+ *
-+ * Of course, the levels can be manipulated using other mechanisms;
-+ * d_level_show() and d_level_store() are provided for
-+ * convenience. However, it should be remembered that even if this
-+ * will show attached to some particular instance of a device, the
-+ * settings are *global*.
-+ *
-+ *
-+ * On each submodule (for example, .c files), the debug infrastructure
-+ * should be included like this:
-+ *
-+ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
-+ *     #include "debug-levels.h"
-+ *
-+ * after #including all your include files.
-+ *
-+ *
-+ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
-+ * d_fnend(), d_printf(), d_dump()].
-+ *
-+ * If their debug level is greater than D_MASTER, they will be
-+ * compiled out.
-+ *
-+ * If their debug level is lower or equal than D_MASTER but greater
-+ * than the current debug level of their submodule, they'll be
-+ * ignored.
-+ *
-+ * Otherwise, the action will be performed.
++ * wimax_rfkill_add()           Initialize/shutdown rfkill support
++ * wimax_rfkill_rm()            [called by wimax_dev_add/rm()]
 + */
-+#ifndef __debug__h__
-+#define __debug__h__
 +
-+#include <linux/types.h>
-+#include <linux/device.h>
++#include <net/wimax.h>
++#include <net/genetlink.h>
++#include <linux/wimax.h>
++#include <linux/security.h>
++#include <linux/rfkill.h>
++#include <linux/input.h>
++#include "wimax-internal.h"
++
++#define D_SUBMODULE op_rfkill
++#include "debug-levels.h"
++
++#ifdef CONFIG_RFKILL
 +
 +
-+/* Backend stuff */
-+
-+/*
-+ * Debug backend: generate a message header from a 'struct device'
++/**
++ * wimax_report_rfkill_hw - Reports changes in the hardware RF switch
 + *
-+ * @head: buffer where to place the header
-+ * @head_size: length of @head
-+ * @dev: pointer to device used to generate a header from. If NULL,
-+ *     an empty ("") header is generated.
++ * @wimax_dev: WiMAX device descriptor
++ *
++ * @state: New state of the RF Kill switch. %WIMAX_RF_ON radio on,
++ *     %WIMAX_RF_OFF radio off.
++ *
++ * When the device detects a change in the state of thehardware RF
++ * switch, it must call this function to let the WiMAX kernel stack
++ * know that the state has changed so it can be properly propagated.
++ *
++ * The WiMAX stack caches the state (the driver doesn't need to). As
++ * well, as the change is propagated it will come back as a request to
++ * change the software state to mirror the hardware state.
++ *
++ * If the device doesn't have a hardware kill switch, just report
++ * it on initialization as always on (%WIMAX_RF_ON, radio on).
 + */
-+static inline
-+void __d_head(char *head, size_t head_size,
-+	      struct device *dev)
++void wimax_report_rfkill_hw(struct wimax_dev *wimax_dev,
++			    enum wimax_rf_state state)
 +{
-+	if (dev == NULL)
-+		head[0] = 0;
-+	else if ((unsigned long)dev < 4096) {
-+		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
-+		WARN_ON(1);
-+	} else
-+		snprintf(head, head_size, "%s %s: ",
-+			 dev_driver_string(dev), dev->bus_id);
++	int result;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	enum wimax_st wimax_state;
++	enum rfkill_state rfkill_state;
++
++	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
++	BUG_ON(state == WIMAX_RF_QUERY);
++	BUG_ON(state != WIMAX_RF_ON && state != WIMAX_RF_OFF);
++
++	mutex_lock(&wimax_dev->mutex);
++	result = wimax_dev_is_ready(wimax_dev);
++	if (result < 0)
++		goto error_not_ready;
++
++	if (state != wimax_dev->rf_hw) {
++		wimax_dev->rf_hw = state;
++		rfkill_state = state == WIMAX_RF_ON ?
++			RFKILL_STATE_OFF : RFKILL_STATE_ON;
++		if (wimax_dev->rf_hw == WIMAX_RF_ON
++		    && wimax_dev->rf_sw == WIMAX_RF_ON)
++			wimax_state = WIMAX_ST_READY;
++		else
++			wimax_state = WIMAX_ST_RADIO_OFF;
++		__wimax_state_change(wimax_dev, wimax_state);
++		input_report_key(wimax_dev->rfkill_input, KEY_WIMAX,
++				 rfkill_state);
++	}
++error_not_ready:
++	mutex_unlock(&wimax_dev->mutex);
++	d_fnend(3, dev, "(wimax_dev %p state %u) = void [%d]\n",
++		wimax_dev, state, result);
++}
++EXPORT_SYMBOL_GPL(wimax_report_rfkill_hw);
++
++
++/**
++ * wimax_report_rfkill_sw - Reports changes in the software RF switch
++ *
++ * @wimax_dev: WiMAX device descriptor
++ *
++ * @state: New state of the RF kill switch. %WIMAX_RF_ON radio on,
++ *     %WIMAX_RF_OFF radio off.
++ *
++ * Reports changes in the software RF switch state to the the WiMAX
++ * stack.
++ *
++ * The main use is during initialization, so the driver can query the
++ * device for its current software radio kill switch state and feed it
++ * to the system.
++ *
++ * On the side, the device does not change the software state by
++ * itself. In practice, this can happen, as the device might decide to
++ * switch (in software) the radio off for different reasons.
++ */
++void wimax_report_rfkill_sw(struct wimax_dev *wimax_dev,
++			    enum wimax_rf_state state)
++{
++	int result;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	enum wimax_st wimax_state;
++
++	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
++	BUG_ON(state == WIMAX_RF_QUERY);
++	BUG_ON(state != WIMAX_RF_ON && state != WIMAX_RF_OFF);
++
++	mutex_lock(&wimax_dev->mutex);
++	result = wimax_dev_is_ready(wimax_dev);
++	if (result < 0)
++		goto error_not_ready;
++
++	if (state != wimax_dev->rf_sw) {
++		wimax_dev->rf_sw = state;
++		if (wimax_dev->rf_hw == WIMAX_RF_ON
++		    && wimax_dev->rf_sw == WIMAX_RF_ON)
++			wimax_state = WIMAX_ST_READY;
++		else
++			wimax_state = WIMAX_ST_RADIO_OFF;
++		__wimax_state_change(wimax_dev, wimax_state);
++	}
++error_not_ready:
++	mutex_unlock(&wimax_dev->mutex);
++	d_fnend(3, dev, "(wimax_dev %p state %u) = void [%d]\n",
++		wimax_dev, state, result);
++}
++EXPORT_SYMBOL_GPL(wimax_report_rfkill_sw);
++
++
++/*
++ * Callback for the RF Kill toggle operation
++ *
++ * This function is called by:
++ *
++ * - The rfkill subsystem when the RF-Kill key is pressed in the
++ *   hardware and the driver notifies through
++ *   wimax_report_rfkill_hw(). The rfkill subsystem ends up calling back
++ *   here so the software RF Kill switch state is changed to reflect
++ *   the hardware switch state.
++ *
++ * - When the user sets the state through sysfs' rfkill/state file
++ *
++ * - When the user calls wimax_rfkill().
++ *
++ * This call blocks!
++ *
++ * WARNING! When we call rfkill_unregister(), this will be called with
++ * state 0!
++ *
++ * WARNING: wimax_dev must be locked
++ */
++static
++int __wimax_rf_toggle_radio(struct wimax_dev *wimax_dev,
++			    enum wimax_rf_state state)
++{
++	int result = 0;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	enum wimax_st wimax_state;
++
++	might_sleep();
++	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
++	if (wimax_dev->rf_sw == state)
++		goto out_no_change;
++	if (wimax_dev->op_rfkill_sw_toggle != NULL)
++		result = wimax_dev->op_rfkill_sw_toggle(wimax_dev, state);
++	else if (state == WIMAX_RF_OFF)	/* No op? can't turn off */
++		result = -ENXIO;
++	else				/* No op? can turn on */
++		result = 0;		/* should never happen tho */
++	if (result >= 0) {
++		result = 0;
++		wimax_dev->rf_sw = state;
++		wimax_state = state == WIMAX_RF_ON ?
++			WIMAX_ST_READY : WIMAX_ST_RADIO_OFF;
++		__wimax_state_change(wimax_dev, wimax_state);
++	}
++out_no_change:
++	d_fnend(3, dev, "(wimax_dev %p state %u) = %d\n",
++		wimax_dev, state, result);
++	return result;
 +}
 +
 +
 +/*
-+ * Debug backend: log some message if debugging is enabled
++ * Translate from rfkill state to wimax state
 + *
-+ * @l: intended debug level
-+ * @tag: tag to prefix the message with
-+ * @dev: 'struct device' associated to this message
-+ * @f: printf-like format and arguments
++ * NOTE: Special state handling rules here
 + *
-+ * Note this is optimized out if it doesn't pass the compile-time
-+ * check; however, it is *always* compiled. This is useful to make
-+ * sure the printf-like formats and variables are always checked and
-+ * they don't get bit rot if you have all the debugging disabled.
++ *     Just pretend the call didn't happen if we are in a state where
++ *     we know for sure it cannot be handled (WIMAX_ST_DOWN or
++ *     __WIMAX_ST_QUIESCING). rfkill() needs it to register and
++ *     unregister, as it will run this path.
++ *
++ * NOTE: This call will block until the operation is completed.
 + */
-+#define _d_printf(l, tag, dev, f, a...)					\
-+do {									\
-+	char head[64];							\
-+	if (!d_test(l))							\
-+		break;							\
-+	__d_head(head, sizeof(head), dev);				\
-+	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
-+} while (0 && dev)
++static
++int wimax_rfkill_toggle_radio(void *data, enum rfkill_state state)
++{
++	int result;
++	struct wimax_dev *wimax_dev = data;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	enum wimax_rf_state rf_state;
 +
-+
-+/*
-+ * CPP sintatic sugar to generate A_B like symbol names when one of
-+ * the arguments is a a preprocessor #define.
-+ */
-+#define __D_PASTE__(varname, modulename) varname##_##modulename
-+#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
-+#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
-+
-+
-+/*
-+ * Store a submodule's runtime debug level and name
-+ */
-+struct d_level {
-+	unsigned level;
-+	const char *name;
-+};
-+
-+
-+/*
-+ * List of available submodules and their debug levels
-+ *
-+ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
-+ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
-+ * convenience.
-+ *
-+ * This array and the size are defined on some .c file that is part of
-+ * the current module.
-+ */
-+#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
-+#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
-+
-+extern struct d_level D_LEVEL[];
-+extern size_t D_LEVEL_SIZE;
-+
-+
-+/*
-+ * Frontend stuff
-+ *
-+ *
-+ * Stuff you need to declare prior to using the actual "debug" actions
-+ * (defined below).
-+ */
-+
-+#ifndef D_MODULENAME
-+#error D_MODULENAME is not defined in your debug-levels.h file
-+/**
-+ * D_MODULE - Name of the current module
-+ *
-+ * #define in your module's debug-levels.h, making sure it is
-+ * unique. This has to be a legal C identifier.
-+ */
-+#define D_MODULENAME undefined_modulename
-+#endif
-+
-+
-+#ifndef D_MASTER
-+#warning D_MASTER not defined, but debug.h included! [see docs]
-+/**
-+ * D_MASTER - Compile time maximum debug level
-+ *
-+ * #define in your debug-levels.h file to the maximum debug level the
-+ * runtime code will be allowed to have. This allows you to provide a
-+ * main knob.
-+ *
-+ * Anything above that level will be optimized out of the compile.
-+ *
-+ * Defaults to zero (no debug code compiled in).
-+ *
-+ * Maximum one definition per module (at the debug-levels.h file).
-+ */
-+#define D_MASTER 0
-+#endif
-+
-+
-+#ifndef D_SUBMODULE
-+#error D_SUBMODULE not defined, but debug.h included! [see docs]
-+/**
-+ * D_SUBMODULE - Name of the current submodule
-+ *
-+ * #define in your submodule .c file before #including debug-levels.h
-+ * to the name of the current submodule as previously declared and
-+ * defined with D_SUBMODULE_DECLARE() (in your module's
-+ * debug-levels.h) and D_SUBMODULE_DEFINE().
-+ *
-+ * This is used to provide runtime-control over the debug levels.
-+ *
-+ * Maximum one per .c file! Can be shared among different .c files
-+ * (meaning they belong to the same submodule categorization).
-+ */
-+#define D_SUBMODULE undefined_module
-+#endif
-+
-+
-+/**
-+ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Declare in the module's debug-levels.h header file as:
-+ *
-+ * enum d_module {
-+ *         D_SUBMODULE_DECLARE(submodule_1),
-+ *         D_SUBMODULE_DECLARE(submodule_2),
-+ *         D_SUBMODULE_DECLARE(submodule_3),
-+ * };
-+ *
-+ * Some corresponding .c file needs to have a matching
-+ * D_SUBMODULE_DEFINE().
-+ */
-+#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
-+
-+
-+/**
-+ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Use once per module (in some .c file) as:
-+ *
-+ * static
-+ * struct d_level d_level_SUBMODULENAME[] = {
-+ *         D_SUBMODULE_DEFINE(submodule_1),
-+ *         D_SUBMODULE_DEFINE(submodule_2),
-+ *         D_SUBMODULE_DEFINE(submodule_3),
-+ * };
-+ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
-+ *
-+ * Matching D_SUBMODULE_DECLARE()s have to be present in a
-+ * debug-levels.h header file.
-+ */
-+#define D_SUBMODULE_DEFINE(_name)		\
-+[__D_SUBMODULE_##_name] = {			\
-+	.level = 0,				\
-+	.name = #_name				\
++	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
++	switch (state) {
++	case RFKILL_STATE_ON:
++		rf_state = WIMAX_RF_OFF;
++		break;
++	case RFKILL_STATE_OFF:
++		rf_state = WIMAX_RF_ON;
++		break;
++	default:
++		BUG();
++	}
++	mutex_lock(&wimax_dev->mutex);
++	if (wimax_dev->state <= __WIMAX_ST_QUIESCING)
++		result = 0;	/* just pretend it didn't happen */
++	else
++		result = __wimax_rf_toggle_radio(wimax_dev, rf_state);
++	mutex_unlock(&wimax_dev->mutex);
++	d_fnend(3, dev, "(wimax_dev %p state %u) = %d\n",
++		wimax_dev, state, result);
++	return result;
 +}
 +
 +
-+
-+/* The actual "debug" operations */
-+
-+
 +/**
-+ * d_test - Returns true if debugging should be enabled
++ * wimax_rfkill - Set the software RF switch state for a WiMAX device
 + *
-+ * @l: intended debug level (unsigned)
++ * @wimax_dev: WiMAX device descriptor
 + *
-+ * If the master debug switch is enabled and the current settings are
-+ * higher or equal to the requested level, then debugging
-+ * output/actions should be enabled.
++ * @state: New RF state.
++ *
++ * Returns:
++ *
++ * >= 0 toggle state if ok, < 0 errno code on error. The toggle state
++ * is returned as a bitmap, bit 0 being the hardware RF state, bit 1
++ * the software RF state.
++ *
++ * 0 means disabled (%WIMAX_RF_ON, radio on), 1 means enabled radio
++ * off (%WIMAX_RF_OFF).
++ *
++ * Description:
++ *
++ * Called by the user when he wants to request the WiMAX radio to be
++ * switched on (%WIMAX_RF_ON) or off (%WIMAX_RF_OFF). With
++ * %WIMAX_RF_QUERY, just the current state is returned.
 + *
 + * NOTE:
 + *
-+ * This needs to be coded so that it can be evaluated in compile
-+ * time; this is why the ugly BUG_ON() is placed in there, so the
-+ * D_MASTER evaluation compiles all out if it is compile-time false.
++ * This call will block until the operation is complete.
 + */
-+#define d_test(l)							\
-+({									\
-+	unsigned __l = l;	/* type enforcer */			\
-+	(D_MASTER) >= __l						\
-+	&& ({								\
-+		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE); \
-+		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
-+	});								\
-+})
-+
-+
-+/**
-+ * d_fnstart - log message at function start if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
-+
-+
-+/**
-+ * d_fnend - log message at function end if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
-+
-+
-+/**
-+ * d_printf - log message if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
-+
-+
-+/**
-+ * d_dump - log buffer hex dump if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_dump(l, dev, ptr, size)			\
-+do {							\
-+	char head[64];					\
-+	if (!d_test(l))					\
-+		break;					\
-+	__d_head(head, sizeof(head), dev);		\
-+	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
-+		       ((void *) ptr), (size), 0);	\
-+} while (0 && dev)
-+
-+
-+
-+
-+/*
-+ * Exporting the runtime debug levels via sysfs
-+ *
-+ * The d_level_{store,show}() manipulators defined below can be used
-+ * to define the following:
-+ *
-+ *     static
-+ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
-+ *                 d_level_show, d_level_store);
-+ *
-+ * Then the 'debug_levels' device attribute variable has to be
-+ * registered with the corresponding 'struct device'.
-+ *
-+ * Note these are attached to a device-specific struct even if they
-+ * are global. So if debugging is increased through the deviceX's
-+ * sysfs controls, the increase will affect all instances of the code,
-+ * not only those of deviceX.
-+ *
-+ * There is no good "global" place to attach them (the module doesn't
-+ * exist when linked into the kernel, for example). For now, it does
-+ * the trick.
-+ */
-+
-+
-+/*
-+ * Shows a list of the module name and current debug level
-+ */
-+static inline
-+ssize_t d_level_show(struct device *dev, struct device_attribute *attr,
-+		     char *buf)
++int wimax_rfkill(struct wimax_dev *wimax_dev, enum wimax_rf_state state)
 +{
-+	ssize_t result = 0;
-+	unsigned itr;
++	int result;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
 +
-+	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
-+		result += scnprintf(buf + result, PAGE_SIZE - result,
-+				    "%u %s\n",
-+				    D_LEVEL[itr].level, D_LEVEL[itr].name);
-+	return result;
-+}
-+
-+
-+/*
-+ * Takes a (new) log level and module name and sets it
-+ */
-+static inline
-+ssize_t d_level_store(struct device *dev, struct device_attribute *attr,
-+		      const char *buf, size_t size)
-+{
-+	ssize_t result;
-+	unsigned level, itr;
-+	char name[32];
-+
-+	result = -EINVAL;
-+	if (sscanf(buf, "%u %31s\n", &level, name) != 2) {
-+		dev_err(dev, "error: expecting 'LEVEL SUBMODULENAME'; "
-+			"can't parse '%s'\n", buf);
-+		goto error_bad_values;
++	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
++	mutex_lock(&wimax_dev->mutex);
++	result = wimax_dev_is_ready(wimax_dev);
++	if (result < 0)
++		goto error_not_ready;
++	switch (state) {
++	case WIMAX_RF_ON:
++	case WIMAX_RF_OFF:
++		result = __wimax_rf_toggle_radio(wimax_dev, state);
++		if (result < 0)
++			goto error;
++		break;
++	case WIMAX_RF_QUERY:
++		break;
++	default:
++		result = -EINVAL;
++		goto error;
 +	}
-+	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
-+		if (!strcmp(D_LEVEL[itr].name, name)) {
-+			D_LEVEL[itr].level = level;
-+			return size;
-+		}
-+	dev_err(dev, "error: trying to set debug level for "
-+		"unknown debug submodule '%s'\n", name);
-+	result = -ENXIO;
-+error_bad_values:
++	result = wimax_dev->rf_sw << 1 | wimax_dev->rf_hw;
++error:
++error_not_ready:
++	mutex_unlock(&wimax_dev->mutex);
++	d_fnend(3, dev, "(wimax_dev %p state %u) = %d\n",
++		wimax_dev, state, result);
++	return result;
++}
++EXPORT_SYMBOL(wimax_rfkill);
++
++
++/*
++ * Register a new WiMAX device's RF Kill support
++ *
++ * WARNING: wimax_dev->mutex must be unlocked
++ */
++int wimax_rfkill_add(struct wimax_dev *wimax_dev)
++{
++	int result;
++	struct rfkill *rfkill;
++	struct input_dev *input_dev;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++
++	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
++	/* Initialize RF Kill */
++	result = -ENOMEM;
++	rfkill = rfkill_allocate(dev, RFKILL_TYPE_WIMAX);
++	if (rfkill == NULL)
++		goto error_rfkill_allocate;
++	wimax_dev->rfkill = rfkill;
++
++	rfkill->name = wimax_dev->name;
++	rfkill->state = RFKILL_STATE_OFF;
++	rfkill->data = wimax_dev;
++	rfkill->toggle_radio = wimax_rfkill_toggle_radio;
++	rfkill->user_claim_unsupported = 1;
++
++	/* Initialize the input device for the hw key */
++	input_dev = input_allocate_device();
++	if (input_dev == NULL)
++		goto error_input_allocate;
++	wimax_dev->rfkill_input = input_dev;
++	d_printf(1, dev, "rfkill %p input %p\n", rfkill, input_dev);
++
++	input_dev->name = wimax_dev->name;
++	/* FIXME: get a real device bus ID and stuff? do we care? */
++	input_dev->id.bustype = BUS_HOST;
++	input_dev->id.vendor = 0xffff;
++	input_dev->evbit[0] = BIT(EV_KEY);
++	set_bit(KEY_WIMAX, input_dev->keybit);
++
++	/* Register both */
++	result = input_register_device(wimax_dev->rfkill_input);
++	if (result < 0)
++		goto error_input_register;
++	result = rfkill_register(wimax_dev->rfkill);
++	if (result < 0)
++		goto error_rfkill_register;
++
++	/* If there is no SW toggle op, SW RFKill is always on */
++	if (wimax_dev->op_rfkill_sw_toggle == NULL)
++		wimax_dev->rf_sw = WIMAX_RF_ON;
++
++	d_fnend(3, dev, "(wimax_dev %p) = 0\n", wimax_dev);
++	return 0;
++
++	/* if rfkill_register() suceeds, can't use rfkill_free() any
++	 * more, only rfkill_unregister() [it owns the refcount]; with
++	 * the input device we have the same issue--hence the if. */
++error_rfkill_register:
++	input_unregister_device(wimax_dev->rfkill_input);
++	wimax_dev->rfkill_input = NULL;
++error_input_register:
++	if (wimax_dev->rfkill_input)
++		input_free_device(wimax_dev->rfkill_input);
++error_input_allocate:
++	rfkill_free(wimax_dev->rfkill);
++error_rfkill_allocate:
++	d_fnend(3, dev, "(wimax_dev %p) = %d\n", wimax_dev, result);
 +	return result;
 +}
 +
 +
-+#endif /* #ifndef __debug__h__ */
-diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
-new file mode 100644
-index 0000000..f52d064
---- /dev/null
-+++ b/net/wimax/debug-levels.h
-@@ -0,0 +1,42 @@
 +/*
-+ * Linux WiMAX Stack
-+ * Debug levels control file for the wimax module
++ * Deregister a WiMAX device's RF Kill support
 + *
++ * Ick, we can't call rfkill_free() after rfkill_unregister()...oh
++ * well.
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ * WARNING: wimax_dev->mutex must be unlocked
 + */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
++void wimax_rfkill_rm(struct wimax_dev *wimax_dev)
++{
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
++	rfkill_unregister(wimax_dev->rfkill);	/* frees */
++	input_unregister_device(wimax_dev->rfkill_input);
++	d_fnend(3, dev, "(wimax_dev %p)\n", wimax_dev);
++}
 +
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME wimax
-+#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
 +
-+#include <linux/wimax/debug.h>
++#else /* #ifdef CONFIG_RFKILL */
 +
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(id_table),
-+	D_SUBMODULE_DECLARE(op_msg),
-+	D_SUBMODULE_DECLARE(op_open),
-+	D_SUBMODULE_DECLARE(op_reset),
-+	D_SUBMODULE_DECLARE(op_rfkill),
-+	D_SUBMODULE_DECLARE(stack),
++void wimax_report_rfkill_hw(struct wimax_dev *wimax_dev,
++			    enum wimax_rf_state state)
++{
++}
++EXPORT_SYMBOL_GPL(wimax_report_rfkill_hw);
++
++void wimax_report_rfkill_sw(struct wimax_dev *wimax_dev,
++			    enum wimax_rf_state state)
++{
++}
++EXPORT_SYMBOL_GPL(wimax_report_rfkill_sw);
++
++int wimax_rfkill(struct wimax_dev *wimax_dev,
++		 enum wimax_rf_state state)
++{
++	return WIMAX_RF_ON << 1 | WIMAX_RF_ON;
++}
++EXPORT_SYMBOL_GPL(wimax_rfkill);
++
++int wimax_rfkill_add(struct wimax_dev *wimax_dev)
++{
++	return 0;
++}
++
++void wimax_rfkill_rm(struct wimax_dev *wimax_dev)
++{
++}
++
++#endif /* #ifdef CONFIG_RFKILL */
++
++
++/*
++ * Exporting to user space over generic netlink
++ *
++ * Parse the rfkill command from user space, return a combination
++ * value that describe the states of the different toggles.
++ *
++ * Only one attribute: the new state requested (on, off or no change,
++ * just query).
++ */
++
++static struct nla_policy wimax_gnl_rfkill_policy[WIMAX_GNL_ATTR_MAX + 1] = {
++	[WIMAX_GNL_RFKILL_STATE] = {
++		.type = NLA_U32		/* enum wimax_rf_state */
++	},
 +};
 +
-+#endif /* #ifndef __debug_levels__h__ */
++
++static
++int wimax_gnl_doit_rfkill(struct sk_buff *skb, struct genl_info *info)
++{
++	int result, result2;
++	struct wimax_dev *wimax_dev;
++	struct device *dev;
++	struct nlmsghdr *nlh;
++	struct nlattr *tb[WIMAX_GNL_ATTR_MAX+1];
++	enum wimax_rf_state new_state;
++
++	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
++	result = -EPERM;
++	if (security_netlink_recv(skb, CAP_NET_ADMIN))
++		goto error_perm;
++	result = -ENODEV;
++	wimax_dev = wimax_dev_get_by_genl_info(info);
++	if (wimax_dev == NULL)
++		goto error_no_wimax_dev;
++	dev = wimax_dev_to_dev(wimax_dev);
++
++	nlh = (void *) skb->data;
++
++	/* Parse the message to extract arguments */
++	result = nlmsg_parse(nlh, sizeof(struct genlmsghdr),
++			     tb, ARRAY_SIZE(tb),
++			     wimax_gnl_rfkill_policy);
++	if (result < 0) {
++		dev_err(dev, "WIMAX_GNL_RFKILL: can't parse message: %d\n",
++			result);
++		goto error_parse;
++	}
++	result = -EINVAL;
++	if (tb[WIMAX_GNL_RFKILL_STATE] == NULL) {
++		dev_err(dev, "WIMAX_GNL_RFKILL: can't find RFKILL_STATE "
++			"attribute\n");
++		goto error_no_pid;
++	}
++	new_state = nla_get_u32(tb[WIMAX_GNL_RFKILL_STATE]);
++
++	/* Execute the operation and send the result back to user space */
++	result = wimax_rfkill(wimax_dev, new_state);
++	result2 = wimax_gnl_send_rp_result(wimax_dev, info, result);
++	if (result2 < 0)
++		dev_err(dev, "WIMAX_GNL_RFKILL: can't send result %d to "
++			"userspace: %d\n", result, result2);
++	result = 0;
++error_no_pid:
++error_parse:
++	dev_put(wimax_dev->net_dev);
++error_no_wimax_dev:
++error_perm:
++	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
++	return result;
++}
++
++
++struct genl_ops wimax_gnl_rfkill = {
++	.cmd = WIMAX_GNL_OP_RFKILL,
++	.flags = 0,
++	.policy = wimax_gnl_rfkill_policy,
++	.doit = wimax_gnl_doit_rfkill,
++	.dumpit = NULL,
++};
++
 -- 
 1.5.6.5
