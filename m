@@ -1,56 +1,39 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH 03/53] netns xfrm: add struct xfrm_state::xs_net
-Date: Wed, 26 Nov 2008 07:25:02 +0300
-Message-ID: <20081126042502.GA2549@x200.localdomain>
-References: <1227634045-27534-1-git-send-email-adobriyan@gmail.com> <1227634045-27534-2-git-send-email-adobriyan@gmail.com> <1227634045-27534-3-git-send-email-adobriyan@gmail.com> <20081125.171536.03980167.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: hp-plus uses eip_poll
+Date: Tue, 25 Nov 2008 21:05:24 -0800 (PST)
+Message-ID: <20081125.210524.248687025.davem@davemloft.net>
+References: <20081125195400.dbb46066.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:32356 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494AbYKZEVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 23:21:08 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so126169eyi.37
-        for <netdev@vger.kernel.org>; Tue, 25 Nov 2008 20:21:05 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081125.171536.03980167.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36181
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750718AbYKZFFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 00:05:24 -0500
+In-Reply-To: <20081125195400.dbb46066.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 25, 2008 at 05:15:36PM -0800, David Miller wrote:
-> From: Alexey Dobriyan <adobriyan@gmail.com>
-> Date: Tue, 25 Nov 2008 20:26:35 +0300
-> 
-> > To avoid unnecessary complications with passing netns around.
-> > 
-> > * set once, very early after allocating
-> > * once set, never changes
-> > 
-> > For a while create every xfrm_state in init_net.
-> > 
-> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> 
-> Applied.
-> 
-> > @@ -223,6 +226,11 @@ struct xfrm_state
-> >  	void			*data;
-> >  };
-> >  
-> > +static inline struct net *xs_net(struct xfrm_state *x)
-> > +{
-> > +	return read_pnet(&x->xs_net);
-> > +}
-> > +
-> >  /* xflags - make enum if more show up */
-> 
-> Look mom, no ifdefs!  Amazing!
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Tue, 25 Nov 2008 19:54:00 -0800
 
-There're gone and won't return, honey.
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> hp-plus uses 8390p.c, so it should use eip_poll(), not ei_poll().
+> 
+> drivers/built-in.o: In function `hpp_probe1':
+> hp-plus.c:(.init.text+0x9cbd): undefined reference to `ei_poll'
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-In fact, I don't like pnet only a little now and thinking about:
+I'll apply this to net-2.6
 
-	net = read_net(foo->foo_net);
-	write_net(foo->foo_net, net);
+But can you take a look at what I just pushed out to
+net-next-2.6 wrt. this driver and give me a hand untangling
+things there?
+
+Thanks a lot Randy!
+
