@@ -1,47 +1,42 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH net] Phonet: fix oops in phonet_address_del() on non-Phonet device
-Date: Wed, 26 Nov 2008 14:41:59 +0200
-Message-ID: <1227703319-26719-1-git-send-email-remi.denis-courmont@nokia.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Host<->guest channel interface advice needed
+Date: Wed, 26 Nov 2008 14:02:57 +0100
+Message-ID: <200811261402.58033.arnd@arndb.de>
+References: <20081126123919.GC3521@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:21406 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751960AbYKZMmP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 07:42:15 -0500
-Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
-	by mgw-mx09.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id mAQCfdDl027322
-	for <netdev@vger.kernel.org>; Wed, 26 Nov 2008 06:42:13 -0600
-In-Reply-To: <>
-References: <>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gleb Natapov <gleb@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754142AbYKZNEq@vger.kernel.org>
+In-Reply-To: <20081126123919.GC3521@redhat.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A NULL dereference would occur when trying to delete an addres from a
-network device that does not have any Phonet address.
+On Wednesday 26 November 2008, Gleb Natapov wrote:
+> The interfaces that are being considered are netlink socket (only dat=
+agram
+> semantics, linux specific), new socket family or character device wit=
+h
+> different minor number for each channel. Which one better suits for
+> the purpose? =A0Is there other kind of interface to consider? New soc=
+ket
+> family looks like a good choice, but it would be nice to hear other
+> opinions before starting to work on it.
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- net/phonet/pn_dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I think a socket and a pty both look reasonable here, but one important
+aspect IMHO is that you only need a new kernel driver for the guest, if
+you just use the regular pty support or Unix domain sockets in the host=
+=2E
 
-diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
-index 53be9fc..f93ff8e 100644
---- a/net/phonet/pn_dev.c
-+++ b/net/phonet/pn_dev.c
-@@ -115,7 +115,7 @@ int phonet_address_del(struct net_device *dev, u8 a=
-ddr)
- 	pnd =3D __phonet_get(dev);
- 	if (!pnd || !test_and_clear_bit(addr >> 2, pnd->addrs))
- 		err =3D -EADDRNOTAVAIL;
--	if (bitmap_empty(pnd->addrs, 64))
-+	else if (bitmap_empty(pnd->addrs, 64))
- 		__phonet_device_free(pnd);
- 	spin_unlock_bh(&pndevs.lock);
- 	return err;
---=20
-1.5.4.3
+Obviously, there needs to be some control over permissions, as a guest
+most not be able to just open any socket or pty of the host, so a
+reasonable approach might be that the guest can only create a socket
+or pty that can be opened by the host, but not vice versa. Alternativel=
+y,
+you create the socket/pty in host userspace and then allow passing that
+down into the guest, which creates a virtio device from it.
 
+	Arnd <><
