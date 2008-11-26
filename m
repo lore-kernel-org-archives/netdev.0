@@ -1,10 +1,9 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 38/39] wimax: export linux/wimax.h and linux/wimax/i2400m.h
-	with headers_install
-Date: Tue, 25 Nov 2008 23:39:34 -0800
-Message-ID: <ed11bd9071b2dbb8c4d093110724b2e5e8eb9d43.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 25/39] i2400m/USB: header for the USB bus driver
+Date: Tue, 25 Nov 2008 23:39:21 -0800
+Message-ID: <f2a982dcd293f0598ee8d80431537039dfc0a8d4.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
-Cc: David Woodhouse <dwmw2@infradead.org>, wimax@linuxwimax.org
+Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <wimax-bounces@linuxwimax.org>
 In-Reply-To: <cover.1227684995.git.inaky@linux.intel.com>
@@ -19,25 +18,261 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-These two files are what user space can use to establish communication
-with the WiMAX kernel API and to speak the Intel 2400m Wireless WiMAX
-connection's control protocol.
+This contains the common function declaration and constants for the
+USB driver for the 2400m Wireless WiMAX Connection, as well as the
+debug level settings for the USB driver.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: David Woodhouse <dwmw2@infradead.org>
 ---
- include/linux/Kbuild |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/wimax/i2400m/i2400m-usb.h       |  190 +++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/usb-debug-levels.h |   42 ++++++
+ 2 files changed, 232 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
+ create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
 
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index e531783..89079ff 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -375,3 +375,5 @@ unifdef-y += xattr.h
- unifdef-y += xfrm.h
- 
- objhdr-y += version.h
-+header-y += wimax.h
-+header-y += wimax/
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+new file mode 100644
+index 0000000..e22cde4
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -0,0 +1,190 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * USB-specific i2400m driver definitions
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
++ *
++ *
++ * This driver implements the bus-specific part of the i2400m for
++ * USB. Check i2400m.h for a generic driver description.
++ *
++ * ARCHITECTURE
++ *
++ * This driver listens to notifications sent from the notification
++ * endpoint (in usb-notif.c); when data is ready to read, the code in
++ * there schedules a read from the device (usb-rx.c) and then passes
++ * the data to the generic RX code (rx.c).
++ *
++ * When the generic driver needs to send data (network or control), it
++ * queues up in the TX FIFO (tx.c) and that will notify the driver
++ * through the i2400m->bus_tx_kick() callback
++ * (usb-tx.c:i2400mu_bus_tx_kick) which will send the items in the
++ * FIFO queue.
++ *
++ * This driver, as well, implements the USB-specific ops for the generic
++ * driver to be able to setup/teardown communication with the device
++ * [i2400m_bus_dev_start() and i2400m_bus_dev_stop()], reseting the
++ * device [i2400m_bus_reset()] and performing firmware upload
++ * [i2400m_bus_bm_cmd() and i2400_bus_bm_wait_for_ack()].
++ */
++
++#ifndef __I2400M_USB_H__
++#define __I2400M_USB_H__
++
++#include "i2400m.h"
++#include "edc.h"
++#include <linux/kthread.h>
++
++/* Host-Device interface for USB */
++enum {
++	I2400MU_MAX_NOTIFICATION_LEN = 256,
++	I2400MU_BLK_SIZE = 16,
++	I2400MU_PL_SIZE_MAX = 0x3EFF,
++
++	/* Endpoints */
++	I2400MU_EP_BULK_OUT = 0,
++	I2400MU_EP_NOTIFICATION,
++	I2400MU_EP_RESET_COLD,
++	I2400MU_EP_BULK_IN,
++};
++
++
++/**
++ * struct i2400mu - descriptor for a USB connected i2400m
++ *
++ * @i2400m: bus-generic i2400m implementation; has to be first (see
++ *     it's documentation in i2400m.h).
++ *
++ * @usb_dev: pointer to our USB device
++ *
++ * @usb_iface: pointer to our USB interface
++ *
++ * @urb_edc: error density counter; used to keep a density-on-time tab
++ *     on how many soft (retryable or ignorable) errors we get. If we
++ *     go over the threshold, we consider the bus transport is failing
++ *     too much and reset.
++ *
++ * @notif_urb: URB for receiving notifications from the device.
++ *
++ * @tx_kthread: thread we use for data TX. We use a thread because in
++ *     order to do deep power saving and put the device to sleep, we
++ *     need to call usb_autopm_*() [blocking functions].
++ *
++ * @tx_wq: waitqueue for the TX kthread to sleep when there is no data
++ *     to be sent; when more data is available, it is woken up by
++ *     i2400mu_bus_tx_kick().
++ *
++ * @rx_kthread: thread we use for data RX. We use a thread because in
++ *     order to do deep power saving and put the device to sleep, we
++ *     need to call usb_autopm_*() [blocking functions].
++ *
++ * @rx_wq: waitqueue for the RX kthread to sleep when there is no data
++ *     to receive. When data is available, it is woken up by
++ *     usb-notif.c:i2400mu_notification_grok().
++ *
++ * @rx_pending_count: number of rx-data-ready notifications that were
++ *     still not handled by the RX kthread.
++ *
++ * @rx_size: current RX buffer size that is being used.
++ *
++ * @rx_size_acc: accumulator of the sizes of the previous read
++ *     transactions.
++ *
++ * @rx_size_cnt: number of read transactions accumulated in
++ *     @rx_size_acc.
++ *
++ * @do_autopm: disable(0)/enable(>0) calling the
++ *     usb_autopm_get/put_interface() barriers when executing
++ *     commands. See doc in i2400mu_suspend() for more information.
++ *
++ * @rx_size_auto_shrink: if true, the rx_size is shrinked
++ *     automatically based on the average size of the received
++ *     transactions. This allows the receive code to allocate smaller
++ *     chunks of memory and thus reduce pressure on the memory
++ *     allocator by not wasting so much space. By default it is
++ *     enabled.
++ */
++struct i2400mu {
++	struct i2400m i2400m;		/* FIRST! See doc */
++
++	struct usb_device *usb_dev;
++	struct usb_interface *usb_iface;
++	struct edc urb_edc;		/* Error density counter */
++
++	struct urb *notif_urb;
++	struct task_struct *tx_kthread;
++	wait_queue_head_t tx_wq;
++
++	struct task_struct *rx_kthread;
++	wait_queue_head_t rx_wq;
++	atomic_t rx_pending_count;
++	size_t rx_size, rx_size_acc, rx_size_cnt;
++	atomic_t do_autopm;
++	unsigned rx_size_auto_shrink:1;
++};
++
++
++static inline
++void i2400mu_init(struct i2400mu *i2400mu)
++{
++	i2400m_init(&i2400mu->i2400m);
++	edc_init(&i2400mu->urb_edc);
++	init_waitqueue_head(&i2400mu->tx_wq);
++	atomic_set(&i2400mu->rx_pending_count, 0);
++	init_waitqueue_head(&i2400mu->rx_wq);
++	i2400mu->rx_size = PAGE_SIZE - sizeof(struct skb_shared_info);
++	atomic_set(&i2400mu->do_autopm, 1);
++	i2400mu->rx_size_auto_shrink = 1;
++}
++
++extern int i2400mu_notification_setup(struct i2400mu *);
++extern void i2400mu_notification_release(struct i2400mu *);
++
++extern int i2400mu_rx_setup(struct i2400mu *);
++extern void i2400mu_rx_release(struct i2400mu *);
++extern void i2400mu_rx_kick(struct i2400mu *);
++
++extern int i2400mu_tx_setup(struct i2400mu *);
++extern void i2400mu_tx_release(struct i2400mu *);
++extern void i2400mu_bus_tx_kick(struct i2400m *);
++
++extern ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *,
++				       const struct i2400m_bootrom_header *,
++				       size_t, int);
++extern ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *,
++					   struct i2400m_bootrom_header *,
++					   size_t);
++#endif /* #ifndef __I2400M_USB_H__ */
+diff --git a/drivers/net/wimax/i2400m/usb-debug-levels.h b/drivers/net/wimax/i2400m/usb-debug-levels.h
+new file mode 100644
+index 0000000..e4358bd
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/usb-debug-levels.h
+@@ -0,0 +1,42 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Debug levels control file for the i2400m-usb module
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ */
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
++
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME i2400m_usb
++#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
++
++#include <linux/wimax/debug.h>
++
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(usb),
++	D_SUBMODULE_DECLARE(fw),
++	D_SUBMODULE_DECLARE(notif),
++	D_SUBMODULE_DECLARE(rx),
++	D_SUBMODULE_DECLARE(tx),
++};
++
++
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
