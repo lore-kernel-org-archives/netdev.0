@@ -1,42 +1,35 @@
-From: Arnd Bergmann <arnd@arndb.de>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: Host<->guest channel interface advice needed
-Date: Wed, 26 Nov 2008 14:02:57 +0100
-Message-ID: <200811261402.58033.arnd@arndb.de>
+Date: Wed, 26 Nov 2008 16:07:01 +0300
+Message-ID: <20081126130701.GB8921@ioremap.net>
 References: <20081126123919.GC3521@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Gleb Natapov <gleb@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754142AbYKZNEq@vger.kernel.org>
-In-Reply-To: <20081126123919.GC3521@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cet.com.ru ([195.178.208.66]:34149 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752044AbYKZNHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2008 08:07:03 -0500
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20081126123919.GC3521@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 26 November 2008, Gleb Natapov wrote:
-> The interfaces that are being considered are netlink socket (only dat=
-agram
-> semantics, linux specific), new socket family or character device wit=
-h
+Hi Gleb.
+
+On Wed, Nov 26, 2008 at 02:39:19PM +0200, Gleb Natapov (gleb@redhat.com) wrote:
+> The interfaces that are being considered are netlink socket (only datagram
+> semantics, linux specific), new socket family or character device with
 > different minor number for each channel. Which one better suits for
-> the purpose? =A0Is there other kind of interface to consider? New soc=
-ket
+> the purpose?  Is there other kind of interface to consider? New socket
 > family looks like a good choice, but it would be nice to hear other
 > opinions before starting to work on it.
 
-I think a socket and a pty both look reasonable here, but one important
-aspect IMHO is that you only need a new kernel driver for the guest, if
-you just use the regular pty support or Unix domain sockets in the host=
-=2E
+What about X (or whatever else) protocol running over host-guest network
+device, which are in the kernel already?
 
-Obviously, there needs to be some control over permissions, as a guest
-most not be able to just open any socket or pty of the host, so a
-reasonable approach might be that the guest can only create a socket
-or pty that can be opened by the host, but not vice versa. Alternativel=
-y,
-you create the socket/pty in host userspace and then allow passing that
-down into the guest, which creates a virtio device from it.
-
-	Arnd <><
+-- 
+	Evgeniy Polyakov
