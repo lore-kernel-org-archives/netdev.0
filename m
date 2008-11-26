@@ -1,8 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 13/39] wimax: Makefile,
-	Kconfig and docbook linkage for the stack
-Date: Tue, 25 Nov 2008 23:39:09 -0800
-Message-ID: <2fcfe5f5a92fa03f831addc1916dba3f3759b600.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 26/39] i2400m/USB: error density tracking
+Date: Tue, 25 Nov 2008 23:39:22 -0800
+Message-ID: <975baaa0711f9f83f362e6afe550e0c3aeec20ad.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,121 +18,115 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This patch provides Makefile and KConfig for the WiMAX stack,
-integrating them into the networking stack's Makefile, Kconfig and
-doc-book templates.
+This is a simple framework for tracking the amount of soft-errors in
+time, so that if they go over a certain threshold they can be
+considered hard errors and recovery started (instead of just
+retrying).
+
+We use this in the USB driver -- some of the USB errors are considered
+soft and retried.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- Documentation/DocBook/networking.tmpl |    8 +++++++
- net/Kconfig                           |    2 +
- net/Makefile                          |    1 +
- net/wimax/Kconfig                     |   36 +++++++++++++++++++++++++++++++++
- net/wimax/Makefile                    |   12 +++++++++++
- 5 files changed, 59 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/Kconfig
- create mode 100644 net/wimax/Makefile
+ drivers/net/wimax/i2400m/edc.h |   90 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 90 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/edc.h
 
-diff --git a/Documentation/DocBook/networking.tmpl b/Documentation/DocBook/networking.tmpl
-index f24f9e8..7053c1c 100644
---- a/Documentation/DocBook/networking.tmpl
-+++ b/Documentation/DocBook/networking.tmpl
-@@ -101,6 +101,14 @@ X!Enet/core/wireless.c
-      <sect1><title>Synchronous PPP</title>
- !Edrivers/net/wan/syncppp.c
-      </sect1>
-+     <sect1><title>WiMAX</title>
-+!Enet/wimax/op-msg.c
-+!Enet/wimax/op-reset.c
-+!Enet/wimax/op-rfkill.c
-+!Enet/wimax/stack.c
-+!Iinclude/net/wimax.h
-+!Iinclude/linux/wimax.h
-+     </sect1>
-   </chapter>
- 
- </book>
-diff --git a/net/Kconfig b/net/Kconfig
-index d789d79..3bff221 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -251,6 +251,8 @@ source "net/ieee80211/Kconfig"
- 
- endif # WIRELESS
- 
-+source "net/wimax/Kconfig"
-+
- source "net/rfkill/Kconfig"
- source "net/9p/Kconfig"
- 
-diff --git a/net/Makefile b/net/Makefile
-index 27d1f10..620a505 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -61,3 +61,4 @@ obj-$(CONFIG_NET_9P)		+= 9p/
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
- endif
-+obj-$(CONFIG_WIMAX)		+= wimax/
-diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
+diff --git a/drivers/net/wimax/i2400m/edc.h b/drivers/net/wimax/i2400m/edc.h
 new file mode 100644
-index 0000000..67d5f4d
+index 0000000..714540f
 --- /dev/null
-+++ b/net/wimax/Kconfig
-@@ -0,0 +1,36 @@
-+#
-+# WiMAX LAN device configuration
-+#
++++ b/drivers/net/wimax/i2400m/edc.h
+@@ -0,0 +1,90 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Error Density Count: cheapo error density (over time) counter
++ *
++ *
++ * Copyright (C) 2005-2007 Intel Corporation <linux-wimax@intel.com>
++ * Reinette Chatre <reinette.chatre@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ *
++ *
++ * Embed an 'struct edc' somewhere. Each time there is a soft or
++ * retryable error, call edc_inc() and check if the error top
++ * watermark has been reached.
++ */
 +
-+menuconfig WIMAX
-+       tristate "WiMAX Wireless Broadband support"
-+       help
++#ifndef __EDC_H__
++#define __EDC_H__
 +
-+         Select to configure support for devices that provide wireless
-+         broadband connectivity using the WiMAX protocol (IEEE 802.16).
++enum {
++	EDC_MAX_ERRORS = 10,
++	EDC_ERROR_TIMEFRAME = HZ,
++};
 +
-+         Please note that most of these devices require signing up for
-+         a service plan with a provider.
++/* error density counter */
++struct edc {
++	unsigned long timestart;
++	u16 errorcount;
++};
 +
-+         The different WiMAX drivers can be enabled in the menu entry
++static inline void edc_init(struct edc *edc)
++{
++	edc->timestart = jiffies;
++}
 +
-+         Device Drivers > Network device support > WiMAX Wireless Broadband devices
++/**
++ * edc_inc - report a soft error and check if we are over the watermark
++ *
++ * @edc: pointer to error density counter.
++ * @max_err: maximum number of errors we can accept over the timeframe
++ * @timeframe: lenght of the timeframe (in jiffies).
++ *
++ * Returns: !0 1 if maximum acceptable errors per timeframe has been
++ *     exceeded. 0 otherwise.
++ *
++ * This is way to determine if the number of acceptable errors per time
++ * period has been exceeded. It is not accurate as there are cases in which
++ * this scheme will not work, for example if there are periodic occurences
++ * of errors that straddle updates to the start time. This scheme is
++ * sufficient for our usage.
++ *
++ * To use, embed a 'struct edc' somewhere, initialize it with
++ * edc_init() and when an error hits:
++ *
++ * if (do_something_fails_with_a_soft_error) {
++ *        if (edc_inc(&my->edc, MAX_ERRORS, MAX_TIMEFRAME))
++ * 	           Ops, hard error, do something about it
++ *        else
++ *                 Retry or ignore, depending on whatever
++ * }
++ */
++static inline int edc_inc(struct edc *edc, u16 max_err, u16 timeframe)
++{
++	unsigned long now;
 +
-+         If unsure, it is safe to select M (module).
++	now = jiffies;
++	if (now - edc->timestart > timeframe) {
++		edc->errorcount = 1;
++		edc->timestart = now;
++	} else if (++edc->errorcount > max_err) {
++		edc->errorcount = 0;
++		edc->timestart = now;
++		return 1;
++	}
++	return 0;
++}
 +
-+config WIMAX_DEBUG_LEVEL
-+       int "WiMAX debug level"
-+       depends on WIMAX
-+       default 8
-+       help
-+
-+         Select the maximum debug verbosity level to be compiled into
-+         the WiMAX stack code.
-+
-+         By default, debug messages are disabled at runtime and can be
-+         selectively enabled for different parts of the code using the
-+         sysfs debug-levels file.
-+
-+         If set at zero, this will compile out all the debug code.
-+
-+         It is recommended that it is left at 8.
-diff --git a/net/wimax/Makefile b/net/wimax/Makefile
-new file mode 100644
-index 0000000..22d5a28
---- /dev/null
-+++ b/net/wimax/Makefile
-@@ -0,0 +1,12 @@
-+
-+obj-$(CONFIG_WIMAX)		+= wimax.o
-+
-+wimax-objs :=		\
-+	id-table.o	\
-+	op-msg.o	\
-+	op-open.o	\
-+	op-reset.o	\
-+	op-rfkill.o	\
-+	stack.o
-+
-+
++#endif /* #ifndef __EDC_H__ */
 -- 
 1.5.6.5
