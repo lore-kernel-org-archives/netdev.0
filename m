@@ -1,119 +1,68 @@
-From: dann frazier <dannf@dannf.org>
-Subject: [PATCH] Fix soft lockups/OOM issues w/ unix garbage collector
-Date: Wed, 26 Nov 2008 10:04:02 -0700
-Message-ID: <20081126170401.GC30297@ldl.fc.hp.com>
-References: <20081120220326.GE24416@ldl.fc.hp.com> <20081125231712.GA30297@ldl.fc.hp.com> <20081125.211913.114802735.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [BUG] linux-2.6.28-rc3 regression: IRQ smp_affinities not
+ respected
+Date: Wed, 26 Nov 2008 09:14:52 -0800
+Message-ID: <1227719692.13189.7.camel@HP1>
+References: <C27F8246C663564A84BB7AB343977242151F4B18B5@IRVEXCHCCR01.corp.ad.broadcom.com>
+ <491154C8.3040401@cosmosbay.com> <492D107B.1060303@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eteo@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux kernel" <linux-kernel@vger.kernel.org>,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:4074 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752186AbYKZREG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 12:04:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20081125.211913.114802735.davem@davemloft.net>
+Received: from mms3.broadcom.com ([216.31.210.19]:4825 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753276AbYKZRR4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 12:17:56 -0500
+In-Reply-To: <492D107B.1060303@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an implementation of David Miller's suggested fix in:
-  https://bugzilla.redhat.com/show_bug.cgi?id=470201
 
-It has been updated to use wait_event() instead of
-wait_event_interruptible().
+On Wed, 2008-11-26 at 01:01 -0800, Eric Dumazet wrote:
+> Eric Dumazet a =C3=A9crit :
+> > Michael Chan a =C3=A9crit :
+> >> I believe this may be the patch that broke it:
+> >>
+> >> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git=
+;a=3Dcommit;h=3Dce6fce4295ba727b36fdc73040e444bd1aae64cd=20
+> >>
+> >>
+> >> I don't remember all the details, but the Broadcom 5708 chip is
+> >> affected because it does not support MSI per-vector masking.
+> >>
+> >> One way to get around is to disable MSI with bnx2 parameter
+> >> disable_msi=3D1.
+> >>
+>=20
+> >=20
+> > I tried this MSI disabling and yes, it now works.
+> >=20
+> > 16:      42726        128        105        106         89        =20
+> > 89        145        152   IO-APIC-fasteoi   uhci_hcd:usb1, eth0, e=
+th1
+> >=20
+>=20
+> I believe the bnx2 driver doesnt work at all if !disable_msi (default=
+ setting)
+>=20
+> Doing a "echo 0 >/sys/devices/system/cpu/cpu1/online" just freeze net=
+work
+>=20
+> No messages logged
+>=20
+> If loaded with disable_msi=3D1, the cpu unplug works as expected.
+>=20
+> Thats a pretty serious issue.
+>
+Yes, that's the same issue and it is serious.  If MSI is being delivere=
+d
+to CPU 1 and you then take CPU 1 offline, the MSI will not be delivered
+to another CPU.
 
-Paraphrasing the description from the above report, it makes sendmsg()
-block while UNIX garbage collection is in progress. This avoids a
-situation where child processes continue to queue new FDs over a
-AF_UNIX socket to a parent which is in the exit path and running
-garbage collection on these FDs. This contention can result in soft
-lockups and oom-killing of unrelated processes.
+I think I can detect this problem in bnx2_timer() and try to recover.
+I'll post a patch when I have something ready.  Thanks.
 
-Signed-off-by: dann frazier <dannf@hp.com>
---
- include/net/af_unix.h |    1 +
- net/unix/af_unix.c    |    2 ++
- net/unix/garbage.c    |   13 ++++++++++---
- 3 files changed, 13 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index c29ff1d..1614d78 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -9,6 +9,7 @@
- extern void unix_inflight(struct file *fp);
- extern void unix_notinflight(struct file *fp);
- extern void unix_gc(void);
-+extern void wait_for_unix_gc(void);
- 
- #define UNIX_HASH_SIZE	256
- 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index eb90f77..66d5ac4 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1343,6 +1343,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
-+	wait_for_unix_gc();
- 	err = scm_send(sock, msg, siocb->scm);
- 	if (err < 0)
- 		return err;
-@@ -1493,6 +1494,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
-+	wait_for_unix_gc();
- 	err = scm_send(sock, msg, siocb->scm);
- 	if (err < 0)
- 		return err;
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index 6d4a9a8..abb3ab3 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -80,6 +80,7 @@
- #include <linux/file.h>
- #include <linux/proc_fs.h>
- #include <linux/mutex.h>
-+#include <linux/wait.h>
- 
- #include <net/sock.h>
- #include <net/af_unix.h>
-@@ -91,6 +92,7 @@
- static LIST_HEAD(gc_inflight_list);
- static LIST_HEAD(gc_candidates);
- static DEFINE_SPINLOCK(unix_gc_lock);
-+static DECLARE_WAIT_QUEUE_HEAD(unix_gc_wait);
- 
- unsigned int unix_tot_inflight;
- 
-@@ -266,12 +268,16 @@ static void inc_inflight_move_tail(struct unix_sock *u)
- 		list_move_tail(&u->link, &gc_candidates);
- }
- 
--/* The external entry point: unix_gc() */
-+static bool gc_in_progress = false;
- 
--void unix_gc(void)
-+void wait_for_unix_gc(void)
- {
--	static bool gc_in_progress = false;
-+	wait_event(unix_gc_wait, gc_in_progress == false);
-+}
- 
-+/* The external entry point: unix_gc() */
-+void unix_gc(void)
-+{
- 	struct unix_sock *u;
- 	struct unix_sock *next;
- 	struct sk_buff_head hitlist;
-@@ -376,6 +382,7 @@ void unix_gc(void)
- 	/* All candidates should have been detached by now. */
- 	BUG_ON(!list_empty(&gc_candidates));
- 	gc_in_progress = false;
-+	wake_up(&unix_gc_wait);
- 
-  out:
- 	spin_unlock(&unix_gc_lock);
