@@ -1,37 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Naming interrupt vectors/ixgbe
-Date: Tue, 25 Nov 2008 16:44:11 -0800 (PST)
-Message-ID: <20081125.164411.73334480.davem@davemloft.net>
-References: <18732.7795.484291.202338@robur.slu.se>
-	<Pine.WNT.4.64.0811251019190.6404@ppwaskie-MOBL2.amr.corp.intel.com>
+Subject: Re: [patch 1/1] netns: filter out uevent not belonging to init_net
+Date: Tue, 25 Nov 2008 16:46:46 -0800 (PST)
+Message-ID: <20081125.164646.257454865.davem@davemloft.net>
+References: <20081125165159.411202515@mai-009101017029.toulouse-stg.fr.ibm.com>
+	<20081125165346.554858327@mai-009101017029.toulouse-stg.fr.ibm.com>
+	<m14p1vg0us.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robert@robur.slu.se, netdev@vger.kernel.org,
-	Robert.Olsson@data.slu.se
-To: peter.p.waskiewicz.jr@intel.com
+Cc: dlezcano@fr.ibm.com, netdev@vger.kernel.org,
+	benjamin.thery@bull.net, containers@lists.osdl.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47670
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47678
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751443AbYKZAoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 19:44:12 -0500
-In-Reply-To: <Pine.WNT.4.64.0811251019190.6404@ppwaskie-MOBL2.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1751832AbYKZAqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 19:46:47 -0500
+In-Reply-To: <m14p1vg0us.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Tue, 25 Nov 2008 10:20:24 -0800 (Pacific Standard Time)
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 25 Nov 2008 09:40:59 -0800
 
-> On Tue, 25 Nov 2008, Robert Olsson wrote:
+> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 > 
-> > 
-> > Same syntax for ixgbe driver.
-> > 
-> > Cheers
-> > 				--ro
-> > 
-> > Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
- ...
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> > This patch will filter out the uevent not related to the init_net.
+> > Without this patch if a network device is created in a network
+> > namespace with the same name as one network device belonging to the
+> > initial network namespace (eg. eth0), when the network namespace
+> > will die and the network device will be destroyed, an event will
+> > be sent and catched by the udevd daemon. That will result to have
+> > the real network device to be shutdown because the udevd/uevent are
+> > not namespace aware.
+> 
+> It is belt and suspenders at this point.  As those devices should
+> not even be in sysfs at the moment.  But it keeps us from doing the
+> wrong thing when sysfs support starts coming on line.
+> 
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Applied with trailing whitespace fixed up.
+Applied to net-next-2.6, thanks.
