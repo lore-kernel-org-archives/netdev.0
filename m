@@ -1,602 +1,391 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 02/39] wimax: declarations for the in-kernel WiMAX API
-Date: Wed, 26 Nov 2008 14:40:21 -0800
-Message-ID: <68881c1af06f352dc457485c208662a8db62f3fe.1227691434.git.inaky@linux.intel.com>
-References: <cover.1227691434.git.inaky@linux.intel.com>
+Subject: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m driver v2
+Date: Wed, 26 Nov 2008 14:40:19 -0800
+Message-ID: <cover.1227691434.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga10.intel.com ([192.55.52.92]:44410 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752173AbYKZWlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:12 -0500
-In-Reply-To: <cover.1227691434.git.inaky@linux.intel.com>
+	with ESMTP id S1752139AbYKZWlK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Declares the main data types and calls for the drivers to integrate
-into the WiMAX stack. Provides usage documentation.
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- include/net/wimax.h |  568 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 568 insertions(+), 0 deletions(-)
+Hi All
+
+This patchset (or the linux-wimax GIT tree at git.kernel.org) merges
+the WiMAX subsystem and driver for the Intel 2400m Wireless WiMAX
+connection to the tree. We'd like to get it in for the 2.6.29 merge
+window. 
+
+[read on for changelog since previous submit]
+
+[Note linux-wimax will have netdev as upstream, but there is a
+ dependency for patches in gregkh's patches tree that forbid
+ submitting against netdev for now -- so the base for this is said
+ tree as of 11/19. See *2]
+
+WiMAX is a new wireless boadband technology that differs significantly
+from WiFi. It is also called 4G and resembles more the model of
+cellular phones, where you sign up for service with a provider.
+
+Your WiMAX card connects to a basestation, which is operated by a
+certain Network Access Provider (NAP). The NAP leases (or might be the
+same) connectivity to a Network Service Provider (NSP), which is your
+ISP.
+
+When you move around, your connectivity will be handed over from
+basestation to basestation in a seamless way. As in cellphones, there
+is the roaming case, where you could be are connecting to your service
+plan through other provider.
+
+WiMAX's main components have been standarized (some parts still in the
+process) as in a set of 802.16 standards. The WiMAX Forum's members
+drive the development of WiMAX features that end up in 802.16.
+
+This code is broken up in a WiMAX subsystem and a driver for the Intel
+2400m Wireless WiMAX Link. To be able to fully utilize WiMAX services,
+you need extra pieces of device-specific user space software; for now,
+there is a C level API (the Common API) to use/control it, but a high
+level API over DBUS that should work for any device is in the
+works. See details further below.
+
+Support for other vendor's hardware would require a driver registering
+with the WiMAX stack and a user space component implementing the high
+level API.
+
+Changes since v1:
+
+ - (Stephen Hemminger) don't use bitfields in struct wimax_dev 
+
+ - (Stephen Hemminger) don't use the interface name for the generic
+   netlink family, as it might change on if rename. Change to use the
+   interface index.
+
+ - (David Miller) move the WiMAX stack to net/wimax
+
+ - misc checkpatch fixes, kconfig cleanups. 
+
+ - use DEFINE_SPINLOCK
+
+
+
+Details follow:
+
+* The WiMAX kernel stack
+
+The (kernel) WiMAX stack is (as of now) very basic; it conforms a
+"control plane", in a similar fashion to cfg80211. 
+
+We still don't know what's going to be a good abstraction layer
+because so far, we have only see one WiMAX device for which we could
+implement support. 
+
+So the current abstraction layer provides a low-level WiMAX API with
+means for resetting, monitoring state changes, controlling rfkill and
+sending messages to the driver (in a driver specific format) back and
+forth (more on this below). The documentation in include/net/wimax.h
+provides more information.
+
+The functional API provided by the kernel stack is exported to user
+space via generic netlink. For convenience, libwimaxll, a shim library
+is provided in the user space package wimax-tools, but direct access
+and parsing of the generic protocol is possible. All the bits and
+pieces needed to operate from user space are declared in
+include/linux/wimax.h, which is marked for system-wide installation
+with headers_install.
+
+Implementation of drivers for other hardware using this model should
+be more or less straightforward.
+
+* The i2400m driver
+
+The driver for the 2400m sits below the stack, providing the back end
+operations to drive control (reset, rfkill, message passing) and
+feeding it state change information. On the other side, the 2400m
+driver connects to netdev, where it emulates an ethernet device (*1).
+
+The driver itself is broken in two main parts: bus-generic and
+bus-specific. The bus-generic (driver) speaks the device protocol and
+uses hooks provided by the bus-specific driver to talk to the device
+via whichever bus it happens to be connected through.
+
+More information about the driver can be found in
+drivers/net/wimax/i2400m/i2400m.h.
+
+
+* The high level WiMAX API (user space)
+
+This part is not implemented by the code in these patches, but
+available for download at http://linuxwimax.org/Download (use release
+1.3 components); that implementation is specific to the Intel
+2400. Other vendor's might be similar or very different.
+
+The "high level part" (scanning, connecting, disconnecting) in WiMAX
+is quite more complex than in other technologies such as WiFi. In
+general, a high level API is provided to allow for:
+
+ - scanning for networks
+ - connecting and disconnecting
+ - controlling the radio (turn on / off)
+ - other operations
+
+This high level API is called the Common API and is being defined by a
+set of participants in the WiMAX industry. It is a cross platform API,
+meant to be vendor neutral; as such, it is very alien to Linux's
+system level APIs and we are planning moving the API to D-BUS and
+making it look "more native", but without loosing its spirit.
+
+The implementation of this API aims to hide the user (connection
+managers, to be more exact) from the common complexities of
+WiMAX. Each vendor would implement what ever they need in user space
+to expose said API (could be just a passthrough if the implementation
+is in the driver or in the device).
+
+Most of these complexities are related to scanning. Scanning in WiMAX
+is expensive (power consumption wise and time wise), so it has to be
+done carefully, and each device will have it's most optimal way to do
+it.
+
+Most (all?) WiMAX operators run on regulated channels. To connect to
+an operator, you need to know the channels where to look and scan in
+there for base stations; when found, you need to know which NAPs
+(Network Access Providers, the infrastructure owner) they provide and
+then the NAPs you find have to be mapped to NSPs (Network Service
+Providers, the ISP).
+
+Even if you did a scan on all the channels available in a country (for
+example, the US channel plan) and found different base stations, all
+that information is still not discoverable from them (the 802.16g
+upcoming standard aims to fix that).
+
+So a database that helps mapping all this information (base station
+IDs vs NAPs vs NSPs) is needed; we call that the "provisioning"
+information, and getting that information is not trivial. The
+operators, as of now, provide it to you over the OMA-DM protocol--that
+requires an OMA-DM client daemon running in your machine. Another way
+to provision is manually, getting a provisioning file from either the
+operator or someone that has an OMA-DM client daemon.
+
+The problem is that, as of now, there is still no OMA-DM open source
+client. In http://linuxwimax.org we provide one, but Intel does not
+own it and it cannot be made open source. As we said above, it is
+optional if you go with the manual mode.
+
+
+Once there is a network, you can connect to it. 
+
+For networks that require authentication (most), the Intel device
+requires a supplicant in user space--because of a set of issues we are
+working to resolve, it cannot be made open source yet, but it will. As
+of now, it is provided as a shared library that is loaded dynamically.
+
+When a network is connected, use a DHCP client to obtain an address
+(this is how most WiMAX networks are configured). 
+
+When you connect to a network/provider with whom you don't have a
+service agreement, you will probably redirected to a landing page
+where you will be able to sign up for service (in exchange for your
+credit card number), much similar to some WiFi hotspots. This is known
+as being "activated" for said provider and you only need to do it
+once, as the provider will remember your MAC address.
+
+When you are up and running, your connection will be handed over from
+tower to tower as you move around without requiring a new connection
+sequence or DHCP renegotiation.
+
+Other operations provided by the "Common API" relate to obtain
+provisioning information from the network, contact information for the
+network operator, manipulating roaming modes, etc ...
+
+Caveats:
+
+ - the 2400 goes into idle power saving when connected if there is no
+   network activity. It comes out of it automatically when traffic is
+   sent to the network. But sometimes, to come out of it the network
+   requests a DHCP renegotiation; the user space code still has a
+   piece of code missing for doing it, so you need to manually restart
+   your DHCP client.
+
+*1 Previous iterations of the driver provided a Pure IP device,
+   without Ethernet wrapping but we gave up. 
+
+   Most DHCP software in user space and in the network backends assume
+   the world is Ethernet (anything that uses ISC DHCP's client and/or
+   daemon). 
+
+   We ended up registering a PureIP hw type with IANA and creating
+   patches to support it to the ISC DHCP suite (at
+   http://linuxwimax.org/Download) and modifying dhclient, server, and
+   friends so the hardware type PureIP was recognized and thus, when
+   the DHCP client sent a request, it was with hwtype ==
+   purerip. 
+
+   However, on the server end (they shall remain nameless), many
+   configurations are set to take only Ethernet hwtypes and when asked
+   to take the server patches for pureip, they cringed.
+
+   It's kind of understandable -- so we assume it'll take time for
+   those patches to trickle into deployment and just moved to behave
+   like Ethernet. The easy path.
+
+*2 To build in other trees, you will need the following patches
+   against the USB stack.
+
+   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-change-interface-to-usb_lock_device_for_reset.patch
+   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-introduce-usb_queue_reset-to-do-resets-from-atomic-contexts-v7.patch
+
+   2.6.28-rc5 has been tested.
+
+   Or clone
+   git.kernel.org/pub/scm/linux/kernel/inaky/git/linux-wimax.git; note
+   that tree will be rebased when the code is accepted into mailine.
+
+Inaky Perez-Gonzalez (39):
+  wimax: documentation for the stack
+  wimax: declarations for the in-kernel WiMAX API
+  wimax: constants and definitions to interact with user space
+  wimax: internal API for the kernel space WiMAX stack
+  wimax: debug macros and debug settings for the WiMAX stack
+  genetlink: export genl_unregister_mc_group()
+  wimax: generic WiMAX device management (registration, deregistration,
+    etc)
+  wimax: Mappping of generic netlink family IDs to net devices
+  wimax: provides user space with information needed when opening a
+    WiMAX device
+  wimax: Generic messaging interface between user space and
+    driver/device
+  wimax: RF-kill framework integration
+  wimax: API call to reset a WiMAX device
+  wimax: Makefile, Kconfig and docbook linkage for the stack
+  i2400m: documentation and instructions for usage
+  i2400m: host-to-device protocol definitions
+  i2400m: core driver definitions and API
+  i2400m: Generic probe/disconnect, reset and message passing
+  i2400m: linkage to the networking stack
+  i2400m: sysfs controls
+  i2400m: rfkill integration with the WiMAX stack
+  i2400m: firmware loading and bootrom initialization
+  i2400m: handling of the data/control reception path
+  i2400m: handling of the data/control transmission path
+  i2400m: various functions for device management
+  i2400m/USB: header for the USB bus driver
+  i2400m/USB: error density tracking
+  i2400m/USB: main probe/disconnect and backend routines
+  i2400m/USB: firmware upload backend
+  i2400m/USB: handling of notifications from the device
+  i2400m/USB: read transactions from the USB device
+  i2400m/USB: write transactions to the USB device
+  i2400m/SDIO: header for the SDIO subdriver
+  i2400m/SDIO: main probe/disconnect and backend routines
+  i2400m/SDIO: firmware upload backend
+  i2400m/SDIO: read transactions from the SDIO device
+  i2400m/SDIO: write transactions to the SDIO device
+  i2400m: Makefile and Kconfig
+  wimax: export linux/wimax.h and linux/wimax/i2400m.h with
+    headers_install
+  wimax/i2400m: add CREDITS and MAINTAINERS entries
+
+ CREDITS                                      |   17 +
+ Documentation/DocBook/networking.tmpl        |    8 +
+ Documentation/wimax/README.i2400m            |  236 +++++
+ Documentation/wimax/README.wimax             |   86 ++
+ MAINTAINERS                                  |   16 +
+ drivers/net/Kconfig                          |    2 +
+ drivers/net/Makefile                         |    1 +
+ drivers/net/wimax/Kconfig                    |   17 +
+ drivers/net/wimax/Makefile                   |    2 +
+ drivers/net/wimax/i2400m/Kconfig             |   49 +
+ drivers/net/wimax/i2400m/Makefile            |   28 +
+ drivers/net/wimax/i2400m/control.c           | 1295 ++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/debug-levels.h      |   45 +
+ drivers/net/wimax/i2400m/driver.c            |  729 +++++++++++++++
+ drivers/net/wimax/i2400m/edc.h               |   90 ++
+ drivers/net/wimax/i2400m/fw.c                | 1095 ++++++++++++++++++++++
+ drivers/net/wimax/i2400m/i2400m-sdio.h       |  130 +++
+ drivers/net/wimax/i2400m/i2400m-usb.h        |  190 ++++
+ drivers/net/wimax/i2400m/i2400m.h            |  745 +++++++++++++++
+ drivers/net/wimax/i2400m/netdev.c            |  524 +++++++++++
+ drivers/net/wimax/i2400m/op-rfkill.c         |  207 ++++
+ drivers/net/wimax/i2400m/rx.c                |  536 +++++++++++
+ drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +
+ drivers/net/wimax/i2400m/sdio-fw.c           |  224 +++++
+ drivers/net/wimax/i2400m/sdio-rx.c           |  255 +++++
+ drivers/net/wimax/i2400m/sdio-tx.c           |  153 +++
+ drivers/net/wimax/i2400m/sdio.c              |  491 ++++++++++
+ drivers/net/wimax/i2400m/sysfs.c             |  458 +++++++++
+ drivers/net/wimax/i2400m/tx.c                |  817 ++++++++++++++++
+ drivers/net/wimax/i2400m/usb-debug-levels.h  |   42 +
+ drivers/net/wimax/i2400m/usb-fw.c            |  340 +++++++
+ drivers/net/wimax/i2400m/usb-notif.c         |  263 ++++++
+ drivers/net/wimax/i2400m/usb-rx.c            |  417 +++++++++
+ drivers/net/wimax/i2400m/usb-tx.c            |  229 +++++
+ drivers/net/wimax/i2400m/usb.c               |  622 ++++++++++++
+ include/linux/Kbuild                         |    2 +
+ include/linux/wimax.h                        |  235 +++++
+ include/linux/wimax/Kbuild                   |    1 +
+ include/linux/wimax/debug.h                  |  495 ++++++++++
+ include/linux/wimax/i2400m.h                 |  512 ++++++++++
+ include/net/wimax.h                          |  568 +++++++++++
+ net/Kconfig                                  |    2 +
+ net/Makefile                                 |    1 +
+ net/netlink/genetlink.c                      |    1 +
+ net/wimax/Kconfig                            |   36 +
+ net/wimax/Makefile                           |   12 +
+ net/wimax/debug-levels.h                     |   42 +
+ net/wimax/id-table.c                         |  141 +++
+ net/wimax/op-msg.c                           |  495 ++++++++++
+ net/wimax/op-open.c                          |  157 ++++
+ net/wimax/op-reset.c                         |  134 +++
+ net/wimax/op-rfkill.c                        |  546 +++++++++++
+ net/wimax/stack.c                            |  739 +++++++++++++++
+ net/wimax/wimax-internal.h                   |   92 ++
+ 54 files changed, 14592 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/wimax/README.i2400m
+ create mode 100644 Documentation/wimax/README.wimax
+ create mode 100644 drivers/net/wimax/Kconfig
+ create mode 100644 drivers/net/wimax/Makefile
+ create mode 100644 drivers/net/wimax/i2400m/Kconfig
+ create mode 100644 drivers/net/wimax/i2400m/Makefile
+ create mode 100644 drivers/net/wimax/i2400m/control.c
+ create mode 100644 drivers/net/wimax/i2400m/debug-levels.h
+ create mode 100644 drivers/net/wimax/i2400m/driver.c
+ create mode 100644 drivers/net/wimax/i2400m/edc.h
+ create mode 100644 drivers/net/wimax/i2400m/fw.c
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
+ create mode 100644 drivers/net/wimax/i2400m/i2400m.h
+ create mode 100644 drivers/net/wimax/i2400m/netdev.c
+ create mode 100644 drivers/net/wimax/i2400m/op-rfkill.c
+ create mode 100644 drivers/net/wimax/i2400m/rx.c
+ create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
+ create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
+ create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
+ create mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
+ create mode 100644 drivers/net/wimax/i2400m/sdio.c
+ create mode 100644 drivers/net/wimax/i2400m/sysfs.c
+ create mode 100644 drivers/net/wimax/i2400m/tx.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
+ create mode 100644 drivers/net/wimax/i2400m/usb-fw.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-notif.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-rx.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-tx.c
+ create mode 100644 drivers/net/wimax/i2400m/usb.c
+ create mode 100644 include/linux/wimax.h
+ create mode 100644 include/linux/wimax/Kbuild
+ create mode 100644 include/linux/wimax/debug.h
+ create mode 100644 include/linux/wimax/i2400m.h
  create mode 100644 include/net/wimax.h
-
-diff --git a/include/net/wimax.h b/include/net/wimax.h
-new file mode 100644
-index 0000000..1e8bbf8
---- /dev/null
-+++ b/include/net/wimax.h
-@@ -0,0 +1,568 @@
-+/*
-+ * Linux WiMAX
-+ * Kernel space API for accessing WiMAX devices
-+ *
-+ *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * The WiMAX stack provides an API for controlling and managing the
-+ * system's WiMAX devices. This API affects the control plane; the
-+ * data plane is accessed via the network stack (netdev).
-+ *
-+ * Parts of the WiMAX stack API and notifications are exported to
-+ * user space via Generic Netlink. In user space, libwimax (part of
-+ * the wimax-tools package) provides a shim layer for accessing those
-+ * calls.
-+ *
-+ * The API is standarized for all WiMAX devices and different drivers
-+ * implement the backend support for it. However, device-specific
-+ * messaging pipes are provided that can be used to issue commands and
-+ * receive notifications in free form.
-+ *
-+ * Currently the messaging pipes are the only means of control as it
-+ * is not known (due to the lack of more devices in the market) what
-+ * will be a good abstraction layer. Expect this to change as more
-+ * devices show in the market. This API is designed to be growable in
-+ * order to address this problem.
-+ *
-+ * USAGE
-+ *
-+ * Embed a `struct wimax_dev` in the device's private structure,
-+ * initialize and register it. For details, see `struct
-+ * wimax_dev`s documentation.
-+ *
-+ * Once this is done, wimax-tools's libwimax can be used to
-+ * communicate with the driver from user space.
-+ *
-+ * Remember this is a very low level API that will to provide all of
-+ * WiMAX features. Other daemons and services running in user space
-+ * are the expected clients of it. They offer a higher level API that
-+ * applications should use (an example of this is the Intel's WiMAX
-+ * Network Service for the i2400m).
-+ *
-+ * DESIGN
-+ *
-+ * Although not set on final stone, this very basic interface is
-+ * mostly completed. Remember this is meant to grow as new common
-+ * operations are decided upon. New operations will be added to the
-+ * interface, intent being on keeping backwards compatibility as much
-+ * as possible.
-+ *
-+ * This layer implements a set of calls to control a WiMAX device,
-+ * exposing a frontend to the rest of the kernel and user space (via
-+ * generic netlink) and a backend implementation in the driver through
-+ * function pointers.
-+ *
-+ * WiMAX devices have a state, and a kernel-only API allows the
-+ * drivers to manipulate that state. State transitions are atomic, and
-+ * only some of them are allowed (see `enum wimax_st`).
-+ *
-+ * Most API calls will set the state automatically; in most cases
-+ * drivers have to only report state changes due to external
-+ * conditions.
-+ *
-+ * All API operations are 'atomic', serialized thorough a mutex in the
-+ * `struct wimax_dev`.
-+ *
-+ * EXPORTING TO USER SPACE THROUGH GENERIC NETLINK
-+ *
-+ * The API is exported to user space using generit netlink (other
-+ * methods can be added as needed).
-+ *
-+ * For user-to-kernel traffic we use a function call marshalling
-+ * mechanism, where a message X with attributes A, B, C sent from user
-+ * space to kernel space means executing the WiMAX API call wimax_X(A,
-+ * B, C), sending the results back as a message. For kernel-to-user
-+ * (notifications) we use messages over multicast groups. This way we
-+ * can have multiple applications monitoring them.
-+ *
-+ * Each WiMAX network interface gets assigned a unique Generic Netlink
-+ * Family ID (named "WiMAX <IFACEINDEX>").
-+ *
-+ * This makes it easy (and cheap) to map device to family ID
-+ * considering that most deployments will have a single WiMAX device
-+ * per system (without any limits on how many WiMAX adaptors per
-+ * device might be present). For details, see file
-+ * drivers/net/wimax/id-table.c.
-+ *
-+ * It also makes it easy to do traffic segregation using different
-+ * multicast groups, that allow many applications to listen for
-+ * notifications without being disrupted by the amount of traffic sent
-+ * to other groups.
-+ *
-+ * User space must explicitly send an open command to the kernel [use
-+ * libwimax:wimax_open()] to open a WiMAX handle. The kernel replies
-+ * with information about the device that user space will need to talk
-+ * to it. Once done, liwimax:wimax_close() releases the handle. No
-+ * handle state information is maintained in the kernel (the
-+ * connection is stateless).
-+ *
-+ * TESTING FOR THE INTERFACE AND VERSIONING
-+ *
-+ * If network interface X is a WiMAX device, there will be a Generic
-+ * Netlink family named "WiMAX X" and the device will present a
-+ * "wimax" directory in it's network sysfs directory
-+ * (/sys/class/net/DEVICE/wimax) [used by HAL].
-+ *
-+ * The inexistence of any of these means the device does not support
-+ * the WiMAX API.
-+ *
-+ * At open time, an 'open' command is issued; that returns interface
-+ * information and with it, the API version the kernel is currently
-+ * exporting.
-+ *
-+ * NOTE: this versioning is a last resort to avoid hard
-+ *    incompatibilities. It is the intention of the design of this
-+ *    stack not to introduce backward incompatible changes.
-+ *
-+ * The version code has to fit in one byte (restrictions imposed by
-+ * generic netlink); we use `version / 10` for the major version and
-+ * `version % 10` for the minor. This gives 9 minors for each major
-+ * and 25 majors.
-+ *
-+ * The version change protocol is as follow:
-+ *
-+ * - Major versions: needs to be increased if an existing message/API
-+ *   call is changed or removed. Doesn't need to be changed if a new
-+ *   message is added.
-+ *
-+ * - Minor verion: needs to be increased if new messages/API calls are
-+ *   being added or some other consideration that doesn't impact the
-+ *   user-kernel interface too much (like some kind of bug fix) and
-+ *   that is kind of left up in the air to common sense.
-+ *
-+ * User space code should not try to work if the major version it was
-+ * compiled for differs from what the kernel offers. As well, if the
-+ * minor version of the kernel interface is lower than the one user
-+ * space is expecting (the one it was compiled for), the kernel
-+ * might be missing API calls; user space shall be ready to handle
-+ * said condition.
-+ *
-+ * libwimax:wimax_open() takes care of checking versions.
-+ *
-+ * THE OPERATIONS:
-+ *
-+ * Each operation is defined in its on file (drivers/net/wimax/op-*.c)
-+ * for clarity. The parts needed for an operation are:
-+ *
-+ *  - a function pointer in `struct wimax_dev`: optional, as the
-+ *    operation might be implemented by the stack and not by the
-+ *    driver.
-+ *
-+ *    All function pointers are named wimax_dev->op_*(), and drivers
-+ *    must implement them except where noted otherwise.
-+ *
-+ *  - When exported to user space, a `struct nla_policy` to define the
-+ *    attributes of the generic netlink command and a `struct genl_ops`
-+ *    to define the operation.
-+ *
-+ * All the declarations for the operation codes (WIMAX_GNL_OP_<NAME>)
-+ * and generic netlink attributes (WIMAX_GNL_<NAME>_*) are declared in
-+ * include/linux/wimax.h; this file is intended to be cloned by user
-+ * space to gain access to those declarations.
-+ *
-+ * A few caveats to remember:
-+ *
-+ *  - Need to define attribute numbers starting in 1; otherwise it
-+ *    fails.
-+ *
-+ *  - the `struct genl_family` requires a maximum attribute id; when
-+ *    defining the `struct nla_policy` for each message, it has to have
-+ *    an array size of WIMAX_GNL_ATTR_MAX+1.
-+ *
-+ * THE PIPE INTERFACE:
-+ *
-+ * This interface is kept intentionally simple. The driver can create
-+ * any number of pipes through which it can send
-+ * messages/notifications to user space. User space can also send
-+ * messages through the messaging pipe back to kernel space. See
-+ * drivers/net/wimax/op-msg.c for details.
-+ *
-+ * The kernel-to-user messages are sent with wimax_pipe_msg(), over a
-+ * generic netlink multicast group named after the pipe name and
-+ * associated to the device's generic netlink family.
-+ *
-+ * There is always a default pipe created, the messaging pipe. It's up
-+ * to the driver to create other pipes (for example, to send a lot of
-+ * diagnostics information).
-+ *
-+ * The bidirectional messaging interface is built over said
-+ * "messaging" pipe [which always exists], and the functions
-+ * wimax_msg_*() are already setup to work with it. Messages from user
-+ * space are sent as unicast and received by the kernel driver through
-+ * wimax_dev->op_msg_from_user().
-+ *
-+ * RFKILL:
-+ *
-+ * RFKILL support is built into the wimax_dev layer; the driver just
-+ * needs to call wimax_report_rfkill_{hw,sw}() to inform of changes in
-+ * the hardware or software RF kill switches. When the stack wants to
-+ * turn the radio off, it will call wimax_dev->op_rfkill_sw_toggle(),
-+ * which the driver implements.
-+ *
-+ * User space can set the software RF Kill switch by calling
-+ * wimax_rfkill().
-+ *
-+ * The code for now only supports devices that don't require polling;
-+ * If the device needs to be polled, create a self-rearming delayed
-+ * work struct for polling or look into adding polled support to the
-+ * WiMAX stack.
-+ *
-+ * When initializing the hardware (_probe), after calling
-+ * wimax_dev_add(), query the device for it's RF Kill switches status
-+ * and feed it back to the WiMAX stack using
-+ * wimax_report_rfkill_{hw,sw}(). If any switch is missing, always
-+ * report it as ON.
-+ *
-+ * NOTE: the wimax stack uses an inverted terminology to that of the
-+ * RFKILL subsystem:
-+ *
-+ *  - ON: radio is ON, RFKILL is DISABLED or OFF.
-+ *  - OFF: radio is OFF, RFKILL is ENABLED or ON.
-+ *
-+ * MISCELLANEOUS OPS:
-+ *
-+ * wimax_reset() can be used to reset the device to power on state; by
-+ * default it issues a warm reset that maintains the same device
-+ * node. If that is not possible, it falls back to a cold reset
-+ * (device reconnect). The driver implements the backend to this
-+ * through wimax_dev->op_reset().
-+ */
-+
-+#ifndef __NET__WIMAX_H__
-+#define __NET__WIMAX_H__
-+#ifdef __KERNEL__
-+
-+#include <linux/wimax.h>
-+#include <net/genetlink.h>
-+#include <linux/netdevice.h>
-+
-+struct net_device;
-+struct genl_info;
-+struct wimax_dev;
-+struct wimax_pipe;
-+struct input_dev;
-+
-+/**
-+ * struct wimax_dev - Generic WiMAX device
-+ *
-+ * @net_dev: [fill] Pointer to the &struct net_device this WiMAX
-+ *     device implements.
-+ *
-+ * @op_msg_from_user: [fill] Driver-specific operation to
-+ *     handle a raw message from user space to the driver. The
-+ *     driver can send messages to user space using with
-+ *     wimax_msg_to_user().
-+ *
-+ * @op_rfkill_sw_toggle: [fill] Driver-specific operation to act on
-+ *     userspace (or any other agent) requesting the WiMAX device to
-+ *     change the RF Kill software switch (WIMAX_RF_ON or
-+ *     WIMAX_RF_OFF).
-+ *     If such hardware support is not present, it is assumed the
-+ *     radio cannot be switched off and it is always on (and the stack
-+ *     will error out when trying to switch it off). In such case,
-+ *     this function pointer can be left as NULL.
-+ *
-+ * @op_reset: [fill] Driver specific operation to reset the
-+ *     device.
-+ *     This operation should always attempt first a warm reset that
-+ *     does not disconnect the device from the bus and return 0.
-+ *     If that fails, it should resort to some sort of cold or bus
-+ *     reset (even if it implies a bus disconnection and device
-+ *     dissapearance). In that case, -ENODEV should be returned to
-+ *     indicate the device is gone.
-+ *     This operation has to be synchronous, and return only when the
-+ *     reset is complete. In case of having had to resort to bus/cold
-+ *     reset implying a device disconnection, the call is allowed to
-+ *     return inmediately.
-+ *     See wimax_reset()'s documentation.
-+ *
-+ * @name: [fill] A way to identify this device. We need to register a
-+ *     name with many subsystems (input for RFKILL, workqueue
-+ *     creation, etc). We can't use the network device name as that
-+ *     might change and in some instances we don't know it yet (until
-+ *     we don't call register_netdev()). So we generate an unique one
-+ *     using the driver name and device bus id, place it here and use
-+ *     it across the board. Recommended naming:
-+ *     DRIVERNAME-BUSNAME:BUSID (dev->bus->name, dev->bus_id).
-+ *
-+ * @id_table_node: [private] link to the list of wimax devices kept by
-+ *     id-table.c. Protected by it's own spinlock.
-+ *
-+ * @pipe_list: [private] List of registered pipes.
-+ *
-+ * @pipe_msg: [private] Generic Netlink multicast group for the
-+ *     driver to report answers to messages and driver-specific
-+ *     reports.
-+ *
-+ * @mutex: [private] Serializes all concurrent access and execution of
-+ *     operations.
-+ *
-+ * @state: [private] Current state of the WiMAX device.
-+ *
-+ * @gnl_family: [private] Generic Netlink pipe ID.
-+ *
-+ * @rfkill: [private] integration into the RF-Kill infrastructure.
-+ *
-+ * @rfkill_input: [private] virtual input device to process the
-+ *     hardware RF Kill switches.
-+ *
-+ * @rf_sw: [private] State of the software radio switch (OFF/ON)
-+ *
-+ * @rf_hw: [private] State of the hardware radio switch (OFF/ON)
-+ *
-+ * Description:
-+ * This structure defines a common interface to access all WiMAX
-+ * devices from different vendors and provides a common API as well as
-+ * a free-form device-specific messaging channel.
-+ *
-+ * Usage:
-+ *  1. Embed a &struct wimax_dev at *the beginning* the network
-+ *     device structure so that net_dev->priv points to it.
-+ *
-+ *  2. memset() it to zero
-+ *
-+ *  3. Initialize with wimax_dev_init(). This will leave the WiMAX
-+ *     device in the %__WIMAX_ST_NULL state.
-+ *
-+ *  4. Fill all the fields marked with [fill]; once called
-+ *     wimax_dev_add(), those fields CANNOT be modified.
-+ *
-+ *  5. Call wimax_dev_add() *after* registering the network
-+ *     device. This will leave the WiMAX device in the %WIMAX_ST_DOWN
-+ *     state.
-+ *     Protect the driver's net_device->open() against succeeding if
-+ *     the wimax device state is lower than %WIMAX_ST_DOWN.
-+ *
-+ *  6. Select when the device is going to be turned on/initialized;
-+ *     for example, it could be initialized on 'ifconfig up' (when the
-+ *     netdev op 'open()' is called on the driver).
-+ *
-+ * When the device is initialized (at `ifconfig up` time, or right
-+ * after calling wimax_dev_add() from _probe(), make sure the
-+ * following steps are taken
-+ *
-+ *  a. Move the device to %WIMAX_ST_UNINITIALIZED. This is needed so
-+ *     some API calls that shouldn't work until the device is ready
-+ *     can be blocked.
-+ *
-+ *  b. Initialize the device. Make sure to turn the SW radio switch
-+ *     off and move the device to state %WIMAX_ST_RADIO_OFF when
-+ *     done. When just initialized, a device should be left in RADIO
-+ *     OFF state until user space devices to turn it on.
-+ *
-+ *  c. Query the device for the state of the hardware rfkill switch
-+ *     and call wimax_rfkill_report_hw() and wimax_rfkill_report_sw()
-+ *     as needed. See below.
-+ *
-+ * This will populate sysfs entries in the device's directory that tag
-+ * it as a device that supports the WiMAX interface (for
-+ * userspace). wimax_dev_rm() undoes before unregistering the network
-+ * device. Once wimax_dev_add() is called, the driver can get called
-+ * on the wimax_dev->op_* function pointers
-+ *
-+ * CONCURRENCY:
-+ *
-+ * The stack provides a mutex for each device that will disallow API
-+ * calls happening concurrently; thus, op calls into the driver
-+ * through the wimax_dev->op*() function pointers will always be
-+ * serialized and *never* concurrent.
-+ *
-+ * For locking, take wimax_dev->mutex is taken; (most) operations in
-+ * the API have to check for wimax_dev_is_ready() to return 0 before
-+ * continuing (this is done internally).
-+ *
-+ * REFERENCE COUNTING:
-+ *
-+ * The WiMAX device is reference counted by the associated network
-+ * device. The only operation that can be used to reference the device
-+ * is wimax_dev_get_by_genl_info(), and the reference it acquires has
-+ * to be released with dev_put(wimax_dev->net_dev).
-+ *
-+ * RFKILL:
-+ *
-+ * At startup, both HW and SW radio switchess are assumed to be off.
-+ *
-+ * At initialization time [after calling wimax_dev_add()], have the
-+ * driver query the device for the status of the software and hardware
-+ * RF kill switches and call wimax_report_rfkill_hw() and
-+ * wimax_rfkill_report_sw() to indicate their state. If any is
-+ * missing, just call it to indicate it is ON (radio always on).
-+ *
-+ * Whenever the driver detects a change in the state of the RF kill
-+ * switches, it should call wimax_report_rfkill_hw() or
-+ * wimax_report_rfkill_sw() to report it to the stack.
-+ */
-+struct wimax_dev {
-+	struct net_device *net_dev;
-+	struct list_head id_table_node;
-+	struct list_head pipe_list;
-+	struct wimax_pipe *pipe_msg;
-+	struct mutex mutex;		/* Protects all members and API calls */
-+	enum wimax_st state;
-+
-+	int (*op_msg_from_user)(struct wimax_dev *wimax_dev,
-+				const void *, size_t,
-+				const struct genl_info *info);
-+	int (*op_rfkill_sw_toggle)(struct wimax_dev *wimax_dev,
-+				   enum wimax_rf_state);
-+	int (*op_reset)(struct wimax_dev *wimax_dev);
-+
-+	struct genl_family gnl_family;
-+	struct rfkill *rfkill;
-+	struct input_dev *rfkill_input;
-+	unsigned rf_hw;
-+	unsigned rf_sw;
-+	char name[32];
-+};
-+
-+
-+
-+/*
-+ * WiMAX stack public API for device drivers
-+ * -----------------------------------------
-+ *
-+ * These functions are not exported to user space.
-+ */
-+extern void wimax_dev_init(struct wimax_dev *);
-+extern int wimax_dev_add(struct wimax_dev *, struct net_device *);
-+extern void wimax_dev_rm(struct wimax_dev *);
-+
-+static inline
-+struct wimax_dev *net_dev_to_wimax(struct net_device *net_dev)
-+{
-+	return netdev_priv(net_dev);
-+}
-+
-+static inline
-+struct device *wimax_dev_to_dev(struct wimax_dev *wimax_dev)
-+{
-+	return wimax_dev->net_dev->dev.parent;
-+}
-+
-+extern void wimax_state_change(struct wimax_dev *, enum wimax_st);
-+extern enum wimax_st wimax_state_get(struct wimax_dev *);
-+
-+/*
-+ * Radio Switch state reporting.
-+ *
-+ * enum wimax_rf_state is declared in linux/wimax.h so the exports
-+ * to user space can use it.
-+ */
-+extern void wimax_report_rfkill_hw(struct wimax_dev *, enum wimax_rf_state);
-+extern void wimax_report_rfkill_sw(struct wimax_dev *, enum wimax_rf_state);
-+
-+/*
-+ * Free-form message sending over pipes
-+ *
-+ * This is a facility for sending messages/notifications to user
-+ * space over "pipes".
-+ *
-+ * There is one pipe created by default, the "msg" pipe (which is
-+ * bidirectional); drivers can create others for sending notifications
-+ * with wimax_pipe_add() and wimax_pipe_rm(). Mostly useful for
-+ * multiplexing chunks of unrelated information (like high-bandwidth
-+ * traces, diagnostics, etc) over each pipe without disturbing each
-+ * other's listeners.
-+ *
-+ * pipe_handle = wimax_pipe_add(wimax_dev, "PIPENAME");
-+ * ...
-+ * wimax_pipe_msg*(wimax_dev, pipe_handle, ...);
-+ * ...
-+ * wimax_pipe_rm(wimax_dev, pipe_handle);
-+ *
-+ * In user space, use libwimax's pipe facilities to read from them.
-+ */
-+extern struct wimax_pipe *wimax_pipe_add(struct wimax_dev *, const char *);
-+extern void wimax_pipe_rm(struct wimax_dev *, struct wimax_pipe *);
-+
-+/*
-+ * Sending a message over a pipe:
-+ *
-+ * Sending a buffer:
-+ *
-+ *   wimax_pipe_msg(wimax_dev, pipe_handle, buf, buf_size, GFP_KERNEL);
-+ *
-+ * Broken up:
-+ *
-+ *   skb = wimax_pipe_msg_alloc(wimax_dev, pipe_handle, buf_size, GFP_KERNEL);
-+ *   ...fill up skb...
-+ *   wimax_pipe_msg_send(wimax_dev, pipe_handle, skb);
-+ *
-+ * Be sure not to modify skb->data in the middle (ie: don't use
-+ * skb_push()/skb_pull()/skb_reserve() on the skb).
-+ */
-+extern struct sk_buff *wimax_pipe_msg_alloc(struct wimax_dev *,
-+					    const void *, size_t, gfp_t);
-+extern int wimax_pipe_msg_send(struct wimax_dev *, struct wimax_pipe *,
-+			       struct sk_buff *);
-+extern int wimax_pipe_msg(struct wimax_dev *, struct wimax_pipe *,
-+			  const void *, size_t, gfp_t);
-+
-+extern const void *wimax_msg_data(struct sk_buff *);
-+extern ssize_t wimax_msg_len(struct sk_buff *);
-+
-+
-+/*
-+ * Same as before, but default to the "msg" pipe; as well, data
-+ * can be received from user space (the wimax_dev->op_msg_from_user())
-+ * will be called for each message sent.
-+ */
-+static inline
-+struct sk_buff *wimax_msg_to_user_alloc(struct wimax_dev *wimax_dev,
-+					const void *msg, size_t size, gfp_t gfp)
-+{
-+	return wimax_pipe_msg_alloc(wimax_dev, msg, size, gfp);
-+}
-+
-+static inline
-+int wimax_msg_to_user_send(struct wimax_dev *wimax_dev, struct sk_buff *skb)
-+{
-+	return wimax_pipe_msg_send(wimax_dev, wimax_dev->pipe_msg, skb);
-+}
-+
-+static inline
-+int wimax_msg_to_user(struct wimax_dev *wimax_dev,
-+		      const void *buf, size_t size, gfp_t gfp)
-+{
-+	return wimax_pipe_msg(wimax_dev, wimax_dev->pipe_msg,
-+			      buf, size, gfp);
-+}
-+
-+
-+/*
-+ * WiMAX stack user space API
-+ * --------------------------
-+ *
-+ * This API is what gets exported to user space for general
-+ * operations. As well, they can be called from within the kernel,
-+ * (with a properly referenced `struct wimax_dev`).
-+ *
-+ * Properly referenced means: the 'struct net_device' that embeds the
-+ * device's control structure and (as such) the 'struct wimax_dev' is
-+ * referenced by the caller.
-+ */
-+extern int wimax_rfkill(struct wimax_dev *, enum wimax_rf_state);
-+extern int wimax_reset(struct wimax_dev *);
-+
-+#else
-+/* You might be looking for linux/wimax.h */
-+#error This file should not be included from user space.
-+#endif /* #ifdef __KERNEL__ */
-+#endif /* #ifndef __NET__WIMAX_H__ */
--- 
-1.5.6.5
+ create mode 100644 net/wimax/Kconfig
+ create mode 100644 net/wimax/Makefile
+ create mode 100644 net/wimax/debug-levels.h
+ create mode 100644 net/wimax/id-table.c
+ create mode 100644 net/wimax/op-msg.c
+ create mode 100644 net/wimax/op-open.c
+ create mode 100644 net/wimax/op-reset.c
+ create mode 100644 net/wimax/op-rfkill.c
+ create mode 100644 net/wimax/stack.c
+ create mode 100644 net/wimax/wimax-internal.h
 
