@@ -1,59 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: macvlan: don't broadcast PAUSE frames to macvlan devices
-Date: Wed, 26 Nov 2008 16:53:06 +0100
-Message-ID: <492D70E2.2040105@trash.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] pkt_sched: gen_estimator: Optimize
+ gen_estimator_active()
+Date: Wed, 26 Nov 2008 08:29:22 -0800
+Message-ID: <20081126082922.55317adf@extreme>
+References: <20081125102113.371db7b1@extreme>
+	<20081126111021.GA12337@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060509010605090108070504"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60991 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751128AbYKZPxS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 10:53:18 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:43167 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752266AbYKZQ3f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2008 11:29:35 -0500
+In-Reply-To: <20081126111021.GA12337@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060509010605090108070504
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 26 Nov 2008 11:10:22 +0000
+Jarek Poplawski <jarkao2@gmail.com> wrote:
 
+> pkt_sched: gen_estimator: Optimize gen_estimator_active()
+> 
+> Since all other gen_estimator functions use bstats and rate_est params
+> together, and searching for them is optimized now, let's use this also
+> in gen_estimator_active(). The return type of gen_estimator_active()
+> is changed to bool, and gen_find_node() parameters to const, btw.
+> 
+> In tcf_act_police_locate() a check for ACT_P_CREATED is added before
+> calling gen_estimator_active().
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
---------------060509010605090108070504
-Content-Type: text/x-patch;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
-
-commit 19e521e49972878b133cb1449a5ac38052d36f3d
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Nov 26 11:48:09 2008 +0100
-
-    macvlan: don't broadcast PAUSE frames to macvlan devices
-    
-    PAUSE frames are only relevant for the real device, broadcasting them
-    to all macvlan devices can cause a significant load increase.
-    
-    Reported-by: Ben Greear <greearb@candelatech.com>
-    Tested-by: Ben Greear <greearb@candelatech.com>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index e887921..7e24b50 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -70,6 +70,9 @@ static void macvlan_broadcast(struct sk_buff *skb,
- 	struct sk_buff *nskb;
- 	unsigned int i;
- 
-+	if (skb->protocol == htons(ETH_P_PAUSE))
-+		return;
-+
- 	for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
- 		hlist_for_each_entry_rcu(vlan, n, &port->vlan_hash[i], hlist) {
- 			dev = vlan->dev;
-
---------------060509010605090108070504--
+yeah sure, i just coded the obvious way.
