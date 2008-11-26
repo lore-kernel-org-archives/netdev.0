@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 04/39] wimax: internal API for the kernel space WiMAX stack
-Date: Tue, 25 Nov 2008 23:39:00 -0800
-Message-ID: <47103ee1867cd33bf57ec6dbd0510465d5cbd1de.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 12/39] wimax: API call to reset a WiMAX device
+Date: Tue, 25 Nov 2008 23:39:08 -0800
+Message-ID: <a4ef4add8974b5a4f7a24e0a583dca807b6e30cb.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,27 +18,29 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This file contains declarations and definitions used by the different
-submodules of the stack.
+Provides wimax_reset() for the kernel to reset a wimax device as
+needed.
+
+Exports wimax_reset() over generic netlink to user space.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- net/wimax/wimax-internal.h |   92 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 92 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/wimax-internal.h
+ net/wimax/op-reset.c |  134 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 134 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/op-reset.c
 
-diff --git a/net/wimax/wimax-internal.h b/net/wimax/wimax-internal.h
+diff --git a/net/wimax/op-reset.c b/net/wimax/op-reset.c
 new file mode 100644
-index 0000000..712890b
+index 0000000..5ec64f6
 --- /dev/null
-+++ b/net/wimax/wimax-internal.h
-@@ -0,0 +1,92 @@
++++ b/net/wimax/op-reset.c
+@@ -0,0 +1,134 @@
 +/*
 + * Linux WiMAX
-+ * Internal API for kernel space WiMAX stack
++ * Implement and export a method for resetting a WiMAX device
 + *
 + *
-+ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2008 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
@@ -56,74 +58,116 @@ index 0000000..712890b
 + * 02110-1301, USA.
 + *
 + *
-+ * This header file is for declarations and definitions internal to
-+ * the WiMAX stack. For public APIs and documentation, see
-+ * include/net/wimax.h and include/linux/wimax.h.
++ * This implements a simple synchronous call to reset a WiMAX device.
++ *
++ * Resets aim at being warm, keeping the device handles active;
++ * however, when that fails, it falls back to a cold reset (that will
++ * disconnect and reconnect the device).
 + */
 +
-+#ifndef __WIMAX_INTERNAL_H__
-+#define __WIMAX_INTERNAL_H__
-+#ifdef __KERNEL__
-+
-+#include <linux/device.h>
 +#include <net/wimax.h>
++#include <net/genetlink.h>
++#include <linux/wimax.h>
++#include <linux/security.h>
++#include "wimax-internal.h"
++
++#define D_SUBMODULE op_reset
++#include "debug-levels.h"
++
++
++/**
++ * wimax_reset - Reset a WiMAX device
++ *
++ * @wimax_dev: WiMAX device descriptor
++ *
++ * Returns:
++ *
++ * %0 if ok and a warm reset was done (the device still exists in
++ * the system).
++ *
++ * -%ENODEV if a cold/bus reset had to be done (device has
++ * disconnected and reconnected, so current handle is not valid
++ * any more).
++ *
++ * -%EINVAL if the device is not even registered.
++ *
++ * Any other negative error code shall be considered as
++ * non-recoverable.
++ *
++ * Description:
++ *
++ * Called when wanting to reset the device for any reason. Device is
++ * taken back to power on status.
++ *
++ * This call blocks; on succesful return, the device has completed the
++ * reset process and is ready to operate.
++ */
++int wimax_reset(struct wimax_dev *wimax_dev)
++{
++	int result = -EINVAL;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++
++	might_sleep();
++	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
++	mutex_lock(&wimax_dev->mutex);
++	if (wimax_dev->state >= WIMAX_ST_DOWN)
++		/* Dev is at least registered */
++		result = wimax_dev->op_reset(wimax_dev);
++	mutex_unlock(&wimax_dev->mutex);
++	d_fnend(3, dev, "(wimax_dev %p) = %d\n", wimax_dev, result);
++	return result;
++}
++EXPORT_SYMBOL(wimax_reset);
 +
 +
 +/*
-+ * Decide if a (locked) device is ready for use
++ * Exporting to user space over generic netlink
 + *
-+ * Before using the device structure, it must be locked
-+ * (wimax_dev->mutex). As well, most operations need to call this
-+ * function to check if the state is the right one.
++ * Parse the reset command from user space, return error code.
 + *
-+ * An error value will be returned if the state is not the right
-+ * one. In that case, the caller should not attempt to use the device
-+ * and just unlock it.
++ * No attributes.
 + */
-+static inline __must_check
-+int wimax_dev_is_ready(struct wimax_dev *wimax_dev)
++static
++int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info)
 +{
-+	if (wimax_dev->state == __WIMAX_ST_NULL)
-+		return -EINVAL;	/* Device is not even registered! */
-+	if (wimax_dev->state == WIMAX_ST_DOWN)
-+		return -ENOMEDIUM;
-+	if (wimax_dev->state == __WIMAX_ST_QUIESCING)
-+		return -ESHUTDOWN;
-+	return 0;
++	int result, result2;
++	struct wimax_dev *wimax_dev;
++	struct device *dev;
++	struct nlmsghdr *nlh;
++
++	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
++	result = -EPERM;
++	if (security_netlink_recv(skb, CAP_NET_ADMIN))
++		goto error_perm;
++	result = -ENODEV;
++	wimax_dev = wimax_dev_get_by_genl_info(info);
++	if (wimax_dev == NULL)
++		goto error_no_wimax_dev;
++	dev = wimax_dev_to_dev(wimax_dev);
++
++	nlh = (void *) skb->data;
++
++	/* Execute the operation and send the result back to user space */
++	result = wimax_reset(wimax_dev);
++	result2 = wimax_gnl_send_rp_result(wimax_dev, info, result);
++	if (result2 < 0)
++		dev_err(dev, "WIMAX_GNL_RESET: can't send result %d to "
++			"userspace: %d\n", result, result2);
++	result = 0;
++	dev_put(wimax_dev->net_dev);
++error_no_wimax_dev:
++error_perm:
++	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
++	return result;
 +}
 +
 +
-+static inline
-+void __wimax_state_set(struct wimax_dev *wimax_dev, enum wimax_st state)
-+{
-+	wimax_dev->state = state;
-+}
-+extern void __wimax_state_change(struct wimax_dev *, enum wimax_st);
-+
-+
-+extern void wimax_id_table_add(struct wimax_dev *);
-+extern struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *);
-+extern void wimax_id_table_rm(struct wimax_dev *);
-+extern void wimax_id_table_release(void);
-+
-+extern int wimax_gnl_send_rp_result(struct wimax_dev *, struct genl_info *,
-+				    ssize_t);
-+extern void __wimax_pipe_rm(struct wimax_dev *, struct wimax_pipe *);
-+
-+extern int wimax_rfkill_add(struct wimax_dev *);
-+extern void wimax_rfkill_rm(struct wimax_dev *);
-+
-+/*
-+ * The concept of a pipe -- we encapsulate it because we want to
-+ * detach the usage of it from the implementation, and thus it serves
-+ * just as a handle.
-+ */
-+struct wimax_pipe {
-+	struct list_head list_node;
-+	struct genl_multicast_group mcg;
++struct genl_ops wimax_gnl_reset = {
++	.cmd = WIMAX_GNL_OP_RESET,
++	.flags = 0,
++	.policy = NULL,
++	.doit = wimax_gnl_doit_reset,
++	.dumpit = NULL,
 +};
-+
-+#endif /* #ifdef __KERNEL__ */
-+#endif /* #ifndef __WIMAX_INTERNAL_H__ */
 -- 
 1.5.6.5
