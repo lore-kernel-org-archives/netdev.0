@@ -1,39 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hp-plus uses eip_poll
-Date: Tue, 25 Nov 2008 21:05:24 -0800 (PST)
-Message-ID: <20081125.210524.248687025.davem@davemloft.net>
-References: <20081125195400.dbb46066.randy.dunlap@oracle.com>
+Subject: Re: [patch 00/14] Network devices ops (wave 4)
+Date: Tue, 25 Nov 2008 21:06:58 -0800 (PST)
+Message-ID: <20081125.210658.179033377.davem@davemloft.net>
+References: <20081126011419.402319779@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk
-To: randy.dunlap@oracle.com
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36181
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36186
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750718AbYKZFFY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 00:05:24 -0500
-In-Reply-To: <20081125195400.dbb46066.randy.dunlap@oracle.com>
+	by vger.kernel.org with ESMTP id S1750696AbYKZFG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 00:06:58 -0500
+In-Reply-To: <20081126011419.402319779@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Tue, 25 Nov 2008 19:54:00 -0800
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 25 Nov 2008 17:14:19 -0800
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> hp-plus uses 8390p.c, so it should use eip_poll(), not ei_poll().
-> 
-> drivers/built-in.o: In function `hpp_probe1':
-> hp-plus.c:(.init.text+0x9cbd): undefined reference to `ei_poll'
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> This fixes the build bug for 8390 library based drivers,
+> then updates a bunch more drivers.  Build tested all the network drivers
+> on x86.
 
-I'll apply this to net-2.6
-
-But can you take a look at what I just pushed out to
-net-next-2.6 wrt. this driver and give me a hand untangling
-things there?
-
-Thanks a lot Randy!
-
+All applied thanks Stephen.
