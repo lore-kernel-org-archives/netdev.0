@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 12/39] wimax: API call to reset a WiMAX device
-Date: Tue, 25 Nov 2008 23:39:08 -0800
-Message-ID: <a4ef4add8974b5a4f7a24e0a583dca807b6e30cb.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 37/39] i2400m: Makefile and Kconfig
+Date: Tue, 25 Nov 2008 23:39:33 -0800
+Message-ID: <9c17668e57ad225520699ca1cb7663531cdbf253.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,156 +18,164 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Provides wimax_reset() for the kernel to reset a wimax device as
-needed.
-
-Exports wimax_reset() over generic netlink to user space.
+This patch provides the Makefile and KConfig for the i2400m driver,
+integrating them into the WiMAX stack's Makefile and Kconfig.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- net/wimax/op-reset.c |  134 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 134 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/op-reset.c
+ drivers/net/Kconfig               |    2 +
+ drivers/net/Makefile              |    1 +
+ drivers/net/wimax/Kconfig         |   17 +++++++++++++
+ drivers/net/wimax/Makefile        |    2 +
+ drivers/net/wimax/i2400m/Kconfig  |   49 +++++++++++++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/Makefile |   28 +++++++++++++++++++++
+ 6 files changed, 99 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/Kconfig
+ create mode 100644 drivers/net/wimax/Makefile
+ create mode 100644 drivers/net/wimax/i2400m/Kconfig
+ create mode 100644 drivers/net/wimax/i2400m/Makefile
 
-diff --git a/net/wimax/op-reset.c b/net/wimax/op-reset.c
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 11f143f..f413d58 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2584,6 +2584,8 @@ source "drivers/net/tokenring/Kconfig"
+ 
+ source "drivers/net/wireless/Kconfig"
+ 
++source "drivers/net/wimax/Kconfig"
++
+ source "drivers/net/usb/Kconfig"
+ 
+ source "drivers/net/pcmcia/Kconfig"
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index f19acf8..3ac378f 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -262,3 +262,4 @@ obj-$(CONFIG_NIU) += niu.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_SFC) += sfc/
+ 
++obj-y += wimax/
+diff --git a/drivers/net/wimax/Kconfig b/drivers/net/wimax/Kconfig
 new file mode 100644
-index 0000000..5ec64f6
+index 0000000..30347e4
 --- /dev/null
-+++ b/net/wimax/op-reset.c
-@@ -0,0 +1,134 @@
-+/*
-+ * Linux WiMAX
-+ * Implement and export a method for resetting a WiMAX device
-+ *
-+ *
-+ * Copyright (C) 2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * This implements a simple synchronous call to reset a WiMAX device.
-+ *
-+ * Resets aim at being warm, keeping the device handles active;
-+ * however, when that fails, it falls back to a cold reset (that will
-+ * disconnect and reconnect the device).
-+ */
-+
-+#include <net/wimax.h>
-+#include <net/genetlink.h>
-+#include <linux/wimax.h>
-+#include <linux/security.h>
-+#include "wimax-internal.h"
-+
-+#define D_SUBMODULE op_reset
-+#include "debug-levels.h"
++++ b/drivers/net/wimax/Kconfig
+@@ -0,0 +1,17 @@
++#
++# WiMAX LAN device drivers configuration
++#
 +
 +
-+/**
-+ * wimax_reset - Reset a WiMAX device
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ *
-+ * Returns:
-+ *
-+ * %0 if ok and a warm reset was done (the device still exists in
-+ * the system).
-+ *
-+ * -%ENODEV if a cold/bus reset had to be done (device has
-+ * disconnected and reconnected, so current handle is not valid
-+ * any more).
-+ *
-+ * -%EINVAL if the device is not even registered.
-+ *
-+ * Any other negative error code shall be considered as
-+ * non-recoverable.
-+ *
-+ * Description:
-+ *
-+ * Called when wanting to reset the device for any reason. Device is
-+ * taken back to power on status.
-+ *
-+ * This call blocks; on succesful return, the device has completed the
-+ * reset process and is ready to operate.
-+ */
-+int wimax_reset(struct wimax_dev *wimax_dev)
-+{
-+	int result = -EINVAL;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
++comment "Enable WiMAX (Networking options) to see the WiMAX drivers"
++        depends on WIMAX = n
 +
-+	might_sleep();
-+	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
-+	mutex_lock(&wimax_dev->mutex);
-+	if (wimax_dev->state >= WIMAX_ST_DOWN)
-+		/* Dev is at least registered */
-+		result = wimax_dev->op_reset(wimax_dev);
-+	mutex_unlock(&wimax_dev->mutex);
-+	d_fnend(3, dev, "(wimax_dev %p) = %d\n", wimax_dev, result);
-+	return result;
-+}
-+EXPORT_SYMBOL(wimax_reset);
++if WIMAX
++
++menu "WiMAX Wireless Broadband devices"
++
++source "drivers/net/wimax/i2400m/Kconfig"
++
++endmenu
++
++endif
+diff --git a/drivers/net/wimax/Makefile b/drivers/net/wimax/Makefile
+new file mode 100644
+index 0000000..bda9430
+--- /dev/null
++++ b/drivers/net/wimax/Makefile
+@@ -0,0 +1,2 @@
++
++obj-$(CONFIG_WIMAX_I2400M)	+= i2400m/
+diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
+new file mode 100644
+index 0000000..e977c46
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/Kconfig
+@@ -0,0 +1,49 @@
++
++config WIMAX_I2400M
++        tristate
++	depends on WIMAX
++        select FW_LOADER
++
++comment "Enable USB support to see WiMAX USB drivers"
++        depends on USB = n
++
++comment "Enable MMC support to see WiMAX SDIO drivers"
++        depends on MMC = n
++
++config WIMAX_I2400M_USB
++	tristate "Intel Wireless WiMAX Connection 2400 over USB (including 5x50)"
++	depends on WIMAX && USB
++        select WIMAX_I2400M
++	help
++	  Select if you have a device based on the Intel WiMAX
++	  Connection 2400 over USB (like any of the Intel Wireless
++	  WiMAX/WiFi Link 5x50 series).
++
++          If unsure, it is safe to select M (module).
++
++config WIMAX_I2400M_SDIO
++	tristate "Intel Wireless WiMAX Connection 2400 over SDIO"
++	depends on WIMAX && MMC
++        select WIMAX_I2400M
++	help
++	  Select if you have a device based on the Intel WiMAX
++          Connection 2400 over SDIO.
++
++          If unsure, it is safe to select M (module).
++
++config WIMAX_I2400M_DEBUG_LEVEL
++       int "WiMAX i2400m debug level"
++       depends on WIMAX_I2400M
++       default 8
++       help
++
++         Select the maximum debug verbosity level to be compiled into
++         the WiMAX i2400m driver code.
++
++         By default, this is disabled at runtime and can be
++         selectively enabled at runtime for different parts of the
++         code using the sysfs debug-levels file.
++
++         If set at zero, this will compile out all the debug code.
++
++         It is recommended that it is left at 8.
+diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
+new file mode 100644
+index 0000000..7113a5f
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/Makefile
+@@ -0,0 +1,28 @@
++
++obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
++obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
++obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
++
++i2400m-objs :=		\
++	control.o	\
++	driver.o	\
++	fw.o		\
++	op-rfkill.o	\
++	sysfs.o		\
++	netdev.o	\
++	tx.o		\
++	rx.o
++
++i2400m-usb-objs :=		\
++	usb-fw.o		\
++	usb-notif.o		\
++	usb-tx.o		\
++	usb-rx.o		\
++	usb.o
 +
 +
-+/*
-+ * Exporting to user space over generic netlink
-+ *
-+ * Parse the reset command from user space, return error code.
-+ *
-+ * No attributes.
-+ */
-+static
-+int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int result, result2;
-+	struct wimax_dev *wimax_dev;
-+	struct device *dev;
-+	struct nlmsghdr *nlh;
-+
-+	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
-+	result = -EPERM;
-+	if (security_netlink_recv(skb, CAP_NET_ADMIN))
-+		goto error_perm;
-+	result = -ENODEV;
-+	wimax_dev = wimax_dev_get_by_genl_info(info);
-+	if (wimax_dev == NULL)
-+		goto error_no_wimax_dev;
-+	dev = wimax_dev_to_dev(wimax_dev);
-+
-+	nlh = (void *) skb->data;
-+
-+	/* Execute the operation and send the result back to user space */
-+	result = wimax_reset(wimax_dev);
-+	result2 = wimax_gnl_send_rp_result(wimax_dev, info, result);
-+	if (result2 < 0)
-+		dev_err(dev, "WIMAX_GNL_RESET: can't send result %d to "
-+			"userspace: %d\n", result, result2);
-+	result = 0;
-+	dev_put(wimax_dev->net_dev);
-+error_no_wimax_dev:
-+error_perm:
-+	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
-+	return result;
-+}
-+
-+
-+struct genl_ops wimax_gnl_reset = {
-+	.cmd = WIMAX_GNL_OP_RESET,
-+	.flags = 0,
-+	.policy = NULL,
-+	.doit = wimax_gnl_doit_reset,
-+	.dumpit = NULL,
-+};
++i2400m-sdio-objs := 		\
++	sdio.o      		\
++	sdio-tx.o   		\
++	sdio-fw.o	 	\
++	sdio-rx.o
 -- 
 1.5.6.5
