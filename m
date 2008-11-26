@@ -1,9 +1,10 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 32/39] i2400m/SDIO: header for the SDIO subdriver
-Date: Tue, 25 Nov 2008 23:39:28 -0800
-Message-ID: <8e484a466d4c7221b9c683f36c4128f08ccdf38f.1227684996.git.inaky@linux.intel.com>
+Subject: [PATCH 06/39] genetlink: export genl_unregister_mc_group()
+Date: Tue, 25 Nov 2008 23:39:02 -0800
+Message-ID: <d89210b560a6c71f5432b7b5ec7409fcd084c30f.1227684996.git.inaky@linux.intel.com>
 References: <cover.1227684995.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org
+Cc: Thomas Graf <tgraf@suug.ch>, Johannes Berg <johannes@sipsolutions.net>,
+	wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <wimax-bounces@linuxwimax.org>
 In-Reply-To: <cover.1227684995.git.inaky@linux.intel.com>
@@ -18,181 +19,37 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This contains the common function declaration and constants for the
-SDIO driver for the 2400m Wireless WiMAX Connection and the debug
-level settings for the SDIO driver.
+Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
+unregistering groups on the run. EXPORT_SYMBOL_GPL() is not used as
+the rest of the functions exported by this module (eg:
+genl_register_mc_group) are also not _GPL().
+
+Cleanup is currently done when unregistering a family, but there is
+no way to unregister a single multicast group due to that function not
+being exported. Seems to be a mistake as it is documented as for
+external consumption.
+
+This is needed by the WiMAX stack to be able to cleanup unused mc
+groups.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/wimax/i2400m/i2400m-sdio.h       |  130 ++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +++++
- 2 files changed, 152 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
- create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
+ net/netlink/genetlink.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
-new file mode 100644
-index 0000000..1c9cd54
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/i2400m-sdio.h
-@@ -0,0 +1,130 @@
-+/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * SDIO-specific i2400m driver definitions
-+ *
-+ *
-+ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ *
-+ * Intel Corporation <linux-wimax@intel.com>
-+ * Brian Bian <brian.bian@intel.com>
-+ * Dirk Brandewie <dirk.j.brandewie@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ *  - Initial implementation
-+ *
-+ *
-+ * This driver implements the bus-specific part of the i2400m for
-+ * SDIO. Check i2400m.h for a generic driver description.
-+ *
-+ * ARCHITECTURE
-+ *
-+ * This driver sits under the bus-generic i2400m driver, providing the
-+ * connection to the device.
-+ *
-+ * When probed, all the function pointers are setup and then the
-+ * bus-generic code called. The generic driver will then use the
-+ * provided pointers for uploading firmware (i2400ms_bus_bm*() in
-+ * sdio-fw.c) and then setting up the device (i2400ms_dev_*() in
-+ * sdio.c).
-+ *
-+ * Once firmware is uploaded, TX functions (sdio-tx.c) are called when
-+ * data is ready for transmission in the TX fifo; then the SDIO IRQ is
-+ * fired and data is available (sdio-rx.c), it is sent to the generic
-+ * driver for processing with i2400m_rx.
-+ */
-+
-+#ifndef __I2400M_SDIO_H__
-+#define __I2400M_SDIO_H__
-+
-+#include "i2400m.h"
-+
-+/* Host-Device interface for SDIO */
-+enum {
-+	I2400MS_BLK_SIZE = 256,
-+	I2400MS_PL_SIZE_MAX = 0x3E00,
-+
-+	I2400MS_DATA_ADDR = 0x0,
-+	I2400MS_INTR_STATUS_ADDR = 0x13,
-+	I2400MS_INTR_CLEAR_ADDR = 0x13,
-+	I2400MS_INTR_ENABLE_ADDR = 0x14,
-+	I2400MS_INTR_GET_SIZE_ADDR = 0x2C,
-+	/* The number of ticks to wait for the device to signal that
-+	 * it is ready */
-+	I2400MS_INIT_SLEEP_INTERVAL = 10,
-+};
-+
-+
-+/**
-+ * struct i2400ms - descriptor for a SDIO connected i2400m
-+ *
-+ * @i2400m: bus-generic i2400m implementation; has to be first (see
-+ *     it's documentation in i2400m.h).
-+ *
-+ * @func: pointer to our SDIO function
-+ *
-+ * @tx_worker: workqueue struct used to TX data when the bus-generic
-+ *     code signals packets are pending for transmission to the device.
-+ *
-+ * @tx_workqueue: workqeueue used for data TX; we don't use the
-+ *     system's workqueue as that might cause deadlocks with code in
-+ *     the bus-generic driver.
-+ */
-+struct i2400ms {
-+	struct i2400m i2400m;		/* FIRST! See doc */
-+	struct sdio_func *func;
-+
-+	struct work_struct tx_worker;
-+	struct workqueue_struct *tx_workqueue;
-+	char tx_wq_name[32];
-+};
-+
-+
-+static inline
-+void i2400ms_init(struct i2400ms *i2400ms)
-+{
-+	i2400m_init(&i2400ms->i2400m);
-+}
-+
-+
-+extern int i2400ms_rx_setup(struct i2400ms *);
-+extern void i2400ms_rx_release(struct i2400ms *);
-+extern ssize_t __i2400ms_rx_get_size(struct i2400ms *);
-+
-+extern int i2400ms_tx_setup(struct i2400ms *);
-+extern void i2400ms_tx_release(struct i2400ms *);
-+extern void i2400ms_bus_tx_kick(struct i2400m *);
-+
-+extern ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *,
-+				       const struct i2400m_bootrom_header *,
-+				       size_t, int);
-+extern ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *,
-+					   struct i2400m_bootrom_header *,
-+					   size_t);
-+#endif /* #ifndef __I2400M_SDIO_H__ */
-diff --git a/drivers/net/wimax/i2400m/sdio-debug-levels.h b/drivers/net/wimax/i2400m/sdio-debug-levels.h
-new file mode 100644
-index 0000000..3e3eae9
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio-debug-levels.h
-@@ -0,0 +1,22 @@
-+/*
-+ * debug levels control file for the i2400m module's
-+ */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
-+
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME i2400m_sdio
-+#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
-+
-+#include <linux/wimax/debug.h>
-+
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(sdio_main),
-+	D_SUBMODULE_DECLARE(sdio_tx),
-+	D_SUBMODULE_DECLARE(sdio_rx),
-+	D_SUBMODULE_DECLARE(sdio_fw)
-+};
-+
-+
-+#endif /* #ifndef __debug_levels__h__ */
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 3e1191c..1d3dd30 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -225,6 +225,7 @@ void genl_unregister_mc_group(struct genl_family *family,
+ 	__genl_unregister_mc_group(family, grp);
+ 	genl_unlock();
+ }
++EXPORT_SYMBOL(genl_unregister_mc_group);
+ 
+ static void genl_unregister_mc_groups(struct genl_family *family)
+ {
 -- 
 1.5.6.5
