@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
-Date: Wed, 26 Nov 2008 15:27:48 -0800 (PST)
-Message-ID: <20081126.152748.244331470.davem@davemloft.net>
-References: <1227706578-5449-1-git-send-email-catab@embedromix.ro>
-	<Pine.LNX.4.64.0811260636100.26650@wm7d.net>
+Subject: Re: [PATCH] virtio_net: large tx MTU support
+Date: Wed, 26 Nov 2008 15:28:20 -0800 (PST)
+Message-ID: <20081126.152820.52837825.davem@davemloft.net>
+References: <1227707891.9579.44.camel@blaa>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: catab@embedromix.ro, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: jmack@wm7d.net
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0811260636100.26650@wm7d.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: markmc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55619
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752353AbYKZX2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 18:28:20 -0500
+In-Reply-To: <1227707891.9579.44.camel@blaa>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joseph Mack NA3T <jmack@wm7d.net>
-Date: Wed, 26 Nov 2008 06:40:02 -0800 (PST)
+From: Mark McLoughlin <markmc@redhat.com>
+Date: Wed, 26 Nov 2008 13:58:11 +0000
 
-> On Wed, 26 Nov 2008, Catalin(ux) M. BOIE wrote:
+> We don't really have a max tx packet size limit, so allow configuring
+> the device with up to 64k tx MTU.
 > 
-> > I was very frustrated about the fact that I have to recompile the kernel
-> > to change the hash size. So, I created this patch.
-> 
-> thanks for sending us the code.
-> 
-> Why do you need to change the hash size? We really don't recommend anyone do this under normal circumstances
+> Signed-off-by: Mark McLoughlin <markmc@redhat.com>
 
-In any event, this should be dynamically sized at run time.
+Rusty, ACK?
+
+If so, I'll toss this into net-next-2.6, thanks!
