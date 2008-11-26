@@ -1,38 +1,39 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 35/39] i2400m/SDIO: read transactions from the SDIO device
-Date: Wed, 26 Nov 2008 14:40:54 -0800
-Message-ID: <58dc2694d30579439786a29e26c8ecf73dd00975.1227691434.git.inaky@linux.intel.com>
+Subject: [PATCH 36/39] i2400m/SDIO: write transactions to the SDIO device
+Date: Wed, 26 Nov 2008 14:40:55 -0800
+Message-ID: <4a96255e054bbaecb3e61259ee517d3133178edc.1227691434.git.inaky@linux.intel.com>
 References: <cover.1227691434.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:45655 "EHLO
+Received: from mga10.intel.com ([192.55.52.92]:43324 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753675AbYKZWlz (ORCPT
+	with ESMTP id S1753845AbYKZWlz (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:55 -0500
 In-Reply-To: <cover.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This code implements reading from the SDIO device; when data is ready
-the SDIO IRQ is fired and that will allocate an skb, put all the data
-there and then pass it to the generic driver for processing and delivery.
+Implements the backend so that the generic driver can send data to the
+SDIO device. When kicked by the generic driver, this will schedule
+work on a driver-specific workqueue that pulls data from the TX FIFO
+and sends it to the device until it drains it.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/sdio-rx.c |  255 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 255 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
+ drivers/net/wimax/i2400m/sdio-tx.c |  153 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 153 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
 
-diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
+diff --git a/drivers/net/wimax/i2400m/sdio-tx.c b/drivers/net/wimax/i2400m/sdio-tx.c
 new file mode 100644
-index 0000000..237279d
+index 0000000..8f29a3b
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio-rx.c
-@@ -0,0 +1,255 @@
++++ b/drivers/net/wimax/i2400m/sdio-tx.c
+@@ -0,0 +1,153 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * SDIO RX handling
++ * SDIO TX transaction backends
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -69,221 +70,119 @@ index 0000000..237279d
 + *  - Initial implementation
 + *
 + *
-+ * This handles the RX path on SDIO.
++ * Takes the TX messages in the i2400m's driver TX FIFO and sends them
++ * to the device until there are no more.
 + *
-+ * The SDIO bus driver calls the "irq" routine when data is available.
-+ * This is not a traditional interrupt routine since the SDIO bus
-+ * driver calls us from its irq thread context.  Because of this
-+ * sleeping in the SDIO RX IRQ routine is okay.
++ * If we fail sending the message, we just drop it. There isn't much
++ * we can do at this point. Most of the traffic is network, which has
++ * recovery methods for dropped packets.
 + *
-+ * From there on, we obtain the size of the data that is available,
-+ * allocate an skb, copy it and then pass it to the generic driver's
-+ * RX routine [i2400m_rx()].
++ * The SDIO functions are not atomic, so we can't run from the context
++ * where i2400m->bus_tx_kick() [i2400ms_bus_tx_kick()] is being called
++ * (some times atomic). Thus, the actual TX work is deferred to a
++ * workqueue.
 + *
 + * ROADMAP
 + *
-+ * i2400ms_irq()
-+ *   i2400ms_rx()
-+ *     __i2400ms_rx_get_size()
-+ *     i2400m_rx()
++ * i2400ms_bus_tx_kick()
++ *   i2400ms_tx_submit()     [through workqueue]
 + *
-+ * i2400ms_rx_setup()
++ * i2400m_tx_setup()
 + *
-+ * i2400ms_rx_release()
++ * i2400m_tx_release()
 + */
-+#include <linux/workqueue.h>
-+#include <linux/wait.h>
-+#include <linux/skbuff.h>
-+#include <linux/mmc/sdio.h>
 +#include <linux/mmc/sdio_func.h>
 +#include "i2400m-sdio.h"
 +
-+#define D_SUBMODULE sdio_rx
++#define D_SUBMODULE sdio_tx
 +#include "sdio-debug-levels.h"
 +
 +
 +/*
-+ * Read and return the amount of bytes available for RX
-+ *
-+ * The RX size has to be read like this: byte reads of three
-+ * sequential locations; then glue'em together.
-+ *
-+ * sdio_readl() doesn't work.
-+ */
-+ssize_t __i2400ms_rx_get_size(struct i2400ms *i2400ms)
-+{
-+	int ret, cnt, val;
-+	ssize_t rx_size;
-+	unsigned xfer_size_addr;
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &i2400ms->func->dev;
-+
-+	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
-+	xfer_size_addr = I2400MS_INTR_GET_SIZE_ADDR;
-+	rx_size = 0;
-+	for (cnt = 0; cnt < 3; cnt++) {
-+		val = sdio_readb(func, xfer_size_addr + cnt, &ret);
-+		if (ret < 0) {
-+			dev_err(dev, "RX: Can't read byte %d of RX size from "
-+				"0x%08x: %d\n", cnt, xfer_size_addr + cnt, ret);
-+			rx_size = ret;
-+			goto error_read;
-+		}
-+		rx_size = rx_size << 8 | (val & 0xff);
-+	}
-+	d_printf(6, dev, "RX: rx_size is %ld\n", (long) rx_size);
-+error_read:
-+	d_fnend(7, dev, "(i2400ms %p) = %ld\n", i2400ms, (long) rx_size);
-+	return rx_size;
-+}
-+
-+
-+/*
-+ * Read data from the device (when in normal)
-+ *
-+ * Allocate an SKB of the right size, read the data in and then
-+ * deliver it to the generic layer.
-+ *
-+ * We also check for a reboot barker. That means the device died and
-+ * we have to reboot it.
++ * Pull TX transations from the TX FIFO and send them to the device
++ * until there are no more.
 + */
 +static
-+void i2400ms_rx(struct i2400ms *i2400ms)
-+{
-+	int ret;
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+	struct i2400m *i2400m = &i2400ms->i2400m;
-+	struct sk_buff *skb;
-+	ssize_t rx_size;
-+
-+	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
-+	rx_size = __i2400ms_rx_get_size(i2400ms);
-+	if (rx_size < 0) {
-+		ret = rx_size;
-+		goto error_get_size;
-+	}
-+	ret = -ENOMEM;
-+	skb = alloc_skb(rx_size, GFP_ATOMIC);
-+	if (NULL == skb) {
-+		dev_err(dev, "RX: unable to alloc skb\n");
-+		goto error_alloc_skb;
-+	}
-+
-+	ret = sdio_memcpy_fromio(func, skb->data,
-+				 I2400MS_DATA_ADDR, rx_size);
-+	if (ret < 0) {
-+		dev_err(dev, "RX: SDIO data read failed: %d\n", ret);
-+		goto error_memcpy_fromio;
-+	}
-+	/* Check if device has reset */
-+	if (!memcmp(skb->data, i2400m_NBOOT_BARKER,
-+		    sizeof(i2400m_NBOOT_BARKER))
-+	    || !memcmp(skb->data, i2400m_SBOOT_BARKER,
-+		       sizeof(i2400m_SBOOT_BARKER))) {
-+		ret = i2400m_dev_reset_handle(i2400m);
-+		kfree_skb(skb);
-+	} else {
-+		skb_put(skb, rx_size);
-+		i2400m_rx(i2400m, skb);
-+	}
-+	d_fnend(7, dev, "(i2400ms %p) = void\n", i2400ms);
-+	return;
-+
-+error_memcpy_fromio:
-+	kfree_skb(skb);
-+error_alloc_skb:
-+error_get_size:
-+	d_fnend(7, dev, "(i2400ms %p) = %d\n", i2400ms, ret);
-+	return;
-+}
-+
-+
-+/*
-+ * Process an interrupt from the SDIO card
-+ *
-+ * FIXME: need to process other events that are not just ready-to-read
-+ *
-+ * Checks there is data ready and then proceeds to read it.
-+ */
-+static
-+void i2400ms_irq(struct sdio_func *func)
-+{
-+	int ret;
-+	struct i2400ms *i2400ms = sdio_get_drvdata(func);
-+	struct i2400m *i2400m = &i2400ms->i2400m;
-+	struct device *dev = &func->dev;
-+	int val;
-+
-+	d_fnstart(6, dev, "(i2400ms %p)\n", i2400ms);
-+	val = sdio_readb(func, I2400MS_INTR_STATUS_ADDR, &ret);
-+	if (ret < 0) {
-+		dev_err(dev, "RX: Can't read interrupt status: %d\n", ret);
-+		goto error_no_irq;
-+	}
-+	if (!val) {
-+		dev_err(dev, "RX: BUG? got IRQ but no interrupt ready?\n");
-+		goto error_no_irq;
-+	}
-+	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
-+	if (WARN_ON(i2400m->boot_mode != 0))
-+		dev_err(dev, "RX: SW BUG? boot mode and IRQ is up?\n");
-+	else
-+		i2400ms_rx(i2400ms);
-+error_no_irq:
-+	d_fnend(6, dev, "(i2400ms %p) = void\n", i2400ms);
-+	return;
-+}
-+
-+
-+/*
-+ * Setup SDIO RX
-+ *
-+ * Hooks up the IRQ handler and then enables IRQs.
-+ */
-+int i2400ms_rx_setup(struct i2400ms *i2400ms)
++void i2400ms_tx_submit(struct work_struct *ws)
 +{
 +	int result;
++	struct i2400ms *i2400ms = container_of(ws, struct i2400ms, tx_worker);
++	struct i2400m *i2400m = &i2400ms->i2400m;
 +	struct sdio_func *func = i2400ms->func;
 +	struct device *dev = &func->dev;
++	struct i2400m_msg_hdr *tx_msg;
++	size_t tx_msg_size;
++
++	d_fnstart(4, dev, "(i2400ms %p, i2400m %p)\n", i2400ms, i2400ms);
++
++	while (NULL != (tx_msg = i2400m_tx_msg_get(i2400m, &tx_msg_size))) {
++		d_printf(2, dev, "TX: submitting %zu bytes\n", tx_msg_size);
++		d_dump(5, dev, tx_msg, tx_msg_size);
++
++		sdio_claim_host(func);
++		result = sdio_memcpy_toio(func, 0, tx_msg, tx_msg_size);
++		sdio_release_host(func);
++
++		i2400m_tx_msg_sent(i2400m);
++
++		if (result < 0) {
++			dev_err(dev, "TX: cannot submit TX; tx_msg @%zu %zu B:"
++				" %d\n", (void *) tx_msg - i2400m->tx_buf,
++				tx_msg_size, result);
++		}
++
++		d_printf(2, dev, "TX: %zub submitted\n", tx_msg_size);
++	}
++
++	d_fnend(4, dev, "(i2400ms %p) = void\n", i2400ms);
++}
++
++
++/*
++ * The generic driver notifies us that there is data ready for TX
++ *
++ * Schedule a run of i2400ms_tx_submit() to handle it.
++ */
++void i2400ms_bus_tx_kick(struct i2400m *i2400m)
++{
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	struct device *dev = &i2400ms->func->dev;
++
++	d_fnstart(3, dev, "(i2400m %p) = void\n", i2400m);
++
++	/* schedule tx work, this is because tx may block, therefore
++	 * it has to run in a thread context.
++	 */
++	queue_work(i2400ms->tx_workqueue, &i2400ms->tx_worker);
++
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++}
++
++int i2400ms_tx_setup(struct i2400ms *i2400ms)
++{
++	int result;
++	struct device *dev = &i2400ms->func->dev;
++	struct i2400m *i2400m = &i2400ms->i2400m;
 +
 +	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
-+	sdio_claim_host(func);
-+	result = sdio_claim_irq(func, i2400ms_irq);
-+	if (result < 0) {
-+		dev_err(dev, "Cannot claim IRQ: %d\n", result);
-+		goto error_irq_claim;
-+	}
-+	result = 0;
-+	sdio_writeb(func, 1, I2400MS_INTR_ENABLE_ADDR, &result);
-+	if (result < 0) {
-+		sdio_release_irq(func);
-+		dev_err(dev, "Failed to enable interrupts %d\n", result);
-+	}
-+error_irq_claim:
-+	sdio_release_host(func);
++
++	INIT_WORK(&i2400ms->tx_worker, i2400ms_tx_submit);
++	snprintf(i2400ms->tx_wq_name, sizeof(i2400ms->tx_wq_name),
++		 "%s-tx", i2400m->wimax_dev.name);
++	i2400ms->tx_workqueue =
++		create_singlethread_workqueue(i2400ms->tx_wq_name);
++	if (NULL == i2400ms->tx_workqueue) {
++		dev_err(dev, "TX: failed to create workqueue\n");
++		result = -ENOMEM;
++	} else
++		result = 0;
 +	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
 +	return result;
 +}
 +
-+
-+/*
-+ * Tear down SDIO RX
-+ *
-+ * Disables IRQs in the device and removes the IRQ handler.
-+ */
-+void i2400ms_rx_release(struct i2400ms *i2400ms)
++void i2400ms_tx_release(struct i2400ms *i2400ms)
 +{
-+	int result;
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+
-+	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
-+	sdio_claim_host(func);
-+	sdio_writeb(func, 0, I2400MS_INTR_ENABLE_ADDR, &result);
-+	sdio_release_irq(func);
-+	sdio_release_host(func);
-+	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
++	destroy_workqueue(i2400ms->tx_workqueue);
 +}
 -- 
 1.5.6.5
