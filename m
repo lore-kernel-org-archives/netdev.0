@@ -1,63 +1,55 @@
-From: steve@chygwyn.com
-Subject: Re: [PATCH-mm 8/8] decnet: remove private wrappers of endian
-	helpers
-Date: Wed, 26 Nov 2008 21:33:59 +0000
-Message-ID: <20081126213359.GA20782@fogou.chygwyn.com>
-References: <1227733974.5511.130.camel@brick>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: [PATCH 19/39] i2400m: sysfs controls
+Date: Wed, 26 Nov 2008 14:25:03 -0800
+Message-ID: <200811261425.04052.inaky@linux.intel.com>
+References: <cover.1227562829.git.inaky@linux.intel.com> <50c439125339069856c5ba57c817de253ba99bb3.1227562829.git.inaky@linux.intel.com> <20081126220741.GA19779@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fogou.chygwyn.com ([195.171.2.24]:34801 "EHLO fogou.chygwyn.com"
+Received: from mga09.intel.com ([134.134.136.24]:36364 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752189AbYKZWVL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2008 17:21:11 -0500
+	id S1752234AbYKZWZZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2008 17:25:25 -0500
+In-Reply-To: <20081126220741.GA19779@ioremap.net>
 Content-Disposition: inline
-In-Reply-To: <1227733974.5511.130.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wednesday 26 November 2008, Evgeniy Polyakov wrote:
+> Hi.
+>
+> Spotted an issue.
+>
+> On Mon, Nov 24, 2008 at 01:50:42PM -0800, Inaky Perez-Gonzalez 
+(inaky@linux.intel.com) wrote:
+> > +static
+> > +ssize_t i2400m_reset_cold_store(struct device *dev,
+> > +				struct device_attribute *attr,
+> > +				const char *buf, size_t size)
+> > +{
+> > +	ssize_t result;
+> > +	struct i2400m *i2400m = net_dev_to_i2400m(to_net_dev(dev));
+> > +	unsigned val;
+> > +
+> > +	result = -EINVAL;
+> > +	if (sscanf(buf, "%u\n", &val) != 1)
+> > +		goto error_no_unsigned;
+> > +	if (val != 1)
+> > +		goto error_bad_value;
+> > +	i2400m_schedule_work(i2400m, __i2400m_reset_cold_work, GFP_KERNEL);
+> > +	if (result >= 1)
+> > +		result = size;
+>
+> This never executes since result is always -EINVAL, isn't it?
 
-On Wed, Nov 26, 2008 at 01:12:54PM -0800, Harvey Harrison wrote:
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> ---
-[snip]
-> diff --git a/include/net/dn_fib.h b/include/net/dn_fib.h
-> index 3012511..c378be7 100644
-> --- a/include/net/dn_fib.h
-> +++ b/include/net/dn_fib.h
-> @@ -181,9 +181,9 @@ static inline void dn_fib_res_put(struct dn_fib_res *res)
->  
->  static inline __le16 dnet_make_mask(int n)
->  {
-> -        if (n)
-> -                return dn_htons(~((1<<(16-n))-1));
-> -        return 0;
-> +	if (n)
-> +		return cpu_to_le16(~((1 << (16 - n)) - 1));
-> +	return cpu_to_le16(0);
->  }
-You don't need to convert 0.
-
-[snip]
->  
-> @@ -327,7 +327,7 @@ int dn_username2sockaddr(unsigned char *data, int len, struct sockaddr_dn *sdn,
->  	int namel = 12;
->  
->  	sdn->sdn_objnum = 0;
-> -	sdn->sdn_objnamel = dn_htons(0);
-> +	sdn->sdn_objnamel = cpu_to_le16(0);
-Again, no need to convert 0 even though I did :-)
-
-Otherwise the patch looks good.
-
-Reviewed-by: Steven Whitehouse <swhiteho@redhat.com>
+Right -- the thing is scheduled by to the user it always returns -EINVAl.
+Good catch, thanks -- fixing it.
 
 
-Steve.
 
+-- 
+Inaky
