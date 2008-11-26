@@ -1,11 +1,11 @@
 From: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Subject: [PATCH 4/6] fs: Introduce a per_cpu nr_inodes
-Date: Thu, 27 Nov 2008 00:32:33 +0100
-Message-ID: <492DDC91.3020503@cosmosbay.com>
+Subject: [PATCH 5/6] fs: Introduce special inodes
+Date: Thu, 27 Nov 2008 00:32:41 +0100
+Message-ID: <492DDC99.5060106@cosmosbay.com>
 References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050505090506020603050708"
+ boundary="------------070309070800050207000506"
 Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
@@ -20,212 +20,165 @@ Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------050505090506020603050708
+--------------070309070800050207000506
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Avoids cache line ping pongs between cpus and prepare next patch,
-because updates of nr_inodes metric dont need inode_lock anymore.
+Goal of this patch is to not touch inode_lock for socket/pipes/anonfd
+ inodes allocation/freeing.
 
-(socket8 bench result : 25s to 20.5s)
+ In new_inode(), we test if super block has MS_SPECIAL flag set.
+ If yes, we dont put inode in "inode_in_use" list nor "sb->s_inodes" list
+ As inode_lock was taken only to protect these lists, we avoid it as well
+
+ Using iput_special() from dput_special() avoids taking inode_lock
+ at freeing time.
+
+ This patch has a very noticeable effect, because we avoid dirtying 
+ of three contended cache lines in new_inode(), and five cache lines
+ in iput()
+
+Note: Not sure if we can use MS_SPECIAL=MS_NOUSER, or if we
+really need a different flag.
+
+(socket8 bench result : from 20.5s to 2.94s) 
 
 Signed-off-by: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
 ---
- fs/fs-writeback.c   |    2 -
- fs/inode.c          |   51 +++++++++++++++++++++++++++++++++++-------
- include/linux/fs.h  |    3 ++
- kernel/sysctl.c     |    4 +--
- mm/page-writeback.c |    2 -
- 5 files changed, 50 insertions(+), 12 deletions(-)
 
+ fs/anon_inodes.c   |    1 +
+ fs/dcache.c        |    2 +-
+ fs/inode.c         |   25 ++++++++++++++++++-------
+ fs/pipe.c          |    3 ++-
+ include/linux/fs.h |    2 ++
+ net/socket.c       |    1 +
+ 6 files changed, 25 insertions(+), 9 deletions(-)
 
---------------050505090506020603050708
+--------------070309070800050207000506
 Content-Type: text/plain;
- name="per_cpu_nr_inodes.patch"
+ name="special_inodes.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="per_cpu_nr_inodes.patch"
+ filename="special_inodes.patch"
 
-diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
-index d0ff0b8..b591cdd 100644
---- a/fs/fs-writeback.c
-+++ b/fs/fs-writeback.c
-@@ -608,7 +608,7 @@ void sync_inodes_sb(struct super_block *sb, int wait)
- 	unsigned long nr_unstable = global_page_state(NR_UNSTABLE_NFS);
- 
- 	wbc.nr_to_write = nr_dirty + nr_unstable +
--			(inodes_stat.nr_inodes - inodes_stat.nr_unused) +
-+			(get_nr_inodes() - inodes_stat.nr_unused) +
- 			nr_dirty + nr_unstable;
- 	wbc.nr_to_write += wbc.nr_to_write / 2;		/* Bit more for luck */
- 	sync_sb_inodes(sb, &wbc);
-diff --git a/fs/inode.c b/fs/inode.c
-index d850050..8d8d40e 100644
---- a/fs/inode.c
-+++ b/fs/inode.c
-@@ -96,9 +96,40 @@ static DEFINE_MUTEX(iprune_mutex);
-  * Statistics gathering..
-  */
- struct inodes_stat_t inodes_stat;
-+static DEFINE_PER_CPU(int, nr_inodes);
- 
- static struct kmem_cache * inode_cachep __read_mostly;
- 
-+int get_nr_inodes(void)
-+{
-+	int cpu;
-+	int counter = 0;
-+
-+	for_each_possible_cpu(cpu)
-+	    counter += per_cpu(nr_inodes, cpu);
-+	if (counter < 0)
-+		counter = 0;
-+	return counter;
-+}
-+
-+/*
-+ * Handle nr_dentry sysctl
-+ */
-+#if defined(CONFIG_SYSCTL) && defined(CONFIG_PROC_FS)
-+int proc_nr_inodes(ctl_table *table, int write, struct file *filp,
-+		   void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	inodes_stat.nr_inodes = get_nr_inodes();
-+	return proc_dointvec(table, write, filp, buffer, lenp, ppos);
-+}
-+#else
-+int proc_nr_inodes(ctl_table *table, int write, struct file *filp,
-+		   void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	return -ENOSYS;
-+}
-+#endif
-+
- static void wake_up_inode(struct inode *inode)
- {
- 	/*
-@@ -306,9 +337,8 @@ static void dispose_list(struct list_head *head)
- 		destroy_inode(inode);
- 		nr_disposed++;
+diff --git a/fs/anon_inodes.c b/fs/anon_inodes.c
+index 4f20d48..a0212b3 100644
+--- a/fs/anon_inodes.c
++++ b/fs/anon_inodes.c
+@@ -158,6 +158,7 @@ static int __init anon_inode_init(void)
+ 		error = PTR_ERR(anon_inode_mnt);
+ 		goto err_unregister_filesystem;
  	}
--	spin_lock(&inode_lock);
--	inodes_stat.nr_inodes -= nr_disposed;
--	spin_unlock(&inode_lock);
-+	get_cpu_var(nr_inodes) -= nr_disposed;
-+	put_cpu_var(nr_inodes);
++	anon_inode_mnt->mnt_sb->s_flags |= MS_SPECIAL;
+ 	anon_inode_inode = anon_inode_mkinode();
+ 	if (IS_ERR(anon_inode_inode)) {
+ 		error = PTR_ERR(anon_inode_inode);
+diff --git a/fs/dcache.c b/fs/dcache.c
+index d73763b..bade7d7 100644
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -239,7 +239,7 @@ static void dput_special(struct dentry *dentry)
+ 		return;
+ 	inode = dentry->d_inode;
+ 	if (inode)
+-		iput(inode);
++		iput_special(inode);
+ 	d_free(dentry);
  }
  
+diff --git a/fs/inode.c b/fs/inode.c
+index 8d8d40e..1bb6553 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -228,6 +228,14 @@ void destroy_inode(struct inode *inode)
+ 		kmem_cache_free(inode_cachep, (inode));
+ }
+ 
++void iput_special(struct inode *inode)
++{
++	if (atomic_dec_and_test(&inode->i_count)) {
++		destroy_inode(inode);
++		get_cpu_var(nr_inodes)--;
++		put_cpu_var(nr_inodes);
++	}
++}
+ 
  /*
-@@ -584,10 +614,11 @@ struct inode *new_inode(struct super_block *sb)
+  * These are initializations that only need to be done
+@@ -609,18 +617,21 @@ struct inode *new_inode(struct super_block *sb)
+ 	 */
+ 	struct inode * inode;
+ 
+-	spin_lock_prefetch(&inode_lock);
+-	
  	inode = alloc_inode(sb);
  	if (inode) {
- 		spin_lock(&inode_lock);
--		inodes_stat.nr_inodes++;
- 		list_add(&inode->i_list, &inode_in_use);
- 		list_add(&inode->i_sb_list, &sb->s_inodes);
-+		get_cpu_var(nr_inodes)--;
+-		spin_lock(&inode_lock);
+-		list_add(&inode->i_list, &inode_in_use);
+-		list_add(&inode->i_sb_list, &sb->s_inodes);
++		inode->i_state = 0;
++		if (sb->s_flags & MS_SPECIAL) {
++ 			INIT_LIST_HEAD(&inode->i_list);
++ 			INIT_LIST_HEAD(&inode->i_sb_list);
++		} else {
++			spin_lock(&inode_lock);
++			list_add(&inode->i_list, &inode_in_use);
++			list_add(&inode->i_sb_list, &sb->s_inodes);
++			spin_unlock(&inode_lock);
++		}
+ 		get_cpu_var(nr_inodes)--;
  		inode->i_ino = last_ino_get();
-+		put_cpu_var(nr_inodes);
- 		inode->i_state = 0;
- 		spin_unlock(&inode_lock);
+ 		put_cpu_var(nr_inodes);
+-		inode->i_state = 0;
+-		spin_unlock(&inode_lock);
  	}
-@@ -645,7 +676,8 @@ static struct inode * get_new_inode(struct super_block *sb, struct hlist_head *h
- 			if (set(inode, data))
- 				goto set_failed;
- 
--			inodes_stat.nr_inodes++;
-+			get_cpu_var(nr_inodes)++;
-+			put_cpu_var(nr_inodes);
- 			list_add(&inode->i_list, &inode_in_use);
- 			list_add(&inode->i_sb_list, &sb->s_inodes);
- 			hlist_add_head(&inode->i_hash, head);
-@@ -694,7 +726,8 @@ static struct inode * get_new_inode_fast(struct super_block *sb, struct hlist_he
- 		old = find_inode_fast(sb, head, ino);
- 		if (!old) {
- 			inode->i_ino = ino;
--			inodes_stat.nr_inodes++;
-+			get_cpu_var(nr_inodes)++;
-+			put_cpu_var(nr_inodes);
- 			list_add(&inode->i_list, &inode_in_use);
- 			list_add(&inode->i_sb_list, &sb->s_inodes);
- 			hlist_add_head(&inode->i_hash, head);
-@@ -1065,8 +1098,9 @@ void generic_delete_inode(struct inode *inode)
- 	list_del_init(&inode->i_list);
- 	list_del_init(&inode->i_sb_list);
- 	inode->i_state |= I_FREEING;
--	inodes_stat.nr_inodes--;
- 	spin_unlock(&inode_lock);
-+	get_cpu_var(nr_inodes)--;
-+	put_cpu_var(nr_inodes);
- 
- 	security_inode_delete(inode);
- 
-@@ -1116,8 +1150,9 @@ static void generic_forget_inode(struct inode *inode)
- 	list_del_init(&inode->i_list);
- 	list_del_init(&inode->i_sb_list);
- 	inode->i_state |= I_FREEING;
--	inodes_stat.nr_inodes--;
- 	spin_unlock(&inode_lock);
-+	get_cpu_var(nr_inodes)--;
-+	put_cpu_var(nr_inodes);
- 	if (inode->i_data.nrpages)
- 		truncate_inode_pages(&inode->i_data, 0);
- 	clear_inode(inode);
+ 	return inode;
+ }
+diff --git a/fs/pipe.c b/fs/pipe.c
+index 5cc132a..6fca681 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -1078,7 +1078,8 @@ static int __init init_pipe_fs(void)
+ 		if (IS_ERR(pipe_mnt)) {
+ 			err = PTR_ERR(pipe_mnt);
+ 			unregister_filesystem(&pipe_fs_type);
+-		}
++		} else
++			pipe_mnt->mnt_sb->s_flags |= MS_SPECIAL;
+ 	}
+ 	return err;
+ }
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index c5e7aa5..2482977 100644
+index 2482977..dd0e8a5 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -47,6 +47,7 @@ struct inodes_stat_t {
- 	int dummy[5];		/* padding for sysctl ABI compatibility */
- };
- extern struct inodes_stat_t inodes_stat;
-+extern int get_nr_inodes(void);
+@@ -136,6 +136,7 @@ extern int dir_notify_enable;
+ #define MS_RELATIME	(1<<21)	/* Update atime relative to mtime/ctime. */
+ #define MS_KERNMOUNT	(1<<22) /* this is a kern_mount call */
+ #define MS_I_VERSION	(1<<23) /* Update inode I_version field */
++#define MS_SPECIAL	(1<<24) /* special fs (inodes not in sb->s_inodes) */
+ #define MS_ACTIVE	(1<<30)
+ #define MS_NOUSER	(1<<31)
  
- extern int leases_enable, lease_break_time;
+@@ -1898,6 +1899,7 @@ extern void __iget(struct inode * inode);
+ extern void iget_failed(struct inode *);
+ extern void clear_inode(struct inode *);
+ extern void destroy_inode(struct inode *);
++extern void iput_special(struct inode *inode);
+ extern struct inode *new_inode(struct super_block *);
+ extern int should_remove_suid(struct dentry *);
+ extern int file_remove_suid(struct file *);
+diff --git a/net/socket.c b/net/socket.c
+index f41b6c6..4177456 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2205,6 +2205,7 @@ static int __init sock_init(void)
+ 	init_inodecache();
+ 	register_filesystem(&sock_fs_type);
+ 	sock_mnt = kern_mount(&sock_fs_type);
++	sock_mnt->mnt_sb->s_flags |= MS_SPECIAL;
  
-@@ -2218,6 +2219,8 @@ int proc_nr_files(struct ctl_table *table, int write, struct file *filp,
- 		  void __user *buffer, size_t *lenp, loff_t *ppos);
- int proc_nr_dentry(struct ctl_table *table, int write, struct file *filp,
- 		   void __user *buffer, size_t *lenp, loff_t *ppos);
-+int proc_nr_inodes(struct ctl_table *table, int write, struct file *filp,
-+		   void __user *buffer, size_t *lenp, loff_t *ppos);
- 
- int get_filesystem_list(char * buf);
- 
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index eebddef..eebed01 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -1202,7 +1202,7 @@ static struct ctl_table fs_table[] = {
- 		.data		= &inodes_stat,
- 		.maxlen		= 2*sizeof(int),
- 		.mode		= 0444,
--		.proc_handler	= &proc_dointvec,
-+		.proc_handler	= &proc_nr_inodes,
- 	},
- 	{
- 		.ctl_name	= FS_STATINODE,
-@@ -1210,7 +1210,7 @@ static struct ctl_table fs_table[] = {
- 		.data		= &inodes_stat,
- 		.maxlen		= 7*sizeof(int),
- 		.mode		= 0444,
--		.proc_handler	= &proc_dointvec,
-+		.proc_handler	= &proc_nr_inodes,
- 	},
- 	{
- 		.procname	= "file-nr",
-diff --git a/mm/page-writeback.c b/mm/page-writeback.c
-index 2970e35..a71a922 100644
---- a/mm/page-writeback.c
-+++ b/mm/page-writeback.c
-@@ -705,7 +705,7 @@ static void wb_kupdate(unsigned long arg)
- 	next_jif = start_jif + dirty_writeback_interval;
- 	nr_to_write = global_page_state(NR_FILE_DIRTY) +
- 			global_page_state(NR_UNSTABLE_NFS) +
--			(inodes_stat.nr_inodes - inodes_stat.nr_unused);
-+			(get_nr_inodes() - inodes_stat.nr_unused);
- 	while (nr_to_write > 0) {
- 		wbc.more_io = 0;
- 		wbc.encountered_congestion = 0;
+ 	/* The real protocol initialization is performed in later initcalls.
+ 	 */
 
---------------050505090506020603050708--
+--------------070309070800050207000506--
