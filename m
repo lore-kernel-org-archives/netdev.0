@@ -1,52 +1,170 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 06/39] genetlink: export genl_unregister_mc_group()
-Date: Wed, 26 Nov 2008 14:40:25 -0800
-Message-ID: <ffc312e09e5728d546c67dd26aa1f53bacc3b0f1.1227691434.git.inaky@linux.intel.com>
+Subject: [PATCH 12/39] wimax: API call to reset a WiMAX device
+Date: Wed, 26 Nov 2008 14:40:31 -0800
+Message-ID: <938311fe52f5b0eb7797fff7c761cc3240c63fe5.1227691434.git.inaky@linux.intel.com>
 References: <cover.1227691434.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org, Johannes Berg <johannes@sipsolutions.net>,
-	Thomas Graf <tgraf@suug.ch>
+Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:43324 "EHLO
+Received: from mga10.intel.com ([192.55.52.92]:35619 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752139AbYKZWlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:13 -0500
+	with ESMTP id S1752681AbYKZWlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:16 -0500
 In-Reply-To: <cover.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
-unregistering groups on the run. EXPORT_SYMBOL_GPL() is not used as
-the rest of the functions exported by this module (eg:
-genl_register_mc_group) are also not _GPL().
+Provides wimax_reset() for the kernel to reset a wimax device as
+needed.
 
-Cleanup is currently done when unregistering a family, but there is
-no way to unregister a single multicast group due to that function not
-being exported. Seems to be a mistake as it is documented as for
-external consumption.
-
-This is needed by the WiMAX stack to be able to cleanup unused mc
-groups.
+Exports wimax_reset() over generic netlink to user space.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: Thomas Graf <tgraf@suug.ch>
 ---
- net/netlink/genetlink.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/wimax/op-reset.c |  134 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 134 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/op-reset.c
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 3e1191c..1d3dd30 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -225,6 +225,7 @@ void genl_unregister_mc_group(struct genl_family *family,
- 	__genl_unregister_mc_group(family, grp);
- 	genl_unlock();
- }
-+EXPORT_SYMBOL(genl_unregister_mc_group);
- 
- static void genl_unregister_mc_groups(struct genl_family *family)
- {
+diff --git a/net/wimax/op-reset.c b/net/wimax/op-reset.c
+new file mode 100644
+index 0000000..5ec64f6
+--- /dev/null
++++ b/net/wimax/op-reset.c
+@@ -0,0 +1,134 @@
++/*
++ * Linux WiMAX
++ * Implement and export a method for resetting a WiMAX device
++ *
++ *
++ * Copyright (C) 2008 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ *
++ *
++ * This implements a simple synchronous call to reset a WiMAX device.
++ *
++ * Resets aim at being warm, keeping the device handles active;
++ * however, when that fails, it falls back to a cold reset (that will
++ * disconnect and reconnect the device).
++ */
++
++#include <net/wimax.h>
++#include <net/genetlink.h>
++#include <linux/wimax.h>
++#include <linux/security.h>
++#include "wimax-internal.h"
++
++#define D_SUBMODULE op_reset
++#include "debug-levels.h"
++
++
++/**
++ * wimax_reset - Reset a WiMAX device
++ *
++ * @wimax_dev: WiMAX device descriptor
++ *
++ * Returns:
++ *
++ * %0 if ok and a warm reset was done (the device still exists in
++ * the system).
++ *
++ * -%ENODEV if a cold/bus reset had to be done (device has
++ * disconnected and reconnected, so current handle is not valid
++ * any more).
++ *
++ * -%EINVAL if the device is not even registered.
++ *
++ * Any other negative error code shall be considered as
++ * non-recoverable.
++ *
++ * Description:
++ *
++ * Called when wanting to reset the device for any reason. Device is
++ * taken back to power on status.
++ *
++ * This call blocks; on succesful return, the device has completed the
++ * reset process and is ready to operate.
++ */
++int wimax_reset(struct wimax_dev *wimax_dev)
++{
++	int result = -EINVAL;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++
++	might_sleep();
++	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
++	mutex_lock(&wimax_dev->mutex);
++	if (wimax_dev->state >= WIMAX_ST_DOWN)
++		/* Dev is at least registered */
++		result = wimax_dev->op_reset(wimax_dev);
++	mutex_unlock(&wimax_dev->mutex);
++	d_fnend(3, dev, "(wimax_dev %p) = %d\n", wimax_dev, result);
++	return result;
++}
++EXPORT_SYMBOL(wimax_reset);
++
++
++/*
++ * Exporting to user space over generic netlink
++ *
++ * Parse the reset command from user space, return error code.
++ *
++ * No attributes.
++ */
++static
++int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info)
++{
++	int result, result2;
++	struct wimax_dev *wimax_dev;
++	struct device *dev;
++	struct nlmsghdr *nlh;
++
++	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
++	result = -EPERM;
++	if (security_netlink_recv(skb, CAP_NET_ADMIN))
++		goto error_perm;
++	result = -ENODEV;
++	wimax_dev = wimax_dev_get_by_genl_info(info);
++	if (wimax_dev == NULL)
++		goto error_no_wimax_dev;
++	dev = wimax_dev_to_dev(wimax_dev);
++
++	nlh = (void *) skb->data;
++
++	/* Execute the operation and send the result back to user space */
++	result = wimax_reset(wimax_dev);
++	result2 = wimax_gnl_send_rp_result(wimax_dev, info, result);
++	if (result2 < 0)
++		dev_err(dev, "WIMAX_GNL_RESET: can't send result %d to "
++			"userspace: %d\n", result, result2);
++	result = 0;
++	dev_put(wimax_dev->net_dev);
++error_no_wimax_dev:
++error_perm:
++	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
++	return result;
++}
++
++
++struct genl_ops wimax_gnl_reset = {
++	.cmd = WIMAX_GNL_OP_RESET,
++	.flags = 0,
++	.policy = NULL,
++	.doit = wimax_gnl_doit_reset,
++	.dumpit = NULL,
++};
 -- 
 1.5.6.5
 
