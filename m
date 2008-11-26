@@ -1,195 +1,129 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 32/39] i2400m/SDIO: header for the SDIO subdriver
-Date: Wed, 26 Nov 2008 14:40:51 -0800
-Message-ID: <1d49f3d2d95bbacc2f5930640e04013abed2eb0a.1227691434.git.inaky@linux.intel.com>
+Subject: [PATCH 26/39] i2400m/USB: error density tracking
+Date: Wed, 26 Nov 2008 14:40:45 -0800
+Message-ID: <b461371acd163786710e04ae1ea92ce8511426d2.1227691434.git.inaky@linux.intel.com>
 References: <cover.1227691434.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:35619 "EHLO
+Received: from mga10.intel.com ([192.55.52.92]:43324 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752713AbYKZWlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:53 -0500
+	with ESMTP id S1752885AbYKZWlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:37 -0500
 In-Reply-To: <cover.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This contains the common function declaration and constants for the
-SDIO driver for the 2400m Wireless WiMAX Connection and the debug
-level settings for the SDIO driver.
+This is a simple framework for tracking the amount of soft-errors in
+time, so that if they go over a certain threshold they can be
+considered hard errors and recovery started (instead of just
+retrying).
+
+We use this in the USB driver -- some of the USB errors are considered
+soft and retried.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/i2400m-sdio.h       |  130 ++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +++++
- 2 files changed, 152 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
- create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
+ drivers/net/wimax/i2400m/edc.h |   90 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 90 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/edc.h
 
-diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
+diff --git a/drivers/net/wimax/i2400m/edc.h b/drivers/net/wimax/i2400m/edc.h
 new file mode 100644
-index 0000000..1c9cd54
+index 0000000..714540f
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/i2400m-sdio.h
-@@ -0,0 +1,130 @@
++++ b/drivers/net/wimax/i2400m/edc.h
+@@ -0,0 +1,90 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * SDIO-specific i2400m driver definitions
++ * Error Density Count: cheapo error density (over time) counter
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ * Copyright (C) 2005-2007 Intel Corporation <linux-wimax@intel.com>
++ * Reinette Chatre <reinette.chatre@intel.com>
 + *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
 + *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
 + *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
 + *
 + *
-+ * Intel Corporation <linux-wimax@intel.com>
-+ * Brian Bian <brian.bian@intel.com>
-+ * Dirk Brandewie <dirk.j.brandewie@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ *  - Initial implementation
-+ *
-+ *
-+ * This driver implements the bus-specific part of the i2400m for
-+ * SDIO. Check i2400m.h for a generic driver description.
-+ *
-+ * ARCHITECTURE
-+ *
-+ * This driver sits under the bus-generic i2400m driver, providing the
-+ * connection to the device.
-+ *
-+ * When probed, all the function pointers are setup and then the
-+ * bus-generic code called. The generic driver will then use the
-+ * provided pointers for uploading firmware (i2400ms_bus_bm*() in
-+ * sdio-fw.c) and then setting up the device (i2400ms_dev_*() in
-+ * sdio.c).
-+ *
-+ * Once firmware is uploaded, TX functions (sdio-tx.c) are called when
-+ * data is ready for transmission in the TX fifo; then the SDIO IRQ is
-+ * fired and data is available (sdio-rx.c), it is sent to the generic
-+ * driver for processing with i2400m_rx.
++ * Embed an 'struct edc' somewhere. Each time there is a soft or
++ * retryable error, call edc_inc() and check if the error top
++ * watermark has been reached.
 + */
 +
-+#ifndef __I2400M_SDIO_H__
-+#define __I2400M_SDIO_H__
++#ifndef __EDC_H__
++#define __EDC_H__
 +
-+#include "i2400m.h"
-+
-+/* Host-Device interface for SDIO */
 +enum {
-+	I2400MS_BLK_SIZE = 256,
-+	I2400MS_PL_SIZE_MAX = 0x3E00,
-+
-+	I2400MS_DATA_ADDR = 0x0,
-+	I2400MS_INTR_STATUS_ADDR = 0x13,
-+	I2400MS_INTR_CLEAR_ADDR = 0x13,
-+	I2400MS_INTR_ENABLE_ADDR = 0x14,
-+	I2400MS_INTR_GET_SIZE_ADDR = 0x2C,
-+	/* The number of ticks to wait for the device to signal that
-+	 * it is ready */
-+	I2400MS_INIT_SLEEP_INTERVAL = 10,
++	EDC_MAX_ERRORS = 10,
++	EDC_ERROR_TIMEFRAME = HZ,
 +};
 +
-+
-+/**
-+ * struct i2400ms - descriptor for a SDIO connected i2400m
-+ *
-+ * @i2400m: bus-generic i2400m implementation; has to be first (see
-+ *     it's documentation in i2400m.h).
-+ *
-+ * @func: pointer to our SDIO function
-+ *
-+ * @tx_worker: workqueue struct used to TX data when the bus-generic
-+ *     code signals packets are pending for transmission to the device.
-+ *
-+ * @tx_workqueue: workqeueue used for data TX; we don't use the
-+ *     system's workqueue as that might cause deadlocks with code in
-+ *     the bus-generic driver.
-+ */
-+struct i2400ms {
-+	struct i2400m i2400m;		/* FIRST! See doc */
-+	struct sdio_func *func;
-+
-+	struct work_struct tx_worker;
-+	struct workqueue_struct *tx_workqueue;
-+	char tx_wq_name[32];
++/* error density counter */
++struct edc {
++	unsigned long timestart;
++	u16 errorcount;
 +};
 +
-+
-+static inline
-+void i2400ms_init(struct i2400ms *i2400ms)
++static inline void edc_init(struct edc *edc)
 +{
-+	i2400m_init(&i2400ms->i2400m);
++	edc->timestart = jiffies;
 +}
 +
-+
-+extern int i2400ms_rx_setup(struct i2400ms *);
-+extern void i2400ms_rx_release(struct i2400ms *);
-+extern ssize_t __i2400ms_rx_get_size(struct i2400ms *);
-+
-+extern int i2400ms_tx_setup(struct i2400ms *);
-+extern void i2400ms_tx_release(struct i2400ms *);
-+extern void i2400ms_bus_tx_kick(struct i2400m *);
-+
-+extern ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *,
-+				       const struct i2400m_bootrom_header *,
-+				       size_t, int);
-+extern ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *,
-+					   struct i2400m_bootrom_header *,
-+					   size_t);
-+#endif /* #ifndef __I2400M_SDIO_H__ */
-diff --git a/drivers/net/wimax/i2400m/sdio-debug-levels.h b/drivers/net/wimax/i2400m/sdio-debug-levels.h
-new file mode 100644
-index 0000000..3e3eae9
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio-debug-levels.h
-@@ -0,0 +1,22 @@
-+/*
-+ * debug levels control file for the i2400m module's
++/**
++ * edc_inc - report a soft error and check if we are over the watermark
++ *
++ * @edc: pointer to error density counter.
++ * @max_err: maximum number of errors we can accept over the timeframe
++ * @timeframe: lenght of the timeframe (in jiffies).
++ *
++ * Returns: !0 1 if maximum acceptable errors per timeframe has been
++ *     exceeded. 0 otherwise.
++ *
++ * This is way to determine if the number of acceptable errors per time
++ * period has been exceeded. It is not accurate as there are cases in which
++ * this scheme will not work, for example if there are periodic occurences
++ * of errors that straddle updates to the start time. This scheme is
++ * sufficient for our usage.
++ *
++ * To use, embed a 'struct edc' somewhere, initialize it with
++ * edc_init() and when an error hits:
++ *
++ * if (do_something_fails_with_a_soft_error) {
++ *        if (edc_inc(&my->edc, MAX_ERRORS, MAX_TIMEFRAME))
++ * 	           Ops, hard error, do something about it
++ *        else
++ *                 Retry or ignore, depending on whatever
++ * }
 + */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
++static inline int edc_inc(struct edc *edc, u16 max_err, u16 timeframe)
++{
++	unsigned long now;
 +
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME i2400m_sdio
-+#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
++	now = jiffies;
++	if (now - edc->timestart > timeframe) {
++		edc->errorcount = 1;
++		edc->timestart = now;
++	} else if (++edc->errorcount > max_err) {
++		edc->errorcount = 0;
++		edc->timestart = now;
++		return 1;
++	}
++	return 0;
++}
 +
-+#include <linux/wimax/debug.h>
-+
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(sdio_main),
-+	D_SUBMODULE_DECLARE(sdio_tx),
-+	D_SUBMODULE_DECLARE(sdio_rx),
-+	D_SUBMODULE_DECLARE(sdio_fw)
-+};
-+
-+
-+#endif /* #ifndef __debug_levels__h__ */
++#endif /* #ifndef __EDC_H__ */
 -- 
 1.5.6.5
 
