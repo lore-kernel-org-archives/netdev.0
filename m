@@ -1,68 +1,70 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [patch 09/14] hp: convert to net_device_ops
-Date: Tue, 25 Nov 2008 17:14:28 -0800
-Message-ID: <20081126011545.885003052@linux-foundation.org>
+Subject: [patch 14/14] ne2000: convert to net_device_ops
+Date: Tue, 25 Nov 2008 17:14:33 -0800
+Message-ID: <20081126011546.250159239@linux-foundation.org>
 References: <20081126011419.402319779@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58804 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:55271 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752539AbYKZBSw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Nov 2008 20:18:52 -0500
-Content-Disposition: inline; filename=hp-netdev.patch
+	id S1752919AbYKZBS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Nov 2008 20:18:56 -0500
+Content-Disposition: inline; filename=ne2000-netdev-ops.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Another old EISA driver converted.
+Last driver for today.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/drivers/net/hp.c	2008-11-25 14:47:37.000000000 -0800
-+++ b/drivers/net/hp.c	2008-11-25 16:47:46.000000000 -0800
-@@ -59,8 +59,6 @@ static unsigned int hppclan_portlist[] _
+--- a/drivers/net/ne.c	2008-11-25 14:47:37.000000000 -0800
++++ b/drivers/net/ne.c	2008-11-25 17:02:06.000000000 -0800
+@@ -174,9 +174,6 @@ bad_clone_list[] __initdata = {
+ static int ne_probe1(struct net_device *dev, unsigned long ioaddr);
+ static int ne_probe_isapnp(struct net_device *dev);
  
- static int hp_probe1(struct net_device *dev, int ioaddr);
- 
--static int hp_open(struct net_device *dev);
--static int hp_close(struct net_device *dev);
- static void hp_reset_8390(struct net_device *dev);
- static void hp_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr,
- 					int ring_page);
-@@ -198,11 +196,7 @@ static int __init hp_probe1(struct net_d
- 
- 	/* Set the base address to point to the NIC, not the "real" base! */
- 	dev->base_addr = ioaddr + NIC_OFFSET;
--	dev->open = &hp_open;
--	dev->stop = &hp_close;
+-static int ne_open(struct net_device *dev);
+-static int ne_close(struct net_device *dev);
+-
+ static void ne_reset_8390(struct net_device *dev);
+ static void ne_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr,
+ 			  int ring_page);
+@@ -536,11 +533,8 @@ static int __init ne_probe1(struct net_d
+ 	ei_status.block_output = &ne_block_output;
+ 	ei_status.get_8390_hdr = &ne_get_8390_hdr;
+ 	ei_status.priv = 0;
+-	dev->open = &ne_open;
+-	dev->stop = &ne_close;
 -#ifdef CONFIG_NET_POLL_CONTROLLER
 -	dev->poll_controller = eip_poll;
 -#endif
++
 +	dev->netdev_ops = &eip_netdev_ops;
+ 	NS8390p_init(dev, 0);
  
- 	ei_status.name = name;
- 	ei_status.word16 = wordmode;
-@@ -227,20 +221,6 @@ out:
- 	return retval;
+ 	ret = register_netdev(dev);
+@@ -557,20 +551,6 @@ err_out:
+ 	return ret;
  }
  
--static int
--hp_open(struct net_device *dev)
+-static int ne_open(struct net_device *dev)
 -{
 -	eip_open(dev);
 -	return 0;
 -}
 -
--static int
--hp_close(struct net_device *dev)
+-static int ne_close(struct net_device *dev)
 -{
+-	if (ei_debug > 1)
+-		printk(KERN_DEBUG "%s: Shutting down ethercard.\n", dev->name);
 -	eip_close(dev);
 -	return 0;
 -}
 -
- static void
- hp_reset_8390(struct net_device *dev)
- {
+ /* Hard reset the card.  This used to pause for the same period that a
+    8390 reset command required, but that shouldn't be necessary. */
+ 
 
 
