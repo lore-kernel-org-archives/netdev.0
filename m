@@ -1,31 +1,37 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH-mm 5/8] typhoon: remove uses of __constant_{endian}
-	helpers
-Date: Wed, 26 Nov 2008 18:08:30 -0500
-Message-ID: <1227740910.25756.0.camel@obelisk.thedillows.org>
-References: <1227733972.5511.127.camel@brick>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: gen_estimator: Optimize
+ gen_estimator_active()
+Date: Wed, 26 Nov 2008 15:24:42 -0800 (PST)
+Message-ID: <20081126.152442.139201565.davem@davemloft.net>
+References: <20081125102113.371db7b1@extreme>
+	<20081126111021.GA12337@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Cc: shemminger@vyatta.com, kaber@trash.net, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:32856 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752276AbYKZXPO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2008 18:15:14 -0500
-In-Reply-To: <1227733972.5511.127.camel@brick>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55604
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752076AbYKZXYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 18:24:43 -0500
+In-Reply-To: <20081126111021.GA12337@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2008-11-26 at 13:12 -0800, Harvey Harrison wrote:
-> The base versions handle constant folding just fine.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 26 Nov 2008 11:10:22 +0000
+
+> pkt_sched: gen_estimator: Optimize gen_estimator_active()
 > 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> Since all other gen_estimator functions use bstats and rate_est params
+> together, and searching for them is optimized now, let's use this also
+> in gen_estimator_active(). The return type of gen_estimator_active()
+> is changed to bool, and gen_find_node() parameters to const, btw.
+> 
+> In tcf_act_police_locate() a check for ACT_P_CREATED is added before
+> calling gen_estimator_active().
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Acked-by: David Dillow <dave@thedillows.org>
-
+Applied, thanks Jarek.
