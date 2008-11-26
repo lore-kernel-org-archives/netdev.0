@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Naming interrupt vectors/niu
-Date: Tue, 25 Nov 2008 16:42:30 -0800 (PST)
-Message-ID: <20081125.164230.33497190.davem@davemloft.net>
-References: <18732.7560.67492.918339@robur.slu.se>
+Subject: Re: [PATCH] Naming interrupt vectors/ixgbe
+Date: Tue, 25 Nov 2008 16:44:11 -0800 (PST)
+Message-ID: <20081125.164411.73334480.davem@davemloft.net>
+References: <18732.7795.484291.202338@robur.slu.se>
+	<Pine.WNT.4.64.0811251019190.6404@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se
-To: robert@robur.slu.se
+Cc: robert@robur.slu.se, netdev@vger.kernel.org,
+	Robert.Olsson@data.slu.se
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49168
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47670
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751255AbYKZAmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 19:42:31 -0500
-In-Reply-To: <18732.7560.67492.918339@robur.slu.se>
+	by vger.kernel.org with ESMTP id S1751443AbYKZAoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Nov 2008 19:44:12 -0500
+In-Reply-To: <Pine.WNT.4.64.0811251019190.6404@ppwaskie-MOBL2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Olsson <robert@robur.slu.se>
-Date: Tue, 25 Nov 2008 16:45:12 +0100
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Tue, 25 Nov 2008 10:20:24 -0800 (Pacific Standard Time)
 
->  A patch to put names on the niu interrupt vectors according the syntax below. 
->  This is needed to assign correct affinity.
+> On Tue, 25 Nov 2008, Robert Olsson wrote:
 > 
->  > So on a multiqueue card with 2 RX queues and 2 TX queues we'd
->  > have names like:
->  > 
->  > 	eth0-rx-0
->  > 	eth0-rx-1
->  > 	eth0-tx-0
->  > 	eth0-tx-1
-> 
-> 
-> Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+> > 
+> > Same syntax for ixgbe driver.
+> > 
+> > Cheers
+> > 				--ro
+> > 
+> > Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+ ...
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-Applied with some minor coding style fixups, thanks Robert.
+Applied with trailing whitespace fixed up.
