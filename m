@@ -1,39 +1,40 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 36/39] i2400m/SDIO: write transactions to the SDIO device
-Date: Wed, 26 Nov 2008 14:40:55 -0800
-Message-ID: <4a96255e054bbaecb3e61259ee517d3133178edc.1227691434.git.inaky@linux.intel.com>
+Subject: [PATCH 32/39] i2400m/SDIO: header for the SDIO subdriver
+Date: Wed, 26 Nov 2008 14:40:51 -0800
+Message-ID: <1d49f3d2d95bbacc2f5930640e04013abed2eb0a.1227691434.git.inaky@linux.intel.com>
 References: <cover.1227691434.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:43324 "EHLO
+Received: from mga10.intel.com ([192.55.52.92]:35619 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753845AbYKZWlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:55 -0500
+	with ESMTP id S1752713AbYKZWlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:53 -0500
 In-Reply-To: <cover.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implements the backend so that the generic driver can send data to the
-SDIO device. When kicked by the generic driver, this will schedule
-work on a driver-specific workqueue that pulls data from the TX FIFO
-and sends it to the device until it drains it.
+This contains the common function declaration and constants for the
+SDIO driver for the 2400m Wireless WiMAX Connection and the debug
+level settings for the SDIO driver.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/sdio-tx.c |  153 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 153 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
+ drivers/net/wimax/i2400m/i2400m-sdio.h       |  130 ++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +++++
+ 2 files changed, 152 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
+ create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
 
-diff --git a/drivers/net/wimax/i2400m/sdio-tx.c b/drivers/net/wimax/i2400m/sdio-tx.c
+diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
 new file mode 100644
-index 0000000..8f29a3b
+index 0000000..1c9cd54
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio-tx.c
-@@ -0,0 +1,153 @@
++++ b/drivers/net/wimax/i2400m/i2400m-sdio.h
+@@ -0,0 +1,130 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * SDIO TX transaction backends
++ * SDIO-specific i2400m driver definitions
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -66,124 +67,129 @@ index 0000000..8f29a3b
 + *
 + *
 + * Intel Corporation <linux-wimax@intel.com>
++ * Brian Bian <brian.bian@intel.com>
 + * Dirk Brandewie <dirk.j.brandewie@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + *  - Initial implementation
 + *
 + *
-+ * Takes the TX messages in the i2400m's driver TX FIFO and sends them
-+ * to the device until there are no more.
++ * This driver implements the bus-specific part of the i2400m for
++ * SDIO. Check i2400m.h for a generic driver description.
 + *
-+ * If we fail sending the message, we just drop it. There isn't much
-+ * we can do at this point. Most of the traffic is network, which has
-+ * recovery methods for dropped packets.
++ * ARCHITECTURE
 + *
-+ * The SDIO functions are not atomic, so we can't run from the context
-+ * where i2400m->bus_tx_kick() [i2400ms_bus_tx_kick()] is being called
-+ * (some times atomic). Thus, the actual TX work is deferred to a
-+ * workqueue.
++ * This driver sits under the bus-generic i2400m driver, providing the
++ * connection to the device.
 + *
-+ * ROADMAP
++ * When probed, all the function pointers are setup and then the
++ * bus-generic code called. The generic driver will then use the
++ * provided pointers for uploading firmware (i2400ms_bus_bm*() in
++ * sdio-fw.c) and then setting up the device (i2400ms_dev_*() in
++ * sdio.c).
 + *
-+ * i2400ms_bus_tx_kick()
-+ *   i2400ms_tx_submit()     [through workqueue]
-+ *
-+ * i2400m_tx_setup()
-+ *
-+ * i2400m_tx_release()
++ * Once firmware is uploaded, TX functions (sdio-tx.c) are called when
++ * data is ready for transmission in the TX fifo; then the SDIO IRQ is
++ * fired and data is available (sdio-rx.c), it is sent to the generic
++ * driver for processing with i2400m_rx.
 + */
-+#include <linux/mmc/sdio_func.h>
-+#include "i2400m-sdio.h"
 +
-+#define D_SUBMODULE sdio_tx
-+#include "sdio-debug-levels.h"
++#ifndef __I2400M_SDIO_H__
++#define __I2400M_SDIO_H__
++
++#include "i2400m.h"
++
++/* Host-Device interface for SDIO */
++enum {
++	I2400MS_BLK_SIZE = 256,
++	I2400MS_PL_SIZE_MAX = 0x3E00,
++
++	I2400MS_DATA_ADDR = 0x0,
++	I2400MS_INTR_STATUS_ADDR = 0x13,
++	I2400MS_INTR_CLEAR_ADDR = 0x13,
++	I2400MS_INTR_ENABLE_ADDR = 0x14,
++	I2400MS_INTR_GET_SIZE_ADDR = 0x2C,
++	/* The number of ticks to wait for the device to signal that
++	 * it is ready */
++	I2400MS_INIT_SLEEP_INTERVAL = 10,
++};
 +
 +
++/**
++ * struct i2400ms - descriptor for a SDIO connected i2400m
++ *
++ * @i2400m: bus-generic i2400m implementation; has to be first (see
++ *     it's documentation in i2400m.h).
++ *
++ * @func: pointer to our SDIO function
++ *
++ * @tx_worker: workqueue struct used to TX data when the bus-generic
++ *     code signals packets are pending for transmission to the device.
++ *
++ * @tx_workqueue: workqeueue used for data TX; we don't use the
++ *     system's workqueue as that might cause deadlocks with code in
++ *     the bus-generic driver.
++ */
++struct i2400ms {
++	struct i2400m i2400m;		/* FIRST! See doc */
++	struct sdio_func *func;
++
++	struct work_struct tx_worker;
++	struct workqueue_struct *tx_workqueue;
++	char tx_wq_name[32];
++};
++
++
++static inline
++void i2400ms_init(struct i2400ms *i2400ms)
++{
++	i2400m_init(&i2400ms->i2400m);
++}
++
++
++extern int i2400ms_rx_setup(struct i2400ms *);
++extern void i2400ms_rx_release(struct i2400ms *);
++extern ssize_t __i2400ms_rx_get_size(struct i2400ms *);
++
++extern int i2400ms_tx_setup(struct i2400ms *);
++extern void i2400ms_tx_release(struct i2400ms *);
++extern void i2400ms_bus_tx_kick(struct i2400m *);
++
++extern ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *,
++				       const struct i2400m_bootrom_header *,
++				       size_t, int);
++extern ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *,
++					   struct i2400m_bootrom_header *,
++					   size_t);
++#endif /* #ifndef __I2400M_SDIO_H__ */
+diff --git a/drivers/net/wimax/i2400m/sdio-debug-levels.h b/drivers/net/wimax/i2400m/sdio-debug-levels.h
+new file mode 100644
+index 0000000..3e3eae9
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/sdio-debug-levels.h
+@@ -0,0 +1,22 @@
 +/*
-+ * Pull TX transations from the TX FIFO and send them to the device
-+ * until there are no more.
++ * debug levels control file for the i2400m module's
 + */
-+static
-+void i2400ms_tx_submit(struct work_struct *ws)
-+{
-+	int result;
-+	struct i2400ms *i2400ms = container_of(ws, struct i2400ms, tx_worker);
-+	struct i2400m *i2400m = &i2400ms->i2400m;
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+	struct i2400m_msg_hdr *tx_msg;
-+	size_t tx_msg_size;
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
 +
-+	d_fnstart(4, dev, "(i2400ms %p, i2400m %p)\n", i2400ms, i2400ms);
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME i2400m_sdio
++#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
 +
-+	while (NULL != (tx_msg = i2400m_tx_msg_get(i2400m, &tx_msg_size))) {
-+		d_printf(2, dev, "TX: submitting %zu bytes\n", tx_msg_size);
-+		d_dump(5, dev, tx_msg, tx_msg_size);
++#include <linux/wimax/debug.h>
 +
-+		sdio_claim_host(func);
-+		result = sdio_memcpy_toio(func, 0, tx_msg, tx_msg_size);
-+		sdio_release_host(func);
-+
-+		i2400m_tx_msg_sent(i2400m);
-+
-+		if (result < 0) {
-+			dev_err(dev, "TX: cannot submit TX; tx_msg @%zu %zu B:"
-+				" %d\n", (void *) tx_msg - i2400m->tx_buf,
-+				tx_msg_size, result);
-+		}
-+
-+		d_printf(2, dev, "TX: %zub submitted\n", tx_msg_size);
-+	}
-+
-+	d_fnend(4, dev, "(i2400ms %p) = void\n", i2400ms);
-+}
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(sdio_main),
++	D_SUBMODULE_DECLARE(sdio_tx),
++	D_SUBMODULE_DECLARE(sdio_rx),
++	D_SUBMODULE_DECLARE(sdio_fw)
++};
 +
 +
-+/*
-+ * The generic driver notifies us that there is data ready for TX
-+ *
-+ * Schedule a run of i2400ms_tx_submit() to handle it.
-+ */
-+void i2400ms_bus_tx_kick(struct i2400m *i2400m)
-+{
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	struct device *dev = &i2400ms->func->dev;
-+
-+	d_fnstart(3, dev, "(i2400m %p) = void\n", i2400m);
-+
-+	/* schedule tx work, this is because tx may block, therefore
-+	 * it has to run in a thread context.
-+	 */
-+	queue_work(i2400ms->tx_workqueue, &i2400ms->tx_worker);
-+
-+	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
-+}
-+
-+int i2400ms_tx_setup(struct i2400ms *i2400ms)
-+{
-+	int result;
-+	struct device *dev = &i2400ms->func->dev;
-+	struct i2400m *i2400m = &i2400ms->i2400m;
-+
-+	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
-+
-+	INIT_WORK(&i2400ms->tx_worker, i2400ms_tx_submit);
-+	snprintf(i2400ms->tx_wq_name, sizeof(i2400ms->tx_wq_name),
-+		 "%s-tx", i2400m->wimax_dev.name);
-+	i2400ms->tx_workqueue =
-+		create_singlethread_workqueue(i2400ms->tx_wq_name);
-+	if (NULL == i2400ms->tx_workqueue) {
-+		dev_err(dev, "TX: failed to create workqueue\n");
-+		result = -ENOMEM;
-+	} else
-+		result = 0;
-+	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
-+	return result;
-+}
-+
-+void i2400ms_tx_release(struct i2400ms *i2400ms)
-+{
-+	destroy_workqueue(i2400ms->tx_workqueue);
-+}
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
 
