@@ -1,116 +1,80 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: gen_estimator: Optimize gen_estimator_active()
-Date: Wed, 26 Nov 2008 11:10:22 +0000
-Message-ID: <20081126111021.GA12337@ff.dom.local>
-References: <20081125102113.371db7b1@extreme>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: ixp4xx_hss MAX_CHAN_DEVICES
+Date: Wed, 26 Nov 2008 12:19:56 +0100
+Message-ID: <m363mahgyr.fsf@maximus.localdomain>
+References: <b0438a630811190317u715f1376j830133591ec497b9@mail.gmail.com>
+	<m3fxlksncm.fsf@maximus.localdomain>
+	<b0438a630811240203mdc431aev8b1bb9e8c924ac7e@mail.gmail.com>
+	<b0438a630811240415n6a1a0b23lf7ac37925d04a6b3@mail.gmail.com>
+	<m3prkl14pf.fsf@maximus.localdomain>
+	<b0438a630811240912v16db8ef8v660cb844979fe912@mail.gmail.com>
+	<m3tz9wsmut.fsf@maximus.localdomain>
+	<b0438a630811250851p18f5feabx7e744978555fa1d1@mail.gmail.com>
+	<m3bpw3ic0q.fsf@maximus.localdomain>
+	<b0438a630811260202q443d558fw1a3d8193d7f3e7d4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
+To: =?iso-8859-2?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:9138 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706AbYKZLK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 06:10:29 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1375010ugf.37
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2008 03:10:27 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081125102113.371db7b1@extreme>
+Received: from khc.piap.pl ([195.187.100.11]:36669 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751706AbYKZLT7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 06:19:59 -0500
+In-Reply-To: <b0438a630811260202q443d558fw1a3d8193d7f3e7d4@mail.gmail.com>
+ ("Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez=22's?= message of "Wed\, 26 Nov
+ 2008 11\:02\:20 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pkt_sched: gen_estimator: Optimize gen_estimator_active()
+"Miguel =C1ngel =C1lvarez" <gotzoncabanes@gmail.com> writes:
 
-Since all other gen_estimator functions use bstats and rate_est params
-together, and searching for them is optimized now, let's use this also
-in gen_estimator_active(). The return type of gen_estimator_active()
-is changed to bool, and gen_find_node() parameters to const, btw.
+>> Basically MVIP divides your entire frame into 2 or 4 parts.
+>>
+> Sure. But... It is automatically activated when the frame length is
+> greater than 256 or should it be explicitelly set?
 
-In tcf_act_police_locate() a check for ACT_P_CREATED is added before
-calling gen_estimator_active().
+You must set the number of (packetized) pipes.
+=46or channelized data, there is apparently no difference.
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
+> OK... I understand the concept, but I am not sure about how this is
+> integrated with your driver (or the NPE). I mean... When I use your
+> driver, I obtain two interfaces hdlc0 and hdlc1 (one per HSS). If I
+> had only a packetized stream, I could open a socket to the interface
+> and send the data. No problem (I think) in it.
+> But if I want to have four streams (one per E1), is your driver
+> prepare to deal with this, or should I manage to create four
+> interfaces per HSS?
 
- include/net/gen_stats.h  |    4 ++--
- net/core/gen_estimator.c |   25 ++++++++-----------------
- net/sched/act_police.c   |    4 +++-
- 3 files changed, 13 insertions(+), 20 deletions(-)
+The driver is currently missing the MVIP code.
 
-diff --git a/include/net/gen_stats.h b/include/net/gen_stats.h
-index dcf5bfa..d136b52 100644
---- a/include/net/gen_stats.h
-+++ b/include/net/gen_stats.h
-@@ -45,6 +45,6 @@ extern void gen_kill_estimator(struct gnet_stats_basic *bstats,
- extern int gen_replace_estimator(struct gnet_stats_basic *bstats,
- 				 struct gnet_stats_rate_est *rate_est,
- 				 spinlock_t *stats_lock, struct nlattr *opt);
--extern int gen_estimator_active(const struct gnet_stats_rate_est *rate_est);
--
-+extern bool gen_estimator_active(const struct gnet_stats_basic *bstats,
-+				 const struct gnet_stats_rate_est *rate_est);
- #endif
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 3885550..9cc9f95 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -163,8 +163,9 @@ static void gen_add_node(struct gen_estimator *est)
- 	rb_insert_color(&est->node, &est_root);
- }
- 
--static struct gen_estimator *gen_find_node(struct gnet_stats_basic *bstats,
--					   struct gnet_stats_rate_est *rate_est)
-+static
-+struct gen_estimator *gen_find_node(const struct gnet_stats_basic *bstats,
-+				    const struct gnet_stats_rate_est *rate_est)
- {
- 	struct rb_node *p = est_root.rb_node;
- 
-@@ -301,26 +302,16 @@ EXPORT_SYMBOL(gen_replace_estimator);
- 
- /**
-  * gen_estimator_active - test if estimator is currently in use
-+ * @bstats: basic statistics
-  * @rate_est: rate estimator statistics
-  *
-- * Returns 1 if estimator is active, and 0 if not.
-+ * Returns true if estimator is active, and false if not.
-  */
--int gen_estimator_active(const struct gnet_stats_rate_est *rate_est)
-+bool gen_estimator_active(const struct gnet_stats_basic *bstats,
-+			  const struct gnet_stats_rate_est *rate_est)
- {
--	int idx;
--	struct gen_estimator *e;
--
- 	ASSERT_RTNL();
- 
--	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
--		if (!elist[idx].timer.function)
--			continue;
--
--		list_for_each_entry(e, &elist[idx].list, list) {
--			if (e->rate_est == rate_est)
--				return 1;
--		}
--	}
--	return 0;
-+	return gen_find_node(bstats, rate_est) != NULL;
- }
- EXPORT_SYMBOL(gen_estimator_active);
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 40df1d0..40f9a81 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -183,7 +183,9 @@ override:
- 		if (R_tab == NULL)
- 			goto failure;
- 
--		if (!est && !gen_estimator_active(&police->tcf_rate_est)) {
-+		if (!est && (ret == ACT_P_CREATED ||
-+			     !gen_estimator_active(&police->tcf_bstats,
-+						   &police->tcf_rate_est))) {
- 			err = -EINVAL;
- 			goto failure;
- 		}
+> In the first case... Is it related with set_hdlc_chan function? The
+> name could suggest this, but then it does nothing for MODE_HDLC but
+> MODE_RAW and MODE_G704.
+
+That's for channelized data.
+
+> In the second case... I understand that if I have to add the new
+> interfaces, they should be network interfaces. Where do you recommend
+> me to do it?
+
+I'd have to look at it.
+
+> In both cases... How can the user direct his data to one E1 or the ot=
+her?
+
+Each "member" E1 is connected to its respective HDLC controller
+("packetized pipe"), and these have "TX" and "RX-free" queues (one set
+per each HDLC).
+
+> In my case (bad luck...) we have a legacy mode of connection, so I
+> cannot use any of the methods described. I "just" need something
+> similar to the IxHssAccPktPortConnection in the Intel Software
+> Library...
+
+Sure, you can use this raw HDLC + packet interface. One stream per
+(member) E1/T1 (or, to be precise, one stream per 1, 1/2 or 1/4 of the
+physical interface).
+--=20
+Krzysztof Halasa
