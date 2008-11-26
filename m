@@ -1,57 +1,39 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [BUG] linux-2.6.28-rc3 regression: IRQ smp_affinities not respected
-Date: Wed, 26 Nov 2008 10:01:47 +0100
-Message-ID: <492D107B.1060303@cosmosbay.com>
-References: <C27F8246C663564A84BB7AB343977242151F4B18B5@IRVEXCHCCR01.corp.ad.broadcom.com> <491154C8.3040401@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: release skb->dst in sock_queue_rcv_skb()
+Date: Wed, 26 Nov 2008 01:08:47 -0800 (PST)
+Message-ID: <20081126.010847.98625035.davem@davemloft.net>
+References: <492C919E.3050108@cosmosbay.com>
+	<20081125.180404.157859705.davem@davemloft.net>
+	<492CFD32.7020109@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux kernel <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: ut <mchan@broadcom.com>
+Cc: andi@firstfloor.org, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:40644 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbYKZJBv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 04:01:51 -0500
-In-Reply-To: <491154C8.3040401@cosmosbay.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46016
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751824AbYKZJIs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2008 04:08:48 -0500
+In-Reply-To: <492CFD32.7020109@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Michael Chan a =E9crit :
->> I believe this may be the patch that broke it:
->>
->> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=
-=3Dcommit;h=3Dce6fce4295ba727b36fdc73040e444bd1aae64cd=20
->>
->>
->> I don't remember all the details, but the Broadcom 5708 chip is
->> affected because it does not support MSI per-vector masking.
->>
->> One way to get around is to disable MSI with bnx2 parameter
->> disable_msi=3D1.
->>
+=46rom: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 26 Nov 2008 08:39:30 +0100
 
+> David Miller a =E9crit :
+> > From: Eric Dumazet <dada1@cosmosbay.com>
+> > Date: Wed, 26 Nov 2008 01:00:30 +0100
+> >=20
+> > Can you do a quick check?
+> >=20
 >=20
-> I tried this MSI disabling and yes, it now works.
+> Sure I can do a check :)
 >=20
-> 16:      42726        128        105        106         89        =20
-> 89        145        152   IO-APIC-fasteoi   uhci_hcd:usb1, eth0, eth=
-1
->=20
+> No impact at all on tbench, unless this bench can run in UDP mode :)
 
-I believe the bnx2 driver doesnt work at all if !disable_msi (default s=
-etting)
+Durrr, of course!
 
-Doing a "echo 0 >/sys/devices/system/cpu/cpu1/online" just freeze netwo=
-rk
-
-No messages logged
-
-If loaded with disable_msi=3D1, the cpu unplug works as expected.
-
-Thats a pretty serious issue.
-
-
+Patch applied, thanks Eric.
