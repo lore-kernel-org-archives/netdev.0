@@ -1,89 +1,128 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 06/39] genetlink: export genl_unregister_mc_group()
-Date: Thu, 27 Nov 2008 00:07:50 +0100
-Message-ID: <1227740871.3809.0.camel@johannes.berg>
-References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <ffc312e09e5728d546c67dd26aa1f53bacc3b0f1.1227691434.git.inaky@linux.intel.com>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: oops/warning report for the week of November 26, 2008
+Date: Wed, 26 Nov 2008 15:11:14 -0800
+Message-ID: <492DD792.6080302@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-htA6ogKIVfxTm4GqWHLX"
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org,
-	Thomas Graf <tgraf@suug.ch>
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	jesse Barnes <jbarnes@virtuousgeek.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:52319 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234AbYKZXI3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 18:08:29 -0500
-In-Reply-To: <ffc312e09e5728d546c67dd26aa1f53bacc3b0f1.1227691434.git.inaky@linux.intel.com>
+Received: from mga09.intel.com ([134.134.136.24]:44407 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752076AbYKZXLk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2008 18:11:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In collecting this report, oopses and warnings with versions prior to 2.6.27 are ignored.
+This week, a total of 5450 oopses and warnings have been reported of version 2.6.27+,
+compared to 2198 reports in the previous week.
 
---=-htA6ogKIVfxTm4GqWHLX
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+This report is a bit different than the previous weeks; all 2.6.26 and earlier issues are no
+longer used, which means the top 12 has shuffled quite a bit, with some new star appearances.
 
-On Wed, 2008-11-26 at 14:40 -0800, Inaky Perez-Gonzalez wrote:
-> Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
-> unregistering groups on the run. EXPORT_SYMBOL_GPL() is not used as
-> the rest of the functions exported by this module (eg:
-> genl_register_mc_group) are also not _GPL().
->=20
-> Cleanup is currently done when unregistering a family, but there is
-> no way to unregister a single multicast group due to that function not
-> being exported. Seems to be a mistake as it is documented as for
-> external consumption.
->=20
-> This is needed by the WiMAX stack to be able to cleanup unused mc
-> groups.
+Also I've reworked the "are these two backtraces the same" algorithm; the website should now
+be presenting a more compact/concise view due to having the backtraces consolidated in a much
+more logical (for the human) way.
 
-Haven't looked at the users, but you definitely need that as soon as you
-need to unregister a group on the fly, so obviously
 
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
+Per file statistics
+936	external/virtualbox/module
+602	drivers/pci/slot.c
+455	drivers/net/wireless/iwlwifi/iwl-tx.c
+364	kernel/power/main.c
+274	drivers/net/r8169.c
+231	drivers/net/wireless/iwlwifi/iwl-3945-rs.c
+231	fs/jbd/journal.c
+227	arch/x86/include/asm/mtrr.h
+147	drivers/ata/libata-sff.c
+137	drivers/net/sis900.c
+71	net/ipv4/tcp.c
+62	drivers/gpu/drm/radeon/radeon_cp.c
 
-> Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-> Cc: Johannes Berg <johannes@sipsolutions.net>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> ---
->  net/netlink/genetlink.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> index 3e1191c..1d3dd30 100644
-> --- a/net/netlink/genetlink.c
-> +++ b/net/netlink/genetlink.c
-> @@ -225,6 +225,7 @@ void genl_unregister_mc_group(struct genl_family *fam=
-ily,
->  	__genl_unregister_mc_group(family, grp);
->  	genl_unlock();
->  }
-> +EXPORT_SYMBOL(genl_unregister_mc_group);
-> =20
->  static void genl_unregister_mc_groups(struct genl_family *family)
->  {
 
---=-htA6ogKIVfxTm4GqWHLX
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Rank 1: VBoxDrvLinuxIOCtl (warning)
+	Reported 934 times (1635 total reports)
+	[external] bug in the VirtualBox drivers
+	This warning was last seen in version 2.6.28-rc3, and first seen in 2.6.25.11.
+	More info: http://www.kerneloops.org/searchweek.php?search=VBoxDrvLinuxIOCtl
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Rank 2: pci_create_slot (warning)
+	Reported 603 times (639 total reports)
+	BIOS provided duplicated slot names, the PCI layer blindly passes to sysfs
+	This warning was last seen in version 2.6.27.5, and first seen in 2.6.27-rc7-git1.
+	More info: http://www.kerneloops.org/searchweek.php?search=pci_create_slot
 
-iQIbBAABAgAGBQJJLdbBAAoJEKVg1VMiehFYhfgP+L6F6sJmytqZRek14eWcMJbW
-bjhDaSiy44SjquBV6hT03QsrPeTACg/UETMmxKZ691X4DtnbTBMXvY9ndpBhJmK3
-zT1YZuDQY1V9XvP3F/DwVMwIZlvnRnJMCCNYAi3diBz83/IVJXZKx5+XxuPO4y1l
-hOL08aqedXC44Yh9JQhns4yKWgBiI8NMe1lkt3f5nE6Mx2i/5eoM+QrWL+09zzyl
-gucraOkrGS24ETHnyiULwQc8QdKQPlRIiDB/pHtlwPPI6cZeLJ085AAvZpzSIqNC
-ETYrKO97JLtMA8egr8gFQfU772WzJbHJ1EYmjr+0/IL204ndn9A3j0IE0zcxausu
-s4Eanp6nETwIVtsP46xEyI7lWKE6sSuojE/VM4fT85qHTJz4mbSBlMLQmAoAysB9
-2882VA8YPe9ZnPmnut8piS8SP4W0BuhbR4WCj8rRbW4E9Qs8k1+1+IUycg7jrF3J
-Zl0Ugx8Y8+5/doE6R96ly+sL4r6TyuA+1m+MGLn6+mEypi8fVBzqiAKNWo7+XFqq
-90l6BQAv6B1WYNWgEPKRzKi+s6At+7K0aKZItfN1spr+9Pu+QBRzRPxW2KuS/5pg
-+eqYDINoiJNLkMaZJYjpF1WUYqNG3lQg7kVsziIFga4DXAlDauSgwoWT4IcEEU8q
-qvtWQIwuRX2eyCjdAcw=
-=1I/B
------END PGP SIGNATURE-----
+Rank 3: iwl_tx_cmd_complete (warning)
+	Reported 455 times (693 total reports)
+	Bug in the IWL wireless driver; partial fix available
+	This warning was last seen in version 2.6.28-rc4, and first seen in 2.6.27-rc9.
+	More info: http://www.kerneloops.org/searchweek.php?search=iwl_tx_cmd_complete
 
---=-htA6ogKIVfxTm4GqWHLX--
+Rank 4: suspend_test_finish (warning)
+	Reported 362 times (1202 total reports)
+	Fedora is shipping with the suspend test on.. and it's failing everywhere.
+	The patch to report what fails is in 2.6.28-rc6 and later
+	This warning was last seen in version 2.6.28-rc1, and first seen in 2.6.27-rc0-git14.
+	More info: http://www.kerneloops.org/searchweek.php?search=suspend_test_finish
 
+Rank 5: dev_watchdog(r8169) (oops)
+	Reported 274 times (1414 total reports)
+	Network driver not handling timeouts itself.
+	This oops was last seen in version 2.6.28-rc4, and first seen in 2.6.26.6.
+	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(r8169)
+
+Rank 6: rs_get_rate (oops)
+	Reported 232 times (1152 total reports)
+	Bug in the Intel IWL wireless drivers
+	This oops was last seen in version 2.6.27.5, and first seen in 2.6.25-rc2-git5.
+	More info: http://www.kerneloops.org/searchweek.php?search=rs_get_rate
+
+Rank 7: journal_update_superblock (warning)
+	Reported 231 times (6506 total reports)
+	Likely caused by the user removing a USB stick while mounted
+	This warning was last seen in version 2.6.27.7, and first seen in 2.6.24-rc6-git1.
+	More info: http://www.kerneloops.org/searchweek.php?search=journal_update_superblock
+
+Rank 8: mtrr_trim_uncached_memory (warning)
+	Reported 227 times (619 total reports)
+	There is a high number of machines where our MTRR checks trigger. I suspect we are too
+	picky in accepting the MTRR configuration.
+	This warning was last seen in version 2.6.27.5, and first seen in 2.6.24.
+	More info: http://www.kerneloops.org/searchweek.php?search=mtrr_trim_uncached_memory
+
+Rank 9: __atapi_pio_bytes (warning)
+	Reported 146 times (224 total reports)
+	Alan said this was due to some other layer giving the libata drivers a weird
+	scatter gather list. It just happens a lot, and somehow it mostly happens in
+	virtualized environments
+	This warning was last seen in version 2.6.27.5, and first seen in 2.6.27.4.
+	More info: http://www.kerneloops.org/searchweek.php?search=__atapi_pio_bytes
+
+Rank 10: dev_watchdog(sis900) (oops)
+	Reported 137 times (1538 total reports)
+	This oops was last seen in version 2.6.27.6, and first seen in 2.6.26-rc4-git2.
+	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(sis900)
+
+Rank 11: tcp_recvmsg (warning)
+	Reported 71 times (167 total reports)
+	This warning was last seen in version 2.6.27.5, and first seen in 2.6.25.
+	More info: http://www.kerneloops.org/searchweek.php?search=tcp_recvmsg
+
+Rank 12: dev_watchdog(atl1) (oops)
+	Reported 56 times (109 total reports)
+	This oops was last seen in version 2.6.27.5, and first seen in 2.6.26.6.
+	More info: http://www.kerneloops.org/searchweek.php?search=dev_watchdog(atl1)
+
+Rank 13: nv_set_page_attrib_cached (warning)
+	Reported 56 times (65 total reports)
+	[external] bug in the binary nvidia driver
+	warning only shows up in tainted kernels
+	This warning was last seen in version 2.6.27.5, and first seen in 2.6.27.5.
+	More info: http://www.kerneloops.org/searchweek.php?search=nv_set_page_attrib_cached
