@@ -1,72 +1,32 @@
-From: "=?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?=" <gotzoncabanes@gmail.com>
-Subject: ixp4xx_hss: Little improvement in create_chan function
-Date: Wed, 26 Nov 2008 18:38:10 +0100
-Message-ID: <b0438a630811260938n14835453jda2da43c6f1445f9@mail.gmail.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 0/4 2.6.29] cxgb3 - driver updates
+Date: Wed, 26 Nov 2008 12:36:57 -0800
+Message-ID: <492DB369.3020505@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, "Krzysztof Halasa" <khc@pm.waw.pl>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:61321 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894AbYKZRiM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 12:38:12 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so286917yxm.1
-        for <netdev@vger.kernel.org>; Wed, 26 Nov 2008 09:38:10 -0800 (PST)
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([12.22.49.110]:11184 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752746AbYKZUhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 15:37:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+[cc-ing Dave in Jeff's absence]
 
-We are searching for the desired channel three times in the same list.
-So I think we could erase two of them. What do you think?
+Hi Jeff,
 
-Signed-off-by: Miguel =C1ngel =C1lvarez (gotzoncabanes@gmail.com)
----
---- ixp4xx_hss.c.orig	2008-11-19 11:26:54.000000000 +0100
-+++ ixp4xx_hss.c.create_chan	2008-11-26 18:34:23.000000000 +0100
-@@ -2273,10 +2273,13 @@
- 	}
+I'm submitting 4 update patches against net-next-2.6 for inclusion in 
+2.6.29.
+Here is a brief description of the patch series:
+- add missing ndo_start_xmit setting
+- fix parameter checking in memory allocation routine
+- include firmware and protocol engine images in the firmware/ directory
+- update firmware and protocol engine images lookup path
 
- 	for (ch =3D 0; ch < MAX_CHANNELS; ch++)
--		if (channels[ch] && port->channels[ch] !=3D CHANNEL_UNUSED) {
--			printk(KERN_DEBUG "Channel #%i already in use\n", ch);
--			err =3D -EBUSY;
--			goto free;
-+		if (channels[ch]) {
-+		 	if (port->channels[ch] !=3D CHANNEL_UNUSED) {
-+				printk(KERN_DEBUG "Channel #%i already in use\n", ch);
-+				err =3D -EBUSY;
-+				goto free;
-+			} else
-+				break;
- 		}
-
- 	for (id =3D 0; id < MAX_CHAN_DEVICES; id++)
-@@ -2288,10 +2291,6 @@
- 		goto free;
- 	}
-
--	for (ch =3D 0; ch < MAX_CHANNELS; ch++)
--		if (channels[ch])
--			break;
--
- 	minor =3D port->id * MAX_CHAN_DEVICES + ch;
- 	chan_dev->id =3D id;
- 	chan_dev->port =3D port;
-@@ -2307,9 +2306,7 @@
- 	if ((err =3D cdev_add(&chan_dev->cdev, MKDEV(chan_major, minor), 1)))
- 		goto destroy_device;
-
--	for (ch =3D 0; ch < MAX_CHANNELS; ch++)
--		if (channels[ch])
--			port->channels[ch] =3D id;
-+	port->channels[ch] =3D id;
- 	port->chan_devices[id] =3D chan_dev;
- 	dev_set_drvdata(chan_dev->dev, chan_dev);
- 	BUG_ON(device_create_file(chan_dev->dev, &chan_attr));
-
-Thanks
-
-Miguel =C1ngel =C1lvarez
+Cheers,
+Divy
