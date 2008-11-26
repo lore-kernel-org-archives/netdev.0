@@ -1,45 +1,542 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 10/39] wimax: Generic messaging interface between user space and driver/device
-Date: Wed, 26 Nov 2008 14:40:29 -0800
-Message-ID: <802197ab7fc27af2e6e36ab83039cad6569997e1.1227691434.git.inaky@linux.intel.com>
+Subject: [PATCH 05/39] wimax: debug macros and debug settings for the WiMAX stack
+Date: Wed, 26 Nov 2008 14:40:24 -0800
+Message-ID: <ff25717bf78b6831db361b925f7081d5d6faf876.1227691434.git.inaky@linux.intel.com>
 References: <cover.1227691434.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga10.intel.com ([192.55.52.92]:44410 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752121AbYKZWlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:14 -0500
+	with ESMTP id S1752539AbYKZWlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 17:41:12 -0500
 In-Reply-To: <cover.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements a direct communication channel between user space and
-the driver/device, by which free form messages can be sent back and
-forth.
-
-This is intended for device-specific features, vendor quirks, etc.
-
-Currently is the only communication mechanism used because there is no
-standard kernel API defined for WiMAX operation. Not enough devices
-are in the market to decide what is a good user-kernel API/abstraction
-layer.
+This file contains a simple debug framework that is used in the stack;
+it allows the debug level to be controlled at compile-time (so the
+debug code is optimized out) and at run-time (for what wasn't compiled
+out).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- net/wimax/op-msg.c |  495 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 495 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/op-msg.c
+ include/linux/wimax/debug.h |  495 +++++++++++++++++++++++++++++++++++++++++++
+ net/wimax/debug-levels.h    |   42 ++++
+ 2 files changed, 537 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/wimax/debug.h
+ create mode 100644 net/wimax/debug-levels.h
 
-diff --git a/net/wimax/op-msg.c b/net/wimax/op-msg.c
+diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
 new file mode 100644
-index 0000000..cfa7929
+index 0000000..2987c7d
 --- /dev/null
-+++ b/net/wimax/op-msg.c
++++ b/include/linux/wimax/debug.h
 @@ -0,0 +1,495 @@
 +/*
 + * Linux WiMAX
-+ * Generic messaging interface between userspace and driver/device
++ * Collection of tools to manage debug operations.
++ *
++ *
++ * Copyright (C) 2005-2007 Intel Corporation
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ *
++ *
++ * Don't #include this file directly, read on!
++ *
++ *
++ * EXECUTING DEBUGGING ACTIONS OR NOT
++ *
++ * The main thing this framework provides is decission power to take a
++ * debug action (like printing a message) if the current debug level
++ * allows it.
++ *
++ * The decission power is at two levels: at compile-time (what does
++ * not make it is compiled out) and at run-time. The run-time
++ * selection is done per-submodule (as they are declared by the user
++ * of the framework).
++ *
++ * A call to d_test(L) (L being the target debug level) returns true
++ * if the action should be taken because the current debug levels
++ * allow it (both compile and run time).
++ *
++ * It follows that a call to d_test() that can be determined to be
++ * always false at compile time will get the code depending on it
++ * compiled out by optimization.
++ *
++ *
++ * DEBUG LEVELS
++ *
++ * It is up to the caller to define how much a debugging level is.
++ *
++ * Convention sets 0 as "no debug" (so an action marked as debug level 0
++ * will always be taken). The increasing debug levels are used for
++ * increased verbosity.
++ *
++ *
++ * USAGE
++ *
++ * Group the code in modules and submodules inside each module [which
++ * in most cases maps to Linux modules and .c files that compose
++ * those].
++ *
++ *
++ * For each module, there is:
++ *
++ *  - a MODULENAME (single word, legal C identifier)
++ *
++ *  - a debug-levels.h header file that declares the list of
++ *    submodules and that is included by all .c files that use
++ *    the debugging tools. The file name can be anything.
++ *
++ *  - some (optional) .c code to manipulate the runtime debug levels
++ *    (through sysfs). This has to be attached to some sysfs point.
++ *
++ * The debug-levels.h file would look like:
++ *
++ *     #ifndef __debug_levels__h__
++ *     #define __debug_levels__h__
++ *
++ *     #define D_MODULENAME modulename
++ *     #define D_MASTER 10
++ *
++ *     #include <linux/wimax/debug.h>
++ *
++ *     enum d_module {
++ *             D_SUBMODULE_DECLARE(submodule_1),
++ *             D_SUBMODULE_DECLARE(submodule_2),
++ *             ...
++ *             D_SUBMODULE_DECLARE(submodule_N)
++ *     };
++ *
++ *     #endif
++ *
++ * D_MASTER is the maximum compile-time debug level; any debug actions
++ * above this will be out. D_MODULENAME is the module name (legal C
++ * identifier), which has to be unique for each module (to avoid
++ * namespace collisions during linkage). Note those #defines need to
++ * be done before #including debug.h
++ *
++ * We declare N different submodules whose debug level can be
++ * independently controlled during runtime.
++ *
++ * In a .c file of the module (and only in one of them), define the
++ * following code:
++ *
++ *     struct d_level D_LEVEL[] = {
++ *             D_SUBMODULE_DEFINE(submodule_1),
++ *             D_SUBMODULE_DEFINE(submodule_2),
++ *             ...
++ *             D_SUBMODULE_DEFINE(submodule_N),
++ *     };
++ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
++ *
++ *     static
++ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
++ *                 d_level_show, d_level_store);
++ *
++ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
++ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
++ * #defined also in this file.
++ *
++ * Of course, the levels can be manipulated using other mechanisms;
++ * d_level_show() and d_level_store() are provided for
++ * convenience. However, it should be remembered that even if this
++ * will show attached to some particular instance of a device, the
++ * settings are *global*.
++ *
++ *
++ * On each submodule (for example, .c files), the debug infrastructure
++ * should be included like this:
++ *
++ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
++ *     #include "debug-levels.h"
++ *
++ * after #including all your include files.
++ *
++ *
++ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
++ * d_fnend(), d_printf(), d_dump()].
++ *
++ * If their debug level is greater than D_MASTER, they will be
++ * compiled out.
++ *
++ * If their debug level is lower or equal than D_MASTER but greater
++ * than the current debug level of their submodule, they'll be
++ * ignored.
++ *
++ * Otherwise, the action will be performed.
++ */
++#ifndef __debug__h__
++#define __debug__h__
++
++#include <linux/types.h>
++#include <linux/device.h>
++
++
++/* Backend stuff */
++
++/*
++ * Debug backend: generate a message header from a 'struct device'
++ *
++ * @head: buffer where to place the header
++ * @head_size: length of @head
++ * @dev: pointer to device used to generate a header from. If NULL,
++ *     an empty ("") header is generated.
++ */
++static inline
++void __d_head(char *head, size_t head_size,
++	      struct device *dev)
++{
++	if (dev == NULL)
++		head[0] = 0;
++	else if ((unsigned long)dev < 4096) {
++		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
++		WARN_ON(1);
++	} else
++		snprintf(head, head_size, "%s %s: ",
++			 dev_driver_string(dev), dev->bus_id);
++}
++
++
++/*
++ * Debug backend: log some message if debugging is enabled
++ *
++ * @l: intended debug level
++ * @tag: tag to prefix the message with
++ * @dev: 'struct device' associated to this message
++ * @f: printf-like format and arguments
++ *
++ * Note this is optimized out if it doesn't pass the compile-time
++ * check; however, it is *always* compiled. This is useful to make
++ * sure the printf-like formats and variables are always checked and
++ * they don't get bit rot if you have all the debugging disabled.
++ */
++#define _d_printf(l, tag, dev, f, a...)					\
++do {									\
++	char head[64];							\
++	if (!d_test(l))							\
++		break;							\
++	__d_head(head, sizeof(head), dev);				\
++	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
++} while (0 && dev)
++
++
++/*
++ * CPP sintatic sugar to generate A_B like symbol names when one of
++ * the arguments is a a preprocessor #define.
++ */
++#define __D_PASTE__(varname, modulename) varname##_##modulename
++#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
++#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
++
++
++/*
++ * Store a submodule's runtime debug level and name
++ */
++struct d_level {
++	unsigned level;
++	const char *name;
++};
++
++
++/*
++ * List of available submodules and their debug levels
++ *
++ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
++ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
++ * convenience.
++ *
++ * This array and the size are defined on some .c file that is part of
++ * the current module.
++ */
++#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
++#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
++
++extern struct d_level D_LEVEL[];
++extern size_t D_LEVEL_SIZE;
++
++
++/*
++ * Frontend stuff
++ *
++ *
++ * Stuff you need to declare prior to using the actual "debug" actions
++ * (defined below).
++ */
++
++#ifndef D_MODULENAME
++#error D_MODULENAME is not defined in your debug-levels.h file
++/**
++ * D_MODULE - Name of the current module
++ *
++ * #define in your module's debug-levels.h, making sure it is
++ * unique. This has to be a legal C identifier.
++ */
++#define D_MODULENAME undefined_modulename
++#endif
++
++
++#ifndef D_MASTER
++#warning D_MASTER not defined, but debug.h included! [see docs]
++/**
++ * D_MASTER - Compile time maximum debug level
++ *
++ * #define in your debug-levels.h file to the maximum debug level the
++ * runtime code will be allowed to have. This allows you to provide a
++ * main knob.
++ *
++ * Anything above that level will be optimized out of the compile.
++ *
++ * Defaults to zero (no debug code compiled in).
++ *
++ * Maximum one definition per module (at the debug-levels.h file).
++ */
++#define D_MASTER 0
++#endif
++
++
++#ifndef D_SUBMODULE
++#error D_SUBMODULE not defined, but debug.h included! [see docs]
++/**
++ * D_SUBMODULE - Name of the current submodule
++ *
++ * #define in your submodule .c file before #including debug-levels.h
++ * to the name of the current submodule as previously declared and
++ * defined with D_SUBMODULE_DECLARE() (in your module's
++ * debug-levels.h) and D_SUBMODULE_DEFINE().
++ *
++ * This is used to provide runtime-control over the debug levels.
++ *
++ * Maximum one per .c file! Can be shared among different .c files
++ * (meaning they belong to the same submodule categorization).
++ */
++#define D_SUBMODULE undefined_module
++#endif
++
++
++/**
++ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
++ *
++ * @_name: name of the submodule, restricted to the chars that make up a
++ *     valid C identifier ([a-zA-Z0-9_]).
++ *
++ * Declare in the module's debug-levels.h header file as:
++ *
++ * enum d_module {
++ *         D_SUBMODULE_DECLARE(submodule_1),
++ *         D_SUBMODULE_DECLARE(submodule_2),
++ *         D_SUBMODULE_DECLARE(submodule_3),
++ * };
++ *
++ * Some corresponding .c file needs to have a matching
++ * D_SUBMODULE_DEFINE().
++ */
++#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
++
++
++/**
++ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
++ *
++ * @_name: name of the submodule, restricted to the chars that make up a
++ *     valid C identifier ([a-zA-Z0-9_]).
++ *
++ * Use once per module (in some .c file) as:
++ *
++ * static
++ * struct d_level d_level_SUBMODULENAME[] = {
++ *         D_SUBMODULE_DEFINE(submodule_1),
++ *         D_SUBMODULE_DEFINE(submodule_2),
++ *         D_SUBMODULE_DEFINE(submodule_3),
++ * };
++ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
++ *
++ * Matching D_SUBMODULE_DECLARE()s have to be present in a
++ * debug-levels.h header file.
++ */
++#define D_SUBMODULE_DEFINE(_name)		\
++[__D_SUBMODULE_##_name] = {			\
++	.level = 0,				\
++	.name = #_name				\
++}
++
++
++
++/* The actual "debug" operations */
++
++
++/**
++ * d_test - Returns true if debugging should be enabled
++ *
++ * @l: intended debug level (unsigned)
++ *
++ * If the master debug switch is enabled and the current settings are
++ * higher or equal to the requested level, then debugging
++ * output/actions should be enabled.
++ *
++ * NOTE:
++ *
++ * This needs to be coded so that it can be evaluated in compile
++ * time; this is why the ugly BUG_ON() is placed in there, so the
++ * D_MASTER evaluation compiles all out if it is compile-time false.
++ */
++#define d_test(l)							\
++({									\
++	unsigned __l = l;	/* type enforcer */			\
++	(D_MASTER) >= __l						\
++	&& ({								\
++		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE); \
++		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
++	});								\
++})
++
++
++/**
++ * d_fnstart - log message at function start if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
++
++
++/**
++ * d_fnend - log message at function end if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
++
++
++/**
++ * d_printf - log message if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
++
++
++/**
++ * d_dump - log buffer hex dump if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_dump(l, dev, ptr, size)			\
++do {							\
++	char head[64];					\
++	if (!d_test(l))					\
++		break;					\
++	__d_head(head, sizeof(head), dev);		\
++	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
++		       ((void *) ptr), (size), 0);	\
++} while (0 && dev)
++
++
++
++
++/*
++ * Exporting the runtime debug levels via sysfs
++ *
++ * The d_level_{store,show}() manipulators defined below can be used
++ * to define the following:
++ *
++ *     static
++ *     DEVICE_ATTR(debug_levels, S_IRUGO | S_IWUSR,
++ *                 d_level_show, d_level_store);
++ *
++ * Then the 'debug_levels' device attribute variable has to be
++ * registered with the corresponding 'struct device'.
++ *
++ * Note these are attached to a device-specific struct even if they
++ * are global. So if debugging is increased through the deviceX's
++ * sysfs controls, the increase will affect all instances of the code,
++ * not only those of deviceX.
++ *
++ * There is no good "global" place to attach them (the module doesn't
++ * exist when linked into the kernel, for example). For now, it does
++ * the trick.
++ */
++
++
++/*
++ * Shows a list of the module name and current debug level
++ */
++static inline
++ssize_t d_level_show(struct device *dev, struct device_attribute *attr,
++		     char *buf)
++{
++	ssize_t result = 0;
++	unsigned itr;
++
++	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
++		result += scnprintf(buf + result, PAGE_SIZE - result,
++				    "%u %s\n",
++				    D_LEVEL[itr].level, D_LEVEL[itr].name);
++	return result;
++}
++
++
++/*
++ * Takes a (new) log level and module name and sets it
++ */
++static inline
++ssize_t d_level_store(struct device *dev, struct device_attribute *attr,
++		      const char *buf, size_t size)
++{
++	ssize_t result;
++	unsigned level, itr;
++	char name[32];
++
++	result = -EINVAL;
++	if (sscanf(buf, "%u %31s\n", &level, name) != 2) {
++		dev_err(dev, "error: expecting 'LEVEL SUBMODULENAME'; "
++			"can't parse '%s'\n", buf);
++		goto error_bad_values;
++	}
++	for (itr = 0; itr < D_LEVEL_SIZE; itr++)
++		if (!strcmp(D_LEVEL[itr].name, name)) {
++			D_LEVEL[itr].level = level;
++			return size;
++		}
++	dev_err(dev, "error: trying to set debug level for "
++		"unknown debug submodule '%s'\n", name);
++	result = -ENXIO;
++error_bad_values:
++	return result;
++}
++
++
++#endif /* #ifndef __debug__h__ */
+diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
+new file mode 100644
+index 0000000..f52d064
+--- /dev/null
++++ b/net/wimax/debug-levels.h
+@@ -0,0 +1,42 @@
++/*
++ * Linux WiMAX Stack
++ * Debug levels control file for the wimax module
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
@@ -58,480 +555,27 @@ index 0000000..cfa7929
 + * along with this program; if not, write to the Free Software
 + * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 + * 02110-1301, USA.
-+ *
-+ *
-+ * This implements a direct communication channel between user space and
-+ * the driver/device, by which free form messages can be sent back and
-+ * forth.
-+ *
-+ * This is intended for device-specific features, vendor quirks, etc.
-+ *
-+ * By default, all devices get one default pipe ("the messaging
-+ * pipe").
-+ *
-+ * Due to limitations in the way generic netlink is implemented (no
-+ * multicast from user space clients to the kernel), the messaging
-+ * pipe is the only way to send messages from user space to the
-+ * driver.
-+ *
-+ * However, devices can create as many kernel-to-user pipes as
-+ * needed.
-+ *
-+ * The functions wimax.h:wimax_msg_*() operate identical to
-+ * wimax_pipe_msg*(), but over the default pipe.
-+ *
-+ * See include/net/wimax.h
-+ *
-+ * GENERIC NETLINK ENCODING AND CAPACITY
-+ *
-+ * Messages are encoded as a binary netlink attribute using nla_put()
-+ * using type NLA_UNSPEC (as some versions of libnl still in
-+ * deployment don't yet understand NLA_BINARY).
-+ *
-+ * The maximum capacity of this transport is undetermined. Sending of
-+ * messages up to 4k has been tested with success. Bigger buffers
-+ * beware.
-+ *
-+ * RECEPTION OF MESSAGES
-+ *
-+ * When a message is received from user space, it is passed verbatim
-+ * to the driver calling wimax_dev->op_msg_from_user(). The return
-+ * value from this function is passed back to user space as an ack
-+ * over the generic netlink protocol.
-+ *
-+ * Remember these messages from user space to the kernel always
-+ * operate over the default pipe.
-+ *
-+ * The stack doesn't do any processing or interpretation of these
-+ * messages.
-+ *
-+ * SENDING MESSAGES
-+ *
-+ * Messages can be sent with wimax_[pipe_]msg().
-+ *
-+ * If the message delivery needs to happen on a different context to
-+ * that of its creation, wimax_[pipe_]msg_alloc() can be used to get a
-+ * pointer to the message that can be delivered later on with
-+ * wimax_[pipe_]msg_send().
-+ *
-+ * ROADMAP
-+ *
-+ * wimax_gnl_doit_msg_from_user()    Process a message from user space
-+ *   wimax_dev_get_by_genl_info()
-+ *   wimax_dev->op_msg_from_user()   Delivery of message to the driver
-+ *
-+ * wimax_pipe_msg()                  Send a message to user space
-+ *   wimax_pipe_msg_alloc()
-+ *   wimax_pipe_msg_send()
-+ *
-+ * wimax_pipe_add()		     Create a new pipe
-+ * wimax_pipe_rm()                   Remove a pipe
 + */
-+#include <linux/device.h>
-+#include <net/genetlink.h>
-+#include <linux/netdevice.h>
-+#include <linux/wimax.h>
-+#include <linux/security.h>
-+#include "wimax-internal.h"
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
 +
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME wimax
++#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
 +
-+#define D_SUBMODULE op_msg
-+#include "debug-levels.h"
++#include <linux/wimax/debug.h>
 +
-+
-+/**
-+ * wimax_pipe_add - Create a new messaging pipe
-+ *
-+ * @wimax_dev: WiMAX device descriptor (properly referenced)
-+ *
-+ * @name: Name of the new pipe
-+ *
-+ * Returns: Positive pipe ID descriptor [for to wimax_pipe_msg*()].
-+ *     Negative errno code on error.
-+ *
-+ * Description:
-+ *
-+ * Creates a new pipe for sending messages or notifications to user
-+ * space. User space can read them by receiving from the @name generic
-+ * netlink multicast group associated to @wimax_dev.
-+ *
-+ * We allow running this when the device is still uninitialized. Not
-+ * so when the device is being torn down.
-+ */
-+struct wimax_pipe *wimax_pipe_add(struct wimax_dev *wimax_dev,
-+				  const char *name)
-+{
-+	int result;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+	struct wimax_pipe *pipe;
-+
-+	d_fnstart(3, dev, "(wimax_dev %p name %s)\n", wimax_dev, name);
-+	result = -ENOMEM;
-+	pipe = kzalloc(sizeof(*pipe), GFP_KERNEL);
-+	if (pipe == NULL) {
-+		dev_err(dev, "cannot allocate pipe '%s': %d\n",
-+			name, result);
-+		goto error_kzalloc;
-+	}
-+
-+	snprintf(pipe->mcg.name, sizeof(pipe->mcg.name), name);
-+	result = genl_register_mc_group(&wimax_dev->gnl_family, &pipe->mcg);
-+	if (unlikely(result < 0)) {
-+		dev_err(dev, "cannot register pipe '%s': %d\n",
-+			name, result);
-+		goto error_register_mc_group;
-+	}
-+	mutex_lock(&wimax_dev->mutex);
-+	list_add_tail(&pipe->list_node, &wimax_dev->pipe_list);
-+	mutex_unlock(&wimax_dev->mutex);
-+	d_fnstart(3, dev, "(wimax_dev %p name %s) = %p\n",
-+		  wimax_dev, name, pipe);
-+	return pipe;
-+
-+error_register_mc_group:
-+	kfree(pipe);
-+error_kzalloc:
-+	d_fnstart(3, dev, "(wimax_dev %p name %s) = %d\n",
-+		  wimax_dev, name, result);
-+	return ERR_PTR(result);
-+}
-+EXPORT_SYMBOL_GPL(wimax_pipe_add);
-+
-+
-+/*
-+ * Remove a pipe with locking (lock assumed taken)
-+ *
-+ * We do it like this to avoid calling the generic netlink code with
-+ * the lock held -- the lockdep validator will complain in some false
-+ * positive cases.
-+ */
-+void __wimax_pipe_rm(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe)
-+{
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+
-+	d_fnstart(3, dev, "(wimax_dev %p pipe %p)\n", wimax_dev, pipe);
-+	list_del(&pipe->list_node);
-+	genl_unregister_mc_group(&wimax_dev->gnl_family, &pipe->mcg);
-+	kfree(pipe);
-+	d_fnend(3, dev, "(wimax_dev %p pipe %p) = void\n", wimax_dev, pipe);
-+}
-+
-+
-+/**
-+ * wimax_pipe_rm - Remove a messaging pipe
-+ *
-+ * @wimax_dev: WiMAX device descriptor (properly referenced)
-+ *
-+ * @name: name of the pipe to remove
-+ *
-+ * Removes a messaging pipe previously created with wimax_pipe_add().
-+ */
-+void wimax_pipe_rm(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe)
-+{
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+
-+	d_fnstart(3, dev, "(wimax_dev %p pipe %p)\n", wimax_dev, pipe);
-+	mutex_lock(&wimax_dev->mutex);
-+	list_del(&pipe->list_node);
-+	mutex_unlock(&wimax_dev->mutex);
-+	genl_unregister_mc_group(&wimax_dev->gnl_family, &pipe->mcg);
-+	kfree(pipe);
-+	d_fnend(3, dev, "(wimax_dev %p pipe %p) = void\n", wimax_dev, pipe);
-+}
-+EXPORT_SYMBOL_GPL(wimax_pipe_rm);
-+
-+
-+/**
-+ * wimax_pipe_msg_alloc - Create a new skb for sending a message to userspace
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ * @msg: pointer to the message data to send
-+ * @size: size of the message to send (in bytes), including the header.
-+ * @gfp_flags: flags for memory allocation.
-+ *
-+ * Returns: %0 if ok, negative errno code on error
-+ *
-+ * Description:
-+ *
-+ * Allocates an skb that will contain the message to send to user
-+ * space over the messaging pipe and initializes it, copying the
-+ * payload.
-+ *
-+ * Once this call is done, you can deliver it with
-+ * wimax_pipe_msg_send().
-+ *
-+ * IMPORTANT:
-+ *
-+ * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
-+ * wimax_pipe_msg_send() depends on skb->data being placed at the
-+ * beginning of the user message.
-+ */
-+struct sk_buff *wimax_pipe_msg_alloc(struct wimax_dev *wimax_dev,
-+				     const void *msg, size_t size,
-+				     gfp_t gfp_flags)
-+{
-+	int result;
-+	struct device *dev = wimax_dev->net_dev->dev.parent;
-+	void *genl_msg;
-+	struct sk_buff *skb;
-+
-+	skb = genlmsg_new(nla_total_size(size), gfp_flags);
-+	if (skb == NULL)
-+		return NULL;
-+	genl_msg = genlmsg_put(skb, 0, 0, &wimax_dev->gnl_family,
-+			       0, WIMAX_GNL_OP_MSG_TO_USER);
-+	if (genl_msg == NULL) {
-+		dev_err(dev, "no memory to create generic netlink message\n");
-+		goto error_genlmsg_put;
-+	}
-+	result = nla_put(skb, WIMAX_GNL_MSG_DATA, size, msg);
-+	if (result == -1) {
-+		dev_err(dev, "no memory to add payload in attribute\n");
-+		goto error_nla_put;
-+	}
-+	genlmsg_end(skb, genl_msg);
-+	return skb;
-+
-+error_nla_put:
-+error_genlmsg_put:
-+	nlmsg_free(skb);
-+	return ERR_PTR(-ENOMEM);
-+
-+}
-+EXPORT_SYMBOL_GPL(wimax_pipe_msg_alloc);
-+
-+
-+/**
-+ * wimax_msg_data - Return a pointer to a message's payload
-+ *
-+ * @msg: Pointer to a message created with wimax_pipe_msg_alloc()
-+ */
-+const void *wimax_msg_data(struct sk_buff *msg)
-+{
-+	struct nlmsghdr *nlh = (void *) msg->head;
-+	struct nlattr *nla;
-+
-+	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
-+			      WIMAX_GNL_MSG_DATA);
-+	if (nla == NULL) {
-+		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
-+		return NULL;
-+	}
-+	return nla_data(nla);
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg_data);
-+
-+
-+/**
-+ * wimax_msg_len - Return a message's payload length
-+ *
-+ * @msg: Pointer to a message created with wimax_pipe_msg_alloc()
-+ */
-+ssize_t wimax_msg_len(struct sk_buff *msg)
-+{
-+	struct nlmsghdr *nlh = (void *) msg->head;
-+	struct nlattr *nla;
-+
-+	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
-+			      WIMAX_GNL_MSG_DATA);
-+	if (nla == NULL) {
-+		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
-+		return -EINVAL;
-+	}
-+	return nla_len(nla);
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg_len);
-+
-+
-+/**
-+ * wimax_pipe_msg_send - Send a pre-allocated message to user space
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ *
-+ * @pipe: Pipe handle, as returned by wimax_pipe_add(). For sending
-+ *     over the default pipe, use a pipe id of @wimax_dev->pipe_msg.
-+ *
-+ * @skb: &struct sk_buff returned by wimax_pipe_msg_alloc(). Note the
-+ *     ownership of @skb is transferred to this function.
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error
-+ *
-+ * Description:
-+ *
-+ * Sends a free-form message that was preallocated with
-+ * wimax_pipe_msg_alloc() and filled up.
-+ *
-+ * Assumes that once you pass an skb to this function for sending, it
-+ * owns it and will release it when done (on success).
-+ *
-+ * IMPORTANT:
-+ *
-+ * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
-+ * wimax_pipe_msg_send() depends on skb->data being placed at the
-+ * beginning of the user message.
-+ */
-+int wimax_pipe_msg_send(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe,
-+			struct sk_buff *skb)
-+{
-+	int result;
-+	struct device *dev = wimax_dev->net_dev->dev.parent;
-+	void *msg = skb->data;
-+	size_t size = skb->len;
-+	might_sleep();
-+
-+	d_printf(1, dev, "CTX: wimax msg, %zu bytes\n", size);
-+	d_dump(2, dev, msg, size);
-+	result = genlmsg_multicast(skb, 0, pipe->mcg.id, GFP_KERNEL);
-+	d_printf(1, dev, "CTX: genl multicast result %d\n", result);
-+	if (result == -ESRCH)	/* Nobody connected, ignore it */
-+		result = 0;	/* btw, the skb is freed already */
-+	return result;
-+}
-+EXPORT_SYMBOL_GPL(wimax_pipe_msg_send);
-+
-+
-+/**
-+ * wimax_pipe_msg - Send a message to user space
-+ *
-+ * @wimax_dev: WiMAX device descriptor (properly referenced)
-+ *
-+ * @pipe: Pipe handle, as returned by wimax_pipe_add(). For sending
-+ *     over the default pipe, use a pipe id of @wimax_dev->pipe_msg.
-+ *
-+ *
-+ * @buf: pointer to the message to send.
-+ *
-+ * @size: size of the buffer pointed to by @buf (in bytes).
-+ *
-+ * @gfp_flags: flags for memory allocation.
-+ *
-+ * Returns: %0 if ok, negative errno code on error.
-+ *
-+ * Description:
-+ *
-+ * Sends a free-form message to user space on the the @pipeid pipe of
-+ * device @wimax_dev.
-+ *
-+ * NOTES:
-+ *
-+ * Once the @skb is given to this function, who will own it and will
-+ * release it when done (unless it returns error).
-+ */
-+int wimax_pipe_msg(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe,
-+		   const void *buf, size_t size, gfp_t gfp_flags)
-+{
-+	int result = -ENOMEM;
-+	struct sk_buff *skb;
-+
-+	skb = wimax_pipe_msg_alloc(wimax_dev, buf, size, gfp_flags);
-+	if (skb == NULL)
-+		goto error_msg_new;
-+	result = wimax_pipe_msg_send(wimax_dev, pipe, skb);
-+error_msg_new:
-+	return result;
-+}
-+EXPORT_SYMBOL_GPL(wimax_pipe_msg);
-+
-+
-+static
-+struct nla_policy wimax_gnl_msg_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+	[WIMAX_GNL_MSG_DATA] = {
-+		.type = NLA_UNSPEC,	/* libnl doesn't grok BINARY yet */
-+	},
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(id_table),
++	D_SUBMODULE_DECLARE(op_msg),
++	D_SUBMODULE_DECLARE(op_open),
++	D_SUBMODULE_DECLARE(op_reset),
++	D_SUBMODULE_DECLARE(op_rfkill),
++	D_SUBMODULE_DECLARE(stack),
 +};
 +
-+
-+/*
-+ * Relays a message from user space to the driver
-+ *
-+ * The skb is passed to the driver-specific function with the netlink
-+ * and generic netlink headers already stripped.
-+ *
-+ * This call will block while handling/relaying the message.
-+ */
-+static
-+int wimax_gnl_doit_msg_from_user(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int result;
-+	struct wimax_dev *wimax_dev;
-+	struct device *dev;
-+	struct nlmsghdr *nlh;
-+	struct nlattr *tb[WIMAX_GNL_ATTR_MAX+1];
-+	void *msg_buf;
-+	size_t msg_len;
-+
-+	might_sleep();
-+	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
-+	result = -EPERM;
-+	if (security_netlink_recv(skb, CAP_NET_ADMIN))
-+		goto error_perm;
-+	result = -ENODEV;
-+	wimax_dev = wimax_dev_get_by_genl_info(info);
-+	if (wimax_dev == NULL)
-+		goto error_no_wimax_dev;
-+	dev = wimax_dev_to_dev(wimax_dev);
-+
-+	nlh = (void *) skb->data;
-+
-+	/* Parse the message to extract arguments */
-+	result = nlmsg_parse(nlh, sizeof(struct genlmsghdr),
-+			     tb, ARRAY_SIZE(tb),
-+			     wimax_gnl_msg_policy);
-+	if (result < 0) {
-+		dev_err(dev, "WIMAX_GNL_MSG_FROM_USER: "
-+			"can't parse message: %d\n", result);
-+		goto error_parse;
-+	}
-+	result = -EINVAL;
-+	if (tb[WIMAX_GNL_MSG_DATA] == NULL) {
-+		dev_err(dev, "WIMAX_GNL_MSG_FROM_USER: can't find MSG_DATA "
-+			"attribute\n");
-+		goto error_no_pid;
-+	}
-+	msg_buf = nla_data(tb[WIMAX_GNL_MSG_DATA]);
-+	msg_len = nla_len(tb[WIMAX_GNL_MSG_DATA]);
-+
-+	mutex_lock(&wimax_dev->mutex);
-+	result = wimax_dev_is_ready(wimax_dev);
-+	if (result < 0)
-+		goto error_not_ready;
-+	result = -ENOSYS;
-+	if (wimax_dev->op_msg_from_user == NULL)
-+		goto error_noop;
-+
-+	d_printf(1, dev,
-+		 "CRX: nlmsghdr len %u type %u flags 0x%04x seq 0x%x pid %u\n",
-+		 nlh->nlmsg_len, nlh->nlmsg_type, nlh->nlmsg_flags,
-+		 nlh->nlmsg_seq, nlh->nlmsg_pid);
-+	d_printf(1, dev, "CRX: wimax message %zu bytes\n", msg_len);
-+	d_dump(2, dev, msg_buf, msg_len);
-+
-+	result = wimax_dev->op_msg_from_user(wimax_dev, msg_buf, msg_len, info);
-+error_noop:
-+error_not_ready:
-+	mutex_unlock(&wimax_dev->mutex);
-+error_no_pid:
-+error_parse:
-+	dev_put(wimax_dev->net_dev);
-+error_no_wimax_dev:
-+error_perm:
-+	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
-+	return result;
-+}
-+
-+
-+/*
-+ * Generic Netlink glue
-+ */
-+
-+struct genl_ops wimax_gnl_msg_from_user = {
-+	.cmd = WIMAX_GNL_OP_MSG_FROM_USER,
-+	.flags = 0,
-+	.policy = wimax_gnl_msg_policy,
-+	.doit = wimax_gnl_doit_msg_from_user,
-+	.dumpit = NULL,
-+};
-+
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
 
