@@ -1,56 +1,61 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [RFC] Validate ethtool autoneg before relaying
-Date: Wed, 26 Nov 2008 15:44:06 -0800
-Message-ID: <20081126234406.GA8970@xw6200.broadcom.net>
-References: <20081126221741.GA8800@xw6200.broadcom.net>
- <1227742092.13189.19.camel@HP1>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH 1/5] igb: link up/down messages must follow a
+	specific format
+Date: Wed, 26 Nov 2008 16:02:06 -0800
+Message-ID: <20081127000206.22431.53339.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Michael Chan" <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1305 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751336AbYKZXoU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Nov 2008 18:44:20 -0500
-Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.11.18.52]) by
- mail-irva-10.broadcom.com (Postfix) with ESMTP id 46E2E2B0 for
- <netdev@vger.kernel.org>; Wed, 26 Nov 2008 15:44:07 -0800 (PST)
-Received: from NT-IRVA-0752.brcm.ad.broadcom.com (nt-irva-0752
- [10.8.194.67]) by mail-irva-13.broadcom.com (Postfix) with ESMTP id
- C78C474CFE for <netdev@vger.kernel.org>; Wed, 26 Nov 2008 15:44:06
- -0800 (PST)
-In-Reply-To: <1227742092.13189.19.camel@HP1>
-Content-Disposition: inline
+Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:38882 "EHLO
+	QMTA02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751403AbYK0ACW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 19:02:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2008 at 03:28:12PM -0800, Michael Chan wrote:
-> 
-> On Wed, 2008-11-26 at 14:17 -0800, Matt Carlson wrote:
-> > diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> > index 14ada53..6362f56 100644
-> > --- a/net/core/ethtool.c
-> > +++ b/net/core/ethtool.c
-> > @@ -164,6 +164,9 @@ static int ethtool_set_settings(struct net_device *dev, void __user *useraddr)
-> >         if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
-> >                 return -EFAULT;
-> >  
-> > +       if (cmd.autoneg != AUTONEG_ENABLE && cmd.autoneg != AUTONEG_DISABLE)
-> > +               return -EFAULT;
-> > +
-> 
-> Matt, you should return -EINVAL here instead.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Yes.  You are right.  I'll fix this in a revised patch if everyone
-decides this is an effort worth pursuing.
+The system log messages created on a link status change need to follow a
+specific format to work with tools some customers use.
 
-> >         return dev->ethtool_ops->set_settings(dev, &cmd);
-> >  }
-> >  
-> 
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
+ drivers/net/igb/igb_main.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index ab37ab0..0919a2f 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -2328,9 +2328,10 @@ static void igb_watchdog_task(struct work_struct *work)
+ 						   &adapter->link_duplex);
+ 
+ 			ctrl = rd32(E1000_CTRL);
+-			dev_info(&adapter->pdev->dev,
+-				 "NIC Link is Up %d Mbps %s, "
++			/* Links status message must follow this format */
++			printk(KERN_INFO "igb: %s NIC Link is Up %d Mbps %s, "
+ 				 "Flow Control: %s\n",
++			         netdev->name,
+ 				 adapter->link_speed,
+ 				 adapter->link_duplex == FULL_DUPLEX ?
+ 				 "Full Duplex" : "Half Duplex",
+@@ -2365,7 +2366,9 @@ static void igb_watchdog_task(struct work_struct *work)
+ 		if (netif_carrier_ok(netdev)) {
+ 			adapter->link_speed = 0;
+ 			adapter->link_duplex = 0;
+-			dev_info(&adapter->pdev->dev, "NIC Link is Down\n");
++			/* Links status message must follow this format */
++			printk(KERN_INFO "igb: %s NIC Link is Down\n",
++			       netdev->name);
+ 			netif_carrier_off(netdev);
+ 			netif_tx_stop_all_queues(netdev);
+ 			if (!test_bit(__IGB_DOWN, &adapter->state))
 
