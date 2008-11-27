@@ -1,116 +1,71 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH] virtio_net: large tx MTU support
-Date: Thu, 27 Nov 2008 13:57:05 +0000
-Message-ID: <1227794225.24571.36.camel@blaa>
-References: <1227707891.9579.44.camel@blaa>
-	 <200811272300.58151.rusty@rustcorp.com.au>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: hardware time stamping with extra skb->hwtstamp
+Date: Thu, 27 Nov 2008 16:02:15 +0200
+Message-ID: <200811271602.16128.opurdila@ixiacom.com>
+References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com> <492E3AAE.3000709@hartkopp.net> <1227780427.16263.468.camel@ecld0pohly>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Oliver Hartkopp <oliver@hartkopp.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Patrick Ohly <patrick.ohly@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:54351 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753446AbYK0N63 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2008 08:58:29 -0500
-In-Reply-To: <200811272300.58151.rusty@rustcorp.com.au>
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:1544 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751125AbYK0OGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 09:06:47 -0500
+In-Reply-To: <1227780427.16263.468.camel@ecld0pohly>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Rusty,
+From: Patrick Ohly <patrick.ohly@intel.com>
+Date: Thu, 27 Nov 2008 11:07:07 +0100
 
-On Thu, 2008-11-27 at 23:00 +1030, Rusty Russell wrote:
-> On Thursday 27 November 2008 00:28:11 Mark McLoughlin wrote:
-> > We don't really have a max tx packet size limit, so allow configuring
-> > the device with up to 64k tx MTU.
-> 
-> Hi Mark,
-> 
-> Just one comment: maybe we should be conservative and maybe limit to 1500 if 
-> the host doesn't offer any of the GSO or MRG_RXBUF features?
+> It certainly would be sufficient for PTP with the "assisted" PTP mode of
+> synchronizing system time. But my understanding is that Octavian and
+> possibly others want to have access to the raw, unmodified hardware time
+> stamps. Octavian, perhaps you can confirm/elaborate what your use case
+> is?
 
-That was actually what I was going to do until I thought about it a bit
-more and discussed it with Herbert.
+We use the hardware timestamp to determine one-way delay:
+- hardware synchronize the NIC clocks (20ns resolution)
+- insert the hw timestamp in the packet as its going out the wire (this is 
+done in hw)
+- received packets will be tagged with a hardware timestamp
 
-The virtio_net MTU only affects the transmit path, so there shouldn't be
-any issue with a host that doesn't support those features.
+One way delay is computed by subtracting the TX hw timestamp from the RX hw 
+timestamp.
 
-The MTU on the receive path is a different story - e.g. the host needs
-to have a large enough buffer when reading from the tap fd and the guest
-needs to have allocated large enough receive buffers. The former we
-fixed recently in KVM (we used to only have a 64k buffer if built with
-IFF_VNET_HDR support) and the latter is currently only true if either
-GSO or MRG_RXBUF has been negotiated.
+> To summarize, I see the following options at this time:
+[snip]
+> My personal preference is, in this order: 3, 4, 2b (current patch,
+> but needs clean way to find network device), 1a.
 
-So, in summary - making change_mtu() check for GSO and MRG_RXBUF isn't
-correct, but perhaps we could do it anyway so as to give the user a hint
-that a large MTU isn't going to work on the receive path. If you feel
-that's best, here's another version.
+I also vote for 3 (storing hw timestamps in the skb). 
 
-Cheers,
-Mark.
+Let me throw in another idea: when enabling hw timestamps could we allocate a 
+bigger skb and store the hw timestamp somewhere in the skb data buffer? 
 
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: [PATCH] virtio_net: large tx MTU support
+We can then modify sock_recv_timestamp to call a new netdev method which 
+should return the hw timestamp. This should take care of RX hw timestamps.
 
-We don't really have a max tx packet size limit, so allow configuring
-the device with up to 64k tx MTU.
+For TX, we can we get a new skb with skb_copy_expand  to make room for the TX 
+timestamp, and queue that in the error socket. 
 
-On the receive path, we can only handle a large MTU if we negotiate
-GSO or MRG_RXBUF with the host. In order to give the user some hint
-as to this limitation, we also limit the transmit path to a smaller
-MTU if neither of those features are available.
+There is still the problem of requesting TX timestamps per packets. At this 
+point it seems that on the TX path the tstamp field is not used, so we could 
+use that space. 
 
-Signed-off-by: Mark McLoughlin <markmc@redhat.com>
----
- drivers/net/virtio_net.c |   24 ++++++++++++++++++++++++
- 1 files changed, 24 insertions(+), 0 deletions(-)
+Or, maybe we can use the same dynamic approach: can we modify the 
+hard_header_len after device registration (e.g. when TX timestamps are 
+enabled)?
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e6b5d6e..499c7a5 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -613,6 +613,29 @@ static struct ethtool_ops virtnet_ethtool_ops = {
- 	.set_tso = ethtool_op_set_tso,
- };
- 
-+#define MIN_MTU 68
-+#define MAX_MTU 65535
-+
-+static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	int max_mtu;
-+
-+	/* Only allow a large MTU if we know we have a chance
-+	 * of also supporting that MTU on the receive side. */
-+	if (vi->mergeable_rx_bufs || vi->big_packets)
-+		max_mtu = MAX_MTU;
-+	else
-+		max_mtu = ETH_DATA_LEN;
-+
-+	if (new_mtu < MIN_MTU || new_mtu > max_mtu)
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+
-+	return 0;
-+}
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int err;
-@@ -628,6 +651,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	dev->open = virtnet_open;
- 	dev->stop = virtnet_close;
- 	dev->hard_start_xmit = start_xmit;
-+	dev->change_mtu = virtnet_change_mtu;
- 	dev->features = NETIF_F_HIGHDMA;
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	dev->poll_controller = virtnet_netpoll;
--- 
-1.6.0.3
+Thanks,
+tavi
+
+
+
+
 
