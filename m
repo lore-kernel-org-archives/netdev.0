@@ -1,60 +1,81 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0xfe/0x17e() with tg3 network
-Date: Thu, 27 Nov 2008 06:16:59 +0100
-Message-ID: <20081127051659.GA26057@1wt.eu>
-References: <20081120184310.GB27712@xw6200.broadcom.net> <20081120212637.GB23844@1wt.eu> <20081120215318.GB27907@xw6200.broadcom.net> <20081124132744.GB24851@1wt.eu> <20081124215247.GA29696@1wt.eu> <20081125015223.GA9151@xw6200.broadcom.net> <20081125053128.GA32426@1wt.eu> <20081125175413.GA9808@xw6200.broadcom.net> <20081126211220.GA22374@1wt.eu> <20081126225421.GA8906@xw6200.broadcom.net>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: hardware time stamping with extra skb->hwtstamp
+Date: Thu, 27 Nov 2008 07:14:06 +0100
+Message-ID: <492E3AAE.3000709@hartkopp.net>
+References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roger Heflin <rogerheflin@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Patrick Ohly <patrick.ohly@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1401 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750890AbYK0FRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2008 00:17:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20081126225421.GA8906@xw6200.broadcom.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:49034 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290AbYK0GP6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 01:15:58 -0500
+In-Reply-To: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2008 at 02:54:21PM -0800, Matt Carlson wrote:
-(...)
-> > I've run a new test on a switch I have here at home (another el-cheapo,
-> > non-manageable 100 Mbps, netgear this time). Unfortunately I cannot
-> > reproduce the problem at all. I have disabled FC on my laptop, it did
-> > not have any effect.
-> 
-> Disabling FC should have a positive effect, not a negative one.  It
-> might be the case that the switch does not advertise nor support FC.  If
-> that is true, you might not be able to repro the problem no matter what
-> you did (if your problem is what I think it is).  Can you check your
-> link messages and see if it really is negotiated to off?  (I see the
-> message above, but I don't think that is with the current switch.)
+Hello Patrick,
 
-yes the switch does advertuse FC :
+Patrick Ohly wrote:
+> This patch series was discussed before on linux-netdev ("hardware
+> time stamping + igb example implementation").
+(..)
 
-willy@wtap:~$ dmesg|grep eth0
-eth0: Tigon3 [partno(BMC5705mA3) rev 3003 PHY(5705)] (PCI:33MHz:32-bit) 10/100/1000Base-T Ethernet 00:0d:9d:91:ef:24
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] WireSpeed[0] TSOcap[1]
-eth0: dma_rwctrl[763f0000] dma_mask[64-bit]
-tg3: eth0: Link is up at 100 Mbps, full duplex.
-tg3: eth0: Flow control is on for TX and on for RX.
+> This patch now adds a 8 byte field unconditionally.
 
-> > I have disabled auto-neg and manually forced the
-> > speed to 100/Full on my laptop, and could not reproduce the problem
-> > either (though the speed was much lower due to the switch obviously
-> > negociating 100/Half when not seeing my NWay frames).
-> 
-> Yes.  If you force the link, both sides must be forced.  The switch
-> rightly assumes HD when bringing the link up.
+This looks really better to me :-)
 
-I know ;-) but not seeing the problem, I started to suspect that the other
-switch was a little bit ill and tried to reproduce some problems I might
-incidently have been encountering on it.
+> There's one unsolved problem, though: time synchronization with
+> PTP (the use case I'm working on) requires a transformation of
+> raw hardware time stamps into system time. Currently this is done
+> at the socket level by finding the device which created the time
+> stamp and letting it do the transformation. This fails for
+> incoming packets because skb->rt points to the "lo" device.
+>
+> Perhaps the interface number can be used to find the real
+> hardware device. Alternatively the conversion could be done when
+> generating the time stamp (might also be more accurate), but then
+> another 8 byte field is needed. Delta encoding won't help because
+> one cannot assume that hardware time stamps track system time
+> closely enough.
+>   
 
-Regards,
-Willy
+I still have two questions of understanding regarding these (offset) 
+transformations that make it still difficult:
+
+1. As no one has an insight of how the specific hardware generates the 
+hw time stamp anyway, why can't you put the already transformed values 
+into the hw timestamp field? I won't stick on the fact that the hw time 
+stamp is the value that has been read from specific controller registers 
+that are very hardware depended.
+
+2. From what i've read in the discussion, i understood that the hardware 
+clock and the system clock skew. Assuming both to be strong 
+monotonic(?), is there a linear skew observable from your testing 
+experiences?
+
+If so i would suggest to have some kind of sysfs entry like e.g.
+
+/sys/class/net/eth0/hwstamp_skew_ns
+
+that gives something like
+
+-86234765@12277656012584334095
+
+as output. In general:
+
+<skew_in_ns>@<systemtime>
+
+So if you would check this sysfs entry two or more times, you would get 
+an impression about the hw time stamp behaviour of your hardware by 
+simply calculating the linear (timedepended) offset based on several 
+'skew-sample-points', right?
+
+I hope these suggestions are not completely damaged ;-)
+
+Best regards,
+Oliver
 
