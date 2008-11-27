@@ -1,70 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 21/29: ip6table_filter: merge LOCAL_IN and FORWARD hooks
-Date: Thu, 27 Nov 2008 17:15:31 +0100 (MET)
-Message-ID: <20081127161531.13891.96645.sendpatchset@x2.localnet>
+Subject: netfilter 25/29: nf_conntrack_ftp: change "partial ..." message to pr_debug()
+Date: Thu, 27 Nov 2008 17:15:37 +0100 (MET)
+Message-ID: <20081127161536.13891.30643.sendpatchset@x2.localnet>
 References: <20081127161503.13891.62766.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:53427 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753605AbYK0QPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 11:15:38 -0500
 In-Reply-To: <20081127161503.13891.62766.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 61d3015808d877eb4ea225b5924feb128b0c1bc7
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Thu Nov 20 09:58:08 2008 +0100
+commit 4813eadf6b17caa7fcce67ac2f929a3dd5178fa2
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Nov 24 18:34:48 2008 +0100
 
-    netfilter: ip6table_filter: merge LOCAL_IN and FORWARD hooks
+    netfilter: nf_conntrack_ftp: change "partial ..." message to pr_debug()
     
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    The message triggers when sending non-FTP data on port 21 or with
+    certain clients that use multiple syscalls to send the command.
+    
+    Change to pr_debug() since users have been complaining.
+    
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
-index b110a8a..40d2e36 100644
---- a/net/ipv6/netfilter/ip6table_filter.c
-+++ b/net/ipv6/netfilter/ip6table_filter.c
-@@ -61,7 +61,7 @@ static struct xt_table packet_filter = {
- 
- /* The work comes in here from netfilter.c. */
- static unsigned int
--ip6t_local_in_hook(unsigned int hook,
-+ip6t_in_hook(unsigned int hook,
- 		   struct sk_buff *skb,
- 		   const struct net_device *in,
- 		   const struct net_device *out,
-@@ -72,17 +72,6 @@ ip6t_local_in_hook(unsigned int hook,
- }
- 
- static unsigned int
--ip6t_forward_hook(unsigned int hook,
--		  struct sk_buff *skb,
--		  const struct net_device *in,
--		  const struct net_device *out,
--		  int (*okfn)(struct sk_buff *))
--{
--	return ip6t_do_table(skb, hook, in, out,
--			     dev_net(in)->ipv6.ip6table_filter);
--}
--
--static unsigned int
- ip6t_local_out_hook(unsigned int hook,
- 		   struct sk_buff *skb,
- 		   const struct net_device *in,
-@@ -105,14 +94,14 @@ ip6t_local_out_hook(unsigned int hook,
- 
- static struct nf_hook_ops ip6t_ops[] __read_mostly = {
- 	{
--		.hook		= ip6t_local_in_hook,
-+		.hook		= ip6t_in_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= PF_INET6,
- 		.hooknum	= NF_INET_LOCAL_IN,
- 		.priority	= NF_IP6_PRI_FILTER,
- 	},
- 	{
--		.hook		= ip6t_forward_hook,
-+		.hook		= ip6t_in_hook,
- 		.owner		= THIS_MODULE,
- 		.pf		= PF_INET6,
- 		.hooknum	= NF_INET_FORWARD,
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 703a437..867cad6 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -428,10 +428,8 @@ static int help(struct sk_buff *skb,
+ 		   connection tracking, not packet filtering.
+ 		   However, it is necessary for accurate tracking in
+ 		   this case. */
+-		if (net_ratelimit())
+-			printk("conntrack_ftp: partial %s %u+%u\n",
+-			       search[dir][i].pattern,
+-			       ntohl(th->seq), datalen);
++		pr_debug("conntrack_ftp: partial %s %u+%u\n",
++			 search[dir][i].pattern,  ntohl(th->seq), datalen);
+ 		ret = NF_DROP;
+ 		goto out;
+ 	} else if (found == 0) { /* No match */
