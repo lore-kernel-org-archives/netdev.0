@@ -1,10 +1,16 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: Arjan van de Ven <arjan@linux.intel.com>
 Subject: Re: oops/warning report for the week of November 26, 2008
-Date: Thu, 27 Nov 2008 21:47:14 +0100
-Message-ID: <20081127204714.GA25875@elte.hu>
-References: <492DD792.6080302@linux.intel.com> <20081127115236.GE29013@elte.hu> <492EE087.80708@linux.intel.com> <20081127201836.GA16869@elte.hu> <20081127122800.45fc0b1a@linux.intel.com>
+Date: Thu, 27 Nov 2008 12:53:01 -0800
+Message-ID: <20081127125301.3cb1e282@linux.intel.com>
+References: <492DD792.6080302@linux.intel.com>
+	<20081127115236.GE29013@elte.hu>
+	<492EE087.80708@linux.intel.com>
+	<20081127201836.GA16869@elte.hu>
+	<20081127122800.45fc0b1a@linux.intel.com>
+	<20081127204714.GA25875@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: Yinghai Lu <yinghai@kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -14,53 +20,27 @@ Cc: Yinghai Lu <yinghai@kernel.org>,
 	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	jesse Barnes <jbarnes@virtuousgeek.org>,
 	"H. Peter Anvin" <hpa@zytor.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:40520 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752280AbYK0UsG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2008 15:48:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20081127122800.45fc0b1a@linux.intel.com>
+Received: from casper.infradead.org ([85.118.1.10]:36850 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862AbYK0UwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 15:52:05 -0500
+In-Reply-To: <20081127204714.GA25875@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 27 Nov 2008 21:47:14 +0100
+Ingo Molnar <mingo@elte.hu> wrote:
 
-* Arjan van de Ven <arjan@linux.intel.com> wrote:
+> IIRC the problem is that vmware _does_ claim that it supports MTRRs. 
 
-> On Thu, 27 Nov 2008 21:18:36 +0100
-> Ingo Molnar <mingo@elte.hu> wrote:
-> 
-> > 
-> > * Arjan van de Ven <arjan@linux.intel.com> wrote:
-> > 
-> > > Ingo Molnar wrote:
-> > >> * Arjan van de Ven <arjan@linux.intel.com> wrote:
-> > >>
-> > >>> Rank 8: mtrr_trim_uncached_memory (warning)
-> > >>> 	Reported 227 times (619 total reports)
-> > >>> 	There is a high number of machines where our MTRR checks
-> > >>> 	trigger. I suspect we are too picky in accepting the MTRR
-> > >>> 	configuration.
-> > >>
-> > >> the warning here means: "the BIOS messed up but we fixed it up for
-> > >> you just fine".
-> > >
-> > > I don't believe that right now. we see so many of these, including 
-> > > many "there's no MTRRs at all", that I am seriously suspecting that 
-> > > our code is just incorrect somehow and triggering too much.
-> > 
-> > well we looked at existing reports and Linux was right to fix them
-> > up. Show us one that is incorrect, then we can fix it up.
-> > 
-> > the "no MTRR's" are vmware/(also qemu?) guests not implementing a
-> > full CPU emulation.
-> 
-> ... and it's still our fault in part, since we don't even check to 
-> see if a cpu claims to support MTRR before complaining about it...
-> 
-> easy to fix though:
+it might.
+but even if they would fix that, we would still WARN (
+at least we should do our side correctly...
 
-IIRC the problem is that vmware _does_ claim that it supports MTRRs. 
 
-	Ingo
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
