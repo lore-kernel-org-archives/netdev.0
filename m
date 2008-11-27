@@ -1,79 +1,62 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 05/39] wimax: debug macros and debug settings for the
-	WiMAX stack
-Date: Thu, 27 Nov 2008 10:28:08 +0100
-Message-ID: <1227778088.3809.13.camel@johannes.berg>
+Subject: Re: [PATCH 01/39] wimax: documentation for the stack
+Date: Thu, 27 Nov 2008 10:29:39 +0100
+Message-ID: <1227778179.3809.15.camel@johannes.berg>
 References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <ff25717bf78b6831db361b925f7081d5d6faf876.1227691434.git.inaky@linux.intel.com>
+	 <30bd4ebdff036493508a388892c200fe2b70c7fb.1227691434.git.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-I9W3BrEdU3HZJoS/GdnI"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-/5SR2ZUkgmHVKtKOz4wK"
 Cc: netdev <netdev@vger.kernel.org>
 To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:59540 "EHLO
+Received: from xc.sipsolutions.net ([83.246.72.84]:59587 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbYK0J24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 04:28:56 -0500
-In-Reply-To: <ff25717bf78b6831db361b925f7081d5d6faf876.1227691434.git.inaky@linux.intel.com>
+	with ESMTP id S1753187AbYK0JaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 04:30:24 -0500
+In-Reply-To: <30bd4ebdff036493508a388892c200fe2b70c7fb.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-I9W3BrEdU3HZJoS/GdnI
+--=-/5SR2ZUkgmHVKtKOz4wK
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
 On Wed, 2008-11-26 at 15:07 -0800, Inaky Perez-Gonzalez wrote:
-> This file contains a simple debug framework that is used in the stack;
-                       ^^^^^ ??
 
-> it allows the debug level to be controlled at compile-time (so the
-> debug code is optimized out) and at run-time (for what wasn't compiled
-> out).
+> +sysfs: finding generic netlink information (deprecated)
+> +
+> +   The files wimax/gnl_family_id and wimax/gnl_version contain informati=
+on
+> +   about the generic netlink registration for each device.
+> +
+> +   These files are deprecated.
 
-Recently we got new stuff for dynamic printk
-(include/linux/dynamic_printk.h) and pr_debug with a start format
-(include/linux/kernel.h, pr_fmt); can you use any of that to make this
-smaller? If not, I think you ought to argue why not, and possibly
-improve the generic facility.
-
-Personally, I'm tired of seeing every Intel driver come with a new huge
-set of debugging macros that are barely understandable.
-
-> +#define _d_printf(l, tag, dev, f, a...)					\
-> +do {									\
-> +	char head[64];							\
-> +	if (!d_test(l))							\
-> +		break;							\
-> +	__d_head(head, sizeof(head), dev);				\
-> +	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
-> +} while (0 && dev)
-
-That && dev is wrong.
+Why add files that are deprecated from the start?
 
 johannes
 
---=-I9W3BrEdU3HZJoS/GdnI
+--=-/5SR2ZUkgmHVKtKOz4wK
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iQIcBAABAgAGBQJJLmglAAoJEKVg1VMiehFYnOYQAJuhxEFSPuDL816n/LDEgo7t
-gnGIPenQI6iE9dsa0ATExBWVxWPT+ydD5rnFSy5FdDfWRwiB11OzD4LzHA4pjnyI
-O8RDIjs1/bfGsL+FJyWALtD0nNtuCIpOqoDyWm+bygt+RwoQlqzPdwZzIzQ5yml5
-Z1n9BreplLl9G+5Bakd/UcsbNV5wkPNxN2Pz4QznfyQ+ARo7t26PbH+OanR47YtY
-MiW7m4JujfrDClCaOLWfGQoai2UH9qU28JL3gaRGxCFaGmxk3vjwGwvjq/K09Bg5
-lRtsYSqUICJFgk00XMMACDQwiqzWkY+rbqA4z6QEOS+5/vCXTJDm4A6YUECoW6Dq
-2EfpQtFaYHuL27ToS2KVJC6Kt1HGPrTXE9uVzkgKkCvHJnJp6EYYHlW8/5oLLzTF
-7cZJLtSQaXX1ifWBSG+R74pjS7YMueA+BXjn4LzkK2BE42Mh3FcIPggEYWlWaOiy
-6ZumFLhBtw8tZRJCKSpmK8F/2VVxz3waUCFGaCGMzdoFwEBTjpXE8UTHqo+p2u1X
-ZFGUHwjvTun4w4q3MFgAaiuynlvw97rhMUs2MtZKKZW0mscNP5g7OmqqNicYcvTJ
-nhHRfzZynNUt94uDNVD40n9cIhVBn95tQ9PyQ/U/TEV+y0o7hgyNwVwK8x9DFyiv
-7AQzSTZLJfwtrLVX9lEh
-=ABhT
+iQIcBAABAgAGBQJJLmiAAAoJEKVg1VMiehFYCnwP+gJB1JC+ToHL13RMj5TfMHmx
+fDIpJxX83A/FfE+MDTGKkRvX2UJm3q4o9XOrz5gbf27cPoH68t1lrKz+uAxCrxQ7
+sPakZVCcs0Td2DTqSjdWFDgnG+0Uz0vwp7Jy/6XslFvMoEvfPmnRLghqlk/MJ+yx
+xXvlUqYGRX7W9qMJb4SFdiCUgci71Hrjx1X69NghwM2AIfXAmJHk2wWki9wa4WHR
+I0slGrPVHSMi1rzcgAXFYo5aiH3RzcVngGgstZ95y5Jp5niPAT2g8UlB1QQNkHBa
++W8rfxl/yLF8h3ewsjlLJjnMKyh/70cTJYV4w4qnE0usHseyC6bzK4j58hDAvZlC
+oVmraFwXie9XPTxAlVX1VquUPuP6FgXPdkNDQzy+2Eo9ln5CPz6YpZoby+qx8/C/
+XM+bniypL8PfQyxQYu6qBIbKwFuXIYpWjIZFxOXdYaiKI1rPew5dsl8tTjAo2zbj
+ToIp2XjIvYDVvzihe0h2M7lXYVY3A35gdRQs5pdC1/fSE0U9QsYAxBj1lNgcrWtY
+6aa0l8doLt2aJs+xuIOVhT5Ftb/Yr9/ULsnnNNxmCfK2cVRDhZVnO4U//XAEVrWU
+KOHzIFOM75AYebYRBwR4JZkIjAA9vn8DT55SFUWhb7O6UWPxnc3NAMKFczjqW5eJ
+vKWs/sa0dbDD2UYsrfZG
+=C4Va
 -----END PGP SIGNATURE-----
 
---=-I9W3BrEdU3HZJoS/GdnI--
+--=-/5SR2ZUkgmHVKtKOz4wK--
 
