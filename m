@@ -1,88 +1,60 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 1/2] ethtool: Show short message for syntax error
-Date: Thu, 27 Nov 2008 04:11:12 +0000
-Message-ID: <20081127041112.GK15344@decadentplace.org.uk>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: WARNING: at net/sched/sch_generic.c:219 dev_watchdog+0xfe/0x17e() with tg3 network
+Date: Thu, 27 Nov 2008 06:16:59 +0100
+Message-ID: <20081127051659.GA26057@1wt.eu>
+References: <20081120184310.GB27712@xw6200.broadcom.net> <20081120212637.GB23844@1wt.eu> <20081120215318.GB27907@xw6200.broadcom.net> <20081124132744.GB24851@1wt.eu> <20081124215247.GA29696@1wt.eu> <20081125015223.GA9151@xw6200.broadcom.net> <20081125053128.GA32426@1wt.eu> <20081125175413.GA9808@xw6200.broadcom.net> <20081126211220.GA22374@1wt.eu> <20081126225421.GA8906@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="a8sldprk+5E/pDEv"
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roger Heflin <rogerheflin@gmail.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:1242 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752119AbYK0Evv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 23:51:51 -0500
+Received: from 1wt.eu ([62.212.114.60]:1401 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750890AbYK0FRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2008 00:17:09 -0500
 Content-Disposition: inline
+In-Reply-To: <20081126225421.GA8906@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Nov 26, 2008 at 02:54:21PM -0800, Matt Carlson wrote:
+(...)
+> > I've run a new test on a switch I have here at home (another el-cheapo,
+> > non-manageable 100 Mbps, netgear this time). Unfortunately I cannot
+> > reproduce the problem at all. I have disabled FC on my laptop, it did
+> > not have any effect.
+> 
+> Disabling FC should have a positive effect, not a negative one.  It
+> might be the case that the switch does not advertise nor support FC.  If
+> that is true, you might not be able to repro the problem no matter what
+> you did (if your problem is what I think it is).  Can you check your
+> link messages and see if it really is negotiated to off?  (I see the
+> message above, but I don't think that is with the current switch.)
 
---a8sldprk+5E/pDEv
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+yes the switch does advertuse FC :
 
-In case of a syntax error it's likely to be more helpful to just say
-that rather than showing the entire usage information, which is now
-very long.
+willy@wtap:~$ dmesg|grep eth0
+eth0: Tigon3 [partno(BMC5705mA3) rev 3003 PHY(5705)] (PCI:33MHz:32-bit) 10/100/1000Base-T Ethernet 00:0d:9d:91:ef:24
+eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] WireSpeed[0] TSOcap[1]
+eth0: dma_rwctrl[763f0000] dma_mask[64-bit]
+tg3: eth0: Link is up at 100 Mbps, full duplex.
+tg3: eth0: Flow control is on for TX and on for RX.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-This change has been in Debian for some years, made in response to
-bug report http://bugs.debian.org/256249
+> > I have disabled auto-neg and manually forced the
+> > speed to 100/Full on my laptop, and could not reproduce the problem
+> > either (though the speed was much lower due to the switch obviously
+> > negociating 100/Half when not seeing my NWay frames).
+> 
+> Yes.  If you force the link, both sides must be forced.  The switch
+> rightly assumes HD when bringing the link up.
 
-Ben.
+I know ;-) but not seeing the problem, I started to suspect that the other
+switch was a little bit ill and tried to reproduce some problems I might
+incidently have been encountering on it.
 
---- ethtool-6+20080227.orig/ethtool.c
-+++ ethtool-6+20080227/ethtool.c
-@@ -196,15 +196,24 @@
- static void show_usage(int badarg)
- {
- 	int i;
--	fprintf(stderr, PACKAGE " version " VERSION "\n");
--	fprintf(stderr,
-+	if (badarg !=3D 0) {
-+		fprintf(stderr,
-+			"ethtool: bad command line argument(s)\n"
-+			"For more information run ethtool -h\n"
-+		);
-+	}
-+	else {
-+		/* ethtool -h */
-+		fprintf(stdout, PACKAGE " version " VERSION "\n");
-+		fprintf(stdout,
- 		"Usage:\n"
- 		"ethtool DEVNAME\tDisplay standard information about device\n");
--	for (i =3D 0; args[i].srt; i++) {
--		fprintf(stderr, "        ethtool %s|%s DEVNAME\t%s\n%s",
--			args[i].srt, args[i].lng,
--			args[i].help,
--			args[i].opthelp ? args[i].opthelp : "");
-+		for (i =3D 0; args[i].srt; i++) {
-+			fprintf(stdout, "        ethtool %s|%s DEVNAME\t%s\n%s",
-+				args[i].srt, args[i].lng,
-+				args[i].help,
-+				args[i].opthelp ? args[i].opthelp : "");
-+		}
- 	}
- 	exit(badarg);
- }
+Regards,
+Willy
 
---=20
-Ben Hutchings
-Time is nature's way of making sure that everything doesn't happen at once.
-
---a8sldprk+5E/pDEv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFJLh3g79ZNCRIGYgcRArp7AJ4pPK0tnq484r+oZ8F/sc/EtDjEzwCeKrsd
-IQiAcF9EoQeB+FhnU+7Rrs4=
-=P2P1
------END PGP SIGNATURE-----
-
---a8sldprk+5E/pDEv--
