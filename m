@@ -1,81 +1,59 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [Bugme-new] [Bug 12087] New: [drivers/net/cxgb3/sge.c:563]: Possible
- memory leak: s
-Date: Thu, 27 Nov 2008 00:26:37 -0800
-Message-ID: <492E59BD.8090202@chelsio.com>
-References: <bug-12087-10286@http.bugzilla.kernel.org/> <20081122213532.fe01a22c.akpm@linux-foundation.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 19/39] i2400m: sysfs controls
+Date: Thu, 27 Nov 2008 10:23:04 +0100
+Message-ID: <1227777785.3809.8.camel@johannes.berg>
+References: <cover.1227691434.git.inaky@linux.intel.com>
+	 <8393b57d107460e5b17e0329751fde2b46ccfb62.1227691434.git.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	danielm77@spray.se, Jay Cliburn <jacliburn@bellsouth.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-wZitxjf2dCyKnzyWLCIl"
+Cc: netdev <netdev@vger.kernel.org>
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:19693 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752312AbYK0I1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 03:27:31 -0500
-In-Reply-To: <20081122213532.fe01a22c.akpm@linux-foundation.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:43393 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045AbYK0JXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 04:23:47 -0500
+In-Reply-To: <8393b57d107460e5b17e0329751fde2b46ccfb62.1227691434.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Sat, 22 Nov 2008 21:11:51 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
-> 
->> http://bugzilla.kernel.org/show_bug.cgi?id=12087
->>
->>            Summary: [drivers/net/cxgb3/sge.c:563]: Possible memory leak: s
->>            Product: Drivers
->>            Version: 2.5
->>      KernelVersion: latest git tree
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: normal
->>           Priority: P1
->>          Component: Network
->>         AssignedTo: jgarzik@pobox.com
->>         ReportedBy: danielm77@spray.se
->>
->>
->> There will be a memory leak in the function alloc_ring when the parameter
->> sw_size is nonzero and metadata is NULL. I don't know if that can happen.
->>
->> Here is the code, taken from the latest git tree.
->>
->> static void *alloc_ring(struct pci_dev *pdev, size_t nelem, size_t elem_size,
->>                         size_t sw_size, dma_addr_t * phys, void *metadata)
->> {
->>         size_t len = nelem * elem_size;
->>         void *s = NULL;
->>         void *p = dma_alloc_coherent(&pdev->dev, len, phys, GFP_KERNEL);
->>
->>         if (!p)
->>                 return NULL;
->>         if (sw_size) {
->>                 s = kcalloc(nelem, sw_size, GFP_KERNEL);
->>
->>                 if (!s) {
->>                         dma_free_coherent(&pdev->dev, len, p, *phys);
->>                         return NULL;
->>                 }
->>         }
->>         if (metadata)
->>                 *(void **)metadata = s;
->>         memset(p, 0, len);
->>         return p;
->> }
->>
->>
-> 
-> yeah, that is a bit silly-looking.
 
-The following patch should hopefully take care of this issue:
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=5256554489531f3e177e7308752d8f0681cdd5a6
+--=-wZitxjf2dCyKnzyWLCIl
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Cheers,
-Divy
+On Wed, 2008-11-26 at 15:07 -0800, Inaky Perez-Gonzalez wrote:
+> Expose knobs to control the device (induce reset, power saving,
+> querying tx or rx stats, internal debug information and debug level
+> manipulation).
+
+Seems all of that would be better in debugfs rather than making it part
+of some userspace ABI? Do you actually use this in programs (rather than
+manually, test tools don't count) in userspace?
+
+johannes
+
+--=-wZitxjf2dCyKnzyWLCIl
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJLmb1AAoJEKVg1VMiehFYjcwQAKDv92Kc0NuC4+c2i6PHrTV4
++m+2Q2mz6EK2uAdrgUJJxia7s6q6nTZmAffCVub6C1IG3D3wEQt/LZo2UbrncjBQ
+dUoz+FNCaXtuwUutUv0he43CcHhbSTU+uM20+Q1Wt08bp2MuuoDiIcS3noPiZF1J
+GlLwR/DBlTHdm1lhAkH8sEtG7zWrqaPDo51ScVg88izyRPqa8HLukm0SHhgYcmIs
+KlkJrqRqbisszHuWnLHklDIRxlxDw5NlbdDx79i79BYJSFq0r1UWWJ1XJdVEDqlJ
+rDcuZ1o9lxjmM+Hcu5ME5Dp9LVtuIwGNfvqDwhRVlyMUIy/gJ+tABOUBqizjQFp2
+Z6cjadAMlbxnyqyvF53p9RmP4J/vMRx/rBV2wVdWF+vZP4HhsR2RhjopzUun6PjV
+N2h1ol+pkOjvR+9yjM3vp4BLr7Q/WkHI1t+mdZJYSrZpr+AL+m8qGu1rUKuIowmC
+uVo9w1F77WXXHupEiTCHOFCPWU9GKr6toHHP+YuHwmlRVDa6u2nz9FDGmh1QUTBl
+fijwiGwcTMB3im4+C0t9Al6l3u7rcGxRkxGpcd9aysRLYOyuW2gM64aqQutwiszJ
+aq+Hg2ZRNDhhPmNJJG1LEYEAx/AvwZm64xE49Wwjtq8RexHpTrZ2ZRzVr/cYJHKB
+NCCRLrxwo6ZvH8fXOdDX
+=dMER
+-----END PGP SIGNATURE-----
+
+--=-wZitxjf2dCyKnzyWLCIl--
+
