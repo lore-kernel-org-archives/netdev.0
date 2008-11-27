@@ -1,220 +1,151 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] phy: add natsemi PHY driver
-Date: Thu, 27 Nov 2008 14:56:33 +0100
-Message-ID: <1227794193-19846-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH] phy: power management support
+Date: Thu, 27 Nov 2008 14:57:00 +0100
+Message-ID: <1227794220-19872-1-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:43797 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755424AbYK0N5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 08:57:09 -0500
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:50792 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752604AbYK0N5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 08:57:32 -0500
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id D2F3FDB1B
-	for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 13:56:56 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id DEC4ADB61
+	for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 13:57:18 +0000 (GMT)
 Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id AECE74C275
-	for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 13:56:51 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 84C984C270
+	for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 13:57:18 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the PHY device driver for the National Semiconductor
-DP83865 Gig PHYTER.
+This patch adds the power management support into the physical
+abstraction layer.
+
+Suspend and resume functions respectively turns on/off the bit 11
+into the PHY Basic mode control register.
+Generic PHY device starts supporting PM.
+
+In order to support the wake-on LAN and avoid to put in power down
+the PHY device, the MDIO is aware of what the Ethernet device wants to do.
+
+Voluntary, no CONFIG_PM defines were added into the sources.
+Also generic suspend/resume functions are exported to allow
+other drivers use them (such as genphy_config_aneg etc.).
+
+Within the phy_driver_register function, we need to remove the
+memset. It overrides the device driver owner and it is not good.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/phy/Kconfig    |    5 ++
- drivers/net/phy/Makefile   |    1 +
- drivers/net/phy/national.c |  155 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 161 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/national.c
+ drivers/net/phy/mdio_bus.c   |   14 ++++++++++----
+ drivers/net/phy/phy_device.c |   31 ++++++++++++++++++++++++++++++-
+ include/linux/phy.h          |    2 ++
+ 3 files changed, 42 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index d55932a..0923c8f 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -66,6 +66,11 @@ config REALTEK_PHY
- 	---help---
- 	  Supports the Realtek 821x PHY.
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 536bda1..cd71e78 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -284,9 +284,12 @@ static int mdio_bus_suspend(struct device * dev, pm_message_t state)
+ {
+ 	int ret = 0;
+ 	struct device_driver *drv = dev->driver;
++	struct phy_driver *phydrv = to_phy_driver(drv);
++	struct phy_device *phydev = to_phy_device(dev);
  
-+config NATIONAL_PHY
-+	tristate "Drivers for National Semiconductor PHYs"
-+	---help---
-+	  Currently supports the DP83865 PHY.
-+
- config FIXED_PHY
- 	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
- 	depends on PHYLIB=y
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index eee329f..5c53ca5 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -16,3 +16,4 @@ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed.o
- obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
- obj-$(CONFIG_MDIO_OF_GPIO)	+= mdio-ofgpio.o
-+obj-$(CONFIG_NATIONAL_PHY)	+= national.o
-diff --git a/drivers/net/phy/national.c b/drivers/net/phy/national.c
-new file mode 100644
-index 0000000..6c636eb
---- /dev/null
-+++ b/drivers/net/phy/national.c
-@@ -0,0 +1,155 @@
-+/*
-+ * drivers/net/phy/national.c
-+ *
-+ * Driver for National Semiconductor PHYs
-+ *
-+ * Author: Stuart Menefy <stuart.menefy@st.com>
-+ * Maintainer: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-+ *
-+ * Copyright (c) 2008 STMicroelectronics Limited
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+#include <linux/netdevice.h>
-+
-+/* DP83865 phy identifier values */
-+#define DP83865_PHY_ID	0x20005c7a
-+
-+#define DP83865_INT_MASK_REG 0x15
-+#define DP83865_INT_MASK_STATUS 0x14
-+
-+#define DP83865_INT_REMOTE_FAULT 0x0008
-+#define DP83865_INT_ANE_COMPLETED 0x0010
-+#define DP83865_INT_LINK_CHANGE	0xe000
-+#define DP83865_INT_MASK_DEFAULT (DP83865_INT_REMOTE_FAULT | \
-+				DP83865_INT_ANE_COMPLETED | \
-+				DP83865_INT_LINK_CHANGE)
-+
-+/* Advanced proprietary configuration */
-+#define NS_EXP_MEM_CTL	0x16
-+#define NS_EXP_MEM_DATA	0x1d
-+#define NS_EXP_MEM_ADD	0x1e
-+
-+#define LED_CTRL_REG 0x13
-+#define AN_FALLBACK_AN 0x0001
-+#define AN_FALLBACK_CRC 0x0002
-+#define AN_FALLBACK_IE 0x0004
-+#define ALL_FALLBACK_ON (AN_FALLBACK_AN |  AN_FALLBACK_CRC | AN_FALLBACK_IE)
-+
-+enum hdx_loopback {
-+	hdx_loopback_on = 0,
-+	hdx_loopback_off = 1,
-+};
-+
-+static u8 ns_exp_read(struct phy_device *phydev, u16 reg)
+-	if (drv && drv->suspend)
+-		ret = drv->suspend(dev, state);
++	if ((!device_may_wakeup(phydev->dev.parent)) &&
++		(phydrv && phydrv->suspend))
++			ret = phydrv->suspend(phydev);
+ 
+ 	return ret;
+ }
+@@ -295,9 +298,12 @@ static int mdio_bus_resume(struct device * dev)
+ {
+ 	int ret = 0;
+ 	struct device_driver *drv = dev->driver;
++	struct phy_driver *phydrv = to_phy_driver(drv);
++	struct phy_device *phydev = to_phy_device(dev);
+ 
+-	if (drv && drv->resume)
+-		ret = drv->resume(dev);
++	if ((!device_may_wakeup(phydev->dev.parent)) &&
++		(phydrv && phydrv->resume))
++		ret = phydrv->resume(phydev);
+ 
+ 	return ret;
+ }
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 25acbbd..b51cebb 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -779,7 +779,35 @@ static int genphy_config_init(struct phy_device *phydev)
+ 
+ 	return 0;
+ }
++int genphy_suspend(struct phy_device *phydev)
 +{
-+	phy_write(phydev, NS_EXP_MEM_ADD, reg);
-+	return phy_read(phydev, NS_EXP_MEM_DATA);
-+}
++	int value;
 +
-+static void ns_exp_write(struct phy_device *phydev, u16 reg, u8 data)
-+{
-+	phy_write(phydev, NS_EXP_MEM_ADD, reg);
-+	phy_write(phydev, NS_EXP_MEM_DATA, data);
-+}
++	mutex_lock(&phydev->lock);
 +
-+static int ns_config_intr(struct phy_device *phydev)
-+{
-+	int err;
++	value = phy_read(phydev, MII_BMCR);
++	phy_write(phydev, MII_BMCR, (value | BMCR_PDOWN));
 +
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, DP83865_INT_MASK_REG,
-+				DP83865_INT_MASK_DEFAULT);
-+	else
-+		err = phy_write(phydev, DP83865_INT_MASK_REG, 0);
-+
-+	return err;
-+}
-+
-+static int ns_ack_interrupt(struct phy_device *phydev)
-+{
-+	int ret = phy_read(phydev, DP83865_INT_MASK_STATUS);
-+	if (ret < 0)
-+		return ret;
++	mutex_unlock(&phydev->lock);
 +
 +	return 0;
 +}
-+
-+static void ns_giga_speed_fallback(struct phy_device *phydev, int mode)
++EXPORT_SYMBOL(genphy_suspend);
+ 
++int genphy_resume(struct phy_device *phydev)
 +{
-+	int bmcr = phy_read(phydev, MII_BMCR);
++	int value;
 +
-+	phy_write(phydev, MII_BMCR, (bmcr | BMCR_PDOWN));
++	mutex_lock(&phydev->lock);
 +
-+	/* Enable 8 bit expended memory read/write (no auto increment) */
-+	phy_write(phydev, NS_EXP_MEM_CTL, 0);
-+	phy_write(phydev, NS_EXP_MEM_ADD, 0x1C0);
-+	phy_write(phydev, NS_EXP_MEM_DATA, 0x0008);
-+	phy_write(phydev, MII_BMCR, (bmcr & ~BMCR_PDOWN));
-+	phy_write(phydev, LED_CTRL_REG, mode);
-+	return;
++	value = phy_read(phydev, MII_BMCR);
++	phy_write(phydev, MII_BMCR, (value & ~BMCR_PDOWN));
++
++	mutex_unlock(&phydev->lock);
++
++	return 0;
 +}
-+
-+static void ns_10_base_t_hdx_loopack(struct phy_device *phydev, int disable)
-+{
-+	if (disable)
-+		ns_exp_write(phydev, 0x1c0, ns_exp_read(phydev, 0x1c0) | 1);
-+	else
-+		ns_exp_write(phydev, 0x1c0,
-+			     ns_exp_read(phydev, 0x1c0) & 0xfffe);
-+
-+	printk(KERN_DEBUG "DP83865 PHY: 10BASE-T HDX loopback %s\n",
-+	       (ns_exp_read(phydev, 0x1c0) & 0x0001) ? "off" : "on");
-+
-+	return;
-+}
-+
-+static int ns_config_init(struct phy_device *phydev)
-+{
-+	ns_giga_speed_fallback(phydev, ALL_FALLBACK_ON);
-+	/* In the latest MAC or switches design, the 10 Mbps loopback
-+	   is desired to be turned off. */
-+	ns_10_base_t_hdx_loopack(phydev, hdx_loopback_off);
-+	return ns_ack_interrupt(phydev);
-+}
-+
-+static struct phy_driver dp83865_driver = {
-+	.phy_id = DP83865_PHY_ID,
-+	.phy_id_mask = 0xfffffff0,
-+	.name = "NatSemi DP83865",
-+	.features = PHY_GBIT_FEATURES | SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags = PHY_HAS_INTERRUPT,
-+	.config_init = ns_config_init,
-+	.config_aneg = genphy_config_aneg,
-+	.read_status = genphy_read_status,
-+	.ack_interrupt = ns_ack_interrupt,
-+	.config_intr = ns_config_intr,
-+	.driver = {.owner = THIS_MODULE,}
-+};
-+
-+static int __init ns_init(void)
-+{
-+	return phy_driver_register(&dp83865_driver);
-+}
-+
-+static void __exit ns_exit(void)
-+{
-+	phy_driver_unregister(&dp83865_driver);
-+}
-+
-+MODULE_DESCRIPTION("NatSemi PHY driver");
-+MODULE_AUTHOR("Stuart Menefy");
-+MODULE_LICENSE("GPL");
-+
-+module_init(ns_init);
-+module_exit(ns_exit);
++EXPORT_SYMBOL(genphy_resume);
+ 
+ /**
+  * phy_probe - probe and init a PHY device
+@@ -855,7 +883,6 @@ int phy_driver_register(struct phy_driver *new_driver)
+ {
+ 	int retval;
+ 
+-	memset(&new_driver->driver, 0, sizeof(new_driver->driver));
+ 	new_driver->driver.name = new_driver->name;
+ 	new_driver->driver.bus = &mdio_bus_type;
+ 	new_driver->driver.probe = phy_probe;
+@@ -890,6 +917,8 @@ static struct phy_driver genphy_driver = {
+ 	.features	= 0,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
+ 	.driver		= {.owner= THIS_MODULE, },
+ };
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 77c4ed6..d7e54d9 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -467,6 +467,8 @@ int genphy_restart_aneg(struct phy_device *phydev);
+ int genphy_config_aneg(struct phy_device *phydev);
+ int genphy_update_link(struct phy_device *phydev);
+ int genphy_read_status(struct phy_device *phydev);
++int genphy_suspend(struct phy_device *phydev);
++int genphy_resume(struct phy_device *phydev);
+ void phy_driver_unregister(struct phy_driver *drv);
+ int phy_driver_register(struct phy_driver *new_driver);
+ void phy_prepare_link(struct phy_device *phydev,
 -- 
 1.5.6.5
 
