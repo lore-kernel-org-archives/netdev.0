@@ -1,91 +1,82 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 01/29: xt_NFLOG: don't call nf_log_packet in NFLOG module.
-Date: Thu, 27 Nov 2008 17:15:04 +0100 (MET)
-Message-ID: <20081127161504.13891.81597.sendpatchset@x2.localnet>
+Subject: netfilter 02/29: netns-aware ipt_addrtype
+Date: Thu, 27 Nov 2008 17:15:06 +0100 (MET)
+Message-ID: <20081127161505.13891.13844.sendpatchset@x2.localnet>
 References: <20081127161503.13891.62766.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:53357 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308AbYK0QPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 11:15:08 -0500
 In-Reply-To: <20081127161503.13891.62766.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 5f7340eff8f68f41b7e5c7ad47ec4cd1ea1afb40
-Author: Eric Leblond <eric@inl.fr>
-Date:   Tue Nov 4 14:21:08 2008 +0100
+commit d4ec52bae739409b2372fea30dba0e7a8d6b9181
+Author: Alexey Dobriyan <adobriyan@gmail.com>
+Date:   Tue Nov 4 14:21:48 2008 +0100
 
-    netfilter: xt_NFLOG: don't call nf_log_packet in NFLOG module.
+    netfilter: netns-aware ipt_addrtype
     
-    This patch modifies xt_NFLOG to suppress the call to nf_log_packet()
-    function. The call of this wrapper in xt_NFLOG was causing NFLOG to
-    use the first initialized module. Thus, if ipt_ULOG is loaded before
-    nfnetlink_log all NFLOG rules are treated as plain LOG rules.
-    
-    Signed-off-by: Eric Leblond <eric@inl.fr>
+    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nfnetlink_log.h b/include/net/netfilter/nfnetlink_log.h
-new file mode 100644
-index 0000000..9b67f94
---- /dev/null
-+++ b/include/net/netfilter/nfnetlink_log.h
-@@ -0,0 +1,14 @@
-+#ifndef _KER_NFNETLINK_LOG_H
-+#define _KER_NFNETLINK_LOG_H
-+
-+void
-+nfulnl_log_packet(unsigned int pf,
-+		  unsigned int hooknum,
-+		  const struct sk_buff *skb,
-+		  const struct net_device *in,
-+		  const struct net_device *out,
-+		  const struct nf_loginfo *li_user,
-+		  const char *prefix);
-+
-+#endif /* _KER_NFNETLINK_LOG_H */
-+
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 41e0105..a51892b 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -533,7 +533,7 @@ static struct nf_loginfo default_loginfo = {
- };
- 
- /* log handler for internal netfilter logging api */
--static void
-+void
- nfulnl_log_packet(u_int8_t pf,
- 		  unsigned int hooknum,
- 		  const struct sk_buff *skb,
-@@ -648,6 +648,7 @@ alloc_failure:
- 	/* FIXME: statistics */
- 	goto unlock_and_release;
- }
-+EXPORT_SYMBOL_GPL(nfulnl_log_packet);
- 
- static int
- nfulnl_rcv_nl_event(struct notifier_block *this,
-diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
-index 50e3a52..a57c5cf 100644
---- a/net/netfilter/xt_NFLOG.c
-+++ b/net/netfilter/xt_NFLOG.c
-@@ -13,6 +13,7 @@
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_NFLOG.h>
- #include <net/netfilter/nf_log.h>
-+#include <net/netfilter/nfnetlink_log.h>
- 
+diff --git a/net/ipv4/netfilter/ipt_addrtype.c b/net/ipv4/netfilter/ipt_addrtype.c
+index 88762f0..3b216be 100644
+--- a/net/ipv4/netfilter/ipt_addrtype.c
++++ b/net/ipv4/netfilter/ipt_addrtype.c
+@@ -23,24 +23,25 @@ MODULE_LICENSE("GPL");
  MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
- MODULE_DESCRIPTION("Xtables: packet logging to netlink using NFLOG");
-@@ -31,8 +32,8 @@ nflog_tg(struct sk_buff *skb, const struct xt_target_param *par)
- 	li.u.ulog.group	     = info->group;
- 	li.u.ulog.qthreshold = info->threshold;
+ MODULE_DESCRIPTION("Xtables: address type match for IPv4");
  
--	nf_log_packet(par->family, par->hooknum, skb, par->in,
--	              par->out, &li, "%s", info->prefix);
-+	nfulnl_log_packet(par->family, par->hooknum, skb, par->in,
-+			  par->out, &li, info->prefix);
- 	return XT_CONTINUE;
+-static inline bool match_type(const struct net_device *dev, __be32 addr,
+-			      u_int16_t mask)
++static inline bool match_type(struct net *net, const struct net_device *dev,
++			      __be32 addr, u_int16_t mask)
+ {
+-	return !!(mask & (1 << inet_dev_addr_type(&init_net, dev, addr)));
++	return !!(mask & (1 << inet_dev_addr_type(net, dev, addr)));
  }
  
+ static bool
+ addrtype_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
+ {
++	struct net *net = dev_net(par->in ? par->in : par->out);
+ 	const struct ipt_addrtype_info *info = par->matchinfo;
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	bool ret = true;
+ 
+ 	if (info->source)
+-		ret &= match_type(NULL, iph->saddr, info->source) ^
++		ret &= match_type(net, NULL, iph->saddr, info->source) ^
+ 		       info->invert_source;
+ 	if (info->dest)
+-		ret &= match_type(NULL, iph->daddr, info->dest) ^
++		ret &= match_type(net, NULL, iph->daddr, info->dest) ^
+ 		       info->invert_dest;
+ 
+ 	return ret;
+@@ -49,6 +50,7 @@ addrtype_mt_v0(const struct sk_buff *skb, const struct xt_match_param *par)
+ static bool
+ addrtype_mt_v1(const struct sk_buff *skb, const struct xt_match_param *par)
+ {
++	struct net *net = dev_net(par->in ? par->in : par->out);
+ 	const struct ipt_addrtype_info_v1 *info = par->matchinfo;
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	const struct net_device *dev = NULL;
+@@ -60,10 +62,10 @@ addrtype_mt_v1(const struct sk_buff *skb, const struct xt_match_param *par)
+ 		dev = par->out;
+ 
+ 	if (info->source)
+-		ret &= match_type(dev, iph->saddr, info->source) ^
++		ret &= match_type(net, dev, iph->saddr, info->source) ^
+ 		       (info->flags & IPT_ADDRTYPE_INVERT_SOURCE);
+ 	if (ret && info->dest)
+-		ret &= match_type(dev, iph->daddr, info->dest) ^
++		ret &= match_type(net, dev, iph->daddr, info->dest) ^
+ 		       !!(info->flags & IPT_ADDRTYPE_INVERT_DEST);
+ 	return ret;
+ }
