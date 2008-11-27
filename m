@@ -1,44 +1,35 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m driver v2
-Date: Thu, 27 Nov 2008 11:47:17 +0100
-Message-ID: <AC362BF0-D9FE-42F5-97DA-754A31446B16@holtmann.org>
-References: <cover.1227684995.git.inaky@linux.intel.com>
-Mime-Version: 1.0 (Apple Message framework v929.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Question about HFSC atm+man patches
+Date: Thu, 27 Nov 2008 11:48:43 +0100
+Message-ID: <492E7B0B.8000601@trash.net>
+References: <49292F54.4020803@ziu.info> <4929632F.3050200@trash.net> <492AB29A.3010601@ziu.info> <492AB60A.9050606@trash.net> <492DD399.4040801@ziu.info>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Michal Soltys <soltys@ziu.info>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:56813 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755521AbYK0Kr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 05:47:26 -0500
-In-Reply-To: <cover.1227684995.git.inaky@linux.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:47233 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756867AbYK0Ksy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 05:48:54 -0500
+In-Reply-To: <492DD399.4040801@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Inaky,
+Michal Soltys wrote:
+> One question regarding size tables:
+> 
+> Should I assume that subsequent qdiscs attached to HFSC leaves will not 
+> use [different] size tables ?
+> 
+> This is currently the case, but from the perspective of a generic 
+> solution - if some inner qdisc changes pkt_len stored in cb area during 
+> qdisc_enqueue, then HFSC might get wrong size during peek operation.
+> 
+> As leaves will usually have "simple" work-conserving qdiscs attached, 
+> this is probably not an issue, but ...
 
-> This code is broken up in a WiMAX subsystem and a driver for the Intel
-> 2400m Wireless WiMAX Link. To be able to fully utilize WiMAX services,
-> you need extra pieces of device-specific user space software; for now,
-> there is a C level API (the Common API) to use/control it, but a high
-> level API over DBUS that should work for any device is in the
-> works. See details further below.
-
-this is not a big deal, but a more general question on how the layout  
-of the kernel source code tree. So the whole WiMAX subsystem should be  
-in net/wimax/, but for the drivers I think using drivers/net/wimax/ is  
-wrong. None of these drivers should ever register an Ethernet or  
-network device directly. They register themselves with the WiMAX  
-subystem. So I would propose to use drivers/wimax/ here. We do the  
-same with Bluetooth. All the drivers are under drivers/bluetooth/,  
-because they don't register any kind of network device.
-
-Jeff, what is your take on this. Shouldn't be drivers/net/ only  
-contain drivers that actually use struct net_device somehow?
-
-Regards
-
-Marcel
-
+Using different size tables for inner qdiscs is supposed to work.
+What is the "wrong size"? ->peek() should return a packet with the
+size the same as ->dequeue() would, which I think it does.
