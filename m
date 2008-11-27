@@ -1,59 +1,53 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: oops/warning report for the week of November 26, 2008
-Date: Thu, 27 Nov 2008 13:42:58 -0800
-Message-ID: <492F1462.4020803@zytor.com>
-References: <492DD792.6080302@linux.intel.com>	<20081127115236.GE29013@elte.hu>	<492EE087.80708@linux.intel.com>	<20081127201836.GA16869@elte.hu> <20081127122800.45fc0b1a@linux.intel.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 2 of 2] netconsole: add write-only tty driver
+Date: Fri, 28 Nov 2008 00:47:01 +0300
+Message-ID: <20081127214701.GA7195@ioremap.net>
+References: <patchbomb.1227820260@localhost.localdomain> <1a5d52ff499998079f4b.1227820262@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Yinghai Lu <yinghai@kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	jesse Barnes <jbarnes@virtuousgeek.org>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mpm@selenic.com
+To: Hollis Blanchard <hollisb@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:46624 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753008AbYK0Vnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 16:43:47 -0500
-In-Reply-To: <20081127122800.45fc0b1a@linux.intel.com>
+Received: from cet.com.ru ([195.178.208.66]:43204 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752803AbYK0VrE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2008 16:47:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1a5d52ff499998079f4b.1227820262@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arjan van de Ven wrote:
-> 
-> diff --git a/arch/x86/kernel/cpu/mtrr/main.c b/arch/x86/kernel/cpu/mtrr/main.c
-> index 1159e26..0044e61 100644
-> --- a/arch/x86/kernel/cpu/mtrr/main.c
-> +++ b/arch/x86/kernel/cpu/mtrr/main.c
-> @@ -1567,6 +1567,8 @@ int __init mtrr_trim_uncached_memory(unsigned long end_pfn)
->  	 * Make sure we only trim uncachable memory on machines that
->  	 * support the Intel MTRR architecture:
->  	 */
-> +	if (!cpu_has_mtrr)
-> +		return 0;
->  	if (!is_cpu(INTEL) || disable_mtrr_trim)
->  		return 0;
->  	rdmsr(MTRRdefType_MSR, def, dummy);
+Hi.
 
-Okay... is_cpu() here is defined as:
+Looks good. A short note below.
 
-#define is_cpu(vnd)      (mtrr_if && mtrr_if->vendor == X86_VENDOR_##vnd)
+On Thu, Nov 27, 2008 at 03:11:02PM -0600, Hollis Blanchard (hollisb@us.ibm.com) wrote:
+> +static int __init netconsole_tty_init(void)
+> +{
+> +	netconsole_tty_driver = alloc_tty_driver(1);
+> +	if (!netconsole_tty_driver)
+> +		return -ENOMEM;
+> +
+> +	netconsole_tty_driver->owner = THIS_MODULE;
+> +	netconsole_tty_driver->driver_name = "netcon";
+> +	netconsole_tty_driver->name = "netcon";
+> +	netconsole_tty_driver->minor_start = 0;
+> +	netconsole_tty_driver->type = TTY_DRIVER_TYPE_SYSTEM;
+> +	netconsole_tty_driver->init_termios = tty_std_termios;
+> +	netconsole_tty_driver->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL;
+> +	netconsole_tty_driver->init_termios.c_ispeed = 9600;
+> +	netconsole_tty_driver->init_termios.c_ospeed = 9600;
+> +	netconsole_tty_driver->flags = TTY_DRIVER_REAL_RAW;
+> +	tty_set_operations(netconsole_tty_driver, &netconsole_tty_ops);
+> +
+> +	if (tty_register_driver(netconsole_tty_driver))
+> +		printk(KERN_ERR "Couldn't register netconsole tty driver\n");
+> +
+> +	return 0;
+> +}
+> +device_initcall(netconsole_tty_init);
 
-... so an MTRR interface has been identified.  Therefore testing 
-cpu_has_mtrr is redundant.
+Would it be better called from init_netconsole()?
 
-As far as use_intel() versus is_cpu(INTEL), it looks to me as though the 
-two are identical in the current code -- mtrr_if->vendor is never set in 
-the generic code, and so defaults to 0 - meaning X86_VENDOR_INTEL.
-
-All in all, it looks like the vendor ID stuff is a bad case of "works by 
-accident" in the MTRR code, however, *given the current code* I conclude 
-that is_cpu(INTEL) == use_intel() and that neither can be true without 
-MTRRs enabled.
-
-	-hpa
+-- 
+	Evgeniy Polyakov
