@@ -1,43 +1,51 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] sctp: fix missing label when PROC_FS=n
-Date: Thu, 27 Nov 2008 12:18:24 -0800
-Message-ID: <20081127121824.5b3515c9.randy.dunlap@oracle.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: oops/warning report for the week of November 26, 2008
+Date: Thu, 27 Nov 2008 21:18:36 +0100
+Message-ID: <20081127201836.GA16869@elte.hu>
+References: <492DD792.6080302@linux.intel.com> <20081127115236.GE29013@elte.hu> <492EE087.80708@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net
-To: linux-next@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Yinghai Lu <yinghai@kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	jesse Barnes <jbarnes@virtuousgeek.org>
+To: Arjan van de Ven <arjan@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:38745 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752432AbYK0UT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2008 15:19:27 -0500
+Content-Disposition: inline
+In-Reply-To: <492EE087.80708@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Fix missing label when CONFIG_PROC_FS=n:
+* Arjan van de Ven <arjan@linux.intel.com> wrote:
 
-net/sctp/protocol.c: In function 'sctp_proc_init':
-net/sctp/protocol.c:106: error: label 'out_nomem' used but not defined
-make[3]: *** [net/sctp/protocol.o] Error 1
+> Ingo Molnar wrote:
+>> * Arjan van de Ven <arjan@linux.intel.com> wrote:
+>>
+>>> Rank 8: mtrr_trim_uncached_memory (warning)
+>>> 	Reported 227 times (619 total reports)
+>>> 	There is a high number of machines where our MTRR checks 	trigger. I 
+>>> suspect we are too picky in accepting the MTRR 	configuration.
+>>
+>> the warning here means: "the BIOS messed up but we fixed it up for you 
+>> just fine".
+>
+> I don't believe that right now. we see so many of these, including 
+> many "there's no MTRRs at all", that I am seriously suspecting that 
+> our code is just incorrect somehow and triggering too much.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- net/sctp/protocol.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+well we looked at existing reports and Linux was right to fix them up. 
+Show us one that is incorrect, then we can fix it up.
 
---- linux-next-20081127.orig/net/sctp/protocol.c
-+++ linux-next-20081127/net/sctp/protocol.c
-@@ -139,11 +139,12 @@ out_snmp_proc_init:
- 	}
- out_free_percpu:
- 	percpu_counter_destroy(&sctp_sockets_allocated);
--out_nomem:
--	return -ENOMEM;
- #else
- 	return 0;
- #endif /* CONFIG_PROC_FS */
-+
-+out_nomem:
-+	return -ENOMEM;
- }
- 
- /* Clean up the proc fs entry for the SCTP protocol.
+the "no MTRR's" are vmware/(also qemu?) guests not implementing a full 
+CPU emulation.
+
+	Ingo
