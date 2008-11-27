@@ -1,82 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 09/39] wimax: provides user space with information needed
- when opening a WiMAX device
-Date: Thu, 27 Nov 2008 11:44:46 +0100
-Message-ID: <492E7A1E.4010906@trash.net>
-References: <cover.1227691434.git.inaky@linux.intel.com> <61e0e60ace9f0c441b51e5009d304229c4b234d3.1227691434.git.inaky@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m driver v2
+Date: Thu, 27 Nov 2008 11:47:17 +0100
+Message-ID: <AC362BF0-D9FE-42F5-97DA-754A31446B16@holtmann.org>
+References: <cover.1227684995.git.inaky@linux.intel.com>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
 To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47125 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755567AbYK0Ko6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 05:44:58 -0500
-In-Reply-To: <61e0e60ace9f0c441b51e5009d304229c4b234d3.1227691434.git.inaky@linux.intel.com>
+Received: from senator.holtmann.net ([87.106.208.187]:56813 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755521AbYK0Kr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 05:47:26 -0500
+In-Reply-To: <cover.1227684995.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Inaky Perez-Gonzalez wrote:
-> +static
-> +int __wimax_gnl_open_reply(struct wimax_dev *wimax_dev,
-> +			   struct genl_info *genl_info)
-> +{
-> +	int result;
-> +	void *data;
-> +	struct sk_buff *reply_skb;
-> +	struct nlattr *nla_groups, *nla_group;
-> +	struct wimax_pipe *pipe_itr;
-> +
-> +	result = -ENOMEM;
-> +	reply_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> +	if (reply_skb == NULL)
-> +		goto error_new;
-> +	data = genlmsg_put_reply(reply_skb, genl_info,
-> +				 &wimax_dev->gnl_family,
-> +				 0, WIMAX_GNL_RP_IFINFO);
-> +	if (data == NULL)
-> +		goto error_put_reply;
-> +
-> +	nla_groups = nla_nest_start(reply_skb, WIMAX_GNL_IFINFO_MC_GROUPS);
-> +	if (nla_groups == NULL)
-> +		goto error_groups_start;
-> +
-> +	list_for_each_entry(pipe_itr, &wimax_dev->pipe_list,
-> +			    list_node) {
-> +		nla_group = nla_nest_start(reply_skb,
-> +					   WIMAX_GNL_IFINFO_MC_GROUP);
-> +		if (nla_group == NULL)
-> +			goto error_group_start;
-> +
-> +		nla_put_u16(reply_skb, WIMAX_GNL_IFINFO_MC_ID,
-> +			    pipe_itr->mcg.id);
-> +		nla_put_string(reply_skb, WIMAX_GNL_IFINFO_MC_NAME,
-> +			       pipe_itr->mcg.name);
+Hi Inaky,
 
-The nla_put results must be checked unless there's a guarantee that
-the attributes won't exceed the skbs size.
+> This code is broken up in a WiMAX subsystem and a driver for the Intel
+> 2400m Wireless WiMAX Link. To be able to fully utilize WiMAX services,
+> you need extra pieces of device-specific user space software; for now,
+> there is a C level API (the Common API) to use/control it, but a high
+> level API over DBUS that should work for any device is in the
+> works. See details further below.
 
-> +		nla_nest_end(reply_skb, nla_group);
-> +	}
-> +	nla_nest_end(reply_skb, nla_groups);
-> +	genlmsg_end(reply_skb, data);
-> +
-> +	result = genlmsg_reply(reply_skb, genl_info);
-> +	if (result < 0)
-> +		goto error_reply;
-> +	return 0;
-> +
-> +error_group_start:
-> +error_groups_start:
-> +error_reply:
-> +error_put_reply:
+this is not a big deal, but a more general question on how the layout  
+of the kernel source code tree. So the whole WiMAX subsystem should be  
+in net/wimax/, but for the drivers I think using drivers/net/wimax/ is  
+wrong. None of these drivers should ever register an Ethernet or  
+network device directly. They register themselves with the WiMAX  
+subystem. So I would propose to use drivers/wimax/ here. We do the  
+same with Bluetooth. All the drivers are under drivers/bluetooth/,  
+because they don't register any kind of network device.
 
-This seems a bit excessive considering that its very unlikely
-that you'll ever need to distinguish these cases.
+Jeff, what is your take on this. Shouldn't be drivers/net/ only  
+contain drivers that actually use struct net_device somehow?
 
-> +	nlmsg_free(reply_skb);
-> +error_new:
-> +	return result;
-> +}
+Regards
+
+Marcel
+
