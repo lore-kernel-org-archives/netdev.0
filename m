@@ -1,44 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
-Date: Wed, 26 Nov 2008 23:37:58 -0800 (PST)
-Message-ID: <20081126.233758.235891402.davem@davemloft.net>
-References: <Pine.LNX.4.64.0811260636100.26650@wm7d.net>
-	<20081126.152748.244331470.davem@davemloft.net>
-	<41063.91.201.80.240.1227769550.squirrel@mail.embedromix.ro>
+Subject: Re: [RFC] Validate ethtool autoneg before relaying
+Date: Thu, 27 Nov 2008 00:07:48 -0800 (PST)
+Message-ID: <20081127.000748.248098977.davem@davemloft.net>
+References: <20081126221741.GA8800@xw6200.broadcom.net>
+	<1227742092.13189.19.camel@HP1>
+	<20081126234406.GA8970@xw6200.broadcom.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmack@wm7d.net, netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-To: catab@embedromix.ro
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33437
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57896
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751836AbYK0Hh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 02:37:59 -0500
-In-Reply-To: <41063.91.201.80.240.1227769550.squirrel@mail.embedromix.ro>
+	by vger.kernel.org with ESMTP id S1751939AbYK0IHs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 03:07:48 -0500
+In-Reply-To: <20081126234406.GA8970@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-Date: Thu, 27 Nov 2008 00:05:50 -0700 (MST)
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Wed, 26 Nov 2008 15:44:06 -0800
 
-> Do you mean that it should be computed based on memory size or you mean
-> that it should be changeable on-the-fly, even when we have some
-> connections in the tables already?
+> On Wed, Nov 26, 2008 at 03:28:12PM -0800, Michael Chan wrote:
+> > 
+> > On Wed, 2008-11-26 at 14:17 -0800, Matt Carlson wrote:
+> > > diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> > > index 14ada53..6362f56 100644
+> > > --- a/net/core/ethtool.c
+> > > +++ b/net/core/ethtool.c
+> > > @@ -164,6 +164,9 @@ static int ethtool_set_settings(struct net_device *dev, void __user *useraddr)
+> > >         if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+> > >                 return -EFAULT;
+> > >  
+> > > +       if (cmd.autoneg != AUTONEG_ENABLE && cmd.autoneg != AUTONEG_DISABLE)
+> > > +               return -EFAULT;
+> > > +
+> > 
+> > Matt, you should return -EINVAL here instead.
+> 
+> Yes.  You are right.  I'll fix this in a revised patch if everyone
+> decides this is an effort worth pursuing.
 
-I mean the latter.  We do this in other subsystems, such as
-IPSEC, for various hashes.
-
-> Do you have some hints (where to look for a similar thing)?
-> The thing that worries me a little is the locking around the move and
-> maybe the latency involved. Yes, of course you will not change it several
-> times per minute, but...
-
-You only increase, never decrease.
-
-A lock is held during every access to these hash tables, so
-the locking should be very similar.
-
-Have a look at xfrm_hash_resize() in net/xfrm/xfrm_state.c to get
-a good idea on how this stuff can be done.  And hey, that code
-resizes 3 tables at once, you only need to handle one :)
+I think this is a great idea, checking the validity in one spot.
+So please, submit a final version of these changes when you get
+a chance.
