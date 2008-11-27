@@ -1,97 +1,123 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: oops/warning report for the week of November 26, 2008
-Date: Thu, 27 Nov 2008 13:18:56 -0800
-Message-ID: <492F0EC0.5030802@kernel.org>
-References: <492DD792.6080302@linux.intel.com>	<20081127115236.GE29013@elte.hu>	<492EE087.80708@linux.intel.com>	<20081127201836.GA16869@elte.hu> <20081127122800.45fc0b1a@linux.intel.com>
+From: Hollis Blanchard <hollisb@us.ibm.com>
+Subject: [PATCH 2 of 2] netconsole: add write-only tty driver
+Date: Thu, 27 Nov 2008 15:11:02 -0600
+Message-ID: <1a5d52ff499998079f4b.1227820262@localhost.localdomain>
+References: <patchbomb.1227820260@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	jesse Barnes <jbarnes@virtuousgeek.org>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Cc: mpm@selenic.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:34497 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752925AbYK0VUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2008 16:20:17 -0500
-In-Reply-To: <20081127122800.45fc0b1a@linux.intel.com>
+Received: from fall-curlleaf.atl.sa.earthlink.net ([207.69.195.105]:49254 "EHLO
+	fall-curlleaf.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752938AbYK0VWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 16:22:25 -0500
+In-Reply-To: <patchbomb.1227820260@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arjan van de Ven wrote:
-> On Thu, 27 Nov 2008 21:18:36 +0100
-> Ingo Molnar <mingo@elte.hu> wrote:
-> 
->> * Arjan van de Ven <arjan@linux.intel.com> wrote:
->>
->>> Ingo Molnar wrote:
->>>> * Arjan van de Ven <arjan@linux.intel.com> wrote:
->>>>
->>>>> Rank 8: mtrr_trim_uncached_memory (warning)
->>>>> 	Reported 227 times (619 total reports)
->>>>> 	There is a high number of machines where our MTRR checks
->>>>> 	trigger. I suspect we are too picky in accepting the MTRR
->>>>> 	configuration.
->>>> the warning here means: "the BIOS messed up but we fixed it up for
->>>> you just fine".
->>> I don't believe that right now. we see so many of these, including 
->>> many "there's no MTRRs at all", that I am seriously suspecting that 
->>> our code is just incorrect somehow and triggering too much.
->> well we looked at existing reports and Linux was right to fix them
->> up. Show us one that is incorrect, then we can fix it up.
->>
->> the "no MTRR's" are vmware/(also qemu?) guests not implementing a
->> full CPU emulation.
-> 
-> ... and it's still our fault in part, since we don't even check to see
-> if a cpu claims to support MTRR before complaining about it...
-> 
-> easy to fix though:
-> 
-> From 7e987ae541c41ce908b414fee9d8e2fd2099a083 Mon Sep 17 00:00:00 2001
-> From: Arjan van de Ven <arjan@linux.intel.com>
-> Date: Thu, 27 Nov 2008 12:25:47 -0800
-> Subject: [PATCH] x86: make sure the CPU advertizes MTRR support before complaining about the lack thereoff...
-> 
-> We complain loudly if a CPU does not have MTRR support... but we don't check if the CPU
-> exposes MTRR support in the CPUID flags first. While this might not fix all of the
-> broken virtualization systems out there, it will at least fix those that properly don't
-> advertize things they don't support.
-> 
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-> ---
->  arch/x86/kernel/cpu/mtrr/main.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/arch/x86/kernel/cpu/mtrr/main.c b/arch/x86/kernel/cpu/mtrr/main.c
-> index 1159e26..0044e61 100644
-> --- a/arch/x86/kernel/cpu/mtrr/main.c
-> +++ b/arch/x86/kernel/cpu/mtrr/main.c
-> @@ -1567,6 +1567,8 @@ int __init mtrr_trim_uncached_memory(unsigned long end_pfn)
->  	 * Make sure we only trim uncachable memory on machines that
->  	 * support the Intel MTRR architecture:
->  	 */
-> +	if (!cpu_has_mtrr)
-> +		return 0;
+This allows userspace to output to netconsole via the /dev/console device,
+which is very useful to see initscript output, for example. There is only one
+netconsole TTY device, and TTY output goes to all receivers specified for
+console output.
 
-that is not needed, we already check that in mtrr_bp_init before this function is called, and it will assign mtrr_if
+Input via /dev/console is still not implemented, however.
 
-and
-#define is_cpu(vnd)     (mtrr_if && mtrr_if->vendor == X86_VENDOR_##vnd)
+Signed-off-by: Hollis Blanchard <hollisb@us.ibm.com>
 
-will make it sure mtrr is there.
-
-ps: here INTEL mean any cpu has same interface like intel cpu's
-
-YH
-
->  	if (!is_cpu(INTEL) || disable_mtrr_trim)
->  		return 0;
->  	rdmsr(MTRRdefType_MSR, def, dummy);
-
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -43,6 +43,7 @@
+ #include <linux/netpoll.h>
+ #include <linux/inet.h>
+ #include <linux/configfs.h>
++#include <linux/tty.h>
+ 
+ MODULE_AUTHOR("Maintainer: Matt Mackall <mpm@selenic.com>");
+ MODULE_DESCRIPTION("Console driver for network interfaces");
+@@ -98,6 +99,8 @@ struct netconsole_target {
+ 	int			enabled;
+ 	struct netpoll		np;
+ };
++
++static struct tty_driver *netconsole_tty_driver;
+ 
+ #ifdef	CONFIG_NETCONSOLE_DYNAMIC
+ 
+@@ -728,15 +731,74 @@ static void netconsole_write_msg(const c
+ 	spin_unlock_irqrestore(&target_list_lock, flags);
+ }
+ 
++static int netconsole_tty_open(struct tty_struct *tty, struct file *filp)
++{
++	return 0;
++}
++
++static void netconsole_tty_close(struct tty_struct *tty, struct file *filp)
++{
++}
++
++static int netconsole_tty_write(struct tty_struct *tty, const unsigned char *buf, int count)
++{
++	netconsole_write_msg(buf, count);
++	return count;
++}
++
++static int netconsole_tty_write_room(struct tty_struct *tty)
++{
++	return MAX_PRINT_CHUNK;
++}
++
++static const struct tty_operations netconsole_tty_ops = {
++	.open = netconsole_tty_open,
++	.close = netconsole_tty_close,
++	.write = netconsole_tty_write,
++	.write_room = netconsole_tty_write_room,
++};
++
++static int __init netconsole_tty_init(void)
++{
++	netconsole_tty_driver = alloc_tty_driver(1);
++	if (!netconsole_tty_driver)
++		return -ENOMEM;
++
++	netconsole_tty_driver->owner = THIS_MODULE;
++	netconsole_tty_driver->driver_name = "netcon";
++	netconsole_tty_driver->name = "netcon";
++	netconsole_tty_driver->minor_start = 0;
++	netconsole_tty_driver->type = TTY_DRIVER_TYPE_SYSTEM;
++	netconsole_tty_driver->init_termios = tty_std_termios;
++	netconsole_tty_driver->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL;
++	netconsole_tty_driver->init_termios.c_ispeed = 9600;
++	netconsole_tty_driver->init_termios.c_ospeed = 9600;
++	netconsole_tty_driver->flags = TTY_DRIVER_REAL_RAW;
++	tty_set_operations(netconsole_tty_driver, &netconsole_tty_ops);
++
++	if (tty_register_driver(netconsole_tty_driver))
++		printk(KERN_ERR "Couldn't register netconsole tty driver\n");
++
++	return 0;
++}
++device_initcall(netconsole_tty_init);
++
+ static void netconsole_console_write(struct console *con, const char *msg, unsigned int len)
+ {
+ 	netconsole_write_msg(msg, len);
++}
++
++static struct tty_driver *netconsole_console_device(struct console *console, int *index)
++{
++	*index = console->index;
++	return netconsole_tty_driver;
+ }
+ 
+ static struct console netconsole = {
+ 	.name	= "netcon",
+ 	.flags	= CON_ENABLED,
+ 	.write	= netconsole_console_write,
++	.device = netconsole_console_device,
+ };
+ 
+ static int __init init_netconsole(void)
