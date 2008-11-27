@@ -1,124 +1,83 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m driver v2
-Date: Thu, 27 Nov 2008 12:14:30 +0100
-Message-ID: <00E41CD2-3C1B-4B39-8720-698DBC236CE8@holtmann.org>
-References: <cover.1227691434.git.inaky@linux.intel.com> <1227783281.3809.78.camel@johannes.berg>
-Mime-Version: 1.0 (Apple Message framework v929.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m
+	driver v2
+Date: Thu, 27 Nov 2008 12:23:52 +0100
+Message-ID: <1227785032.3809.84.camel@johannes.berg>
+References: <cover.1227691434.git.inaky@linux.intel.com>
+	 <1227783281.3809.78.camel@johannes.berg>
+	 <00E41CD2-3C1B-4B39-8720-698DBC236CE8@holtmann.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-kY7KGiSZlhpQsLqxR1LL"
 Cc: Inaky Perez-Gonzalez <inaky@linux.intel.com>,
 	netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54078 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007AbYK0LOm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 06:14:42 -0500
-In-Reply-To: <1227783281.3809.78.camel@johannes.berg>
+Received: from xc.sipsolutions.net ([83.246.72.84]:57826 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753966AbYK0LYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 06:24:43 -0500
+In-Reply-To: <00E41CD2-3C1B-4B39-8720-698DBC236CE8@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johannes,
 
-> Thanks for this work. I don't personally have much of an interest in
-> wimax, so I don't really care what you do, so take things I have said
-> and will say with a grain of salt. It's not my intention to say  
-> "you've
-> done it all wrong", but more to offer observations on how these things
-> were done in wifi and how it went all wrong there, requiring a  
-> complete
-> rewrite recently.
->
-> Conceptually, I think wimax is now at a point where wifi was many  
-> years
-> ago with the first wireless drivers: everything was full-mac, wext
-> ioctls were written to go directly to the driver. Then ipw2x00 came
-> along, more functionality was moved to the host (yes, you say this  
-> won't
-> happen with wimax, but I think it will, eventually, if wimax gets to  
-> be
-> popular enough. never say never), and wext got more messy. Wext even  
-> was
-> defining actual operations, as undefined as they often were, you're  
-> not
-> even doing that.
+--=-kY7KGiSZlhpQsLqxR1LL
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-some parts of the WiMAX specification are still undergoing re-writes  
-and we really don't know for sure what is coming. We just have to  
-start somewhere.
 
-> They will surely apply to any wimax device, or to a soft wimax stack  
-> if
-> that should ever happen. And for those commands that don't, it's  
-> easy to
-> see whether or not a device supports them and use different, possibly
-> more generic, ones; say a device doesn't support scanning, it'll  
-> surely
-> support connecting if you know the network already.
->
-> Conceptually, I'm not sure you should call the wimax stack a "stack"  
-> at
-> all, so far it seems more like a "transport" that really should be  
-> part
-> of the driver. It's not defining any *wimax* commands, but it's only
-> defining the transport for those *driver-specific* commands.
->
-> This is the biggest issue I see here. I don't see how the stack helps
-> anyone implement a driver for a new device. Sure, they won't have to
-> come up with a new transport, write less lines of generic netlink  
-> code,
-> but ultimately that's not the hard part, the hard part is getting the
-> relevant operations right etc.
+> The idea is to make the WiMAX subsystem more generic and create =20
+> something similar to what we have with mac80211/cfg80211 and also =20
+> inside Bluetooth. This is the common starting point and next step is =20
+> to move functionality that has been identified as generic and common =20
+> from the driver into the subsystem.
 
-The idea is to make the WiMAX subsystem more generic and create  
-something similar to what we have with mac80211/cfg80211 and also  
-inside Bluetooth. This is the common starting point and next step is  
-to move functionality that has been identified as generic and common  
-from the driver into the subsystem.
+The problem is with the current stack design this isn't really possible,
+since the stack only provides like three real commands:
+ * talk to driver
+ * reset device
+ * do rfkill (though I'm not sure why this is needed)
 
-I prefer if we do this development inside the kernel tree instead of  
-externally. One big thing we should have learned from mac80211 is that  
-developing a full stack outside the kernel source tree is not really  
-working out. We should apply the same model as we did for ext4 or what  
-Greg is doing with his staging tree.
+> I prefer if we do this development inside the kernel tree instead of =20
+> externally. One big thing we should have learned from mac80211 is that =20
+> developing a full stack outside the kernel source tree is not really =20
+> working out. We should apply the same model as we did for ext4 or what =20
+> Greg is doing with his staging tree.
 
->> So the current abstraction layer provides a low-level WiMAX API with
->> means for resetting, monitoring state changes, controlling rfkill and
->> sending messages to the driver (in a driver specific format) back and
->> forth (more on this below). The documentation in include/net/wimax.h
->> provides more information.
->
-> This really means you're putting the actual "driver", the piece that
-> does the hardware abstraction, into userspace. And in a binary daemon
-> even, afaict. This was quickly shot down with ipw3945/4965, not sure  
-> why
-> nobody has cared here so far. Maybe because you're actually planning  
-> to
-> open source that part.
+The problem with that is that the stack is setting APIs in stone that
+are, if you ask me, suboptimal. Once we add those, I don't see how we
+can migrate away from a "command handled by driver" model towards a
+"command handled by stack and appropriate driver callback called" model,
+which would be more like cfg80211/nl80211 rather than iwpriv.
 
-It has been open source since quite some time now at linuxwimax.org  
-(exception are some tiny binary pieces).
+> It has been open source since quite some time now at linuxwimax.org =20
+> (exception are some tiny binary pieces).
 
->> The driver for the 2400m sits below the stack, providing the back end
->> operations to drive control (reset, rfkill, message passing) and
->> feeding it state change information. On the other side, the 2400m
->> driver connects to netdev, where it emulates an ethernet device (*1).
->
-> Couldn't the stack provide more functionality here? Somewhere else you
-> speak of using ethernet vs. rawip, couldn't the stack do that
-> translation, possibly even allowing both rawip and ethernet to  
-> coexist,
-> or be switchable at runtime if you have a working dhcp client?
+Ok, sorry, I thought there was a bunch of binary code still.
 
-Either we do Ethernet framing or a pure IP device. I am for the pure  
-IP device with a separate ARP header (which we managed to get  
-allocated). Wrapping everything into Ethernet only because dhclient is  
-broken is not an answer. An alternate option would be a point-to-point  
-device like the HSO driver or PPP is using. However then the usage of  
-DHCP becomes a lot more trickier. Don't ask me why WiMAX decided to go  
-for DHCP and not did the IP stuff in-band.
+johannes
 
-Regards
+--=-kY7KGiSZlhpQsLqxR1LL
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Marcel
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJLoNFAAoJEKVg1VMiehFY1sgP/0yjIBaEz+7LsWLplYuKjGsU
+PnFFsyNi4B5LhvXioM17Mhw5ELQw4MvmMtkKN1bVUpLt3vU8YnvEoOJl2N6JmRUL
+Fml+II1RWzedubKgpLtH3Q63rgw2igTb5TGe4qngXpglHZWZpwOVltnzyk+WP7kf
+raxz+NssW7r7DyAN/wpDycr2KCH2slbWGmCKgs+QIwIaotKjnCeqN4OEqKCaIafC
+XzwWsMHSycI1+xptPfM8aIqArruTgsODqKNSPaAUdqGBaiTwwD93w2dtx7XeKW+g
+Qtp0C2lzwGPbffjbAS1AW7avOKt22Ffons+8IWz04HP8H7WGpRq4h2a9aLNq0jdr
+Up03UsP3sPqhFdjfE9CCgFPp0WdjZJIMtE2NSqI2WRgwKc6LVKnnkgh6KF7btmfM
+/U2wxBHABvk6WxF2hvoC/LLhz9W+Y8y4Wp5tWGtYZrt/Jb1boC9gYWI3l3E7sHy7
+f3bp3cXvhRHo/CSCYM4zMfhF8Gv5G5QkBM2IKsAa9Y9pW7voJYA6tx/NvjlpNn/A
+neTlzgdISIoqRjZPSMDPN3EODBcKhH+U1qjBkfEzgrC63oVU+oXl4OAJ6iCjN0mu
+rDQjouRnAfDYHZ1gpXz3UnpPM5l7h99LDPjQ8Ijtilop3efc5t6RiXhp/4TAS+D5
+GN7mW8w0AE/SnNcuVpbb
+=tMyB
+-----END PGP SIGNATURE-----
+
+--=-kY7KGiSZlhpQsLqxR1LL--
 
