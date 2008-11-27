@@ -1,71 +1,35 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 04/39] wimax: internal API for the kernel space WiMAX
-	stack
-Date: Thu, 27 Nov 2008 10:43:19 +0100
-Message-ID: <1227778999.3809.34.camel@johannes.berg>
-References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <960be5a67120268108e2b252921161762fac9aeb.1227691434.git.inaky@linux.intel.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH 3/6] fs: Introduce a per_cpu last_ino allocator
+Date: Thu, 27 Nov 2008 04:46:15 -0500
+Message-ID: <20081127094615.GC13860@infradead.org>
+References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDC88.2050305@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-KJ/reI9PIu1d9o/gCWyk"
-Cc: netdev <netdev@vger.kernel.org>
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:54208 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751677AbYK0JpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 04:45:16 -0500
-In-Reply-To: <960be5a67120268108e2b252921161762fac9aeb.1227691434.git.inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <492DDC88.2050305-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Nov 27, 2008 at 12:32:24AM +0100, Eric Dumazet wrote:
+> new_inode() dirties a contended cache line to get inode numbers.
+>
+> Solve this problem by providing to each cpu a per_cpu variable,
+> feeded by the shared last_ino, but once every 1024 allocations.
+>
+> This reduce contention on the shared last_ino.
+>
+> Note : last_ino_get() method must be called with preemption
+> disabled on SMP.
 
---=-KJ/reI9PIu1d9o/gCWyk
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2008-11-26 at 15:07 -0800, Inaky Perez-Gonzalez wrote:
-
-> +static inline __must_check
-> +int wimax_dev_is_ready(struct wimax_dev *wimax_dev)
-> +{
-> +	if (wimax_dev->state =3D=3D __WIMAX_ST_NULL)
-> +		return -EINVAL;	/* Device is not even registered! */
-> +	if (wimax_dev->state =3D=3D WIMAX_ST_DOWN)
-> +		return -ENOMEDIUM;
-
-ENOLINK seems more appropriate?
-
-
-> +/*
-> + * The concept of a pipe -- we encapsulate it because we want to
-> + * detach the usage of it from the implementation, and thus it serves
-> + * just as a handle.
-
-Might help to explain just what the concept is :)
-
-johannes
-
---=-KJ/reI9PIu1d9o/gCWyk
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJLmuzAAoJEKVg1VMiehFY7hcQAL7wtm8EFSfAMHEBJkCp6zZn
-HIN5FlGxdV+A2HEUhJ2dGUbfdicWsVMGK+ZcLFB/k5QdUEe4VQMYvcHsispu7vcm
-+ZPAgiI7uOl7YBfEms1hTQ4lAGVSeJ/OlQ+VvQCTKK4GkkjYlVV/jJ05rWtS48Oy
-0if9kdsg4kCjcKV5dNSaVpCfSkbaPRZyyn/LN6LgwHias8K/XUuMKHNa8V6wr8pb
-G72dbyYyw05D8e9tRrAXXC54EF+pgSAOWsnICmwK0AAhhKsCNGq6UxkaqOrxprUE
-kTaSOUEXr2OvMM0L8wkqYXXaol9NKXk0C9qzrEjcvcgNnYuk6mDOH2Tx30cmHLzv
-24sTw6bQSIhlk74NmLgjleWEy6TcjudrZOwfTuWFgOMCxucJJG+U8EOMeKl4s7JE
-V1wcvFOlrWuzuXCZOL7bSgX3YQFLvdN1HLUBu062yOA8zaszCN1ht1AAW3rWE0D9
-f9+p4TeieEWF5m8gpWTBk5PtjSnkaS2mVQ9vHRtdoRVLDHCCBCo/+Wu1IWTLyLfi
-xqeRmtU0ZgCuC5DMOk9NPB14B9YOxurpltq0YJu0tbGjSUjbG58RDav7zyxto+cw
-U/9tAS/xRUXZFtpCHDq7rjVjDJoV9xO84R4r1GRnT2rlbAbVfNpehl7zxV9QnFIv
-Snn20jOgQVsbhm5cJJOF
-=q4in
------END PGP SIGNATURE-----
-
---=-KJ/reI9PIu1d9o/gCWyk--
-
+Looks a little clumsy.  One idea might be to have a special slab for
+synthetic inodes using new_inode and only assign it on the first
+allocation and after that re-use it.
