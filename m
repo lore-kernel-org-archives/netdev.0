@@ -1,83 +1,84 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m
-	driver v2
-Date: Thu, 27 Nov 2008 12:23:52 +0100
-Message-ID: <1227785032.3809.84.camel@johannes.berg>
-References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <1227783281.3809.78.camel@johannes.berg>
-	 <00E41CD2-3C1B-4B39-8720-698DBC236CE8@holtmann.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 2/2] ethtool: Manual page corrections
+Date: Thu, 27 Nov 2008 04:16:19 +0000
+Message-ID: <20081127041619.GL15344@decadentplace.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-kY7KGiSZlhpQsLqxR1LL"
-Cc: Inaky Perez-Gonzalez <inaky@linux.intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="FUFe+yI/t+r3nyH4"
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:57826 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753966AbYK0LYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 06:24:43 -0500
-In-Reply-To: <00E41CD2-3C1B-4B39-8720-698DBC236CE8@holtmann.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:1708 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751125AbYK0L0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 06:26:11 -0500
+Received: from womble by shadbolt.decadent.org.uk with local (Exim 4.63)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1L5f0a-0000Hz-UW
+	for netdev@vger.kernel.org; Thu, 27 Nov 2008 11:26:08 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-kY7KGiSZlhpQsLqxR1LL
-Content-Type: text/plain
+--FUFe+yI/t+r3nyH4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
+Fix the following nits, too small to deserve separate patches:
 
-> The idea is to make the WiMAX subsystem more generic and create =20
-> something similar to what we have with mac80211/cfg80211 and also =20
-> inside Bluetooth. This is the common starting point and next step is =20
-> to move functionality that has been identified as generic and common =20
-> from the driver into the subsystem.
+There is a separator missing between -K and --offload.
 
-The problem is with the current stack design this isn't really possible,
-since the stack only provides like three real commands:
- * talk to driver
- * reset device
- * do rfkill (though I'm not sure why this is needed)
+The first mention of -p says the long option is --blink, but it's
+really --identify.
 
-> I prefer if we do this development inside the kernel tree instead of =20
-> externally. One big thing we should have learned from mac80211 is that =20
-> developing a full stack outside the kernel source tree is not really =20
-> working out. We should apply the same model as we did for ext4 or what =20
-> Greg is doing with his staging tree.
+The [N] following -p has the brackets in italics, not the N.
 
-The problem with that is that the stack is setting APIs in stone that
-are, if you ask me, suboptimal. Once we add those, I don't see how we
-can migrate away from a "command handled by driver" model towards a
-"command handled by stack and appropriate driver callback called" model,
-which would be more like cfg80211/nl80211 rather than iwpriv.
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+The first two of these were spotted by Debian users and I caught the
+last when fixing them in the Debian package.
 
-> It has been open source since quite some time now at linuxwimax.org =20
-> (exception are some tiny binary pieces).
+Ben.
+--- ethtool-6+20080913.orig/ethtool.8
++++ ethtool-6+20080913/ethtool.8
+@@ -158,7 +158,7 @@
+ .B ethtool \-k|\-\-show\-offload
+ .I ethX
+=20
+-.B ethtool \-K\-\-offload
++.B ethtool \-K|\-\-offload
+ .I ethX
+ .B2 rx on off
+ .B2 tx on off
+@@ -167,9 +167,9 @@
+ .B2 ufo on off
+ .B2 gso on off
+=20
+-.B ethtool \-p|\-\-blink
++.B ethtool \-p|\-\-identify
+ .I ethX
+-.IR [ N ]
++.RI [ N ]
+=20
+ .B ethtool \-r|\-\-negotiate
+ .I ethX
 
-Ok, sorry, I thought there was a bunch of binary code still.
+--=20
+Ben Hutchings
+Time is nature's way of making sure that everything doesn't happen at once.
 
-johannes
-
---=-kY7KGiSZlhpQsLqxR1LL
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+--FUFe+yI/t+r3nyH4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+Version: GnuPG v1.4.6 (GNU/Linux)
 
-iQIcBAABAgAGBQJJLoNFAAoJEKVg1VMiehFY1sgP/0yjIBaEz+7LsWLplYuKjGsU
-PnFFsyNi4B5LhvXioM17Mhw5ELQw4MvmMtkKN1bVUpLt3vU8YnvEoOJl2N6JmRUL
-Fml+II1RWzedubKgpLtH3Q63rgw2igTb5TGe4qngXpglHZWZpwOVltnzyk+WP7kf
-raxz+NssW7r7DyAN/wpDycr2KCH2slbWGmCKgs+QIwIaotKjnCeqN4OEqKCaIafC
-XzwWsMHSycI1+xptPfM8aIqArruTgsODqKNSPaAUdqGBaiTwwD93w2dtx7XeKW+g
-Qtp0C2lzwGPbffjbAS1AW7avOKt22Ffons+8IWz04HP8H7WGpRq4h2a9aLNq0jdr
-Up03UsP3sPqhFdjfE9CCgFPp0WdjZJIMtE2NSqI2WRgwKc6LVKnnkgh6KF7btmfM
-/U2wxBHABvk6WxF2hvoC/LLhz9W+Y8y4Wp5tWGtYZrt/Jb1boC9gYWI3l3E7sHy7
-f3bp3cXvhRHo/CSCYM4zMfhF8Gv5G5QkBM2IKsAa9Y9pW7voJYA6tx/NvjlpNn/A
-neTlzgdISIoqRjZPSMDPN3EODBcKhH+U1qjBkfEzgrC63oVU+oXl4OAJ6iCjN0mu
-rDQjouRnAfDYHZ1gpXz3UnpPM5l7h99LDPjQ8Ijtilop3efc5t6RiXhp/4TAS+D5
-GN7mW8w0AE/SnNcuVpbb
-=tMyB
+iD8DBQFJLh8T79ZNCRIGYgcRAo7bAJ90Lxm/84droPrbxYSm56PKQBWyfQCgy55L
+z+WW8B1xj8zyF0sxx0D9IoA=
+=w7jI
 -----END PGP SIGNATURE-----
 
---=-kY7KGiSZlhpQsLqxR1LL--
-
+--FUFe+yI/t+r3nyH4--
