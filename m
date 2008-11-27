@@ -1,81 +1,58 @@
-From: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Subject: Re: [PATCH 0/6] fs: Scalability of sockets/pipes allocation/deallocation
- on SMP
-Date: Thu, 27 Nov 2008 07:27:59 +0100
-Message-ID: <492E3DEF.8030602@cosmosbay.com>
-References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDB6A.8090806@cosmosbay.com> <Pine.LNX.4.64.0811261935330.31159@quilx.com>
+From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Thu, 27 Nov 2008 00:05:50 -0700 (MST)
+Message-ID: <41063.91.201.80.240.1227769550.squirrel@mail.embedromix.ro>
+References: <1227706578-5449-1-git-send-email-catab@embedromix.ro>
+    <Pine.LNX.4.64.0811260636100.26650@wm7d.net>
+    <20081126.152748.244331470.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-To: Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.0811261935330.31159-dRBSpnHQED8AvxtiuMwx3w@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: jmack@wm7d.net, netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20081126.152748.244331470.davem@davemloft.net>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter a =E9crit :
-> On Thu, 27 Nov 2008, Eric Dumazet wrote:
->=20
->> The last point is about SLUB being hit hard, unless we
->> use slub_min_order=3D3 at boot, or we use Christoph Lameter
->> patch (struct file RCU optimizations)
->> http://thread.gmane.org/gmane.linux.kernel/418615
+Hello!
+
+> From: Joseph Mack NA3T <jmack@wm7d.net>
+> Date: Wed, 26 Nov 2008 06:40:02 -0800 (PST)
+>
+>> On Wed, 26 Nov 2008, Catalin(ux) M. BOIE wrote:
 >>
->> If we boot machine with slub_min_order=3D3, SLUB overhead disappears=
-=2E
->=20
->=20
-> I'd rather not be that drastic. Did you try increasing slub_min_objec=
-ts
-> instead? Try 40-100. If we find the right number then we should updat=
-e
-> the tuning to make sure that it pickes the right slab page sizes.
->=20
->=20
+>> > I was very frustrated about the fact that I have to recompile the
+>> kernel
+>> > to change the hash size. So, I created this patch.
+>>
+>> thanks for sending us the code.
+>>
+>> Why do you need to change the hash size? We really don't recommend
+>> anyone do this under normal circumstances
+>
+> In any event, this should be dynamically sized at run time.
 
-4096/192 =3D 21
+David, thank you very much for feedback.
 
-with slub_min_objects=3D22 :
+Do you mean that it should be computed based on memory size or you mean
+that it should be changeable on-the-fly, even when we have some
+connections in the tables already?
 
-# cat /sys/kernel/slab/filp/order
-1
-# time ./socket8
-real    0m1.725s
-user    0m0.685s
-sys     0m12.955s
+Because I really need this now, can we, pretty please, apply it as it is
+because is an improvement over what we have now? And, I promise that I
+will make it changeable at runtime.
+Deal? :)
+Or you do not want to have another legacy around?
 
-with slub_min_objects=3D45 :
+Do you have some hints (where to look for a similar thing)?
+The thing that worries me a little is the locking around the move and
+maybe the latency involved. Yes, of course you will not change it several
+times per minute, but...
 
-# cat /sys/kernel/slab/filp/order
-2
-# time ./socket8
-real    0m1.652s
-user    0m0.694s
-sys     0m12.367s
+Thank you very much!
 
-with slub_min_objects=3D80 :
+-- 
+Catalin(ux) M. BOIE
+http://kernel.embedromix.ro/
 
-# cat /sys/kernel/slab/filp/order
-3
-# time ./socket8
-real    0m1.642s
-user    0m0.719s
-sys     0m12.315s
-
-I would say slub_min_objects=3D45 is the optimal value on 32bit arches =
-to
-get acceptable performance on this workload (order=3D2 for filp kmem_ca=
-che)
-
-Note : SLAB here is disastrous, but you already knew that :)
-
-real    0m8.128s
-user    0m0.748s
-sys     1m3.467s
