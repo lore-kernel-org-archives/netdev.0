@@ -1,43 +1,47 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: oops/warning report for the week of November 26, 2008
-Date: Thu, 27 Nov 2008 10:01:43 -0800
-Message-ID: <492EE087.80708@linux.intel.com>
-References: <492DD792.6080302@linux.intel.com> <20081127115236.GE29013@elte.hu>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: netfilter 07/29: netns ebtables: ebtable_broute in netns
+Date: Thu, 27 Nov 2008 19:25:57 +0100 (CET)
+Message-ID: <alpine.LNX.1.10.0811271925170.21626@fbirervta.pbzchgretzou.qr>
+References: <20081127161503.13891.62766.sendpatchset@x2.localnet> <20081127161512.13891.85396.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	jesse Barnes <jbarnes@virtuousgeek.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:62239 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751720AbYK0SBu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2008 13:01:50 -0500
-In-Reply-To: <20081127115236.GE29013@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20081127161512.13891.85396.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ingo Molnar wrote:
-> * Arjan van de Ven <arjan@linux.intel.com> wrote:
-> 
->> Rank 8: mtrr_trim_uncached_memory (warning)
->> 	Reported 227 times (619 total reports)
->> 	There is a high number of machines where our MTRR checks 
->> 	trigger. I suspect we are too picky in accepting the MTRR 
->> 	configuration.
-> 
-> the warning here means: "the BIOS messed up but we fixed it up for 
-> you just fine".
 
-I don't believe that right now.
-we see so many of these, including many "there's no MTRRs at all",
-that I am seriously suspecting that our code is just incorrect somehow
-and triggering too much.
+On Thursday 2008-11-27 17:15, Patrick McHardy wrote:
+
+>commit 8157e6d16af86e4a8d31a035db7be02a8a171c26
+>Author: Alexey Dobriyan <adobriyan@gmail.com>
+>Date:   Tue Nov 4 14:29:03 2008 +0100
+>
+>    netfilter: netns ebtables: ebtable_broute in netns
+>    
+>    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+>    Signed-off-by: Patrick McHardy <kaber@trash.net>
+>
+>diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.h
+>index b809397..055e684 100644
+>--- a/include/net/netns/x_tables.h
+>+++ b/include/net/netns/x_tables.h
+>@@ -4,7 +4,10 @@
+> #include <linux/list.h>
+> #include <linux/netfilter.h>
+> 
+>+struct ebt_table;
+>+
+> struct netns_xt {
+> 	struct list_head tables[NFPROTO_NUMPROTO];
+>+	struct ebt_table *broute_table;
+> };
+> #endif
+
+Where are the other tables from ip and ip6? Wait, I think...
+the ebtables definitions should go to ebtables.h, just like
+the ip/ip6 ones went to [not x_tables.h].
 
