@@ -1,65 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hp-plus uses eip_poll
-Date: Thu, 27 Nov 2008 00:26:52 -0800 (PST)
-Message-ID: <20081127.002652.20594788.davem@davemloft.net>
-References: <492CE204.4090904@oracle.com>
-	<20081125.214920.86352252.davem@davemloft.net>
-	<492CE6A4.5040404@oracle.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [Bugme-new] [Bug 12087] New: [drivers/net/cxgb3/sge.c:563]: Possible
+ memory leak: s
+Date: Thu, 27 Nov 2008 00:26:37 -0800
+Message-ID: <492E59BD.8090202@chelsio.com>
+References: <bug-12087-10286@http.bugzilla.kernel.org/> <20081122213532.fe01a22c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk
-To: randy.dunlap@oracle.com
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	danielm77@spray.se, Jay Cliburn <jacliburn@bellsouth.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38408
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752317AbYK0I0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 03:26:52 -0500
-In-Reply-To: <492CE6A4.5040404@oracle.com>
+Received: from stargate.chelsio.com ([12.22.49.110]:19693 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752312AbYK0I1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 03:27:31 -0500
+In-Reply-To: <20081122213532.fe01a22c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Tue, 25 Nov 2008 22:03:16 -0800
-
-> David Miller wrote:
-> > From: Randy Dunlap <randy.dunlap@oracle.com>
-> > Date: Tue, 25 Nov 2008 21:43:32 -0800
-> > 
-> >> David Miller wrote:
-> >>> From: Randy Dunlap <randy.dunlap@oracle.com>
-> >>> Date: Tue, 25 Nov 2008 19:54:00 -0800
-> >>>
-> >>>> From: Randy Dunlap <randy.dunlap@oracle.com>
-> >>>>
-> >>>> hp-plus uses 8390p.c, so it should use eip_poll(), not ei_poll().
-> >>>>
-> >>>> drivers/built-in.o: In function `hpp_probe1':
-> >>>> hp-plus.c:(.init.text+0x9cbd): undefined reference to `ei_poll'
-> >>>>
-> >>>> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> >>> I'll apply this to net-2.6
-> >>>
-> >>> But can you take a look at what I just pushed out to
-> >>> net-next-2.6 wrt. this driver and give me a hand untangling
-> >>> things there?
-> >>>
-> >>> Thanks a lot Randy!
-> >> Looks to me like both of this week's hp-plus patches (one to
-> >> drivers/net/Makefile & one to drivers/net/hp-plus.c) are
-> >> still needed there (unless you applied those patches but
-> >> didn't push or the push isn't showing up yet).
-> > 
-> > Ok.  I will need to merge.
-> > 
-> > But in net-next-2.6 that ->poll_controller is set in the
-> > hp-plus.c driver's netdev_ops structure.  That's what I
-> > wanted you to look at.
+Andrew Morton wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
 > 
-> OK, it still uses ei_poll instead of eip_poll.
-> Needs to be changed.
+> On Sat, 22 Nov 2008 21:11:51 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+> 
+>> http://bugzilla.kernel.org/show_bug.cgi?id=12087
+>>
+>>            Summary: [drivers/net/cxgb3/sge.c:563]: Possible memory leak: s
+>>            Product: Drivers
+>>            Version: 2.5
+>>      KernelVersion: latest git tree
+>>           Platform: All
+>>         OS/Version: Linux
+>>               Tree: Mainline
+>>             Status: NEW
+>>           Severity: normal
+>>           Priority: P1
+>>          Component: Network
+>>         AssignedTo: jgarzik@pobox.com
+>>         ReportedBy: danielm77@spray.se
+>>
+>>
+>> There will be a memory leak in the function alloc_ring when the parameter
+>> sw_size is nonzero and metadata is NULL. I don't know if that can happen.
+>>
+>> Here is the code, taken from the latest git tree.
+>>
+>> static void *alloc_ring(struct pci_dev *pdev, size_t nelem, size_t elem_size,
+>>                         size_t sw_size, dma_addr_t * phys, void *metadata)
+>> {
+>>         size_t len = nelem * elem_size;
+>>         void *s = NULL;
+>>         void *p = dma_alloc_coherent(&pdev->dev, len, phys, GFP_KERNEL);
+>>
+>>         if (!p)
+>>                 return NULL;
+>>         if (sw_size) {
+>>                 s = kcalloc(nelem, sw_size, GFP_KERNEL);
+>>
+>>                 if (!s) {
+>>                         dma_free_coherent(&pdev->dev, len, p, *phys);
+>>                         return NULL;
+>>                 }
+>>         }
+>>         if (metadata)
+>>                 *(void **)metadata = s;
+>>         memset(p, 0, len);
+>>         return p;
+>> }
+>>
+>>
+> 
+> yeah, that is a bit silly-looking.
 
-I took care of this when I merged net-2.6 into net-next-2.6
-a few moments ago.
+The following patch should hopefully take care of this issue:
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=5256554489531f3e177e7308752d8f0681cdd5a6
 
-Thanks Randy!
+Cheers,
+Divy
