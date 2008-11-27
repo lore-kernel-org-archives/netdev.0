@@ -1,50 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 18/29: nfnetlink_log: fix warning and prototype mismatch
-Date: Thu, 27 Nov 2008 17:15:27 +0100 (MET)
-Message-ID: <20081127161527.13891.18626.sendpatchset@x2.localnet>
+Subject: netfilter 28/29: fix warning in net/netfilter/nf_conntrack_proto_tcp.c
+Date: Thu, 27 Nov 2008 17:15:41 +0100 (MET)
+Message-ID: <20081127161541.13891.36600.sendpatchset@x2.localnet>
 References: <20081127161503.13891.62766.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:53424 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753823AbYK0QPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 11:15:42 -0500
 In-Reply-To: <20081127161503.13891.62766.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit d9e150071d18b5c87ba7a097af4063a5ad0c6a0c
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Nov 18 12:16:52 2008 +0100
+commit 65f233fb1669e6c990cd1d7fd308ac7dc66dc207
+Author: Ingo Molnar <mingo@elte.hu>
+Date:   Tue Nov 25 18:20:13 2008 +0100
 
-    netfilter: nfnetlink_log: fix warning and prototype mismatch
+    netfilter: fix warning in net/netfilter/nf_conntrack_proto_tcp.c
     
-    net/netfilter/nfnetlink_log.c:537:1: warning: symbol 'nfulnl_log_packet' was not declared. Should it be static?
+    fix this warning:
     
-    Including the proper header also revealed an incorrect prototype.
+      net/netfilter/nf_conntrack_proto_tcp.c: In function \u2018tcp_in_window\u2019:
+      net/netfilter/nf_conntrack_proto_tcp.c:491: warning: unused variable \u2018net\u2019
+      net/netfilter/nf_conntrack_proto_tcp.c: In function \u2018tcp_packet\u2019:
+      net/netfilter/nf_conntrack_proto_tcp.c:812: warning: unused variable \u2018net\u2019
     
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nfnetlink_log.h b/include/net/netfilter/nfnetlink_log.h
-index 9b67f94..b0569ff 100644
---- a/include/net/netfilter/nfnetlink_log.h
-+++ b/include/net/netfilter/nfnetlink_log.h
-@@ -2,7 +2,7 @@
- #define _KER_NFNETLINK_LOG_H
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+index 7f2f43c..debdaf7 100644
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -129,7 +129,7 @@ extern const struct nla_policy nf_ct_port_nla_policy[];
+ 	 && net_ratelimit())
+ #endif
+ #else
+-#define LOG_INVALID(net, proto) 0
++static inline int LOG_INVALID(struct net *net, int proto) { return 0; }
+ #endif /* CONFIG_SYSCTL */
  
- void
--nfulnl_log_packet(unsigned int pf,
-+nfulnl_log_packet(u_int8_t pf,
- 		  unsigned int hooknum,
- 		  const struct sk_buff *skb,
- 		  const struct net_device *in,
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index a51892b..2770b4e 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -30,6 +30,7 @@
- #include <linux/random.h>
- #include <net/sock.h>
- #include <net/netfilter/nf_log.h>
-+#include <net/netfilter/nfnetlink_log.h>
- 
- #include <asm/atomic.h>
- 
+ #endif /*_NF_CONNTRACK_PROTOCOL_H*/
