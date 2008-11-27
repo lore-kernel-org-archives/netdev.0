@@ -1,53 +1,82 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 2 of 2] netconsole: add write-only tty driver
-Date: Fri, 28 Nov 2008 00:47:01 +0300
-Message-ID: <20081127214701.GA7195@ioremap.net>
-References: <patchbomb.1227820260@localhost.localdomain> <1a5d52ff499998079f4b.1227820262@localhost.localdomain>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: hardware time stamping with extra skb->hwtstamp
+Date: Thu, 27 Nov 2008 23:13:08 +0100
+Message-ID: <492F1B74.8000701@hartkopp.net>
+References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com> <200811271602.16128.opurdila@ixiacom.com> <1227799867.16263.517.camel@ecld0pohly> <200811272053.10009.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, mpm@selenic.com
-To: Hollis Blanchard <hollisb@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Octavian Purdila <opurdila@ixiacom.com>,
+	Patrick Ohly <patrick.ohly@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cet.com.ru ([195.178.208.66]:43204 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752803AbYK0VrE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2008 16:47:04 -0500
-Content-Disposition: inline
-In-Reply-To: <1a5d52ff499998079f4b.1227820262@localhost.localdomain>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:55211 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752559AbYK0WNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 17:13:17 -0500
+In-Reply-To: <200811272053.10009.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+Octavian Purdila wrote:
+> From: Patrick Ohly <patrick.ohly@intel.com>
+> Date: Thu, 27 Nov 2008 16:31:07 +0100
+>
+>   
+>> On Thu, 2008-11-27 at 14:02 +0000, Octavian Purdila wrote:
+>>     
+>>> From: Patrick Ohly <patrick.ohly@intel.com>
+>>> Date: Thu, 27 Nov 2008 11:07:07 +0100
+>>>
+>>>       
+>>>> To summarize, I see the following options at this time:
+>>>>         
+>>> [snip]
+>>>
+>>>       
+>>>> My personal preference is, in this order: 3, 4, 2b (current patch,
+>>>> but needs clean way to find network device), 1a.
+>>>>         
+>>> I also vote for 3 (storing hw timestamps in the skb).
+>>>
+>>>       
 
-Looks good. A short note below.
+4 would be mine.
 
-On Thu, Nov 27, 2008 at 03:11:02PM -0600, Hollis Blanchard (hollisb@us.ibm.com) wrote:
-> +static int __init netconsole_tty_init(void)
-> +{
-> +	netconsole_tty_driver = alloc_tty_driver(1);
-> +	if (!netconsole_tty_driver)
-> +		return -ENOMEM;
-> +
-> +	netconsole_tty_driver->owner = THIS_MODULE;
-> +	netconsole_tty_driver->driver_name = "netcon";
-> +	netconsole_tty_driver->name = "netcon";
-> +	netconsole_tty_driver->minor_start = 0;
-> +	netconsole_tty_driver->type = TTY_DRIVER_TYPE_SYSTEM;
-> +	netconsole_tty_driver->init_termios = tty_std_termios;
-> +	netconsole_tty_driver->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL;
-> +	netconsole_tty_driver->init_termios.c_ispeed = 9600;
-> +	netconsole_tty_driver->init_termios.c_ospeed = 9600;
-> +	netconsole_tty_driver->flags = TTY_DRIVER_REAL_RAW;
-> +	tty_set_operations(netconsole_tty_driver, &netconsole_tty_ops);
-> +
-> +	if (tty_register_driver(netconsole_tty_driver))
-> +		printk(KERN_ERR "Couldn't register netconsole tty driver\n");
-> +
-> +	return 0;
-> +}
-> +device_initcall(netconsole_tty_init);
+I assume, we would get kicked somewhere when we are trying to push 
+*another* 8 bytes into the skb by default ;-]
 
-Would it be better called from init_netconsole()?
 
--- 
-	Evgeniy Polyakov
+> How about this twist: we add a new option at the socket level, to get the 
+> whole skb->head - skb->end data into a user buffer. Then, we call an device 
+> ioctl and pass this buffer. The device will extract the hw timestamp and give 
+> it to the user. 
+>
+> We might not need to get the whole skb->head - skb->end buffer, maybe just skb-
+>   
+>> head - skb->mac if we know that skb->mac is sane at the socket level and we 
+>>     
+> use the convention that the device driver must put the timestamp below the mac 
+> header.
+>
+> One potential problem I see with this approach is leaking sensitive 
+> information into userspace, which means we will have to restrict this to 
+> privileged processes only.
+>
+>   
+
+Ugh.
+
+Not every protocol that uses skbuffs, has a mac header (e.g. the CAN 
+protocol doesn't have mac addresses). This twist does not look very 
+maintainable to me ...
+
+One additional question for Patrick:
+As you wrote that your hw timestamp contained in the new skbuff-field is 
+already cocked ... is there any identifier that tells the userspace 
+application about the type of hw timestamp he gets (e.g. cocked, raw 
+registers, offset to whatever, etc.) ?
+
+Regards,
+Oliver
+
