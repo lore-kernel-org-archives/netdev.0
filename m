@@ -1,93 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 02/39] wimax: declarations for the in-kernel WiMAX API
-Date: Thu, 27 Nov 2008 10:32:03 +0100
-Message-ID: <1227778323.3809.19.camel@johannes.berg>
-References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <68881c1af06f352dc457485c208662a8db62f3fe.1227691434.git.inaky@linux.intel.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 4/6] fs: Introduce a per_cpu nr_inodes
+Date: Thu, 27 Nov 2008 10:32:57 +0100
+Message-ID: <1227778377.4454.1299.camel@twins>
+References: <Pine.LNX.4.64.0811201727070.9089@quilx.com>
+	 <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com>
+	 <20081121.010508.40225532.davem@davemloft.net>
+	 <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com>
+	 <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com>
+	 <20081121153453.GA23713@elte.hu>  <492DDC91.3020503@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ULbUdR3hUcL3Eo6KDbGZ"
-Cc: netdev <netdev@vger.kernel.org>
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
+	kernel-testers@vger.kernel.org, Mike Galbraith <efault@gmx.de>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Christoph Hellwig <hch@infradead.org>, travis <travis@sgi.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:38515 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947AbYK0Jcu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 04:32:50 -0500
-In-Reply-To: <68881c1af06f352dc457485c208662a8db62f3fe.1227691434.git.inaky@linux.intel.com>
+Received: from viefep18-int.chello.at ([213.46.255.22]:56288 "EHLO
+	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276AbYK0JdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 04:33:06 -0500
+In-Reply-To: <492DDC91.3020503@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2008-11-27 at 00:32 +0100, Eric Dumazet wrote:
+> Avoids cache line ping pongs between cpus and prepare next patch,
+> because updates of nr_inodes metric dont need inode_lock anymore.
+> 
+> (socket8 bench result : 25s to 20.5s)
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> ---
 
---=-ULbUdR3hUcL3Eo6KDbGZ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> @@ -96,9 +96,40 @@ static DEFINE_MUTEX(iprune_mutex);
+>   * Statistics gathering..
+>   */
+>  struct inodes_stat_t inodes_stat;
+> +static DEFINE_PER_CPU(int, nr_inodes);
+>  
+>  static struct kmem_cache * inode_cachep __read_mostly;
+>  
+> +int get_nr_inodes(void)
+> +{
+> +	int cpu;
+> +	int counter = 0;
+> +
+> +	for_each_possible_cpu(cpu)
+> +	    counter += per_cpu(nr_inodes, cpu);
+> +	if (counter < 0)
+> +		counter = 0;
+> +	return counter;
+> +}
 
-On Wed, 2008-11-26 at 15:07 -0800, Inaky Perez-Gonzalez wrote:
-
-> + * NOTE: this versioning is a last resort to avoid hard
-> + *    incompatibilities. It is the intention of the design of this
-> + *    stack not to introduce backward incompatible changes.
-> + *
-> + * The version code has to fit in one byte (restrictions imposed by
-> + * generic netlink); we use `version / 10` for the major version and
-> + * `version % 10` for the minor. This gives 9 minors for each major
-> + * and 25 majors.
-> + *
-> + * The version change protocol is as follow:
-> + *
-> + * - Major versions: needs to be increased if an existing message/API
-> + *   call is changed or removed. Doesn't need to be changed if a new
-> + *   message is added.
-> + *
-> + * - Minor verion: needs to be increased if new messages/API calls are
-
-small typo there
-
-> + *   being added or some other consideration that doesn't impact the
-> + *   user-kernel interface too much (like some kind of bug fix) and
-> + *   that is kind of left up in the air to common sense.
-> + *
-> + * User space code should not try to work if the major version it was
-> + * compiled for differs from what the kernel offers. As well, if the
-> + * minor version of the kernel interface is lower than the one user
-> + * space is expecting (the one it was compiled for), the kernel
-> + * might be missing API calls; user space shall be ready to handle
-> + * said condition.
-> + *
-> + * libwimax:wimax_open() takes care of checking versions.
-
-Why bother versioning the API? Since this is generic netlink, and things
-are looked up by the family name, a completely new version would just
-use a new family name and be done with it, old userspace won't even
-_find_ that new "version" of the API. The "minor version" seems also
-useless, either you can do the change in a backward compatible way or
-you cannot and need to provide compat code.
-
-I'd just remove this.
-
-johannes
-
---=-ULbUdR3hUcL3Eo6KDbGZ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJLmkPAAoJEKVg1VMiehFYdRUP+wb4bxx4FCwxvk1odAjUbOfQ
-6baQ48op99kN7ysbGLJ6mUg+vKWgCkb6aIdTFhFBkgeco9fjzTYCJjVwD2ZH5+pn
-keh48bpri8ziFSpYJ7fjLhZNozGTnMtz722evtf9DI2+Z2/g7i6UMDeEbPMGo3aZ
-+gQluUGHjYQp6+LgznfyMupR4uLbVU2M74Z9ZbzrJjZ3kAiTqyHZ73EAszF+4g8b
-cbjPEOJiavR78VHVxP2Dol40hrxNNhCQWsbCQMWsxAeLf35ndksRGotutKyyMHRY
-MepIKnXQURKCduZbvumh54e1bzK21quIk9okNEv+nMG21V8IuGQ//MGMaUkmRHxd
-iOJj1hdtxiMg/AOtO2u2G772RzP2V6mGgJBdxZyZHikY7gCTMhBmo3LFi/KJ40kK
-/GsrfHlWTlqxPTAL9MijF1+fGJb+Zm2YNuadjYFzEcdzj2UHuJwOMJqJC8BxId5o
-8jBk2DvyIpsMd6d3FDTsJ7OpK0qqKzfHxit0bw1Rrzk0WBQdUjdyAExMVqixHOym
-lKdkMz7taLg6X6BB3Xz+xhv6az1L49Li8Id/l0jQf2yLr2nyz8tTgzCk36aECxuG
-iG7i+a/Y3a0vbciC4xC84CEvDQ4T1HzAcbpBIyUlTqmS2LFC4X+Es1MmT/+Bj348
-Wkzoxh25jEuaXlquDX/6
-=1366
------END PGP SIGNATURE-----
-
---=-ULbUdR3hUcL3Eo6KDbGZ--
+It would be good to get a cpu hotplug handler here and move to
+for_each_online_cpu(). People are wanting distro's to be build with
+NR_CPUS=4096.
 
