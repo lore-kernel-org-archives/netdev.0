@@ -1,37 +1,88 @@
-From: Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH 0/6] fs: Scalability of sockets/pipes allocation/deallocation
- on SMP
-Date: Wed, 26 Nov 2008 19:37:17 -0600 (CST)
-Message-ID: <Pine.LNX.4.64.0811261935330.31159@quilx.com>
-References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu>
- <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net>
- <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com>
- <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com>
- <20081121153453.GA23713@elte.hu> <492DDB6A.8090806@cosmosbay.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 1/2] ethtool: Show short message for syntax error
+Date: Thu, 27 Nov 2008 04:11:12 +0000
+Message-ID: <20081127041112.GK15344@decadentplace.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <492DDB6A.8090806-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On Thu, 27 Nov 2008, Eric Dumazet wrote:
-
-> The last point is about SLUB being hit hard, unless we
-> use slub_min_order=3 at boot, or we use Christoph Lameter
-> patch (struct file RCU optimizations)
-> http://thread.gmane.org/gmane.linux.kernel/418615
->
-> If we boot machine with slub_min_order=3, SLUB overhead disappears.
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="a8sldprk+5E/pDEv"
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:1242 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752119AbYK0Evv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 23:51:51 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-I'd rather not be that drastic. Did you try increasing slub_min_objects
-instead? Try 40-100. If we find the right number then we should update
-the tuning to make sure that it pickes the right slab page sizes.
+--a8sldprk+5E/pDEv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+In case of a syntax error it's likely to be more helpful to just say
+that rather than showing the entire usage information, which is now
+very long.
+
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+This change has been in Debian for some years, made in response to
+bug report http://bugs.debian.org/256249
+
+Ben.
+
+--- ethtool-6+20080227.orig/ethtool.c
++++ ethtool-6+20080227/ethtool.c
+@@ -196,15 +196,24 @@
+ static void show_usage(int badarg)
+ {
+ 	int i;
+-	fprintf(stderr, PACKAGE " version " VERSION "\n");
+-	fprintf(stderr,
++	if (badarg !=3D 0) {
++		fprintf(stderr,
++			"ethtool: bad command line argument(s)\n"
++			"For more information run ethtool -h\n"
++		);
++	}
++	else {
++		/* ethtool -h */
++		fprintf(stdout, PACKAGE " version " VERSION "\n");
++		fprintf(stdout,
+ 		"Usage:\n"
+ 		"ethtool DEVNAME\tDisplay standard information about device\n");
+-	for (i =3D 0; args[i].srt; i++) {
+-		fprintf(stderr, "        ethtool %s|%s DEVNAME\t%s\n%s",
+-			args[i].srt, args[i].lng,
+-			args[i].help,
+-			args[i].opthelp ? args[i].opthelp : "");
++		for (i =3D 0; args[i].srt; i++) {
++			fprintf(stdout, "        ethtool %s|%s DEVNAME\t%s\n%s",
++				args[i].srt, args[i].lng,
++				args[i].help,
++				args[i].opthelp ? args[i].opthelp : "");
++		}
+ 	}
+ 	exit(badarg);
+ }
+
+--=20
+Ben Hutchings
+Time is nature's way of making sure that everything doesn't happen at once.
+
+--a8sldprk+5E/pDEv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFJLh3g79ZNCRIGYgcRArp7AJ4pPK0tnq484r+oZ8F/sc/EtDjEzwCeKrsd
+IQiAcF9EoQeB+FhnU+7Rrs4=
+=P2P1
+-----END PGP SIGNATURE-----
+
+--a8sldprk+5E/pDEv--
