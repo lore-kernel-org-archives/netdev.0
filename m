@@ -1,52 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6] fs: Introduce special dentries for pipes, socket,
- anon fd
-Date: Thu, 27 Nov 2008 00:20:15 -0800 (PST)
-Message-ID: <20081127.002015.221466656.davem@davemloft.net>
-References: <492DDC5C.1050602@cosmosbay.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 5/6] fs: Introduce special inodes
+Date: Thu, 27 Nov 2008 00:20:46 -0800 (PST)
+Message-ID: <20081127.002046.25550570.davem@davemloft.net>
+References: <4926D39D.9050603@cosmosbay.com>
+	<20081121153453.GA23713@elte.hu>
+	<492DDC99.5060106@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	kernel-testers@vger.kernel.org, efault@gmx.de,
-	a.p.zijlstra@chello.nl, netdev@vger.kernel.org,
-	cl@linux-foundation.org, hch@infradead.org
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38420
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752474AbYK0IUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 03:20:15 -0500
-In-Reply-To: <492DDC5C.1050602@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo-X9Un+BFzKDI@public.gmane.org, rjw-KKrjLPT3xs0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, efault-Mmb7MZpHnFY@public.gmane.org,
+	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+To: dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <492DDC99.5060106-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 27 Nov 2008 00:31:40 +0100
+From: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Date: Thu, 27 Nov 2008 00:32:41 +0100
 
-> Sockets, pipes and anonymous fds have interesting properties.
- ...
-> This patch defines a new DCACHE_SPECIAL flag, to mark a dentry as
-> a special one (for sockets, pipes, anonymous fd), and a new
-> d_alloc_special(const struct qstr *name, struct inode *inode)
-> method, called by the three subsystems.
+> Goal of this patch is to not touch inode_lock for socket/pipes/anonfd
+>  inodes allocation/freeing.
 > 
-> Internally, dput() can take a fast path to dput_special() for
-> special dentries, avoiding an expensive atomic_dec_and_lock()
+>  In new_inode(), we test if super block has MS_SPECIAL flag set.
+>  If yes, we dont put inode in "inode_in_use" list nor "sb->s_inodes" list
+>  As inode_lock was taken only to protect these lists, we avoid it as well
 > 
-> Differences betwen a special dentry and a normal one are :
+>  Using iput_special() from dput_special() avoids taking inode_lock
+>  at freeing time.
 > 
-> 1) Special dentry has the DCACHE_SPECIAL flag
-> 2) Special dentry's parent are themselves.
->    This to avoid taking a reference on 'root' dentry, shared
->    by too many dentries.
-> 3) They are not hashed into global hash table
-> 4) Their d_alias list is empty
+>  This patch has a very noticeable effect, because we avoid dirtying of three contended cache lines in new_inode(), and five cache lines
+>  in iput()
 > 
-> (socket8 bench result : from 27.5s to 24s)
+> Note: Not sure if we can use MS_SPECIAL=MS_NOUSER, or if we
+> really need a different flag.
 > 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> (socket8 bench result : from 20.5s to 2.94s) 
+> 
+> Signed-off-by: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
 
-Networking bits look fine:
+No problem with networking part:
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
