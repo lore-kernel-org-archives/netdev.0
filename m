@@ -1,57 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 23/29: ip{,6}t_policy.h should include xp_policy.h
-Date: Thu, 27 Nov 2008 17:15:34 +0100 (MET)
-Message-ID: <20081127161534.13891.33306.sendpatchset@x2.localnet>
+Subject: netfilter 29/29: fix warning in net/netfilter/nf_conntrack_ftp.c
+Date: Thu, 27 Nov 2008 17:15:42 +0100 (MET)
+Message-ID: <20081127161542.13891.8102.sendpatchset@x2.localnet>
 References: <20081127161503.13891.62766.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53421 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753571AbYK0QPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 11:15:35 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20081127161503.13891.62766.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 018a7bf1e55000dd792194238c9043918d24d3dd
-Author: Andy Whitcroft <apw@canonical.com>
-Date:   Thu Nov 20 15:59:56 2008 +0100
+commit d6e8cc6cc7ac77b0f9118f78c453a2e834e62709
+Author: Ingo Molnar <mingo@elte.hu>
+Date:   Tue Nov 25 18:23:03 2008 +0100
 
-    netfilter: ip{,6}t_policy.h should include xp_policy.h
+    netfilter: fix warning in net/netfilter/nf_conntrack_ftp.c
     
-    It seems that all of the include/netfilter_{ipv4,ipv6}/{ipt,ip6t}_*.h which
-    share constants include the corresponding include/netfilter/xp_*.h files.
-    Neither ipt_policy.h not ip6t_policy.h do.  Make these consistant with
-    the norm.
+    this warning:
     
-    Signed-off-by: Andy Whitcroft <apw@canonical.com>
+      net/netfilter/nf_conntrack_ftp.c: In function 'help':
+      net/netfilter/nf_conntrack_ftp.c:360: warning: 'matchoff' may be used uninitialized in this function
+      net/netfilter/nf_conntrack_ftp.c:360: warning: 'matchlen' may be used uninitialized in this function
+    
+    triggers because GCC does not recognize the (correct) error flow
+    between find_pattern(), 'found', 'matchoff' and 'matchlen'.
+    
+    Annotate it.
+    
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter_ipv4/ipt_policy.h b/include/linux/netfilter_ipv4/ipt_policy.h
-index b9478a2..1037fb2 100644
---- a/include/linux/netfilter_ipv4/ipt_policy.h
-+++ b/include/linux/netfilter_ipv4/ipt_policy.h
-@@ -1,6 +1,8 @@
- #ifndef _IPT_POLICY_H
- #define _IPT_POLICY_H
- 
-+#include <linux/netfilter/xt_policy.h>
-+
- #define IPT_POLICY_MAX_ELEM		XT_POLICY_MAX_ELEM
- 
- /* ipt_policy_flags */
-diff --git a/include/linux/netfilter_ipv6/ip6t_policy.h b/include/linux/netfilter_ipv6/ip6t_policy.h
-index 6bab316..b1c449d 100644
---- a/include/linux/netfilter_ipv6/ip6t_policy.h
-+++ b/include/linux/netfilter_ipv6/ip6t_policy.h
-@@ -1,6 +1,8 @@
- #ifndef _IP6T_POLICY_H
- #define _IP6T_POLICY_H
- 
-+#include <linux/netfilter/xt_policy.h>
-+
- #define IP6T_POLICY_MAX_ELEM		XT_POLICY_MAX_ELEM
- 
- /* ip6t_policy_flags */
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 867cad6..00fecc3 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -358,7 +358,7 @@ static int help(struct sk_buff *skb,
+ 	int ret;
+ 	u32 seq;
+ 	int dir = CTINFO2DIR(ctinfo);
+-	unsigned int matchlen, matchoff;
++	unsigned int uninitialized_var(matchlen), uninitialized_var(matchoff);
+ 	struct nf_ct_ftp_master *ct_ftp_info = &nfct_help(ct)->help.ct_ftp_info;
+ 	struct nf_conntrack_expect *exp;
+ 	union nf_inet_addr *daddr;
