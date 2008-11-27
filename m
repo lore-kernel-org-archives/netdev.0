@@ -1,45 +1,50 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m driver v2
-Date: Thu, 27 Nov 2008 08:51:56 -0800
-Message-ID: <200811270851.56450.inaky@linux.intel.com>
-References: <cover.1227691434.git.inaky@linux.intel.com> <1227783281.3809.78.camel@johannes.berg>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: oops/warning report for the week of November 26, 2008
+Date: Thu, 27 Nov 2008 09:02:12 -0800
+Message-ID: <200811270902.18020.jbarnes@virtuousgeek.org>
+References: <492DD792.6080302@linux.intel.com> <20081127115236.GE29013@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:51733 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754509AbYK0Qwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 11:52:37 -0500
-In-Reply-To: <1227783281.3809.78.camel@johannes.berg>
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+	Yinghai Lu <yinghai@kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753056AbYK0RCc@vger.kernel.org>
+In-Reply-To: <20081127115236.GE29013@elte.hu>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-Hi There
-
-On Thursday 27 November 2008, Johannes Berg wrote:
-> Hi,
+On Thursday, November 27, 2008 3:52 am Ingo Molnar wrote:
+> * Arjan van de Ven <arjan@linux.intel.com> wrote:
+> > Rank 8: mtrr_trim_uncached_memory (warning)
+> > 	Reported 227 times (619 total reports)
+> > 	There is a high number of machines where our MTRR checks
+> > 	trigger. I suspect we are too picky in accepting the MTRR
+> > 	configuration.
 >
-> Thanks for this work. I don't personally have much of an interest in
-> wimax, so I don't really care what you do, so take things I have said
-> and will say with a grain of salt. It's not my intention to say "you've
-> done it all wrong", but more to offer observations on how these things
-> were done in wifi and how it went all wrong there, requiring a complete
-> rewrite recently.
+> the warning here means: "the BIOS messed up but we fixed it up for
+> you just fine".
+>
+> Should we print a DMI descriptor so that it can be tracked back to the
+> bad BIOSen in question? Or should we (partially) silence the warning
+> itself? Those BIOS bugs need fixing really: older kernels will boot up
+> with bad MTRR settings - resulting in a super-slow system or other
+> weirdnesses. We can tone down the message so that it doesnt show up in
+> kerneloops.org. It's up to you.
 
-Thanks, I really appreciate the level of review (from you, Patrik and Thomas).
-
-Many of the comments you guys have are solved by documenting why things were
-done, others require work, others are remnants that I missed to clean up. 
-
-It's Thanksgiving weekend here in the US, so I most probably will wait for
-Monday to address all your guys concerns -- just sending this so you don't
-think I don't care :) I do.
+I actually think we're doing something wrong here, since so many platforms 
+have this behavior.  It's likely that there's an undocumented, additional 
+check needed to determine whether a slot is hot pluggable.  Matthew Garrett 
+recently posted a patch to check for ACPI _RMV methods, which should be an 
+improvement.  I'll be putting that into linux-next soon for testing.
 
 -- 
-Inaky
+Jesse Barnes, Intel Open Source Technology Center
