@@ -1,299 +1,80 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 05/29: netns ebtables: part 2
-Date: Thu, 27 Nov 2008 17:15:09 +0100 (MET)
-Message-ID: <20081127161509.13891.18728.sendpatchset@x2.localnet>
+Subject: netfilter 11/29: nf_nat: remove warn_if_extra_mangle
+Date: Thu, 27 Nov 2008 17:15:18 +0100 (MET)
+Message-ID: <20081127161518.13891.2929.sendpatchset@x2.localnet>
 References: <20081127161503.13891.62766.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53360 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752222AbYK0QPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 11:15:10 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20081127161503.13891.62766.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 6beceee5aa2cb94c4ae9f0784c7d3135d343f5b5
-Author: Alexey Dobriyan <adobriyan@gmail.com>
-Date:   Tue Nov 4 14:27:15 2008 +0100
+commit 6e3354c1e9946fa585de40e93ad917ec7abd006e
+Author: Simon Arlott <simon@fire.lp0.eu>
+Date:   Tue Nov 4 14:35:39 2008 +0100
 
-    netfilter: netns ebtables: part 2
+    netfilter: nf_nat: remove warn_if_extra_mangle
     
-    * return ebt_table from ebt_register_table(), module code will save it into
-      per-netns data for unregistration
-    * duplicate ebt_table at the very beginning of registration -- it's added into
-      list, so one ebt_table wouldn't end up in many lists (and each netns has
-      different one)
-    * introduce underscored tables in individial modules, this is temporary to not
-      break bisection.
+    In net/ipv4/netfilter/nf_nat_rule.c, the function warn_if_extra_mangle was added
+    in commit 5b1158e909ecbe1a052203e0d8df15633f829930 (2006-12-02). I have a DNAT
+    target in the OUTPUT chain than changes connections with dst 2.0.0.1 to another
+    address which I'll substitute with 66.102.9.99 below.
     
-    Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+    On every boot I get the following message:
+    [  146.252505] NAT: no longer support implicit source local NAT
+    [  146.252517] NAT: packet src 66.102.9.99 -> dst 2.0.0.1
+    
+    As far as I can tell from reading the function doing this, it should warn if the
+    source IP for the route to 66.102.9.99 is different from 2.0.0.1 but that is not
+    the case. It doesn't make sense to check the DNAT target against the local route
+    source.
+    
+    Either the function should be changed to correctly check the route, or it should
+    be removed entirely as it's been nearly 2 years since it was added.
+    
+    Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
-index 624e788..e40ddb9 100644
---- a/include/linux/netfilter_bridge/ebtables.h
-+++ b/include/linux/netfilter_bridge/ebtables.h
-@@ -300,7 +300,8 @@ struct ebt_table
- 
- #define EBT_ALIGN(s) (((s) + (__alignof__(struct ebt_replace)-1)) & \
- 		     ~(__alignof__(struct ebt_replace)-1))
--extern int ebt_register_table(struct net *net, struct ebt_table *table);
-+extern struct ebt_table *ebt_register_table(struct net *net,
-+					    struct ebt_table *table);
- extern void ebt_unregister_table(struct ebt_table *table);
- extern unsigned int ebt_do_table(unsigned int hook, struct sk_buff *skb,
-    const struct net_device *in, const struct net_device *out,
-diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
-index 1731ce8..3277d68 100644
---- a/net/bridge/netfilter/ebtable_broute.c
-+++ b/net/bridge/netfilter/ebtable_broute.c
-@@ -41,22 +41,23 @@ static int check(const struct ebt_table_info *info, unsigned int valid_hooks)
- 	return 0;
+diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
+index a4f1c34..cf95469 100644
+--- a/net/ipv4/netfilter/nf_nat_rule.c
++++ b/net/ipv4/netfilter/nf_nat_rule.c
+@@ -86,24 +86,6 @@ ipt_snat_target(struct sk_buff *skb, const struct xt_target_param *par)
+ 	return nf_nat_setup_info(ct, &mr->range[0], IP_NAT_MANIP_SRC);
  }
  
--static struct ebt_table broute_table =
-+static struct ebt_table __broute_table =
- {
- 	.name		= "broute",
- 	.table		= &initial_table,
- 	.valid_hooks	= 1 << NF_BR_BROUTING,
--	.lock		= __RW_LOCK_UNLOCKED(broute_table.lock),
-+	.lock		= __RW_LOCK_UNLOCKED(__broute_table.lock),
- 	.check		= check,
- 	.me		= THIS_MODULE,
- };
-+static struct ebt_table *broute_table;
- 
- static int ebt_broute(struct sk_buff *skb)
- {
- 	int ret;
- 
- 	ret = ebt_do_table(NF_BR_BROUTING, skb, skb->dev, NULL,
--	   &broute_table);
-+	   broute_table);
- 	if (ret == NF_DROP)
- 		return 1; /* route it */
- 	return 0; /* bridge it */
-@@ -64,21 +65,19 @@ static int ebt_broute(struct sk_buff *skb)
- 
- static int __init ebtable_broute_init(void)
- {
--	int ret;
+-/* Before 2.6.11 we did implicit source NAT if required. Warn about change. */
+-static void warn_if_extra_mangle(struct net *net, __be32 dstip, __be32 srcip)
+-{
+-	static int warned = 0;
+-	struct flowi fl = { .nl_u = { .ip4_u = { .daddr = dstip } } };
+-	struct rtable *rt;
 -
--	ret = ebt_register_table(&init_net, &broute_table);
--	if (ret < 0)
--		return ret;
-+	broute_table = ebt_register_table(&init_net, &__broute_table);
-+	if (IS_ERR(broute_table))
-+		return PTR_ERR(broute_table);
- 	/* see br_input.c */
- 	rcu_assign_pointer(br_should_route_hook, ebt_broute);
--	return ret;
-+	return 0;
- }
- 
- static void __exit ebtable_broute_fini(void)
- {
- 	rcu_assign_pointer(br_should_route_hook, NULL);
- 	synchronize_net();
--	ebt_unregister_table(&broute_table);
-+	ebt_unregister_table(broute_table);
- }
- 
- module_init(ebtable_broute_init);
-diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
-index af8953c..596564c 100644
---- a/net/bridge/netfilter/ebtable_filter.c
-+++ b/net/bridge/netfilter/ebtable_filter.c
-@@ -50,21 +50,22 @@ static int check(const struct ebt_table_info *info, unsigned int valid_hooks)
- 	return 0;
- }
- 
--static struct ebt_table frame_filter =
-+static struct ebt_table __frame_filter =
- {
- 	.name		= "filter",
- 	.table		= &initial_table,
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(frame_filter.lock),
-+	.lock		= __RW_LOCK_UNLOCKED(__frame_filter.lock),
- 	.check		= check,
- 	.me		= THIS_MODULE,
- };
-+static struct ebt_table *frame_filter;
- 
+-	if (ip_route_output_key(net, &rt, &fl) != 0)
+-		return;
+-
+-	if (rt->rt_src != srcip && !warned) {
+-		printk("NAT: no longer support implicit source local NAT\n");
+-		printk("NAT: packet src %pI4 -> dst %pI4\n", &srcip, &dstip);
+-		warned = 1;
+-	}
+-	ip_rt_put(rt);
+-}
+-
  static unsigned int
- ebt_hook(unsigned int hook, struct sk_buff *skb, const struct net_device *in,
-    const struct net_device *out, int (*okfn)(struct sk_buff *))
+ ipt_dnat_target(struct sk_buff *skb, const struct xt_target_param *par)
  {
--	return ebt_do_table(hook, skb, in, out, &frame_filter);
-+	return ebt_do_table(hook, skb, in, out, frame_filter);
+@@ -119,11 +101,6 @@ ipt_dnat_target(struct sk_buff *skb, const struct xt_target_param *par)
+ 	/* Connection must be valid and new. */
+ 	NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED));
+ 
+-	if (par->hooknum == NF_INET_LOCAL_OUT &&
+-	    mr->range[0].flags & IP_NAT_RANGE_MAP_IPS)
+-		warn_if_extra_mangle(dev_net(par->out), ip_hdr(skb)->daddr,
+-				     mr->range[0].min_ip);
+-
+ 	return nf_nat_setup_info(ct, &mr->range[0], IP_NAT_MANIP_DST);
  }
  
- static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
-@@ -95,19 +96,19 @@ static int __init ebtable_filter_init(void)
- {
- 	int ret;
- 
--	ret = ebt_register_table(&init_net, &frame_filter);
--	if (ret < 0)
--		return ret;
-+	frame_filter = ebt_register_table(&init_net, &__frame_filter);
-+	if (IS_ERR(frame_filter))
-+		return PTR_ERR(frame_filter);
- 	ret = nf_register_hooks(ebt_ops_filter, ARRAY_SIZE(ebt_ops_filter));
- 	if (ret < 0)
--		ebt_unregister_table(&frame_filter);
-+		ebt_unregister_table(frame_filter);
- 	return ret;
- }
- 
- static void __exit ebtable_filter_fini(void)
- {
- 	nf_unregister_hooks(ebt_ops_filter, ARRAY_SIZE(ebt_ops_filter));
--	ebt_unregister_table(&frame_filter);
-+	ebt_unregister_table(frame_filter);
- }
- 
- module_init(ebtable_filter_init);
-diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
-index bafe160..0d8fc5b 100644
---- a/net/bridge/netfilter/ebtable_nat.c
-+++ b/net/bridge/netfilter/ebtable_nat.c
-@@ -50,28 +50,29 @@ static int check(const struct ebt_table_info *info, unsigned int valid_hooks)
- 	return 0;
- }
- 
--static struct ebt_table frame_nat =
-+static struct ebt_table __frame_nat =
- {
- 	.name		= "nat",
- 	.table		= &initial_table,
- 	.valid_hooks	= NAT_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(frame_nat.lock),
-+	.lock		= __RW_LOCK_UNLOCKED(__frame_nat.lock),
- 	.check		= check,
- 	.me		= THIS_MODULE,
- };
-+static struct ebt_table *frame_nat;
- 
- static unsigned int
- ebt_nat_dst(unsigned int hook, struct sk_buff *skb, const struct net_device *in
-    , const struct net_device *out, int (*okfn)(struct sk_buff *))
- {
--	return ebt_do_table(hook, skb, in, out, &frame_nat);
-+	return ebt_do_table(hook, skb, in, out, frame_nat);
- }
- 
- static unsigned int
- ebt_nat_src(unsigned int hook, struct sk_buff *skb, const struct net_device *in
-    , const struct net_device *out, int (*okfn)(struct sk_buff *))
- {
--	return ebt_do_table(hook, skb, in, out, &frame_nat);
-+	return ebt_do_table(hook, skb, in, out, frame_nat);
- }
- 
- static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
-@@ -102,19 +103,19 @@ static int __init ebtable_nat_init(void)
- {
- 	int ret;
- 
--	ret = ebt_register_table(&init_net, &frame_nat);
--	if (ret < 0)
--		return ret;
-+	frame_nat = ebt_register_table(&init_net, &__frame_nat);
-+	if (IS_ERR(frame_nat))
-+		return PTR_ERR(frame_nat);
- 	ret = nf_register_hooks(ebt_ops_nat, ARRAY_SIZE(ebt_ops_nat));
- 	if (ret < 0)
--		ebt_unregister_table(&frame_nat);
-+		ebt_unregister_table(frame_nat);
- 	return ret;
- }
- 
- static void __exit ebtable_nat_fini(void)
- {
- 	nf_unregister_hooks(ebt_ops_nat, ARRAY_SIZE(ebt_ops_nat));
--	ebt_unregister_table(&frame_nat);
-+	ebt_unregister_table(frame_nat);
- }
- 
- module_init(ebtable_nat_init);
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index c1a82b2..82e1752 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1098,7 +1098,7 @@ free_newinfo:
- 	return ret;
- }
- 
--int ebt_register_table(struct net *net, struct ebt_table *table)
-+struct ebt_table *ebt_register_table(struct net *net, struct ebt_table *table)
- {
- 	struct ebt_table_info *newinfo;
- 	struct ebt_table *t;
-@@ -1110,14 +1110,21 @@ int ebt_register_table(struct net *net, struct ebt_table *table)
- 	    repl->entries_size == 0 ||
- 	    repl->counters || table->private) {
- 		BUGPRINT("Bad table data for ebt_register_table!!!\n");
--		return -EINVAL;
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	/* Don't add one table to multiple lists. */
-+	table = kmemdup(table, sizeof(struct ebt_table), GFP_KERNEL);
-+	if (!table) {
-+		ret = -ENOMEM;
-+		goto out;
- 	}
- 
- 	countersize = COUNTER_OFFSET(repl->nentries) * nr_cpu_ids;
- 	newinfo = vmalloc(sizeof(*newinfo) + countersize);
- 	ret = -ENOMEM;
- 	if (!newinfo)
--		return -ENOMEM;
-+		goto free_table;
- 
- 	p = vmalloc(repl->entries_size);
- 	if (!p)
-@@ -1149,7 +1156,7 @@ int ebt_register_table(struct net *net, struct ebt_table *table)
- 
- 	if (table->check && table->check(newinfo, table->valid_hooks)) {
- 		BUGPRINT("The table doesn't like its own initial data, lol\n");
--		return -EINVAL;
-+		return ERR_PTR(-EINVAL);
- 	}
- 
- 	table->private = newinfo;
-@@ -1173,7 +1180,7 @@ int ebt_register_table(struct net *net, struct ebt_table *table)
- 	}
- 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
- 	mutex_unlock(&ebt_mutex);
--	return 0;
-+	return table;
- free_unlock:
- 	mutex_unlock(&ebt_mutex);
- free_chainstack:
-@@ -1185,7 +1192,10 @@ free_chainstack:
- 	vfree(newinfo->entries);
- free_newinfo:
- 	vfree(newinfo);
--	return ret;
-+free_table:
-+	kfree(table);
-+out:
-+	return ERR_PTR(ret);
- }
- 
- void ebt_unregister_table(struct ebt_table *table)
-@@ -1206,6 +1216,7 @@ void ebt_unregister_table(struct ebt_table *table)
- 		vfree(table->private->chainstack);
- 	}
- 	vfree(table->private);
-+	kfree(table);
- }
- 
- /* userspace just supplied us with counters */
