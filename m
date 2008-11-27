@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-NEXT PATCH 1/5] igb: link up/down messages must follow a
- specific format
-Date: Thu, 27 Nov 2008 03:34:15 -0800 (PST)
-Message-ID: <20081127.033415.82840693.davem@davemloft.net>
-References: <20081127000206.22431.53339.stgit@gitlost.lost>
-	<87r64x30je.fsf@basil.nowhere.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m driver v2
+Date: Thu, 27 Nov 2008 12:47:53 +0100
+Message-ID: <87k5ap2xw6.fsf@basil.nowhere.org>
+References: <cover.1227691434.git.inaky@linux.intel.com>
+	<1227783281.3809.78.camel@johannes.berg>
+	<00E41CD2-3C1B-4B39-8720-698DBC236CE8@holtmann.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com
-To: andi@firstfloor.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Inaky Perez-Gonzalez <inaky@linux.intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42187
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752339AbYK0LeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 06:34:15 -0500
-In-Reply-To: <87r64x30je.fsf@basil.nowhere.org>
+Received: from one.firstfloor.org ([213.235.205.2]:36170 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752599AbYK0Lrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 06:47:48 -0500
+In-Reply-To: <00E41CD2-3C1B-4B39-8720-698DBC236CE8@holtmann.org> (Marcel Holtmann's message of "Thu, 27 Nov 2008 12:14:30 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Thu, 27 Nov 2008 11:50:45 +0100
+Marcel Holtmann <marcel@holtmann.org> writes:
+>
+> Either we do Ethernet framing or a pure IP device. I am for the pure
+> IP device with a separate ARP header (which we managed to get
+> allocated). Wrapping everything into Ethernet only because dhclient is
+> broken is not an answer. An alternate option would be a point-to-point
 
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
-> 
-> > From: Alexander Duyck <alexander.h.duyck@intel.com>
-> >
-> > The system log messages created on a link status change need to follow a
-> > specific format to work with tools some customers use.
-> 
-> It would be better to define standard helper functions that output this
-> format somewhere. Then this could be also used in other drivers.
+It's not only dhclient, but also lots of other raw packet users like
+tcpdump etc.
 
-He's already been told this.
+> device like the HSO driver or PPP is using. However then the usage of
+> DHCP becomes a lot more trickier.
+
+I personally think user convenience is more important at least short term.
+It's also not that the pseudo header is that much overhead.
+
+-Andi
+-- 
+ak@linux.intel.com
