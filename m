@@ -1,39 +1,38 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: oops/warning report for the week of November 26, 2008
-Date: Wed, 26 Nov 2008 16:05:37 -0800
-Message-ID: <200811261605.43099.jbarnes@virtuousgeek.org>
-References: <492DD792.6080302@linux.intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [NET-NEXT PATCH] igb: Add support for pci-e Advanced Error
+ Reporting
+Date: Wed, 26 Nov 2008 16:54:14 -0800
+Message-ID: <20081126165414.673a35bb@extreme>
+References: <20081127000441.22613.99805.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Arjan van de Ven <arjan@linux.intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-mail-02.bluehost.com ([69.89.21.12]:58836 "HELO
-	outbound-mail-02.bluehost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752808AbYK0AFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Nov 2008 19:05:46 -0500
-In-Reply-To: <492DD792.6080302@linux.intel.com>
-Content-Disposition: inline
+Received: from mail.vyatta.com ([76.74.103.46]:35928 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750696AbYK0Ay1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Nov 2008 19:54:27 -0500
+In-Reply-To: <20081127000441.22613.99805.stgit@gitlost.lost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 26, 2008 3:11 pm Arjan van de Ven wrote:
-> Rank 2: pci_create_slot (warning)
-> 	Reported 603 times (639 total reports)
-> 	BIOS provided duplicated slot names, the PCI layer blindly passes to sysfs
-> 	This warning was last seen in version 2.6.27.5, and first seen in
-> 2.6.27-rc7-git1. More info:
-> http://www.kerneloops.org/searchweek.php?search=pci_create_slot
+On Wed, 26 Nov 2008 16:04:41 -0800
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-IIRC we fixed this one post-2.6.27.  I didn't send the patches back to -stable 
-because they were a bit big, but if someone were sufficiently motiviated I'm 
-sure the backport wouldn't be that hard...
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> Add the calls necessary to enable advanced error reporting for igb on
+> systems with AER enabled.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Jesse
+Does kernel AER work without mmconfig?
+I ran into problems and gave up trying to get it work with sky2
+because too many systems don't have working PCI mmconfig access
+and the necessary registers are >= 256 and therefore won't work
+without mmconfig.
