@@ -1,205 +1,116 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] phy: add the ST ste10Xp PHYs
-Date: Thu, 27 Nov 2008 14:57:35 +0100
-Message-ID: <1227794255-19924-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: [PATCH] virtio_net: large tx MTU support
+Date: Thu, 27 Nov 2008 13:57:05 +0000
+Message-ID: <1227794225.24571.36.camel@blaa>
+References: <1227707891.9579.44.camel@blaa>
+	 <200811272300.58151.rusty@rustcorp.com.au>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	virtualization <virtualization@lists.linux-foundation.org>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:48711 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753417AbYK0N6B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 08:58:01 -0500
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 58687DB3B
-	for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 13:57:52 +0000 (GMT)
-Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 7745D4C283
-	for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 13:57:52 +0000 (GMT)
+Received: from mx2.redhat.com ([66.187.237.31]:54351 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753446AbYK0N63 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Nov 2008 08:58:29 -0500
+In-Reply-To: <200811272300.58151.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the STMicroelectronics ste10xp PHY device driver.
-It supports both the ste100p and the ste101p devices.
+Hi Rusty,
 
-Suspend/resume alredy added.
+On Thu, 2008-11-27 at 23:00 +1030, Rusty Russell wrote:
+> On Thursday 27 November 2008 00:28:11 Mark McLoughlin wrote:
+> > We don't really have a max tx packet size limit, so allow configuring
+> > the device with up to 64k tx MTU.
+> 
+> Hi Mark,
+> 
+> Just one comment: maybe we should be conservative and maybe limit to 1500 if 
+> the host doesn't offer any of the GSO or MRG_RXBUF features?
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+That was actually what I was going to do until I thought about it a bit
+more and discussed it with Herbert.
+
+The virtio_net MTU only affects the transmit path, so there shouldn't be
+any issue with a host that doesn't support those features.
+
+The MTU on the receive path is a different story - e.g. the host needs
+to have a large enough buffer when reading from the tap fd and the guest
+needs to have allocated large enough receive buffers. The former we
+fixed recently in KVM (we used to only have a 64k buffer if built with
+IFF_VNET_HDR support) and the latter is currently only true if either
+GSO or MRG_RXBUF has been negotiated.
+
+So, in summary - making change_mtu() check for GSO and MRG_RXBUF isn't
+correct, but perhaps we could do it anyway so as to give the user a hint
+that a large MTU isn't going to work on the receive path. If you feel
+that's best, here's another version.
+
+Cheers,
+Mark.
+
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: [PATCH] virtio_net: large tx MTU support
+
+We don't really have a max tx packet size limit, so allow configuring
+the device with up to 64k tx MTU.
+
+On the receive path, we can only handle a large MTU if we negotiate
+GSO or MRG_RXBUF with the host. In order to give the user some hint
+as to this limitation, we also limit the transmit path to a smaller
+MTU if neither of those features are available.
+
+Signed-off-by: Mark McLoughlin <markmc@redhat.com>
 ---
- drivers/net/phy/Kconfig   |    6 ++
- drivers/net/phy/Makefile  |    1 +
- drivers/net/phy/ste10Xp.c |  137 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 144 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/ste10Xp.c
+ drivers/net/virtio_net.c |   24 ++++++++++++++++++++++++
+ 1 files changed, 24 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 0923c8f..6ccf9e6 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -71,6 +71,12 @@ config NATIONAL_PHY
- 	---help---
- 	  Currently supports the DP83865 PHY.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index e6b5d6e..499c7a5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -613,6 +613,29 @@ static struct ethtool_ops virtnet_ethtool_ops = {
+ 	.set_tso = ethtool_op_set_tso,
+ };
  
-+config STE10XP
-+	depends on PHYLIB
-+	tristate "Driver for STMicroelectronics STe10Xp PHYs"
-+	---help---
-+	  This is the driver for the STe100p and STe101p PHYs.
++#define MIN_MTU 68
++#define MAX_MTU 65535
 +
- config FIXED_PHY
- 	bool "Driver for MDIO Bus/PHY emulation with fixed speed/link PHYs"
- 	depends on PHYLIB=y
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 5c53ca5..babe76e 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -17,3 +17,4 @@ obj-$(CONFIG_FIXED_PHY)		+= fixed.o
- obj-$(CONFIG_MDIO_BITBANG)	+= mdio-bitbang.o
- obj-$(CONFIG_MDIO_OF_GPIO)	+= mdio-ofgpio.o
- obj-$(CONFIG_NATIONAL_PHY)	+= national.o
-+obj-$(CONFIG_STE10XP)		+= ste10Xp.o
-diff --git a/drivers/net/phy/ste10Xp.c b/drivers/net/phy/ste10Xp.c
-new file mode 100644
-index 0000000..0733151
---- /dev/null
-+++ b/drivers/net/phy/ste10Xp.c
-@@ -0,0 +1,137 @@
-+/*
-+ * drivers/net/phy/ste10Xp.c
-+ *
-+ * Driver for STMicroelectronics STe10Xp PHYs
-+ *
-+ * Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-+ *
-+ * Copyright (c) 2008 STMicroelectronics Limited
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/sched.h>
-+#include <linux/kernel.h>
-+#include <linux/moduleparam.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/mii.h>
-+#include <linux/phy.h>
-+
-+#define MII_XCIIS   	0x11	/* Configuration Info IRQ & Status Reg */
-+#define MII_XIE     	0x12	/* Interrupt Enable Register */
-+#define MII_XIE_DEFAULT_MASK 0x0070 /* ANE complete, Remote Fault, Link Down */
-+
-+#define STE101P_PHY_ID		0x00061c50
-+#define STE100P_PHY_ID       	0x1c040011
-+
-+static int ste10Xp_config_init(struct phy_device *phydev)
++static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
 +{
-+	int value, err;
++	struct virtnet_info *vi = netdev_priv(dev);
++	int max_mtu;
 +
-+	/* Software Reset PHY */
-+	value = phy_read(phydev, MII_BMCR);
-+	if (value < 0)
-+		return value;
++	/* Only allow a large MTU if we know we have a chance
++	 * of also supporting that MTU on the receive side. */
++	if (vi->mergeable_rx_bufs || vi->big_packets)
++		max_mtu = MAX_MTU;
++	else
++		max_mtu = ETH_DATA_LEN;
 +
-+	value |= BMCR_RESET;
-+	err = phy_write(phydev, MII_BMCR, value);
-+	if (err < 0)
-+		return err;
++	if (new_mtu < MIN_MTU || new_mtu > max_mtu)
++		return -EINVAL;
 +
-+	do {
-+		value = phy_read(phydev, MII_BMCR);
-+	} while (value & BMCR_RESET);
++	dev->mtu = new_mtu;
 +
 +	return 0;
 +}
 +
-+static int ste10Xp_config_intr(struct phy_device *phydev)
-+{
-+	int err, value;
-+
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
-+		/* Enable all STe101P interrupts (PR12) */
-+		err = phy_write(phydev, MII_XIE, MII_XIE_DEFAULT_MASK);
-+		/* clear any pending interrupts */
-+		if (err == 0) {
-+			value = phy_read(phydev, MII_XCIIS);
-+			if (value < 0)
-+				err = value;
-+		}
-+	} else
-+		err = phy_write(phydev, MII_XIE, 0);
-+
-+	return err;
-+}
-+
-+static int ste10Xp_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err = phy_read(phydev, MII_XCIIS);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static struct phy_driver ste101p_pdriver = {
-+	.phy_id = STE101P_PHY_ID,
-+	.phy_id_mask = 0xfffffff0,
-+	.name = "STe101p",
-+	.features = PHY_BASIC_FEATURES | SUPPORTED_Pause,
-+	.flags = PHY_HAS_INTERRUPT,
-+	.config_init = ste10Xp_config_init,
-+	.config_aneg = genphy_config_aneg,
-+	.read_status = genphy_read_status,
-+	.ack_interrupt = ste10Xp_ack_interrupt,
-+	.config_intr = ste10Xp_config_intr,
-+	.suspend = genphy_suspend,
-+	.resume = genphy_resume,
-+	.driver = {.owner = THIS_MODULE,}
-+};
-+
-+static struct phy_driver ste100p_pdriver = {
-+	.phy_id = STE100P_PHY_ID,
-+	.phy_id_mask = 0xffffffff,
-+	.name = "STe100p",
-+	.features = PHY_BASIC_FEATURES | SUPPORTED_Pause,
-+	.flags = PHY_HAS_INTERRUPT,
-+	.config_init = ste10Xp_config_init,
-+	.config_aneg = genphy_config_aneg,
-+	.read_status = genphy_read_status,
-+	.ack_interrupt = ste10Xp_ack_interrupt,
-+	.config_intr = ste10Xp_config_intr,
-+	.suspend = genphy_suspend,
-+	.resume = genphy_resume,
-+	.driver = {.owner = THIS_MODULE,}
-+};
-+
-+static int __init ste10Xp_init(void)
-+{
-+	int retval;
-+
-+	retval = phy_driver_register(&ste100p_pdriver);
-+	if (retval < 0)
-+		return retval;
-+	return phy_driver_register(&ste101p_pdriver);
-+}
-+
-+static void __exit ste10Xp_exit(void)
-+{
-+	phy_driver_unregister(&ste100p_pdriver);
-+	phy_driver_unregister(&ste101p_pdriver);
-+}
-+
-+module_init(ste10Xp_init);
-+module_exit(ste10Xp_exit);
-+
-+MODULE_DESCRIPTION("STMicroelectronics STe10Xp PHY driver");
-+MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
-+MODULE_LICENSE("GPL");
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+ 	int err;
+@@ -628,6 +651,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	dev->open = virtnet_open;
+ 	dev->stop = virtnet_close;
+ 	dev->hard_start_xmit = start_xmit;
++	dev->change_mtu = virtnet_change_mtu;
+ 	dev->features = NETIF_F_HIGHDMA;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	dev->poll_controller = virtnet_netpoll;
 -- 
-1.5.6.5
+1.6.0.3
 
