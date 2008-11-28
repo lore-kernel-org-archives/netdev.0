@@ -1,28 +1,60 @@
-From: "Meyers, William H." <meyersw@missouri.edu>
-Subject: Your mailbox is over its size limit?
-Date: Fri, 28 Nov 2008 06:51:35 -0600
-Message-ID: <86D9287576DA554AB71293427BBAA06E04D44707@UM-XMAIL05.um.umsystem.edu>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: hardware time stamping with extra skb->hwtstamp
+Date: Fri, 28 Nov 2008 14:55:32 +0200
+Message-ID: <200811281455.32744.opurdila@ixiacom.com>
+References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com> <200811272053.10009.opurdila@ixiacom.com> <492F1B74.8000701@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick Ohly <patrick.ohly@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxnip01-missouri-out.um.umsystem.edu ([209.106.229.53]:19623
-	"EHLO mxnip01-missouri-out.um.umsystem.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750895AbYK1Mvo convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Nov 2008 07:51:44 -0500
-Content-class: urn:content-classes:message
+Received: from ixia01.ro.gtsce.net ([212.146.94.66]:6298 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750755AbYK1NAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 08:00:05 -0500
+In-Reply-To: <492F1B74.8000701@hartkopp.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your mailbox has exceeded one or more size limits set by your administrator. You may not be able to receive new mail until you reduce your mailbox size. To make more space available, contact your System Administrator through E-mail with your USERNAME:{ } and PASSWORD: { }
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Thu, 27 Nov 2008 23:13:08 +0100
 
-System Administrator
-E-mail: accountmaintenance@hotmail.co.uk
+> > How about this twist: we add a new option at the socket level, to get the
+> > whole skb->head - skb->end data into a user buffer. Then, we call an
+> > device ioctl and pass this buffer. The device will extract the hw
+> > timestamp and give it to the user.
+> >
+> > We might not need to get the whole skb->head - skb->end buffer, maybe
+> > just skb->head - skb->mac if we know that skb->mac is sane at the socket 
+>> level and we use the convention that the device driver must put the 
+>> timestamp below the mac header.
+> >
+> > One potential problem I see with this approach is leaking sensitive
+> > information into userspace, which means we will have to restrict this to
+> > privileged processes only.
+>
+> Ugh.
+>
+> Not every protocol that uses skbuffs, has a mac header (e.g. the CAN
+> protocol doesn't have mac addresses). 
 
-You will continue to receive this warning message periodically if your inbox size continues to exceed its size limit.
+OK, then what about this: we use a device ioctl to get the number of bytes to 
+copy from skb->head. We then pass this to the socket level option.
+
+This is more complicated than option 3 or 4, but it should address the 
+concerns raised here - no performance impact when not using this feature. The 
+trade-off is moving work from core kernel into userspace and device driver. 
+
+> This twist does not look very maintainable to me ...
+
+Could you elaborate on the maintainability issues, they are not clear to me.
 
 
-This email is intended only for the use of the individual or entity to which it is addressed and contains information that is privileged and confidential.
+Thanks,
+tavi
+
 
