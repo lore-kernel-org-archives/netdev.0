@@ -1,28 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] decnet: compile fix for removal of byteorder wrapper
-Date: Thu, 27 Nov 2008 23:04:23 -0800 (PST)
-Message-ID: <20081127.230423.185132606.davem@davemloft.net>
-References: <1227836478.5477.2.camel@brick>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: netfilter 07/29: netns ebtables: ebtable_broute in netns
+Date: Fri, 28 Nov 2008 11:02:08 +0300
+Message-ID: <20081128080208.GB3495@x200.localdomain>
+References: <20081127161503.13891.62766.sendpatchset@x2.localnet> <20081127161512.13891.85396.sendpatchset@x2.localnet> <alpine.LNX.1.10.0811271925170.21626@fbirervta.pbzchgretzou.qr> <492EE6B4.4030900@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ioe-lkml@rameria.de, swhiteho@redhat.com, netdev@vger.kernel.org
-To: harvey.harrison@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh@medozas.de>, davem@davemloft.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60207
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751340AbYK1HEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 02:04:23 -0500
-In-Reply-To: <1227836478.5477.2.camel@brick>
+Received: from ik-out-1112.google.com ([66.249.90.183]:35831 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842AbYK1H6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 02:58:08 -0500
+Received: by ik-out-1112.google.com with SMTP id c29so1073944ika.5
+        for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 23:58:07 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <492EE6B4.4030900@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Thu, 27 Nov 2008 17:41:18 -0800
+On Thu, Nov 27, 2008 at 07:28:04PM +0100, Patrick McHardy wrote:
+> [CCed Alexey]
+>
+> Jan Engelhardt wrote:
+>> On Thursday 2008-11-27 17:15, Patrick McHardy wrote:
+>>
+>>> commit 8157e6d16af86e4a8d31a035db7be02a8a171c26
+>>> Author: Alexey Dobriyan <adobriyan@gmail.com>
+>>> Date:   Tue Nov 4 14:29:03 2008 +0100
+>>>
+>>>    netfilter: netns ebtables: ebtable_broute in netns
+>>>       Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+>>>    Signed-off-by: Patrick McHardy <kaber@trash.net>
+>>>
+>>> diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.h
+>>> index b809397..055e684 100644
+>>> --- a/include/net/netns/x_tables.h
+>>> +++ b/include/net/netns/x_tables.h
+>>> @@ -4,7 +4,10 @@
+>>> #include <linux/list.h>
+>>> #include <linux/netfilter.h>
+>>>
+>>> +struct ebt_table;
+>>> +
+>>> struct netns_xt {
+>>> 	struct list_head tables[NFPROTO_NUMPROTO];
+>>> +	struct ebt_table *broute_table;
+>>> };
+>>> #endif
+>>
+>> Where are the other tables from ip and ip6? Wait, I think...
+>> the ebtables definitions should go to ebtables.h, just like
+>> the ip/ip6 ones went to [not x_tables.h].
 
-> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> ---
-> Sorry Dave, I actually had a dirty working tree with an extra
-> copy of unaligned.h as unalignedh so it compiled here.
+I haven't bothered with new file for 3 pointers.
 
-Applied.
+When net.bridge.* sysctls will be made per-netns, definitely.
