@@ -1,80 +1,173 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH net-next 1/3] niu: use net_device_stats nowadays available in net_device
-Date: Fri, 28 Nov 2008 19:53:36 +0200
-Message-ID: <12278948183224-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
+Subject: Re: [PATCH 6/6] fs: Introduce kern_mount_special() to mount
+	special vfs
+Date: Fri, 28 Nov 2008 19:02:20 +0100
+Message-ID: <20081128180220.GK10487@elte.hu>
+References: <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDCAB.1070204@cosmosbay.com> <20081128092604.GL28946@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:55102 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491AbYK1Rxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 12:53:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, rth-hL46jP5Bxq7R7s880joybQ@public.gmane.org,
+	ink-biIs/Y0ymYJMZLIVYojuPNP0rXTJTi09@public.gmane.org
+To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20081128092604.GL28946-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- drivers/net/niu.c |   16 ++++++++--------
- drivers/net/niu.h |    1 -
- 2 files changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 2f98f7a..022866d 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -6078,10 +6078,10 @@ static void niu_get_rx_stats(struct niu *np)
- 		dropped +=3D rp->rx_dropped;
- 		errors +=3D rp->rx_errors;
- 	}
--	np->net_stats.rx_packets =3D pkts;
--	np->net_stats.rx_bytes =3D bytes;
--	np->net_stats.rx_dropped =3D dropped;
--	np->net_stats.rx_errors =3D errors;
-+	np->dev->stats.rx_packets =3D pkts;
-+	np->dev->stats.rx_bytes =3D bytes;
-+	np->dev->stats.rx_dropped =3D dropped;
-+	np->dev->stats.rx_errors =3D errors;
- }
-=20
- static void niu_get_tx_stats(struct niu *np)
-@@ -6097,9 +6097,9 @@ static void niu_get_tx_stats(struct niu *np)
- 		bytes +=3D rp->tx_bytes;
- 		errors +=3D rp->tx_errors;
- 	}
--	np->net_stats.tx_packets =3D pkts;
--	np->net_stats.tx_bytes =3D bytes;
--	np->net_stats.tx_errors =3D errors;
-+	np->dev->stats.tx_packets =3D pkts;
-+	np->dev->stats.tx_bytes =3D bytes;
-+	np->dev->stats.tx_errors =3D errors;
- }
-=20
- static struct net_device_stats *niu_get_stats(struct net_device *dev)
-@@ -6109,7 +6109,7 @@ static struct net_device_stats *niu_get_stats(str=
-uct net_device *dev)
- 	niu_get_rx_stats(np);
- 	niu_get_tx_stats(np);
-=20
--	return &np->net_stats;
-+	return &dev->stats;
- }
-=20
- static void niu_load_hash_xmac(struct niu *np, u16 *hash)
-diff --git a/drivers/net/niu.h b/drivers/net/niu.h
-index cf449aa..e1a7392 100644
---- a/drivers/net/niu.h
-+++ b/drivers/net/niu.h
-@@ -3249,7 +3249,6 @@ struct niu {
- 	spinlock_t			lock;
-=20
- 	const struct niu_ops		*ops;
--	struct net_device_stats		net_stats;
- 	union niu_mac_stats		mac_stats;
-=20
- 	struct rx_ring_info		*rx_rings;
---=20
-1.5.2.2
+* Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org> wrote:
 
+> On Thu, Nov 27, 2008 at 12:32:59AM +0100, Eric Dumazet wrote:
+> > This function arms a flag (MNT_SPECIAL) on the vfs, to avoid
+> > refcounting on permanent system vfs.
+> > Use this function for sockets, pipes, anonymous fds.
+> 
+> IMO that's pushing it past the point of usefulness; unless you can show
+> that this really gives considerable win on pipes et.al. *AND* that it
+> doesn't hurt other loads...
+
+The numbers look pretty convincing:
+
+> >  (socket8 bench result : from 2.94s to 2.23s)
+
+And i wouldnt expect it to hurt real-filesystem workloads.
+
+Here's the contemporary trace of a typical ext3- sys_open():
+
+ 0)               |  sys_open() {
+ 0)               |    do_sys_open() {
+ 0)               |      getname() {
+ 0)      0.367 us |        kmem_cache_alloc();
+ 0)               |        strncpy_from_user(); {
+ 0)               |          _cond_resched() {
+ 0)               |            need_resched() {
+ 0)      0.363 us |              constant_test_bit();
+ 0)      1. 47 us |            }
+ 0)      1.815 us |          }
+ 0)      2.587 us |        }
+ 0)      4. 22 us |      }
+ 0)               |      alloc_fd() {
+ 0)      0.480 us |        _spin_lock();
+ 0)      0.487 us |        expand_files();
+ 0)      2.356 us |      }
+ 0)               |      do_filp_open() {
+ 0)               |        path_lookup_open() {
+ 0)               |          get_empty_filp() {
+ 0)      0.439 us |            kmem_cache_alloc();
+ 0)               |            security_file_alloc() {
+ 0)      0.316 us |              cap_file_alloc_security();
+ 0)      1. 87 us |            }
+ 0)      3.189 us |          }
+ 0)               |          do_path_lookup() {
+ 0)      0.366 us |            _read_lock();
+ 0)               |            path_walk() {
+ 0)               |              __link_path_walk() {
+ 0)               |                inode_permission() {
+ 0)               |                  ext3_permission() {
+ 0)      0.441 us |                    generic_permission();
+ 0)      1.247 us |                  }
+ 0)               |                  security_inode_permission() {
+ 0)      0.411 us |                    cap_inode_permission();
+ 0)      1.186 us |                  }
+ 0)      3.555 us |                }
+ 0)               |                do_lookup() {
+ 0)               |                  __d_lookup() {
+ 0)      0.486 us |                    _spin_lock();
+ 0)      1.369 us |                  }
+ 0)      0.442 us |                  __follow_mount();
+ 0)      3. 14 us |                }
+ 0)               |                path_to_nameidata() {
+ 0)      0.476 us |                  dput();
+ 0)      1.235 us |                }
+ 0)               |                inode_permission() {
+ 0)               |                  ext3_permission() {
+ 0)               |                    generic_permission() {
+ 0)               |                      in_group_p() {
+ 0)      0.410 us |                        groups_search();
+ 0)      1.172 us |                      }
+ 0)      1.994 us |                    }
+ 0)      2.789 us |                  }
+ 0)               |                  security_inode_permission() {
+ 0)      0.454 us |                    cap_inode_permission();
+ 0)      1.238 us |                  }
+ 0)      5.262 us |                }
+ 0)               |                do_lookup() {
+ 0)               |                  __d_lookup() {
+ 0)      0.480 us |                    _spin_lock();
+ 0)      1.621 us |                  }
+ 0)      0.456 us |                  __follow_mount();
+ 0)      3.215 us |                }
+ 0)               |                path_to_nameidata() {
+ 0)      0.420 us |                  dput();
+ 0)      1.193 us |                }
+ 0) +   23.551 us |              }
+ 0)               |              path_put() {
+ 0)      0.420 us |                dput();
+ 0)               |                mntput() {
+ 0)      0.359 us |                  mntput_no_expire();
+ 0)      1. 50 us |                }
+ 0)      2.544 us |              }
+ 0) +   27.253 us |            }
+ 0) +   28.850 us |          }
+ 0) +   33.217 us |        }
+ 0)               |        may_open() {
+ 0)               |          inode_permission() {
+ 0)               |            ext3_permission() {
+ 0)      0.480 us |              generic_permission();
+ 0)      1.229 us |            }
+ 0)               |            security_inode_permission() {
+ 0)      0.405 us |              cap_inode_permission();
+ 0)      1.196 us |            }
+ 0)      3.589 us |          }
+ 0)      4.600 us |        }
+ 0)               |        nameidata_to_filp() {
+ 0)               |          __dentry_open() {
+ 0)               |            file_move() {
+ 0)      0.470 us |              _spin_lock();
+ 0)      1.243 us |            }
+ 0)               |            security_dentry_open() {
+ 0)      0.344 us |              cap_dentry_open();
+ 0)      1.139 us |            }
+ 0)      0.412 us |            generic_file_open();
+ 0)      0.561 us |            file_ra_state_init();
+ 0)      5.714 us |          }
+ 0)      6.483 us |        }
+ 0) +   46.494 us |      }
+ 0)      0.453 us |      inotify_dentry_parent_queue_event();
+ 0)      0.403 us |      inotify_inode_queue_event();
+ 0)               |      fd_install() {
+ 0)      0.440 us |        _spin_lock();
+ 0)      1.247 us |      }
+ 0)               |      putname() {
+ 0)               |        kmem_cache_free() {
+ 0)               |          virt_to_head_page() {
+ 0)      0.369 us |            constant_test_bit();
+ 0)      1. 23 us |          }
+ 0)      1.738 us |        }
+ 0)      2.422 us |      }
+ 0) +   60.560 us |    }
+ 0) +   61.368 us |  }
+
+and here's a sys_close():
+
+ 0)               |  sys_close() {
+ 0)      0.540 us |    _spin_lock();
+ 0)               |    filp_close() {
+ 0)      0.437 us |      dnotify_flush();
+ 0)      0.401 us |      locks_remove_posix();
+ 0)      0.349 us |      fput();
+ 0)      2.679 us |    }
+ 0)      4.452 us |  }
+
+i'd be surprised to see a flag to show up in that codepath. Eric, does 
+your testing confirm that?
+
+	Ingo
