@@ -1,59 +1,83 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: netfilter 07/29: netns ebtables: ebtable_broute in netns
-Date: Fri, 28 Nov 2008 11:02:08 +0300
-Message-ID: <20081128080208.GB3495@x200.localdomain>
-References: <20081127161503.13891.62766.sendpatchset@x2.localnet> <20081127161512.13891.85396.sendpatchset@x2.localnet> <alpine.LNX.1.10.0811271925170.21626@fbirervta.pbzchgretzou.qr> <492EE6B4.4030900@trash.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: oops/warning report for the week of November 26, 2008
+Date: Fri, 28 Nov 2008 09:34:15 +0100
+Message-ID: <20081128083415.GA1131@elte.hu>
+References: <492DD792.6080302@linux.intel.com> <20081127115236.GE29013@elte.hu> <492EE087.80708@linux.intel.com> <20081127201836.GA16869@elte.hu> <20081127122800.45fc0b1a@linux.intel.com> <20081127204714.GA25875@elte.hu> <20081127125301.3cb1e282@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@medozas.de>, davem@davemloft.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Yinghai Lu <yinghai@kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	jesse Barnes <jbarnes@virtuousgeek.org>,
+	"H. Peter Anvin" <hpa@zytor.com>
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:35831 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750842AbYK1H6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 02:58:08 -0500
-Received: by ik-out-1112.google.com with SMTP id c29so1073944ika.5
-        for <netdev@vger.kernel.org>; Thu, 27 Nov 2008 23:58:07 -0800 (PST)
+Received: from mx3.mail.elte.hu ([157.181.1.138]:49851 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752328AbYK1Iey (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Nov 2008 03:34:54 -0500
 Content-Disposition: inline
-In-Reply-To: <492EE6B4.4030900@trash.net>
+In-Reply-To: <20081127125301.3cb1e282@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 27, 2008 at 07:28:04PM +0100, Patrick McHardy wrote:
-> [CCed Alexey]
->
-> Jan Engelhardt wrote:
->> On Thursday 2008-11-27 17:15, Patrick McHardy wrote:
->>
->>> commit 8157e6d16af86e4a8d31a035db7be02a8a171c26
->>> Author: Alexey Dobriyan <adobriyan@gmail.com>
->>> Date:   Tue Nov 4 14:29:03 2008 +0100
->>>
->>>    netfilter: netns ebtables: ebtable_broute in netns
->>>       Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
->>>    Signed-off-by: Patrick McHardy <kaber@trash.net>
->>>
->>> diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.h
->>> index b809397..055e684 100644
->>> --- a/include/net/netns/x_tables.h
->>> +++ b/include/net/netns/x_tables.h
->>> @@ -4,7 +4,10 @@
->>> #include <linux/list.h>
->>> #include <linux/netfilter.h>
->>>
->>> +struct ebt_table;
->>> +
->>> struct netns_xt {
->>> 	struct list_head tables[NFPROTO_NUMPROTO];
->>> +	struct ebt_table *broute_table;
->>> };
->>> #endif
->>
->> Where are the other tables from ip and ip6? Wait, I think...
->> the ebtables definitions should go to ebtables.h, just like
->> the ip/ip6 ones went to [not x_tables.h].
 
-I haven't bothered with new file for 3 pointers.
+* Arjan van de Ven <arjan@linux.intel.com> wrote:
 
-When net.bridge.* sysctls will be made per-netns, definitely.
+> On Thu, 27 Nov 2008 21:47:14 +0100
+> Ingo Molnar <mingo@elte.hu> wrote:
+> 
+> > IIRC the problem is that vmware _does_ claim that it supports MTRRs. 
+> 
+> it might.
+> but even if they would fix that, we would still WARN (
+> at least we should do our side correctly...
+
+As pointed out in other parts of the thread, that is not the case.
+
+Anyway, as i said it in the onset, if you think we should remove the 
+warning altogether, or tweak it, we can do that - it is important to 
+have relevant warnings show up in kerneloops.org.
+
+To sum it up: the only remaining MTRR warnings we know of are either:
+
+ 1) apparently genuine BIOS bugs that do cause problems if the (new) 
+    kernel does not fix them up.
+
+    The MTRR warning is relevant and correct in those cases.
+
+or:
+
+ 2) sucky virtualization solutions that cheat the guest OS by faking 
+    "MTRR support" in the CPUID info, but not actually showing any 
+    MTRRs. These virtualization solutions do not even properly 
+    identify themselves to the kernel.
+
+    The MTRR warning is unnecessary in this case.
+
+So what we did in the x86 tree was remove the warning in the second 
+case - is to properly identify vmware (and in general, virtualization) 
+guests.
+
+It was not a simple oneliner:
+
+ earth4:~/tip> gll linus..x86/detect-hyper
+
+ 4e42ebd: x86: hypervisor - fix sparse warnings
+ c450d78: x86: vmware - fix sparse warnings
+ fd8cd7e: x86: vmware: look for DMI string in the product serial key
+ 6bdbfe9: x86: VMware: Fix vmware_get_tsc code
+ 395628e: x86: Skip verification by the watchdog for TSC clocksource.
+ eca0cd0: x86: Add a synthetic TSC_RELIABLE feature bit.
+ 88b094f: x86: Hypervisor detection and get tsc_freq from hypervisor
+ 49ab56a: x86: add X86_FEATURE_HYPERVISOR feature bit
+ b2bcc7b: x86: add a synthetic TSC_RELIABLE feature bit
+
+and it will benefit vmware guests in many more areas than just a 
+sharper MTRR warning message. That code is queued up for v2.6.29.
+
+	Ingo
