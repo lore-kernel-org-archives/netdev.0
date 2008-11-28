@@ -1,68 +1,111 @@
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
-Date: Fri, 28 Nov 2008 01:49:31 -0700 (MST)
-Message-ID: <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
-References: <1227706578-5449-1-git-send-email-catab@embedromix.ro>
-    <Pine.LNX.4.64.0811260636100.26650@wm7d.net>
-    <37809.91.201.80.240.1227769089.squirrel@mail.embedromix.ro>
-    <Pine.LNX.4.64.0811270754290.32640@wm7d.net>
+From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Subject: Re: [PATCH 6/6] fs: Introduce kern_mount_special() to mount
+	special vfs
+Date: Fri, 28 Nov 2008 09:26:04 +0000
+Message-ID: <20081128092604.GL28946@ZenIV.linux.org.uk>
+References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDCAB.1070204@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Catalin M. BOIE" <catab@embedromix.ro>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: "Joseph Mack NA3T" <jmack@wm7d.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0811270754290.32640@wm7d.net>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, rth-hL46jP5Bxq7R7s880joybQ@public.gmane.org,
+	ink-biIs/Y0ymYJMZLIVYojuPNP0rXTJTi09@public.gmane.org
+To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <492DDCAB.1070204-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Nov 27, 2008 at 12:32:59AM +0100, Eric Dumazet wrote:
+> This function arms a flag (MNT_SPECIAL) on the vfs, to avoid
+> refcounting on permanent system vfs.
+> Use this function for sockets, pipes, anonymous fds.
 
-> On Wed, 26 Nov 2008, Catalin(ux) M. BOIE wrote:
->
->>> Why do you need to change the hash size? We really don't
->>> recommend anyone do this under normal circumstances
->>
->> As it is written in the help, to lower the collisions in
->> the case of a lot of concurrent connections. Or am I
->> missing something?
->
-> not sure how big the collision problem is (have you measured
-> an effect?) but Ratz put out the results of a back of the
-> envelope calculation that the current value for the hash
-> table size would work on the currect fastest machines with
-> 3G of memory
+IMO that's pushing it past the point of usefulness; unless you can show
+that this really gives considerable win on pipes et.al. *AND* that it
+doesn't hurt other loads...
 
-Hello, Joe!
+dput() part: again, I want to see what happens on other loads; it's probably
+fine (and win is certainly more than from mntput() change), but...  The
+thing is, atomic_dec_and_lock() in there is often done on dentries with
+d_count > 1 and that's fairly cheap (and doesn't involve contention on
+dcache_lock on sane targets).
 
-No, I did not measure it, but, I read the help text:
+FWIW, unless there's a really good reason to do alpha atomic_dec_and_lock()
+in a special way, I'd try to compare with
+        if (atomic_add_unless(&dentry->d_count, -1, 1))
+                return;
+	if (your flag)
+		sod off to special
+	spin_lock(&dcache_lock);
+	if (atomic_dec_and_test(&dentry->d_count)) {
+		spin_unlock(&dcache_lock);
+		return;
+	}
+	the rest as usual
 
-Note the table size must be power of 2. The table size will be the
-value of 2 to the your input number power. The number to choose is
-from 8 to 20, the default number is 12, which means the table size
-is 4096. Don't input the number too small, otherwise you will lose
-performance on it. You can adapt the table size yourself, according
-to your virtual server application. It is good to set the table size
-not far less than the number of connections per second multiplying
-average lasting time of connection in the table.  For example, your
-virtual server gets 200 connections per second, the connection lasts
-for 200 seconds in average in the connection table, the table size
-should be not far less than 200x200, it is good to set the table
-size 32768 (2**15).
+	As for the alpha... unless I'm misreading the assembler in
+arch/alpha/lib/dec_and_lock.c, it looks like we have essentially an
+implementation of atomic_add_unless() in there and one that just
+might be better than what we've got in arch/alpha/include/asm/atomic.h.
+How about
+1:	ldl_l	x, addr
+	cmpne	x, u, y	/* y = x != u */
+	beq	y, 3f	/* if !y -> bugger off, return 0 */
+	addl	x, a, y
+	stl_c	y, addr	/* y <- *addr has not changed since ldl_l */
+	beq	y, 2f
+3:	/* return value is in y */
+.subsection 2 /* out of the way */
+2:	br	1b
+.previous
+for atomic_add_unless() guts?  With that we are rid of HAVE_DEC_LOCK and
+get a uniform implementation of atomic_dec_and_lock() for all targets...
 
-The help is wrong or I am missing something?
+AFAICS, that would be
+static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
+{
+	unsigned long temp, res;
+	__asm__ __volatile__(
+	"1:     ldl_l %0,%1\n"
+	"       cmpne %0,%4,%2\n"
+	"       beq %4,3f\n"
+	"       addl %0,%3,%4\n"
+	"       stl_c %2,%1\n"
+	"       beq %2,2f\n"
+	"3:\n"
+        ".subsection 2\n"
+        "2:     br 1b\n"
+        ".previous"
+        :"=&r" (temp), "=m" (v->counter), "=&r" (res)
+        :"Ir" (a), "Ir" (u), "m" (v->counter) : "memory");
+	smp_mb();
+	return res;
+}
 
-> Joe
->
-> --
-> Joseph Mack NA3T EME(B,D), FM05lw North Carolina
-> jmack (at) wm7d (dot) net - azimuthal equidistant map
-> generator at http://www.wm7d.net/azproj.shtml
-> Homepage http://www.austintek.com/ It's GNU/Linux!
->
+static __inline__ int atomic64_add_unless(atomic64_t *v, long a, long u)
+{
+	unsigned long temp, res;
+	__asm__ __volatile__(
+	"1:     ldq_l %0,%1\n"
+	"       cmpne %0,%4,%2\n"
+	"       beq %4,3f\n"
+	"       addq %0,%3,%4\n"
+	"       stq_c %2,%1\n"
+	"       beq %2,2f\n"
+	"3:\n"
+        ".subsection 2\n"
+        "2:     br 1b\n"
+        ".previous"
+        :"=&r" (temp), "=m" (v->counter), "=&r" (res)
+        :"Ir" (a), "Ir" (u), "m" (v->counter) : "memory");
+	smp_mb();
+	return res;
+}
 
-
--- 
-Catalin(ux) M. BOIE
-http://kernel.embedromix.ro/
-
+Comments?
