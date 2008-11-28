@@ -1,14 +1,41 @@
-From: MrSongLile43@comcast.net
-Subject: I am Mr Songlile i have business proposal  of 19,500,000.00 contact my private email for more details Email: mrsonglile22@yahoo.com.hk
-Date: Fri, 28 Nov 2008 14:41:44 +0000
-Message-ID: <112820081441.4787.4930032800094C92000012B32206999735CCCB0A0407B4090201AC9DB3@comcast.net>
-To: unlisted-recipients:; (no To-header on input)
+From: Joseph Mack NA3T <jmack@wm7d.net>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Fri, 28 Nov 2008 06:55:16 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0811280653570.21298@wm7d.net>
+References: <1227706578-5449-1-git-send-email-catab@embedromix.ro>   
+ <Pine.LNX.4.64.0811260636100.26650@wm7d.net>   
+ <37809.91.201.80.240.1227769089.squirrel@mail.embedromix.ro>   
+ <Pine.LNX.4.64.0811270754290.32640@wm7d.net>
+ <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:40511
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751691AbYK1Or7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 09:47:59 -0500
+Received: from wm7d.net ([216.23.171.251]:51315 "EHLO wm7d.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752082AbYK1OzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Nov 2008 09:55:20 -0500
+In-Reply-To: <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 28 Nov 2008, Catalin(ux) M. BOIE wrote:
 
+> Hello, Joe!
+>
+> No, I did not measure it, but, I read the help text:
+.
+.
+> The help is wrong or I am missing something?
+
+there's a bit somewhere else in the same section saying not 
+to change the hash size unless you know more than we do :-)
+
+Joe
+
+-- 
+Joseph Mack NA3T EME(B,D), FM05lw North Carolina
+jmack (at) wm7d (dot) net - azimuthal equidistant map
+generator at http://www.wm7d.net/azproj.shtml
+Homepage http://www.austintek.com/ It's GNU/Linux!
