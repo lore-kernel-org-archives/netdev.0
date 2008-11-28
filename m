@@ -1,87 +1,126 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio_net: large tx MTU support
-Date: Fri, 28 Nov 2008 10:52:33 +1030
-Message-ID: <200811281052.33474.rusty@rustcorp.com.au>
-References: <1227707891.9579.44.camel@blaa> <200811272300.58151.rusty@rustcorp.com.au> <1227794225.24571.36.camel@blaa>
+From: Hermann Lauer <Hermann.Lauer@iwr.uni-heidelberg.de>
+Subject: Re: sumgem problems with initializiation order at a 1000SX SERDES card [experimental patch]
+Date: Fri, 28 Nov 2008 01:00:59 +0100
+Message-ID: <20081128000059.GA13712@lemon.iwr.uni-heidelberg.de>
+References: <20081125103029.GD12605@lemon.iwr.uni-heidelberg.de> <20081126.011809.241693537.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Mark McLoughlin <markmc@redhat.com>
+Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:47458 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751868AbYK1AWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Nov 2008 19:22:41 -0500
-In-Reply-To: <1227794225.24571.36.camel@blaa>
+Received: from relay.uni-heidelberg.de ([129.206.100.212]:42111 "EHLO
+	relay.uni-heidelberg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752437AbYK1Age (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Nov 2008 19:36:34 -0500
 Content-Disposition: inline
+In-Reply-To: <20081126.011809.241693537.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 28 November 2008 00:27:05 Mark McLoughlin wrote:
-> Hi Rusty,
->
-> On Thu, 2008-11-27 at 23:00 +1030, Rusty Russell wrote:
-> > On Thursday 27 November 2008 00:28:11 Mark McLoughlin wrote:
-> > > We don't really have a max tx packet size limit, so allow configuring
-> > > the device with up to 64k tx MTU.
-> >
-> > Hi Mark,
-> >
-> > Just one comment: maybe we should be conservative and maybe limit to 1500
-> > if the host doesn't offer any of the GSO or MRG_RXBUF features?
->
-> That was actually what I was going to do until I thought about it a bit
-> more and discussed it with Herbert.
->
-> The virtio_net MTU only affects the transmit path, so there shouldn't be
-> any issue with a host that doesn't support those features.
 
-Not quite what I meant.  A minimal host can reasonably expect ethernet-fitting
-packets.  If it supports GSO of course it must handle larger ones.  Otherwise
-we should add YA feature bit or even a max-mtu field.
+--HlL+5n6rz5pIUxbD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-So, I was thinking something like this over your patch (I also removed the
-used-once MAX and MIN definitions; I dislike gratuitous indirection):
+Attached is an experimental patch which made my 1000SX sungem card (with phy_serdes) working.
+As suspected, reinitialising the PCS part after the global reset in gem_reinit_chip()
+gets autonegotiation working and the link is established also after an ifconfig up
+command now. Access through the card did not show any errors so far.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -480,26 +480,24 @@ static struct ethtool_ops virtnet_ethtoo
- 	.set_sg = ethtool_op_set_sg,
- };
+Will try to add the missing if clauses to the patch as time allows me, comments are welcome.
+
+Hermann
+
+-- 
+Netzwerkadministration/Zentrale Dienste, Interdiziplinaeres 
+Zentrum fuer wissenschaftliches Rechnen der Universitaet Heidelberg
+IWR; INF 368; 69120 Heidelberg; Tel: (06221)54-8236 Fax: -5224
+Email: Hermann.Lauer@iwr.uni-heidelberg.de
+--HlL+5n6rz5pIUxbD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sungem-serdes.patch"
+
+--- linux-2.6.24-2.6.24/drivers/net/sungem.c.2627	2008-11-28 00:40:58.000000000 +0100
++++ linux-2.6.24-2.6.24/drivers/net/sungem.c	2008-11-28 00:34:46.000000000 +0100
+@@ -1324,7 +1324,7 @@
+ 	    	   gp->phy_type == phy_serdes) {
+ 		u32 pcs_lpa = readl(gp->regs + PCS_MIILP);
  
--#define MIN_MTU 68
--#define MAX_MTU 65535
--
- static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+-		if (pcs_lpa & PCS_MIIADV_FD)
++		if ((pcs_lpa & PCS_MIIADV_FD) || gp->phy_type == phy_serdes)
+ 			full_duplex = 1;
+ 		speed = SPEED_1000;
+ 	}
+@@ -1488,6 +1488,9 @@
+ 			val = readl(gp->regs + PCS_MIISTAT);
+ 
+ 		if ((val & PCS_MIISTAT_LS) != 0) {
++		  if (gp->lstate == link_up)
++			 goto restart;
++
+ 			gp->lstate = link_up;
+ 			netif_carrier_on(gp->dev);
+ 			(void)gem_set_link_modes(gp);
+@@ -1714,7 +1717,7 @@
+ 		/* Reset PCS unit. */
+ 		val = readl(gp->regs + PCS_MIICTRL);
+ 		val |= PCS_MIICTRL_RST;
+-		writeb(val, gp->regs + PCS_MIICTRL);
++		writel(val, gp->regs + PCS_MIICTRL);
+ 
+ 		limit = 32;
+ 		while (readl(gp->regs + PCS_MIICTRL) & PCS_MIICTRL_RST) {
+@@ -2095,12 +2098,51 @@
+ /* Must be invoked under gp->lock and gp->tx_lock. */
+ static void gem_reinit_chip(struct gem *gp)
  {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	int max_mtu;
++  int val;
+ 	/* Reset the chip */
+ 	gem_reset(gp);
  
--	/* Only allow a large MTU if we know we have a chance
--	 * of also supporting that MTU on the receive side. */
--	if (vi->mergeable_rx_bufs || vi->big_packets)
--		max_mtu = MAX_MTU;
-+	/* A host which can handle GSO must handle large packets. */
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GSO)
-+	    || virtio_has_feature(vi->vdev, VIRTIO_NET_F_HOST_TSO4)
-+	    || virtio_has_feature(vi->vdev, VIRTIO_NET_F_HOST_TSO6)
-+	    || virtio_has_feature(vi->vdev, VIRTIO_NET_F_HOST_UFO))
-+		max_mtu = 65535;
- 	else
- 		max_mtu = ETH_DATA_LEN;
+ 	/* Make sure ints are disabled */
+ 	gem_disable_ints(gp);
  
--	if (new_mtu < MIN_MTU || new_mtu > max_mtu)
-+	if (new_mtu < 68 || new_mtu > max_mtu)
- 		return -EINVAL;
- 
- 	dev->mtu = new_mtu;
--
- 	return 0;
- }
++	/* Make sure PCS is disabled while changing advertisement
++	 * configuration.
++	 */
++	val = readl(gp->regs + PCS_CFG);
++	val &= ~(PCS_CFG_ENABLE | PCS_CFG_TO);
++	writel(val, gp->regs + PCS_CFG);
++
++	/* Advertise all capabilities except assymetric
++	 * pause.
++	 */
++	val = readl(gp->regs + PCS_MIIADV);
++	val |= (PCS_MIIADV_FD | PCS_MIIADV_HD |
++		PCS_MIIADV_SP | PCS_MIIADV_AP);
++	writel(val, gp->regs + PCS_MIIADV);
++
++	/* Enable and restart auto-negotiation, disable wrapback/loopback,
++	 * and re-enable PCS.
++	 */
++	val = readl(gp->regs + PCS_MIICTRL);
++	val |= (PCS_MIICTRL_RAN | PCS_MIICTRL_ANE);
++	val &= ~PCS_MIICTRL_WB;
++	writel(val, gp->regs + PCS_MIICTRL);
++
++	val = readl(gp->regs + PCS_CFG);
++	val |= PCS_CFG_ENABLE;
++	writel(val, gp->regs + PCS_CFG);
++
++	/* Make sure serialink loopback is off.  The meaning
++	 * of this bit is logically inverted based upon whether
++	 * you are in Serialink or SERDES mode.
++	 */
++	val = readl(gp->regs + PCS_SCTRL);
++	if (gp->phy_type == phy_serialink)
++	  val &= ~PCS_SCTRL_LOOP;
++	else
++	  val |= PCS_SCTRL_LOOP;
++	writel(val, gp->regs + PCS_SCTRL);
++
+ 	/* Allocate & setup ring buffers */
+ 	gem_init_rings(gp);
  
 
+--HlL+5n6rz5pIUxbD--
