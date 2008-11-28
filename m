@@ -1,69 +1,50 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: hardware time stamping with extra skb->hwtstamp
-Date: Fri, 28 Nov 2008 18:00:09 +0200
-Message-ID: <200811281800.09870.opurdila@ixiacom.com>
-References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com> <200811281455.32744.opurdila@ixiacom.com> <49301068.8090401@hartkopp.net>
+From: Jay Cliburn <jcliburn@gmail.com>
+Subject: Re: oops/warning report for the week of November 26, 2008
+Date: Fri, 28 Nov 2008 11:18:27 -0600
+Message-ID: <20081128111827.79b12739@osprey.hogchain.net>
+References: <492DD792.6080302@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick Ohly <patrick.ohly@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Cc: NetDev <netdev@vger.kernel.org>
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:24231 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751158AbYK1QEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 11:04:42 -0500
-In-Reply-To: <49301068.8090401@hartkopp.net>
-Content-Disposition: inline
+Received: from rv-out-0506.google.com ([209.85.198.236]:19666 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751528AbYK1RSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 12:18:33 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so1443707rvb.1
+        for <netdev@vger.kernel.org>; Fri, 28 Nov 2008 09:18:32 -0800 (PST)
+In-Reply-To: <492DD792.6080302@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Date: Fri, 28 Nov 2008 16:38:16 +0100
+[trimmed the cc list down to netdev only]
+
+On Wed, 26 Nov 2008 15:11:14 -0800
+Arjan van de Ven <arjan@linux.intel.com> wrote:
 
 
-> Do you know what all the people are doing with skbuffs in the kernel?
-> I'm not aware of it.
-> So whenever we touch a vital data structure like the skbuff we must be
-> sure that our handling is a wise approach for all.
+> Rank 12: dev_watchdog(atl1) (oops)
+> 	Reported 56 times (109 total reports)
+> 	This oops was last seen in version 2.6.27.5, and first seen
+> in 2.6.26.6. More info:
+> http://www.kerneloops.org/searchweek.php?search=dev_watchdog(atl1)
 
-I agree. But what in this approach do you think its not wise? :)
+I can't reproduce this, so I've launched a request at fedoraforum.org
+hoping I can snag a Fedora user who's encountering the bug and willing
+to test.
 
-The skb is not touched at all, we just need to allocate a larger skb when 
-using hw timestamps (or other extensions) and reserve some portion of it. 
+The tx timeout reports at kerneloops.org appear to be happening on a
+startling variety of network drivers (startling to me, anyway): r8169,
+atl1, atl2, sis900, cdc_ether, orinoco_cs, tg3, ne2k-pci, via-rhine,
+8139too, ath_pci, e1000, gl620a, sky2, hso, fealnx, forcedeth; probably
+others, but I quit looking.
 
-> Btw. your answer brought me to a completely different approach:
->
-> What about just creating a new pointer in the struct skbuff that points
-> to a struct hwstamp when it is available OR the pointer is NULL when no
-> hwstamps are available.
-> This struct hwstamp may consist of 'everthing we really need for
-> timestamping' and is added somewhere at the head or the tail of the
-> skbuff data section by the device driver.
-> And if the socket sees this pointer to be not NULL it knows where to
-> look for our fancy struct hwstamp ...
->
-> I don't know, where this hwstamp data could be pasted into the data
-> section in the best way - but surely others know. Especially this
-> approach meets the requirement that the additional hwstamp data is only
-> allocated (per interface!), when it's really needed - and not for
-> everyone by default.
->
-> What do you thing about this idea?
->
+Is it correct to assume all these drivers are showing symptoms of the
+poor timeout handling you mentioned in your r8169 comment, or is the
+occasional tx timeout to be expected, and the leaders in this category
+(r8169, sis900, atl1) are the only ones suffering from deficient
+timeout handling?
 
-That is still adding a member into the skb. For what I am proposing we don't 
-have to touch the skb and it has all of your approach benefits. 
-
-I would rather use this approach since it allows us to "extend" the skb in 
-this manner int the future for other hardware features which requires passing 
-per-skb information to userspace.
-
-Thanks,
-tavi
-
-
-
-
+Jay
