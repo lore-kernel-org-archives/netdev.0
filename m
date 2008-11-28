@@ -1,83 +1,68 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: oops/warning report for the week of November 26, 2008
-Date: Fri, 28 Nov 2008 09:34:15 +0100
-Message-ID: <20081128083415.GA1131@elte.hu>
-References: <492DD792.6080302@linux.intel.com> <20081127115236.GE29013@elte.hu> <492EE087.80708@linux.intel.com> <20081127201836.GA16869@elte.hu> <20081127122800.45fc0b1a@linux.intel.com> <20081127204714.GA25875@elte.hu> <20081127125301.3cb1e282@linux.intel.com>
+From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Fri, 28 Nov 2008 01:49:31 -0700 (MST)
+Message-ID: <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
+References: <1227706578-5449-1-git-send-email-catab@embedromix.ro>
+    <Pine.LNX.4.64.0811260636100.26650@wm7d.net>
+    <37809.91.201.80.240.1227769089.squirrel@mail.embedromix.ro>
+    <Pine.LNX.4.64.0811270754290.32640@wm7d.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	jesse Barnes <jbarnes@virtuousgeek.org>,
-	"H. Peter Anvin" <hpa@zytor.com>
-To: Arjan van de Ven <arjan@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:49851 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752328AbYK1Iey (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Nov 2008 03:34:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20081127125301.3cb1e282@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Catalin M. BOIE" <catab@embedromix.ro>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+To: "Joseph Mack NA3T" <jmack@wm7d.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0811270754290.32640@wm7d.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-* Arjan van de Ven <arjan@linux.intel.com> wrote:
+> On Wed, 26 Nov 2008, Catalin(ux) M. BOIE wrote:
+>
+>>> Why do you need to change the hash size? We really don't
+>>> recommend anyone do this under normal circumstances
+>>
+>> As it is written in the help, to lower the collisions in
+>> the case of a lot of concurrent connections. Or am I
+>> missing something?
+>
+> not sure how big the collision problem is (have you measured
+> an effect?) but Ratz put out the results of a back of the
+> envelope calculation that the current value for the hash
+> table size would work on the currect fastest machines with
+> 3G of memory
 
-> On Thu, 27 Nov 2008 21:47:14 +0100
-> Ingo Molnar <mingo@elte.hu> wrote:
-> 
-> > IIRC the problem is that vmware _does_ claim that it supports MTRRs. 
-> 
-> it might.
-> but even if they would fix that, we would still WARN (
-> at least we should do our side correctly...
+Hello, Joe!
 
-As pointed out in other parts of the thread, that is not the case.
+No, I did not measure it, but, I read the help text:
 
-Anyway, as i said it in the onset, if you think we should remove the 
-warning altogether, or tweak it, we can do that - it is important to 
-have relevant warnings show up in kerneloops.org.
+Note the table size must be power of 2. The table size will be the
+value of 2 to the your input number power. The number to choose is
+from 8 to 20, the default number is 12, which means the table size
+is 4096. Don't input the number too small, otherwise you will lose
+performance on it. You can adapt the table size yourself, according
+to your virtual server application. It is good to set the table size
+not far less than the number of connections per second multiplying
+average lasting time of connection in the table.  For example, your
+virtual server gets 200 connections per second, the connection lasts
+for 200 seconds in average in the connection table, the table size
+should be not far less than 200x200, it is good to set the table
+size 32768 (2**15).
 
-To sum it up: the only remaining MTRR warnings we know of are either:
+The help is wrong or I am missing something?
 
- 1) apparently genuine BIOS bugs that do cause problems if the (new) 
-    kernel does not fix them up.
+> Joe
+>
+> --
+> Joseph Mack NA3T EME(B,D), FM05lw North Carolina
+> jmack (at) wm7d (dot) net - azimuthal equidistant map
+> generator at http://www.wm7d.net/azproj.shtml
+> Homepage http://www.austintek.com/ It's GNU/Linux!
+>
 
-    The MTRR warning is relevant and correct in those cases.
 
-or:
+-- 
+Catalin(ux) M. BOIE
+http://kernel.embedromix.ro/
 
- 2) sucky virtualization solutions that cheat the guest OS by faking 
-    "MTRR support" in the CPUID info, but not actually showing any 
-    MTRRs. These virtualization solutions do not even properly 
-    identify themselves to the kernel.
-
-    The MTRR warning is unnecessary in this case.
-
-So what we did in the x86 tree was remove the warning in the second 
-case - is to properly identify vmware (and in general, virtualization) 
-guests.
-
-It was not a simple oneliner:
-
- earth4:~/tip> gll linus..x86/detect-hyper
-
- 4e42ebd: x86: hypervisor - fix sparse warnings
- c450d78: x86: vmware - fix sparse warnings
- fd8cd7e: x86: vmware: look for DMI string in the product serial key
- 6bdbfe9: x86: VMware: Fix vmware_get_tsc code
- 395628e: x86: Skip verification by the watchdog for TSC clocksource.
- eca0cd0: x86: Add a synthetic TSC_RELIABLE feature bit.
- 88b094f: x86: Hypervisor detection and get tsc_freq from hypervisor
- 49ab56a: x86: add X86_FEATURE_HYPERVISOR feature bit
- b2bcc7b: x86: add a synthetic TSC_RELIABLE feature bit
-
-and it will benefit vmware guests in many more areas than just a 
-sharper MTRR warning message. That code is queued up for v2.6.29.
-
-	Ingo
