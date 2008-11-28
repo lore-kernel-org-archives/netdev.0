@@ -1,1554 +1,1182 @@
-From: Douglas Leith <Doug.Leith@nuim.ie>
-Subject: Re: [RFC] tcp: make H-TCP the default congestion control
-Date: Fri, 28 Nov 2008 11:09:54 +0000
-Message-ID: <2860327B-6E7F-435F-AB4A-36E66A49F7DE@nuim.ie>
-References: <0EC70CEA-0C16-411E-9A50-6A0F23EA273F@nuim.ie>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: RFC: Latency reducing TCP modifications for thin-stream interactive
+ applications
+Date: Fri, 28 Nov 2008 14:25:11 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0811281252430.23100@wrl-59.cs.helsinki.fi>
+References: <492EA31D.8000704@simula.no>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_/iyQX/nMHZHe8B6epBEGIg)"
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-rt-users@vger.kernel.org, mdavem@davemloft.net,
+	jgarzik@pobox.com, kohari@novell.com, peterz@infradead.org,
+	jzemlin@linux-foundation.org, mrexx@linux-foundation.org,
+	tytso@mit.edu, mingo@elte.hu, kristrev@simula.no, griff@simula.no,
+	paalh@ifi.uio.no, Netdev <netdev@vger.kernel.org>
+To: Andreas Petlund <apetlund@simula.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from banyan.nuim.ie ([149.157.1.4]:53730 "EHLO banyan.nuim.ie"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752019AbYK1LJ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Nov 2008 06:09:56 -0500
-Received: from [10.8.0.6] ([149.157.192.252])
- by mango.nuim.ie (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3
- 2007; 32bit)) with ESMTPSA id <0KB100HR3J0F3M30@mango.nuim.ie> for
- netdev@vger.kernel.org; Fri, 28 Nov 2008 11:09:53 +0000 (GMT)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:50441 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365AbYK1MZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 07:25:25 -0500
+In-Reply-To: <492EA31D.8000704@simula.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---Boundary_(ID_/iyQX/nMHZHe8B6epBEGIg)
-Content-type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-transfer-encoding: 7BIT
-
-A bit of delayed input to this thread on netdev ...
-
-> I'm not so sure about this logic, regardless of the algorithms
-> involved.
->
-> H-TCP was never the default in any distribution or release that
-> I know of.  So it's real world exposure is effectively zero,
-> which is the same as the new CUBIC stuff.
-
-> They are effectively, therefore, equivalent choices.
-
-Not really.  At this stage HTCP has undergone quite extensive  
-independent testing by a good few groups (Caltech, Swinburne, North  
-Carolina etc).  Its also been independently implemented in FreeBSD by  
-the Swinburne folks.  Its true it hasn't been default in linux, but  
-it HTCP  been subject to *far* more testing than the new cubic  
-algorithm which has had no independent testing at all to my knowledge.
-
-I'd also like to add some new input to the discussion on choice of  
-congestion control algorithm in linux - and why it might be useful to  
-evaluate alternatives like htcp.   Almost all of the proposals for  
-changes to tcp (including cubic) have really slow convergence to  
-fairness when new flows start up.   The question is then whether it  
-matters e.g. whether it negatively impacts users.
-
-To try to get a handle on this, we took one set of measurements from  
-a home DSL line over a live link (so hopefully representative of  
-common user experience), the other from a the production link out of  
-the hamilton institute (so maybe more like the experience of  
-enterprise users).   Plots of our measurements are at
-
-http://www.hamilton.ie/doug/tina2.eps  (DSL link)
-http://www.hamilton.ie/doug/caltech.eps  (hamilton link)
-
-and also attached.
-
-We started one long-ish flow (mimicking incumbent flows) and then  
-started a second shorter flow.  The plots show the completion time of  
-the second flow vs its connection size.  If the incumbent flow is  
-slow to release bandwidth (as we expect with cubic), we expect the  
-completion time of the second flow to increase, and indeed this is  
-what we see.
-
-What's particularly interesting is (i) the magnitude of the  
-difference - completion times are consistently x2 with cubic vs htcp  
-over many tests and (ii) that this effect is apparent not only on  
-higher speed links (caltech.eps) but also on regular DSL links  
-(tina2.eps - we took measurements from a home DSL line, so its not a  
-sanitised lab setup or anything like that).
-
-As might be expected, the difference in completion times eventually  
-washes out for long transfers, e.g for the DSL link the most  
-pronounced difference is for 1MB connections (where there is about a  
-x2 difference in times between cubic and htcp) but becomes less for  
-longer flows.  The point is that most real flows are short however,  
-so the performance with a 1MB size flow seems like it should be more  
-important than the 10MB size performance.  For me the DSL performance  
-is the more important one here since it affects so many people, and  
-was quite surprising, although I can also reproduce similar results  
-on our testbed so its not a weird corner case or anything like that.
-
-Wouldn't it be interesting to give h-tcp a go in linux to get wider  
-feedback ?
-
-Doug
-
-
-
-
-
---Boundary_(ID_/iyQX/nMHZHe8B6epBEGIg)
-Content-type: application/postscript; x-unix-mode=0644; name=caltech.eps
-Content-transfer-encoding: 7bit
-Content-disposition: inline; filename=caltech.eps
-
-%!PS-Adobe-3.0 EPSF-3.0
-%%Creator: MATLAB, The Mathworks, Inc. Version 7.4.0.287 (R2007a). Operating System: Darwin 8.11.1 Darwin Kernel Version 8.11.1: Wed Oct 10 18:23:28 PDT 2007; root:xnu-792.25.20~1/RELEASE_I386 i386.
-%%Title: /Users/douglasleith/Desktop/pfldnet2008/caltech.eps
-%%CreationDate: 02/25/2008  21:08:39
-%%DocumentNeededFonts: Helvetica
-%%DocumentProcessColors: Cyan Magenta Yellow Black
-%%LanguageLevel: 2
-%%Pages: 1
-%%BoundingBox:   -81   158   694   634
-%%EndComments
-
-%%BeginProlog
-% MathWorks dictionary
-/MathWorks 160 dict begin
-% definition operators
-/bdef {bind def} bind def
-/ldef {load def} bind def
-/xdef {exch def} bdef
-/xstore {exch store} bdef
-% operator abbreviations
-/c  /clip ldef
-/cc /concat ldef
-/cp /closepath ldef
-/gr /grestore ldef
-/gs /gsave ldef
-/mt /moveto ldef
-/np /newpath ldef
-/cm /currentmatrix ldef
-/sm /setmatrix ldef
-/rm /rmoveto ldef
-/rl /rlineto ldef
-/s {show newpath} bdef
-/sc {setcmykcolor} bdef
-/sr /setrgbcolor ldef
-/sg /setgray ldef
-/w /setlinewidth ldef
-/j /setlinejoin ldef
-/cap /setlinecap ldef
-/rc {rectclip} bdef
-/rf {rectfill} bdef
-% page state control
-/pgsv () def
-/bpage {/pgsv save def} bdef
-/epage {pgsv restore} bdef
-/bplot /gsave ldef
-/eplot {stroke grestore} bdef
-% orientation switch
-/portraitMode 0 def /landscapeMode 1 def /rotateMode 2 def
-% coordinate system mappings
-/dpi2point 0 def
-% font control
-/FontSize 0 def
-/FMS {/FontSize xstore findfont [FontSize 0 0 FontSize neg 0 0]
-  makefont setfont} bdef
-/reencode {exch dup where {pop load} {pop StandardEncoding} ifelse
-  exch dup 3 1 roll findfont dup length dict begin
-  { 1 index /FID ne {def}{pop pop} ifelse } forall
-  /Encoding exch def currentdict end definefont pop} bdef
-/isroman {findfont /CharStrings get /Agrave known} bdef
-/FMSR {3 1 roll 1 index dup isroman {reencode} {pop pop} ifelse
-  exch FMS} bdef
-/csm {1 dpi2point div -1 dpi2point div scale neg translate
- dup landscapeMode eq {pop -90 rotate}
-  {rotateMode eq {90 rotate} if} ifelse} bdef
-% line types: solid, dotted, dashed, dotdash
-/SO { [] 0 setdash } bdef
-/DO { [.5 dpi2point mul 4 dpi2point mul] 0 setdash } bdef
-/DA { [6 dpi2point mul] 0 setdash } bdef
-/DD { [.5 dpi2point mul 4 dpi2point mul 6 dpi2point mul 4
-  dpi2point mul] 0 setdash } bdef
-% macros for lines and objects
-/L {lineto stroke} bdef
-/MP {3 1 roll moveto 1 sub {rlineto} repeat} bdef
-/AP {{rlineto} repeat} bdef
-/PDlw -1 def
-/W {/PDlw currentlinewidth def setlinewidth} def
-/PP {closepath eofill} bdef
-/DP {closepath stroke} bdef
-/MR {4 -2 roll moveto dup  0 exch rlineto exch 0 rlineto
-  neg 0 exch rlineto closepath} bdef
-/FR {MR stroke} bdef
-/PR {MR fill} bdef
-/L1i {{currentfile picstr readhexstring pop} image} bdef
-/tMatrix matrix def
-/MakeOval {newpath tMatrix currentmatrix pop translate scale
-0 0 1 0 360 arc tMatrix setmatrix} bdef
-/FO {MakeOval stroke} bdef
-/PO {MakeOval fill} bdef
-/PD {currentlinewidth 2 div 0 360 arc fill
-   PDlw -1 eq not {PDlw w /PDlw -1 def} if} def
-/FA {newpath tMatrix currentmatrix pop translate scale
-  0 0 1 5 -2 roll arc tMatrix setmatrix stroke} bdef
-/PA {newpath tMatrix currentmatrix pop	translate 0 0 moveto scale
-  0 0 1 5 -2 roll arc closepath tMatrix setmatrix fill} bdef
-/FAn {newpath tMatrix currentmatrix pop translate scale
-  0 0 1 5 -2 roll arcn tMatrix setmatrix stroke} bdef
-/PAn {newpath tMatrix currentmatrix pop translate 0 0 moveto scale
-  0 0 1 5 -2 roll arcn closepath tMatrix setmatrix fill} bdef
-/vradius 0 def /hradius 0 def /lry 0 def
-/lrx 0 def /uly 0 def /ulx 0 def /rad 0 def
-/MRR {/vradius xdef /hradius xdef /lry xdef /lrx xdef /uly xdef
-  /ulx xdef newpath tMatrix currentmatrix pop ulx hradius add uly
-  vradius add translate hradius vradius scale 0 0 1 180 270 arc 
-  tMatrix setmatrix lrx hradius sub uly vradius add translate
-  hradius vradius scale 0 0 1 270 360 arc tMatrix setmatrix
-  lrx hradius sub lry vradius sub translate hradius vradius scale
-  0 0 1 0 90 arc tMatrix setmatrix ulx hradius add lry vradius sub
-  translate hradius vradius scale 0 0 1 90 180 arc tMatrix setmatrix
-  closepath} bdef
-/FRR {MRR stroke } bdef
-/PRR {MRR fill } bdef
-/MlrRR {/lry xdef /lrx xdef /uly xdef /ulx xdef /rad lry uly sub 2 div def
-  newpath tMatrix currentmatrix pop ulx rad add uly rad add translate
-  rad rad scale 0 0 1 90 270 arc tMatrix setmatrix lrx rad sub lry rad
-  sub translate rad rad scale 0 0 1 270 90 arc tMatrix setmatrix
-  closepath} bdef
-/FlrRR {MlrRR stroke } bdef
-/PlrRR {MlrRR fill } bdef
-/MtbRR {/lry xdef /lrx xdef /uly xdef /ulx xdef /rad lrx ulx sub 2 div def
-  newpath tMatrix currentmatrix pop ulx rad add uly rad add translate
-  rad rad scale 0 0 1 180 360 arc tMatrix setmatrix lrx rad sub lry rad
-  sub translate rad rad scale 0 0 1 0 180 arc tMatrix setmatrix
-  closepath} bdef
-/FtbRR {MtbRR stroke } bdef
-/PtbRR {MtbRR fill } bdef
-/stri 6 array def /dtri 6 array def
-/smat 6 array def /dmat 6 array def
-/tmat1 6 array def /tmat2 6 array def /dif 3 array def
-/asub {/ind2 exch def /ind1 exch def dup dup
-  ind1 get exch ind2 get sub exch } bdef
-/tri_to_matrix {
-  2 0 asub 3 1 asub 4 0 asub 5 1 asub
-  dup 0 get exch 1 get 7 -1 roll astore } bdef
-/compute_transform {
-  dmat dtri tri_to_matrix tmat1 invertmatrix 
-  smat stri tri_to_matrix tmat2 concatmatrix } bdef
-/ds {stri astore pop} bdef
-/dt {dtri astore pop} bdef
-/db {2 copy /cols xdef /rows xdef mul dup 3 mul string
-  currentfile 
-  3 index 0 eq {/ASCIIHexDecode filter}
-  {/ASCII85Decode filter 3 index 2 eq {/RunLengthDecode filter} if }
-  ifelse exch readstring pop
-  dup 0 3 index getinterval /rbmap xdef
-  dup 2 index dup getinterval /gbmap xdef
-  1 index dup 2 mul exch getinterval /bbmap xdef pop pop}bdef
-/it {gs np dtri aload pop moveto lineto lineto cp c
-  cols rows 8 compute_transform 
-  rbmap gbmap bbmap true 3 colorimage gr}bdef
-/il {newpath moveto lineto stroke}bdef
-currentdict end def
-%%EndProlog
-
-%%BeginSetup
-MathWorks begin
-
-0 cap
-
-end
-%%EndSetup
-
-%%Page: 1 1
-%%BeginPageSetup
-%%PageBoundingBox:   -81   158   694   634
-MathWorks begin
-bpage
-%%EndPageSetup
-
-%%BeginObject: obj1
-bplot
-
-/dpi2point 12 def
-portraitMode -0972 7608 csm
-
-    0     0  9302  5709 rc
-85 dict begin %Colortable dictionary
-/c0 { 0.000000 0.000000 0.000000 sr} bdef
-/c1 { 1.000000 1.000000 1.000000 sr} bdef
-/c2 { 0.900000 0.000000 0.000000 sr} bdef
-/c3 { 0.000000 0.820000 0.000000 sr} bdef
-/c4 { 0.000000 0.000000 0.800000 sr} bdef
-/c5 { 0.910000 0.820000 0.320000 sr} bdef
-/c6 { 1.000000 0.260000 0.820000 sr} bdef
-/c7 { 0.000000 0.820000 0.820000 sr} bdef
-c0
-1 j
-1 sg
-   0    0 9303 5710 rf
-6 w
-0 4653 7209 0 0 -4653 1209 5081 4 MP
-PP
--7209 0 0 4653 7209 0 0 -4653 1209 5081 5 MP stroke
-4 w
-DO
-SO
-6 w
-0 sg
-1209 5081 mt 8418 5081 L
-1209  428 mt 8418  428 L
-1209 5081 mt 1209  428 L
-8418 5081 mt 8418  428 L
-1209 5081 mt 8418 5081 L
-1209 5081 mt 1209  428 L
-1209 5081 mt 1209 5008 L
-1209  428 mt 1209  500 L
-%%IncludeResource: font Helvetica
-/Helvetica /ISOLatin1Encoding 216 FMSR
-
-1089 5316 mt 
-(40) s
-2057 5081 mt 2057 5008 L
-2057  428 mt 2057  500 L
-1937 5316 mt 
-(60) s
-2905 5081 mt 2905 5008 L
-2905  428 mt 2905  500 L
-2785 5316 mt 
-(80) s
-3753 5081 mt 3753 5008 L
-3753  428 mt 3753  500 L
-3573 5316 mt 
-(100) s
-4601 5081 mt 4601 5008 L
-4601  428 mt 4601  500 L
-4421 5316 mt 
-(120) s
-5449 5081 mt 5449 5008 L
-5449  428 mt 5449  500 L
-5269 5316 mt 
-(140) s
-6297 5081 mt 6297 5008 L
-6297  428 mt 6297  500 L
-6117 5316 mt 
-(160) s
-7145 5081 mt 7145 5008 L
-7145  428 mt 7145  500 L
-6965 5316 mt 
-(180) s
-7993 5081 mt 7993 5008 L
-7993  428 mt 7993  500 L
-7813 5316 mt 
-(200) s
-1209 5081 mt 1281 5081 L
-8418 5081 mt 8345 5081 L
-1054 5161 mt 
-(0) s
-1209 4615 mt 1281 4615 L
-8418 4615 mt 8345 4615 L
- 934 4695 mt 
-(10) s
-1209 4150 mt 1281 4150 L
-8418 4150 mt 8345 4150 L
- 934 4230 mt 
-(20) s
-1209 3685 mt 1281 3685 L
-8418 3685 mt 8345 3685 L
- 934 3765 mt 
-(30) s
-1209 3219 mt 1281 3219 L
-8418 3219 mt 8345 3219 L
- 934 3299 mt 
-(40) s
-1209 2754 mt 1281 2754 L
-8418 2754 mt 8345 2754 L
- 934 2834 mt 
-(50) s
-1209 2289 mt 1281 2289 L
-8418 2289 mt 8345 2289 L
- 934 2369 mt 
-(60) s
-1209 1823 mt 1281 1823 L
-8418 1823 mt 8345 1823 L
- 934 1903 mt 
-(70) s
-1209 1358 mt 1281 1358 L
-8418 1358 mt 8345 1358 L
- 934 1438 mt 
-(80) s
-1209  893 mt 1281  893 L
-8418  893 mt 8345  893 L
- 934  973 mt 
-(90) s
-1209  428 mt 1281  428 L
-8418  428 mt 8345  428 L
- 814  508 mt 
-(100) s
-1209 5081 mt 8418 5081 L
-1209  428 mt 8418  428 L
-1209 5081 mt 1209  428 L
-8418 5081 mt 8418  428 L
-gs 1209 428 7210 4654 rc
-24 w
-/c8 { 0.000000 0.000000 1.000000 sr} bdef
-c8
-4240 -836 2120 -1058 1633 4079 3 MP stroke
-DA
-/c9 { 0.000000 0.500000 0.000000 sr} bdef
-c9
-4240 -816 2120 -562 1633 4624 3 MP stroke
-SO
-6 w
-gr
-
-c9
-24 W
-c8
-3753 2246 PD
-24 W
-7993 2117 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 3211 PD
-24 W
-7993 3894 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 2563 PD
-24 W
-7993 3972 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 2895 PD
-24 W
-7993 1668 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 2524 PD
-24 W
-7993 1616 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 1772 PD
-24 W
-7993 1279 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 4037 PD
-24 W
-7993 3357 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 3253 PD
-24 W
-7993 1719 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 3015 PD
-24 W
-7993 448 PD
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-3753 4693 PD
-24 W
-7993 1783 PD
-gs 1209 428 7210 4654 rc
-gr
-
-/c10 { 1.000000 0.000000 0.000000 sr} bdef
-c10
-3728 3837 mt 3778 3887 L
-3778 3837 mt 3728 3887 L
-7968 3426 mt 8018 3476 L
-8018 3426 mt 7968 3476 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 3840 mt 3778 3890 L
-3778 3840 mt 3728 3890 L
-7968 2824 mt 8018 2874 L
-8018 2824 mt 7968 2874 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 4118 mt 3778 4168 L
-3778 4118 mt 3728 4168 L
-7968 2957 mt 8018 3007 L
-8018 2957 mt 7968 3007 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 4626 mt 3778 4676 L
-3778 4626 mt 3728 4676 L
-7968 2923 mt 8018 2973 L
-8018 2923 mt 7968 2973 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 3980 mt 3778 4030 L
-3778 3980 mt 3728 4030 L
-7968 3079 mt 8018 3129 L
-8018 3079 mt 7968 3129 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 4135 mt 3778 4185 L
-3778 4135 mt 3728 4185 L
-7968 3740 mt 8018 3790 L
-8018 3740 mt 7968 3790 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 3876 mt 3778 3926 L
-3778 3876 mt 3728 3926 L
-7968 2678 mt 8018 2728 L
-8018 2678 mt 7968 2728 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 4709 mt 3778 4759 L
-3778 4709 mt 3728 4759 L
-7968 3134 mt 8018 3184 L
-8018 3134 mt 7968 3184 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 3755 mt 3778 3805 L
-3778 3755 mt 3728 3805 L
-7968 3433 mt 8018 3483 L
-8018 3433 mt 7968 3483 L
-gs 1209 428 7210 4654 rc
-gr
-
-3728 3492 mt 3778 3542 L
-3778 3492 mt 3728 3542 L
-7968 4016 mt 8018 4066 L
-8018 4016 mt 7968 4066 L
-gs 1209 428 7210 4654 rc
-gr
-
-24 W
-c8
-1633 4088 PD
-24 W
-1633 4147 PD
-24 W
-1633 4292 PD
-24 W
-1633 4053 PD
-24 W
-1633 3814 PD
-gs 1209 428 7210 4654 rc
-gr
-
-c10
-1608 4563 mt 1658 4613 L
-1658 4563 mt 1608 4613 L
-1608 4858 mt 1658 4908 L
-1658 4858 mt 1608 4908 L
-1608 4579 mt 1658 4629 L
-1658 4579 mt 1608 4629 L
-1608 4524 mt 1658 4574 L
-1658 4524 mt 1608 4574 L
-1608 4472 mt 1658 4522 L
-1658 4472 mt 1608 4522 L
-gs 1209 428 7210 4654 rc
-gr
-
-0 sg
-3805 5530 mt 
-(connection size \(MB\)) s
- 711 3667 mt  -90 rotate
-(completion time \(s\)) s
-90 rotate
-%%IncludeResource: font Helvetica
-/Helvetica /ISOLatin1Encoding 120 FMSR
-
-1192 5124 mt 
-( ) s
-8402  470 mt 
-( ) s
-1 sg
-0 1172 1820 0 0 -1172 1504 1919 4 MP
-PP
--1820 0 0 1172 1820 0 0 -1172 1504 1919 5 MP stroke
-4 w
-DO
-SO
-6 w
-0 sg
-1504 1919 mt 3324 1919 L
-1504  747 mt 3324  747 L
-1504 1919 mt 1504  747 L
-3324 1919 mt 3324  747 L
-1504 1919 mt 3324 1919 L
-1504 1919 mt 1504  747 L
-1504 1919 mt 3324 1919 L
-1504  747 mt 3324  747 L
-1504 1919 mt 1504  747 L
-3324 1919 mt 3324  747 L
-%%IncludeResource: font Helvetica
-/Helvetica /ISOLatin1Encoding 216 FMSR
-
-1991  986 mt 
-(mean Cubic) s
-gs 1504 747 1821 1173 rc
-24 w
-c8
-375 0 1578 909 2 MP stroke
-gr
-
-24 w
-c8
-0 sg
-1991 1269 mt 
-(mean H-TCP) s
-gs 1504 747 1821 1173 rc
-DA
-c9
-375 0 1578 1191 2 MP stroke
-SO
-gr
-
-c9
-0 sg
-1991 1552 mt 
-(Cubic) s
-gs 1504 747 1821 1173 rc
-6 w
-gs 1693 1401 147 147 rc
-24 W
-c8
-1766 1474 PD
-gr
-
-c8
-gr
-
-6 w
-c8
-0 sg
-1991 1835 mt 
-(H-TCP) s
-gs 1504 747 1821 1173 rc
-gs 1693 1683 147 147 rc
-24 W
-c8
-1766 1756 PD
-gr
-
-c8
-gr
-
-c8
-
-end %%Color Dict
-
-eplot
-%%EndObject
-
-epage
-end
-
-showpage
-
-%%Trailer
-%%EOF
-
---Boundary_(ID_/iyQX/nMHZHe8B6epBEGIg)
-Content-type: application/postscript; x-unix-mode=0644; name=tina2.eps
-Content-transfer-encoding: 7bit
-Content-disposition: inline; filename=tina2.eps
-
-%!PS-Adobe-3.0 EPSF-3.0
-%%Creator: MATLAB, The Mathworks, Inc. Version 7.4.0.287 (R2007a). Operating System: Darwin 8.11.1 Darwin Kernel Version 8.11.1: Wed Oct 10 18:23:28 PDT 2007; root:xnu-792.25.20~1/RELEASE_I386 i386.
-%%Title: /Users/douglasleith/Desktop/pfldnet2008/tina2.eps
-%%CreationDate: 02/25/2008  21:04:42
-%%DocumentNeededFonts: Helvetica
-%%DocumentProcessColors: Cyan Magenta Yellow Black
-%%LanguageLevel: 2
-%%Pages: 1
-%%BoundingBox:   -81   150   694   642
-%%EndComments
-
-%%BeginProlog
-% MathWorks dictionary
-/MathWorks 160 dict begin
-% definition operators
-/bdef {bind def} bind def
-/ldef {load def} bind def
-/xdef {exch def} bdef
-/xstore {exch store} bdef
-% operator abbreviations
-/c  /clip ldef
-/cc /concat ldef
-/cp /closepath ldef
-/gr /grestore ldef
-/gs /gsave ldef
-/mt /moveto ldef
-/np /newpath ldef
-/cm /currentmatrix ldef
-/sm /setmatrix ldef
-/rm /rmoveto ldef
-/rl /rlineto ldef
-/s {show newpath} bdef
-/sc {setcmykcolor} bdef
-/sr /setrgbcolor ldef
-/sg /setgray ldef
-/w /setlinewidth ldef
-/j /setlinejoin ldef
-/cap /setlinecap ldef
-/rc {rectclip} bdef
-/rf {rectfill} bdef
-% page state control
-/pgsv () def
-/bpage {/pgsv save def} bdef
-/epage {pgsv restore} bdef
-/bplot /gsave ldef
-/eplot {stroke grestore} bdef
-% orientation switch
-/portraitMode 0 def /landscapeMode 1 def /rotateMode 2 def
-% coordinate system mappings
-/dpi2point 0 def
-% font control
-/FontSize 0 def
-/FMS {/FontSize xstore findfont [FontSize 0 0 FontSize neg 0 0]
-  makefont setfont} bdef
-/reencode {exch dup where {pop load} {pop StandardEncoding} ifelse
-  exch dup 3 1 roll findfont dup length dict begin
-  { 1 index /FID ne {def}{pop pop} ifelse } forall
-  /Encoding exch def currentdict end definefont pop} bdef
-/isroman {findfont /CharStrings get /Agrave known} bdef
-/FMSR {3 1 roll 1 index dup isroman {reencode} {pop pop} ifelse
-  exch FMS} bdef
-/csm {1 dpi2point div -1 dpi2point div scale neg translate
- dup landscapeMode eq {pop -90 rotate}
-  {rotateMode eq {90 rotate} if} ifelse} bdef
-% line types: solid, dotted, dashed, dotdash
-/SO { [] 0 setdash } bdef
-/DO { [.5 dpi2point mul 4 dpi2point mul] 0 setdash } bdef
-/DA { [6 dpi2point mul] 0 setdash } bdef
-/DD { [.5 dpi2point mul 4 dpi2point mul 6 dpi2point mul 4
-  dpi2point mul] 0 setdash } bdef
-% macros for lines and objects
-/L {lineto stroke} bdef
-/MP {3 1 roll moveto 1 sub {rlineto} repeat} bdef
-/AP {{rlineto} repeat} bdef
-/PDlw -1 def
-/W {/PDlw currentlinewidth def setlinewidth} def
-/PP {closepath eofill} bdef
-/DP {closepath stroke} bdef
-/MR {4 -2 roll moveto dup  0 exch rlineto exch 0 rlineto
-  neg 0 exch rlineto closepath} bdef
-/FR {MR stroke} bdef
-/PR {MR fill} bdef
-/L1i {{currentfile picstr readhexstring pop} image} bdef
-/tMatrix matrix def
-/MakeOval {newpath tMatrix currentmatrix pop translate scale
-0 0 1 0 360 arc tMatrix setmatrix} bdef
-/FO {MakeOval stroke} bdef
-/PO {MakeOval fill} bdef
-/PD {currentlinewidth 2 div 0 360 arc fill
-   PDlw -1 eq not {PDlw w /PDlw -1 def} if} def
-/FA {newpath tMatrix currentmatrix pop translate scale
-  0 0 1 5 -2 roll arc tMatrix setmatrix stroke} bdef
-/PA {newpath tMatrix currentmatrix pop	translate 0 0 moveto scale
-  0 0 1 5 -2 roll arc closepath tMatrix setmatrix fill} bdef
-/FAn {newpath tMatrix currentmatrix pop translate scale
-  0 0 1 5 -2 roll arcn tMatrix setmatrix stroke} bdef
-/PAn {newpath tMatrix currentmatrix pop translate 0 0 moveto scale
-  0 0 1 5 -2 roll arcn closepath tMatrix setmatrix fill} bdef
-/vradius 0 def /hradius 0 def /lry 0 def
-/lrx 0 def /uly 0 def /ulx 0 def /rad 0 def
-/MRR {/vradius xdef /hradius xdef /lry xdef /lrx xdef /uly xdef
-  /ulx xdef newpath tMatrix currentmatrix pop ulx hradius add uly
-  vradius add translate hradius vradius scale 0 0 1 180 270 arc 
-  tMatrix setmatrix lrx hradius sub uly vradius add translate
-  hradius vradius scale 0 0 1 270 360 arc tMatrix setmatrix
-  lrx hradius sub lry vradius sub translate hradius vradius scale
-  0 0 1 0 90 arc tMatrix setmatrix ulx hradius add lry vradius sub
-  translate hradius vradius scale 0 0 1 90 180 arc tMatrix setmatrix
-  closepath} bdef
-/FRR {MRR stroke } bdef
-/PRR {MRR fill } bdef
-/MlrRR {/lry xdef /lrx xdef /uly xdef /ulx xdef /rad lry uly sub 2 div def
-  newpath tMatrix currentmatrix pop ulx rad add uly rad add translate
-  rad rad scale 0 0 1 90 270 arc tMatrix setmatrix lrx rad sub lry rad
-  sub translate rad rad scale 0 0 1 270 90 arc tMatrix setmatrix
-  closepath} bdef
-/FlrRR {MlrRR stroke } bdef
-/PlrRR {MlrRR fill } bdef
-/MtbRR {/lry xdef /lrx xdef /uly xdef /ulx xdef /rad lrx ulx sub 2 div def
-  newpath tMatrix currentmatrix pop ulx rad add uly rad add translate
-  rad rad scale 0 0 1 180 360 arc tMatrix setmatrix lrx rad sub lry rad
-  sub translate rad rad scale 0 0 1 0 180 arc tMatrix setmatrix
-  closepath} bdef
-/FtbRR {MtbRR stroke } bdef
-/PtbRR {MtbRR fill } bdef
-/stri 6 array def /dtri 6 array def
-/smat 6 array def /dmat 6 array def
-/tmat1 6 array def /tmat2 6 array def /dif 3 array def
-/asub {/ind2 exch def /ind1 exch def dup dup
-  ind1 get exch ind2 get sub exch } bdef
-/tri_to_matrix {
-  2 0 asub 3 1 asub 4 0 asub 5 1 asub
-  dup 0 get exch 1 get 7 -1 roll astore } bdef
-/compute_transform {
-  dmat dtri tri_to_matrix tmat1 invertmatrix 
-  smat stri tri_to_matrix tmat2 concatmatrix } bdef
-/ds {stri astore pop} bdef
-/dt {dtri astore pop} bdef
-/db {2 copy /cols xdef /rows xdef mul dup 3 mul string
-  currentfile 
-  3 index 0 eq {/ASCIIHexDecode filter}
-  {/ASCII85Decode filter 3 index 2 eq {/RunLengthDecode filter} if }
-  ifelse exch readstring pop
-  dup 0 3 index getinterval /rbmap xdef
-  dup 2 index dup getinterval /gbmap xdef
-  1 index dup 2 mul exch getinterval /bbmap xdef pop pop}bdef
-/it {gs np dtri aload pop moveto lineto lineto cp c
-  cols rows 8 compute_transform 
-  rbmap gbmap bbmap true 3 colorimage gr}bdef
-/il {newpath moveto lineto stroke}bdef
-currentdict end def
-%%EndProlog
-
-%%BeginSetup
-MathWorks begin
-
-0 cap
-
-end
-%%EndSetup
-
-%%Page: 1 1
-%%BeginPageSetup
-%%PageBoundingBox:   -81   150   694   642
-MathWorks begin
-bpage
-%%EndPageSetup
-
-%%BeginObject: obj1
-bplot
-
-/dpi2point 12 def
-portraitMode -0972 7704 csm
-
-    0     0  9302  5894 rc
-85 dict begin %Colortable dictionary
-/c0 { 0.000000 0.000000 0.000000 sr} bdef
-/c1 { 1.000000 1.000000 1.000000 sr} bdef
-/c2 { 0.900000 0.000000 0.000000 sr} bdef
-/c3 { 0.000000 0.820000 0.000000 sr} bdef
-/c4 { 0.000000 0.000000 0.800000 sr} bdef
-/c5 { 0.910000 0.820000 0.320000 sr} bdef
-/c6 { 1.000000 0.260000 0.820000 sr} bdef
-/c7 { 0.000000 0.820000 0.820000 sr} bdef
-c0
-1 j
-1 sg
-   0    0 9303 5895 rf
-6 w
-0 4804 7209 0 0 -4804 1209 5246 4 MP
-PP
--7209 0 0 4804 7209 0 0 -4804 1209 5246 5 MP stroke
-4 w
-DO
-SO
-6 w
-0 sg
-1209 5246 mt 8418 5246 L
-1209  442 mt 8418  442 L
-1209 5246 mt 1209  442 L
-8418 5246 mt 8418  442 L
-1209 5246 mt 8418 5246 L
-1209 5246 mt 1209  442 L
-1209 5246 mt 1209 5173 L
-1209  442 mt 1209  514 L
-%%IncludeResource: font Helvetica
-/Helvetica /ISOLatin1Encoding 216 FMSR
-
-1149 5481 mt 
-(0) s
-1864 5246 mt 1864 5173 L
-1864  442 mt 1864  514 L
-1804 5481 mt 
-(1) s
-2519 5246 mt 2519 5173 L
-2519  442 mt 2519  514 L
-2459 5481 mt 
-(2) s
-3175 5246 mt 3175 5173 L
-3175  442 mt 3175  514 L
-3115 5481 mt 
-(3) s
-3830 5246 mt 3830 5173 L
-3830  442 mt 3830  514 L
-3770 5481 mt 
-(4) s
-4485 5246 mt 4485 5173 L
-4485  442 mt 4485  514 L
-4425 5481 mt 
-(5) s
-5141 5246 mt 5141 5173 L
-5141  442 mt 5141  514 L
-5081 5481 mt 
-(6) s
-5796 5246 mt 5796 5173 L
-5796  442 mt 5796  514 L
-5736 5481 mt 
-(7) s
-6451 5246 mt 6451 5173 L
-6451  442 mt 6451  514 L
-6391 5481 mt 
-(8) s
-7107 5246 mt 7107 5173 L
-7107  442 mt 7107  514 L
-7047 5481 mt 
-(9) s
-7762 5246 mt 7762 5173 L
-7762  442 mt 7762  514 L
-7642 5481 mt 
-(10) s
-8418 5246 mt 8418 5173 L
-8418  442 mt 8418  514 L
-8298 5481 mt 
-(11) s
-1209 5246 mt 1281 5246 L
-8418 5246 mt 8345 5246 L
-1054 5326 mt 
-(0) s
-1209 4765 mt 1281 4765 L
-8418 4765 mt 8345 4765 L
- 934 4845 mt 
-(10) s
-1209 4285 mt 1281 4285 L
-8418 4285 mt 8345 4285 L
- 934 4365 mt 
-(20) s
-1209 3804 mt 1281 3804 L
-8418 3804 mt 8345 3804 L
- 934 3884 mt 
-(30) s
-1209 3324 mt 1281 3324 L
-8418 3324 mt 8345 3324 L
- 934 3404 mt 
-(40) s
-1209 2844 mt 1281 2844 L
-8418 2844 mt 8345 2844 L
- 934 2924 mt 
-(50) s
-1209 2363 mt 1281 2363 L
-8418 2363 mt 8345 2363 L
- 934 2443 mt 
-(60) s
-1209 1883 mt 1281 1883 L
-8418 1883 mt 8345 1883 L
- 934 1963 mt 
-(70) s
-1209 1402 mt 1281 1402 L
-8418 1402 mt 8345 1402 L
- 934 1482 mt 
-(80) s
-1209  922 mt 1281  922 L
-8418  922 mt 8345  922 L
- 934 1002 mt 
-(90) s
-1209  442 mt 1281  442 L
-8418  442 mt 8345  442 L
- 814  522 mt 
-(100) s
-1209 5246 mt 8418 5246 L
-1209  442 mt 8418  442 L
-1209 5246 mt 1209  442 L
-8418 5246 mt 8418  442 L
-gs 1209 442 7210 4805 rc
-24 w
-/c8 { 0.000000 0.000000 1.000000 sr} bdef
-c8
-657 -272 3277 -1524 1966 -1107 655 -236 1864 4520 5 MP stroke
-DA
-/c9 { 0.000000 0.500000 0.000000 sr} bdef
-c9
-657 -249 3277 -1528 1966 -792 655 -258 1864 4781 5 MP stroke
-SO
-6 w
-gr
-
-c9
-24 W
-c8
-1864 4641 PD
-24 W
-2519 4578 PD
-24 W
-4485 3243 PD
-24 W
-7762 863 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4414 PD
-24 W
-2519 4342 PD
-24 W
-4485 1843 PD
-24 W
-7762 971 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4560 PD
-24 W
-2519 4550 PD
-24 W
-4485 3513 PD
-24 W
-7762 2557 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4807 PD
-24 W
-2519 4121 PD
-24 W
-4485 2803 PD
-24 W
-7762 1556 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4193 PD
-24 W
-2519 4426 PD
-24 W
-4485 4608 PD
-24 W
-7762 1392 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4805 PD
-24 W
-2519 4778 PD
-24 W
-4485 3202 PD
-24 W
-7762 1609 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4591 PD
-24 W
-2519 4787 PD
-24 W
-4485 4153 PD
-24 W
-7762 1404 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4220 PD
-24 W
-2519 4203 PD
-24 W
-4485 3111 PD
-24 W
-7762 1904 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4845 PD
-24 W
-2519 4309 PD
-24 W
-4485 2692 PD
-24 W
-7762 1295 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4388 PD
-24 W
-2519 4039 PD
-24 W
-4485 3475 PD
-24 W
-7762 2093 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4546 PD
-24 W
-2519 4091 PD
-24 W
-4485 2509 PD
-24 W
-7762 1306 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4311 PD
-24 W
-2519 4709 PD
-24 W
-4485 2656 PD
-24 W
-7762 1049 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4357 PD
-24 W
-2519 4317 PD
-24 W
-4485 3310 PD
-24 W
-7762 2051 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 5070 PD
-24 W
-2519 3967 PD
-24 W
-4485 3171 PD
-24 W
-7762 1811 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4439 PD
-24 W
-2519 3913 PD
-24 W
-4485 3616 PD
-24 W
-7762 2022 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4666 PD
-24 W
-2519 3803 PD
-24 W
-4485 3323 PD
-24 W
-7762 2121 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4151 PD
-24 W
-2519 3263 PD
-24 W
-4485 3047 PD
-24 W
-7762 2029 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4462 PD
-24 W
-2519 4087 PD
-24 W
-4485 3001 PD
-24 W
-7762 1437 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4285 PD
-24 W
-2519 4264 PD
-24 W
-4485 3083 PD
-24 W
-7762 2720 PD
-gs 1209 442 7210 4805 rc
-gr
-
-24 W
-1864 4646 PD
-24 W
-2519 5124 PD
-24 W
-4485 3176 PD
-24 W
-7762 870 PD
-gs 1209 442 7210 4805 rc
-gr
-
-/c10 { 1.000000 0.000000 0.000000 sr} bdef
-c10
-1839 4638 mt 1889 4688 L
-1889 4638 mt 1839 4688 L
-2494 4612 mt 2544 4662 L
-2544 4612 mt 2494 4662 L
-4460 3509 mt 4510 3559 L
-4510 3509 mt 4460 3559 L
-7737  777 mt 7787  827 L
-7787  777 mt 7737  827 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4222 mt 1889 4272 L
-1889 4222 mt 1839 4272 L
-2494 4699 mt 2544 4749 L
-2544 4699 mt 2494 4749 L
-4460 2819 mt 4510 2869 L
-4510 2819 mt 4460 2869 L
-7737 1888 mt 7787 1938 L
-7787 1888 mt 7737 1938 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4602 mt 1889 4652 L
-1889 4602 mt 1839 4652 L
-2494 4701 mt 2544 4751 L
-2544 4701 mt 2494 4751 L
-4460 3554 mt 4510 3604 L
-4510 3554 mt 4460 3604 L
-7737 3228 mt 7787 3278 L
-7787 3228 mt 7737 3278 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4896 mt 1889 4946 L
-1889 4896 mt 1839 4946 L
-2494 4582 mt 2544 4632 L
-2544 4582 mt 2494 4632 L
-4460 3791 mt 4510 3841 L
-4510 3791 mt 4460 3841 L
-7737 2784 mt 7787 2834 L
-7787 2784 mt 7737 2834 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4821 mt 1889 4871 L
-1889 4821 mt 1839 4871 L
-2494 4652 mt 2544 4702 L
-2544 4652 mt 2494 4702 L
-4460 4193 mt 4510 4243 L
-4510 4193 mt 4460 4243 L
-7737 1461 mt 7787 1511 L
-7787 1461 mt 7737 1511 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4546 mt 1889 4596 L
-1889 4546 mt 1839 4596 L
-2494 4530 mt 2544 4580 L
-2544 4530 mt 2494 4580 L
-4460 3876 mt 4510 3926 L
-4510 3876 mt 4460 3926 L
-7737 1021 mt 7787 1071 L
-7787 1021 mt 7737 1071 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4853 mt 1889 4903 L
-1889 4853 mt 1839 4903 L
-2494 4289 mt 2544 4339 L
-2544 4289 mt 2494 4339 L
-4460 2819 mt 4510 2869 L
-4510 2819 mt 4460 2869 L
-7737 2937 mt 7787 2987 L
-7787 2937 mt 7737 2987 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4779 mt 1889 4829 L
-1889 4779 mt 1839 4829 L
-2494 3866 mt 2544 3916 L
-2544 3866 mt 2494 3916 L
-4460 4064 mt 4510 4114 L
-4510 4064 mt 4460 4114 L
-7737 2600 mt 7787 2650 L
-7787 2600 mt 7737 2650 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4903 mt 1889 4953 L
-1889 4903 mt 1839 4953 L
-2494 4210 mt 2544 4260 L
-2544 4210 mt 2494 4260 L
-4460 3387 mt 4510 3437 L
-4510 3387 mt 4460 3437 L
-7737 2141 mt 7787 2191 L
-7787 2141 mt 7737 2191 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4775 mt 1889 4825 L
-1889 4775 mt 1839 4825 L
-2494 4515 mt 2544 4565 L
-2544 4515 mt 2494 4565 L
-4460 3566 mt 4510 3616 L
-4510 3566 mt 4460 3616 L
-7737 2540 mt 7787 2590 L
-7787 2540 mt 7737 2590 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4634 mt 1889 4684 L
-1889 4634 mt 1839 4684 L
-2494 4857 mt 2544 4907 L
-2544 4857 mt 2494 4907 L
-4460 3841 mt 4510 3891 L
-4510 3841 mt 4460 3891 L
-7737 3124 mt 7787 3174 L
-7787 3124 mt 7737 3174 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 5101 mt 1889 5151 L
-1889 5101 mt 1839 5151 L
-2494 3807 mt 2544 3857 L
-2544 3807 mt 2494 3857 L
-4460 3834 mt 4510 3884 L
-4510 3834 mt 4460 3884 L
-7737 2333 mt 7787 2383 L
-7787 2333 mt 7737 2383 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4567 mt 1889 4617 L
-1889 4567 mt 1839 4617 L
-2494 4525 mt 2544 4575 L
-2544 4525 mt 2494 4575 L
-4460 4401 mt 4510 4451 L
-4510 4401 mt 4460 4451 L
-7737 1422 mt 7787 1472 L
-7787 1422 mt 7737 1472 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4800 mt 1889 4850 L
-1889 4800 mt 1839 4850 L
-2494 4403 mt 2544 4453 L
-2544 4403 mt 2494 4453 L
-4460 4313 mt 4510 4363 L
-4510 4313 mt 4460 4363 L
-7737 2482 mt 7787 2532 L
-7787 2482 mt 7737 2532 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4774 mt 1889 4824 L
-1889 4774 mt 1839 4824 L
-2494 4668 mt 2544 4718 L
-2544 4668 mt 2494 4718 L
-4460 3948 mt 4510 3998 L
-4510 3948 mt 4460 3998 L
-7737 2960 mt 7787 3010 L
-7787 2960 mt 7737 3010 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 5037 mt 1889 5087 L
-1889 5037 mt 1839 5087 L
-2494 4433 mt 2544 4483 L
-2544 4433 mt 2494 4483 L
-4460 3041 mt 4510 3091 L
-4510 3041 mt 4460 3091 L
-7737  933 mt 7787  983 L
-7787  933 mt 7737  983 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4794 mt 1889 4844 L
-1889 4794 mt 1839 4844 L
-2494 4414 mt 2544 4464 L
-2544 4414 mt 2494 4464 L
-4460 3960 mt 4510 4010 L
-4510 3960 mt 4460 4010 L
-7737 2128 mt 7787 2178 L
-7787 2128 mt 7737 2178 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4813 mt 1889 4863 L
-1889 4813 mt 1839 4863 L
-2494 4985 mt 2544 5035 L
-2544 4985 mt 2494 5035 L
-4460 3799 mt 4510 3849 L
-4510 3799 mt 4460 3849 L
-7737 2187 mt 7787 2237 L
-7787 2187 mt 7737 2237 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4853 mt 1889 4903 L
-1889 4853 mt 1839 4903 L
-2494 4334 mt 2544 4384 L
-2544 4334 mt 2494 4384 L
-4460 4148 mt 4510 4198 L
-4510 4148 mt 4460 4198 L
-7737 2328 mt 7787 2378 L
-7787 2328 mt 7737 2378 L
-gs 1209 442 7210 4805 rc
-gr
-
-1839 4718 mt 1889 4768 L
-1889 4718 mt 1839 4768 L
-2494 4886 mt 2544 4936 L
-2544 4886 mt 2494 4936 L
-4460 3250 mt 4510 3300 L
-4510 3250 mt 4460 3300 L
-7737 2287 mt 7787 2337 L
-7787 2287 mt 7737 2337 L
-gs 1209 442 7210 4805 rc
-gr
-
-0 sg
-3805 5695 mt 
-(connection size \(MB\)) s
- 711 3757 mt  -90 rotate
-(completion time \(s\)) s
-90 rotate
-%%IncludeResource: font Helvetica
-/Helvetica /ISOLatin1Encoding 120 FMSR
-
-1192 5289 mt 
-( ) s
-8402  484 mt 
-( ) s
-1 sg
-0 1172 1820 0 0 -1172 1516 1873 4 MP
-PP
--1820 0 0 1172 1820 0 0 -1172 1516 1873 5 MP stroke
-4 w
-DO
-SO
-6 w
-0 sg
-1516 1873 mt 3336 1873 L
-1516  701 mt 3336  701 L
-1516 1873 mt 1516  701 L
-3336 1873 mt 3336  701 L
-1516 1873 mt 3336 1873 L
-1516 1873 mt 1516  701 L
-1516 1873 mt 3336 1873 L
-1516  701 mt 3336  701 L
-1516 1873 mt 1516  701 L
-3336 1873 mt 3336  701 L
-%%IncludeResource: font Helvetica
-/Helvetica /ISOLatin1Encoding 216 FMSR
-
-2003  940 mt 
-(mean Cubic) s
-gs 1516 701 1821 1173 rc
-24 w
-c8
-375 0 1590 863 2 MP stroke
-gr
-
-24 w
-c8
-0 sg
-2003 1223 mt 
-(mean H-TCP) s
-gs 1516 701 1821 1173 rc
-DA
-c9
-375 0 1590 1145 2 MP stroke
-SO
-gr
-
-c9
-0 sg
-2003 1506 mt 
-(Cubic) s
-gs 1516 701 1821 1173 rc
-6 w
-gs 1705 1355 147 147 rc
-24 W
-c8
-1778 1428 PD
-gr
-
-c8
-gr
-
-6 w
-c8
-0 sg
-2003 1789 mt 
-(H-TCP) s
-gs 1516 701 1821 1173 rc
-gs 1705 1637 147 147 rc
-24 W
-c8
-1778 1710 PD
-gr
-
-c8
-gr
-
-c8
-
-end %%Color Dict
-
-eplot
-%%EndObject
-
-epage
-end
-
-showpage
-
-%%Trailer
-%%EOF
-
---Boundary_(ID_/iyQX/nMHZHe8B6epBEGIg)
-Content-type: text/plain; charset=US-ASCII; format=flowed
-Content-transfer-encoding: 7BIT
-
-
-
-
-
-
-
-
-
---Boundary_(ID_/iyQX/nMHZHe8B6epBEGIg)--
+linux-net is users list, use netdev instead on matters relating 
+development...
+
+On Thu, 27 Nov 2008, Andreas Petlund wrote:
+
+> A wide range of Internet-based services that use reliable transport 
+> protocols display what we call thin-stream properties. This means 
+> that the application sends data with such a low rate that the 
+> retransmission mechanisms of the transport protocol are not fully 
+> effective. In time-dependent scenarios (like online games, control 
+> systems or some sensor networks) where the user experience depends 
+> on the data delivery latency, packet loss can be devastating for 
+> the service quality. Extreme latencies are caused by TCP's 
+> dependency on the arrival of new data from the application to trigger 
+> retransmissions effectively through fast retransmit instead of 
+> waiting for long timeouts. After analyzing a large number of 
+> time-dependent interactive applications, we have seen that they 
+> often produce thin streams (as described above) and also stay with 
+> this traffic pattern throughout its entire lifespan. The 
+> combination of time-dependency and the fact that the streams 
+> provoke high latencies when using TCP is unfortunate.
+> 
+> In order to reduce application-layer latency when packets are lost, 
+> we have implemented modifications to the TCP retransmission 
+> mechanisms in the Linux kernel. We have also implemented a 
+> bundling mechanisms that introduces redundancy in order to 
+> preempt the experience of packet loss. In short, if the kernel 
+> detects a thin stream, we trade a small amount of bandwidth for 
+> latency reduction and apply:
+> 
+> Removal of exponential backoff: To prevent an exponential increase 
+> in retransmission delay for a repeatedly lost packet, we remove 
+> the exponential factor.
+> 
+> FASTER Fast Retransmit: Instead of waiting for 3 duplicate 
+> acknowledgments before sending a fast retransmission, we retransmit 
+> after receiving only one.
+> 
+> Redundant Data Bundling: We copy (bundle) data from the 
+> unacknowledged packets in the send buffer into the next packet if
+>  space is available.
+> 
+> These enhancements are applied only if the stream is detected as
+> thin. 
+> This is accomplished by defining thresholds for packet size and 
+> packets in flight. Also, we consider the redundancy introduced 
+> by our mechanisms acceptable because the streams are so thin 
+> that normal congestion mechanisms do not come into effect.
+> 
+> We have implemented these changes in the Linux kernel (2.6.23.8), 
+> and have tested the modifications on a wide range of different 
+> thin-stream applications (Skype, BZFlag, SSH, ...) under varying 
+> network conditions. Our results show that applications which use 
+> TCP for interactive time-dependent traffic will experience a 
+> reduction in both maximum and average latency, giving the users 
+> quicker feedback to their interactions.
+> 
+> Availability of this kind of mechanisms will help provide 
+> customizability for interactive network services. The quickly 
+> growing market for Linux gaming may benefit from lowered latency. 
+> As an example, most of the large MMORPG's today use TCP (like World 
+> of Warcraft and Age of Conan) and several multimedia applications 
+> (like Skype) use TCP fallback if UDP is blocked.
+> 
+> The modifications are all TCP standard compliant and transparent
+> to the receiver. As such, a game server could implement the 
+> modifications and get a one-way latency benefit without touching 
+> any of the clients.
+> 
+> In the following papers, we discuss the benefits and tradeoffs of 
+> the decribed mechanisms:
+> "The Fun of using TCP for an MMORPG": 
+> http://simula.no/research/networks/publications/Griwodz.2006.1
+> "TCP Enhancements For Interactive Thin-Stream Applications": 
+> http://simula.no/research/networks/publications/Simula.ND.83
+> "Improving application layer latency for reliable thin-stream game
+> traffic": http://simula.no/research/networks/publications/Simula.ND.185
+> "TCP mechanisms for improving the user experience for time-dependent 
+> thin-stream applications": 
+> http://simula.no/research/networks/publications/Simula.ND.159
+> Our presentation from the 2008 Linux-Kongress can be found here: 
+> http://data.guug.de/slides/lk2008/lk-2008-Andreas-Petlund.pdf
+> 
+> We have included a patch for the 2.6.23.8 kernel which implements the 
+> modifications. The patch is not properly segmented and formatted, but 
+> attached as a reference. We are currently working on an updated patch 
+> set which we hopefully will be able to post in a couple of weeks.
+
+Please make sure that it's based on net-next tree next time since there 
+are lots of changes already in the areas you're touching.
+
+> This will also give us time to integrate any ideas that may arise from 
+> the discussions here.
+> 
+> We are happy for all feedback regarding this:
+> Is something like this viable to introduce into the kernel?
+
+No idea in general. But it has to be (nearly) minimal and clean if such 
+thing is ever to be considered. The one below is definately not even close
+minimal in many areas...
+
+> Is the scheme for thin-stream detection mechanism acceptable.
+
+Does reduncancy happen in the initial slow start as well (depends on 
+write pattern)? Why it is so in case the stream is to become thick 
+right after initial rtts?
+
+> Any viewpoints on the architecture and design? 
+
+I'll go through the patch below (some things are mostly "educational"
+since I also propose dropping the current way of use here and there).
+Some overall comments below everything.
+
+> diff -Nur linux-2.6.23.8.vanilla/include/linux/sysctl.h linux-2.6.23.8-tcp-thin/include/linux/sysctl.h
+> --- linux-2.6.23.8.vanilla/include/linux/sysctl.h	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/include/linux/sysctl.h	2008-07-03 11:47:21.000000000 +0200
+> @@ -355,6 +355,11 @@
+>  	NET_IPV4_ROUTE=18,
+>  	NET_IPV4_FIB_HASH=19,
+>  	NET_IPV4_NETFILTER=20,
+> +	
+> +	NET_IPV4_TCP_FORCE_THIN_RDB=29,         /* Added @ Simula */
+> +	NET_IPV4_TCP_FORCE_THIN_RM_EXPB=30,     /* Added @ Simula */
+> +	NET_IPV4_TCP_FORCE_THIN_DUPACK=31,      /* Added @ Simula */
+> +	NET_IPV4_TCP_RDB_MAX_BUNDLE_BYTES=32,   /* Added @ Simula */
+
+I don't think you could reuse empty ranges. In any case all new sysctls 
+to be added must use CTL_UNNUMBERED. These number are deprecated and 
+should not be added anymore. And you add too many sysctl anyway 
+considering the change (e.g., max & rdb are redundant if proper mapping 
+of values is used).
+
+>  	NET_IPV4_TCP_TIMESTAMPS=33,
+>  	NET_IPV4_TCP_WINDOW_SCALING=34,
+> diff -Nur linux-2.6.23.8.vanilla/include/linux/tcp.h linux-2.6.23.8-tcp-thin/include/linux/tcp.h
+> --- linux-2.6.23.8.vanilla/include/linux/tcp.h	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/include/linux/tcp.h	2008-07-02 15:17:38.000000000 +0200
+> @@ -97,6 +97,10 @@
+>  #define TCP_CONGESTION		13	/* Congestion control algorithm */
+>  #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
+>  
+> +#define TCP_THIN_RDB            15      /* Added @ Simula - Enable redundant data bundling  */
+> +#define TCP_THIN_RM_EXPB        16      /* Added @ Simula - Remove exponential backoff  */
+> +#define TCP_THIN_DUPACK         17      /* Added @ Simula - Reduce number of dupAcks needed */
+> +
+>  #define TCPI_OPT_TIMESTAMPS	1
+>  #define TCPI_OPT_SACK		2
+>  #define TCPI_OPT_WSCALE		4
+> @@ -296,6 +300,10 @@
+>  	u8	nonagle;	/* Disable Nagle algorithm?             */
+>  	u8	keepalive_probes; /* num of allowed keep alive probes	*/
+>  
+> +	u8      thin_rdb;       /* Enable RDB                           */
+> +	u8      thin_rm_expb;   /* Remove exp. backoff                  */
+> +	u8      thin_dupack;    /* Remove dupack                        */
+> +
+
+Only one bit used per field?
+
+>  /* RTT measurement */
+>  	u32	srtt;		/* smoothed round trip time << 3	*/
+>  	u32	mdev;		/* medium deviation			*/
+> diff -Nur linux-2.6.23.8.vanilla/include/net/sock.h linux-2.6.23.8-tcp-thin/include/net/sock.h
+> --- linux-2.6.23.8.vanilla/include/net/sock.h	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/include/net/sock.h	2008-07-02 17:07:10.000000000 +0200
+> @@ -462,7 +462,10 @@
+>  
+>  static inline void sk_stream_free_skb(struct sock *sk, struct sk_buff *skb)
+>  {
+> -	skb_truesize_check(skb);
+> +	/* Modified @ Simula 
+> +	   skb_truesize_check creates unnecessary 
+> +	   noise when combined with RDB */
+> +	//skb_truesize_check(skb);
+
+Please fix the bugs you added instead of hacking around them. You'll have 
+to do proper accounting.
+
+>  	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+>  	sk->sk_wmem_queued   -= skb->truesize;
+>  	sk->sk_forward_alloc += skb->truesize;
+> diff -Nur linux-2.6.23.8.vanilla/include/net/tcp.h linux-2.6.23.8-tcp-thin/include/net/tcp.h
+> --- linux-2.6.23.8.vanilla/include/net/tcp.h	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/include/net/tcp.h	2008-07-03 11:48:54.000000000 +0200
+> @@ -188,9 +188,19 @@
+>  #define TCP_NAGLE_CORK		2	/* Socket is corked	    */
+>  #define TCP_NAGLE_PUSH		4	/* Cork is overridden for already queued data */
+>  
+> +/* Added @ Simula - Thin stream support */
+> +#define TCP_FORCE_THIN_RDB            0 /* Thin streams: exp. backoff   default off */
+> +#define TCP_FORCE_THIN_RM_EXPB        0 /* Thin streams: dynamic dupack default off */
+> +#define TCP_FORCE_THIN_DUPACK         0 /* Thin streams: smaller minRTO default off */
+> +#define TCP_RDB_MAX_BUNDLE_BYTES      0 /* Thin streams: Limit maximum bundled bytes */
+
+Please drop these and just assign directly.
+
+> +
+>  extern struct inet_timewait_death_row tcp_death_row;
+>  
+>  /* sysctl variables for tcp */
+> +extern int sysctl_tcp_force_thin_rdb;         /* Added @ Simula */
+> +extern int sysctl_tcp_force_thin_rm_expb;     /* Added @ Simula */
+> +extern int sysctl_tcp_force_thin_dupack;      /* Added @ Simula */
+> +extern int sysctl_tcp_rdb_max_bundle_bytes;   /* Added @ Simula */
+>  extern int sysctl_tcp_timestamps;
+>  extern int sysctl_tcp_window_scaling;
+>  extern int sysctl_tcp_sack;
+> @@ -723,6 +733,16 @@
+>  	return (tp->packets_out - tp->left_out + tp->retrans_out);
+>  }
+>  
+> +/* Added @ Simula
+
+Please remove the from the patch.
+
+> + *
+> + * To determine whether a stream is thin or not
+> + * return 1 if thin, 0 othervice 
+
+I don't find this comment too useful. The function name is obvious enough.
+
+> + */
+> +static inline unsigned int tcp_stream_is_thin(const struct tcp_sock *tp)
+> +{
+> +	return (tp->packets_out < 4 ? 1 : 0);
+
+return tp->packets < 4; is enough??
+
+> +}
+> +
+>  /* If cwnd > ssthresh, we may raise ssthresh to be half-way to cwnd.
+>   * The exception is rate halving phase, when cwnd is decreasing towards
+>   * ssthresh.
+> diff -Nur linux-2.6.23.8.vanilla/net/ipv4/sysctl_net_ipv4.c linux-2.6.23.8-tcp-thin/net/ipv4/sysctl_net_ipv4.c
+> --- linux-2.6.23.8.vanilla/net/ipv4/sysctl_net_ipv4.c	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/net/ipv4/sysctl_net_ipv4.c	2008-07-03 11:49:59.000000000 +0200
+> @@ -187,6 +187,38 @@
+>  }
+>  
+>  ctl_table ipv4_table[] = {
+> +	{       /* Added @ Simula for thin streams */
+> +                .ctl_name       = NET_IPV4_TCP_FORCE_THIN_RDB,
+
+CTL_UNNUMBERED as mentioned above.
+
+> +                .procname       = "tcp_force_thin_rdb",
+> +                .data           = &sysctl_tcp_force_thin_rdb,
+> +                .maxlen         = sizeof(int),
+> +                .mode           = 0644,
+> +                .proc_handler   = &proc_dointvec
+> +        },
+> +	{       /* Added @ Simula for thin streams */
+> +                .ctl_name       = NET_IPV4_TCP_FORCE_THIN_RM_EXPB,
+> +                .procname       = "tcp_force_thin_rm_expb",
+> +                .data           = &sysctl_tcp_force_thin_rm_expb,
+> +                .maxlen         = sizeof(int),
+> +                .mode           = 0644,
+> +                .proc_handler   = &proc_dointvec
+> +        },
+> +	{       /* Added @ Simula for thin streams */
+> +                .ctl_name       = NET_IPV4_TCP_FORCE_THIN_DUPACK,
+> +                .procname       = "tcp_force_thin_dupack",
+> +                .data           = &sysctl_tcp_force_thin_dupack,
+> +                .maxlen         = sizeof(int),
+> +                .mode           = 0644,
+> +                .proc_handler   = &proc_dointvec
+> +        },
+> +	{       /* Added @ Simula for thin streams */
+> +                .ctl_name       = NET_IPV4_TCP_RDB_MAX_BUNDLE_BYTES,
+> +                .procname       = "tcp_rdb_max_bundle_bytes",
+> +                .data           = &sysctl_tcp_rdb_max_bundle_bytes,
+> +                .maxlen         = sizeof(int),
+> +                .mode           = 0644,
+> +                .proc_handler   = &proc_dointvec
+> +        },
+>  	{
+>  		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
+>  		.procname	= "tcp_timestamps",
+> diff -Nur linux-2.6.23.8.vanilla/net/ipv4/tcp.c linux-2.6.23.8-tcp-thin/net/ipv4/tcp.c
+> --- linux-2.6.23.8.vanilla/net/ipv4/tcp.c	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/net/ipv4/tcp.c	2008-07-03 11:51:55.000000000 +0200
+> @@ -270,6 +270,10 @@
+>  
+>  int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+>  
+> +/* Added @ Simula */
+> +int sysctl_tcp_force_thin_rdb __read_mostly = TCP_FORCE_THIN_RDB;
+> +int sysctl_tcp_rdb_max_bundle_bytes __read_mostly = TCP_RDB_MAX_BUNDLE_BYTES;
+
+No need for these defines, just assign directly.
+
+> +
+>  DEFINE_SNMP_STAT(struct tcp_mib, tcp_statistics) __read_mostly;
+>  
+>  atomic_t tcp_orphan_count = ATOMIC_INIT(0);
+> @@ -658,6 +662,167 @@
+>  	return tmp;
+>  }
+>  
+> +/* Added at Simula to support RDB */
+> +static int tcp_trans_merge_prev(struct sock *sk, struct sk_buff *skb, int mss_now)
+
+why int?
+
+...In general this function should be split, having a separate skb 
+(non-TCP) function(s) and tcp-side would be ideal.
+
+It's misnamed as well, it won't merge but duplicates?
+
+Also, this approach is extremely intrusive and adding non-linear seqno 
+things into write queue will require _you_ to do _full audit_ over every 
+single place to verify that seqno leaps backwards won't break anything 
+(and you'll still probably miss some cases). I wonder if you realize 
+how easily this kind of change manifests itself as a silent data 
+corruption on stream level and have taken appropriate actions to validate 
+that not a single one of scenario leads to data coming as different out as 
+was sent in (every single byte, it's not enough to declare that 
+application worked which could well happen with corrupted data too). TCP 
+is very coreish and such bugs will definately hit people hard.
+
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +	
+> +	/* Make sure that this isn't referenced by somebody else */
+> +	
+> +	if(!skb_cloned(skb)){
+
+I'd inverse the condition and return to reduce indentation level of the 
+rest.
+
+> +		struct sk_buff *prev_skb = skb->prev;
+> +		int skb_size = skb->len;
+> +		int old_headlen = 0;
+> +		int ua_data = 0;
+> +		int uad_head = 0;
+> +		int uad_frags = 0;
+> +		int ua_nr_frags = 0;
+> +		int ua_frags_diff = 0;
+> +		
+> +		/* Since this technique currently does not support SACK, I
+> +		 * return -1 if the previous has been SACK'd. */
+> +		if(TCP_SKB_CB(prev_skb)->sacked & TCPCB_SACKED_ACKED){
+> +			return -1;
+> +		}
+
+Drop block braces if the block's content in all fits on a single line 
+(except in constructs where else would become braces unbalanced).
+
+> +		
+> +		/* Current skb is out of window. */
+> +		if (after(TCP_SKB_CB(skb)->end_seq, tp->snd_una+tp->snd_wnd)){
+
+...tcp_wnd_end(tp).
+
+> +			return -1;
+> +		}
+> +		
+> +		/*TODO: Optimize this part with regards to how the 
+> +		  variables are initialized */
+> +		
+> +		/*Calculates the ammount of unacked data that is available*/
+> +		ua_data = (TCP_SKB_CB(prev_skb)->end_seq - tp->snd_una > 
+> +			   prev_skb->len ? prev_skb->len : 
+> +			   TCP_SKB_CB(prev_skb)->end_seq - tp->snd_una);
+
+min(...) ?. But see the comment below...
+
+> +		ua_frags_diff = ua_data - prev_skb->data_len;
+> +		uad_frags = (ua_frags_diff > 0 ? prev_skb->data_len : ua_data);
+> +		uad_head = (ua_frags_diff > 0 ? ua_data - uad_frags : 0);
+> +
+> +		if(ua_data <= 0)
+> +			return -1;
+
+Can this ever happen except with syn/fin?
+
+> +		
+> +		if(uad_frags > 0){
+> +			int i = 0;
+> +			int bytes_frags = 0;
+> +			
+> +			if(uad_frags == prev_skb->data_len){
+> +				ua_nr_frags = skb_shinfo(prev_skb)->nr_frags;
+> +			} else{
+> +				for(i=skb_shinfo(prev_skb)->nr_frags - 1; i>=0; i--){
+> +					if(skb_shinfo(prev_skb)->frags[i].size 
+> +					   + bytes_frags == uad_frags){
+> +						ua_nr_frags += 1;
+> +						break;
+> +					} 	  
+> +					ua_nr_frags += 1;
+> +					bytes_frags += skb_shinfo(prev_skb)->frags[i].size;
+> +				}
+> +			}
+> +		}
+> +		
+> +		/*
+> +		 * Do the diffrenet checks on size and content, and return if
+> +		 * something will not work.
+> +		 *
+> +		 * TODO: Support copying some bytes
+> +		 *
+> +		 * 1. Larger than MSS.
+> +		 * 2. Enough room for the stuff stored in the linear area
+> +		 * 3. Enoug room for the pages
+> +		 * 4. If both skbs have some data stored in the linear area, and prev_skb
+> +		 * also has some stored in the paged area, they cannot be merged easily.
+> +		 * 5. If prev_skb is linear, then this one has to be it as well.
+> +		 */
+> +		if ((sysctl_tcp_rdb_max_bundle_bytes == 0 && ((skb_size + ua_data) > mss_now))
+> +		    || (sysctl_tcp_rdb_max_bundle_bytes > 0 && ((skb_size + ua_data) >
+> +								sysctl_tcp_rdb_max_bundle_bytes))){
+
+max_size = sysctl_... ? : mss_now;
+if (skb_size + ua_data > max_size)
+
+?
+
+> +			return -1;
+> +		}
+> +		
+> +		/* We need to know tailroom, even if it is nonlinear */
+> +		if(uad_head > (skb->end - skb->tail)){
+
+skb_tailroom()
+
+> +			return -1;
+> +		}
+> +		
+> +		if(skb_is_nonlinear(skb) && (uad_frags > 0)){
+> +			if((ua_nr_frags +
+> +			    skb_shinfo(skb)->nr_frags) > MAX_SKB_FRAGS){
+> +				return -1;
+> +			}
+> +			
+> +			if(skb_headlen(skb) > 0){
+> +				return -1;
+> +			}
+> +		}
+> +		
+> +		if((uad_frags > 0) && skb_headlen(skb) > 0){
+> +			return -1;
+> +		}
+> +		
+> +		/* To avoid duplicate copies (and copies
+> +		   where parts have been acked) */
+> +		if(TCP_SKB_CB(skb)->seq <= (TCP_SKB_CB(prev_skb)->end_seq - ua_data)){
+
+So ua_data must be prev_skb->len or this fails? Why ua_data needs such 
+complex setup above?
+
+> +			return -1;
+> +		}
+> +		
+> +		/*SYN's are holy*/
+> +		if(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_SYN || TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN){
+
+flags & (...SYN|...FIN)  ??
+
+> +			return -1;
+> +		}
+> +		
+> +		/* Copy linear data */
+> +		if(uad_head > 0){
+> +			
+> +			/* Add required space to the header. Can't use put due to linearity */
+> +			old_headlen = skb_headlen(skb);
+> +			skb->tail += uad_head;
+> +			skb->len += uad_head;
+> +			
+> +			if(skb_headlen(skb) > 0){
+> +				memmove(skb->data + uad_head, skb->data, old_headlen);
+> +			}
+> +			
+> +			skb_copy_to_linear_data(skb, prev_skb->data + (skb_headlen(prev_skb) - uad_head), uad_head);
+> +		}
+> +		
+> +		/*Copy paged data*/
+> +		if(uad_frags > 0){
+> +			int i = 0;
+> +			/*Must move data backwards in the array.*/
+> +			if(skb_is_nonlinear(skb)){
+> +				memmove(skb_shinfo(skb)->frags + ua_nr_frags,
+> +					skb_shinfo(skb)->frags,
+> +					skb_shinfo(skb)->nr_frags*sizeof(skb_frag_t));
+> +			}
+> +			
+> +			/*Copy info and update pages*/
+> +			memcpy(skb_shinfo(skb)->frags,
+> +			       skb_shinfo(prev_skb)->frags + (skb_shinfo(prev_skb)->nr_frags - ua_nr_frags),
+> +			       ua_nr_frags*sizeof(skb_frag_t));
+> +			
+> +			for(i=0; i<ua_nr_frags;i++){
+> +				get_page(skb_shinfo(skb)->frags[i].page);
+> +			}
+> +			
+> +			skb_shinfo(skb)->nr_frags += ua_nr_frags;
+> +			skb->data_len += uad_frags;
+> +			skb->len += uad_frags;
+> +		}
+> +		
+> +		TCP_SKB_CB(skb)->seq = TCP_SKB_CB(prev_skb)->end_seq - ua_data;
+> +		
+> +		if(skb->ip_summed == CHECKSUM_PARTIAL)
+> +			skb->csum = CHECKSUM_PARTIAL;
+> +		else
+> +			skb->csum = skb_checksum(skb, 0, skb->len, 0);
+> +	}
+> +	
+> +	return 1;
+> +}
+
+This function was far too complex to understand and very hard to validate 
+as is, and I'm not that sure it will be needed anyway (see notes below).
+
+> +
+>  int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+>  		size_t size)
+>  {
+> @@ -825,6 +990,16 @@
+>  
+>  			from += copy;
+>  			copied += copy;
+> +			
+> +			/* Added at Simula to support RDB */
+> +			if(((tp->thin_rdb || sysctl_tcp_force_thin_rdb)) && skb->len < mss_now){
+> +				if(skb->prev != (struct sk_buff*) &(sk)->sk_write_queue
+> +				   && !(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_SYN)
+> +				   && !(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN)){
+
+Why SYN/FIN are checked by both the caller and in tcp_trans_merge_prev
+
+> +					tcp_trans_merge_prev(sk, skb, mss_now);
+> +				}
+> +			} /* End - Simula */
+> +			
+>  			if ((seglen -= copy) == 0 && iovlen == 0)
+>  				goto out;
+>  
+> @@ -1870,7 +2045,25 @@
+>  			tcp_push_pending_frames(sk);
+>  		}
+>  		break;
+> -
+> +		
+> +        /* Added @ Simula. Support for thin streams */
+> +	case TCP_THIN_RDB:
+> +		if(val)
+> +			tp->thin_rdb = 1;
+> +		break;
+> +		
+> +        /* Added @ Simula. Support for thin streams */
+> +	case TCP_THIN_RM_EXPB:
+> +		if(val)
+> +			tp->thin_rm_expb = 1;
+> +		break;
+> +		
+> +        /* Added @ Simula. Support for thin streams */
+> +	case TCP_THIN_DUPACK:
+> +		if(val)
+> +			tp->thin_dupack = 1;
+> +		break;
+> +	
+
+These are probably for some experimentations? Should probably be dropped 
+altogether.
+	
+>  	case TCP_KEEPIDLE:
+>  		if (val < 1 || val > MAX_TCP_KEEPIDLE)
+>  			err = -EINVAL;
+> diff -Nur linux-2.6.23.8.vanilla/net/ipv4/tcp_input.c linux-2.6.23.8-tcp-thin/net/ipv4/tcp_input.c
+> --- linux-2.6.23.8.vanilla/net/ipv4/tcp_input.c	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/net/ipv4/tcp_input.c	2008-07-03 11:57:08.000000000 +0200
+> @@ -89,6 +89,9 @@
+>  int sysctl_tcp_frto_response __read_mostly;
+>  int sysctl_tcp_nometrics_save __read_mostly;
+>  
+> +/* Added @ Simula */
+> +int sysctl_tcp_force_thin_dupack __read_mostly = TCP_FORCE_THIN_DUPACK;
+> +
+>  int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+>  int sysctl_tcp_abc __read_mostly;
+>  
+> @@ -1709,6 +1712,12 @@
+>  		 */
+>  		return 1;
+>  	}
+> +	
+> +	/*Added at Simula to modify fast retransmit */
+> +	if ((tp->thin_dupack || sysctl_tcp_force_thin_dupack) &&
+> +	    tcp_fackets_out(tp) > 1 && tcp_stream_is_thin(tp)){
+
+Nowadays tcp_dupack_heurestics(tp)
+
+> +	  return 1;
+> +	}
+>  
+>  	return 0;
+>  }
+> @@ -2442,30 +2451,127 @@
+>  {
+>  	struct tcp_sock *tp = tcp_sk(sk);
+>  	const struct inet_connection_sock *icsk = inet_csk(sk);
+> -	struct sk_buff *skb;
+> +	struct sk_buff *skb = tcp_write_queue_head(sk);
+> +	struct sk_buff *next_skb;
+
+If you need next_skb, you might want to iterate with _safe variant below 
+unless there's a good reason to not use it (e.g., in the latest sack code 
+it wasn't safe enough).
+
+> +
+>  	__u32 now = tcp_time_stamp;
+>  	int acked = 0;
+>  	int prior_packets = tp->packets_out;
+> +	
+> +	/*Added at Simula for RDB support*/
+> +	__u8 done = 0;
+> +	int remove = 0;
+> +	int remove_head = 0;
+> +	int remove_frags = 0;
+> +	int no_frags;
+> +	int data_frags;
+> +	int i;
+> +		
+>  	__s32 seq_rtt = -1;
+>  	ktime_t last_ackt = net_invalid_timestamp();
+> -
+> -	while ((skb = tcp_write_queue_head(sk)) &&
+> -	       skb != tcp_send_head(sk)) {
+> +	
+> +	while (skb != NULL 
+> +	       && ((!(tp->thin_rdb || sysctl_tcp_force_thin_rdb) 
+> +		    && skb != tcp_send_head(sk) 
+> +		    && skb != (struct sk_buff *)&sk->sk_write_queue) 
+> +		   || ((tp->thin_rdb || sysctl_tcp_force_thin_rdb) 
+> +		       && skb != (struct sk_buff *)&sk->sk_write_queue))){
+
+Too complex while condition for most of the mortals to understand, rather 
+use while(1) (or preferrably the _safe walk variant) and if (...) break;s
+
+In addition, there has been large rewrite since 2.6.23 days in 
+tcp_clean_rtx_queue...
+
+>  		struct tcp_skb_cb *scb = TCP_SKB_CB(skb);
+>  		__u8 sacked = scb->sacked;
+> -
+> +		
+> +		if(skb == NULL){
+> +			break;
+
+??? You already checked for that, no? Unless of course that while 
+condition defeated your too and you needed this to avoid imminent 
+crashing... :-) The real fix is to simplify while condition.
+
+> +		}
+> +		
+> +		if(skb == tcp_send_head(sk)){
+
+ditto?
+
+> +			break;
+> +		}
+> +		
+> +		if(skb == (struct sk_buff *)&sk->sk_write_queue){
+
+????
+
+> +			break;
+> +		}
+> +		
+>  		/* If our packet is before the ack sequence we can
+>  		 * discard it as it's confirmed to have arrived at
+>  		 * the other end.
+>  		 */
+>  		if (after(scb->end_seq, tp->snd_una)) {
+> -			if (tcp_skb_pcount(skb) > 1 &&
+> -			    after(tp->snd_una, scb->seq))
+> -				acked |= tcp_tso_acked(sk, skb,
+> -						       now, &seq_rtt);
+> -			break;
+> +			if (tcp_skb_pcount(skb) > 1 && after(tp->snd_una, scb->seq))
+> +				acked |= tcp_tso_acked(sk, skb, now, &seq_rtt);
+
+Not changing unrelated formats in the same patch would be nice (you 
+probably knew that, just mentioning), it makes review a lot harder.
+
+> +			
+> +			done = 1;
+> +			
+> +			/* Added at Simula for RDB support*/
+> +			if ((tp->thin_rdb || sysctl_tcp_force_thin_rdb) && after(tp->snd_una, scb->seq)) {
+> +				if (!skb_cloned(skb) && !(scb->flags & TCPCB_FLAG_SYN)){
+
+Does this thing of youes depend on skb being not cloned?
+
+> +					remove = tp->snd_una - scb->seq;
+> +					remove_head = (remove > skb_headlen(skb) ? 
+> +						       skb_headlen(skb) : remove);
+> +					remove_frags = (remove > skb_headlen(skb) ? 
+> +							remove - remove_head : 0);
+> +					
+> +					/* Has linear data */
+> +					if(skb_headlen(skb) > 0 && remove_head > 0){
+> +						memmove(skb->data,
+> +							skb->data + remove_head,
+> +							skb_headlen(skb) - remove_head);
+> +						
+> +						skb->tail -= remove_head;
+> +					}
+> +					
+> +					if(skb_is_nonlinear(skb) && remove_frags > 0){
+> +						no_frags = 0;
+> +						data_frags = 0;
+> +						
+> +						/*Remove unecessary pages*/
+> +						for(i=0; i<skb_shinfo(skb)->nr_frags; i++){
+> +							if(data_frags + skb_shinfo(skb)->frags[i].size 
+> +							   == remove_frags){
+> +								put_page(skb_shinfo(skb)->frags[i].page);
+> +								no_frags += 1;
+> +								break;
+> +							}
+> +							put_page(skb_shinfo(skb)->frags[i].page);
+> +							no_frags += 1;
+> +							data_frags += skb_shinfo(skb)->frags[i].size;
+> +						}
+> +						
+> +						if(skb_shinfo(skb)->nr_frags > no_frags)
+> +							memmove(skb_shinfo(skb)->frags,
+> +								skb_shinfo(skb)->frags + no_frags,
+> +								(skb_shinfo(skb)->nr_frags 
+> +								 - no_frags)*sizeof(skb_frag_t));
+> +						
+> +						skb->data_len -= remove_frags;
+> +						skb_shinfo(skb)->nr_frags -= no_frags;
+> +						
+> +					}
+> +					
+> +					scb->seq += remove;
+> +					skb->len -= remove;
+> +					
+> +					if(skb->ip_summed == CHECKSUM_PARTIAL)
+> +						skb->csum = CHECKSUM_PARTIAL;
+> +					else
+> +						skb->csum = skb_checksum(skb, 0, skb->len, 0);
+> +					
+> +				}
+
+Open coded tcp_trim_head?
+
+> +				
+> +				/*Only move forward if data could be removed from this packet*/
+> +				done = 2;
+> +				
+> +			}
+> +			
+> +			if(done == 1 || tcp_skb_is_last(sk,skb)){
+> +				break;
+> +			} else if(done == 2){
+> +				skb = skb->next;
+> +				done = 1;
+> +				continue;
+> +			}
+> +			
+>  		}
+> -
+> +		
+
+Please make sure that no this kind of space changes will be present in the 
+patch you're going do send.
+
+>  		/* Initial outgoing SYN's get put onto the write_queue
+>  		 * just like anything else we transmit.  It is not
+>  		 * true data, and if we misinform our callers that
+> @@ -2479,14 +2585,14 @@
+>  			acked |= FLAG_SYN_ACKED;
+>  			tp->retrans_stamp = 0;
+>  		}
+> -
+> +		
+>  		/* MTU probing checks */
+>  		if (icsk->icsk_mtup.probe_size) {
+>  			if (!after(tp->mtu_probe.probe_seq_end, TCP_SKB_CB(skb)->end_seq)) {
+>  				tcp_mtup_probe_success(sk, skb);
+>  			}
+>  		}
+> -
+> +		
+>  		if (sacked) {
+>  			if (sacked & TCPCB_RETRANS) {
+>  				if (sacked & TCPCB_SACKED_RETRANS)
+> @@ -2510,24 +2616,32 @@
+>  			seq_rtt = now - scb->when;
+>  			last_ackt = skb->tstamp;
+>  		}
+> +		
+> +		if ((tp->thin_rdb || sysctl_tcp_force_thin_rdb) && skb == tcp_send_head(sk)) {
+> +			tcp_advance_send_head(sk, skb);
+> +		}
+> +		
+
+I kind of missed the point of this change, can you please justify it if 
+it's still needed? I think it must either be bug in your code causing this 
+to happen or unnecessary.
+
+>  		tcp_dec_pcount_approx(&tp->fackets_out, skb);
+>  		tcp_packets_out_dec(tp, skb);
+> +		next_skb = skb->next;
+>  		tcp_unlink_write_queue(skb, sk);
+>  		sk_stream_free_skb(sk, skb);
+>  		clear_all_retrans_hints(tp);
+> +		/* Added at Simula to support RDB */
+> +		skb = next_skb;
+
+Use _safe wq walking variant if you need this.
+
+>  	}
+> -
+> +	
+>  	if (acked&FLAG_ACKED) {
+>  		u32 pkts_acked = prior_packets - tp->packets_out;
+>  		const struct tcp_congestion_ops *ca_ops
+>  			= inet_csk(sk)->icsk_ca_ops;
+> -
+> +		
+>  		tcp_ack_update_rtt(sk, acked, seq_rtt);
+>  		tcp_ack_packets_out(sk);
+> -
+> +		
+>  		if (ca_ops->pkts_acked) {
+>  			s32 rtt_us = -1;
+> -
+> +			
+>  			/* Is the ACK triggering packet unambiguous? */
+>  			if (!(acked & FLAG_RETRANS_DATA_ACKED)) {
+>  				/* High resolution needed and available? */
+> diff -Nur linux-2.6.23.8.vanilla/net/ipv4/tcp_output.c linux-2.6.23.8-tcp-thin/net/ipv4/tcp_output.c
+> --- linux-2.6.23.8.vanilla/net/ipv4/tcp_output.c	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/net/ipv4/tcp_output.c	2008-07-03 11:55:45.000000000 +0200
+> @@ -1653,7 +1653,7 @@
+>  
+>  		BUG_ON(tcp_skb_pcount(skb) != 1 ||
+>  		       tcp_skb_pcount(next_skb) != 1);
+> -
+> +		
+>  		/* changing transmit queue under us so clear hints */
+>  		clear_all_retrans_hints(tp);
+>  
+> @@ -1702,6 +1702,166 @@
+>  	}
+>  }
+>  
+> +/* Added at Simula. Variation of the regular collapse,
+> +   adapted to support RDB  */
+> +static void tcp_retrans_merge_redundant(struct sock *sk,
+> +					struct sk_buff *skb,
+> +					int mss_now)
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +	struct sk_buff *next_skb = skb->next;
+> +	int skb_size = skb->len;
+> +	int new_data = 0;
+> +	int new_data_head = 0;
+> +	int new_data_frags = 0;
+> +	int new_frags = 0;> +	int old_headlen = 0;
+> +	
+> +	int i;
+> +	int data_frags = 0;
+> +	
+> +	/* Loop through as many packets as possible
+> +	 * (will create a lot of redundant data, but WHATEVER).
+> +	 * The only packet this MIGHT be critical for is
+> +	 * if this packet is the last in the retrans-queue.
+> +	 *
+> +	 * Make sure that the first skb isnt already in
+> +	 * use by somebody else. */
+> +	
+> +	if (!skb_cloned(skb)) {
+
+Relying on skb's not being cloned will make your change to work in a 
+minority of the cases on many hardwares that have tx reclaims happening 
+late enough. I recently got some numbers about clones after rtt and can 
+claim this to happen for sure!
+
+> +		/* Iterate through the retransmit queue */
+> +		for (; (next_skb != (sk)->sk_send_head) && 
+> +			     (next_skb != (struct sk_buff *) &(sk)->sk_write_queue); 
+> +		     next_skb = next_skb->next) {
+
+_safe(...) walk.
+
+> +			
+> +			/* Reset variables */
+> +			new_frags = 0;
+> +			data_frags = 0;
+> +			new_data = TCP_SKB_CB(next_skb)->end_seq - TCP_SKB_CB(skb)->end_seq;
+> +			
+> +			/* New data will be stored at skb->start_add + some_offset, 
+> +			   in other words the last N bytes */
+> +			new_data_frags = (new_data > next_skb->data_len ? 
+> +					  next_skb->data_len : new_data);
+
+min()...?
+
+> +			new_data_head = (new_data > next_skb->data_len ? 
+> +					 new_data - skb->data_len : 0);
+
+max(new_data - skb->data_len, 0);
+
+> +			
+> +			/*
+> +			 * 1. Contains the same data
+> +			 * 2. Size
+> +			 * 3. Sack
+> +			 * 4. Window
+> +			 * 5. Cannot merge with a later packet that has linear data
+> +			 * 6. The new number of frags will exceed the limit
+> +			 * 7. Enough tailroom
+> +			 */
+> +			
+> +			if(new_data <= 0){
+> +				return;
+> +			}
+> +			
+> +			if ((sysctl_tcp_rdb_max_bundle_bytes == 0 && ((skb_size + new_data) > mss_now))
+> +			    || (sysctl_tcp_rdb_max_bundle_bytes > 0 && ((skb_size + new_data) >
+> +									sysctl_tcp_rdb_max_bundle_bytes))){
+> +				return;
+> +			}
+> +			
+> +			if(TCP_SKB_CB(next_skb)->flags & TCPCB_FLAG_FIN){
+> +				return;
+> +			}
+> +			
+> +			if((TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
+> +			   (TCP_SKB_CB(next_skb)->sacked & TCPCB_SACKED_ACKED)){
+> +				return;
+> +			}
+> +			
+> +			if(after(TCP_SKB_CB(skb)->end_seq + new_data, tp->snd_una + tp->snd_wnd)){
+
+tcp_wnd_end(tp)
+
+> +				return;
+> +			}
+> +			
+> +			if(skb_shinfo(skb)->frag_list || skb_shinfo(skb)->frag_list){
+
+If it wasn't cloned, why you do this check?
+
+> +				return;
+> +			}
+> +			
+> +			/* Calculate number of new fragments. Any new data will be 
+> +			   stored in the back. */
+> +			if(skb_is_nonlinear(next_skb)){
+> +				i = (skb_shinfo(next_skb)->nr_frags == 0 ? 
+> +				     0 : skb_shinfo(next_skb)->nr_frags - 1);
+> +				for( ; i>=0;i--){
+> +					if(data_frags + skb_shinfo(next_skb)->frags[i].size == 
+> +					   new_data_frags){
+> +						new_frags += 1;
+> +						break;
+> +					}
+> +					
+> +					data_frags += skb_shinfo(next_skb)->frags[i].size;
+> +					new_frags += 1;
+> +				}
+> +			}
+> +			
+> +			/* If dealing with a fragmented skb, only merge 
+> +			   with an skb that ONLY contain frags */
+> +			if(skb_is_nonlinear(skb)){
+> +				
+> +				/*Due to the way packets are processed, no later data*/
+> +				if(skb_headlen(next_skb) && new_data_head > 0){
+> +					return;
+> +				}
+> +				
+> +				if(skb_is_nonlinear(next_skb) && (new_data_frags > 0) && 
+> +				   ((skb_shinfo(skb)->nr_frags + new_frags) > MAX_SKB_FRAGS)){
+> +					return;
+> +				}
+> +				
+> +			} else {
+> +				if(skb_headlen(next_skb) && (new_data_head > (skb->end - skb->tail))){
+> +					return;
+> +				}
+> +			}
+> +			
+> +			/*Copy linear data. This will only occur if both are linear, 
+> +			  or only A is linear*/
+> +			if(skb_headlen(next_skb) && (new_data_head > 0)){
+> +				old_headlen = skb_headlen(skb);
+> +				skb->tail += new_data_head;
+> +				skb->len += new_data_head;
+> +				
+> +				/* The new data starts in the linear area, 
+> +				   and the correct offset will then be given by 
+> +				   removing new_data ammount of bytes from length. */
+> +				skb_copy_to_linear_data_offset(skb, old_headlen, next_skb->tail - 
+> +							       new_data_head, new_data_head);
+> +			}
+> +			
+> +			if(skb_is_nonlinear(next_skb) && (new_data_frags > 0)){
+> +				memcpy(skb_shinfo(skb)->frags + skb_shinfo(skb)->nr_frags, 
+> +				       skb_shinfo(next_skb)->frags + 
+> +				       (skb_shinfo(next_skb)->nr_frags - new_frags), 
+> +				       new_frags*sizeof(skb_frag_t));
+> +				
+> +				for(i=skb_shinfo(skb)->nr_frags; 
+> +				    i < skb_shinfo(skb)->nr_frags + new_frags; i++)
+> +					get_page(skb_shinfo(skb)->frags[i].page);
+> +				
+> +				skb_shinfo(skb)->nr_frags += new_frags;
+> +				skb->data_len += new_data_frags;
+> +				skb->len += new_data_frags;
+> +			}
+> +			
+> +			TCP_SKB_CB(skb)->end_seq += new_data;
+> +						
+> +			if(skb->ip_summed == CHECKSUM_PARTIAL)
+> +				skb->csum = CHECKSUM_PARTIAL;
+> +			else
+> +				skb->csum = skb_checksum(skb, 0, skb->len, 0);
+> +			
+> +			skb_size = skb->len;
+> +		}
+> +		
+> +	}
+> +}
+
+I suppose this function was effectively:
+
+{
+	tcp_write_queue_walk_safe(...) {
+		...checks...
+		if (tcp_trim_head(...))
+			break;
+		tcp_collapse_retrans(...);
+	}
+}
+
+It's sort of counter-intuitive that first you use redundancy but now in 
+here when the path _has shown problems_ you now remove the redundancy if
+I understand you correctly? The logic is...?
+
+> +
+>  /* Do a simple retransmit without using the backoff mechanisms in
+>   * tcp_timer. This is used for path mtu discovery.
+>   * The socket is already locked here.
+> @@ -1756,6 +1916,8 @@
+>  /* This retransmits one SKB.  Policy decisions and retransmit queue
+>   * state updates are done by the caller.  Returns non-zero if an
+>   * error occurred which prevented the send.
+> + * Modified at Simula to support thin stream optimizations
+> + * TODO: Update to use new helpers (like tcp_write_queue_next())
+>   */
+>  int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+>  {
+> @@ -1802,10 +1964,21 @@
+>  	    (skb->len < (cur_mss >> 1)) &&
+>  	    (tcp_write_queue_next(sk, skb) != tcp_send_head(sk)) &&
+>  	    (!tcp_skb_is_last(sk, skb)) &&
+> -	    (skb_shinfo(skb)->nr_frags == 0 && skb_shinfo(tcp_write_queue_next(sk, skb))->nr_frags == 0) &&
+> -	    (tcp_skb_pcount(skb) == 1 && tcp_skb_pcount(tcp_write_queue_next(sk, skb)) == 1) &&
+> -	    (sysctl_tcp_retrans_collapse != 0))
+> +	    (skb_shinfo(skb)->nr_frags == 0
+> +	     && skb_shinfo(tcp_write_queue_next(sk, skb))->nr_frags == 0)
+> +	    && (tcp_skb_pcount(skb) == 1
+> +		&& tcp_skb_pcount(tcp_write_queue_next(sk, skb)) == 1)
+> +	    && (sysctl_tcp_retrans_collapse != 0)
+> +	    && !((tp->thin_rdb || sysctl_tcp_force_thin_rdb))) {
+>  		tcp_retrans_try_collapse(sk, skb, cur_mss);
+> +       	} else if ((tp->thin_rdb || sysctl_tcp_force_thin_rdb)) {
+> +		if (!(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_SYN) &&
+> +		    !(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN) &&
+> +		    (skb->next != tcp_send_head(sk)) &&
+> +		    (skb->next != (struct sk_buff *) &sk->sk_write_queue)) {
+> +			tcp_retrans_merge_redundant(sk, skb, cur_mss);
+> +		}
+> +	}
+
+This function is recoded in net-next. And some rather simple changes are 
+still expected to that area to handle paged data once I get to that.
+
+>  
+>  	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk))
+>  		return -EHOSTUNREACH; /* Routing failure or similar. */
+> diff -Nur linux-2.6.23.8.vanilla/net/ipv4/tcp_timer.c linux-2.6.23.8-tcp-thin/net/ipv4/tcp_timer.c
+> --- linux-2.6.23.8.vanilla/net/ipv4/tcp_timer.c	2007-11-16 19:14:27.000000000 +0100
+> +++ linux-2.6.23.8-tcp-thin/net/ipv4/tcp_timer.c	2008-07-02 15:17:38.000000000 +0200
+> @@ -32,6 +32,9 @@
+>  int sysctl_tcp_retries2 __read_mostly = TCP_RETR2;
+>  int sysctl_tcp_orphan_retries __read_mostly;
+>  
+> +/* Added @ Simula */
+> +int sysctl_tcp_force_thin_rm_expb __read_mostly = TCP_FORCE_THIN_RM_EXPB;
+> +
+>  static void tcp_write_timer(unsigned long);
+>  static void tcp_delack_timer(unsigned long);
+>  static void tcp_keepalive_timer (unsigned long data);
+> @@ -368,13 +371,26 @@
+>  	 */
+>  	icsk->icsk_backoff++;
+>  	icsk->icsk_retransmits++;
+> -
+> +	
+>  out_reset_timer:
+> -	icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
+> +	/* Added @ Simula removal of exponential backoff for thin streams */
+> +	if ((tp->thin_rm_expb || sysctl_tcp_force_thin_rm_expb) && tcp_stream_is_thin(tp)) {
+> +		/* Since 'icsk_backoff' is used to reset timer, set to 0
+> +		 * Recalculate 'icsk_rto' as this might be increased if stream oscillates
+> +		 * between thin and thick, thus the old value might already be too high
+> +		 * compared to the value set by 'tcp_set_rto' in tcp_input.c which resets
+> +		 * the rto without backoff. */
+> +		icsk->icsk_backoff = 0;
+> +		icsk->icsk_rto = min(((tp->srtt >> 3) + tp->rttvar), TCP_RTO_MAX);
+
+tcp_set_rto(sk);
+tcp_bound_rto(sk);
+
+Though combine + nuking tcp_bound_rto would definately make sense 
+considering the callsites do both.
+
+> +	} else {
+> +		/* Use normal backoff */
+> +		icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
+> +	}
+> +	/* End Simula*/
+>  	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TCP_RTO_MAX);
+>  	if (icsk->icsk_retransmits > sysctl_tcp_retries1)
+>  		__sk_dst_reset(sk);
+> -
+> +	
+>  out:;
+>  }
+
+It seems very intrusive solution in general. I doubt you succeed in 
+pulling it off as is without breaking something. To me it seems rather 
+fragile approach to make write queue seqno backleaps you're proposing. It 
+also leads to troubles in the truesize as you have noticed. Why not just 
+building those redundancy containing segments at the write time in case 
+the stream is thin, then all other parts would not have to bother about 
+dealing these things? Number of sysctls should be minimized, if they're
+to be added at all. Skb work functions should be separated from tcp layer 
+things.
+
+If you depend on non-changing sysctl value to select right branch, you're 
+asking for trouble as the userspave is allowed to change it during the 
+flow as well and even during the ack processing.
+
+
+-- 
+ i.
