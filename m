@@ -1,68 +1,72 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH] virtio_net: large tx MTU support
-Date: Fri, 28 Nov 2008 09:29:55 +0000
-Message-ID: <1227864595.3643.13.camel@blaa>
-References: <1227707891.9579.44.camel@blaa>
-	 <200811272300.58151.rusty@rustcorp.com.au> <1227794225.24571.36.camel@blaa>
-	 <200811281052.33474.rusty@rustcorp.com.au>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Subject: Re: [PATCH 6/6] fs: Introduce kern_mount_special() to mount
+	special vfs
+Date: Fri, 28 Nov 2008 09:34:19 +0000
+Message-ID: <20081128093419.GM28946@ZenIV.linux.org.uk>
+References: <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDCAB.1070204@cosmosbay.com> <20081128092604.GL28946@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42419 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750815AbYK1JcG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Nov 2008 04:32:06 -0500
-In-Reply-To: <200811281052.33474.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, rth-hL46jP5Bxq7R7s880joybQ@public.gmane.org,
+	ink-biIs/Y0ymYJMZLIVYojuPNP0rXTJTi09@public.gmane.org
+To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20081128092604.GL28946-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-11-28 at 10:52 +1030, Rusty Russell wrote:
-> On Friday 28 November 2008 00:27:05 Mark McLoughlin wrote:
-> > Hi Rusty,
-> >
-> > On Thu, 2008-11-27 at 23:00 +1030, Rusty Russell wrote:
-> > > On Thursday 27 November 2008 00:28:11 Mark McLoughlin wrote:
-> > > > We don't really have a max tx packet size limit, so allow configuring
-> > > > the device with up to 64k tx MTU.
-> > >
-> > > Hi Mark,
-> > >
-> > > Just one comment: maybe we should be conservative and maybe limit to 1500
-> > > if the host doesn't offer any of the GSO or MRG_RXBUF features?
-> >
-> > That was actually what I was going to do until I thought about it a bit
-> > more and discussed it with Herbert.
-> >
-> > The virtio_net MTU only affects the transmit path, so there shouldn't be
-> > any issue with a host that doesn't support those features.
+On Fri, Nov 28, 2008 at 09:26:04AM +0000, Al Viro wrote:
+
+gyah...  That would be
+
+> static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
+> {
+> 	unsigned long temp, res;
+> 	__asm__ __volatile__(
+> 	"1:     ldl_l %0,%1\n"
+> 	"       cmpne %0,%4,%2\n"
+ 	"       beq %2,3f\n"
+ 	"       addl %0,%3,%2\n"
+> 	"       stl_c %2,%1\n"
+> 	"       beq %2,2f\n"
+> 	"3:\n"
+>         ".subsection 2\n"
+>         "2:     br 1b\n"
+>         ".previous"
+>         :"=&r" (temp), "=m" (v->counter), "=&r" (res)
+>         :"Ir" (a), "Ir" (u), "m" (v->counter) : "memory");
+> 	smp_mb();
+> 	return res;
+> }
 > 
-> Not quite what I meant.
-
-Well, you did mention MRG_RXBUF :-)
-
-> A minimal host can reasonably expect ethernet-fitting packets.  If it
-> supports GSO of course it must handle larger ones.
-
-I think this is orthogonal to GSO - e.g. a host may support GSO even if
-it can only physically transmit 1500 byte frames.
-
-MTU configuration is commonly a trial and error thing, so we're better
-off allowing larger MTU sizes in cases where the host might not support
-it rather than disallowing it in cases where the host can support it.
-
-> Otherwise we should add YA feature bit or even a max-mtu field.
-
-If e.g. we allowed physical device assignment via virtio, then the MTU
-would be limited to the MTU supported by the physical device. In that
-case it might make sense to add a max-mtu field or similar, but IMHO
-it's fine to allow larger MTU sizes in the mean time.
-
-Cheers,
-Mark.
-
+> static __inline__ int atomic64_add_unless(atomic64_t *v, long a, long u)
+> {
+> 	unsigned long temp, res;
+> 	__asm__ __volatile__(
+> 	"1:     ldq_l %0,%1\n"
+> 	"       cmpne %0,%4,%2\n"
+ 	"       beq %2,3f\n"
+ 	"       addq %0,%3,%2\n"
+> 	"       stq_c %2,%1\n"
+> 	"       beq %2,2f\n"
+> 	"3:\n"
+>         ".subsection 2\n"
+>         "2:     br 1b\n"
+>         ".previous"
+>         :"=&r" (temp), "=m" (v->counter), "=&r" (res)
+>         :"Ir" (a), "Ir" (u), "m" (v->counter) : "memory");
+> 	smp_mb();
+> 	return res;
+> }
+> 
+> Comments?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
