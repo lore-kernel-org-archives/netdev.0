@@ -1,60 +1,32 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: hardware time stamping with extra skb->hwtstamp
-Date: Fri, 28 Nov 2008 14:55:32 +0200
-Message-ID: <200811281455.32744.opurdila@ixiacom.com>
-References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com> <200811272053.10009.opurdila@ixiacom.com> <492F1B74.8000701@hartkopp.net>
+From: Raz <raziebe@gmail.com>
+Subject: what is the expeted performance from a dual port 10G card ?
+Date: Fri, 28 Nov 2008 15:11:13 +0200
+Message-ID: <5d96567b0811280511q1e3f7774j7eabce4810dae91a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick Ohly <patrick.ohly@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Oliver Hartkopp <oliver@hartkopp.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixia01.ro.gtsce.net ([212.146.94.66]:6298 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750755AbYK1NAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 08:00:05 -0500
-In-Reply-To: <492F1B74.8000701@hartkopp.net>
+Received: from an-out-0708.google.com ([209.85.132.242]:42845 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254AbYK1NLP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 08:11:15 -0500
+Received: by an-out-0708.google.com with SMTP id d40so515407and.1
+        for <netdev@vger.kernel.org>; Fri, 28 Nov 2008 05:11:14 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Date: Thu, 27 Nov 2008 23:13:08 +0100
+Hello
+I have been testing 10G ethernet cards , intel ixgbe, chelsio, tehuti
+and melanox . All are dual port cards.
+I have used pktgen to test it. A single cpu is mapped over a single
+interface (no neeed for MQ , which is quite bad anyway).
+Results:
+Intel gives: 13Gbps , 6.5 from each port.
+The rest give ~10 Gbps .
+Cards were tested on PCI-E x8 slot, on a supermicro x7DBI and
+supermicro 1025W-UR.
 
-> > How about this twist: we add a new option at the socket level, to get the
-> > whole skb->head - skb->end data into a user buffer. Then, we call an
-> > device ioctl and pass this buffer. The device will extract the hw
-> > timestamp and give it to the user.
-> >
-> > We might not need to get the whole skb->head - skb->end buffer, maybe
-> > just skb->head - skb->mac if we know that skb->mac is sane at the socket 
->> level and we use the convention that the device driver must put the 
->> timestamp below the mac header.
-> >
-> > One potential problem I see with this approach is leaking sensitive
-> > information into userspace, which means we will have to restrict this to
-> > privileged processes only.
->
-> Ugh.
->
-> Not every protocol that uses skbuffs, has a mac header (e.g. the CAN
-> protocol doesn't have mac addresses). 
-
-OK, then what about this: we use a device ioctl to get the number of bytes to 
-copy from skb->head. We then pass this to the socket level option.
-
-This is more complicated than option 3 or 4, but it should address the 
-concerns raised here - no performance impact when not using this feature. The 
-trade-off is moving work from core kernel into userspace and device driver. 
-
-> This twist does not look very maintainable to me ...
-
-Could you elaborate on the maintainability issues, they are not clear to me.
-
-
-Thanks,
-tavi
-
-
+Am i to expect ~20Gbps from each card ?
+Thank you.
