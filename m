@@ -1,56 +1,28 @@
-From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: option: oops on unload (2.6.27.4)
-Date: Fri, 28 Nov 2008 15:50:10 -0800
-Message-ID: <20081128235010.GB27130@suse.de>
-References: <20081128213254.GB6750@joi> <20081128215021.GA25391@suse.de> <20081128220142.GC6750@joi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] phy: add natsemi PHY driver
+Date: Fri, 28 Nov 2008 16:14:34 -0800 (PST)
+Message-ID: <20081128.161434.140430942.davem@davemloft.net>
+References: <1227794193-19846-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcin Slusarz <marcin.slusarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20081128220142.GC6750@joi>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40559
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753038AbYK2AOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 19:14:34 -0500
+In-Reply-To: <1227794193-19846-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 28, 2008 at 11:01:43PM +0100, Marcin Slusarz wrote:
-> On Fri, Nov 28, 2008 at 01:50:21PM -0800, Greg KH wrote:
-> > On Fri, Nov 28, 2008 at 10:32:59PM +0100, Marcin Slusarz wrote:
-> > > It's not new bug - I've seen this oops many times but on much older
-> > > kernels (2.6.18, probably on 2.6.24 too).
-> > > 
-> > > I tried to rmmod it (and all usb modules) because sometimes it helps when
-> > > modem disconnects and can't connect again.
-> > > 
-> > > [25350.138850] BUG: unable to handle kernel paging request at e0857fb4
-> > > [25350.138866] IP: [<e0a22e80>] :usbcore:unlink1+0xab/0xb9
-> > > [25350.138921] *pde = 1f80f067 *pte = 00000000 
-> > > [25350.138934] Oops: 0000 [#1] PREEMPT SMP 
-> > > [25350.138945] Modules linked in: r128 drm ipt_REDIRECT ipt_MASQUERADE xt_tcpudp xt_multiport iptable_nat nf_nat nf_conntrack_ipv4 nf_conntrack iptable_filter ip_tables ppp_deflate zlib_deflate zlib_inflate bsd_comp ppp_async crc_ccitt ppp_generic slhc ipt_REJECT x_tables loop option usbserial snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd 8139cp i2c_i801 floppy 8139too 3c59x psmouse intel_agp soundcore snd_page_alloc sg mii usbcore agpgart i2c_core sr_mod evdev dcdbas cdrom [last unloaded: uhci_hcd]
-> > > [25350.139052] 
-> > > [25350.139059] Pid: 2807, comm: pppd Not tainted (2.6.27.4 #5)
-> > > [25350.139065] EIP: 0060:[<e0a22e80>] EFLAGS: 00010286 CPU: 0
-> > > [25350.139088] EIP is at unlink1+0xab/0xb9 [usbcore]
-> > 
-> > Yes, I've seen this before, what module are you unloading, uhci-hcd or
-> > the option module?
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Thu, 27 Nov 2008 14:56:33 +0100
+
+> This patch adds the PHY device driver for the National Semiconductor
+> DP83865 Gig PHYTER.
 > 
-> I don't know :| I invoked "rmmod option usbserial uhci_hcd usbcore"
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Try them one at a time:
-	rmmod option
-	rmmod uhci-hcd
-
-that should be all you need if you really need to remove all usb
-devices.
-
-But why do you need to do this?
-
-thanks,
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
