@@ -1,42 +1,97 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: what is the expeted performance from a dual port 10G card ?
-Date: Sat, 29 Nov 2008 17:34:43 +0000
-Message-ID: <20081129173442.GI32518@solarflare.com>
-References: <5d96567b0811280511q1e3f7774j7eabce4810dae91a@mail.gmail.com> <20081128135419.GH32518@solarflare.com> <5d96567b0811290010r641388b7w179bc4af26bbf103@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8169 problems with net booting
+Date: Sat, 29 Nov 2008 21:44:17 +0100
+Message-ID: <20081129204416.GA6401@electric-eye.fr.zoreil.com>
+References: <20081124181456.66a967d2@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="17pEHd4RhPHOinZp"
 Cc: netdev@vger.kernel.org
-To: Raz <raziebe@gmail.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:58535 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751393AbYK2Ret (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2008 12:34:49 -0500
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40877 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751270AbYK2Uom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2008 15:44:42 -0500
 Content-Disposition: inline
-In-Reply-To: <5d96567b0811290010r641388b7w179bc4af26bbf103@mail.gmail.com>
+In-Reply-To: <20081124181456.66a967d2@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Raz wrote:
-> PCI Encoding overhead is 8 bits /10 bits . so 16Gbps supposed to be
-> the practical limit.
 
-The 8b10 encoding is already accounted for in the 2.5 Gbps figure;
-the raw bit rate is 3.125 Gbps.
+--17pEHd4RhPHOinZp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I'm thinking about the transaction layer overhead.  Since PCI Express
-has few side-band signals there is a protocol a little like TCP running
-over the link, which adds a header to each request or response packet
-(TLP).  The maximum TLP size is usually quite small so the header
-accounts for a fair proportion of the link bandwidth.
+Alan Cox <alan@lxorguk.ukuu.org.uk> :
+> On one box here it has always been the case that now and then the boot
+> with crash just after r8169 is loaded iff the BIOS network rom (ie the
+> dhcp stuff) is enabled. Its erratic, hard to reproduce but I finally got
+> around to looking at the driver and have a question that seems to apply
+> to several network drivers
+[...]
+> The master bit is off when the driver is loaded it appears but surely the
+> driver should do
+>
+> 	twiddle a few bits
+> 	soft reset chip
+> 	pci_set_master
 
-> I still lack 3 Gbps in the Intel case. where are they ?
+You are right.
 
-That's for Intel to answer.
+Can you try the attached patch against 2.6.28-rc6 and tell if it makes a
+difference or not ?
 
-Ben.
+While I did not test it in a BIOS network boot configuration it did not
+crash trivially with these devices:
+RTL8168b/8111b / XID 38000000
+RTL8110s       / XID 04000000
 
+Note to others: this patch needs testing with different chipsets (XID)
+before being included upstream.
+
+--
+Ueimor
+
+--17pEHd4RhPHOinZp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="0001-r8169-enable-bus-mastering-after-the-chipset-is-res.patch"
+
+>From 67a7da6ddf8d2f8ca7f0be04a8d70e77e2dc7285 Mon Sep 17 00:00:00 2001
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Sat, 29 Nov 2008 20:54:18 +0100
+Subject: [PATCH] r8169: enable bus mastering after the chipset is reset
+
+Based on a suggestion by Alan Cox.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/r8169.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 4b7cb38..b5a7358 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2011,8 +2011,6 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		}
+ 	}
+ 
+-	pci_set_master(pdev);
+-
+ 	/* ioremap MMIO region */
+ 	ioaddr = ioremap(pci_resource_start(pdev, region), R8169_REGS_SIZE);
+ 	if (!ioaddr) {
+@@ -2039,6 +2037,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		msleep_interruptible(1);
+ 	}
+ 
++	pci_set_master(pdev);
++
+ 	/* Identify chip attached to board */
+ 	rtl8169_get_mac_version(tp, ioaddr);
+ 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.5.6.5
+
+
+--17pEHd4RhPHOinZp--
