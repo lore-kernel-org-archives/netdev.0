@@ -1,62 +1,56 @@
-From: =?utf-8?B?SsO2cm4=?= Engel <joern@logfs.org>
-Subject: Re: [PATCH v2 5/5] fs: new_inode_single() and iput_single()
-Date: Sat, 29 Nov 2008 12:14:53 +0100
-Message-ID: <20081129111452.GB11959@logfs.org>
-References: <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDB6A.8090806@cosmosbay.com> <49310115.8010306@cosmosbay.com>
+From: Marcin Slusarz <marcin.slusarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: option: oops on unload (2.6.27.4)
+Date: Sat, 29 Nov 2008 18:00:37 +0100
+Message-ID: <20081129170027.GA5862@joi>
+References: <20081128213254.GB6750@joi> <20081128215021.GA25391@suse.de> <20081128220142.GC6750@joi> <20081128235010.GB27130@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
-	"kernel-testers@vger.kernel.org >> Kernel Testers List"
-	<kernel-testers@vger.kernel.org>, Mike Galbraith <efault@gmx.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	linux-fsdevel@vger.kernel.org, Al Viro <viro@ZenIV.linux.org.uk>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lazybastard.de ([212.112.238.170]:45719 "EHLO
-	longford.logfs.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755996AbYK2LPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2008 06:15:15 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <49310115.8010306@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20081128235010.GB27130-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 29 November 2008 09:45:09 +0100, Eric Dumazet wrote:
-> =20
-> +void iput_single(struct inode *inode)
-> +{
-> +	if (atomic_dec_and_test(&inode->i_count)) {
-> +		destroy_inode(inode);
-> +		percpu_counter_dec(&nr_inodes);
-> +	}
-> +}
+On Fri, Nov 28, 2008 at 03:50:10PM -0800, Greg KH wrote:
+> On Fri, Nov 28, 2008 at 11:01:43PM +0100, Marcin Slusarz wrote:
+> > On Fri, Nov 28, 2008 at 01:50:21PM -0800, Greg KH wrote:
+> > > On Fri, Nov 28, 2008 at 10:32:59PM +0100, Marcin Slusarz wrote:
+> > > > It's not new bug - I've seen this oops many times but on much older
+> > > > kernels (2.6.18, probably on 2.6.24 too).
+> > > > 
+> > > > I tried to rmmod it (and all usb modules) because sometimes it helps when
+> > > > modem disconnects and can't connect again.
+> > > > 
+> > > > [25350.138850] BUG: unable to handle kernel paging request at e0857fb4
+> > > > [25350.138866] IP: [<e0a22e80>] :usbcore:unlink1+0xab/0xb9
+> > > > [25350.138921] *pde = 1f80f067 *pte = 00000000 
+> > > > [25350.138934] Oops: 0000 [#1] PREEMPT SMP 
+> > > > [25350.138945] Modules linked in: r128 drm ipt_REDIRECT ipt_MASQUERADE xt_tcpudp xt_multiport iptable_nat nf_nat nf_conntrack_ipv4 nf_conntrack iptable_filter ip_tables ppp_deflate zlib_deflate zlib_inflate bsd_comp ppp_async crc_ccitt ppp_generic slhc ipt_REJECT x_tables loop option usbserial snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd 8139cp i2c_i801 floppy 8139too 3c59x psmouse intel_agp soundcore snd_page_alloc sg mii usbcore agpgart i2c_core sr_mod evdev dcdbas cdrom [last unloaded: uhci_hcd]
+> > > > [25350.139052] 
+> > > > [25350.139059] Pid: 2807, comm: pppd Not tainted (2.6.27.4 #5)
+> > > > [25350.139065] EIP: 0060:[<e0a22e80>] EFLAGS: 00010286 CPU: 0
+> > > > [25350.139088] EIP is at unlink1+0xab/0xb9 [usbcore]
+> > > 
+> > > Yes, I've seen this before, what module are you unloading, uhci-hcd or
+> > > the option module?
+> > 
+> > I don't know :| I invoked "rmmod option usbserial uhci_hcd usbcore"
+> 
+> Try them one at a time:
+> 	rmmod option
+> 	rmmod uhci-hcd
+> 
+> that should be all you need if you really need to remove all usb
+> devices.
+> 
+> But why do you need to do this?
 
-I wonder if it is possible to avoid the atomic_dec_and_test() here, at
-least in the common case, and combine it with the atomic_dec_and_test()
-of the dentry.  A quick look at fs/inode.c indicates that inode->i_coun=
-t
-may never get changed for a SINGLE inode, except during creation or
-deletion.
-
-It might be worth to
-- remove the conditional from iput_single() and measure that it makes a
-  difference,
-- poison SINGLE inodes with some value and
-- put a BUG_ON() in __iget() that checks for the poison value.
-
-I _think_ the BUG_ON() is unnecessary, but at least my brain is not
-sufficient to convince me.  Can inotify somehow get a hold of a socket?
-Or dquot (how insane would that be?)
-
-J=C3=B6rn
-
---=20
-Mac is for working,
-Linux is for Networking,
-Windows is for Solitaire!
--- stolen from dc
+> > > > I tried to rmmod it (and all usb modules) because sometimes it helps when
+> > > > modem disconnects and can't connect again.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
