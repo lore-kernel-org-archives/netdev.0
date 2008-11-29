@@ -1,56 +1,42 @@
-From: Marcin Slusarz <marcin.slusarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: option: oops on unload (2.6.27.4)
-Date: Sat, 29 Nov 2008 18:00:37 +0100
-Message-ID: <20081129170027.GA5862@joi>
-References: <20081128213254.GB6750@joi> <20081128215021.GA25391@suse.de> <20081128220142.GC6750@joi> <20081128235010.GB27130@suse.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: what is the expeted performance from a dual port 10G card ?
+Date: Sat, 29 Nov 2008 17:34:43 +0000
+Message-ID: <20081129173442.GI32518@solarflare.com>
+References: <5d96567b0811280511q1e3f7774j7eabce4810dae91a@mail.gmail.com> <20081128135419.GH32518@solarflare.com> <5d96567b0811290010r641388b7w179bc4af26bbf103@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org
+To: Raz <raziebe@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:58535 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751393AbYK2Ret (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2008 12:34:49 -0500
 Content-Disposition: inline
-In-Reply-To: <20081128235010.GB27130-l3A5Bk7waGM@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5d96567b0811290010r641388b7w179bc4af26bbf103@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 28, 2008 at 03:50:10PM -0800, Greg KH wrote:
-> On Fri, Nov 28, 2008 at 11:01:43PM +0100, Marcin Slusarz wrote:
-> > On Fri, Nov 28, 2008 at 01:50:21PM -0800, Greg KH wrote:
-> > > On Fri, Nov 28, 2008 at 10:32:59PM +0100, Marcin Slusarz wrote:
-> > > > It's not new bug - I've seen this oops many times but on much older
-> > > > kernels (2.6.18, probably on 2.6.24 too).
-> > > > 
-> > > > I tried to rmmod it (and all usb modules) because sometimes it helps when
-> > > > modem disconnects and can't connect again.
-> > > > 
-> > > > [25350.138850] BUG: unable to handle kernel paging request at e0857fb4
-> > > > [25350.138866] IP: [<e0a22e80>] :usbcore:unlink1+0xab/0xb9
-> > > > [25350.138921] *pde = 1f80f067 *pte = 00000000 
-> > > > [25350.138934] Oops: 0000 [#1] PREEMPT SMP 
-> > > > [25350.138945] Modules linked in: r128 drm ipt_REDIRECT ipt_MASQUERADE xt_tcpudp xt_multiport iptable_nat nf_nat nf_conntrack_ipv4 nf_conntrack iptable_filter ip_tables ppp_deflate zlib_deflate zlib_inflate bsd_comp ppp_async crc_ccitt ppp_generic slhc ipt_REJECT x_tables loop option usbserial snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm snd_timer snd 8139cp i2c_i801 floppy 8139too 3c59x psmouse intel_agp soundcore snd_page_alloc sg mii usbcore agpgart i2c_core sr_mod evdev dcdbas cdrom [last unloaded: uhci_hcd]
-> > > > [25350.139052] 
-> > > > [25350.139059] Pid: 2807, comm: pppd Not tainted (2.6.27.4 #5)
-> > > > [25350.139065] EIP: 0060:[<e0a22e80>] EFLAGS: 00010286 CPU: 0
-> > > > [25350.139088] EIP is at unlink1+0xab/0xb9 [usbcore]
-> > > 
-> > > Yes, I've seen this before, what module are you unloading, uhci-hcd or
-> > > the option module?
-> > 
-> > I don't know :| I invoked "rmmod option usbserial uhci_hcd usbcore"
-> 
-> Try them one at a time:
-> 	rmmod option
-> 	rmmod uhci-hcd
-> 
-> that should be all you need if you really need to remove all usb
-> devices.
-> 
-> But why do you need to do this?
+Raz wrote:
+> PCI Encoding overhead is 8 bits /10 bits . so 16Gbps supposed to be
+> the practical limit.
 
-> > > > I tried to rmmod it (and all usb modules) because sometimes it helps when
-> > > > modem disconnects and can't connect again.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The 8b10 encoding is already accounted for in the 2.5 Gbps figure;
+the raw bit rate is 3.125 Gbps.
+
+I'm thinking about the transaction layer overhead.  Since PCI Express
+has few side-band signals there is a protocol a little like TCP running
+over the link, which adds a header to each request or response packet
+(TLP).  The maximum TLP size is usually quite small so the header
+accounts for a fair proportion of the link bandwidth.
+
+> I still lack 3 Gbps in the Intel case. where are they ?
+
+That's for Intel to answer.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
