@@ -1,28 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: add suspend/resume into the PHY drivers
-Date: Fri, 28 Nov 2008 16:38:29 -0800 (PST)
-Message-ID: <20081128.163829.112979971.davem@davemloft.net>
-References: <1227794239-19897-1-git-send-email-peppe.cavallaro@st.com>
-	<20081128.163604.31265829.davem@davemloft.net>
+From: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: option: oops on unload (2.6.27.4)
+Date: Fri, 28 Nov 2008 16:51:20 -0800
+Message-ID: <20081128165120.4d587db0@infradead.org>
+References: <20081128213254.GB6750@joi>
+	<20081128215021.GA25391@suse.de>
+	<20081128220142.GC6750@joi>
+	<20081128235010.GB27130@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38213
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752030AbYK2Ai3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Nov 2008 19:38:29 -0500
-In-Reply-To: <20081128.163604.31265829.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marcin Slusarz <marcin.slusarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081128235010.GB27130-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 28 Nov 2008 16:36:04 -0800 (PST)
+On Fri, 28 Nov 2008 15:50:10 -0800
+Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org> wrote:
+> > > > i2c_core sr_mod evdev dcdbas cdrom [last unloaded: uhci_hcd]
 
-> Also, you have a driver in your tree which does not exist upstream,
-> drivers/net/phy/national.c, so this patch wouldn't apply correctly
-> anyways.
+... last unloaded was uhci_hcd ;)
 
-Nevermind, this part is my fault.
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
