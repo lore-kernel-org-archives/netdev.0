@@ -1,41 +1,67 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: cxgb3: Fix sparse warning and micro-optimize is_pure_response()
-Date: Fri, 28 Nov 2008 21:55:48 -0800 (PST)
-Message-ID: <20081128.215548.201883857.davem@davemloft.net>
-References: <ada3ahbccdk.fsf@cisco.com>
+Subject: Re: [PATCH] [PPPOL2TP] Add missing sock_put() in pppol2tp_release()
+Date: Fri, 28 Nov 2008 22:13:22 -0800 (PST)
+Message-ID: <20081128.221322.67645422.davem@davemloft.net>
+References: <20081127171851.3fe7db5a@iter>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: divy@chelsio.com, jeff@garzik.org, netdev@vger.kernel.org
-To: rdreier@cisco.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jchapman@katalix.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: frederic.moulins@alsatis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53791
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34677
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750748AbYK2Fzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2008 00:55:48 -0500
-In-Reply-To: <ada3ahbccdk.fsf@cisco.com>
+	by vger.kernel.org with ESMTP id S1750701AbYK2GNW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Nov 2008 01:13:22 -0500
+In-Reply-To: <20081127171851.3fe7db5a@iter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Fri, 28 Nov 2008 21:47:03 -0800
+=46rom: Fr=E9d=E9ric Moulins <frederic.moulins@alsatis.com>
+Date: Thu, 27 Nov 2008 17:18:51 +0100
 
-> The function is_pure_response() does "ntohl(var) & const" and then
-> essentially just tests whether the result is 0 or not; this can be done
-> more efficiently by computing "var & htonl(const)" instead and doing the
-> byte swap at compile time instead of run time.
-> 
-> This change slightly shrinks the compiled code; eg on x86-64 we save a
-> couple of bswapl instructions:
-> 
-> add/remove: 0/0 grow/shrink: 0/1 up/down: 0/-8 (-8)
-> function                                     old     new   delta
-> t3_sge_intr_msix_napi                        544     536      -8
-> 
-> and this also has the pleasant side effect of fixing a sparse warning:
-> 
->     drivers/net/cxgb3/sge.c:2313:15: warning: restricted degrades to integer
-> 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> pppol2tp_sock_to_session() do sock_hold() if the session to release i=
+s
+> not NULL.
+>=20
+> Signed-off-by: Fr=E9d=E9ric Moulins <frederic.moulins@alsatis.com>
 
-Applied, thanks Roland.
+Applied, but please post networking patches at least CC:'d to
+netdev@vger.kernel.org so that your work gets properly tracked
+at:
+
+	http://patchwork.ozlabs.org/project/netdev/list
+
+Thanks.
+
+> ---
+> Patch is applicable to kernels 2.6.26 and following.
+>=20
+> Tested with a 2.6.26 stable kernel:
+> without this patch, a session in a persistent tunnel cannot be
+> established again (connect failed: -17), and the pppol2tp kernel modu=
+le
+> cannot be removed because still considered in use after stopping all
+> userspace daemons.
+>=20
+> diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+> index ff175e8..de80ba4 100644
+> --- a/drivers/net/pppol2tp.c
+> +++ b/drivers/net/pppol2tp.c
+> @@ -1353,6 +1353,7 @@ static int pppol2tp_release(struct socket *sock=
+)
+>  			kfree_skb(skb);
+>  			sock_put(sk);
+>  		}
+> +		sock_put(sk);
+>  	}
+> =20
+>  	release_sock(sk);
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
