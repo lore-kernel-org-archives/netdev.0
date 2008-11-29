@@ -1,43 +1,56 @@
-From: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Subject: Re: [PATCH 0/6] fs: Scalability of sockets/pipes	allocation/deallocation
- on SMP
-Date: Sat, 29 Nov 2008 09:07:07 +0100
-Message-ID: <4930F82B.7030906@cosmosbay.com>
-References: <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDB6A.8090806@cosmosbay.com> <20081128180318.GL10487@elte.hu> <1227898076.7392.16.camel@twins> <20081129063816.GA869@infradead.org>
+From: Raz <raziebe@gmail.com>
+Subject: Re: what is the expeted performance from a dual port 10G card ?
+Date: Sat, 29 Nov 2008 10:10:37 +0200
+Message-ID: <5d96567b0811290010r641388b7w179bc4af26bbf103@mail.gmail.com>
+References: <5d96567b0811280511q1e3f7774j7eabce4810dae91a@mail.gmail.com>
+	 <20081128135419.GH32518@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081129063816.GA869-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Ben Hutchings" <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.248]:24622 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750897AbYK2IKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Nov 2008 03:10:39 -0500
+Received: by an-out-0708.google.com with SMTP id d40so623197and.1
+        for <netdev@vger.kernel.org>; Sat, 29 Nov 2008 00:10:38 -0800 (PST)
+In-Reply-To: <20081128135419.GH32518@solarflare.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Christoph Hellwig a =E9crit :
-> On Fri, Nov 28, 2008 at 07:47:56PM +0100, Peter Zijlstra wrote:
->>> Wow, that's incredibly impressive! :-)
->> Yeah, we got a similar speedup on -rt by pushing those super-block f=
-iles
->> list into per-cpu lists and doing crazy locking on them.
+PCI Encoding overhead is 8 bits /10 bits . so 16Gbps supposed to be
+the practical limit. I still lack 3 Gbps in the Intel case.
+where are they ?
+
+On Fri, Nov 28, 2008 at 3:54 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> Raz wrote:
+>> Hello
+>> I have been testing 10G ethernet cards , intel ixgbe, chelsio, tehuti
+>> and melanox . All are dual port cards.
+>> I have used pktgen to test it. A single cpu is mapped over a single
+>> interface (no neeed for MQ , which is quite bad anyway).
+>> Results:
+>> Intel gives: 13Gbps , 6.5 from each port.
+>> The rest give ~10 Gbps .
+>> Cards were tested on PCI-E x8 slot, on a supermicro x7DBI and
+>> supermicro 1025W-UR.
 >>
->> Of course avoiding them all together, like done here is a nicer opti=
-on
->> but is sadly not a possibility for regular files (until hch gets aro=
-und
->> to removing the need for the list).
->=20
-> We should have finished this long ago, thanks for the reminder.
->=20
->=20
-
-inode_in_use could be percpu, at least.
-
-Or just zap it, since we never have to scan it.
+>> Am i to expect ~20Gbps from each card ?
+>
+> PCI Express provides 2.5 Gbps per lane (can be 5 Gbps in PCIe 2.0 but
+> that's quite new).  So an x8 slot is limited to 20 Gbps including all
+> the PCIe protocol overhead, which can be substantial.  You will not
+> get 20 Gbps out of dual-port cards without doubling the width or lane
+> speed.
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
