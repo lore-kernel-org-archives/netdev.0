@@ -1,216 +1,302 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 5/6] dccp: Processing Confirm options
-Date: Sun, 30 Nov 2008 14:22:55 +0100
-Message-ID: <1228051376-8174-6-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/6] dccp: Process incoming Change feature-negotiation options
+Date: Sun, 30 Nov 2008 14:22:54 +0100
+Message-ID: <1228051376-8174-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228051376-8174-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228051376-8174-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228051376-8174-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228051376-8174-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60004 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751438AbYK3NXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2008 08:23:08 -0500
-In-Reply-To: <1228051376-8174-5-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751605AbYK3NXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Nov 2008 08:23:11 -0500
+In-Reply-To: <1228051376-8174-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Analogous to the previous patch, this adds code to interpret incoming Confirm
-feature-negotiation options. Both functions operate on the feature-negotiation
-list of either the request_sock (server) or the dccp_sock (client).
+This adds/replaces code for processing incoming ChangeL/R options.
+The main difference is that:
+ * mandatory FN options are now interpreted inside the function
+  (there are too many individual cases to do this externally);
+ * the function returns an appropriate Reset code or 0,
+   which is then used to fill in the data for the Reset packet.
 
-Thanks to Wei Yongjun for pointing out that it is overly restrictive to check
-the entire list of confirmed SP values.
+Old code, which is no longer used or referenced, has been removed.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/feat.h    |    2 -
- net/dccp/feat.c    |  100 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- net/dccp/options.c |   16 +-------
- 3 files changed, 101 insertions(+), 17 deletions(-)
+ net/dccp/feat.h    |    4 +-
+ net/dccp/feat.c    |  180 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ net/dccp/options.c |   23 ++----
+ 3 files changed, 189 insertions(+), 18 deletions(-)
 
 --- a/net/dccp/feat.h
 +++ b/net/dccp/feat.h
-@@ -118,8 +118,6 @@ extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
+@@ -116,8 +116,8 @@ static inline void dccp_feat_debug(const u8 type, const u8 feat, const u8 val)
+ extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
+ 				  u8 const *list, u8 len);
  extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
- extern int  dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
- 				    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
--extern int  dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
--				   u8 *val, u8 len);
+-extern int  dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature,
+-				  u8 *val, u8 len);
++extern int  dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
++				    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
+ extern int  dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
+ 				   u8 *val, u8 len);
  extern void dccp_feat_clean(struct dccp_minisock *dmsk);
- extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
- extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -104,6 +104,13 @@ static int dccp_feat_default_value(u8 feat_num)
- 	return idx < 0 ? 0 : dccp_feat_table[idx].default_value;
+@@ -237,6 +237,40 @@ static int dccp_feat_push_change(struct list_head *fn_list, u8 feat, u8 local,
+ 	return 0;
  }
  
-+/* Test for "Req'd" feature (RFC 4340, 6.4) */
-+static inline int dccp_feat_must_be_understood(u8 feat_num)
++/**
++ * dccp_feat_push_confirm  -  Add a Confirm entry to the FN list
++ * @fn_list: feature-negotiation list to add to
++ * @feat: one of %dccp_feature_numbers
++ * @local: whether local (1) or remote (0) @feat_num is being confirmed
++ * @fval: pointer to NN/SP value to be inserted or NULL
++ * Returns 0 on success, a Reset code for further processing otherwise.
++ */
++static int dccp_feat_push_confirm(struct list_head *fn_list, u8 feat, u8 local,
++				  dccp_feat_val *fval)
 +{
-+	return	feat_num == DCCPF_CCID || feat_num == DCCPF_SHORT_SEQNOS ||
-+		feat_num == DCCPF_SEQUENCE_WINDOW;
++	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
++
++	if (new == NULL)
++		return DCCP_RESET_CODE_TOO_BUSY;
++
++	new->feat_num	     = feat;
++	new->is_local	     = local;
++	new->state	     = FEAT_STABLE;	/* transition in 6.6.2 */
++	new->needs_confirm   = 1;
++	new->empty_confirm   = (fval == NULL);
++	new->val.nn	     = 0;		/* zeroes the whole structure */
++	if (!new->empty_confirm)
++		new->val     = *fval;
++	new->needs_mandatory = 0;
++
++	return 0;
 +}
 +
- /* copy constructor, fval must not already contain allocated memory */
- static int dccp_feat_clone_sp_val(dccp_feat_val *fval, u8 const *val, u8 len)
++static int dccp_push_empty_confirm(struct list_head *fn_list, u8 feat, u8 local)
++{
++	return dccp_feat_push_confirm(fn_list, feat, local, NULL);
++}
++
+ static inline void dccp_feat_list_pop(struct dccp_feat_entry *entry)
  {
-@@ -1099,7 +1106,6 @@ int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
+ 	list_del(&entry->node);
+@@ -955,7 +989,6 @@ static int dccp_feat_nn(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
+ 
+ 	return 0;
+ }
+-#endif /* (later) */
+ 
+ static void dccp_feat_empty_confirm(struct dccp_minisock *dmsk,
+ 				    u8 type, u8 feature)
+@@ -1066,6 +1099,7 @@ int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
  }
  
  EXPORT_SYMBOL_GPL(dccp_feat_change_recv);
--#endif	/* (later) */
++#endif	/* (later) */
  
  int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
  			   u8 *val, u8 len)
-@@ -1154,6 +1160,7 @@ int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
- }
+@@ -1206,6 +1240,150 @@ out_clean:
  
- EXPORT_SYMBOL_GPL(dccp_feat_confirm_recv);
-+#endif	/* (later) */
+ EXPORT_SYMBOL_GPL(dccp_feat_clone);
  
- void dccp_feat_clean(struct dccp_minisock *dmsk)
- {
-@@ -1350,6 +1357,93 @@ not_valid_or_not_known:
- }
- 
- /**
-+ * dccp_feat_confirm_recv  -  Process received Confirm options
++/**
++ * dccp_feat_change_recv  -  Process incoming ChangeL/R options
 + * @fn: feature-negotiation list to update
-+ * @is_mandatory: whether @opt was preceded by a Mandatory option
-+ * @opt: %DCCPO_CONFIRM_L or %DCCPO_CONFIRM_R
++ * @is_mandatory: whether the Change was preceded by a Mandatory option
++ * @opt: %DCCPO_CHANGE_L or %DCCPO_CHANGE_R
 + * @feat: one of %dccp_feature_numbers
 + * @val: NN value or SP value/preference list
 + * @len: length of @val in bytes
-+ * @server: whether this node is server (1) or client (0)
++ * @server: whether this node is the server (1) or the client (0)
 + */
-+static u8 dccp_feat_confirm_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
-+				 u8 feat, u8 *val, u8 len, const bool server)
++static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
++				u8 feat, u8 *val, u8 len, const bool server)
 +{
-+	u8 *plist, plen, type = dccp_feat_type(feat);
-+	const bool local = (opt == DCCPO_CONFIRM_R);
-+	struct dccp_feat_entry *entry = dccp_feat_list_lookup(fn, feat, local);
++	u8 defval, type = dccp_feat_type(feat);
++	const bool local = (opt == DCCPO_CHANGE_R);
++	struct dccp_feat_entry *entry;
++	dccp_feat_val fval;
 +
-+	if (entry == NULL) {	/* nothing queued: ignore or handle error */
-+		if (is_mandatory && type == FEAT_UNKNOWN)
-+			return DCCP_RESET_CODE_MANDATORY_ERROR;
++	if (len == 0 || type == FEAT_UNKNOWN)		/* 6.1 and 6.6.8 */
++		goto unknown_feature_or_value;
 +
-+		if (!local && type == FEAT_NN)		/* 6.3.2 */
-+			goto confirmation_failed;
-+		return 0;
-+	}
-+
-+	if (entry->state != FEAT_CHANGING)		/* 6.6.2 */
-+		return 0;
-+
-+	if (len == 0) {
-+		if (dccp_feat_must_be_understood(feat))	/* 6.6.7 */
-+			goto confirmation_failed;
-+		/*
-+		 * Empty Confirm during connection setup: this means reverting
-+		 * to the `old' value, which in this case is the default. Since
-+		 * we handle default values automatically when no other values
-+		 * have been set, we revert to the old value by removing this
-+		 * entry from the list.
-+		 */
-+		dccp_feat_list_pop(entry);
-+		return 0;
-+	}
-+
++	/*
++	 *	Negotiation of NN features: Change R is invalid, so there is no
++	 *	simultaneous negotiation; hence we do not look up in the list.
++	 */
 +	if (type == FEAT_NN) {
-+		if (len > sizeof(entry->val.nn))
-+			goto confirmation_failed;
++		if (local || len > sizeof(fval.nn))
++			goto unknown_feature_or_value;
 +
-+		if (entry->val.nn == dccp_decode_value_var(val, len))
-+			goto confirmation_succeeded;
++		/* 6.3.2: "The feature remote MUST accept any valid value..." */
++		fval.nn = dccp_decode_value_var(val, len);
++		if (!dccp_feat_is_valid_nn_val(feat, fval.nn))
++			goto unknown_feature_or_value;
 +
-+		DCCP_WARN("Bogus Confirm for non-existing value\n");
-+		goto confirmation_failed;
++		return dccp_feat_push_confirm(fn, feat, local, &fval);
 +	}
 +
 +	/*
-+	 * Parsing SP Confirms: the first element of @val is the preferred
-+	 * SP value which the peer confirms, the remainder depends on @len.
-+	 * Note that only the confirmed value need to be a valid SP value.
++	 *	Unidirectional/simultaneous negotiation of SP features (6.3.1)
 +	 */
-+	if (!dccp_feat_is_valid_sp_val(feat, *val))
-+		goto confirmation_failed;
++	entry = dccp_feat_list_lookup(fn, feat, local);
++	if (entry == NULL) {
++		/*
++		 * No particular preferences have been registered. We deal with
++		 * this situation by assuming that all valid values are equally
++		 * acceptable, and apply the following checks:
++		 * - if the peer's list is a singleton, we accept a valid value;
++		 * - if we are the server, we first try to see if the peer (the
++		 *   client) advertises the default value. If yes, we use it,
++		 *   otherwise we accept the preferred value;
++		 * - else if we are the client, we use the first list element.
++		 */
++		if (dccp_feat_clone_sp_val(&fval, val, 1))
++			return DCCP_RESET_CODE_TOO_BUSY;
 +
-+	if (len == 1) {		/* peer didn't supply a preference list */
-+		plist = val;
-+		plen  = len;
-+	} else {		/* preferred value + preference list */
-+		plist = val + 1;
-+		plen  = len - 1;
++		if (len > 1 && server) {
++			defval = dccp_feat_default_value(feat);
++			if (dccp_feat_preflist_match(&defval, 1, val, len) > -1)
++				fval.sp.vec[0] = defval;
++		} else if (!dccp_feat_is_valid_sp_val(feat, fval.sp.vec[0])) {
++			kfree(fval.sp.vec);
++			goto unknown_feature_or_value;
++		}
++
++		/* Treat unsupported CCIDs like invalid values */
++		if (feat == DCCPF_CCID && !ccid_support_check(fval.sp.vec, 1)) {
++			kfree(fval.sp.vec);
++			goto not_valid_or_not_known;
++		}
++
++		return dccp_feat_push_confirm(fn, feat, local, &fval);
++
++	} else if (entry->state == FEAT_UNSTABLE) {	/* 6.6.2 */
++		return 0;
 +	}
 +
-+	/* Check whether the peer got the reconciliation right (6.6.8) */
-+	if (dccp_feat_reconcile(&entry->val, plist, plen, server, 0) != *val) {
-+		DCCP_WARN("Confirm selected the wrong value %u\n", *val);
-+		return DCCP_RESET_CODE_OPTION_ERROR;
++	if (dccp_feat_reconcile(&entry->val, val, len, server, true)) {
++		entry->empty_confirm = 0;
++	} else if (is_mandatory) {
++		return DCCP_RESET_CODE_MANDATORY_ERROR;
++	} else if (entry->state == FEAT_INITIALISING) {
++		/*
++		 * Failed simultaneous negotiation (server only): try to `save'
++		 * the connection by checking whether entry contains the default
++		 * value for @feat. If yes, send an empty Confirm to signal that
++		 * the received Change was not understood - which implies using
++		 * the default value.
++		 * If this also fails, we use Reset as the last resort.
++		 */
++		WARN_ON(!server);
++		defval = dccp_feat_default_value(feat);
++		if (!dccp_feat_reconcile(&entry->val, &defval, 1, server, true))
++			return DCCP_RESET_CODE_OPTION_ERROR;
++		entry->empty_confirm = 1;
 +	}
-+	entry->val.sp.vec[0] = *val;
-+
-+confirmation_succeeded:
-+	entry->state = FEAT_STABLE;
++	entry->needs_confirm   = 1;
++	entry->needs_mandatory = 0;
++	entry->state	       = FEAT_STABLE;
 +	return 0;
 +
-+confirmation_failed:
-+	DCCP_WARN("Confirmation failed\n");
++unknown_feature_or_value:
++	if (!is_mandatory)
++		return dccp_push_empty_confirm(fn, feat, local);
++
++not_valid_or_not_known:
 +	return is_mandatory ? DCCP_RESET_CODE_MANDATORY_ERROR
 +			    : DCCP_RESET_CODE_OPTION_ERROR;
 +}
 +
 +/**
-  * dccp_feat_parse_options  -  Process Feature-Negotiation Options
-  * @sk: for general use and used by the client during connection setup
-  * @dreq: used by the server during connection setup
-@@ -1379,6 +1473,10 @@ int dccp_feat_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 		case DCCPO_CHANGE_R:
- 			return dccp_feat_change_recv(fn, mandatory, opt, feat,
- 						     val, len, server);
-+		case DCCPO_CONFIRM_R:
-+		case DCCPO_CONFIRM_L:
-+			return dccp_feat_confirm_recv(fn, mandatory, opt, feat,
-+						      val, len, server);
- 		}
- 	}
- 	return 0;	/* ignore FN options in all other states */
++ * dccp_feat_parse_options  -  Process Feature-Negotiation Options
++ * @sk: for general use and used by the client during connection setup
++ * @dreq: used by the server during connection setup
++ * @mandatory: whether @opt was preceded by a Mandatory option
++ * @opt: %DCCPO_CHANGE_L | %DCCPO_CHANGE_R | %DCCPO_CONFIRM_L | %DCCPO_CONFIRM_R
++ * @feat: one of %dccp_feature_numbers
++ * @val: value contents of @opt
++ * @len: length of @val in bytes
++ * Returns 0 on success, a Reset code for ending the connection otherwise.
++ */
++int dccp_feat_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
++			    u8 mandatory, u8 opt, u8 feat, u8 *val, u8 len)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++	struct list_head *fn = dreq ? &dreq->dreq_featneg : &dp->dccps_featneg;
++	bool server = false;
++
++	switch (sk->sk_state) {
++	/*
++	 *	Negotiation during connection setup
++	 */
++	case DCCP_LISTEN:
++		server = true;			/* fall through */
++	case DCCP_REQUESTING:
++		switch (opt) {
++		case DCCPO_CHANGE_L:
++		case DCCPO_CHANGE_R:
++			return dccp_feat_change_recv(fn, mandatory, opt, feat,
++						     val, len, server);
++		}
++	}
++	return 0;	/* ignore FN options in all other states */
++}
++
+ int dccp_feat_init(struct sock *sk)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
 --- a/net/dccp/options.c
 +++ b/net/dccp/options.c
-@@ -134,26 +134,14 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 			dccp_pr_debug("%s opt: NDP count=%llu\n", dccp_role(sk),
+@@ -135,22 +135,13 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
  				      (unsigned long long)opt_recv->dccpor_ndp);
  			break;
--		case DCCPO_CHANGE_L:
--		case DCCPO_CHANGE_R:
--			if (pkt_type == DCCP_PKT_DATA)
-+		case DCCPO_CHANGE_L ... DCCPO_CONFIRM_R:
-+			if (pkt_type == DCCP_PKT_DATA)      /* RFC 4340, 6 */
- 				break;
- 			rc = dccp_feat_parse_options(sk, dreq, mandatory, opt,
- 						    *value, value + 1, len - 1);
- 			if (rc)
- 				goto out_featneg_failed;
- 			break;
--		case DCCPO_CONFIRM_L:
+ 		case DCCPO_CHANGE_L:
 -			/* fall through */
--		case DCCPO_CONFIRM_R:
--			if (pkt_type == DCCP_PKT_DATA)
--				break;
--			if (len < 2)	/* FIXME this disallows empty confirm */
+ 		case DCCPO_CHANGE_R:
+ 			if (pkt_type == DCCP_PKT_DATA)
+ 				break;
+-			if (len < 2)
 -				goto out_invalid_option;
--			if (dccp_feat_confirm_recv(sk, opt, *value,
--						   value + 1, len - 1))
+-			rc = dccp_feat_change_recv(sk, opt, *value, value + 1,
+-						   len - 1);
+-			/*
+-			 * When there is a change error, change_recv is
+-			 * responsible for dealing with it.  i.e. reply with an
+-			 * empty confirm.
+-			 * If the change was mandatory, then we need to die.
+-			 */
+-			if (rc && mandatory)
 -				goto out_invalid_option;
--			break;
- 		case DCCPO_ACK_VECTOR_0:
- 		case DCCPO_ACK_VECTOR_1:
- 			if (dccp_packet_without_ack(skb))   /* RFC 4340, 11.4 */
++			rc = dccp_feat_parse_options(sk, dreq, mandatory, opt,
++						    *value, value + 1, len - 1);
++			if (rc)
++				goto out_featneg_failed;
+ 			break;
+ 		case DCCPO_CONFIRM_L:
+ 			/* fall through */
+@@ -292,8 +283,10 @@ out_nonsensical_length:
+ 
+ out_invalid_option:
+ 	DCCP_INC_STATS_BH(DCCP_MIB_INVALIDOPT);
+-	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_OPTION_ERROR;
+-	DCCP_WARN("DCCP(%p): invalid option %d, len=%d", sk, opt, len);
++	rc = DCCP_RESET_CODE_OPTION_ERROR;
++out_featneg_failed:
++	DCCP_WARN("DCCP(%p): Option %d (len=%d) error=%u\n", sk, opt, len, rc);
++	DCCP_SKB_CB(skb)->dccpd_reset_code = rc;
+ 	DCCP_SKB_CB(skb)->dccpd_reset_data[0] = opt;
+ 	DCCP_SKB_CB(skb)->dccpd_reset_data[1] = len > 0 ? value[0] : 0;
+ 	DCCP_SKB_CB(skb)->dccpd_reset_data[2] = len > 1 ? value[1] : 0;
