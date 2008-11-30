@@ -1,121 +1,141 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/6] dccp: Insert feature-negotiation options into skb
-Date: Sun, 30 Nov 2008 14:22:51 +0100
-Message-ID: <1228051376-8174-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/6] dccp: Preference list reconciliation
+Date: Sun, 30 Nov 2008 14:22:53 +0100
+Message-ID: <1228051376-8174-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60003 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60004 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751423AbYK3NXH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2008 08:23:07 -0500
-In-Reply-To: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751412AbYK3NXE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Nov 2008 08:23:04 -0500
+In-Reply-To: <1228051376-8174-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch replaces the earlier insertion routine from options.c, so that
-code specific to feature negotiation can remain in feat.c. This is possible
-by calling a function already existing in options.c.
+This provides two functions to
+ * reconcile preference lists (with appropriate return codes) and
+ * reorder the preference list if successful reconciliation changed the
+   preferred value.
+
+The patch also removes the old code for processing SP/NN Change options, since
+new code to process these is mostly there already; related references have been
+commented out.
+
+The code for processing Change options follows in the next patch.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/dccp.h |    2 +
- net/dccp/feat.c |   65 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+), 0 deletions(-)
+ net/dccp/feat.c |   77 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 75 insertions(+), 2 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -443,6 +443,8 @@ static inline int dccp_ack_pending(const struct sock *sk)
- 
- extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
- extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
-+extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
-+				  struct sk_buff *skb);
- extern void dccp_feat_list_purge(struct list_head *fn_list);
- 
- extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -272,6 +272,20 @@ cloning_failed:
- 	return -ENOMEM;
+@@ -690,6 +690,76 @@ static int dccp_feat_update(struct sock *sk, u8 type, u8 feat, u8 val)
+ 	return 0;
  }
  
-+/**
-+ * dccp_feat_valid_nn_length  -  Enforce length constraints on NN options
-+ * Length is between 0 and %DCCP_OPTVAL_MAXLEN. Used for outgoing packets only,
-+ * incoming options are accepted as long as their values are valid.
-+ */
-+static u8 dccp_feat_valid_nn_length(u8 feat_num)
++/* Select the first entry in @servlist that also occurs in @clilist (6.3.1) */
++static int dccp_feat_preflist_match(u8 *servlist, u8 slen, u8 *clilist, u8 clen)
 +{
-+	if (feat_num == DCCPF_ACK_RATIO)	/* RFC 4340, 11.3 and 6.6.8 */
-+		return 2;
-+	if (feat_num == DCCPF_SEQUENCE_WINDOW)	/* RFC 4340, 7.5.2 and 6.5  */
-+		return 6;
-+	return 0;
++	u8 c, s;
++
++	for (s = 0; s < slen; s++)
++		for (c = 0; c < clen; c++)
++			if (servlist[s] == clilist[c])
++				return servlist[s];
++	return -1;
 +}
 +
- static u8 dccp_feat_is_valid_nn_val(u8 feat_num, u64 val)
- {
- 	switch (feat_num) {
-@@ -314,6 +328,57 @@ static u8 dccp_feat_sp_list_ok(u8 feat_num, u8 const *sp_list, u8 sp_len)
- }
- 
- /**
-+ * dccp_feat_insert_opts  -  Generate FN options from current list state
-+ * @skb: next sk_buff to be sent to the peer
-+ * @dp: for client during handshake and general negotiation
-+ * @dreq: used by the server only (all Changes/Confirms in LISTEN/RESPOND)
++/**
++ * dccp_feat_prefer  -  Move preferred entry to the start of array
++ * Reorder the @array_len elements in @array so that @preferred_value comes
++ * first. Returns >0 to indicate that @preferred_value does occur in @array.
 + */
-+int dccp_feat_insert_opts(struct dccp_sock *dp, struct dccp_request_sock *dreq,
-+			  struct sk_buff *skb)
++static u8 dccp_feat_prefer(u8 preferred_value, u8 *array, u8 array_len)
 +{
-+	struct list_head *fn = dreq ? &dreq->dreq_featneg : &dp->dccps_featneg;
-+	struct dccp_feat_entry *pos, *next;
-+	u8 opt, type, len, *ptr, nn_in_nbo[DCCP_OPTVAL_MAXLEN];
-+	bool rpt;
++	u8 i, does_occur = 0;
 +
-+	/* put entries into @skb in the order they appear in the list */
-+	list_for_each_entry_safe_reverse(pos, next, fn, node) {
-+		opt  = dccp_feat_genopt(pos);
-+		type = dccp_feat_type(pos->feat_num);
-+		rpt  = false;
-+
-+		if (pos->empty_confirm) {
-+			len = 0;
-+			ptr = NULL;
-+		} else {
-+			if (type == FEAT_SP) {
-+				len = pos->val.sp.len;
-+				ptr = pos->val.sp.vec;
-+				rpt = pos->needs_confirm;
-+			} else if (type == FEAT_NN) {
-+				len = dccp_feat_valid_nn_length(pos->feat_num);
-+				ptr = nn_in_nbo;
-+				dccp_encode_value_var(pos->val.nn, ptr, len);
-+			} else {
-+				DCCP_BUG("unknown feature %u", pos->feat_num);
-+				return -1;
++	if (array != NULL) {
++		for (i = 0; i < array_len; i++)
++			if (array[i] == preferred_value) {
++				array[i] = array[0];
++				does_occur++;
 +			}
-+		}
-+
-+		if (dccp_insert_fn_opt(skb, opt, pos->feat_num, ptr, len, rpt))
-+			return -1;
-+		if (pos->needs_mandatory && dccp_insert_option_mandatory(skb))
-+			return -1;
-+		/*
-+		 * Enter CHANGING after transmitting the Change option (6.6.2).
-+		 */
-+		if (pos->state == FEAT_INITIALISING)
-+			pos->state = FEAT_CHANGING;
++		if (does_occur)
++			array[0] = preferred_value;
 +	}
-+	return 0;
++	return does_occur;
 +}
 +
 +/**
-  * __feat_register_nn  -  Register new NN value on socket
-  * @fn: feature-negotiation list to register with
-  * @feat: an NN feature from %dccp_feature_numbers
++ * dccp_feat_reconcile  -  Reconcile SP preference lists
++ *  @fval: SP list to reconcile into
++ *  @arr: received SP preference list
++ *  @len: length of @arr in bytes
++ *  @is_server: whether this side is the server (and @fv is the server's list)
++ *  @reorder: whether to reorder the list in @fv after reconciling with @arr
++ * When successful, > 0 is returned and the reconciled list is in @fval.
++ * A value of 0 means that negotiation failed (no shared entry).
++ */
++static int dccp_feat_reconcile(dccp_feat_val *fv, u8 *arr, u8 len,
++			       bool is_server, bool reorder)
++{
++	int rc;
++
++	if (!fv->sp.vec || !arr) {
++		DCCP_CRIT("NULL feature value or array");
++		return 0;
++	}
++
++	if (is_server)
++		rc = dccp_feat_preflist_match(fv->sp.vec, fv->sp.len, arr, len);
++	else
++		rc = dccp_feat_preflist_match(arr, len, fv->sp.vec, fv->sp.len);
++
++	if (!reorder)
++		return rc;
++	if (rc < 0)
++		return 0;
++
++	/*
++	 * Reorder list: used for activating features and in dccp_insert_fn_opt.
++	 */
++	return dccp_feat_prefer(rc, fv->sp.vec, fv->sp.len);
++}
++
++#ifdef __this_is_the_old_framework_and_will_be_removed_later_in_a_subsequent_patch
+ static int dccp_feat_reconcile(struct sock *sk, struct dccp_opt_pend *opt,
+ 			       u8 *rpref, u8 rlen)
+ {
+@@ -885,6 +955,7 @@ static int dccp_feat_nn(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
+ 
+ 	return 0;
+ }
++#endif /* (later) */
+ 
+ static void dccp_feat_empty_confirm(struct dccp_minisock *dmsk,
+ 				    u8 type, u8 feature)
+@@ -960,12 +1031,14 @@ int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
+ 	switch (feature) {
+ 	/* deal with SP features */
+ 	case DCCPF_CCID:
+-		rc = dccp_feat_sp(sk, type, feature, val, len);
++		/* XXX Obsoleted by next patch
++		rc = dccp_feat_sp(sk, type, feature, val, len); */
+ 		break;
+ 
+ 	/* deal with NN features */
+ 	case DCCPF_ACK_RATIO:
+-		rc = dccp_feat_nn(sk, type, feature, val, len);
++		/* XXX Obsoleted by next patch
++		rc = dccp_feat_nn(sk, type, feature, val, len); */
+ 		break;
+ 
+ 	/* XXX implement other features */
