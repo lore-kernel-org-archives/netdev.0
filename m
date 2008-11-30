@@ -1,51 +1,57 @@
-From: Raz <raziebe@gmail.com>
-Subject: Re: what is the expeted performance from a dual port 10G card ?
-Date: Sun, 30 Nov 2008 09:25:55 +0200
-Message-ID: <5d96567b0811292325j39f39a9ew343b430de72453d4@mail.gmail.com>
-References: <5d96567b0811280511q1e3f7774j7eabce4810dae91a@mail.gmail.com>
-	 <20081128135419.GH32518@solarflare.com>
-	 <5d96567b0811290010r641388b7w179bc4af26bbf103@mail.gmail.com>
-	 <20081129173442.GI32518@solarflare.com> <adamyfib173.fsf@cisco.com>
-	 <Pine.LNX.4.64.0811291853010.12483@t2.domain.actdsltmp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Roland Dreier" <rdreier@cisco.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: "Trent Piepho" <tpiepho@freescale.com>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: [PATCH] MAINTAINERS: add netdev to ATM
+Date: Sun, 30 Nov 2008 09:23:09 +0100
+Message-ID: <1228033389-24415-1-git-send-email-jirislaby@gmail.com>
+References: <20081129.204341.88799313.davem@davemloft.net>
+Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:52211 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808AbYK3HZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 02:25:56 -0500
-Received: by an-out-0708.google.com with SMTP id d40so716639and.1
-        for <netdev@vger.kernel.org>; Sat, 29 Nov 2008 23:25:55 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0811291853010.12483@t2.domain.actdsltmp>
-Content-Disposition: inline
+Received: from smtp.wellnetcz.com ([212.24.148.102]:58372 "EHLO
+	smtp.wellnetcz.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751085AbYK3IXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 03:23:34 -0500
+In-Reply-To: <20081129.204341.88799313.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 30, 2008 at 4:55 AM, Trent Piepho <tpiepho@freescale.com> wrote:
-> On Sat, 29 Nov 2008, Roland Dreier wrote:
->> > The 8b10 encoding is already accounted for in the 2.5 Gbps figure;
->> > the raw bit rate is 3.125 Gbps.
->>
->> In addition, PCI Express transfers are broken up into packets, usually
->> with very small payloads (128 or 256 bytes are common).  So the packet
->> header overhead reduces throughput further, and then the transaction
->> layer adds further overhead.  Then transferring NIC control structures
->> over the link adds even more overhead.  So achieving 13.something Gb/sec
->> of real throughput on a PCIe link theoretically capable of 16 Gb/sec
->> seems pretty good to me.
-I tested it both on PCIE2 and PCIE1 . same results.
+David Miller wrote:
+> > One fail path in hrz_probe omitted device disable. Fix it.
+> > 
+> > Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> 
+> Applied, but please post all networking patches to
+> netdev@vger.kernel.org, in particular so that they
+> get properly tracked at:
+> 
+> 	http://patchwork.ozlabs.org/project/netdev/list/
+> 
+> I feel like I type this in at least 10 times a day, so
+> people please start making sure netdev is on the CC: for
+> all networking patches.
 
-> For transfers with only 4 byte payloads, I get about 6.5 MB/sec over a PCIe
-> 4x link.  For small transfers, the overhead is huge.
->
-Well, you are correct. I used packet size of 1.3k. when I increased to
-9K a packet each port
-reached ~7Gbps ( I am using pktgen). I used two cards, so I reached
-28Gbps. BIOS settings for pci payload were AUTO,so i set it to 256
-bytes but it made no difference, still 28Gbps. well, at least I know
-what the problem is.
-guys, I truly thank you all.
+Hmm, I didn't even think this is net related. I would expect such things to
+be in drivers/net/ then. Consider the patch below for applying.
+
+--
+
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+---
+ MAINTAINERS |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e17fa7d..6035710 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -779,6 +779,7 @@ ATM
+ P:	Chas Williams
+ M:	chas@cmf.nrl.navy.mil
+ L:	linux-atm-general@lists.sourceforge.net (subscribers-only)
++L:	netdev@vger.kernel.org
+ W:	http://linux-atm.sourceforge.net
+ S:	Maintained
+ 
+-- 
+1.6.0.4
+
