@@ -1,60 +1,121 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 0/6] dccp: Feature negotiation - conclusion of Part II (core)
-Date: Sun, 30 Nov 2008 14:22:50 +0100
-Message-ID: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/6] dccp: Insert feature-negotiation options into skb
+Date: Sun, 30 Nov 2008 14:22:51 +0100
+Message-ID: <1228051376-8174-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+ <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60014 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60003 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751490AbYK3NXI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2008 08:23:08 -0500
-In-Reply-To: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751423AbYK3NXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Nov 2008 08:23:07 -0500
+In-Reply-To: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This patch replaces the earlier insertion routine from options.c, so that
+code specific to feature negotiation can remain in feat.c. This is possible
+by calling a function already existing in options.c.
 
-please find attached the completion of the feature-negotiation
-implementation, the concluding part of the second block.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ net/dccp/dccp.h |    2 +
+ net/dccp/feat.c |   65 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+), 0 deletions(-)
 
-The final/third block is then clerical, integrating the code 
-presented in the second block; and tidying up the remaining bits.
-
-Gerrit
-
-
-Commit summary:
----------------
-This is a continuation of an ongoing submission to provide feature/capability
-negotiation for DCCP endpoints (RFC 4340 - 4342, 5348).
-
-The whole set is structured into 3 main blocks - (1) basis, (2) core,
-(3) integration and cleanup.
-
-This set completes the implementation (part (2)). Online information is also at
-http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/feature_negotiation/
-
-
-List of patches in this set:
-----------------------------
-Patch #1: Continues where the previous patch set left off, by adding
-          the insertion of feature-negotiation options onto the skb.
-Patch #2: Completes the insertion of featneg options.
-Patch #3: Logic/algorithm to actually reconcile negotiation options.
-Patch #4: Receiver support to process incoming Change L/R options. 
-Patch #5: Receiver support to process incoming Confirm R/L options.
-Patch #6: Handlers for activating successfully negotiated features.
-
-The set is also available for viewing online, beginning at
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=94163f6514044c53c3761305db3c59d640c03ec1
-
-
-Patch stats:
-------------
- dccp.h    |    3 
- feat.c    |  635 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- feat.h    |    6 
- options.c |   72 +++----
- 4 files changed, 657 insertions(+), 59 deletions(-)
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -443,6 +443,8 @@ static inline int dccp_ack_pending(const struct sock *sk)
+ 
+ extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
+ extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
++extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
++				  struct sk_buff *skb);
+ extern void dccp_feat_list_purge(struct list_head *fn_list);
+ 
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -272,6 +272,20 @@ cloning_failed:
+ 	return -ENOMEM;
+ }
+ 
++/**
++ * dccp_feat_valid_nn_length  -  Enforce length constraints on NN options
++ * Length is between 0 and %DCCP_OPTVAL_MAXLEN. Used for outgoing packets only,
++ * incoming options are accepted as long as their values are valid.
++ */
++static u8 dccp_feat_valid_nn_length(u8 feat_num)
++{
++	if (feat_num == DCCPF_ACK_RATIO)	/* RFC 4340, 11.3 and 6.6.8 */
++		return 2;
++	if (feat_num == DCCPF_SEQUENCE_WINDOW)	/* RFC 4340, 7.5.2 and 6.5  */
++		return 6;
++	return 0;
++}
++
+ static u8 dccp_feat_is_valid_nn_val(u8 feat_num, u64 val)
+ {
+ 	switch (feat_num) {
+@@ -314,6 +328,57 @@ static u8 dccp_feat_sp_list_ok(u8 feat_num, u8 const *sp_list, u8 sp_len)
+ }
+ 
+ /**
++ * dccp_feat_insert_opts  -  Generate FN options from current list state
++ * @skb: next sk_buff to be sent to the peer
++ * @dp: for client during handshake and general negotiation
++ * @dreq: used by the server only (all Changes/Confirms in LISTEN/RESPOND)
++ */
++int dccp_feat_insert_opts(struct dccp_sock *dp, struct dccp_request_sock *dreq,
++			  struct sk_buff *skb)
++{
++	struct list_head *fn = dreq ? &dreq->dreq_featneg : &dp->dccps_featneg;
++	struct dccp_feat_entry *pos, *next;
++	u8 opt, type, len, *ptr, nn_in_nbo[DCCP_OPTVAL_MAXLEN];
++	bool rpt;
++
++	/* put entries into @skb in the order they appear in the list */
++	list_for_each_entry_safe_reverse(pos, next, fn, node) {
++		opt  = dccp_feat_genopt(pos);
++		type = dccp_feat_type(pos->feat_num);
++		rpt  = false;
++
++		if (pos->empty_confirm) {
++			len = 0;
++			ptr = NULL;
++		} else {
++			if (type == FEAT_SP) {
++				len = pos->val.sp.len;
++				ptr = pos->val.sp.vec;
++				rpt = pos->needs_confirm;
++			} else if (type == FEAT_NN) {
++				len = dccp_feat_valid_nn_length(pos->feat_num);
++				ptr = nn_in_nbo;
++				dccp_encode_value_var(pos->val.nn, ptr, len);
++			} else {
++				DCCP_BUG("unknown feature %u", pos->feat_num);
++				return -1;
++			}
++		}
++
++		if (dccp_insert_fn_opt(skb, opt, pos->feat_num, ptr, len, rpt))
++			return -1;
++		if (pos->needs_mandatory && dccp_insert_option_mandatory(skb))
++			return -1;
++		/*
++		 * Enter CHANGING after transmitting the Change option (6.6.2).
++		 */
++		if (pos->state == FEAT_INITIALISING)
++			pos->state = FEAT_CHANGING;
++	}
++	return 0;
++}
++
++/**
+  * __feat_register_nn  -  Register new NN value on socket
+  * @fn: feature-negotiation list to register with
+  * @feat: an NN feature from %dccp_feature_numbers
