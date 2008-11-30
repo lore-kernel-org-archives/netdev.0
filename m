@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] gigaset: get rid of info() and warn() macros
-Date: Sat, 29 Nov 2008 21:39:12 -0800 (PST)
-Message-ID: <20081129.213912.116149226.davem@davemloft.net>
-References: <1227876791.git.tilman@imap.cc>
-	<ba0787515baca3b67eca4bc526a3a7b2db70bbb9.1227876791.git.tilman@imap.cc>
+Subject: Re: [PATCH 0 of 2] implement tty driver for netconsole
+Date: Sat, 29 Nov 2008 21:39:47 -0800 (PST)
+Message-ID: <20081129.213947.185052916.davem@davemloft.net>
+References: <patchbomb.1227820260@localhost.localdomain>
+	<1227827385.3196.49.camel@calx>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: tilman@imap.cc
+Cc: hollisb@us.ibm.com, netdev@vger.kernel.org
+To: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45321
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45323
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751217AbYK3FjM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 00:39:12 -0500
-In-Reply-To: <ba0787515baca3b67eca4bc526a3a7b2db70bbb9.1227876791.git.tilman@imap.cc>
+	by vger.kernel.org with ESMTP id S1751203AbYK3Fjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 00:39:47 -0500
+In-Reply-To: <1227827385.3196.49.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Sat, 29 Nov 2008 23:41:07 +0100 (CET)
+From: Matt Mackall <mpm@selenic.com>
+Date: Thu, 27 Nov 2008 17:09:45 -0600
 
-> Join the move away from the obsolete info() macro, opencoding the
-> remaining uses. While we're at it, also get rid of the warn() macro
-> by promoting the three remaining uses to err().
+> On Thu, 2008-11-27 at 15:11 -0600, Hollis Blanchard wrote:
+> > I have a Kuro Box (a small NAS device running Linux), and it has no serial
+> > console (nor any other console for that matter). The most convenient way to get
+> > boot output is via the netconsole driver, which is what most Kuro owners do. (The u-boot
+> > firmware even supports interactive netconsole allowing us to edit boot configuration.)
+> > 
+> > However, once past kernel boot, userspace currently has no way of outputting data over
+> > netconsole. These patches enable that, which is really useful for seeing init
+> > script output and debugging ramdisks before they've brought up sshd.
 > 
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> Awesome! I've been meaning to wire this up for ages. I'll try to look at
+> it over the weekend.
 
-Also applied to net-next-2.6
+Matt if your review goes OK please ACK this and I'll toss these
+patches into net-next-2.6
 
 Thanks
