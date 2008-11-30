@@ -1,57 +1,43 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: [PATCH] MAINTAINERS: add netdev to ATM
-Date: Sun, 30 Nov 2008 09:23:09 +0100
-Message-ID: <1228033389-24415-1-git-send-email-jirislaby@gmail.com>
-References: <20081129.204341.88799313.davem@davemloft.net>
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: oops/warning report for the week of November 26, 2008
+Date: Sun, 30 Nov 2008 09:58:20 +0100
+Message-ID: <20081130085820.GA13944@core.hellgate.ch>
+References: <492DD792.6080302@linux.intel.com> <20081128111827.79b12739@osprey.hogchain.net> <20081128093217.3888fb46@linux.intel.com> <20081128195018.GA19538@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@linux.intel.com>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	NetDev <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.wellnetcz.com ([212.24.148.102]:58372 "EHLO
-	smtp.wellnetcz.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbYK3IXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 03:23:34 -0500
-In-Reply-To: <20081129.204341.88799313.davem@davemloft.net>
+Received: from mail11.bluewin.ch ([195.186.18.61]:18388 "EHLO
+	mail11.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750980AbYK3JF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 04:05:26 -0500
+Content-Disposition: inline
+In-Reply-To: <20081128195018.GA19538@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> > One fail path in hrz_probe omitted device disable. Fix it.
-> > 
-> > Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+On Fri, 28 Nov 2008 20:50:18 +0100, Francois Romieu wrote:
+> Arjan van de Ven <arjan@linux.intel.com> :
+> [...]
+> > For me, sis900 and r8169 stand out; if you look at the data in the
+> > table above, both of these are an order of magnitude more frequent than
+> > the rest of the pack.
 > 
-> Applied, but please post all networking patches to
-> netdev@vger.kernel.org, in particular so that they
-> get properly tracked at:
+> via-rhine + via_rhine = 438: it does not look too good either.
+
+Agreed. I was kinda hoping I'd get some clues for free when other drivers
+get fixed :-).
+
+> Is there an (ideally automated) way to retrieve more information ?
 > 
-> 	http://patchwork.ozlabs.org/project/netdev/list/
-> 
-> I feel like I type this in at least 10 times a day, so
-> people please start making sure netdev is on the CC: for
-> all networking patches.
+> The r8169 driver handles three different chipsets and a plethora of
+> phys. The "XID" line printed by the driver could hint at some specific
+> PHY for instance.
 
-Hmm, I didn't even think this is net related. I would expect such things to
-be in drivers/net/ then. Consider the patch below for applying.
+For the Rhine, knowing the PCI rev would help identify problems tied to
+specific models.
 
---
-
-Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
----
- MAINTAINERS |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e17fa7d..6035710 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -779,6 +779,7 @@ ATM
- P:	Chas Williams
- M:	chas@cmf.nrl.navy.mil
- L:	linux-atm-general@lists.sourceforge.net (subscribers-only)
-+L:	netdev@vger.kernel.org
- W:	http://linux-atm.sourceforge.net
- S:	Maintained
- 
--- 
-1.6.0.4
-
+Roger
