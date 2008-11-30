@@ -1,302 +1,104 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/6] dccp: Process incoming Change feature-negotiation options
-Date: Sun, 30 Nov 2008 14:22:54 +0100
-Message-ID: <1228051376-8174-5-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228051376-8174-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228051376-8174-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228051376-8174-4-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: davem@davemloft.net
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Pull request: bluetooth-next-2.6 2008-11-30
+Date: Sun, 30 Nov 2008 16:58:29 +0100
+Message-ID: <1228060709.9176.26.camel@violet.holtmann.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60004 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751605AbYK3NXL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2008 08:23:11 -0500
-In-Reply-To: <1228051376-8174-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from senator.holtmann.net ([87.106.208.187]:45573 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751118AbYK3P6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 10:58:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds/replaces code for processing incoming ChangeL/R options.
-The main difference is that:
- * mandatory FN options are now interpreted inside the function
-  (there are too many individual cases to do this externally);
- * the function returns an appropriate Reset code or 0,
-   which is then used to fill in the data for the Reset packet.
+Hi Dave,
 
-Old code, which is no longer used or referenced, has been removed.
+here is the first batch of pending patches for the 2.6.29 kernel
+release. The biggest one is the switch to use dynamic_printk for
+debugging and the removal of the hci_usb driver. I also made the HCI
+Reset quirk default so that all future hardware just works and we only
+have to add quirks for old hardware.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/feat.h    |    4 +-
- net/dccp/feat.c    |  180 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- net/dccp/options.c |   23 ++----
- 3 files changed, 189 insertions(+), 18 deletions(-)
+Regards
 
---- a/net/dccp/feat.h
-+++ b/net/dccp/feat.h
-@@ -116,8 +116,8 @@ static inline void dccp_feat_debug(const u8 type, const u8 feat, const u8 val)
- extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
- 				  u8 const *list, u8 len);
- extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
--extern int  dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature,
--				  u8 *val, u8 len);
-+extern int  dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
-+				    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
- extern int  dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
- 				   u8 *val, u8 len);
- extern void dccp_feat_clean(struct dccp_minisock *dmsk);
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -237,6 +237,40 @@ static int dccp_feat_push_change(struct list_head *fn_list, u8 feat, u8 local,
- 	return 0;
- }
- 
-+/**
-+ * dccp_feat_push_confirm  -  Add a Confirm entry to the FN list
-+ * @fn_list: feature-negotiation list to add to
-+ * @feat: one of %dccp_feature_numbers
-+ * @local: whether local (1) or remote (0) @feat_num is being confirmed
-+ * @fval: pointer to NN/SP value to be inserted or NULL
-+ * Returns 0 on success, a Reset code for further processing otherwise.
-+ */
-+static int dccp_feat_push_confirm(struct list_head *fn_list, u8 feat, u8 local,
-+				  dccp_feat_val *fval)
-+{
-+	struct dccp_feat_entry *new = dccp_feat_entry_new(fn_list, feat, local);
-+
-+	if (new == NULL)
-+		return DCCP_RESET_CODE_TOO_BUSY;
-+
-+	new->feat_num	     = feat;
-+	new->is_local	     = local;
-+	new->state	     = FEAT_STABLE;	/* transition in 6.6.2 */
-+	new->needs_confirm   = 1;
-+	new->empty_confirm   = (fval == NULL);
-+	new->val.nn	     = 0;		/* zeroes the whole structure */
-+	if (!new->empty_confirm)
-+		new->val     = *fval;
-+	new->needs_mandatory = 0;
-+
-+	return 0;
-+}
-+
-+static int dccp_push_empty_confirm(struct list_head *fn_list, u8 feat, u8 local)
-+{
-+	return dccp_feat_push_confirm(fn_list, feat, local, NULL);
-+}
-+
- static inline void dccp_feat_list_pop(struct dccp_feat_entry *entry)
- {
- 	list_del(&entry->node);
-@@ -955,7 +989,6 @@ static int dccp_feat_nn(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
- 
- 	return 0;
- }
--#endif /* (later) */
- 
- static void dccp_feat_empty_confirm(struct dccp_minisock *dmsk,
- 				    u8 type, u8 feature)
-@@ -1066,6 +1099,7 @@ int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
- }
- 
- EXPORT_SYMBOL_GPL(dccp_feat_change_recv);
-+#endif	/* (later) */
- 
- int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
- 			   u8 *val, u8 len)
-@@ -1206,6 +1240,150 @@ out_clean:
- 
- EXPORT_SYMBOL_GPL(dccp_feat_clone);
- 
-+/**
-+ * dccp_feat_change_recv  -  Process incoming ChangeL/R options
-+ * @fn: feature-negotiation list to update
-+ * @is_mandatory: whether the Change was preceded by a Mandatory option
-+ * @opt: %DCCPO_CHANGE_L or %DCCPO_CHANGE_R
-+ * @feat: one of %dccp_feature_numbers
-+ * @val: NN value or SP value/preference list
-+ * @len: length of @val in bytes
-+ * @server: whether this node is the server (1) or the client (0)
-+ */
-+static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
-+				u8 feat, u8 *val, u8 len, const bool server)
-+{
-+	u8 defval, type = dccp_feat_type(feat);
-+	const bool local = (opt == DCCPO_CHANGE_R);
-+	struct dccp_feat_entry *entry;
-+	dccp_feat_val fval;
-+
-+	if (len == 0 || type == FEAT_UNKNOWN)		/* 6.1 and 6.6.8 */
-+		goto unknown_feature_or_value;
-+
-+	/*
-+	 *	Negotiation of NN features: Change R is invalid, so there is no
-+	 *	simultaneous negotiation; hence we do not look up in the list.
-+	 */
-+	if (type == FEAT_NN) {
-+		if (local || len > sizeof(fval.nn))
-+			goto unknown_feature_or_value;
-+
-+		/* 6.3.2: "The feature remote MUST accept any valid value..." */
-+		fval.nn = dccp_decode_value_var(val, len);
-+		if (!dccp_feat_is_valid_nn_val(feat, fval.nn))
-+			goto unknown_feature_or_value;
-+
-+		return dccp_feat_push_confirm(fn, feat, local, &fval);
-+	}
-+
-+	/*
-+	 *	Unidirectional/simultaneous negotiation of SP features (6.3.1)
-+	 */
-+	entry = dccp_feat_list_lookup(fn, feat, local);
-+	if (entry == NULL) {
-+		/*
-+		 * No particular preferences have been registered. We deal with
-+		 * this situation by assuming that all valid values are equally
-+		 * acceptable, and apply the following checks:
-+		 * - if the peer's list is a singleton, we accept a valid value;
-+		 * - if we are the server, we first try to see if the peer (the
-+		 *   client) advertises the default value. If yes, we use it,
-+		 *   otherwise we accept the preferred value;
-+		 * - else if we are the client, we use the first list element.
-+		 */
-+		if (dccp_feat_clone_sp_val(&fval, val, 1))
-+			return DCCP_RESET_CODE_TOO_BUSY;
-+
-+		if (len > 1 && server) {
-+			defval = dccp_feat_default_value(feat);
-+			if (dccp_feat_preflist_match(&defval, 1, val, len) > -1)
-+				fval.sp.vec[0] = defval;
-+		} else if (!dccp_feat_is_valid_sp_val(feat, fval.sp.vec[0])) {
-+			kfree(fval.sp.vec);
-+			goto unknown_feature_or_value;
-+		}
-+
-+		/* Treat unsupported CCIDs like invalid values */
-+		if (feat == DCCPF_CCID && !ccid_support_check(fval.sp.vec, 1)) {
-+			kfree(fval.sp.vec);
-+			goto not_valid_or_not_known;
-+		}
-+
-+		return dccp_feat_push_confirm(fn, feat, local, &fval);
-+
-+	} else if (entry->state == FEAT_UNSTABLE) {	/* 6.6.2 */
-+		return 0;
-+	}
-+
-+	if (dccp_feat_reconcile(&entry->val, val, len, server, true)) {
-+		entry->empty_confirm = 0;
-+	} else if (is_mandatory) {
-+		return DCCP_RESET_CODE_MANDATORY_ERROR;
-+	} else if (entry->state == FEAT_INITIALISING) {
-+		/*
-+		 * Failed simultaneous negotiation (server only): try to `save'
-+		 * the connection by checking whether entry contains the default
-+		 * value for @feat. If yes, send an empty Confirm to signal that
-+		 * the received Change was not understood - which implies using
-+		 * the default value.
-+		 * If this also fails, we use Reset as the last resort.
-+		 */
-+		WARN_ON(!server);
-+		defval = dccp_feat_default_value(feat);
-+		if (!dccp_feat_reconcile(&entry->val, &defval, 1, server, true))
-+			return DCCP_RESET_CODE_OPTION_ERROR;
-+		entry->empty_confirm = 1;
-+	}
-+	entry->needs_confirm   = 1;
-+	entry->needs_mandatory = 0;
-+	entry->state	       = FEAT_STABLE;
-+	return 0;
-+
-+unknown_feature_or_value:
-+	if (!is_mandatory)
-+		return dccp_push_empty_confirm(fn, feat, local);
-+
-+not_valid_or_not_known:
-+	return is_mandatory ? DCCP_RESET_CODE_MANDATORY_ERROR
-+			    : DCCP_RESET_CODE_OPTION_ERROR;
-+}
-+
-+/**
-+ * dccp_feat_parse_options  -  Process Feature-Negotiation Options
-+ * @sk: for general use and used by the client during connection setup
-+ * @dreq: used by the server during connection setup
-+ * @mandatory: whether @opt was preceded by a Mandatory option
-+ * @opt: %DCCPO_CHANGE_L | %DCCPO_CHANGE_R | %DCCPO_CONFIRM_L | %DCCPO_CONFIRM_R
-+ * @feat: one of %dccp_feature_numbers
-+ * @val: value contents of @opt
-+ * @len: length of @val in bytes
-+ * Returns 0 on success, a Reset code for ending the connection otherwise.
-+ */
-+int dccp_feat_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
-+			    u8 mandatory, u8 opt, u8 feat, u8 *val, u8 len)
-+{
-+	struct dccp_sock *dp = dccp_sk(sk);
-+	struct list_head *fn = dreq ? &dreq->dreq_featneg : &dp->dccps_featneg;
-+	bool server = false;
-+
-+	switch (sk->sk_state) {
-+	/*
-+	 *	Negotiation during connection setup
-+	 */
-+	case DCCP_LISTEN:
-+		server = true;			/* fall through */
-+	case DCCP_REQUESTING:
-+		switch (opt) {
-+		case DCCPO_CHANGE_L:
-+		case DCCPO_CHANGE_R:
-+			return dccp_feat_change_recv(fn, mandatory, opt, feat,
-+						     val, len, server);
-+		}
-+	}
-+	return 0;	/* ignore FN options in all other states */
-+}
-+
- int dccp_feat_init(struct sock *sk)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -135,22 +135,13 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 				      (unsigned long long)opt_recv->dccpor_ndp);
- 			break;
- 		case DCCPO_CHANGE_L:
--			/* fall through */
- 		case DCCPO_CHANGE_R:
- 			if (pkt_type == DCCP_PKT_DATA)
- 				break;
--			if (len < 2)
--				goto out_invalid_option;
--			rc = dccp_feat_change_recv(sk, opt, *value, value + 1,
--						   len - 1);
--			/*
--			 * When there is a change error, change_recv is
--			 * responsible for dealing with it.  i.e. reply with an
--			 * empty confirm.
--			 * If the change was mandatory, then we need to die.
--			 */
--			if (rc && mandatory)
--				goto out_invalid_option;
-+			rc = dccp_feat_parse_options(sk, dreq, mandatory, opt,
-+						    *value, value + 1, len - 1);
-+			if (rc)
-+				goto out_featneg_failed;
- 			break;
- 		case DCCPO_CONFIRM_L:
- 			/* fall through */
-@@ -292,8 +283,10 @@ out_nonsensical_length:
- 
- out_invalid_option:
- 	DCCP_INC_STATS_BH(DCCP_MIB_INVALIDOPT);
--	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_OPTION_ERROR;
--	DCCP_WARN("DCCP(%p): invalid option %d, len=%d", sk, opt, len);
-+	rc = DCCP_RESET_CODE_OPTION_ERROR;
-+out_featneg_failed:
-+	DCCP_WARN("DCCP(%p): Option %d (len=%d) error=%u\n", sk, opt, len, rc);
-+	DCCP_SKB_CB(skb)->dccpd_reset_code = rc;
- 	DCCP_SKB_CB(skb)->dccpd_reset_data[0] = opt;
- 	DCCP_SKB_CB(skb)->dccpd_reset_data[1] = len > 0 ? value[0] : 0;
- 	DCCP_SKB_CB(skb)->dccpd_reset_data[2] = len > 1 ? value[1] : 0;
+Marcel
+
+
+Please pull from
+
+    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-next-2.6.git master
+
+This will update the following files:
+
+ drivers/bluetooth/Kconfig         |   20 -
+ drivers/bluetooth/Makefile        |    1 -
+ drivers/bluetooth/bcm203x.c       |    9 +-
+ drivers/bluetooth/bfusb.c         |   11 +-
+ drivers/bluetooth/bpa10x.c        |    7 +-
+ drivers/bluetooth/bt3c_cs.c       |    8 +-
+ drivers/bluetooth/btsdio.c        |    6 +-
+ drivers/bluetooth/btusb.c         |  229 +++++---
+ drivers/bluetooth/hci_bcsp.c      |    5 -
+ drivers/bluetooth/hci_h4.c        |    5 -
+ drivers/bluetooth/hci_ldisc.c     |    9 +-
+ drivers/bluetooth/hci_usb.c       | 1136 -------------------------------------
+ drivers/bluetooth/hci_usb.h       |  129 -----
+ drivers/bluetooth/hci_vhci.c      |    5 -
+ include/net/bluetooth/bluetooth.h |    4 +-
+ include/net/bluetooth/hci.h       |    2 +-
+ net/bluetooth/af_bluetooth.c      |   50 +-
+ net/bluetooth/bnep/bnep.h         |    2 +-
+ net/bluetooth/bnep/core.c         |    5 -
+ net/bluetooth/bnep/netdev.c       |    5 -
+ net/bluetooth/bnep/sock.c         |    5 -
+ net/bluetooth/cmtp/capi.c         |    5 -
+ net/bluetooth/cmtp/core.c         |    5 -
+ net/bluetooth/cmtp/sock.c         |    5 -
+ net/bluetooth/hci_conn.c          |    5 -
+ net/bluetooth/hci_core.c          |   11 +-
+ net/bluetooth/hci_event.c         |    5 -
+ net/bluetooth/hci_sock.c          |    5 -
+ net/bluetooth/hci_sysfs.c         |    7 +-
+ net/bluetooth/hidp/core.c         |    5 -
+ net/bluetooth/hidp/sock.c         |    5 -
+ net/bluetooth/l2cap.c             |    5 -
+ net/bluetooth/rfcomm/core.c       |    5 -
+ net/bluetooth/rfcomm/sock.c       |    7 +-
+ net/bluetooth/rfcomm/tty.c        |   35 +-
+ net/bluetooth/sco.c               |    5 -
+ 36 files changed, 209 insertions(+), 1559 deletions(-)
+ delete mode 100644 drivers/bluetooth/hci_usb.c
+ delete mode 100644 drivers/bluetooth/hci_usb.h
+
+through these ChangeSets:
+
+Julia Lawall (1):
+    Bluetooth: Change simple_strtol to simple_strtoul
+
+Marcel Holtmann (10):
+    Bluetooth: Add fine grained mem_flags usage to btusb driver
+    Bluetooth: Handle bulk URBs in btusb driver from notify callback
+    Bluetooth: Add suspend/resume support to btusb driver
+    Bluetooth: Fix warnings for bt_key_strings and bt_slock_key_strings
+    Bluetooth: Remove deprecated hci_usb driver
+    Bluetooth: Send HCI Reset command by default on device initialization
+    Bluetooth: Allow SCO audio with Asus WL-BTD202 dongle
+    Bluetooth: Enable per-module dynamic debug messages
+    Bluetooth: Fix format arguments warning
+    Bluetooth: Fix RFCOMM release oops when device is still in use
+
+Nick Pelly (1):
+    Bluetooth: Respect HCI_UART_DEBUG config in hci_ll.c
+
+Tomas Winkler (1):
+    Bluetooth: Fix TX error path in btsdio driver
+
+Vegard Nossum (1):
+    Bluetooth: Fix leak of uninitialized data to userspace
+
+
+
