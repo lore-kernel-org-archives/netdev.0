@@ -1,95 +1,307 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: net-next: lockdep complains re percpu counters
-Date: Sun, 30 Nov 2008 16:07:26 +0300
-Message-ID: <20081130130726.GA4365@x200.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 6/6] dccp: Feature activation handlers
+Date: Sun, 30 Nov 2008 14:22:56 +0100
+Message-ID: <1228051376-8174-7-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <1226751079-15019-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228051376-8174-6-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:62540 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbYK3NDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Nov 2008 08:03:22 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so867204eyi.37
-        for <netdev@vger.kernel.org>; Sun, 30 Nov 2008 05:03:21 -0800 (PST)
-Content-Disposition: inline
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60002 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751300AbYK3NXD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Nov 2008 08:23:03 -0500
+In-Reply-To: <1228051376-8174-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is net-next as of c5419e6f054c877339f754e02c3b1dafd88cd96c
-aka "cxgb3: Fix sparse warning and micro-optimize is_pure_response()".
+This patch provides the post-processing of feature negotiation state, after
+the negotiation has completed.
 
-=================================
-[ INFO: inconsistent lock state ]
-2.6.28-rc6-netns #2
----------------------------------
-inconsistent {softirq-on-W} -> {in-softirq-W} usage.
-recvfrom01/7632 [HC0[0]:SC1[1]:HE1:SE0] takes:
- (&fbc->lock){-+..}, at: [<ffffffff803292d3>] __percpu_counter_add+0x63/0xc0
-{softirq-on-W} state was registered at:
-  [<ffffffff80257709>] __lock_acquire+0x4b9/0x9c0
-  [<ffffffff802586b6>] lock_acquire+0x56/0x80
-  [<ffffffff804eb256>] _spin_lock+0x36/0x50
-  [<ffffffff803292d3>] __percpu_counter_add+0x63/0xc0
-  [<ffffffff802907b9>] get_empty_filp+0x59/0x110
-  [<ffffffff80298fa0>] path_lookup_open+0x30/0xc0
-  [<ffffffff80299a5e>] do_filp_open+0xae/0x8a0
-  [<ffffffff8028f036>] do_sys_open+0x76/0xd0
-  [<ffffffff8028f0ab>] sys_open+0x1b/0x20
-  [<ffffffff8020b6db>] system_call_fastpath+0x16/0x1b
-  [<ffffffffffffffff>] 0xffffffffffffffff
-irq event stamp: 5698
-hardirqs last  enabled at (5698): [<ffffffff80258de1>] debug_check_no_locks_freed+0xa1/0x150
-hardirqs last disabled at (5697): [<ffffffff80258d80>] debug_check_no_locks_freed+0x40/0x150
-softirqs last  enabled at (5656): [<ffffffff803d8031>] release_sock+0xc1/0xf0
-softirqs last disabled at (5657): [<ffffffff8020cb8c>] call_softirq+0x1c/0x30
+To this purpose, handlers are used and added to the dccp_feat_table. Each
+handler is passed a boolean flag whether the RX or TX side of the feature
+is meant.
 
-other info that might help us debug this:
-2 locks held by recvfrom01/7632:
- #0:  (slock-AF_INET/1){-+..}, at: [<ffffffff8044106b>] tcp_v4_rcv+0x50b/0x840
- #1:  (slock-AF_INET){-+..}, at: [<ffffffff803d75f1>] sk_clone+0xe1/0x340
+Several handlers are provided already, new handlers can easily be added.
 
-stack backtrace:
-Pid: 7632, comm: recvfrom01 Not tainted 2.6.28-rc6-netns #2
-Call Trace:
- <IRQ>  [<ffffffff80255e3d>] print_usage_bug+0x18d/0x1e0
- [<ffffffff80256a67>] mark_lock+0x887/0xb70
- [<ffffffff80257692>] __lock_acquire+0x442/0x9c0
- [<ffffffff802586b6>] lock_acquire+0x56/0x80
- [<ffffffff803292d3>] ? __percpu_counter_add+0x63/0xc0
- [<ffffffff804eb256>] _spin_lock+0x36/0x50
- [<ffffffff803292d3>] ? __percpu_counter_add+0x63/0xc0
- [<ffffffff803292d3>] __percpu_counter_add+0x63/0xc0
- [<ffffffff803d7817>] sk_clone+0x307/0x340
- [<ffffffff8042ddb1>] inet_csk_clone+0x11/0xa0
- [<ffffffff80442c34>] tcp_create_openreq_child+0x24/0x470
- [<ffffffff80440773>] tcp_v4_syn_recv_sock+0x53/0x210
- [<ffffffff804431a5>] tcp_check_req+0x125/0x450
- [<ffffffff802377b4>] ? local_bh_enable+0xa4/0x110
- [<ffffffff80440a6d>] tcp_v4_do_rcv+0x13d/0x230
- [<ffffffff804412a5>] tcp_v4_rcv+0x745/0x840
- [<ffffffff80423304>] ip_local_deliver_finish+0x124/0x2b0
- [<ffffffff80423530>] ip_local_deliver+0xa0/0xb0
- [<ffffffff8042364c>] ip_rcv_finish+0x10c/0x3c0
- [<ffffffff80423ac0>] ip_rcv+0x1c0/0x300
- [<ffffffff803e3f79>] netif_receive_skb+0x379/0x400
- [<ffffffff803e411b>] ? process_backlog+0x8b/0x100
- [<ffffffff803e4127>] process_backlog+0x97/0x100
- [<ffffffff803e42da>] net_rx_action+0x14a/0x210
- [<ffffffff802379b8>] __do_softirq+0x88/0x150
- [<ffffffff803d8031>] ? release_sock+0xc1/0xf0
- [<ffffffff8020cb8c>] call_softirq+0x1c/0x30
- <EOI>  [<ffffffff8020e5b7>] do_softirq+0x77/0xd0
- [<ffffffff803d8031>] ? release_sock+0xc1/0xf0
- [<ffffffff8023790b>] local_bh_enable_ip+0xeb/0x110
- [<ffffffff804eb929>] _spin_unlock_bh+0x39/0x40
- [<ffffffff803d7ffe>] ? release_sock+0x8e/0xf0
- [<ffffffff803d8031>] release_sock+0xc1/0xf0
- [<ffffffff8044f178>] inet_stream_connect+0x198/0x2e0
- [<ffffffff80247e70>] ? autoremove_wake_function+0x0/0x40
- [<ffffffff80247e70>] ? autoremove_wake_function+0x0/0x40
- [<ffffffff803d557d>] sys_connect+0x7d/0xc0
- [<ffffffff8020b70c>] ? sysret_check+0x27/0x62
- [<ffffffff80256eca>] ? trace_hardirqs_on_caller+0xba/0x130
- [<ffffffff804eaf07>] ? trace_hardirqs_on_thunk+0x3a/0x3f
- [<ffffffff8020b6db>] system_call_fastpath+0x16/0x1b
+The initialisation is now fully dynamic, i.e. CCIDs are activated only
+after the feature negotiation. The integration of this dynamic activation
+is done in the subsequent patches.
+
+Thanks to Wei Yongjun for pointing out the necessity of skipping over empty
+Confirm options while copying the negotiated feature values.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ net/dccp/dccp.h |    1 +
+ net/dccp/feat.c |  213 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 204 insertions(+), 10 deletions(-)
+
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -445,6 +445,7 @@ extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
+ extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
+ extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
+ 				  struct sk_buff *skb);
++extern int  dccp_feat_activate_values(struct sock *sk, struct list_head *fn);
+ extern void dccp_feat_list_purge(struct list_head *fn_list);
+ 
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -25,11 +25,101 @@
+ 
+ #define DCCP_FEAT_SP_NOAGREE (-123)
+ 
++/*
++ * Feature activation handlers.
++ *
++ * These all use an u64 argument, to provide enough room for NN/SP features. At
++ * this stage the negotiated values have been checked to be within their range.
++ */
++static int dccp_hdlr_ccid(struct sock *sk, u64 ccid, bool rx)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++	struct ccid *new_ccid = ccid_new(ccid, sk, rx, gfp_any());
++
++	if (new_ccid == NULL)
++		return -ENOMEM;
++
++	if (rx) {
++		ccid_hc_rx_delete(dp->dccps_hc_rx_ccid, sk);
++		dp->dccps_hc_rx_ccid = new_ccid;
++	} else {
++		ccid_hc_tx_delete(dp->dccps_hc_tx_ccid, sk);
++		dp->dccps_hc_tx_ccid = new_ccid;
++	}
++	return 0;
++}
++
++static int dccp_hdlr_seq_win(struct sock *sk, u64 seq_win, bool rx)
++{
++	if (!rx)
++		dccp_msk(sk)->dccpms_sequence_window = seq_win;
++	return 0;
++}
++
++static int dccp_hdlr_ack_ratio(struct sock *sk, u64 ratio, bool rx)
++{
++	if (rx)
++		dccp_sk(sk)->dccps_r_ack_ratio = ratio;
++	else
++		dccp_sk(sk)->dccps_l_ack_ratio = ratio;
++	return 0;
++}
++
++static int dccp_hdlr_ackvec(struct sock *sk, u64 enable, bool rx)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++
++	if (rx) {
++		if (enable && dp->dccps_hc_rx_ackvec == NULL) {
++			dp->dccps_hc_rx_ackvec = dccp_ackvec_alloc(gfp_any());
++			if (dp->dccps_hc_rx_ackvec == NULL)
++				return -ENOMEM;
++		} else if (!enable) {
++			dccp_ackvec_free(dp->dccps_hc_rx_ackvec);
++			dp->dccps_hc_rx_ackvec = NULL;
++		}
++	}
++	return 0;
++}
++
++static int dccp_hdlr_ndp(struct sock *sk, u64 enable, bool rx)
++{
++	if (!rx)
++		dccp_msk(sk)->dccpms_send_ndp_count = (enable > 0);
++	return 0;
++}
++
++/*
++ * Minimum Checksum Coverage is located at the RX side (9.2.1). This means that
++ * `rx' holds when the sending peer informs about his partial coverage via a
++ * ChangeR() option. In the other case, we are the sender and the receiver
++ * announces its coverage via ChangeL() options. The policy here is to honour
++ * such communication by enabling the corresponding partial coverage - but only
++ * if it has not been set manually before; the warning here means that all
++ * packets will be dropped.
++ */
++static int dccp_hdlr_min_cscov(struct sock *sk, u64 cscov, bool rx)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++
++	if (rx)
++		dp->dccps_pcrlen = cscov;
++	else {
++		if (dp->dccps_pcslen == 0)
++			dp->dccps_pcslen = cscov;
++		else if (cscov > dp->dccps_pcslen)
++			DCCP_WARN("CsCov %u too small, peer requires >= %u\n",
++				  dp->dccps_pcslen, (u8)cscov);
++	}
++	return 0;
++}
++
+ static const struct {
+ 	u8			feat_num;		/* DCCPF_xxx */
+ 	enum dccp_feat_type	rxtx;			/* RX or TX  */
+ 	enum dccp_feat_type	reconciliation;		/* SP or NN  */
+ 	u8			default_value;		/* as in 6.4 */
++	int (*activation_hdlr)(struct sock *sk, u64 val, bool rx);
+ /*
+  *    Lookup table for location and type of features (from RFC 4340/4342)
+  *  +--------------------------+----+-----+----+----+---------+-----------+
+@@ -49,16 +139,16 @@ static const struct {
+  *  +--------------------------+----+-----+----+----+---------+-----------+
+  */
+ } dccp_feat_table[] = {
+-	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2 },
+-	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0 },
+-	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100 },
+-	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2 },
+-	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0 },
+-	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0 },
+-	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0 },
++	{ DCCPF_CCID,		 FEAT_AT_TX, FEAT_SP, 2,   dccp_hdlr_ccid     },
++	{ DCCPF_SHORT_SEQNOS,	 FEAT_AT_TX, FEAT_SP, 0,   NULL },
++	{ DCCPF_SEQUENCE_WINDOW, FEAT_AT_TX, FEAT_NN, 100, dccp_hdlr_seq_win  },
++	{ DCCPF_ECN_INCAPABLE,	 FEAT_AT_RX, FEAT_SP, 0,   NULL },
++	{ DCCPF_ACK_RATIO,	 FEAT_AT_TX, FEAT_NN, 2,   dccp_hdlr_ack_ratio},
++	{ DCCPF_SEND_ACK_VECTOR, FEAT_AT_RX, FEAT_SP, 0,   dccp_hdlr_ackvec   },
++	{ DCCPF_SEND_NDP_COUNT,  FEAT_AT_TX, FEAT_SP, 0,   dccp_hdlr_ndp      },
++	{ DCCPF_MIN_CSUM_COVER,  FEAT_AT_RX, FEAT_SP, 0,   dccp_hdlr_min_cscov},
++	{ DCCPF_DATA_CHECKSUM,	 FEAT_AT_RX, FEAT_SP, 0,   NULL },
++	{ DCCPF_SEND_LEV_RATE,	 FEAT_AT_RX, FEAT_SP, 0,   NULL },
+ };
+ #define DCCP_FEAT_SUPPORTED_MAX		ARRAY_SIZE(dccp_feat_table)
+ 
+@@ -104,6 +194,41 @@ static int dccp_feat_default_value(u8 feat_num)
+ 	return idx < 0 ? 0 : dccp_feat_table[idx].default_value;
+ }
+ 
++static int __dccp_feat_activate(struct sock *sk, const int idx,
++				const bool is_local, dccp_feat_val const *fval)
++{
++	bool rx;
++	u64 val;
++
++	if (idx < 0 || idx >= DCCP_FEAT_SUPPORTED_MAX)
++		return -1;
++	if (dccp_feat_table[idx].activation_hdlr == NULL)
++		return 0;
++
++	if (fval == NULL) {
++		val = dccp_feat_table[idx].default_value;
++	} else if (dccp_feat_table[idx].reconciliation == FEAT_SP) {
++		if (fval->sp.vec == NULL) {
++			/*
++			 * This can happen when an empty Confirm is sent
++			 * for an SP (i.e. known) feature. In this case
++			 * we would be using the default anyway.
++			 */
++			DCCP_CRIT("Feature #%d undefined: using default", idx);
++			val = dccp_feat_table[idx].default_value;
++		} else {
++			val = fval->sp.vec[0];
++		}
++	} else {
++		val = fval->nn;
++	}
++
++	/* Location is RX if this is a local-RX or remote-TX feature */
++	rx = (is_local == (dccp_feat_table[idx].rxtx == FEAT_AT_RX));
++
++	return dccp_feat_table[idx].activation_hdlr(sk, val, rx);
++}
++
+ /* Test for "Req'd" feature (RFC 4340, 6.4) */
+ static inline int dccp_feat_must_be_understood(u8 feat_num)
+ {
+@@ -1512,6 +1637,74 @@ out:
+ 
+ EXPORT_SYMBOL_GPL(dccp_feat_init);
+ 
++int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++	struct dccp_feat_entry *cur, *next;
++	int idx;
++	dccp_feat_val *fvals[DCCP_FEAT_SUPPORTED_MAX][2] = {
++		 [0 ... DCCP_FEAT_SUPPORTED_MAX-1] = { NULL, NULL }
++	};
++
++	list_for_each_entry(cur, fn_list, node) {
++		/*
++		 * An empty Confirm means that either an unknown feature type
++		 * or an invalid value was present. In the first case there is
++		 * nothing to activate, in the other the default value is used.
++		 */
++		if (cur->empty_confirm)
++			continue;
++
++		idx = dccp_feat_index(cur->feat_num);
++		if (idx < 0) {
++			DCCP_BUG("Unknown feature %u", cur->feat_num);
++			goto activation_failed;
++		}
++		if (cur->state != FEAT_STABLE) {
++			DCCP_CRIT("Negotiation of %s %u failed in state %u",
++				  cur->is_local ? "local" : "remote",
++				  cur->feat_num, cur->state);
++			goto activation_failed;
++		}
++		fvals[idx][cur->is_local] = &cur->val;
++	}
++
++	/*
++	 * Activate in decreasing order of index, so that the CCIDs are always
++	 * activated as the last feature. This avoids the case where a CCID
++	 * relies on the initialisation of one or more features that it depends
++	 * on (e.g. Send NDP Count, Send Ack Vector, and Ack Ratio features).
++	 */
++	for (idx = DCCP_FEAT_SUPPORTED_MAX; --idx >= 0;)
++		if (__dccp_feat_activate(sk, idx, 0, fvals[idx][0]) ||
++		    __dccp_feat_activate(sk, idx, 1, fvals[idx][1])) {
++			DCCP_CRIT("Could not activate %d", idx);
++			goto activation_failed;
++		}
++
++	/* Clean up Change options which have been confirmed already */
++	list_for_each_entry_safe(cur, next, fn_list, node)
++		if (!cur->needs_confirm)
++			dccp_feat_list_pop(cur);
++
++	dccp_pr_debug("Activation OK\n");
++	return 0;
++
++activation_failed:
++	/*
++	 * We clean up everything that may have been allocated, since
++	 * it is difficult to track at which stage negotiation failed.
++	 * This is ok, since all allocation functions below are robust
++	 * against NULL arguments.
++	 */
++	ccid_hc_rx_delete(dp->dccps_hc_rx_ccid, sk);
++	ccid_hc_tx_delete(dp->dccps_hc_tx_ccid, sk);
++	dp->dccps_hc_rx_ccid = dp->dccps_hc_tx_ccid = NULL;
++	dccp_ackvec_free(dp->dccps_hc_rx_ackvec);
++	dp->dccps_hc_rx_ackvec = NULL;
++	return -1;
++}
++
+ #ifdef CONFIG_IP_DCCP_DEBUG
+ const char *dccp_feat_typename(const u8 type)
+ {
+-- 
+1.6.0.rc2
+
