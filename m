@@ -1,46 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 0/5] IPsec parallelization
-Date: Mon, 1 Dec 2008 16:49:02 +0800
-Message-ID: <20081201084902.GA19904@gondor.apana.org.au>
-References: <20081201071614.GP476@secunet.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH] lro: IP fragment checking
+Date: Mon, 01 Dec 2008 09:58:55 +0100
+Message-ID: <4933A74F.3050809@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	klassert@mathematik.tu-chemnitz.de
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>, tklein@de.ibm.com,
+	Christoph Raisch <raisch@de.ibm.com>, jb.billaud@gmail.com,
+	hering2@de.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57909 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750833AbYLAItG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 03:49:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20081201071614.GP476@secunet.com>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:46685 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753070AbYLAI65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 03:58:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2008 at 08:16:14AM +0100, Steffen Klassert wrote:
-> This is a first throw to try to parallelize the expensive part of xfrm by
-> using a generic parallelization/serialization method. This method uses the
-> remote softirq invocation infrastructure for parallelization and serialization.
-> With this method data objects can be processed in parallel, starting 
-> at some given point. After doing some expensive operations in parallel, 
-> it is possible to serialize again. The parallelized data objects return after
-> serialization in the order as they were before the parallelization. 
-> In the case of xfrm, this makes it possible to run the expensive part in
-> parallel without getting packet reordering.
+This patch prevents that ip fragmented TCP packets are considered vaild
+for aggregation
 
-I still think that you're much better off doing this in the
-crypto layer.  As it stands the only reason why this is attractive
-is because crypto is slow.
+Regards,
 
-Pretty soon processors will start providing crypto support natively
-so this will no longer be the case.  I'd rather see this stuff
-contained in a small area instead of having it spread all over the
-place as this may become obsolete any day now.
+Jan-Bernd
 
-Cheers,
+---
+
+
+
+ net/ipv4/inet_lro.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index cfd034a..1f9159d 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -64,6 +64,9 @@ static int lro_tcp_ip_check(struct iphdr *iph, struct tcphdr *tcph,
+ 	if (iph->ihl != IPH_LEN_WO_OPTIONS)
+ 		return -1;
+ 
++	if (iph->frag_off & IP_MF)
++		return -1;
++
+ 	if (tcph->cwr || tcph->ece || tcph->urg || !tcph->ack
+ 	    || tcph->rst || tcph->syn || tcph->fin)
+ 		return -1;
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.5
+
+
+
+
+
