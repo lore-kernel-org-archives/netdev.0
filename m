@@ -1,55 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 0/5] IPsec parallelization
-Date: Mon, 01 Dec 2008 02:29:29 -0800 (PST)
-Message-ID: <20081201.022929.253639406.davem@davemloft.net>
-References: <20081201071614.GP476@secunet.com>
-	<20081201084902.GA19904@gondor.apana.org.au>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: hardware time stamping with extra skb->hwtstamp
+Date: Mon, 01 Dec 2008 11:37:41 +0100
+Message-ID: <1228127861.16263.590.camel@ecld0pohly>
+References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>
+	 <200811271602.16128.opurdila@ixiacom.com>
+	 <1227799867.16263.517.camel@ecld0pohly>
+	 <200811272053.10009.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	klassert@mathematik.tu-chemnitz.de
-To: herbert@gondor.apana.org.au
+Cc: Oliver Hartkopp <oliver@hartkopp.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57189
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750989AbYLAK33 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 05:29:29 -0500
-In-Reply-To: <20081201084902.GA19904@gondor.apana.org.au>
+Received: from mga09.intel.com ([134.134.136.24]:62811 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751032AbYLAKhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Dec 2008 05:37:45 -0500
+In-Reply-To: <200811272053.10009.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 1 Dec 2008 16:49:02 +0800
-
-> On Mon, Dec 01, 2008 at 08:16:14AM +0100, Steffen Klassert wrote:
-> > This is a first throw to try to parallelize the expensive part of xfrm by
-> > using a generic parallelization/serialization method. This method uses the
-> > remote softirq invocation infrastructure for parallelization and serialization.
-> > With this method data objects can be processed in parallel, starting 
-> > at some given point. After doing some expensive operations in parallel, 
-> > it is possible to serialize again. The parallelized data objects return after
-> > serialization in the order as they were before the parallelization. 
-> > In the case of xfrm, this makes it possible to run the expensive part in
-> > parallel without getting packet reordering.
+On Thu, 2008-11-27 at 18:53 +0000, Octavian Purdila wrote:
+> From: Patrick Ohly <patrick.ohly@intel.com>
+> Date: Thu, 27 Nov 2008 16:31:07 +0100
+> > On Thu, 2008-11-27 at 14:02 +0000, Octavian Purdila wrote:
+> > > Let me throw in another idea: when enabling hw timestamps could we
+> > > allocate a bigger skb and store the hw timestamp somewhere in the skb
+> > > data buffer?
+> >
+> > How does the socket layer detect that the HW timestamp is available in
+> > the larger skb data buffer, and where?
+> >
 > 
-> I still think that you're much better off doing this in the
-> crypto layer.  As it stands the only reason why this is attractive
-> is because crypto is slow.
-> 
-> Pretty soon processors will start providing crypto support natively
-> so this will no longer be the case.  I'd rather see this stuff
-> contained in a small area instead of having it spread all over the
-> place as this may become obsolete any day now.
+> It doesn't know, thats why we need help from the device (the new netdev 
+> method).
 
-Herbert, I'm not completely convinced of this line of thinking :-)
+That just pushes the problem into the device driver: when it gets passed
+a skb pointer, how can it tell reliably that the data buffer contains
+the HW timestamping information?
 
-Will crypto be faster than a routing cache lookup?  Because flow
-seperation helps routing performance, significantly.
+I agree with Oliver, this approach doesn't look maintainable to me. I
+don't know enough about the kernel to tell whether it works reliably at
+the moment, much less whether it will work in the future.
 
-The problem is that we can't seperate within a flow, that's why we
-need something like Steffen's work.
+Oliver asked:
+> One additional question for Patrick:
+> As you wrote that your hw timestamp contained in the new skbuff-field is 
+> already cocked ... is there any identifier that tells the userspace 
+> application about the type of hw timestamp he gets (e.g. cocked, raw 
+> registers, offset to whatever, etc.) ?
 
-And the reconstitution of the seperated crypto operations into the
-original properly ordered flow can be done most cleanly (IMHO) in the
-networking layer as far as I have seen so far.
+In the proposed API the userspace application gets three time stamps:
+software, "cooked" hardware time stamp (converted to nanoseconds by the
+driver, but not tampered with in any other way), hardware time stamp
+converted to system time. Each of these may be missing (not available,
+couldn't be calculated). So yes, the userspace application knows what it
+got and can pick the value that it needs.
+
+Oliver suggested:
+> What about just creating a new pointer in the struct skbuff that points 
+> to a struct hwstamp when it is available OR the pointer is NULL when no 
+> hwstamps are available.
+
+I like this better than tampering with the data buffer pointers
+implicitly because it enables usages of the additional information
+inside the kernel itself. It's similar to skb_shared_info, except that
+it is not allocated for all skbs.
+
+The skb_shared_info is always at the end of the data buffer. Assume that
+we have a new __netdev_alloc_hw_skb() which increases the allocated data
+buffer to make room for the additional struct hwtstamp (either before
+skb_shared_info or after). I cannot think of a way how the rest of the
+kernel can tell that this additional data is available by just looking
+at the existing head/data/end fields in a skb - if I missed something,
+please let me know.
+
+So it seems to me that we need the additional 32 bit offset (or pointer,
+on 32 bit architectures) in skb which points towards the struct
+hwtstamp. But that's actually less than the additional 64 bit which hold
+the time stamp value, as in the current patch. I'll give it a few more
+days for further debate, then try out this approach.
+
+-- 
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
+
