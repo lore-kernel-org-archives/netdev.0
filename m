@@ -1,168 +1,65 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 6/6] crypto: rmd320 - Switch to shash
-Date: Mon, 01 Dec 2008 21:47:20 +0800
-Message-ID: <E1L797Q-0005kE-5Q@gondolin.me.apana.org.au>
+Subject: [PATCH 1/6] crypto: hash - Make setkey optional
+Date: Mon, 01 Dec 2008 21:47:14 +0800
+Message-ID: <E1L797K-0005j9-MN@gondolin.me.apana.org.au>
 References: <20081201134448.GA21939@gondor.apana.org.au>
 To: Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org, davem@davemloft.net,
 	klassert@mathematik.tu-chemnitz.de,
 	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59365 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752238AbYLANrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 08:47:32 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-crypto: rmd320 - Switch to shash
+crypto: hash - Make setkey optional
 
-This patch changes rmd320 to the new shash interface.
+Since most cryptographic hash algorithms have no keys, this patch
+makes the setkey function optional for ahash and shash.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/rmd320.c |   61 +++++++++++++++++++++++++++++---------------------------
- 1 file changed, 32 insertions(+), 29 deletions(-)
+ crypto/ahash.c |    8 +++++++-
+ crypto/shash.c |    3 +++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/crypto/rmd320.c b/crypto/rmd320.c
-index b143d66..86becab 100644
---- a/crypto/rmd320.c
-+++ b/crypto/rmd320.c
-@@ -13,11 +13,10 @@
-  * any later version.
-  *
-  */
-+#include <crypto/internal/hash.h>
- #include <linux/init.h>
- #include <linux/module.h>
- #include <linux/mm.h>
--#include <linux/crypto.h>
--#include <linux/cryptohash.h>
- #include <linux/types.h>
- #include <asm/byteorder.h>
- 
-@@ -280,9 +279,9 @@ static void rmd320_transform(u32 *state, const __le32 *in)
- 	return;
+diff --git a/crypto/ahash.c b/crypto/ahash.c
+index 9f98956..ba5292d 100644
+--- a/crypto/ahash.c
++++ b/crypto/ahash.c
+@@ -162,6 +162,12 @@ static int ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
+ 	return ahash->setkey(tfm, key, keylen);
  }
  
--static void rmd320_init(struct crypto_tfm *tfm)
-+static int rmd320_init(struct shash_desc *desc)
- {
--	struct rmd320_ctx *rctx = crypto_tfm_ctx(tfm);
-+	struct rmd320_ctx *rctx = shash_desc_ctx(desc);
- 
- 	rctx->byte_count = 0;
- 
-@@ -298,12 +297,14 @@ static void rmd320_init(struct crypto_tfm *tfm)
- 	rctx->state[9] = RMD_H9;
- 
- 	memset(rctx->buffer, 0, sizeof(rctx->buffer));
++static int ahash_nosetkey(struct crypto_ahash *tfm, const u8 *key,
++			  unsigned int keylen)
++{
++	return -ENOSYS;
++}
 +
-+	return 0;
- }
- 
--static void rmd320_update(struct crypto_tfm *tfm, const u8 *data,
--			  unsigned int len)
-+static int rmd320_update(struct shash_desc *desc, const u8 *data,
-+			 unsigned int len)
+ int crypto_ahash_import(struct ahash_request *req, const u8 *in)
  {
--	struct rmd320_ctx *rctx = crypto_tfm_ctx(tfm);
-+	struct rmd320_ctx *rctx = shash_desc_ctx(desc);
- 	const u32 avail = sizeof(rctx->buffer) - (rctx->byte_count & 0x3f);
+ 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+@@ -194,7 +200,7 @@ static int crypto_init_ahash_ops(struct crypto_tfm *tfm, u32 type, u32 mask)
+ 	crt->update = alg->update;
+ 	crt->final  = alg->final;
+ 	crt->digest = alg->digest;
+-	crt->setkey = ahash_setkey;
++	crt->setkey = alg->setkey ? ahash_setkey : ahash_nosetkey;
+ 	crt->digestsize = alg->digestsize;
  
- 	rctx->byte_count += len;
-@@ -312,7 +313,7 @@ static void rmd320_update(struct crypto_tfm *tfm, const u8 *data,
- 	if (avail > len) {
- 		memcpy((char *)rctx->buffer + (sizeof(rctx->buffer) - avail),
- 		       data, len);
--		return;
-+		goto out;
- 	}
+ 	return 0;
+diff --git a/crypto/shash.c b/crypto/shash.c
+index 50d69a4..c9df367 100644
+--- a/crypto/shash.c
++++ b/crypto/shash.c
+@@ -55,6 +55,9 @@ int crypto_shash_setkey(struct crypto_shash *tfm, const u8 *key,
+ 	struct shash_alg *shash = crypto_shash_alg(tfm);
+ 	unsigned long alignmask = crypto_shash_alignmask(tfm);
  
- 	memcpy((char *)rctx->buffer + (sizeof(rctx->buffer) - avail),
-@@ -330,12 +331,15 @@ static void rmd320_update(struct crypto_tfm *tfm, const u8 *data,
- 	}
- 
- 	memcpy(rctx->buffer, data, len);
++	if (!shash->setkey)
++		return -ENOSYS;
 +
-+out:
-+	return 0;
- }
+ 	if ((unsigned long)key & alignmask)
+ 		return shash_setkey_unaligned(tfm, key, keylen);
  
- /* Add padding and return the message digest. */
--static void rmd320_final(struct crypto_tfm *tfm, u8 *out)
-+static int rmd320_final(struct shash_desc *desc, u8 *out)
- {
--	struct rmd320_ctx *rctx = crypto_tfm_ctx(tfm);
-+	struct rmd320_ctx *rctx = shash_desc_ctx(desc);
- 	u32 i, index, padlen;
- 	__le64 bits;
- 	__le32 *dst = (__le32 *)out;
-@@ -346,10 +350,10 @@ static void rmd320_final(struct crypto_tfm *tfm, u8 *out)
- 	/* Pad out to 56 mod 64 */
- 	index = rctx->byte_count & 0x3f;
- 	padlen = (index < 56) ? (56 - index) : ((64+56) - index);
--	rmd320_update(tfm, padding, padlen);
-+	rmd320_update(desc, padding, padlen);
- 
- 	/* Append length */
--	rmd320_update(tfm, (const u8 *)&bits, sizeof(bits));
-+	rmd320_update(desc, (const u8 *)&bits, sizeof(bits));
- 
- 	/* Store state in digest */
- 	for (i = 0; i < 10; i++)
-@@ -357,31 +361,32 @@ static void rmd320_final(struct crypto_tfm *tfm, u8 *out)
- 
- 	/* Wipe context */
- 	memset(rctx, 0, sizeof(*rctx));
-+
-+	return 0;
- }
- 
--static struct crypto_alg alg = {
--	.cra_name	 =	"rmd320",
--	.cra_driver_name =	"rmd320",
--	.cra_flags	 =	CRYPTO_ALG_TYPE_DIGEST,
--	.cra_blocksize	 =	RMD320_BLOCK_SIZE,
--	.cra_ctxsize	 =	sizeof(struct rmd320_ctx),
--	.cra_module	 =	THIS_MODULE,
--	.cra_list	 =	LIST_HEAD_INIT(alg.cra_list),
--	.cra_u		 =	{ .digest = {
--	.dia_digestsize	 =	RMD320_DIGEST_SIZE,
--	.dia_init	 =	rmd320_init,
--	.dia_update	 =	rmd320_update,
--	.dia_final	 =	rmd320_final } }
-+static struct shash_alg alg = {
-+	.digestsize	=	RMD320_DIGEST_SIZE,
-+	.init		=	rmd320_init,
-+	.update		=	rmd320_update,
-+	.final		=	rmd320_final,
-+	.descsize	=	sizeof(struct rmd320_ctx),
-+	.base		=	{
-+		.cra_name	 =	"rmd320",
-+		.cra_flags	 =	CRYPTO_ALG_TYPE_SHASH,
-+		.cra_blocksize	 =	RMD320_BLOCK_SIZE,
-+		.cra_module	 =	THIS_MODULE,
-+	}
- };
- 
- static int __init rmd320_mod_init(void)
- {
--	return crypto_register_alg(&alg);
-+	return crypto_register_shash(&alg);
- }
- 
- static void __exit rmd320_mod_fini(void)
- {
--	crypto_unregister_alg(&alg);
-+	crypto_unregister_shash(&alg);
- }
- 
- module_init(rmd320_mod_init);
-@@ -389,5 +394,3 @@ module_exit(rmd320_mod_fini);
- 
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("RIPEMD-320 Message Digest");
--
--MODULE_ALIAS("rmd320");
