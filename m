@@ -1,83 +1,142 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: hardware time stamping with extra skb->hwtstamp
-Date: Mon, 01 Dec 2008 17:45:24 +0100
-Message-ID: <493414A4.8010804@hartkopp.net>
-References: <1227096528-24150-1-git-send-email-patrick.ohly@intel.com>	 <200811271602.16128.opurdila@ixiacom.com>	 <1227799867.16263.517.camel@ecld0pohly>	 <200811272053.10009.opurdila@ixiacom.com> <1228127861.16263.590.camel@ecld0pohly>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [PATCH] net: fix /proc/net/ip_mr_cache display
+Date: Mon, 01 Dec 2008 17:49:56 +0100
+Message-ID: <493415B4.7020600@bull.net>
+References: <20081201160214.965805516@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Patrick Ohly <patrick.ohly@intel.com>
+Cc: netdev hem <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:8699 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754710AbYLAQp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 11:45:27 -0500
-In-Reply-To: <1228127861.16263.590.camel@ecld0pohly>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:35981 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315AbYLAQuB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 11:50:01 -0500
+In-Reply-To: <20081201160214.965805516@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick Ohly wrote:
->
-> Oliver asked:
->   
->> One additional question for Patrick:
->> As you wrote that your hw timestamp contained in the new skbuff-field is 
->> already cocked ... is there any identifier that tells the userspace 
->> application about the type of hw timestamp he gets (e.g. cocked, raw 
->> registers, offset to whatever, etc.) ?
->>     
->
-> In the proposed API the userspace application gets three time stamps:
-> software, "cooked" hardware time stamp (converted to nanoseconds by the
-> driver, but not tampered with in any other way), hardware time stamp
-> converted to system time. Each of these may be missing (not available,
-> couldn't be calculated). So yes, the userspace application knows what it
-> got and can pick the value that it needs.
->   
+Argh, my patch breaks iproute2 command: ip mroute show
 
-That's really fine. Sorry that i did not go that deep into your code 
-myself :-]
+iproute2 uses sscanf() to read /proc/net/ip_mr_cache and expects 6
+fields to be read. For the unresolved entries my patch only displays
+the first three fields. As a consequence, 'ip mroute show' skips the
+unresolved entries. :(
 
-> Oliver suggested:
->   
->> What about just creating a new pointer in the struct skbuff that points 
->> to a struct hwstamp when it is available OR the pointer is NULL when no 
->> hwstamps are available.
->>     
->
-> I like this better than tampering with the data buffer pointers
-> implicitly because it enables usages of the additional information
-> inside the kernel itself. It's similar to skb_shared_info, except that
-> it is not allocated for all skbs.
->
-> The skb_shared_info is always at the end of the data buffer. Assume that
-> we have a new __netdev_alloc_hw_skb() which increases the allocated data
-> buffer to make room for the additional struct hwtstamp (either before
-> skb_shared_info or after). I cannot think of a way how the rest of the
-> kernel can tell that this additional data is available by just looking
-> at the existing head/data/end fields in a skb - if I missed something,
-> please let me know.
->
->   
+So we can
+- either forget this patch and keep displaying garbage information
+   in /proc/net/ip[6]_mr_cache for the unresolved entries. (No one
+   complained before)
+- or may be we can just print '-' or 0 for the fields that have no
+   data associated in the unresolved case.
 
-I'm not very familiar with skb fields but hiding this with a new 
-__netdev_alloc_hw_skb() looks very good to me and creates a proper way 
-to add hw-specific netdevice information in a generic way and - that's 
-probably the best news - only when it's really needed.
+Tell me what you prefer.
 
-> So it seems to me that we need the additional 32 bit offset (or pointer,
-> on 32 bit architectures) in skb which points towards the struct
-> hwtstamp. But that's actually less than the additional 64 bit which hold
-> the time stamp value, as in the current patch. I'll give it a few more
-> days for further debate, then try out this approach.
->   
+Benjamin
 
-I'll be on a business trip until Thursday, so from my side you would get 
-a 'go ahead' right now ;-)
+Benjamin Thery wrote:
+> /proc/net/ip6_mr_cache seems to display garbage when showing  unresolved
+> mfc6_cache entries.
+> 
+> $ cat /proc/net/ip6_mr_cache
+> Group        Origin    Iif    Pkts  Bytes     Wrong  Oifs
+> ff05::1     2003::1      1        4   4132        2  2:1    3:1  
+> ff05::3     2003::1  65535      514      2 -559067475
+> (addresses modified to increase  readability)
+> 
+> The first line is correct. It is a resolved cache entry, 4 packets used it, etc
+> The second line represents an unresolved entry, and the columns Pkts(4th),
+> Bytes(5th) and Wrong(6th) just show garbage.
+> 
+> In struct mfc6_cache, there's an union to store data for resolved and
+> unresolved cases. And what ipmr_mfc_seq_show() is printing in these 
+> columns for the unresolved entries is some bytes from mfc6_cache.mfc_un.res.
+> Bad.
+> (eg. In our case -559067475 is in fact 0xdead4ead which is the spinlock
+> magic from mfc6_cache.mfc_un.unres.unresolved.lock.magic).
+> 
+> This patch only prints pkt, bytes and wrong_if when its relevant, ie. 
+> when showing a resolved cache entry.
+> 
+> Also, mfc->mfc_un.res.pkt, mfc->mfc_un.res.bytes, mfc->mfc_un.res.wrong_if
+> are unsigned.
+> 
+> The patch also modifies IPv4 ipmr.c that contains similar code.
+> 
+> This patch applies on top of net-next-2.6.
+> 
+> The patch for net-2.6 is slightly different because of the NIP6_FMT to
+> %pI6 conversion that was made in the seq_printf.
+> 
+> Regards,
+> Benjamin
+> 
+> Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+> ---
+>  net/ipv4/ipmr.c  |   11 ++++++-----
+>  net/ipv6/ip6mr.c |   11 ++++++-----
+>  2 files changed, 12 insertions(+), 10 deletions(-)
+> 
+> Index: net-next-2.6/net/ipv4/ipmr.c
+> ===================================================================
+> --- net-next-2.6.orig/net/ipv4/ipmr.c
+> +++ net-next-2.6/net/ipv4/ipmr.c
+> @@ -1879,15 +1879,16 @@ static int ipmr_mfc_seq_show(struct seq_
+>  		const struct mfc_cache *mfc = v;
+>  		const struct ipmr_mfc_iter *it = seq->private;
+>  
+> -		seq_printf(seq, "%08lX %08lX %-3d %8ld %8ld %8ld",
+> +		seq_printf(seq, "%08lX %08lX %-3d",
+>  			   (unsigned long) mfc->mfc_mcastgrp,
+>  			   (unsigned long) mfc->mfc_origin,
+> -			   mfc->mfc_parent,
+> -			   mfc->mfc_un.res.pkt,
+> -			   mfc->mfc_un.res.bytes,
+> -			   mfc->mfc_un.res.wrong_if);
+> +			   mfc->mfc_parent);
+>  
+>  		if (it->cache != &mfc_unres_queue) {
+> +			seq_printf(seq, " %8lu %8lu %8lu",
+> +				   mfc->mfc_un.res.pkt,
+> +				   mfc->mfc_un.res.bytes,
+> +				   mfc->mfc_un.res.wrong_if);
+>  			for (n = mfc->mfc_un.res.minvif;
+>  			     n < mfc->mfc_un.res.maxvif; n++ ) {
+>  				if (VIF_EXISTS(n)
+> Index: net-next-2.6/net/ipv6/ip6mr.c
+> ===================================================================
+> --- net-next-2.6.orig/net/ipv6/ip6mr.c
+> +++ net-next-2.6/net/ipv6/ip6mr.c
+> @@ -297,14 +297,15 @@ static int ipmr_mfc_seq_show(struct seq_
+>  		const struct mfc6_cache *mfc = v;
+>  		const struct ipmr_mfc_iter *it = seq->private;
+>  
+> -		seq_printf(seq, "%pI6 %pI6 %-3d %8ld %8ld %8ld",
+> +		seq_printf(seq, "%pI6 %pI6 %-3d",
+>  			   &mfc->mf6c_mcastgrp, &mfc->mf6c_origin,
+> -			   mfc->mf6c_parent,
+> -			   mfc->mfc_un.res.pkt,
+> -			   mfc->mfc_un.res.bytes,
+> -			   mfc->mfc_un.res.wrong_if);
+> +			   mfc->mf6c_parent);
+>  
+>  		if (it->cache != &mfc_unres_queue) {
+> +			seq_printf(seq, " %8lu %8lu %8lu",
+> +				   mfc->mfc_un.res.pkt,
+> +				   mfc->mfc_un.res.bytes,
+> +				   mfc->mfc_un.res.wrong_if);
+>  			for (n = mfc->mfc_un.res.minvif;
+>  			     n < mfc->mfc_un.res.maxvif; n++) {
+>  				if (MIF_EXISTS(n) &&
+> 
+> 
+> 
+> 
 
-Best regards,
-Oliver
 
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
