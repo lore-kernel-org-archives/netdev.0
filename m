@@ -1,48 +1,88 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/5] misdn: one handmade ARRAY_SIZE converted
-Date: Mon, 01 Dec 2008 14:24:22 -0800
-Message-ID: <200812012224.mB1MONvK014950@imap1.linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [patch 1/3] forcedeth: power down phy when interface is down
+Date: Mon, 01 Dec 2008 14:24:43 -0800
+Message-ID: <200812012224.mB1MOhTV015210@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	ilpo.jarvinen@helsinki.fi
-To: kkeil@suse.de
+	eswierk@arastra.com, aabdulla@nvidia.com, ajones@riverbed.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:42973 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49291 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751268AbYLAWYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:24:53 -0500
+	by vger.kernel.org with ESMTP id S1752637AbYLAWY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:24:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+From: "Ed Swierk" <eswierk@arastra.com>
 
-Defined as:
+Bring the physical link down when the interface is down by placing the PHY
+in power-down state, unless WOL is enabled.  This mirrors the behavior of
+other drivers including e1000 and tg3.
 
-static struct device_attribute element_attributes[] =3D {
+Without the patch, ifconfig down leaves the physical link up, which confuses
+datacenter users who expect the link lights both on the NIC and the switch to
+go out when they bring an interface down.
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-Cc: Karsten Keil <kkeil@suse.de>
+Furthermore, even though the phy is powered on, autonegotiation stops working,
+so a normally gigabit link might suddenly become 100 Mbit half-duplex when the
+interface goes down, and become gigabit when it comes up again.
+
+Ayaz said:
+
+  I would not include this patch until further testing is performed.  NVIDIA
+  MCP chips use 3rd party PHY vendors.  By powering down the phy, it could
+  have adverse affects on certain phys.
+
+Arthur Jones said:
+
+  I just ran across this patch.  Tested on a Marvell 88E1121R (GigE PHY)
+  and works great.  This is a very important feature for me.
+
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Tested-by: Arthur Jones <ajones@riverbed.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/mISDN/dsp_pipeline.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/forcedeth.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff -puN drivers/isdn/mISDN/dsp_pipeline.c~misdn-one-handmade-array_si=
-ze-converted drivers/isdn/mISDN/dsp_pipeline.c
---- a/drivers/isdn/mISDN/dsp_pipeline.c~misdn-one-handmade-array_size-c=
-onverted
-+++ a/drivers/isdn/mISDN/dsp_pipeline.c
-@@ -99,8 +99,7 @@ int mISDN_dsp_element_register(struct mI
- 		goto err1;
+diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
++++ a/drivers/net/forcedeth.c
+@@ -1446,9 +1446,9 @@ static int phy_init(struct net_device *d
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
+ 
+-	/* restart auto negotiation */
++	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
  	}
-=20
--	for (i =3D 0; i < (sizeof(element_attributes)
--		/ sizeof(struct device_attribute)); ++i)
-+	for (i =3D 0; i < ARRAY_SIZE(element_attributes); ++i)
- 		ret =3D device_create_file(&entry->dev,
- 				&element_attributes[i]);
- 		if (ret) {
+@@ -5208,6 +5208,10 @@ static int nv_open(struct net_device *de
+ 
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ 
++	/* power up phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -5401,6 +5405,10 @@ static int nv_close(struct net_device *d
+ 	if (np->wolenabled) {
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
++	} else {
++		/* power down phy */
++		mii_rw(dev, np->phyaddr, MII_BMCR,
++		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
+ 	}
+ 
+ 	/* FIXME: power down nic */
 _
