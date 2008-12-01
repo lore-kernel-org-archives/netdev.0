@@ -1,55 +1,62 @@
 From: akpm@linux-foundation.org
-Subject: [patch 3/5] misdn: indentation and braces disagree - add braces
-Date: Mon, 01 Dec 2008 14:24:23 -0800
-Message-ID: <200812012224.mB1MONtb014959@imap1.linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [patch 3/3] drivers/net/smc911x.c: smc911x_drv_probe() cleanup
+Date: Mon, 01 Dec 2008 14:24:46 -0800
+Message-ID: <200812012224.mB1MOl2J015252@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	ilpo.jarvinen@helsinki.fi
-To: kkeil@suse.de
+	catalin.marinas@arm.com, romit@ti.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43258 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52239 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752728AbYLAWZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:25:04 -0500
+	by vger.kernel.org with ESMTP id S1751922AbYLAWZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:25:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+From: Andrew Morton <akpm@linux-foundation.org>
 
-This is not buggy due to plain luck as there is only one entry currentl=
-y
-in the element_attributes.
+Save an ugly ifdef.
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-Cc: Karsten Keil <kkeil@suse.de>
+Cc: "Dasgupta, Romit" <romit@ti.com>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Romit Dasgupta <romit@ti.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/mISDN/dsp_pipeline.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/smc911x.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff -puN drivers/isdn/mISDN/dsp_pipeline.c~misdn-indentation-and-brace=
-s-disagree-add-braces drivers/isdn/mISDN/dsp_pipeline.c
---- a/drivers/isdn/mISDN/dsp_pipeline.c~misdn-indentation-and-braces-di=
-sagree-add-braces
-+++ a/drivers/isdn/mISDN/dsp_pipeline.c
-@@ -99,7 +99,7 @@ int mISDN_dsp_element_register(struct mI
- 		goto err1;
+diff -puN drivers/net/smc911x.c~netdev-smc911x-fix-for-driver-resume-cleanup drivers/net/smc911x.c
+--- a/drivers/net/smc911x.c~netdev-smc911x-fix-for-driver-resume-cleanup
++++ a/drivers/net/smc911x.c
+@@ -2050,9 +2050,6 @@ err_out:
+  */
+ static int __devinit smc911x_drv_probe(struct platform_device *pdev)
+ {
+-#ifdef SMC_DYNAMIC_BUS_CONFIG
+-	struct smc911x_platdata *pd = pdev->dev.platform_data;
+-#endif
+ 	struct net_device *ndev;
+ 	struct resource *res;
+ 	struct smc911x_local *lp;
+@@ -2087,11 +2084,14 @@ static int __devinit smc911x_drv_probe(s
+ 	lp = netdev_priv(ndev);
+ 	lp->netdev = ndev;
+ #ifdef SMC_DYNAMIC_BUS_CONFIG
+-	if (!pd) {
+-		ret = -EINVAL;
+-		goto release_both;
++	{
++		struct smc911x_platdata *pd = pdev->dev.platform_data;
++		if (!pd) {
++			ret = -EINVAL;
++			goto release_both;
++		}
++		memcpy(&lp->cfg, pd, sizeof(lp->cfg));
  	}
-=20
--	for (i =3D 0; i < ARRAY_SIZE(element_attributes); ++i)
-+	for (i =3D 0; i < ARRAY_SIZE(element_attributes); ++i) {
- 		ret =3D device_create_file(&entry->dev,
- 				&element_attributes[i]);
- 		if (ret) {
-@@ -107,6 +107,7 @@ int mISDN_dsp_element_register(struct mI
- 				__func__);
- 			goto err2;
- 		}
-+	}
-=20
- 	list_add_tail(&entry->list, &dsp_elements);
-=20
+-	memcpy(&lp->cfg, pd, sizeof(lp->cfg));
+ #endif
+ 
+ 	addr = ioremap(res->start, SMC911X_IO_EXTENT);
 _
