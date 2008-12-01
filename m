@@ -1,40 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 5/5] crypto: make struct aead percpu data
-Date: Mon, 1 Dec 2008 19:40:00 +0800
-Message-ID: <20081201114000.GB20961@gondor.apana.org.au>
-References: <20081201071614.GP476@secunet.com> <20081201072043.GU476@secunet.com>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH net] Phonet: do not dump addresses from other namespaces
+Date: Mon,  1 Dec 2008 13:55:20 +0200
+Message-ID: <1228132520-11220-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	klassert@mathematik.tu-chemnitz.de
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50934 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751449AbYLALkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 06:40:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20081201072043.GU476@secunet.com>
+Received: from smtp.nokia.com ([192.100.122.233]:47014 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753978AbYLALzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 06:55:32 -0500
+Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
+	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id mB1Bt9vQ020354
+	for <netdev@vger.kernel.org>; Mon, 1 Dec 2008 13:55:28 +0200
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2008 at 08:20:43AM +0100, Steffen Klassert wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> 
-> The struct aead is now allocated as percpu data to get
-> rid of a very high contended lock in crypto_authenc_hash()
-> if IPsec runs in parallel.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/pn_netlink.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-Well you're in luck :) One of the objectives of the shash work
-is to get rid of this lock.  So instead of doing this, please
-push the shash work along and we can eliminate this without
-allocating loads of duplicate tfm's.
+diff --git a/net/phonet/pn_netlink.c b/net/phonet/pn_netlink.c
+index b1770d6..84e5cee 100644
+--- a/net/phonet/pn_netlink.c
++++ b/net/phonet/pn_netlink.c
+@@ -123,6 +123,7 @@ nla_put_failure:
+=20
+ static int getaddr_dumpit(struct sk_buff *skb, struct netlink_callback=
+ *cb)
+ {
++	struct net *net =3D sock_net(skb->sk);
+ 	struct phonet_device *pnd;
+ 	int dev_idx =3D 0, dev_start_idx =3D cb->args[0];
+ 	int addr_idx =3D 0, addr_start_idx =3D cb->args[1];
+@@ -131,6 +132,8 @@ static int getaddr_dumpit(struct sk_buff *skb, stru=
+ct netlink_callback *cb)
+ 	list_for_each_entry(pnd, &pndevs.list, list) {
+ 		u8 addr;
+=20
++		if (dev_net(pnd->netdev) !=3D net)
++			continue;
+ 		if (dev_idx > dev_start_idx)
+ 			addr_start_idx =3D 0;
+ 		if (dev_idx++ < dev_start_idx)
+--=20
+1.5.4.3
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
