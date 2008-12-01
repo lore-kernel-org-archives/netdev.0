@@ -1,47 +1,48 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] lro: IP fragment checking
-Date: Mon, 01 Dec 2008 16:53:14 -0500
-Message-ID: <49345CCA.1030209@myri.com>
-References: <4933A74F.3050809@de.ibm.com>	<493423D7.5030203@myri.com> <20081201.131810.158631503.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tklein@de.ibm.com, raisch@de.ibm.com,
-	jb.billaud@gmail.com, hering2@de.ibm.com
-To: David Miller <davem@davemloft.net>
+From: akpm@linux-foundation.org
+Subject: [patch for 2.6.28? 1/1] bluetooth: Dell Wireless 365 requires reset quirk
+Date: Mon, 01 Dec 2008 14:01:05 -0800
+Message-ID: <200812012201.mB1M155p001654@imap1.linux-foundation.org>
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, mario_limonciello@dell.com,
+	hidave.darkstar@gmail.com, marcel@holtmann.org, stable@kernel.org,
+	tim.gardner@canonical.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1824 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751352AbYLAVxb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Dec 2008 16:53:31 -0500
-In-Reply-To: <20081201.131810.158631503.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42024 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751059AbYLAWCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:02:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Andrew Gallatin <gallatin@myri.com>
-> Date: Mon, 01 Dec 2008 12:50:15 -0500
-> 
->> As to whether or not to do it in the drivers/hardware or in the
->> LRO code, I favor doing it in the LRO code just so that it is not
->> missed in some driver.
-> 
-> Then there is no point in the hardware doing the check, if
-> we're going to check it anyways.
-> 
-> That's part of my point about why this check doesn't belong
-> here.
+From: Mario Limonciello <mario_limonciello@dell.com>
 
-What hardware does an explicit check for fragmentation?
-In most cases, aren't we just relying on the hardware checksum
-to be wrong on fragmented packets? That works 99.999% of the time,
-but the TCP checksum is pretty weak, and it is possible to
-have a fragmented packet where the first fragment has the same
-checksum as the entire packet.
+This patch causes the BT365 to be reset when the driver is loaded. 
+Without it, the machine is unable to connect to other devices or to scan
+for devices.
 
-I'd rather have a fragmentation check at the LRO layer to remove
-any ambiguity. But if you still object, I'll at least have to
-submit a patch  which adds an explicit check in myri10ge.
+Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Cc: Marcel Holtmann <marcel@holtmann.org>
+Cc: Dave Young <hidave.darkstar@gmail.com>
+Cc: <stable@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-Drew
+ drivers/bluetooth/btusb.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff -puN drivers/bluetooth/btusb.c~bluetooth-dell-wireless-365-requires-reset-quirk drivers/bluetooth/btusb.c
+--- a/drivers/bluetooth/btusb.c~bluetooth-dell-wireless-365-requires-reset-quirk
++++ a/drivers/bluetooth/btusb.c
+@@ -125,6 +125,9 @@ static struct usb_device_id blacklist_ta
+ 	/* Dell laptop with Broadcom chip */
+ 	{ USB_DEVICE(0x413c, 0x8126), .driver_info = BTUSB_RESET | BTUSB_WRONG_SCO_MTU },
+ 
++	/* Dell Wireless 365 */
++	{ USB_DEVICE(0x413c, 0x8160), .driver_info = BTUSB_RESET },
++
+ 	/* Dell Wireless 370 */
+ 	{ USB_DEVICE(0x413c, 0x8156), .driver_info = BTUSB_RESET | BTUSB_WRONG_SCO_MTU },
+ 
+_
