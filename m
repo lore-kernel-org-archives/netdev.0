@@ -1,75 +1,56 @@
-From: "Benjamin Thery " <Benjamin.Thery@bull.net>
-Subject: Re: [PATCH] net: fix /proc/net/ip_mr_cache display
-Date: Mon, 01 Dec 2008 21:17:02 +0100
-Message-ID: <20081201211702.a8cjo5p08wscwcwg@intran0x.frec.bull.fr>
-References: <20081201160214.965805516@localhost.localdomain>
-	<493415B4.7020600@bull.net> <20081201093341.537bf03d@extreme>
+From: dann frazier <dannf@hp.com>
+Subject: Re: [PATCH] Fix soft lockups/OOM issues w/ unix garbage collector
+Date: Mon, 1 Dec 2008 13:17:04 -0700
+Message-ID: <20081201201703.GA15884@colo.lackof.org>
+References: <20081125231712.GA30297@ldl.fc.hp.com> <20081125.211913.114802735.davem@davemloft.net> <20081126170401.GC30297@ldl.fc.hp.com> <20081126.153243.85669383.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Miller <davem@davemloft.net>,
-	netdev hem <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eteo@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:38619 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752146AbYLAURP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 15:17:15 -0500
-In-Reply-To: <20081201093341.537bf03d@extreme>
+Received: from colo.lackof.org ([198.49.126.79]:57950 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752133AbYLAURQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Dec 2008 15:17:16 -0500
 Content-Disposition: inline
+In-Reply-To: <20081126.153243.85669383.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> a =E9crit=A0:
+On Wed, Nov 26, 2008 at 03:32:43PM -0800, David Miller wrote:
+> From: dann frazier <dannf@dannf.org>
+> Date: Wed, 26 Nov 2008 10:04:02 -0700
+> 
+> > This is an implementation of David Miller's suggested fix in:
+> >   https://bugzilla.redhat.com/show_bug.cgi?id=470201
+> > 
+> > It has been updated to use wait_event() instead of
+> > wait_event_interruptible().
+> > 
+> > Paraphrasing the description from the above report, it makes sendmsg()
+> > block while UNIX garbage collection is in progress. This avoids a
+> > situation where child processes continue to queue new FDs over a
+> > AF_UNIX socket to a parent which is in the exit path and running
+> > garbage collection on these FDs. This contention can result in soft
+> > lockups and oom-killing of unrelated processes.
+> > 
+> > Signed-off-by: dann frazier <dannf@hp.com>
+> 
+> Applied, thanks a lot Dann.
 
-> On Mon, 01 Dec 2008 17:49:56 +0100
-> Benjamin Thery <benjamin.thery@bull.net> wrote:
->
->> Argh, my patch breaks iproute2 command: ip mroute show
->>
->> iproute2 uses sscanf() to read /proc/net/ip_mr_cache and expects 6
->> fields to be read. For the unresolved entries my patch only displays
->> the first three fields. As a consequence, 'ip mroute show' skips the
->> unresolved entries. :(
->>
->> So we can
->> - either forget this patch and keep displaying garbage information
->>    in /proc/net/ip[6]_mr_cache for the unresolved entries. (No one
->>    complained before)
->> - or may be we can just print '-' or 0 for the fields that have no
->>    data associated in the unresolved case.
->>
->> Tell me what you prefer.
->>
->> Benjamin
->
-> /proc file formats are part of the Linux ABI and can't change!
+I was asked if this patch may introduce blocking during operations on
+non-blocking sockets. Should we update wait_for_unix_gc (and its
+callers) to something like this?
 
-Yes, of course I know that. But as in this case part of the data
-displayed in /proc/net/ip_mr_cache and /proc/net/ip6_mr_cache for
-unresolved cache entries are complete rubbish (see the patch
-description), I thought it can be improved.
+int wait_for_unix_gc(bool can_block)
+{
+    if (!can_block)
+        return gc_in_progress ? -EWOULDBLOCK : 0;
 
-The right way to fix it, IMHO, is to print 0 (zero) in the columns
-that have no meaning for the unresolved entries. That way we don't
-break the ABI: the userspace expects to get at least 6 numbers for
-each entries, it gets 6 numbers. It's easy to figure what zeros
-represent and this prevent people from wasting time trying to figure
-what to do with these "random" numbers on the unresolved entries, no?
+    wait_event(unix_gc_wait, gc_in_progress == false);
+    return 0;
+}
 
-
-Regards,
-Benjamin
-
-
-
-
->
->
-
-
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+-- 
+dann frazier
 
