@@ -1,51 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix soft lockups/OOM issues w/ unix garbage collector
-Date: Mon, 01 Dec 2008 13:16:46 -0800 (PST)
-Message-ID: <20081201.131646.88364757.davem@davemloft.net>
-References: <20081126170401.GC30297@ldl.fc.hp.com>
-	<20081126.153243.85669383.davem@davemloft.net>
-	<20081201201703.GA15884@colo.lackof.org>
+Subject: Re: [PATCH] lro: IP fragment checking
+Date: Mon, 01 Dec 2008 13:18:10 -0800 (PST)
+Message-ID: <20081201.131810.158631503.davem@davemloft.net>
+References: <4933A74F.3050809@de.ibm.com>
+	<493423D7.5030203@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eteo@redhat.com
-To: dannf@hp.com
+Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tklein@de.ibm.com, raisch@de.ibm.com,
+	jb.billaud@gmail.com, hering2@de.ibm.com
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45803
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45807
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751768AbYLAVQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 16:16:46 -0500
-In-Reply-To: <20081201201703.GA15884@colo.lackof.org>
+	by vger.kernel.org with ESMTP id S1751516AbYLAVSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 16:18:10 -0500
+In-Reply-To: <493423D7.5030203@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: dann frazier <dannf@hp.com>
-Date: Mon, 1 Dec 2008 13:17:04 -0700
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Mon, 01 Dec 2008 12:50:15 -0500
 
-> On Wed, Nov 26, 2008 at 03:32:43PM -0800, David Miller wrote:
-> > From: dann frazier <dannf@dannf.org>
-> > Date: Wed, 26 Nov 2008 10:04:02 -0700
-> > 
-> > > This is an implementation of David Miller's suggested fix in:
-> > >   https://bugzilla.redhat.com/show_bug.cgi?id=470201
-> > > 
-> > > It has been updated to use wait_event() instead of
-> > > wait_event_interruptible().
-> > > 
-> > > Paraphrasing the description from the above report, it makes sendmsg()
-> > > block while UNIX garbage collection is in progress. This avoids a
-> > > situation where child processes continue to queue new FDs over a
-> > > AF_UNIX socket to a parent which is in the exit path and running
-> > > garbage collection on these FDs. This contention can result in soft
-> > > lockups and oom-killing of unrelated processes.
-> > > 
-> > > Signed-off-by: dann frazier <dannf@hp.com>
-> > 
-> > Applied, thanks a lot Dann.
-> 
-> I was asked if this patch may introduce blocking during operations on
-> non-blocking sockets. Should we update wait_for_unix_gc (and its
-> callers) to something like this?
+> As to whether or not to do it in the drivers/hardware or in the
+> LRO code, I favor doing it in the LRO code just so that it is not
+> missed in some driver.
 
-No, it's just like waiting for a GFP_KERNEL memory allocation.
-Non-blocking doesn't mean "never will sleep".
+Then there is no point in the hardware doing the check, if
+we're going to check it anyways.
+
+That's part of my point about why this check doesn't belong
+here.
