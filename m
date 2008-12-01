@@ -1,52 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 4/5] crypto: allow allocation of percpu crypto
- transforms
-Date: Mon, 01 Dec 2008 04:25:02 -0800 (PST)
-Message-ID: <20081201.042502.223043756.davem@davemloft.net>
-References: <20081201071614.GP476@secunet.com>
-	<20081201071943.GT476@secunet.com>
-	<20081201113828.GA20961@gondor.apana.org.au>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH net-next] Phonet: basic net namespace support
+Date: Mon, 1 Dec 2008 14:36:24 +0200
+Message-ID: <200812011436.25064.remi.denis-courmont@nokia.com>
+References: <> <1228132957-18373-1-git-send-email-remi.denis-courmont@nokia.com> <1228133869.10480.10.camel@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	klassert@mathematik.tu-chemnitz.de
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "ext Denis V. Lunev" <den@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59079
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751530AbYLAMZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 07:25:03 -0500
-In-Reply-To: <20081201113828.GA20961@gondor.apana.org.au>
+Received: from smtp.nokia.com ([192.100.122.230]:25698 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751605AbYLAMhY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 07:37:24 -0500
+In-Reply-To: <1228133869.10480.10.camel@iris.sw.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 1 Dec 2008 19:38:28 +0800
+On Monday 01 December 2008 14:17:49 ext Denis V. Lunev, you wrote:
+> On Mon, 2008-12-01 at 14:02 +0200, R=E9mi Denis-Courmont wrote:
+> [snip]
+>
+> > -int phonet_address_lookup(u8 addr)
+> > +int phonet_address_lookup(struct net *net, u8 addr)
+> >  {
+> >  	struct phonet_device *pnd;
+> >
+> >  	spin_lock_bh(&pndevs.lock);
+> >  	list_for_each_entry(pnd, &pndevs.list, list) {
+> > +		if (dev_net(pnd->netdev) !=3D net)
+> > +			continue;
+>
+> net_eq is better (noop without netns). also there are some similar
+> places below
 
-> On Mon, Dec 01, 2008 at 08:19:43AM +0100, Steffen Klassert wrote:
-> > From: Steffen Klassert <steffen.klassert@secunet.com>
-> > 
-> > This patch adds functions to alloc/free crypto transforms
-> > as percpu data.
-> > 
-> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> 
-> I'd prefer to just have the user call crypto_alloc_tfm for each
-> CPU.  This is the slow path after all so we don't need to optimise
-> it that much.
+Ah ok, thanks for pointing it out. Here comes the two rewritten patches=
+=2E..
 
-I somewhat disagree.
-
-If you make this num_cpus expensive, I can nearly guarentee you this
-will show up in the profiles for the workloads I was using to test the
-control path optimizations with all the dynamic hash tables and
-streamlined lookups.
-
-Some cell phones networks, I am to understand, can allocate 6 SAs when
-they come onto the network, perhaps never use them, then go away.
-Multiply that by the number of cell phones using a network in a busy
-downtown area of a city and it could be very interesting.
-
-If, in those changes, I was removing atomics to make rule insert and
-delete faster, making more TFM allocs happen might be a big no-no :)
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
