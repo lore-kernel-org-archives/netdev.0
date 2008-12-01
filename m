@@ -1,77 +1,82 @@
-From: "Eric Miao" <eric.y.miao@gmail.com>
-Subject: [ARM] pxa: explicit #include <mach/dma.h> in various
-	drivers
-Date: Mon, 1 Dec 2008 11:49:35 +0800
-Message-ID: <f17812d70811301949s6dc4bcddt791822f8d4ff223c@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: large tx MTU support
+Date: Mon, 1 Dec 2008 14:32:10 +1030
+Message-ID: <200812011432.10486.rusty@rustcorp.com.au>
+References: <1227707891.9579.44.camel@blaa> <200811281052.33474.rusty@rustcorp.com.au> <1227864595.3643.13.camel@blaa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alsa-devel@alsa-project.org,
-	linux-mtd <linux-mtd@lists.infradead.org>
-To: "ARM Linux" <linux-arm-kernel@lists.arm.linux.org.uk>
-Return-path: <alsa-devel-bounces@alsa-project.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Mark McLoughlin <markmc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:40073 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751450AbYLAECN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Nov 2008 23:02:13 -0500
+In-Reply-To: <1227864595.3643.13.camel@blaa>
 Content-Disposition: inline
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Sender: alsa-devel-bounces@alsa-project.org
-Errors-To: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Where 'pxa_dma_desc' and 'pxa_{request,free}_dma' are referenced.
+On Friday 28 November 2008 19:59:55 Mark McLoughlin wrote:
+> On Fri, 2008-11-28 at 10:52 +1030, Rusty Russell wrote:
+> > On Friday 28 November 2008 00:27:05 Mark McLoughlin wrote:
+> > > Hi Rusty,
+> > >
+> > > On Thu, 2008-11-27 at 23:00 +1030, Rusty Russell wrote:
+> > > > On Thursday 27 November 2008 00:28:11 Mark McLoughlin wrote:
+> > > > > We don't really have a max tx packet size limit, so allow
+> > > > > configuring the device with up to 64k tx MTU.
+> > > >
+> > > > Hi Mark,
+> > > >
+> > > > Just one comment: maybe we should be conservative and maybe limit to
+> > > > 1500 if the host doesn't offer any of the GSO or MRG_RXBUF features?
+> > >
+> > > That was actually what I was going to do until I thought about it a bit
+> > > more and discussed it with Herbert.
+> > >
+> > > The virtio_net MTU only affects the transmit path, so there shouldn't
+> > > be any issue with a host that doesn't support those features.
+> >
+> > Not quite what I meant.
+>
+> Well, you did mention MRG_RXBUF :-)
 
-Signed-off-by: Eric Miao <eric.miao@marvell.com>
----
- drivers/mtd/nand/pxa3xx_nand.c |    2 +-
- drivers/net/smc911x.h          |    3 +++
- sound/arm/pxa2xx-pcm.h         |    2 +-
- 3 files changed, 5 insertions(+), 2 deletions(-)
+Yeah, but you should know by now not to listen to me!
 
-diff --git a/drivers/mtd/nand/pxa3xx_nand.c b/drivers/mtd/nand/pxa3xx_nand.c
-index c0fa9c9..64b3be1 100644
---- a/drivers/mtd/nand/pxa3xx_nand.c
-+++ b/drivers/mtd/nand/pxa3xx_nand.c
-@@ -20,8 +20,8 @@
- #include <linux/mtd/partitions.h>
- #include <linux/io.h>
- #include <linux/irq.h>
--#include <asm/dma.h>
+> > A minimal host can reasonably expect ethernet-fitting packets.  If it
+> > supports GSO of course it must handle larger ones.
+>
+> I think this is orthogonal to GSO - e.g. a host may support GSO even if
+> it can only physically transmit 1500 byte frames.
 
-+#include <mach/dma.h>
- #include <mach/pxa-regs.h>
- #include <mach/pxa3xx_nand.h>
+Sure, but we know at least it can take large packets in some respect.
 
-diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
-index cc7d85b..870b4c3 100644
---- a/drivers/net/smc911x.h
-+++ b/drivers/net/smc911x.h
-@@ -200,6 +200,9 @@ static inline void SMC_outsl(struct smc911x_local
-*lp, int reg,
+> MTU configuration is commonly a trial and error thing, so we're better
+> off allowing larger MTU sizes in cases where the host might not support
+> it rather than disallowing it in cases where the host can support it.
 
+We're changing the driver behaviour; we *should* add a feature bit.  The only 
+counter-argument to this is that all the existing hosts we know of allow the 
+behaviour we're specifying.
 
- #ifdef SMC_USE_PXA_DMA
-+
-+#include <mach/dma.h>
-+
- /*
-  * Define the request and free functions
-  * These are unfortunately architecture specific as no generic allocation
-diff --git a/sound/arm/pxa2xx-pcm.h b/sound/arm/pxa2xx-pcm.h
-index 5c4a4d3..65f86b5 100644
---- a/sound/arm/pxa2xx-pcm.h
-+++ b/sound/arm/pxa2xx-pcm.h
-@@ -9,7 +9,7 @@
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
--#include <asm/dma.h>
-+#include <mach/dma.h>
+(Grovelling through an old qemu here it seems to be true, and old tun/tap 
+would take anything).
 
- struct pxa2xx_runtime_data {
- 	int dma_ch;
--- 
-1.6.0.4
+> If e.g. we allowed physical device assignment via virtio, then the MTU
+> would be limited to the MTU supported by the physical device. In that
+> case it might make sense to add a max-mtu field or similar, but IMHO
+> it's fine to allow larger MTU sizes in the mean time.
+
+OK, I'm swayed.  Only because the user has to make a conscious decision to up 
+the MTU; and if they choose wrong, networking won't work.
+
+I've applied your original patch.
+
+Thanks!
+Rusty.
+
