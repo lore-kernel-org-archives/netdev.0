@@ -1,60 +1,77 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [PATCHv2] xfrm: Fix kernel panic when flush and dump SPD entries
-Date: Mon, 01 Dec 2008 10:17:01 +0800
-Message-ID: <4933491D.4070205@cn.fujitsu.com>
-References: <49334542.3070502@cn.fujitsu.com> <49334788.4030409@cn.fujitsu.com>
+From: "Eric Miao" <eric.y.miao@gmail.com>
+Subject: [ARM] pxa: explicit #include <mach/dma.h> in various
+	drivers
+Date: Mon, 1 Dec 2008 11:49:35 +0800
+Message-ID: <f17812d70811301949s6dc4bcddt791822f8d4ff223c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61063 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752883AbYLACPr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2008 21:15:47 -0500
-In-Reply-To: <49334788.4030409@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+	linux-mtd <linux-mtd@lists.infradead.org>
+To: "ARM Linux" <linux-arm-kernel@lists.arm.linux.org.uk>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Sender: alsa-devel-bounces@alsa-project.org
+Errors-To: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-Wei Yongjun wrote:
-> After flush the SPD entries, dump the SPD entries will cause kernel painc.
-> 
-> Used the following commands to reproduct:
-> 
-> - echo 'spdflush;' | setkey -c
-> - echo 'spdadd 3ffe:501:ffff:ff01::/64 3ffe:501:ffff:ff04::/64  any -P out ipsec \
->   ah/tunnel/3ffe:501:ffff:ff00:200:ff:fe00:b0b0-3ffe:501:ffff:ff02:200:ff:fe00:a1a1/require;\
->   spddump;' | setkey -c
-> - echo 'spdflush; spddump;' | setkey -c
-> - echo 'spdadd 3ffe:501:ffff:ff01::/64 3ffe:501:ffff:ff04::/64  any -P out ipsec \
->   ah/tunnel/3ffe:501:ffff:ff00:200:ff:fe00:b0b0-3ffe:501:ffff:ff02:200:ff:fe00:a1a1/require;\
->   spddump;' | setkey -c
-> 
-> This is because when flush the SPD entries, the SPD entry is not remove
-> from the list.
-> 
-> This patch fix the problem by remove the SPD entry from the list.
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> ---
->  net/xfrm/xfrm_policy.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index 058f04f..fb216c9 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -817,6 +817,7 @@ int xfrm_policy_flush(u8 type, struct xfrm_audit *audit_info)
->  				continue;
->  			hlist_del(&pol->bydst);
->  			hlist_del(&pol->byidx);
-> +			list_del(&pol->walk.all);
->  			write_unlock_bh(&xfrm_policy_lock);
->  
->  			xfrm_audit_policy_delete(pol, 1, audit_info->loginuid,
+Where 'pxa_dma_desc' and 'pxa_{request,free}_dma' are referenced.
+
+Signed-off-by: Eric Miao <eric.miao@marvell.com>
+---
+ drivers/mtd/nand/pxa3xx_nand.c |    2 +-
+ drivers/net/smc911x.h          |    3 +++
+ sound/arm/pxa2xx-pcm.h         |    2 +-
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mtd/nand/pxa3xx_nand.c b/drivers/mtd/nand/pxa3xx_nand.c
+index c0fa9c9..64b3be1 100644
+--- a/drivers/mtd/nand/pxa3xx_nand.c
++++ b/drivers/mtd/nand/pxa3xx_nand.c
+@@ -20,8 +20,8 @@
+ #include <linux/mtd/partitions.h>
+ #include <linux/io.h>
+ #include <linux/irq.h>
+-#include <asm/dma.h>
+
++#include <mach/dma.h>
+ #include <mach/pxa-regs.h>
+ #include <mach/pxa3xx_nand.h>
+
+diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
+index cc7d85b..870b4c3 100644
+--- a/drivers/net/smc911x.h
++++ b/drivers/net/smc911x.h
+@@ -200,6 +200,9 @@ static inline void SMC_outsl(struct smc911x_local
+*lp, int reg,
 
 
-Ack.
+ #ifdef SMC_USE_PXA_DMA
++
++#include <mach/dma.h>
++
+ /*
+  * Define the request and free functions
+  * These are unfortunately architecture specific as no generic allocation
+diff --git a/sound/arm/pxa2xx-pcm.h b/sound/arm/pxa2xx-pcm.h
+index 5c4a4d3..65f86b5 100644
+--- a/sound/arm/pxa2xx-pcm.h
++++ b/sound/arm/pxa2xx-pcm.h
+@@ -9,7 +9,7 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
+-#include <asm/dma.h>
++#include <mach/dma.h>
+
+ struct pxa2xx_runtime_data {
+ 	int dma_ch;
+-- 
+1.6.0.4
