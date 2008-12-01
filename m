@@ -1,53 +1,52 @@
 From: akpm@linux-foundation.org
-Subject: [patch 1/5] misdn: indentation & braces disagree - add braces
-Date: Mon, 01 Dec 2008 14:24:21 -0800
-Message-ID: <200812012224.mB1MOM5h014933@imap1.linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [patch 5/5] hysdn: fix writing outside the field on 64 bits
+Date: Mon, 01 Dec 2008 14:24:25 -0800
+Message-ID: <200812012224.mB1MOPxA014993@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	ilpo.jarvinen@helsinki.fi
+	pterjan@mandriva.com
 To: kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38207 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54828 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752725AbYLAWZD (ORCPT
+	by vger.kernel.org with ESMTP id S1752727AbYLAWZD (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:25:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+From: Pascal Terjan <pterjan@mandriva.com>
 
-Nothing is broken because of this - currently.
+ifa_local is assumed to be unsigned long which lead to writing the address
+at dev->dev_addr-2 instead of +2
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+noticed thanks to gcc:
+
+drivers/isdn/hysdn/hysdn_net.c: In function `net_open':
+drivers/isdn/hysdn/hysdn_net.c:91: warning: array subscript is below array bounds
+
+Signed-off-by: Pascal Terjan <pterjan@mandriva.com>
 Cc: Karsten Keil <kkeil@suse.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/mISDN/dsp_cmx.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/isdn/hysdn/hysdn_net.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN drivers/isdn/mISDN/dsp_cmx.c~misdn-indentation-braces-disagre=
-e-add-braces drivers/isdn/mISDN/dsp_cmx.c
---- a/drivers/isdn/mISDN/dsp_cmx.c~misdn-indentation-braces-disagree-ad=
-d-braces
-+++ a/drivers/isdn/mISDN/dsp_cmx.c
-@@ -1855,7 +1855,7 @@ dsp_cmx_hdlc(struct dsp *dsp, struct sk_
- 		/* in case of hardware (echo) */
- 		if (dsp->pcm_slot_tx >=3D 0)
- 			return;
--		if (dsp->echo)
-+		if (dsp->echo) {
- 			nskb =3D skb_clone(skb, GFP_ATOMIC);
- 			if (nskb) {
- 				hh =3D mISDN_HEAD_P(nskb);
-@@ -1864,6 +1864,7 @@ dsp_cmx_hdlc(struct dsp *dsp, struct sk_
- 				skb_queue_tail(&dsp->sendq, nskb);
- 				schedule_work(&dsp->workq);
- 			}
-+		}
- 		return;
- 	}
- 	/* in case of hardware conference */
+diff -puN drivers/isdn/hysdn/hysdn_net.c~hysdn-fix-writing-outside-the-field-on-64-bits drivers/isdn/hysdn/hysdn_net.c
+--- a/drivers/isdn/hysdn/hysdn_net.c~hysdn-fix-writing-outside-the-field-on-64-bits
++++ a/drivers/isdn/hysdn/hysdn_net.c
+@@ -83,12 +83,12 @@ net_open(struct net_device *dev)
+ 
+ 	/* Fill in the MAC-level header (if not already set) */
+ 	if (!card->mac_addr[0]) {
+-		for (i = 0; i < ETH_ALEN - sizeof(unsigned long); i++)
++		for (i = 0; i < ETH_ALEN; i++)
+ 			dev->dev_addr[i] = 0xfc;
+ 		if ((in_dev = dev->ip_ptr) != NULL) {
+ 			struct in_ifaddr *ifa = in_dev->ifa_list;
+ 			if (ifa != NULL)
+-				memcpy(dev->dev_addr + (ETH_ALEN - sizeof(unsigned long)), &ifa->ifa_local, sizeof(unsigned long));
++				memcpy(dev->dev_addr + (ETH_ALEN - sizeof(ifa->ifa_local)), &ifa->ifa_local, sizeof(ifa->ifa_local));
+ 		}
+ 	} else
+ 		memcpy(dev->dev_addr, card->mac_addr, ETH_ALEN);
 _
