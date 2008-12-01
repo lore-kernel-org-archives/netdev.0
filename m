@@ -1,35 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 4/5] crypto: allow allocation of percpu crypto
-	transforms
-Date: Mon, 1 Dec 2008 20:38:59 +0800
-Message-ID: <20081201123859.GA21424@gondor.apana.org.au>
-References: <20081201071614.GP476@secunet.com> <20081201071943.GT476@secunet.com> <20081201113828.GA20961@gondor.apana.org.au> <20081201.042502.223043756.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH 3/5] crypto: add possibility to force sync transform
+Date: Mon, 1 Dec 2008 14:19:10 +0100
+Message-ID: <20081201131910.GA13998@secunet.com>
+References: <20081201071614.GP476@secunet.com> <20081201071903.GS476@secunet.com> <20081201112225.GA20659@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	klassert@mathematik.tu-chemnitz.de
-To: David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34588 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750833AbYLAMjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 07:39:08 -0500
+Received: from a.mx.secunet.com ([213.68.205.161]:49427 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750980AbYLANSW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Dec 2008 08:18:22 -0500
 Content-Disposition: inline
-In-Reply-To: <20081201.042502.223043756.davem@davemloft.net>
+In-Reply-To: <20081201112225.GA20659@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2008 at 04:25:02AM -0800, David Miller wrote:
->
-> If, in those changes, I was removing atomics to make rule insert and
-> delete faster, making more TFM allocs happen might be a big no-no :)
+On Mon, Dec 01, 2008 at 07:22:25PM +0800, Herbert Xu wrote:
+> 
+> If you want sync algorithms, you should request for that at alloc
+> time:
+> 
+> 	crypto_alloc_ablkcipher("foo", 0, CRYPTO_ALG_ASYNC);
 
-Fair enough.  But it looks like this stuff only exists because of
-the spinlock on the hash which shash will get rid of anyway.
+Ok, will do that.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> Doing so at run-time is going to end in tears.
+> 
+
+As I wrote, I'm not that familiar with the crypto system :-)
