@@ -1,52 +1,83 @@
 From: akpm@linux-foundation.org
-Subject: [patch 5/5] hysdn: fix writing outside the field on 64 bits
-Date: Mon, 01 Dec 2008 14:24:25 -0800
-Message-ID: <200812012224.mB1MOPxA014993@imap1.linux-foundation.org>
+Subject: [patch 2/3] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
+Date: Mon, 01 Dec 2008 14:24:45 -0800
+Message-ID: <200812012224.mB1MOjYY015247@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	pterjan@mandriva.com
-To: kkeil@suse.de
+	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
+	stable@kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54828 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60941 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752727AbYLAWZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:25:03 -0500
+	by vger.kernel.org with ESMTP id S1752725AbYLAWZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:25:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pascal Terjan <pterjan@mandriva.com>
+From: Michael Pyne <michael.pyne@kdemail.net>
 
-ifa_local is assumed to be unsigned long which lead to writing the address
-at dev->dev_addr-2 instead of +2
+Partially revert a change to mac address detection introduced to the forcedeth
+driver.  The change was intended to correct mac address detection for newer
+nVidia chipsets where the mac address was stored in reverse order.  One of
+those chipsets appears to still have the mac address in reverse order (or at
+least, it does on my system).
 
-noticed thanks to gcc:
+The change that broke mac address detection for my card was commit
+ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
 
-drivers/isdn/hysdn/hysdn_net.c: In function `net_open':
-drivers/isdn/hysdn/hysdn_net.c:91: warning: array subscript is below array bounds
+My network card is an nVidia built-in Ethernet card, output from lspci as
+follows (with text and numeric ids):
+$ lspci | grep Ethernet
+00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
+$ lspci -n | grep 07.0
+00:07.0 0680: 10de:03ef (rev a2)
 
-Signed-off-by: Pascal Terjan <pterjan@mandriva.com>
-Cc: Karsten Keil <kkeil@suse.de>
+The vendor id is, of course, nVidia.  The device id corresponds to the
+NVIDIA_NVENET_19 entry.
+
+The included patch fixes the MAC address detection on my system.
+Interestingly, the MAC address appears to be in the range reserved for my
+motherboard manufacturer (Gigabyte) and not nVidia.
+
+Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: <stable@kernel.org>
+
+On Wed, 21 Nov 2007 15:34:52 -0800
+"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
+
+> The solution is to get the OEM to update their BIOS (instead of
+> integrating this patch) since the MCP61 specs indicate that the MAC
+> Address should be in correct order from BIOS.
+> 
+> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
+> could cause it to break on other OEM systems who have implemented it
+> correctly.
+> 
+
+On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
+> NAK - this fixes one set of users, and breaks a working set of users.
+> 
+> Need to add DMI check for the specific motherboard (dmi_check_system), 
+> and flip flag according to success/failure of that check.
+
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/hysdn/hysdn_net.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/forcedeth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/isdn/hysdn/hysdn_net.c~hysdn-fix-writing-outside-the-field-on-64-bits drivers/isdn/hysdn/hysdn_net.c
---- a/drivers/isdn/hysdn/hysdn_net.c~hysdn-fix-writing-outside-the-field-on-64-bits
-+++ a/drivers/isdn/hysdn/hysdn_net.c
-@@ -83,12 +83,12 @@ net_open(struct net_device *dev)
- 
- 	/* Fill in the MAC-level header (if not already set) */
- 	if (!card->mac_addr[0]) {
--		for (i = 0; i < ETH_ALEN - sizeof(unsigned long); i++)
-+		for (i = 0; i < ETH_ALEN; i++)
- 			dev->dev_addr[i] = 0xfc;
- 		if ((in_dev = dev->ip_ptr) != NULL) {
- 			struct in_ifaddr *ifa = in_dev->ifa_list;
- 			if (ifa != NULL)
--				memcpy(dev->dev_addr + (ETH_ALEN - sizeof(unsigned long)), &ifa->ifa_local, sizeof(unsigned long));
-+				memcpy(dev->dev_addr + (ETH_ALEN - sizeof(ifa->ifa_local)), &ifa->ifa_local, sizeof(ifa->ifa_local));
- 		}
- 	} else
- 		memcpy(dev->dev_addr, card->mac_addr, ETH_ALEN);
+diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
++++ a/drivers/net/forcedeth.c
+@@ -6087,7 +6087,7 @@ static struct pci_device_id pci_tbl[] = 
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
+ 	},
+ 	{	/* MCP61 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
 _
