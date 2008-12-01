@@ -1,83 +1,55 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/3] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
-Date: Mon, 01 Dec 2008 14:24:45 -0800
-Message-ID: <200812012224.mB1MOjYY015247@imap1.linux-foundation.org>
+Subject: [patch 3/5] misdn: indentation and braces disagree - add braces
+Date: Mon, 01 Dec 2008 14:24:23 -0800
+Message-ID: <200812012224.mB1MONtb014959@imap1.linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
-	stable@kernel.org
-To: jeff@garzik.org
+	ilpo.jarvinen@helsinki.fi
+To: kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60941 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43258 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752725AbYLAWZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:25:07 -0500
+	by vger.kernel.org with ESMTP id S1752728AbYLAWZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 17:25:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Pyne <michael.pyne@kdemail.net>
+=46rom: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Partially revert a change to mac address detection introduced to the forcedeth
-driver.  The change was intended to correct mac address detection for newer
-nVidia chipsets where the mac address was stored in reverse order.  One of
-those chipsets appears to still have the mac address in reverse order (or at
-least, it does on my system).
+This is not buggy due to plain luck as there is only one entry currentl=
+y
+in the element_attributes.
 
-The change that broke mac address detection for my card was commit
-ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
-
-My network card is an nVidia built-in Ethernet card, output from lspci as
-follows (with text and numeric ids):
-$ lspci | grep Ethernet
-00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
-$ lspci -n | grep 07.0
-00:07.0 0680: 10de:03ef (rev a2)
-
-The vendor id is, of course, nVidia.  The device id corresponds to the
-NVIDIA_NVENET_19 entry.
-
-The included patch fixes the MAC address detection on my system.
-Interestingly, the MAC address appears to be in the range reserved for my
-motherboard manufacturer (Gigabyte) and not nVidia.
-
-Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Cc: <stable@kernel.org>
-
-On Wed, 21 Nov 2007 15:34:52 -0800
-"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
-
-> The solution is to get the OEM to update their BIOS (instead of
-> integrating this patch) since the MCP61 specs indicate that the MAC
-> Address should be in correct order from BIOS.
-> 
-> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
-> could cause it to break on other OEM systems who have implemented it
-> correctly.
-> 
-
-On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
-> NAK - this fixes one set of users, and breaks a working set of users.
-> 
-> Need to add DMI check for the specific motherboard (dmi_check_system), 
-> and flip flag according to success/failure of that check.
-
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Cc: Karsten Keil <kkeil@suse.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/forcedeth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/isdn/mISDN/dsp_pipeline.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
-+++ a/drivers/net/forcedeth.c
-@@ -6087,7 +6087,7 @@ static struct pci_device_id pci_tbl[] = 
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
+diff -puN drivers/isdn/mISDN/dsp_pipeline.c~misdn-indentation-and-brace=
+s-disagree-add-braces drivers/isdn/mISDN/dsp_pipeline.c
+--- a/drivers/isdn/mISDN/dsp_pipeline.c~misdn-indentation-and-braces-di=
+sagree-add-braces
++++ a/drivers/isdn/mISDN/dsp_pipeline.c
+@@ -99,7 +99,7 @@ int mISDN_dsp_element_register(struct mI
+ 		goto err1;
+ 	}
+=20
+-	for (i =3D 0; i < ARRAY_SIZE(element_attributes); ++i)
++	for (i =3D 0; i < ARRAY_SIZE(element_attributes); ++i) {
+ 		ret =3D device_create_file(&entry->dev,
+ 				&element_attributes[i]);
+ 		if (ret) {
+@@ -107,6 +107,7 @@ int mISDN_dsp_element_register(struct mI
+ 				__func__);
+ 			goto err2;
+ 		}
++	}
+=20
+ 	list_add_tail(&entry->list, &dsp_elements);
+=20
 _
