@@ -1,47 +1,27 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] can: Fix CAN_(EFF|RTR)_FLAG handling in can_filter
-Date: Mon, 1 Dec 2008 18:52:25 +0100
-Message-ID: <20081201175225.GA1835@uranus.ravnborg.org>
-References: <20081128153317.GA3726@e-circ.dyndns.org> <49340DAE.5060603@hartkopp.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: what is the expeted performance from a dual port 10G card ?
+Date: Mon, 01 Dec 2008 10:16:53 -0800
+Message-ID: <49342A15.1000109@hp.com>
+References: <5d96567b0811280511q1e3f7774j7eabce4810dae91a@mail.gmail.com>	<20081128135419.GH32518@solarflare.com>	<5d96567b0811290010r641388b7w179bc4af26bbf103@mail.gmail.com>	<20081129173442.GI32518@solarflare.com> <adamyfib173.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Greg KH <greg@kroah.com>,
-	Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, Raz <raziebe@gmail.com>,
+	netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfepa.post.tele.dk ([195.41.46.235]:59442 "EHLO
-	pfepa.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752288AbYLARzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 12:55:40 -0500
-Content-Disposition: inline
-In-Reply-To: <49340DAE.5060603@hartkopp.net>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:46456 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752751AbYLASQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 13:16:57 -0500
+In-Reply-To: <adamyfib173.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2008 at 05:15:42PM +0100, Oliver Hartkopp wrote:
-> can: Fix CAN_(EFF|RTR)_FLAG handling in can_filter
-> 
-> Due to a wrong safety check in af_can.c it was not possible to filter
-> for SFF frames with a specific CAN identifier without getting the
-> same selected CAN identifier from a received EFF frame also.
-> 
-> This fix has a minimum (but user visible) impact on the CAN filter
-> API and therefore the CAN version is set to a new date.
-> 
-> Indeed the 'old' API is still working as-is. But when now setting
-> CAN_(EFF|RTR)_FLAG in can_filter.can_mask you might get less traffic
-> than before - but still the stuff that you expected to get for your
-> defined filter ...
-> 
-> Thanks to Kurt Van Dijck for pointing at this issue and for the review.
-> 
-> Signed-Off-by: Oliver Hartkopp <oliver@hartkopp.net>
-> Acked-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
+It would be nice to be able to expand this:
 
-If Kurt tested this patch then he should
-be credited with a "Tested-by:" tag.
+http://pcitop.berlios.de/
 
-I recall he did but I deleted the thread from my can mailbox.
+to a broader number of platforms.
 
-	Sam
+rick jones
