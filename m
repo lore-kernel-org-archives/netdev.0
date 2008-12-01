@@ -1,38 +1,38 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH 5/5] crypto: make struct aead percpu data
-Date: Mon, 1 Dec 2008 14:36:54 +0100
-Message-ID: <20081201133654.GC13998@secunet.com>
-References: <20081201071614.GP476@secunet.com> <20081201072043.GU476@secunet.com> <20081201114000.GB20961@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 0/5] IPsec parallelization
+Date: Mon, 01 Dec 2008 21:39:54 +0800
+Message-ID: <E1L790E-0005hF-K2@gondolin.me.apana.org.au>
+References: <87hc5o5eh5.fsf@basil.nowhere.org>
+Cc: herbert@gondor.apana.org.au, steffen.klassert@secunet.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
 	klassert@mathematik.tu-chemnitz.de
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: andi@firstfloor.org (Andi Kleen)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:49599 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751355AbYLANgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Dec 2008 08:36:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20081201114000.GB20961@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:51287 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751348AbYLANkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 08:40:03 -0500
+In-Reply-To: <87hc5o5eh5.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2008 at 07:40:00PM +0800, Herbert Xu wrote:
-> On Mon, Dec 01, 2008 at 08:20:43AM +0100, Steffen Klassert wrote:
-> > From: Steffen Klassert <steffen.klassert@secunet.com>
-> > 
-> > The struct aead is now allocated as percpu data to get
-> > rid of a very high contended lock in crypto_authenc_hash()
-> > if IPsec runs in parallel.
-> > 
-> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> 
-> Well you're in luck :) One of the objectives of the shash work
-> is to get rid of this lock.  So instead of doing this, please
-> push the shash work along and we can eliminate this without
-> allocating loads of duplicate tfm's.
-> 
+Andi Kleen <andi@firstfloor.org> wrote:
+>
+> I'm not sure that's a useful argument.  When cryptography is not
+> CPU bound anymore it will be memory bandwidth bound. And in this case
+> you can still get a win out of parallelization if you parallelize
+> over multiple sockets with own memory controller or own FSB
+> because that will give you more bandwidth.
 
-I searched for your shash work. Is there already some work in progress
-aside from crc32?
+That's a good point.
+
+Of course you can achieve the same thing by doing the parallel
+processing within the crypto layer, which would also benefit other
+crypto users, such as disk encryption.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
