@@ -1,162 +1,139 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/6] crypto: rmd160 - Switch to shash
-Date: Mon, 01 Dec 2008 21:47:17 +0800
-Message-ID: <E1L797N-0005ju-Vc@gondolin.me.apana.org.au>
+Subject: [PATCH 2/6] crypto: null - Switch to shash
+Date: Mon, 01 Dec 2008 21:47:15 +0800
+Message-ID: <E1L797L-0005ja-PA@gondolin.me.apana.org.au>
 References: <20081201134448.GA21939@gondor.apana.org.au>
 To: Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org, davem@davemloft.net,
 	klassert@mathematik.tu-chemnitz.de,
 	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:59352 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751543AbYLANrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 08:47:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-crypto: rmd160 - Switch to shash
+crypto: null - Switch to shash
 
-This patch changes rmd160 to the new shash interface.
+This patch changes digest_null to the new shash interface.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/rmd160.c |   61 +++++++++++++++++++++++++++++---------------------------
- 1 file changed, 32 insertions(+), 29 deletions(-)
+ crypto/crypto_null.c |   64 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 41 insertions(+), 23 deletions(-)
 
-diff --git a/crypto/rmd160.c b/crypto/rmd160.c
-index f001ec7..472261f 100644
---- a/crypto/rmd160.c
-+++ b/crypto/rmd160.c
-@@ -13,11 +13,10 @@
-  * any later version.
+diff --git a/crypto/crypto_null.c b/crypto/crypto_null.c
+index 1f7d530..cb71c91 100644
+--- a/crypto/crypto_null.c
++++ b/crypto/crypto_null.c
+@@ -17,6 +17,7 @@
   *
   */
+ 
 +#include <crypto/internal/hash.h>
+ #include <crypto/internal/skcipher.h>
  #include <linux/init.h>
  #include <linux/module.h>
- #include <linux/mm.h>
--#include <linux/crypto.h>
--#include <linux/cryptohash.h>
- #include <linux/types.h>
- #include <asm/byteorder.h>
- 
-@@ -261,9 +260,9 @@ static void rmd160_transform(u32 *state, const __le32 *in)
- 	return;
+@@ -38,15 +39,31 @@ static int null_compress(struct crypto_tfm *tfm, const u8 *src,
+ 	return 0;
  }
  
--static void rmd160_init(struct crypto_tfm *tfm)
-+static int rmd160_init(struct shash_desc *desc)
- {
--	struct rmd160_ctx *rctx = crypto_tfm_ctx(tfm);
-+	struct rmd160_ctx *rctx = shash_desc_ctx(desc);
- 
- 	rctx->byte_count = 0;
- 
-@@ -274,12 +273,14 @@ static void rmd160_init(struct crypto_tfm *tfm)
- 	rctx->state[4] = RMD_H4;
- 
- 	memset(rctx->buffer, 0, sizeof(rctx->buffer));
-+
+-static void null_init(struct crypto_tfm *tfm)
+-{ }
++static int null_init(struct shash_desc *desc)
++{
 +	return 0;
- }
++}
  
--static void rmd160_update(struct crypto_tfm *tfm, const u8 *data,
--			  unsigned int len)
-+static int rmd160_update(struct shash_desc *desc, const u8 *data,
-+			 unsigned int len)
- {
--	struct rmd160_ctx *rctx = crypto_tfm_ctx(tfm);
-+	struct rmd160_ctx *rctx = shash_desc_ctx(desc);
- 	const u32 avail = sizeof(rctx->buffer) - (rctx->byte_count & 0x3f);
- 
- 	rctx->byte_count += len;
-@@ -288,7 +289,7 @@ static void rmd160_update(struct crypto_tfm *tfm, const u8 *data,
- 	if (avail > len) {
- 		memcpy((char *)rctx->buffer + (sizeof(rctx->buffer) - avail),
- 		       data, len);
--		return;
-+		goto out;
- 	}
- 
- 	memcpy((char *)rctx->buffer + (sizeof(rctx->buffer) - avail),
-@@ -306,12 +307,15 @@ static void rmd160_update(struct crypto_tfm *tfm, const u8 *data,
- 	}
- 
- 	memcpy(rctx->buffer, data, len);
-+
-+out:
+-static void null_update(struct crypto_tfm *tfm, const u8 *data,
+-			unsigned int len)
+-{ }
++static int null_update(struct shash_desc *desc, const u8 *data,
++		       unsigned int len)
++{
 +	return 0;
- }
++}
  
- /* Add padding and return the message digest. */
--static void rmd160_final(struct crypto_tfm *tfm, u8 *out)
-+static int rmd160_final(struct shash_desc *desc, u8 *out)
- {
--	struct rmd160_ctx *rctx = crypto_tfm_ctx(tfm);
-+	struct rmd160_ctx *rctx = shash_desc_ctx(desc);
- 	u32 i, index, padlen;
- 	__le64 bits;
- 	__le32 *dst = (__le32 *)out;
-@@ -322,10 +326,10 @@ static void rmd160_final(struct crypto_tfm *tfm, u8 *out)
- 	/* Pad out to 56 mod 64 */
- 	index = rctx->byte_count & 0x3f;
- 	padlen = (index < 56) ? (56 - index) : ((64+56) - index);
--	rmd160_update(tfm, padding, padlen);
-+	rmd160_update(desc, padding, padlen);
- 
- 	/* Append length */
--	rmd160_update(tfm, (const u8 *)&bits, sizeof(bits));
-+	rmd160_update(desc, (const u8 *)&bits, sizeof(bits));
- 
- 	/* Store state in digest */
- 	for (i = 0; i < 5; i++)
-@@ -333,31 +337,32 @@ static void rmd160_final(struct crypto_tfm *tfm, u8 *out)
- 
- 	/* Wipe context */
- 	memset(rctx, 0, sizeof(*rctx));
-+
+-static void null_final(struct crypto_tfm *tfm, u8 *out)
+-{ }
++static int null_final(struct shash_desc *desc, u8 *out)
++{
 +	return 0;
- }
++}
++
++static int null_digest(struct shash_desc *desc, const u8 *data,
++		       unsigned int len, u8 *out)
++{
++	return 0;
++}
++
++static int null_hash_setkey(struct crypto_shash *tfm, const u8 *key,
++			    unsigned int keylen)
++{ return 0; }
  
--static struct crypto_alg alg = {
--	.cra_name	 =	"rmd160",
--	.cra_driver_name =	"rmd160",
--	.cra_flags	 =	CRYPTO_ALG_TYPE_DIGEST,
--	.cra_blocksize	 =	RMD160_BLOCK_SIZE,
--	.cra_ctxsize	 =	sizeof(struct rmd160_ctx),
--	.cra_module	 =	THIS_MODULE,
--	.cra_list	 =	LIST_HEAD_INIT(alg.cra_list),
--	.cra_u		 =	{ .digest = {
--	.dia_digestsize	 =	RMD160_DIGEST_SIZE,
--	.dia_init	 =	rmd160_init,
--	.dia_update	 =	rmd160_update,
--	.dia_final	 =	rmd160_final } }
-+static struct shash_alg alg = {
-+	.digestsize	=	RMD160_DIGEST_SIZE,
-+	.init		=	rmd160_init,
-+	.update		=	rmd160_update,
-+	.final		=	rmd160_final,
-+	.descsize	=	sizeof(struct rmd160_ctx),
-+	.base		=	{
-+		.cra_name	 =	"rmd160",
-+		.cra_flags	 =	CRYPTO_ALG_TYPE_SHASH,
-+		.cra_blocksize	 =	RMD160_BLOCK_SIZE,
-+		.cra_module	 =	THIS_MODULE,
+ static int null_setkey(struct crypto_tfm *tfm, const u8 *key,
+ 		       unsigned int keylen)
+@@ -89,19 +106,20 @@ static struct crypto_alg compress_null = {
+ 	.coa_decompress		=	null_compress } }
+ };
+ 
+-static struct crypto_alg digest_null = {
+-	.cra_name		=	"digest_null",
+-	.cra_flags		=	CRYPTO_ALG_TYPE_DIGEST,
+-	.cra_blocksize		=	NULL_BLOCK_SIZE,
+-	.cra_ctxsize		=	0,
+-	.cra_module		=	THIS_MODULE,
+-	.cra_list		=       LIST_HEAD_INIT(digest_null.cra_list),	
+-	.cra_u			=	{ .digest = {
+-	.dia_digestsize		=	NULL_DIGEST_SIZE,
+-	.dia_setkey   		=	null_setkey,
+-	.dia_init   		=	null_init,
+-	.dia_update 		=	null_update,
+-	.dia_final  		=	null_final } }
++static struct shash_alg digest_null = {
++	.digestsize		=	NULL_DIGEST_SIZE,
++	.setkey   		=	null_hash_setkey,
++	.init   		=	null_init,
++	.update 		=	null_update,
++	.finup 			=	null_digest,
++	.digest 		=	null_digest,
++	.final  		=	null_final,
++	.base			=	{
++		.cra_name		=	"digest_null",
++		.cra_flags		=	CRYPTO_ALG_TYPE_SHASH,
++		.cra_blocksize		=	NULL_BLOCK_SIZE,
++		.cra_module		=	THIS_MODULE,
 +	}
  };
  
- static int __init rmd160_mod_init(void)
+ static struct crypto_alg cipher_null = {
+@@ -154,7 +172,7 @@ static int __init crypto_null_mod_init(void)
+ 	if (ret < 0)
+ 		goto out_unregister_cipher;
+ 
+-	ret = crypto_register_alg(&digest_null);
++	ret = crypto_register_shash(&digest_null);
+ 	if (ret < 0)
+ 		goto out_unregister_skcipher;
+ 
+@@ -166,7 +184,7 @@ out:
+ 	return ret;
+ 
+ out_unregister_digest:
+-	crypto_unregister_alg(&digest_null);
++	crypto_unregister_shash(&digest_null);
+ out_unregister_skcipher:
+ 	crypto_unregister_alg(&skcipher_null);
+ out_unregister_cipher:
+@@ -177,7 +195,7 @@ out_unregister_cipher:
+ static void __exit crypto_null_mod_fini(void)
  {
--	return crypto_register_alg(&alg);
-+	return crypto_register_shash(&alg);
+ 	crypto_unregister_alg(&compress_null);
+-	crypto_unregister_alg(&digest_null);
++	crypto_unregister_shash(&digest_null);
+ 	crypto_unregister_alg(&skcipher_null);
+ 	crypto_unregister_alg(&cipher_null);
  }
- 
- static void __exit rmd160_mod_fini(void)
- {
--	crypto_unregister_alg(&alg);
-+	crypto_unregister_shash(&alg);
- }
- 
- module_init(rmd160_mod_init);
-@@ -365,5 +370,3 @@ module_exit(rmd160_mod_fini);
- 
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("RIPEMD-160 Message Digest");
