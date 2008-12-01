@@ -1,18 +1,21 @@
 From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] xfrm: Fix kernel panic when flush and dump SPD entries
-Date: Mon, 01 Dec 2008 10:00:34 +0800
-Message-ID: <49334542.3070502@cn.fujitsu.com>
+Subject: [PATCHv2] xfrm: Fix kernel panic when flush and dump SPD entries
+Date: Mon, 01 Dec 2008 10:10:16 +0800
+Message-ID: <49334788.4030409@cn.fujitsu.com>
+References: <49334542.3070502@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:58403 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:53609 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753004AbYLAB72 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Nov 2008 20:59:28 -0500
+	id S1752834AbYLACJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Nov 2008 21:09:07 -0500
+In-Reply-To: <49334542.3070502@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,10 +23,14 @@ After flush the SPD entries, dump the SPD entries will cause kernel painc.
 
 Used the following commands to reproduct:
 
-ah/tunnel/3ffe:501:ffff:ff00:200:ff:fe00:b0b0-3ffe:501:ffff:ff02:200:ff:fe00:a1a1/require;\
-spddump;' | setkey -c
-ah/tunnel/3ffe:501:ffff:ff00:200:ff:fe00:b0b0-3ffe:501:ffff:ff02:200:ff:fe00:a1a1/require;\
-spddump;' | setkey -c
+- echo 'spdflush;' | setkey -c
+- echo 'spdadd 3ffe:501:ffff:ff01::/64 3ffe:501:ffff:ff04::/64  any -P out ipsec \
+  ah/tunnel/3ffe:501:ffff:ff00:200:ff:fe00:b0b0-3ffe:501:ffff:ff02:200:ff:fe00:a1a1/require;\
+  spddump;' | setkey -c
+- echo 'spdflush; spddump;' | setkey -c
+- echo 'spdadd 3ffe:501:ffff:ff01::/64 3ffe:501:ffff:ff04::/64  any -P out ipsec \
+  ah/tunnel/3ffe:501:ffff:ff00:200:ff:fe00:b0b0-3ffe:501:ffff:ff02:200:ff:fe00:a1a1/require;\
+  spddump;' | setkey -c
 
 This is because when flush the SPD entries, the SPD entry is not remove
 from the list.
