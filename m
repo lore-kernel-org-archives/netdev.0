@@ -1,55 +1,62 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH 1/3] pkt_sched: sch_htb: Remove htb_class aprio field
-Date: Tue, 2 Dec 2008 08:56:22 +0000
-Message-ID: <20081202085622.GA10412@ff.dom.local>
+Subject: [PATCH 2/3] pkt_sched: sch_htb: Remove htb_sched nwc_hit field
+Date: Tue, 2 Dec 2008 08:56:36 +0000
+Message-ID: <20081202085636.GB10412@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Martin Devera <devik@cdi.cz>, Patrick McHardy <kaber@trash.net>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.183]:33105 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432AbYLBI43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 03:56:29 -0500
-Received: by ik-out-1112.google.com with SMTP id c29so2379106ika.5
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2008 00:56:28 -0800 (PST)
+Received: from ey-out-2122.google.com ([74.125.78.27]:23651 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584AbYLBI4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 03:56:42 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so1228579eyi.37
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2008 00:56:40 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove practically unused struct htb_class aprio field.
+Remove practically unused struct htb_sched nwc_hit field.
 
 Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
- net/sched/sch_htb.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ net/sched/sch_htb.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 8a45199..ce8b1ad 100644
+index ce8b1ad..7a71e94 100644
 --- a/net/sched/sch_htb.c
 +++ b/net/sched/sch_htb.c
-@@ -88,7 +88,6 @@ struct htb_class {
- 		struct htb_class_leaf {
- 			struct Qdisc *q;
- 			int prio;
--			int aprio;
- 			int quantum;
- 			int deficit[TC_HTB_MAXDEPTH];
- 			struct list_head drop_list;
-@@ -527,10 +526,10 @@ static inline void htb_activate(struct htb_sched *q, struct htb_class *cl)
- 	WARN_ON(cl->level || !cl->un.leaf.q || !cl->un.leaf.q->q.qlen);
+@@ -151,9 +151,6 @@ struct htb_sched {
+ 	/* time of nearest event per level (row) */
+ 	psched_time_t near_ev_cache[TC_HTB_MAXDEPTH];
  
- 	if (!cl->prio_activity) {
--		cl->prio_activity = 1 << (cl->un.leaf.aprio = cl->un.leaf.prio);
-+		cl->prio_activity = 1 << cl->un.leaf.prio;
- 		htb_activate_prios(q, cl);
- 		list_add_tail(&cl->un.leaf.drop_list,
--			      q->drops + cl->un.leaf.aprio);
-+			      q->drops + cl->un.leaf.prio);
- 	}
- }
+-	/* whether we hit non-work conserving class during this dequeue; we use */
+-	int nwc_hit;		/* this to disable mindelay complaint in dequeue */
+-
+ 	int defcls;		/* class where unclassified flows go to */
  
+ 	/* filters for qdisc itself */
+@@ -807,7 +804,7 @@ next:
+ 			       cl->common.classid);
+ 			cl->warned = 1;
+ 		}
+-		q->nwc_hit++;
++
+ 		htb_next_rb_node((level ? cl->parent->un.inner.ptr : q->
+ 				  ptr[0]) + prio);
+ 		cl = htb_lookup_leaf(q->row[level] + prio, prio,
+@@ -852,7 +849,7 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
+ 	q->now = psched_get_time();
+ 
+ 	next_event = q->now + 5 * PSCHED_TICKS_PER_SEC;
+-	q->nwc_hit = 0;
++
+ 	for (level = 0; level < TC_HTB_MAXDEPTH; level++) {
+ 		/* common case optimization - skip event handler quickly */
+ 		int m;
 -- 
 1.5.6.5
 
