@@ -1,66 +1,164 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] lro: IP fragment checking
-Date: Tue, 02 Dec 2008 10:36:22 -0500
-Message-ID: <493555F6.2030900@myri.com>
-References: <4933A74F.3050809@de.ibm.com>	<493423D7.5030203@myri.com>	 <20081201.131810.158631503.davem@davemloft.net> <49345CCA.1030209@myri.com>		 <1228169379.3073.13.camel@achroite> <49347B0B.8030705@myri.com>	 <1228177130.3073.23.camel@achroite> <49354970.10804@myri.com> <1228231128.3075.9.camel@achroite>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
+ private channels
+Date: Tue, 2 Dec 2008 16:52:06 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0812021642120.5663@axis700.grange>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+ <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, ossthema@de.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tklein@de.ibm.com, raisch@de.ibm.com, jb.billaud@gmail.com,
-	hering2@de.ibm.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
+	nicolas.ferre@atmel.com
+To: Dan Williams <dan.j.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1794 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750799AbYLBPga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 10:36:30 -0500
-In-Reply-To: <1228231128.3075.9.camel@achroite>
+Received: from mail.gmx.net ([213.165.64.20]:33962 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750799AbYLBPvz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2008 10:51:55 -0500
+In-Reply-To: <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> On Tue, 2008-12-02 at 09:42 -0500, Andrew Gallatin wrote:
->> Ben Hutchings wrote:
->>> On Mon, 2008-12-01 at 19:02 -0500, Andrew Gallatin wrote:
->>>> Ben Hutchings wrote:
-> [...]
->>>>> If your hardware/firmware wrongly claims to be able to verify the
->>>>> TCP/UDP checksum for an IP fragment, it seems to me you should deal with
->>>>> that in your driver or fix the firmware.
->>>> We do partial checksums.
->>> So you should check for IP fragmentation in your get_frag_header() along
->>> with all the other checks you've got to do.
->> Indeed, and that is the patch I intend to submit if the fragment
->> check in inet_lro is rejected.  I still think the check belongs
->> in the inet lro code though, and I'm worried it is being rejected
->> for the wrong reasons..
-> 
-> There's a wide variety of capabilities of different hardware:
-> 
-> 1. No checksum offload. Probably not worth using LRO.
-> 2. Full-checksum generation. Driver passes packets to inet_lro;
-> get_frag_header() or get_skb_header() parses packets to check that they
-> are TCP/IPv4 and to validate the checksum. inet_lro does further checks.
-> 3. L4 packet parsing and checksum validation. Driver passes TCP/IPv4
-> packets to inet_lro. inet_lro does further checks.
-> 4. Hardware/firmware LRO. inet_lro not needed.
-> 
-> You seem to be proposing that a check that is only needed in case (2)
-> should also be applied in case (3).  Maybe it would make more sense to
-> define a generic implementation of get_frag_header() for full-checksum
-> devices, if that's possible?
+Hi Dan,
 
-Or maybe a generic lro_check_header() that can be called from
-everybody's get_frag_header()/get_skb_header().  I guess what
-bothers me is the division of checks between the get_*_header()
-routine and lro_tcp_ip_checks() and the inevitable code
-duplication in the get_*_header routines.
+I think, there is a problem with your dma_request_channel() / 
+private_candidate() implementation: your current version only tries one 
+channel from a dma device list, which matched capabilities. If this 
+channel is not accepted by the client, you do not try other channels from 
+this device and just go to the next one...
 
-I still don't understand why an unneeded check for fragmentation
-in case (3) is any more objectionable than the existing tcp
-flags checks in lro_tcp_ip_check(), many of which are surely
-not needed in case (3) either.
+Another problem I encountered with my framebuffer is the initialisation 
+order. You initialise dmaengine per subsys_initcall(), whereas the only 
+way to guarantee the order:
 
-Drew
+dmaengine
+dma-device driver
+framebuffer
+
+when they are all linked into the kernel was to switch dmaengine to 
+arch_initcall, put the dma driver under subsys_initcall, and the 
+framebuffer under a normal module_init / device_initcall.
+
+Below is a naive patch, adding two more arguments to private_candidate() 
+is not very elegant, so, this is not an official submission. Feel free to 
+propose a better fix. But if you like, I can make two patches out of this 
+- separating the initialisation priority.
+
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
+
+dmaengine: scan all channels if one is rejected, initialise earlier.
+
+Signed-off-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+---
+diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+index 94dcc64..677b0c8 100644
+--- a/drivers/dma/dmaengine.c
++++ b/drivers/dma/dmaengine.c
+@@ -404,10 +404,12 @@ static void dma_channel_rebalance(void)
+ 		}
+ }
+ 
+-static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_device *dev)
++static struct dma_chan *private_candidate(dma_cap_mask_t *mask,
++		struct dma_device *dev, dma_filter_fn fn, void *fn_param)
+ {
+ 	struct dma_chan *chan;
+ 	struct dma_chan *ret = NULL;
++	bool ack;
+ 
+ 	/* devices with multiple channels need special handling as we need to
+ 	 * ensure that all channels are either private or public.
+@@ -430,8 +432,18 @@ static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_devic
+ 				 __func__, dev_name(&chan->dev));
+ 			continue;
+ 		}
+-		ret = chan;
+-		break;
++
++		if (fn)
++			ack = fn(chan, fn_param);
++		else
++			ack = true;
++
++		if (ack) {
++			ret = chan;
++			break;
++		} else
++			pr_debug("%s: %s filter said false\n",
++				 __func__, dev_name(&chan->dev));
+ 	}
+ 
+ 	return ret;
+@@ -447,42 +459,33 @@ struct dma_chan *__dma_request_channel(dma_cap_mask_t *mask, dma_filter_fn fn, v
+ {
+ 	struct dma_device *device, *_d;
+ 	struct dma_chan *chan = NULL;
+-	bool ack;
+ 	int err;
+ 
+ 	/* Find a channel */
+ 	mutex_lock(&dma_list_mutex);
+ 	list_for_each_entry_safe(device, _d, &dma_device_list, global_node) {
+-		chan = private_candidate(mask, device);
++		chan = private_candidate(mask, device, fn, fn_param);
+ 		if (!chan)
+ 			continue;
+ 
+-		if (fn)
+-			ack = fn(chan, fn_param);
++		/* Found a suitable channel, try to grab, prep, and
++		 * return it.  We first set DMA_PRIVATE to disable
++		 * balance_ref_count as this channel will not be
++		 * published in the general-purpose allocator
++		 */
++		dma_cap_set(DMA_PRIVATE, device->cap_mask);
++		err = dma_chan_get(chan);
++
++		if (err == -ENODEV) {
++			pr_debug("%s: %s module removed\n", __func__,
++				 dev_name(&chan->dev));
++			list_del_rcu(&device->global_node);
++		} else if (err)
++			pr_err("dmaengine: failed to get %s: (%d)",
++			       dev_name(&chan->dev), err);
+ 		else
+-			ack = true;
+-
+-		if (ack) {
+-			/* Found a suitable channel, try to grab, prep, and
+-			 * return it.  We first set DMA_PRIVATE to disable
+-			 * balance_ref_count as this channel will not be
+-			 * published in the general-purpose allocator
+-			 */
+-			dma_cap_set(DMA_PRIVATE, device->cap_mask);
+-			err = dma_chan_get(chan);
++			break;
+ 
+-			if (err == -ENODEV) {
+-				pr_debug("%s: %s module removed\n", __func__,
+-					 dev_name(&chan->dev));
+-				list_del_rcu(&device->global_node);
+-			} else if (err)
+-				pr_err("dmaengine: failed to get %s: (%d)",
+-				       dev_name(&chan->dev), err);
+-			else
+-				break;
+-		} else
+-			pr_debug("%s: %s filter said false\n",
+-				 __func__, dev_name(&chan->dev));
+ 		chan = NULL;
+ 	}
+ 	mutex_unlock(&dma_list_mutex);
+@@ -912,6 +915,4 @@ static int __init dma_bus_init(void)
+ 	mutex_init(&dma_list_mutex);
+ 	return class_register(&dma_devclass);
+ }
+-subsys_initcall(dma_bus_init);
+-
+-
++arch_initcall(dma_bus_init);
