@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Question] e1000: e1000_adapter->polling_netdev is useless
-Date: Tue, 02 Dec 2008 15:06:23 -0800 (PST)
-Message-ID: <20081202.150623.70107608.davem@davemloft.net>
-References: <49353915.4060002@cn.fujitsu.com>
+Subject: Re: [RFC PATCH] xfrm: Accept XFRM_STATE_AF_UNSPEC SAs on IPv4/IPv6
+ only hosts
+Date: Tue, 02 Dec 2008 15:07:43 -0800 (PST)
+Message-ID: <20081202.150743.243620046.davem@davemloft.net>
+References: <1227629406.21037.193.camel@martin>
+	<1228211364.23126.62.camel@martin>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+Cc: netdev@vger.kernel.org
+To: martin@strongswan.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34189
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34193
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753775AbYLBXGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 18:06:23 -0500
-In-Reply-To: <49353915.4060002@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1752635AbYLBXHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 18:07:43 -0500
+In-Reply-To: <1228211364.23126.62.camel@martin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Tue, 02 Dec 2008 21:33:09 +0800
+From: Martin Willi <martin@strongswan.org>
+Date: Tue, 02 Dec 2008 10:49:24 +0100
 
-> e1000_adapter->polling_netdev is not actually used after allocated.
-> So, my question is that is it useless?
+> I'm wondering what's the state of this patch. Should I resubmit without
+> [RFC]? Something else wrong with it?
+> 
+> It has been tagged as "Accepted" in patchworks, but isn't gone anywhere
+> so far.
 
-It's probably a leftover from before we added support for
-multiqueue NAPI.
+Sorry, I accidently advanced the state, it should still be in
+"under review".  Let me fix that.
 
-Intel folks can probably confirm.
+I want to do some research before I apply this patch, so please
+be patient.
+
+Thanks!
