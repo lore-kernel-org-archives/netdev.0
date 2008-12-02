@@ -1,77 +1,54 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH] enc28j60: Fix sporadic packet loss
-	(correction)
-Date: Tue, 2 Dec 2008 14:44:02 -0800
-Message-ID: <200812021444.03225.david-b@pacbell.net>
-References: <20081202085947.GB24490@diamond.tkos.co.il>
-	<200812021305.06083.david-b@pacbell.net>
-	<20081202213459.GA3361@tarshish>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Tue, 02 Dec 2008 14:51:29 -0800 (PST)
+Message-ID: <20081202.145129.06176881.davem@davemloft.net>
+References: <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
+	<Pine.LNX.4.64.0811280653570.21298@wm7d.net>
+	<54783.91.201.80.240.1228232062.squirrel@mail.embedromix.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Claudio Lanconelli <lanconelli.claudio-DtroZxfa9uMAvxtiuMwx3w@public.gmane.org>,
-	Shachar Shemesh <shachar-bEkjeIDUMOLQT0dZR+AlfA@public.gmane.org>,
-	Network development list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20081202213459.GA3361@tarshish>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
-List-Post: <mailto:spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jmack@wm7d.net, netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: catab@embedromix.ro
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36956
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754445AbYLBWv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 17:51:29 -0500
+In-Reply-To: <54783.91.201.80.240.1228232062.squirrel@mail.embedromix.ro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 02 December 2008, Baruch Siach wrote:
-> Hi David,
+From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+Date: Tue, 2 Dec 2008 08:34:22 -0700 (MST)
+
+> Hello, Joe!
 > 
-> On Tue, Dec 02, 2008 at 01:05:05PM -0800, David Brownell wrote:
-> > Seems plausible to me, but network patches should be submitted
-> > to the netdev list.  :)
+> > On Fri, 28 Nov 2008, Catalin(ux) M. BOIE wrote:
+> >
+> >> Hello, Joe!
+> >>
+> >> No, I did not measure it, but, I read the help text:
+> > .
+> > .
+> >> The help is wrong or I am missing something?
+> >
+> > there's a bit somewhere else in the same section saying not
+> > to change the hash size unless you know more than we do :-)
 > 
-> So I did after Claudio suggested the same (and acked the patch).
-
-Good, thanks.
-
-
-> > p.s. Just for info ... what kind of Linux system are you using
-> >    this driver on?
+> Where, exactly?
 > 
-> I'm using this driver on a custom chip that includes ARM926 core. The kernel 
-> version is (currently) 2.6.26. The SPI bus on this chip is the only way to 
-> connect peripherals.  That's way we're stuck with this Ethernet interface.
+> So, should I not change it at all even if I have a great number of
+> simultaneously connections?
 
-It's a bit sub-optimal ... but I'm glad you've got that option!  :)
+You should only ever change something like this if you actually
+observe a specific performance problem.
 
- 
-> Our on-chip SPI master is the Synopsys DesignWare one. I wrote a driver for 
-> this SPI master. This driver is somewhat usable, but not complete yet. I'm now 
-> in the process of adding DMA support to the driver (PL080) to overcome some 
-> nasty  design peculiarities of this SPI master.
-> 
-> Peter Pearse has poster a (incomplete) patch set with a driver for the PL080 
-> DMA controller to the LAKL last week, but I see no push for integrating it 
-> into the mainline. So I doubt there's any great value in this SPI master 
-> driver as of now.
+This is the part that is driving everybody crazy about your
+report.  You seem to be changing this without having observed
+a measurable performance problem first, and then tracked it down
+specifically to this hash table's size.
 
-I certainly wouldn't expect that on the ARM list.  It's
-not exactly the responsibility of that list to address
-anything other than arch/arm/* goodies.
-
-Post it to the SPI list instead.  If it's useful to you,
-it could well be useful to others... I'd have no problems
-merging such a driver, if it's reasonably clean/correct
-and is known to work well enough to support enc28j60.
-
-- Dave
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+You seem to want to change it because it seems to you like that is
+what should be done.  You don't really know if it even matters or not
+for your workload.
