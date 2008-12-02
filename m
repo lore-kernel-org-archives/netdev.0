@@ -1,52 +1,86 @@
-From: Loic Prylli <loic@myri.com>
-Subject: Re: [PATCH] pciaer: report config read/write errors
-Date: Tue, 02 Dec 2008 15:14:35 -0500
-Message-ID: <4935972B.8050608@myri.com>
-References: <20081202004115.12058.64881.stgit@gitlost.lost>	<20081201174754.2e5ef401@extreme>	<20081201.232527.66213356.davem@davemloft.net>	<20081202092316.7d6b6291@extreme>	<493586AF.3030402@myri.com> <20081202114441.4389fab7@extreme>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [spi-devel-general] [PATCH] enc28j60: Fix sporadic packet loss (correction)
+Date: Tue, 2 Dec 2008 13:05:05 -0800
+Message-ID: <200812021305.06083.david-b@pacbell.net>
+References: <20081202085947.GB24490@diamond.tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org,
-	peter.p.waskiewicz.jr@intel.com, linux-pci@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: spi-devel-general@lists.sourceforge.net,
+	Claudio Lanconelli <lanconelli.claudio@eptar.com>,
+	Shachar Shemesh <shachar@lingnu.com>,
+	Network development list <netdev@vger.kernel.org>
+To: Baruch Siach <baruch@tkos.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1978 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750718AbYLBUOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 15:14:45 -0500
-In-Reply-To: <20081202114441.4389fab7@extreme>
+Received: from smtp124.sbc.mail.sp1.yahoo.com ([69.147.64.97]:44125 "HELO
+	smtp124.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751217AbYLBVFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 16:05:08 -0500
+In-Reply-To: <20081202085947.GB24490@diamond.tkos.co.il>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/02/2008 02:44 PM, Stephen Hemminger wrote:
-> pci_find_ext_capability would succeed but all access to registers >= 256
-> would fail if MMCONFIG failed. 
+On Tuesday 02 December 2008, Baruch Siach wrote:
+> Packet data read from the RX buffer the when the RSV is at the end of the RX 
+> buffer does not warp around. This causes packet loss, as the actual data is 
+> never read. Fix this by calculating the right packet data location.
+> 
+> Thanks to Shachar Shemesh for suggesting the fix.
+> 
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> 
+> ---
 
+Seems plausible to me, but network patches should be submitted
+to the netdev list.  :)
 
+I CC'd them on this reply ... if nobody gives any feedback, I'll
+suggest you resubmit there on Friday.
 
-Your sentence seems self-contradicting to me. pci_find_ext_capability() 
-(!=  pci_find_capability()) only tries to access registers >= 256, so I 
-don't see how it would succeed if *all* those accesses are failing.
+- Dave
 
+p.s. Just for info ... what kind of Linux system are you using
+   this driver on?
 
-> P.s: you can look back into LKML for Linus discussion about why MMCONFIG
-> is broken anyway.
->   
-
-
-
-I was an active participant in one of those discussions (although it is 
-possible I missed a later one), so I am quite aware about the 
-limitations of MMCONFIG. But pci_find_ext_capability() looked to me a 
-good filter to check about those limitations().
-
-This is not just about pciaer, for instance, it might be that a lot of 
-the SR-IOV code submitted recently assumes that if the corresponding 
-extended-capability can be detected, little checking needs to be done 
-afterwards.
-
-
-Loic
-
-
+> 
+> --- drivers/net/enc28j60.c-git	2008-12-02 09:08:24.000000000 +0200
+> +++ drivers/net/enc28j60.c	2008-12-02 09:38:33.000000000 +0200
+> @@ -568,6 +568,17 @@ static u16 erxrdpt_workaround(u16 next_p
+>  	return erxrdpt;
+>  }
+>  
+> +/*
+> + * Calculate wrap around when reading beyond the end of the RX buffer
+> + */
+> +static u16 rx_packet_start(u16 ptr)
+> +{
+> +	if (ptr + RSV_SIZE > RXEND_INIT)
+> +		return (ptr + RSV_SIZE) - RXEND_INIT - 1;
+> +	else
+> +		return ptr + RSV_SIZE;
+> +}
+> +
+>  static void nolock_rxfifo_init(struct enc28j60_net *priv, u16 start, u16 end)
+>  {
+>  	u16 erxrdpt;
+> @@ -938,8 +949,9 @@ static void enc28j60_hw_rx(struct net_de
+>  			skb->dev = ndev;
+>  			skb_reserve(skb, NET_IP_ALIGN);
+>  			/* copy the packet from the receive buffer */
+> -			enc28j60_mem_read(priv, priv->next_pk_ptr + sizeof(rsv),
+> -					len, skb_put(skb, len));
+> +			enc28j60_mem_read(priv,
+> +				rx_packet_start(priv->next_pk_ptr),
+> +				len, skb_put(skb, len));
+>  			if (netif_msg_pktdata(priv))
+>  				dump_packet(__func__, skb->len, skb->data);
+>  			skb->protocol = eth_type_trans(skb, ndev);
+> 
+> -- 
+>                                                      ~. .~   Tk Open Systems
+> =}------------------------------------------------ooO--U--Ooo------------{=
+>    - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+> 
+>
