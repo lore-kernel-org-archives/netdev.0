@@ -1,59 +1,41 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: [PATCH] netlabel: Fix a potential NULL pointer dereference
-Date: Mon, 01 Dec 2008 22:27:55 -0500
-Message-ID: <20081202032755.17851.61631.stgit@flek.lan>
+From: Yu Zhao <yu.zhao@intel.com>
+Subject: [SR-IOV driver example 0/3 resend] introduction
+Date: Tue, 2 Dec 2008 17:27:41 +0800
+Message-ID: <20081202092741.GA1859@yzhao12-linux.sh.intel.com>
+References: <20081121183605.GA7810@yzhao12-linux.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:31479 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbYLBD2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 22:28:01 -0500
-Received: from g1t0038.austin.hp.com (g1t0038.austin.hp.com [16.236.32.44])
-	by g5t0008.atlanta.hp.com (Postfix) with ESMTP id EC38A247AA
-	for <netdev@vger.kernel.org>; Tue,  2 Dec 2008 03:28:00 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "greg@kroah.com" <greg@kroah.com>,
+	"matthew@wil.cx" <matthew@wil.cx>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	netdev@vger.kernel.org, jun.nakajima@intel.com,
+	gregory.v.rose@intel.com
+To: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081121183605.GA7810@yzhao12-linux.sh.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix a potential NULL pointer dereference seen when trying to remove a static
-label configuration with an invalid address/mask combination.
+SR-IOV drivers of Intel 82576 NIC are available. There are two parts
+of the drivers: Physical Function driver and Virtual Function driver.
+The PF driver is based on the IGB driver and is used to control PF to
+allocate hardware specific resources and interface with the SR-IOV core.
+The VF driver is a new NIC driver that is same as the traditional PCI
+device driver. It works in both the host and the guest (Xen and KVM)
+environment.
 
-Signed-off-by: Paul Moore <paul.moore@hp.com>
----
+These two drivers are testing versions and they are *only* intended to
+show how to use SR-IOV API.
 
- net/netlabel/netlabel_unlabeled.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+Intel 82576 NIC specification can be found at:
+http://download.intel.com/design/network/datashts/82576_Datasheet_v2p1.pdf
 
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index e8a5c32..90c8506 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -574,9 +574,10 @@ static int netlbl_unlhsh_remove_addr4(struct net *net,
- 	list_entry = netlbl_af4list_remove(addr->s_addr, mask->s_addr,
- 					   &iface->addr4_list);
- 	spin_unlock(&netlbl_unlhsh_lock);
--	if (list_entry == NULL)
-+	if (list_entry != NULL)
-+		entry = netlbl_unlhsh_addr4_entry(list_entry);
-+	else
- 		ret_val = -ENOENT;
--	entry = netlbl_unlhsh_addr4_entry(list_entry);
- 
- 	audit_buf = netlbl_audit_start_common(AUDIT_MAC_UNLBL_STCDEL,
- 					      audit_info);
-@@ -634,9 +635,10 @@ static int netlbl_unlhsh_remove_addr6(struct net *net,
- 	spin_lock(&netlbl_unlhsh_lock);
- 	list_entry = netlbl_af6list_remove(addr, mask, &iface->addr6_list);
- 	spin_unlock(&netlbl_unlhsh_lock);
--	if (list_entry == NULL)
-+	if (list_entry != NULL)
-+		entry = netlbl_unlhsh_addr6_entry(list_entry);
-+	else
- 		ret_val = -ENOENT;
--	entry = netlbl_unlhsh_addr6_entry(list_entry);
- 
- 	audit_buf = netlbl_audit_start_common(AUDIT_MAC_UNLBL_STCDEL,
- 					      audit_info);
-
+[SR-IOV driver example 0/3 resend] introduction
+[SR-IOV driver example 1/3 resend] PF driver: hardware specific operations
+[SR-IOV driver example 2/3 resend] PF driver: integrate with SR-IOV core
+[SR-IOV driver example 3/3 resend] VF driver: an independent PCI NIC driver
