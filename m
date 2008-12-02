@@ -1,65 +1,65 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH] enc28j60: Fix sporadic packet loss (corrected again)
-Date: Tue, 2 Dec 2008 17:07:01 +0200
-Message-ID: <20081202150700.GF24490@diamond.tkos.co.il>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] lro: IP fragment checking
+Date: Tue, 02 Dec 2008 15:18:48 +0000
+Message-ID: <1228231128.3075.9.camel@achroite>
+References: <4933A74F.3050809@de.ibm.com>	<493423D7.5030203@myri.com>
+	 <20081201.131810.158631503.davem@davemloft.net> <49345CCA.1030209@myri.com>
+		 <1228169379.3073.13.camel@achroite> <49347B0B.8030705@myri.com>
+	 <1228177130.3073.23.camel@achroite> <49354970.10804@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shachar Shemesh <shachar@lingnu.com>, netdev@vger.kernel.org
-To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ossthema@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tklein@de.ibm.com, raisch@de.ibm.com, jb.billaud@gmail.com,
+	hering2@de.ibm.com
+To: Andrew Gallatin <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:50893 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754439AbYLBPHG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 10:07:06 -0500
-Content-Disposition: inline
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:57405 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754512AbYLBPS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 10:18:59 -0500
+In-Reply-To: <49354970.10804@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Packet data read from the RX buffer the when the RSV is at the end of the RX 
-buffer does not warp around. This causes packet loss, as the actual data is 
-never read. Fix this by calculating the right packet data location.
+On Tue, 2008-12-02 at 09:42 -0500, Andrew Gallatin wrote:
+> Ben Hutchings wrote:
+> > On Mon, 2008-12-01 at 19:02 -0500, Andrew Gallatin wrote:
+> >> Ben Hutchings wrote:
+[...]
+> >>> If your hardware/firmware wrongly claims to be able to verify the
+> >>> TCP/UDP checksum for an IP fragment, it seems to me you should deal with
+> >>> that in your driver or fix the firmware.
+> >> We do partial checksums.
+> > 
+> > So you should check for IP fragmentation in your get_frag_header() along
+> > with all the other checks you've got to do.
+> 
+> Indeed, and that is the patch I intend to submit if the fragment
+> check in inet_lro is rejected.  I still think the check belongs
+> in the inet lro code though, and I'm worried it is being rejected
+> for the wrong reasons..
 
-Thanks to Shachar Shemesh for suggesting the fix.
+There's a wide variety of capabilities of different hardware:
 
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-Acked-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+1. No checksum offload. Probably not worth using LRO.
+2. Full-checksum generation. Driver passes packets to inet_lro;
+get_frag_header() or get_skb_header() parses packets to check that they
+are TCP/IPv4 and to validate the checksum. inet_lro does further checks.
+3. L4 packet parsing and checksum validation. Driver passes TCP/IPv4
+packets to inet_lro. inet_lro does further checks.
+4. Hardware/firmware LRO. inet_lro not needed.
 
----
+You seem to be proposing that a check that is only needed in case (2)
+should also be applied in case (3).  Maybe it would make more sense to
+define a generic implementation of get_frag_header() for full-checksum
+devices, if that's possible?
 
---- drivers/net/enc28j60.c-git	2008-12-02 14:30:10.000000000 +0200
-+++ drivers/net/enc28j60.c	2008-12-02 14:41:51.000000000 +0200
-@@ -568,6 +568,17 @@ static u16 erxrdpt_workaround(u16 next_p
- 	return erxrdpt;
- }
- 
-+/*
-+ * Calculate wrap around when reading beyond the end of the RX buffer
-+ */
-+static u16 rx_packet_start(u16 ptr)
-+{
-+	if (ptr + RSV_SIZE > RXEND_INIT)
-+		return (ptr + RSV_SIZE) - (RXEND_INIT - RXSTART_INIT + 1);
-+	else
-+		return ptr + RSV_SIZE;
-+}
-+
- static void nolock_rxfifo_init(struct enc28j60_net *priv, u16 start, u16 end)
- {
- 	u16 erxrdpt;
-@@ -938,8 +949,9 @@ static void enc28j60_hw_rx(struct net_de
- 			skb->dev = ndev;
- 			skb_reserve(skb, NET_IP_ALIGN);
- 			/* copy the packet from the receive buffer */
--			enc28j60_mem_read(priv, priv->next_pk_ptr + sizeof(rsv),
--					len, skb_put(skb, len));
-+			enc28j60_mem_read(priv,
-+				rx_packet_start(priv->next_pk_ptr),
-+				len, skb_put(skb, len));
- 			if (netif_msg_pktdata(priv))
- 				dump_packet(__func__, skb->len, skb->data);
- 			skb->protocol = eth_type_trans(skb, ndev);
+Ben.
 
 -- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
