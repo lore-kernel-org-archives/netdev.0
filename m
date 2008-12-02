@@ -1,47 +1,64 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [NET-NEXT PATCH] ixgbe: Implement PCIe AER support
-Date: Tue, 2 Dec 2008 00:19:20 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0812020015030.4420@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20081202004115.12058.64881.stgit@gitlost.lost>
- <20081201174754.2e5ef401@extreme>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 0/5] IPsec parallelization
+Date: Tue, 2 Dec 2008 16:19:48 +0800
+Message-ID: <20081202081948.GA30063@gondor.apana.org.au>
+References: <20081201071614.GP476@secunet.com> <20081201084902.GA19904@gondor.apana.org.au> <20081201.022929.253639406.davem@davemloft.net> <20081201111501.GA20650@gondor.apana.org.au> <20081202075804.GD13998@secunet.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20081201174754.2e5ef401@extreme>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	klassert@mathematik.tu-chemnitz.de
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:48746 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751016AbYLBITz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 03:19:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20081202075804.GD13998@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 1 Dec 2008, Stephen Hemminger wrote:
+On Tue, Dec 02, 2008 at 08:58:04AM +0100, Steffen Klassert wrote:
+> 
+> The parallelization/serialization interface is generic, so the crypto
+> layer can use it in the same way as xfrm.
 
-> On Mon, 01 Dec 2008 16:41:15 -0800
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> 
-> > From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> > 
-> > This patch implements the PCIe Advanced Error Reporting callbacks in
-> > ixgbe.  The 82598 hardware supports AER, so we enable it.
-> > 
-> > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> 
-> Once again: pcie-aer is not checking for mmconfig working!
-> If you turn it on, you may get screaming errors.
-> 
-> pci_enable_pcie_error_reporting should be checking for pci_read/pci_write
-> config errors and does not.
-> 
-> Your driver should be checking for pci_enable_pcie_error_reporting failing.
+I don't really have an opinion on the padata stuff.  What I'm
+objecting to is the way you're putting the parallelism into
+xfrm.
 
-I'll respin and have a new patch sent for this.  I just finally saw the 
-igb thread, so my apologies for missing this earlier.
+> The only network specific information that is used is the knowledge
+> of the xfrm_state that a packet uses. On serialization, this helps
+> to stay as parallel as possible. Packets that uses the same state must
+> go to the same cpu (because of the replay window) packets that use
+> different states can go to different cpus.
+
+Maybe I'm missing somthing, but all you're doing is paralleising
+based on xfrm_state objects.  You can already do that trivially
+in the crypto layer with no network-specific knowledge at all
+because each xfrm_state allocates its own tfm objects.
+
+What I'm proposing is that you create a single parallel crypto
+algorithm template similar to cryptd (FWIW you could even just
+extend cryptd to do this) that does the parallel processing
+based on tfms.
+
+This achieves exactly the same thing as your current patch-set
+plus:
+
+1) The uesr no longer has to make a system-wide choice of whether
+to enable this, instead the control is per-SA through the usual
+algorithm selection mechanism which means that this no longer
+conflicts with async crypto;
+
+2) There is no change to the xfrm code;
+
+3) The same mechanism can benefit other crypto users such as
+disk encryption.
 
 Cheers,
--PJ
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
