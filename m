@@ -1,35 +1,26 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
 Subject: Re: [RFC PATCH 0/5] IPsec parallelization
-Date: Tue, 2 Dec 2008 10:21:54 +0100
-Message-ID: <20081202092154.GG13998@secunet.com>
-References: <20081201071614.GP476@secunet.com> <20081201084902.GA19904@gondor.apana.org.au> <20081201.022929.253639406.davem@davemloft.net> <20081201111501.GA20650@gondor.apana.org.au> <20081202075804.GD13998@secunet.com> <20081202081948.GA30063@gondor.apana.org.au> <20081202084419.GF13998@secunet.com> <20081202085052.GA30301@gondor.apana.org.au>
+Date: Tue, 2 Dec 2008 10:39:11 +0100
+Message-ID: <20081202093911.GH13998@secunet.com>
+References: <20081201071614.GP476@secunet.com> <20081201084902.GA19904@gondor.apana.org.au> <20081201.022929.253639406.davem@davemloft.net> <20081201111501.GA20650@gondor.apana.org.au> <20081202075804.GD13998@secunet.com> <20081202081948.GA30063@gondor.apana.org.au> <20081202084419.GF13998@secunet.com> <20081202085325.GA30353@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	klassert@mathematik.tu-chemnitz.de
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:55324 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([213.68.205.161]:55508 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750727AbYLBJVI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 04:21:08 -0500
+	id S1751399AbYLBJiX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2008 04:38:23 -0500
 Content-Disposition: inline
-In-Reply-To: <20081202085052.GA30301@gondor.apana.org.au>
+In-Reply-To: <20081202085325.GA30353@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 02, 2008 at 04:50:52PM +0800, Herbert Xu wrote:
-> 
-> > > This achieves exactly the same thing as your current patch-set
-> > > plus:
-> > > 
-> > > 1) The uesr no longer has to make a system-wide choice of whether
-> > > to enable this, instead the control is per-SA through the usual
-> > > algorithm selection mechanism which means that this no longer
-> > > conflicts with async crypto;
-> > > 
-> > > 2) There is no change to the xfrm code;
-> > > 
+On Tue, Dec 02, 2008 at 04:53:25PM +0800, Herbert Xu wrote:
+> On Tue, Dec 02, 2008 at 09:44:19AM +0100, Steffen Klassert wrote:
+> >
 > > > 3) The same mechanism can benefit other crypto users such as
 > > > disk encryption.
 > > 
@@ -37,11 +28,15 @@ On Tue, Dec 02, 2008 at 04:50:52PM +0800, Herbert Xu wrote:
 > > encryption or for anything else that should run in parallel but
 > > needs a certain order at a given point.
 > 
-> What about the first issue?
+> The padata stuff might be great, but does that mean that we really
+> want to reimplement exactly the same logic in two different places
+> when we can do it just once in the crypto layer (which could also
+> use padata as you suggested)?
 > 
 
-Yes, that's a point. If it is in the network layer we probaply need this
-system-wide choice because it would bring a useless overhead to
-the sk_buff if this thing is not used. So this could be a plus for
-putting it to the crypto layer if we don't need this system-wide choice
-there.
+I would not mind to move the padata hooks to the crypto layer.
+
+But what's with the interface? Should it be moved to the crypto
+layer too? I'm not sure, but perhaps it could find users beyond
+the crypto layer.
+
