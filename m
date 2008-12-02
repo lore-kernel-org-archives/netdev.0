@@ -1,132 +1,76 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
-	private channels
-Date: Tue, 02 Dec 2008 12:10:07 -0700
-Message-ID: <1228245007.8408.20.camel@dwillia2-linux.ch.intel.com>
-References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
-	 <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
-	 <Pine.LNX.4.64.0812021642120.5663@axis700.grange>
-	 <e9c3a7c20812020916ud0b426cvd0764f23a97973ad@mail.gmail.com>
-	 <Pine.LNX.4.64.0812021820560.5663@axis700.grange>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>,
-	"hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755487AbYLBTKa@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0812021820560.5663@axis700.grange>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: [0/5] New POHMELFS release.
+Date: Tue,  2 Dec 2008 22:30:49 +0300
+Message-ID: <12282462541461-git-send-email-zbr@ioremap.net>
+Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2008-12-02 at 10:27 -0700, Guennadi Liakhovetski wrote:
-> Ooh... Do you really think registering 32 dma-devices is a better solution 
-> than allowing non-equal dma-channels? As I explained in the commit 
-> comment, this is a specialised Image Processing DMA Controller, and each 
-> its channel has a fixed role. So, each client has to get a specific 
-> channel.
+Hello.
 
-I see your point.  Rather than doing driver gymnastics we can simply
-have dmaengine do the following (basically your patch reformatted a
-bit):
+This is a new release of the POHMEL filesystem.
+POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
 
-diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
-index e2ccfd0..66d0ae7 100644
---- a/drivers/dma/dmaengine.c
-+++ b/drivers/dma/dmaengine.c
-@@ -445,10 +445,10 @@ static void dma_channel_rebalance(void)
- 		}
- }
- 
--static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_device *dev)
-+static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_device *dev,
-+					  dma_filter_fn fn, void *fn_param)
- {
- 	struct dma_chan *chan;
--	struct dma_chan *ret = NULL;
- 
- 	/* devices with multiple channels need special handling as we need to
- 	 * ensure that all channels are either private or public.
-@@ -471,11 +471,15 @@ static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_devic
- 				 __func__, dma_chan_name(chan));
- 			continue;
- 		}
--		ret = chan;
--		break;
-+		if (fn && !fn(chan, fn_param)) {
-+			pr_debug("%s: %s filter said false\n",
-+				 __func__, dma_chan_name(chan));
-+			continue;
-+		}
-+		return chan;
- 	}
- 
--	return ret;
-+	return NULL;
- }
- 
- /**
-@@ -488,22 +492,13 @@ struct dma_chan *__dma_request_channel(dma_cap_mask_t *mask, dma_filter_fn fn, v
- {
- 	struct dma_device *device, *_d;
- 	struct dma_chan *chan = NULL;
--	bool ack;
- 	int err;
- 
- 	/* Find a channel */
- 	mutex_lock(&dma_list_mutex);
- 	list_for_each_entry_safe(device, _d, &dma_device_list, global_node) {
--		chan = private_candidate(mask, device);
--		if (!chan)
--			continue;
--
--		if (fn)
--			ack = fn(chan, fn_param);
--		else
--			ack = true;
--
--		if (ack) {
-+		chan = private_candidate(mask, device, fn, fn_param);
-+		if (chan) {
- 			/* Found a suitable channel, try to grab, prep, and
- 			 * return it.  We first set DMA_PRIVATE to disable
- 			 * balance_ref_count as this channel will not be
-@@ -521,10 +516,8 @@ struct dma_chan *__dma_request_channel(dma_cap_mask_t *mask, dma_filter_fn fn, v
- 				       dma_chan_name(chan), err);
- 			else
- 				break;
--		} else
--			pr_debug("%s: %s filter said false\n",
--				 __func__, dma_chan_name(chan));
--		chan = NULL;
-+			chan = NULL;
-+		}
- 	}
- 	mutex_unlock(&dma_list_mutex);
- 
+This is a high performance network filesystem with local coherent cache of data
+and metadata. Its main goal is distributed parallel processing of data.
+Network filesystem is a client transport.
 
+POHMELFS protocol was proven to be superior to NFS in lots
+(if not all, then it is in a roadmap) operations [3].
 
-> > > Another problem I encountered with my framebuffer is the initialisation
-> > > order. You initialise dmaengine per subsys_initcall(), whereas the only
-> > > way to guarantee the order:
-> > >
-> > > dmaengine
-> > > dma-device driver
-> > > framebuffer
-> > 
-> > hmm... can the framebuffer be moved to late_initcall?
-> 
-> I assumed, that one wants to register the framebuffer as early as 
-> possible...
+Basic POHMELFS features:
 
-Yes, but I'm hesitant to escalate the initcall level.  It sounds like
-the channel(s?) for the framebuffer are an integral part of the
-framebuffer device so maybe they should not be registered separately?
-But that runs into issues if you want the channels to return to the
-general pool when the framebuffer driver is unloaded.
+    * Local coherent cache for data and metadata. (Byte-range) locking. Locks were 
+    	prepared to be byte-range, but since all Linux filesystems lock the whole
+	inode, it was decided to lock the whole object during writing. Actual messages
+	are being sent for locking/cache coherency protocol are byte-range, but because
+	the whole inode is locked, lock is cached, so range actually is equal to the
+	inode size. One can simultaneously write into the same page via different offsets
+	from different client, and every time file will be coherent on all clients which
+	do it and on the server itself.
+    * Completely async processing of all events (hard and symlinks are the only exceptions)
+    	including object creation and data reading and writing.
+    * Flexible object architecture optimized for network processing. Ability to create long
+    	pathes to object and remove arbitrary huge directories in single network command.
+    * High performance is one of the main design goals.
+    * Very fast and scalable multithreaded userspace server. Being in userspace it works
+    	with any underlying filesystem and still is much faster than async in-kernel NFS one.
+    * Transactions support. Full failover for all operations. Resending transactions to
+    	different servers on timeout or error.
+    * Client is able to switch between different servers
+    	(if one goes down, client automatically reconnects to second and so on).
+    * Client parallel extensions: ability to write to multiple servers and
+    	balance reading between them.
+    * Client dynamic server reconfiguration: ability to add/remove servers from
+    	working set in run-time.
+    * Strong authentification and possible data encryption in network channel.
+    * Extended attributes support.
+    * Read-only mounts, ability to limit maximum size of the exported directory.
 
---
-Dan
+This release brings following features:
+
+    * Optimize locking commands (combine them with inode information update)
+    * Added root capabilities (split from crypto handshake which settles crypto
+    	algorithms used by client and server). This allows to send filesystem
+	statistics from the server.
+    * Read-only and xattrs server extensions. Xattrs processing optimization
+    	when they are not supported by server.
+    * bug fixes
+    * extended email documentation
+
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
+
+1. POHMELFS homepage
+http://www.ioremap.net/projects/pohmelfs
+
+2. GIT trees.
+http://www.ioremap.net/cgi-bin/gitweb.cgi
+
+3. POHMELFS vs NFS benchmarks.
+http://tservice.net.ru/~s0mbre/blog/devel/fs/2008_06_13_1.html
+
+(POHMELFS cbc(aes)+hmac(sha1) vs plain NFS)
+http://tservice.net.ru/~s0mbre/blog/devel/fs/2008_07_07.html
