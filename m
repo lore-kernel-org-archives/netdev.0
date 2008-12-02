@@ -1,164 +1,72 @@
-From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
- private channels
-Date: Tue, 2 Dec 2008 16:52:06 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0812021642120.5663@axis700.grange>
-References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
- <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] etherh: build fix for net-next
+Date: Tue, 2 Dec 2008 07:58:50 -0800
+Message-ID: <20081202075850.036421a2@extreme>
+References: <20081201212931.GB18511@flint.arm.linux.org.uk>
+	<20081201153030.235a8c84@extreme>
+	<4934B7B5.9010004@oracle.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
-	nicolas.ferre@atmel.com
-To: Dan Williams <dan.j.williams@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Russell King <rmk@arm.linux.org.uk>, netdev@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>,
+	David Miller <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:33962 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750799AbYLBPvz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 10:51:55 -0500
-In-Reply-To: <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
+Received: from mail.vyatta.com ([76.74.103.46]:44911 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751979AbYLBP6y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2008 10:58:54 -0500
+In-Reply-To: <4934B7B5.9010004@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dan,
+Fix build of ARM etherh driver with new net_device_ops.
 
-I think, there is a problem with your dma_request_channel() / 
-private_candidate() implementation: your current version only tries one 
-channel from a dma device list, which matched capabilities. If this 
-channel is not accepted by the client, you do not try other channels from 
-this device and just go to the next one...
-
-Another problem I encountered with my framebuffer is the initialisation 
-order. You initialise dmaengine per subsys_initcall(), whereas the only 
-way to guarantee the order:
-
-dmaengine
-dma-device driver
-framebuffer
-
-when they are all linked into the kernel was to switch dmaengine to 
-arch_initcall, put the dma driver under subsys_initcall, and the 
-framebuffer under a normal module_init / device_initcall.
-
-Below is a naive patch, adding two more arguments to private_candidate() 
-is not very elegant, so, this is not an official submission. Feel free to 
-propose a better fix. But if you like, I can make two patches out of this 
-- separating the initialisation priority.
-
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
-Freelance Open-Source Software Developer
-
-dmaengine: scan all channels if one is rejected, initialise earlier.
-
-Signed-off-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
----
-diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
-index 94dcc64..677b0c8 100644
---- a/drivers/dma/dmaengine.c
-+++ b/drivers/dma/dmaengine.c
-@@ -404,10 +404,12 @@ static void dma_channel_rebalance(void)
- 		}
- }
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+--- a/drivers/net/arm/etherh.c	2008-12-01 15:24:01.000000000 -0800
++++ b/drivers/net/arm/etherh.c	2008-12-01 15:27:32.000000000 -0800
+@@ -637,6 +637,21 @@ static const struct ethtool_ops etherh_e
+ 	.get_drvinfo	= etherh_get_drvinfo,
+ };
  
--static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_device *dev)
-+static struct dma_chan *private_candidate(dma_cap_mask_t *mask,
-+		struct dma_device *dev, dma_filter_fn fn, void *fn_param)
- {
- 	struct dma_chan *chan;
- 	struct dma_chan *ret = NULL;
-+	bool ack;
- 
- 	/* devices with multiple channels need special handling as we need to
- 	 * ensure that all channels are either private or public.
-@@ -430,8 +432,18 @@ static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_devic
- 				 __func__, dev_name(&chan->dev));
- 			continue;
- 		}
--		ret = chan;
--		break;
++static const struct net_device_ops etherh_netdev_ops = {
++	.ndo_open		= etherh_open,
++	.ndo_stop		= etherh_close,
++	.ndo_set_config		= etherh_set_config,
++	.ndo_start_xmit		= ei_start_xmit,
++	.ndo_tx_timeout		= ei_tx_timeout,
++	.ndo_get_stats		= ei_get_stats,
++	.ndo_set_multicast_list = ei_set_multicast_list,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_change_mtu		= eth_change_mtu,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= ei_poll,
++#endif
++};
 +
-+		if (fn)
-+			ack = fn(chan, fn_param);
-+		else
-+			ack = true;
-+
-+		if (ack) {
-+			ret = chan;
-+			break;
-+		} else
-+			pr_debug("%s: %s filter said false\n",
-+				 __func__, dev_name(&chan->dev));
- 	}
+ static u32 etherh_regoffsets[16];
+ static u32 etherm_regoffsets[16];
  
- 	return ret;
-@@ -447,42 +459,33 @@ struct dma_chan *__dma_request_channel(dma_cap_mask_t *mask, dma_filter_fn fn, v
- {
- 	struct dma_device *device, *_d;
- 	struct dma_chan *chan = NULL;
--	bool ack;
- 	int err;
+@@ -663,9 +678,7 @@ etherh_probe(struct expansion_card *ec, 
  
- 	/* Find a channel */
- 	mutex_lock(&dma_list_mutex);
- 	list_for_each_entry_safe(device, _d, &dma_device_list, global_node) {
--		chan = private_candidate(mask, device);
-+		chan = private_candidate(mask, device, fn, fn_param);
- 		if (!chan)
- 			continue;
+ 	SET_NETDEV_DEV(dev, &ec->dev);
  
--		if (fn)
--			ack = fn(chan, fn_param);
-+		/* Found a suitable channel, try to grab, prep, and
-+		 * return it.  We first set DMA_PRIVATE to disable
-+		 * balance_ref_count as this channel will not be
-+		 * published in the general-purpose allocator
-+		 */
-+		dma_cap_set(DMA_PRIVATE, device->cap_mask);
-+		err = dma_chan_get(chan);
-+
-+		if (err == -ENODEV) {
-+			pr_debug("%s: %s module removed\n", __func__,
-+				 dev_name(&chan->dev));
-+			list_del_rcu(&device->global_node);
-+		} else if (err)
-+			pr_err("dmaengine: failed to get %s: (%d)",
-+			       dev_name(&chan->dev), err);
- 		else
--			ack = true;
--
--		if (ack) {
--			/* Found a suitable channel, try to grab, prep, and
--			 * return it.  We first set DMA_PRIVATE to disable
--			 * balance_ref_count as this channel will not be
--			 * published in the general-purpose allocator
--			 */
--			dma_cap_set(DMA_PRIVATE, device->cap_mask);
--			err = dma_chan_get(chan);
-+			break;
+-	dev->open		= etherh_open;
+-	dev->stop		= etherh_close;
+-	dev->set_config		= etherh_set_config;
++	dev->netdev_ops		= &etherh_netdev_ops;
+ 	dev->irq		= ec->irq;
+ 	dev->ethtool_ops	= &etherh_ethtool_ops;
  
--			if (err == -ENODEV) {
--				pr_debug("%s: %s module removed\n", __func__,
--					 dev_name(&chan->dev));
--				list_del_rcu(&device->global_node);
--			} else if (err)
--				pr_err("dmaengine: failed to get %s: (%d)",
--				       dev_name(&chan->dev), err);
--			else
--				break;
--		} else
--			pr_debug("%s: %s filter said false\n",
--				 __func__, dev_name(&chan->dev));
- 		chan = NULL;
- 	}
- 	mutex_unlock(&dma_list_mutex);
-@@ -912,6 +915,4 @@ static int __init dma_bus_init(void)
- 	mutex_init(&dma_list_mutex);
- 	return class_register(&dma_devclass);
- }
--subsys_initcall(dma_bus_init);
--
--
-+arch_initcall(dma_bus_init);
+--- a/drivers/net/arm/Makefile	2008-12-02 07:48:13.000000000 -0800
++++ b/drivers/net/arm/Makefile	2008-12-02 07:48:56.000000000 -0800
+@@ -4,7 +4,7 @@
+ #
+ 
+ obj-$(CONFIG_ARM_AM79C961A)	+= am79c961a.o
+-obj-$(CONFIG_ARM_ETHERH)	+= etherh.o
++obj-$(CONFIG_ARM_ETHERH)	+= etherh.o ../8390.o
+ obj-$(CONFIG_ARM_ETHER3)	+= ether3.o
+ obj-$(CONFIG_ARM_ETHER1)	+= ether1.o
+ obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
