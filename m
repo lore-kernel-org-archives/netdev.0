@@ -1,58 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] pciaer: report config read/write errors
-Date: Tue, 2 Dec 2008 13:41:55 -0800
-Message-ID: <20081202134155.6f68c7c5@extreme>
-References: <20081202004115.12058.64881.stgit@gitlost.lost>
-	<20081201174754.2e5ef401@extreme>
-	<20081201.232527.66213356.davem@davemloft.net>
-	<20081202092316.7d6b6291@extreme>
-	<493586AF.3030402@myri.com>
-	<20081202114441.4389fab7@extreme>
-	<4935972B.8050608@myri.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: GIT tree plans...
+Date: Tue, 02 Dec 2008 14:42:59 -0800 (PST)
+Message-ID: <20081202.144259.158980181.davem@davemloft.net>
+References: <20081201.232124.30567891.davem@davemloft.net>
+	<1228213985.31158.157.camel@violet.holtmann.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, jeff@garzik.org,
-	peter.p.waskiewicz.jr@intel.com, linux-pci@vger.kernel.org
-To: Loic Prylli <loic@myri.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <4935972B.8050608@myri.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55312
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752383AbYLBWm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 17:42:59 -0500
+In-Reply-To: <1228213985.31158.157.camel@violet.holtmann.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 02 Dec 2008 15:14:35 -0500
-Loic Prylli <loic@myri.com> wrote:
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Tue, 02 Dec 2008 11:33:05 +0100
 
-> On 12/02/2008 02:44 PM, Stephen Hemminger wrote:
-> > pci_find_ext_capability would succeed but all access to registers >= 256
-> > would fail if MMCONFIG failed. 
+> > There are a bunch of conflicts to resolve in the net-next-2.6
+> > tree because of things in Linus's tree.
+> > 
+> > So what I'm going to do is wait for Linus to take in the
+> > net-2.6 pull request I just sent to him.  And afterwards
+> > do all the necessary merges and conflict resolution to
+> > get everything clean again.
 > 
-> 
-> 
-> Your sentence seems self-contradicting to me. pci_find_ext_capability() 
-> (!=  pci_find_capability()) only tries to access registers >= 256, so I 
-> don't see how it would succeed if *all* those accesses are failing.
-> 
-> 
-> > P.s: you can look back into LKML for Linus discussion about why MMCONFIG
-> > is broken anyway.
-> >   
-> 
-> 
-> 
-> I was an active participant in one of those discussions (although it is 
-> possible I missed a later one), so I am quite aware about the 
-> limitations of MMCONFIG. But pci_find_ext_capability() looked to me a 
-> good filter to check about those limitations().
-> 
-> This is not just about pciaer, for instance, it might be that a lot of 
-> the SR-IOV code submitted recently assumes that if the corresponding 
-> extended-capability can be detected, little checking needs to be done 
-> afterwards.
+> I don't expect that any of my stuff will conflict since it is nicely
+> self-contained and I checked it against Linus' tree and net-next-2.6,
+> but just in case it does. Let me know since I can very quickly create a
+> new tree from my patch queue.
 
-I misremembered the issue.
-The problem in sky2 was related but not the same. pci_find_ext_capability
-would return 0, but the device driver needed to be able to clear errors
-(or IRQ would scream). So since the existing extended capability code
-wouldn't work on all platforms, another alternative had to be found.
+Sure, will do.  Thanks Marcel.
+
