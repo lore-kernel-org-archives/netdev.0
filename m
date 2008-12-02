@@ -1,47 +1,44 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] lro: IP fragment checking
-Date: Mon, 01 Dec 2008 19:19:01 -0500
-Message-ID: <49347EF5.2010206@myri.com>
-References: <493423D7.5030203@myri.com>	<20081201.131810.158631503.davem@davemloft.net>	<49345CCA.1030209@myri.com> <20081201.160722.114600830.davem@davemloft.net>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [patch for 2.6.28? 1/1] bluetooth: Dell Wireless 365 requires
+ reset quirk
+Date: Tue, 02 Dec 2008 01:22:19 +0100
+Message-ID: <1228177339.31158.155.camel@violet.holtmann.net>
+References: <200812012201.mB1M155p001654@imap1.linux-foundation.org>
+	 <1228169030.31158.154.camel@violet.holtmann.net> <49347D69.7070807@tpi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tklein@de.ibm.com, raisch@de.ibm.com,
-	jb.billaud@gmail.com, hering2@de.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1883 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753125AbYLBATM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Dec 2008 19:19:12 -0500
-In-Reply-To: <20081201.160722.114600830.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mario_limonciello-8PEkshWhKlo@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <49347D69.7070807-l6nL5VImRDY@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Andrew Gallatin <gallatin@myri.com>
-> Date: Mon, 01 Dec 2008 16:53:14 -0500
-> 
->> What hardware does an explicit check for fragmentation?
-> 
-> If the packet is fragmented, the chip shouldn't even be
-> looking at the ports to make LRO deferral decisions let
-> alone pass it down as a LRO'able frame.
+Hi Tim,
 
-You seem to be assuming that all consumers of the Linux LRO
-interface have support for LRO in hardware.  Many (most?)
-do not.  The way software LRO works in these drivers is the
-driver just sends all packets through lro_receive_skb() when
-LRO is configured and enabled.  The LRO layer then filters
-out things which are not eligible for LRO.  See, for example,
-igb_receive_skb().
+> >> This patch causes the BT365 to be reset when the driver is loaded. 
+> >> Without it, the machine is unable to connect to other devices or to scan
+> >> for devices.
+> >>
+> >> Signed-off-by: Mario Limonciello <mario_limonciello-8PEkshWhKlo@public.gmane.org>
+> >> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> >> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+> >> Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> Cc: <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> >> Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> > 
+> > NAK. I fixed this differently by making the reset quirk default.
+>
+> Does that mean the devices in blacklist_table that have _only_
+> BTUSB_RESET should be removed? It would get rid of roughly half of the
+> entries.
 
-If you're arguing that the hardware should have checked for
-fragmentation, then many (most?) things in lro_tcp_ip_check()
-should be removed.  They are all basic sanity checks for
-packets that would not be considered for LRO by a hardware
-implementation, but are required by a software implementation
-where all packets are through the LRO code.
+that has already been done. See the pull request I sent to Dave.
 
-Drew
+Regards
+
+Marcel
