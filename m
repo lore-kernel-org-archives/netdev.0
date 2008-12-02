@@ -1,86 +1,152 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [spi-devel-general] [PATCH] enc28j60: Fix sporadic packet loss (correction)
-Date: Tue, 2 Dec 2008 13:05:05 -0800
-Message-ID: <200812021305.06083.david-b@pacbell.net>
-References: <20081202085947.GB24490@diamond.tkos.co.il>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
+ private channels
+Date: Tue, 2 Dec 2008 22:28:37 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0812022221180.7954@axis700.grange>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+ <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
+ <Pine.LNX.4.64.0812021642120.5663@axis700.grange>
+ <e9c3a7c20812020916ud0b426cvd0764f23a97973ad@mail.gmail.com>
+ <Pine.LNX.4.64.0812021820560.5663@axis700.grange>
+ <1228245007.8408.20.camel@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: spi-devel-general@lists.sourceforge.net,
-	Claudio Lanconelli <lanconelli.claudio@eptar.com>,
-	Shachar Shemesh <shachar@lingnu.com>,
-	Network development list <netdev@vger.kernel.org>
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>,
+	"hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
+To: Dan Williams <dan.j.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp124.sbc.mail.sp1.yahoo.com ([69.147.64.97]:44125 "HELO
-	smtp124.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751217AbYLBVFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 16:05:08 -0500
-In-Reply-To: <20081202085947.GB24490@diamond.tkos.co.il>
-Content-Disposition: inline
+Received: from mail.gmx.net ([213.165.64.20]:58425 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750842AbYLBV2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2008 16:28:42 -0500
+In-Reply-To: <1228245007.8408.20.camel@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 02 December 2008, Baruch Siach wrote:
-> Packet data read from the RX buffer the when the RSV is at the end of the RX 
-> buffer does not warp around. This causes packet loss, as the actual data is 
-> never read. Fix this by calculating the right packet data location.
+On Tue, 2 Dec 2008, Dan Williams wrote:
+
+> On Tue, 2008-12-02 at 10:27 -0700, Guennadi Liakhovetski wrote:
+> > Ooh... Do you really think registering 32 dma-devices is a better solution 
+> > than allowing non-equal dma-channels? As I explained in the commit 
+> > comment, this is a specialised Image Processing DMA Controller, and each 
+> > its channel has a fixed role. So, each client has to get a specific 
+> > channel.
 > 
-> Thanks to Shachar Shemesh for suggesting the fix.
-> 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> 
-> ---
+> I see your point.  Rather than doing driver gymnastics we can simply
+> have dmaengine do the following (basically your patch reformatted a
+> bit):
 
-Seems plausible to me, but network patches should be submitted
-to the netdev list.  :)
+Good, so, would you commit it?
 
-I CC'd them on this reply ... if nobody gives any feedback, I'll
-suggest you resubmit there on Friday.
-
-- Dave
-
-p.s. Just for info ... what kind of Linux system are you using
-   this driver on?
-
-> 
-> --- drivers/net/enc28j60.c-git	2008-12-02 09:08:24.000000000 +0200
-> +++ drivers/net/enc28j60.c	2008-12-02 09:38:33.000000000 +0200
-> @@ -568,6 +568,17 @@ static u16 erxrdpt_workaround(u16 next_p
->  	return erxrdpt;
+> diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+> index e2ccfd0..66d0ae7 100644
+> --- a/drivers/dma/dmaengine.c
+> +++ b/drivers/dma/dmaengine.c
+> @@ -445,10 +445,10 @@ static void dma_channel_rebalance(void)
+>  		}
 >  }
 >  
-> +/*
-> + * Calculate wrap around when reading beyond the end of the RX buffer
-> + */
-> +static u16 rx_packet_start(u16 ptr)
-> +{
-> +	if (ptr + RSV_SIZE > RXEND_INIT)
-> +		return (ptr + RSV_SIZE) - RXEND_INIT - 1;
-> +	else
-> +		return ptr + RSV_SIZE;
-> +}
-> +
->  static void nolock_rxfifo_init(struct enc28j60_net *priv, u16 start, u16 end)
+> -static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_device *dev)
+> +static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_device *dev,
+> +					  dma_filter_fn fn, void *fn_param)
 >  {
->  	u16 erxrdpt;
-> @@ -938,8 +949,9 @@ static void enc28j60_hw_rx(struct net_de
->  			skb->dev = ndev;
->  			skb_reserve(skb, NET_IP_ALIGN);
->  			/* copy the packet from the receive buffer */
-> -			enc28j60_mem_read(priv, priv->next_pk_ptr + sizeof(rsv),
-> -					len, skb_put(skb, len));
-> +			enc28j60_mem_read(priv,
-> +				rx_packet_start(priv->next_pk_ptr),
-> +				len, skb_put(skb, len));
->  			if (netif_msg_pktdata(priv))
->  				dump_packet(__func__, skb->len, skb->data);
->  			skb->protocol = eth_type_trans(skb, ndev);
+>  	struct dma_chan *chan;
+> -	struct dma_chan *ret = NULL;
+>  
+>  	/* devices with multiple channels need special handling as we need to
+>  	 * ensure that all channels are either private or public.
+> @@ -471,11 +471,15 @@ static struct dma_chan *private_candidate(dma_cap_mask_t *mask, struct dma_devic
+>  				 __func__, dma_chan_name(chan));
+>  			continue;
+>  		}
+> -		ret = chan;
+> -		break;
+> +		if (fn && !fn(chan, fn_param)) {
+> +			pr_debug("%s: %s filter said false\n",
+> +				 __func__, dma_chan_name(chan));
+> +			continue;
+> +		}
+> +		return chan;
+>  	}
+>  
+> -	return ret;
+> +	return NULL;
+>  }
+>  
+>  /**
+> @@ -488,22 +492,13 @@ struct dma_chan *__dma_request_channel(dma_cap_mask_t *mask, dma_filter_fn fn, v
+>  {
+>  	struct dma_device *device, *_d;
+>  	struct dma_chan *chan = NULL;
+> -	bool ack;
+>  	int err;
+>  
+>  	/* Find a channel */
+>  	mutex_lock(&dma_list_mutex);
+>  	list_for_each_entry_safe(device, _d, &dma_device_list, global_node) {
+> -		chan = private_candidate(mask, device);
+> -		if (!chan)
+> -			continue;
+> -
+> -		if (fn)
+> -			ack = fn(chan, fn_param);
+> -		else
+> -			ack = true;
+> -
+> -		if (ack) {
+> +		chan = private_candidate(mask, device, fn, fn_param);
+> +		if (chan) {
+>  			/* Found a suitable channel, try to grab, prep, and
+>  			 * return it.  We first set DMA_PRIVATE to disable
+>  			 * balance_ref_count as this channel will not be
+> @@ -521,10 +516,8 @@ struct dma_chan *__dma_request_channel(dma_cap_mask_t *mask, dma_filter_fn fn, v
+>  				       dma_chan_name(chan), err);
+>  			else
+>  				break;
+> -		} else
+> -			pr_debug("%s: %s filter said false\n",
+> -				 __func__, dma_chan_name(chan));
+> -		chan = NULL;
+> +			chan = NULL;
+> +		}
+>  	}
+>  	mutex_unlock(&dma_list_mutex);
+>  
 > 
-> -- 
->                                                      ~. .~   Tk Open Systems
-> =}------------------------------------------------ooO--U--Ooo------------{=
->    - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
 > 
->
+> > > > Another problem I encountered with my framebuffer is the initialisation
+> > > > order. You initialise dmaengine per subsys_initcall(), whereas the only
+> > > > way to guarantee the order:
+> > > >
+> > > > dmaengine
+> > > > dma-device driver
+> > > > framebuffer
+> > > 
+> > > hmm... can the framebuffer be moved to late_initcall?
+> > 
+> > I assumed, that one wants to register the framebuffer as early as 
+> > possible...
+> 
+> Yes, but I'm hesitant to escalate the initcall level.  It sounds like
+> the channel(s?) for the framebuffer are an integral part of the
+> framebuffer device so maybe they should not be registered separately?
+> But that runs into issues if you want the channels to return to the
+> general pool when the framebuffer driver is unloaded.
+
+You mean whether it makes sense at all to manage these framebuffer 
+channels outside of the framebuffer driver in a dma driver? I think yes. 
+Simply because these 2 channels used by the fb share code and _registers_ 
+with the rest 30 channels, which are all also quite specialised.
+
+As for excalating the initcall level - the dmaengine init function doesn't 
+do much - it just registers a device class and initialises a mutex - 
+shouldn't be a problem to do it earlier?
+
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
