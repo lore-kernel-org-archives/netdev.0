@@ -1,45 +1,47 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH 0/5] IPsec parallelization
-Date: Tue, 2 Dec 2008 09:00:31 +0100
-Message-ID: <20081202080031.GE13998@secunet.com>
-References: <20081201071614.GP476@secunet.com> <20081201084902.GA19904@gondor.apana.org.au>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [NET-NEXT PATCH] ixgbe: Implement PCIe AER support
+Date: Tue, 2 Dec 2008 00:19:20 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0812020015030.4420@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20081202004115.12058.64881.stgit@gitlost.lost>
+ <20081201174754.2e5ef401@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	klassert@mathematik.tu-chemnitz.de
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:54417 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977AbYLBH7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 02:59:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20081201084902.GA19904@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20081201174754.2e5ef401@extreme>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 01, 2008 at 04:49:02PM +0800, Herbert Xu wrote:
-> On Mon, Dec 01, 2008 at 08:16:14AM +0100, Steffen Klassert wrote:
-> > This is a first throw to try to parallelize the expensive part of xfrm by
-> > using a generic parallelization/serialization method. This method uses the
-> > remote softirq invocation infrastructure for parallelization and serialization.
-> > With this method data objects can be processed in parallel, starting 
-> > at some given point. After doing some expensive operations in parallel, 
-> > it is possible to serialize again. The parallelized data objects return after
-> > serialization in the order as they were before the parallelization. 
-> > In the case of xfrm, this makes it possible to run the expensive part in
-> > parallel without getting packet reordering.
-> 
-> I still think that you're much better off doing this in the
-> crypto layer.  As it stands the only reason why this is attractive
-> is because crypto is slow.
-> 
-> Pretty soon processors will start providing crypto support natively
-> so this will no longer be the case.  I'd rather see this stuff
-> contained in a small area instead of having it spread all over the
-> place as this may become obsolete any day now.
-> 
+On Mon, 1 Dec 2008, Stephen Hemminger wrote:
 
-Now, that most of the crypto changes of this patchset are obsolete by
-shash, 'spreading all over the place' is probaply not a reason any more
-not to keep it in the network layer.
+> On Mon, 01 Dec 2008 16:41:15 -0800
+> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> 
+> > From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> > 
+> > This patch implements the PCIe Advanced Error Reporting callbacks in
+> > ixgbe.  The 82598 hardware supports AER, so we enable it.
+> > 
+> > Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> 
+> Once again: pcie-aer is not checking for mmconfig working!
+> If you turn it on, you may get screaming errors.
+> 
+> pci_enable_pcie_error_reporting should be checking for pci_read/pci_write
+> config errors and does not.
+> 
+> Your driver should be checking for pci_enable_pcie_error_reporting failing.
+
+I'll respin and have a new patch sent for this.  I just finally saw the 
+igb thread, so my apologies for missing this earlier.
+
+Cheers,
+-PJ
