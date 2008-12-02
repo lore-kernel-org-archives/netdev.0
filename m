@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lro: IP fragment checking
-Date: Mon, 01 Dec 2008 16:07:22 -0800 (PST)
-Message-ID: <20081201.160722.114600830.davem@davemloft.net>
-References: <493423D7.5030203@myri.com>
-	<20081201.131810.158631503.davem@davemloft.net>
-	<49345CCA.1030209@myri.com>
+From: Tim Gardner <tcanonical-l6nL5VImRDY@public.gmane.org>
+Subject: Re: [patch for 2.6.28? 1/1] bluetooth: Dell Wireless 365 requires
+ reset quirk
+Date: Mon, 01 Dec 2008 17:12:25 -0700
+Message-ID: <49347D69.7070807@tpi.com>
+References: <200812012201.mB1M155p001654@imap1.linux-foundation.org> <1228169030.31158.154.camel@violet.holtmann.net>
+Reply-To: tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tklein@de.ibm.com, raisch@de.ibm.com,
-	jb.billaud@gmail.com, hering2@de.ibm.com
-To: gallatin@myri.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55273
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751068AbYLBAHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 19:07:25 -0500
-In-Reply-To: <49345CCA.1030209@myri.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mario_limonciello-8PEkshWhKlo@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1228169030.31158.154.camel-Q5NHXjiL5LzjRizqIHwDm9HuzzzSOjJt@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Mon, 01 Dec 2008 16:53:14 -0500
+Marcel Holtmann wrote:
+> Hi Andrew,
+> 
+>> This patch causes the BT365 to be reset when the driver is loaded. 
+>> Without it, the machine is unable to connect to other devices or to scan
+>> for devices.
+>>
+>> Signed-off-by: Mario Limonciello <mario_limonciello-8PEkshWhKlo@public.gmane.org>
+>> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+>> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+>> Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Cc: <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>> Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> 
+> NAK. I fixed this differently by making the reset quirk default.
+> 
+> Regards
+> 
+> Marcel
+> 
+> 
 
-> What hardware does an explicit check for fragmentation?
+Does that mean the devices in blacklist_table that have _only_
+BTUSB_RESET should be removed? It would get rid of roughly half of the
+entries.
 
-If the packet is fragmented, the chip shouldn't even be
-looking at the ports to make LRO deferral decisions let
-alone pass it down as a LRO'able frame.
+rtg
+-- 
+Tim Gardner tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
