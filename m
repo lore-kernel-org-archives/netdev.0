@@ -1,37 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] xfrm: Accept XFRM_STATE_AF_UNSPEC SAs on IPv4/IPv6
- only hosts
-Date: Tue, 02 Dec 2008 15:07:43 -0800 (PST)
-Message-ID: <20081202.150743.243620046.davem@davemloft.net>
-References: <1227629406.21037.193.camel@martin>
-	<1228211364.23126.62.camel@martin>
+From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Tue, 2 Dec 2008 16:16:04 -0700 (MST)
+Message-ID: <49597.86.34.32.157.1228259764.squirrel@mail.embedromix.ro>
+References: <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
+    <Pine.LNX.4.64.0811280653570.21298@wm7d.net>
+    <54783.91.201.80.240.1228232062.squirrel@mail.embedromix.ro>
+    <20081202.145129.06176881.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: martin@strongswan.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: jmack@wm7d.net, netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34193
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752635AbYLBXHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 18:07:43 -0500
-In-Reply-To: <1228211364.23126.62.camel@martin>
+Received: from mail.leadpile.com ([209.234.164.13]:37365 "EHLO
+	mail.leadpile.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753597AbYLBX7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 18:59:40 -0500
+In-Reply-To: <20081202.145129.06176881.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Willi <martin@strongswan.org>
-Date: Tue, 02 Dec 2008 10:49:24 +0100
 
-> I'm wondering what's the state of this patch. Should I resubmit without
-> [RFC]? Something else wrong with it?
-> 
-> It has been tagged as "Accepted" in patchworks, but isn't gone anywhere
-> so far.
+> From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+> Date: Tue, 2 Dec 2008 08:34:22 -0700 (MST)
+>
+>> Hello, Joe!
+>>
+>> > On Fri, 28 Nov 2008, Catalin(ux) M. BOIE wrote:
+>> >
+>> >> Hello, Joe!
+>> >>
+>> >> No, I did not measure it, but, I read the help text:
+>> > .
+>> > .
+>> >> The help is wrong or I am missing something?
+>> >
+>> > there's a bit somewhere else in the same section saying not
+>> > to change the hash size unless you know more than we do :-)
+>>
+>> Where, exactly?
+>>
+>> So, should I not change it at all even if I have a great number of
+>> simultaneously connections?
 
-Sorry, I accidently advanced the state, it should still be in
-"under review".  Let me fix that.
+Hello, David!
 
-I want to do some research before I apply this patch, so please
-be patient.
+> You should only ever change something like this if you actually
+> observe a specific performance problem.
 
-Thanks!
+I have a need, I didn't wake up some day and I dreamed to change this.
+I have a gateway with LVS and I have 4 web servers behind.
+I saw the help text at that option and I saw that I could raise the limit.
+
+> This is the part that is driving everybody crazy about your
+> report.  You seem to be changing this without having observed
+> a measurable performance problem first, and then tracked it down
+> specifically to this hash table's size.
+
+I was looking for anything that could get me past of 88.000 request per
+seconds.
+The help text told me to raise that value if I have big number of
+connections. I just needed an easy way to test.
+
+> You seem to want to change it because it seems to you like that is
+> what should be done.  You don't really know if it even matters or not
+> for your workload.
+
+Without easy testing (boot time change not compile time change) is hard to
+tell if it helps me or not.
+
+Anyway, if the help text is wrong, let's correct it.
+If it is correct, let's allow changing that value at runtime, so people
+can easy juggle with it.
+
+Do you agree, David?
+
+Thank you.
+
+-- 
+Catalin(ux) M. BOIE
+http://kernel.embedromix.ro/
+
