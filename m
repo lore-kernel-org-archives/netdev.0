@@ -1,63 +1,42 @@
-From: "=?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?=" <gotzoncabanes@gmail.com>
-Subject: qmgr for ixp4xx
-Date: Tue, 2 Dec 2008 19:44:40 +0100
-Message-ID: <b0438a630812021044q31845224s206f3998423289af@mail.gmail.com>
+From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: EOF and zero-length packets?
+Date: Tue, 2 Dec 2008 20:57:45 +0200
+Message-ID: <200812022057.45844.rdenis@simphalempin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, "Krzysztof Halasa" <khc@pm.waw.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:62874 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752762AbYLBSom convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 13:44:42 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so3144263ugf.37
-        for <netdev@vger.kernel.org>; Tue, 02 Dec 2008 10:44:41 -0800 (PST)
+Received: from yop.chewa.net ([91.121.105.214]:45636 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752566AbYLBS5u convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 13:57:50 -0500
+Received: from basile.remlab.net (unknown [IPv6:2002:591b:3d4a:0:211:11ff:fe25:e6b4])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: remi)
+	by yop.chewa.net (Postfix) with ESMTP id 3213629D
+	for <netdev@vger.kernel.org>; Tue,  2 Dec 2008 19:57:49 +0100 (CET)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+	Hello,
 
-As I am trying to use my HSSs as 4E1, I find that the FIFOs for each
-HDLC should be 1 word wide and not 4 words wide. I think that this
-finally means that when accessing the queues, I have to do the
-following modification.
+When dealing with SOCK_STREAM sockets, a zero read means the other side=
+ has=20
+shut down the connection, and there will be no more incoming data.
 
-diff -urN linux-2.6.26.7_hssorig/include/asm-arm/arch-ixp4xx/qmgr.h
-linux-2.6.26.7/include/asm-arm/arch-ixp4xx/qmgr.h
---- linux-2.6.26.7_hssorig/include/asm-arm/arch-ixp4xx/qmgr.h	2008-10-2=
-2
-23:46:18.000000000 +0200
-+++ linux-2.6.26.7/include/asm-arm/arch-ixp4xx/qmgr.h	2008-12-02
-10:47:23.000000000 +0100
-@@ -67,16 +67,17 @@
- void qmgr_release_queue(unsigned int queue);
+When dealing with SOCK_DGRAM/SOCK_RAW sockets, a zero read means we got=
+ an=20
+empty packet, and we should keep on reading.
 
+What about SOCK_DCCP? It seems both scenarios yield zero, which is, hmm=
+,=20
+problematic from userland. Is checking for POLLHUP in revents the recom=
+mended=20
+disambiguation? that seems a bit backward to me :(
 
--static inline void qmgr_put_entry(unsigned int queue, u32 val)
-+static inline void qmgr_put_entry(unsigned int queue, unsigned int pip=
-e,
-+                   u32 val)
- {
- 	extern struct qmgr_regs __iomem *qmgr_regs;
--	__raw_writel(val, &qmgr_regs->acc[queue][0]);
-+	__raw_writel(val, &qmgr_regs->acc[queue][pipe]);
- }
-
--static inline u32 qmgr_get_entry(unsigned int queue)
-+static inline u32 qmgr_get_entry(unsigned int queue, unsigned int pipe=
-)
- {
- 	extern struct qmgr_regs __iomem *qmgr_regs;
--	return __raw_readl(&qmgr_regs->acc[queue][0]);
-+	return __raw_readl(&qmgr_regs->acc[queue][pipe]);
- }
-
- static inline int qmgr_get_stat1(unsigned int queue)
-
-Is it correct?
-
-Thanks
-
-Miguel =C1ngel =C1lvarez
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
