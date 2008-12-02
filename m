@@ -1,66 +1,45 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
 Subject: Re: [RFC PATCH 0/5] IPsec parallelization
-Date: Tue, 2 Dec 2008 08:58:04 +0100
-Message-ID: <20081202075804.GD13998@secunet.com>
-References: <20081201071614.GP476@secunet.com> <20081201084902.GA19904@gondor.apana.org.au> <20081201.022929.253639406.davem@davemloft.net> <20081201111501.GA20650@gondor.apana.org.au>
+Date: Tue, 2 Dec 2008 09:00:31 +0100
+Message-ID: <20081202080031.GE13998@secunet.com>
+References: <20081201071614.GP476@secunet.com> <20081201084902.GA19904@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	klassert@mathematik.tu-chemnitz.de
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([213.68.205.161]:54389 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([213.68.205.161]:54417 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016AbYLBH5R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 02:57:17 -0500
+	id S1750977AbYLBH7m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2008 02:59:42 -0500
 Content-Disposition: inline
-In-Reply-To: <20081201111501.GA20650@gondor.apana.org.au>
+In-Reply-To: <20081201084902.GA19904@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 01, 2008 at 07:15:01PM +0800, Herbert Xu wrote:
-> On Mon, Dec 01, 2008 at 02:29:29AM -0800, David Miller wrote:
-> >
-> > Herbert, I'm not completely convinced of this line of thinking :-)
+On Mon, Dec 01, 2008 at 04:49:02PM +0800, Herbert Xu wrote:
+> On Mon, Dec 01, 2008 at 08:16:14AM +0100, Steffen Klassert wrote:
+> > This is a first throw to try to parallelize the expensive part of xfrm by
+> > using a generic parallelization/serialization method. This method uses the
+> > remote softirq invocation infrastructure for parallelization and serialization.
+> > With this method data objects can be processed in parallel, starting 
+> > at some given point. After doing some expensive operations in parallel, 
+> > it is possible to serialize again. The parallelized data objects return after
+> > serialization in the order as they were before the parallelization. 
+> > In the case of xfrm, this makes it possible to run the expensive part in
+> > parallel without getting packet reordering.
 > 
-> Well you've put some doubts into mind for a second there, but
-> after thinking some more I'm sticking to my position :)
+> I still think that you're much better off doing this in the
+> crypto layer.  As it stands the only reason why this is attractive
+> is because crypto is slow.
 > 
-> > Will crypto be faster than a routing cache lookup?  Because flow
-> > seperation helps routing performance, significantly.
-> 
-> No to the first part, but that's not the point.  I'm saying that
-> you can do flow separation within the crypto layer, well, for
-> output anyway.  All you need to do is to provide some key to
-> the crypto layer that tells it that ordering is only required
-> within that key.  Alternatively, just allocate plenty of crypto
-> tfms as these patches do, and feed the flows down to different
-> tfms.
-> 
-> For input there's nothing we can do apart from processing completed
-> requests in sequence so no flow information is going to help (and
-> in fact if it did one could argue that the purpose of IPsec has been
-> defeated :)
-> 
-> > And the reconstitution of the seperated crypto operations into the
-> > original properly ordered flow can be done most cleanly (IMHO) in the
-> > networking layer as far as I have seen so far.
-> 
-> Well once I've finished the GRO stuff I can give this a go.  But
-> I'm pretty sure we can achieve exactly the same thing with only
-> minimal changes to xfrm.  Really all it needs to do is allocate
-> more tfm objects for the output path.
-> 
-> All the serialisation logic can stay in the crypto layer because
-> AFAICS no network-specific knowledge is being used in this patch
-> set.
+> Pretty soon processors will start providing crypto support natively
+> so this will no longer be the case.  I'd rather see this stuff
+> contained in a small area instead of having it spread all over the
+> place as this may become obsolete any day now.
 > 
 
-The parallelization/serialization interface is generic, so the crypto
-layer can use it in the same way as xfrm.
-
-The only network specific information that is used is the knowledge
-of the xfrm_state that a packet uses. On serialization, this helps
-to stay as parallel as possible. Packets that uses the same state must
-go to the same cpu (because of the replay window) packets that use
-different states can go to different cpus.
+Now, that most of the crypto changes of this patchset are obsolete by
+shash, 'spreading all over the place' is probaply not a reason any more
+not to keep it in the network layer.
