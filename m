@@ -1,77 +1,155 @@
-From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
- private channels
-Date: Tue, 2 Dec 2008 18:27:26 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0812021820560.5663@axis700.grange>
-References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
- <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
- <Pine.LNX.4.64.0812021642120.5663@axis700.grange>
- <e9c3a7c20812020916ud0b426cvd0764f23a97973ad@mail.gmail.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] pciaer: report config read/write errors
+Date: Tue, 2 Dec 2008 10:41:18 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0812021040480.2280@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20081202004115.12058.64881.stgit@gitlost.lost>
+ <20081201174754.2e5ef401@extreme> <20081201.232527.66213356.davem@davemloft.net>
+ <20081202092316.7d6b6291@extreme>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
-	nicolas.ferre@atmel.com
-To: Dan Williams <dan.j.williams@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:58672 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756131AbYLBR1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Dec 2008 12:27:19 -0500
-In-Reply-To: <e9c3a7c20812020916ud0b426cvd0764f23a97973ad@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20081202092316.7d6b6291@extreme>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2 Dec 2008, Dan Williams wrote:
+On Tue, 2 Dec 2008, Stephen Hemminger wrote:
 
-> On Tue, Dec 2, 2008 at 8:52 AM, Guennadi Liakhovetski
-> <g.liakhovetski@gmx.de> wrote:
-> > Hi Dan,
-> >
-> > I think, there is a problem with your dma_request_channel() /
-> > private_candidate() implementation: your current version only tries one
-> > channel from a dma device list, which matched capabilities. If this
-> > channel is not accepted by the client, you do not try other channels from
-> > this device and just go to the next one...
-> >
+> This patch does more error checking in the Advanced Error Reporting code.
+> Since AER needs to access PCI registers > 255, it won't work without MMCONFIG
+> and other quirks may stop it as well. The code must check this by looking
+> at return values from pci_read/write_config_XXX calls.  
 > 
-> Which dma driver are you using?
-
-This is the idmac dmaengine driver I submitted a few weeks ago, that I am 
-porting to your modified dmaengine framework. Initial version:
-
-http://marc.info/?l=linux-arm-kernel&m=122607472721145&w=2
-
-BTW - it does look nicer and more simple now, so, in general, I like the 
-change.
-
-> The dmaengine code assumes that all
-> channels on a device are equal.  It sounds like there are differences
-> between peer-channels on the device in this case.  If the driver
-> registers a device per channel that should give the flexibility you
-> want.
-
-Ooh... Do you really think registering 32 dma-devices is a better solution 
-than allowing non-equal dma-channels? As I explained in the commit 
-comment, this is a specialised Image Processing DMA Controller, and each 
-its channel has a fixed role. So, each client has to get a specific 
-channel.
-
-> > Another problem I encountered with my framebuffer is the initialisation
-> > order. You initialise dmaengine per subsys_initcall(), whereas the only
-> > way to guarantee the order:
-> >
-> > dmaengine
-> > dma-device driver
-> > framebuffer
+> I don't have any hardware that uses AER routines but discovered this 
+> in earlier versions of the sky2 driver that tried to use
+> pci AER routines. Ended up just giving up and using other ways to access PCI
+> config space on sky2 since there were too many platform glitches.
 > 
-> hmm... can the framebuffer be moved to late_initcall?
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> 
+> --- a/drivers/pci/pcie/aer/aerdrv_core.c	2008-12-02 07:56:08.000000000 -0800
+> +++ b/drivers/pci/pcie/aer/aerdrv_core.c	2008-12-02 09:07:32.000000000 -0800
+> @@ -31,80 +31,92 @@ module_param(forceload, bool, 0);
+>  int pci_enable_pcie_error_reporting(struct pci_dev *dev)
+>  {
+>  	u16 reg16 = 0;
+> -	int pos;
+> +	int pos, err;
+> +	u32 status;
+>  
+>  	pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ERR);
+>  	if (!pos)
+>  		return -EIO;
+>  
+> +	err = pci_read_config_dword(dev, pos + PCI_ERR_UNCOR_STATUS, &status);
+> +	if (err)
+> +		return err;
+> +
+>  	pos = pci_find_capability(dev, PCI_CAP_ID_EXP);
+>  	if (!pos)
+>  		return -EIO;
+>  
+> -	pci_read_config_word(dev, pos+PCI_EXP_DEVCTL, &reg16);
+> +	err = pci_read_config_word(dev, pos+PCI_EXP_DEVCTL, &reg16);
+> +	if (err)
+> +		return err;
+> +
+>  	reg16 = reg16 |
+>  		PCI_EXP_DEVCTL_CERE |
+>  		PCI_EXP_DEVCTL_NFERE |
+>  		PCI_EXP_DEVCTL_FERE |
+>  		PCI_EXP_DEVCTL_URRE;
+> -	pci_write_config_word(dev, pos+PCI_EXP_DEVCTL,
+> -			reg16);
+> -	return 0;
+> +	return pci_write_config_word(dev, pos+PCI_EXP_DEVCTL, reg16);
+>  }
+>  
+>  int pci_disable_pcie_error_reporting(struct pci_dev *dev)
+>  {
+>  	u16 reg16 = 0;
+> -	int pos;
+> +	int pos, err;
+>  
+>  	pos = pci_find_capability(dev, PCI_CAP_ID_EXP);
+>  	if (!pos)
+>  		return -EIO;
+>  
+> -	pci_read_config_word(dev, pos+PCI_EXP_DEVCTL, &reg16);
+> +	err = pci_read_config_word(dev, pos+PCI_EXP_DEVCTL, &reg16);
+> +	if (err)
+> +		return err;
+> +
+>  	reg16 = reg16 & ~(PCI_EXP_DEVCTL_CERE |
+>  			PCI_EXP_DEVCTL_NFERE |
+>  			PCI_EXP_DEVCTL_FERE |
+>  			PCI_EXP_DEVCTL_URRE);
+> -	pci_write_config_word(dev, pos+PCI_EXP_DEVCTL,
+> -			reg16);
+> -	return 0;
+> +	return pci_write_config_word(dev, pos+PCI_EXP_DEVCTL, reg16);
+>  }
+>  
+>  int pci_cleanup_aer_uncorrect_error_status(struct pci_dev *dev)
+>  {
+> -	int pos;
+> +	int pos, err;
+>  	u32 status, mask;
+>  
+>  	pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ERR);
+>  	if (!pos)
+>  		return -EIO;
+>  
+> -	pci_read_config_dword(dev, pos + PCI_ERR_UNCOR_STATUS, &status);
+> -	pci_read_config_dword(dev, pos + PCI_ERR_UNCOR_SEVER, &mask);
+> +	err = pci_read_config_dword(dev, pos + PCI_ERR_UNCOR_STATUS, &status);
+> +	if (err)
+> +		return err;
+> +
+> +	err = pci_read_config_dword(dev, pos + PCI_ERR_UNCOR_SEVER, &mask);
+> +	if (err)
+> +		return err;
+> +
+>  	if (dev->error_state == pci_channel_io_normal)
+>  		status &= ~mask; /* Clear corresponding nonfatal bits */
+>  	else
+>  		status &= mask; /* Clear corresponding fatal bits */
+> -	pci_write_config_dword(dev, pos + PCI_ERR_UNCOR_STATUS, status);
+> -
+> -	return 0;
+> +	return pci_write_config_dword(dev, pos + PCI_ERR_UNCOR_STATUS, status);
+>  }
+>  
+>  #if 0
+>  int pci_cleanup_aer_correct_error_status(struct pci_dev *dev)
+>  {
+> -	int pos;
+> +	int pos, err;
+>  	u32 status;
+>  
+>  	pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_ERR);
+>  	if (!pos)
+>  		return -EIO;
+>  
+> -	pci_read_config_dword(dev, pos + PCI_ERR_COR_STATUS, &status);
+> -	pci_write_config_dword(dev, pos + PCI_ERR_COR_STATUS, status);
+> +	err = pci_read_config_dword(dev, pos + PCI_ERR_COR_STATUS, &status);
+> +	if (err)
+> +		return err;
+>  
+> -	return 0;
+> +	return pci_write_config_dword(dev, pos + PCI_ERR_COR_STATUS, status);
+>  }
+>  #endif  /*  0  */
 
-I assumed, that one wants to register the framebuffer as early as 
-possible...
+This looks fine to me.  Thanks very much Stephen.
 
-Thanks
-Guennadi
----
-Guennadi Liakhovetski, Ph.D.
-Freelance Open-Source Software Developer
+-PJ Waskiewicz
