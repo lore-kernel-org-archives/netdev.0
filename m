@@ -1,44 +1,103 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [patch for 2.6.28? 1/1] bluetooth: Dell Wireless 365 requires
- reset quirk
-Date: Tue, 02 Dec 2008 01:22:19 +0100
-Message-ID: <1228177339.31158.155.camel@violet.holtmann.net>
-References: <200812012201.mB1M155p001654@imap1.linux-foundation.org>
-	 <1228169030.31158.154.camel@violet.holtmann.net> <49347D69.7070807@tpi.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH] ixgbe: Implement PCIe AER support
+Date: Mon, 01 Dec 2008 16:41:15 -0800
+Message-ID: <20081202004115.12058.64881.stgit@gitlost.lost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mario_limonciello-8PEkshWhKlo@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <49347D69.7070807-l6nL5VImRDY@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:60835 "EHLO
+	QMTA08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751438AbYLBAld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Dec 2008 19:41:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tim,
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-> >> This patch causes the BT365 to be reset when the driver is loaded. 
-> >> Without it, the machine is unable to connect to other devices or to scan
-> >> for devices.
-> >>
-> >> Signed-off-by: Mario Limonciello <mario_limonciello-8PEkshWhKlo@public.gmane.org>
-> >> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> >> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> >> Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> Cc: <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> >> Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-> > 
-> > NAK. I fixed this differently by making the reset quirk default.
->
-> Does that mean the devices in blacklist_table that have _only_
-> BTUSB_RESET should be removed? It would get rid of roughly half of the
-> entries.
+This patch implements the PCIe Advanced Error Reporting callbacks in
+ixgbe.  The 82598 hardware supports AER, so we enable it.
 
-that has already been done. See the pull request I sent to Dave.
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Regards
+ drivers/net/ixgbe/ixgbe.h      |    1 +
+ drivers/net/ixgbe/ixgbe_main.c |   26 ++++++++++++++++++--------
+ 2 files changed, 19 insertions(+), 8 deletions(-)
 
-Marcel
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 6cbf26e..e112008 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -32,6 +32,7 @@
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include <linux/inet_lro.h>
++#include <linux/aer.h>
+ 
+ #include "ixgbe_type.h"
+ #include "ixgbe_common.h"
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index e014a73..e9cb430 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4021,6 +4021,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 		goto err_pci_reg;
+ 	}
+ 
++	pci_enable_pcie_error_reporting(pdev);
++
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
+@@ -4296,6 +4298,8 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
+ 
+ 	free_netdev(netdev);
+ 
++	pci_disable_pcie_error_reporting(pdev);
++
+ 	pci_disable_device(pdev);
+ }
+ 
+@@ -4333,21 +4337,27 @@ static pci_ers_result_t ixgbe_io_slot_reset(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	pci_ers_result_t result;
+ 
+ 	if (pci_enable_device(pdev)) {
+ 		DPRINTK(PROBE, ERR,
+ 		        "Cannot re-enable PCI device after reset.\n");
+-		return PCI_ERS_RESULT_DISCONNECT;
+-	}
+-	pci_set_master(pdev);
+-	pci_restore_state(pdev);
++		result = PCI_ERS_RESULT_DISCONNECT;
++	} else {
++		pci_set_master(pdev);
++		pci_restore_state(pdev);
+ 
+-	pci_enable_wake(pdev, PCI_D3hot, 0);
+-	pci_enable_wake(pdev, PCI_D3cold, 0);
++		pci_enable_wake(pdev, PCI_D3hot, 0);
++		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+-	ixgbe_reset(adapter);
++		ixgbe_reset(adapter);
++
++		result = PCI_ERS_RESULT_RECOVERED;
++	}
++
++	pci_cleanup_aer_uncorrect_error_status(pdev);
+ 
+-	return PCI_ERS_RESULT_RECOVERED;
++	return result;
+ }
+ 
+ /**
+
