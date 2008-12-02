@@ -1,39 +1,37 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: GIT tree plans...
-Date: Tue, 02 Dec 2008 11:33:05 +0100
-Message-ID: <1228213985.31158.157.camel@violet.holtmann.net>
-References: <20081201.232124.30567891.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 0/5] IPsec parallelization
+Date: Tue, 2 Dec 2008 18:37:23 +0800
+Message-ID: <20081202103723.GA30976@gondor.apana.org.au>
+References: <20081201071614.GP476@secunet.com> <20081201084902.GA19904@gondor.apana.org.au> <20081201.022929.253639406.davem@davemloft.net> <20081201111501.GA20650@gondor.apana.org.au> <20081202075804.GD13998@secunet.com> <20081202081948.GA30063@gondor.apana.org.au> <20081202084419.GF13998@secunet.com> <20081202085325.GA30353@gondor.apana.org.au> <20081202093911.GH13998@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	klassert@mathematik.tu-chemnitz.de
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:36369 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbYLBKdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 05:33:12 -0500
-In-Reply-To: <20081201.232124.30567891.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:37654 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752614AbYLBKhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 05:37:31 -0500
+Content-Disposition: inline
+In-Reply-To: <20081202093911.GH13998@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-> There are a bunch of conflicts to resolve in the net-next-2.6
-> tree because of things in Linus's tree.
+On Tue, Dec 02, 2008 at 10:39:11AM +0100, Steffen Klassert wrote:
+>
+> I would not mind to move the padata hooks to the crypto layer.
 > 
-> So what I'm going to do is wait for Linus to take in the
-> net-2.6 pull request I just sent to him.  And afterwards
-> do all the necessary merges and conflict resolution to
-> get everything clean again.
+> But what's with the interface? Should it be moved to the crypto
+> layer too? I'm not sure, but perhaps it could find users beyond
+> the crypto layer.
 
-I don't expect that any of my stuff will conflict since it is nicely
-self-contained and I checked it against Linus' tree and net-next-2.6,
-but just in case it does. Let me know since I can very quickly create a
-new tree from my patch queue.
+As I said I have no objections to the padata stuff itself so
+I don't really mind either way.
 
-Regards
-
-Marcel
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
