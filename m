@@ -1,39 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] mac8390: update to net_device_ops
-Date: Tue, 02 Dec 2008 16:29:04 +0000
-Message-ID: <1228235344.6835.0.camel@achroite>
-References: <20081202081437.7c884ede@extreme>  <49355F62.6070309@pobox.com>
+From: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Subject: Re: [PATCH] enc28j60: Fix sporadic packet loss
+Date: Tue, 02 Dec 2008 15:11:26 +0100
+Message-ID: <4935420E.1010809@eptar.com>
+References: <20081202125046.GD24490@diamond.tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org
+To: Baruch Siach <baruch@tkos.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:34188 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751487AbYLBQ3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 11:29:08 -0500
-In-Reply-To: <49355F62.6070309@pobox.com>
+Received: from mx3.acantho.net ([213.174.182.196]:60206 "EHLO mx3.acantho.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755646AbYLBQx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2008 11:53:29 -0500
+Received: (from root@localhost)
+	by mx3.acantho.net (8.13.4/8.13.4/Debian-3sarge1) id mB2EBldQ000652
+	for <netdev@vger.kernel.org>; Tue, 2 Dec 2008 15:11:47 +0100
+In-Reply-To: <20081202125046.GD24490@diamond.tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-12-02 at 11:16 -0500, Jeff Garzik wrote:
-> Stephen Hemminger wrote:
-> > Another related 8390 driver. Since this is for nubus, not sure if anyone
-> > still has the hardware?
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> David indicated that he would prefer to continue handling net driver 
-> patches, so you can drop me from the CC.
+Baruch Siach wrote:
+> +/*
+> + * Calculate wrap arround when reading beyond the end of the RX buffer
+                      ^
+> + */
+> +static u16 rx_packet_start(u16 ptr)
+> +{
+> +	if (ptr + RSV_SIZE > RXEND_INIT)
+> +		return (ptr + RSV_SIZE) - (RXEND_INIT - RXSTART_INIT + 1);
+> +	else
+> +		return ptr;
+> +}
 
-I really don't believe that's what he meant.
+should be
+...
+	else
+		return ptr + RSV_SIZE;
 
-Ben.
+With this change you can add the line
+Acked-by: Claudio Lanconelli <lanconelli.claudio@eptar.com>
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+Cheers,
+Claudio
 
