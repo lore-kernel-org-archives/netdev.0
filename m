@@ -1,37 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: sumgem problems with initializiation order at a 1000SX SERDES
- card [experimental patch]
-Date: Mon, 01 Dec 2008 23:35:39 -0800 (PST)
-Message-ID: <20081201.233539.77173438.davem@davemloft.net>
-References: <20081125103029.GD12605@lemon.iwr.uni-heidelberg.de>
-	<20081126.011809.241693537.davem@davemloft.net>
-	<20081128000059.GA13712@lemon.iwr.uni-heidelberg.de>
+Subject: Re: net-next: lockdep complains re percpu counters
+Date: Mon, 01 Dec 2008 23:37:48 -0800 (PST)
+Message-ID: <20081201.233748.204870635.davem@davemloft.net>
+References: <20081130130726.GA4365@x200.localdomain>
+	<4932C128.6040401@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hermann.Lauer@iwr.uni-heidelberg.de
+Cc: adobriyan@gmail.com, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45004
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49951
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751064AbYLBHfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 02:35:39 -0500
-In-Reply-To: <20081128000059.GA13712@lemon.iwr.uni-heidelberg.de>
+	by vger.kernel.org with ESMTP id S1751454AbYLBHhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Dec 2008 02:37:47 -0500
+In-Reply-To: <4932C128.6040401@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hermann Lauer <Hermann.Lauer@iwr.uni-heidelberg.de>
-Date: Fri, 28 Nov 2008 01:00:59 +0100
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sun, 30 Nov 2008 17:36:56 +0100
 
-> Attached is an experimental patch which made my 1000SX sungem card (with phy_serdes) working.
-> As suspected, reinitialising the PCS part after the global reset in gem_reinit_chip()
-> gets autonegotiation working and the link is established also after an ifconfig up
-> command now. Access through the card did not show any errors so far.
+> [PATCH] net: percpu_counter_inc() should not be called in BH-disabled section
 > 
-> Will try to add the missing if clauses to the patch as time allows me, comments are welcome.
+> I checked all per_cpu_counter_xxx() usages in network tree, and I think
+> all call sites are BH enabled except one in inet_csk_listen_stop().
+> 
+> commit dd24c00191d5e4a1ae896aafe33c6b8095ab4bd1
+> (net: Use a percpu_counter for orphan_count)
+> replaced atomic_t orphan_count to a percpu_counter.
+> 
+> atomic_inc()/atomic_dec() can be called from any context, while percpu_counter_xxx()
+> should be called from a consistent state.
+> 
+> For orphan_count, this context can be the BH-enabled one.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Thanks a lot for doing this work and tracking down the problem.
+I applied this preemptively even though Alexey hasn't given
+test feedback yet, and I also added a mention of his report
+in the commit message.
 
-I'll take a look at your patch as soon as I can.
-
-Thanks again.
+Thanks.
