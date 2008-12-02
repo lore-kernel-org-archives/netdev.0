@@ -1,53 +1,78 @@
-From: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
-Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
-Date: Tue, 2 Dec 2008 08:34:22 -0700 (MST)
-Message-ID: <54783.91.201.80.240.1228232062.squirrel@mail.embedromix.ro>
-References: <1227706578-5449-1-git-send-email-catab@embedromix.ro>
-    <Pine.LNX.4.64.0811260636100.26650@wm7d.net>
-    <37809.91.201.80.240.1227769089.squirrel@mail.embedromix.ro>
-    <Pine.LNX.4.64.0811270754290.32640@wm7d.net>
-    <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
-    <Pine.LNX.4.64.0811280653570.21298@wm7d.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] mac8390: update to net_device_ops
+Date: Tue, 2 Dec 2008 08:14:37 -0800
+Message-ID: <20081202081437.7c884ede@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
-To: "Joseph Mack NA3T" <jmack@wm7d.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0811280653570.21298@wm7d.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:45573 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750748AbYLBQOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Dec 2008 11:14:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Joe!
+Another related 8390 driver. Since this is for nubus, not sure if anyone
+still has the hardware?
 
-> On Fri, 28 Nov 2008, Catalin(ux) M. BOIE wrote:
->
->> Hello, Joe!
->>
->> No, I did not measure it, but, I read the help text:
-> .
-> .
->> The help is wrong or I am missing something?
->
-> there's a bit somewhere else in the same section saying not
-> to change the hash size unless you know more than we do :-)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Where, exactly?
-
-So, should I not change it at all even if I have a great number of
-simultaneously connections?
-
-> Joe
->
-> --
-> Joseph Mack NA3T EME(B,D), FM05lw North Carolina
-> jmack (at) wm7d (dot) net - azimuthal equidistant map
-> generator at http://www.wm7d.net/azproj.shtml
-> Homepage http://www.austintek.com/ It's GNU/Linux!
->
-
-
--- 
-Catalin(ux) M. BOIE
-http://kernel.embedromix.ro/
-
+--- a/drivers/net/Makefile	2008-12-02 07:58:02.000000000 -0800
++++ b/drivers/net/Makefile	2008-12-02 07:56:15.000000000 -0800
+@@ -97,7 +97,7 @@ obj-$(CONFIG_HAMACHI) += hamachi.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_SEEQ8005) += seeq8005.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+-obj-$(CONFIG_MAC8390) += mac8390.o
++obj-$(CONFIG_MAC8390) += mac8390.o 8390.o
+ obj-$(CONFIG_APNE) += apne.o 8390.o
+ obj-$(CONFIG_PCMCIA_PCNET) += 8390.o
+ obj-$(CONFIG_HP100) += hp100.o
+--- a/drivers/net/mac8390.c	2008-12-02 07:58:07.000000000 -0800
++++ b/drivers/net/mac8390.c	2008-12-02 07:56:24.000000000 -0800
+@@ -304,7 +304,7 @@ struct net_device * __init mac8390_probe
+ 	if (!MACH_IS_MAC)
+ 		return ERR_PTR(-ENODEV);
+ 
+-	dev = ____alloc_ei_netdev(0);
++	dev = alloc_ei_netdev();
+ 	if (!dev)
+ 		return ERR_PTR(-ENOMEM);
+ 
+@@ -478,6 +478,20 @@ void cleanup_module(void)
+ 
+ #endif /* MODULE */
+ 
++static const struct net_device_ops mac8390_netdev_ops = {
++	.ndo_open 		= mac8390_open,
++	.ndo_stop		= mac8390_close,
++	.ndo_start_xmit		= ei_start_xmit,
++	.ndo_tx_timeout		= ei_tx_timeout,
++	.ndo_get_stats		= ei_get_stats,
++	.ndo_set_multicast_list = ei_set_multicast_list,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_change_mtu		= eth_change_mtu,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= ei_poll,
++#endif
++};
++
+ static int __init mac8390_initdev(struct net_device * dev, struct nubus_dev * ndev,
+ 			    enum mac8390_type type)
+ {
+@@ -503,11 +517,7 @@ static int __init mac8390_initdev(struct
+ 	int access_bitmode = 0;
+ 
+ 	/* Now fill in our stuff */
+-	dev->open = &mac8390_open;
+-	dev->stop = &mac8390_close;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = __ei_poll;
+-#endif
++	dev->netdev_ops = &mac8390_netdev_ops;
+ 
+ 	/* GAR, ei_status is actually a macro even though it looks global */
+ 	ei_status.name = cardname[type];
