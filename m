@@ -1,27 +1,27 @@
 From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Subject: RE: [PATCH next 1/2]e1000: e1000_adapter->polling_netdev is useless
-Date: Wed, 3 Dec 2008 14:44:44 -0800
-Message-ID: <A78C6259B11833419567082E2DC0C256BD9F307B@orsmsx508.amr.corp.intel.com>
+Subject: RE: [PATCH next 2/2]ixgbe: function comment typo
+Date: Wed, 3 Dec 2008 14:42:51 -0800
+Message-ID: <A78C6259B11833419567082E2DC0C256BD9F3076@orsmsx508.amr.corp.intel.com>
 References: <49353915.4060002@cn.fujitsu.com>
  <20081202.150623.70107608.davem@davemloft.net>
- <49368245.5040804@cn.fujitsu.com>
+ <49368249.1020608@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/x-pkcs7-signature";
-	micalg=SHA1; boundary="----=_NextPart_000_004A_01C95555.AEC30F90"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wang Chen <wangchen@cn.fujitsu.com>,
+	micalg=SHA1; boundary="----=_NextPart_000_0045_01C95555.6B1EEDE0"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25116 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:55925 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752603AbYLCWo4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2008 17:44:56 -0500
-In-Reply-To: <49368245.5040804@cn.fujitsu.com>
+	id S1752559AbYLCWs3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2008 17:48:29 -0500
+In-Reply-To: <49368249.1020608@cn.fujitsu.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_NextPart_000_004A_01C95555.AEC30F90
+------=_NextPart_000_0045_01C95555.6B1EEDE0
 Content-Type: text/plain;
 	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -31,41 +31,22 @@ Content-Transfer-Encoding: 7bit
 >Sent: Wednesday, December 03, 2008 4:58 AM
 >To: David Miller
 >Cc: Kirsher, Jeffrey T; netdev@vger.kernel.org
->Subject: [PATCH next 1/2]e1000: e1000_adapter->polling_netdev is useless
+>Subject: [PATCH next 2/2]ixgbe: function comment typo
 >
->David Miller said the following on 2008-12-3 7:06:
->> From: Wang Chen <wangchen@cn.fujitsu.com>
->> Date: Tue, 02 Dec 2008 21:33:09 +0800
->>
->>> e1000_adapter->polling_netdev is not actually used after allocated.
->>> So, my question is that is it useless?
->>
->> It's probably a leftover from before we added support for
->> multiqueue NAPI.
->>
->> Intel folks can probably confirm.
->
->Commit bea3348eef27e6044b6161fd04c3152215f96411
->"[NET]: Make NAPI polling independent of struct net_device objects."
->made NAPI polling to be independent of net_device.
->So e1000_adapter->polling_netdev is no longer used.
->Kill it.
+>Seems the ixgbe's code was copied from e1000.
+>The comment talks about something not exist.
 >
 >Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 >---
-> drivers/net/e1000/e1000.h      |    1 -
-> drivers/net/e1000/e1000_main.c |   27 +--------------------------
-> 2 files changed, 1 insertions(+), 27 deletions(-)
->
+> drivers/net/ixgbe/ixgbe_main.c |    3 +--
+> 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Just to make sure that this does not break anything, I currently have this
-patch in testing.
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Cheers,
 Jeff
 
-
-------=_NextPart_000_004A_01C95555.AEC30F90
+------=_NextPart_000_0045_01C95555.6B1EEDE0
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="smime.p7s"
@@ -114,16 +95,16 @@ nDmOjCBPZV+V2vf3h9bGCE6u9uo05RAaWzVNd+NWIXiC3CEZNd4ksdMdRv9dX2VPMYIC+DCCAvQC
 AQEwdjBiMQswCQYDVQQGEwJaQTElMCMGA1UEChMcVGhhd3RlIENvbnN1bHRpbmcgKFB0eSkgTHRk
 LjEsMCoGA1UEAxMjVGhhd3RlIFBlcnNvbmFsIEZyZWVtYWlsIElzc3VpbmcgQ0ECEGzl/uJgiQs7
 SuPkGt9KQTAwCQYFKw4DAhoFAKCCAdgwGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG
-9w0BCQUxDxcNMDgxMjAzMjI0NDQ0WjAjBgkqhkiG9w0BCQQxFgQUHm0n2ADjtgA9YHv6MJA9lnly
-RZkwZwYJKoZIhvcNAQkPMVowWDAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcN
+9w0BCQUxDxcNMDgxMjAzMjI0MjUxWjAjBgkqhkiG9w0BCQQxFgQUgowfaz4S22pa79T8Xm/XKArv
+5gkwZwYJKoZIhvcNAQkPMVowWDAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcN
 AwICAUAwBwYFKw4DAgcwDQYIKoZIhvcNAwICASgwBwYFKw4DAhowCgYIKoZIhvcNAgUwgYUGCSsG
 AQQBgjcQBDF4MHYwYjELMAkGA1UEBhMCWkExJTAjBgNVBAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQ
 dHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQZXJzb25hbCBGcmVlbWFpbCBJc3N1aW5nIENBAhBs
 5f7iYIkLO0rj5BrfSkEwMIGHBgsqhkiG9w0BCRACCzF4oHYwYjELMAkGA1UEBhMCWkExJTAjBgNV
 BAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQZXJzb25h
 bCBGcmVlbWFpbCBJc3N1aW5nIENBAhBs5f7iYIkLO0rj5BrfSkEwMA0GCSqGSIb3DQEBAQUABIGA
-TdoBDcyHbmQ7eOe7Y7PqVsy3prqVz7qzo2BNtr8s9wk61J1G6HuxPcGyuc5QuDBv3vXdd18SDjOe
-MyvAJeEE+yws6p+oOkm4lUJK7is2ea9BUTXIoPA6wKwFinigjhUyo5MrUGdit6DlWCri2s0M2nv0
-DxQBu0uj4MkCbbZlAwoAAAAAAAA=
+JdWd/r47DHUWpIuKVqjgOe4gsn0RFaBzy1ei4wGsuOT8zeaxmhSPYvQ3+Xed3osDKw+JmaJI8YJc
+qGNalLQVVBOL09PnRv5rx37Cd2lUcVYr58tGNJUqNCa0FXSNrM6edTEWNbz2xqItDTNPE6RN7QUf
+fWXPbgPtMDJ61SiSPb4AAAAAAAA=
 
-------=_NextPart_000_004A_01C95555.AEC30F90--
+------=_NextPart_000_0045_01C95555.6B1EEDE0--
