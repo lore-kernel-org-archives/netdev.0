@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] xfrm: Accept XFRM_STATE_AF_UNSPEC SAs on IPv4/IPv6
- only hosts
-Date: Wed, 03 Dec 2008 15:38:49 -0800 (PST)
-Message-ID: <20081203.153849.98369998.davem@davemloft.net>
-References: <1227629406.21037.193.camel@martin>
+Subject: Re: [PATCH net-next] Phonet: basic net namespace support
+Date: Wed, 03 Dec 2008 15:43:48 -0800 (PST)
+Message-ID: <20081203.154348.131841637.davem@davemloft.net>
+References: <1228132957-18373-1-git-send-email-remi.denis-courmont@nokia.com>
+	<1228133869.10480.10.camel@iris.sw.ru>
+	<200812011436.25064.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: martin@strongswan.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: den@parallels.com, netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46404
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45733
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755055AbYLCXis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 18:38:48 -0500
-In-Reply-To: <1227629406.21037.193.camel@martin>
+	by vger.kernel.org with ESMTP id S1754487AbYLCXns convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2008 18:43:48 -0500
+In-Reply-To: <200812011436.25064.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Willi <martin@strongswan.org>
-Date: Tue, 25 Nov 2008 17:10:06 +0100
+=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
+Date: Mon, 1 Dec 2008 14:36:24 +0200
 
-> Installing SAs using the XFRM_STATE_AF_UNSPEC fails on hosts with
-> support for one address family only. This patch accepts such SAs, even
-> if the processing of not supported packets will fail.
-> 
-> Signed-off-by: Martin Willi <martin@strongswan.org>
-> 
-> ---
-> For me the meaning of that flag is not really clear. If it means
-> "I-want-to-run-v6-in-v4-or-vice-versa" then the current behavior
-> (reject SA) is probably ok.
-> However, in my understanding ("accept-any-inner-address-family"), the
-> kernel should accept such SAs. Otherwise userspace has to query the
-> supported address families.
+> Ah ok, thanks for pointing it out. Here comes the two rewritten patch=
+es...
 
-Ok, your interpretation works for me, I've applied this to
-net-next-2.6, thanks.
+I've applied both updated patches.
+
+Thank you.
