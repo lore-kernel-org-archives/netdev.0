@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/3 v2] pkt_sched: sch_htb: Clean L2T()
-Date: Wed, 03 Dec 2008 00:20:46 -0800 (PST)
-Message-ID: <20081203.002046.153795689.davem@davemloft.net>
-References: <20081203070947.GA5598@ff.dom.local>
-	<20081202.232522.108544572.davem@davemloft.net>
-	<20081203075433.GA7137@ff.dom.local>
+Subject: Re: [PATCH 1/2] xfrm: Fix kernel panic when flush and dump SPD
+ entries
+Date: Wed, 03 Dec 2008 00:28:06 -0800 (PST)
+Message-ID: <20081203.002806.247278880.davem@davemloft.net>
+References: <20081201081111.GA19615@gondor.apana.org.au>
+	<20081201.003821.42061993.davem@davemloft.net>
+	<4933B37C.1020108@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devik@cdi.cz, kaber@trash.net, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: yjwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60034
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59774
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751259AbYLCIUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 03:20:46 -0500
-In-Reply-To: <20081203075433.GA7137@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1751243AbYLCI2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 03:28:06 -0500
+In-Reply-To: <4933B37C.1020108@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 3 Dec 2008 07:54:33 +0000
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Date: Mon, 01 Dec 2008 17:50:52 +0800
 
-> On Tue, Dec 02, 2008 at 11:25:22PM -0800, David Miller wrote:
-> ...
-> > Jarek, please just kill the macro and expand the calculation inline.
+> After flush the SPD entries, dump the SPD entries will cause kernel painc.
+ ...
+> This is because when flush the SPD entries, the SPD entry is not remove
+> from the list.
 > 
-> Hmm.. no problem... unless you think about the other macro?
+> This patch fix the problem by remove the SPD entry from the list.
+> 
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-You misunderstood me.
-
-I meant get rid of L2T completely, and just use
-"qdisc_l2t(rate, size)" directly.
-
-Macros like this one:
-
-1) are used in only one spot
-2) give no new information to the reader
-
-so are just extra noise.
+Applied to net-2.6, thanks a lot Wei.
