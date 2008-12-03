@@ -1,152 +1,365 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m
-	driver v2
-Date: Wed, 03 Dec 2008 18:03:49 -0500
-Message-ID: <1228345429.25647.36.camel@localhost.localdomain>
-References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <1227783281.3809.78.camel@johannes.berg>
-	 <200812021807.25873.inaky@linux.intel.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] netdev: remove pathetic compile-command lines
+Date: Thu, 4 Dec 2008 02:35:26 +0300
+Message-ID: <20081203233526.GA2448@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:37438 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753862AbYLCXEs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2008 18:04:48 -0500
-In-Reply-To: <200812021807.25873.inaky@linux.intel.com>
+Received: from ug-out-1314.google.com ([66.249.92.171]:4574 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754464AbYLCXbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 18:31:14 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so3573626ugf.37
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2008 15:31:12 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-12-02 at 18:07 -0800, Inaky Perez-Gonzalez wrote:
-> On Thursday 27 November 2008, Johannes Berg wrote:
-> > along, more functionality was moved to the host (yes, you say this
-> > won't happen with wimax, but I think it will, eventually, if wimax
-> > gets to be popular enough. never say never), and wext got more
-> 
-> Agree, never say never; but these are the reasons why I highly doubt
-> it'll ever happen:
-> 
->  - WiMAX spectrum is heavily regulated
+-m486, -O6 are partircularly amusing.
 
-Well, to be fair 3.5GHz is "lightly regulated" here in the US, you just
-have to register your base station with the FCC and as long as nobody
-else has done so in your area, you win.  The Intel parts don't support
-3.5 GHz, but I'm sure somebody elses parts will in the future.
+Remove some other useless lines near as well.
 
-TowerStream has already deployed 3.5GHz fixed WiMAX gear here in Boston,
-though they are doing fixed access/T1-replacement for businesses, not a
-large consumer-focused mobile wimax network like XOHM/Clear.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Dan
+ drivers/net/3c507.c          |   11 -----------
+ drivers/net/3c515.c          |    8 --------
+ drivers/net/82596.c          |    6 ------
+ drivers/net/acenic.c         |    7 -------
+ drivers/net/appletalk/cops.c |    8 --------
+ drivers/net/at1700.c         |   12 ------------
+ drivers/net/de620.c          |   17 -----------------
+ drivers/net/defxx.c          |    7 -------
+ drivers/net/eth16i.c         |   12 ------------
+ drivers/net/ewrk3.c          |   10 ----------
+ drivers/net/hp100.c          |    9 ---------
+ drivers/net/isa-skeleton.c   |   12 ------------
+ drivers/net/mac89x0.c        |   11 -----------
+ drivers/net/ni5010.c         |    9 ---------
+ drivers/net/ni52.c           |    6 ------
+ drivers/net/ni65.c           |    6 ------
+ drivers/net/plip.c           |    6 ------
+ drivers/net/rrunner.c        |    6 ------
+ drivers/net/seeq8005.c       |    9 ---------
+ drivers/net/yellowfin.c      |   11 -----------
+ 20 files changed, 183 deletions(-)
 
->  - Operators won't allow it. They want tightly safe, certified and
->    tested firmwares/devices that adhere to the standard so they can
->    make sure devices don't mess up a single hertz as that means lost
->    money, especially with a radio that can beam over miles.
-> 
->  - Certification (required) of stacks make it almost
->    impossible to maintain a soft implementation.
-> 
-> > messy. Wext even was defining actual operations, as undefined as
-> > they often were, you're not even doing that.
-> 
-> Why would I define them when I don't even know how they are going to
-> look like? It is not as simple as it looks.
-> 
-> The basics that aren't covered in current's kernel API are scan,
-> connect, disconnect. Disconnect is simple, but scan & connect? very
-> much impossible to tell what common ground is going to be until more
-> devices show up.
-> 
-> For scanning, some devices require to be told exactly where to scan in
-> (as in which combination of band, fft width and coloring of the
-> band). Some others don't. Then of course, the scan results might be
-> operators? Network Service Providers? Network Access Providers?  base
-> station IDs? how do you stitch'em together? You need information to
-> map from one to the other, and that is device specific depending on at
-> which level they work. How to stich that information together depends
-> on the network too (OMA-DM and provisining information help to compose
-> this). If it is done at the device/firmware level or at the host level
-> is device specific.
-> 
-> Connect has exactly the same levels of issues as scan: what do I
-> connect to? A base station? a NAP or an NSP?
-> 
-> So back to the original question: I have no information to define such
-> an interface at low level, so I am not defining it. Simple :/
-> 
-> > I don't think you can say it's like cfg80211, cfg80211 in fact does a
-> > lot more than the wimax "stack", it can validate parameters for
-> > example, and provides actual operations (key operations, peer
-> > operations, scanning [soon], ...) rather than just a transport to
-> > the driver. As I've said on the relevant patch, I'd love to see the
-> > wimax stack take more of that direction.
-> 
-> If it has to happen, it will happen eventually. If it is a stack or
-> not as of now and just a simple control interface, not that I really
-> mind. It's just a name.
-> 
-> > I don't see that as much of a problem. Many of the commands you have
-> > defined for the i2400m driver are very generic, for example:
-> 
-> As I said above, it is not so simple. They are not as generic as they
-> look. 
-> 
-> > This is the biggest issue I see here. I don't see how the stack
-> > helps anyone implement a driver for a new device. Sure, they won't
-> > have to come up with a new transport, write less lines of generic
-> > netlink code, but ultimately that's not the hard part, the hard part
-> > is getting the relevant operations right etc.
-> 
-> I agree -- and that's the whole reason why the "stack" is
-> there--because even if it doesn't look so hard, it's just a
-> pain. 
-> 
-> This way someone comes in with a need for a driver and then we can
-> start deciding how to cut the scan & connect interfaces. Maybe it
-> makes no sense to do it at the kernel level and it has to be done at
-> user space, as the i2400m does it; then the kernel API stays the
-> same...until another driver comes in...etc. Don't fix it if it ain't
-> broke. 
-> 
-> > This really means you're putting the actual "driver", the piece that
-> > does the hardware abstraction, into userspace. And in a binary daemon
-> > even, afaict. This was quickly shot down with ipw3945/4965, not sure why
-> > nobody has cared here so far. Maybe because you're actually planning to
-> > open source that part.
-> 
-> Nope. I am putting the part that knows how to scan and connect in user 
-> space because it does not belong in kernel space. It is big and complex, 
-> needs permanent storage, requires complex crypto code and can really
-> use a OMA-DM client to communicate with the network.
-> 
-> Not a binary, btw. Currently the supplicant is a binary, but that will
-> change. The OMA-DM client daemon is also a binary as of now and we
-> are still thinking how to fix that situation, as there are no open
-> source equivalents. Luckily, it is kind of optional.
-> 
-> > Couldn't the stack provide more functionality here? Somewhere else
-> > you speak of using ethernet vs. rawip, couldn't the stack do that
-> > translation, possibly even allowing both rawip and ethernet to
-> > coexist, or be switchable at runtime if you have a working dhcp
-> > client?
-> 
-> The stack is a control plane, not a data plane. Each driver implements
-> data frame passing the way that is most optimal to the device it
-> implements support for.
-> 
-> There is not good reason (as of now) that justifies the extra overhead
-> that would be introduced by the "stack" doing it. 
-> 
-> The only reason I would see that happening would be a mac80211 like
-> case, where the stack is doing packet handling in a hypothetical
-> soft-mac implementation. As I said above, I highly doubt that
-> scenario.
-> 
-> Thanks,
-> 
-
+--- a/drivers/net/3c507.c
++++ b/drivers/net/3c507.c
+@@ -936,14 +936,3 @@ cleanup_module(void)
+ }
+ #endif /* MODULE */
+ MODULE_LICENSE("GPL");
+-
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -I/usr/src/linux/drivers/net -Wall -Wstrict-prototypes -O6 -m486 -c 3c507.c"
+- *  version-control: t
+- *  kept-new-versions: 5
+- *  tab-width: 4
+- *  c-indent-level: 4
+- * End:
+- */
+--- a/drivers/net/3c515.c
++++ b/drivers/net/3c515.c
+@@ -1577,11 +1577,3 @@ void cleanup_module(void)
+ 	}
+ }
+ #endif				/* MODULE */
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -DMODULE -D__KERNEL__ -Wall -Wstrict-prototypes -O6 -c 3c515.c"
+- *  c-indent-level: 4
+- *  tab-width: 4
+- * End:
+- */
+--- a/drivers/net/82596.c
++++ b/drivers/net/82596.c
+@@ -1598,9 +1598,3 @@ void __exit cleanup_module(void)
+ }
+ 
+ #endif				/* MODULE */
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c 82596.c"
+- * End:
+- */
+--- a/drivers/net/acenic.c
++++ b/drivers/net/acenic.c
+@@ -3224,10 +3224,3 @@ static int __devinit read_eeprom_byte(struct net_device *dev,
+ 	       ap->name, offset);
+ 	goto out;
+ }
+-
+-
+-/*
+- * Local variables:
+- * compile-command: "gcc -D__SMP__ -D__KERNEL__ -DMODULE -I../../include -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -pipe -fno-strength-reduce -DMODVERSIONS -include ../../include/linux/modversions.h   -c -o acenic.o acenic.c"
+- * End:
+- */
+--- a/drivers/net/appletalk/cops.c
++++ b/drivers/net/appletalk/cops.c
+@@ -1024,11 +1024,3 @@ static void __exit cops_module_exit(void)
+ module_init(cops_module_init);
+ module_exit(cops_module_exit);
+ #endif /* MODULE */
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -DMODVERSIONS -DMODULE -D__KERNEL__ -Wall -Wstrict-prototypes -O2 -c cops.c"
+- *  c-basic-offset: 4
+- *  c-file-offsets: ((substatement-open . 0))
+- * End:
+- */
+--- a/drivers/net/at1700.c
++++ b/drivers/net/at1700.c
+@@ -899,15 +899,3 @@ module_init(at1700_module_init);
+ module_exit(at1700_module_exit);
+ #endif /* MODULE */
+ MODULE_LICENSE("GPL");
+-
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -DMODULE -D__KERNEL__ -Wall -Wstrict-prototypes -O6 -c at1700.c"
+- *  alt-compile-command: "gcc -DMODVERSIONS -DMODULE -D__KERNEL__ -Wall -Wstrict-prototypes -O6 -c at1700.c"
+- *  tab-width: 4
+- *  c-basic-offset: 4
+- *  c-indent-level: 4
+- * End:
+- */
+-
+--- a/drivers/net/de620.c
++++ b/drivers/net/de620.c
+@@ -1003,20 +1003,3 @@ void cleanup_module(void)
+ }
+ #endif /* MODULE */
+ MODULE_LICENSE("GPL");
+-
+-
+-/*
+- * (add '-DMODULE' when compiling as loadable module)
+- *
+- * compile-command:
+- *	gcc -D__KERNEL__ -Wall -Wstrict-prototypes -O2 \
+- *	 -fomit-frame-pointer -m486 \
+- *	-I/usr/src/linux/include -I../../net/inet -c de620.c
+-*/
+-/*
+- * Local variables:
+- *  kernel-compile-command: "gcc -D__KERNEL__ -Ilinux/include -I../../net/inet -Wall -Wstrict-prototypes -O2 -m486 -c de620.c"
+- *  module-compile-command: "gcc -D__KERNEL__ -DMODULE -Ilinux/include -I../../net/inet -Wall -Wstrict-prototypes -O2 -m486 -c de620.c"
+- *  compile-command: "gcc -D__KERNEL__ -DMODULE -Ilinux/include -I../../net/inet -Wall -Wstrict-prototypes -O2 -m486 -c de620.c"
+- * End:
+- */
+--- a/drivers/net/defxx.c
++++ b/drivers/net/defxx.c
+@@ -3743,10 +3743,3 @@ MODULE_AUTHOR("Lawrence V. Stefani");
+ MODULE_DESCRIPTION("DEC FDDIcontroller TC/EISA/PCI (DEFTA/DEFEA/DEFPA) driver "
+ 		   DRV_VERSION " " DRV_RELDATE);
+ MODULE_LICENSE("GPL");
+-
+-
+-/*
+- * Local variables:
+- * kernel-compile-command: "gcc -D__KERNEL__ -I/root/linux/include -Wall -Wstrict-prototypes -O2 -pipe -fomit-frame-pointer -fno-strength-reduce -m486 -malign-loops=2 -malign-jumps=2 -malign-functions=2 -c defxx.c"
+- * End:
+- */
+--- a/drivers/net/eth16i.c
++++ b/drivers/net/eth16i.c
+@@ -1474,15 +1474,3 @@ void __exit cleanup_module(void)
+ 	}
+ }
+ #endif /* MODULE */
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -DMODULE -D__KERNEL__ -Wall -Wstrict-prototypes -O6 -c eth16i.c"
+- *  alt-compile-command: "gcc -DMODVERSIONS -DMODULE -D__KERNEL__ -Wall -Wstrict -prototypes -O6 -c eth16i.c"
+- *  tab-width: 8
+- *  c-basic-offset: 8
+- *  c-indent-level: 8
+- * End:
+- */
+-
+-/* End of file eth16i.c */
+--- a/drivers/net/ewrk3.c
++++ b/drivers/net/ewrk3.c
+@@ -1967,13 +1967,3 @@ module_exit(ewrk3_exit_module);
+ module_init(ewrk3_init_module);
+ #endif				/* MODULE */
+ MODULE_LICENSE("GPL");
+-
+-
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -D__KERNEL__ -I/linux/include -Wall -Wstrict-prototypes -fomit-frame-pointer -fno-strength-reduce -malign-loops=2 -malign-jumps=2 -malign-functions=2 -O2 -m486 -c ewrk3.c"
+- *
+- *  compile-command: "gcc -D__KERNEL__ -DMODULE -I/linux/include -Wall -Wstrict-prototypes -fomit-frame-pointer -fno-strength-reduce -malign-loops=2 -malign-jumps=2 -malign-functions=2 -O2 -m486 -c ewrk3.c"
+- * End:
+- */
+--- a/drivers/net/hp100.c
++++ b/drivers/net/hp100.c
+@@ -3054,12 +3054,3 @@ static void __exit hp100_module_exit(void)
+ 
+ module_init(hp100_module_init)
+ module_exit(hp100_module_exit)
+-
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c hp100.c"
+- *  c-indent-level: 2
+- *  tab-width: 8
+- * End:
+- */
+--- a/drivers/net/isa-skeleton.c
++++ b/drivers/net/isa-skeleton.c
+@@ -709,15 +709,3 @@ cleanup_module(void)
+ }
+ 
+ #endif /* MODULE */
+-
+-/*
+- * Local variables:
+- *  compile-command:
+- *	gcc -D__KERNEL__ -Wall -Wstrict-prototypes -Wwrite-strings
+- *	-Wredundant-decls -O2 -m486 -c skeleton.c
+- *  version-control: t
+- *  kept-new-versions: 5
+- *  tab-width: 4
+- *  c-indent-level: 4
+- * End:
+- */
+--- a/drivers/net/mac89x0.c
++++ b/drivers/net/mac89x0.c
+@@ -625,14 +625,3 @@ cleanup_module(void)
+ 	free_netdev(dev_cs89x0);
+ }
+ #endif /* MODULE */
+-
+-/*
+- * Local variables:
+- *  compile-command: "m68k-linux-gcc -D__KERNEL__ -I../../include -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -pipe -fno-strength-reduce -ffixed-a2 -DMODULE -DMODVERSIONS -include ../../include/linux/modversions.h   -c -o mac89x0.o mac89x0.c"
+- *  version-control: t
+- *  kept-new-versions: 5
+- *  c-indent-level: 8
+- *  tab-width: 8
+- * End:
+- *
+- */
+--- a/drivers/net/ni5010.c
++++ b/drivers/net/ni5010.c
+@@ -766,12 +766,3 @@ module_init(ni5010_init_module);
+ module_exit(ni5010_cleanup_module);
+ #endif /* MODULE */
+ MODULE_LICENSE("GPL");
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c ni5010.c"
+- *  version-control: t
+- *  kept-new-versions: 5
+- *  tab-width: 4
+- * End:
+- */
+--- a/drivers/net/ni52.c
++++ b/drivers/net/ni52.c
+@@ -9,8 +9,6 @@
+  *    [feel free to mail ....]
+  *
+  * when using as module: (no autoprobing!)
+- *   compile with:
+- *       gcc -O2 -fomit-frame-pointer -m486 -D__KERNEL__ -DMODULE -c ni52.c
+  *   run with e.g:
+  *       insmod ni52.o io=0x360 irq=9 memstart=0xd0000 memend=0xd4000
+  *
+@@ -1345,7 +1343,3 @@ void __exit cleanup_module(void)
+ #endif /* MODULE */
+ 
+ MODULE_LICENSE("GPL");
+-
+-/*
+- * END: linux/drivers/net/ni52.c
+- */
+--- a/drivers/net/ni65.c
++++ b/drivers/net/ni65.c
+@@ -7,8 +7,6 @@
+  * EtherBlaster. (probably it also works with every full NE2100
+  * compatible card)
+  *
+- * To compile as module, type:
+- *     gcc -O2 -fomit-frame-pointer -m486 -D__KERNEL__ -DMODULE -c ni65.c
+  * driver probes: io: 0x360,0x300,0x320,0x340 / dma: 3,5,6,7
+  *
+  * This is an extension to the Linux operating system, and is covered by the
+@@ -1265,7 +1263,3 @@ void __exit cleanup_module(void)
+ #endif /* MODULE */
+ 
+ MODULE_LICENSE("GPL");
+-
+-/*
+- * END of ni65.c
+- */
+--- a/drivers/net/plip.c
++++ b/drivers/net/plip.c
+@@ -1396,9 +1396,3 @@ static int __init plip_init (void)
+ module_init(plip_init);
+ module_exit(plip_cleanup_module);
+ MODULE_LICENSE("GPL");
+-
+-/*
+- * Local variables:
+- * compile-command: "gcc -DMODULE -DMODVERSIONS -D__KERNEL__ -Wall -Wstrict-prototypes -O2 -g -fomit-frame-pointer -pipe -c plip.c"
+- * End:
+- */
+--- a/drivers/net/rrunner.c
++++ b/drivers/net/rrunner.c
+@@ -1713,9 +1713,3 @@ static void __exit rr_cleanup_module(void)
+ 
+ module_init(rr_init_module);
+ module_exit(rr_cleanup_module);
+-
+-/*
+- * Local variables:
+- * compile-command: "gcc -D__KERNEL__ -I../../include -Wall -Wstrict-prototypes -O2 -pipe -fomit-frame-pointer -fno-strength-reduce -m486 -malign-loops=2 -malign-jumps=2 -malign-functions=2 -DMODULE -DMODVERSIONS -include ../../include/linux/modversions.h -c rrunner.c"
+- * End:
+- */
+--- a/drivers/net/seeq8005.c
++++ b/drivers/net/seeq8005.c
+@@ -744,12 +744,3 @@ void __exit cleanup_module(void)
+ }
+ 
+ #endif /* MODULE */
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c skeleton.c"
+- *  version-control: t
+- *  kept-new-versions: 5
+- *  tab-width: 4
+- * End:
+- */
+--- a/drivers/net/yellowfin.c
++++ b/drivers/net/yellowfin.c
+@@ -1424,14 +1424,3 @@ static void __exit yellowfin_cleanup (void)
+ 
+ module_init(yellowfin_init);
+ module_exit(yellowfin_cleanup);
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -DMODULE -Wall -Wstrict-prototypes -O6 -c yellowfin.c"
+- *  compile-command-alphaLX: "gcc -DMODULE -Wall -Wstrict-prototypes -O2 -c yellowfin.c -fomit-frame-pointer -fno-strength-reduce -mno-fp-regs -Wa,-m21164a -DBWX_USABLE -DBWIO_ENABLED"
+- *  simple-compile-command: "gcc -DMODULE -O6 -c yellowfin.c"
+- *  c-indent-level: 4
+- *  c-basic-offset: 4
+- *  tab-width: 4
+- * End:
+- */
