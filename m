@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] linux-2.6.28-rc3 regression: IRQ smp_affinities not
- respected
-Date: Wed, 03 Dec 2008 00:36:36 -0800 (PST)
-Message-ID: <20081203.003636.114008977.davem@davemloft.net>
-References: <1227719692.13189.7.camel@HP1>
-	<1228173819.15505.15.camel@HP1>
-	<4934D000.5000304@cosmosbay.com>
+Subject: Re: [PATCH] netlabel: Fix a potential NULL pointer dereference
+Date: Wed, 03 Dec 2008 00:37:16 -0800 (PST)
+Message-ID: <20081203.003716.129097109.davem@davemloft.net>
+References: <20081202032755.17851.61631.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58683
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58685
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750951AbYLCNYY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2008 08:24:24 -0500
-In-Reply-To: <4934D000.5000304@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1751015AbYLCNYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 08:24:24 -0500
+In-Reply-To: <20081202032755.17851.61631.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 02 Dec 2008 07:04:48 +0100
+From: Paul Moore <paul.moore@hp.com>
+Date: Mon, 01 Dec 2008 22:27:55 -0500
 
-> Michael Chan a =E9crit :
-> > [PATCH] bnx2: Add workaround to handle missed MSI.
- ...
-> Thanks a lot Michael
->=20
-> I tested your patch on my machine.
->=20
-> I confirm CPU unplug/hotplug works now (If correcting a bug in oprofi=
-le first)
-> NIC doesnt freeze anymore
+> Fix a potential NULL pointer dereference seen when trying to remove a static
+> label configuration with an invalid address/mask combination.
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Applied to net-2.6, thanks everyone.
+Applied to net-2.6, thanks Paul.
