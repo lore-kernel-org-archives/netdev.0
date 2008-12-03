@@ -1,51 +1,129 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] net/ipv6/ip6mr.c: Use kmem_cache_zalloc, remove memset
-Date: Wed, 03 Dec 2008 14:39:55 -0800
-Message-ID: <1228343995.13046.34.camel@localhost>
+From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Subject: RE: [PATCH next 1/2]e1000: e1000_adapter->polling_netdev is useless
+Date: Wed, 3 Dec 2008 14:44:44 -0800
+Message-ID: <A78C6259B11833419567082E2DC0C256BD9F307B@orsmsx508.amr.corp.intel.com>
+References: <49353915.4060002@cn.fujitsu.com>
+ <20081202.150623.70107608.davem@davemloft.net>
+ <49368245.5040804@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; protocol="application/x-pkcs7-signature";
+	micalg=SHA1; boundary="----=_NextPart_000_004A_01C95555.AEC30F90"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:3140 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463AbYLCWjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 17:39:25 -0500
+Received: from mga02.intel.com ([134.134.136.20]:25116 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752603AbYLCWo4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2008 17:44:56 -0500
+In-Reply-To: <49368245.5040804@cn.fujitsu.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/ipv6/ip6mr.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+------=_NextPart_000_004A_01C95555.AEC30F90
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index dfba9fd..f641eac 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -686,20 +686,18 @@ static struct mfc6_cache *ip6mr_cache_find(struct in6_addr *origin, struct in6_a
-  */
- static struct mfc6_cache *ip6mr_cache_alloc(void)
- {
--	struct mfc6_cache *c = kmem_cache_alloc(mrt_cachep, GFP_KERNEL);
-+	struct mfc6_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_KERNEL);
- 	if (c == NULL)
- 		return NULL;
--	memset(c, 0, sizeof(*c));
- 	c->mfc_un.res.minvif = MAXMIFS;
- 	return c;
- }
- 
- static struct mfc6_cache *ip6mr_cache_alloc_unres(void)
- {
--	struct mfc6_cache *c = kmem_cache_alloc(mrt_cachep, GFP_ATOMIC);
-+	struct mfc6_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_ATOMIC);
- 	if (c == NULL)
- 		return NULL;
--	memset(c, 0, sizeof(*c));
- 	skb_queue_head_init(&c->mfc_un.unres.unresolved);
- 	c->mfc_un.unres.expires = jiffies + 10 * HZ;
- 	return c;
+>-----Original Message-----
+>From: Wang Chen [mailto:wangchen@cn.fujitsu.com]
+>Sent: Wednesday, December 03, 2008 4:58 AM
+>To: David Miller
+>Cc: Kirsher, Jeffrey T; netdev@vger.kernel.org
+>Subject: [PATCH next 1/2]e1000: e1000_adapter->polling_netdev is useless
+>
+>David Miller said the following on 2008-12-3 7:06:
+>> From: Wang Chen <wangchen@cn.fujitsu.com>
+>> Date: Tue, 02 Dec 2008 21:33:09 +0800
+>>
+>>> e1000_adapter->polling_netdev is not actually used after allocated.
+>>> So, my question is that is it useless?
+>>
+>> It's probably a leftover from before we added support for
+>> multiqueue NAPI.
+>>
+>> Intel folks can probably confirm.
+>
+>Commit bea3348eef27e6044b6161fd04c3152215f96411
+>"[NET]: Make NAPI polling independent of struct net_device objects."
+>made NAPI polling to be independent of net_device.
+>So e1000_adapter->polling_netdev is no longer used.
+>Kill it.
+>
+>Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+>---
+> drivers/net/e1000/e1000.h      |    1 -
+> drivers/net/e1000/e1000_main.c |   27 +--------------------------
+> 2 files changed, 1 insertions(+), 27 deletions(-)
+>
+
+Just to make sure that this does not break anything, I currently have this
+patch in testing.
+
+Cheers,
+Jeff
 
 
+------=_NextPart_000_004A_01C95555.AEC30F90
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIII5DCCAmww
+ggHVoAMCAQICEGzl/uJgiQs7SuPkGt9KQTAwDQYJKoZIhvcNAQEFBQAwYjELMAkGA1UEBhMCWkEx
+JTAjBgNVBAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQ
+ZXJzb25hbCBGcmVlbWFpbCBJc3N1aW5nIENBMB4XDTA4MTIwMzIyMjQ0NVoXDTA5MTIwMzIyMjQ0
+NVowTTEfMB0GA1UEAxMWVGhhd3RlIEZyZWVtYWlsIE1lbWJlcjEqMCgGCSqGSIb3DQEJARYbamVm
+ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCxQ6yP
+C2Oi9s/rySnHuAFS0yAI13vxjTzLLxQh9rXFjzVVOffpfDgQOVR9Zr5VEdaGFNWsZAJA9VCPP/9f
+E+W6uga4Kpn3LYBCCePro8BVPLVX64fo3gyvZZk3C/gIkVKBO6LfNzmSE3O+vTJhlL9jMmrYWwNO
+Z3LjIumw8/T4XwIDAQABozgwNjAmBgNVHREEHzAdgRtqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5j
+b20wDAYDVR0TAQH/BAIwADANBgkqhkiG9w0BAQUFAAOBgQAGhY5uDj0beuSDT62htMWMhmZ+Rarp
+xPHI2gk9e2/ewKD6Un+LqrRWdTULM34IKikEpWQEI+N22Zf6zZq2O2NgBCpJvWcmahxxU4iepqT8
+XZDCQ6v+dGuUUc/YYCWQzyeWjUzXwRfb4Epv4BSmvU63/ysxk9I4TYOvd2tK1ZB+5DCCAy0wggKW
+oAMCAQICAQAwDQYJKoZIhvcNAQEEBQAwgdExCzAJBgNVBAYTAlpBMRUwEwYDVQQIEwxXZXN0ZXJu
+IENhcGUxEjAQBgNVBAcTCUNhcGUgVG93bjEaMBgGA1UEChMRVGhhd3RlIENvbnN1bHRpbmcxKDAm
+BgNVBAsTH0NlcnRpZmljYXRpb24gU2VydmljZXMgRGl2aXNpb24xJDAiBgNVBAMTG1RoYXd0ZSBQ
+ZXJzb25hbCBGcmVlbWFpbCBDQTErMCkGCSqGSIb3DQEJARYccGVyc29uYWwtZnJlZW1haWxAdGhh
+d3RlLmNvbTAeFw05NjAxMDEwMDAwMDBaFw0yMDEyMzEyMzU5NTlaMIHRMQswCQYDVQQGEwJaQTEV
+MBMGA1UECBMMV2VzdGVybiBDYXBlMRIwEAYDVQQHEwlDYXBlIFRvd24xGjAYBgNVBAoTEVRoYXd0
+ZSBDb25zdWx0aW5nMSgwJgYDVQQLEx9DZXJ0aWZpY2F0aW9uIFNlcnZpY2VzIERpdmlzaW9uMSQw
+IgYDVQQDExtUaGF3dGUgUGVyc29uYWwgRnJlZW1haWwgQ0ExKzApBgkqhkiG9w0BCQEWHHBlcnNv
+bmFsLWZyZWVtYWlsQHRoYXd0ZS5jb20wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBANRp19Sw
+lGRbcelH2AxRtupykbCEXn0tDY97Et+FJXUodDpCLGMnn5V7S+9+GYcdhuqj3bnOlmQawhRuRKx8
+5o/oTQ9xH0A4pgCjh3j2+ZSGXq3qwF5269kUo11uenwMpUtVfwYZKX+emibVars4JAhqmMex2qOY
+kf152+VaxBy5AgMBAAGjEzARMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEEBQADgYEAx+yS
+fk749ZalZ2IqpPBNEWDQb41gWGGsJrtSNVwIzzD7qEqWih9iQiOMFw/0umScF6xHKd+dmF7SbGBx
+XKKs3Hnj524ARx+1DSjoAp3kmv0T9KbZfLH43F8jJgmRgHPQFBveQ6mDJfLmnC8Vyv6mq4oHdYsM
+3VGEa+T40c53ooEwggM/MIICqKADAgECAgENMA0GCSqGSIb3DQEBBQUAMIHRMQswCQYDVQQGEwJa
+QTEVMBMGA1UECBMMV2VzdGVybiBDYXBlMRIwEAYDVQQHEwlDYXBlIFRvd24xGjAYBgNVBAoTEVRo
+YXd0ZSBDb25zdWx0aW5nMSgwJgYDVQQLEx9DZXJ0aWZpY2F0aW9uIFNlcnZpY2VzIERpdmlzaW9u
+MSQwIgYDVQQDExtUaGF3dGUgUGVyc29uYWwgRnJlZW1haWwgQ0ExKzApBgkqhkiG9w0BCQEWHHBl
+cnNvbmFsLWZyZWVtYWlsQHRoYXd0ZS5jb20wHhcNMDMwNzE3MDAwMDAwWhcNMTMwNzE2MjM1OTU5
+WjBiMQswCQYDVQQGEwJaQTElMCMGA1UEChMcVGhhd3RlIENvbnN1bHRpbmcgKFB0eSkgTHRkLjEs
+MCoGA1UEAxMjVGhhd3RlIFBlcnNvbmFsIEZyZWVtYWlsIElzc3VpbmcgQ0EwgZ8wDQYJKoZIhvcN
+AQEBBQADgY0AMIGJAoGBAMSmPFVzVftOucqZWh5owHUEcJ3f6f+jHuy9zfVb8hp2vX8MOmHyv1HO
+AdTlUAow1wJjWiyJFXCO3cnwK4Vaqj9xVsuvPAsH5/EfkTYkKhPPK9Xzgnc9A74r/rsYPge/QIAC
+ZNenprufZdHFKlSFD0gEf6e20TxhBEAeZBlyYLf7AgMBAAGjgZQwgZEwEgYDVR0TAQH/BAgwBgEB
+/wIBADBDBgNVHR8EPDA6MDigNqA0hjJodHRwOi8vY3JsLnRoYXd0ZS5jb20vVGhhd3RlUGVyc29u
+YWxGcmVlbWFpbENBLmNybDALBgNVHQ8EBAMCAQYwKQYDVR0RBCIwIKQeMBwxGjAYBgNVBAMTEVBy
+aXZhdGVMYWJlbDItMTM4MA0GCSqGSIb3DQEBBQUAA4GBAEiM0VCD6gsuzA2jZqxnD3+vrL7CF6FD
+lpSdf0whuPg2H6otnzYvwPQcUCCTcDz9reFhYsPZOhl+hLGZGwDFGguCdJ4lUJRix9sncVcljd2p
+nDmOjCBPZV+V2vf3h9bGCE6u9uo05RAaWzVNd+NWIXiC3CEZNd4ksdMdRv9dX2VPMYIC+DCCAvQC
+AQEwdjBiMQswCQYDVQQGEwJaQTElMCMGA1UEChMcVGhhd3RlIENvbnN1bHRpbmcgKFB0eSkgTHRk
+LjEsMCoGA1UEAxMjVGhhd3RlIFBlcnNvbmFsIEZyZWVtYWlsIElzc3VpbmcgQ0ECEGzl/uJgiQs7
+SuPkGt9KQTAwCQYFKw4DAhoFAKCCAdgwGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG
+9w0BCQUxDxcNMDgxMjAzMjI0NDQ0WjAjBgkqhkiG9w0BCQQxFgQUHm0n2ADjtgA9YHv6MJA9lnly
+RZkwZwYJKoZIhvcNAQkPMVowWDAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcN
+AwICAUAwBwYFKw4DAgcwDQYIKoZIhvcNAwICASgwBwYFKw4DAhowCgYIKoZIhvcNAgUwgYUGCSsG
+AQQBgjcQBDF4MHYwYjELMAkGA1UEBhMCWkExJTAjBgNVBAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQ
+dHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQZXJzb25hbCBGcmVlbWFpbCBJc3N1aW5nIENBAhBs
+5f7iYIkLO0rj5BrfSkEwMIGHBgsqhkiG9w0BCRACCzF4oHYwYjELMAkGA1UEBhMCWkExJTAjBgNV
+BAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQZXJzb25h
+bCBGcmVlbWFpbCBJc3N1aW5nIENBAhBs5f7iYIkLO0rj5BrfSkEwMA0GCSqGSIb3DQEBAQUABIGA
+TdoBDcyHbmQ7eOe7Y7PqVsy3prqVz7qzo2BNtr8s9wk61J1G6HuxPcGyuc5QuDBv3vXdd18SDjOe
+MyvAJeEE+yws6p+oOkm4lUJK7is2ea9BUTXIoPA6wKwFinigjhUyo5MrUGdit6DlWCri2s0M2nv0
+DxQBu0uj4MkCbbZlAwoAAAAAAAA=
+
+------=_NextPart_000_004A_01C95555.AEC30F90--
