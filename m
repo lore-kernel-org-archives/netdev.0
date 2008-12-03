@@ -1,82 +1,103 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: mmotm 2008-11-26-17-00 uploaded
-Date: Wed, 3 Dec 2008 07:52:54 -0800
-Message-ID: <20081203075254.3bcb3220@extreme>
-References: <200811270101.mAR114rp016378@imap1.linux-foundation.org>
-	<200811282209.FDC95384.tLQJFOFOHFMSOV@I-love.SAKURA.ne.jp>
-	<20081128114257.a651b9ee.akpm@linux-foundation.org>
+From: "Saverio Mascolo" <saverio.mascolo@gmail.com>
+Subject: TCP default congestion control in linux should be newreno
+Date: Wed, 3 Dec 2008 17:12:59 +0100
+Message-ID: <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
+References: <b98e548c0812030637j2851ed76xb0768932b434e35c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45998 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751138AbYLCPw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2008 10:52:57 -0500
-In-Reply-To: <20081128114257.a651b9ee.akpm@linux-foundation.org>
+Received: from fg-out-1718.google.com ([72.14.220.158]:21526 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098AbYLCQNB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 11:13:01 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so2530179fgg.17
+        for <netdev@vger.kernel.org>; Wed, 03 Dec 2008 08:12:59 -0800 (PST)
+In-Reply-To: <b98e548c0812030637j2851ed76xb0768932b434e35c@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 28 Nov 2008 11:42:57 -0800
-Andrew Morton <akpm@linux-foundation.org> wrote:
+we have added plots of cwnd at
 
-> On Fri, 28 Nov 2008 22:09:06 +0900 Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> wrote:
-> 
-> > > The mm-of-the-moment snapshot 2008-11-26-17-00 has been uploaded to
-> > I got below bug.
-> > CentOS 5.2 (gcc (GCC) 4.1.2 20071124 (Red Hat 4.1.2-42)) on VMware Workstation 6.5.1.
-> > 
-> > [   24.978638] BUG: unable to handle kernel NULL pointer dereference at 00000004
-> > [   24.980541] IP: [<c056bfb7>] loopback_get_stats+0x26/0x51
-> > [   24.982191] Oops: 0000 [#1] SMP DEBUG_PAGEALLOC
-> > [   24.982989] last sysfs file: /sys/class/firmware/microcode/loading
-> > [   24.982989] Modules linked in: rfkill input_polldev sbs sbshc battery floppy serio_raw rtc_cmos rtc_core rtc_lib ac button pcnet32 mii i2c_piix4 i2c_core mptspi mptscsih mptbase scsi_transport_spi ext3 jbd mbcache [last unloaded: microcode]
-> > [   24.982989] 
-> > [   24.982989] Pid: 2213, comm: sadc Not tainted (2.6.28-rc6-mm1 #1) VMware Virtual Platform
-> > [   24.982989] EIP: 0060:[<c056bfb7>] EFLAGS: 00010297 CPU: 0
-> > [   24.982989] EIP is at loopback_get_stats+0x26/0x51
-> > [   24.982989] EAX: 00000000 EBX: debf8848 ECX: 00000001 EDX: 00000001
-> > [   24.982989] ESI: 00000000 EDI: 00000000 EBP: de7b9efc ESP: de7b9eec
-> > [   24.982989]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> > [   24.982989] Process sadc (pid: 2213, ti=de7b9000 task=de5fc0b0 task.ti=de7b9000)
-> > [   24.982989] Stack:
-> > [   24.982989]  21415ecf debf8800 ddc2fda0 ddc2fda0 de7b9f04 c05a71be de7b9f14 c05a7613
-> > [   24.982989]  c062db2c debf8800 de7b9f54 c049d8be 00001000 b7d58000 ddf08310 ddc2fdc0
-> > [   24.982989]  00000000 00000000 000000c8 00000001 00000000 00000000 00000000 fffffffb
-> > [   24.982989] Call Trace:
-> > [   24.982989]  [<c05a71be>] ? dev_get_stats+0x19/0x1b
-> > [   24.982989]  [<c05a7613>] ? dev_seq_show+0x21/0x80
-> > [   24.982989]  [<c049d8be>] ? seq_read+0x1f2/0x2d8
-> > [   24.982989]  [<c049d6cc>] ? seq_read+0x0/0x2d8
-> > [   24.982989]  [<c04b5b0f>] ? proc_reg_read+0x60/0x74
-> > [   24.982989]  [<c04b5aaf>] ? proc_reg_read+0x0/0x74
-> > [   24.982989]  [<c048a6da>] ? vfs_read+0x6d/0x91
-> > [   24.982989]  [<c048a930>] ? sys_read+0x3b/0x5d
-> > [   24.982989]  [<c04032d1>] ? sysenter_do_call+0x12/0x31
-> > [   24.982989] Code: 66 c0 56 c0 c3 55 83 c9 ff 89 e5 57 31 ff 56 31 f6 53 83 ec 04 8d 58 48 8b 80 20 03 00 00 89 45 f0 eb 0d 8b 45 f0 f7 d0 8b 04 88 <03> 78 04 03 30 89 c8 ba 50 96 79 c0 e8 72 a3 f7 ff 83 f8 1f 89 
-> > [   24.982989] EIP: [<c056bfb7>] loopback_get_stats+0x26/0x51 SS:ESP 0068:de7b9eec
-> > [   25.029067] ---[ end trace a599d5330cca1e8d ]---
-> 
-> At a guess I'd say that local variable `stats' in loopback_get_stats()
-> is null.
-> 
-> That code was recently changed in linux-next:
-> 
-> commit c02373bf2759dd210dc8c72c9c9b4a8f1c279cac
-> Author: Stephen Hemminger <shemminger@vyatta.com>
-> Date:   Wed Nov 19 21:46:18 2008 -0800
-> 
->     netdev: convert loopback to net_device_ops
->     
->     First device to convert over is the loopback device.
->     
->     Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> but it's a bit hard to see how that change could cause the crash which
-> you observed.
+http://c3lab.poliba.it/index.php/TCP_over_Hsdpa
 
-Could be that some other code is stomping on per-cpu variables?
+in the case of newreno, wetwood+, bic/cubic.
+
+basically the goodput is similar with all variants  but with
+significantly larger packet losses and timeouts with bic/cubic. i am
+pretty sure that this would happen with any algos -including h-tcp-
+that makes the probing more aggressive leaving the van jacobson linear
+phase.
+
+westwood+ seems to "gain" on the side of rtt (i.e. less queueing)
+becasue of the specific setting after congestion.
+
+at this stage of research,  i think  that newreno should be made the
+deafult stack in linux.
+
+
+saverio
+
+On Fri, Nov 28, 2008 at 12:09 PM, Douglas Leith <Doug.Leith@nuim.ie> wrote:
+>
+> A bit of delayed input to this thread on netdev ...
+>
+>> I'm not so sure about this logic, regardless of the algorithms
+>> involved.
+>>
+>> H-TCP was never the default in any distribution or release that
+>> I know of.  So it's real world exposure is effectively zero,
+>> which is the same as the new CUBIC stuff.
+>
+>> They are effectively, therefore, equivalent choices.
+>
+> Not really.  At this stage HTCP has undergone quite extensive independent testing by a good few groups (Caltech, Swinburne, North Carolina etc).  Its also been independently implemented in FreeBSD by the Swinburne folks.  Its true it hasn't been default in linux, but it HTCP  been subject to *far* more testing than the new cubic algorithm which has had no independent testing at all to my knowledge.
+>
+> I'd also like to add some new input to the discussion on choice of congestion control algorithm in linux - and why it might be useful to evaluate alternatives like htcp.   Almost all of the proposals for changes to tcp (including cubic) have really slow convergence to fairness when new flows start up.   The question is then whether it matters e.g. whether it negatively impacts users.
+>
+> To try to get a handle on this, we took one set of measurements from a home DSL line over a live link (so hopefully representative of common user experience), the other from a the production link out of the hamilton institute (so maybe more like the experience of enterprise users).   Plots of our measurements are at
+>
+> http://www.hamilton.ie/doug/tina2.eps  (DSL link)
+> http://www.hamilton.ie/doug/caltech.eps  (hamilton link)
+>
+> and also attached.
+>
+> We started one long-ish flow (mimicking incumbent flows) and then started a second shorter flow.  The plots show the completion time of the second flow vs its connection size.  If the incumbent flow is slow to release bandwidth (as we expect with cubic), we expect the completion time of the second flow to increase, and indeed this is what we see.
+>
+> What's particularly interesting is (i) the magnitude of the difference - completion times are consistently x2 with cubic vs htcp over many tests and (ii) that this effect is apparent not only on higher speed links (caltech.eps) but also on regular DSL links (tina2.eps - we took measurements from a home DSL line, so its not a sanitised lab setup or anything like that).
+>
+> As might be expected, the difference in completion times eventually washes out for long transfers, e.g for the DSL link the most pronounced difference is for 1MB connections (where there is about a x2 difference in times between cubic and htcp) but becomes less for longer flows.  The point is that most real flows are short however, so the performance with a 1MB size flow seems like it should be more important than the 10MB size performance.  For me the DSL performance is the more important one here since it affects so many people, and was quite surprising, although I can also reproduce similar results on our testbed so its not a weird corner case or anything like that.
+>
+> Wouldn't it be interesting to give h-tcp a go in linux to get wider feedback ?
+>
+> Doug
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+>
+
+
+
+--
+Prof. Saverio Mascolo
+Dipartimento di Elettrotecnica ed Elettronica
+Politecnico di Bari
+Via Orabona 4
+70125 Bari
+Italy
+Tel. +39 080 5963621
+Fax. +39 080 5963410
+email:mascolo@poliba.it
+
+http://www-dee.poliba.it/dee-web/Personale/mascolo.html
