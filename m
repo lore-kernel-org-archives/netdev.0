@@ -1,65 +1,62 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH] enc28j60: Fix sporadic packet loss
-	(correction)
-Date: Tue, 2 Dec 2008 23:04:20 -0800
-Message-ID: <200812022304.20661.david-b@pacbell.net>
-References: <20081202085947.GB24490@diamond.tkos.co.il>
-	<200812021444.03225.david-b@pacbell.net>
-	<20081203062213.GB3361@tarshish>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH 4/3] pkt_sched: sch_htb: Clean L2T()
+Date: Wed, 3 Dec 2008 07:09:47 +0000
+Message-ID: <20081203070947.GA5598@ff.dom.local>
+References: <20081202085648.GC10412@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Claudio Lanconelli <lanconelli.claudio-DtroZxfa9uMAvxtiuMwx3w@public.gmane.org>,
-	Shachar Shemesh <shachar-bEkjeIDUMOLQT0dZR+AlfA@public.gmane.org>,
-	Network development list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20081203062213.GB3361@tarshish>
+Content-Type: text/plain; charset=us-ascii
+Cc: Martin Devera <devik@cdi.cz>, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.188]:63350 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752510AbYLCHJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 02:09:54 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so1774891nfc.21
+        for <netdev@vger.kernel.org>; Tue, 02 Dec 2008 23:09:52 -0800 (PST)
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
-List-Post: <mailto:spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20081202085648.GC10412@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 02 December 2008, Baruch Siach wrote:
+L2T() is currently used only in one place, so let's move it closer to
+this place, remove unused cl parameter, and change to a macro.
 
-> Apparently I haven't explained myself clear enough. The (partial) driver that 
-> Peter Pearse has posted[1] to LAKL is for the PL080 DMA controller. This 
-> driver is ARM specific, so LAKL seems to be reasonable place even though the 
-> driver itself is under drivers/amba (which is ARM specific as well).
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-Actually AMBA has generalized past being ARM-specific.
-It's just a chip-internal bus, and the silicon-IP
-end of ARM Ltd has been successful enough that vendors
-use it with non-ARM CPUs too.
+ net/sched/sch_htb.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
-Example:  you'll notice that drivers/dma/dw_dmac.c was
-first used on a non-ARM system; it's a Synopsys DesignWare
-(dw) DMA controller (dmac) for AMBA2, with AHB and APB.
-
-So let me suggest LKML, with an FYI to the ARM list,
-and putting that driver in drivers/dma instead. :)
-
-
-But yes, now I see what you mean:  discrete DMA and SPI
-drivers.
-
-- Dave
-
-
-> My Synopsys DesignWare SPI master driver will, when complete, depend on this 
-> DMA controller driver, that's not in the mainline (yet).
-> 
-> > Post it to the SPI list instead.  ...
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 80cb94d..78f20d6 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -125,13 +125,6 @@ struct htb_class {
+ 	psched_time_t t_c;	/* checkpoint time */
+ };
+ 
+-static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
+-			   int size)
+-{
+-	long result = qdisc_l2t(rate, size);
+-	return result;
+-}
+-
+ struct htb_sched {
+ 	struct Qdisc_class_hash clhash;
+ 	struct list_head drops[TC_HTB_NUMPRIO];/* active leaves (for drops) */
+@@ -602,9 +595,11 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
+ 	long toks, diff;
+ 	enum htb_cmode old_mode;
+ 
++#define L2T(rate, size)	((long) qdisc_l2t(rate, size))
++
+ #define HTB_ACCNT(T,B,R) toks = diff + cl->T; \
+ 	if (toks > cl->B) toks = cl->B; \
+-	toks -= L2T(cl, cl->R, bytes); \
++	toks -= L2T(cl->R, bytes); \
+ 	if (toks <= -cl->mbuffer) toks = 1-cl->mbuffer; \
+ 	cl->T = toks
+ 
