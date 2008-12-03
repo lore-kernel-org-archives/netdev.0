@@ -1,32 +1,39 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH]  remove isa stuff from smc91x driver
-Date: Wed, 3 Dec 2008 14:52:35 +0000
-Message-ID: <20081203145235.05e1f461@lxorguk.ukuu.org.uk>
-References: <1228315701-17240-1-git-send-email-l.fu@pengutronix.de>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH net-2.6 1/2] jme: GHC register control fix for new hardware
+Date: Wed, 03 Dec 2008 10:00:25 -0500
+Message-ID: <49369F09.2010302@pobox.com>
+References: <20080915165101.M68109@cooldavid.org> <48D27CDA.50501@pobox.com> <20081008215853.M53590@cooldavid.org> <20081203103825.M4442@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Luotao Fu <lfu@pengutronix.de>
-To: Luotao Fu <l.fu@pengutronix.de>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ethan <ethanhsiao@jmicron.com>, akeemting <akeem@jmicron.com>
+To: cooldavid@cooldavid.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:60713 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751264AbYLCOw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 09:52:27 -0500
-In-Reply-To: <1228315701-17240-1-git-send-email-l.fu@pengutronix.de>
+Received: from srv5.dvmed.net ([207.36.208.214]:38369 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751275AbYLCPAe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2008 10:00:34 -0500
+In-Reply-To: <20081203103825.M4442@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  3 Dec 2008 15:48:21 +0100
-Luotao Fu <l.fu@pengutronix.de> wrote:
-
-> From: Luotao Fu <lfu@pengutronix.de>
+Guo-Fu Tseng wrote:
+> Dear Jeff, David:
 > 
-> ISA support in smc91x is incomplete. I doubt there're any smc91x isa card.
-> This driver is greatly used on arm pxa platforms. Hence we remove the
-> isa stuff from smc91x driver.
+> Due to the hardware design, except the first chip on the market,
+> other chips needs to setup the clock source for MAC processor
+> implicitly through Global Host Control Register(GHC).
+> (Strange design huh?)
+> 
+> 10/100M uses the PCI-E as clock source, and 1G uses GPHY.
+> 
+> And I reordered the code a little, to make it easier to read.
+> 
+> Found-by: "Ethan" <ethanhsiao@jmicron.com>
+> Fixed-by: "akeemting" <akeem@jmicron.com>
+> Signed-off-by: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
 
-This makes no sense. It is protected by an ifdef anyway so doesn't affect
-ARM
+patches 1-2 Acked-by: Jeff Garzik <jgarzik@redhat.com>
+
 
