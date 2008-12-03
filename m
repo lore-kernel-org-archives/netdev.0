@@ -1,98 +1,140 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH 5/3] pkt_sched: sch_htb: Replace HTB_ACCNT() macro with
-	inlines
-Date: Wed, 3 Dec 2008 10:07:38 +0000
-Message-ID: <20081203100738.GA16755@ff.dom.local>
-References: <20081202085648.GC10412@ff.dom.local>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: [PATCH net-2.6 1/2] jme: GHC register control fix for new hardware
+Date: Wed, 3 Dec 2008 18:41:39 +0800
+Message-ID: <20081203103825.M4442@cooldavid.org>
+References: <20080915165101.M68109@cooldavid.org> <48D27CDA.50501@pobox.com> <20081008215853.M53590@cooldavid.org>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin Devera <devik@cdi.cz>, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset=big5
+Cc: netdev@vger.kernel.org, Ethan <ethanhsiao@jmicron.com>,
+	akeemting <akeem@jmicron.com>
+To: Jeff Garzik <jgarzik@pobox.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:55907 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192AbYLCKHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 05:07:44 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so1464940eyi.37
-        for <netdev@vger.kernel.org>; Wed, 03 Dec 2008 02:07:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081202085648.GC10412@ff.dom.local>
+Received: from cooldavid.org ([220.133.139.86]:42263 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751268AbYLCKlv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2008 05:41:51 -0500
+In-Reply-To: <20081008215853.M53590@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace HTB_ACCNT() macro with inlines to make it more readable.
+Dear Jeff, David:
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
+Due to the hardware design, except the first chip on the market,
+other chips needs to setup the clock source for MAC processor
+implicitly through Global Host Control Register(GHC).
+(Strange design huh?)
 
- net/sched/sch_htb.c |   38 +++++++++++++++++++++++++++++---------
- 1 files changed, 29 insertions(+), 9 deletions(-)
+10/100M uses the PCI-E as clock source, and 1G uses GPHY.
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index fcd06e2..f89fd71 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -577,6 +577,32 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	return NET_XMIT_SUCCESS;
- }
- 
-+static inline void htb_accnt_tokens(struct htb_class *cl, int bytes, long diff)
-+{
-+	long toks = diff + cl->tokens;
-+
-+	if (toks > cl->buffer)
-+		toks = cl->buffer;
-+	toks -= (long) qdisc_l2t(cl->rate, bytes);
-+	if (toks <= -cl->mbuffer)
-+		toks = 1 - cl->mbuffer;
-+
-+	cl->tokens = toks;
-+}
-+
-+static inline void htb_accnt_ctokens(struct htb_class *cl, int bytes, long diff)
-+{
-+	long toks = diff + cl->ctokens;
-+
-+	if (toks > cl->cbuffer)
-+		toks = cl->cbuffer;
-+	toks -= (long) qdisc_l2t(cl->ceil, bytes);
-+	if (toks <= -cl->mbuffer)
-+		toks = 1 - cl->mbuffer;
-+
-+	cl->ctokens = toks;
-+}
-+
- /**
-  * htb_charge_class - charges amount "bytes" to leaf and ancestors
-  *
-@@ -592,26 +618,20 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
- 			     int level, struct sk_buff *skb)
- {
- 	int bytes = qdisc_pkt_len(skb);
--	long toks, diff;
- 	enum htb_cmode old_mode;
--
--#define HTB_ACCNT(T,B,R) toks = diff + cl->T; \
--	if (toks > cl->B) toks = cl->B; \
--	toks -= (long) qdisc_l2t(cl->R, bytes); \
--	if (toks <= -cl->mbuffer) toks = 1-cl->mbuffer; \
--	cl->T = toks
-+	long diff;
- 
- 	while (cl) {
- 		diff = psched_tdiff_bounded(q->now, cl->t_c, cl->mbuffer);
- 		if (cl->level >= level) {
- 			if (cl->level == level)
- 				cl->xstats.lends++;
--			HTB_ACCNT(tokens, buffer, rate);
-+			htb_accnt_tokens(cl, bytes, diff);
- 		} else {
- 			cl->xstats.borrows++;
- 			cl->tokens += diff;	/* we moved t_c; update tokens */
+And I reordered the code a little, to make it easier to read.
+
+Found-by: "Ethan" <ethanhsiao@jmicron.com>
+Fixed-by: "akeemting" <akeem@jmicron.com>
+Signed-off-by: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index 665e70d..49090ba 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -435,15 +435,18 @@ jme_check_link(struct net_device *netdev, int testonly)
+ 					GHC_DPX);
+ 		switch (phylink & PHY_LINK_SPEED_MASK) {
+ 		case PHY_LINK_SPEED_10M:
+-			ghc |= GHC_SPEED_10M;
++			ghc |= GHC_SPEED_10M |
++				GHC_TO_CLK_PCIE | GHC_TXMAC_CLK_PCIE;
+ 			strcat(linkmsg, "10 Mbps, ");
+ 			break;
+ 		case PHY_LINK_SPEED_100M:
+-			ghc |= GHC_SPEED_100M;
++			ghc |= GHC_SPEED_100M |
++				GHC_TO_CLK_PCIE | GHC_TXMAC_CLK_PCIE;
+ 			strcat(linkmsg, "100 Mbps, ");
+ 			break;
+ 		case PHY_LINK_SPEED_1000M:
+-			ghc |= GHC_SPEED_1000M;
++			ghc |= GHC_SPEED_1000M |
++				GHC_TO_CLK_GPHY | GHC_TXMAC_CLK_GPHY;
+ 			strcat(linkmsg, "1000 Mbps, ");
+ 			break;
+ 		default:
+@@ -463,14 +466,6 @@ jme_check_link(struct net_device *netdev, int testonly)
+ 				TXTRHD_TXREN |
+ 				((8 << TXTRHD_TXRL_SHIFT) & TXTRHD_TXRL));
  		}
--		HTB_ACCNT(ctokens, cbuffer, ceil);
-+		htb_accnt_ctokens(cl, bytes, diff);
- 		cl->t_c = q->now;
+-		strcat(linkmsg, (phylink & PHY_LINK_DUPLEX) ?
+-					"Full-Duplex, " :
+-					"Half-Duplex, ");
+-
+-		if (phylink & PHY_LINK_MDI_STAT)
+-			strcat(linkmsg, "MDI-X");
+-		else
+-			strcat(linkmsg, "MDI");
  
- 		old_mode = cl->cmode;
+ 		gpreg1 = GPREG1_DEFAULT;
+ 		if (is_buggy250(jme->pdev->device, jme->chiprev)) {
+@@ -492,11 +487,17 @@ jme_check_link(struct net_device *netdev, int testonly)
+ 				break;
+ 			}
+ 		}
+-		jwrite32(jme, JME_GPREG1, gpreg1);
+ 
+-		jme->reg_ghc = ghc;
++		jwrite32(jme, JME_GPREG1, gpreg1);
+ 		jwrite32(jme, JME_GHC, ghc);
++		jme->reg_ghc = ghc;
+ 
++		strcat(linkmsg, (phylink & PHY_LINK_DUPLEX) ?
++					"Full-Duplex, " :
++					"Half-Duplex, ");
++		strcat(linkmsg, (phylink & PHY_LINK_MDI_STAT) ?
++					"MDI-X" :
++					"MDI");
+ 		msg_link(jme, "Link is up at %s.\n", linkmsg);
+ 		netif_carrier_on(netdev);
+ 	} else {
+diff --git a/drivers/net/jme.h b/drivers/net/jme.h
+index f863aee..adaf3dd 100644
+--- a/drivers/net/jme.h
++++ b/drivers/net/jme.h
+@@ -815,16 +815,30 @@ static inline u32 smi_phy_addr(int x)
+  * Global Host Control
+  */
+ enum jme_ghc_bit_mask {
+-	GHC_SWRST	= 0x40000000,
+-	GHC_DPX		= 0x00000040,
+-	GHC_SPEED	= 0x00000030,
+-	GHC_LINK_POLL	= 0x00000001,
++	GHC_SWRST		= 0x40000000,
++	GHC_DPX			= 0x00000040,
++	GHC_SPEED		= 0x00000030,
++	GHC_LINK_POLL		= 0x00000001,
+ };
+ 
+ enum jme_ghc_speed_val {
+-	GHC_SPEED_10M	= 0x00000010,
+-	GHC_SPEED_100M	= 0x00000020,
+-	GHC_SPEED_1000M	= 0x00000030,
++	GHC_SPEED_10M		= 0x00000010,
++	GHC_SPEED_100M		= 0x00000020,
++	GHC_SPEED_1000M		= 0x00000030,
++};
++
++enum jme_ghc_to_clk {
++	GHC_TO_CLK_OFF		= 0x00000000,
++	GHC_TO_CLK_GPHY		= 0x00400000,
++	GHC_TO_CLK_PCIE		= 0x00800000,
++	GHC_TO_CLK_INVALID	= 0x00C00000,
++};
++
++enum jme_ghc_txmac_clk {
++	GHC_TXMAC_CLK_OFF	= 0x00000000,
++	GHC_TXMAC_CLK_GPHY	= 0x00100000,
++	GHC_TXMAC_CLK_PCIE	= 0x00200000,
++	GHC_TXMAC_CLK_INVALID	= 0x00300000,
+ };
+ 
+ /*
+
