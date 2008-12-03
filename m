@@ -1,63 +1,131 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: About git-bisect (defconfigs)
-Date: Wed, 03 Dec 2008 09:50:51 -0800
-Message-ID: <4936C6FB.4020201@oracle.com>
-References: <bEuTZ-3Ya-5@gated-at.bofh.it> <bECot-57C-1@gated-at.bofh.it>	 <bEFPF-XO-15@gated-at.bofh.it> <bEFPG-XO-19@gated-at.bofh.it>	 <bEG8P-1xl-15@gated-at.bofh.it> <bEGiz-1Hw-11@gated-at.bofh.it>	 <bEGLI-2aS-31@gated-at.bofh.it> <bEGVc-2Bk-11@gated-at.bofh.it>	 <m2r64q6y8e.fsf@gmail.com> <493681B7.20101@diamondcut.com.br> <38b2ab8a0812030924g5391fdbdy15c472a51ab24aef@mail.gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Wed, 3 Dec 2008 20:31:09 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0812032025570.26311@wrl-59.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0812031320340.31282@wrl-59.cs.helsinki.fi>
+ <1228315025.4112.21.camel@nathan.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Renato S. Yamane" <yamane@diamondcut.com.br>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Sam Ravnborg <sam@ravnborg.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Francis Moreau <francis.moro@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753570AbYLCRv7@vger.kernel.org>
-In-Reply-To: <38b2ab8a0812030924g5391fdbdy15c472a51ab24aef@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-34343666-1228329069=:26311"
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Petr Tesarik <ptesarik@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37888 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbYLCSbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 13:31:11 -0500
+In-Reply-To: <1228315025.4112.21.camel@nathan.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Francis Moreau wrote:
-> On Wed, Dec 3, 2008 at 1:55 PM, Renato S. Yamane
-> <yamane@diamondcut.com.br> wrote:
->> Francis Moreau wrote:
->>> Linus Torvalds writes:
->>>> It takes me 16 seconds to compile my kernel (if it's all cached), and
->>>> that's largely because I do _not_ compile one of the crazy distro kernels
->>>> with thousands of totally irrelevant modules for my setup.
->>> an other reason is perhaps you're using a computer that most common
->>> mortal don't have ;)
->>>
->>> Care to share your network configuration ;) ?
->> Maybe a repository with .config files used by linux hard-users (as most
->> developers here) can be very interesting to a lot of people get a starter.
->>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-34343666-1228329069=:26311
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Wed, 3 Dec 2008, Petr Tesarik wrote:
+
+> Ilpo Järvinen píse v St 03. 12. 2008 v 13:22 +0200:
+> > I should have noticed this earlier... :-) The previous solution
+> > to URG+GSO/TSO will cause SACK block tcp_fragment to do zig-zig
+> > patterns, or even worse, a steep downward slope into packet
+> > counting because each skb pcount would be truncated to pcount
+> > of 2 and then the following fragments of the later portion would
+> > restore the window again.
 > 
-> Or perhaps just to keep 'make defconfig' uptodate with sane core values
-> which should fit a desktop config ?
+> Oops, not nice. :(
 > 
-> BTW does anybody what the status of the defconfig files on x86 ?
+> > Basically this reverts "tcp: Do not use TSO/GSO when there is
+> > urgent data" (33cf71cee1). It also removes some unnecessary code
+> > from tcp_current_mss that didn't work as intented either (could
+> > be that something was changed down the road, or it might have
+> > been broken since the dawn of time) because it only works once
+> > urg is already written while this bug shows up starting from
+> > ~64k before the urg point.
+> > 
+> > The retransmissions already are split to mss sized chunks, so
+> > only new data sending paths need splitting in case they have
+> > a segment otherwise suitable for gso/tso. The actually check
+> > can be improved to be more narrow but since this is late -rc
+> > already, I'll postpone thinking the more fine-grained things.
+> > 
+> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> > Cc: Petr Tesarik <ptesarik@suse.cz>
+> 
+> Yes, re-fragmenting the packet here is probably the best way to go. But
+> repeating the same condition on multiple places is not so nice. What
+> about this little improvement?
 
-I looked at them about 1 week ago.  I know that Ingo or the x86 maintainers
-team update them occasionally, but I'd like to see a few changes or some
-questions answered:
+Yeah, this too will work... Though not of too much significance since
+I've already most of unification of those two functions in a local
+queue awaiting testing, polish up and submit to net-next.
 
-1.  Disable CONFIG_TR.  Token ring is antiquated.  No reason to be in defconfig.
+When sending an updated version davem prefers to have full changelog in it 
+btw, it saves some work for him.
 
-2.  There are several security-related config items that default to =y but the
-kconfig help says:  If unsure, say N here.  Like:
+> (I didn't roll the revert of 33cf71cee1 into it, as it makes the actual
+> change less obvious. I think there are better ways of doing a revert in
+> git.)
 
+Whatever, I've no strong opinion either way though it's just broken with 
+and without the revert anyway, the full thing is needed to actually fix 
+it.
 
-CONFIG_NETLABEL=y
-CONFIG_NETWORK_SECMARK=y
-CONFIG_KEYS=y
-CONFIG_SECURITY=y
-CONFIG_SECURITY_NETWORK=y
-CONFIG_SECURITY_SELINUX=y
+> Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+> Cc: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+>
+> --
+>  tcp_output.c |   13 ++++++++-----
+>  1 file changed, 8 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index ba85d88..a45c62d 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1028,10 +1028,6 @@ unsigned int tcp_sync_mss(struct sock *sk, u32 pmtu)
+>  
+>  /* Compute the current effective MSS, taking SACKs and IP options,
+>   * and even PMTU discovery events into account.
+> - *
+> - * LARGESEND note: !tcp_urg_mode is overkill, only frames up to snd_up
+> - * cannot be large. However, taking into account rare use of URG, this
+> - * is not a big flaw.
+>   */
+>  unsigned int tcp_current_mss(struct sock *sk, int large_allowed)
+>  {
+> @@ -1046,7 +1042,7 @@ unsigned int tcp_current_mss(struct sock *sk, int large_allowed)
+>  
+>  	mss_now = tp->mss_cache;
+>  
+> -	if (large_allowed && sk_can_gso(sk) && !tcp_urg_mode(tp))
+> +	if (large_allowed && sk_can_gso(sk))
+>  		doing_tso = 1;
+>  
+>  	if (dst) {
+> @@ -1113,6 +1109,10 @@ static void tcp_cwnd_validate(struct sock *sk)
+>   * return whenever allowed by the other factors). Basically we need the
+>   * modulo only when the receiver window alone is the limiting factor or
+>   * when we would be allowed to send the split-due-to-Nagle skb fully.
+> + *
+> + * LARGESEND note: !tcp_urg_mode is overkill, only frames between
+> + * snd_up-64k-mss .. snd_up cannot be large. However, taking into
+> + * account rare use of URG, this is not a big flaw.
+>   */
+>  static unsigned int tcp_mss_split_point(struct sock *sk, struct sk_buff *skb,
+>  					unsigned int mss_now, unsigned int cwnd)
+> @@ -1120,6 +1120,9 @@ static unsigned int tcp_mss_split_point(struct sock *sk, struct sk_buff *skb,
+>  	struct tcp_sock *tp = tcp_sk(sk);
+>  	u32 needed, window, cwnd_len;
+>  
+> +	if (unlikely(tcp_urg_mode(tp)))
+> +		return mss_now;
+> +
+>  	window = tcp_wnd_end(tp) - TCP_SKB_CB(skb)->seq;
+>  	cwnd_len = mss_now * cwnd;
 
+Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 
-Maybe I just don't understand the current meaning/usage of defconfig.  eh?
-
-
-Thanks,
-~Randy
+-- 
+ i.
+---696208474-34343666-1228329069=:26311--
