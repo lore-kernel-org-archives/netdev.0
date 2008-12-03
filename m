@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Phonet: basic net namespace support
-Date: Wed, 03 Dec 2008 15:43:48 -0800 (PST)
-Message-ID: <20081203.154348.131841637.davem@davemloft.net>
-References: <1228132957-18373-1-git-send-email-remi.denis-courmont@nokia.com>
-	<1228133869.10480.10.camel@iris.sw.ru>
-	<200812011436.25064.remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH next]hysdn: Kill directly reference of netdev->priv
+Date: Wed, 03 Dec 2008 15:49:14 -0800 (PST)
+Message-ID: <20081203.154914.134137743.davem@davemloft.net>
+References: <4933F47A.5060104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: den@parallels.com, netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45733
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51141
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754487AbYLCXns convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Dec 2008 18:43:48 -0500
-In-Reply-To: <200812011436.25064.remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1753156AbYLCXtO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 18:49:14 -0500
+In-Reply-To: <4933F47A.5060104@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-Date: Mon, 1 Dec 2008 14:36:24 +0200
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Mon, 01 Dec 2008 22:28:10 +0800
 
-> Ah ok, thanks for pointing it out. Here comes the two rewritten patch=
-es...
+> Usually, netdev->priv should point to the memory of private
+> data which is allocated in alloc_netdev().
+> netdev_priv() is used to get the address of the private data.
+> 
+> Change the netdev->priv pointer to another memory is wrong.
+> Use netdev->ml_priv for this case.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-I've applied both updated patches.
-
-Thank you.
+Applied.
