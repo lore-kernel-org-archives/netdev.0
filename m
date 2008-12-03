@@ -1,45 +1,66 @@
-From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH] netx-eth: initialize per device spinlock
-Date: Wed,  3 Dec 2008 21:54:51 +0100
-Message-ID: <1228337691-8140-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Graeme Fowler <graeme@graemef.net>
+Subject: Re: [PATCH] IPVS: Allow boot time change of hash size.
+Date: Wed, 03 Dec 2008 21:11:53 +0000
+Message-ID: <1228338713.24149.10.camel@ernie.internal.graemef.net>
+References: <55785.91.201.80.240.1227862171.squirrel@mail.embedromix.ro>
+	 <Pine.LNX.4.64.0811280653570.21298@wm7d.net>
+	 <54783.91.201.80.240.1228232062.squirrel@mail.embedromix.ro>
+	 <20081202.145129.06176881.davem@davemloft.net>
+	 <49597.86.34.32.157.1228259764.squirrel@mail.embedromix.ro>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37270 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215AbYLCUy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 15:54:57 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jmack@wm7d.net,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: "Catalin(ux) M. BOIE" <catab@embedromix.ro>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <49597.86.34.32.157.1228259764.squirrel@mail.embedromix.ro>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The spinlock used in the netx-eth driver was never properly initialized=
-=2E
-This was noticed using CONFIG_DEBUG_SPINLOCK=3Dy
+On Tue, 2008-12-02 at 16:16 -0700, Catalin(ux) M. BOIE wrote:
+> I have a need, I didn't wake up some day and I dreamed to change this.
+> I have a gateway with LVS and I have 4 web servers behind.
+> I saw the help text at that option and I saw that I could raise the limit.
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+OK, let's ask the same question a different way, after going a little
+further into your posting:
 
----
- drivers/net/netx-eth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+> I was looking for anything that could get me past of 88.000 request per
+> seconds.
+> The help text told me to raise that value if I have big number of
+> connections. I just needed an easy way to test.
 
-diff --git a/drivers/net/netx-eth.c b/drivers/net/netx-eth.c
-index b9bed82..b289a0a 100644
---- a/drivers/net/netx-eth.c
-+++ b/drivers/net/netx-eth.c
-@@ -401,6 +401,8 @@ static int netx_eth_drv_probe(struct platform_devic=
-e *pdev)
- 	priv->xmac_base =3D priv->xc->xmac_base;
- 	priv->sram_base =3D priv->xc->sram_base;
-=20
-+	spin_lock_init(&priv->lock);
-+
- 	ret =3D pfifo_request(PFIFO_MASK(priv->id));
- 	if (ret) {
- 		printk("unable to request PFIFO\n");
---=20
-tg: (ed31348..) t/netx/netx-eth_initialize_spinlock (depends on: rmk/or=
-igin)
+OK, so from here:
+
+http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.operation.html#hash_table
+
+and onward... have you read all of that? It explains how the hash table
+size has been developed over the years, and everything that has changed
+with and relating to it.
+
+To pull out an example, a hash table size of 21 bits does not give a
+connection limit of 2^21 entries, since each part of the hash is a
+linked list which contains multiple entries, up to the RAM limit in the
+server.
+
+In the HOWTO, the example given shows that for a traffic pattern with 4
+seconds session coherence and 1/8th of the traffic hitting the director
+being a SYN for the available config *appears* to require 2^21 bits.
+However, because each bit of the hash is a linked list, using 17 bits
+gets 16 entries in each list - this is not a problem, as it takes the
+CPU no time at all to search 16 entries.
+
+What you need to do for us, please, is to demonstrate that your problem
+(not exceeding 88k RPS) is categorically something to do with lookups in
+the hash table. I suspect (although I've been wrong before) that your
+problem is probably to do with the number of interrupts your hardware
+can process. There have been many posts of this type on lvs-users
+recently - search the archives to see what the solutions were.
+
+We're trying to help, but the collective wisdom here is that the hash
+table size is not the cause of your problem *which you haven't yet
+described fully*.
+
+Graeme
+
