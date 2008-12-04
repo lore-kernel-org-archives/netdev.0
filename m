@@ -1,67 +1,37 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: networking probs in next-20081203
-Date: Thu, 04 Dec 2008 14:32:21 -0500
-Message-ID: <1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
-References: <49381644.8020502@intel.com>
-	<20081204175236.GA19808@x200.localdomain>
-	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
-	<20081204.102138.123959105.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP default congestion control in linux should be newreno
+Date: Thu, 04 Dec 2008 11:54:16 -0800 (PST)
+Message-ID: <20081204.115416.174997306.davem@davemloft.net>
+References: <20081204185022.6108d19e@gmail.com>
+	<20081204.101805.45306327.davem@davemloft.net>
+	<b98e548c0812041105o6c2ded8br3c2349cabceaf99f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, jmorris@namei.org, ebiederm@xmission.com,
-	eparis@parisplace.org, akpm@linux-foundation.org, adobriyan@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20081204.102138.123959105.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: ldecicco@gmail.com, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org
+To: saverio.mascolo@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54577
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750924AbYLDTyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 14:54:16 -0500
+In-Reply-To: <b98e548c0812041105o6c2ded8br3c2349cabceaf99f@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2008-12-04 at 10:21 -0800, David Miller wrote:
-> From: Stephen Smalley <sds@tycho.nsa.gov>
-> Date: Thu, 04 Dec 2008 13:11:20 -0500
-> 
-> > On Thu, 2008-12-04 at 20:52 +0300, Alexey Dobriyan wrote:
-> > > On Thu, Dec 04, 2008 at 09:41:24AM -0800, Kok, Auke wrote:
-> > > > maybe try disabling selinux?
-> > > 
-> > > This will work. :^)
-> > 
-> > SELinux didn't change here.  /proc/net did.
-> 
-> We've been through this before...
+From: "Saverio Mascolo" <saverio.mascolo@gmail.com>
+Date: Thu, 4 Dec 2008 20:05:22 +0100
 
-Yep, and we altered SELinux so that they could freely change proc
-directories into symlinks to support the earlier proc/net change.  But
-now proc/net has turned into its own separate filesystem, with its own
-filesystem type, which is unknown to SELinux.  Thus causing it to be
-left unlabeled and inaccessible to confined domains.
+>  the rationale of  VJ choice seems simple to me: if  the window is
+> increased of one packet in one rtt, i can drop at most one packet in
+> one rtt and so i have to recover only one packet in one rtt (note that
+> rtt is the feedback reaction  time). If cwnd is increased of N packets
+> i could drop N packets and i could need to recover N pkts. this is the
+> problem here.
 
-> And it is a usability issue that people can't change how procfs
-> directories work without requiring the user to update their selinux
-> policies first.
+The bigger problem is that windows are so much larger now that going
+back to the stone ages and newreno recovery behavior is absolutely not
+an option any more.
 
-Introducing a new filesystem type (proc/net) without teaching SELinux
-how to handle it is always going to produce denials on accessing that
-filesystem.  If they left the filesystem type string as "proc" it
-wouldn't be a problem.  Or they can adjust the SELinux code to
-automagically handle it.  Regardless, we didn't break anything.
-
--- 
-Stephen Smalley
-National Security Agency
-
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+So "go back to newreno" is not a suggestion to be taken seriously.
