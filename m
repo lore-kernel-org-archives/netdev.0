@@ -1,76 +1,53 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: netdev data (was Re: Oops/Warning report for the week of December
- 3rd, 2008)
-Date: Wed, 3 Dec 2008 19:02:05 -0800
-Message-ID: <20081203190205.65425f6e@infradead.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Oops/Warning report for the week of December 3rd, 2008
+Date: Wed, 3 Dec 2008 20:35:33 -0800
+Message-ID: <20081204043533.GE18027@kroah.com>
 References: <20081203184652.0601b86b@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	linux-pci@vger.kernel.org, netdev@vger.kernel.org, x86@kernel.org,
+	tytso@mit.edu, akpm@linux-foundation.org, alan@redhat.com,
+	airlied@redhat.com
+To: Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39898 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966AbYLDDAr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 22:00:47 -0500
-Received: from c-67-171-137-96.hsd1.or.comcast.net ([67.171.137.96] helo=localhost.localdomain)
-	by casper.infradead.org with esmtpsa (Exim 4.69 #1 (Red Hat Linux))
-	id 1L84SL-0005xw-Gz
-	for netdev@vger.kernel.org; Thu, 04 Dec 2008 03:00:46 +0000
+Received: from kroah.org ([198.145.64.141]:51875 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755315AbYLDEsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2008 23:48:25 -0500
+Content-Disposition: inline
 In-Reply-To: <20081203184652.0601b86b@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 3 Dec 2008 18:46:52 -0800
-Arjan van de Ven <arjan@linux.intel.com> wrote:
+On Wed, Dec 03, 2008 at 06:46:52PM -0800, Arjan van de Ven wrote:
+> Rank 1: pci_create_slot (warning)
+> 	Reported 1224 times (1662 total reports)
+> 	BIOS provided duplicated slot names, the PCI layer blindly passes to sysfs
+> 	This warning was last seen in version 2.6.27.5, and first seen in 2.6.27-rc7-git1.
+> 	More info: http://www.kerneloops.org/searchweek.php?search=pci_create_slot
 
-> This week, a total of 11349 oopses and warnings have been reported,
-> compared to 4327 reports in the previous week.
-> 
-> 
+This will be fixed in 2.6.27.8, so it should go away soon.
 
-for netdev only: the stats of device timeouts
+> Rank 5: VBoxDrvLinuxIOCtl (warning)
+> 	Reported 756 times (2332 total reports)
+> 	[external] bug in the VirtualBox drivers
+> 	This warning was last seen in version 2.6.28-rc3, and first seen in 2.6.25.11.
+> 	More info: http://www.kerneloops.org/searchweek.php?search=VBoxDrvLinuxIOCtl
 
-last 7 days:  
- count |          guilty           
--------+---------------------------
-   432 | dev_watchdog(r8169)
-   292 | dev_watchdog(sis900)
-    84 | dev_watchdog(atl1)
-    60 | dev_watchdog(ne2k-pci)
-    53 | dev_watchdog(gl620a)
-    51 | dev_watchdog(via-rhine)
-    48 | dev_watchdog(cdc_ether)
-    45 | dev_watchdog(8139too)
-    31 | dev_watchdog(atl2)
-    27 | dev_watchdog(orinoco_pci)
-    21 | dev_watchdog(orinoco_cs)
-    15 | dev_watchdog(forcedeth)
-    15 | dev_watchdog(fealnx)
+Does anyone have a link to the virtualbox linux kernel drivers?  I can't
+seem to find them poking around on their site.  All I found were some
+strange C++ files that couldn't possibly be the kernel code...
 
+> Rank 14: sysfs_add_one (oops)
+> 	Reported 195 times (213 total reports)
+> 	Duplicate sysfs registration; mostly in USB audio
+> 	This oops was last seen in version 2.6.27.5, and first seen in 2.6.25.
+> 	More info: http://www.kerneloops.org/searchweek.php?search=sysfs_add_one
 
+Should be resolved in 2.6.27.7, interesting that no one reported it in
+.6, perhaps no distro did a release with that kernel version.
 
-all time:
+thanks,
 
-count |           guilty           
--------+----------------------------
-  1801 | dev_watchdog(sis900)
-  1795 | dev_watchdog(r8169)
-   320 | dev_watchdog(via-rhine)
-   297 | dev_watchdog(cdc_ether)
-   220 | dev_watchdog(8139too)
-   213 | dev_watchdog(usbnet)
-   185 | dev_watchdog(atl1)
-   177 | dev_watchdog(ne2k-pci)
-   169 | dev_watchdog(via_rhine)
-   166 | dev_watchdog(8390)
-   125 | dev_watchdog(atl2)
-   125 | dev_watchdog(gl620a)
-   107 | dev_watchdog(forcedeth)
-   102 | dev_watchdog(fealnx)
-
-
--- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+greg k-h
