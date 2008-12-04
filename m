@@ -1,59 +1,111 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: networking probs in next-20081203
-Date: Thu, 4 Dec 2008 18:14:36 +0300
-Message-ID: <20081204151436.GA18783@x200.localdomain>
-References: <20081203171834.86903d39.akpm@linux-foundation.org>
+From: "Saverio Mascolo" <saverio.mascolo@gmail.com>
+Subject: Re: TCP default congestion control in linux should be newreno
+Date: Thu, 4 Dec 2008 16:26:30 +0100
+Message-ID: <b98e548c0812040726w6ac94d66x8d9f2b1b4aaf7068@mail.gmail.com>
+References: <b98e548c0812030637j2851ed76xb0768932b434e35c@mail.gmail.com>
+	 <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
+	 <Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:7649 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753801AbYLDP0d convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 10:26:33 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so2138743nfc.21
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2008 07:26:30 -0800 (PST)
+In-Reply-To: <Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
 Content-Disposition: inline
-In-Reply-To: <20081203171834.86903d39.akpm@linux-foundation.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 03, 2008 at 05:18:34PM -0800, Andrew Morton wrote:
-> x86_64, CONFIG_E1000E=y.
-> 
-> Current Linus mainline is OK, but with linux-next I'm seeing the following:
-> 
-> - During boot I see a "cannot open /proc/net/dev" fly past.  But when
->   it gets to the login prompt, I can read /proc/net/dev.
+On Thu, Dec 4, 2008 at 1:41 PM, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki=
+=2Efi> wrote:
+> On Wed, 3 Dec 2008, Saverio Mascolo wrote:
+>
+>> we have added plots of cwnd at
+>>
+>> http://c3lab.poliba.it/index.php/TCP_over_Hsdpa
+>>
+>> in the case of newreno, wetwood+, bic/cubic.
+>
+> You lack the most important detail, ie., the used kernel versions!
 
-I _suspect_ it might me something with /proc/net changes (again) and initcall
-ordering.
+2.6
 
-Andrew, as rejectless quick test, you can do
+>And
+> also information if some sysctls were tuned or not. This is especiall=
+y
+> important since you seem to claim that bic is the default which it ha=
+sn't
+> been for years?!
 
-	git checkout -f 26b0d981e7dd1d5b4852ed5719bd1388c7994163	# sic
+bic is default since a couple of years, at my by knoweledge. btw now it=
+ is.
 
-which is the last tree merged before proc tree in that next tree.
+>
+>> basically the goodput is similar with all variants  but with
+>> significantly larger packet losses and timeouts with bic/cubic.
+>
+> I've never understood what exactly is wrong with the larger amount of
+> packet losses if they happen before (or at the bottleneck), here they=
+'re
+> just a consequence of having the larger window.
 
-> - Networking won't come up.  `ifup eth0' says "determining ip address
->   ...  failed", and the failure is immediate.
-> 
-> - eth0 appears in the ifconfig oputput as normal - it just won't come up.
-> 
-> - nothing interesting in dmesg
-> 
-> 
-> Here's the dmesg: http://userweb.kernel.org/~akpm/dmesg-dead-net.txt
-> (that dmesg was generated with E1000=y, E1000E=y, but that doesn't seem
-> to matter)
-> 
-> The .config: http://userweb.kernel.org/~akpm/config-dead-net.txt
+what matters is goodput. if protocols A and B provide same goodput the
+better is the one with lowest retransmissions because retrans. waste
+bandwidth
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+>
+>> i am pretty sure that this would happen with any algos -including h-=
+tcp-
+>> that makes the probing more aggressive leaving the van jacobson line=
+ar
+>> phase.
+>
+> Probably, but you seem to completely lack the analysis to find out wh=
+y the
+> rtos did actually happen, whether it was due to most of the window lo=
+st or
+> perhaps spurious rtos?
+
+using a more aggressive probing (more than linear) increases retransmis=
+sions.
+
+sm
+>
+>
+> --
+>  i.
+>
+
+
+
+--
+Prof. Saverio Mascolo
+Dipartimento di Elettrotecnica ed Elettronica
+Politecnico di Bari
+Via Orabona 4
+70125 Bari
+Italy
+Tel. +39 080 5963621
+=46ax. +39 080 5963410
+email:mascolo@poliba.it
+
+http://www-dee.poliba.it/dee-web/Personale/mascolo.html
+
+
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+This message may contain confidential and/or legally privileged informa=
+tion.
+ If you are not the intended recipient of the message, please destroy i=
+t.
+Any unauthorized dissemination, distribution, or copying of the materia=
+l in
+this message, and any attachments to the message, is strictly forbidden=
+=2E
