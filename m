@@ -1,112 +1,51 @@
-From: Hermann Lauer <Hermann.Lauer@iwr.uni-heidelberg.de>
-Subject: [patch] sumgem: improve ethtool output with fibre card using the internal pcs and a serdes
-Date: Thu, 4 Dec 2008 12:34:34 +0100
-Message-ID: <20081204113434.GC15643@lemon.iwr.uni-heidelberg.de>
-References: <20081125103029.GD12605@lemon.iwr.uni-heidelberg.de> <20081126.011809.241693537.davem@davemloft.net> <20081128000059.GA13712@lemon.iwr.uni-heidelberg.de> <20081201.233539.77173438.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP default congestion control in linux should be newreno
+Date: Thu, 4 Dec 2008 14:41:05 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
+References: <b98e548c0812030637j2851ed76xb0768932b434e35c@mail.gmail.com>
+ <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="b5gNqxB1S1yM7hjW"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Saverio Mascolo <saverio.mascolo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.uni-heidelberg.de ([129.206.100.212]:58504 "EHLO
-	relay.uni-heidelberg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753845AbYLDLem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 06:34:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20081201.233539.77173438.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:52566 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751567AbYLDMlJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 07:41:09 -0500
+In-Reply-To: <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 3 Dec 2008, Saverio Mascolo wrote:
 
---b5gNqxB1S1yM7hjW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> we have added plots of cwnd at
+> 
+> http://c3lab.poliba.it/index.php/TCP_over_Hsdpa
+> 
+> in the case of newreno, wetwood+, bic/cubic.
 
-Attached is a patch which improves the output of ethtool (see below) to
-some sensefull values with a sungem fibre card which uses the 
-sungem interal pcs connected to a serdes chip. The seriallink case
-in the driver is untouched.
+You lack the most important detail, ie., the used kernel versions! And 
+also information if some sysctls were tuned or not. This is especially 
+important since you seem to claim that bic is the default which it hasn't 
+been for years?!
 
-Most values are hardcoded, because gigabit fibre autoneg is anyways
-limited and the driver don't really support much at the moment
-with that hardware.
+> basically the goodput is similar with all variants  but with
+> significantly larger packet losses and timeouts with bic/cubic.
 
-Please consider for inclusion or comment.
-Thanks,
-  Hermann
+I've never understood what exactly is wrong with the larger amount of 
+packet losses if they happen before (or at the bottleneck), here they're 
+just a consequence of having the larger window.
 
-patched# ethtool eth2
-Settings for eth2:
-        Supported ports: [ FIBRE ]
-        Supported link modes:   1000baseT/Half 1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Half
-        Port: FIBRE
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: off
-        Supports Wake-on: d
-        Wake-on: d
-        Current message level: 0x00000007 (7)
-        Link detected: yes
+> i am pretty sure that this would happen with any algos -including h-tcp-
+> that makes the probing more aggressive leaving the van jacobson linear
+> phase.
 
-unpatched# ethtool eth2
-Settings for eth2:
-        Supported ports: [ ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: Unknown! (0)
-        Duplex: Half
-        Port: Twisted Pair
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: off
-        Supports Wake-on: d
-        Wake-on: d
-        Current message level: 0x00000007 (7)
-        Link detected: yes
+Probably, but you seem to completely lack the analysis to find out why the 
+rtos did actually happen, whether it was due to most of the window lost or 
+perhaps spurious rtos?
+
 
 -- 
-Netzwerkadministration/Zentrale Dienste, Interdiziplinaeres 
-Zentrum fuer wissenschaftliches Rechnen der Universitaet Heidelberg
-IWR; INF 368; 69120 Heidelberg; Tel: (06221)54-8236 Fax: -5224
-Email: Hermann.Lauer@iwr.uni-heidelberg.de
---b5gNqxB1S1yM7hjW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sungem-get_settings.patch"
-
---- linux-2.6.27.7/drivers/net/sungem.c.orig	2008-11-27 18:20:26.000000000 +0100
-+++ linux-2.6.27.7/drivers/net/sungem.c	2008-12-04 08:17:28.000000000 +0100
-@@ -2680,6 +2680,21 @@ static int gem_get_settings(struct net_d
- 		cmd->speed = 0;
- 		cmd->duplex = cmd->port = cmd->phy_address =
- 			cmd->transceiver = cmd->autoneg = 0;
-+
-+		/* serdes means usually a Fibre connector, with most fixed */
-+		if (gp->phy_type == phy_serdes) {
-+			cmd->port = PORT_FIBRE;
-+			cmd->supported = (SUPPORTED_1000baseT_Half |
-+				SUPPORTED_1000baseT_Full |
-+				SUPPORTED_FIBRE | SUPPORTED_Autoneg |
-+				SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-+			cmd->advertising = cmd->supported;
-+			cmd->transceiver = XCVR_INTERNAL;
-+			if (gp->lstate == link_up)
-+				cmd->speed = SPEED_1000;
-+			cmd->duplex = DUPLEX_FULL;
-+			cmd->autoneg = 1;
-+		}
- 	}
- 	cmd->maxtxpkt = cmd->maxrxpkt = 0;
- 
-Signed-off-by: Hermann.Lauer@iwr.uni-heidelberg.de
-
---b5gNqxB1S1yM7hjW--
+ i.
