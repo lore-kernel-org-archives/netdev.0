@@ -1,40 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ATM: CVE-2008-5079: multiple listen()s on same socket
- corrupts the vcc table
-Date: Thu, 04 Dec 2008 15:00:11 -0800 (PST)
-Message-ID: <20081204.150011.93825471.davem@davemloft.net>
-References: <200812041725.mB4HP5rS031103@cmf.nrl.navy.mil>
+Subject: Re: [PATCH net-2.6] can: omit received RTR frames for single ID
+ filter lists
+Date: Thu, 04 Dec 2008 15:01:34 -0800 (PST)
+Message-ID: <20081204.150134.49365923.davem@davemloft.net>
+References: <20081128153317.GA3726@e-circ.dyndns.org>
+	<49381618.8030109@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eteo@redhat.com, stable@kernel.org
-To: chas@cmf.nrl.navy.mil
+Cc: greg@kroah.com, kurt.van.dijck@eia.be, netdev@vger.kernel.org,
+	stable@kernel.org
+To: oliver@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58194
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50652
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752681AbYLDXAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 18:00:11 -0500
-In-Reply-To: <200812041725.mB4HP5rS031103@cmf.nrl.navy.mil>
+	by vger.kernel.org with ESMTP id S1754035AbYLDXBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 18:01:34 -0500
+In-Reply-To: <49381618.8030109@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Date: Thu, 04 Dec 2008 12:25:05 -0500
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Thu, 04 Dec 2008 18:40:40 +0100
 
-> please apply to net-next-2.6 and consider for net-2.6 if possible.
+> can: omit received RTR frames for single ID filter lists
 > 
-> thanks!
+> Since commit d253eee20195b25e298bf162a6e72f14bf4803e5 the single CAN
+> identifier filter lists handle only non-RTR CAN frames.
 > 
-> commit 8c5629cfd33e2e8275aae98bbf62a98bf59bc7e8
-> Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
-> Date:   Thu Dec 4 12:14:42 2008 -0500
+> So we need to omit the check of these filter lists when receiving RTR CAN frames.
 > 
->     ATM: CVE-2008-5079: duplicate listen() on socket corrupts the vcc table
->     
->     As reported by Hugo Dias that it is possible to cause a local denial
->     of service attack by calling the svc_listen function twice on the same
->     socket and reading /proc/net/atm/*vc
->     
->     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+> Signed-Off-by: Oliver Hartkopp <oliver@hartkopp.net>
 
-Applied to net-2.6, thanks Chas.
+Applied to net-2.6, thanks.
+
+Please stop capitalizing the "Off"  in Signed-off-by, I keep
+correcting that for you :-)
+
+Thanks again.
