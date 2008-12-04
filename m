@@ -1,46 +1,44 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: networking probs in next-20081203
-Date: Wed, 3 Dec 2008 17:18:34 -0800
-Message-ID: <20081203171834.86903d39.akpm@linux-foundation.org>
+From: Jianjun Kong <jianjun@zeuux.org>
+Subject: [PATCH] net: remove duplicated #include
+Date: Thu, 4 Dec 2008 10:26:50 +0800
+Message-ID: <20081204022650.GA5159@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.zeuux.org ([210.51.160.52]:56277 "EHLO z.billxu.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751295AbYLDC0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Dec 2008 21:26:54 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-x86_64, CONFIG_E1000E=y.
+net: remove duplicated #include
 
-Current Linus mainline is OK, but with linux-next I'm seeing the following:
+Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
+---
+ net/socket.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-- During boot I see a "cannot open /proc/net/dev" fly past.  But when
-  it gets to the login prompt, I can read /proc/net/dev.
+diff --git a/net/socket.c b/net/socket.c
+index 92764d8..e9d65ea 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -69,7 +69,6 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/mutex.h>
+-#include <linux/thread_info.h>
+ #include <linux/wanrouter.h>
+ #include <linux/if_bridge.h>
+ #include <linux/if_frad.h>
+-- 
+1.5.6.3
 
-- Networking won't come up.  `ifup eth0' says "determining ip address
-  ...  failed", and the failure is immediate.
-
-- eth0 appears in the ifconfig oputput as normal - it just won't come up.
-
-- nothing interesting in dmesg
-
-
-Here's the dmesg: http://userweb.kernel.org/~akpm/dmesg-dead-net.txt
-(that dmesg was generated with E1000=y, E1000E=y, but that doesn't seem
-to matter)
-
-The .config: http://userweb.kernel.org/~akpm/config-dead-net.txt
-
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+-- 
+Jianjun Kong | Happy Hacking
+HOMEPAGE: http://kongove.cn/
+GTALK: kongjianjun@gmail.com
