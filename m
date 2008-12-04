@@ -1,64 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Realtek 8169 problems with net booting
-Date: Thu, 04 Dec 2008 12:59:43 -0800 (PST)
-Message-ID: <20081204.125943.211288136.davem@davemloft.net>
-References: <200812041722.26935.mbrown@fensystems.co.uk>
-	<20081204.101503.154423248.davem@davemloft.net>
-	<200812042045.00773.mbrown@fensystems.co.uk>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP default congestion control in linux should be newreno
+Date: Thu, 4 Dec 2008 23:05:29 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0812042250360.27758@wrl-59.cs.helsinki.fi>
+References: <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
+ <Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
+ <20081204185022.6108d19e@gmail.com>  <20081204.101805.45306327.davem@davemloft.net>
+ <b98e548c0812041105o6c2ded8br3c2349cabceaf99f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org
-To: mbrown@fensystems.co.uk
+Cc: David Miller <davem@davemloft.net>, ldecicco@gmail.com,
+	Netdev <netdev@vger.kernel.org>
+To: Saverio Mascolo <saverio.mascolo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43164
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754874AbYLDU7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 15:59:43 -0500
-In-Reply-To: <200812042045.00773.mbrown@fensystems.co.uk>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39423 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752600AbYLDVFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 16:05:31 -0500
+In-Reply-To: <b98e548c0812041105o6c2ded8br3c2349cabceaf99f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Brown <mbrown@fensystems.co.uk>
-Date: Thu, 4 Dec 2008 20:45:00 +0000
+On Thu, 4 Dec 2008, Saverio Mascolo wrote:
 
-> On Thursday 04 December 2008 18:15:03 David Miller wrote:
-> > > The assumption that the chip is quiescent is invalid in the case of any
-> > > kind of boot from SAN (e.g. iSCSI, AoE) via the net device.  The
-> > > INT13-based bootloader has no way to signal to the boot firmware that it
-> > > is finished using the INT13 interface, so the card will always be left in
-> > > an active state.
-> >
-> > So there is no "close" method for the boot loader to call?
-> > Who designs this crud? :-(
-> 
-> I believe that would be IBM, circa 1980.  Pity they didn't consider the needs 
-> of iSCSI boot in a protected-mode OS.
+> we have done many experiments, along with many other "researcher" as u
+> say. as a consequence, i have maturated the belief that changing the
+> probing phase of the van jacobson TCP, which is linear, could not be
+> not a wise thing .
+>  the rationale of  VJ choice seems simple to me: if  the window is
+> increased of one packet in one rtt, i can drop at most one packet in
+> one rtt and so i have to recover only one packet in one rtt (note that
+> rtt is the feedback reaction  time). If cwnd is increased of N packets
+> i could drop N packets and i could need to recover N pkts. this is the
+> problem here.
 
-So we started with crap....
+1) N drops is not as bad as you seem to imply, sadly this is a very common 
+misconcept among much tcp related research that fast retransmits and the
+following recovery are a bad things in itself. SACK handles it very 
+efficiently as long as N is considerably less than cwnd and the buffer 
+before the bottleneck was adequate to keep the link fully utilized over 
+that recovery rtt. Thus the first claim (vj one) does not follow from the 
+latter on (n pkts is bad), it is bogus reasoning.
 
-> For SAN boot, the network boot loader (e.g. gPXE) emulates a BIOS disk using 
-> INT 13, and the next-stage boot loader (e.g. lilo/grub) believes that it is 
-> operating a physical disk; it doesn't even know that there's a NIC involved 
-> that may need to be shut down.
+2) The main benefit of maintaining VJ's one packet increment is the better 
+interflow fairness on short time scale which again is a tradeoff.
 
-...and instead of adding the necessary facilities, things got built on
-top of that crap.
+>   window dynamics of  newreno cwnd behave  better, they are smoother.
+> others cwnd seem chaotic.
 
-So instead of having a real usable solution propagated widely within
-a few years, we'll instead still be stuck with this stuff.
+"seem chaotic" (to humans) != chaotic btw. E.g., any rapid change may 
+seem chaotic. Also utms buffers might "seem chaotic" btw :-) which 
+makes your equation even more complex one (this is not a joke, I've 
+actually probed its behavior a bit).
 
-It rediculious to blame IBM for this, don't you think? :)  When
-interfaces become outdated by technology, you make new ones.
 
-> From our point of view, we will guarantee that the card is left in a
-> state that is "active but harmless"; if the OS never touches the
-> card then nothing bad will happen.  The driver should, as its first
-> action, reset everything except the chip's PCI core.  (Some chips
-> have only the facility to reset everything including the PCI core;
-> I've seen drivers that back up PCI config space prior to reset and
-> restore it afterwards, which seems to work.)
-
-Yes, but don't expect this to be handled properly across the board in
-any significant set of drivers any time soon.  Just about every one
-I checked turns on bus mastering before doing anything else.
+-- 
+ i.
