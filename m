@@ -1,56 +1,79 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH] can: Fix CAN_(EFF|RTR)_FLAG handling in can_filter
-Date: Thu, 04 Dec 2008 17:52:29 +0100
-Message-ID: <49380ACD.1060009@hartkopp.net>
-References: <20081128153317.GA3726@e-circ.dyndns.org>	<49340DAE.5060603@hartkopp.net> <20081203.155354.206786507.davem@davemloft.net>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH 03/13] dmaengine: up-level reference counting to the
+ module level
+Date: Thu, 4 Dec 2008 17:56:00 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0812041746400.5079@axis700.grange>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+ <20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, kurt.van.dijck@eia.be, netdev@vger.kernel.org,
-	stable@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
+	nicolas.ferre@atmel.com
+To: Dan Williams <dan.j.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:63112 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708AbYLDQwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 11:52:36 -0500
-In-Reply-To: <20081203.155354.206786507.davem@davemloft.net>
+Received: from mail.gmx.net ([213.165.64.20]:53318 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754833AbYLDQzs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2008 11:55:48 -0500
+In-Reply-To: <20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Oliver Hartkopp <oliver@hartkopp.net>
-> Date: Mon, 01 Dec 2008 17:15:42 +0100
->
->   
->> can: Fix CAN_(EFF|RTR)_FLAG handling in can_filter
->>
->>     
->
-> Applied to net-2.6
->   
+On Fri, 14 Nov 2008, Dan Williams wrote:
 
-Thanks!
+> -/**
+>   * dma_async_client_register - register a &dma_client
+>   * @client: ptr to a client structure with valid 'event_callback' and 'cap_mask'
+>   */
+>  void dma_async_client_register(struct dma_client *client)
+>  {
+> +	struct dma_device *device, *_d;
+> +	struct dma_chan *chan;
+> +	int err;
+> +
+>  	/* validate client data */
+>  	BUG_ON(dma_has_cap(DMA_SLAVE, client->cap_mask) &&
+>  		!client->slave);
+>  
+>  	mutex_lock(&dma_list_mutex);
+> +	dmaengine_ref_count++;
+> +
+> +	/* try to grab channels */
+> +	list_for_each_entry_safe(device, _d, &dma_device_list, global_node)
+> +		list_for_each_entry(chan, &device->channels, device_node) {
+> +			err = dma_chan_get(chan);
 
-> But you are totally kidding yourself if you think that bumping
-> that completely stupid date string has any meaning at all for
-> userspace.
->
-> You're either keeping to the API you're exporting to userspace
-> or you're not.  And using a date string which userland has to
-> test is just a cop-out for not breaking userspace interfaces.
->   
+Dan, could you please explain this: dma_chan_get() takes a reference on 
+the channel _and_ calls .device_alloc_chan_resources() on first invocation 
+for a specific channel. I now see three locations in dmaengine.c, where 
+dma_chan_get() is called: in dma_request_channel() - logical, but also in 
+dmaengine_get() and dma_async_device_register(), and these latter two I 
+don't understand. I do not understand why we have to grab references and 
+allocate resources for all (public) channels on all controllers in the 
+system if someone just called dmaengine_get()?
 
-This fix does fortunately not break the userspace interface.
+> @@ -420,6 +443,19 @@ int dma_async_device_register(struct dma_device *device)
+>  	}
+>  
+>  	mutex_lock(&dma_list_mutex);
+> +	list_for_each_entry(chan, &device->channels, device_node) {
+> +		/* if clients are already waiting for channels we need to
+> +		 * take references on their behalf
+> +		 */
+> +		if (dmaengine_ref_count && dma_chan_get(chan) == -ENODEV) {
+> +			/* note we can only get here for the first
+> +			 * channel as the remaining channels are
+> +			 * guaranteed to get a reference
+> +			 */
 
-The version string is just for information and should not be used to 
-determine changing userspace interfaces. Thinking about your concerns it 
-may be the best approach to remove this version stuff entirely, before 
-people begin to use it in any weird manner :-/
+This is the second location - where and how are clients waiting for 
+channels? In the old implementation clients had notification callbacks, 
+which were called as new channels became available. Now clients are gone, 
+so, what is meant here?
 
-I'll make a RFC on the CAN ML if it can be removed.
-
-Thanks for the feedback,
-
-Oliver
-
+Confused
+Guennadi
+---
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
