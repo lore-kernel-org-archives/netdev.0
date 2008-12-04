@@ -1,42 +1,83 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH] phy: power management support
-Date: Tue, 2 Dec 2008 19:25:05 -0800
-Message-ID: <20081203032505.GA13484@xw6200.broadcom.net>
-References: <1227794220-19872-1-git-send-email-peppe.cavallaro@st.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m
+	driver v2
+Date: Thu, 04 Dec 2008 10:00:47 +0100
+Message-ID: <1228381247.3197.16.camel@Friederike-PC.hoffi>
+References: <cover.1227691434.git.inaky@linux.intel.com>
+	 <1227783281.3809.78.camel@johannes.berg>
+	 <200812021807.25873.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Giuseppe CAVALLARO" <peppe.cavallaro@st.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3901 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750877AbYLDIHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Dec 2008 03:07:52 -0500
-In-Reply-To: <1227794220-19872-1-git-send-email-peppe.cavallaro@st.com>
-Content-Disposition: inline
+Received: from xc.sipsolutions.net ([83.246.72.84]:47009 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751936AbYLDJBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 04:01:32 -0500
+In-Reply-To: <200812021807.25873.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A while ago Andy Fleming had replied to one of my patches expressing an
-interest in implementing WOL (which I expanded to mean "more control of
-the lifetime of the phy") within the phylib.  I responded that there
-were two problems with that approach.  Very briefly, the problems were
-that the phylib did not have enough information available to determine
-what power state to put the phy into (think management firmware), and
-that turning off the phy might interfere with the normal operation of
-some MAC registers.  I'm sorry that thread died so abruptly.
+On Tue, 2008-12-02 at 18:07 -0800, Inaky Perez-Gonzalez wrote:
 
-My concerns remain though.  At the time the phy is initially probed,
-there is no way to gather enough information to determine whether or not
-it is safe to power down the phy.  The earliest such information can be
-communicated is through the flags parameter of the phy_connect()
-function.
+> For scanning, some devices require to be told exactly where to scan in
+> (as in which combination of band, fft width and coloring of the
+> band). Some others don't. 
 
-I can't speak for the other uses of the phylib, but for tg3 it makes a
-lot of sense to place phy power management in the hands of the driver
-that controls it.  If you agree, can we devise a way to bypass the
-suspend callback?
+But things like these are fairly easy to cover, just allow netlink
+attributes to specify where to scan, and allow drivers to disregard
+them, no harm caused. Maybe include a capability bit, like I'm adding to
+nl80211 in my scanning patch (not included yet) that includes a
+capability for how many SSIDs it can scan actively at once.
 
+> Then of course, the scan results might be
+> operators? Network Service Providers? Network Access Providers?  base
+> station IDs? how do you stitch'em together? You need information to
+> map from one to the other, and that is device specific depending on at
+> which level they work. How to stich that information together depends
+> on the network too (OMA-DM and provisining information help to compose
+> this). If it is done at the device/firmware level or at the host level
+> is device specific.
+
+I have no idea about these things, obviously. But what's wrong with just
+defining the scan operation with netlink attributes as you need them now
+(say the scan returns NSPs) and then later when somebody needs to return
+NAPs add a new attribute? Userspace will easily be able to figure out
+which one it got by looking at which attributes are present.
+
+> Connect has exactly the same levels of issues as scan: what do I
+> connect to? A base station? a NAP or an NSP?
+> 
+> So back to the original question: I have no information to define such
+> an interface at low level, so I am not defining it. Simple :/
+
+Here's where I disagree, obviously, I think you should at least define a
+subset of the imaginable interface, which is, in my opinion, _much_
+better than defining no interface at all and hoping for the next guy to
+figure it out, which is unlikely to happen when you haven't started with
+something the next guy can understand.
+
+> > This really means you're putting the actual "driver", the piece that
+> > does the hardware abstraction, into userspace. And in a binary daemon
+> > even, afaict. This was quickly shot down with ipw3945/4965, not sure why
+> > nobody has cared here so far. Maybe because you're actually planning to
+> > open source that part.
+> 
+> Nope. I am putting the part that knows how to scan and connect in user 
+> space because it does not belong in kernel space. It is big and complex, 
+> needs permanent storage, requires complex crypto code and can really
+> use a OMA-DM client to communicate with the network.
+
+Ok, I guess that makes sense then, I'm not aware of all the details.
+
+> Not a binary, btw. Currently the supplicant is a binary, but that will
+> change. The OMA-DM client daemon is also a binary as of now and we
+> are still thinking how to fix that situation, as there are no open
+> source equivalents. Luckily, it is kind of optional.
+
+Ok, thanks for the explanation.
+
+johannes
 
