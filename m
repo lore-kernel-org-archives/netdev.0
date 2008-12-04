@@ -1,78 +1,56 @@
-From: "Will Newton" <will.newton@gmail.com>
-Subject: Re: [PATCH] tty: Flags should be accessed via the foo_bit interfaces
-Date: Thu, 4 Dec 2008 15:50:29 +0000
-Message-ID: <87a5b0800812040750p6231b0c9s2f664345b23596f0@mail.gmail.com>
-References: <20081204154030.27980.82380.stgit@localhost.localdomain>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH] can: Fix CAN_(EFF|RTR)_FLAG handling in can_filter
+Date: Thu, 04 Dec 2008 17:52:29 +0100
+Message-ID: <49380ACD.1060009@hartkopp.net>
+References: <20081128153317.GA3726@e-circ.dyndns.org>	<49340DAE.5060603@hartkopp.net> <20081203.155354.206786507.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
+Cc: greg@kroah.com, kurt.van.dijck@eia.be, netdev@vger.kernel.org,
+	stable@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:64983 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754527AbYLDPuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 10:50:32 -0500
-Received: by yw-out-2324.google.com with SMTP id 9so1734997ywe.1
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2008 07:50:30 -0800 (PST)
-In-Reply-To: <20081204154030.27980.82380.stgit@localhost.localdomain>
-Content-Disposition: inline
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:63112 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751708AbYLDQwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 11:52:36 -0500
+In-Reply-To: <20081203.155354.206786507.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 4, 2008 at 3:41 PM, Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
-> From: Alan Cox <alan@redhat.com>
+David Miller wrote:
+> From: Oliver Hartkopp <oliver@hartkopp.net>
+> Date: Mon, 01 Dec 2008 17:15:42 +0100
 >
-> We have various drivers that poke around directly and we need to clean this
-> up before it causes problems. Fix up the networking ones - (Dave can you send
-> this via the net tree as that seems simplest)
+>   
+>> can: Fix CAN_(EFF|RTR)_FLAG handling in can_filter
+>>
+>>     
 >
-> Signed-off-by: Alan Cox <alan@redhat.com>
+> Applied to net-2.6
+>   
 
-> diff --git a/drivers/net/slip.c b/drivers/net/slip.c
-> index 1d58991..951c7df 100644
-> --- a/drivers/net/slip.c
-> +++ b/drivers/net/slip.c
-> @@ -402,7 +402,7 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
->         * if we did not request it before write operation.
->         *       14 Oct 1994  Dmitry Gorodchanin.
->         */
-> -       sl->tty->flags |= (1 << TTY_DO_WRITE_WAKEUP);
-> +       set_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
->        actual = sl->tty->ops->write(sl->tty, sl->xbuff, count);
->  #ifdef SL_CHECK_TRANSMIT
->        sl->dev->trans_start = jiffies;
-> @@ -432,7 +432,7 @@ static void slip_write_wakeup(struct tty_struct *tty)
->                /* Now serial buffer is almost free & we can start
->                 * transmission of another packet */
->                sl->tx_packets++;
-> -               tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
-> +               clear_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
->                sl_unlock(sl);
->                return;
->        }
-> @@ -465,7 +465,7 @@ static void sl_tx_timeout(struct net_device *dev)
->                        (tty_chars_in_buffer(sl->tty) || sl->xleft) ?
->                                "bad line quality" : "driver error");
->                sl->xleft = 0;
-> -               sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
-> +               clear_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
->                sl_unlock(sl);
->  #endif
->        }
-> @@ -515,10 +515,9 @@ sl_close(struct net_device *dev)
->        struct slip *sl = netdev_priv(dev);
+Thanks!
+
+> But you are totally kidding yourself if you think that bumping
+> that completely stupid date string has any meaning at all for
+> userspace.
 >
->        spin_lock_bh(&sl->lock);
-> -       if (sl->tty) {
-> +       if (sl->tty)
-> +               clear_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
->                /* TTY discipline is running. */
-> -               sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
-> -       }
+> You're either keeping to the API you're exporting to userspace
+> or you're not.  And using a date string which userland has to
+> test is just a cop-out for not breaking userspace interfaces.
+>   
 
-The indentation of the comment looks like it might be wrong here.
+This fix does fortunately not break the userspace interface.
 
->        netif_stop_queue(dev);
->        sl->rcount   = 0;
->        sl->xleft    = 0;
+The version string is just for information and should not be used to 
+determine changing userspace interfaces. Thinking about your concerns it 
+may be the best approach to remove this version stuff entirely, before 
+people begin to use it in any weird manner :-/
+
+I'll make a RFC on the CAN ML if it can be removed.
+
+Thanks for the feedback,
+
+Oliver
+
