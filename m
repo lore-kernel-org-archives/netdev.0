@@ -1,41 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 1/2] jme: GHC register control fix for new
- hardware
-Date: Wed, 03 Dec 2008 21:20:19 -0800 (PST)
-Message-ID: <20081203.212019.109559554.davem@davemloft.net>
-References: <20081008215853.M53590@cooldavid.org>
-	<20081203103825.M4442@cooldavid.org>
-	<49369F09.2010302@pobox.com>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Wed, 03 Dec 2008 21:25:42 -0800 (PST)
+Message-ID: <20081203.212542.139360072.davem@davemloft.net>
+References: <Pine.LNX.4.64.0812031320340.31282@wrl-59.cs.helsinki.fi>
+	<1228315025.4112.21.camel@nathan.suse.cz>
+	<Pine.LNX.4.64.0812032025570.26311@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cooldavid@cooldavid.org, netdev@vger.kernel.org,
-	ethanhsiao@jmicron.com, akeem@jmicron.com
-To: jgarzik@pobox.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ptesarik@suse.cz, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59260
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49384
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751966AbYLDFUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 00:20:19 -0500
-In-Reply-To: <49369F09.2010302@pobox.com>
+	by vger.kernel.org with ESMTP id S1751497AbYLDFZm convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2008 00:25:42 -0500
+In-Reply-To: <Pine.LNX.4.64.0812032025570.26311@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jgarzik@pobox.com>
-Date: Wed, 03 Dec 2008 10:00:25 -0500
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed, 3 Dec 2008 20:31:09 +0200 (EET)
 
-> Guo-Fu Tseng wrote:
-> > Dear Jeff, David:
-> > Due to the hardware design, except the first chip on the market,
-> > other chips needs to setup the clock source for MAC processor
-> > implicitly through Global Host Control Register(GHC).
-> > (Strange design huh?)
-> > 10/100M uses the PCI-E as clock source, and 1G uses GPHY.
-> > And I reordered the code a little, to make it easier to read.
-> > Found-by: "Ethan" <ethanhsiao@jmicron.com>
-> > Fixed-by: "akeemting" <akeem@jmicron.com>
-> > Signed-off-by: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-> 
-> patches 1-2 Acked-by: Jeff Garzik <jgarzik@redhat.com>
+> On Wed, 3 Dec 2008, Petr Tesarik wrote:
+>=20
+> > Ilpo J=E4rvinen p=EDse v St 03. 12. 2008 v 13:22 +0200:
+> > Yes, re-fragmenting the packet here is probably the best way to go.=
+ But
+> > repeating the same condition on multiple places is not so nice. Wha=
+t
+> > about this little improvement?
+>=20
+> Yeah, this too will work... Though not of too much significance since
+> I've already most of unification of those two functions in a local
+> queue awaiting testing, polish up and submit to net-next.
+>=20
+> When sending an updated version davem prefers to have full changelog =
+in it=20
+> btw, it saves some work for him.
+>=20
+> > (I didn't roll the revert of 33cf71cee1 into it, as it makes the ac=
+tual
+> > change less obvious. I think there are better ways of doing a rever=
+t in
+> > git.)
+>=20
+> Whatever, I've no strong opinion either way though it's just broken w=
+ith=20
+> and without the revert anyway, the full thing is needed to actually f=
+ix=20
+> it.
 
-Both patches applied to net-next-2.6, thanks everyone.
+I've applied Ilpo's version of the fix patch, thanks everyone.
