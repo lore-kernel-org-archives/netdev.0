@@ -1,61 +1,112 @@
-From: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
-Subject: Is it valid to add a macvlan virtual interface to a bridge? If so,
- there seems to be a bug with it.
-Date: Thu, 4 Dec 2008 20:33:52 +1030
-Message-ID: <20081204203352.9740c60e.ipng@69706e6720323030352d30312d31340a.nosense.org>
+From: Hermann Lauer <Hermann.Lauer@iwr.uni-heidelberg.de>
+Subject: [patch] sumgem: improve ethtool output with fibre card using the internal pcs and a serdes
+Date: Thu, 4 Dec 2008 12:34:34 +0100
+Message-ID: <20081204113434.GC15643@lemon.iwr.uni-heidelberg.de>
+References: <20081125103029.GD12605@lemon.iwr.uni-heidelberg.de> <20081126.011809.241693537.davem@davemloft.net> <20081128000059.GA13712@lemon.iwr.uni-heidelberg.de> <20081201.233539.77173438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: kaber@trash.net, netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="b5gNqxB1S1yM7hjW"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.mail.adnap.net.au ([203.6.132.75]:62697 "EHLO
-	smtp1.mail.adnap.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754710AbYLDKvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 05:51:36 -0500
+Received: from relay.uni-heidelberg.de ([129.206.100.212]:58504 "EHLO
+	relay.uni-heidelberg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753845AbYLDLem (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 06:34:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20081201.233539.77173438.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-Is it valid to add a macvlan interface to a bridge? I've been having
-some trouble with inbound unicast traffic not being forwarded into or
-across the bridge, yet inbound broadcast or outbound unicast traffic
-being delivered across the bridge correctly.
+--b5gNqxB1S1yM7hjW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-My setup has been as follows:
+Attached is a patch which improves the output of ethtool (see below) to
+some sensefull values with a sungem fibre card which uses the 
+sungem interal pcs connected to a serdes chip. The seriallink case
+in the driver is untouched.
 
-o  One physical ethernet interface, purely used to "host" macvlan
-interfaces i.e. no IP address, not added to the bridge.
+Most values are hardcoded, because gigabit fibre autoneg is anyways
+limited and the driver don't really support much at the moment
+with that hardware.
 
-o  Quite a number of macvlan interfaces (I've found the limit of
-99 :-) ).
-
-o  Most of those macvlan interfaces are used by individual
-instances of roaring penguin pppoe-server. This has worked fine.
-
-o  One of the macvlan interfaces is in a bridge instance, with the
-other interface in the bridge being a tap interface. Attached to the
-tap interface is guest virtual host, also running a pppoe server.
-
-This bridged macvlan setup seemed to be working ok, as I was seeing
-incoming broadcast traffic and outgoing unicast traffic. My full setup
-wasn't working correctly, so I spent quite a bit of time investigating
-other possible causes. I finally came back around to the bridged macvlan
-interface, and then noticed that only incoming unicast traffic wasn't
-being bridged/forwarded to the device behind the tap interface.
-Bridging the tap interface with another real physical interface resolved
-the issue.
-
-I've had a look at the dev.c file in 2.6.27, and my very naive guess
-is that as the handle_bridge() call is before the handle_macvlan() call,
-because the incoming real physical interface is not part of the bridge,
-the incoming unicast packet is being dropped, before the macvlan code
-gets a look at it.
-
-Should what I'm doing be working or possible? If not, could something
-be added to the kernel to prevent macvlan interfaces being added to
-bridge instances, to stop other people spending time trying to do what
-I've tried to do?
-
+Please consider for inclusion or comment.
 Thanks,
-Mark.
+  Hermann
+
+patched# ethtool eth2
+Settings for eth2:
+        Supported ports: [ FIBRE ]
+        Supported link modes:   1000baseT/Half 1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s
+        Duplex: Half
+        Port: FIBRE
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: off
+        Supports Wake-on: d
+        Wake-on: d
+        Current message level: 0x00000007 (7)
+        Link detected: yes
+
+unpatched# ethtool eth2
+Settings for eth2:
+        Supported ports: [ ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: Unknown! (0)
+        Duplex: Half
+        Port: Twisted Pair
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: off
+        Supports Wake-on: d
+        Wake-on: d
+        Current message level: 0x00000007 (7)
+        Link detected: yes
+
+-- 
+Netzwerkadministration/Zentrale Dienste, Interdiziplinaeres 
+Zentrum fuer wissenschaftliches Rechnen der Universitaet Heidelberg
+IWR; INF 368; 69120 Heidelberg; Tel: (06221)54-8236 Fax: -5224
+Email: Hermann.Lauer@iwr.uni-heidelberg.de
+--b5gNqxB1S1yM7hjW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sungem-get_settings.patch"
+
+--- linux-2.6.27.7/drivers/net/sungem.c.orig	2008-11-27 18:20:26.000000000 +0100
++++ linux-2.6.27.7/drivers/net/sungem.c	2008-12-04 08:17:28.000000000 +0100
+@@ -2680,6 +2680,21 @@ static int gem_get_settings(struct net_d
+ 		cmd->speed = 0;
+ 		cmd->duplex = cmd->port = cmd->phy_address =
+ 			cmd->transceiver = cmd->autoneg = 0;
++
++		/* serdes means usually a Fibre connector, with most fixed */
++		if (gp->phy_type == phy_serdes) {
++			cmd->port = PORT_FIBRE;
++			cmd->supported = (SUPPORTED_1000baseT_Half |
++				SUPPORTED_1000baseT_Full |
++				SUPPORTED_FIBRE | SUPPORTED_Autoneg |
++				SUPPORTED_Pause | SUPPORTED_Asym_Pause);
++			cmd->advertising = cmd->supported;
++			cmd->transceiver = XCVR_INTERNAL;
++			if (gp->lstate == link_up)
++				cmd->speed = SPEED_1000;
++			cmd->duplex = DUPLEX_FULL;
++			cmd->autoneg = 1;
++		}
+ 	}
+ 	cmd->maxtxpkt = cmd->maxrxpkt = 0;
+ 
+Signed-off-by: Hermann.Lauer@iwr.uni-heidelberg.de
+
+--b5gNqxB1S1yM7hjW--
