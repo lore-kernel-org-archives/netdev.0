@@ -1,40 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [E1000-devel] networking probs in next-20081203
-Date: Thu, 04 Dec 2008 10:21:38 -0800 (PST)
-Message-ID: <20081204.102138.123959105.davem@davemloft.net>
-References: <49381644.8020502@intel.com>
-	<20081204175236.GA19808@x200.localdomain>
-	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
+From: "Dan Williams" <dan.j.williams@intel.com>
+Subject: Re: [PATCH 03/13] dmaengine: up-level reference counting to the module level
+Date: Thu, 4 Dec 2008 11:51:53 -0700
+Message-ID: <e9c3a7c20812041051l44bd8086o97c12d77a116f62@mail.gmail.com>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+	 <20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
+	 <Pine.LNX.4.64.0812041746400.5079@axis700.grange>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, auke-jan.h.kok@intel.com,
-	akpm@linux-foundation.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, ebiederm@xmission.com, jmorris@namei.org,
-	eparis@parisplace.org
-To: sds@tycho.nsa.gov
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
+	nicolas.ferre@atmel.com
+To: "Guennadi Liakhovetski" <g.liakhovetski@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55908
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753891AbYLDSVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 13:21:38 -0500
-In-Reply-To: <1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
+Received: from qw-out-2122.google.com ([74.125.92.27]:47342 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755613AbYLDSvz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 13:51:55 -0500
+Received: by qw-out-2122.google.com with SMTP id 3so1005453qwe.37
+        for <netdev@vger.kernel.org>; Thu, 04 Dec 2008 10:51:53 -0800 (PST)
+In-Reply-To: <Pine.LNX.4.64.0812041746400.5079@axis700.grange>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Date: Thu, 04 Dec 2008 13:11:20 -0500
+On Thu, Dec 4, 2008 at 9:56 AM, Guennadi Liakhovetski
+<g.liakhovetski@gmx.de> wrote:
+>> +
+>> +     /* try to grab channels */
+>> +     list_for_each_entry_safe(device, _d, &dma_device_list, global_node)
+>> +             list_for_each_entry(chan, &device->channels, device_node) {
+>> +                     err = dma_chan_get(chan);
+>
+> Dan, could you please explain this: dma_chan_get() takes a reference on
+> the channel _and_ calls .device_alloc_chan_resources() on first invocation
+> for a specific channel. I now see three locations in dmaengine.c, where
+> dma_chan_get() is called: in dma_request_channel() - logical, but also in
+> dmaengine_get() and dma_async_device_register(), and these latter two I
+> don't understand. I do not understand why we have to grab references and
+> allocate resources for all (public) channels on all controllers in the
+> system if someone just called dmaengine_get()?
 
-> On Thu, 2008-12-04 at 20:52 +0300, Alexey Dobriyan wrote:
-> > On Thu, Dec 04, 2008 at 09:41:24AM -0800, Kok, Auke wrote:
-> > > maybe try disabling selinux?
-> > 
-> > This will work. :^)
-> 
-> SELinux didn't change here.  /proc/net did.
+Consider the case where a subsystem that consumes engines like
+async_tx or net_dma loads before engines are available in the system.
+They will have taken a reference against dmaengine, but calls to
+dma_find_channel will return NULL.  Once a channel driver is loaded
+dma_find_channel() can start returning results, and it is at this
+point that resources must be allocated and the backing module pinned.
+So dmaengine_get() means "I am interested in offloading stuff, if you
+see an offload resource grab it and prep it so I can discover it with
+dma_find_channel()".
 
-We've been through this before...
+>
+>> @@ -420,6 +443,19 @@ int dma_async_device_register(struct dma_device *device)
+>>       }
+>>
+>>       mutex_lock(&dma_list_mutex);
+>> +     list_for_each_entry(chan, &device->channels, device_node) {
+>> +             /* if clients are already waiting for channels we need to
+>> +              * take references on their behalf
+>> +              */
+>> +             if (dmaengine_ref_count && dma_chan_get(chan) == -ENODEV) {
+>> +                     /* note we can only get here for the first
+>> +                      * channel as the remaining channels are
+>> +                      * guaranteed to get a reference
+>> +                      */
+>
+> This is the second location - where and how are clients waiting for
+> channels? In the old implementation clients had notification callbacks,
+> which were called as new channels became available. Now clients are gone,
+> so, what is meant here?
+>
 
-And it is a usability issue that people can't change how procfs
-directories work without requiring the user to update their selinux
-policies first.
+The assumption is that mem-to-mem offload clients poll dma_find_channel().
+
+Regards,
+Dan
