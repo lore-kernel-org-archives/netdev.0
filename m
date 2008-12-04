@@ -1,58 +1,198 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 02/39] wimax: declarations for the in-kernel WiMAX API
-Date: Thu, 04 Dec 2008 10:04:30 +0100
-Message-ID: <1228381470.3197.22.camel@Friederike-PC.hoffi>
-References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <68881c1af06f352dc457485c208662a8db62f3fe.1227691434.git.inaky@linux.intel.com>
-	 <1227778323.3809.19.camel@johannes.berg>
-	 <200812021807.31959.inaky@linux.intel.com>
+From: ohashi-h@mb.dnes.nec.co.jp
+Subject: =?utf-8?B?UmU6IGUxMDAwOiBMRUQgaW5kaWNhdGVzIHRyb3VibGUs?=
+	=?utf-8?B?IGFuZCBbUEFUQ0hdIGVuYWJsZS9kaXNhYmxlIG9mIGZvcmNlLWxpbmst?=
+	=?utf-8?B?dXA=?=
+Date: Thu, 4 Dec 2008 18:24:21 +0900
+Message-ID: <20081204182421ohashi-h@mail.jp.nec.com>
+References: <9929d2390812030012i4fb1a19emc19baaadbd0953e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
+	jgarzik@pobox.com, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, h-shimamoto@ct.jp.nec.com,
+	ohashi-h@mb.dnes.nec.co.jp
+To: =?utf-8?B?IkplZmYgS2lyc2hlciIg?= <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:43015 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751944AbYLDJFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 04:05:14 -0500
-In-Reply-To: <200812021807.31959.inaky@linux.intel.com>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:55727 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbYLDJYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 04:24:35 -0500
+In-reply-to: <9929d2390812030012i4fb1a19emc19baaadbd0953e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-12-02 at 18:07 -0800, Inaky Perez-Gonzalez wrote:
-> On Thursday 27 November 2008, Johannes Berg wrote:
-> > Why bother versioning the API? Since this is generic netlink, and things
-> > are looked up by the family name, a completely new version would just
-> > use a new family name and be done with it, old userspace won't even
-> > _find_ that new "version" of the API.
-> 
-> That'd be a way to do majors -- hadn't thought about it.
-> 
-> But then, it forces a way to create "a way to grok versions" in the
-> family name, which is moving the problem from one place to the other.
-> 
-> Because parsing in the family means having to set a protocol and
-> parsing ASCII, I'd say it's easier to use the family's version field,
-> as it is available.
 
-I wasn't actually advocating parsing the family name, but thinking that
-if you were to actually do a major revision then you'd be rewriting all
-the userland code anyway and could just hardcode a new family name
-there.
+Jeff Kirsher wrote (2008/12/03 17:12:00 +0900 )=EF=BC=9A
 
-> > The "minor version" seems also
-> > useless, either you can do the change in a backward compatible way or
-> > you cannot and need to provide compat code.
-> 
-> No it is not -- you are missing the case of adding an API
-> call/signal. Addition doesn't break backwards compatibility, yet a
-> user that requires the addition has to double check it is
-> available.
+>On Tue, Dec 2, 2008 at 11:36 PM,  <ohashi-h@mb.dnes.nec.co.jp> wrote:
+>> From: Hiroki Ohashi  <ohashi-h@mb.dnes.nec.co.jp>
+>>
+>> Hi all,
+>>
+>> I faced the following situations.
+>> The LED of NIC was indicated, even when the system was not linked
+>> the network (auto-negotiation failed or link partner cannot
+>> auto-negotiate).
+>> LED should be indicate only when the network was linked.
+>> And so, it is a problem that LED indicates.
+>>
+>> I think the indicating the LED is a problem for maintenance.
+>> I cannot know the condition of the link, because I confirm
+>> to link up by LED's indication.
+>>
+>> We are using 82571EB ethernet controler and serdes interface.
+>>
+>> I think this problem is caused by the e1000 device driver
+>> setting LU and SLU bits in the interface and forcing the link
+>> to go up.
+>> I deleted this logic. (the following modification.)
+>> Then, LED was turned off.
+>>
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> --- e1000_hw.c.org
+>> +++ e1000_hw.c
+>> @@ -3069,6 +3069,7 @@I
+>>             hw->autoneg_failed =3D 1;
+>>             return 0;
+>>         }
+>> +#if 0
+>>         DEBUGOUT("NOT RXing /C/, disable AutoNeg and force link.\n")=
+;
+>>
+>>         /* Disable auto-negotiation in the TXCW register */
+>> @@ -3078,6 +3079,7 @@
+>>         ctrl =3D E1000_READ_REG(hw, CTRL);
+>>         ctrl |=3D (E1000_CTRL_SLU | E1000_CTRL_FD);
+>>         E1000_WRITE_REG(hw, CTRL, ctrl);
+>> +#endif
+>>
+>>         /* Configure Flow Control after forcing link up. */
+>>         ret_val =3D e1000_config_fc_after_link_up(hw);
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>
+>>
+>> I think the e1000 driver should enable/disable force-link-up
+>> depending on the condition of the link.
+>> But I don't know a good way to do this.
+>> If you have any good ideas, please let me know.
+>>
+>> As a temporary idea, I thought of a way of adding a module parameter
+>> to control enable/disable force-link-up.
+>> The patch is as follows.
+>>
+>> This patch adds "disable_force_link_up_when_autoneg_failed"
+>> as module parameter. When this is 0, force-link-up is disable.
+>>
+>> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>>
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> --- drivers/net/e1000/e1000_hw.h.org
+>> +++ drivers/net/e1000/e1000_hw.h
+>> @@ -1469,6 +1469,7 @@ struct e1000_hw {
+>>        bool                    has_manc2h;
+>>        bool                    rx_needs_kicking;
+>>        bool                    has_smbus;
+>> +       bool                    disable_force_link_up_when_autoneg_f=
+ailed;
+>>  };
+>> --- drivers/net/e1000/e1000_param.c.org
+>> +++ drivers/net/e1000/e1000_param.c
+>> @@ -196,6 +196,13 @@ E1000_PARAM(SmartPowerDownEnable, "Enabl
+>>  */
+>>  E1000_PARAM(KumeranLockLoss, "Enable Kumeran lock loss workaround")=
+;
+>>
+>> +/* Enable Force Link Up When AutoNeg Failed
+>> + *
+>> + * Valid Range: 0, 1
+>> + *
+>> + * Default Value: 1 (force link up enabled)  */
+>> +E1000_PARAM(EnableForceLinkOnSERDES, "Enable force link up when Aut=
+oNeg failed");
+>> +
+>>  struct e1000_option {
+>>        enum { enable_option, range_option, list_option } type;
+>>        const char *name;
+>> @@ -534,6 +541,23 @@ void __devinit e1000_check_options(struc
+>>                        adapter->hw.kmrn_lock_loss_workaround_disable=
+d =3D !opt.def;
+>>                }
+>>        }
+>> +       { /* Enable Force Link Up When AutoNeg Failed */
+>> +               struct e1000_option opt =3D {
+>> +                       .type =3D enable_option,
+>> +                       .name =3D "Enable Force Link Up When AutoNeg=
+ Failed",
+>> +                       .err  =3D "defaulting to Enabled",
+>> +                       .def  =3D OPTION_ENABLED
+>> +               };
+>> +
+>> +               if (num_EnableForceLinkOnSERDES > bd) {
+>> +                       unsigned int force_link_up =3D EnableForceLi=
+nkOnSERDES [bd];
+>> +                       e1000_validate_option(&force_link_up, &opt, =
+adapter);
+>> +                       adapter->hw.disable_force_link_up_when_auton=
+eg_failed =3D !force_link_up;
+>> +
+>> +               } else {
+>> +                       adapter->hw.disable_force_link_up_when_auton=
+eg_failed =3D !opt.def;
+>> +               }
+>> +       }
+>>
+>>        switch (adapter->hw.media_type) {
+>>        case e1000_media_type_fiber:
+>> --- drivers/net/e1000/e1000_hw.c.org
+>> +++ drivers/net/e1000/e1000_hw.c
+>> @@ -3062,6 +3062,12 @@ s32 e1000_check_for_link(struct e1000_hw
+>>             hw->autoneg_failed =3D 1;
+>>             return 0;
+>>         }
+>> +
+>> +        if (hw->disable_force_link_up_when_autoneg_failed) {
+>> +            DEBUGOUT("Force Link Up Disabled\n");
+>> +            return -E1000_ERR_PHY;
+>> +        }
+>> +
+>>         DEBUGOUT("NOT RXing /C/, disable AutoNeg and force link.\n")=
+;
+>>
+>>         /* Disable auto-negotiation in the TXCW register */
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> --
+>>
+>
+>I am a little confused.  You state you are using an NIC (82571EB)
+>which is currently not supported by e1000, but is supported in the
+>e1000e driver.  Then you suggest a change to the e1000 driver to
+>resolve an issue you see with your 82571EB NIC.
+>
+>So I would suggest you use the e1000e driver first.
 
-No! API additions can always be discovered through the genl controller,
-it supports listing which operations are available. Check out the genl
-command from iproute2.
+Thank you, I will try again using e1000e driver.
 
-johannes
+>Also the Link LED is supposed to indicated that there is a "physical"
+>link, in which case you can have a physical connection and still fail
+>auto-neg.  So I do not necessarily agree with your interpretation of
+>what a link LED is supposed to indicate.
 
+My explanation was insufficiently.
+My system was NOT connected LAN cable to NIC, but the Link LED
+was indicated.
+So the problem is the LED is indicated without connecting the cable.
+
+>NAK.
+>
+>--=20
+>Cheers,
+>Jeff
+
+Hiroki Ohashi
