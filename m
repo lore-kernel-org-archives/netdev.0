@@ -1,54 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Realtek 8169 problems with net booting
-Date: Thu, 04 Dec 2008 10:15:03 -0800 (PST)
-Message-ID: <20081204.101503.154423248.davem@davemloft.net>
-References: <20081124181456.66a967d2@lxorguk.ukuu.org.uk>
-	<20081124.135710.83221715.davem@davemloft.net>
-	<200812041722.26935.mbrown@fensystems.co.uk>
+Subject: Re: TCP default congestion control in linux should be newreno
+Date: Thu, 04 Dec 2008 10:18:05 -0800 (PST)
+Message-ID: <20081204.101805.45306327.davem@davemloft.net>
+References: <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
+	<Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
+	<20081204185022.6108d19e@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org
-To: mbrown@fensystems.co.uk
+Cc: ilpo.jarvinen@helsinki.fi, saverio.mascolo@gmail.com,
+	netdev@vger.kernel.org
+To: ldecicco@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34057
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34061
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753396AbYLDSPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 13:15:03 -0500
-In-Reply-To: <200812041722.26935.mbrown@fensystems.co.uk>
+	by vger.kernel.org with ESMTP id S1752444AbYLDSSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 13:18:04 -0500
+In-Reply-To: <20081204185022.6108d19e@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Brown <mbrown@fensystems.co.uk>
-Date: Thu, 4 Dec 2008 17:22:26 +0000
+From: Luca De Cicco <ldecicco@gmail.com>
+Date: Thu, 4 Dec 2008 18:50:22 +0100
 
-> On Monday 24 November 2008 21:57:10 David Miller wrote:
-> > Yes, a lot of drivers will enable bus mastering before resetting
-> > the chip.
-> >
-> > The basic assumption is that the chip is quiescent at driver load
-> > time.
-> >
-> > Since switching around this order across the board is too
-> > gigantic a project, I would suggest just handling things on
-> > a case-by-case basis where we know the BIOS or firmware leave
-> > the chip in a crud state like this.
-> 
-> The assumption that the chip is quiescent is invalid in the case of any kind 
-> of boot from SAN (e.g. iSCSI, AoE) via the net device.  The INT13-based 
-> bootloader has no way to signal to the boot firmware that it is finished 
-> using the INT13 interface, so the card will always be left in an active 
-> state.
+> Thank you for pointing out, we employed the kernel 2.6.24 with web100
 
-So there is no "close" method for the boot loader to call?
-Who designs this crud? :-(
+That is so ancient, especially TCP wise, it isn't even funny.
 
-> In gPXE, we do what we can to ensure that the card is safe to use when the OS 
-> loads; we edit the RX buffers, ISR, etc. out of the system memory map prior 
-> to starting an iSCSI boot.  We don't, however, get a chance to actually 
-> quiesce the chip before the OS driver loads up, so the OS driver must be 
-> prepared to discover the chip in an active state.
+And using the web100 patch adds yet more variables to the equation.
 
-It's really unfortunate that things have been setup so poorly.
+It doesn't really reflect what users are actually running in the world
+today, not by a country mile.
 
-So OK, we have to handle this.
+You're not comparing what we're actually shipping in the kernel.org
+kernel at all with your tests, which means your tests and results are
+something close to useless for us.
+
+I don't udnerstand why there are so many people who dice up their
+kernels, or use very old kernels, then do some "research" and then
+suggest we should change this or that with the kernel.org kernel as a
+result.
+
+Sorry, nobody here is going to take that seriously at all.
