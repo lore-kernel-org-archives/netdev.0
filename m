@@ -1,73 +1,67 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: networking probs in next-20081203
-Date: Thu, 04 Dec 2008 09:41:24 -0800
-Message-ID: <49381644.8020502@intel.com>
-References: <20081203171834.86903d39.akpm@linux-foundation.org>
-	<20081204151436.GA18783@x200.localdomain>
+From: Andre Schwarz <andre.schwarz@matrix-vision.de>
+Subject: Re: "eth1: Could not attach to PHY" on MPC8349e-MITX
+Date: Thu, 04 Dec 2008 18:41:54 +0100
+Message-ID: <49381662.2020302@matrix-vision.de>
+References: <ed82fe3e0812040915i696e99bep75a37b0e38154415@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20081204151436.GA18783@x200.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linuxppc-dev@ozlabs.org, afleming@freescale.com, netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <ed82fe3e0812040915i696e99bep75a37b0e38154415@mail.gmail.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
-> On Wed, Dec 03, 2008 at 05:18:34PM -0800, Andrew Morton wrote:
->> x86_64, CONFIG_E1000E=y.
->>
->> Current Linus mainline is OK, but with linux-next I'm seeing the following:
->>
->> - During boot I see a "cannot open /proc/net/dev" fly past.  But when
->>   it gets to the login prompt, I can read /proc/net/dev.
-> 
-> I _suspect_ it might me something with /proc/net changes (again) and initcall
-> ordering.
-> 
-> Andrew, as rejectless quick test, you can do
-> 
-> 	git checkout -f 26b0d981e7dd1d5b4852ed5719bd1388c7994163	# sic
-> 
-> which is the last tree merged before proc tree in that next tree.
-> 
->> - Networking won't come up.  `ifup eth0' says "determining ip address
->>   ...  failed", and the failure is immediate.
->>
->> - eth0 appears in the ifconfig oputput as normal - it just won't come up.
->>
->> - nothing interesting in dmesg
->>
->>
->> Here's the dmesg: http://userweb.kernel.org/~akpm/dmesg-dead-net.txt
->> (that dmesg was generated with E1000=y, E1000E=y, but that doesn't seem
->> to matter)
->>
->> The .config: http://userweb.kernel.org/~akpm/config-dead-net.txt
+Timur,
 
-perhaps this line has something to do with it?
+is it possible that the PHY adress doesn't match the one specified in
+the dts ?
 
-[   50.539326] type=1400 audit(1228348149.537:4): avc:  denied  { mount } for
-pid=11636 comm="ifconfig" name="/" dev=proc/net ino=4026531842
-scontext=system_u:system_r:ifconfig_t:s0 tcontext=system_u:object_r:unlabeled_t:s0
-tclass=filesystem
+regards,
+Andre
 
-maybe try disabling selinux?
+Timur Tabi schrieb:
+> The Freescale MPC8349e-MITX reference board has two TSECs, the second
+> of which (eth1) is attached to a Vitesse 7385 5-port switch.
+>
+> Using the latest U-Boot, Kernel, and device tree, I cannot bring up
+> eth1.  When I try, I get this message:
+>
+> [root@tintin root]# ifconfig eth1 up
+> 0:01 not found
+> eth1: Could not attach to PHY
+> SIOCSIFFLAGS: No such device
+>
+> Unfortunately, I don't even know what this means.
+>
+> I believe my network configuration is correct.  Here's what ifconfig
+> says about eth1:
+>
+> eth1      Link encap:Ethernet  HWaddr 00:E0:0C:00:8C:02
+>           inet addr:192.168.2.141  Bcast:192.168.255.255  Mask:255.255.0.0
+>           BROADCAST MULTICAST  MTU:1500  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+>           Base address:0x4000
+>
+> eth1 does work in U-boot, so I know it can be made to work (and I know
+> the 7385's firmware is uploaded), I just don't know what needs to be
+> done in Linux.
+>   =
 
-Auke
 
--------------------------------------------------------------------------
-This SF.Net email is sponsored by the Moblin Your Move Developer's challenge
-Build the coolest Linux based applications with Moblin SDK & win great prizes
-Grand prize is a trip for two to an Open Source event anywhere in the world
-http://moblin-contest.org/redirect.php?banner_id=100&url=/
+
+MATRIX VISION GmbH, Talstra=DFe 16, DE-71570 Oppenweiler  - Registergericht=
+: Amtsgericht Stuttgart, HRB 271090
+Gesch=E4ftsf=FChrer: Gerhard Thullner, Werner Armingeon, Uwe Furtner
