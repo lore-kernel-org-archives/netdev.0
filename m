@@ -1,44 +1,42 @@
-From: Nick Andrew <nick@nick-andrew.net>
-Subject: Re: About git-bisect (defconfigs)
-Date: Thu, 4 Dec 2008 11:14:52 +1100
-Message-ID: <20081204001452.GH11807@mail.local.tull.net>
-References: <bEFPF-XO-15@gated-at.bofh.it> <bEFPG-XO-19@gated-at.bofh.it> <bEG8P-1xl-15@gated-at.bofh.it> <bEGiz-1Hw-11@gated-at.bofh.it> <bEGLI-2aS-31@gated-at.bofh.it> <bEGVc-2Bk-11@gated-at.bofh.it> <m2r64q6y8e.fsf@gmail.com> <493681B7.20101@diamondcut.com.br> <38b2ab8a0812030924g5391fdbdy15c472a51ab24aef@mail.gmail.com> <4936C6FB.4020201@oracle.com>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: 2.6.28-rc7-git2: Reported regressions from 2.6.27
+Date: Wed, 03 Dec 2008 18:17:21 -0600
+Message-ID: <1228349841.5551.100.camel@localhost.localdomain>
+References: <QFIA5HSHV8B.A.2aG.hoxNJB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francis Moreau <francis.moro@gmail.com>,
-	"Renato S. Yamane" <yamane@diamondcut.com.br>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	Sam Ravnborg <sam@ravnborg.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757390AbYLDAPa@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4936C6FB.4020201@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from accolon.hansenpartnership.com ([76.243.235.52]:57282 "EHLO
+	accolon.hansenpartnership.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751426AbYLDART (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Dec 2008 19:17:19 -0500
+In-Reply-To: <QFIA5HSHV8B.A.2aG.hoxNJB@chimera>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 03, 2008 at 09:50:51AM -0800, Randy Dunlap wrote:
-> 2.  There are several security-related config items that default to =y but the
-> kconfig help says:  If unsure, say N here.  Like:
-> 
-> 
-> CONFIG_NETLABEL=y
-> CONFIG_NETWORK_SECMARK=y
-> CONFIG_KEYS=y
-> CONFIG_SECURITY=y
-> CONFIG_SECURITY_NETWORK=y
-> CONFIG_SECURITY_SELINUX=y
-> 
-> Maybe I just don't understand the current meaning/usage of defconfig.  eh?
+On Wed, 2008-12-03 at 22:49 +0100, Rafael J. Wysocki wrote:
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12120
+> Subject         : [Block layer or SCSI] requests aborted too early
+> during check_partition()
+> Submitter       : Stefan Richter <stefan-r-bz@s5r6.in-berlin.de>
+> Date            : 2008-11-29 05:19 (5 days old)
 
-A consistent approach to the Kconfig hints would help. To me,
-"If unsure, say N" implies that turning off the feature won't break
-the kernel nor be anything particularly important. The Kconfig hints
-should follow the defaults (or else why default to 'y'?) for common
-architectures.
+Fixed by this patch:
 
-Perhaps menuconfig can generate the "If unsure" message itself from
-the architecture defaults? That will ensure consistency.
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9728c0814ecb505546696a659858fdb761375544
 
-Nick.
+James
+
+
