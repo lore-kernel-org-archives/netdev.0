@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next]bond: Kill directly reference of netdev->priv
-Date: Wed, 03 Dec 2008 21:14:10 -0800 (PST)
-Message-ID: <20081203.211410.165167475.davem@davemloft.net>
-References: <493538FC.3060609@cn.fujitsu.com>
+Subject: Re: [PATCH 4/3 v3] pkt_sched: sch_htb: Clean L2T()
+Date: Wed, 03 Dec 2008 21:17:09 -0800 (PST)
+Message-ID: <20081203.211709.137367864.davem@davemloft.net>
+References: <20081203075433.GA7137@ff.dom.local>
+	<20081203.002046.153795689.davem@davemloft.net>
+	<20081203085006.GA15262@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+Cc: devik@cdi.cz, kaber@trash.net, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45165
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45170
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751903AbYLDFOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 00:14:10 -0500
-In-Reply-To: <493538FC.3060609@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1754456AbYLDFRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 00:17:08 -0500
+In-Reply-To: <20081203085006.GA15262@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Tue, 02 Dec 2008 21:32:44 +0800
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 3 Dec 2008 08:50:06 +0000
 
-> Simply replace netdev->priv with netdev_priv().
+> pkt_sched: sch_htb: Remove L2T()
 > 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> L2T() is currently used only in one place (and has one spurious
+> parameter, btw), so let's: 'get rid of L2T completely, and just
+> use "qdisc_l2t(rate, size)" directly.' - quote & feedback from
+> David S. Miller.
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
 Applied.
