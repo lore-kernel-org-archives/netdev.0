@@ -1,52 +1,48 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 00/39] merge request for WiMAX kernel stack and i2400m
- driver v2
-Date: Thu, 04 Dec 2008 14:37:15 +0100
-Message-ID: <1228397835.28839.23.camel@violet.holtmann.net>
-References: <cover.1227691434.git.inaky@linux.intel.com>
-	 <200812021810.59279.inaky@linux.intel.com>
-	 <1228381309.3197.17.camel@Friederike-PC.hoffi>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH next] sgi-xp: Kill directly reference of netdev->priv
+Date: Thu, 4 Dec 2008 15:41:15 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0812041538330.26947@wrl-59.cs.helsinki.fi>
+References: <4937D38F.6010102@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Inaky Perez-Gonzalez <inaky@linux.intel.com>,
-	netdev@vger.kernel.org, wimax@linuxwimax.org,
-	Thomas Graf <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:39220 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753122AbYLDNhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 08:37:19 -0500
-In-Reply-To: <1228381309.3197.17.camel@Friederike-PC.hoffi>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:54669 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753090AbYLDNlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 08:41:18 -0500
+In-Reply-To: <4937D38F.6010102@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johannes,
+On Thu, 4 Dec 2008, Wang Chen wrote:
 
-> > First two ones I plan to tackle ASAP. The dynamic_printk() stuff might take
-> > longer and I was wondering if you would be ok with changing that post-29 in
-> > case I were about to miss the merge window (got a few very busy weeks
-> > ahead of me).
+> Simply replace netdev->priv with netdev_priv().
 > 
-> Fine with me, I guess, I don't even know if the dynprintk is applicable
-> (though I'd rather see you make it work if it isn't than add yet another
-> huge debug macro file :) )
+> Not do compile test, because no IA64 or x86_64 box.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> ---
+>  drivers/misc/sgi-xp/xpnet.c |    9 +++++----
+>  1 files changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/misc/sgi-xp/xpnet.c b/drivers/misc/sgi-xp/xpnet.c
+> index 71513b3..9e5233a 100644
+> --- a/drivers/misc/sgi-xp/xpnet.c
+> +++ b/drivers/misc/sgi-xp/xpnet.c
+> @@ -154,7 +154,7 @@ xpnet_receive(short partid, int channel, struct xpnet_message *msg)
+>  	void *dst;
+>  	enum xp_retval ret;
+>  	struct xpnet_dev_private *priv =
+> -	    (struct xpnet_dev_private *)xpnet_device->priv;
+> +	    (struct xpnet_dev_private *)netdev_priv(xpnet_device);
 
-I switched over the Bluetooth stack to use dynamic_printk(). It is as
-easy as just using pr_debug() or dev_dbg(). The rest already works
-perfectly fine.
-
-However it is either full debug or nothing. Not a fine grained stuff we
-have in the iwlwifi drivers. However not sure if that is actually
-needed. It confuses me more and having to unload the driver and reload
-it makes me not using it a lot. The dynamic_printk() is really nice
-since you can turn it on and off. And since it is on a per module basis
-it was enough for Bluetooth. Not sure if that is applicable to
-everything, but then it could be extended with debug levels, I guess.
-
-Regards
-
-Marcel
+netdev_priv returns void, so these casts seem unnecessary here & other 
+places belwo (which I cut)...
 
 
+-- 
+ i.
