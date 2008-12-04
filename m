@@ -1,51 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ATM 32-bit ioctl compatibility
-Date: Wed, 03 Dec 2008 22:12:54 -0800 (PST)
-Message-ID: <20081203.221254.112572542.davem@davemloft.net>
-References: <1228320031.7381.4.camel@macbook.infradead.org>
+Subject: Re: m68k 8390 breakage
+Date: Wed, 03 Dec 2008 22:18:15 -0800 (PST)
+Message-ID: <20081203.221815.80265808.davem@davemloft.net>
+References: <Pine.LNX.4.64.0812032042480.10635@anakin>
+	<20081203115622.50256091@extreme>
+	<Pine.LNX.4.64.0812032135220.10635@anakin>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: dwmw2@infradead.org
+Cc: shemminger@vyatta.com, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47145
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46984
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750938AbYLDGMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 01:12:54 -0500
-In-Reply-To: <1228320031.7381.4.camel@macbook.infradead.org>
+	by vger.kernel.org with ESMTP id S1750938AbYLDGSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 01:18:15 -0500
+In-Reply-To: <Pine.LNX.4.64.0812032135220.10635@anakin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Wed, 03 Dec 2008 16:00:31 +0000
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 3 Dec 2008 21:38:41 +0100 (CET)
 
-> We lack compat ioctl support through most of the ATM code. This patch
-> deals with most of it, and I can now at least use BR2684 and PPPoATM
-> with 32-bit userspace.
+> Oops, the log above is from allmodconfig and indeed doesn't show it.
 > 
-> I haven't added a .compat_ioctl method to struct atm_ioctl, because
-> AFAICT none of the current users need any conversion -- so we can just
-> call the ->ioctl() method in every case. I looked at br2684, clip, lec,
-> mpc, pppoatm and atmtcp.
+> mac_defconfig (which has CONFIG_MAC8390=y) shows more info:
 > 
-> In svc_compat_ioctl() the only mangling which is needed is to change
-> COMPAT_ATM_ADDPARTY to ATM_ADDPARTY. Although it's defined as
-> 	_IOW('a', ATMIOC_SPECIAL+4,struct atm_iobuf)
-> it doesn't actually _take_ a struct atm_iobuf as an argument -- it takes
-> a struct sockaddr_atmsvc, which _is_ the same between 32-bit and 64-bit
-> code, so doesn't need conversion.
+> | drivers/net/lib8390.c:303: warning: '__ei_start_xmit' defined but not used
+> | drivers/net/lib8390.c:881: warning: '__ei_get_stats' defined but not used
+> | drivers/net/lib8390.c:990: warning: '__ei_set_multicast_list' defined but not
+> | ...
+> | drivers/built-in.o: In function `ethdev_setup':
+> | mac8390.c:(.text+0x29684): undefined reference to `ei_start_xmit'
+> | mac8390.c:(.text+0x2968c): undefined reference to `ei_get_stats'
+> | mac8390.c:(.text+0x29694): undefined reference to `ei_set_multicast_list'
 > 
-> Almost all of vcc_ioctl() would have been identical, so I converted that
-> into a core do_vcc_ioctl() function with an 'int compat' argument.
-> 
-> I've done the same with atm_dev_ioctl(), where there _are_ a few
-> differences, but still it's relatively contained and there would
-> otherwise have been a lot of duplication.
-> 
-> I haven't done any of the actual device-specific ioctls, although I've
-> added a compat_ioctl method to struct atmdev_ops.
-> 
-> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+> defconfig log at http://kisskb.ellerman.id.au/kisskb/buildresult/58646/
 
-Looks good David, applied to net-next-2.6, thanks!
+This mac8390 driver uses the lib8390.c/8390.[ch] mechanism a little
+bit oddly, but of course we should not have broken it :-)
+
+Stephen please take a look, thanks!
