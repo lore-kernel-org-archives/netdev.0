@@ -1,40 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP default congestion control in linux should be newreno
-Date: Thu, 04 Dec 2008 09:56:29 -0800 (PST)
-Message-ID: <20081204.095629.84195633.davem@davemloft.net>
-References: <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
-	<Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
-	<b98e548c0812040726w6ac94d66x8d9f2b1b4aaf7068@mail.gmail.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: "eth1: Could not attach to PHY" on MPC8349e-MITX
+Date: Thu, 4 Dec 2008 20:56:34 +0300
+Message-ID: <20081204175634.GA31505@oksana.dev.rtsoft.ru>
+References: <ed82fe3e0812040915i696e99bep75a37b0e38154415@mail.gmail.com> <49381662.2020302@matrix-vision.de> <493817AE.1070303@freescale.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: saverio.mascolo@gmail.com
+Content-Type: text/plain; charset=utf8
+Cc: Andre Schwarz <andre.schwarz@matrix-vision.de>,
+	linuxppc-dev@ozlabs.org, afleming@freescale.com,
+	netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41489
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751884AbYLDR43 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Dec 2008 12:56:29 -0500
-In-Reply-To: <b98e548c0812040726w6ac94d66x8d9f2b1b4aaf7068@mail.gmail.com>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:6601 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753374AbYLDR4f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 12:56:35 -0500
+Content-Disposition: inline
+In-Reply-To: <493817AE.1070303@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Saverio Mascolo" <saverio.mascolo@gmail.com>
-Date: Thu, 4 Dec 2008 16:26:30 +0100
+On Thu, Dec 04, 2008 at 11:47:26AM -0600, Timur Tabi wrote:
+> Andre Schwarz wrote:
+> > Timur,
+> > 
+> > is it possible that the PHY adress doesn't match the one specified in
+> > the dts ?
+> 
+> What part of the DTS contains the PHY address?  I have this:
+> 
+> 	mdio@24520 {
+> 		#address-cells = <1>;
+> 		#size-cells = <0>;
+> 		compatible = "fsl,gianfar-mdio";
+> 		reg = <0x24520 0x20>;
+> 
+> 		/* Vitesse 8201 */
+> 		phy1c: ethernet-phy@1c {
+> 			interrupt-parent = <&ipic>;
+> 			interrupts = <18 0x8>;
+> 			reg = <0x1c>;
+> 			device_type = "ethernet-phy";
+> 		};
+> 	};
+> 
+> 	enet1: ethernet@25000 {
+> 		cell-index = <1>;
+> 		device_type = "network";
+> 		model = "TSEC";
+> 		compatible = "gianfar";
+> 		reg = <0x25000 0x1000>;
+> 		local-mac-address = [ 00 00 00 00 00 00 ];
+> 		interrupts = <35 0x8 36 0x8 37 0x8>;
+> 		phy-connection-type = "mii";
+> 		interrupt-parent = <&ipic>;
+> 		/* Vitesse 7385 isn't on the MDIO bus */
+> 		fixed-link = <1 1 1000 0 0>;
 
-> On Thu, Dec 4, 2008 at 1:41 PM, Ilpo J=E4rvinen <ilpo.jarvinen@helsin=
-ki.fi> wrote:
-> > On Wed, 3 Dec 2008, Saverio Mascolo wrote:
-> >
-> >> we have added plots of cwnd at
-> >>
-> >> http://c3lab.poliba.it/index.php/TCP_over_Hsdpa
-> >>
-> >> in the case of newreno, wetwood+, bic/cubic.
-> >
-> > You lack the most important detail, ie., the used kernel versions!
->=20
-> 2.6
+^^^ That one. The Vitesse 7385 isn't on the MDIO bus, so the fixed
+link (drivers/net/phy/fixed.c) driver is used for this ethernet port.
 
-There are many different "2.6" kernels, which one in particular?
+> 		linux,network-index = <1>;
+> 	};
+
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
