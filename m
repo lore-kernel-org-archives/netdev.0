@@ -1,40 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Realtek 8169 problems with net booting
-Date: Thu, 04 Dec 2008 13:55:55 -0800 (PST)
-Message-ID: <20081204.135555.194301350.davem@davemloft.net>
-References: <200812042045.00773.mbrown@fensystems.co.uk>
-	<20081204.125943.211288136.davem@davemloft.net>
-	<20081204214420.49e27399@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] ATM: CVE-2008-5079: multiple listen()s on same socket
+ corrupts the vcc table
+Date: Thu, 04 Dec 2008 15:00:11 -0800 (PST)
+Message-ID: <20081204.150011.93825471.davem@davemloft.net>
+References: <200812041725.mB4HP5rS031103@cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mbrown@fensystems.co.uk, netdev@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: netdev@vger.kernel.org, eteo@redhat.com, stable@kernel.org
+To: chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35479
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58194
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754324AbYLDVzz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 16:55:55 -0500
-In-Reply-To: <20081204214420.49e27399@lxorguk.ukuu.org.uk>
+	by vger.kernel.org with ESMTP id S1752681AbYLDXAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 18:00:11 -0500
+In-Reply-To: <200812041725.mB4HP5rS031103@cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Thu, 4 Dec 2008 21:44:20 +0000
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Date: Thu, 04 Dec 2008 12:25:05 -0500
 
-> On Thu, 04 Dec 2008 12:59:43 -0800 (PST)
-> David Miller <davem@davemloft.net> wrote:
+> please apply to net-next-2.6 and consider for net-2.6 if possible.
 > 
-> > So we started with crap....
-> > ...and instead of adding the necessary facilities, things got built on
-> > top of that crap.
-> > So instead of having a real usable solution propagated widely within
-> > a few years, we'll instead still be stuck with this stuff.
+> thanks!
 > 
-> You have achieved enlightement in all things PC compatible.
+> commit 8c5629cfd33e2e8275aae98bbf62a98bf59bc7e8
+> Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
+> Date:   Thu Dec 4 12:14:42 2008 -0500
+> 
+>     ATM: CVE-2008-5079: duplicate listen() on socket corrupts the vcc table
+>     
+>     As reported by Hugo Dias that it is possible to cause a local denial
+>     of service attack by calling the svc_listen function twice on the same
+>     socket and reading /proc/net/atm/*vc
+>     
+>     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-I understand PC compatability (I hope). :)
-
-But often there is a reasonable migration path to something
-saner created, when necessary.  That's not what happened
-here.
+Applied to net-2.6, thanks Chas.
