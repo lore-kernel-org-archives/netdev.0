@@ -1,80 +1,55 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH net-2.6] can: omit received RTR frames for single ID filter
- lists
-Date: Thu, 04 Dec 2008 18:40:40 +0100
-Message-ID: <49381618.8030109@hartkopp.net>
-References: <20081128153317.GA3726@e-circ.dyndns.org>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060306080008060106050209"
-Cc: Kurt Van Dijck <kurt.van.dijck@eia.be>,
-	Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org
-To: David Miller <davem@davemloft.net>, Greg KH <greg@kroah.com>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH] ATM: CVE-2008-5079: multiple listen()s on same socket corrupts the vcc table
+Date: Thu, 04 Dec 2008 12:25:05 -0500
+Message-ID: <200812041725.mB4HP5rS031103@cmf.nrl.navy.mil>
+Cc: davem@davemloft.net, Eugene Teo <eteo@redhat.com>,
+	stable@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:21884 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760025AbYLDRkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 12:40:47 -0500
-In-Reply-To: <20081128153317.GA3726@e-circ.dyndns.org>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:53594 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758200AbYLDRlK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 12:41:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060306080008060106050209
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+please apply to net-next-2.6 and consider for net-2.6 if possible.
 
-can: omit received RTR frames for single ID filter lists
+thanks!
 
-Since commit d253eee20195b25e298bf162a6e72f14bf4803e5 the single CAN
-identifier filter lists handle only non-RTR CAN frames.
+commit 8c5629cfd33e2e8275aae98bbf62a98bf59bc7e8
+Author: Chas Williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
+Date:   Thu Dec 4 12:14:42 2008 -0500
 
-So we need to omit the check of these filter lists when receiving RTR CAN frames.
+    ATM: CVE-2008-5079: duplicate listen() on socket corrupts the vcc table
+    
+    As reported by Hugo Dias that it is possible to cause a local denial
+    of service attack by calling the svc_listen function twice on the same
+    socket and reading /proc/net/atm/*vc
+    
+    Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-Signed-Off-by: Oliver Hartkopp <oliver@hartkopp.net>
----
-
-Hello Dave & Greg,
-
-while writing a CAN filter test suite on a business trip i discovered a 
-missing check that became necessary together with the referenced commit
-
-'can: Fix CAN_(EFF|RTR)_FLAG handling in can_filter'
-
-Sorry for the effort of this extra patch.
-
-It should go into 2.6.28 before the bug fix window closes.
-
-Additionally the patch applies down to 2.6.26. Greg please consider this patch 
-together with the referenced one for stable .26 and .27 also.
-
-Thanks & best regards,
-Oliver
-
-
-
---------------060306080008060106050209
-Content-Type: text/x-patch;
- name="can_rx_filter.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="can_rx_filter.patch"
-
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index d8173e5..3dadb33 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -622,7 +622,10 @@ static int can_rcv_filter(struct dev_rcv_lists *d, struct sk_buff *skb)
- 		}
+diff --git a/net/atm/svc.c b/net/atm/svc.c
+index de1e4f2..8fb54dc 100644
+--- a/net/atm/svc.c
++++ b/net/atm/svc.c
+@@ -293,7 +293,10 @@ static int svc_listen(struct socket *sock,int backlog)
+ 		error = -EINVAL;
+ 		goto out;
  	}
- 
--	/* check CAN_ID specific entries */
-+	/* check filterlists for single non-RTR can_ids */
-+	if (can_id & CAN_RTR_FLAG)
-+		return matches;
-+
- 	if (can_id & CAN_EFF_FLAG) {
- 		hlist_for_each_entry_rcu(r, n, &d->rx[RX_EFF], list) {
- 			if (r->can_id == can_id) {
-
---------------060306080008060106050209--
+-	vcc_insert_socket(sk);
++	if (test_bit(ATM_VF_LISTEN, &vcc->flags)) {
++		error = -EADDRINUSE;
++		goto out;
++        }
+ 	set_bit(ATM_VF_WAITING, &vcc->flags);
+ 	prepare_to_wait(sk->sk_sleep, &wait, TASK_UNINTERRUPTIBLE);
+ 	sigd_enq(vcc,as_listen,NULL,NULL,&vcc->local);
+@@ -307,6 +310,7 @@ static int svc_listen(struct socket *sock,int backlog)
+ 		goto out;
+ 	}
+ 	set_bit(ATM_VF_LISTEN,&vcc->flags);
++	vcc_insert_socket(sk);
+ 	sk->sk_max_ack_backlog = backlog > 0 ? backlog : ATM_BACKLOG_DEFAULT;
+ 	error = -sk->sk_err;
+ out:
