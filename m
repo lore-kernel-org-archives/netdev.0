@@ -1,39 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP default congestion control in linux should be newreno
-Date: Thu, 04 Dec 2008 09:57:29 -0800 (PST)
-Message-ID: <20081204.095729.120474403.davem@davemloft.net>
-References: <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
-	<Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
-	<b98e548c0812040726w6ac94d66x8d9f2b1b4aaf7068@mail.gmail.com>
+From: Andre Schwarz <andre.schwarz@matrix-vision.de>
+Subject: Re: "eth1: Could not attach to PHY" on MPC8349e-MITX
+Date: Thu, 04 Dec 2008 18:56:40 +0100
+Message-ID: <493819D8.8040300@matrix-vision.de>
+References: <ed82fe3e0812040915i696e99bep75a37b0e38154415@mail.gmail.com>
+	<49381662.2020302@matrix-vision.de>
+	<493817AE.1070303@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: saverio.mascolo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41492
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752100AbYLDR52 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Dec 2008 12:57:28 -0500
-In-Reply-To: <b98e548c0812040726w6ac94d66x8d9f2b1b4aaf7068@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linuxppc-dev@ozlabs.org, afleming@freescale.com, netdev@vger.kernel.org
+To: Timur Tabi <timur@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <493817AE.1070303@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: "Saverio Mascolo" <saverio.mascolo@gmail.com>
-Date: Thu, 4 Dec 2008 16:26:30 +0100
+Timur Tabi schrieb:
+> Andre Schwarz wrote:
+>   =
 
-> On Thu, Dec 4, 2008 at 1:41 PM, Ilpo J=E4rvinen <ilpo.jarvinen@helsin=
-ki.fi> wrote:
-> >And
-> > also information if some sysctls were tuned or not. This is especia=
-lly
-> > important since you seem to claim that bic is the default which it =
-hasn't
-> > been for years?!
->=20
-> bic is default since a couple of years, at my by knoweledge. btw now =
-it is.
+>> Timur,
+>>
+>> is it possible that the PHY adress doesn't match the one specified in
+>> the dts ?
+>>     =
 
-Currently cubic is the default, and it has been for some
-time now.
+>
+> What part of the DTS contains the PHY address?  I have this:
+>
+> 	mdio@24520 {
+> 		#address-cells =3D <1>;
+> 		#size-cells =3D <0>;
+> 		compatible =3D "fsl,gianfar-mdio";
+> 		reg =3D <0x24520 0x20>;
+>
+> 		/* Vitesse 8201 */
+> 		phy1c: ethernet-phy@1c {
+> 			interrupt-parent =3D <&ipic>;
+> 			interrupts =3D <18 0x8>;
+> 			reg =3D <0x1c>;
+> 			device_type =3D "ethernet-phy";
+> 		};
+> 	};
+>
+> 	enet1: ethernet@25000 {
+> 		cell-index =3D <1>;
+> 		device_type =3D "network";
+> 		model =3D "TSEC";
+> 		compatible =3D "gianfar";
+> 		reg =3D <0x25000 0x1000>;
+> 		local-mac-address =3D [ 00 00 00 00 00 00 ];
+> 		interrupts =3D <35 0x8 36 0x8 37 0x8>;
+> 		phy-connection-type =3D "mii";
+> 		interrupt-parent =3D <&ipic>;
+>   =
+
+Your PHY is not on the MDIO bus, i.e. can not be programmed or queried.
+Maybe your kernel lacks the mdio-less configuration ?
+> 		/* Vitesse 7385 isn't on the MDIO bus */
+> 		fixed-link =3D <1 1 1000 0 0>;
+> 		linux,network-index =3D <1>;
+> 	};
+>
+>   =
+
+
+
+MATRIX VISION GmbH, Talstra=DFe 16, DE-71570 Oppenweiler  - Registergericht=
+: Amtsgericht Stuttgart, HRB 271090
+Gesch=E4ftsf=FChrer: Gerhard Thullner, Werner Armingeon, Uwe Furtner
