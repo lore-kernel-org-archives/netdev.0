@@ -1,42 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 2/2]ixgbe: function comment typo
-Date: Wed, 03 Dec 2008 22:06:29 -0800 (PST)
-Message-ID: <20081203.220629.05424616.davem@davemloft.net>
-References: <20081202.150623.70107608.davem@davemloft.net>
-	<49368249.1020608@cn.fujitsu.com>
-	<A78C6259B11833419567082E2DC0C256BD9F3076@orsmsx508.amr.corp.intel.com>
+Subject: Re: [PATCH next 1/2]e1000: e1000_adapter->polling_netdev is useless
+Date: Wed, 03 Dec 2008 22:07:39 -0800 (PST)
+Message-ID: <20081203.220739.254257242.davem@davemloft.net>
+References: <49353915.4060002@cn.fujitsu.com>
+	<20081202.150623.70107608.davem@davemloft.net>
+	<49368245.5040804@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+To: wangchen@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33383
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33387
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752842AbYLDGG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 01:06:29 -0500
-In-Reply-To: <A78C6259B11833419567082E2DC0C256BD9F3076@orsmsx508.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1752953AbYLDGHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 01:07:39 -0500
+In-Reply-To: <49368245.5040804@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Date: Wed, 3 Dec 2008 14:42:51 -0800
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Date: Wed, 03 Dec 2008 20:57:41 +0800
 
-> >-----Original Message-----
-> >From: Wang Chen [mailto:wangchen@cn.fujitsu.com]
-> >Sent: Wednesday, December 03, 2008 4:58 AM
-> >To: David Miller
-> >Cc: Kirsher, Jeffrey T; netdev@vger.kernel.org
-> >Subject: [PATCH next 2/2]ixgbe: function comment typo
-> >
-> >Seems the ixgbe's code was copied from e1000.
-> >The comment talks about something not exist.
-> >
-> >Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-> >---
-> > drivers/net/ixgbe/ixgbe_main.c |    3 +--
-> > 1 files changed, 1 insertions(+), 2 deletions(-)
+> David Miller said the following on 2008-12-3 7:06:
+> > From: Wang Chen <wangchen@cn.fujitsu.com>
+> > Date: Tue, 02 Dec 2008 21:33:09 +0800
+> > 
+> >> e1000_adapter->polling_netdev is not actually used after allocated.
+> >> So, my question is that is it useless?
+> > 
+> > It's probably a leftover from before we added support for
+> > multiqueue NAPI.
+> > 
+> > Intel folks can probably confirm.
 > 
-> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Commit bea3348eef27e6044b6161fd04c3152215f96411
+> "[NET]: Make NAPI polling independent of struct net_device objects."
+> made NAPI polling to be independent of net_device.
+> So e1000_adapter->polling_netdev is no longer used.
+> Kill it.
+> 
+> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
 
-Applied, thanks everyone.
+Applied, thanks Wang.
+
+Jeff, I know you said you are regression-testing this.  If you
+find some problem we can revert or add a fix.
+
+Thanks!
