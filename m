@@ -1,79 +1,74 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH next]simeth: Kill directly reference of netdev->priv
-Date: Thu, 04 Dec 2008 20:56:02 +0800
-Message-ID: <4937D362.4030500@cn.fujitsu.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Is it valid to add a macvlan virtual interface to a bridge? If
+ so, there seems to be a bug with it.
+Date: Thu, 04 Dec 2008 14:01:08 +0100
+Message-ID: <4937D494.8080202@trash.net>
+References: <20081204203352.9740c60e.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	NETDEV <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56936 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756597AbYLDM4o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Dec 2008 07:56:44 -0500
+Received: from stinky.trash.net ([213.144.137.162]:60903 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751884AbYLDNBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 08:01:12 -0500
+In-Reply-To: <20081204203352.9740c60e.ipng@69706e6720323030352d30312d31340a.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simply replace netdev->priv with netdev_priv().
+Mark Smith wrote:
+> Hi,
+> 
+> Is it valid to add a macvlan interface to a bridge? I've been having
+> some trouble with inbound unicast traffic not being forwarded into or
+> across the bridge, yet inbound broadcast or outbound unicast traffic
+> being delivered across the bridge correctly.
+> 
+> My setup has been as follows:
+> 
+> o  One physical ethernet interface, purely used to "host" macvlan
+> interfaces i.e. no IP address, not added to the bridge.
+> 
+> o  Quite a number of macvlan interfaces (I've found the limit of
+> 99 :-) ).
 
-Not do compile test, because no ia64 box.
+Actually there's no limit of 99. The only limiting factor is
+the hash size off 256.
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
----
- arch/ia64/hp/sim/simeth.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+> o  Most of those macvlan interfaces are used by individual
+> instances of roaring penguin pppoe-server. This has worked fine.
+> 
+> o  One of the macvlan interfaces is in a bridge instance, with the
+> other interface in the bridge being a tap interface. Attached to the
+> tap interface is guest virtual host, also running a pppoe server.
+> 
+> This bridged macvlan setup seemed to be working ok, as I was seeing
+> incoming broadcast traffic and outgoing unicast traffic. My full setup
+> wasn't working correctly, so I spent quite a bit of time investigating
+> other possible causes. I finally came back around to the bridged macvlan
+> interface, and then noticed that only incoming unicast traffic wasn't
+> being bridged/forwarded to the device behind the tap interface.
+> Bridging the tap interface with another real physical interface resolved
+> the issue.
+> 
+> I've had a look at the dev.c file in 2.6.27, and my very naive guess
+> is that as the handle_bridge() call is before the handle_macvlan() call,
+> because the incoming real physical interface is not part of the bridge,
+> the incoming unicast packet is being dropped, before the macvlan code
+> gets a look at it.
 
-diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
-index 3d47839..c51b32c 100644
---- a/arch/ia64/hp/sim/simeth.c
-+++ b/arch/ia64/hp/sim/simeth.c
-@@ -206,7 +206,7 @@ simeth_probe1(void)
- 
- 	memcpy(dev->dev_addr, mac_addr, sizeof(mac_addr));
- 
--	local = dev->priv;
-+	local = netdev_priv(dev);
- 	local->simfd = fd; /* keep track of underlying file descriptor */
- 
- 	dev->open		= simeth_open;
-@@ -325,7 +325,7 @@ simeth_device_event(struct notifier_block *this,unsigned long event, void *ptr)
- 	 * we get DOWN then UP.
- 	 */
- 
--	local = dev->priv;
-+	local = netdev_priv(dev);
- 	/* now do it for real */
- 	r = event == NETDEV_UP ?
- 		netdev_attach(local->simfd, dev->irq, ntohl(ifa->ifa_local)):
-@@ -380,7 +380,7 @@ frame_print(unsigned char *from, unsigned char *frame, int len)
- static int
- simeth_tx(struct sk_buff *skb, struct net_device *dev)
- {
--	struct simeth_local *local = dev->priv;
-+	struct simeth_local *local = netdev_priv(dev);
- 
- #if 0
- 	/* ensure we have at least ETH_ZLEN bytes (min frame size) */
-@@ -443,7 +443,7 @@ simeth_rx(struct net_device *dev)
- 	int			len;
- 	int			rcv_count = SIMETH_RECV_MAX;
- 
--	local = dev->priv;
-+	local = netdev_priv(dev);
- 	/*
- 	 * the loop concept has been borrowed from other drivers
- 	 * looks to me like it's a throttling thing to avoid pushing to many
-@@ -507,7 +507,7 @@ simeth_interrupt(int irq, void *dev_id)
- static struct net_device_stats *
- simeth_get_stats(struct net_device *dev)
- {
--	struct simeth_local *local = dev->priv;
-+	struct simeth_local *local = netdev_priv(dev);
- 
- 	return &local->stats;
- }
--- 
-1.5.3.4
+Yes, that seems correct.
 
+> Should what I'm doing be working or possible? If not, could something
+> be added to the kernel to prevent macvlan interfaces being added to
+> bridge instances, to stop other people spending time trying to do what
+> I've tried to do?
+
+Unfortunately one of both combinations will not work, no matter
+what we do. The bridge code could issue a warning when adding
+a bridge on top of a macvlan device, but there's no clean indication
+that something is a macvlan device besides dev->rtnl_link_ops->kind
+being "macvlan".
 
