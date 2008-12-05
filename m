@@ -1,7 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 37/40] i2400m/SDIO: write transactions to the SDIO device
-Date: Fri,  5 Dec 2008 10:55:30 -0800
-Message-ID: <bcce37cef3505199ed60e9b2fb54fa0015c2e637.1228503077.git.inaky@linux.intel.com>
+Subject: [PATCH 09/40] wimax: Mappping of generic netlink family IDs to net
+	devices
+Date: Fri,  5 Dec 2008 10:55:02 -0800
+Message-ID: <f8ab24a2250ff958f87e594c1f04d7932a52a019.1228503077.git.inaky@linux.intel.com>
 References: <cover.1228503076.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,175 +19,162 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Implements the backend so that the generic driver can send data to the
-SDIO device. When kicked by the generic driver, this will schedule
-work on a driver-specific workqueue that pulls data from the TX FIFO
-and sends it to the device until it drains it.
+Low overhead method to map generic netlink family IDs to the WiMAX
+device attached to them that optimizes for the case where most systems
+have a single WiMAX device, or at most, a very low number of WiMAX
+adaptors.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/sdio-tx.c |  153 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 153 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
+ net/wimax/id-table.c |  140 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 140 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/id-table.c
 
-diff --git a/drivers/net/wimax/i2400m/sdio-tx.c b/drivers/net/wimax/i2400m/sdio-tx.c
+diff --git a/net/wimax/id-table.c b/net/wimax/id-table.c
 new file mode 100644
-index 0000000..5105a5e
+index 0000000..0f5fe85
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio-tx.c
-@@ -0,0 +1,153 @@
++++ b/net/wimax/id-table.c
+@@ -0,0 +1,140 @@
 +/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * SDIO TX transaction backends
++ * Linux WiMAX
++ * Mappping of generic netlink family IDs to net devices
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ * Copyright (C) 2005-2006 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
 + *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
 + *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
 + *
 + *
-+ * Intel Corporation <linux-wimax@intel.com>
-+ * Dirk Brandewie <dirk.j.brandewie@intel.com>
-+ *  - Initial implementation
++ * We assign a single generic netlink family ID to each device (to
++ * simplify lookup).
 + *
++ * We need a way to map family ID to a wimax_dev pointer.
 + *
-+ * Takes the TX messages in the i2400m's driver TX FIFO and sends them
-+ * to the device until there are no more.
++ * The idea is to use a very simple lookup. Using a netlink attribute
++ * with (for example) the interface name implies a heavier search over
++ * all the network devices; seemed kind of a waste given that we know
++ * we are looking for a WiMAX device and that most systems will have
++ * just a single WiMAX adapter.
 + *
-+ * If we fail sending the message, we just drop it. There isn't much
-+ * we can do at this point. Most of the traffic is network, which has
-+ * recovery methods for dropped packets.
++ * We put all the WiMAX devices in the system in a linked list and
++ * match the generic link family ID against the list.
 + *
-+ * The SDIO functions are not atomic, so we can't run from the context
-+ * where i2400m->bus_tx_kick() [i2400ms_bus_tx_kick()] is being called
-+ * (some times atomic). Thus, the actual TX work is deferred to a
-+ * workqueue.
-+ *
-+ * ROADMAP
-+ *
-+ * i2400ms_bus_tx_kick()
-+ *   i2400ms_tx_submit()     [through workqueue]
-+ *
-+ * i2400m_tx_setup()
-+ *
-+ * i2400m_tx_release()
++ * By using a linked list, the case of a single adapter in the system
++ * becomes (almost) no overhead, while still working for many more. If
++ * it ever goes beyond two, I'll be surprised.
 + */
-+#include <linux/mmc/sdio_func.h>
-+#include "i2400m-sdio.h"
++#include <linux/device.h>
++#include <net/genetlink.h>
++#include <linux/netdevice.h>
++#include <linux/list.h>
++#include <linux/wimax.h>
++#include "wimax-internal.h"
 +
-+#define D_SUBMODULE tx
-+#include "sdio-debug-levels.h"
++
++#define D_SUBMODULE id_table
++#include "debug-levels.h"
++
++
++static DEFINE_SPINLOCK(wimax_id_table_lock);
++static struct list_head wimax_id_table = LIST_HEAD_INIT(wimax_id_table);
 +
 +
 +/*
-+ * Pull TX transations from the TX FIFO and send them to the device
-+ * until there are no more.
++ * wimax_id_table_add - add a gennetlink familiy ID / wimax_dev mapping
++ *
++ * @wimax_dev: WiMAX device descriptor to associate to the Generic
++ *     Netlink family ID.
++ *
++ * Look for an empty spot in the ID table; if none found, double the
++ * table's size and get the first spot.
 + */
-+static
-+void i2400ms_tx_submit(struct work_struct *ws)
++void wimax_id_table_add(struct wimax_dev *wimax_dev)
 +{
-+	int result;
-+	struct i2400ms *i2400ms = container_of(ws, struct i2400ms, tx_worker);
-+	struct i2400m *i2400m = &i2400ms->i2400m;
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+	struct i2400m_msg_hdr *tx_msg;
-+	size_t tx_msg_size;
++	d_fnstart(3, NULL, "(wimax_dev %p)\n", wimax_dev);
++	spin_lock(&wimax_id_table_lock);
++	list_add(&wimax_dev->id_table_node, &wimax_id_table);
++	spin_unlock(&wimax_id_table_lock);
++	d_fnend(3, NULL, "(wimax_dev %p)\n", wimax_dev);
++}
 +
-+	d_fnstart(4, dev, "(i2400ms %p, i2400m %p)\n", i2400ms, i2400ms);
 +
-+	while (NULL != (tx_msg = i2400m_tx_msg_get(i2400m, &tx_msg_size))) {
-+		d_printf(2, dev, "TX: submitting %zu bytes\n", tx_msg_size);
-+		d_dump(5, dev, tx_msg, tx_msg_size);
++/*
++ * wimax_get_netdev_by_info - lookup a wimax_dev from the gennetlink info
++ *
++ * The generic netlink family ID has been filled out in the
++ * nlmsghdr->nlmsg_type field, so we pull it from there, look it up in
++ * the mapping table and reference the wimax_dev.
++ *
++ * When done, the reference should be dropped with
++ * 'dev_put(wimax_dev->net_dev)'.
++ */
++struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *info)
++{
++	struct wimax_dev *wimax_dev = NULL;
++	int id = info->nlhdr->nlmsg_type;
 +
-+		sdio_claim_host(func);
-+		result = sdio_memcpy_toio(func, 0, tx_msg, tx_msg_size);
-+		sdio_release_host(func);
-+
-+		i2400m_tx_msg_sent(i2400m);
-+
-+		if (result < 0) {
-+			dev_err(dev, "TX: cannot submit TX; tx_msg @%zu %zu B:"
-+				" %d\n", (void *) tx_msg - i2400m->tx_buf,
-+				tx_msg_size, result);
++	d_fnstart(3, NULL, "(info %p [id %d])\n", info, id);
++	spin_lock(&wimax_id_table_lock);
++	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
++		if (wimax_dev->gnl_family.id == id) {
++			dev_hold(wimax_dev->net_dev);
++			break;
 +		}
-+
-+		d_printf(2, dev, "TX: %zub submitted\n", tx_msg_size);
 +	}
-+
-+	d_fnend(4, dev, "(i2400ms %p) = void\n", i2400ms);
++	if (wimax_dev == NULL)
++		d_printf(1, NULL, "wimax: no device associated to ID %d\n", id);
++	spin_unlock(&wimax_id_table_lock);
++	d_fnend(3, NULL, "(info %p) = %p\n", info, wimax_dev);
++	return wimax_dev;
 +}
 +
 +
 +/*
-+ * The generic driver notifies us that there is data ready for TX
++ * wimax_id_table_rm - Remove a gennetlink familiy ID / wimax_dev mapping
 + *
-+ * Schedule a run of i2400ms_tx_submit() to handle it.
++ * @id: family ID to remove from the table
 + */
-+void i2400ms_bus_tx_kick(struct i2400m *i2400m)
++void wimax_id_table_rm(struct wimax_dev *wimax_dev)
 +{
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	struct device *dev = &i2400ms->func->dev;
-+
-+	d_fnstart(3, dev, "(i2400m %p) = void\n", i2400m);
-+
-+	/* schedule tx work, this is because tx may block, therefore
-+	 * it has to run in a thread context.
-+	 */
-+	queue_work(i2400ms->tx_workqueue, &i2400ms->tx_worker);
-+
-+	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++	spin_lock(&wimax_id_table_lock);
++	list_del_init(&wimax_dev->id_table_node);
++	spin_unlock(&wimax_id_table_lock);
 +}
 +
-+int i2400ms_tx_setup(struct i2400ms *i2400ms)
++
++/*
++ * Release the gennetlink family id / mapping table
++ *
++ * On debug, verify that the table is empty upon removal.
++ */
++void wimax_id_table_release(void)
 +{
-+	int result;
-+	struct device *dev = &i2400ms->func->dev;
-+	struct i2400m *i2400m = &i2400ms->i2400m;
++#ifndef CONFIG_BUG
++	return;
++#endif
++	struct wimax_dev *wimax_dev;
 +
-+	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
-+
-+	INIT_WORK(&i2400ms->tx_worker, i2400ms_tx_submit);
-+	snprintf(i2400ms->tx_wq_name, sizeof(i2400ms->tx_wq_name),
-+		 "%s-tx", i2400m->wimax_dev.name);
-+	i2400ms->tx_workqueue =
-+		create_singlethread_workqueue(i2400ms->tx_wq_name);
-+	if (NULL == i2400ms->tx_workqueue) {
-+		dev_err(dev, "TX: failed to create workqueue\n");
-+		result = -ENOMEM;
-+	} else
-+		result = 0;
-+	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
-+	return result;
-+}
-+
-+void i2400ms_tx_release(struct i2400ms *i2400ms)
-+{
-+	destroy_workqueue(i2400ms->tx_workqueue);
++	spin_lock(&wimax_id_table_lock);
++	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
++		printk(KERN_ERR "BUG: %s wimax_dev %p id %u not cleared\n",
++		       __func__, wimax_dev, wimax_dev->gnl_family.id);
++		WARN_ON(1);
++	}
++	spin_unlock(&wimax_id_table_lock);
 +}
 -- 
 1.5.6.5
