@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 21/40] i2400m: rfkill integration with the WiMAX stack
-Date: Fri,  5 Dec 2008 10:55:14 -0800
-Message-ID: <9a063581ce0cc32a2d9333f5470d1f3576842aab.1228503077.git.inaky@linux.intel.com>
+Subject: [PATCH 35/40] i2400m/SDIO: firmware upload backend
+Date: Fri,  5 Dec 2008 10:55:28 -0800
+Message-ID: <254d2f018382c8d2b1230af2b8470002adca0313.1228503077.git.inaky@linux.intel.com>
 References: <cover.1228503076.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,232 +18,244 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Provides a backend function pointer to the WiMAX stack to manipulate
-the rfkill state when requested by the kernel or user space (either
-directly through the rfkill subsystem or through the WiMAX control
-interface).
-
-As well, it reports back any changes in the RF-Kill switches state to
-the stack.
+This implements the backends for the generic driver (i2400m) to be
+able to load firmware to the SDIO device.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/op-rfkill.c |  207 ++++++++++++++++++++++++++++++++++
- 1 files changed, 207 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/op-rfkill.c
+ drivers/net/wimax/i2400m/sdio-fw.c |  224 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 224 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
 
-diff --git a/drivers/net/wimax/i2400m/op-rfkill.c b/drivers/net/wimax/i2400m/op-rfkill.c
+diff --git a/drivers/net/wimax/i2400m/sdio-fw.c b/drivers/net/wimax/i2400m/sdio-fw.c
 new file mode 100644
-index 0000000..487ec58
+index 0000000..3487205
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/op-rfkill.c
-@@ -0,0 +1,207 @@
++++ b/drivers/net/wimax/i2400m/sdio-fw.c
+@@ -0,0 +1,224 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Implement backend for the WiMAX stack rfkill support
++ * Firmware uploader's SDIO specifics
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Initial implementation
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Bus generic/specific split for USB
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
++ *  - Initial implementation for SDIO
 + *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - SDIO rehash for changes in the bus-driver model
 + *
++ * THE PROCEDURE
 + *
-+ * The WiMAX kernel stack integrates into RF-Kill and keeps the
-+ * switches's status. We just need to:
++ * See fw.c for the generic description of this procedure.
 + *
-+ * - report changes in the HW RF Kill switch [with
-+ *   wimax_rfkill_{sw,hw}_report(), which happens when we detect those
-+ *   indications coming through hardware reports]. We also do it on
-+ *   initialization to let the stack know the intial HW state.
++ * This file implements only the SDIO specifics. It boils down to how
++ * to send a command and waiting for an acknowledgement from the
++ * device. We do polled reads.
 + *
-+ * - implement indications from the stack to change the SW RF Kill
-+ *   switch (coming from sysfs, the wimax stack or user space).
++ * COMMAND EXECUTION
++ *
++ * THe generic firmware upload code will call i2400m_bus_bm_cmd_send()
++ * to send commands.
++ *
++ * The SDIO devices expects things in 256 byte blocks, so it will pad
++ * it, compute the checksum (if needed) and pass it to SDIO.
++ *
++ * ACK RECEPTION
++ *
++ * This works in polling mode -- the fw loader says when to wait for
++ * data and for that it calls i2400ms_bus_bm_wait_for_ack().
++ *
++ * This will poll the device for data until it is received. We need to
++ * receive at least as much bytes as where asked for (although it'll
++ * always be a multiple of 256 bytes).
 + */
-+#include "i2400m.h"
-+#include <linux/wimax/i2400m.h>
++#include <linux/mmc/sdio_func.h>
++#include "i2400m-sdio.h"
 +
 +
-+
-+#define D_SUBMODULE rfkill
-+#include "debug-levels.h"
++#define D_SUBMODULE fw
++#include "sdio-debug-levels.h"
 +
 +/*
-+ * Return true if the i2400m radio is in the requested wimax_rf_state state
++ * Send a boot-mode command to the SDIO function
 + *
++ * We use a bounce buffer (i2400m->bm_cmd_buf) because we need to
++ * touch the header if the RAW flag is not set.
++ *
++ * @flags: pass thru from i2400m_bm_cmd()
++ * @return: cmd_size if ok, < 0 errno code on error.
++ *
++ * Note the command is padded to the SDIO block size for the device.
 + */
-+static
-+int i2400m_radio_is(struct i2400m *i2400m, enum wimax_rf_state state)
++ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *i2400m,
++				const struct i2400m_bootrom_header *_cmd,
++				size_t cmd_size, int flags)
 +{
-+	if (state == WIMAX_RF_OFF)
-+		return i2400m->state == I2400M_SS_RF_OFF
-+			|| i2400m->state == I2400M_SS_RF_SHUTDOWN;
-+	else if (state == WIMAX_RF_ON)
-+		/* state == WIMAX_RF_ON */
-+		return i2400m->state != I2400M_SS_RF_OFF
-+			&& i2400m->state != I2400M_SS_RF_SHUTDOWN;
-+	else
-+		BUG();
-+}
-+
-+
-+/*
-+ * WiMAX stack operation: implement SW RFKill toggling
-+ *
-+ * @wimax_dev: device descriptor
-+ * @skb: skb where the message has been received; skb->data is
-+ *       expected to point to the message payload.
-+ * @genl_info: passed by the generic netlink layer
-+ *
-+ * Generic Netlink will call this function when a message is sent from
-+ * userspace to change the software RF-Kill switch status.
-+ *
-+ * This function will set the device's sofware RF-Kill switch state to
-+ * match what is requested.
-+ *
-+ * NOTE: the i2400m has a strict state machine; we can only set the
-+ *       RF-Kill switch when it is on, the HW RF-Kill is on and the
-+ *       device is initialized. So we ignore errors steaming from not
-+ *       being in the right state (-EILSEQ).
-+ */
-+int i2400m_op_rfkill_sw_toggle(struct wimax_dev *wimax_dev,
-+			       enum wimax_rf_state state)
-+{
-+	int result;
-+	struct i2400m *i2400m = wimax_dev_to_i2400m(wimax_dev);
++	ssize_t result;
 +	struct device *dev = i2400m_dev(i2400m);
-+	struct sk_buff *ack_skb;
-+	struct {
-+		struct i2400m_l3l4_hdr hdr;
-+		struct i2400m_tlv_rf_operation sw_rf;
-+	} __attribute__((packed)) *cmd;
-+	char strerr[32];
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
++	struct i2400m_bootrom_header *cmd;
++	/* SDIO restriction */
++	size_t cmd_size_a = ALIGN(cmd_size, I2400MS_BLK_SIZE);
 +
-+	d_fnstart(4, dev, "(wimax_dev %p state %d)\n", wimax_dev, state);
++	d_fnstart(5, dev, "(i2400m %p cmd %p size %zu)\n",
++		  i2400m, _cmd, cmd_size);
++	result = -E2BIG;
++	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
++		goto error_too_big;
 +
-+	result = -ENOMEM;
-+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
-+	if (cmd == NULL)
-+		goto error_alloc;
-+	cmd->hdr.type = cpu_to_le16(I2400M_MT_CMD_RF_CONTROL);
-+	cmd->hdr.length = sizeof(cmd->sw_rf);
-+	cmd->hdr.version = cpu_to_le16(I2400M_L3L4_VERSION);
-+	cmd->sw_rf.hdr.type = cpu_to_le16(I2400M_TLV_RF_OPERATION);
-+	cmd->sw_rf.hdr.length = cpu_to_le16(sizeof(cmd->sw_rf.status));
-+	switch (state) {
-+	case WIMAX_RF_OFF:	/* RFKILL ON, radio OFF */
-+		cmd->sw_rf.status = cpu_to_le32(2);
-+		break;
-+	case WIMAX_RF_ON:	/* RFKILL OFF, radio ON */
-+		cmd->sw_rf.status = cpu_to_le32(1);
-+		break;
-+	default:
-+		BUG();
++	memcpy(i2400m->bm_cmd_buf, _cmd, cmd_size);	/* Prep command */
++	cmd = i2400m->bm_cmd_buf;
++	if (cmd_size_a > cmd_size)			/* Zero pad space */
++		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
++	if ((flags & I2400M_BM_CMD_RAW) == 0) {
++		if (WARN_ON(i2400m_brh_get_response_required(cmd) == 0))
++			dev_warn(dev, "SW BUG: response_required == 0\n");
++		i2400m_bm_cmd_prepare(cmd);
 +	}
++	d_printf(4, dev, "BM cmd %d: %zu bytes (%zu padded)\n",
++		 opcode, cmd_size, cmd_size_a);
++	d_dump(5, dev, cmd, cmd_size);
 +
-+	ack_skb = i2400m_msg_to_dev(i2400m, cmd, sizeof(*cmd));
-+	result = PTR_ERR(ack_skb);
-+	if (IS_ERR(ack_skb)) {
-+		dev_err(dev, "Failed to issue 'RF Control' command: %d\n",
-+			result);
-+		goto error_msg_to_dev;
-+	}
-+	result = i2400m_msg_check_status(wimax_msg_data(ack_skb),
-+					 strerr, sizeof(strerr));
++	sdio_claim_host(i2400ms->func);			/* Send & check */
++	result = sdio_memcpy_toio(i2400ms->func, I2400MS_DATA_ADDR,
++				  i2400m->bm_cmd_buf, cmd_size_a);
++	sdio_release_host(i2400ms->func);
 +	if (result < 0) {
-+		dev_err(dev, "'RF Control' (0x%04x) command failed: %d - %s\n",
-+			I2400M_MT_CMD_RF_CONTROL, result, strerr);
-+		goto error_cmd;
++		dev_err(dev, "BM cmd %d: cannot send: %ld\n",
++			opcode, (long) result);
++		goto error_cmd_send;
 +	}
-+
-+	/* Now we wait for the state to change to RADIO_OFF or RADIO_ON */
-+	result = wait_event_timeout(
-+		i2400m->state_wq, i2400m_radio_is(i2400m, state),
-+		5 * HZ);
-+	if (result == 0)
-+		result = -ETIMEDOUT;
-+	if (result < 0)
-+		dev_err(dev, "Error waiting for device to toggle RF state: "
-+			"%d\n", result);
-+	result = 0;
-+error_cmd:
-+	kfree_skb(ack_skb);
-+error_msg_to_dev:
-+error_alloc:
-+	d_fnend(4, dev, "(wimax_dev %p state %d) = %d\n",
-+		wimax_dev, state, result);
++	result = cmd_size;
++error_cmd_send:
++error_too_big:
++	d_fnend(5, dev, "(i2400m %p cmd %p size %zu) = %d\n",
++		i2400m, _cmd, cmd_size, (int) result);
 +	return result;
 +}
 +
 +
 +/*
-+ * Inform the WiMAX stack of changes in the RF Kill switches reported
-+ * by the device
++ * Read an ack from the device's boot-mode (polling)
 + *
-+ * @i2400m: device descriptor
-+ * @rfss: TLV for RF Switches status; already validated
++ * @i2400m:
++ * @_ack: pointer to where to store the read data
++ * @ack_size: how many bytes we should read
 + *
-+ * NOTE: the reports on RF switch status cannot be trusted
-+ *       or used until the device is in a state of RADIO_OFF
-+ *       or greater.
++ * Returns: < 0 errno code on error; otherwise, amount of received bytes.
++ *
++ * The ACK for a BM command is always at least sizeof(*ack) bytes, so
++ * check for that. We don't need to check for device reboots
++ *
++ * NOTE: We do an artificial timeout of 1 sec over the SDIO timeout;
++ *     this way we have control over it...there is no way that I know
++ *     of setting an SDIO transaction timeout.
 + */
-+void i2400m_report_tlv_rf_switches_status(
-+	struct i2400m *i2400m,
-+	const struct i2400m_tlv_rf_switches_status *rfss)
++ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *i2400m,
++				    struct i2400m_bootrom_header *ack,
++				    size_t ack_size)
 +{
-+	struct device *dev = i2400m_dev(i2400m);
-+	enum i2400m_rf_switch_status hw, sw;
-+	enum wimax_st wimax_state;
++	int result;
++	ssize_t rx_size;
++	u64 timeout;
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
 +
-+	sw = le32_to_cpu(rfss->sw_rf_switch);
-+	hw = le32_to_cpu(rfss->hw_rf_switch);
++	BUG_ON(sizeof(*ack) > ack_size);
 +
-+	d_fnstart(3, dev, "(i2400m %p rfss %p [hw %u sw %u])\n",
-+		  i2400m, rfss, hw, sw);
-+	/* We only process rw switch evens when the device has been
-+	 * fully initialized */
-+	wimax_state = wimax_state_get(&i2400m->wimax_dev);
-+	if (wimax_state < WIMAX_ST_RADIO_OFF) {
-+		d_printf(3, dev, "ignoring RF switches report, state %u\n",
-+			 wimax_state);
-+		goto out;
-+	}
-+	switch (sw) {
-+	case I2400M_RF_SWITCH_ON:	/* RF Kill disabled (radio on) */
-+		wimax_report_rfkill_sw(&i2400m->wimax_dev, WIMAX_RF_ON);
-+		break;
-+	case I2400M_RF_SWITCH_OFF:	/* RF Kill enabled (radio off) */
-+		wimax_report_rfkill_sw(&i2400m->wimax_dev, WIMAX_RF_OFF);
-+		break;
-+	default:
-+		dev_err(dev, "HW BUG? Unknown RF SW state 0x%x\n", sw);
-+	}
++	d_fnstart(5, dev, "(i2400m %p ack %p size %zu)\n",
++		  i2400m, ack, ack_size);
 +
-+	switch (hw) {
-+	case I2400M_RF_SWITCH_ON:	/* RF Kill disabled (radio on) */
-+		wimax_report_rfkill_hw(&i2400m->wimax_dev, WIMAX_RF_ON);
-+		break;
-+	case I2400M_RF_SWITCH_OFF:	/* RF Kill enabled (radio off) */
-+		wimax_report_rfkill_hw(&i2400m->wimax_dev, WIMAX_RF_OFF);
-+		break;
-+	default:
-+		dev_err(dev, "HW BUG? Unknown RF HW state 0x%x\n", hw);
++	timeout = get_jiffies_64() + 2 * HZ;
++	sdio_claim_host(func);
++	while (1) {
++		if (time_after64(get_jiffies_64(), timeout)) {
++			rx_size = -ETIMEDOUT;
++			dev_err(dev, "timeout waiting for ack data\n");
++			goto error_timedout;
++		}
++
++		/* Find the RX size, check if it fits or not -- it if
++		 * doesn't fit, fail, as we have no way to dispose of
++		 * the extra data. */
++		rx_size = __i2400ms_rx_get_size(i2400ms);
++		if (rx_size < 0)
++			goto error_rx_get_size;
++		result = -ENOSPC;		/* Check it fits */
++		if (rx_size < sizeof(*ack)) {
++			rx_size = -EIO;
++			dev_err(dev, "HW BUG? received is too small (%zu vs "
++				"%zu needed)\n", sizeof(*ack), rx_size);
++			goto error_too_small;
++		}
++		if (rx_size > I2400M_BM_ACK_BUF_SIZE) {
++			dev_err(dev, "SW BUG? BM_ACK_BUF is too small (%u vs "
++				"%zu needed)\n", I2400M_BM_ACK_BUF_SIZE,
++				rx_size);
++			goto error_too_small;
++		}
++
++		/* Read it */
++		result = sdio_memcpy_fromio(func, i2400m->bm_ack_buf,
++					    I2400MS_DATA_ADDR, rx_size);
++		if (result == -ETIMEDOUT || result == -ETIME)
++			continue;
++		if (result < 0) {
++			dev_err(dev, "BM SDIO receive (%zu B) failed: %d\n",
++				rx_size, result);
++			goto error_read;
++		} else
++			break;
 +	}
-+out:
-+	d_fnend(3, dev, "(i2400m %p rfss %p [hw %u sw %u]) = void\n",
-+		i2400m, rfss, hw, sw);
++	rx_size = min((ssize_t)ack_size, rx_size);
++	memcpy(ack, i2400m->bm_ack_buf, rx_size);
++error_read:
++error_too_small:
++error_rx_get_size:
++error_timedout:
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400m %p ack %p size %zu) = %ld\n",
++		i2400m, ack, ack_size, (long) rx_size);
++	return rx_size;
 +}
 -- 
 1.5.6.5
