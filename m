@@ -1,10 +1,12 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 03/10] tcp: make mtu probe failure to not break gso'ed skbs unnecessarily
-Date: Fri,  5 Dec 2008 22:58:49 +0200
-Message-ID: <1228510736-3655-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 05/10] tcp: no need to pass prev skb around, reduces arg pressure
+Date: Fri,  5 Dec 2008 22:58:51 +0200
+Message-ID: <1228510736-3655-6-git-send-email-ilpo.jarvinen@helsinki.fi>
 References: <1228510736-3655-1-git-send-email-ilpo.jarvinen@helsinki.fi>
  <1228510736-3655-2-git-send-email-ilpo.jarvinen@helsinki.fi>
  <1228510736-3655-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1228510736-3655-4-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1228510736-3655-5-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -14,89 +16,58 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from courier.cs.helsinki.fi ([128.214.9.1]:50779 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121AbYLEU66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 15:58:58 -0500
-In-Reply-To: <1228510736-3655-3-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1754373AbYLEU67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 15:58:59 -0500
+In-Reply-To: <1228510736-3655-5-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed that since skb->len has nothing to do with actual segment
-length with gso, we need to figure it out separately, reuse
-a function from the recent shifting stuff (generalize it).
-
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv4/tcp_input.c |   19 +++++++------------
- 1 files changed, 7 insertions(+), 12 deletions(-)
+ net/ipv4/tcp_input.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 33902f6..21c6701 100644
+index 57134c2..37b1cac 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -1445,14 +1445,9 @@ static int tcp_shifted_skb(struct sock *sk, stru=
-ct sk_buff *prev,
- /* I wish gso_size would have a bit more sane initialization than
-  * something-or-zero which complicates things
-  */
--static int tcp_shift_mss(struct sk_buff *skb)
-+static int tcp_skb_seglen(struct sk_buff *skb)
- {
--	int mss =3D tcp_skb_mss(skb);
--
--	if (!mss)
--		mss =3D skb->len;
--
--	return mss;
-+	return tcp_skb_pcount(skb) =3D=3D 1 ? skb->len : tcp_skb_mss(skb);
+@@ -1376,12 +1376,12 @@ static u8 tcp_sacktag_one(struct sk_buff *skb, =
+struct sock *sk,
+ 	return sacked;
  }
 =20
- /* Shifting pages past head area doesn't work */
-@@ -1503,12 +1498,12 @@ static struct sk_buff *tcp_shift_skb_data(struc=
-t sock *sk, struct sk_buff *skb,
- 	if (in_sack) {
- 		len =3D skb->len;
- 		pcount =3D tcp_skb_pcount(skb);
--		mss =3D tcp_shift_mss(skb);
-+		mss =3D tcp_skb_seglen(skb);
+-static int tcp_shifted_skb(struct sock *sk, struct sk_buff *prev,
+-			   struct sk_buff *skb,
++static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 			   struct tcp_sacktag_state *state,
+ 			   unsigned int pcount, int shifted, int mss)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
++	struct sk_buff *prev =3D tcp_write_queue_prev(sk, skb);
 =20
- 		/* TODO: Fix DSACKs to not fragment already SACKed and we can
- 		 * drop this restriction as unnecessary
- 		 */
--		if (mss !=3D tcp_shift_mss(prev))
-+		if (mss !=3D tcp_skb_seglen(prev))
- 			goto fallback;
- 	} else {
- 		if (!after(TCP_SKB_CB(skb)->end_seq, start_seq))
-@@ -1549,7 +1544,7 @@ static struct sk_buff *tcp_shift_skb_data(struct =
-sock *sk, struct sk_buff *skb,
- 		/* TODO: Fix DSACKs to not fragment already SACKed and we can
- 		 * drop this restriction as unnecessary
- 		 */
--		if (mss !=3D tcp_shift_mss(prev))
-+		if (mss !=3D tcp_skb_seglen(prev))
- 			goto fallback;
+ 	BUG_ON(!pcount);
 =20
- 		if (len =3D=3D mss) {
-@@ -1578,7 +1573,7 @@ static struct sk_buff *tcp_shift_skb_data(struct =
+@@ -1565,7 +1565,7 @@ static struct sk_buff *tcp_shift_skb_data(struct =
 sock *sk, struct sk_buff *skb,
- 	if (!skb_can_shift(skb) ||
- 	    (skb =3D=3D tcp_send_head(sk)) ||
- 	    ((TCP_SKB_CB(skb)->sacked & TCPCB_TAGBITS) !=3D TCPCB_SACKED_ACKE=
-D) ||
--	    (mss !=3D tcp_shift_mss(skb)))
-+	    (mss !=3D tcp_skb_seglen(skb)))
+=20
+ 	if (!skb_shift(prev, skb, len))
+ 		goto fallback;
+-	if (!tcp_shifted_skb(sk, prev, skb, state, pcount, len, mss))
++	if (!tcp_shifted_skb(sk, skb, state, pcount, len, mss))
  		goto out;
 =20
+ 	/* Hole filled allows collapsing with the next as well, this is very
+@@ -1584,8 +1584,7 @@ static struct sk_buff *tcp_shift_skb_data(struct =
+sock *sk, struct sk_buff *skb,
  	len =3D skb->len;
-@@ -2853,7 +2848,7 @@ void tcp_simple_retransmit(struct sock *sk)
- 	tcp_for_write_queue(skb, sk) {
- 		if (skb =3D=3D tcp_send_head(sk))
- 			break;
--		if (skb->len > mss &&
-+		if (tcp_skb_seglen(skb) > mss &&
- 		    !(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)) {
- 			if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS) {
- 				TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_SACKED_RETRANS;
+ 	if (skb_shift(prev, skb, len)) {
+ 		pcount +=3D tcp_skb_pcount(skb);
+-		tcp_shifted_skb(sk, prev, skb, state, tcp_skb_pcount(skb), len,
+-				mss);
++		tcp_shifted_skb(sk, skb, state, tcp_skb_pcount(skb), len, mss);
+ 	}
+=20
+ out:
 --=20
 1.5.2.2
 
