@@ -1,78 +1,114 @@
-From: Thomas Renninger <trenn@suse.de>
-Subject: [PATCH] PCIe ASPM causes machine (HP Compaq 6735s) to sometimes freeze hard at boot at PCI initialization time
-Date: Fri, 5 Dec 2008 14:07:13 +0100
-Message-ID: <200812051407.14419.trenn@suse.de>
-References: <200811281328.55259.trenn@suse.de>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: networking probs in next-20081203
+Date: Fri, 05 Dec 2008 09:12:19 -0500
+Message-ID: <1228486339.20274.3.camel@localhost.localdomain>
+References: <49381644.8020502@intel.com>
+	<20081204175236.GA19808@x200.localdomain>
+	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
+	<20081204.102138.123959105.davem@davemloft.net>
+	<1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
+	<1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
+	<m1bpvrslk0.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jbarnes@virtuousgeek.org, shaohua.li@intel.com,
-	Rafael Wysocki <rwysocki@suse.de>,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	Stable@kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:37184 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757190AbYLENHS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2008 08:07:18 -0500
-In-Reply-To: <200811281328.55259.trenn@suse.de>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jmorris@namei.org, adobriyan@gmail.com,
+	eparis@parisplace.org, akpm@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <m1bpvrslk0.fsf@frodo.ebiederm.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 2008-12-04 at 13:00 -0800, Eric W. Biederman wrote:
+> Stephen Smalley <sds@tycho.nsa.gov> writes:
+> 
+> > On Thu, 2008-12-04 at 14:32 -0500, Stephen Smalley wrote:
+> >> On Thu, 2008-12-04 at 10:21 -0800, David Miller wrote:
+> >> > From: Stephen Smalley <sds@tycho.nsa.gov>
+> >> > Date: Thu, 04 Dec 2008 13:11:20 -0500
+> >> > 
+> >> > > On Thu, 2008-12-04 at 20:52 +0300, Alexey Dobriyan wrote:
+> >> > > > On Thu, Dec 04, 2008 at 09:41:24AM -0800, Kok, Auke wrote:
+> >> > > > > maybe try disabling selinux?
+> >> > > > 
+> >> > > > This will work. :^)
+> >> > > 
+> >> > > SELinux didn't change here.  /proc/net did.
+> >> > 
+> >> > We've been through this before...
+> >> 
+> >> Yep, and we altered SELinux so that they could freely change proc
+> >> directories into symlinks to support the earlier proc/net change.  But
+> >> now proc/net has turned into its own separate filesystem, with its own
+> >> filesystem type, which is unknown to SELinux.  Thus causing it to be
+> >> left unlabeled and inaccessible to confined domains.
+> >> 
+> >> > And it is a usability issue that people can't change how procfs
+> >> > directories work without requiring the user to update their selinux
+> >> > policies first.
+> >> 
+> >> Introducing a new filesystem type (proc/net) without teaching SELinux
+> >> how to handle it is always going to produce denials on accessing that
+> >> filesystem.  If they left the filesystem type string as "proc" it
+> >> wouldn't be a problem.
+> >
+> > Actually, that isn't quite correct as it wouldn't generate the same
+> > name/key for lookup.
+> >
+> >>   Or they can adjust the SELinux code to
+> >> automagically handle it.  Regardless, we didn't break anything.
+> >
+> > Looking back, I see that they did in fact change selinux as part of the
+> > patch to make proc/net its own filesystem, although unfortunately not in
+> > a way that will quite work.  But no selinux maintainer was ever cc'd on
+> > that patch.
+> 
+> Yes.  Apologies.  The whole thing started with some stupid security
+> drama and so things tried to happen outside of the normal channels
+> and things just went wrong, and got lost...
+> 
+> When I resent and started things through the normal channels I forgot
+> to cc you guys.  My apologies.
+> 
+> Which piece of selinux magic did I miss?
+> 
+> In particular can you tell if this was a code bug or a logic bug?
 
-This is intended for review by someone with more PCI experience, first.
+I suspect we need the following un-tested diff to map all of these proc/
+filesystem types to "proc" for the policy lookup at filesystem mount
+time.
 
-If it is considered as safe as I think it is :), it would be great if
-this can be picked up ang go into stable kernels as well if the
-feedback is positive (just checked with .25, the patch still
-patches there, even without offset).
-
-Thanks,
-
-    Thomas
-
-
-PCIE: Break out of endless loop waiting for PCI config bits to switch
-
-Makes a Compaq 6735s boot reliably again which hang in the loop
-on some boots.
-
-Signed-off-by: Thomas Renninger <trenn@suse.de>
-
----
- drivers/pci/pcie/aspm.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-Index: linux-2.6.27/drivers/pci/pcie/aspm.c
-===================================================================
---- linux-2.6.27.orig/drivers/pci/pcie/aspm.c
-+++ linux-2.6.27/drivers/pci/pcie/aspm.c
-@@ -165,6 +165,7 @@ static void pcie_aspm_configure_common_c
- 	u16 reg16 = 0;
- 	struct pci_dev *child_dev;
- 	int same_clock = 1;
-+	int loop_count = 0;
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 9155fa9..3c3ceb7 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -703,7 +703,7 @@ static int selinux_set_mnt_opts(struct super_block *sb,
+ 		sbsec->proc = 1;
  
- 	/*
- 	 * all functions of a slot should have the same Slot Clock
-@@ -212,12 +213,15 @@ static void pcie_aspm_configure_common_c
- 	pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
- 
- 	/* Wait for link training end */
--	while (1) {
-+	while (loop_count < 100) {
- 		pci_read_config_word(pdev, pos + PCI_EXP_LNKSTA, &reg16);
- 		if (!(reg16 & PCI_EXP_LNKSTA_LT))
- 			break;
- 		cpu_relax();
-+		loop_count++;
- 	}
-+	if (loop_count == 100) 
-+		dev_printk (KERN_WARNING, &pdev->dev, "Could not configure ASPM\n");
- }
- 
- /*
+ 	/* Determine the labeling behavior to use for this filesystem type. */
+-	rc = security_fs_use(sb->s_type->name, &sbsec->behavior, &sbsec->sid);
++	rc = security_fs_use(sbsec->proc ? "proc" : sb->s_type->name, &sbsec->behavior, &sbsec->sid);
+ 	if (rc) {
+ 		printk(KERN_WARNING "%s: security_fs_use(%s) returned %d\n",
+ 		       __func__, sb->s_type->name, rc);
+
+-- 
+Stephen Smalley
+National Security Agency
+
+
+------------------------------------------------------------------------------
+SF.Net email is Sponsored by MIX09, March 18-20, 2009 in Las Vegas, Nevada.
+The future of the web can't happen without you.  Join us at MIX09 to help
+pave the way to the Next Web now. Learn more and register at
+http://ad.doubleclick.net/clk;208669438;13503038;i?http://2009.visitmix.com/
