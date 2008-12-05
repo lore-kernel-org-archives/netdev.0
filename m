@@ -1,58 +1,58 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: IPv6 multicast bind(), esp. v4-mapped addresses
-Date: Fri, 5 Dec 2008 09:42:43 +0200 (EET)
-Message-ID: <alpine.LRH.2.00.0812050928340.28482@netcore.fi>
-References: <alpine.LRH.2.00.0812050820380.28482@netcore.fi> <20081205.161117.109565135.yoshfuji@linux-ipv6.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [E1000-devel] networking probs in next-20081203
+Date: Thu, 04 Dec 2008 23:49:14 -0800
+Message-ID: <m1k5afqcxx.fsf@frodo.ebiederm.org>
+References: <49381644.8020502@intel.com>
+	<20081204175236.GA19808@x200.localdomain>
+	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
+	<20081204.102138.123959105.davem@davemloft.net>
+	<1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
+	<1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
+	<m1bpvrslk0.fsf@frodo.ebiederm.org>
+	<alpine.LRH.1.10.0812051243190.11818@tundra.namei.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: =?ISO-2022-JP?Q?YOSHIFUJI_Hideaki_=2F_=1B$B5HF#1QL=40=1B=28J?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Smalley <sds@tycho.nsa.gov>,
+	David Miller <davem@davemloft.net>, adobriyan@gmail.com,
+	auke-jan.h.kok@intel.com, akpm@linux-foundation.org,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	eparis@parisplace.org
+To: James Morris <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:47127 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750720AbYLEHmy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2008 02:42:54 -0500
-In-Reply-To: <20081205.161117.109565135.yoshfuji@linux-ipv6.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:48815 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805AbYLEH41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 02:56:27 -0500
+In-Reply-To: <alpine.LRH.1.10.0812051243190.11818@tundra.namei.org> (James
+	Morris's message of "Fri, 5 Dec 2008 13:03:08 +1100 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 5 Dec 2008, YOSHIFUJI Hideaki / ???? wrote:
-> I think similar issue(s) have been pointed out several times.
-> IPv4-mapped addresses are not portable, unfortunately, anyway, and
-> people should use native interface, especially for multicasts.
+James Morris <jmorris@namei.org> writes:
 
-Yes, there are problems with portability of mapped address usage, but 
-that doesn't have to mean that we shouldn't try to make it as useful 
-as reasonable.
-
-> BTW, do you know what kind of socket option do they use for 
-> setting/getting ttl etc?
+> On Thu, 4 Dec 2008, Eric W. Biederman wrote:
 >
-> If we fully support "IPv4-Mapped" function, we should transparently
-> configure ipv4-multicast parameters etc. as well.
+>> Which piece of selinux magic did I miss?
+>
+> The problem is that SELinux doesn't know anything about the new filesystem 
+> type, and specifically, to treat it like procfs.  There are a couple 
+> workarounds we can try to prevent this specific problem from cropping up 
+> again.
 
-It does this:
+The thing is I believe I changed the internal filesystem test to
+strncmp(fstype, "proc", 4);
 
-setsockopt(7, SOL_IPV6, IPV6_MULTICAST_HOPS, [1], 4) = 0
+Which should match both proc and proc/net
 
-In Java MulticastSocket API, if you only specify the port and not 
-multicast group, it will bind to "::", and it succeeds.  Afterwards 
-Java issues an IPv4 IGMP join:
+And likewise I thought I provided the same name by for the magic label
+lookup by name.
 
-setsockopt(7, SOL_IP, IP_ADD_MEMBERSHIP, "\351\f\f\f\0\0\0\0\0\0\0\0", 12) = 0
+>> In particular can you tell if this was a code bug or a logic bug?
+>
+> I wouldn't say it was a bug, more a consequence of necessarily imperfect 
+> encapsulation of the security code via LSM.  It's just something we have to 
+> keep an eye out for.
 
-So Java implementation will parse whether the group is IPv4 or IPv6 
-multicast -- it isn't using MCAST_JOIN_GROUP API.  It could be argued 
-that if it already knows the protocol, it _could_ create IPv4 socket 
-from the start, instead of doing this via a mapped v6 socket.
+Yes.  Was the piece I missed in the LSM rules loaded from user space?
 
-Of course, if Java used the protocol-independent MCAST_JOIN_GROUP etc. 
-API, it would not need to even know whether the group was v4 or v6. 
-And from that perspective also it would probably make sense to support 
-a v4-mapped-address bind().
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Eric
