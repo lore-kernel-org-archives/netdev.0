@@ -1,178 +1,205 @@
-From: "=?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?=" <gotzoncabanes@gmail.com>
-Subject: Re: qmgr for ixp4xx
-Date: Fri, 5 Dec 2008 17:59:17 +0100
-Message-ID: <b0438a630812050859jd9fd55ah5fb3608a964f9567@mail.gmail.com>
-References: <b0438a630812021044q31845224s206f3998423289af@mail.gmail.com>
-	 <m3zljby7jm.fsf@maximus.localdomain>
-	 <b0438a630812050051v6393ae1at40b3669389dd394e@mail.gmail.com>
-	 <m31vwmlidh.fsf@maximus.localdomain>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6 2008-12-05
+Date: Fri, 5 Dec 2008 11:55:07 -0500
+Message-ID: <20081205165506.GA18988@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Krzysztof Halasa" <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:55859 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752794AbYLEQ7S convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 11:59:18 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so50621yxm.1
-        for <netdev@vger.kernel.org>; Fri, 05 Dec 2008 08:59:17 -0800 (PST)
-In-Reply-To: <m31vwmlidh.fsf@maximus.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+Dave,
 
-On Fri, Dec 5, 2008 at 5:03 PM, Krzysztof Halasa <khc@pm.waw.pl> wrote:
-> "Miguel =C1ngel =C1lvarez" <gotzoncabanes@gmail.com> writes:
->
->>> The FIFOs are some internal property of HDLC controller (it isn't
->>> documented but they probably connect the bus master DMA controller =
-to
->>> the bit-stuffer and transmitter (and bit-destuffer and receiver in =
-the
->>> RX path)). You just need to send a message to HSS to tell it the
->>> correct value.
->>>
->> =BFThe message is the HSS_CONFIG_CORE_CR containing the
->> CCR_NPE_HFIFO_3_OR_4HDLC flag?
->
-> Well right, this one, too. I missed this one.
->
-> So it seems the following are needed (and 128-bit LUT):
->
-> #define PKT_NUM_PIPES           1 /* 1, 2 or 4 */
-> #define PKT_NUM_PIPES_WRITE             0x52
->
-> #define PKT_PIPE_FIFO_SIZEW     4 /* total 4 dwords per HSS */
-> (=3D 1 word for 4E1, 2 words for 2E1, 4 for 1E1)
-> #define PKT_PIPE_FIFO_SIZEW_WRITE       0x53
->
-> #define CCR_NPE_HFIFO_2_HDLC            0x04000000
-> #define CCR_NPE_HFIFO_3_OR_4HDLC        0x08000000
-> (to be set in the CORE register).
->
+Here are a few more fixes intended for 2.6.28.  You are probably
+familiar with the ones from Shaddy Baddah.  The ipw2200 one fixes an
+oops reported in Novell's bugzilla, and the iwlwifi one fixes a problem
+tracked at bugzilla.kernel.org -- both changelogs have more information.
 
-Perfect... The ones I were using.
+Please let me know if there are problems!
 
->> I understand this, but I do not know exactly how to use it. I mean..=
-=2E
->> - I have seen that more queues are added for tx and rxfree, but not =
-rx
->> or txdone... Are they not require?
->
-> The HSS uses 4 TX queues (each for 1 HDLC/packetized stream), and it
-> sends all used descriptors back to TXDONE queue (all 4 streams).
->
-> The same with RX, you have 4 RXFREE queues (=3D "RX empty" descriptor=
-s,
-> waiting for RX data), but when the data is ready, they are going back
-> to the CPU in a single RX queue. There is a stream# in the descriptor=
-=2E
->
-OK.
+Thanks,
 
->> - Must we use different txreadyq for each hdlc?
->
-> Yes, otherwise one HSS could grab all descriptors thus making the
-> other HSS (temporarily) unusable. Actually we need a TXREADY queues
-> per HDLC stream (4 per 4E1 port).
->
->> - The values you have chosen for txreadyq are 2 and 19. Does it not
->> conflict with HSS0_PKT_RXFREE1_QUEUE and HSS1_PKT_RXFREE1_QUEUE.
->
-> It does certainly conflict. For now there are no problems because MVI=
-P
-> isn't supported. I guess we need 64-queue support. Fortunately, Karl
-> Hiramoto already has a patch for 64 queues, almost ready for merge.
->
-> We also have to make sure the queues don't conflict with the Ethernet
-> driver and (if used) with the crypto code.
->
-The queues are different for each NPE, aren' t they?
+John
 
-I will check for the 64-queue support patch (thanks Karl). However, if
-I am not sure they are required. I mean...
-- HSS0 uses queues 12-22.
-- HSS1 uses queues 0-10.
-- That leaves us 10 queues free, doesn't it? Couldn't we use queue 11
-for eth txreadyq, 23-26 for HSS0 txreadyq, 27-30 for HSS1 txreadyq and
-31 for crypto code (which I do not know?)
+---
 
->> - I am not sure which documentation did you use for this (great)
->> implementation of eth and hss. The intel manuals lack all informatio=
-n
->> about this, so I am trying to check differences with Intel's softwar=
-e
->> library (a nightmare),
->
-> I was using the library, though I processed it first with some custom
-> scripts to make it easier to read. Christian Hohnstaedt's code was
-> also a great help to understand what's going on.
->
-I am trying to follow Intel's code... and it is difficult...
+Individual patches are available here:
 
->> and have found that in "ixHssAccPktTxInternal"
->> they add the hdlc port to the entry (which at last seemed to me that
->> they were accessing consecutive memory positions from the entry for
->> hdlc0).
->
-> Do you mean this?
-> /* Set the least significant 2 bits of the queue entry to the HDLC po=
-rt number. */
-> qEntry |=3D (hdlcPortId & IX_HSSACC_QM_Q_CHAN_NUM_MASK);
->
-> They want it when the packet is back in TXDONE queue.
->
-Ummm? To know which queue should be refeeded? How could we do that?
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
 
->> So that is why I thought acc represented the same thing.
->
-> No, acc is a private thing of queue manager. HSS code don't know abou=
-t
-> it.
->
-OK.
+---
 
->> What you are saying is that if I send the data to the correct
->> tx queue, it will reach the correct FIFO... OK.
->
-> Yes.
->
-Perfect.
+The following changes since commit f706644d55f90e8306d87060168fef33804d6dd9:
+  Oliver Hartkopp (1):
+        can: omit received RTR frames for single ID filter lists
 
->> And reception? If I
->> have only one reception queue how could I manage to know to which
->> channel have I received the data?
->
-> The descriptor will have an ID in it.
->
-Where?
+are available in the git repository at:
 
->> - Do you know where can it be found more information about this
->> relation between queues, dmas and FIFOs? You are helping me greatly,
->> but I do not want to make you loose so much time.
->
-> We only have ixp4xx library code. Few small minutes of my time are
-> not a problem when spent to help implement a useful feature.
->
-> I wonder what should I do now with all this. Perhaps integrating
-> Karl's 64-queue patch and making the HDLC part of HSS driver able to
-> be merged upstream... I will look if it does make sense.
->
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-I think your code is quite useful and structured, so it will be very
-interesting to have it mainstream.
+Shaddy Baddah (2):
+      mac80211: use unaligned safe memcmp() in-place of compare_ether_addr()
+      zd1211rw: use unaligned safe memcmp() in-place of compare_ether_addr()
 
-I was trying to improve your code to make it work in a 4E1. Before
-making it configurable, I have made a first implementation considering
-only my problem (which is not completely fixed yet). I will send you a
-patch with my development (too large to add it in the list), so that
-you could give me your oppinion if you want to. I would like to merge
-it with your code when it is working (and the clean-up is made).
+Tomas Winkler (1):
+      iwlwifi: clean key table in iwl_clear_stations_table function
 
-Thanks
+Zhu Yi (1):
+      ipw2200: fix netif_*_queue() removal regression
 
-Miguel =C1ngel
+ drivers/net/wireless/ipw2200.c          |    4 ++++
+ drivers/net/wireless/iwlwifi/iwl-core.c |    3 +++
+ drivers/net/wireless/iwlwifi/iwl-sta.c  |   24 +++++++++++++++++++++---
+ drivers/net/wireless/zd1211rw/zd_mac.c  |    2 +-
+ net/mac80211/sta_info.c                 |    2 +-
+ 5 files changed, 30 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
+index dcce354..7a9f901 100644
+--- a/drivers/net/wireless/ipw2200.c
++++ b/drivers/net/wireless/ipw2200.c
+@@ -3897,6 +3897,7 @@ static int ipw_disassociate(void *data)
+ 	if (!(priv->status & (STATUS_ASSOCIATED | STATUS_ASSOCIATING)))
+ 		return 0;
+ 	ipw_send_disassociate(data, 0);
++	netif_carrier_off(priv->net_dev);
+ 	return 1;
+ }
+ 
+@@ -10190,6 +10191,9 @@ static int ipw_tx_skb(struct ipw_priv *priv, struct ieee80211_txb *txb,
+ 	u16 remaining_bytes;
+ 	int fc;
+ 
++	if (!(priv->status & STATUS_ASSOCIATED))
++		goto drop;
++
+ 	hdr_len = ieee80211_get_hdrlen(le16_to_cpu(hdr->frame_ctl));
+ 	switch (priv->ieee->iw_mode) {
+ 	case IW_MODE_ADHOC:
+diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
+index 4c312c5..01a8458 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-core.c
++++ b/drivers/net/wireless/iwlwifi/iwl-core.c
+@@ -290,6 +290,9 @@ void iwl_clear_stations_table(struct iwl_priv *priv)
+ 	priv->num_stations = 0;
+ 	memset(priv->stations, 0, sizeof(priv->stations));
+ 
++	/* clean ucode key table bit map */
++	priv->ucode_key_table = 0;
++
+ 	spin_unlock_irqrestore(&priv->sta_lock, flags);
+ }
+ EXPORT_SYMBOL(iwl_clear_stations_table);
+diff --git a/drivers/net/wireless/iwlwifi/iwl-sta.c b/drivers/net/wireless/iwlwifi/iwl-sta.c
+index 61797f3..26f7084 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-sta.c
++++ b/drivers/net/wireless/iwlwifi/iwl-sta.c
+@@ -475,7 +475,7 @@ static int iwl_get_free_ucode_key_index(struct iwl_priv *priv)
+ 		if (!test_and_set_bit(i, &priv->ucode_key_table))
+ 			return i;
+ 
+-	return -1;
++	return WEP_INVALID_OFFSET;
+ }
+ 
+ int iwl_send_static_wepkey_cmd(struct iwl_priv *priv, u8 send_if_empty)
+@@ -620,6 +620,9 @@ static int iwl_set_wep_dynamic_key_info(struct iwl_priv *priv,
+ 	/* else, we are overriding an existing key => no need to allocated room
+ 	 * in uCode. */
+ 
++	WARN(priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET,
++		"no space for new kew");
++
+ 	priv->stations[sta_id].sta.key.key_flags = key_flags;
+ 	priv->stations[sta_id].sta.sta.modify_mask = STA_MODIFY_KEY_MASK;
+ 	priv->stations[sta_id].sta.mode = STA_CONTROL_MODIFY_MSK;
+@@ -637,6 +640,7 @@ static int iwl_set_ccmp_dynamic_key_info(struct iwl_priv *priv,
+ {
+ 	unsigned long flags;
+ 	__le16 key_flags = 0;
++	int ret;
+ 
+ 	key_flags |= (STA_KEY_FLG_CCMP | STA_KEY_FLG_MAP_KEY_MSK);
+ 	key_flags |= cpu_to_le16(keyconf->keyidx << STA_KEY_FLG_KEYID_POS);
+@@ -664,14 +668,18 @@ static int iwl_set_ccmp_dynamic_key_info(struct iwl_priv *priv,
+ 	/* else, we are overriding an existing key => no need to allocated room
+ 	 * in uCode. */
+ 
++	WARN(priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET,
++		"no space for new kew");
++
+ 	priv->stations[sta_id].sta.key.key_flags = key_flags;
+ 	priv->stations[sta_id].sta.sta.modify_mask = STA_MODIFY_KEY_MASK;
+ 	priv->stations[sta_id].sta.mode = STA_CONTROL_MODIFY_MSK;
+ 
++	ret = iwl_send_add_sta(priv, &priv->stations[sta_id].sta, CMD_ASYNC);
++
+ 	spin_unlock_irqrestore(&priv->sta_lock, flags);
+ 
+-	IWL_DEBUG_INFO("hwcrypto: modify ucode station key info\n");
+-	return iwl_send_add_sta(priv, &priv->stations[sta_id].sta, CMD_ASYNC);
++	return ret;
+ }
+ 
+ static int iwl_set_tkip_dynamic_key_info(struct iwl_priv *priv,
+@@ -696,6 +704,9 @@ static int iwl_set_tkip_dynamic_key_info(struct iwl_priv *priv,
+ 	/* else, we are overriding an existing key => no need to allocated room
+ 	 * in uCode. */
+ 
++	WARN(priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET,
++		"no space for new kew");
++
+ 	/* This copy is acutally not needed: we get the key with each TX */
+ 	memcpy(priv->stations[sta_id].keyinfo.key, keyconf->key, 16);
+ 
+@@ -734,6 +745,13 @@ int iwl_remove_dynamic_key(struct iwl_priv *priv,
+ 		return 0;
+ 	}
+ 
++	if (priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET) {
++		IWL_WARNING("Removing wrong key %d 0x%x\n",
++			    keyconf->keyidx, key_flags);
++		spin_unlock_irqrestore(&priv->sta_lock, flags);
++		return 0;
++	}
++
+ 	if (!test_and_clear_bit(priv->stations[sta_id].sta.key.key_offset,
+ 		&priv->ucode_key_table))
+ 		IWL_ERROR("index %d not used in uCode key table.\n",
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index fe1867b..cac732f 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -615,7 +615,7 @@ static int filter_ack(struct ieee80211_hw *hw, struct ieee80211_hdr *rx_hdr,
+ 		struct ieee80211_hdr *tx_hdr;
+ 
+ 		tx_hdr = (struct ieee80211_hdr *)skb->data;
+-		if (likely(!compare_ether_addr(tx_hdr->addr2, rx_hdr->addr1)))
++		if (likely(!memcmp(tx_hdr->addr2, rx_hdr->addr1, ETH_ALEN)))
+ 		{
+ 			__skb_unlink(skb, q);
+ 			tx_status(hw, skb, IEEE80211_TX_STAT_ACK, stats->signal, 1);
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 7fef8ea..d254446 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -99,7 +99,7 @@ struct sta_info *sta_info_get(struct ieee80211_local *local, const u8 *addr)
+ 
+ 	sta = rcu_dereference(local->sta_hash[STA_HASH(addr)]);
+ 	while (sta) {
+-		if (compare_ether_addr(sta->sta.addr, addr) == 0)
++		if (memcmp(sta->sta.addr, addr, ETH_ALEN) == 0)
+ 			break;
+ 		sta = rcu_dereference(sta->hnext);
+ 	}
+-- 
+John W. Linville		Linux should be at the core
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			of your literate lifestyle.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
