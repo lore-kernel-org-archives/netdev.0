@@ -1,16 +1,18 @@
 From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: [PATCH 1/2] tty: Flags should be accessed via the foo_bit interfaces
-Date: Fri, 05 Dec 2008 17:08:27 +0000
-Message-ID: <20081205170826.3474.38297.stgit@localhost.localdomain>
+Date: Fri, 05 Dec 2008 17:10:39 +0000
+Message-ID: <20081205171036.3528.20768.stgit@localhost.localdomain>
+References: <20081205170846.3528.67581.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:55994 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:46237 "EHLO
 	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751961AbYLERIR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 12:08:17 -0500
+	with ESMTP id S1751869AbYLERK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 12:10:27 -0500
+In-Reply-To: <20081205170846.3528.67581.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
