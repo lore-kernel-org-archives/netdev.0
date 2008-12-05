@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 26/40] i2400m/USB: header for the USB bus driver
-Date: Fri,  5 Dec 2008 10:55:19 -0800
-Message-ID: <9e56249d1093323eadba89382c04aec1185d738d.1228503077.git.inaky@linux.intel.com>
+Subject: [PATCH 36/40] i2400m/SDIO: read transactions from the SDIO device
+Date: Fri,  5 Dec 2008 10:55:29 -0800
+Message-ID: <6fd5d292fcc8c0b73b781498deaed258e0d040ca.1228503077.git.inaky@linux.intel.com>
 References: <cover.1228503076.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,27 +18,25 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This contains the common function declaration and constants for the
-USB driver for the 2400m Wireless WiMAX Connection, as well as the
-debug level settings for the USB driver.
+This code implements reading from the SDIO device; when data is ready
+the SDIO IRQ is fired and that will allocate an skb, put all the data
+there and then pass it to the generic driver for processing and delivery.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/i2400m-usb.h       |  197 +++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/usb-debug-levels.h |   42 ++++++
- 2 files changed, 239 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
- create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
+ drivers/net/wimax/i2400m/sdio-rx.c |  255 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 255 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
 
-diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
 new file mode 100644
-index 0000000..b07b81f
+index 0000000..a3008b9
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/i2400m-usb.h
-@@ -0,0 +1,197 @@
++++ b/drivers/net/wimax/i2400m/sdio-rx.c
+@@ -0,0 +1,255 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * USB-specific i2400m driver definitions
++ * SDIO RX handling
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -71,215 +69,225 @@ index 0000000..b07b81f
 + *
 + *
 + * Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
 + *  - Initial implementation
 + *
 + *
-+ * This driver implements the bus-specific part of the i2400m for
-+ * USB. Check i2400m.h for a generic driver description.
++ * This handles the RX path on SDIO.
 + *
-+ * ARCHITECTURE
++ * The SDIO bus driver calls the "irq" routine when data is available.
++ * This is not a traditional interrupt routine since the SDIO bus
++ * driver calls us from its irq thread context.  Because of this
++ * sleeping in the SDIO RX IRQ routine is okay.
 + *
-+ * This driver listens to notifications sent from the notification
-+ * endpoint (in usb-notif.c); when data is ready to read, the code in
-+ * there schedules a read from the device (usb-rx.c) and then passes
-+ * the data to the generic RX code (rx.c).
++ * From there on, we obtain the size of the data that is available,
++ * allocate an skb, copy it and then pass it to the generic driver's
++ * RX routine [i2400m_rx()].
 + *
-+ * When the generic driver needs to send data (network or control), it
-+ * queues up in the TX FIFO (tx.c) and that will notify the driver
-+ * through the i2400m->bus_tx_kick() callback
-+ * (usb-tx.c:i2400mu_bus_tx_kick) which will send the items in the
-+ * FIFO queue.
++ * ROADMAP
 + *
-+ * This driver, as well, implements the USB-specific ops for the generic
-+ * driver to be able to setup/teardown communication with the device
-+ * [i2400m_bus_dev_start() and i2400m_bus_dev_stop()], reseting the
-+ * device [i2400m_bus_reset()] and performing firmware upload
-+ * [i2400m_bus_bm_cmd() and i2400_bus_bm_wait_for_ack()].
++ * i2400ms_irq()
++ *   i2400ms_rx()
++ *     __i2400ms_rx_get_size()
++ *     i2400m_rx()
++ *
++ * i2400ms_rx_setup()
++ *
++ * i2400ms_rx_release()
 + */
++#include <linux/workqueue.h>
++#include <linux/wait.h>
++#include <linux/skbuff.h>
++#include <linux/mmc/sdio.h>
++#include <linux/mmc/sdio_func.h>
++#include "i2400m-sdio.h"
 +
-+#ifndef __I2400M_USB_H__
-+#define __I2400M_USB_H__
-+
-+#include "i2400m.h"
-+#include "edc.h"
-+#include <linux/kthread.h>
-+
-+/* Host-Device interface for USB */
-+enum {
-+	I2400MU_MAX_NOTIFICATION_LEN = 256,
-+	I2400MU_BLK_SIZE = 16,
-+	I2400MU_PL_SIZE_MAX = 0x3EFF,
-+
-+	/* Endpoints */
-+	I2400MU_EP_BULK_OUT = 0,
-+	I2400MU_EP_NOTIFICATION,
-+	I2400MU_EP_RESET_COLD,
-+	I2400MU_EP_BULK_IN,
-+};
++#define D_SUBMODULE rx
++#include "sdio-debug-levels.h"
 +
 +
-+/**
-+ * struct i2400mu - descriptor for a USB connected i2400m
++/*
++ * Read and return the amount of bytes available for RX
 + *
-+ * @i2400m: bus-generic i2400m implementation; has to be first (see
-+ *     it's documentation in i2400m.h).
++ * The RX size has to be read like this: byte reads of three
++ * sequential locations; then glue'em together.
 + *
-+ * @usb_dev: pointer to our USB device
-+ *
-+ * @usb_iface: pointer to our USB interface
-+ *
-+ * @urb_edc: error density counter; used to keep a density-on-time tab
-+ *     on how many soft (retryable or ignorable) errors we get. If we
-+ *     go over the threshold, we consider the bus transport is failing
-+ *     too much and reset.
-+ *
-+ * @notif_urb: URB for receiving notifications from the device.
-+ *
-+ * @tx_kthread: thread we use for data TX. We use a thread because in
-+ *     order to do deep power saving and put the device to sleep, we
-+ *     need to call usb_autopm_*() [blocking functions].
-+ *
-+ * @tx_wq: waitqueue for the TX kthread to sleep when there is no data
-+ *     to be sent; when more data is available, it is woken up by
-+ *     i2400mu_bus_tx_kick().
-+ *
-+ * @rx_kthread: thread we use for data RX. We use a thread because in
-+ *     order to do deep power saving and put the device to sleep, we
-+ *     need to call usb_autopm_*() [blocking functions].
-+ *
-+ * @rx_wq: waitqueue for the RX kthread to sleep when there is no data
-+ *     to receive. When data is available, it is woken up by
-+ *     usb-notif.c:i2400mu_notification_grok().
-+ *
-+ * @rx_pending_count: number of rx-data-ready notifications that were
-+ *     still not handled by the RX kthread.
-+ *
-+ * @rx_size: current RX buffer size that is being used.
-+ *
-+ * @rx_size_acc: accumulator of the sizes of the previous read
-+ *     transactions.
-+ *
-+ * @rx_size_cnt: number of read transactions accumulated in
-+ *     @rx_size_acc.
-+ *
-+ * @do_autopm: disable(0)/enable(>0) calling the
-+ *     usb_autopm_get/put_interface() barriers when executing
-+ *     commands. See doc in i2400mu_suspend() for more information.
-+ *
-+ * @rx_size_auto_shrink: if true, the rx_size is shrinked
-+ *     automatically based on the average size of the received
-+ *     transactions. This allows the receive code to allocate smaller
-+ *     chunks of memory and thus reduce pressure on the memory
-+ *     allocator by not wasting so much space. By default it is
-+ *     enabled.
-+ *
-+ * @debugfs_dentry: hookup for debugfs files.
-+ *     These have to be in a separate directory, a child of
-+ *     (wimax_dev->debugfs_dentry) so they can be removed when the
-+ *     module unloads, as we don't keep each dentry.
++ * sdio_readl() doesn't work.
 + */
-+struct i2400mu {
-+	struct i2400m i2400m;		/* FIRST! See doc */
-+
-+	struct usb_device *usb_dev;
-+	struct usb_interface *usb_iface;
-+	struct edc urb_edc;		/* Error density counter */
-+
-+	struct urb *notif_urb;
-+	struct task_struct *tx_kthread;
-+	wait_queue_head_t tx_wq;
-+
-+	struct task_struct *rx_kthread;
-+	wait_queue_head_t rx_wq;
-+	atomic_t rx_pending_count;
-+	size_t rx_size, rx_size_acc, rx_size_cnt;
-+	atomic_t do_autopm;
-+	u8 rx_size_auto_shrink;
-+
-+	struct dentry *debugfs_dentry;
-+};
-+
-+
-+static inline
-+void i2400mu_init(struct i2400mu *i2400mu)
++ssize_t __i2400ms_rx_get_size(struct i2400ms *i2400ms)
 +{
-+	i2400m_init(&i2400mu->i2400m);
-+	edc_init(&i2400mu->urb_edc);
-+	init_waitqueue_head(&i2400mu->tx_wq);
-+	atomic_set(&i2400mu->rx_pending_count, 0);
-+	init_waitqueue_head(&i2400mu->rx_wq);
-+	i2400mu->rx_size = PAGE_SIZE - sizeof(struct skb_shared_info);
-+	atomic_set(&i2400mu->do_autopm, 1);
-+	i2400mu->rx_size_auto_shrink = 1;
++	int ret, cnt, val;
++	ssize_t rx_size;
++	unsigned xfer_size_addr;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &i2400ms->func->dev;
++
++	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
++	xfer_size_addr = I2400MS_INTR_GET_SIZE_ADDR;
++	rx_size = 0;
++	for (cnt = 0; cnt < 3; cnt++) {
++		val = sdio_readb(func, xfer_size_addr + cnt, &ret);
++		if (ret < 0) {
++			dev_err(dev, "RX: Can't read byte %d of RX size from "
++				"0x%08x: %d\n", cnt, xfer_size_addr + cnt, ret);
++			rx_size = ret;
++			goto error_read;
++		}
++		rx_size = rx_size << 8 | (val & 0xff);
++	}
++	d_printf(6, dev, "RX: rx_size is %ld\n", (long) rx_size);
++error_read:
++	d_fnend(7, dev, "(i2400ms %p) = %ld\n", i2400ms, (long) rx_size);
++	return rx_size;
 +}
 +
-+extern int i2400mu_notification_setup(struct i2400mu *);
-+extern void i2400mu_notification_release(struct i2400mu *);
 +
-+extern int i2400mu_rx_setup(struct i2400mu *);
-+extern void i2400mu_rx_release(struct i2400mu *);
-+extern void i2400mu_rx_kick(struct i2400mu *);
-+
-+extern int i2400mu_tx_setup(struct i2400mu *);
-+extern void i2400mu_tx_release(struct i2400mu *);
-+extern void i2400mu_bus_tx_kick(struct i2400m *);
-+
-+extern ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *,
-+				       const struct i2400m_bootrom_header *,
-+				       size_t, int);
-+extern ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *,
-+					   struct i2400m_bootrom_header *,
-+					   size_t);
-+#endif /* #ifndef __I2400M_USB_H__ */
-diff --git a/drivers/net/wimax/i2400m/usb-debug-levels.h b/drivers/net/wimax/i2400m/usb-debug-levels.h
-new file mode 100644
-index 0000000..e4358bd
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/usb-debug-levels.h
-@@ -0,0 +1,42 @@
 +/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Debug levels control file for the i2400m-usb module
++ * Read data from the device (when in normal)
 + *
++ * Allocate an SKB of the right size, read the data in and then
++ * deliver it to the generic layer.
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ * We also check for a reboot barker. That means the device died and
++ * we have to reboot it.
 + */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
++static
++void i2400ms_rx(struct i2400ms *i2400ms)
++{
++	int ret;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++	struct i2400m *i2400m = &i2400ms->i2400m;
++	struct sk_buff *skb;
++	ssize_t rx_size;
 +
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME i2400m_usb
-+#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
++	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
++	rx_size = __i2400ms_rx_get_size(i2400ms);
++	if (rx_size < 0) {
++		ret = rx_size;
++		goto error_get_size;
++	}
++	ret = -ENOMEM;
++	skb = alloc_skb(rx_size, GFP_ATOMIC);
++	if (NULL == skb) {
++		dev_err(dev, "RX: unable to alloc skb\n");
++		goto error_alloc_skb;
++	}
 +
-+#include <linux/wimax/debug.h>
++	ret = sdio_memcpy_fromio(func, skb->data,
++				 I2400MS_DATA_ADDR, rx_size);
++	if (ret < 0) {
++		dev_err(dev, "RX: SDIO data read failed: %d\n", ret);
++		goto error_memcpy_fromio;
++	}
++	/* Check if device has reset */
++	if (!memcmp(skb->data, i2400m_NBOOT_BARKER,
++		    sizeof(i2400m_NBOOT_BARKER))
++	    || !memcmp(skb->data, i2400m_SBOOT_BARKER,
++		       sizeof(i2400m_SBOOT_BARKER))) {
++		ret = i2400m_dev_reset_handle(i2400m);
++		kfree_skb(skb);
++	} else {
++		skb_put(skb, rx_size);
++		i2400m_rx(i2400m, skb);
++	}
++	d_fnend(7, dev, "(i2400ms %p) = void\n", i2400ms);
++	return;
 +
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(usb),
-+	D_SUBMODULE_DECLARE(fw),
-+	D_SUBMODULE_DECLARE(notif),
-+	D_SUBMODULE_DECLARE(rx),
-+	D_SUBMODULE_DECLARE(tx),
-+};
++error_memcpy_fromio:
++	kfree_skb(skb);
++error_alloc_skb:
++error_get_size:
++	d_fnend(7, dev, "(i2400ms %p) = %d\n", i2400ms, ret);
++	return;
++}
 +
 +
-+#endif /* #ifndef __debug_levels__h__ */
++/*
++ * Process an interrupt from the SDIO card
++ *
++ * FIXME: need to process other events that are not just ready-to-read
++ *
++ * Checks there is data ready and then proceeds to read it.
++ */
++static
++void i2400ms_irq(struct sdio_func *func)
++{
++	int ret;
++	struct i2400ms *i2400ms = sdio_get_drvdata(func);
++	struct i2400m *i2400m = &i2400ms->i2400m;
++	struct device *dev = &func->dev;
++	int val;
++
++	d_fnstart(6, dev, "(i2400ms %p)\n", i2400ms);
++	val = sdio_readb(func, I2400MS_INTR_STATUS_ADDR, &ret);
++	if (ret < 0) {
++		dev_err(dev, "RX: Can't read interrupt status: %d\n", ret);
++		goto error_no_irq;
++	}
++	if (!val) {
++		dev_err(dev, "RX: BUG? got IRQ but no interrupt ready?\n");
++		goto error_no_irq;
++	}
++	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
++	if (WARN_ON(i2400m->boot_mode != 0))
++		dev_err(dev, "RX: SW BUG? boot mode and IRQ is up?\n");
++	else
++		i2400ms_rx(i2400ms);
++error_no_irq:
++	d_fnend(6, dev, "(i2400ms %p) = void\n", i2400ms);
++	return;
++}
++
++
++/*
++ * Setup SDIO RX
++ *
++ * Hooks up the IRQ handler and then enables IRQs.
++ */
++int i2400ms_rx_setup(struct i2400ms *i2400ms)
++{
++	int result;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++
++	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
++	sdio_claim_host(func);
++	result = sdio_claim_irq(func, i2400ms_irq);
++	if (result < 0) {
++		dev_err(dev, "Cannot claim IRQ: %d\n", result);
++		goto error_irq_claim;
++	}
++	result = 0;
++	sdio_writeb(func, 1, I2400MS_INTR_ENABLE_ADDR, &result);
++	if (result < 0) {
++		sdio_release_irq(func);
++		dev_err(dev, "Failed to enable interrupts %d\n", result);
++	}
++error_irq_claim:
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
++	return result;
++}
++
++
++/*
++ * Tear down SDIO RX
++ *
++ * Disables IRQs in the device and removes the IRQ handler.
++ */
++void i2400ms_rx_release(struct i2400ms *i2400ms)
++{
++	int result;
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++
++	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
++	sdio_claim_host(func);
++	sdio_writeb(func, 0, I2400MS_INTR_ENABLE_ADDR, &result);
++	sdio_release_irq(func);
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
++}
 -- 
 1.5.6.5
