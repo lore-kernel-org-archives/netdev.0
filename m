@@ -1,129 +1,52 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH 2/2] tty: driverdata and discdata are void *
-Date: Fri, 05 Dec 2008 17:10:46 +0000
-Message-ID: <20081205171044.3528.20062.stgit@localhost.localdomain>
-References: <20081205170846.3528.67581.stgit@localhost.localdomain>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Is it valid to add a macvlan virtual interface to a bridge? If
+ so, there seems to be a bug with it.
+Date: Fri, 05 Dec 2008 09:43:25 -0800
+Message-ID: <4939683D.40406@candelatech.com>
+References: <20081204203352.9740c60e.ipng@69706e6720323030352d30312d31340a.nosense.org> <4937D494.8080202@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Mark Smith <ipng@69706e6720323030352d30312d31340a.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:46240 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751148AbYLERKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 12:10:35 -0500
-In-Reply-To: <20081205170846.3528.67581.stgit@localhost.localdomain>
+Received: from mail.candelatech.com ([208.74.158.172]:46085 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752089AbYLERnd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 12:43:33 -0500
+In-Reply-To: <4937D494.8080202@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@redhat.com>
+Patrick McHardy wrote:
 
-Remove all the extra casting while we are cleaning up
+>> Should what I'm doing be working or possible? If not, could something
+>> be added to the kernel to prevent macvlan interfaces being added to
+>> bridge instances, to stop other people spending time trying to do what
+>> I've tried to do?
+> 
+> Unfortunately one of both combinations will not work, no matter
+> what we do. The bridge code could issue a warning when adding
+> a bridge on top of a macvlan device, but there's no clean indication
+> that something is a macvlan device besides dev->rtnl_link_ops->kind
+> being "macvlan".
 
-Signed-off-by: Alan Cox <alan@redhat.com>
----
+A mac-vlan can't really be PROMISC either since it only receives
+BCAST frames and packets destined for it's own MAC, so I can't see
+how it could work in a bridge....
 
- drivers/net/wan/x25_asy.c    |   10 +++++-----
- drivers/net/wireless/strip.c |   10 +++++-----
- 2 files changed, 10 insertions(+), 10 deletions(-)
+user-space brctl could check for the driver string returned by
+ethtool API to check if no one wants any additional cruft in
+the kernel...
 
 
-diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
-index e188699..762fb13 100644
---- a/drivers/net/wan/x25_asy.c
-+++ b/drivers/net/wan/x25_asy.c
-@@ -258,7 +258,7 @@ static void x25_asy_encaps(struct x25_asy *sl, unsigned char *icp, int len)
- static void x25_asy_write_wakeup(struct tty_struct *tty)
- {
- 	int actual;
--	struct x25_asy *sl = (struct x25_asy *) tty->disc_data;
-+	struct x25_asy *sl = tty->disc_data;
- 
- 	/* First make sure we're connected. */
- 	if (!sl || sl->magic != X25_ASY_MAGIC || !netif_running(sl->dev))
-@@ -527,7 +527,7 @@ static int x25_asy_close(struct net_device *dev)
- static void x25_asy_receive_buf(struct tty_struct *tty,
- 				const unsigned char *cp, char *fp, int count)
- {
--	struct x25_asy *sl = (struct x25_asy *) tty->disc_data;
-+	struct x25_asy *sl = tty->disc_data;
- 
- 	if (!sl || sl->magic != X25_ASY_MAGIC || !netif_running(sl->dev))
- 		return;
-@@ -555,7 +555,7 @@ static void x25_asy_receive_buf(struct tty_struct *tty,
- 
- static int x25_asy_open_tty(struct tty_struct *tty)
- {
--	struct x25_asy *sl = (struct x25_asy *) tty->disc_data;
-+	struct x25_asy *sl = tty->disc_data;
- 	int err;
- 
- 	if (tty->ops->write == NULL)
-@@ -596,7 +596,7 @@ static int x25_asy_open_tty(struct tty_struct *tty)
-  */
- static void x25_asy_close_tty(struct tty_struct *tty)
- {
--	struct x25_asy *sl = (struct x25_asy *) tty->disc_data;
-+	struct x25_asy *sl = tty->disc_data;
- 
- 	/* First make sure we're connected. */
- 	if (!sl || sl->magic != X25_ASY_MAGIC)
-@@ -696,7 +696,7 @@ static void x25_asy_unesc(struct x25_asy *sl, unsigned char s)
- static int x25_asy_ioctl(struct tty_struct *tty, struct file *file,
- 			 unsigned int cmd,  unsigned long arg)
- {
--	struct x25_asy *sl = (struct x25_asy *) tty->disc_data;
-+	struct x25_asy *sl = tty->disc_data;
- 
- 	/* First make sure we're connected. */
- 	if (!sl || sl->magic != X25_ASY_MAGIC)
-diff --git a/drivers/net/wireless/strip.c b/drivers/net/wireless/strip.c
-index 35442b1..b141773 100644
---- a/drivers/net/wireless/strip.c
-+++ b/drivers/net/wireless/strip.c
-@@ -1234,7 +1234,7 @@ static void ResetRadio(struct strip *strip_info)
- 
- static void strip_write_some_more(struct tty_struct *tty)
- {
--	struct strip *strip_info = (struct strip *) tty->disc_data;
-+	struct strip *strip_info = tty->disc_data;
- 
- 	/* First make sure we're connected. */
- 	if (!strip_info || strip_info->magic != STRIP_MAGIC ||
-@@ -2260,7 +2260,7 @@ static void process_message(struct strip *strip_info)
- static void strip_receive_buf(struct tty_struct *tty, const unsigned char *cp,
- 		  char *fp, int count)
- {
--	struct strip *strip_info = (struct strip *) tty->disc_data;
-+	struct strip *strip_info = tty->disc_data;
- 	const unsigned char *end = cp + count;
- 
- 	if (!strip_info || strip_info->magic != STRIP_MAGIC
-@@ -2596,7 +2596,7 @@ static struct strip *strip_alloc(void)
- 
- static int strip_open(struct tty_struct *tty)
- {
--	struct strip *strip_info = (struct strip *) tty->disc_data;
-+	struct strip *strip_info = tty->disc_data;
- 
- 	/*
- 	 * First make sure we're not already connected.
-@@ -2667,7 +2667,7 @@ static int strip_open(struct tty_struct *tty)
- 
- static void strip_close(struct tty_struct *tty)
- {
--	struct strip *strip_info = (struct strip *) tty->disc_data;
-+	struct strip *strip_info = tty->disc_data;
- 
- 	/*
- 	 * First make sure we're connected.
-@@ -2693,7 +2693,7 @@ static void strip_close(struct tty_struct *tty)
- static int strip_ioctl(struct tty_struct *tty, struct file *file,
- 		       unsigned int cmd, unsigned long arg)
- {
--	struct strip *strip_info = (struct strip *) tty->disc_data;
-+	struct strip *strip_info = tty->disc_data;
- 
- 	/*
- 	 * First make sure we're connected.
+You might try using a pair of VETH interfaces to bridge between
+your host and virtual host.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
