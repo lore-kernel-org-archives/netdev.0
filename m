@@ -1,23 +1,24 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2008-12-05
-Date: Fri, 5 Dec 2008 11:55:07 -0500
-Message-ID: <20081205165506.GA18988@tuxdriver.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-next-2.6 2008-12-05
+Date: Fri, 5 Dec 2008 11:55:47 -0500
+Message-ID: <20081205165546.GB18988@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46521 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754244AbYLERAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Dec 2008 12:00:12 -0500
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Dave,
 
-Here are a few more fixes intended for 2.6.28.  You are probably
-familiar with the ones from Shaddy Baddah.  The ipw2200 one fixes an
-oops reported in Novell's bugzilla, and the iwlwifi one fixes a problem
-tracked at bugzilla.kernel.org -- both changelogs have more information.
+Here is another big round of updates intended for 2.6.29 -- mostly
+drivers stuff this time around.
 
 Please let me know if there are problems!
 
@@ -29,177 +30,219 @@ John
 
 Individual patches are available here:
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6/
 
 ---
 
-The following changes since commit f706644d55f90e8306d87060168fef33804d6dd9:
-  Oliver Hartkopp (1):
-        can: omit received RTR frames for single ID filter lists
+The following changes since commit e061b165c7f4ec5e2e160d990b49011b5b6e5c6a:
+  Martin Willi (1):
+        xfrm: Accept ESP packets regardless of UDP encapsulation mode
 
 are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git master
 
-Shaddy Baddah (2):
-      mac80211: use unaligned safe memcmp() in-place of compare_ether_addr()
-      zd1211rw: use unaligned safe memcmp() in-place of compare_ether_addr()
+Abbas, Mohamed (2):
+      iwl3945: add debugfs support
+      iwl3945: Fix iwl3945 rate scaling.
 
-Tomas Winkler (1):
-      iwlwifi: clean key table in iwl_clear_stations_table function
+Abhijeet Kolekar (1):
+      iwl3945 : Fix a-band association for passive channels
 
-Zhu Yi (1):
-      ipw2200: fix netif_*_queue() removal regression
+Bob Copeland (3):
+      ath5k: preserve higher order bits when setting mac address
+      ath5k: clean up ath5k_hw_set_key
+      ath5k: enable combined michael mic in key cache
 
- drivers/net/wireless/ipw2200.c          |    4 ++++
- drivers/net/wireless/iwlwifi/iwl-core.c |    3 +++
- drivers/net/wireless/iwlwifi/iwl-sta.c  |   24 +++++++++++++++++++++---
- drivers/net/wireless/zd1211rw/zd_mac.c  |    2 +-
- net/mac80211/sta_info.c                 |    2 +-
- 5 files changed, 30 insertions(+), 5 deletions(-)
+Chatre, Reinette (1):
+      iwlwifi: store ucode version number
 
-diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index dcce354..7a9f901 100644
---- a/drivers/net/wireless/ipw2200.c
-+++ b/drivers/net/wireless/ipw2200.c
-@@ -3897,6 +3897,7 @@ static int ipw_disassociate(void *data)
- 	if (!(priv->status & (STATUS_ASSOCIATED | STATUS_ASSOCIATING)))
- 		return 0;
- 	ipw_send_disassociate(data, 0);
-+	netif_carrier_off(priv->net_dev);
- 	return 1;
- }
- 
-@@ -10190,6 +10191,9 @@ static int ipw_tx_skb(struct ipw_priv *priv, struct ieee80211_txb *txb,
- 	u16 remaining_bytes;
- 	int fc;
- 
-+	if (!(priv->status & STATUS_ASSOCIATED))
-+		goto drop;
-+
- 	hdr_len = ieee80211_get_hdrlen(le16_to_cpu(hdr->frame_ctl));
- 	switch (priv->ieee->iw_mode) {
- 	case IW_MODE_ADHOC:
-diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
-index 4c312c5..01a8458 100644
---- a/drivers/net/wireless/iwlwifi/iwl-core.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-core.c
-@@ -290,6 +290,9 @@ void iwl_clear_stations_table(struct iwl_priv *priv)
- 	priv->num_stations = 0;
- 	memset(priv->stations, 0, sizeof(priv->stations));
- 
-+	/* clean ucode key table bit map */
-+	priv->ucode_key_table = 0;
-+
- 	spin_unlock_irqrestore(&priv->sta_lock, flags);
- }
- EXPORT_SYMBOL(iwl_clear_stations_table);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-sta.c b/drivers/net/wireless/iwlwifi/iwl-sta.c
-index 61797f3..26f7084 100644
---- a/drivers/net/wireless/iwlwifi/iwl-sta.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-sta.c
-@@ -475,7 +475,7 @@ static int iwl_get_free_ucode_key_index(struct iwl_priv *priv)
- 		if (!test_and_set_bit(i, &priv->ucode_key_table))
- 			return i;
- 
--	return -1;
-+	return WEP_INVALID_OFFSET;
- }
- 
- int iwl_send_static_wepkey_cmd(struct iwl_priv *priv, u8 send_if_empty)
-@@ -620,6 +620,9 @@ static int iwl_set_wep_dynamic_key_info(struct iwl_priv *priv,
- 	/* else, we are overriding an existing key => no need to allocated room
- 	 * in uCode. */
- 
-+	WARN(priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET,
-+		"no space for new kew");
-+
- 	priv->stations[sta_id].sta.key.key_flags = key_flags;
- 	priv->stations[sta_id].sta.sta.modify_mask = STA_MODIFY_KEY_MASK;
- 	priv->stations[sta_id].sta.mode = STA_CONTROL_MODIFY_MSK;
-@@ -637,6 +640,7 @@ static int iwl_set_ccmp_dynamic_key_info(struct iwl_priv *priv,
- {
- 	unsigned long flags;
- 	__le16 key_flags = 0;
-+	int ret;
- 
- 	key_flags |= (STA_KEY_FLG_CCMP | STA_KEY_FLG_MAP_KEY_MSK);
- 	key_flags |= cpu_to_le16(keyconf->keyidx << STA_KEY_FLG_KEYID_POS);
-@@ -664,14 +668,18 @@ static int iwl_set_ccmp_dynamic_key_info(struct iwl_priv *priv,
- 	/* else, we are overriding an existing key => no need to allocated room
- 	 * in uCode. */
- 
-+	WARN(priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET,
-+		"no space for new kew");
-+
- 	priv->stations[sta_id].sta.key.key_flags = key_flags;
- 	priv->stations[sta_id].sta.sta.modify_mask = STA_MODIFY_KEY_MASK;
- 	priv->stations[sta_id].sta.mode = STA_CONTROL_MODIFY_MSK;
- 
-+	ret = iwl_send_add_sta(priv, &priv->stations[sta_id].sta, CMD_ASYNC);
-+
- 	spin_unlock_irqrestore(&priv->sta_lock, flags);
- 
--	IWL_DEBUG_INFO("hwcrypto: modify ucode station key info\n");
--	return iwl_send_add_sta(priv, &priv->stations[sta_id].sta, CMD_ASYNC);
-+	return ret;
- }
- 
- static int iwl_set_tkip_dynamic_key_info(struct iwl_priv *priv,
-@@ -696,6 +704,9 @@ static int iwl_set_tkip_dynamic_key_info(struct iwl_priv *priv,
- 	/* else, we are overriding an existing key => no need to allocated room
- 	 * in uCode. */
- 
-+	WARN(priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET,
-+		"no space for new kew");
-+
- 	/* This copy is acutally not needed: we get the key with each TX */
- 	memcpy(priv->stations[sta_id].keyinfo.key, keyconf->key, 16);
- 
-@@ -734,6 +745,13 @@ int iwl_remove_dynamic_key(struct iwl_priv *priv,
- 		return 0;
- 	}
- 
-+	if (priv->stations[sta_id].sta.key.key_offset == WEP_INVALID_OFFSET) {
-+		IWL_WARNING("Removing wrong key %d 0x%x\n",
-+			    keyconf->keyidx, key_flags);
-+		spin_unlock_irqrestore(&priv->sta_lock, flags);
-+		return 0;
-+	}
-+
- 	if (!test_and_clear_bit(priv->stations[sta_id].sta.key.key_offset,
- 		&priv->ucode_key_table))
- 		IWL_ERROR("index %d not used in uCode key table.\n",
-diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-index fe1867b..cac732f 100644
---- a/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -615,7 +615,7 @@ static int filter_ack(struct ieee80211_hw *hw, struct ieee80211_hdr *rx_hdr,
- 		struct ieee80211_hdr *tx_hdr;
- 
- 		tx_hdr = (struct ieee80211_hdr *)skb->data;
--		if (likely(!compare_ether_addr(tx_hdr->addr2, rx_hdr->addr1)))
-+		if (likely(!memcmp(tx_hdr->addr2, rx_hdr->addr1, ETH_ALEN)))
- 		{
- 			__skb_unlink(skb, q);
- 			tx_status(hw, skb, IEEE80211_TX_STAT_ACK, stats->signal, 1);
-diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
-index 7fef8ea..d254446 100644
---- a/net/mac80211/sta_info.c
-+++ b/net/mac80211/sta_info.c
-@@ -99,7 +99,7 @@ struct sta_info *sta_info_get(struct ieee80211_local *local, const u8 *addr)
- 
- 	sta = rcu_dereference(local->sta_hash[STA_HASH(addr)]);
- 	while (sta) {
--		if (compare_ether_addr(sta->sta.addr, addr) == 0)
-+		if (memcmp(sta->sta.addr, addr, ETH_ALEN) == 0)
- 			break;
- 		sta = rcu_dereference(sta->hnext);
- 	}
+Christian Lamparter (6):
+      mac80211: add sta_notify_ps callback
+      p54: revamp station power save management in access point mode
+      p54: utilize cryptographic accelerator
+      p54: include support for 2.13.24.0 USB LM87 Firmwares
+      p54: refactoring
+      p54: per-device names
+
+Colin McCabe (1):
+      ath9k: Replace ath9k_opmode with nl80211_iftype
+
+Fabio Rossi (1):
+      mac80211: accept empty strings for hidden SSIDs
+
+Harvey Harrison (1):
+      iwlwifi: remove uses of __constant_{endian} helpers
+
+Helmut Schaa (1):
+      iwl3945: remove obsolete irq handling
+
+Ivo van Doorn (9):
+      rt2x00: Optimize IV/EIV handling
+      rt2x00: Store retry limit values
+      rt2x00: Remove duplicate code
+      rt2x00: Implement HW encryption (rt2500usb)
+      rt2x00: Release rt2x00 2.2.3
+      rt2x00: Add RXDONE_CRYPTO_IV/ICV flags
+      rt2x00: Fix check for BSS info changes
+      rt2x00: Move crypto TX descriptor handling to rt2x00crypto.c
+      rt2x00: Correctly initialize AID during set_key()
+
+Johannes Berg (8):
+      mac80211: only transition STAs ps->wake on data frames
+      cfg80211: handle SIOCGIWNAME
+      cfg80211: handle SIOCGIWMODE/SIOCSIWMODE
+      wireless: clean up radiotap a bit
+      cfg80211: fix wiphy remove if no regulatory request
+      cfg80211: "fix" 11d oops
+      p54: fix lm87 checksum endianness
+      iwlwifi: disable AP mode
+
+John W. Linville (2):
+      hostap: select required crypto bits in Kconfig
+      mac80211: deauth when interface is marked down
+
+Jouni Malinen (1):
+      nl80211: Add frequency configuration (including HT40)
+
+Kalle Valo (1):
+      mac80211: document ieee80211_tx_info.pad
+
+Luis R. Rodriguez (3):
+      nl80211: relicense nl80211.h under the ISC
+      ath9k: Check for pci_map_single() errors
+      ath9k: Use GFP_ATOMIC when allocating TX private area
+
+Rami Rosen (1):
+      mac80211: tx module cleanup.
+
+Reinette Chatre (1):
+      iwlwifi: rely on API version read from firmware
+
+Samuel Ortiz (1):
+      iwl3945: Select correct sta ID from find_station()
+
+Sujith (7):
+      ath9k: Handle channel initialization for AP mode
+      ath9k: Use cleaner debug masks
+      ath9k: Add ATH9K_DEBUG configuration option
+      ath9k: Remove includes that are not needed
+      ath9k: Add initial layout for an ath9k specific debugfs mechanism
+      ath9k: Add a debugfs file for dumping DMA status
+      ath9k: Choose correct ANI calibration period
+
+Tomas Winkler (6):
+      mac80211: disassociate prior to unlinking AP/station
+      iwlwifi: properly initialize calibration command header
+      iwlwifi: 5150 add support for 5150
+      iwlwifi: 5150 enable DC calibration
+      iwlwifi: 5150 compute ct kill threshold
+      iwlwifi: 5150 parametrize eeprom versions
+
+Winkler, Tomas (4):
+      iwlwifi: 5150 enable LO, TXIQ and BB calibrations
+      iwlwifi: move host command check function into separate file
+      iwlwifi: move disable/enable interrupts to iwl-core.c
+      iwlwifi: move channels sysfs to debugfs
+
+Wu Fengguang (1):
+      generic swap(): ath9k: rename swap() to swap_array()
+
+Zhu Yi (2):
+      iwlwifi: fix printk size format error
+      iwlwifi: fix DMA channel number in iwl_txq_ctx_stop
+
+herton (1):
+      rtl8187: fix retry count passed in rtl8187_tx
+
+ drivers/net/wireless/ath5k/ath5k.h                |    1 +
+ drivers/net/wireless/ath5k/attach.c               |    6 +
+ drivers/net/wireless/ath5k/pcu.c                  |   95 +++--
+ drivers/net/wireless/ath5k/reg.h                  |    1 +
+ drivers/net/wireless/ath9k/Kconfig                |   11 +
+ drivers/net/wireless/ath9k/Makefile               |    2 +
+ drivers/net/wireless/ath9k/ani.c                  |   46 +-
+ drivers/net/wireless/ath9k/ath9k.h                |   11 +-
+ drivers/net/wireless/ath9k/beacon.c               |  118 +++---
+ drivers/net/wireless/ath9k/calib.c                |   69 ++--
+ drivers/net/wireless/ath9k/core.h                 |  206 ++++-----
+ drivers/net/wireless/ath9k/debug.c                |  160 +++++++
+ drivers/net/wireless/ath9k/eeprom.c               |   16 +-
+ drivers/net/wireless/ath9k/hw.c                   |  218 ++++-----
+ drivers/net/wireless/ath9k/mac.c                  |  138 ++-----
+ drivers/net/wireless/ath9k/main.c                 |  342 +++++++-------
+ drivers/net/wireless/ath9k/phy.c                  |   14 +-
+ drivers/net/wireless/ath9k/rc.c                   |   58 ++-
+ drivers/net/wireless/ath9k/recv.c                 |   47 ++-
+ drivers/net/wireless/ath9k/regd.c                 |   85 ++--
+ drivers/net/wireless/ath9k/regd.h                 |    2 +-
+ drivers/net/wireless/ath9k/xmit.c                 |  123 +++---
+ drivers/net/wireless/hostap/Kconfig               |    7 +
+ drivers/net/wireless/ipw2x00/ipw2200.c            |   24 +-
+ drivers/net/wireless/iwlwifi/Makefile             |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-commands.h  |  140 +++---
+ drivers/net/wireless/iwlwifi/iwl-3945-core.h      |   26 +-
+ drivers/net/wireless/iwlwifi/iwl-3945-rs.c        |  145 +++++--
+ drivers/net/wireless/iwlwifi/iwl-3945.c           |   43 +-
+ drivers/net/wireless/iwlwifi/iwl-3945.h           |   18 +-
+ drivers/net/wireless/iwlwifi/iwl-4965.c           |   26 +-
+ drivers/net/wireless/iwlwifi/iwl-5000.c           |  111 ++++-
+ drivers/net/wireless/iwlwifi/iwl-agn-hcmd-check.c |  108 +++++
+ drivers/net/wireless/iwlwifi/iwl-agn.c            |  232 +++-------
+ drivers/net/wireless/iwlwifi/iwl-commands.h       |  234 +++++-----
+ drivers/net/wireless/iwlwifi/iwl-core.c           |   26 +-
+ drivers/net/wireless/iwlwifi/iwl-core.h           |   38 ++-
+ drivers/net/wireless/iwlwifi/iwl-debug.h          |    1 +
+ drivers/net/wireless/iwlwifi/iwl-debugfs.c        |   76 ++++
+ drivers/net/wireless/iwlwifi/iwl-dev.h            |   15 +-
+ drivers/net/wireless/iwlwifi/iwl-eeprom.h         |    1 +
+ drivers/net/wireless/iwlwifi/iwl-tx.c             |   11 +-
+ drivers/net/wireless/iwlwifi/iwl3945-base.c       |  130 ++++---
+ drivers/net/wireless/libertas/radiotap.h          |    3 -
+ drivers/net/wireless/p54/p54.h                    |    4 +-
+ drivers/net/wireless/p54/p54common.c              |  500 ++++++++++++++-------
+ drivers/net/wireless/p54/p54common.h              |   20 +-
+ drivers/net/wireless/p54/p54usb.c                 |   49 ++-
+ drivers/net/wireless/rt2x00/Kconfig               |    1 +
+ drivers/net/wireless/rt2x00/rt2500usb.c           |  134 ++++++-
+ drivers/net/wireless/rt2x00/rt2500usb.h           |    3 +
+ drivers/net/wireless/rt2x00/rt2x00.h              |    9 +-
+ drivers/net/wireless/rt2x00/rt2x00config.c        |   39 +-
+ drivers/net/wireless/rt2x00/rt2x00crypto.c        |   79 ++--
+ drivers/net/wireless/rt2x00/rt2x00dev.c           |    3 +-
+ drivers/net/wireless/rt2x00/rt2x00lib.h           |   15 +-
+ drivers/net/wireless/rt2x00/rt2x00mac.c           |   16 +-
+ drivers/net/wireless/rt2x00/rt2x00queue.c         |   46 +--
+ drivers/net/wireless/rt2x00/rt2x00queue.h         |   16 +-
+ drivers/net/wireless/rt2x00/rt61pci.c             |   11 +-
+ drivers/net/wireless/rt2x00/rt73usb.c             |   11 +-
+ drivers/net/wireless/rtl818x/rtl8187_dev.c        |    4 +-
+ include/linux/nl80211.h                           |   44 ++-
+ include/net/cfg80211.h                            |   20 +
+ include/net/ieee80211_radiotap.h                  |   15 +-
+ include/net/mac80211.h                            |   22 +
+ net/mac80211/cfg.c                                |   13 +
+ net/mac80211/ieee80211_i.h                        |    1 +
+ net/mac80211/iface.c                              |   10 +-
+ net/mac80211/main.c                               |   30 ++-
+ net/mac80211/mlme.c                               |   20 +-
+ net/mac80211/rx.c                                 |   35 ++-
+ net/mac80211/tx.c                                 |   11 +-
+ net/mac80211/util.c                               |    1 +
+ net/mac80211/wext.c                               |  120 +-----
+ net/wireless/Makefile                             |    1 +
+ net/wireless/nl80211.c                            |   57 +++
+ net/wireless/reg.c                                |    5 +-
+ net/wireless/wext-compat.c                        |  139 ++++++
+ 79 files changed, 2854 insertions(+), 1836 deletions(-)
+ create mode 100644 drivers/net/wireless/ath9k/debug.c
+ create mode 100644 drivers/net/wireless/iwlwifi/iwl-agn-hcmd-check.c
+ create mode 100644 net/wireless/wext-compat.c
+
+Omnibus patch is available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6-2008-12-05.patch.bz2
+
 -- 
 John W. Linville		Linux should be at the core
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			of your literate lifestyle.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+linville@tuxdriver.com			of your literate lifestyle.
