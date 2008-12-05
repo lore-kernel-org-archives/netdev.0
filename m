@@ -1,7 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 23/40] i2400m: handling of the data/control reception path
-Date: Fri,  5 Dec 2008 10:55:16 -0800
-Message-ID: <ae74865c010beb19215e7bb27afd1705fd814cf6.1228503077.git.inaky@linux.intel.com>
+Subject: [PATCH 10/40] wimax: Generic messaging interface between user space
+	and driver/device
+Date: Fri,  5 Dec 2008 10:55:03 -0800
+Message-ID: <091ba5665fb2794c3cd68ad82e1f853a1c5bb58b.1228503077.git.inaky@linux.intel.com>
 References: <cover.1228503076.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,558 +19,537 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Handling of data coming from the i2400m device (IP packets, control
-and diagnostics). This parses the received read transaction from the
-device, breaks it in chunks and passes it to the corresponding
-subsystems (network and control).
+This implements a direct communication channel between user space and
+the driver/device, by which free form messages can be sent back and
+forth.
+
+This is intended for device-specific features, vendor quirks, etc.
+
+Currently is the only communication mechanism used because there is no
+standard kernel API defined for WiMAX operation. Not enough devices
+are in the market to decide what is a good user-kernel API/abstraction
+layer.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/rx.c |  536 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 536 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/rx.c
+ net/wimax/op-msg.c |  509 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 509 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/op-msg.c
 
-diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
+diff --git a/net/wimax/op-msg.c b/net/wimax/op-msg.c
 new file mode 100644
-index 0000000..dbe9e5e
+index 0000000..d60eeb3
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/rx.c
-@@ -0,0 +1,536 @@
++++ b/net/wimax/op-msg.c
+@@ -0,0 +1,509 @@
 +/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Handle incoming traffic and deliver it to the control or data planes
++ * Linux WiMAX
++ * Generic messaging interface between userspace and driver/device
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ *
-+ * Intel Corporation <linux-wimax@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ *  - Initial implementation
++ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - Use skb_clone(), break up processing in chunks
-+ *  - Split transport/device specific
-+ *  - Make buffer size dynamic to exert less memory pressure
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
 + *
 + *
-+ * This handles the RX path.
++ * This implements a direct communication channel between user space and
++ * the driver/device, by which free form messages can be sent back and
++ * forth.
 + *
-+ * We receive an RX message from the bus-specific driver, which
-+ * contains one or more payloads that have potentially different
-+ * destinataries (data or control paths).
++ * This is intended for device-specific features, vendor quirks, etc.
 + *
-+ * So we just take that payload from the transport specific code in
-+ * the form of an skb, break it up in chunks (a cloned skb each in the
-+ * case of network packets) and pass it to netdev or to the
-+ * command/ack handler (and from there to the WiMAX stack).
++ * By default, all devices get one default pipe ("the messaging
++ * pipe").
 + *
-+ * PROTOCOL FORMAT
++ * Due to limitations in the way generic netlink is implemented (no
++ * multicast from user space clients to the kernel), the messaging
++ * pipe is the only way to send messages from user space to the
++ * driver.
 + *
-+ * The format of the buffer is:
++ * However, devices can create as many kernel-to-user pipes as
++ * needed.
 + *
-+ * HEADER                      (struct i2400m_msg_hdr)
-+ * PAYLOAD DESCRIPTOR 0        (struct i2400m_pld)
-+ * PAYLOAD DESCRIPTOR 1
-+ * ...
-+ * PAYLOAD DESCRIPTOR N
-+ * PAYLOAD 0                   (raw bytes)
-+ * PAYLOAD 1
-+ * ...
-+ * PAYLOAD N
++ * The functions wimax.h:wimax_msg_*() operate identical to
++ * wimax_pipe_msg*(), but over the default pipe.
 + *
-+ * See tx.c for a deeper description on alignment requirements and
-+ * other fun facts of it.
++ * See include/net/wimax.h
++ *
++ * GENERIC NETLINK ENCODING AND CAPACITY
++ *
++ * Messages are encoded as a binary netlink attribute using nla_put()
++ * using type NLA_UNSPEC (as some versions of libnl still in
++ * deployment don't yet understand NLA_BINARY).
++ *
++ * The maximum capacity of this transport is PAGESIZE. Sending of
++ * messages up to 4k has been tested with success.
++ *
++ * RECEPTION OF MESSAGES
++ *
++ * When a message is received from user space, it is passed verbatim
++ * to the driver calling wimax_dev->op_msg_from_user(). The return
++ * value from this function is passed back to user space as an ack
++ * over the generic netlink protocol.
++ *
++ * Remember these messages from user space to the kernel always
++ * operate over the default pipe.
++ *
++ * The stack doesn't do any processing or interpretation of these
++ * messages.
++ *
++ * SENDING MESSAGES
++ *
++ * Messages can be sent with wimax_[pipe_]msg().
++ *
++ * If the message delivery needs to happen on a different context to
++ * that of its creation, wimax_[pipe_]msg_alloc() can be used to get a
++ * pointer to the message that can be delivered later on with
++ * wimax_[pipe_]msg_send().
 + *
 + * ROADMAP
 + *
-+ * i2400m_rx
-+ *   i2400m_rx_msg_hdr_check
-+ *   i2400m_rx_pl_descr_check
-+ *   i2400m_rx_payload
-+ *     i2400m_net_rx
-+ *     i2400m_rx_ctl
-+ *       i2400m_msg_size_check
-+ *       i2400m_report_hook_work    [in a workqueue]
-+ *         i2400m_report_hook
-+ *       wimax_msg_to_user
-+ *       i2400m_rx_ctl_ack
-+ *         wimax_msg_to_user_alloc
-+ *     i2400m_rx_trace
-+ *       i2400m_msg_size_check
-+ *       wimax_pipe_msg
++ * wimax_gnl_doit_msg_from_user()    Process a message from user space
++ *   wimax_dev_get_by_genl_info()
++ *   wimax_dev->op_msg_from_user()   Delivery of message to the driver
++ *
++ * wimax_pipe_msg()                  Send a message to user space
++ *   wimax_pipe_msg_alloc()
++ *   wimax_pipe_msg_send()
++ *
++ * wimax_pipe_add()		     Create a new pipe
++ * wimax_pipe_rm()                   Remove a pipe
 + */
-+#include <linux/kernel.h>
-+#include <linux/if_arp.h>
++#include <linux/device.h>
++#include <net/genetlink.h>
 +#include <linux/netdevice.h>
-+#include <linux/workqueue.h>
-+#include "i2400m.h"
++#include <linux/wimax.h>
++#include <linux/security.h>
++#include "wimax-internal.h"
 +
 +
-+#define D_SUBMODULE rx
++#define D_SUBMODULE op_msg
 +#include "debug-levels.h"
 +
-+struct i2400m_report_hook_args {
-+	struct sk_buff *skb_rx;
-+	const struct i2400m_l3l4_hdr *l3l4_hdr;
-+	size_t size;
-+};
 +
-+
-+/*
-+ * Execute i2400m_report_hook in a workqueue
++/**
++ * wimax_pipe_add - Create a new messaging pipe
 + *
-+ * Unpacks arguments from the deferred call, executes it and then
-+ * drops the references.
++ * @wimax_dev: WiMAX device descriptor (properly referenced)
 + *
-+ * Obvious NOTE: References are needed because we are a separate
-+ *     thread; otherwise the buffer changes under us because it is
-+ *     released by the original caller.
++ * @name: Name of the new pipe
++ *
++ * Returns: Positive pipe ID descriptor [for to wimax_pipe_msg*()].
++ *     Negative errno code on error.
++ *
++ * Description:
++ *
++ * Creates a new pipe for sending messages or notifications to user
++ * space. User space can read them by receiving from the @name generic
++ * netlink multicast group associated to @wimax_dev.
++ *
++ * We allow running this when the device is still uninitialized. Not
++ * so when the device is being torn down.
 + */
-+static
-+void i2400m_report_hook_work(struct work_struct *ws)
-+{
-+	struct i2400m_work *iw =
-+		container_of(ws, struct i2400m_work, ws);
-+	struct i2400m_report_hook_args *args = (void *) iw->pl;
-+	i2400m_report_hook(iw->i2400m, args->l3l4_hdr, args->size);
-+	kfree_skb(args->skb_rx);
-+	i2400m_put(iw->i2400m);
-+	kfree(iw);
-+}
-+
-+
-+/*
-+ * Process an ack to a command
-+ *
-+ * @i2400m: device descriptor
-+ * @payload: pointer to message
-+ * @size: size of the message
-+ *
-+ * Pass the acknodledgment (in an skb) to the thread that is waiting
-+ * for it in i2400m->msg_completion.
-+ *
-+ * We need to coordinate properly with the thread waiting for the
-+ * ack. Check if it is waiting or if it is gone. We loose the spinlock
-+ * to avoid allocating on atomic contexts (yeah, could use GFP_ATOMIC,
-+ * but this is not so speed critical).
-+ */
-+static
-+void i2400m_rx_ctl_ack(struct i2400m *i2400m,
-+		       const void *payload, size_t size)
-+{
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
-+	unsigned long flags;
-+	struct sk_buff *ack_skb;
-+
-+	/* Anyone waiting for an answer? */
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	if (i2400m->ack_skb != ERR_PTR(-EINPROGRESS)) {
-+		dev_err(dev, "Huh? reply to command with no waiters\n");
-+		goto error_no_waiter;
-+	}
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+
-+	ack_skb = wimax_msg_to_user_alloc(
-+		wimax_dev, payload, size, GFP_KERNEL);
-+
-+	/* Check waiter didn't time out waiting for the answer... */
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	if (i2400m->ack_skb != ERR_PTR(-EINPROGRESS)) {
-+		d_printf(1, dev, "Huh? waiter for command reply cancelled\n");
-+		goto error_waiter_cancelled;
-+	}
-+	if (ack_skb == NULL) {
-+		dev_err(dev, "CMD/GET/SET ack: cannot allocate SKB\n");
-+		i2400m->ack_skb = ERR_PTR(-ENOMEM);
-+	} else
-+		i2400m->ack_skb = ack_skb;
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	complete(&i2400m->msg_completion);
-+	return;
-+
-+error_waiter_cancelled:
-+	if (ack_skb)
-+		kfree_skb(ack_skb);
-+error_no_waiter:
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	return;
-+}
-+
-+
-+/*
-+ * Receive and process a control payload
-+ *
-+ * @i2400m: device descriptor
-+ * @skb_rx: skb that contains the payload (for reference counting)
-+ * @payload: pointer to message
-+ * @size: size of the message
-+ *
-+ * There are two types of control RX messages: reports (asynchronous,
-+ * like your every day interrupts) and 'acks' (reponses to a command,
-+ * get or set request).
-+ *
-+ * If it is a report, we run hooks on it (to extract information for
-+ * things we need to do in the driver) and then pass it over to the
-+ * WiMAX stack to send it to user space.
-+ *
-+ * NOTE: report processing is done in a workqueue specific to the
-+ *     generic driver, to avoid deadlocks in the system.
-+ *
-+ * If it is not a report, it is an ack to a previously executed
-+ * command, set or get, so wake up whoever is waiting for it from
-+ * i2400m_msg_to_dev(). i2400m_rx_ctl_ack() takes care of that.
-+ *
-+ * Note that the sizes we pass to other functions from here are the
-+ * sizes of the _l3l4_hdr + payload, not full buffer sizes, as we have
-+ * verified in _msg_size_check() that they are congruent.
-+ *
-+ * For reports: We can't clone the original skb where the data is
-+ * because we need to send this up via netlink; netlink has to add
-+ * headers and we can't overwrite what's preceeding the payload...as
-+ * it is another message. So we just dup them.
-+ */
-+static
-+void i2400m_rx_ctl(struct i2400m *i2400m, struct sk_buff *skb_rx,
-+		   const void *payload, size_t size)
++struct wimax_pipe *wimax_pipe_add(struct wimax_dev *wimax_dev,
++				  const char *name)
 +{
 +	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	const struct i2400m_l3l4_hdr *l3l4_hdr = payload;
-+	unsigned msg_type;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	struct wimax_pipe *pipe;
 +
-+	result = i2400m_msg_size_check(i2400m, l3l4_hdr, size);
-+	if (result < 0) {
-+		dev_err(dev, "HW BUG? device sent a bad message: %d\n",
-+			result);
-+		goto error_check;
++	d_fnstart(3, dev, "(wimax_dev %p name %s)\n", wimax_dev, name);
++	result = -ENOMEM;
++	pipe = kzalloc(sizeof(*pipe), GFP_KERNEL);
++	if (pipe == NULL) {
++		dev_err(dev, "cannot allocate pipe '%s': %d\n",
++			name, result);
++		goto error_kzalloc;
 +	}
-+	msg_type = le16_to_cpu(l3l4_hdr->type);
-+	d_printf(1, dev, "%s 0x%04x: %zu bytes\n",
-+		 msg_type & I2400M_MT_REPORT_MASK ? "REPORT" : "CMD/SET/GET",
-+		 msg_type, size);
-+	d_dump(2, dev, l3l4_hdr, size);
-+	if (msg_type & I2400M_MT_REPORT_MASK) {
-+		/* These hooks have to be ran serialized; as well, the
-+		 * handling might force the execution of commands, and
-+		 * that might cause reentrancy issues with
-+		 * bus-specific subdrivers and workqueues. So we run
-+		 * it in a separate workqueue. */
-+		struct i2400m_report_hook_args args = {
-+			.skb_rx = skb_rx,
-+			.l3l4_hdr = l3l4_hdr,
-+			.size = size
-+		};
-+		if (unlikely(i2400m->ready == 0))	/* only send if up */
-+			return;
-+		skb_get(skb_rx);
-+		i2400m_queue_work(i2400m, i2400m_report_hook_work,
-+				  GFP_KERNEL, &args, sizeof(args));
-+		result = wimax_msg_to_user(&i2400m->wimax_dev, l3l4_hdr, size,
-+					   GFP_KERNEL);
-+		if (result < 0)
-+			dev_err(dev, "error sending report to userspace: %d\n",
-+				result);
-+	} else		/* an ack to a CMD, GET or SET */
-+		i2400m_rx_ctl_ack(i2400m, payload, size);
-+error_check:
-+	return;
++
++	snprintf(pipe->mcg.name, sizeof(pipe->mcg.name), name);
++	result = genl_register_mc_group(&wimax_dev->gnl_family, &pipe->mcg);
++	if (unlikely(result < 0)) {
++		dev_err(dev, "cannot register pipe '%s': %d\n",
++			name, result);
++		goto error_register_mc_group;
++	}
++	mutex_lock(&wimax_dev->mutex);
++	list_add_tail(&pipe->list_node, &wimax_dev->pipe_list);
++	mutex_unlock(&wimax_dev->mutex);
++	d_fnstart(3, dev, "(wimax_dev %p name %s) = %p\n",
++		  wimax_dev, name, pipe);
++	return pipe;
++
++error_register_mc_group:
++	kfree(pipe);
++error_kzalloc:
++	d_fnstart(3, dev, "(wimax_dev %p name %s) = %d\n",
++		  wimax_dev, name, result);
++	return ERR_PTR(result);
 +}
-+
-+
++EXPORT_SYMBOL_GPL(wimax_pipe_add);
 +
 +
 +/*
-+ * Receive and send up a trace
++ * Remove a pipe with locking (lock assumed taken)
 + *
-+ * @i2400m: device descriptor
-+ * @skb_rx: skb that contains the trace (for reference counting)
-+ * @payload: pointer to trace message inside the skb
-+ * @size: size of the message
-+ *
-+ * THe i2400m might produce trace information (diagnostics) and we
-+ * send them through a different kernel-to-user pipe (to avoid
-+ * clogging it).
-+ *
-+ * As in i2400m_rx_ctl(), we can't clone the original skb where the
-+ * data is because we need to send this up via netlink; netlink has to
-+ * add headers and we can't overwrite what's preceeding the
-+ * payload...as it is another message. So we just dup them.
++ * We do it like this to avoid calling the generic netlink code with
++ * the lock held -- the lockdep validator will complain in some false
++ * positive cases.
 + */
-+static
-+void i2400m_rx_trace(struct i2400m *i2400m,
-+		     const void *payload, size_t size)
++void __wimax_pipe_rm(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe)
 +{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
-+	const struct i2400m_l3l4_hdr *l3l4_hdr = payload;
-+	unsigned msg_type;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
 +
-+	result = i2400m_msg_size_check(i2400m, l3l4_hdr, size);
-+	if (result < 0) {
-+		dev_err(dev, "HW BUG? device sent a bad trace message: %d\n",
-+			result);
-+		goto error_check;
-+	}
-+	msg_type = le16_to_cpu(l3l4_hdr->type);
-+	d_printf(1, dev, "Trace %s 0x%04x: %zu bytes\n",
-+		 msg_type & I2400M_MT_REPORT_MASK ? "REPORT" : "CMD/SET/GET",
-+		 msg_type, size);
-+	d_dump(2, dev, l3l4_hdr, size);
-+	if (unlikely(i2400m->ready == 0))	/* only send if up */
-+		return;
-+	result = wimax_pipe_msg(wimax_dev, i2400m->pipe_trace,
-+				l3l4_hdr, size, GFP_KERNEL);
-+	if (result < 0)
-+		dev_err(dev, "error sending trace to userspace: %d\n",
-+			result);
-+error_check:
-+	return;
-+}
-+
-+
-+/*
-+ * Act on a received payload
-+ *
-+ * @i2400m: device instance
-+ * @skb_rx: skb where the transaction was received
-+ * @single: 1 if there is only one payload, 0 otherwise
-+ * @pld: payload descriptor
-+ * @payload: payload data
-+ *
-+ * Upon reception of a payload, look at its guts in the payload
-+ * descriptor and decide what to do with it.
-+ */
-+static
-+void i2400m_rx_payload(struct i2400m *i2400m, struct sk_buff *skb_rx,
-+		       unsigned single, const struct i2400m_pld *pld,
-+		       const void *payload)
-+{
-+	struct device *dev = i2400m_dev(i2400m);
-+	size_t pl_size = i2400m_pld_size(pld);
-+	enum i2400m_pt pl_type = i2400m_pld_type(pld);
-+
-+	switch (pl_type) {
-+	case I2400M_PT_DATA:
-+		d_printf(3, dev, "RX: data payload %zu bytes\n", pl_size);
-+		i2400m_net_rx(i2400m, skb_rx, single, payload, pl_size);
-+		break;
-+	case I2400M_PT_CTRL:
-+		i2400m_rx_ctl(i2400m, skb_rx, payload, pl_size);
-+		break;
-+	case I2400M_PT_TRACE:
-+		i2400m_rx_trace(i2400m, payload, pl_size);
-+		break;
-+	default:	/* Anything else shouldn't come to the host */
-+		if (printk_ratelimit())
-+			dev_err(dev, "RX: HW BUG? unexpected payload type %u\n",
-+				pl_type);
-+	}
-+}
-+
-+
-+/*
-+ * Check a received transaction's message header
-+ *
-+ * @i2400m: device descriptor
-+ * @msg_hdr: message header
-+ * @buf_size: size of the received buffer
-+ *
-+ * Check that the declarations done by a RX buffer message header are
-+ * sane and consistent with the amount of data that was received.
-+ */
-+static
-+int i2400m_rx_msg_hdr_check(struct i2400m *i2400m,
-+			    const struct i2400m_msg_hdr *msg_hdr,
-+			    size_t buf_size)
-+{
-+	int result = -EIO;
-+	struct device *dev = i2400m_dev(i2400m);
-+	if (buf_size < sizeof(*msg_hdr)) {
-+		dev_err(dev, "RX: HW BUG? message with short header (%zu "
-+			"vs %zu bytes expected)\n", buf_size, sizeof(*msg_hdr));
-+		goto error;
-+	}
-+	if (msg_hdr->barker != cpu_to_le32(I2400M_D2H_MSG_BARKER)) {
-+		dev_err(dev, "RX: HW BUG? message received with unknown "
-+			"barker 0x%08x (buf_size %zu bytes)\n",
-+			le32_to_cpu(msg_hdr->barker), buf_size);
-+		goto error;
-+	}
-+	if (msg_hdr->num_pls == 0) {
-+		dev_err(dev, "RX: HW BUG? zero payload packets in message\n");
-+		goto error;
-+	}
-+	if (le16_to_cpu(msg_hdr->num_pls) > I2400M_MAX_PLS_IN_MSG) {
-+		dev_err(dev, "RX: HW BUG? message contains more payload "
-+			"than maximum; ignoring.\n");
-+		goto error;
-+	}
-+	result = 0;
-+error:
-+	return result;
-+}
-+
-+
-+/*
-+ * Check a payload descriptor against the received data
-+ *
-+ * @i2400m: device descriptor
-+ * @pld: payload descriptor
-+ * @pl_itr: offset (in bytes) in the received buffer the payload is
-+ *          located
-+ * @buf_size: size of the received buffer
-+ *
-+ * Given a payload descriptor (part of a RX buffer), check it is sane
-+ * and that the data it declares fits in the buffer.
-+ */
-+static
-+int i2400m_rx_pl_descr_check(struct i2400m *i2400m,
-+			      const struct i2400m_pld *pld,
-+			      size_t pl_itr, size_t buf_size)
-+{
-+	int result = -EIO;
-+	struct device *dev = i2400m_dev(i2400m);
-+	size_t pl_size = i2400m_pld_size(pld);
-+	enum i2400m_pt pl_type = i2400m_pld_type(pld);
-+
-+	if (pl_size > i2400m->bus_pl_size_max) {
-+		dev_err(dev, "RX: HW BUG? payload @%zu: size %zu is "
-+			"bigger than maximum %zu; ignoring message\n",
-+			pl_itr, pl_size, i2400m->bus_pl_size_max);
-+		goto error;
-+	}
-+	if (pl_itr + pl_size > buf_size) {	/* enough? */
-+		dev_err(dev, "RX: HW BUG? payload @%zu: size %zu "
-+			"goes beyond the received buffer "
-+			"size (%zu bytes); ignoring message\n",
-+			pl_itr, pl_size, buf_size);
-+		goto error;
-+	}
-+	if (pl_type >= I2400M_PT_ILLEGAL) {
-+		dev_err(dev, "RX: HW BUG? illegal payload type %u; "
-+			"ignoring message\n", pl_type);
-+		goto error;
-+	}
-+	result = 0;
-+error:
-+	return result;
++	d_fnstart(3, dev, "(wimax_dev %p pipe %p)\n", wimax_dev, pipe);
++	list_del(&pipe->list_node);
++	genl_unregister_mc_group(&wimax_dev->gnl_family, &pipe->mcg);
++	kfree(pipe);
++	d_fnend(3, dev, "(wimax_dev %p pipe %p) = void\n", wimax_dev, pipe);
 +}
 +
 +
 +/**
-+ * i2400m_rx - Receive a buffer of data from the device
++ * wimax_pipe_rm - Remove a messaging pipe
 + *
-+ * @i2400m: device descriptor
-+ * @skb: skbuff where the data has been received
++ * @wimax_dev: WiMAX device descriptor (properly referenced)
 + *
-+ * Parse in a buffer of data that contains an RX message sent from the
-+ * device. See the file header for the format. Run all checks on the
-+ * buffer header, then run over each payload's descriptors, verify
-+ * their consistency and act on each payload's contents.  If
-+ * everything is succesful, update the device's statistics.
++ * @name: name of the pipe to remove
 + *
-+ * Note: You need to set the skb to contain only the length of the
-+ * received buffer; for that, use skb_trim(skb, RECEIVED_SIZE).
-+ *
-+ * Returns:
-+ *
-+ * 0 if ok, < 0 errno on error
-+ *
-+ * If ok, this function owns now the skb and the caller DOESN'T have
-+ * to run kfree_skb() on it. However, on error, the caller still owns
-+ * the skb and it is responsible for releasing it.
++ * Removes a messaging pipe previously created with wimax_pipe_add().
 + */
-+int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
++void wimax_pipe_rm(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe)
 +{
-+	int i, result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	const struct i2400m_msg_hdr *msg_hdr;
-+	size_t pl_itr, pl_size, skb_len;
-+	unsigned long flags;
-+	unsigned num_pls;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
 +
-+	skb_len = skb->len;
-+	d_fnstart(4, dev, "(i2400m %p skb %p [size %zu])\n",
-+		  i2400m, skb, skb_len);
-+	result = -EIO;
-+	msg_hdr = (void *) skb->data;
-+	result = i2400m_rx_msg_hdr_check(i2400m, msg_hdr, skb->len);
-+	if (result < 0)
-+		goto error_msg_hdr_check;
-+	result = -EIO;
-+	num_pls = le16_to_cpu(msg_hdr->num_pls);
-+	pl_itr = sizeof(*msg_hdr) +	/* Check payload descriptor(s) */
-+		num_pls * sizeof(msg_hdr->pld[0]);
-+	pl_itr = ALIGN(pl_itr, I2400M_PL_PAD);
-+	if (pl_itr > skb->len) {	/* got all the payload descriptors? */
-+		dev_err(dev, "RX: HW BUG? message too short (%u bytes) for "
-+			"%u payload descriptors (%zu each, total %zu)\n",
-+			skb->len, num_pls, sizeof(msg_hdr->pld[0]), pl_itr);
-+		goto error_pl_descr_short;
++	d_fnstart(3, dev, "(wimax_dev %p pipe %p)\n", wimax_dev, pipe);
++	mutex_lock(&wimax_dev->mutex);
++	list_del(&pipe->list_node);
++	mutex_unlock(&wimax_dev->mutex);
++	genl_unregister_mc_group(&wimax_dev->gnl_family, &pipe->mcg);
++	kfree(pipe);
++	d_fnend(3, dev, "(wimax_dev %p pipe %p) = void\n", wimax_dev, pipe);
++}
++EXPORT_SYMBOL_GPL(wimax_pipe_rm);
++
++
++/**
++ * wimax_pipe_msg_alloc - Create a new skb for sending a message to userspace
++ *
++ * @wimax_dev: WiMAX device descriptor
++ * @msg: pointer to the message data to send
++ * @size: size of the message to send (in bytes), including the header.
++ * @gfp_flags: flags for memory allocation.
++ *
++ * Returns: %0 if ok, negative errno code on error
++ *
++ * Description:
++ *
++ * Allocates an skb that will contain the message to send to user
++ * space over the messaging pipe and initializes it, copying the
++ * payload.
++ *
++ * Once this call is done, you can deliver it with
++ * wimax_pipe_msg_send().
++ *
++ * IMPORTANT:
++ *
++ * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
++ * wimax_pipe_msg_send() depends on skb->data being placed at the
++ * beginning of the user message.
++ */
++struct sk_buff *wimax_pipe_msg_alloc(struct wimax_dev *wimax_dev,
++				     const void *msg, size_t size,
++				     gfp_t gfp_flags)
++{
++	int result;
++	struct device *dev = wimax_dev->net_dev->dev.parent;
++	void *genl_msg;
++	struct sk_buff *skb;
++
++	result = -ENOMEM;
++	skb = genlmsg_new(nla_total_size(size), gfp_flags);
++	if (skb == NULL)
++		goto error_new;
++	genl_msg = genlmsg_put(skb, 0, 0, &wimax_dev->gnl_family,
++			       0, WIMAX_GNL_OP_MSG_TO_USER);
++	if (genl_msg == NULL) {
++		dev_err(dev, "no memory to create generic netlink message\n");
++		goto error_genlmsg_put;
 +	}
-+	/* Walk each payload payload--check we really got it */
-+	for (i = 0; i < num_pls; i++) {
-+		/* work around old gcc warnings */
-+		pl_size = i2400m_pld_size(&msg_hdr->pld[i]);
-+		result = i2400m_rx_pl_descr_check(i2400m, &msg_hdr->pld[i],
-+						  pl_itr, skb->len);
-+		if (result < 0)
-+			goto error_pl_descr_check;
-+		i2400m_rx_payload(i2400m, skb, num_pls == 1, &msg_hdr->pld[i],
-+				  skb->data + pl_itr);
-+		pl_itr += ALIGN(pl_size, I2400M_PL_PAD);
-+		cond_resched();		/* Don't monopolize */
++	result = nla_put(skb, WIMAX_GNL_MSG_DATA, size, msg);
++	if (result < 0) {
++		dev_err(dev, "no memory to add payload in attribute\n");
++		goto error_nla_put;
 +	}
-+	kfree_skb(skb);
-+	/* Update device statistics */
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	i2400m->rx_pl_num += i;
-+	if (i > i2400m->rx_pl_max)
-+		i2400m->rx_pl_max = i;
-+	if (i < i2400m->rx_pl_min)
-+		i2400m->rx_pl_min = i;
-+	i2400m->rx_num++;
-+	i2400m->rx_size_acc += skb->len;
-+	if (skb->len < i2400m->rx_size_min)
-+		i2400m->rx_size_min = skb->len;
-+	if (skb->len > i2400m->rx_size_max)
-+		i2400m->rx_size_max = skb->len;
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+error_pl_descr_check:
-+error_pl_descr_short:
-+error_msg_hdr_check:
-+	d_fnend(4, dev, "(i2400m %p skb %p [size %zu]) = %d\n",
-+		i2400m, skb, skb_len, result);
++	genlmsg_end(skb, genl_msg);
++	return skb;
++
++error_nla_put:
++error_genlmsg_put:
++error_new:
++	nlmsg_free(skb);
++	return ERR_PTR(result);
++
++}
++EXPORT_SYMBOL_GPL(wimax_pipe_msg_alloc);
++
++
++/**
++ * wimax_msg_data_len - Return a pointer and size of a message's payload
++ *
++ * @msg: Pointer to a message created with wimax_pipe_msg_alloc()
++ * @size: Pointer to where to store the message's size
++ *
++ * Returns the pointer to the message data.
++ */
++const void *wimax_msg_data_len(struct sk_buff *msg, size_t *size)
++{
++	struct nlmsghdr *nlh = (void *) msg->head;
++	struct nlattr *nla;
++
++	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
++			      WIMAX_GNL_MSG_DATA);
++	if (nla == NULL) {
++		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
++		return NULL;
++	}
++	*size = nla_len(nla);
++	return nla_data(nla);
++}
++EXPORT_SYMBOL_GPL(wimax_msg_data_len);
++
++
++/**
++ * wimax_msg_data - Return a pointer to a message's payload
++ *
++ * @msg: Pointer to a message created with wimax_pipe_msg_alloc()
++ */
++const void *wimax_msg_data(struct sk_buff *msg)
++{
++	struct nlmsghdr *nlh = (void *) msg->head;
++	struct nlattr *nla;
++
++	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
++			      WIMAX_GNL_MSG_DATA);
++	if (nla == NULL) {
++		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
++		return NULL;
++	}
++	return nla_data(nla);
++}
++EXPORT_SYMBOL_GPL(wimax_msg_data);
++
++
++/**
++ * wimax_msg_len - Return a message's payload length
++ *
++ * @msg: Pointer to a message created with wimax_pipe_msg_alloc()
++ */
++ssize_t wimax_msg_len(struct sk_buff *msg)
++{
++	struct nlmsghdr *nlh = (void *) msg->head;
++	struct nlattr *nla;
++
++	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
++			      WIMAX_GNL_MSG_DATA);
++	if (nla == NULL) {
++		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
++		return -EINVAL;
++	}
++	return nla_len(nla);
++}
++EXPORT_SYMBOL_GPL(wimax_msg_len);
++
++
++/**
++ * wimax_pipe_msg_send - Send a pre-allocated message to user space
++ *
++ * @wimax_dev: WiMAX device descriptor
++ *
++ * @pipe: Pipe handle, as returned by wimax_pipe_add(). For sending
++ *     over the default pipe, use a pipe id of @wimax_dev->pipe_msg.
++ *
++ * @skb: &struct sk_buff returned by wimax_pipe_msg_alloc(). Note the
++ *     ownership of @skb is transferred to this function.
++ *
++ * Returns: 0 if ok, < 0 errno code on error
++ *
++ * Description:
++ *
++ * Sends a free-form message that was preallocated with
++ * wimax_pipe_msg_alloc() and filled up.
++ *
++ * Assumes that once you pass an skb to this function for sending, it
++ * owns it and will release it when done (on success).
++ *
++ * IMPORTANT:
++ *
++ * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
++ * wimax_pipe_msg_send() depends on skb->data being placed at the
++ * beginning of the user message.
++ */
++int wimax_pipe_msg_send(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe,
++			struct sk_buff *skb)
++{
++	int result;
++	struct device *dev = wimax_dev->net_dev->dev.parent;
++	void *msg = skb->data;
++	size_t size = skb->len;
++	might_sleep();
++
++	d_printf(1, dev, "CTX: wimax msg, %zu bytes\n", size);
++	d_dump(2, dev, msg, size);
++	result = genlmsg_multicast(skb, 0, pipe->mcg.id, GFP_KERNEL);
++	d_printf(1, dev, "CTX: genl multicast result %d\n", result);
++	if (result == -ESRCH)	/* Nobody connected, ignore it */
++		result = 0;	/* btw, the skb is freed already */
 +	return result;
 +}
-+EXPORT_SYMBOL_GPL(i2400m_rx);
++EXPORT_SYMBOL_GPL(wimax_pipe_msg_send);
++
++
++/**
++ * wimax_pipe_msg - Send a message to user space
++ *
++ * @wimax_dev: WiMAX device descriptor (properly referenced)
++ *
++ * @pipe: Pipe handle, as returned by wimax_pipe_add(). For sending
++ *     over the default pipe, use a pipe id of @wimax_dev->pipe_msg.
++ *
++ *
++ * @buf: pointer to the message to send.
++ *
++ * @size: size of the buffer pointed to by @buf (in bytes).
++ *
++ * @gfp_flags: flags for memory allocation.
++ *
++ * Returns: %0 if ok, negative errno code on error.
++ *
++ * Description:
++ *
++ * Sends a free-form message to user space on the the @pipeid pipe of
++ * device @wimax_dev.
++ *
++ * NOTES:
++ *
++ * Once the @skb is given to this function, who will own it and will
++ * release it when done (unless it returns error).
++ */
++int wimax_pipe_msg(struct wimax_dev *wimax_dev, struct wimax_pipe *pipe,
++		   const void *buf, size_t size, gfp_t gfp_flags)
++{
++	int result = -ENOMEM;
++	struct sk_buff *skb;
++
++	skb = wimax_pipe_msg_alloc(wimax_dev, buf, size, gfp_flags);
++	if (skb == NULL)
++		goto error_msg_new;
++	result = wimax_pipe_msg_send(wimax_dev, pipe, skb);
++error_msg_new:
++	return result;
++}
++EXPORT_SYMBOL_GPL(wimax_pipe_msg);
++
++
++static const
++struct nla_policy wimax_gnl_msg_policy[WIMAX_GNL_ATTR_MAX + 1] = {
++	[WIMAX_GNL_MSG_DATA] = {
++		.type = NLA_UNSPEC,	/* libnl doesn't grok BINARY yet */
++	},
++};
++
++
++/*
++ * Relays a message from user space to the driver
++ *
++ * The skb is passed to the driver-specific function with the netlink
++ * and generic netlink headers already stripped.
++ *
++ * This call will block while handling/relaying the message.
++ */
++static
++int wimax_gnl_doit_msg_from_user(struct sk_buff *skb, struct genl_info *info)
++{
++	int result;
++	struct wimax_dev *wimax_dev;
++	struct device *dev;
++	struct nlmsghdr *nlh = info->nlhdr;
++	void *msg_buf;
++	size_t msg_len;
++
++	might_sleep();
++	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
++	result = -EPERM;
++	if (security_netlink_recv(skb, CAP_NET_ADMIN))
++		goto error_perm;
++	result = -ENODEV;
++	wimax_dev = wimax_dev_get_by_genl_info(info);
++	if (wimax_dev == NULL)
++		goto error_no_wimax_dev;
++	dev = wimax_dev_to_dev(wimax_dev);
++
++	/* Unpack arguments */
++	result = -EINVAL;
++	if (info->attrs[WIMAX_GNL_MSG_DATA] == NULL) {
++		dev_err(dev, "WIMAX_GNL_MSG_FROM_USER: can't find MSG_DATA "
++			"attribute\n");
++		goto error_no_data;
++	}
++	msg_buf = nla_data(info->attrs[WIMAX_GNL_MSG_DATA]);
++	msg_len = nla_len(info->attrs[WIMAX_GNL_MSG_DATA]);
++
++	mutex_lock(&wimax_dev->mutex);
++	result = wimax_dev_is_ready(wimax_dev);
++	if (result < 0)
++		goto error_not_ready;
++	result = -ENOSYS;
++	if (wimax_dev->op_msg_from_user == NULL)
++		goto error_noop;
++
++	d_printf(1, dev,
++		 "CRX: nlmsghdr len %u type %u flags 0x%04x seq 0x%x pid %u\n",
++		 nlh->nlmsg_len, nlh->nlmsg_type, nlh->nlmsg_flags,
++		 nlh->nlmsg_seq, nlh->nlmsg_pid);
++	d_printf(1, dev, "CRX: wimax message %zu bytes\n", msg_len);
++	d_dump(2, dev, msg_buf, msg_len);
++
++	result = wimax_dev->op_msg_from_user(wimax_dev, msg_buf, msg_len, info);
++error_noop:
++error_not_ready:
++	mutex_unlock(&wimax_dev->mutex);
++error_no_data:
++	dev_put(wimax_dev->net_dev);
++error_no_wimax_dev:
++error_perm:
++	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
++	return result;
++}
++
++
++/*
++ * Generic Netlink glue
++ */
++
++struct genl_ops wimax_gnl_msg_from_user = {
++	.cmd = WIMAX_GNL_OP_MSG_FROM_USER,
++	.flags = 0,
++	.policy = wimax_gnl_msg_policy,
++	.doit = wimax_gnl_doit_msg_from_user,
++	.dumpit = NULL,
++};
++
 -- 
 1.5.6.5
