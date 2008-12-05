@@ -1,72 +1,63 @@
-From: "John Heffner" <johnwheffner@gmail.com>
-Subject: Re: TCP default congestion control in linux should be newreno
-Date: Thu, 4 Dec 2008 15:56:13 -0800
-Message-ID: <1e41a3230812041556p10af2c7bg9873d21bf3bf1d1f@mail.gmail.com>
-References: <b98e548c0812030812i3980791y2e4135cb9c5110c0@mail.gmail.com>
-	 <Pine.LNX.4.64.0812041419500.26947@wrl-59.cs.helsinki.fi>
-	 <20081204185022.6108d19e@gmail.com>
-	 <20081204.101805.45306327.davem@davemloft.net>
-	 <b98e548c0812041105o6c2ded8br3c2349cabceaf99f@mail.gmail.com>
-	 <Pine.LNX.4.64.0812042250360.27758@wrl-59.cs.helsinki.fi>
+From: Douglas Leith <Doug.Leith@nuim.ie>
+Subject: [PATCH 2.6.27] tcp_vegas ssthresh bug fix
+Date: Fri, 05 Dec 2008 00:11:05 +0000
+Message-ID: <650FA54C-402C-48CC-95AD-CA4AC5086BAD@nuim.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Saverio Mascolo" <saverio.mascolo@gmail.com>,
-	"David Miller" <davem@davemloft.net>, ldecicco@gmail.com,
-	Netdev <netdev@vger.kernel.org>
-To: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Content-Type: multipart/mixed; boundary="Boundary_(ID_sDKE+jcDjNpCLwSI/nd/pA)"
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:15812 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbYLDX4P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 18:56:15 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so1857178yxm.1
-        for <netdev@vger.kernel.org>; Thu, 04 Dec 2008 15:56:14 -0800 (PST)
-In-Reply-To: <Pine.LNX.4.64.0812042250360.27758@wrl-59.cs.helsinki.fi>
-Content-Disposition: inline
+Received: from banyan.nuim.ie ([149.157.1.4]:44525 "EHLO banyan.nuim.ie"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751182AbYLEALH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2008 19:11:07 -0500
+Received: from [10.8.0.6] ([149.157.192.252])
+ by mango.nuim.ie (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3
+ 2007; 32bit)) with ESMTPSA id <0KBD000FPN6EMN80@mango.nuim.ie> for
+ netdev@vger.kernel.org; Fri, 05 Dec 2008 00:11:03 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 4, 2008 at 1:05 PM, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki=
-=2Efi> wrote:
-> On Thu, 4 Dec 2008, Saverio Mascolo wrote:
->
->> we have done many experiments, along with many other "researcher" as=
- u
->> say. as a consequence, i have maturated the belief that changing the
->> probing phase of the van jacobson TCP, which is linear, could not be
->> not a wise thing .
->>  the rationale of  VJ choice seems simple to me: if  the window is
->> increased of one packet in one rtt, i can drop at most one packet in
->> one rtt and so i have to recover only one packet in one rtt (note th=
-at
->> rtt is the feedback reaction  time). If cwnd is increased of N packe=
-ts
->> i could drop N packets and i could need to recover N pkts. this is t=
-he
->> problem here.
->
-> 1) N drops is not as bad as you seem to imply, sadly this is a very c=
-ommon
-> misconcept among much tcp related research that fast retransmits and =
-the
-> following recovery are a bad things in itself. SACK handles it very
-> efficiently as long as N is considerably less than cwnd and the buffe=
-r
-> before the bottleneck was adequate to keep the link fully utilized ov=
-er
-> that recovery rtt. Thus the first claim (vj one) does not follow from=
- the
-> latter on (n pkts is bad), it is bogus reasoning.
 
-One thing to note, you only get N drops upon cwnd increase of N when
-you have simple drop-tail queues.  AQM significantly changes the
-behavior here, but drop-tail is still nearly ubiquidous.
+--Boundary_(ID_sDKE+jcDjNpCLwSI/nd/pA)
+Content-type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-transfer-encoding: 7BIT
 
-A notable effect of multiple loss associated with increasing cwnd by
-multiple segments, aside from outright SACK bugs, is that it tends to
-synchronize losses across flows, since all N drops are not usually
-from the same flow.  (Again, talking only about drop-tail here.)
-Synchronized losses lead to lower link utilization with many flows.
+This patch fixes a bug in tcp_vegas.c.  At the moment this code  
+leaves ssthresh untouched.  However, this means that the vegas  
+congestion control algorithm is effectively unable to reduce cwnd  
+below the ssthresh value (if the vegas update lowers the cwnd below  
+ssthresh, then slow start is activated to raise it back up).   One  
+example where this matters is when during slow start cwnd overshoots  
+the link capacity and a flow then exits slow start with ssthresh set  
+to a value above where congestion avoidance would like to adjust it.
 
-  -John
+Signed-off-by:  Doug Leith <doug.leith@nuim.ie>
+
+---
+--- net/ipv4/tcp_vegas.c.orig   2008-12-04 23:51:19.000000000 +0000
++++ net/ipv4/tcp_vegas.c        2008-12-05 00:00:42.000000000 +0000
+@@ -328,2 +328,4 @@ static void tcp_vegas_cong_avoid(struct
+                                 tp->snd_cwnd = tp->snd_cwnd_clamp;
++
++                       tp->snd_ssthresh = tcp_current_ssthresh(sk);
+                 }
+
+
+
+--Boundary_(ID_sDKE+jcDjNpCLwSI/nd/pA)
+Content-type: application/octet-stream; x-unix-mode=0644;
+ name=vegas_ssthreshfix.diff
+Content-transfer-encoding: 7bit
+Content-disposition: attachment; filename=vegas_ssthreshfix.diff
+
+--- net/ipv4/tcp_vegas.c.orig	2008-12-04 23:51:19.000000000 +0000
++++ net/ipv4/tcp_vegas.c	2008-12-05 00:00:42.000000000 +0000
+@@ -328,2 +328,4 @@ static void tcp_vegas_cong_avoid(struct 
+ 				tp->snd_cwnd = tp->snd_cwnd_clamp;
++
++			tp->snd_ssthresh = tcp_current_ssthresh(sk);
+ 		}
+
+--Boundary_(ID_sDKE+jcDjNpCLwSI/nd/pA)--
