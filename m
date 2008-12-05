@@ -1,103 +1,198 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] net/netfilter: simplify error handling
-Date: Fri, 5 Dec 2008 12:34:46 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0812051234230.9560@pc-004.diku.dk>
+From: Thomas Renninger <trenn@suse.de>
+Subject: Identified: PCIe ASPM causes machine (HP Compaq 6735s) to sometimes hang in endless loop
+Date: Fri, 5 Dec 2008 13:41:42 +0100
+Message-ID: <200812051341.43806.trenn@suse.de>
+References: <200811281328.55259.trenn@suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jbarnes@virtuousgeek.org, shaohua.li@intel.com,
+	Rafael Wysocki <rwysocki@suse.de>,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:39596 "EHLO mgw2.diku.dk"
+Received: from ns2.suse.de ([195.135.220.15]:58293 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750953AbYLELev (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2008 06:34:51 -0500
+	id S1752124AbYLEMlq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2008 07:41:46 -0500
+In-Reply-To: <200811281328.55259.trenn@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Hi,
 
-nf_conntrack_alloc cannot return NULL, so there is no need to check for
-NULL before using the value.  I have also removed the initialization of ct
-to NULL in nf_conntrack_alloc, since the value is never used, and since
-perhaps it might lead one to think that return ct at the end might return
-NULL.
+I got it. It is and endless loop in drivers/pci/pcie/aspm.c:
 
-The semantic patch that finds this problem is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
+On Friday 28 November 2008 13:28:54 Thomas Renninger wrote:
+> Hi,
+>
+> The hang does not always happen.
+> On latest vanilla 2.6.28-rc6 it nearly always hangs, on a .27 SUSE kernel
+> maybe 1 out for 3 times.
+>
+> I very much expect (I am pretty sure now) it is PCIE ASPM.
+>
+> I tried to compile out:
+> CONFIG_PCIEAER=y
+> CONFIG_PCIEASPM=y
+>
+> Both disabled survived a reasonable amount of reboots, but when enabling
+> CONFIG_PCIEASPM it did not boot anymore on the second try.
+>
+> The machine is hanging at the network card's PCI initialization rather
+> early, here is a photo of the hang:
+> ftp.suse.com/pub/people/trenn/HP_pci_aspm_hang.jpg
 
-// <smpl>
-@match exists@
-expression x, E;
-position p1,p2;
-statement S1, S2;
-@@
+First, I'd like to know whether I could have solved that easier.
+The machine is a laptop without firewire and serial console.
+It has an PCIe slot.
 
-x@p1 = nf_conntrack_alloc(...)
-... when != x = E
-(
-  if (x@p2 == NULL || ...) S1 else S2
-|
-  if (x@p2 == NULL && ...) S1 else S2
-)
+sysrq did not work at this point, because the keyboard is not functional
+yet. Via serial console it probably would have been possible to trigger
+a backtrace, you see the function where it loops -> found in 10 minutes,
+but as said this machine has no serial port.
 
-@other_match exists@
-expression match.x, E1, E2;
-position p1!=match.p1,match.p2;
-@@
+Did I miss some nice debug functionality/trick which could have found
+that easier?
 
-x@p1 = E1
-... when != x = E2
-x@p2
+After I knew it is PCIe ASPM, I went through the code, found the loop,
+added a printk there and some more at other places and got it...
 
-@ script:python depends on !other_match@
-p1 << match.p1;
-p2 << match.p2;
-@@
+At the end is some info for people who know more about PCI than me.
+It would be great if the root cause is found/fixed.
+I will provide a patch in a follow up mail to workaround the hang which
+IMO (if reviewed) should go into stable kernels back to when ASPM was
+added (was that .26?).
 
-print "%s: call to nf_conntrack_alloc %s bad test %s" % (p1[0].file,p1[0].line,p2[0].line)
-// </smpl>
+Thanks,
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+      Thomas
+In case the machine boots fine I get:
+--------
+pci 0000:00:04.0: Writing 0x63 to 104
+pci 0000:00:04.0: Reading 0x7011 at 106
+PCI: bridge 0000:00:04.0 io port: [3000, 4fff]
+PCI: bridge 0000:00:04.0 32bit mmio: [93100000, 941fffff]
+PCI: bridge 0000:00:04.0 64bit mmio pref: [90000000, 90ffffff]
+PCI: bridge 0000:00:07.0 io port: [2000, 2fff]
+PCI: bridge 0000:00:07.0 32bit mmio: [92100000, 930fffff]
+PCI: bridge 0000:00:07.0 64bit mmio pref: [91000000, 91ffffff]
+PCI: 0000:06:00.0 reg 10 64bit mmio: [92000000, 92003fff]
+--------
 
+If the machine hangs I get:
+--------
+pci 0000:00:04.0: Writing 0x63 to 104
+pci 0000:00:04.0: Reading 0x7811 at 106
+pci 0000:00:04.0: Reading 0x7811 at 106
+pci 0000:00:04.0: Reading 0x7811 at 106
+pci 0000:00:04.0: Reading 0x7811 at 106
+pci 0000:00:04.0: Reading 0x7811 at 106
+....
+pci 0000:00:04.0: Could not configure ASPM
+PCI: bridge 0000:00:04.0 io port: [3000, 4fff]
+PCI: bridge 0000:00:04.0 32bit mmio: [93100000, 941fffff]
+PCI: bridge 0000:00:04.0 64bit mmio pref: [90000000, 90ffffff]
+PCI: bridge 0000:00:07.0 io port: [2000, 2fff]
+PCI: bridge 0000:00:07.0 32bit mmio: [92100000, 930fffff]
+PCI: bridge 0000:00:07.0 64bit mmio pref: [91000000, 91ffffff]
+PCI: 0000:06:00.0 reg 10 64bit mmio: [92000000, 92003fff]
+--------
+
+This is the patch for above output:
 ---
- net/netfilter/nf_conntrack_core.c    |    4 ++--
- net/netfilter/nf_conntrack_netlink.c |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/pci/pcie/aspm.c |   10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 233fdd2..79582e0 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -468,7 +468,7 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
- 				   const struct nf_conntrack_tuple *repl,
- 				   gfp_t gfp)
- {
--	struct nf_conn *ct = NULL;
-+	struct nf_conn *ct;
+Index: linux-2.6.27/drivers/pci/pcie/aspm.c
+===================================================================
+--- linux-2.6.27.orig/drivers/pci/pcie/aspm.c
++++ linux-2.6.27/drivers/pci/pcie/aspm.c
+@@ -165,6 +165,7 @@ static void pcie_aspm_configure_common_c
+ 	u16 reg16 = 0;
+ 	struct pci_dev *child_dev;
+ 	int same_clock = 1;
++	int loop_count = 0;
  
- 	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
- 		get_random_bytes(&nf_conntrack_hash_rnd, 4);
-@@ -550,7 +550,7 @@ init_conntrack(struct net *net,
+ 	/*
+ 	 * all functions of a slot should have the same Slot Clock
+@@ -210,14 +211,21 @@ static void pcie_aspm_configure_common_c
+ 	/* retrain link */
+ 	reg16 |= PCI_EXP_LNKCTL_RL;
+ 	pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
++	dev_printk (KERN_INFO, &pdev->dev, "Writing 0x%x to %d\n",
++		    reg16, pos + PCI_EXP_LNKCTL);
+ 
+ 	/* Wait for link training end */
+-	while (1) {
++	while (loop_count < 100) {
+ 		pci_read_config_word(pdev, pos + PCI_EXP_LNKSTA, &reg16);
++		dev_printk (KERN_INFO, &pdev->dev, "Reading 0x%x at %d\n",
++			    reg16, pos + PCI_EXP_LNKSTA);
+ 		if (!(reg16 & PCI_EXP_LNKSTA_LT))
+ 			break;
+ 		cpu_relax();
++		loop_count++;
  	}
++	if (loop_count == 100)
++		dev_printk (KERN_WARNING, &pdev->dev, "Could not configure ASPM\n");
+ }
  
- 	ct = nf_conntrack_alloc(net, tuple, &repl_tuple, GFP_ATOMIC);
--	if (ct == NULL || IS_ERR(ct)) {
-+	if (IS_ERR(ct)) {
- 		pr_debug("Can't allocate conntrack.\n");
- 		return (struct nf_conntrack_tuple_hash *)ct;
- 	}
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 5f4a651..37d6b9c 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1091,7 +1091,7 @@ ctnetlink_create_conntrack(struct nlattr *cda[],
- 	struct nf_conntrack_helper *helper;
- 
- 	ct = nf_conntrack_alloc(&init_net, otuple, rtuple, GFP_ATOMIC);
--	if (ct == NULL || IS_ERR(ct))
-+	if (IS_ERR(ct))
- 		return -ENOMEM;
- 
- 	if (!cda[CTA_TIMEOUT])
+ /*
+
+=======================================================
+
+Here the lspci -nn -vv output of the bridge (ASPM poking on that one makes
+the machine hang)
+
+00:04.0 PCI bridge [0604]: Advanced Micro Devices [AMD] RS780 PCI to PCI bridge (PCIE port 0) [1022:9604] (prog-if 00 [Normal decode])
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 64 bytes
+	Bus: primary=00, secondary=02, subordinate=02, sec-latency=0
+	I/O behind bridge: 00003000-00004fff
+	Memory behind bridge: 93100000-941fffff
+	Prefetchable memory behind bridge: 0000000090000000-0000000090ffffff
+	Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- <SERR- <PERR-
+	BridgeCtl: Parity- SERR- NoISA- VGA- MAbort- >Reset- FastB2B-
+		PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+	Capabilities: [50] Power Management version 3
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [58] Express (v2) Root Port (Slot+), MSI 00
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+			ExtTag+ RBE+ FLReset-
+		DevCtl:	Report errors: Correctable+ Non-Fatal+ Fatal+ Unsupported+
+			RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+			MaxPayload 128 bytes, MaxReadReq 128 bytes
+		DevSta:	CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr- TransPend-
+		LnkCap:	Port #1, Speed 5GT/s, Width x1, ASPM L0s L1, Latency L0 <64ns, L1 <1us
+			ClockPM- Suprise- LLActRep+ BwNot+
+		LnkCtl:	ASPM L0s L1 Enabled; RCB 64 bytes Disabled- Retrain- CommClk+
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive+ BWMgmt+ ABWMgmt-
+		SltCap:	AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug- Surpise-
+			Slot #  4, PowerLimit 25.000000; Interlock- NoCompl+
+		SltCtl:	Enable: AttnBtn- PwrFlt- MRL- PresDet- CmdCplt- HPIrq- LinkChg-
+			Control: AttnInd Unknown, PwrInd Unknown, Power- Interlock-
+		SltSta:	Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock-
+			Changed: MRL- PresDet+ LinkState+
+		RootCtl: ErrCorrectable- ErrNon-Fatal- ErrFatal- PMEIntEna- CRSVisible-
+		RootCap: CRSVisible-
+		RootSta: PME ReqID 0000, PMEStatus- PMEPending-
+		DevCap2: Completion Timeout: Not Supported, TimeoutDis- ARIFwd-
+		DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis- ARIFwd-
+		LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-, Selectable De-emphasis: -6dB
+			 Transmit Margin: Normal Operating Range, EnterModifiedCompliance- ComplianceSOS-
+			 Compliance De-emphasis: -6dB
+		LnkSta2: Current De-emphasis Level: -6dB
+	Capabilities: [a0] Message Signalled Interrupts: Mask- 64bit- Count=1/1 Enable+
+		Address: fee0300c  Data: 4151
+	Capabilities: [b0] Subsystem: Hewlett-Packard Company Device [103c:30e4]
+	Capabilities: [b8] HyperTransport: MSI Mapping Enable+ Fixed+
+	Capabilities: [100] Vendor Specific Information <?>
+	Capabilities: [110] Virtual Channel <?>
+	Kernel driver in use: pcieport-driver
+	Kernel modules: shpchp
