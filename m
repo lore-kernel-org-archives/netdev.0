@@ -1,420 +1,859 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 00/40] merge request for WiMAX kernel stack and i2400m driver v3
-Date: Fri,  5 Dec 2008 10:54:53 -0800
-Message-ID: <cover.1228503076.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org, greg@kroah.com
+Subject: [PATCH 24/40] i2400m: handling of the data/control transmission path
+Date: Fri,  5 Dec 2008 10:55:17 -0800
+Message-ID: <968f29ddd49110527015b9585dacca8bc4b0adc6.1228503077.git.inaky@linux.intel.com>
+References: <cover.1228503076.git.inaky@linux.intel.com>
+Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38289 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752198AbYLESzf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2008 13:55:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
-Hi All
-
-This patchset (or the linux-wimax GIT tree at git.kernel.org) merges
-the WiMAX subsystem and driver for the Intel 2400m Wireless WiMAX
-connection to the tree. We'd like to get it in for the 2.6.29 merge
-window. 
-
-[read on for changelog since previous submit]
-
-[Note linux-wimax will have netdev as upstream, but there is a
- dependency for patches in gregkh's patches tree that forbid
- submitting against netdev for now -- so the base for this is said
- tree as of 11/19. See *2]
-
-WiMAX is a new wireless boadband technology that differs significantly
-from WiFi. It is also called 4G and resembles more the model of
-cellular phones, where you sign up for service with a provider.
-
-Your WiMAX card connects to a basestation, which is operated by a
-certain Network Access Provider (NAP). The NAP leases (or might be the
-same) connectivity to a Network Service Provider (NSP), which is your
-ISP.
-
-When you move around, your connectivity will be handed over from
-basestation to basestation in a seamless way. As in cellphones, there
-is the roaming case, where you could be are connecting to your service
-plan through other provider.
-
-WiMAX's main components have been standarized (some parts still in the
-process) as in a set of 802.16 standards. The WiMAX Forum's members
-drive the development of WiMAX features that end up in 802.16.
-
-This code is broken up in a WiMAX subsystem and a driver for the Intel
-2400m Wireless WiMAX Link. To be able to fully utilize WiMAX services,
-you need extra pieces of device-specific user space software; for now,
-there is a C level API (the Common API) to use/control it, but a high
-level API over DBUS that should work for any device is in the
-works. See details further below.
-
-Support for other vendor's hardware would require a driver registering
-with the WiMAX stack and a user space component implementing the high
-level API.
-
-Changes since v1:
-
- - (Stephen Hemminger) don't use bitfields in struct wimax_dev 
-
- - (Stephen Hemminger) don't use the interface name for the generic
-   netlink family, as it might change on if rename. Change to use the
-   interface index.
-
- - (David Miller) move the WiMAX stack to net/wimax
-
- - misc checkpatch fixes, kconfig cleanups. 
-
- - use DEFINE_SPINLOCK
-
-Changes since v2:
-
- - Implement feedback from the mailing list for the merge request
-   (from Johaness, Thomas, Patrick and Evgeniy)
-
- - Moved all the sysfs controls and knobs to be debugfs based.
-
- - Remove kernel/user op-open and instead use the generic netlink
-   controller.
-
- - Many improvements and optimizations on the usage of generic
-   netlink.
-
- - Use generic netlink facilities for permission checking.
- 
- - Properly use the netlink ack/nlerr instead of relying on home-grown
-   system. 
-
- - Fix a deadlock in wimax_reset().
-
- - When i2400m reset completes ok, mark the device as active again
-   (or the device gets confused).
-
- - Relicense linux/wimax.h as BSD (mistakenly didn't)
-
- - Add rationales on design and clarifications/fixes in the
-   documentation.
-
-
-Details follow:
-
-* The WiMAX kernel stack
-
-The (kernel) WiMAX stack is (as of now) very basic; it conforms a
-"control plane", in a similar fashion to cfg80211. 
-
-We still don't know what's going to be a good abstraction layer
-because so far, we have only see one WiMAX device for which we could
-implement support. 
-
-So the current abstraction layer provides a low-level WiMAX API with
-means for resetting, monitoring state changes, controlling rfkill and
-sending messages to the driver (in a driver specific format) back and
-forth (more on this below). The documentation in include/net/wimax.h
-provides more information.
-
-The functional API provided by the kernel stack is exported to user
-space via generic netlink. For convenience, libwimaxll, a shim library
-is provided in the user space package wimax-tools, but direct access
-and parsing of the generic protocol is possible. All the bits and
-pieces needed to operate from user space are declared in
-include/linux/wimax.h, which is marked for system-wide installation
-with headers_install.
-
-Implementation of drivers for other hardware using this model should
-be more or less straightforward.
-
-* The i2400m driver
-
-The driver for the 2400m sits below the stack, providing the back end
-operations to drive control (reset, rfkill, message passing) and
-feeding it state change information. On the other side, the 2400m
-driver connects to netdev, where it emulates an ethernet device (*1).
-
-The driver itself is broken in two main parts: bus-generic and
-bus-specific. The bus-generic (driver) speaks the device protocol and
-uses hooks provided by the bus-specific driver to talk to the device
-via whichever bus it happens to be connected through.
-
-More information about the driver can be found in
-drivers/net/wimax/i2400m/i2400m.h.
-
-
-* The high level WiMAX API (user space)
-
-This part is not implemented by the code in these patches, but
-available for download at http://linuxwimax.org/Download (use release
-1.3 components); that implementation is specific to the Intel
-2400. Other vendor's might be similar or very different.
-
-The "high level part" (scanning, connecting, disconnecting) in WiMAX
-is quite more complex than in other technologies such as WiFi. In
-general, a high level API is provided to allow for:
-
- - scanning for networks
- - connecting and disconnecting
- - controlling the radio (turn on / off)
- - other operations
-
-This high level API is called the Common API and is being defined by a
-set of participants in the WiMAX industry. It is a cross platform API,
-meant to be vendor neutral; as such, it is very alien to Linux's
-system level APIs and we are planning moving the API to D-BUS and
-making it look "more native", but without loosing its spirit.
-
-The implementation of this API aims to hide the user (connection
-managers, to be more exact) from the common complexities of
-WiMAX. Each vendor would implement what ever they need in user space
-to expose said API (could be just a passthrough if the implementation
-is in the driver or in the device).
-
-Most of these complexities are related to scanning. Scanning in WiMAX
-is expensive (power consumption wise and time wise), so it has to be
-done carefully, and each device will have it's most optimal way to do
-it.
-
-Most (all?) WiMAX operators run on regulated channels. To connect to
-an operator, you need to know the channels where to look and scan in
-there for base stations; when found, you need to know which NAPs
-(Network Access Providers, the infrastructure owner) they provide and
-then the NAPs you find have to be mapped to NSPs (Network Service
-Providers, the ISP).
-
-Even if you did a scan on all the channels available in a country (for
-example, the US channel plan) and found different base stations, all
-that information is still not discoverable from them (the 802.16g
-upcoming standard aims to fix that).
-
-So a database that helps mapping all this information (base station
-IDs vs NAPs vs NSPs) is needed; we call that the "provisioning"
-information, and getting that information is not trivial. The
-operators, as of now, provide it to you over the OMA-DM protocol--that
-requires an OMA-DM client daemon running in your machine. Another way
-to provision is manually, getting a provisioning file from either the
-operator or someone that has an OMA-DM client daemon.
-
-The problem is that, as of now, there is still no OMA-DM open source
-client. In http://linuxwimax.org we provide one, but Intel does not
-own it and it cannot be made open source. As we said above, it is
-optional if you go with the manual mode.
-
-
-Once there is a network, you can connect to it. 
-
-For networks that require authentication (most), the Intel device
-requires a supplicant in user space--because of a set of issues we are
-working to resolve, it cannot be made open source yet, but it will. As
-of now, it is provided as a shared library that is loaded dynamically.
-
-When a network is connected, use a DHCP client to obtain an address
-(this is how most WiMAX networks are configured). 
-
-When you connect to a network/provider with whom you don't have a
-service agreement, you will probably redirected to a landing page
-where you will be able to sign up for service (in exchange for your
-credit card number), much similar to some WiFi hotspots. This is known
-as being "activated" for said provider and you only need to do it
-once, as the provider will remember your MAC address.
-
-When you are up and running, your connection will be handed over from
-tower to tower as you move around without requiring a new connection
-sequence or DHCP renegotiation.
-
-Other operations provided by the "Common API" relate to obtain
-provisioning information from the network, contact information for the
-network operator, manipulating roaming modes, etc ...
-
-Caveats:
-
- - the 2400 goes into idle power saving when connected if there is no
-   network activity. It comes out of it automatically when traffic is
-   sent to the network. But sometimes, to come out of it the network
-   requests a DHCP renegotiation; the user space code still has a
-   piece of code missing for doing it, so you need to manually restart
-   your DHCP client.
-
-*1 Previous iterations of the driver provided a Pure IP device,
-   without Ethernet wrapping but we gave up. 
-
-   Most DHCP software in user space and in the network backends assume
-   the world is Ethernet (anything that uses ISC DHCP's client and/or
-   daemon). 
-
-   We ended up registering a PureIP hw type with IANA and creating
-   patches to support it to the ISC DHCP suite (at
-   http://linuxwimax.org/Download) and modifying dhclient, server, and
-   friends so the hardware type PureIP was recognized and thus, when
-   the DHCP client sent a request, it was with hwtype ==
-   purerip. 
-
-   However, on the server end (they shall remain nameless), many
-   configurations are set to take only Ethernet hwtypes and when asked
-   to take the server patches for pureip, they cringed.
-
-   It's kind of understandable -- so we assume it'll take time for
-   those patches to trickle into deployment and just moved to behave
-   like Ethernet. The easy path.
-
-*2 To build in other trees, you will need the following patches
-   against the USB stack.
-
-   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-change-interface-to-usb_lock_device_for_reset.patch
-   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-introduce-usb_queue_reset-to-do-resets-from-atomic-contexts-v7.patch
-
-   2.6.28-rc5 has been tested.
-
-   Or clone
-   git.kernel.org/pub/scm/linux/kernel/inaky/git/linux-wimax.git; note
-   that tree will be rebased when the code is accepted into mailine.
-
-Inaky Perez-Gonzalez (40):
-  wimax: documentation for the stack
-  wimax: declarations for the in-kernel WiMAX API
-  wimax: constants and definitions to interact with user space
-  wimax: internal API for the kernel space WiMAX stack
-  wimax: debug macros and debug settings for the WiMAX stack
-  genetlink: export genl_unregister_mc_group()
-  debugfs: add helpers for exporting a size_t simple value
-  wimax: generic WiMAX device management (registration, deregistration,
-    etc)
-  wimax: Mappping of generic netlink family IDs to net devices
-  wimax: Generic messaging interface between user space and
-    driver/device
-  wimax: RF-kill framework integration
-  wimax: API call to reset a WiMAX device
-  wimax: debugfs controls
-  wimax: Makefile, Kconfig and docbook linkage for the stack
-  i2400m: documentation and instructions for usage
-  i2400m: host-to-device protocol definitions
-  i2400m: core driver definitions and API
-  i2400m: Generic probe/disconnect, reset and message passing
-  i2400m: linkage to the networking stack
-  i2400m: debugfs controls
-  i2400m: rfkill integration with the WiMAX stack
-  i2400m: firmware loading and bootrom initialization
-  i2400m: handling of the data/control reception path
-  i2400m: handling of the data/control transmission path
-  i2400m: various functions for device management
-  i2400m/USB: header for the USB bus driver
-  i2400m/USB: error density tracking
-  i2400m/USB: main probe/disconnect and backend routines
-  i2400m/USB: firmware upload backend
-  i2400m/USB: handling of notifications from the device
-  i2400m/USB: read transactions from the USB device
-  i2400m/USB: write transactions to the USB device
-  i2400m/SDIO: header for the SDIO subdriver
-  i2400m/SDIO: main probe/disconnect and backend routines
-  i2400m/SDIO: firmware upload backend
-  i2400m/SDIO: read transactions from the SDIO device
-  i2400m/SDIO: write transactions to the SDIO device
-  i2400m: Makefile and Kconfig
-  wimax: export linux/wimax.h and linux/wimax/i2400m.h with
-    headers_install
-  wimax/i2400m: add CREDITS and MAINTAINERS entries
-
- CREDITS                                      |   17 +
- Documentation/DocBook/networking.tmpl        |    8 +
- Documentation/wimax/README.i2400m            |  260 ++++++
- Documentation/wimax/README.wimax             |   81 ++
- MAINTAINERS                                  |   16 +
- drivers/net/Kconfig                          |    2 +
- drivers/net/Makefile                         |    1 +
- drivers/net/wimax/Kconfig                    |   17 +
- drivers/net/wimax/Makefile                   |    2 +
- drivers/net/wimax/i2400m/Kconfig             |   49 +
- drivers/net/wimax/i2400m/Makefile            |   29 +
- drivers/net/wimax/i2400m/control.c           | 1291 ++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/debug-levels.h      |   45 +
- drivers/net/wimax/i2400m/debugfs.c           |  383 ++++++++
- drivers/net/wimax/i2400m/driver.c            |  736 +++++++++++++++
- drivers/net/wimax/i2400m/edc.h               |   90 ++
- drivers/net/wimax/i2400m/fw.c                | 1095 ++++++++++++++++++++++
- drivers/net/wimax/i2400m/i2400m-sdio.h       |  132 +++
- drivers/net/wimax/i2400m/i2400m-usb.h        |  197 ++++
- drivers/net/wimax/i2400m/i2400m.h            |  761 +++++++++++++++
- drivers/net/wimax/i2400m/netdev.c            |  524 +++++++++++
- drivers/net/wimax/i2400m/op-rfkill.c         |  207 ++++
- drivers/net/wimax/i2400m/rx.c                |  536 +++++++++++
- drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +
- drivers/net/wimax/i2400m/sdio-fw.c           |  224 +++++
- drivers/net/wimax/i2400m/sdio-rx.c           |  255 +++++
- drivers/net/wimax/i2400m/sdio-tx.c           |  153 +++
- drivers/net/wimax/i2400m/sdio.c              |  508 ++++++++++
- drivers/net/wimax/i2400m/tx.c                |  817 ++++++++++++++++
- drivers/net/wimax/i2400m/usb-debug-levels.h  |   42 +
- drivers/net/wimax/i2400m/usb-fw.c            |  340 +++++++
- drivers/net/wimax/i2400m/usb-notif.c         |  263 ++++++
- drivers/net/wimax/i2400m/usb-rx.c            |  417 +++++++++
- drivers/net/wimax/i2400m/usb-tx.c            |  229 +++++
- drivers/net/wimax/i2400m/usb.c               |  581 ++++++++++++
- fs/debugfs/file.c                            |   32 +
- include/linux/Kbuild                         |    2 +
- include/linux/debugfs.h                      |    2 +
- include/linux/wimax.h                        |  224 +++++
- include/linux/wimax/Kbuild                   |    1 +
- include/linux/wimax/debug.h                  |  453 +++++++++
- include/linux/wimax/i2400m.h                 |  512 ++++++++++
- include/net/wimax.h                          |  596 ++++++++++++
- net/Kconfig                                  |    2 +
- net/Makefile                                 |    1 +
- net/netlink/genetlink.c                      |    1 +
- net/wimax/Kconfig                            |   36 +
- net/wimax/Makefile                           |   13 +
- net/wimax/debug-levels.h                     |   42 +
- net/wimax/debugfs.c                          |   88 ++
- net/wimax/id-table.c                         |  140 +++
- net/wimax/op-msg.c                           |  509 ++++++++++
- net/wimax/op-reset.c                         |  129 +++
- net/wimax/op-rfkill.c                        |  523 +++++++++++
- net/wimax/stack.c                            |  627 +++++++++++++
- net/wimax/wimax-internal.h                   |  104 ++
- 56 files changed, 14367 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/wimax/README.i2400m
- create mode 100644 Documentation/wimax/README.wimax
- create mode 100644 drivers/net/wimax/Kconfig
- create mode 100644 drivers/net/wimax/Makefile
- create mode 100644 drivers/net/wimax/i2400m/Kconfig
- create mode 100644 drivers/net/wimax/i2400m/Makefile
- create mode 100644 drivers/net/wimax/i2400m/control.c
- create mode 100644 drivers/net/wimax/i2400m/debug-levels.h
- create mode 100644 drivers/net/wimax/i2400m/debugfs.c
- create mode 100644 drivers/net/wimax/i2400m/driver.c
- create mode 100644 drivers/net/wimax/i2400m/edc.h
- create mode 100644 drivers/net/wimax/i2400m/fw.c
- create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
- create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
- create mode 100644 drivers/net/wimax/i2400m/i2400m.h
- create mode 100644 drivers/net/wimax/i2400m/netdev.c
- create mode 100644 drivers/net/wimax/i2400m/op-rfkill.c
- create mode 100644 drivers/net/wimax/i2400m/rx.c
- create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
- create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
- create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
- create mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
- create mode 100644 drivers/net/wimax/i2400m/sdio.c
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1228503076.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
+
+Implements data transmission to the device; this is done through a
+software FIFO, as data/control frames can be coalesced (while the
+device is reading the previous tx transaction, others accumulate).
+
+A FIFO is used because at the end it is resource-cheaper that trying
+to implement scatter/gather over USB. As well, most traffic is going
+to be download (vs upload).
+
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ drivers/net/wimax/i2400m/tx.c |  817 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 817 insertions(+), 0 deletions(-)
  create mode 100644 drivers/net/wimax/i2400m/tx.c
- create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
- create mode 100644 drivers/net/wimax/i2400m/usb-fw.c
- create mode 100644 drivers/net/wimax/i2400m/usb-notif.c
- create mode 100644 drivers/net/wimax/i2400m/usb-rx.c
- create mode 100644 drivers/net/wimax/i2400m/usb-tx.c
- create mode 100644 drivers/net/wimax/i2400m/usb.c
- create mode 100644 include/linux/wimax.h
- create mode 100644 include/linux/wimax/Kbuild
- create mode 100644 include/linux/wimax/debug.h
- create mode 100644 include/linux/wimax/i2400m.h
- create mode 100644 include/net/wimax.h
- create mode 100644 net/wimax/Kconfig
- create mode 100644 net/wimax/Makefile
- create mode 100644 net/wimax/debug-levels.h
- create mode 100644 net/wimax/debugfs.c
- create mode 100644 net/wimax/id-table.c
- create mode 100644 net/wimax/op-msg.c
- create mode 100644 net/wimax/op-reset.c
- create mode 100644 net/wimax/op-rfkill.c
- create mode 100644 net/wimax/stack.c
- create mode 100644 net/wimax/wimax-internal.h
 
+diff --git a/drivers/net/wimax/i2400m/tx.c b/drivers/net/wimax/i2400m/tx.c
+new file mode 100644
+index 0000000..613a88f
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/tx.c
+@@ -0,0 +1,817 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Generic (non-bus specific) TX handling
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Rewritten to use a single FIFO to lower the memory allocation
++ *    pressure and optimize cache hits when copying to the queue, as
++ *    well as splitting out bus-specific code.
++ *
++ *
++ * Implements data transmission to the device; this is done through a
++ * software FIFO, as data/control frames can be coalesced (while the
++ * device is reading the previous tx transaction, others accumulate).
++ *
++ * A FIFO is used because at the end it is resource-cheaper that trying
++ * to implement scatter/gather over USB. As well, most traffic is going
++ * to be download (vs upload).
++ *
++ * The format for sending/receiving data to/from the i2400m is
++ * described in detail in rx.c:PROTOCOL FORMAT. In here we implement
++ * the transmission of that. This is split between a bus-independent
++ * part that just prepares everything and a bus-specific part that
++ * does the actual transmission over the bus to the device (in the
++ * bus-specific driver).
++ *
++ *
++ * The general format of a device-host transaction is MSG-HDR, PLD1,
++ * PLD2...PLDN, PL1, PL2,...PLN, PADDING.
++ *
++ * Because we need the send payload descriptors and then payloads and
++ * because it is kind of expensive to do scatterlists in USB (one URB
++ * per node), it becomes cheaper to append all the data to a FIFO
++ * (copying to a FIFO potentially in cache is cheaper).
++ *
++ * Then the bus-specific code takes the parts of that FIFO that are
++ * written and passes them to the device.
++ *
++ * So the concepts to keep in mind there are:
++ *
++ * We use a FIFO to queue the data in a linear buffer. We first append
++ * a MSG-HDR, space for I2400M_TX_PLD_MAX payload descriptors and then
++ * go appending payloads until we run out of space or of payload
++ * descriptors. Then we append padding to make the whole transaction a
++ * multiple of i2400m->bus_tx_block_size (as defined by the bus layer).
++ *
++ * - A TX message: a combination of a message header, payload
++ *   descriptors and payloads.
++ *
++ *     Open: it is marked as active (i2400m->tx_msg is valid) and we
++ *       can keep adding payloads to it.
++ *
++ *     Closed: we are not appending more payloads to this TX message
++ *       (exahusted space in the queue, too many payloads or
++ *       whichever).  We have appended padding so the whole message
++ *       length is aligned to i2400m->bus_tx_block_size (as set by the
++ *       bus/transport layer).
++ *
++ * - Most of the time we keep a TX message open to which we append
++ *   payloads.
++ *
++ * - If we are going to append and there is no more space (we are at
++ *   the end of the FIFO), we close the message, mark the rest of the
++ *   FIFO space unusable (skip_tail), create a new message at the
++ *   beginning of the FIFO (if there is space) and append the message
++ *   there.
++ *
++ *   This is because we need to give linear TX messages to the bus
++ *   engine. So we don't write a message to the remaining FIFO space
++ *   until the tail and continue at the head of it.
++ *
++ * - We overload one of the fields in the message header to use it as
++ *   'size' of the TX message, so we can iterate over them. It also
++ *   contains a flag that indicates if we have to skip it or not.
++ *   When we send the buffer, we update that to its real on-the-wire
++ *   value.
++ *
++ * - The MSG-HDR PLD1...PLD2 stuff has to be a size multiple of 16.
++ *
++ *   It follows that if MSG-HDR says we have N messages, the whole
++ *   header + descriptors is 16 + 4*N; for those to be a multiple of
++ *   16, it follows that N can be 4, 8, 12, ... (32, 48, 64, 80...
++ *   bytes).
++ *
++ *   So if we have only 1 payload, we have to submit a header that in
++ *   all truth has space for 4.
++ *
++ *   The implication is that we reserve space for 12 (64 bytes); but
++ *   if we fill up only (eg) 2, our header becomes 32 bytes only. So
++ *   the TX engine has to shift those 32 bytes of msg header and 2
++ *   payloads and padding so that right after it the payloads start
++ *   and the TX engine has to know about that.
++ *
++ *   It is cheaper to move the header up than the whole payloads down.
++ *
++ *   We do this in i2400m_tx_close(). See 'i2400m_msg_hdr->offset'.
++ *
++ * - Each payload has to be size-padded to 16 bytes; before appending
++ *   it, we just do it.
++ *
++ * - The whole message has to be padded to i2400m->bus_tx_block_size;
++ *   we do this at close time. Thus, when reserving space for the
++ *   payload, we always make sure there is also free space for this
++ *   padding that sooner or later will happen.
++ *
++ * When we append a message, we tell the bus specific code to kick in
++ * TXs. It will TX (in parallel) until the buffer is exhausted--hence
++ * the lockin we do. The TX code will only send a TX message at the
++ * time (which remember, might contain more than one payload). Of
++ * course, when the bus-specific driver attempts to TX a message that
++ * is still open, it gets closed first.
++ *
++ * Gee, this is messy; well a picture. In the example below we have a
++ * partially full FIFO, with a closed message ready to be delivered
++ * (with a moved message header to make sure it is size-aligned to
++ * 16), TAIL room that was unusable (and thus is marked with a message
++ * header that says 'skip this') and at the head of the buffer, an
++ * imcomplete message with a couple of payloads.
++ *
++ * N   ___________________________________________________
++ *    |                                                   |
++ *    |     TAIL room                                     |
++ *    |                                                   |
++ *    |  msg_hdr to skip (size |= 0x80000)                |
++ *    |---------------------------------------------------|-------
++ *    |                                                   |  /|\
++ *    |                                                   |   |
++ *    |  TX message padding                               |   |
++ *    |                                                   |   |
++ *    |                                                   |   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|   |
++ *    |                                                   |   |
++ *    |  payload 1                                        |   |
++ *    |                                                   | N * tx_block_size
++ *    |                                                   |   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|   |
++ *    |                                                   |   |
++ *    |  payload 1                                        |   |
++ *    |                                                   |   |
++ *    |                                                   |   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|- -|- - - -
++ *    |  padding 3                  /|\                   |   |   /|\
++ *    |  padding 2                   |                    |   |    |
++ *    |  pld 1                32 bytes (2 * 16)           |   |    |
++ *    |  pld 0                       |                    |   |    |
++ *    |  moved msg_hdr              \|/                   |  \|/   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|- - -   |
++ *    |                                                   |    _PLD_SIZE
++ *    |  unused                                           |        |
++ *    |                                                   |        |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|        |
++ *    |  msg_hdr (size X)       [this message is closed]  |       \|/
++ *    |===================================================|========== <=== OUT
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |          Free rooom                               |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |===================================================|========== <=== IN
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |  payload 1                                        |
++ *    |                                                   |
++ *    |                                                   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|
++ *    |                                                   |
++ *    |  payload 0                                        |
++ *    |                                                   |
++ *    |                                                   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|
++ *    |  pld 11                     /|\                   |
++ *    |  ...                         |                    |
++ *    |  pld 1                64 bytes (2 * 16)           |
++ *    |  pld 0                       |                    |
++ *    |  msg_hdr (size X)           \|/ [message is open] |
++ * 0   ---------------------------------------------------
++ *
++ *
++ * ROADMAP
++ *
++ * i2400m_tx_setup()           Called by i2400m_setup
++ * i2400m_tx_release()         Called by i2400m_release()
++ *
++ *  i2400m_tx()                 Called to send data or control frames
++ *    i2400m_tx_fifo_push()     Allocates append-space in the FIFO
++ *    i2400m_tx_new()           Opens a new message in the FIFO
++ *    i2400m_tx_fits()          Checks if a new payload fits in the message
++ *    i2400m_tx_close()         Closes an open message in the FIFO
++ *    i2400m_tx_skip_tail()     Marks unusable FIFO tail space
++ *    i2400m->bus_tx_kick()
++ *
++ * Now i2400m->bus_tx_kick() is the the bus-specific driver backend
++ * implementation; that would do:
++ *
++ * i2400m->bus_tx_kick()
++ *   i2400m_tx_msg_get()	Gets first message ready to go
++ *   ...sends it...
++ *   i2400m_tx_msg_sent()       Ack the message is sent; repeat from
++ *                              _tx_msg_get() until it returns NULL
++ *                               (FIFO empty).
++ */
++#include <linux/netdevice.h>
++#include "i2400m.h"
++
++
++#define D_SUBMODULE tx
++#include "debug-levels.h"
++
++enum {
++	/**
++	 * TX Buffer size
++	 *
++	 * Doc says maximum transaction is 16KiB. If we had 16KiB en
++	 * route and 16KiB being queued, it boils down to needing
++	 * 32KiB.
++	 */
++	I2400M_TX_BUF_SIZE = 32768,
++	/**
++	 * Message header and payload descriptors have to be 16
++	 * aligned (16 + 4 * N = 16 * M). If we take that average sent
++	 * packets are MTU size (~1400-~1500) it follows that we could
++	 * fit at most 10-11 payloads in one transaction. To meet the
++	 * alignment requirement, that means we need to leave space
++	 * for 12 (64 bytes). To simplify, we leave space for that. If
++	 * at the end there are less, we pad up to the nearest
++	 * multiple of 16.
++	 */
++	I2400M_TX_PLD_MAX = 12,
++	I2400M_TX_PLD_SIZE = sizeof(struct i2400m_msg_hdr)
++	+ I2400M_TX_PLD_MAX * sizeof(struct i2400m_pld),
++	I2400M_TX_SKIP = 0x80000000,
++};
++
++#define TAIL_FULL ((void *)~(unsigned long)NULL)
++
++/*
++ * Allocate @size bytes in the TX fifo, return a pointer to it
++ *
++ * @i2400m: device descriptor
++ * @size: size of the buffer we need to allocate
++ * @padding: ensure that there is at least this many bytes of free
++ *     contiguous space in the fifo. This is needed because later on
++ *     we might need to add padding.
++ *
++ * Returns:
++ *
++ *     Pointer to the allocated space. NULL if there is no
++ *     space. TAIL_FULL if there is no space at the tail but there is at
++ *     the head (Case B below).
++ *
++ * These are the two basic cases we need to keep an eye for -- it is
++ * much better explained in linux/kernel/kfifo.c, but this code
++ * basically does the same. No rocket science here.
++ *
++ *       Case A               Case B
++ * N  ___________          ___________
++ *   | tail room |        |   data    |
++ *   |           |        |           |
++ *   |<-  IN   ->|        |<-  OUT  ->|
++ *   |           |        |           |
++ *   |   data    |        |   room    |
++ *   |           |        |           |
++ *   |<-  OUT  ->|        |<-  IN   ->|
++ *   |           |        |           |
++ *   | head room |        |   data    |
++ * 0  -----------          -----------
++ *
++ * We allocate only *contiguous* space.
++ *
++ * We can allocate only from 'room'. In Case B, it is simple; in case
++ * A, we only try from the tail room; if it is not enough, we just
++ * fail and return TAIL_FULL and let the caller figure out if we wants to
++ * skip the tail room and try to allocate from the head.
++ *
++ * Note:
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ *
++ *     The indexes keep increasing and we reset them to zero when we
++ *     pop data off the queue
++ */
++static
++void *i2400m_tx_fifo_push(struct i2400m *i2400m, size_t size, size_t padding)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	size_t room, tail_room, needed_size;
++	void *ptr;
++
++	needed_size = size + padding;
++	room = I2400M_TX_BUF_SIZE - (i2400m->tx_in - i2400m->tx_out);
++	if (room < needed_size)	{ /* this takes care of Case B */
++		d_printf(2, dev, "fifo push %zu/%zu: no space\n",
++			 size, padding);
++		return NULL;
++	}
++	/* Is there space at the tail? */
++	tail_room = I2400M_TX_BUF_SIZE - i2400m->tx_in % I2400M_TX_BUF_SIZE;
++	if (tail_room < needed_size) {
++		if (i2400m->tx_out % I2400M_TX_BUF_SIZE
++		    < i2400m->tx_in % I2400M_TX_BUF_SIZE) {
++			d_printf(2, dev, "fifo push %zu/%zu: tail full\n",
++				 size, padding);
++			return TAIL_FULL;	/* There might be head space */
++		} else {
++			d_printf(2, dev, "fifo push %zu/%zu: no head space\n",
++				 size, padding);
++			return NULL;	/* There is no space */
++		}
++	}
++	ptr = i2400m->tx_buf + i2400m->tx_in % I2400M_TX_BUF_SIZE;
++	d_printf(2, dev, "fifo push %zu/%zu: at @%zu\n", size, padding,
++		 i2400m->tx_in % I2400M_TX_BUF_SIZE);
++	i2400m->tx_in += size;
++	return ptr;
++}
++
++
++/*
++ * Mark the tail of the FIFO buffer as 'to-skip'
++ *
++ * We should never hit the BUG_ON() because all the sizes we push to
++ * the FIFO are padded to be a multiple of 16 -- the size of *msg
++ * (I2400M_PL_PAD for the payloads, I2400M_TX_PLD_SIZE for the
++ * header).
++ *
++ * Note:
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ */
++static
++void i2400m_tx_skip_tail(struct i2400m *i2400m)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	size_t tx_in = i2400m->tx_in % I2400M_TX_BUF_SIZE;
++	size_t tail_room = I2400M_TX_BUF_SIZE - tx_in;
++	struct i2400m_msg_hdr *msg = i2400m->tx_buf + tx_in;
++	BUG_ON(tail_room < sizeof(*msg));
++	msg->size = tail_room | I2400M_TX_SKIP;
++	d_printf(2, dev, "skip tail: skipping %zu bytes @%zu\n",
++		 tail_room, tx_in);
++	i2400m->tx_in += tail_room;
++}
++
++
++/*
++ * Check if a skb will fit in the TX queue's current active TX
++ * message (if there are still descriptors left unused).
++ *
++ * Returns:
++ *     0 if the message won't fit, 1 if it will.
++ *
++ * Note:
++ *
++ *     Assumes a TX message is active (i2400m->tx_msg).
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ */
++static
++unsigned i2400m_tx_fits(struct i2400m *i2400m)
++{
++	struct i2400m_msg_hdr *msg_hdr = i2400m->tx_msg;
++	return le16_to_cpu(msg_hdr->num_pls) < I2400M_TX_PLD_MAX;
++
++}
++
++
++/*
++ * Start a new TX message header in the queue.
++ *
++ * Reserve memory from the base FIFO engine and then just initialize
++ * the message header.
++ *
++ * We allocate the biggest TX message header we might need (one that'd
++ * fit I2400M_TX_PLD_MAX payloads) -- when it is closed it will be
++ * 'ironed it out' and the unneeded parts removed.
++ *
++ * NOTE:
++ *
++ *     Assumes that the previous message is CLOSED (eg: either
++ *     there was none or 'i2400m_tx_close()' was called on it).
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ */
++static
++void i2400m_tx_new(struct i2400m *i2400m)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_msg_hdr *tx_msg;
++	BUG_ON(i2400m->tx_msg != NULL);
++try_head:
++	tx_msg = i2400m_tx_fifo_push(i2400m, I2400M_TX_PLD_SIZE, 0);
++	if (tx_msg == NULL)
++		goto out;
++	else if (tx_msg == TAIL_FULL) {
++		i2400m_tx_skip_tail(i2400m);
++		d_printf(2, dev, "new TX message: tail full, trying head\n");
++		goto try_head;
++	}
++	memset(tx_msg, 0, I2400M_TX_PLD_SIZE);
++	tx_msg->size = I2400M_TX_PLD_SIZE;
++out:
++	i2400m->tx_msg = tx_msg;
++	d_printf(2, dev, "new TX message: %p @%zu\n",
++		 tx_msg, (void *) tx_msg - i2400m->tx_buf);
++}
++
++
++/*
++ * Finalize the current TX message header
++ *
++ * Sets the message header to be at the proper location depending on
++ * how many descriptors we have (check documentation at the file's
++ * header for more info on that).
++ *
++ * Appends padding bytes to make sure the whole TX message (counting
++ * from the 'relocated' message header) is aligned to
++ * tx_block_size. We assume the _append() code has left enough space
++ * in the FIFO for that. If there are no payloads, just pass, as it
++ * won't be transferred.
++ *
++ * The amount of padding bytes depends on how many payloads are in the
++ * TX message, as the "msg header and payload descriptors" will be
++ * shifted up in the buffer.
++ */
++static
++void i2400m_tx_close(struct i2400m *i2400m)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_msg_hdr *tx_msg = i2400m->tx_msg;
++	struct i2400m_msg_hdr *tx_msg_moved;
++	size_t aligned_size, padding, hdr_size;
++	void *pad_buf;
++
++	if (tx_msg->size & I2400M_TX_SKIP)	/* a skipper? nothing to do */
++		goto out;
++
++	/* Relocate the message header
++	 *
++	 * Find the current header size, align it to 16 and if we need
++	 * to move it so the tail is next to the payloads, move it and
++	 * set the offset.
++	 *
++	 * If it moved, this header is good only for transmission; the
++	 * original one (it is kept if we moved) is still used to
++	 * figure out where the next TX message starts (and where the
++	 * offset to the moved header is).
++	 */
++	hdr_size = sizeof(*tx_msg)
++		+ le16_to_cpu(tx_msg->num_pls) * sizeof(tx_msg->pld[0]);
++	hdr_size = ALIGN(hdr_size, I2400M_PL_PAD);
++	tx_msg->offset = I2400M_TX_PLD_SIZE - hdr_size;
++	tx_msg_moved = (void *) tx_msg + tx_msg->offset;
++	memmove(tx_msg_moved, tx_msg, hdr_size);
++	tx_msg_moved->size -= tx_msg->offset;
++	/*
++	 * Now figure out how much we have to add to the (moved!)
++	 * message so the size is a multiple of i2400m->bus_tx_block_size.
++	 */
++	aligned_size = ALIGN(tx_msg_moved->size, i2400m->bus_tx_block_size);
++	padding = aligned_size - tx_msg_moved->size;
++	if (padding > 0) {
++		pad_buf = i2400m_tx_fifo_push(i2400m, padding, 0);
++		if (unlikely(WARN_ON(pad_buf == NULL
++				     || pad_buf == TAIL_FULL))) {
++			/* This should not happen -- append should verify
++			 * there is always space left at least to append
++			 * tx_block_size */
++			dev_err(dev,
++				"SW BUG! Possible data leakage from memory the "
++				"device should not read for padding - "
++				"size %lu aligned_size %zu tx_buf %p in "
++				"%zu out %zu\n",
++				(unsigned long) tx_msg_moved->size,
++				aligned_size, i2400m->tx_buf, i2400m->tx_in,
++				i2400m->tx_out);
++		} else
++			memset(pad_buf, 0xad, padding);
++	}
++	tx_msg_moved->padding = cpu_to_le16(padding);
++	tx_msg_moved->size += padding;
++	if (tx_msg != tx_msg_moved)
++		tx_msg->size += padding;
++out:
++	i2400m->tx_msg = NULL;
++}
++
++
++/**
++ * i2400m_tx - send the data in a buffer to the device
++ *
++ * @buf: pointer to the buffer to transmit
++ *
++ * @buf_len: buffer size
++ *
++ * @pl_type: type of the payload we are sending.
++ *
++ * Returns:
++ *     0 if ok, < 0 errno code on error (-ENOSPC, if there is no more
++ *     room for the message in the queue).
++ *
++ * Appends the buffer to the TX FIFO and notifies the bus-specific
++ * part of the driver that there is new data ready to transmit.
++ * Once this function returns, the buffer has been copied, so it can
++ * be reused.
++ *
++ * The steps followed to append are explained in detail in the file
++ * header.
++ *
++ * Whenever we write to a message, we increase msg->size, so it
++ * reflects exactly how big the message is. This is needed so that if
++ * we concatenate two messages before they can be sent, the code that
++ * sends the messages can find the boundaries (and it will replace the
++ * size with the real barker before sending).
++ *
++ * Note:
++ *
++ *     Cold and warm reset payloads need to be sent as a single
++ *     payload, so we handle that.
++ */
++int i2400m_tx(struct i2400m *i2400m, const void *buf, size_t buf_len,
++	      enum i2400m_pt pl_type)
++{
++	int result = -ENOSPC;
++	struct device *dev = i2400m_dev(i2400m);
++	unsigned long flags;
++	size_t padded_len;
++	void *ptr;
++	unsigned is_singleton = pl_type == I2400M_PT_RESET_WARM
++		|| pl_type == I2400M_PT_RESET_COLD;
++
++	d_fnstart(3, dev, "(i2400m %p skb %p [%zu bytes] pt %u)\n",
++		  i2400m, buf, buf_len, pl_type);
++	padded_len = ALIGN(buf_len, I2400M_PL_PAD);
++	d_printf(5, dev, "padded_len %zd buf_len %zd\n", padded_len, buf_len);
++	/* If there is no current TX message, create one; if the
++	 * current one is out of payload slots or we have a singleton,
++	 * close it and start a new one */
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++try_new:
++	if (unlikely(i2400m->tx_msg == NULL))
++		i2400m_tx_new(i2400m);
++	else if (unlikely(!i2400m_tx_fits(i2400m)
++			  || (is_singleton && i2400m->tx_msg->num_pls != 0))) {
++		d_printf(2, dev, "closing TX message (fits %u singleton "
++			 "%u num_pls %u)\n", i2400m_tx_fits(i2400m),
++			 is_singleton, i2400m->tx_msg->num_pls);
++		i2400m_tx_close(i2400m);
++		i2400m_tx_new(i2400m);
++	}
++	if (i2400m->tx_msg->size + padded_len > I2400M_TX_BUF_SIZE / 2) {
++		d_printf(2, dev, "TX: message too big, going new\n");
++		i2400m_tx_close(i2400m);
++		i2400m_tx_new(i2400m);
++	}
++	if (i2400m->tx_msg == NULL)
++		goto error_tx_new;
++	/* So we have a current message header; now append space for
++	 * the message -- if there is not enough, try the head */
++	ptr = i2400m_tx_fifo_push(i2400m, padded_len,
++				  i2400m->bus_tx_block_size);
++	if (ptr == TAIL_FULL) {	/* Tail is full, try head */
++		d_printf(2, dev, "pl append: tail full\n");
++		i2400m_tx_close(i2400m);
++		i2400m_tx_skip_tail(i2400m);
++		goto try_new;
++	} else if (ptr == NULL) {	/* All full */
++		result = -ENOSPC;
++		d_printf(2, dev, "pl append: all full\n");
++	} else {			/* Got space, copy it, set padding */
++		struct i2400m_msg_hdr *tx_msg = i2400m->tx_msg;
++		unsigned num_pls = le16_to_cpu(tx_msg->num_pls);
++		memcpy(ptr, buf, buf_len);
++		memset(ptr + buf_len, 0xad, padded_len - buf_len);
++		i2400m_pld_set(&tx_msg->pld[num_pls], buf_len, pl_type);
++		d_printf(3, dev, "pld 0x%08x (type 0x%1x len 0x%04zx\n",
++			 le32_to_cpu(tx_msg->pld[num_pls].val),
++			 pl_type, buf_len);
++		tx_msg->num_pls = le16_to_cpu(num_pls+1);
++		tx_msg->size += padded_len;
++		d_printf(2, dev, "TX: appended %zu b (up to %u b) pl #%u \n",
++			padded_len, tx_msg->size, num_pls+1);
++		d_printf(2, dev,
++			 "TX: appended hdr @%zu %zu b pl #%u @%zu %zu/%zu b\n",
++			 (void *)tx_msg - i2400m->tx_buf, (size_t)tx_msg->size,
++			 num_pls+1, ptr - i2400m->tx_buf, buf_len, padded_len);
++		result = 0;
++		if (is_singleton)
++			i2400m_tx_close(i2400m);
++	}
++error_tx_new:
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	i2400m->bus_tx_kick(i2400m);	/* always kick, might free up space */
++	d_fnend(3, dev, "(i2400m %p skb %p [%zu bytes] pt %u) = %d\n",
++		i2400m, buf, buf_len, pl_type, result);
++	return result;
++}
++EXPORT_SYMBOL_GPL(i2400m_tx);
++
++
++/**
++ * i2400m_tx_msg_get - Get the first TX message in the FIFO to start sending it
++ *
++ * @i2400m: device descriptors
++ * @bus_size: where to place the size of the TX message
++ *
++ * Called by the bus-specific driver to get the first TX message at
++ * the FIF that is ready for transmission.
++ *
++ * It sets the state in @i2400m to indicate the bus-specific driver is
++ * transfering that message (i2400m->tx_msg_size).
++ *
++ * Once the transfer is completed, call i2400m_tx_msg_sent().
++ *
++ * Notes:
++ *
++ *     The size of the TX message to be transmitted might be smaller than
++ *     that of the TX message in the FIFO (in case the header was
++ *     shorter). Hence, we copy it in @bus_size, for the bus layer to
++ *     use. We keep the message's size in i2400m->tx_msg_size so that
++ *     when the bus later is done transferring we know how much to
++ *     advance the fifo.
++ *
++ *     We collect statistics here as all the data is available and we
++ *     assume it is going to work [see i2400m_tx_msg_sent()].
++ */
++struct i2400m_msg_hdr *i2400m_tx_msg_get(struct i2400m *i2400m,
++					 size_t *bus_size)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_msg_hdr *tx_msg, *tx_msg_moved;
++	unsigned long flags, pls;
++
++	d_fnstart(3, dev, "(i2400m %p bus_size %p)\n", i2400m, bus_size);
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++skip:
++	tx_msg_moved = NULL;
++	if (i2400m->tx_in == i2400m->tx_out) {	/* Empty FIFO? */
++		i2400m->tx_in = 0;
++		i2400m->tx_out = 0;
++		d_printf(2, dev, "TX: FIFO empty: resetting\n");
++		goto out_unlock;
++	}
++	tx_msg = i2400m->tx_buf + i2400m->tx_out % I2400M_TX_BUF_SIZE;
++	if (tx_msg->size & I2400M_TX_SKIP) {	/* skip? */
++		d_printf(2, dev, "TX: skip: msg @%zu (%zu b)\n",
++			 i2400m->tx_out % I2400M_TX_BUF_SIZE,
++			 (size_t) tx_msg->size & ~I2400M_TX_SKIP);
++		i2400m->tx_out += tx_msg->size & ~I2400M_TX_SKIP;
++		goto skip;
++	}
++
++	if (tx_msg->num_pls == 0) {		/* No payloads? */
++		if (tx_msg == i2400m->tx_msg) {	/* open, we are done */
++			d_printf(2, dev,
++				 "TX: FIFO empty: open msg w/o payloads @%zu\n",
++				 (void *) tx_msg - i2400m->tx_buf);
++			tx_msg = NULL;
++			goto out_unlock;
++		} else {			/* closed, skip it */
++			d_printf(2, dev,
++				 "TX: skip msg w/o payloads @%zu (%zu b)\n",
++				 (void *) tx_msg - i2400m->tx_buf,
++				 (size_t) tx_msg->size);
++			i2400m->tx_out += tx_msg->size & ~I2400M_TX_SKIP;
++			goto skip;
++		}
++	}
++	if (tx_msg == i2400m->tx_msg)		/* open msg? */
++		i2400m_tx_close(i2400m);
++
++	/* Now we have a valid TX message (with payloads) to TX */
++	tx_msg_moved = (void *) tx_msg + tx_msg->offset;
++	i2400m->tx_msg_size = tx_msg->size;
++	*bus_size = tx_msg_moved->size;
++	d_printf(2, dev, "TX: pid %d msg hdr at @%zu offset +@%zu "
++		 "size %zu bus_size %zu\n",
++		 current->pid, (void *) tx_msg - i2400m->tx_buf,
++		 (size_t) tx_msg->offset, (size_t) tx_msg->size,
++		 (size_t) tx_msg_moved->size);
++	tx_msg_moved->barker = le32_to_cpu(I2400M_H2D_PREVIEW_BARKER);
++	tx_msg_moved->sequence = le32_to_cpu(i2400m->tx_sequence++);
++
++	pls = le32_to_cpu(tx_msg_moved->num_pls);
++	i2400m->tx_pl_num += pls;		/* Update stats */
++	if (pls > i2400m->tx_pl_max)
++		i2400m->tx_pl_max = pls;
++	if (pls < i2400m->tx_pl_min)
++		i2400m->tx_pl_min = pls;
++	i2400m->tx_num++;
++	i2400m->tx_size_acc += *bus_size;
++	if (*bus_size < i2400m->tx_size_min)
++		i2400m->tx_size_min = *bus_size;
++	if (*bus_size > i2400m->tx_size_max)
++		i2400m->tx_size_max = *bus_size;
++out_unlock:
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	d_fnstart(3, dev, "(i2400m %p bus_size %p [%zu]) = %p\n",
++		  i2400m, bus_size, *bus_size, tx_msg_moved);
++	return tx_msg_moved;
++}
++EXPORT_SYMBOL_GPL(i2400m_tx_msg_get);
++
++
++/**
++ * i2400m_tx_msg_sent - indicate the transmission of a TX message
++ *
++ * @i2400m: device descriptor
++ *
++ * Called by the bus-specific driver when a message has been sent;
++ * this pops it from the FIFO; and as there is space, start the queue
++ * in case it was stopped.
++ *
++ * Should be called even if the message send failed and we are
++ * dropping this TX message.
++ */
++void i2400m_tx_msg_sent(struct i2400m *i2400m)
++{
++	unsigned n;
++	unsigned long flags;
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++	i2400m->tx_out += i2400m->tx_msg_size;
++	d_printf(2, dev, "TX: sent %zu b\n", (size_t) i2400m->tx_msg_size);
++	i2400m->tx_msg_size = 0;
++	BUG_ON(i2400m->tx_out > i2400m->tx_in);
++	/* level them FIFO markers off */
++	n = i2400m->tx_out / I2400M_TX_BUF_SIZE;
++	i2400m->tx_out %= I2400M_TX_BUF_SIZE;
++	i2400m->tx_in -= n * I2400M_TX_BUF_SIZE;
++	netif_start_queue(i2400m->wimax_dev.net_dev);
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++}
++EXPORT_SYMBOL_GPL(i2400m_tx_msg_sent);
++
++
++/**
++ * i2400m_tx_setup - Initialize the TX queue and infrastructure
++ *
++ * Make sure we reset the TX sequence to zero, as when this function
++ * is called, the firmware has been just restarted.
++ */
++int i2400m_tx_setup(struct i2400m *i2400m)
++{
++	int result;
++
++	/* Do this here only once -- can't do on
++	 * i2400m_hard_start_xmit() as we'll cause race conditions if
++	 * the WS was scheduled on another CPU */
++	INIT_WORK(&i2400m->wake_tx_ws, i2400m_wake_tx_work);
++
++	i2400m->tx_sequence = 0;
++	i2400m->tx_buf = kmalloc(I2400M_TX_BUF_SIZE, GFP_KERNEL);
++	if (i2400m->tx_buf == NULL)
++		result = -ENOMEM;
++	else
++		result = 0;
++	/* Huh? the bus layer has to define this... */
++	BUG_ON(i2400m->bus_tx_block_size == 0);
++	return result;
++
++}
++
++
++/**
++ * i2400m_tx_release - Tear down the TX queue and infrastructure
++ */
++void i2400m_tx_release(struct i2400m *i2400m)
++{
++	kfree(i2400m->tx_buf);
++}
+-- 
+1.5.6.5
