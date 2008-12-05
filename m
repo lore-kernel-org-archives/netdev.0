@@ -1,47 +1,103 @@
-From: Nick Andrew <nick@nick-andrew.net>
-Subject: [PATCH] Fix incorrect use of loose in spider_net.c
-Date: Fri, 05 Dec 2008 14:08:03 +1100
-Message-ID: <20081205030803.32099.345.stgit@marcab.local.tull.net>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH] net/netfilter: simplify error handling
+Date: Fri, 5 Dec 2008 12:34:46 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0812051234230.9560@pc-004.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, Nick Andrew <nick@nick-andrew.net>
-To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Jens Osterkamp <jens@de.ibm.com>,
-	Kou Ishizaki <kou.ishizaki@toshiba.co.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps1.tull.net ([66.180.172.116]:47110 "HELO vps1.tull.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752740AbYLEKU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Dec 2008 05:20:58 -0500
+Received: from mgw2.diku.dk ([130.225.96.92]:39596 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750953AbYLELev (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Dec 2008 06:34:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix incorrect use of loose in spider_net.c
+From: Julia Lawall <julia@diku.dk>
 
-It should be 'lose', not 'loose'.
+nf_conntrack_alloc cannot return NULL, so there is no need to check for
+NULL before using the value.  I have also removed the initialization of ct
+to NULL in nf_conntrack_alloc, since the value is never used, and since
+perhaps it might lead one to think that return ct at the end might return
+NULL.
 
-Signed-off-by: Nick Andrew <nick@nick-andrew.net>
+The semantic patch that finds this problem is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
+
+// <smpl>
+@match exists@
+expression x, E;
+position p1,p2;
+statement S1, S2;
+@@
+
+x@p1 = nf_conntrack_alloc(...)
+... when != x = E
+(
+  if (x@p2 == NULL || ...) S1 else S2
+|
+  if (x@p2 == NULL && ...) S1 else S2
+)
+
+@other_match exists@
+expression match.x, E1, E2;
+position p1!=match.p1,match.p2;
+@@
+
+x@p1 = E1
+... when != x = E2
+x@p2
+
+@ script:python depends on !other_match@
+p1 << match.p1;
+p2 << match.p2;
+@@
+
+print "%s: call to nf_conntrack_alloc %s bad test %s" % (p1[0].file,p1[0].line,p2[0].line)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
 ---
+ net/netfilter/nf_conntrack_core.c    |    4 ++--
+ net/netfilter/nf_conntrack_netlink.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
- drivers/net/spider_net.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-
-diff --git a/drivers/net/spider_net.c b/drivers/net/spider_net.c
-index 07599b4..325fbc9 100644
---- a/drivers/net/spider_net.c
-+++ b/drivers/net/spider_net.c
-@@ -789,7 +789,7 @@ spider_net_set_low_watermark(struct spider_net_card *card)
-  * spider_net_release_tx_chain releases the tx descriptors that spider has
-  * finished with (if non-brutal) or simply release tx descriptors (if brutal).
-  * If some other context is calling this function, we return 1 so that we're
-- * scheduled again (if we were scheduled) and will not loose initiative.
-+ * scheduled again (if we were scheduled) and will not lose initiative.
-  */
- static int
- spider_net_release_tx_chain(struct spider_net_card *card, int brutal)
-
-
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 233fdd2..79582e0 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -468,7 +468,7 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
+ 				   const struct nf_conntrack_tuple *repl,
+ 				   gfp_t gfp)
+ {
+-	struct nf_conn *ct = NULL;
++	struct nf_conn *ct;
+ 
+ 	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
+ 		get_random_bytes(&nf_conntrack_hash_rnd, 4);
+@@ -550,7 +550,7 @@ init_conntrack(struct net *net,
+ 	}
+ 
+ 	ct = nf_conntrack_alloc(net, tuple, &repl_tuple, GFP_ATOMIC);
+-	if (ct == NULL || IS_ERR(ct)) {
++	if (IS_ERR(ct)) {
+ 		pr_debug("Can't allocate conntrack.\n");
+ 		return (struct nf_conntrack_tuple_hash *)ct;
+ 	}
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 5f4a651..37d6b9c 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1091,7 +1091,7 @@ ctnetlink_create_conntrack(struct nlattr *cda[],
+ 	struct nf_conntrack_helper *helper;
+ 
+ 	ct = nf_conntrack_alloc(&init_net, otuple, rtuple, GFP_ATOMIC);
+-	if (ct == NULL || IS_ERR(ct))
++	if (IS_ERR(ct))
+ 		return -ENOMEM;
+ 
+ 	if (!cda[CTA_TIMEOUT])
