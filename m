@@ -1,26 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.27] tcp_vegas ssthresh bug fix
-Date: Thu, 04 Dec 2008 16:24:24 -0800 (PST)
-Message-ID: <20081204.162424.153724121.davem@davemloft.net>
-References: <650FA54C-402C-48CC-95AD-CA4AC5086BAD@nuim.ie>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] powerpc/83xx: Enable FIXED_PHY in mpc834x_itx and mpc83xx defconfigs
+Date: Thu, 4 Dec 2008 18:48:36 -0600
+Message-ID: <D3ADB80B-5A8C-4D10-8FB9-CB29392E68B5@kernel.crashing.org>
+References: <ed82fe3e0812040915i696e99bep75a37b0e38154415@mail.gmail.com> <20081204175231.GA28554@oksana.dev.rtsoft.ru>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: Doug.Leith@nuim.ie
+Cc: Timur Tabi <timur@freescale.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, afleming@freescale.com
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54192
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750720AbYLEAYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Dec 2008 19:24:24 -0500
-In-Reply-To: <650FA54C-402C-48CC-95AD-CA4AC5086BAD@nuim.ie>
+Received: from gate.crashing.org ([63.228.1.57]:39360 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753019AbYLEAu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Dec 2008 19:50:59 -0500
+In-Reply-To: <20081204175231.GA28554@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Your patch is corrupted, tabs characters have been turned into
-spaces by your email client.
+On Dec 4, 2008, at 11:52 AM, Anton Vorontsov wrote:
 
-Please fix this up and make a new submission your patch.
+> This is needed so that Vitesse 7385 5-port switch could work on
+> MPC8349E-mITX boards.
+>
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+> ---
 
-Thank you.
+applied to merge.
+
+Guys, can you put a [for 2.6.28] or something if a patch is intended  
+for .28.. this way I hopefully pay a bit more attention.
+
+- k
