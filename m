@@ -1,71 +1,100 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next-2.6 [PATCH 0/7] dccp: Feature negotiation - Part III (integration)
-Date: Sat,  6 Dec 2008 17:40:50 +0100
-Message-ID: <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/7] dccp: Integration of dynamic feature activation - part 2 (server side)
+Date: Sat,  6 Dec 2008 17:40:52 +0100
+Message-ID: <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+ <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43894 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43895 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751211AbYLFQlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751265AbYLFQlI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 6 Dec 2008 11:41:08 -0500
-In-Reply-To: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This patch integrates the activation of features at the end of negotiation
+into the server-side code.
 
-please find enclosed the penultimate set, the first out of two in the last
-block, of the feature-negotiation patch set submission.
-I have checked these to compile individually. 
+Note regarding the removal of 'const':
+--------------------------------------
+ The 'const' attribute has been removed from 'dreq' since dccp_activate_values()
+ needs to operate on dreq's feature list. Part of the activation is to remove
+ those options from the list that have already been confirmed, hence it is not
+ purely read-only.
 
-Gerrit
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ net/dccp/minisocks.c |   42 ++++++++++++------------------------------
+ 1 files changed, 12 insertions(+), 30 deletions(-)
 
-
-Commit summary:
----------------
-This is a continuation of an ongoing submission to provide feature/capability
-negotiation for DCCP endpoints (RFC 4340 - 4342, 5348).
-
-The whole set is structured into 3 main blocks - (1) basis, (2) core, (3)
-integration and cleanup.
-
-This set is the first out of two in block (3) and  removes the old, now unused,
-parts of the older interface and begins the integration of the new interface 
-that formed part (2) of this submission.
-
-The second and last part of block (3) deals with the initialization of 
-feature-negotiation state.
-
-
-List of patches in this set:
-----------------------------
-Patch #1: Integration of dynamic negotiation, part I (socket setup).
-Patch #2: Integration of dynamic negotiation, part II (server side).
-Patch #3: Integration of dynamic negotiation, part III (client side).
-Patch #4: Cleans up the older infrastructure.
-Patch #5: Removes obsolete parts of the old CCID interface.
-Patch #6: Removes manual intervention on NDP count (now automatic).
-Patch #7: Removes Ack Vector sysctl (handled automatically now).
-
-The set is also available for viewing online, beginning at
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=c47390a8b5faaec4a41337714b2d80c85fc6ba26
-
-
-Patch stats:
-------------
- Documentation/networking/dccp.txt |   11 
- include/linux/dccp.h              |   10 
- net/dccp/ccid.c                   |   14 -
- net/dccp/ccid.h                   |    5 
- net/dccp/dccp.h                   |    4 
- net/dccp/diag.c                   |    2 
- net/dccp/feat.c                   |  519 --------------------------------------
- net/dccp/feat.h                   |   12 
- net/dccp/input.c                  |   42 ++-
- net/dccp/minisocks.c              |   46 ---
- net/dccp/options.c                |   11 
- net/dccp/proto.c                  |   49 ---
- net/dccp/sysctl.c                 |   14 -
- 13 files changed, 70 insertions(+), 669 deletions(-)
+--- a/net/dccp/minisocks.c
++++ b/net/dccp/minisocks.c
+@@ -111,7 +111,7 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
+ 	struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
+ 
+ 	if (newsk != NULL) {
+-		const struct dccp_request_sock *dreq = dccp_rsk(req);
++		struct dccp_request_sock *dreq = dccp_rsk(req);
+ 		struct inet_connection_sock *newicsk = inet_csk(newsk);
+ 		struct dccp_sock *newdp = dccp_sk(newsk);
+ 		struct dccp_minisock *newdmsk = dccp_msk(newsk);
+@@ -125,35 +125,6 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
+ 		newicsk->icsk_rto	    = DCCP_TIMEOUT_INIT;
+ 
+ 		INIT_LIST_HEAD(&newdp->dccps_featneg);
+-		if (dccp_feat_clone(sk, newsk))
+-			goto out_free;
+-
+-		if (newdmsk->dccpms_send_ack_vector) {
+-			newdp->dccps_hc_rx_ackvec =
+-						dccp_ackvec_alloc(GFP_ATOMIC);
+-			if (unlikely(newdp->dccps_hc_rx_ackvec == NULL))
+-				goto out_free;
+-		}
+-
+-		newdp->dccps_hc_rx_ccid =
+-			    ccid_hc_rx_new(newdmsk->dccpms_rx_ccid,
+-					   newsk, GFP_ATOMIC);
+-		newdp->dccps_hc_tx_ccid =
+-			    ccid_hc_tx_new(newdmsk->dccpms_tx_ccid,
+-					   newsk, GFP_ATOMIC);
+-		if (unlikely(newdp->dccps_hc_rx_ccid == NULL ||
+-			     newdp->dccps_hc_tx_ccid == NULL)) {
+-			dccp_ackvec_free(newdp->dccps_hc_rx_ackvec);
+-			ccid_hc_rx_delete(newdp->dccps_hc_rx_ccid, newsk);
+-			ccid_hc_tx_delete(newdp->dccps_hc_tx_ccid, newsk);
+-out_free:
+-			/* It is still raw copy of parent, so invalidate
+-			 * destructor and make plain sk_free() */
+-			newsk->sk_destruct = NULL;
+-			sk_free(newsk);
+-			return NULL;
+-		}
+-
+ 		/*
+ 		 * Step 3: Process LISTEN state
+ 		 *
+@@ -184,6 +155,17 @@ out_free:
+ 		dccp_set_seqno(&newdp->dccps_awl,
+ 			       max48(newdp->dccps_awl, newdp->dccps_iss));
+ 
++		/*
++		 * Activate features after initialising the sequence numbers,
++		 * since CCID initialisation may depend on GSS, ISR, ISS etc.
++		 */
++		if (dccp_feat_activate_values(newsk, &dreq->dreq_featneg)) {
++			/* It is still raw copy of parent, so invalidate
++			 * destructor and make plain sk_free() */
++			newsk->sk_destruct = NULL;
++			sk_free(newsk);
++			return NULL;
++		}
+ 		dccp_init_xmit_timers(newsk);
+ 
+ 		DCCP_INC_STATS_BH(DCCP_MIB_PASSIVEOPENS);
