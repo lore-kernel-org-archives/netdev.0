@@ -1,600 +1,71 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/7] dccp: Clean up old feature-negotiation infrastructure
-Date: Sat,  6 Dec 2008 17:40:54 +0100
-Message-ID: <1228581657-6724-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: net-next-2.6 [PATCH 0/7] dccp: Feature negotiation - Part III (integration)
+Date: Sat,  6 Dec 2008 17:40:50 +0100
+Message-ID: <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-4-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43896 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43894 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751042AbYLFQlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751211AbYLFQlI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 6 Dec 2008 11:41:08 -0500
-In-Reply-To: <1228581657-6724-4-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code removed by this patch is no longer referenced or used, the added
-lines update documentation and copyrights.
+Hi Dave,
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
----
- net/dccp/feat.h |   12 +-
- net/dccp/feat.c |  504 +------------------------------------------------------
- 2 files changed, 11 insertions(+), 505 deletions(-)
+please find enclosed the penultimate set, the first out of two in the last
+block, of the feature-negotiation patch set submission.
+I have checked these to compile individually. 
 
---- a/net/dccp/feat.h
-+++ b/net/dccp/feat.h
-@@ -3,14 +3,14 @@
- /*
-  *  net/dccp/feat.h
-  *
-- *  An implementation of the DCCP protocol
-+ *  Feature negotiation for the DCCP protocol (RFC 4340, section 6)
-+ *  Copyright (c) 2008 Gerrit Renker <gerrit@erg.abdn.ac.uk>
-  *  Copyright (c) 2005 Andrea Bittau <a.bittau@cs.ucl.ac.uk>
-  *
-- *	This program is free software; you can redistribute it and/or modify it
-- *	under the terms of the GNU General Public License version 2 as
-- *	published by the Free Software Foundation.
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms of the GNU General Public License version 2 as
-+ *  published by the Free Software Foundation.
-  */
--
- #include <linux/types.h>
- #include "dccp.h"
- 
-@@ -118,8 +118,6 @@ extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
- extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
- extern int  dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
- 				    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
--extern void dccp_feat_clean(struct dccp_minisock *dmsk);
--extern int  dccp_feat_clone(struct sock *oldsk, struct sock *newsk);
- extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
- extern int  dccp_feat_init(struct sock *sk);
- 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -1,8 +1,12 @@
- /*
-  *  net/dccp/feat.c
-  *
-- *  An implementation of the DCCP protocol
-- *  Andrea Bittau <a.bittau@cs.ucl.ac.uk>
-+ *  Feature negotiation for the DCCP protocol (RFC 4340, section 6)
-+ *
-+ *  Copyright (c) 2008 Gerrit Renker <gerrit@erg.abdn.ac.uk>
-+ *  Rewrote from scratch, some bits from earlier code by
-+ *  Copyright (c) 2005 Andrea Bittau <a.bittau@cs.ucl.ac.uk>
-+ *
-  *
-  *  ASSUMPTIONS
-  *  -----------
-@@ -17,14 +21,10 @@
-  *  as published by the Free Software Foundation; either version
-  *  2 of the License, or (at your option) any later version.
-  */
--
- #include <linux/module.h>
--
- #include "ccid.h"
- #include "feat.h"
- 
--#define DCCP_FEAT_SP_NOAGREE (-123)
--
- /*
-  * Feature activation handlers.
-  *
-@@ -811,51 +811,6 @@ int dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq)
- 	return 0;
- }
- 
--static int dccp_feat_update_ccid(struct sock *sk, u8 type, u8 new_ccid_nr)
--{
--	struct dccp_sock *dp = dccp_sk(sk);
--	struct dccp_minisock *dmsk = dccp_msk(sk);
--	/* figure out if we are changing our CCID or the peer's */
--	const int rx = type == DCCPO_CHANGE_R;
--	const u8 ccid_nr = rx ? dmsk->dccpms_rx_ccid : dmsk->dccpms_tx_ccid;
--	struct ccid *new_ccid;
--
--	/* Check if nothing is being changed. */
--	if (ccid_nr == new_ccid_nr)
--		return 0;
--
--	new_ccid = ccid_new(new_ccid_nr, sk, rx, GFP_ATOMIC);
--	if (new_ccid == NULL)
--		return -ENOMEM;
--
--	if (rx) {
--		ccid_hc_rx_delete(dp->dccps_hc_rx_ccid, sk);
--		dp->dccps_hc_rx_ccid = new_ccid;
--		dmsk->dccpms_rx_ccid = new_ccid_nr;
--	} else {
--		ccid_hc_tx_delete(dp->dccps_hc_tx_ccid, sk);
--		dp->dccps_hc_tx_ccid = new_ccid;
--		dmsk->dccpms_tx_ccid = new_ccid_nr;
--	}
--
--	return 0;
--}
--
--static int dccp_feat_update(struct sock *sk, u8 type, u8 feat, u8 val)
--{
--	dccp_feat_debug(type, feat, val);
--
--	switch (feat) {
--	case DCCPF_CCID:
--		return dccp_feat_update_ccid(sk, type, val);
--	default:
--		dccp_pr_debug("UNIMPLEMENTED: %s(%d, ...)\n",
--			      dccp_feat_typename(type), feat);
--		break;
--	}
--	return 0;
--}
--
- /* Select the first entry in @servlist that also occurs in @clilist (6.3.1) */
- static int dccp_feat_preflist_match(u8 *servlist, u8 slen, u8 *clilist, u8 clen)
- {
-@@ -925,453 +880,6 @@ static int dccp_feat_reconcile(dccp_feat_val *fv, u8 *arr, u8 len,
- 	return dccp_feat_prefer(rc, fv->sp.vec, fv->sp.len);
- }
- 
--#ifdef __this_is_the_old_framework_and_will_be_removed_later_in_a_subsequent_patch
--static int dccp_feat_reconcile(struct sock *sk, struct dccp_opt_pend *opt,
--			       u8 *rpref, u8 rlen)
--{
--	struct dccp_sock *dp = dccp_sk(sk);
--	u8 *spref, slen, *res = NULL;
--	int i, j, rc, agree = 1;
--
--	BUG_ON(rpref == NULL);
--
--	/* check if we are the black sheep */
--	if (dp->dccps_role == DCCP_ROLE_CLIENT) {
--		spref = rpref;
--		slen  = rlen;
--		rpref = opt->dccpop_val;
--		rlen  = opt->dccpop_len;
--	} else {
--		spref = opt->dccpop_val;
--		slen  = opt->dccpop_len;
--	}
--	/*
--	 * Now we have server preference list in spref and client preference in
--	 * rpref
--	 */
--	BUG_ON(spref == NULL);
--	BUG_ON(rpref == NULL);
--
--	/* FIXME sanity check vals */
--
--	/* Are values in any order?  XXX Lame "algorithm" here */
--	for (i = 0; i < slen; i++) {
--		for (j = 0; j < rlen; j++) {
--			if (spref[i] == rpref[j]) {
--				res = &spref[i];
--				break;
--			}
--		}
--		if (res)
--			break;
--	}
--
--	/* we didn't agree on anything */
--	if (res == NULL) {
--		/* confirm previous value */
--		switch (opt->dccpop_feat) {
--		case DCCPF_CCID:
--			/* XXX did i get this right? =P */
--			if (opt->dccpop_type == DCCPO_CHANGE_L)
--				res = &dccp_msk(sk)->dccpms_tx_ccid;
--			else
--				res = &dccp_msk(sk)->dccpms_rx_ccid;
--			break;
--
--		default:
--			DCCP_BUG("Fell through, feat=%d", opt->dccpop_feat);
--			/* XXX implement res */
--			return -EFAULT;
--		}
--
--		dccp_pr_debug("Don't agree... reconfirming %d\n", *res);
--		agree = 0; /* this is used for mandatory options... */
--	}
--
--	/* need to put result and our preference list */
--	rlen = 1 + opt->dccpop_len;
--	rpref = kmalloc(rlen, GFP_ATOMIC);
--	if (rpref == NULL)
--		return -ENOMEM;
--
--	*rpref = *res;
--	memcpy(&rpref[1], opt->dccpop_val, opt->dccpop_len);
--
--	/* put it in the "confirm queue" */
--	if (opt->dccpop_sc == NULL) {
--		opt->dccpop_sc = kmalloc(sizeof(*opt->dccpop_sc), GFP_ATOMIC);
--		if (opt->dccpop_sc == NULL) {
--			kfree(rpref);
--			return -ENOMEM;
--		}
--	} else {
--		/* recycle the confirm slot */
--		BUG_ON(opt->dccpop_sc->dccpoc_val == NULL);
--		kfree(opt->dccpop_sc->dccpoc_val);
--		dccp_pr_debug("recycling confirm slot\n");
--	}
--	memset(opt->dccpop_sc, 0, sizeof(*opt->dccpop_sc));
--
--	opt->dccpop_sc->dccpoc_val = rpref;
--	opt->dccpop_sc->dccpoc_len = rlen;
--
--	/* update the option on our side [we are about to send the confirm] */
--	rc = dccp_feat_update(sk, opt->dccpop_type, opt->dccpop_feat, *res);
--	if (rc) {
--		kfree(opt->dccpop_sc->dccpoc_val);
--		kfree(opt->dccpop_sc);
--		opt->dccpop_sc = NULL;
--		return rc;
--	}
--
--	dccp_pr_debug("Will confirm %d\n", *rpref);
--
--	/* say we want to change to X but we just got a confirm X, suppress our
--	 * change
--	 */
--	if (!opt->dccpop_conf) {
--		if (*opt->dccpop_val == *res)
--			opt->dccpop_conf = 1;
--		dccp_pr_debug("won't ask for change of same feature\n");
--	}
--
--	return agree ? 0 : DCCP_FEAT_SP_NOAGREE; /* used for mandatory opts */
--}
--
--static int dccp_feat_sp(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
--{
--	struct dccp_minisock *dmsk = dccp_msk(sk);
--	struct dccp_opt_pend *opt;
--	int rc = 1;
--	u8 t;
--
--	/*
--	 * We received a CHANGE.  We gotta match it against our own preference
--	 * list.  If we got a CHANGE_R it means it's a change for us, so we need
--	 * to compare our CHANGE_L list.
--	 */
--	if (type == DCCPO_CHANGE_L)
--		t = DCCPO_CHANGE_R;
--	else
--		t = DCCPO_CHANGE_L;
--
--	/* find our preference list for this feature */
--	list_for_each_entry(opt, &dmsk->dccpms_pending, dccpop_node) {
--		if (opt->dccpop_type != t || opt->dccpop_feat != feature)
--			continue;
--
--		/* find the winner from the two preference lists */
--		rc = dccp_feat_reconcile(sk, opt, val, len);
--		break;
--	}
--
--	/* We didn't deal with the change.  This can happen if we have no
--	 * preference list for the feature.  In fact, it just shouldn't
--	 * happen---if we understand a feature, we should have a preference list
--	 * with at least the default value.
--	 */
--	BUG_ON(rc == 1);
--
--	return rc;
--}
--
--static int dccp_feat_nn(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
--{
--	struct dccp_opt_pend *opt;
--	struct dccp_minisock *dmsk = dccp_msk(sk);
--	u8 *copy;
--	int rc;
--
--	/* NN features must be Change L (sec. 6.3.2) */
--	if (type != DCCPO_CHANGE_L) {
--		dccp_pr_debug("received %s for NN feature %d\n",
--				dccp_feat_typename(type), feature);
--		return -EFAULT;
--	}
--
--	/* XXX sanity check opt val */
--
--	/* copy option so we can confirm it */
--	opt = kzalloc(sizeof(*opt), GFP_ATOMIC);
--	if (opt == NULL)
--		return -ENOMEM;
--
--	copy = kmemdup(val, len, GFP_ATOMIC);
--	if (copy == NULL) {
--		kfree(opt);
--		return -ENOMEM;
--	}
--
--	opt->dccpop_type = DCCPO_CONFIRM_R; /* NN can only confirm R */
--	opt->dccpop_feat = feature;
--	opt->dccpop_val	 = copy;
--	opt->dccpop_len	 = len;
--
--	/* change feature */
--	rc = dccp_feat_update(sk, type, feature, *val);
--	if (rc) {
--		kfree(opt->dccpop_val);
--		kfree(opt);
--		return rc;
--	}
--
--	dccp_feat_debug(type, feature, *copy);
--
--	list_add_tail(&opt->dccpop_node, &dmsk->dccpms_conf);
--
--	return 0;
--}
--
--static void dccp_feat_empty_confirm(struct dccp_minisock *dmsk,
--				    u8 type, u8 feature)
--{
--	/* XXX check if other confirms for that are queued and recycle slot */
--	struct dccp_opt_pend *opt = kzalloc(sizeof(*opt), GFP_ATOMIC);
--
--	if (opt == NULL) {
--		/* XXX what do we do?  Ignoring should be fine.  It's a change
--		 * after all =P
--		 */
--		return;
--	}
--
--	switch (type) {
--	case DCCPO_CHANGE_L:
--		opt->dccpop_type = DCCPO_CONFIRM_R;
--		break;
--	case DCCPO_CHANGE_R:
--		opt->dccpop_type = DCCPO_CONFIRM_L;
--		break;
--	default:
--		DCCP_WARN("invalid type %d\n", type);
--		kfree(opt);
--		return;
--	}
--	opt->dccpop_feat = feature;
--	opt->dccpop_val	 = NULL;
--	opt->dccpop_len	 = 0;
--
--	/* change feature */
--	dccp_pr_debug("Empty %s(%d)\n", dccp_feat_typename(type), feature);
--
--	list_add_tail(&opt->dccpop_node, &dmsk->dccpms_conf);
--}
--
--static void dccp_feat_flush_confirm(struct sock *sk)
--{
--	struct dccp_minisock *dmsk = dccp_msk(sk);
--	/* Check if there is anything to confirm in the first place */
--	int yes = !list_empty(&dmsk->dccpms_conf);
--
--	if (!yes) {
--		struct dccp_opt_pend *opt;
--
--		list_for_each_entry(opt, &dmsk->dccpms_pending, dccpop_node) {
--			if (opt->dccpop_conf) {
--				yes = 1;
--				break;
--			}
--		}
--	}
--
--	if (!yes)
--		return;
--
--	/* OK there is something to confirm... */
--	/* XXX check if packet is in flight?  Send delayed ack?? */
--	if (sk->sk_state == DCCP_OPEN)
--		dccp_send_ack(sk);
--}
--
--int dccp_feat_change_recv(struct sock *sk, u8 type, u8 feature, u8 *val, u8 len)
--{
--	int rc;
--
--	/* Ignore Change requests other than during connection setup */
--	if (sk->sk_state != DCCP_LISTEN && sk->sk_state != DCCP_REQUESTING)
--		return 0;
--	dccp_feat_debug(type, feature, *val);
--
--	/* figure out if it's SP or NN feature */
--	switch (feature) {
--	/* deal with SP features */
--	case DCCPF_CCID:
--		/* XXX Obsoleted by next patch
--		rc = dccp_feat_sp(sk, type, feature, val, len); */
--		break;
--
--	/* deal with NN features */
--	case DCCPF_ACK_RATIO:
--		/* XXX Obsoleted by next patch
--		rc = dccp_feat_nn(sk, type, feature, val, len); */
--		break;
--
--	/* XXX implement other features */
--	default:
--		dccp_pr_debug("UNIMPLEMENTED: not handling %s(%d, ...)\n",
--			      dccp_feat_typename(type), feature);
--		rc = -EFAULT;
--		break;
--	}
--
--	/* check if there were problems changing features */
--	if (rc) {
--		/* If we don't agree on SP, we sent a confirm for old value.
--		 * However we propagate rc to caller in case option was
--		 * mandatory
--		 */
--		if (rc != DCCP_FEAT_SP_NOAGREE)
--			dccp_feat_empty_confirm(dccp_msk(sk), type, feature);
--	}
--
--	/* generate the confirm [if required] */
--	dccp_feat_flush_confirm(sk);
--
--	return rc;
--}
--
--EXPORT_SYMBOL_GPL(dccp_feat_change_recv);
--
--int dccp_feat_confirm_recv(struct sock *sk, u8 type, u8 feature,
--			   u8 *val, u8 len)
--{
--	u8 t;
--	struct dccp_opt_pend *opt;
--	struct dccp_minisock *dmsk = dccp_msk(sk);
--	int found = 0;
--	int all_confirmed = 1;
--
--	/* Ignore Confirm options other than during connection setup */
--	if (sk->sk_state != DCCP_LISTEN && sk->sk_state != DCCP_REQUESTING)
--		return 0;
--	dccp_feat_debug(type, feature, *val);
--
--	/* locate our change request */
--	switch (type) {
--	case DCCPO_CONFIRM_L: t = DCCPO_CHANGE_R; break;
--	case DCCPO_CONFIRM_R: t = DCCPO_CHANGE_L; break;
--	default:	      DCCP_WARN("invalid type %d\n", type);
--			      return 1;
--
--	}
--	/* XXX sanity check feature value */
--
--	list_for_each_entry(opt, &dmsk->dccpms_pending, dccpop_node) {
--		if (!opt->dccpop_conf && opt->dccpop_type == t &&
--		    opt->dccpop_feat == feature) {
--			found = 1;
--			dccp_pr_debug("feature %d found\n", opt->dccpop_feat);
--
--			/* XXX do sanity check */
--
--			opt->dccpop_conf = 1;
--
--			/* We got a confirmation---change the option */
--			dccp_feat_update(sk, opt->dccpop_type,
--					 opt->dccpop_feat, *val);
--
--			/* XXX check the return value of dccp_feat_update */
--			break;
--		}
--
--		if (!opt->dccpop_conf)
--			all_confirmed = 0;
--	}
--
--	if (!found)
--		dccp_pr_debug("%s(%d, ...) never requested\n",
--			      dccp_feat_typename(type), feature);
--	return 0;
--}
--
--EXPORT_SYMBOL_GPL(dccp_feat_confirm_recv);
--#endif	/* (later) */
--
--void dccp_feat_clean(struct dccp_minisock *dmsk)
--{
--	struct dccp_opt_pend *opt, *next;
--
--	list_for_each_entry_safe(opt, next, &dmsk->dccpms_pending,
--				 dccpop_node) {
--		BUG_ON(opt->dccpop_val == NULL);
--		kfree(opt->dccpop_val);
--
--		if (opt->dccpop_sc != NULL) {
--			BUG_ON(opt->dccpop_sc->dccpoc_val == NULL);
--			kfree(opt->dccpop_sc->dccpoc_val);
--			kfree(opt->dccpop_sc);
--		}
--
--		kfree(opt);
--	}
--	INIT_LIST_HEAD(&dmsk->dccpms_pending);
--
--	list_for_each_entry_safe(opt, next, &dmsk->dccpms_conf, dccpop_node) {
--		BUG_ON(opt == NULL);
--		if (opt->dccpop_val != NULL)
--			kfree(opt->dccpop_val);
--		kfree(opt);
--	}
--	INIT_LIST_HEAD(&dmsk->dccpms_conf);
--}
--
--EXPORT_SYMBOL_GPL(dccp_feat_clean);
--
--/* this is to be called only when a listening sock creates its child.  It is
-- * assumed by the function---the confirm is not duplicated, but rather it is
-- * "passed on".
-- */
--int dccp_feat_clone(struct sock *oldsk, struct sock *newsk)
--{
--	struct dccp_minisock *olddmsk = dccp_msk(oldsk);
--	struct dccp_minisock *newdmsk = dccp_msk(newsk);
--	struct dccp_opt_pend *opt;
--	int rc = 0;
--
--	INIT_LIST_HEAD(&newdmsk->dccpms_pending);
--	INIT_LIST_HEAD(&newdmsk->dccpms_conf);
--
--	list_for_each_entry(opt, &olddmsk->dccpms_pending, dccpop_node) {
--		struct dccp_opt_pend *newopt;
--		/* copy the value of the option */
--		u8 *val = kmemdup(opt->dccpop_val, opt->dccpop_len, GFP_ATOMIC);
--
--		if (val == NULL)
--			goto out_clean;
--
--		newopt = kmemdup(opt, sizeof(*newopt), GFP_ATOMIC);
--		if (newopt == NULL) {
--			kfree(val);
--			goto out_clean;
--		}
--
--		/* insert the option */
--		newopt->dccpop_val = val;
--		list_add_tail(&newopt->dccpop_node, &newdmsk->dccpms_pending);
--
--		/* XXX what happens with backlogs and multiple connections at
--		 * once...
--		 */
--		/* the master socket no longer needs to worry about confirms */
--		opt->dccpop_sc = NULL; /* it's not a memleak---new socket has it */
--
--		/* reset state for a new socket */
--		opt->dccpop_conf = 0;
--	}
--
--	/* XXX not doing anything about the conf queue */
--
--out:
--	return rc;
--
--out_clean:
--	dccp_feat_clean(newdmsk);
--	rc = -ENOMEM;
--	goto out;
--}
--
--EXPORT_SYMBOL_GPL(dccp_feat_clone);
--
- /**
-  * dccp_feat_change_recv  -  Process incoming ChangeL/R options
-  * @fn: feature-negotiation list to update
+Gerrit
+
+
+Commit summary:
+---------------
+This is a continuation of an ongoing submission to provide feature/capability
+negotiation for DCCP endpoints (RFC 4340 - 4342, 5348).
+
+The whole set is structured into 3 main blocks - (1) basis, (2) core, (3)
+integration and cleanup.
+
+This set is the first out of two in block (3) and  removes the old, now unused,
+parts of the older interface and begins the integration of the new interface 
+that formed part (2) of this submission.
+
+The second and last part of block (3) deals with the initialization of 
+feature-negotiation state.
+
+
+List of patches in this set:
+----------------------------
+Patch #1: Integration of dynamic negotiation, part I (socket setup).
+Patch #2: Integration of dynamic negotiation, part II (server side).
+Patch #3: Integration of dynamic negotiation, part III (client side).
+Patch #4: Cleans up the older infrastructure.
+Patch #5: Removes obsolete parts of the old CCID interface.
+Patch #6: Removes manual intervention on NDP count (now automatic).
+Patch #7: Removes Ack Vector sysctl (handled automatically now).
+
+The set is also available for viewing online, beginning at
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=c47390a8b5faaec4a41337714b2d80c85fc6ba26
+
+
+Patch stats:
+------------
+ Documentation/networking/dccp.txt |   11 
+ include/linux/dccp.h              |   10 
+ net/dccp/ccid.c                   |   14 -
+ net/dccp/ccid.h                   |    5 
+ net/dccp/dccp.h                   |    4 
+ net/dccp/diag.c                   |    2 
+ net/dccp/feat.c                   |  519 --------------------------------------
+ net/dccp/feat.h                   |   12 
+ net/dccp/input.c                  |   42 ++-
+ net/dccp/minisocks.c              |   46 ---
+ net/dccp/options.c                |   11 
+ net/dccp/proto.c                  |   49 ---
+ net/dccp/sysctl.c                 |   14 -
+ 13 files changed, 70 insertions(+), 669 deletions(-)
