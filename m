@@ -1,165 +1,81 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 6/7] dccp: Remove manual influence on NDP Count feature
-Date: Sat,  6 Dec 2008 17:40:56 +0100
-Message-ID: <1228581657-6724-7-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-6-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43894 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751979AbYLFQlP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2008 11:41:15 -0500
-In-Reply-To: <1228581657-6724-6-git-send-email-gerrit@erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "m m" <olsajiri@gmail.com>
+Subject: Re: netlink - notify when the socket gets closed
+Date: Sat, 6 Dec 2008 19:10:52 +0100
+Message-ID: <35476bd20812061010g145b6c19r282ae32a4ebfabb1@mail.gmail.com>
+References: <35476bd20812050017y70c3c729v450cdc3d0c1188de@mail.gmail.com>
+	 <20081205195624.95ea1866.akpm@linux-foundation.org>
+	 <493A92FD.3060302@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Patrick McHardy" <kaber@trash.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <493A92FD.3060302@trash.net>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Updating the NDP count feature is handled automatically now:
- * for CCID-2 it is disabled, since the code does not use NDP counts;
- * for CCID-3 it is enabled, as NDP counts are used to determine loss lengths.
+On Sat, Dec 6, 2008 at 3:58 PM, Patrick McHardy <kaber@trash.net> wrote:
+> Andrew Morton wrote:
+>>
+>> (cc netdev@vger.kernel.org)
+>>
+>> On Fri, 5 Dec 2008 09:17:51 +0100 "m m" <olsajiri@gmail.com> wrote:
+>>>
+>>> I'm using netlink in my module. Based on the communication,
+>>> this module dynamically creates some internal structure, which
+>>> needs to be destroyed when the user level socket is closed (or
+>>> the application dies).
+>>>
+>>> I found I could use the netlink_register_notifier function to register
+>>> NETLINK_URELEASE callback during the netlink_release function.
+>>> But since my module uses the multicast netlink socket communication,
+>>> it wont be called:
+>>>
+>>> [...]
+>>> Whats the reason this callback is not called for multicast sockets?
+>>>
+>>> To workaround it I created simple misc device which the user application
+>>> opens before creating the netlink socket. This way I get some callbacks
+>>> inside the module when the application dies, at least.. pretty ugly :)
+>>>
+>>> Is there a netlink mechanism to be notified when the netlink socket is
+>>> closed on the user level side? (when using multicast communication)
+>>>
+>>> Or is there any other design I could use, since I think I'm not alone in
+>>> using internal module data which needs to be removed once the application
+>>> dies.
+>
+>
+> That doesn't make sense. When you use multicast, multiple applications
+> can be listening to the messages. If you really need state for a single
+> listener and exchange messages in both directions, it sounds like you
+> should use unicast.
+>
+>
 
-Allowing the user to change NDP values leads to unpredictable and failing
-behaviour, since it is then possible to disable NDP counts even when they
-are needed (e.g. in CCID-3).
+My user app register in kernel for a data. When there is a first
+application request,
+kernel module creates an internal record and ask DATA subsystem for a data,
+which are then passed to the user application.
 
-This means that only those user settings are sensible that agree with the
-values for Send NDP Count implied by the choice of CCID. But those settings
-are already activated by the feature negotiation (CCID dependency tracking),
-hence this form of support is redundant.
+The data are then delivered to the application as they are comming from
+the DATA subsystem.
 
-At startup the initialisation of the NDP count feature uses the default
-value of 0, which is done implicitly by the zeroing-out of the socket when
-it is allocated. If the choice of CCID or feature negotiation enables NDP
-count, this will then be updated via the NDP activation handler.
+When there's another application requesting the same data type, kernel module
+just increase reference count in the internal record, and multicast delivers
+data to the other app.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
----
- Documentation/networking/dccp.txt |    3 ---
- include/linux/dccp.h              |    4 ++--
- net/dccp/dccp.h                   |    1 -
- net/dccp/feat.c                   |    2 +-
- net/dccp/minisocks.c              |    1 -
- net/dccp/options.c                |    4 +---
- net/dccp/sysctl.c                 |    7 -------
- 7 files changed, 4 insertions(+), 18 deletions(-)
+Now when one of those applications end, kernel module just decrease
+the reference count in the internal record.
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -133,9 +133,6 @@ retries2
- 	importance for retransmitted acknowledgments and feature negotiation,
- 	data packets are never retransmitted. Analogue of tcp_retries2.
- 
--send_ndp = 1
--	Whether or not to send NDP count options (sec. 7.7.2).
--
- send_ackvec = 1
- 	Whether or not to send Ack Vector options (sec. 11.5).
- 
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -371,14 +371,12 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
-   *
-   * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
-   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
--  * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
-   * @dccpms_pending - List of features being negotiated
-   * @dccpms_conf -
-   */
- struct dccp_minisock {
- 	__u64			dccpms_sequence_window;
- 	__u8			dccpms_send_ack_vector;
--	__u8			dccpms_send_ndp_count;
- 	struct list_head	dccpms_pending;
- 	struct list_head	dccpms_conf;
- };
-@@ -490,6 +488,7 @@ struct dccp_ackvec;
-  * @dccps_r_ack_ratio - feature-remote Ack Ratio
-  * @dccps_pcslen - sender   partial checksum coverage (via sockopt)
-  * @dccps_pcrlen - receiver partial checksum coverage (via sockopt)
-+ * @dccps_send_ndp_count - local Send NDP Count feature (7.7.2)
-  * @dccps_ndp_count - number of Non Data Packets since last data packet
-  * @dccps_mss_cache - current value of MSS (path MTU minus header sizes)
-  * @dccps_rate_last - timestamp for rate-limiting DCCP-Sync (RFC 4340, 7.5.4)
-@@ -529,6 +528,7 @@ struct dccp_sock {
- 	__u16				dccps_r_ack_ratio;
- 	__u8				dccps_pcslen:4;
- 	__u8				dccps_pcrlen:4;
-+	__u8				dccps_send_ndp_count:1;
- 	__u64				dccps_ndp_count:48;
- 	unsigned long			dccps_rate_last;
- 	struct dccp_minisock		dccps_minisock;
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -99,7 +99,6 @@ extern int  sysctl_dccp_feat_sequence_window;
- extern int  sysctl_dccp_feat_rx_ccid;
- extern int  sysctl_dccp_feat_tx_ccid;
- extern int  sysctl_dccp_feat_send_ack_vector;
--extern int  sysctl_dccp_feat_send_ndp_count;
- extern int  sysctl_dccp_tx_qlen;
- extern int  sysctl_dccp_sync_ratelimit;
- 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -85,7 +85,7 @@ static int dccp_hdlr_ackvec(struct sock *sk, u64 enable, bool rx)
- static int dccp_hdlr_ndp(struct sock *sk, u64 enable, bool rx)
- {
- 	if (!rx)
--		dccp_msk(sk)->dccpms_send_ndp_count = (enable > 0);
-+		dccp_sk(sk)->dccps_send_ndp_count = (enable > 0);
- 	return 0;
- }
- 
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -46,7 +46,6 @@ void dccp_minisock_init(struct dccp_minisock *dmsk)
- {
- 	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
- 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
--	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
- }
- 
- void dccp_time_wait(struct sock *sk, int state, int timeo)
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -27,7 +27,6 @@ int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
- int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
- int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
- int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
--int sysctl_dccp_feat_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
- 
- u64 dccp_decode_value_var(const u8 *bf, const u8 len)
- {
-@@ -531,8 +530,7 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
- 
- 	DCCP_SKB_CB(skb)->dccpd_opt_len = 0;
- 
--	if (dmsk->dccpms_send_ndp_count &&
--	    dccp_insert_option_ndp(sk, skb))
-+	if (dp->dccps_send_ndp_count && dccp_insert_option_ndp(sk, skb))
- 		return -1;
- 
- 	if (DCCP_SKB_CB(skb)->dccpd_type != DCCP_PKT_DATA) {
---- a/net/dccp/sysctl.c
-+++ b/net/dccp/sysctl.c
-@@ -48,13 +48,6 @@ static struct ctl_table dccp_default_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
--		.procname	= "send_ndp",
--		.data		= &sysctl_dccp_feat_send_ndp_count,
--		.maxlen		= sizeof(sysctl_dccp_feat_send_ndp_count),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
--	},
--	{
- 		.procname	= "request_retries",
- 		.data		= &sysctl_dccp_request_retries,
- 		.maxlen		= sizeof(sysctl_dccp_request_retries),
+When the other application ends, kernel module needs to release the internal
+record and ask the DATA subsystem to stop delivering data.
+
+Hope this make sense... I could do some ascii art next time if needed :)
+
+thanks,
+jirka
