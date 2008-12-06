@@ -1,100 +1,112 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/7] dccp: Integration of dynamic feature activation - part 2 (server side)
-Date: Sat,  6 Dec 2008 17:40:52 +0100
-Message-ID: <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/7] dccp: Integration of dynamic feature activation - part 3 (client side)
+Date: Sat,  6 Dec 2008 17:40:53 +0100
+Message-ID: <1228581657-6724-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43895 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751265AbYLFQlI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2008 11:41:08 -0500
-In-Reply-To: <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751388AbYLFQlL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2008 11:41:11 -0500
+In-Reply-To: <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch integrates the activation of features at the end of negotiation
-into the server-side code.
+This integrates feature-activation in the client:
 
-Note regarding the removal of 'const':
---------------------------------------
- The 'const' attribute has been removed from 'dreq' since dccp_activate_values()
- needs to operate on dreq's feature list. Part of the activation is to remove
- those options from the list that have already been confirmed, hence it is not
- purely read-only.
+ 1. When dccp_parse_options() fails, the reset code is already set; request_sent\
+    _state_process() currently overrides this with `Packet Error', which is not
+    intended - changed to use the reset code supplied by dccp_parse_options().
+
+ 2. When feature negotiation fails, the socket should be marked as not usable,
+    so that the application is notified that an error occurred. This is achieved
+    by a new label 'unable_to_proceed': generating an error code of `Aborted',
+    setting the socket state to CLOSED, returning with ECOMM in sk_err.
+
+ 3. Avoids parsing the Ack twice in Respond state by not doing option processing
+    again in dccp_rcv_respond_partopen_state_process (as option processing has
+    already been done on the request_sock in dccp_check_req).
+
+Since this addresses congestion-control initialisation, a corresponding
+FIXME has been removed.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/minisocks.c |   42 ++++++++++++------------------------------
- 1 files changed, 12 insertions(+), 30 deletions(-)
+ net/dccp/input.c |   30 ++++++++++++++++++++++++++----
+ 1 files changed, 26 insertions(+), 4 deletions(-)
 
---- a/net/dccp/minisocks.c
-+++ b/net/dccp/minisocks.c
-@@ -111,7 +111,7 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
- 	struct sock *newsk = inet_csk_clone(sk, req, GFP_ATOMIC);
- 
- 	if (newsk != NULL) {
--		const struct dccp_request_sock *dreq = dccp_rsk(req);
-+		struct dccp_request_sock *dreq = dccp_rsk(req);
- 		struct inet_connection_sock *newicsk = inet_csk(newsk);
- 		struct dccp_sock *newdp = dccp_sk(newsk);
- 		struct dccp_minisock *newdmsk = dccp_msk(newsk);
-@@ -125,35 +125,6 @@ struct sock *dccp_create_openreq_child(struct sock *sk,
- 		newicsk->icsk_rto	    = DCCP_TIMEOUT_INIT;
- 
- 		INIT_LIST_HEAD(&newdp->dccps_featneg);
--		if (dccp_feat_clone(sk, newsk))
--			goto out_free;
--
--		if (newdmsk->dccpms_send_ack_vector) {
--			newdp->dccps_hc_rx_ackvec =
--						dccp_ackvec_alloc(GFP_ATOMIC);
--			if (unlikely(newdp->dccps_hc_rx_ackvec == NULL))
--				goto out_free;
--		}
--
--		newdp->dccps_hc_rx_ccid =
--			    ccid_hc_rx_new(newdmsk->dccpms_rx_ccid,
--					   newsk, GFP_ATOMIC);
--		newdp->dccps_hc_tx_ccid =
--			    ccid_hc_tx_new(newdmsk->dccpms_tx_ccid,
--					   newsk, GFP_ATOMIC);
--		if (unlikely(newdp->dccps_hc_rx_ccid == NULL ||
--			     newdp->dccps_hc_tx_ccid == NULL)) {
--			dccp_ackvec_free(newdp->dccps_hc_rx_ackvec);
--			ccid_hc_rx_delete(newdp->dccps_hc_rx_ccid, newsk);
--			ccid_hc_tx_delete(newdp->dccps_hc_tx_ccid, newsk);
--out_free:
--			/* It is still raw copy of parent, so invalidate
--			 * destructor and make plain sk_free() */
--			newsk->sk_destruct = NULL;
--			sk_free(newsk);
--			return NULL;
--		}
--
- 		/*
- 		 * Step 3: Process LISTEN state
- 		 *
-@@ -184,6 +155,17 @@ out_free:
- 		dccp_set_seqno(&newdp->dccps_awl,
- 			       max48(newdp->dccps_awl, newdp->dccps_iss));
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -421,8 +421,13 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
+ 			goto out_invalid_packet;
+ 		}
  
 +		/*
-+		 * Activate features after initialising the sequence numbers,
-+		 * since CCID initialisation may depend on GSS, ISR, ISS etc.
++		 * If option processing (Step 8) failed, return 1 here so that
++		 * dccp_v4_do_rcv() sends a Reset. The Reset code depends on
++		 * the option type and is set in dccp_parse_options().
 +		 */
-+		if (dccp_feat_activate_values(newsk, &dreq->dreq_featneg)) {
-+			/* It is still raw copy of parent, so invalidate
-+			 * destructor and make plain sk_free() */
-+			newsk->sk_destruct = NULL;
-+			sk_free(newsk);
-+			return NULL;
-+		}
- 		dccp_init_xmit_timers(newsk);
+ 		if (dccp_parse_options(sk, NULL, skb))
+-			goto out_invalid_packet;
++			return 1;
  
- 		DCCP_INC_STATS_BH(DCCP_MIB_PASSIVEOPENS);
+ 		/* Obtain usec RTT sample from SYN exchange (used by CCID 3) */
+ 		if (likely(dp->dccps_options_received.dccpor_timestamp_echo))
+@@ -475,6 +480,15 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
+ 		 */
+ 		dccp_set_state(sk, DCCP_PARTOPEN);
+ 
++		/*
++		 * If feature negotiation was successful, activate features now;
++		 * an activation failure means that this host could not activate
++		 * one ore more features (e.g. insufficient memory), which would
++		 * leave at least one feature in an undefined state.
++		 */
++		if (dccp_feat_activate_values(sk, &dp->dccps_featneg))
++			goto unable_to_proceed;
++
+ 		/* Make sure socket is routed, for correct metrics. */
+ 		icsk->icsk_af_ops->rebuild_header(sk);
+ 
+@@ -509,6 +523,16 @@ out_invalid_packet:
+ 	/* dccp_v4_do_rcv will send a reset */
+ 	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_PACKET_ERROR;
+ 	return 1;
++
++unable_to_proceed:
++	DCCP_SKB_CB(skb)->dccpd_reset_code = DCCP_RESET_CODE_ABORTED;
++	/*
++	 * We mark this socket as no longer usable, so that the loop in
++	 * dccp_sendmsg() terminates and the application gets notified.
++	 */
++	dccp_set_state(sk, DCCP_CLOSED);
++	sk->sk_err = ECOMM;
++	return 1;
+ }
+ 
+ static int dccp_rcv_respond_partopen_state_process(struct sock *sk,
+@@ -600,7 +624,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		return 1;
+ 	}
+ 
+-	if (sk->sk_state != DCCP_REQUESTING) {
++	if (sk->sk_state != DCCP_REQUESTING && sk->sk_state != DCCP_RESPOND) {
+ 		if (dccp_check_seqno(sk, skb))
+ 			goto discard;
+ 
+@@ -665,8 +689,6 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		return 1;
+ 
+ 	case DCCP_REQUESTING:
+-		/* FIXME: do congestion control initialization */
+-
+ 		queued = dccp_rcv_request_sent_state_process(sk, skb, dh, len);
+ 		if (queued >= 0)
+ 			return queued;
