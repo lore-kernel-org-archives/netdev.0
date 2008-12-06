@@ -1,268 +1,152 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 7/7] dccp ccid-2: Phase out the use of boolean Ack Vector sysctl
-Date: Sat,  6 Dec 2008 17:40:57 +0100
-Message-ID: <1228581657-6724-8-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/7] dccp: Remove obsolete parts of the old CCID interface
+Date: Sat,  6 Dec 2008 17:40:55 +0100
+Message-ID: <1228581657-6724-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228581657-6724-4-git-send-email-gerrit@erg.abdn.ac.uk>
  <1228581657-6724-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1228581657-6724-7-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43897 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43895 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751301AbYLFQlI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Dec 2008 11:41:08 -0500
-In-Reply-To: <1228581657-6724-7-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1751652AbYLFQlP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Dec 2008 11:41:15 -0500
+In-Reply-To: <1228581657-6724-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the use of the sysctl and the minisock variable for the Send Ack
-Vector feature, as it now is handled fully dynamically via feature negotiation
-(i.e. when CCID-2 is enabled, Ack Vectors are automatically enabled as per
- RFC 4341, 4.).
+The TX/RX CCIDs of the minisock are now redundant: similar to the Ack Vector
+case, their value equals initially that of the sysctl, but at the end of
+feature negotiation may be something different.
 
-Using a sysctl in parallel to this implementation would open the door to
-crashes, since much of the code relies on tests of the boolean minisock /
-sysctl variable. Thus, this patch replaces all tests of type
+The old interface removed by this patch thus has been replaced by the newer
+interface to dynamically query the currently loaded CCIDs.
 
-	if (dccp_msk(sk)->dccpms_send_ack_vector)
-		/* ... */
-with
-	if (dp->dccps_hc_rx_ackvec != NULL)
-		/* ... */
-
-The dccps_hc_rx_ackvec is allocated by the dccp_hdlr_ackvec() when feature
-negotiation concluded that Ack Vectors are to be used on the half-connection.
-Otherwise, it is NULL (due to dccp_init_sock/dccp_create_openreq_child),
-so that the test is a valid one.
-
-The activation handler for Ack Vectors is called as soon as the feature
-negotiation has concluded at the
- * server when the Ack marking the transition RESPOND => OPEN arrives;
- * client after it has sent its ACK, marking the transition REQUEST => PARTOPEN.
-
-Adding the sequence number of the Response packet to the Ack Vector has been
-removed, since
- (a) connection establishment implies that the Response has been received;
- (b) the CCIDs only look at packets received in the (PART)OPEN state, i.e.
-     this entry will always be ignored;
- (c) it can not be used for anything useful - to detect loss for instance, only
-     packets received after the loss can serve as pseudo-dupacks.
-
-There was a FIXME to change the error code when dccp_ackvec_add() fails.
-I removed this after finding out that:
- * the check whether ackno < ISN is already made earlier,
- * this Response is likely the 1st packet with an Ackno that the client gets,
- * so when dccp_ackvec_add() fails, the reason is likely not a packet error.
-
+Also removed are the constructors for the TX CCID and the RX CCID, since the
+switch "rx <-> non-rx" is done by the handler in minisocks.c (and the handler
+is the only place in the code where CCIDs are loaded).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- Documentation/networking/dccp.txt |    3 ---
+ Documentation/networking/dccp.txt |    5 +++--
  include/linux/dccp.h              |    3 ---
- net/dccp/dccp.h                   |    3 +--
- net/dccp/diag.c                   |    2 +-
- net/dccp/input.c                  |   12 +++---------
- net/dccp/minisocks.c              |    1 -
- net/dccp/options.c                |    7 ++-----
- net/dccp/proto.c                  |    3 +--
- net/dccp/sysctl.c                 |    7 -------
- 9 files changed, 8 insertions(+), 33 deletions(-)
+ net/dccp/ccid.c                   |   14 --------------
+ net/dccp/ccid.h                   |    5 -----
+ net/dccp/feat.c                   |   13 -------------
+ net/dccp/minisocks.c              |    2 --
+ 6 files changed, 3 insertions(+), 39 deletions(-)
 
 --- a/Documentation/networking/dccp.txt
 +++ b/Documentation/networking/dccp.txt
-@@ -133,9 +133,6 @@ retries2
- 	importance for retransmitted acknowledgments and feature negotiation,
- 	data packets are never retransmitted. Analogue of tcp_retries2.
+@@ -140,10 +140,11 @@ send_ackvec = 1
+ 	Whether or not to send Ack Vector options (sec. 11.5).
  
--send_ackvec = 1
--	Whether or not to send Ack Vector options (sec. 11.5).
--
  tx_ccid = 2
- 	Default CCID for the sender-receiver half-connection. Depending on the
- 	choice of CCID, the Send Ack Vector feature is enabled automatically.
+-	Default CCID for the sender-receiver half-connection.
++	Default CCID for the sender-receiver half-connection. Depending on the
++	choice of CCID, the Send Ack Vector feature is enabled automatically.
+ 
+ rx_ccid = 2
+-	Default CCID for the receiver-sender half-connection.
++	Default CCID for the receiver-sender half-connection; see tx_ccid.
+ 
+ seq_window = 100
+ 	The initial sequence window (sec. 7.5.2).
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -111,11 +111,6 @@ extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
+ extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
+ 			     gfp_t gfp);
+ 
+-extern struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk,
+-				   gfp_t gfp);
+-extern struct ccid *ccid_hc_tx_new(unsigned char id, struct sock *sk,
+-				   gfp_t gfp);
+-
+ static inline int ccid_get_current_rx_ccid(struct dccp_sock *dp)
+ {
+ 	struct ccid *ccid = dp->dccps_hc_rx_ccid;
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -253,20 +253,6 @@ out_module_put:
+ 
+ EXPORT_SYMBOL_GPL(ccid_new);
+ 
+-struct ccid *ccid_hc_rx_new(unsigned char id, struct sock *sk, gfp_t gfp)
+-{
+-	return ccid_new(id, sk, 1, gfp);
+-}
+-
+-EXPORT_SYMBOL_GPL(ccid_hc_rx_new);
+-
+-struct ccid *ccid_hc_tx_new(unsigned char id,struct sock *sk,  gfp_t gfp)
+-{
+-	return ccid_new(id, sk, 0, gfp);
+-}
+-
+-EXPORT_SYMBOL_GPL(ccid_hc_tx_new);
+-
+ static void ccid_delete(struct ccid *ccid, struct sock *sk, int rx)
+ {
+ 	struct ccid_operations *ccid_ops;
 --- a/include/linux/dccp.h
 +++ b/include/linux/dccp.h
-@@ -360,7 +360,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
- #define DCCPF_INITIAL_SEQUENCE_WINDOW		100
- #define DCCPF_INITIAL_ACK_RATIO			2
- #define DCCPF_INITIAL_CCID			DCCPC_CCID2
--#define DCCPF_INITIAL_SEND_ACK_VECTOR		1
- /* FIXME: for now we're default to 1 but it should really be 0 */
- #define DCCPF_INITIAL_SEND_NDP_COUNT		1
- 
-@@ -370,13 +369,11 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+@@ -370,7 +370,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
    * Will be used to pass the state from dccp_request_sock to dccp_sock.
    *
    * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
--  * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
+-  * @dccpms_ccid - Congestion Control Id (CCID) (section 10)
+   * @dccpms_send_ack_vector - Send Ack Vector Feature (section 11.5)
+   * @dccpms_send_ndp_count - Send NDP Count Feature (7.7.2)
    * @dccpms_pending - List of features being negotiated
-   * @dccpms_conf -
+@@ -378,8 +377,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
    */
  struct dccp_minisock {
  	__u64			dccpms_sequence_window;
--	__u8			dccpms_send_ack_vector;
+-	__u8			dccpms_rx_ccid;
+-	__u8			dccpms_tx_ccid;
+ 	__u8			dccpms_send_ack_vector;
+ 	__u8			dccpms_send_ndp_count;
  	struct list_head	dccpms_pending;
- 	struct list_head	dccpms_conf;
- };
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -98,7 +98,6 @@ extern int  sysctl_dccp_retries2;
- extern int  sysctl_dccp_feat_sequence_window;
- extern int  sysctl_dccp_feat_rx_ccid;
- extern int  sysctl_dccp_feat_tx_ccid;
--extern int  sysctl_dccp_feat_send_ack_vector;
- extern int  sysctl_dccp_tx_qlen;
- extern int  sysctl_dccp_sync_ratelimit;
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -1124,22 +1124,9 @@ int dccp_feat_init(struct sock *sk)
+ 	INIT_LIST_HEAD(&dmsk->dccpms_pending);	/* XXX no longer used */
+ 	INIT_LIST_HEAD(&dmsk->dccpms_conf);	/* XXX no longer used */
  
-@@ -434,7 +433,7 @@ static inline int dccp_ack_pending(const struct sock *sk)
- 	const struct dccp_sock *dp = dccp_sk(sk);
- 	return dp->dccps_timestamp_echo != 0 ||
- #ifdef CONFIG_IP_DCCP_ACKVEC
--	       (dccp_msk(sk)->dccpms_send_ack_vector &&
-+	       (dp->dccps_hc_rx_ackvec != NULL &&
- 		dccp_ackvec_pending(dp->dccps_hc_rx_ackvec)) ||
- #endif
- 	       inet_csk_ack_scheduled(sk);
---- a/net/dccp/diag.c
-+++ b/net/dccp/diag.c
-@@ -29,7 +29,7 @@ static void dccp_get_info(struct sock *sk, struct tcp_info *info)
- 	info->tcpi_backoff	= icsk->icsk_backoff;
- 	info->tcpi_pmtu		= icsk->icsk_pmtu_cookie;
- 
--	if (dccp_msk(sk)->dccpms_send_ack_vector)
-+	if (dp->dccps_hc_rx_ackvec != NULL)
- 		info->tcpi_options |= TCPI_OPT_SACK;
- 
- 	ccid_hc_rx_get_info(dp->dccps_hc_rx_ccid, sk, info);
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -163,7 +163,7 @@ static void dccp_event_ack_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
- 
--	if (dccp_msk(sk)->dccpms_send_ack_vector)
-+	if (dp->dccps_hc_rx_ackvec != NULL)
- 		dccp_ackvec_check_rcv_ackno(dp->dccps_hc_rx_ackvec, sk,
- 					    DCCP_SKB_CB(skb)->dccpd_ack_seq);
- }
-@@ -375,7 +375,7 @@ int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 	if (DCCP_SKB_CB(skb)->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
- 		dccp_event_ack_recv(sk, skb);
- 
--	if (dccp_msk(sk)->dccpms_send_ack_vector &&
-+	if (dp->dccps_hc_rx_ackvec != NULL &&
- 	    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
- 			    DCCP_SKB_CB(skb)->dccpd_seq,
- 			    DCCP_ACKVEC_STATE_RECEIVED))
-@@ -434,12 +434,6 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
- 			dp->dccps_syn_rtt = dccp_sample_rtt(sk, 10 * (tstamp -
- 			    dp->dccps_options_received.dccpor_timestamp_echo));
- 
--		if (dccp_msk(sk)->dccpms_send_ack_vector &&
--		    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
--				    DCCP_SKB_CB(skb)->dccpd_seq,
--				    DCCP_ACKVEC_STATE_RECEIVED))
--			goto out_invalid_packet; /* FIXME: change error code */
+-	/* CCID L */
+-	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 1, 0,
+-				&dmsk->dccpms_tx_ccid, 1);
+-	if (rc)
+-		goto out;
 -
- 		/* Stop the REQUEST timer */
- 		inet_csk_clear_xmit_timer(sk, ICSK_TIME_RETRANS);
- 		WARN_ON(sk->sk_send_head == NULL);
-@@ -637,7 +631,7 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		if (dcb->dccpd_ack_seq != DCCP_PKT_WITHOUT_ACK_SEQ)
- 			dccp_event_ack_recv(sk, skb);
+-	/* CCID R */
+-	rc = __feat_register_sp(&dp->dccps_featneg, DCCPF_CCID, 0, 0,
+-				&dmsk->dccpms_rx_ccid, 1);
+-	if (rc)
+-		goto out;
+-
+ 	/* Ack ratio */
+ 	rc = __feat_register_nn(&dp->dccps_featneg, DCCPF_ACK_RATIO, 0,
+ 				dp->dccps_l_ack_ratio);
+-out:
+ 	return rc;
+ }
  
--		if (dccp_msk(sk)->dccpms_send_ack_vector &&
-+		if (dp->dccps_hc_rx_ackvec != NULL &&
- 		    dccp_ackvec_add(dp->dccps_hc_rx_ackvec, sk,
- 				    DCCP_SKB_CB(skb)->dccpd_seq,
- 				    DCCP_ACKVEC_STATE_RECEIVED))
 --- a/net/dccp/minisocks.c
 +++ b/net/dccp/minisocks.c
-@@ -45,7 +45,6 @@ EXPORT_SYMBOL_GPL(dccp_death_row);
+@@ -45,8 +45,6 @@ EXPORT_SYMBOL_GPL(dccp_death_row);
  void dccp_minisock_init(struct dccp_minisock *dmsk)
  {
  	dmsk->dccpms_sequence_window = sysctl_dccp_feat_sequence_window;
--	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
+-	dmsk->dccpms_rx_ccid	     = sysctl_dccp_feat_rx_ccid;
+-	dmsk->dccpms_tx_ccid	     = sysctl_dccp_feat_tx_ccid;
+ 	dmsk->dccpms_send_ack_vector = sysctl_dccp_feat_send_ack_vector;
+ 	dmsk->dccpms_send_ndp_count  = sysctl_dccp_feat_send_ndp_count;
  }
- 
- void dccp_time_wait(struct sock *sk, int state, int timeo)
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -26,7 +26,6 @@
- int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
- int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
- int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
--int sysctl_dccp_feat_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
- 
- u64 dccp_decode_value_var(const u8 *bf, const u8 len)
- {
-@@ -145,8 +144,7 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
- 		case DCCPO_ACK_VECTOR_1:
- 			if (dccp_packet_without_ack(skb))   /* RFC 4340, 11.4 */
- 				break;
--
--			if (dccp_msk(sk)->dccpms_send_ack_vector &&
-+			if (dp->dccps_hc_rx_ackvec != NULL &&
- 			    dccp_ackvec_parse(sk, skb, &ackno, opt, value, len))
- 				goto out_invalid_option;
- 			break;
-@@ -526,7 +524,6 @@ static void dccp_insert_option_padding(struct sk_buff *skb)
- int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
--	struct dccp_minisock *dmsk = dccp_msk(sk);
- 
- 	DCCP_SKB_CB(skb)->dccpd_opt_len = 0;
- 
-@@ -547,7 +544,7 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
- 			if (dccp_insert_option_timestamp(sk, skb))
- 				return -1;
- 
--		} else if (dmsk->dccpms_send_ack_vector	&&
-+		} else if (dp->dccps_hc_rx_ackvec != NULL &&
- 			   dccp_ackvec_pending(dp->dccps_hc_rx_ackvec) &&
- 			   dccp_insert_option_ackvec(sk, skb)) {
- 				return -1;
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -207,7 +207,6 @@ EXPORT_SYMBOL_GPL(dccp_init_sock);
- void dccp_destroy_sock(struct sock *sk)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
--	struct dccp_minisock *dmsk = dccp_msk(sk);
- 
- 	/*
- 	 * DCCP doesn't use sk_write_queue, just sk_send_head
-@@ -225,7 +224,7 @@ void dccp_destroy_sock(struct sock *sk)
- 	kfree(dp->dccps_service_list);
- 	dp->dccps_service_list = NULL;
- 
--	if (dmsk->dccpms_send_ack_vector) {
-+	if (dp->dccps_hc_rx_ackvec != NULL) {
- 		dccp_ackvec_free(dp->dccps_hc_rx_ackvec);
- 		dp->dccps_hc_rx_ackvec = NULL;
- 	}
---- a/net/dccp/sysctl.c
-+++ b/net/dccp/sysctl.c
-@@ -41,13 +41,6 @@ static struct ctl_table dccp_default_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
--		.procname	= "send_ackvec",
--		.data		= &sysctl_dccp_feat_send_ack_vector,
--		.maxlen		= sizeof(sysctl_dccp_feat_send_ack_vector),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
--	},
--	{
- 		.procname	= "request_retries",
- 		.data		= &sysctl_dccp_request_retries,
- 		.maxlen		= sizeof(sysctl_dccp_request_retries),
