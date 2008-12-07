@@ -1,31 +1,52 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: [Bug #12160] networking oops after resume from s2ram (2.6.28-rc6)
-Date: Sun,  7 Dec 2008 21:32:56 +0100 (CET)
-Message-ID: <07Xes05z25M.A.pJF.XsEPJB@chimera>
-References: <6VnlupFpCsN.A.2rE.MsEPJB@chimera>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: net (tg3): Fix failure to enable WoL by default when possible
+Date: Mon, 8 Dec 2008 00:46:55 +0100
+Message-ID: <200812080046.56119.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Marcin Slusarz" <marcin.slusarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <6VnlupFpCsN.A.2rE.MsEPJB@chimera>
+Content-Type: text/plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:35348 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750919AbYLGXrt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Dec 2008 18:47:49 -0500
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This message has been generated automatically as a part of a report
-of recent regressions.
+From: Rafael J. Wysocki <rjw@sisk.pl>
+Subject: net (tg3): Fix failure to enable WoL by default when possible
 
-The following bug entry is on the current list of known regressions
-from 2.6.27.  Please verify if it still should be listed and let me know
-(either way).
+tg3 is supposed to enable WoL by default on adapters which support
+that, but it fails to do so unless the adapter's
+/sys/devices/.../power/wakeup file contains 'enabled' during the
+initialization of the adapter.  Fix that by making tg3 update the
+device's 'should_wakeup' bit automatically whenever WoL should be
+enabled by default.
 
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/tg3.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12160
-Subject		: networking oops after resume from s2ram (2.6.28-rc6)
-Submitter	: Marcin Slusarz <marcin.slusarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2008-11-28 21:15 (10 days old)
-References	: http://marc.info/?l=linux-kernel&m=122790701615723&w=4
+Index: linux-2.6/drivers/net/tg3.c
+===================================================================
+--- linux-2.6.orig/drivers/net/tg3.c
++++ linux-2.6/drivers/net/tg3.c
+@@ -11296,9 +11296,10 @@ static void __devinit tg3_get_eeprom_hw_
+ 		if (val & VCPU_CFGSHDW_ASPM_DBNC)
+ 			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
+ 		if ((val & VCPU_CFGSHDW_WOL_ENABLE) &&
+-		    (val & VCPU_CFGSHDW_WOL_MAGPKT) &&
+-		    device_may_wakeup(&tp->pdev->dev))
++		    (val & VCPU_CFGSHDW_WOL_MAGPKT)) {
+ 			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
++			device_set_wakeup_enable(&tp->pdev->dev, true);
++		}
+ 		return;
+ 	}
+ 
