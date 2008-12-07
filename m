@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] staging-slicoss: Kill directly reference of
- netdev->priv
-Date: Sat, 06 Dec 2008 23:59:50 -0800 (PST)
-Message-ID: <20081206.235950.120548600.davem@davemloft.net>
-References: <493946EB.7000308@cn.fujitsu.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netlink - notify when the socket gets closed
+Date: Sun, 07 Dec 2008 17:04:31 +0100
+Message-ID: <493BF40F.6050307@trash.net>
+References: <35476bd20812050017y70c3c729v450cdc3d0c1188de@mail.gmail.com>	 <20081205195624.95ea1866.akpm@linux-foundation.org>	 <493A92FD.3060302@trash.net> <35476bd20812061010g145b6c19r282ae32a4ebfabb1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregkh@suse.de
-To: wangchen@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59422
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752825AbYLGH7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2008 02:59:50 -0500
-In-Reply-To: <493946EB.7000308@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: m m <olsajiri@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <35476bd20812061010g145b6c19r282ae32a4ebfabb1@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Fri, 05 Dec 2008 23:21:15 +0800
-
-> Simply replace netdev->priv with netdev_priv().
+m m wrote:
+> On Sat, Dec 6, 2008 at 3:58 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> That doesn't make sense. When you use multicast, multiple applications
+>> can be listening to the messages. If you really need state for a single
+>> listener and exchange messages in both directions, it sounds like you
+>> should use unicast.
+>>
+>>
+> My user app register in kernel for a data. When there is a first
+> application request,
+> kernel module creates an internal record and ask DATA subsystem for a data,
+> which are then passed to the user application.
 > 
-> Compile test only.
+> The data are then delivered to the application as they are comming from
+> the DATA subsystem.
 > 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> When there's another application requesting the same data type, kernel module
+> just increase reference count in the internal record, and multicast delivers
+> data to the other app.
+> 
+> Now when one of those applications end, kernel module just decrease
+> the reference count in the internal record.
+> 
+> When the other application ends, kernel module needs to release the internal
+> record and ask the DATA subsystem to stop delivering data.
+> 
+> Hope this make sense... I could do some ascii art next time if needed :)
 
-Also applied, thanks Wang.
+Thats an unusual way to use netlink, but it sounds reasonable.
 
-Wang, how much more of this stuff do you estimate we still
-have to fix up before we can really kill off ->priv?
-
-Just curious...
+Adding a notifier for multicast unsubscriptions should be easy.
+Nothing in the kernel needs it though, so you need to carry the
+patch to do this yourself until you submit your module.
