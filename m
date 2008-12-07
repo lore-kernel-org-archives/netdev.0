@@ -1,81 +1,62 @@
-From: "m m" <olsajiri@gmail.com>
-Subject: Re: netlink - notify when the socket gets closed
-Date: Sat, 6 Dec 2008 19:10:52 +0100
-Message-ID: <35476bd20812061010g145b6c19r282ae32a4ebfabb1@mail.gmail.com>
-References: <35476bd20812050017y70c3c729v450cdc3d0c1188de@mail.gmail.com>
-	 <20081205195624.95ea1866.akpm@linux-foundation.org>
-	 <493A92FD.3060302@trash.net>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: [PATCH 02/40] wimax: declarations for the in-kernel WiMAX API
+Date: Sat, 6 Dec 2008 17:04:28 -0800
+Message-ID: <200812061704.28445.inaky@linux.intel.com>
+References: <cover.1228503076.git.inaky@linux.intel.com> <5fc227cf5709b01802959712ac23f519e65d4801.1228503077.git.inaky@linux.intel.com> <20081205.223754.166106378.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Patrick McHardy" <kaber@trash.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <493A92FD.3060302@trash.net>
+Cc: netdev@vger.kernel.org, wimax@linuxwimax.org, greg@kroah.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.89]:54650 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752867AbYLGBFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Dec 2008 20:05:06 -0500
+In-Reply-To: <20081205.223754.166106378.davem@davemloft.net>
 Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 6, 2008 at 3:58 PM, Patrick McHardy <kaber@trash.net> wrote:
-> Andrew Morton wrote:
->>
->> (cc netdev@vger.kernel.org)
->>
->> On Fri, 5 Dec 2008 09:17:51 +0100 "m m" <olsajiri@gmail.com> wrote:
->>>
->>> I'm using netlink in my module. Based on the communication,
->>> this module dynamically creates some internal structure, which
->>> needs to be destroyed when the user level socket is closed (or
->>> the application dies).
->>>
->>> I found I could use the netlink_register_notifier function to register
->>> NETLINK_URELEASE callback during the netlink_release function.
->>> But since my module uses the multicast netlink socket communication,
->>> it wont be called:
->>>
->>> [...]
->>> Whats the reason this callback is not called for multicast sockets?
->>>
->>> To workaround it I created simple misc device which the user application
->>> opens before creating the netlink socket. This way I get some callbacks
->>> inside the module when the application dies, at least.. pretty ugly :)
->>>
->>> Is there a netlink mechanism to be notified when the netlink socket is
->>> closed on the user level side? (when using multicast communication)
->>>
->>> Or is there any other design I could use, since I think I'm not alone in
->>> using internal module data which needs to be removed once the application
->>> dies.
+On Friday 05 December 2008, David Miller wrote:
+> From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+> Date: Fri,  5 Dec 2008 10:54:55 -0800
 >
+> > Declares the main data types and calls for the drivers to integrate
+> > into the WiMAX stack. Provides usage documentation.
+> >
+> > Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 >
-> That doesn't make sense. When you use multicast, multiple applications
-> can be listening to the messages. If you really need state for a single
-> listener and exchange messages in both directions, it sounds like you
-> should use unicast.
+> This does:
 >
+> +#include <linux/wimax.h>
 >
+> which doesn't even exist yet.
+>
+> I understand what you're trying to do, chop things up into manageable
+> pieces.  But this is taking it way too far.
+>
+> It's totally impossible to review this patch on it's own, because none
+> of the necessary context exists at this point in the patch series.
+>
+> I read this and wanted to know what enum wimax_st was, but that is
+> impossible to find because of this problem.
 
-My user app register in kernel for a data. When there is a first
-application request,
-kernel module creates an internal record and ask DATA subsystem for a data,
-which are then passed to the user application.
+That was my mistake, sorry -- I thought I had piled them up in proper
+dependency order, but seems I messed up.
 
-The data are then delivered to the application as they are comming from
-the DATA subsystem.
+> 40 patches is, a lot, and I've now gone through this both in my inbox
+> and in my patch queue at patchwork.ozlabs.org 3 times.
+>
+> You need to compact this a lot more if you want people to
+> review it without losing an entire day of their lives doing
+> so.
 
-When there's another application requesting the same data type, kernel module
-just increase reference count in the internal record, and multicast delivers
-data to the other app.
+Different people gave me varying feedback on this one--I'll see to compact
+it some more and send a v4.
 
-Now when one of those applications end, kernel module just decrease
-the reference count in the internal record.
+Thanks,
 
-When the other application ends, kernel module needs to release the internal
-record and ask the DATA subsystem to stop delivering data.
-
-Hope this make sense... I could do some ascii art next time if needed :)
-
-thanks,
-jirka
+-- 
+Inaky
