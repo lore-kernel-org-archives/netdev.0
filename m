@@ -1,50 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netlink - notify when the socket gets closed
-Date: Sun, 07 Dec 2008 17:04:31 +0100
-Message-ID: <493BF40F.6050307@trash.net>
-References: <35476bd20812050017y70c3c729v450cdc3d0c1188de@mail.gmail.com>	 <20081205195624.95ea1866.akpm@linux-foundation.org>	 <493A92FD.3060302@trash.net> <35476bd20812061010g145b6c19r282ae32a4ebfabb1@mail.gmail.com>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: [PATCH] [TPROXY] fixes a possible read from an invalid location in
+ the socket match
+Date: Sun, 07 Dec 2008 19:43:34 +0100
+Message-ID: <1228675414.15263.102.camel@bzorp.balabit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: m m <olsajiri@gmail.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <35476bd20812061010g145b6c19r282ae32a4ebfabb1@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hidden@sch.bme.hu
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from support.balabit.hu ([195.70.41.86]:51145 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755645AbYLGSnk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Dec 2008 13:43:40 -0500
+Received: from balabit.hu (unknown [10.80.0.254])
+	by lists.balabit.hu (Postfix) with ESMTP id 5BE9D39C5BC
+	for <netdev@vger.kernel.org>; Sun,  7 Dec 2008 19:43:37 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-m m wrote:
-> On Sat, Dec 6, 2008 at 3:58 PM, Patrick McHardy <kaber@trash.net> wrote:
->> That doesn't make sense. When you use multicast, multiple applications
->> can be listening to the messages. If you really need state for a single
->> listener and exchange messages in both directions, it sounds like you
->> should use unicast.
->>
->>
-> My user app register in kernel for a data. When there is a first
-> application request,
-> kernel module creates an internal record and ask DATA subsystem for a data,
-> which are then passed to the user application.
-> 
-> The data are then delivered to the application as they are comming from
-> the DATA subsystem.
-> 
-> When there's another application requesting the same data type, kernel module
-> just increase reference count in the internal record, and multicast delivers
-> data to the other app.
-> 
-> Now when one of those applications end, kernel module just decrease
-> the reference count in the internal record.
-> 
-> When the other application ends, kernel module needs to release the internal
-> record and ask the DATA subsystem to stop delivering data.
-> 
-> Hope this make sense... I could do some ascii art next time if needed :)
+I've found this while looking for an unrelated issue. I guess this should 
+still go in 2.6.28, if possible.
 
-Thats an unusual way to use netlink, but it sounds reasonable.
+TIME_WAIT sockets need to be handled specially, and the socket match
+casted inet_timewait_sock instances to inet_sock, which are not
+compatible. 
 
-Adding a notifier for multicast unsubscriptions should be easy.
-Nothing in the kernel needs it though, so you need to carry the
-patch to do this yourself until you submit your module.
+Handle this special case by checking sk->sk_state.
+
+Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
+
+---
+ net/netfilter/xt_socket.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 0e03922..1d521a5 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -144,7 +144,7 @@ socket_mt(const struct sk_buff *skb, const struct xt_match_param *par)
+ 	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), protocol,
+ 				   saddr, daddr, sport, dport, par->in, false);
+ 	if (sk != NULL) {
+-		bool wildcard = (inet_sk(sk)->rcv_saddr == 0);
++		bool wildcard = (sk->sk_state != TCP_TIME_WAIT && inet_sk(sk)->rcv_saddr == 0);
+ 
+ 		nf_tproxy_put_sock(sk);
+ 		if (wildcard)
+-- 
+1.5.6.3
+
+
