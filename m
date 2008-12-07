@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/40] wimax: declarations for the in-kernel WiMAX API
-Date: Sat, 06 Dec 2008 23:44:16 -0800 (PST)
-Message-ID: <20081206.234416.155619739.davem@davemloft.net>
-References: <5fc227cf5709b01802959712ac23f519e65d4801.1228503077.git.inaky@linux.intel.com>
-	<20081205.223754.166106378.davem@davemloft.net>
-	<200812061704.28445.inaky@linux.intel.com>
+Subject: Re: [PATCH] Fix incorrect use of loose in spider_net.c
+Date: Sat, 06 Dec 2008 23:57:22 -0800 (PST)
+Message-ID: <20081206.235722.37827733.davem@davemloft.net>
+References: <20081205030803.32099.345.stgit@marcab.local.tull.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org, greg@kroah.com
-To: inaky@linux.intel.com
+Cc: kou.ishizaki@toshiba.co.jp, jgarzik@pobox.com, jgarzik@redhat.com,
+	jens@de.ibm.com, qhfeng.kernel@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nick@nick-andrew.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45140
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59406
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752684AbYLGHoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2008 02:44:15 -0500
-In-Reply-To: <200812061704.28445.inaky@linux.intel.com>
+	by vger.kernel.org with ESMTP id S1752853AbYLGH5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Dec 2008 02:57:24 -0500
+In-Reply-To: <20081205030803.32099.345.stgit@marcab.local.tull.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Date: Sat, 6 Dec 2008 17:04:28 -0800
+From: Nick Andrew <nick@nick-andrew.net>
+Date: Fri, 05 Dec 2008 14:08:03 +1100
 
-> Different people gave me varying feedback on this one--I'll see to compact
-> it some more and send a v4.
+> Fix incorrect use of loose in spider_net.c
+> 
+> It should be 'lose', not 'loose'.
+> 
+> Signed-off-by: Nick Andrew <nick@nick-andrew.net>
 
-Thank you for your continuing work on this stuff.
+Also applied, thanks Nick.
