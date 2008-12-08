@@ -1,28 +1,33 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH 2/3] hso maintainers update patch
-Date: Mon, 8 Dec 2008 11:35:33 +0000
-Message-ID: <20081208113533.48d0cd9a@lxorguk.ukuu.org.uk>
-References: <493CF997.1080406@option.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] Phonet: hold GPRS device while cleaning up
+Date: Mon, 08 Dec 2008 03:45:33 -0800 (PST)
+Message-ID: <20081208.034533.97506116.davem@davemloft.net>
+References: <1228730965-19087-1-git-send-email-remi.denis-courmont@nokia.com>
+	<20081208.022153.93642210.davem@davemloft.net>
+	<200812081303.55322.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <493CF997.1080406-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38421
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756327AbYLHLpc convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2008 06:45:32 -0500
+In-Reply-To: <200812081303.55322.remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 08 Dec 2008 11:40:23 +0100
-Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
+=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
+Date: Mon, 8 Dec 2008 13:03:55 +0200
 
-> Added D.J. Barrow as maintainer of hso driver.
-> Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+> On Monday 08 December 2008 12:21:53 ext David Miller, you wrote:
+> > Can we get the phonet stack using more sensible local
+> > variable names for netdev pointers?
+>=20
+> Sure. Should I send a large cosmetic s/net/dev/ et al patch against n=
+et-next?
 
-Acked-by: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, will leave this to go via
-netdev/usb tree
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That would work just fine, thanks.
