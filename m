@@ -1,987 +1,971 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 13/29] i2400m: Generic probe/disconnect, reset and message passing
-Date: Mon,  8 Dec 2008 11:09:28 -0800
-Message-ID: <77323abc7dafdc5eaa4365f2c2513092530fce9b.1228759689.git.inaky@linux.intel.com>
+Subject: [PATCH 22/29] i2400m/USB: TX and RX path backends
+Date: Mon,  8 Dec 2008 11:09:37 -0800
+Message-ID: <1122372e8579b515ac22a1bc129a3f09265eabef.1228759689.git.inaky@linux.intel.com>
 References: <cover.1228759689.git.inaky@linux.intel.com>
 Cc: wimax@linuxwimax.org, greg@kroah.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:12809 "EHLO
+Received: from mga10.intel.com ([192.55.52.92]:12804 "EHLO
 	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751361AbYLHTJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 14:09:48 -0500
+	with ESMTP id S1751438AbYLHTJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 14:09:53 -0500
 In-Reply-To: <cover.1228759689.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implements the generic probe and disconnect functions that will be
-called by the USB and SDIO driver's probe/disconnect functions.
+Implements the backend so that the generic driver can TX/RX to/from
+the USB device.
 
-Implements the backends for the WiMAX stack's basic operations:
-message passing, rfkill control and reset.
+TX is implemented with a kthread sitting in a never-ending loop that
+when kicked by the generic driver's TX code will pull data from the TX
+FIFO and send it to the device until it drains it. Then it goes back
+sleep, waiting for another kick.
+
+RX is implemented in a similar fashion, but reads are kicked in by the
+device notifying in the interrupt endpoint that data is ready. Device
+reset notifications are also sent via the notification endpoint.
+
+We need a thread contexts to run USB autopm functions (blocking) and
+to process the received data (can get to be heavy in processing
+time).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/driver.c    |  736 ++++++++++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/op-rfkill.c |  207 ++++++++++
- 2 files changed, 943 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/driver.c
- create mode 100644 drivers/net/wimax/i2400m/op-rfkill.c
+ drivers/net/wimax/i2400m/usb-notif.c |  263 +++++++++++++++++++++
+ drivers/net/wimax/i2400m/usb-rx.c    |  417 ++++++++++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/usb-tx.c    |  229 +++++++++++++++++++
+ 3 files changed, 909 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/usb-notif.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-rx.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-tx.c
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+diff --git a/drivers/net/wimax/i2400m/usb-notif.c b/drivers/net/wimax/i2400m/usb-notif.c
 new file mode 100644
-index 0000000..742d7f1
+index 0000000..2715d58
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -0,0 +1,736 @@
++++ b/drivers/net/wimax/i2400m/usb-notif.c
+@@ -0,0 +1,263 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m over USB
++ * Notification handling
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Initial implementation
++ *
++ *
++ * The notification endpoint is active when the device is not in boot
++ * mode; in here we just read and get notifications; based on those,
++ * we act to either reinitialize the device after a reboot or to
++ * submit a RX request.
++ *
++ * ROADMAP
++ *
++ * i2400mu_usb_notification_setup()
++ *
++ * i2400mu_usb_notification_release()
++ *
++ * i2400mu_usb_notification_cb()	Called when a URB is ready
++ *   i2400mu_notif_grok()
++ *     i2400m_dev_reset_handle()
++ *     i2400mu_rx_kick()
++ */
++#include <linux/usb.h>
++#include "i2400m-usb.h"
++
++
++#define D_SUBMODULE notif
++#include "usb-debug-levels.h"
++
++
++static const
++__le32 i2400m_ZERO_BARKER[4] = { 0, 0, 0, 0 };
++
++
++/*
++ * Process a received notification
++ *
++ * In normal operation mode, we can only receive two types of payloads
++ * on the notification endpoint:
++ *
++ *   - a reboot barker, we do a bootstrap (the device has reseted).
++ *
++ *   - a block of zeroes: there is pending data in the IN endpoint
++ */
++static
++int i2400mu_notification_grok(struct i2400mu *i2400mu, const void *buf,
++				 size_t buf_len)
++{
++	int ret;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	struct i2400m *i2400m = &i2400mu->i2400m;
++
++	d_fnstart(4, dev, "(i2400m %p buf %p buf_len %zu)\n",
++		  i2400mu, buf, buf_len);
++	ret = -EIO;
++	if (buf_len < sizeof(i2400m_NBOOT_BARKER))
++		/* Not a bug, just ignore */
++		goto error_bad_size;
++	if (!memcmp(i2400m_NBOOT_BARKER, buf, sizeof(i2400m_NBOOT_BARKER))
++	    || !memcmp(i2400m_SBOOT_BARKER, buf, sizeof(i2400m_SBOOT_BARKER)))
++		ret = i2400m_dev_reset_handle(i2400m);
++	else if (!memcmp(i2400m_ZERO_BARKER, buf, sizeof(i2400m_ZERO_BARKER))) {
++		i2400mu_rx_kick(i2400mu);
++		ret = 0;
++	} else {	/* Unknown or unexpected data in the notif message */
++		char prefix[64];
++		ret = -EIO;
++		dev_err(dev, "HW BUG? Unknown/unexpected data in notification "
++			"message (%zu bytes)\n", buf_len);
++		snprintf(prefix, sizeof(prefix), "%s %s: ",
++			 dev_driver_string(dev) , dev->bus_id);
++		if (buf_len > 64) {
++			print_hex_dump(KERN_ERR, prefix, DUMP_PREFIX_OFFSET,
++				       8, 4, buf, 64, 0);
++			printk(KERN_ERR "%s... (only first 64 bytes "
++			       "dumped)\n", prefix);
++		} else
++			print_hex_dump(KERN_ERR, prefix, DUMP_PREFIX_OFFSET,
++				       8, 4, buf, buf_len, 0);
++	}
++error_bad_size:
++	d_fnend(4, dev, "(i2400m %p buf %p buf_len %zu) = %d\n",
++		i2400mu, buf, buf_len, ret);
++	return ret;
++}
++
++
++/*
++ * URB callback for the notification endpoint
++ *
++ * @urb: the urb received from the notification endpoint
++ *
++ * This function will just process the USB side of the transaction,
++ * checking everything is fine, pass the processing to
++ * i2400m_notification_grok() and resubmit the URB.
++ */
++static
++void i2400mu_notification_cb(struct urb *urb)
++{
++	int ret;
++	struct i2400mu *i2400mu = urb->context;
++	struct device *dev = &i2400mu->usb_iface->dev;
++
++	d_fnstart(4, dev, "(urb %p status %d actual_length %d)\n",
++		  urb, urb->status, urb->actual_length);
++	ret = urb->status;
++	switch (ret) {
++	case 0:
++		ret = i2400mu_notification_grok(i2400mu, urb->transfer_buffer,
++						urb->actual_length);
++		if (ret == -EIO && edc_inc(&i2400mu->urb_edc, EDC_MAX_ERRORS,
++					   EDC_ERROR_TIMEFRAME))
++			goto error_exceeded;
++		if (ret == -ENOMEM)	/* uff...power cycle? shutdown? */
++			goto error_exceeded;
++		break;
++	case -EINVAL:			/* while removing driver */
++	case -ENODEV:			/* dev disconnect ... */
++	case -ENOENT:			/* ditto */
++	case -ESHUTDOWN:		/* URB killed */
++	case -ECONNRESET:		/* disconnection */
++		goto out;		/* Notify around */
++	default:			/* Some error? */
++		if (edc_inc(&i2400mu->urb_edc,
++			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME))
++			goto error_exceeded;
++		dev_err(dev, "notification: URB error %d, retrying\n",
++			urb->status);
++	}
++	usb_mark_last_busy(i2400mu->usb_dev);
++	ret = usb_submit_urb(i2400mu->notif_urb, GFP_ATOMIC);
++	if (ret != 0) {
++		dev_err(dev, "notification: cannot submit URB: %d\n", ret);
++		goto error_submit;
++	}
++
++	d_fnend(4, dev, "(urb %p status %d actual_length %d) = void\n",
++		urb, urb->status, urb->actual_length);
++	return;
++
++error_exceeded:
++	dev_err(dev, "maximum errors in notification URB exceeded; "
++		"resetting device\n");
++error_submit:
++	usb_queue_reset_device(i2400mu->usb_iface);
++out:
++	d_fnend(4, dev, "(urb %p status %d actual_length %d) = void\n",
++		urb, urb->status, urb->actual_length);
++	return;
++}
++
++
++/*
++ * setup the notification endpoint
++ *
++ * @i2400m: device descriptor
++ *
++ * This procedure prepares the notification urb and handler for receiving
++ * unsolicited barkers from the device.
++ */
++int i2400mu_notification_setup(struct i2400mu *i2400mu)
++{
++	struct device *dev = &i2400mu->usb_iface->dev;
++	int usb_pipe, ret = 0;
++	struct usb_endpoint_descriptor *epd;
++	char *buf;
++
++	d_fnstart(4, dev, "(i2400m %p)\n", i2400mu);
++	buf = kmalloc(I2400MU_MAX_NOTIFICATION_LEN, GFP_KERNEL | GFP_DMA);
++	if (buf == NULL) {
++		dev_err(dev, "notification: buffer allocation failed\n");
++		ret = -ENOMEM;
++		goto error_buf_alloc;
++	}
++
++	i2400mu->notif_urb = usb_alloc_urb(0, GFP_KERNEL);
++	if (!i2400mu->notif_urb) {
++		ret = -ENOMEM;
++		dev_err(dev, "notification: cannot allocate URB\n");
++		goto error_alloc_urb;
++	}
++	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_NOTIFICATION);
++	usb_pipe = usb_rcvintpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++	usb_fill_int_urb(i2400mu->notif_urb, i2400mu->usb_dev, usb_pipe,
++			 buf, I2400MU_MAX_NOTIFICATION_LEN,
++			 i2400mu_notification_cb, i2400mu, epd->bInterval);
++	ret = usb_submit_urb(i2400mu->notif_urb, GFP_KERNEL);
++	if (ret != 0) {
++		dev_err(dev, "notification: cannot submit URB: %d\n", ret);
++		goto error_submit;
++	}
++	d_fnend(4, dev, "(i2400m %p) = %d\n", i2400mu, ret);
++	return ret;
++
++error_submit:
++	usb_free_urb(i2400mu->notif_urb);
++error_alloc_urb:
++	kfree(buf);
++error_buf_alloc:
++	d_fnend(4, dev, "(i2400m %p) = %d\n", i2400mu, ret);
++	return ret;
++}
++
++
++/*
++ * Tear down of the notification mechanism
++ *
++ * @i2400m: device descriptor
++ *
++ * Kill the interrupt endpoint urb, free any allocated resources.
++ *
++ * We need to check if we have done it before as for example,
++ * _suspend() call this; if after a suspend() we get a _disconnect()
++ * (as the case is when hibernating), nothing bad happens.
++ */
++void i2400mu_notification_release(struct i2400mu *i2400mu)
++{
++	struct device *dev = &i2400mu->usb_iface->dev;
++
++	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
++	if (i2400mu->notif_urb != NULL) {
++		usb_kill_urb(i2400mu->notif_urb);
++		kfree(i2400mu->notif_urb->transfer_buffer);
++		usb_free_urb(i2400mu->notif_urb);
++		i2400mu->notif_urb = NULL;
++	}
++	d_fnend(4, dev, "(i2400mu %p)\n", i2400mu);
++}
++
+diff --git a/drivers/net/wimax/i2400m/usb-rx.c b/drivers/net/wimax/i2400m/usb-rx.c
+new file mode 100644
+index 0000000..074cc1f
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/usb-rx.c
+@@ -0,0 +1,417 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Generic probe/disconnect, reset and message passing
++ * USB RX handling
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ *  - Use skb_clone(), break up processing in chunks
++ *  - Split transport/device specific
++ *  - Make buffer size dynamic to exert less memory pressure
 + *
 + *
-+ * See i2400m.h for driver documentation. This contains helpers for
-+ * the driver model glue [_setup()/_release()], handling device resets
-+ * [_dev_reset_handle()], and the backends for the WiMAX stack ops
-+ * reset [_op_reset()] and message from user [_op_msg_from_user()].
++ * This handles the RX path on USB.
 + *
-+ * ROADMAP:
++ * When a notification is received that says 'there is RX data ready',
++ * we call i2400mu_rx_kick(); that wakes up the RX kthread, which
++ * reads a buffer from USB and passes it to i2400m_rx() in the generic
++ * handling code. The RX buffer has an specific format that is
++ * described in rx.c.
 + *
-+ * i2400m_op_msg_from_user()
-+ *   i2400m_msg_to_dev()
-+ *   wimax_msg_to_user_send()
++ * We use a kernel thread in a loop because:
 + *
-+ * i2400m_op_reset()
-+ *   i240m->bus_reset()
++ *  - we want to be able to call the USB power management get/put
++ *    functions (blocking) before each transaction.
 + *
-+ * i2400m_dev_reset_handle()
-+ *   __i2400m_dev_reset_handle()
-+ *     __i2400m_dev_stop()
-+ *     __i2400m_dev_start()
++ *  - We might get a lot of notifications and we don't want to submit
++ *    a zillion reads; by serializing, we are throttling.
 + *
-+ * i2400m_setup()
-+ *   i2400m_bootrom_init()
-+ *   register_netdev()
-+ *   i2400m_dev_start()
-+ *     __i2400m_dev_start()
-+ *       i2400m_dev_bootstrap()
-+ *       i2400m_tx_setup()
-+ *       i2400m->bus_dev_start()
-+ *       i2400m_check_mac_addr()
-+ *   wimax_dev_add()
++ *  - RX data processing can get heavy enough so that it is not
++ *    appropiate for doing it in the USB callback; thus we run it in a
++ *    process context.
 + *
-+ * i2400m_release()
-+ *   wimax_dev_rm()
-+ *   i2400m_dev_stop()
-+ *     __i2400m_dev_stop()
-+ *       i2400m_dev_shutdown()
-+ *       i2400m->bus_dev_stop()
-+ *       i2400m_tx_release()
-+ *   unregister_netdev()
++ * We provide a read buffer of an arbitrary size (short of a page); if
++ * the callback reports -EOVERFLOW, it means it was too small, so we
++ * just double the size and retry (being careful to append, as
++ * sometimes the device provided some data). Every now and then we
++ * check if the average packet size is smaller than the current packet
++ * size and if so, we halve it. At the end, the size of the
++ * preallocated buffer should be following the average received
++ * transaction size, adapting dynamically to it.
++ *
++ * ROADMAP
++ *
++ * i2400mu_rx_kick()		   Called from notif.c when we get a
++ *   			           'data ready' notification
++ * i2400mu_rxd()                   Kernel RX daemon
++ *   i2400mu_rx()                  Receive USB data
++ *   i2400m_rx()                   Send data to generic i2400m RX handling
++ *
++ * i2400mu_rx_setup()              called from i2400mu_bus_dev_start()
++ *
++ * i2400mu_rx_release()            called from i2400mu_bus_dev_stop()
 + */
-+#include "i2400m.h"
-+#include <linux/wimax/i2400m.h>
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+
-+#define D_SUBMODULE driver
-+#include "debug-levels.h"
++#include <linux/workqueue.h>
++#include <linux/usb.h>
++#include "i2400m-usb.h"
 +
 +
-+int i2400m_idle_mode_disabled;	/* 0 (idle mode enabled) by default */
-+module_param_named(idle_mode_disabled, i2400m_idle_mode_disabled, int, 0644);
-+MODULE_PARM_DESC(idle_mode_disabled,
-+		 "If true, the device will not enable idle mode negotiation "
-+		 "with the base station (when connected) to save power.");
-+
-+/**
-+ * i2400m_queue_work - schedule work on a i2400m's queue
-+ *
-+ * @i2400m: device descriptor
-+ *
-+ * @fn: function to run to execute work. It gets passed a 'struct
-+ *     work_struct' that is wrapped in a 'struct i2400m_work'. Once
-+ *     done, you have to (1) i2400m_put(i2400m_work->i2400m) and then
-+ *     (2) kfree(i2400m_work).
-+ *
-+ * @gfp_flags: GFP flags for memory allocation.
-+ *
-+ * @pl: pointer to a payload buffer that you want to pass to the _work
-+ *     function. Use this to pack (for example) a struct with extra
-+ *     arguments.
-+ *
-+ * @pl_size: size of the payload buffer.
-+ *
-+ * We do this quite often, so this just saves typing; allocate a
-+ * wrapper for a i2400m, get a ref to it, pack arguments and launch
-+ * the work.
-+ *
-+ * A usual workflow is:
-+ *
-+ * struct my_work_args {
-+ *         void *something;
-+ *         int whatever;
-+ * };
-+ * ...
-+ *
-+ * struct my_work_args my_args = {
-+ *         .something = FOO,
-+ *         .whaetever = BLAH
-+ * };
-+ * i2400m_queue_work(i2400m, 1, my_work_function, GFP_KERNEL,
-+ *                   &args, sizeof(args))
-+ *
-+ * And now the work function can unpack the arguments and call the
-+ * real function (or do the job itself):
-+ *
-+ * static
-+ * void my_work_fn((struct work_struct *ws)
-+ * {
-+ *         struct i2400m_work *iw =
-+ *	           container_of(ws, struct i2400m_work, ws);
-+ *	   struct my_work_args *my_args = (void *) iw->pl;
-+ *
-+ *	   my_work(iw->i2400m, my_args->something, my_args->whatevert);
-+ * }
-+ */
-+int i2400m_queue_work(struct i2400m *i2400m,
-+		      void (*fn)(struct work_struct *), gfp_t gfp_flags,
-+		      const void *pl, size_t pl_size)
-+{
-+	int result;
-+	struct i2400m_work *iw;
-+
-+	BUG_ON(i2400m->work_queue == NULL);
-+	result = -ENOMEM;
-+	iw = kzalloc(sizeof(*iw) + pl_size, gfp_flags);
-+	if (iw == NULL)
-+		goto error_kzalloc;
-+	iw->i2400m = i2400m_get(i2400m);
-+	memcpy(iw->pl, pl, pl_size);
-+	INIT_WORK(&iw->ws, fn);
-+	result = queue_work(i2400m->work_queue, &iw->ws);
-+error_kzalloc:
-+	return result;
-+}
-+EXPORT_SYMBOL_GPL(i2400m_queue_work);
-+
++#define D_SUBMODULE rx
++#include "usb-debug-levels.h"
 +
 +/*
-+ * Schedule i2400m's specific work on the system's queue.
++ * Dynamic RX size
 + *
-+ * Used for a few cases where we really need it; otherwise, identical
-+ * to i2400m_queue_work().
++ * We can't let the rx_size be a multiple of 512 bytes (the RX
++ * endpoint's max packet size). On some USB host controllers (we
++ * haven't been able to fully characterize which), if the device is
++ * about to send (for example) X bytes and we only post a buffer to
++ * receive n*512, it will fail to mark that as babble (so that
++ * i2400mu_rx() [case -EOVERFLOW] can resize the buffer and get the
++ * rest).
 + *
-+ * Returns < 0 errno code on error, 1 if ok.
++ * So on growing or shrinking, if it is a multiple of the
++ * maxpacketsize, we remove some (instead of incresing some, so in a
++ * buddy allocator we try to waste less space).
 + *
-+ * If it returns zero, something really bad happened, as it means the
-+ * works struct was already queued, but we have just allocated it, so
-+ * it should not happen.
++ * Note we also need a hook for this on i2400mu_rx() -- when we do the
++ * first read, we are sure we won't hit this spot because
++ * i240mm->rx_size has been set properly. However, if we have to
++ * double because of -EOVERFLOW, when we launch the read to get the
++ * rest of the data, we *have* to make sure that also is not a
++ * multiple of the max_pkt_size.
 + */
-+int i2400m_schedule_work(struct i2400m *i2400m,
-+			 void (*fn)(struct work_struct *), gfp_t gfp_flags)
-+{
-+	int result;
-+	struct i2400m_work *iw;
 +
-+	BUG_ON(i2400m->work_queue == NULL);
-+	result = -ENOMEM;
-+	iw = kzalloc(sizeof(*iw), gfp_flags);
-+	if (iw == NULL)
-+		goto error_kzalloc;
-+	iw->i2400m = i2400m_get(i2400m);
-+	INIT_WORK(&iw->ws, fn);
-+	result = schedule_work(&iw->ws);
-+	if (result == 0)
-+		result = -ENXIO;
-+error_kzalloc:
-+	return result;
-+}
-+
-+
-+/*
-+ * WiMAX stack operation: relay a message from user space
-+ *
-+ * @wimax_dev: device descriptor
-+ * @skb: skb where the message has been received; skb->data is
-+ *       expected to point to a generic netlink message with a payload
-+ *       attribute.
-+ * @genl_info: passed by the generic netlink layer
-+ *
-+ * The WiMAX stack will call this function when a message was received
-+ * from user space.
-+ *
-+ * For the i2400m, this is an L3L4 message, as specified in
-+ * include/linux/wimax/i2400m.h, and thus prefixed with a 'struct
-+ * i2400m_l3l4_hdr'. Driver (and device) expect the messages to be
-+ * coded in Little Endian.
-+ *
-+ * This function just verifies that the header declaration and the
-+ * payload are consistent and then deals with it, either forwarding it
-+ * to the device or procesing it locally.
-+ *
-+ * In the i2400m, messages are basically commands that will carry an
-+ * ack, so we use i2400m_msg_to_dev() and then deliver the ack back to
-+ * user space. The rx.c code might intercept the response and use it
-+ * to update the driver's state, but then it will pass it on so it can
-+ * be relayed back to user space.
-+ *
-+ * Note that asynchronous events from the device are processed and
-+ * sent to user space in rx.c.
-+ */
 +static
-+int i2400m_op_msg_from_user(struct wimax_dev *wimax_dev,
-+			    const void *msg_buf, size_t msg_len,
-+			    const struct genl_info *genl_info)
++size_t i2400mu_rx_size_grow(struct i2400mu *i2400mu)
 +{
-+	int result;
-+	struct i2400m *i2400m = wimax_dev_to_i2400m(wimax_dev);
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct sk_buff *ack_skb;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	size_t rx_size;
++	const size_t max_pkt_size = 512;
 +
-+	d_fnstart(4, dev, "(wimax_dev %p [i2400m %p] msg_buf %p "
-+		  "msg_len %zu genl_info %p)\n", wimax_dev, i2400m,
-+		  msg_buf, msg_len, genl_info);
-+	ack_skb = i2400m_msg_to_dev(i2400m, msg_buf, msg_len);
-+	result = PTR_ERR(ack_skb);
-+	if (IS_ERR(ack_skb))
-+		goto error_msg_to_dev;
-+	if (unlikely(i2400m->trace_msg_from_user))
-+		wimax_pipe_msg(&i2400m->wimax_dev, i2400m->pipe_trace,
-+			       msg_buf, msg_len, GFP_KERNEL);
-+	result = wimax_msg_to_user_send(&i2400m->wimax_dev, ack_skb);
-+error_msg_to_dev:
-+	d_fnend(4, dev, "(wimax_dev %p [i2400m %p] msg_buf %p msg_len %zu "
-+		"genl_info %p) = %d\n", wimax_dev, i2400m, msg_buf, msg_len,
-+		genl_info, result);
-+	return result;
++	rx_size = 2 * i2400mu->rx_size;
++	if (rx_size % max_pkt_size == 0) {
++		rx_size -= 8;
++		d_printf(1, dev,
++			 "RX: expected size grew to %zu [adjusted -8] "
++			 "from %zu\n",
++			 rx_size, i2400mu->rx_size);
++	} else
++		d_printf(1, dev,
++			 "RX: expected size grew to %zu from %zu\n",
++			 rx_size, i2400mu->rx_size);
++	return rx_size;
 +}
 +
 +
-+/*
-+ * Context to wait for a reset to finalize
-+ */
-+struct i2400m_reset_ctx {
-+	struct completion completion;
-+	int result;
-+};
-+
-+
-+/*
-+ * WiMAX stack operation: reset a device
-+ *
-+ * @wimax_dev: device descriptor
-+ *
-+ * See the documentation for wimax_reset() and wimax_dev->op_reset for
-+ * the requirements of this function. The WiMAX stack guarantees
-+ * serialization on calls to this function.
-+ *
-+ * Do a warm reset on the device; if it fails, resort to a cold reset
-+ * and return -ENODEV. On successful warm reset, we need to block
-+ * until it is complete.
-+ *
-+ * The bus-driver implementation of reset takes care of falling back
-+ * to cold reset if warm fails.
-+ */
 +static
-+int i2400m_op_reset(struct wimax_dev *wimax_dev)
++void i2400mu_rx_size_maybe_shrink(struct i2400mu *i2400mu)
 +{
-+	int result;
-+	struct i2400m *i2400m = wimax_dev_to_i2400m(wimax_dev);
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct i2400m_reset_ctx ctx = {
-+		.completion = COMPLETION_INITIALIZER_ONSTACK(ctx.completion),
-+		.result = 0,
-+	};
++	const size_t max_pkt_size = 512;
++	struct device *dev = &i2400mu->usb_iface->dev;
 +
-+	d_fnstart(4, dev, "(wimax_dev %p)\n", wimax_dev);
-+	mutex_lock(&i2400m->init_mutex);
-+	i2400m->reset_ctx = &ctx;
-+	mutex_unlock(&i2400m->init_mutex);
-+	result = i2400m->bus_reset(i2400m, I2400M_RT_WARM);
-+	if (result < 0)
-+		goto out;
-+	result = wait_for_completion_timeout(&ctx.completion, 4*HZ);
-+	if (result == 0)
-+		result = -ETIMEDOUT;
-+	else if (result > 0)
-+		result = ctx.result;
-+	/* if result < 0, pass it on */
-+	mutex_lock(&i2400m->init_mutex);
-+	i2400m->reset_ctx = NULL;
-+	mutex_unlock(&i2400m->init_mutex);
-+out:
-+	d_fnend(4, dev, "(wimax_dev %p) = %d\n", wimax_dev, result);
-+	return result;
-+}
-+
-+
-+/*
-+ * Check the MAC address we got from boot mode is ok
-+ *
-+ * @i2400m: device descriptor
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error.
-+ */
-+static
-+int i2400m_check_mac_addr(struct i2400m *i2400m)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct sk_buff *skb;
-+	const struct i2400m_tlv_detailed_device_info *ddi;
-+	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
-+	const unsigned char zeromac[ETH_ALEN] = { 0 };
-+
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+	skb = i2400m_get_device_info(i2400m);
-+	if (IS_ERR(skb)) {
-+		result = PTR_ERR(skb);
-+		dev_err(dev, "Cannot verify MAC address, error reading: %d\n",
-+			result);
-+		goto error;
++	if (unlikely(i2400mu->rx_size_cnt >= 100
++		     && i2400mu->rx_size_auto_shrink)) {
++		size_t avg_rx_size =
++			i2400mu->rx_size_acc / i2400mu->rx_size_cnt;
++		size_t new_rx_size = i2400mu->rx_size / 2;
++		if (avg_rx_size < new_rx_size) {
++			if (new_rx_size % max_pkt_size == 0) {
++				new_rx_size -= 8;
++				d_printf(1, dev,
++					 "RX: expected size shrank to %zu "
++					 "[adjusted -8] from %zu\n",
++					 new_rx_size, i2400mu->rx_size);
++			} else
++				d_printf(1, dev,
++					 "RX: expected size shrank to %zu "
++					 "from %zu\n",
++					 new_rx_size, i2400mu->rx_size);
++			i2400mu->rx_size = new_rx_size;
++			i2400mu->rx_size_cnt = 0;
++			i2400mu->rx_size_acc = i2400mu->rx_size;
++		}
 +	}
-+	/* Extract MAC addresss */
-+	ddi = (void *) skb->data;
-+	BUILD_BUG_ON(ETH_ALEN != sizeof(ddi->mac_address));
-+	d_printf(2, dev, "GET DEVICE INFO: mac addr "
-+		 "%02x:%02x:%02x:%02x:%02x:%02x\n",
-+		 ddi->mac_address[0], ddi->mac_address[1],
-+		 ddi->mac_address[2], ddi->mac_address[3],
-+		 ddi->mac_address[4], ddi->mac_address[5]);
-+	if (!memcmp(net_dev->perm_addr, ddi->mac_address,
-+		   sizeof(ddi->mac_address)))
-+		goto ok;
-+	dev_warn(dev, "warning: device reports a different MAC address "
-+		 "to that of boot mode's\n");
-+	dev_warn(dev, "device reports     %02x:%02x:%02x:%02x:%02x:%02x\n",
-+		 ddi->mac_address[0], ddi->mac_address[1],
-+		 ddi->mac_address[2], ddi->mac_address[3],
-+		 ddi->mac_address[4], ddi->mac_address[5]);
-+	dev_warn(dev, "boot mode reported %02x:%02x:%02x:%02x:%02x:%02x\n",
-+		 net_dev->perm_addr[0], net_dev->perm_addr[1],
-+		 net_dev->perm_addr[2], net_dev->perm_addr[3],
-+		 net_dev->perm_addr[4], net_dev->perm_addr[5]);
-+	if (!memcmp(zeromac, ddi->mac_address, sizeof(zeromac)))
-+		dev_err(dev, "device reports an invalid MAC address, "
-+			"not updating\n");
-+	else {
-+		dev_warn(dev, "updating MAC address\n");
-+		net_dev->addr_len = ETH_ALEN;
-+		memcpy(net_dev->perm_addr, ddi->mac_address, ETH_ALEN);
-+		memcpy(net_dev->dev_addr, ddi->mac_address, ETH_ALEN);
-+	}
-+ok:
-+	result = 0;
-+	kfree_skb(skb);
-+error:
-+	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
-+	return result;
 +}
 +
-+
-+/**
-+ * __i2400m_dev_start - Bring up driver communication with the device
++/*
++ * Receive a message with payloads from the USB bus into an skb
 + *
-+ * @i2400m: device descriptor
-+ * @flags: boot mode flags
++ * @i2400mu: USB device descriptor
++ * @rx_skb: skb where to place the received message
 + *
-+ * Returns: 0 if ok, < 0 errno code on error.
++ * Deals with all the USB-specifics of receiving, dynamically
++ * increasing the buffer size if so needed. Returns the payload in the
++ * skb, ready to process. On a zero-length packet, we retry.
 + *
-+ * Uploads firmware and brings up all the resources needed to be able
-+ * to communicate with the device.
++ * On soft USB errors, we retry (until they become too frequent and
++ * then are promoted to hard); on hard USB errors, we reset the
++ * device. On other errors (skb realloacation, we just drop it and
++ * hope for the next invocation to solve it).
 + *
-+ * TX needs to be setup before the bus-specific code (otherwise on
-+ * shutdown, the bus-tx code could try to access it).
++ * Returns: pointer to the skb if ok, ERR_PTR on error.
++ *   NOTE: this function might realloc the skb (if it is too small),
++ *   so always update with the one returned.
++ *   ERR_PTR() is < 0 on error.
 + */
 +static
-+int __i2400m_dev_start(struct i2400m *i2400m, enum i2400m_bri flags)
++struct sk_buff *i2400mu_rx(struct i2400mu *i2400mu, struct sk_buff *rx_skb)
 +{
-+	int result;
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
-+	struct net_device *net_dev = wimax_dev->net_dev;
-+	struct device *dev = i2400m_dev(i2400m);
-+	int times = 3;
++	int result = 0;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	int usb_pipe, read_size, rx_size, do_autopm;
++	struct usb_endpoint_descriptor *epd;
++	const size_t max_pkt_size = 512;
 +
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+retry:
-+	result = i2400m_dev_bootstrap(i2400m, flags);
++	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
++	do_autopm = atomic_read(&i2400mu->do_autopm);
++	result = do_autopm ?
++		usb_autopm_get_interface(i2400mu->usb_iface) : 0;
 +	if (result < 0) {
-+		dev_err(dev, "cannot bootstrap device: %d\n", result);
-+		goto error_bootstrap;
++		dev_err(dev, "RX: can't get autopm: %d\n", result);
++		do_autopm = 0;
 +	}
-+	result = i2400m_tx_setup(i2400m);
-+	if (result < 0)
-+		goto error_tx_setup;
-+	result = i2400m->bus_dev_start(i2400m);
-+	if (result < 0)
-+		goto error_bus_dev_start;
-+	i2400m->work_queue = create_singlethread_workqueue(wimax_dev->name);
-+	if (i2400m->work_queue == NULL) {
-+		result = -ENOMEM;
-+		dev_err(dev, "cannot create workqueue\n");
-+		goto error_create_workqueue;
++	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_BULK_IN);
++	usb_pipe = usb_rcvbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++retry:
++	rx_size = skb_end_pointer(rx_skb) - rx_skb->data - rx_skb->len;
++	if (unlikely(rx_size % max_pkt_size == 0)) {
++		rx_size -= 8;
++		d_printf(1, dev, "RX: rx_size adapted to %d [-8]\n", rx_size);
 +	}
-+	/* At this point is ok to send commands to the device */
-+	result = i2400m_check_mac_addr(i2400m);
-+	if (result < 0)
-+		goto error_check_mac_addr;
-+	i2400m->ready = 1;
-+	wimax_state_change(wimax_dev, WIMAX_ST_UNINITIALIZED);
-+	result = i2400m_dev_initialize(i2400m);
-+	if (result < 0)
-+		goto error_dev_initialize;
-+	/* At this point, reports will come for the device and set it
-+	 * to the right state if it is different than UNINITIALIZED */
-+	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = %d\n",
-+		net_dev, i2400m, result);
-+	return result;
-+
-+error_dev_initialize:
-+error_check_mac_addr:
-+	destroy_workqueue(i2400m->work_queue);
-+error_create_workqueue:
-+	i2400m->bus_dev_stop(i2400m);
-+error_bus_dev_start:
-+	i2400m_tx_release(i2400m);
-+error_tx_setup:
-+error_bootstrap:
-+	if (result == -ERESTARTSYS && times-- > 0) {
-+		flags = I2400M_BRI_SOFT;
++	result = usb_bulk_msg(
++		i2400mu->usb_dev, usb_pipe, rx_skb->data + rx_skb->len,
++		rx_size, &read_size, HZ);
++	usb_mark_last_busy(i2400mu->usb_dev);
++	switch (result) {
++	case 0:
++		if (read_size == 0)
++			goto retry;	/* ZLP, just resubmit */
++		skb_put(rx_skb, read_size);
++		break;
++	case -EINVAL:			/* while removing driver */
++	case -ENODEV:			/* dev disconnect ... */
++	case -ENOENT:			/* just ignore it */
++	case -ESHUTDOWN:
++	case -ECONNRESET:
++		break;
++	case -EOVERFLOW: {		/* too small, reallocate */
++		struct sk_buff *new_skb;
++		rx_size = i2400mu_rx_size_grow(i2400mu);
++		if (rx_size <= (1 << 16))	/* cap it */
++			i2400mu->rx_size = rx_size;
++		else if (printk_ratelimit()) {
++			dev_err(dev, "BUG? rx_size up to %d\n", rx_size);
++			result = -EINVAL;
++			goto out;
++		}
++		skb_put(rx_skb, read_size);
++		new_skb = skb_copy_expand(rx_skb, 0, rx_size - rx_skb->len,
++					  GFP_KERNEL);
++		if (new_skb == NULL) {
++			if (printk_ratelimit())
++				dev_err(dev, "RX: Can't reallocate skb to %d; "
++					"RX dropped\n", rx_size);
++			kfree(rx_skb);
++			result = 0;
++			goto out;	/* drop it...*/
++		}
++		kfree_skb(rx_skb);
++		rx_skb = new_skb;
++		i2400mu->rx_size_cnt = 0;
++		i2400mu->rx_size_acc = i2400mu->rx_size;
++		d_printf(1, dev, "RX: size changed to %d, received %d, "
++			 "copied %d, capacity %ld\n",
++			 rx_size, read_size, rx_skb->len,
++			 (long) (skb_end_pointer(new_skb) - new_skb->head));
 +		goto retry;
 +	}
-+	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = %d\n",
-+		net_dev, i2400m, result);
-+	return result;
-+}
-+
-+
-+static
-+int i2400m_dev_start(struct i2400m *i2400m, enum i2400m_bri bm_flags)
-+{
-+	int result;
-+	mutex_lock(&i2400m->init_mutex);	/* Well, start the device */
-+	result = __i2400m_dev_start(i2400m, bm_flags);
-+	if (result >= 0)
-+		i2400m->updown = 1;
-+	mutex_unlock(&i2400m->init_mutex);
-+	return result;
-+}
-+
-+
-+/**
-+ * i2400m_dev_stop - Tear down driver communication with the device
-+ *
-+ * @i2400m: device descriptor
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error.
-+ *
-+ * Releases all the resources allocated to communicate with the device.
-+ */
-+static
-+void __i2400m_dev_stop(struct i2400m *i2400m)
-+{
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
-+	struct device *dev = i2400m_dev(i2400m);
-+
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+	wimax_state_change(wimax_dev, __WIMAX_ST_QUIESCING);
-+	i2400m_dev_shutdown(i2400m);
-+	i2400m->ready = 0;
-+	destroy_workqueue(i2400m->work_queue);
-+	i2400m->bus_dev_stop(i2400m);
-+	i2400m_tx_release(i2400m);
-+	wimax_state_change(wimax_dev, WIMAX_ST_DOWN);
-+	d_fnend(3, dev, "(i2400m %p) = 0\n", i2400m);
-+}
-+
-+
-+/*
-+ * Watch out -- we only need to stop if there is a need for it. The
-+ * device could have reset itself and failed to come up again (see
-+ * _i2400m_dev_reset_handle()).
-+ */
-+static
-+void i2400m_dev_stop(struct i2400m *i2400m)
-+{
-+	mutex_lock(&i2400m->init_mutex);
-+	if (i2400m->updown) {
-+		__i2400m_dev_stop(i2400m);
-+		i2400m->updown = 0;
++		/* In most cases, it happens due to the hardware scheduling a
++		 * read when there was no data - unfortunately, we have no way
++		 * to tell this timeout from a USB timeout. So we just ignore
++		 * it. */
++	case -ETIMEDOUT:
++		dev_err(dev, "RX: timeout: %d\n", result);
++		result = 0;
++		break;
++	default:			/* Any error */
++		if (edc_inc(&i2400mu->urb_edc,
++			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME))
++			goto error_reset;
++		dev_err(dev, "RX: error receiving URB: %d, retrying\n", result);
++		goto retry;
 +	}
-+	mutex_unlock(&i2400m->init_mutex);
-+}
-+
-+
-+/*
-+ * The device has rebooted; fix up the device and the driver
-+ *
-+ * Tear down the driver communication with the device, reload the
-+ * firmware and reinitialize the communication with the device.
-+ *
-+ * If someone calls a reset when the device's firmware is down, in
-+ * theory we won't see it because we are not listening. However, just
-+ * in case, leave the code to handle it.
-+ *
-+ * If there is a reset context, use it; this means someone is waiting
-+ * for us to tell him when the reset operation is complete and the
-+ * device is ready to rock again.
-+ *
-+ * NOTE: if we are in the process of bringing up or down the
-+ *       communication with the device [running i2400m_dev_start() or
-+ *       _stop()], don't do anything, let it fail and handle it.
-+ *
-+ * This function is ran always in a thread context
-+ */
-+static
-+void __i2400m_dev_reset_handle(struct work_struct *ws)
-+{
-+	int result;
-+	struct i2400m_work *iw = container_of(ws, struct i2400m_work, ws);
-+	struct i2400m *i2400m = iw->i2400m;
-+	struct device *dev = i2400m_dev(i2400m);
-+	enum wimax_st wimax_state;
-+	struct i2400m_reset_ctx *ctx = i2400m->reset_ctx;
-+
-+	d_fnstart(3, dev, "(ws %p i2400m %p)\n", ws, i2400m);
-+	result = 0;
-+	if (mutex_trylock(&i2400m->init_mutex) == 0) {
-+		/* We are still in i2400m_dev_start() [let it fail] or
-+		 * i2400m_dev_stop() [we are shutting down anyway, so
-+		 * ignore it] or we are resetting somewhere else. */
-+		dev_err(dev, "device rebooted\n");
-+		i2400m_msg_to_dev_cancel_wait(i2400m, -ERESTARTSYS);
-+		complete(&i2400m->msg_completion);
-+		goto out;
-+	}
-+	wimax_state = wimax_state_get(&i2400m->wimax_dev);
-+	if (wimax_state < WIMAX_ST_UNINITIALIZED) {
-+		dev_info(dev, "device rebooted: it is down, ignoring\n");
-+		goto out_unlock;	/* ifconfig up/down wasn't called */
-+	}
-+	dev_err(dev, "device rebooted: reinitializing driver\n");
-+	__i2400m_dev_stop(i2400m);
-+	i2400m->updown = 0;
-+	result = __i2400m_dev_start(i2400m,
-+				    I2400M_BRI_SOFT | I2400M_BRI_MAC_REINIT);
-+	if (result < 0) {
-+		dev_err(dev, "device reboot: cannot start the device: %d\n",
-+			result);
-+		result = i2400m->bus_reset(i2400m, I2400M_RT_BUS);
-+		if (result >= 0)
-+			result = -ENODEV;
-+	} else
-+		i2400m->updown = 1;
-+out_unlock:
-+	if (i2400m->reset_ctx) {
-+		ctx->result = result;
-+		complete(&ctx->completion);
-+	}
-+	mutex_unlock(&i2400m->init_mutex);
 +out:
-+	i2400m_put(i2400m);
-+	kfree(iw);
-+	d_fnend(3, dev, "(ws %p i2400m %p) = void\n", ws, i2400m);
-+	return;
++	if (do_autopm)
++		usb_autopm_put_interface(i2400mu->usb_iface);
++	d_fnend(4, dev, "(i2400mu %p) = %p\n", i2400mu, rx_skb);
++	return rx_skb;
++
++error_reset:
++	dev_err(dev, "RX: maximum errors in URB exceeded; "
++		"resetting device\n");
++	usb_queue_reset_device(i2400mu->usb_iface);
++	rx_skb = ERR_PTR(result);
++	goto out;
 +}
 +
 +
-+/**
-+ * i2400m_dev_reset_handle - Handle a device's reset in a thread context
++/*
++ * Kernel thread for USB reception of data
 + *
-+ * Schedule a device reset handling out on a thread context, so it
-+ * is safe to call from atomic context. We can't use the i2400m's
-+ * queue as we are going to destroy it and reinitialize it as part of
-+ * the driver bringup/bringup process.
++ * This thread waits for a kick; once kicked, it will allocate an skb
++ * and receive a single message to it from USB (using
++ * i2400mu_rx()). Once received, it is passed to the generic i2400m RX
++ * code for processing.
 + *
-+ * See __i2400m_dev_reset_handle() for details; that takes care of
-+ * reinitializing the driver to handle the reset, calling into the
-+ * bus-specific functions ops as needed.
++ * When done processing, it runs some dirty statistics to verify if
++ * the last 100 messages received were smaller than half of the
++ * current RX buffer size. In that case, the RX buffer size is
++ * halved. This will helps lowering the pressure on the memory
++ * allocator.
++ *
++ * Hard errors force the thread to exit.
 + */
-+int i2400m_dev_reset_handle(struct i2400m *i2400m)
++static
++int i2400mu_rxd(void *_i2400mu)
 +{
-+	return i2400m_schedule_work(i2400m, __i2400m_dev_reset_handle,
-+				    GFP_ATOMIC);
-+}
-+EXPORT_SYMBOL_GPL(i2400m_dev_reset_handle);
-+
-+
-+/**
-+ * i2400m_setup - bus-generic setup function for the i2400m device
-+ *
-+ * @i2400m: device descriptor (bus-specific parts have been initialized)
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error.
-+ *
-+ * Initializes the bus-generic parts of the i2400m driver; the
-+ * bus-specific parts have been initialized, function pointers filled
-+ * out by the bus-specific probe function.
-+ *
-+ * As well, this registers the WiMAX and net device nodes. Once this
-+ * function returns, the device is operative and has to be ready to
-+ * receive and send network traffic and WiMAX control operations.
-+ */
-+int i2400m_setup(struct i2400m *i2400m, enum i2400m_bri bm_flags)
-+{
-+	int result = -ENODEV;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
++	int result = 0;
++	struct i2400mu *i2400mu = _i2400mu;
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct device *dev = &i2400mu->usb_iface->dev;
 +	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++	size_t pending;
++	int rx_size;
++	struct sk_buff *rx_skb;
 +
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
++	while (1) {
++		d_printf(2, dev, "TX: waiting for messages\n");
++		pending = 0;
++		wait_event_interruptible(
++			i2400mu->rx_wq,
++			(kthread_should_stop()	/* check this first! */
++			 || (pending = atomic_read(&i2400mu->rx_pending_count)))
++			);
++		if (kthread_should_stop())
++			break;
++		if (pending == 0)
++			continue;
++		rx_size = i2400mu->rx_size;
++		d_printf(2, dev, "RX: reading up to %d bytes\n", rx_size);
++		rx_skb = __netdev_alloc_skb(net_dev, rx_size, GFP_KERNEL);
++		if (rx_skb == NULL) {
++			dev_err(dev, "RX: can't allocate skb [%d bytes]\n",
++				rx_size);
++			msleep(50);	/* give it some time? */
++			continue;
++		}
 +
-+	snprintf(wimax_dev->name, sizeof(wimax_dev->name),
-+		 "i2400m-%s:%s", dev->bus->name, dev->bus_id);
++		/* Receive the message with the payloads */
++		rx_skb = i2400mu_rx(i2400mu, rx_skb);
++		result = PTR_ERR(rx_skb);
++		if (IS_ERR(rx_skb))
++			goto out;
++		atomic_dec(&i2400mu->rx_pending_count);
++		if (rx_skb->len == 0) {	/* some ignorable condition */
++			kfree_skb(rx_skb);
++			continue;
++		}
 +
-+	i2400m->bm_cmd_buf = kzalloc(I2400M_BM_CMD_BUF_SIZE, GFP_KERNEL);
-+	if (i2400m->bm_cmd_buf == NULL) {
-+		dev_err(dev, "cannot allocate USB command buffer\n");
-+		goto error_bm_cmd_kzalloc;
++		/* Deliver the message to the generic i2400m code */
++		i2400mu->rx_size_cnt++;
++		i2400mu->rx_size_acc += rx_skb->len;
++		result = i2400m_rx(i2400m, rx_skb);
++		if (result == -EIO
++		    && edc_inc(&i2400mu->urb_edc,
++			       EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME)) {
++			goto error_reset;
++		}
++
++		/* Maybe adjust RX buffer size */
++		i2400mu_rx_size_maybe_shrink(i2400mu);
 +	}
-+	i2400m->bm_ack_buf = kzalloc(I2400M_BM_ACK_BUF_SIZE, GFP_KERNEL);
-+	if (i2400m->bm_ack_buf == NULL) {
-+		dev_err(dev, "cannot allocate USB ack buffer\n");
-+		goto error_bm_ack_buf_kzalloc;
-+	}
-+	result = i2400m_bootrom_init(i2400m, bm_flags);
-+	if (result < 0) {
-+		dev_err(dev, "read mac addr: bootrom init "
-+			"failed: %d\n", result);
-+		goto error_bootrom_init;
-+	}
-+	result = i2400m_read_mac_addr(i2400m);
-+	if (result < 0)
-+		goto error_read_mac_addr;
-+
-+	result = register_netdev(net_dev);	/* Okey dokey, bring it up */
-+	if (result < 0) {
-+		dev_err(dev, "cannot register i2400m network device: %d\n",
-+			result);
-+		goto error_register_netdev;
-+	}
-+	netif_carrier_off(net_dev);
-+
-+	result = i2400m_dev_start(i2400m, bm_flags);
-+	if (result < 0)
-+		goto error_dev_start;
-+
-+	i2400m->wimax_dev.op_msg_from_user = i2400m_op_msg_from_user;
-+	i2400m->wimax_dev.op_rfkill_sw_toggle = i2400m_op_rfkill_sw_toggle;
-+	i2400m->wimax_dev.op_reset = i2400m_op_reset;
-+	result = wimax_dev_add(&i2400m->wimax_dev, net_dev);
-+	if (result < 0)
-+		goto error_wimax_dev_add;
-+	i2400m->pipe_trace = wimax_pipe_add(&i2400m->wimax_dev, "trace");
-+	if (IS_ERR(i2400m->pipe_trace)) {
-+		result = PTR_ERR(i2400m->pipe_trace);
-+		dev_err(dev, "cannot create 'trace' pipe: %d\n", result);
-+		goto error_pipe_add_trace;
-+	}
-+	/* User space needs to do some init stuff */
-+	wimax_state_change(wimax_dev, WIMAX_ST_UNINITIALIZED);
-+
-+	/* Now setup all that requires a registered net and wimax device. */
-+	result = i2400m_debugfs_add(i2400m);
-+	if (result < 0) {
-+		dev_err(dev, "cannot setup i2400m's debugfs: %d\n", result);
-+		goto error_debugfs_setup;
-+	}
-+	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
++	result = 0;
++out:
++	d_fnend(4, dev, "(i2400mu %p) = %d\n", i2400mu, result);
 +	return result;
 +
-+error_debugfs_setup:
-+	wimax_pipe_rm(&i2400m->wimax_dev, i2400m->pipe_trace);
-+error_pipe_add_trace:
-+	wimax_dev_rm(&i2400m->wimax_dev);
-+error_wimax_dev_add:
-+	i2400m_dev_stop(i2400m);
-+error_dev_start:
-+	unregister_netdev(net_dev);
-+error_register_netdev:
-+error_read_mac_addr:
-+error_bootrom_init:
-+	kfree(i2400m->bm_ack_buf);
-+error_bm_ack_buf_kzalloc:
-+	kfree(i2400m->bm_cmd_buf);
-+error_bm_cmd_kzalloc:
-+	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
-+	return result;
++error_reset:
++	dev_err(dev, "RX: maximum errors in received buffer exceeded; "
++		"resetting device\n");
++	usb_queue_reset_device(i2400mu->usb_iface);
++	goto out;
 +}
-+EXPORT_SYMBOL_GPL(i2400m_setup);
 +
 +
-+/**
-+ * i2400m_release - release the bus-generic driver resources
++/*
++ * Start reading from the device
 + *
-+ * Sends a disconnect message and undoes any setup done by i2400m_setup()
++ * @i2400m: device instance
++ *
++ * Notify the RX thread that there is data pending.
 + */
-+void i2400m_release(struct i2400m *i2400m)
++void i2400mu_rx_kick(struct i2400mu *i2400mu)
 +{
-+	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct device *dev = &i2400mu->usb_iface->dev;
 +
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+	netif_stop_queue(i2400m->wimax_dev.net_dev);
-+
-+	i2400m_debugfs_rm(i2400m);
-+	wimax_pipe_rm(&i2400m->wimax_dev, i2400m->pipe_trace);
-+	wimax_dev_rm(&i2400m->wimax_dev);
-+	i2400m_dev_stop(i2400m);
-+	unregister_netdev(i2400m->wimax_dev.net_dev);
-+	kfree(i2400m->bm_ack_buf);
-+	kfree(i2400m->bm_cmd_buf);
++	d_fnstart(3, dev, "(i2400mu %p)\n", i2400m);
++	atomic_inc(&i2400mu->rx_pending_count);
++	wake_up_all(&i2400mu->rx_wq);
 +	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
 +}
-+EXPORT_SYMBOL_GPL(i2400m_release);
 +
 +
-+static
-+int __init i2400m_driver_init(void)
++int i2400mu_rx_setup(struct i2400mu *i2400mu)
 +{
-+	return 0;
-+}
-+module_init(i2400m_driver_init);
++	int result = 0;
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
 +
-+static
-+void __exit i2400m_driver_exit(void)
++	i2400mu->rx_kthread = kthread_run(i2400mu_rxd, i2400mu, "%s-rx",
++					  wimax_dev->name);
++	if (IS_ERR(i2400mu->rx_kthread)) {
++		result = PTR_ERR(i2400mu->rx_kthread);
++		dev_err(dev, "RX: cannot start thread: %d\n", result);
++	}
++	return result;
++}
++
++void i2400mu_rx_release(struct i2400mu *i2400mu)
 +{
-+	/* for scheds i2400m_dev_reset_handle() */
-+	flush_scheduled_work();
-+	return;
++	kthread_stop(i2400mu->rx_kthread);
 +}
-+module_exit(i2400m_driver_exit);
 +
-+MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
-+MODULE_DESCRIPTION("Intel 2400M WiMAX networking bus-generic driver");
-+MODULE_LICENSE("GPL");
-diff --git a/drivers/net/wimax/i2400m/op-rfkill.c b/drivers/net/wimax/i2400m/op-rfkill.c
+diff --git a/drivers/net/wimax/i2400m/usb-tx.c b/drivers/net/wimax/i2400m/usb-tx.c
 new file mode 100644
-index 0000000..487ec58
+index 0000000..dfd8933
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/op-rfkill.c
-@@ -0,0 +1,207 @@
++++ b/drivers/net/wimax/i2400m/usb-tx.c
+@@ -0,0 +1,229 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Implement backend for the WiMAX stack rfkill support
++ * USB specific TX handling
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ *  - Split transport/device specific
 + *
 + *
-+ * The WiMAX kernel stack integrates into RF-Kill and keeps the
-+ * switches's status. We just need to:
++ * Takes the TX messages in the i2400m's driver TX FIFO and sends them
++ * to the device until there are no more.
 + *
-+ * - report changes in the HW RF Kill switch [with
-+ *   wimax_rfkill_{sw,hw}_report(), which happens when we detect those
-+ *   indications coming through hardware reports]. We also do it on
-+ *   initialization to let the stack know the intial HW state.
++ * If we fail sending the message, we just drop it. There isn't much
++ * we can do at this point. We could also retry, but the USB stack has
++ * already retried and still failed, so there is not much of a
++ * point. As well, most of the traffic is network, which has recovery
++ * methods for dropped packets.
 + *
-+ * - implement indications from the stack to change the SW RF Kill
-+ *   switch (coming from sysfs, the wimax stack or user space).
++ * For sending we just obtain a FIFO buffer to send, send it to the
++ * USB bulk out, tell the TX FIFO code we have sent it; query for
++ * another one, etc... until done.
++ *
++ * We use a thread so we can call usb_autopm_enable() and
++ * usb_autopm_disable() for each transaction; this way when the device
++ * goes idle, it will suspend. It also has less overhead than a
++ * dedicated workqueue, as it is being used for a single task.
++ *
++ * ROADMAP
++ *
++ * i2400mu_tx_setup()
++ * i2400mu_tx_release()
++ *
++ * i2400mu_bus_tx_kick()	- Called by the tx.c code when there
++ *                                is new data in the FIFO.
++ * i2400mu_txd()
++ *   i2400m_tx_msg_get()
++ *   i2400m_tx_msg_sent()
 + */
-+#include "i2400m.h"
-+#include <linux/wimax/i2400m.h>
++#include "i2400m-usb.h"
 +
 +
++#define D_SUBMODULE tx
++#include "usb-debug-levels.h"
 +
-+#define D_SUBMODULE rfkill
-+#include "debug-levels.h"
 +
 +/*
-+ * Return true if the i2400m radio is in the requested wimax_rf_state state
++ * Get the next TX message in the TX FIFO and send it to the device
 + *
++ * Note that any iteration consumes a message to be sent, no matter if
++ * it succeeds or fails (we have no real way to retry or complain).
++ *
++ * Return: 0 if ok, < 0 errno code on hard error.
 + */
 +static
-+int i2400m_radio_is(struct i2400m *i2400m, enum wimax_rf_state state)
++int i2400mu_tx(struct i2400mu *i2400mu, struct i2400m_msg_hdr *tx_msg,
++	       size_t tx_msg_size)
 +{
-+	if (state == WIMAX_RF_OFF)
-+		return i2400m->state == I2400M_SS_RF_OFF
-+			|| i2400m->state == I2400M_SS_RF_SHUTDOWN;
-+	else if (state == WIMAX_RF_ON)
-+		/* state == WIMAX_RF_ON */
-+		return i2400m->state != I2400M_SS_RF_OFF
-+			&& i2400m->state != I2400M_SS_RF_SHUTDOWN;
-+	else
-+		BUG();
-+}
++	int result = 0;
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	int usb_pipe, sent_size, do_autopm;
++	struct usb_endpoint_descriptor *epd;
 +
-+
-+/*
-+ * WiMAX stack operation: implement SW RFKill toggling
-+ *
-+ * @wimax_dev: device descriptor
-+ * @skb: skb where the message has been received; skb->data is
-+ *       expected to point to the message payload.
-+ * @genl_info: passed by the generic netlink layer
-+ *
-+ * Generic Netlink will call this function when a message is sent from
-+ * userspace to change the software RF-Kill switch status.
-+ *
-+ * This function will set the device's sofware RF-Kill switch state to
-+ * match what is requested.
-+ *
-+ * NOTE: the i2400m has a strict state machine; we can only set the
-+ *       RF-Kill switch when it is on, the HW RF-Kill is on and the
-+ *       device is initialized. So we ignore errors steaming from not
-+ *       being in the right state (-EILSEQ).
-+ */
-+int i2400m_op_rfkill_sw_toggle(struct wimax_dev *wimax_dev,
-+			       enum wimax_rf_state state)
-+{
-+	int result;
-+	struct i2400m *i2400m = wimax_dev_to_i2400m(wimax_dev);
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct sk_buff *ack_skb;
-+	struct {
-+		struct i2400m_l3l4_hdr hdr;
-+		struct i2400m_tlv_rf_operation sw_rf;
-+	} __attribute__((packed)) *cmd;
-+	char strerr[32];
-+
-+	d_fnstart(4, dev, "(wimax_dev %p state %d)\n", wimax_dev, state);
-+
-+	result = -ENOMEM;
-+	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
-+	if (cmd == NULL)
-+		goto error_alloc;
-+	cmd->hdr.type = cpu_to_le16(I2400M_MT_CMD_RF_CONTROL);
-+	cmd->hdr.length = sizeof(cmd->sw_rf);
-+	cmd->hdr.version = cpu_to_le16(I2400M_L3L4_VERSION);
-+	cmd->sw_rf.hdr.type = cpu_to_le16(I2400M_TLV_RF_OPERATION);
-+	cmd->sw_rf.hdr.length = cpu_to_le16(sizeof(cmd->sw_rf.status));
-+	switch (state) {
-+	case WIMAX_RF_OFF:	/* RFKILL ON, radio OFF */
-+		cmd->sw_rf.status = cpu_to_le32(2);
-+		break;
-+	case WIMAX_RF_ON:	/* RFKILL OFF, radio ON */
-+		cmd->sw_rf.status = cpu_to_le32(1);
-+		break;
-+	default:
-+		BUG();
-+	}
-+
-+	ack_skb = i2400m_msg_to_dev(i2400m, cmd, sizeof(*cmd));
-+	result = PTR_ERR(ack_skb);
-+	if (IS_ERR(ack_skb)) {
-+		dev_err(dev, "Failed to issue 'RF Control' command: %d\n",
-+			result);
-+		goto error_msg_to_dev;
-+	}
-+	result = i2400m_msg_check_status(wimax_msg_data(ack_skb),
-+					 strerr, sizeof(strerr));
++	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
++	do_autopm = atomic_read(&i2400mu->do_autopm);
++	result = do_autopm ?
++		usb_autopm_get_interface(i2400mu->usb_iface) : 0;
 +	if (result < 0) {
-+		dev_err(dev, "'RF Control' (0x%04x) command failed: %d - %s\n",
-+			I2400M_MT_CMD_RF_CONTROL, result, strerr);
-+		goto error_cmd;
++		dev_err(dev, "TX: can't get autopm: %d\n", result);
++		do_autopm = 0;
 +	}
-+
-+	/* Now we wait for the state to change to RADIO_OFF or RADIO_ON */
-+	result = wait_event_timeout(
-+		i2400m->state_wq, i2400m_radio_is(i2400m, state),
-+		5 * HZ);
-+	if (result == 0)
-+		result = -ETIMEDOUT;
-+	if (result < 0)
-+		dev_err(dev, "Error waiting for device to toggle RF state: "
-+			"%d\n", result);
-+	result = 0;
-+error_cmd:
-+	kfree_skb(ack_skb);
-+error_msg_to_dev:
-+error_alloc:
-+	d_fnend(4, dev, "(wimax_dev %p state %d) = %d\n",
-+		wimax_dev, state, result);
++	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_BULK_OUT);
++	usb_pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++retry:
++	result = usb_bulk_msg(i2400mu->usb_dev, usb_pipe,
++			      tx_msg, tx_msg_size, &sent_size, HZ);
++	usb_mark_last_busy(i2400mu->usb_dev);
++	switch (result) {
++	case 0:
++		if (sent_size != tx_msg_size) {	/* Too short? drop it */
++			dev_err(dev, "TX: short write (%d B vs %zu "
++				"expected)\n", sent_size, tx_msg_size);
++			result = -EIO;
++		}
++		break;
++	case -EINVAL:			/* while removing driver */
++	case -ENODEV:			/* dev disconnect ... */
++	case -ENOENT:			/* just ignore it */
++	case -ESHUTDOWN:		/* and exit */
++	case -ECONNRESET:
++		result = -ESHUTDOWN;
++		break;
++	default:			/* Some error? */
++		if (edc_inc(&i2400mu->urb_edc,
++			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME)) {
++			dev_err(dev, "TX: maximum errors in URB "
++				"exceeded; resetting device\n");
++			usb_queue_reset_device(i2400mu->usb_iface);
++		} else {
++			dev_err(dev, "TX: cannot send URB; retrying. "
++				"tx_msg @%zu %zu B [%d sent]: %d\n",
++				(void *) tx_msg - i2400m->tx_buf,
++				tx_msg_size, sent_size, result);
++			goto retry;
++		}
++	}
++	if (do_autopm)
++		usb_autopm_put_interface(i2400mu->usb_iface);
++	d_fnend(4, dev, "(i2400mu %p) = result\n", i2400mu);
 +	return result;
 +}
 +
 +
 +/*
-+ * Inform the WiMAX stack of changes in the RF Kill switches reported
-+ * by the device
++ * Get the next TX message in the TX FIFO and send it to the device
 + *
-+ * @i2400m: device descriptor
-+ * @rfss: TLV for RF Switches status; already validated
++ * Note we exit the loop if i2400mu_tx() fails; that funtion only
++ * fails on hard error (failing to tx a buffer not being one of them,
++ * see its doc).
 + *
-+ * NOTE: the reports on RF switch status cannot be trusted
-+ *       or used until the device is in a state of RADIO_OFF
-+ *       or greater.
++ * Return: 0
 + */
-+void i2400m_report_tlv_rf_switches_status(
-+	struct i2400m *i2400m,
-+	const struct i2400m_tlv_rf_switches_status *rfss)
++static
++int i2400mu_txd(void *_i2400mu)
 +{
-+	struct device *dev = i2400m_dev(i2400m);
-+	enum i2400m_rf_switch_status hw, sw;
-+	enum wimax_st wimax_state;
++	int result = 0;
++	struct i2400mu *i2400mu = _i2400mu;
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	struct i2400m_msg_hdr *tx_msg;
++	size_t tx_msg_size;
 +
-+	sw = le32_to_cpu(rfss->sw_rf_switch);
-+	hw = le32_to_cpu(rfss->hw_rf_switch);
++	d_fnstart(4, dev, "(i2400mu %p)\n", i2400mu);
 +
-+	d_fnstart(3, dev, "(i2400m %p rfss %p [hw %u sw %u])\n",
-+		  i2400m, rfss, hw, sw);
-+	/* We only process rw switch evens when the device has been
-+	 * fully initialized */
-+	wimax_state = wimax_state_get(&i2400m->wimax_dev);
-+	if (wimax_state < WIMAX_ST_RADIO_OFF) {
-+		d_printf(3, dev, "ignoring RF switches report, state %u\n",
-+			 wimax_state);
-+		goto out;
++	while (1) {
++		d_printf(2, dev, "TX: waiting for messages\n");
++		tx_msg = NULL;
++		wait_event_interruptible(
++			i2400mu->tx_wq,
++			(kthread_should_stop()	/* check this first! */
++			 || (tx_msg = i2400m_tx_msg_get(i2400m, &tx_msg_size)))
++			);
++		if (kthread_should_stop())
++			break;
++		WARN_ON(tx_msg == NULL);	/* should not happen...*/
++		d_printf(2, dev, "TX: submitting %zu bytes\n", tx_msg_size);
++		d_dump(5, dev, tx_msg, tx_msg_size);
++		/* Yeah, we ignore errors ... not much we can do */
++		i2400mu_tx(i2400mu, tx_msg, tx_msg_size);
++		i2400m_tx_msg_sent(i2400m);	/* ack it, advance the FIFO */
++		if (result < 0)
++			break;
 +	}
-+	switch (sw) {
-+	case I2400M_RF_SWITCH_ON:	/* RF Kill disabled (radio on) */
-+		wimax_report_rfkill_sw(&i2400m->wimax_dev, WIMAX_RF_ON);
-+		break;
-+	case I2400M_RF_SWITCH_OFF:	/* RF Kill enabled (radio off) */
-+		wimax_report_rfkill_sw(&i2400m->wimax_dev, WIMAX_RF_OFF);
-+		break;
-+	default:
-+		dev_err(dev, "HW BUG? Unknown RF SW state 0x%x\n", sw);
-+	}
++	d_fnend(4, dev, "(i2400mu %p) = %d\n", i2400mu, result);
++	return result;
++}
 +
-+	switch (hw) {
-+	case I2400M_RF_SWITCH_ON:	/* RF Kill disabled (radio on) */
-+		wimax_report_rfkill_hw(&i2400m->wimax_dev, WIMAX_RF_ON);
-+		break;
-+	case I2400M_RF_SWITCH_OFF:	/* RF Kill enabled (radio off) */
-+		wimax_report_rfkill_hw(&i2400m->wimax_dev, WIMAX_RF_OFF);
-+		break;
-+	default:
-+		dev_err(dev, "HW BUG? Unknown RF HW state 0x%x\n", hw);
++
++/*
++ * i2400m TX engine notifies us that there is data in the FIFO ready
++ * for TX
++ *
++ * If there is a URB in flight, don't do anything; when it finishes,
++ * it will see there is data in the FIFO and send it. Else, just
++ * submit a write.
++ */
++void i2400mu_bus_tx_kick(struct i2400m *i2400m)
++{
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct device *dev = &i2400mu->usb_iface->dev;
++
++	d_fnstart(3, dev, "(i2400m %p) = void\n", i2400m);
++	wake_up_all(&i2400mu->tx_wq);
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++}
++
++
++int i2400mu_tx_setup(struct i2400mu *i2400mu)
++{
++	int result = 0;
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
++
++	i2400mu->tx_kthread = kthread_run(i2400mu_txd, i2400mu, "%s-tx",
++					  wimax_dev->name);
++	if (IS_ERR(i2400mu->tx_kthread)) {
++		result = PTR_ERR(i2400mu->tx_kthread);
++		dev_err(dev, "TX: cannot start thread: %d\n", result);
 +	}
-+out:
-+	d_fnend(3, dev, "(i2400m %p rfss %p [hw %u sw %u]) = void\n",
-+		i2400m, rfss, hw, sw);
++	return result;
++}
++
++void i2400mu_tx_release(struct i2400mu *i2400mu)
++{
++	kthread_stop(i2400mu->tx_kthread);
 +}
 -- 
 1.5.6.5
