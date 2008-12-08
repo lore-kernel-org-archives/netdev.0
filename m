@@ -1,102 +1,75 @@
 From: Denis Joseph Barrow <D.Barow@option.com>
-Subject: [PATCH 2/3] hso maintainers update patch
-Date: Mon, 08 Dec 2008 11:40:23 +0100
-Message-ID: <493CF997.1080406@option.com>
+Subject: [PATCH 3/3] hso modem port detection fix patch
+Date: Mon, 08 Dec 2008 11:44:57 +0100
+Message-ID: <493CFAA9.6080401@option.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010906020501070601000009"
-To: Linux netdev Mailing list <netdev@vger.kernel.org>,
-	Linux USB kernel mailing list <linux-usb@vger.kernel.org>
+ boundary="------------020003070701060401090704"
+To: Linux USB kernel mailing list <linux-usb@vger.kernel.org>,
+	Linux netdev Mailing list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.option.com ([81.246.70.163]:14547 "EHLO
+Received: from mailer2.option.com ([81.246.70.163]:22643 "EHLO
 	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbYLHKk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 05:40:58 -0500
+	with ESMTP id S1751511AbYLHKpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 05:45:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------010906020501070601000009
+--------------020003070701060401090704
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
-Added D.J. Barrow as maintainer of hso driver.
+This patch will clash with the previously posted.
+[PATCH 1/3] hso modem signals patch fix & should only
+be applied if the hso modem signals patch fix patch
+is not applied.
+
+Fixed incorrect check for the modem port,
 Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
 ---
-Index: netdev-2.6/MAINTAINERS
-===================================================================
---- netdev-2.6.orig/MAINTAINERS	2008-12-08 10:34:26.000000000 +0100
-+++ netdev-2.6/MAINTAINERS	2008-12-08 11:29:47.000000000 +0100
-@@ -2046,6 +2046,12 @@
- W:	http://artax.karlin.mff.cuni.cz/~mikulas/vyplody/hpfs/index-e.cgi
- S:	Maintained
- 
-+HSO	3G Modem Driver (hso.c)
-+P:	Denis Joseph Barrow
-+M:	d.barow@option.com
-+W:	http://www.pharscape.org
-+S:	Maintained
-+
- HTCPEN TOUCHSCREEN DRIVER
- P:	Pau Oliva Fora
- M:	pof@eslack.org
 Index: netdev-2.6/drivers/net/usb/hso.c
 ===================================================================
---- netdev-2.6.orig/drivers/net/usb/hso.c	2008-12-08 10:34:26.000000000 +0100
-+++ netdev-2.6/drivers/net/usb/hso.c	2008-12-08 11:29:03.000000000 +0100
-@@ -3,6 +3,8 @@
-  * Driver for Option High Speed Mobile Devices.
-  *
-  *  Copyright (C) 2008 Option International
-+ *                     Filip Aben <f.aben@option.com>
-+ *                     Denis Joseph Barrow <d.barow@option.com>
-  *  Copyright (C) 2007 Andrew Bird (Sphere Systems Ltd)
-  *  			<ajb@spheresystems.co.uk>
-  *  Copyright (C) 2008 Greg Kroah-Hartman <gregkh@suse.de>
+--- netdev-2.6.orig/drivers/net/usb/hso.c	2008-12-08 11:29:03.000000000 +0100
++++ netdev-2.6/drivers/net/usb/hso.c	2008-12-08 11:30:00.000000000 +0100
+@@ -2343,7 +2343,7 @@
+ 	serial->parent = hso_dev;
+ 	hso_dev->port_data.dev_serial = serial;
+ 
+-	if (port & HSO_PORT_MODEM)
++	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM)
+ 		num_urbs = 2;
+ 	else
+ 		num_urbs = 1;
+
+
 
 -- 
 best regards,
 D.J. Barrow
 
---------------010906020501070601000009
+--------------020003070701060401090704
 Content-Type: text/x-diff;
- name="hso_maintainers.patch"
+ name="hso_modem_port_fix.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="hso_maintainers.patch"
+ filename="hso_modem_port_fix.patch"
 
-Added D.J. Barrow as maintainer of hso driver.
+Fixed incorrect check for the modem port,
 Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
 ---
-Index: netdev-2.6/MAINTAINERS
-===================================================================
---- netdev-2.6.orig/MAINTAINERS	2008-12-08 10:34:26.000000000 +0100
-+++ netdev-2.6/MAINTAINERS	2008-12-08 11:29:47.000000000 +0100
-@@ -2046,6 +2046,12 @@
- W:	http://artax.karlin.mff.cuni.cz/~mikulas/vyplody/hpfs/index-e.cgi
- S:	Maintained
- 
-+HSO	3G Modem Driver (hso.c)
-+P:	Denis Joseph Barrow
-+M:	d.barow@option.com
-+W:	http://www.pharscape.org
-+S:	Maintained
-+
- HTCPEN TOUCHSCREEN DRIVER
- P:	Pau Oliva Fora
- M:	pof@eslack.org
 Index: netdev-2.6/drivers/net/usb/hso.c
 ===================================================================
---- netdev-2.6.orig/drivers/net/usb/hso.c	2008-12-08 10:34:26.000000000 +0100
-+++ netdev-2.6/drivers/net/usb/hso.c	2008-12-08 11:29:03.000000000 +0100
-@@ -3,6 +3,8 @@
-  * Driver for Option High Speed Mobile Devices.
-  *
-  *  Copyright (C) 2008 Option International
-+ *                     Filip Aben <f.aben@option.com>
-+ *                     Denis Joseph Barrow <d.barow@option.com>
-  *  Copyright (C) 2007 Andrew Bird (Sphere Systems Ltd)
-  *  			<ajb@spheresystems.co.uk>
-  *  Copyright (C) 2008 Greg Kroah-Hartman <gregkh@suse.de>
+--- netdev-2.6.orig/drivers/net/usb/hso.c	2008-12-08 11:29:03.000000000 +0100
++++ netdev-2.6/drivers/net/usb/hso.c	2008-12-08 11:30:00.000000000 +0100
+@@ -2343,7 +2343,7 @@
+ 	serial->parent = hso_dev;
+ 	hso_dev->port_data.dev_serial = serial;
+ 
+-	if (port & HSO_PORT_MODEM)
++	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM)
+ 		num_urbs = 2;
+ 	else
+ 		num_urbs = 1;
 
---------------010906020501070601000009--
+--------------020003070701060401090704--
