@@ -1,8 +1,7 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 8/8] ipv6: netns: enable namespace support in ipv6 multicast
- forwarding code
-Date: Mon, 08 Dec 2008 17:02:04 +0100
-Message-ID: <20081208160158.211698958@localhost.localdomain>
+Subject: [PATCH 6/8] netns: ip6mr: declare reg_vif_num per-namespace
+Date: Mon, 08 Dec 2008 17:02:02 +0100
+Message-ID: <20081208160157.780663725@localhost.localdomain>
 References: <20081208160156.343758157@localhost.localdomain>
 Cc: netdev <netdev@vger.kernel.org>,
 	Alexey Dobriyan <adobriyan@gmail.com>,
@@ -11,829 +10,122 @@ Cc: netdev <netdev@vger.kernel.org>,
 To: Dave Miller <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:35259 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:35138 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139AbYLHQES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 11:04:18 -0500
+	with ESMTP id S1753089AbYLHQD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 11:03:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This last patch makes the appropriate changes to use and propagate the
-network namespace where needed in IPv6 multicast forwarding code.
+Preliminary work to make IPv6 multicast forwarding netns-aware.
 
-This consists mainly in replacing all the remaining init_net occurences
-with current netns pointer retrieved from sockets, net devices or 
-mfc6_caches depending on the routines' contexts.
+Declare variable 'reg_vif_num' per-namespace, moves into struct netns_ipv6.
 
-Some routines receive a new 'struct net' parameter to propagate the netns:
-* ip6mr_get_route
-* ip6mr_cache_report
-* ip6mr_cache_find
-* ip6mr_cache_unresolved
-* mif6_add/mif6_delete
-* ip6mr_mfc_add/ip6mr_mfc_delete
-
-All the IPv6 multicast forwarding variables moved to struct netns_ipv6 by
-the previous patches are now referenced in the correct namespace.
-
-Changelog:
-==========
-* Take into account the net associated to mfc6_cache when matching entries in
-  mfc_unres_queue list.
-* Call mroute_clean_tables() in ip6mr_net_exit() to free memory allocated
-  per-namespace.
-* Call dev_net_set() in ip6mr_reg_vif() to initialize dev->nd_net 
-  correctly.
+At the moment, this variable is only referenced in init_net.
 
 Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/linux/mroute6.h |    3 +-
- net/ipv6/ip6mr.c        |  235 ++++++++++++++++++++++++++---------------------
- net/ipv6/route.c        |    2 +-
- 3 files changed, 133 insertions(+), 107 deletions(-)
+ include/net/netns/ipv6.h |    3 +++
+ net/ipv6/ip6mr.c         |   19 +++++++++++--------
+ 2 files changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/mroute6.h b/include/linux/mroute6.h
-index 15d85fe..5375fac 100644
---- a/include/linux/mroute6.h
-+++ b/include/linux/mroute6.h
-@@ -245,7 +245,8 @@ void mfc6_net_set(struct mfc6_cache *mfc, struct net *net)
- 
- #ifdef __KERNEL__
- struct rtmsg;
--extern int ip6mr_get_route(struct sk_buff *skb, struct rtmsg *rtm, int nowait);
-+extern int ip6mr_get_route(struct net *net, struct sk_buff *skb,
-+			   struct rtmsg *rtm, int nowait);
- 
- #ifdef CONFIG_IPV6_MROUTE
- static inline struct sock *mroute6_socket(struct net *net)
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index b17e522..c0e3189 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -62,6 +62,9 @@ struct netns_ipv6 {
+ 	int			maxvif;
+ 	int			mroute_do_assert;
+ 	int			mroute_do_pim;
++#ifdef CONFIG_IPV6_PIMSM_V2
++	int			mroute_reg_vif_num;
++#endif
+ #endif
+ };
+ #endif
 diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index ad540a0..739ba04 100644
+index 1583202..b9f03f7 100644
 --- a/net/ipv6/ip6mr.c
 +++ b/net/ipv6/ip6mr.c
-@@ -78,8 +78,10 @@ static DEFINE_SPINLOCK(mfc_unres_lock);
- static struct kmem_cache *mrt_cachep __read_mostly;
- 
- static int ip6_mr_forward(struct sk_buff *skb, struct mfc6_cache *cache);
--static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert);
-+static int ip6mr_cache_report(struct net *net, struct sk_buff *pkt,
-+			      mifi_t mifi, int assert);
- static int ip6mr_fill_mroute(struct sk_buff *skb, struct mfc6_cache *c, struct rtmsg *rtm);
-+static void mroute_clean_tables(struct net *net);
+@@ -334,13 +334,13 @@ static struct file_operations ip6mr_mfc_fops = {
+ #endif
  
  #ifdef CONFIG_IPV6_PIMSM_V2
- static struct inet6_protocol pim6_protocol;
-@@ -354,7 +356,8 @@ static int pim6_rcv(struct sk_buff *skb)
+-static int reg_vif_num = -1;
+ 
+ static int pim6_rcv(struct sk_buff *skb)
+ {
  	struct pimreghdr *pim;
  	struct ipv6hdr   *encap;
  	struct net_device  *reg_dev = NULL;
--	int reg_vif_num = init_net.ipv6.mroute_reg_vif_num;
-+	struct net *net = dev_net(skb->dev);
-+	int reg_vif_num = net->ipv6.mroute_reg_vif_num;
++	int reg_vif_num = init_net.ipv6.mroute_reg_vif_num;
  
  	if (!pskb_may_pull(skb, sizeof(*pim) + sizeof(*encap)))
  		goto drop;
-@@ -377,7 +380,7 @@ static int pim6_rcv(struct sk_buff *skb)
- 
- 	read_lock(&mrt_lock);
- 	if (reg_vif_num >= 0)
--		reg_dev = init_net.ipv6.vif6_table[reg_vif_num].dev;
-+		reg_dev = net->ipv6.vif6_table[reg_vif_num].dev;
- 	if (reg_dev)
- 		dev_hold(reg_dev);
- 	read_unlock(&mrt_lock);
-@@ -413,10 +416,13 @@ static struct inet6_protocol pim6_protocol = {
- 
- static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-+	struct net *net = dev_net(dev);
-+
+@@ -402,7 +402,7 @@ static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
  	read_lock(&mrt_lock);
  	dev->stats.tx_bytes += skb->len;
  	dev->stats.tx_packets++;
--	ip6mr_cache_report(skb, init_net.ipv6.mroute_reg_vif_num, MRT6MSG_WHOLEPKT);
-+	ip6mr_cache_report(net, skb, net->ipv6.mroute_reg_vif_num,
-+			   MRT6MSG_WHOLEPKT);
+-	ip6mr_cache_report(skb, reg_vif_num, MRT6MSG_WHOLEPKT);
++	ip6mr_cache_report(skb, init_net.ipv6.mroute_reg_vif_num, MRT6MSG_WHOLEPKT);
  	read_unlock(&mrt_lock);
  	kfree_skb(skb);
  	return 0;
-@@ -435,7 +441,7 @@ static void reg_vif_setup(struct net_device *dev)
- 	dev->destructor		= free_netdev;
- }
- 
--static struct net_device *ip6mr_reg_vif(void)
-+static struct net_device *ip6mr_reg_vif(struct net *net)
- {
- 	struct net_device *dev;
- 
-@@ -443,6 +449,8 @@ static struct net_device *ip6mr_reg_vif(void)
- 	if (dev == NULL)
- 		return NULL;
- 
-+	dev_net_set(dev, net);
-+
- 	if (register_netdevice(dev)) {
- 		free_netdev(dev);
- 		return NULL;
-@@ -469,14 +477,14 @@ failure:
-  *	Delete a VIF entry
-  */
- 
--static int mif6_delete(int vifi)
-+static int mif6_delete(struct net *net, int vifi)
- {
- 	struct mif_device *v;
- 	struct net_device *dev;
--	if (vifi < 0 || vifi >= init_net.ipv6.maxvif)
-+	if (vifi < 0 || vifi >= net->ipv6.maxvif)
- 		return -EADDRNOTAVAIL;
- 
--	v = &init_net.ipv6.vif6_table[vifi];
-+	v = &net->ipv6.vif6_table[vifi];
- 
- 	write_lock_bh(&mrt_lock);
- 	dev = v->dev;
-@@ -488,17 +496,17 @@ static int mif6_delete(int vifi)
+@@ -474,8 +474,8 @@ static int mif6_delete(int vifi)
  	}
  
  #ifdef CONFIG_IPV6_PIMSM_V2
--	if (vifi == init_net.ipv6.mroute_reg_vif_num)
--		init_net.ipv6.mroute_reg_vif_num = -1;
-+	if (vifi == net->ipv6.mroute_reg_vif_num)
-+		net->ipv6.mroute_reg_vif_num = -1;
+-	if (vifi == reg_vif_num)
+-		reg_vif_num = -1;
++	if (vifi == init_net.ipv6.mroute_reg_vif_num)
++		init_net.ipv6.mroute_reg_vif_num = -1;
  #endif
  
--	if (vifi + 1 == init_net.ipv6.maxvif) {
-+	if (vifi + 1 == net->ipv6.maxvif) {
- 		int tmp;
- 		for (tmp = vifi - 1; tmp >= 0; tmp--) {
--			if (MIF_EXISTS(&init_net, tmp))
-+			if (MIF_EXISTS(net, tmp))
- 				break;
- 		}
--		init_net.ipv6.maxvif = tmp + 1;
-+		net->ipv6.maxvif = tmp + 1;
- 	}
- 
- 	write_unlock_bh(&mrt_lock);
-@@ -514,9 +522,7 @@ static int mif6_delete(int vifi)
- 
- static inline void ip6mr_cache_free(struct mfc6_cache *c)
- {
--#ifdef CONFIG_NET_NS
--	release_net(c->mfc6_net);
--#endif
-+	release_net(mfc6_net(c));
- 	kmem_cache_free(mrt_cachep, c);
- }
- 
-@@ -537,7 +543,7 @@ static void ip6mr_destroy_unres(struct mfc6_cache *c)
- 			nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct nlmsgerr));
- 			skb_trim(skb, nlh->nlmsg_len);
- 			((struct nlmsgerr *)NLMSG_DATA(nlh))->error = -ETIMEDOUT;
--			rtnl_unicast(skb, &init_net, NETLINK_CB(skb).pid);
-+			rtnl_unicast(skb, mfc6_net(c), NETLINK_CB(skb).pid);
- 		} else
- 			kfree_skb(skb);
- 	}
-@@ -592,13 +598,14 @@ static void ipmr_expire_process(unsigned long dummy)
- static void ip6mr_update_thresholds(struct mfc6_cache *cache, unsigned char *ttls)
- {
- 	int vifi;
-+	struct net *net = mfc6_net(cache);
- 
- 	cache->mfc_un.res.minvif = MAXMIFS;
- 	cache->mfc_un.res.maxvif = 0;
- 	memset(cache->mfc_un.res.ttls, 255, MAXMIFS);
- 
--	for (vifi = 0; vifi < init_net.ipv6.maxvif; vifi++) {
--		if (MIF_EXISTS(&init_net, vifi) &&
-+	for (vifi = 0; vifi < net->ipv6.maxvif; vifi++) {
-+		if (MIF_EXISTS(net, vifi) &&
- 		    ttls[vifi] && ttls[vifi] < 255) {
- 			cache->mfc_un.res.ttls[vifi] = ttls[vifi];
- 			if (cache->mfc_un.res.minvif > vifi)
-@@ -609,15 +616,15 @@ static void ip6mr_update_thresholds(struct mfc6_cache *cache, unsigned char *ttl
- 	}
- }
- 
--static int mif6_add(struct mif6ctl *vifc, int mrtsock)
-+static int mif6_add(struct net *net, struct mif6ctl *vifc, int mrtsock)
- {
- 	int vifi = vifc->mif6c_mifi;
--	struct mif_device *v = &init_net.ipv6.vif6_table[vifi];
-+	struct mif_device *v = &net->ipv6.vif6_table[vifi];
- 	struct net_device *dev;
- 	int err;
- 
- 	/* Is vif busy ? */
--	if (MIF_EXISTS(&init_net, vifi))
-+	if (MIF_EXISTS(net, vifi))
- 		return -EADDRINUSE;
- 
- 	switch (vifc->mif6c_flags) {
-@@ -627,9 +634,9 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
+ 	if (vifi + 1 == init_net.ipv6.maxvif) {
+@@ -613,7 +613,7 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
  		 * Special Purpose VIF in PIM
  		 * All the packets will be sent to the daemon
  		 */
--		if (init_net.ipv6.mroute_reg_vif_num >= 0)
-+		if (net->ipv6.mroute_reg_vif_num >= 0)
+-		if (reg_vif_num >= 0)
++		if (init_net.ipv6.mroute_reg_vif_num >= 0)
  			return -EADDRINUSE;
--		dev = ip6mr_reg_vif();
-+		dev = ip6mr_reg_vif(net);
+ 		dev = ip6mr_reg_vif();
  		if (!dev)
- 			return -ENOBUFS;
- 		err = dev_set_allmulti(dev, 1);
-@@ -641,7 +648,7 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
- 		break;
- #endif
- 	case 0:
--		dev = dev_get_by_index(&init_net, vifc->mif6c_pifi);
-+		dev = dev_get_by_index(net, vifc->mif6c_pifi);
- 		if (!dev)
- 			return -EADDRNOTAVAIL;
- 		err = dev_set_allmulti(dev, 1);
-@@ -675,20 +682,22 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
+@@ -661,7 +661,7 @@ static int mif6_add(struct mif6ctl *vifc, int mrtsock)
  	v->dev = dev;
  #ifdef CONFIG_IPV6_PIMSM_V2
  	if (v->flags & MIFF_REGISTER)
--		init_net.ipv6.mroute_reg_vif_num = vifi;
-+		net->ipv6.mroute_reg_vif_num = vifi;
+-		reg_vif_num = vifi;
++		init_net.ipv6.mroute_reg_vif_num = vifi;
  #endif
--	if (vifi + 1 > init_net.ipv6.maxvif)
--		init_net.ipv6.maxvif = vifi + 1;
-+	if (vifi + 1 > net->ipv6.maxvif)
-+		net->ipv6.maxvif = vifi + 1;
- 	write_unlock_bh(&mrt_lock);
- 	return 0;
- }
- 
--static struct mfc6_cache *ip6mr_cache_find(struct in6_addr *origin, struct in6_addr *mcastgrp)
-+static struct mfc6_cache *ip6mr_cache_find(struct net *net,
-+					   struct in6_addr *origin,
-+					   struct in6_addr *mcastgrp)
- {
- 	int line = MFC6_HASH(mcastgrp, origin);
- 	struct mfc6_cache *c;
- 
--	for (c = init_net.ipv6.mfc6_cache_array[line]; c; c = c->next) {
-+	for (c = net->ipv6.mfc6_cache_array[line]; c; c = c->next) {
- 		if (ipv6_addr_equal(&c->mf6c_origin, origin) &&
- 		    ipv6_addr_equal(&c->mf6c_mcastgrp, mcastgrp))
- 			break;
-@@ -745,7 +754,7 @@ static void ip6mr_cache_resolve(struct mfc6_cache *uc, struct mfc6_cache *c)
- 				skb_trim(skb, nlh->nlmsg_len);
- 				((struct nlmsgerr *)NLMSG_DATA(nlh))->error = -EMSGSIZE;
- 			}
--			err = rtnl_unicast(skb, &init_net, NETLINK_CB(skb).pid);
-+			err = rtnl_unicast(skb, mfc6_net(uc), NETLINK_CB(skb).pid);
- 		} else
- 			ip6_mr_forward(skb, c);
- 	}
-@@ -758,7 +767,8 @@ static void ip6mr_cache_resolve(struct mfc6_cache *uc, struct mfc6_cache *c)
-  *	Called under mrt_lock.
-  */
- 
--static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert)
-+static int ip6mr_cache_report(struct net *net, struct sk_buff *pkt, mifi_t mifi,
-+			      int assert)
- {
- 	struct sk_buff *skb;
- 	struct mrt6msg *msg;
-@@ -794,7 +804,7 @@ static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert)
+ 	if (vifi + 1 > init_net.ipv6.maxvif)
+ 		init_net.ipv6.maxvif = vifi + 1;
+@@ -780,7 +780,7 @@ static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert)
  		msg = (struct mrt6msg *)skb_transport_header(skb);
  		msg->im6_mbz = 0;
  		msg->im6_msgtype = MRT6MSG_WHOLEPKT;
--		msg->im6_mif = init_net.ipv6.mroute_reg_vif_num;
-+		msg->im6_mif = net->ipv6.mroute_reg_vif_num;
+-		msg->im6_mif = reg_vif_num;
++		msg->im6_mif = init_net.ipv6.mroute_reg_vif_num;
  		msg->im6_pad = 0;
  		ipv6_addr_copy(&msg->im6_src, &ipv6_hdr(pkt)->saddr);
  		ipv6_addr_copy(&msg->im6_dst, &ipv6_hdr(pkt)->daddr);
-@@ -831,7 +841,7 @@ static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert)
- 	skb_pull(skb, sizeof(struct ipv6hdr));
- 	}
- 
--	if (init_net.ipv6.mroute6_sk == NULL) {
-+	if (net->ipv6.mroute6_sk == NULL) {
- 		kfree_skb(skb);
- 		return -EINVAL;
- 	}
-@@ -839,7 +849,7 @@ static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert)
- 	/*
- 	 *	Deliver to user space multicast routing algorithms
- 	 */
--	ret = sock_queue_rcv_skb(init_net.ipv6.mroute6_sk, skb);
-+	ret = sock_queue_rcv_skb(net->ipv6.mroute6_sk, skb);
- 	if (ret < 0) {
- 		if (net_ratelimit())
- 			printk(KERN_WARNING "mroute6: pending queue full, dropping entries.\n");
-@@ -854,14 +864,15 @@ static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert)
-  */
- 
- static int
--ip6mr_cache_unresolved(mifi_t mifi, struct sk_buff *skb)
-+ip6mr_cache_unresolved(struct net *net, mifi_t mifi, struct sk_buff *skb)
- {
- 	int err;
- 	struct mfc6_cache *c;
- 
- 	spin_lock_bh(&mfc_unres_lock);
- 	for (c = mfc_unres_queue; c; c = c->next) {
--		if (ipv6_addr_equal(&c->mf6c_mcastgrp, &ipv6_hdr(skb)->daddr) &&
-+		if (net_eq(mfc6_net(c), net) &&
-+		    ipv6_addr_equal(&c->mf6c_mcastgrp, &ipv6_hdr(skb)->daddr) &&
- 		    ipv6_addr_equal(&c->mf6c_origin, &ipv6_hdr(skb)->saddr))
- 			break;
- 	}
-@@ -872,7 +883,7 @@ ip6mr_cache_unresolved(mifi_t mifi, struct sk_buff *skb)
- 		 */
- 
- 		if (atomic_read(&cache_resolve_queue_len) >= 10 ||
--		    (c = ip6mr_cache_alloc_unres(&init_net)) == NULL) {
-+		    (c = ip6mr_cache_alloc_unres(net)) == NULL) {
- 			spin_unlock_bh(&mfc_unres_lock);
- 
- 			kfree_skb(skb);
-@@ -889,7 +900,8 @@ ip6mr_cache_unresolved(mifi_t mifi, struct sk_buff *skb)
- 		/*
- 		 *	Reflect first query at pim6sd
- 		 */
--		if ((err = ip6mr_cache_report(skb, mifi, MRT6MSG_NOCACHE)) < 0) {
-+		err = ip6mr_cache_report(net, skb, mifi, MRT6MSG_NOCACHE);
-+		if (err < 0) {
- 			/* If the report failed throw the cache entry
- 			   out - Brad Parker
- 			 */
-@@ -926,14 +938,14 @@ ip6mr_cache_unresolved(mifi_t mifi, struct sk_buff *skb)
-  *	MFC6 cache manipulation by user space
-  */
- 
--static int ip6mr_mfc_delete(struct mf6cctl *mfc)
-+static int ip6mr_mfc_delete(struct net *net, struct mf6cctl *mfc)
- {
- 	int line;
- 	struct mfc6_cache *c, **cp;
- 
- 	line = MFC6_HASH(&mfc->mf6cc_mcastgrp.sin6_addr, &mfc->mf6cc_origin.sin6_addr);
- 
--	for (cp = &init_net.ipv6.mfc6_cache_array[line];
-+	for (cp = &net->ipv6.mfc6_cache_array[line];
- 	     (c = *cp) != NULL; cp = &c->next) {
- 		if (ipv6_addr_equal(&c->mf6c_origin, &mfc->mf6cc_origin.sin6_addr) &&
- 		    ipv6_addr_equal(&c->mf6c_mcastgrp, &mfc->mf6cc_mcastgrp.sin6_addr)) {
-@@ -952,19 +964,17 @@ static int ip6mr_device_event(struct notifier_block *this,
- 			      unsigned long event, void *ptr)
- {
- 	struct net_device *dev = ptr;
-+	struct net *net = dev_net(dev);
- 	struct mif_device *v;
- 	int ct;
- 
--	if (!net_eq(dev_net(dev), &init_net))
--		return NOTIFY_DONE;
--
- 	if (event != NETDEV_UNREGISTER)
- 		return NOTIFY_DONE;
- 
--	v = &init_net.ipv6.vif6_table[0];
--	for (ct = 0; ct < init_net.ipv6.maxvif; ct++, v++) {
-+	v = &net->ipv6.vif6_table[0];
-+	for (ct = 0; ct < net->ipv6.maxvif; ct++, v++) {
- 		if (v->dev == dev)
--			mif6_delete(ct);
-+			mif6_delete(net, ct);
- 	}
- 	return NOTIFY_DONE;
- }
-@@ -1027,6 +1037,7 @@ static void __net_exit ip6mr_net_exit(struct net *net)
- 	proc_net_remove(net, "ip6_mr_cache");
- 	proc_net_remove(net, "ip6_mr_vif");
- #endif
-+	mroute_clean_tables(net);
- 	kfree(net->ipv6.mfc6_cache_array);
- 	kfree(net->ipv6.vif6_table);
- }
-@@ -1072,7 +1083,7 @@ void ip6_mr_cleanup(void)
- 	kmem_cache_destroy(mrt_cachep);
- }
- 
--static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
-+static int ip6mr_mfc_add(struct net *net, struct mf6cctl *mfc, int mrtsock)
- {
- 	int line;
- 	struct mfc6_cache *uc, *c, **cp;
-@@ -1088,7 +1099,7 @@ static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
- 
- 	line = MFC6_HASH(&mfc->mf6cc_mcastgrp.sin6_addr, &mfc->mf6cc_origin.sin6_addr);
- 
--	for (cp = &init_net.ipv6.mfc6_cache_array[line];
-+	for (cp = &net->ipv6.mfc6_cache_array[line];
- 	     (c = *cp) != NULL; cp = &c->next) {
- 		if (ipv6_addr_equal(&c->mf6c_origin, &mfc->mf6cc_origin.sin6_addr) &&
- 		    ipv6_addr_equal(&c->mf6c_mcastgrp, &mfc->mf6cc_mcastgrp.sin6_addr))
-@@ -1108,7 +1119,7 @@ static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
- 	if (!ipv6_addr_is_multicast(&mfc->mf6cc_mcastgrp.sin6_addr))
- 		return -EINVAL;
- 
--	c = ip6mr_cache_alloc(&init_net);
-+	c = ip6mr_cache_alloc(net);
- 	if (c == NULL)
- 		return -ENOMEM;
- 
-@@ -1120,8 +1131,8 @@ static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
- 		c->mfc_flags |= MFC_STATIC;
- 
- 	write_lock_bh(&mrt_lock);
--	c->next = init_net.ipv6.mfc6_cache_array[line];
--	init_net.ipv6.mfc6_cache_array[line] = c;
-+	c->next = net->ipv6.mfc6_cache_array[line];
-+	net->ipv6.mfc6_cache_array[line] = c;
- 	write_unlock_bh(&mrt_lock);
- 
- 	/*
-@@ -1131,7 +1142,8 @@ static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
- 	spin_lock_bh(&mfc_unres_lock);
- 	for (cp = &mfc_unres_queue; (uc = *cp) != NULL;
- 	     cp = &uc->next) {
--		if (ipv6_addr_equal(&uc->mf6c_origin, &c->mf6c_origin) &&
-+		if (net_eq(mfc6_net(uc), net) &&
-+		    ipv6_addr_equal(&uc->mf6c_origin, &c->mf6c_origin) &&
- 		    ipv6_addr_equal(&uc->mf6c_mcastgrp, &c->mf6c_mcastgrp)) {
- 			*cp = uc->next;
- 			if (atomic_dec_and_test(&cache_resolve_queue_len))
-@@ -1152,16 +1164,16 @@ static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
-  *	Close the multicast socket, and clear the vif tables etc
-  */
- 
--static void mroute_clean_tables(struct sock *sk)
-+static void mroute_clean_tables(struct net *net)
- {
- 	int i;
- 
- 	/*
- 	 *	Shut down all active vif entries
- 	 */
--	for (i = 0; i < init_net.ipv6.maxvif; i++) {
--		if (!(init_net.ipv6.vif6_table[i].flags & VIFF_STATIC))
--			mif6_delete(i);
-+	for (i = 0; i < net->ipv6.maxvif; i++) {
-+		if (!(net->ipv6.vif6_table[i].flags & VIFF_STATIC))
-+			mif6_delete(net, i);
- 	}
- 
- 	/*
-@@ -1170,7 +1182,7 @@ static void mroute_clean_tables(struct sock *sk)
- 	for (i = 0; i < MFC6_LINES; i++) {
- 		struct mfc6_cache *c, **cp;
- 
--		cp = &init_net.ipv6.mfc6_cache_array[i];
-+		cp = &net->ipv6.mfc6_cache_array[i];
- 		while ((c = *cp) != NULL) {
- 			if (c->mfc_flags & MFC_STATIC) {
- 				cp = &c->next;
-@@ -1185,17 +1197,17 @@ static void mroute_clean_tables(struct sock *sk)
- 	}
- 
- 	if (atomic_read(&cache_resolve_queue_len) != 0) {
--		struct mfc6_cache *c;
-+		struct mfc6_cache *c, **cp;
- 
- 		spin_lock_bh(&mfc_unres_lock);
--		while (mfc_unres_queue != NULL) {
--			c = mfc_unres_queue;
--			mfc_unres_queue = c->next;
--			spin_unlock_bh(&mfc_unres_lock);
--
-+		cp = &mfc_unres_queue;
-+		while ((c = *cp) != NULL) {
-+			if (!net_eq(mfc6_net(c), net)) {
-+				cp = &c->next;
-+				continue;
-+			}
-+			*cp = c->next;
- 			ip6mr_destroy_unres(c);
--
--			spin_lock_bh(&mfc_unres_lock);
- 		}
- 		spin_unlock_bh(&mfc_unres_lock);
- 	}
-@@ -1204,11 +1216,12 @@ static void mroute_clean_tables(struct sock *sk)
- static int ip6mr_sk_init(struct sock *sk)
+@@ -966,7 +966,6 @@ static struct notifier_block ip6_mr_notifier = {
+ static int __net_init ip6mr_net_init(struct net *net)
  {
  	int err = 0;
-+	struct net *net = sock_net(sk);
- 
- 	rtnl_lock();
- 	write_lock_bh(&mrt_lock);
--	if (likely(init_net.ipv6.mroute6_sk == NULL))
--		init_net.ipv6.mroute6_sk = sk;
-+	if (likely(net->ipv6.mroute6_sk == NULL))
-+		net->ipv6.mroute6_sk = sk;
- 	else
- 		err = -EADDRINUSE;
- 	write_unlock_bh(&mrt_lock);
-@@ -1221,14 +1234,15 @@ static int ip6mr_sk_init(struct sock *sk)
- int ip6mr_sk_done(struct sock *sk)
- {
- 	int err = 0;
-+	struct net *net = sock_net(sk);
- 
- 	rtnl_lock();
--	if (sk == init_net.ipv6.mroute6_sk) {
-+	if (sk == net->ipv6.mroute6_sk) {
- 		write_lock_bh(&mrt_lock);
--		init_net.ipv6.mroute6_sk = NULL;
-+		net->ipv6.mroute6_sk = NULL;
- 		write_unlock_bh(&mrt_lock);
- 
--		mroute_clean_tables(sk);
-+		mroute_clean_tables(net);
- 	} else
- 		err = -EACCES;
- 	rtnl_unlock();
-@@ -1249,9 +1263,10 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, int
- 	struct mif6ctl vif;
- 	struct mf6cctl mfc;
- 	mifi_t mifi;
-+	struct net *net = sock_net(sk);
- 
- 	if (optname != MRT6_INIT) {
--		if (sk != init_net.ipv6.mroute6_sk && !capable(CAP_NET_ADMIN))
-+		if (sk != net->ipv6.mroute6_sk && !capable(CAP_NET_ADMIN))
- 			return -EACCES;
+-
+ 	net->ipv6.vif6_table = kcalloc(MAXMIFS, sizeof(struct mif_device),
+ 				       GFP_KERNEL);
+ 	if (!net->ipv6.vif6_table) {
+@@ -982,6 +981,10 @@ static int __net_init ip6mr_net_init(struct net *net)
+ 		err = -ENOMEM;
+ 		goto fail_mfc6_cache;
  	}
++
++#ifdef CONFIG_IPV6_PIMSM_V2
++	net->ipv6.mroute_reg_vif_num = -1;
++#endif
+ 	return 0;
  
-@@ -1276,7 +1291,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, int
- 		if (vif.mif6c_mifi >= MAXMIFS)
- 			return -ENFILE;
- 		rtnl_lock();
--		ret = mif6_add(&vif, sk == init_net.ipv6.mroute6_sk);
-+		ret = mif6_add(net, &vif, sk == net->ipv6.mroute6_sk);
- 		rtnl_unlock();
- 		return ret;
- 
-@@ -1286,7 +1301,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, int
- 		if (copy_from_user(&mifi, optval, sizeof(mifi_t)))
- 			return -EFAULT;
- 		rtnl_lock();
--		ret = mif6_delete(mifi);
-+		ret = mif6_delete(net, mifi);
- 		rtnl_unlock();
- 		return ret;
- 
-@@ -1302,9 +1317,10 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, int
- 			return -EFAULT;
- 		rtnl_lock();
- 		if (optname == MRT6_DEL_MFC)
--			ret = ip6mr_mfc_delete(&mfc);
-+			ret = ip6mr_mfc_delete(net, &mfc);
- 		else
--			ret = ip6mr_mfc_add(&mfc, sk == init_net.ipv6.mroute6_sk);
-+			ret = ip6mr_mfc_add(net, &mfc,
-+					    sk == net->ipv6.mroute6_sk);
- 		rtnl_unlock();
- 		return ret;
- 
-@@ -1316,7 +1332,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, int
- 		int v;
- 		if (get_user(v, (int __user *)optval))
- 			return -EFAULT;
--		init_net.ipv6.mroute_do_assert = !!v;
-+		net->ipv6.mroute_do_assert = !!v;
- 		return 0;
- 	}
- 
-@@ -1329,10 +1345,10 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, int
- 		v = !!v;
- 		rtnl_lock();
- 		ret = 0;
--		if (v != init_net.ipv6.mroute_do_pim) {
--			init_net.ipv6.mroute_do_pim = v;
--			init_net.ipv6.mroute_do_assert = v;
--			if (init_net.ipv6.mroute_do_pim)
-+		if (v != net->ipv6.mroute_do_pim) {
-+			net->ipv6.mroute_do_pim = v;
-+			net->ipv6.mroute_do_assert = v;
-+			if (net->ipv6.mroute_do_pim)
- 				ret = inet6_add_protocol(&pim6_protocol,
- 							 IPPROTO_PIM);
- 			else
-@@ -1364,6 +1380,7 @@ int ip6_mroute_getsockopt(struct sock *sk, int optname, char __user *optval,
- {
- 	int olr;
- 	int val;
-+	struct net *net = sock_net(sk);
- 
- 	switch (optname) {
- 	case MRT6_VERSION:
-@@ -1371,11 +1388,11 @@ int ip6_mroute_getsockopt(struct sock *sk, int optname, char __user *optval,
- 		break;
- #ifdef CONFIG_IPV6_PIMSM_V2
- 	case MRT6_PIM:
--		val = init_net.ipv6.mroute_do_pim;
-+		val = net->ipv6.mroute_do_pim;
- 		break;
- #endif
- 	case MRT6_ASSERT:
--		val = init_net.ipv6.mroute_do_assert;
-+		val = net->ipv6.mroute_do_assert;
- 		break;
- 	default:
- 		return -ENOPROTOOPT;
-@@ -1405,16 +1422,17 @@ int ip6mr_ioctl(struct sock *sk, int cmd, void __user *arg)
- 	struct sioc_mif_req6 vr;
- 	struct mif_device *vif;
- 	struct mfc6_cache *c;
-+	struct net *net = sock_net(sk);
- 
- 	switch (cmd) {
- 	case SIOCGETMIFCNT_IN6:
- 		if (copy_from_user(&vr, arg, sizeof(vr)))
- 			return -EFAULT;
--		if (vr.mifi >= init_net.ipv6.maxvif)
-+		if (vr.mifi >= net->ipv6.maxvif)
- 			return -EINVAL;
- 		read_lock(&mrt_lock);
--		vif = &init_net.ipv6.vif6_table[vr.mifi];
--		if (MIF_EXISTS(&init_net, vr.mifi)) {
-+		vif = &net->ipv6.vif6_table[vr.mifi];
-+		if (MIF_EXISTS(net, vr.mifi)) {
- 			vr.icount = vif->pkt_in;
- 			vr.ocount = vif->pkt_out;
- 			vr.ibytes = vif->bytes_in;
-@@ -1432,7 +1450,7 @@ int ip6mr_ioctl(struct sock *sk, int cmd, void __user *arg)
- 			return -EFAULT;
- 
- 		read_lock(&mrt_lock);
--		c = ip6mr_cache_find(&sr.src.sin6_addr, &sr.grp.sin6_addr);
-+		c = ip6mr_cache_find(net, &sr.src.sin6_addr, &sr.grp.sin6_addr);
- 		if (c) {
- 			sr.pktcnt = c->mfc_un.res.pkt;
- 			sr.bytecnt = c->mfc_un.res.bytes;
-@@ -1465,7 +1483,8 @@ static inline int ip6mr_forward2_finish(struct sk_buff *skb)
- static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
- {
- 	struct ipv6hdr *ipv6h;
--	struct mif_device *vif = &init_net.ipv6.vif6_table[vifi];
-+	struct net *net = mfc6_net(c);
-+	struct mif_device *vif = &net->ipv6.vif6_table[vifi];
- 	struct net_device *dev;
- 	struct dst_entry *dst;
- 	struct flowi fl;
-@@ -1479,7 +1498,7 @@ static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
- 		vif->bytes_out += skb->len;
- 		vif->dev->stats.tx_bytes += skb->len;
- 		vif->dev->stats.tx_packets++;
--		ip6mr_cache_report(skb, vifi, MRT6MSG_WHOLEPKT);
-+		ip6mr_cache_report(net, skb, vifi, MRT6MSG_WHOLEPKT);
- 		kfree_skb(skb);
- 		return 0;
- 	}
-@@ -1494,7 +1513,7 @@ static int ip6mr_forward2(struct sk_buff *skb, struct mfc6_cache *c, int vifi)
- 		}
- 	};
- 
--	dst = ip6_route_output(&init_net, NULL, &fl);
-+	dst = ip6_route_output(net, NULL, &fl);
- 	if (!dst)
- 		goto out_free;
- 
-@@ -1537,9 +1556,10 @@ out_free:
- 
- static int ip6mr_find_vif(struct net_device *dev)
- {
-+	struct net *net = dev_net(dev);
- 	int ct;
--	for (ct = init_net.ipv6.maxvif - 1; ct >= 0; ct--) {
--		if (init_net.ipv6.vif6_table[ct].dev == dev)
-+	for (ct = net->ipv6.maxvif - 1; ct >= 0; ct--) {
-+		if (net->ipv6.vif6_table[ct].dev == dev)
- 			break;
- 	}
- 	return ct;
-@@ -1549,6 +1569,7 @@ static int ip6_mr_forward(struct sk_buff *skb, struct mfc6_cache *cache)
- {
- 	int psend = -1;
- 	int vif, ct;
-+	struct net *net = mfc6_net(cache);
- 
- 	vif = cache->mf6c_parent;
- 	cache->mfc_un.res.pkt++;
-@@ -1557,30 +1578,30 @@ static int ip6_mr_forward(struct sk_buff *skb, struct mfc6_cache *cache)
- 	/*
- 	 * Wrong interface: drop packet and (maybe) send PIM assert.
- 	 */
--	if (init_net.ipv6.vif6_table[vif].dev != skb->dev) {
-+	if (net->ipv6.vif6_table[vif].dev != skb->dev) {
- 		int true_vifi;
- 
- 		cache->mfc_un.res.wrong_if++;
- 		true_vifi = ip6mr_find_vif(skb->dev);
- 
--		if (true_vifi >= 0 && init_net.ipv6.mroute_do_assert &&
-+		if (true_vifi >= 0 && net->ipv6.mroute_do_assert &&
- 		    /* pimsm uses asserts, when switching from RPT to SPT,
- 		       so that we cannot check that packet arrived on an oif.
- 		       It is bad, but otherwise we would need to move pretty
- 		       large chunk of pimd to kernel. Ough... --ANK
- 		     */
--		    (init_net.ipv6.mroute_do_pim ||
-+		    (net->ipv6.mroute_do_pim ||
- 		     cache->mfc_un.res.ttls[true_vifi] < 255) &&
- 		    time_after(jiffies,
- 			       cache->mfc_un.res.last_assert + MFC_ASSERT_THRESH)) {
- 			cache->mfc_un.res.last_assert = jiffies;
--			ip6mr_cache_report(skb, true_vifi, MRT6MSG_WRONGMIF);
-+			ip6mr_cache_report(net, skb, true_vifi, MRT6MSG_WRONGMIF);
- 		}
- 		goto dont_forward;
- 	}
- 
--	init_net.ipv6.vif6_table[vif].pkt_in++;
--	init_net.ipv6.vif6_table[vif].bytes_in += skb->len;
-+	net->ipv6.vif6_table[vif].pkt_in++;
-+	net->ipv6.vif6_table[vif].bytes_in += skb->len;
- 
- 	/*
- 	 *	Forward the frame
-@@ -1613,9 +1634,11 @@ dont_forward:
- int ip6_mr_input(struct sk_buff *skb)
- {
- 	struct mfc6_cache *cache;
-+	struct net *net = dev_net(skb->dev);
- 
- 	read_lock(&mrt_lock);
--	cache = ip6mr_cache_find(&ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr);
-+	cache = ip6mr_cache_find(net,
-+				 &ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr);
- 
- 	/*
- 	 *	No usable cache entry
-@@ -1625,7 +1648,7 @@ int ip6_mr_input(struct sk_buff *skb)
- 
- 		vif = ip6mr_find_vif(skb->dev);
- 		if (vif >= 0) {
--			int err = ip6mr_cache_unresolved(vif, skb);
-+			int err = ip6mr_cache_unresolved(net, vif, skb);
- 			read_unlock(&mrt_lock);
- 
- 			return err;
-@@ -1648,7 +1671,8 @@ ip6mr_fill_mroute(struct sk_buff *skb, struct mfc6_cache *c, struct rtmsg *rtm)
- {
- 	int ct;
- 	struct rtnexthop *nhp;
--	struct net_device *dev = init_net.ipv6.vif6_table[c->mf6c_parent].dev;
-+	struct net *net = mfc6_net(c);
-+	struct net_device *dev = net->ipv6.vif6_table[c->mf6c_parent].dev;
- 	u8 *b = skb_tail_pointer(skb);
- 	struct rtattr *mp_head;
- 
-@@ -1664,7 +1688,7 @@ ip6mr_fill_mroute(struct sk_buff *skb, struct mfc6_cache *c, struct rtmsg *rtm)
- 			nhp = (struct rtnexthop *)skb_put(skb, RTA_ALIGN(sizeof(*nhp)));
- 			nhp->rtnh_flags = 0;
- 			nhp->rtnh_hops = c->mfc_un.res.ttls[ct];
--			nhp->rtnh_ifindex = init_net.ipv6.vif6_table[ct].dev->ifindex;
-+			nhp->rtnh_ifindex = net->ipv6.vif6_table[ct].dev->ifindex;
- 			nhp->rtnh_len = sizeof(*nhp);
- 		}
- 	}
-@@ -1678,14 +1702,15 @@ rtattr_failure:
- 	return -EMSGSIZE;
- }
- 
--int ip6mr_get_route(struct sk_buff *skb, struct rtmsg *rtm, int nowait)
-+int ip6mr_get_route(struct net *net,
-+		    struct sk_buff *skb, struct rtmsg *rtm, int nowait)
- {
- 	int err;
- 	struct mfc6_cache *cache;
- 	struct rt6_info *rt = (struct rt6_info *)skb->dst;
- 
- 	read_lock(&mrt_lock);
--	cache = ip6mr_cache_find(&rt->rt6i_src.addr, &rt->rt6i_dst.addr);
-+	cache = ip6mr_cache_find(net, &rt->rt6i_src.addr, &rt->rt6i_dst.addr);
- 
- 	if (!cache) {
- 		struct sk_buff *skb2;
-@@ -1728,7 +1753,7 @@ int ip6mr_get_route(struct sk_buff *skb, struct rtmsg *rtm, int nowait)
- 		ipv6_addr_copy(&iph->saddr, &rt->rt6i_src.addr);
- 		ipv6_addr_copy(&iph->daddr, &rt->rt6i_dst.addr);
- 
--		err = ip6mr_cache_unresolved(vif, skb2);
-+		err = ip6mr_cache_unresolved(net, vif, skb2);
- 		read_unlock(&mrt_lock);
- 
- 		return err;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 9da1ece..18c486c 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2194,7 +2194,7 @@ static int rt6_fill_node(struct net *net,
- 	if (iif) {
- #ifdef CONFIG_IPV6_MROUTE
- 		if (ipv6_addr_is_multicast(&rt->rt6i_dst.addr)) {
--			int err = ip6mr_get_route(skb, rtm, nowait);
-+			int err = ip6mr_get_route(net, skb, rtm, nowait);
- 			if (err <= 0) {
- 				if (!nowait) {
- 					if (err == 0)
+ fail_mfc6_cache:
 
