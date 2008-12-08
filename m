@@ -1,547 +1,411 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 24/29] i2400m/SDIO: probe/disconnect,
-	dev init/shutdown and reset backends
-Date: Mon,  8 Dec 2008 11:09:39 -0800
-Message-ID: <4585ea4814a3a1816030bedd5bd7adb58ed25d86.1228759689.git.inaky@linux.intel.com>
-References: <cover.1228759689.git.inaky@linux.intel.com>
-Cc: greg@kroah.com, wimax@linuxwimax.org
+Subject: [PATCH 00/29] merge request for WiMAX kernel stack and i2400m driver v3
+Date: Mon,  8 Dec 2008 11:09:15 -0800
+Message-ID: <cover.1228759689.git.inaky@linux.intel.com>
+Cc: wimax@linuxwimax.org, greg@kroah.com
 To: netdev@vger.kernel.org
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <cover.1228759689.git.inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga10.intel.com ([192.55.52.92]:12804 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751076AbYLHTJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 14:09:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Implements probe/disconnect for the SDIO device, as well as main
-backends for the generic driver to control the SDIO device
-(bus_dev_start(), bus_dev_stop() and bus_reset()).
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- drivers/net/wimax/i2400m/sdio.c |  508 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 508 insertions(+), 0 deletions(-)
+Hi All
+
+This patchset (or the linux-wimax GIT tree at git.kernel.org) merges
+the WiMAX subsystem and driver for the Intel 2400m Wireless WiMAX
+connection to the tree. We'd like to get it in for the 2.6.29 merge
+window. 
+
+[read on for changelog since previous submit]
+
+[Note linux-wimax will have netdev as upstream, but there is a
+ dependency for patches in gregkh's patches tree that forbid
+ submitting against netdev for now -- so the base for this is said
+ tree as of 11/19. See *2]
+
+WiMAX is a new wireless boadband technology that differs significantly
+from WiFi. It is also called 4G and resembles more the model of
+cellular phones, where you sign up for service with a provider.
+
+Your WiMAX card connects to a basestation, which is operated by a
+certain Network Access Provider (NAP). The NAP leases (or might be the
+same) connectivity to a Network Service Provider (NSP), which is your
+ISP.
+
+When you move around, your connectivity will be handed over from
+basestation to basestation in a seamless way. As in cellphones, there
+is the roaming case, where you could be are connecting to your service
+plan through other provider.
+
+WiMAX's main components have been standarized (some parts still in the
+process) as in a set of 802.16 standards. The WiMAX Forum's members
+drive the development of WiMAX features that end up in 802.16.
+
+This code is broken up in a WiMAX subsystem and a driver for the Intel
+2400m Wireless WiMAX Link. To be able to fully utilize WiMAX services,
+you need extra pieces of device-specific user space software; for now,
+there is a C level API (the Common API) to use/control it, but a high
+level API over DBUS that should work for any device is in the
+works. See details further below.
+
+Support for other vendor's hardware would require a driver registering
+with the WiMAX stack and a user space component implementing the high
+level API.
+
+Changes since v3:
+
+ - (David Miller) Fix patch dependencies and compact them to reduce
+   the patchset size.
+
+Changes since v2:
+
+ - Implement feedback from the mailing list for the merge request
+   (from Johaness, Thomas, Patrick and Evgeniy)
+
+ - Moved all the sysfs controls and knobs to be debugfs based.
+
+ - Remove kernel/user op-open and instead use the generic netlink
+   controller.
+
+ - Many improvements and optimizations on the usage of generic
+   netlink.
+
+ - Use generic netlink facilities for permission checking.
+ 
+ - Properly use the netlink ack/nlerr instead of relying on home-grown
+   system. 
+
+ - Fix a deadlock in wimax_reset().
+
+ - When i2400m reset completes ok, mark the device as active again
+   (or the device gets confused).
+
+ - Relicense linux/wimax.h as BSD (mistakenly didn't)
+
+ - Add rationales on design and clarifications/fixes in the
+   documentation.
+
+Changes since v1:
+
+ - (Stephen Hemminger) don't use bitfields in struct wimax_dev 
+
+ - (Stephen Hemminger) don't use the interface name for the generic
+   netlink family, as it might change on if rename. Change to use the
+   interface index.
+
+ - (David Miller) move the WiMAX stack to net/wimax
+
+ - misc checkpatch fixes, kconfig cleanups. 
+
+ - use DEFINE_SPINLOCK
+
+
+Details follow:
+
+* The WiMAX kernel stack
+
+The (kernel) WiMAX stack is (as of now) very basic; it conforms a
+"control plane", in a similar fashion to cfg80211. 
+
+We still don't know what's going to be a good abstraction layer
+because so far, we have only see one WiMAX device for which we could
+implement support. 
+
+So the current abstraction layer provides a low-level WiMAX API with
+means for resetting, monitoring state changes, controlling rfkill and
+sending messages to the driver (in a driver specific format) back and
+forth (more on this below). The documentation in include/net/wimax.h
+provides more information.
+
+The functional API provided by the kernel stack is exported to user
+space via generic netlink. For convenience, libwimaxll, a shim library
+is provided in the user space package wimax-tools, but direct access
+and parsing of the generic protocol is possible. All the bits and
+pieces needed to operate from user space are declared in
+include/linux/wimax.h, which is marked for system-wide installation
+with headers_install.
+
+Implementation of drivers for other hardware using this model should
+be more or less straightforward.
+
+* The i2400m driver
+
+The driver for the 2400m sits below the stack, providing the back end
+operations to drive control (reset, rfkill, message passing) and
+feeding it state change information. On the other side, the 2400m
+driver connects to netdev, where it emulates an ethernet device (*1).
+
+The driver itself is broken in two main parts: bus-generic and
+bus-specific. The bus-generic (driver) speaks the device protocol and
+uses hooks provided by the bus-specific driver to talk to the device
+via whichever bus it happens to be connected through.
+
+More information about the driver can be found in
+drivers/net/wimax/i2400m/i2400m.h.
+
+
+* The high level WiMAX API (user space)
+
+This part is not implemented by the code in these patches, but
+available for download at http://linuxwimax.org/Download (use release
+1.3 components); that implementation is specific to the Intel
+2400. Other vendor's might be similar or very different.
+
+The "high level part" (scanning, connecting, disconnecting) in WiMAX
+is quite more complex than in other technologies such as WiFi. In
+general, a high level API is provided to allow for:
+
+ - scanning for networks
+ - connecting and disconnecting
+ - controlling the radio (turn on / off)
+ - other operations
+
+This high level API is called the Common API and is being defined by a
+set of participants in the WiMAX industry. It is a cross platform API,
+meant to be vendor neutral; as such, it is very alien to Linux's
+system level APIs and we are planning moving the API to D-BUS and
+making it look "more native", but without loosing its spirit.
+
+The implementation of this API aims to hide the user (connection
+managers, to be more exact) from the common complexities of
+WiMAX. Each vendor would implement what ever they need in user space
+to expose said API (could be just a passthrough if the implementation
+is in the driver or in the device).
+
+Most of these complexities are related to scanning. Scanning in WiMAX
+is expensive (power consumption wise and time wise), so it has to be
+done carefully, and each device will have it's most optimal way to do
+it.
+
+Most (all?) WiMAX operators run on regulated channels. To connect to
+an operator, you need to know the channels where to look and scan in
+there for base stations; when found, you need to know which NAPs
+(Network Access Providers, the infrastructure owner) they provide and
+then the NAPs you find have to be mapped to NSPs (Network Service
+Providers, the ISP).
+
+Even if you did a scan on all the channels available in a country (for
+example, the US channel plan) and found different base stations, all
+that information is still not discoverable from them (the 802.16g
+upcoming standard aims to fix that).
+
+So a database that helps mapping all this information (base station
+IDs vs NAPs vs NSPs) is needed; we call that the "provisioning"
+information, and getting that information is not trivial. The
+operators, as of now, provide it to you over the OMA-DM protocol--that
+requires an OMA-DM client daemon running in your machine. Another way
+to provision is manually, getting a provisioning file from either the
+operator or someone that has an OMA-DM client daemon.
+
+The problem is that, as of now, there is still no OMA-DM open source
+client. In http://linuxwimax.org we provide one, but Intel does not
+own it and it cannot be made open source. As we said above, it is
+optional if you go with the manual mode.
+
+
+Once there is a network, you can connect to it. 
+
+For networks that require authentication (most), the Intel device
+requires a supplicant in user space--because of a set of issues we are
+working to resolve, it cannot be made open source yet, but it will. As
+of now, it is provided as a shared library that is loaded dynamically.
+
+When a network is connected, use a DHCP client to obtain an address
+(this is how most WiMAX networks are configured). 
+
+When you connect to a network/provider with whom you don't have a
+service agreement, you will probably redirected to a landing page
+where you will be able to sign up for service (in exchange for your
+credit card number), much similar to some WiFi hotspots. This is known
+as being "activated" for said provider and you only need to do it
+once, as the provider will remember your MAC address.
+
+When you are up and running, your connection will be handed over from
+tower to tower as you move around without requiring a new connection
+sequence or DHCP renegotiation.
+
+Other operations provided by the "Common API" relate to obtain
+provisioning information from the network, contact information for the
+network operator, manipulating roaming modes, etc ...
+
+Caveats:
+
+ - the 2400 goes into idle power saving when connected if there is no
+   network activity. It comes out of it automatically when traffic is
+   sent to the network. But sometimes, to come out of it the network
+   requests a DHCP renegotiation; the user space code still has a
+   piece of code missing for doing it, so you need to manually restart
+   your DHCP client.
+
+*1 Previous iterations of the driver provided a Pure IP device,
+   without Ethernet wrapping but we gave up. 
+
+   Most DHCP software in user space and in the network backends assume
+   the world is Ethernet (anything that uses ISC DHCP's client and/or
+   daemon). 
+
+   We ended up registering a PureIP hw type with IANA and creating
+   patches to support it to the ISC DHCP suite (at
+   http://linuxwimax.org/Download) and modifying dhclient, server, and
+   friends so the hardware type PureIP was recognized and thus, when
+   the DHCP client sent a request, it was with hwtype ==
+   purerip. 
+
+   However, on the server end (they shall remain nameless), many
+   configurations are set to take only Ethernet hwtypes and when asked
+   to take the server patches for pureip, they cringed.
+
+   It's kind of understandable -- so we assume it'll take time for
+   those patches to trickle into deployment and just moved to behave
+   like Ethernet. The easy path.
+
+*2 To build in other trees, you will need the following patches
+   against the USB stack.
+
+   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-change-interface-to-usb_lock_device_for_reset.patch
+   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-introduce-usb_queue_reset-to-do-resets-from-atomic-contexts-v7.patch
+
+   2.6.28-rc5 has been tested.
+
+   Or clone
+   git.kernel.org/pub/scm/linux/kernel/inaky/git/linux-wimax.git; note
+   that tree will be rebased when the code is accepted into mailine.
+
+Inaky Perez-Gonzalez (29):
+  wimax: documentation for the stack
+  wimax: headers for kernel API and user space interaction
+  wimax: internal API for the kernel space WiMAX stack
+  wimax: debug macros and debug settings for the WiMAX stack
+  wimax: generic device management (registration, deregistration,
+    lookup)
+  genetlink: export genl_unregister_mc_group()
+  wimax: basic API: kernel/user messaging, rfkill and reset
+  debugfs: add helpers for exporting a size_t simple value
+  wimax: debugfs controls
+  wimax: Makefile, Kconfig and docbook linkage for the stack
+  i2400m: documentation and instructions for usage
+  i2400m: host/device procotol and core driver definitions
+  i2400m: Generic probe/disconnect, reset and message passing
+  i2400m: linkage to the networking stack
+  i2400m: firmware loading and bootrom initialization
+  i2400m: RX and TX data/control paths
+  i2400m: various functions for device management
+  i2400m: debugfs controls
+  i2400m/USB: header for the USB bus driver
+  i2400m/USB: probe/disconnect, dev init/shutdown and reset backends
+  i2400m/USB: firmware upload backend
+  i2400m/USB: TX and RX path backends
+  i2400m/SDIO: header for the SDIO subdriver
+  i2400m/SDIO: probe/disconnect, dev init/shutdown and reset backends
+  i2400m/SDIO: firmware upload backend
+  i2400m/SDIO: TX and RX path backends
+  i2400m: Makefile and Kconfig
+  wimax: export linux/wimax.h and linux/wimax/i2400m.h with
+    headers_install
+  wimax/i2400m: add CREDITS and MAINTAINERS entries
+
+ CREDITS                                      |   17 +
+ Documentation/DocBook/networking.tmpl        |    8 +
+ Documentation/wimax/README.i2400m            |  260 ++++++
+ Documentation/wimax/README.wimax             |   81 ++
+ MAINTAINERS                                  |   16 +
+ drivers/net/Kconfig                          |    2 +
+ drivers/net/Makefile                         |    1 +
+ drivers/net/wimax/Kconfig                    |   17 +
+ drivers/net/wimax/Makefile                   |    2 +
+ drivers/net/wimax/i2400m/Kconfig             |   49 +
+ drivers/net/wimax/i2400m/Makefile            |   29 +
+ drivers/net/wimax/i2400m/control.c           | 1291 ++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/debug-levels.h      |   45 +
+ drivers/net/wimax/i2400m/debugfs.c           |  383 ++++++++
+ drivers/net/wimax/i2400m/driver.c            |  736 +++++++++++++++
+ drivers/net/wimax/i2400m/fw.c                | 1095 ++++++++++++++++++++++
+ drivers/net/wimax/i2400m/i2400m-sdio.h       |  132 +++
+ drivers/net/wimax/i2400m/i2400m-usb.h        |  264 ++++++
+ drivers/net/wimax/i2400m/i2400m.h            |  761 +++++++++++++++
+ drivers/net/wimax/i2400m/netdev.c            |  524 +++++++++++
+ drivers/net/wimax/i2400m/op-rfkill.c         |  207 ++++
+ drivers/net/wimax/i2400m/rx.c                |  536 +++++++++++
+ drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +
+ drivers/net/wimax/i2400m/sdio-fw.c           |  224 +++++
+ drivers/net/wimax/i2400m/sdio-rx.c           |  255 +++++
+ drivers/net/wimax/i2400m/sdio-tx.c           |  153 +++
+ drivers/net/wimax/i2400m/sdio.c              |  508 ++++++++++
+ drivers/net/wimax/i2400m/tx.c                |  817 ++++++++++++++++
+ drivers/net/wimax/i2400m/usb-debug-levels.h  |   42 +
+ drivers/net/wimax/i2400m/usb-fw.c            |  340 +++++++
+ drivers/net/wimax/i2400m/usb-notif.c         |  263 ++++++
+ drivers/net/wimax/i2400m/usb-rx.c            |  417 +++++++++
+ drivers/net/wimax/i2400m/usb-tx.c            |  229 +++++
+ drivers/net/wimax/i2400m/usb.c               |  581 ++++++++++++
+ fs/debugfs/file.c                            |   32 +
+ include/linux/Kbuild                         |    2 +
+ include/linux/debugfs.h                      |    2 +
+ include/linux/wimax.h                        |  224 +++++
+ include/linux/wimax/Kbuild                   |    1 +
+ include/linux/wimax/debug.h                  |  453 +++++++++
+ include/linux/wimax/i2400m.h                 |  512 ++++++++++
+ include/net/wimax.h                          |  596 ++++++++++++
+ net/Kconfig                                  |    2 +
+ net/Makefile                                 |    1 +
+ net/netlink/genetlink.c                      |    1 +
+ net/wimax/Kconfig                            |   36 +
+ net/wimax/Makefile                           |   13 +
+ net/wimax/debug-levels.h                     |   42 +
+ net/wimax/debugfs.c                          |   88 ++
+ net/wimax/id-table.c                         |  140 +++
+ net/wimax/op-msg.c                           |  509 ++++++++++
+ net/wimax/op-reset.c                         |  129 +++
+ net/wimax/op-rfkill.c                        |  523 +++++++++++
+ net/wimax/stack.c                            |  627 +++++++++++++
+ net/wimax/wimax-internal.h                   |  104 ++
+ 55 files changed, 14344 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/wimax/README.i2400m
+ create mode 100644 Documentation/wimax/README.wimax
+ create mode 100644 drivers/net/wimax/Kconfig
+ create mode 100644 drivers/net/wimax/Makefile
+ create mode 100644 drivers/net/wimax/i2400m/Kconfig
+ create mode 100644 drivers/net/wimax/i2400m/Makefile
+ create mode 100644 drivers/net/wimax/i2400m/control.c
+ create mode 100644 drivers/net/wimax/i2400m/debug-levels.h
+ create mode 100644 drivers/net/wimax/i2400m/debugfs.c
+ create mode 100644 drivers/net/wimax/i2400m/driver.c
+ create mode 100644 drivers/net/wimax/i2400m/fw.c
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
+ create mode 100644 drivers/net/wimax/i2400m/i2400m.h
+ create mode 100644 drivers/net/wimax/i2400m/netdev.c
+ create mode 100644 drivers/net/wimax/i2400m/op-rfkill.c
+ create mode 100644 drivers/net/wimax/i2400m/rx.c
+ create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
+ create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
+ create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
+ create mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
  create mode 100644 drivers/net/wimax/i2400m/sdio.c
+ create mode 100644 drivers/net/wimax/i2400m/tx.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
+ create mode 100644 drivers/net/wimax/i2400m/usb-fw.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-notif.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-rx.c
+ create mode 100644 drivers/net/wimax/i2400m/usb-tx.c
+ create mode 100644 drivers/net/wimax/i2400m/usb.c
+ create mode 100644 include/linux/wimax.h
+ create mode 100644 include/linux/wimax/Kbuild
+ create mode 100644 include/linux/wimax/debug.h
+ create mode 100644 include/linux/wimax/i2400m.h
+ create mode 100644 include/net/wimax.h
+ create mode 100644 net/wimax/Kconfig
+ create mode 100644 net/wimax/Makefile
+ create mode 100644 net/wimax/debug-levels.h
+ create mode 100644 net/wimax/debugfs.c
+ create mode 100644 net/wimax/id-table.c
+ create mode 100644 net/wimax/op-msg.c
+ create mode 100644 net/wimax/op-reset.c
+ create mode 100644 net/wimax/op-rfkill.c
+ create mode 100644 net/wimax/stack.c
+ create mode 100644 net/wimax/wimax-internal.h
 
-diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
-new file mode 100644
-index 0000000..6416a96
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio.c
-@@ -0,0 +1,508 @@
-+/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Linux driver model glue for the SDIO device, reset & fw upload
-+ *
-+ *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Dirk Brandewie <dirk.j.brandewie@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * See i2400m-sdio.h for a general description of this driver.
-+ *
-+ * This file implements driver model glue, and hook ups for the
-+ * generic driver to implement the bus-specific functions (device
-+ * communication setup/tear down, firmware upload and resetting).
-+ *
-+ * ROADMAP
-+ *
-+ * i2400m_probe()
-+ *   alloc_netdev()
-+ *     i2400ms_netdev_setup()
-+ *       i2400ms_init()
-+ *       i2400m_netdev_setup()
-+ *   i2400ms_enable_function()
-+ *   i2400m_setup()
-+ *
-+ * i2400m_remove()
-+ *     i2400m_release()
-+ *     free_netdev(net_dev)
-+ *
-+ * i2400ms_bus_reset()            Called by i2400m->bus_reset
-+ *   __i2400ms_reset()
-+ *     __i2400ms_send_barker()
-+ *
-+ * i2400ms_bus_dev_start()        Called by i2400m_dev_start() [who is
-+ *   i2400ms_tx_setup()           called by i2400m_setup()]
-+ *   i2400ms_rx_setup()
-+ *
-+ * i2400ms_bus_dev_stop()         Called by i2400m_dev_stop() [who is
-+ *   i2400ms_rx_release()         is called by i2400m_release()]
-+ *   i2400ms_tx_release()
-+ *
-+ */
-+
-+#include <linux/debugfs.h>
-+#include <linux/mmc/sdio.h>
-+#include <linux/mmc/sdio_func.h>
-+#include "i2400m-sdio.h"
-+#include <linux/wimax/i2400m.h>
-+
-+#define D_SUBMODULE main
-+#include "sdio-debug-levels.h"
-+
-+/* IOE WiMAX function timeout in seconds */
-+static int ioe_timeout = 2;
-+module_param(ioe_timeout, int, 0);
-+
-+/* Our firmware file name */
-+#define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-" I2400M_FW_VERSION ".sbcf"
-+
-+/*
-+ * Enable the SDIO function
-+ *
-+ * Tries to enable the SDIO function; might fail if it is still not
-+ * ready (in some hardware, the SDIO WiMAX function is only enabled
-+ * when we ask it to explicitly doing). Tries until a timeout is
-+ * reached.
-+ *
-+ * The reverse of this is...sdio_disable_function()
-+ *
-+ * Returns: 0 if the SDIO function was enabled, < 0 errno code on
-+ *     error (-ENODEV when it was unable to enable the function).
-+ */
-+static
-+int i2400ms_enable_function(struct sdio_func *func)
-+{
-+	u64 timeout;
-+	int err;
-+	struct device *dev = &func->dev;
-+
-+	d_fnstart(3, dev, "(func %p)\n", func);
-+	/* Setup timeout (FIXME: This needs to read the CIS table to
-+	 * get a real timeout) and then wait for the device to signal
-+	 * it is ready */
-+	timeout = get_jiffies_64() + ioe_timeout * HZ;
-+	err = -ENODEV;
-+	while (err != 0 && time_before64(get_jiffies_64(), timeout)) {
-+		sdio_claim_host(func);
-+		err = sdio_enable_func(func);
-+		if (0 == err) {
-+			sdio_release_host(func);
-+			d_printf(2, dev, "SDIO function enabled\n");
-+			goto function_enabled;
-+		}
-+		d_printf(2, dev, "SDIO function failed to enable: %d\n", err);
-+		sdio_disable_func(func);
-+		sdio_release_host(func);
-+		msleep(I2400MS_INIT_SLEEP_INTERVAL);
-+	}
-+	/* If timed out, device is not there yet -- get -ENODEV so
-+	 * the device driver core will retry later on. */
-+	if (err == -ETIME) {
-+		dev_err(dev, "Can't enable WiMAX function; "
-+			" has the function been enabled?\n");
-+		err = -ENODEV;
-+	}
-+function_enabled:
-+	d_fnend(3, dev, "(func %p) = %d\n", func, err);
-+	return err;
-+}
-+
-+
-+/*
-+ * Setup driver resources needed to communicate with the device
-+ *
-+ * The fw needs some time to settle, and it was just uploaded,
-+ * so give it a break first. I'd prefer to just wait for the device to
-+ * send something, but seems the poking we do to enable SDIO stuff
-+ * interferes with it, so just give it a break before starting...
-+ */
-+static
-+int i2400ms_bus_dev_start(struct i2400m *i2400m)
-+{
-+	int result;
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+	msleep(200);
-+	result = i2400ms_rx_setup(i2400ms);
-+	if (result < 0)
-+		goto error_rx_setup;
-+	result = i2400ms_tx_setup(i2400ms);
-+	if (result < 0)
-+		goto error_tx_setup;
-+	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
-+	return result;
-+
-+	i2400ms_tx_release(i2400ms);
-+error_tx_setup:
-+	i2400ms_rx_release(i2400ms);
-+error_rx_setup:
-+	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
-+	return result;
-+}
-+
-+
-+static
-+void i2400ms_bus_dev_stop(struct i2400m *i2400m)
-+{
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+	i2400ms_rx_release(i2400ms);
-+	i2400ms_tx_release(i2400ms);
-+	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
-+}
-+
-+
-+/*
-+ * Sends a barker buffer to the device
-+ *
-+ * This helper will allocate a kmalloced buffer and use it to transmit
-+ * (then free it). Reason for this is that the SDIO host controller
-+ * expects alignment (unknown exactly which) which the stack won't
-+ * really provide and certain arches/host-controller combinations
-+ * cannot use stack/vmalloc/text areas for DMA transfers.
-+ */
-+static
-+int __i2400ms_send_barker(struct i2400ms *i2400ms,
-+			  const __le32 *barker, size_t barker_size)
-+{
-+	int  ret;
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+	void *buffer;
-+
-+	ret = -ENOMEM;
-+	buffer = kmalloc(I2400MS_BLK_SIZE, GFP_KERNEL);
-+	if (buffer == NULL)
-+		goto error_kzalloc;
-+
-+	memcpy(buffer, barker, barker_size);
-+	sdio_claim_host(func);
-+	ret = sdio_memcpy_toio(func, 0, buffer, I2400MS_BLK_SIZE);
-+	sdio_release_host(func);
-+
-+	if (ret < 0)
-+		d_printf(0, dev, "E: barker error: %d\n", ret);
-+
-+	kfree(buffer);
-+error_kzalloc:
-+	return ret;
-+}
-+
-+
-+/*
-+ * Reset a device at different levels (warm, cold or bus)
-+ *
-+ * @i2400ms: device descriptor
-+ * @reset_type: soft, warm or bus reset (I2400M_RT_WARM/SOFT/BUS)
-+ *
-+ * FIXME: not tested -- need to confirm expected effects
-+ *
-+ * Warm and cold resets get an SDIO reset if they fail (unimplemented)
-+ *
-+ * Warm reset:
-+ *
-+ * The device will be fully reset internally, but won't be
-+ * disconnected from the USB bus (so no reenumeration will
-+ * happen). Firmware upload will be neccessary.
-+ *
-+ * The device will send a reboot barker in the notification endpoint
-+ * that will trigger the driver to reinitialize the state
-+ * automatically from notif.c:i2400m_notification_grok() into
-+ * i2400m_dev_bootstrap_delayed().
-+ *
-+ * Cold and bus (USB) reset:
-+ *
-+ * The device will be fully reset internally, disconnected from the
-+ * USB bus an a reenumeration will happen. Firmware upload will be
-+ * neccessary. Thus, we don't do any locking or struct
-+ * reinitialization, as we are going to be fully disconnected and
-+ * reenumerated.
-+ *
-+ * Note we need to return -ENODEV if a warm reset was requested and we
-+ * had to resort to a bus reset. See i2400m_op_reset(), wimax_reset()
-+ * and wimax_dev->op_reset.
-+ *
-+ * WARNING: no driver state saved/fixed
-+ */
-+static
-+int i2400ms_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
-+{
-+	int result;
-+	struct i2400ms *i2400ms =
-+		container_of(i2400m, struct i2400ms, i2400m);
-+	struct device *dev = i2400m_dev(i2400m);
-+	static const __le32 i2400m_WARM_BOOT_BARKER[4] = {
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+	};
-+	static const __le32 i2400m_COLD_BOOT_BARKER[4] = {
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+	};
-+
-+	if (rt == I2400M_RT_WARM)
-+		result = __i2400ms_send_barker(i2400ms, i2400m_WARM_BOOT_BARKER,
-+					       sizeof(i2400m_WARM_BOOT_BARKER));
-+	else if (rt == I2400M_RT_COLD)
-+		result = __i2400ms_send_barker(i2400ms, i2400m_COLD_BOOT_BARKER,
-+					       sizeof(i2400m_COLD_BOOT_BARKER));
-+	else if (rt == I2400M_RT_BUS) {
-+do_bus_reset:
-+		dev_err(dev, "FIXME: SDIO bus reset not implemented\n");
-+		result = rt == I2400M_RT_WARM ? -ENODEV : -ENOSYS;
-+	} else
-+		BUG();
-+	if (result < 0 && rt != I2400M_RT_BUS) {
-+		dev_err(dev, "%s reset failed (%d); trying SDIO reset\n",
-+			rt == I2400M_RT_WARM ? "warm" : "cold", result);
-+		rt = I2400M_RT_BUS;
-+		goto do_bus_reset;
-+	}
-+	return result;
-+}
-+
-+
-+static
-+void i2400ms_netdev_setup(struct net_device *net_dev)
-+{
-+	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	i2400ms_init(i2400ms);
-+	i2400m_netdev_setup(net_dev);
-+}
-+
-+
-+/*
-+ * Debug levels control; see debug.h
-+ */
-+struct d_level D_LEVEL[] = {
-+	D_SUBMODULE_DEFINE(main),
-+	D_SUBMODULE_DEFINE(tx),
-+	D_SUBMODULE_DEFINE(rx),
-+	D_SUBMODULE_DEFINE(fw),
-+};
-+size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+
-+
-+#define __debugfs_register(prefix, name, parent)		\
-+	result = d_level_register_debugfs(prefix, name, parent);\
-+	if (result < 0)						\
-+		goto error;
-+
-+static
-+int i2400ms_debugfs_add(struct i2400ms *i2400ms)
-+{
-+	int result;
-+	struct dentry *dentry = i2400ms->i2400m.wimax_dev.debugfs_dentry;
-+
-+	dentry = debugfs_create_dir("i2400m-usb", dentry);
-+	result = PTR_ERR(dentry);
-+	if (IS_ERR(dentry)) {
-+		if (result == -ENODEV)
-+			result = 0;	/* No debugfs support */
-+		goto error;
-+	}
-+	i2400ms->debugfs_dentry = dentry;
-+	__debugfs_register("dl_", main, dentry);
-+	__debugfs_register("dl_", tx, dentry);
-+	__debugfs_register("dl_", rx, dentry);
-+	__debugfs_register("dl_", fw, dentry);
-+
-+	return 0;
-+
-+error:
-+	debugfs_remove_recursive(i2400ms->debugfs_dentry);
-+	return result;
-+}
-+
-+
-+/*
-+ * Probe a i2400m interface and register it
-+ *
-+ * @func:    SDIO function
-+ * @id:      SDIO device ID
-+ * @returns: 0 if ok, < 0 errno code on error.
-+ *
-+ * Alloc a net device, initialize the bus-specific details and then
-+ * calls the bus-generic initialization routine. That will register
-+ * the wimax and netdev devices, upload the firmware [using
-+ * _bus_bm_*()], call _bus_dev_start() to finalize the setup of the
-+ * communication with the device and then will start to talk to it to
-+ * finnish setting it up.
-+ *
-+ * Initialization is tricky; some instances of the hw are packed with
-+ * others in a way that requires a third driver that enables the WiMAX
-+ * function. In those cases, we can't enable the SDIO function and
-+ * we'll return with -ENODEV. When the driver that enables the WiMAX
-+ * function does its thing, it has to do a bus_rescan_devices() on the
-+ * SDIO bus so this driver is called again to enumerate the WiMAX
-+ * function.
-+ */
-+static
-+int i2400ms_probe(struct sdio_func *func,
-+		  const struct sdio_device_id *id)
-+{
-+	int result;
-+	struct net_device *net_dev;
-+	struct device *dev = &func->dev;
-+	struct i2400m *i2400m;
-+	struct i2400ms *i2400ms;
-+
-+	/* Allocate instance [calls i2400m_netdev_setup() on it]. */
-+	result = -ENOMEM;
-+	net_dev = alloc_netdev(sizeof(*i2400ms), "wmx%d",
-+			       i2400ms_netdev_setup);
-+	if (net_dev == NULL) {
-+		dev_err(dev, "no memory for network device instance\n");
-+		goto error_alloc_netdev;
-+	}
-+	SET_NETDEV_DEV(net_dev, dev);
-+	i2400m = net_dev_to_i2400m(net_dev);
-+	i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	i2400m->wimax_dev.net_dev = net_dev;
-+	i2400ms->func = func;
-+	sdio_set_drvdata(func, i2400ms);
-+
-+	i2400m->bus_tx_block_size = I2400MS_BLK_SIZE;
-+	i2400m->bus_pl_size_max = I2400MS_PL_SIZE_MAX;
-+	i2400m->bus_dev_start = i2400ms_bus_dev_start;
-+	i2400m->bus_dev_stop = i2400ms_bus_dev_stop;
-+	i2400m->bus_tx_kick = i2400ms_bus_tx_kick;
-+	i2400m->bus_reset = i2400ms_bus_reset;
-+	i2400m->bus_bm_cmd_send = i2400ms_bus_bm_cmd_send;
-+	i2400m->bus_bm_wait_for_ack = i2400ms_bus_bm_wait_for_ack;
-+	i2400m->bus_fw_name = I2400MS_FW_FILE_NAME;
-+	i2400m->bus_bm_mac_addr_impaired = 1;
-+
-+	result = i2400ms_enable_function(i2400ms->func);
-+	if (result < 0) {
-+		dev_err(dev, "Cannot enable SDIO function: %d\n", result);
-+		goto error_func_enable;
-+	}
-+
-+	sdio_claim_host(func);
-+	result = sdio_set_block_size(func, I2400MS_BLK_SIZE);
-+	if (result < 0) {
-+		dev_err(dev, "Failed to set block size: %d\n", result);
-+		goto error_set_blk_size;
-+	}
-+	sdio_release_host(func);
-+
-+	result = i2400m_setup(i2400m, I2400M_BRI_NO_REBOOT);
-+	if (result < 0) {
-+		dev_err(dev, "cannot setup device: %d\n", result);
-+		goto error_setup;
-+	}
-+
-+	result = i2400ms_debugfs_add(i2400ms);
-+	if (result < 0) {
-+		dev_err(dev, "cannot create SDIO debugfs: %d\n",
-+			result);
-+		goto error_debugfs_add;
-+	}
-+	return 0;
-+
-+error_debugfs_add:
-+	i2400m_release(i2400m);
-+error_setup:
-+	sdio_set_drvdata(func, i2400ms);
-+	sdio_claim_host(func);
-+error_set_blk_size:
-+	sdio_disable_func(func);
-+	sdio_release_host(func);
-+error_func_enable:
-+	free_netdev(net_dev);
-+error_alloc_netdev:
-+	return result;
-+}
-+
-+
-+static
-+void i2400ms_remove(struct sdio_func *func)
-+{
-+	struct device *dev = &func->dev;
-+	struct i2400ms *i2400ms = sdio_get_drvdata(func);
-+	struct i2400m *i2400m = &i2400ms->i2400m;
-+	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
-+
-+	d_fnstart(3, dev, "SDIO func %p\n", func);
-+	debugfs_remove_recursive(i2400ms->debugfs_dentry);
-+	i2400m_release(i2400m);
-+	sdio_set_drvdata(func, NULL);
-+	sdio_claim_host(func);
-+	sdio_disable_func(func);
-+	sdio_release_host(func);
-+	free_netdev(net_dev);
-+	d_fnend(3, dev, "SDIO func %p\n", func);
-+}
-+
-+enum {
-+	I2400MS_INTEL_VID = 0x89,
-+};
-+
-+static
-+const struct sdio_device_id i2400ms_sdio_ids[] = {
-+	/* Intel: i2400m WiMAX over SDIO */
-+	{ SDIO_DEVICE(I2400MS_INTEL_VID, 0x1402) },
-+	{ }, 			/* end: all zeroes */
-+};
-+MODULE_DEVICE_TABLE(sdio, i2400ms_sdio_ids);
-+
-+
-+static
-+struct sdio_driver i2400m_sdio_driver = {
-+	.name		= KBUILD_MODNAME,
-+	.probe		= i2400ms_probe,
-+	.remove		= i2400ms_remove,
-+	.id_table	= i2400ms_sdio_ids,
-+};
-+
-+
-+static
-+int __init i2400ms_driver_init(void)
-+{
-+	return sdio_register_driver(&i2400m_sdio_driver);
-+}
-+module_init(i2400ms_driver_init);
-+
-+
-+static
-+void __exit i2400ms_driver_exit(void)
-+{
-+	flush_scheduled_work();	/* for the stuff we schedule */
-+	sdio_unregister_driver(&i2400m_sdio_driver);
-+}
-+module_exit(i2400ms_driver_exit);
-+
-+
-+MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
-+MODULE_DESCRIPTION("Intel 2400M WiMAX networking for SDIO");
-+MODULE_LICENSE("GPL");
-+MODULE_FIRMWARE(I2400MS_FW_FILE_NAME);
--- 
-1.5.6.5
