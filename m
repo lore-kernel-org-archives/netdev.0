@@ -1,50 +1,52 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Subject: Re: [PATCH] PCIe ASPM causes machine (HP Compaq 6735s) to
-	sometimes freeze hard at boot at PCI initialization time
-Date: Mon, 08 Dec 2008 09:32:42 +0800
-Message-ID: <1228699962.13024.2.camel@sli10-desk.sh.intel.com>
-References: <200811281328.55259.trenn@suse.de>
-	 <200812051407.14419.trenn@suse.de>  <20081205182148.GA28192@srcf.ucam.org>
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: [PATCH next] staging-winbond: Kill directly reference of netdev->priv
+Date: Mon, 08 Dec 2008 13:33:22 +0800
+Message-ID: <493CB1A2.7080005@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Renninger <trenn@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	Rafael Wysocki <rwysocki@suse.de>,
-	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Stable@kernel.org" <Stable@kernel.org>
-To: Matthew Garrett <mjg59@srcf.ucam.org>
+Cc: gregkh@suse.de, NETDEV <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39494 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753142AbYLHBcp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Dec 2008 20:32:45 -0500
-In-Reply-To: <20081205182148.GA28192@srcf.ucam.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:52835 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751181AbYLHFoA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2008 00:44:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2008-12-06 at 02:21 +0800, Matthew Garrett wrote:
-> On Fri, Dec 05, 2008 at 02:07:13PM +0100, Thomas Renninger wrote:
-> 
-> > PCIE: Break out of endless loop waiting for PCI config bits to switch
-> > 
-> > Makes a Compaq 6735s boot reliably again which hang in the loop
-> > on some boots.
-> 
-> Which device does it get stuck on?
-> 
-> > +	if (loop_count == 100) 
-> > +		dev_printk (KERN_WARNING, &pdev->dev, "Could not configure ASPM\n");
-> 
-> "ASPM: Could not configure common clock\n"? ASPM should still work, 
-> though with higher latency. It probably also needs to revert the 
-> configuration changes.
-Yep, Just undo the pci config writes of pcie_aspm_configure_common_clock should be fine to me.
-Maybe an expiration time is ok here.
-Does the device work after this?
+This driver is not yet finished.
+At this time, we don't know how netdev be created and how
+private data be allocated.
+So, simply use netdev_priv() now and leave some temp comment.
 
-Thanks,
-Shaohua
+Compile test only.
+
+Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+---
+ drivers/staging/winbond/linux/wbusb.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/staging/winbond/linux/wbusb.c b/drivers/staging/winbond/linux/wbusb.c
+index f4a7875..39ca9b9 100644
+--- a/drivers/staging/winbond/linux/wbusb.c
++++ b/drivers/staging/winbond/linux/wbusb.c
+@@ -336,7 +336,11 @@ WbUsb_destroy(phw_data_t pHwData)
+ 
+ int wb35_open(struct net_device *netdev)
+ {
+-	PADAPTER Adapter = (PADAPTER)netdev->priv;
++	/* netdev_priv() or netdev->ml_priv should reference to the address of
++	 * private data(PADAPTER). It depends on whether private data memory is
++	 * allocated when alloc_netdev().
++	 */
++	PADAPTER Adapter = (PADAPTER)netdev_priv(netdev);
+ 	phw_data_t pHwData = &Adapter->sHwData;
+ 
+         netif_start_queue(netdev);
+-- 
+1.5.3.4
+
+
+
 
