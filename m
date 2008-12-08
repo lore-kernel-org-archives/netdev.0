@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] Micrel KS8695 intergrated ethernet driver
-Date: Mon, 08 Dec 2008 12:29:14 -0800 (PST)
-Message-ID: <20081208.122914.97675406.davem@davemloft.net>
-References: <1228499870.3520.66.camel@achroite>
-	<1228734318.19000.84.camel@petitemort>
-	<1228749474.3177.10.camel@achroite>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: Regression in bonding between 2.6.26.8 and 2.6.27.6
+Date: Mon, 8 Dec 2008 12:42:12 -0800
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A175342DB@orsmsx507.amr.corp.intel.com>
+References: <491FEAD5.4090205@krogh.cc>
+ <17663.1226965523@death.nxdomain.ibm.com> <49232489.4000504@krogh.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dsilvers@simtec.co.uk, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesper Krogh <jesper@krogh.cc>, Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53771
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751977AbYLHU3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 15:29:13 -0500
-In-Reply-To: <1228749474.3177.10.camel@achroite>
+Received: from mga11.intel.com ([192.55.52.93]:46438 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751985AbYLHUmS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 15:42:18 -0500
+In-Reply-To: <49232489.4000504@krogh.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 08 Dec 2008 15:17:53 +0000
-
-> On Mon, 2008-12-08 at 11:05 +0000, Daniel Silverstone wrote:
-> [...]
-> > > > +static inline struct ks8695_priv *
-> > > > +ks8695_get_priv(struct net_device *ndev)
-> > > Don't use ndev->priv, use netdev_priv(ndev).  Which makes this function
-> > > redundant, except for the implicit pointer conversion.
-> > 
-> > Aah, I didn't know about that one, updated.
+Jesper Krogh wrote:
+> Jay Vosburgh wrote:
+>> Jesper Krogh <jesper@krogh.cc> wrote:
+>> 
+>>> I have something that looks like a regression in bonding between
+>>> 2.6.26.8 and 2.6.27.6 (I'll try the mid-steps later).
 > 
-> Until recently they have been equivalent by default; direct access to
-> priv is now deprecated and it will be removed.
+> There was something about that rc-27 could ruin my Intel NICs.. right?
+> (I'll refrain from testing with those then).
 
-Not just "will be removed", but "is removed" in the current
-net-next-2.6 tree so this driver wouldn't even compile :-)
+you can test 2.6.27-rcX without worry for e1000e device corruption IF
+you set CONFIG_FTRACE=n
+
+ftrace was the code that ran over the registers mapped by e1000e.
+
+just FYI, I know this thread is ancient.
