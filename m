@@ -1,86 +1,140 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH] net (tg3): Fix failure to enable WoL by default
- when possible (rev. 2)
-Date: Mon, 8 Dec 2008 11:04:03 -0800
-Message-ID: <20081208190403.GA27341@xw6200.broadcom.net>
-References: <200812080046.56119.rjw@sisk.pl>
- <200812081250.59095.rjw@sisk.pl> <200812081252.55715.rjw@sisk.pl>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Jeff Garzik" <jeff@garzik.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2595 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751076AbYLHTER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Dec 2008 14:04:17 -0500
-In-Reply-To: <200812081252.55715.rjw@sisk.pl>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 10/29] wimax: Makefile,
+	Kconfig and docbook linkage for the stack
+Date: Mon,  8 Dec 2008 11:09:25 -0800
+Message-ID: <23bb892d64b6ba4ad98923db34534313d0867441.1228759689.git.inaky@linux.intel.com>
+References: <cover.1228759689.git.inaky@linux.intel.com>
+Cc: greg@kroah.com, wimax@linuxwimax.org
+To: netdev@vger.kernel.org
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1228759689.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-This has mostly been fixed up already in Dave Miller's tree.  In that
-tree, the WOL capability advertisements happens at the end of the
-tg3_get_eeprom_hw_cfg() function.
+This patch provides Makefile and KConfig for the WiMAX stack,
+integrating them into the networking stack's Makefile, Kconfig and
+doc-book templates.
 
-Your patch did uncover a bug though.  The removal of device_may_wakeup()
-in the first hunk of your patch still needs to be done.
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ Documentation/DocBook/networking.tmpl |    8 +++++++
+ net/Kconfig                           |    2 +
+ net/Makefile                          |    1 +
+ net/wimax/Kconfig                     |   36 +++++++++++++++++++++++++++++++++
+ net/wimax/Makefile                    |   13 +++++++++++
+ 5 files changed, 60 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/Kconfig
+ create mode 100644 net/wimax/Makefile
 
-On Mon, Dec 08, 2008 at 03:52:55AM -0800, Rafael J. Wysocki wrote:
-> From: Rafael J. Wysocki <rjw@sisk.pl>
-> Subject: net (tg3): Fix failure to enable WoL by default when possible (rev. 2)
-> 
-> tg3 is supposed to enable WoL by default on adapters which support
-> that, but it fails to do so unless the adapter's
-> /sys/devices/.../power/wakeup file contains 'enabled' during the
-> initialization of the adapter.  Fix that by making tg3 update the
-> device's 'should_wakeup' bit automatically whenever WoL should be
-> enabled by default.
-> 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> ---
->  drivers/net/tg3.c |   10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
-> 
-> Index: linux-2.6/drivers/net/tg3.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/tg3.c
-> +++ linux-2.6/drivers/net/tg3.c
-> @@ -11296,9 +11296,10 @@ static void __devinit tg3_get_eeprom_hw_
->  		if (val & VCPU_CFGSHDW_ASPM_DBNC)
->  			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
->  		if ((val & VCPU_CFGSHDW_WOL_ENABLE) &&
-> -		    (val & VCPU_CFGSHDW_WOL_MAGPKT) &&
-> -		    device_may_wakeup(&tp->pdev->dev))
-> +		    (val & VCPU_CFGSHDW_WOL_MAGPKT)) {
->  			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
-> +			device_set_wakeup_enable(&tp->pdev->dev, true);
-> +		}
->  		return;
->  	}
->  
-> @@ -11428,9 +11429,10 @@ static void __devinit tg3_get_eeprom_hw_
->  			tp->tg3_flags &= ~TG3_FLAG_WOL_CAP;
->  
->  		if ((tp->tg3_flags & TG3_FLAG_WOL_CAP) &&
-> -		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE) &&
-> -		    device_may_wakeup(&tp->pdev->dev))
-> +		    (nic_cfg & NIC_SRAM_DATA_CFG_WOL_ENABLE)) {
->  			tp->tg3_flags |= TG3_FLAG_WOL_ENABLE;
-> +		    	device_set_wakeup_enable(&tp->pdev->dev, true);
-> +		}
->  
->  		if (cfg2 & (1 << 17))
->  			tp->tg3_flags2 |= TG3_FLG2_CAPACITIVE_COUPLING;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+diff --git a/Documentation/DocBook/networking.tmpl b/Documentation/DocBook/networking.tmpl
+index f24f9e8..7053c1c 100644
+--- a/Documentation/DocBook/networking.tmpl
++++ b/Documentation/DocBook/networking.tmpl
+@@ -101,6 +101,14 @@ X!Enet/core/wireless.c
+      <sect1><title>Synchronous PPP</title>
+ !Edrivers/net/wan/syncppp.c
+      </sect1>
++     <sect1><title>WiMAX</title>
++!Enet/wimax/op-msg.c
++!Enet/wimax/op-reset.c
++!Enet/wimax/op-rfkill.c
++!Enet/wimax/stack.c
++!Iinclude/net/wimax.h
++!Iinclude/linux/wimax.h
++     </sect1>
+   </chapter>
+ 
+ </book>
+diff --git a/net/Kconfig b/net/Kconfig
+index d789d79..3bff221 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -251,6 +251,8 @@ source "net/ieee80211/Kconfig"
+ 
+ endif # WIRELESS
+ 
++source "net/wimax/Kconfig"
++
+ source "net/rfkill/Kconfig"
+ source "net/9p/Kconfig"
+ 
+diff --git a/net/Makefile b/net/Makefile
+index 27d1f10..620a505 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -61,3 +61,4 @@ obj-$(CONFIG_NET_9P)		+= 9p/
+ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
+ endif
++obj-$(CONFIG_WIMAX)		+= wimax/
+diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
+new file mode 100644
+index 0000000..67d5f4d
+--- /dev/null
++++ b/net/wimax/Kconfig
+@@ -0,0 +1,36 @@
++#
++# WiMAX LAN device configuration
++#
++
++menuconfig WIMAX
++       tristate "WiMAX Wireless Broadband support"
++       help
++
++         Select to configure support for devices that provide wireless
++         broadband connectivity using the WiMAX protocol (IEEE 802.16).
++
++         Please note that most of these devices require signing up for
++         a service plan with a provider.
++
++         The different WiMAX drivers can be enabled in the menu entry
++
++         Device Drivers > Network device support > WiMAX Wireless Broadband devices
++
++         If unsure, it is safe to select M (module).
++
++config WIMAX_DEBUG_LEVEL
++       int "WiMAX debug level"
++       depends on WIMAX
++       default 8
++       help
++
++         Select the maximum debug verbosity level to be compiled into
++         the WiMAX stack code.
++
++         By default, debug messages are disabled at runtime and can be
++         selectively enabled for different parts of the code using the
++         sysfs debug-levels file.
++
++         If set at zero, this will compile out all the debug code.
++
++         It is recommended that it is left at 8.
+diff --git a/net/wimax/Makefile b/net/wimax/Makefile
+new file mode 100644
+index 0000000..d548446
+--- /dev/null
++++ b/net/wimax/Makefile
+@@ -0,0 +1,13 @@
++
++obj-$(CONFIG_WIMAX)		+= wimax.o
++
++wimax-objs :=		\
++	id-table.o	\
++	op-msg.o	\
++	op-reset.o	\
++	op-rfkill.o	\
++	stack.o
++
++wimax-$(CONFIG_DEBUG_FS) += debugfs.o
++
++
+-- 
+1.5.6.5
