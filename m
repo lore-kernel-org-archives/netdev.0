@@ -1,37 +1,41 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: Regression in bonding between 2.6.26.8 and 2.6.27.6
-Date: Mon, 8 Dec 2008 12:42:12 -0800
-Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A175342DB@orsmsx507.amr.corp.intel.com>
-References: <491FEAD5.4090205@krogh.cc>
- <17663.1226965523@death.nxdomain.ibm.com> <49232489.4000504@krogh.cc>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: CIFS regression in 2.6.27.8
+Date: Mon, 08 Dec 2008 21:58:51 +0100
+Message-ID: <493D8A8B.9090201@s5r6.in-berlin.de>
+References: <20900699.post@talk.nabble.com> <84144f020812081128p6d1e2a55v69996a360e7f0e8f@mail.gmail.com> <200812082112.49468.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Krogh <jesper@krogh.cc>, Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Dennis Hardy <dhardy@sogetthis.com>,
+	linux-kernel@vger.kernel.org, layton@redhat.com,
+	Steven French <sfrench@us.ibm.com>, Greg KH <gregkh@suse.de>,
+	netdev@vger.kernel.org, Holger Hoffstaette <holger@wizards.de>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:46438 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751985AbYLHUmS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 15:42:18 -0500
-In-Reply-To: <49232489.4000504@krogh.cc>
-Content-Language: en-US
+Received: from einhorn.in-berlin.de ([192.109.42.8]:54723 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025AbYLHU7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 15:59:24 -0500
+In-Reply-To: <200812082112.49468.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Krogh wrote:
-> Jay Vosburgh wrote:
->> Jesper Krogh <jesper@krogh.cc> wrote:
->> 
->>> I have something that looks like a regression in bonding between
->>> 2.6.26.8 and 2.6.27.6 (I'll try the mid-steps later).
-> 
-> There was something about that rc-27 could ruin my Intel NICs.. right?
-> (I'll refrain from testing with those then).
+Rafael J. Wysocki wrote:
+>> On Mon, Dec 8, 2008 at 8:18 PM, Dennis Hardy <dhardy@sogetthis.com> wrote:
+>>> I just mounted a network drive (Windows Server) via CIFS under 2.6.27.8, and
+>>> the sizes reported by "df" are completely incorrect:
+...
+>>> Does anyone else see this sort of behavior with 2.6.27.8?  This worked fine
+>>> in 2.6.27.6 (we skipped 2.6.27.7)...
 
-you can test 2.6.27-rcX without worry for e1000e device corruption IF
-you set CONFIG_FTRACE=n
+There were several cifs updates in .8 but AFAIU none in .7.
 
-ftrace was the code that ran over the registers mapped by e1000e.
+> FWIW, it seems to be related to this one: http://lkml.org/lkml/2008/12/8/7
 
-just FYI, I know this thread is ancient.
+Holger's report is about the userland SMB/CIFS server, while Denis's is
+about kernelspace client code.  They look like separate issues to me.
+-- 
+Stefan Richter
+-=====-==--- ==-- -=---
+http://arcgraph.de/sr/
