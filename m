@@ -1,104 +1,32 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 29/29] wimax/i2400m: add CREDITS and MAINTAINERS entries
-Date: Mon,  8 Dec 2008 11:09:44 -0800
-Message-ID: <5ebd5d620ec4f11b4effeff489df6a9a2f15e626.1228759690.git.inaky@linux.intel.com>
-References: <cover.1228759689.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org, greg@kroah.com
-To: netdev@vger.kernel.org
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: Nasty regression from .27.7 to .27.8: idle samba goes crazy
+Date: Mon, 08 Dec 2008 20:19:37 +0100
+Message-ID: <493D7349.10200@s5r6.in-berlin.de>
+References: <pan.2008.12.08.06.18.57.357875@wizards.de> <200812080834.22924.rjw@sisk.pl> <pan.2008.12.08.08.07.29.439625@wizards.de> <493D4F5C.7020606@s5r6.in-berlin.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Greg KH <greg@kroah.com>,
+	stable@kernel.org
+To: Holger Hoffstaette <holger@wizards.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:12809 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751448AbYLHTJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 14:09:54 -0500
-In-Reply-To: <cover.1228759689.git.inaky@linux.intel.com>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:52828 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751269AbYLHTTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 14:19:47 -0500
+In-Reply-To: <493D4F5C.7020606@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds entries for the original developers of the i2400m
-drivers and up-to-date maintainer entries.
+>>> On Monday, 8 of December 2008, Holger Hoffstaette wrote:
+>>>> The system is a generic old single-core P4 box with a single SATA drive,
+>>>> Gentoo userland and Samba is 3.0.33 (in async mode). The kernel has no
+>>>> patches or binary drivers.
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- CREDITS     |   17 +++++++++++++++++
- MAINTAINERS |   16 ++++++++++++++++
- 2 files changed, 33 insertions(+), 0 deletions(-)
-
-diff --git a/CREDITS b/CREDITS
-index b50db17..ae5b804 100644
---- a/CREDITS
-+++ b/CREDITS
-@@ -464,6 +464,11 @@ S: 1200 Goldenrod Dr.
- S: Nampa, Idaho 83686
- S: USA
- 
-+N: Dirk J. Brandewie
-+E: dirk.j.brandewie@intel.com
-+E: linux-wimax@intel.com
-+D: Intel Wireless WiMAX Connection 2400 SDIO driver
-+
- N: Derrick J. Brashear
- E: shadow@dementia.org
- W: http://www.dementia.org/~shadow
-@@ -2119,6 +2124,11 @@ N: H.J. Lu
- E: hjl@gnu.ai.mit.edu
- D: GCC + libraries hacker
- 
-+N: Yanir Lubetkin
-+E: yanirx.lubatkin@intel.com
-+E: linux-wimax@intel.com
-+D: Intel Wireless WiMAX Connection 2400 driver
-+
- N: Michal Ludvig
- E: michal@logix.cz
- E: michal.ludvig@asterisk.co.nz
-@@ -2693,6 +2703,13 @@ S: RR #5, 497 Pole Line Road
- S: Thunder Bay, Ontario
- S: CANADA P7C 5M9
- 
-+N: Inaky Perez-Gonzalez
-+E: inaky.perez-gonzalez@intel.com
-+E: linux-wimax@intel.com
-+E: inakypg@yahoo.com
-+D: WiMAX stack
-+D: Intel Wireless WiMAX Connection 2400 driver
-+
- N: Yuri Per
- E: yuri@pts.mipt.ru
- D: Some smbfs fixes
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c1ea1f6..892b57a 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2299,6 +2299,14 @@ W:	http://lists.sourceforge.net/mailman/listinfo/ipw2100-devel
- W:	http://ipw2200.sourceforge.net
- S:	Supported
- 
-+INTEL WIRELESS WIMAX CONNECTION 2400
-+P:	Inaky Perez-Gonzalez
-+M:	inaky.perez-gonzalez@intel.com
-+M:	linux-wimax@intel.com
-+L:	wimax@linuxwimax.org
-+S:	Supported
-+W:	http://linuxwimax.org
-+
- INTEL WIRELESS WIFI LINK (iwlwifi)
- P:	Zhu Yi
- M:	yi.zhu@intel.com
-@@ -4703,6 +4711,14 @@ M:	zaga@fly.cc.fer.hr
- L:	linux-scsi@vger.kernel.org
- S:	Maintained
- 
-+WIMAX STACK
-+P:	Inaky Perez-Gonzalez
-+M:	inaky.perez-gonzalez@intel.com
-+M:	linux-wimax@intel.com
-+L:	wimax@linuxwimax.org
-+S:	Supported
-+W:	http://linuxwimax.org
-+
- WIMEDIA LLC PROTOCOL (WLP) SUBSYSTEM
- P:	David Vrabel
- M:	david.vrabel@csr.com
+Holger, it may be unrelated to the issue, but to be sure:  Which network
+card driver do you use?
 -- 
-1.5.6.5
-
+Stefan Richter
+-=====-==--- ==-- -=---
+http://arcgraph.de/sr/
