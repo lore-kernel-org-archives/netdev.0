@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 06/29] genetlink: export genl_unregister_mc_group()
-Date: Mon,  8 Dec 2008 11:09:21 -0800
-Message-ID: <5911c8e31e8f12ad9458600c3171c0787c84ff17.1228759689.git.inaky@linux.intel.com>
+Subject: [PATCH 03/29] wimax: internal API for the kernel space WiMAX stack
+Date: Mon,  8 Dec 2008 11:09:18 -0800
+Message-ID: <fe7463d723c0c562778baa7da9a0234f391de3fc.1228759689.git.inaky@linux.intel.com>
 References: <cover.1228759689.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,36 +18,124 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
-unregistering groups on the run. EXPORT_SYMBOL_GPL() is not used as
-the rest of the functions exported by this module (eg:
-genl_register_mc_group) are also not _GPL().
-
-Cleanup is currently done when unregistering a family, but there is
-no way to unregister a single multicast group due to that function not
-being exported. Seems to be a mistake as it is documented as for
-external consumption.
-
-This is needed by the WiMAX stack to be able to cleanup unused mc
-groups.
+This file contains declarations and definitions used by the different
+submodules of the stack.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
 ---
- net/netlink/genetlink.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/wimax/wimax-internal.h |  104 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 104 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/wimax-internal.h
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 3e1191c..1d3dd30 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -225,6 +225,7 @@ void genl_unregister_mc_group(struct genl_family *family,
- 	__genl_unregister_mc_group(family, grp);
- 	genl_unlock();
- }
-+EXPORT_SYMBOL(genl_unregister_mc_group);
- 
- static void genl_unregister_mc_groups(struct genl_family *family)
- {
+diff --git a/net/wimax/wimax-internal.h b/net/wimax/wimax-internal.h
+new file mode 100644
+index 0000000..0b3559e
+--- /dev/null
++++ b/net/wimax/wimax-internal.h
+@@ -0,0 +1,104 @@
++/*
++ * Linux WiMAX
++ * Internal API for kernel space WiMAX stack
++ *
++ *
++ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ *
++ *
++ * This header file is for declarations and definitions internal to
++ * the WiMAX stack. For public APIs and documentation, see
++ * include/net/wimax.h and include/linux/wimax.h.
++ */
++
++#ifndef __WIMAX_INTERNAL_H__
++#define __WIMAX_INTERNAL_H__
++#ifdef __KERNEL__
++
++#include <linux/device.h>
++#include <net/wimax.h>
++
++
++/*
++ * Decide if a (locked) device is ready for use
++ *
++ * Before using the device structure, it must be locked
++ * (wimax_dev->mutex). As well, most operations need to call this
++ * function to check if the state is the right one.
++ *
++ * An error value will be returned if the state is not the right
++ * one. In that case, the caller should not attempt to use the device
++ * and just unlock it.
++ */
++static inline __must_check
++int wimax_dev_is_ready(struct wimax_dev *wimax_dev)
++{
++	if (wimax_dev->state == __WIMAX_ST_NULL)
++		return -EINVAL;	/* Device is not even registered! */
++	if (wimax_dev->state == WIMAX_ST_DOWN)
++		return -ENOMEDIUM;
++	if (wimax_dev->state == __WIMAX_ST_QUIESCING)
++		return -ESHUTDOWN;
++	return 0;
++}
++
++
++static inline
++void __wimax_state_set(struct wimax_dev *wimax_dev, enum wimax_st state)
++{
++	wimax_dev->state = state;
++}
++extern void __wimax_state_change(struct wimax_dev *, enum wimax_st);
++
++#ifdef CONFIG_DEBUG_FS
++extern int wimax_debugfs_add(struct wimax_dev *);
++extern void wimax_debugfs_rm(struct wimax_dev *);
++#else
++static inline int wimax_debugfs_add(struct wimax_dev *wimax_dev)
++{
++	return 0;
++}
++static inline void wimax_debugfs_rm(struct wimax_dev *wimax_dev) {}
++#endif
++
++extern void wimax_id_table_add(struct wimax_dev *);
++extern struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *);
++extern void wimax_id_table_rm(struct wimax_dev *);
++extern void wimax_id_table_release(void);
++
++extern void __wimax_pipe_rm(struct wimax_dev *, struct wimax_pipe *);
++
++extern int wimax_rfkill_add(struct wimax_dev *);
++extern void wimax_rfkill_rm(struct wimax_dev *);
++
++/*
++ * A pipe
++ *
++ * A pipe servers to transmit messages from user to kernel space and
++ * viceversa.
++ *
++ * Encapsulated behind this type to detach the usage of it from the
++ * implementation; it serves just as a handle.
++ */
++struct wimax_pipe {
++	struct list_head list_node;
++	struct genl_multicast_group mcg;
++};
++
++#endif /* #ifdef __KERNEL__ */
++#endif /* #ifndef __WIMAX_INTERNAL_H__ */
 -- 
 1.5.6.5
