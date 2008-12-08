@@ -1,69 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7] dccp ccid-2: Phase out the use of boolean Ack
- Vector sysctl
-Date: Mon, 08 Dec 2008 01:19:17 -0800 (PST)
-Message-ID: <20081208.011917.176472177.davem@davemloft.net>
-References: <1228581657-6724-6-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1228581657-6724-7-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1228581657-6724-8-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [RFC] New functions to manipulate registers for ethtool
+Date: Mon, 08 Dec 2008 04:26:12 -0500
+Message-ID: <59951.1228728372@turing-police.cc.vt.edu>
+References: <20081208171230.288c5ccf.mitake@clustcom.com> <20081208.005431.200957157.davem@davemloft.net> <58622.1228726903@turing-police.cc.vt.edu>
+            <20081208.010634.247305010.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed; boundary="==_Exmh_1228728372_54791P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: mitake@clustcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ktaka@clustcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58949
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751522AbYLHJTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 04:19:17 -0500
-In-Reply-To: <1228581657-6724-8-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:57649 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751066AbYLHJ0S (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 04:26:18 -0500
+In-Reply-To: Your message of "Mon, 08 Dec 2008 01:06:34 PST."
+             <20081208.010634.247305010.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Sat,  6 Dec 2008 17:40:57 +0100
+--==_Exmh_1228728372_54791P
+Content-Type: text/plain; charset=us-ascii
 
-> This removes the use of the sysctl and the minisock variable for the Send Ack
-> Vector feature, as it now is handled fully dynamically via feature negotiation
-> (i.e. when CCID-2 is enabled, Ack Vectors are automatically enabled as per
->  RFC 4341, 4.).
-> 
-> Using a sysctl in parallel to this implementation would open the door to
-> crashes, since much of the code relies on tests of the boolean minisock /
-> sysctl variable. Thus, this patch replaces all tests of type
-> 
-> 	if (dccp_msk(sk)->dccpms_send_ack_vector)
-> 		/* ... */
-> with
-> 	if (dp->dccps_hc_rx_ackvec != NULL)
-> 		/* ... */
-> 
-> The dccps_hc_rx_ackvec is allocated by the dccp_hdlr_ackvec() when feature
-> negotiation concluded that Ack Vectors are to be used on the half-connection.
-> Otherwise, it is NULL (due to dccp_init_sock/dccp_create_openreq_child),
-> so that the test is a valid one.
-> 
-> The activation handler for Ack Vectors is called as soon as the feature
-> negotiation has concluded at the
->  * server when the Ack marking the transition RESPOND => OPEN arrives;
->  * client after it has sent its ACK, marking the transition REQUEST => PARTOPEN.
-> 
-> Adding the sequence number of the Response packet to the Ack Vector has been
-> removed, since
->  (a) connection establishment implies that the Response has been received;
->  (b) the CCIDs only look at packets received in the (PART)OPEN state, i.e.
->      this entry will always be ignored;
->  (c) it can not be used for anything useful - to detect loss for instance, only
->      packets received after the loss can serve as pseudo-dupacks.
-> 
-> There was a FIXME to change the error code when dccp_ackvec_add() fails.
-> I removed this after finding out that:
->  * the check whether ackno < ISN is already made earlier,
->  * this Response is likely the 1st packet with an Ackno that the client gets,
->  * so when dccp_ackvec_add() fails, the reason is likely not a packet error.
-> 
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+On Mon, 08 Dec 2008 01:06:34 PST, David Miller said:
 
-Also applied, thanks Gerrit.
+> That's an awful reason to have to two ways of doing the exact same
+> thing from userspace.
+
+Which is why 'sysctl' and 'echo > /proc/sys/....' both exist, right?
+
+--==_Exmh_1228728372_54791P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFJPOg0cC3lWbTT17ARAo1gAKDgN0Yy2TBwjbdWEhe5cfRcqr/4NgCgjub6
+wl7a1ytBuqWfC/flnXHOIhw=
+=P1vJ
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1228728372_54791P--
