@@ -1,101 +1,139 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch] Micrel KS8695 intergrated ethernet driver
-Date: Mon, 08 Dec 2008 15:17:53 +0000
-Message-ID: <1228749474.3177.10.camel@achroite>
-References: <49394379.9000501@simtec.co.uk>
-	 <1228499870.3520.66.camel@achroite>  <1228734318.19000.84.camel@petitemort>
+From: Jianjun Kong <jianjun@zeuux.org>
+Subject: [PATCH] net: replace netdev->priv with netdev_priv()
+Date: Mon, 8 Dec 2008 23:23:26 +0800
+Message-ID: <20081208152326.GB22436@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsilvers@simtec.co.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:41619 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754238AbYLHPR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 10:17:57 -0500
-In-Reply-To: <1228734318.19000.84.camel@petitemort>
+Received: from smtp.zeuux.org ([210.51.160.52]:55912 "EHLO z.billxu.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751572AbYLHPXb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Dec 2008 10:23:31 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-12-08 at 11:05 +0000, Daniel Silverstone wrote:
-[...]
-> > > +static inline struct ks8695_priv *
-> > > +ks8695_get_priv(struct net_device *ndev)
-> > Don't use ndev->priv, use netdev_priv(ndev).  Which makes this function
-> > redundant, except for the implicit pointer conversion.
-> 
-> Aah, I didn't know about that one, updated.
 
-Until recently they have been equivalent by default; direct access to
-priv is now deprecated and it will be removed.
+net: replace netdev->priv with netdev_priv()
 
-[...]
-> > > +                       /* Free the packet from the ring */
-> > > +                       ksp->tx_ring[buff_n].data_ptr = 0;
-> > Clearing data_ptr seems redundant.  The TDES_OWN flag indicates whether
-> > the descriptor is pending and the skb pointer indicates whether a buffer
-> > needs to be freed.
-> 
-> This was simply me being neat. If you feel that it is an overly
-> expensive thing to do then I shall elide it.
+Signed-off-by: Jianjun Kong <jianjun@zeuux.org>
+---
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ net/atm/lec.c                        |   20 ++++++++++----------
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
-It's hardly expensive, but the comment is inaccurate because this field
-does not indicate whether the descriptor is free or not.
-
-[...]
-> > > +               buff_n = (buff_n + 1) % MAX_RX_DESC;
-> > That's another expensive division.
-> 
-> I was expecting the compiler to go "aaha! mod <powerof2> => bitwise
-> mask".
-
-It can only do this if it knows the dividend is non-negative.
-
-I wrote "another" in reference to my comment further down which I
-actually wrote earlier.
-
-[...]
-> > > +static int
-> > > +ks8695_init_net(struct ks8695_priv *ksp)
-> 
-> > The RX and TX IRQ handlers need to be released in case the TX or link
-> > IRQ setup fails.
-> 
-> The only time that this might fail, I.E. initial device open, we check
-> the return value of ks8695_init_net and call ks86985_shutdown if needed
-> which will release the IRQs.
-> 
-> It seemed daft to replicate the cleanup code in two places. If however
-> that is the accepted style then I shall add the cleanups to
-> ks8695_init_net() -- Is my method acceptable or should I change?
-
-Local cleanup is normal but I think this is OK.
-
-[...]
-> > > +               dev_info(ksp->dev, "ks8695 ethernet (%s) MAC: %s\n",
-> > > +                        ks8695_port_type(ksp), print_mac(mac, ndev->dev_addr));
-> > Use %pM to format a MAC address instead of %s and print_mac().
-> 
-> I believe this must be new since 2.6.27 so I'll get that as I move to
-> net-next-2.6, thanks for the info.
-
-Yes, the %p<modifier> formats are a recent invention.
-
-[...]
-> Thank you very much for your comments. Once this pull of net-next-2.6 is
-> complete and I can do my forward-porting, I'll issue a new patch. Can I
-> ask what the magic runes are which I need in subject / precis to
-> actually request that my driver be merged rather than just reviewed?
-
-Unless you add [RFC] to the subject it's implicit that you want the
-patch merged.  You can check the patch status at
-<http://patchwork.ozlabs.org/project/netdev/list/>.
-
-Ben.
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 6ef3f0d..cc91dad 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -988,7 +988,7 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
+  */
+ static int netxen_nic_open(struct net_device *netdev)
+ {
+-	struct netxen_adapter *adapter = (struct netxen_adapter *)netdev->priv;
++	struct netxen_adapter *adapter = netdev_priv(netdev);
+ 	int err = 0;
+ 	int ctx, ring;
+ 	irq_handler_t handler;
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 8f701cd..df4f6c6 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -152,7 +152,7 @@ static void lec_handle_bridge(struct sk_buff *skb, struct net_device *dev)
+ 		buff += 4;
+ 		mesg->content.normal.flag = *buff & 0x01;	/* 0x01 is topology change */
+ 
+-		priv = (struct lec_priv *)dev->priv;
++		priv = dev_priv(dev);
+ 		atm_force_charge(priv->lecd, skb2->truesize);
+ 		sk = sk_atm(priv->lecd);
+ 		skb_queue_tail(&sk->sk_receive_queue, skb2);
+@@ -218,7 +218,7 @@ static unsigned char *get_tr_dst(unsigned char *packet, unsigned char *rdesc)
+ 
+ static int lec_open(struct net_device *dev)
+ {
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ 
+ 	netif_start_queue(dev);
+ 	memset(&priv->stats, 0, sizeof(struct net_device_stats));
+@@ -252,7 +252,7 @@ static void lec_tx_timeout(struct net_device *dev)
+ static int lec_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct sk_buff *skb2;
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ 	struct lecdatahdr_8023 *lec_h;
+ 	struct atm_vcc *vcc;
+ 	struct lec_arp_table *entry;
+@@ -442,14 +442,14 @@ static int lec_close(struct net_device *dev)
+  */
+ static struct net_device_stats *lec_get_stats(struct net_device *dev)
+ {
+-	return &((struct lec_priv *)dev->priv)->stats;
++	return &(dev_priv(dev))->stats;
+ }
+ 
+ static int lec_atm_send(struct atm_vcc *vcc, struct sk_buff *skb)
+ {
+ 	unsigned long flags;
+ 	struct net_device *dev = (struct net_device *)vcc->proto_data;
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ 	struct atmlec_msg *mesg;
+ 	struct lec_arp_table *entry;
+ 	int i;
+@@ -596,7 +596,7 @@ static void lec_atm_close(struct atm_vcc *vcc)
+ {
+ 	struct sk_buff *skb;
+ 	struct net_device *dev = (struct net_device *)vcc->proto_data;
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ 
+ 	priv->lecd = NULL;
+ 	/* Do something needful? */
+@@ -727,7 +727,7 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
+ {
+ 	unsigned long flags;
+ 	struct net_device *dev = (struct net_device *)vcc->proto_data;
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ 
+ #if DUMP_PACKETS >0
+ 	int i = 0;
+@@ -1279,7 +1279,7 @@ static int lane2_resolve(struct net_device *dev, const u8 *dst_mac, int force,
+ 			 u8 **tlvs, u32 *sizeoftlvs)
+ {
+ 	unsigned long flags;
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ 	struct lec_arp_table *table;
+ 	struct sk_buff *skb;
+ 	int retval;
+@@ -1326,7 +1326,7 @@ static int lane2_associate_req(struct net_device *dev, const u8 *lan_dst,
+ {
+ 	int retval;
+ 	struct sk_buff *skb;
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ 
+ 	if (compare_ether_addr(lan_dst, dev->dev_addr))
+ 		return (0);	/* not our mac address */
+@@ -1363,7 +1363,7 @@ static void lane2_associate_ind(struct net_device *dev, const u8 *mac_addr,
+ #if 0
+ 	int i = 0;
+ #endif
+-	struct lec_priv *priv = (struct lec_priv *)dev->priv;
++	struct lec_priv *priv = dev_priv(dev);
+ #if 0				/*
+ 				 * Why have the TLVs in LE_ARP entries
+ 				 * since we do not use them? When you
+-- 
+1.5.6.3
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Jianjun Kong |Happy Hacking
+Homepage: http://kongove.cn
+Gtalk:kongjianjun@gmail.com
