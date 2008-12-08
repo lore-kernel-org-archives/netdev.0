@@ -1,47 +1,35 @@
-From: Hermann Lauer <Hermann.Lauer@iwr.uni-heidelberg.de>
-Subject: Re: sumgem problems with initializiation order at a 1000SX SERDES card [experimental patch]
-Date: Mon, 8 Dec 2008 16:59:36 +0100
-Message-ID: <20081208155936.GD16754@lemon.iwr.uni-heidelberg.de>
-References: <20081125103029.GD12605@lemon.iwr.uni-heidelberg.de> <20081126.011809.241693537.davem@davemloft.net> <20081128000059.GA13712@lemon.iwr.uni-heidelberg.de> <20081204.173324.136036003.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: [PATCH 0/8] netns: make IPv6 multicast forwarding per-namespace
+Date: Mon, 08 Dec 2008 17:01:56 +0100
+Message-ID: <20081208160156.343758157@localhost.localdomain>
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Benjamin Thery <benjamin.thery@bull.net>
+To: Dave Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.uni-heidelberg.de ([129.206.210.211]:51923 "EHLO
-	relay2.uni-heidelberg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881AbYLHP7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 10:59:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20081204.173324.136036003.davem@davemloft.net>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:34800 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752597AbYLHQC4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 11:02:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 04, 2008 at 05:33:24PM -0800, David Miller wrote:
+This patchset introduces the support for network namespaces in IPv6
+multicast forwarding code (net/ipv6/ip6mr.c).
 
-> And this new code is just a copy of the PHY init sequence on
-> PCS, so we should split that out into a helper function instead
-> of duplicating it.
-> 
-> Any time gem_reset() is invoked, the PCS is going to need to be
-> reset like this, so let's do the advertisement reinit there.
-> 
-> Does this version of the fix work for you?
+The first patches in the series moves global data from ip6mr.c into 
+struct netns_ipv6 to prepare netns support. Data are still referenced in
+init_net only. One of these patches makes the related /proc entries
+per-namespace.
 
-Yes, works the same. It has some delay before receiving packets works
-after an ifconfig up or a reestablishing of the link, but thats
-the same as with the experimental patch.
-Probably the link state handling has to be improved, I'm not
-shure my experimental patch was correct there.
+The last patch does the main job and enables the network namespace support
+by replacing all the init_net references with the proper net retrieved
+from sockets or net devices.
 
-But as the driver is working now with this patch on this hardware
-and not without - please commit.
+The patchset applies on top of net-next-2.6
 
-Thanks,
-  Hermann
+Regards,
+Benjamin
 
--- 
-Netzwerkadministration/Zentrale Dienste, Interdiziplinaeres 
-Zentrum fuer wissenschaftliches Rechnen der Universitaet Heidelberg
-IWR; INF 368; 69120 Heidelberg; Tel: (06221)54-8236 Fax: -5224
-Email: Hermann.Lauer@iwr.uni-heidelberg.de
