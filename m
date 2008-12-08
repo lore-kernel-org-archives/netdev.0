@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/7] dccp: Integration of dynamic feature activation -
- part 1 (socket setup)
-Date: Mon, 08 Dec 2008 01:15:35 -0800 (PST)
-Message-ID: <20081208.011535.209538564.davem@davemloft.net>
-References: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 2/7] dccp: Integration of dynamic feature activation -
+ part 2 (server side)
+Date: Mon, 08 Dec 2008 01:16:04 -0800 (PST)
+Message-ID: <20081208.011604.20334616.davem@davemloft.net>
+References: <1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
 	<1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52534
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52537
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751333AbYLHJPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 04:15:34 -0500
-In-Reply-To: <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1751368AbYLHJQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 04:16:03 -0500
+In-Reply-To: <1228581657-6724-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Sat,  6 Dec 2008 17:40:51 +0100
+Date: Sat,  6 Dec 2008 17:40:52 +0100
 
-> This first patch out of three replaces the hardcoded default settings with
-> initialisation code for the dynamic feature negotiation.
+> This patch integrates the activation of features at the end of negotiation
+> into the server-side code.
 > 
-> The patch also ensures that the client feature-negotiation queue is flushed
-> only when entering the OPEN state.
-> 
-> Since confirmed Change options are removed as soon as they are confirmed
-> (in the DCCP-Response), this ensures that Confirm options are retransmitted.
-> 
-> Note on retransmitting Confirm options:
-> ---------------------------------------
-> Implementation experience showed that it is necessary to retransmit Confirm
-> options. Thanks to Leandro Melo de Sales who reported a bug in an earlier
-> revision of the patch set, resulting from not retransmitting these options.
-> 
-> As long as the client is in PARTOPEN, it needs to retransmit the Confirm
-> options for the Change options received on the DCCP-Response from the server.
-> 
-> Otherwise, if the packet containing the Confirm options gets dropped in the
-> network, the connection aborts due to undefined feature negotiation state.
-> 
+> Note regarding the removal of 'const':
+> --------------------------------------
+>  The 'const' attribute has been removed from 'dreq' since dccp_activate_values()
+>  needs to operate on dreq's feature list. Part of the activation is to remove
+>  those options from the list that have already been confirmed, hence it is not
+>  purely read-only.
 > 
 > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 > Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
