@@ -1,89 +1,46 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH1/1] hso modem detect fix patch against Alan Cox'es tty tree
-Date: Mon, 08 Dec 2008 15:38:31 +0100
-Message-ID: <493D3167.200@option.com>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 2/3] hso maintainers update patch
+Date: Mon, 08 Dec 2008 15:44:51 +0100
+Message-ID: <1228747491.28839.69.camel@violet.holtmann.net>
+References: <493CF997.1080406@option.com>
+	 <20081208113533.48d0cd9a@lxorguk.ukuu.org.uk>
+	 <20081208.040253.232307765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040706000202040603090502"
-Cc: Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081208.040253.232307765.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040706000202040603090502
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Hi Dave,
 
-Here you go good sir,
+> From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+> Date: Mon, 8 Dec 2008 11:35:33 +0000
+> 
+> > On Mon, 08 Dec 2008 11:40:23 +0100
+> > Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
+> > 
+> > > Added D.J. Barrow as maintainer of hso driver.
+> > > Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+> > 
+> > Acked-by: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, will leave this to go via
+> > netdev/usb tree
+> 
+> USB please take it :-)
 
-Fixed incorrect check for the modem port, this prevents
-crashes caused by issueing a tiocmget_submit_urb
-on endpoints which don't exist for non modem devices. 
-Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
-Index: linux-2.6.28-rc7.alan/drivers/net/usb/hso.c
-===================================================================
---- linux-2.6.28-rc7.alan.orig/drivers/net/usb/hso.c	2008-12-08 15:26:00.000000000 +0100
-+++ linux-2.6.28-rc7.alan/drivers/net/usb/hso.c	2008-12-08 15:28:10.000000000 +0100
-@@ -2659,7 +2659,7 @@
- 	serial->parent = hso_dev;
- 	hso_dev->port_data.dev_serial = serial;
- 
--	if (port & HSO_PORT_MODEM) {
-+	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM) {
- 		num_urbs = 2;
- 		serial->tiocmget = kzalloc(sizeof(struct hso_tiocmget),
- 					   GFP_KERNEL);
+since the driver is part of drivers/net/usb it should go via Jeff to you
+from my point of view. I think that Greg left all USB network based
+drivers up to Jeff to handle. Or did I miss something here?
+
+Regards
+
+Marcel
 
 
-
--- 
-best regards,
-D.J. Barrow
-
-Linux Kernel Developer
-Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
- 
-T: +32 16 311 621
-F: +32 16 207 164
-M: +32 4xx xxx xxx
-d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-www.option.com
-
-Disclaimer:
-http://www.option.com/company/disclaimer.shtml
- RPR Leuven 0429.375.448
-
---------------040706000202040603090502
-Content-Type: text/x-diff;
- name="tty-hso-modem.fix.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tty-hso-modem.fix.patch"
-
-Fixed incorrect check for the modem port, this prevents
-crashes caused by issueing a tiocmget_submit_urb
-on endpoints which don't exist for non modem devices. 
-Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
-Index: linux-2.6.28-rc7.alan/drivers/net/usb/hso.c
-===================================================================
---- linux-2.6.28-rc7.alan.orig/drivers/net/usb/hso.c	2008-12-08 15:26:00.000000000 +0100
-+++ linux-2.6.28-rc7.alan/drivers/net/usb/hso.c	2008-12-08 15:28:10.000000000 +0100
-@@ -2659,7 +2659,7 @@
- 	serial->parent = hso_dev;
- 	hso_dev->port_data.dev_serial = serial;
- 
--	if (port & HSO_PORT_MODEM) {
-+	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM) {
- 		num_urbs = 2;
- 		serial->tiocmget = kzalloc(sizeof(struct hso_tiocmget),
- 					   GFP_KERNEL);
-
---------------040706000202040603090502--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
