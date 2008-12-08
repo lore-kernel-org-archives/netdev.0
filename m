@@ -1,127 +1,101 @@
-From: Thomas Renninger <trenn@suse.de>
-Subject: Re: [PATCH] PCIe ASPM causes machine (HP Compaq 6735s) to sometimes freeze hard at boot at PCI initialization time
-Date: Mon, 8 Dec 2008 16:17:50 +0100
-Message-ID: <200812081617.52047.trenn@suse.de>
-References: <200811281328.55259.trenn@suse.de> <200812081604.09996.trenn@suse.de> <20081208150919.GA1155@srcf.ucam.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [Patch] Micrel KS8695 intergrated ethernet driver
+Date: Mon, 08 Dec 2008 15:17:53 +0000
+Message-ID: <1228749474.3177.10.camel@achroite>
+References: <49394379.9000501@simtec.co.uk>
+	 <1228499870.3520.66.camel@achroite>  <1228734318.19000.84.camel@petitemort>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Shaohua Li <shaohua.li@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	Rafael Wysocki <rwysocki@suse.de>,
-	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Stable@kernel.org" <Stable@kernel.org>
-To: Matthew Garrett <mjg59@srcf.ucam.org>
+Cc: netdev@vger.kernel.org
+To: dsilvers@simtec.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:37066 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753183AbYLHPRy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Dec 2008 10:17:54 -0500
-In-Reply-To: <20081208150919.GA1155@srcf.ucam.org>
-Content-Disposition: inline
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:41619 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754238AbYLHPR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 10:17:57 -0500
+In-Reply-To: <1228734318.19000.84.camel@petitemort>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 08 December 2008 16:09:19 Matthew Garrett wrote:
-> On Mon, Dec 08, 2008 at 04:04:09PM +0100, Thomas Renninger wrote:
-> > -	pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
-> > +	parent_reg = pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
->
-> I don't think that does what you think it does :)
+On Mon, 2008-12-08 at 11:05 +0000, Daniel Silverstone wrote:
+[...]
+> > > +static inline struct ks8695_priv *
+> > > +ks8695_get_priv(struct net_device *ndev)
+> > Don't use ndev->priv, use netdev_priv(ndev).  Which makes this function
+> > redundant, except for the implicit pointer conversion.
+> 
+> Aah, I didn't know about that one, updated.
 
-Hehe, thanks for the quick and detailed review!
+Until recently they have been equivalent by default; direct access to
+priv is now deprecated and it will be removed.
 
-This one should be better:
+[...]
+> > > +                       /* Free the packet from the ring */
+> > > +                       ksp->tx_ring[buff_n].data_ptr = 0;
+> > Clearing data_ptr seems redundant.  The TDES_OWN flag indicates whether
+> > the descriptor is pending and the skb pointer indicates whether a buffer
+> > needs to be freed.
+> 
+> This was simply me being neat. If you feel that it is an overly
+> expensive thing to do then I shall elide it.
 
-PCIe: ASPM: Break out of endless loop waiting for PCI config bits to switch
+It's hardly expensive, but the comment is inaccurate because this field
+does not indicate whether the descriptor is free or not.
 
-Makes a Compaq 6735s boot reliably again which hang in the loop
-on some boots.
+[...]
+> > > +               buff_n = (buff_n + 1) % MAX_RX_DESC;
+> > That's another expensive division.
+> 
+> I was expecting the compiler to go "aaha! mod <powerof2> => bitwise
+> mask".
 
-Signed-off-by: Thomas Renninger <trenn@suse.de>
+It can only do this if it knows the dividend is non-negative.
 
----
- drivers/pci/pcie/aspm.c |   28 +++++++++++++++++++++++++---
- 1 file changed, 25 insertions(+), 3 deletions(-)
+I wrote "another" in reference to my comment further down which I
+actually wrote earlier.
 
-Index: linux-2.6.27/drivers/pci/pcie/aspm.c
-===================================================================
---- linux-2.6.27.orig/drivers/pci/pcie/aspm.c
-+++ linux-2.6.27/drivers/pci/pcie/aspm.c
-@@ -16,6 +16,7 @@
- #include <linux/pm.h>
- #include <linux/init.h>
- #include <linux/slab.h>
-+#include <linux/jiffies.h>
- #include <linux/pci-aspm.h>
- #include "../pci.h"
- 
-@@ -161,11 +162,12 @@ static void pcie_check_clock_pm(struct p
-  */
- static void pcie_aspm_configure_common_clock(struct pci_dev *pdev)
- {
--	int pos, child_pos;
-+	int pos, child_pos, i = 0;
- 	u16 reg16 = 0;
- 	struct pci_dev *child_dev;
- 	int same_clock = 1;
--
-+	unsigned long start_jiffies = jiffies;
-+	u16 child_regs[256], parent_reg;
- 	/*
- 	 * all functions of a slot should have the same Slot Clock
- 	 * Configuration, so just check one function
-@@ -191,16 +193,19 @@ static void pcie_aspm_configure_common_c
- 		child_pos = pci_find_capability(child_dev, PCI_CAP_ID_EXP);
- 		pci_read_config_word(child_dev, child_pos + PCI_EXP_LNKCTL,
- 			&reg16);
-+		child_regs[i] = reg16;
- 		if (same_clock)
- 			reg16 |= PCI_EXP_LNKCTL_CCC;
- 		else
- 			reg16 &= ~PCI_EXP_LNKCTL_CCC;
- 		pci_write_config_word(child_dev, child_pos + PCI_EXP_LNKCTL,
- 			reg16);
-+		i++;
- 	}
- 
- 	/* Configure upstream component */
- 	pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
-+	parent_reg = reg16;
- 	if (same_clock)
- 		reg16 |= PCI_EXP_LNKCTL_CCC;
- 	else
-@@ -212,12 +217,29 @@ static void pcie_aspm_configure_common_c
- 	pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
- 
- 	/* Wait for link training end */
--	while (1) {
-+	/* break out after waiting for 1 second */
-+	while ((jiffies - start_jiffies) < HZ) {
- 		pci_read_config_word(pdev, pos + PCI_EXP_LNKSTA, &reg16);
- 		if (!(reg16 & PCI_EXP_LNKSTA_LT))
- 			break;
- 		cpu_relax();
- 	}
-+	/* training failed -> recover */
-+	if ((jiffies - start_jiffies) >= HZ) {
-+		dev_printk (KERN_ERR, &pdev->dev, "ASPM: Could not configure"
-+			    " common clock\n");
-+		i = 0;
-+		list_for_each_entry(child_dev, &pdev->subordinate->devices,
-+				    bus_list) {
-+			child_pos = pci_find_capability(child_dev,
-+							PCI_CAP_ID_EXP);
-+			pci_write_config_word(child_dev,
-+					      child_pos + PCI_EXP_LNKCTL,
-+					      child_regs[i]);
-+			i++;
-+		}
-+		pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, parent_reg);
-+	}
- }
- 
- /*
+[...]
+> > > +static int
+> > > +ks8695_init_net(struct ks8695_priv *ksp)
+> 
+> > The RX and TX IRQ handlers need to be released in case the TX or link
+> > IRQ setup fails.
+> 
+> The only time that this might fail, I.E. initial device open, we check
+> the return value of ks8695_init_net and call ks86985_shutdown if needed
+> which will release the IRQs.
+> 
+> It seemed daft to replicate the cleanup code in two places. If however
+> that is the accepted style then I shall add the cleanups to
+> ks8695_init_net() -- Is my method acceptable or should I change?
+
+Local cleanup is normal but I think this is OK.
+
+[...]
+> > > +               dev_info(ksp->dev, "ks8695 ethernet (%s) MAC: %s\n",
+> > > +                        ks8695_port_type(ksp), print_mac(mac, ndev->dev_addr));
+> > Use %pM to format a MAC address instead of %s and print_mac().
+> 
+> I believe this must be new since 2.6.27 so I'll get that as I move to
+> net-next-2.6, thanks for the info.
+
+Yes, the %p<modifier> formats are a recent invention.
+
+[...]
+> Thank you very much for your comments. Once this pull of net-next-2.6 is
+> complete and I can do my forward-porting, I'll issue a new patch. Can I
+> ask what the magic runes are which I need in subject / precis to
+> actually request that my driver be merged rather than just reviewed?
+
+Unless you add [RFC] to the subject it's implicit that you want the
+patch merged.  You can check the patch status at
+<http://patchwork.ozlabs.org/project/netdev/list/>.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
