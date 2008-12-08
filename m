@@ -1,40 +1,50 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH next] staging-slicoss: Kill directly reference of netdev->priv
-Date: Mon, 08 Dec 2008 08:32:43 +0800
-Message-ID: <493C6B2B.9080809@cn.fujitsu.com>
-References: <493946EB.7000308@cn.fujitsu.com> <20081206.235950.120548600.davem@davemloft.net>
+From: Shaohua Li <shaohua.li@intel.com>
+Subject: Re: [PATCH] PCIe ASPM causes machine (HP Compaq 6735s) to
+	sometimes freeze hard at boot at PCI initialization time
+Date: Mon, 08 Dec 2008 09:32:42 +0800
+Message-ID: <1228699962.13024.2.camel@sli10-desk.sh.intel.com>
+References: <200811281328.55259.trenn@suse.de>
+	 <200812051407.14419.trenn@suse.de>  <20081205182148.GA28192@srcf.ucam.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregkh@suse.de
-To: David Miller <davem@davemloft.net>
+Cc: Thomas Renninger <trenn@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
+	Rafael Wysocki <rwysocki@suse.de>,
+	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Stable@kernel.org" <Stable@kernel.org>
+To: Matthew Garrett <mjg59@srcf.ucam.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62802 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753200AbYLHAcr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Dec 2008 19:32:47 -0500
-In-Reply-To: <20081206.235950.120548600.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:39494 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753142AbYLHBcp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Dec 2008 20:32:45 -0500
+In-Reply-To: <20081205182148.GA28192@srcf.ucam.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller said the following on 2008-12-7 15:59:
-> From: Wang Chen <wangchen@cn.fujitsu.com>
-> Date: Fri, 05 Dec 2008 23:21:15 +0800
+On Sat, 2008-12-06 at 02:21 +0800, Matthew Garrett wrote:
+> On Fri, Dec 05, 2008 at 02:07:13PM +0100, Thomas Renninger wrote:
 > 
->> Simply replace netdev->priv with netdev_priv().
->>
->> Compile test only.
->>
->> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> > PCIE: Break out of endless loop waiting for PCI config bits to switch
+> > 
+> > Makes a Compaq 6735s boot reliably again which hang in the loop
+> > on some boots.
 > 
-> Also applied, thanks Wang.
+> Which device does it get stuck on?
 > 
-> Wang, how much more of this stuff do you estimate we still
-> have to fix up before we can really kill off ->priv?
+> > +	if (loop_count == 100) 
+> > +		dev_printk (KERN_WARNING, &pdev->dev, "Could not configure ASPM\n");
 > 
-> Just curious...
-> 
+> "ASPM: Could not configure common clock\n"? ASPM should still work, 
+> though with higher latency. It probably also needs to revert the 
+> configuration changes.
+Yep, Just undo the pci config writes of pcie_aspm_configure_common_clock should be fine to me.
+Maybe an expiration time is ok here.
+Does the device work after this?
 
-Only one left, as I grepped last week.
-I will finish it this week.
+Thanks,
+Shaohua
 
