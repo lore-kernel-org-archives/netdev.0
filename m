@@ -1,36 +1,90 @@
-From: "asdkjiopnb@libero.it" <asdkjiopnb@libero.it>
-Subject: Your Reference number: 85734578 !!!
-Date: Mon, 8 Dec 2008 14:35:34 +0100 (CET)
-Message-ID: <19762233.388051228743334606.JavaMail.defaultUser@defaultHost>
-Reply-To: "asdkjiopnb@libero.it" <asdkjiopnb@libero.it>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH1/1] hso modem detect fix patch against Alan Cox'es tty tree
+Date: Mon, 08 Dec 2008 15:38:31 +0100
+Message-ID: <493D3167.200@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
+Content-Type: multipart/mixed;
+ boundary="------------040706000202040603090502"
+Cc: Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------040706000202040603090502
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cp-out3.libero.it ([212.52.84.103]:55654 "EHLO
-	cp-out3.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751952AbYLHNgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 08:36:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Your Reference number: 85734578 !!!
+Here you go good sir,
 
-Your email address has been approved on the prestigious Dayzers.
-You have won the sum of One Million Euro only.
+Fixed incorrect check for the modem port, this prevents
+crashes caused by issueing a tiocmget_submit_urb
+on endpoints which don't exist for non modem devices. 
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+Index: linux-2.6.28-rc7.alan/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.28-rc7.alan.orig/drivers/net/usb/hso.c	2008-12-08 15:26:00.000000000 +0100
++++ linux-2.6.28-rc7.alan/drivers/net/usb/hso.c	2008-12-08 15:28:10.000000000 +0100
+@@ -2659,7 +2659,7 @@
+ 	serial->parent = hso_dev;
+ 	hso_dev->port_data.dev_serial = serial;
+ 
+-	if (port & HSO_PORT_MODEM) {
++	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM) {
+ 		num_urbs = 2;
+ 		serial->tiocmget = kzalloc(sizeof(struct hso_tiocmget),
+ 					   GFP_KERNEL);
 
-Contact: Mr. Peters Williams
-Tel: +31- 641 449 705
-Fax: +31- 847 111 492
-Email: consultancy003@aol.com
 
-Your email was attached to
-Lucky numbers: 1111/56yt/987
-Reference number: 85734578
-Serial numbers: 874573/wa
-Ticket number: 748664809
 
-Best Regards,
-Mrs. Stephanie Graaf.
-(Promotions Coordinator)
+-- 
+best regards,
+D.J. Barrow
+
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
+ 
+T: +32 16 311 621
+F: +32 16 207 164
+M: +32 4xx xxx xxx
+d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+www.option.com
+
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
+ RPR Leuven 0429.375.448
+
+--------------040706000202040603090502
+Content-Type: text/x-diff;
+ name="tty-hso-modem.fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="tty-hso-modem.fix.patch"
+
+Fixed incorrect check for the modem port, this prevents
+crashes caused by issueing a tiocmget_submit_urb
+on endpoints which don't exist for non modem devices. 
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+Index: linux-2.6.28-rc7.alan/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.28-rc7.alan.orig/drivers/net/usb/hso.c	2008-12-08 15:26:00.000000000 +0100
++++ linux-2.6.28-rc7.alan/drivers/net/usb/hso.c	2008-12-08 15:28:10.000000000 +0100
+@@ -2659,7 +2659,7 @@
+ 	serial->parent = hso_dev;
+ 	hso_dev->port_data.dev_serial = serial;
+ 
+-	if (port & HSO_PORT_MODEM) {
++	if ((port & HSO_PORT_MASK) == HSO_PORT_MODEM) {
+ 		num_urbs = 2;
+ 		serial->tiocmget = kzalloc(sizeof(struct hso_tiocmget),
+ 					   GFP_KERNEL);
+
+--------------040706000202040603090502--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
