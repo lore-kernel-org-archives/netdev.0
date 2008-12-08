@@ -1,53 +1,46 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: CIFS regression in 2.6.27.8
-Date: Mon, 8 Dec 2008 21:12:48 +0100
-Message-ID: <200812082112.49468.rjw@sisk.pl>
-References: <20900699.post@talk.nabble.com> <84144f020812081128p6d1e2a55v69996a360e7f0e8f@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] hso maintainers update patch
+Date: Mon, 08 Dec 2008 12:24:19 -0800 (PST)
+Message-ID: <20081208.122419.178634680.davem@davemloft.net>
+References: <20081208113533.48d0cd9a@lxorguk.ukuu.org.uk>
+	<20081208.040253.232307765.davem@davemloft.net>
+	<20081208152036.GF19711@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Dennis Hardy" <dhardy@sogetthis.com>,
-	linux-kernel@vger.kernel.org, layton@redhat.com,
-	"Steven French" <sfrench@us.ibm.com>, "Greg KH" <gregkh@suse.de>,
-	netdev@vger.kernel.org, Holger Hoffstaette <holger@wizards.de>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>
-To: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Cc: alan@lxorguk.ukuu.org.uk, D.Barow@option.com,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:41523 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751742AbYLHUNd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Dec 2008 15:13:33 -0500
-In-Reply-To: <84144f020812081128p6d1e2a55v69996a360e7f0e8f@mail.gmail.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52571
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751471AbYLHUYT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 15:24:19 -0500
+In-Reply-To: <20081208152036.GF19711@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, 8 of December 2008, Pekka Enberg wrote:
-> Hi Dennis,
-> 
-> On Mon, Dec 8, 2008 at 8:18 PM, Dennis Hardy <dhardy@sogetthis.com> wrote:
-> > I just mounted a network drive (Windows Server) via CIFS under 2.6.27.8, and
-> > the sizes reported by "df" are completely incorrect:
-> >
-> >  root@exodus:~# df -h /mnt/fsv1
-> >  Filesystem            Size  Used Avail Use% Mounted on
-> >  //fsv1/Users          446G -222G  667G   -  /mnt/fsv1
-> >  root@exodus:~# df /mnt/fsv1
-> >  Filesystem           1K-blocks      Used Available Use% Mounted on
-> >  //fsv1/Users         467403140 -231816588 699219728   -  /mnt/fsv1
-> >  root@exodus:~# mount | grep fsv1
-> >  //fsv1/Users on /mnt/fsv1 type cifs (rw,mand)
-> >  root@exodus:~#
-> >
-> > Does anyone else see this sort of behavior with 2.6.27.8?  This worked fine
-> > in 2.6.27.6 (we skipped 2.6.27.7)...
-> >
-> > Ideas?
-> 
-> Well, lets cc the relevant people so your report isn't lost in the noise.
+From: Greg KH <greg@kroah.com>
+Date: Mon, 8 Dec 2008 07:20:36 -0800
 
-FWIW, it seems to be related to this one: http://lkml.org/lkml/2008/12/8/7
+> On Mon, Dec 08, 2008 at 04:02:53AM -0800, David Miller wrote:
+> > From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> > Date: Mon, 8 Dec 2008 11:35:33 +0000
+> > 
+> > > On Mon, 08 Dec 2008 11:40:23 +0100
+> > > Denis Joseph Barrow <D.Barow@option.com> wrote:
+> > > 
+> > > > Added D.J. Barrow as maintainer of hso driver.
+> > > > Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
+> > > 
+> > > Acked-by: Alan Cox <alan@redhat.com>, will leave this to go via
+> > > netdev/usb tree
+> > 
+> > USB please take it :-)
+> 
+> I'm confused, I thought Jeff wanted to take all drivers/net/usb/*
+> patches now.  I'll be glad to do it, but I just want to make sure I
+> don't end up with merge issues from others.
 
-Thanks,
-Rafael
+I'm doing network driver bits at the moment, but sure I'll take
+such changes in the future then.
