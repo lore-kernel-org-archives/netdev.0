@@ -1,140 +1,112 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 10/29] wimax: Makefile,
-	Kconfig and docbook linkage for the stack
-Date: Mon,  8 Dec 2008 11:09:25 -0800
-Message-ID: <23bb892d64b6ba4ad98923db34534313d0867441.1228759689.git.inaky@linux.intel.com>
+Subject: [PATCH 01/29] wimax: documentation for the stack
+Date: Mon,  8 Dec 2008 11:09:16 -0800
+Message-ID: <d66b06795c4e9eeb3687df3206f2a2bf654ff6af.1228759689.git.inaky@linux.intel.com>
 References: <cover.1228759689.git.inaky@linux.intel.com>
-Cc: greg@kroah.com, wimax@linuxwimax.org
+Cc: wimax@linuxwimax.org, greg@kroah.com
 To: netdev@vger.kernel.org
-Return-path: <wimax-bounces@linuxwimax.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga10.intel.com ([192.55.52.92]:12804 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751269AbYLHTJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 14:09:45 -0500
 In-Reply-To: <cover.1228759689.git.inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
-
-This patch provides Makefile and KConfig for the WiMAX stack,
-integrating them into the networking stack's Makefile, Kconfig and
-doc-book templates.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- Documentation/DocBook/networking.tmpl |    8 +++++++
- net/Kconfig                           |    2 +
- net/Makefile                          |    1 +
- net/wimax/Kconfig                     |   36 +++++++++++++++++++++++++++++++++
- net/wimax/Makefile                    |   13 +++++++++++
- 5 files changed, 60 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/Kconfig
- create mode 100644 net/wimax/Makefile
+ Documentation/wimax/README.wimax |   81 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 81 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/wimax/README.wimax
 
-diff --git a/Documentation/DocBook/networking.tmpl b/Documentation/DocBook/networking.tmpl
-index f24f9e8..7053c1c 100644
---- a/Documentation/DocBook/networking.tmpl
-+++ b/Documentation/DocBook/networking.tmpl
-@@ -101,6 +101,14 @@ X!Enet/core/wireless.c
-      <sect1><title>Synchronous PPP</title>
- !Edrivers/net/wan/syncppp.c
-      </sect1>
-+     <sect1><title>WiMAX</title>
-+!Enet/wimax/op-msg.c
-+!Enet/wimax/op-reset.c
-+!Enet/wimax/op-rfkill.c
-+!Enet/wimax/stack.c
-+!Iinclude/net/wimax.h
-+!Iinclude/linux/wimax.h
-+     </sect1>
-   </chapter>
- 
- </book>
-diff --git a/net/Kconfig b/net/Kconfig
-index d789d79..3bff221 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -251,6 +251,8 @@ source "net/ieee80211/Kconfig"
- 
- endif # WIRELESS
- 
-+source "net/wimax/Kconfig"
-+
- source "net/rfkill/Kconfig"
- source "net/9p/Kconfig"
- 
-diff --git a/net/Makefile b/net/Makefile
-index 27d1f10..620a505 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -61,3 +61,4 @@ obj-$(CONFIG_NET_9P)		+= 9p/
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
- endif
-+obj-$(CONFIG_WIMAX)		+= wimax/
-diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
+diff --git a/Documentation/wimax/README.wimax b/Documentation/wimax/README.wimax
 new file mode 100644
-index 0000000..67d5f4d
+index 0000000..b78c437
 --- /dev/null
-+++ b/net/wimax/Kconfig
-@@ -0,0 +1,36 @@
-+#
-+# WiMAX LAN device configuration
-+#
++++ b/Documentation/wimax/README.wimax
+@@ -0,0 +1,81 @@
 +
-+menuconfig WIMAX
-+       tristate "WiMAX Wireless Broadband support"
-+       help
++   Linux kernel WiMAX stack
 +
-+         Select to configure support for devices that provide wireless
-+         broadband connectivity using the WiMAX protocol (IEEE 802.16).
++   (C) 2008 Intel Corporation < linux-wimax@intel.com >
 +
-+         Please note that most of these devices require signing up for
-+         a service plan with a provider.
++   This provides a basic Linux kernel WiMAX stack to provide a common
++   control API for WiMAX devices, usable from kernel and user space.
 +
-+         The different WiMAX drivers can be enabled in the menu entry
++1. Design
 +
-+         Device Drivers > Network device support > WiMAX Wireless Broadband devices
++   The WiMAX stack is designed to provide for common WiMAX control
++   services to current and future WiMAX devices from any vendor.
 +
-+         If unsure, it is safe to select M (module).
++   Because currently there is only one and we don't know what would be the
++   common services, the APIs it currently provides are very minimal.
++   However, it is done in such a way that it is easily extensible to
++   accommodate future requirements.
 +
-+config WIMAX_DEBUG_LEVEL
-+       int "WiMAX debug level"
-+       depends on WIMAX
-+       default 8
-+       help
++   The stack works by embedding a struct wimax_dev in your device's
++   control structures. This provides a set of callbacks that the WiMAX
++   stack will call in order to implement control operations requested by
++   the user. As well, the stack provides API functions that the driver
++   calls to notify about changes of state in the device.
 +
-+         Select the maximum debug verbosity level to be compiled into
-+         the WiMAX stack code.
++   The stack exports the API calls needed to control the device to user
++   space using generic netlink as a marshalling mechanism. You can access
++   them using your own code or use the wrappers provided for your
++   convenience in libwimax (in the wimax-tools package).
 +
-+         By default, debug messages are disabled at runtime and can be
-+         selectively enabled for different parts of the code using the
-+         sysfs debug-levels file.
++   For detailed information on the stack, please see
++   include/linux/wimax.h.
 +
-+         If set at zero, this will compile out all the debug code.
++2. Usage
 +
-+         It is recommended that it is left at 8.
-diff --git a/net/wimax/Makefile b/net/wimax/Makefile
-new file mode 100644
-index 0000000..d548446
---- /dev/null
-+++ b/net/wimax/Makefile
-@@ -0,0 +1,13 @@
++   For usage in a driver (registration, API, etc) please refer to the
++   instructions in the header file include/linux/wimax.h.
 +
-+obj-$(CONFIG_WIMAX)		+= wimax.o
++   When a device is registered with the WiMAX stack, a set of debugfs
++   files will appear in /sys/kernel/debug/wimax:wmxX can tweak for
++   control.
 +
-+wimax-objs :=		\
-+	id-table.o	\
-+	op-msg.o	\
-+	op-reset.o	\
-+	op-rfkill.o	\
-+	stack.o
++2.1. Obtaining debug information: debugfs entries
 +
-+wimax-$(CONFIG_DEBUG_FS) += debugfs.o
++   The WiMAX stack is compiled, by default, with debug messages that can
++   be used to diagnose issues. By default, said messages are disabled.
 +
++   The drivers will register debugfs entries that allow the user to tweak
++   debug settings.
 +
++   Each driver, when registering with the stack, will cause a debugfs
++   directory named wimax:DEVICENAME to be created; optionally, it might
++   create more subentries below it.
++
++2.1.1. Increasing debug output
++
++   The files named *dl_* indicate knobs for controlling the debug output
++   of different submodules of the WiMAX stack:
++     *
++# find /sys/kernel/debug/wimax\:wmx0 -name \*dl_\*
++/sys/kernel/debug/wimax:wmx0/wimax_dl_stack
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_rfkill
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_reset
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_msg
++/sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
++/sys/kernel/debug/wimax:wmx0/wimax_dl_debugfs
++/sys/kernel/debug/wimax:wmx0/.... # other driver specific files
++
++       NOTE: Of course, if debugfs is mounted in a directory other than
++       /sys/kernel/debug, those paths will change.
++
++   By reading the file you can obtain the current value of said debug
++   level; by writing to it, you can set it.
++
++   To increase the debug level of, for example, the id-table submodule,
++   just write:
++
++$ echo 3 > /sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
++
++   Increasing numbers yield increasing debug information; for details of
++   what is printed and the available levels, check the source. The code
++   uses 0 for disabled and increasing values until 8.
 -- 
 1.5.6.5
+
