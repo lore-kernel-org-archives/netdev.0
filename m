@@ -1,69 +1,62 @@
-From: Steven French <sfrench@us.ibm.com>
-Subject: Re: CIFS regression in 2.6.27.8
-Date: Mon, 8 Dec 2008 15:10:35 -0600
-Message-ID: <OF3E80A64B.F15C9D0B-ON87257519.00745117-86257519.0074700A@us.ibm.com>
-References: <493D8A8B.9090201@s5r6.in-berlin.de>
+From: Erika Wiberg <Erika.Wiberg.2222@student.uu.se>
+Subject: Dear e-mail user
+Date: Mon, 08 Dec 2008 17:46:55 +0100
+Message-ID: <20081208174655.3g6avg94gsowwgks__36324.9392867603$1228771364$gmane$org@webmail5.uu.se>
+Reply-To: supportteamupdate@live.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Dennis Hardy <dhardy@sogetthis.com>, Greg KH <gregkh@suse.de>,
-	Holger Hoffstaette <holger@wizards.de>, layton@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753519AbYLHVK5@vger.kernel.org>
-In-Reply-To: <493D8A8B.9090201@s5r6.in-berlin.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Yes - they look distinct
-
-
-Steve French
-Senior Software Engineer
-Linux Technology Center - IBM Austin
-phone: 512-838-2294
-email: sfrench at-sign us dot ibm dot com
+Content-Type: text/plain; charset=US-ASCII;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atthis.its.uu.se ([130.238.7.58]:60235 "EHLO atthis.its.uu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751763AbYLHVVP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 16:21:15 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-Stefan Richter <stefanr@s5r6.in-berlin.de> 
-12/08/2008 02:58 PM
+Dear e-mail users,
 
-To
-"Rafael J. Wysocki" <rjw@sisk.pl>
-cc
-Pekka Enberg <penberg@cs.helsinki.fi>, Dennis Hardy 
-<dhardy@sogetthis.com>, linux-kernel@vger.kernel.org, layton@redhat.com, 
-Steven French/Austin/IBM@IBMUS, Greg KH <gregkh@suse.de>, 
-netdev@vger.kernel.org, Holger Hoffstaette <holger@wizards.de>
-Subject
-Re: CIFS regression in 2.6.27.8
+This message is from the messaging center to all of our  e-mail
+Account owners. We are currently upgrading our database and e -
+Mailbox Center. We want to remove all of our  e-mail accounts
+to create more space for new accounts.
+
+To prevent your  account from closing you must update
+it, for as we know it is at present used account.
+
+We have been sending this message to all our e-mail account owners and
+it is the last communication / control.
+
+Confirm your e-identity during the
+
+E-mail Username: .......... ......
+
+Email Password: .................
+
+Date of birth: .................
+
+Territory: .................
+
+Warning! () account owner who refuses to update their
+account within seven days after receiving this warning will lose his
+account. Protect your privacy. Log out when finished and close
+browser.
+
+NOTE: All email sent E-mail:
+
+Thank you for using  account!
+Warning Code: VX2G99AAJ
+.................................................. ..........................
+.................................................. ..........................
+NOTE: This message allows the () e-mail protector
+unit. Message will be sent back to you after
+check your account before the account can be restored. Okay reserve.
+
+This message is from  mail users Center.
 
 
-
-
-
-
-Rafael J. Wysocki wrote:
->> On Mon, Dec 8, 2008 at 8:18 PM, Dennis Hardy <dhardy@sogetthis.com> 
-wrote:
->>> I just mounted a network drive (Windows Server) via CIFS under 
-2.6.27.8, and
->>> the sizes reported by "df" are completely incorrect:
-...
->>> Does anyone else see this sort of behavior with 2.6.27.8?  This worked 
-fine
->>> in 2.6.27.6 (we skipped 2.6.27.7)...
-
-There were several cifs updates in .8 but AFAIU none in .7.
-
-> FWIW, it seems to be related to this one: 
-http://lkml.org/lkml/2008/12/8/7
-
-Holger's report is about the userland SMB/CIFS server, while Denis's is
-about kernelspace client code.  They look like separate issues to me.
--- 
-Stefan Richter
--=====-==--- ==-- -=---
-http://arcgraph.de/sr/
