@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 15/29] i2400m: firmware loading and bootrom initialization
-Date: Mon,  8 Dec 2008 11:09:30 -0800
-Message-ID: <0d99641be093f3eba6c87831b38442d59c21efb5.1228759689.git.inaky@linux.intel.com>
+Subject: [PATCH 16/29] i2400m: RX and TX data/control paths
+Date: Mon,  8 Dec 2008 11:09:31 -0800
+Message-ID: <0c36ac28174f7594738955696f091c3645f672ed.1228759689.git.inaky@linux.intel.com>
 References: <cover.1228759689.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,27 +18,34 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Implements the firmware loader (using the bus-specific driver's
-backends for the actual upload). The most critical thing in here is
-the piece that puts the device in boot-mode from any other
-(undetermined) state, otherwise, it is just pushing the bytes from the
-firmware file to the device.
+Handling of TX/RX data to/from the i2400m device (IP packets, control
+and diagnostics). On RX, this parses the received read transaction
+from the device, breaks it in chunks and passes it to the
+corresponding subsystems (network and control).
+
+Transmission to the device is done through a software FIFO, as
+data/control frames can be coalesced (while the device is reading the
+previous tx transaction, others accumulate). A FIFO is used because at
+the end it is resource-cheaper that scatter/gather over USB. As well,
+most traffic is going to be download (vs upload).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/fw.c | 1095 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 1095 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/fw.c
+ drivers/net/wimax/i2400m/rx.c |  536 +++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/tx.c |  817 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 1353 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/rx.c
+ create mode 100644 drivers/net/wimax/i2400m/tx.c
 
-diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
 new file mode 100644
-index 0000000..1d8271f
+index 0000000..dbe9e5e
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/fw.c
-@@ -0,0 +1,1095 @@
++++ b/drivers/net/wimax/i2400m/rx.c
+@@ -0,0 +1,536 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Firmware uploader
++ * Handle incoming traffic and deliver it to the control or data planes
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -72,1064 +79,1328 @@ index 0000000..1d8271f
 + *
 + * Intel Corporation <linux-wimax@intel.com>
 + * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *  - Initial implementation
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Use skb_clone(), break up processing in chunks
++ *  - Split transport/device specific
++ *  - Make buffer size dynamic to exert less memory pressure
 + *
 + *
-+ * THE PROCEDURE
++ * This handles the RX path.
 + *
-+ * (this is decribed for USB, but for SDIO is similar)
++ * We receive an RX message from the bus-specific driver, which
++ * contains one or more payloads that have potentially different
++ * destinataries (data or control paths).
 + *
-+ * The 2400m works in two modes: boot-mode or normal mode. In boot
-+ * mode we can execute only a handful of commands targeted at
-+ * uploading the firmware and launching it.
++ * So we just take that payload from the transport specific code in
++ * the form of an skb, break it up in chunks (a cloned skb each in the
++ * case of network packets) and pass it to netdev or to the
++ * command/ack handler (and from there to the WiMAX stack).
 + *
-+ * The 2400m enters boot mode when it is first connected to the
-+ * system, when it crashes and when you ask it to reboot. There are
-+ * two submodes of the boot mode: signed and non-signed. Signed takes
-+ * firmwares signed with a certain private key, non-signed takes any
-+ * firmware. Normal hardware takes only signed firmware.
++ * PROTOCOL FORMAT
 + *
-+ * Upon entrance to boot mode, the device sends a few zero length
-+ * packets (ZLPs) on the notification endpoint, then a reboot barker
-+ * (4 le32 words with value I2400M_{S,N}BOOT_BARKER). We ack it by
-+ * sending the same barker on the bulk out endpoint. The device acks
-+ * with a reboot ack barker (4 le32 words with value 0xfeedbabe) and
-+ * then the device is fully rebooted. At this point we can upload the
-+ * firmware.
++ * The format of the buffer is:
 + *
-+ * This process is accomplished by the i2400m_bootrom_init()
-+ * function. All the device interaction happens through the
-+ * i2400m_bm_cmd() [boot mode command]. Special return values will
-+ * indicate if the device resets.
++ * HEADER                      (struct i2400m_msg_hdr)
++ * PAYLOAD DESCRIPTOR 0        (struct i2400m_pld)
++ * PAYLOAD DESCRIPTOR 1
++ * ...
++ * PAYLOAD DESCRIPTOR N
++ * PAYLOAD 0                   (raw bytes)
++ * PAYLOAD 1
++ * ...
++ * PAYLOAD N
 + *
-+ * After this, we read the MAC address and then (if needed)
-+ * reinitialize the device. We need to read it ahead of time because
-+ * in the future, we might not upload the firmware until userspace
-+ * 'ifconfig up's the device.
-+ *
-+ * We can then upload the firmware file. The file is composed of a BCF
-+ * header (basic data, keys and signatures) and a list of write
-+ * commands and payloads. We first upload the header
-+ * [i2400m_dnload_init()] and then pass the commands and payloads
-+ * verbatim to the i2400m_bm_cmd() function
-+ * [i2400m_dnload_bcf()]. Then we tell the device to jump to the new
-+ * firmware [i2400m_dnload_finalize()].
-+ *
-+ * Once firmware is uploaded, we are good to go :)
-+ *
-+ * When we don't know in which mode we are, we first try by sending a
-+ * warm reset request that will take us to boot-mode. If we time out
-+ * waiting for a reboot barker, that means maybe we are already in
-+ * boot mode, so we send a reboot barker.
-+ *
-+ * COMMAND EXECUTION
-+ *
-+ * This code (and process) is single threaded; for executing commands,
-+ * we post a URB to the notification endpoint, post the command, wait
-+ * for data on the notification buffer. We don't need to worry about
-+ * others as we know we are the only ones in there.
-+ *
-+ * BACKEND IMPLEMENTATION
-+ *
-+ * This code is bus-generic; the bus-specific driver provides back end
-+ * implementations to send a boot mode command to the device and to
-+ * read an acknolwedgement from it (or an asynchronous notification)
-+ * from it.
++ * See tx.c for a deeper description on alignment requirements and
++ * other fun facts of it.
 + *
 + * ROADMAP
 + *
-+ * i2400m_dev_bootstrap               Called by __i2400m_dev_start()
-+ *   request_firmware
-+ *   i2400m_fw_check
-+ *   i2400m_fw_dnload
-+ *   release_firmware
-+ *
-+ * i2400m_fw_dnload
-+ *   i2400m_bootrom_init
-+ *     i2400m_bm_cmd
-+ *     i2400m->bus_reset
-+ *   i2400m_dnload_init
-+ *     i2400m_dnload_init_signed
-+ *     i2400m_dnload_init_nonsigned
-+ *       i2400m_download_chunk
-+ *         i2400m_bm_cmd
-+ *   i2400m_dnload_bcf
-+ *     i2400m_bm_cmd
-+ *   i2400m_dnload_finalize
-+ *     i2400m_bm_cmd
-+ *
-+ * i2400m_bm_cmd
-+ *   i2400m->bus_bm_cmd_send()
-+ *   i2400m->bus_bm_wait_for_ack
-+ *   __i2400m_bm_ack_verify
-+ *
-+ * i2400m_bm_cmd_prepare              Used by bus-drivers to prep
-+ *                                    commands before sending
++ * i2400m_rx
++ *   i2400m_rx_msg_hdr_check
++ *   i2400m_rx_pl_descr_check
++ *   i2400m_rx_payload
++ *     i2400m_net_rx
++ *     i2400m_rx_ctl
++ *       i2400m_msg_size_check
++ *       i2400m_report_hook_work    [in a workqueue]
++ *         i2400m_report_hook
++ *       wimax_msg_to_user
++ *       i2400m_rx_ctl_ack
++ *         wimax_msg_to_user_alloc
++ *     i2400m_rx_trace
++ *       i2400m_msg_size_check
++ *       wimax_pipe_msg
 + */
-+#include <linux/firmware.h>
-+#include <linux/sched.h>
-+#include <linux/usb.h>
++#include <linux/kernel.h>
++#include <linux/if_arp.h>
++#include <linux/netdevice.h>
++#include <linux/workqueue.h>
 +#include "i2400m.h"
 +
 +
-+#define D_SUBMODULE fw
++#define D_SUBMODULE rx
 +#include "debug-levels.h"
 +
-+
-+static const __le32 i2400m_ACK_BARKER[4] = {
-+	__constant_cpu_to_le32(I2400M_ACK_BARKER),
-+	__constant_cpu_to_le32(I2400M_ACK_BARKER),
-+	__constant_cpu_to_le32(I2400M_ACK_BARKER),
-+	__constant_cpu_to_le32(I2400M_ACK_BARKER)
++struct i2400m_report_hook_args {
++	struct sk_buff *skb_rx;
++	const struct i2400m_l3l4_hdr *l3l4_hdr;
++	size_t size;
 +};
 +
 +
-+/**
-+ * Prepare a boot-mode command for delivery
++/*
++ * Execute i2400m_report_hook in a workqueue
 + *
-+ * @cmd: pointer to bootrom header to prepare
++ * Unpacks arguments from the deferred call, executes it and then
++ * drops the references.
 + *
-+ * Computes checksum if so needed. After calling this function, DO NOT
-+ * modify the command or header as the checksum won't work anymore.
-+ *
-+ * We do it from here because some times we cannot do it in the
-+ * original context the command was sent (it is a const), so when we
-+ * copy it to our staging buffer, we add the checksum there.
++ * Obvious NOTE: References are needed because we are a separate
++ *     thread; otherwise the buffer changes under us because it is
++ *     released by the original caller.
 + */
-+void i2400m_bm_cmd_prepare(struct i2400m_bootrom_header *cmd)
++static
++void i2400m_report_hook_work(struct work_struct *ws)
 +{
-+	if (i2400m_brh_get_use_checksum(cmd)) {
-+		int i;
-+		u32 checksum = 0;
-+		const u32 *checksum_ptr = (void *) cmd->payload;
-+		for (i = 0; i < cmd->data_size / 4; i++)
-+			checksum += cpu_to_le32(*checksum_ptr++);
-+		checksum += cmd->command + cmd->target_addr + cmd->data_size;
-+		cmd->block_checksum = cpu_to_le32(checksum);
-+	}
++	struct i2400m_work *iw =
++		container_of(ws, struct i2400m_work, ws);
++	struct i2400m_report_hook_args *args = (void *) iw->pl;
++	i2400m_report_hook(iw->i2400m, args->l3l4_hdr, args->size);
++	kfree_skb(args->skb_rx);
++	i2400m_put(iw->i2400m);
++	kfree(iw);
 +}
-+EXPORT_SYMBOL_GPL(i2400m_bm_cmd_prepare);
 +
 +
 +/*
-+ * Verify the ack data received
++ * Process an ack to a command
 + *
-+ * Given a reply to a boot mode command, chew it and verify everything
-+ * is ok.
++ * @i2400m: device descriptor
++ * @payload: pointer to message
++ * @size: size of the message
 + *
-+ * @opcode: opcode which generated this ack. For error messages.
-+ * @ack: pointer to ack data we received
-+ * @ack_size: size of that data buffer
-+ * @flags: I2400M_BM_CMD_* flags we called the command with.
++ * Pass the acknodledgment (in an skb) to the thread that is waiting
++ * for it in i2400m->msg_completion.
 + *
-+ * Way too long function -- maybe it should be further split
++ * We need to coordinate properly with the thread waiting for the
++ * ack. Check if it is waiting or if it is gone. We loose the spinlock
++ * to avoid allocating on atomic contexts (yeah, could use GFP_ATOMIC,
++ * but this is not so speed critical).
 + */
 +static
-+ssize_t __i2400m_bm_ack_verify(struct i2400m *i2400m, int opcode,
-+			       struct i2400m_bootrom_header *ack,
-+			       size_t ack_size, int flags)
++void i2400m_rx_ctl_ack(struct i2400m *i2400m,
++		       const void *payload, size_t size)
 +{
-+	ssize_t result = -ENOMEM;
 +	struct device *dev = i2400m_dev(i2400m);
++	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
++	unsigned long flags;
++	struct sk_buff *ack_skb;
 +
-+	d_fnstart(8, dev, "(i2400m %p opcode %d ack %p size %zu)\n",
-+		  i2400m, opcode, ack, ack_size);
-+	if (ack_size < sizeof(*ack)) {
-+		result = -EIO;
-+		dev_err(dev, "boot-mode cmd %d: HW BUG? notification didn't "
-+			"return enough data (%zu bytes vs %zu expected)\n",
-+			opcode, ack_size, sizeof(*ack));
-+		goto error_ack_short;
++	/* Anyone waiting for an answer? */
++	spin_lock_irqsave(&i2400m->rx_lock, flags);
++	if (i2400m->ack_skb != ERR_PTR(-EINPROGRESS)) {
++		dev_err(dev, "Huh? reply to command with no waiters\n");
++		goto error_no_waiter;
 +	}
-+	if (ack_size == sizeof(i2400m_NBOOT_BARKER)
-+		 && memcmp(ack, i2400m_NBOOT_BARKER, sizeof(*ack)) == 0) {
-+		result = -ERESTARTSYS;
-+		i2400m->sboot = 0;
-+		d_printf(6, dev, "boot-mode cmd %d: "
-+			 "HW non-signed boot barker\n", opcode);
-+		goto error_reboot;
++	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
++
++	ack_skb = wimax_msg_to_user_alloc(
++		wimax_dev, payload, size, GFP_KERNEL);
++
++	/* Check waiter didn't time out waiting for the answer... */
++	spin_lock_irqsave(&i2400m->rx_lock, flags);
++	if (i2400m->ack_skb != ERR_PTR(-EINPROGRESS)) {
++		d_printf(1, dev, "Huh? waiter for command reply cancelled\n");
++		goto error_waiter_cancelled;
 +	}
-+	if (ack_size == sizeof(i2400m_SBOOT_BARKER)
-+		 && memcmp(ack, i2400m_SBOOT_BARKER, sizeof(*ack)) == 0) {
-+		result = -ERESTARTSYS;
-+		i2400m->sboot = 1;
-+		d_printf(6, dev, "boot-mode cmd %d: HW signed reboot barker\n",
-+			 opcode);
-+		goto error_reboot;
-+	}
-+	if (ack_size == sizeof(i2400m_ACK_BARKER)
-+		 && memcmp(ack, i2400m_ACK_BARKER, sizeof(*ack)) == 0) {
-+		result = -EISCONN;
-+		d_printf(3, dev, "boot-mode cmd %d: HW reboot ack barker\n",
-+			 opcode);
-+		goto error_reboot_ack;
-+	}
-+	result = 0;
-+	if (flags & I2400M_BM_CMD_RAW)
-+		goto out_raw;
-+	ack->data_size = le32_to_cpu(ack->data_size);
-+	ack->target_addr = le32_to_cpu(ack->target_addr);
-+	ack->block_checksum = le32_to_cpu(ack->block_checksum);
-+	d_printf(5, dev, "boot-mode cmd %d: notification for opcode %u "
-+		 "response %u csum %u rr %u da %u\n",
-+		 opcode, i2400m_brh_get_opcode(ack),
-+		 i2400m_brh_get_response(ack),
-+		 i2400m_brh_get_use_checksum(ack),
-+		 i2400m_brh_get_response_required(ack),
-+		 i2400m_brh_get_direct_access(ack));
-+	result = -EIO;
-+	if (i2400m_brh_get_signature(ack) != 0xcbbc) {
-+		dev_err(dev, "boot-mode cmd %d: HW BUG? wrong signature "
-+			"0x%04x\n", opcode, i2400m_brh_get_signature(ack));
-+		goto error_ack_signature;
-+	}
-+	if (opcode != -1 && opcode != i2400m_brh_get_opcode(ack)) {
-+		dev_err(dev, "boot-mode cmd %d: HW BUG? "
-+			"received response for opcode %u, expected %u\n",
-+			opcode, i2400m_brh_get_opcode(ack), opcode);
-+		goto error_ack_opcode;
-+	}
-+	if (i2400m_brh_get_response(ack) != 0) {	/* failed? */
-+		dev_err(dev, "boot-mode cmd %d: error; hw response %u\n",
-+			opcode, i2400m_brh_get_response(ack));
-+		goto error_ack_failed;
-+	}
-+	if (ack_size < ack->data_size + sizeof(*ack)) {
-+		dev_err(dev, "boot-mode cmd %d: SW BUG "
-+			"driver provided only %zu bytes for %zu bytes "
-+			"of data\n", opcode, ack_size,
-+			(size_t) le32_to_cpu(ack->data_size) + sizeof(*ack));
-+		goto error_ack_short_buffer;
-+	}
-+	result = ack_size;
-+	/* Don't you love this stack of empty targets? Well, I don't
-+	 * either, but it helps track exactly who comes in here and
-+	 * why :) */
-+error_ack_short_buffer:
-+error_ack_failed:
-+error_ack_opcode:
-+error_ack_signature:
-+out_raw:
-+error_reboot_ack:
-+error_reboot:
-+error_ack_short:
-+	d_fnend(8, dev, "(i2400m %p opcode %d ack %p size %zu) = %d\n",
-+		i2400m, opcode, ack, ack_size, (int) result);
-+	return result;
++	if (ack_skb == NULL) {
++		dev_err(dev, "CMD/GET/SET ack: cannot allocate SKB\n");
++		i2400m->ack_skb = ERR_PTR(-ENOMEM);
++	} else
++		i2400m->ack_skb = ack_skb;
++	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
++	complete(&i2400m->msg_completion);
++	return;
++
++error_waiter_cancelled:
++	if (ack_skb)
++		kfree_skb(ack_skb);
++error_no_waiter:
++	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
++	return;
 +}
 +
 +
-+/**
-+ * i2400m_bm_cmd - Execute a boot mode command
++/*
++ * Receive and process a control payload
 + *
-+ * @cmd: buffer containing the command data (pointing at the header).
-+ *     This data can be ANYWHERE (for USB, we will copy it to an
-+ *     specific buffer). Make sure everything is in proper little
-+ *     endian.
++ * @i2400m: device descriptor
++ * @skb_rx: skb that contains the payload (for reference counting)
++ * @payload: pointer to message
++ * @size: size of the message
 + *
-+ *     A raw buffer can be also sent, just cast it and set flags to
-+ *     I2400M_BM_CMD_RAW.
++ * There are two types of control RX messages: reports (asynchronous,
++ * like your every day interrupts) and 'acks' (reponses to a command,
++ * get or set request).
 + *
-+ *     This function will generate a checksum for you if the
-+ *     checksum bit in the command is set (unless I2400M_BM_CMD_RAW
-+ *     is set).
++ * If it is a report, we run hooks on it (to extract information for
++ * things we need to do in the driver) and then pass it over to the
++ * WiMAX stack to send it to user space.
 + *
-+ *     You can use the i2400m->bm_cmd_buf to stage your commands and
-+ *     send them.
++ * NOTE: report processing is done in a workqueue specific to the
++ *     generic driver, to avoid deadlocks in the system.
 + *
-+ *     If NULL, no command is sent (we just wait for an ack).
++ * If it is not a report, it is an ack to a previously executed
++ * command, set or get, so wake up whoever is waiting for it from
++ * i2400m_msg_to_dev(). i2400m_rx_ctl_ack() takes care of that.
 + *
-+ * @cmd_size: size of the command. Will be auto padded to the
-+ *     bus-specific drivers padding requirements.
++ * Note that the sizes we pass to other functions from here are the
++ * sizes of the _l3l4_hdr + payload, not full buffer sizes, as we have
++ * verified in _msg_size_check() that they are congruent.
 + *
-+ * @ack: buffer where to place the acknowledgement. If it is a regular
-+ *     command response, all fields will be returned with the right,
-+ *     native endianess.
-+ *
-+ *     You *cannot* use i2400m->bm_ack_buf for this buffer.
-+ *
-+ * @ack_size: size of @ack, 16 aligned; you need to provide at least
-+ *     sizeof(*ack) bytes and then enough to contain the return data
-+ *     from the command
-+ *
-+ * @flags: see I2400M_BM_CMD_* above.
-+ *
-+ * @returns: bytes received by the notification; if < 0, an errno code
-+ *     denoting an error or:
-+ *
-+ *     -ERESTARTSYS  The device has rebooted
-+ *
-+ * Executes a boot-mode command and waits for a response, doing basic
-+ * validation on it; if a zero length response is received, it retries
-+ * waiting for a response until a non-zero one is received (timing out
-+ * after %I2400M_BOOT_RETRIES retries).
++ * For reports: We can't clone the original skb where the data is
++ * because we need to send this up via netlink; netlink has to add
++ * headers and we can't overwrite what's preceeding the payload...as
++ * it is another message. So we just dup them.
 + */
 +static
-+ssize_t i2400m_bm_cmd(struct i2400m *i2400m,
-+		      const struct i2400m_bootrom_header *cmd, size_t cmd_size,
-+		      struct i2400m_bootrom_header *ack, size_t ack_size,
-+		      int flags)
++void i2400m_rx_ctl(struct i2400m *i2400m, struct sk_buff *skb_rx,
++		   const void *payload, size_t size)
 +{
-+	ssize_t result = -ENOMEM, rx_bytes;
++	int result;
 +	struct device *dev = i2400m_dev(i2400m);
-+	int opcode = cmd == NULL ? -1 : i2400m_brh_get_opcode(cmd);
++	const struct i2400m_l3l4_hdr *l3l4_hdr = payload;
++	unsigned msg_type;
 +
-+	d_fnstart(6, dev, "(i2400m %p cmd %p size %zu ack %p size %zu)\n",
-+		  i2400m, cmd, cmd_size, ack, ack_size);
-+	BUG_ON(ack_size < sizeof(*ack));
-+	BUG_ON(i2400m->boot_mode == 0);
-+
-+	if (cmd != NULL) {		/* send the command */
-+		memcpy(i2400m->bm_cmd_buf, cmd, cmd_size);
-+		result = i2400m->bus_bm_cmd_send(i2400m, cmd, cmd_size, flags);
-+		if (result < 0)
-+			goto error_cmd_send;
-+		if ((flags & I2400M_BM_CMD_RAW) == 0)
-+			d_printf(5, dev,
-+				 "boot-mode cmd %d csum %u rr %u da %u: "
-+				 "addr 0x%04x size %u block csum 0x%04x\n",
-+				 opcode, i2400m_brh_get_use_checksum(cmd),
-+				 i2400m_brh_get_response_required(cmd),
-+				 i2400m_brh_get_direct_access(cmd),
-+				 cmd->target_addr, cmd->data_size,
-+				 cmd->block_checksum);
-+	}
-+	result = i2400m->bus_bm_wait_for_ack(i2400m, ack, ack_size);
++	result = i2400m_msg_size_check(i2400m, l3l4_hdr, size);
 +	if (result < 0) {
-+		dev_err(dev, "boot-mode cmd %d: error waiting for an ack: %d\n",
-+			opcode, (int) result);	/* bah, %zd doesn't work */
-+		goto error_wait_for_ack;
++		dev_err(dev, "HW BUG? device sent a bad message: %d\n",
++			result);
++		goto error_check;
 +	}
-+	rx_bytes = result;
-+	/* verify the ack and read more if neccessary [result is the
-+	 * final amount of bytes we get in the ack]  */
-+	result = __i2400m_bm_ack_verify(i2400m, opcode, ack, ack_size, flags);
++	msg_type = le16_to_cpu(l3l4_hdr->type);
++	d_printf(1, dev, "%s 0x%04x: %zu bytes\n",
++		 msg_type & I2400M_MT_REPORT_MASK ? "REPORT" : "CMD/SET/GET",
++		 msg_type, size);
++	d_dump(2, dev, l3l4_hdr, size);
++	if (msg_type & I2400M_MT_REPORT_MASK) {
++		/* These hooks have to be ran serialized; as well, the
++		 * handling might force the execution of commands, and
++		 * that might cause reentrancy issues with
++		 * bus-specific subdrivers and workqueues. So we run
++		 * it in a separate workqueue. */
++		struct i2400m_report_hook_args args = {
++			.skb_rx = skb_rx,
++			.l3l4_hdr = l3l4_hdr,
++			.size = size
++		};
++		if (unlikely(i2400m->ready == 0))	/* only send if up */
++			return;
++		skb_get(skb_rx);
++		i2400m_queue_work(i2400m, i2400m_report_hook_work,
++				  GFP_KERNEL, &args, sizeof(args));
++		result = wimax_msg_to_user(&i2400m->wimax_dev, l3l4_hdr, size,
++					   GFP_KERNEL);
++		if (result < 0)
++			dev_err(dev, "error sending report to userspace: %d\n",
++				result);
++	} else		/* an ack to a CMD, GET or SET */
++		i2400m_rx_ctl_ack(i2400m, payload, size);
++error_check:
++	return;
++}
++
++
++
++
++/*
++ * Receive and send up a trace
++ *
++ * @i2400m: device descriptor
++ * @skb_rx: skb that contains the trace (for reference counting)
++ * @payload: pointer to trace message inside the skb
++ * @size: size of the message
++ *
++ * THe i2400m might produce trace information (diagnostics) and we
++ * send them through a different kernel-to-user pipe (to avoid
++ * clogging it).
++ *
++ * As in i2400m_rx_ctl(), we can't clone the original skb where the
++ * data is because we need to send this up via netlink; netlink has to
++ * add headers and we can't overwrite what's preceeding the
++ * payload...as it is another message. So we just dup them.
++ */
++static
++void i2400m_rx_trace(struct i2400m *i2400m,
++		     const void *payload, size_t size)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++	struct wimax_dev *wimax_dev = &i2400m->wimax_dev;
++	const struct i2400m_l3l4_hdr *l3l4_hdr = payload;
++	unsigned msg_type;
++
++	result = i2400m_msg_size_check(i2400m, l3l4_hdr, size);
++	if (result < 0) {
++		dev_err(dev, "HW BUG? device sent a bad trace message: %d\n",
++			result);
++		goto error_check;
++	}
++	msg_type = le16_to_cpu(l3l4_hdr->type);
++	d_printf(1, dev, "Trace %s 0x%04x: %zu bytes\n",
++		 msg_type & I2400M_MT_REPORT_MASK ? "REPORT" : "CMD/SET/GET",
++		 msg_type, size);
++	d_dump(2, dev, l3l4_hdr, size);
++	if (unlikely(i2400m->ready == 0))	/* only send if up */
++		return;
++	result = wimax_pipe_msg(wimax_dev, i2400m->pipe_trace,
++				l3l4_hdr, size, GFP_KERNEL);
 +	if (result < 0)
-+		goto error_bad_ack;
-+	/* Don't you love this stack of empty targets? Well, I don't
-+	 * either, but it helps track exactly who comes in here and
-+	 * why :) */
-+	result = rx_bytes;
-+error_bad_ack:
-+error_wait_for_ack:
-+error_cmd_send:
-+	d_fnend(6, dev, "(i2400m %p cmd %p size %zu ack %p size %zu) = %d\n",
-+		i2400m, cmd, cmd_size, ack, ack_size, (int) result);
-+	return result;
-+}
-+
-+
-+/**
-+ * i2400m_download_chunk - write a single chunk of data to the device's memory
-+ *
-+ * @i2400m: device descriptor
-+ * @buf: the buffer to write
-+ * @buf_len: length of the buffer to write
-+ * @addr: address in the device memory space
-+ * @direct: bootrom write mode
-+ * @do_csum: should a checksum validation be performed
-+ */
-+static int i2400m_download_chunk(struct i2400m *i2400m, const void *chunk,
-+				 size_t __chunk_len, unsigned long addr,
-+				 unsigned int direct, unsigned int do_csum)
-+{
-+	int ret;
-+	size_t chunk_len = ALIGN(__chunk_len, I2400M_PL_PAD);
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct {
-+		struct i2400m_bootrom_header cmd;
-+		u8 cmd_payload[chunk_len];
-+	} __attribute__((packed)) *buf;
-+	struct i2400m_bootrom_header ack;
-+
-+	d_fnstart(5, dev, "(i2400m %p chunk %p __chunk_len %zu addr 0x%08lx "
-+		  "direct %u do_csum %u)\n", i2400m, chunk, __chunk_len,
-+		  addr, direct, do_csum);
-+	buf = i2400m->bm_cmd_buf;
-+	memcpy(buf->cmd_payload, chunk, __chunk_len);
-+	memset(buf->cmd_payload + __chunk_len, 0xad, chunk_len - __chunk_len);
-+
-+	buf->cmd.command = i2400m_brh_command(I2400M_BRH_WRITE,
-+					      __chunk_len & 0x3 ? 0 : do_csum,
-+					      __chunk_len & 0xf ? 0 : direct);
-+	buf->cmd.target_addr = cpu_to_le32(addr);
-+	buf->cmd.data_size = cpu_to_le32(__chunk_len);
-+	ret = i2400m_bm_cmd(i2400m, &buf->cmd, sizeof(buf->cmd) + chunk_len,
-+			    &ack, sizeof(ack), 0);
-+	if (ret >= 0)
-+		ret = 0;
-+	d_fnend(5, dev, "(i2400m %p chunk %p __chunk_len %zu addr 0x%08lx "
-+		"direct %u do_csum %u) = %d\n", i2400m, chunk, __chunk_len,
-+		addr, direct, do_csum, ret);
-+	return ret;
++		dev_err(dev, "error sending trace to userspace: %d\n",
++			result);
++error_check:
++	return;
 +}
 +
 +
 +/*
-+ * Download a BCF file's sections to the device
++ * Act on a received payload
 + *
-+ * @i2400m: device descriptor
-+ * @bcf: pointer to firmware data (followed by the payloads). Assumed
-+ *       verified and consistent.
-+ * @bcf_len: length (in bytes) of the @bcf buffer.
++ * @i2400m: device instance
++ * @skb_rx: skb where the transaction was received
++ * @single: 1 if there is only one payload, 0 otherwise
++ * @pld: payload descriptor
++ * @payload: payload data
 + *
-+ * Returns: < 0 errno code on error or the offset to the jump instruction.
-+ *
-+ * Given a BCF file, downloads each section (a command and a payload)
-+ * to the device's address space. Actually, it just executes each
-+ * command i the BCF file.
-+ *
-+ * The section size has to be aligned to 4 bytes AND the padding has
-+ * to be taken from the firmware file, as the signature takes it into
-+ * account.
++ * Upon reception of a payload, look at its guts in the payload
++ * descriptor and decide what to do with it.
 + */
 +static
-+ssize_t i2400m_dnload_bcf(struct i2400m *i2400m,
-+			  const struct i2400m_bcf_hdr *bcf, size_t bcf_len)
++void i2400m_rx_payload(struct i2400m *i2400m, struct sk_buff *skb_rx,
++		       unsigned single, const struct i2400m_pld *pld,
++		       const void *payload)
 +{
-+	ssize_t ret;
 +	struct device *dev = i2400m_dev(i2400m);
-+	size_t offset,		/* iterator offset */
-+		data_size,	/* Size of the data payload */
-+		section_size,	/* Size of the whole section (cmd + payload) */
-+		section = 1;
-+	const struct i2400m_bootrom_header *bh;
-+	struct i2400m_bootrom_header ack;
++	size_t pl_size = i2400m_pld_size(pld);
++	enum i2400m_pt pl_type = i2400m_pld_type(pld);
 +
-+	d_fnstart(3, dev, "(i2400m %p bcf %p bcf_len %zu)\n",
-+		  i2400m, bcf, bcf_len);
-+	/* Iterate over the command blocks in the BCF file that start
-+	 * after the header */
-+	offset = le32_to_cpu(bcf->header_len) * sizeof(u32);
-+	while (1) {	/* start sending the file */
-+		bh = (void *) bcf + offset;
-+		data_size = le32_to_cpu(bh->data_size);
-+		section_size = ALIGN(sizeof(*bh) + data_size, 4);
-+		d_printf(7, dev,
-+			 "downloading section #%zu (@%zu %zu B) to 0x%08x\n",
-+			 section, offset, sizeof(*bh) + data_size,
-+			 le32_to_cpu(bh->target_addr));
-+		if (i2400m_brh_get_opcode(bh) == I2400M_BRH_SIGNED_JUMP) {
-+			/* Secure boot needs to stop here */
-+			d_printf(5, dev,  "signed jump found @%zu\n", offset);
-+			break;
-+		}
-+		if (offset + section_size == bcf_len)
-+			/* Non-secure boot stops here */
-+			break;
-+		if (offset + section_size > bcf_len) {
-+			dev_err(dev, "fw %s: bad section #%zu, "
-+				"end (@%zu) beyond EOF (@%zu)\n",
-+				i2400m->bus_fw_name, section,
-+				offset + section_size,  bcf_len);
-+			ret = -EINVAL;
-+			goto error_section_beyond_eof;
-+		}
-+		__i2400m_msleep(20);
-+		ret = i2400m_bm_cmd(i2400m, bh, section_size,
-+				    &ack, sizeof(ack), I2400M_BM_CMD_RAW);
-+		if (ret < 0) {
-+			dev_err(dev, "fw %s: section #%zu (@%zu %zu B) "
-+				"failed %d\n", i2400m->bus_fw_name, section,
-+				offset, sizeof(*bh) + data_size, (int) ret);
-+			goto error_send;
-+		}
-+		offset += section_size;
-+		section++;
++	switch (pl_type) {
++	case I2400M_PT_DATA:
++		d_printf(3, dev, "RX: data payload %zu bytes\n", pl_size);
++		i2400m_net_rx(i2400m, skb_rx, single, payload, pl_size);
++		break;
++	case I2400M_PT_CTRL:
++		i2400m_rx_ctl(i2400m, skb_rx, payload, pl_size);
++		break;
++	case I2400M_PT_TRACE:
++		i2400m_rx_trace(i2400m, payload, pl_size);
++		break;
++	default:	/* Anything else shouldn't come to the host */
++		if (printk_ratelimit())
++			dev_err(dev, "RX: HW BUG? unexpected payload type %u\n",
++				pl_type);
 +	}
-+	ret = offset;
-+error_section_beyond_eof:
-+error_send:
-+	d_fnend(3, dev, "(i2400m %p bcf %p bcf_len %zu) = %d\n",
-+		i2400m, bcf, bcf_len, (int) ret);
-+	return ret;
 +}
 +
 +
 +/*
-+ * Do the final steps of uploading firmware
-+ *
-+ * Depending on the boot mode (signed vs non-signed), different
-+ * actions need to be taken.
-+ */
-+static
-+int i2400m_dnload_finalize(struct i2400m *i2400m,
-+			   const struct i2400m_bcf_hdr *bcf, size_t offset)
-+{
-+	int ret = 0;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct i2400m_bootrom_header *cmd, ack;
-+	struct {
-+		struct i2400m_bootrom_header cmd;
-+		u8 cmd_pl[0];
-+	} __attribute__((packed)) *cmd_buf;
-+	size_t signature_block_offset, signature_block_size;
-+
-+	d_fnstart(3, dev, "offset %zu\n", offset);
-+	cmd = (void *) bcf + offset;
-+	if (i2400m->sboot == 0) {
-+		struct i2400m_bootrom_header jump_ack;
-+		d_printf(3, dev, "unsecure boot, jumping to 0x%08x\n",
-+			le32_to_cpu(cmd->target_addr));
-+		i2400m_brh_set_opcode(cmd, I2400M_BRH_JUMP);
-+		cmd->data_size = 0;
-+		ret = i2400m_bm_cmd(i2400m, cmd, sizeof(*cmd),
-+				    &jump_ack, sizeof(jump_ack), 0);
-+	} else {
-+		d_printf(3, dev, "secure boot, jumping to 0x%08x\n",
-+			 le32_to_cpu(cmd->target_addr));
-+		cmd_buf = i2400m->bm_cmd_buf;
-+		memcpy(&cmd_buf->cmd, cmd, sizeof(*cmd));
-+		signature_block_offset =
-+			sizeof(*bcf)
-+			+ le32_to_cpu(bcf->key_size) * sizeof(u32)
-+			+ le32_to_cpu(bcf->exponent_size) * sizeof(u32);
-+		signature_block_size =
-+			le32_to_cpu(bcf->modulus_size) * sizeof(u32);
-+		memcpy(cmd_buf->cmd_pl, (void *) bcf + signature_block_offset,
-+		       signature_block_size);
-+		ret = i2400m_bm_cmd(i2400m, &cmd_buf->cmd,
-+				    sizeof(cmd_buf->cmd) + signature_block_size,
-+				    &ack, sizeof(ack), I2400M_BM_CMD_RAW);
-+	}
-+	d_fnend(3, dev, "returning %d\n", ret);
-+	return ret;
-+}
-+
-+
-+/**
-+ * i2400m_bootrom_init - Reboots a powered device into boot mode
++ * Check a received transaction's message header
 + *
 + * @i2400m: device descriptor
-+ * @flags:
-+ *      I2400M_BRI_SOFT: a reboot notification has been seen
-+ *          already, so don't wait for it.
++ * @msg_hdr: message header
++ * @buf_size: size of the received buffer
 + *
-+ *      I2400M_BRI_NO_REBOOT: Don't send a reboot command, but wait
-+ *          for a reboot barker notification. This is a one shot; if
-+ *          the state machine needs to send a reboot command it will.
-+ *
-+ * Returns:
-+ *
-+ *     < 0 errno code on error, 0 if ok.
-+ *
-+ *     i2400m->sboot set to 0 for unsecure boot process, 1 for secure
-+ *     boot process.
-+ *
-+ * Description:
-+ *
-+ * Tries hard enough to put the device in boot-mode. There are two
-+ * main phases to this:
-+ *
-+ * a. (1) send a reboot command and (2) get a reboot barker
-+ * b. (1) ack the reboot sending a reboot barker and (2) getting an
-+ *        ack barker in return
-+ *
-+ * We want to skip (a) in some cases [soft]. The state machine is
-+ * horrible, but it is basically: on each phase, send what has to be
-+ * sent (if any), wait for the answer and act on the answer. We might
-+ * have to backtrack and retry, so we keep a max tries counter for
-+ * that.
-+ *
-+ * If we get a timeout after sending a warm reset, we do it again.
++ * Check that the declarations done by a RX buffer message header are
++ * sane and consistent with the amount of data that was received.
 + */
-+int i2400m_bootrom_init(struct i2400m *i2400m, enum i2400m_bri flags)
++static
++int i2400m_rx_msg_hdr_check(struct i2400m *i2400m,
++			    const struct i2400m_msg_hdr *msg_hdr,
++			    size_t buf_size)
 +{
-+	int result;
++	int result = -EIO;
 +	struct device *dev = i2400m_dev(i2400m);
-+	struct i2400m_bootrom_header *cmd;
-+	struct i2400m_bootrom_header ack;
-+	int count = I2400M_BOOT_RETRIES;
-+	int ack_timeout_cnt = 1;
-+
-+	BUILD_BUG_ON(sizeof(*cmd) != sizeof(i2400m_NBOOT_BARKER));
-+	BUILD_BUG_ON(sizeof(ack) != sizeof(i2400m_ACK_BARKER));
-+
-+	d_fnstart(4, dev, "(i2400m %p flags 0x%08x)\n", i2400m, flags);
-+	result = -ENOMEM;
-+	cmd = i2400m->bm_cmd_buf;
-+	if (flags & I2400M_BRI_SOFT)
-+		goto do_reboot_ack;
-+do_reboot:
-+	if (--count < 0)
-+		goto error_timeout;
-+	d_printf(4, dev, "device reboot: reboot command [%d # left]\n",
-+		 count);
-+	if ((flags & I2400M_BRI_NO_REBOOT) == 0)
-+		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
-+	result = i2400m_bm_cmd(i2400m, NULL, 0, &ack, sizeof(ack),
-+			       I2400M_BM_CMD_RAW);
-+	flags &= ~I2400M_BRI_NO_REBOOT;
-+	switch (result) {
-+	case -ERESTARTSYS:
-+		d_printf(4, dev, "device reboot: got reboot barker\n");
-+		break;
-+	case -EISCONN:	/* we don't know how it got here...but we follow it */
-+		d_printf(4, dev, "device reboot: got ack barker - whatever\n");
-+		goto do_reboot;
-+	case -ETIMEDOUT:	/* device has timed out, we might be in boot
-+				 * mode already and expecting an ack, let's try
-+				 * that */
-+		dev_info(dev, "warm reset timed out, trying an ack\n");
-+		goto do_reboot_ack;
-+	case -EPROTO:
-+	case -ESHUTDOWN:	/* dev is gone */
-+	case -EINTR:		/* user cancelled */
-+		goto error_dev_gone;
-+	default:
-+		dev_err(dev, "device reboot: error %d while waiting "
-+			"for reboot barker - rebooting\n", result);
-+		goto do_reboot;
++	if (buf_size < sizeof(*msg_hdr)) {
++		dev_err(dev, "RX: HW BUG? message with short header (%zu "
++			"vs %zu bytes expected)\n", buf_size, sizeof(*msg_hdr));
++		goto error;
 +	}
-+	/* At this point we ack back with 4 REBOOT barkers and expect
-+	 * 4 ACK barkers. This is ugly, as we send a raw command --
-+	 * hence the cast. _bm_cmd() will catch the reboot ack
-+	 * notification and report it as -EISCONN. */
-+do_reboot_ack:
-+	d_printf(4, dev, "device reboot ack: sending ack [%d # left]\n", count);
-+	if (i2400m->sboot == 0)
-+		memcpy(cmd, i2400m_NBOOT_BARKER,
-+		       sizeof(i2400m_NBOOT_BARKER));
-+	else
-+		memcpy(cmd, i2400m_SBOOT_BARKER,
-+		       sizeof(i2400m_SBOOT_BARKER));
-+	result = i2400m_bm_cmd(i2400m, cmd, sizeof(*cmd),
-+			       &ack, sizeof(ack), I2400M_BM_CMD_RAW);
-+	switch (result) {
-+	case -ERESTARTSYS:
-+		d_printf(4, dev, "reboot ack: got reboot barker - retrying\n");
-+		if (--count < 0)
-+			goto error_timeout;
-+		goto do_reboot_ack;
-+	case -EISCONN:
-+		d_printf(4, dev, "reboot ack: got ack barker - good\n");
-+		break;
-+	case -ETIMEDOUT:	/* no response, maybe it is the other type? */
-+		if (ack_timeout_cnt-- >= 0) {
-+			d_printf(4, dev, "reboot ack timedout: "
-+				 "trying the other type?\n");
-+			i2400m->sboot = !i2400m->sboot;
-+			goto do_reboot_ack;
-+		} else {
-+			dev_err(dev, "reboot ack timedout too long: "
-+				"trying reboot\n");
-+			goto do_reboot;
-+		}
-+		break;
-+	case -EPROTO:
-+	case -ESHUTDOWN:	/* dev is gone */
-+		goto error_dev_gone;
-+	default:
-+		dev_err(dev, "device reboot ack: error %d while waiting for "
-+			"reboot ack barker - rebooting\n", result);
-+		goto do_reboot;
++	if (msg_hdr->barker != cpu_to_le32(I2400M_D2H_MSG_BARKER)) {
++		dev_err(dev, "RX: HW BUG? message received with unknown "
++			"barker 0x%08x (buf_size %zu bytes)\n",
++			le32_to_cpu(msg_hdr->barker), buf_size);
++		goto error;
 +	}
-+	d_printf(2, dev, "device reboot ack: got ack barker - boot done\n");
++	if (msg_hdr->num_pls == 0) {
++		dev_err(dev, "RX: HW BUG? zero payload packets in message\n");
++		goto error;
++	}
++	if (le16_to_cpu(msg_hdr->num_pls) > I2400M_MAX_PLS_IN_MSG) {
++		dev_err(dev, "RX: HW BUG? message contains more payload "
++			"than maximum; ignoring.\n");
++		goto error;
++	}
 +	result = 0;
-+exit_timeout:
-+error_dev_gone:
-+	d_fnend(4, dev, "(i2400m %p flags 0x%08x) = %d\n",
-+		i2400m, flags, result);
-+	return result;
-+
-+error_timeout:
-+	dev_err(dev, "Timed out waiting for reboot ack, resetting\n");
-+	i2400m->bus_reset(i2400m, I2400M_RT_BUS);
-+	result = -ETIMEDOUT;
-+	goto exit_timeout;
-+}
-+
-+
-+/*
-+ * Read the MAC addr
-+ *
-+ * The position this function reads is fixed in device memory and
-+ * always available, even without firmware.
-+ *
-+ * Note we specify we want to read only six bytes, but provide space
-+ * for 16, as we always get it rounded up.
-+ */
-+int i2400m_read_mac_addr(struct i2400m *i2400m)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
-+	struct i2400m_bootrom_header *cmd;
-+	struct {
-+		struct i2400m_bootrom_header ack;
-+		u8 ack_pl[16];
-+	} __attribute__((packed)) ack_buf;
-+
-+	d_fnstart(5, dev, "(i2400m %p)\n", i2400m);
-+	cmd = i2400m->bm_cmd_buf;
-+	cmd->command = i2400m_brh_command(I2400M_BRH_READ, 0, 1);
-+	cmd->target_addr = cpu_to_le32(0x00203fe8);
-+	cmd->data_size = cpu_to_le32(6);
-+	result = i2400m_bm_cmd(i2400m, cmd, sizeof(*cmd),
-+			       &ack_buf.ack, sizeof(ack_buf), 0);
-+	if (result < 0) {
-+		dev_err(dev, "BM: read mac addr failed: %d\n", result);
-+		goto error_read_mac;
-+	}
-+	d_printf(2, dev,
-+		 "mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
-+		 ack_buf.ack_pl[0], ack_buf.ack_pl[1],
-+		 ack_buf.ack_pl[2], ack_buf.ack_pl[3],
-+		 ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
-+	if (i2400m->bus_bm_mac_addr_impaired == 1) {
-+		ack_buf.ack_pl[0] = 0x00;
-+		ack_buf.ack_pl[1] = 0x16;
-+		ack_buf.ack_pl[2] = 0xd3;
-+		get_random_bytes(&ack_buf.ack_pl[3], 3);
-+		dev_err(dev, "BM is MAC addr impaired, faking MAC addr to "
-+			"mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
-+			ack_buf.ack_pl[0], ack_buf.ack_pl[1],
-+			ack_buf.ack_pl[2], ack_buf.ack_pl[3],
-+			ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
-+		result = 0;
-+	}
-+	net_dev->addr_len = ETH_ALEN;
-+	memcpy(net_dev->perm_addr, ack_buf.ack_pl, ETH_ALEN);
-+	memcpy(net_dev->dev_addr, ack_buf.ack_pl, ETH_ALEN);
-+error_read_mac:
-+	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, result);
-+	return result;
-+}
-+
-+
-+/*
-+ * Initialize a non signed boot
-+ *
-+ * This implies sending some magic values to the device's memory. Note
-+ * we convert the values to little endian in the same array
-+ * declaration.
-+ */
-+static
-+int i2400m_dnload_init_nonsigned(struct i2400m *i2400m)
-+{
-+#define POKE(a, d) {					\
-+	.address = __constant_cpu_to_le32(a),		\
-+	.data = __constant_cpu_to_le32(d)		\
-+}
-+	static const struct {
-+		__le32 address;
-+		__le32 data;
-+	} i2400m_pokes[] = {
-+		POKE(0x081A58, 0xA7810230),
-+		POKE(0x080040, 0x00000000),
-+		POKE(0x080048, 0x00000082),
-+		POKE(0x08004C, 0x0000081F),
-+		POKE(0x080054, 0x00000085),
-+		POKE(0x080058, 0x00000180),
-+		POKE(0x08005C, 0x00000018),
-+		POKE(0x080060, 0x00000010),
-+		POKE(0x080574, 0x00000001),
-+		POKE(0x080550, 0x00000005),
-+		POKE(0xAE0000, 0x00000000),
-+	};
-+#undef POKE
-+	unsigned i;
-+	int ret;
-+	struct device *dev = i2400m_dev(i2400m);
-+
-+	dev_warn(dev, "WARNING!!! non-signed boot UNTESTED PATH!\n");
-+
-+	d_fnstart(5, dev, "(i2400m %p)\n", i2400m);
-+	for (i = 0; i < ARRAY_SIZE(i2400m_pokes); i++) {
-+		ret = i2400m_download_chunk(i2400m, &i2400m_pokes[i].data,
-+					    sizeof(i2400m_pokes[i].data),
-+					    i2400m_pokes[i].address, 1, 1);
-+		if (ret < 0)
-+			break;
-+	}
-+	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, ret);
-+	return ret;
-+}
-+
-+
-+/*
-+ * Initialize the signed boot process
-+ *
-+ * @i2400m: device descriptor
-+ *
-+ * @bcf_hdr: pointer to the firmware header; assumes it is fully in
-+ *     memory (it has gone through basic validation).
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error, -ERESTARTSYS if the hw
-+ *     rebooted.
-+ *
-+ * This writes the firmware BCF header to the device using the
-+ * HASH_PAYLOAD_ONLY command.
-+ */
-+static
-+int i2400m_dnload_init_signed(struct i2400m *i2400m,
-+			      const struct i2400m_bcf_hdr *bcf_hdr)
-+{
-+	int ret;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct {
-+		struct i2400m_bootrom_header cmd;
-+		struct i2400m_bcf_hdr cmd_pl;
-+	} __attribute__((packed)) *cmd_buf;
-+	struct i2400m_bootrom_header ack;
-+
-+	d_fnstart(5, dev, "(i2400m %p bcf_hdr %p)\n", i2400m, bcf_hdr);
-+	cmd_buf = i2400m->bm_cmd_buf;
-+	cmd_buf->cmd.command =
-+		i2400m_brh_command(I2400M_BRH_HASH_PAYLOAD_ONLY, 0, 0);
-+	cmd_buf->cmd.target_addr = 0;
-+	cmd_buf->cmd.data_size = cpu_to_le32(sizeof(cmd_buf->cmd_pl));
-+	memcpy(&cmd_buf->cmd_pl, bcf_hdr, sizeof(*bcf_hdr));
-+	ret = i2400m_bm_cmd(i2400m, &cmd_buf->cmd, sizeof(*cmd_buf),
-+			    &ack, sizeof(ack), 0);
-+	if (ret >= 0)
-+		ret = 0;
-+	d_fnend(5, dev, "(i2400m %p bcf_hdr %p) = %d\n", i2400m, bcf_hdr, ret);
-+	return ret;
-+}
-+
-+
-+/*
-+ * Initialize the firmware download at the device size
-+ *
-+ * Multiplex to the one that matters based on the device's mode
-+ * (signed or non-signed).
-+ */
-+static
-+int i2400m_dnload_init(struct i2400m *i2400m, const struct i2400m_bcf_hdr *bcf)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	u32 module_id = le32_to_cpu(bcf->module_id);
-+
-+	if (i2400m->sboot == 0
-+	    && (module_id & I2400M_BCF_MOD_ID_POKES) == 0) {
-+		/* non-signed boot process without pokes */
-+		result = i2400m_dnload_init_nonsigned(i2400m);
-+		if (result == -ERESTARTSYS)
-+			return result;
-+		if (result < 0)
-+			dev_err(dev, "fw %s: non-signed download "
-+				"initialization failed: %d\n",
-+				i2400m->bus_fw_name, result);
-+	} else if (i2400m->sboot == 0
-+		 && (module_id & I2400M_BCF_MOD_ID_POKES)) {
-+		/* non-signed boot process with pokes, nothing to do */
-+		result = 0;
-+	} else {		 /* signed boot process */
-+		result = i2400m_dnload_init_signed(i2400m, bcf);
-+		if (result == -ERESTARTSYS)
-+			return result;
-+		if (result < 0)
-+			dev_err(dev, "fw %s: signed boot download "
-+				"initialization failed: %d\n",
-+				i2400m->bus_fw_name, result);
-+	}
-+	return result;
-+}
-+
-+
-+/*
-+ * Run quick consistency tests on the firmware file
-+ *
-+ * Check for the firmware being made for the i2400m device,
-+ * etc...These checks are mostly informative, as the device will make
-+ * them too; but the driver's response is more informative on what
-+ * went wrong.
-+ */
-+static
-+int i2400m_fw_check(struct i2400m *i2400m,
-+		    const struct i2400m_bcf_hdr *bcf,
-+		    size_t bcf_size)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	unsigned module_type, header_len, major_version, minor_version,
-+		module_id, module_vendor, date, size;
-+
-+	/* Check hard errors */
-+	result = -EINVAL;
-+	if (bcf_size < sizeof(*bcf)) {	/* big enough header? */
-+		dev_err(dev, "firmware %s too short: "
-+			"%zu B vs %zu (at least) expected\n",
-+			i2400m->bus_fw_name, bcf_size, sizeof(*bcf));
-+		goto error;
-+	}
-+
-+	module_type = bcf->module_type;
-+	header_len = sizeof(u32) * le32_to_cpu(bcf->header_len);
-+	major_version = le32_to_cpu(bcf->header_version) & 0xffff0000 >> 16;
-+	minor_version = le32_to_cpu(bcf->header_version) & 0x0000ffff;
-+	module_id = le32_to_cpu(bcf->module_id);
-+	module_vendor = le32_to_cpu(bcf->module_vendor);
-+	date = le32_to_cpu(bcf->date);
-+	size = sizeof(u32) * le32_to_cpu(bcf->size);
-+
-+	if (bcf_size != size) {		/* annoyingly paranoid */
-+		dev_err(dev, "firmware %s: bad size, got "
-+			"%zu B vs %u expected\n",
-+			i2400m->bus_fw_name, bcf_size, size);
-+		goto error;
-+	}
-+
-+	d_printf(2, dev, "type 0x%x id 0x%x vendor 0x%x; header v%u.%u (%zu B) "
-+		 "date %08x (%zu B)\n",
-+		 module_type, module_id, module_vendor,
-+		 major_version, minor_version, (size_t) header_len,
-+		 date, (size_t) size);
-+
-+	if (module_type != 6) {		/* built for the right hardware? */
-+		dev_err(dev, "bad fw %s: unexpected module type 0x%x; "
-+			"aborting\n", i2400m->bus_fw_name, module_type);
-+		goto error;
-+	}
-+
-+	/* Check soft-er errors */
-+	result = 0;
-+	if (module_vendor != 0x8086)
-+		dev_err(dev, "bad fw %s? unexpected vendor 0x%04x\n",
-+			i2400m->bus_fw_name, module_vendor);
-+	if (date < 0x20080300)
-+		dev_err(dev, "bad fw %s? build date too old %08x\n",
-+			i2400m->bus_fw_name, date);
 +error:
 +	return result;
 +}
 +
 +
 +/*
-+ * Download the firmware to the device
++ * Check a payload descriptor against the received data
 + *
 + * @i2400m: device descriptor
-+ * @bcf: pointer to loaded (and minimally verified for consistency)
-+ *    firmware
-+ * @bcf_size: size of the @bcf buffer (header plus payloads)
++ * @pld: payload descriptor
++ * @pl_itr: offset (in bytes) in the received buffer the payload is
++ *          located
++ * @buf_size: size of the received buffer
 + *
-+ * The process for doing this is described in this file's header.
-+ *
-+ * Note we only reinitialize boot-mode if the flags say so. Some hw
-+ * iterations need it, some don't. In any case, if we loop, we always
-+ * need to reinitialize the boot room, hence the flags modification.
++ * Given a payload descriptor (part of a RX buffer), check it is sane
++ * and that the data it declares fits in the buffer.
 + */
 +static
-+int i2400m_fw_dnload(struct i2400m *i2400m, const struct i2400m_bcf_hdr *bcf,
-+		     size_t bcf_size, enum i2400m_bri flags)
++int i2400m_rx_pl_descr_check(struct i2400m *i2400m,
++			      const struct i2400m_pld *pld,
++			      size_t pl_itr, size_t buf_size)
 +{
-+	int ret = 0;
++	int result = -EIO;
 +	struct device *dev = i2400m_dev(i2400m);
-+	int count = I2400M_BOOT_RETRIES;
++	size_t pl_size = i2400m_pld_size(pld);
++	enum i2400m_pt pl_type = i2400m_pld_type(pld);
 +
-+	d_fnstart(5, dev, "(i2400m %p bcf %p size %zu)\n",
-+		  i2400m, bcf, bcf_size);
-+	i2400m->boot_mode = 1;
-+hw_reboot:
-+	if (count-- == 0) {
-+		ret = -ERESTARTSYS;
-+		dev_err(dev, "device rebooted too many times, aborting\n");
-+		goto error_too_many_reboots;
++	if (pl_size > i2400m->bus_pl_size_max) {
++		dev_err(dev, "RX: HW BUG? payload @%zu: size %zu is "
++			"bigger than maximum %zu; ignoring message\n",
++			pl_itr, pl_size, i2400m->bus_pl_size_max);
++		goto error;
 +	}
-+	if (flags & I2400M_BRI_MAC_REINIT) {
-+		ret = i2400m_bootrom_init(i2400m, flags);
-+		if (ret < 0) {
-+			dev_err(dev, "bootrom init failed: %d\n", ret);
-+			goto error_bootrom_init;
-+		}
++	if (pl_itr + pl_size > buf_size) {	/* enough? */
++		dev_err(dev, "RX: HW BUG? payload @%zu: size %zu "
++			"goes beyond the received buffer "
++			"size (%zu bytes); ignoring message\n",
++			pl_itr, pl_size, buf_size);
++		goto error;
 +	}
-+	flags |= I2400M_BRI_MAC_REINIT;
-+
-+	/*
-+	 * Initialize the download, push the bytes to the device and
-+	 * then jump to the new firmware. Note @ret is passed with the
-+	 * offset of the jump instruction to _dnload_finalize()
-+	 */
-+	ret = i2400m_dnload_init(i2400m, bcf);	/* Init device's dnload */
-+	if (ret == -ERESTARTSYS)
-+		goto error_dev_rebooted;
-+	if (ret < 0)
-+		goto error_dnload_init;
-+
-+	ret = i2400m_dnload_bcf(i2400m, bcf, bcf_size);
-+	if (ret == -ERESTARTSYS)
-+		goto error_dev_rebooted;
-+	if (ret < 0) {
-+		dev_err(dev, "fw %s: download failed: %d\n",
-+			i2400m->bus_fw_name, ret);
-+		goto error_dnload_bcf;
++	if (pl_type >= I2400M_PT_ILLEGAL) {
++		dev_err(dev, "RX: HW BUG? illegal payload type %u; "
++			"ignoring message\n", pl_type);
++		goto error;
 +	}
-+
-+	ret = i2400m_dnload_finalize(i2400m, bcf, ret);
-+	if (ret == -ERESTARTSYS)
-+		goto error_dev_rebooted;
-+	if (ret < 0) {
-+		dev_err(dev, "fw %s: "
-+			"download finalization failed: %d\n",
-+			i2400m->bus_fw_name, ret);
-+		goto error_dnload_finalize;
-+	}
-+
-+	d_printf(2, dev, "fw %s successfully uploaded\n",
-+		 i2400m->bus_fw_name);
-+	i2400m->boot_mode = 0;
-+error_dnload_finalize:
-+error_dnload_bcf:
-+error_dnload_init:
-+error_bootrom_init:
-+error_too_many_reboots:
-+	d_fnend(5, dev, "(i2400m %p bcf %p size %zu) = %d\n",
-+		i2400m, bcf, bcf_size, ret);
-+	return ret;
-+
-+error_dev_rebooted:
-+	dev_err(dev, "device rebooted, %d tries left\n", count);
-+	/* we got the notification already, no need to wait for it again */
-+	flags |= I2400M_BRI_SOFT;
-+	goto hw_reboot;
++	result = 0;
++error:
++	return result;
 +}
 +
 +
 +/**
-+ * i2400m_dev_bootstrap - Bring the device to a known state and upload firmware
++ * i2400m_rx - Receive a buffer of data from the device
++ *
++ * @i2400m: device descriptor
++ * @skb: skbuff where the data has been received
++ *
++ * Parse in a buffer of data that contains an RX message sent from the
++ * device. See the file header for the format. Run all checks on the
++ * buffer header, then run over each payload's descriptors, verify
++ * their consistency and act on each payload's contents.  If
++ * everything is succesful, update the device's statistics.
++ *
++ * Note: You need to set the skb to contain only the length of the
++ * received buffer; for that, use skb_trim(skb, RECEIVED_SIZE).
++ *
++ * Returns:
++ *
++ * 0 if ok, < 0 errno on error
++ *
++ * If ok, this function owns now the skb and the caller DOESN'T have
++ * to run kfree_skb() on it. However, on error, the caller still owns
++ * the skb and it is responsible for releasing it.
++ */
++int i2400m_rx(struct i2400m *i2400m, struct sk_buff *skb)
++{
++	int i, result;
++	struct device *dev = i2400m_dev(i2400m);
++	const struct i2400m_msg_hdr *msg_hdr;
++	size_t pl_itr, pl_size, skb_len;
++	unsigned long flags;
++	unsigned num_pls;
++
++	skb_len = skb->len;
++	d_fnstart(4, dev, "(i2400m %p skb %p [size %zu])\n",
++		  i2400m, skb, skb_len);
++	result = -EIO;
++	msg_hdr = (void *) skb->data;
++	result = i2400m_rx_msg_hdr_check(i2400m, msg_hdr, skb->len);
++	if (result < 0)
++		goto error_msg_hdr_check;
++	result = -EIO;
++	num_pls = le16_to_cpu(msg_hdr->num_pls);
++	pl_itr = sizeof(*msg_hdr) +	/* Check payload descriptor(s) */
++		num_pls * sizeof(msg_hdr->pld[0]);
++	pl_itr = ALIGN(pl_itr, I2400M_PL_PAD);
++	if (pl_itr > skb->len) {	/* got all the payload descriptors? */
++		dev_err(dev, "RX: HW BUG? message too short (%u bytes) for "
++			"%u payload descriptors (%zu each, total %zu)\n",
++			skb->len, num_pls, sizeof(msg_hdr->pld[0]), pl_itr);
++		goto error_pl_descr_short;
++	}
++	/* Walk each payload payload--check we really got it */
++	for (i = 0; i < num_pls; i++) {
++		/* work around old gcc warnings */
++		pl_size = i2400m_pld_size(&msg_hdr->pld[i]);
++		result = i2400m_rx_pl_descr_check(i2400m, &msg_hdr->pld[i],
++						  pl_itr, skb->len);
++		if (result < 0)
++			goto error_pl_descr_check;
++		i2400m_rx_payload(i2400m, skb, num_pls == 1, &msg_hdr->pld[i],
++				  skb->data + pl_itr);
++		pl_itr += ALIGN(pl_size, I2400M_PL_PAD);
++		cond_resched();		/* Don't monopolize */
++	}
++	kfree_skb(skb);
++	/* Update device statistics */
++	spin_lock_irqsave(&i2400m->rx_lock, flags);
++	i2400m->rx_pl_num += i;
++	if (i > i2400m->rx_pl_max)
++		i2400m->rx_pl_max = i;
++	if (i < i2400m->rx_pl_min)
++		i2400m->rx_pl_min = i;
++	i2400m->rx_num++;
++	i2400m->rx_size_acc += skb->len;
++	if (skb->len < i2400m->rx_size_min)
++		i2400m->rx_size_min = skb->len;
++	if (skb->len > i2400m->rx_size_max)
++		i2400m->rx_size_max = skb->len;
++	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
++error_pl_descr_check:
++error_pl_descr_short:
++error_msg_hdr_check:
++	d_fnend(4, dev, "(i2400m %p skb %p [size %zu]) = %d\n",
++		i2400m, skb, skb_len, result);
++	return result;
++}
++EXPORT_SYMBOL_GPL(i2400m_rx);
+diff --git a/drivers/net/wimax/i2400m/tx.c b/drivers/net/wimax/i2400m/tx.c
+new file mode 100644
+index 0000000..613a88f
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/tx.c
+@@ -0,0 +1,817 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Generic (non-bus specific) TX handling
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Rewritten to use a single FIFO to lower the memory allocation
++ *    pressure and optimize cache hits when copying to the queue, as
++ *    well as splitting out bus-specific code.
++ *
++ *
++ * Implements data transmission to the device; this is done through a
++ * software FIFO, as data/control frames can be coalesced (while the
++ * device is reading the previous tx transaction, others accumulate).
++ *
++ * A FIFO is used because at the end it is resource-cheaper that trying
++ * to implement scatter/gather over USB. As well, most traffic is going
++ * to be download (vs upload).
++ *
++ * The format for sending/receiving data to/from the i2400m is
++ * described in detail in rx.c:PROTOCOL FORMAT. In here we implement
++ * the transmission of that. This is split between a bus-independent
++ * part that just prepares everything and a bus-specific part that
++ * does the actual transmission over the bus to the device (in the
++ * bus-specific driver).
++ *
++ *
++ * The general format of a device-host transaction is MSG-HDR, PLD1,
++ * PLD2...PLDN, PL1, PL2,...PLN, PADDING.
++ *
++ * Because we need the send payload descriptors and then payloads and
++ * because it is kind of expensive to do scatterlists in USB (one URB
++ * per node), it becomes cheaper to append all the data to a FIFO
++ * (copying to a FIFO potentially in cache is cheaper).
++ *
++ * Then the bus-specific code takes the parts of that FIFO that are
++ * written and passes them to the device.
++ *
++ * So the concepts to keep in mind there are:
++ *
++ * We use a FIFO to queue the data in a linear buffer. We first append
++ * a MSG-HDR, space for I2400M_TX_PLD_MAX payload descriptors and then
++ * go appending payloads until we run out of space or of payload
++ * descriptors. Then we append padding to make the whole transaction a
++ * multiple of i2400m->bus_tx_block_size (as defined by the bus layer).
++ *
++ * - A TX message: a combination of a message header, payload
++ *   descriptors and payloads.
++ *
++ *     Open: it is marked as active (i2400m->tx_msg is valid) and we
++ *       can keep adding payloads to it.
++ *
++ *     Closed: we are not appending more payloads to this TX message
++ *       (exahusted space in the queue, too many payloads or
++ *       whichever).  We have appended padding so the whole message
++ *       length is aligned to i2400m->bus_tx_block_size (as set by the
++ *       bus/transport layer).
++ *
++ * - Most of the time we keep a TX message open to which we append
++ *   payloads.
++ *
++ * - If we are going to append and there is no more space (we are at
++ *   the end of the FIFO), we close the message, mark the rest of the
++ *   FIFO space unusable (skip_tail), create a new message at the
++ *   beginning of the FIFO (if there is space) and append the message
++ *   there.
++ *
++ *   This is because we need to give linear TX messages to the bus
++ *   engine. So we don't write a message to the remaining FIFO space
++ *   until the tail and continue at the head of it.
++ *
++ * - We overload one of the fields in the message header to use it as
++ *   'size' of the TX message, so we can iterate over them. It also
++ *   contains a flag that indicates if we have to skip it or not.
++ *   When we send the buffer, we update that to its real on-the-wire
++ *   value.
++ *
++ * - The MSG-HDR PLD1...PLD2 stuff has to be a size multiple of 16.
++ *
++ *   It follows that if MSG-HDR says we have N messages, the whole
++ *   header + descriptors is 16 + 4*N; for those to be a multiple of
++ *   16, it follows that N can be 4, 8, 12, ... (32, 48, 64, 80...
++ *   bytes).
++ *
++ *   So if we have only 1 payload, we have to submit a header that in
++ *   all truth has space for 4.
++ *
++ *   The implication is that we reserve space for 12 (64 bytes); but
++ *   if we fill up only (eg) 2, our header becomes 32 bytes only. So
++ *   the TX engine has to shift those 32 bytes of msg header and 2
++ *   payloads and padding so that right after it the payloads start
++ *   and the TX engine has to know about that.
++ *
++ *   It is cheaper to move the header up than the whole payloads down.
++ *
++ *   We do this in i2400m_tx_close(). See 'i2400m_msg_hdr->offset'.
++ *
++ * - Each payload has to be size-padded to 16 bytes; before appending
++ *   it, we just do it.
++ *
++ * - The whole message has to be padded to i2400m->bus_tx_block_size;
++ *   we do this at close time. Thus, when reserving space for the
++ *   payload, we always make sure there is also free space for this
++ *   padding that sooner or later will happen.
++ *
++ * When we append a message, we tell the bus specific code to kick in
++ * TXs. It will TX (in parallel) until the buffer is exhausted--hence
++ * the lockin we do. The TX code will only send a TX message at the
++ * time (which remember, might contain more than one payload). Of
++ * course, when the bus-specific driver attempts to TX a message that
++ * is still open, it gets closed first.
++ *
++ * Gee, this is messy; well a picture. In the example below we have a
++ * partially full FIFO, with a closed message ready to be delivered
++ * (with a moved message header to make sure it is size-aligned to
++ * 16), TAIL room that was unusable (and thus is marked with a message
++ * header that says 'skip this') and at the head of the buffer, an
++ * imcomplete message with a couple of payloads.
++ *
++ * N   ___________________________________________________
++ *    |                                                   |
++ *    |     TAIL room                                     |
++ *    |                                                   |
++ *    |  msg_hdr to skip (size |= 0x80000)                |
++ *    |---------------------------------------------------|-------
++ *    |                                                   |  /|\
++ *    |                                                   |   |
++ *    |  TX message padding                               |   |
++ *    |                                                   |   |
++ *    |                                                   |   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|   |
++ *    |                                                   |   |
++ *    |  payload 1                                        |   |
++ *    |                                                   | N * tx_block_size
++ *    |                                                   |   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|   |
++ *    |                                                   |   |
++ *    |  payload 1                                        |   |
++ *    |                                                   |   |
++ *    |                                                   |   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|- -|- - - -
++ *    |  padding 3                  /|\                   |   |   /|\
++ *    |  padding 2                   |                    |   |    |
++ *    |  pld 1                32 bytes (2 * 16)           |   |    |
++ *    |  pld 0                       |                    |   |    |
++ *    |  moved msg_hdr              \|/                   |  \|/   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|- - -   |
++ *    |                                                   |    _PLD_SIZE
++ *    |  unused                                           |        |
++ *    |                                                   |        |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|        |
++ *    |  msg_hdr (size X)       [this message is closed]  |       \|/
++ *    |===================================================|========== <=== OUT
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |          Free rooom                               |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |===================================================|========== <=== IN
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |                                                   |
++ *    |  payload 1                                        |
++ *    |                                                   |
++ *    |                                                   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|
++ *    |                                                   |
++ *    |  payload 0                                        |
++ *    |                                                   |
++ *    |                                                   |
++ *    |- - - - - - - - - - - - - - - - - - - - - - - - - -|
++ *    |  pld 11                     /|\                   |
++ *    |  ...                         |                    |
++ *    |  pld 1                64 bytes (2 * 16)           |
++ *    |  pld 0                       |                    |
++ *    |  msg_hdr (size X)           \|/ [message is open] |
++ * 0   ---------------------------------------------------
++ *
++ *
++ * ROADMAP
++ *
++ * i2400m_tx_setup()           Called by i2400m_setup
++ * i2400m_tx_release()         Called by i2400m_release()
++ *
++ *  i2400m_tx()                 Called to send data or control frames
++ *    i2400m_tx_fifo_push()     Allocates append-space in the FIFO
++ *    i2400m_tx_new()           Opens a new message in the FIFO
++ *    i2400m_tx_fits()          Checks if a new payload fits in the message
++ *    i2400m_tx_close()         Closes an open message in the FIFO
++ *    i2400m_tx_skip_tail()     Marks unusable FIFO tail space
++ *    i2400m->bus_tx_kick()
++ *
++ * Now i2400m->bus_tx_kick() is the the bus-specific driver backend
++ * implementation; that would do:
++ *
++ * i2400m->bus_tx_kick()
++ *   i2400m_tx_msg_get()	Gets first message ready to go
++ *   ...sends it...
++ *   i2400m_tx_msg_sent()       Ack the message is sent; repeat from
++ *                              _tx_msg_get() until it returns NULL
++ *                               (FIFO empty).
++ */
++#include <linux/netdevice.h>
++#include "i2400m.h"
++
++
++#define D_SUBMODULE tx
++#include "debug-levels.h"
++
++enum {
++	/**
++	 * TX Buffer size
++	 *
++	 * Doc says maximum transaction is 16KiB. If we had 16KiB en
++	 * route and 16KiB being queued, it boils down to needing
++	 * 32KiB.
++	 */
++	I2400M_TX_BUF_SIZE = 32768,
++	/**
++	 * Message header and payload descriptors have to be 16
++	 * aligned (16 + 4 * N = 16 * M). If we take that average sent
++	 * packets are MTU size (~1400-~1500) it follows that we could
++	 * fit at most 10-11 payloads in one transaction. To meet the
++	 * alignment requirement, that means we need to leave space
++	 * for 12 (64 bytes). To simplify, we leave space for that. If
++	 * at the end there are less, we pad up to the nearest
++	 * multiple of 16.
++	 */
++	I2400M_TX_PLD_MAX = 12,
++	I2400M_TX_PLD_SIZE = sizeof(struct i2400m_msg_hdr)
++	+ I2400M_TX_PLD_MAX * sizeof(struct i2400m_pld),
++	I2400M_TX_SKIP = 0x80000000,
++};
++
++#define TAIL_FULL ((void *)~(unsigned long)NULL)
++
++/*
++ * Allocate @size bytes in the TX fifo, return a pointer to it
++ *
++ * @i2400m: device descriptor
++ * @size: size of the buffer we need to allocate
++ * @padding: ensure that there is at least this many bytes of free
++ *     contiguous space in the fifo. This is needed because later on
++ *     we might need to add padding.
++ *
++ * Returns:
++ *
++ *     Pointer to the allocated space. NULL if there is no
++ *     space. TAIL_FULL if there is no space at the tail but there is at
++ *     the head (Case B below).
++ *
++ * These are the two basic cases we need to keep an eye for -- it is
++ * much better explained in linux/kernel/kfifo.c, but this code
++ * basically does the same. No rocket science here.
++ *
++ *       Case A               Case B
++ * N  ___________          ___________
++ *   | tail room |        |   data    |
++ *   |           |        |           |
++ *   |<-  IN   ->|        |<-  OUT  ->|
++ *   |           |        |           |
++ *   |   data    |        |   room    |
++ *   |           |        |           |
++ *   |<-  OUT  ->|        |<-  IN   ->|
++ *   |           |        |           |
++ *   | head room |        |   data    |
++ * 0  -----------          -----------
++ *
++ * We allocate only *contiguous* space.
++ *
++ * We can allocate only from 'room'. In Case B, it is simple; in case
++ * A, we only try from the tail room; if it is not enough, we just
++ * fail and return TAIL_FULL and let the caller figure out if we wants to
++ * skip the tail room and try to allocate from the head.
++ *
++ * Note:
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ *
++ *     The indexes keep increasing and we reset them to zero when we
++ *     pop data off the queue
++ */
++static
++void *i2400m_tx_fifo_push(struct i2400m *i2400m, size_t size, size_t padding)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	size_t room, tail_room, needed_size;
++	void *ptr;
++
++	needed_size = size + padding;
++	room = I2400M_TX_BUF_SIZE - (i2400m->tx_in - i2400m->tx_out);
++	if (room < needed_size)	{ /* this takes care of Case B */
++		d_printf(2, dev, "fifo push %zu/%zu: no space\n",
++			 size, padding);
++		return NULL;
++	}
++	/* Is there space at the tail? */
++	tail_room = I2400M_TX_BUF_SIZE - i2400m->tx_in % I2400M_TX_BUF_SIZE;
++	if (tail_room < needed_size) {
++		if (i2400m->tx_out % I2400M_TX_BUF_SIZE
++		    < i2400m->tx_in % I2400M_TX_BUF_SIZE) {
++			d_printf(2, dev, "fifo push %zu/%zu: tail full\n",
++				 size, padding);
++			return TAIL_FULL;	/* There might be head space */
++		} else {
++			d_printf(2, dev, "fifo push %zu/%zu: no head space\n",
++				 size, padding);
++			return NULL;	/* There is no space */
++		}
++	}
++	ptr = i2400m->tx_buf + i2400m->tx_in % I2400M_TX_BUF_SIZE;
++	d_printf(2, dev, "fifo push %zu/%zu: at @%zu\n", size, padding,
++		 i2400m->tx_in % I2400M_TX_BUF_SIZE);
++	i2400m->tx_in += size;
++	return ptr;
++}
++
++
++/*
++ * Mark the tail of the FIFO buffer as 'to-skip'
++ *
++ * We should never hit the BUG_ON() because all the sizes we push to
++ * the FIFO are padded to be a multiple of 16 -- the size of *msg
++ * (I2400M_PL_PAD for the payloads, I2400M_TX_PLD_SIZE for the
++ * header).
++ *
++ * Note:
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ */
++static
++void i2400m_tx_skip_tail(struct i2400m *i2400m)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	size_t tx_in = i2400m->tx_in % I2400M_TX_BUF_SIZE;
++	size_t tail_room = I2400M_TX_BUF_SIZE - tx_in;
++	struct i2400m_msg_hdr *msg = i2400m->tx_buf + tx_in;
++	BUG_ON(tail_room < sizeof(*msg));
++	msg->size = tail_room | I2400M_TX_SKIP;
++	d_printf(2, dev, "skip tail: skipping %zu bytes @%zu\n",
++		 tail_room, tx_in);
++	i2400m->tx_in += tail_room;
++}
++
++
++/*
++ * Check if a skb will fit in the TX queue's current active TX
++ * message (if there are still descriptors left unused).
++ *
++ * Returns:
++ *     0 if the message won't fit, 1 if it will.
++ *
++ * Note:
++ *
++ *     Assumes a TX message is active (i2400m->tx_msg).
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ */
++static
++unsigned i2400m_tx_fits(struct i2400m *i2400m)
++{
++	struct i2400m_msg_hdr *msg_hdr = i2400m->tx_msg;
++	return le16_to_cpu(msg_hdr->num_pls) < I2400M_TX_PLD_MAX;
++
++}
++
++
++/*
++ * Start a new TX message header in the queue.
++ *
++ * Reserve memory from the base FIFO engine and then just initialize
++ * the message header.
++ *
++ * We allocate the biggest TX message header we might need (one that'd
++ * fit I2400M_TX_PLD_MAX payloads) -- when it is closed it will be
++ * 'ironed it out' and the unneeded parts removed.
++ *
++ * NOTE:
++ *
++ *     Assumes that the previous message is CLOSED (eg: either
++ *     there was none or 'i2400m_tx_close()' was called on it).
++ *
++ *     Assumes i2400m->tx_lock is taken, and we use that as a barrier
++ */
++static
++void i2400m_tx_new(struct i2400m *i2400m)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_msg_hdr *tx_msg;
++	BUG_ON(i2400m->tx_msg != NULL);
++try_head:
++	tx_msg = i2400m_tx_fifo_push(i2400m, I2400M_TX_PLD_SIZE, 0);
++	if (tx_msg == NULL)
++		goto out;
++	else if (tx_msg == TAIL_FULL) {
++		i2400m_tx_skip_tail(i2400m);
++		d_printf(2, dev, "new TX message: tail full, trying head\n");
++		goto try_head;
++	}
++	memset(tx_msg, 0, I2400M_TX_PLD_SIZE);
++	tx_msg->size = I2400M_TX_PLD_SIZE;
++out:
++	i2400m->tx_msg = tx_msg;
++	d_printf(2, dev, "new TX message: %p @%zu\n",
++		 tx_msg, (void *) tx_msg - i2400m->tx_buf);
++}
++
++
++/*
++ * Finalize the current TX message header
++ *
++ * Sets the message header to be at the proper location depending on
++ * how many descriptors we have (check documentation at the file's
++ * header for more info on that).
++ *
++ * Appends padding bytes to make sure the whole TX message (counting
++ * from the 'relocated' message header) is aligned to
++ * tx_block_size. We assume the _append() code has left enough space
++ * in the FIFO for that. If there are no payloads, just pass, as it
++ * won't be transferred.
++ *
++ * The amount of padding bytes depends on how many payloads are in the
++ * TX message, as the "msg header and payload descriptors" will be
++ * shifted up in the buffer.
++ */
++static
++void i2400m_tx_close(struct i2400m *i2400m)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_msg_hdr *tx_msg = i2400m->tx_msg;
++	struct i2400m_msg_hdr *tx_msg_moved;
++	size_t aligned_size, padding, hdr_size;
++	void *pad_buf;
++
++	if (tx_msg->size & I2400M_TX_SKIP)	/* a skipper? nothing to do */
++		goto out;
++
++	/* Relocate the message header
++	 *
++	 * Find the current header size, align it to 16 and if we need
++	 * to move it so the tail is next to the payloads, move it and
++	 * set the offset.
++	 *
++	 * If it moved, this header is good only for transmission; the
++	 * original one (it is kept if we moved) is still used to
++	 * figure out where the next TX message starts (and where the
++	 * offset to the moved header is).
++	 */
++	hdr_size = sizeof(*tx_msg)
++		+ le16_to_cpu(tx_msg->num_pls) * sizeof(tx_msg->pld[0]);
++	hdr_size = ALIGN(hdr_size, I2400M_PL_PAD);
++	tx_msg->offset = I2400M_TX_PLD_SIZE - hdr_size;
++	tx_msg_moved = (void *) tx_msg + tx_msg->offset;
++	memmove(tx_msg_moved, tx_msg, hdr_size);
++	tx_msg_moved->size -= tx_msg->offset;
++	/*
++	 * Now figure out how much we have to add to the (moved!)
++	 * message so the size is a multiple of i2400m->bus_tx_block_size.
++	 */
++	aligned_size = ALIGN(tx_msg_moved->size, i2400m->bus_tx_block_size);
++	padding = aligned_size - tx_msg_moved->size;
++	if (padding > 0) {
++		pad_buf = i2400m_tx_fifo_push(i2400m, padding, 0);
++		if (unlikely(WARN_ON(pad_buf == NULL
++				     || pad_buf == TAIL_FULL))) {
++			/* This should not happen -- append should verify
++			 * there is always space left at least to append
++			 * tx_block_size */
++			dev_err(dev,
++				"SW BUG! Possible data leakage from memory the "
++				"device should not read for padding - "
++				"size %lu aligned_size %zu tx_buf %p in "
++				"%zu out %zu\n",
++				(unsigned long) tx_msg_moved->size,
++				aligned_size, i2400m->tx_buf, i2400m->tx_in,
++				i2400m->tx_out);
++		} else
++			memset(pad_buf, 0xad, padding);
++	}
++	tx_msg_moved->padding = cpu_to_le16(padding);
++	tx_msg_moved->size += padding;
++	if (tx_msg != tx_msg_moved)
++		tx_msg->size += padding;
++out:
++	i2400m->tx_msg = NULL;
++}
++
++
++/**
++ * i2400m_tx - send the data in a buffer to the device
++ *
++ * @buf: pointer to the buffer to transmit
++ *
++ * @buf_len: buffer size
++ *
++ * @pl_type: type of the payload we are sending.
++ *
++ * Returns:
++ *     0 if ok, < 0 errno code on error (-ENOSPC, if there is no more
++ *     room for the message in the queue).
++ *
++ * Appends the buffer to the TX FIFO and notifies the bus-specific
++ * part of the driver that there is new data ready to transmit.
++ * Once this function returns, the buffer has been copied, so it can
++ * be reused.
++ *
++ * The steps followed to append are explained in detail in the file
++ * header.
++ *
++ * Whenever we write to a message, we increase msg->size, so it
++ * reflects exactly how big the message is. This is needed so that if
++ * we concatenate two messages before they can be sent, the code that
++ * sends the messages can find the boundaries (and it will replace the
++ * size with the real barker before sending).
++ *
++ * Note:
++ *
++ *     Cold and warm reset payloads need to be sent as a single
++ *     payload, so we handle that.
++ */
++int i2400m_tx(struct i2400m *i2400m, const void *buf, size_t buf_len,
++	      enum i2400m_pt pl_type)
++{
++	int result = -ENOSPC;
++	struct device *dev = i2400m_dev(i2400m);
++	unsigned long flags;
++	size_t padded_len;
++	void *ptr;
++	unsigned is_singleton = pl_type == I2400M_PT_RESET_WARM
++		|| pl_type == I2400M_PT_RESET_COLD;
++
++	d_fnstart(3, dev, "(i2400m %p skb %p [%zu bytes] pt %u)\n",
++		  i2400m, buf, buf_len, pl_type);
++	padded_len = ALIGN(buf_len, I2400M_PL_PAD);
++	d_printf(5, dev, "padded_len %zd buf_len %zd\n", padded_len, buf_len);
++	/* If there is no current TX message, create one; if the
++	 * current one is out of payload slots or we have a singleton,
++	 * close it and start a new one */
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++try_new:
++	if (unlikely(i2400m->tx_msg == NULL))
++		i2400m_tx_new(i2400m);
++	else if (unlikely(!i2400m_tx_fits(i2400m)
++			  || (is_singleton && i2400m->tx_msg->num_pls != 0))) {
++		d_printf(2, dev, "closing TX message (fits %u singleton "
++			 "%u num_pls %u)\n", i2400m_tx_fits(i2400m),
++			 is_singleton, i2400m->tx_msg->num_pls);
++		i2400m_tx_close(i2400m);
++		i2400m_tx_new(i2400m);
++	}
++	if (i2400m->tx_msg->size + padded_len > I2400M_TX_BUF_SIZE / 2) {
++		d_printf(2, dev, "TX: message too big, going new\n");
++		i2400m_tx_close(i2400m);
++		i2400m_tx_new(i2400m);
++	}
++	if (i2400m->tx_msg == NULL)
++		goto error_tx_new;
++	/* So we have a current message header; now append space for
++	 * the message -- if there is not enough, try the head */
++	ptr = i2400m_tx_fifo_push(i2400m, padded_len,
++				  i2400m->bus_tx_block_size);
++	if (ptr == TAIL_FULL) {	/* Tail is full, try head */
++		d_printf(2, dev, "pl append: tail full\n");
++		i2400m_tx_close(i2400m);
++		i2400m_tx_skip_tail(i2400m);
++		goto try_new;
++	} else if (ptr == NULL) {	/* All full */
++		result = -ENOSPC;
++		d_printf(2, dev, "pl append: all full\n");
++	} else {			/* Got space, copy it, set padding */
++		struct i2400m_msg_hdr *tx_msg = i2400m->tx_msg;
++		unsigned num_pls = le16_to_cpu(tx_msg->num_pls);
++		memcpy(ptr, buf, buf_len);
++		memset(ptr + buf_len, 0xad, padded_len - buf_len);
++		i2400m_pld_set(&tx_msg->pld[num_pls], buf_len, pl_type);
++		d_printf(3, dev, "pld 0x%08x (type 0x%1x len 0x%04zx\n",
++			 le32_to_cpu(tx_msg->pld[num_pls].val),
++			 pl_type, buf_len);
++		tx_msg->num_pls = le16_to_cpu(num_pls+1);
++		tx_msg->size += padded_len;
++		d_printf(2, dev, "TX: appended %zu b (up to %u b) pl #%u \n",
++			padded_len, tx_msg->size, num_pls+1);
++		d_printf(2, dev,
++			 "TX: appended hdr @%zu %zu b pl #%u @%zu %zu/%zu b\n",
++			 (void *)tx_msg - i2400m->tx_buf, (size_t)tx_msg->size,
++			 num_pls+1, ptr - i2400m->tx_buf, buf_len, padded_len);
++		result = 0;
++		if (is_singleton)
++			i2400m_tx_close(i2400m);
++	}
++error_tx_new:
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	i2400m->bus_tx_kick(i2400m);	/* always kick, might free up space */
++	d_fnend(3, dev, "(i2400m %p skb %p [%zu bytes] pt %u) = %d\n",
++		i2400m, buf, buf_len, pl_type, result);
++	return result;
++}
++EXPORT_SYMBOL_GPL(i2400m_tx);
++
++
++/**
++ * i2400m_tx_msg_get - Get the first TX message in the FIFO to start sending it
++ *
++ * @i2400m: device descriptors
++ * @bus_size: where to place the size of the TX message
++ *
++ * Called by the bus-specific driver to get the first TX message at
++ * the FIF that is ready for transmission.
++ *
++ * It sets the state in @i2400m to indicate the bus-specific driver is
++ * transfering that message (i2400m->tx_msg_size).
++ *
++ * Once the transfer is completed, call i2400m_tx_msg_sent().
++ *
++ * Notes:
++ *
++ *     The size of the TX message to be transmitted might be smaller than
++ *     that of the TX message in the FIFO (in case the header was
++ *     shorter). Hence, we copy it in @bus_size, for the bus layer to
++ *     use. We keep the message's size in i2400m->tx_msg_size so that
++ *     when the bus later is done transferring we know how much to
++ *     advance the fifo.
++ *
++ *     We collect statistics here as all the data is available and we
++ *     assume it is going to work [see i2400m_tx_msg_sent()].
++ */
++struct i2400m_msg_hdr *i2400m_tx_msg_get(struct i2400m *i2400m,
++					 size_t *bus_size)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_msg_hdr *tx_msg, *tx_msg_moved;
++	unsigned long flags, pls;
++
++	d_fnstart(3, dev, "(i2400m %p bus_size %p)\n", i2400m, bus_size);
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++skip:
++	tx_msg_moved = NULL;
++	if (i2400m->tx_in == i2400m->tx_out) {	/* Empty FIFO? */
++		i2400m->tx_in = 0;
++		i2400m->tx_out = 0;
++		d_printf(2, dev, "TX: FIFO empty: resetting\n");
++		goto out_unlock;
++	}
++	tx_msg = i2400m->tx_buf + i2400m->tx_out % I2400M_TX_BUF_SIZE;
++	if (tx_msg->size & I2400M_TX_SKIP) {	/* skip? */
++		d_printf(2, dev, "TX: skip: msg @%zu (%zu b)\n",
++			 i2400m->tx_out % I2400M_TX_BUF_SIZE,
++			 (size_t) tx_msg->size & ~I2400M_TX_SKIP);
++		i2400m->tx_out += tx_msg->size & ~I2400M_TX_SKIP;
++		goto skip;
++	}
++
++	if (tx_msg->num_pls == 0) {		/* No payloads? */
++		if (tx_msg == i2400m->tx_msg) {	/* open, we are done */
++			d_printf(2, dev,
++				 "TX: FIFO empty: open msg w/o payloads @%zu\n",
++				 (void *) tx_msg - i2400m->tx_buf);
++			tx_msg = NULL;
++			goto out_unlock;
++		} else {			/* closed, skip it */
++			d_printf(2, dev,
++				 "TX: skip msg w/o payloads @%zu (%zu b)\n",
++				 (void *) tx_msg - i2400m->tx_buf,
++				 (size_t) tx_msg->size);
++			i2400m->tx_out += tx_msg->size & ~I2400M_TX_SKIP;
++			goto skip;
++		}
++	}
++	if (tx_msg == i2400m->tx_msg)		/* open msg? */
++		i2400m_tx_close(i2400m);
++
++	/* Now we have a valid TX message (with payloads) to TX */
++	tx_msg_moved = (void *) tx_msg + tx_msg->offset;
++	i2400m->tx_msg_size = tx_msg->size;
++	*bus_size = tx_msg_moved->size;
++	d_printf(2, dev, "TX: pid %d msg hdr at @%zu offset +@%zu "
++		 "size %zu bus_size %zu\n",
++		 current->pid, (void *) tx_msg - i2400m->tx_buf,
++		 (size_t) tx_msg->offset, (size_t) tx_msg->size,
++		 (size_t) tx_msg_moved->size);
++	tx_msg_moved->barker = le32_to_cpu(I2400M_H2D_PREVIEW_BARKER);
++	tx_msg_moved->sequence = le32_to_cpu(i2400m->tx_sequence++);
++
++	pls = le32_to_cpu(tx_msg_moved->num_pls);
++	i2400m->tx_pl_num += pls;		/* Update stats */
++	if (pls > i2400m->tx_pl_max)
++		i2400m->tx_pl_max = pls;
++	if (pls < i2400m->tx_pl_min)
++		i2400m->tx_pl_min = pls;
++	i2400m->tx_num++;
++	i2400m->tx_size_acc += *bus_size;
++	if (*bus_size < i2400m->tx_size_min)
++		i2400m->tx_size_min = *bus_size;
++	if (*bus_size > i2400m->tx_size_max)
++		i2400m->tx_size_max = *bus_size;
++out_unlock:
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	d_fnstart(3, dev, "(i2400m %p bus_size %p [%zu]) = %p\n",
++		  i2400m, bus_size, *bus_size, tx_msg_moved);
++	return tx_msg_moved;
++}
++EXPORT_SYMBOL_GPL(i2400m_tx_msg_get);
++
++
++/**
++ * i2400m_tx_msg_sent - indicate the transmission of a TX message
 + *
 + * @i2400m: device descriptor
 + *
-+ * Returns: >= 0 if ok, < 0 errno code on error.
++ * Called by the bus-specific driver when a message has been sent;
++ * this pops it from the FIFO; and as there is space, start the queue
++ * in case it was stopped.
 + *
-+ * This sets up the firmware upload environment, loads the firmware
-+ * file from disk, verifies and then calls the firmware upload process
-+ * per se.
-+ *
-+ * Can be called either from probe, or after a warm reset.  Can not be
-+ * called from within an interrupt.  All the flow in this code is
-+ * single-threade; all I/Os are synchronous.
++ * Should be called even if the message send failed and we are
++ * dropping this TX message.
 + */
-+int i2400m_dev_bootstrap(struct i2400m *i2400m, enum i2400m_bri flags)
++void i2400m_tx_msg_sent(struct i2400m *i2400m)
 +{
-+	int ret = 0;
++	unsigned n;
++	unsigned long flags;
 +	struct device *dev = i2400m_dev(i2400m);
-+	const struct firmware *fw;
-+	const struct i2400m_bcf_hdr *bcf;	/* Firmware data */
 +
-+	d_fnstart(5, dev, "(i2400m %p)\n", i2400m);
-+	/* Load firmware files to memory. */
-+	ret = request_firmware(&fw, i2400m->bus_fw_name, dev);
-+	if (ret) {
-+		dev_err(dev, "fw %s: request failed: %d\n",
-+			i2400m->bus_fw_name, ret);
-+		goto error_fw_req;
-+	}
-+	bcf = (void *) fw->data;
-+
-+	ret = i2400m_fw_check(i2400m, bcf, fw->size);
-+	if (ret < 0)
-+		goto error_fw_bad;
-+	ret = i2400m_fw_dnload(i2400m, bcf, fw->size, flags);
-+error_fw_bad:
-+	release_firmware(fw);
-+error_fw_req:
-+	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, ret);
-+	return ret;
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++	i2400m->tx_out += i2400m->tx_msg_size;
++	d_printf(2, dev, "TX: sent %zu b\n", (size_t) i2400m->tx_msg_size);
++	i2400m->tx_msg_size = 0;
++	BUG_ON(i2400m->tx_out > i2400m->tx_in);
++	/* level them FIFO markers off */
++	n = i2400m->tx_out / I2400M_TX_BUF_SIZE;
++	i2400m->tx_out %= I2400M_TX_BUF_SIZE;
++	i2400m->tx_in -= n * I2400M_TX_BUF_SIZE;
++	netif_start_queue(i2400m->wimax_dev.net_dev);
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
 +}
-+EXPORT_SYMBOL_GPL(i2400m_dev_bootstrap);
++EXPORT_SYMBOL_GPL(i2400m_tx_msg_sent);
++
++
++/**
++ * i2400m_tx_setup - Initialize the TX queue and infrastructure
++ *
++ * Make sure we reset the TX sequence to zero, as when this function
++ * is called, the firmware has been just restarted.
++ */
++int i2400m_tx_setup(struct i2400m *i2400m)
++{
++	int result;
++
++	/* Do this here only once -- can't do on
++	 * i2400m_hard_start_xmit() as we'll cause race conditions if
++	 * the WS was scheduled on another CPU */
++	INIT_WORK(&i2400m->wake_tx_ws, i2400m_wake_tx_work);
++
++	i2400m->tx_sequence = 0;
++	i2400m->tx_buf = kmalloc(I2400M_TX_BUF_SIZE, GFP_KERNEL);
++	if (i2400m->tx_buf == NULL)
++		result = -ENOMEM;
++	else
++		result = 0;
++	/* Huh? the bus layer has to define this... */
++	BUG_ON(i2400m->bus_tx_block_size == 0);
++	return result;
++
++}
++
++
++/**
++ * i2400m_tx_release - Tear down the TX queue and infrastructure
++ */
++void i2400m_tx_release(struct i2400m *i2400m)
++{
++	kfree(i2400m->tx_buf);
++}
 -- 
 1.5.6.5
