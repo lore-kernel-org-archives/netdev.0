@@ -1,183 +1,80 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 5/8] netns: ip6mr: store netns in struct mfc6_cache
-Date: Mon, 08 Dec 2008 17:02:01 +0100
-Message-ID: <20081208160157.565735916@localhost.localdomain>
-References: <20081208160156.343758157@localhost.localdomain>
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Benjamin Thery <benjamin.thery@bull.net>
-To: Dave Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: Nasty regression from .27.7 to .27.8: idle samba goes crazy
+Date: Mon, 08 Dec 2008 17:46:20 +0100
+Message-ID: <493D4F5C.7020606@s5r6.in-berlin.de>
+References: <pan.2008.12.08.06.18.57.357875@wizards.de> <200812080834.22924.rjw@sisk.pl> <pan.2008.12.08.08.07.29.439625@wizards.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Holger Hoffstaette <holger@wizards.de>,
+	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Greg KH <greg@kroah.com>, stable@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:35092 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753019AbYLHQDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 11:03:46 -0500
+Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:57177 "EHLO
+	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753258AbYLHQqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 11:46:30 -0500
+In-Reply-To: <pan.2008.12.08.08.07.29.439625@wizards.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch stores into struct mfc6_cache the network namespace each
-mfc6_cache belongs to. The new member is mfc6_net.
+Holger Hoffstaette wrote at LKML:
+> On Mon, 08 Dec 2008 08:34:22 +0100, Rafael J. Wysocki wrote:
+> 
+>> On Monday, 8 of December 2008, Holger Hoffstaette wrote:
+>>> Hi,
+>>> 
+>>> I just encountered a nasty symptom for the second time that has started to
+>>> occur after updating my home server from vanilla 2.6.27.7 to .8 (same
+>>> config).
+>>> 
+>>> A while after disconnecting a samba client, the smbd samba server
+>>> process goes crazy and consumes 100% CPU. From that time on it is
+>>> unkillable (kill -9 returns but the process continues to run). The only
+>>> recourse is reboot, which works without problem (i.e. unmounting the
+>>> served filesystems is apparently possible?). I tried to attach to the
+>>> process with gdb but that just hung.
+>>> 
+>>> The system is a generic old single-core P4 box with a single SATA drive,
+>>> Gentoo userland and Samba is 3.0.33 (in async mode). The kernel has no
+>>> patches or binary drivers. It has been rock solid before the update and
+>>> shows no other signs of weirdness in logs or otherwise. I downgraded to .7
+>>> for now and will see what happens, but since it worked before I am certain
+>>> that this is a regression in the .8 release.
+>>> 
+>>> The only commonality is a log entry by samba that seems to correlate with
+>>> both occurrences:
+>>> 
+>>> [2008/12/08 01:02:52, 0] lib/util_sock.c:read_data(534)
+>>>   read_data: read failure for 4 bytes to client 192.168.100.128. Error = No route to host
+>>> 
+>>> .128 is the Windows client machine (connected via a stable GigE link),
+>>> which I shut down pretty much exactly 30 minutes before that (any 30
+>>> minute timeouts in the kernel/network stack?). Both instances of these log
+>>> entries correlate with the CPU spikes which I noticed in my MRTG graphs.
+>>> 
+>>> Any suspects or ideas?
+>>> 
+>>> thanks
+>>> Holger
+>> 
+>> Please bisect.
+> 
+> I would love to try, but this is my "production server" (i.e. I need it
+> for real work) and I'll be traveling the next few days. I will try to
+> bisect after that (if nobody else has any ideas) but will have to make
+> sure the bug is actually reproducible after the timeout - for now I only
+> observed it by accident (via mrtg).
+> In the meantime maybe someone else will observe it as well.
+> 
+> thanks
+> Holger
+> 
 
-mfc6_net is assigned at cache allocation and doesn't change during
-the rest of the cache entry life.
-
-This will help to retrieve the current netns around the IPv6 multicast
-forwarding code.
-
-At the moment, all mfc6_cache are allocated in init_net.
-
-Changelog:
-==========
-* Use write_pnet()/read_pnet() to set and get mfc6_net.
-
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
----
- include/linux/mroute6.h |   15 +++++++++++++++
- net/ipv6/ip6mr.c        |   28 +++++++++++++++++++---------
- 2 files changed, 34 insertions(+), 9 deletions(-)
-
-diff --git a/include/linux/mroute6.h b/include/linux/mroute6.h
-index 2cd9901..15d85fe 100644
---- a/include/linux/mroute6.h
-+++ b/include/linux/mroute6.h
-@@ -188,6 +188,9 @@ struct mif_device
- struct mfc6_cache
- {
- 	struct mfc6_cache *next;		/* Next entry on cache line 	*/
-+#ifdef CONFIG_NET_NS
-+	struct net *mfc6_net;
-+#endif
- 	struct in6_addr mf6c_mcastgrp;			/* Group the entry belongs to 	*/
- 	struct in6_addr mf6c_origin;			/* Source of packet 		*/
- 	mifi_t mf6c_parent;			/* Source interface		*/
-@@ -210,6 +213,18 @@ struct mfc6_cache
- 	} mfc_un;
- };
- 
-+static inline
-+struct net *mfc6_net(const struct mfc6_cache *mfc)
-+{
-+	return read_pnet(&mfc->mfc6_net);
-+}
-+
-+static inline
-+void mfc6_net_set(struct mfc6_cache *mfc, struct net *net)
-+{
-+	write_pnet(&mfc->mfc6_net, hold_net(net));
-+}
-+
- #define MFC_STATIC		1
- #define MFC_NOTIFY		2
- 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 94a3133..1583202 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -498,6 +498,14 @@ static int mif6_delete(int vifi)
- 	return 0;
- }
- 
-+static inline void ip6mr_cache_free(struct mfc6_cache *c)
-+{
-+#ifdef CONFIG_NET_NS
-+	release_net(c->mfc6_net);
-+#endif
-+	kmem_cache_free(mrt_cachep, c);
-+}
-+
- /* Destroy an unresolved cache entry, killing queued skbs
-    and reporting error to netlink readers.
-  */
-@@ -520,7 +528,7 @@ static void ip6mr_destroy_unres(struct mfc6_cache *c)
- 			kfree_skb(skb);
- 	}
- 
--	kmem_cache_free(mrt_cachep, c);
-+	ip6mr_cache_free(c);
- }
- 
- 
-@@ -677,22 +685,24 @@ static struct mfc6_cache *ip6mr_cache_find(struct in6_addr *origin, struct in6_a
- /*
-  *	Allocate a multicast cache entry
-  */
--static struct mfc6_cache *ip6mr_cache_alloc(void)
-+static struct mfc6_cache *ip6mr_cache_alloc(struct net *net)
- {
- 	struct mfc6_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_KERNEL);
- 	if (c == NULL)
- 		return NULL;
- 	c->mfc_un.res.minvif = MAXMIFS;
-+	mfc6_net_set(c, net);
- 	return c;
- }
- 
--static struct mfc6_cache *ip6mr_cache_alloc_unres(void)
-+static struct mfc6_cache *ip6mr_cache_alloc_unres(struct net *net)
- {
- 	struct mfc6_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_ATOMIC);
- 	if (c == NULL)
- 		return NULL;
- 	skb_queue_head_init(&c->mfc_un.unres.unresolved);
- 	c->mfc_un.unres.expires = jiffies + 10 * HZ;
-+	mfc6_net_set(c, net);
- 	return c;
- }
- 
-@@ -848,7 +858,7 @@ ip6mr_cache_unresolved(mifi_t mifi, struct sk_buff *skb)
- 		 */
- 
- 		if (atomic_read(&cache_resolve_queue_len) >= 10 ||
--		    (c = ip6mr_cache_alloc_unres()) == NULL) {
-+		    (c = ip6mr_cache_alloc_unres(&init_net)) == NULL) {
- 			spin_unlock_bh(&mfc_unres_lock);
- 
- 			kfree_skb(skb);
-@@ -871,7 +881,7 @@ ip6mr_cache_unresolved(mifi_t mifi, struct sk_buff *skb)
- 			 */
- 			spin_unlock_bh(&mfc_unres_lock);
- 
--			kmem_cache_free(mrt_cachep, c);
-+			ip6mr_cache_free(c);
- 			kfree_skb(skb);
- 			return err;
- 		}
-@@ -917,7 +927,7 @@ static int ip6mr_mfc_delete(struct mf6cctl *mfc)
- 			*cp = c->next;
- 			write_unlock_bh(&mrt_lock);
- 
--			kmem_cache_free(mrt_cachep, c);
-+			ip6mr_cache_free(c);
- 			return 0;
- 		}
- 	}
-@@ -1081,7 +1091,7 @@ static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
- 	if (!ipv6_addr_is_multicast(&mfc->mf6cc_mcastgrp.sin6_addr))
- 		return -EINVAL;
- 
--	c = ip6mr_cache_alloc();
-+	c = ip6mr_cache_alloc(&init_net);
- 	if (c == NULL)
- 		return -ENOMEM;
- 
-@@ -1116,7 +1126,7 @@ static int ip6mr_mfc_add(struct mf6cctl *mfc, int mrtsock)
- 
- 	if (uc) {
- 		ip6mr_cache_resolve(uc, c);
--		kmem_cache_free(mrt_cachep, uc);
-+		ip6mr_cache_free(uc);
- 	}
- 	return 0;
- }
-@@ -1153,7 +1163,7 @@ static void mroute_clean_tables(struct sock *sk)
- 			*cp = c->next;
- 			write_unlock_bh(&mrt_lock);
- 
--			kmem_cache_free(mrt_cachep, c);
-+			ip6mr_cache_free(c);
- 		}
- 	}
- 
-
+Added Cc: netdev, readded all other Cc's, quoted in full for netdev.
+Good luck,
+-- 
+Stefan Richter
+-=====-==--- ==-- -=---
+http://arcgraph.de/sr/
