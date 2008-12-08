@@ -1,38 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] netdevice: Kill netdev->priv
-Date: Mon, 08 Dec 2008 01:14:28 -0800 (PST)
-Message-ID: <20081208.011428.198068992.davem@davemloft.net>
-References: <493CB23A.5010400@cn.fujitsu.com>
+Subject: Re: [PATCH 1/7] dccp: Integration of dynamic feature activation -
+ part 1 (socket setup)
+Date: Mon, 08 Dec 2008 01:15:35 -0800 (PST)
+Message-ID: <20081208.011535.209538564.davem@davemloft.net>
+References: <1228051376-8174-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1228581657-6724-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	<1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangchen@cn.fujitsu.com
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52531
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52534
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751054AbYLHJO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 04:14:27 -0500
-In-Reply-To: <493CB23A.5010400@cn.fujitsu.com>
+	by vger.kernel.org with ESMTP id S1751333AbYLHJPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Dec 2008 04:15:34 -0500
+In-Reply-To: <1228581657-6724-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Date: Mon, 08 Dec 2008 13:35:54 +0800
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Sat,  6 Dec 2008 17:40:51 +0100
 
-> This is the last shoot of this series.
-> After I removing all directly reference of netdev->priv, I am killing
-> "priv" of "struct net_device" and fixing relative comments/docs.
+> This first patch out of three replaces the hardcoded default settings with
+> initialisation code for the dynamic feature negotiation.
 > 
-> Anyone will not be allowed to reference netdev->priv directly.
-> If you want to reference the memory of private data, use netdev_priv()
-> instead.
-> If the private data is not allocted when alloc_netdev(), use
-> netdev->ml_priv to point that memory after you creating that private
-> data.
+> The patch also ensures that the client feature-negotiation queue is flushed
+> only when entering the OPEN state.
 > 
-> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+> Since confirmed Change options are removed as soon as they are confirmed
+> (in the DCCP-Response), this ensures that Confirm options are retransmitted.
+> 
+> Note on retransmitting Confirm options:
+> ---------------------------------------
+> Implementation experience showed that it is necessary to retransmit Confirm
+> options. Thanks to Leandro Melo de Sales who reported a bug in an earlier
+> revision of the patch set, resulting from not retransmitting these options.
+> 
+> As long as the client is in PARTOPEN, it needs to retransmit the Confirm
+> options for the Change options received on the DCCP-Response from the server.
+> 
+> Otherwise, if the packet containing the Confirm options gets dropped in the
+> network, the connection aborts due to undefined feature negotiation state.
+> 
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 
 Applied.
-
-Thanks so much for doing all of this work!
