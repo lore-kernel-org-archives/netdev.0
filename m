@@ -1,92 +1,66 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used jiffies in
-	htb_dequeue()
-Date: Tue, 9 Dec 2008 13:08:03 +0000
-Message-ID: <20081209130803.GB15353@ff.dom.local>
-References: <20081209102118.GB14862@ff.dom.local> <493E485C.9090706@trash.net> <20081209113205.GA15353@ff.dom.local> <493E63AB.80400@trash.net>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: Documentation for IP_TRANSPARENT?
+Date: Tue, 09 Dec 2008 14:17:28 +0100
+Message-ID: <1228828648.7631.75.camel@bzorp.balabit>
+References: <cfd18e0f0811240806w541c85e9gafbcc80e8101f2b2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Martin Devera <devik@cdi.cz>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: KOVACS Krisztian <hidden@sch.bme.hu>,
+	David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: mtk.manpages@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:1280 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbYLINIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 08:08:11 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so1081356ugf.37
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2008 05:08:09 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <493E63AB.80400@trash.net>
+Received: from support.balabit.hu ([195.70.41.86]:47618 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751914AbYLINRf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2008 08:17:35 -0500
+In-Reply-To: <cfd18e0f0811240806w541c85e9gafbcc80e8101f2b2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 09, 2008 at 01:25:15PM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
->> On Tue, Dec 09, 2008 at 11:28:44AM +0100, Patrick McHardy wrote:
->>>> -	/* too much load - let's continue on next jiffie (including above) */
->>>> -	return q->now + 2 * PSCHED_TICKS_PER_SEC / HZ;
->>>> +	/*
->>>> +	 * Too much load - let's continue on next jiffie.
->>>> +	 * (Used jiffies are charged later.)
->>>> +	 */
->>>> +	return q->now + 1;
->>>>  
->>> This (including the last patch) is really confusing - q->now doesn't
->>> contain HZ values but psched ticks. Could you describe the overall
->>> algorithm you're trying to implement please?
->>
->> The algorithm is we want to "continue on the next jiffie". We know
->> we've lost here a lot of time (~2 jiffies), and this will be added
->> later. Since these jiffies are not precise enough wrt. psched ticks
->> or ktime, and we will add around 2000 (for HZ 1000) psched ticks
->> anyway this +1 here simply doesn't matter and can mean "a bit after
->> q->now".
->
-> This might as well return q->now, no?
+Hi,
 
-Yes, but IMHO it looks worse, considering the problem here (we want to
-avoid scheduling in the past).
+On Mon, 2008-11-24 at 11:06 -0500, Michael Kerrisk wrote:
+> Hello Krisztian,
+> 
+> Your 2.6.27 patch adds  the IP_TRANSPARENT socket option.  Could you
+> please supply some documentation (plain text is fine) suitable for
+> inclusion in the ip(7) man page.
 
-> The elapsed time is added
-> on top later anyways. But anyways, I think both the approach and
-> the patch are wrong.
->
-> 	/* charge used jiffies */
-> 	start_at = jiffies - start_at;
-> 	if (start_at > 0)
-> 		next_event += start_at * PSCHED_TICKS_PER_SEC / HZ;
->
-> What relationship does the duration it ran for has to the time it
-> should run at again?
+Although it was Krisztian who originally submitted the patches, but I
+also did some things about them, so here I gave the documentation part a
+spin. 
 
-The scheduling times won't be in the past mostly and hrtimers won't
-trigger too soon, but approximately around we really need and can
-afford a new try without stopping everything else.
+There are some other related options, that are undocumented right now,
+so I tried to give documentation on those as well.
 
-> The focus on jiffies is wrong IMO, the reason why we get high
-> load is because the CPU can't keep up, delaying things even
-> longer is not going to help get the work done. The only reason to
-> look at jiffies is because its a cheap indication that it has
-> ran for too long and we should give other tasks a change to run
-> as well, but it should continue immediately after it did that.
-> So all it should do is make sure that the watchdog is scheduled
-> with a very small positive delay.
+IP_FREEBIND
+	Enable binding to IP addresses that do not currently exist. When 
+	enabled on a TCP or UDP socket, the bind(2) call referencing a 
+	non-existing IP address will succeed. This functionality is useful 
+	if the specified IP address is dynamic (e.g. assigned to a PPP device) 
+	and is down at the time when the application is trying to bind to it. 
+	This setsockopt is the per-socket equivalent to ip_nonlocal_bind sysctl.
 
-This needs additional psched_get_time(), and as I've written before
-there is no apparent advantage in problematic cases, but this would
-add more overhead for common cases.
+IP_TRANSPARENT
+	Enable transparent proxying on this socket. This socket option allows 
+	the calling application to bind to a non-local IP address and operate
+	both as a client and a server with the foreign address as the local 
+	endpoint. NOTE: this requires that routing be set up in a way that 
+	packets going to the foreign address are routed through the tproxy box. 
+	Enabling this socket option requires superuser privileges 
+	(more specifically the CAP_NET_ADMIN capability).
 
-> As for the implementation: the increase in delay (the snippet
-> above) is also done in the case that no packets were available
-> for other reasons (throttling), in which case we might needlessly
-> delay for an extra jiffie if jiffies wrapped while it tried to
-> dequeue.
+	TProxy redirection with the iptables TPROXY target also requires that
+	this option be set on the redirected socket.
 
-But in another similar cases there could be no change in jiffies, but
-almost a jiffie used for counting, so wrong schedule time as well.
-Approximatly this all should be fine, and it still can be tuned later.
-IMHO, this all should not affect "common" cases, which are expected to
-use less then jiffie here.
+IP_RECVORIGDSTADDR
+	Enables the IP_ORIGDSTADDR ancillary message in recvmsg(2) in which 
+	the kernel returns the original destination address of a datagram. The 
+	ancillary message contains a "struct sockaddr_in" instance.
 
-Jarek P.
+-- 
+Bazsi
+
+
