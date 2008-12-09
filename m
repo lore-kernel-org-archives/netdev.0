@@ -1,52 +1,128 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: CIFS regression in 2.6.27.8
-Date: Tue, 9 Dec 2008 15:49:32 -0500
-Message-ID: <20081209154932.0952fbf3@dhcp-100-2-144.bos.redhat.com>
-References: <20900699.post@talk.nabble.com>
-	<84144f020812081128p6d1e2a55v69996a360e7f0e8f@mail.gmail.com>
-	<200812082112.49468.rjw@sisk.pl>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] netpoll: fix race on poll_list resulting in garbage entry
+Date: Tue, 9 Dec 2008 16:06:44 -0500
+Message-ID: <20081209210644.GC3785@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Pekka Enberg" <penberg@cs.helsinki.fi>,
-	"Dennis Hardy" <dhardy@sogetthis.com>,
-	linux-kernel@vger.kernel.org, layton@redhat.com,
-	"Steven French" <sfrench@us.ibm.com>, "Greg KH" <gregkh@suse.de>,
-	netdev@vger.kernel.org, Holger Hoffstaette <holger@wizards.de>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:45565 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752780AbYLIUvR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2008 15:51:17 -0500
-In-Reply-To: <200812082112.49468.rjw@sisk.pl>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44504 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754676AbYLIVIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 16:08:49 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Dec 2008 21:12:48 +0100
-"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+Hey all-
+	A few months back a race was discused between the netpoll napi service
+path, and the fast path through net_rx_action:
+http://kerneltrap.org/mailarchive/linux-netdev/2007/10/16/345470
 
-> On Monday, 8 of December 2008, Pekka Enberg wrote:
-> > Hi Dennis,
-> > 
-> > On Mon, Dec 8, 2008 at 8:18 PM, Dennis Hardy <dhardy@sogetthis.com> wrote:
-> > > I just mounted a network drive (Windows Server) via CIFS under 2.6.27.8, and
-> > > the sizes reported by "df" are completely incorrect:
-> > >
-> > >  root@exodus:~# df -h /mnt/fsv1
-> > >  Filesystem            Size  Used Avail Use% Mounted on
-> > >  //fsv1/Users          446G -222G  667G   -  /mnt/fsv1
-> > >  root@exodus:~# df /mnt/fsv1
-> > >  Filesystem           1K-blocks      Used Available Use% Mounted on
-> > >  //fsv1/Users         467403140 -231816588 699219728   -  /mnt/fsv1
-> > >  root@exodus:~# mount | grep fsv1
-> > >  //fsv1/Users on /mnt/fsv1 type cifs (rw,mand)
-> > >  root@exodus:~#
-> > >
-> > > Does anyone else see this sort of behavior with 2.6.27.8?  This worked fine
-> > > in 2.6.27.6 (we skipped 2.6.27.7)...
-> > >
+A patch was submitted for that bug, but I think we missed a case.
 
-I tried it on both i386 and x86_64 and had no problems. Is this client
-non-x86 by any chance?
+Consider the following scenario:
+
+INITIAL STATE
+CPU0 has one napi_struct A on its poll_list
+CPU1 is calling netpoll_send_skb and needs to call poll_napi on the same
+napi_struct A that CPU0 has on its list
+
+
+
+CPU0						CPU1
+net_rx_action					poll_napi
+!list_empty (returns true)			locks poll_lock for A
+						 poll_one_napi
+						  napi->poll
+						   netif_rx_complete
+						    __napi_complete
+						    (removes A from poll_list)
+list_entry(list->next)
+
+
+In the above scenario, net_rx_action assumes that the per-cpu poll_list is
+exclusive to that cpu.  netpoll of course violates that, and because the netpoll
+path can dequeue from the poll list, its possible for CPU0 to detect a non-empty
+list at the top of the while loop in net_rx_action, but have it become empty by
+the time it calls list_entry.  Since the poll_list isn't surrounded by any other
+structure, the returned data from that list_entry call in this situation is
+garbage, and any number of crashes can result based on what exactly that garbage
+is.
+
+Given that its not fasible for performance reasons to place exclusive locks
+arround each cpus poll list to provide that mutal exclusion, I think the best
+solution is modify the netpoll path in such a way that we continue to guarantee
+that the poll_list for a cpu is in fact exclusive to that cpu.  To do this I've
+implemented the patch below.  It adds an additional bit to the state field in
+the napi_struct.  When executing napi->poll from the netpoll_path, this bit will
+be set. When a driver calls netif_rx_complete, if that bit is set, it will not
+remove the napi_struct from the poll_list.  That work will be saved for the next
+iteration of net_rx_action.
+
+I've tested this and it seems to work well.  About the biggest drawback I can
+see to it is the fact that it might result in an extra loop through
+net_rx_action in the event that the device is actually contended for (i.e. the
+netpoll path actually preforms all the needed work no the device, and the call
+to net_rx_action winds up doing nothing, except removing the napi_struct from
+the poll_list.  However I think this is probably a small price to pay, given
+that the alternative is a crash.
+
+Regards
+Neil
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
+
+ include/linux/netdevice.h |    7 +++++++
+ net/core/netpoll.c        |    2 ++
+ 2 files changed, 9 insertions(+)
+
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9d77b1d..e26f549 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -319,6 +319,7 @@ enum
+ {
+ 	NAPI_STATE_SCHED,	/* Poll is scheduled */
+ 	NAPI_STATE_DISABLE,	/* Disable pending */
++	NAPI_STATE_NPSVC,	/* Netpoll - don't dequeue from poll_list */
+ };
+ 
+ extern void __napi_schedule(struct napi_struct *n);
+@@ -1497,6 +1498,12 @@ static inline void netif_rx_complete(struct net_device *dev,
+ {
+ 	unsigned long flags;
+ 
++	/*
++	 * don't let napi dequeue from the cpu poll list
++	 * just in case its running on a different cpu
++	 */
++	if (unlikely(test_bit(NAPI_STATE_NPSVC, &napi->state)))
++		return;
+ 	local_irq_save(flags);
+ 	__netif_rx_complete(dev, napi);
+ 	local_irq_restore(flags);
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 6c7af39..dadac62 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -133,9 +133,11 @@ static int poll_one_napi(struct netpoll_info *npinfo,
+ 
+ 	npinfo->rx_flags |= NETPOLL_RX_DROP;
+ 	atomic_inc(&trapped);
++	set_bit(NAPI_STATE_NPSVC, &napi->state);
+ 
+ 	work = napi->poll(napi, budget);
+ 
++	clear_bit(NAPI_STATE_NPSVC, &napi->state);
+ 	atomic_dec(&trapped);
+ 	npinfo->rx_flags &= ~NETPOLL_RX_DROP;
+ 
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
