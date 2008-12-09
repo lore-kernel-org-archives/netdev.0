@@ -1,73 +1,137 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used jiffies in
-	htb_dequeue()
-Date: Tue, 9 Dec 2008 11:32:05 +0000
-Message-ID: <20081209113205.GA15353@ff.dom.local>
-References: <20081209102118.GB14862@ff.dom.local> <493E485C.9090706@trash.net>
+From: Thomas Renninger <trenn@suse.de>
+Subject: Re: [PATCH] PCIe ASPM causes machine (HP Compaq 6735s) to sometimes freeze hard at boot at PCI initialization time
+Date: Tue, 9 Dec 2008 13:05:09 +0100
+Message-ID: <200812091305.10824.trenn@suse.de>
+References: <200811281328.55259.trenn@suse.de> <200812081617.52047.trenn@suse.de> <1228785579.9482.2.camel@sli10-desk.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Martin Devera <devik@cdi.cz>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Rafael Wysocki <rwysocki@suse.de>,
+	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Stable@kernel.org" <Stable@kernel.org>
+To: Shaohua Li <shaohua.li@intel.com>,
+	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:41235 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753041AbYLILcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 06:32:11 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so790713nfc.21
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2008 03:32:10 -0800 (PST)
+Received: from mx2.suse.de ([195.135.220.15]:41172 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750829AbYLIMFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2008 07:05:15 -0500
+In-Reply-To: <1228785579.9482.2.camel@sli10-desk.sh.intel.com>
 Content-Disposition: inline
-In-Reply-To: <493E485C.9090706@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 09, 2008 at 11:28:44AM +0100, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
->> Next event time should consider jiffies used for recounting. Otherwise
->> qdisc_watchdog_schedule() triggers hrtimer immediately with the event
->> in the past, and may cause very high ksoftirqd cpu usage (if highres
->> is on). This patch charges jiffies globally, so we can skip this in
->> htb_do_events().
->>
->> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
->> ---
->>  net/sched/sch_htb.c |   14 ++++++++++++--
->>  1 files changed, 12 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
->> index d6eb4a7..102866d 100644
->> --- a/net/sched/sch_htb.c
->> +++ b/net/sched/sch_htb.c
->> @@ -685,8 +685,11 @@ static psched_time_t htb_do_events(struct htb_sched *q, int level)
->>  		if (cl->cmode != HTB_CAN_SEND)
->>  			htb_add_to_wait_tree(q, cl, diff);
->>  	}
->> -	/* too much load - let's continue on next jiffie (including above) */
->> -	return q->now + 2 * PSCHED_TICKS_PER_SEC / HZ;
->> +	/*
->> +	 * Too much load - let's continue on next jiffie.
->> +	 * (Used jiffies are charged later.)
->> +	 */
->> +	return q->now + 1;
->>  
->
-> This (including the last patch) is really confusing - q->now doesn't
-> contain HZ values but psched ticks. Could you describe the overall
-> algorithm you're trying to implement please?
+Hi Jesse,
 
-The algorithm is we want to "continue on the next jiffie". We know
-we've lost here a lot of time (~2 jiffies), and this will be added
-later. Since these jiffies are not precise enough wrt. psched ticks
-or ktime, and we will add around 2000 (for HZ 1000) psched ticks
-anyway this +1 here simply doesn't matter and can mean "a bit after
-q->now".
+can you add this one, please.
+I adjusted the patch to suggestions from Matthew and Shaohua, thus
+added their Signed-offs.
 
-We can try to do this more precisely with additional psched_get_time(),
-instead of jiffies, but my "tests" didn't show any advantage. What
-matters is to avoid longer scheduling with the past time.
+This should still go into .28 as it makes machines boot which
+now freeze since the ASPM patch was introduced.
 
-This case can probably happen only with very low rate limits for a
-large number of classes, and I guess they simply need some spare time,
-not necessarily at psched tick precision.
+Thanks,
 
-Jarek P.
+     Thomas
+
+----
+
+
+PCIe: ASPM: Break out of endless loop waiting for PCI config bits to switch
+
+Makes a Compaq 6735s boot reliably again which hang in the loop
+on some boots.
+Give the link one second to train, otherwise break out of the loop and reset
+the previously set clock bits.
+
+Signed-off-by: Thomas Renninger <trenn@suse.de>
+Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+Signed-off-by: Matthew Garrett <mjg59@srcf.ucam.org>
+
+---
+ drivers/pci/pcie/aspm.c |   29 ++++++++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
+
+Index: linux-2.6.27/drivers/pci/pcie/aspm.c
+===================================================================
+--- linux-2.6.27.orig/drivers/pci/pcie/aspm.c
++++ linux-2.6.27/drivers/pci/pcie/aspm.c
+@@ -16,6 +16,7 @@
+ #include <linux/pm.h>
+ #include <linux/init.h>
+ #include <linux/slab.h>
++#include <linux/jiffies.h>
+ #include <linux/pci-aspm.h>
+ #include "../pci.h"
+ 
+@@ -161,11 +162,12 @@ static void pcie_check_clock_pm(struct p
+  */
+ static void pcie_aspm_configure_common_clock(struct pci_dev *pdev)
+ {
+-	int pos, child_pos;
++	int pos, child_pos, i = 0;
+ 	u16 reg16 = 0;
+ 	struct pci_dev *child_dev;
+ 	int same_clock = 1;
+-
++	unsigned long start_jiffies;
++	u16 child_regs[8], parent_reg;
+ 	/*
+ 	 * all functions of a slot should have the same Slot Clock
+ 	 * Configuration, so just check one function
+@@ -191,16 +193,19 @@ static void pcie_aspm_configure_common_c
+ 		child_pos = pci_find_capability(child_dev, PCI_CAP_ID_EXP);
+ 		pci_read_config_word(child_dev, child_pos + PCI_EXP_LNKCTL,
+ 			&reg16);
++		child_regs[i] = reg16;
+ 		if (same_clock)
+ 			reg16 |= PCI_EXP_LNKCTL_CCC;
+ 		else
+ 			reg16 &= ~PCI_EXP_LNKCTL_CCC;
+ 		pci_write_config_word(child_dev, child_pos + PCI_EXP_LNKCTL,
+ 			reg16);
++		i++;
+ 	}
+ 
+ 	/* Configure upstream component */
+ 	pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
++	parent_reg = reg16;
+ 	if (same_clock)
+ 		reg16 |= PCI_EXP_LNKCTL_CCC;
+ 	else
+@@ -212,12 +217,30 @@ static void pcie_aspm_configure_common_c
+ 	pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
+ 
+ 	/* Wait for link training end */
+-	while (1) {
++	/* break out after waiting for 1 second */
++	start_jiffies = jiffies;
++	while ((jiffies - start_jiffies) < HZ) {
+ 		pci_read_config_word(pdev, pos + PCI_EXP_LNKSTA, &reg16);
+ 		if (!(reg16 & PCI_EXP_LNKSTA_LT))
+ 			break;
+ 		cpu_relax();
+ 	}
++	/* training failed -> recover */
++	if ((jiffies - start_jiffies) >= HZ) {
++		dev_printk (KERN_ERR, &pdev->dev, "ASPM: Could not configure"
++			    " common clock\n");
++		i = 0;
++		list_for_each_entry(child_dev, &pdev->subordinate->devices,
++				    bus_list) {
++			child_pos = pci_find_capability(child_dev,
++							PCI_CAP_ID_EXP);
++			pci_write_config_word(child_dev,
++					      child_pos + PCI_EXP_LNKCTL,
++					      child_regs[i]);
++			i++;
++		}
++		pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, parent_reg);
++	}
+ }
+ 
+ /*
