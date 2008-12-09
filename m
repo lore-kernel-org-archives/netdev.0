@@ -1,36 +1,74 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: Nasty regression from .27.7 to .27.8: idle samba goes crazy
-Date: Tue, 09 Dec 2008 20:16:34 +0100
-Message-ID: <493EC412.3090805@colorfullife.com>
-References: <pan.2008.12.08.06.18.57.357875@wizards.de> <200812080834.22924.rjw@sisk.pl> <pan.2008.12.08.08.07.29.439625@wizards.de> <493D4F5C.7020606@s5r6.in-berlin.de> <493D7349.10200@s5r6.in-berlin.de> <20081208222246.GA29232@sith.mimuw.edu.pl> <20081209123703.043067eb@dhcp-100-2-144.bos.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jan Rekorajski <baggins@sith.mimuw.edu.pl>,
-	linux-kernel@vger.kernel.org,
-	Holger Hoffstaette <holger@wizards.de>, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Greg KH <greg@kroah.com>,
-	stable@kernel.org, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Nadia Derbey <Nadia.Derbey@bull.net>
-To: Chuck Ebbert <cebbert@redhat.com>
+From: holger@eitzenberger.org
+Subject: [patch 2/7] bonding: use table for mode names
+Date: Tue, 09 Dec 2008 21:07:52 +0100
+Message-ID: <20081209201446.222212807@eitzenberger.org>
+References: <20081209200750.490739902@eitzenberger.org>
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f13.google.com ([209.85.218.13]:59549 "EHLO
-	mail-bw0-f13.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754184AbYLITjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 14:39:25 -0500
-Received: by bwz6 with SMTP id 6so215434bwz.13
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2008 11:39:22 -0800 (PST)
-In-Reply-To: <20081209123703.043067eb@dhcp-100-2-144.bos.redhat.com>
+Received: from moutng.kundenserver.de ([212.227.126.188]:61039 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754154AbYLIUOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 15:14:50 -0500
+Content-Disposition: inline; filename=bonding-use-table-for-3ad-mode-names.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chuck Ebbert wrote:
-> Try reverting the idr patch that went into 2.6.27.8. It broke DRM in the
-> Fedora kernel at least.
->
->   
-What happens?
-Does it oops, does one of the BUG() statements trigger?
+Use a small array in bond_mode_name() for the names, thus saving some
+space:
 
---
-    Manfred
+before
+
+    text     data      bss      dec    hex filename
+   57736     9372      344    67452  1077c drivers/net/bonding/bonding.ko
+
+after
+    text     data      bss      dec    hex filename
+   57441     9372      344    67157  10655 drivers/net/bonding/bonding.ko
+
+Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+
+Index: bonding-2.6/drivers/net/bonding/bond_main.c
+===================================================================
+--- bonding-2.6.orig/drivers/net/bonding/bond_main.c	2008-12-08 20:55:52.000000000 +0100
++++ bonding-2.6/drivers/net/bonding/bond_main.c	2008-12-08 22:16:02.000000000 +0100
+@@ -219,24 +219,20 @@
+ 
+ static const char *bond_mode_name(int mode)
+ {
+-	switch (mode) {
+-	case BOND_MODE_ROUNDROBIN :
+-		return "load balancing (round-robin)";
+-	case BOND_MODE_ACTIVEBACKUP :
+-		return "fault-tolerance (active-backup)";
+-	case BOND_MODE_XOR :
+-		return "load balancing (xor)";
+-	case BOND_MODE_BROADCAST :
+-		return "fault-tolerance (broadcast)";
+-	case BOND_MODE_8023AD:
+-		return "IEEE 802.3ad Dynamic link aggregation";
+-	case BOND_MODE_TLB:
+-		return "transmit load balancing";
+-	case BOND_MODE_ALB:
+-		return "adaptive load balancing";
+-	default:
++	static const char *names[] = {
++		[BOND_MODE_ROUNDROBIN] = "load balancing (round-robin)",
++		[BOND_MODE_ACTIVEBACKUP] = "fault-tolerance (active-backup)",
++		[BOND_MODE_XOR] = "load balancing (xor)",
++		[BOND_MODE_BROADCAST] = "fault-tolerance (broadcast)",
++		[BOND_MODE_8023AD]= "IEEE 802.3ad Dynamic link aggregation",
++		[BOND_MODE_TLB] = "transmit load balancing",
++		[BOND_MODE_ALB] = "adaptive load balancing",
++	};
++
++	if (mode < 0 || mode > BOND_MODE_ALB)
+ 		return "unknown";
+-	}
++
++	return names[mode];
+ }
+ 
+ /*---------------------------------- VLAN -----------------------------------*/
+
+-- 
