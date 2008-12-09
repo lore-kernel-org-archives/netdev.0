@@ -1,148 +1,202 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch] Micrel KS8695 integrated ethernet driver
-Date: Tue, 09 Dec 2008 18:10:20 +0000
-Message-ID: <1228846221.3141.5.camel@achroite>
-References: <49394379.9000501@simtec.co.uk>
-	 <1228499870.3520.66.camel@achroite>  <1228741685.19000.91.camel@petitemort>
-	 <1228764912.3177.39.camel@achroite>  <1228843809.17317.34.camel@petitemort>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Subject: bnx2x machine check in bnx2x_ack_int()
+Date: Tue, 9 Dec 2008 12:04:35 -0700
+Message-ID: <200812091204.35296.bjorn.helgaas@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dsilvers@simtec.co.uk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:38155 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754017AbYLISK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 13:10:26 -0500
-In-Reply-To: <1228843809.17317.34.camel@petitemort>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:41424 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754160AbYLITEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 14:04:40 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2008-12-09 at 17:30 +0000, Daniel Silverstone wrote:
-[...]
-> =EF=BB=BFKS8695: Add support for the KS8695 ethernet devices.
->=20
-> Implements the KS8695 ethernet device (ks8695net).
->=20
-> This driver is only of use on the KS8695 which is an ARM9 based SoC. =
-The
-> documentation on this SoC is sparse and poor, with barely a register
-> description and a rough outline of how the ethernet works, this drive=
-r was
-> therefore written with strong reference to the Micrel supplied Linux =
-2.6.9
-> port, and to Andrew Victor's ks8695eth driver.
->=20
-> Signed-off-by: Daniel Silverstone <dsilvers@simtec.co.uk>
-> Signed-off-by: Vincent Sanders <vince@simtec.co.uk>
-> Acked-by: Ben Dooks <ben@simtec.co.uk>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Hi Eilon,
 
->  Kconfig     |    8=20
->  Makefile    |    1=20
->  ks8695net.c | 1674 +++++++++++++++++++++++++++++++++++++++++++++++++=
-+++++++++++
->  ks8695net.h |  107 +++
->  4 files changed, 1790 insertions(+)
->=20
-> Index: net-next-2.6/drivers/net/arm/Kconfig
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- net-next-2.6.orig/drivers/net/arm/Kconfig   2008-12-08 12:55:46.8=
-17658739 +0000
-> +++ net-next-2.6/drivers/net/arm/Kconfig        2008-12-08 12:56:10.2=
-13660241 +0000
-> @@ -40,6 +40,14 @@
->           If you wish to compile a kernel for the AT91RM9200 and enab=
-le
->           ethernet support, then you should always answer Y to this.
-> =20
-> +config ARM_KS8695_ETHER
-> +       tristate "KS8695 Ethernet support"
-> +       depends on ARM && ARCH_KS8695
-> +       select MII
-> +       help
-> +         If you wish to compile a kernel for the KS8695 and want to
-> +         use the internal ethernet then you should answer Y to this.
-> +
->  config EP93XX_ETH
->         tristate "EP93xx Ethernet support"
->         depends on ARM && ARCH_EP93XX
-> Index: net-next-2.6/drivers/net/arm/Makefile
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- net-next-2.6.orig/drivers/net/arm/Makefile  2008-12-08 12:55:46.8=
-41662533 +0000
-> +++ net-next-2.6/drivers/net/arm/Makefile       2008-12-08 12:56:10.2=
-13660241 +0000
-> @@ -8,5 +8,6 @@
->  obj-$(CONFIG_ARM_ETHER3)       +=3D ether3.o
->  obj-$(CONFIG_ARM_ETHER1)       +=3D ether1.o
->  obj-$(CONFIG_ARM_AT91_ETHER)   +=3D at91_ether.o
-> +obj-$(CONFIG_ARM_KS8695_ETHER) +=3D ks8695net.o
->  obj-$(CONFIG_EP93XX_ETH)       +=3D ep93xx_eth.o
->  obj-$(CONFIG_IXP4XX_ETH)       +=3D ixp4xx_eth.o
-> Index: net-next-2.6/drivers/net/arm/ks8695net.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- /dev/null   1970-01-01 00:00:00.000000000 +0000
-> +++ net-next-2.6/drivers/net/arm/ks8695net.c    2008-12-09 17:26:28.4=
-69658828 +0000
-> @@ -0,0 +1,1674 @@
-> +/*
-> + * Micrel KS8695 (Centaur) Ethernet.
-> + *
-> + * This program is free software; you can redistribute it and/or
-> + * modify it under the terms of the GNU General Public License as
-> + * published by the Free Software Foundation; either version 2 of th=
-e
-> + * License, or (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful, b=
-ut
-> + * WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.         See =
-the GNU
-> + * General Public License for more details.
-> + *
-> + * Copyright 2008 Simtec Electronics
-> + *               Daniel Silverstone <dsilvers@simtec.co.uk>
-> + *               Vincent Sanders <vince@simtec.co.uk>
-> + */
-> +
-> +#include <linux/module.h>
-> +#include <linux/ioport.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/init.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/crc32.h>
-> +#include <linux/mii.h>
-> +#include <linux/ethtool.h>
-> +#include <linux/delay.h>
-> +#include <linux/platform_device.h>
-> +#include <linux/irq.h>
-> +#include <linux/delay.h>
-> +#include <linux/io.h>
-> +
-> +#include <asm/irq.h>
-> +
-> +#include <mach/regs-switch.h>
-> +#include <mach/regs-misc.h>
-> +
-> +#include "ks8695net.h"
-> +
-> +#define MODULENAME     "ks8695_ether"
-> +#define MODULEVERSION  "1.01"
-[...]
+I'm using bnx2x 1.45.23 from RHEL5.3s4 on a prototype ia64 platform,
+and I see intermittent machine checks at bnx2x_ack_int+176, which is
+just after __ia64_readl() returns.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+This is a proto with incomplete firmware, and the driver correctly
+complains about that, but it seems like there's still a hole where
+things blow up.
 
+The machine check happens intermittently on boot, but I can reproduce
+it instantly with a loop like this:
+
+  # while /bin/true; do ifup eth6; date; done
+
+Here's some lspci and dmesg information.  I added a little debug in
+bnx2x_ack_int(), so this is a kernel I compiled myself.
+
+Let me know if there's any information I can collect or testing I
+can do.
+
+Thanks,
+  Bjorn
+
+
+
+0001:80:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Subsystem: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Flags: fast devsel, IRQ 56
+        Memory at 40020000000 (64-bit, non-prefetchable) [disabled] [size=8M]
+        Memory at 40020800000 (64-bit, non-prefetchable) [disabled] [size=8M]
+        Capabilities: [48] Power Management version 3
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
+        Capabilities: [a0] MSI-X: Enable- Mask- TabSize=1
+        Capabilities: [ac] Express Endpoint IRQ 0
+        Capabilities: [100] Device Serial Number 00-00-00-00-00-00-00-00
+        Capabilities: [110] Advanced Error Reporting
+        Capabilities: [150] Power Budgeting
+        Capabilities: [160] Virtual Channel
+
+0001:80:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Subsystem: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Flags: fast devsel, IRQ 86
+        Memory at 40021000000 (64-bit, non-prefetchable) [disabled] [size=8M]
+        Memory at 40021800000 (64-bit, non-prefetchable) [disabled] [size=8M]
+        Capabilities: [48] Power Management version 3
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
+        Capabilities: [a0] MSI-X: Enable- Mask- TabSize=1
+        Capabilities: [ac] Express Endpoint IRQ 0
+        Capabilities: [100] Device Serial Number 00-00-00-00-00-00-00-00
+        Capabilities: [110] Advanced Error Reporting
+        Capabilities: [150] Power Budgeting
+        Capabilities: [160] Virtual Channel
+
+0007:80:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Subsystem: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Flags: bus master, fast devsel, latency 0, IRQ 66
+        Memory at 40320000000 (64-bit, non-prefetchable) [size=8M]
+        Memory at 40320800000 (64-bit, non-prefetchable) [size=8M]
+        Capabilities: [48] Power Management version 3
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
+        Capabilities: [a0] MSI-X: Enable- Mask- TabSize=1
+        Capabilities: [ac] Express Endpoint IRQ 0
+        Capabilities: [100] Device Serial Number 00-00-00-00-00-00-00-00
+        Capabilities: [110] Advanced Error Reporting
+        Capabilities: [150] Power Budgeting
+        Capabilities: [160] Virtual Channel
+
+0007:80:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Subsystem: Broadcom Corporation NetXtreme II BCM57710 10Gigabit PCIe [Everest]
+        Flags: bus master, fast devsel, latency 0, IRQ 87
+        Memory at 40321000000 (64-bit, non-prefetchable) [size=8M]
+        Memory at 40321800000 (64-bit, non-prefetchable) [size=8M]
+        Capabilities: [48] Power Management version 3
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
+        Capabilities: [a0] MSI-X: Enable- Mask- TabSize=1
+        Capabilities: [ac] Express Endpoint IRQ 0
+        Capabilities: [100] Device Serial Number 00-00-00-00-00-00-00-00
+        Capabilities: [110] Advanced Error Reporting
+        Capabilities: [150] Power Budgeting
+        Capabilities: [160] Virtual Channel
+
+Linux version 2.6.18-124.el5 (root@tahiti.helgaas) (gcc version 4.1.2 20080704 (Red Hat 4.1.2-44)) #10 SMP Fri Dec 5 12:57:00 MST 2008
+...
+Broadcom NetXtreme II 5771x 10Gigabit Ethernet Driver bnx2x 1.45.23 (2008/11/03)
+ACPI: PCI Interrupt 0001:80:00.0[A] -> GSI 33 (level, low) -> IRQ 56
+[bnx2x_get_hwinfo:7490(eth0)]warning random MAC workaround active
+bnx2x: MCP disabled, must load devices in order!
+eth0: Broadcom NetXtreme II BCM57710 XGb (A1) PCI-E x8 2.5GHz found at mem 40020000000, IRQ 56, node addr 5a12c9643ce9
+GSI 34 (level, low) -> CPU 5 (0x1100) vector 86
+ACPI: PCI Interrupt 0001:80:00.1[B] -> GSI 34 (level, low) -> IRQ 86
+[bnx2x_get_hwinfo:7490(eth1)]warning random MAC workaround active
+eth1: Broadcom NetXtreme II BCM57710 XGb (A1) PCI-E x8 2.5GHz found at mem 40021000000, IRQ 86, node addr 3a7a42d2f596
+ACPI: PCI Interrupt 0007:80:00.0[A] -> GSI 201 (level, low) -> IRQ 66
+[bnx2x_get_hwinfo:7490(eth2)]warning random MAC workaround active
+bnx2x: MCP disabled, must load devices in order!
+eth2: Broadcom NetXtreme II BCM57710 XGb (A1) PCI-E x8 2.5GHz found at mem 40320000000, IRQ 66, node addr 02af31dabdd3
+GSI 202 (level, low) -> CPU 6 (0x1200) vector 87
+ACPI: PCI Interrupt 0007:80:00.1[B] -> GSI 202 (level, low) -> IRQ 87
+[bnx2x_get_hwinfo:7490(eth3)]warning random MAC workaround active
+eth3: Broadcom NetXtreme II BCM57710 XGb (A1) PCI-E x8 2.5GHz found at mem 40321000000, IRQ 87, node addr ae914301e30b
+...
+
+Bringing up interface eth6:  
+Determining IP information for eth6...bnx2x_ack_int bp 0xe0001140f8972500 hc_addr 0x108198 addr 0xc000040020108198
+[bnx2x_init_common:5394(eth6)]Bootcode is missing - can not initialize link
+[bnx2x__link_reset:2001(eth6)]Bootcode is missing -not resetting link
+bnx2x_ack_int bp 0xe0001140f8972500 hc_addr 0x108198 addr 0xc000040020108198
+[bnx2x_initial_phy_init:1978(eth6)]Bootcode is missing -not initializing link
+bnx2x_ack_int bp 0xe0001140f8972500 hc_addr 0x108198 addr 0xc000040020108198
+bnx2x_ack_int bp 0xe0001140f8972500 hc_addr 0x108198 addr 0xc000040020108198
+ADDRCONF(NETDEV_UP): eth6: link is not ready
+ failed; no link present.  Check cable?
+bnx2x_ack_int bp 0xe0001140f8972500 hc_addr 0x108198 addr 0xc000040020108198
+[bnx2x__link_reset:2001(eth6)]Bootcode is missing -not resetting link
+[FAILED]
+Bringing up interface eth7:  
+Determining IP information for eth7...bnx2x_ack_int bp 0xe0001140f8970500 hc_addr 0x1081b8 addr 0xc0000400211081b8
+[bnx2x_init_common:5394(eth7)]Bootcode is missing - can not initialize link
+[bnx2x__link_reset:2001(eth7)]Bootcode is missing -not resetting link
+bnx2x_ack_int bp 0xe0001140f8970500 hc_addr 0x1081b8 addr 0xc0000400211081b8
+[bnx2x_initial_phy_init:1978(eth7)]Bootcode is missing -not initializing link
+bnx2x_ack_int bp 0xe0001140f8970500 hc_addr 0x1081b8 addr 0xc0000400211081b8
+bnx2x_ack_int bp 0xe0001140f8970500 hc_addr 0x1081b8 addr 0xc0000400211081b8
+ADDRCONF(NETDEV_UP): eth7: link is not ready
+ failed; no link present.  Check cable?
+bnx2x_ack_int bp 0xe0001140f8970500 hc_addr 0x1081b8 addr 0xc0000400211081b8
+[bnx2x__link_reset:2001(eth7)]Bootcode is missing -not resetting link
+[FAILED]
+Bringing up interface eth8:  
+Determining IP information for eth8...bnx2x_ack_int bp 0xe0001140f896e500 hc_addr 0x108198 addr 0xc000040320108198
+[bnx2x_init_common:5394(eth8)]Bootcode is missing - can not initialize link
+[bnx2x__link_reset:2001(eth8)]Bootcode is missing -not resetting link
+bnx2x_ack_int bp 0xe0001140f896e500 hc_addr 0x108198 addr 0xc000040320108198
+[bnx2x_initial_phy_init:1978(eth8)]Bootcode is missing -not initializing link
+bnx2x_ack_int bp 0xe0001140f896e500 hc_addr 0x108198 addr 0xc000040320108198
+bnx2x_ack_int bp 0xe0001140f896e500 hc_addr 0x108198 addr 0xc000040320108198
+ADDRCONF(NETDEV_UP): eth8: link is not ready
+ failed; no link present.  Check cable?
+bnx2x_ack_int bp 0xe0001140f896e500 hc_addr 0x108198 addr 0xc000040320108198
+[bnx2x__link_reset:2001(eth8)]Bootcode is missing -not resetting link
+[FAILED]
+Bringing up interface eth9:  
+Determining IP information for eth9...bnx2x_ack_int bp 0xe0001140f896c500 hc_addr 0x1081b8 addr 0xc0000403211081b8
+[bnx2x_init_common:5394(eth9)]Bootcode is missing - can not initialize link
+[bnx2x__link_reset:2001(eth9)]Bootcode is missing -not resetting link
+bnx2x_ack_int bp 0xe0001140f896c500 hc_addr 0x1081b8 addr 0xc0000403211081b8
+[bnx2x_initial_phy_init:1978(eth9)]Bootcode is missing -not initializing link
+bnx2x_ack_int bp 0xe0001140f896c500 hc_addr 0x1081b8 addr 0xc0000403211081b8
+bnx2x_ack_int bp 0xe0001140f896c500 hc_addr 0x1081b8 addr 0xc0000403211081b8
+ADDRCONF(NETDEV_UP): eth9: link is not ready
+ failed; no link present.  Check cable?
+bnx2x_ack_int bp 0xe0001140f896c500 hc_addr 0x1081b8 addr 0xc0000403211081b8
+[bnx2x__link_reset:2001(eth9)]Bootcode is missing -not resetting link
+[FAILED]
+...
+
+
+[root@localhost ~]# while /bin/true; do ifup eth6; date; done
+
+Determining IP information for eth6...bnx2x_ack_int bp 0xe0001140ffef6500 hc_addr 0x108198 addr 0xc000040020108198
+[bnx2x_init_common:5394(eth6)]Bootcode is missing - can not initialize link
+[bnx2x__link_reset:2001(eth6)]Bootcode is missing -not resetting link
+bnx2x_ack_int bp 0xe0001140ffef6500 hc_addr 0x108198 addr 0xc000040020108198
+[bnx2x_initial_phy_init:1978(eth6)]Bootcode is missing -not initializing link
+bnx2x_ack_int bp 0xe0001140ffef6500 hc_addr 0x108198 addr 0xc000040020108198
+bnx2x_ack_int bp 0xe0001140ffef6500 hc_addr 0x108198 addr 0xc000040020108198
+ADDRCONF(NETDEV_UP): eth6: link is not ready
+ failed; no link present.  Check cable?
+bnx2x_ack_int bp 0xe0001140ffef6500 hc_addr 0x108198 addr 0xc000040020108198
+[bnx2x__link_reset:2001(eth6)]Bootcode is missing -not resetting link
+Sat Nov 29 06:27:53 MST 2008
+
+Determining IP information for eth6...bnx2x_ack_int bp 0xe0001140ffef6500 hc_addr 0x108198 addr 0xc000040020108198
+[Sending CFW FIFO message (0x12000102) Local MCA (18) partition 0 CPU LID = 258 (0x102) to PDH 0 ... sent.]
+
+sequencer: MCA on cpu17.
+
+MCA occurred : iip=0xA00000010040D1B0, ipsr=0x0000101008526030, ipfs=0x800000000000030B.
