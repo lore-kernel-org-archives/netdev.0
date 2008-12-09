@@ -1,101 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used jiffies in	htb_dequeue()
-Date: Tue, 09 Dec 2008 14:20:00 +0100
-Message-ID: <493E7080.5060308@trash.net>
-References: <20081209102118.GB14862@ff.dom.local> <493E485C.9090706@trash.net> <20081209113205.GA15353@ff.dom.local> <493E63AB.80400@trash.net> <20081209130803.GB15353@ff.dom.local>
+From: "Alexander Beregalov" <a.beregalov@gmail.com>
+Subject: next-20081209: build problem at arch/ia64/hp/sim/simeth.c
+Date: Tue, 9 Dec 2008 17:11:17 +0300
+Message-ID: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Martin Devera <devik@cdi.cz>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63610 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073AbYLINUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 08:20:06 -0500
-In-Reply-To: <20081209130803.GB15353@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-next@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	linux-ia64@vger.kernel.org
+Return-path: <linux-ia64-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Tue, Dec 09, 2008 at 01:25:15PM +0100, Patrick McHardy wrote:
->> Jarek Poplawski wrote:
->>> The algorithm is we want to "continue on the next jiffie". We know
->>> we've lost here a lot of time (~2 jiffies), and this will be added
->>> later. Since these jiffies are not precise enough wrt. psched ticks
->>> or ktime, and we will add around 2000 (for HZ 1000) psched ticks
->>> anyway this +1 here simply doesn't matter and can mean "a bit after
->>> q->now".
->> This might as well return q->now, no?
-> 
-> Yes, but IMHO it looks worse, considering the problem here (we want to
-> avoid scheduling in the past).
-
-I guess its a matter of taste.
-
->> The elapsed time is added
->> on top later anyways. But anyways, I think both the approach and
->> the patch are wrong.
->>
->> 	/* charge used jiffies */
->> 	start_at = jiffies - start_at;
->> 	if (start_at > 0)
->> 		next_event += start_at * PSCHED_TICKS_PER_SEC / HZ;
->>
->> What relationship does the duration it ran for has to the time it
->> should run at again?
-> 
-> The scheduling times won't be in the past mostly and hrtimers won't
-> trigger too soon, but approximately around we really need and can
-> afford a new try without stopping everything else.
-
-Sure. But it also won't be in the past if we simply add .. lets say
-the current uptime in ms. My point was that there's absolutely no
-relationship between those two times and combining them just to
-get a value thats not in the past is wrong. Especially considering
-*why* we want a value in the future and what we'll get from that
-calculation.
-
->> The focus on jiffies is wrong IMO, the reason why we get high
->> load is because the CPU can't keep up, delaying things even
->> longer is not going to help get the work done. The only reason to
->> look at jiffies is because its a cheap indication that it has
->> ran for too long and we should give other tasks a change to run
->> as well, but it should continue immediately after it did that.
->> So all it should do is make sure that the watchdog is scheduled
->> with a very small positive delay.
-> 
-> This needs additional psched_get_time(), and as I've written before
-> there is no apparent advantage in problematic cases, but this would
-> add more overhead for common cases.
-
-htb_do_events() exceeding two jiffies is fortunately not a common
-case. You (incorrectly) made the calculation somewhat of a common
-case by also adding to the delay if the inner classes simply throttled
-and already returned the exact delay they want.
-
-Much better (again considering what we want to achieve here) would
-be to not use the hrtimer watchdog at all. We want to give lower
-priority tasks a chance to run, so ideally we'd use a low priority
-task for wakeup.
-
->> As for the implementation: the increase in delay (the snippet
->> above) is also done in the case that no packets were available
->> for other reasons (throttling), in which case we might needlessly
->> delay for an extra jiffie if jiffies wrapped while it tried to
->> dequeue.
-> 
-> But in another similar cases there could be no change in jiffies, but
-> almost a jiffie used for counting, so wrong schedule time as well.
-
-Its not "wrong". We don't want to delay. Its a courtesy to the
-remaining system.
-
-> Approximatly this all should be fine, and it still can be tuned later.
-> IMHO, this all should not affect "common" cases, which are expected to
-> use less then jiffie here.
-
-Jiffies might wrap even if it only took only a few nanoseconds.
-And its not fine, in the case of throttled classes there's no
-reason to add extra delay *at all*.
+  CC      arch/ia64/hp/sim/simeth.o
+arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
+arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no
+member named 'open'
+arch/ia64/hp/sim/simeth.c:213: error: 'struct net_device' has no
+member named 'stop'
+arch/ia64/hp/sim/simeth.c:214: error: 'struct net_device' has no
+member named 'hard_start_xmit'
+arch/ia64/hp/sim/simeth.c:215: error: 'struct net_device' has no
+member named 'get_stats'
+arch/ia64/hp/sim/simeth.c:216: error: 'struct net_device' has no
+member named 'set_multicast_list'
