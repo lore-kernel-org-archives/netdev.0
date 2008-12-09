@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Phonet: improve GPRS variable names
-Date: Tue, 09 Dec 2008 15:29:11 -0800 (PST)
-Message-ID: <20081209.152911.101587849.davem@davemloft.net>
-References: <20081208.034533.97506116.davem@davemloft.net>
-	<1228808759-8016-1-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: [patch] sumgem: improve ethtool output with fibre card using
+ the internal pcs and a serdes
+Date: Tue, 09 Dec 2008 15:39:40 -0800 (PST)
+Message-ID: <20081209.153940.253066469.davem@davemloft.net>
+References: <20081128000059.GA13712@lemon.iwr.uni-heidelberg.de>
+	<20081201.233539.77173438.davem@davemloft.net>
+	<20081204113434.GC15643@lemon.iwr.uni-heidelberg.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+To: Hermann.Lauer@iwr.uni-heidelberg.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34456
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45264
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752129AbYLIX3K convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2008 18:29:10 -0500
-In-Reply-To: <1228808759-8016-1-git-send-email-remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1752357AbYLIXjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 18:39:39 -0500
+In-Reply-To: <20081204113434.GC15643@lemon.iwr.uni-heidelberg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-Date: Tue,  9 Dec 2008 09:45:59 +0200
+From: Hermann Lauer <Hermann.Lauer@iwr.uni-heidelberg.de>
+Date: Thu, 4 Dec 2008 12:34:34 +0100
 
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> Attached is a patch which improves the output of ethtool (see below) to
+> some sensefull values with a sungem fibre card which uses the 
+> sungem interal pcs connected to a serdes chip. The seriallink case
+> in the driver is untouched.
+> 
+> Most values are hardcoded, because gigabit fibre autoneg is anyways
+> limited and the driver don't really support much at the moment
+> with that hardware.
+> 
+> Please consider for inclusion or comment.
+> Thanks,
+>   Hermann
 
-Since this depends upon the buggy refcount change, I'm
-tossing this and will wait for an updated version once
-everything is sorted out.
+Patch applied, thanks Hermann.
