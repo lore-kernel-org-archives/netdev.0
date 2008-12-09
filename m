@@ -1,103 +1,39 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH] tc35815: Enable StripCRC feature
-Date: Wed, 10 Dec 2008 00:15:06 +0900 (JST)
-Message-ID: <20081210.001506.72707763.anemo@mba.ocn.ne.jp>
+From: Christian Hohnstaedt <christian@hohnstaedt.de>
+Subject: Re: qmgr for ixp4xx
+Date: Tue, 9 Dec 2008 17:44:20 +0100
+Message-ID: <20081209164420.GY16037@mail3.prorata.de>
+References: <b0438a630812021044q31845224s206f3998423289af@mail.gmail.com> <m3zljby7jm.fsf@maximus.localdomain> <b0438a630812050051v6393ae1at40b3669389dd394e@mail.gmail.com> <m31vwmlidh.fsf@maximus.localdomain> <b0438a630812050859jd9fd55ah5fb3608a964f9567@mail.gmail.com> <m3fxl2jx0v.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Miguel ?ngel ?lvarez <gotzoncabanes@gmail.com>,
+	netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:60109 "EHLO smtp.mba.ocn.ne.jp"
+Received: from mail3.prorata.de ([62.145.31.200]:46617 "EHLO mail3.prorata.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753241AbYLIPPB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2008 10:15:01 -0500
+	id S1752713AbYLIQvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2008 11:51:08 -0500
+Content-Disposition: inline
+In-Reply-To: <m3fxl2jx0v.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The chip can strip CRC automatically on receiving.  Enable it.
+On Fri, Dec 05, 2008 at 07:29:36PM +0100, Krzysztof Halasa wrote:
+> "Miguel ?ngel ?lvarez" <gotzoncabanes@gmail.com> writes:
+> 
+> > I will check for the 64-queue support patch (thanks Karl). However, if
+> > I am not sure they are required. I mean...
+> > - HSS0 uses queues 12-22.
+> > - HSS1 uses queues 0-10.
+> > - That leaves us 10 queues free, doesn't it? Couldn't we use queue 11
+> > for eth txreadyq, 23-26 for HSS0 txreadyq, 27-30 for HSS1 txreadyq and
+> > 31 for crypto code (which I do not know?)
+> 
+> Ethernet needs 3 queues per port + 1 (465 CPUs can have 3 Ethernet
+> ports), the crypto code probably needs several ones.
 
-Also fix potential RX_BUF_SIZE calculation bug which was obscured by
-alignment.  And use proper symbols (NET_IP_ALIGN, ETH_FCS_LEN, etc.)
-instead of magic numbers.
+Crypto needs 2 queues: 29 and 30.
+The numbers are fixed in the microcode, I think.
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
- drivers/net/tc35815.c |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index 385b174..34a599d 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -37,6 +37,7 @@ static const char *version = "tc35815.c:v" DRV_VERSION "\n";
- #include <linux/interrupt.h>
- #include <linux/ioport.h>
- #include <linux/in.h>
-+#include <linux/if_vlan.h>
- #include <linux/slab.h>
- #include <linux/string.h>
- #include <linux/spinlock.h>
-@@ -341,7 +342,7 @@ struct BDesc {
- 	Tx_En)	/* maybe  0x7b01 */
- #endif
- #define RX_CTL_CMD	(Rx_EnGood | Rx_EnRxPar | Rx_EnLongErr | Rx_EnOver \
--	| Rx_EnCRCErr | Rx_EnAlign | Rx_RxEn)	/* maybe 0x6f01 */
-+	| Rx_EnCRCErr | Rx_EnAlign | Rx_StripCRC | Rx_RxEn) /* maybe 0x6f11 */
- #define INT_EN_CMD  (Int_NRAbtEn | \
- 	Int_DmParErrEn | Int_DParDEn | Int_DParErrEn | \
- 	Int_SSysErrEn  | Int_RMasAbtEn | Int_RTargAbtEn | \
-@@ -373,9 +374,11 @@ struct BDesc {
- #if RX_CTL_CMD & Rx_LongEn
- #define RX_BUF_SIZE	PAGE_SIZE
- #elif RX_CTL_CMD & Rx_StripCRC
--#define RX_BUF_SIZE	ALIGN(ETH_FRAME_LEN + 4 + 2, 32) /* +2: reserve */
-+#define RX_BUF_SIZE	\
-+	L1_CACHE_ALIGN(ETH_FRAME_LEN + VLAN_HLEN + NET_IP_ALIGN)
- #else
--#define RX_BUF_SIZE	ALIGN(ETH_FRAME_LEN + 2, 32) /* +2: reserve */
-+#define RX_BUF_SIZE	
-+	L1_CACHE_ALIGN(ETH_FRAME_LEN + VLAN_HLEN + ETH_FCS_LEN + NET_IP_ALIGN)
- #endif
- #endif /* TC35815_USE_PACKEDBUFFER */
- #define RX_FD_RESERVE	(2 / 2)	/* max 2 BD per RxFD */
-@@ -1670,7 +1673,7 @@ tc35815_rx(struct net_device *dev)
- 		struct RxFD *next_rfd;
- #endif
- #if (RX_CTL_CMD & Rx_StripCRC) == 0
--		pkt_len -= 4;
-+		pkt_len -= ETH_FCS_LEN;
- #endif
- 
- 		if (netif_msg_rx_status(lp))
-@@ -1689,14 +1692,14 @@ tc35815_rx(struct net_device *dev)
- #endif
- #ifdef TC35815_USE_PACKEDBUFFER
- 			BUG_ON(bd_count > 2);
--			skb = dev_alloc_skb(pkt_len + 2); /* +2: for reserve */
-+			skb = dev_alloc_skb(pkt_len + NET_IP_ALIGN);
- 			if (skb == NULL) {
- 				printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n",
- 				       dev->name);
- 				dev->stats.rx_dropped++;
- 				break;
- 			}
--			skb_reserve(skb, 2);   /* 16 bit alignment */
-+			skb_reserve(skb, NET_IP_ALIGN);
- 
- 			data = skb_put(skb, pkt_len);
- 
-@@ -1748,8 +1751,9 @@ tc35815_rx(struct net_device *dev)
- 			pci_unmap_single(lp->pci_dev,
- 					 lp->rx_skbs[cur_bd].skb_dma,
- 					 RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
--			if (!HAVE_DMA_RXALIGN(lp))
--				memmove(skb->data, skb->data - 2, pkt_len);
-+			if (!HAVE_DMA_RXALIGN(lp) && NET_IP_ALIGN)
-+				memmove(skb->data, skb->data - NET_IP_ALIGN,
-+					pkt_len);
- 			data = skb_put(skb, pkt_len);
- #endif /* TC35815_USE_PACKEDBUFFER */
- 			if (netif_msg_pktdata(lp))
--- 
-1.5.6.3
+Christian
 
