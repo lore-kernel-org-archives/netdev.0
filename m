@@ -1,39 +1,62 @@
-From: Christian Hohnstaedt <christian@hohnstaedt.de>
-Subject: Re: qmgr for ixp4xx
-Date: Tue, 9 Dec 2008 17:44:20 +0100
-Message-ID: <20081209164420.GY16037@mail3.prorata.de>
-References: <b0438a630812021044q31845224s206f3998423289af@mail.gmail.com> <m3zljby7jm.fsf@maximus.localdomain> <b0438a630812050051v6393ae1at40b3669389dd394e@mail.gmail.com> <m31vwmlidh.fsf@maximus.localdomain> <b0438a630812050859jd9fd55ah5fb3608a964f9567@mail.gmail.com> <m3fxl2jx0v.fsf@maximus.localdomain>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [PATCH 0/8] netns: make IPv6 multicast forwarding per-namespace
+Date: Tue, 09 Dec 2008 17:56:03 +0100
+Message-ID: <493EA323.5050806@bull.net>
+References: <20081208160156.343758157@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Miguel ?ngel ?lvarez <gotzoncabanes@gmail.com>,
-	netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev <netdev@vger.kernel.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.prorata.de ([62.145.31.200]:46617 "EHLO mail3.prorata.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752713AbYLIQvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Dec 2008 11:51:08 -0500
-Content-Disposition: inline
-In-Reply-To: <m3fxl2jx0v.fsf@maximus.localdomain>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:43913 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753398AbYLIQ4G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 11:56:06 -0500
+In-Reply-To: <20081208160156.343758157@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 05, 2008 at 07:29:36PM +0100, Krzysztof Halasa wrote:
-> "Miguel ?ngel ?lvarez" <gotzoncabanes@gmail.com> writes:
+Dave,
+
+While doing some more tests on the patchset I've realized that the queue
+of unresolved entries (mfc_unres_queue) should also be allocated
+per-netns (or at least counter cache_resolve_queue_len should be).
+
+With the current patchset, the cache for unresolved entries is limited
+to 10 entries for all namespaces. D'oh.
+
+I'm looking at this issue and  will resend the patchset with the missing
+patch ASAP.
+
+Benjamin
+
+Benjamin Thery wrote:
+> This patchset introduces the support for network namespaces in IPv6
+> multicast forwarding code (net/ipv6/ip6mr.c).
 > 
-> > I will check for the 64-queue support patch (thanks Karl). However, if
-> > I am not sure they are required. I mean...
-> > - HSS0 uses queues 12-22.
-> > - HSS1 uses queues 0-10.
-> > - That leaves us 10 queues free, doesn't it? Couldn't we use queue 11
-> > for eth txreadyq, 23-26 for HSS0 txreadyq, 27-30 for HSS1 txreadyq and
-> > 31 for crypto code (which I do not know?)
+> The first patches in the series moves global data from ip6mr.c into 
+> struct netns_ipv6 to prepare netns support. Data are still referenced in
+> init_net only. One of these patches makes the related /proc entries
+> per-namespace.
 > 
-> Ethernet needs 3 queues per port + 1 (465 CPUs can have 3 Ethernet
-> ports), the crypto code probably needs several ones.
+> The last patch does the main job and enables the network namespace support
+> by replacing all the init_net references with the proper net retrieved
+> from sockets or net devices.
+> 
+> The patchset applies on top of net-next-2.6
+> 
+> Regards,
+> Benjamin
+> 
+> 
+> 
 
-Crypto needs 2 queues: 29 and 30.
-The numbers are fixed in the microcode, I think.
 
-Christian
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
 
+    http://www.bull.com
