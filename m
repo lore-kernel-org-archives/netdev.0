@@ -1,48 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: sumgem problems with initializiation order at a 1000SX SERDES
- card [experimental patch]
-Date: Tue, 09 Dec 2008 00:06:31 -0800 (PST)
-Message-ID: <20081209.000631.18791640.davem@davemloft.net>
-References: <20081128000059.GA13712@lemon.iwr.uni-heidelberg.de>
-	<20081204.173324.136036003.davem@davemloft.net>
-	<20081208155936.GD16754@lemon.iwr.uni-heidelberg.de>
+Subject: Re: [PATCH 2.6.27] tcp_vegas cong avoid fix
+Date: Tue, 09 Dec 2008 00:13:38 -0800 (PST)
+Message-ID: <20081209.001338.157454265.davem@davemloft.net>
+References: <20081205164743.GB18146@scriptng>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hermann.Lauer@iwr.uni-heidelberg.de
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: doug.leith@nuim.ie
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43118
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60323
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751962AbYLIIGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 03:06:30 -0500
-In-Reply-To: <20081208155936.GD16754@lemon.iwr.uni-heidelberg.de>
+	by vger.kernel.org with ESMTP id S1753266AbYLIINh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 03:13:37 -0500
+In-Reply-To: <20081205164743.GB18146@scriptng>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hermann Lauer <Hermann.Lauer@iwr.uni-heidelberg.de>
-Date: Mon, 8 Dec 2008 16:59:36 +0100
+From: Douglas Leith <doug.leith@nuim.ie>
+Date: Fri, 5 Dec 2008 16:47:43 +0000
 
-> On Thu, Dec 04, 2008 at 05:33:24PM -0800, David Miller wrote:
+> This patch addresses a book-keeping issue in tcp_vegas.c.   At present tcp_vegas
+> does separate book-keeping of cwnd based on packet sequence numbers.  A mismatch can develop between this
+> book-keeping and tp->snd_cwnd due, for example, to delayed acks acking
+> multiple packets.  When vegas transitions to reno operation (e.g. following
+> loss), then this mismatch leads to incorrect behaviour (akin to a cwnd
+> backoff).  This seems mostly to affect operation at low cwnds where delayed acking can 
+> lead to a significant fraction of cwnd being covered by a single ack, leading to the 
+> book-keeping mismatch.  This patch modifies the congestion avoidance update to avoid 
+> the need for separate book-keeping while leaving vegas congestion avoidance functionally 
+> unchanged.  A secondary advantage of this modification is that the use of fixed-point 
+> (via V_PARAM_SHIFT) and 64 bit arithmetic is no longer necessary, simplifying the code.
 > 
-> > And this new code is just a copy of the PHY init sequence on
-> > PCS, so we should split that out into a helper function instead
-> > of duplicating it.
-> > 
-> > Any time gem_reset() is invoked, the PCS is going to need to be
-> > reset like this, so let's do the advertisement reinit there.
-> > 
-> > Does this version of the fix work for you?
+> Some example test measurements with the patched code (confirming no functional
+> change in the congestion avoidance algorithm) can be seen at:
 > 
-> Yes, works the same. It has some delay before receiving packets works
-> after an ifconfig up or a reestablishing of the link, but thats
-> the same as with the experimental patch.
-> Probably the link state handling has to be improved, I'm not
-> shure my experimental patch was correct there.
+> http://www.hamilton.ie/doug/vegaspatch/
 > 
-> But as the driver is working now with this patch on this hardware
-> and not without - please commit.
+> 
+> Signed-off-by:  Doug Leith <doug.leith@nuim.ie>
 
-I agree, and that's what I'll do.
+Applied, thanks a lot Doug.
 
-Thanks for testing.
+> --- net/ipv4/tcp_vegas.c.orig	2008-12-04 23:51:19.000000000 +0000
+> +++ net/ipv4/tcp_vegas.c	2008-12-05 15:04:11.000000000 +0000
+
+I remember asking you to -p1 root your patches last time,
+or did I? :-)
