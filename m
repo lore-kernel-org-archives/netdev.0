@@ -1,26 +1,1138 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: next-20081209: build problem at arch/ia64/hp/sim/simeth.c
-Date: Tue, 9 Dec 2008 17:11:17 +0300
-Message-ID: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: [PATCH 05/11] benet: hwlib event, completion queue and function
+ object low-level routines
+Date: Tue, 09 Dec 2008 19:50:24 +0530
+Message-ID: <1228832425.6435.98.camel@sperla-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: linux-next@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	linux-ia64@vger.kernel.org
-Return-path: <linux-ia64-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-ia64-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jeff Garzik <jgarzik@pobox.com>, Jeff Garzik <jeff@garzik.org>,
+	subbu <subbus@serverengines.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail192.messagelabs.com ([216.82.241.243]:41350 "EHLO
+	mail192.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755253AbYLIOUj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 09:20:39 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  CC      arch/ia64/hp/sim/simeth.o
-arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
-arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no
-member named 'open'
-arch/ia64/hp/sim/simeth.c:213: error: 'struct net_device' has no
-member named 'stop'
-arch/ia64/hp/sim/simeth.c:214: error: 'struct net_device' has no
-member named 'hard_start_xmit'
-arch/ia64/hp/sim/simeth.c:215: error: 'struct net_device' has no
-member named 'get_stats'
-arch/ia64/hp/sim/simeth.c:216: error: 'struct net_device' has no
-member named 'set_multicast_list'
+
+Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+---
+ drivers/net/benet/cq.c      |  211 ++++++++++++++++
+ drivers/net/benet/eq.c      |  299 +++++++++++++++++++++++
+ drivers/net/benet/funcobj.c |  565 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 1075 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/benet/cq.c
+ create mode 100644 drivers/net/benet/eq.c
+ create mode 100644 drivers/net/benet/funcobj.c
+
+diff --git a/drivers/net/benet/cq.c b/drivers/net/benet/cq.c
+new file mode 100644
+index 0000000..6504586
+--- /dev/null
++++ b/drivers/net/benet/cq.c
+@@ -0,0 +1,211 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++#include "hwlib.h"
++#include "bestatus.h"
++
++/*
++ * Completion Queue Objects
++ */
++/*
++ *============================================================================
++ *                  P U B L I C  R O U T I N E S
++ *============================================================================
++ */
++
++/*
++    This routine creates a completion queue based on the client completion
++    queue configuration information.
++
++
++    FunctionObject      - Handle to a function object
++    CqBaseVa            - Base VA for a the CQ ring
++    NumEntries          - CEV_CQ_CNT_* values
++    solEventEnable      - 0 = All CQEs can generate Events if CQ is eventable
++			1 = only CQEs with solicited bit set are eventable
++    eventable           - Eventable CQ, generates interrupts.
++    nodelay             - 1 = Force interrupt, relevent if CQ eventable.
++			Interrupt is asserted immediately after EQE
++			write is confirmed, regardless of EQ Timer
++			or watermark settings.
++    wme                 - Enable watermark based coalescing
++    wmThresh            - High watermark(CQ fullness at which event
++			or interrupt should be asserted).  These are the
++			CEV_WATERMARK encoded values.
++    EqObject            - EQ Handle to assign to this CQ
++    ppCqObject          - Internal CQ Handle returned.
++
++    Returns BE_SUCCESS if successfull, otherwise a useful error code is
++	returned.
++
++    IRQL < DISPATCH_LEVEL
++
++*/
++int be_cq_create(struct be_function_object *pfob,
++	struct ring_desc *rd, u32 length, bool solicited_eventable,
++	bool no_delay, u32 wm_thresh,
++	struct be_eq_object *eq_object, struct be_cq_object *cq_object)
++{
++	int status = BE_SUCCESS;
++	u32 num_entries_encoding;
++	u32 num_entries = length / sizeof(struct MCC_CQ_ENTRY_AMAP);
++	struct FWCMD_COMMON_CQ_CREATE *fwcmd = NULL;
++	struct MCC_WRB_AMAP *wrb = NULL;
++	u32 n;
++	unsigned long irql;
++
++	ASSERT(rd);
++	ASSERT(cq_object);
++	ASSERT(length % sizeof(struct MCC_CQ_ENTRY_AMAP) == 0);
++
++	switch (num_entries) {
++	case 256:
++		num_entries_encoding = CEV_CQ_CNT_256;
++		break;
++	case 512:
++		num_entries_encoding = CEV_CQ_CNT_512;
++		break;
++	case 1024:
++		num_entries_encoding = CEV_CQ_CNT_1024;
++		break;
++	default:
++		ASSERT(0);
++		return BE_STATUS_INVALID_PARAMETER;
++	}
++
++	/*
++	 * All cq entries all the same size.  Use iSCSI version
++	 * as a test for the proper rd length.
++	 */
++	memset(cq_object, 0, sizeof(*cq_object));
++
++	atomic_set(&cq_object->ref_count, 0);
++	cq_object->parent_function = pfob;
++	cq_object->eq_object = eq_object;
++	cq_object->num_entries = num_entries;
++	/* save for MCC cq processing */
++	cq_object->va = rd->va;
++
++	/* map into UT. */
++	length = num_entries * sizeof(struct MCC_CQ_ENTRY_AMAP);
++
++	spin_lock_irqsave(&pfob->post_lock, irql);
++
++	wrb = be_function_peek_mcc_wrb(pfob);
++	if (!wrb) {
++		ASSERT(wrb);
++		TRACE(DL_ERR, "No free MCC WRBs in create EQ.");
++		status = BE_STATUS_NO_MCC_WRB;
++		goto Error;
++	}
++	/* Prepares an embedded fwcmd, including request/response sizes. */
++	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_CQ_CREATE);
++
++	fwcmd->params.request.num_pages = PAGES_SPANNED(OFFSET_IN_PAGE(rd->va),
++									length);
++
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, valid, &fwcmd->params.request.context, 1);
++	n = pfob->pci_function_number;
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, Func, &fwcmd->params.request.context, n);
++
++	n = (eq_object != NULL);
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, Eventable,
++				&fwcmd->params.request.context, n);
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, Armed, &fwcmd->params.request.context, 1);
++
++	n = eq_object ? eq_object->eq_id : 0;
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, EQID, &fwcmd->params.request.context, n);
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, Count,
++			&fwcmd->params.request.context, num_entries_encoding);
++
++	n = 0; /* Protection Domain is always 0 in  Linux  driver */
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, PD, &fwcmd->params.request.context, n);
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, NoDelay,
++				&fwcmd->params.request.context, no_delay);
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, SolEvent,
++			&fwcmd->params.request.context, solicited_eventable);
++
++	n = (wm_thresh != 0xFFFFFFFF);
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, WME, &fwcmd->params.request.context, n);
++
++	n = (n ? wm_thresh : 0);
++	AMAP_SET_BITS_PTR(CQ_CONTEXT, Watermark,
++				&fwcmd->params.request.context, n);
++	/* Create a page list for the FWCMD. */
++	be_rd_to_pa_list(rd, fwcmd->params.request.pages,
++			  ARRAY_SIZE(fwcmd->params.request.pages));
++
++	/* Post the f/w command */
++	status = be_function_post_mcc_wrb(pfob, wrb, NULL, NULL, NULL,
++			NULL, NULL, fwcmd, NULL);
++	if (status != BE_SUCCESS) {
++		TRACE(DL_ERR, "MCC to create CQ failed.");
++		goto Error;
++	}
++	/* Remember the CQ id. */
++	cq_object->cq_id = fwcmd->params.response.cq_id;
++
++	/* insert this cq into eq_object reference */
++	if (eq_object) {
++		atomic_inc(&eq_object->ref_count);
++		list_add_tail(&cq_object->cqlist_for_eq,
++					&eq_object->cq_list_head);
++	}
++
++Error:
++	spin_unlock_irqrestore(&pfob->post_lock, irql);
++
++	if (pfob->pend_queue_driving && pfob->mcc) {
++		pfob->pend_queue_driving = 0;
++		be_drive_mcc_wrb_queue(pfob->mcc);
++	}
++	return status;
++}
++
++/*
++
++    Deferences the given object. Once the object's reference count drops to
++    zero, the object is destroyed and all resources that are held by this object
++    are released.  The on-chip context is also destroyed along with the queue
++    ID, and any mappings made into the UT.
++
++    cq_object            - CQ handle returned from cq_object_create.
++
++    returns the current reference count on the object
++
++    IRQL: IRQL < DISPATCH_LEVEL
++*/
++int be_cq_destroy(struct be_cq_object *cq_object)
++{
++	int status = 0;
++
++	/* Nothing should reference this CQ at this point. */
++	ASSERT(atomic_read(&cq_object->ref_count) == 0);
++
++	/* Send fwcmd to destroy the CQ. */
++	status = be_function_ring_destroy(cq_object->parent_function,
++		     cq_object->cq_id, FWCMD_RING_TYPE_CQ,
++					NULL, NULL, NULL, NULL);
++	ASSERT(status == 0);
++
++	/* Remove reference if this is an eventable CQ. */
++	if (cq_object->eq_object) {
++		atomic_dec(&cq_object->eq_object->ref_count);
++		list_del(&cq_object->cqlist_for_eq);
++	}
++	return BE_SUCCESS;
++}
++
+diff --git a/drivers/net/benet/eq.c b/drivers/net/benet/eq.c
+new file mode 100644
+index 0000000..db92ccd
+--- /dev/null
++++ b/drivers/net/benet/eq.c
+@@ -0,0 +1,299 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++#include "hwlib.h"
++#include "bestatus.h"
++/*
++    This routine creates an event queue based on the client completion
++    queue configuration information.
++
++    FunctionObject      - Handle to a function object
++    EqBaseVa            - Base VA for a the EQ ring
++    SizeEncoding        - The encoded size for the EQ entries. This value is
++			either CEV_EQ_SIZE_4 or CEV_EQ_SIZE_16
++    NumEntries          - CEV_CQ_CNT_* values.
++    Watermark           - Enables watermark based coalescing.  This parameter
++			must be of the type CEV_WMARK_* if watermarks
++			are enabled.  If watermarks to to be disabled
++			this value should be-1.
++    TimerDelay          - If a timer delay is enabled this value should be the
++			time of the delay in 8 microsecond units.  If
++			delays are not used this parameter should be
++			set to -1.
++    ppEqObject          - Internal EQ Handle returned.
++
++    Returns BE_SUCCESS if successfull,, otherwise a useful error code
++	is returned.
++
++    IRQL < DISPATCH_LEVEL
++*/
++int
++be_eq_create(struct be_function_object *pfob,
++		struct ring_desc *rd, u32 eqe_size, u32 num_entries,
++		u32 watermark,	/* CEV_WMARK_* or -1 */
++		u32 timer_delay,	/* in 8us units, or -1 */
++		struct be_eq_object *eq_object)
++{
++	int status = BE_SUCCESS;
++	u32 num_entries_encoding, eqe_size_encoding, length;
++	struct FWCMD_COMMON_EQ_CREATE *fwcmd = NULL;
++	struct MCC_WRB_AMAP *wrb = NULL;
++	u32 n;
++	unsigned long irql;
++
++	ASSERT(rd);
++	ASSERT(eq_object);
++
++	switch (num_entries) {
++	case 256:
++		num_entries_encoding = CEV_EQ_CNT_256;
++		break;
++	case 512:
++		num_entries_encoding = CEV_EQ_CNT_512;
++		break;
++	case 1024:
++		num_entries_encoding = CEV_EQ_CNT_1024;
++		break;
++	case 2048:
++		num_entries_encoding = CEV_EQ_CNT_2048;
++		break;
++	case 4096:
++		num_entries_encoding = CEV_EQ_CNT_4096;
++		break;
++	default:
++		ASSERT(0);
++		return BE_STATUS_INVALID_PARAMETER;
++	}
++
++	switch (eqe_size) {
++	case 4:
++		eqe_size_encoding = CEV_EQ_SIZE_4;
++		break;
++	case 16:
++		eqe_size_encoding = CEV_EQ_SIZE_16;
++		break;
++	default:
++		ASSERT(0);
++		return BE_STATUS_INVALID_PARAMETER;
++	}
++
++	if ((eqe_size == 4 && num_entries < 1024) ||
++	    (eqe_size == 16 && num_entries == 4096)) {
++		TRACE(DL_ERR, "Bad EQ size. eqe_size:%d num_entries:%d",
++		      eqe_size, num_entries);
++		ASSERT(0);
++		return BE_STATUS_INVALID_PARAMETER;
++	}
++
++	memset(eq_object, 0, sizeof(*eq_object));
++
++	atomic_set(&eq_object->ref_count, 0);
++	eq_object->parent_function = pfob;
++	eq_object->eq_id = 0xFFFFFFFF;
++
++	INIT_LIST_HEAD(&eq_object->cq_list_head);
++
++	length = num_entries * eqe_size;
++
++	spin_lock_irqsave(&pfob->post_lock, irql);
++
++	wrb = be_function_peek_mcc_wrb(pfob);
++	if (!wrb) {
++		ASSERT(wrb);
++		TRACE(DL_ERR, "No free MCC WRBs in create EQ.");
++		status = BE_STATUS_NO_MCC_WRB;
++		goto Error;
++	}
++	/* Prepares an embedded fwcmd, including request/response sizes. */
++	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_EQ_CREATE);
++
++	fwcmd->params.request.num_pages = PAGES_SPANNED(OFFSET_IN_PAGE(rd->va),
++									length);
++	n = pfob->pci_function_number;
++	AMAP_SET_BITS_PTR(EQ_CONTEXT, Func, &fwcmd->params.request.context, n);
++
++	AMAP_SET_BITS_PTR(EQ_CONTEXT, valid, &fwcmd->params.request.context, 1);
++
++	AMAP_SET_BITS_PTR(EQ_CONTEXT, Size,
++			&fwcmd->params.request.context, eqe_size_encoding);
++
++	n = 0; /* Protection Domain is always 0 in  Linux  driver */
++	AMAP_SET_BITS_PTR(EQ_CONTEXT, PD, &fwcmd->params.request.context, n);
++
++	/* Let the caller ARM the EQ with the doorbell. */
++	AMAP_SET_BITS_PTR(EQ_CONTEXT, Armed, &fwcmd->params.request.context, 0);
++
++	AMAP_SET_BITS_PTR(EQ_CONTEXT, Count, &fwcmd->params.request.context,
++					num_entries_encoding);
++
++	n = pfob->pci_function_number * 32;
++	AMAP_SET_BITS_PTR(EQ_CONTEXT, EventVect,
++				&fwcmd->params.request.context, n);
++	if (watermark != -1) {
++		AMAP_SET_BITS_PTR(EQ_CONTEXT, WME,
++				&fwcmd->params.request.context, 1);
++		AMAP_SET_BITS_PTR(EQ_CONTEXT, Watermark,
++				&fwcmd->params.request.context, watermark);
++		ASSERT(watermark <= CEV_WMARK_240);
++	} else
++		AMAP_SET_BITS_PTR(EQ_CONTEXT, WME,
++					&fwcmd->params.request.context, 0);
++	if (timer_delay != -1) {
++		AMAP_SET_BITS_PTR(EQ_CONTEXT, TMR,
++					&fwcmd->params.request.context, 1);
++
++		ASSERT(timer_delay <= 250);	/* max value according to EAS */
++		timer_delay = min(timer_delay, (u32)250);
++
++		AMAP_SET_BITS_PTR(EQ_CONTEXT, Delay,
++				&fwcmd->params.request.context, timer_delay);
++	} else {
++		AMAP_SET_BITS_PTR(EQ_CONTEXT, TMR,
++				&fwcmd->params.request.context, 0);
++	}
++	/* Create a page list for the FWCMD. */
++	be_rd_to_pa_list(rd, fwcmd->params.request.pages,
++			  ARRAY_SIZE(fwcmd->params.request.pages));
++
++	status = be_function_post_mcc_wrb(pfob, wrb, NULL, NULL, NULL,
++					NULL, NULL, fwcmd, NULL);
++	if (status != BE_SUCCESS) {
++		TRACE(DL_ERR, "MCC to create EQ failed.");
++		goto Error;
++	}
++	/* Get the EQ id.  The MPU allocates the IDs. */
++	eq_object->eq_id = fwcmd->params.response.eq_id;
++
++Error:
++	spin_unlock_irqrestore(&pfob->post_lock, irql);
++
++	if (pfob->pend_queue_driving && pfob->mcc) {
++		pfob->pend_queue_driving = 0;
++		be_drive_mcc_wrb_queue(pfob->mcc);
++	}
++	return status;
++}
++
++/*
++    Deferences the given object. Once the object's reference count drops to
++    zero, the object is destroyed and all resources that are held by this
++    object are released.  The on-chip context is also destroyed along with
++    the queue ID, and any mappings made into the UT.
++
++    eq_object            - EQ handle returned from eq_object_create.
++
++    Returns BE_SUCCESS if successfull, otherwise a useful error code
++	is returned.
++
++    IRQL: IRQL < DISPATCH_LEVEL
++*/
++int be_eq_destroy(struct be_eq_object *eq_object)
++{
++	int status = 0;
++
++	ASSERT(atomic_read(&eq_object->ref_count) == 0);
++	/* no CQs should reference this EQ now */
++	ASSERT(list_empty(&eq_object->cq_list_head));
++
++	/* Send fwcmd to destroy the EQ. */
++	status = be_function_ring_destroy(eq_object->parent_function,
++			     eq_object->eq_id, FWCMD_RING_TYPE_EQ,
++					NULL, NULL, NULL, NULL);
++	ASSERT(status == 0);
++
++	return BE_SUCCESS;
++}
++/*
++ *---------------------------------------------------------------------------
++ * Function: be_eq_modify_delay
++ *   Changes the EQ delay for a group of EQs.
++ * num_eq             - The number of EQs in the eq_array to adjust.
++ * 			This also is the number of delay values in
++ * 			the eq_delay_array.
++ * eq_array           - Array of struct be_eq_object pointers to adjust.
++ * eq_delay_array     - Array of "num_eq" timer delays in units
++ * 			of microseconds. The be_eq_query_delay_range
++ * 			fwcmd returns the resolution and range of
++ *                      legal EQ delays.
++ * cb           -
++ * cb_context   -
++ * q_ctxt             - Optional. Pointer to a previously allocated
++ * 			struct. If the MCC WRB ring is full, this
++ * 			structure is used to queue the operation. It
++ *                      will be posted to the MCC ring when space
++ *                      becomes available. All queued commands will
++ *                      be posted to the ring in the order they are
++ *                      received. It is always valid to pass a pointer to
++ *                      a generic be_generic_q_cntxt. However,
++ *                      the specific context structs
++ *                      are generally smaller than the generic struct.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *-------------------------------------------------------------------------
++ */
++int
++be_eq_modify_delay(struct be_function_object *pfob,
++		   u32 num_eq, struct be_eq_object **eq_array,
++		   u32 *eq_delay_array, mcc_wrb_cqe_callback cb,
++		   void *cb_context, struct be_eq_modify_delay_q_ctxt *q_ctxt)
++{
++	struct FWCMD_COMMON_MODIFY_EQ_DELAY *fwcmd = NULL;
++	struct MCC_WRB_AMAP *wrb = NULL;
++	int status = 0;
++	struct be_generic_q_ctxt *gen_ctxt = NULL;
++	u32 i;
++	unsigned long irql;
++
++	spin_lock_irqsave(&pfob->post_lock, irql);
++
++	wrb = be_function_peek_mcc_wrb(pfob);
++	if (!wrb) {
++		if (q_ctxt && cb) {
++			wrb = (struct MCC_WRB_AMAP *) &q_ctxt->wrb_header;
++			gen_ctxt = (struct be_generic_q_ctxt *) q_ctxt;
++			gen_ctxt->context.bytes = sizeof(*q_ctxt);
++		} else {
++			status = BE_STATUS_NO_MCC_WRB;
++			goto Error;
++		}
++	}
++	/* Prepares an embedded fwcmd, including request/response sizes. */
++	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_MODIFY_EQ_DELAY);
++
++	ASSERT(num_eq > 0);
++	ASSERT(num_eq <= ARRAY_SIZE(fwcmd->params.request.delay));
++	fwcmd->params.request.num_eq = num_eq;
++	for (i = 0; i < num_eq; i++) {
++		fwcmd->params.request.delay[i].eq_id = eq_array[i]->eq_id;
++		fwcmd->params.request.delay[i].delay_in_microseconds =
++		    eq_delay_array[i];
++	}
++
++	/* Post the f/w command */
++	status = be_function_post_mcc_wrb(pfob, wrb, gen_ctxt,
++			cb, cb_context, NULL, NULL, fwcmd, NULL);
++
++Error:
++	spin_unlock_irqrestore(&pfob->post_lock, irql);
++
++	if (pfob->pend_queue_driving && pfob->mcc) {
++		pfob->pend_queue_driving = 0;
++		be_drive_mcc_wrb_queue(pfob->mcc);
++	}
++	return status;
++}
++
+diff --git a/drivers/net/benet/funcobj.c b/drivers/net/benet/funcobj.c
+new file mode 100644
+index 0000000..0f57eb5
+--- /dev/null
++++ b/drivers/net/benet/funcobj.c
+@@ -0,0 +1,565 @@
++/*
++ * Copyright (C) 2005 - 2008 ServerEngines
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.  The full GNU General
++ * Public License is included in this distribution in the file called COPYING.
++ *
++ * Contact Information:
++ * linux-drivers@serverengines.com
++ *
++ * ServerEngines
++ * 209 N. Fair Oaks Ave
++ * Sunnyvale, CA 94085
++ */
++#include "hwlib.h"
++#include "bestatus.h"
++
++
++int
++be_function_internal_query_firmware_config(struct be_function_object *pfob,
++				   struct BE_FIRMWARE_CONFIG *config)
++{
++	struct FWCMD_COMMON_FIRMWARE_CONFIG *fwcmd = NULL;
++	struct MCC_WRB_AMAP *wrb = NULL;
++	int status = 0;
++	unsigned long irql;
++	struct be_mcc_wrb_response_copy rc;
++
++	spin_lock_irqsave(&pfob->post_lock, irql);
++
++	wrb = be_function_peek_mcc_wrb(pfob);
++	if (!wrb) {
++		TRACE(DL_ERR, "MCC wrb peek failed.");
++		status = BE_STATUS_NO_MCC_WRB;
++		goto error;
++	}
++	/* Prepares an embedded fwcmd, including request/response sizes. */
++	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_FIRMWARE_CONFIG);
++
++	rc.length = FIELD_SIZEOF(struct FWCMD_COMMON_FIRMWARE_CONFIG,
++					params.response);
++	rc.fwcmd_offset = offsetof(struct FWCMD_COMMON_FIRMWARE_CONFIG,
++					params.response);
++	rc.va = config;
++
++	/* Post the f/w command */
++	status = be_function_post_mcc_wrb(pfob, wrb, NULL, NULL,
++					NULL, NULL, NULL, fwcmd, &rc);
++error:
++	spin_unlock_irqrestore(&pfob->post_lock, irql);
++	if (pfob->pend_queue_driving && pfob->mcc) {
++		pfob->pend_queue_driving = 0;
++		be_drive_mcc_wrb_queue(pfob->mcc);
++	}
++	return status;
++}
++
++/*
++    This allocates and initializes a function object based on the information
++    provided by upper layer drivers.
++
++    Returns BE_SUCCESS on success and an appropriate int on failure.
++
++    A function object represents a single BladeEngine (logical) PCI function.
++    That is a function object either represents
++    the networking side of BladeEngine or the iSCSI side of BladeEngine.
++
++    This routine will also detect and create an appropriate PD object for the
++    PCI function as needed.
++*/
++int
++be_function_object_create(u8 __iomem *csr_va, u8 __iomem *db_va,
++		u8 __iomem *pci_va, u32 function_type,
++		struct ring_desc *mailbox, struct be_function_object *pfob)
++{
++	int status;
++
++	ASSERT(pfob);	/* not a magic assert */
++	ASSERT(function_type <= 2);
++
++	TRACE(DL_INFO, "Create function object. type:%s object:0x%p",
++	      (function_type == BE_FUNCTION_TYPE_ISCSI ? "iSCSI" :
++	       (function_type == BE_FUNCTION_TYPE_NETWORK ? "Network" :
++		"Arm")), pfob);
++
++	memset(pfob, 0, sizeof(*pfob));
++
++	pfob->type = function_type;
++	pfob->csr_va = csr_va;
++	pfob->db_va = db_va;
++	pfob->pci_va = pci_va;
++
++	spin_lock_init(&pfob->cq_lock);
++	spin_lock_init(&pfob->post_lock);
++	spin_lock_init(&pfob->mcc_context_lock);
++
++
++	pfob->pci_function_number = 1;
++
++
++	pfob->emulate = false;
++	TRACE(DL_NOTE, "Non-emulation mode");
++	status = be_drive_POST(pfob);
++	if (status != BE_SUCCESS) {
++		TRACE(DL_ERR, "BladeEngine POST failed.");
++		goto error;
++	}
++
++	/* Initialize the mailbox */
++	status = be_mpu_init_mailbox(pfob, mailbox);
++	if (status != BE_SUCCESS) {
++		TRACE(DL_ERR, "Failed to initialize mailbox.");
++		goto error;
++	}
++	/*
++	 * Cache the firmware config for ASSERTs in hwclib and later
++	 * driver queries.
++	 */
++	status = be_function_internal_query_firmware_config(pfob,
++					       &pfob->fw_config);
++	if (status != BE_SUCCESS) {
++		TRACE(DL_ERR, "Failed to query firmware config.");
++		goto error;
++	}
++
++error:
++	if (status != BE_SUCCESS) {
++		/* No cleanup necessary */
++		TRACE(DL_ERR, "Failed to create function.");
++		memset(pfob, 0, sizeof(*pfob));
++	}
++	return status;
++}
++
++/*
++    This routine drops the reference count on a given function object. Once
++    the reference count falls to zero, the function object is destroyed and all
++    resources held are freed.
++
++    FunctionObject      - The function object to drop the reference to.
++*/
++int be_function_object_destroy(struct be_function_object *pfob)
++{
++	TRACE(DL_INFO, "Destroy pfob. Object:0x%p",
++	      pfob);
++
++
++	ASSERT(pfob->mcc == NULL);
++
++	return BE_SUCCESS;
++}
++
++int be_function_cleanup(struct be_function_object *pfob)
++{
++	int status = 0;
++	u32 isr;
++	u32 host_intr;
++	struct PCICFG_HOST_TIMER_INT_CTRL_CSR_AMAP ctrl;
++
++
++	if (pfob->type == BE_FUNCTION_TYPE_NETWORK) {
++		status = be_rxf_multicast_config(pfob, false, 0,
++						NULL, NULL, NULL, NULL);
++		ASSERT(status == BE_SUCCESS);
++	}
++	/* VLAN */
++	status = be_rxf_vlan_config(pfob, false, 0, NULL, NULL, NULL, NULL);
++	ASSERT(status == BE_SUCCESS);
++	/*
++	 * MCC Queue -- Switches to mailbox mode.  May want to destroy
++	 * all but the MCC CQ before this call if polling CQ is much better
++	 * performance than polling mailbox register.
++	 */
++	if (pfob->mcc)
++		status = be_mcc_ring_destroy(pfob->mcc);
++	/*
++	 * If interrupts are disabled, clear any CEV interrupt assertions that
++	 * fired after we stopped processing EQs.
++	 */
++	ctrl.dw[0] = PCICFG1_READ(pfob, host_timer_int_ctrl);
++	host_intr = AMAP_GET_BITS_PTR(PCICFG_HOST_TIMER_INT_CTRL_CSR,
++							hostintr, ctrl.dw);
++	if (!host_intr)
++		if (pfob->type == BE_FUNCTION_TYPE_NETWORK)
++			isr = CSR_READ(pfob, cev.isr1);
++		else
++			isr = CSR_READ(pfob, cev.isr0);
++	else
++		/* This should never happen... */
++		TRACE(DL_ERR, "function_cleanup called with interrupt enabled");
++	/* Function object destroy */
++	status = be_function_object_destroy(pfob);
++	ASSERT(status == BE_SUCCESS);
++
++	return status;
++}
++
++
++void *
++be_function_prepare_embedded_fwcmd(struct be_function_object *pfob,
++	struct MCC_WRB_AMAP *wrb, u32 payld_len, u32 request_length,
++	u32 response_length, u32 opcode, u32 subsystem)
++{
++	struct FWCMD_REQUEST_HEADER *header = NULL;
++	u32 n;
++
++	ASSERT(wrb);
++
++	n = offsetof(struct BE_MCC_WRB_AMAP, payload)/8;
++	AMAP_SET_BITS_PTR(MCC_WRB, embedded, wrb, 1);
++	AMAP_SET_BITS_PTR(MCC_WRB, payload_length, wrb, min(payld_len, n));
++	header = (struct FWCMD_REQUEST_HEADER *)((u8 *)wrb + n);
++
++	header->timeout = 0;
++	header->domain = 0;
++	header->request_length = max(request_length, response_length);
++	header->opcode = opcode;
++	header->subsystem = subsystem;
++
++	return header;
++}
++
++void *
++be_function_prepare_nonembedded_fwcmd(struct be_function_object *pfob,
++	struct MCC_WRB_AMAP *wrb,
++	void *fwcmd_va, u64 fwcmd_pa,
++	u32 payld_len,
++	u32 request_length,
++	u32 response_length,
++	u32 opcode, u32 subsystem)
++{
++	struct FWCMD_REQUEST_HEADER *header = NULL;
++	u32 n;
++	struct MCC_WRB_PAYLOAD_AMAP *plp;
++
++	ASSERT(wrb);
++	ASSERT(fwcmd_va);
++
++	header = (struct FWCMD_REQUEST_HEADER *) fwcmd_va;
++
++	AMAP_SET_BITS_PTR(MCC_WRB, embedded, wrb, 0);
++	AMAP_SET_BITS_PTR(MCC_WRB, payload_length, wrb, payld_len);
++
++	/*
++	 * Assume one fragment. The caller may override the SGL by
++	 * rewriting the 0th length and adding more entries.  They
++	 * will also need to update the sge_count.
++	 */
++	AMAP_SET_BITS_PTR(MCC_WRB, sge_count, wrb, 1);
++
++	n = offsetof(struct BE_MCC_WRB_AMAP, payload)/8;
++	plp = (struct MCC_WRB_PAYLOAD_AMAP *)((u8 *)wrb + n);
++	AMAP_SET_BITS_PTR(MCC_WRB_PAYLOAD, sgl[0].length, plp, payld_len);
++	AMAP_SET_BITS_PTR(MCC_WRB_PAYLOAD, sgl[0].pa_lo, plp, (u32)fwcmd_pa);
++	AMAP_SET_BITS_PTR(MCC_WRB_PAYLOAD, sgl[0].pa_hi, plp,
++					upper_32_bits(fwcmd_pa));
++
++	header->timeout = 0;
++	header->domain = 0;
++	header->request_length = max(request_length, response_length);
++	header->opcode = opcode;
++	header->subsystem = subsystem;
++
++	return header;
++}
++
++struct MCC_WRB_AMAP *
++be_function_peek_mcc_wrb(struct be_function_object *pfob)
++{
++	struct MCC_WRB_AMAP *wrb = NULL;
++	u32 offset;
++
++	if (pfob->mcc)
++		wrb = _be_mpu_peek_ring_wrb(pfob->mcc, false);
++	else {
++		offset = offsetof(struct BE_MCC_MAILBOX_AMAP, wrb)/8;
++		wrb = (struct MCC_WRB_AMAP *) ((u8 *) pfob->mailbox.va +
++				offset);
++	}
++
++	if (wrb)
++		memset(wrb, 0, sizeof(struct MCC_WRB_AMAP));
++
++	return wrb;
++}
++
++#if defined(BE_DEBUG)
++void be_function_debug_print_wrb(struct be_function_object *pfob,
++		struct MCC_WRB_AMAP *wrb, void *optional_fwcmd_va,
++		struct be_mcc_wrb_context *wrb_context)
++{
++
++	struct FWCMD_REQUEST_HEADER *header = NULL;
++	u8 embedded;
++	u32 n;
++
++	embedded = AMAP_GET_BITS_PTR(MCC_WRB, embedded, wrb);
++
++	if (embedded) {
++		n = offsetof(struct BE_MCC_WRB_AMAP, payload)/8;
++		header = (struct FWCMD_REQUEST_HEADER *)((u8 *)wrb + n);
++	} else {
++		header = (struct FWCMD_REQUEST_HEADER *) optional_fwcmd_va;
++	}
++
++	/* Save the completed count before posting for a debug assert. */
++
++	if (header) {
++		wrb_context->opcode = header->opcode;
++		wrb_context->subsystem = header->subsystem;
++
++	} else {
++		wrb_context->opcode = 0;
++		wrb_context->subsystem = 0;
++	}
++}
++#else
++#define be_function_debug_print_wrb(a_, b_, c_, d_)
++#endif
++
++int
++be_function_post_mcc_wrb(struct be_function_object *pfob,
++		struct MCC_WRB_AMAP *wrb,
++		struct be_generic_q_ctxt *q_ctxt,
++		mcc_wrb_cqe_callback cb, void *cb_context,
++		mcc_wrb_cqe_callback internal_cb,
++		void *internal_cb_context, void *optional_fwcmd_va,
++		struct be_mcc_wrb_response_copy *rc)
++{
++	int status;
++	struct be_mcc_wrb_context *wrb_context = NULL;
++	u64 *p;
++
++	if (q_ctxt) {
++		/* Initialize context.         */
++		q_ctxt->context.internal_cb = internal_cb;
++		q_ctxt->context.internal_cb_context = internal_cb_context;
++		q_ctxt->context.cb = cb;
++		q_ctxt->context.cb_context = cb_context;
++		if (rc) {
++			q_ctxt->context.copy.length = rc->length;
++			q_ctxt->context.copy.fwcmd_offset = rc->fwcmd_offset;
++			q_ctxt->context.copy.va = rc->va;
++		} else
++			q_ctxt->context.copy.length = 0;
++
++		q_ctxt->context.optional_fwcmd_va = optional_fwcmd_va;
++
++		/* Queue this request */
++		status = be_function_queue_mcc_wrb(pfob, q_ctxt);
++
++		goto Error;
++	}
++	/*
++	 * Allocate a WRB context struct to hold the callback pointers,
++	 * status, etc.  This is required if commands complete out of order.
++	 */
++	wrb_context = _be_mcc_allocate_wrb_context(pfob);
++	if (!wrb_context) {
++		TRACE(DL_WARN, "Failed to allocate MCC WRB context.");
++		status = BE_STATUS_SYSTEM_RESOURCES;
++		goto Error;
++	}
++	/* Initialize context. */
++	memset(wrb_context, 0, sizeof(*wrb_context));
++	wrb_context->internal_cb = internal_cb;
++	wrb_context->internal_cb_context = internal_cb_context;
++	wrb_context->cb = cb;
++	wrb_context->cb_context = cb_context;
++	if (rc) {
++		wrb_context->copy.length = rc->length;
++		wrb_context->copy.fwcmd_offset = rc->fwcmd_offset;
++		wrb_context->copy.va = rc->va;
++	} else
++		wrb_context->copy.length = 0;
++	wrb_context->wrb = wrb;
++
++	/*
++	 * Copy the context pointer into the WRB opaque tag field.
++	 * Verify assumption of 64-bit tag with a compile time assert.
++	 */
++	p = (u64 *) ((u8 *)wrb + offsetof(struct BE_MCC_WRB_AMAP, tag)/8);
++	*p = (u64)(size_t)wrb_context;
++
++	/* Print info about this FWCMD for debug builds. */
++	be_function_debug_print_wrb(pfob, wrb, optional_fwcmd_va, wrb_context);
++
++	/*
++	 * issue the WRB to the MPU as appropriate
++	 */
++	if (pfob->mcc) {
++		/*
++		 * we're in WRB mode, pass to the mcc layer
++		 */
++		status = _be_mpu_post_wrb_ring(pfob->mcc, wrb, wrb_context);
++	} else {
++		/*
++		 * we're in mailbox mode
++		 */
++		status = _be_mpu_post_wrb_mailbox(pfob, wrb, wrb_context);
++
++		/* mailbox mode always completes synchronously */
++		ASSERT(status != BE_STATUS_PENDING);
++	}
++
++Error:
++
++	return status;
++}
++
++int
++be_function_ring_destroy(struct be_function_object *pfob,
++		u32 id, u32 ring_type, mcc_wrb_cqe_callback cb,
++		void *cb_context, mcc_wrb_cqe_callback internal_cb,
++		void *internal_cb_context)
++{
++
++	struct FWCMD_COMMON_RING_DESTROY *fwcmd = NULL;
++	struct MCC_WRB_AMAP *wrb = NULL;
++	int status = 0;
++	unsigned long irql;
++
++	spin_lock_irqsave(&pfob->post_lock, irql);
++
++	TRACE(DL_INFO, "Destroy ring id:%d type:%d", id, ring_type);
++
++	wrb = be_function_peek_mcc_wrb(pfob);
++	if (!wrb) {
++		ASSERT(wrb);
++		TRACE(DL_ERR, "No free MCC WRBs in destroy ring.");
++		status = BE_STATUS_NO_MCC_WRB;
++		goto Error;
++	}
++	/* Prepares an embedded fwcmd, including request/response sizes. */
++	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_RING_DESTROY);
++
++	fwcmd->params.request.id = id;
++	fwcmd->params.request.ring_type = ring_type;
++
++	/* Post the f/w command */
++	status = be_function_post_mcc_wrb(pfob, wrb, NULL, cb, cb_context,
++				internal_cb, internal_cb_context, fwcmd, NULL);
++	if (status != BE_SUCCESS && status != BE_PENDING) {
++		TRACE(DL_ERR, "Ring destroy fwcmd failed. id:%d ring_type:%d",
++			id, ring_type);
++		goto Error;
++	}
++
++Error:
++	spin_unlock_irqrestore(&pfob->post_lock, irql);
++	if (pfob->pend_queue_driving && pfob->mcc) {
++		pfob->pend_queue_driving = 0;
++		be_drive_mcc_wrb_queue(pfob->mcc);
++	}
++	return status;
++}
++
++void
++be_rd_to_pa_list(struct ring_desc *rd, struct PHYS_ADDR *pa_list, u32 max_num)
++{
++	u32 num_pages = PAGES_SPANNED(rd->va, rd->length);
++	u32 i = 0;
++	u64 pa = rd->pa;
++	__le64 lepa;
++
++	ASSERT(pa_list);
++	ASSERT(pa);
++
++	for (i = 0; i < min(num_pages, max_num); i++) {
++		lepa = cpu_to_le64(pa);
++		pa_list[i].lo = (u32)lepa;
++		pa_list[i].hi = upper_32_bits(lepa);
++		pa += PAGE_SIZE;
++	}
++}
++
++
++
++/*-----------------------------------------------------------------------------
++ * Function: be_function_get_fw_version
++ *   Retrieves the firmware version on the adpater. If the callback is
++ *   NULL this call executes synchronously. If the callback is not NULL,
++ *   the returned status will be BE_PENDING if the command was issued
++ *   successfully.
++ * pfob    -
++ * fwv         - Pointer to response buffer if callback is NULL.
++ * cb           - Callback function invoked when the FWCMD completes.
++ * cb_context   - Passed to the callback function.
++ * return pend_status - BE_SUCCESS (0) on success.
++ * 			BE_PENDING (postive value) if the FWCMD
++ *                      completion is pending. Negative error code on failure.
++ *---------------------------------------------------------------------------
++ */
++int
++be_function_get_fw_version(struct be_function_object *pfob,
++		struct FWCMD_COMMON_GET_FW_VERSION_RESPONSE_PAYLOAD *fwv,
++		mcc_wrb_cqe_callback cb, void *cb_context)
++{
++	int status = BE_SUCCESS;
++	struct MCC_WRB_AMAP *wrb = NULL;
++	struct FWCMD_COMMON_GET_FW_VERSION *fwcmd = NULL;
++	unsigned long irql;
++	struct be_mcc_wrb_response_copy rc;
++
++	spin_lock_irqsave(&pfob->post_lock, irql);
++
++	wrb = be_function_peek_mcc_wrb(pfob);
++	if (!wrb) {
++		TRACE(DL_ERR, "MCC wrb peek failed.");
++		status = BE_STATUS_NO_MCC_WRB;
++		goto Error;
++	}
++
++	if (!cb && !fwv) {
++		TRACE(DL_ERR, "callback and response buffer NULL!");
++		status = BE_NOT_OK;
++		goto Error;
++	}
++	/* Prepares an embedded fwcmd, including request/response sizes. */
++	fwcmd = BE_PREPARE_EMBEDDED_FWCMD(pfob, wrb, COMMON_GET_FW_VERSION);
++
++	rc.length = FIELD_SIZEOF(struct FWCMD_COMMON_GET_FW_VERSION,
++					params.response);
++	rc.fwcmd_offset = offsetof(struct FWCMD_COMMON_GET_FW_VERSION,
++					params.response);
++	rc.va = fwv;
++
++	/* Post the f/w command */
++	status = be_function_post_mcc_wrb(pfob, wrb, NULL, cb,
++				cb_context, NULL, NULL, fwcmd, &rc);
++
++Error:
++	spin_unlock_irqrestore(&pfob->post_lock, irql);
++	if (pfob->pend_queue_driving && pfob->mcc) {
++		pfob->pend_queue_driving = 0;
++		be_drive_mcc_wrb_queue(pfob->mcc);
++	}
++	return status;
++}
++
++int
++be_function_queue_mcc_wrb(struct be_function_object *pfob,
++			  struct be_generic_q_ctxt *q_ctxt)
++{
++	int status;
++
++	ASSERT(q_ctxt);
++
++	/*
++	 * issue the WRB to the MPU as appropriate
++	 */
++	if (pfob->mcc) {
++
++		/* We're in ring mode.  Queue this item. */
++		pfob->mcc->backlog_length++;
++		list_add_tail(&q_ctxt->context.list, &pfob->mcc->backlog);
++		status = BE_PENDING;
++	} else {
++		status = BE_NOT_OK;
++	}
++	return status;
++}
++
+-- 
+1.5.5
+
+
+
+
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
