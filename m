@@ -1,43 +1,51 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [NET-NEXT PATCH] ixgbe: Implement PCIe AER support
-Date: Mon, 8 Dec 2008 23:13:31 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0812082307290.696@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20081202004115.12058.64881.stgit@gitlost.lost>
- <20081201174754.2e5ef401@extreme> <20081201.232527.66213356.davem@davemloft.net>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [RFC][PATCH 3/3]ipv6:fix the outgoing interface selection order in udpv6_sendmsg()
+Date: Tue, 9 Dec 2008 09:32:56 +0200
+Message-ID: <200812090932.56865.remi.denis-courmont@nokia.com>
+References: <493E1A7B.9070208@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20081201.232527.66213356.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: "ext Yang Hongyang" <yanghy@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.nokia.com ([192.100.122.230]:26554 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751696AbYLIHdQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 02:33:16 -0500
+In-Reply-To: <493E1A7B.9070208@cn.fujitsu.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 1 Dec 2008, David Miller wrote:
+On Tuesday 09 December 2008 09:12:59 ext Yang Hongyang, you wrote:
+> 1.When no interface is specified in an IPV6_PKTINFO ancillary data
+>   item, the interface specified in an IPV6_PKTINFO sticky optionis
+>   is used.
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Mon, 1 Dec 2008 17:47:54 -0800
-> 
-> > pci_enable_pcie_error_reporting should be checking for pci_read/pci_write
-> > config errors and does not.
-> >
-> > Your driver should be checking for pci_enable_pcie_error_reporting failing.
-> 
-> Agreed.
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 8b48512..addd856 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -761,6 +761,9 @@ do_udp_sendmsg:
+>  	}
+>
+>  	if (!fl.oif)
+> +		fl.oif =3D np->sticky_pktinfo.ipi6_ifindex;
+> +
+> +	if (!fl.oif)
+>  		fl.oif =3D sk->sk_bound_dev_if;
+>
+>  	if (msg->msg_controllen) {
 
-I've finally been able to get back to this.  I've looked at any other 
-prior use of the PCIe AER routines, and the only driver using it to date 
-is the QLogic QLA2xxx driver in SCSI-land.  I've also looked at the return 
-codes, with and without Stephen's recent AER patch, and there's not much 
-the driver can do.  If it's catching the errors, the best I can do is 
-print an error message, then continue along.
+I believe overriding the outgoing interface is only allowed for link-lo=
+cal=20
+destinations, _or_ with privileges (as with SO_BINDTODEVICE).
 
-I've put that patch together, and will have it sent along shortly.  If 
-there's something additional I'm missing here, please let me know.
+This patch seems to change this, and I am not convinced it's a good ide=
+a.
 
-Cheers,
--PJ
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
