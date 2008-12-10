@@ -1,12 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 08/29] debugfs: add helpers for exporting a size_t simple
-	value
-Date: Wed, 10 Dec 2008 15:12:49 -0800
-Message-ID: <21c4cb30c8f68580588f699356c5b9ce20eecb5d.1228948072.git.inaky@linux.intel.com>
+Subject: [PATCH 27/29] i2400m: Makefile and Kconfig
+Date: Wed, 10 Dec 2008 15:13:08 -0800
+Message-ID: <f60932df7028afe6f349c8c9796183ea3c72dbb1.1228948073.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <wimax-bounces@linuxwimax.org>
@@ -22,80 +18,164 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-In the same spirit as debugfs_create_*(), introduce helpers for
-exporting size_t values over debugfs.
-
-The only trick done is that the format verifier is kept at %llu
-instead of %zu; otherwise type warnings would pop up:
-
-format ‘%zu’ expects type ‘size_t’, but argument 2 has type ‘long long unsigned int’
-
-There is no real way to fix this one--however, we can consider %llu
-and %zu to be compatible if we consider that we are using the same for
-validating in debugfs_create_{x,u}{8,16,32}().
+Integrate the i2400m driver into the kernel's build and Kconfig.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: Greg KH <greg@kroah.com>
 ---
- fs/debugfs/file.c       |   32 ++++++++++++++++++++++++++++++++
- include/linux/debugfs.h |    2 ++
- 2 files changed, 34 insertions(+), 0 deletions(-)
+ drivers/net/Kconfig               |    2 +
+ drivers/net/Makefile              |    1 +
+ drivers/net/wimax/Kconfig         |   17 +++++++++++++
+ drivers/net/wimax/Makefile        |    2 +
+ drivers/net/wimax/i2400m/Kconfig  |   49 +++++++++++++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/Makefile |   29 ++++++++++++++++++++++
+ 6 files changed, 100 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/Kconfig
+ create mode 100644 drivers/net/wimax/Makefile
+ create mode 100644 drivers/net/wimax/i2400m/Kconfig
+ create mode 100644 drivers/net/wimax/i2400m/Makefile
 
-diff --git a/fs/debugfs/file.c b/fs/debugfs/file.c
-index 159a5ef..33a9012 100644
---- a/fs/debugfs/file.c
-+++ b/fs/debugfs/file.c
-@@ -294,6 +294,38 @@ struct dentry *debugfs_create_x32(const char *name, mode_t mode,
- }
- EXPORT_SYMBOL_GPL(debugfs_create_x32);
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 231eeaf..6255b79 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2585,6 +2585,8 @@ source "drivers/net/tokenring/Kconfig"
  
-+
-+static int debugfs_size_t_set(void *data, u64 val)
-+{
-+	*(size_t *)data = val;
-+	return 0;
-+}
-+static int debugfs_size_t_get(void *data, u64 *val)
-+{
-+	*val = *(size_t *)data;
-+	return 0;
-+}
-+DEFINE_SIMPLE_ATTRIBUTE(fops_size_t, debugfs_size_t_get, debugfs_size_t_set,
-+			"%llu\n");	/* %llu and %zu are more or less the same */
-+
-+/**
-+ * debugfs_create_size_t - create a debugfs file that is used to read and write an size_t value
-+ * @name: a pointer to a string containing the name of the file to create.
-+ * @mode: the permission that the file should have
-+ * @parent: a pointer to the parent dentry for this file.  This should be a
-+ *          directory dentry if set.  If this parameter is %NULL, then the
-+ *          file will be created in the root of the debugfs filesystem.
-+ * @value: a pointer to the variable that the file should read to and write
-+ *         from.
-+ */
-+struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
-+				     struct dentry *parent, size_t *value)
-+{
-+	return debugfs_create_file(name, mode, parent, value, &fops_size_t);
-+}
-+EXPORT_SYMBOL_GPL(debugfs_create_size_t);
-+
-+
- static ssize_t read_file_bool(struct file *file, char __user *user_buf,
- 			      size_t count, loff_t *ppos)
- {
-diff --git a/include/linux/debugfs.h b/include/linux/debugfs.h
-index e1a6c04..23936b1 100644
---- a/include/linux/debugfs.h
-+++ b/include/linux/debugfs.h
-@@ -63,6 +63,8 @@ struct dentry *debugfs_create_x16(const char *name, mode_t mode,
- 				  struct dentry *parent, u16 *value);
- struct dentry *debugfs_create_x32(const char *name, mode_t mode,
- 				  struct dentry *parent, u32 *value);
-+struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
-+				     struct dentry *parent, size_t *value);
- struct dentry *debugfs_create_bool(const char *name, mode_t mode,
- 				  struct dentry *parent, u32 *value);
+ source "drivers/net/wireless/Kconfig"
  
++source "drivers/net/wimax/Kconfig"
++
+ source "drivers/net/usb/Kconfig"
+ 
+ source "drivers/net/pcmcia/Kconfig"
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index f19acf8..3ac378f 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -262,3 +262,4 @@ obj-$(CONFIG_NIU) += niu.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_SFC) += sfc/
+ 
++obj-y += wimax/
+diff --git a/drivers/net/wimax/Kconfig b/drivers/net/wimax/Kconfig
+new file mode 100644
+index 0000000..30347e4
+--- /dev/null
++++ b/drivers/net/wimax/Kconfig
+@@ -0,0 +1,17 @@
++#
++# WiMAX LAN device drivers configuration
++#
++
++
++comment "Enable WiMAX (Networking options) to see the WiMAX drivers"
++        depends on WIMAX = n
++
++if WIMAX
++
++menu "WiMAX Wireless Broadband devices"
++
++source "drivers/net/wimax/i2400m/Kconfig"
++
++endmenu
++
++endif
+diff --git a/drivers/net/wimax/Makefile b/drivers/net/wimax/Makefile
+new file mode 100644
+index 0000000..bda9430
+--- /dev/null
++++ b/drivers/net/wimax/Makefile
+@@ -0,0 +1,2 @@
++
++obj-$(CONFIG_WIMAX_I2400M)	+= i2400m/
+diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
+new file mode 100644
+index 0000000..e977c46
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/Kconfig
+@@ -0,0 +1,49 @@
++
++config WIMAX_I2400M
++        tristate
++	depends on WIMAX
++        select FW_LOADER
++
++comment "Enable USB support to see WiMAX USB drivers"
++        depends on USB = n
++
++comment "Enable MMC support to see WiMAX SDIO drivers"
++        depends on MMC = n
++
++config WIMAX_I2400M_USB
++	tristate "Intel Wireless WiMAX Connection 2400 over USB (including 5x50)"
++	depends on WIMAX && USB
++        select WIMAX_I2400M
++	help
++	  Select if you have a device based on the Intel WiMAX
++	  Connection 2400 over USB (like any of the Intel Wireless
++	  WiMAX/WiFi Link 5x50 series).
++
++          If unsure, it is safe to select M (module).
++
++config WIMAX_I2400M_SDIO
++	tristate "Intel Wireless WiMAX Connection 2400 over SDIO"
++	depends on WIMAX && MMC
++        select WIMAX_I2400M
++	help
++	  Select if you have a device based on the Intel WiMAX
++          Connection 2400 over SDIO.
++
++          If unsure, it is safe to select M (module).
++
++config WIMAX_I2400M_DEBUG_LEVEL
++       int "WiMAX i2400m debug level"
++       depends on WIMAX_I2400M
++       default 8
++       help
++
++         Select the maximum debug verbosity level to be compiled into
++         the WiMAX i2400m driver code.
++
++         By default, this is disabled at runtime and can be
++         selectively enabled at runtime for different parts of the
++         code using the sysfs debug-levels file.
++
++         If set at zero, this will compile out all the debug code.
++
++         It is recommended that it is left at 8.
+diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
+new file mode 100644
+index 0000000..2e8c15b
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/Makefile
+@@ -0,0 +1,29 @@
++
++obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
++obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
++obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
++
++i2400m-objs :=		\
++	control.o	\
++	driver.o	\
++	fw.o		\
++	op-rfkill.o	\
++	netdev.o	\
++	tx.o		\
++	rx.o
++
++i2400m-$(CONFIG_DEBUG_FS) += debugfs.o
++
++i2400m-usb-objs :=		\
++	usb-fw.o		\
++	usb-notif.o		\
++	usb-tx.o		\
++	usb-rx.o		\
++	usb.o
++
++
++i2400m-sdio-objs := 		\
++	sdio.o      		\
++	sdio-tx.o   		\
++	sdio-fw.o	 	\
++	sdio-rx.o
 -- 
 1.5.6.5
