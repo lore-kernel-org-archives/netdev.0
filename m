@@ -1,64 +1,48 @@
 From: Eric Leblond <eric@inl.fr>
-Subject: Re: linux-next: Tree for December 1 (netfilter build error)
-Date: Wed, 10 Dec 2008 19:43:50 +0100
-Message-ID: <1228934630.5961.8.camel@ice-age>
-References: <20081201190827.2d02b1a5.sfr@canb.auug.org.au>
-	 <20081201115934.00ba918a.randy.dunlap@oracle.com>
-	 <20081210165455.GC6391@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-UjSN4+bVpf7FFw9CcHSS"
+Subject: netfilter: xt_NFLOG is dependant of nfnetlink_log
+Date: Wed, 10 Dec 2008 19:49:17 +0100
+Message-ID: <1228934957-11967-1-git-send-email-eric@inl.fr>
+References: <1228934630.5961.8.camel@ice-age>
 Cc: Randy Dunlap <randy.dunlap@oracle.com>,
 	Stephen Rothwell <sfr@canb.auug.org.au>,
 	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
 	LKML <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org, kaber@trash.net
+	netfilter-devel@vger.kernel.org, kaber@trash.net,
+	Eric Leblond <eric@inl.fr>
 To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081210165455.GC6391@linux.vnet.ibm.com>
+In-Reply-To: <1228934630.5961.8.camel@ice-age>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The patch "don't call nf_log_packet in NFLOG module" make xt_NFLOG
+dependant of nfnetlink_log. This patch forces the dependencies to fix
+compilation in case only xt_NFLOG compilation was asked and modifies the
+help message accordingly to the change.
 
---=-UjSN4+bVpf7FFw9CcHSS
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Eric Leblond <eric@inl.fr>
+---
+ net/netfilter/Kconfig |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-Hi,
-
-Le mercredi 10 d=E9cembre 2008 =E0 22:24 +0530, Kamalesh Babulal a =E9crit =
-:
-> * Randy Dunlap <randy.dunlap@oracle.com> [2008-12-01 11:59:34]:
-> 	   =20
-> the function nfulnl_log_packet is exported only if
-> CONFIG_NETFILTER_NETLINK_LOG is enabled, so marking the loging function
-> between ifdef.
->=20
-
-My patch introduces a real depedency of xt_NFLOG with nfnetlink_log
-(CONFIG_NETFILTER_NETLINK_LOG) but I forget to state it in Kconfig.
-=20
-I thus disagree with your patch. It is better to fix the compilation
-depedency instead by modifying Kconfig.
-
-A patch fixing this issue is to come.
-
-BR,=20
---=20
-Eric Leblond <eric@inl.fr>
-INL
-
---=-UjSN4+bVpf7FFw9CcHSS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Ceci est une partie de message
- =?ISO-8859-1?Q?num=E9riquement?= =?ISO-8859-1?Q?_sign=E9e?=
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iD8DBQBJQA3gnxA7CdMWjzIRAjimAJ4vFonm+9eIWkFQZCO+WPCGwam1VwCcCSsx
-vAn3jMrhqMZDkbzvGr3MZSA=
-=KX8/
------END PGP SIGNATURE-----
-
---=-UjSN4+bVpf7FFw9CcHSS--
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 25dcef9..c2bac9c 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -373,11 +373,10 @@ config NETFILTER_XT_TARGET_MARK
+ config NETFILTER_XT_TARGET_NFLOG
+ 	tristate '"NFLOG" target support'
+ 	default m if NETFILTER_ADVANCED=n
++	select NETFILTER_NETLINK_LOG
+ 	help
+ 	  This option enables the NFLOG target, which allows to LOG
+-	  messages through the netfilter logging API, which can use
+-	  either the old LOG target, the old ULOG target or nfnetlink_log
+-	  as backend.
++	  messages through nfnetlink_log.
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-- 
+1.5.6.3
 
