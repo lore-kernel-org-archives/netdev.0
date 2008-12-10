@@ -1,109 +1,125 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 2/2] igb: Correctly determine pci-e function number
-	in virtual environment
-Date: Tue, 09 Dec 2008 18:42:16 -0800
-Message-ID: <20081210024216.27280.8218.stgit@lost.foo-projects.org>
-References: <20081210024156.27280.78618.stgit@lost.foo-projects.org>
+Subject: [NET-NEXT v2 PATCH] ixgbe: Implement PCIe AER support
+Date: Tue, 09 Dec 2008 18:44:23 -0800
+Message-ID: <20081210024423.27657.32266.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:34487
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754539AbYLJCmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 21:42:35 -0500
-In-Reply-To: <20081210024156.27280.78618.stgit@lost.foo-projects.org>
+Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:34688 "EHLO
+	QMTA01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754062AbYLJCol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 21:44:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-When running in a virtual environment the ports of an 82575/6 can appear to
-be single function devices which is not correct.  To resolve this we rely
-on the function number stored in the status register.
+This patch implements the PCIe Advanced Error Reporting callbacks in
+ixgbe.  The 82598 hardware supports AER, so we enable it.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_mac.c   |   18 ++++++------------
- drivers/net/igb/e1000_regs.h  |    4 ++++
- drivers/net/igb/igb_ethtool.c |    2 --
- 3 files changed, 10 insertions(+), 14 deletions(-)
+ drivers/net/ixgbe/ixgbe.h      |    1 +
+ drivers/net/ixgbe/ixgbe_main.c |   41 ++++++++++++++++++++++++++++++++--------
+ 2 files changed, 34 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
-index e18747c..137269d 100644
---- a/drivers/net/igb/e1000_mac.c
-+++ b/drivers/net/igb/e1000_mac.c
-@@ -83,8 +83,8 @@ s32 igb_get_bus_info_pcie(struct e1000_hw *hw)
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 6cbf26e..e112008 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -32,6 +32,7 @@
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include <linux/inet_lro.h>
++#include <linux/aer.h>
+ 
+ #include "ixgbe_type.h"
+ #include "ixgbe_common.h"
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index a7aa892..d6f666a 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4020,6 +4020,13 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 		goto err_pci_reg;
+ 	}
+ 
++	err = pci_enable_pcie_error_reporting(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "pci_enable_pcie_error_reporting failed "
++		                    "0x%x\n", err);
++		/* non-fatal, continue */
++	}
++
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
+@@ -4257,6 +4264,7 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
  {
- 	struct e1000_bus_info *bus = &hw->bus;
- 	s32 ret_val;
--	u32 status;
--	u16 pcie_link_status, pci_header_type;
-+	u32 reg;
-+	u16 pcie_link_status;
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	int err;
  
- 	bus->type = e1000_bus_type_pci_express;
- 	bus->speed = e1000_bus_speed_2500;
-@@ -99,14 +99,8 @@ s32 igb_get_bus_info_pcie(struct e1000_hw *hw)
- 						     PCIE_LINK_WIDTH_MASK) >>
- 						     PCIE_LINK_WIDTH_SHIFT);
+ 	set_bit(__IXGBE_DOWN, &adapter->state);
+ 	/* clear the module not found bit to make sure the worker won't
+@@ -4295,6 +4303,11 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
  
--	igb_read_pci_cfg(hw, PCI_HEADER_TYPE_REGISTER, &pci_header_type);
--	if (pci_header_type & PCI_HEADER_TYPE_MULTIFUNC) {
--		status = rd32(E1000_STATUS);
--		bus->func = (status & E1000_STATUS_FUNC_MASK)
--			    >> E1000_STATUS_FUNC_SHIFT;
--	} else {
--		bus->func = 0;
--	}
-+	reg = rd32(E1000_STATUS);
-+	bus->func = (reg & E1000_STATUS_FUNC_MASK) >> E1000_STATUS_FUNC_SHIFT;
+ 	free_netdev(netdev);
  
- 	return 0;
++	err = pci_disable_pcie_error_reporting(pdev);
++	if (err)
++		dev_err(&pdev->dev,
++		        "pci_disable_pcie_error_reporting failed 0x%x\n", err);
++
+ 	pci_disable_device(pdev);
  }
-@@ -229,8 +223,8 @@ void igb_rar_set(struct e1000_hw *hw, u8 *addr, u32 index)
- 	if (!hw->mac.disable_av)
- 		rar_high |= E1000_RAH_AV;
  
--	array_wr32(E1000_RA, (index << 1), rar_low);
--	array_wr32(E1000_RA, ((index << 1) + 1), rar_high);
-+	wr32(E1000_RAL(index), rar_low);
-+	wr32(E1000_RAH(index), rar_high);
+@@ -4332,21 +4345,33 @@ static pci_ers_result_t ixgbe_io_slot_reset(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	pci_ers_result_t result;
++	int err;
+ 
+ 	if (pci_enable_device(pdev)) {
+ 		DPRINTK(PROBE, ERR,
+ 		        "Cannot re-enable PCI device after reset.\n");
+-		return PCI_ERS_RESULT_DISCONNECT;
+-	}
+-	pci_set_master(pdev);
+-	pci_restore_state(pdev);
++		result = PCI_ERS_RESULT_DISCONNECT;
++	} else {
++		pci_set_master(pdev);
++		pci_restore_state(pdev);
+ 
+-	pci_enable_wake(pdev, PCI_D3hot, 0);
+-	pci_enable_wake(pdev, PCI_D3cold, 0);
++		pci_enable_wake(pdev, PCI_D3hot, 0);
++		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+-	ixgbe_reset(adapter);
++		ixgbe_reset(adapter);
++
++		result = PCI_ERS_RESULT_RECOVERED;
++	}
++
++	err = pci_cleanup_aer_uncorrect_error_status(pdev);
++	if (err) {
++		dev_err(&pdev->dev,
++		  "pci_cleanup_aer_uncorrect_error_status failed 0x%0x\n", err);
++		/* non-fatal, continue */
++	}
+ 
+-	return PCI_ERS_RESULT_RECOVERED;
++	return result;
  }
  
  /**
-diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
-index 95523af..bdf5d83 100644
---- a/drivers/net/igb/e1000_regs.h
-+++ b/drivers/net/igb/e1000_regs.h
-@@ -221,6 +221,10 @@
- #define E1000_MTA      0x05200  /* Multicast Table Array - RW Array */
- #define E1000_RA       0x05400  /* Receive Address - RW Array */
- #define E1000_RA2      0x054E0  /* 2nd half of receive address array - RW Array */
-+#define E1000_RAL(_i)  (((_i) <= 15) ? (0x05400 + ((_i) * 8)) : \
-+                                       (0x054E0 + ((_i - 16) * 8)))
-+#define E1000_RAH(_i)  (((_i) <= 15) ? (0x05404 + ((_i) * 8)) : \
-+                                       (0x054E4 + ((_i - 16) * 8)))
- #define E1000_VFTA     0x05600  /* VLAN Filter Table Array - RW Array */
- #define E1000_VMD_CTL  0x0581C  /* VMDq Control - RW */
- #define E1000_WUC      0x05800  /* Wakeup Control - RW */
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index d5efbcc..3c831f1 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -494,8 +494,6 @@ static void igb_get_regs(struct net_device *netdev,
- 
- 	/* These should probably be added to e1000_regs.h instead */
- 	#define E1000_PSRTYPE_REG(_i) (0x05480 + ((_i) * 4))
--	#define E1000_RAL(_i)         (0x05400 + ((_i) * 8))
--	#define E1000_RAH(_i)         (0x05404 + ((_i) * 8))
- 	#define E1000_IP4AT_REG(_i)   (0x05840 + ((_i) * 8))
- 	#define E1000_IP6AT_REG(_i)   (0x05880 + ((_i) * 4))
- 	#define E1000_WUPM_REG(_i)    (0x05A00 + ((_i) * 4))
 
