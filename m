@@ -1,40 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: b43 phy0 error
-Date: Wed, 10 Dec 2008 09:22:57 -0500
-Message-ID: <20081210142257.GB5168@tuxdriver.com>
-References: <20081210003948.24694199B271@f14.poczta.interia.pl>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 7/6] Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used
+ jiffies in htb_dequeue()
+Date: Wed, 10 Dec 2008 15:38:20 +0100
+Message-ID: <493FD45C.7030503@trash.net>
+References: <20081209144534.GC15353@ff.dom.local> <20081209.223545.196224587.davem@davemloft.net> <20081210091126.GA4707@ff.dom.local> <20081210.011431.203551043.davem@davemloft.net> <20081210093532.GA7926@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: siamer <siamer@interia.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, devik@cdi.cz,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38772 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360AbYLJOaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 09:30:13 -0500
-Content-Disposition: inline
-In-Reply-To: <20081210003948.24694199B271@f14.poczta.interia.pl>
+Received: from stinky.trash.net ([213.144.137.162]:62709 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346AbYLJOiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 09:38:23 -0500
+In-Reply-To: <20081210093532.GA7926@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 10, 2008 at 01:39:47AM +0100, siamer wrote:
-> Hi i have broadcom 4318 wireless card (laptop asus a6km) when i'm
-> using firmware from linuxwiereless.com (4.150.10.5) then internet is
-> working but when i'm starting download something than is disconnecting
-> me. dmesg show : b43 phy0 error
-> I tryed that on few different distros and on different kernels
-> (2.6.25 2.6.26 2.6.27 wireless-testing and compact-wireless) is the
-> same... PLEASE HELP ME... Why is like that ?
+Jarek Poplawski wrote:
+> On Wed, Dec 10, 2008 at 01:14:31AM -0800, David Miller wrote:
+>   
+>
+>> I understand it's logical steps, but you could just do 1 and
+>> 2 in the same patch and it'd be OK.
+>>     
+>
+> OK, so I withdraw 1 and 4 too, and let's say this is No 7 (2in1).
+>   
 
-This is one of the nagging mysteries of the BCM43xx hardware -- we
-don't know what causes it.  Can you reliably recreate the problem?
-If so, perhaps you can use wireshark with another wireless device in
-monitor mode to capture a trace of what is happening?
 
-John
+Just FYI, I'm travelling today, so I'll need until tommorrow to
+review this.
 
-P.S.  You probably should be sending stuff to
-linux-wireless@vger.kernel.org instead.
--- 
-John W. Linville		Linux should be at the core
-linville@tuxdriver.com			of your literate lifestyle.
