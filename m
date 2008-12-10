@@ -1,68 +1,215 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user space data
-Date: Thu, 11 Dec 2008 00:45:00 +0300
-Message-ID: <20081210214500.GA24212@ioremap.net>
-References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 01/11] benet: header and init functions
+Date: Thu, 11 Dec 2008 00:03:14 +0100
+Message-ID: <20081210230314.GB30537@electric-eye.fr.zoreil.com>
+References: <1228832384.6435.94.camel@sperla-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-scsi@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Jeff Garzik <jeff@garzik.org>,
-	Boaz Harrosh <bharrosh@panasas.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org
-To: Vladislav Bolkhovitin <vst@vlnb.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, jgarzik@pobox.com,
+	jeff@garzik.org, subbu <subbus@serverengines.com>
+To: Sathya Perla <sathyap@serverengines.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58808 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753266AbYLJXDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 18:03:24 -0500
 Content-Disposition: inline
-In-Reply-To: <494012C4.7090304@vlnb.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1228832384.6435.94.camel@sperla-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vladislav.
+Sathya Perla <sathyap@serverengines.com> :
+[...]
+> diff --git a/drivers/net/benet/be_init.c b/drivers/net/benet/be_init.c
+> new file mode 100644
+> index 0000000..06fb343
+> --- /dev/null
+> +++ b/drivers/net/benet/be_init.c
+[...]
+> +static int
+> +init_pci_be_function(struct be_adapter *adapter, struct pci_dev *pdev)
+> +{
+> +	u64 pa;
+> +
+> +	/* CSR */
+> +	pa = pci_resource_start(pdev, 2);
+> +	adapter->csr_va = ioremap_nocache(pa, pci_resource_len(pdev, 2));
+> +	if (adapter->csr_va == NULL)
+> +		return -ENOMEM;
+> +
+> +	/* Door Bell */
+> +	pa = pci_resource_start(pdev, 4);
+> +	adapter->db_va = ioremap_nocache(pa, (128 * 1024));
+> +	if (adapter->db_va == NULL) {
+> +		iounmap(adapter->csr_va);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	/* PCI */
+> +	pa = pci_resource_start(pdev, 1);
+> +	adapter->pci_va = ioremap_nocache(pa, pci_resource_len(pdev, 1));
+> +	if (adapter->pci_va == NULL) {
+> +		iounmap(adapter->csr_va);
+> +		iounmap(adapter->db_va);
+> +		return -ENOMEM;
+> +	}
 
-On Wed, Dec 10, 2008 at 10:04:36PM +0300, Vladislav Bolkhovitin (vst@vlnb.net) wrote:
-> In the chosen approach new optional field void *net_priv was added to 
-> struct page. It is enclosed by
+This error path could use gotos.
 
-There is a huge no-no in networking land on increasing skb.
-Reason is simple every skb will carry potentially unneded data as long
-as given option is enabled, and most of the time it will.
-To break this barrier one has to have (I wanted to write ego, but then
-decided to replace it with mojo) so huge reason to do this, that it is
-almost impossible to have.
+[...]
+> +static int be_register_isr(struct be_adapter *adapter,
+> +		struct be_net_object *pnob)
+> +{
+> +	struct net_device *netdev = pnob->netdev;
+> +	int intx = 0, r;
+> +
+> +	netdev->irq = adapter->pdev->irq;
+> +	r = be_enable_msix(adapter);
+> +
+> +	if (r == 0) {
+> +		r = request_irq(adapter->msix_entries[0].vector,
+> +				be_int, IRQF_SHARED, netdev->name, netdev);
+> +		if (r) {
+> +			printk(KERN_WARNING
+> +				"MSIX Request IRQ failed - Errno %d\n", r);
 
-Something tells me that increasing page structure with 8 bytes because
-of zero-copy iscsi transfer is not that great idea, since basically every
-user out there will have it enabled in the distro config and will waste
-noticeble amount of ram.
+This printk will be of moderate help in the middle of a kilometer long
+dmesg. You may use dev_warn and friends to identify the emitter of the
+warning.
 
-The same problem of not sending any kind of notification to the user
-when his pages are 'acked' by receiving some packet or freeing the data
-exists long ago and was tried to be fixed several times.
+> +			intx = 1;
+> +			pci_disable_msix(adapter->pdev);
+> +			adapter->msix_enabled = 0;
+> +		}
+> +	} else {
+> +		intx = 1;
+> +	}
+> +
+> +	if (intx) {
+> +		r = request_irq(netdev->irq, be_int, IRQF_SHARED,
+> +				netdev->name, netdev);
 
-The most applicable to your case maybe DST experience. DST is a block
-layer device and all its pages starting from quite recent kernels are
-not allowed to be slab ones (xfs was the last one who provided slab
-pages in the bios), so each page has two 'unused' pointers in lru list
-entry, which you may reuse. If scsi layer may have slab pages from some
-place (although this does not sound like a good idea, ->sendpage() will
-bug on on them anyway), this hack will not work, otherwise you only need
-to have net_page_get/put stuff in and do not mess with increasing page.
-And this was tested 3-4 kernel releases ago, so things may be changed.
+be_int is not known in this patch.
 
-Another appropach is to increase skb's shared data (at the end of the
-skb->data), and this approach was not frowned upon too much either, but
-it requires to mess with skb->destructor, which may not be appropriate
-in some cases. If iscsi does not use sockets (it does iirc), things are
-much simpler.
+> +		if (r) {
+> +			printk(KERN_WARNING
+> +				"INTx Request IRQ failed - Errno %d\n", r);
+> +			return -1;
 
-Hope this helps.
+Please propagate "r" as a status code up to the highest level caller.
+
+If you really need some error status code of you own, you may
+consider using Exxx (ENOMEM, EBUSY, etc.) ones.
+
+[...]
+> +static void be_rx_q_clean(struct be_net_object *pnob)
+> +{
+> +	if (pnob->rx_ctxt) {
+> +		int i;
+> +		struct be_rx_page_info *rx_page_info;
+> +		for (i = 0; i < pnob->rx_q_len; i++) {
+
+Please insert a blank line between the declaration and the code.
+
+[...]
+> +static int be_nob_ring_alloc(struct be_adapter *adapter,
+> +	struct be_net_object *pnob)
+> +{
+> +	u32 size;
+> +
+> +	/* Mail box rd; mailbox pointer needs to be 16 byte aligned */
+> +	pnob->mb_size = sizeof(struct MCC_MAILBOX_AMAP) + 16;
+> +	pnob->mb_ptr = pci_alloc_consistent(adapter->pdev, pnob->mb_size,
+> +				&pnob->mb_bus);
+> +	if (!pnob->mb_bus)
+> +		return -1;
+
+return -ENOMEM ?
+
+[...]
+> +static void be_remove(struct pci_dev *pdev)
+> +{
+> +	struct be_net_object *pnob;
+> +	struct be_adapter *adapter;
+> +
+> +	adapter = pci_get_drvdata(pdev);
+> +	if (!adapter)
+> +		return;
+> +
+> +	pci_set_drvdata(pdev, NULL);
+> +	pnob = (struct be_net_object *)adapter->net_obj;
+> +
+> +	flush_scheduled_work();
+> +
+> +	if (pnob) {
+> +		/* Unregister async callback function for link status updates */
+> +		if (pnob->mcc_q_created)
+> +			be_mcc_add_async_event_callback(&pnob->mcc_q_obj,
+
+be_mcc_add_async_event_callback is not defined in this patch.
+
+[...]
+> +static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+> +{
+> +	int status = 0;
+
+Useless initialization.
+
+> +	struct be_adapter *adapter;
+> +	struct FWCMD_COMMON_GET_FW_VERSION_RESPONSE_PAYLOAD get_fwv;
+> +	struct be_net_object *pnob;
+> +	struct net_device *netdev;
+> +
+> +	status = pci_enable_device(pdev);
+> +	if (status)
+> +		goto error;
+> +
+> +	status = pci_request_regions(pdev, be_driver_name);
+> +	if (status)
+> +		goto error_pci_req;
+> +
+> +	pci_set_master(pdev);
+
+The adapter is never used with bioses which could leave it ready
+to DMA into memory before linux is started, right ?
+
+Otherwise we are in trouble.
+
+[...]
+> +	status = be_register_isr(adapter, pnob);
+> +	if (status != 0)
+> +		goto cleanup;
+
+I have not seen where the device is reset before registering the irq.
+
+[...]
+> +void be_update_link_status(struct be_adapter *adapter)
+> +{
+> +	int status;
+> +	struct be_net_object *pnob = adapter->net_obj;
+> +
+> +	status = be_rxf_link_status(&pnob->fn_obj, adapter->be_link_sts, NULL,
+
+be_rxf_link_status is not defined in this patch.
+
+[...]
+> +static int be_suspend(struct pci_dev *pdev, pm_message_t state)
+> +{
+> +	struct be_adapter *adapter = pci_get_drvdata(pdev);
+> +	struct net_device *netdev =  adapter->netdevp;
+> +	struct be_net_object *pnob = (struct be_net_object *)netdev->priv;
+> +
+> +	adapter->dev_pm_state = adapter->dev_state;
+> +	adapter->dev_state = BE_DEV_STATE_SUSPEND;
+> +
+> +	netif_device_detach(netdev);
+> +	if (netif_running(netdev))
+> +		be_pm_cleanup(adapter, pnob, netdev);
+> +
+> +	pci_enable_wake(pdev, 3, 1);
+> +	pci_enable_wake(pdev, 4, 1);	/* D3 Cold = 4 */
+
+You can use PCI_D3hot and PCI_D3cold.
 
 -- 
-	Evgeniy Polyakov
+Ueimor
