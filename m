@@ -1,43 +1,44 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 02/29] wimax: headers for kernel API and user space interaction
-Date: Wed, 10 Dec 2008 15:12:43 -0800
-Message-ID: <459af6639c62243513b56f1b0957c6c63e21928f.1228948072.git.inaky@linux.intel.com>
+Subject: [PATCH 15/29] i2400m: firmware loading and bootrom initialization
+Date: Wed, 10 Dec 2008 15:12:56 -0800
+Message-ID: <4392e4508580c4bf1cbddc66ae188018a6070d83.1228948072.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org, greg@kroah.com
+Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24880 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753496AbYLJXNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2008 18:13:13 -0500
+Return-path: <wimax-bounces@linuxwimax.org>
 In-Reply-To: <cover.1228948072.git.inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-Definitions for the user/kernel API protocol through generic
-netlink. User space can copy it verbatim and use it.
-
-Kernel API definition declares the main data types and calls for the
-drivers to integrate into the WiMAX stack. Provides usage
-documentation.
+Implements the firmware loader (using the bus-specific driver's
+backends for the actual upload). The most critical thing in here is
+the piece that puts the device in boot-mode from any other
+(undetermined) state, otherwise, it is just pushing the bytes from the
+firmware file to the device.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax.h |  234 ++++++++++++++++++++++
- include/net/wimax.h   |  520 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 754 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax.h
- create mode 100644 include/net/wimax.h
+ drivers/net/wimax/i2400m/fw.c | 1095 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 1095 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/fw.c
 
-diff --git a/include/linux/wimax.h b/include/linux/wimax.h
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
 new file mode 100644
-index 0000000..c89de7f
+index 0000000..1d8271f
 --- /dev/null
-+++ b/include/linux/wimax.h
-@@ -0,0 +1,234 @@
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -0,0 +1,1095 @@
 +/*
-+ * Linux WiMax
-+ * API for user space
++ * Intel Wireless WiMAX Connection 2400m
++ * Firmware uploader
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -70,731 +71,1065 @@ index 0000000..c89de7f
 + *
 + *
 + * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *  - Initial implementation
 + *
 + *
-+ * This file declares the user/kernel protocol that is spoken over
-+ * Generic Netlink, as well as any type declaration that is to be used
-+ * by kernel and user space.
++ * THE PROCEDURE
 + *
-+ * It is intended for user space to clone it verbatim to use it as a
-+ * primary reference for definitions.
++ * (this is decribed for USB, but for SDIO is similar)
 + *
-+ * Stuff intended for kernel usage as well as full protocol and stack
-+ * documentation is rooted in include/net/wimax.h.
++ * The 2400m works in two modes: boot-mode or normal mode. In boot
++ * mode we can execute only a handful of commands targeted at
++ * uploading the firmware and launching it.
++ *
++ * The 2400m enters boot mode when it is first connected to the
++ * system, when it crashes and when you ask it to reboot. There are
++ * two submodes of the boot mode: signed and non-signed. Signed takes
++ * firmwares signed with a certain private key, non-signed takes any
++ * firmware. Normal hardware takes only signed firmware.
++ *
++ * Upon entrance to boot mode, the device sends a few zero length
++ * packets (ZLPs) on the notification endpoint, then a reboot barker
++ * (4 le32 words with value I2400M_{S,N}BOOT_BARKER). We ack it by
++ * sending the same barker on the bulk out endpoint. The device acks
++ * with a reboot ack barker (4 le32 words with value 0xfeedbabe) and
++ * then the device is fully rebooted. At this point we can upload the
++ * firmware.
++ *
++ * This process is accomplished by the i2400m_bootrom_init()
++ * function. All the device interaction happens through the
++ * i2400m_bm_cmd() [boot mode command]. Special return values will
++ * indicate if the device resets.
++ *
++ * After this, we read the MAC address and then (if needed)
++ * reinitialize the device. We need to read it ahead of time because
++ * in the future, we might not upload the firmware until userspace
++ * 'ifconfig up's the device.
++ *
++ * We can then upload the firmware file. The file is composed of a BCF
++ * header (basic data, keys and signatures) and a list of write
++ * commands and payloads. We first upload the header
++ * [i2400m_dnload_init()] and then pass the commands and payloads
++ * verbatim to the i2400m_bm_cmd() function
++ * [i2400m_dnload_bcf()]. Then we tell the device to jump to the new
++ * firmware [i2400m_dnload_finalize()].
++ *
++ * Once firmware is uploaded, we are good to go :)
++ *
++ * When we don't know in which mode we are, we first try by sending a
++ * warm reset request that will take us to boot-mode. If we time out
++ * waiting for a reboot barker, that means maybe we are already in
++ * boot mode, so we send a reboot barker.
++ *
++ * COMMAND EXECUTION
++ *
++ * This code (and process) is single threaded; for executing commands,
++ * we post a URB to the notification endpoint, post the command, wait
++ * for data on the notification buffer. We don't need to worry about
++ * others as we know we are the only ones in there.
++ *
++ * BACKEND IMPLEMENTATION
++ *
++ * This code is bus-generic; the bus-specific driver provides back end
++ * implementations to send a boot mode command to the device and to
++ * read an acknolwedgement from it (or an asynchronous notification)
++ * from it.
++ *
++ * ROADMAP
++ *
++ * i2400m_dev_bootstrap               Called by __i2400m_dev_start()
++ *   request_firmware
++ *   i2400m_fw_check
++ *   i2400m_fw_dnload
++ *   release_firmware
++ *
++ * i2400m_fw_dnload
++ *   i2400m_bootrom_init
++ *     i2400m_bm_cmd
++ *     i2400m->bus_reset
++ *   i2400m_dnload_init
++ *     i2400m_dnload_init_signed
++ *     i2400m_dnload_init_nonsigned
++ *       i2400m_download_chunk
++ *         i2400m_bm_cmd
++ *   i2400m_dnload_bcf
++ *     i2400m_bm_cmd
++ *   i2400m_dnload_finalize
++ *     i2400m_bm_cmd
++ *
++ * i2400m_bm_cmd
++ *   i2400m->bus_bm_cmd_send()
++ *   i2400m->bus_bm_wait_for_ack
++ *   __i2400m_bm_ack_verify
++ *
++ * i2400m_bm_cmd_prepare              Used by bus-drivers to prep
++ *                                    commands before sending
 + */
++#include <linux/firmware.h>
++#include <linux/sched.h>
++#include <linux/usb.h>
++#include "i2400m.h"
 +
-+#ifndef __LINUX__WIMAX_H__
-+#define __LINUX__WIMAX_H__
 +
-+#include <linux/types.h>
++#define D_SUBMODULE fw
++#include "debug-levels.h"
 +
-+enum {
-+	/**
-+	 * Version of the interface (unsigned decimal, MMm, max 25.5)
-+	 * M - Major: change if removing or modifying an existing call.
-+	 * m - minor: change when adding a new call
++
++static const __le32 i2400m_ACK_BARKER[4] = {
++	__constant_cpu_to_le32(I2400M_ACK_BARKER),
++	__constant_cpu_to_le32(I2400M_ACK_BARKER),
++	__constant_cpu_to_le32(I2400M_ACK_BARKER),
++	__constant_cpu_to_le32(I2400M_ACK_BARKER)
++};
++
++
++/**
++ * Prepare a boot-mode command for delivery
++ *
++ * @cmd: pointer to bootrom header to prepare
++ *
++ * Computes checksum if so needed. After calling this function, DO NOT
++ * modify the command or header as the checksum won't work anymore.
++ *
++ * We do it from here because some times we cannot do it in the
++ * original context the command was sent (it is a const), so when we
++ * copy it to our staging buffer, we add the checksum there.
++ */
++void i2400m_bm_cmd_prepare(struct i2400m_bootrom_header *cmd)
++{
++	if (i2400m_brh_get_use_checksum(cmd)) {
++		int i;
++		u32 checksum = 0;
++		const u32 *checksum_ptr = (void *) cmd->payload;
++		for (i = 0; i < cmd->data_size / 4; i++)
++			checksum += cpu_to_le32(*checksum_ptr++);
++		checksum += cmd->command + cmd->target_addr + cmd->data_size;
++		cmd->block_checksum = cpu_to_le32(checksum);
++	}
++}
++EXPORT_SYMBOL_GPL(i2400m_bm_cmd_prepare);
++
++
++/*
++ * Verify the ack data received
++ *
++ * Given a reply to a boot mode command, chew it and verify everything
++ * is ok.
++ *
++ * @opcode: opcode which generated this ack. For error messages.
++ * @ack: pointer to ack data we received
++ * @ack_size: size of that data buffer
++ * @flags: I2400M_BM_CMD_* flags we called the command with.
++ *
++ * Way too long function -- maybe it should be further split
++ */
++static
++ssize_t __i2400m_bm_ack_verify(struct i2400m *i2400m, int opcode,
++			       struct i2400m_bootrom_header *ack,
++			       size_t ack_size, int flags)
++{
++	ssize_t result = -ENOMEM;
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(8, dev, "(i2400m %p opcode %d ack %p size %zu)\n",
++		  i2400m, opcode, ack, ack_size);
++	if (ack_size < sizeof(*ack)) {
++		result = -EIO;
++		dev_err(dev, "boot-mode cmd %d: HW BUG? notification didn't "
++			"return enough data (%zu bytes vs %zu expected)\n",
++			opcode, ack_size, sizeof(*ack));
++		goto error_ack_short;
++	}
++	if (ack_size == sizeof(i2400m_NBOOT_BARKER)
++		 && memcmp(ack, i2400m_NBOOT_BARKER, sizeof(*ack)) == 0) {
++		result = -ERESTARTSYS;
++		i2400m->sboot = 0;
++		d_printf(6, dev, "boot-mode cmd %d: "
++			 "HW non-signed boot barker\n", opcode);
++		goto error_reboot;
++	}
++	if (ack_size == sizeof(i2400m_SBOOT_BARKER)
++		 && memcmp(ack, i2400m_SBOOT_BARKER, sizeof(*ack)) == 0) {
++		result = -ERESTARTSYS;
++		i2400m->sboot = 1;
++		d_printf(6, dev, "boot-mode cmd %d: HW signed reboot barker\n",
++			 opcode);
++		goto error_reboot;
++	}
++	if (ack_size == sizeof(i2400m_ACK_BARKER)
++		 && memcmp(ack, i2400m_ACK_BARKER, sizeof(*ack)) == 0) {
++		result = -EISCONN;
++		d_printf(3, dev, "boot-mode cmd %d: HW reboot ack barker\n",
++			 opcode);
++		goto error_reboot_ack;
++	}
++	result = 0;
++	if (flags & I2400M_BM_CMD_RAW)
++		goto out_raw;
++	ack->data_size = le32_to_cpu(ack->data_size);
++	ack->target_addr = le32_to_cpu(ack->target_addr);
++	ack->block_checksum = le32_to_cpu(ack->block_checksum);
++	d_printf(5, dev, "boot-mode cmd %d: notification for opcode %u "
++		 "response %u csum %u rr %u da %u\n",
++		 opcode, i2400m_brh_get_opcode(ack),
++		 i2400m_brh_get_response(ack),
++		 i2400m_brh_get_use_checksum(ack),
++		 i2400m_brh_get_response_required(ack),
++		 i2400m_brh_get_direct_access(ack));
++	result = -EIO;
++	if (i2400m_brh_get_signature(ack) != 0xcbbc) {
++		dev_err(dev, "boot-mode cmd %d: HW BUG? wrong signature "
++			"0x%04x\n", opcode, i2400m_brh_get_signature(ack));
++		goto error_ack_signature;
++	}
++	if (opcode != -1 && opcode != i2400m_brh_get_opcode(ack)) {
++		dev_err(dev, "boot-mode cmd %d: HW BUG? "
++			"received response for opcode %u, expected %u\n",
++			opcode, i2400m_brh_get_opcode(ack), opcode);
++		goto error_ack_opcode;
++	}
++	if (i2400m_brh_get_response(ack) != 0) {	/* failed? */
++		dev_err(dev, "boot-mode cmd %d: error; hw response %u\n",
++			opcode, i2400m_brh_get_response(ack));
++		goto error_ack_failed;
++	}
++	if (ack_size < ack->data_size + sizeof(*ack)) {
++		dev_err(dev, "boot-mode cmd %d: SW BUG "
++			"driver provided only %zu bytes for %zu bytes "
++			"of data\n", opcode, ack_size,
++			(size_t) le32_to_cpu(ack->data_size) + sizeof(*ack));
++		goto error_ack_short_buffer;
++	}
++	result = ack_size;
++	/* Don't you love this stack of empty targets? Well, I don't
++	 * either, but it helps track exactly who comes in here and
++	 * why :) */
++error_ack_short_buffer:
++error_ack_failed:
++error_ack_opcode:
++error_ack_signature:
++out_raw:
++error_reboot_ack:
++error_reboot:
++error_ack_short:
++	d_fnend(8, dev, "(i2400m %p opcode %d ack %p size %zu) = %d\n",
++		i2400m, opcode, ack, ack_size, (int) result);
++	return result;
++}
++
++
++/**
++ * i2400m_bm_cmd - Execute a boot mode command
++ *
++ * @cmd: buffer containing the command data (pointing at the header).
++ *     This data can be ANYWHERE (for USB, we will copy it to an
++ *     specific buffer). Make sure everything is in proper little
++ *     endian.
++ *
++ *     A raw buffer can be also sent, just cast it and set flags to
++ *     I2400M_BM_CMD_RAW.
++ *
++ *     This function will generate a checksum for you if the
++ *     checksum bit in the command is set (unless I2400M_BM_CMD_RAW
++ *     is set).
++ *
++ *     You can use the i2400m->bm_cmd_buf to stage your commands and
++ *     send them.
++ *
++ *     If NULL, no command is sent (we just wait for an ack).
++ *
++ * @cmd_size: size of the command. Will be auto padded to the
++ *     bus-specific drivers padding requirements.
++ *
++ * @ack: buffer where to place the acknowledgement. If it is a regular
++ *     command response, all fields will be returned with the right,
++ *     native endianess.
++ *
++ *     You *cannot* use i2400m->bm_ack_buf for this buffer.
++ *
++ * @ack_size: size of @ack, 16 aligned; you need to provide at least
++ *     sizeof(*ack) bytes and then enough to contain the return data
++ *     from the command
++ *
++ * @flags: see I2400M_BM_CMD_* above.
++ *
++ * @returns: bytes received by the notification; if < 0, an errno code
++ *     denoting an error or:
++ *
++ *     -ERESTARTSYS  The device has rebooted
++ *
++ * Executes a boot-mode command and waits for a response, doing basic
++ * validation on it; if a zero length response is received, it retries
++ * waiting for a response until a non-zero one is received (timing out
++ * after %I2400M_BOOT_RETRIES retries).
++ */
++static
++ssize_t i2400m_bm_cmd(struct i2400m *i2400m,
++		      const struct i2400m_bootrom_header *cmd, size_t cmd_size,
++		      struct i2400m_bootrom_header *ack, size_t ack_size,
++		      int flags)
++{
++	ssize_t result = -ENOMEM, rx_bytes;
++	struct device *dev = i2400m_dev(i2400m);
++	int opcode = cmd == NULL ? -1 : i2400m_brh_get_opcode(cmd);
++
++	d_fnstart(6, dev, "(i2400m %p cmd %p size %zu ack %p size %zu)\n",
++		  i2400m, cmd, cmd_size, ack, ack_size);
++	BUG_ON(ack_size < sizeof(*ack));
++	BUG_ON(i2400m->boot_mode == 0);
++
++	if (cmd != NULL) {		/* send the command */
++		memcpy(i2400m->bm_cmd_buf, cmd, cmd_size);
++		result = i2400m->bus_bm_cmd_send(i2400m, cmd, cmd_size, flags);
++		if (result < 0)
++			goto error_cmd_send;
++		if ((flags & I2400M_BM_CMD_RAW) == 0)
++			d_printf(5, dev,
++				 "boot-mode cmd %d csum %u rr %u da %u: "
++				 "addr 0x%04x size %u block csum 0x%04x\n",
++				 opcode, i2400m_brh_get_use_checksum(cmd),
++				 i2400m_brh_get_response_required(cmd),
++				 i2400m_brh_get_direct_access(cmd),
++				 cmd->target_addr, cmd->data_size,
++				 cmd->block_checksum);
++	}
++	result = i2400m->bus_bm_wait_for_ack(i2400m, ack, ack_size);
++	if (result < 0) {
++		dev_err(dev, "boot-mode cmd %d: error waiting for an ack: %d\n",
++			opcode, (int) result);	/* bah, %zd doesn't work */
++		goto error_wait_for_ack;
++	}
++	rx_bytes = result;
++	/* verify the ack and read more if neccessary [result is the
++	 * final amount of bytes we get in the ack]  */
++	result = __i2400m_bm_ack_verify(i2400m, opcode, ack, ack_size, flags);
++	if (result < 0)
++		goto error_bad_ack;
++	/* Don't you love this stack of empty targets? Well, I don't
++	 * either, but it helps track exactly who comes in here and
++	 * why :) */
++	result = rx_bytes;
++error_bad_ack:
++error_wait_for_ack:
++error_cmd_send:
++	d_fnend(6, dev, "(i2400m %p cmd %p size %zu ack %p size %zu) = %d\n",
++		i2400m, cmd, cmd_size, ack, ack_size, (int) result);
++	return result;
++}
++
++
++/**
++ * i2400m_download_chunk - write a single chunk of data to the device's memory
++ *
++ * @i2400m: device descriptor
++ * @buf: the buffer to write
++ * @buf_len: length of the buffer to write
++ * @addr: address in the device memory space
++ * @direct: bootrom write mode
++ * @do_csum: should a checksum validation be performed
++ */
++static int i2400m_download_chunk(struct i2400m *i2400m, const void *chunk,
++				 size_t __chunk_len, unsigned long addr,
++				 unsigned int direct, unsigned int do_csum)
++{
++	int ret;
++	size_t chunk_len = ALIGN(__chunk_len, I2400M_PL_PAD);
++	struct device *dev = i2400m_dev(i2400m);
++	struct {
++		struct i2400m_bootrom_header cmd;
++		u8 cmd_payload[chunk_len];
++	} __attribute__((packed)) *buf;
++	struct i2400m_bootrom_header ack;
++
++	d_fnstart(5, dev, "(i2400m %p chunk %p __chunk_len %zu addr 0x%08lx "
++		  "direct %u do_csum %u)\n", i2400m, chunk, __chunk_len,
++		  addr, direct, do_csum);
++	buf = i2400m->bm_cmd_buf;
++	memcpy(buf->cmd_payload, chunk, __chunk_len);
++	memset(buf->cmd_payload + __chunk_len, 0xad, chunk_len - __chunk_len);
++
++	buf->cmd.command = i2400m_brh_command(I2400M_BRH_WRITE,
++					      __chunk_len & 0x3 ? 0 : do_csum,
++					      __chunk_len & 0xf ? 0 : direct);
++	buf->cmd.target_addr = cpu_to_le32(addr);
++	buf->cmd.data_size = cpu_to_le32(__chunk_len);
++	ret = i2400m_bm_cmd(i2400m, &buf->cmd, sizeof(buf->cmd) + chunk_len,
++			    &ack, sizeof(ack), 0);
++	if (ret >= 0)
++		ret = 0;
++	d_fnend(5, dev, "(i2400m %p chunk %p __chunk_len %zu addr 0x%08lx "
++		"direct %u do_csum %u) = %d\n", i2400m, chunk, __chunk_len,
++		addr, direct, do_csum, ret);
++	return ret;
++}
++
++
++/*
++ * Download a BCF file's sections to the device
++ *
++ * @i2400m: device descriptor
++ * @bcf: pointer to firmware data (followed by the payloads). Assumed
++ *       verified and consistent.
++ * @bcf_len: length (in bytes) of the @bcf buffer.
++ *
++ * Returns: < 0 errno code on error or the offset to the jump instruction.
++ *
++ * Given a BCF file, downloads each section (a command and a payload)
++ * to the device's address space. Actually, it just executes each
++ * command i the BCF file.
++ *
++ * The section size has to be aligned to 4 bytes AND the padding has
++ * to be taken from the firmware file, as the signature takes it into
++ * account.
++ */
++static
++ssize_t i2400m_dnload_bcf(struct i2400m *i2400m,
++			  const struct i2400m_bcf_hdr *bcf, size_t bcf_len)
++{
++	ssize_t ret;
++	struct device *dev = i2400m_dev(i2400m);
++	size_t offset,		/* iterator offset */
++		data_size,	/* Size of the data payload */
++		section_size,	/* Size of the whole section (cmd + payload) */
++		section = 1;
++	const struct i2400m_bootrom_header *bh;
++	struct i2400m_bootrom_header ack;
++
++	d_fnstart(3, dev, "(i2400m %p bcf %p bcf_len %zu)\n",
++		  i2400m, bcf, bcf_len);
++	/* Iterate over the command blocks in the BCF file that start
++	 * after the header */
++	offset = le32_to_cpu(bcf->header_len) * sizeof(u32);
++	while (1) {	/* start sending the file */
++		bh = (void *) bcf + offset;
++		data_size = le32_to_cpu(bh->data_size);
++		section_size = ALIGN(sizeof(*bh) + data_size, 4);
++		d_printf(7, dev,
++			 "downloading section #%zu (@%zu %zu B) to 0x%08x\n",
++			 section, offset, sizeof(*bh) + data_size,
++			 le32_to_cpu(bh->target_addr));
++		if (i2400m_brh_get_opcode(bh) == I2400M_BRH_SIGNED_JUMP) {
++			/* Secure boot needs to stop here */
++			d_printf(5, dev,  "signed jump found @%zu\n", offset);
++			break;
++		}
++		if (offset + section_size == bcf_len)
++			/* Non-secure boot stops here */
++			break;
++		if (offset + section_size > bcf_len) {
++			dev_err(dev, "fw %s: bad section #%zu, "
++				"end (@%zu) beyond EOF (@%zu)\n",
++				i2400m->bus_fw_name, section,
++				offset + section_size,  bcf_len);
++			ret = -EINVAL;
++			goto error_section_beyond_eof;
++		}
++		__i2400m_msleep(20);
++		ret = i2400m_bm_cmd(i2400m, bh, section_size,
++				    &ack, sizeof(ack), I2400M_BM_CMD_RAW);
++		if (ret < 0) {
++			dev_err(dev, "fw %s: section #%zu (@%zu %zu B) "
++				"failed %d\n", i2400m->bus_fw_name, section,
++				offset, sizeof(*bh) + data_size, (int) ret);
++			goto error_send;
++		}
++		offset += section_size;
++		section++;
++	}
++	ret = offset;
++error_section_beyond_eof:
++error_send:
++	d_fnend(3, dev, "(i2400m %p bcf %p bcf_len %zu) = %d\n",
++		i2400m, bcf, bcf_len, (int) ret);
++	return ret;
++}
++
++
++/*
++ * Do the final steps of uploading firmware
++ *
++ * Depending on the boot mode (signed vs non-signed), different
++ * actions need to be taken.
++ */
++static
++int i2400m_dnload_finalize(struct i2400m *i2400m,
++			   const struct i2400m_bcf_hdr *bcf, size_t offset)
++{
++	int ret = 0;
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_bootrom_header *cmd, ack;
++	struct {
++		struct i2400m_bootrom_header cmd;
++		u8 cmd_pl[0];
++	} __attribute__((packed)) *cmd_buf;
++	size_t signature_block_offset, signature_block_size;
++
++	d_fnstart(3, dev, "offset %zu\n", offset);
++	cmd = (void *) bcf + offset;
++	if (i2400m->sboot == 0) {
++		struct i2400m_bootrom_header jump_ack;
++		d_printf(3, dev, "unsecure boot, jumping to 0x%08x\n",
++			le32_to_cpu(cmd->target_addr));
++		i2400m_brh_set_opcode(cmd, I2400M_BRH_JUMP);
++		cmd->data_size = 0;
++		ret = i2400m_bm_cmd(i2400m, cmd, sizeof(*cmd),
++				    &jump_ack, sizeof(jump_ack), 0);
++	} else {
++		d_printf(3, dev, "secure boot, jumping to 0x%08x\n",
++			 le32_to_cpu(cmd->target_addr));
++		cmd_buf = i2400m->bm_cmd_buf;
++		memcpy(&cmd_buf->cmd, cmd, sizeof(*cmd));
++		signature_block_offset =
++			sizeof(*bcf)
++			+ le32_to_cpu(bcf->key_size) * sizeof(u32)
++			+ le32_to_cpu(bcf->exponent_size) * sizeof(u32);
++		signature_block_size =
++			le32_to_cpu(bcf->modulus_size) * sizeof(u32);
++		memcpy(cmd_buf->cmd_pl, (void *) bcf + signature_block_offset,
++		       signature_block_size);
++		ret = i2400m_bm_cmd(i2400m, &cmd_buf->cmd,
++				    sizeof(cmd_buf->cmd) + signature_block_size,
++				    &ack, sizeof(ack), I2400M_BM_CMD_RAW);
++	}
++	d_fnend(3, dev, "returning %d\n", ret);
++	return ret;
++}
++
++
++/**
++ * i2400m_bootrom_init - Reboots a powered device into boot mode
++ *
++ * @i2400m: device descriptor
++ * @flags:
++ *      I2400M_BRI_SOFT: a reboot notification has been seen
++ *          already, so don't wait for it.
++ *
++ *      I2400M_BRI_NO_REBOOT: Don't send a reboot command, but wait
++ *          for a reboot barker notification. This is a one shot; if
++ *          the state machine needs to send a reboot command it will.
++ *
++ * Returns:
++ *
++ *     < 0 errno code on error, 0 if ok.
++ *
++ *     i2400m->sboot set to 0 for unsecure boot process, 1 for secure
++ *     boot process.
++ *
++ * Description:
++ *
++ * Tries hard enough to put the device in boot-mode. There are two
++ * main phases to this:
++ *
++ * a. (1) send a reboot command and (2) get a reboot barker
++ * b. (1) ack the reboot sending a reboot barker and (2) getting an
++ *        ack barker in return
++ *
++ * We want to skip (a) in some cases [soft]. The state machine is
++ * horrible, but it is basically: on each phase, send what has to be
++ * sent (if any), wait for the answer and act on the answer. We might
++ * have to backtrack and retry, so we keep a max tries counter for
++ * that.
++ *
++ * If we get a timeout after sending a warm reset, we do it again.
++ */
++int i2400m_bootrom_init(struct i2400m *i2400m, enum i2400m_bri flags)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400m_bootrom_header *cmd;
++	struct i2400m_bootrom_header ack;
++	int count = I2400M_BOOT_RETRIES;
++	int ack_timeout_cnt = 1;
++
++	BUILD_BUG_ON(sizeof(*cmd) != sizeof(i2400m_NBOOT_BARKER));
++	BUILD_BUG_ON(sizeof(ack) != sizeof(i2400m_ACK_BARKER));
++
++	d_fnstart(4, dev, "(i2400m %p flags 0x%08x)\n", i2400m, flags);
++	result = -ENOMEM;
++	cmd = i2400m->bm_cmd_buf;
++	if (flags & I2400M_BRI_SOFT)
++		goto do_reboot_ack;
++do_reboot:
++	if (--count < 0)
++		goto error_timeout;
++	d_printf(4, dev, "device reboot: reboot command [%d # left]\n",
++		 count);
++	if ((flags & I2400M_BRI_NO_REBOOT) == 0)
++		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
++	result = i2400m_bm_cmd(i2400m, NULL, 0, &ack, sizeof(ack),
++			       I2400M_BM_CMD_RAW);
++	flags &= ~I2400M_BRI_NO_REBOOT;
++	switch (result) {
++	case -ERESTARTSYS:
++		d_printf(4, dev, "device reboot: got reboot barker\n");
++		break;
++	case -EISCONN:	/* we don't know how it got here...but we follow it */
++		d_printf(4, dev, "device reboot: got ack barker - whatever\n");
++		goto do_reboot;
++	case -ETIMEDOUT:	/* device has timed out, we might be in boot
++				 * mode already and expecting an ack, let's try
++				 * that */
++		dev_info(dev, "warm reset timed out, trying an ack\n");
++		goto do_reboot_ack;
++	case -EPROTO:
++	case -ESHUTDOWN:	/* dev is gone */
++	case -EINTR:		/* user cancelled */
++		goto error_dev_gone;
++	default:
++		dev_err(dev, "device reboot: error %d while waiting "
++			"for reboot barker - rebooting\n", result);
++		goto do_reboot;
++	}
++	/* At this point we ack back with 4 REBOOT barkers and expect
++	 * 4 ACK barkers. This is ugly, as we send a raw command --
++	 * hence the cast. _bm_cmd() will catch the reboot ack
++	 * notification and report it as -EISCONN. */
++do_reboot_ack:
++	d_printf(4, dev, "device reboot ack: sending ack [%d # left]\n", count);
++	if (i2400m->sboot == 0)
++		memcpy(cmd, i2400m_NBOOT_BARKER,
++		       sizeof(i2400m_NBOOT_BARKER));
++	else
++		memcpy(cmd, i2400m_SBOOT_BARKER,
++		       sizeof(i2400m_SBOOT_BARKER));
++	result = i2400m_bm_cmd(i2400m, cmd, sizeof(*cmd),
++			       &ack, sizeof(ack), I2400M_BM_CMD_RAW);
++	switch (result) {
++	case -ERESTARTSYS:
++		d_printf(4, dev, "reboot ack: got reboot barker - retrying\n");
++		if (--count < 0)
++			goto error_timeout;
++		goto do_reboot_ack;
++	case -EISCONN:
++		d_printf(4, dev, "reboot ack: got ack barker - good\n");
++		break;
++	case -ETIMEDOUT:	/* no response, maybe it is the other type? */
++		if (ack_timeout_cnt-- >= 0) {
++			d_printf(4, dev, "reboot ack timedout: "
++				 "trying the other type?\n");
++			i2400m->sboot = !i2400m->sboot;
++			goto do_reboot_ack;
++		} else {
++			dev_err(dev, "reboot ack timedout too long: "
++				"trying reboot\n");
++			goto do_reboot;
++		}
++		break;
++	case -EPROTO:
++	case -ESHUTDOWN:	/* dev is gone */
++		goto error_dev_gone;
++	default:
++		dev_err(dev, "device reboot ack: error %d while waiting for "
++			"reboot ack barker - rebooting\n", result);
++		goto do_reboot;
++	}
++	d_printf(2, dev, "device reboot ack: got ack barker - boot done\n");
++	result = 0;
++exit_timeout:
++error_dev_gone:
++	d_fnend(4, dev, "(i2400m %p flags 0x%08x) = %d\n",
++		i2400m, flags, result);
++	return result;
++
++error_timeout:
++	dev_err(dev, "Timed out waiting for reboot ack, resetting\n");
++	i2400m->bus_reset(i2400m, I2400M_RT_BUS);
++	result = -ETIMEDOUT;
++	goto exit_timeout;
++}
++
++
++/*
++ * Read the MAC addr
++ *
++ * The position this function reads is fixed in device memory and
++ * always available, even without firmware.
++ *
++ * Note we specify we want to read only six bytes, but provide space
++ * for 16, as we always get it rounded up.
++ */
++int i2400m_read_mac_addr(struct i2400m *i2400m)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++	struct i2400m_bootrom_header *cmd;
++	struct {
++		struct i2400m_bootrom_header ack;
++		u8 ack_pl[16];
++	} __attribute__((packed)) ack_buf;
++
++	d_fnstart(5, dev, "(i2400m %p)\n", i2400m);
++	cmd = i2400m->bm_cmd_buf;
++	cmd->command = i2400m_brh_command(I2400M_BRH_READ, 0, 1);
++	cmd->target_addr = cpu_to_le32(0x00203fe8);
++	cmd->data_size = cpu_to_le32(6);
++	result = i2400m_bm_cmd(i2400m, cmd, sizeof(*cmd),
++			       &ack_buf.ack, sizeof(ack_buf), 0);
++	if (result < 0) {
++		dev_err(dev, "BM: read mac addr failed: %d\n", result);
++		goto error_read_mac;
++	}
++	d_printf(2, dev,
++		 "mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
++		 ack_buf.ack_pl[0], ack_buf.ack_pl[1],
++		 ack_buf.ack_pl[2], ack_buf.ack_pl[3],
++		 ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
++	if (i2400m->bus_bm_mac_addr_impaired == 1) {
++		ack_buf.ack_pl[0] = 0x00;
++		ack_buf.ack_pl[1] = 0x16;
++		ack_buf.ack_pl[2] = 0xd3;
++		get_random_bytes(&ack_buf.ack_pl[3], 3);
++		dev_err(dev, "BM is MAC addr impaired, faking MAC addr to "
++			"mac addr is %02x:%02x:%02x:%02x:%02x:%02x\n",
++			ack_buf.ack_pl[0], ack_buf.ack_pl[1],
++			ack_buf.ack_pl[2], ack_buf.ack_pl[3],
++			ack_buf.ack_pl[4], ack_buf.ack_pl[5]);
++		result = 0;
++	}
++	net_dev->addr_len = ETH_ALEN;
++	memcpy(net_dev->perm_addr, ack_buf.ack_pl, ETH_ALEN);
++	memcpy(net_dev->dev_addr, ack_buf.ack_pl, ETH_ALEN);
++error_read_mac:
++	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, result);
++	return result;
++}
++
++
++/*
++ * Initialize a non signed boot
++ *
++ * This implies sending some magic values to the device's memory. Note
++ * we convert the values to little endian in the same array
++ * declaration.
++ */
++static
++int i2400m_dnload_init_nonsigned(struct i2400m *i2400m)
++{
++#define POKE(a, d) {					\
++	.address = __constant_cpu_to_le32(a),		\
++	.data = __constant_cpu_to_le32(d)		\
++}
++	static const struct {
++		__le32 address;
++		__le32 data;
++	} i2400m_pokes[] = {
++		POKE(0x081A58, 0xA7810230),
++		POKE(0x080040, 0x00000000),
++		POKE(0x080048, 0x00000082),
++		POKE(0x08004C, 0x0000081F),
++		POKE(0x080054, 0x00000085),
++		POKE(0x080058, 0x00000180),
++		POKE(0x08005C, 0x00000018),
++		POKE(0x080060, 0x00000010),
++		POKE(0x080574, 0x00000001),
++		POKE(0x080550, 0x00000005),
++		POKE(0xAE0000, 0x00000000),
++	};
++#undef POKE
++	unsigned i;
++	int ret;
++	struct device *dev = i2400m_dev(i2400m);
++
++	dev_warn(dev, "WARNING!!! non-signed boot UNTESTED PATH!\n");
++
++	d_fnstart(5, dev, "(i2400m %p)\n", i2400m);
++	for (i = 0; i < ARRAY_SIZE(i2400m_pokes); i++) {
++		ret = i2400m_download_chunk(i2400m, &i2400m_pokes[i].data,
++					    sizeof(i2400m_pokes[i].data),
++					    i2400m_pokes[i].address, 1, 1);
++		if (ret < 0)
++			break;
++	}
++	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, ret);
++	return ret;
++}
++
++
++/*
++ * Initialize the signed boot process
++ *
++ * @i2400m: device descriptor
++ *
++ * @bcf_hdr: pointer to the firmware header; assumes it is fully in
++ *     memory (it has gone through basic validation).
++ *
++ * Returns: 0 if ok, < 0 errno code on error, -ERESTARTSYS if the hw
++ *     rebooted.
++ *
++ * This writes the firmware BCF header to the device using the
++ * HASH_PAYLOAD_ONLY command.
++ */
++static
++int i2400m_dnload_init_signed(struct i2400m *i2400m,
++			      const struct i2400m_bcf_hdr *bcf_hdr)
++{
++	int ret;
++	struct device *dev = i2400m_dev(i2400m);
++	struct {
++		struct i2400m_bootrom_header cmd;
++		struct i2400m_bcf_hdr cmd_pl;
++	} __attribute__((packed)) *cmd_buf;
++	struct i2400m_bootrom_header ack;
++
++	d_fnstart(5, dev, "(i2400m %p bcf_hdr %p)\n", i2400m, bcf_hdr);
++	cmd_buf = i2400m->bm_cmd_buf;
++	cmd_buf->cmd.command =
++		i2400m_brh_command(I2400M_BRH_HASH_PAYLOAD_ONLY, 0, 0);
++	cmd_buf->cmd.target_addr = 0;
++	cmd_buf->cmd.data_size = cpu_to_le32(sizeof(cmd_buf->cmd_pl));
++	memcpy(&cmd_buf->cmd_pl, bcf_hdr, sizeof(*bcf_hdr));
++	ret = i2400m_bm_cmd(i2400m, &cmd_buf->cmd, sizeof(*cmd_buf),
++			    &ack, sizeof(ack), 0);
++	if (ret >= 0)
++		ret = 0;
++	d_fnend(5, dev, "(i2400m %p bcf_hdr %p) = %d\n", i2400m, bcf_hdr, ret);
++	return ret;
++}
++
++
++/*
++ * Initialize the firmware download at the device size
++ *
++ * Multiplex to the one that matters based on the device's mode
++ * (signed or non-signed).
++ */
++static
++int i2400m_dnload_init(struct i2400m *i2400m, const struct i2400m_bcf_hdr *bcf)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++	u32 module_id = le32_to_cpu(bcf->module_id);
++
++	if (i2400m->sboot == 0
++	    && (module_id & I2400M_BCF_MOD_ID_POKES) == 0) {
++		/* non-signed boot process without pokes */
++		result = i2400m_dnload_init_nonsigned(i2400m);
++		if (result == -ERESTARTSYS)
++			return result;
++		if (result < 0)
++			dev_err(dev, "fw %s: non-signed download "
++				"initialization failed: %d\n",
++				i2400m->bus_fw_name, result);
++	} else if (i2400m->sboot == 0
++		 && (module_id & I2400M_BCF_MOD_ID_POKES)) {
++		/* non-signed boot process with pokes, nothing to do */
++		result = 0;
++	} else {		 /* signed boot process */
++		result = i2400m_dnload_init_signed(i2400m, bcf);
++		if (result == -ERESTARTSYS)
++			return result;
++		if (result < 0)
++			dev_err(dev, "fw %s: signed boot download "
++				"initialization failed: %d\n",
++				i2400m->bus_fw_name, result);
++	}
++	return result;
++}
++
++
++/*
++ * Run quick consistency tests on the firmware file
++ *
++ * Check for the firmware being made for the i2400m device,
++ * etc...These checks are mostly informative, as the device will make
++ * them too; but the driver's response is more informative on what
++ * went wrong.
++ */
++static
++int i2400m_fw_check(struct i2400m *i2400m,
++		    const struct i2400m_bcf_hdr *bcf,
++		    size_t bcf_size)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++	unsigned module_type, header_len, major_version, minor_version,
++		module_id, module_vendor, date, size;
++
++	/* Check hard errors */
++	result = -EINVAL;
++	if (bcf_size < sizeof(*bcf)) {	/* big enough header? */
++		dev_err(dev, "firmware %s too short: "
++			"%zu B vs %zu (at least) expected\n",
++			i2400m->bus_fw_name, bcf_size, sizeof(*bcf));
++		goto error;
++	}
++
++	module_type = bcf->module_type;
++	header_len = sizeof(u32) * le32_to_cpu(bcf->header_len);
++	major_version = le32_to_cpu(bcf->header_version) & 0xffff0000 >> 16;
++	minor_version = le32_to_cpu(bcf->header_version) & 0x0000ffff;
++	module_id = le32_to_cpu(bcf->module_id);
++	module_vendor = le32_to_cpu(bcf->module_vendor);
++	date = le32_to_cpu(bcf->date);
++	size = sizeof(u32) * le32_to_cpu(bcf->size);
++
++	if (bcf_size != size) {		/* annoyingly paranoid */
++		dev_err(dev, "firmware %s: bad size, got "
++			"%zu B vs %u expected\n",
++			i2400m->bus_fw_name, bcf_size, size);
++		goto error;
++	}
++
++	d_printf(2, dev, "type 0x%x id 0x%x vendor 0x%x; header v%u.%u (%zu B) "
++		 "date %08x (%zu B)\n",
++		 module_type, module_id, module_vendor,
++		 major_version, minor_version, (size_t) header_len,
++		 date, (size_t) size);
++
++	if (module_type != 6) {		/* built for the right hardware? */
++		dev_err(dev, "bad fw %s: unexpected module type 0x%x; "
++			"aborting\n", i2400m->bus_fw_name, module_type);
++		goto error;
++	}
++
++	/* Check soft-er errors */
++	result = 0;
++	if (module_vendor != 0x8086)
++		dev_err(dev, "bad fw %s? unexpected vendor 0x%04x\n",
++			i2400m->bus_fw_name, module_vendor);
++	if (date < 0x20080300)
++		dev_err(dev, "bad fw %s? build date too old %08x\n",
++			i2400m->bus_fw_name, date);
++error:
++	return result;
++}
++
++
++/*
++ * Download the firmware to the device
++ *
++ * @i2400m: device descriptor
++ * @bcf: pointer to loaded (and minimally verified for consistency)
++ *    firmware
++ * @bcf_size: size of the @bcf buffer (header plus payloads)
++ *
++ * The process for doing this is described in this file's header.
++ *
++ * Note we only reinitialize boot-mode if the flags say so. Some hw
++ * iterations need it, some don't. In any case, if we loop, we always
++ * need to reinitialize the boot room, hence the flags modification.
++ */
++static
++int i2400m_fw_dnload(struct i2400m *i2400m, const struct i2400m_bcf_hdr *bcf,
++		     size_t bcf_size, enum i2400m_bri flags)
++{
++	int ret = 0;
++	struct device *dev = i2400m_dev(i2400m);
++	int count = I2400M_BOOT_RETRIES;
++
++	d_fnstart(5, dev, "(i2400m %p bcf %p size %zu)\n",
++		  i2400m, bcf, bcf_size);
++	i2400m->boot_mode = 1;
++hw_reboot:
++	if (count-- == 0) {
++		ret = -ERESTARTSYS;
++		dev_err(dev, "device rebooted too many times, aborting\n");
++		goto error_too_many_reboots;
++	}
++	if (flags & I2400M_BRI_MAC_REINIT) {
++		ret = i2400m_bootrom_init(i2400m, flags);
++		if (ret < 0) {
++			dev_err(dev, "bootrom init failed: %d\n", ret);
++			goto error_bootrom_init;
++		}
++	}
++	flags |= I2400M_BRI_MAC_REINIT;
++
++	/*
++	 * Initialize the download, push the bytes to the device and
++	 * then jump to the new firmware. Note @ret is passed with the
++	 * offset of the jump instruction to _dnload_finalize()
 +	 */
-+	WIMAX_GNL_VERSION = 00,
-+	/* Generic NetLink attributes */
-+	WIMAX_GNL_ATTR_INVALID = 0x00,
-+	WIMAX_GNL_ATTR_MAX = 10,
-+};
++	ret = i2400m_dnload_init(i2400m, bcf);	/* Init device's dnload */
++	if (ret == -ERESTARTSYS)
++		goto error_dev_rebooted;
++	if (ret < 0)
++		goto error_dnload_init;
 +
++	ret = i2400m_dnload_bcf(i2400m, bcf, bcf_size);
++	if (ret == -ERESTARTSYS)
++		goto error_dev_rebooted;
++	if (ret < 0) {
++		dev_err(dev, "fw %s: download failed: %d\n",
++			i2400m->bus_fw_name, ret);
++		goto error_dnload_bcf;
++	}
 +
-+/*
-+ * Generic NetLink operations
-+ *
-+ * Most of these map to an API call; _OP_ stands for operation, _RP_
-+ * for reply and _RE_ for report (aka: signal).
-+ */
-+enum {
-+	WIMAX_GNL_OP_MSG_FROM_USER,	/* User to kernel message */
-+	WIMAX_GNL_OP_MSG_TO_USER,	/* Kernel to user message */
-+	WIMAX_GNL_OP_RFKILL,	/* Run wimax_rfkill() */
-+	WIMAX_GNL_OP_RESET,	/* Run wimax_rfkill() */
-+	WIMAX_GNL_RE_STATE_CHANGE,	/* Report: status change */
-+};
++	ret = i2400m_dnload_finalize(i2400m, bcf, ret);
++	if (ret == -ERESTARTSYS)
++		goto error_dev_rebooted;
++	if (ret < 0) {
++		dev_err(dev, "fw %s: "
++			"download finalization failed: %d\n",
++			i2400m->bus_fw_name, ret);
++		goto error_dnload_finalize;
++	}
 +
++	d_printf(2, dev, "fw %s successfully uploaded\n",
++		 i2400m->bus_fw_name);
++	i2400m->boot_mode = 0;
++error_dnload_finalize:
++error_dnload_bcf:
++error_dnload_init:
++error_bootrom_init:
++error_too_many_reboots:
++	d_fnend(5, dev, "(i2400m %p bcf %p size %zu) = %d\n",
++		i2400m, bcf, bcf_size, ret);
++	return ret;
 +
-+/* Message from user / to user */
-+enum {
-+	WIMAX_GNL_MSG_IFIDX = 1,
-+	WIMAX_GNL_MSG_PIPE_NAME,
-+	WIMAX_GNL_MSG_DATA,
-+};
-+
-+
-+/*
-+ * wimax_rfkill()
-+ *
-+ * The state of the radio (ON/OFF) is mapped to the rfkill subsystem's
-+ * switch state (DISABLED/ENABLED).
-+ */
-+enum wimax_rf_state {
-+	WIMAX_RF_OFF = 0,	/* Radio is off, rfkill on/enabled */
-+	WIMAX_RF_ON = 1,	/* Radio is on, rfkill off/disabled */
-+	WIMAX_RF_QUERY = 2,
-+};
-+
-+/* Attributes */
-+enum {
-+	WIMAX_GNL_RFKILL_IFIDX = 1,
-+	WIMAX_GNL_RFKILL_STATE,
-+};
-+
-+
-+/* Attributes for wimax_reset() */
-+enum {
-+	WIMAX_GNL_RESET_IFIDX = 1,
-+};
-+
-+
-+/*
-+ * Attributes for the Report State Change
-+ *
-+ * For now we just have the old and new states; new attributes might
-+ * be added later on.
-+ */
-+enum {
-+	WIMAX_GNL_STCH_IFIDX = 1,
-+	WIMAX_GNL_STCH_STATE_OLD,
-+	WIMAX_GNL_STCH_STATE_NEW,
-+};
++error_dev_rebooted:
++	dev_err(dev, "device rebooted, %d tries left\n", count);
++	/* we got the notification already, no need to wait for it again */
++	flags |= I2400M_BRI_SOFT;
++	goto hw_reboot;
++}
 +
 +
 +/**
-+ * enum wimax_st - The different states of a WiMAX device
-+ * @__WIMAX_ST_NULL: The device structure has been allocated and zeroed,
-+ *     but still wimax_dev_add() hasn't been called. There is no state.
++ * i2400m_dev_bootstrap - Bring the device to a known state and upload firmware
 + *
-+ * @WIMAX_ST_DOWN: The device has been registered with the WiMAX and
-+ *     networking stacks, but it is not initialized (normally that is
-+ *     done with 'ifconfig DEV up' [or equivalent], which can upload
-+ *     firmware and enable communications with the device).
-+ *     In this state, the device is powered down and using as less
-+ *     power as possible.
-+ *     This state is the default after a call to wimax_dev_add(). It
-+ *     is ok to have drivers move directly to %WIMAX_ST_UNINITIALIZED
-+ *     or %WIMAX_ST_RADIO_OFF in _probe() after the call to
-+ *     wimax_dev_add().
-+ *     It is recommended that the driver leaves this state when
-+ *     calling 'ifconfig DEV up' and enters it back on 'ifconfig DEV
-+ *     down'.
++ * @i2400m: device descriptor
 + *
-+ * @__WIMAX_ST_QUIESCING: The device is being torn down, so no API
-+ *     operations are allowed to proceed except the ones needed to
-+ *     complete the device clean up process.
++ * Returns: >= 0 if ok, < 0 errno code on error.
 + *
-+ * @WIMAX_ST_UNINITIALIZED: [optional] Communication with the device
-+ *     is setup, but the device still requires some configuration
-+ *     before being operational.
-+ *     Some WiMAX API calls might work.
++ * This sets up the firmware upload environment, loads the firmware
++ * file from disk, verifies and then calls the firmware upload process
++ * per se.
 + *
-+ * @WIMAX_ST_RADIO_OFF: The device is fully up; radio is off (wether
-+ *     by hardware or software switches).
-+ *     It is recommended to always leave the device in this state
-+ *     after initialization.
-+ *
-+ * @WIMAX_ST_READY: The device is fully up and radio is on.
-+ *
-+ * @WIMAX_ST_SCANNING: [optional] The device has been instructed to
-+ *     scan. In this state, the device cannot be actively connected to
-+ *     a network.
-+ *
-+ * @WIMAX_ST_CONNECTING: The device is connecting to a network. This
-+ *     state exists because in some devices, the connect process can
-+ *     include a number of negotiations between user space, kernel
-+ *     space and the device. User space needs to know what the device
-+ *     is doing. If the connect sequence in a device is atomic and
-+ *     fast, the device can transition directly to CONNECTED
-+ *
-+ * @WIMAX_ST_CONNECTED: The device is connected to a network.
-+ *
-+ * @__WIMAX_ST_INVALID: This is an invalid state used to mark the
-+ *     maximum numeric value of states.
-+ *
-+ * Description:
-+ *
-+ * Transitions from one state to another one are atomic and can only
-+ * be caused in kernel space with wimax_state_change(). To read the
-+ * state, use wimax_state_get().
-+ *
-+ * States starting with __ are internal and shall not be used or
-+ * referred to by drivers or userspace. They look ugly, but that's the
-+ * point -- if any use is made non-internal to the stack, it is easier
-+ * to catch on review.
-+ *
-+ * All API operations [with well defined exceptions] will take the
-+ * device mutex before starting and then check the state. If the state
-+ * is %__WIMAX_ST_NULL, %WIMAX_ST_DOWN, %WIMAX_ST_UNINITIALIZED or
-+ * %__WIMAX_ST_QUIESCING, it will drop the lock and quit with
-+ * -%EINVAL, -%ENOMEDIUM, -%ENOTCONN or -%ESHUTDOWN.
-+ *
-+ * The order of the definitions is important, so we can do numerical
-+ * comparisons (eg: < %WIMAX_ST_RADIO_OFF means the device is not ready
-+ * to operate).
++ * Can be called either from probe, or after a warm reset.  Can not be
++ * called from within an interrupt.  All the flow in this code is
++ * single-threade; all I/Os are synchronous.
 + */
-+/*
-+ * The allowed state transitions are described in the table below
-+ * (states in rows can go to states in columns where there is an X):
-+ *
-+ *                                  UNINI   RADIO READY SCAN CONNEC CONNEC
-+ *             NULL DOWN QUIESCING TIALIZED  OFF        NING  TING   TED
-+ * NULL         -    x
-+ * DOWN              -      x        x       x
-+ * QUIESCING         x      -
-+ * UNINITIALIZED            x        -       x
-+ * RADIO_OFF                x                -     x
-+ * READY                    x                x     -     x     x      x
-+ * SCANNING                 x                x     x     -     x      x
-+ * CONNECTING               x                x     x     x     -      x
-+ * CONNECTED                x                x     x                  -
-+ *
-+ * This table not available in kernel-doc because the formatting messes it up.
-+ */
-+ enum wimax_st {
-+	__WIMAX_ST_NULL = 0,
-+	WIMAX_ST_DOWN,
-+	__WIMAX_ST_QUIESCING,
-+	WIMAX_ST_UNINITIALIZED,
-+	WIMAX_ST_RADIO_OFF,
-+	WIMAX_ST_READY,
-+	WIMAX_ST_SCANNING,
-+	WIMAX_ST_CONNECTING,
-+	WIMAX_ST_CONNECTED,
-+	__WIMAX_ST_INVALID			/* Always keep last */
-+};
-+
-+
-+#endif /* #ifndef __LINUX__WIMAX_H__ */
-diff --git a/include/net/wimax.h b/include/net/wimax.h
-new file mode 100644
-index 0000000..d17106b
---- /dev/null
-+++ b/include/net/wimax.h
-@@ -0,0 +1,520 @@
-+/*
-+ * Linux WiMAX
-+ * Kernel space API for accessing WiMAX devices
-+ *
-+ *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * The WiMAX stack provides an API for controlling and managing the
-+ * system's WiMAX devices. This API affects the control plane; the
-+ * data plane is accessed via the network stack (netdev).
-+ *
-+ * Parts of the WiMAX stack API and notifications are exported to
-+ * user space via Generic Netlink. In user space, libwimax (part of
-+ * the wimax-tools package) provides a shim layer for accessing those
-+ * calls.
-+ *
-+ * The API is standarized for all WiMAX devices and different drivers
-+ * implement the backend support for it. However, device-specific
-+ * messaging pipes are provided that can be used to issue commands and
-+ * receive notifications in free form.
-+ *
-+ * Currently the messaging pipes are the only means of control as it
-+ * is not known (due to the lack of more devices in the market) what
-+ * will be a good abstraction layer. Expect this to change as more
-+ * devices show in the market. This API is designed to be growable in
-+ * order to address this problem.
-+ *
-+ * USAGE
-+ *
-+ * Embed a `struct wimax_dev` at the beginning of the the device's
-+ * private structure, initialize and register it. For details, see
-+ * `struct wimax_dev`s documentation.
-+ *
-+ * Once this is done, wimax-tools's libwimaxll can be used to
-+ * communicate with the driver from user space. You user space
-+ * application does not have to forcibily use libwimaxll and can talk
-+ * the generic netlink protocol directly if desired.
-+ *
-+ * Remember this is a very low level API that will to provide all of
-+ * WiMAX features. Other daemons and services running in user space
-+ * are the expected clients of it. They offer a higher level API that
-+ * applications should use (an example of this is the Intel's WiMAX
-+ * Network Service for the i2400m).
-+ *
-+ * DESIGN
-+ *
-+ * Although not set on final stone, this very basic interface is
-+ * mostly completed. Remember this is meant to grow as new common
-+ * operations are decided upon. New operations will be added to the
-+ * interface, intent being on keeping backwards compatibility as much
-+ * as possible.
-+ *
-+ * This layer implements a set of calls to control a WiMAX device,
-+ * exposing a frontend to the rest of the kernel and user space (via
-+ * generic netlink) and a backend implementation in the driver through
-+ * function pointers.
-+ *
-+ * WiMAX devices have a state, and a kernel-only API allows the
-+ * drivers to manipulate that state. State transitions are atomic, and
-+ * only some of them are allowed (see `enum wimax_st`).
-+ *
-+ * Most API calls will set the state automatically; in most cases
-+ * drivers have to only report state changes due to external
-+ * conditions.
-+ *
-+ * All API operations are 'atomic', serialized thorough a mutex in the
-+ * `struct wimax_dev`.
-+ *
-+ * EXPORTING TO USER SPACE THROUGH GENERIC NETLINK
-+ *
-+ * The API is exported to user space using generic netlink (other
-+ * methods can be added as needed).
-+ *
-+ * There is a Generic Netlink Family named "WiMAX", where interfaces
-+ * supporting the WiMAX interface receive commands and broadcast their
-+ * signals over a multicast group named "msg".
-+ *
-+ * Mapping to the source/destination interface is done by an interface
-+ * index attribute.
-+ *
-+ * For user-to-kernel traffic (commands) we use a function call
-+ * marshalling mechanism, where a message X with attributes A, B, C
-+ * sent from user space to kernel space means executing the WiMAX API
-+ * call wimax_X(A, B, C), sending the results back as a message.
-+ *
-+ * Kernel-to-user (notifications or signals) communication is sent
-+ * over multicast groups. This allows to have multiple applications
-+ * monitoring them.
-+ *
-+ * Each command/signal gets assigned it's own attribute policy. This
-+ * way the validator will verify that all the attributes in there are
-+ * only the ones that should be for each command/signal. Thing of an
-+ * attribute mapping to a type+argumentname for each command/signal.
-+ *
-+ * If we had a single policy for *all* commands/signals, after running
-+ * the validator we'd have to check "does this attribute belong in
-+ * here"?  for each one. It can be done manually, but it's just easier
-+ * to have the validator do that job with multiple policies. As well,
-+ * it makes it easier to later expand each command/signal signature
-+ * without affecting others and keeping the namespace more or less
-+ * sane. Not that it is too complicated, but it makes it even easier.
-+ *
-+ * No state information is maintained in the kernel for each user
-+ * space connection (the connection is stateless).
-+ *
-+ * TESTING FOR THE INTERFACE AND VERSIONING
-+ *
-+ * If network interface X is a WiMAX device, there will be a Generic
-+ * Netlink family named "WiMAX X" and the device will present a
-+ * "wimax" directory in it's network sysfs directory
-+ * (/sys/class/net/DEVICE/wimax) [used by HAL].
-+ *
-+ * The inexistence of any of these means the device does not support
-+ * this WiMAX API.
-+ *
-+ * By querying the generic netlink controller, versioning information
-+ * and the multicast groups available can be found. Applications using
-+ * the interface can either rely on that or use the generic netlink
-+ * controller to figure out which generic netlink commands/signals are
-+ * supported.
-+ *
-+ * NOTE: this versioning is a last resort to avoid hard
-+ *    incompatibilities. It is the intention of the design of this
-+ *    stack not to introduce backward incompatible changes.
-+ *
-+ * The version code has to fit in one byte (restrictions imposed by
-+ * generic netlink); we use `version / 10` for the major version and
-+ * `version % 10` for the minor. This gives 9 minors for each major
-+ * and 25 majors.
-+ *
-+ * The version change protocol is as follow:
-+ *
-+ * - Major versions: needs to be increased if an existing message/API
-+ *   call is changed or removed. Doesn't need to be changed if a new
-+ *   message is added.
-+ *
-+ * - Minor version: needs to be increased if new messages/API calls are
-+ *   being added or some other consideration that doesn't impact the
-+ *   user-kernel interface too much (like some kind of bug fix) and
-+ *   that is kind of left up in the air to common sense.
-+ *
-+ * User space code should not try to work if the major version it was
-+ * compiled for differs from what the kernel offers. As well, if the
-+ * minor version of the kernel interface is lower than the one user
-+ * space is expecting (the one it was compiled for), the kernel
-+ * might be missing API calls; user space shall be ready to handle
-+ * said condition. Use the generic netlink controller operations to
-+ * find which ones are supported and which not.
-+ *
-+ * libwimaxll:wimaxll_open() takes care of checking versions.
-+ *
-+ * THE OPERATIONS:
-+ *
-+ * Each operation is defined in its on file (drivers/net/wimax/op-*.c)
-+ * for clarity. The parts needed for an operation are:
-+ *
-+ *  - a function pointer in `struct wimax_dev`: optional, as the
-+ *    operation might be implemented by the stack and not by the
-+ *    driver.
-+ *
-+ *    All function pointers are named wimax_dev->op_*(), and drivers
-+ *    must implement them except where noted otherwise.
-+ *
-+ *  - When exported to user space, a `struct nla_policy` to define the
-+ *    attributes of the generic netlink command and a `struct genl_ops`
-+ *    to define the operation.
-+ *
-+ * All the declarations for the operation codes (WIMAX_GNL_OP_<NAME>)
-+ * and generic netlink attributes (WIMAX_GNL_<NAME>_*) are declared in
-+ * include/linux/wimax.h; this file is intended to be cloned by user
-+ * space to gain access to those declarations.
-+ *
-+ * A few caveats to remember:
-+ *
-+ *  - Need to define attribute numbers starting in 1; otherwise it
-+ *    fails.
-+ *
-+ *  - the `struct genl_family` requires a maximum attribute id; when
-+ *    defining the `struct nla_policy` for each message, it has to have
-+ *    an array size of WIMAX_GNL_ATTR_MAX+1.
-+ *
-+ * THE PIPE INTERFACE:
-+ *
-+ * This interface is kept intentionally simple. The driver can send
-+ * and receive free-form messages to/from user space through a
-+ * pipe. See drivers/net/wimax/op-msg.c for details.
-+ *
-+ * The kernel-to-user messages are sent with
-+ * wimax_msg(). user-to-kernel messages are delivered via
-+ * wimax_dev->op_msg_from_user().
-+ *
-+ * RFKILL:
-+ *
-+ * RFKILL support is built into the wimax_dev layer; the driver just
-+ * needs to call wimax_report_rfkill_{hw,sw}() to inform of changes in
-+ * the hardware or software RF kill switches. When the stack wants to
-+ * turn the radio off, it will call wimax_dev->op_rfkill_sw_toggle(),
-+ * which the driver implements.
-+ *
-+ * User space can set the software RF Kill switch by calling
-+ * wimax_rfkill().
-+ *
-+ * The code for now only supports devices that don't require polling;
-+ * If the device needs to be polled, create a self-rearming delayed
-+ * work struct for polling or look into adding polled support to the
-+ * WiMAX stack.
-+ *
-+ * When initializing the hardware (_probe), after calling
-+ * wimax_dev_add(), query the device for it's RF Kill switches status
-+ * and feed it back to the WiMAX stack using
-+ * wimax_report_rfkill_{hw,sw}(). If any switch is missing, always
-+ * report it as ON.
-+ *
-+ * NOTE: the wimax stack uses an inverted terminology to that of the
-+ * RFKILL subsystem:
-+ *
-+ *  - ON: radio is ON, RFKILL is DISABLED or OFF.
-+ *  - OFF: radio is OFF, RFKILL is ENABLED or ON.
-+ *
-+ * MISCELLANEOUS OPS:
-+ *
-+ * wimax_reset() can be used to reset the device to power on state; by
-+ * default it issues a warm reset that maintains the same device
-+ * node. If that is not possible, it falls back to a cold reset
-+ * (device reconnect). The driver implements the backend to this
-+ * through wimax_dev->op_reset().
-+ */
-+
-+#ifndef __NET__WIMAX_H__
-+#define __NET__WIMAX_H__
-+#ifdef __KERNEL__
-+
-+#include <linux/wimax.h>
-+#include <net/genetlink.h>
-+#include <linux/netdevice.h>
-+
-+struct net_device;
-+struct genl_info;
-+struct wimax_dev;
-+struct input_dev;
-+
-+/**
-+ * struct wimax_dev - Generic WiMAX device
-+ *
-+ * @net_dev: [fill] Pointer to the &struct net_device this WiMAX
-+ *     device implements.
-+ *
-+ * @op_msg_from_user: [fill] Driver-specific operation to
-+ *     handle a raw message from user space to the driver. The
-+ *     driver can send messages to user space using with
-+ *     wimax_msg_to_user().
-+ *
-+ * @op_rfkill_sw_toggle: [fill] Driver-specific operation to act on
-+ *     userspace (or any other agent) requesting the WiMAX device to
-+ *     change the RF Kill software switch (WIMAX_RF_ON or
-+ *     WIMAX_RF_OFF).
-+ *     If such hardware support is not present, it is assumed the
-+ *     radio cannot be switched off and it is always on (and the stack
-+ *     will error out when trying to switch it off). In such case,
-+ *     this function pointer can be left as NULL.
-+ *
-+ * @op_reset: [fill] Driver specific operation to reset the
-+ *     device.
-+ *     This operation should always attempt first a warm reset that
-+ *     does not disconnect the device from the bus and return 0.
-+ *     If that fails, it should resort to some sort of cold or bus
-+ *     reset (even if it implies a bus disconnection and device
-+ *     dissapearance). In that case, -ENODEV should be returned to
-+ *     indicate the device is gone.
-+ *     This operation has to be synchronous, and return only when the
-+ *     reset is complete. In case of having had to resort to bus/cold
-+ *     reset implying a device disconnection, the call is allowed to
-+ *     return inmediately.
-+ *     NOTE: wimax_dev->mutex is NOT locked when this op is being
-+ *     called; however, wimax_dev->mutex_reset IS locked to ensure
-+ *     serialization of calls to wimax_reset().
-+ *     See wimax_reset()'s documentation.
-+ *
-+ * @name: [fill] A way to identify this device. We need to register a
-+ *     name with many subsystems (input for RFKILL, workqueue
-+ *     creation, etc). We can't use the network device name as that
-+ *     might change and in some instances we don't know it yet (until
-+ *     we don't call register_netdev()). So we generate an unique one
-+ *     using the driver name and device bus id, place it here and use
-+ *     it across the board. Recommended naming:
-+ *     DRIVERNAME-BUSNAME:BUSID (dev->bus->name, dev->bus_id).
-+ *
-+ * @id_table_node: [private] link to the list of wimax devices kept by
-+ *     id-table.c. Protected by it's own spinlock.
-+ *
-+ * @mutex: [private] Serializes all concurrent access and execution of
-+ *     operations.
-+ *
-+ * @mutex_reset: [private] Serializes reset operations. Needs to be a
-+ *     different mutex because as part of the reset operation, the
-+ *     driver has to call back into the stack to do things such as
-+ *     state change, that require wimax_dev->mutex.
-+ *
-+ * @state: [private] Current state of the WiMAX device.
-+ *
-+ * @rfkill: [private] integration into the RF-Kill infrastructure.
-+ *
-+ * @rfkill_input: [private] virtual input device to process the
-+ *     hardware RF Kill switches.
-+ *
-+ * @rf_sw: [private] State of the software radio switch (OFF/ON)
-+ *
-+ * @rf_hw: [private] State of the hardware radio switch (OFF/ON)
-+ *
-+ * Description:
-+ * This structure defines a common interface to access all WiMAX
-+ * devices from different vendors and provides a common API as well as
-+ * a free-form device-specific messaging channel.
-+ *
-+ * Usage:
-+ *  1. Embed a &struct wimax_dev at *the beginning* the network
-+ *     device structure so that net_dev->priv points to it.
-+ *
-+ *  2. memset() it to zero
-+ *
-+ *  3. Initialize with wimax_dev_init(). This will leave the WiMAX
-+ *     device in the %__WIMAX_ST_NULL state.
-+ *
-+ *  4. Fill all the fields marked with [fill]; once called
-+ *     wimax_dev_add(), those fields CANNOT be modified.
-+ *
-+ *  5. Call wimax_dev_add() *after* registering the network
-+ *     device. This will leave the WiMAX device in the %WIMAX_ST_DOWN
-+ *     state.
-+ *     Protect the driver's net_device->open() against succeeding if
-+ *     the wimax device state is lower than %WIMAX_ST_DOWN.
-+ *
-+ *  6. Select when the device is going to be turned on/initialized;
-+ *     for example, it could be initialized on 'ifconfig up' (when the
-+ *     netdev op 'open()' is called on the driver).
-+ *
-+ * When the device is initialized (at `ifconfig up` time, or right
-+ * after calling wimax_dev_add() from _probe(), make sure the
-+ * following steps are taken
-+ *
-+ *  a. Move the device to %WIMAX_ST_UNINITIALIZED. This is needed so
-+ *     some API calls that shouldn't work until the device is ready
-+ *     can be blocked.
-+ *
-+ *  b. Initialize the device. Make sure to turn the SW radio switch
-+ *     off and move the device to state %WIMAX_ST_RADIO_OFF when
-+ *     done. When just initialized, a device should be left in RADIO
-+ *     OFF state until user space devices to turn it on.
-+ *
-+ *  c. Query the device for the state of the hardware rfkill switch
-+ *     and call wimax_rfkill_report_hw() and wimax_rfkill_report_sw()
-+ *     as needed. See below.
-+ *
-+ * wimax_dev_rm() undoes before unregistering the network device. Once
-+ * wimax_dev_add() is called, the driver can get called on the
-+ * wimax_dev->op_* function pointers
-+ *
-+ * CONCURRENCY:
-+ *
-+ * The stack provides a mutex for each device that will disallow API
-+ * calls happening concurrently; thus, op calls into the driver
-+ * through the wimax_dev->op*() function pointers will always be
-+ * serialized and *never* concurrent.
-+ *
-+ * For locking, take wimax_dev->mutex is taken; (most) operations in
-+ * the API have to check for wimax_dev_is_ready() to return 0 before
-+ * continuing (this is done internally).
-+ *
-+ * REFERENCE COUNTING:
-+ *
-+ * The WiMAX device is reference counted by the associated network
-+ * device. The only operation that can be used to reference the device
-+ * is wimax_dev_get_by_genl_info(), and the reference it acquires has
-+ * to be released with dev_put(wimax_dev->net_dev).
-+ *
-+ * RFKILL:
-+ *
-+ * At startup, both HW and SW radio switchess are assumed to be off.
-+ *
-+ * At initialization time [after calling wimax_dev_add()], have the
-+ * driver query the device for the status of the software and hardware
-+ * RF kill switches and call wimax_report_rfkill_hw() and
-+ * wimax_rfkill_report_sw() to indicate their state. If any is
-+ * missing, just call it to indicate it is ON (radio always on).
-+ *
-+ * Whenever the driver detects a change in the state of the RF kill
-+ * switches, it should call wimax_report_rfkill_hw() or
-+ * wimax_report_rfkill_sw() to report it to the stack.
-+ */
-+struct wimax_dev {
-+	struct net_device *net_dev;
-+	struct list_head id_table_node;
-+	struct mutex mutex;		/* Protects all members and API calls */
-+	struct mutex mutex_reset;
-+	enum wimax_st state;
-+
-+	int (*op_msg_from_user)(struct wimax_dev *wimax_dev,
-+				const char *,
-+				const void *, size_t,
-+				const struct genl_info *info);
-+	int (*op_rfkill_sw_toggle)(struct wimax_dev *wimax_dev,
-+				   enum wimax_rf_state);
-+	int (*op_reset)(struct wimax_dev *wimax_dev);
-+
-+	struct rfkill *rfkill;
-+	struct input_dev *rfkill_input;
-+	unsigned rf_hw;
-+	unsigned rf_sw;
-+	char name[32];
-+
-+	struct dentry *debugfs_dentry;
-+};
-+
-+
-+
-+/*
-+ * WiMAX stack public API for device drivers
-+ * -----------------------------------------
-+ *
-+ * These functions are not exported to user space.
-+ */
-+extern void wimax_dev_init(struct wimax_dev *);
-+extern int wimax_dev_add(struct wimax_dev *, struct net_device *);
-+extern void wimax_dev_rm(struct wimax_dev *);
-+
-+static inline
-+struct wimax_dev *net_dev_to_wimax(struct net_device *net_dev)
++int i2400m_dev_bootstrap(struct i2400m *i2400m, enum i2400m_bri flags)
 +{
-+	return netdev_priv(net_dev);
++	int ret = 0;
++	struct device *dev = i2400m_dev(i2400m);
++	const struct firmware *fw;
++	const struct i2400m_bcf_hdr *bcf;	/* Firmware data */
++
++	d_fnstart(5, dev, "(i2400m %p)\n", i2400m);
++	/* Load firmware files to memory. */
++	ret = request_firmware(&fw, i2400m->bus_fw_name, dev);
++	if (ret) {
++		dev_err(dev, "fw %s: request failed: %d\n",
++			i2400m->bus_fw_name, ret);
++		goto error_fw_req;
++	}
++	bcf = (void *) fw->data;
++
++	ret = i2400m_fw_check(i2400m, bcf, fw->size);
++	if (ret < 0)
++		goto error_fw_bad;
++	ret = i2400m_fw_dnload(i2400m, bcf, fw->size, flags);
++error_fw_bad:
++	release_firmware(fw);
++error_fw_req:
++	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, ret);
++	return ret;
 +}
-+
-+static inline
-+struct device *wimax_dev_to_dev(struct wimax_dev *wimax_dev)
-+{
-+	return wimax_dev->net_dev->dev.parent;
-+}
-+
-+extern void wimax_state_change(struct wimax_dev *, enum wimax_st);
-+extern enum wimax_st wimax_state_get(struct wimax_dev *);
-+
-+/*
-+ * Radio Switch state reporting.
-+ *
-+ * enum wimax_rf_state is declared in linux/wimax.h so the exports
-+ * to user space can use it.
-+ */
-+extern void wimax_report_rfkill_hw(struct wimax_dev *, enum wimax_rf_state);
-+extern void wimax_report_rfkill_sw(struct wimax_dev *, enum wimax_rf_state);
-+
-+
-+/*
-+ * Free-form messaging to/from user space
-+ *
-+ * Sending a message:
-+ *
-+ *   wimax_msg(wimax_dev, pipe_name, buf, buf_size, GFP_KERNEL);
-+ *
-+ * Broken up:
-+ *
-+ *   skb = wimax_msg_alloc(wimax_dev, pipe_name, buf_size, GFP_KERNEL);
-+ *   ...fill up skb...
-+ *   wimax_msg_send(wimax_dev, pipe_name, skb);
-+ *
-+ * Be sure not to modify skb->data in the middle (ie: don't use
-+ * skb_push()/skb_pull()/skb_reserve() on the skb).
-+ *
-+ * "pipe_name" is any string, than can be interpreted as the name of
-+ * the pipe or destinatary; the interpretation of it is driver
-+ * specific, so the recipient can multiplex it as wished. It can be
-+ * NULL, it won't be used - an example is using a "diagnostics" tag to
-+ * send diagnostics information that a device-specific diagnostics
-+ * tool would be interested in.
-+ */
-+extern struct sk_buff *wimax_msg_alloc(struct wimax_dev *, const char *,
-+				       const void *, size_t, gfp_t);
-+extern int wimax_msg_send(struct wimax_dev *, struct sk_buff *);
-+extern int wimax_msg(struct wimax_dev *, const char *,
-+		     const void *, size_t, gfp_t);
-+
-+extern const void *wimax_msg_data_len(struct sk_buff *, size_t *);
-+extern const void *wimax_msg_data(struct sk_buff *);
-+extern ssize_t wimax_msg_len(struct sk_buff *);
-+
-+
-+/*
-+ * WiMAX stack user space API
-+ * --------------------------
-+ *
-+ * This API is what gets exported to user space for general
-+ * operations. As well, they can be called from within the kernel,
-+ * (with a properly referenced `struct wimax_dev`).
-+ *
-+ * Properly referenced means: the 'struct net_device' that embeds the
-+ * device's control structure and (as such) the 'struct wimax_dev' is
-+ * referenced by the caller.
-+ */
-+extern int wimax_rfkill(struct wimax_dev *, enum wimax_rf_state);
-+extern int wimax_reset(struct wimax_dev *);
-+
-+#else
-+/* You might be looking for linux/wimax.h */
-+#error This file should not be included from user space.
-+#endif /* #ifdef __KERNEL__ */
-+#endif /* #ifndef __NET__WIMAX_H__ */
++EXPORT_SYMBOL_GPL(i2400m_dev_bootstrap);
 -- 
 1.5.6.5
-
