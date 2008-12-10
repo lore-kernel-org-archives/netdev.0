@@ -1,76 +1,47 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: qmgr for ixp4xx
-Date: Wed, 10 Dec 2008 01:56:25 +0100
-Message-ID: <m3fxkwvoee.fsf@maximus.localdomain>
-References: <b0438a630812021044q31845224s206f3998423289af@mail.gmail.com>
-	<m3zljby7jm.fsf@maximus.localdomain>
-	<b0438a630812050051v6393ae1at40b3669389dd394e@mail.gmail.com>
-	<m31vwmlidh.fsf@maximus.localdomain>
-	<b0438a630812050859jd9fd55ah5fb3608a964f9567@mail.gmail.com>
-	<m3fxl2jx0v.fsf@maximus.localdomain>
-	<b0438a630812090148u4c42a193q833c913a1a27e0a9@mail.gmail.com>
+From: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
+Subject: Re: Fwd: 2.6.26.3 kernel - progressive slowdown over NFS
+Date: Tue, 09 Dec 2008 20:06:45 -0500
+Message-ID: <1228871206.30231.76.camel@heimdal.trondhjem.org>
+References: <f4e12c70809091747rd58165ahaa6594a35752c6ef@mail.gmail.com>
+	 <2c0942db0812091638o3d0fe68ek70744f6938949b25@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?iso-8859-2?Q?Miguel_=C1ngel_=C1lvarez?= <gotzoncabanes@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:46707 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752006AbYLJA42 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 19:56:28 -0500
-In-Reply-To: <b0438a630812090148u4c42a193q833c913a1a27e0a9@mail.gmail.com>
- ("Miguel =?iso-8859-2?Q?=C1ngel_=C1lvarez=22's?= message of "Tue\, 9 Dec
- 2008 10\:48\:03 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ray Lee <ray-lk-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2c0942db0812091638o3d0fe68ek70744f6938949b25-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-"Miguel =C1ngel =C1lvarez" <gotzoncabanes@gmail.com> writes:
+On Tue, 2008-12-09 at 16:38 -0800, Ray Lee wrote:
+> [ adding netdev, linux-nfs to cc: -- rbl ]
+> 
+> Hi,
+> 
+> 
+> We have a simple python program which keeps running a C loop to lstat
+> NFS mounted directories.  We are seeing some weird behavior w.r.t. the
+> run-time of this program on 2.6.26.3 kernel vs 2.6.24 kernel.
+> 
+> The run-time of the following code increases over time on the 2.6.26.3
+> kernel, whereas remains flat (as expected) on the 2.6.24 kernel.
+> [See attached graphs - B1.jpg and B2.jpg]  Once the 2.6.26.3 machine
+> gets into this state, we need to restart the box to get back to
+> reasonable run-times.  Is this a known issue ?
 
-> Sure... But in case you are not using ethernet in the NPEA (most
-> likely if you are using HSS),
+Could you try applying the following patch?
 
-I'm not sure but it may be true.
-The docs say things about "6 ports" but AFAIK there are 3 physical
-ports. For now I don't have anything 465-bases so I care a bit less
-than for 425.
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git&a=commitdiff&h=23918b03060f6e572168fdde1798a905679d2e06
 
-> ethernet only takes one common queue
-> (TXDONE =3D 31). The rest of the queues seem to be NPE dependent.
+Trond
 
-Some numbers are fixed in software (like most of the Ethernet's
-excluding "txready" which is a driver-only thing, and as Christian
-writes, a couple of queues for crypto). Some are configurable (like RX
-Ethernet queues, up to 8 per port with (not unused currently) QoS
-"acceleration").
+PS: note that your 2.6.26 config file has _very_ different memory models
+and kernel debugging options enabled compared to your 2.6.24 kernel.
+That may also affect performance.
 
-> At
-> least that was what I thought, but if I change rxq and txreadyq for
-> ethernet in ixdp425-setup.c and give them the values 0x103, 0x114 for
-> NPEB and 0x203, 0x214 for NPEC they also interfere with the queues fo=
-r
-> HSS (for not 0 hdlcs...).
-
-The range is 0-31 (0-0x1F). There are (not yet supported) queues 32-64
-(0x20-0x3F) with a bit more limited functionality. We certainly need
-them, too.
-
-And the on-chip SRAM region in which the queues exist is limited, too.
-
-> So... Do we have 32 queues for NPE, or some of them are common for al=
-l
-> NPEs? In the first case it could be possible to work with 32 queues i=
-n
-> most of the situations... if not, 64-queue patch seems to be required
-> (where can I find last version of it? I just found one which is
-> heavily critizised by you, Krzysztof).
-
-It's this one. It wasn't "heavily criticized", though. I didn't like
-many tiny bits but generally it is a good work.
-
-We have 64 queues for all ports, processes etc combined.
-You may want to see Intel's docs, for instance their IXP42X
-development manual (the queues are explained in section 21, "AHB Queue
-Manager (AQM)).
---=20
-Krzysztof Halasa
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
