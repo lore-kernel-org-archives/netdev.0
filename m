@@ -1,67 +1,36 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: [PATCH] update rwlock initialization for nat_table
-Date: Wed, 10 Dec 2008 15:06:00 -0500 (EST)
-Message-ID: <alpine.DEB.1.10.0812101504280.11805@gandalf.stny.rr.com>
-References: <alpine.DEB.1.10.0812101314460.11805@gandalf.stny.rr.com> <49400B7F.7040607@cosmosbay.com>
+From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+Subject: Re: sshd segmentation fault on ia64 on 28-rc7-mmotm-081203 -
+	bisected
+Date: Wed, 10 Dec 2008 15:21:26 -0500
+Message-ID: <1228940487.6139.68.camel@lts-notebook>
+References: <1228322600.6693.61.camel@lts-notebook>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <dada1@cosmosbay.com>, Ingo Molnar <mingo@elte.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.123]:46780 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753232AbYLJUGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 15:06:04 -0500
-In-Reply-To: <49400B7F.7040607@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ia64 <linux-ia64@vger.kernel.org>
+To: linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, fbuihuu@gmail.com
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <1228322600.6693.61.camel@lts-notebook>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 2008-12-03 at 11:43 -0500, Lee Schermerhorn wrote:
+> I couldn't find anything on the list about this.
+> 
+> I've built and booted 28-rc7-mmotm-081203 on both x86_64 and ia64.  I
+> can ssh into the x86_64 platform fine.  On the ia64, I'm seeing sshd
+> [from RHEL5 distro] seg faulting.  [Same sshd worked on the
+> 28-rc6-mmotm-081201 kernel.]
+> 
+> Has anyone else seen this?
+> 
 
-The following patch is in:
+I finally got around to bisecting this--sshd fails with SEGV on ia64--on
+mmotm-081208.  It appears to be caused by the patch duo:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-2.6-trace.git
+do_mpage_readpage-remove-first_logical_block-parameter.patch
+do_mpage_readpage-remove-first_logical_block-parameter-fix.patch
 
-    branch: cleanups
-
-
-Steven Rostedt (1):
-      update rwlock initialization for nat_table
-
-----
- net/ipv4/netfilter/nf_nat_rule.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
----------------------------
-commit d4175059c8f95e4cd58e0efaa85610ca59469fbd
-Author: Steven Rostedt <srostedt@redhat.com>
-Date:   Wed Dec 10 15:00:09 2008 -0500
-
-    update rwlock initialization for nat_table
-    
-    Impact: clean up
-    
-    The commit e099a173573ce1ba171092aee7bb3c72ea686e59
-    (netfilter: netns nat: per-netns NAT table) renamed the
-    nat_table from __nat_table to nat_table without updating the
-    __RW_LOCK_UNLOCKED(__nat_table.lock).
-    
-    Signed-off-by: Steven Rostedt <srostedt@redhat.com>
-
-diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
-index bea54a6..8d489e7 100644
---- a/net/ipv4/netfilter/nf_nat_rule.c
-+++ b/net/ipv4/netfilter/nf_nat_rule.c
-@@ -61,7 +61,7 @@ static struct
- static struct xt_table nat_table = {
- 	.name		= "nat",
- 	.valid_hooks	= NAT_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(__nat_table.lock),
-+	.lock		= __RW_LOCK_UNLOCKED(nat_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
-
+Lee
 
