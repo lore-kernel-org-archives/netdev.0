@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 01/29] wimax: documentation for the stack
-Date: Wed, 10 Dec 2008 15:12:42 -0800
-Message-ID: <4c902a80b2c90e4a0caa6a1712453bf11dfef1ba.1228948072.git.inaky@linux.intel.com>
+Subject: [PATCH 09/29] wimax: debugfs controls
+Date: Wed, 10 Dec 2008 15:12:50 -0800
+Message-ID: <c5df3889469c0099a6ae6036e297bfdb354cf97d.1228948072.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,98 +18,109 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
+Expose knobs to control the stack's debug output.
+
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- Documentation/wimax/README.wimax |   81 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 81 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/wimax/README.wimax
+ net/wimax/debugfs.c |   90 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 90 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/debugfs.c
 
-diff --git a/Documentation/wimax/README.wimax b/Documentation/wimax/README.wimax
+diff --git a/net/wimax/debugfs.c b/net/wimax/debugfs.c
 new file mode 100644
-index 0000000..b78c437
+index 0000000..87cf443
 --- /dev/null
-+++ b/Documentation/wimax/README.wimax
-@@ -0,0 +1,81 @@
++++ b/net/wimax/debugfs.c
+@@ -0,0 +1,90 @@
++/*
++ * Linux WiMAX
++ * Debugfs support
++ *
++ *
++ * Copyright (C) 2005-2006 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ */
++#include <linux/debugfs.h>
++#include <linux/wimax.h>
++#include "wimax-internal.h"
 +
-+   Linux kernel WiMAX stack
++#define D_SUBMODULE debugfs
++#include "debug-levels.h"
 +
-+   (C) 2008 Intel Corporation < linux-wimax@intel.com >
 +
-+   This provides a basic Linux kernel WiMAX stack to provide a common
-+   control API for WiMAX devices, usable from kernel and user space.
++/* Debug framework control of debug levels */
++struct d_level D_LEVEL[] = {
++	D_SUBMODULE_DEFINE(debugfs),
++	D_SUBMODULE_DEFINE(id_table),
++	D_SUBMODULE_DEFINE(op_msg),
++	D_SUBMODULE_DEFINE(op_reset),
++	D_SUBMODULE_DEFINE(op_rfkill),
++	D_SUBMODULE_DEFINE(stack),
++};
++size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
 +
-+1. Design
++#define __debugfs_register(prefix, name, parent)			\
++do {									\
++	result = d_level_register_debugfs(prefix, name, parent);	\
++	if (result < 0)							\
++		goto error;						\
++} while (0)
 +
-+   The WiMAX stack is designed to provide for common WiMAX control
-+   services to current and future WiMAX devices from any vendor.
 +
-+   Because currently there is only one and we don't know what would be the
-+   common services, the APIs it currently provides are very minimal.
-+   However, it is done in such a way that it is easily extensible to
-+   accommodate future requirements.
++int wimax_debugfs_add(struct wimax_dev *wimax_dev)
++{
++	int result;
++	struct net_device *net_dev = wimax_dev->net_dev;
++	struct device *dev = net_dev->dev.parent;
++	struct dentry *dentry;
++	char buf[128];
 +
-+   The stack works by embedding a struct wimax_dev in your device's
-+   control structures. This provides a set of callbacks that the WiMAX
-+   stack will call in order to implement control operations requested by
-+   the user. As well, the stack provides API functions that the driver
-+   calls to notify about changes of state in the device.
++	snprintf(buf, sizeof(buf), "wimax:%s", net_dev->name);
++	dentry = debugfs_create_dir(buf, NULL);
++	result = PTR_ERR(dentry);
++	if (IS_ERR(dentry)) {
++		if (result == -ENODEV)
++			result = 0;	/* No debugfs support */
++		else
++			dev_err(dev, "Can't create debugfs dentry: %d\n",
++				result);
++		goto out;
++	}
++	wimax_dev->debugfs_dentry = dentry;
++	__debugfs_register("wimax_dl_", debugfs, dentry);
++	__debugfs_register("wimax_dl_", id_table, dentry);
++	__debugfs_register("wimax_dl_", op_msg, dentry);
++	__debugfs_register("wimax_dl_", op_reset, dentry);
++	__debugfs_register("wimax_dl_", op_rfkill, dentry);
++	__debugfs_register("wimax_dl_", stack, dentry);
++	result = 0;
++out:
++	return result;
 +
-+   The stack exports the API calls needed to control the device to user
-+   space using generic netlink as a marshalling mechanism. You can access
-+   them using your own code or use the wrappers provided for your
-+   convenience in libwimax (in the wimax-tools package).
++error:
++	debugfs_remove_recursive(wimax_dev->debugfs_dentry);
++	return result;
++}
 +
-+   For detailed information on the stack, please see
-+   include/linux/wimax.h.
++void wimax_debugfs_rm(struct wimax_dev *wimax_dev)
++{
++	debugfs_remove_recursive(wimax_dev->debugfs_dentry);
++}
 +
-+2. Usage
 +
-+   For usage in a driver (registration, API, etc) please refer to the
-+   instructions in the header file include/linux/wimax.h.
-+
-+   When a device is registered with the WiMAX stack, a set of debugfs
-+   files will appear in /sys/kernel/debug/wimax:wmxX can tweak for
-+   control.
-+
-+2.1. Obtaining debug information: debugfs entries
-+
-+   The WiMAX stack is compiled, by default, with debug messages that can
-+   be used to diagnose issues. By default, said messages are disabled.
-+
-+   The drivers will register debugfs entries that allow the user to tweak
-+   debug settings.
-+
-+   Each driver, when registering with the stack, will cause a debugfs
-+   directory named wimax:DEVICENAME to be created; optionally, it might
-+   create more subentries below it.
-+
-+2.1.1. Increasing debug output
-+
-+   The files named *dl_* indicate knobs for controlling the debug output
-+   of different submodules of the WiMAX stack:
-+     *
-+# find /sys/kernel/debug/wimax\:wmx0 -name \*dl_\*
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_stack
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_op_rfkill
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_op_reset
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_op_msg
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_debugfs
-+/sys/kernel/debug/wimax:wmx0/.... # other driver specific files
-+
-+       NOTE: Of course, if debugfs is mounted in a directory other than
-+       /sys/kernel/debug, those paths will change.
-+
-+   By reading the file you can obtain the current value of said debug
-+   level; by writing to it, you can set it.
-+
-+   To increase the debug level of, for example, the id-table submodule,
-+   just write:
-+
-+$ echo 3 > /sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
-+
-+   Increasing numbers yield increasing debug information; for details of
-+   what is printed and the available levels, check the source. The code
-+   uses 0 for disabled and increasing values until 8.
 -- 
 1.5.6.5
