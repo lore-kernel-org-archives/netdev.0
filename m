@@ -1,7 +1,7 @@
 From: Vladislav Bolkhovitin <vst@vlnb.net>
-Subject: [PATCH][RFC 21/23]: iSCSI target driver
-Date: Wed, 10 Dec 2008 22:01:25 +0300
-Message-ID: <49401205.8010207@vlnb.net>
+Subject: [PATCH][RFC 22/23]: Documentation for iSCSI-SCST
+Date: Wed, 10 Dec 2008 22:02:56 +0300
+Message-ID: <49401260.5050501@vlnb.net>
 References: <494009D7.4020602@vlnb.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -19,50 +19,151 @@ Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
 	netdev@vger.kernel.org
 To: linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:53751 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.9]:58348 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756864AbYLJTBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 14:01:36 -0500
+	with ESMTP id S1752451AbYLJTDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 14:03:25 -0500
 In-Reply-To: <494009D7.4020602@vlnb.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch contains iSCSI-SCST target driver. This driver is a heavily 
-modified forked with all respects IET 
-(http://iscsitarget.sourceforge.net). Modifications were aimed to make a 
-clearer, more reviewable and maintainable code as well as to fix many 
-problems and make many improvements. See 
-http://scst.sourceforge.net/target_iscsi.html for more details.
-
-It has split user/kernel space architecture, where all management, 
-sessions creation, parameters negotiation, etc. made in user space and 
-data are transferred in the kernel space. Such architecture for iSCSI 
-processing was many times acknowledged as the right one. Particularly, 
-in-kernel iSCSI initiator (open-iscsi) has such architecture.
+This patch contains documentation for iSCSI-SCST.
 
 Signed-off-by: Vladislav Bolkhovitin <vst@vlnb.net>
 ---
-  drivers/scst/iscsi-scst/Kconfig     |   25
-  drivers/scst/iscsi-scst/Makefile    |    6
-  drivers/scst/iscsi-scst/config.c    |  597 +++++++
-  drivers/scst/iscsi-scst/conn.c      |  488 +++++
-  drivers/scst/iscsi-scst/digest.c    |  221 ++
-  drivers/scst/iscsi-scst/digest.h    |   31
-  drivers/scst/iscsi-scst/event.c     |  116 +
-  drivers/scst/iscsi-scst/iscsi.c     | 3066 ++++++++++++++++++++++++++++++++++++
-  drivers/scst/iscsi-scst/iscsi.h     |  577 ++++++
-  drivers/scst/iscsi-scst/iscsi_dbg.h |   73
-  drivers/scst/iscsi-scst/iscsi_hdr.h |  517 ++++++
-  drivers/scst/iscsi-scst/nthread.c   | 1522 +++++++++++++++++
-  drivers/scst/iscsi-scst/param.c     |  263 +++
-  drivers/scst/iscsi-scst/session.c   |  210 ++
-  drivers/scst/iscsi-scst/target.c    |  306 +++
-  include/scst/iscsi_scst.h           |  156 +
-  include/scst/iscsi_scst_ver.h       |   16
-  17 files changed, 8190 insertions(+)
+  Documentation/scst/README.iscsi |  127 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  1 file changed, 127 insertions(+)
 
-The patch is too big to be submitted inline. You can find it in 
-http://scst.sourceforge.net/patches/iscsi-scst.diff
-
+diff -uprN orig/linux-2.6.27/Documentation/scst/README.iscsi linux-2.6.27/Documentation/scst/README.iscsi
+--- orig/linux-2.6.27/Documentation/scst/README.iscsi
++++ linux-2.6.27/Documentation/scst/README.iscsi
+@@ -0,0 +1,127 @@
++iSCSI SCST target driver
++========================
++
++Version 1.0.1/0.4.16r155, XX XXXX 2008
++--------------------------------------
++
++This driver is a forked with all respects version of iSCSI Enterprise
++Target (IET) (http://iscsitarget.sourceforge.net/) with updates to work
++over SCST as well as with many improvements and bugfixes (see ChangeLog
++file). The reason of fork is that the necessary changes are intrusive
++and with the current IET merge policy, where only simple bugfix-like
++patches, which doesn't touch the core code, could be merged, it is very
++unlikely that they will be merged in the main IET trunk.
++
++To let it be installed and work at the same host together with IET
++simultaneously all the driver's modules and files were renamed:
++
++ * ietd.conf -> iscsi-scstd.conf
++ * ietadm -> iscsi-scst-adm
++ * ietd -> iscsi-scstd
++ * iscsi-target -> iscsi-scst
++ * iscsi-target.ko -> iscsi-scst.ko
++
++To use full power of TCP zero-copy transmit functions, especially
++dealing with user space supplied via scst_user module memory, iSCSI-SCST
++needs to be notified when Linux networking finished data transmission.
++For that you should enable CONFIG_TCP_ZERO_COPY_TRANSFER_COMPLETION_NOTIFICATION
++kernel config option. This is highly recommended, but not required. Basically,
++you should consider usage of this option as some optimization, which IET
++doesn't have, so if you don't use it, you will just revert to the
++original IET behavior, when for data transmission:
++
++ - For in-kernel allocated memory (scst_vdisk and pass-through
++   handlers) usage of SGV cache on transmit path (READ-type commands)
++   will be disabled. The performance hit will be not big, but performance
++   will still remain better, than for IET, because SGV cache will remain
++   used on receive path while IET doesn't have such feature.
++
++ - For user space allocated memory (scst_user handler) all transmitted
++   data will be additionally copied into temporary TCP buffers. The
++   performance hit will be quite noticeable.
++
++Note, that if your network hardware does not support TX offload
++functions of has them disabled, then TCP zero-copy transmit functions on
++your system will not be used by Linux networking in any case, so
++put_page_callback patch will not be able to improve performance for you.
++You can check your network hardware offload capabilities by command
++"ethtool -k ethX", where X is the network device number. At least
++"tx-checksumming" and "scatter-gather" should be enabled.
++
++Usage
++-----
++
++ISCSI parameters like iSNS, CHAP and target parameters are configured in
++iscsi-scstd.conf. All LUN information is configured using the regular
++SCST interface. It is highly recommended to use scstadmin utility for
++that purpose. The LUN information in iscsi-scstd.conf will be ignored.
++This is because now responsibilities are divided (as it should be)
++between the target driver (iSCSI-SCST) and the SCST core as it logically
++should be: the target driver is responsible for handling targets and
++their parameters, SCST core is responsible for handling backstorage.
++
++If you need to configure different LUs for different targets you should
++create for each target group "Default_target_name", where "target_name"
++means name of the target, for example:
++"Default_iqn.2007-05.com.example:storage.disk1.sys1.xyz", and add there
++all necessary LUNs. Check SCST README file for details.
++
++Check SCST README file how to tune for the best performance.
++
++If under high load you experience I/O stalls or see in the kernel log
++abort or reset messages, then try to reduce QueuedCommands parameter in
++iscsi-scstd.conf file for the corresponding target to some lower value,
++like 8 (default is 32). See also SCST README file for more details about
++that issue.
++
++CAUTION:  Working of target and initiator on the same host isn't
++========  supported. See SCST README file for details.
++
++
++Performance advices
++-------------------
++
++1. If you use Windows XP or Windows 2003+ as initiators, you should
++consider to decrease TcpAckFrequency parameter to 1. See
++http://support.microsoft.com/kb/328890/ or google for "TcpAckFrequency"
++for more details.
++
++
++Compilation options
++-------------------
++
++There are the following compilation options, that could be commented
++in/out in the kernel's module Makefile:
++
++ - CONFIG_SCST_DEBUG - turns on some debugging code, including some logging.
++   Makes the driver considerably bigger and slower, producing large amount of
++   log data.
++
++ - CONFIG_SCST_TRACING - turns on ability to log events. Makes the driver
++   considerably bigger and leads to some performance loss.
++
++ - CONFIG_SCST_EXTRACHECKS - adds extra validity checks in the various places.
++
++ - CONFIG_SCST_ISCSI_DEBUG_DIGEST_FAILURES - simulates digest failures in
++   random places.
++
++
++Credits
++-------
++
++Thanks to:
++
++ * IET developers for IET
++
++ * Ming Zhang <blackmagic02881@gmail.com> for fixes
++
++ * Krzysztof Blaszkowski <kb@sysmikro.com.pl> for many fixes
++
++ * Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> for comments and help in
++   debugging
++
++ * Tomasz Chmielewski <mangoo@wpkg.org> for testing and suggestions
++
++ * Bart Van Assche <bart.vanassche@gmail.com> for a lot of help
++
++Vladislav Bolkhovitin <vst@vlnb.net>, http://scst.sourceforge.net
 
 
