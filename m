@@ -1,72 +1,68 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: 2.6.26.3 kernel - progressive slowdown over NFS
-Date: Wed, 10 Dec 2008 13:26:28 -0800
-Message-ID: <20081210132628.55991b93.akpm@linux-foundation.org>
-References: <f4e12c70809091747rd58165ahaa6594a35752c6ef@mail.gmail.com>
-	<slrngjt7b4.d62.davidf+nntp@dog.thdo.woaf.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user space data
+Date: Thu, 11 Dec 2008 00:45:00 +0300
+Message-ID: <20081210214500.GA24212@ioremap.net>
+References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Ray Lee" <ray-lk-0Cg02Ec9UG4BXFe83j6qeQ@public.gmane.org>,
-	"Trond Myklebust" <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>,
-	pkpatel.lists-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Flynn <davidf+nntp-p1ML1wbIMYc@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <slrngjt7b4.d62.davidf+nntp-wwhKarxBCNZl29rWeyUsZ16hYfS7NtTn@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-scsi@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Jeff Garzik <jeff@garzik.org>,
+	Boaz Harrosh <bharrosh@panasas.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
+	Bart Van Assche <bart.vanassche@gmail.com>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	netdev@vger.kernel.org
+To: Vladislav Bolkhovitin <vst@vlnb.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <494012C4.7090304@vlnb.net>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(cc's restored)
+Hi Vladislav.
 
-Please always do reply-to-all when working with kernel people.  It's
-important.
+On Wed, Dec 10, 2008 at 10:04:36PM +0300, Vladislav Bolkhovitin (vst@vlnb.net) wrote:
+> In the chosen approach new optional field void *net_priv was added to 
+> struct page. It is enclosed by
 
-Thanks.
+There is a huge no-no in networking land on increasing skb.
+Reason is simple every skb will carry potentially unneded data as long
+as given option is enabled, and most of the time it will.
+To break this barrier one has to have (I wanted to write ego, but then
+decided to replace it with mojo) so huge reason to do this, that it is
+almost impossible to have.
 
-On Tue, 9 Dec 2008 16:31:32 +0000 (UTC)
-David Flynn <davidf+nntp-p1ML1wbIMYc@public.gmane.org> wrote:
+Something tells me that increasing page structure with 8 bytes because
+of zero-copy iscsi transfer is not that great idea, since basically every
+user out there will have it enabled in the distro config and will waste
+noticeble amount of ram.
 
-> On 2008-09-10, Priyank Patel <pkpatel.lists-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > We have a simple python program which keeps running a C loop to lstat
-> > NFS mounted directories.  We are seeing some weird behavior w.r.t. the
-> > run-time of this program on 2.6.26.3 kernel vs 2.6.24 kernel.
-> >
-> > The run-time of the following code increases over time on the 2.6.26.3
-> > kernel, whereas remains flat (as expected) on the 2.6.24 kernel.
-> 
-> I'm seeing a similar effect, and ran a benchmark pre and post reboot:
-> 
->  $ strace -T /usr/sbin/bonnie++ -d . -s 0 -f -n 1 >/tmp/bonnie-r44237-netslow 2>&1
->  ...reboot...
->  $ strace -T /usr/sbin/bonnie++ -d . -s 0 -f -n 1 >/tmp/bonnie-r44237-netfast 2>&1
-> 
-> Graphs of the operations are avaliable:
->   http://davidf.woaf.net/nfsfail-2.6.26/
-> 
-> In particular http://davidf.woaf.net/nfsfail-2.6.26/r44237-stat.pdf
-> 
-> r44237-* was a machine with a 28 day uptime and
-> r44088-* is an identical machine with 14 day uptime.
-> 
-> The graphs show times as recorded by strace for each syscall (points), a
-> cumulative frequency plot is also drawn on the same graph (lines).
-> yellow-orange points/lines are before the reboot, purple afterwards.
-> 
-> The machines are part of a cluster with a r/o nfsroot and common debian
-> stock kernel:
->  Linux r44088 2.6.26-1-amd64 #1 SMP Sat Aug 2 11:15:08 GMT 2008 x86_64 GNU/Linux
-> 
-> Other nfs filesystems are also mounted; all nfs mounts are nfsv3 over udp.
-> 
-> Has this issue been identified or resolved in 2.6.27?
-> 
-> Extra logs can be provided if required.
-> 
-> ..david
+The same problem of not sending any kind of notification to the user
+when his pages are 'acked' by receiving some packet or freeing the data
+exists long ago and was tried to be fixed several times.
 
+The most applicable to your case maybe DST experience. DST is a block
+layer device and all its pages starting from quite recent kernels are
+not allowed to be slab ones (xfs was the last one who provided slab
+pages in the bios), so each page has two 'unused' pointers in lru list
+entry, which you may reuse. If scsi layer may have slab pages from some
+place (although this does not sound like a good idea, ->sendpage() will
+bug on on them anyway), this hack will not work, otherwise you only need
+to have net_page_get/put stuff in and do not mess with increasing page.
+And this was tested 3-4 kernel releases ago, so things may be changed.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Another appropach is to increase skb's shared data (at the end of the
+skb->data), and this approach was not frowned upon too much either, but
+it requires to mess with skb->destructor, which may not be appropriate
+in some cases. If iscsi does not use sockets (it does iirc), things are
+much simpler.
+
+Hope this helps.
+
+-- 
+	Evgeniy Polyakov
