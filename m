@@ -1,7 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 18/29] i2400m: debugfs controls
-Date: Wed, 10 Dec 2008 15:12:59 -0800
-Message-ID: <e607ab0179555288dbe3781418c7b59015ec5f6b.1228948072.git.inaky@linux.intel.com>
+Subject: [PATCH 10/29] wimax: Makefile,
+	Kconfig and docbook linkage for the stack
+Date: Wed, 10 Dec 2008 15:12:51 -0800
+Message-ID: <164c6b9882c4424ea93e40c9ec333a15fb671294.1228948072.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,406 +19,122 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Expose knobs to control the device (induce reset, power saving,
-querying tx or rx stats, internal debug information and debug level
-manipulation).
+This patch provides Makefile and KConfig for the WiMAX stack,
+integrating them into the networking stack's Makefile, Kconfig and
+doc-book templates.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/debugfs.c |  385 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 385 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/debugfs.c
+ Documentation/DocBook/networking.tmpl |    8 +++++++
+ net/Kconfig                           |    2 +
+ net/Makefile                          |    1 +
+ net/wimax/Kconfig                     |   36 +++++++++++++++++++++++++++++++++
+ net/wimax/Makefile                    |   13 +++++++++++
+ 5 files changed, 60 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/Kconfig
+ create mode 100644 net/wimax/Makefile
 
-diff --git a/drivers/net/wimax/i2400m/debugfs.c b/drivers/net/wimax/i2400m/debugfs.c
+diff --git a/Documentation/DocBook/networking.tmpl b/Documentation/DocBook/networking.tmpl
+index f24f9e8..7053c1c 100644
+--- a/Documentation/DocBook/networking.tmpl
++++ b/Documentation/DocBook/networking.tmpl
+@@ -101,6 +101,14 @@ X!Enet/core/wireless.c
+      <sect1><title>Synchronous PPP</title>
+ !Edrivers/net/wan/syncppp.c
+      </sect1>
++     <sect1><title>WiMAX</title>
++!Enet/wimax/op-msg.c
++!Enet/wimax/op-reset.c
++!Enet/wimax/op-rfkill.c
++!Enet/wimax/stack.c
++!Iinclude/net/wimax.h
++!Iinclude/linux/wimax.h
++     </sect1>
+   </chapter>
+ 
+ </book>
+diff --git a/net/Kconfig b/net/Kconfig
+index d789d79..3bff221 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -251,6 +251,8 @@ source "net/ieee80211/Kconfig"
+ 
+ endif # WIRELESS
+ 
++source "net/wimax/Kconfig"
++
+ source "net/rfkill/Kconfig"
+ source "net/9p/Kconfig"
+ 
+diff --git a/net/Makefile b/net/Makefile
+index 27d1f10..620a505 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -61,3 +61,4 @@ obj-$(CONFIG_NET_9P)		+= 9p/
+ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
+ endif
++obj-$(CONFIG_WIMAX)		+= wimax/
+diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
 new file mode 100644
-index 0000000..39de87d
+index 0000000..67d5f4d
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/debugfs.c
-@@ -0,0 +1,385 @@
-+/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Debugfs interfaces to manipulate driver and device information
-+ *
-+ *
-+ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ */
++++ b/net/wimax/Kconfig
+@@ -0,0 +1,36 @@
++#
++# WiMAX LAN device configuration
++#
 +
-+#include <linux/debugfs.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/spinlock.h>
-+#include <linux/device.h>
-+#include "i2400m.h"
++menuconfig WIMAX
++       tristate "WiMAX Wireless Broadband support"
++       help
 +
++         Select to configure support for devices that provide wireless
++         broadband connectivity using the WiMAX protocol (IEEE 802.16).
 +
-+#define D_SUBMODULE debugfs
-+#include "debug-levels.h"
++         Please note that most of these devices require signing up for
++         a service plan with a provider.
 +
-+static
-+int debugfs_netdev_queue_stopped_get(void *data, u64 *val)
-+{
-+	struct i2400m *i2400m = data;
-+	*val = netif_queue_stopped(i2400m->wimax_dev.net_dev);
-+	return 0;
-+}
-+DEFINE_SIMPLE_ATTRIBUTE(fops_netdev_queue_stopped,
-+			debugfs_netdev_queue_stopped_get,
-+			NULL, "%llu\n");
++         The different WiMAX drivers can be enabled in the menu entry
 +
++         Device Drivers > Network device support > WiMAX Wireless Broadband devices
 +
-+static
-+struct dentry *debugfs_create_netdev_queue_stopped(
-+	const char *name, struct dentry *parent, struct i2400m *i2400m)
-+{
-+	return debugfs_create_file(name, 0400, parent, i2400m,
-+				   &fops_netdev_queue_stopped);
-+}
++         If unsure, it is safe to select M (module).
 +
++config WIMAX_DEBUG_LEVEL
++       int "WiMAX debug level"
++       depends on WIMAX
++       default 8
++       help
 +
-+/*
-+ * inode->i_private has the @data argument to debugfs_create_file()
-+ */
-+static
-+int i2400m_stats_open(struct inode *inode, struct file *filp)
-+{
-+	filp->private_data = inode->i_private;
-+	return 0;
-+}
++         Select the maximum debug verbosity level to be compiled into
++         the WiMAX stack code.
 +
-+/*
-+ * We don't allow partial reads of this file, as then the reader would
-+ * get weirdly confused data as it is updated.
-+ *
-+ * So or you read it all or nothing; if you try to read with an offset
-+ * != 0, we consider you are done reading.
-+ */
-+static
-+ssize_t i2400m_rx_stats_read(struct file *filp, char __user *buffer,
-+			     size_t count, loff_t *ppos)
-+{
-+	struct i2400m *i2400m = filp->private_data;
-+	char buf[128];
-+	unsigned long flags;
++         By default, debug messages are disabled at runtime and can be
++         selectively enabled for different parts of the code using the
++         sysfs debug-levels file.
 +
-+	if (*ppos != 0)
-+		return 0;
-+	if (count < sizeof(buf))
-+		return -ENOSPC;
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	snprintf(buf, sizeof(buf), "%u %u %u %u %u %u %u\n",
-+		 i2400m->rx_pl_num, i2400m->rx_pl_min,
-+		 i2400m->rx_pl_max, i2400m->rx_num,
-+		 i2400m->rx_size_acc,
-+		 i2400m->rx_size_min, i2400m->rx_size_max);
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	return simple_read_from_buffer(buffer, count, ppos, buf, strlen(buf));
-+}
++         If set at zero, this will compile out all the debug code.
++
++         It is recommended that it is left at 8.
+diff --git a/net/wimax/Makefile b/net/wimax/Makefile
+new file mode 100644
+index 0000000..d548446
+--- /dev/null
++++ b/net/wimax/Makefile
+@@ -0,0 +1,13 @@
++
++obj-$(CONFIG_WIMAX)		+= wimax.o
++
++wimax-objs :=		\
++	id-table.o	\
++	op-msg.o	\
++	op-reset.o	\
++	op-rfkill.o	\
++	stack.o
++
++wimax-$(CONFIG_DEBUG_FS) += debugfs.o
 +
 +
-+/* Any write clears the stats */
-+static
-+ssize_t i2400m_rx_stats_write(struct file *filp, const char __user *buffer,
-+			      size_t count, loff_t *ppos)
-+{
-+	struct i2400m *i2400m = filp->private_data;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&i2400m->rx_lock, flags);
-+	i2400m->rx_pl_num = 0;
-+	i2400m->rx_pl_max = 0;
-+	i2400m->rx_pl_min = UINT_MAX;
-+	i2400m->rx_num = 0;
-+	i2400m->rx_size_acc = 0;
-+	i2400m->rx_size_min = UINT_MAX;
-+	i2400m->rx_size_max = 0;
-+	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-+	return count;
-+}
-+
-+static
-+const struct file_operations i2400m_rx_stats_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		i2400m_stats_open,
-+	.read =		i2400m_rx_stats_read,
-+	.write =	i2400m_rx_stats_write,
-+};
-+
-+
-+/* See i2400m_rx_stats_read() */
-+static
-+ssize_t i2400m_tx_stats_read(struct file *filp, char __user *buffer,
-+			     size_t count, loff_t *ppos)
-+{
-+	struct i2400m *i2400m = filp->private_data;
-+	char buf[128];
-+	unsigned long flags;
-+
-+	if (*ppos != 0)
-+		return 0;
-+	if (count < sizeof(buf))
-+		return -ENOSPC;
-+	spin_lock_irqsave(&i2400m->tx_lock, flags);
-+	snprintf(buf, sizeof(buf), "%u %u %u %u %u %u %u\n",
-+		 i2400m->tx_pl_num, i2400m->tx_pl_min,
-+		 i2400m->tx_pl_max, i2400m->tx_num,
-+		 i2400m->tx_size_acc,
-+		 i2400m->tx_size_min, i2400m->tx_size_max);
-+	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+	return simple_read_from_buffer(buffer, count, ppos, buf, strlen(buf));
-+}
-+
-+/* Any write clears the stats */
-+static
-+ssize_t i2400m_tx_stats_write(struct file *filp, const char __user *buffer,
-+			      size_t count, loff_t *ppos)
-+{
-+	struct i2400m *i2400m = filp->private_data;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&i2400m->tx_lock, flags);
-+	i2400m->tx_pl_num = 0;
-+	i2400m->tx_pl_max = 0;
-+	i2400m->tx_pl_min = UINT_MAX;
-+	i2400m->tx_num = 0;
-+	i2400m->tx_size_acc = 0;
-+	i2400m->tx_size_min = UINT_MAX;
-+	i2400m->tx_size_max = 0;
-+	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
-+	return count;
-+}
-+
-+static
-+const struct file_operations i2400m_tx_stats_fops = {
-+	.owner =	THIS_MODULE,
-+	.open =		i2400m_stats_open,
-+	.read =		i2400m_tx_stats_read,
-+	.write =	i2400m_tx_stats_write,
-+};
-+
-+
-+/* Write 1 to ask the device to go into suspend */
-+static
-+int debugfs_i2400m_suspend_set(void *data, u64 val)
-+{
-+	int result;
-+	struct i2400m *i2400m = data;
-+	result = i2400m_cmd_enter_powersave(i2400m);
-+	if (result >= 0)
-+		result = 0;
-+	return result;
-+}
-+DEFINE_SIMPLE_ATTRIBUTE(fops_i2400m_suspend,
-+			NULL, debugfs_i2400m_suspend_set,
-+			"%llu\n");
-+
-+static
-+struct dentry *debugfs_create_i2400m_suspend(
-+	const char *name, struct dentry *parent, struct i2400m *i2400m)
-+{
-+	return debugfs_create_file(name, 0200, parent, i2400m,
-+				   &fops_i2400m_suspend);
-+}
-+
-+
-+/*
-+ * Reset the device
-+ *
-+ * Write 0 to ask the device to soft reset, 1 to cold reset, 2 to bus
-+ * reset (as defined by enum i2400m_reset_type).
-+ */
-+static
-+int debugfs_i2400m_reset_set(void *data, u64 val)
-+{
-+	int result;
-+	struct i2400m *i2400m = data;
-+	enum i2400m_reset_type rt = val;
-+	result = i2400m->bus_reset(i2400m, rt);
-+	if (result >= 0)
-+		result = 0;
-+	return result;
-+}
-+DEFINE_SIMPLE_ATTRIBUTE(fops_i2400m_reset,
-+			NULL, debugfs_i2400m_reset_set,
-+			"%llu\n");
-+
-+static
-+struct dentry *debugfs_create_i2400m_reset(
-+	const char *name, struct dentry *parent, struct i2400m *i2400m)
-+{
-+	return debugfs_create_file(name, 0200, parent, i2400m,
-+				   &fops_i2400m_reset);
-+}
-+
-+/*
-+ * Debug levels control; see debug.h
-+ */
-+struct d_level D_LEVEL[] = {
-+	D_SUBMODULE_DEFINE(control),
-+	D_SUBMODULE_DEFINE(driver),
-+	D_SUBMODULE_DEFINE(debugfs),
-+	D_SUBMODULE_DEFINE(fw),
-+	D_SUBMODULE_DEFINE(netdev),
-+	D_SUBMODULE_DEFINE(rfkill),
-+	D_SUBMODULE_DEFINE(rx),
-+	D_SUBMODULE_DEFINE(tx),
-+};
-+size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+
-+#define __debugfs_register(prefix, name, parent)			\
-+do {									\
-+	result = d_level_register_debugfs(prefix, name, parent);	\
-+	if (result < 0)							\
-+		goto error;						\
-+} while (0)
-+
-+
-+int i2400m_debugfs_add(struct i2400m *i2400m)
-+{
-+	int result;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct dentry *dentry = i2400m->wimax_dev.debugfs_dentry;
-+	struct dentry *fd;
-+
-+	dentry = debugfs_create_dir("i2400m", dentry);
-+	result = PTR_ERR(dentry);
-+	if (IS_ERR(dentry)) {
-+		if (result == -ENODEV)
-+			result = 0;	/* No debugfs support */
-+		goto error;
-+	}
-+	i2400m->debugfs_dentry = dentry;
-+	__debugfs_register("dl_", control, dentry);
-+	__debugfs_register("dl_", driver, dentry);
-+	__debugfs_register("dl_", debugfs, dentry);
-+	__debugfs_register("dl_", fw, dentry);
-+	__debugfs_register("dl_", netdev, dentry);
-+	__debugfs_register("dl_", rfkill, dentry);
-+	__debugfs_register("dl_", rx, dentry);
-+	__debugfs_register("dl_", tx, dentry);
-+
-+	fd = debugfs_create_size_t("tx_in", 0400, dentry,
-+				   &i2400m->tx_in);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry "
-+			"tx_in: %d\n", result);
-+		goto error;
-+	}
-+
-+	fd = debugfs_create_size_t("tx_out", 0400, dentry,
-+				   &i2400m->tx_out);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry "
-+			"tx_out: %d\n", result);
-+		goto error;
-+	}
-+
-+	fd = debugfs_create_u32("state", 0600, dentry,
-+				&i2400m->state);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry "
-+			"state: %d\n", result);
-+		goto error;
-+	}
-+
-+	/*
-+	 * Trace received messages from user space
-+	 *
-+	 * In order to tap the bidirectional message stream in the
-+	 * 'msg' pipe, user space can read from the 'msg' pipe;
-+	 * however, due to limitations in libnl, we can't know what
-+	 * the different applications are sending down to the kernel.
-+	 *
-+	 * So we have this hack where the driver will echo any message
-+	 * received on the msg pipe from user space [through a call to
-+	 * wimax_dev->op_msg_from_user() into
-+	 * i2400m_op_msg_from_user()] into the 'trace' pipe that this
-+	 * driver creates.
-+	 *
-+	 * So then, reading from both the 'trace' and 'msg' pipes in
-+	 * user space will provide a full dump of the traffic.
-+	 *
-+	 * Write 1 to activate, 0 to clear.
-+	 *
-+	 * It is not really very atomic, but it is also not too
-+	 * critical.
-+	 */
-+	fd = debugfs_create_u8("trace_msg_from_user", 0600, dentry,
-+			       &i2400m->trace_msg_from_user);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry "
-+			"trace_msg_from_user: %d\n", result);
-+		goto error;
-+	}
-+
-+	fd = debugfs_create_netdev_queue_stopped("netdev_queue_stopped",
-+						 dentry, i2400m);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry "
-+			"netdev_queue_stopped: %d\n", result);
-+		goto error;
-+	}
-+
-+	fd = debugfs_create_file("rx_stats", 0600, dentry, i2400m,
-+				 &i2400m_rx_stats_fops);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry "
-+			"rx_stats: %d\n", result);
-+		goto error;
-+	}
-+
-+	fd = debugfs_create_file("tx_stats", 0600, dentry, i2400m,
-+				 &i2400m_tx_stats_fops);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry "
-+			"tx_stats: %d\n", result);
-+		goto error;
-+	}
-+
-+	fd = debugfs_create_i2400m_suspend("suspend", dentry, i2400m);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry suspend: %d\n",
-+			result);
-+		goto error;
-+	}
-+
-+	fd = debugfs_create_i2400m_reset("reset", dentry, i2400m);
-+	result = PTR_ERR(fd);
-+	if (IS_ERR(fd) && result != -ENODEV) {
-+		dev_err(dev, "Can't create debugfs entry reset: %d\n", result);
-+		goto error;
-+	}
-+
-+	result = 0;
-+error:
-+	return result;
-+}
-+
-+void i2400m_debugfs_rm(struct i2400m *i2400m)
-+{
-+	debugfs_remove_recursive(i2400m->debugfs_dentry);
-+}
 -- 
 1.5.6.5
