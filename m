@@ -1,7 +1,8 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 0/9] netns: make IPv6 multicast forwarding per-namespace - V2
-Date: Wed, 10 Dec 2008 17:03:01 +0100
-Message-ID: <20081210160301.883947374@theryb.frec.bull.fr>
+Subject: [PATCH 3/9] netns: ip6mr: store netns in struct mfc6_cache
+Date: Wed, 10 Dec 2008 17:03:04 +0100
+Message-ID: <20081210160302.525805674@theryb.frec.bull.fr>
+References: <20081210160301.883947374@theryb.frec.bull.fr>
 Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	netdev <netdev@vger.kernel.org>,
 	Alexey Dobriyan <adobriyan@gmail.com>,
@@ -9,36 +10,172 @@ Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Benjamin Thery <benjamin.thery@bull.net>
 To: Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:42109 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:42364 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751697AbYLJQD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 11:03:56 -0500
+	with ESMTP id S1754305AbYLJQE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 11:04:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset introduces the support for network namespaces in IPv6
-multicast forwarding code (net/ipv6/ip6mr.c).
+This patch stores into struct mfc6_cache the network namespace each
+mfc6_cache belongs to. The new member is mfc6_net.
 
-The first patches in the series moves global data from ip6mr.c into 
-struct netns_ipv6 to prepare netns support. Data are still referenced in
-init_net only. One of these patches makes the related /proc entries
-per-namespace.
+mfc6_net is assigned at cache allocation and doesn't change during
+the rest of the cache entry life.
 
-The last patch does the main job and enables the network namespace support
-by replacing all the init_net references with the proper net retrieved
-from sockets or net devices.
+This will help to retrieve the current netns around the IPv6 multicast
+forwarding code.
 
-The patchset applies on top of net-next-2.6
+At the moment, all mfc6_cache are allocated in init_net.
 
-Changelog
-=========
-V2:
-* Counter cache_resolve_queue_len for unresolved entries must also be
-  per-namespace if we don't want to be limited to 10 unresolved entries
-  for all the netns. New patch:
-  "netns: ip6mr: declare counter cache_resolve_queue_len per-namespace"
-* Reordered the series a bit
+Changelog:
+==========
+* Use write_pnet()/read_pnet() to set and get mfc6_net.
 
-Regards,
-Benjamin
+Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
+---
+ include/linux/mroute6.h |   15 +++++++++++++++
+ net/ipv6/ip6mr.c        |   26 +++++++++++++++++---------
+ 2 files changed, 32 insertions(+), 9 deletions(-)
+
+Index: net-next-2.6/include/linux/mroute6.h
+===================================================================
+--- net-next-2.6.orig/include/linux/mroute6.h
++++ net-next-2.6/include/linux/mroute6.h
+@@ -188,6 +188,9 @@ struct mif_device
+ struct mfc6_cache
+ {
+ 	struct mfc6_cache *next;		/* Next entry on cache line 	*/
++#ifdef CONFIG_NET_NS
++	struct net *mfc6_net;
++#endif
+ 	struct in6_addr mf6c_mcastgrp;			/* Group the entry belongs to 	*/
+ 	struct in6_addr mf6c_origin;			/* Source of packet 		*/
+ 	mifi_t mf6c_parent;			/* Source interface		*/
+@@ -210,6 +213,18 @@ struct mfc6_cache
+ 	} mfc_un;
+ };
+ 
++static inline
++struct net *mfc6_net(const struct mfc6_cache *mfc)
++{
++	return read_pnet(&mfc->mfc6_net);
++}
++
++static inline
++void mfc6_net_set(struct mfc6_cache *mfc, struct net *net)
++{
++	write_pnet(&mfc->mfc6_net, hold_net(net));
++}
++
+ #define MFC_STATIC		1
+ #define MFC_NOTIFY		2
+ 
+Index: net-next-2.6/net/ipv6/ip6mr.c
+===================================================================
+--- net-next-2.6.orig/net/ipv6/ip6mr.c
++++ net-next-2.6/net/ipv6/ip6mr.c
+@@ -506,6 +506,12 @@ static int mif6_delete(int vifi)
+ 	return 0;
+ }
+ 
++static inline void ip6mr_cache_free(struct mfc6_cache *c)
++{
++	release_net(mfc6_net(c));
++	kmem_cache_free(mrt_cachep, c);
++}
++
+ /* Destroy an unresolved cache entry, killing queued skbs
+    and reporting error to netlink readers.
+  */
+@@ -528,7 +534,7 @@ static void ip6mr_destroy_unres(struct m
+ 			kfree_skb(skb);
+ 	}
+ 
+-	kmem_cache_free(mrt_cachep, c);
++	ip6mr_cache_free(c);
+ }
+ 
+ 
+@@ -685,22 +691,24 @@ static struct mfc6_cache *ip6mr_cache_fi
+ /*
+  *	Allocate a multicast cache entry
+  */
+-static struct mfc6_cache *ip6mr_cache_alloc(void)
++static struct mfc6_cache *ip6mr_cache_alloc(struct net *net)
+ {
+ 	struct mfc6_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_KERNEL);
+ 	if (c == NULL)
+ 		return NULL;
+ 	c->mfc_un.res.minvif = MAXMIFS;
++	mfc6_net_set(c, net);
+ 	return c;
+ }
+ 
+-static struct mfc6_cache *ip6mr_cache_alloc_unres(void)
++static struct mfc6_cache *ip6mr_cache_alloc_unres(struct net *net)
+ {
+ 	struct mfc6_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_ATOMIC);
+ 	if (c == NULL)
+ 		return NULL;
+ 	skb_queue_head_init(&c->mfc_un.unres.unresolved);
+ 	c->mfc_un.unres.expires = jiffies + 10 * HZ;
++	mfc6_net_set(c, net);
+ 	return c;
+ }
+ 
+@@ -856,7 +864,7 @@ ip6mr_cache_unresolved(mifi_t mifi, stru
+ 		 */
+ 
+ 		if (atomic_read(&cache_resolve_queue_len) >= 10 ||
+-		    (c = ip6mr_cache_alloc_unres()) == NULL) {
++		    (c = ip6mr_cache_alloc_unres(&init_net)) == NULL) {
+ 			spin_unlock_bh(&mfc_unres_lock);
+ 
+ 			kfree_skb(skb);
+@@ -879,7 +887,7 @@ ip6mr_cache_unresolved(mifi_t mifi, stru
+ 			 */
+ 			spin_unlock_bh(&mfc_unres_lock);
+ 
+-			kmem_cache_free(mrt_cachep, c);
++			ip6mr_cache_free(c);
+ 			kfree_skb(skb);
+ 			return err;
+ 		}
+@@ -924,7 +932,7 @@ static int ip6mr_mfc_delete(struct mf6cc
+ 			*cp = c->next;
+ 			write_unlock_bh(&mrt_lock);
+ 
+-			kmem_cache_free(mrt_cachep, c);
++			ip6mr_cache_free(c);
+ 			return 0;
+ 		}
+ 	}
+@@ -1073,7 +1081,7 @@ static int ip6mr_mfc_add(struct mf6cctl 
+ 	if (!ipv6_addr_is_multicast(&mfc->mf6cc_mcastgrp.sin6_addr))
+ 		return -EINVAL;
+ 
+-	c = ip6mr_cache_alloc();
++	c = ip6mr_cache_alloc(&init_net);
+ 	if (c == NULL)
+ 		return -ENOMEM;
+ 
+@@ -1108,7 +1116,7 @@ static int ip6mr_mfc_add(struct mf6cctl 
+ 
+ 	if (uc) {
+ 		ip6mr_cache_resolve(uc, c);
+-		kmem_cache_free(mrt_cachep, uc);
++		ip6mr_cache_free(uc);
+ 	}
+ 	return 0;
+ }
+@@ -1145,7 +1153,7 @@ static void mroute_clean_tables(struct s
+ 			*cp = c->next;
+ 			write_unlock_bh(&mrt_lock);
+ 
+-			kmem_cache_free(mrt_cachep, c);
++			ip6mr_cache_free(c);
+ 		}
+ 	}
+ 
 
