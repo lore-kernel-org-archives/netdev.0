@@ -1,85 +1,89 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Subject: Re: [PATCH] simnet: convert to net_device_ops
-Date: Wed, 10 Dec 2008 14:21:46 +0300
-Message-ID: <a4423d670812100321qc93060evd0d3ae3f78418b29@mail.gmail.com>
-References: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
-	 <20081209150827.GA8134@x200.localdomain>
-	 <20081209.225728.07389385.davem@davemloft.net>
+From: Hitoshi Mitake <mitake@clustcom.com>
+Subject: Re: [RFC] New functions to manipulate registers for ethtool
+Date: Wed, 10 Dec 2008 20:26:18 +0900
+Message-ID: <20081210202618.0f2a2218.mitake@clustcom.com>
+References: <20081208171230.288c5ccf.mitake@clustcom.com>
+	<20081208.005431.200957157.davem@davemloft.net>
+	<58622.1228726903@turing-police.cc.vt.edu>
+	<20081208.010634.247305010.davem@davemloft.net>
+	<F169D4F5E1F1974DBFAFABF47F60C10A1753409B@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_85304_9826830.1228908106524"
-Cc: adobriyan@gmail.com, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-ia64@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-ia64-owner@vger.kernel.org>
-In-Reply-To: <20081209.225728.07389385.davem@davemloft.net>
-Sender: linux-ia64-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-------=_Part_85304_9826830.1228908106524
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: David Miller <davem@davemloft.net>,
+	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ktaka@clustcom.com" <ktaka@clustcom.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from i220-221-252-159.s30.a048.ap.plala.or.jp ([220.221.252.159]:57873
+	"EHLO mail.m.clustcom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751127AbYLJL0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 06:26:30 -0500
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1753409B@orsmsx507.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2008/12/10 David Miller <davem@davemloft.net>:
-> From: Alexey Dobriyan <adobriyan@gmail.com>
-> Date: Tue, 9 Dec 2008 18:08:27 +0300
->
->> On Tue, Dec 09, 2008 at 05:11:17PM +0300, Alexander Beregalov wrote:
->> >   CC      arch/ia64/hp/sim/simeth.o
->> > arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
->> > arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no member named 'open'
->>
->> [PATCH] simeth: convert to net_device_ops
->>
->> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
->
-> This doesn't explain the build failure.
->
-> Using ->open() and friends should work perfectly fine for drivers not
-> yet converted to netdev_ops.  The code protected by COMPAT_NET_DEV_OPS
-> provides this, and we force that Kconfig option to always be on.
->
-> I don't want to add this patch and just shrug off this build failure.
-> If this build failures, we should be seeing 200 other drivers not
-> build too.
->
-> I suspect something is messed up with this person's kernel config
-> or similar.
->
+On Mon, 8 Dec 2008 09:36:53 -0800
+"Brandeburg, Jesse" <jesse.brandeburg@intel.com> wrote:
 
-Thanks for explanation.
-Is it better?
+> David Miller wrote:
+> > From: Valdis.Kletnieks@vt.edu
+> > Date: Mon, 08 Dec 2008 04:01:43 -0500
+> > 
+> >> On Mon, 08 Dec 2008 00:54:31 PST, David Miller said:
+> >>> From: Hitoshi Mitake <mitake@clustcom.com>
+> >>> Date: Mon, 8 Dec 2008 17:12:30 +0900
+> >>> 
+> >>>> I want to add two new functions to ethtool.
+> >>>> 
+> >>>> One is for setting driver's registers on MMIO area like
+> >>>> --change-eeprom option.
+> >>> 
+> >>> You can map the registers into userspace using the bus
+> >>> level mmap facilities exported to userspace.
+> 
+> one hiccup, Arjan recently added functionality to the kernel that could
+> disallow this unless a user overrides at boot. [1]
+> 
+> also, there is a .config option that disallows this but I'm just
+> mentioning it for posterity.
+> 
+> >>> No ethtool support is necessary for this.
+> >> 
+> >> Yes, but if Hitoshi wants to tell a user "run this command and send
+> >> me the output", what's the incantation the user needs to use?
+> > 
+> 
+> ethregs -s <bus>:<dev>.<fn>
+> 
+> > That's an awful reason to have to two ways of doing the exact same
+> > thing from userspace.
+> > 
+> > Write the tool.  Someone will if it's important enough (in fact
+> > such code probably exists already).
 
+Thanks for your replying, David, Valdis and Jesse.
 
- arch/ia64/hp/sim/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> Hi Hitoshi,
+> you probably want to download and install our ethregs utility.
+> http://prdownloads.sf.net/e1000/ethregs-1.1.tar.gz
+> (this is not a direct link as it seems but gets redirected to a mirror
+> page, usually)
+> 
 
-diff --git a/arch/ia64/hp/sim/Kconfig b/arch/ia64/hp/sim/Kconfig
-index f92306b..8d513a8 100644
---- a/arch/ia64/hp/sim/Kconfig
-+++ b/arch/ia64/hp/sim/Kconfig
-@@ -4,6 +4,7 @@ menu "HP Simulator drivers"
+This is a nice software for me, Thanks.
 
- config HP_SIMETH
-        bool "Simulated Ethernet "
-+       depends on NET
+> Please let me know if it doesn't support your device ID.
 
- config HP_SIMSERIAL
-        bool "Simulated serial driver support"
+I used this on my environment.
+My NICs are 82573L and 82573E. ethregs could detected them well.
 
-------=_Part_85304_9826830.1228908106524
-Content-Type: text/x-patch; name=hp-sim-kconfig.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fojw4ig10
-Content-Disposition: attachment; filename=hp-sim-kconfig.patch
+It seems that this program doesn't support for writing value to registers.
+I think making ethregs to support writing is not bad idea.
+If you are not planning, I want to do that.
 
-IGFyY2gvaWE2NC9ocC9zaW0vS2NvbmZpZyB8ICAgIDEgKwogMSBmaWxlcyBjaGFuZ2VkLCAxIGlu
-c2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2hwL3Np
-bS9LY29uZmlnIGIvYXJjaC9pYTY0L2hwL3NpbS9LY29uZmlnCmluZGV4IGY5MjMwNmIuLjhkNTEz
-YTggMTAwNjQ0Ci0tLSBhL2FyY2gvaWE2NC9ocC9zaW0vS2NvbmZpZworKysgYi9hcmNoL2lhNjQv
-aHAvc2ltL0tjb25maWcKQEAgLTQsNiArNCw3IEBAIG1lbnUgIkhQIFNpbXVsYXRvciBkcml2ZXJz
-IgogCiBjb25maWcgSFBfU0lNRVRICiAJYm9vbCAiU2ltdWxhdGVkIEV0aGVybmV0ICIKKwlkZXBl
-bmRzIG9uIE5FVAogCiBjb25maWcgSFBfU0lNU0VSSUFMCiAJYm9vbCAiU2ltdWxhdGVkIHNlcmlh
-bCBkcml2ZXIgc3VwcG9ydCIK
-------=_Part_85304_9826830.1228908106524--
+I'm not a professional of Intel's NICs.
+How do you think?
