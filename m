@@ -1,30 +1,68 @@
-From: siamer <siamer@interia.pl>
-Subject: b43 phy0 error
-Date: 10 Dec 2008 01:39:47 +0100
-Message-ID: <20081210003948.24694199B271@f14.poczta.interia.pl>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: Re: [RFC][PATCH 3/3]ipv6:fix the outgoing interface selection order
+ in udpv6_sendmsg()
+Date: Wed, 10 Dec 2008 08:42:20 +0800
+Message-ID: <493F106C.8030803@cn.fujitsu.com>
+References: <493E1A7B.9070208@cn.fujitsu.com> <200812090932.56865.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: TEXT/plain; CHARSET=UTF-8
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp239.poczta.interia.pl ([217.74.64.239]:1955 "EHLO
-	smtp239.poczta.interia.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbYLJAju convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 19:39:50 -0500
-Received: from f14.poczta.interia.pl (f14.poczta.interia.pl [10.217.2.14])
-	by smtp239.poczta.interia.pl (INTERIA.PL) with ESMTP id 3E3BE3D547C
-	for <netdev@vger.kernel.org>; Wed, 10 Dec 2008 01:39:48 +0100 (CET)
-Received: from localhost (localhost [127.0.0.1])
-	by f14.poczta.interia.pl (Postfix) with ESMTP id 24694199B271
-	for <netdev@vger.kernel.org>; Wed, 10 Dec 2008 01:39:47 +0100 (CET)
+Received: from cn.fujitsu.com ([222.73.24.84]:61481 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751825AbYLJAkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Dec 2008 19:40:49 -0500
+In-Reply-To: <200812090932.56865.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi i have broadcom 4318 wireless card (laptop asus a6km) when i'm using firmware from linuxwiereless.com (4.150.10.5) then internet is working but when i'm starting download something than is disconnecting me. dmesg show : b43 phy0 error
-I tryed that on few different distros and on different kernels (2.6.25 2.6.26 2.6.27 wireless-testing and compact-wireless) is the same... PLEASE HELP ME... Why is like that ?
+R=E9mi Denis-Courmont wrote:
+> On Tuesday 09 December 2008 09:12:59 ext Yang Hongyang, you wrote:
+>> 1.When no interface is specified in an IPV6_PKTINFO ancillary data
+>>   item, the interface specified in an IPV6_PKTINFO sticky optionis
+>>   is used.
+>=20
+>> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+>> index 8b48512..addd856 100644
+>> --- a/net/ipv6/udp.c
+>> +++ b/net/ipv6/udp.c
+>> @@ -761,6 +761,9 @@ do_udp_sendmsg:
+>>  	}
+>>
+>>  	if (!fl.oif)
+>> +		fl.oif =3D np->sticky_pktinfo.ipi6_ifindex;
+>> +
+>> +	if (!fl.oif)
+>>  		fl.oif =3D sk->sk_bound_dev_if;
+>>
+>>  	if (msg->msg_controllen) {
+>=20
+> I believe overriding the outgoing interface is only allowed for link-=
+local=20
+> destinations, _or_ with privileges (as with SO_BINDTODEVICE).
+>=20
+> This patch seems to change this, and I am not convinced it's a good i=
+dea.
+>=20
 
+It does not overriding the outgoing interface.
+when no interface is specified in an IPV6_PKTINFO ancillary data item(a=
+s with
+ SO_BINDTODEVICE), the interface specified in an IPV6_PKTINFO sticky=20
+optionins  is used.
 
-----------------------------------------------------------------------
-Drogowa Mapa Polski GPS w Twoim telefonie!
-Pobierz >> http://link.interia.pl/f1fc9
+If outgoing interface is set with SO_BINDTODEVICE and also sticky pktin=
+fo
+the outgoing interface is exactly what SO_BINDTODEVICE set,because in m=
+y
+first patch,when set sticy pktinfo,outgoing interface set by SO_BINDTOD=
+EVICE
+is checked:
+
++		if(sk->sk_bound_dev_if && pkt.ipi6_ifindex !=3D sk->sk_bound_dev_if)
++			goto e_inval;
+
 
