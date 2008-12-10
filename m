@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] simnet: convert to net_device_ops
-Date: Tue, 09 Dec 2008 22:57:28 -0800 (PST)
-Message-ID: <20081209.225728.07389385.davem@davemloft.net>
-References: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
-	<20081209150827.GA8134@x200.localdomain>
+Subject: Re: [PATCH] smsc9420: SMSC LAN9420 10/100 PCI ethernet adapter
+Date: Tue, 09 Dec 2008 23:02:20 -0800 (PST)
+Message-ID: <20081209.230220.94138000.davem@davemloft.net>
+References: <1228834663-20907-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: a.beregalov@gmail.com, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-ia64@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <linux-ia64-owner@vger.kernel.org>
-In-Reply-To: <20081209150827.GA8134@x200.localdomain>
-Sender: linux-ia64-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vlad.lyalikov@smsc.com,
+	ian.saturley@smsc.com
+To: steve.glendinning@smsc.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53381
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751820AbYLJHCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 02:02:19 -0500
+In-Reply-To: <1228834663-20907-1-git-send-email-steve.glendinning@smsc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 9 Dec 2008 18:08:27 +0300
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Tue,  9 Dec 2008 14:57:43 +0000
 
-> On Tue, Dec 09, 2008 at 05:11:17PM +0300, Alexander Beregalov wrote:
-> >   CC      arch/ia64/hp/sim/simeth.o
-> > arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
-> > arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no member named 'open'
-> 
-> [PATCH] simeth: convert to net_device_ops
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> +uint debug_mode = (DBG_MCAST | DBG_WARNING | DBG_INIT | DBG_CLOSE | DBG_LINK |
+> +	DBG_PWR);
+> +module_param(debug_mode, uint, 0);
+> +MODULE_PARM_DESC(debug_mode, "enables debugging messages");
 
-This doesn't explain the build failure.
+We have a standard way to do this, and standard bitmask values,
+and an ethtool call to set this.  Please use it.
 
-Using ->open() and friends should work perfectly fine for drivers not
-yet converted to netdev_ops.  The code protected by COMPAT_NET_DEV_OPS
-provides this, and we force that Kconfig option to always be on.
+Look at how niu_debug is used in drivers/net/niu.c, functions
+like netif_msg_init(), and assosciated interfaces.
 
-I don't want to add this patch and just shrug off this build failure.
-If this build failures, we should be seeing 200 other drivers not
-build too.
+There really is no need for this home-grown stuff :-)
 
-I suspect something is messed up with this person's kernel config
-or similar.
+Otherwise this driver looks pretty good.
