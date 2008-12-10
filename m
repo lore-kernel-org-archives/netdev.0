@@ -1,8 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 24/29] i2400m/SDIO: probe/disconnect,
-	dev init/shutdown and reset backends
-Date: Wed, 10 Dec 2008 15:13:05 -0800
-Message-ID: <052572aec316b9622d67209a4225e49a3efe182b.1228948072.git.inaky@linux.intel.com>
+Subject: [PATCH 04/29] wimax: debug macros and debug settings for the WiMAX
+	stack
+Date: Wed, 10 Dec 2008 15:12:45 -0800
+Message-ID: <c46bb9900c315fadb4202f1fc4fa8980d297b7dc.1228948072.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,31 +19,35 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Implements probe/disconnect for the SDIO device, as well as main
-backends for the generic driver to control the SDIO device
-(bus_dev_start(), bus_dev_stop() and bus_reset()).
+This file contains a simple debug framework that is used in the stack;
+it allows the debug level to be controlled at compile-time (so the
+debug code is optimized out) and at run-time (for what wasn't compiled
+out).
+
+This is eventually going to be moved to use dynamic_printk(). Just
+need to find time to do it.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/sdio.c |  511 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 511 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/sdio.c
+ include/linux/wimax/debug.h |  453 +++++++++++++++++++++++++++++++++++++++++++
+ net/wimax/debug-levels.h    |   42 ++++
+ 2 files changed, 495 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/wimax/debug.h
+ create mode 100644 net/wimax/debug-levels.h
 
-diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
+diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
 new file mode 100644
-index 0000000..15bf46c
+index 0000000..ba0c493
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/sdio.c
-@@ -0,0 +1,511 @@
++++ b/include/linux/wimax/debug.h
+@@ -0,0 +1,453 @@
 +/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Linux driver model glue for the SDIO device, reset & fw upload
++ * Linux WiMAX
++ * Collection of tools to manage debug operations.
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Dirk Brandewie <dirk.j.brandewie@intel.com>
++ * Copyright (C) 2005-2007 Intel Corporation
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of the GNU General Public License version
@@ -60,491 +64,483 @@ index 0000000..15bf46c
 + * 02110-1301, USA.
 + *
 + *
-+ * See i2400m-sdio.h for a general description of this driver.
++ * Don't #include this file directly, read on!
 + *
-+ * This file implements driver model glue, and hook ups for the
-+ * generic driver to implement the bus-specific functions (device
-+ * communication setup/tear down, firmware upload and resetting).
 + *
-+ * ROADMAP
++ * EXECUTING DEBUGGING ACTIONS OR NOT
 + *
-+ * i2400m_probe()
-+ *   alloc_netdev()
-+ *     i2400ms_netdev_setup()
-+ *       i2400ms_init()
-+ *       i2400m_netdev_setup()
-+ *   i2400ms_enable_function()
-+ *   i2400m_setup()
++ * The main thing this framework provides is decission power to take a
++ * debug action (like printing a message) if the current debug level
++ * allows it.
 + *
-+ * i2400m_remove()
-+ *     i2400m_release()
-+ *     free_netdev(net_dev)
++ * The decission power is at two levels: at compile-time (what does
++ * not make it is compiled out) and at run-time. The run-time
++ * selection is done per-submodule (as they are declared by the user
++ * of the framework).
 + *
-+ * i2400ms_bus_reset()            Called by i2400m->bus_reset
-+ *   __i2400ms_reset()
-+ *     __i2400ms_send_barker()
++ * A call to d_test(L) (L being the target debug level) returns true
++ * if the action should be taken because the current debug levels
++ * allow it (both compile and run time).
 + *
-+ * i2400ms_bus_dev_start()        Called by i2400m_dev_start() [who is
-+ *   i2400ms_tx_setup()           called by i2400m_setup()]
-+ *   i2400ms_rx_setup()
++ * It follows that a call to d_test() that can be determined to be
++ * always false at compile time will get the code depending on it
++ * compiled out by optimization.
 + *
-+ * i2400ms_bus_dev_stop()         Called by i2400m_dev_stop() [who is
-+ *   i2400ms_rx_release()         is called by i2400m_release()]
-+ *   i2400ms_tx_release()
 + *
++ * DEBUG LEVELS
++ *
++ * It is up to the caller to define how much a debugging level is.
++ *
++ * Convention sets 0 as "no debug" (so an action marked as debug level 0
++ * will always be taken). The increasing debug levels are used for
++ * increased verbosity.
++ *
++ *
++ * USAGE
++ *
++ * Group the code in modules and submodules inside each module [which
++ * in most cases maps to Linux modules and .c files that compose
++ * those].
++ *
++ *
++ * For each module, there is:
++ *
++ *  - a MODULENAME (single word, legal C identifier)
++ *
++ *  - a debug-levels.h header file that declares the list of
++ *    submodules and that is included by all .c files that use
++ *    the debugging tools. The file name can be anything.
++ *
++ *  - some (optional) .c code to manipulate the runtime debug levels
++ *    through debugfs.
++ *
++ * The debug-levels.h file would look like:
++ *
++ *     #ifndef __debug_levels__h__
++ *     #define __debug_levels__h__
++ *
++ *     #define D_MODULENAME modulename
++ *     #define D_MASTER 10
++ *
++ *     #include <linux/wimax/debug.h>
++ *
++ *     enum d_module {
++ *             D_SUBMODULE_DECLARE(submodule_1),
++ *             D_SUBMODULE_DECLARE(submodule_2),
++ *             ...
++ *             D_SUBMODULE_DECLARE(submodule_N)
++ *     };
++ *
++ *     #endif
++ *
++ * D_MASTER is the maximum compile-time debug level; any debug actions
++ * above this will be out. D_MODULENAME is the module name (legal C
++ * identifier), which has to be unique for each module (to avoid
++ * namespace collisions during linkage). Note those #defines need to
++ * be done before #including debug.h
++ *
++ * We declare N different submodules whose debug level can be
++ * independently controlled during runtime.
++ *
++ * In a .c file of the module (and only in one of them), define the
++ * following code:
++ *
++ *     struct d_level D_LEVEL[] = {
++ *             D_SUBMODULE_DEFINE(submodule_1),
++ *             D_SUBMODULE_DEFINE(submodule_2),
++ *             ...
++ *             D_SUBMODULE_DEFINE(submodule_N),
++ *     };
++ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
++ *
++ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
++ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
++ * #defined also in this file.
++ *
++ * To manipulate from user space the levels, create a debugfs dentry
++ * and then register each submodule with:
++ *
++ *     result = d_level_register_debugfs("PREFIX_", submodule_X, parent);
++ *     if (result < 0)
++ *            goto error;
++ *
++ * Where PREFIX_ is a name of your chosing. This will create debugfs
++ * file with a single numeric value that can be use to tweak it. To
++ * remove the entires, just use debugfs_remove_recursive() on 'parent'.
++ *
++ * NOTE: remember that even if this will show attached to some
++ *     particular instance of a device, the settings are *global*.
++ *
++ *
++ * On each submodule (for example, .c files), the debug infrastructure
++ * should be included like this:
++ *
++ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
++ *     #include "debug-levels.h"
++ *
++ * after #including all your include files.
++ *
++ *
++ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
++ * d_fnend(), d_printf(), d_dump()].
++ *
++ * If their debug level is greater than D_MASTER, they will be
++ * compiled out.
++ *
++ * If their debug level is lower or equal than D_MASTER but greater
++ * than the current debug level of their submodule, they'll be
++ * ignored.
++ *
++ * Otherwise, the action will be performed.
 + */
++#ifndef __debug__h__
++#define __debug__h__
 +
-+#include <linux/debugfs.h>
-+#include <linux/mmc/sdio.h>
-+#include <linux/mmc/sdio_func.h>
-+#include "i2400m-sdio.h"
-+#include <linux/wimax/i2400m.h>
++#include <linux/types.h>
++#include <linux/device.h>
 +
-+#define D_SUBMODULE main
-+#include "sdio-debug-levels.h"
 +
-+/* IOE WiMAX function timeout in seconds */
-+static int ioe_timeout = 2;
-+module_param(ioe_timeout, int, 0);
-+
-+/* Our firmware file name */
-+#define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-" I2400M_FW_VERSION ".sbcf"
++/* Backend stuff */
 +
 +/*
-+ * Enable the SDIO function
++ * Debug backend: generate a message header from a 'struct device'
 + *
-+ * Tries to enable the SDIO function; might fail if it is still not
-+ * ready (in some hardware, the SDIO WiMAX function is only enabled
-+ * when we ask it to explicitly doing). Tries until a timeout is
-+ * reached.
-+ *
-+ * The reverse of this is...sdio_disable_function()
-+ *
-+ * Returns: 0 if the SDIO function was enabled, < 0 errno code on
-+ *     error (-ENODEV when it was unable to enable the function).
++ * @head: buffer where to place the header
++ * @head_size: length of @head
++ * @dev: pointer to device used to generate a header from. If NULL,
++ *     an empty ("") header is generated.
 + */
-+static
-+int i2400ms_enable_function(struct sdio_func *func)
++static inline
++void __d_head(char *head, size_t head_size,
++	      struct device *dev)
 +{
-+	u64 timeout;
-+	int err;
-+	struct device *dev = &func->dev;
-+
-+	d_fnstart(3, dev, "(func %p)\n", func);
-+	/* Setup timeout (FIXME: This needs to read the CIS table to
-+	 * get a real timeout) and then wait for the device to signal
-+	 * it is ready */
-+	timeout = get_jiffies_64() + ioe_timeout * HZ;
-+	err = -ENODEV;
-+	while (err != 0 && time_before64(get_jiffies_64(), timeout)) {
-+		sdio_claim_host(func);
-+		err = sdio_enable_func(func);
-+		if (0 == err) {
-+			sdio_release_host(func);
-+			d_printf(2, dev, "SDIO function enabled\n");
-+			goto function_enabled;
-+		}
-+		d_printf(2, dev, "SDIO function failed to enable: %d\n", err);
-+		sdio_disable_func(func);
-+		sdio_release_host(func);
-+		msleep(I2400MS_INIT_SLEEP_INTERVAL);
-+	}
-+	/* If timed out, device is not there yet -- get -ENODEV so
-+	 * the device driver core will retry later on. */
-+	if (err == -ETIME) {
-+		dev_err(dev, "Can't enable WiMAX function; "
-+			" has the function been enabled?\n");
-+		err = -ENODEV;
-+	}
-+function_enabled:
-+	d_fnend(3, dev, "(func %p) = %d\n", func, err);
-+	return err;
-+}
-+
-+
-+/*
-+ * Setup driver resources needed to communicate with the device
-+ *
-+ * The fw needs some time to settle, and it was just uploaded,
-+ * so give it a break first. I'd prefer to just wait for the device to
-+ * send something, but seems the poking we do to enable SDIO stuff
-+ * interferes with it, so just give it a break before starting...
-+ */
-+static
-+int i2400ms_bus_dev_start(struct i2400m *i2400m)
-+{
-+	int result;
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+	msleep(200);
-+	result = i2400ms_rx_setup(i2400ms);
-+	if (result < 0)
-+		goto error_rx_setup;
-+	result = i2400ms_tx_setup(i2400ms);
-+	if (result < 0)
-+		goto error_tx_setup;
-+	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
-+	return result;
-+
-+	i2400ms_tx_release(i2400ms);
-+error_tx_setup:
-+	i2400ms_rx_release(i2400ms);
-+error_rx_setup:
-+	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
-+	return result;
-+}
-+
-+
-+static
-+void i2400ms_bus_dev_stop(struct i2400m *i2400m)
-+{
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+
-+	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
-+	i2400ms_rx_release(i2400ms);
-+	i2400ms_tx_release(i2400ms);
-+	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
-+}
-+
-+
-+/*
-+ * Sends a barker buffer to the device
-+ *
-+ * This helper will allocate a kmalloced buffer and use it to transmit
-+ * (then free it). Reason for this is that the SDIO host controller
-+ * expects alignment (unknown exactly which) which the stack won't
-+ * really provide and certain arches/host-controller combinations
-+ * cannot use stack/vmalloc/text areas for DMA transfers.
-+ */
-+static
-+int __i2400ms_send_barker(struct i2400ms *i2400ms,
-+			  const __le32 *barker, size_t barker_size)
-+{
-+	int  ret;
-+	struct sdio_func *func = i2400ms->func;
-+	struct device *dev = &func->dev;
-+	void *buffer;
-+
-+	ret = -ENOMEM;
-+	buffer = kmalloc(I2400MS_BLK_SIZE, GFP_KERNEL);
-+	if (buffer == NULL)
-+		goto error_kzalloc;
-+
-+	memcpy(buffer, barker, barker_size);
-+	sdio_claim_host(func);
-+	ret = sdio_memcpy_toio(func, 0, buffer, I2400MS_BLK_SIZE);
-+	sdio_release_host(func);
-+
-+	if (ret < 0)
-+		d_printf(0, dev, "E: barker error: %d\n", ret);
-+
-+	kfree(buffer);
-+error_kzalloc:
-+	return ret;
-+}
-+
-+
-+/*
-+ * Reset a device at different levels (warm, cold or bus)
-+ *
-+ * @i2400ms: device descriptor
-+ * @reset_type: soft, warm or bus reset (I2400M_RT_WARM/SOFT/BUS)
-+ *
-+ * FIXME: not tested -- need to confirm expected effects
-+ *
-+ * Warm and cold resets get an SDIO reset if they fail (unimplemented)
-+ *
-+ * Warm reset:
-+ *
-+ * The device will be fully reset internally, but won't be
-+ * disconnected from the USB bus (so no reenumeration will
-+ * happen). Firmware upload will be neccessary.
-+ *
-+ * The device will send a reboot barker in the notification endpoint
-+ * that will trigger the driver to reinitialize the state
-+ * automatically from notif.c:i2400m_notification_grok() into
-+ * i2400m_dev_bootstrap_delayed().
-+ *
-+ * Cold and bus (USB) reset:
-+ *
-+ * The device will be fully reset internally, disconnected from the
-+ * USB bus an a reenumeration will happen. Firmware upload will be
-+ * neccessary. Thus, we don't do any locking or struct
-+ * reinitialization, as we are going to be fully disconnected and
-+ * reenumerated.
-+ *
-+ * Note we need to return -ENODEV if a warm reset was requested and we
-+ * had to resort to a bus reset. See i2400m_op_reset(), wimax_reset()
-+ * and wimax_dev->op_reset.
-+ *
-+ * WARNING: no driver state saved/fixed
-+ */
-+static
-+int i2400ms_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
-+{
-+	int result;
-+	struct i2400ms *i2400ms =
-+		container_of(i2400m, struct i2400ms, i2400m);
-+	struct device *dev = i2400m_dev(i2400m);
-+	static const __le32 i2400m_WARM_BOOT_BARKER[4] = {
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
-+	};
-+	static const __le32 i2400m_COLD_BOOT_BARKER[4] = {
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
-+	};
-+
-+	if (rt == I2400M_RT_WARM)
-+		result = __i2400ms_send_barker(i2400ms, i2400m_WARM_BOOT_BARKER,
-+					       sizeof(i2400m_WARM_BOOT_BARKER));
-+	else if (rt == I2400M_RT_COLD)
-+		result = __i2400ms_send_barker(i2400ms, i2400m_COLD_BOOT_BARKER,
-+					       sizeof(i2400m_COLD_BOOT_BARKER));
-+	else if (rt == I2400M_RT_BUS) {
-+do_bus_reset:
-+		dev_err(dev, "FIXME: SDIO bus reset not implemented\n");
-+		result = rt == I2400M_RT_WARM ? -ENODEV : -ENOSYS;
++	if (dev == NULL)
++		head[0] = 0;
++	else if ((unsigned long)dev < 4096) {
++		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
++		WARN_ON(1);
 +	} else
-+		BUG();
-+	if (result < 0 && rt != I2400M_RT_BUS) {
-+		dev_err(dev, "%s reset failed (%d); trying SDIO reset\n",
-+			rt == I2400M_RT_WARM ? "warm" : "cold", result);
-+		rt = I2400M_RT_BUS;
-+		goto do_bus_reset;
-+	}
-+	return result;
-+}
-+
-+
-+static
-+void i2400ms_netdev_setup(struct net_device *net_dev)
-+{
-+	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
-+	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	i2400ms_init(i2400ms);
-+	i2400m_netdev_setup(net_dev);
++		snprintf(head, head_size, "%s %s: ",
++			 dev_driver_string(dev), dev->bus_id);
 +}
 +
 +
 +/*
-+ * Debug levels control; see debug.h
++ * Debug backend: log some message if debugging is enabled
++ *
++ * @l: intended debug level
++ * @tag: tag to prefix the message with
++ * @dev: 'struct device' associated to this message
++ * @f: printf-like format and arguments
++ *
++ * Note this is optimized out if it doesn't pass the compile-time
++ * check; however, it is *always* compiled. This is useful to make
++ * sure the printf-like formats and variables are always checked and
++ * they don't get bit rot if you have all the debugging disabled.
 + */
-+struct d_level D_LEVEL[] = {
-+	D_SUBMODULE_DEFINE(main),
-+	D_SUBMODULE_DEFINE(tx),
-+	D_SUBMODULE_DEFINE(rx),
-+	D_SUBMODULE_DEFINE(fw),
-+};
-+size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+
-+
-+#define __debugfs_register(prefix, name, parent)			\
++#define _d_printf(l, tag, dev, f, a...)					\
 +do {									\
-+	result = d_level_register_debugfs(prefix, name, parent);	\
-+	if (result < 0)							\
-+		goto error;						\
++	char head[64];							\
++	if (!d_test(l))							\
++		break;							\
++	__d_head(head, sizeof(head), dev);				\
++	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
 +} while (0)
 +
 +
-+static
-+int i2400ms_debugfs_add(struct i2400ms *i2400ms)
-+{
-+	int result;
-+	struct dentry *dentry = i2400ms->i2400m.wimax_dev.debugfs_dentry;
-+
-+	dentry = debugfs_create_dir("i2400m-usb", dentry);
-+	result = PTR_ERR(dentry);
-+	if (IS_ERR(dentry)) {
-+		if (result == -ENODEV)
-+			result = 0;	/* No debugfs support */
-+		goto error;
-+	}
-+	i2400ms->debugfs_dentry = dentry;
-+	__debugfs_register("dl_", main, dentry);
-+	__debugfs_register("dl_", tx, dentry);
-+	__debugfs_register("dl_", rx, dentry);
-+	__debugfs_register("dl_", fw, dentry);
-+
-+	return 0;
-+
-+error:
-+	debugfs_remove_recursive(i2400ms->debugfs_dentry);
-+	return result;
-+}
++/*
++ * CPP sintatic sugar to generate A_B like symbol names when one of
++ * the arguments is a a preprocessor #define.
++ */
++#define __D_PASTE__(varname, modulename) varname##_##modulename
++#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
++#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
 +
 +
 +/*
-+ * Probe a i2400m interface and register it
-+ *
-+ * @func:    SDIO function
-+ * @id:      SDIO device ID
-+ * @returns: 0 if ok, < 0 errno code on error.
-+ *
-+ * Alloc a net device, initialize the bus-specific details and then
-+ * calls the bus-generic initialization routine. That will register
-+ * the wimax and netdev devices, upload the firmware [using
-+ * _bus_bm_*()], call _bus_dev_start() to finalize the setup of the
-+ * communication with the device and then will start to talk to it to
-+ * finnish setting it up.
-+ *
-+ * Initialization is tricky; some instances of the hw are packed with
-+ * others in a way that requires a third driver that enables the WiMAX
-+ * function. In those cases, we can't enable the SDIO function and
-+ * we'll return with -ENODEV. When the driver that enables the WiMAX
-+ * function does its thing, it has to do a bus_rescan_devices() on the
-+ * SDIO bus so this driver is called again to enumerate the WiMAX
-+ * function.
++ * Store a submodule's runtime debug level and name
 + */
-+static
-+int i2400ms_probe(struct sdio_func *func,
-+		  const struct sdio_device_id *id)
-+{
-+	int result;
-+	struct net_device *net_dev;
-+	struct device *dev = &func->dev;
-+	struct i2400m *i2400m;
-+	struct i2400ms *i2400ms;
-+
-+	/* Allocate instance [calls i2400m_netdev_setup() on it]. */
-+	result = -ENOMEM;
-+	net_dev = alloc_netdev(sizeof(*i2400ms), "wmx%d",
-+			       i2400ms_netdev_setup);
-+	if (net_dev == NULL) {
-+		dev_err(dev, "no memory for network device instance\n");
-+		goto error_alloc_netdev;
-+	}
-+	SET_NETDEV_DEV(net_dev, dev);
-+	i2400m = net_dev_to_i2400m(net_dev);
-+	i2400ms = container_of(i2400m, struct i2400ms, i2400m);
-+	i2400m->wimax_dev.net_dev = net_dev;
-+	i2400ms->func = func;
-+	sdio_set_drvdata(func, i2400ms);
-+
-+	i2400m->bus_tx_block_size = I2400MS_BLK_SIZE;
-+	i2400m->bus_pl_size_max = I2400MS_PL_SIZE_MAX;
-+	i2400m->bus_dev_start = i2400ms_bus_dev_start;
-+	i2400m->bus_dev_stop = i2400ms_bus_dev_stop;
-+	i2400m->bus_tx_kick = i2400ms_bus_tx_kick;
-+	i2400m->bus_reset = i2400ms_bus_reset;
-+	i2400m->bus_bm_cmd_send = i2400ms_bus_bm_cmd_send;
-+	i2400m->bus_bm_wait_for_ack = i2400ms_bus_bm_wait_for_ack;
-+	i2400m->bus_fw_name = I2400MS_FW_FILE_NAME;
-+	i2400m->bus_bm_mac_addr_impaired = 1;
-+
-+	result = i2400ms_enable_function(i2400ms->func);
-+	if (result < 0) {
-+		dev_err(dev, "Cannot enable SDIO function: %d\n", result);
-+		goto error_func_enable;
-+	}
-+
-+	sdio_claim_host(func);
-+	result = sdio_set_block_size(func, I2400MS_BLK_SIZE);
-+	if (result < 0) {
-+		dev_err(dev, "Failed to set block size: %d\n", result);
-+		goto error_set_blk_size;
-+	}
-+	sdio_release_host(func);
-+
-+	result = i2400m_setup(i2400m, I2400M_BRI_NO_REBOOT);
-+	if (result < 0) {
-+		dev_err(dev, "cannot setup device: %d\n", result);
-+		goto error_setup;
-+	}
-+
-+	result = i2400ms_debugfs_add(i2400ms);
-+	if (result < 0) {
-+		dev_err(dev, "cannot create SDIO debugfs: %d\n",
-+			result);
-+		goto error_debugfs_add;
-+	}
-+	return 0;
-+
-+error_debugfs_add:
-+	i2400m_release(i2400m);
-+error_setup:
-+	sdio_set_drvdata(func, i2400ms);
-+	sdio_claim_host(func);
-+error_set_blk_size:
-+	sdio_disable_func(func);
-+	sdio_release_host(func);
-+error_func_enable:
-+	free_netdev(net_dev);
-+error_alloc_netdev:
-+	return result;
-+}
-+
-+
-+static
-+void i2400ms_remove(struct sdio_func *func)
-+{
-+	struct device *dev = &func->dev;
-+	struct i2400ms *i2400ms = sdio_get_drvdata(func);
-+	struct i2400m *i2400m = &i2400ms->i2400m;
-+	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
-+
-+	d_fnstart(3, dev, "SDIO func %p\n", func);
-+	debugfs_remove_recursive(i2400ms->debugfs_dentry);
-+	i2400m_release(i2400m);
-+	sdio_set_drvdata(func, NULL);
-+	sdio_claim_host(func);
-+	sdio_disable_func(func);
-+	sdio_release_host(func);
-+	free_netdev(net_dev);
-+	d_fnend(3, dev, "SDIO func %p\n", func);
-+}
-+
-+enum {
-+	I2400MS_INTEL_VID = 0x89,
-+};
-+
-+static
-+const struct sdio_device_id i2400ms_sdio_ids[] = {
-+	/* Intel: i2400m WiMAX over SDIO */
-+	{ SDIO_DEVICE(I2400MS_INTEL_VID, 0x1402) },
-+	{ }, 			/* end: all zeroes */
-+};
-+MODULE_DEVICE_TABLE(sdio, i2400ms_sdio_ids);
-+
-+
-+static
-+struct sdio_driver i2400m_sdio_driver = {
-+	.name		= KBUILD_MODNAME,
-+	.probe		= i2400ms_probe,
-+	.remove		= i2400ms_remove,
-+	.id_table	= i2400ms_sdio_ids,
++struct d_level {
++	u8 level;
++	const char *name;
 +};
 +
 +
-+static
-+int __init i2400ms_driver_init(void)
-+{
-+	return sdio_register_driver(&i2400m_sdio_driver);
++/*
++ * List of available submodules and their debug levels
++ *
++ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
++ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
++ * convenience.
++ *
++ * This array and the size are defined on some .c file that is part of
++ * the current module.
++ */
++#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
++#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
++
++extern struct d_level D_LEVEL[];
++extern size_t D_LEVEL_SIZE;
++
++
++/*
++ * Frontend stuff
++ *
++ *
++ * Stuff you need to declare prior to using the actual "debug" actions
++ * (defined below).
++ */
++
++#ifndef D_MODULENAME
++#error D_MODULENAME is not defined in your debug-levels.h file
++/**
++ * D_MODULE - Name of the current module
++ *
++ * #define in your module's debug-levels.h, making sure it is
++ * unique. This has to be a legal C identifier.
++ */
++#define D_MODULENAME undefined_modulename
++#endif
++
++
++#ifndef D_MASTER
++#warning D_MASTER not defined, but debug.h included! [see docs]
++/**
++ * D_MASTER - Compile time maximum debug level
++ *
++ * #define in your debug-levels.h file to the maximum debug level the
++ * runtime code will be allowed to have. This allows you to provide a
++ * main knob.
++ *
++ * Anything above that level will be optimized out of the compile.
++ *
++ * Defaults to zero (no debug code compiled in).
++ *
++ * Maximum one definition per module (at the debug-levels.h file).
++ */
++#define D_MASTER 0
++#endif
++
++#ifndef D_SUBMODULE
++#error D_SUBMODULE not defined, but debug.h included! [see docs]
++/**
++ * D_SUBMODULE - Name of the current submodule
++ *
++ * #define in your submodule .c file before #including debug-levels.h
++ * to the name of the current submodule as previously declared and
++ * defined with D_SUBMODULE_DECLARE() (in your module's
++ * debug-levels.h) and D_SUBMODULE_DEFINE().
++ *
++ * This is used to provide runtime-control over the debug levels.
++ *
++ * Maximum one per .c file! Can be shared among different .c files
++ * (meaning they belong to the same submodule categorization).
++ */
++#define D_SUBMODULE undefined_module
++#endif
++
++
++/**
++ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
++ *
++ * @_name: name of the submodule, restricted to the chars that make up a
++ *     valid C identifier ([a-zA-Z0-9_]).
++ *
++ * Declare in the module's debug-levels.h header file as:
++ *
++ * enum d_module {
++ *         D_SUBMODULE_DECLARE(submodule_1),
++ *         D_SUBMODULE_DECLARE(submodule_2),
++ *         D_SUBMODULE_DECLARE(submodule_3),
++ * };
++ *
++ * Some corresponding .c file needs to have a matching
++ * D_SUBMODULE_DEFINE().
++ */
++#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
++
++
++/**
++ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
++ *
++ * @_name: name of the submodule, restricted to the chars that make up a
++ *     valid C identifier ([a-zA-Z0-9_]).
++ *
++ * Use once per module (in some .c file) as:
++ *
++ * static
++ * struct d_level d_level_SUBMODULENAME[] = {
++ *         D_SUBMODULE_DEFINE(submodule_1),
++ *         D_SUBMODULE_DEFINE(submodule_2),
++ *         D_SUBMODULE_DEFINE(submodule_3),
++ * };
++ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
++ *
++ * Matching D_SUBMODULE_DECLARE()s have to be present in a
++ * debug-levels.h header file.
++ */
++#define D_SUBMODULE_DEFINE(_name)		\
++[__D_SUBMODULE_##_name] = {			\
++	.level = 0,				\
++	.name = #_name				\
 +}
-+module_init(i2400ms_driver_init);
 +
 +
-+static
-+void __exit i2400ms_driver_exit(void)
-+{
-+	flush_scheduled_work();	/* for the stuff we schedule */
-+	sdio_unregister_driver(&i2400m_sdio_driver);
-+}
-+module_exit(i2400ms_driver_exit);
++
++/* The actual "debug" operations */
 +
 +
-+MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
-+MODULE_DESCRIPTION("Intel 2400M WiMAX networking for SDIO");
-+MODULE_LICENSE("GPL");
-+MODULE_FIRMWARE(I2400MS_FW_FILE_NAME);
++/**
++ * d_test - Returns true if debugging should be enabled
++ *
++ * @l: intended debug level (unsigned)
++ *
++ * If the master debug switch is enabled and the current settings are
++ * higher or equal to the requested level, then debugging
++ * output/actions should be enabled.
++ *
++ * NOTE:
++ *
++ * This needs to be coded so that it can be evaluated in compile
++ * time; this is why the ugly BUG_ON() is placed in there, so the
++ * D_MASTER evaluation compiles all out if it is compile-time false.
++ */
++#define d_test(l)							\
++({									\
++	unsigned __l = l;	/* type enforcer */			\
++	(D_MASTER) >= __l						\
++	&& ({								\
++		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE);\
++		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
++	});								\
++})
++
++
++/**
++ * d_fnstart - log message at function start if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
++
++
++/**
++ * d_fnend - log message at function end if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
++
++
++/**
++ * d_printf - log message if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
++
++
++/**
++ * d_dump - log buffer hex dump if debugging enabled
++ *
++ * @l: intended debug level
++ * @_dev: 'struct device' pointer, NULL if none (for context)
++ * @f: printf-like format and arguments
++ */
++#define d_dump(l, dev, ptr, size)			\
++do {							\
++	char head[64];					\
++	if (!d_test(l))					\
++		break;					\
++	__d_head(head, sizeof(head), dev);		\
++	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
++		       ((void *) ptr), (size), 0);	\
++} while (0)
++
++
++/**
++ * Export a submodule's debug level over debugfs as PREFIXSUBMODULE
++ *
++ * @prefix: string to prefix the name with
++ * @submodule: name of submodule (not a string, just the name)
++ * @dentry: debugfs parent dentry
++ *
++ * Returns: 0 if ok, < 0 errno on error.
++ *
++ * For removing, just use debugfs_remove_recursive() on the parent.
++ */
++#define d_level_register_debugfs(prefix, name, parent)			\
++({									\
++	int rc;								\
++	struct dentry *fd;						\
++	struct dentry *verify_parent_type = parent;			\
++	fd = debugfs_create_u8(						\
++		prefix #name, 0600, verify_parent_type,			\
++		&(D_LEVEL[__D_SUBMODULE_ ## name].level));		\
++	rc = PTR_ERR(fd);						\
++	if (IS_ERR(fd) && rc != -ENODEV)				\
++		printk(KERN_ERR "%s: Can't create debugfs entry %s: "	\
++		       "%d\n", __func__, prefix #name, rc);		\
++	else								\
++		rc = 0;							\
++	rc;								\
++})
++
++
++#endif /* #ifndef __debug__h__ */
+diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
+new file mode 100644
+index 0000000..1c29123
+--- /dev/null
++++ b/net/wimax/debug-levels.h
+@@ -0,0 +1,42 @@
++/*
++ * Linux WiMAX Stack
++ * Debug levels control file for the wimax module
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ */
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
++
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME wimax
++#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
++
++#include <linux/wimax/debug.h>
++
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(debugfs),
++	D_SUBMODULE_DECLARE(id_table),
++	D_SUBMODULE_DECLARE(op_msg),
++	D_SUBMODULE_DECLARE(op_reset),
++	D_SUBMODULE_DECLARE(op_rfkill),
++	D_SUBMODULE_DECLARE(stack),
++};
++
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
