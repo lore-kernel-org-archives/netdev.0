@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: next-20081209: build problem at arch/ia64/hp/sim/simeth.c
-Date: Tue, 09 Dec 2008 22:41:08 -0800 (PST)
-Message-ID: <20081209.224108.265455718.davem@davemloft.net>
-References: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
+Subject: Re: [PATCH 01/11] benet: header and init functions
+Date: Tue, 09 Dec 2008 22:44:28 -0800 (PST)
+Message-ID: <20081209.224428.261629001.davem@davemloft.net>
+References: <1228832384.6435.94.camel@sperla-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, netdev@vger.kernel.org,
-	linux-ia64@vger.kernel.org
-To: a.beregalov@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, jeff@garzik.org,
+	subbus@serverengines.com
+To: sathyap@serverengines.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56781
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753603AbYLJGo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 01:44:27 -0500
+In-Reply-To: <1228832384.6435.94.camel@sperla-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Date: Tue, 9 Dec 2008 17:11:17 +0300
+From: Sathya Perla <sathyap@serverengines.com>
+Date: Tue, 09 Dec 2008 19:49:44 +0530
 
->   CC      arch/ia64/hp/sim/simeth.o
-> arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
-> arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no
-> member named 'open'
-> arch/ia64/hp/sim/simeth.c:213: error: 'struct net_device' has no
-> member named 'stop'
-> arch/ia64/hp/sim/simeth.c:214: error: 'struct net_device' has no
-> member named 'hard_start_xmit'
-> arch/ia64/hp/sim/simeth.c:215: error: 'struct net_device' has no
-> member named 'get_stats'
-> arch/ia64/hp/sim/simeth.c:216: error: 'struct net_device' has no
-> member named 'set_multicast_list'
+> +	pnob = netdev->priv;
 
-The only way for this to happen is if CONFIG_COMPAT_NET_DEV_OPS
-is not set.
+netdev->priv should never be accessed directly, use
+netdev_priv() always
 
-And we force it on in net/Kconfig:
+netdev->priv has even been removed in the net-next-2.6
+tree so we don't want any new references sneaking into
+the tree as this will cause build failures.
 
-config COMPAT_NET_DEV_OPS
-       def_bool y
+> +	struct be_net_object *pnob = (struct be_net_object *)netdev->priv;
+ ...
+> +	struct be_net_object *pnob = (struct be_net_object *)netdev->priv;
 
-Perhaps you simply need to update your config properly or something
-like that.
+And when you convert these cases, remove the casts.
+
+They are pointless since netdev_priv() (and netdev->priv) are void
+pointers.
