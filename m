@@ -1,55 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 11/11] benet: Kconfig, MAINTAINETS, drivers/net Makefile
-Date: Tue, 09 Dec 2008 22:54:53 -0800 (PST)
-Message-ID: <20081209.225453.183512699.davem@davemloft.net>
-References: <1228832471.6435.104.camel@sperla-laptop>
+Subject: Re: [PATCH] simnet: convert to net_device_ops
+Date: Tue, 09 Dec 2008 22:57:28 -0800 (PST)
+Message-ID: <20081209.225728.07389385.davem@davemloft.net>
+References: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
+	<20081209150827.GA8134@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, subbus@serverengines.com
-To: sathyap@serverengines.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50009
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751820AbYLJGyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 01:54:52 -0500
-In-Reply-To: <1228832471.6435.104.camel@sperla-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: a.beregalov@gmail.com, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, linux-ia64@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <20081209150827.GA8134@x200.localdomain>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 9 Dec 2008 18:08:27 +0300
 
-Ok I looked at this driver some more and I have many comments.
+> On Tue, Dec 09, 2008 at 05:11:17PM +0300, Alexander Beregalov wrote:
+> >   CC      arch/ia64/hp/sim/simeth.o
+> > arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
+> > arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no member named 'open'
+> 
+> [PATCH] simeth: convert to net_device_ops
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-The hardware library abstraction has to go.  You aren't writing a
-native linux driver if you split things up like this.  I know you want
-code sharing with your other supported platforms, but that's too bad.
-If we let every vendor do this the whole tree would be one big
-unmaintainable mess.
+This doesn't explain the build failure.
 
-Many structures have all-caps or capitalized names.  Good coding style
-indicates that only CPP macros are to be named with capital letters.
-(capital letterd symbols say to the reader "I'm a CPP macro and
-probably have side-effects, beware") What's happening here looks ugly
-and is inconsistent with the rest of the linux kernel.
+Using ->open() and friends should work perfectly fine for drivers not
+yet converted to netdev_ops.  The code protected by COMPAT_NET_DEV_OPS
+provides this, and we force that Kconfig option to always be on.
 
-The definition of the access to the chip registers is overly
-obfuscated.  All of this structure stuff and offsetof() business
-adds complexity to the driver and makes it harder to understand.
+I don't want to add this patch and just shrug off this build failure.
+If this build failures, we should be seeing 200 other drivers not
+build too.
 
-The bit twiddling is difficult to understand and makes the compiler
-work too hard.
-
-I would suggest to fix all of this by simply using macros which
-define chip register offsets, and next to those offset define
-macros which define the bit values within the register.  Endianness
-is not an issue, and all read*()/write*() calls will write out
-to the chip in little endian regardless of cpu endianness.
-
-See other drivers such as drivers/net/tg3.[ch] or drivers/net/niu.[ch]
-As you'll notice even such huge drivers as those can be done cleanly
-in a single source file with no hardware abstraction library layer and
-no funny register access structures and bit twiddling, so you can
-strive for that as well.
-
-So, this driver still needs a lot of work. :)
-
+I suspect something is messed up with this person's kernel config
+or similar.
