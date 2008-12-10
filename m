@@ -1,8 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 04/29] wimax: debug macros and debug settings for the WiMAX
-	stack
-Date: Wed, 10 Dec 2008 15:12:45 -0800
-Message-ID: <c46bb9900c315fadb4202f1fc4fa8980d297b7dc.1228948072.git.inaky@linux.intel.com>
+Subject: [PATCH 05/29] wimax: generic device management (registration,
+	deregistration, lookup)
+Date: Wed, 10 Dec 2008 15:12:46 -0800
+Message-ID: <7faa93234c3f76bed438599a96257cb64c0094c8.1228948072.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,34 +19,35 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This file contains a simple debug framework that is used in the stack;
-it allows the debug level to be controlled at compile-time (so the
-debug code is optimized out) and at run-time (for what wasn't compiled
-out).
+Implements the basic life cycles of a 'struct wimax_dev', some common
+generic netlink functionality for marshalling calls to user space,
+and the device state machine.
 
-This is eventually going to be moved to use dynamic_printk(). Just
-need to find time to do it.
+For looking up net devices based on their generic netlink family IDs,
+use a low overhead method that optimizes for the case where most
+systems have a single WiMAX device, or at most, a very low number of
+WiMAX adaptors.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax/debug.h |  453 +++++++++++++++++++++++++++++++++++++++++++
- net/wimax/debug-levels.h    |   42 ++++
- 2 files changed, 495 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax/debug.h
- create mode 100644 net/wimax/debug-levels.h
+ net/wimax/id-table.c |  142 ++++++++++++
+ net/wimax/stack.c    |  599 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 741 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/id-table.c
+ create mode 100644 net/wimax/stack.c
 
-diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
+diff --git a/net/wimax/id-table.c b/net/wimax/id-table.c
 new file mode 100644
-index 0000000..ba0c493
+index 0000000..d3b8855
 --- /dev/null
-+++ b/include/linux/wimax/debug.h
-@@ -0,0 +1,453 @@
++++ b/net/wimax/id-table.c
+@@ -0,0 +1,142 @@
 +/*
 + * Linux WiMAX
-+ * Collection of tools to manage debug operations.
++ * Mappping of generic netlink family IDs to net devices
 + *
 + *
-+ * Copyright (C) 2005-2007 Intel Corporation
++ * Copyright (C) 2005-2006 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
@@ -64,448 +65,137 @@ index 0000000..ba0c493
 + * 02110-1301, USA.
 + *
 + *
-+ * Don't #include this file directly, read on!
++ * We assign a single generic netlink family ID to each device (to
++ * simplify lookup).
 + *
++ * We need a way to map family ID to a wimax_dev pointer.
 + *
-+ * EXECUTING DEBUGGING ACTIONS OR NOT
++ * The idea is to use a very simple lookup. Using a netlink attribute
++ * with (for example) the interface name implies a heavier search over
++ * all the network devices; seemed kind of a waste given that we know
++ * we are looking for a WiMAX device and that most systems will have
++ * just a single WiMAX adapter.
 + *
-+ * The main thing this framework provides is decission power to take a
-+ * debug action (like printing a message) if the current debug level
-+ * allows it.
++ * We put all the WiMAX devices in the system in a linked list and
++ * match the generic link family ID against the list.
 + *
-+ * The decission power is at two levels: at compile-time (what does
-+ * not make it is compiled out) and at run-time. The run-time
-+ * selection is done per-submodule (as they are declared by the user
-+ * of the framework).
-+ *
-+ * A call to d_test(L) (L being the target debug level) returns true
-+ * if the action should be taken because the current debug levels
-+ * allow it (both compile and run time).
-+ *
-+ * It follows that a call to d_test() that can be determined to be
-+ * always false at compile time will get the code depending on it
-+ * compiled out by optimization.
-+ *
-+ *
-+ * DEBUG LEVELS
-+ *
-+ * It is up to the caller to define how much a debugging level is.
-+ *
-+ * Convention sets 0 as "no debug" (so an action marked as debug level 0
-+ * will always be taken). The increasing debug levels are used for
-+ * increased verbosity.
-+ *
-+ *
-+ * USAGE
-+ *
-+ * Group the code in modules and submodules inside each module [which
-+ * in most cases maps to Linux modules and .c files that compose
-+ * those].
-+ *
-+ *
-+ * For each module, there is:
-+ *
-+ *  - a MODULENAME (single word, legal C identifier)
-+ *
-+ *  - a debug-levels.h header file that declares the list of
-+ *    submodules and that is included by all .c files that use
-+ *    the debugging tools. The file name can be anything.
-+ *
-+ *  - some (optional) .c code to manipulate the runtime debug levels
-+ *    through debugfs.
-+ *
-+ * The debug-levels.h file would look like:
-+ *
-+ *     #ifndef __debug_levels__h__
-+ *     #define __debug_levels__h__
-+ *
-+ *     #define D_MODULENAME modulename
-+ *     #define D_MASTER 10
-+ *
-+ *     #include <linux/wimax/debug.h>
-+ *
-+ *     enum d_module {
-+ *             D_SUBMODULE_DECLARE(submodule_1),
-+ *             D_SUBMODULE_DECLARE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DECLARE(submodule_N)
-+ *     };
-+ *
-+ *     #endif
-+ *
-+ * D_MASTER is the maximum compile-time debug level; any debug actions
-+ * above this will be out. D_MODULENAME is the module name (legal C
-+ * identifier), which has to be unique for each module (to avoid
-+ * namespace collisions during linkage). Note those #defines need to
-+ * be done before #including debug.h
-+ *
-+ * We declare N different submodules whose debug level can be
-+ * independently controlled during runtime.
-+ *
-+ * In a .c file of the module (and only in one of them), define the
-+ * following code:
-+ *
-+ *     struct d_level D_LEVEL[] = {
-+ *             D_SUBMODULE_DEFINE(submodule_1),
-+ *             D_SUBMODULE_DEFINE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DEFINE(submodule_N),
-+ *     };
-+ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+ *
-+ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
-+ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
-+ * #defined also in this file.
-+ *
-+ * To manipulate from user space the levels, create a debugfs dentry
-+ * and then register each submodule with:
-+ *
-+ *     result = d_level_register_debugfs("PREFIX_", submodule_X, parent);
-+ *     if (result < 0)
-+ *            goto error;
-+ *
-+ * Where PREFIX_ is a name of your chosing. This will create debugfs
-+ * file with a single numeric value that can be use to tweak it. To
-+ * remove the entires, just use debugfs_remove_recursive() on 'parent'.
-+ *
-+ * NOTE: remember that even if this will show attached to some
-+ *     particular instance of a device, the settings are *global*.
-+ *
-+ *
-+ * On each submodule (for example, .c files), the debug infrastructure
-+ * should be included like this:
-+ *
-+ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
-+ *     #include "debug-levels.h"
-+ *
-+ * after #including all your include files.
-+ *
-+ *
-+ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
-+ * d_fnend(), d_printf(), d_dump()].
-+ *
-+ * If their debug level is greater than D_MASTER, they will be
-+ * compiled out.
-+ *
-+ * If their debug level is lower or equal than D_MASTER but greater
-+ * than the current debug level of their submodule, they'll be
-+ * ignored.
-+ *
-+ * Otherwise, the action will be performed.
++ * By using a linked list, the case of a single adapter in the system
++ * becomes (almost) no overhead, while still working for many more. If
++ * it ever goes beyond two, I'll be surprised.
 + */
-+#ifndef __debug__h__
-+#define __debug__h__
-+
-+#include <linux/types.h>
 +#include <linux/device.h>
++#include <net/genetlink.h>
++#include <linux/netdevice.h>
++#include <linux/list.h>
++#include <linux/wimax.h>
++#include "wimax-internal.h"
 +
 +
-+/* Backend stuff */
++#define D_SUBMODULE id_table
++#include "debug-levels.h"
++
++
++static DEFINE_SPINLOCK(wimax_id_table_lock);
++static struct list_head wimax_id_table = LIST_HEAD_INIT(wimax_id_table);
++
 +
 +/*
-+ * Debug backend: generate a message header from a 'struct device'
++ * wimax_id_table_add - add a gennetlink familiy ID / wimax_dev mapping
 + *
-+ * @head: buffer where to place the header
-+ * @head_size: length of @head
-+ * @dev: pointer to device used to generate a header from. If NULL,
-+ *     an empty ("") header is generated.
++ * @wimax_dev: WiMAX device descriptor to associate to the Generic
++ *     Netlink family ID.
++ *
++ * Look for an empty spot in the ID table; if none found, double the
++ * table's size and get the first spot.
 + */
-+static inline
-+void __d_head(char *head, size_t head_size,
-+	      struct device *dev)
++void wimax_id_table_add(struct wimax_dev *wimax_dev)
 +{
-+	if (dev == NULL)
-+		head[0] = 0;
-+	else if ((unsigned long)dev < 4096) {
-+		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
++	d_fnstart(3, NULL, "(wimax_dev %p)\n", wimax_dev);
++	spin_lock(&wimax_id_table_lock);
++	list_add(&wimax_dev->id_table_node, &wimax_id_table);
++	spin_unlock(&wimax_id_table_lock);
++	d_fnend(3, NULL, "(wimax_dev %p)\n", wimax_dev);
++}
++
++
++/*
++ * wimax_get_netdev_by_info - lookup a wimax_dev from the gennetlink info
++ *
++ * The generic netlink family ID has been filled out in the
++ * nlmsghdr->nlmsg_type field, so we pull it from there, look it up in
++ * the mapping table and reference the wimax_dev.
++ *
++ * When done, the reference should be dropped with
++ * 'dev_put(wimax_dev->net_dev)'.
++ */
++struct wimax_dev *wimax_dev_get_by_genl_info(
++	struct genl_info *info, int ifindex)
++{
++	struct wimax_dev *wimax_dev = NULL;
++
++	d_fnstart(3, NULL, "(info %p ifindex %d)\n", info, ifindex);
++	spin_lock(&wimax_id_table_lock);
++	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
++		if (wimax_dev->net_dev->ifindex == ifindex) {
++			dev_hold(wimax_dev->net_dev);
++			break;
++		}
++	}
++	if (wimax_dev == NULL)
++		d_printf(1, NULL, "wimax: no devices found with ifindex %d\n",
++			 ifindex);
++	spin_unlock(&wimax_id_table_lock);
++	d_fnend(3, NULL, "(info %p ifindex %d) = %p\n",
++		info, ifindex, wimax_dev);
++	return wimax_dev;
++}
++
++
++/*
++ * wimax_id_table_rm - Remove a gennetlink familiy ID / wimax_dev mapping
++ *
++ * @id: family ID to remove from the table
++ */
++void wimax_id_table_rm(struct wimax_dev *wimax_dev)
++{
++	spin_lock(&wimax_id_table_lock);
++	list_del_init(&wimax_dev->id_table_node);
++	spin_unlock(&wimax_id_table_lock);
++}
++
++
++/*
++ * Release the gennetlink family id / mapping table
++ *
++ * On debug, verify that the table is empty upon removal.
++ */
++void wimax_id_table_release(void)
++{
++#ifndef CONFIG_BUG
++	return;
++#endif
++	struct wimax_dev *wimax_dev;
++
++	spin_lock(&wimax_id_table_lock);
++	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
++		printk(KERN_ERR "BUG: %s wimax_dev %p ifindex %d not cleared\n",
++		       __func__, wimax_dev, wimax_dev->net_dev->ifindex);
 +		WARN_ON(1);
-+	} else
-+		snprintf(head, head_size, "%s %s: ",
-+			 dev_driver_string(dev), dev->bus_id);
++	}
++	spin_unlock(&wimax_id_table_lock);
 +}
-+
-+
-+/*
-+ * Debug backend: log some message if debugging is enabled
-+ *
-+ * @l: intended debug level
-+ * @tag: tag to prefix the message with
-+ * @dev: 'struct device' associated to this message
-+ * @f: printf-like format and arguments
-+ *
-+ * Note this is optimized out if it doesn't pass the compile-time
-+ * check; however, it is *always* compiled. This is useful to make
-+ * sure the printf-like formats and variables are always checked and
-+ * they don't get bit rot if you have all the debugging disabled.
-+ */
-+#define _d_printf(l, tag, dev, f, a...)					\
-+do {									\
-+	char head[64];							\
-+	if (!d_test(l))							\
-+		break;							\
-+	__d_head(head, sizeof(head), dev);				\
-+	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
-+} while (0)
-+
-+
-+/*
-+ * CPP sintatic sugar to generate A_B like symbol names when one of
-+ * the arguments is a a preprocessor #define.
-+ */
-+#define __D_PASTE__(varname, modulename) varname##_##modulename
-+#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
-+#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
-+
-+
-+/*
-+ * Store a submodule's runtime debug level and name
-+ */
-+struct d_level {
-+	u8 level;
-+	const char *name;
-+};
-+
-+
-+/*
-+ * List of available submodules and their debug levels
-+ *
-+ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
-+ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
-+ * convenience.
-+ *
-+ * This array and the size are defined on some .c file that is part of
-+ * the current module.
-+ */
-+#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
-+#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
-+
-+extern struct d_level D_LEVEL[];
-+extern size_t D_LEVEL_SIZE;
-+
-+
-+/*
-+ * Frontend stuff
-+ *
-+ *
-+ * Stuff you need to declare prior to using the actual "debug" actions
-+ * (defined below).
-+ */
-+
-+#ifndef D_MODULENAME
-+#error D_MODULENAME is not defined in your debug-levels.h file
-+/**
-+ * D_MODULE - Name of the current module
-+ *
-+ * #define in your module's debug-levels.h, making sure it is
-+ * unique. This has to be a legal C identifier.
-+ */
-+#define D_MODULENAME undefined_modulename
-+#endif
-+
-+
-+#ifndef D_MASTER
-+#warning D_MASTER not defined, but debug.h included! [see docs]
-+/**
-+ * D_MASTER - Compile time maximum debug level
-+ *
-+ * #define in your debug-levels.h file to the maximum debug level the
-+ * runtime code will be allowed to have. This allows you to provide a
-+ * main knob.
-+ *
-+ * Anything above that level will be optimized out of the compile.
-+ *
-+ * Defaults to zero (no debug code compiled in).
-+ *
-+ * Maximum one definition per module (at the debug-levels.h file).
-+ */
-+#define D_MASTER 0
-+#endif
-+
-+#ifndef D_SUBMODULE
-+#error D_SUBMODULE not defined, but debug.h included! [see docs]
-+/**
-+ * D_SUBMODULE - Name of the current submodule
-+ *
-+ * #define in your submodule .c file before #including debug-levels.h
-+ * to the name of the current submodule as previously declared and
-+ * defined with D_SUBMODULE_DECLARE() (in your module's
-+ * debug-levels.h) and D_SUBMODULE_DEFINE().
-+ *
-+ * This is used to provide runtime-control over the debug levels.
-+ *
-+ * Maximum one per .c file! Can be shared among different .c files
-+ * (meaning they belong to the same submodule categorization).
-+ */
-+#define D_SUBMODULE undefined_module
-+#endif
-+
-+
-+/**
-+ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Declare in the module's debug-levels.h header file as:
-+ *
-+ * enum d_module {
-+ *         D_SUBMODULE_DECLARE(submodule_1),
-+ *         D_SUBMODULE_DECLARE(submodule_2),
-+ *         D_SUBMODULE_DECLARE(submodule_3),
-+ * };
-+ *
-+ * Some corresponding .c file needs to have a matching
-+ * D_SUBMODULE_DEFINE().
-+ */
-+#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
-+
-+
-+/**
-+ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Use once per module (in some .c file) as:
-+ *
-+ * static
-+ * struct d_level d_level_SUBMODULENAME[] = {
-+ *         D_SUBMODULE_DEFINE(submodule_1),
-+ *         D_SUBMODULE_DEFINE(submodule_2),
-+ *         D_SUBMODULE_DEFINE(submodule_3),
-+ * };
-+ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
-+ *
-+ * Matching D_SUBMODULE_DECLARE()s have to be present in a
-+ * debug-levels.h header file.
-+ */
-+#define D_SUBMODULE_DEFINE(_name)		\
-+[__D_SUBMODULE_##_name] = {			\
-+	.level = 0,				\
-+	.name = #_name				\
-+}
-+
-+
-+
-+/* The actual "debug" operations */
-+
-+
-+/**
-+ * d_test - Returns true if debugging should be enabled
-+ *
-+ * @l: intended debug level (unsigned)
-+ *
-+ * If the master debug switch is enabled and the current settings are
-+ * higher or equal to the requested level, then debugging
-+ * output/actions should be enabled.
-+ *
-+ * NOTE:
-+ *
-+ * This needs to be coded so that it can be evaluated in compile
-+ * time; this is why the ugly BUG_ON() is placed in there, so the
-+ * D_MASTER evaluation compiles all out if it is compile-time false.
-+ */
-+#define d_test(l)							\
-+({									\
-+	unsigned __l = l;	/* type enforcer */			\
-+	(D_MASTER) >= __l						\
-+	&& ({								\
-+		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE);\
-+		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
-+	});								\
-+})
-+
-+
-+/**
-+ * d_fnstart - log message at function start if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
-+
-+
-+/**
-+ * d_fnend - log message at function end if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
-+
-+
-+/**
-+ * d_printf - log message if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
-+
-+
-+/**
-+ * d_dump - log buffer hex dump if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_dump(l, dev, ptr, size)			\
-+do {							\
-+	char head[64];					\
-+	if (!d_test(l))					\
-+		break;					\
-+	__d_head(head, sizeof(head), dev);		\
-+	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
-+		       ((void *) ptr), (size), 0);	\
-+} while (0)
-+
-+
-+/**
-+ * Export a submodule's debug level over debugfs as PREFIXSUBMODULE
-+ *
-+ * @prefix: string to prefix the name with
-+ * @submodule: name of submodule (not a string, just the name)
-+ * @dentry: debugfs parent dentry
-+ *
-+ * Returns: 0 if ok, < 0 errno on error.
-+ *
-+ * For removing, just use debugfs_remove_recursive() on the parent.
-+ */
-+#define d_level_register_debugfs(prefix, name, parent)			\
-+({									\
-+	int rc;								\
-+	struct dentry *fd;						\
-+	struct dentry *verify_parent_type = parent;			\
-+	fd = debugfs_create_u8(						\
-+		prefix #name, 0600, verify_parent_type,			\
-+		&(D_LEVEL[__D_SUBMODULE_ ## name].level));		\
-+	rc = PTR_ERR(fd);						\
-+	if (IS_ERR(fd) && rc != -ENODEV)				\
-+		printk(KERN_ERR "%s: Can't create debugfs entry %s: "	\
-+		       "%d\n", __func__, prefix #name, rc);		\
-+	else								\
-+		rc = 0;							\
-+	rc;								\
-+})
-+
-+
-+#endif /* #ifndef __debug__h__ */
-diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
+diff --git a/net/wimax/stack.c b/net/wimax/stack.c
 new file mode 100644
-index 0000000..1c29123
+index 0000000..e5fd1ae
 --- /dev/null
-+++ b/net/wimax/debug-levels.h
-@@ -0,0 +1,42 @@
++++ b/net/wimax/stack.c
+@@ -0,0 +1,599 @@
 +/*
-+ * Linux WiMAX Stack
-+ * Debug levels control file for the wimax module
++ * Linux WiMAX
++ * Initialization, addition and removal of wimax devices
 + *
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Copyright (C) 2005-2006 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
@@ -521,26 +211,583 @@ index 0000000..1c29123
 + * along with this program; if not, write to the Free Software
 + * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 + * 02110-1301, USA.
++ *
++ *
++ * This implements:
++ *
++ *   - basic life cycle of 'struct wimax_dev' [wimax_dev_*()]; on
++ *     addition/registration initialize all subfields and allocate
++ *     generic netlink resources for user space communication. On
++ *     removal/unregistration, undo all that.
++ *
++ *   - device state machine [wimax_state_change()] and support to send
++ *     reports to user space when the state changes
++ *     [wimax_gnl_re_state_change*()].
++ *
++ * See include/net/wimax.h for rationales and design.
++ *
++ * ROADMAP
++ *
++ * [__]wimax_state_change()     Called by drivers to update device's state
++ *   wimax_gnl_re_state_change_alloc()
++ *   wimax_gnl_re_state_change_send()
++ *
++ * wimax_dev_init()	        Init a device
++ * wimax_dev_add()              Register
++ *   wimax_rfkill_add()
++ *   wimax_gnl_add()            Register all the generic netlink resources.
++ *   wimax_id_table_add()
++ * wimax_dev_rm()               Unregister
++ *   wimax_id_table_rm()
++ *   wimax_gnl_rm()
++ *   wimax_rfkill_rm()
 + */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
++#include <linux/device.h>
++#include <net/genetlink.h>
++#include <linux/netdevice.h>
++#include <linux/wimax.h>
++#include "wimax-internal.h"
 +
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME wimax
-+#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
 +
-+#include <linux/wimax/debug.h>
++#define D_SUBMODULE stack
++#include "debug-levels.h"
 +
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(debugfs),
-+	D_SUBMODULE_DECLARE(id_table),
-+	D_SUBMODULE_DECLARE(op_msg),
-+	D_SUBMODULE_DECLARE(op_reset),
-+	D_SUBMODULE_DECLARE(op_rfkill),
-+	D_SUBMODULE_DECLARE(stack),
++/*
++ * Authoritative source for the RE_STATE_CHANGE attribute policy
++ *
++ * We don't really use it here, but /me likes to keep the definition
++ * close to where the data is generated.
++ */
++/*
++static const
++struct nla_policy wimax_gnl_re_status_change[WIMAX_GNL_ATTR_MAX + 1] = {
++	[WIMAX_GNL_STCH_STATE_OLD] = { .type = NLA_U8 },
++	[WIMAX_GNL_STCH_STATE_NEW] = { .type = NLA_U8 },
++};
++*/
++
++
++/*
++ * Allocate a Report State Change message
++ *
++ * @header: save it, you need it for _send()
++ *
++ * Creates and fills a basic state change message; different code
++ * paths can then add more attributes to the message as needed.
++ *
++ * Use wimax_gnl_re_state_change_send() to send the returned skb.
++ *
++ * Returns: skb with the genl message if ok, IS_ERR() ptr on error
++ *     with an errno code.
++ */
++static
++struct sk_buff *wimax_gnl_re_state_change_alloc(
++	struct wimax_dev *wimax_dev,
++	enum wimax_st new_state, enum wimax_st old_state,
++	void **header)
++{
++	int result;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	void *data;
++	struct sk_buff *report_skb;
++
++	d_fnstart(3, dev, "(wimax_dev %p new_state %u old_state %u)\n",
++		  wimax_dev, new_state, old_state);
++	result = -ENOMEM;
++	report_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (report_skb == NULL) {
++		dev_err(dev, "RE_STCH: can't create message\n");
++		goto error_new;
++	}
++	data = genlmsg_put(report_skb, 0, wimax_gnl_mcg.id, &wimax_gnl_family,
++			   0, WIMAX_GNL_RE_STATE_CHANGE);
++	if (data == NULL) {
++		dev_err(dev, "RE_STCH: can't put data into message\n");
++		goto error_put;
++	}
++	*header = data;
++
++	result = nla_put_u8(report_skb, WIMAX_GNL_STCH_STATE_OLD, old_state);
++	if (result < 0) {
++		dev_err(dev, "RE_STCH: Error adding OLD attr: %d\n", result);
++		goto error_put;
++	}
++	result = nla_put_u8(report_skb, WIMAX_GNL_STCH_STATE_NEW, new_state);
++	if (result < 0) {
++		dev_err(dev, "RE_STCH: Error adding NEW attr: %d\n", result);
++		goto error_put;
++	}
++	result = nla_put_u32(report_skb, WIMAX_GNL_STCH_IFIDX,
++			     wimax_dev->net_dev->ifindex);
++	if (result < 0) {
++		dev_err(dev, "RE_STCH: Error adding IFINDEX attribute\n");
++		goto error_put;
++	}
++	d_fnend(3, dev, "(wimax_dev %p new_state %u old_state %u) = %p\n",
++		wimax_dev, new_state, old_state, report_skb);
++	return report_skb;
++
++error_put:
++	nlmsg_free(report_skb);
++error_new:
++	d_fnend(3, dev, "(wimax_dev %p new_state %u old_state %u) = %d\n",
++		wimax_dev, new_state, old_state, result);
++	return ERR_PTR(result);
++}
++
++
++/*
++ * Send a Report State Change message (as created with _alloc).
++ *
++ * @report_skb: as returned by wimax_gnl_re_state_change_alloc()
++ * @header: as returned by wimax_gnl_re_state_change_alloc()
++ *
++ * Returns: 0 if ok, < 0 errno code on error.
++ *
++ * If the message is  NULL, pretend it didn't happen.
++ */
++static
++int wimax_gnl_re_state_change_send(
++	struct wimax_dev *wimax_dev, struct sk_buff *report_skb,
++	void *header)
++{
++	int result = 0;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	d_fnstart(3, dev, "(wimax_dev %p report_skb %p)\n",
++		  wimax_dev, report_skb);
++	if (report_skb == NULL)
++		goto out;
++	genlmsg_end(report_skb, header);
++	result = genlmsg_multicast(report_skb, 0, wimax_gnl_mcg.id, GFP_KERNEL);
++	if (result == -ESRCH)	/* Nobody connected, ignore it */
++		result = 0;	/* btw, the skb is freed already */
++	if (result < 0) {
++		dev_err(dev, "RE_STCH: Error sending: %d\n", result);
++		nlmsg_free(report_skb);
++	}
++out:
++	d_fnend(3, dev, "(wimax_dev %p report_skb %p) = %d\n",
++		wimax_dev, report_skb, result);
++	return result;
++}
++
++
++static
++void __check_new_state(enum wimax_st old_state, enum wimax_st new_state,
++		       unsigned allowed_states_bm)
++{
++	if (WARN_ON(((1 << new_state) & allowed_states_bm) == 0)) {
++		printk(KERN_ERR "SW BUG! Forbidden state change %u -> %u\n",
++			old_state, new_state);
++	}
++}
++
++
++/*
++ * Set the current state of a WiMAX device [unlocking version of
++ * wimax_state_change().
++ */
++void __wimax_state_change(struct wimax_dev *wimax_dev, enum wimax_st new_state)
++{
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	enum wimax_st old_state = wimax_dev->state;
++	struct sk_buff *stch_skb;
++	void *header;
++
++	d_fnstart(3, dev, "(wimax_dev %p new_state %u [old %u])\n",
++		  wimax_dev, new_state, old_state);
++
++	if (WARN_ON(new_state >= __WIMAX_ST_INVALID)) {
++		dev_err(dev, "SW BUG: requesting invalid state %u\n",
++			new_state);
++		goto out;
++	}
++	if (old_state == new_state)
++		goto out;
++	header = NULL;	/* gcc complains? can't grok why */
++	stch_skb = wimax_gnl_re_state_change_alloc(
++		wimax_dev, new_state, old_state, &header);
++
++	/* Verify the state transition and do exit-from-state actions */
++	switch (old_state) {
++	case __WIMAX_ST_NULL:
++		__check_new_state(old_state, new_state,
++				  1 << WIMAX_ST_DOWN);
++		break;
++	case WIMAX_ST_DOWN:
++		__check_new_state(old_state, new_state,
++				  1 << __WIMAX_ST_QUIESCING
++				  | 1 << WIMAX_ST_UNINITIALIZED
++				  | 1 << WIMAX_ST_RADIO_OFF);
++		break;
++	case __WIMAX_ST_QUIESCING:
++		__check_new_state(old_state, new_state, 1 << WIMAX_ST_DOWN);
++		break;
++	case WIMAX_ST_UNINITIALIZED:
++		__check_new_state(old_state, new_state,
++				  1 << __WIMAX_ST_QUIESCING
++				  | 1 << WIMAX_ST_RADIO_OFF);
++		break;
++	case WIMAX_ST_RADIO_OFF:
++		__check_new_state(old_state, new_state,
++				  1 << __WIMAX_ST_QUIESCING
++				  | 1 << WIMAX_ST_READY);
++		break;
++	case WIMAX_ST_READY:
++		__check_new_state(old_state, new_state,
++				  1 << __WIMAX_ST_QUIESCING
++				  | 1 << WIMAX_ST_RADIO_OFF
++				  | 1 << WIMAX_ST_SCANNING
++				  | 1 << WIMAX_ST_CONNECTING
++				  | 1 << WIMAX_ST_CONNECTED);
++		break;
++	case WIMAX_ST_SCANNING:
++		__check_new_state(old_state, new_state,
++				  1 << __WIMAX_ST_QUIESCING
++				  | 1 << WIMAX_ST_RADIO_OFF
++				  | 1 << WIMAX_ST_READY
++				  | 1 << WIMAX_ST_CONNECTING
++				  | 1 << WIMAX_ST_CONNECTED);
++		break;
++	case WIMAX_ST_CONNECTING:
++		__check_new_state(old_state, new_state,
++				  1 << __WIMAX_ST_QUIESCING
++				  | 1 << WIMAX_ST_RADIO_OFF
++				  | 1 << WIMAX_ST_READY
++				  | 1 << WIMAX_ST_SCANNING
++				  | 1 << WIMAX_ST_CONNECTED);
++		break;
++	case WIMAX_ST_CONNECTED:
++		__check_new_state(old_state, new_state,
++				  1 << __WIMAX_ST_QUIESCING
++				  | 1 << WIMAX_ST_RADIO_OFF
++				  | 1 << WIMAX_ST_READY);
++		netif_tx_disable(wimax_dev->net_dev);
++		netif_carrier_off(wimax_dev->net_dev);
++		break;
++	case __WIMAX_ST_INVALID:
++	default:
++		dev_err(dev, "SW BUG: wimax_dev %p is in unknown state %u\n",
++			wimax_dev, wimax_dev->state);
++		WARN_ON(1);
++		goto out;
++	}
++
++	/* Execute the actions of entry to the new state */
++	switch (new_state) {
++	case __WIMAX_ST_NULL:
++		dev_err(dev, "SW BUG: wimax_dev %p entering NULL state "
++			"from %u\n", wimax_dev, wimax_dev->state);
++		WARN_ON(1);		/* Nobody can enter this state */
++		break;
++	case WIMAX_ST_DOWN:
++		break;
++	case __WIMAX_ST_QUIESCING:
++		break;
++	case WIMAX_ST_UNINITIALIZED:
++		break;
++	case WIMAX_ST_RADIO_OFF:
++		break;
++	case WIMAX_ST_READY:
++		break;
++	case WIMAX_ST_SCANNING:
++		break;
++	case WIMAX_ST_CONNECTING:
++		break;
++	case WIMAX_ST_CONNECTED:
++		netif_carrier_on(wimax_dev->net_dev);
++		netif_wake_queue(wimax_dev->net_dev);
++		break;
++	case __WIMAX_ST_INVALID:
++	default:
++		BUG();
++	}
++	__wimax_state_set(wimax_dev, new_state);
++	if (stch_skb)
++		wimax_gnl_re_state_change_send(wimax_dev, stch_skb, header);
++out:
++	d_fnend(3, dev, "(wimax_dev %p new_state %u [old %u]) = void\n",
++		wimax_dev, new_state, old_state);
++	return;
++}
++
++
++/**
++ * wimax_state_change - Set the current state of a WiMAX device
++ *
++ * @wimax_dev: WiMAX device descriptor (properly referenced)
++ * @new_state: New state to switch to
++ *
++ * This implements the state changes for the wimax devices. It will
++ *
++ * - verify that the state transition is legal (for now it'll just
++ *   print a warning if not) according to the table in
++ *   linux/wimax.h's documentation for 'enum wimax_st'.
++ *
++ * - perform the actions needed for leaving the current state and
++ *   whichever are needed for entering the new state.
++ *
++ * - issue a report to user space indicating the new state (and an
++ *   optional payload with information about the new state).
++ *
++ * NOTE: @wimax_dev must be locked
++ */
++void wimax_state_change(struct wimax_dev *wimax_dev, enum wimax_st new_state)
++{
++	mutex_lock(&wimax_dev->mutex);
++	__wimax_state_change(wimax_dev, new_state);
++	mutex_unlock(&wimax_dev->mutex);
++	return;
++}
++EXPORT_SYMBOL_GPL(wimax_state_change);
++
++
++/**
++ * wimax_state_get() - Return the current state of a WiMAX device
++ *
++ * @wimax_dev: WiMAX device descriptor
++ *
++ * Returns: Current state of the device according to its driver.
++ */
++enum wimax_st wimax_state_get(struct wimax_dev *wimax_dev)
++{
++	enum wimax_st state;
++	mutex_lock(&wimax_dev->mutex);
++	state = wimax_dev->state;
++	mutex_unlock(&wimax_dev->mutex);
++	return state;
++}
++EXPORT_SYMBOL_GPL(wimax_state_get);
++
++
++/**
++ * wimax_dev_init - initialize a newly allocated instance
++ *
++ * @wimax_dev: WiMAX device descriptor to initialize.
++ *
++ * Initializes fields of a freshly allocated @wimax_dev instance. This
++ * function assumes that after allocation, the memory occupied by
++ * @wimax_dev was zeroed.
++ */
++void wimax_dev_init(struct wimax_dev *wimax_dev)
++{
++	INIT_LIST_HEAD(&wimax_dev->id_table_node);
++	__wimax_state_set(wimax_dev, WIMAX_ST_UNINITIALIZED);
++	mutex_init(&wimax_dev->mutex);
++	mutex_init(&wimax_dev->mutex_reset);
++}
++EXPORT_SYMBOL_GPL(wimax_dev_init);
++
++/*
++ * This extern is declared here because it's easier to keep track --
++ * both declarations are a list of the same
++ */
++extern struct genl_ops
++	wimax_gnl_msg_from_user,
++	wimax_gnl_reset,
++	wimax_gnl_rfkill;
++
++static
++struct genl_ops *wimax_gnl_ops[] = {
++	&wimax_gnl_msg_from_user,
++	&wimax_gnl_reset,
++	&wimax_gnl_rfkill,
 +};
 +
-+#endif /* #ifndef __debug_levels__h__ */
++
++static
++size_t wimax_addr_scnprint(char *addr_str, size_t addr_str_size,
++			   unsigned char *addr, size_t addr_len)
++{
++	unsigned cnt, total;
++	for (total = cnt = 0; cnt < addr_len; cnt++)
++		total += scnprintf(addr_str + total, addr_str_size - total,
++				   "%02x%c", addr[cnt],
++				   cnt == addr_len - 1 ? '\0' : ':');
++	return total;
++}
++
++
++/**
++ * wimax_dev_add - Register a new WiMAX device
++ *
++ * @wimax_dev: WiMAX device descriptor (as embedded in your @net_dev's
++ *     priv data). You must have called wimax_dev_init() on it before.
++ *
++ * @net_dev: net device the @wimax_dev is associated with. The
++ *     function expects SET_NETDEV_DEV() and register_netdev() were
++ *     already called on it.
++ *
++ * Registers the new WiMAX device, sets up the user-kernel control
++ * interface (generic netlink) and common WiMAX infrastructure.
++ *
++ * Note that the parts that will allow interaction with user space are
++ * setup at the very end, when the rest is in place, as once that
++ * happens, the driver might get user space control requests via
++ * netlink or from debugfs that might translate into calls into
++ * wimax_dev->op_*().
++ */
++int wimax_dev_add(struct wimax_dev *wimax_dev, struct net_device *net_dev)
++{
++	int result;
++	struct device *dev = net_dev->dev.parent;
++	char addr_str[32];
++
++	d_fnstart(3, dev, "(wimax_dev %p net_dev %p)\n", wimax_dev, net_dev);
++
++	/* Do the RFKILL setup before locking, as RFKILL will call
++	 * into our functions. */
++	wimax_dev->net_dev = net_dev;
++	result = wimax_rfkill_add(wimax_dev);
++	if (result < 0)
++		goto error_rfkill_add;
++
++	/* Set up user-space interaction */
++	mutex_lock(&wimax_dev->mutex);
++	wimax_id_table_add(wimax_dev);
++	result = wimax_debugfs_add(wimax_dev);
++	if (result < 0) {
++		dev_err(dev, "cannot initialize debugfs: %d\n",
++			result);
++		goto error_debugfs_add;
++	}
++
++	__wimax_state_set(wimax_dev, WIMAX_ST_DOWN);
++	mutex_unlock(&wimax_dev->mutex);
++
++	wimax_addr_scnprint(addr_str, sizeof(addr_str),
++			    net_dev->dev_addr, net_dev->addr_len);
++	dev_err(dev, "WiMAX interface %s (%s) ready\n",
++		net_dev->name, addr_str);
++	d_fnend(3, dev, "(wimax_dev %p net_dev %p) = 0\n", wimax_dev, net_dev);
++	return 0;
++
++error_debugfs_add:
++	wimax_id_table_rm(wimax_dev);
++	mutex_unlock(&wimax_dev->mutex);
++	wimax_rfkill_rm(wimax_dev);
++error_rfkill_add:
++	d_fnend(3, dev, "(wimax_dev %p net_dev %p) = %d\n",
++		wimax_dev, net_dev, result);
++	return result;
++}
++EXPORT_SYMBOL_GPL(wimax_dev_add);
++
++
++/**
++ * wimax_dev_rm - Unregister an existing WiMAX device
++ *
++ * @wimax_dev: WiMAX device descriptor
++ *
++ * Unregisters a WiMAX device previously registered for use with
++ * wimax_add_rm().
++ *
++ * IMPORTANT! Must call before calling unregister_netdev().
++ *
++ * After this function returns, you will not get any more user space
++ * control requests (via netlink or debugfs) and thus to wimax_dev->ops.
++ *
++ * Reentrancy control is ensured by setting the state to
++ * %__WIMAX_ST_QUIESCING. rfkill operations coming through
++ * wimax_*rfkill*() will be stopped by the quiescing state; ops coming
++ * from the rfkill subsystem will be stopped by the support being
++ * removed by wimax_rfkill_rm().
++ */
++void wimax_dev_rm(struct wimax_dev *wimax_dev)
++{
++	d_fnstart(3, NULL, "(wimax_dev %p)\n", wimax_dev);
++
++	mutex_lock(&wimax_dev->mutex);
++	__wimax_state_change(wimax_dev, __WIMAX_ST_QUIESCING);
++	wimax_debugfs_rm(wimax_dev);
++	wimax_id_table_rm(wimax_dev);
++	__wimax_state_change(wimax_dev, WIMAX_ST_DOWN);
++	mutex_unlock(&wimax_dev->mutex);
++	wimax_rfkill_rm(wimax_dev);
++	d_fnend(3, NULL, "(wimax_dev %p) = void\n", wimax_dev);
++}
++EXPORT_SYMBOL_GPL(wimax_dev_rm);
++
++struct genl_family wimax_gnl_family = {
++	.id = GENL_ID_GENERATE,
++	.name = "WiMAX",
++	.version = WIMAX_GNL_VERSION,
++	.hdrsize = 0,
++	.maxattr = WIMAX_GNL_ATTR_MAX,
++};
++
++struct genl_multicast_group wimax_gnl_mcg = {
++	.name = "msg",
++};
++
++
++
++/* Shutdown the wimax stack */
++static
++int __init wimax_subsys_init(void)
++{
++	int result, cnt;
++
++	d_fnstart(4, NULL, "()\n");
++	snprintf(wimax_gnl_family.name, sizeof(wimax_gnl_family.name),
++		 "WiMAX");
++	result = genl_register_family(&wimax_gnl_family);
++	if (unlikely(result < 0)) {
++		printk(KERN_ERR "cannot register generic netlink family: %d\n",
++		       result);
++		goto error_register_family;
++	}
++
++	for (cnt = 0; cnt < ARRAY_SIZE(wimax_gnl_ops); cnt++) {
++		result = genl_register_ops(&wimax_gnl_family,
++					   wimax_gnl_ops[cnt]);
++		d_printf(4, NULL, "registering generic netlink op code "
++			 "%u: %d\n", wimax_gnl_ops[cnt]->cmd, result);
++		if (unlikely(result < 0)) {
++			printk(KERN_ERR "cannot register generic netlink op "
++			       "code %u: %d\n",
++			       wimax_gnl_ops[cnt]->cmd, result);
++			goto error_register_ops;
++		}
++	}
++
++	result = genl_register_mc_group(&wimax_gnl_family, &wimax_gnl_mcg);
++	if (result < 0)
++		goto error_mc_group;
++	d_fnend(4, NULL, "() = 0\n");
++	return 0;
++
++error_mc_group:
++error_register_ops:
++	for (cnt--; cnt >= 0; cnt--)
++		genl_unregister_ops(&wimax_gnl_family,
++				    wimax_gnl_ops[cnt]);
++	genl_unregister_family(&wimax_gnl_family);
++error_register_family:
++	d_fnend(4, NULL, "() = %d\n", result);
++	return result;
++
++}
++module_init(wimax_subsys_init);
++
++
++/* Shutdown the wimax stack */
++static
++void __exit wimax_subsys_exit(void)
++{
++	int cnt;
++	wimax_id_table_release();
++	genl_unregister_mc_group(&wimax_gnl_family, &wimax_gnl_mcg);
++	for (cnt = ARRAY_SIZE(wimax_gnl_ops) - 1; cnt >= 0; cnt--)
++		genl_unregister_ops(&wimax_gnl_family,
++				    wimax_gnl_ops[cnt]);
++	genl_unregister_family(&wimax_gnl_family);
++}
++module_exit(wimax_subsys_exit);
++
++MODULE_AUTHOR("Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>");
++MODULE_DESCRIPTION("Linux WiMAX stack");
++MODULE_LICENSE("GPL");
++
 -- 
 1.5.6.5
