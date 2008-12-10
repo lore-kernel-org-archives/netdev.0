@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 27/29] i2400m: Makefile and Kconfig
-Date: Wed, 10 Dec 2008 15:13:08 -0800
-Message-ID: <f60932df7028afe6f349c8c9796183ea3c72dbb1.1228948073.git.inaky@linux.intel.com>
+Subject: [PATCH 01/29] wimax: documentation for the stack
+Date: Wed, 10 Dec 2008 15:12:42 -0800
+Message-ID: <4c902a80b2c90e4a0caa6a1712453bf11dfef1ba.1228948072.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,164 +18,98 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Integrate the i2400m driver into the kernel's build and Kconfig.
-
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/Kconfig               |    2 +
- drivers/net/Makefile              |    1 +
- drivers/net/wimax/Kconfig         |   17 +++++++++++++
- drivers/net/wimax/Makefile        |    2 +
- drivers/net/wimax/i2400m/Kconfig  |   49 +++++++++++++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/Makefile |   29 ++++++++++++++++++++++
- 6 files changed, 100 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/Kconfig
- create mode 100644 drivers/net/wimax/Makefile
- create mode 100644 drivers/net/wimax/i2400m/Kconfig
- create mode 100644 drivers/net/wimax/i2400m/Makefile
+ Documentation/wimax/README.wimax |   81 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 81 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/wimax/README.wimax
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 231eeaf..6255b79 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2585,6 +2585,8 @@ source "drivers/net/tokenring/Kconfig"
- 
- source "drivers/net/wireless/Kconfig"
- 
-+source "drivers/net/wimax/Kconfig"
-+
- source "drivers/net/usb/Kconfig"
- 
- source "drivers/net/pcmcia/Kconfig"
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index f19acf8..3ac378f 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -262,3 +262,4 @@ obj-$(CONFIG_NIU) += niu.o
- obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_SFC) += sfc/
- 
-+obj-y += wimax/
-diff --git a/drivers/net/wimax/Kconfig b/drivers/net/wimax/Kconfig
+diff --git a/Documentation/wimax/README.wimax b/Documentation/wimax/README.wimax
 new file mode 100644
-index 0000000..30347e4
+index 0000000..b78c437
 --- /dev/null
-+++ b/drivers/net/wimax/Kconfig
-@@ -0,0 +1,17 @@
-+#
-+# WiMAX LAN device drivers configuration
-+#
++++ b/Documentation/wimax/README.wimax
+@@ -0,0 +1,81 @@
 +
++   Linux kernel WiMAX stack
 +
-+comment "Enable WiMAX (Networking options) to see the WiMAX drivers"
-+        depends on WIMAX = n
++   (C) 2008 Intel Corporation < linux-wimax@intel.com >
 +
-+if WIMAX
++   This provides a basic Linux kernel WiMAX stack to provide a common
++   control API for WiMAX devices, usable from kernel and user space.
 +
-+menu "WiMAX Wireless Broadband devices"
++1. Design
 +
-+source "drivers/net/wimax/i2400m/Kconfig"
++   The WiMAX stack is designed to provide for common WiMAX control
++   services to current and future WiMAX devices from any vendor.
 +
-+endmenu
++   Because currently there is only one and we don't know what would be the
++   common services, the APIs it currently provides are very minimal.
++   However, it is done in such a way that it is easily extensible to
++   accommodate future requirements.
 +
-+endif
-diff --git a/drivers/net/wimax/Makefile b/drivers/net/wimax/Makefile
-new file mode 100644
-index 0000000..bda9430
---- /dev/null
-+++ b/drivers/net/wimax/Makefile
-@@ -0,0 +1,2 @@
++   The stack works by embedding a struct wimax_dev in your device's
++   control structures. This provides a set of callbacks that the WiMAX
++   stack will call in order to implement control operations requested by
++   the user. As well, the stack provides API functions that the driver
++   calls to notify about changes of state in the device.
 +
-+obj-$(CONFIG_WIMAX_I2400M)	+= i2400m/
-diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
-new file mode 100644
-index 0000000..e977c46
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/Kconfig
-@@ -0,0 +1,49 @@
++   The stack exports the API calls needed to control the device to user
++   space using generic netlink as a marshalling mechanism. You can access
++   them using your own code or use the wrappers provided for your
++   convenience in libwimax (in the wimax-tools package).
 +
-+config WIMAX_I2400M
-+        tristate
-+	depends on WIMAX
-+        select FW_LOADER
++   For detailed information on the stack, please see
++   include/linux/wimax.h.
 +
-+comment "Enable USB support to see WiMAX USB drivers"
-+        depends on USB = n
++2. Usage
 +
-+comment "Enable MMC support to see WiMAX SDIO drivers"
-+        depends on MMC = n
++   For usage in a driver (registration, API, etc) please refer to the
++   instructions in the header file include/linux/wimax.h.
 +
-+config WIMAX_I2400M_USB
-+	tristate "Intel Wireless WiMAX Connection 2400 over USB (including 5x50)"
-+	depends on WIMAX && USB
-+        select WIMAX_I2400M
-+	help
-+	  Select if you have a device based on the Intel WiMAX
-+	  Connection 2400 over USB (like any of the Intel Wireless
-+	  WiMAX/WiFi Link 5x50 series).
++   When a device is registered with the WiMAX stack, a set of debugfs
++   files will appear in /sys/kernel/debug/wimax:wmxX can tweak for
++   control.
 +
-+          If unsure, it is safe to select M (module).
++2.1. Obtaining debug information: debugfs entries
 +
-+config WIMAX_I2400M_SDIO
-+	tristate "Intel Wireless WiMAX Connection 2400 over SDIO"
-+	depends on WIMAX && MMC
-+        select WIMAX_I2400M
-+	help
-+	  Select if you have a device based on the Intel WiMAX
-+          Connection 2400 over SDIO.
++   The WiMAX stack is compiled, by default, with debug messages that can
++   be used to diagnose issues. By default, said messages are disabled.
 +
-+          If unsure, it is safe to select M (module).
++   The drivers will register debugfs entries that allow the user to tweak
++   debug settings.
 +
-+config WIMAX_I2400M_DEBUG_LEVEL
-+       int "WiMAX i2400m debug level"
-+       depends on WIMAX_I2400M
-+       default 8
-+       help
++   Each driver, when registering with the stack, will cause a debugfs
++   directory named wimax:DEVICENAME to be created; optionally, it might
++   create more subentries below it.
 +
-+         Select the maximum debug verbosity level to be compiled into
-+         the WiMAX i2400m driver code.
++2.1.1. Increasing debug output
 +
-+         By default, this is disabled at runtime and can be
-+         selectively enabled at runtime for different parts of the
-+         code using the sysfs debug-levels file.
++   The files named *dl_* indicate knobs for controlling the debug output
++   of different submodules of the WiMAX stack:
++     *
++# find /sys/kernel/debug/wimax\:wmx0 -name \*dl_\*
++/sys/kernel/debug/wimax:wmx0/wimax_dl_stack
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_rfkill
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_reset
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_msg
++/sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
++/sys/kernel/debug/wimax:wmx0/wimax_dl_debugfs
++/sys/kernel/debug/wimax:wmx0/.... # other driver specific files
 +
-+         If set at zero, this will compile out all the debug code.
++       NOTE: Of course, if debugfs is mounted in a directory other than
++       /sys/kernel/debug, those paths will change.
 +
-+         It is recommended that it is left at 8.
-diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
-new file mode 100644
-index 0000000..2e8c15b
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/Makefile
-@@ -0,0 +1,29 @@
++   By reading the file you can obtain the current value of said debug
++   level; by writing to it, you can set it.
 +
-+obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
-+obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
-+obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
++   To increase the debug level of, for example, the id-table submodule,
++   just write:
 +
-+i2400m-objs :=		\
-+	control.o	\
-+	driver.o	\
-+	fw.o		\
-+	op-rfkill.o	\
-+	netdev.o	\
-+	tx.o		\
-+	rx.o
++$ echo 3 > /sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
 +
-+i2400m-$(CONFIG_DEBUG_FS) += debugfs.o
-+
-+i2400m-usb-objs :=		\
-+	usb-fw.o		\
-+	usb-notif.o		\
-+	usb-tx.o		\
-+	usb-rx.o		\
-+	usb.o
-+
-+
-+i2400m-sdio-objs := 		\
-+	sdio.o      		\
-+	sdio-tx.o   		\
-+	sdio-fw.o	 	\
-+	sdio-rx.o
++   Increasing numbers yield increasing debug information; for details of
++   what is printed and the available levels, check the source. The code
++   uses 0 for disabled and increasing values until 8.
 -- 
 1.5.6.5
