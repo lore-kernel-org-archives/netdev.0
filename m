@@ -1,55 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
- entry
-Date: Tue, 09 Dec 2008 23:22:45 -0800 (PST)
-Message-ID: <20081209.232245.145580375.davem@davemloft.net>
-References: <20081209210644.GC3785@hmsreliant.think-freely.org>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: IPv6 multicast bind(), esp. v4-mapped addresses
+Date: Wed, 10 Dec 2008 09:22:55 +0200 (EET)
+Message-ID: <alpine.LRH.2.00.0812100921290.12460@netcore.fi>
+References: <alpine.LRH.2.00.0812050820380.28482@netcore.fi> <20081205.161117.109565135.yoshfuji@linux-ipv6.org> <alpine.LRH.2.00.0812050928340.28482@netcore.fi> <20081205.000322.147998414.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55333
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753607AbYLJHWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 02:22:44 -0500
-In-Reply-To: <20081209210644.GC3785@hmsreliant.think-freely.org>
+Received: from netcore.fi ([193.94.160.1]:60384 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754531AbYLJHXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Dec 2008 02:23:12 -0500
+In-Reply-To: <20081205.000322.147998414.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 9 Dec 2008 16:06:44 -0500
+On Fri, 5 Dec 2008, David Miller wrote:
+> From what I've read, ipv4 mapped addresses are full of all kinds of
+> tricky cases and issues.  And, given that, using ipv4 mapped address
+> for ipv4 multicast is just asking for trouble in my opinion.
 
-> Hey all-
-> 	A few months back a race was discused between the netpoll napi service
-> path, and the fast path through net_rx_action:
-> http://kerneltrap.org/mailarchive/linux-netdev/2007/10/16/345470
-> 
-> A patch was submitted for that bug, but I think we missed a case.
-> 
-> Consider the following scenario:
-> 
-> INITIAL STATE
-> CPU0 has one napi_struct A on its poll_list
-> CPU1 is calling netpoll_send_skb and needs to call poll_napi on the same
-> napi_struct A that CPU0 has on its list
-> 
-> 
-> 
-> CPU0						CPU1
-> net_rx_action					poll_napi
-> !list_empty (returns true)			locks poll_lock for A
-> 						 poll_one_napi
-> 						  napi->poll
-> 						   netif_rx_complete
-> 						    __napi_complete
-> 						    (removes A from poll_list)
-> list_entry(list->next)
-> 
- ...
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+FWIW, I've communicated this issue to Java developers.  Let's hope 
+they'll enhance their Java shim layer to avoid mapped addresses some 
+time in the future:
 
-Looks good, applied.
+http://mail.openjdk.java.net/pipermail/net-dev/2008-December/000494.html
 
-Thanks Neil!
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
