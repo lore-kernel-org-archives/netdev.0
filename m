@@ -1,57 +1,42 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [PATCH] virtio_net: add link status handling
-Date: Tue, 09 Dec 2008 21:11:39 -0600
-Message-ID: <493F336B.5010402@codemonkey.ws>
-References: <1228817973.26198.1.camel@blaa> <493EE3DE.7080702@codemonkey.ws> <200812101023.42365.rusty@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 3/3]ipv6:fix the outgoing interface selection
+ order in udpv6_sendmsg()
+Date: Tue, 09 Dec 2008 22:16:11 -0800 (PST)
+Message-ID: <20081209.221611.26561529.davem@davemloft.net>
+References: <493E1A7B.9070208@cn.fujitsu.com>
+	<200812090932.56865.remi.denis-courmont@nokia.com>
+	<493F106C.8030803@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
+To: yanghy@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:11441 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753596AbYLJDLo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Dec 2008 22:11:44 -0500
-Received: by an-out-0708.google.com with SMTP id d40so144057and.1
-        for <netdev@vger.kernel.org>; Tue, 09 Dec 2008 19:11:43 -0800 (PST)
-In-Reply-To: <200812101023.42365.rusty@rustcorp.com.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58571
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750736AbYLJGQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 01:16:11 -0500
+In-Reply-To: <493F106C.8030803@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell wrote:
-> On Wednesday 10 December 2008 08:02:14 Anthony Liguori wrote:
->   
->> Mark McLoughlin wrote:
->>     
->>> Allow the host to inform us that the link is down by adding
->>> a VIRTIO_NET_F_STATUS which indicates that device status is
->>> available in virtio_net config.
->>>
->>> This is currently useful for simulating link down conditions
->>> (e.g. using proposed qemu 'set_link' monitor command) but
->>> would also be needed if we were to support device assignment
->>> via virtio.
->>>       
->> It would be nice if the virtio-net card wrote some acknowledgement that 
->> it has received the link status down/up events.
->>     
->
-> How about of every status change event? ie. a generic virtio_pci solution?
->   
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Date: Wed, 10 Dec 2008 08:42:20 +0800
 
-A really simple way to do it would just be to have another status field 
-that was the guest's status (verses the host requested status which the 
-current field is).  All config reads/writes result in exits so it's easy 
-to track.
+> If outgoing interface is set with SO_BINDTODEVICE and also sticky pktinfo
+> the outgoing interface is exactly what SO_BINDTODEVICE set,because in my
+> first patch,when set sticy pktinfo,outgoing interface set by SO_BINDTODEVICE
+> is checked:
+> 
+> +		if(sk->sk_bound_dev_if && pkt.ipi6_ifindex != sk->sk_bound_dev_if)
+> +			goto e_inval;
+> 
 
-Adding YA virtio event may be a little overkill.
+You may be checking this, but these two values can become out of sync
+if the application next makes a SO_BINDTODEVICE setsockopt() call to
+change the index setting.
 
-Regards,
-
-Anthony Liguori
-
-> Rusty.
->   
-
+Nothing makes sure the sticky ipv6 socket information is updated
+if that happens.  And the most obvious ways to handle that are
+very ugly, doing some kind of call into ipv6 from the generic
+socket SO_BINDTODEVICE setsockopt() handler.
