@@ -1,417 +1,580 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 00/29] merge request for WiMAX kernel stack and i2400m driver v4
-Date: Wed, 10 Dec 2008 15:12:41 -0800
-Message-ID: <cover.1228948072.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org, greg@kroah.com
+Subject: [PATCH 14/29] i2400m: linkage to the networking stack
+Date: Wed, 10 Dec 2008 15:12:55 -0800
+Message-ID: <593619faa28282adb61d685886c5bbbc8153af19.1228948072.git.inaky@linux.intel.com>
+References: <cover.1228948072.git.inaky@linux.intel.com>
+Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24864 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752386AbYLJXNL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Dec 2008 18:13:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
-Hi All
-
-This patchset (or the linux-wimax GIT tree at git.kernel.org) merges
-the WiMAX subsystem and driver for the Intel 2400m Wireless WiMAX
-connection to the tree. We'd like to get it in for the 2.6.29 merge
-window. 
-
-[read on for changelog since previous submit]
-
-[Note linux-wimax will have netdev as upstream, but there is a
- dependency for patches in gregkh's patches tree that forbid
- submitting against netdev for now -- so the base for this is said
- tree as of 11/19. See *2]
-
-WiMAX is a new wireless boadband technology that differs significantly
-from WiFi. It is also called 4G and resembles more the model of
-cellular phones, where you sign up for service with a provider.
-
-Your WiMAX card connects to a basestation, which is operated by a
-certain Network Access Provider (NAP). The NAP leases (or might be the
-same) connectivity to a Network Service Provider (NSP), which is your
-ISP.
-
-When you move around, your connectivity will be handed over from
-basestation to basestation in a seamless way. As in cellphones, there
-is the roaming case, where you could be are connecting to your service
-plan through other provider.
-
-WiMAX's main components have been standarized (some parts still in the
-process) as in a set of 802.16 standards. The WiMAX Forum's members
-drive the development of WiMAX features that end up in 802.16.
-
-This code is broken up in a WiMAX subsystem and a driver for the Intel
-2400m Wireless WiMAX Link. To be able to fully utilize WiMAX services,
-you need extra pieces of device-specific user space software; for now,
-there is a C level API (the Common API) to use/control it, but a high
-level API over DBUS that should work for any device is in the
-works. See details further below.
-
-Support for other vendor's hardware would require a driver registering
-with the WiMAX stack and a user space component implementing the high
-level API.
-
-Changes in v5:
-
- - (Johannes Berg, Thomas Graf) Move away from using a generic netlink
-   family per interface; address interfaces using an interface index
-   attribute.
-
-Changes in v4:
-
- - (David Miller) Fix patch dependencies and compact them to reduce
-   the patchset size.
-
-Changes in v3:
-
- - Implement feedback from the mailing list for the merge request
-   (from Johaness, Thomas, Patrick and Evgeniy)
-
- - Moved all the sysfs controls and knobs to be debugfs based.
-
- - Remove kernel/user op-open and instead use the generic netlink
-   controller.
-
- - Many improvements and optimizations on the usage of generic
-   netlink.
-
- - Use generic netlink facilities for permission checking.
- 
- - Properly use the netlink ack/nlerr instead of relying on home-grown
-   system. 
-
- - Fix a deadlock in wimax_reset().
-
- - When i2400m reset completes ok, mark the device as active again
-   (or the device gets confused).
-
- - Relicense linux/wimax.h as BSD (mistakenly didn't)
-
- - Add rationales on design and clarifications/fixes in the
-   documentation.
-
-Changes in v2:
-
- - (Stephen Hemminger) don't use bitfields in struct wimax_dev 
-
- - (Stephen Hemminger) don't use the interface name for the generic
-   netlink family, as it might change on if rename. Change to use the
-   interface index.
-
- - (David Miller) move the WiMAX stack to net/wimax
-
- - misc checkpatch fixes, kconfig cleanups. 
-
- - use DEFINE_SPINLOCK
-
-
-Details follow:
-
-* The WiMAX kernel stack
-
-The (kernel) WiMAX stack is (as of now) very basic; it conforms a
-"control plane", in a similar fashion to cfg80211. 
-
-We still don't know what's going to be a good abstraction layer
-because so far, we have only see one WiMAX device for which we could
-implement support. 
-
-So the current abstraction layer provides a low-level WiMAX API with
-means for resetting, monitoring state changes, controlling rfkill and
-sending messages to the driver (in a driver specific format) back and
-forth (more on this below). The documentation in include/net/wimax.h
-provides more information.
-
-The functional API provided by the kernel stack is exported to user
-space via generic netlink. For convenience, libwimaxll, a shim library
-is provided in the user space package wimax-tools, but direct access
-and parsing of the generic protocol is possible. All the bits and
-pieces needed to operate from user space are declared in
-include/linux/wimax.h, which is marked for system-wide installation
-with headers_install.
-
-Implementation of drivers for other hardware using this model should
-be more or less straightforward.
-
-* The i2400m driver
-
-The driver for the 2400m sits below the stack, providing the back end
-operations to drive control (reset, rfkill, message passing) and
-feeding it state change information. On the other side, the 2400m
-driver connects to netdev, where it emulates an ethernet device (*1).
-
-The driver itself is broken in two main parts: bus-generic and
-bus-specific. The bus-generic (driver) speaks the device protocol and
-uses hooks provided by the bus-specific driver to talk to the device
-via whichever bus it happens to be connected through.
-
-More information about the driver can be found in
-drivers/net/wimax/i2400m/i2400m.h.
-
-
-* The high level WiMAX API (user space)
-
-This part is not implemented by the code in these patches, but
-available for download at http://linuxwimax.org/Download (use release
-1.3 components); that implementation is specific to the Intel
-2400. Other vendor's might be similar or very different.
-
-The "high level part" (scanning, connecting, disconnecting) in WiMAX
-is quite more complex than in other technologies such as WiFi. In
-general, a high level API is provided to allow for:
-
- - scanning for networks
- - connecting and disconnecting
- - controlling the radio (turn on / off)
- - other operations
-
-This high level API is called the Common API and is being defined by a
-set of participants in the WiMAX industry. It is a cross platform API,
-meant to be vendor neutral; as such, it is very alien to Linux's
-system level APIs and we are planning moving the API to D-BUS and
-making it look "more native", but without loosing its spirit.
-
-The implementation of this API aims to hide the user (connection
-managers, to be more exact) from the common complexities of
-WiMAX. Each vendor would implement what ever they need in user space
-to expose said API (could be just a passthrough if the implementation
-is in the driver or in the device).
-
-Most of these complexities are related to scanning. Scanning in WiMAX
-is expensive (power consumption wise and time wise), so it has to be
-done carefully, and each device will have it's most optimal way to do
-it.
-
-Most (all?) WiMAX operators run on regulated channels. To connect to
-an operator, you need to know the channels where to look and scan in
-there for base stations; when found, you need to know which NAPs
-(Network Access Providers, the infrastructure owner) they provide and
-then the NAPs you find have to be mapped to NSPs (Network Service
-Providers, the ISP).
-
-Even if you did a scan on all the channels available in a country (for
-example, the US channel plan) and found different base stations, all
-that information is still not discoverable from them (the 802.16g
-upcoming standard aims to fix that).
-
-So a database that helps mapping all this information (base station
-IDs vs NAPs vs NSPs) is needed; we call that the "provisioning"
-information, and getting that information is not trivial. The
-operators, as of now, provide it to you over the OMA-DM protocol--that
-requires an OMA-DM client daemon running in your machine. Another way
-to provision is manually, getting a provisioning file from either the
-operator or someone that has an OMA-DM client daemon.
-
-The problem is that, as of now, there is still no OMA-DM open source
-client. In http://linuxwimax.org we provide one, but Intel does not
-own it and it cannot be made open source. As we said above, it is
-optional if you go with the manual mode.
-
-
-Once there is a network, you can connect to it. 
-
-For networks that require authentication (most), the Intel device
-requires a supplicant in user space--because of a set of issues we are
-working to resolve, it cannot be made open source yet, but it will. As
-of now, it is provided as a shared library that is loaded dynamically.
-
-When a network is connected, use a DHCP client to obtain an address
-(this is how most WiMAX networks are configured). 
-
-When you connect to a network/provider with whom you don't have a
-service agreement, you will probably redirected to a landing page
-where you will be able to sign up for service (in exchange for your
-credit card number), much similar to some WiFi hotspots. This is known
-as being "activated" for said provider and you only need to do it
-once, as the provider will remember your MAC address.
-
-When you are up and running, your connection will be handed over from
-tower to tower as you move around without requiring a new connection
-sequence or DHCP renegotiation.
-
-Other operations provided by the "Common API" relate to obtain
-provisioning information from the network, contact information for the
-network operator, manipulating roaming modes, etc ...
-
-Caveats:
-
- - the 2400 goes into idle power saving when connected if there is no
-   network activity. It comes out of it automatically when traffic is
-   sent to the network. But sometimes, to come out of it the network
-   requests a DHCP renegotiation; the user space code still has a
-   piece of code missing for doing it, so you need to manually restart
-   your DHCP client.
-
-*1 Previous iterations of the driver provided a Pure IP device,
-   without Ethernet wrapping but we gave up. 
-
-   Most DHCP software in user space and in the network backends assume
-   the world is Ethernet (anything that uses ISC DHCP's client and/or
-   daemon). 
-
-   We ended up registering a PureIP hw type with IANA and creating
-   patches to support it to the ISC DHCP suite (at
-   http://linuxwimax.org/Download) and modifying dhclient, server, and
-   friends so the hardware type PureIP was recognized and thus, when
-   the DHCP client sent a request, it was with hwtype ==
-   purerip. 
-
-   However, on the server end (they shall remain nameless), many
-   configurations are set to take only Ethernet hwtypes and when asked
-   to take the server patches for pureip, they cringed.
-
-   It's kind of understandable -- so we assume it'll take time for
-   those patches to trickle into deployment and just moved to behave
-   like Ethernet. The easy path.
-
-*2 To build in other trees, you will need the following patches
-   against the USB stack.
-
-   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-change-interface-to-usb_lock_device_for_reset.patch
-   http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/usb/usb-introduce-usb_queue_reset-to-do-resets-from-atomic-contexts-v7.patch
-
-   2.6.28-rc5 has been tested.
-
-   Or clone
-   git.kernel.org/pub/scm/linux/kernel/inaky/git/linux-wimax.git; note
-   that tree will be rebased when the code is accepted into mailine.
-
-Inaky Perez-Gonzalez (29):
-  wimax: documentation for the stack
-  wimax: headers for kernel API and user space interaction
-  wimax: internal API for the kernel space WiMAX stack
-  wimax: debug macros and debug settings for the WiMAX stack
-  wimax: generic device management (registration, deregistration,
-    lookup)
-  genetlink: export genl_unregister_mc_group()
-  wimax: basic API: kernel/user messaging, rfkill and reset
-  debugfs: add helpers for exporting a size_t simple value
-  wimax: debugfs controls
-  wimax: Makefile, Kconfig and docbook linkage for the stack
-  i2400m: documentation and instructions for usage
-  i2400m: host/device procotol and core driver definitions
-  i2400m: Generic probe/disconnect, reset and message passing
-  i2400m: linkage to the networking stack
-  i2400m: firmware loading and bootrom initialization
-  i2400m: RX and TX data/control paths
-  i2400m: various functions for device management
-  i2400m: debugfs controls
-  i2400m/USB: header for the USB bus driver
-  i2400m/USB: probe/disconnect, dev init/shutdown and reset backends
-  i2400m/USB: firmware upload backend
-  i2400m/USB: TX and RX path backends
-  i2400m/SDIO: header for the SDIO subdriver
-  i2400m/SDIO: probe/disconnect, dev init/shutdown and reset backends
-  i2400m/SDIO: firmware upload backend
-  i2400m/SDIO: TX and RX path backends
-  i2400m: Makefile and Kconfig
-  wimax: export linux/wimax.h and linux/wimax/i2400m.h with
-    headers_install
-  wimax/i2400m: add CREDITS and MAINTAINERS entries
-
- CREDITS                                      |   17 +
- Documentation/DocBook/networking.tmpl        |    8 +
- Documentation/wimax/README.i2400m            |  260 ++++++
- Documentation/wimax/README.wimax             |   81 ++
- MAINTAINERS                                  |   16 +
- drivers/net/Kconfig                          |    2 +
- drivers/net/Makefile                         |    1 +
- drivers/net/wimax/Kconfig                    |   17 +
- drivers/net/wimax/Makefile                   |    2 +
- drivers/net/wimax/i2400m/Kconfig             |   49 +
- drivers/net/wimax/i2400m/Makefile            |   29 +
- drivers/net/wimax/i2400m/control.c           | 1291 ++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/debug-levels.h      |   45 +
- drivers/net/wimax/i2400m/debugfs.c           |  385 ++++++++
- drivers/net/wimax/i2400m/driver.c            |  728 +++++++++++++++
- drivers/net/wimax/i2400m/fw.c                | 1095 ++++++++++++++++++++++
- drivers/net/wimax/i2400m/i2400m-sdio.h       |  132 +++
- drivers/net/wimax/i2400m/i2400m-usb.h        |  264 ++++++
- drivers/net/wimax/i2400m/i2400m.h            |  755 +++++++++++++++
- drivers/net/wimax/i2400m/netdev.c            |  524 +++++++++++
- drivers/net/wimax/i2400m/op-rfkill.c         |  207 ++++
- drivers/net/wimax/i2400m/rx.c                |  534 +++++++++++
- drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +
- drivers/net/wimax/i2400m/sdio-fw.c           |  224 +++++
- drivers/net/wimax/i2400m/sdio-rx.c           |  255 +++++
- drivers/net/wimax/i2400m/sdio-tx.c           |  153 +++
- drivers/net/wimax/i2400m/sdio.c              |  511 ++++++++++
- drivers/net/wimax/i2400m/tx.c                |  817 ++++++++++++++++
- drivers/net/wimax/i2400m/usb-debug-levels.h  |   42 +
- drivers/net/wimax/i2400m/usb-fw.c            |  340 +++++++
- drivers/net/wimax/i2400m/usb-notif.c         |  263 ++++++
- drivers/net/wimax/i2400m/usb-rx.c            |  417 +++++++++
- drivers/net/wimax/i2400m/usb-tx.c            |  229 +++++
- drivers/net/wimax/i2400m/usb.c               |  583 ++++++++++++
- fs/debugfs/file.c                            |   32 +
- include/linux/Kbuild                         |    2 +
- include/linux/debugfs.h                      |    2 +
- include/linux/wimax.h                        |  234 +++++
- include/linux/wimax/Kbuild                   |    1 +
- include/linux/wimax/debug.h                  |  453 +++++++++
- include/linux/wimax/i2400m.h                 |  512 ++++++++++
- include/net/wimax.h                          |  520 +++++++++++
- net/Kconfig                                  |    2 +
- net/Makefile                                 |    1 +
- net/netlink/genetlink.c                      |    1 +
- net/wimax/Kconfig                            |   36 +
- net/wimax/Makefile                           |   13 +
- net/wimax/debug-levels.h                     |   42 +
- net/wimax/debugfs.c                          |   90 ++
- net/wimax/id-table.c                         |  142 +++
- net/wimax/op-msg.c                           |  421 +++++++++
- net/wimax/op-reset.c                         |  143 +++
- net/wimax/op-rfkill.c                        |  535 +++++++++++
- net/wimax/stack.c                            |  599 ++++++++++++
- net/wimax/wimax-internal.h                   |   91 ++
- 55 files changed, 14170 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/wimax/README.i2400m
- create mode 100644 Documentation/wimax/README.wimax
- create mode 100644 drivers/net/wimax/Kconfig
- create mode 100644 drivers/net/wimax/Makefile
- create mode 100644 drivers/net/wimax/i2400m/Kconfig
- create mode 100644 drivers/net/wimax/i2400m/Makefile
- create mode 100644 drivers/net/wimax/i2400m/control.c
- create mode 100644 drivers/net/wimax/i2400m/debug-levels.h
- create mode 100644 drivers/net/wimax/i2400m/debugfs.c
- create mode 100644 drivers/net/wimax/i2400m/driver.c
- create mode 100644 drivers/net/wimax/i2400m/fw.c
- create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
- create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
- create mode 100644 drivers/net/wimax/i2400m/i2400m.h
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1228948072.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
+
+Implementation of the glue to the network stack so the WiMAX device
+shows up as an Ethernet device.
+
+Initially we shot for implementing a Pure IP device -- however, the
+world seems to turn around Ethernet devices. Main issues were with the
+ISC DHCP client and servers (as they don't understand types other than
+Ethernet and Token Ring).
+
+We proceeded to register with IANA the PureIP hw type, so that DHCP
+requests could declare such. We also created patches to the main ISC
+DHCP versions to support it. However, until all that permeates into
+deployments, there is going to be a long time.
+
+So we moved back to wrap Ethernet frames around the PureIP device. At
+the time being this has overhead; we need to reallocate with space for
+an Ethernet header. The reason is the device-to-host protocol
+coalesces many network packets into a single message, so we can't
+introduce Ethernet headers without overwriting valid data from other
+packets.
+
+Coming-soon versions of the firmware have this issue solved.
+
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ drivers/net/wimax/i2400m/netdev.c |  524 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 524 insertions(+), 0 deletions(-)
  create mode 100644 drivers/net/wimax/i2400m/netdev.c
- create mode 100644 drivers/net/wimax/i2400m/op-rfkill.c
- create mode 100644 drivers/net/wimax/i2400m/rx.c
- create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
- create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
- create mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
- create mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
- create mode 100644 drivers/net/wimax/i2400m/sdio.c
- create mode 100644 drivers/net/wimax/i2400m/tx.c
- create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
- create mode 100644 drivers/net/wimax/i2400m/usb-fw.c
- create mode 100644 drivers/net/wimax/i2400m/usb-notif.c
- create mode 100644 drivers/net/wimax/i2400m/usb-rx.c
- create mode 100644 drivers/net/wimax/i2400m/usb-tx.c
- create mode 100644 drivers/net/wimax/i2400m/usb.c
- create mode 100644 include/linux/wimax.h
- create mode 100644 include/linux/wimax/Kbuild
- create mode 100644 include/linux/wimax/debug.h
- create mode 100644 include/linux/wimax/i2400m.h
- create mode 100644 include/net/wimax.h
- create mode 100644 net/wimax/Kconfig
- create mode 100644 net/wimax/Makefile
- create mode 100644 net/wimax/debug-levels.h
- create mode 100644 net/wimax/debugfs.c
- create mode 100644 net/wimax/id-table.c
- create mode 100644 net/wimax/op-msg.c
- create mode 100644 net/wimax/op-reset.c
- create mode 100644 net/wimax/op-rfkill.c
- create mode 100644 net/wimax/stack.c
- create mode 100644 net/wimax/wimax-internal.h
 
+diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
+new file mode 100644
+index 0000000..63fe708
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/netdev.c
+@@ -0,0 +1,524 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Glue with the networking stack
++ *
++ *
++ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ *
++ *
++ * This implements an ethernet device for the i2400m.
++ *
++ * We fake being an ethernet device to simplify the support from user
++ * space and from the other side. The world is (sadly) configured to
++ * take in only Ethernet devices...
++ *
++ * Because of this, currently there is an copy-each-rxed-packet
++ * overhead on the RX path. Each IP packet has to be reallocated to
++ * add an ethernet header (as there is no space in what we get from
++ * the device). This is a known drawback and coming versions of the
++ * device's firmware are being changed to add header space that can be
++ * used to insert the ethernet header without having to reallocate and
++ * copy.
++ *
++ * TX error handling is tricky; because we have to FIFO/queue the
++ * buffers for transmission (as the hardware likes it aggregated), we
++ * just give the skb to the TX subsystem and by the time it is
++ * transmitted, we have long forgotten about it. So we just don't care
++ * too much about it.
++ *
++ * Note that when the device is in idle mode with the basestation, we
++ * need to negotiate coming back up online. That involves negotiation
++ * and possible user space interaction. Thus, we defer to a workqueue
++ * to do all that. By default, we only queue a single packet and drop
++ * the rest, as potentially the time to go back from idle to normal is
++ * long.
++ *
++ * ROADMAP
++ *
++ * i2400m_open         Called on ifconfig up
++ * i2400m_stop         Called on ifconfig down
++ *
++ * i2400m_hard_start_xmit Called by the network stack to send a packet
++ *   i2400m_net_wake_tx	  Wake up device from basestation-IDLE & TX
++ *     i2400m_wake_tx_work
++ *       i2400m_cmd_exit_idle
++ *       i2400m_tx
++ *   i2400m_net_tx        TX a data frame
++ *     i2400m_tx
++ *
++ * i2400m_change_mtu      Called on ifconfig mtu XXX
++ *
++ * i2400m_tx_timeout      Called when the device times out
++ *
++ * i2400m_net_rx          Called by the RX code when a data frame is
++ *                        available.
++ * i2400m_netdev_setup    Called to setup all the netdev stuff from
++ *                        alloc_netdev.
++ */
++#include <linux/if_arp.h>
++#include <linux/netdevice.h>
++#include "i2400m.h"
++
++
++#define D_SUBMODULE netdev
++#include "debug-levels.h"
++
++enum {
++/* netdev interface */
++	/*
++	 * Out of NWG spec (R1_v1.2.2), 3.3.3 ASN Bearer Plane MTU Size
++	 *
++	 * The MTU is 1400 or less
++	 */
++	I2400M_MAX_MTU = 1400,
++	I2400M_TX_TIMEOUT = HZ,
++	I2400M_TX_QLEN = 5,
++};
++
++
++static
++int i2400m_open(struct net_device *net_dev)
++{
++	int result;
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(net_dev %p [i2400m %p])\n", net_dev, i2400m);
++	if (i2400m->ready == 0) {
++		dev_err(dev, "Device is still initializing\n");
++		result = -EBUSY;
++	} else
++		result = 0;
++	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = %d\n",
++		net_dev, i2400m, result);
++	return result;
++}
++
++
++/*
++ *
++ * On kernel versions where cancel_work_sync() didn't return anything,
++ * we rely on wake_tx_skb() being non-NULL.
++ */
++static
++int i2400m_stop(struct net_device *net_dev)
++{
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(net_dev %p [i2400m %p])\n", net_dev, i2400m);
++	/* See i2400m_hard_start_xmit(), references are taken there
++	 * and here we release them if the work was still
++	 * pending. Note we can't differentiate work not pending vs
++	 * never scheduled, so the NULL check does that. */
++	if (cancel_work_sync(&i2400m->wake_tx_ws) == 0
++	    && i2400m->wake_tx_skb != NULL) {
++		unsigned long flags;
++		struct sk_buff *wake_tx_skb;
++		spin_lock_irqsave(&i2400m->tx_lock, flags);
++		wake_tx_skb = i2400m->wake_tx_skb;	/* compat help */
++		i2400m->wake_tx_skb = NULL;	/* compat help */
++		spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++		i2400m_put(i2400m);
++		kfree_skb(wake_tx_skb);
++	}
++	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = 0\n", net_dev, i2400m);
++	return 0;
++}
++
++
++/*
++ * Wake up the device and transmit a held SKB, then restart the net queue
++ *
++ * When the device goes into basestation-idle mode, we need to tell it
++ * to exit that mode; it will negotiate with the base station, user
++ * space may have to intervene to rehandshake crypto and then tell us
++ * when it is ready to transmit the packet we have "queued". Still we
++ * need to give it sometime after it reports being ok.
++ *
++ * On error, there is not much we can do. If the error was on TX, we
++ * still wake the queue up to see if the next packet will be luckier.
++ *
++ * If _cmd_exit_idle() fails...well, it could be many things; most
++ * commonly it is that something else took the device out of IDLE mode
++ * (for example, the base station). In that case we get an -EILSEQ and
++ * we are just going to ignore that one. If the device is back to
++ * connected, then fine -- if it is someother state, the packet will
++ * be dropped anyway.
++ */
++void i2400m_wake_tx_work(struct work_struct *ws)
++{
++	int result;
++	struct i2400m *i2400m = container_of(ws, struct i2400m, wake_tx_ws);
++	struct device *dev = i2400m_dev(i2400m);
++	struct sk_buff *skb = i2400m->wake_tx_skb;
++	unsigned long flags;
++
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++	skb = i2400m->wake_tx_skb;
++	i2400m->wake_tx_skb = NULL;
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++
++	d_fnstart(3, dev, "(ws %p i2400m %p skb %p)\n", ws, i2400m, skb);
++	result = -EINVAL;
++	if (skb == NULL) {
++		dev_err(dev, "WAKE&TX: skb dissapeared!\n");
++		goto out_put;
++	}
++	result = i2400m_cmd_exit_idle(i2400m);
++	if (result == -EILSEQ)
++		result = 0;
++	if (result < 0) {
++		dev_err(dev, "WAKE&TX: device didn't get out of idle: "
++			"%d\n", result);
++			goto error;
++	}
++	result = wait_event_timeout(i2400m->state_wq,
++				    i2400m->state != I2400M_SS_IDLE, 5 * HZ);
++	if (result == 0)
++		result = -ETIMEDOUT;
++	if (result < 0) {
++		dev_err(dev, "WAKE&TX: error waiting for device to exit IDLE: "
++			"%d\n", result);
++		goto error;
++	}
++	msleep(20);	/* device still needs some time or it drops it */
++	result = i2400m_tx(i2400m, skb->data, skb->len, I2400M_PT_DATA);
++	netif_wake_queue(i2400m->wimax_dev.net_dev);
++error:
++	kfree_skb(skb);	/* refcount transferred by _hard_start_xmit() */
++out_put:
++	i2400m_put(i2400m);
++	d_fnend(3, dev, "(ws %p i2400m %p skb %p) = void [%d]\n",
++		ws, i2400m, skb, result);
++}
++
++
++/*
++ * Prepare the data payload TX header
++ *
++ * The i2400m expects a 4 byte header in front of a data packet.
++ *
++ * Because we pretend to be an ethernet device, this packet comes with
++ * an ethernet header. Pull it and push our header.
++ */
++static
++void i2400m_tx_prep_header(struct sk_buff *skb)
++{
++	struct i2400m_pl_data_hdr *pl_hdr;
++	skb_pull(skb, ETH_HLEN);
++	pl_hdr = (struct i2400m_pl_data_hdr *) skb_push(skb, sizeof(*pl_hdr));
++	pl_hdr->reserved = 0;
++}
++
++
++/*
++ * TX an skb to an idle device
++ *
++ * When the device is in basestation-idle mode, we need to wake it up
++ * and then TX. So we queue a work_struct for doing so.
++ *
++ * We need to get an extra ref for the skb (so it is not dropped), as
++ * well as be careful not to queue more than one request (won't help
++ * at all). If more than one request comes or there are errors, we
++ * just drop the packets (see i2400m_hard_start_xmit()).
++ */
++static
++int i2400m_net_wake_tx(struct i2400m *i2400m, struct net_device *net_dev,
++		       struct sk_buff *skb)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++	unsigned long flags;
++
++	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
++	if (net_ratelimit()) {
++		d_printf(3, dev, "WAKE&NETTX: "
++			 "skb %p sending %d bytes to radio\n",
++			 skb, skb->len);
++		d_dump(4, dev, skb->data, skb->len);
++	}
++	/* We hold a ref count for i2400m and skb, so when
++	 * stopping() the device, we need to cancel that work
++	 * and if pending, release those resources. */
++	result = 0;
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++	if (!work_pending(&i2400m->wake_tx_ws)) {
++		netif_stop_queue(net_dev);
++		i2400m_get(i2400m);
++		i2400m->wake_tx_skb = skb_get(skb);	/* transfer ref count */
++		i2400m_tx_prep_header(skb);
++		result = schedule_work(&i2400m->wake_tx_ws);
++		WARN_ON(result == 0);
++	}
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	if (result == 0) {
++		/* Yes, this happens even if we stopped the
++		 * queue -- blame the queue disciplines that
++		 * queue without looking -- I guess there is a reason
++		 * for that. */
++		if (net_ratelimit())
++			d_printf(1, dev, "NETTX: device exiting idle, "
++				 "dropping skb %p, queue running %d\n",
++				 skb, netif_queue_stopped(net_dev));
++		result = -EBUSY;
++	}
++	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
++	return result;
++}
++
++
++/*
++ * Transmit a packet to the base station on behalf of the network stack.
++ *
++ * Returns: 0 if ok, < 0 errno code on error.
++ *
++ * We need to pull the ethernet header and add the hardware header,
++ * which is currently set to all zeroes and reserved.
++ */
++static
++int i2400m_net_tx(struct i2400m *i2400m, struct net_device *net_dev,
++		  struct sk_buff *skb)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(i2400m %p net_dev %p skb %p)\n",
++		  i2400m, net_dev, skb);
++	/* FIXME: check eth hdr, only IPv4 is routed by the device as of now */
++	net_dev->trans_start = jiffies;
++	i2400m_tx_prep_header(skb);
++	d_printf(3, dev, "NETTX: skb %p sending %d bytes to radio\n",
++		 skb, skb->len);
++	d_dump(4, dev, skb->data, skb->len);
++	result = i2400m_tx(i2400m, skb->data, skb->len, I2400M_PT_DATA);
++	d_fnend(3, dev, "(i2400m %p net_dev %p skb %p) = %d\n",
++		i2400m, net_dev, skb, result);
++	return result;
++}
++
++
++/*
++ * Transmit a packet to the base station on behalf of the network stack
++ *
++ *
++ * Returns: NETDEV_TX_OK (always, even in case of error)
++ *
++ * In case of error, we just drop it. Reasons:
++ *
++ *  - we add a hw header to each skb, and if the network stack
++ *    retries, we have no way to know if that skb has it or not.
++ *
++ *  - network protocols have their own drop-recovery mechanisms
++ *
++ *  - there is not much else we can do
++ *
++ * If the device is idle, we need to wake it up; that is an operation
++ * that will sleep. See i2400m_net_wake_tx() for details.
++ */
++static
++int i2400m_hard_start_xmit(struct sk_buff *skb,
++			   struct net_device *net_dev)
++{
++	int result;
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
++	if (i2400m->state == I2400M_SS_IDLE)
++		result = i2400m_net_wake_tx(i2400m, net_dev, skb);
++	else
++		result = i2400m_net_tx(i2400m, net_dev, skb);
++	if (result <  0)
++		net_dev->stats.tx_dropped++;
++	else {
++		net_dev->stats.tx_packets++;
++		net_dev->stats.tx_bytes += skb->len;
++	}
++	kfree_skb(skb);
++	result = NETDEV_TX_OK;
++	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
++	return result;
++}
++
++
++static
++int i2400m_change_mtu(struct net_device *net_dev, int new_mtu)
++{
++	int result;
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
++
++	if (new_mtu >= I2400M_MAX_MTU) {
++		dev_err(dev, "Cannot change MTU to %d (max is %d)\n",
++			new_mtu, I2400M_MAX_MTU);
++		result = -EINVAL;
++	} else {
++		net_dev->mtu = new_mtu;
++		result = 0;
++	}
++	return result;
++}
++
++
++static
++void i2400m_tx_timeout(struct net_device *net_dev)
++{
++	/*
++	 * We might want to kick the device
++	 *
++	 * There is not much we can do though, as the device requires
++	 * that we send the data aggregated. By the time we receive
++	 * this, there might be data pending to be sent or not...
++	 */
++	net_dev->stats.tx_errors++;
++	return;
++}
++
++
++/*
++ * Create a fake ethernet header
++ *
++ * For emulating an ethernet device, every received IP header has to
++ * be prefixed with an ethernet header.
++ *
++ * What we receive has (potentially) many IP packets concatenated with
++ * no ETH_HLEN bytes prefixed. Thus there is no space for an eth
++ * header.
++ *
++ * We would have to reallocate or do ugly fragment tricks in order to
++ * add it.
++ *
++ * But what we do is use the header space of the RX transaction
++ * (*msg_hdr) as we don't need it anymore; then we'll point all the
++ * data skbs there, as they share the same backing store.
++ *
++ * We only support IPv4 for v3 firmware.
++ */
++static
++void i2400m_rx_fake_eth_header(struct net_device *net_dev,
++			       void *_eth_hdr)
++{
++	struct ethhdr *eth_hdr = _eth_hdr;
++
++	memcpy(eth_hdr->h_dest, net_dev->dev_addr, sizeof(eth_hdr->h_dest));
++	memset(eth_hdr->h_source, 0, sizeof(eth_hdr->h_dest));
++	eth_hdr->h_proto = __constant_cpu_to_be16(ETH_P_IP);
++}
++
++
++/*
++ * i2400m_net_rx - pass a network packet to the stack
++ *
++ * @i2400m: device instance
++ * @skb_rx: the skb where the buffer pointed to by @buf is
++ * @i: 1 if payload is the only one
++ * @buf: pointer to the buffer containing the data
++ * @len: buffer's length
++ *
++ * We just clone the skb and set it up so that it's skb->data pointer
++ * points to "buf" and it's length.
++ *
++ * Note that if the payload is the last (or the only one) in a
++ * multi-payload message, we don't clone the SKB but just reuse it.
++ *
++ * This function is normally run from a thread context. However, we
++ * still use netif_rx() instead of netif_receive_skb() as was
++ * recommended in the mailing list. Reason is in some stress tests
++ * when sending/receiving a lot of data we seem to hit a softlock in
++ * the kernel's TCP implementation [aroudn tcp_delay_timer()]. Using
++ * netif_rx() took care of the issue.
++ *
++ * This is, of course, still open to do more research on why running
++ * with netif_receive_skb() hits this softlock. FIXME.
++ *
++ * FIXME: currently we don't do any efforts at distinguishing if what
++ * we got was an IPv4 or IPv6 header, to setup the protocol field
++ * correctly.
++ */
++void i2400m_net_rx(struct i2400m *i2400m, struct sk_buff *skb_rx,
++		   unsigned i, const void *buf, int buf_len)
++{
++	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++	struct device *dev = i2400m_dev(i2400m);
++	struct sk_buff *skb;
++
++	d_fnstart(2, dev, "(i2400m %p buf %p buf_len %d)\n",
++		  i2400m, buf, buf_len);
++	if (i) {
++		skb = skb_get(skb_rx);
++		d_printf(2, dev, "RX: reusing first payload skb %p\n", skb);
++		skb_pull(skb, buf - (void *) skb->data);
++		skb_trim(skb, (void *) skb_end_pointer(skb) - buf);
++	} else {
++		/* Yes, this is bad -- a lot of overhead -- see
++		 * comments at the top of the file */
++		skb = __netdev_alloc_skb(net_dev, buf_len, GFP_KERNEL);
++		if (skb == NULL) {
++			dev_err(dev, "NETRX: no memory to realloc skb\n");
++			net_dev->stats.rx_dropped++;
++			goto error_skb_realloc;
++		}
++		memcpy(skb_put(skb, buf_len), buf, buf_len);
++	}
++	i2400m_rx_fake_eth_header(i2400m->wimax_dev.net_dev,
++				  skb->data - ETH_HLEN);
++	skb_set_mac_header(skb, -ETH_HLEN);
++	skb->dev = i2400m->wimax_dev.net_dev;
++	skb->protocol = htons(ETH_P_IP);
++	net_dev->stats.rx_packets++;
++	net_dev->stats.rx_bytes += buf_len;
++	d_printf(3, dev, "NETRX: receiving %d bytes to network stack\n",
++		buf_len);
++	d_dump(4, dev, buf, buf_len);
++	netif_rx_ni(skb);	/* see notes in function header */
++error_skb_realloc:
++	d_fnend(2, dev, "(i2400m %p buf %p buf_len %d) = void\n",
++		i2400m, buf, buf_len);
++}
++
++
++/**
++ * i2400m_netdev_setup - Setup setup @net_dev's i2400m private data
++ *
++ * Called by alloc_netdev()
++ */
++void i2400m_netdev_setup(struct net_device *net_dev)
++{
++	d_fnstart(3, NULL, "(net_dev %p)\n", net_dev);
++	ether_setup(net_dev);
++	net_dev->mtu = I2400M_MAX_MTU;
++	net_dev->tx_queue_len = I2400M_TX_QLEN;
++	net_dev->features =
++		  NETIF_F_VLAN_CHALLENGED
++		| NETIF_F_HIGHDMA;
++	net_dev->flags =
++		IFF_NOARP		/* i2400m is apure IP device */
++		& (~IFF_BROADCAST	/* i2400m is P2P */
++		   & ~IFF_MULTICAST);
++	net_dev->watchdog_timeo = I2400M_TX_TIMEOUT;
++	net_dev->open = i2400m_open;
++	net_dev->stop = i2400m_stop;
++	net_dev->hard_start_xmit = i2400m_hard_start_xmit;
++	net_dev->change_mtu = i2400m_change_mtu;
++	net_dev->tx_timeout = i2400m_tx_timeout;
++	d_fnend(3, NULL, "(net_dev %p) = void\n", net_dev);
++}
++EXPORT_SYMBOL_GPL(i2400m_netdev_setup);
++
+-- 
+1.5.6.5
