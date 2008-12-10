@@ -1,51 +1,75 @@
-From: "=?ISO-8859-1?Q?Miguel_=C1ngel_=C1lvarez?=" <gotzoncabanes@gmail.com>
-Subject: Re: qmgr for ixp4xx
-Date: Wed, 10 Dec 2008 17:32:55 +0100
-Message-ID: <b0438a630812100832l417f4df6lbbf5263e338baff2@mail.gmail.com>
-References: <b0438a630812021044q31845224s206f3998423289af@mail.gmail.com>
-	 <m3zljby7jm.fsf@maximus.localdomain>
-	 <b0438a630812050051v6393ae1at40b3669389dd394e@mail.gmail.com>
-	 <m31vwmlidh.fsf@maximus.localdomain>
-	 <b0438a630812050859jd9fd55ah5fb3608a964f9567@mail.gmail.com>
-	 <m3fxl2jx0v.fsf@maximus.localdomain>
-	 <b0438a630812090148u4c42a193q833c913a1a27e0a9@mail.gmail.com>
-	 <m3fxkwvoee.fsf@maximus.localdomain>
-	 <b0438a630812100104i135f6bfawb9cff915202c39ce@mail.gmail.com>
+From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Subject: Re: linux-next: Tree for December 1 (netfilter build error)
+Date: Wed, 10 Dec 2008 22:24:55 +0530
+Message-ID: <20081210165455.GC6391@linux.vnet.ibm.com>
+References: <20081201190827.2d02b1a5.sfr@canb.auug.org.au> <20081201115934.00ba918a.randy.dunlap@oracle.com>
+Reply-To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Krzysztof Halasa" <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:17400 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753805AbYLJQc4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 11:32:56 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so271624yxm.1
-        for <netdev@vger.kernel.org>; Wed, 10 Dec 2008 08:32:55 -0800 (PST)
-In-Reply-To: <b0438a630812100104i135f6bfawb9cff915202c39ce@mail.gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org, eric@inl.fr, kaber@trash.net
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20081201115934.00ba918a.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+* Randy Dunlap <randy.dunlap@oracle.com> [2008-12-01 11:59:34]:
 
-Complementing the previous mail.
+> On Mon, 1 Dec 2008 19:08:27 +1100 Stephen Rothwell wrote:
+> 
+> > Hi all,
+> > 
+> > Changes since 20081128:
+> > 
+> > Today's tree fails the powerpc allyesconfig build.
+> 
+> 
+> ERROR: "nfulnl_log_packet" [net/netfilter/xt_NFLOG.ko] undefined!
+> 
+> config attached.
 
-I have implemented 64 queues for ixp4xx (following Karl's patch).
+	next-20081210 kernel build fails when !CONFIG_NETFILTER_NETLINK_LOG 
+This was introduced by the 
 
-My idea was to use queues 32-39 for my eight txreadyq.
+commit 5f7340eff8f68f41b7e5c7ad47ec4cd1ea1afb40
+Author: Eric Leblond <eric@inl.fr>
+Date:   Tue Nov 4 14:21:08 2008 +0100
 
-As rxq and txreadyq from ethernet in NPEB and NPEC conflict with the
-queues in the ixp4xx_hss driver, I have decided to use queues 40-43
-for them. Solving a problem with qmgr_stat_overflow, I have been able
-to configure the interface (ethernet in NPEB). However not even a ping
-can be sent.
+    netfilter: xt_NFLOG: don't call nf_log_packet in NFLOG module.
+	    
+the function nfulnl_log_packet is exported only if
+CONFIG_NETFILTER_NETLINK_LOG is enabled, so marking the loging function
+between ifdef.
 
-Thinking that the problem was using >=3D 32 queues, I decided to use
-queues 23-26... With the same result. So queues 3, 4, 20 and 21 seem
-to be fixed for ethernet. But they are also used for HSS!!!
+I have tested the patch for build failure only
 
-Any ideas?
+Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+--
+ net/netfilter/xt_NFLOG.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-Miguel =C1ngel
+diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
+index a57c5cf..fa814a6 100644
+--- a/net/netfilter/xt_NFLOG.c
++++ b/net/netfilter/xt_NFLOG.c
+@@ -32,8 +32,11 @@ nflog_tg(struct sk_buff *skb, const struct xt_target_param *par)
+ 	li.u.ulog.group	     = info->group;
+ 	li.u.ulog.qthreshold = info->threshold;
+ 
++#ifdef CONFIG_NETFILTER_NETLINK_LOG
+ 	nfulnl_log_packet(par->family, par->hooknum, skb, par->in,
+ 			  par->out, &li, info->prefix);
++#endif /* CONFIG_NETFILTER_NETLINK_LOG */
++
+ 	return XT_CONTINUE;
+ }
+ 
+-- 
+Thanks & Regards,
+Kamalesh Babulal,
+Linux Technology Center,
+IBM, ISTL.
