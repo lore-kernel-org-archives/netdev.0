@@ -1,28 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 7/7] bonding: turn all bond_parm_tbls const
-Date: Tue, 09 Dec 2008 23:10:49 -0800 (PST)
-Message-ID: <20081209.231049.14045842.davem@davemloft.net>
-References: <20081209200750.490739902@eitzenberger.org>
-	<20081209201452.354289223@eitzenberger.org>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+ entry
+Date: Tue, 09 Dec 2008 23:22:45 -0800 (PST)
+Message-ID: <20081209.232245.145580375.davem@davemloft.net>
+References: <20081209210644.GC3785@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org
-To: holger@eitzenberger.org
+Cc: netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48303
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55333
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754649AbYLJHKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 02:10:48 -0500
-In-Reply-To: <20081209201452.354289223@eitzenberger.org>
+	by vger.kernel.org with ESMTP id S1753607AbYLJHWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Dec 2008 02:22:44 -0500
+In-Reply-To: <20081209210644.GC3785@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: holger@eitzenberger.org
-Date: Tue, 09 Dec 2008 21:07:57 +0100
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 9 Dec 2008 16:06:44 -0500
 
-> Turn all bond_parm_tbls const.
+> Hey all-
+> 	A few months back a race was discused between the netpoll napi service
+> path, and the fast path through net_rx_action:
+> http://kerneltrap.org/mailarchive/linux-netdev/2007/10/16/345470
 > 
-> Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+> A patch was submitted for that bug, but I think we missed a case.
+> 
+> Consider the following scenario:
+> 
+> INITIAL STATE
+> CPU0 has one napi_struct A on its poll_list
+> CPU1 is calling netpoll_send_skb and needs to call poll_napi on the same
+> napi_struct A that CPU0 has on its list
+> 
+> 
+> 
+> CPU0						CPU1
+> net_rx_action					poll_napi
+> !list_empty (returns true)			locks poll_lock for A
+> 						 poll_one_napi
+> 						  napi->poll
+> 						   netif_rx_complete
+> 						    __napi_complete
+> 						    (removes A from poll_list)
+> list_entry(list->next)
+> 
+ ...
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Also applied, thanks a lot Holger!
+Looks good, applied.
+
+Thanks Neil!
