@@ -1,8 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 10/29] wimax: Makefile,
-	Kconfig and docbook linkage for the stack
-Date: Wed, 10 Dec 2008 15:12:51 -0800
-Message-ID: <164c6b9882c4424ea93e40c9ec333a15fb671294.1228948072.git.inaky@linux.intel.com>
+Subject: [PATCH 25/29] i2400m/SDIO: firmware upload backend
+Date: Wed, 10 Dec 2008 15:13:06 -0800
+Message-ID: <52479aea0dda106b8dd0aa374da034739c3f769e.1228948073.git.inaky@linux.intel.com>
 References: <cover.1228948072.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,122 +18,244 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This patch provides Makefile and KConfig for the WiMAX stack,
-integrating them into the networking stack's Makefile, Kconfig and
-doc-book templates.
+This implements the backends for the generic driver (i2400m) to be
+able to load firmware to the SDIO device.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- Documentation/DocBook/networking.tmpl |    8 +++++++
- net/Kconfig                           |    2 +
- net/Makefile                          |    1 +
- net/wimax/Kconfig                     |   36 +++++++++++++++++++++++++++++++++
- net/wimax/Makefile                    |   13 +++++++++++
- 5 files changed, 60 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/Kconfig
- create mode 100644 net/wimax/Makefile
+ drivers/net/wimax/i2400m/sdio-fw.c |  224 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 224 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
 
-diff --git a/Documentation/DocBook/networking.tmpl b/Documentation/DocBook/networking.tmpl
-index f24f9e8..7053c1c 100644
---- a/Documentation/DocBook/networking.tmpl
-+++ b/Documentation/DocBook/networking.tmpl
-@@ -101,6 +101,14 @@ X!Enet/core/wireless.c
-      <sect1><title>Synchronous PPP</title>
- !Edrivers/net/wan/syncppp.c
-      </sect1>
-+     <sect1><title>WiMAX</title>
-+!Enet/wimax/op-msg.c
-+!Enet/wimax/op-reset.c
-+!Enet/wimax/op-rfkill.c
-+!Enet/wimax/stack.c
-+!Iinclude/net/wimax.h
-+!Iinclude/linux/wimax.h
-+     </sect1>
-   </chapter>
- 
- </book>
-diff --git a/net/Kconfig b/net/Kconfig
-index d789d79..3bff221 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -251,6 +251,8 @@ source "net/ieee80211/Kconfig"
- 
- endif # WIRELESS
- 
-+source "net/wimax/Kconfig"
-+
- source "net/rfkill/Kconfig"
- source "net/9p/Kconfig"
- 
-diff --git a/net/Makefile b/net/Makefile
-index 27d1f10..620a505 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -61,3 +61,4 @@ obj-$(CONFIG_NET_9P)		+= 9p/
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
- endif
-+obj-$(CONFIG_WIMAX)		+= wimax/
-diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
+diff --git a/drivers/net/wimax/i2400m/sdio-fw.c b/drivers/net/wimax/i2400m/sdio-fw.c
 new file mode 100644
-index 0000000..67d5f4d
+index 0000000..3487205
 --- /dev/null
-+++ b/net/wimax/Kconfig
-@@ -0,0 +1,36 @@
-+#
-+# WiMAX LAN device configuration
-+#
++++ b/drivers/net/wimax/i2400m/sdio-fw.c
+@@ -0,0 +1,224 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Firmware uploader's SDIO specifics
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Initial implementation
++ *
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - Bus generic/specific split for USB
++ *
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
++ *  - Initial implementation for SDIO
++ *
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - SDIO rehash for changes in the bus-driver model
++ *
++ * THE PROCEDURE
++ *
++ * See fw.c for the generic description of this procedure.
++ *
++ * This file implements only the SDIO specifics. It boils down to how
++ * to send a command and waiting for an acknowledgement from the
++ * device. We do polled reads.
++ *
++ * COMMAND EXECUTION
++ *
++ * THe generic firmware upload code will call i2400m_bus_bm_cmd_send()
++ * to send commands.
++ *
++ * The SDIO devices expects things in 256 byte blocks, so it will pad
++ * it, compute the checksum (if needed) and pass it to SDIO.
++ *
++ * ACK RECEPTION
++ *
++ * This works in polling mode -- the fw loader says when to wait for
++ * data and for that it calls i2400ms_bus_bm_wait_for_ack().
++ *
++ * This will poll the device for data until it is received. We need to
++ * receive at least as much bytes as where asked for (although it'll
++ * always be a multiple of 256 bytes).
++ */
++#include <linux/mmc/sdio_func.h>
++#include "i2400m-sdio.h"
 +
-+menuconfig WIMAX
-+       tristate "WiMAX Wireless Broadband support"
-+       help
 +
-+         Select to configure support for devices that provide wireless
-+         broadband connectivity using the WiMAX protocol (IEEE 802.16).
++#define D_SUBMODULE fw
++#include "sdio-debug-levels.h"
 +
-+         Please note that most of these devices require signing up for
-+         a service plan with a provider.
++/*
++ * Send a boot-mode command to the SDIO function
++ *
++ * We use a bounce buffer (i2400m->bm_cmd_buf) because we need to
++ * touch the header if the RAW flag is not set.
++ *
++ * @flags: pass thru from i2400m_bm_cmd()
++ * @return: cmd_size if ok, < 0 errno code on error.
++ *
++ * Note the command is padded to the SDIO block size for the device.
++ */
++ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *i2400m,
++				const struct i2400m_bootrom_header *_cmd,
++				size_t cmd_size, int flags)
++{
++	ssize_t result;
++	struct device *dev = i2400m_dev(i2400m);
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
++	struct i2400m_bootrom_header *cmd;
++	/* SDIO restriction */
++	size_t cmd_size_a = ALIGN(cmd_size, I2400MS_BLK_SIZE);
 +
-+         The different WiMAX drivers can be enabled in the menu entry
++	d_fnstart(5, dev, "(i2400m %p cmd %p size %zu)\n",
++		  i2400m, _cmd, cmd_size);
++	result = -E2BIG;
++	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
++		goto error_too_big;
 +
-+         Device Drivers > Network device support > WiMAX Wireless Broadband devices
++	memcpy(i2400m->bm_cmd_buf, _cmd, cmd_size);	/* Prep command */
++	cmd = i2400m->bm_cmd_buf;
++	if (cmd_size_a > cmd_size)			/* Zero pad space */
++		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
++	if ((flags & I2400M_BM_CMD_RAW) == 0) {
++		if (WARN_ON(i2400m_brh_get_response_required(cmd) == 0))
++			dev_warn(dev, "SW BUG: response_required == 0\n");
++		i2400m_bm_cmd_prepare(cmd);
++	}
++	d_printf(4, dev, "BM cmd %d: %zu bytes (%zu padded)\n",
++		 opcode, cmd_size, cmd_size_a);
++	d_dump(5, dev, cmd, cmd_size);
 +
-+         If unsure, it is safe to select M (module).
-+
-+config WIMAX_DEBUG_LEVEL
-+       int "WiMAX debug level"
-+       depends on WIMAX
-+       default 8
-+       help
-+
-+         Select the maximum debug verbosity level to be compiled into
-+         the WiMAX stack code.
-+
-+         By default, debug messages are disabled at runtime and can be
-+         selectively enabled for different parts of the code using the
-+         sysfs debug-levels file.
-+
-+         If set at zero, this will compile out all the debug code.
-+
-+         It is recommended that it is left at 8.
-diff --git a/net/wimax/Makefile b/net/wimax/Makefile
-new file mode 100644
-index 0000000..d548446
---- /dev/null
-+++ b/net/wimax/Makefile
-@@ -0,0 +1,13 @@
-+
-+obj-$(CONFIG_WIMAX)		+= wimax.o
-+
-+wimax-objs :=		\
-+	id-table.o	\
-+	op-msg.o	\
-+	op-reset.o	\
-+	op-rfkill.o	\
-+	stack.o
-+
-+wimax-$(CONFIG_DEBUG_FS) += debugfs.o
++	sdio_claim_host(i2400ms->func);			/* Send & check */
++	result = sdio_memcpy_toio(i2400ms->func, I2400MS_DATA_ADDR,
++				  i2400m->bm_cmd_buf, cmd_size_a);
++	sdio_release_host(i2400ms->func);
++	if (result < 0) {
++		dev_err(dev, "BM cmd %d: cannot send: %ld\n",
++			opcode, (long) result);
++		goto error_cmd_send;
++	}
++	result = cmd_size;
++error_cmd_send:
++error_too_big:
++	d_fnend(5, dev, "(i2400m %p cmd %p size %zu) = %d\n",
++		i2400m, _cmd, cmd_size, (int) result);
++	return result;
++}
 +
 +
++/*
++ * Read an ack from the device's boot-mode (polling)
++ *
++ * @i2400m:
++ * @_ack: pointer to where to store the read data
++ * @ack_size: how many bytes we should read
++ *
++ * Returns: < 0 errno code on error; otherwise, amount of received bytes.
++ *
++ * The ACK for a BM command is always at least sizeof(*ack) bytes, so
++ * check for that. We don't need to check for device reboots
++ *
++ * NOTE: We do an artificial timeout of 1 sec over the SDIO timeout;
++ *     this way we have control over it...there is no way that I know
++ *     of setting an SDIO transaction timeout.
++ */
++ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *i2400m,
++				    struct i2400m_bootrom_header *ack,
++				    size_t ack_size)
++{
++	int result;
++	ssize_t rx_size;
++	u64 timeout;
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
++
++	BUG_ON(sizeof(*ack) > ack_size);
++
++	d_fnstart(5, dev, "(i2400m %p ack %p size %zu)\n",
++		  i2400m, ack, ack_size);
++
++	timeout = get_jiffies_64() + 2 * HZ;
++	sdio_claim_host(func);
++	while (1) {
++		if (time_after64(get_jiffies_64(), timeout)) {
++			rx_size = -ETIMEDOUT;
++			dev_err(dev, "timeout waiting for ack data\n");
++			goto error_timedout;
++		}
++
++		/* Find the RX size, check if it fits or not -- it if
++		 * doesn't fit, fail, as we have no way to dispose of
++		 * the extra data. */
++		rx_size = __i2400ms_rx_get_size(i2400ms);
++		if (rx_size < 0)
++			goto error_rx_get_size;
++		result = -ENOSPC;		/* Check it fits */
++		if (rx_size < sizeof(*ack)) {
++			rx_size = -EIO;
++			dev_err(dev, "HW BUG? received is too small (%zu vs "
++				"%zu needed)\n", sizeof(*ack), rx_size);
++			goto error_too_small;
++		}
++		if (rx_size > I2400M_BM_ACK_BUF_SIZE) {
++			dev_err(dev, "SW BUG? BM_ACK_BUF is too small (%u vs "
++				"%zu needed)\n", I2400M_BM_ACK_BUF_SIZE,
++				rx_size);
++			goto error_too_small;
++		}
++
++		/* Read it */
++		result = sdio_memcpy_fromio(func, i2400m->bm_ack_buf,
++					    I2400MS_DATA_ADDR, rx_size);
++		if (result == -ETIMEDOUT || result == -ETIME)
++			continue;
++		if (result < 0) {
++			dev_err(dev, "BM SDIO receive (%zu B) failed: %d\n",
++				rx_size, result);
++			goto error_read;
++		} else
++			break;
++	}
++	rx_size = min((ssize_t)ack_size, rx_size);
++	memcpy(ack, i2400m->bm_ack_buf, rx_size);
++error_read:
++error_too_small:
++error_rx_get_size:
++error_timedout:
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400m %p ack %p size %zu) = %ld\n",
++		i2400m, ack, ack_size, (long) rx_size);
++	return rx_size;
++}
 -- 
 1.5.6.5
