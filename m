@@ -1,232 +1,127 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 1/9][v2] mISDN: use NULL pointer instead of plain integer
-Date: Thu, 11 Dec 2008 22:36:00 +0100
-Message-ID: <49419a20.07a0660a.4c25.ffff8ce9@mx.google.com>
-Cc: Karsten Keil <kkeil@suse.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f13.google.com ([209.85.218.13]:50613 "EHLO
-	mail-bw0-f13.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758632AbYLKXAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 18:00:10 -0500
-Received: by bwz6 with SMTP id 6so2825019bwz.13
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 15:00:08 -0800 (PST)
-Cc: linux-kernel@vger.kernel.org
-Cc: kernel-janitors@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH][RFC 21/23]: iSCSI target driver
+Date: Thu, 11 Dec 2008 14:59:56 -0800
+Message-ID: <1229036396.4153.588.camel@haakon2.linux-iscsi.org>
+References: <494009D7.4020602@vlnb.net>  <49401205.8010207@vlnb.net>
+	 <1229036109.4153.585.camel@haakon2.linux-iscsi.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-scsi@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Jeff Garzik <jeff@garzik.org>,
+	Boaz Harrosh <bharrosh@panasas.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
+	Bart Van Assche <bart.vanassche@gmail.com>,
+	netdev@vger.kernel.org, Rafiu Fakunle <rafiu@openfiler.com>
+To: Vladislav Bolkhovitin <vst@vlnb.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759447AbYLKXAh@vger.kernel.org>
+In-Reply-To: <1229036109.4153.585.camel@haakon2.linux-iscsi.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix more than 100 (all remaining in mISDN) sparse warnings:
+On Thu, 2008-12-11 at 14:55 -0800, Nicholas A. Bellinger wrote:
+> On Wed, 2008-12-10 at 22:01 +0300, Vladislav Bolkhovitin wrote:
+> > This patch contains iSCSI-SCST target driver. This driver is a heavily 
+> > modified forked with all respects IET 
+> > (http://iscsitarget.sourceforge.net). Modifications were aimed to make a 
+> > clearer, more reviewable and maintainable code as well as to fix many 
+> > problems and make many improvements. See 
+> > http://scst.sourceforge.net/target_iscsi.html for more details.
+> > 
+> > It has split user/kernel space architecture, where all management, 
+> > sessions creation, parameters negotiation, etc. made in user space and 
+> > data are transferred in the kernel space. Such architecture for iSCSI 
+> > processing was many times acknowledged as the right one. Particularly, 
+> > in-kernel iSCSI initiator (open-iscsi) has such architecture.
+> > 
+> 
+> Just as with the Open/iSCSI Initiator, IMHO I believe the split
+> architecture design is difficult both to improve, debug and maintain,
+> and provides *ZERO* additional benefit in the context of traditional
+> iSCSI target mode for doing login and connection/session setup in
+> userspace.
+> 
+> Also, I appericate that you spent alot of time porting over IET code to
+> your engine, but during our previous discussion you did not seem
+> terribly interested in validation against core-iscsi-dv
+> (http://linux-iscsi.org/index.php/Core-iscsi-dv) to test RFC-3720
+> interopt and stability.  Because the Core-iSCSI Initiator supports every
+> possible parameter combination up to ErrorRecoveryLevel=0 defined in
+> RFC-3720, the Core-iSCSI-Dv tests can run badblocks (or any too) to
+> check data integrity for *EVERY* possible traditional iSCSI key
+> combination and functionality for your iSCSI-SCST work, and any type of
+> serious iSCSI-SCST production deployments.
+> 
+> Until you can at least do that to prove both the stability and
+> completeness of your iSCSI Target stack up to RFC-3720
+> ErrorRecoveryLevel=0, I don't think this code makes sense for any type
+> of mainline acceptance.  Also, I would appericate if you could stop the
+> handwaving about MC/S and ErrorRecoveryLevel=2 as well.  MC/S (multiple
+> connection paths for iSCSI/TCP, not necessary with multiple assoication
+> LIO-Target SCTP) and ERL=2 (OS independent fabric recovery) is available
+> in both RFC-3720 (Traditional iSCSI) and RFC-5045 (iSER for iWARP and
+> IB).
+> 
 
-  drivers/isdn/hardware/mISDN/hfcmulti.c:***:**: warning: Using plain integer as NULL pointer
-  drivers/isdn/mISDN/dsp_tones.c:***:**: warning: Using plain integer as NULL pointer
-  drivers/isdn/mISDN/dsp_pipeline.c:***:**: warning: Using plain integer as NULL pointer
+That was RFC-5046 for iSER note btw, RFC-5045 is the actual case for
+RDMA/DDP over TCP and the Stream Control Transfer Protocol (SCTP).
 
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
-Acked-by: Karsten Keil <kkeil@suse.de>
----
- drivers/isdn/hardware/mISDN/hfcmulti.c |    2 +-
- drivers/isdn/mISDN/dsp_pipeline.c      |    2 +-
- drivers/isdn/mISDN/dsp_tones.c         |   90 ++++++++++++++++----------------
- 3 files changed, 47 insertions(+), 47 deletions(-)
+Regards,
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index 1eac03f..46684e1 100644
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-+++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -887,7 +887,7 @@ vpm_echocan_off(struct hfc_multi *hc, int ch)
- static inline void
- hfcmulti_resync(struct hfc_multi *locked, struct hfc_multi *newmaster, int rm)
- {
--	struct hfc_multi *hc, *next, *pcmmaster = 0;
-+	struct hfc_multi *hc, *next, *pcmmaster = NULL;
- 	u_int *plx_acc_32, pv;
- 	u_long flags;
- 
-diff --git a/drivers/isdn/mISDN/dsp_pipeline.c b/drivers/isdn/mISDN/dsp_pipeline.c
-index fdc800b..83639be 100644
---- a/drivers/isdn/mISDN/dsp_pipeline.c
-+++ b/drivers/isdn/mISDN/dsp_pipeline.c
-@@ -249,7 +249,7 @@ int dsp_pipeline_build(struct dsp_pipeline *pipeline, const char *cfg)
- 		name = strsep(&tok, "(");
- 		args = strsep(&tok, ")");
- 		if (args && !*args)
--			args = 0;
-+			args = NULL;
- 
- 		list_for_each_entry_safe(entry, n, &dsp_elements, list)
- 			if (!strcmp(entry->elem->name, name)) {
-diff --git a/drivers/isdn/mISDN/dsp_tones.c b/drivers/isdn/mISDN/dsp_tones.c
-index 23dd0dd..de4d0c9 100644
---- a/drivers/isdn/mISDN/dsp_tones.c
-+++ b/drivers/isdn/mISDN/dsp_tones.c
-@@ -238,113 +238,113 @@ struct pattern {
- 	u32 seq[10];
- } pattern[] = {
- 	{TONE_GERMAN_DIALTONE,
--	{DATA_GA, 0, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GA, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GA, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GA, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{1900, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_OLDDIALTONE,
--	{DATA_GO, 0, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GO, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GO, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GO, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{1998, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_AMERICAN_DIALTONE,
--	{DATA_DT, 0, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_DT, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_DT, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_DT, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{8000, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_DIALPBX,
--	{DATA_GA, DATA_S, DATA_GA, DATA_S, DATA_GA, DATA_S, 0, 0, 0, 0},
--	{SIZE_GA, SIZE_S, SIZE_GA, SIZE_S, SIZE_GA, SIZE_S, 0, 0, 0, 0},
-+	{DATA_GA, DATA_S, DATA_GA, DATA_S, DATA_GA, DATA_S, NULL, NULL, NULL, NULL},
-+	{SIZE_GA, SIZE_S, SIZE_GA, SIZE_S, SIZE_GA, SIZE_S, NULL, NULL, NULL, NULL},
- 	{2000, 2000, 2000, 2000, 2000, 12000, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_OLDDIALPBX,
--	{DATA_GO, DATA_S, DATA_GO, DATA_S, DATA_GO, DATA_S, 0, 0, 0, 0},
--	{SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, 0, 0, 0, 0},
-+	{DATA_GO, DATA_S, DATA_GO, DATA_S, DATA_GO, DATA_S, NULL, NULL, NULL, NULL},
-+	{SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, NULL, NULL, NULL, NULL},
- 	{2000, 2000, 2000, 2000, 2000, 12000, 0, 0, 0, 0} },
- 
- 	{TONE_AMERICAN_DIALPBX,
--	{DATA_DT, DATA_S, DATA_DT, DATA_S, DATA_DT, DATA_S, 0, 0, 0, 0},
--	{SIZE_DT, SIZE_S, SIZE_DT, SIZE_S, SIZE_DT, SIZE_S, 0, 0, 0, 0},
-+	{DATA_DT, DATA_S, DATA_DT, DATA_S, DATA_DT, DATA_S, NULL, NULL, NULL, NULL},
-+	{SIZE_DT, SIZE_S, SIZE_DT, SIZE_S, SIZE_DT, SIZE_S, NULL, NULL, NULL, NULL},
- 	{2000, 2000, 2000, 2000, 2000, 12000, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_RINGING,
--	{DATA_GA, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GA, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GA, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GA, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{8000, 32000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_OLDRINGING,
--	{DATA_GO, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GO, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GO, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GO, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{8000, 40000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_AMERICAN_RINGING,
--	{DATA_RI, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_RI, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_RI, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_RI, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{8000, 32000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_RINGPBX,
--	{DATA_GA, DATA_S, DATA_GA, DATA_S, 0, 0, 0, 0, 0, 0},
--	{SIZE_GA, SIZE_S, SIZE_GA, SIZE_S, 0, 0, 0, 0, 0, 0},
-+	{DATA_GA, DATA_S, DATA_GA, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GA, SIZE_S, SIZE_GA, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{4000, 4000, 4000, 28000, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_OLDRINGPBX,
--	{DATA_GO, DATA_S, DATA_GO, DATA_S, 0, 0, 0, 0, 0, 0},
--	{SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, 0, 0, 0, 0, 0, 0},
-+	{DATA_GO, DATA_S, DATA_GO, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{4000, 4000, 4000, 28000, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_AMERICAN_RINGPBX,
--	{DATA_RI, DATA_S, DATA_RI, DATA_S, 0, 0, 0, 0, 0, 0},
--	{SIZE_RI, SIZE_S, SIZE_RI, SIZE_S, 0, 0, 0, 0, 0, 0},
-+	{DATA_RI, DATA_S, DATA_RI, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_RI, SIZE_S, SIZE_RI, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{4000, 4000, 4000, 28000, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_BUSY,
--	{DATA_GA, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GA, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GA, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GA, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{4000, 4000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_OLDBUSY,
--	{DATA_GO, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GO, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GO, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GO, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{1000, 5000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_AMERICAN_BUSY,
--	{DATA_BU, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_BU, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_BU, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_BU, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{4000, 4000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_HANGUP,
--	{DATA_GA, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GA, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GA, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GA, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{4000, 4000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_OLDHANGUP,
--	{DATA_GO, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GO, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GO, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GO, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{1000, 5000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_AMERICAN_HANGUP,
--	{DATA_DT, 0, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_DT, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_DT, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_DT, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{8000, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_SPECIAL_INFO,
--	{DATA_S1, DATA_S2, DATA_S3, DATA_S, 0, 0, 0, 0, 0, 0},
--	{SIZE_S1, SIZE_S2, SIZE_S3, SIZE_S, 0, 0, 0, 0, 0, 0},
-+	{DATA_S1, DATA_S2, DATA_S3, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_S1, SIZE_S2, SIZE_S3, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{2666, 2666, 2666, 8002, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_GASSENBESETZT,
--	{DATA_GA, DATA_S, 0, 0, 0, 0, 0, 0, 0, 0},
--	{SIZE_GA, SIZE_S, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{DATA_GA, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GA, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{2000, 2000, 0, 0, 0, 0, 0, 0, 0, 0} },
- 
- 	{TONE_GERMAN_AUFSCHALTTON,
--	{DATA_GO, DATA_S, DATA_GO, DATA_S, 0, 0, 0, 0, 0, 0},
--	{SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, 0, 0, 0, 0, 0, 0},
-+	{DATA_GO, DATA_S, DATA_GO, DATA_S, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{SIZE_GO, SIZE_S, SIZE_GO, SIZE_S, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{1000, 5000, 1000, 17000, 0, 0, 0, 0, 0, 0} },
- 
- 	{0,
--	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
--	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-+	{NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-+	{NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
- 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
- };
- 
-@@ -467,7 +467,7 @@ dsp_tone_timeout(void *arg)
- 
- 	/* set next tone */
- 	if (pat->data[index] == DATA_S)
--		dsp_tone_hw_message(dsp, 0, 0);
-+		dsp_tone_hw_message(dsp, NULL, 0);
- 	else
- 		dsp_tone_hw_message(dsp, pat->data[index], *(pat->siz[index]));
- 	/* set timer */
--- 
-1.5.6.3
+--nab
 
+
+> Trying to argue against implementing the complete iSCSI RFC
+> functionality (like some folks did during the early Open/iSCSI days)
+> that customers and users *WANT* now is going to fall of deaf ears.
+> Please understand that they are going to be many, many different iSCSi
+> Initiators connecting to the upstream iSCSI Target Core infrastructure,
+> and trying to rush in an incomplete iSCSI Target $FABRIC_MOD
+> implementation benefits anyone.
+> 
+> Regards,
+> 
+> --nab
+> 
+> > Signed-off-by: Vladislav Bolkhovitin <vst@vlnb.net>
+> > ---
+> >   drivers/scst/iscsi-scst/Kconfig     |   25
+> >   drivers/scst/iscsi-scst/Makefile    |    6
+> >   drivers/scst/iscsi-scst/config.c    |  597 +++++++
+> >   drivers/scst/iscsi-scst/conn.c      |  488 +++++
+> >   drivers/scst/iscsi-scst/digest.c    |  221 ++
+> >   drivers/scst/iscsi-scst/digest.h    |   31
+> >   drivers/scst/iscsi-scst/event.c     |  116 +
+> >   drivers/scst/iscsi-scst/iscsi.c     | 3066 ++++++++++++++++++++++++++++++++++++
+> >   drivers/scst/iscsi-scst/iscsi.h     |  577 ++++++
+> >   drivers/scst/iscsi-scst/iscsi_dbg.h |   73
+> >   drivers/scst/iscsi-scst/iscsi_hdr.h |  517 ++++++
+> >   drivers/scst/iscsi-scst/nthread.c   | 1522 +++++++++++++++++
+> >   drivers/scst/iscsi-scst/param.c     |  263 +++
+> >   drivers/scst/iscsi-scst/session.c   |  210 ++
+> >   drivers/scst/iscsi-scst/target.c    |  306 +++
+> >   include/scst/iscsi_scst.h           |  156 +
+> >   include/scst/iscsi_scst_ver.h       |   16
+> >   17 files changed, 8190 insertions(+)
+> > 
+> > The patch is too big to be submitted inline. You can find it in 
+> > http://scst.sourceforge.net/patches/iscsi-scst.diff
+> > 
+> > 
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
