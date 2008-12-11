@@ -1,56 +1,62 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage entry
-Date: Thu, 11 Dec 2008 09:29:00 -0500
-Message-ID: <20081211142900.GA10558@hmsendeavour.rdu.redhat.com>
-References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jarek Poplawski <jarkao2@gmail.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Detecting backup slaves of bonding interface in network driver
+Date: Thu, 11 Dec 2008 08:35:59 -0800
+Message-ID: <25821.1229013359@death.nxdomain.ibm.com>
+References: <494108D7.3040304@gslab.com>
+Cc: netdev@vger.kernel.org
+To: Poornima Kamath <poornimak@gslab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52587 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755569AbYLKObS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 09:31:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20081211130728.GB5910@ff.dom.local>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:58580 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755554AbYLKQgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 11:36:02 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e35.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id mBBGYWG4019204
+	for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 09:34:32 -0700
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mBBGa1mC178554
+	for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 09:36:01 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mBBGa1v9012938
+	for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 09:36:01 -0700
+In-reply-to: <494108D7.3040304@gslab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 01:07:28PM +0000, Jarek Poplawski wrote:
-> On 09-12-2008 22:06, Neil Horman wrote:
-> ...
-> > When executing napi->poll from the netpoll_path, this bit will
-> > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
-> > remove the napi_struct from the poll_list.  That work will be saved for the next
-> > iteration of net_rx_action.
-> 
-> This could be not enough: some drivers, e.g. sky2, call napi_complete()
-> directly.
-> 
-I agree, some drivers might circumvent this, but I would argue that the bug in
-those cases is that the driver isn't using the right api entry point, and its
-the driver that needs fixing in those cases.
+Poornima Kamath <poornimak@gslab.com> wrote:
 
-I chose netif_rx_complete to make that test intentionally.  Since napi_complete
-gets called with local irqs disabled, I wanted the napi path to avoid doing
-that, so as to block the net_rx_action fast path for as small a time as
-possible.
+>I have a network driver which creates virtual ethernet interfaces. I am
+>using the bonding driver in the active backup mode for failover.
+>I want to detect the interfaces which are backup slaves in the driver.
 
-I think the number of drivers that circumvents the netif_rx_action call is both
-small and (I think) not always needed.  They can probably be migrated to use
-netif_rx_complete very easily.  I'll take a look into doing that.
+	What device is it, and why do you want to do this?
 
-Neil
+	I ask not just out of curiosity, but because there are other
+devices that have problems with bonding's handling of some things, and
+there are already special options for those devices.  If your device,
+e.g., can't handle having the same MAC on multiple ports, then your
+problem may be resolved with one of the fail_over_mac option settings.
 
-> Regards,
-> Jarek P.
-> 
+>I found that the  bonding driver sets the IFF_SLAVE_INACTIVE private flag
+>of net_device structure for all the backup slaves.
+>But I dont see any callbacks in my driver when this flag is set.
+>I am planning to check the netdevice flags in the driver. Is it
+>recommended to check the private flags of net_device ?
+>Or is there some better way in which I can find the backup slaves?
 
--- 
-/***************************************************
- *Neil Horman
- *nhorman@tuxdriver.com
- *gpg keyid: 1024D / 0x92A74FA1
- *http://pgp.mit.edu
- ***************************************************/
+	Those flags are private to the driver (bonding, in this case),
+and there is no callback generated when they change.  The
+IFF_SLAVE_INACTIVE is what you want (it's set in priv_flags for backup
+slaves), but it's purpose is to identify backup slaves so that most
+incoming packets on them can be dropped.  It's possible that the flag
+may change or be eliminated in the future.
+
+	Also, note that there is a notifier generated by bonding when a
+failover occurs (NETDEV_BONDING_FAILOVER), this was added to the
+mainline about six months ago.  You may be able to use that to determine
+when to check things.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
