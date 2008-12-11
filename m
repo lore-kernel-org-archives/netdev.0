@@ -1,64 +1,121 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] update rwlock initialization for nat_table
-Date: Thu, 11 Dec 2008 17:24:32 -0500 (EST)
-Message-ID: <alpine.DEB.1.10.0812111721360.25125@gandalf.stny.rr.com>
-References: <alpine.DEB.1.10.0812101314460.11805@gandalf.stny.rr.com> <49400B7F.7040607@cosmosbay.com> <alpine.DEB.1.10.0812101504280.11805@gandalf.stny.rr.com> <20081211141829.cda39684.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper()
+ / queue_work() / wait_for_completion()
+Date: Thu, 11 Dec 2008 14:37:58 -0800
+Message-ID: <20081211143758.510b51b6.akpm@linux-foundation.org>
+References: <bug-12201-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dada1@cosmosbay.com, mingo@elte.hu, acme@ghostprotocols.net,
-	davem@davemloft.net
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758184AbYLKWYy@vger.kernel.org>
-In-Reply-To: <20081211141829.cda39684.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+To: mike@nauticaltech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38603 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757415AbYLKWiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 17:38:06 -0500
+In-Reply-To: <bug-12201-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-On Thu, 11 Dec 2008, Andrew Morton wrote:
+On Thu, 11 Dec 2008 14:15:21 -0800 (PST)
+bugme-daemon@bugzilla.kernel.org wrote:
 
-> On Wed, 10 Dec 2008 15:06:00 -0500 (EST)
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > ---------------------------
-> > commit d4175059c8f95e4cd58e0efaa85610ca59469fbd
-> > Author: Steven Rostedt <srostedt@redhat.com>
-> > Date:   Wed Dec 10 15:00:09 2008 -0500
-> > 
-> >     update rwlock initialization for nat_table
-> >     
-> >     Impact: clean up
+> http://bugzilla.kernel.org/show_bug.cgi?id=12201
 > 
-> It's more than a "cleanup"?
+>            Summary: long wait in call_usermodehelper() / queue_work() /
+>                     wait_for_completion()
+>            Product: Process Management
+>            Version: 2.5
+>      KernelVersion: 2.6.26.8
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: process_other@kernel-bugs.osdl.org
+>         ReportedBy: mike@nauticaltech.com
 > 
-> >     The commit e099a173573ce1ba171092aee7bb3c72ea686e59
-> >     (netfilter: netns nat: per-netns NAT table) renamed the
-> >     nat_table from __nat_table to nat_table without updating the
-> >     __RW_LOCK_UNLOCKED(__nat_table.lock).
-> >     
-> >     Signed-off-by: Steven Rostedt <srostedt@redhat.com>
-> > 
-> > diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
-> > index bea54a6..8d489e7 100644
-> > --- a/net/ipv4/netfilter/nf_nat_rule.c
-> > +++ b/net/ipv4/netfilter/nf_nat_rule.c
-> > @@ -61,7 +61,7 @@ static struct
-> >  static struct xt_table nat_table = {
-> >  	.name		= "nat",
-> >  	.valid_hooks	= NAT_VALID_HOOKS,
-> > -	.lock		= __RW_LOCK_UNLOCKED(__nat_table.lock),
-> > +	.lock		= __RW_LOCK_UNLOCKED(nat_table.lock),
-> >  	.me		= THIS_MODULE,
-> >  	.af		= AF_INET,
-> >  };
 > 
-> At present any lockdep messages relating to this lock will print the
-> wrong name.  So it's a nanobug, I think?
+> Latest working kernel version: None
+> Earliest failing kernel version: 2.6.26 (can't test any older)
 
-Well, I'm now working on the RT git tree, and it has a much stronger 
-requirement on __RW_LOCK_UNLOCK. It actually uses the variable inside.
+It'd be great if you could test something more recent please.
 
-For mainline, it is a nanobug, but for -rt it is a compiler error. Since 
-it is still a clean up, it would be nice to have it in mainline ;-)
+> Distribution: CentOS 5
+> Hardware Environment: Sun x4450, 16-cores, 128GB of RAM
+> Software Environment: CentOS 5 + Apache webserver
+> Problem Description:
+> My problem started with SSH using the audit library, and my kernel not having
+> AUDIT support.  During strace, any call to socket(PF_NETLINK, SOCK_RAW,
+> NETLINK_AUDIT) took 1-2 seconds to return.  During this time, sys% was high.
 
--- Steve
+Well this is bad.  We don't want the kernel calling out to userspace
+each time you run socket(PF_NETLINK, ...).  The performance could be
+awful.
+
+I don't know if this is a net problem, an audit problem or whatever. 
+Probably the offending kernel code simply shouldn't exist if
+CONFIG_AUDIT=n.
+
+Please attach a copy of the config to
+http://bugzilla.kernel.org/show_bug.cgi?id=12201
+
+> As I continued to dig deeper (using lots of printks), I found that these delays
+> were caused by the netlink_create() code calling request_module() to find/load
+> a module for AUDIT support which doesn't exist.
+> 
+> Continuing to dig, I found that request_module() uses call_usermodehelper() to
+> run /sbin/modprobe to find/load the module.
+> 
+> The farthest I got is that after the process is created, we call
+> wait_for_completion() to get the result of that process.  This waiting process
+> takes 1-2 seconds.
+> 
+> The big problem in troubleshooting here is that this only starts to happen
+> after the server has been online for a while (10 days maybe) and serving lots
+> of traffic.  The delay gradually builds up and maxes out at around 2 seconds.
+> 
+> If I manually call /sbin/modprobe on the commandline and provide it the same
+> arguments that call_usermodehelper() uses, the command returns instantly 100%
+> of the time (assuming server has been on for a while).
+> 
+> If I write a small pilot program that calls socket(PF_NETLINK, SOCK_RAW,
+> NETLINK_AUDIT), it will delay by 1-2 seconds 100% of the time (assuming server
+> has been online for a while).  Certain protocol types given to socket() have
+> zero delay (because no module needs to be loaded).
+> 
+> Steps to reproduce:
+> Once server has been online for a while, a simple call to socket(PF_NETLINK,
+> SOCK_RAW, NETLINK_AUDIT) shows the problem.
+
+OK, weird.
+
+Please get sysrq working then get us a task trace, so we can see who is
+sleeping where.  Do this:
+
+
+- run your "small pilot program"
+
+- wait one second (so we catch it while it is delaying)
+
+- echo t > /proc/sysrq-trigger
+
+- dmesg -s 1000000 > foo
+
+- send us a copy of foo.
+
+(foo will be large, so it would be best to attach it to
+http://bugzilla.kernel.org/show_bug.cgi?id=12201 then email us the URL)
+
+(Using `echo w > /proc/sysrq-trigger' would work too, if we know that
+the offending processes are stuck in D state.  It will produce less
+output)
+
