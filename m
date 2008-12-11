@@ -1,39 +1,35 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Lockup with tun/tap/bridge interface deregistration.
-Date: Thu, 11 Dec 2008 11:02:15 +0000
-Message-ID: <20081211110215.GA5910@ff.dom.local>
-References: <87fxkwhyyq.fsf@barad-dur.regala.cx> <20081211102421.GB4129@ff.dom.local> <20081211104303.GC4129@ff.dom.local> <20081211104954.GA25179@gondor.apana.org.au>
+From: Tomoyuki Incorporated <kleger@sympatico.ca>
+Subject: OUR REF:TIT/4631
+Date: Thu, 11 Dec 2008 6:36:11 -0500
+Message-ID: <20081211113611.BMGD10695.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: aiko.shibata@kimo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathieu SEGAUD <mathieu.segaud@regala.cx>, netdev@vger.kernel.org,
-	kernel@gentoo.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+To: <info@contact.aiko.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:47276 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755014AbYLKLCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 06:02:22 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so164947eyi.37
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 03:02:20 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081211104954.GA25179@gondor.apana.org.au>
+Received: from simmts6-qfe0.srvr.bell.ca ([206.47.199.164]:54441 "EHLO
+	simmts6-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754908AbYLKLgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 06:36:13 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts6-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20081211113611.BMGD10695.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 06:36:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 09:49:54PM +1100, Herbert Xu wrote:
-...
-> Right, this fixes a dead-lock that causes the RTNL to be held which
-> doesn't seem to be the case here.  It sounds like the problem in
-> this thread is simply due to a non-zero ref count on the netdev
-> itself.
-> 
-> Mathieu, you should get a message like this
-> 
-> 	unregister_netdevice: waiting for %s to become free. Usage count = %d
-> 
-> What does your count say?
+OUR REF:TIT/4631,
 
-Right, you can see this at the first link of Mathieu's message:
-http://bugs.gentoo.org/attachment.cgi?id=174835&action=view
+We avail ourselves of this opportunity to approach you for the establishment of business relations with you. We are presently contacting you for the existing post a Representatives / Collection Agents so you can help us establish a medium of getting to our customers in the Northern America, precisely USA and Canada.
 
-Jarek P.
+If interested, Please contact Aiko Shibata, Controller,Accounting Department via email: aiko.shibata@kimo.com for more information.
+
+Respectfully Submitted,
+
+Tomoyuki Oe,
+President.
+Tomoyuki Incorporated.
+Head office: Tokyo
+
