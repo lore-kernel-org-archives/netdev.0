@@ -1,68 +1,352 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH 7/8] ethtool: Add GGRO and SGRO ops
-Date: Sun, 14 Dec 2008 14:00:18 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0812141351560.12712@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20081212053116.GA2927@gondor.apana.org.au>
- <E1LB0d2-0000rq-Dr@gondolin.me.apana.org.au> <1229112677.3051.9.camel@achroite>
- <20081212214835.GD11046@gondor.apana.org.au> <1229121327.3051.69.camel@achroite>
- <20081212224954.GA11636@gondor.apana.org.au>
- <Pine.WNT.4.64.0812141124040.13556@ppwaskie-MOBL2.amr.corp.intel.com>
- <20081214210916.GA26325@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Hannes Eder <hannes@hanneseder.net>
+Subject: [PATCH] isdn: eicon: fix sparse warning: make global functions static
+Date: Thu, 11 Dec 2008 16:07:42 +0100
+Message-ID: <49458560.0aa1660a.486c.7f09@mx.google.com>
+Cc: netdev@vger.kernel.org
+To: Karsten Keil <kkeil@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:49078 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751772AbYLNWAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Dec 2008 17:00:45 -0500
-In-Reply-To: <20081214210916.GA26325@gondor.apana.org.au>
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:33098 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751958AbYLNWPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 17:15:00 -0500
+Received: by bwz14 with SMTP id 14so1078587bwz.13
+        for <netdev@vger.kernel.org>; Sun, 14 Dec 2008 14:14:58 -0800 (PST)
+Cc: linux-kernel@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 14 Dec 2008, Herbert Xu wrote:
+Fix this sparse warnings by making the functions static:
 
-> On Sun, Dec 14, 2008 at 11:36:14AM -0800, Waskiewicz Jr, Peter P wrote:
-> >
-> > I'm confused then.  You're adding two ethtool entry points with
-> > ETHTOOL_GGRO and ETHTOOL_SGRO, adding the callpoints in dev_ethtool with
-> > set_gro and get_gro, but how do you manipulate this without adding to the
-> > userspace application?  Adding this functionality to the set/get_flags
-> > will keep the userspace app from needing a patch to support the new
-> > callbacks.
-> 
-> Huh? Whether you use get_flags or not you still need to patch the
-> user-space application so that it knows how to handle
-> 
->         ethtool -K eth0 gro on/off
-> 
-> There is no way around that.
-> 
-> As I said earlier, I didn't use get_flags/set_flags because of the
-> need to depend on RX checksum offload.
+drivers/isdn/hardware/eicon/di.c:356:6: warning: symbol 'isdn_rc' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/di.c:558:6: warning: symbol 'isdn_ind' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:595:6: warning: symbol 'api_parse' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:634:6: warning: symbol 'api_save_msg' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:666:6: warning: symbol 'api_load_msg' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:3417:6: warning: symbol 'manufacturer_req' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:3745:6: warning: symbol 'manufacturer_res' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:4077:6: warning: symbol 'control_rc' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:4743:6: warning: symbol 'data_rc' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:4779:6: warning: symbol 'data_ack' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:4805:6: warning: symbol 'sig_ind' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:6173:6: warning: symbol 'SendInfo' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:6349:6: warning: symbol 'SendMultiIE' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:6468:6: warning: symbol 'nl_ind' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:7250:6: warning: symbol 'get_plci' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:7409:6: warning: symbol 'add_d' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:7427:6: warning: symbol 'add_ai' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:7448:6: warning: symbol 'add_b1' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:7912:6: warning: symbol 'add_b23' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:8709:6: warning: symbol 'nl_req_ncci' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:8731:6: warning: symbol 'send_req' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:8866:6: warning: symbol 'listen_check' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:8909:6: warning: symbol 'IndParse' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:8994:6: warning: symbol 'ie_compare' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:9003:6: warning: symbol 'find_cip' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:9071:6: warning: symbol 'SetVoiceChannel' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:9089:6: warning: symbol 'VoiceChannelOff' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:9102:6: warning: symbol 'AdvCodecSupport' was not declared. Should it be static?
+drivers/isdn/hardware/eicon/message.c:9198:6: warning: symbol 'CodecIdCheck' was not declared. Should it be static?
 
-Ok, that makes sense.  
+Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+---
+ drivers/isdn/hardware/eicon/di.c      |   28 ++++++++--------
+ drivers/isdn/hardware/eicon/message.c |   54 ++++++++++++++++----------------
+ 2 files changed, 41 insertions(+), 41 deletions(-)
 
-> 
-> BTW, here is the patch for ethtool to set the GRO flags.
+diff --git a/drivers/isdn/hardware/eicon/di.c b/drivers/isdn/hardware/eicon/di.c
+index 10760b3..d798fb4 100644
+--- a/drivers/isdn/hardware/eicon/di.c
++++ b/drivers/isdn/hardware/eicon/di.c
+@@ -353,13 +353,13 @@ void scom_clear_int(ADAPTER * a)
+ /*------------------------------------------------------------------*/
+ /* return code handler                                              */
+ /*------------------------------------------------------------------*/
+-byte isdn_rc(ADAPTER * a,
+-             byte Rc,
+-             byte Id,
+-             byte Ch,
+-             word Ref,
+-             dword extended_info_type,
+-             dword extended_info)
++static byte isdn_rc(ADAPTER * a,
++                    byte Rc,
++                    byte Id,
++                    byte Ch,
++                    word Ref,
++                    dword extended_info_type,
++                    dword extended_info)
+ {
+   ENTITY  * this;
+   byte e_no;
+@@ -555,13 +555,13 @@ byte isdn_rc(ADAPTER * a,
+ /*------------------------------------------------------------------*/
+ /* indication handler                                               */
+ /*------------------------------------------------------------------*/
+-byte isdn_ind(ADAPTER * a,
+-              byte Ind,
+-              byte Id,
+-              byte Ch,
+-              PBUFFER * RBuffer,
+-              byte MInd,
+-              word MLength)
++static byte isdn_ind(ADAPTER * a,
++                     byte Ind,
++                     byte Id,
++                     byte Ch,
++                     PBUFFER * RBuffer,
++                     byte MInd,
++                     word MLength)
+ {
+   ENTITY  * this;
+   word clength;
+diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
+index 599fed8..339e4ed 100644
+--- a/drivers/isdn/hardware/eicon/message.c
++++ b/drivers/isdn/hardware/eicon/message.c
+@@ -592,7 +592,7 @@ word api_put(APPL   * appl, CAPI_MSG   * msg)
+ /* api_parse function, check the format of api messages             */
+ /*------------------------------------------------------------------*/
+ 
+-word api_parse(byte   * msg, word length, byte * format, API_PARSE * parms)
++static word api_parse(byte   * msg, word length, byte * format, API_PARSE * parms)
+ {
+   word i;
+   word p;
+@@ -631,7 +631,7 @@ word api_parse(byte   * msg, word length, byte * format, API_PARSE * parms)
+   return false;
+ }
+ 
+-void api_save_msg(API_PARSE   *in, byte *format, API_SAVE   *out)
++static void api_save_msg(API_PARSE   *in, byte *format, API_SAVE   *out)
+ {
+   word i, j, n = 0;
+   byte   *p;
+@@ -663,7 +663,7 @@ void api_save_msg(API_PARSE   *in, byte *format, API_SAVE   *out)
+   out->parms[i].length = 0;
+ }
+ 
+-void api_load_msg(API_SAVE   *in, API_PARSE   *out)
++static void api_load_msg(API_SAVE   *in, API_PARSE   *out)
+ {
+   word i;
+ 
+@@ -3414,7 +3414,7 @@ byte select_b_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci,
+   return false;
+ }
+ 
+-byte manufacturer_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci, APPL   * appl, API_PARSE * parms)
++static byte manufacturer_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci, APPL   * appl, API_PARSE * parms)
+ {
+   word command;
+   word i;
+@@ -3742,7 +3742,7 @@ byte manufacturer_req(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * p
+ }
+ 
+ 
+-byte manufacturer_res(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci, APPL   * appl, API_PARSE * msg)
++static byte manufacturer_res(dword Id, word Number, DIVA_CAPI_ADAPTER   * a, PLCI   * plci, APPL   * appl, API_PARSE * msg)
+ {
+   word indication;
+ 
+@@ -4074,7 +4074,7 @@ capi_callback_suffix:
+ }
+ 
+ 
+-void control_rc(PLCI   * plci, byte req, byte rc, byte ch, byte global_req, byte nl_rc)
++static void control_rc(PLCI   * plci, byte req, byte rc, byte ch, byte global_req, byte nl_rc)
+ {
+   dword Id;
+   dword rId;
+@@ -4740,7 +4740,7 @@ void control_rc(PLCI   * plci, byte req, byte rc, byte ch, byte global_req, byte
+   }
+ }
+ 
+-void data_rc(PLCI   * plci, byte ch)
++static void data_rc(PLCI   * plci, byte ch)
+ {
+   dword Id;
+   DIVA_CAPI_ADAPTER   * a;
+@@ -4776,7 +4776,7 @@ void data_rc(PLCI   * plci, byte ch)
+   }
+ }
+ 
+-void data_ack(PLCI   * plci, byte ch)
++static void data_ack(PLCI   * plci, byte ch)
+ {
+   dword Id;
+   DIVA_CAPI_ADAPTER   * a;
+@@ -4802,7 +4802,7 @@ void data_ack(PLCI   * plci, byte ch)
+   }
+ }
+ 
+-void sig_ind(PLCI   * plci)
++static void sig_ind(PLCI   * plci)
+ {
+   dword x_Id;
+   dword Id;
+@@ -6170,7 +6170,7 @@ static void SendSetupInfo(APPL   * appl, PLCI   * plci, dword Id, byte   * * par
+ }
+ 
+ 
+-void SendInfo(PLCI   * plci, dword Id, byte   * * parms, byte iesent)
++static void SendInfo(PLCI   * plci, dword Id, byte   * * parms, byte iesent)
+ {
+   word i;
+   word j;
+@@ -6346,7 +6346,7 @@ void SendInfo(PLCI   * plci, dword Id, byte   * * parms, byte iesent)
+ }
+ 
+ 
+-byte SendMultiIE(PLCI   * plci, dword Id, byte   * * parms, byte ie_type, dword info_mask, byte setupParse)
++static byte SendMultiIE(PLCI   * plci, dword Id, byte   * * parms, byte ie_type, dword info_mask, byte setupParse)
+ {
+   word i;
+   word j;
+@@ -6465,7 +6465,7 @@ static void SendSSExtInd(APPL   * appl, PLCI   * plci, dword Id, byte   * * parm
+     }
+ };
+ 
+-void nl_ind(PLCI   * plci)
++static void nl_ind(PLCI   * plci)
+ {
+   byte ch;
+   word ncci;
+@@ -7247,7 +7247,7 @@ void nl_ind(PLCI   * plci)
+ /* find a free PLCI                                                 */
+ /*------------------------------------------------------------------*/
+ 
+-word get_plci(DIVA_CAPI_ADAPTER   * a)
++static word get_plci(DIVA_CAPI_ADAPTER   * a)
+ {
+   word i,j;
+   PLCI   * plci;
+@@ -7406,7 +7406,7 @@ static void add_ie(PLCI   * plci, byte code, byte   * p, word p_length)
+ /* put a unstructured data into the buffer                          */
+ /*------------------------------------------------------------------*/
+ 
+-void add_d(PLCI   * plci, word length, byte   * p)
++static void add_d(PLCI   * plci, word length, byte   * p)
+ {
+   word i;
+ 
+@@ -7424,7 +7424,7 @@ void add_d(PLCI   * plci, word length, byte   * p)
+ /* parameter buffer                                                 */
+ /*------------------------------------------------------------------*/
+ 
+-void add_ai(PLCI   * plci, API_PARSE * ai)
++static void add_ai(PLCI   * plci, API_PARSE * ai)
+ {
+   word i;
+     API_PARSE ai_parms[5];
+@@ -7445,7 +7445,7 @@ void add_ai(PLCI   * plci, API_PARSE * ai)
+ /* put parameter for b1 protocol in the parameter buffer            */
+ /*------------------------------------------------------------------*/
+ 
+-word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_facilities)
++static word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_facilities)
+ {
+     API_PARSE bp_parms[8];
+     API_PARSE mdm_cfg[9];
+@@ -7909,7 +7909,7 @@ word add_b1(PLCI   * plci, API_PARSE * bp, word b_channel_info, word b1_faciliti
+ /* put parameter for b2 and B3  protocol in the parameter buffer    */
+ /*------------------------------------------------------------------*/
+ 
+-word add_b23(PLCI   * plci, API_PARSE * bp)
++static word add_b23(PLCI   * plci, API_PARSE * bp)
+ {
+   word i, fax_control_bits;
+   byte pos, len;
+@@ -8706,7 +8706,7 @@ void sig_req(PLCI   * plci, byte req, byte Id)
+ /* send a request for the network layer entity                      */
+ /*------------------------------------------------------------------*/
+ 
+-void nl_req_ncci(PLCI   * plci, byte req, byte ncci)
++static void nl_req_ncci(PLCI   * plci, byte req, byte ncci)
+ {
+   if(!plci) return;
+   if(plci->adapter->adapter_disabled) return;
+@@ -8728,7 +8728,7 @@ void nl_req_ncci(PLCI   * plci, byte req, byte ncci)
+   plci->req_in_start = plci->req_in;
+ }
+ 
+-void send_req(PLCI   * plci)
++static void send_req(PLCI   * plci)
+ {
+   ENTITY   * e;
+   word l;
+@@ -8863,7 +8863,7 @@ void send_data(PLCI   * plci)
+   }
+ }
+ 
+-void listen_check(DIVA_CAPI_ADAPTER   * a)
++static void listen_check(DIVA_CAPI_ADAPTER   * a)
+ {
+   word i,j;
+   PLCI   * plci;
+@@ -8906,7 +8906,7 @@ void listen_check(DIVA_CAPI_ADAPTER   * a)
+ /* functions for all parameters sent in INDs                        */
+ /*------------------------------------------------------------------*/
+ 
+-void IndParse(PLCI   * plci, word * parms_id, byte   ** parms, byte multiIEsize)
++static void IndParse(PLCI   * plci, word * parms_id, byte   ** parms, byte multiIEsize)
+ {
+   word ploc;            /* points to current location within packet */
+   byte w;
+@@ -8991,7 +8991,7 @@ void IndParse(PLCI   * plci, word * parms_id, byte   ** parms, byte multiIEsize)
+ /* try to match a cip from received BC and HLC                      */
+ /*------------------------------------------------------------------*/
+ 
+-byte ie_compare(byte   * ie1, byte * ie2)
++static byte ie_compare(byte   * ie1, byte * ie2)
+ {
+   word i;
+   if(!ie1 || ! ie2) return false;
+@@ -9000,7 +9000,7 @@ byte ie_compare(byte   * ie1, byte * ie2)
+   return true;
+ }
+ 
+-word find_cip(DIVA_CAPI_ADAPTER   * a, byte   * bc, byte   * hlc)
++static word find_cip(DIVA_CAPI_ADAPTER   * a, byte   * bc, byte   * hlc)
+ {
+   word i;
+   word j;
+@@ -9068,7 +9068,7 @@ static byte AddInfo(byte   **add_i,
+ /* voice and codec features                                         */
+ /*------------------------------------------------------------------*/
+ 
+-void SetVoiceChannel(PLCI   *plci, byte   *chi, DIVA_CAPI_ADAPTER   * a)
++static void SetVoiceChannel(PLCI   *plci, byte   *chi, DIVA_CAPI_ADAPTER   * a)
+ {
+   byte voice_chi[] = "\x02\x18\x01";
+   byte channel;
+@@ -9086,7 +9086,7 @@ void SetVoiceChannel(PLCI   *plci, byte   *chi, DIVA_CAPI_ADAPTER   * a)
+   }
+ }
+ 
+-void VoiceChannelOff(PLCI   *plci)
++static void VoiceChannelOff(PLCI   *plci)
+ {
+   dbug(1,dprintf("ExtDevOFF"));
+   add_p(plci,FTY,"\x02\x01\x08");             /* B Off */
+@@ -9099,7 +9099,7 @@ void VoiceChannelOff(PLCI   *plci)
+ }
+ 
+ 
+-word AdvCodecSupport(DIVA_CAPI_ADAPTER   *a, PLCI   *plci, APPL   *appl, byte hook_listen)
++static word AdvCodecSupport(DIVA_CAPI_ADAPTER   *a, PLCI   *plci, APPL   *appl, byte hook_listen)
+ {
+   word j;
+   PLCI   *splci;
+@@ -9195,7 +9195,7 @@ word AdvCodecSupport(DIVA_CAPI_ADAPTER   *a, PLCI   *plci, APPL   *appl, byte ho
+ }
+ 
+ 
+-void CodecIdCheck(DIVA_CAPI_ADAPTER   *a, PLCI   *plci)
++static void CodecIdCheck(DIVA_CAPI_ADAPTER   *a, PLCI   *plci)
+ {
+ 
+   dbug(1,dprintf("CodecIdCheck"));
+-- 
+1.5.6.3
 
-Thanks Herbert.  I was slightly confused when you said you wouldn't need 
-to affect the ethtool_ops struct, which you don't.  But my initial read 
-didn't think to just pop it into the existing offload ethtool_ops entry 
-point after seeing the get/set ops you had in the kernel interface.  I've 
-been enlightened now (or my brain has finally slipped into gear).  :-)
-
-> -static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso, int lro)
-> +static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso,
-> +                       int gro, int lro)
-
-Would it make better sense to add GRO after LRO?  I suppose it doesn't 
-make any difference, but I'm thinking of any possible way to provide ABI 
-compatibility.  I don't think it's possible though; just thinking out loud 
-here.
-
-Cheers,
--PJ Waskiewicz
