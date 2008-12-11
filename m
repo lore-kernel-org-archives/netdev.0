@@ -1,32 +1,51 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Lockup with tun/tap/bridge interface deregistration.
-Date: Thu, 11 Dec 2008 10:43:03 +0000
-Message-ID: <20081211104303.GC4129@ff.dom.local>
-References: <87fxkwhyyq.fsf@barad-dur.regala.cx> <20081211102421.GB4129@ff.dom.local>
+From: Steve.Glendinning@smsc.com
+Subject: Re: smsc911x: add dynamic bus configuration
+Date: Thu, 11 Dec 2008 10:42:56 +0000
+Message-ID: <OF1ACA5184.78E170E9-ON8025751C.003AE142-8025751C.003AF292@smsc.com>
+References: <20081210.151345.145985569.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kernel@gentoo.org
-To: Mathieu SEGAUD <mathieu.segaud@regala.cx>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: catalin.marinas@arm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:65466 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755014AbYLKKnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 05:43:10 -0500
-Received: by ewy10 with SMTP id 10so1295957ewy.13
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 02:43:08 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081211102421.GB4129@ff.dom.local>
+Received: from mail.smsc.com ([170.129.50.11]:3362 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755177AbYLKKoP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2008 05:44:15 -0500
+In-Reply-To: <20081210.151345.145985569.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 10:24:21AM +0000, Jarek Poplawski wrote:
-...
-> Could you try e.g. 2.6.27.7 or something with this patch?:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.27.y.git;a=commit;h=58ec3b4db9eb5a28e3aec5f407a54e28f7039c19
+Thanks David, I'll push the other (platform-specific) patches through the 
+relevant platform trees.
 
-Oops! 2.6.27.4 has this too...
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
 
-Sorry,
-Jarek P.
+
+
+
+
+David Miller <davem@davemloft.net> 
+10/12/2008 23:12
+
+To
+Steve Glendinning/SMSC@SMSC
+cc
+netdev@vger.kernel.org, catalin.marinas@arm.com
+Subject
+Re: smsc911x: add dynamic bus configuration
+
+
+
+
+
+
+
+I've added this patch to net-next-2.6, thanks.
+
+
