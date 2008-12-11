@@ -1,48 +1,65 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 8/9][v2] mISDN: timerdev: use __user for mISDN_read's buffer argument
-Date: Thu, 11 Dec 2008 22:36:00 +0100
-Message-ID: <49419a3f.0710660a.4800.7087@mx.google.com>
-Cc: Karsten Keil <kkeil@suse.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759929AbYLKXC6@vger.kernel.org>
-Cc: linux-kernel@vger.kernel.org
-Cc: kernel-janitors@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper() / queue_work() / wait_for_completion()
+Date: Fri, 12 Dec 2008 02:05:21 +0300
+Message-ID: <20081211230521.GA2392@ioremap.net>
+References: <bug-12201-10286@http.bugzilla.kernel.org/> <20081211143758.510b51b6.akpm@linux-foundation.org> <20081211225158.GA2169@ioremap.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mike@nauticaltech.com, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kandzendo.ru ([195.178.208.66]:44864 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757873AbYLKXFX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2008 18:05:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20081211225158.GA2169@ioremap.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix this warning:
+On Fri, Dec 12, 2008 at 01:51:58AM +0300, Evgeniy Polyakov (zbr@ioremap.net) wrote:
+> > > If I write a small pilot program that calls socket(PF_NETLINK, SOCK_RAW,
+> > > NETLINK_AUDIT), it will delay by 1-2 seconds 100% of the time (assuming server
+> > > has been online for a while).  Certain protocol types given to socket() have
+> > > zero delay (because no module needs to be loaded).
+> > > 
+> > > Steps to reproduce:
+> > > Once server has been online for a while, a simple call to socket(PF_NETLINK,
+> > > SOCK_RAW, NETLINK_AUDIT) shows the problem.
+> > 
+> > OK, weird.
+> > 
+> > Please get sysrq working then get us a task trace, so we can see who is
+> > sleeping where.  Do this:
+> > 
+> > 
+> > - run your "small pilot program"
+> 
+> Or send it to us and we will quickly fix the bug :)
+> 
+> Thank you!
 
-  drivers/isdn/mISDN/timerdev.c:264:11: warning: incorrect type in initializer (incompatible argument 2 (different address spaces))
-  drivers/isdn/mISDN/timerdev.c:264:11:    expected int ( *read )( ... )
-  drivers/isdn/mISDN/timerdev.c:264:11:    got int ( static [toplevel] *<noident> )( ... )
+Btw, does this ugly hack fix the problem?
+According to your description it may be the case.
 
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
-Acked-by: Karsten Keil <kkeil@suse.de>
----
- drivers/isdn/mISDN/timerdev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/isdn/mISDN/timerdev.c b/drivers/isdn/mISDN/timerdev.c
-index 62b5e49..f2b3218 100644
---- a/drivers/isdn/mISDN/timerdev.c
-+++ b/drivers/isdn/mISDN/timerdev.c
-@@ -86,7 +86,7 @@ mISDN_close(struct inode *ino, struct file *filep)
- }
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 480184a..2b64eb5 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -434,6 +434,10 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol)
+ 	if (protocol < 0 || protocol >= MAX_LINKS)
+ 		return -EPROTONOSUPPORT;
  
- static ssize_t
--mISDN_read(struct file *filep, char *buf, size_t count, loff_t *off)
-+mISDN_read(struct file *filep, char __user *buf, size_t count, loff_t *off)
- {
- 	struct mISDNtimerdev	*dev = filep->private_data;
- 	struct mISDNtimer	*timer;
-@@ -116,7 +116,7 @@ mISDN_read(struct file *filep, char *buf, size_t count, loff_t *off)
- 		timer = (struct mISDNtimer *)dev->expired.next;
- 		list_del(&timer->list);
- 		spin_unlock_irqrestore(&dev->lock, flags);
--		if (put_user(timer->id, (int *)buf))
-+		if (put_user(timer->id, (int __user *)buf))
- 			ret = -EFAULT;
- 		else
- 			ret = sizeof(int);
++#ifndef CONFIG_AUDIT
++	if (protocol == NETLINK_AUDIT)
++		return -EPROTONOSUPPORT;
++#endif
+ 	netlink_lock_table();
+ #ifdef CONFIG_MODULES
+ 	if (!nl_table[protocol].registered) {
+
+
 -- 
-1.5.6.3
+	Evgeniy Polyakov
