@@ -1,113 +1,89 @@
-From: Vladislav Bolkhovitin <vst@vlnb.net>
-Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
- space data
-Date: Thu, 11 Dec 2008 21:16:47 +0300
-Message-ID: <4941590F.3070705@vlnb.net>
-References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net> <20081210214500.GA24212@ioremap.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage entry
+Date: Thu, 11 Dec 2008 13:15:28 -0500
+Message-ID: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
+References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local> <20081211090104.02cab3d4@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Jeff Garzik <jeff@garzik.org>,
-	Boaz Harrosh <bharrosh@panasas.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:52286 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755258AbYLKSRB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 13:17:01 -0500
-In-Reply-To: <20081210214500.GA24212@ioremap.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53235 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755349AbYLKSRv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 13:17:51 -0500
+Content-Disposition: inline
+In-Reply-To: <20081211090104.02cab3d4@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Evgeniy,
-
-Evgeniy Polyakov wrote:
-> Hi Vladislav.
+On Thu, Dec 11, 2008 at 09:01:04AM -0800, Stephen Hemminger wrote:
+> On Thu, 11 Dec 2008 13:07:28 +0000
+> Jarek Poplawski <jarkao2@gmail.com> wrote:
 > 
-> On Wed, Dec 10, 2008 at 10:04:36PM +0300, Vladislav Bolkhovitin (vst@vlnb.net) wrote:
->> In the chosen approach new optional field void *net_priv was added to 
->> struct page. It is enclosed by
+> > On 09-12-2008 22:06, Neil Horman wrote:
+> > ...
+> > > When executing napi->poll from the netpoll_path, this bit will
+> > > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
+> > > remove the napi_struct from the poll_list.  That work will be saved for the next
+> > > iteration of net_rx_action.
+> > 
+> > This could be not enough: some drivers, e.g. sky2, call napi_complete()
+> > directly.
+> > 
 > 
-> There is a huge no-no in networking land on increasing skb.
-> Reason is simple every skb will carry potentially unneded data as long
-> as given option is enabled, and most of the time it will.
-> To break this barrier one has to have (I wanted to write ego, but then
-> decided to replace it with mojo) so huge reason to do this, that it is
-> almost impossible to have.
+> There is good reason for this. Although most drivers only have one NAPI
+> instance per device, and multiqueue drivers have several NAPI structures
+> per device, a few devices like sky2 need to support multiple devices
+> running off one NAPI receive. The Marvell hardware has a common receive
+> interrupt for both ports on a dual port card.
 > 
-> Something tells me that increasing page structure with 8 bytes because
-> of zero-copy iscsi transfer is not that great idea, since basically every
-> user out there will have it enabled in the distro config and will waste
-> noticeble amount of ram.
-
-The waste will be only 0.2% of RAM or 2MB per 1GB. Not much. Perhaps, 
-not noticeable for an average user of distro kernels at all. Embedded 
-people, who count each byte, almost always don't need iSCSI, so won't 
-have any problems to disable 
-TCP_ZERO_COPY_TRANSFER_COMPLETION_NOTIFICATION option.
-
-Also, as I wrote, iSCSI-SCST can work without this patch or with 
-TCP_ZERO_COPY_TRANSFER_COMPLETION_NOTIFICATION option disabled, but with 
-user space device handlers it will work considerably worse. Only few 
-distro kernels users need an iSCSI target and only few among such users 
-need to use a user space device handler. So, option 
-TCP_ZERO_COPY_TRANSFER_COMPLETION_NOTIFICATION can be safely disabled in 
-default configs of distro kernels. People who need both iSCSI target 
-*and* fast working user space device handler would simply enable that 
-option and rebuild the kernel. Rejecting this patch provides much worse 
-alternative: those people would also have to *patch* the kernel at 
-first, only then enable that option, then rebuild the kernel.
-
-> The same problem of not sending any kind of notification to the user
-> when his pages are 'acked' by receiving some packet or freeing the data
-> exists long ago and was tried to be fixed several times.
+> This kind of hardware limits usage of netpoll. Only one port can be
+> used with netpoll because netpoll makes assumptions about NAPI
+> association.
 > 
-> The most applicable to your case maybe DST experience. DST is a block
-> layer device and all its pages starting from quite recent kernels are
-> not allowed to be slab ones (xfs was the last one who provided slab
-> pages in the bios), so each page has two 'unused' pointers in lru list
-> entry, which you may reuse. If scsi layer may have slab pages from some
-> place (although this does not sound like a good idea, ->sendpage() will
-> bug on on them anyway), this hack will not work, otherwise you only need
-> to have net_page_get/put stuff in and do not mess with increasing page.
-> And this was tested 3-4 kernel releases ago, so things may be changed.
 
-I've just rechecked if any of struct page fields can be shared with 
-net_priv field. Unfortunately, it looks like none among the mandatory 
-fields:
+There was previously good cause to use __netif_rx_complete instead of
+netif_rx_complete some time ago when multiqueue rx was implemented using a set
+of dummy netdevices.  But with the separation of the napi code, there is no
+longer any reason for this to be done.
 
-  - Transmitting pages can be mapped in some user space, so sharing in 
-unions with _mapcount, mapping and index fields isn't possible
+I just took a quick look, and it appears that sky2 is the last remaining driver
+to use the underlying napi routines.
 
-  - Transmitting pages can be in the page cache, so sharing lru field 
-isn't possible as well
+This patch maintains exactly the same functionality that it previously had, but
+allows for the netpoll patch to be safe with respect to the per-cpu poll_lists
+used by net_rx_action.
 
-It might, however, be shared with field "virtual", since SCST allocates 
-only lowmem pages, but on non-HIGHMEM kernels and most HIGHMEM kernels 
-WANT_PAGE_VIRTUAL isn't defined, so it will change basically nothing.
+Regards
+Neil
 
-> Another appropach is to increase skb's shared data (at the end of the
-> skb->data), and this approach was not frowned upon too much either, but
-> it requires to mess with skb->destructor, which may not be appropriate
-> in some cases. If iscsi does not use sockets (it does iirc), things are
-> much simpler.
 
-As I wrote, approach to use net_priv on the skb level was examined, but 
-rejected as unpractical. Simply too many places should be modified to 
-prevent merging skb's with different net_priv-like labels and those 
-places are too inobvious. Implementation of this approach and, 
-especially, maintenance it would be just a nightmare.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Thanks,
-Vlad
 
+ sky2.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 3813d15..84bdc3c 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2694,7 +2694,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+ 		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
+ 		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
+ 	}
+-	napi_complete(napi);
++	netif_rx_complete(napi->dev, napi);
+ 	sky2_read32(hw, B0_Y2_SP_LISR);
+ done:
+ 
+-- 
+/***************************************************
+ *Neil Horman
+ *nhorman@tuxdriver.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
