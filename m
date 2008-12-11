@@ -1,33 +1,30 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/1] SCHED: netem: Correct documentation comment in
- code.
-Date: Thu, 11 Dec 2008 09:21:51 -0800
-Message-ID: <20081211092151.6c8fb81e@s6510>
-References: <1229001489.18280.179.camel@localhost.localdomain>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: interface counters overflow (ppp)
+Date: Thu, 11 Dec 2008 21:42:46 +0200
+Message-ID: <200812112142.46202.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52969 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755954AbYLKRV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2008 12:21:57 -0500
-In-Reply-To: <1229001489.18280.179.camel@localhost.localdomain>
+Received: from hosting.visp.net.lb ([194.146.153.11]:41605 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755243AbYLKRr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 12:47:26 -0500
+Received: from [192.168.4.94] (unknown [195.69.208.250])
+	(Authenticated sender: denys@visp.net.lb)
+	by hosting.visp.net.lb (Postfix) with ESMTPSA id AB3C61A4AD8
+	for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 19:35:50 +0200 (EET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Dec 2008 14:18:09 +0100
-Jesper Dangaard Brouer <hawk@comx.dk> wrote:
+Is there any plans to convert ppp counters to 64-bit values?
+Sure backward compatible way. (new ioctl call?)
 
-> 
-> The netem simulator is no longer limited by Linux timer resolution HZ.
-> Not since Patrick McHardy changed the QoS system to use hrtimer.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+Current speeds on modern interfaces, even on 1Mbit DSL modem (PPPoE 
+connection) will overflow pppd counters just in ~10 hours.
 
-That depends if HIGH_RES_TIMERS are configured.
-
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Current pppd implementation using SIOCGPPPSTATS ioctl, where is all fields 
+related to byte counting is 32-bit.
