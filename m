@@ -1,45 +1,52 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 1/1] SCHED: netem: Correct documentation comment in code.
-Date: Thu, 11 Dec 2008 14:18:09 +0100
-Message-ID: <1229001489.18280.179.camel@localhost.localdomain>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [GIT]: Networking
+Date: Thu, 11 Dec 2008 08:20:59 -0500
+Message-ID: <200812110821.00002.paul.moore@hp.com>
+References: <20081208.000655.211323914.davem@davemloft.net> <Pine.LNX.4.64.0812111344580.10515@vixen.sonytel.be>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:38523 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755300AbYLKNSX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 08:18:23 -0500
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:9649 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750767AbYLKNVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 08:21:03 -0500
+In-Reply-To: <Pine.LNX.4.64.0812111344580.10515@vixen.sonytel.be>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thursday 11 December 2008 7:50:23 am Geert Uytterhoeven wrote:
+> On Mon, 8 Dec 2008, David Miller wrote:
+> > Here are the pending net fixes:
+> >
+> > 6) netlabel OOPS'er fix from Paul Moore.
+> >
+> > Paul Moore (1):
+> >       netlabel: Fix a potential NULL pointer dereference
+>
+> This introduced:
+> | net/netlabel/netlabel_unlabeled.c:567: warning: 'entry' may be used
+> | uninitialized in this function
+> | net/netlabel/netlabel_unlabeled.c:629: warning: 'entry' may be used
+> | uninitialized in this function
+>
+> which may still oops, if the uninitialized entry pointer is
+> dereferenced (in case list_entry == NULL).
 
-The netem simulator is no longer limited by Linux timer resolution HZ.
-Not since Patrick McHardy changed the QoS system to use hrtimer.
+Hi Geert,
 
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
----
- net/sched/sch_netem.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+First of, a quick question: what version of gcc are you using?  I'm 
+using gcc-4.3.2 and I don't get this warning/error.  Regardless, I'll 
+send out a patch later today which should resolve the warning.
 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index a119599..98402f0 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -46,9 +46,6 @@
- 	 layering other disciplines.  It does not need to do bandwidth
- 	 control either since that can be handled by using token
- 	 bucket or other rate control.
--
--	 The simulator is limited by the Linux timer resolution
--	 and will create packet bursts on the HZ boundary (1ms).
- */
- 
- struct netem_sched_data {
 -- 
-1.5.4.2
-
-
+paul moore
+linux @ hp
