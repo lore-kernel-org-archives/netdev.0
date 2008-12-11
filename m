@@ -1,87 +1,60 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 6/9][v2] mISDN: fix sparse warning: symbol 'id' shadows an earlier one
-Date: Thu, 11 Dec 2008 22:36:00 +0100
-Message-ID: <49419a37.0aa5660a.7d74.31a0@mx.google.com>
-Cc: Karsten Keil <kkeil@suse.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758363AbYLKWzw@vger.kernel.org>
-Cc: linux-kernel@vger.kernel.org
-Cc: kernel-janitors@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Kay Sievers" <kay.sievers@vrfy.org>
+Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper() / queue_work() / wait_for_completion()
+Date: Thu, 11 Dec 2008 23:48:32 +0100
+Message-ID: <ac3eb2510812111448s7c700199ia2e57834f91c02a@mail.gmail.com>
+References: <bug-12201-10286@http.bugzilla.kernel.org/>
+	 <20081211143758.510b51b6.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: mike@nauticaltech.com, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Al Viro" <viro@zeniv.linux.org.uk>
+To: "Andrew Morton" <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.232]:64501 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759408AbYLKW4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 17:56:10 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so1094163rvb.1
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 14:56:10 -0800 (PST)
+In-Reply-To: <20081211143758.510b51b6.akpm@linux-foundation.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Impact: rename function scope variable
+On Thu, Dec 11, 2008 at 23:37, Andrew Morton <akpm@linux-foundation.org> wrote:
+>> As I continued to dig deeper (using lots of printks), I found that these delays
+>> were caused by the netlink_create() code calling request_module() to find/load
+>> a module for AUDIT support which doesn't exist.
+>>
+>> Continuing to dig, I found that request_module() uses call_usermodehelper() to
+>> run /sbin/modprobe to find/load the module.
+>>
+>> The farthest I got is that after the process is created, we call
+>> wait_for_completion() to get the result of that process.  This waiting process
+>> takes 1-2 seconds.
+>>
+>> The big problem in troubleshooting here is that this only starts to happen
+>> after the server has been online for a while (10 days maybe) and serving lots
+>> of traffic.  The delay gradually builds up and maxes out at around 2 seconds.
+>>
+>> If I manually call /sbin/modprobe on the commandline and provide it the same
+>> arguments that call_usermodehelper() uses, the command returns instantly 100%
+>> of the time (assuming server has been on for a while).
+>>
+>> If I write a small pilot program that calls socket(PF_NETLINK, SOCK_RAW,
+>> NETLINK_AUDIT), it will delay by 1-2 seconds 100% of the time (assuming server
+>> has been online for a while).  Certain protocol types given to socket() have
+>> zero delay (because no module needs to be loaded).
+>>
+>> Steps to reproduce:
+>> Once server has been online for a while, a simple call to socket(PF_NETLINK,
+>> SOCK_RAW, NETLINK_AUDIT) shows the problem.
 
-Fix this warning:
+If you replace /sbin/modprobe in the kernel module loader, does the
+delay go away:
+  echo /bin/true > /proc/sys/kernel/modprobe
+?
 
-  drivers/isdn/mISDN/l1oip_core.c:472:8: warning: symbol 'id' shadows an earlier one
-  drivers/isdn/mISDN/l1oip_core.c:254:14: originally declared here
-
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
-Acked-by: Karsten Keil <kkeil@suse.de>
----
- drivers/isdn/mISDN/l1oip_core.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip_core.c
-index e42150a..0884dd6 100644
---- a/drivers/isdn/mISDN/l1oip_core.c
-+++ b/drivers/isdn/mISDN/l1oip_core.c
-@@ -469,7 +469,7 @@ l1oip_socket_recv(struct l1oip *hc, u8 remotecodec, u8 channel, u16 timebase,
- static void
- l1oip_socket_parse(struct l1oip *hc, struct sockaddr_in *sin, u8 *buf, int len)
- {
--	u32			id;
-+	u32			packet_id;
- 	u8			channel;
- 	u8			remotecodec;
- 	u16			timebase;
-@@ -508,7 +508,7 @@ l1oip_socket_parse(struct l1oip *hc, struct sockaddr_in *sin, u8 *buf, int len)
- 	}
- 
- 	/* get id flag */
--	id = (*buf>>4)&1;
-+	packet_id = (*buf>>4)&1;
- 
- 	/* check coding */
- 	remotecodec = (*buf) & 0x0f;
-@@ -520,11 +520,11 @@ l1oip_socket_parse(struct l1oip *hc, struct sockaddr_in *sin, u8 *buf, int len)
- 	buf++;
- 	len--;
- 
--	/* check id */
--	if (id) {
-+	/* check packet_id */
-+	if (packet_id) {
- 		if (!hc->id) {
- 			printk(KERN_WARNING "%s: packet error - packet has id "
--				"0x%x, but we have not\n", __func__, id);
-+				"0x%x, but we have not\n", __func__, packet_id);
- 			return;
- 		}
- 		if (len < 4) {
-@@ -532,16 +532,16 @@ l1oip_socket_parse(struct l1oip *hc, struct sockaddr_in *sin, u8 *buf, int len)
- 				"short for ID value\n", __func__);
- 			return;
- 		}
--		id = (*buf++) << 24;
--		id += (*buf++) << 16;
--		id += (*buf++) << 8;
--		id += (*buf++);
-+		packet_id = (*buf++) << 24;
-+		packet_id += (*buf++) << 16;
-+		packet_id += (*buf++) << 8;
-+		packet_id += (*buf++);
- 		len -= 4;
- 
--		if (id != hc->id) {
-+		if (packet_id != hc->id) {
- 			printk(KERN_WARNING "%s: packet error - ID mismatch, "
- 				"got 0x%x, we 0x%x\n",
--				__func__, id, hc->id);
-+				__func__, packet_id, hc->id);
- 			return;
- 		}
- 	} else {
--- 
-1.5.6.3
+Kay
