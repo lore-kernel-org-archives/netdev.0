@@ -1,52 +1,74 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Lockup with tun/tap/bridge interface deregistration.
-Date: Thu, 11 Dec 2008 10:24:21 +0000
-Message-ID: <20081211102421.GB4129@ff.dom.local>
-References: <87fxkwhyyq.fsf@barad-dur.regala.cx>
+From: James Morris <jmorris@namei.org>
+Subject: Re: networking probs in next-20081203
+Date: Thu, 11 Dec 2008 21:41:20 +1100 (EST)
+Message-ID: <alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
+References: <49381644.8020502@intel.com>
+	<20081204175236.GA19808@x200.localdomain>
+	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
+	<20081204.102138.123959105.davem@davemloft.net>
+	<1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
+	<1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
+	<m1bpvrslk0.fsf@frodo.ebiederm.org>
+	<1228486339.20274.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kernel@gentoo.org
-To: Mathieu SEGAUD <mathieu.segaud@regala.cx>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:40339 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754630AbYLKKY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 05:24:27 -0500
-Received: by ewy10 with SMTP id 10so1289596ewy.13
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 02:24:25 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <87fxkwhyyq.fsf@barad-dur.regala.cx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	eparis@parisplace.org, akpm@linux-foundation.org, adobriyan@gmail.com
+To: Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1228486339.20274.3.camel@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 10-12-2008 15:44, Mathieu SEGAUD wrote:
-> Hi,
+On Fri, 5 Dec 2008, Stephen Smalley wrote:
+
+> I suspect we need the following un-tested diff to map all of these proc/
+> filesystem types to "proc" for the policy lookup at filesystem mount
+> time.
+
+I finally got a bootable linux-next, but it seems that the proc/net patch 
+is no longer in there.
+
+Any idea if it's coming back?  The patch below looks ok, but it needs 
+testing (and I'd suggest perhaps including it any future version of the 
+proc/net patch).
+
+
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 9155fa9..3c3ceb7 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -703,7 +703,7 @@ static int selinux_set_mnt_opts(struct super_block *sb,
+>  		sbsec->proc = 1;
+>  
+>  	/* Determine the labeling behavior to use for this filesystem type. */
+> -	rc = security_fs_use(sb->s_type->name, &sbsec->behavior, &sbsec->sid);
+> +	rc = security_fs_use(sbsec->proc ? "proc" : sb->s_type->name, &sbsec->behavior, &sbsec->sid);
+>  	if (rc) {
+>  		printk(KERN_WARNING "%s: security_fs_use(%s) returned %d\n",
+>  		       __func__, sb->s_type->name, rc);
 > 
-> we are experiencing some "virtual" network interfaces problem, especially
-> with tun/tap devices and with bridges, which occasionally get stuck and
-> won't deregister and hang the destroying process for very long time.
-...
->  [<c0266b41>] netdev_run_todo+0xf7/0x19d
->  [<f8a7f3c5>] br_del_bridge+0x48/0x4c [bridge]
->  [<f8a7ff61>] br_ioctl_deviceless_stub+0x190/0x19f [bridge]
->  [<c018a66c>] inotify_d_instantiate+0x12/0x3a
->  [<c02e5c1b>] _spin_unlock+0xc/0x1f
->  [<f8a7fdd1>] br_ioctl_deviceless_stub+0x0/0x19f [bridge]
->  [<c025bf6e>] sock_ioctl+0x11f/0x1d9
->  [<c025be4f>] sock_ioctl+0x0/0x1d9
->  [<c0170cdc>] vfs_ioctl+0x1c/0x5f
->  [<c0170f47>] do_vfs_ioctl+0x228/0x23b
->  [<c025d76f>] sys_socketcall+0x51/0x19d
->  [<c0170f86>] sys_ioctl+0x2c/0x42
->  [<c01038a9>] sysenter_do_call+0x12/0x25
->  [<c02e0000>] print_cpu_info+0x7e/0x92
-> 
-> (This one was obtained with kernel version 2.6.27.4)
+> -- 
+> Stephen Smalley
+> National Security Agency
 > 
 
-Could you try e.g. 2.6.27.7 or something with this patch?:
+-- 
+James Morris
+<jmorris@namei.org>
 
-http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.27.y.git;a=commit;h=58ec3b4db9eb5a28e3aec5f407a54e28f7039c19
-
-Jarek P.
+------------------------------------------------------------------------------
+SF.Net email is Sponsored by MIX09, March 18-20, 2009 in Las Vegas, Nevada.
+The future of the web can't happen without you.  Join us at MIX09 to help
+pave the way to the Next Web now. Learn more and register at
+http://ad.doubleclick.net/clk;208669438;13503038;i?http://2009.visitmix.com/
