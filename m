@@ -1,58 +1,34 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: Re: [GIT]: Networking
-Date: Thu, 11 Dec 2008 13:50:23 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0812111344580.10515@vixen.sonytel.be>
-References: <20081208.000655.211323914.davem@davemloft.net>
+From: Poornima Kamath <poornimak@gslab.com>
+Subject: Detecting backup slaves of bonding interface in network driver
+Date: Thu, 11 Dec 2008 18:04:31 +0530
+Message-ID: <494108D7.3040304@gslab.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vervifontaine.sonytel.be ([80.88.33.193]:40304 "EHLO
-	vervifontaine.sonycom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755700AbYLKMuZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 07:50:25 -0500
-In-Reply-To: <20081208.000655.211323914.davem@davemloft.net>
+Received: from padma.gslab.com ([59.163.66.102]:49698 "HELO padma.gslab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755450AbYLKNHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Dec 2008 08:07:25 -0500
+Received: from rohini.gs-lab.com (unknown [172.20.50.32])
+	(Authenticated sender: poornimak)
+	by padma.gslab.com (Postfix) with ESMTP id B3F6B1770584
+	for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 17:37:24 +0530 (IST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Dec 2008, David Miller wrote:
-> Here are the pending net fixes:
->=20
-> 6) netlabel OOPS'er fix from Paul Moore.
 
-> Paul Moore (1):
->       netlabel: Fix a potential NULL pointer dereference
+Hi,
+I have a network driver which creates virtual ethernet interfaces. I am 
+using the bonding driver in the active backup mode for failover.
+I want to detect the interfaces which are backup slaves in the driver.
+I found that the  bonding driver sets the IFF_SLAVE_INACTIVE private 
+flag of net_device structure for all the backup slaves.
+But I dont see any callbacks in my driver when this flag is set.
+I am planning to check the netdevice flags in the driver. Is it 
+recommended to check the private flags of net_device ?
+Or is there some better way in which I can find the backup slaves?
 
-This introduced:
-
-| net/netlabel/netlabel_unlabeled.c:567: warning: 'entry' may be used u=
-ninitialized in this function
-| net/netlabel/netlabel_unlabeled.c:629: warning: 'entry' may be used u=
-ninitialized in this function
-
-which may still oops, if the uninitialized entry pointer is dereference=
-d (in
-case list_entry =3D=3D NULL).
-
-With kind regards,
-
-Geert Uytterhoeven
-Software Architect
-
-Sony Techsoft Centre Europe
-The Corporate Village =B7 Da Vincilaan 7-D1 =B7 B-1935 Zaventem =B7 Bel=
-gium
-
-Phone:    +32 (0)2 700 8453
-=46ax:      +32 (0)2 700 8622
-E-mail:   Geert.Uytterhoeven@sonycom.com
-Internet: http://www.sony-europe.com/
-
-A division of Sony Europe (Belgium) N.V.
-VAT BE 0413.825.160 =B7 RPR Brussels
-=46ortis =B7 BIC GEBABEBB =B7 IBAN BE41293037680010
+Thanks,
+Poornima
