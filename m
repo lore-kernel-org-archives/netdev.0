@@ -1,47 +1,46 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper() / queue_work() / wait_for_completion()
-Date: Fri, 12 Dec 2008 01:51:58 +0300
-Message-ID: <20081211225158.GA2169@ioremap.net>
-References: <bug-12201-10286@http.bugzilla.kernel.org/> <20081211143758.510b51b6.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mike@nauticaltech.com, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Hannes Eder <hannes@hanneseder.net>
+Subject: [PATCH 4/9][v2] mISDN: un-export symbol 'plx_lock'
+Date: Thu, 11 Dec 2008 22:36:00 +0100
+Message-ID: <49419a2d.06a1660a.5c0a.ffff908c@mx.google.com>
+Cc: Karsten Keil <kkeil@suse.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:45112 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757459AbYLKWwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 17:52:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20081211143758.510b51b6.akpm@linux-foundation.org>
+Received: from mu-out-0910.google.com ([209.85.134.187]:31985 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757886AbYLKWyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 17:54:41 -0500
+Received: by mu-out-0910.google.com with SMTP id g7so720797muf.1
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 14:54:38 -0800 (PST)
+Cc: linux-kernel@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+'plx_lock' is only used within hfcmulti.c.
 
-On Thu, Dec 11, 2008 at 02:37:58PM -0800, Andrew Morton (akpm@linux-foundation.org) wrote:
-> > If I write a small pilot program that calls socket(PF_NETLINK, SOCK_RAW,
-> > NETLINK_AUDIT), it will delay by 1-2 seconds 100% of the time (assuming server
-> > has been online for a while).  Certain protocol types given to socket() have
-> > zero delay (because no module needs to be loaded).
-> > 
-> > Steps to reproduce:
-> > Once server has been online for a while, a simple call to socket(PF_NETLINK,
-> > SOCK_RAW, NETLINK_AUDIT) shows the problem.
-> 
-> OK, weird.
-> 
-> Please get sysrq working then get us a task trace, so we can see who is
-> sleeping where.  Do this:
-> 
-> 
-> - run your "small pilot program"
+Fix this warning:
 
-Or send it to us and we will quickly fix the bug :)
+  drivers/isdn/hardware/mISDN/hfcmulti.c:176:1: warning: symbol 'plx_lock' shadows an earlier one
+  drivers/isdn/hardware/mISDN/hfcmulti.c:175:19: originally declared here
 
-Thank you!
+Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+Acked-by: Karsten Keil <kkeil@suse.de>
+---
+ drivers/isdn/hardware/mISDN/hfcmulti.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
+index 599d832..970201d 100644
+--- a/drivers/isdn/hardware/mISDN/hfcmulti.c
++++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
+@@ -173,7 +173,6 @@ static int interrupt_registered;
+ static struct hfc_multi *syncmaster;
+ static int plxsd_master; /* if we have a master card (yet) */
+ static spinlock_t plx_lock; /* may not acquire other lock inside */
+-EXPORT_SYMBOL(plx_lock);
+ 
+ #define	TYP_E1		1
+ #define	TYP_4S		4
 -- 
-	Evgeniy Polyakov
+1.5.6.3
+
