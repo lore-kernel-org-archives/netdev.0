@@ -1,48 +1,75 @@
-From: "Arno J. Klaassen" <arno@heho.snv.jussieu.fr>
-Subject: Re: [Bugme-new] [Bug 11752] New: Extremely low	netperf	UDP_RR	throughput for nvidia MCP65
-Date: 11 Dec 2008 21:53:36 +0100
-Message-ID: <wpfxkuo2lr.fsf@heho.snv.jussieu.fr>
-References: <bug-11752-10286@http.bugzilla.kernel.org/>
-	<20081016134920.1492cdcc.akpm@linux-foundation.org>
-	<48F7AD1A.7050309@hp.com> <wp63nrx7zk.fsf@heho.snv.jussieu.fr>
-	<48F8FE18.6060005@hp.com> <wpprlyuoci.fsf@heho.snv.jussieu.fr>
-	<48FCC2C1.5030108@hp.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] update rwlock initialization for nat_table
+Date: Thu, 11 Dec 2008 14:18:29 -0800
+Message-ID: <20081211141829.cda39684.akpm@linux-foundation.org>
+References: <alpine.DEB.1.10.0812101314460.11805@gandalf.stny.rr.com>
+	<49400B7F.7040607@cosmosbay.com>
+	<alpine.DEB.1.10.0812101504280.11805@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dada1@cosmosbay.com, mingo@elte.hu, acme@ghostprotocols.net,
+	davem@davemloft.net
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shiva.jussieu.fr ([134.157.0.129]:64988 "EHLO shiva.jussieu.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757365AbYLKWFw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2008 17:05:52 -0500
-In-Reply-To: <48FCC2C1.5030108@hp.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44567 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754339AbYLKWS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 17:18:56 -0500
+In-Reply-To: <alpine.DEB.1.10.0812101504280.11805@gandalf.stny.rr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 10 Dec 2008 15:06:00 -0500 (EST)
+Steven Rostedt <rostedt@goodmis.org> wrote:
 
-Hello,
-
-Rick Jones <rick.jones2@hp.com> writes:
-
-> >>Clearly something is fubar with the rx side (well duh :).  The next
-> >>set of stats I'd try to look at would be ethtool stats for the
-> >>interface, eg ethtool -S eth0 and see if it shows someting more
-> >>specific for the "RX-ERR" shown by netstat -I eth0.
-> > OK, here it is (rx_errors_total: 10049, rx_crc_errors: 10049) :
 > 
-> Well, that seems to confirm that it is CRC errors.
+> The following patch is in:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-2.6-trace.git
+> 
+>     branch: cleanups
+> 
+> 
+> Steven Rostedt (1):
+>       update rwlock initialization for nat_table
+> 
+> ----
+>  net/ipv4/netfilter/nf_nat_rule.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> ---------------------------
+> commit d4175059c8f95e4cd58e0efaa85610ca59469fbd
+> Author: Steven Rostedt <srostedt@redhat.com>
+> Date:   Wed Dec 10 15:00:09 2008 -0500
+> 
+>     update rwlock initialization for nat_table
+>     
+>     Impact: clean up
 
-[ .. stuff deleted .. ]
+It's more than a "cleanup"?
 
-well, just a quick 'knock knock' in case any of you has something
-new on this
+>     The commit e099a173573ce1ba171092aee7bb3c72ea686e59
+>     (netfilter: netns nat: per-netns NAT table) renamed the
+>     nat_table from __nat_table to nat_table without updating the
+>     __RW_LOCK_UNLOCKED(__nat_table.lock).
+>     
+>     Signed-off-by: Steven Rostedt <srostedt@redhat.com>
+> 
+> diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
+> index bea54a6..8d489e7 100644
+> --- a/net/ipv4/netfilter/nf_nat_rule.c
+> +++ b/net/ipv4/netfilter/nf_nat_rule.c
+> @@ -61,7 +61,7 @@ static struct
+>  static struct xt_table nat_table = {
+>  	.name		= "nat",
+>  	.valid_hooks	= NAT_VALID_HOOKS,
+> -	.lock		= __RW_LOCK_UNLOCKED(__nat_table.lock),
+> +	.lock		= __RW_LOCK_UNLOCKED(nat_table.lock),
+>  	.me		= THIS_MODULE,
+>  	.af		= AF_INET,
+>  };
 
-I can live with 100Mbps, but would be glad to help further to
-get it work at 1gbps (pavillon dv6700).
-Looks like a silicon bug to me, but alas; please beep me if
-I can test something.
+At present any lockdep messages relating to this lock will print the
+wrong name.  So it's a nanobug, I think?
 
-Best regards, Arno
