@@ -1,121 +1,208 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper()
- / queue_work() / wait_for_completion()
-Date: Thu, 11 Dec 2008 14:37:58 -0800
-Message-ID: <20081211143758.510b51b6.akpm@linux-foundation.org>
-References: <bug-12201-10286@http.bugzilla.kernel.org/>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH v3 1/7] fs: Use a percpu_counter to track nr_dentry
+Date: Thu, 11 Dec 2008 23:38:56 +0100
+Message-ID: <49419680.8010409@cosmosbay.com>
+References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <20081121083044.GL16242@elte.hu> <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDB6A.8090806@cosmosbay.com> <493100B0.6090104@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
-To: mike@nauticaltech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38603 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757415AbYLKWiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 17:38:06 -0500
-In-Reply-To: <bug-12201-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@elte.hu>, Christoph Hellwig <hch@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
+	"kernel-testers@vger.kernel.org >> Kernel Testers List"
+	<kernel-testers@vger.kernel.org>, Mike Galbraith <efault@gmx.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	linux-fsdevel@vger.kernel.org, Al Viro <viro@ZenIV.linux.org.uk>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <493100B0.6090104@cosmosbay.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Adding a percpu_counter nr_dentry avoids cache line ping pongs
+between cpus to maintain this metric, and dcache_lock is
+no more needed to protect dentry_stat.nr_dentry
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+We centralize nr_dentry updates at the right place :
+- increments in d_alloc()
+- decrements in d_free()
 
-On Thu, 11 Dec 2008 14:15:21 -0800 (PST)
-bugme-daemon@bugzilla.kernel.org wrote:
+d_alloc() can avoid taking dcache_lock if parent is NULL
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=12201
-> 
->            Summary: long wait in call_usermodehelper() / queue_work() /
->                     wait_for_completion()
->            Product: Process Management
->            Version: 2.5
->      KernelVersion: 2.6.26.8
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: process_other@kernel-bugs.osdl.org
->         ReportedBy: mike@nauticaltech.com
-> 
-> 
-> Latest working kernel version: None
-> Earliest failing kernel version: 2.6.26 (can't test any older)
+("socketallocbench -n8" result : 27.5s to 25s)
 
-It'd be great if you could test something more recent please.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+ fs/dcache.c        |   49 +++++++++++++++++++++++++------------------
+ include/linux/fs.h |    2 +
+ kernel/sysctl.c    |    2 -
+ 3 files changed, 32 insertions(+), 21 deletions(-)
 
-> Distribution: CentOS 5
-> Hardware Environment: Sun x4450, 16-cores, 128GB of RAM
-> Software Environment: CentOS 5 + Apache webserver
-> Problem Description:
-> My problem started with SSH using the audit library, and my kernel not having
-> AUDIT support.  During strace, any call to socket(PF_NETLINK, SOCK_RAW,
-> NETLINK_AUDIT) took 1-2 seconds to return.  During this time, sys% was high.
-
-Well this is bad.  We don't want the kernel calling out to userspace
-each time you run socket(PF_NETLINK, ...).  The performance could be
-awful.
-
-I don't know if this is a net problem, an audit problem or whatever. 
-Probably the offending kernel code simply shouldn't exist if
-CONFIG_AUDIT=n.
-
-Please attach a copy of the config to
-http://bugzilla.kernel.org/show_bug.cgi?id=12201
-
-> As I continued to dig deeper (using lots of printks), I found that these delays
-> were caused by the netlink_create() code calling request_module() to find/load
-> a module for AUDIT support which doesn't exist.
-> 
-> Continuing to dig, I found that request_module() uses call_usermodehelper() to
-> run /sbin/modprobe to find/load the module.
-> 
-> The farthest I got is that after the process is created, we call
-> wait_for_completion() to get the result of that process.  This waiting process
-> takes 1-2 seconds.
-> 
-> The big problem in troubleshooting here is that this only starts to happen
-> after the server has been online for a while (10 days maybe) and serving lots
-> of traffic.  The delay gradually builds up and maxes out at around 2 seconds.
-> 
-> If I manually call /sbin/modprobe on the commandline and provide it the same
-> arguments that call_usermodehelper() uses, the command returns instantly 100%
-> of the time (assuming server has been on for a while).
-> 
-> If I write a small pilot program that calls socket(PF_NETLINK, SOCK_RAW,
-> NETLINK_AUDIT), it will delay by 1-2 seconds 100% of the time (assuming server
-> has been online for a while).  Certain protocol types given to socket() have
-> zero delay (because no module needs to be loaded).
-> 
-> Steps to reproduce:
-> Once server has been online for a while, a simple call to socket(PF_NETLINK,
-> SOCK_RAW, NETLINK_AUDIT) shows the problem.
-
-OK, weird.
-
-Please get sysrq working then get us a task trace, so we can see who is
-sleeping where.  Do this:
-
-
-- run your "small pilot program"
-
-- wait one second (so we catch it while it is delaying)
-
-- echo t > /proc/sysrq-trigger
-
-- dmesg -s 1000000 > foo
-
-- send us a copy of foo.
-
-(foo will be large, so it would be best to attach it to
-http://bugzilla.kernel.org/show_bug.cgi?id=12201 then email us the URL)
-
-(Using `echo w > /proc/sysrq-trigger' would work too, if we know that
-the offending processes are stuck in D state.  It will produce less
-output)
-
+diff --git a/fs/dcache.c b/fs/dcache.c
+index fa1ba03..f463a81 100644
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -61,12 +61,31 @@ static struct kmem_cache *dentry_cache __read_mostly;
+ static unsigned int d_hash_mask __read_mostly;
+ static unsigned int d_hash_shift __read_mostly;
+ static struct hlist_head *dentry_hashtable __read_mostly;
++static struct percpu_counter nr_dentry;
+ 
+ /* Statistics gathering. */
+ struct dentry_stat_t dentry_stat = {
+ 	.age_limit = 45,
+ };
+ 
++/*
++ * Handle nr_dentry sysctl
++ */
++#if defined(CONFIG_SYSCTL) && defined(CONFIG_PROC_FS)
++int proc_nr_dentry(ctl_table *table, int write, struct file *filp,
++		   void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	dentry_stat.nr_dentry = percpu_counter_sum_positive(&nr_dentry);
++	return proc_dointvec(table, write, filp, buffer, lenp, ppos);
++}
++#else
++int proc_nr_dentry(ctl_table *table, int write, struct file *filp,
++		   void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return -ENOSYS;
++}
++#endif
++
+ static void __d_free(struct dentry *dentry)
+ {
+ 	WARN_ON(!list_empty(&dentry->d_alias));
+@@ -82,8 +101,7 @@ static void d_callback(struct rcu_head *head)
+ }
+ 
+ /*
+- * no dcache_lock, please.  The caller must decrement dentry_stat.nr_dentry
+- * inside dcache_lock.
++ * no dcache_lock, please.
+  */
+ static void d_free(struct dentry *dentry)
+ {
+@@ -94,6 +112,7 @@ static void d_free(struct dentry *dentry)
+ 		__d_free(dentry);
+ 	else
+ 		call_rcu(&dentry->d_u.d_rcu, d_callback);
++	percpu_counter_dec(&nr_dentry);
+ }
+ 
+ /*
+@@ -172,7 +191,6 @@ static struct dentry *d_kill(struct dentry *dentry)
+ 	struct dentry *parent;
+ 
+ 	list_del(&dentry->d_u.d_child);
+-	dentry_stat.nr_dentry--;	/* For d_free, below */
+ 	/*drops the locks, at that point nobody can reach this dentry */
+ 	dentry_iput(dentry);
+ 	if (IS_ROOT(dentry))
+@@ -619,7 +637,6 @@ void shrink_dcache_sb(struct super_block * sb)
+ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
+ {
+ 	struct dentry *parent;
+-	unsigned detached = 0;
+ 
+ 	BUG_ON(!IS_ROOT(dentry));
+ 
+@@ -678,7 +695,6 @@ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
+ 			}
+ 
+ 			list_del(&dentry->d_u.d_child);
+-			detached++;
+ 
+ 			inode = dentry->d_inode;
+ 			if (inode) {
+@@ -696,7 +712,7 @@ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
+ 			 * otherwise we ascend to the parent and move to the
+ 			 * next sibling if there is one */
+ 			if (!parent)
+-				goto out;
++				return;
+ 
+ 			dentry = parent;
+ 
+@@ -705,11 +721,6 @@ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
+ 		dentry = list_entry(dentry->d_subdirs.next,
+ 				    struct dentry, d_u.d_child);
+ 	}
+-out:
+-	/* several dentries were freed, need to correct nr_dentry */
+-	spin_lock(&dcache_lock);
+-	dentry_stat.nr_dentry -= detached;
+-	spin_unlock(&dcache_lock);
+ }
+ 
+ /*
+@@ -943,8 +954,6 @@ struct dentry *d_alloc(struct dentry * parent, const struct qstr *name)
+ 	dentry->d_flags = DCACHE_UNHASHED;
+ 	spin_lock_init(&dentry->d_lock);
+ 	dentry->d_inode = NULL;
+-	dentry->d_parent = NULL;
+-	dentry->d_sb = NULL;
+ 	dentry->d_op = NULL;
+ 	dentry->d_fsdata = NULL;
+ 	dentry->d_mounted = 0;
+@@ -959,16 +968,15 @@ struct dentry *d_alloc(struct dentry * parent, const struct qstr *name)
+ 	if (parent) {
+ 		dentry->d_parent = dget(parent);
+ 		dentry->d_sb = parent->d_sb;
++		spin_lock(&dcache_lock);
++		list_add(&dentry->d_u.d_child, &parent->d_subdirs);
++		spin_unlock(&dcache_lock);
+ 	} else {
++		dentry->d_parent = NULL;
++		dentry->d_sb = NULL;
+ 		INIT_LIST_HEAD(&dentry->d_u.d_child);
+ 	}
+-
+-	spin_lock(&dcache_lock);
+-	if (parent)
+-		list_add(&dentry->d_u.d_child, &parent->d_subdirs);
+-	dentry_stat.nr_dentry++;
+-	spin_unlock(&dcache_lock);
+-
++	percpu_counter_inc(&nr_dentry);
+ 	return dentry;
+ }
+ 
+@@ -2282,6 +2290,7 @@ static void __init dcache_init(void)
+ {
+ 	int loop;
+ 
++	percpu_counter_init(&nr_dentry, 0);
+ 	/* 
+ 	 * A constructor could be added for stable state like the lists,
+ 	 * but it is probably not worth it because of the cache nature
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 4a853ef..114cb65 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -2217,6 +2217,8 @@ static inline void free_secdata(void *secdata)
+ struct ctl_table;
+ int proc_nr_files(struct ctl_table *table, int write, struct file *filp,
+ 		  void __user *buffer, size_t *lenp, loff_t *ppos);
++int proc_nr_dentry(struct ctl_table *table, int write, struct file *filp,
++		   void __user *buffer, size_t *lenp, loff_t *ppos);
+ 
+ int get_filesystem_list(char * buf);
+ 
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 3d56fe7..777bee7 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -1246,7 +1246,7 @@ static struct ctl_table fs_table[] = {
+ 		.data		= &dentry_stat,
+ 		.maxlen		= 6*sizeof(int),
+ 		.mode		= 0444,
+-		.proc_handler	= &proc_dointvec,
++		.proc_handler	= &proc_nr_dentry,
+ 	},
+ 	{
+ 		.ctl_name	= FS_OVERFLOWUID,
