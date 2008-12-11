@@ -1,51 +1,46 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: smsc911x: add dynamic bus configuration
-Date: Thu, 11 Dec 2008 10:42:56 +0000
-Message-ID: <OF1ACA5184.78E170E9-ON8025751C.003AE142-8025751C.003AF292@smsc.com>
-References: <20081210.151345.145985569.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Lockup with tun/tap/bridge interface deregistration.
+Date: Thu, 11 Dec 2008 21:49:54 +1100
+Message-ID: <20081211104954.GA25179@gondor.apana.org.au>
+References: <87fxkwhyyq.fsf@barad-dur.regala.cx> <20081211102421.GB4129@ff.dom.local> <20081211104303.GC4129@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: catalin.marinas@arm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mathieu SEGAUD <mathieu.segaud@regala.cx>, netdev@vger.kernel.org,
+	kernel@gentoo.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:3362 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755177AbYLKKoP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2008 05:44:15 -0500
-In-Reply-To: <20081210.151345.145985569.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:40228 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754772AbYLKKuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 05:50:02 -0500
+Content-Disposition: inline
+In-Reply-To: <20081211104303.GC4129@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks David, I'll push the other (platform-specific) patches through the 
-relevant platform trees.
+On Thu, Dec 11, 2008 at 10:43:03AM +0000, Jarek Poplawski wrote:
+> On Thu, Dec 11, 2008 at 10:24:21AM +0000, Jarek Poplawski wrote:
+> ...
+> > Could you try e.g. 2.6.27.7 or something with this patch?:
+> > 
+> > http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.27.y.git;a=commit;h=58ec3b4db9eb5a28e3aec5f407a54e28f7039c19
+> 
+> Oops! 2.6.27.4 has this too...
 
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
+Right, this fixes a dead-lock that causes the RTNL to be held which
+doesn't seem to be the case here.  It sounds like the problem in
+this thread is simply due to a non-zero ref count on the netdev
+itself.
 
+Mathieu, you should get a message like this
 
+	unregister_netdevice: waiting for %s to become free. Usage count = %d
 
+What does your count say?
 
-
-David Miller <davem@davemloft.net> 
-10/12/2008 23:12
-
-To
-Steve Glendinning/SMSC@SMSC
-cc
-netdev@vger.kernel.org, catalin.marinas@arm.com
-Subject
-Re: smsc911x: add dynamic bus configuration
-
-
-
-
-
-
-
-I've added this patch to net-next-2.6, thanks.
-
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
