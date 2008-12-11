@@ -1,133 +1,52 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Thu, 11 Dec 2008 08:46:06 +0000
-Message-ID: <20081211084606.GA4129@ff.dom.local>
-References: <20081010075640.GA5204@ff.dom.local> <48EF17EA.5020306@bigtelecom.ru> <20081010090426.GA6054@ff.dom.local> <20081010095129.GB6054@ff.dom.local> <48F6FB3E.7060903@bigtelecom.ru> <20081016084027.GA17632@ff.dom.local> <48FEC302.5090707@bigtelecom.ru> <20081022070200.GB4178@ff.dom.local> <493FDCD4.5020108@bigtelecom.ru>
+Subject: Re: Lockup with tun/tap/bridge interface deregistration.
+Date: Thu, 11 Dec 2008 10:24:21 +0000
+Message-ID: <20081211102421.GB4129@ff.dom.local>
+References: <87fxkwhyyq.fsf@barad-dur.regala.cx>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	kernel@gentoo.org
+To: Mathieu SEGAUD <mathieu.segaud@regala.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:51323 "EHLO
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:40339 "EHLO
 	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755115AbYLKIqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 03:46:14 -0500
-Received: by ewy10 with SMTP id 10so1255029ewy.13
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 00:46:12 -0800 (PST)
+	with ESMTP id S1754630AbYLKKY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 05:24:27 -0500
+Received: by ewy10 with SMTP id 10so1289596ewy.13
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 02:24:25 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <493FDCD4.5020108@bigtelecom.ru>
+In-Reply-To: <87fxkwhyyq.fsf@barad-dur.regala.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 10, 2008 at 06:14:28PM +0300, Badalian Vyacheslav wrote:
-> Hello again! Sorry for long away.
-
-Hi!
-
-> I was go away from this work for long time.
+On 10-12-2008 15:44, Mathieu SEGAUD wrote:
+> Hi,
 > 
-> May we return to this bug?
-> Servers at last stable kernel 2.6.27.8
-> HZ=1000, HR=off, DynamicTicks=off, hysteresis=1
-> Sorry - no patched, update do not i. Do you have fresh patches or ideas
-> for tests?
-
-Not much, but I can have if you only are willing to test them...
-I attach below a patch which combines 2 patches I sent yesterday to
-netdev (PATCH 7/6 and 8/6) vs. 2.6.27.7 (named testing patch #3 here).
-
-You can still try the testing patch #2 I sent previously (quoted below)
-with or without this new #3 patch.
-
-Thanks,
-Jarek P.
-
-> Also debug "Debug object operations" and "Debug timer objects" is on but
-> i not see additional information at dump.
-> 
-> Thanks!
-> 
-> That dump:
-> [ 1500.932813] BUG: NMI Watchdog detected LOCKUP on CPU3, ip c0208ed9,
-> registers:
-> [ 1500.932813] Modules linked in: cls_u32 sch_sfq sch_htb netconsole
-> e1000e e1000 i2c_i801
-> [ 1500.932813]
-> [ 1500.932813] Pid: 0, comm: swapper Not tainted (2.6.27-gentoo-r5-fw #1)
-> [ 1500.932813] EIP: 0060:[<c0208ed9>] EFLAGS: 00000082 CPU: 3
-> [ 1500.932813] EIP is at rb_insert_color+0x29/0xf0
+> we are experiencing some "virtual" network interfaces problem, especially
+> with tun/tap devices and with bridges, which occasionally get stuck and
+> won't deregister and hang the destroying process for very long time.
 ...
-> > --- (testing patch #2)
-> >
-> >  net/sched/sch_htb.c |    8 +++++++-
-> >  1 files changed, 7 insertions(+), 1 deletions(-)
-> >
-> > diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-> > index 30c999c..ff9e965 100644
+>  [<c0266b41>] netdev_run_todo+0xf7/0x19d
+>  [<f8a7f3c5>] br_del_bridge+0x48/0x4c [bridge]
+>  [<f8a7ff61>] br_ioctl_deviceless_stub+0x190/0x19f [bridge]
+>  [<c018a66c>] inotify_d_instantiate+0x12/0x3a
+>  [<c02e5c1b>] _spin_unlock+0xc/0x1f
+>  [<f8a7fdd1>] br_ioctl_deviceless_stub+0x0/0x19f [bridge]
+>  [<c025bf6e>] sock_ioctl+0x11f/0x1d9
+>  [<c025be4f>] sock_ioctl+0x0/0x1d9
+>  [<c0170cdc>] vfs_ioctl+0x1c/0x5f
+>  [<c0170f47>] do_vfs_ioctl+0x228/0x23b
+>  [<c025d76f>] sys_socketcall+0x51/0x19d
+>  [<c0170f86>] sys_ioctl+0x2c/0x42
+>  [<c01038a9>] sysenter_do_call+0x12/0x25
+>  [<c02e0000>] print_cpu_info+0x7e/0x92
+> 
+> (This one was obtained with kernel version 2.6.27.4)
+> 
 
+Could you try e.g. 2.6.27.7 or something with this patch?:
 
------------> (testing patch #3)
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.27.y.git;a=commit;h=58ec3b4db9eb5a28e3aec5f407a54e28f7039c19
 
-diff -Nurp a2.6.27.7/net/sched/sch_htb.c b2.6.27.7/net/sched/sch_htb.c
---- a2.6.27.7/net/sched/sch_htb.c	2008-12-11 08:16:16.000000000 +0000
-+++ b2.6.27.7/net/sched/sch_htb.c	2008-12-11 08:20:27.000000000 +0000
-@@ -696,12 +696,13 @@ static void htb_charge_class(struct htb_
-  * next pending event (0 for no event in pq).
-  * Note: Applied are events whose have cl->pq_key <= q->now.
-  */
--static psched_time_t htb_do_events(struct htb_sched *q, int level)
-+static psched_time_t htb_do_events(struct htb_sched *q, int level,
-+				   unsigned long start)
- {
- 	/* don't run for longer than 2 jiffies; 2 is used instead of
- 	   1 to simplify things when jiffy is going to be incremented
- 	   too soon */
--	unsigned long stop_at = jiffies + 2;
-+	unsigned long stop_at = start + 2;
- 	while (time_before(jiffies, stop_at)) {
- 		struct htb_class *cl;
- 		long diff;
-@@ -720,8 +721,8 @@ static psched_time_t htb_do_events(struc
- 		if (cl->cmode != HTB_CAN_SEND)
- 			htb_add_to_wait_tree(q, cl, diff);
- 	}
--	/* too much load - let's continue on next jiffie */
--	return q->now + PSCHED_TICKS_PER_SEC / HZ;
-+	/* too much load - let's continue on next jiffie (including above) */
-+	return q->now + 2 * PSCHED_TICKS_PER_SEC / HZ;
- }
- 
- /* Returns class->node+prio from id-tree where classe's id is >= id. NULL
-@@ -880,6 +881,7 @@ static struct sk_buff *htb_dequeue(struc
- 	struct htb_sched *q = qdisc_priv(sch);
- 	int level;
- 	psched_time_t next_event;
-+	unsigned long start_at;
- 
- 	/* try to dequeue direct packets as high prio (!) to minimize cpu work */
- 	skb = __skb_dequeue(&q->direct_queue);
-@@ -892,6 +894,7 @@ static struct sk_buff *htb_dequeue(struc
- 	if (!sch->q.qlen)
- 		goto fin;
- 	q->now = psched_get_time();
-+	start_at = jiffies;
- 
- 	next_event = q->now + 5 * PSCHED_TICKS_PER_SEC;
- 	q->nwc_hit = 0;
-@@ -901,14 +904,14 @@ static struct sk_buff *htb_dequeue(struc
- 		psched_time_t event;
- 
- 		if (q->now >= q->near_ev_cache[level]) {
--			event = htb_do_events(q, level);
-+			event = htb_do_events(q, level, start_at);
- 			if (!event)
- 				event = q->now + PSCHED_TICKS_PER_SEC;
- 			q->near_ev_cache[level] = event;
- 		} else
- 			event = q->near_ev_cache[level];
- 
--		if (event && next_event > event)
-+		if (next_event > event)
- 			next_event = event;
- 
- 		m = ~q->row_mask[level];
+Jarek P.
