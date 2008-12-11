@@ -1,34 +1,34 @@
-From: Poornima Kamath <poornimak@gslab.com>
-Subject: Detecting backup slaves of bonding interface in network driver
-Date: Thu, 11 Dec 2008 18:04:31 +0530
-Message-ID: <494108D7.3040304@gslab.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Thu, 11 Dec 2008 13:07:28 +0000
+Message-ID: <20081211130728.GB5910@ff.dom.local>
+References: <20081209210644.GC3785@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from padma.gslab.com ([59.163.66.102]:49698 "HELO padma.gslab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755450AbYLKNHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2008 08:07:25 -0500
-Received: from rohini.gs-lab.com (unknown [172.20.50.32])
-	(Authenticated sender: poornimak)
-	by padma.gslab.com (Postfix) with ESMTP id B3F6B1770584
-	for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 17:37:24 +0530 (IST)
+Received: from nf-out-0910.google.com ([64.233.182.187]:15074 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755455AbYLKNHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 08:07:36 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so181642nfc.21
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 05:07:34 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20081209210644.GC3785@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 09-12-2008 22:06, Neil Horman wrote:
+...
+> When executing napi->poll from the netpoll_path, this bit will
+> be set. When a driver calls netif_rx_complete, if that bit is set, it will not
+> remove the napi_struct from the poll_list.  That work will be saved for the next
+> iteration of net_rx_action.
 
-Hi,
-I have a network driver which creates virtual ethernet interfaces. I am 
-using the bonding driver in the active backup mode for failover.
-I want to detect the interfaces which are backup slaves in the driver.
-I found that the  bonding driver sets the IFF_SLAVE_INACTIVE private 
-flag of net_device structure for all the backup slaves.
-But I dont see any callbacks in my driver when this flag is set.
-I am planning to check the netdevice flags in the driver. Is it 
-recommended to check the private flags of net_device ?
-Or is there some better way in which I can find the backup slaves?
+This could be not enough: some drivers, e.g. sky2, call napi_complete()
+directly.
 
-Thanks,
-Poornima
+Regards,
+Jarek P.
