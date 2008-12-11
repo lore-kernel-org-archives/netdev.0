@@ -1,65 +1,82 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper() / queue_work() / wait_for_completion()
-Date: Fri, 12 Dec 2008 02:05:21 +0300
-Message-ID: <20081211230521.GA2392@ioremap.net>
-References: <bug-12201-10286@http.bugzilla.kernel.org/> <20081211143758.510b51b6.akpm@linux-foundation.org> <20081211225158.GA2169@ioremap.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH] igb: fixup AER with proper error handling
+Date: Thu, 11 Dec 2008 15:08:30 -0800
+Message-ID: <20081211230830.1649.11762.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mike@nauticaltech.com, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kandzendo.ru ([195.178.208.66]:44864 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757873AbYLKXFX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Dec 2008 18:05:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20081211225158.GA2169@ioremap.net>
+Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:33502
+	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757467AbYLKXIw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 18:08:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 12, 2008 at 01:51:58AM +0300, Evgeniy Polyakov (zbr@ioremap.net) wrote:
-> > > If I write a small pilot program that calls socket(PF_NETLINK, SOCK_RAW,
-> > > NETLINK_AUDIT), it will delay by 1-2 seconds 100% of the time (assuming server
-> > > has been online for a while).  Certain protocol types given to socket() have
-> > > zero delay (because no module needs to be loaded).
-> > > 
-> > > Steps to reproduce:
-> > > Once server has been online for a while, a simple call to socket(PF_NETLINK,
-> > > SOCK_RAW, NETLINK_AUDIT) shows the problem.
-> > 
-> > OK, weird.
-> > 
-> > Please get sysrq working then get us a task trace, so we can see who is
-> > sleeping where.  Do this:
-> > 
-> > 
-> > - run your "small pilot program"
-> 
-> Or send it to us and we will quickly fix the bug :)
-> 
-> Thank you!
+Based on Peter Waskiewicz patch for ixgbe.  Add error handling based on
+Hemminger's recommendation.
 
-Btw, does this ugly hack fix the problem?
-According to your description it may be the case.
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+---
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 480184a..2b64eb5 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -434,6 +434,10 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol)
- 	if (protocol < 0 || protocol >= MAX_LINKS)
- 		return -EPROTONOSUPPORT;
+ drivers/net/igb/igb_main.c |   20 +++++++++++++++++---
+ 1 files changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index dad742f..25df7c9 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1050,7 +1050,12 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_pci_reg;
  
-+#ifndef CONFIG_AUDIT
-+	if (protocol == NETLINK_AUDIT)
-+		return -EPROTONOSUPPORT;
-+#endif
- 	netlink_lock_table();
- #ifdef CONFIG_MODULES
- 	if (!nl_table[protocol].registered) {
+-	pci_enable_pcie_error_reporting(pdev);
++	err = pci_enable_pcie_error_reporting(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "pci_enable_pcie_error_reporting failed "
++		        "0x%x\n", err);
++		/* non-fatal, continue */
++	}
+ 
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+@@ -1343,6 +1348,7 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ #ifdef CONFIG_IGB_DCA
+ 	struct e1000_hw *hw = &adapter->hw;
+ #endif
++	int err;
+ 
+ 	/* flush_scheduled work may reschedule our watchdog task, so
+ 	 * explicitly disable watchdog tasks from being rescheduled  */
+@@ -1382,7 +1388,10 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ 
+ 	free_netdev(netdev);
+ 
+-	pci_disable_pcie_error_reporting(pdev);
++	err = pci_disable_pcie_error_reporting(pdev);
++	if (err)
++		dev_err(&pdev->dev,
++		        "pci_disable_pcie_error_reporting failed 0x%x\n", err);
+ 
+ 	pci_disable_device(pdev);
+ }
+@@ -4495,7 +4504,12 @@ static pci_ers_result_t igb_io_slot_reset(struct pci_dev *pdev)
+ 		result = PCI_ERS_RESULT_RECOVERED;
+ 	}
+ 
+-	pci_cleanup_aer_uncorrect_error_status(pdev);
++	err = pci_cleanup_aer_uncorrect_error_status(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "pci_cleanup_aer_uncorrect_error_status "
++		        "failed 0x%0x\n", err);
++		/* non-fatal, continue */
++	}
+ 
+ 	return result;
+ }
 
-
--- 
-	Evgeniy Polyakov
