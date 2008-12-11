@@ -1,56 +1,69 @@
-From: Mathieu SEGAUD <mathieu.segaud@regala.cx>
-Subject: Re: Lockup with tun/tap/bridge interface deregistration.
-Date: Thu, 11 Dec 2008 14:27:45 +0100
-Message-ID: <8763lqj0z2.fsf@barad-dur.regala.cx>
-References: <87fxkwhyyq.fsf@barad-dur.regala.cx>
-	<20081211102421.GB4129@ff.dom.local>
-	<20081211104303.GC4129@ff.dom.local>
-	<20081211104954.GA25179@gondor.apana.org.au>
+From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Subject: Re: [GIT]: Networking
+Date: Thu, 11 Dec 2008 15:01:12 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0812111500360.19338@vixen.sonytel.be>
+References: <20081208.000655.211323914.davem@davemloft.net>
+ <Pine.LNX.4.64.0812111344580.10515@vixen.sonytel.be> <200812110821.00002.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	kernel@gentoo.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from def92-3-81-56-114-101.fbx.proxad.net ([81.56.114.101]:42519
-	"EHLO barad-dur.regala.cx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755700AbYLKN0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 08:26:44 -0500
-In-Reply-To: <20081211104954.GA25179@gondor.apana.org.au> (Herbert Xu's message of "Thu\, 11 Dec 2008 21\:49\:54 +1100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756875AbYLKOBa@vger.kernel.org>
+In-Reply-To: <200812110821.00002.paul.moore@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Vous m'avez dit r=E9cemment :
+On Thu, 11 Dec 2008, Paul Moore wrote:
+> On Thursday 11 December 2008 7:50:23 am Geert Uytterhoeven wrote:
+> > On Mon, 8 Dec 2008, David Miller wrote:
+> > > Here are the pending net fixes:
+> > >
+> > > 6) netlabel OOPS'er fix from Paul Moore.
+> > >
+> > > Paul Moore (1):
+> > >       netlabel: Fix a potential NULL pointer dereference
+> >
+> > This introduced:
+> > | net/netlabel/netlabel_unlabeled.c:567: warning: 'entry' may be us=
+ed
+> > | uninitialized in this function
+> > | net/netlabel/netlabel_unlabeled.c:629: warning: 'entry' may be us=
+ed
+> > | uninitialized in this function
+> >
+> > which may still oops, if the uninitialized entry pointer is
+> > dereferenced (in case list_entry =3D=3D NULL).
+>=20
+> Hi Geert,
+>=20
+> First of, a quick question: what version of gcc are you using?  I'm=20
+> using gcc-4.3.2 and I don't get this warning/error.  Regardless, I'll=
+=20
+> send out a patch later today which should resolve the warning.
 
-> On Thu, Dec 11, 2008 at 10:43:03AM +0000, Jarek Poplawski wrote:
->> On Thu, Dec 11, 2008 at 10:24:21AM +0000, Jarek Poplawski wrote:
->> ...
->> > Could you try e.g. 2.6.27.7 or something with this patch?:
->> >=20
->> > http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.27.y.=
-git;a=3Dcommit;h=3D58ec3b4db9eb5a28e3aec5f407a54e28f7039c19
->>=20
->> Oops! 2.6.27.4 has this too...
->
-> Right, this fixes a dead-lock that causes the RTNL to be held which
-> doesn't seem to be the case here.  It sounds like the problem in
-> this thread is simply due to a non-zero ref count on the netdev
-> itself.
->
-> Mathieu, you should get a message like this
->
-> 	unregister_netdevice: waiting for %s to become free. Usage count =3D=
- %d
->
-> What does your count say?
->
-> Thanks,
+I'm using an m68k cross-compiler, built from Debian sources:
 
-sorry for the delay, the count, in this dump, is stuck at count 3.
-unregister_netdevice: waiting for vbr447429 to become free. Usage count=
- =3D 3
+| gcc version 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)
 
+With kind regards,
 
---=20
-Mathieu
+Geert Uytterhoeven
+Software Architect
+
+Sony Techsoft Centre Europe
+The Corporate Village =C2=B7 Da Vincilaan 7-D1 =C2=B7 B-1935 Zaventem =C2=
+=B7 Belgium
+
+Phone:    +32 (0)2 700 8453
+=46ax:      +32 (0)2 700 8622
+E-mail:   Geert.Uytterhoeven@sonycom.com
+Internet: http://www.sony-europe.com/
+
+A division of Sony Europe (Belgium) N.V.
+VAT BE 0413.825.160 =C2=B7 RPR Brussels
+=46ortis =C2=B7 BIC GEBABEBB =C2=B7 IBAN BE41293037680010
