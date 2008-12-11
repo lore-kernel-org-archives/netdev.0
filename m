@@ -1,89 +1,46 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage entry
-Date: Thu, 11 Dec 2008 13:15:28 -0500
-Message-ID: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
-References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local> <20081211090104.02cab3d4@s6510>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Default offload settings in Ethernet drivers
+Date: Thu, 11 Dec 2008 19:41:31 +0100
+Message-ID: <49415EDB.3030006@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53235 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755349AbYLKSRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 13:17:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20081211090104.02cab3d4@s6510>
+Received: from mailrelay010.isp.belgacom.be ([195.238.6.177]:24066 "EHLO
+	mailrelay010.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755952AbYLKSls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Dec 2008 13:41:48 -0500
+Received: from [192.168.1.4] (athloroad.xperim.be [192.168.1.4])
+	(authenticated bits=0)
+	by via.xperim.be (8.14.1/8.14.1/Debian-8ubuntu1) with ESMTP id mBBIfYqf025140
+	for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 19:41:36 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 09:01:04AM -0800, Stephen Hemminger wrote:
-> On Thu, 11 Dec 2008 13:07:28 +0000
-> Jarek Poplawski <jarkao2@gmail.com> wrote:
-> 
-> > On 09-12-2008 22:06, Neil Horman wrote:
-> > ...
-> > > When executing napi->poll from the netpoll_path, this bit will
-> > > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
-> > > remove the napi_struct from the poll_list.  That work will be saved for the next
-> > > iteration of net_rx_action.
-> > 
-> > This could be not enough: some drivers, e.g. sky2, call napi_complete()
-> > directly.
-> > 
-> 
-> There is good reason for this. Although most drivers only have one NAPI
-> instance per device, and multiqueue drivers have several NAPI structures
-> per device, a few devices like sky2 need to support multiple devices
-> running off one NAPI receive. The Marvell hardware has a common receive
-> interrupt for both ports on a dual port card.
-> 
-> This kind of hardware limits usage of netpoll. Only one port can be
-> used with netpoll because netpoll makes assumptions about NAPI
-> association.
-> 
+Hi!
 
-There was previously good cause to use __netif_rx_complete instead of
-netif_rx_complete some time ago when multiqueue rx was implemented using a set
-of dummy netdevices.  But with the separation of the napi code, there is no
-longer any reason for this to be done.
+A discussion recently took place on the power mailing list on the 
+subject of the impact of (hardware-assisted) offload functions on the 
+power efficiency of the overall system.
 
-I just took a quick look, and it appears that sky2 is the last remaining driver
-to use the underlying napi routines.
+The discussion was brought on by me noticing that not all drivers enable 
+  all of their offload features by default (case in point: r8169).
 
-This patch maintains exactly the same functionality that it previously had, but
-allows for the netpoll patch to be safe with respect to the per-cpu poll_lists
-used by net_rx_action.
+Although the discussion may not be complete, early indications are that:
 
-Regards
-Neil
+1. Hardware-assisted offloads improve power efficiency unless 
+implemented in a separate CPU (TOE / Total Offloading);
+
+2. It would probably be a good idea to enable hardware-assisted offloads 
+other than TOE by default given the above.
+
+I would therefore like to sollicit views here:
+
+1. Would changing default offload settings in Ethernet drivers help to 
+save the planet?
+
+2. Which offload settings does it make sense to enable by default?
 
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- sky2.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 3813d15..84bdc3c 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2694,7 +2694,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
- 		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
- 		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
- 	}
--	napi_complete(napi);
-+	netif_rx_complete(napi->dev, napi);
- 	sky2_read32(hw, B0_Y2_SP_LISR);
- done:
- 
--- 
-/***************************************************
- *Neil Horman
- *nhorman@tuxdriver.com
- *gpg keyid: 1024D / 0x92A74FA1
- *http://pgp.mit.edu
- ***************************************************/
+Thanks, Jan
