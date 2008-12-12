@@ -1,148 +1,57 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
-Date: Fri, 12 Dec 2008 22:51:30 +0300
-Message-ID: <20081212195130.GB27281@ioremap.net>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cx-0000r3-N2@gondolin.me.apana.org.au>
+From: Michael Spiegle <mike@nauticaltech.com>
+Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper()
+ / queue_work() / wait_for_completion()
+Date: Fri, 12 Dec 2008 11:51:57 -0800
+Message-ID: <4942C0DD.50602@nauticaltech.com>
+References: <bug-12201-10286@http.bugzilla.kernel.org/> <20081211143758.510b51b6.akpm@linux-foundation.org> <20081211225158.GA2169@ioremap.net> <20081211230521.GA2392@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.net.ru ([195.178.208.66]:45670 "EHLO tservice.net.ru"
+Received: from nauticaltech.com ([64.34.252.43]:35767 "EHLO nauticaltech.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751669AbYLLTvb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Dec 2008 14:51:31 -0500
-Content-Disposition: inline
-In-Reply-To: <E1LB0cx-0000r3-N2@gondolin.me.apana.org.au>
+	id S1751514AbYLLTv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Dec 2008 14:51:59 -0500
+In-Reply-To: <20081211230521.GA2392@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 12, 2008 at 04:31:51PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> +static int napi_gro_complete(struct sk_buff *skb)
-> +{
-> +	struct packet_type *ptype;
-> +	__be16 type = skb->protocol;
-> +	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
-> +	int err = -ENOENT;
-> +
-> +	if (!skb_shinfo(skb)->frag_list)
-> +		goto out;
-> +
-> +	rcu_read_lock();
-> +	list_for_each_entry_rcu(ptype, head, list) {
-> +		if (ptype->type != type || ptype->dev || !ptype->gro_complete)
-> +			continue;
-> +
-> +		err = ptype->gro_complete(skb);
-> +		break;
-> +	}
-> +	rcu_read_unlock();
-> +
-> +	if (err) {
-> +		WARN_ON(&ptype->list == head);
-> +		kfree_skb(skb);
-> +		return NET_RX_SUCCESS;
+> Btw, does this ugly hack fix the problem?
+> According to your description it may be the case.
+> 
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 480184a..2b64eb5 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -434,6 +434,10 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol)
+>  	if (protocol < 0 || protocol >= MAX_LINKS)
+>  		return -EPROTONOSUPPORT;
+>  
+> +#ifndef CONFIG_AUDIT
+> +	if (protocol == NETLINK_AUDIT)
+> +		return -EPROTONOSUPPORT;
+> +#endif
+>  	netlink_lock_table();
+>  #ifdef CONFIG_MODULES
+>  	if (!nl_table[protocol].registered) {
+> 
+> 
 
-Success after freeing skb on error? :)
-Why not WARN_ON_ONCE()?
+Yes, that would take care of it.  My original workaround was to disable 
+CONFIG_KMOD.  I only have a few modules compiled (for servers that 
+require those modules), but most of my servers don't need any modules. 
+This would allow me to manually load modules myself and never have to 
+worry about the kernel forking stuff in userspace.  Unfortunately, it 
+appears that CONFIG_KMOD is being deprecated soon and I didn't want to 
+rely on it.
 
-> +	}
-> +
-> +out:
-> +	__skb_push(skb, -skb_network_offset(skb));
-> +	return netif_receive_skb(skb);
-> +}
-> +
-> +void napi_gro_flush(struct napi_struct *napi)
-> +{
-> +	struct sk_buff *skb, *next;
-> +
-> +	for (skb = napi->gro_list; skb; skb = next) {
-> +		next = skb->next;
-> +		skb->next = NULL;
-> +		napi_gro_complete(skb);
-> +	}
-> +
-> +	napi->gro_list = NULL;
-> +}
-> +EXPORT_SYMBOL(napi_gro_flush);
-> +
-> +int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
-> +{
-> +	struct sk_buff **pp;
-> +	struct packet_type *ptype;
-> +	__be16 type = skb->protocol;
-> +	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
-> +	int count = 0;
-> +	int mac_len;
-> +
-> +	if (!(skb->dev->features & NETIF_F_GRO))
-> +		goto normal;
-> +
-> +	rcu_read_lock();
-> +	list_for_each_entry_rcu(ptype, head, list) {
-> +		struct sk_buff *p;
-> +
-> +		if (ptype->type != type || ptype->dev || !ptype->gro_receive)
-> +			continue;
-> +
-> +		skb_reset_network_header(skb);
-> +		mac_len = skb->network_header - skb->mac_header;
-> +		skb->mac_len = mac_len;
-> +		NAPI_GRO_CB(skb)->same_flow = 0;
-> +		NAPI_GRO_CB(skb)->flush = 0;
-> +
-> +		for (p = napi->gro_list; p; p = p->next) {
-> +			count++;
-> +			NAPI_GRO_CB(p)->same_flow =
-> +				p->mac_len == mac_len &&
-> +				!memcmp(skb_mac_header(p), skb_mac_header(skb),
-> +					mac_len);
-> +			NAPI_GRO_CB(p)->flush = 0;
-> +		}
-> +
-> +		pp = ptype->gro_receive(&napi->gro_list, skb);
-> +		break;
-> +	}
-> +	rcu_read_unlock();
-> +
-> +	if (&ptype->list == head)
-> +		goto normal;
-> +
-> +	if (pp) {
-> +		struct sk_buff *nskb = *pp;
-> +
-> +		*pp = nskb->next;
-> +		nskb->next = NULL;
-> +		napi_gro_complete(nskb);
-> +		count--;
-> +	}
-> +
-> +	if (NAPI_GRO_CB(skb)->same_flow)
-> +		goto ok;
+What is the core reason for removing CONFIG_KMOD?  I personally would 
+rather have the choice as to whether my kernel tries to find its own 
+modules or not.
 
-Should this set ->count?
-
-> +
-> +	if (NAPI_GRO_CB(skb)->flush || count >= MAX_GRO_SKBS) {
-> +		__skb_push(skb, -skb_network_offset(skb));
-> +		goto normal;
-> +	}
-> +
-> +	NAPI_GRO_CB(skb)->count = 1;
-
-Maybe this should be set to 'count', not 1?
-
-> +	skb->next = napi->gro_list;
-> +	napi->gro_list = skb;
-> +
-> +ok:
-> +	return NET_RX_SUCCESS;
-> +
-> +normal:
-> +	return netif_receive_skb(skb);
-> +}
-> +EXPORT_SYMBOL(napi_gro_receive);
-
--- 
-	Evgeniy Polyakov
+Michael Spiegle
+mike@nauticaltech.com
