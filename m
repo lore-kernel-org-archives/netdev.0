@@ -1,97 +1,66 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 02/33] sfc: Change SPI lengths to type size_t
-Date: Fri, 12 Dec 2008 12:48:51 +0000
-Message-ID: <20081212124851.GB10372@solarflare.com>
+Subject: [PATCH 03/33] sfc: Do not use pci_disable_device() to disable bus mastering
+Date: Fri, 12 Dec 2008 12:49:14 +0000
+Message-ID: <20081212124913.GC10372@solarflare.com>
 References: <cover.1229085672.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:48498 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756506AbYLLMsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:48:54 -0500
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:51163 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756760AbYLLMtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:49:16 -0500
 Content-Disposition: inline
 In-Reply-To: <20081212124622.GK32518@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on a patch by Andrew Morton.
+pci_disable_device() disables many features, like MSI-X, which we
+never reenable in efx_reset().  Further, calls to pci_enable_device()
+and pci_disable_device() must be matched since the nesting count was
+introduced.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c |   19 ++++++++++---------
- 1 files changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/sfc/falcon.c |   15 +++++++++++++--
+ 1 files changed, 13 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 71e0bed..271cbf8 100644
+index 271cbf8..ac0b671 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -1605,7 +1605,7 @@ void falcon_fini_interrupt(struct efx_nic *efx)
-  **************************************************************************
-  */
- 
--#define FALCON_SPI_MAX_LEN ((unsigned) sizeof(efx_oword_t))
-+#define FALCON_SPI_MAX_LEN sizeof(efx_oword_t)
- 
- /* Wait for SPI command completion */
- static int falcon_spi_wait(struct efx_nic *efx)
-@@ -1630,7 +1630,7 @@ static int falcon_spi_wait(struct efx_nic *efx)
- 
- int falcon_spi_cmd(const struct efx_spi_device *spi,
- 		   unsigned int command, int address,
--		   const void *in, void *out, unsigned int len)
-+		   const void *in, void *out, size_t len)
- {
- 	struct efx_nic *efx = spi->efx;
- 	bool addressed = (address >= 0);
-@@ -1686,8 +1686,8 @@ int falcon_spi_cmd(const struct efx_spi_device *spi,
- 	return 0;
+@@ -1344,6 +1344,17 @@ static inline void falcon_irq_ack_a1(struct efx_nic *efx)
+ 	falcon_readl(efx, &reg, WORK_AROUND_BROKEN_PCI_READS_REG_KER_A1);
  }
  
--static unsigned int
--falcon_spi_write_limit(const struct efx_spi_device *spi, unsigned int start)
-+static size_t
-+falcon_spi_write_limit(const struct efx_spi_device *spi, size_t start)
- {
- 	return min(FALCON_SPI_MAX_LEN,
- 		   (spi->block_size - (start & (spi->block_size - 1))));
-@@ -1725,12 +1725,12 @@ int falcon_spi_fast_wait(const struct efx_spi_device *spi)
- int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
- 		    size_t len, size_t *retlen, u8 *buffer)
- {
--	unsigned int command, block_len, pos = 0;
-+	size_t block_len, pos = 0;
-+	unsigned int command;
- 	int rc = 0;
++static void efx_pci_clear_master(struct pci_dev *dev)
++{
++	u16 command;
++
++	if (dev->is_busmaster &&
++	    !pci_read_config_word(dev, PCI_COMMAND, &command) &&
++	    !pci_write_config_word(dev, PCI_COMMAND,
++				   command & ~PCI_COMMAND_MASTER))
++		dev->is_busmaster = false;
++}
++
+ /* Process a fatal interrupt
+  * Disable bus mastering ASAP and schedule a reset
+  */
+@@ -1375,9 +1386,9 @@ static irqreturn_t falcon_fatal_interrupt(struct efx_nic *efx)
+ 	}
  
- 	while (pos < len) {
--		block_len = min((unsigned int)len - pos,
--				FALCON_SPI_MAX_LEN);
-+		block_len = min(len - pos, FALCON_SPI_MAX_LEN);
+ 	/* Disable both devices */
+-	pci_disable_device(efx->pci_dev);
++	efx_pci_clear_master(efx->pci_dev);
+ 	if (FALCON_IS_DUAL_FUNC(efx))
+-		pci_disable_device(nic_data->pci_dev2);
++		efx_pci_clear_master(nic_data->pci_dev2);
+ 	falcon_disable_interrupts(efx);
  
- 		command = efx_spi_munge_command(spi, SPI_READ, start + pos);
- 		rc = falcon_spi_cmd(spi, command, start + pos, NULL,
-@@ -1756,7 +1756,8 @@ int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
- 		     size_t len, size_t *retlen, const u8 *buffer)
- {
- 	u8 verify_buffer[FALCON_SPI_MAX_LEN];
--	unsigned int command, block_len, pos = 0;
-+	size_t block_len, pos = 0;
-+	unsigned int command;
- 	int rc = 0;
- 
- 	while (pos < len) {
-@@ -1764,7 +1765,7 @@ int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
- 		if (rc)
- 			break;
- 
--		block_len = min((unsigned int)len - pos,
-+		block_len = min(len - pos,
- 				falcon_spi_write_limit(spi, start + pos));
- 		command = efx_spi_munge_command(spi, SPI_WRITE, start + pos);
- 		rc = falcon_spi_cmd(spi, command, start + pos,
+ 	if (++n_int_errors < FALCON_MAX_INT_ERRORS) {
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
