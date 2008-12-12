@@ -1,41 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 7/8] ethtool: Add GGRO and SGRO ops
-Date: Sat, 13 Dec 2008 08:48:35 +1100
-Message-ID: <20081212214835.GD11046@gondor.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d2-0000rq-Dr@gondolin.me.apana.org.au> <1229112677.3051.9.camel@achroite>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [E1000-devel] networking probs in next-20081203
+Date: Sat, 13 Dec 2008 08:40:58 +1100 (EST)
+Message-ID: <alpine.LRH.1.10.0812130840460.3379@tundra.namei.org>
+References: <49381644.8020502@intel.com> <20081204175236.GA19808@x200.localdomain> <1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil> <20081204.102138.123959105.davem@davemloft.net> <1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
+ <1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil> <m1bpvrslk0.fsf@frodo.ebiederm.org> <1228486339.20274.3.camel@localhost.localdomain> <alpine.LRH.1.10.0812112139340.25553@tundra.namei.org> <20081212052420.GA14948@x200.localdomain>
+ <alpine.LRH.1.10.0812122022520.32426@tundra.namei.org> <alpine.LRH.1.10.0812122028470.32426@tundra.namei.org> <m1d4fxmzss.fsf@frodo.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Daniel J Walsh <dwalsh@redhat.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45178 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753441AbYLLVsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 16:48:40 -0500
-Content-Disposition: inline
-In-Reply-To: <1229112677.3051.9.camel@achroite>
+Received: from tundra.namei.org ([65.99.196.166]:4879 "EHLO tundra.namei.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753572AbYLLVtu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Dec 2008 16:49:50 -0500
+In-Reply-To: <m1d4fxmzss.fsf@frodo.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 12, 2008 at 08:11:17PM +0000, Ben Hutchings wrote:
-> On Fri, 2008-12-12 at 16:31 +1100, Herbert Xu wrote:
-> > ethtool: Add GGRO and SGRO ops
-> > 
-> > This patch adds the ethtool ops to enable and disable GRO.  It also
-> > makes GRO depend on RX checksum offload much the same as how TSO
-> > depends on SG support.
-> [...]
+On Fri, 12 Dec 2008, Eric W. Biederman wrote:
+
+> James Morris <jmorris@namei.org> writes:
 > 
-> Why don't you add NETIF_F_GRO to the flags handled by get_flags() and
-> set_flags()?
+> > On Fri, 12 Dec 2008, James Morris wrote:
+> >
+> >> It seems the problem is that the /proc/net mountpoint is now labeled as 
+> >> proc_t.
+> >
+> > Actually, that's not the problem, it's the same on a normal kernel.
+> 
+> To confirm what you are saying.  There is something wrong with the bug fix?
 
-Surely the patch itself has answered this :) It's because of the
-dependency on RX checksum offload.  We want GRO to be off unless
-RX checksum offload is on.
+There's still a problem, yes.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+James Morris
+<jmorris@namei.org>
