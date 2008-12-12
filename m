@@ -1,60 +1,69 @@
-From: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Subject: Re: [PATCH v3 2/7] fs: Use a percpu_counter to track nr_inodes
-Date: Fri, 12 Dec 2008 06:11:11 +0100
-Message-ID: <4941F26F.5030902@cosmosbay.com>
-References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <493100B0.6090104@cosmosbay.com> <4941968E.3020201@cosmosbay.com> <200707241130.56767.nickpiggin@yahoo.com.au>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: networking probs in next-20081203
+Date: Fri, 12 Dec 2008 08:24:20 +0300
+Message-ID: <20081212052420.GA14948@x200.localdomain>
+References: <49381644.8020502@intel.com>
+	<20081204175236.GA19808@x200.localdomain>
+	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
+	<20081204.102138.123959105.davem@davemloft.net>
+	<1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
+	<1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
+	<m1bpvrslk0.fsf@frodo.ebiederm.org>
+	<1228486339.20274.3.camel@localhost.localdomain>
+	<alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
-	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org >> Kernel Testers List"
-	<kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Mike Galbraith <efault-Mmb7MZpHnFY@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: Nick Piggin <nickpiggin-/E1597aS9LT0CCvOHzKKcA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200707241130.56767.nickpiggin-/E1597aS9LT0CCvOHzKKcA@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>,
+	eparis@parisplace.org, akpm@linux-foundation.org,
+	Stephen Smalley <sds@tycho.nsa.gov>, David Miller <davem@davemloft.net>
+To: James Morris <jmorris@namei.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Nick Piggin a =E9crit :
-> On Friday 12 December 2008 09:39, Eric Dumazet wrote:
->> Avoids cache line ping pongs between cpus and prepare next patch,
->> because updates of nr_inodes dont need inode_lock anymore.
->>
->> (socket8 bench result : no difference at this point)
->=20
-> Looks good.
->=20
-> But.... If we never actually need fast access to the approximate
-> total, (which seems to apply to this and the previous patch) we
-> could use something much simpler which does not have the spinlock
-> or all this batching stuff that percpu counters have. I'd prefer
-> that because it will be faster in a straight line...
+On Thu, Dec 11, 2008 at 09:41:20PM +1100, James Morris wrote:
+> On Fri, 5 Dec 2008, Stephen Smalley wrote:
+> 
+> > I suspect we need the following un-tested diff to map all of these proc/
+> > filesystem types to "proc" for the policy lookup at filesystem mount
+> > time.
+> 
+> I finally got a bootable linux-next, but it seems that the proc/net patch 
+> is no longer in there.
+> 
+> Any idea if it's coming back?  The patch below looks ok, but it needs 
+> testing
 
-Well, using a non batching mode could be real easy, just
-call __percpu_counter_add(&counter, inc, 1<<30);
+Yes, please, someone test it.
 
-Or define a new percpu_counter_fastadd(&counter, inc);
+> (and I'd suggest perhaps including it any future version of the proc/net patch).
 
-percpu_counter are nice because handle the CPU hotplug problem,
-if we want to use for_each_online_cpu() instead of
-for_each_possible_cpu().
+I placed it into proc-wip branch to not screw testers with SELinux meanwhile
 
->=20
-> (BTW. percpu counters can't be used in interrupt context? That's
-> nice.)
->=20
->=20
+	git-remote add proc git://git.kernel.org/pub/scm/linux/kernel/git/adobriyan/proc.git
 
-Not sure why you said this.
+> > --- a/security/selinux/hooks.c
+> > +++ b/security/selinux/hooks.c
+> > @@ -703,7 +703,7 @@ static int selinux_set_mnt_opts(struct super_block *sb,
+> >  		sbsec->proc = 1;
+> >  
+> >  	/* Determine the labeling behavior to use for this filesystem type. */
+> > -	rc = security_fs_use(sb->s_type->name, &sbsec->behavior, &sbsec->sid);
+> > +	rc = security_fs_use(sbsec->proc ? "proc" : sb->s_type->name, &sbsec->behavior, &sbsec->sid);
 
-I would like to have a irqsafe percpu_counter, I was preparing such a
-patch because we need it for net-next
+------------------------------------------------------------------------------
+SF.Net email is Sponsored by MIX09, March 18-20, 2009 in Las Vegas, Nevada.
+The future of the web can't happen without you.  Join us at MIX09 to help
+pave the way to the Next Web now. Learn more and register at
+http://ad.doubleclick.net/clk;208669438;13503038;i?http://2009.visitmix.com/
