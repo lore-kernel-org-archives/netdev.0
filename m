@@ -1,38 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 8/8] e1000e: Add GRO support
-Date: Fri, 12 Dec 2008 16:31:57 +1100
-Message-ID: <E1LB0d3-0000rz-Gx@gondolin.me.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netlabel: Compiler warning and NULL pointer
+ dereference fix
+Date: Thu, 11 Dec 2008 21:32:00 -0800 (PST)
+Message-ID: <20081211.213200.180924446.davem@davemloft.net>
+References: <20081211184312.30832.25526.stgit@flek.lan>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	geert.uytterhoeven@sonycom.com
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59012 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758016AbYLLFcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 00:32:02 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37848
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757570AbYLLFb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 00:31:59 -0500
+In-Reply-To: <20081211184312.30832.25526.stgit@flek.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-e1000e: Add GRO support
+From: Paul Moore <paul.moore@hp.com>
+Date: Thu, 11 Dec 2008 13:43:12 -0500
 
-This patch adds GRO support to e1000e by making it invoke napi_gro_receive
-instead of netif_receive_skb.
+> Fix the two compiler warnings show below.  Thanks to Geert Uytterhoeven for
+> finding and reporting the problem.
+> 
+>  net/netlabel/netlabel_unlabeled.c:567: warning: 'entry' may be used
+>    uninitialized in this function
+>  net/netlabel/netlabel_unlabeled.c:629: warning: 'entry' may be used
+>    uninitialized in this function
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- drivers/net/e1000e/netdev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 91795f7..fb7c4bd 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -102,7 +102,7 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
- 		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
- 					 le16_to_cpu(vlan));
- 	else
--		netif_receive_skb(skb);
-+		napi_gro_receive(&adapter->napi, skb);
- 
- 	netdev->last_rx = jiffies;
- }
+Applied, thanks Paul.
