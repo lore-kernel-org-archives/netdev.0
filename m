@@ -1,7 +1,7 @@
 From: James Morris <jmorris@namei.org>
 Subject: Re: networking probs in next-20081203
-Date: Fri, 12 Dec 2008 20:26:40 +1100 (EST)
-Message-ID: <alpine.LRH.1.10.0812122022520.32426@tundra.namei.org>
+Date: Fri, 12 Dec 2008 20:29:43 +1100 (EST)
+Message-ID: <alpine.LRH.1.10.0812122028470.32426@tundra.namei.org>
 References: <49381644.8020502@intel.com>
 	<20081204175236.GA19808@x200.localdomain>
 	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
@@ -12,6 +12,7 @@ References: <49381644.8020502@intel.com>
 	<1228486339.20274.3.camel@localhost.localdomain>
 	<alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
 	<20081212052420.GA14948@x200.localdomain>
+	<alpine.LRH.1.10.0812122022520.32426@tundra.namei.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,7 +24,7 @@ Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
 	Stephen Smalley <sds@tycho.nsa.gov>, David Miller <davem@davemloft.net>
 To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20081212052420.GA14948@x200.localdomain>
+In-Reply-To: <alpine.LRH.1.10.0812122022520.32426@tundra.namei.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -34,24 +35,13 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Dec 2008, Alexey Dobriyan wrote:
+On Fri, 12 Dec 2008, James Morris wrote:
 
-> Yes, please, someone test it.
+> It seems the problem is that the /proc/net mountpoint is now labeled as 
+> proc_t.
 
-Still getting avc denials:
+Actually, that's not the problem, it's the same on a normal kernel.
 
-avc:  denied  { mount } for  pid=2308 comm="dhclient" name="/" 
-dev=proc/net ino=4026531842 scontext=unconfined_u:system_r:dhcpc_t:s0-s0:c0.c1023 
-tcontext=system_u:object_r:proc_t:s0 tclass=filesystem
-type=SYSCALL msg=audit(1229073699.174:53): arch=c000003e syscall=2 
-success=no exit=-2 a0=45bef7 a1=80000 a2=1b6 a3=7f296
-e71c6f0 items=0 ppid=2259 pid=2308 auid=0 uid=0 gid=0 euid=0 suid=0 
-fsuid=0 egid=0 sgid=0 fsgid=0 tty=ttyS0 ses=1 comm="
-dhclient" exe="/sbin/dhclient" 
-subj=unconfined_u:system_r:dhcpc_t:s0-s0:c0.c1023 key=(null)
-
-It seems the problem is that the /proc/net mountpoint is now labeled as 
-proc_t.
 
 -- 
 James Morris
