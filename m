@@ -1,55 +1,148 @@
-From: Michael Spiegle <mike@nauticaltech.com>
-Subject: Re: [Bugme-new] [Bug 12201] New: long wait in call_usermodehelper()
- / queue_work() / wait_for_completion()
-Date: Fri, 12 Dec 2008 11:42:56 -0800
-Message-ID: <4942BEC0.2070809@nauticaltech.com>
-References: <bug-12201-10286@http.bugzilla.kernel.org/> <20081211143758.510b51b6.akpm@linux-foundation.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Fri, 12 Dec 2008 22:51:30 +0300
+Message-ID: <20081212195130.GB27281@ioremap.net>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cx-0000r3-N2@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nauticaltech.com ([64.34.252.43]:56814 "EHLO nauticaltech.com"
+Received: from tservice.net.ru ([195.178.208.66]:45670 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751640AbYLLTth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Dec 2008 14:49:37 -0500
-In-Reply-To: <20081211143758.510b51b6.akpm@linux-foundation.org>
+	id S1751669AbYLLTvb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Dec 2008 14:51:31 -0500
+Content-Disposition: inline
+In-Reply-To: <E1LB0cx-0000r3-N2@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> It'd be great if you could test something more recent please.
+On Fri, Dec 12, 2008 at 04:31:51PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> +static int napi_gro_complete(struct sk_buff *skb)
+> +{
+> +	struct packet_type *ptype;
+> +	__be16 type = skb->protocol;
+> +	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+> +	int err = -ENOENT;
+> +
+> +	if (!skb_shinfo(skb)->frag_list)
+> +		goto out;
+> +
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(ptype, head, list) {
+> +		if (ptype->type != type || ptype->dev || !ptype->gro_complete)
+> +			continue;
+> +
+> +		err = ptype->gro_complete(skb);
+> +		break;
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	if (err) {
+> +		WARN_ON(&ptype->list == head);
+> +		kfree_skb(skb);
+> +		return NET_RX_SUCCESS;
 
-Will do.  It takes a little bit of time to reproduce, so I'll respond 
-now with information from my current kernel and update once the new 
-kernel is running.
+Success after freeing skb on error? :)
+Why not WARN_ON_ONCE()?
 
-> Please attach a copy of the config to
-> http://bugzilla.kernel.org/show_bug.cgi?id=12201
+> +	}
+> +
+> +out:
+> +	__skb_push(skb, -skb_network_offset(skb));
+> +	return netif_receive_skb(skb);
+> +}
+> +
+> +void napi_gro_flush(struct napi_struct *napi)
+> +{
+> +	struct sk_buff *skb, *next;
+> +
+> +	for (skb = napi->gro_list; skb; skb = next) {
+> +		next = skb->next;
+> +		skb->next = NULL;
+> +		napi_gro_complete(skb);
+> +	}
+> +
+> +	napi->gro_list = NULL;
+> +}
+> +EXPORT_SYMBOL(napi_gro_flush);
+> +
+> +int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+> +{
+> +	struct sk_buff **pp;
+> +	struct packet_type *ptype;
+> +	__be16 type = skb->protocol;
+> +	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+> +	int count = 0;
+> +	int mac_len;
+> +
+> +	if (!(skb->dev->features & NETIF_F_GRO))
+> +		goto normal;
+> +
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(ptype, head, list) {
+> +		struct sk_buff *p;
+> +
+> +		if (ptype->type != type || ptype->dev || !ptype->gro_receive)
+> +			continue;
+> +
+> +		skb_reset_network_header(skb);
+> +		mac_len = skb->network_header - skb->mac_header;
+> +		skb->mac_len = mac_len;
+> +		NAPI_GRO_CB(skb)->same_flow = 0;
+> +		NAPI_GRO_CB(skb)->flush = 0;
+> +
+> +		for (p = napi->gro_list; p; p = p->next) {
+> +			count++;
+> +			NAPI_GRO_CB(p)->same_flow =
+> +				p->mac_len == mac_len &&
+> +				!memcmp(skb_mac_header(p), skb_mac_header(skb),
+> +					mac_len);
+> +			NAPI_GRO_CB(p)->flush = 0;
+> +		}
+> +
+> +		pp = ptype->gro_receive(&napi->gro_list, skb);
+> +		break;
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	if (&ptype->list == head)
+> +		goto normal;
+> +
+> +	if (pp) {
+> +		struct sk_buff *nskb = *pp;
+> +
+> +		*pp = nskb->next;
+> +		nskb->next = NULL;
+> +		napi_gro_complete(nskb);
+> +		count--;
+> +	}
+> +
+> +	if (NAPI_GRO_CB(skb)->same_flow)
+> +		goto ok;
 
-Done: http://bugzilla.kernel.org/attachment.cgi?id=19263
+Should this set ->count?
 
-> Please get sysrq working then get us a task trace, so we can see who is
-> sleeping where.  Do this:
+> +
+> +	if (NAPI_GRO_CB(skb)->flush || count >= MAX_GRO_SKBS) {
+> +		__skb_push(skb, -skb_network_offset(skb));
+> +		goto normal;
+> +	}
+> +
+> +	NAPI_GRO_CB(skb)->count = 1;
 
-Done: http://bugzilla.kernel.org/attachment.cgi?id=19264
+Maybe this should be set to 'count', not 1?
 
-I wanted to get the call to /sbin/modprobe in there as well, so I had to 
-do it about 10 times before I could catch it.  I also stopped 
-unimportant processes on that box to eliminate additional variables.
+> +	skb->next = napi->gro_list;
+> +	napi->gro_list = skb;
+> +
+> +ok:
+> +	return NET_RX_SUCCESS;
+> +
+> +normal:
+> +	return netif_receive_skb(skb);
+> +}
+> +EXPORT_SYMBOL(napi_gro_receive);
 
-There is one other variable I didn't mention.  The machine is diskless 
-and running on an nfs root.  I have tried to eliminate this variable via 
-simple testing (just running /sbin/modprobe at the commandline returns 
-instantly), but wanted to mention it.
-
-The box was 100% idle before starting the pilot program and running the 
-task trace.  I added gettimeofday() around my socket() call and got 
-about 1290000us - 1490000us on average.  Using a socket() call with 
-protocol NETLINK_ROUTE returns in about 5us - 8us.  Certain other 
-protocol types like NETLINK_FIREWALL also have the same long delay.
-
-
-Michael Spiegle
-mike@nauticaltech.com
+-- 
+	Evgeniy Polyakov
