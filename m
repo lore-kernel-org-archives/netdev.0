@@ -1,72 +1,160 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 16/33] sfc: Add phy_type device attribute
-Date: Fri, 12 Dec 2008 12:54:02 +0000
-Message-ID: <20081212125401.GP10372@solarflare.com>
+Subject: [PATCH 17/33] sfc: Clean up board identification
+Date: Fri, 12 Dec 2008 12:54:19 +0000
+Message-ID: <20081212125418.GQ10372@solarflare.com>
 References: <cover.1229085672.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:50595 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757024AbYLLMyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:54:06 -0500
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:57020 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757321AbYLLMyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:54:23 -0500
 Content-Disposition: inline
 In-Reply-To: <20081212124622.GK32518@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Remove kluge for development boards with unspecified board type.
+
+Remove assumption of contiguous board type code assignments.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
+ drivers/net/sfc/boards.c |   68 ++++++++++++---------------------------------
+ drivers/net/sfc/boards.h |    7 +---
+ 2 files changed, 20 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 844580f..4fb5ba2 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1496,6 +1496,14 @@ static struct notifier_block efx_netdev_notifier = {
- 	.notifier_call = efx_netdev_event,
+diff --git a/drivers/net/sfc/boards.c b/drivers/net/sfc/boards.c
+index edf0262..08fa4e3 100644
+--- a/drivers/net/sfc/boards.c
++++ b/drivers/net/sfc/boards.c
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2007 Solarflare Communications Inc.
++ * Copyright 2007-2008 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+@@ -231,70 +231,38 @@ static int sfe4002_init(struct efx_nic *efx)
+ /* This will get expanded as board-specific details get moved out of the
+  * PHY drivers. */
+ struct efx_board_data {
++	enum efx_board_type type;
+ 	const char *ref_model;
+ 	const char *gen_type;
+ 	int (*init) (struct efx_nic *nic);
  };
  
-+static ssize_t
-+show_phy_type(struct device *dev, struct device_attribute *attr, char *buf)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
-+	return sprintf(buf, "%d\n", efx->phy_type);
-+}
-+static DEVICE_ATTR(phy_type, 0644, show_phy_type, NULL);
-+
- static int efx_register_netdev(struct efx_nic *efx)
+-static int dummy_init(struct efx_nic *nic)
+-{
+-	return 0;
+-}
+ 
+ static struct efx_board_data board_data[] = {
+-	[EFX_BOARD_INVALID] =
+-	{NULL,	    NULL,                  dummy_init},
+-	[EFX_BOARD_SFE4001] =
+-	{"SFE4001", "10GBASE-T adapter",   sfe4001_init},
+-	[EFX_BOARD_SFE4002] =
+-	{"SFE4002", "XFP adapter",         sfe4002_init},
++	{ EFX_BOARD_SFE4001, "SFE4001", "10GBASE-T adapter", sfe4001_init },
++	{ EFX_BOARD_SFE4002, "SFE4002", "XFP adapter", sfe4002_init },
+ };
+ 
+-int efx_set_board_info(struct efx_nic *efx, u16 revision_info)
++void efx_set_board_info(struct efx_nic *efx, u16 revision_info)
  {
- 	struct net_device *net_dev = efx->net_dev;
-@@ -1522,7 +1530,17 @@ static int efx_register_netdev(struct efx_nic *efx)
- 	strcpy(efx->name, net_dev->name);
- 	efx_set_channel_names(efx);
+-	int rc = 0;
+-	struct efx_board_data *data;
++	struct efx_board_data *data = NULL;
++	int i;
  
-+	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_phy_type);
-+	if (rc) {
-+		EFX_ERR(efx, "failed to init net dev attributes\n");
-+		goto fail_registered;
+-	if (BOARD_TYPE(revision_info) >= EFX_BOARD_MAX) {
+-		EFX_ERR(efx, "squashing unknown board type %d\n",
+-			BOARD_TYPE(revision_info));
+-		revision_info = 0;
+-	}
+-
+-	if (BOARD_TYPE(revision_info) == 0) {
+-		efx->board_info.major = 0;
+-		efx->board_info.minor = 0;
+-		/* For early boards that don't have revision info. there is
+-		 * only 1 board for each PHY type, so we can work it out, with
+-		 * the exception of the PHY-less boards. */
+-		switch (efx->phy_type) {
+-		case PHY_TYPE_10XPRESS:
+-			efx->board_info.type = EFX_BOARD_SFE4001;
+-			break;
+-		case PHY_TYPE_XFP:
+-			efx->board_info.type = EFX_BOARD_SFE4002;
+-			break;
+-		default:
+-			efx->board_info.type = 0;
+-			break;
+-		}
+-	} else {
+-		efx->board_info.type = BOARD_TYPE(revision_info);
+-		efx->board_info.major = BOARD_MAJOR(revision_info);
+-		efx->board_info.minor = BOARD_MINOR(revision_info);
+-	}
++	efx->board_info.type = BOARD_TYPE(revision_info);
++	efx->board_info.major = BOARD_MAJOR(revision_info);
++	efx->board_info.minor = BOARD_MINOR(revision_info);
+ 
+-	data = &board_data[efx->board_info.type];
++	for (i = 0; i < ARRAY_SIZE(board_data); i++)
++		if (board_data[i].type == efx->board_info.type)
++			data = &board_data[i];
+ 
+-	/* Report the board model number or generic type for recognisable
+-	 * boards. */
+-	if (efx->board_info.type != 0)
++	if (data) {
+ 		EFX_INFO(efx, "board is %s rev %c%d\n",
+ 			 (efx->pci_dev->subsystem_vendor == EFX_VENDID_SFC)
+ 			 ? data->ref_model : data->gen_type,
+ 			 'A' + efx->board_info.major, efx->board_info.minor);
+-
+-	efx->board_info.init = data->init;
+-
+-	return rc;
++		efx->board_info.init = data->init;
++	} else {
++		EFX_ERR(efx, "unknown board type %d\n", efx->board_info.type);
 +	}
-+
- 	return 0;
-+
-+fail_registered:
-+	unregister_netdev(net_dev);
-+	return rc;
  }
+diff --git a/drivers/net/sfc/boards.h b/drivers/net/sfc/boards.h
+index c6e01b6..5e0dde5 100644
+--- a/drivers/net/sfc/boards.h
++++ b/drivers/net/sfc/boards.h
+@@ -1,6 +1,6 @@
+ /****************************************************************************
+  * Driver for Solarflare Solarstorm network controllers and boards
+- * Copyright 2007 Solarflare Communications Inc.
++ * Copyright 2007-2008 Solarflare Communications Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License version 2 as published
+@@ -12,14 +12,11 @@
  
- static void efx_unregister_netdev(struct efx_nic *efx)
-@@ -1542,6 +1560,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
+ /* Board IDs (must fit in 8 bits) */
+ enum efx_board_type {
+-	EFX_BOARD_INVALID = 0,
+ 	EFX_BOARD_SFE4001 = 1,   /* SFE4001 (10GBASE-T) */
+ 	EFX_BOARD_SFE4002 = 2,
+-	/* Insert new types before here */
+-	EFX_BOARD_MAX
+ };
  
- 	if (efx_dev_registered(efx)) {
- 		strlcpy(efx->name, pci_name(efx->pci_dev), sizeof(efx->name));
-+		device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
- 		unregister_netdev(efx->net_dev);
- 	}
- }
+-extern int efx_set_board_info(struct efx_nic *efx, u16 revision_info);
++extern void efx_set_board_info(struct efx_nic *efx, u16 revision_info);
+ extern int sfe4001_init(struct efx_nic *efx);
+ 
+ #endif
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
