@@ -1,148 +1,72 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 15/33] sfc: Add support for MMDs numbered >15
-Date: Fri, 12 Dec 2008 12:53:40 +0000
-Message-ID: <20081212125339.GO10372@solarflare.com>
+Subject: [PATCH 16/33] sfc: Add phy_type device attribute
+Date: Fri, 12 Dec 2008 12:54:02 +0000
+Message-ID: <20081212125401.GP10372@solarflare.com>
 References: <cover.1229085672.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:49996 "EHLO
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:50595 "EHLO
 	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757237AbYLLMxm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:53:42 -0500
+	by vger.kernel.org with ESMTP id S1757024AbYLLMyG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:54:06 -0500
 Content-Disposition: inline
 In-Reply-To: <20081212124622.GK32518@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Combine DEVS0 and DEVS1 registers into a 32-bit mask instead of
-reading just DEVS0.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/mdio_10g.c  |   24 +++++++++++++-----------
- drivers/net/sfc/mdio_10g.h  |    8 ++++----
- drivers/net/sfc/tenxpress.c |    6 +++---
- drivers/net/sfc/xfp_phy.c   |    8 ++++----
- 4 files changed, 24 insertions(+), 22 deletions(-)
+ drivers/net/sfc/efx.c |   19 +++++++++++++++++++
+ 1 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
-index 19e2521..1eed484 100644
---- a/drivers/net/sfc/mdio_10g.c
-+++ b/drivers/net/sfc/mdio_10g.c
-@@ -121,16 +121,18 @@ int mdio_clause45_wait_reset_mmds(struct efx_nic *efx,
- int mdio_clause45_check_mmds(struct efx_nic *efx,
- 			     unsigned int mmd_mask, unsigned int fatal_mask)
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 844580f..4fb5ba2 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1496,6 +1496,14 @@ static struct notifier_block efx_netdev_notifier = {
+ 	.notifier_call = efx_netdev_event,
+ };
+ 
++static ssize_t
++show_phy_type(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
++	return sprintf(buf, "%d\n", efx->phy_type);
++}
++static DEVICE_ATTR(phy_type, 0644, show_phy_type, NULL);
++
+ static int efx_register_netdev(struct efx_nic *efx)
  {
--	int devices, mmd = 0;
--	int probe_mmd;
-+	u32 devices;
-+	int mmd = 0, probe_mmd;
+ 	struct net_device *net_dev = efx->net_dev;
+@@ -1522,7 +1530,17 @@ static int efx_register_netdev(struct efx_nic *efx)
+ 	strcpy(efx->name, net_dev->name);
+ 	efx_set_channel_names(efx);
  
- 	/* Historically we have probed the PHYXS to find out what devices are
- 	 * present,but that doesn't work so well if the PHYXS isn't expected
- 	 * to exist, if so just find the first item in the list supplied. */
--	probe_mmd = (mmd_mask & MDIO_MMDREG_DEVS0_PHYXS) ? MDIO_MMD_PHYXS :
-+	probe_mmd = (mmd_mask & MDIO_MMDREG_DEVS_PHYXS) ? MDIO_MMD_PHYXS :
- 	    __ffs(mmd_mask);
--	devices = mdio_clause45_read(efx, efx->mii.phy_id,
--				     probe_mmd, MDIO_MMDREG_DEVS0);
-+	devices = (mdio_clause45_read(efx, efx->mii.phy_id,
-+				      probe_mmd, MDIO_MMDREG_DEVS0) |
-+		   mdio_clause45_read(efx, efx->mii.phy_id,
-+				      probe_mmd, MDIO_MMDREG_DEVS1) << 16);
++	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_phy_type);
++	if (rc) {
++		EFX_ERR(efx, "failed to init net dev attributes\n");
++		goto fail_registered;
++	}
++
+ 	return 0;
++
++fail_registered:
++	unregister_netdev(net_dev);
++	return rc;
+ }
  
- 	/* Check all the expected MMDs are present */
- 	if (devices < 0) {
-@@ -175,14 +177,14 @@ bool mdio_clause45_links_ok(struct efx_nic *efx, unsigned int mmd_mask)
- 	else if (efx_phy_mode_disabled(efx->phy_mode))
- 		return false;
- 	else if (efx->loopback_mode == LOOPBACK_PHYXS)
--		mmd_mask &= ~(MDIO_MMDREG_DEVS0_PHYXS |
--			      MDIO_MMDREG_DEVS0_PCS |
--			      MDIO_MMDREG_DEVS0_PMAPMD);
-+		mmd_mask &= ~(MDIO_MMDREG_DEVS_PHYXS |
-+			      MDIO_MMDREG_DEVS_PCS |
-+			      MDIO_MMDREG_DEVS_PMAPMD);
- 	else if (efx->loopback_mode == LOOPBACK_PCS)
--		mmd_mask &= ~(MDIO_MMDREG_DEVS0_PCS |
--			      MDIO_MMDREG_DEVS0_PMAPMD);
-+		mmd_mask &= ~(MDIO_MMDREG_DEVS_PCS |
-+			      MDIO_MMDREG_DEVS_PMAPMD);
- 	else if (efx->loopback_mode == LOOPBACK_PMAPMD)
--		mmd_mask &= ~MDIO_MMDREG_DEVS0_PMAPMD;
-+		mmd_mask &= ~MDIO_MMDREG_DEVS_PMAPMD;
+ static void efx_unregister_netdev(struct efx_nic *efx)
+@@ -1542,6 +1560,7 @@ static void efx_unregister_netdev(struct efx_nic *efx)
  
- 	while (mmd_mask) {
- 		if (mmd_mask & 1) {
-diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/sfc/mdio_10g.h
-index db9f358..4516383 100644
---- a/drivers/net/sfc/mdio_10g.h
-+++ b/drivers/net/sfc/mdio_10g.h
-@@ -73,14 +73,14 @@
- #define MDIO_ID_MODEL(_id32)	((_id32 >> 4) & 0x3f)
- #define MDIO_ID_OUI(_id32)	(_id32 >> 10)
- 
--/* Bits in MMDREG_DEVS0. Someone thoughtfully layed things out
-+/* Bits in MMDREG_DEVS0/1. Someone thoughtfully layed things out
-  * so the 'bit present' bit number of an MMD is the number of
-  * that MMD */
- #define DEV_PRESENT_BIT(_b) (1 << _b)
- 
--#define MDIO_MMDREG_DEVS0_PHYXS	 DEV_PRESENT_BIT(MDIO_MMD_PHYXS)
--#define MDIO_MMDREG_DEVS0_PCS	 DEV_PRESENT_BIT(MDIO_MMD_PCS)
--#define MDIO_MMDREG_DEVS0_PMAPMD DEV_PRESENT_BIT(MDIO_MMD_PMAPMD)
-+#define MDIO_MMDREG_DEVS_PHYXS	DEV_PRESENT_BIT(MDIO_MMD_PHYXS)
-+#define MDIO_MMDREG_DEVS_PCS	DEV_PRESENT_BIT(MDIO_MMD_PCS)
-+#define MDIO_MMDREG_DEVS_PMAPMD	DEV_PRESENT_BIT(MDIO_MMD_PMAPMD)
- 
- /* Bits in MMDREG_STAT2 */
- #define MDIO_MMDREG_STAT2_PRESENT_VAL	(2)
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index 3fa7ccb..197b544 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -19,9 +19,9 @@
- 
- /* We expect these MMDs to be in the package */
- /* AN not here as mdio_check_mmds() requires STAT2 support */
--#define TENXPRESS_REQUIRED_DEVS (MDIO_MMDREG_DEVS0_PMAPMD | \
--				 MDIO_MMDREG_DEVS0_PCS    | \
--				 MDIO_MMDREG_DEVS0_PHYXS)
-+#define TENXPRESS_REQUIRED_DEVS (MDIO_MMDREG_DEVS_PMAPMD	| \
-+				 MDIO_MMDREG_DEVS_PCS		| \
-+				 MDIO_MMDREG_DEVS_PHYXS)
- 
- #define TENXPRESS_LOOPBACKS ((1 << LOOPBACK_PHYXS) |	\
- 			     (1 << LOOPBACK_PCS) |	\
-diff --git a/drivers/net/sfc/xfp_phy.c b/drivers/net/sfc/xfp_phy.c
-index 971a24b..0413d13 100644
---- a/drivers/net/sfc/xfp_phy.c
-+++ b/drivers/net/sfc/xfp_phy.c
-@@ -19,9 +19,9 @@
- #include "phy.h"
- #include "mac.h"
- 
--#define XFP_REQUIRED_DEVS (MDIO_MMDREG_DEVS0_PCS |	\
--			   MDIO_MMDREG_DEVS0_PMAPMD |	\
--			   MDIO_MMDREG_DEVS0_PHYXS)
-+#define XFP_REQUIRED_DEVS (MDIO_MMDREG_DEVS_PCS |	\
-+			   MDIO_MMDREG_DEVS_PMAPMD |	\
-+			   MDIO_MMDREG_DEVS_PHYXS)
- 
- #define XFP_LOOPBACKS ((1 << LOOPBACK_PCS) |		\
- 		       (1 << LOOPBACK_PMAPMD) |		\
-@@ -64,7 +64,7 @@ static int xfp_reset_phy(struct efx_nic *efx)
- 	/* Check that all the MMDs we expect are present and responding. We
- 	 * expect faults on some if the link is down, but not on the PHY XS */
- 	rc = mdio_clause45_check_mmds(efx, XFP_REQUIRED_DEVS,
--				      MDIO_MMDREG_DEVS0_PHYXS);
-+				      MDIO_MMDREG_DEVS_PHYXS);
- 	if (rc < 0)
- 		goto fail;
- 
+ 	if (efx_dev_registered(efx)) {
+ 		strlcpy(efx->name, pci_name(efx->pci_dev), sizeof(efx->name));
++		device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
+ 		unregister_netdev(efx->net_dev);
+ 	}
+ }
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
