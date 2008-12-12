@@ -1,44 +1,37 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 6/8] tcp: Add GRO support
-Date: Sat, 13 Dec 2008 08:46:27 +1100
-Message-ID: <20081212214627.GC11046@gondor.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d1-0000rd-B2@gondolin.me.apana.org.au> <20081212195615.GC27281@ioremap.net>
+Subject: Re: [PATCH 7/8] ethtool: Add GGRO and SGRO ops
+Date: Sat, 13 Dec 2008 08:48:35 +1100
+Message-ID: <20081212214835.GD11046@gondor.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d2-0000rq-Dr@gondolin.me.apana.org.au> <1229112677.3051.9.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45169 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:45178 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752944AbYLLVqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 16:46:32 -0500
+	with ESMTP id S1753441AbYLLVsk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 16:48:40 -0500
 Content-Disposition: inline
-In-Reply-To: <20081212195615.GC27281@ioremap.net>
+In-Reply-To: <1229112677.3051.9.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 12, 2008 at 10:56:15PM +0300, Evgeniy Polyakov wrote:
->
-> > +found:
-> > +	flush = NAPI_GRO_CB(p)->flush;
-> > +	flush |= flags & TCP_FLAG_CWR;
-> > +	flush |= (flags ^ tcp_flag_word(th2)) &
-> > +		  ~(TCP_FLAG_CWR | TCP_FLAG_FIN | TCP_FLAG_PSH);
-> > +	flush |= th->ack_seq != th2->ack_seq || th->window != th2->window;
-> > +	flush |= memcmp(th + 1, th2 + 1, thlen - sizeof(*th));
-> > +
-> > +	total = p->len;
-> > +	mss = total;
-> > +	if (skb_shinfo(p)->frag_list)
-> > +		mss = skb_shinfo(p)->frag_list->len;
-> > +
-> > +	flush |= skb->len > mss || skb->len <= 0;
-> > +	flush |= ntohl(th2->seq) + total != ntohl(th->seq);
-> > +
+On Fri, Dec 12, 2008 at 08:11:17PM +0000, Ben Hutchings wrote:
+> On Fri, 2008-12-12 at 16:31 +1100, Herbert Xu wrote:
+> > ethtool: Add GGRO and SGRO ops
+> > 
+> > This patch adds the ethtool ops to enable and disable GRO.  It also
+> > makes GRO depend on RX checksum offload much the same as how TSO
+> > depends on SG support.
+> [...]
 > 
-> No timestamp check?
+> Why don't you add NETIF_F_GRO to the flags handled by get_flags() and
+> set_flags()?
 
-The memcmp does that for us.
+Surely the patch itself has answered this :) It's because of the
+dependency on RX checksum offload.  We want GRO to be off unless
+RX checksum offload is on.
 
 Cheers,
 -- 
