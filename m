@@ -1,42 +1,120 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 33/33] sfc: Version 2.3
-Date: Fri, 12 Dec 2008 13:01:06 +0000
-Message-ID: <20081212130105.GG10372@solarflare.com>
-References: <cover.1229085672.git.bhutchings@solarflare.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Fri, 12 Dec 2008 08:31:27 -0500
+Message-ID: <20081212133127.GB2402@hmsreliant.think-freely.org>
+References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local> <20081211090104.02cab3d4@s6510> <20081211181528.GB10558@hmsendeavour.rdu.redhat.com> <20081212070750.GA4180@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:55055 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757861AbYLLNBJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 08:01:09 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56675 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757382AbYLLNde (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 08:33:34 -0500
 Content-Disposition: inline
-In-Reply-To: <cover.1229085672.git.bhutchings@solarflare.com>
+In-Reply-To: <20081212070750.GA4180@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Dec 12, 2008 at 07:07:50AM +0000, Jarek Poplawski wrote:
+> On Thu, Dec 11, 2008 at 01:15:28PM -0500, Neil Horman wrote:
+> > On Thu, Dec 11, 2008 at 09:01:04AM -0800, Stephen Hemminger wrote:
+> > > On Thu, 11 Dec 2008 13:07:28 +0000
+> > > Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > > 
+> > > > On 09-12-2008 22:06, Neil Horman wrote:
+> > > > ...
+> > > > > When executing napi->poll from the netpoll_path, this bit will
+> > > > > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
+> > > > > remove the napi_struct from the poll_list.  That work will be saved for the next
+> > > > > iteration of net_rx_action.
+> > > > 
+> > > > This could be not enough: some drivers, e.g. sky2, call napi_complete()
+> > > > directly.
+> > > > 
+> > > 
+> > > There is good reason for this. Although most drivers only have one NAPI
+> > > instance per device, and multiqueue drivers have several NAPI structures
+> > > per device, a few devices like sky2 need to support multiple devices
+> > > running off one NAPI receive. The Marvell hardware has a common receive
+> > > interrupt for both ports on a dual port card.
+> > > 
+> > > This kind of hardware limits usage of netpoll. Only one port can be
+> > > used with netpoll because netpoll makes assumptions about NAPI
+> > > association.
+> > > 
+> > 
+> > There was previously good cause to use __netif_rx_complete instead of
+> > netif_rx_complete some time ago when multiqueue rx was implemented using a set
+> > of dummy netdevices.  But with the separation of the napi code, there is no
+> > longer any reason for this to be done.
+> > 
+> > I just took a quick look, and it appears that sky2 is the last remaining driver
+> > to use the underlying napi routines.
+> 
+> Hmm... My grep shows a bit more (mv643xx_eth etc.), plus some
+> __netif_rx_complete().
+> 
+didn't check __netif_rx_complete, but IMHO that falls into the same category.
+Should be pretty straightforward to fix up.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/net_driver.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> BTW, I don't know these things, but I wonder if it's always safe to
+> do one more ->poll() after such _complete? (I mean enabled interrupts
+> and/or some locking problems.)
+> 
+There are cases in which doing so may trigger a bug, yes, but in those cases the
+error would again be in the driver.  They scheduled a poll, they should be able
+to handle the trivial case in which there is 0 work to do, calling
+netif_rx_complete when appropriate.
 
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 7033dba..03feaee 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -42,7 +42,7 @@
- #ifndef EFX_DRIVER_NAME
- #define EFX_DRIVER_NAME	"sfc"
- #endif
--#define EFX_DRIVER_VERSION	"2.2"
-+#define EFX_DRIVER_VERSION	"2.3"
- 
- #ifdef EFX_ENABLE_DEBUG
- #define EFX_BUG_ON_PARANOID(x) BUG_ON(x)
+Neil
+
+> Jarek P.
+> 
+> > 
+> > This patch maintains exactly the same functionality that it previously had, but
+> > allows for the netpoll patch to be safe with respect to the per-cpu poll_lists
+> > used by net_rx_action.
+> > 
+> > Regards
+> > Neil
+> > 
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > 
+> > 
+> >  sky2.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > 
+> > diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> > index 3813d15..84bdc3c 100644
+> > --- a/drivers/net/sky2.c
+> > +++ b/drivers/net/sky2.c
+> > @@ -2694,7 +2694,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+> >  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
+> >  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
+> >  	}
+> > -	napi_complete(napi);
+> > +	netif_rx_complete(napi->dev, napi);
+> >  	sky2_read32(hw, B0_Y2_SP_LISR);
+> >  done:
+> >  
+> > -- 
+> > /***************************************************
+> >  *Neil Horman
+> >  *nhorman@tuxdriver.com
+> >  *gpg keyid: 1024D / 0x92A74FA1
+> >  *http://pgp.mit.edu
+> >  ***************************************************/
+> 
+> 
+
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
