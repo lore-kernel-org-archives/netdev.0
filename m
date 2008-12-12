@@ -1,56 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: networking probs in next-20081203
-Date: Fri, 12 Dec 2008 02:51:47 -0800
-Message-ID: <m1d4fxmzss.fsf@frodo.ebiederm.org>
-References: <49381644.8020502@intel.com>
-	<20081204175236.GA19808@x200.localdomain>
-	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
-	<20081204.102138.123959105.davem@davemloft.net>
-	<1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
-	<1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
-	<m1bpvrslk0.fsf@frodo.ebiederm.org>
-	<1228486339.20274.3.camel@localhost.localdomain>
-	<alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
-	<20081212052420.GA14948@x200.localdomain>
-	<alpine.LRH.1.10.0812122022520.32426@tundra.namei.org>
-	<alpine.LRH.1.10.0812122028470.32426@tundra.namei.org>
+From: Joerg Roedel <joerg.roedel@amd.com>
+Subject: Re: [NET-NEXT PATCH] ixgbe: fix dma mapping unbalance
+Date: Fri, 12 Dec 2008 12:31:47 +0100
+Message-ID: <20081212113147.GE30292@amd.com>
+References: <20081212095104.4380.49487.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Daniel J Walsh <dwalsh@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Stephen Smalley <sds@tycho.nsa.gov>, Alexey Dobriyan <adobriyan@gmail.com>
-To: James Morris <jmorris@namei.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.LRH.1.10.0812122028470.32426@tundra.namei.org> (James
-	Morris's message of "Fri, 12 Dec 2008 20:29:43 +1100 (EST)")
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:38857 "EHLO
+	WA4EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755700AbYLLLcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 06:32:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20081212095104.4380.49487.stgit@lost.foo-projects.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-James Morris <jmorris@namei.org> writes:
+Nice. I discoverd a couple more bugs in this driver while testing my
+IOMMU code.
+One bug can only be found with an hardware IOMMU. This seems to be a
+use-after-free bug, at least I see IO_PAGE_FAULTS from the IOMMU
+originating from this card. Maybe you can change the VT-d code so that
+you can debug this issue.
+I didn't found the time yet to do a v2 of my DMA-API debugging patches.
+But I hope can will the time for this next week. Then you have something
+in hand to debug the driver even further :)
 
-> On Fri, 12 Dec 2008, James Morris wrote:
->
->> It seems the problem is that the /proc/net mountpoint is now labeled as 
->> proc_t.
->
-> Actually, that's not the problem, it's the same on a normal kernel.
+Joerg
 
-To confirm what you are saying.  There is something wrong with the bug fix?
+On Fri, Dec 12, 2008 at 01:51:05AM -0800, Jeff Kirsher wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> 
+> This issue was initially reported by Joerg Roedel <joerg.roedel@amd.com>
+> It appears that ixgbe has had a long standing bug where it was
+> unmapping a different size than it had mapped.
 
-Eric
+-- 
+           |           AMD Saxony Limited Liability Company & Co. KG
+ Operating |         Wilschdorfer Landstr. 101, 01109 Dresden, Germany
+ System    |                  Register Court Dresden: HRA 4896
+ Research  |              General Partner authorized to represent:
+ Center    |             AMD Saxony LLC (Wilmington, Delaware, US)
+           | General Manager of AMD Saxony LLC: Dr. Hans-R. Deppe, Thomas McCoy
 
-------------------------------------------------------------------------------
-SF.Net email is Sponsored by MIX09, March 18-20, 2009 in Las Vegas, Nevada.
-The future of the web can't happen without you.  Join us at MIX09 to help
-pave the way to the Next Web now. Learn more and register at
-http://ad.doubleclick.net/clk;208669438;13503038;i?http://2009.visitmix.com/
