@@ -1,88 +1,79 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/8] net: Add frag_list support to skb_segment
-Date: Sat, 13 Dec 2008 08:41:25 +1100
-Message-ID: <20081212214125.GA11046@gondor.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cv-0000qk-Ec@gondolin.me.apana.org.au> <20081212194618.GA27281@ioremap.net>
+Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Sat, 13 Dec 2008 08:45:50 +1100
+Message-ID: <20081212214550.GB11046@gondor.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cx-0000r3-N2@gondolin.me.apana.org.au> <20081212195130.GB27281@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:56544 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:45162 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753088AbYLLVld (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 16:41:33 -0500
+	with ESMTP id S1753363AbYLLVpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 16:45:55 -0500
 Content-Disposition: inline
-In-Reply-To: <20081212194618.GA27281@ioremap.net>
+In-Reply-To: <20081212195130.GB27281@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 12, 2008 at 10:46:18PM +0300, Evgeniy Polyakov wrote:
+On Fri, Dec 12, 2008 at 10:51:30PM +0300, Evgeniy Polyakov wrote:
+> On Fri, Dec 12, 2008 at 04:31:51PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > +static int napi_gro_complete(struct sk_buff *skb)
+> > +{
+> > +	struct packet_type *ptype;
+> > +	__be16 type = skb->protocol;
+> > +	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+> > +	int err = -ENOENT;
+> > +
+> > +	if (!skb_shinfo(skb)->frag_list)
+> > +		goto out;
+> > +
+> > +	rcu_read_lock();
+> > +	list_for_each_entry_rcu(ptype, head, list) {
+> > +		if (ptype->type != type || ptype->dev || !ptype->gro_complete)
+> > +			continue;
+> > +
+> > +		err = ptype->gro_complete(skb);
+> > +		break;
+> > +	}
+> > +	rcu_read_unlock();
+> > +
+> > +	if (err) {
+> > +		WARN_ON(&ptype->list == head);
+> > +		kfree_skb(skb);
+> > +		return NET_RX_SUCCESS;
 > 
-> On Fri, Dec 12, 2008 at 04:31:49PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > @@ -2317,9 +2317,34 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
-> >  		if (hsize > len || !sg)
-> >  			hsize = len;
-> >  
-> > -		nskb = alloc_skb(hsize + doffset + headroom, GFP_ATOMIC);
-> > -		if (unlikely(!nskb))
-> > -			goto err;
-> > +		if (!hsize && i >= nfrags) {
-> > +			BUG_ON(fskb->len != len);
-> > +
-> > +			pos += len;
-> > +			nskb = skb_clone(fskb, GFP_ATOMIC);
-> > +			fskb = fskb->next;
-> > +
-> > +			if (unlikely(!nskb))
-> > +				goto err;
-> > +
-> > +			hsize = skb_end_pointer(nskb) - nskb->head;
-> > +			if (skb_cow_head(nskb, doffset + headroom))
-> > +				goto err;
+> Success after freeing skb on error? :)
+
+These return values are for congestion control rather than errors.
+
+> Why not WARN_ON_ONCE()?
+
+If this ever gets run we're in big trouble :) And if you're hacking
+protocols and trigger this then you want to see all the backtraces.
+
+> > +	if (NAPI_GRO_CB(skb)->same_flow)
+> > +		goto ok;
 > 
-> This should free nskb first.
+> Should this set ->count?
 
-Good catch! I'll get this fixed.
+Nope, same_flow == 1 means that the skb was merged into an existing
+entry.  ->count is only set for the skb that consumed this one.
 
-> > +			nskb->truesize += skb_end_pointer(nskb) - nskb->head -
-> > +					  hsize;
-> > +			skb_release_head_state(nskb);
-> > +			__skb_push(nskb, doffset);
-> > +		} else {
-> > +			nskb = alloc_skb(hsize + doffset + headroom,
-> > +					 GFP_ATOMIC);
 > > +
-> > +			if (unlikely(!nskb))
-> > +				goto err;
+> > +	if (NAPI_GRO_CB(skb)->flush || count >= MAX_GRO_SKBS) {
+> > +		__skb_push(skb, -skb_network_offset(skb));
+> > +		goto normal;
+> > +	}
 > > +
+> > +	NAPI_GRO_CB(skb)->count = 1;
 > 
-> The same.
+> Maybe this should be set to 'count', not 1?
 
-nskb is NULL here.
-
-> > +		if (pos < offset + len) {
-> > +			struct sk_buff *fskb2 = fskb;
-> > +
-> > +			BUG_ON(pos + fskb->len != offset + len);
-> > +
-> > +			pos += fskb->len;
-> > +			fskb = fskb->next;
-> > +
-> > +			if (fskb2->next) {
-> > +				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
-> > +				if (!fskb2)
-> > +					goto err;
-> > +			} else
-> > +				skb_get(fskb2);
-> > +
-> > +			skb_shinfo(nskb)->frag_list = fskb2;
-> 
-> Is it guaranteed that nskb does not have frags here?
-
-This bit only gets executed the first time we hit the frag_list
-in the original skb.  Therefore we've just allocated nskb for
-the very first time.  I'll add a BUG_ON for you :)
+No, ->count is for how many original skb's we have merged into
+skb, whilc the local count is for how many held skb's we have
+in total (used to limit the length of that list).
 
 Cheers,
 -- 
