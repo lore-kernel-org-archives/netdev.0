@@ -1,8 +1,8 @@
 From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH v3 3/7] fs: Introduce a per_cpu last_ino allocator
-Date: Tue, 24 Jul 2007 11:34:41 +1000
-Message-ID: <200707241134.42512.nickpiggin@yahoo.com.au>
-References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <493100B0.6090104@cosmosbay.com> <49419696.9080509@cosmosbay.com>
+Subject: Re: [PATCH v3 6/7] fs: struct file move from call_rcu() to SLAB_DESTROY_BY_RCU
+Date: Fri, 12 Dec 2008 12:50:11 +1000
+Message-ID: <200812121350.13291.nickpiggin@yahoo.com.au>
+References: <Pine.LNX.4.64.0811201727070.9089@quilx.com> <494196DD.5070600@cosmosbay.com> <200707241113.46834.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -20,95 +20,150 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	linux-fsdevel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758238AbYLLCMd@vger.kernel.org>
-In-Reply-To: <49419696.9080509@cosmosbay.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <200707241113.46834.nickpiggin@yahoo.com.au>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 12 December 2008 09:39, Eric Dumazet wrote:
-> new_inode() dirties a contended cache line to get increasing
-> inode numbers.
+On Tuesday 24 July 2007 11:13, Nick Piggin wrote:
+> On Friday 12 December 2008 09:40, Eric Dumazet wrote:
+> > From: Christoph Lameter <cl@linux-foundation.org>
+> >
+> > [PATCH] fs: struct file move from call_rcu() to SLAB_DESTROY_BY_RCU
+> >
+> > Currently we schedule RCU frees for each file we free separately. That
+> > has several drawbacks against the earlier file handling (in 2.6.5 f.e.),
+> > which did not require RCU callbacks:
+> >
+> > 1. Excessive number of RCU callbacks can be generated causing long RCU
+> >   queues that in turn cause long latencies. We hit SLUB page allocation
+> >   more often than necessary.
+> >
+> > 2. The cache hot object is not preserved between free and realloc. A
+> > close followed by another open is very fast with the RCUless approach
+> > because the last freed object is returned by the slab allocator that is
+> > still cache hot. RCU free means that the object is not immediately
+> > available again. The new object is cache cold and therefore open/close
+> > performance tests show a significant degradation with the RCU
+> >   implementation.
+> >
+> > One solution to this problem is to move the RCU freeing into the Slab
+> > allocator by specifying SLAB_DESTROY_BY_RCU as an option at slab creation
+> > time. The slab allocator will do RCU frees only when it is necessary
+> > to dispose of slabs of objects (rare). So with that approach we can cut
+> > out the RCU overhead significantly.
+> >
+> > However, the slab allocator may return the object for another use even
+> > before the RCU period has expired under SLAB_DESTROY_BY_RCU. This means
+> > there is the (unlikely) possibility that the object is going to be
+> > switched under us in sections protected by rcu_read_lock() and
+> > rcu_read_unlock(). So we need to verify that we have acquired the correct
+> > object after establishing a stable object reference (incrementing the
+> > refcounter does that).
+> >
+> >
+> > Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > ---
+> >  Documentation/filesystems/files.txt |   21 ++++++++++++++--
+> >  fs/file_table.c                     |   33 ++++++++++++++++++--------
+> >  include/linux/fs.h                  |    5 ---
+> >  3 files changed, 42 insertions(+), 17 deletions(-)
+> >
+> > diff --git a/Documentation/filesystems/files.txt
+> > b/Documentation/filesystems/files.txt index ac2facc..6916baa 100644
+> > --- a/Documentation/filesystems/files.txt
+> > +++ b/Documentation/filesystems/files.txt
+> > @@ -78,13 +78,28 @@ the fdtable structure -
+> >     that look-up may race with the last put() operation on the
+> >     file structure. This is avoided using atomic_long_inc_not_zero()
+> >     on ->f_count :
+> > +   As file structures are allocated with SLAB_DESTROY_BY_RCU,
+> > +   they can also be freed before a RCU grace period, and reused,
+> > +   but still as a struct file.
+> > +   It is necessary to check again after getting
+> > +   a stable reference (ie after atomic_long_inc_not_zero()),
+> > +   that fcheck_files(files, fd) points to the same file.
+> >
+> >  	rcu_read_lock();
+> >  	file = fcheck_files(files, fd);
+> >  	if (file) {
+> > -		if (atomic_long_inc_not_zero(&file->f_count))
+> > +		if (atomic_long_inc_not_zero(&file->f_count)) {
+> >  			*fput_needed = 1;
+> > -		else
+> > +			/*
+> > +			 * Now we have a stable reference to an object.
+> > +			 * Check if other threads freed file and reallocated it.
+> > +			 */
+> > +			if (file != fcheck_files(files, fd)) {
+> > +				*fput_needed = 0;
+> > +				put_filp(file);
+> > +				file = NULL;
+> > +			}
+> > +		} else
+> >  		/* Didn't get the reference, someone's freed */
+> >  			file = NULL;
+> >  	}
+> > @@ -95,6 +110,8 @@ the fdtable structure -
+> >     atomic_long_inc_not_zero() detects if refcounts is already zero or
+> >     goes to zero during increment. If it does, we fail
+> >     fget()/fget_light().
+> > +   The second call to fcheck_files(files, fd) checks that this filp
+> > +   was not freed, then reused by an other thread.
+> >
+> >  6. Since both fdtable and file structures can be looked up
+> >     lock-free, they must be installed using rcu_assign_pointer()
+> > diff --git a/fs/file_table.c b/fs/file_table.c
+> > index a46e880..3e9259d 100644
+> > --- a/fs/file_table.c
+> > +++ b/fs/file_table.c
+> > @@ -37,17 +37,11 @@ static struct kmem_cache *filp_cachep __read_mostly;
+> >
+> >  static struct percpu_counter nr_files __cacheline_aligned_in_smp;
+> >
+> > -static inline void file_free_rcu(struct rcu_head *head)
+> > -{
+> > -	struct file *f =  container_of(head, struct file, f_u.fu_rcuhead);
+> > -	kmem_cache_free(filp_cachep, f);
+> > -}
+> > -
+> >  static inline void file_free(struct file *f)
+> >  {
+> >  	percpu_counter_dec(&nr_files);
+> >  	file_check_state(f);
+> > -	call_rcu(&f->f_u.fu_rcuhead, file_free_rcu);
+> > +	kmem_cache_free(filp_cachep, f);
+> >  }
+> >
+> >  /*
+> > @@ -306,6 +300,14 @@ struct file *fget(unsigned int fd)
+> >  			rcu_read_unlock();
+> >  			return NULL;
+> >  		}
+> > +		/*
+> > +		 * Now we have a stable reference to an object.
+> > +		 * Check if other threads freed file and re-allocated it.
+> > +		 */
+> > +		if (unlikely(file != fcheck_files(files, fd))) {
+> > +			put_filp(file);
+> > +			file = NULL;
+> > +		}
 >
-> Solve this problem by providing to each cpu a per_cpu variable,
-> feeded by the shared last_ino, but once every 1024 allocations.
+> This is a non-trivial change, because that put_filp may drop the last
+> reference to the file. So now we have the case where we free the file
+> from a context in which it had never been allocated.
 >
-> This reduce contention on the shared last_ino, and give same
-> spreading ino numbers than before.
-> (same wraparound after 2^32 allocations)
+> From a quick glance though the callchains, I can't seen an obvious
+> problem. But it needs to have documentation in put_filp, or at least
+> a mention in the changelog, and also cc'ed to the security lists.
+>
+> Also, it adds code and cost to the get/put path in return for
+> improvement in the free path. get/put is the more common path, but
+> it is a small loss for a big improvement. So it might be worth it. But
+> it is not justified by your microbenchmark. Do we have a more useful
+> case that it helps?
 
-I don't suppose this would cause any filesystems to do silly
-things?
-
-Seems like a good idea, if you could just add a #define instead
-of 1024.
-
->
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> ---
->  fs/inode.c |   35 ++++++++++++++++++++++++++++++++---
->  1 files changed, 32 insertions(+), 3 deletions(-)
->
-> diff --git a/fs/inode.c b/fs/inode.c
-> index f94f889..dc8e72a 100644
-> --- a/fs/inode.c
-> +++ b/fs/inode.c
-> @@ -556,6 +556,36 @@ repeat:
->  	return node ? inode : NULL;
->  }
->
-> +#ifdef CONFIG_SMP
-> +/*
-> + * Each cpu owns a range of 1024 numbers.
-> + * 'shared_last_ino' is dirtied only once out of 1024 allocations,
-> + * to renew the exhausted range.
-> + */
-> +static DEFINE_PER_CPU(int, last_ino);
-> +
-> +static int last_ino_get(void)
-> +{
-> +	static atomic_t shared_last_ino;
-> +	int *p = &get_cpu_var(last_ino);
-> +	int res = *p;
-> +
-> +	if (unlikely((res & 1023) == 0))
-> +		res = atomic_add_return(1024, &shared_last_ino) - 1024;
-> +
-> +	*p = ++res;
-> +	put_cpu_var(last_ino);
-> +	return res;
-> +}
-> +#else
-> +static int last_ino_get(void)
-> +{
-> +	static int last_ino;
-> +
-> +	return ++last_ino;
-> +}
-> +#endif
-> +
->  /**
->   *	new_inode 	- obtain an inode
->   *	@sb: superblock
-> @@ -575,7 +605,6 @@ struct inode *new_inode(struct super_block *sb)
->  	 * error if st_ino won't fit in target struct field. Use 32bit counter
->  	 * here to attempt to avoid that.
->  	 */
-> -	static unsigned int last_ino;
->  	struct inode * inode;
->
->  	spin_lock_prefetch(&inode_lock);
-> @@ -583,11 +612,11 @@ struct inode *new_inode(struct super_block *sb)
->  	inode = alloc_inode(sb);
->  	if (inode) {
->  		percpu_counter_inc(&nr_inodes);
-> +		inode->i_state = 0;
-> +		inode->i_ino = last_ino_get();
->  		spin_lock(&inode_lock);
->  		list_add(&inode->i_list, &inode_in_use);
->  		list_add(&inode->i_sb_list, &sb->s_inodes);
-> -		inode->i_ino = ++last_ino;
-> -		inode->i_state = 0;
->  		spin_unlock(&inode_lock);
->  	}
->  	return inode;
+Sorry, my clock screwed up and I didn't notice :(
