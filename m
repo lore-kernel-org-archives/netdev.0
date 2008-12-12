@@ -1,98 +1,96 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
-	entry
-Date: Fri, 12 Dec 2008 07:18:35 -0500
-Message-ID: <20081212121835.GA2402@hmsreliant.think-freely.org>
-References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local> <20081211090104.02cab3d4@s6510> <20081211181528.GB10558@hmsendeavour.rdu.redhat.com> <20081211160307.20709435@s6510>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 00/33] sfc version 2.3
+Date: Fri, 12 Dec 2008 12:46:24 +0000
+Message-ID: <20081212124622.GK32518@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52954 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757955AbYLLMUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:20:41 -0500
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:42205 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752651AbYLLMqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:46:30 -0500
 Content-Disposition: inline
-In-Reply-To: <20081211160307.20709435@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 04:03:07PM -0800, Stephen Hemminger wrote:
-> On Thu, 11 Dec 2008 13:15:28 -0500
-> Neil Horman <nhorman@tuxdriver.com> wrote:
-> 
-> > On Thu, Dec 11, 2008 at 09:01:04AM -0800, Stephen Hemminger wrote:
-> > > On Thu, 11 Dec 2008 13:07:28 +0000
-> > > Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > > 
-> > > > On 09-12-2008 22:06, Neil Horman wrote:
-> > > > ...
-> > > > > When executing napi->poll from the netpoll_path, this bit will
-> > > > > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
-> > > > > remove the napi_struct from the poll_list.  That work will be saved for the next
-> > > > > iteration of net_rx_action.
-> > > > 
-> > > > This could be not enough: some drivers, e.g. sky2, call napi_complete()
-> > > > directly.
-> > > > 
-> > > 
-> > > There is good reason for this. Although most drivers only have one NAPI
-> > > instance per device, and multiqueue drivers have several NAPI structures
-> > > per device, a few devices like sky2 need to support multiple devices
-> > > running off one NAPI receive. The Marvell hardware has a common receive
-> > > interrupt for both ports on a dual port card.
-> > > 
-> > > This kind of hardware limits usage of netpoll. Only one port can be
-> > > used with netpoll because netpoll makes assumptions about NAPI
-> > > association.
-> > > 
-> > 
-> > There was previously good cause to use __netif_rx_complete instead of
-> > netif_rx_complete some time ago when multiqueue rx was implemented using a set
-> > of dummy netdevices.  But with the separation of the napi code, there is no
-> > longer any reason for this to be done.
-> > 
-> > I just took a quick look, and it appears that sky2 is the last remaining driver
-> > to use the underlying napi routines.
-> > 
-> > This patch maintains exactly the same functionality that it previously had, but
-> > allows for the netpoll patch to be safe with respect to the per-cpu poll_lists
-> > used by net_rx_action.
-> > 
-> > Regards
-> > Neil
-> > 
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > 
-> > 
-> >  sky2.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > 
-> > diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> > index 3813d15..84bdc3c 100644
-> > --- a/drivers/net/sky2.c
-> > +++ b/drivers/net/sky2.c
-> > @@ -2694,7 +2694,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
-> >  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
-> >  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
-> >  	}
-> > -	napi_complete(napi);
-> > +	netif_rx_complete(napi->dev, napi);
-> >  	sky2_read32(hw, B0_Y2_SP_LISR);
-> >  done:
-> 
-> I would ask it the other way. Why is interface an argument to netif_rx_complete
-> if it is never used?  
-> 
-Thats a fair question, and I don't know the answer, Dave?
-Neil
+The big changes here are to add support for Solarflare's new multi-speed
+PHY and reference design.  There are also a number of small fixes, clean-
+up and new features.
+
+Ben.
+
+Ben Hutchings (31):
+  sfc: Board support fixes
+  sfc: Change SPI lengths to type size_t
+  sfc: Do not use pci_disable_device() to disable bus mastering
+  sfc: Remove unneeded register write
+  sfc: Correct interpretation of second param to ethtool phys_id()
+  sfc: Clean up waits for flash/EEPROM operations
+  sfc: Work around unreliable strap pins
+  sfc: Restore phy_flash_cfg module parameter
+  sfc: Provide hints to irqbalance daemon
+  sfc: Abbreviate self-test names so they are not truncated
+  sfc: Don't count RX checksum errors during loopback self-test
+  sfc: Remove MII extension cruft
+  sfc: Add support for MMDs numbered >15
+  sfc: Add phy_type device attribute
+  sfc: Clean up board identification
+  sfc: Clean up MDIO flag setting
+  sfc: Add support for sub-10G speeds
+  sfc: Implement auto-negotiation
+  sfc: Rework MAC, PHY and board event handling
+  sfc: Add support for Solarflare 10Xpress SFT9001
+  sfc: Add support for SFN4111T
+  sfc: Fix format arguments for warning about MSI-X allocation
+  sfc: Generate unique names for per-NIC workqueues
+  sfc: Remove leading spaces
+  sfc: Specify a meaningful component for loopback RX-side and PHY
+    tests
+  sfc: Use mutex_lock_interruptible() for ethtool EEPROM access
+  sfc: Use model numbers for PHY type names
+  sfc: Treat probe as unsuccessful if it scheduled a reset
+  sfc: Use kzalloc() to ensure struct efx_spi_device is fully
+    initialised
+  sfc: Fix synchronisation of efx_mtd_{probe,rename,remove}
+  sfc: Version 2.3
+
+Neil Turton (1):
+  sfc: Add option to use a separate channel for TX completions
+
+Steve Hodgson (1):
+  sfc: Make reset_workqueue driver-global rather than per-NIC
+
+ drivers/net/sfc/Makefile        |    4 +-
+ drivers/net/sfc/boards.c        |   70 ++---
+ drivers/net/sfc/boards.h        |   14 +-
+ drivers/net/sfc/efx.c           |  331 ++++++++++++-------
+ drivers/net/sfc/enum.h          |   32 +-
+ drivers/net/sfc/ethtool.c       |  137 ++++++---
+ drivers/net/sfc/falcon.c        |  472 ++++++++++++++++-----------
+ drivers/net/sfc/falcon.h        |    3 +
+ drivers/net/sfc/falcon_gmac.c   |  229 +++++++++++++
+ drivers/net/sfc/falcon_hwdefs.h |  160 +++++++++
+ drivers/net/sfc/falcon_xmac.c   |  261 +++------------
+ drivers/net/sfc/gmii.h          |  137 +--------
+ drivers/net/sfc/mac.h           |   16 +-
+ drivers/net/sfc/mdio_10g.c      |  453 ++++++++++++++++++--------
+ drivers/net/sfc/mdio_10g.h      |   52 +++-
+ drivers/net/sfc/mtd.c           |    2 +-
+ drivers/net/sfc/net_driver.h    |  113 ++++++-
+ drivers/net/sfc/phy.h           |    7 +-
+ drivers/net/sfc/selftest.c      |   41 ++-
+ drivers/net/sfc/selftest.h      |    2 -
+ drivers/net/sfc/sfe4001.c       |  153 +++++++--
+ drivers/net/sfc/spi.h           |    2 +-
+ drivers/net/sfc/tenxpress.c     |  686 +++++++++++++++++++++++++++++----------
+ drivers/net/sfc/workarounds.h   |   12 +-
+ drivers/net/sfc/xfp_phy.c       |   38 +--
+ 25 files changed, 2232 insertions(+), 1195 deletions(-)
+ create mode 100644 drivers/net/sfc/falcon_gmac.c
 
 -- 
-/****************************************************
- * Neil Horman <nhorman@tuxdriver.com>
- * Software Engineer, Red Hat
- ****************************************************/
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
