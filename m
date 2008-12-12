@@ -1,69 +1,58 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: networking probs in next-20081203
-Date: Fri, 12 Dec 2008 08:24:20 +0300
-Message-ID: <20081212052420.GA14948@x200.localdomain>
-References: <49381644.8020502@intel.com>
-	<20081204175236.GA19808@x200.localdomain>
-	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
-	<20081204.102138.123959105.davem@davemloft.net>
-	<1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
-	<1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
-	<m1bpvrslk0.fsf@frodo.ebiederm.org>
-	<1228486339.20274.3.camel@localhost.localdomain>
-	<alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH] e1000e: fix double release of mutex
+Date: Thu, 11 Dec 2008 21:20:26 -0800
+Message-ID: <20081212052025.3298.151.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>,
-	eparis@parisplace.org, akpm@linux-foundation.org,
-	Stephen Smalley <sds@tycho.nsa.gov>, David Miller <davem@davemloft.net>
-To: James Morris <jmorris@namei.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stable@kernel.org,
+	linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:53054
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750804AbYLLFUr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 00:20:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 09:41:20PM +1100, James Morris wrote:
-> On Fri, 5 Dec 2008, Stephen Smalley wrote:
-> 
-> > I suspect we need the following un-tested diff to map all of these proc/
-> > filesystem types to "proc" for the policy lookup at filesystem mount
-> > time.
-> 
-> I finally got a bootable linux-next, but it seems that the proc/net patch 
-> is no longer in there.
-> 
-> Any idea if it's coming back?  The patch below looks ok, but it needs 
-> testing
+During a reset, releasing the swflag after it failed to be acquired would
+cause a double unlock of the mutex.  Instead, test whether acquisition of
+the swflag was successful and if not, do not release the swflag.  The reset
+must still be done to bring the device to a quiescent state.
 
-Yes, please, someone test it.
+This resolves [BUG 12200] BUG: bad unlock balance detected! e1000e
+http://bugzilla.kernel.org/show_bug.cgi?id=12200
 
-> (and I'd suggest perhaps including it any future version of the proc/net patch).
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-I placed it into proc-wip branch to not screw testers with SELinux meanwhile
+ drivers/net/e1000e/ich8lan.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-	git-remote add proc git://git.kernel.org/pub/scm/linux/kernel/git/adobriyan/proc.git
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 523b971..d115a6d 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -1893,12 +1893,17 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 		ctrl |= E1000_CTRL_PHY_RST;
+ 	}
+ 	ret_val = e1000_acquire_swflag_ich8lan(hw);
++	/* Whether or not the swflag was acquired, we need to reset the part */
+ 	hw_dbg(hw, "Issuing a global reset to ich8lan");
+ 	ew32(CTRL, (ctrl | E1000_CTRL_RST));
+ 	msleep(20);
+ 
+-	/* release the swflag because it is not reset by hardware reset */
+-	e1000_release_swflag_ich8lan(hw);
++	if (!ret_val) {
++		/* release the swflag because it is not reset by
++		 * hardware reset
++		 */
++		e1000_release_swflag_ich8lan(hw);
++	}
+ 
+ 	ret_val = e1000e_get_auto_rd_done(hw);
+ 	if (ret_val) {
 
-> > --- a/security/selinux/hooks.c
-> > +++ b/security/selinux/hooks.c
-> > @@ -703,7 +703,7 @@ static int selinux_set_mnt_opts(struct super_block *sb,
-> >  		sbsec->proc = 1;
-> >  
-> >  	/* Determine the labeling behavior to use for this filesystem type. */
-> > -	rc = security_fs_use(sb->s_type->name, &sbsec->behavior, &sbsec->sid);
-> > +	rc = security_fs_use(sbsec->proc ? "proc" : sb->s_type->name, &sbsec->behavior, &sbsec->sid);
-
-------------------------------------------------------------------------------
-SF.Net email is Sponsored by MIX09, March 18-20, 2009 in Las Vegas, Nevada.
-The future of the web can't happen without you.  Join us at MIX09 to help
-pave the way to the Next Web now. Learn more and register at
-http://ad.doubleclick.net/clk;208669438;13503038;i?http://2009.visitmix.com/
