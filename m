@@ -1,54 +1,57 @@
-From: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-Subject: RE: [PATCH 11/13] dmaengine: kill struct dma_client and supporting
-	infrastructure
-Date: Fri, 12 Dec 2008 14:29:47 +0000
-Message-ID: <129600E5E5FB004392DDC3FB599660D70C8F3407@irsmsx504.ger.corp.intel.com>
-References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
- <20081114213513.32354.58256.stgit@dwillia2-linux.ch.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
-	"g.liakhovetski@gmx.de" <g.liakhovetski@gmx.de>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
-To: "Williams, Dan J" <dan.j.williams@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759433AbYLLOa0@vger.kernel.org>
-In-Reply-To: <20081114213513.32354.58256.stgit@dwillia2-linux.ch.intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Detecting backup slaves of bonding interface in network driver
+Date: Fri, 12 Dec 2008 08:37:45 -0800
+Message-ID: <3481.1229099865@death.nxdomain.ibm.com>
+References: <494108D7.3040304@gslab.com> <25821.1229013359@death.nxdomain.ibm.com> <4942663A.3080801@gslab.com>
+Cc: netdev@vger.kernel.org
+To: Poornima Kamath <poornimak@gslab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:51391 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759333AbYLLQht (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Dec 2008 11:37:49 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e3.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mBCGb5ip031246
+	for <netdev@vger.kernel.org>; Fri, 12 Dec 2008 11:37:05 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mBCGbmCh165204
+	for <netdev@vger.kernel.org>; Fri, 12 Dec 2008 11:37:48 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mBCGbmue010945
+	for <netdev@vger.kernel.org>; Fri, 12 Dec 2008 11:37:48 -0500
+In-reply-to: <4942663A.3080801@gslab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Williams, Dan J wrote:
-> All users have been converted to either the general-purpose allocator,
-> dma_find_channel, or dma_request_channel.
-> 
-> Signed-off-by: Dan Williams <dan.j.williams@intel.com>
-> ---
-(...)
->  /**
-> - * dma_chans_notify_available - broadcast available channels to the
-> clients 
-> - */
-> -static void dma_clients_notify_available(void)
-> -{
-> -	struct dma_client *client;
-> -
-> -	mutex_lock(&dma_list_mutex);
-> -
-> -	list_for_each_entry(client, &dma_client_list, global_node)
-> -		dma_client_chan_alloc(client);
-> -
-> -	mutex_unlock(&dma_list_mutex);
-> -}
+Poornima Kamath <poornimak@gslab.com> wrote:
 
-I agree with Guennadi's concern about removing clients' notification
-of new devices available in the system.
-I understand that this design is based on polling instead,
-however polling is always less efficient approach.
-Do you think that restoring notifications in this redesigned dmaengine
-would be more painful than limiting clients to polling solution?
+>The driver creates virtual interfaces that talk to ethernet interfaces over
+>infiniband,  using an infiniband to ethernet gateway device.
+>The gateway device sends data to all interfaces having same mac address.  For
+>this the driver needs to explicitly tell the gateway device not to send data to
+>the backup slaves.
+>Therefore the driver needs to  know which slaves are backup slaves.
+>The failover mac option  works well,  but it is present for kernels greater
+>than 2.6.24.  So this option is not available for distros like RHEL5, SLES10
+>etc
 
-Regards,
-Maciej
+	I believe that RHEL5 and SLES10 contain an "ib-bonding" package
+which includes a backport of the current (or at least a more current)
+bonding driver specifically for use over Infiniband.  I think it's also
+got a couple of other patches to bonding that aren't in the mainline.
+In any event, it has the fail_over_mac functionality.
+
+	Have you looked at ib-bonding?
+
+>So in order to support these distros I need some way of identifying the backup
+>slaves.
+>Is it ok to check the IFF_SLAVE_INACTIVE flags for these distros?
+
+	It will do what you want (identify backup slaves), and is not
+guaranteed to be available in the future.  I doubt that the flag would
+ever go away on RHEL5 or SLES10, but, again, no guarantee.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
