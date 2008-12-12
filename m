@@ -1,121 +1,77 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 11/33] sfc: Provide hints to irqbalance daemon
-Date: Fri, 12 Dec 2008 12:52:30 +0000
-Message-ID: <20081212125229.GK10372@solarflare.com>
+Subject: [PATCH 12/33] sfc: Abbreviate self-test names so they are not truncated
+Date: Fri, 12 Dec 2008 12:52:45 +0000
+Message-ID: <20081212125244.GL10372@solarflare.com>
 References: <cover.1229085672.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:47293 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757130AbYLLMwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:52:32 -0500
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:36433 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757188AbYLLMws (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:52:48 -0500
 Content-Disposition: inline
 In-Reply-To: <cover.1229085672.git.bhutchings@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate IRQs with the name format <device>[-<type>]-<number> so that
-future versions of irqbalanced understand what we're doing.
+Change "channel" to "chan".
+
+Shorten PHY loopback names.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c        |   24 ++++++++++++++++++++++++
- drivers/net/sfc/falcon.c     |    2 +-
- drivers/net/sfc/net_driver.h |    2 ++
- 3 files changed, 27 insertions(+), 1 deletions(-)
+ drivers/net/sfc/ethtool.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 58cbbd5..183a440 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -356,6 +356,27 @@ static int efx_probe_channel(struct efx_channel *channel)
- }
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 9c533e0..931ce14 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -27,9 +27,9 @@ const char *efx_loopback_mode_names[] = {
+ 	[LOOPBACK_XGXS]		= "XGXS",
+ 	[LOOPBACK_XAUI] 	= "XAUI",
+ 	[LOOPBACK_PHY]		= "PHY",
+-	[LOOPBACK_PHYXS]	= "PHY(XS)",
+-	[LOOPBACK_PCS]	 	= "PHY(PCS)",
+-	[LOOPBACK_PMAPMD]	= "PHY(PMAPMD)",
++	[LOOPBACK_PHYXS]	= "PHYXS",
++	[LOOPBACK_PCS]	 	= "PCS",
++	[LOOPBACK_PMAPMD]	= "PMA/PMD",
+ 	[LOOPBACK_NETWORK]	= "NETWORK",
+ };
  
- 
-+static void efx_set_channel_names(struct efx_nic *efx)
-+{
-+	struct efx_channel *channel;
-+	const char *type = "";
-+	int number;
-+
-+	efx_for_each_channel(channel, efx) {
-+		number = channel->channel;
-+		if (efx->n_channels > efx->n_rx_queues) {
-+			if (channel->channel < efx->n_rx_queues) {
-+				type = "-rx";
-+			} else {
-+				type = "-tx";
-+				number -= efx->n_rx_queues;
-+			}
-+		}
-+		snprintf(channel->name, sizeof(channel->name),
-+			 "%s%s-%d", efx->name, type, number);
-+	}
-+}
-+
- /* Channels are shutdown and reinitialised whilst the NIC is running
-  * to propagate configuration changes (mtu, checksum offload), or
-  * to clear hardware error conditions
-@@ -1002,6 +1023,7 @@ static int efx_probe_all(struct efx_nic *efx)
- 			goto fail3;
- 		}
- 	}
-+	efx_set_channel_names(efx);
- 
- 	return 0;
- 
-@@ -1483,6 +1505,7 @@ static int efx_netdev_event(struct notifier_block *this,
- 
- 		strcpy(efx->name, net_dev->name);
- 		efx_mtd_rename(efx);
-+		efx_set_channel_names(efx);
- 	}
- 
- 	return NOTIFY_DONE;
-@@ -1516,6 +1539,7 @@ static int efx_register_netdev(struct efx_nic *efx)
- 		return rc;
- 	}
- 	strcpy(efx->name, net_dev->name);
-+	efx_set_channel_names(efx);
- 
- 	return 0;
- }
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 9563c13..7421945 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -1585,7 +1585,7 @@ int falcon_init_interrupt(struct efx_nic *efx)
- 	efx_for_each_channel(channel, efx) {
- 		rc = request_irq(channel->irq, falcon_msi_interrupt,
- 				 IRQF_PROBE_SHARED, /* Not shared */
--				 efx->name, channel);
-+				 channel->name, channel);
- 		if (rc) {
- 			EFX_ERR(efx, "failed to hook IRQ %d\n", channel->irq);
- 			goto fail2;
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 2c5b5fa..abff908 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -327,6 +327,7 @@ enum efx_rx_alloc_method {
+@@ -242,10 +242,10 @@ static void efx_ethtool_get_drvinfo(struct net_device *net_dev,
+  * @strings:		Ethtool strings, or %NULL
+  * @data:		Ethtool test results, or %NULL
+  * @test:		Pointer to test result (used only if data != %NULL)
+- * @unit_format:	Unit name format (e.g. "channel\%d")
+- * @unit_id:		Unit id (e.g. 0 for "channel0")
++ * @unit_format:	Unit name format (e.g. "chan\%d")
++ * @unit_id:		Unit id (e.g. 0 for "chan0")
+  * @test_format:	Test name format (e.g. "loopback.\%s.tx.sent")
+- * @test_id:		Test id (e.g. "PHY" for "loopback.PHY.tx_sent")
++ * @test_id:		Test id (e.g. "PHYXS" for "loopback.PHYXS.tx_sent")
   *
-  * @efx: Associated Efx NIC
-  * @channel: Channel instance number
-+ * @name: Name for channel and IRQ
-  * @used_flags: Channel is used by net driver
-  * @enabled: Channel enabled indicator
-  * @irq: IRQ number (MSI and MSI-X only)
-@@ -357,6 +358,7 @@ enum efx_rx_alloc_method {
- struct efx_channel {
- 	struct efx_nic *efx;
- 	int channel;
-+	char name[IFNAMSIZ + 6];
- 	int used_flags;
- 	bool enabled;
- 	int irq;
+  * Fill in an individual self-test entry.
+  */
+@@ -268,12 +268,12 @@ static void efx_fill_test(unsigned int test_index,
+ 			 test_format, test_id);
+ 		snprintf(strings[test_index].name,
+ 			 sizeof(strings[test_index].name),
+-			 "%-9s%-17s", unit_str.name, test_str.name);
++			 "%-6s %-24s", unit_str.name, test_str.name);
+ 	}
+ }
+ 
+ #define EFX_PORT_NAME "port%d", 0
+-#define EFX_CHANNEL_NAME(_channel) "channel%d", _channel->channel
++#define EFX_CHANNEL_NAME(_channel) "chan%d", _channel->channel
+ #define EFX_TX_QUEUE_NAME(_tx_queue) "txq%d", _tx_queue->queue
+ #define EFX_RX_QUEUE_NAME(_rx_queue) "rxq%d", _rx_queue->queue
+ #define EFX_LOOPBACK_NAME(_mode, _counter)			\
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
