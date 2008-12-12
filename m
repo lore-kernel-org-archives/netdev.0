@@ -1,160 +1,165 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 17/33] sfc: Clean up board identification
-Date: Fri, 12 Dec 2008 12:54:19 +0000
-Message-ID: <20081212125418.GQ10372@solarflare.com>
+Subject: [PATCH 18/33] sfc: Clean up MDIO flag setting
+Date: Fri, 12 Dec 2008 12:54:34 +0000
+Message-ID: <20081212125433.GR10372@solarflare.com>
 References: <cover.1229085672.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:57020 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757321AbYLLMyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:54:23 -0500
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:40641 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757336AbYLLMyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:54:36 -0500
 Content-Disposition: inline
 In-Reply-To: <20081212124622.GK32518@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove kluge for development boards with unspecified board type.
-
-Remove assumption of contiguous board type code assignments.
+We often want to set or clear a flag in an MDIO register, but avoid
+writing if no change is required since this can have side-effects.
+Encapsulate this in a function, mdio_clause45_set_flag().
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/boards.c |   68 ++++++++++++---------------------------------
- drivers/net/sfc/boards.h |    7 +---
- 2 files changed, 20 insertions(+), 55 deletions(-)
+ drivers/net/sfc/mdio_10g.c |   87 ++++++++++++++------------------------------
+ drivers/net/sfc/mdio_10g.h |    4 ++
+ 2 files changed, 32 insertions(+), 59 deletions(-)
 
-diff --git a/drivers/net/sfc/boards.c b/drivers/net/sfc/boards.c
-index edf0262..08fa4e3 100644
---- a/drivers/net/sfc/boards.c
-+++ b/drivers/net/sfc/boards.c
-@@ -1,6 +1,6 @@
- /****************************************************************************
-  * Driver for Solarflare Solarstorm network controllers and boards
-- * Copyright 2007 Solarflare Communications Inc.
-+ * Copyright 2007-2008 Solarflare Communications Inc.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms of the GNU General Public License version 2 as published
-@@ -231,70 +231,38 @@ static int sfe4002_init(struct efx_nic *efx)
- /* This will get expanded as board-specific details get moved out of the
-  * PHY drivers. */
- struct efx_board_data {
-+	enum efx_board_type type;
- 	const char *ref_model;
- 	const char *gen_type;
- 	int (*init) (struct efx_nic *nic);
- };
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
+index 1eed484..8d91131 100644
+--- a/drivers/net/sfc/mdio_10g.c
++++ b/drivers/net/sfc/mdio_10g.c
+@@ -205,61 +205,24 @@ bool mdio_clause45_links_ok(struct efx_nic *efx, unsigned int mmd_mask)
  
--static int dummy_init(struct efx_nic *nic)
--{
--	return 0;
--}
- 
- static struct efx_board_data board_data[] = {
--	[EFX_BOARD_INVALID] =
--	{NULL,	    NULL,                  dummy_init},
--	[EFX_BOARD_SFE4001] =
--	{"SFE4001", "10GBASE-T adapter",   sfe4001_init},
--	[EFX_BOARD_SFE4002] =
--	{"SFE4002", "XFP adapter",         sfe4002_init},
-+	{ EFX_BOARD_SFE4001, "SFE4001", "10GBASE-T adapter", sfe4001_init },
-+	{ EFX_BOARD_SFE4002, "SFE4002", "XFP adapter", sfe4002_init },
- };
- 
--int efx_set_board_info(struct efx_nic *efx, u16 revision_info)
-+void efx_set_board_info(struct efx_nic *efx, u16 revision_info)
+ void mdio_clause45_transmit_disable(struct efx_nic *efx)
  {
--	int rc = 0;
--	struct efx_board_data *data;
-+	struct efx_board_data *data = NULL;
-+	int i;
- 
--	if (BOARD_TYPE(revision_info) >= EFX_BOARD_MAX) {
--		EFX_ERR(efx, "squashing unknown board type %d\n",
--			BOARD_TYPE(revision_info));
--		revision_info = 0;
--	}
+-	int phy_id = efx->mii.phy_id;
+-	int ctrl1, ctrl2;
 -
--	if (BOARD_TYPE(revision_info) == 0) {
--		efx->board_info.major = 0;
--		efx->board_info.minor = 0;
--		/* For early boards that don't have revision info. there is
--		 * only 1 board for each PHY type, so we can work it out, with
--		 * the exception of the PHY-less boards. */
--		switch (efx->phy_type) {
--		case PHY_TYPE_10XPRESS:
--			efx->board_info.type = EFX_BOARD_SFE4001;
--			break;
--		case PHY_TYPE_XFP:
--			efx->board_info.type = EFX_BOARD_SFE4002;
--			break;
--		default:
--			efx->board_info.type = 0;
--			break;
--		}
--	} else {
--		efx->board_info.type = BOARD_TYPE(revision_info);
--		efx->board_info.major = BOARD_MAJOR(revision_info);
--		efx->board_info.minor = BOARD_MINOR(revision_info);
--	}
-+	efx->board_info.type = BOARD_TYPE(revision_info);
-+	efx->board_info.major = BOARD_MAJOR(revision_info);
-+	efx->board_info.minor = BOARD_MINOR(revision_info);
- 
--	data = &board_data[efx->board_info.type];
-+	for (i = 0; i < ARRAY_SIZE(board_data); i++)
-+		if (board_data[i].type == efx->board_info.type)
-+			data = &board_data[i];
- 
--	/* Report the board model number or generic type for recognisable
--	 * boards. */
--	if (efx->board_info.type != 0)
-+	if (data) {
- 		EFX_INFO(efx, "board is %s rev %c%d\n",
- 			 (efx->pci_dev->subsystem_vendor == EFX_VENDID_SFC)
- 			 ? data->ref_model : data->gen_type,
- 			 'A' + efx->board_info.major, efx->board_info.minor);
--
--	efx->board_info.init = data->init;
--
--	return rc;
-+		efx->board_info.init = data->init;
-+	} else {
-+		EFX_ERR(efx, "unknown board type %d\n", efx->board_info.type);
-+	}
+-	ctrl1 = ctrl2 = mdio_clause45_read(efx, phy_id, MDIO_MMD_PMAPMD,
+-					   MDIO_MMDREG_TXDIS);
+-	if (efx->phy_mode & PHY_MODE_TX_DISABLED)
+-		ctrl2 |= (1 << MDIO_MMDREG_TXDIS_GLOBAL_LBN);
+-	else
+-		ctrl1 &= ~(1 << MDIO_MMDREG_TXDIS_GLOBAL_LBN);
+-	if (ctrl1 != ctrl2)
+-		mdio_clause45_write(efx, phy_id, MDIO_MMD_PMAPMD,
+-				    MDIO_MMDREG_TXDIS, ctrl2);
++	mdio_clause45_set_flag(efx, efx->mii.phy_id, MDIO_MMD_PMAPMD,
++			       MDIO_MMDREG_TXDIS, MDIO_MMDREG_TXDIS_GLOBAL_LBN,
++			       efx->phy_mode & PHY_MODE_TX_DISABLED);
  }
-diff --git a/drivers/net/sfc/boards.h b/drivers/net/sfc/boards.h
-index c6e01b6..5e0dde5 100644
---- a/drivers/net/sfc/boards.h
-+++ b/drivers/net/sfc/boards.h
-@@ -1,6 +1,6 @@
- /****************************************************************************
-  * Driver for Solarflare Solarstorm network controllers and boards
-- * Copyright 2007 Solarflare Communications Inc.
-+ * Copyright 2007-2008 Solarflare Communications Inc.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms of the GNU General Public License version 2 as published
-@@ -12,14 +12,11 @@
  
- /* Board IDs (must fit in 8 bits) */
- enum efx_board_type {
--	EFX_BOARD_INVALID = 0,
- 	EFX_BOARD_SFE4001 = 1,   /* SFE4001 (10GBASE-T) */
- 	EFX_BOARD_SFE4002 = 2,
--	/* Insert new types before here */
--	EFX_BOARD_MAX
- };
+ void mdio_clause45_phy_reconfigure(struct efx_nic *efx)
+ {
+ 	int phy_id = efx->mii.phy_id;
+-	int ctrl1, ctrl2;
+-
+-	/* Handle (with debouncing) PMA/PMD loopback */
+-	ctrl1 = ctrl2 = mdio_clause45_read(efx, phy_id, MDIO_MMD_PMAPMD,
+-					   MDIO_MMDREG_CTRL1);
+-
+-	if (efx->loopback_mode == LOOPBACK_PMAPMD)
+-		ctrl2 |= (1 << MDIO_PMAPMD_CTRL1_LBACK_LBN);
+-	else
+-		ctrl2 &= ~(1 << MDIO_PMAPMD_CTRL1_LBACK_LBN);
+-
+-	if (ctrl1 != ctrl2)
+-		mdio_clause45_write(efx, phy_id, MDIO_MMD_PMAPMD,
+-				    MDIO_MMDREG_CTRL1, ctrl2);
+-
+-	/* Handle (with debouncing) PCS loopback */
+-	ctrl1 = ctrl2 = mdio_clause45_read(efx, phy_id, MDIO_MMD_PCS,
+-					   MDIO_MMDREG_CTRL1);
+-	if (efx->loopback_mode == LOOPBACK_PCS)
+-		ctrl2 |= (1 << MDIO_MMDREG_CTRL1_LBACK_LBN);
+-	else
+-		ctrl2 &= ~(1 << MDIO_MMDREG_CTRL1_LBACK_LBN);
  
--extern int efx_set_board_info(struct efx_nic *efx, u16 revision_info);
-+extern void efx_set_board_info(struct efx_nic *efx, u16 revision_info);
- extern int sfe4001_init(struct efx_nic *efx);
+-	if (ctrl1 != ctrl2)
+-		mdio_clause45_write(efx, phy_id, MDIO_MMD_PCS,
+-				    MDIO_MMDREG_CTRL1, ctrl2);
+-
+-	/* Handle (with debouncing) PHYXS network loopback */
+-	ctrl1 = ctrl2 = mdio_clause45_read(efx, phy_id, MDIO_MMD_PHYXS,
+-					   MDIO_MMDREG_CTRL1);
+-	if (efx->loopback_mode == LOOPBACK_NETWORK)
+-		ctrl2 |= (1 << MDIO_MMDREG_CTRL1_LBACK_LBN);
+-	else
+-		ctrl2 &= ~(1 << MDIO_MMDREG_CTRL1_LBACK_LBN);
+-
+-	if (ctrl1 != ctrl2)
+-		mdio_clause45_write(efx, phy_id, MDIO_MMD_PHYXS,
+-				    MDIO_MMDREG_CTRL1, ctrl2);
++	mdio_clause45_set_flag(efx, phy_id, MDIO_MMD_PMAPMD,
++			       MDIO_MMDREG_CTRL1, MDIO_PMAPMD_CTRL1_LBACK_LBN,
++			       efx->loopback_mode == LOOPBACK_PMAPMD);
++	mdio_clause45_set_flag(efx, phy_id, MDIO_MMD_PCS,
++			       MDIO_MMDREG_CTRL1, MDIO_MMDREG_CTRL1_LBACK_LBN,
++			       efx->loopback_mode == LOOPBACK_PCS);
++	mdio_clause45_set_flag(efx, phy_id, MDIO_MMD_PHYXS,
++			       MDIO_MMDREG_CTRL1, MDIO_MMDREG_CTRL1_LBACK_LBN,
++			       efx->loopback_mode == LOOPBACK_NETWORK);
+ }
  
- #endif
+ static void mdio_clause45_set_mmd_lpower(struct efx_nic *efx,
+@@ -267,21 +230,13 @@ static void mdio_clause45_set_mmd_lpower(struct efx_nic *efx,
+ {
+ 	int phy = efx->mii.phy_id;
+ 	int stat = mdio_clause45_read(efx, phy, mmd, MDIO_MMDREG_STAT1);
+-	int ctrl1, ctrl2;
+ 
+ 	EFX_TRACE(efx, "Setting low power mode for MMD %d to %d\n",
+ 		  mmd, lpower);
+ 
+ 	if (stat & (1 << MDIO_MMDREG_STAT1_LPABLE_LBN)) {
+-		ctrl1 = ctrl2 = mdio_clause45_read(efx, phy,
+-						   mmd, MDIO_MMDREG_CTRL1);
+-		if (lpower)
+-			ctrl2 |= (1 << MDIO_MMDREG_CTRL1_LPOWER_LBN);
+-		else
+-			ctrl2 &= ~(1 << MDIO_MMDREG_CTRL1_LPOWER_LBN);
+-		if (ctrl1 != ctrl2)
+-			mdio_clause45_write(efx, phy, mmd,
+-					    MDIO_MMDREG_CTRL1, ctrl2);
++		mdio_clause45_set_flag(efx, phy, mmd, MDIO_MMDREG_CTRL1,
++				       MDIO_MMDREG_CTRL1_LPOWER_LBN, lpower);
+ 	}
+ }
+ 
+@@ -395,3 +350,17 @@ int mdio_clause45_set_settings(struct efx_nic *efx,
+ 		return 0;
+ 	return -EOPNOTSUPP;
+ }
++
++void mdio_clause45_set_flag(struct efx_nic *efx, u8 prt, u8 dev,
++			    u16 addr, int bit, bool sense)
++{
++	int old_val = mdio_clause45_read(efx, prt, dev, addr);
++	int new_val;
++
++	if (sense)
++		new_val = old_val | (1 << bit);
++	else
++		new_val = old_val & ~(1 << bit);
++	if (old_val != new_val)
++		mdio_clause45_write(efx, prt, dev, addr, new_val);
++}
+diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/sfc/mdio_10g.h
+index 4516383..4830e0c 100644
+--- a/drivers/net/sfc/mdio_10g.h
++++ b/drivers/net/sfc/mdio_10g.h
+@@ -259,4 +259,8 @@ extern int mdio_clause45_set_settings(struct efx_nic *efx,
+ extern int mdio_clause45_wait_reset_mmds(struct efx_nic *efx,
+ 					 unsigned int mmd_mask);
+ 
++/* Set or clear flag, debouncing */
++extern void mdio_clause45_set_flag(struct efx_nic *efx, u8 prt, u8 dev,
++				   u16 addr, int bit, bool sense);
++
+ #endif /* EFX_MDIO_10G_H */
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
