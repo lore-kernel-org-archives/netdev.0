@@ -1,57 +1,168 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/8] net: Generic Receive Offload
-Date: Fri, 12 Dec 2008 16:31:16 +1100
-Message-ID: <20081212053116.GA2927@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 1/8] net: Add frag_list support to skb_segment
+Date: Fri, 12 Dec 2008 16:31:49 +1100
+Message-ID: <E1LB0cv-0000qk-Ec@gondolin.me.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58994 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:58997 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751075AbYLLFbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 00:31:21 -0500
-Content-Disposition: inline
+	with ESMTP id S1751112AbYLLFbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 00:31:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+net: Add frag_list support to skb_segment
 
-This patch series introduces the Generic Receive Offload system.  Just
-as GSO generalised TSO, GRO does the same thing for LRO.  Most of the
-technical details are pulled straight out of LRO, although there is no
-code shared between them.
+This patch adds limited support for handling frag_list packets in
+skb_segment.  The intention is to support GRO (Generic Receive Offload)
+packets which will be constructed by chaining normal packets using
+frag_list.
 
-For the moment, GRO is actually more stringent than LRO, meaning that
-the set of packets that it merges is strictless less than LRO.  However,
-I don't anticipate this to be a huge issue as testing shows that most
-packets that are worth merging will still qualify under GRO.
+As such we require all frag_list members terminate on exact MSS
+boundaries.  This is checked using BUG_ON.
 
-The reason GRO strengthened the conditions for merging is to allow the
-packets to be refragmented on output.  This is what stopped us from
-allowing LRO to be used on routers and bridges.  This is also essential
-for LRO to be deployed on a virtual host using bridging.
+As there should only be one producer in the kernel of such packets,
+namely GRO, this requirement should not be difficult to maintain.
 
-In future we may extend GRO to be less strict.  In order to do so it
-would be necessary for the network to be able to handle super-packets
-that are different from our existing GSO packets.  Such super-packets
-would retain their individual headers which would be examined and/or
-modified where necessary.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-As it stands GRO should be a complete no-op unless the user enables
-GRO using ethtool (and someone modifies the driver involved to call
-napi_gro_receive).  Once we're comfortable with GRO we could enable
-it automatically whenever RX checksum offload is available.
+ net/core/skbuff.c |   70 +++++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 56 insertions(+), 14 deletions(-)
 
-If this series is accepted, the next step would be to convert all
-the relevant drivers to call napi_gro_receive (note that ironically
-drivers using netif_rx won't need to be modified to use GRO, though
-they won't actually merge anything unless they support RX checksum
-offload).  I've converted e1000e as an example (also because that's
-the only piece of hardware I've got access to right now :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d49ef83..d24c181 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2285,6 +2285,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ {
+ 	struct sk_buff *segs = NULL;
+ 	struct sk_buff *tail = NULL;
++	struct sk_buff *fskb = skb_shinfo(skb)->frag_list;
+ 	unsigned int mss = skb_shinfo(skb)->gso_size;
+ 	unsigned int doffset = skb->data - skb_mac_header(skb);
+ 	unsigned int offset = doffset;
+@@ -2304,7 +2305,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ 		struct sk_buff *nskb;
+ 		skb_frag_t *frag;
+ 		int hsize;
+-		int k;
+ 		int size;
+ 
+ 		len = skb->len - offset;
+@@ -2317,9 +2317,34 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ 		if (hsize > len || !sg)
+ 			hsize = len;
+ 
+-		nskb = alloc_skb(hsize + doffset + headroom, GFP_ATOMIC);
+-		if (unlikely(!nskb))
+-			goto err;
++		if (!hsize && i >= nfrags) {
++			BUG_ON(fskb->len != len);
++
++			pos += len;
++			nskb = skb_clone(fskb, GFP_ATOMIC);
++			fskb = fskb->next;
++
++			if (unlikely(!nskb))
++				goto err;
++
++			hsize = skb_end_pointer(nskb) - nskb->head;
++			if (skb_cow_head(nskb, doffset + headroom))
++				goto err;
++
++			nskb->truesize += skb_end_pointer(nskb) - nskb->head -
++					  hsize;
++			skb_release_head_state(nskb);
++			__skb_push(nskb, doffset);
++		} else {
++			nskb = alloc_skb(hsize + doffset + headroom,
++					 GFP_ATOMIC);
++
++			if (unlikely(!nskb))
++				goto err;
++
++			skb_reserve(nskb, headroom);
++			__skb_put(nskb, doffset);
++		}
+ 
+ 		if (segs)
+ 			tail->next = nskb;
+@@ -2330,13 +2355,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ 		__copy_skb_header(nskb, skb);
+ 		nskb->mac_len = skb->mac_len;
+ 
+-		skb_reserve(nskb, headroom);
+ 		skb_reset_mac_header(nskb);
+ 		skb_set_network_header(nskb, skb->mac_len);
+ 		nskb->transport_header = (nskb->network_header +
+ 					  skb_network_header_len(skb));
+-		skb_copy_from_linear_data(skb, skb_put(nskb, doffset),
+-					  doffset);
++		skb_copy_from_linear_data(skb, nskb->data, doffset);
++
++		if (pos >= offset + len)
++			continue;
++
+ 		if (!sg) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+ 			nskb->csum = skb_copy_and_csum_bits(skb, offset,
+@@ -2346,14 +2373,11 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ 		}
+ 
+ 		frag = skb_shinfo(nskb)->frags;
+-		k = 0;
+ 
+ 		skb_copy_from_linear_data_offset(skb, offset,
+ 						 skb_put(nskb, hsize), hsize);
+ 
+-		while (pos < offset + len) {
+-			BUG_ON(i >= nfrags);
+-
++		while (pos < offset + len && i < nfrags) {
+ 			*frag = skb_shinfo(skb)->frags[i];
+ 			get_page(frag->page);
+ 			size = frag->size;
+@@ -2363,20 +2387,38 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ 				frag->size -= offset - pos;
+ 			}
+ 
+-			k++;
++			skb_shinfo(nskb)->nr_frags++;
+ 
+ 			if (pos + size <= offset + len) {
+ 				i++;
+ 				pos += size;
+ 			} else {
+ 				frag->size -= pos + size - (offset + len);
+-				break;
++				goto skip_fraglist;
+ 			}
+ 
+ 			frag++;
+ 		}
+ 
+-		skb_shinfo(nskb)->nr_frags = k;
++		if (pos < offset + len) {
++			struct sk_buff *fskb2 = fskb;
++
++			BUG_ON(pos + fskb->len != offset + len);
++
++			pos += fskb->len;
++			fskb = fskb->next;
++
++			if (fskb2->next) {
++				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
++				if (!fskb2)
++					goto err;
++			} else
++				skb_get(fskb2);
++
++			skb_shinfo(nskb)->frag_list = fskb2;
++		}
++
++skip_fraglist:
+ 		nskb->data_len = len - hsize;
+ 		nskb->len += nskb->data_len;
+ 		nskb->truesize += nskb->data_len;
