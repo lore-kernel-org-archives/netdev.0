@@ -1,45 +1,80 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 26/33] sfc: Remove leading spaces
-Date: Fri, 12 Dec 2008 12:57:18 +0000
-Message-ID: <20081212125717.GZ10372@solarflare.com>
+Subject: [PATCH 27/33] sfc: Specify a meaningful component for loopback RX-side and PHY tests
+Date: Fri, 12 Dec 2008 12:57:34 +0000
+Message-ID: <20081212125733.GA10372@solarflare.com>
 References: <cover.1229085672.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:58447 "EHLO
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:59024 "EHLO
 	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757927AbYLLM5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:57:20 -0500
+	by vger.kernel.org with ESMTP id S1757936AbYLLM5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:57:36 -0500
 Content-Disposition: inline
 In-Reply-To: <20081212124622.GK32518@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Our ethtool self-test result names each begin with a component name.  For
+some results this is "port0", which is not very meaningful.  Change that
+to "rx" or "phy" as appropriate.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/sfc/ethtool.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index 2c53ef4..8107460 100644
---- a/drivers/net/sfc/falcon.c
-+++ b/drivers/net/sfc/falcon.c
-@@ -2940,10 +2940,10 @@ int falcon_probe_nic(struct efx_nic *efx)
- 		goto fail5;
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index aad0d1b..eab3e5c 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -274,8 +274,11 @@ static void efx_fill_test(unsigned int test_index,
  
- 	/* Initialise I2C adapter */
-- 	efx->i2c_adap.owner = THIS_MODULE;
-+	efx->i2c_adap.owner = THIS_MODULE;
- 	nic_data->i2c_data = falcon_i2c_bit_operations;
- 	nic_data->i2c_data.data = efx;
-- 	efx->i2c_adap.algo_data = &nic_data->i2c_data;
-+	efx->i2c_adap.algo_data = &nic_data->i2c_data;
- 	efx->i2c_adap.dev.parent = &efx->pci_dev->dev;
- 	strlcpy(efx->i2c_adap.name, "SFC4000 GPIO", sizeof(efx->i2c_adap.name));
- 	rc = i2c_bit_add_bus(&efx->i2c_adap);
+ 	/* Fill string, if applicable */
+ 	if (strings) {
+-		snprintf(unit_str.name, sizeof(unit_str.name),
+-			 unit_format, unit_id);
++		if (strchr(unit_format, '%'))
++			snprintf(unit_str.name, sizeof(unit_str.name),
++				 unit_format, unit_id);
++		else
++			strcpy(unit_str.name, unit_format);
+ 		snprintf(test_str.name, sizeof(test_str.name),
+ 			 test_format, test_id);
+ 		snprintf(strings[test_index].name,
+@@ -284,7 +287,6 @@ static void efx_fill_test(unsigned int test_index,
+ 	}
+ }
+ 
+-#define EFX_PORT_NAME "port%d", 0
+ #define EFX_CHANNEL_NAME(_channel) "chan%d", _channel->channel
+ #define EFX_TX_QUEUE_NAME(_tx_queue) "txq%d", _tx_queue->queue
+ #define EFX_RX_QUEUE_NAME(_rx_queue) "rxq%d", _rx_queue->queue
+@@ -320,11 +322,11 @@ static int efx_fill_loopback_test(struct efx_nic *efx,
+ 	}
+ 	efx_fill_test(test_index++, strings, data,
+ 		      &lb_tests->rx_good,
+-		      EFX_PORT_NAME,
++		      "rx", 0,
+ 		      EFX_LOOPBACK_NAME(mode, "rx_good"));
+ 	efx_fill_test(test_index++, strings, data,
+ 		      &lb_tests->rx_bad,
+-		      EFX_PORT_NAME,
++		      "rx", 0,
+ 		      EFX_LOOPBACK_NAME(mode, "rx_bad"));
+ 
+ 	return test_index;
+@@ -372,7 +374,7 @@ static int efx_ethtool_fill_self_tests(struct efx_nic *efx,
+ 	efx_fill_test(n++, strings, data, &tests->registers,
+ 		      "core", 0, "registers", NULL);
+ 	efx_fill_test(n++, strings, data, &tests->phy,
+-		      EFX_PORT_NAME, "phy", NULL);
++		      "phy", 0, "bist", NULL);
+ 
+ 	/* Loopback tests */
+ 	for (mode = LOOPBACK_NONE; mode <= LOOPBACK_TEST_MAX; mode++) {
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
