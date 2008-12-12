@@ -1,63 +1,45 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 4/8] ipv4: Add GRO infrastructure
-Date: Sat, 13 Dec 2008 10:04:10 +1100
-Message-ID: <20081212230410.GC11636@gondor.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cy-0000rD-Pr@gondolin.me.apana.org.au> <1229122540.3051.78.camel@achroite>
+Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Sat, 13 Dec 2008 10:11:38 +1100
+Message-ID: <20081212231138.GA11883@gondor.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cx-0000r3-N2@gondolin.me.apana.org.au> <1229120724.3051.61.camel@achroite> <20081212225659.GB11636@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35229 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:42075 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751061AbYLLXEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 18:04:16 -0500
+	with ESMTP id S1753745AbYLLXLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 18:11:44 -0500
 Content-Disposition: inline
-In-Reply-To: <1229122540.3051.78.camel@achroite>
+In-Reply-To: <20081212225659.GB11636@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 12, 2008 at 10:55:40PM +0000, Ben Hutchings wrote:
+On Sat, Dec 13, 2008 at 09:56:59AM +1100, Herbert Xu wrote:
 >
-> > +	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
-> > +		goto out;
-> > +
-> > +	iph = ip_hdr(skb);
-> > +	proto = iph->protocol & (MAX_INET_PROTOS - 1);
-> > +
-> > +	rcu_read_lock();
-> > +	ops = rcu_dereference(inet_protos[proto]);
-> > +	if (!ops || !ops->gro_receive)
-> > +		goto out_unlock;
-> > +
-> > +	if (iph->version != 4 || iph->ihl != 5)
-> > +		goto out_unlock;
-> > +
-> > +	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
-> > +		goto out_unlock;
+> > The inet_lro code accepts either skbs or pages and the sfc driver takes
+> > advantage of this: so long as most packets can be coalesced by LRO, it's
+> > cheaper to allocate page buffers in advance and then attach them to skbs
+> > during LRO.  I think you should support the use of page buffers.
+> > Obviously it adds complexity but there's a real performance benefit.
+> > (Alternately you could work out how to make skb allocation cheaper, and
+> > everyone would be happy!)
 > 
-> Don't we also need to check that skb->len >= iph->ihl * 4?
+> This is something which I will look at in future.  The top priority
+> right now is to get bridging to work with GRO.
 
-We already did through pskb_may_pull and iph->ihl != 5.
+BTW this should be pretty easy to implement through a second
+entry, e.g., napi_gro_receive_pages() that works just like its
+LRO counter-part lro_receive_frags.  This would have its own
+protocol hooks so it doesn't need to do anything nasty to get
+at the packet headers.
 
-> > +		if (iph->protocol != iph2->protocol ||
-> > +		    memcmp(&iph->saddr, &iph2->saddr, 8)) {
-> > +			NAPI_GRO_CB(p)->same_flow = 0;
-> > +			continue;
-> > +		}
-> > +
-> > +		/* All fields must match except length and checksum. */
-> > +		NAPI_GRO_CB(p)->flush |=
-> > +			memcmp(&iph->frag_off, &iph2->frag_off, 4) ||
-> 
-> This covers frag_off, ttl and protocol.  But frag_off and protocol have
-> already been covered, and tos seems to have been missed.
+But I'd like to get the main infrastructure nailed down first
+before we tack on bells and whistles like this and VLAN support.
 
-No we haven't checked frag_off yet, we've only checked the DF bit.
-In any case, checking twice doesn't hurt.  Good catch on the missing
-tos check though.  I'll get that added.
-
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
