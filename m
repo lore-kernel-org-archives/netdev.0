@@ -1,47 +1,98 @@
-From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: Re: [NET-NEXT PATCH] ixgbe: fix dma mapping unbalance
-Date: Fri, 12 Dec 2008 12:31:47 +0100
-Message-ID: <20081212113147.GE30292@amd.com>
-References: <20081212095104.4380.49487.stgit@lost.foo-projects.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Fri, 12 Dec 2008 07:18:35 -0500
+Message-ID: <20081212121835.GA2402@hmsreliant.think-freely.org>
+References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local> <20081211090104.02cab3d4@s6510> <20081211181528.GB10558@hmsendeavour.rdu.redhat.com> <20081211160307.20709435@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:38857 "EHLO
-	WA4EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755700AbYLLLcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 06:32:04 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52954 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757955AbYLLMUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:20:41 -0500
 Content-Disposition: inline
-In-Reply-To: <20081212095104.4380.49487.stgit@lost.foo-projects.org>
+In-Reply-To: <20081211160307.20709435@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nice. I discoverd a couple more bugs in this driver while testing my
-IOMMU code.
-One bug can only be found with an hardware IOMMU. This seems to be a
-use-after-free bug, at least I see IO_PAGE_FAULTS from the IOMMU
-originating from this card. Maybe you can change the VT-d code so that
-you can debug this issue.
-I didn't found the time yet to do a v2 of my DMA-API debugging patches.
-But I hope can will the time for this next week. Then you have something
-in hand to debug the driver even further :)
-
-Joerg
-
-On Fri, Dec 12, 2008 at 01:51:05AM -0800, Jeff Kirsher wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Thu, Dec 11, 2008 at 04:03:07PM -0800, Stephen Hemminger wrote:
+> On Thu, 11 Dec 2008 13:15:28 -0500
+> Neil Horman <nhorman@tuxdriver.com> wrote:
 > 
-> This issue was initially reported by Joerg Roedel <joerg.roedel@amd.com>
-> It appears that ixgbe has had a long standing bug where it was
-> unmapping a different size than it had mapped.
+> > On Thu, Dec 11, 2008 at 09:01:04AM -0800, Stephen Hemminger wrote:
+> > > On Thu, 11 Dec 2008 13:07:28 +0000
+> > > Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > > 
+> > > > On 09-12-2008 22:06, Neil Horman wrote:
+> > > > ...
+> > > > > When executing napi->poll from the netpoll_path, this bit will
+> > > > > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
+> > > > > remove the napi_struct from the poll_list.  That work will be saved for the next
+> > > > > iteration of net_rx_action.
+> > > > 
+> > > > This could be not enough: some drivers, e.g. sky2, call napi_complete()
+> > > > directly.
+> > > > 
+> > > 
+> > > There is good reason for this. Although most drivers only have one NAPI
+> > > instance per device, and multiqueue drivers have several NAPI structures
+> > > per device, a few devices like sky2 need to support multiple devices
+> > > running off one NAPI receive. The Marvell hardware has a common receive
+> > > interrupt for both ports on a dual port card.
+> > > 
+> > > This kind of hardware limits usage of netpoll. Only one port can be
+> > > used with netpoll because netpoll makes assumptions about NAPI
+> > > association.
+> > > 
+> > 
+> > There was previously good cause to use __netif_rx_complete instead of
+> > netif_rx_complete some time ago when multiqueue rx was implemented using a set
+> > of dummy netdevices.  But with the separation of the napi code, there is no
+> > longer any reason for this to be done.
+> > 
+> > I just took a quick look, and it appears that sky2 is the last remaining driver
+> > to use the underlying napi routines.
+> > 
+> > This patch maintains exactly the same functionality that it previously had, but
+> > allows for the netpoll patch to be safe with respect to the per-cpu poll_lists
+> > used by net_rx_action.
+> > 
+> > Regards
+> > Neil
+> > 
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > 
+> > 
+> >  sky2.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > 
+> > diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> > index 3813d15..84bdc3c 100644
+> > --- a/drivers/net/sky2.c
+> > +++ b/drivers/net/sky2.c
+> > @@ -2694,7 +2694,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+> >  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
+> >  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
+> >  	}
+> > -	napi_complete(napi);
+> > +	netif_rx_complete(napi->dev, napi);
+> >  	sky2_read32(hw, B0_Y2_SP_LISR);
+> >  done:
+> 
+> I would ask it the other way. Why is interface an argument to netif_rx_complete
+> if it is never used?  
+> 
+Thats a fair question, and I don't know the answer, Dave?
+Neil
 
 -- 
-           |           AMD Saxony Limited Liability Company & Co. KG
- Operating |         Wilschdorfer Landstr. 101, 01109 Dresden, Germany
- System    |                  Register Court Dresden: HRA 4896
- Research  |              General Partner authorized to represent:
- Center    |             AMD Saxony LLC (Wilmington, Delaware, US)
-           | General Manager of AMD Saxony LLC: Dr. Hans-R. Deppe, Thomas McCoy
-
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
