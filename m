@@ -1,171 +1,180 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 06/33] sfc: Make reset_workqueue driver-global rather than per-NIC
-Date: Fri, 12 Dec 2008 12:50:38 +0000
-Message-ID: <20081212125037.GF10372@solarflare.com>
+Subject: [PATCH 07/33] sfc: Clean up waits for flash/EEPROM operations
+Date: Fri, 12 Dec 2008 12:51:01 +0000
+Message-ID: <20081212125100.GG10372@solarflare.com>
 References: <cover.1229085672.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:59722 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756831AbYLLMul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:50:41 -0500
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:55850 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756880AbYLLMvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 07:51:05 -0500
 Content-Disposition: inline
 In-Reply-To: <20081212124622.GK32518@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
+Make falcon_spi_wait() ignore the write timer - it is only relevant to
+write commands, it only works for the device that contains VPD, and it
+might not be initialised properly at all.
 
-Each reset is serialised by the rtnl_lock anyway, so there's no win
-per-NIC.
+Rename falcon_spi_fast_wait() to falcon_spi_wait_write(), reflecting
+its use, and make it wait up to 10 ms (not 1 ms) since buffered writes
+to EEPROM may take this long to complete.
+
+Make both wait functions sleep instead of busy-waiting.
+
+Replace wait for command completion at top of falcon_spi_cmd() with a
+single poll; no command should be running when the function starts.
+
+Correct some comments.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c        |   45 ++++++++++++++++++-----------------------
- drivers/net/sfc/net_driver.h |    2 -
- 2 files changed, 20 insertions(+), 27 deletions(-)
+ drivers/net/sfc/falcon.c |   58 +++++++++++++++++++++++++++++----------------
+ drivers/net/sfc/mtd.c    |    2 +-
+ drivers/net/sfc/spi.h    |    2 +-
+ 3 files changed, 39 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index bbc8402..127b4da 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -39,6 +39,12 @@
-  */
- static struct workqueue_struct *refill_workqueue;
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 3af361a..4b2ec12 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -1618,24 +1618,37 @@ void falcon_fini_interrupt(struct efx_nic *efx)
  
-+/* Reset workqueue. If any NIC has a hardware failure then a reset will be
-+ * queued onto this work queue. This is not a per-nic work queue, because
-+ * efx_reset_work() acquires the rtnl lock, so resets are naturally serialised.
-+ */
-+static struct workqueue_struct *reset_workqueue;
+ #define FALCON_SPI_MAX_LEN sizeof(efx_oword_t)
+ 
++static int falcon_spi_poll(struct efx_nic *efx)
++{
++	efx_oword_t reg;
++	falcon_read(efx, &reg, EE_SPI_HCMD_REG_KER);
++	return EFX_OWORD_FIELD(reg, EE_SPI_HCMD_CMD_EN) ? -EBUSY : 0;
++}
 +
- /**************************************************************************
-  *
-  * Configurable values
-@@ -1697,7 +1703,7 @@ void efx_schedule_reset(struct efx_nic *efx, enum reset_type type)
- 
- 	efx->reset_pending = method;
- 
--	queue_work(efx->reset_workqueue, &efx->reset_work);
-+	queue_work(reset_workqueue, &efx->reset_work);
- }
- 
- /**************************************************************************
-@@ -1763,7 +1769,7 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
- 	struct efx_channel *channel;
- 	struct efx_tx_queue *tx_queue;
- 	struct efx_rx_queue *rx_queue;
--	int i, rc;
-+	int i;
- 
- 	/* Initialise common structures */
- 	memset(efx, 0, sizeof(*efx));
-@@ -1832,33 +1838,14 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
- 				  interrupt_mode);
- 
- 	efx->workqueue = create_singlethread_workqueue("sfc_work");
--	if (!efx->workqueue) {
--		rc = -ENOMEM;
--		goto fail1;
--	}
--
--	efx->reset_workqueue = create_singlethread_workqueue("sfc_reset");
--	if (!efx->reset_workqueue) {
--		rc = -ENOMEM;
--		goto fail2;
--	}
-+	if (!efx->workqueue)
-+		return -ENOMEM;
- 
- 	return 0;
--
-- fail2:
--	destroy_workqueue(efx->workqueue);
--	efx->workqueue = NULL;
--
-- fail1:
--	return rc;
- }
- 
- static void efx_fini_struct(struct efx_nic *efx)
+ /* Wait for SPI command completion */
+ static int falcon_spi_wait(struct efx_nic *efx)
  {
--	if (efx->reset_workqueue) {
--		destroy_workqueue(efx->reset_workqueue);
--		efx->reset_workqueue = NULL;
--	}
- 	if (efx->workqueue) {
- 		destroy_workqueue(efx->workqueue);
- 		efx->workqueue = NULL;
-@@ -1923,7 +1910,7 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
- 	 * scheduled from this point because efx_stop_all() has been
- 	 * called, we are no longer registered with driverlink, and
- 	 * the net_device's have been removed. */
--	flush_workqueue(efx->reset_workqueue);
-+	cancel_work_sync(&efx->reset_work);
- 
- 	efx_pci_remove_main(efx);
- 
-@@ -2045,7 +2032,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
- 		 * scheduled since efx_stop_all() has been called, and we
- 		 * have not and never have been registered with either
- 		 * the rtnetlink or driverlink layers. */
--		flush_workqueue(efx->reset_workqueue);
-+		cancel_work_sync(&efx->reset_work);
- 
- 		/* Retry if a recoverably reset event has been scheduled */
- 		if ((efx->reset_pending != RESET_TYPE_INVISIBLE) &&
-@@ -2121,6 +2108,11 @@ static int __init efx_init_module(void)
- 		rc = -ENOMEM;
- 		goto err_refill;
- 	}
-+	reset_workqueue = create_singlethread_workqueue("sfc_reset");
-+	if (!reset_workqueue) {
-+		rc = -ENOMEM;
-+		goto err_reset;
+-	unsigned long timeout = jiffies + DIV_ROUND_UP(HZ, 10);
+-	efx_oword_t reg;
+-	bool cmd_en, timer_active;
++	/* Most commands will finish quickly, so we start polling at
++	 * very short intervals.  Sometimes the command may have to
++	 * wait for VPD or expansion ROM access outside of our
++	 * control, so we allow up to 100 ms. */
++	unsigned long timeout = jiffies + 1 + DIV_ROUND_UP(HZ, 10);
++	int i;
++
++	for (i = 0; i < 10; i++) {
++		if (!falcon_spi_poll(efx))
++			return 0;
++		udelay(10);
 +	}
  
- 	rc = pci_register_driver(&efx_pci_driver);
- 	if (rc < 0)
-@@ -2129,6 +2121,8 @@ static int __init efx_init_module(void)
- 	return 0;
+ 	for (;;) {
+-		falcon_read(efx, &reg, EE_SPI_HCMD_REG_KER);
+-		cmd_en = EFX_OWORD_FIELD(reg, EE_SPI_HCMD_CMD_EN);
+-		timer_active = EFX_OWORD_FIELD(reg, EE_WR_TIMER_ACTIVE);
+-		if (!cmd_en && !timer_active)
++		if (!falcon_spi_poll(efx))
+ 			return 0;
+ 		if (time_after_eq(jiffies, timeout)) {
+ 			EFX_ERR(efx, "timed out waiting for SPI\n");
+ 			return -ETIMEDOUT;
+ 		}
+-		cpu_relax();
++		schedule_timeout_uninterruptible(1);
+ 	}
+ }
  
-  err_pci:
-+	destroy_workqueue(reset_workqueue);
-+ err_reset:
- 	destroy_workqueue(refill_workqueue);
-  err_refill:
- 	unregister_netdevice_notifier(&efx_netdev_notifier);
-@@ -2141,6 +2135,7 @@ static void __exit efx_exit_module(void)
- 	printk(KERN_INFO "Solarflare NET driver unloading\n");
+@@ -1654,8 +1667,8 @@ int falcon_spi_cmd(const struct efx_spi_device *spi,
+ 		return -EINVAL;
+ 	BUG_ON(!mutex_is_locked(&efx->spi_lock));
  
- 	pci_unregister_driver(&efx_pci_driver);
-+	destroy_workqueue(reset_workqueue);
- 	destroy_workqueue(refill_workqueue);
- 	unregister_netdevice_notifier(&efx_netdev_notifier);
+-	/* Check SPI not currently being accessed */
+-	rc = falcon_spi_wait(efx);
++	/* Check that previous command is not still running */
++	rc = falcon_spi_poll(efx);
+ 	if (rc)
+ 		return rc;
  
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index e596c9a..f910609 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -635,7 +635,6 @@ union efx_multicast_hash {
-  * @legacy_irq: IRQ number
-  * @workqueue: Workqueue for port reconfigures and the HW monitor.
-  *	Work items do not hold and must not acquire RTNL.
-- * @reset_workqueue: Workqueue for resets.  Work item will acquire RTNL.
-  * @reset_work: Scheduled reset workitem
-  * @monitor_work: Hardware monitor workitem
-  * @membase_phys: Memory BAR value as physical address
-@@ -711,7 +710,6 @@ struct efx_nic {
- 	const struct efx_nic_type *type;
- 	int legacy_irq;
- 	struct workqueue_struct *workqueue;
--	struct workqueue_struct *reset_workqueue;
- 	struct work_struct reset_work;
- 	struct delayed_work monitor_work;
- 	resource_size_t membase_phys;
+@@ -1711,26 +1724,29 @@ efx_spi_munge_command(const struct efx_spi_device *spi,
+ 	return command | (((address >> 8) & spi->munge_address) << 3);
+ }
+ 
+-int falcon_spi_fast_wait(const struct efx_spi_device *spi)
++/* Wait up to 10 ms for buffered write completion */
++int falcon_spi_wait_write(const struct efx_spi_device *spi)
+ {
++	struct efx_nic *efx = spi->efx;
++	unsigned long timeout = jiffies + 1 + DIV_ROUND_UP(HZ, 100);
+ 	u8 status;
+-	int i, rc;
+-
+-	/* Wait up to 1000us for flash/EEPROM to finish a fast operation. */
+-	for (i = 0; i < 50; i++) {
+-		udelay(20);
++	int rc;
+ 
++	for (;;) {
+ 		rc = falcon_spi_cmd(spi, SPI_RDSR, -1, NULL,
+ 				    &status, sizeof(status));
+ 		if (rc)
+ 			return rc;
+ 		if (!(status & SPI_STATUS_NRDY))
+ 			return 0;
++		if (time_after_eq(jiffies, timeout)) {
++			EFX_ERR(efx, "SPI write timeout on device %d"
++				" last status=0x%02x\n",
++				spi->device_id, status);
++			return -ETIMEDOUT;
++		}
++		schedule_timeout_uninterruptible(1);
+ 	}
+-	EFX_ERR(spi->efx,
+-		"timed out waiting for device %d last status=0x%02x\n",
+-		spi->device_id, status);
+-	return -ETIMEDOUT;
+ }
+ 
+ int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
+@@ -1784,7 +1800,7 @@ int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
+ 		if (rc)
+ 			break;
+ 
+-		rc = falcon_spi_fast_wait(spi);
++		rc = falcon_spi_wait_write(spi);
+ 		if (rc)
+ 			break;
+ 
+diff --git a/drivers/net/sfc/mtd.c b/drivers/net/sfc/mtd.c
+index a1e6c28..665cafb 100644
+--- a/drivers/net/sfc/mtd.c
++++ b/drivers/net/sfc/mtd.c
+@@ -76,7 +76,7 @@ static int efx_spi_unlock(const struct efx_spi_device *spi)
+ 	rc = falcon_spi_cmd(spi, SPI_WRSR, -1, &status, NULL, sizeof(status));
+ 	if (rc)
+ 		return rc;
+-	rc = falcon_spi_fast_wait(spi);
++	rc = falcon_spi_wait_write(spi);
+ 	if (rc)
+ 		return rc;
+ 
+diff --git a/drivers/net/sfc/spi.h b/drivers/net/sfc/spi.h
+index c4aca13..4e45d54 100644
+--- a/drivers/net/sfc/spi.h
++++ b/drivers/net/sfc/spi.h
+@@ -69,7 +69,7 @@ struct efx_spi_device {
+ 
+ int falcon_spi_cmd(const struct efx_spi_device *spi, unsigned int command,
+ 		   int address, const void* in, void *out, unsigned int len);
+-int falcon_spi_fast_wait(const struct efx_spi_device *spi);
++int falcon_spi_wait_write(const struct efx_spi_device *spi);
+ int falcon_spi_read(const struct efx_spi_device *spi, loff_t start,
+ 		    size_t len, size_t *retlen, u8 *buffer);
+ int falcon_spi_write(const struct efx_spi_device *spi, loff_t start,
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
