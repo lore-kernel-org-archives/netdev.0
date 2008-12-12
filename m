@@ -1,52 +1,92 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 24/33] sfc: Fix format arguments for warning about
-	MSI-X allocation
-Date: Fri, 12 Dec 2008 20:34:47 +0000
-Message-ID: <1229114087.3051.17.camel@achroite>
-References: <cover.1229085672.git.bhutchings@solarflare.com>
-	 <20081212125637.GX10372@solarflare.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/8] net: Add frag_list support to skb_segment
+Date: Sat, 13 Dec 2008 08:41:25 +1100
+Message-ID: <20081212214125.GA11046@gondor.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cv-0000qk-Ec@gondolin.me.apana.org.au> <20081212194618.GA27281@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:41092 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752555AbYLLUew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 15:34:52 -0500
-In-Reply-To: <20081212125637.GX10372@solarflare.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:56544 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753088AbYLLVld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 16:41:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20081212194618.GA27281@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-12-12 at 12:56 +0000, Ben Hutchings wrote:
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/sfc/efx.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+On Fri, Dec 12, 2008 at 10:46:18PM +0300, Evgeniy Polyakov wrote:
 > 
-> diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-> index b99ccfb..ce1c7d3 100644
-> --- a/drivers/net/sfc/efx.c
-> +++ b/drivers/net/sfc/efx.c
-> @@ -899,7 +899,7 @@ static void efx_probe_interrupts(struct efx_nic *efx)
->  		rc = pci_enable_msix(efx->pci_dev, xentries, wanted_ints);
->  		if (rc > 0) {
->  			EFX_ERR(efx, "WARNING: Insufficient MSI-X vectors"
-> -				" available (%d < %d).\n", wanted_ints, rc);
-> +				" available (%d < %d).\n", rc, wanted_ints);
->  			EFX_ERR(efx, "WARNING: Performance may be reduced.\n");
->  			EFX_BUG_ON_PARANOID(rc >= wanted_ints);
->  			wanted_ints = rc;
+> On Fri, Dec 12, 2008 at 04:31:49PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > @@ -2317,9 +2317,34 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+> >  		if (hsize > len || !sg)
+> >  			hsize = len;
+> >  
+> > -		nskb = alloc_skb(hsize + doffset + headroom, GFP_ATOMIC);
+> > -		if (unlikely(!nskb))
+> > -			goto err;
+> > +		if (!hsize && i >= nfrags) {
+> > +			BUG_ON(fskb->len != len);
+> > +
+> > +			pos += len;
+> > +			nskb = skb_clone(fskb, GFP_ATOMIC);
+> > +			fskb = fskb->next;
+> > +
+> > +			if (unlikely(!nskb))
+> > +				goto err;
+> > +
+> > +			hsize = skb_end_pointer(nskb) - nskb->head;
+> > +			if (skb_cow_head(nskb, doffset + headroom))
+> > +				goto err;
+> 
+> This should free nskb first.
 
-I thought this warning was already present, but it is actually
-introduced by patch 10/33.  There's no point in introducing it wrongly,
-so please combine the two.  Or I can post the combined patch myself.
+Good catch! I'll get this fixed.
 
-Ben.
+> > +			nskb->truesize += skb_end_pointer(nskb) - nskb->head -
+> > +					  hsize;
+> > +			skb_release_head_state(nskb);
+> > +			__skb_push(nskb, doffset);
+> > +		} else {
+> > +			nskb = alloc_skb(hsize + doffset + headroom,
+> > +					 GFP_ATOMIC);
+> > +
+> > +			if (unlikely(!nskb))
+> > +				goto err;
+> > +
+> 
+> The same.
 
+nskb is NULL here.
+
+> > +		if (pos < offset + len) {
+> > +			struct sk_buff *fskb2 = fskb;
+> > +
+> > +			BUG_ON(pos + fskb->len != offset + len);
+> > +
+> > +			pos += fskb->len;
+> > +			fskb = fskb->next;
+> > +
+> > +			if (fskb2->next) {
+> > +				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
+> > +				if (!fskb2)
+> > +					goto err;
+> > +			} else
+> > +				skb_get(fskb2);
+> > +
+> > +			skb_shinfo(nskb)->frag_list = fskb2;
+> 
+> Is it guaranteed that nskb does not have frags here?
+
+This bit only gets executed the first time we hit the frag_list
+in the original skb.  Therefore we've just allocated nskb for
+the very first time.  I'll add a BUG_ON for you :)
+
+Cheers,
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
