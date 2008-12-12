@@ -1,218 +1,103 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 6/8] tcp: Add GRO support
-Date: Fri, 12 Dec 2008 16:31:55 +1100
-Message-ID: <E1LB0d1-0000rd-B2@gondolin.me.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Fri, 12 Dec 2008 07:07:50 +0000
+Message-ID: <20081212070750.GA4180@ff.dom.local>
+References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local> <20081211090104.02cab3d4@s6510> <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59007 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757525AbYLLFb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 00:31:59 -0500
+Received: from ey-out-2122.google.com ([74.125.78.26]:56117 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818AbYLLHH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 02:07:58 -0500
+Received: by ey-out-2122.google.com with SMTP id 6so203746eyi.37
+        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 23:07:56 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp: Add GRO support
+On Thu, Dec 11, 2008 at 01:15:28PM -0500, Neil Horman wrote:
+> On Thu, Dec 11, 2008 at 09:01:04AM -0800, Stephen Hemminger wrote:
+> > On Thu, 11 Dec 2008 13:07:28 +0000
+> > Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > 
+> > > On 09-12-2008 22:06, Neil Horman wrote:
+> > > ...
+> > > > When executing napi->poll from the netpoll_path, this bit will
+> > > > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
+> > > > remove the napi_struct from the poll_list.  That work will be saved for the next
+> > > > iteration of net_rx_action.
+> > > 
+> > > This could be not enough: some drivers, e.g. sky2, call napi_complete()
+> > > directly.
+> > > 
+> > 
+> > There is good reason for this. Although most drivers only have one NAPI
+> > instance per device, and multiqueue drivers have several NAPI structures
+> > per device, a few devices like sky2 need to support multiple devices
+> > running off one NAPI receive. The Marvell hardware has a common receive
+> > interrupt for both ports on a dual port card.
+> > 
+> > This kind of hardware limits usage of netpoll. Only one port can be
+> > used with netpoll because netpoll makes assumptions about NAPI
+> > association.
+> > 
+> 
+> There was previously good cause to use __netif_rx_complete instead of
+> netif_rx_complete some time ago when multiqueue rx was implemented using a set
+> of dummy netdevices.  But with the separation of the napi code, there is no
+> longer any reason for this to be done.
+> 
+> I just took a quick look, and it appears that sky2 is the last remaining driver
+> to use the underlying napi routines.
 
-This patch adds the TCP-specific portion of GRO.  The criterion for
-merging is extremely strict (the TCP header must match exactly apart
-from the checksum) so as to allow refragmentation.  Otherwise this
-is pretty much identical to LRO, except that we support the merging
-of ECN packets.
+Hmm... My grep shows a bit more (mv643xx_eth etc.), plus some
+__netif_rx_complete().
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+BTW, I don't know these things, but I wonder if it's always safe to
+do one more ->poll() after such _complete? (I mean enabled interrupts
+and/or some locking problems.)
 
- include/net/tcp.h   |    6 +++
- net/ipv4/af_inet.c  |    2 +
- net/ipv4/tcp.c      |  100 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_ipv4.c |   35 ++++++++++++++++++
- 4 files changed, 143 insertions(+)
+Jarek P.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 438014d..cd571a9 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1358,6 +1358,12 @@ extern void tcp_v4_destroy_sock(struct sock *sk);
- 
- extern int tcp_v4_gso_send_check(struct sk_buff *skb);
- extern struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features);
-+extern struct sk_buff **tcp_gro_receive(struct sk_buff **head,
-+					struct sk_buff *skb);
-+extern struct sk_buff **tcp4_gro_receive(struct sk_buff **head,
-+					 struct sk_buff *skb);
-+extern int tcp_gro_complete(struct sk_buff *skb);
-+extern int tcp4_gro_complete(struct sk_buff *skb);
- 
- #ifdef CONFIG_PROC_FS
- extern int  tcp4_proc_init(void);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 260f081..dafbfbd 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1413,6 +1413,8 @@ static struct net_protocol tcp_protocol = {
- 	.err_handler =	tcp_v4_err,
- 	.gso_send_check = tcp_v4_gso_send_check,
- 	.gso_segment =	tcp_tso_segment,
-+	.gro_receive =	tcp4_gro_receive,
-+	.gro_complete =	tcp4_gro_complete,
- 	.no_policy =	1,
- 	.netns_ok =	1,
- };
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index c5aca0b..294d838 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2461,6 +2461,106 @@ out:
- }
- EXPORT_SYMBOL(tcp_tso_segment);
- 
-+struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
-+{
-+	struct sk_buff **pp = NULL;
-+	struct sk_buff *p;
-+	struct tcphdr *th;
-+	struct tcphdr *th2;
-+	unsigned int thlen;
-+	unsigned int flags;
-+	unsigned int total;
-+	unsigned int mss = 1;
-+	int flush = 1;
-+
-+	if (!pskb_may_pull(skb, sizeof(*th)))
-+		goto out;
-+
-+	th = tcp_hdr(skb);
-+	thlen = th->doff * 4;
-+	if (thlen < sizeof(*th))
-+		goto out;
-+
-+	if (!pskb_may_pull(skb, thlen))
-+		goto out;
-+
-+	th = tcp_hdr(skb);
-+	__skb_pull(skb, thlen);
-+
-+	flags = tcp_flag_word(th);
-+
-+	for (; (p = *head); head = &p->next) {
-+		if (!NAPI_GRO_CB(p)->same_flow)
-+			continue;
-+
-+		th2 = tcp_hdr(p);
-+
-+		if (th->source != th2->source || th->dest != th2->dest) {
-+			NAPI_GRO_CB(p)->same_flow = 0;
-+			continue;
-+		}
-+
-+		goto found;
-+	}
-+
-+	goto out_check_final;
-+
-+found:
-+	flush = NAPI_GRO_CB(p)->flush;
-+	flush |= flags & TCP_FLAG_CWR;
-+	flush |= (flags ^ tcp_flag_word(th2)) &
-+		  ~(TCP_FLAG_CWR | TCP_FLAG_FIN | TCP_FLAG_PSH);
-+	flush |= th->ack_seq != th2->ack_seq || th->window != th2->window;
-+	flush |= memcmp(th + 1, th2 + 1, thlen - sizeof(*th));
-+
-+	total = p->len;
-+	mss = total;
-+	if (skb_shinfo(p)->frag_list)
-+		mss = skb_shinfo(p)->frag_list->len;
-+
-+	flush |= skb->len > mss || skb->len <= 0;
-+	flush |= ntohl(th2->seq) + total != ntohl(th->seq);
-+
-+	if (flush || skb_gro_receive(head, skb)) {
-+		mss = 1;
-+		goto out_check_final;
-+	}
-+
-+	p = *head;
-+	th2 = tcp_hdr(p);
-+	tcp_flag_word(th2) |= flags & (TCP_FLAG_FIN | TCP_FLAG_PSH);
-+
-+out_check_final:
-+	flush = skb->len < mss;
-+	flush |= flags & (TCP_FLAG_URG | TCP_FLAG_PSH | TCP_FLAG_RST |
-+			  TCP_FLAG_SYN | TCP_FLAG_FIN);
-+
-+	if (p && (!NAPI_GRO_CB(skb)->same_flow || flush))
-+		pp = head;
-+
-+out:
-+	NAPI_GRO_CB(skb)->flush |= flush;
-+
-+	return pp;
-+}
-+
-+int tcp_gro_complete(struct sk_buff *skb)
-+{
-+	struct tcphdr *th = tcp_hdr(skb);
-+
-+	skb->csum_start = skb_transport_header(skb) - skb->head;
-+	skb->csum_offset = offsetof(struct tcphdr, check);
-+	skb->ip_summed = CHECKSUM_PARTIAL;
-+
-+	skb_shinfo(skb)->gso_size = skb_shinfo(skb)->frag_list->len;
-+	skb_shinfo(skb)->gso_segs = NAPI_GRO_CB(skb)->count;
-+
-+	if (th->cwr)
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_TCP_MD5SIG
- static unsigned long tcp_md5sig_users;
- static struct tcp_md5sig_pool **tcp_md5sig_pool;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5c8fa7f..5b7ce84 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2350,6 +2350,41 @@ void tcp4_proc_exit(void)
- }
- #endif /* CONFIG_PROC_FS */
- 
-+struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
-+{
-+	struct iphdr *iph = ip_hdr(skb);
-+
-+	switch (skb->ip_summed) {
-+	case CHECKSUM_COMPLETE:
-+		if (!tcp_v4_check(skb->len, iph->saddr, iph->daddr,
-+				  skb->csum)) {
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+			break;
-+		}
-+
-+		/* fall through */
-+	case CHECKSUM_NONE:
-+		NAPI_GRO_CB(skb)->flush = 1;
-+		return NULL;
-+	}
-+
-+	return tcp_gro_receive(head, skb);
-+}
-+EXPORT_SYMBOL(tcp4_gro_receive);
-+
-+int tcp4_gro_complete(struct sk_buff *skb)
-+{
-+	struct iphdr *iph = ip_hdr(skb);
-+	struct tcphdr *th = tcp_hdr(skb);
-+
-+	th->check = ~tcp_v4_check(skb->len - skb_transport_offset(skb),
-+				  iph->saddr, iph->daddr, 0);
-+	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+
-+	return tcp_gro_complete(skb);
-+}
-+EXPORT_SYMBOL(tcp4_gro_complete);
-+
- struct proto tcp_prot = {
- 	.name			= "TCP",
- 	.owner			= THIS_MODULE,
+> 
+> This patch maintains exactly the same functionality that it previously had, but
+> allows for the netpoll patch to be safe with respect to the per-cpu poll_lists
+> used by net_rx_action.
+> 
+> Regards
+> Neil
+> 
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> 
+>  sky2.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index 3813d15..84bdc3c 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -2694,7 +2694,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+>  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
+>  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
+>  	}
+> -	napi_complete(napi);
+> +	netif_rx_complete(napi->dev, napi);
+>  	sky2_read32(hw, B0_Y2_SP_LISR);
+>  done:
+>  
+> -- 
+> /***************************************************
+>  *Neil Horman
+>  *nhorman@tuxdriver.com
+>  *gpg keyid: 1024D / 0x92A74FA1
+>  *http://pgp.mit.edu
+>  ***************************************************/
