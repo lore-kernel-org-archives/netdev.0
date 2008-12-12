@@ -1,103 +1,107 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
-	entry
-Date: Fri, 12 Dec 2008 07:07:50 +0000
-Message-ID: <20081212070750.GA4180@ff.dom.local>
-References: <20081209210644.GC3785@hmsreliant.think-freely.org> <20081211130728.GB5910@ff.dom.local> <20081211090104.02cab3d4@s6510> <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
+From: ohashi-h@mb.dnes.nec.co.jp
+Subject: =?utf-8?B?UmU6IGUxMDAwOiBMRUQgaW5kaWNhdGVzIHRyb3VibGUs?=
+	=?utf-8?B?IGFuZCBbUEFUQ0hdIGVuYWJsZS9kaXNhYmxlIG9mIGZvcmNlLWxpbmst?=
+	=?utf-8?B?dXA=?=
+Date: Fri, 12 Dec 2008 16:41:55 +0900
+Message-ID: <20081212164155ohashi-h@mail.jp.nec.com>
+References: <20081204182421ohashi-h@mail.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
+	jgarzik@pobox.com, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, h-shimamoto@ct.jp.nec.com,
+	ohashi-h@mb.dnes.nec.co.jp
+To: =?utf-8?B?SmVmZiBLaXJzaGVyIA==?= <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:56117 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbYLLHH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 02:07:58 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so203746eyi.37
-        for <netdev@vger.kernel.org>; Thu, 11 Dec 2008 23:07:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:41021 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756909AbYLLHmU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 02:42:20 -0500
+In-reply-to: <20081204182421ohashi-h@mail.jp.nec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 01:15:28PM -0500, Neil Horman wrote:
-> On Thu, Dec 11, 2008 at 09:01:04AM -0800, Stephen Hemminger wrote:
-> > On Thu, 11 Dec 2008 13:07:28 +0000
-> > Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > 
-> > > On 09-12-2008 22:06, Neil Horman wrote:
-> > > ...
-> > > > When executing napi->poll from the netpoll_path, this bit will
-> > > > be set. When a driver calls netif_rx_complete, if that bit is set, it will not
-> > > > remove the napi_struct from the poll_list.  That work will be saved for the next
-> > > > iteration of net_rx_action.
-> > > 
-> > > This could be not enough: some drivers, e.g. sky2, call napi_complete()
-> > > directly.
-> > > 
-> > 
-> > There is good reason for this. Although most drivers only have one NAPI
-> > instance per device, and multiqueue drivers have several NAPI structures
-> > per device, a few devices like sky2 need to support multiple devices
-> > running off one NAPI receive. The Marvell hardware has a common receive
-> > interrupt for both ports on a dual port card.
-> > 
-> > This kind of hardware limits usage of netpoll. Only one port can be
-> > used with netpoll because netpoll makes assumptions about NAPI
-> > association.
-> > 
-> 
-> There was previously good cause to use __netif_rx_complete instead of
-> netif_rx_complete some time ago when multiqueue rx was implemented using a set
-> of dummy netdevices.  But with the separation of the napi code, there is no
-> longer any reason for this to be done.
-> 
-> I just took a quick look, and it appears that sky2 is the last remaining driver
-> to use the underlying napi routines.
 
-Hmm... My grep shows a bit more (mv643xx_eth etc.), plus some
-__netif_rx_complete().
+ohashi-h@mb.dnes.nec.co.jp wrote (2008/12/04 18:24:21 +0900 )=EF=BC=9A
+>
+>Jeff Kirsher wrote (2008/12/03 17:12:00 +0900 )=EF=BC=9A
+>
+>>On Tue, Dec 2, 2008 at 11:36 PM,  <ohashi-h@mb.dnes.nec.co.jp> wrote:
+>>> From: Hiroki Ohashi  <ohashi-h@mb.dnes.nec.co.jp>
+>>>
+>>> Hi all,
+>>>
+>>> I faced the following situations.
+>>> The LED of NIC was indicated, even when the system was not linked
+>>> the network (auto-negotiation failed or link partner cannot
+>>> auto-negotiate).
+>>> LED should be indicate only when the network was linked.
+>>> And so, it is a problem that LED indicates.
+>>>
+>>> I think the indicating the LED is a problem for maintenance.
+>>> I cannot know the condition of the link, because I confirm
+>>> to link up by LED's indication.
+>>>
+>>> We are using 82571EB ethernet controler and serdes interface.
+>>>
+=2E..
 
-BTW, I don't know these things, but I wonder if it's always safe to
-do one more ->poll() after such _complete? (I mean enabled interrupts
-and/or some locking problems.)
+>>
+>>I am a little confused.  You state you are using an NIC (82571EB)
+>>which is currently not supported by e1000, but is supported in the
+>>e1000e driver.  Then you suggest a change to the e1000 driver to
+>>resolve an issue you see with your 82571EB NIC.
+>>
+>>So I would suggest you use the e1000e driver first.
+>
+>Thank you, I will try again using e1000e driver.
+>
+>>Also the Link LED is supposed to indicated that there is a "physical"
+>>link, in which case you can have a physical connection and still fail
+>>auto-neg.  So I do not necessarily agree with your interpretation of
+>>what a link LED is supposed to indicate.
+>
+>My explanation was insufficiently.
+>My system was NOT connected LAN cable to NIC, but the Link LED
+>was indicated.
+>So the problem is the LED is indicated without connecting the cable.
+>
 
-Jarek P.
+I tried again using kernel 2.6.27.8 (e1000e driver).
+The LED of NIC was indicated, even when the system was not=20
+connected LAN cable.
+When I deleted logic of force-link-up (the following modification.),
+the LED was turned off.
 
-> 
-> This patch maintains exactly the same functionality that it previously had, but
-> allows for the netpoll patch to be safe with respect to the per-cpu poll_lists
-> used by net_rx_action.
-> 
-> Regards
-> Neil
-> 
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> 
->  sky2.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index 3813d15..84bdc3c 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -2694,7 +2694,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
->  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_STOP);
->  		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
->  	}
-> -	napi_complete(napi);
-> +	netif_rx_complete(napi->dev, napi);
->  	sky2_read32(hw, B0_Y2_SP_LISR);
->  done:
->  
-> -- 
-> /***************************************************
->  *Neil Horman
->  *nhorman@tuxdriver.com
->  *gpg keyid: 1024D / 0x92A74FA1
->  *http://pgp.mit.edu
->  ***************************************************/
+I think it is a problem that LED indicates.
+If you have any good way to modify, please let me know.
+(Patches are considering.)
+
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- drivers/net/e1000e/lib.c.org
++++ drivers/net/e1000e/lib.c
+@@ -539,8 +539,6 @@ s32 e1000e_check_for_serdes_link(struct=20
+                        mac->autoneg_failed =3D 1;
+                        return 0;
+                }
++#if 0
+                hw_dbg(hw, "NOT RXing /C/, disable AutoNeg and force li=
+nk.\n");
+=20
+                /* Disable auto-negotiation in the TXCW register */
+@@ -550,7 +548,7 @@ s32 e1000e_check_for_serdes_link(struct=20
+                ctrl =3D er32(CTRL);
+                ctrl |=3D (E1000_CTRL_SLU | E1000_CTRL_FD);
+                ew32(CTRL, ctrl);
++#endif
+-
+                /* Configure Flow Control after forcing link up. */
+                ret_val =3D e1000e_config_fc_after_link_up(hw);
+                if (ret_val) {
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+Hiroki Ohashi
