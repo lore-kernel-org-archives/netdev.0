@@ -1,65 +1,113 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next-2.6 [PATCH 0/5] dccp: Feature negotiation part III -- complete
-Date: Sat, 13 Dec 2008 14:41:20 +0100
-Message-ID: <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for negotiation
+Date: Sat, 13 Dec 2008 14:41:22 +0100
+Message-ID: <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20081208.011917.176472177.davem@davemloft.net>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+ <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51144 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754680AbYLMNle (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Dec 2008 08:41:34 -0500
-In-Reply-To: <20081208.011917.176472177.davem@davemloft.net>
+	id S1755731AbYLMNlh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Dec 2008 08:41:37 -0500
+In-Reply-To: <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+This adds auto-loading of CCIDs (when module loading is enabled)
+for the purpose of feature negotiation.
 
-please find enclosed the last set, completing the feature negotiation
-implementation. I have checked these to compile individually. 
+The problem with loading the CCIDs at the end of feature negotiation is
+that this would happen in software interrupt context. Besides, if the host
+advertises CCIDs during negotiation, it should have them ready to use, in
+case an agreeing peer wants to use it for the connection.
 
-Gerrit
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+ net/dccp/ccid.h |    1 +
+ net/dccp/ccid.c |   39 +++++++++++++++++++++++++++++----------
+ net/dccp/feat.c |    5 +++++
+ 3 files changed, 35 insertions(+), 10 deletions(-)
 
-
-Commit summary:
----------------
-This is the final set out of an ongoing submission to provide feature and 
-capability negotiation for DCCP endpoints (RFC 4340 - 4342, RFC 5348).
-
-The whole set is structured into 3 main blocks - (1) basis, (2) core, (3)
-integration and cleanup.
-
-This set is the final in block (3) and implements the initialization of
-feature-negotiation state. This includes picking up the global defaults
-set via sysctls and to auto-load the CCID modules before announcing
-available CCID modules as negotiable candidates to the peer.
-
-
-List of patches in this set:
-----------------------------
-Patch #1: Initialisation framework for the supported features.
-Patch #2: Auto-loading of CCID modules so that the modules are available
-          when the negotiation is completed.
-Patch #3: Adds full support for local/remote Sequence Window.
-Patch #4: Initialisation and type-checking of involved sysctls.
-Patch #5: A set of (useful) debugging/printing helper functions.
-
-The set is also available for viewing online, beginning at
-http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=913ef8fac15e3704794360c0862ad65a11f833ae
-
-
-Patch stats:
-------------
- Documentation/networking/dccp.txt |    3 
- include/linux/dccp.h              |   51 -------
- net/dccp/ccid.c                   |   39 ++++--
- net/dccp/ccid.h                   |    1 
- net/dccp/dccp.h                   |   21 +--
- net/dccp/feat.c                   |  247 ++++++++++++++++++++++++++++----------
- net/dccp/feat.h                   |   23 +--
- net/dccp/minisocks.c              |   11 -
- net/dccp/options.c                |    8 -
- net/dccp/proto.c                  |    2 
- net/dccp/sysctl.c                 |   43 ++++--
- 11 files changed, 271 insertions(+), 178 deletions(-)
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -108,6 +108,7 @@ extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
+ extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
+ 					  char __user *, int __user *);
+ 
++extern int    ccid_request_modules(u8 const *ccid_array, u8 array_len);
+ extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
+ 			     gfp_t gfp);
+ 
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -196,22 +196,41 @@ int ccid_unregister(struct ccid_operations *ccid_ops)
+ 
+ EXPORT_SYMBOL_GPL(ccid_unregister);
+ 
++/**
++ * ccid_request_module  -  Pre-load CCID module for later use
++ * This should be called only from process context (e.g. during connection
++ * setup) and is necessary for later calls to ccid_new (typically in software
++ * interrupt), so that it has the modules available when they are needed.
++ */
++static int ccid_request_module(u8 id)
++{
++	if (!in_atomic()) {
++		ccids_read_lock();
++		if (ccids[id] == NULL) {
++			ccids_read_unlock();
++			return request_module("net-dccp-ccid-%d", id);
++		}
++		ccids_read_unlock();
++	}
++	return 0;
++}
++
++int ccid_request_modules(u8 const *ccid_array, u8 array_len)
++{
++#ifdef CONFIG_MODULES
++	while (array_len--)
++		if (ccid_request_module(ccid_array[array_len]))
++			return -1;
++#endif
++	return 0;
++}
++
+ struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
+ {
+ 	struct ccid_operations *ccid_ops;
+ 	struct ccid *ccid = NULL;
+ 
+ 	ccids_read_lock();
+-#ifdef CONFIG_MODULES
+-	if (ccids[id] == NULL) {
+-		/* We only try to load if in process context */
+-		ccids_read_unlock();
+-		if (gfp & GFP_ATOMIC)
+-			goto out;
+-		request_module("net-dccp-ccid-%d", id);
+-		ccids_read_lock();
+-	}
+-#endif
+ 	ccid_ops = ccids[id];
+ 	if (ccid_ops == NULL)
+ 		goto out_unlock;
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -1163,6 +1163,11 @@ int dccp_feat_init(struct sock *sk)
+ 	    ccid_get_builtin_ccids(&rx.val, &rx.len))
+ 		return -ENOBUFS;
+ 
++	/* Pre-load all CCID modules that are going to be advertised */
++	rc = -EUNATCH;
++	if (ccid_request_modules(tx.val, tx.len))
++		goto free_ccid_lists;
++
+ 	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
+ 	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
+ 		goto free_ccid_lists;
