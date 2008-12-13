@@ -1,45 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/8] net: Add frag_list support to skb_segment
-Date: Sat, 13 Dec 2008 13:43:05 +1100
-Message-ID: <20081213024305.GA14056@gondor.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cv-0000qk-Ec@gondolin.me.apana.org.au> <20081212194618.GA27281@ioremap.net> <20081212214125.GA11046@gondor.apana.org.au> <20081213023855.GA807@ioremap.net>
+Subject: Re: [PATCH 6/8] tcp: Add GRO support
+Date: Sat, 13 Dec 2008 13:46:45 +1100
+Message-ID: <20081213024644.GB14056@gondor.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d1-0000rd-B2@gondolin.me.apana.org.au> <20081212195615.GC27281@ioremap.net> <20081212214627.GC11046@gondor.apana.org.au> <20081213024046.GB807@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47207 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:42301 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752269AbYLMCnL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 21:43:11 -0500
+	with ESMTP id S1753112AbYLMCqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 21:46:50 -0500
 Content-Disposition: inline
-In-Reply-To: <20081213023855.GA807@ioremap.net>
+In-Reply-To: <20081213024046.GB807@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 13, 2008 at 05:38:55AM +0300, Evgeniy Polyakov wrote:
+On Sat, Dec 13, 2008 at 05:40:46AM +0300, Evgeniy Polyakov wrote:
 >
-> Yup, I meant below 'goto err' when we failed to clone skb.
-> 
-> > > > +		if (pos < offset + len) {
-> > > > +			struct sk_buff *fskb2 = fskb;
-> > > > +
-> > > > +			BUG_ON(pos + fskb->len != offset + len);
-> > > > +
-> > > > +			pos += fskb->len;
-> > > > +			fskb = fskb->next;
-> > > > +
-> > > > +			if (fskb2->next) {
-> > > > +				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
-> > > > +				if (!fskb2)
-> > > > +					goto err;
-> > > > +			} else
-> > > > +				skb_get(fskb2);
-> > > > +
-> > > > +			skb_shinfo(nskb)->frag_list = fskb2;
+> So it will fail if timestamp changed? Or if some new option added?
 
-This isn't a problem.  fskb2 is still on the original frag_list so
-we don't need to free it if skb_clone fails.
+Correct, it must remain exactly the same.  Even at 100Mbps any
+sane clock frequency will result in an average of 8 packets per
+clock update.  At the sort speeds (>1Gbps) at which we're targetting
+this'll easily get us to 64K which is our maximum (actually it
+looks like I forgot to add a check to stop this from growing beyond
+64K :)
+
+As I alluded to in the opening message, in future we can consider
+a more generalised form of GRO where we end up with a super-packet
+that retains individual headers which can then be refragmented as
+necessary.  This would allow us to merge in the presence of timestamp
+changes.  However, IMHO this isn't a killer feature for merging TCP
+packets.
 
 Cheers,
 -- 
