@@ -1,113 +1,239 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for negotiation
-Date: Sat, 13 Dec 2008 14:41:22 +0100
-Message-ID: <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/5] dccp: Initialisation and type-checking of feature sysctls
+Date: Sat, 13 Dec 2008 14:41:24 +0100
+Message-ID: <1229175685-18716-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20081208.011917.176472177.davem@davemloft.net>
  <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1229175685-18716-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51144 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755731AbYLMNlh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Dec 2008 08:41:37 -0500
-In-Reply-To: <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1755861AbYLMNlo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Dec 2008 08:41:44 -0500
+In-Reply-To: <1229175685-18716-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds auto-loading of CCIDs (when module loading is enabled)
-for the purpose of feature negotiation.
+This patch takes care of initialising and type-checking sysctls related to
+feature negotiation. Type checking is important since some of the sysctls
+now directly act on the feature-negotiation process.
 
-The problem with loading the CCIDs at the end of feature negotiation is
-that this would happen in software interrupt context. Besides, if the host
-advertises CCIDs during negotiation, it should have them ready to use, in
-case an agreeing peer wants to use it for the connection.
+The sysctls are initialised with the known default values for each feature.
+For the type-checking the value constraints from RFC 4340 are used:
+
+ * Sequence Window uses the specified Wmin=32, the maximum is ulong (4 bytes),
+   tested and confirmed that it works up to 4294967295 - for Gbps speed;
+ * Ack Ratio is between 0 .. 0xffff (2-byte unsigned integer);
+ * CCIDs are between 0 .. 255;
+ * request_retries, retries1, retries2 also between 0..255 for good measure;
+ * tx_qlen is checked to be non-negative;
+ * sync_ratelimit remains as before.
+
+Further changes:
+----------------
+Performed s@sysctl_dccp_feat@sysctl_dccp@g since the sysctls are now in feat.c.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ccid.h |    1 +
- net/dccp/ccid.c |   39 +++++++++++++++++++++++++++++----------
- net/dccp/feat.c |    5 +++++
- 3 files changed, 35 insertions(+), 10 deletions(-)
+ include/linux/dccp.h |    8 --------
+ net/dccp/dccp.h      |    3 ---
+ net/dccp/feat.c      |   11 ++++++++---
+ net/dccp/feat.h      |    8 ++++++++
+ net/dccp/options.c   |    4 ----
+ net/dccp/sysctl.c    |   43 ++++++++++++++++++++++++++++++-------------
+ 6 files changed, 46 insertions(+), 31 deletions(-)
 
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -108,6 +108,7 @@ extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
- extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
- 					  char __user *, int __user *);
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -100,6 +100,13 @@ struct ccid_dependency {
+ 	u8	val;
+ };
  
-+extern int    ccid_request_modules(u8 const *ccid_array, u8 array_len);
- extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
- 			     gfp_t gfp);
- 
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -196,22 +196,41 @@ int ccid_unregister(struct ccid_operations *ccid_ops)
- 
- EXPORT_SYMBOL_GPL(ccid_unregister);
- 
-+/**
-+ * ccid_request_module  -  Pre-load CCID module for later use
-+ * This should be called only from process context (e.g. during connection
-+ * setup) and is necessary for later calls to ccid_new (typically in software
-+ * interrupt), so that it has the modules available when they are needed.
++/*
++ * Sysctls to seed defaults for feature negotiation
 + */
-+static int ccid_request_module(u8 id)
-+{
-+	if (!in_atomic()) {
-+		ccids_read_lock();
-+		if (ccids[id] == NULL) {
-+			ccids_read_unlock();
-+			return request_module("net-dccp-ccid-%d", id);
-+		}
-+		ccids_read_unlock();
-+	}
-+	return 0;
-+}
++extern unsigned long sysctl_dccp_sequence_window;
++extern int	     sysctl_dccp_rx_ccid;
++extern int	     sysctl_dccp_tx_ccid;
 +
-+int ccid_request_modules(u8 const *ccid_array, u8 array_len)
-+{
-+#ifdef CONFIG_MODULES
-+	while (array_len--)
-+		if (ccid_request_module(ccid_array[array_len]))
-+			return -1;
-+#endif
-+	return 0;
-+}
-+
- struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
- {
- 	struct ccid_operations *ccid_ops;
- 	struct ccid *ccid = NULL;
+ #ifdef CONFIG_IP_DCCP_DEBUG
+ extern const char *dccp_feat_typename(const u8 type);
+ extern const char *dccp_feat_name(const u8 feat);
+@@ -114,6 +121,7 @@ static inline void dccp_feat_debug(const u8 type, const u8 feat, const u8 val)
+ #endif /* CONFIG_IP_DCCP_DEBUG */
  
- 	ccids_read_lock();
--#ifdef CONFIG_MODULES
--	if (ccids[id] == NULL) {
--		/* We only try to load if in process context */
--		ccids_read_unlock();
--		if (gfp & GFP_ATOMIC)
--			goto out;
--		request_module("net-dccp-ccid-%d", id);
--		ccids_read_lock();
--	}
--#endif
- 	ccid_ops = ccids[id];
- 	if (ccid_ops == NULL)
- 		goto out_unlock;
+ extern int  dccp_feat_init(struct sock *sk);
++extern void dccp_feat_initialise_sysctls(void);
+ extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
+ 				  u8 const *list, u8 len);
+ extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -1163,6 +1163,11 @@ int dccp_feat_init(struct sock *sk)
- 	    ccid_get_builtin_ccids(&rx.val, &rx.len))
- 		return -ENOBUFS;
+@@ -25,6 +25,11 @@
+ #include "ccid.h"
+ #include "feat.h"
  
-+	/* Pre-load all CCID modules that are going to be advertised */
-+	rc = -EUNATCH;
-+	if (ccid_request_modules(tx.val, tx.len))
-+		goto free_ccid_lists;
++/* feature-specific sysctls - initialised to the defaults from RFC 4340, 6.4 */
++unsigned long	sysctl_dccp_sequence_window __read_mostly = 100;
++int		sysctl_dccp_rx_ccid	    __read_mostly = 2,
++		sysctl_dccp_tx_ccid	    __read_mostly = 2;
 +
- 	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
- 	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
+ /*
+  * Feature activation handlers.
+  *
+@@ -1146,7 +1151,7 @@ int dccp_feat_init(struct sock *sk)
+ 
+ 	/* Non-negotiable (NN) features */
+ 	rc = __feat_register_nn(fn, DCCPF_SEQUENCE_WINDOW, 0,
+-				    sysctl_dccp_feat_sequence_window);
++				    sysctl_dccp_sequence_window);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -1177,8 +1182,8 @@ int dccp_feat_init(struct sock *sk)
+ 	if (ccid_request_modules(tx.val, tx.len))
  		goto free_ccid_lists;
+ 
+-	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
+-	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
++	if (!dccp_feat_prefer(sysctl_dccp_tx_ccid, tx.val, tx.len) ||
++	    !dccp_feat_prefer(sysctl_dccp_rx_ccid, rx.val, rx.len))
+ 		goto free_ccid_lists;
+ 
+ 	rc = __feat_register_sp(fn, DCCPF_CCID, true, false, tx.val, tx.len);
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -95,9 +95,6 @@ extern void dccp_time_wait(struct sock *sk, int state, int timeo);
+ extern int  sysctl_dccp_request_retries;
+ extern int  sysctl_dccp_retries1;
+ extern int  sysctl_dccp_retries2;
+-extern int  sysctl_dccp_feat_sequence_window;
+-extern int  sysctl_dccp_feat_rx_ccid;
+-extern int  sysctl_dccp_feat_tx_ccid;
+ extern int  sysctl_dccp_tx_qlen;
+ extern int  sysctl_dccp_sync_ratelimit;
+ 
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -355,14 +355,6 @@ static inline unsigned int dccp_hdr_len(const struct sk_buff *skb)
+ 	return __dccp_hdr_len(dccp_hdr(skb));
+ }
+ 
+-
+-/* initial values for each feature */
+-#define DCCPF_INITIAL_SEQUENCE_WINDOW		100
+-#define DCCPF_INITIAL_ACK_RATIO			2
+-#define DCCPF_INITIAL_CCID			DCCPC_CCID2
+-/* FIXME: for now we're default to 1 but it should really be 0 */
+-#define DCCPF_INITIAL_SEND_NDP_COUNT		1
+-
+ /**
+  * struct dccp_request_sock  -  represent DCCP-specific connection request
+  * @dreq_inet_rsk: structure inherited from
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -23,10 +23,6 @@
+ #include "dccp.h"
+ #include "feat.h"
+ 
+-int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
+-int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
+-int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
+-
+ u64 dccp_decode_value_var(const u8 *bf, const u8 len)
+ {
+ 	u64 value = 0;
+--- a/net/dccp/sysctl.c
++++ b/net/dccp/sysctl.c
+@@ -18,55 +18,72 @@
+ #error This file should not be compiled without CONFIG_SYSCTL defined
+ #endif
+ 
++/* Boundary values */
++static int		zero     = 0,
++			u8_max   = 0xFF;
++static unsigned long	seqw_min = 32;
++
+ static struct ctl_table dccp_default_table[] = {
+ 	{
+ 		.procname	= "seq_window",
+-		.data		= &sysctl_dccp_feat_sequence_window,
+-		.maxlen		= sizeof(sysctl_dccp_feat_sequence_window),
++		.data		= &sysctl_dccp_sequence_window,
++		.maxlen		= sizeof(sysctl_dccp_sequence_window),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_doulongvec_minmax,
++		.extra1		= &seqw_min,		/* RFC 4340, 7.5.2 */
+ 	},
+ 	{
+ 		.procname	= "rx_ccid",
+-		.data		= &sysctl_dccp_feat_rx_ccid,
+-		.maxlen		= sizeof(sysctl_dccp_feat_rx_ccid),
++		.data		= &sysctl_dccp_rx_ccid,
++		.maxlen		= sizeof(sysctl_dccp_rx_ccid),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,		/* RFC 4340, 10. */
+ 	},
+ 	{
+ 		.procname	= "tx_ccid",
+-		.data		= &sysctl_dccp_feat_tx_ccid,
+-		.maxlen		= sizeof(sysctl_dccp_feat_tx_ccid),
++		.data		= &sysctl_dccp_tx_ccid,
++		.maxlen		= sizeof(sysctl_dccp_tx_ccid),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,		/* RFC 4340, 10. */
+ 	},
+ 	{
+ 		.procname	= "request_retries",
+ 		.data		= &sysctl_dccp_request_retries,
+ 		.maxlen		= sizeof(sysctl_dccp_request_retries),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,
+ 	},
+ 	{
+ 		.procname	= "retries1",
+ 		.data		= &sysctl_dccp_retries1,
+ 		.maxlen		= sizeof(sysctl_dccp_retries1),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,
+ 	},
+ 	{
+ 		.procname	= "retries2",
+ 		.data		= &sysctl_dccp_retries2,
+ 		.maxlen		= sizeof(sysctl_dccp_retries2),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &u8_max,
+ 	},
+ 	{
+ 		.procname	= "tx_qlen",
+ 		.data		= &sysctl_dccp_tx_qlen,
+ 		.maxlen		= sizeof(sysctl_dccp_tx_qlen),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
+ 	},
+ 	{
+ 		.procname	= "sync_ratelimit",
