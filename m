@@ -1,54 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 25/33] sfc: Generate unique names for per-NIC workqueues
-Date: Sat, 13 Dec 2008 14:01:56 +0000
-Message-ID: <20081213140154.GK10372@solarflare.com>
-References: <20081212125656.GY10372@solarflare.com> <20081212.220431.165056851.davem@davemloft.net> <20081213062301.GH10372@solarflare.com> <20081212.222954.177408494.davem@davemloft.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Sat, 13 Dec 2008 17:03:22 +0300
+Message-ID: <20081213140322.GA21443@ioremap.net>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cx-0000r3-N2@gondolin.me.apana.org.au> <1229120724.3051.61.camel@achroite> <20081212225659.GB11636@gondor.apana.org.au> <20081212231138.GA11883@gondor.apana.org.au> <20081213034356.GA14523@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:55174 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754226AbYLMOCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 09:02:04 -0500
+Received: from matrixpower.ru ([195.178.208.66]:33756 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756013AbYLMODY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Dec 2008 09:03:24 -0500
 Content-Disposition: inline
-In-Reply-To: <20081212.222954.177408494.davem@davemloft.net>
+In-Reply-To: <20081213034356.GA14523@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Sat, 13 Dec 2008 06:23:03 +0000
+On Sat, Dec 13, 2008 at 02:43:56PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > BTW this should be pretty easy to implement through a second
+> > entry, e.g., napi_gro_receive_pages() that works just like its
+> > LRO counter-part lro_receive_frags.  This would have its own
+> > protocol hooks so it doesn't need to do anything nasty to get
+> > at the packet headers.
 > 
-> > David Miller wrote:
-> > > create_singlethread_workqueue() is going to reference this
-> > > name buffer on the stack for the life of the workqueue, but
-> > > once this function returns that reference will no longer
-> > > be valid.
-> >  
-> > No, it's copied into the "comm" field of task_struct.
-> 
-> Hmmm...
-> 
-> create_singlethread_workqueue(name...
-> 	--> __create_workqueue(name...
-> 	--> __create_workqueue_key(name...
-> 
-> which goes:
-> 	wq->cpu_wq = alloc_percpu(struct cpu_workqueue_struct);
->  ...
-> 	wq->name = name;
-> 
-> Which looks like a dynamic memory assumption to me.
+> In fact we don't even need extra hooks.  All we need to do is to
+> keep one pre-allocated in the napi struct, and use that to hold
+> the pages while we process it.  If it's merged (we'd modify the
+> low-level skb_gro_receive to merge the pages directly rather than
+> the skb), then we return the skb to use it again for the next
+> packet.  If not then we just allocate a new skb.  This way none
+> of the protocol-specific code needs to handle pages at all.
 
-If you look carefully you'll see that wq->name is never used after
-initialisation of single-threaded workqueues.  But I'd agree it's not
-nice to have that dangling pointer around, so I'll respin this.
-
-Ben.
+This sounds good!
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+	Evgeniy Polyakov
