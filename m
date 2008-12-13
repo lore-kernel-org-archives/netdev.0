@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] smsc9420: add ethtool eeprom support
-Date: Fri, 12 Dec 2008 22:32:38 -0800 (PST)
-Message-ID: <20081212.223238.62093482.davem@davemloft.net>
-References: <1228993312-16738-1-git-send-email-steve.glendinning@smsc.com>
-	<1228993312-16738-2-git-send-email-steve.glendinning@smsc.com>
-	<1228993312-16738-3-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: pull request: wireless-next-2.6 2008-12-12
+Date: Fri, 12 Dec 2008 22:35:28 -0800 (PST)
+Message-ID: <20081212.223528.221579466.davem@davemloft.net>
+References: <20081212200806.GA3768@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vlad.lyalikov@smsc.com,
-	ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58881
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53053
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750917AbYLMGci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 01:32:38 -0500
-In-Reply-To: <1228993312-16738-3-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1750745AbYLMGf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 01:35:26 -0500
+In-Reply-To: <20081212200806.GA3768@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Thu, 11 Dec 2008 11:01:52 +0000
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 12 Dec 2008 15:08:06 -0500
 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> Here is another batch of wireless updates intended for 2.6.29.  As
+> usual, mostly driver updates with a smattering of mac80211 bits as well.
+> 
+> Please let me know if there are problems!
 
-Also applied, thanks Steve.
+Applied, thanks John.
