@@ -1,44 +1,49 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 1/8] net: Add frag_list support to skb_segment
-Date: Sat, 13 Dec 2008 06:11:10 +0300
-Message-ID: <20081213031110.GF807@ioremap.net>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cv-0000qk-Ec@gondolin.me.apana.org.au> <20081212194618.GA27281@ioremap.net> <20081212214125.GA11046@gondor.apana.org.au> <20081213023855.GA807@ioremap.net> <20081213024305.GA14056@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 6/8] tcp: Add GRO support
+Date: Sat, 13 Dec 2008 14:19:45 +1100
+Message-ID: <20081213031945.GA14324@gondor.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d1-0000rd-B2@gondolin.me.apana.org.au> <20081212195615.GC27281@ioremap.net> <20081212214627.GC11046@gondor.apana.org.au> <20081213024046.GB807@ioremap.net> <20081213024644.GB14056@gondor.apana.org.au> <20081213031019.GE807@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.ru ([195.178.208.66]:54721 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752339AbYLMDLM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Dec 2008 22:11:12 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:60755 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753932AbYLMDTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 22:19:51 -0500
 Content-Disposition: inline
-In-Reply-To: <20081213024305.GA14056@gondor.apana.org.au>
+In-Reply-To: <20081213031019.GE807@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 13, 2008 at 01:43:05PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > > > > +		if (pos < offset + len) {
-> > > > > +			struct sk_buff *fskb2 = fskb;
-> > > > > +
-> > > > > +			BUG_ON(pos + fskb->len != offset + len);
-> > > > > +
-> > > > > +			pos += fskb->len;
-> > > > > +			fskb = fskb->next;
-> > > > > +
-> > > > > +			if (fskb2->next) {
-> > > > > +				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
-> > > > > +				if (!fskb2)
-> > > > > +					goto err;
-> > > > > +			} else
-> > > > > +				skb_get(fskb2);
-> > > > > +
-> > > > > +			skb_shinfo(nskb)->frag_list = fskb2;
-> 
-> This isn't a problem.  fskb2 is still on the original frag_list so
-> we don't need to free it if skb_clone fails.
+On Sat, Dec 13, 2008 at 06:10:19AM +0300, Evgeniy Polyakov wrote:
+>
+> Some stacks use just increased counter since it is allowed by the RFC :)
+> Probably 'not sane' is appropriate name, but still... Probably not a
 
-But nskb was not added into the list or it was?
+Well one big reason why TSO worked so well is because the rest
+of stack (well most of it) simply treated it as a large packet.
+As it stands this means keeping below the 64K threshold (e.g.,
+the IP header length field is 16 bits long).
 
+In future of course we'd want to increase this, be it through
+using IPv6 or some other means.
+
+> serious problem, but what if just check the timestamp option before/after
+> like it was in LRO?
+
+As I said I don't think the restriction on the timestamp is such
+a big deal.  At the sort of speeds where merging is actually useful
+only an insane clock frequency would require us to merge packets
+with different time stamps.  Note also that the limited length of
+the TCP timestamp option means that insane clock frequencies aren't
+practical anyway as it'll wrap too quickly, thus defeating its
+purpose.
+
+Cheers,
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
