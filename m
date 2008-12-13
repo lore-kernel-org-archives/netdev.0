@@ -1,38 +1,54 @@
-From: "=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?=" <mirqus@gmail.com>
-Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for negotiation
-Date: Sat, 13 Dec 2008 14:55:05 +0100
-Message-ID: <e2d7436a0812130555r52422bel1dd9b66ba8479e2a@mail.gmail.com>
-References: <20081208.011917.176472177.davem@davemloft.net>
-	 <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 25/33] sfc: Generate unique names for per-NIC workqueues
+Date: Sat, 13 Dec 2008 14:01:56 +0000
+Message-ID: <20081213140154.GK10372@solarflare.com>
+References: <20081212125656.GY10372@solarflare.com> <20081212.220431.165056851.davem@davemloft.net> <20081213062301.GH10372@solarflare.com> <20081212.222954.177408494.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f13.google.com ([209.85.218.13]:64270 "EHLO
-	mail-bw0-f13.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754719AbYLMNzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 08:55:08 -0500
-In-Reply-To: <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:55174 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754226AbYLMOCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 09:02:04 -0500
 Content-Disposition: inline
+In-Reply-To: <20081212.222954.177408494.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MjAwOC8xMi8xMyBHZXJyaXQgUmVua2VyIDxnZXJyaXRAZXJnLmFiZG4uYWMudWs+Ogo+ICsvKioK
-PiArICogY2NpZF9yZXF1ZXN0X21vZHVsZSAgLSAgUHJlLWxvYWQgQ0NJRCBtb2R1bGUgZm9yIGxh
-dGVyIHVzZQo+ICsgKiBUaGlzIHNob3VsZCBiZSBjYWxsZWQgb25seSBmcm9tIHByb2Nlc3MgY29u
-dGV4dCAoZS5nLiBkdXJpbmcgY29ubmVjdGlvbgo+ICsgKiBzZXR1cCkgYW5kIGlzIG5lY2Vzc2Fy
-eSBmb3IgbGF0ZXIgY2FsbHMgdG8gY2NpZF9uZXcgKHR5cGljYWxseSBpbiBzb2Z0d2FyZQo+ICsg
-KiBpbnRlcnJ1cHQpLCBzbyB0aGF0IGl0IGhhcyB0aGUgbW9kdWxlcyBhdmFpbGFibGUgd2hlbiB0
-aGV5IGFyZSBuZWVkZWQuCj4gKyAqLwo+ICtzdGF0aWMgaW50IGNjaWRfcmVxdWVzdF9tb2R1bGUo
-dTggaWQpCj4gK3sKPiArICAgICAgIGlmICghaW5fYXRvbWljKCkpIHsKPiArICAgICAgICAgICAg
-ICAgY2NpZHNfcmVhZF9sb2NrKCk7Cj4gKyAgICAgICAgICAgICAgIGlmIChjY2lkc1tpZF0gPT0g
-TlVMTCkgewo+ICsgICAgICAgICAgICAgICAgICAgICAgIGNjaWRzX3JlYWRfdW5sb2NrKCk7Cj4g
-KyAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIHJlcXVlc3RfbW9kdWxlKCJuZXQtZGNjcC1j
-Y2lkLSVkIiwgaWQpOwo+ICsgICAgICAgICAgICAgICB9Cj4gKyAgICAgICAgICAgICAgIGNjaWRz
-X3JlYWRfdW5sb2NrKCk7Cj4gKyAgICAgICB9Cj4gKyAgICAgICByZXR1cm4gMDsKPiArfQoKSnVz
-dCBhIHJhbmRvbSB0aG91Z2h0OiBkb2VzIHRoaXMgbG9jayByZWFsbHkgZG8gYW55dGhpbmcgdXNl
-ZnVsIGhlcmU/CgpCZXN0IFJlZ2FyZHMsCk1pY2hhsyBNaXJvc7Nhdwo=
+David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Sat, 13 Dec 2008 06:23:03 +0000
+> 
+> > David Miller wrote:
+> > > create_singlethread_workqueue() is going to reference this
+> > > name buffer on the stack for the life of the workqueue, but
+> > > once this function returns that reference will no longer
+> > > be valid.
+> >  
+> > No, it's copied into the "comm" field of task_struct.
+> 
+> Hmmm...
+> 
+> create_singlethread_workqueue(name...
+> 	--> __create_workqueue(name...
+> 	--> __create_workqueue_key(name...
+> 
+> which goes:
+> 	wq->cpu_wq = alloc_percpu(struct cpu_workqueue_struct);
+>  ...
+> 	wq->name = name;
+> 
+> Which looks like a dynamic memory assumption to me.
+
+If you look carefully you'll see that wq->name is never used after
+initialisation of single-threaded workqueues.  But I'd agree it's not
+nice to have that dangling pointer around, so I'll respin this.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
