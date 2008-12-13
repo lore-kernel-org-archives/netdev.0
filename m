@@ -1,92 +1,61 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 09/11] irda: merge exit paths
-Date: Sat, 13 Dec 2008 21:17:49 +0200
-Message-ID: <12291958721188-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <12291958711278-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1229195871718-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12291958711089-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12291958711225-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12291958713600-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12291958712305-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12291958712963-git-send-email-ilpo.jarvinen@helsinki.fi>
- <1229195872202-git-send-email-ilpo.jarvinen@helsinki.fi>
- <12291958721148-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 01/11] icsk: join error paths using goto
+Date: Sat, 13 Dec 2008 21:21:12 +0200
+Message-ID: <1229196082-4162-2-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <1229196082-4162-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"=?utf-8?q?Ilpo=20J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:55749 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49496 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbYLMTR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 14:17:57 -0500
-In-Reply-To: <12291958721148-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1751323AbYLMTVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 14:21:23 -0500
+In-Reply-To: <1229196082-4162-1-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-Cc: Samuel Ortiz <samuel@sortiz.org>
 ---
- net/irda/irlap_frame.c |   17 ++++++++---------
- 1 files changed, 8 insertions(+), 9 deletions(-)
+ net/ipv4/inet_connection_sock.c |   19 ++++++++++---------
+ 1 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
-index f17b65a..2562ebc 100644
---- a/net/irda/irlap_frame.c
-+++ b/net/irda/irlap_frame.c
-@@ -1325,6 +1325,7 @@ int irlap_driver_rcv(struct sk_buff *skb, struct =
-net_device *dev,
- 	struct irlap_cb *self;
- 	int command;
- 	__u8 control;
-+	int ret =3D -1;
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection=
+_sock.c
+index fe32255..c7cda1c 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -344,16 +344,17 @@ struct dst_entry *inet_csk_route_req(struct sock =
+*sk,
+ 	struct net *net =3D sock_net(sk);
 =20
- 	if (!net_eq(dev_net(dev), &init_net))
- 		goto out;
-@@ -1333,25 +1334,21 @@ int irlap_driver_rcv(struct sk_buff *skb, struc=
-t net_device *dev,
- 	self =3D (struct irlap_cb *) dev->atalk_ptr;
-=20
- 	/* If the net device is down, then IrLAP is gone! */
--	if (!self || self->magic !=3D LAP_MAGIC) {
--		dev_kfree_skb(skb);
--		return -1;
+ 	security_req_classify_flow(req, &fl);
+-	if (ip_route_output_flow(net, &rt, &fl, sk, 0)) {
+-		IP_INC_STATS_BH(net, IPSTATS_MIB_OUTNOROUTES);
+-		return NULL;
 -	}
-+	if (!self || self->magic !=3D LAP_MAGIC)
-+		goto err;
-=20
- 	/* We are no longer an "old" protocol, so we need to handle
- 	 * share and non linear skbs. This should never happen, so
- 	 * we don't need to be clever about it. Jean II */
- 	if ((skb =3D skb_share_check(skb, GFP_ATOMIC)) =3D=3D NULL) {
- 		IRDA_ERROR("%s: can't clone shared skb!\n", __func__);
--		dev_kfree_skb(skb);
--		return -1;
-+		goto err;
- 	}
-=20
- 	/* Check if frame is large enough for parsing */
- 	if (!pskb_may_pull(skb, 2)) {
- 		IRDA_ERROR("%s: frame too short!\n", __func__);
--		dev_kfree_skb(skb);
--		return -1;
-+		goto err;
- 	}
-=20
- 	command    =3D skb->data[0] & CMD_FRAME;
-@@ -1442,7 +1439,9 @@ int irlap_driver_rcv(struct sk_buff *skb, struct =
-net_device *dev,
- 		break;
- 	}
- out:
-+	ret =3D 0;
-+err:
- 	/* Always drop our reference on the skb */
- 	dev_kfree_skb(skb);
--	return 0;
-+	return ret;
+-	if (opt && opt->is_strictroute && rt->rt_dst !=3D rt->rt_gateway) {
+-		ip_rt_put(rt);
+-		IP_INC_STATS_BH(net, IPSTATS_MIB_OUTNOROUTES);
+-		return NULL;
+-	}
++	if (ip_route_output_flow(net, &rt, &fl, sk, 0))
++		goto no_route;
++	if (opt && opt->is_strictroute && rt->rt_dst !=3D rt->rt_gateway)
++		goto route_err;
+ 	return &rt->u.dst;
++
++route_err:
++	ip_rt_put(rt);
++no_route:
++	IP_INC_STATS_BH(net, IPSTATS_MIB_OUTNOROUTES);
++	return NULL;
  }
+=20
+ EXPORT_SYMBOL_GPL(inet_csk_route_req);
 --=20
 1.5.2.2
 
