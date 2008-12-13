@@ -1,38 +1,44 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 6/8] tcp: Add GRO support
-Date: Sat, 13 Dec 2008 06:10:19 +0300
-Message-ID: <20081213031019.GE807@ioremap.net>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d1-0000rd-B2@gondolin.me.apana.org.au> <20081212195615.GC27281@ioremap.net> <20081212214627.GC11046@gondor.apana.org.au> <20081213024046.GB807@ioremap.net> <20081213024644.GB14056@gondor.apana.org.au>
+Subject: Re: [PATCH 1/8] net: Add frag_list support to skb_segment
+Date: Sat, 13 Dec 2008 06:11:10 +0300
+Message-ID: <20081213031110.GF807@ioremap.net>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0cv-0000qk-Ec@gondolin.me.apana.org.au> <20081212194618.GA27281@ioremap.net> <20081212214125.GA11046@gondor.apana.org.au> <20081213023855.GA807@ioremap.net> <20081213024305.GA14056@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:54714 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751880AbYLMDKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 22:10:20 -0500
+Received: from tservice.ru ([195.178.208.66]:54721 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752339AbYLMDLM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Dec 2008 22:11:12 -0500
 Content-Disposition: inline
-In-Reply-To: <20081213024644.GB14056@gondor.apana.org.au>
+In-Reply-To: <20081213024305.GA14056@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 13, 2008 at 01:46:45PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> On Sat, Dec 13, 2008 at 05:40:46AM +0300, Evgeniy Polyakov wrote:
-> >
-> > So it will fail if timestamp changed? Or if some new option added?
+On Sat, Dec 13, 2008 at 01:43:05PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > > > > +		if (pos < offset + len) {
+> > > > > +			struct sk_buff *fskb2 = fskb;
+> > > > > +
+> > > > > +			BUG_ON(pos + fskb->len != offset + len);
+> > > > > +
+> > > > > +			pos += fskb->len;
+> > > > > +			fskb = fskb->next;
+> > > > > +
+> > > > > +			if (fskb2->next) {
+> > > > > +				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
+> > > > > +				if (!fskb2)
+> > > > > +					goto err;
+> > > > > +			} else
+> > > > > +				skb_get(fskb2);
+> > > > > +
+> > > > > +			skb_shinfo(nskb)->frag_list = fskb2;
 > 
-> Correct, it must remain exactly the same.  Even at 100Mbps any
-> sane clock frequency will result in an average of 8 packets per
-> clock update.  At the sort speeds (>1Gbps) at which we're targetting
-> this'll easily get us to 64K which is our maximum (actually it
-> looks like I forgot to add a check to stop this from growing beyond
-> 64K :)
+> This isn't a problem.  fskb2 is still on the original frag_list so
+> we don't need to free it if skb_clone fails.
 
-Some stacks use just increased counter since it is allowed by the RFC :)
-Probably 'not sane' is appropriate name, but still... Probably not a
-serious problem, but what if just check the timestamp option before/after
-like it was in LRO?
+But nskb was not added into the list or it was?
 
 -- 
 	Evgeniy Polyakov
