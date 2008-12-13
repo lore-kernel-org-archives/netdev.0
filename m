@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/9][v2] mISDN: fix sparse warning: symbol 'nskb'
- shadows an earlier one
-Date: Fri, 12 Dec 2008 21:17:08 -0800 (PST)
-Message-ID: <20081212.211708.144435933.davem@davemloft.net>
-References: <49419a31.0aa1660a.486c.07b8@mx.google.com>
+Subject: Re: [PATCH 6/9][v2] mISDN: fix sparse warning: symbol 'id' shadows
+ an earlier one
+Date: Fri, 12 Dec 2008 21:17:46 -0800 (PST)
+Message-ID: <20081212.211746.16355480.davem@davemloft.net>
+References: <49419a37.0aa5660a.7d74.31a0@mx.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, kkeil@suse.de,
 	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 To: hannes@hanneseder.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756493AbYLMFRT@vger.kernel.org>
-In-Reply-To: <49419a31.0aa1660a.486c.07b8@mx.google.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752211AbYLMFR5@vger.kernel.org>
+In-Reply-To: <49419a37.0aa5660a.7d74.31a0@mx.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Hannes Eder <hannes@hanneseder.net>
 Date: Thu, 11 Dec 2008 22:36:00 +0100
 
-> Impact: define first occurence of variable 'nskb' in inner most possible scope
+> Impact: rename function scope variable
 > 
-> Fix this sparse warning:
+> Fix this warning:
 > 
->   drivers/isdn/mISDN/dsp_core.c:746:20: warning: symbol 'nskb' shadows an earlier one
->   drivers/isdn/mISDN/dsp_core.c:634:19: originally declared here
+>   drivers/isdn/mISDN/l1oip_core.c:472:8: warning: symbol 'id' shadows an earlier one
+>   drivers/isdn/mISDN/l1oip_core.c:254:14: originally declared here
 > 
 > Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 > Acked-by: Karsten Keil <kkeil@suse.de>
