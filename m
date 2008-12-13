@@ -1,176 +1,474 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/8] ipv4: Add GRO infrastructure
-Date: Sat, 13 Dec 2008 12:35:22 +1100
-Message-ID: <E1LBJPe-0003Yl-De@gondolin.me.apana.org.au>
+Subject: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Sat, 13 Dec 2008 12:35:21 +1100
+Message-ID: <E1LBJPd-0003YU-Ap@gondolin.me.apana.org.au>
 References: <20081213013420.GA13549@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
 	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53837 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:53832 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753630AbYLMBf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 20:35:29 -0500
+	with ESMTP id S1753596AbYLMBfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Dec 2008 20:35:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipv4: Add GRO infrastructure
+net: Add Generic Receive Offload infrastructure
 
-This patch adds GRO support for IPv4.
+This patch adds the top-level GRO (Generic Receive Offload) infrastructure.
+This is pretty similar to LRO except that this is protocol-independent.
+Instead of holding packets in an lro_mgr structure, they're now held in
+napi_struct.
 
-The criteria for merging is more stringent than LRO, in particular,
-we require all fields in the IP header to be identical except for
-the length, ID and checksum.  In addition, the ID must form an
-arithmetic sequence with a difference of one.
+For drivers that intend to use this, they can set the NETIF_F_GRO bit and
+call napi_gro_receive instead of netif_receive_skb or just call netif_rx.
+The latter will call napi_receive_skb automatically.  When napi_gro_receive
+is used, the driver must either call napi_complete/napi_rx_complete, or
+call napi_gro_flush in softirq context if the driver uses the primitives
+__napi_complete/__napi_rx_complete.
 
-The ID requirement might seem overly strict, however, most hardware
-TSO solutions already obey this rule.  Linux itself also obeys this
-whether GSO is in use or not.
+Protocols will set the gro_receive and gro_complete function pointers in
+order to participate in this scheme.
 
-In future we could relax this rule by storing the IDs (or rather
-making sure that we don't drop them when pulling the aggregate
-skb's tail).
+In addition to the packet, gro_receive will get a list of currently held
+packets.  Each packet in the list has a same_flow field which is non-zero
+if it is a potential match for the new packet.  For each packet that may
+match, they also have a flush field which is non-zero if the held packet
+must not be merged with the new packet.
+
+Once gro_receive has determined that the new skb matches a held packet,
+the held packet may be processed immediately if the new skb cannot be
+merged with it.  In this case gro_receive should return the pointer to
+the existing skb in gro_list.  Otherwise the new skb should be merged into
+the existing packet and NULL should be returned, unless the new skb makes
+it impossible for any further merges to be made (e.g., FIN packet) where
+the merged skb should be returned.
+
+Whenever the skb is merged into an existing entry, the gro_receive
+function should set NAPI_GRO_CB(skb)->same_flow.  Note that if an skb
+merely matches an existing entry but can't be merged with it, then
+this shouldn't be set.
+
+If gro_receive finds it pointless to hold the new skb for future merging,
+it should set NAPI_GRO_CB(skb)->flush.
+
+Held packets will be flushed by napi_gro_flush which is called by
+napi_complete and napi_rx_complete.
+
+Currently held packets are stored in a singly liked list just like LRO.
+The list is limited to a maximum of 8 entries.  In future, this may be
+expanded to use a hash table to allow more flows to be held for merging.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/protocol.h |    3 +
- net/ipv4/af_inet.c     |   97 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 100 insertions(+)
+ include/linux/netdevice.h |   74 ++++++------------
+ include/linux/netpoll.h   |    5 -
+ net/core/dev.c            |  186 +++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 212 insertions(+), 53 deletions(-)
 
-diff --git a/include/net/protocol.h b/include/net/protocol.h
-index 8d024d7..cb2965a 100644
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -39,6 +39,9 @@ struct net_protocol {
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8bf9127..5acd176 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -311,8 +311,9 @@ struct napi_struct {
+ 	spinlock_t		poll_lock;
+ 	int			poll_owner;
+ 	struct net_device	*dev;
+-	struct list_head	dev_list;
+ #endif
++	struct list_head	dev_list;
++	struct sk_buff		*gro_list;
+ };
+ 
+ enum
+@@ -372,22 +373,8 @@ static inline int napi_reschedule(struct napi_struct *napi)
+  *
+  * Mark NAPI processing as complete.
+  */
+-static inline void __napi_complete(struct napi_struct *n)
+-{
+-	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
+-	list_del(&n->poll_list);
+-	smp_mb__before_clear_bit();
+-	clear_bit(NAPI_STATE_SCHED, &n->state);
+-}
+-
+-static inline void napi_complete(struct napi_struct *n)
+-{
+-	unsigned long flags;
+-
+-	local_irq_save(flags);
+-	__napi_complete(n);
+-	local_irq_restore(flags);
+-}
++extern void __napi_complete(struct napi_struct *n);
++extern void napi_complete(struct napi_struct *n);
+ 
+ /**
+  *	napi_disable - prevent NAPI from scheduling
+@@ -495,9 +482,7 @@ struct net_device
+ 	unsigned long		state;
+ 
+ 	struct list_head	dev_list;
+-#ifdef CONFIG_NETPOLL
+ 	struct list_head	napi_list;
+-#endif
+ 	
+ 	/* The device initialization function. Called only once. */
+ 	int			(*init)(struct net_device *dev);
+@@ -521,6 +506,7 @@ struct net_device
+ #define NETIF_F_LLTX		4096	/* LockLess TX - deprecated. Please */
+ 					/* do not use LLTX in new drivers */
+ #define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces */
++#define NETIF_F_GRO		16384	/* Generic receive offload */
+ #define NETIF_F_LRO		32768	/* large receive offload */
+ 
+ 	/* Segmentation offload features */
+@@ -858,22 +844,8 @@ static inline void *netdev_priv(const struct net_device *dev)
+  * netif_napi_add() must be used to initialize a napi context prior to calling
+  * *any* of the other napi related functions.
+  */
+-static inline void netif_napi_add(struct net_device *dev,
+-				  struct napi_struct *napi,
+-				  int (*poll)(struct napi_struct *, int),
+-				  int weight)
+-{
+-	INIT_LIST_HEAD(&napi->poll_list);
+-	napi->poll = poll;
+-	napi->weight = weight;
+-#ifdef CONFIG_NETPOLL
+-	napi->dev = dev;
+-	list_add(&napi->dev_list, &dev->napi_list);
+-	spin_lock_init(&napi->poll_lock);
+-	napi->poll_owner = -1;
+-#endif
+-	set_bit(NAPI_STATE_SCHED, &napi->state);
+-}
++void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
++		    int (*poll)(struct napi_struct *, int), int weight);
+ 
+ /**
+  *  netif_napi_del - remove a napi context
+@@ -881,12 +853,20 @@ static inline void netif_napi_add(struct net_device *dev,
+  *
+  *  netif_napi_del() removes a napi context from the network device napi list
+  */
+-static inline void netif_napi_del(struct napi_struct *napi)
+-{
+-#ifdef CONFIG_NETPOLL
+-	list_del(&napi->dev_list);
+-#endif
+-}
++void netif_napi_del(struct napi_struct *napi);
++
++struct napi_gro_cb {
++	/* This is non-zero if the packet may be of the same flow. */
++	int same_flow;
++
++	/* This is non-zero if the packet cannot be merged with the new skb. */
++	int flush;
++
++	/* Number of segments aggregated. */
++	int count;
++};
++
++#define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
+ 
+ struct packet_type {
+ 	__be16			type;	/* This is really htons(ether_type). */
+@@ -898,6 +878,9 @@ struct packet_type {
+ 	struct sk_buff		*(*gso_segment)(struct sk_buff *skb,
+ 						int features);
  	int			(*gso_send_check)(struct sk_buff *skb);
- 	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb,
- 					       int features);
-+	struct sk_buff	      **(*gro_receive)(struct sk_buff **head,
++	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
 +					       struct sk_buff *skb);
 +	int			(*gro_complete)(struct sk_buff *skb);
- 	unsigned int		no_policy:1,
- 				netns_ok:1;
+ 	void			*af_packet_priv;
+ 	struct list_head	list;
  };
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1aa2dc9..8dc1ebd 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -94,6 +94,7 @@
- #include <linux/igmp.h>
- #include <linux/inetdevice.h>
- #include <linux/netdevice.h>
-+#include <net/checksum.h>
- #include <net/ip.h>
- #include <net/protocol.h>
- #include <net/arp.h>
-@@ -1245,6 +1246,100 @@ out:
- 	return segs;
+@@ -1251,6 +1234,9 @@ extern int		netif_rx(struct sk_buff *skb);
+ extern int		netif_rx_ni(struct sk_buff *skb);
+ #define HAVE_NETIF_RECEIVE_SKB 1
+ extern int		netif_receive_skb(struct sk_buff *skb);
++extern void		napi_gro_flush(struct napi_struct *napi);
++extern int		napi_gro_receive(struct napi_struct *napi,
++					 struct sk_buff *skb);
+ extern void		netif_nit_deliver(struct sk_buff *skb);
+ extern int		dev_valid_name(const char *name);
+ extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
+@@ -1495,11 +1481,7 @@ static inline void __netif_rx_complete(struct net_device *dev,
+ static inline void netif_rx_complete(struct net_device *dev,
+ 				     struct napi_struct *napi)
+ {
+-	unsigned long flags;
+-
+-	local_irq_save(flags);
+-	__netif_rx_complete(dev, napi);
+-	local_irq_restore(flags);
++	napi_complete(napi);
  }
  
-+static struct sk_buff **inet_gro_receive(struct sk_buff **head,
-+					 struct sk_buff *skb)
-+{
-+	struct net_protocol *ops;
-+	struct sk_buff **pp = NULL;
-+	struct sk_buff *p;
-+	struct iphdr *iph;
-+	int flush = 1;
-+	int proto;
-+	int id;
+ static inline void __netif_tx_lock(struct netdev_queue *txq, int cpu)
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index e3d7959..e38d3c9 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -94,11 +94,6 @@ static inline void netpoll_poll_unlock(void *have)
+ 	rcu_read_unlock();
+ }
+ 
+-static inline void netpoll_netdev_init(struct net_device *dev)
+-{
+-	INIT_LIST_HEAD(&dev->napi_list);
+-}
+-
+ #else
+ static inline int netpoll_rx(struct sk_buff *skb)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4388e27..5e5132c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -130,6 +130,9 @@
+ 
+ #include "net-sysfs.h"
+ 
++/* Instead of increasing this, you should create a hash table. */
++#define MAX_GRO_SKBS 8
 +
-+	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
+ /*
+  *	The list of packet types we will receive (as opposed to discard)
+  *	and the routines to invoke.
+@@ -2323,6 +2326,122 @@ static void flush_backlog(void *arg)
+ 		}
+ }
+ 
++static int napi_gro_complete(struct sk_buff *skb)
++{
++	struct packet_type *ptype;
++	__be16 type = skb->protocol;
++	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
++	int err = -ENOENT;
++
++	if (!skb_shinfo(skb)->frag_list)
 +		goto out;
 +
-+	iph = ip_hdr(skb);
-+	proto = iph->protocol & (MAX_INET_PROTOS - 1);
-+
 +	rcu_read_lock();
-+	ops = rcu_dereference(inet_protos[proto]);
-+	if (!ops || !ops->gro_receive)
-+		goto out_unlock;
-+
-+	if (iph->version != 4 || iph->ihl != 5)
-+		goto out_unlock;
-+
-+	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
-+		goto out_unlock;
-+
-+	flush = ntohs(iph->tot_len) != skb->len ||
-+		iph->frag_off != htons(IP_DF);
-+	id = ntohs(iph->id);
-+
-+	for (p = *head; p; p = p->next) {
-+		struct iphdr *iph2;
-+
-+		if (!NAPI_GRO_CB(p)->same_flow)
++	list_for_each_entry_rcu(ptype, head, list) {
++		if (ptype->type != type || ptype->dev || !ptype->gro_complete)
 +			continue;
 +
-+		iph2 = ip_hdr(p);
++		err = ptype->gro_complete(skb);
++		break;
++	}
++	rcu_read_unlock();
 +
-+		if (iph->protocol != iph2->protocol ||
-+		    iph->tos != iph2->tos ||
-+		    memcmp(&iph->saddr, &iph2->saddr, 8)) {
-+			NAPI_GRO_CB(p)->same_flow = 0;
-+			continue;
-+		}
-+
-+		/* All fields must match except length and checksum. */
-+		NAPI_GRO_CB(p)->flush |=
-+			memcmp(&iph->frag_off, &iph2->frag_off, 4) ||
-+			(u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) != id;
-+
-+		NAPI_GRO_CB(p)->flush |= flush;
++	if (err) {
++		WARN_ON(&ptype->list == head);
++		kfree_skb(skb);
++		return NET_RX_SUCCESS;
 +	}
 +
-+	NAPI_GRO_CB(skb)->flush |= flush;
-+	__skb_pull(skb, sizeof(*iph));
-+	skb_reset_transport_header(skb);
-+
-+	pp = ops->gro_receive(head, skb);
-+
-+out_unlock:
-+	rcu_read_unlock();
-+
 +out:
-+	NAPI_GRO_CB(skb)->flush |= flush;
-+
-+	return pp;
++	__skb_push(skb, -skb_network_offset(skb));
++	return netif_receive_skb(skb);
 +}
 +
-+static int inet_gro_complete(struct sk_buff *skb)
++void napi_gro_flush(struct napi_struct *napi)
 +{
-+	struct net_protocol *ops;
-+	struct iphdr *iph = ip_hdr(skb);
-+	int proto = iph->protocol & (MAX_INET_PROTOS - 1);
-+	int err = -ENOSYS;
-+	__be16 newlen = htons(skb->len - skb_network_offset(skb));
++	struct sk_buff *skb, *next;
 +
-+	csum_replace2(&iph->check, iph->tot_len, newlen);
-+	iph->tot_len = newlen;
++	for (skb = napi->gro_list; skb; skb = next) {
++		next = skb->next;
++		skb->next = NULL;
++		napi_gro_complete(skb);
++	}
++
++	napi->gro_list = NULL;
++}
++EXPORT_SYMBOL(napi_gro_flush);
++
++int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
++{
++	struct sk_buff **pp;
++	struct packet_type *ptype;
++	__be16 type = skb->protocol;
++	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
++	int count = 0;
++	int mac_len;
++
++	if (!(skb->dev->features & NETIF_F_GRO))
++		goto normal;
 +
 +	rcu_read_lock();
-+	ops = rcu_dereference(inet_protos[proto]);
-+	if (WARN_ON(!ops || !ops->gro_complete))
-+		goto out_unlock;
++	list_for_each_entry_rcu(ptype, head, list) {
++		struct sk_buff *p;
 +
-+	err = ops->gro_complete(skb);
++		if (ptype->type != type || ptype->dev || !ptype->gro_receive)
++			continue;
 +
-+out_unlock:
++		skb_reset_network_header(skb);
++		mac_len = skb->network_header - skb->mac_header;
++		skb->mac_len = mac_len;
++		NAPI_GRO_CB(skb)->same_flow = 0;
++		NAPI_GRO_CB(skb)->flush = 0;
++
++		for (p = napi->gro_list; p; p = p->next) {
++			count++;
++			NAPI_GRO_CB(p)->same_flow =
++				p->mac_len == mac_len &&
++				!memcmp(skb_mac_header(p), skb_mac_header(skb),
++					mac_len);
++			NAPI_GRO_CB(p)->flush = 0;
++		}
++
++		pp = ptype->gro_receive(&napi->gro_list, skb);
++		break;
++	}
 +	rcu_read_unlock();
 +
-+	return err;
-+}
++	if (&ptype->list == head)
++		goto normal;
 +
- int inet_ctl_sock_create(struct sock **sk, unsigned short family,
- 			 unsigned short type, unsigned char protocol,
- 			 struct net *net)
-@@ -1411,6 +1506,8 @@ static struct packet_type ip_packet_type = {
- 	.func = ip_rcv,
- 	.gso_send_check = inet_gso_send_check,
- 	.gso_segment = inet_gso_segment,
-+	.gro_receive = inet_gro_receive,
-+	.gro_complete = inet_gro_complete,
- };
++	if (pp) {
++		struct sk_buff *nskb = *pp;
++
++		*pp = nskb->next;
++		nskb->next = NULL;
++		napi_gro_complete(nskb);
++		count--;
++	}
++
++	if (NAPI_GRO_CB(skb)->same_flow)
++		goto ok;
++
++	if (NAPI_GRO_CB(skb)->flush || count >= MAX_GRO_SKBS) {
++		__skb_push(skb, -skb_network_offset(skb));
++		goto normal;
++	}
++
++	NAPI_GRO_CB(skb)->count = 1;
++	skb->next = napi->gro_list;
++	napi->gro_list = skb;
++
++ok:
++	return NET_RX_SUCCESS;
++
++normal:
++	return netif_receive_skb(skb);
++}
++EXPORT_SYMBOL(napi_gro_receive);
++
+ static int process_backlog(struct napi_struct *napi, int quota)
+ {
+ 	int work = 0;
+@@ -2342,9 +2461,11 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 		}
+ 		local_irq_enable();
  
- static int __init inet_init(void)
+-		netif_receive_skb(skb);
++		napi_gro_receive(napi, skb);
+ 	} while (++work < quota && jiffies == start_time);
+ 
++	napi_gro_flush(napi);
++
+ 	return work;
+ }
+ 
+@@ -2365,6 +2486,61 @@ void __napi_schedule(struct napi_struct *n)
+ }
+ EXPORT_SYMBOL(__napi_schedule);
+ 
++void __napi_complete(struct napi_struct *n)
++{
++	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
++	BUG_ON(n->gro_list);
++
++	list_del(&n->poll_list);
++	smp_mb__before_clear_bit();
++	clear_bit(NAPI_STATE_SCHED, &n->state);
++}
++EXPORT_SYMBOL(__napi_complete);
++
++void napi_complete(struct napi_struct *n)
++{
++	unsigned long flags;
++
++	napi_gro_flush(n);
++	local_irq_save(flags);
++	__napi_complete(n);
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL(napi_complete);
++
++void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
++		    int (*poll)(struct napi_struct *, int), int weight)
++{
++	INIT_LIST_HEAD(&napi->poll_list);
++	napi->gro_list = NULL;
++	napi->poll = poll;
++	napi->weight = weight;
++	list_add(&napi->dev_list, &dev->napi_list);
++#ifdef CONFIG_NETPOLL
++	napi->dev = dev;
++	spin_lock_init(&napi->poll_lock);
++	napi->poll_owner = -1;
++#endif
++	set_bit(NAPI_STATE_SCHED, &napi->state);
++}
++EXPORT_SYMBOL(netif_napi_add);
++
++void netif_napi_del(struct napi_struct *napi)
++{
++	struct sk_buff *skb, *next;
++
++	list_del(&napi->dev_list);
++
++	for (skb = napi->gro_list; skb; skb = next) {
++		next = skb->next;
++		skb->next = NULL;
++		kfree_skb(skb);
++	}
++
++	napi->gro_list = NULL;
++}
++EXPORT_SYMBOL(netif_napi_del);
++
+ 
+ static void net_rx_action(struct softirq_action *h)
+ {
+@@ -4348,7 +4524,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 	netdev_init_queues(dev);
+ 
+ 	dev->get_stats = internal_stats;
+-	netpoll_netdev_init(dev);
++	INIT_LIST_HEAD(&dev->napi_list);
+ 	setup(dev);
+ 	strcpy(dev->name, name);
+ 	return dev;
+@@ -4365,10 +4541,15 @@ EXPORT_SYMBOL(alloc_netdev_mq);
+  */
+ void free_netdev(struct net_device *dev)
+ {
++	struct napi_struct *p, *n;
++
+ 	release_net(dev_net(dev));
+ 
+ 	kfree(dev->_tx);
+ 
++	list_for_each_entry_safe(p, n, &dev->napi_list, dev_list)
++		netif_napi_del(p);
++
+ 	/*  Compatibility with error handling in drivers */
+ 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+ 		kfree((char *)dev - dev->padded);
+@@ -4904,6 +5085,7 @@ static int __init net_dev_init(void)
+ 
+ 		queue->backlog.poll = process_backlog;
+ 		queue->backlog.weight = weight_p;
++		queue->backlog.gro_list = NULL;
+ 	}
+ 
+ 	netdev_dma_register();
