@@ -1,77 +1,169 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] net: Remove a noisy printk
-Date: Sun, 14 Dec 2008 21:15:20 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.0812142056520.2621@blackhole.kfki.hu>
-References: <1229033625-30825-1-git-send-email-ajax@redhat.com> <20081211.203243.124017657.davem@davemloft.net> <alpine.LNX.1.10.0812132310080.27276@fbirervta.pbzchgretzou.qr> <alpine.DEB.2.00.0812141745550.2447@blackhole.kfki.hu>
- <alpine.LNX.1.10.0812141905490.10355@fbirervta.pbzchgretzou.qr>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 7/8] ethtool: Add GGRO and SGRO ops
+Date: Mon, 15 Dec 2008 08:09:16 +1100
+Message-ID: <20081214210916.GA26325@gondor.apana.org.au>
+References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d2-0000rq-Dr@gondolin.me.apana.org.au> <1229112677.3051.9.camel@achroite> <20081212214835.GD11046@gondor.apana.org.au> <1229121327.3051.69.camel@achroite> <20081212224954.GA11636@gondor.apana.org.au> <Pine.WNT.4.64.0812141124040.13556@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, ajax@redhat.com,
-	linux-kernel@vger.kernel.org, davej@redhat.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp0.kfki.hu ([148.6.0.25]:47155 "EHLO smtp0.kfki.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751353AbYLNUPW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Dec 2008 15:15:22 -0500
-In-Reply-To: <alpine.LNX.1.10.0812141905490.10355@fbirervta.pbzchgretzou.qr>
+Received: from rhun.apana.org.au ([64.62.148.172]:59998 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751471AbYLNVJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 16:09:24 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.WNT.4.64.0812141124040.13556@ppwaskie-MOBL2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 14 Dec 2008, Jan Engelhardt wrote:
+On Sun, Dec 14, 2008 at 11:36:14AM -0800, Waskiewicz Jr, Peter P wrote:
+>
+> I'm confused then.  You're adding two ethtool entry points with 
+> ETHTOOL_GGRO and ETHTOOL_SGRO, adding the callpoints in dev_ethtool with 
+> set_gro and get_gro, but how do you manipulate this without adding to the 
+> userspace application?  Adding this functionality to the set/get_flags 
+> will keep the userspace app from needing a patch to support the new 
+> callbacks.
 
-> On Sunday 2008-12-14 18:09, Jozsef Kadlecsik wrote:
-> >> 
-> >> >> @@ -147,8 +147,6 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
-> >> >>  	/* root is playing with raw sockets. */
-> >> >>  	if (skb->len < sizeof(struct iphdr) ||
-> >> >>  	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
-> >> >> -		if (net_ratelimit())
-> >> >> -			printk("ipt_hook: happy cracking.\n");
-> >> >>  		return NF_ACCEPT;
-> >> >>  	}
-> >> >>  	return nf_conntrack_in(dev_net(out), PF_INET, hooknum, skb);
-> >> 
-> >> I think this change is ok.
-> >
-> >In a >normal< system one usually does not use raw sockets. So if a root 
-> >process do use raw socket, at least netfilter sends a notification and 
-> >there's a chance that someone take notice it by checking the kernel logs.
-> >[...]
-> >But should we remove them due to nuisances on >test< systems?
-> >
-> >Rather make it a kernel compile option but do not remove.
-> 
-> This warning is in the conntrack calling code. Iff you play with
-> raw sockets and do something wrong, the generic network code
-> should barf IMHO, not nf_conntrack, and not [nf_conntrack_ipv4 only].
+Huh? Whether you use get_flags or not you still need to patch the
+user-space application so that it knows how to handle
 
-It is not about doing something wrong at using raw sockets - it's about 
-using raw sockets.
+	ethtool -K eth0 gro on/off
 
-I'm not quite convinced the generic network code should warn about raw 
-sockets. I believe it belongs to the security-related subsystems - 
-netfilter and (or) the security frameworks. [But as netfilter is much more 
-widely used, the 'or' is just theoretical.)
+There is no way around that.
 
-But back to netfilter: this is more than strange. The logging is already 
-removed from iptable_filter|mangle.c - and left in 
-ip6table_filter|mangle.c. The only place in the IPv4 path where the 
-checking happens is in nf_conntrack_l3proto_ipv4.c. IPv6 conntrack does
-it as well, but uses another message text:
+As I said earlier, I didn't use get_flags/set_flags because of the
+need to depend on RX checksum offload.
 
-        if (skb->len < sizeof(struct ipv6hdr)) {
-                if (net_ratelimit())
-                        printk("ipv6_conntrack_local: packet too short\n");
+BTW, here is the patch for ethtool to set the GRO flags.
 
-[ISIC should check IPv6 too ;-).]
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index eadba25..3ca4e2c 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -336,6 +336,8 @@ struct ethtool_rxnfc {
+ 
+ #define	ETHTOOL_GRXFH		0x00000029 /* Get RX flow hash configuration */
+ #define	ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
++#define	ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
++#define	ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/ethtool.c b/ethtool.c
+index a7c02d0..502fc8f 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -160,6 +160,7 @@ static struct option {
+ 	        "		[ tso on|off ]\n"
+ 	        "		[ ufo on|off ]\n"
+ 		"		[ gso on|off ]\n"
++		"		[ gro on|off ]\n"
+ 		"               [ lro on|off ]\n"
+     },
+     { "-i", "--driver", MODE_GDRV, "Show driver information" },
+@@ -218,6 +219,7 @@ static int off_sg_wanted = -1;
+ static int off_tso_wanted = -1;
+ static int off_ufo_wanted = -1;
+ static int off_gso_wanted = -1;
++static int off_gro_wanted = -1;
+ static int off_lro_wanted = -1;
+ 
+ static struct ethtool_pauseparam epause;
+@@ -333,6 +335,7 @@ static struct cmdline_info cmdline_offload[] = {
+ 	{ "tso", CMDL_BOOL, &off_tso_wanted, NULL },
+ 	{ "ufo", CMDL_BOOL, &off_ufo_wanted, NULL },
+ 	{ "gso", CMDL_BOOL, &off_gso_wanted, NULL },
++	{ "gro", CMDL_BOOL, &off_gro_wanted, NULL },
+ 	{ "lro", CMDL_BOOL, &off_lro_wanted, NULL },
+ };
+ 
+@@ -1387,7 +1390,8 @@ static int dump_coalesce(void)
+ 	return 0;
+ }
+ 
+-static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso, int lro)
++static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso,
++			int gro, int lro)
+ {
+ 	fprintf(stdout,
+ 		"rx-checksumming: %s\n"
+@@ -1396,6 +1400,7 @@ static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso, int l
+ 		"tcp segmentation offload: %s\n"
+ 		"udp fragmentation offload: %s\n"
+ 		"generic segmentation offload: %s\n"
++		"generic receive offload: %s\n"
+ 		"large receive offload: %s\n",
+ 		rx ? "on" : "off",
+ 		tx ? "on" : "off",
+@@ -1403,6 +1408,7 @@ static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso, int l
+ 		tso ? "on" : "off",
+ 		ufo ? "on" : "off",
+ 		gso ? "on" : "off",
++		gro ? "on" : "off",
+ 		lro ? "on" : "off");
+ 
+ 	return 0;
+@@ -1714,7 +1720,7 @@ static int do_goffload(int fd, struct ifreq *ifr)
+ {
+ 	struct ethtool_value eval;
+ 	int err, allfail = 1, rx = 0, tx = 0, sg = 0;
+-	int tso = 0, ufo = 0, gso = 0, lro = 0;
++	int tso = 0, ufo = 0, gso = 0, gro = 0, lro = 0;
+ 
+ 	fprintf(stdout, "Offload parameters for %s:\n", devname);
+ 
+@@ -1778,6 +1784,16 @@ static int do_goffload(int fd, struct ifreq *ifr)
+ 		allfail = 0;
+ 	}
+ 
++	eval.cmd = ETHTOOL_GGRO;
++	ifr->ifr_data = (caddr_t)&eval;
++	err = ioctl(fd, SIOCETHTOOL, ifr);
++	if (err)
++		perror("Cannot get device generic receive offload settings");
++	else {
++		gro = eval.data;
++		allfail = 0;
++	}
++
+ 	eval.cmd = ETHTOOL_GFLAGS;
+ 	ifr->ifr_data = (caddr_t)&eval;
+ 	err = ioctl(fd, SIOCETHTOOL, ifr);
+@@ -1793,7 +1809,7 @@ static int do_goffload(int fd, struct ifreq *ifr)
+ 		return 83;
+ 	}
+ 
+-	return dump_offload(rx, tx, sg, tso, ufo, gso, lro);
++	return dump_offload(rx, tx, sg, tso, ufo, gso, gro, lro);
+ }
+ 
+ static int do_soffload(int fd, struct ifreq *ifr)
+@@ -1870,6 +1886,17 @@ static int do_soffload(int fd, struct ifreq *ifr)
+ 			return 90;
+ 		}
+ 	}
++	if (off_gro_wanted >= 0) {
++		changed = 1;
++		eval.cmd = ETHTOOL_SGRO;
++		eval.data = (off_gro_wanted == 1);
++		ifr->ifr_data = (caddr_t)&eval;
++		err = ioctl(fd, SIOCETHTOOL, ifr);
++		if (err) {
++			perror("Cannot set device generic receive offload settings");
++			return 93;
++		}
++	}
+ 	if (off_lro_wanted >= 0) {
+ 		changed = 1;
+ 		eval.cmd = ETHTOOL_GFLAGS;
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
