@@ -1,59 +1,40 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host communication.
-Date: Sun, 14 Dec 2008 15:23:20 +0300
-Message-ID: <20081214122320.GA32472@ioremap.net>
-References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org
-To: Gleb Natapov <gleb@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [RFC PATCH 0/2] unify full duplex flow control resolution
+Date: Sun, 14 Dec 2008 12:38:19 +0000
+Message-ID: <1229258301-5073-1-git-send-email-steve.glendinning@smsc.com>
+Cc: Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [86.54.240.115] ([86.54.240.115]:59730 "EHLO
+	drevil2.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752447AbYLNMiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 07:38:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gleb.
+4 drivers (tg3, smsc911x, smsc9420 & smsc9500) have identical full 
+duplex flow control resolution functions (primarily because I re-used
+tg3's implementation for the 3 SMSC drivers).  This patchset moves this 
+to an inline function in mii.h and changes the 4 drivers to use it.
 
-On Sun, Dec 14, 2008 at 01:50:55PM +0200, Gleb Natapov (gleb@redhat.com) wrote:
-> There is a need for communication channel between host and various
-> agents that are running inside a VM guest. The channel will be used
-> for statistic gathering, logging, cut & paste, host screen resolution
-> changes notifications, guest configuration etc.
-> 
-> It is undesirable to use TCP/IP for this purpose since network
-> connectivity may not exist between host and guest and if it exists the
-> traffic can be not routable between host and guest for security reasons
-> or TCP/IP traffic can be firewalled (by mistake) by unsuspecting VM user.
-> 
-> This patch implement new address family AF_VMCHANNEL that is used
-> for communication between guest and host. Channels are created at VM
-> start time. Each channel has a name. Agent, that runs on a guest, can
-> send/receive data to/from a channel by creating AF_VMCHANNEL socket and
-> connecting to a channel using channels name as an address.
-> 
-> Only stream sockets are supported by this implementation. Also only
-> connect, sendmsg and recvmsg socket ops are implemented which is enough
-> to allow application running in a guest to connect to a channel created
-> by a host and read/write from/to the channel. This can be extended to
-> allow channel creation from inside a guest by creating listen socket and
-> accepting on it if the need will arise and thus even allow guest<->guest
-> communication in the future (but TCP/IP may be preferable for this).
+It's a small enough function, and it's only used once in each driver,
+but I'm still not completely sure inline is right.  These drivers 
+don't all have a dependency on mii.c though, and I wanted to avoid 
+adding this to the SMSC drivers that have been converted to phylib.
 
-Couple of comments on this.
-First, there is only single virtio device initialized at probe time,
-how this will work on the host system with multiple guests? Is it
-possible to have multiple virtual devices?
-Second, each virtual device has an array of names, and each socket can
-be bound to one of them, but it is not allowed to have multiple sockets
-bound to the same name, so it looks like there is no possibility to have
-several sockets communicating via signel channel, was this intentional?
-And third, tasklet callbacks do not use bh socket locking, and while it
-is not something bad, but rt folks want (dream) to replace it with
-process context, so this at least requires some note in comments.
+--
+Steve Glendinning (2):
+  move flow control definitions to mii.h
+  refactor full duplex flow control resolution
 
-Except that about questions, this patch looks good.
+ drivers/net/smsc911x.c     |   24 +-------------
+ drivers/net/smsc911x.h     |    3 --
+ drivers/net/smsc9420.c     |   24 +-------------
+ drivers/net/smsc9420.h     |    3 --
+ drivers/net/tg3.c          |   74 +++++++++++++++----------------------------
+ drivers/net/tg3.h          |    2 -
+ drivers/net/usb/smsc95xx.c |   26 +---------------
+ include/linux/mii.h        |   33 +++++++++++++++++++
+ 8 files changed, 62 insertions(+), 127 deletions(-)
 
--- 
-	Evgeniy Polyakov
