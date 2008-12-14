@@ -1,54 +1,41 @@
-From: "=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?=" <mirqus@gmail.com>
-Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for negotiation
-Date: Sun, 14 Dec 2008 15:50:30 +0100
-Message-ID: <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com>
-References: <20081208.011917.176472177.davem@davemloft.net>
-	 <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <e2d7436a0812130555r52422bel1dd9b66ba8479e2a@mail.gmail.com>
-	 <20081213145655.GA14240@gerrit.erg.abdn.ac.uk>
+From: "Jaswinder Singh" <jaswinderlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: BUG - ath9k keep on disconnecting in 2.6.28-rc8
+Date: Sun, 14 Dec 2008 20:44:02 +0530
+Message-ID: <3f9a31f40812140714n7e58e0efgbe0f5bdc40214edf@mail.gmail.com>
+References: <3f9a31f40812132354k6f9e7b80o30d3236687dffba0@mail.gmail.com>
+	 <18756.48950.20615.440764@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:35179 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752431AbYLNOud (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 09:50:33 -0500
-In-Reply-To: <20081213145655.GA14240@gerrit.erg.abdn.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org, jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
+To: Sujith <m.sujith-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <18756.48950.20615.440764-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-MjAwOC8xMi8xMyBHZXJyaXQgUmVua2VyIDxnZXJyaXRAZXJnLmFiZG4uYWMudWs+Ogo+IHwgPiAr
-c3RhdGljIGludCBjY2lkX3JlcXVlc3RfbW9kdWxlKHU4IGlkKQo+IHwgPiArewo+IHwgPiArICAg
-ICAgIGlmICghaW5fYXRvbWljKCkpIHsKPiB8ID4gKyAgICAgICAgICAgICAgIGNjaWRzX3JlYWRf
-bG9jaygpOwo+IHwgPiArICAgICAgICAgICAgICAgaWYgKGNjaWRzW2lkXSA9PSBOVUxMKSB7Cj4g
-fCA+ICsgICAgICAgICAgICAgICAgICAgICAgIGNjaWRzX3JlYWRfdW5sb2NrKCk7Cj4gfCA+ICsg
-ICAgICAgICAgICAgICAgICAgICAgIHJldHVybiByZXF1ZXN0X21vZHVsZSgibmV0LWRjY3AtY2Np
-ZC0lZCIsIGlkKTsKPiB8ID4gKyAgICAgICAgICAgICAgIH0KPiB8ID4gKyAgICAgICAgICAgICAg
-IGNjaWRzX3JlYWRfdW5sb2NrKCk7Cj4gfCA+ICsgICAgICAgfQo+IHwgPiArICAgICAgIHJldHVy
-biAwOwo+IHwgPiArfQo+IHwKPiB8IEp1c3QgYSByYW5kb20gdGhvdWdodDogZG9lcyB0aGlzIGxv
-Y2sgcmVhbGx5IGRvIGFueXRoaW5nIHVzZWZ1bCBoZXJlPwo+IHwKPiBSZWFkaW5nIHRoZSAoc2hh
-cmVkKSAnY2NpZHMnIGFycmF5IGlzIHRoZSBzb2x1dGlvbiBjaG9zZW4gdG8gY2hlY2sgd2hldGhl
-cgo+IHRoZSBtb2R1bGUgZm9yIENDSUQgd2l0aCBudW1iZXIgJ2lkJyBpcyBhbHJlYWR5IGxvYWRl
-ZC4KPgo+IEl0IHdvdWxkIGJlIGJhZCB0byBjYWxsIHJlcXVlc3RfbW9kdWxlKCkgZWFjaCB0aW1l
-IGEgbmV3IERDQ1Agc29ja2V0IGlzCj4gb3BlbmVkLiBVc2luZyB0aGUgJ2NjaWRzJyBhcnJheSBt
-YXkgbm90IGJlIHRoZSBvbmx5IHdheSB0byBjaGVjayB3aGV0aGVyCj4gYSBnaXZlbiBtb2R1bGUg
-KHdob3NlIG5hbWUgZGVwZW5kcyBvbiB0aGUgdmFsdWUgb2YgJ2lkJykgaXMgbG9hZGVkLgo+Cj4g
-QnV0IGlmIHRoaXMgc29sdXRpb24gaXMgY2hvc2VuLCB0aGVuIGl0IHJlcXVpcmVzIHRvIHByb3Rl
-Y3QgdGhlIHJlYWQKPiBhY2Nlc3MgdG8gJ2NjaWRzJywgd2hpY2ggaXMgc2hhcmVkIGFtb25nIGFs
-bCBEQ0NQIHNvY2tldHMuCgpTaW5jZSB0aGUgbG9jayBpcyBkcm9wcGVkIGFmdGVyIGNoZWNraW5n
-IGNjaWRzW2lkXSB0aGVuIHRoZXJlJ3MKYSB3aW5kb3cgd2hlcmUgbXVsdGlwbGUgcmVxdWVzdF9t
-b2R1bGUoKXMgY2FuIGJlIGNhbGxlZCBpZiBtdWx0aXBsZQphcHBsaWNhdGlvbnMgY3JlYXRlIGEg
-RENDUCBzb2NrZXQgYXQgYSBzYW1lIHRpbWUuIFRoZSBjb2RlIGJlbG93CnNob3VsZCBkbyB0aGUg
-c2FtZSB3aXRob3V0IGEgbG9jayAoY2NpZHMgaXMgYSBzdGF0aWMgYXJyYXksCnNvIGNjaWRzW05d
-IGlzIGFsd2F5cyBhdCB0aGUgc2FtZSBwbGFjZSkuCgpzdGF0aWMgaW50IGNjaWRfcmVxdWVzdF9t
-b2R1bGUodTggaWQpCnsKICAgICAgIGlmICghaW5fYXRvbWljKCkpIHsKICAgICAgICAgICAgICAg
-cm1iKCk7CiAgICAgICAgICAgICAgIGlmIChjY2lkc1tpZF0gPT0gTlVMTCkKICAgICAgICAgICAg
-ICAgICAgICAgICByZXR1cm4gcmVxdWVzdF9tb2R1bGUoIm5ldC1kY2NwLWNjaWQtJWQiLCBpZCk7
-CiAgICAgICB9CiAgICAgICByZXR1cm4gMDsKfQoKQmVzdCBSZWdhcmRzLApNaWNoYbMgTWlyb3Oz
-YXcK
+Hello Sujith,
+
+On Sun, Dec 14, 2008 at 1:39 PM, Sujith <m.sujith-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>
+> A number of updates have gone into the wireless-testing tree.
+> You can use that tree or compat-wireless to get the latest driver
+> and check if the problem persists.
+>
+
+It seems wireless-testing tree fixed my ath9k problem, I am quite
+happy with it :-)
+
+I am still checking ath9k by using wireless-testing tree with
+different ways and let you know If I face more problems.
+
+Thanks for your help.
+
+Jaswinder Singh.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
