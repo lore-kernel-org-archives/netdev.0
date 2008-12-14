@@ -1,57 +1,39 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] net: Remove a noisy printk
-Date: Sat, 13 Dec 2008 23:13:15 +0100 (CET)
-Message-ID: <alpine.LNX.1.10.0812132310080.27276@fbirervta.pbzchgretzou.qr>
-References: <1229033625-30825-1-git-send-email-ajax@redhat.com> <20081211.203243.124017657.davem@davemloft.net>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: IFF_RUNNING without carrier after reboot
+Date: Sun, 14 Dec 2008 04:28:33 +0100
+Message-ID: <1229225313.22285.151.camel@violet.holtmann.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ajax@redhat.com, linux-kernel@vger.kernel.org, davej@redhat.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:58973 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751372AbYLMWNS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 17:13:18 -0500
-In-Reply-To: <20081211.203243.124017657.davem@davemloft.net>
+Received: from senator.holtmann.net ([87.106.208.187]:42693 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753952AbYLND2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Dec 2008 22:28:42 -0500
+Received: from [192.168.1.42] (p5487FA02.dip.t-dialin.net [84.135.250.2])
+	by mail.holtmann.org (Postfix) with ESMTP id 50817165E42
+	for <netdev@vger.kernel.org>; Sun, 14 Dec 2008 04:28:41 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi guys,
 
-On Friday 2008-12-12 05:32, David Miller wrote:
->From: Adam Jackson <ajax@redhat.com>
->Date: Thu, 11 Dec 2008 17:13:42 -0500
->
->> From: Dave Jones <davej@redhat.com>
->>=20
->> These messages are trivial to trigger when running stress tests
->> like isic, and add no real value.
->>=20
->> Signed-off-by: Dave Jones <davej@redhat.com>
->> Signed-off-by: Adam Jackson <ajax@redhat.com>
->
->If you don't send this to the netfilter developers nor the networking
->developers, noboby knowledgable can even look at this patch.
+I have a really strange issue with the 2.6.28 kernel. So when I boot
+that kernel and then call "ifconfig eth0 up && ifconfig" it shows eth0
+with the flag RUNNING enabled. Even if no cable is plugged into that
+device.
 
-(For the archive, it's not the Internation Student Identity Card)
-http://www.packetfactory.net/Projects/ISIC/ :
+If I then actually do plug on in and wait a few seconds (until the
+lights blink) and then unplug everything is perfectly fine and it
+behaves form there on normal
 
-=E2=80=9CISIC is a suite of utilities to exercise the stability of an I=
-P
-Stack and its component stacks (TCP, UDP, ICMP et. al.) It generates
-piles of pseudo random packets of the target protocol.=E2=80=9D
+It is really only after boot and the 2.6.27 kernel behaves as expected.
+Any ideas what's wrong here. My machine is an X61 laptop with e1000e
+based Ethernet card.
 
->> @@ -147,8 +147,6 @@ static unsigned int ipv4_conntrack_local(unsigne=
-d int hooknum,
->>  	/* root is playing with raw sockets. */
->>  	if (skb->len < sizeof(struct iphdr) ||
->>  	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
->> -		if (net_ratelimit())
->> -			printk("ipt_hook: happy cracking.\n");
->>  		return NF_ACCEPT;
->>  	}
->>  	return nf_conntrack_in(dev_net(out), PF_INET, hooknum, skb);
+Regards
 
-I think this change is ok.
+Marcel
+
+
