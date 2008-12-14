@@ -1,47 +1,45 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] net: Remove a noisy printk
-Date: Sun, 14 Dec 2008 19:06:56 +0100 (CET)
-Message-ID: <alpine.LNX.1.10.0812141905490.10355@fbirervta.pbzchgretzou.qr>
-References: <1229033625-30825-1-git-send-email-ajax@redhat.com> <20081211.203243.124017657.davem@davemloft.net> <alpine.LNX.1.10.0812132310080.27276@fbirervta.pbzchgretzou.qr> <alpine.DEB.2.00.0812141745550.2447@blackhole.kfki.hu>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH 7/8] ethtool: Add GGRO and SGRO ops
+Date: Sun, 14 Dec 2008 11:36:14 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0812141124040.13556@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20081212053116.GA2927@gondor.apana.org.au>
+ <E1LB0d2-0000rq-Dr@gondolin.me.apana.org.au> <1229112677.3051.9.camel@achroite>
+ <20081212214835.GD11046@gondor.apana.org.au> <1229121327.3051.69.camel@achroite>
+ <20081212224954.GA11636@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, ajax@redhat.com,
-	linux-kernel@vger.kernel.org, davej@redhat.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:60656 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976AbYLNSG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 13:06:59 -0500
-In-Reply-To: <alpine.DEB.2.00.0812141745550.2447@blackhole.kfki.hu>
+Received: from mga11.intel.com ([192.55.52.93]:34336 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751284AbYLNTgY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Dec 2008 14:36:24 -0500
+In-Reply-To: <20081212224954.GA11636@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 12 Dec 2008, Herbert Xu wrote:
 
-On Sunday 2008-12-14 18:09, Jozsef Kadlecsik wrote:
->> 
->> >> @@ -147,8 +147,6 @@ static unsigned int ipv4_conntrack_local(unsigned int hooknum,
->> >>  	/* root is playing with raw sockets. */
->> >>  	if (skb->len < sizeof(struct iphdr) ||
->> >>  	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
->> >> -		if (net_ratelimit())
->> >> -			printk("ipt_hook: happy cracking.\n");
->> >>  		return NF_ACCEPT;
->> >>  	}
->> >>  	return nf_conntrack_in(dev_net(out), PF_INET, hooknum, skb);
->> 
->> I think this change is ok.
->
->In a >normal< system one usually does not use raw sockets. So if a root 
->process do use raw socket, at least netfilter sends a notification and 
->there's a chance that someone take notice it by checking the kernel logs.
->[...]
->But should we remove them due to nuisances on >test< systems?
->
->Rather make it a kernel compile option but do not remove.
+> On Fri, Dec 12, 2008 at 10:35:27PM +0000, Ben Hutchings wrote:
+> >
+> > If I'm not mistaken, the whole point of set_flags() is to end the
+> > continued expansion of struct ethtool_ops by another 2 functions for
+> > every new offload feature.  The comments make it fairly clear that Jeff
+> > anticipated that it might be necessary to include such checks for some
+> > flags.
+> 
+> GRO is purely a stack feature so it doesn't need anything in
+> ethtool_ops at all.
 
-This warning is in the conntrack calling code. Iff you play with
-raw sockets and do something wrong, the generic network code
-should barf IMHO, not nf_conntrack, and not [nf_conntrack_ipv4 only].
+I'm confused then.  You're adding two ethtool entry points with 
+ETHTOOL_GGRO and ETHTOOL_SGRO, adding the callpoints in dev_ethtool with 
+set_gro and get_gro, but how do you manipulate this without adding to the 
+userspace application?  Adding this functionality to the set/get_flags 
+will keep the userspace app from needing a patch to support the new 
+callbacks.
+
+Cheers,
+-PJ Waskiewicz
