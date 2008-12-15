@@ -1,129 +1,88 @@
 From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [RFC PATCH 2/9] irda: stack should call irda_get_skb_cb()
-Date: Mon, 15 Dec 2008 02:57:31 +0100
-Message-ID: <20081215015857.180881820@sortiz.org>
+Subject: [RFC PATCH 4/9] irda: reserve irda_skb on sock_alloc_send_skb() skbs
+Date: Mon, 15 Dec 2008 02:57:33 +0100
+Message-ID: <20081215015859.438954905@sortiz.org>
 References: <20081215015729.587697008@sortiz.org>
 Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 42.mail-out.ovh.net ([213.251.189.42]:49968 "HELO
+Received: from 42.mail-out.ovh.net ([213.251.189.42]:34885 "HELO
 	42.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751436AbYLOCDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 21:03:07 -0500
-Content-Disposition: inline; filename=0002-irda-stack-should-call-irda_get_skb_cb.patch
+	with SMTP id S1751606AbYLOCDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 21:03:09 -0500
+Content-Disposition: inline; filename=0004-irda-reserve-irda_skb-on-sock_alloc_send_skb-skbs.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of accessing the irda_skb_cb directly, the stack callers should
-use the irda_get_skb_cb() routine.
+Those skbs are on the TX path, and need to have the irda_skb_cb space
+allocated as well.
 
 Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 ---
- include/net/irda/irda_device.h |    8 ++++----
- net/irda/ircomm/ircomm_lmp.c   |    4 ++--
- net/irda/irlap_frame.c         |    4 +++-
- net/irda/wrapper.c             |    4 +++-
- 4 files changed, 12 insertions(+), 8 deletions(-)
+ net/irda/af_irda.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/irda/irda_device.h b/include/net/irda/irda_device.h
-index 305eb05..3bbf695 100644
---- a/include/net/irda/irda_device.h
-+++ b/include/net/irda/irda_device.h
-@@ -244,7 +244,7 @@ static inline struct irda_skb_cb *irda_get_skb_cb(struct sk_buff *skb)
-  */
- static inline __u16 irda_get_mtt(const struct sk_buff *skb)
- {
--	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->cb;
-+	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->head;
- 	return (cb->magic == LAP_MAGIC) ? cb->mtt : 10000;
- }
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index 61def98..8b0ac27 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -59,6 +59,7 @@
+ #include <net/tcp_states.h>
  
-@@ -257,7 +257,7 @@ static inline __u16 irda_get_mtt(const struct sk_buff *skb)
-  */
- static inline __u32 irda_get_next_speed(const struct sk_buff *skb)
- {
--	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->cb;
-+	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->head;
- 	return (cb->magic == LAP_MAGIC) ? cb->next_speed : -1;
- }
+ #include <net/irda/af_irda.h>
++#include <net/irda/irda_device.h>
  
-@@ -270,7 +270,7 @@ static inline __u32 irda_get_next_speed(const struct sk_buff *skb)
-  */
- static inline __u16 irda_get_xbofs(const struct sk_buff *skb)
- {
--	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->cb;
-+	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->head;
- 	return (cb->magic == LAP_MAGIC) ? cb->xbofs : 10;
- }
+ static int irda_create(struct net *net, struct socket *sock, int protocol);
  
-@@ -283,7 +283,7 @@ static inline __u16 irda_get_xbofs(const struct sk_buff *skb)
-  */
- static inline __u16 irda_get_next_xbofs(const struct sk_buff *skb)
- {
--	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->cb;
-+	const struct irda_skb_cb *cb = (const struct irda_skb_cb *) skb->head;
- 	return (cb->magic == LAP_MAGIC) ? cb->next_xbofs : -1;
- }
- #endif /* IRDA_DEVICE_H */
-diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
-index 407bad3..c463bec 100644
---- a/net/irda/ircomm/ircomm_lmp.c
-+++ b/net/irda/ircomm/ircomm_lmp.c
-@@ -146,7 +146,7 @@ static void ircomm_lmp_flow_control(struct sk_buff *skb)
+@@ -1288,12 +1289,14 @@ static int irda_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		len = self->max_data_size;
+ 	}
  
- 	IRDA_ASSERT(skb != NULL, return;);
+-	skb = sock_alloc_send_skb(sk, len + self->max_header_size + 16,
++	skb = sock_alloc_send_skb(sk, len + self->max_header_size + 16
++				  + sizeof(struct irda_skb_cb),
+ 				  msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (!skb)
+ 		goto out_err;
  
--	cb = (struct irda_skb_cb *) skb->cb;
-+	cb = irda_get_skb_cb(skb);
+-	skb_reserve(skb, self->max_header_size + 16);
++	skb_reserve(skb, self->max_header_size + 16
++		    + sizeof(struct irda_skb_cb));
+ 	skb_reset_transport_header(skb);
+ 	skb_put(skb, len);
+ 	err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
+@@ -1534,12 +1537,13 @@ static int irda_sendmsg_dgram(struct kiocb *iocb, struct socket *sock,
+ 		len = self->max_data_size;
+ 	}
  
- 	IRDA_DEBUG(2, "%s()\n", __func__ );
+-	skb = sock_alloc_send_skb(sk, len + self->max_header_size,
++	skb = sock_alloc_send_skb(sk, len + self->max_header_size
++				  + sizeof(struct irda_skb_cb),
+ 				  msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (!skb)
+ 		return -ENOBUFS;
  
-@@ -187,7 +187,7 @@ static int ircomm_lmp_data_request(struct ircomm_cb *self,
+-	skb_reserve(skb, self->max_header_size);
++	skb_reserve(skb, self->max_header_size + sizeof(struct irda_skb_cb));
+ 	skb_reset_transport_header(skb);
  
- 	IRDA_ASSERT(skb != NULL, return -1;);
+ 	IRDA_DEBUG(4, "%s(), appending user data\n", __func__);
+@@ -1629,12 +1633,13 @@ static int irda_sendmsg_ultra(struct kiocb *iocb, struct socket *sock,
+ 		len = self->max_data_size;
+ 	}
  
--	cb = (struct irda_skb_cb *) skb->cb;
-+	cb = irda_get_skb_cb(skb);
+-	skb = sock_alloc_send_skb(sk, len + self->max_header_size,
++	skb = sock_alloc_send_skb(sk, len + self->max_header_size
++				  + sizeof(struct irda_skb_cb),
+ 				  msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (!skb)
+ 		return -ENOBUFS;
  
- 	cb->line = self->line;
+-	skb_reserve(skb, self->max_header_size);
++	skb_reserve(skb, self->max_header_size + sizeof(struct irda_skb_cb));
+ 	skb_reset_transport_header(skb);
  
-diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
-index bf41ebf..8760af6 100644
---- a/net/irda/irlap_frame.c
-+++ b/net/irda/irlap_frame.c
-@@ -56,7 +56,9 @@ static void irlap_send_i_frame(struct irlap_cb *self, struct sk_buff *skb,
- static inline void irlap_insert_info(struct irlap_cb *self,
- 				     struct sk_buff *skb)
- {
--	struct irda_skb_cb *cb = (struct irda_skb_cb *) skb->cb;
-+	struct irda_skb_cb *cb;
-+
-+	cb = irda_get_skb_cb(skb);
- 
- 	/*
- 	 * Insert MTT (min. turn time) and speed into skb, so that the
-diff --git a/net/irda/wrapper.c b/net/irda/wrapper.c
-index fd0995b..b13cb3b 100644
---- a/net/irda/wrapper.c
-+++ b/net/irda/wrapper.c
-@@ -82,7 +82,7 @@ static inline int stuff_byte(__u8 byte, __u8 *buf)
-  */
- int async_wrap_skb(struct sk_buff *skb, __u8 *tx_buff, int buffsize)
- {
--	struct irda_skb_cb *cb = (struct irda_skb_cb *) skb->cb;
-+	struct irda_skb_cb *cb;
- 	int xbofs;
- 	int i;
- 	int n;
-@@ -91,6 +91,8 @@ int async_wrap_skb(struct sk_buff *skb, __u8 *tx_buff, int buffsize)
- 		__u8 bytes[2];
- 	} fcs;
- 
-+	cb = irda_get_skb_cb(skb);
-+
- 	/* Initialize variables */
- 	fcs.value = INIT_FCS;
- 	n = 0;
+ 	IRDA_DEBUG(4, "%s(), appending user data\n", __func__);
 -- 
 1.6.0.4.766.g6fc4a.dirty
 
