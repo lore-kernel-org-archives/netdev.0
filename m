@@ -1,123 +1,365 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
-	negotiation
-Date: Mon, 15 Dec 2008 11:48:22 -0200
-Message-ID: <20081215134822.GD4775@ghostprotocols.net>
-References: <20081208.011917.176472177.davem@davemloft.net> <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH] Phonet: improve GPRS variable names
+Date: Mon, 15 Dec 2008 16:02:04 +0200
+Message-ID: <1229349724-12905-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:33296 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752592AbYLONsf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 08:48:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from smtp.nokia.com ([192.100.105.134]:40726 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752783AbYLOOCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 09:02:25 -0500
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx09.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id mBFDokqS012779
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 08:02:19 -0600
+Received: from localhost.localdomain (esdhcp041160.research.nokia.com [172.21.41.160])
+	by mgw-int01.ntc.nokia.com (Switch-3.2.5/Switch-3.2.5) with ESMTP id mBFE25QI005970
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 16:02:05 +0200
+In-Reply-To: <>
+References: <>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Sat, Dec 13, 2008 at 02:41:22PM +0100, Gerrit Renker escreveu:
-> This adds auto-loading of CCIDs (when module loading is enabled)
-> for the purpose of feature negotiation.
-> 
-> The problem with loading the CCIDs at the end of feature negotiation is
-> that this would happen in software interrupt context. Besides, if the host
-> advertises CCIDs during negotiation, it should have them ready to use, in
-> case an agreeing peer wants to use it for the connection.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
-> ---
->  net/dccp/ccid.h |    1 +
->  net/dccp/ccid.c |   39 +++++++++++++++++++++++++++++----------
->  net/dccp/feat.c |    5 +++++
->  3 files changed, 35 insertions(+), 10 deletions(-)
-> 
-> --- a/net/dccp/ccid.h
-> +++ b/net/dccp/ccid.h
-> @@ -108,6 +108,7 @@ extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
->  extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
->  					  char __user *, int __user *);
->  
-> +extern int    ccid_request_modules(u8 const *ccid_array, u8 array_len);
->  extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
->  			     gfp_t gfp);
->  
-> --- a/net/dccp/ccid.c
-> +++ b/net/dccp/ccid.c
-> @@ -196,22 +196,41 @@ int ccid_unregister(struct ccid_operations *ccid_ops)
->  
->  EXPORT_SYMBOL_GPL(ccid_unregister);
->  
-> +/**
-> + * ccid_request_module  -  Pre-load CCID module for later use
-> + * This should be called only from process context (e.g. during connection
-> + * setup) and is necessary for later calls to ccid_new (typically in software
-> + * interrupt), so that it has the modules available when they are needed.
-> + */
-> +static int ccid_request_module(u8 id)
-> +{
-> +	if (!in_atomic()) {
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/pep-gprs.c |  170 +++++++++++++++++++++++++----------------=
+--------
+ 1 files changed, 86 insertions(+), 84 deletions(-)
 
-Shouldn't the above be in a BUG_ON? It looks strange to simply refuse to
-do that and return OK. 
+diff --git a/net/phonet/pep-gprs.c b/net/phonet/pep-gprs.c
+index 22848dd..0b640b0 100644
+--- a/net/phonet/pep-gprs.c
++++ b/net/phonet/pep-gprs.c
+@@ -40,7 +40,7 @@ struct gprs_dev {
+ 	void			(*old_data_ready)(struct sock *, int);
+ 	void			(*old_write_space)(struct sock *);
+=20
+-	struct net_device	*net;
++	struct net_device	*dev;
+=20
+ 	struct sk_buff_head	tx_queue;
+ 	struct work_struct	tx_work;
+@@ -72,17 +72,19 @@ static __be16 gprs_type_trans(struct sk_buff *skb)
+=20
+ static void gprs_state_change(struct sock *sk)
+ {
+-	struct gprs_dev *dev =3D sk->sk_user_data;
++	struct gprs_dev *gp =3D sk->sk_user_data;
+=20
+ 	if (sk->sk_state =3D=3D TCP_CLOSE_WAIT) {
+-		netif_stop_queue(dev->net);
+-		netif_carrier_off(dev->net);
++		struct net_device *dev =3D gp->dev;
++
++		netif_stop_queue(dev);
++		netif_carrier_off(dev);
+ 	}
+ }
+=20
+-static int gprs_recv(struct gprs_dev *dev, struct sk_buff *skb)
++static int gprs_recv(struct gprs_dev *gp, struct sk_buff *skb)
+ {
+-	struct net_device *net =3D dev->net;
++	struct net_device *dev =3D gp->dev;
+ 	int err =3D 0;
+ 	__be16 protocol =3D gprs_type_trans(skb);
+=20
+@@ -99,7 +101,7 @@ static int gprs_recv(struct gprs_dev *dev, struct sk=
+_buff *skb)
+ 		 * so wrap the IP packet as a single fragment of an head-less
+ 		 * socket buffer. The network stack will pull what it needs,
+ 		 * but at least, the whole IP payload is not memcpy'd. */
+-		rskb =3D netdev_alloc_skb(net, 0);
++		rskb =3D netdev_alloc_skb(dev, 0);
+ 		if (!rskb) {
+ 			err =3D -ENOBUFS;
+ 			goto drop;
+@@ -123,11 +125,11 @@ static int gprs_recv(struct gprs_dev *dev, struct=
+ sk_buff *skb)
+=20
+ 	skb->protocol =3D protocol;
+ 	skb_reset_mac_header(skb);
+-	skb->dev =3D net;
++	skb->dev =3D dev;
+=20
+-	if (likely(net->flags & IFF_UP)) {
+-		net->stats.rx_packets++;
+-		net->stats.rx_bytes +=3D skb->len;
++	if (likely(dev->flags & IFF_UP)) {
++		dev->stats.rx_packets++;
++		dev->stats.rx_bytes +=3D skb->len;
+ 		netif_rx(skb);
+ 		skb =3D NULL;
+ 	} else
+@@ -136,33 +138,33 @@ static int gprs_recv(struct gprs_dev *dev, struct=
+ sk_buff *skb)
+ drop:
+ 	if (skb) {
+ 		dev_kfree_skb(skb);
+-		net->stats.rx_dropped++;
++		dev->stats.rx_dropped++;
+ 	}
+ 	return err;
+ }
+=20
+ static void gprs_data_ready(struct sock *sk, int len)
+ {
+-	struct gprs_dev *dev =3D sk->sk_user_data;
++	struct gprs_dev *gp =3D sk->sk_user_data;
+ 	struct sk_buff *skb;
+=20
+ 	while ((skb =3D pep_read(sk)) !=3D NULL) {
+ 		skb_orphan(skb);
+-		gprs_recv(dev, skb);
++		gprs_recv(gp, skb);
+ 	}
+ }
+=20
+ static void gprs_write_space(struct sock *sk)
+ {
+-	struct gprs_dev *dev =3D sk->sk_user_data;
+-	struct net_device *net =3D dev->net;
++	struct gprs_dev *gp =3D sk->sk_user_data;
++	struct net_device *dev =3D gp->dev;
+ 	unsigned credits =3D pep_writeable(sk);
+=20
+-	spin_lock_bh(&dev->tx_lock);
+-	dev->tx_max =3D credits;
+-	if (credits > skb_queue_len(&dev->tx_queue) && netif_running(net))
+-		netif_wake_queue(net);
+-	spin_unlock_bh(&dev->tx_lock);
++	spin_lock_bh(&gp->tx_lock);
++	gp->tx_max =3D credits;
++	if (credits > skb_queue_len(&gp->tx_queue) && netif_running(dev))
++		netif_wake_queue(dev);
++	spin_unlock_bh(&gp->tx_lock);
+ }
+=20
+ /*
+@@ -186,9 +188,9 @@ static int gprs_close(struct net_device *dev)
+ 	return 0;
+ }
+=20
+-static int gprs_xmit(struct sk_buff *skb, struct net_device *net)
++static int gprs_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct gprs_dev *dev =3D netdev_priv(net);
++	struct gprs_dev *gp =3D netdev_priv(dev);
+=20
+ 	switch (skb->protocol) {
+ 	case  htons(ETH_P_IP):
+@@ -199,16 +201,16 @@ static int gprs_xmit(struct sk_buff *skb, struct =
+net_device *net)
+ 		return 0;
+ 	}
+=20
+-	spin_lock(&dev->tx_lock);
+-	if (likely(skb_queue_len(&dev->tx_queue) < dev->tx_max)) {
+-		skb_queue_tail(&dev->tx_queue, skb);
++	spin_lock(&gp->tx_lock);
++	if (likely(skb_queue_len(&gp->tx_queue) < gp->tx_max)) {
++		skb_queue_tail(&gp->tx_queue, skb);
+ 		skb =3D NULL;
+ 	}
+-	if (skb_queue_len(&dev->tx_queue) >=3D dev->tx_max)
+-		netif_stop_queue(net);
+-	spin_unlock(&dev->tx_lock);
++	if (skb_queue_len(&gp->tx_queue) >=3D gp->tx_max)
++		netif_stop_queue(dev);
++	spin_unlock(&gp->tx_lock);
+=20
+-	schedule_work(&dev->tx_work);
++	schedule_work(&gp->tx_work);
+ 	if (unlikely(skb))
+ 		dev_kfree_skb(skb);
+ 	return 0;
+@@ -216,16 +218,16 @@ static int gprs_xmit(struct sk_buff *skb, struct =
+net_device *net)
+=20
+ static void gprs_tx(struct work_struct *work)
+ {
+-	struct gprs_dev *dev =3D container_of(work, struct gprs_dev, tx_work)=
+;
+-	struct net_device *net =3D dev->net;
+-	struct sock *sk =3D dev->sk;
++	struct gprs_dev *gp =3D container_of(work, struct gprs_dev, tx_work);
++	struct net_device *dev =3D gp->dev;
++	struct sock *sk =3D gp->sk;
+ 	struct sk_buff *skb;
+=20
+-	while ((skb =3D skb_dequeue(&dev->tx_queue)) !=3D NULL) {
++	while ((skb =3D skb_dequeue(&gp->tx_queue)) !=3D NULL) {
+ 		int err;
+=20
+-		net->stats.tx_bytes +=3D skb->len;
+-		net->stats.tx_packets++;
++		dev->stats.tx_bytes +=3D skb->len;
++		dev->stats.tx_packets++;
+=20
+ 		skb_orphan(skb);
+ 		skb_set_owner_w(skb, sk);
+@@ -234,9 +236,9 @@ static void gprs_tx(struct work_struct *work)
+ 		err =3D pep_write(sk, skb);
+ 		if (err) {
+ 			LIMIT_NETDEBUG(KERN_WARNING"%s: TX error (%d)\n",
+-					net->name, err);
+-			net->stats.tx_aborted_errors++;
+-			net->stats.tx_errors++;
++					dev->name, err);
++			dev->stats.tx_aborted_errors++;
++			dev->stats.tx_errors++;
+ 		}
+ 		release_sock(sk);
+ 	}
+@@ -246,30 +248,30 @@ static void gprs_tx(struct work_struct *work)
+ 	release_sock(sk);
+ }
+=20
+-static int gprs_set_mtu(struct net_device *net, int new_mtu)
++static int gprs_set_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	if ((new_mtu < 576) || (new_mtu > (PHONET_MAX_MTU - 11)))
+ 		return -EINVAL;
+=20
+-	net->mtu =3D new_mtu;
++	dev->mtu =3D new_mtu;
+ 	return 0;
+ }
+=20
+-static void gprs_setup(struct net_device *net)
++static void gprs_setup(struct net_device *dev)
+ {
+-	net->features		=3D NETIF_F_FRAGLIST;
+-	net->type		=3D ARPHRD_NONE;
+-	net->flags		=3D IFF_POINTOPOINT | IFF_NOARP;
+-	net->mtu		=3D GPRS_DEFAULT_MTU;
+-	net->hard_header_len	=3D 0;
+-	net->addr_len		=3D 0;
+-	net->tx_queue_len	=3D 10;
+-
+-	net->destructor		=3D free_netdev;
+-	net->open		=3D gprs_open;
+-	net->stop		=3D gprs_close;
+-	net->hard_start_xmit	=3D gprs_xmit; /* mandatory */
+-	net->change_mtu		=3D gprs_set_mtu;
++	dev->features		=3D NETIF_F_FRAGLIST;
++	dev->type		=3D ARPHRD_NONE;
++	dev->flags		=3D IFF_POINTOPOINT | IFF_NOARP;
++	dev->mtu		=3D GPRS_DEFAULT_MTU;
++	dev->hard_header_len	=3D 0;
++	dev->addr_len		=3D 0;
++	dev->tx_queue_len	=3D 10;
++
++	dev->destructor		=3D free_netdev;
++	dev->open		=3D gprs_open;
++	dev->stop		=3D gprs_close;
++	dev->hard_start_xmit	=3D gprs_xmit; /* mandatory */
++	dev->change_mtu		=3D gprs_set_mtu;
+ }
+=20
+ /*
+@@ -283,28 +285,28 @@ static void gprs_setup(struct net_device *net)
+ int gprs_attach(struct sock *sk)
+ {
+ 	static const char ifname[] =3D "gprs%d";
+-	struct gprs_dev *dev;
+-	struct net_device *net;
++	struct gprs_dev *gp;
++	struct net_device *dev;
+ 	int err;
+=20
+ 	if (unlikely(sk->sk_type =3D=3D SOCK_STREAM))
+ 		return -EINVAL; /* need packet boundaries */
+=20
+ 	/* Create net device */
+-	net =3D alloc_netdev(sizeof(*dev), ifname, gprs_setup);
+-	if (!net)
++	dev =3D alloc_netdev(sizeof(*gp), ifname, gprs_setup);
++	if (!dev)
+ 		return -ENOMEM;
+-	dev =3D netdev_priv(net);
+-	dev->net =3D net;
+-	dev->tx_max =3D 0;
+-	spin_lock_init(&dev->tx_lock);
+-	skb_queue_head_init(&dev->tx_queue);
+-	INIT_WORK(&dev->tx_work, gprs_tx);
+-
+-	netif_stop_queue(net);
+-	err =3D register_netdev(net);
++	gp =3D netdev_priv(dev);
++	gp->dev =3D dev;
++	gp->tx_max =3D 0;
++	spin_lock_init(&gp->tx_lock);
++	skb_queue_head_init(&gp->tx_queue);
++	INIT_WORK(&gp->tx_work, gprs_tx);
++
++	netif_stop_queue(dev);
++	err =3D register_netdev(dev);
+ 	if (err) {
+-		free_netdev(net);
++		free_netdev(dev);
+ 		return err;
+ 	}
+=20
+@@ -318,40 +320,40 @@ int gprs_attach(struct sock *sk)
+ 		err =3D -EINVAL;
+ 		goto out_rel;
+ 	}
+-	sk->sk_user_data	=3D dev;
+-	dev->old_state_change	=3D sk->sk_state_change;
+-	dev->old_data_ready	=3D sk->sk_data_ready;
+-	dev->old_write_space	=3D sk->sk_write_space;
++	sk->sk_user_data	=3D gp;
++	gp->old_state_change	=3D sk->sk_state_change;
++	gp->old_data_ready	=3D sk->sk_data_ready;
++	gp->old_write_space	=3D sk->sk_write_space;
+ 	sk->sk_state_change	=3D gprs_state_change;
+ 	sk->sk_data_ready	=3D gprs_data_ready;
+ 	sk->sk_write_space	=3D gprs_write_space;
+ 	release_sock(sk);
+=20
+ 	sock_hold(sk);
+-	dev->sk =3D sk;
++	gp->sk =3D sk;
+=20
+-	printk(KERN_DEBUG"%s: attached\n", net->name);
+-	return net->ifindex;
++	printk(KERN_DEBUG"%s: attached\n", dev->name);
++	return dev->ifindex;
+=20
+ out_rel:
+ 	release_sock(sk);
+-	unregister_netdev(net);
++	unregister_netdev(dev);
+ 	return err;
+ }
+=20
+ void gprs_detach(struct sock *sk)
+ {
+-	struct gprs_dev *dev =3D sk->sk_user_data;
+-	struct net_device *net =3D dev->net;
++	struct gprs_dev *gp =3D sk->sk_user_data;
++	struct net_device *dev =3D gp->dev;
+=20
+ 	lock_sock(sk);
+ 	sk->sk_user_data	=3D NULL;
+-	sk->sk_state_change	=3D dev->old_state_change;
+-	sk->sk_data_ready	=3D dev->old_data_ready;
+-	sk->sk_write_space	=3D dev->old_write_space;
++	sk->sk_state_change	=3D gp->old_state_change;
++	sk->sk_data_ready	=3D gp->old_data_ready;
++	sk->sk_write_space	=3D gp->old_write_space;
+ 	release_sock(sk);
+=20
+-	printk(KERN_DEBUG"%s: detached\n", net->name);
+-	unregister_netdev(net);
++	printk(KERN_DEBUG"%s: detached\n", dev->name);
++	unregister_netdev(dev);
+ 	sock_put(sk);
+ }
+--=20
+1.5.4.3
 
-> +		ccids_read_lock();
-> +		if (ccids[id] == NULL) {
-> +			ccids_read_unlock();
-> +			return request_module("net-dccp-ccid-%d", id);
-> +		}
-> +		ccids_read_unlock();
-> +	}
-> +	return 0;
-> +}
-> +
-> +int ccid_request_modules(u8 const *ccid_array, u8 array_len)
-> +{
-> +#ifdef CONFIG_MODULES
-> +	while (array_len--)
-> +		if (ccid_request_module(ccid_array[array_len]))
-> +			return -1;
-> +#endif
-> +	return 0;
-> +}
-> +
->  struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
->  {
->  	struct ccid_operations *ccid_ops;
->  	struct ccid *ccid = NULL;
->  
->  	ccids_read_lock();
-> -#ifdef CONFIG_MODULES
-> -	if (ccids[id] == NULL) {
-> -		/* We only try to load if in process context */
-> -		ccids_read_unlock();
-> -		if (gfp & GFP_ATOMIC)
-> -			goto out;
-> -		request_module("net-dccp-ccid-%d", id);
-> -		ccids_read_lock();
-> -	}
-> -#endif
->  	ccid_ops = ccids[id];
->  	if (ccid_ops == NULL)
->  		goto out_unlock;
-> --- a/net/dccp/feat.c
-> +++ b/net/dccp/feat.c
-> @@ -1163,6 +1163,11 @@ int dccp_feat_init(struct sock *sk)
->  	    ccid_get_builtin_ccids(&rx.val, &rx.len))
->  		return -ENOBUFS;
->  
-> +	/* Pre-load all CCID modules that are going to be advertised */
-> +	rc = -EUNATCH;
-> +	if (ccid_request_modules(tx.val, tx.len))
-> +		goto free_ccid_lists;
-> +
->  	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
->  	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
->  		goto free_ccid_lists;
-> --
-> To unsubscribe from this list: send the line "unsubscribe dccp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
