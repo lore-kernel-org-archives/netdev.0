@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 21/29] i2400m/USB: firmware upload backend
-Date: Mon, 15 Dec 2008 04:58:16 -0800
-Message-ID: <2ff3ca3c08f1414e28466d3d92e551936d8a542b.1229345779.git.inaky@linux.intel.com>
+Subject: [PATCH 25/29] i2400m/SDIO: firmware upload backend
+Date: Mon, 15 Dec 2008 04:58:20 -0800
+Message-ID: <f8e1f6d5acbdf6692f1d138139146cfd38705b31.1229345780.git.inaky@linux.intel.com>
 References: <cover.1229345769.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,23 +19,23 @@ Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
 This implements the backends for the generic driver (i2400m) to be
-able to load firmware to the USB device.
+able to load firmware to the SDIO device.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/usb-fw.c |  340 +++++++++++++++++++++++++++++++++++++
- 1 files changed, 340 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/usb-fw.c
+ drivers/net/wimax/i2400m/sdio-fw.c |  224 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 224 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
 
-diff --git a/drivers/net/wimax/i2400m/usb-fw.c b/drivers/net/wimax/i2400m/usb-fw.c
+diff --git a/drivers/net/wimax/i2400m/sdio-fw.c b/drivers/net/wimax/i2400m/sdio-fw.c
 new file mode 100644
-index 0000000..5ad287c
+index 0000000..3487205
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/usb-fw.c
-@@ -0,0 +1,340 @@
++++ b/drivers/net/wimax/i2400m/sdio-fw.c
+@@ -0,0 +1,224 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * Firmware uploader's USB specifics
++ * Firmware uploader's SDIO specifics
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
@@ -73,141 +73,76 @@ index 0000000..5ad287c
 + *  - Initial implementation
 + *
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *  - bus generic/specific split
++ *  - Bus generic/specific split for USB
++ *
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
++ *  - Initial implementation for SDIO
++ *
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *  - SDIO rehash for changes in the bus-driver model
 + *
 + * THE PROCEDURE
 + *
 + * See fw.c for the generic description of this procedure.
 + *
-+ * This file implements only the USB specifics. It boils down to how
++ * This file implements only the SDIO specifics. It boils down to how
 + * to send a command and waiting for an acknowledgement from the
-+ * device.
-+ *
-+ * This code (and process) is single threaded. It assumes it is the
-+ * only thread poking around (guaranteed by fw.c).
++ * device. We do polled reads.
 + *
 + * COMMAND EXECUTION
 + *
-+ * A write URB is posted with the buffer to the bulk output endpoint.
++ * THe generic firmware upload code will call i2400m_bus_bm_cmd_send()
++ * to send commands.
++ *
++ * The SDIO devices expects things in 256 byte blocks, so it will pad
++ * it, compute the checksum (if needed) and pass it to SDIO.
 + *
 + * ACK RECEPTION
 + *
-+ * We just post a URB to the notification endpoint and wait for
-+ * data. We repeat until we get all the data we expect (as indicated
-+ * by the call from the bus generic code).
++ * This works in polling mode -- the fw loader says when to wait for
++ * data and for that it calls i2400ms_bus_bm_wait_for_ack().
 + *
-+ * The data is not read from the bulk in endpoint for boot mode.
-+ *
-+ * ROADMAP
-+ *
-+ * i2400mu_bus_bm_cmd_send
-+ *   i2400m_bm_cmd_prepare...
-+ *   i2400mu_tx_bulk_out
-+ *
-+ * i2400mu_bus_bm_wait_for_ack
-+ *   i2400m_notif_submit
++ * This will poll the device for data until it is received. We need to
++ * receive at least as much bytes as where asked for (although it'll
++ * always be a multiple of 256 bytes).
 + */
-+#include <linux/usb.h>
-+#include "i2400m-usb.h"
++#include <linux/mmc/sdio_func.h>
++#include "i2400m-sdio.h"
 +
 +
 +#define D_SUBMODULE fw
-+#include "usb-debug-levels.h"
-+
-+
-+/*
-+ * Synchronous write to the device
-+ *
-+ * Takes care of updating EDC counts and thus, handle device errors.
-+ */
-+static
-+ssize_t i2400mu_tx_bulk_out(struct i2400mu *i2400mu, void *buf, size_t buf_size)
-+{
-+	int result;
-+	struct device *dev = &i2400mu->usb_iface->dev;
-+	int len;
-+	struct usb_endpoint_descriptor *epd;
-+	int pipe, do_autopm = 1;
-+
-+	result = usb_autopm_get_interface(i2400mu->usb_iface);
-+	if (result < 0) {
-+		dev_err(dev, "BM-CMD: can't get autopm: %d\n", result);
-+		do_autopm = 0;
-+	}
-+	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_BULK_OUT);
-+	pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
-+retry:
-+	result = usb_bulk_msg(i2400mu->usb_dev, pipe, buf, buf_size, &len, HZ);
-+	switch (result) {
-+	case 0:
-+		if (len != buf_size) {
-+			dev_err(dev, "BM-CMD: short write (%u B vs %zu "
-+				"expected)\n", len, buf_size);
-+			result = -EIO;
-+			break;
-+		}
-+		result = len;
-+		break;
-+	case -EINVAL:			/* while removing driver */
-+	case -ENODEV:			/* dev disconnect ... */
-+	case -ENOENT:			/* just ignore it */
-+	case -ESHUTDOWN:		/* and exit */
-+	case -ECONNRESET:
-+		result = -ESHUTDOWN;
-+		break;
-+	case -ETIMEDOUT:			/* bah... */
-+		break;
-+	default:				/* any other? */
-+		if (edc_inc(&i2400mu->urb_edc,
-+			    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME)) {
-+				dev_err(dev, "BM-CMD: maximum errors in "
-+					"URB exceeded; resetting device\n");
-+				usb_queue_reset_device(i2400mu->usb_iface);
-+				result = -ENODEV;
-+				break;
-+		}
-+		dev_err(dev, "BM-CMD: URB error %d, retrying\n",
-+			result);
-+		goto retry;
-+	}
-+	result = len;
-+	if (do_autopm)
-+		usb_autopm_put_interface(i2400mu->usb_iface);
-+	return result;
-+}
-+
++#include "sdio-debug-levels.h"
 +
 +/*
-+ * Send a boot-mode command over the bulk-out pipe
++ * Send a boot-mode command to the SDIO function
 + *
-+ * Command can be a raw command, which requires no preparation (and
-+ * which might not even be following the command format). Checks that
-+ * the right amount of data was transfered.
-+ *
-+ * To satisfy USB requirements (no onstack, vmalloc or in data segment
-+ * buffers), we copy the command to i2400m->bm_cmd_buf and send it from
-+ * there.
++ * We use a bounce buffer (i2400m->bm_cmd_buf) because we need to
++ * touch the header if the RAW flag is not set.
 + *
 + * @flags: pass thru from i2400m_bm_cmd()
 + * @return: cmd_size if ok, < 0 errno code on error.
++ *
++ * Note the command is padded to the SDIO block size for the device.
 + */
-+ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *i2400m,
++ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *i2400m,
 +				const struct i2400m_bootrom_header *_cmd,
 +				size_t cmd_size, int flags)
 +{
 +	ssize_t result;
 +	struct device *dev = i2400m_dev(i2400m);
-+	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
 +	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
 +	struct i2400m_bootrom_header *cmd;
-+	size_t cmd_size_a = ALIGN(cmd_size, 16);	/* USB restriction */
++	/* SDIO restriction */
++	size_t cmd_size_a = ALIGN(cmd_size, I2400MS_BLK_SIZE);
 +
-+	d_fnstart(8, dev, "(i2400m %p cmd %p size %zu)\n",
++	d_fnstart(5, dev, "(i2400m %p cmd %p size %zu)\n",
 +		  i2400m, _cmd, cmd_size);
 +	result = -E2BIG;
 +	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
 +		goto error_too_big;
-+	memcpy(i2400m->bm_cmd_buf, _cmd, cmd_size);
++
++	memcpy(i2400m->bm_cmd_buf, _cmd, cmd_size);	/* Prep command */
 +	cmd = i2400m->bm_cmd_buf;
 +	if (cmd_size_a > cmd_size)			/* Zero pad space */
 +		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
@@ -216,63 +151,30 @@ index 0000000..5ad287c
 +			dev_warn(dev, "SW BUG: response_required == 0\n");
 +		i2400m_bm_cmd_prepare(cmd);
 +	}
-+	result = i2400mu_tx_bulk_out(i2400mu, i2400m->bm_cmd_buf, cmd_size);
++	d_printf(4, dev, "BM cmd %d: %zu bytes (%zu padded)\n",
++		 opcode, cmd_size, cmd_size_a);
++	d_dump(5, dev, cmd, cmd_size);
++
++	sdio_claim_host(i2400ms->func);			/* Send & check */
++	result = sdio_memcpy_toio(i2400ms->func, I2400MS_DATA_ADDR,
++				  i2400m->bm_cmd_buf, cmd_size_a);
++	sdio_release_host(i2400ms->func);
 +	if (result < 0) {
-+		dev_err(dev, "boot-mode cmd %d: cannot send: %zd\n",
-+			opcode, result);
++		dev_err(dev, "BM cmd %d: cannot send: %ld\n",
++			opcode, (long) result);
 +		goto error_cmd_send;
 +	}
-+	if (result != cmd_size) {		/* all was transferred? */
-+		dev_err(dev, "boot-mode cmd %d: incomplete transfer "
-+			"(%zu vs %zu submitted)\n",  opcode, result, cmd_size);
-+		result = -EIO;
-+		goto error_cmd_size;
-+	}
-+error_cmd_size:
++	result = cmd_size;
 +error_cmd_send:
 +error_too_big:
-+	d_fnend(8, dev, "(i2400m %p cmd %p size %zu) = %zd\n",
-+		i2400m, _cmd, cmd_size, result);
++	d_fnend(5, dev, "(i2400m %p cmd %p size %zu) = %d\n",
++		i2400m, _cmd, cmd_size, (int) result);
 +	return result;
 +}
 +
 +
-+static
-+void __i2400mu_bm_notif_cb(struct urb *urb)
-+{
-+	complete(urb->context);
-+}
-+
-+
 +/*
-+ * submit a read to the notification endpoint
-+ *
-+ * @i2400m: device descriptor
-+ * @urb: urb to use
-+ * @completion: completion varible to complete when done
-+ *
-+ * Data is always read to i2400m->bm_ack_buf
-+ */
-+static
-+int i2400mu_notif_submit(struct i2400mu *i2400mu, struct urb *urb,
-+			 struct completion *completion)
-+{
-+	struct i2400m *i2400m = &i2400mu->i2400m;
-+	struct usb_endpoint_descriptor *epd;
-+	int pipe;
-+
-+	epd = usb_get_epd(i2400mu->usb_iface, I2400MU_EP_NOTIFICATION);
-+	pipe = usb_rcvintpipe(i2400mu->usb_dev, epd->bEndpointAddress);
-+	usb_fill_int_urb(urb, i2400mu->usb_dev, pipe,
-+			 i2400m->bm_ack_buf, I2400M_BM_ACK_BUF_SIZE,
-+			 __i2400mu_bm_notif_cb, completion,
-+			 epd->bInterval);
-+	return usb_submit_urb(urb, GFP_KERNEL);
-+}
-+
-+
-+/*
-+ * Read an ack from  the notification endpoint
++ * Read an ack from the device's boot-mode (polling)
 + *
 + * @i2400m:
 + * @_ack: pointer to where to store the read data
@@ -280,98 +182,80 @@ index 0000000..5ad287c
 + *
 + * Returns: < 0 errno code on error; otherwise, amount of received bytes.
 + *
-+ * Submits a notification read, appends the read data to the given ack
-+ * buffer and then repeats (until @ack_size bytes have been
-+ * received).
++ * The ACK for a BM command is always at least sizeof(*ack) bytes, so
++ * check for that. We don't need to check for device reboots
++ *
++ * NOTE: We do an artificial timeout of 1 sec over the SDIO timeout;
++ *     this way we have control over it...there is no way that I know
++ *     of setting an SDIO transaction timeout.
 + */
-+ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *i2400m,
-+				    struct i2400m_bootrom_header *_ack,
++ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *i2400m,
++				    struct i2400m_bootrom_header *ack,
 +				    size_t ack_size)
 +{
-+	ssize_t result = -ENOMEM;
-+	struct device *dev = i2400m_dev(i2400m);
-+	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
-+	struct urb notif_urb;
-+	void *ack = _ack;
-+	size_t offset, len;
-+	long val;
-+	int do_autopm = 1;
-+	DECLARE_COMPLETION_ONSTACK(notif_completion);
++	int result;
++	ssize_t rx_size;
++	u64 timeout;
++	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
++	struct sdio_func *func = i2400ms->func;
++	struct device *dev = &func->dev;
 +
-+	d_fnstart(8, dev, "(i2400m %p ack %p size %zu)\n",
++	BUG_ON(sizeof(*ack) > ack_size);
++
++	d_fnstart(5, dev, "(i2400m %p ack %p size %zu)\n",
 +		  i2400m, ack, ack_size);
-+	BUG_ON(_ack == i2400m->bm_ack_buf);
-+	result = usb_autopm_get_interface(i2400mu->usb_iface);
-+	if (result < 0) {
-+		dev_err(dev, "BM-ACK: can't get autopm: %d\n", (int) result);
-+		do_autopm = 0;
-+	}
-+	usb_init_urb(&notif_urb);	/* ready notifications */
-+	usb_get_urb(&notif_urb);
-+	offset = 0;
-+	while (offset < ack_size) {
-+		init_completion(&notif_completion);
-+		result = i2400mu_notif_submit(i2400mu, &notif_urb,
-+					      &notif_completion);
-+		if (result < 0)
-+			goto error_notif_urb_submit;
-+		val = wait_for_completion_interruptible_timeout(
-+			&notif_completion, HZ);
-+		if (val == 0) {
-+			result = -ETIMEDOUT;
-+			usb_kill_urb(&notif_urb);	/* Timedout */
-+			goto error_notif_wait;
-+		}
-+		if (val == -ERESTARTSYS) {
-+			result = -EINTR;		/* Interrupted */
-+			usb_kill_urb(&notif_urb);
-+			goto error_notif_wait;
-+		}
-+		result = notif_urb.status;		/* How was the ack? */
-+		switch (result) {
-+		case 0:
-+			break;
-+		case -EINVAL:			/* while removing driver */
-+		case -ENODEV:			/* dev disconnect ... */
-+		case -ENOENT:			/* just ignore it */
-+		case -ESHUTDOWN:		/* and exit */
-+		case -ECONNRESET:
-+			result = -ESHUTDOWN;
-+			goto error_dev_gone;
-+		default:				/* any other? */
-+			usb_kill_urb(&notif_urb);	/* Timedout */
-+			if (edc_inc(&i2400mu->urb_edc,
-+				    EDC_MAX_ERRORS, EDC_ERROR_TIMEFRAME))
-+				goto error_exceeded;
-+			dev_err(dev, "BM-ACK: URB error %d, "
-+				"retrying\n", notif_urb.status);
-+			continue;	/* retry */
-+		}
-+		if (notif_urb.actual_length == 0) {
-+			d_printf(6, dev, "ZLP received, retrying\n");
-+			continue;
-+		}
-+		/* Got data, append it to the buffer */
-+		len = min(ack_size - offset, (size_t) notif_urb.actual_length);
-+		memcpy(ack + offset, i2400m->bm_ack_buf, len);
-+		offset += len;
-+	}
-+	result = offset;
-+error_notif_urb_submit:
-+error_notif_wait:
-+error_dev_gone:
-+out:
-+	if (do_autopm)
-+		usb_autopm_put_interface(i2400mu->usb_iface);
-+	d_fnend(8, dev, "(i2400m %p ack %p size %zu) = %zd\n",
-+		i2400m, ack, ack_size, result);
-+	return result;
 +
-+error_exceeded:
-+	dev_err(dev, "bm: maximum errors in notification URB exceeded; "
-+		"resetting device\n");
-+	usb_queue_reset_device(i2400mu->usb_iface);
-+	goto out;
++	timeout = get_jiffies_64() + 2 * HZ;
++	sdio_claim_host(func);
++	while (1) {
++		if (time_after64(get_jiffies_64(), timeout)) {
++			rx_size = -ETIMEDOUT;
++			dev_err(dev, "timeout waiting for ack data\n");
++			goto error_timedout;
++		}
++
++		/* Find the RX size, check if it fits or not -- it if
++		 * doesn't fit, fail, as we have no way to dispose of
++		 * the extra data. */
++		rx_size = __i2400ms_rx_get_size(i2400ms);
++		if (rx_size < 0)
++			goto error_rx_get_size;
++		result = -ENOSPC;		/* Check it fits */
++		if (rx_size < sizeof(*ack)) {
++			rx_size = -EIO;
++			dev_err(dev, "HW BUG? received is too small (%zu vs "
++				"%zu needed)\n", sizeof(*ack), rx_size);
++			goto error_too_small;
++		}
++		if (rx_size > I2400M_BM_ACK_BUF_SIZE) {
++			dev_err(dev, "SW BUG? BM_ACK_BUF is too small (%u vs "
++				"%zu needed)\n", I2400M_BM_ACK_BUF_SIZE,
++				rx_size);
++			goto error_too_small;
++		}
++
++		/* Read it */
++		result = sdio_memcpy_fromio(func, i2400m->bm_ack_buf,
++					    I2400MS_DATA_ADDR, rx_size);
++		if (result == -ETIMEDOUT || result == -ETIME)
++			continue;
++		if (result < 0) {
++			dev_err(dev, "BM SDIO receive (%zu B) failed: %d\n",
++				rx_size, result);
++			goto error_read;
++		} else
++			break;
++	}
++	rx_size = min((ssize_t)ack_size, rx_size);
++	memcpy(ack, i2400m->bm_ack_buf, rx_size);
++error_read:
++error_too_small:
++error_rx_get_size:
++error_timedout:
++	sdio_release_host(func);
++	d_fnend(5, dev, "(i2400m %p ack %p size %zu) = %ld\n",
++		i2400m, ack, ack_size, (long) rx_size);
++	return rx_size;
 +}
 -- 
 1.5.6.5
