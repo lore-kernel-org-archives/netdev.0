@@ -1,75 +1,108 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host communication.
-Date: Mon, 15 Dec 2008 17:01:14 -0600
-Message-ID: <4946E1BA.80206@codemonkey.ws>
-References: <4946717F.2090809@codemonkey.ws>	<20081215.114315.165733593.davem@davemloft.net>	<4946C1AA.4080404@codemonkey.ws> <20081215.142918.190909950.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for December 12 (netdev ops)
+Date: Mon, 15 Dec 2008 15:07:02 -0800 (PST)
+Message-ID: <20081215.150702.187335926.davem@davemloft.net>
+References: <20081212185654.0af8b4a1.sfr@canb.auug.org.au>
+	<494498ED.7080903@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gleb@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:39546 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751691AbYLOXBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 18:01:24 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so1229306yxm.1
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 15:01:22 -0800 (PST)
-In-Reply-To: <20081215.142918.190909950.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com, alan@lxorguk.ukuu.org.uk
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <494498ED.7080903@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Anthony Liguori <anthony@codemonkey.ws>
-> Date: Mon, 15 Dec 2008 14:44:26 -0600
->
->   
->> We want this communication mechanism to be simple and reliable as we
->> want to implement the backends drivers in the host userspace with
->> minimum mess.
->>     
->
-> One implication of your statement here is that TCP is unreliable.
-> That's absolutely not true.
->   
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Sat, 13 Dec 2008 21:26:05 -0800
 
-No, TCP falls under the not simple category because it requires the 
-backend to have access to a TCP/IP stack.
+> If hplan is built-in, this build error can happen:
+> 
+> build-r7084.out:8390p.c:(.text+0xfd9aa): undefined reference to `ei_start_xmit'
+> build-r7084.out:8390p.c:(.text+0xfd9b6): undefined reference to `ei_get_stats'
+> build-r7084.out:8390p.c:(.text+0xfd9c6): undefined reference to `ei_set_multicast_list'
+> 
+> since hplan uses 8390p.c, which uses lib8390.c, but the latter always uses:
+> 
+> #ifdef CONFIG_COMPAT_NET_DEV_OPS
+> 	dev->hard_start_xmit = ei_start_xmit;
+> 	dev->get_stats	= ei_get_stats;
+> 	dev->set_multicast_list = ei_set_multicast_list;
+> 	dev->tx_timeout = __ei_tx_timeout;
+> #endif
+> 
+> However, those ei_* functions should be eip_* in this case.
+> How to do that??
 
->> Within the guest, we need the interface to be always available and
->> we need an addressing scheme that is hypervisor specific.  Yes, we
->> can build this all on top of TCP/IP.  We could even build it on top
->> of a serial port.  Both have their down-sides wrt reliability and
->> complexity.
->>     
->
-> I don't know of any zero-copy through the hypervisor mechanisms for
-> serial ports, but I know we do that with the various virtualization
-> network devices.
->   
+Thanks for your report Randy, I'll try to fix this.
 
-Yes, and I went down the road of using a dedicated network device and 
-using raw ethernet as the protocol.  The thing that killed that was the 
-fact that it's not reliable.  You need something like TCP to add 
-reliability.
+These assignments need to be pushed into the 8390.c and
+8390p.c code.
 
-But that's a lot of work and a bit backwards.  Use a unreliable 
-transport but use TCP on top of it to get reliability.  Our link 
-(virtio) is inherently reliable so why not just expose a reliable 
-interface to userspace?
+The fix will look something like the following.  I'll
+do some sanity builds and commit this to net-next-2.6
 
->> Do you have another recommendation?
->>     
->
-> I don't have to make alternative recommendations until you can
-> show that what we have can't solve the problem acceptably, and
-> TCP emphatically can.
->   
-
-It can solve the problem but I don't think it's the best way to solve 
-the problem mainly because the complexity it demands on the backend.
-
-Regards,
-
-Anthony Liguori
+diff --git a/drivers/net/8390.c b/drivers/net/8390.c
+index 029ad08..fbe609a 100644
+--- a/drivers/net/8390.c
++++ b/drivers/net/8390.c
+@@ -72,7 +72,16 @@ EXPORT_SYMBOL(ei_netdev_ops);
+ 
+ struct net_device *__alloc_ei_netdev(int size)
+ {
+-	return ____alloc_ei_netdev(size);
++	struct net_device *dev = ____alloc_ei_netdev(size);
++#ifdef CONFIG_COMPAT_NET_DEV_OPS
++	if (dev) {
++		dev->hard_start_xmit = ei_start_xmit;
++		dev->get_stats	= ei_get_stats;
++		dev->set_multicast_list = ei_set_multicast_list;
++		dev->tx_timeout = ei_tx_timeout;
++	}
++#endif
++	return dev;
+ }
+ EXPORT_SYMBOL(__alloc_ei_netdev);
+ 
+diff --git a/drivers/net/8390p.c b/drivers/net/8390p.c
+index 9c916d4..ee70b35 100644
+--- a/drivers/net/8390p.c
++++ b/drivers/net/8390p.c
+@@ -77,7 +77,16 @@ EXPORT_SYMBOL(eip_netdev_ops);
+ 
+ struct net_device *__alloc_eip_netdev(int size)
+ {
+-	return ____alloc_ei_netdev(size);
++	struct net_device *dev = ____alloc_ei_netdev(size);
++#ifdef CONFIG_COMPAT_NET_DEV_OPS
++	if (dev) {
++		dev->hard_start_xmit = eip_start_xmit;
++		dev->get_stats	= eip_get_stats;
++		dev->set_multicast_list = eip_set_multicast_list;
++		dev->tx_timeout = eip_tx_timeout;
++	}
++#endif
++	return dev;
+ }
+ EXPORT_SYMBOL(__alloc_eip_netdev);
+ 
+diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
+index 1d36ca4..789b6cb 100644
+--- a/drivers/net/lib8390.c
++++ b/drivers/net/lib8390.c
+@@ -1010,12 +1010,6 @@ static void ethdev_setup(struct net_device *dev)
+ 	if (ei_debug > 1)
+ 		printk(version);
+ 
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	dev->hard_start_xmit = ei_start_xmit;
+-	dev->get_stats	= ei_get_stats;
+-	dev->set_multicast_list = ei_set_multicast_list;
+-	dev->tx_timeout = __ei_tx_timeout;
+-#endif
+ 	ether_setup(dev);
+ 
+ 	spin_lock_init(&ei_local->page_lock);
