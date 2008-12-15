@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host
- communication.
-Date: Mon, 15 Dec 2008 14:29:18 -0800 (PST)
-Message-ID: <20081215.142918.190909950.davem@davemloft.net>
-References: <4946717F.2090809@codemonkey.ws>
-	<20081215.114315.165733593.davem@davemloft.net>
-	<4946C1AA.4080404@codemonkey.ws>
+Subject: Re: [PATCH v2] isdn: eicon: fix sparse warning: make global
+ functions static
+Date: Mon, 15 Dec 2008 14:40:34 -0800 (PST)
+Message-ID: <20081215.144034.37712353.davem@davemloft.net>
+References: <49463d0c.09c5660a.36f7.ffffc710@mx.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gleb@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
-To: anthony@codemonkey.ws
+Cc: kkeil@suse.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: hannes@hanneseder.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33505
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34694
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751712AbYLOW3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 17:29:16 -0500
-In-Reply-To: <4946C1AA.4080404@codemonkey.ws>
+	by vger.kernel.org with ESMTP id S1751657AbYLOWkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 17:40:32 -0500
+In-Reply-To: <49463d0c.09c5660a.36f7.ffffc710@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anthony Liguori <anthony@codemonkey.ws>
-Date: Mon, 15 Dec 2008 14:44:26 -0600
+From: Hannes Eder <hannes@hanneseder.net>
+Date: Thu, 11 Dec 2008 17:59:14 +0100
 
-> We want this communication mechanism to be simple and reliable as we
-> want to implement the backends drivers in the host userspace with
-> minimum mess.
+> Fix this sparse warnings by making the functions static:
 
-One implication of your statement here is that TCP is unreliable.
-That's absolutely not true.
+Can you please fix the date on your computer, it should
+have been Dec 14th or 15th when you posted this :-/
 
-> Within the guest, we need the interface to be always available and
-> we need an addressing scheme that is hypervisor specific.  Yes, we
-> can build this all on top of TCP/IP.  We could even build it on top
-> of a serial port.  Both have their down-sides wrt reliability and
-> complexity.
+This is screwing up the ordering of patches on patchwork,
+since it sorts them by date, and that's how I prioritize
+my work as a result.
 
-I don't know of any zero-copy through the hypervisor mechanisms for
-serial ports, but I know we do that with the various virtualization
-network devices.
-
-> Do you have another recommendation?
-
-I don't have to make alternative recommendations until you can
-show that what we have can't solve the problem acceptably, and
-TCP emphatically can.
+Thanks!
