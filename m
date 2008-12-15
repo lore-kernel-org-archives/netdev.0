@@ -1,107 +1,72 @@
-From: "watson" <watsonlll@gmail.com>
-Subject: Fw: [problem] Duplicate IP and MAC address ARP issue
-Date: Mon, 15 Dec 2008 23:36:48 +0800
-Message-ID: <200812152336426873222@gmail.com>
-References: <200812151605286405450@gmail.com>
-Reply-To: watsonlll@gmail.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter: ctnetlink: fix missing CTA_NAT_SEQ_UNSPEC
+Date: Mon, 15 Dec 2008 16:42:04 +0100
+Message-ID: <49467ACC.8080107@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.188]:41422 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301AbYLOPfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 10:35:38 -0500
-Received: by ti-out-0910.google.com with SMTP id b6so1762746tic.23
-        for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 07:35:35 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------090302020200080507080306"
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Z3V5cywNCg0KSSBiZWxpZXZlIHRoZXJlIGFyZSBzb21lIGNvZGUgaW4gbGludXgga2VybmVsIHdo
-aWNoIGxlYWQgdG8gdGhpcyBpc3N1ZSwgYnV0IGNhbiBub3QgZmluZCBpdCBvdXQuDQpJcyB0aGVy
-ZSBhbnlib2R5IHdobyBmYW1pbGlhciB3aXRoIGtlcm5lbC1uZXQgY29kZSwgcGxlYXNlIGhlbHAg
-dG8gdGFrZSBhIGxvb2sgYXQgdGhpcyBwcm9ibGVtIGFuZCBnaXZlIG1lIHNvbWUgYWR2aWNlLCB0
-aGFuayB5b3UhDQoNCkJlc3QgcmVnYXJkcywgCQkJCQ0KV2F0c29uDQoNCjIwMDgtMTItMTUNCi0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KRW1haWw6IHdhdHNvbmxsbEBnbWFpbC5j
-b20NCg0KLS0tLS0tLS0tLS0tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLS0tLS0tLS0tLS0tDQpG
-cm9tOiB3YXRzb24gW21haWx0b6O6d2F0c29ubGxsQGdtYWlsLmNvbV0NCg0KPkRlYXIgZ3V5cywN
-Cj4NCj5JIGFtIGJ1aWxkaW5nIGEgbGludXggYm94IGJhc2Ugb24gbGludXgga2VybmVsIDIuNC4z
-MSBhbmQgSSBjYW4gbW9kaWZ5IHRoZSBzb3VyY2UgY29kZSBidXQgY2FuIG5vdCBjaGFuZ2UgdG8g
-b3RoZXIgdmVyc2lvbi4NCj5ldmV5dGhpbmcgaXMgb2sgdW50aWwgSSBjb25uZWN0IG15IGJveCB0
-byBOZXRnZWFyIFBPRSBzd2l0Y2gsIHRoaXMgc3dpdGNoIHdpbGwgc2VuZCBBUlAgcmVxdWVzdCBw
-YWNrZXQgYmFjayB0byBib3gsIA0KPnRoZW4gYm94J3MgbmV0d29yayB3aWxsICJkb3duIiwgYW5k
-IGNhbiBub3Qgc2VuZCBvdXQgYW55IElQIHBhY2tldCBleGNlcHQgQVJQLiANCj4NCj50ZXN0IGVu
-dmlyb25tZW50Og0KPi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0NCj58ICAgICAgICAgICAgICAgIDEwTWJwcyBIVUIgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICB8DQo+fCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgfA0KPi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0NCj4gICAgICAgICAgfCAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAgICAg
-ICAgIHwNCj4gICAgICAgICAgfCAgICAgICAgICAgICAgICAgICAgIHwgICAgICAgICAgICAgICAg
-IHwNCj4tLS0tLS0tLS0tLS0tLS0tLS0tLS0gICB8ICAgIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0N
-Cj58IExpbnV4IDIuNC4zMSAgICAgICAgICB8ICAgfCAgIHwgTmV0Z2VhciBQT0Ugc3dpdGNoIHwN
-Cj58IDE5Mi4xNjguMC4xNTUgICAgICAgfCAgIHwgICB8ICAgICAgIEZTMTA4UCAgICAgICAgICAg
-IHwNCj58IDAwOjBlOmU5OjgwOjIyOjYwIHwgICB8ICAgfCAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICB8DQo+LS0tLS0tLS0tLS0tLS0tLS0tLS0tICAgfCAgICAtLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8DQo+LS0tLS0tLS0tLS0tLS0t
-LS0tLS0tICB8ICANCj58IG15IGxhcHRvcCAgICAgICAgICAgICB8ICB8ICAgDQo+fCAxOTIuMTY4
-LjAuOCAgICAgICAgICB8LS18DQo+fCAwMDoxNTo1ODo3YzpiOToxZCB8ICAgICANCj4tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0gIA0KPiANCj5JIGZvdW5kIHRoYXQgbGludXggYm94IHdvcmtzIGZpbmUg
-YmVmb3JlIEkgY29ubmVjdCBuZXRnZWFyIFBPRSBzd2l0Y2ggdG8gdGhlIHNhbWUgSFVCLg0KPkkg
-ZGlzY292ZXJlZCBuZXRnZWFyIHN3aXRjaCB3aWxsIGZvcndhcmQgQVJQIHJlcXVlc3Qgd2hpY2gg
-cmVjZWl2ZSBmcm9tIEhVQiBiYWNrIHRvIEhVQiwgbGludXggYm94IHdpbGwgYmUgc2ljayBhZnRl
-ciBoZSByZWNlaXZlIHRoaXMgc2FtZSBwYWNrYWdlLiANCj4gDQo+V2hhdCBJIGhhdmUgdHJpZWQ6
-IChhcnAuYywgcm91dGUuYywgaXBfaW5wdXQuYyBsb2NhdGUgaW4gXGxpbnV4LTIuNC4zMVxuZXRc
-aXB2NFwpDQo+MS4gYWRkIHNvbWUgY29kZSBpbiBmcm9udCBvZiBhcnBfcmN2KCkvYXJwLmMgdG8g
-ZGV0ZWN0L2Ryb3AgdGhlIEFSUCByZXF1ZXN0IHBhY2tldCB3aGljaCBzZW5kIGJhY2sgYnkgc3dp
-dGNoLCBidXQgbm90IHdvcmsuDQo+c2luY2UgYXJwX3JjdigpIGlzIGNhbGxlZCBieSBkZXZpY2Ug
-bGF5ZXIgYW5kIGl0IHdpbGwgZHJvcCB0aGUgd3JvbmcgQVJQIHBhY2tldCwgSSB0aG91Z2h0IHRo
-aXMgcGFja2V0IHNob3VsZCBub3QgYWZmZWN0IHRoZSBib3gsIGJ1dCB0aGUgZmFjdCBpcyB0aGVy
-ZS4NCj4yLiBkaXNjb3ZlcmVkIHNrYi0+ZHN0IHdpbGwgYmUgTlVMTCBpbiBpcF9yY3ZfZmluaXNo
-KCkvaXBfaW5wdXQuYyB3aGVuIGJveCBkaWRuJ3QgcmVjZWl2ZSB3cm9uZyBwYWNrZXQsIGJ1dCBh
-ZnRlciBib3ggcmVjZWl2ZSB3cm9uZyBwYWNrZXQsIHNrYi0+ZHN0IHdpbGwgaG9sZCBzb21ldGhp
-bmcsIA0KPnNvIGlwX3Jjdl9maW5pc2goKSB3aWxsIG5vdCBjYWxsIGlwX3JvdXRlX2lucHV0KCks
-IGV2ZW4gIEkgZ2V0IHJpZCBvZiB0aGUganVkZ2VtZW50IG9mICJpZiAoc2tiLT5kc3QgPT0gTlVM
-TCkiLCBpcF9yb3V0ZV9pbnB1dCgpIHdpbGwgcmV0dXJuIGZhaWxlZC4NCj4gDQo+c3RhdGljIGlu
-bGluZSBpbnQgaXBfcmN2X2ZpbmlzaChzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0KPnsNCj5zdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2ID0gc2tiLT5kZXY7DQo+c3RydWN0IGlwaGRyICppcGggPSBza2ItPm5o
-LmlwaDsNCj4vKg0KPiAqIEluaXRpYWxpc2UgdGhlIHZpcnR1YWwgcGF0aCBjYWNoZSBmb3IgdGhl
-IHBhY2tldC4gSXQgZGVzY3JpYmVzDQo+ICogaG93IHRoZSBwYWNrZXQgdHJhdmVscyBpbnNpZGUg
-TGludXggbmV0d29ya2luZy4NCj4gKi8gDQo+aWYgKHNrYi0+ZHN0ID09IE5VTEwpIHsNCj5pZiAo
-aXBfcm91dGVfaW5wdXQoc2tiLCBpcGgtPmRhZGRyLCBpcGgtPnNhZGRyLCBpcGgtPnRvcywgZGV2
-KSkNCj5nb3RvIGRyb3A7IA0KPn0NCj4uLi4NCj4NCj5zb21lIG90aGVyIGluZm9ybWFpb246DQo+
-IyBpZmNvbmZpZw0KPmV0aDAgICAgICBMaW5rIGVuY2FwOkV0aGVybmV0ICBIV2FkZHIgMDA6MEU6
-RTk6ODA6MjI6NjAgIA0KPiAgICAgICAgICBpbmV0IGFkZHI6MTkyLjE2OC4wLjE1NSAgQmNhc3Q6
-MTkyLjE2OC4wLjI1NSAgTWFzazoyNTUuMjU1LjI1NS4wDQo+ICAgICAgICAgIFVQIEJST0FEQ0FT
-VCBSVU5OSU5HIE1VTFRJQ0FTVCAgTVRVOjE1MDAgIE1ldHJpYzoxDQo+ICAgICAgICAgIFJYIHBh
-Y2tldHM6NyBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBmcmFtZTowDQo+ICAgICAgICAg
-IFRYIHBhY2tldHM6MjE2IGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVuczowIGNhcnJpZXI6MA0K
-PiAgICAgICAgICBjb2xsaXNpb25zOjAgdHhxdWV1ZWxlbjoxMDAwIA0KPiAgICAgICAgICBSWCBi
-eXRlczo2NzYgKDY3Ni4wIEIpICBUWCBieXRlczo5MDcyICg4LjggS2lCKQ0KPiAgICAgICAgICBJ
-bnRlcnJ1cHQ6MzkgDQo+bG8gICAgICAgIExpbmsgZW5jYXA6TG9jYWwgTG9vcGJhY2sgIA0KPiAg
-ICAgICAgICBpbmV0IGFkZHI6MTI3LjAuMC4xICBNYXNrOjI1NS4wLjAuMA0KPiAgICAgICAgICBV
-UCBMT09QQkFDSyBSVU5OSU5HICBNVFU6MTY0MzYgIE1ldHJpYzoxDQo+ICAgICAgICAgIFJYIHBh
-Y2tldHM6NzggZXJyb3JzOjAgZHJvcHBlZDowIG92ZXJydW5zOjAgZnJhbWU6MA0KPiAgICAgICAg
-ICBUWCBwYWNrZXRzOjc4IGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVuczowIGNhcnJpZXI6MA0K
-PiAgICAgICAgICBjb2xsaXNpb25zOjAgdHhxdWV1ZWxlbjowIA0KPiAgICAgICAgICBSWCBieXRl
-czo2NzA4ICg2LjUgS2lCKSAgVFggYnl0ZXM6NjcwOCAoNi41IEtpQikNCj4jIHJvdXRlIC1uDQo+
-S2VybmVsIElQIHJvdXRpbmcgdGFibGUNCj5EZXN0aW5hdGlvbiAgICAgR2F0ZXdheSAgICAgICAg
-IEdlbm1hc2sgICAgICAgICBGbGFncyBNZXRyaWMgUmVmICAgIFVzZSBJZmFjZQ0KPjE5Mi4xNjgu
-MC4wICAgICAwLjAuMC4wICAgICAgICAgMjU1LjI1NS4yNTUuMCAgIFUgICAgIDAgICAgICAwICAg
-ICAgICAwIGV0aDANCj4xMjcuMC4wLjAgICAgICAgMC4wLjAuMCAgICAgICAgICAyNTUuMC4wLjAg
-ICAgICAgICAgVSAgICAgMCAgICAgIDAgICAgICAgIDAgZXRoMA0KPjAuMC4wLjAgICAgICAgICAx
-OTIuMTY4LjAuMiAgICAgMC4wLjAuMCAgICAgICAgICAgIFVHICAgIDAgICAgICAwICAgICAgICAw
-IGV0aDANCj4obm90ZTogd2hlbiBJIGNvbm5lY3Qgc3dpdGNoIHRvIEhVQiwgcm91dGUgLW4gd2ls
-bCBvdXRwdXQgdGhlIHNhbWUgbWVzc2FnZSkNCj4NCj5Bbm90aGVyIGNsdWUgd2hpY2ggSSBmb3Vu
-ZCBpcyB3aGVuIGJveCBvY2N1ciB0aGlzIHByb2JsZW0sIHNldmVyYWwgImlmY29uZmlnIGV0aDAg
-dXAiIGNhbiBtYWtlIHRoZSBuZXR3b3JrIG9mIGJveCB3b3JrIGFnYWluLCBidXQgaXQgd2lsbCBz
-dGlsbCBmYWlsIGFmdGVyIHJlY2VpdmUgd3JvbmcgQVJQIHBhY2tldC4NCj4gDQo+SSBoYXZlIG5v
-IGlkZWEgaG93IHRvIGZpeCB0aGlzIHByb2JsZW0sIGl0IGhhcyBzcGVudCBtZSBtb3JlIHRoYW4g
-dHdvIHdlZWtzIGFuZCBiZXlvbmQgbXkgYWJpbGl0eSwgc28gaXQgaXMgdmVyeSBhcHByZWNpYXRl
-ZCBpZiBhbnlvbmUgY2FuIGhlbHAgbWUsIHRoYW5rIHlvdSENCj4NCj5CZXN0IHJlZ2FyZHMsIAkJ
-CQkNCj5XYXRzb24NCj4NCj4yMDA4LTEyLTE1DQo+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tDQo+RW1haWw6IHdhdHNvbmxsbEBnbWFpbC5jb20NCj4NCj4NCg0KPSA9ID0gPSA9ID0g
-PSA9ID0gPSA9ID0gPSA9ID0gPSA9ID0gPSA9IA0K
+This is a multi-part message in MIME format.
+--------------090302020200080507080306
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
+Hi Dave,
+
+following is a single netfilter patch for 2.6.28, fixing incorrect
+ctnetlink NAT attribute definitions that break common userspace
+attribute parsing code.
+
+Please apply, thanks.
+
+
+--------------090302020200080507080306
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit 492092c2b1fc3d74b24d8744ba419dbcefadaf5e
+Author: Pablo Neira Ayuso <pablo@netfilter.org>
+Date:   Thu Dec 11 14:00:21 2008 +0100
+
+    netfilter: ctnetlink: fix missing CTA_NAT_SEQ_UNSPEC
+    
+    This patch fixes an inconsistency in nfnetlink_conntrack.h that
+    I introduced myself. The problem is that CTA_NAT_SEQ_UNSPEC is
+    missing from enum ctattr_natseq. This inconsistency may lead to
+    problems in the message parsing in userspace (if the message
+    contains the CTA_NAT_SEQ_* attributes, of course).
+    
+    This patch breaks backward compatibility, however, the only known
+    client of this code is libnetfilter_conntrack which indeed crashes
+    because it assumes the existence of CTA_NAT_SEQ_UNSPEC to do
+    the parsing.
+    
+    The CTA_NAT_SEQ_* attributes were introduced in 2.6.25.
+    
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/include/linux/netfilter/nfnetlink_conntrack.h b/include/linux/netfilter/nfnetlink_conntrack.h
+index c19595c..29fe9ea 100644
+--- a/include/linux/netfilter/nfnetlink_conntrack.h
++++ b/include/linux/netfilter/nfnetlink_conntrack.h
+@@ -141,6 +141,7 @@ enum ctattr_protonat {
+ #define CTA_PROTONAT_MAX (__CTA_PROTONAT_MAX - 1)
+ 
+ enum ctattr_natseq {
++	CTA_NAT_SEQ_UNSPEC,
+ 	CTA_NAT_SEQ_CORRECTION_POS,
+ 	CTA_NAT_SEQ_OFFSET_BEFORE,
+ 	CTA_NAT_SEQ_OFFSET_AFTER,
+
+--------------090302020200080507080306--
