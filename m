@@ -1,38 +1,68 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net: Remove a noisy printk
-Date: Mon, 15 Dec 2008 14:32:46 +0100
-Message-ID: <49465C7E.8050103@trash.net>
-References: <1229033625-30825-1-git-send-email-ajax@redhat.com> <20081211.203243.124017657.davem@davemloft.net> <alpine.LNX.1.10.0812132310080.27276@fbirervta.pbzchgretzou.qr> <alpine.DEB.2.00.0812141745550.2447@blackhole.kfki.hu> <alpine.LNX.1.10.0812141905490.10355@fbirervta.pbzchgretzou.qr> <alpine.DEB.2.00.0812142056520.2621@blackhole.kfki.hu> <49464C2C.6030009@trash.net> <alpine.DEB.2.00.0812151419380.4114@blackhole.kfki.hu>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: kernel panics with net_rx_action on kernels >2.6.26
+Date: Mon, 15 Dec 2008 13:35:21 +0000
+Message-ID: <20081215133521.GA6697@ff.dom.local>
+References: <20081214.224800.125614949.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	David Miller <davem@davemloft.net>, ajax@redhat.com,
-	linux-kernel@vger.kernel.org, davej@redhat.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0812151419380.4114@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: alexander.huemer@sbg.ac.at, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20081214.224800.125614949.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jozsef Kadlecsik wrote:
-> On Mon, 15 Dec 2008, Patrick McHardy wrote:
+On 15-12-2008 07:48, David Miller wrote:
+> From: Alexander Huemer <alexander.huemer@sbg.ac.at>
+> Date: Sun, 14 Dec 2008 15:17:32 +0100
 > 
->> I agree that it doesn't belong to the generic networking code.
->> But the way its handled in netfilter is far from perfect as well.
->> Currently multiple modules will spam the ringbuffer repeatedly,
->> but offer no possibility to change anything in the behaviour of
->> how these packets are treated. Unfortunately we can't handle this
->> in the ruleset (which is exactly the reason why we're spamming
->> the ringbuffer), so how about we add a module option controlling
->> how to treat those packets and remove the printk?
+> Networking developers generally don't read the linux-net list, it is
+> for user configuration and basic questions only, not bug reports or
+> technical discussions.
 > 
-> How about this: let the printk be removed from conntrack and the mangle 
-> table but put (back) into the filter table with a module option, which 
-> controls the behaviour (drop/accept & log/nolog)?
+> netdev is the place to report such things, and I've added that to the
+> CC:
+> 
+>> one of my machines (x86) crashes under heavy network load with kernels
+>>> 2.6.26, i tried quite everything possible between 2.6.27 and 2.6.28-rc8.
+>> lspci -vv: http://xx.vu/~ahuemer/lspci_vv.txt <http://xx.vu/%7Eahuemer/lspci_vv.txt>
+>> of the quad nic 2 ports are used, the machine is acting as a iptables
+>> firewall/router.
+>>
+>> kernel config (2.6.26) http://xx.vu/~ahuemer/config <http://xx.vu/%7Eahuemer/config>
+>> screenshot of the panic:
+>> http://xx.vu/~ahuemer/kernel_panic_net_rx_action.jpg <http://xx.vu/%7Eahuemer/kernel_panic_net_rx_action.jpg>
+>>
+>> as i do not have any problems with kernels <=2.6.26, i doubt that this
+>> is a hardware problem.
+>> in case of the panic, nothing is written to the system log.
+>>
+>> any hints welcome.
+>> please CC me on replies, i am not subscribed to the  mailing list.
 
-Sounds fine to me. We can't log it in the usual way though
-(ipt_LOG/nfnetlink_log) and spamming the ringbuffer should
-really be a last resort, so I'd prefer to limit it to print
-the message exactly once.
+Could you try this patch, please?
+
+Jarek P.
+---
+
+ drivers/net/starfire.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
+index 0358809..f86d6bb 100644
+--- a/drivers/net/starfire.c
++++ b/drivers/net/starfire.c
+@@ -1503,6 +1503,11 @@ static int __netdev_rx(struct net_device *dev, int *quota)
+ 		desc->status = 0;
+ 		np->rx_done = (np->rx_done + 1) % DONE_Q_SIZE;
+ 	}
++
++	if (*quota == 0) {	/* out of rx quota */
++		retcode = 1;
++		goto out;
++	}
+ 	writew(np->rx_done, np->base + CompletionQConsumerIdx);
+ 
+  out:
