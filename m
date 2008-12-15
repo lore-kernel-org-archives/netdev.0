@@ -1,108 +1,106 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for December 12 (netdev ops)
-Date: Mon, 15 Dec 2008 15:07:02 -0800 (PST)
-Message-ID: <20081215.150702.187335926.davem@davemloft.net>
-References: <20081212185654.0af8b4a1.sfr@canb.auug.org.au>
-	<494498ED.7080903@oracle.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH] AF_VMCHANNEL address family for	guest<->host	communication.
+Date: Mon, 15 Dec 2008 17:08:29 -0600
+Message-ID: <4946E36D.8060503@codemonkey.ws>
+References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com>	<20081214.224436.55256593.davem@davemloft.net>	<4946717F.2090809@codemonkey.ws> <494697D4.6080300@goop.org> <4946A5E0.5080303@codemonkey.ws> <4946DF97.7070600@goop.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com, alan@lxorguk.ukuu.org.uk
-To: randy.dunlap@oracle.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <494498ED.7080903@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yx-out-2324.google.com ([74.125.44.29]:37913 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbYLOXIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 18:08:35 -0500
+Received: by yx-out-2324.google.com with SMTP id 8so1230445yxm.1
+        for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 15:08:34 -0800 (PST)
+In-Reply-To: <4946DF97.7070600@goop.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Sat, 13 Dec 2008 21:26:05 -0800
+Jeremy Fitzhardinge wrote:
+> Anthony Liguori wrote:
+>>
+>> That seems unnecessarily complex.
+>>   
+>
+> Well, the simplest thing is to let the host TCP stack do TCP.  Could 
+> you go into more detail about why you'd want to avoid that?
 
-> If hplan is built-in, this build error can happen:
-> 
-> build-r7084.out:8390p.c:(.text+0xfd9aa): undefined reference to `ei_start_xmit'
-> build-r7084.out:8390p.c:(.text+0xfd9b6): undefined reference to `ei_get_stats'
-> build-r7084.out:8390p.c:(.text+0xfd9c6): undefined reference to `ei_set_multicast_list'
-> 
-> since hplan uses 8390p.c, which uses lib8390.c, but the latter always uses:
-> 
-> #ifdef CONFIG_COMPAT_NET_DEV_OPS
-> 	dev->hard_start_xmit = ei_start_xmit;
-> 	dev->get_stats	= ei_get_stats;
-> 	dev->set_multicast_list = ei_set_multicast_list;
-> 	dev->tx_timeout = __ei_tx_timeout;
-> #endif
-> 
-> However, those ei_* functions should be eip_* in this case.
-> How to do that??
+The KVM model is that a guest is a process.  Any IO operations original 
+from the process (QEMU).  The advantage to this is that you get very 
+good security because you can use things like SELinux and simply treat 
+the QEMU process as you would the guest.  In fact, in general, I think 
+we want to assume that QEMU is guest code from a security perspective.
 
-Thanks for your report Randy, I'll try to fix this.
+By passing up the network traffic to the host kernel, we now face a 
+problem when we try to get the data back.  We could setup a tun device 
+to send traffic to the kernel but then the rest of the system can see 
+that traffic too.  If that traffic is sensitive, it's potentially unsafe.
 
-These assignments need to be pushed into the 8390.c and
-8390p.c code.
+You can use iptables to restrict who can receive traffic and possibly 
+use SELinux packet tagging or whatever.  This gets extremely complex though.
 
-The fix will look something like the following.  I'll
-do some sanity builds and commit this to net-next-2.6
+It's far easier to avoid the host kernel entirely and implement the 
+backends in QEMU.  Then any actions the backend takes will be on behalf 
+of the guest.  You never have to worry about transport data leakage.
 
-diff --git a/drivers/net/8390.c b/drivers/net/8390.c
-index 029ad08..fbe609a 100644
---- a/drivers/net/8390.c
-+++ b/drivers/net/8390.c
-@@ -72,7 +72,16 @@ EXPORT_SYMBOL(ei_netdev_ops);
- 
- struct net_device *__alloc_ei_netdev(int size)
- {
--	return ____alloc_ei_netdev(size);
-+	struct net_device *dev = ____alloc_ei_netdev(size);
-+#ifdef CONFIG_COMPAT_NET_DEV_OPS
-+	if (dev) {
-+		dev->hard_start_xmit = ei_start_xmit;
-+		dev->get_stats	= ei_get_stats;
-+		dev->set_multicast_list = ei_set_multicast_list;
-+		dev->tx_timeout = ei_tx_timeout;
-+	}
-+#endif
-+	return dev;
- }
- EXPORT_SYMBOL(__alloc_ei_netdev);
- 
-diff --git a/drivers/net/8390p.c b/drivers/net/8390p.c
-index 9c916d4..ee70b35 100644
---- a/drivers/net/8390p.c
-+++ b/drivers/net/8390p.c
-@@ -77,7 +77,16 @@ EXPORT_SYMBOL(eip_netdev_ops);
- 
- struct net_device *__alloc_eip_netdev(int size)
- {
--	return ____alloc_ei_netdev(size);
-+	struct net_device *dev = ____alloc_ei_netdev(size);
-+#ifdef CONFIG_COMPAT_NET_DEV_OPS
-+	if (dev) {
-+		dev->hard_start_xmit = eip_start_xmit;
-+		dev->get_stats	= eip_get_stats;
-+		dev->set_multicast_list = eip_set_multicast_list;
-+		dev->tx_timeout = eip_tx_timeout;
-+	}
-+#endif
-+	return dev;
- }
- EXPORT_SYMBOL(__alloc_eip_netdev);
- 
-diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
-index 1d36ca4..789b6cb 100644
---- a/drivers/net/lib8390.c
-+++ b/drivers/net/lib8390.c
-@@ -1010,12 +1010,6 @@ static void ethdev_setup(struct net_device *dev)
- 	if (ei_debug > 1)
- 		printk(version);
- 
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	dev->hard_start_xmit = ei_start_xmit;
--	dev->get_stats	= ei_get_stats;
--	dev->set_multicast_list = ei_set_multicast_list;
--	dev->tx_timeout = __ei_tx_timeout;
--#endif
- 	ether_setup(dev);
- 
- 	spin_lock_init(&ei_local->page_lock);
+>> This is why I've been pushing for the backends to be implemented in 
+>> QEMU.  Then QEMU can marshal the backend-specific state and transfer 
+>> it during live migration.  For something like copy/paste, this is 
+>> obvious (the clipboard state).  A general command interface is 
+>> probably stateless so it's a nop.
+>>   
+>
+> Copy/paste seems like a particularly bogus example.  Surely this isn't 
+> a sensible way to implement it?
+
+I think it's the most sensible way to implement it.  Would you suggest 
+something different?
+
+>> I'm not a fan of having external backends to QEMU for the very 
+>> reasons you outline above.  You cannot marshal the state of a channel 
+>> we know nothing about.  We're really just talking about extending 
+>> virtio in a guest down to userspace so that we can implement 
+>> paravirtual device drivers in guest userspace.  This may be an X 
+>> graphics driver, a mouse driver, copy/paste, remote shutdown, etc.
+>>   A socket seems like a natural choice.  If that's wrong, then we can 
+>> explore other options (like a char device, virtual fs, etc.).
+>
+> I think a socket is a pretty poor choice.  It's too low level, and it 
+> only really makes sense for streaming data, not for data storage 
+> (name/value pairs).  It means that everyone ends up making up their 
+> own serializations.  A filesystem view with notifications seems to be 
+> a better match for the use-cases you mention (aside from cut/paste), 
+> with a single well-defined way to serialize onto any given channel.  
+> Each "file" may well have an application-specific content, but in 
+> general that's going to be something pretty simple.
+
+I had suggested a virtual file system at first and was thoroughly 
+ridiculed for it :-)  There is a 9p virtio transport already so we could 
+even just use that.
+
+The main issue with a virtual file system is that it does map well to 
+other guests.  It's actually easier to implement a socket interface for 
+Windows than it is to implement a new file system.
+
+But we could find ways around this with libraries.  If we used 9p as a 
+transport, we could just provide a char device in Windows that received 
+it in userspace.
+
+>>   This shouldn't be confused with networking though and all the talk 
+>> of doing silly things like streaming fence traffic through it just 
+>> encourages the confusion.
+>
+> I'm not sure what you're referring to here.
+
+I'm just ranting, it's not important.
+
+Regards,
+
+Anthony Liguori
+
+>    J
+
