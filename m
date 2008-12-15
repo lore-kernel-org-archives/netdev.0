@@ -1,72 +1,48 @@
-From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH 09/12] clocksource: allow usage independent of
-	timekeeping.c
-Date: Mon, 15 Dec 2008 17:45:00 +0100
-Message-ID: <1229359500.18038.234.camel@ecld0pohly>
-References: <1229352899-31330-1-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-2-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-3-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-4-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-5-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-6-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-7-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-8-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-9-git-send-email-patrick.ohly@intel.com>
-	 <1229352899-31330-10-git-send-email-patrick.ohly@intel.com>
-	 <1229358410.8699.13.camel@jstultz-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1229358410.8699.13.camel@jstultz-laptop>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH]-bonding: Fix slave link failure count update failure
+Date: Mon, 15 Dec 2008 09:05:32 -0800
+Message-ID: <9002.1229360732@death.nxdomain.ibm.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE511805@blrx3m08.blr.amer.dell.com>
+Cc: netdev@vger.kernel.org
+To: Narendra_K@Dell.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:33779 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753133AbYLORFj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 12:05:39 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mBFH4pt8018407
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 12:04:51 -0500
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mBFH5a2u154530
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 12:05:36 -0500
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mBFH5ZAG015750
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 12:05:35 -0500
+In-reply-to: <EDA0A4495861324DA2618B4C45DCB3EE511805@blrx3m08.blr.amer.dell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2008-12-15 at 16:26 +0000, John Stultz wrote:
-[cyclecounter/timecounter]
-> Nice. The cyclecounter struct can work as a good base that I can shift
-> the clocksource bits over to as I clean that up.
-> 
-> We will probably want to split this out down the road, but for now its
-> small enough and related enough that I think its fine in the
-> clocksource.h/c.
-> 
-> Also since Magnus has been working on it, does enable/disable accessors
-> in the cyclecounter struct make sense for your hardware as well?
+<Narendra_K@Dell.com> wrote:
+[...]
+>The "bonding: refactor mii monitor" patch (
+>http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.27.y.git;a=co
+>mmit;h=f0c76d61779b153dbfb955db3f144c62d02173c2) misses updating the
+>slave link failure count. So "cat /proc/net/bonding/bond0" doesn't
+>reflect the no of slave link failures. The patch addresses it.
 
-I don't think so. The usage model of the cyclecounter is that the
-hardware is owned by someone who initializes and controls it, including
-enable/disable. The abstract API with the read method is just there so
-that common utility code can access the hardware in a uniform way.
+	This is already fixed in mainline by:
 
-For example, the igb driver owns and uses the NIC time register.
-Disabling the NIC timer should be done together with disabling the NIC.
-This is different from traditional clocksources which are independent
-and controlled by the timing subsystem.
+commit fba4acda35f3119328bcba28aacefae14245d2bb
+Author: Jay Vosburgh <fubar@us.ibm.com>
+Date:   Thu Oct 30 17:41:14 2008 -0700
 
-> Also the corner cases on overflows (how we manage the state, should
-> reads be deferred for too long) will need to be addressed, but I guess
-> we can solve that when it becomes an issue. Just to be clear: none of
-> the hardware you're submitting this round has wrapping issues?
+    bonding: fix miimon failure counter
 
-It has 64 bit registers, so there is indeed no wrapping issue.
+	Note that the two patches add the increment to different places,
+so applying both of them will result in double increments.
 
-> Otherwise,
-> Acked-by: John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+	-J
 
-Thanks, will add that.
-
-Can you (or someone else) also look at clocksync.[ch]? David wanted to
-have that independently reviewed, too, before including it in
-netdev-next.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-api" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
