@@ -1,38 +1,39 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: bnx2x machine check in bnx2x_ack_int()
-Date: Mon, 15 Dec 2008 21:36:34 +0200
-Message-ID: <1229369794.26330.2.camel@lb-tlvb-eliezer>
-References: <200812091204.35296.bjorn.helgaas@hp.com>
- <200812150921.08668.bjorn.helgaas@hp.com>
- <1229361480.22295.22.camel@lb-tlvb-eliezer>
- <200812151104.00724.bjorn.helgaas@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host
+ communication.
+Date: Mon, 15 Dec 2008 11:43:15 -0800 (PST)
+Message-ID: <20081215.114315.165733593.davem@davemloft.net>
+References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com>
+	<20081214.224436.55256593.davem@davemloft.net>
+	<4946717F.2090809@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Bjorn Helgaas" <bjorn.helgaas@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1792 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751971AbYLOTi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 14:38:27 -0500
-In-Reply-To: <200812151104.00724.bjorn.helgaas@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gleb@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
+To: anthony@codemonkey.ws
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4946717F.2090809@codemonkey.ws>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2008-12-15 at 10:04 -0800, Bjorn Helgaas wrote:
-> Yep, it's definitely possible that this is HW related.  The proto
-> has 57710, but the product will ultimately use the 57711, so I don't
-> really even care about testing the 57710.
-> 
-> After upgrading some pieces on my boards, I can't reproduce the
-> MCA either.  So I guess we can just write it off for now.  The only
-> reason I pointed out the issue at all is because it really hampered
-> testing of standard distro bits on the rest of the box.
+From: Anthony Liguori <anthony@codemonkey.ws>
+Date: Mon, 15 Dec 2008 09:02:23 -0600
 
-Please let me know if you see this issue again - we can try to
-root-cause it. And again, sorry for the late initial response.
+> There is already an AF_IUCV for s390.
 
-Eilon
+This is a scarecrow and irrelevant to this discussion.
 
+And this is exactly why I asked that any arguments in this thread
+avoid talking about virtualization technology and why it's "special."
 
+This proposed patch here is asking to add new infrastructure for
+hypervisor facilities that will be _ADDED_ and for which we have
+complete control over.
+
+Whereas the S390 folks have to deal with existing infrastructure which
+is largely outside of their control.  So if they implement access
+mechanisms for that, it's fine.
+
+I would be doing the same thing if I added a protocol socket layer for
+accessing the Niagara hypervisor virtualization channels.
