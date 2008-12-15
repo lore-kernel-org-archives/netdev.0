@@ -1,125 +1,55 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 03/29] wimax: internal API for the kernel space WiMAX stack
-Date: Mon, 15 Dec 2008 04:57:58 -0800
-Message-ID: <869eacd7386d1322107cfe92cedb57749271e9c4.1229345776.git.inaky@linux.intel.com>
-References: <cover.1229345769.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org, greg@kroah.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 076-076-148-181.pdx.net ([76.76.148.181]:57996 "EHLO gocho"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751869AbYLON16 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 08:27:58 -0500
-In-Reply-To: <cover.1229345769.git.inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: networking probs in next-20081203
+Date: Tue, 16 Dec 2008 00:28:08 +1100 (EST)
+Message-ID: <alpine.LRH.1.10.0812160021030.10723@tundra.namei.org>
+References: <49381644.8020502@intel.com>
+	<20081204175236.GA19808@x200.localdomain>
+	<1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
+	<20081204.102138.123959105.davem@davemloft.net>
+	<1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
+	<1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
+	<m1bpvrslk0.fsf@frodo.ebiederm.org>
+	<1228486339.20274.3.camel@localhost.localdomain>
+	<alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
+	<20081212052420.GA14948@x200.localdomain>
+	<alpine.LRH.1.10.0812122022520.32426@tundra.namei.org>
+	<1229117086.3134.22.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Daniel J Walsh <dwalsh@redhat.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Paris <eparis@parisplace.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1229117086.3134.22.camel@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This file contains declarations and definitions used by the different
-submodules of the stack.
+On Fri, 12 Dec 2008, Stephen Smalley wrote:
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- net/wimax/wimax-internal.h |   91 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 91 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/wimax-internal.h
+> Maybe pass flags down to security_sb_kern_mount() and skip the check in
+> the MS_KERNMOUNT case?
 
-diff --git a/net/wimax/wimax-internal.h b/net/wimax/wimax-internal.h
-new file mode 100644
-index 0000000..1e743d2
---- /dev/null
-+++ b/net/wimax/wimax-internal.h
-@@ -0,0 +1,91 @@
-+/*
-+ * Linux WiMAX
-+ * Internal API for kernel space WiMAX stack
-+ *
-+ *
-+ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * This header file is for declarations and definitions internal to
-+ * the WiMAX stack. For public APIs and documentation, see
-+ * include/net/wimax.h and include/linux/wimax.h.
-+ */
-+
-+#ifndef __WIMAX_INTERNAL_H__
-+#define __WIMAX_INTERNAL_H__
-+#ifdef __KERNEL__
-+
-+#include <linux/device.h>
-+#include <net/wimax.h>
-+
-+
-+/*
-+ * Decide if a (locked) device is ready for use
-+ *
-+ * Before using the device structure, it must be locked
-+ * (wimax_dev->mutex). As well, most operations need to call this
-+ * function to check if the state is the right one.
-+ *
-+ * An error value will be returned if the state is not the right
-+ * one. In that case, the caller should not attempt to use the device
-+ * and just unlock it.
-+ */
-+static inline __must_check
-+int wimax_dev_is_ready(struct wimax_dev *wimax_dev)
-+{
-+	if (wimax_dev->state == __WIMAX_ST_NULL)
-+		return -EINVAL;	/* Device is not even registered! */
-+	if (wimax_dev->state == WIMAX_ST_DOWN)
-+		return -ENOMEDIUM;
-+	if (wimax_dev->state == __WIMAX_ST_QUIESCING)
-+		return -ESHUTDOWN;
-+	return 0;
-+}
-+
-+
-+static inline
-+void __wimax_state_set(struct wimax_dev *wimax_dev, enum wimax_st state)
-+{
-+	wimax_dev->state = state;
-+}
-+extern void __wimax_state_change(struct wimax_dev *, enum wimax_st);
-+
-+#ifdef CONFIG_DEBUG_FS
-+extern int wimax_debugfs_add(struct wimax_dev *);
-+extern void wimax_debugfs_rm(struct wimax_dev *);
-+#else
-+static inline int wimax_debugfs_add(struct wimax_dev *wimax_dev)
-+{
-+	return 0;
-+}
-+static inline void wimax_debugfs_rm(struct wimax_dev *wimax_dev) {}
-+#endif
-+
-+extern void wimax_id_table_add(struct wimax_dev *);
-+extern struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *, int);
-+extern void wimax_id_table_rm(struct wimax_dev *);
-+extern void wimax_id_table_release(void);
-+
-+extern int wimax_rfkill_add(struct wimax_dev *);
-+extern void wimax_rfkill_rm(struct wimax_dev *);
-+
-+extern struct genl_family wimax_gnl_family;
-+extern struct genl_multicast_group wimax_gnl_mcg;
-+
-+#endif /* #ifdef __KERNEL__ */
-+#endif /* #ifndef __WIMAX_INTERNAL_H__ */
+Seems like a good solution.
+
 -- 
-1.5.6.5
+James Morris
+<jmorris@namei.org>
 
+------------------------------------------------------------------------------
+SF.Net email is Sponsored by MIX09, March 18-20, 2009 in Las Vegas, Nevada.
+The future of the web can't happen without you.  Join us at MIX09 to help
+pave the way to the Next Web now. Learn more and register at
+http://ad.doubleclick.net/clk;208669438;13503038;i?http://2009.visitmix.com/
