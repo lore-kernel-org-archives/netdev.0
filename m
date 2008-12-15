@@ -1,44 +1,87 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 7/8] ethtool: Add GGRO and SGRO ops
-Date: Mon, 15 Dec 2008 14:40:48 +1100
-Message-ID: <20081215034048.GB28499@gondor.apana.org.au>
-References: <20081212053116.GA2927@gondor.apana.org.au> <E1LB0d2-0000rq-Dr@gondolin.me.apana.org.au> <1229112677.3051.9.camel@achroite> <20081212214835.GD11046@gondor.apana.org.au> <1229121327.3051.69.camel@achroite> <20081212224954.GA11636@gondor.apana.org.au> <Pine.WNT.4.64.0812141124040.13556@ppwaskie-MOBL2.amr.corp.intel.com> <20081214210916.GA26325@gondor.apana.org.au> <Pine.WNT.4.64.0812141351560.12712@ppwaskie-MOBL2.amr.corp.intel.com>
+From: Poornima Kamath <poornimak@gslab.com>
+Subject: Re: Detecting backup slaves of bonding interface in network driver
+Date: Mon, 15 Dec 2008 10:38:06 +0530
+Message-ID: <4945E636.20605@gslab.com>
+References: <494108D7.3040304@gslab.com> <25821.1229013359@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57292 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751884AbYLODky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Dec 2008 22:40:54 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.WNT.4.64.0812141351560.12712@ppwaskie-MOBL2.amr.corp.intel.com>
+Received: from padma.gslab.com ([59.163.66.102]:55032 "HELO padma.gslab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750742AbYLOFIK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 00:08:10 -0500
+In-Reply-To: <25821.1229013359@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 14, 2008 at 02:00:18PM -0800, Waskiewicz Jr, Peter P wrote:
+Hi Jay,
+
+Thanks for your reply.
+The driver creates virtual interfaces that talk to ethernet interfaces 
+over infiniband,  using an infiniband to ethernet gateway device.
+The gateway device sends data to all interfaces having same mac 
+address.  For this the driver needs to explicitly tell the gateway 
+device not to send data to the backup slaves.
+Therefore the driver needs to  know which slaves are backup slaves.
+The failover mac option  works well,  but it is present for kernels 
+greater than 2.6.24.  So this option is not available for distros like 
+RHEL5, SLES10 etc
+So in order to support these distros I need some way of identifying the 
+backup slaves.
+Is it ok to check the IFF_SLAVE_INACTIVE flags for these distros?
+
+Thanks,
+Poornima
+
+Jay Vosburgh wrote:
+> Poornima Kamath <poornimak@gslab.com> wrote:
 >
-> > -static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso, int lro)
-> > +static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso,
-> > +                       int gro, int lro)
-> 
-> Would it make better sense to add GRO after LRO?  I suppose it doesn't 
-> make any difference, but I'm thinking of any possible way to provide ABI 
-> compatibility.  I don't think it's possible though; just thinking out loud 
-> here.
+>   
+>> I have a network driver which creates virtual ethernet interfaces. I am
+>> using the bonding driver in the active backup mode for failover.
+>> I want to detect the interfaces which are backup slaves in the driver.
+>>     
+>
+> 	What device is it, and why do you want to do this?
+>
+> 	I ask not just out of curiosity, but because there are other
+> devices that have problems with bonding's handling of some things, and
+> there are already special options for those devices.  If your device,
+> e.g., can't handle having the same MAC on multiple ports, then your
+> problem may be resolved with one of the fail_over_mac option settings.
+>
+>   
+>> I found that the  bonding driver sets the IFF_SLAVE_INACTIVE private flag
+>> of net_device structure for all the backup slaves.
+>> But I dont see any callbacks in my driver when this flag is set.
+>> I am planning to check the netdevice flags in the driver. Is it
+>> recommended to check the private flags of net_device ?
+>> Or is there some better way in which I can find the backup slaves?
+>>     
+>
+> 	Those flags are private to the driver (bonding, in this case),
+> and there is no callback generated when they change.  The
+> IFF_SLAVE_INACTIVE is what you want (it's set in priv_flags for backup
+> slaves), but it's purpose is to identify backup slaves so that most
+> incoming packets on them can be dropped.  It's possible that the flag
+> may change or be eliminated in the future.
+>
+> 	Also, note that there is a notifier generated by bonding when a
+> failover occurs (NETDEV_BONDING_FAILOVER), this was added to the
+> mainline about six months ago.  You may be able to use that to determine
+> when to check things.
+>
+> 	-J
+>
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>   
 
-This is an internal iproute function, not part of any ABI :)
-
-Longer term my plan is to first have LRO restricted to hardware
-offload which cannot coexist with forwarding/bridging, and eventually
-phased out completely.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
