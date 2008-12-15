@@ -1,70 +1,40 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH net-next] vcan: convert to net_device_ops
-Date: Mon, 15 Dec 2008 21:54:49 +0100
-Message-ID: <4946C419.7040404@hartkopp.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: linux-next: Tree for December 15 (netlabel)
+Date: Mon, 15 Dec 2008 16:35:58 -0500
+Message-ID: <200812151635.59170.paul.moore@hp.com>
+References: <20081216020642.fc1007d9.sfr@canb.auug.org.au> <4946AE5C.9040207@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010800030305010501040802"
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:32067 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753010AbYLOUyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 15:54:53 -0500
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:24963 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755855AbYLOVgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 16:36:03 -0500
+In-Reply-To: <4946AE5C.9040207@oracle.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010800030305010501040802
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Monday 15 December 2008 2:22:04 pm Randy Dunlap wrote:
+> netlabel_domainhash fails to build when IPV6 is not enabled:
+>
+> build-r7133.out:/local/linsrc/linux-next-20081215/net/netlabel/netlab
+>el_domainhash.c:527: error: implicit declaration of function
+> 'netlbl_af6list_foreach_rcu'
+> build-r7133.out:/local/linsrc/linux-next-20081215/net/netlabel/netlab
+>el_domainhash.c:528: error: expected ';' before 'goto'
+> build-r7133.out:make[3]: *** [net/netlabel/netlabel_domainhash.o]
+> Error 1
 
-vcan: convert to net_device_ops
+Thanks.  I just fixed this and update the lblnet-2.6_next tree; it 
+should be in tomorrow's next.
 
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-CC: Stephen Hemminger <shemminger@vyatta.com>
----
-
-This patch converts the virtual CAN driver vcan to use net_device_ops.
-It's functionally tested.
-
-Regards,
-Oliver
-
-
-
---------------010800030305010501040802
-Content-Type: text/x-patch;
- name="vcan_netdev_ops.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="vcan_netdev_ops.patch"
-
-diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
-index 103f0f1..f127ec9 100644
---- a/drivers/net/can/vcan.c
-+++ b/drivers/net/can/vcan.c
-@@ -128,6 +128,10 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
-+static const struct net_device_ops vcan_netdev_ops = {
-+	.ndo_start_xmit = vcan_tx,
-+};
-+
- static void vcan_setup(struct net_device *dev)
- {
- 	dev->type              = ARPHRD_CAN;
-@@ -141,7 +145,7 @@ static void vcan_setup(struct net_device *dev)
- 	if (echo)
- 		dev->flags |= IFF_ECHO;
- 
--	dev->hard_start_xmit   = vcan_tx;
-+	dev->netdev_ops        = &vcan_netdev_ops;
- 	dev->destructor        = free_netdev;
- }
- 
-
---------------010800030305010501040802--
+-- 
+paul moore
+linux @ hp
