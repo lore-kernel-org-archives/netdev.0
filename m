@@ -1,59 +1,65 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: bnx2x machine check in bnx2x_ack_int()
-Date: Mon, 15 Dec 2008 10:03:29 +0200
-Message-ID: <1229328209.22295.16.camel@lb-tlvb-eliezer>
-References: <200812091204.35296.bjorn.helgaas@hp.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12228] New: D-Link 530 TX Rev. C2 not working
+Date: Mon, 15 Dec 2008 00:18:16 -0800
+Message-ID: <20081215001816.79f1332b.akpm@linux-foundation.org>
+References: <bug-12228-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Bjorn Helgaas" <bjorn.helgaas@hp.com>
+Cc: bugme-daemon@bugzilla.kernel.org, infos@widelinkpc.be
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4338 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754307AbYLOIFO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 03:05:14 -0500
-In-Reply-To: <200812091204.35296.bjorn.helgaas@hp.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41640 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752055AbYLOISt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 03:18:49 -0500
+In-Reply-To: <bug-12228-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bjon,
 
-My sincere apologize for the late response. When searching the mailing
-list to see if I accidentally missed your reply, I have come to realize
-that my response was never sent (problem with my email client).
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-On Tue, 2008-12-09 at 11:04 -0800, Bjorn Helgaas wrote:
-> Hi Eilon,
+On Mon, 15 Dec 2008 00:00:56 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=12228
 > 
-> I'm using bnx2x 1.45.23 from RHEL5.3s4 on a prototype ia64 platform,
-> and I see intermittent machine checks at bnx2x_ack_int+176, which is
-> just after __ia64_readl() returns.
-I see that you are using two 57710 chips. What kind of board are you
-using (which PHY)?
-
-> This is a proto with incomplete firmware, and the driver correctly
-> complains about that, but it seems like there's still a hole where
-> things blow up.
-If you set the right FW on the board, do you still see the problem? I'm
-asking to determine if this is a problem specific to the "no FW" case or
-general issue with this configuration
-
-> The machine check happens intermittently on boot, but I can reproduce
-> it instantly with a loop like this:
+>            Summary: D-Link 530 TX Rev. C2 not working
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.27.X
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: infos@widelinkpc.be
 > 
->   # while /bin/true; do ifup eth6; date; done
 > 
-> Here's some lspci and dmesg information.  I added a little debug in
-> bnx2x_ack_int(), so this is a kernel I compiled myself.
+> Latest working kernel version: 2.6.24 and 2.6.25
+> Earliest failing kernel version: 2.6.27.X
+> Distribution: Actually Ubuntu 8.10 Deskstop (32 bit) and Fedora 10 Deskstop (32
+> bit)
+> Hardware Environment: Always the same since many years to test different
+> distributions: Asus P4P800 SE, GeForce 7800 GS in AGP, 2 x 1 GB DDR 1 Kingmax.
+> Software Environment: just TeamSpeak Server on Ubuntu 8.10 and CCSM (Compiz
+> Configurator). Fedora nothing more than original package. Just update from
+> Fedora repositories.
+> Problem Description: in the past this hardware working fine with previous
+> version of distribution. Since the last version, my nertwork card doesn't work.
+> I'm not a hacker, just want help you.
 > 
-> Let me know if there's any information I can collect or testing I
-> can do.
-Unfortunately, with the 57711 Mezzanine on the IA64 blade that I have, I
-cannot reproduce this failure, so I will probably need more information.
-Can you please send me the nvram content?
+> Steps to reproduce: I have tested 2 distributions with install on my hardrive.
+> Not working. I change hardrive to see on Windows (whith drivers of course) and
+> my card working fine. The hardware working fine, but I think there is a problem
+> with Linux driver. I haven't problem to connect internet with the onboard chip
+> Marvell Yukon.
+> 
+> I hope it's not a bug from Network Manager, but I think no.
+> 
 
-Thanks,
-Eilon
-
-
+ok, I give up ;)  Which device driver does that card use?
