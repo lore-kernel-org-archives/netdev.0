@@ -1,73 +1,70 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host communication.
-Date: Mon, 15 Dec 2008 14:44:26 -0600
-Message-ID: <4946C1AA.4080404@codemonkey.ws>
-References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com>	<20081214.224436.55256593.davem@davemloft.net>	<4946717F.2090809@codemonkey.ws> <20081215.114315.165733593.davem@davemloft.net>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [PATCH net-next] vcan: convert to net_device_ops
+Date: Mon, 15 Dec 2008 21:54:49 +0100
+Message-ID: <4946C419.7040404@hartkopp.net>
 Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------010800030305010501040802"
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:32067 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010AbYLOUyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 15:54:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------010800030305010501040802
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gleb@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20081215.114315.165733593.davem@davemloft.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Anthony Liguori <anthony@codemonkey.ws>
-> Date: Mon, 15 Dec 2008 09:02:23 -0600
->
->   
->> There is already an AF_IUCV for s390.
->>     
->
-> This is a scarecrow and irrelevant to this discussion.
->
-> And this is exactly why I asked that any arguments in this thread
-> avoid talking about virtualization technology and why it's "special."
->   
+vcan: convert to net_device_ops
 
-You cannot completely avoid talking about virtualization here.  I agree 
-that an argument based on, "we need it for virtualization", why?, 
-"virtualization!" is not sufficient.
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+---
 
-You still didn't address my earlier question though.
-
-What we need is a mechanism for implementing paravirtual device drivers 
-in userspace.  On a modern Linux system, a lot of important things are 
-done in userspace (mostly around X) so having some code in the guest's 
-userspace is important.
-
-We want this communication mechanism to be simple and reliable as we 
-want to implement the backends drivers in the host userspace with 
-minimum mess.
-
-Within the guest, we need the interface to be always available and we 
-need an addressing scheme that is hypervisor specific.  Yes, we can 
-build this all on top of TCP/IP.  We could even build it on top of a 
-serial port.  Both have their down-sides wrt reliability and complexity.
-
-The most natural userspace interface that meets all of these 
-requirements would appear to be a new socket family.  We could also use 
-another userspace interface (netlink was originally proposed, a chardev 
-is possible, or a virtual file system).
-
-Do you have another recommendation?
+This patch converts the virtual CAN driver vcan to use net_device_ops.
+It's functionally tested.
 
 Regards,
+Oliver
 
-Anthony Liguori
 
-> This proposed patch here is asking to add new infrastructure for
-> hypervisor facilities that will be _ADDED_ and for which we have
-> complete control over.
->
-> Whereas the S390 folks have to deal with existing infrastructure which
-> is largely outside of their control.  So if they implement access
-> mechanisms for that, it's fine.
->
-> I would be doing the same thing if I added a protocol socket layer for
-> accessing the Niagara hypervisor virtualization channels.
->   
 
+--------------010800030305010501040802
+Content-Type: text/x-patch;
+ name="vcan_netdev_ops.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="vcan_netdev_ops.patch"
+
+diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
+index 103f0f1..f127ec9 100644
+--- a/drivers/net/can/vcan.c
++++ b/drivers/net/can/vcan.c
+@@ -128,6 +128,10 @@ static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++static const struct net_device_ops vcan_netdev_ops = {
++	.ndo_start_xmit = vcan_tx,
++};
++
+ static void vcan_setup(struct net_device *dev)
+ {
+ 	dev->type              = ARPHRD_CAN;
+@@ -141,7 +145,7 @@ static void vcan_setup(struct net_device *dev)
+ 	if (echo)
+ 		dev->flags |= IFF_ECHO;
+ 
+-	dev->hard_start_xmit   = vcan_tx;
++	dev->netdev_ops        = &vcan_netdev_ops;
+ 	dev->destructor        = free_netdev;
+ }
+ 
+
+--------------010800030305010501040802--
