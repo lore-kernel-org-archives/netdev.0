@@ -1,70 +1,55 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [E1000-devel] networking probs in next-20081203
-Date: Fri, 12 Dec 2008 16:24:46 -0500
-Message-ID: <1229117086.3134.22.camel@localhost.localdomain>
-References: <49381644.8020502@intel.com>
-	 <20081204175236.GA19808@x200.localdomain>
-	 <1228414280.11091.54.camel@moss-spartans.epoch.ncsc.mil>
-	 <20081204.102138.123959105.davem@davemloft.net>
-	 <1228419142.11091.90.camel@moss-spartans.epoch.ncsc.mil>
-	 <1228421219.11091.94.camel@moss-spartans.epoch.ncsc.mil>
-	 <m1bpvrslk0.fsf@frodo.ebiederm.org>
-	 <1228486339.20274.3.camel@localhost.localdomain>
-	 <alpine.LRH.1.10.0812112139340.25553@tundra.namei.org>
-	 <20081212052420.GA14948@x200.localdomain>
-	 <alpine.LRH.1.10.0812122022520.32426@tundra.namei.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net: Remove a noisy printk
+Date: Mon, 15 Dec 2008 13:23:08 +0100
+Message-ID: <49464C2C.6030009@trash.net>
+References: <1229033625-30825-1-git-send-email-ajax@redhat.com> <20081211.203243.124017657.davem@davemloft.net> <alpine.LNX.1.10.0812132310080.27276@fbirervta.pbzchgretzou.qr> <alpine.DEB.2.00.0812141745550.2447@blackhole.kfki.hu> <alpine.LNX.1.10.0812141905490.10355@fbirervta.pbzchgretzou.qr> <alpine.DEB.2.00.0812142056520.2621@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Eric Paris <eparis@parisplace.org>,
-	Daniel J Walsh <dwalsh@redhat.com>
-To: James Morris <jmorris@namei.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mummy.ncsc.mil ([144.51.88.129]:41890 "EHLO mummy.ncsc.mil"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750816AbYLOMPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 07:15:08 -0500
-In-Reply-To: <alpine.LRH.1.10.0812122022520.32426@tundra.namei.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	David Miller <davem@davemloft.net>, ajax@redhat.com,
+	linux-kernel@vger.kernel.org, davej@redhat.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.0812142056520.2621@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2008-12-12 at 20:26 +1100, James Morris wrote:
-> On Fri, 12 Dec 2008, Alexey Dobriyan wrote:
+Jozsef Kadlecsik wrote:
+> On Sun, 14 Dec 2008, Jan Engelhardt wrote:
 > 
-> > Yes, please, someone test it.
+>>> In a >normal< system one usually does not use raw sockets. So if a root 
+>>> process do use raw socket, at least netfilter sends a notification and 
+>>> there's a chance that someone take notice it by checking the kernel logs.
+>>> [...]
+>>> But should we remove them due to nuisances on >test< systems?
+>>>
+>>> Rather make it a kernel compile option but do not remove.
+>> This warning is in the conntrack calling code. Iff you play with
+>> raw sockets and do something wrong, the generic network code
+>> should barf IMHO, not nf_conntrack, and not [nf_conntrack_ipv4 only].
 > 
-> Still getting avc denials:
+> It is not about doing something wrong at using raw sockets - it's about 
+> using raw sockets.
 > 
-> avc:  denied  { mount } for  pid=2308 comm="dhclient" name="/" 
-> dev=proc/net ino=4026531842 scontext=unconfined_u:system_r:dhcpc_t:s0-s0:c0.c1023 
-> tcontext=system_u:object_r:proc_t:s0 tclass=filesystem
-> type=SYSCALL msg=audit(1229073699.174:53): arch=c000003e syscall=2 
-> success=no exit=-2 a0=45bef7 a1=80000 a2=1b6 a3=7f296
-> e71c6f0 items=0 ppid=2259 pid=2308 auid=0 uid=0 gid=0 euid=0 suid=0 
-> fsuid=0 egid=0 sgid=0 fsgid=0 tty=ttyS0 ses=1 comm="
-> dhclient" exe="/sbin/dhclient" 
-> subj=unconfined_u:system_r:dhcpc_t:s0-s0:c0.c1023 key=(null)
-> 
-> It seems the problem is that the /proc/net mountpoint is now labeled as 
-> proc_t.
+> I'm not quite convinced the generic network code should warn about raw 
+> sockets. I believe it belongs to the security-related subsystems - 
+> netfilter and (or) the security frameworks. [But as netfilter is much more 
+> widely used, the 'or' is just theoretical.)
 
-No, that's a check against the filesystem (superblock) label, not the
-mountpoint directory.
+I agree that it doesn't belong to the generic networking code.
+But the way its handled in netfilter is far from perfect as well.
+Currently multiple modules will spam the ringbuffer repeatedly,
+but offer no possibility to change anything in the behaviour of
+how these packets are treated. Unfortunately we can't handle this
+in the ruleset (which is exactly the reason why we're spamming
+the ringbuffer), so how about we add a module option controlling
+how to treat those packets and remove the printk?
 
-proc_net_follow_link() creates a new mount, so we end up hitting
-security_sb_kern_mount() => selinux_sb_kern_mount() and triggering this
-permission check in the context of the current process on what is
-supposed to be a kernel-internal mount of /proc/net.
+In the case of conntrack I would even argue that the message
+makes no sense at all since tracking doesn't matter as long as
+the state isn't used. And for that the table code can warn or
+offer controls.
 
-Maybe pass flags down to security_sb_kern_mount() and skip the check in
-the MS_KERNMOUNT case?
-
--- 
-Stephen Smalley
-National Security Agency
 
