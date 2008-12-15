@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 01/29] wimax: documentation for the stack
-Date: Mon, 15 Dec 2008 04:57:56 -0800
-Message-ID: <fe08d3b23baeebf455e1ac9b31101d09285c2183.1229345775.git.inaky@linux.intel.com>
+Subject: [PATCH 19/29] i2400m/USB: header for the USB bus driver
+Date: Mon, 15 Dec 2008 04:58:14 -0800
+Message-ID: <119e602d75df95293393695a6f60a6bf9ead1c7b.1229345779.git.inaky@linux.intel.com>
 References: <cover.1229345769.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,98 +18,335 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
+This contains the common function declaration and constants for the
+USB driver for the 2400m Wireless WiMAX Connection, as well as it's
+debug level settings.
+
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- Documentation/wimax/README.wimax |   81 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 81 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/wimax/README.wimax
+ drivers/net/wimax/i2400m/i2400m-usb.h       |  264 +++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/usb-debug-levels.h |   42 +++++
+ 2 files changed, 306 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
+ create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
 
-diff --git a/Documentation/wimax/README.wimax b/Documentation/wimax/README.wimax
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
 new file mode 100644
-index 0000000..b78c437
+index 0000000..6f76558
 --- /dev/null
-+++ b/Documentation/wimax/README.wimax
-@@ -0,0 +1,81 @@
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -0,0 +1,264 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * USB-specific i2400m driver definitions
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
++ *
++ *
++ * This driver implements the bus-specific part of the i2400m for
++ * USB. Check i2400m.h for a generic driver description.
++ *
++ * ARCHITECTURE
++ *
++ * This driver listens to notifications sent from the notification
++ * endpoint (in usb-notif.c); when data is ready to read, the code in
++ * there schedules a read from the device (usb-rx.c) and then passes
++ * the data to the generic RX code (rx.c).
++ *
++ * When the generic driver needs to send data (network or control), it
++ * queues up in the TX FIFO (tx.c) and that will notify the driver
++ * through the i2400m->bus_tx_kick() callback
++ * (usb-tx.c:i2400mu_bus_tx_kick) which will send the items in the
++ * FIFO queue.
++ *
++ * This driver, as well, implements the USB-specific ops for the generic
++ * driver to be able to setup/teardown communication with the device
++ * [i2400m_bus_dev_start() and i2400m_bus_dev_stop()], reseting the
++ * device [i2400m_bus_reset()] and performing firmware upload
++ * [i2400m_bus_bm_cmd() and i2400_bus_bm_wait_for_ack()].
++ */
 +
-+   Linux kernel WiMAX stack
++#ifndef __I2400M_USB_H__
++#define __I2400M_USB_H__
 +
-+   (C) 2008 Intel Corporation < linux-wimax@intel.com >
++#include "i2400m.h"
++#include <linux/kthread.h>
 +
-+   This provides a basic Linux kernel WiMAX stack to provide a common
-+   control API for WiMAX devices, usable from kernel and user space.
 +
-+1. Design
++/*
++ * Error Density Count: cheapo error density (over time) counter
++ *
++ * Originally by Reinette Chatre <reinette.chatre@intel.com>
++ *
++ * Embed an 'struct edc' somewhere. Each time there is a soft or
++ * retryable error, call edc_inc() and check if the error top
++ * watermark has been reached.
++ */
++enum {
++	EDC_MAX_ERRORS = 10,
++	EDC_ERROR_TIMEFRAME = HZ,
++};
 +
-+   The WiMAX stack is designed to provide for common WiMAX control
-+   services to current and future WiMAX devices from any vendor.
++/* error density counter */
++struct edc {
++	unsigned long timestart;
++	u16 errorcount;
++};
 +
-+   Because currently there is only one and we don't know what would be the
-+   common services, the APIs it currently provides are very minimal.
-+   However, it is done in such a way that it is easily extensible to
-+   accommodate future requirements.
++static inline void edc_init(struct edc *edc)
++{
++	edc->timestart = jiffies;
++}
 +
-+   The stack works by embedding a struct wimax_dev in your device's
-+   control structures. This provides a set of callbacks that the WiMAX
-+   stack will call in order to implement control operations requested by
-+   the user. As well, the stack provides API functions that the driver
-+   calls to notify about changes of state in the device.
++/**
++ * edc_inc - report a soft error and check if we are over the watermark
++ *
++ * @edc: pointer to error density counter.
++ * @max_err: maximum number of errors we can accept over the timeframe
++ * @timeframe: lenght of the timeframe (in jiffies).
++ *
++ * Returns: !0 1 if maximum acceptable errors per timeframe has been
++ *     exceeded. 0 otherwise.
++ *
++ * This is way to determine if the number of acceptable errors per time
++ * period has been exceeded. It is not accurate as there are cases in which
++ * this scheme will not work, for example if there are periodic occurences
++ * of errors that straddle updates to the start time. This scheme is
++ * sufficient for our usage.
++ *
++ * To use, embed a 'struct edc' somewhere, initialize it with
++ * edc_init() and when an error hits:
++ *
++ * if (do_something_fails_with_a_soft_error) {
++ *        if (edc_inc(&my->edc, MAX_ERRORS, MAX_TIMEFRAME))
++ * 	           Ops, hard error, do something about it
++ *        else
++ *                 Retry or ignore, depending on whatever
++ * }
++ */
++static inline int edc_inc(struct edc *edc, u16 max_err, u16 timeframe)
++{
++	unsigned long now;
 +
-+   The stack exports the API calls needed to control the device to user
-+   space using generic netlink as a marshalling mechanism. You can access
-+   them using your own code or use the wrappers provided for your
-+   convenience in libwimax (in the wimax-tools package).
++	now = jiffies;
++	if (now - edc->timestart > timeframe) {
++		edc->errorcount = 1;
++		edc->timestart = now;
++	} else if (++edc->errorcount > max_err) {
++		edc->errorcount = 0;
++		edc->timestart = now;
++		return 1;
++	}
++	return 0;
++}
 +
-+   For detailed information on the stack, please see
-+   include/linux/wimax.h.
++/* Host-Device interface for USB */
++enum {
++	I2400MU_MAX_NOTIFICATION_LEN = 256,
++	I2400MU_BLK_SIZE = 16,
++	I2400MU_PL_SIZE_MAX = 0x3EFF,
 +
-+2. Usage
++	/* Endpoints */
++	I2400MU_EP_BULK_OUT = 0,
++	I2400MU_EP_NOTIFICATION,
++	I2400MU_EP_RESET_COLD,
++	I2400MU_EP_BULK_IN,
++};
 +
-+   For usage in a driver (registration, API, etc) please refer to the
-+   instructions in the header file include/linux/wimax.h.
 +
-+   When a device is registered with the WiMAX stack, a set of debugfs
-+   files will appear in /sys/kernel/debug/wimax:wmxX can tweak for
-+   control.
++/**
++ * struct i2400mu - descriptor for a USB connected i2400m
++ *
++ * @i2400m: bus-generic i2400m implementation; has to be first (see
++ *     it's documentation in i2400m.h).
++ *
++ * @usb_dev: pointer to our USB device
++ *
++ * @usb_iface: pointer to our USB interface
++ *
++ * @urb_edc: error density counter; used to keep a density-on-time tab
++ *     on how many soft (retryable or ignorable) errors we get. If we
++ *     go over the threshold, we consider the bus transport is failing
++ *     too much and reset.
++ *
++ * @notif_urb: URB for receiving notifications from the device.
++ *
++ * @tx_kthread: thread we use for data TX. We use a thread because in
++ *     order to do deep power saving and put the device to sleep, we
++ *     need to call usb_autopm_*() [blocking functions].
++ *
++ * @tx_wq: waitqueue for the TX kthread to sleep when there is no data
++ *     to be sent; when more data is available, it is woken up by
++ *     i2400mu_bus_tx_kick().
++ *
++ * @rx_kthread: thread we use for data RX. We use a thread because in
++ *     order to do deep power saving and put the device to sleep, we
++ *     need to call usb_autopm_*() [blocking functions].
++ *
++ * @rx_wq: waitqueue for the RX kthread to sleep when there is no data
++ *     to receive. When data is available, it is woken up by
++ *     usb-notif.c:i2400mu_notification_grok().
++ *
++ * @rx_pending_count: number of rx-data-ready notifications that were
++ *     still not handled by the RX kthread.
++ *
++ * @rx_size: current RX buffer size that is being used.
++ *
++ * @rx_size_acc: accumulator of the sizes of the previous read
++ *     transactions.
++ *
++ * @rx_size_cnt: number of read transactions accumulated in
++ *     @rx_size_acc.
++ *
++ * @do_autopm: disable(0)/enable(>0) calling the
++ *     usb_autopm_get/put_interface() barriers when executing
++ *     commands. See doc in i2400mu_suspend() for more information.
++ *
++ * @rx_size_auto_shrink: if true, the rx_size is shrinked
++ *     automatically based on the average size of the received
++ *     transactions. This allows the receive code to allocate smaller
++ *     chunks of memory and thus reduce pressure on the memory
++ *     allocator by not wasting so much space. By default it is
++ *     enabled.
++ *
++ * @debugfs_dentry: hookup for debugfs files.
++ *     These have to be in a separate directory, a child of
++ *     (wimax_dev->debugfs_dentry) so they can be removed when the
++ *     module unloads, as we don't keep each dentry.
++ */
++struct i2400mu {
++	struct i2400m i2400m;		/* FIRST! See doc */
 +
-+2.1. Obtaining debug information: debugfs entries
++	struct usb_device *usb_dev;
++	struct usb_interface *usb_iface;
++	struct edc urb_edc;		/* Error density counter */
 +
-+   The WiMAX stack is compiled, by default, with debug messages that can
-+   be used to diagnose issues. By default, said messages are disabled.
++	struct urb *notif_urb;
++	struct task_struct *tx_kthread;
++	wait_queue_head_t tx_wq;
 +
-+   The drivers will register debugfs entries that allow the user to tweak
-+   debug settings.
++	struct task_struct *rx_kthread;
++	wait_queue_head_t rx_wq;
++	atomic_t rx_pending_count;
++	size_t rx_size, rx_size_acc, rx_size_cnt;
++	atomic_t do_autopm;
++	u8 rx_size_auto_shrink;
 +
-+   Each driver, when registering with the stack, will cause a debugfs
-+   directory named wimax:DEVICENAME to be created; optionally, it might
-+   create more subentries below it.
++	struct dentry *debugfs_dentry;
++};
 +
-+2.1.1. Increasing debug output
 +
-+   The files named *dl_* indicate knobs for controlling the debug output
-+   of different submodules of the WiMAX stack:
-+     *
-+# find /sys/kernel/debug/wimax\:wmx0 -name \*dl_\*
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_stack
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_op_rfkill
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_op_reset
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_op_msg
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
-+/sys/kernel/debug/wimax:wmx0/wimax_dl_debugfs
-+/sys/kernel/debug/wimax:wmx0/.... # other driver specific files
++static inline
++void i2400mu_init(struct i2400mu *i2400mu)
++{
++	i2400m_init(&i2400mu->i2400m);
++	edc_init(&i2400mu->urb_edc);
++	init_waitqueue_head(&i2400mu->tx_wq);
++	atomic_set(&i2400mu->rx_pending_count, 0);
++	init_waitqueue_head(&i2400mu->rx_wq);
++	i2400mu->rx_size = PAGE_SIZE - sizeof(struct skb_shared_info);
++	atomic_set(&i2400mu->do_autopm, 1);
++	i2400mu->rx_size_auto_shrink = 1;
++}
 +
-+       NOTE: Of course, if debugfs is mounted in a directory other than
-+       /sys/kernel/debug, those paths will change.
++extern int i2400mu_notification_setup(struct i2400mu *);
++extern void i2400mu_notification_release(struct i2400mu *);
 +
-+   By reading the file you can obtain the current value of said debug
-+   level; by writing to it, you can set it.
++extern int i2400mu_rx_setup(struct i2400mu *);
++extern void i2400mu_rx_release(struct i2400mu *);
++extern void i2400mu_rx_kick(struct i2400mu *);
 +
-+   To increase the debug level of, for example, the id-table submodule,
-+   just write:
++extern int i2400mu_tx_setup(struct i2400mu *);
++extern void i2400mu_tx_release(struct i2400mu *);
++extern void i2400mu_bus_tx_kick(struct i2400m *);
 +
-+$ echo 3 > /sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
++extern ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *,
++				       const struct i2400m_bootrom_header *,
++				       size_t, int);
++extern ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *,
++					   struct i2400m_bootrom_header *,
++					   size_t);
++#endif /* #ifndef __I2400M_USB_H__ */
+diff --git a/drivers/net/wimax/i2400m/usb-debug-levels.h b/drivers/net/wimax/i2400m/usb-debug-levels.h
+new file mode 100644
+index 0000000..e4358bd
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/usb-debug-levels.h
+@@ -0,0 +1,42 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * Debug levels control file for the i2400m-usb module
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version
++ * 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA.
++ */
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
 +
-+   Increasing numbers yield increasing debug information; for details of
-+   what is printed and the available levels, check the source. The code
-+   uses 0 for disabled and increasing values until 8.
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME i2400m_usb
++#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
++
++#include <linux/wimax/debug.h>
++
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(usb),
++	D_SUBMODULE_DECLARE(fw),
++	D_SUBMODULE_DECLARE(notif),
++	D_SUBMODULE_DECLARE(rx),
++	D_SUBMODULE_DECLARE(tx),
++};
++
++
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
