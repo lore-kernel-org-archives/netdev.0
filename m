@@ -1,43 +1,78 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for	guest<->host	communication.
-Date: Tue, 16 Dec 2008 02:52:53 +0300
-Message-ID: <20081215235253.GB24579@ioremap.net>
-References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com> <20081214.224436.55256593.davem@davemloft.net> <4946717F.2090809@codemonkey.ws> <494697D4.6080300@goop.org> <4946A5E0.5080303@codemonkey.ws> <4946DF97.7070600@goop.org> <4946E36D.8060503@codemonkey.ws>
+From: "Dan Williams" <dan.j.williams@intel.com>
+Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and private channels
+Date: Mon, 15 Dec 2008 16:55:06 -0700
+Message-ID: <e9c3a7c20812151555g14080561q18cf2d0db4c1813b@mail.gmail.com>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+	 <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
+	 <129600E5E5FB004392DDC3FB599660D70C8F3406@irsmsx504.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Anthony Liguori <anthony@codemonkey.ws>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
+	"g.liakhovetski@gmx.de" <g.liakhovetski@gmx.de>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
+To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:33747 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753265AbYLOXwz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 18:52:55 -0500
+Received: from yw-out-2324.google.com ([74.125.46.31]:10959 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753622AbYLOXzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 18:55:08 -0500
+In-Reply-To: <129600E5E5FB004392DDC3FB599660D70C8F3406@irsmsx504.ger.corp.intel.com>
 Content-Disposition: inline
-In-Reply-To: <4946E36D.8060503@codemonkey.ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 15, 2008 at 05:08:29PM -0600, Anthony Liguori (anthony@codemonkey.ws) wrote:
-> The KVM model is that a guest is a process.  Any IO operations original 
-> from the process (QEMU).  The advantage to this is that you get very 
-> good security because you can use things like SELinux and simply treat 
-> the QEMU process as you would the guest.  In fact, in general, I think 
-> we want to assume that QEMU is guest code from a security perspective.
-> 
-> By passing up the network traffic to the host kernel, we now face a 
-> problem when we try to get the data back.  We could setup a tun device 
-> to send traffic to the kernel but then the rest of the system can see 
-> that traffic too.  If that traffic is sensitive, it's potentially unsafe.
+On Fri, Dec 12, 2008 at 7:29 AM, Sosnowski, Maciej
+<maciej.sosnowski@intel.com> wrote:
+>>       clear_bit(DMA_INTERRUPT, dma_cap_mask_all.bits);
+>> +     clear_bit(DMA_PRIVATE, dma_cap_mask_all.bits);
+>>       clear_bit(DMA_SLAVE, dma_cap_mask_all.bits);
+>
+> The comment above should be updated according to this change:
+> -/* 'interrupt' and 'slave' are channel capabilities, but are not
+> +/* 'interrupt', 'private' and 'slave' are channel capabilities, but are not
+>
 
-You can even use unix sockets in this case, and each socket will be
-named as virtio channels names. IIRC tun/tap devices can be virtualizen
-with recent kernels, which also solves all problems of shared access.
+ok.
 
-There are plenty of ways to implement this kind of functionality instead
-of developing some new protocol, which is effectively a duplication of
-what already exists in the kernel.
+>> +static struct dma_chan *private_candidate(dma_cap_mask_t *mask,
+>> struct dma_device *dev) +{
+>> +     struct dma_chan *chan;
+>> +     struct dma_chan *ret = NULL;
+>> +
+>> +     /* devices with multiple channels need special handling as we need
+>> to +   * ensure that all channels are either private or public.
+>> +      */
+>> +     if (dev->chancnt > 1 && !dma_has_cap(DMA_PRIVATE, dev->cap_mask))
+>> +             list_for_each_entry(chan, &dev->channels, device_node) {
+>> +                     /* some channels are already publicly allocated */
+>> +                     if (chan->client_count)
+>> +                             return NULL;
+>> +             }
+>
+> Isn't it a dangerous approach to let clients consume for their exclusive usage channels
+> meant for general-purpose ("pubilc" ones)?
+> Why not to limit private_candidate to devices with DMA_PRIVATE capability only?
+>
 
--- 
-	Evgeniy Polyakov
+This allows unused channels to be claimed by dma_request_channel().
+It is not dangerous as long as ->client_count is zero.
+
+>> +
+>> +     list_for_each_entry(chan, &dev->channels, device_node) {
+>> +             if (!__dma_chan_satisfies_mask(chan, mask)) {
+>> +                     pr_debug("%s: %s wrong capabilities\n",
+>> +                              __func__, dev_name(&chan->dev));
+>> +                     continue;
+>> +             }
+>
+> As capabilities are per device, this check could be performed just once
+> before list_for_each_entry(chan, &dev->channels, device_node).
+>
+
+Yes, changed.
+
+Thanks,
+Dan
