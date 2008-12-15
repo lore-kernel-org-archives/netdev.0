@@ -1,84 +1,140 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: Re: [irda-users] [RFC PATCH 0/9] IrDA 2.6.28 bug fix
-Date: Mon, 15 Dec 2008 13:31:44 +0100
-Message-ID: <20081215123144.GC4017@sortiz.org>
-References: <20081215015729.587697008@sortiz.org> <20081214.230837.169487041.davem@davemloft.net>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 2.mail-out.ovh.net ([91.121.26.226]:51116 "HELO
-	2.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750761AbYLOMf4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 07:35:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20081214.230837.169487041.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 10/29] wimax: Makefile,
+	Kconfig and docbook linkage for the stack
+Date: Mon, 15 Dec 2008 04:58:05 -0800
+Message-ID: <b63e91d56c3332ba88684fa1e44d7d0ce7ad9921.1229345777.git.inaky@linux.intel.com>
+References: <cover.1229345769.git.inaky@linux.intel.com>
+Cc: greg@kroah.com, wimax@linuxwimax.org
+To: netdev@vger.kernel.org
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1229345769.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+This patch provides Makefile and KConfig for the WiMAX stack,
+integrating them into the networking stack's Makefile, Kconfig and
+doc-book templates.
 
-On Sun, Dec 14, 2008 at 11:08:37PM -0800, David Miller wrote:
-> From: Samuel Ortiz <samuel@sortiz.org>
-> Date: Mon, 15 Dec 2008 02:57:29 +0100
-> 
-> > This is a 9 patches series for IrDA, against your net-2.6 tree.
-> > This is an attempt to fix kernel.bugzilla.org bug #11795, where we noticed
-> > skb->cb could be altered once submitted to dev_queue_xmit. Since IrDA is using
-> > this callback to pass per-skb information, we are now stuffing it in front of
-> > skb->data, after allocating the right headroom.
-> > 
-> > Another solution would be to play with the IrDA physical header and skb_pull
-> > our skbs whenever we are physically transmitting the data.
-> 
-> Hi Sam.
-> 
-> I appreciate you working on this.
-> 
-> But I there are two issues here:
-> 
-> 1) There is no way I can put a series of 9 invasive patches like these
->    so late into 2.6.28
-> 
->    If we need to fix it in 2.6.28 it'd need to be a 5 to 10 line
->    change at most, even if hackish, before I could seriously consider
->    it.
-Ok, I understand. Sorry for not being faster at tackling that bug.
-Regarding hackish fixes, would something like commit
-f7cd168645dda3e9067f24fabbfa787f9a237488 (see
-http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=f7cd168645dda3e9067f24fabbfa787f9a237488 )
-be acceptable to you as a short term solution ?
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ Documentation/DocBook/networking.tmpl |    8 +++++++
+ net/Kconfig                           |    2 +
+ net/Makefile                          |    1 +
+ net/wimax/Kconfig                     |   36 +++++++++++++++++++++++++++++++++
+ net/wimax/Makefile                    |   13 +++++++++++
+ 5 files changed, 60 insertions(+), 0 deletions(-)
+ create mode 100644 net/wimax/Kconfig
+ create mode 100644 net/wimax/Makefile
 
+diff --git a/Documentation/DocBook/networking.tmpl b/Documentation/DocBook/networking.tmpl
+index f24f9e8..7053c1c 100644
+--- a/Documentation/DocBook/networking.tmpl
++++ b/Documentation/DocBook/networking.tmpl
+@@ -101,6 +101,14 @@ X!Enet/core/wireless.c
+      <sect1><title>Synchronous PPP</title>
+ !Edrivers/net/wan/syncppp.c
+      </sect1>
++     <sect1><title>WiMAX</title>
++!Enet/wimax/op-msg.c
++!Enet/wimax/op-reset.c
++!Enet/wimax/op-rfkill.c
++!Enet/wimax/stack.c
++!Iinclude/net/wimax.h
++!Iinclude/linux/wimax.h
++     </sect1>
+   </chapter>
  
-> 2) Just like you can't claim ownership to skb->cb after dev_queue_xmit(),
->    you just as equally can't claim ownership to areas in front of
->    skb->data either.
-> 
-> I'm pretty sure we discussed how #2 wouldn't work for this problem.
-> 
-> I understand you need a way to pass information, but you're trying to
-> do it using things the IRDA (nor any other) stack does not own across
-> a dev_queue_xmit() invocation.
-> 
-> Furthermore, device layer schemes that try to use some shared
-> part of the skb for their communication is frail, and a good
-> way to see how frail it is is to consider how encapsulation of
-> such device types within themselves might be made to work.
->
-> You can't do it with skb->cb[] private storage, and you doubly can't
-> do it by sneaking things in front of skb->data because that's where
-> the encapsulated protocol headers would go.
-Ok, so I guess I really have to work on passing that meta information along
-with the actual data. I tried to avoid this as a lot of code on the IrDA stack
-is accessing the IrLAP payload directly. I guess this is the right opportunity
-to add proper IrDA accessors, and then stuff the IrDA cb in the actual data
-header.
-That's obviously -next material though...
-
-Thanks a lot for the feedback.
-
-Cheers,
-Samuel.
-
+ </book>
+diff --git a/net/Kconfig b/net/Kconfig
+index d789d79..3bff221 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -251,6 +251,8 @@ source "net/ieee80211/Kconfig"
+ 
+ endif # WIRELESS
+ 
++source "net/wimax/Kconfig"
++
+ source "net/rfkill/Kconfig"
+ source "net/9p/Kconfig"
+ 
+diff --git a/net/Makefile b/net/Makefile
+index 27d1f10..620a505 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -61,3 +61,4 @@ obj-$(CONFIG_NET_9P)		+= 9p/
+ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
+ endif
++obj-$(CONFIG_WIMAX)		+= wimax/
+diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
+new file mode 100644
+index 0000000..67d5f4d
+--- /dev/null
++++ b/net/wimax/Kconfig
+@@ -0,0 +1,36 @@
++#
++# WiMAX LAN device configuration
++#
++
++menuconfig WIMAX
++       tristate "WiMAX Wireless Broadband support"
++       help
++
++         Select to configure support for devices that provide wireless
++         broadband connectivity using the WiMAX protocol (IEEE 802.16).
++
++         Please note that most of these devices require signing up for
++         a service plan with a provider.
++
++         The different WiMAX drivers can be enabled in the menu entry
++
++         Device Drivers > Network device support > WiMAX Wireless Broadband devices
++
++         If unsure, it is safe to select M (module).
++
++config WIMAX_DEBUG_LEVEL
++       int "WiMAX debug level"
++       depends on WIMAX
++       default 8
++       help
++
++         Select the maximum debug verbosity level to be compiled into
++         the WiMAX stack code.
++
++         By default, debug messages are disabled at runtime and can be
++         selectively enabled for different parts of the code using the
++         sysfs debug-levels file.
++
++         If set at zero, this will compile out all the debug code.
++
++         It is recommended that it is left at 8.
+diff --git a/net/wimax/Makefile b/net/wimax/Makefile
+new file mode 100644
+index 0000000..d548446
+--- /dev/null
++++ b/net/wimax/Makefile
+@@ -0,0 +1,13 @@
++
++obj-$(CONFIG_WIMAX)		+= wimax.o
++
++wimax-objs :=		\
++	id-table.o	\
++	op-msg.o	\
++	op-reset.o	\
++	op-rfkill.o	\
++	stack.o
++
++wimax-$(CONFIG_DEBUG_FS) += debugfs.o
++
++
+-- 
+1.5.6.5
