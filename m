@@ -1,68 +1,123 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: kernel panics with net_rx_action on kernels >2.6.26
-Date: Mon, 15 Dec 2008 13:35:21 +0000
-Message-ID: <20081215133521.GA6697@ff.dom.local>
-References: <20081214.224800.125614949.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
+	negotiation
+Date: Mon, 15 Dec 2008 11:48:22 -0200
+Message-ID: <20081215134822.GD4775@ghostprotocols.net>
+References: <20081208.011917.176472177.davem@davemloft.net> <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: alexander.huemer@sbg.ac.at, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:33296 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752592AbYLONsf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 08:48:35 -0500
 Content-Disposition: inline
-In-Reply-To: <20081214.224800.125614949.davem@davemloft.net>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15-12-2008 07:48, David Miller wrote:
-> From: Alexander Huemer <alexander.huemer@sbg.ac.at>
-> Date: Sun, 14 Dec 2008 15:17:32 +0100
+Em Sat, Dec 13, 2008 at 02:41:22PM +0100, Gerrit Renker escreveu:
+> This adds auto-loading of CCIDs (when module loading is enabled)
+> for the purpose of feature negotiation.
 > 
-> Networking developers generally don't read the linux-net list, it is
-> for user configuration and basic questions only, not bug reports or
-> technical discussions.
+> The problem with loading the CCIDs at the end of feature negotiation is
+> that this would happen in software interrupt context. Besides, if the host
+> advertises CCIDs during negotiation, it should have them ready to use, in
+> case an agreeing peer wants to use it for the connection.
 > 
-> netdev is the place to report such things, and I've added that to the
-> CC:
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+> ---
+>  net/dccp/ccid.h |    1 +
+>  net/dccp/ccid.c |   39 +++++++++++++++++++++++++++++----------
+>  net/dccp/feat.c |    5 +++++
+>  3 files changed, 35 insertions(+), 10 deletions(-)
 > 
->> one of my machines (x86) crashes under heavy network load with kernels
->>> 2.6.26, i tried quite everything possible between 2.6.27 and 2.6.28-rc8.
->> lspci -vv: http://xx.vu/~ahuemer/lspci_vv.txt <http://xx.vu/%7Eahuemer/lspci_vv.txt>
->> of the quad nic 2 ports are used, the machine is acting as a iptables
->> firewall/router.
->>
->> kernel config (2.6.26) http://xx.vu/~ahuemer/config <http://xx.vu/%7Eahuemer/config>
->> screenshot of the panic:
->> http://xx.vu/~ahuemer/kernel_panic_net_rx_action.jpg <http://xx.vu/%7Eahuemer/kernel_panic_net_rx_action.jpg>
->>
->> as i do not have any problems with kernels <=2.6.26, i doubt that this
->> is a hardware problem.
->> in case of the panic, nothing is written to the system log.
->>
->> any hints welcome.
->> please CC me on replies, i am not subscribed to the  mailing list.
+> --- a/net/dccp/ccid.h
+> +++ b/net/dccp/ccid.h
+> @@ -108,6 +108,7 @@ extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
+>  extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
+>  					  char __user *, int __user *);
+>  
+> +extern int    ccid_request_modules(u8 const *ccid_array, u8 array_len);
+>  extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
+>  			     gfp_t gfp);
+>  
+> --- a/net/dccp/ccid.c
+> +++ b/net/dccp/ccid.c
+> @@ -196,22 +196,41 @@ int ccid_unregister(struct ccid_operations *ccid_ops)
+>  
+>  EXPORT_SYMBOL_GPL(ccid_unregister);
+>  
+> +/**
+> + * ccid_request_module  -  Pre-load CCID module for later use
+> + * This should be called only from process context (e.g. during connection
+> + * setup) and is necessary for later calls to ccid_new (typically in software
+> + * interrupt), so that it has the modules available when they are needed.
+> + */
+> +static int ccid_request_module(u8 id)
+> +{
+> +	if (!in_atomic()) {
 
-Could you try this patch, please?
+Shouldn't the above be in a BUG_ON? It looks strange to simply refuse to
+do that and return OK. 
 
-Jarek P.
----
-
- drivers/net/starfire.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
-index 0358809..f86d6bb 100644
---- a/drivers/net/starfire.c
-+++ b/drivers/net/starfire.c
-@@ -1503,6 +1503,11 @@ static int __netdev_rx(struct net_device *dev, int *quota)
- 		desc->status = 0;
- 		np->rx_done = (np->rx_done + 1) % DONE_Q_SIZE;
- 	}
-+
-+	if (*quota == 0) {	/* out of rx quota */
-+		retcode = 1;
-+		goto out;
-+	}
- 	writew(np->rx_done, np->base + CompletionQConsumerIdx);
- 
-  out:
+> +		ccids_read_lock();
+> +		if (ccids[id] == NULL) {
+> +			ccids_read_unlock();
+> +			return request_module("net-dccp-ccid-%d", id);
+> +		}
+> +		ccids_read_unlock();
+> +	}
+> +	return 0;
+> +}
+> +
+> +int ccid_request_modules(u8 const *ccid_array, u8 array_len)
+> +{
+> +#ifdef CONFIG_MODULES
+> +	while (array_len--)
+> +		if (ccid_request_module(ccid_array[array_len]))
+> +			return -1;
+> +#endif
+> +	return 0;
+> +}
+> +
+>  struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
+>  {
+>  	struct ccid_operations *ccid_ops;
+>  	struct ccid *ccid = NULL;
+>  
+>  	ccids_read_lock();
+> -#ifdef CONFIG_MODULES
+> -	if (ccids[id] == NULL) {
+> -		/* We only try to load if in process context */
+> -		ccids_read_unlock();
+> -		if (gfp & GFP_ATOMIC)
+> -			goto out;
+> -		request_module("net-dccp-ccid-%d", id);
+> -		ccids_read_lock();
+> -	}
+> -#endif
+>  	ccid_ops = ccids[id];
+>  	if (ccid_ops == NULL)
+>  		goto out_unlock;
+> --- a/net/dccp/feat.c
+> +++ b/net/dccp/feat.c
+> @@ -1163,6 +1163,11 @@ int dccp_feat_init(struct sock *sk)
+>  	    ccid_get_builtin_ccids(&rx.val, &rx.len))
+>  		return -ENOBUFS;
+>  
+> +	/* Pre-load all CCID modules that are going to be advertised */
+> +	rc = -EUNATCH;
+> +	if (ccid_request_modules(tx.val, tx.len))
+> +		goto free_ccid_lists;
+> +
+>  	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
+>  	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
+>  		goto free_ccid_lists;
+> --
+> To unsubscribe from this list: send the line "unsubscribe dccp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
