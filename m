@@ -1,88 +1,73 @@
-From: Alexander Huemer <alexander.huemer@sbg.ac.at>
-Subject: Re: kernel panics with net_rx_action on kernels >2.6.26
-Date: Mon, 15 Dec 2008 21:11:09 +0100
-Message-ID: <4946B9DD.9010105@sbg.ac.at>
-References: <20081215133521.GA6697@ff.dom.local>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host communication.
+Date: Mon, 15 Dec 2008 14:44:26 -0600
+Message-ID: <4946C1AA.4080404@codemonkey.ws>
+References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com>	<20081214.224436.55256593.davem@davemloft.net>	<4946717F.2090809@codemonkey.ws> <20081215.114315.165733593.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <20081215133521.GA6697@ff.dom.local>
-Sender: linux-net-owner@vger.kernel.org
+Cc: gleb@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20081215.114315.165733593.davem@davemloft.net>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On 15-12-2008 07:48, David Miller wrote:
+David Miller wrote:
+> From: Anthony Liguori <anthony@codemonkey.ws>
+> Date: Mon, 15 Dec 2008 09:02:23 -0600
+>
 >   
->> From: Alexander Huemer <alexander.huemer@sbg.ac.at>
->> Date: Sun, 14 Dec 2008 15:17:32 +0100
->>
->> Networking developers generally don't read the linux-net list, it is
->> for user configuration and basic questions only, not bug reports or
->> technical discussions.
->>
->> netdev is the place to report such things, and I've added that to the
->> CC:
->>
+>> There is already an AF_IUCV for s390.
 >>     
->>> one of my machines (x86) crashes under heavy network load with kernels
->>>       
->>>> 2.6.26, i tried quite everything possible between 2.6.27 and 2.6.28-rc8.
->>>>         
->>> lspci -vv: http://xx.vu/~ahuemer/lspci_vv.txt <http://xx.vu/%7Eahuemer/lspci_vv.txt>
->>> of the quad nic 2 ports are used, the machine is acting as a iptables
->>> firewall/router.
->>>
->>> kernel config (2.6.26) http://xx.vu/~ahuemer/config <http://xx.vu/%7Eahuemer/config>
->>> screenshot of the panic:
->>> http://xx.vu/~ahuemer/kernel_panic_net_rx_action.jpg <http://xx.vu/%7Eahuemer/kernel_panic_net_rx_action.jpg>
->>>
->>> as i do not have any problems with kernels <=2.6.26, i doubt that this
->>> is a hardware problem.
->>> in case of the panic, nothing is written to the system log.
->>>
->>> any hints welcome.
->>> please CC me on replies, i am not subscribed to the  mailing list.
->>>       
 >
-> Could you try this patch, please?
+> This is a scarecrow and irrelevant to this discussion.
 >
-> Jarek P.
-> ---
->
->  drivers/net/starfire.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
-> index 0358809..f86d6bb 100644
-> --- a/drivers/net/starfire.c
-> +++ b/drivers/net/starfire.c
-> @@ -1503,6 +1503,11 @@ static int __netdev_rx(struct net_device *dev, int *quota)
->  		desc->status = 0;
->  		np->rx_done = (np->rx_done + 1) % DONE_Q_SIZE;
->  	}
-> +
-> +	if (*quota == 0) {	/* out of rx quota */
-> +		retcode = 1;
-> +		goto out;
-> +	}
->  	writew(np->rx_done, np->base + CompletionQConsumerIdx);
->  
->   out:
+> And this is exactly why I asked that any arguments in this thread
+> avoid talking about virtualization technology and why it's "special."
 >   
-thanks for the patch, jarek.
-i applied it to 2.6.28-rc8.
-the machine is already running under heavy network load, as before, when
-the panics occur.
-heavy load means high packets/second values, not high byte/second values.
-if you find that necessary for testing i will find a way to pump some
-gigs through the machine.
-let's see what happens.
-i will get back to you after a new panic or 2 days without panic.
 
--- 
-kind regards
-alex.
+You cannot completely avoid talking about virtualization here.  I agree 
+that an argument based on, "we need it for virtualization", why?, 
+"virtualization!" is not sufficient.
+
+You still didn't address my earlier question though.
+
+What we need is a mechanism for implementing paravirtual device drivers 
+in userspace.  On a modern Linux system, a lot of important things are 
+done in userspace (mostly around X) so having some code in the guest's 
+userspace is important.
+
+We want this communication mechanism to be simple and reliable as we 
+want to implement the backends drivers in the host userspace with 
+minimum mess.
+
+Within the guest, we need the interface to be always available and we 
+need an addressing scheme that is hypervisor specific.  Yes, we can 
+build this all on top of TCP/IP.  We could even build it on top of a 
+serial port.  Both have their down-sides wrt reliability and complexity.
+
+The most natural userspace interface that meets all of these 
+requirements would appear to be a new socket family.  We could also use 
+another userspace interface (netlink was originally proposed, a chardev 
+is possible, or a virtual file system).
+
+Do you have another recommendation?
+
+Regards,
+
+Anthony Liguori
+
+> This proposed patch here is asking to add new infrastructure for
+> hypervisor facilities that will be _ADDED_ and for which we have
+> complete control over.
+>
+> Whereas the S390 folks have to deal with existing infrastructure which
+> is largely outside of their control.  So if they implement access
+> mechanisms for that, it's fine.
+>
+> I would be doing the same thing if I added a protocol socket layer for
+> accessing the Niagara hypervisor virtualization channels.
+>   
+
