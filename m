@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] Phonet: keep TX queue disabled when the device
- is off
-Date: Mon, 15 Dec 2008 00:54:06 -0800 (PST)
-Message-ID: <20081215.005406.45804001.davem@davemloft.net>
-References: <20081211.003323.193691721.davem@davemloft.net>
-	<1229004242-18089-1-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] smsc9420: add ethtool register dump support
+Date: Mon, 15 Dec 2008 01:00:10 -0800 (PST)
+Message-ID: <20081215.010010.129872431.davem@davemloft.net>
+References: <1229072252-7188-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vlad.lyalikov@smsc.com,
+	ian.saturley@smsc.com
+To: steve.glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42031
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34719
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752084AbYLOIyF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 03:54:05 -0500
-In-Reply-To: <1229004242-18089-1-git-send-email-remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1752125AbYLOJAJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 04:00:09 -0500
+In-Reply-To: <1229072252-7188-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-Date: Thu, 11 Dec 2008 16:04:02 +0200
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Fri, 12 Dec 2008 08:57:32 +0000
 
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> This patch adds support for SMSC's LAN9420 PCI ethernet controller
+> to ethtool's dump registers (-d) command.
+> 
+> This patch is for use with an accompanying ethtool patch, which decodes
+> the register dump.
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Applied, thanks.
+Applied, thanks Steve.
