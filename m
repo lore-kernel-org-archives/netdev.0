@@ -1,67 +1,63 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Subject: Re: bnx2x machine check in bnx2x_ack_int()
-Date: Mon, 15 Dec 2008 09:21:08 -0700
-Message-ID: <200812150921.08668.bjorn.helgaas@hp.com>
-References: <200812091204.35296.bjorn.helgaas@hp.com> <1229328209.22295.16.camel@lb-tlvb-eliezer>
+From: gerrit@erg.abdn.ac.uk
+Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
+     negotiation
+Date: Mon, 15 Dec 2008 16:25:46 -0000 (GMT)
+Message-ID: <36660.148.187.160.35.1229358346.squirrel@148.187.160.35>
+References: <20081208.011917.176472177.davem@davemloft.net>
+    <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
+    <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
+    <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+    <e2d7436a0812130555r52422bel1dd9b66ba8479e2a@mail.gmail.com>
+    <20081213145655.GA14240@gerrit.erg.abdn.ac.uk>
+    <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eilon Greenstein" <eilong@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>, davem@davemloft.net,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+To: =?iso-8859-1?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>,
+	acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:15373 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753113AbYLOQVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 11:21:12 -0500
-In-Reply-To: <1229328209.22295.16.camel@lb-tlvb-eliezer>
-Content-Disposition: inline
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:34271 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753230AbYLOQ1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 11:27:05 -0500
+In-Reply-To: <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 15 December 2008 01:03:29 am Eilon Greenstein wrote:
-> My sincere apologize for the late response. When searching the mailing
-> list to see if I accidentally missed your reply, I have come to realize
-> that my response was never sent (problem with my email client).
+> Since the lock is dropped after checking ccids[id] then there's
+> a window where multiple request_module()s can be called if multiple
+> applications create a DCCP socket at a same time. The code below
+> should do the same without a lock (ccids is a static array,
+> so ccids[N] is always at the same place).
+>
+> static int ccid_request_module(u8 id)
+> {
+>        if (!in_atomic()) {
+>                rmb();
+>                if (ccids[id] == NULL)
+>                        return request_module("net-dccp-ccid-%d", id);
+>        }
+>        return 0;
+> }
+>
+I think that the code (not yours) is in general misleading. It stems from
+an earlier phase of the DCCP development. Now, with the present patch set,
+the rationale is
+ * all CCIDs that are advertised must be loaded
+ * this is a subset of the configured CCIDs and contains at least one CCID
+ * the request_module is only ever executed once, when the first DCCP
+   application tries to pre-load the CCIDs it wants to advertise
 
-No problem, thanks for the response!
+Hence I think we have a chance by going completely lockless here, by
+loading all configured CCIDs at runtime. In this manner the per-connection
+check "are all advertised CCIDs are loaded?" falls under the table, we
+do not need to worry about concurrent access, and loading DCCP implies that
+all needed CCIDs are there.
 
-> On Tue, 2008-12-09 at 11:04 -0800, Bjorn Helgaas wrote:
-> > Hi Eilon,
-> > 
-> > I'm using bnx2x 1.45.23 from RHEL5.3s4 on a prototype ia64 platform,
-> > and I see intermittent machine checks at bnx2x_ack_int+176, which is
-> > just after __ia64_readl() returns.
-> I see that you are using two 57710 chips. What kind of board are you
-> using (which PHY)?
+Arnaldo would you be okay with such an approach ? I would be willing to
+revise the patch set accordingly.
 
-This is a blade with separate PHYs.  In this case, there is no PHY
-at all because the module that would contain the PHY is not installed.
+Gerrit
 
-> > This is a proto with incomplete firmware, and the driver correctly
-> > complains about that, but it seems like there's still a hole where
-> > things blow up.
-> If you set the right FW on the board, do you still see the problem? I'm
-> asking to determine if this is a problem specific to the "no FW" case or
-> general issue with this configuration
-
-I'm trying to get FW installed, but haven't had any luck yet.
-
-> > The machine check happens intermittently on boot, but I can reproduce
-> > it instantly with a loop like this:
-> > 
-> >   # while /bin/true; do ifup eth6; date; done
-> > 
-> > Here's some lspci and dmesg information.  I added a little debug in
-> > bnx2x_ack_int(), so this is a kernel I compiled myself.
-> > 
-> > Let me know if there's any information I can collect or testing I
-> > can do.
-> Unfortunately, with the 57711 Mezzanine on the IA64 blade that I have, I
-> cannot reproduce this failure, so I will probably need more information.
-> Can you please send me the nvram content?
-
-Sure.  Is there an easy way to collect this, or should I instrument the
-driver to print it out or something?
-
-Bjorn
