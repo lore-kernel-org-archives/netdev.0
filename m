@@ -1,29 +1,30 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
-	space data
-Date: Mon, 15 Dec 2008 18:18:01 -0500
-Message-ID: <20081215231801.GA27168@infradead.org>
-References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net> <20081210214500.GA24212@ioremap.net> <4941590F.3070705@vlnb.net> <1229022734.3266.67.camel@localhost.localdomain> <4942BAB8.4050007@vlnb.net> <1229110673.3262.94.camel@localhost.localdomain> <49469ADB.6010709@vlnb.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 2/3]ipv6:fix the return interface index when get
+ it while no message is received
+Date: Mon, 15 Dec 2008 15:19:43 -0800 (PST)
+Message-ID: <20081215.151943.136730438.davem@davemloft.net>
+References: <493E19FC.1080609@cn.fujitsu.com>
+	<49461DF2.8030502@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>, linux-scsi@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Jeff Garzik <jeff@garzik.org>,
-	Boaz Harrosh <bharrosh@panasas.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org
-To: Vladislav Bolkhovitin <vst@vlnb.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49469ADB.6010709@vlnb.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yanghy@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33327
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753127AbYLOXTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 18:19:42 -0500
+In-Reply-To: <49461DF2.8030502@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If you don't believe that increasing struct page size for a fringe
-feature is a no-go submit the patch to the VM people and wait..
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Date: Mon, 15 Dec 2008 17:05:54 +0800
+
+> Updated patch:
+
+Thanks Yang.  I'm still reviewing this and deciding if I will
+apply the latest version of your patches.
+
+Thanks in advance for your patience.
