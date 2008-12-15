@@ -1,8 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 07/29] wimax: basic API: kernel/user messaging,
-	rfkill and reset
-Date: Mon, 15 Dec 2008 04:58:02 -0800
-Message-ID: <c1eca17c029f3bdd160371ad6b82f27a47ac98c4.1229345777.git.inaky@linux.intel.com>
+Subject: [PATCH 20/29] i2400m/USB: probe/disconnect,
+	dev init/shutdown and reset backends
+Date: Mon, 15 Dec 2008 04:58:15 -0800
+Message-ID: <25b922e5286882e334ac72a7a5f935153f68a472.1229345779.git.inaky@linux.intel.com>
 References: <cover.1229345769.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,71 +19,30 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Implements the three basic operations provided by the stack's control
-interface to WiMAX devices:
-
-- Messaging channel between user space and driver/device
-
-  This implements a direct communication channel between user space
-  and the driver/device, by which free form messages can be sent back
-  and forth.
-
-  This is intended for device-specific features, vendor quirks, etc.
-
-- RF-kill framework integration
-
-  Provide most of the RF-Kill integration for WiMAX drivers so that
-  all device drivers have to do is after wimax_dev_add() is call
-  wimax_report_rfkill_{hw,sw}() to update initial state and then every
-  time it changes.
-
-  Provides wimax_rfkill() for the kernel to call to set software
-  RF-Kill status and/or query current hardware and software switch
-  status.
-
-  Exports wimax_rfkill() over generic netlink to user space.
-
-- Reset a WiMAX device
-
-  Provides wimax_reset() for the kernel to reset a wimax device as
-  needed and exports it over generic netlink to user space.
-
-This API is clearly limited, as it still provides no way to do the
-basic scan, connect and disconnect in a hardware independent way.  The
-WiMAX case is more complex than WiFi due to the way networks are
-discovered and provisioned.
-
-The next developments are to add the basic operations so they can be
-offerent by different drivers. However, we'd like to get more vendors
-to jump in and provide feedback of how the user/kernel API/abstraction
-layer should be.
-
-The user space code for the i2400m, as of now, uses the messaging
-channel, but that will change as the API evolves.
+Implements probe/disconnect for the USB device, as well as main
+backends for the generic driver to control the USB device
+(bus_dev_start(), bus_dev_stop() and bus_reset()).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- net/wimax/op-msg.c    |  421 ++++++++++++++++++++++++++++++++++++++
- net/wimax/op-reset.c  |  143 +++++++++++++
- net/wimax/op-rfkill.c |  532 +++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 1096 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/op-msg.c
- create mode 100644 net/wimax/op-reset.c
- create mode 100644 net/wimax/op-rfkill.c
+ drivers/net/wimax/i2400m/usb.c |  591 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 591 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/usb.c
 
-diff --git a/net/wimax/op-msg.c b/net/wimax/op-msg.c
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
 new file mode 100644
-index 0000000..cb3b4ad
+index 0000000..6d4b65f
 --- /dev/null
-+++ b/net/wimax/op-msg.c
-@@ -0,0 +1,421 @@
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -0,0 +1,591 @@
 +/*
-+ * Linux WiMAX
-+ * Generic messaging interface between userspace and driver/device
++ * Intel Wireless WiMAX Connection 2400m
++ * Linux driver model glue for USB device, reset & fw upload
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of the GNU General Public License version
@@ -100,1090 +59,572 @@ index 0000000..cb3b4ad
 + * 02110-1301, USA.
 + *
 + *
-+ * This implements a direct communication channel between user space and
-+ * the driver/device, by which free form messages can be sent back and
-+ * forth.
++ * See i2400m-usb.h for a general description of this driver.
 + *
-+ * This is intended for device-specific features, vendor quirks, etc.
-+ *
-+ * See include/net/wimax.h
-+ *
-+ * GENERIC NETLINK ENCODING AND CAPACITY
-+ *
-+ * A destination "pipe name" is added to each message; it is up to the
-+ * drivers to assign or use those names (if using them at all).
-+ *
-+ * Messages are encoded as a binary netlink attribute using nla_put()
-+ * using type NLA_UNSPEC (as some versions of libnl still in
-+ * deployment don't yet understand NLA_BINARY).
-+ *
-+ * The maximum capacity of this transport is PAGESIZE per message (so
-+ * the actual payload will be bit smaller depending on the
-+ * netlink/generic netlink attributes and headers).
-+ *
-+ * RECEPTION OF MESSAGES
-+ *
-+ * When a message is received from user space, it is passed verbatim
-+ * to the driver calling wimax_dev->op_msg_from_user(). The return
-+ * value from this function is passed back to user space as an ack
-+ * over the generic netlink protocol.
-+ *
-+ * The stack doesn't do any processing or interpretation of these
-+ * messages.
-+ *
-+ * SENDING MESSAGES
-+ *
-+ * Messages can be sent with wimax_msg().
-+ *
-+ * If the message delivery needs to happen on a different context to
-+ * that of its creation, wimax_msg_alloc() can be used to get a
-+ * pointer to the message that can be delivered later on with
-+ * wimax_msg_send().
++ * This file implements driver model glue, and hook ups for the
++ * generic driver to implement the bus-specific functions (device
++ * communication setup/tear down, firmware upload and resetting).
 + *
 + * ROADMAP
 + *
-+ * wimax_gnl_doit_msg_from_user()    Process a message from user space
-+ *   wimax_dev_get_by_genl_info()
-+ *   wimax_dev->op_msg_from_user()   Delivery of message to the driver
++ * i2400mu_probe()
++ *   alloc_netdev()...
++ *     i2400mu_netdev_setup()
++ *       i2400mu_init()
++ *       i2400m_netdev_setup()
++ *   i2400m_setup()...
 + *
-+ * wimax_msg()                       Send a message to user space
-+ *   wimax_msg_alloc()
-+ *   wimax_msg_send()
++ * i2400mu_disconnect
++ *   i2400m_release()
++ *   free_netdev()
++ *
++ * i2400mu_suspend()
++ *   i2400m_cmd_enter_powersave()
++ *   i2400mu_notification_release()
++ *
++ * i2400mu_resume()
++ *   i2400mu_notification_setup()
++ *
++ * i2400mu_bus_dev_start()        Called by i2400m_dev_start() [who is
++ *   i2400mu_tx_setup()           called by i2400m_setup()]
++ *   i2400mu_rx_setup()
++ *   i2400mu_notification_setup()
++ *
++ * i2400mu_bus_dev_stop()         Called by i2400m_dev_stop() [who is
++ *   i2400mu_notification_release()  called by i2400m_release()]
++ *   i2400mu_rx_release()
++ *   i2400mu_tx_release()
++ *
++ * i2400mu_bus_reset()            Called by i2400m->bus_reset
++ *   __i2400mu_reset()
++ *     __i2400mu_send_barker()
++ *   usb_reset_device()
 + */
-+#include <linux/device.h>
-+#include <net/genetlink.h>
-+#include <linux/netdevice.h>
-+#include <linux/wimax.h>
-+#include <linux/security.h>
-+#include "wimax-internal.h"
++#include "i2400m-usb.h"
++#include <linux/wimax/i2400m.h>
++#include <linux/debugfs.h>
 +
 +
-+#define D_SUBMODULE op_msg
-+#include "debug-levels.h"
++#define D_SUBMODULE usb
++#include "usb-debug-levels.h"
 +
 +
-+/**
-+ * wimax_msg_alloc - Create a new skb for sending a message to userspace
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ * @pipe_name: "named pipe" the message will be sent to
-+ * @msg: pointer to the message data to send
-+ * @size: size of the message to send (in bytes), including the header.
-+ * @gfp_flags: flags for memory allocation.
-+ *
-+ * Returns: %0 if ok, negative errno code on error
-+ *
-+ * Description:
-+ *
-+ * Allocates an skb that will contain the message to send to user
-+ * space over the messaging pipe and initializes it, copying the
-+ * payload.
-+ *
-+ * Once this call is done, you can deliver it with
-+ * wimax_msg_send().
-+ *
-+ * IMPORTANT:
-+ *
-+ * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
-+ * wimax_msg_send() depends on skb->data being placed at the
-+ * beginning of the user message.
-+ */
-+struct sk_buff *wimax_msg_alloc(struct wimax_dev *wimax_dev,
-+				const char *pipe_name,
-+				const void *msg, size_t size,
-+				gfp_t gfp_flags)
++/* Our firmware file name */
++#define I2400MU_FW_FILE_NAME "i2400m-fw-usb-" I2400M_FW_VERSION ".sbcf"
++
++static
++int i2400mu_bus_dev_start(struct i2400m *i2400m)
 +{
 +	int result;
-+	struct device *dev = wimax_dev->net_dev->dev.parent;
-+	size_t msg_size;
-+	void *genl_msg;
-+	struct sk_buff *skb;
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct device *dev = &i2400mu->usb_iface->dev;
 +
-+	msg_size = nla_total_size(size)
-+		+ nla_total_size(sizeof(u32))
-+		+ (pipe_name ? nla_total_size(strlen(pipe_name)) : 0);
-+	result = -ENOMEM;
-+	skb = genlmsg_new(msg_size, gfp_flags);
-+	if (skb == NULL)
-+		goto error_new;
-+	genl_msg = genlmsg_put(skb, 0, 0, &wimax_gnl_family,
-+			       0, WIMAX_GNL_OP_MSG_TO_USER);
-+	if (genl_msg == NULL) {
-+		dev_err(dev, "no memory to create generic netlink message\n");
-+		goto error_genlmsg_put;
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	result = i2400mu_tx_setup(i2400mu);
++	if (result < 0)
++		goto error_usb_tx_setup;
++	result = i2400mu_rx_setup(i2400mu);
++	if (result < 0)
++		goto error_usb_rx_setup;
++	result = i2400mu_notification_setup(i2400mu);
++	if (result < 0)
++		goto error_notif_setup;
++	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
++	return result;
++
++error_notif_setup:
++	i2400mu_rx_release(i2400mu);
++error_usb_rx_setup:
++	i2400mu_tx_release(i2400mu);
++error_usb_tx_setup:
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++	return result;
++}
++
++
++static
++void i2400mu_bus_dev_stop(struct i2400m *i2400m)
++{
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct device *dev = &i2400mu->usb_iface->dev;
++
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	i2400mu_notification_release(i2400mu);
++	i2400mu_rx_release(i2400mu);
++	i2400mu_tx_release(i2400mu);
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++}
++
++
++/*
++ * Sends a barker buffer to the device
++ *
++ * This helper will allocate a kmalloced buffer and use it to transmit
++ * (then free it). Reason for this is that other arches cannot use
++ * stack/vmalloc/text areas for DMA transfers.
++ *
++ * Error recovery here is simpler: anything is considered a hard error
++ * and will move the reset code to use a last-resort bus-based reset.
++ */
++static
++int __i2400mu_send_barker(struct i2400mu *i2400mu,
++			  const __le32 *barker,
++			  size_t barker_size,
++			  unsigned endpoint)
++{
++	struct usb_endpoint_descriptor *epd = NULL;
++	int pipe, actual_len, ret;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	void *buffer;
++	int do_autopm = 1;
++
++	ret = usb_autopm_get_interface(i2400mu->usb_iface);
++	if (ret < 0) {
++		dev_err(dev, "RESET: can't get autopm: %d\n", ret);
++		do_autopm = 0;
 +	}
-+	result = nla_put_u32(skb, WIMAX_GNL_MSG_IFIDX,
-+			     wimax_dev->net_dev->ifindex);
-+	if (result < 0) {
-+		dev_err(dev, "no memory to add ifindex attribute\n");
-+		goto error_nla_put;
++	ret = -ENOMEM;
++	buffer = kmalloc(barker_size, GFP_KERNEL);
++	if (buffer == NULL)
++		goto error_kzalloc;
++	epd = usb_get_epd(i2400mu->usb_iface, endpoint);
++	pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++	memcpy(buffer, barker, barker_size);
++	ret = usb_bulk_msg(i2400mu->usb_dev, pipe, buffer, barker_size,
++			   &actual_len, HZ);
++	if (ret < 0) {
++		if (ret != -EINVAL)
++			dev_err(dev, "E: barker error: %d\n", ret);
++	} else if (actual_len != barker_size) {
++		dev_err(dev, "E: only %d bytes transmitted\n", actual_len);
++		ret = -EIO;
 +	}
-+	if (pipe_name) {
-+		result = nla_put_string(skb, WIMAX_GNL_MSG_PIPE_NAME,
-+					pipe_name);
-+		if (result < 0) {
-+			dev_err(dev, "no memory to add pipe_name attribute\n");
-+			goto error_nla_put;
++	kfree(buffer);
++error_kzalloc:
++	if (do_autopm)
++		usb_autopm_put_interface(i2400mu->usb_iface);
++	return ret;
++}
++
++
++/*
++ * Reset a device at different levels (warm, cold or bus)
++ *
++ * @i2400m: device descriptor
++ * @reset_type: soft, warm or bus reset (I2400M_RT_WARM/SOFT/BUS)
++ *
++ * Warm and cold resets get a USB reset if they fail.
++ *
++ * Warm reset:
++ *
++ * The device will be fully reset internally, but won't be
++ * disconnected from the USB bus (so no reenumeration will
++ * happen). Firmware upload will be neccessary.
++ *
++ * The device will send a reboot barker in the notification endpoint
++ * that will trigger the driver to reinitialize the state
++ * automatically from notif.c:i2400m_notification_grok() into
++ * i2400m_dev_bootstrap_delayed().
++ *
++ * Cold and bus (USB) reset:
++ *
++ * The device will be fully reset internally, disconnected from the
++ * USB bus an a reenumeration will happen. Firmware upload will be
++ * neccessary. Thus, we don't do any locking or struct
++ * reinitialization, as we are going to be fully disconnected and
++ * reenumerated.
++ *
++ * Note we need to return -ENODEV if a warm reset was requested and we
++ * had to resort to a bus reset. See i2400m_op_reset(), wimax_reset()
++ * and wimax_dev->op_reset.
++ *
++ * WARNING: no driver state saved/fixed
++ */
++static
++int i2400mu_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
++{
++	int result;
++	struct i2400mu *i2400mu =
++		container_of(i2400m, struct i2400mu, i2400m);
++	struct device *dev = i2400m_dev(i2400m);
++	static const __le32 i2400m_WARM_BOOT_BARKER[4] = {
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++	};
++	static const __le32 i2400m_COLD_BOOT_BARKER[4] = {
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++	};
++
++	d_fnstart(3, dev, "(i2400m %p rt %u)\n", i2400m, rt);
++	if (rt == I2400M_RT_WARM)
++		result = __i2400mu_send_barker(i2400mu, i2400m_WARM_BOOT_BARKER,
++					       sizeof(i2400m_WARM_BOOT_BARKER),
++					       I2400MU_EP_BULK_OUT);
++	else if (rt == I2400M_RT_COLD)
++		result = __i2400mu_send_barker(i2400mu, i2400m_COLD_BOOT_BARKER,
++					       sizeof(i2400m_COLD_BOOT_BARKER),
++					       I2400MU_EP_RESET_COLD);
++	else if (rt == I2400M_RT_BUS) {
++do_bus_reset:
++		result = usb_reset_device(i2400mu->usb_dev);
++		switch (result) {
++		case 0:
++		case -EINVAL:	/* device is gone */
++		case -ENODEV:
++		case -ENOENT:
++		case -ESHUTDOWN:
++			result = rt == I2400M_RT_WARM ? -ENODEV : 0;
++			break;	/* We assume the device is disconnected */
++		default:
++			dev_err(dev, "USB reset failed (%d), giving up!\n",
++				result);
 +		}
-+	}
-+	result = nla_put(skb, WIMAX_GNL_MSG_DATA, size, msg);
-+	if (result < 0) {
-+		dev_err(dev, "no memory to add payload in attribute\n");
-+		goto error_nla_put;
-+	}
-+	genlmsg_end(skb, genl_msg);
-+	return skb;
-+
-+error_nla_put:
-+error_genlmsg_put:
-+error_new:
-+	nlmsg_free(skb);
-+	return ERR_PTR(result);
-+
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg_alloc);
-+
-+
-+/**
-+ * wimax_msg_data_len - Return a pointer and size of a message's payload
-+ *
-+ * @msg: Pointer to a message created with wimax_msg_alloc()
-+ * @size: Pointer to where to store the message's size
-+ *
-+ * Returns the pointer to the message data.
-+ */
-+const void *wimax_msg_data_len(struct sk_buff *msg, size_t *size)
-+{
-+	struct nlmsghdr *nlh = (void *) msg->head;
-+	struct nlattr *nla;
-+
-+	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
-+			      WIMAX_GNL_MSG_DATA);
-+	if (nla == NULL) {
-+		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
-+		return NULL;
-+	}
-+	*size = nla_len(nla);
-+	return nla_data(nla);
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg_data_len);
-+
-+
-+/**
-+ * wimax_msg_data - Return a pointer to a message's payload
-+ *
-+ * @msg: Pointer to a message created with wimax_msg_alloc()
-+ */
-+const void *wimax_msg_data(struct sk_buff *msg)
-+{
-+	struct nlmsghdr *nlh = (void *) msg->head;
-+	struct nlattr *nla;
-+
-+	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
-+			      WIMAX_GNL_MSG_DATA);
-+	if (nla == NULL) {
-+		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
-+		return NULL;
-+	}
-+	return nla_data(nla);
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg_data);
-+
-+
-+/**
-+ * wimax_msg_len - Return a message's payload length
-+ *
-+ * @msg: Pointer to a message created with wimax_msg_alloc()
-+ */
-+ssize_t wimax_msg_len(struct sk_buff *msg)
-+{
-+	struct nlmsghdr *nlh = (void *) msg->head;
-+	struct nlattr *nla;
-+
-+	nla = nlmsg_find_attr(nlh, sizeof(struct genlmsghdr),
-+			      WIMAX_GNL_MSG_DATA);
-+	if (nla == NULL) {
-+		printk(KERN_ERR "Cannot find attribute WIMAX_GNL_MSG_DATA\n");
-+		return -EINVAL;
-+	}
-+	return nla_len(nla);
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg_len);
-+
-+
-+/**
-+ * wimax_msg_send - Send a pre-allocated message to user space
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ *
-+ * @skb: &struct sk_buff returned by wimax_msg_alloc(). Note the
-+ *     ownership of @skb is transferred to this function.
-+ *
-+ * Returns: 0 if ok, < 0 errno code on error
-+ *
-+ * Description:
-+ *
-+ * Sends a free-form message that was preallocated with
-+ * wimax_msg_alloc() and filled up.
-+ *
-+ * Assumes that once you pass an skb to this function for sending, it
-+ * owns it and will release it when done (on success).
-+ *
-+ * IMPORTANT:
-+ *
-+ * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
-+ * wimax_msg_send() depends on skb->data being placed at the
-+ * beginning of the user message.
-+ */
-+int wimax_msg_send(struct wimax_dev *wimax_dev, struct sk_buff *skb)
-+{
-+	int result;
-+	struct device *dev = wimax_dev->net_dev->dev.parent;
-+	void *msg = skb->data;
-+	size_t size = skb->len;
-+	might_sleep();
-+
-+	d_printf(1, dev, "CTX: wimax msg, %zu bytes\n", size);
-+	d_dump(2, dev, msg, size);
-+	result = genlmsg_multicast(skb, 0, wimax_gnl_mcg.id, GFP_KERNEL);
-+	d_printf(1, dev, "CTX: genl multicast result %d\n", result);
-+	if (result == -ESRCH)	/* Nobody connected, ignore it */
-+		result = 0;	/* btw, the skb is freed already */
-+	return result;
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg_send);
-+
-+
-+/**
-+ * wimax_msg - Send a message to user space
-+ *
-+ * @wimax_dev: WiMAX device descriptor (properly referenced)
-+ * @pipe_name: "named pipe" the message will be sent to
-+ * @buf: pointer to the message to send.
-+ * @size: size of the buffer pointed to by @buf (in bytes).
-+ * @gfp_flags: flags for memory allocation.
-+ *
-+ * Returns: %0 if ok, negative errno code on error.
-+ *
-+ * Description:
-+ *
-+ * Sends a free-form message to user space on the device @wimax_dev.
-+ *
-+ * NOTES:
-+ *
-+ * Once the @skb is given to this function, who will own it and will
-+ * release it when done (unless it returns error).
-+ */
-+int wimax_msg(struct wimax_dev *wimax_dev, const char *pipe_name,
-+	      const void *buf, size_t size, gfp_t gfp_flags)
-+{
-+	int result = -ENOMEM;
-+	struct sk_buff *skb;
-+
-+	skb = wimax_msg_alloc(wimax_dev, pipe_name, buf, size, gfp_flags);
-+	if (skb == NULL)
-+		goto error_msg_new;
-+	result = wimax_msg_send(wimax_dev, skb);
-+error_msg_new:
-+	return result;
-+}
-+EXPORT_SYMBOL_GPL(wimax_msg);
-+
-+
-+static const
-+struct nla_policy wimax_gnl_msg_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+	[WIMAX_GNL_MSG_IFIDX] = {
-+		.type = NLA_U32,
-+	},
-+	[WIMAX_GNL_MSG_DATA] = {
-+		.type = NLA_UNSPEC,	/* libnl doesn't grok BINARY yet */
-+	},
-+};
-+
-+
-+/*
-+ * Relays a message from user space to the driver
-+ *
-+ * The skb is passed to the driver-specific function with the netlink
-+ * and generic netlink headers already stripped.
-+ *
-+ * This call will block while handling/relaying the message.
-+ */
-+static
-+int wimax_gnl_doit_msg_from_user(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int result, ifindex;
-+	struct wimax_dev *wimax_dev;
-+	struct device *dev;
-+	struct nlmsghdr *nlh = info->nlhdr;
-+	char *pipe_name;
-+	void *msg_buf;
-+	size_t msg_len;
-+
-+	might_sleep();
-+	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
-+	result = -ENODEV;
-+	if (info->attrs[WIMAX_GNL_MSG_IFIDX] == NULL) {
-+		printk(KERN_ERR "WIMAX_GNL_MSG_FROM_USER: can't find IFIDX "
-+		       "attribute\n");
-+		goto error_no_wimax_dev;
-+	}
-+	ifindex = nla_get_u32(info->attrs[WIMAX_GNL_MSG_IFIDX]);
-+	wimax_dev = wimax_dev_get_by_genl_info(info, ifindex);
-+	if (wimax_dev == NULL)
-+		goto error_no_wimax_dev;
-+	dev = wimax_dev_to_dev(wimax_dev);
-+
-+	/* Unpack arguments */
-+	result = -EINVAL;
-+	if (info->attrs[WIMAX_GNL_MSG_DATA] == NULL) {
-+		dev_err(dev, "WIMAX_GNL_MSG_FROM_USER: can't find MSG_DATA "
-+			"attribute\n");
-+		goto error_no_data;
-+	}
-+	msg_buf = nla_data(info->attrs[WIMAX_GNL_MSG_DATA]);
-+	msg_len = nla_len(info->attrs[WIMAX_GNL_MSG_DATA]);
-+
-+	if (info->attrs[WIMAX_GNL_MSG_PIPE_NAME] == NULL)
-+		pipe_name = NULL;
-+	else {
-+		struct nlattr *attr = info->attrs[WIMAX_GNL_MSG_PIPE_NAME];
-+		size_t attr_len = nla_len(attr);
-+		/* libnl-1.1 does not yet support NLA_NUL_STRING */
-+		result = -ENOMEM;
-+		pipe_name = kstrndup(nla_data(attr), attr_len + 1, GFP_KERNEL);
-+		if (pipe_name == NULL)
-+			goto error_alloc;
-+		pipe_name[attr_len] = 0;
-+	}
-+	mutex_lock(&wimax_dev->mutex);
-+	result = wimax_dev_is_ready(wimax_dev);
-+	if (result < 0)
-+		goto error_not_ready;
-+	result = -ENOSYS;
-+	if (wimax_dev->op_msg_from_user == NULL)
-+		goto error_noop;
-+
-+	d_printf(1, dev,
-+		 "CRX: nlmsghdr len %u type %u flags 0x%04x seq 0x%x pid %u\n",
-+		 nlh->nlmsg_len, nlh->nlmsg_type, nlh->nlmsg_flags,
-+		 nlh->nlmsg_seq, nlh->nlmsg_pid);
-+	d_printf(1, dev, "CRX: wimax message %zu bytes\n", msg_len);
-+	d_dump(2, dev, msg_buf, msg_len);
-+
-+	result = wimax_dev->op_msg_from_user(wimax_dev, pipe_name,
-+					     msg_buf, msg_len, info);
-+error_noop:
-+error_not_ready:
-+	mutex_unlock(&wimax_dev->mutex);
-+error_alloc:
-+	kfree(pipe_name);
-+error_no_data:
-+	dev_put(wimax_dev->net_dev);
-+error_no_wimax_dev:
-+	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
-+	return result;
-+}
-+
-+
-+/*
-+ * Generic Netlink glue
-+ */
-+
-+struct genl_ops wimax_gnl_msg_from_user = {
-+	.cmd = WIMAX_GNL_OP_MSG_FROM_USER,
-+	.flags = GENL_ADMIN_PERM,
-+	.policy = wimax_gnl_msg_policy,
-+	.doit = wimax_gnl_doit_msg_from_user,
-+	.dumpit = NULL,
-+};
-+
-diff --git a/net/wimax/op-reset.c b/net/wimax/op-reset.c
-new file mode 100644
-index 0000000..ca26917
---- /dev/null
-+++ b/net/wimax/op-reset.c
-@@ -0,0 +1,143 @@
-+/*
-+ * Linux WiMAX
-+ * Implement and export a method for resetting a WiMAX device
-+ *
-+ *
-+ * Copyright (C) 2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * This implements a simple synchronous call to reset a WiMAX device.
-+ *
-+ * Resets aim at being warm, keeping the device handles active;
-+ * however, when that fails, it falls back to a cold reset (that will
-+ * disconnect and reconnect the device).
-+ */
-+
-+#include <net/wimax.h>
-+#include <net/genetlink.h>
-+#include <linux/wimax.h>
-+#include <linux/security.h>
-+#include "wimax-internal.h"
-+
-+#define D_SUBMODULE op_reset
-+#include "debug-levels.h"
-+
-+
-+/**
-+ * wimax_reset - Reset a WiMAX device
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ *
-+ * Returns:
-+ *
-+ * %0 if ok and a warm reset was done (the device still exists in
-+ * the system).
-+ *
-+ * -%ENODEV if a cold/bus reset had to be done (device has
-+ * disconnected and reconnected, so current handle is not valid
-+ * any more).
-+ *
-+ * -%EINVAL if the device is not even registered.
-+ *
-+ * Any other negative error code shall be considered as
-+ * non-recoverable.
-+ *
-+ * Description:
-+ *
-+ * Called when wanting to reset the device for any reason. Device is
-+ * taken back to power on status.
-+ *
-+ * This call blocks; on succesful return, the device has completed the
-+ * reset process and is ready to operate.
-+ */
-+int wimax_reset(struct wimax_dev *wimax_dev)
-+{
-+	int result = -EINVAL;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+	enum wimax_st state;
-+
-+	might_sleep();
-+	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
-+	mutex_lock(&wimax_dev->mutex);
-+	dev_hold(wimax_dev->net_dev);
-+	state = wimax_dev->state;
-+	mutex_unlock(&wimax_dev->mutex);
-+
-+	if (state >= WIMAX_ST_DOWN) {
-+		mutex_lock(&wimax_dev->mutex_reset);
-+		result = wimax_dev->op_reset(wimax_dev);
-+		mutex_unlock(&wimax_dev->mutex_reset);
-+	}
-+	dev_put(wimax_dev->net_dev);
-+
-+	d_fnend(3, dev, "(wimax_dev %p) = %d\n", wimax_dev, result);
-+	return result;
-+}
-+EXPORT_SYMBOL(wimax_reset);
-+
-+
-+static const
-+struct nla_policy wimax_gnl_reset_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+	[WIMAX_GNL_RESET_IFIDX] = {
-+		.type = NLA_U32,
-+	},
-+};
-+
-+
-+/*
-+ * Exporting to user space over generic netlink
-+ *
-+ * Parse the reset command from user space, return error code.
-+ *
-+ * No attributes.
-+ */
-+static
-+int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int result, ifindex;
-+	struct wimax_dev *wimax_dev;
-+	struct device *dev;
-+
-+	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
-+	result = -ENODEV;
-+	if (info->attrs[WIMAX_GNL_RESET_IFIDX] == NULL) {
-+		printk(KERN_ERR "WIMAX_GNL_OP_RFKILL: can't find IFIDX "
-+			"attribute\n");
-+		goto error_no_wimax_dev;
-+	}
-+	ifindex = nla_get_u32(info->attrs[WIMAX_GNL_RESET_IFIDX]);
-+	wimax_dev = wimax_dev_get_by_genl_info(info, ifindex);
-+	if (wimax_dev == NULL)
-+		goto error_no_wimax_dev;
-+	dev = wimax_dev_to_dev(wimax_dev);
-+	/* Execute the operation and send the result back to user space */
-+	result = wimax_reset(wimax_dev);
-+	dev_put(wimax_dev->net_dev);
-+error_no_wimax_dev:
-+	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
-+	return result;
-+}
-+
-+
-+struct genl_ops wimax_gnl_reset = {
-+	.cmd = WIMAX_GNL_OP_RESET,
-+	.flags = GENL_ADMIN_PERM,
-+	.policy = wimax_gnl_reset_policy,
-+	.doit = wimax_gnl_doit_reset,
-+	.dumpit = NULL,
-+};
-diff --git a/net/wimax/op-rfkill.c b/net/wimax/op-rfkill.c
-new file mode 100644
-index 0000000..8745bac
---- /dev/null
-+++ b/net/wimax/op-rfkill.c
-@@ -0,0 +1,532 @@
-+/*
-+ * Linux WiMAX
-+ * RF-kill framework integration
-+ *
-+ *
-+ * Copyright (C) 2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * This integrates into the Linux Kernel rfkill susbystem so that the
-+ * drivers just have to do the bare minimal work, which is providing a
-+ * method to set the software RF-Kill switch and to report changes in
-+ * the software and hardware switch status.
-+ *
-+ * A non-polled generic rfkill device is embedded into the WiMAX
-+ * subsystem's representation of a device.
-+ *
-+ * FIXME: Need polled support? use a timer or add the implementation
-+ *     to the stack.
-+ *
-+ * All device drivers have to do is after wimax_dev_init(), call
-+ * wimax_report_rfkill_hw() and wimax_report_rfkill_sw() to update
-+ * initial state and then every time it changes. See wimax.h:struct
-+ * wimax_dev for more information.
-+ *
-+ * ROADMAP
-+ *
-+ * wimax_gnl_doit_rfkill()      User space calling wimax_rfkill()
-+ *   wimax_rfkill()             Kernel calling wimax_rfkill()
-+ *     __wimax_rf_toggle_radio()
-+ *
-+ * wimax_rfkill_toggle_radio()  RF-Kill subsytem calling
-+ *   __wimax_rf_toggle_radio()
-+ *
-+ * __wimax_rf_toggle_radio()
-+ *   wimax_dev->op_rfkill_sw_toggle() Driver backend
-+ *   __wimax_state_change()
-+ *
-+ * wimax_report_rfkill_sw()     Driver reports state change
-+ *   __wimax_state_change()
-+ *
-+ * wimax_report_rfkill_hw()     Driver reports state change
-+ *   __wimax_state_change()
-+ *
-+ * wimax_rfkill_add()           Initialize/shutdown rfkill support
-+ * wimax_rfkill_rm()            [called by wimax_dev_add/rm()]
-+ */
-+
-+#include <net/wimax.h>
-+#include <net/genetlink.h>
-+#include <linux/wimax.h>
-+#include <linux/security.h>
-+#include <linux/rfkill.h>
-+#include <linux/input.h>
-+#include "wimax-internal.h"
-+
-+#define D_SUBMODULE op_rfkill
-+#include "debug-levels.h"
-+
-+#ifdef CONFIG_RFKILL
-+
-+
-+/**
-+ * wimax_report_rfkill_hw - Reports changes in the hardware RF switch
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ *
-+ * @state: New state of the RF Kill switch. %WIMAX_RF_ON radio on,
-+ *     %WIMAX_RF_OFF radio off.
-+ *
-+ * When the device detects a change in the state of thehardware RF
-+ * switch, it must call this function to let the WiMAX kernel stack
-+ * know that the state has changed so it can be properly propagated.
-+ *
-+ * The WiMAX stack caches the state (the driver doesn't need to). As
-+ * well, as the change is propagated it will come back as a request to
-+ * change the software state to mirror the hardware state.
-+ *
-+ * If the device doesn't have a hardware kill switch, just report
-+ * it on initialization as always on (%WIMAX_RF_ON, radio on).
-+ */
-+void wimax_report_rfkill_hw(struct wimax_dev *wimax_dev,
-+			    enum wimax_rf_state state)
-+{
-+	int result;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+	enum wimax_st wimax_state;
-+	enum rfkill_state rfkill_state;
-+
-+	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
-+	BUG_ON(state == WIMAX_RF_QUERY);
-+	BUG_ON(state != WIMAX_RF_ON && state != WIMAX_RF_OFF);
-+
-+	mutex_lock(&wimax_dev->mutex);
-+	result = wimax_dev_is_ready(wimax_dev);
-+	if (result < 0)
-+		goto error_not_ready;
-+
-+	if (state != wimax_dev->rf_hw) {
-+		wimax_dev->rf_hw = state;
-+		rfkill_state = state == WIMAX_RF_ON ?
-+			RFKILL_STATE_OFF : RFKILL_STATE_ON;
-+		if (wimax_dev->rf_hw == WIMAX_RF_ON
-+		    && wimax_dev->rf_sw == WIMAX_RF_ON)
-+			wimax_state = WIMAX_ST_READY;
-+		else
-+			wimax_state = WIMAX_ST_RADIO_OFF;
-+		__wimax_state_change(wimax_dev, wimax_state);
-+		input_report_key(wimax_dev->rfkill_input, KEY_WIMAX,
-+				 rfkill_state);
-+	}
-+error_not_ready:
-+	mutex_unlock(&wimax_dev->mutex);
-+	d_fnend(3, dev, "(wimax_dev %p state %u) = void [%d]\n",
-+		wimax_dev, state, result);
-+}
-+EXPORT_SYMBOL_GPL(wimax_report_rfkill_hw);
-+
-+
-+/**
-+ * wimax_report_rfkill_sw - Reports changes in the software RF switch
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ *
-+ * @state: New state of the RF kill switch. %WIMAX_RF_ON radio on,
-+ *     %WIMAX_RF_OFF radio off.
-+ *
-+ * Reports changes in the software RF switch state to the the WiMAX
-+ * stack.
-+ *
-+ * The main use is during initialization, so the driver can query the
-+ * device for its current software radio kill switch state and feed it
-+ * to the system.
-+ *
-+ * On the side, the device does not change the software state by
-+ * itself. In practice, this can happen, as the device might decide to
-+ * switch (in software) the radio off for different reasons.
-+ */
-+void wimax_report_rfkill_sw(struct wimax_dev *wimax_dev,
-+			    enum wimax_rf_state state)
-+{
-+	int result;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+	enum wimax_st wimax_state;
-+
-+	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
-+	BUG_ON(state == WIMAX_RF_QUERY);
-+	BUG_ON(state != WIMAX_RF_ON && state != WIMAX_RF_OFF);
-+
-+	mutex_lock(&wimax_dev->mutex);
-+	result = wimax_dev_is_ready(wimax_dev);
-+	if (result < 0)
-+		goto error_not_ready;
-+
-+	if (state != wimax_dev->rf_sw) {
-+		wimax_dev->rf_sw = state;
-+		if (wimax_dev->rf_hw == WIMAX_RF_ON
-+		    && wimax_dev->rf_sw == WIMAX_RF_ON)
-+			wimax_state = WIMAX_ST_READY;
-+		else
-+			wimax_state = WIMAX_ST_RADIO_OFF;
-+		__wimax_state_change(wimax_dev, wimax_state);
-+	}
-+error_not_ready:
-+	mutex_unlock(&wimax_dev->mutex);
-+	d_fnend(3, dev, "(wimax_dev %p state %u) = void [%d]\n",
-+		wimax_dev, state, result);
-+}
-+EXPORT_SYMBOL_GPL(wimax_report_rfkill_sw);
-+
-+
-+/*
-+ * Callback for the RF Kill toggle operation
-+ *
-+ * This function is called by:
-+ *
-+ * - The rfkill subsystem when the RF-Kill key is pressed in the
-+ *   hardware and the driver notifies through
-+ *   wimax_report_rfkill_hw(). The rfkill subsystem ends up calling back
-+ *   here so the software RF Kill switch state is changed to reflect
-+ *   the hardware switch state.
-+ *
-+ * - When the user sets the state through sysfs' rfkill/state file
-+ *
-+ * - When the user calls wimax_rfkill().
-+ *
-+ * This call blocks!
-+ *
-+ * WARNING! When we call rfkill_unregister(), this will be called with
-+ * state 0!
-+ *
-+ * WARNING: wimax_dev must be locked
-+ */
-+static
-+int __wimax_rf_toggle_radio(struct wimax_dev *wimax_dev,
-+			    enum wimax_rf_state state)
-+{
-+	int result = 0;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+	enum wimax_st wimax_state;
-+
-+	might_sleep();
-+	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
-+	if (wimax_dev->rf_sw == state)
-+		goto out_no_change;
-+	if (wimax_dev->op_rfkill_sw_toggle != NULL)
-+		result = wimax_dev->op_rfkill_sw_toggle(wimax_dev, state);
-+	else if (state == WIMAX_RF_OFF)	/* No op? can't turn off */
-+		result = -ENXIO;
-+	else				/* No op? can turn on */
-+		result = 0;		/* should never happen tho */
-+	if (result >= 0) {
-+		result = 0;
-+		wimax_dev->rf_sw = state;
-+		wimax_state = state == WIMAX_RF_ON ?
-+			WIMAX_ST_READY : WIMAX_ST_RADIO_OFF;
-+		__wimax_state_change(wimax_dev, wimax_state);
-+	}
-+out_no_change:
-+	d_fnend(3, dev, "(wimax_dev %p state %u) = %d\n",
-+		wimax_dev, state, result);
-+	return result;
-+}
-+
-+
-+/*
-+ * Translate from rfkill state to wimax state
-+ *
-+ * NOTE: Special state handling rules here
-+ *
-+ *     Just pretend the call didn't happen if we are in a state where
-+ *     we know for sure it cannot be handled (WIMAX_ST_DOWN or
-+ *     __WIMAX_ST_QUIESCING). rfkill() needs it to register and
-+ *     unregister, as it will run this path.
-+ *
-+ * NOTE: This call will block until the operation is completed.
-+ */
-+static
-+int wimax_rfkill_toggle_radio(void *data, enum rfkill_state state)
-+{
-+	int result;
-+	struct wimax_dev *wimax_dev = data;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+	enum wimax_rf_state rf_state;
-+
-+	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
-+	switch (state) {
-+	case RFKILL_STATE_ON:
-+		rf_state = WIMAX_RF_OFF;
-+		break;
-+	case RFKILL_STATE_OFF:
-+		rf_state = WIMAX_RF_ON;
-+		break;
-+	default:
++	} else
 +		BUG();
++	if (result < 0
++	    && result != -EINVAL	/* device is gone */
++	    && rt != I2400M_RT_BUS) {
++		dev_err(dev, "%s reset failed (%d); trying USB reset\n",
++			rt == I2400M_RT_WARM ? "warm" : "cold", result);
++		rt = I2400M_RT_BUS;
++		goto do_bus_reset;
 +	}
-+	mutex_lock(&wimax_dev->mutex);
-+	if (wimax_dev->state <= __WIMAX_ST_QUIESCING)
-+		result = 0;	/* just pretend it didn't happen */
-+	else
-+		result = __wimax_rf_toggle_radio(wimax_dev, rf_state);
-+	mutex_unlock(&wimax_dev->mutex);
-+	d_fnend(3, dev, "(wimax_dev %p state %u) = %d\n",
-+		wimax_dev, state, result);
++	d_fnend(3, dev, "(i2400m %p rt %u) = %d\n", i2400m, rt, result);
 +	return result;
 +}
 +
 +
-+/**
-+ * wimax_rfkill - Set the software RF switch state for a WiMAX device
-+ *
-+ * @wimax_dev: WiMAX device descriptor
-+ *
-+ * @state: New RF state.
-+ *
-+ * Returns:
-+ *
-+ * >= 0 toggle state if ok, < 0 errno code on error. The toggle state
-+ * is returned as a bitmap, bit 0 being the hardware RF state, bit 1
-+ * the software RF state.
-+ *
-+ * 0 means disabled (%WIMAX_RF_ON, radio on), 1 means enabled radio
-+ * off (%WIMAX_RF_OFF).
-+ *
-+ * Description:
-+ *
-+ * Called by the user when he wants to request the WiMAX radio to be
-+ * switched on (%WIMAX_RF_ON) or off (%WIMAX_RF_OFF). With
-+ * %WIMAX_RF_QUERY, just the current state is returned.
-+ *
-+ * NOTE:
-+ *
-+ * This call will block until the operation is complete.
++static
++void i2400mu_netdev_setup(struct net_device *net_dev)
++{
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	i2400mu_init(i2400mu);
++	i2400m_netdev_setup(net_dev);
++}
++
++
++/*
++ * Debug levels control; see debug.h
 + */
-+int wimax_rfkill(struct wimax_dev *wimax_dev, enum wimax_rf_state state)
++struct d_level D_LEVEL[] = {
++	D_SUBMODULE_DEFINE(usb),
++	D_SUBMODULE_DEFINE(fw),
++	D_SUBMODULE_DEFINE(notif),
++	D_SUBMODULE_DEFINE(rx),
++	D_SUBMODULE_DEFINE(tx),
++};
++size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
++
++
++#define __debugfs_register(prefix, name, parent)			\
++do {									\
++	result = d_level_register_debugfs(prefix, name, parent);	\
++	if (result < 0)							\
++		goto error;						\
++} while (0)
++
++
++static
++int i2400mu_debugfs_add(struct i2400mu *i2400mu)
 +{
 +	int result;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	struct device *dev = &i2400mu->usb_iface->dev;
++	struct dentry *dentry = i2400mu->i2400m.wimax_dev.debugfs_dentry;
++	struct dentry *fd;
 +
-+	d_fnstart(3, dev, "(wimax_dev %p state %u)\n", wimax_dev, state);
-+	mutex_lock(&wimax_dev->mutex);
-+	result = wimax_dev_is_ready(wimax_dev);
-+	if (result < 0)
-+		goto error_not_ready;
-+	switch (state) {
-+	case WIMAX_RF_ON:
-+	case WIMAX_RF_OFF:
-+		result = __wimax_rf_toggle_radio(wimax_dev, state);
-+		if (result < 0)
-+			goto error;
-+		break;
-+	case WIMAX_RF_QUERY:
-+		break;
-+	default:
-+		result = -EINVAL;
++	dentry = debugfs_create_dir("i2400m-usb", dentry);
++	result = PTR_ERR(dentry);
++	if (IS_ERR(dentry)) {
++		if (result == -ENODEV)
++			result = 0;	/* No debugfs support */
 +		goto error;
 +	}
-+	result = wimax_dev->rf_sw << 1 | wimax_dev->rf_hw;
++	i2400mu->debugfs_dentry = dentry;
++	__debugfs_register("dl_", usb, dentry);
++	__debugfs_register("dl_", fw, dentry);
++	__debugfs_register("dl_", notif, dentry);
++	__debugfs_register("dl_", rx, dentry);
++	__debugfs_register("dl_", tx, dentry);
++
++	/* Don't touch these if you don't know what you are doing */
++	fd = debugfs_create_u8("rx_size_auto_shrink", 0600, dentry,
++			       &i2400mu->rx_size_auto_shrink);
++	result = PTR_ERR(fd);
++	if (IS_ERR(fd) && result != -ENODEV) {
++		dev_err(dev, "Can't create debugfs entry "
++			"rx_size_auto_shrink: %d\n", result);
++		goto error;
++	}
++
++	fd = debugfs_create_size_t("rx_size", 0600, dentry,
++				   &i2400mu->rx_size);
++	result = PTR_ERR(fd);
++	if (IS_ERR(fd) && result != -ENODEV) {
++		dev_err(dev, "Can't create debugfs entry "
++			"rx_size: %d\n", result);
++		goto error;
++	}
++
++	return 0;
++
 +error:
-+error_not_ready:
-+	mutex_unlock(&wimax_dev->mutex);
-+	d_fnend(3, dev, "(wimax_dev %p state %u) = %d\n",
-+		wimax_dev, state, result);
++	debugfs_remove_recursive(i2400mu->debugfs_dentry);
 +	return result;
 +}
-+EXPORT_SYMBOL(wimax_rfkill);
 +
 +
 +/*
-+ * Register a new WiMAX device's RF Kill support
++ * Probe a i2400m interface and register it
 + *
-+ * WARNING: wimax_dev->mutex must be unlocked
++ * @iface:   USB interface to link to
++ * @id:      USB class/subclass/protocol id
++ * @returns: 0 if ok, < 0 errno code on error.
++ *
++ * Alloc a net device, initialize the bus-specific details and then
++ * calls the bus-generic initialization routine. That will register
++ * the wimax and netdev devices, upload the firmware [using
++ * _bus_bm_*()], call _bus_dev_start() to finalize the setup of the
++ * communication with the device and then will start to talk to it to
++ * finnish setting it up.
 + */
-+int wimax_rfkill_add(struct wimax_dev *wimax_dev)
++static
++int i2400mu_probe(struct usb_interface *iface,
++		  const struct usb_device_id *id)
 +{
 +	int result;
-+	struct rfkill *rfkill;
-+	struct input_dev *input_dev;
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
++	struct net_device *net_dev;
++	struct device *dev = &iface->dev;
++	struct i2400m *i2400m;
++	struct i2400mu *i2400mu;
++	struct usb_device *usb_dev = interface_to_usbdev(iface);
 +
-+	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
-+	/* Initialize RF Kill */
++	if (usb_dev->speed != USB_SPEED_HIGH)
++		dev_err(dev, "device not connected as high speed\n");
++
++	/* Allocate instance [calls i2400m_netdev_setup() on it]. */
 +	result = -ENOMEM;
-+	rfkill = rfkill_allocate(dev, RFKILL_TYPE_WIMAX);
-+	if (rfkill == NULL)
-+		goto error_rfkill_allocate;
-+	wimax_dev->rfkill = rfkill;
++	net_dev = alloc_netdev(sizeof(*i2400mu), "wmx%d",
++			       i2400mu_netdev_setup);
++	if (net_dev == NULL) {
++		dev_err(dev, "no memory for network device instance\n");
++		goto error_alloc_netdev;
++	}
++	SET_NETDEV_DEV(net_dev, dev);
++	i2400m = net_dev_to_i2400m(net_dev);
++	i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	i2400m->wimax_dev.net_dev = net_dev;
++	i2400mu->usb_dev = usb_get_dev(usb_dev);
++	i2400mu->usb_iface = iface;
++	usb_set_intfdata(iface, i2400mu);
 +
-+	rfkill->name = wimax_dev->name;
-+	rfkill->state = RFKILL_STATE_OFF;
-+	rfkill->data = wimax_dev;
-+	rfkill->toggle_radio = wimax_rfkill_toggle_radio;
-+	rfkill->user_claim_unsupported = 1;
++	i2400m->bus_tx_block_size = I2400MU_BLK_SIZE;
++	i2400m->bus_pl_size_max = I2400MU_PL_SIZE_MAX;
++	i2400m->bus_dev_start = i2400mu_bus_dev_start;
++	i2400m->bus_dev_stop = i2400mu_bus_dev_stop;
++	i2400m->bus_tx_kick = i2400mu_bus_tx_kick;
++	i2400m->bus_reset = i2400mu_bus_reset;
++	i2400m->bus_bm_cmd_send = i2400mu_bus_bm_cmd_send;
++	i2400m->bus_bm_wait_for_ack = i2400mu_bus_bm_wait_for_ack;
++	i2400m->bus_fw_name = I2400MU_FW_FILE_NAME;
++	i2400m->bus_bm_mac_addr_impaired = 0;
 +
-+	/* Initialize the input device for the hw key */
-+	input_dev = input_allocate_device();
-+	if (input_dev == NULL)
-+		goto error_input_allocate;
-+	wimax_dev->rfkill_input = input_dev;
-+	d_printf(1, dev, "rfkill %p input %p\n", rfkill, input_dev);
++	iface->needs_remote_wakeup = 1;		/* autosuspend (15s delay) */
++	device_init_wakeup(dev, 1);
++	usb_autopm_enable(i2400mu->usb_iface);
++	usb_dev->autosuspend_delay = 15 * HZ;
++	usb_dev->autosuspend_disabled = 0;
 +
-+	input_dev->name = wimax_dev->name;
-+	/* FIXME: get a real device bus ID and stuff? do we care? */
-+	input_dev->id.bustype = BUS_HOST;
-+	input_dev->id.vendor = 0xffff;
-+	input_dev->evbit[0] = BIT(EV_KEY);
-+	set_bit(KEY_WIMAX, input_dev->keybit);
-+
-+	/* Register both */
-+	result = input_register_device(wimax_dev->rfkill_input);
-+	if (result < 0)
-+		goto error_input_register;
-+	result = rfkill_register(wimax_dev->rfkill);
-+	if (result < 0)
-+		goto error_rfkill_register;
-+
-+	/* If there is no SW toggle op, SW RFKill is always on */
-+	if (wimax_dev->op_rfkill_sw_toggle == NULL)
-+		wimax_dev->rf_sw = WIMAX_RF_ON;
-+
-+	d_fnend(3, dev, "(wimax_dev %p) = 0\n", wimax_dev);
++	result = i2400m_setup(i2400m, I2400M_BRI_MAC_REINIT);
++	if (result < 0) {
++		dev_err(dev, "cannot setup device: %d\n", result);
++		goto error_setup;
++	}
++	result = i2400mu_debugfs_add(i2400mu);
++	if (result < 0) {
++		dev_err(dev, "Can't register i2400mu's debugfs: %d\n", result);
++		goto error_debugfs_add;
++	}
 +	return 0;
 +
-+	/* if rfkill_register() suceeds, can't use rfkill_free() any
-+	 * more, only rfkill_unregister() [it owns the refcount]; with
-+	 * the input device we have the same issue--hence the if. */
-+error_rfkill_register:
-+	input_unregister_device(wimax_dev->rfkill_input);
-+	wimax_dev->rfkill_input = NULL;
-+error_input_register:
-+	if (wimax_dev->rfkill_input)
-+		input_free_device(wimax_dev->rfkill_input);
-+error_input_allocate:
-+	rfkill_free(wimax_dev->rfkill);
-+error_rfkill_allocate:
-+	d_fnend(3, dev, "(wimax_dev %p) = %d\n", wimax_dev, result);
++error_debugfs_add:
++	i2400m_release(i2400m);
++error_setup:
++	usb_set_intfdata(iface, NULL);
++	usb_put_dev(i2400mu->usb_dev);
++	free_netdev(net_dev);
++error_alloc_netdev:
 +	return result;
 +}
 +
 +
 +/*
-+ * Deregister a WiMAX device's RF Kill support
++ * Disconect a i2400m from the system.
 + *
-+ * Ick, we can't call rfkill_free() after rfkill_unregister()...oh
-+ * well.
-+ *
-+ * WARNING: wimax_dev->mutex must be unlocked
++ * i2400m_stop() has been called before, so al the rx and tx contexts
++ * have been taken down already. Make sure the queue is stopped,
++ * unregister netdev and i2400m, free and kill.
 + */
-+void wimax_rfkill_rm(struct wimax_dev *wimax_dev)
++static
++void i2400mu_disconnect(struct usb_interface *iface)
 +{
-+	struct device *dev = wimax_dev_to_dev(wimax_dev);
-+	d_fnstart(3, dev, "(wimax_dev %p)\n", wimax_dev);
-+	rfkill_unregister(wimax_dev->rfkill);	/* frees */
-+	input_unregister_device(wimax_dev->rfkill_input);
-+	d_fnend(3, dev, "(wimax_dev %p)\n", wimax_dev);
++	struct i2400mu *i2400mu = usb_get_intfdata(iface);
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++	struct device *dev = &iface->dev;
++
++	d_fnstart(3, dev, "(iface %p i2400m %p)\n", iface, i2400m);
++
++	debugfs_remove_recursive(i2400mu->debugfs_dentry);
++	i2400m_release(i2400m);
++	usb_set_intfdata(iface, NULL);
++	usb_put_dev(i2400mu->usb_dev);
++	free_netdev(net_dev);
++	d_fnend(3, dev, "(iface %p i2400m %p) = void\n", iface, i2400m);
 +}
-+
-+
-+#else /* #ifdef CONFIG_RFKILL */
-+
-+void wimax_report_rfkill_hw(struct wimax_dev *wimax_dev,
-+			    enum wimax_rf_state state)
-+{
-+}
-+EXPORT_SYMBOL_GPL(wimax_report_rfkill_hw);
-+
-+void wimax_report_rfkill_sw(struct wimax_dev *wimax_dev,
-+			    enum wimax_rf_state state)
-+{
-+}
-+EXPORT_SYMBOL_GPL(wimax_report_rfkill_sw);
-+
-+int wimax_rfkill(struct wimax_dev *wimax_dev,
-+		 enum wimax_rf_state state)
-+{
-+	return WIMAX_RF_ON << 1 | WIMAX_RF_ON;
-+}
-+EXPORT_SYMBOL_GPL(wimax_rfkill);
-+
-+int wimax_rfkill_add(struct wimax_dev *wimax_dev)
-+{
-+	return 0;
-+}
-+
-+void wimax_rfkill_rm(struct wimax_dev *wimax_dev)
-+{
-+}
-+
-+#endif /* #ifdef CONFIG_RFKILL */
 +
 +
 +/*
-+ * Exporting to user space over generic netlink
++ * Get the device ready for USB port or system standby and hibernation
 + *
-+ * Parse the rfkill command from user space, return a combination
-+ * value that describe the states of the different toggles.
++ * USB port and system standby are handled the same.
 + *
-+ * Only one attribute: the new state requested (on, off or no change,
-+ * just query).
++ * When the system hibernates, the USB device is powered down and then
++ * up, so we don't really have to do much here, as it will be seen as
++ * a reconnect. Still for simplicity we consider this case the same as
++ * suspend, so that the device has a chance to do notify the base
++ * station (if connected).
++ *
++ * So at the end, the three cases require common handling.
++ *
++ * If at the time of this call the device's firmware is not loaded,
++ * nothing has to be done.
++ *
++ * If the firmware is loaded, we need to:
++ *
++ *  - tell the device to go into host interface power save mode, wait
++ *    for it to ack
++ *
++ *    This is quite more interesting than it is; we need to execute a
++ *    command, but this time, we don't want the code in usb-{tx,rx}.c
++ *    to call the usb_autopm_get/put_interface() barriers as it'd
++ *    deadlock, so we need to decrement i2400mu->do_autopm, that acts
++ *    as a poor man's semaphore. Ugly, but it works.
++ *
++ *    As well, the device might refuse going to sleep for whichever
++ *    reason. In this case we just fail. For system suspend/hibernate,
++ *    we *can't* fail. We look at usb_dev->auto_pm to see if the
++ *    suspend call comes from the USB stack or from the system and act
++ *    in consequence.
++ *
++ *  - stop the notification endpoint polling
 + */
++static
++int i2400mu_suspend(struct usb_interface *iface, pm_message_t pm_msg)
++{
++	int result = 0;
++	struct device *dev = &iface->dev;
++	struct i2400mu *i2400mu = usb_get_intfdata(iface);
++	struct usb_device *usb_dev = i2400mu->usb_dev;
++	struct i2400m *i2400m = &i2400mu->i2400m;
 +
-+static const
-+struct nla_policy wimax_gnl_rfkill_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+	[WIMAX_GNL_RFKILL_IFIDX] = {
-+		.type = NLA_U32,
-+	},
-+	[WIMAX_GNL_RFKILL_STATE] = {
-+		.type = NLA_U32		/* enum wimax_rf_state */
-+	},
-+};
++	d_fnstart(3, dev, "(iface %p pm_msg %u)\n", iface, pm_msg.event);
++	if (i2400m->updown == 0)
++		goto no_firmware;
++	d_printf(1, dev, "fw up, requesting standby\n");
++	atomic_dec(&i2400mu->do_autopm);
++	result = i2400m_cmd_enter_powersave(i2400m);
++	atomic_inc(&i2400mu->do_autopm);
++	if (result < 0 && usb_dev->auto_pm == 0) {
++		/* System suspend, can't fail */
++		dev_err(dev, "failed to suspend, will reset on resume\n");
++		result = 0;
++	}
++	if (result < 0)
++		goto error_enter_powersave;
++	i2400mu_notification_release(i2400mu);
++	d_printf(1, dev, "fw up, got standby\n");
++error_enter_powersave:
++no_firmware:
++	d_fnend(3, dev, "(iface %p pm_msg %u) = %d\n",
++		iface, pm_msg.event, result);
++	return result;
++}
 +
 +
 +static
-+int wimax_gnl_doit_rfkill(struct sk_buff *skb, struct genl_info *info)
++int i2400mu_resume(struct usb_interface *iface)
 +{
-+	int result, ifindex;
-+	struct wimax_dev *wimax_dev;
-+	struct device *dev;
-+	enum wimax_rf_state new_state;
++	int ret = 0;
++	struct device *dev = &iface->dev;
++	struct i2400mu *i2400mu = usb_get_intfdata(iface);
++	struct i2400m *i2400m = &i2400mu->i2400m;
 +
-+	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
-+	result = -ENODEV;
-+	if (info->attrs[WIMAX_GNL_RFKILL_IFIDX] == NULL) {
-+		printk(KERN_ERR "WIMAX_GNL_OP_RFKILL: can't find IFIDX "
-+			"attribute\n");
-+		goto error_no_wimax_dev;
++	d_fnstart(3, dev, "(iface %p)\n", iface);
++	if (i2400m->updown == 0) {
++		d_printf(1, dev, "fw was down, no resume neeed\n");
++		goto out;
 +	}
-+	ifindex = nla_get_u32(info->attrs[WIMAX_GNL_RFKILL_IFIDX]);
-+	wimax_dev = wimax_dev_get_by_genl_info(info, ifindex);
-+	if (wimax_dev == NULL)
-+		goto error_no_wimax_dev;
-+	dev = wimax_dev_to_dev(wimax_dev);
-+	result = -EINVAL;
-+	if (info->attrs[WIMAX_GNL_RFKILL_STATE] == NULL) {
-+		dev_err(dev, "WIMAX_GNL_RFKILL: can't find RFKILL_STATE "
-+			"attribute\n");
-+		goto error_no_pid;
-+	}
-+	new_state = nla_get_u32(info->attrs[WIMAX_GNL_RFKILL_STATE]);
-+
-+	/* Execute the operation and send the result back to user space */
-+	result = wimax_rfkill(wimax_dev, new_state);
-+error_no_pid:
-+	dev_put(wimax_dev->net_dev);
-+error_no_wimax_dev:
-+	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
-+	return result;
++	d_printf(1, dev, "fw was up, resuming\n");
++	i2400mu_notification_setup(i2400mu);
++	/* USB has flow control, so we don't need to give it time to
++	 * come back; otherwise, we'd use something like a get-state
++	 * command... */
++out:
++	d_fnend(3, dev, "(iface %p) = %d\n", iface, ret);
++	return ret;
 +}
 +
 +
-+struct genl_ops wimax_gnl_rfkill = {
-+	.cmd = WIMAX_GNL_OP_RFKILL,
-+	.flags = GENL_ADMIN_PERM,
-+	.policy = wimax_gnl_rfkill_policy,
-+	.doit = wimax_gnl_doit_rfkill,
-+	.dumpit = NULL,
++static
++struct usb_device_id i2400mu_id_table[] = {
++	{ USB_DEVICE(0x8086, 0x0181) },
++	{ USB_DEVICE(0x8086, 0x1403) },
++	{ USB_DEVICE(0x8086, 0x1405) },
++	{ USB_DEVICE(0x8086, 0x0180) },
++	{ USB_DEVICE(0x8086, 0x0182) },
++	{ USB_DEVICE(0x8086, 0x1406) },
++	{ USB_DEVICE(0x8086, 0x1403) },
++	{ },
++};
++MODULE_DEVICE_TABLE(usb, i2400mu_id_table);
++
++
++static
++struct usb_driver i2400mu_driver = {
++	.name = KBUILD_MODNAME,
++	.suspend = i2400mu_suspend,
++	.resume = i2400mu_resume,
++	.probe = i2400mu_probe,
++	.disconnect = i2400mu_disconnect,
++	.id_table = i2400mu_id_table,
++	.supports_autosuspend = 1,
 +};
 +
++static
++int __init i2400mu_driver_init(void)
++{
++	return usb_register(&i2400mu_driver);
++}
++module_init(i2400mu_driver_init);
++
++
++static
++void __exit i2400mu_driver_exit(void)
++{
++	flush_scheduled_work();	/* for the stuff we schedule from sysfs.c */
++	usb_deregister(&i2400mu_driver);
++}
++module_exit(i2400mu_driver_exit);
++
++MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
++MODULE_DESCRIPTION("Intel 2400M WiMAX networking for USB");
++MODULE_LICENSE("GPL");
++MODULE_FIRMWARE(I2400MU_FW_FILE_NAME);
 -- 
 1.5.6.5
