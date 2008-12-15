@@ -1,202 +1,232 @@
-From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [RFC PATCH 05/12] ip: support for TX timestamps on UDP and RAW sockets
-Date: Mon, 15 Dec 2008 15:54:52 +0100
-Message-ID: <1229352899-31330-6-git-send-email-patrick.ohly@intel.com>
+From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [RFC PATCH 10/12] igb: access to NIC time
+Date: Mon, 15 Dec 2008 15:54:57 +0100
+Message-ID: <1229352899-31330-11-git-send-email-patrick.ohly@intel.com>
 References: <1229352899-31330-1-git-send-email-patrick.ohly@intel.com>
  <1229352899-31330-2-git-send-email-patrick.ohly@intel.com>
  <1229352899-31330-3-git-send-email-patrick.ohly@intel.com>
  <1229352899-31330-4-git-send-email-patrick.ohly@intel.com>
  <1229352899-31330-5-git-send-email-patrick.ohly@intel.com>
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>, linux-api@vger.kernel.org,
-	Patrick Ohly <patrick.ohly@intel.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26559 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754463AbYLOOzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 09:55:16 -0500
-In-Reply-To: <1229352899-31330-5-git-send-email-patrick.ohly@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ <1229352899-31330-6-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-7-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-8-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-9-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-10-git-send-email-patrick.ohly@intel.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1229352899-31330-10-git-send-email-patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Instructions for time stamping outgoing packets are take from the
-socket layer and later copied into the new skb.
+Adds the register definitions and code to read the time
+register.
 
-Signed-off-by: Patrick Ohly <patrick.ohly@intel.com>
+Signed-off-by: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- Documentation/networking/timestamping.txt |    2 ++
- include/net/ip.h                          |    1 +
- net/can/raw.c                             |   14 +++++++++++---
- net/ipv4/icmp.c                           |    2 ++
- net/ipv4/ip_output.c                      |   12 ++++++++++--
- net/ipv4/raw.c                            |    1 +
- net/ipv4/udp.c                            |    4 ++++
- 7 files changed, 31 insertions(+), 5 deletions(-)
+ drivers/net/igb/e1000_regs.h |   28 +++++++++++
+ drivers/net/igb/igb.h        |    4 ++
+ drivers/net/igb/igb_main.c   |  106 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 138 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-index a681a65..0e58b45 100644
---- a/Documentation/networking/timestamping.txt
-+++ b/Documentation/networking/timestamping.txt
-@@ -56,6 +56,8 @@ and including the link layer, the scm_timestamping control message and
- a sock_extended_err control message with ee_errno==ENOMSG and
- ee_origin==SO_EE_ORIGIN_TIMESTAMPING. A socket with such a pending
- bounced packet is ready for reading as far as select() is concerned.
-+If the outgoing packet has to be fragmented, then only the first
-+fragment is time stamped and returned to the sending socket.
- 
- All three values correspond to the same event in time, but were
- generated in different ways. Each of these values may be empty (= all
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 1086813..4ac7577 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -55,6 +55,7 @@ struct ipcm_cookie
- 	__be32			addr;
- 	int			oif;
- 	struct ip_options	*opt;
-+	union skb_shared_tx	shtx;
- };
- 
- #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
-diff --git a/net/can/raw.c b/net/can/raw.c
-index 27aab63..1f2111d 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -618,6 +618,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	struct raw_sock *ro = raw_sk(sk);
- 	struct sk_buff *skb;
- 	struct net_device *dev;
-+	union skb_shared_tx shtx;
- 	int ifindex;
- 	int err;
- 
-@@ -639,8 +640,14 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	if (!dev)
- 		return -ENXIO;
- 
--	skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT,
--				  &err);
-+	err = sock_tx_timestamp(msg, sk, &shtx);
-+	if (err < 0)
-+		return err;
+diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
+index bdf5d83..d225601 100644
+--- a/drivers/net/igb/e1000_regs.h
++++ b/drivers/net/igb/e1000_regs.h
+@@ -75,6 +75,34 @@
+ #define E1000_FCRTH    0x02168  /* Flow Control Receive Threshold High - RW */
+ #define E1000_RDFPCQ(_n)  (0x02430 + (0x4 * (_n)))
+ #define E1000_FCRTV    0x02460  /* Flow Control Refresh Timer Value - RW */
 +
-+	skb = sock_alloc_send_skb_flags(sk, size,
-+				((msg->msg_flags & MSG_DONTWAIT) ? SKB_FLAGS_NOBLOCK : 0) |
-+					(shtx.flags ? SKB_FLAGS_OPTIONAL_TX : 0),
-+				&err);
- 	if (!skb)
- 		goto put_dev;
++/* IEEE 1588 TIMESYNCH */
++#define E1000_TSYNCTXCTL 0x0B614
++#define E1000_TSYNCRXCTL 0x0B620
++#define E1000_TSYNCRXCFG 0x05F50
++
++#define E1000_SYSTIML 0x0B600
++#define E1000_SYSTIMH 0x0B604
++#define E1000_TIMINCA 0x0B608
++
++#define E1000_RXMTRL     0x0B634
++#define E1000_RXSTMPL 0x0B624
++#define E1000_RXSTMPH 0x0B628
++#define E1000_RXSATRL 0x0B62C
++#define E1000_RXSATRH 0x0B630
++
++#define E1000_TXSTMPL 0x0B618
++#define E1000_TXSTMPH 0x0B61C
++
++#define E1000_ETQF0   0x05CB0
++#define E1000_ETQF1   0x05CB4
++#define E1000_ETQF2   0x05CB8
++#define E1000_ETQF3   0x05CBC
++#define E1000_ETQF4   0x05CC0
++#define E1000_ETQF5   0x05CC4
++#define E1000_ETQF6   0x05CC8
++#define E1000_ETQF7   0x05CCC
++
+ /* Split and Replication RX Control - RW */
+ /*
+  * Convenience macros
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index 2121b8b..2db4c64 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -34,6 +34,8 @@
+ #include "e1000_mac.h"
+ #include "e1000_82575.h"
  
-@@ -649,7 +656,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		goto free_skb;
- 	skb->dev = dev;
- 	skb->sk  = sk;
--
-+	if (shtx.flags)
-+		*skb_tx(skb) = shtx;
- 	err = can_send(skb, ro->loopback);
++#include <linux/clocksource.h>
++
+ struct igb_adapter;
  
- 	dev_put(dev);
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 705b33b..382800a 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -375,6 +375,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
- 	inet->tos = ip_hdr(skb)->tos;
- 	daddr = ipc.addr = rt->rt_src;
- 	ipc.opt = NULL;
-+	ipc.shtx.flags = 0;
- 	if (icmp_param->replyopts.optlen) {
- 		ipc.opt = &icmp_param->replyopts;
- 		if (ipc.opt->srr)
-@@ -532,6 +533,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 	inet_sk(sk)->tos = tos;
- 	ipc.addr = iph->saddr;
- 	ipc.opt = &icmp_param.replyopts;
-+	ipc.shtx.flags = 0;
+ #ifdef CONFIG_IGB_LRO
+@@ -262,6 +264,8 @@ struct igb_adapter {
+ 	struct napi_struct napi;
+ 	struct pci_dev *pdev;
+ 	struct net_device_stats net_stats;
++	struct cyclecounter cycles;
++	struct timecounter clock;
  
- 	{
- 		struct flowi fl = {
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 8ebe86d..ed92f0b 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -923,9 +923,11 @@ alloc_new_skb:
- 				alloclen += rt->u.dst.trailer_len;
+ 	/* structs defined in e1000_hw.h */
+ 	struct e1000_hw hw;
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index e9ad560..c2b6da6 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -179,6 +179,54 @@ MODULE_DESCRIPTION("Intel(R) Gigabit Ethernet Network Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
  
- 			if (transhdrlen) {
--				skb = sock_alloc_send_skb(sk,
-+				skb = sock_alloc_send_skb_flags(sk,
- 						alloclen + hh_len + 15,
--						(flags & MSG_DONTWAIT), &err);
-+				       		((flags & MSG_DONTWAIT) ? SKB_FLAGS_NOBLOCK : 0) |
-+							(ipc->shtx.flags ? SKB_FLAGS_OPTIONAL_TX : 0),
-+						&err);
- 			} else {
- 				skb = NULL;
- 				if (atomic_read(&sk->sk_wmem_alloc) <=
-@@ -935,6 +937,9 @@ alloc_new_skb:
- 							   sk->sk_allocation);
- 				if (unlikely(skb == NULL))
- 					err = -ENOBUFS;
-+				else
-+					/* only the initial fragment is time stamped */
-+					ipc->shtx.flags = 0;
- 			}
- 			if (skb == NULL)
- 				goto error;
-@@ -945,6 +950,8 @@ alloc_new_skb:
- 			skb->ip_summed = csummode;
- 			skb->csum = 0;
- 			skb_reserve(skb, hh_len);
-+			if (ipc->shtx.flags)
-+				*skb_tx(skb) = ipc->shtx;
++/**
++ * Scale the NIC clock cycle by a large factor so that
++ * relatively small clock corrections can be added or
++ * substracted at each clock tick. The drawbacks of a
++ * large factor are a) that the clock register overflows
++ * more quickly (not such a big deal) and b) that the
++ * increment per tick has to fit into 24 bits.
++ *
++ * Note that
++ *   TIMINCA = IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS *
++ *             IGB_TSYNC_SCALE
++ *   TIMINCA += TIMINCA * adjustment [ppm] / 1e9
++ *
++ * The base scale factor is intentionally a power of two
++ * so that the division in %struct timecounter can be done with
++ * a shift.
++ */
++#define IGB_TSYNC_SHIFT (19)
++#define IGB_TSYNC_SCALE (1<<IGB_TSYNC_SHIFT)
++
++/**
++ * The duration of one clock cycle of the NIC.
++ *
++ * @todo This hard-coded value is part of the specification and might change
++ * in future hardware revisions. Add revision check.
++ */
++#define IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS 16
++
++#if (IGB_TSYNC_SCALE * IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS) >= (1<<24)
++# error IGB_TSYNC_SCALE and/or IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS are too large to fit into TIMINCA
++#endif
++
++/**
++ * igb_read_clock - read raw cycle counter (to be used by time counter)
++ */
++static cycle_t igb_read_clock(const struct cyclecounter *tc)
++{
++	struct igb_adapter *adapter =
++		container_of(tc, struct igb_adapter, cycles);
++	struct e1000_hw *hw = &adapter->hw;
++	u64 stamp;
++
++	stamp =  rd32(E1000_SYSTIML);
++	stamp |= (u64)rd32(E1000_SYSTIMH) << 32ULL;
++
++	return stamp;
++}
++
+ #ifdef DEBUG
+ /**
+  * igb_get_hw_dev_name - return device name string
+@@ -189,6 +237,28 @@ char *igb_get_hw_dev_name(struct e1000_hw *hw)
+ 	struct igb_adapter *adapter = hw->back;
+ 	return adapter->netdev->name;
+ }
++
++/**
++ * igb_get_time_str - format current NIC and system time as string
++ */
++static char *igb_get_time_str(struct igb_adapter *adapter,
++			char buffer[160])
++{
++	cycle_t hw = adapter->cycles.read(&adapter->cycles);
++	struct timespec nic = ns_to_timespec(timecounter_read(&adapter->clock));
++	struct timespec sys;
++	struct timespec delta;
++	getnstimeofday(&sys);
++
++	delta = timespec_sub(nic, sys);
++
++	sprintf(buffer, "NIC %ld.%09lus, SYS %ld.%09lus, NIC-SYS %lds + %09luns",
++		(long)nic.tv_sec, nic.tv_nsec,
++		(long)sys.tv_sec, sys.tv_nsec,
++		(long)delta.tv_sec, delta.tv_nsec);
++
++	return buffer;
++}
+ #endif
  
- 			/*
- 			 *	Find where to start putting bytes.
-@@ -1364,6 +1371,7 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
+ /**
+@@ -1286,6 +1356,42 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	}
+ #endif
  
- 	daddr = ipc.addr = rt->rt_src;
- 	ipc.opt = NULL;
-+	ipc.shtx.flags = 0;
- 
- 	if (replyopts.opt.optlen) {
- 		ipc.opt = &replyopts.opt;
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index dff8bc4..f774651 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -493,6 +493,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 
- 	ipc.addr = inet->saddr;
- 	ipc.opt = NULL;
-+	ipc.shtx.flags = 0;
- 	ipc.oif = sk->sk_bound_dev_if;
- 
- 	if (msg->msg_controllen) {
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index cf5ab05..bbf1a6d 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -573,6 +573,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		return -EOPNOTSUPP;
- 
- 	ipc.opt = NULL;
-+	ipc.shtx.flags = 0;
- 
- 	if (up->pending) {
- 		/*
-@@ -620,6 +621,9 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	ipc.addr = inet->saddr;
- 
- 	ipc.oif = sk->sk_bound_dev_if;
-+	err = sock_tx_timestamp(msg, sk, &ipc.shtx);
-+	if (err)
-+		return err;
- 	if (msg->msg_controllen) {
- 		err = ip_cmsg_send(sock_net(sk), msg, &ipc);
- 		if (err)
++	/*
++	 * Initialize hardware timer: we keep it running just in case
++	 * that some program needs it later on.
++	 */
++	memset(&adapter->cycles, 0, sizeof(adapter->cycles));
++	adapter->cycles.read = igb_read_clock;
++	adapter->cycles.mask = CLOCKSOURCE_MASK(64);
++	adapter->cycles.mult = 1;
++	adapter->cycles.shift = IGB_TSYNC_SHIFT;
++	wr32(E1000_TIMINCA, (1<<24) | IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS * IGB_TSYNC_SCALE);
++#if 0
++	/*
++	 * Avoid rollover while we initialize by resetting the time counter.
++	 */
++	wr32(E1000_SYSTIML, 0x00000000);
++	wr32(E1000_SYSTIMH, 0x00000000);
++#else
++	/*
++	 * Set registers so that rollover occurs soon to test this.
++	 */
++	wr32(E1000_SYSTIML, 0x00000000);
++	wr32(E1000_SYSTIMH, 0xFF800000);
++#endif
++	wrfl();
++	timecounter_init(&adapter->clock, &adapter->cycles, ktime_to_ns(ktime_get_real()));
++
++#ifdef DEBUG
++	{
++		char buffer[160];
++		printk(KERN_DEBUG
++			"igb: %s: hw %p initialized timer\n",
++			igb_get_time_str(adapter, buffer),
++			&adapter->hw);
++	}
++#endif
++
+ 	dev_info(&pdev->dev, "Intel(R) Gigabit Ethernet Network Connection\n");
+ 	/* print bus type/speed/width info */
+ 	dev_info(&pdev->dev, "%s: (PCIe:%s:%s) %pM\n",
 -- 
 1.5.5.3
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-api" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
