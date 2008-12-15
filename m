@@ -1,8 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 04/29] wimax: debug macros and debug settings for the WiMAX
-	stack
-Date: Mon, 15 Dec 2008 04:57:59 -0800
-Message-ID: <8af6aa6a1cdd143c5a395955d3ecb18d4515a11e.1229345776.git.inaky@linux.intel.com>
+Subject: [PATCH 11/29] i2400m: documentation and instructions for usage
+Date: Mon, 15 Dec 2008 04:58:06 -0800
+Message-ID: <ed4f7bddc2a4a31f3cce9ed3e0a50e4e990b68fb.1229345777.git.inaky@linux.intel.com>
 References: <cover.1229345769.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,528 +18,287 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This file contains a simple debug framework that is used in the stack;
-it allows the debug level to be controlled at compile-time (so the
-debug code is optimized out) and at run-time (for what wasn't compiled
-out).
+The driver for the i2400m is a stacked driver. There is a core driver,
+the bus-generic driver that has no knowledge or dependencies on how
+the device is connected to the system; it only knows how to speak the
+device protocol. Then there are the bus-specific drivers (for USB and
+SDIO) that provide backends for the generic driver to communicate with
+the device.
 
-This is eventually going to be moved to use dynamic_printk(). Just
-need to find time to do it.
+The bus generic driver connects to the network and WiMAX stacks on the
+top side, and on the bottom to the bus-specific drivers.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax/debug.h |  453 +++++++++++++++++++++++++++++++++++++++++++
- net/wimax/debug-levels.h    |   42 ++++
- 2 files changed, 495 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax/debug.h
- create mode 100644 net/wimax/debug-levels.h
+ Documentation/wimax/README.i2400m |  260 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 260 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/wimax/README.i2400m
 
-diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
+diff --git a/Documentation/wimax/README.i2400m b/Documentation/wimax/README.i2400m
 new file mode 100644
-index 0000000..ba0c493
+index 0000000..7dffd89
 --- /dev/null
-+++ b/include/linux/wimax/debug.h
-@@ -0,0 +1,453 @@
-+/*
-+ * Linux WiMAX
-+ * Collection of tools to manage debug operations.
-+ *
-+ *
-+ * Copyright (C) 2005-2007 Intel Corporation
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ *
-+ *
-+ * Don't #include this file directly, read on!
-+ *
-+ *
-+ * EXECUTING DEBUGGING ACTIONS OR NOT
-+ *
-+ * The main thing this framework provides is decission power to take a
-+ * debug action (like printing a message) if the current debug level
-+ * allows it.
-+ *
-+ * The decission power is at two levels: at compile-time (what does
-+ * not make it is compiled out) and at run-time. The run-time
-+ * selection is done per-submodule (as they are declared by the user
-+ * of the framework).
-+ *
-+ * A call to d_test(L) (L being the target debug level) returns true
-+ * if the action should be taken because the current debug levels
-+ * allow it (both compile and run time).
-+ *
-+ * It follows that a call to d_test() that can be determined to be
-+ * always false at compile time will get the code depending on it
-+ * compiled out by optimization.
-+ *
-+ *
-+ * DEBUG LEVELS
-+ *
-+ * It is up to the caller to define how much a debugging level is.
-+ *
-+ * Convention sets 0 as "no debug" (so an action marked as debug level 0
-+ * will always be taken). The increasing debug levels are used for
-+ * increased verbosity.
-+ *
-+ *
-+ * USAGE
-+ *
-+ * Group the code in modules and submodules inside each module [which
-+ * in most cases maps to Linux modules and .c files that compose
-+ * those].
-+ *
-+ *
-+ * For each module, there is:
-+ *
-+ *  - a MODULENAME (single word, legal C identifier)
-+ *
-+ *  - a debug-levels.h header file that declares the list of
-+ *    submodules and that is included by all .c files that use
-+ *    the debugging tools. The file name can be anything.
-+ *
-+ *  - some (optional) .c code to manipulate the runtime debug levels
-+ *    through debugfs.
-+ *
-+ * The debug-levels.h file would look like:
-+ *
-+ *     #ifndef __debug_levels__h__
-+ *     #define __debug_levels__h__
-+ *
-+ *     #define D_MODULENAME modulename
-+ *     #define D_MASTER 10
-+ *
-+ *     #include <linux/wimax/debug.h>
-+ *
-+ *     enum d_module {
-+ *             D_SUBMODULE_DECLARE(submodule_1),
-+ *             D_SUBMODULE_DECLARE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DECLARE(submodule_N)
-+ *     };
-+ *
-+ *     #endif
-+ *
-+ * D_MASTER is the maximum compile-time debug level; any debug actions
-+ * above this will be out. D_MODULENAME is the module name (legal C
-+ * identifier), which has to be unique for each module (to avoid
-+ * namespace collisions during linkage). Note those #defines need to
-+ * be done before #including debug.h
-+ *
-+ * We declare N different submodules whose debug level can be
-+ * independently controlled during runtime.
-+ *
-+ * In a .c file of the module (and only in one of them), define the
-+ * following code:
-+ *
-+ *     struct d_level D_LEVEL[] = {
-+ *             D_SUBMODULE_DEFINE(submodule_1),
-+ *             D_SUBMODULE_DEFINE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DEFINE(submodule_N),
-+ *     };
-+ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+ *
-+ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
-+ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
-+ * #defined also in this file.
-+ *
-+ * To manipulate from user space the levels, create a debugfs dentry
-+ * and then register each submodule with:
-+ *
-+ *     result = d_level_register_debugfs("PREFIX_", submodule_X, parent);
-+ *     if (result < 0)
-+ *            goto error;
-+ *
-+ * Where PREFIX_ is a name of your chosing. This will create debugfs
-+ * file with a single numeric value that can be use to tweak it. To
-+ * remove the entires, just use debugfs_remove_recursive() on 'parent'.
-+ *
-+ * NOTE: remember that even if this will show attached to some
-+ *     particular instance of a device, the settings are *global*.
-+ *
-+ *
-+ * On each submodule (for example, .c files), the debug infrastructure
-+ * should be included like this:
-+ *
-+ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
-+ *     #include "debug-levels.h"
-+ *
-+ * after #including all your include files.
-+ *
-+ *
-+ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
-+ * d_fnend(), d_printf(), d_dump()].
-+ *
-+ * If their debug level is greater than D_MASTER, they will be
-+ * compiled out.
-+ *
-+ * If their debug level is lower or equal than D_MASTER but greater
-+ * than the current debug level of their submodule, they'll be
-+ * ignored.
-+ *
-+ * Otherwise, the action will be performed.
-+ */
-+#ifndef __debug__h__
-+#define __debug__h__
++++ b/Documentation/wimax/README.i2400m
+@@ -0,0 +1,260 @@
 +
-+#include <linux/types.h>
-+#include <linux/device.h>
++   Driver for the Intel Wireless Wimax Connection 2400m
 +
++   (C) 2008 Intel Corporation < linux-wimax@intel.com >
 +
-+/* Backend stuff */
++   This provides a driver for the Intel Wireless WiMAX Connection 2400m
++   and a basic Linux kernel WiMAX stack.
 +
-+/*
-+ * Debug backend: generate a message header from a 'struct device'
-+ *
-+ * @head: buffer where to place the header
-+ * @head_size: length of @head
-+ * @dev: pointer to device used to generate a header from. If NULL,
-+ *     an empty ("") header is generated.
-+ */
-+static inline
-+void __d_head(char *head, size_t head_size,
-+	      struct device *dev)
-+{
-+	if (dev == NULL)
-+		head[0] = 0;
-+	else if ((unsigned long)dev < 4096) {
-+		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
-+		WARN_ON(1);
-+	} else
-+		snprintf(head, head_size, "%s %s: ",
-+			 dev_driver_string(dev), dev->bus_id);
-+}
++1. Requirements
 +
++     * Linux installation with Linux kernel 2.6.22 or newer (if building
++       from a separate tree)
++     * Intel i2400m Echo Peak or Baxter Peak; this includes the Intel
++       Wireless WiMAX/WiFi Link 5x50 series.
++     * build tools:
++          + Linux kernel development package for the target kernel; to
++            build against your currently running kernel, you need to have
++            the kernel development package corresponding to the running
++            image installed (usually if your kernel is named
++            linux-VERSION, the development package is called
++            linux-dev-VERSION or linux-headers-VERSION).
++          + GNU C Compiler, make
 +
-+/*
-+ * Debug backend: log some message if debugging is enabled
-+ *
-+ * @l: intended debug level
-+ * @tag: tag to prefix the message with
-+ * @dev: 'struct device' associated to this message
-+ * @f: printf-like format and arguments
-+ *
-+ * Note this is optimized out if it doesn't pass the compile-time
-+ * check; however, it is *always* compiled. This is useful to make
-+ * sure the printf-like formats and variables are always checked and
-+ * they don't get bit rot if you have all the debugging disabled.
-+ */
-+#define _d_printf(l, tag, dev, f, a...)					\
-+do {									\
-+	char head[64];							\
-+	if (!d_test(l))							\
-+		break;							\
-+	__d_head(head, sizeof(head), dev);				\
-+	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
-+} while (0)
++2. Compilation and installation
 +
++2.1. Compilation of the drivers included in the kernel
 +
-+/*
-+ * CPP sintatic sugar to generate A_B like symbol names when one of
-+ * the arguments is a a preprocessor #define.
-+ */
-+#define __D_PASTE__(varname, modulename) varname##_##modulename
-+#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
-+#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
++   Configure the kernel; to enable the WiMAX drivers select Drivers >
++   Networking Drivers > WiMAX device support. Enable all of them as
++   modules (easier).
 +
++   If USB or SDIO are not enabled in the kernel configuration, the options
++   to build the i2400m USB or SDIO drivers will not show. Enable said
++   subsystems and go back to the WiMAX menu to enable the drivers.
 +
-+/*
-+ * Store a submodule's runtime debug level and name
-+ */
-+struct d_level {
-+	u8 level;
-+	const char *name;
-+};
++   Compile and install your kernel as usual.
 +
++2.2. Compilation of the drivers distributed as an standalone module
 +
-+/*
-+ * List of available submodules and their debug levels
-+ *
-+ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
-+ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
-+ * convenience.
-+ *
-+ * This array and the size are defined on some .c file that is part of
-+ * the current module.
-+ */
-+#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
-+#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
++   To compile
 +
-+extern struct d_level D_LEVEL[];
-+extern size_t D_LEVEL_SIZE;
++$ cd source/directory
++$ make
 +
++   Once built you can load and unload using the provided load.sh script;
++   load.sh will load the modules, load.sh u will unload them.
 +
-+/*
-+ * Frontend stuff
-+ *
-+ *
-+ * Stuff you need to declare prior to using the actual "debug" actions
-+ * (defined below).
-+ */
++   To install in the default kernel directories (and enable auto loading
++   when the device is plugged):
 +
-+#ifndef D_MODULENAME
-+#error D_MODULENAME is not defined in your debug-levels.h file
-+/**
-+ * D_MODULE - Name of the current module
-+ *
-+ * #define in your module's debug-levels.h, making sure it is
-+ * unique. This has to be a legal C identifier.
-+ */
-+#define D_MODULENAME undefined_modulename
-+#endif
++$ make install
++$ depmod -a
 +
++   If your kernel development files are located in a non standard
++   directory or if you want to build for a kernel that is not the
++   currently running one, set KDIR to the right location:
 +
-+#ifndef D_MASTER
-+#warning D_MASTER not defined, but debug.h included! [see docs]
-+/**
-+ * D_MASTER - Compile time maximum debug level
-+ *
-+ * #define in your debug-levels.h file to the maximum debug level the
-+ * runtime code will be allowed to have. This allows you to provide a
-+ * main knob.
-+ *
-+ * Anything above that level will be optimized out of the compile.
-+ *
-+ * Defaults to zero (no debug code compiled in).
-+ *
-+ * Maximum one definition per module (at the debug-levels.h file).
-+ */
-+#define D_MASTER 0
-+#endif
++$ make KDIR=/path/to/kernel/dev/tree
 +
-+#ifndef D_SUBMODULE
-+#error D_SUBMODULE not defined, but debug.h included! [see docs]
-+/**
-+ * D_SUBMODULE - Name of the current submodule
-+ *
-+ * #define in your submodule .c file before #including debug-levels.h
-+ * to the name of the current submodule as previously declared and
-+ * defined with D_SUBMODULE_DECLARE() (in your module's
-+ * debug-levels.h) and D_SUBMODULE_DEFINE().
-+ *
-+ * This is used to provide runtime-control over the debug levels.
-+ *
-+ * Maximum one per .c file! Can be shared among different .c files
-+ * (meaning they belong to the same submodule categorization).
-+ */
-+#define D_SUBMODULE undefined_module
-+#endif
++   For more information, please contact linux-wimax@intel.com.
 +
++3. Installing the firmware
 +
-+/**
-+ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Declare in the module's debug-levels.h header file as:
-+ *
-+ * enum d_module {
-+ *         D_SUBMODULE_DECLARE(submodule_1),
-+ *         D_SUBMODULE_DECLARE(submodule_2),
-+ *         D_SUBMODULE_DECLARE(submodule_3),
-+ * };
-+ *
-+ * Some corresponding .c file needs to have a matching
-+ * D_SUBMODULE_DEFINE().
-+ */
-+#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
++   The firmware can be obtained from http://linuxwimax.org or might have
++   been supplied with your hardware.
 +
++   It has to be installed in the target system:
++     *
++$ cp FIRMWAREFILE.sbcf /lib/firmware/i2400m-fw-BUSTYPE-1.3.sbcf
 +
-+/**
-+ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Use once per module (in some .c file) as:
-+ *
-+ * static
-+ * struct d_level d_level_SUBMODULENAME[] = {
-+ *         D_SUBMODULE_DEFINE(submodule_1),
-+ *         D_SUBMODULE_DEFINE(submodule_2),
-+ *         D_SUBMODULE_DEFINE(submodule_3),
-+ * };
-+ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
-+ *
-+ * Matching D_SUBMODULE_DECLARE()s have to be present in a
-+ * debug-levels.h header file.
-+ */
-+#define D_SUBMODULE_DEFINE(_name)		\
-+[__D_SUBMODULE_##_name] = {			\
-+	.level = 0,				\
-+	.name = #_name				\
-+}
++     * NOTE: if your firmware came in an .rpm or .deb file, just install
++       it as normal, with the rpm (rpm -i FIRMWARE.rpm) or dpkg
++       (dpkg -i FIRMWARE.deb) commands. No further action is needed.
++     * BUSTYPE will be usb or sdio, depending on the hardware you have.
++       Each hardware type comes with its own firmware and will not work
++       with other types.
 +
++4. Design
 +
++   This package contains two major parts: a WiMAX kernel stack and a
++   driver for the Intel i2400m.
 +
-+/* The actual "debug" operations */
++   The WiMAX stack is designed to provide for common WiMAX control
++   services to current and future WiMAX devices from any vendor; please
++   see README.wimax for details.
 +
++   The i2400m kernel driver is broken up in two main parts: the bus
++   generic driver and the bus-specific drivers. The bus generic driver
++   forms the drivercore and contain no knowledge of the actual method we
++   use to connect to the device. The bus specific drivers are just the
++   glue to connect the bus-generic driver and the device. Currently only
++   USB and SDIO are supported. See drivers/net/wimax/i2400m/i2400m.h for
++   more information.
 +
-+/**
-+ * d_test - Returns true if debugging should be enabled
-+ *
-+ * @l: intended debug level (unsigned)
-+ *
-+ * If the master debug switch is enabled and the current settings are
-+ * higher or equal to the requested level, then debugging
-+ * output/actions should be enabled.
-+ *
-+ * NOTE:
-+ *
-+ * This needs to be coded so that it can be evaluated in compile
-+ * time; this is why the ugly BUG_ON() is placed in there, so the
-+ * D_MASTER evaluation compiles all out if it is compile-time false.
-+ */
-+#define d_test(l)							\
-+({									\
-+	unsigned __l = l;	/* type enforcer */			\
-+	(D_MASTER) >= __l						\
-+	&& ({								\
-+		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE);\
-+		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
-+	});								\
-+})
++   The bus generic driver is logically broken up in two parts: OS-glue and
++   hardware-glue. The OS-glue interfaces with Linux. The hardware-glue
++   interfaces with the device on using an interface provided by the
++   bus-specific driver. The reason for this breakup is to be able to
++   easily reuse the hardware-glue to write drivers for other OSes; note
++   the hardware glue part is written as a native Linux driver; no
++   abstraction layers are used, so to port to another OS, the Linux kernel
++   API calls should be replaced with the target OS's.
 +
++5. Usage
 +
-+/**
-+ * d_fnstart - log message at function start if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
++   To load the driver, follow the instructions in the install section;
++   once the driver is loaded, plug in the device (unless it is permanently
++   plugged in). The driver will enumerate the device, upload the firmware
++   and output messages in the kernel log (dmesg, /var/log/messages or
++   /var/log/kern.log) such as:
 +
++...
++i2400m_usb 5-4:1.0: firmware interface version 8.0.0
++i2400m_usb 5-4:1.0: WiMAX interface wmx0 (00:1d:e1:01:94:2c) ready
 +
-+/**
-+ * d_fnend - log message at function end if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
++   At this point the device is ready to work.
 +
++   Current versions require the Intel WiMAX Network Service in userspace
++   to make things work. See the network service's README for instructions
++   on how to scan, connect and disconnect.
 +
-+/**
-+ * d_printf - log message if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
++5.1. Module parameters
 +
++   Module parameters can be set at kernel or module load time or by
++   echoing values:
 +
-+/**
-+ * d_dump - log buffer hex dump if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_dump(l, dev, ptr, size)			\
-+do {							\
-+	char head[64];					\
-+	if (!d_test(l))					\
-+		break;					\
-+	__d_head(head, sizeof(head), dev);		\
-+	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
-+		       ((void *) ptr), (size), 0);	\
-+} while (0)
++$ echo VALUE > /sys/module/MODULENAME/parameters/PARAMETERNAME
 +
++   To make changes permanent, for example, for the i2400m module, you can
++   also create a file named /etc/modprobe.d/i2400m containing:
 +
-+/**
-+ * Export a submodule's debug level over debugfs as PREFIXSUBMODULE
-+ *
-+ * @prefix: string to prefix the name with
-+ * @submodule: name of submodule (not a string, just the name)
-+ * @dentry: debugfs parent dentry
-+ *
-+ * Returns: 0 if ok, < 0 errno on error.
-+ *
-+ * For removing, just use debugfs_remove_recursive() on the parent.
-+ */
-+#define d_level_register_debugfs(prefix, name, parent)			\
-+({									\
-+	int rc;								\
-+	struct dentry *fd;						\
-+	struct dentry *verify_parent_type = parent;			\
-+	fd = debugfs_create_u8(						\
-+		prefix #name, 0600, verify_parent_type,			\
-+		&(D_LEVEL[__D_SUBMODULE_ ## name].level));		\
-+	rc = PTR_ERR(fd);						\
-+	if (IS_ERR(fd) && rc != -ENODEV)				\
-+		printk(KERN_ERR "%s: Can't create debugfs entry %s: "	\
-+		       "%d\n", __func__, prefix #name, rc);		\
-+	else								\
-+		rc = 0;							\
-+	rc;								\
-+})
++options i2400m idle_mode_disabled=1
 +
++   To find which parameters are supported by a module, run:
 +
-+#endif /* #ifndef __debug__h__ */
-diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
-new file mode 100644
-index 0000000..1c29123
---- /dev/null
-+++ b/net/wimax/debug-levels.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Linux WiMAX Stack
-+ * Debug levels control file for the wimax module
-+ *
-+ *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
++$ modinfo path/to/module.ko
 +
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME wimax
-+#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
++   During kernel bootup (if the driver is linked in the kernel), specify
++   the following to the kernel command line:
 +
-+#include <linux/wimax/debug.h>
++i2400m.PARAMETER=VALUE
 +
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(debugfs),
-+	D_SUBMODULE_DECLARE(id_table),
-+	D_SUBMODULE_DECLARE(op_msg),
-+	D_SUBMODULE_DECLARE(op_reset),
-+	D_SUBMODULE_DECLARE(op_rfkill),
-+	D_SUBMODULE_DECLARE(stack),
-+};
++5.1.1. i2400m: idle_mode_disabled
 +
-+#endif /* #ifndef __debug_levels__h__ */
++   The i2400m module supports a parameter to disable idle mode. This
++   parameter, once set, will take effect only when the device is
++   reinitialized by the driver (eg: following a reset or a reconnect).
++
++5.2. Debug operations: debugfs entries
++
++   The driver will register debugfs entries that allow the user to tweak
++   debug settings. There are three main container directories where
++   entries are placed, which correspond to the three blocks a i2400m WiMAX
++   driver has:
++     * /sys/kernel/debug/wimax:DEVNAME/ for the generic WiMAX stack
++       controls
++     * /sys/kernel/debug/wimax:DEVNAME/i2400m for the i2400m generic
++       driver controls
++     * /sys/kernel/debug/wimax:DEVNAME/i2400m-usb (or -sdio) for the
++       bus-specific i2400m-usb or i2400m-sdio controls).
++
++   Of course, if debugfs is mounted in a directory other than
++   /sys/kernel/debug, those paths will change.
++
++5.2.1. Increasing debug output
++
++   The files named *dl_* indicate knobs for controlling the debug output
++   of different submodules:
++     *
++# find /sys/kernel/debug/wimax\:wmx0 -name \*dl_\*
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_tx
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_rx
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_notif
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_fw
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_usb
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_tx
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_rx
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_rfkill
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_netdev
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_fw
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_debugfs
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_driver
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_control
++/sys/kernel/debug/wimax:wmx0/wimax_dl_stack
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_rfkill
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_reset
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_msg
++/sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
++/sys/kernel/debug/wimax:wmx0/wimax_dl_debugfs
++
++   By reading the file you can obtain the current value of said debug
++   level; by writing to it, you can set it.
++
++   To increase the debug level of, for example, the i2400m's generic TX
++   engine, just write:
++
++$ echo 3 > /sys/kernel/debug/wimax:wmx0/i2400m/dl_tx
++
++   Increasing numbers yield increasing debug information; for details of
++   what is printed and the available levels, check the source. The code
++   uses 0 for disabled and increasing values until 8.
++
++5.2.2. RX and TX statistics
++
++   The i2400m/rx_stats and i2400m/tx_stats provide statistics about the
++   data reception/delivery from the device:
++
++$ cat /sys/kernel/debug/wimax:wmx0/i2400m/rx_stats
++45 1 3 34 3104 48 480
++
++   The numbers reported are
++     * packets/RX-buffer: total, min, max
++     * RX-buffers: total RX buffers received, accumulated RX buffer size
++       in bytes, min size received, max size received
++
++   Thus, to find the average buffer size received, divide accumulated
++   RX-buffer / total RX-buffers.
++
++   To clear the statistics back to 0, write anything to the rx_stats file:
++
++$ echo 1 > /sys/kernel/debug/wimax:wmx0/i2400m_rx_stats
++
++   Likewise for TX.
++
++   Note the packets this debug file refers to are not network packet, but
++   packets in the sense of the device-specific protocol for communication
++   to the host. See drivers/net/wimax/i2400m/tx.c.
++
++5.2.3. Tracing messages received from user space
++
++   To echo messages received from user space into the trace pipe that the
++   i2400m driver creates, set the debug file i2400m/trace_msg_from_user to
++   1:
++     *
++$ echo 1 > /sys/kernel/debug/wimax:wmx0/i2400m/trace_msg_from_user
++
++5.2.4. Performing a device reset
++
++   By writing a 0, a 1 or a 2 to the file
++   /sys/kernel/debug/wimax:wmx0/reset, the driver performs a warm (without
++   disconnecting from the bus), cold (disconnecting from the bus) or bus
++   (bus specific) reset on the device.
++
++5.2.5. Asking the device to enter power saving mode
++
++   By writing any value to the /sys/kernel/debug/wimax:wmx0 file, the
++   device will attempt to enter power saving mode.
++
++6. Troubleshooting
++
++6.1. Driver complains about 'i2400m-fw-usb-1.2.sbcf: request failed'
++
++   If upon connecting the device, the following is output in the kernel
++   log:
++
++i2400m_usb 5-4:1.0: fw i2400m-fw-usb-1.3.sbcf: request failed: -2
++
++   This means that the driver cannot locate the firmware file named
++   /lib/firmware/i2400m-fw-usb-1.2.sbcf. Check that the file is present in
++   the right location.
 -- 
 1.5.6.5
