@@ -1,40 +1,67 @@
-From: David Schweikert <david@schweikert.ch>
-Subject: niu: ethtool -s support -> implementation by contractor
-Date: Mon, 15 Dec 2008 17:12:15 +0100
-Message-ID: <20081215161215.GD26374@schweikert.ch>
-References: <20081125133530.GA1633@schweikert.ch> <20081125.133124.74121407.davem@davemloft.net> <20081126095021.GB20045@schweikert.ch>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Subject: Re: bnx2x machine check in bnx2x_ack_int()
+Date: Mon, 15 Dec 2008 09:21:08 -0700
+Message-ID: <200812150921.08668.bjorn.helgaas@hp.com>
+References: <200812091204.35296.bjorn.helgaas@hp.com> <1229328209.22295.16.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eilon Greenstein" <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nigel.schweikert.ch ([88.198.52.145]:49205 "EHLO
-	mail.schweikert.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752397AbYLOQMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 11:12:20 -0500
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:15373 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753113AbYLOQVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 11:21:12 -0500
+In-Reply-To: <1229328209.22295.16.camel@lb-tlvb-eliezer>
 Content-Disposition: inline
-In-Reply-To: <20081126095021.GB20045@schweikert.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 26, 2008 at 10:50:21 +0100, David Schweikert wrote:
-> On Tue, Nov 25, 2008 at 13:31:24 -0800, David Miller wrote:
-> > > It is apparently not possible to set the link parameters on a niu
-> > > interface (speed, duplex mode, auto-negotiation) with ethtool.
-> > > Is support for it planned?
+On Monday 15 December 2008 01:03:29 am Eilon Greenstein wrote:
+> My sincere apologize for the late response. When searching the mailing
+> list to see if I accidentally missed your reply, I have come to realize
+> that my response was never sent (problem with my email client).
+
+No problem, thanks for the response!
+
+> On Tue, 2008-12-09 at 11:04 -0800, Bjorn Helgaas wrote:
+> > Hi Eilon,
 > > 
-> > Yes, at some point, although that work is pretty low priority
-> > to be honest.
-> 
-> OK, thanks for the information. Would it be possible for the company I
-> work for, to somehow sponsor the development of this feature? Do you
-> know maybe a fellow developer that might be interested?
+> > I'm using bnx2x 1.45.23 from RHEL5.3s4 on a prototype ia64 platform,
+> > and I see intermittent machine checks at bnx2x_ack_int+176, which is
+> > just after __ia64_readl() returns.
+> I see that you are using two 57710 chips. What kind of board are you
+> using (which PHY)?
 
-We have found a company developing kernel drivers wanting to implement
-this for us. Please let me know if you foresee any problem with that.
+This is a blade with separate PHYs.  In this case, there is no PHY
+at all because the module that would contain the PHY is not installed.
 
-Should anything in particular be done in order for the future patch
-to have good chances of being integrated in the main branch?
+> > This is a proto with incomplete firmware, and the driver correctly
+> > complains about that, but it seems like there's still a hole where
+> > things blow up.
+> If you set the right FW on the board, do you still see the problem? I'm
+> asking to determine if this is a problem specific to the "no FW" case or
+> general issue with this configuration
 
-Cheers
-David
+I'm trying to get FW installed, but haven't had any luck yet.
+
+> > The machine check happens intermittently on boot, but I can reproduce
+> > it instantly with a loop like this:
+> > 
+> >   # while /bin/true; do ifup eth6; date; done
+> > 
+> > Here's some lspci and dmesg information.  I added a little debug in
+> > bnx2x_ack_int(), so this is a kernel I compiled myself.
+> > 
+> > Let me know if there's any information I can collect or testing I
+> > can do.
+> Unfortunately, with the 57711 Mezzanine on the IA64 blade that I have, I
+> cannot reproduce this failure, so I will probably need more information.
+> Can you please send me the nvram content?
+
+Sure.  Is there an easy way to collect this, or should I instrument the
+driver to print it out or something?
+
+Bjorn
