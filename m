@@ -1,118 +1,34 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [RFC][PATCH 2/3]ipv6:fix the return interface index when get
- it while no message is received
-Date: Mon, 15 Dec 2008 17:05:54 +0800
-Message-ID: <49461DF2.8030502@cn.fujitsu.com>
-References: <493E19FC.1080609@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET-NEXT PATCH 2/2] net: fix dcbnl_setnumtcs operation check
+Date: Mon, 15 Dec 2008 01:06:31 -0800 (PST)
+Message-ID: <20081215.010631.223311320.davem@davemloft.net>
+References: <20081212095221.4416.83327.stgit@lost.foo-projects.org>
+	<20081212095244.4416.19017.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	donald.c.skidmore@intel.com, eric.w.multanen@intel.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63013 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752521AbYLOJG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 04:06:27 -0500
-In-Reply-To: <493E19FC.1080609@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56763
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752570AbYLOJGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 04:06:30 -0500
+In-Reply-To: <20081212095244.4416.19017.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yang Hongyang wrote:
-> When get receiving interface index while no message is received,
-> the the value seted with setsockopt() should be returned.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 12 Dec 2008 01:52:45 -0800
+
+> dcbml_setnumtcs wasn't checking for the presence of the setnumtcs
+> function.  Instead, it was checking for setstate which was a bug.
 > 
-> RFC 3542:
->    Issuing getsockopt() for the above options will return the sticky
->    option value i.e., the value set with setsockopt().  If no sticky
->    option value has been set getsockopt() will return the following
->    values:
-> 
->    -  For the IPV6_PKTINFO option, it will return an in6_pktinfo
->       structure with ipi6_addr being in6addr_any and ipi6_ifindex being
->       zero.
-> 
-> Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
-> ---
->  net/ipv6/ipv6_sockglue.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-> index fc80401..4770bd9 100644
-> --- a/net/ipv6/ipv6_sockglue.c
-> +++ b/net/ipv6/ipv6_sockglue.c
-> @@ -938,8 +938,8 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
->  		} else {
->  			if (np->rxopt.bits.rxinfo) {
->  				struct in6_pktinfo src_info;
-> -				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
-> -				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
-> +				src_info.ipi6_ifindex = np->sticky_pktinfo.ipi6_ifindex;
-> +				ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
->  				put_cmsg(&msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
->  			}
->  			if (np->rxopt.bits.rxhlim) {
-> @@ -948,8 +948,8 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
->  			}
->  			if (np->rxopt.bits.rxoinfo) {
->  				struct in6_pktinfo src_info;
-> -				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
-> -				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
-> +				src_info.ipi6_ifindex = np->sticky_pktinfo.ipi6_ifindex;
-> +				ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
->  				put_cmsg(&msg, SOL_IPV6, IPV6_2292PKTINFO, sizeof(src_info), &src_info);
->  			}
->  			if (np->rxopt.bits.rxohlim) {
-Updated patch:
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> Signed-off-by: Eric W Multanen <eric.w.multanen@intel.com>
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-When get receiving interface index while no message is received,
-the the value seted with setsockopt() should be returned.
-
-RFC 3542:
-   Issuing getsockopt() for the above options will return the sticky
-   option value i.e., the value set with setsockopt().  If no sticky
-   option value has been set getsockopt() will return the following
-   values:
-
-   -  For the IPV6_PKTINFO option, it will return an in6_pktinfo
-      structure with ipi6_addr being in6addr_any and ipi6_ifindex being
-      zero.
-
-Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
-
----
- net/ipv6/ipv6_sockglue.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index fc80401..7ae3a2a 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -938,8 +938,10 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 		} else {
- 			if (np->rxopt.bits.rxinfo) {
- 				struct in6_pktinfo src_info;
--				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
--				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
-+				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : 
-+					np->sticky_pktinfo.ipi6_ifindex;
-+				np->mcast_oif? ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr) :
-+					ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
- 				put_cmsg(&msg, SOL_IPV6, IPV6_PKTINFO, sizeof(src_info), &src_info);
- 			}
- 			if (np->rxopt.bits.rxhlim) {
-@@ -948,8 +950,10 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 			}
- 			if (np->rxopt.bits.rxoinfo) {
- 				struct in6_pktinfo src_info;
--				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : sk->sk_bound_dev_if;
--				ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr);
-+				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif : 
-+					np->sticky_pktinfo.ipi6_ifindex;
-+				np->mcast_oif? ipv6_addr_copy(&src_info.ipi6_addr, &np->daddr) :
-+					ipv6_addr_copy(&src_info.ipi6_addr, &(np->sticky_pktinfo.ipi6_addr));
- 				put_cmsg(&msg, SOL_IPV6, IPV6_2292PKTINFO, sizeof(src_info), &src_info);
- 			}
- 			if (np->rxopt.bits.rxohlim) {
--- 
-1.6.0.1
-
+Applied.
