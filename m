@@ -1,48 +1,49 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH]-bonding: Fix slave link failure count update failure
-Date: Mon, 15 Dec 2008 09:05:32 -0800
-Message-ID: <9002.1229360732@death.nxdomain.ibm.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE511805@blrx3m08.blr.amer.dell.com>
-Cc: netdev@vger.kernel.org
-To: Narendra_K@Dell.com
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: bnx2x machine check in bnx2x_ack_int()
+Date: Mon, 15 Dec 2008 19:18:00 +0200
+Message-ID: <1229361480.22295.22.camel@lb-tlvb-eliezer>
+References: <200812091204.35296.bjorn.helgaas@hp.com>
+ <1229328209.22295.16.camel@lb-tlvb-eliezer>
+ <200812150921.08668.bjorn.helgaas@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Bjorn Helgaas" <bjorn.helgaas@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:33779 "EHLO e1.ny.us.ibm.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1904 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753133AbYLORFj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 12:05:39 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e1.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mBFH4pt8018407
-	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 12:04:51 -0500
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mBFH5a2u154530
-	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 12:05:36 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mBFH5ZAG015750
-	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 12:05:35 -0500
-In-reply-to: <EDA0A4495861324DA2618B4C45DCB3EE511805@blrx3m08.blr.amer.dell.com>
+	id S1753164AbYLORTu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 12:19:50 -0500
+In-Reply-To: <200812150921.08668.bjorn.helgaas@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-<Narendra_K@Dell.com> wrote:
-[...]
->The "bonding: refactor mii monitor" patch (
->http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.27.y.git;a=co
->mmit;h=f0c76d61779b153dbfb955db3f144c62d02173c2) misses updating the
->slave link failure count. So "cat /proc/net/bonding/bond0" doesn't
->reflect the no of slave link failures. The patch addresses it.
+On Mon, 2008-12-15 at 08:21 -0800, Bjorn Helgaas wrote:
 
-	This is already fixed in mainline by:
+> > > I'm using bnx2x 1.45.23 from RHEL5.3s4 on a prototype ia64 platform,
+> > > and I see intermittent machine checks at bnx2x_ack_int+176, which is
+> > > just after __ia64_readl() returns.
+> > I see that you are using two 57710 chips. What kind of board are you
+> > using (which PHY)?
+> 
+> This is a blade with separate PHYs.  In this case, there is no PHY
+> at all because the module that would contain the PHY is not installed.
+> 
+> > > This is a proto with incomplete firmware, and the driver correctly
+> > > complains about that, but it seems like there's still a hole where
+> > > things blow up.
+> > If you set the right FW on the board, do you still see the problem? I'm
+> > asking to determine if this is a problem specific to the "no FW" case or
+> > general issue with this configuration
+> 
+> I'm trying to get FW installed, but haven't had any luck yet.
 
-commit fba4acda35f3119328bcba28aacefae14245d2bb
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Thu Oct 30 17:41:14 2008 -0700
+Hmmm... So it is possible that this is HW related (since we are talking
+about preliminary board with missing component and missing FW). I will
+ask for some field support - someone will contact you shortly.
 
-    bonding: fix miimon failure counter
+Thanks,
+Eilon
 
-	Note that the two patches add the increment to different places,
-so applying both of them will result in double increments.
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
