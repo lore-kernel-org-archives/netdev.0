@@ -1,164 +1,257 @@
-From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [RFC PATCH 04/12] sockets: allow allocating skb with optional structures
-Date: Mon, 15 Dec 2008 15:54:51 +0100
-Message-ID: <1229352899-31330-5-git-send-email-patrick.ohly@intel.com>
+From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [RFC PATCH 09/12] clocksource: allow usage independent of timekeeping.c
+Date: Mon, 15 Dec 2008 15:54:56 +0100
+Message-ID: <1229352899-31330-10-git-send-email-patrick.ohly@intel.com>
 References: <1229352899-31330-1-git-send-email-patrick.ohly@intel.com>
  <1229352899-31330-2-git-send-email-patrick.ohly@intel.com>
  <1229352899-31330-3-git-send-email-patrick.ohly@intel.com>
  <1229352899-31330-4-git-send-email-patrick.ohly@intel.com>
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>, linux-api@vger.kernel.org,
-	Patrick Ohly <patrick.ohly@intel.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26559 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754380AbYLOOzN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 09:55:13 -0500
-In-Reply-To: <1229352899-31330-4-git-send-email-patrick.ohly@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ <1229352899-31330-5-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-6-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-7-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-8-git-send-email-patrick.ohly@intel.com>
+ <1229352899-31330-9-git-send-email-patrick.ohly@intel.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1229352899-31330-9-git-send-email-patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The internal sock_alloc_send_pskb() is now exposed
-as sock_alloc_send_skb_flags() and takes a flags
-parameter with additional instructions for how the
-skb is to be allocated. This is necessary for adding
-send time stamping information to outgoing packets.
+So far struct clocksource acted as the interface between time/timekeeping.c
+and hardware. This patch generalizes the concept so that a similar
+interface can also be used in other contexts. For that it introduces
+new structures and related functions *without* touching the existing
+struct clocksource.
 
-sock_alloc_send_skb() is turned into a simple wrapper
-which preserves compatibility with code that
-passes a boolean "nblock" instead of the flags
-bitmask.
+The reasons for adding these new structures to clocksource.[ch] are
+* the APIs are clearly related
+* struct clocksource could be cleaned up to use the new structs
+* avoids proliferation of files with similar names (timesource.h?
+  timecounter.h?)
 
-sock_alloc_send_pskb() was never called with non-zero
-data_len, therefore the obsolete code and parameter
-were removed.
+As outlined in the discussion with John Stultz, this patch adds
+* struct cyclecounter: stateless API to hardware which counts clock cycles
+* struct timecounter: stateful utility code built on a cyclecounter which
+  provides a nanosecond counter
+* only the function to read the nanosecond counter; deltas are used internally
+  and not exposed to users of timecounter
 
-Signed-off-by: Patrick Ohly <patrick.ohly@intel.com>
+The code does no locking of the shared state. It must be called at least
+as often as the cycle counter wraps around to detect these wrap arounds.
+Both is the responsibility of the timecounter user.
+
+Signed-off-by: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- include/net/sock.h |   17 +++++++++++++----
- net/core/sock.c    |   50 +++++++-------------------------------------------
- 2 files changed, 20 insertions(+), 47 deletions(-)
+ include/linux/clocksource.h |   99 +++++++++++++++++++++++++++++++++++++++++++
+ kernel/time/clocksource.c   |   76 +++++++++++++++++++++++++++++++++
+ 2 files changed, 175 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 36807e4..6cb120c 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -948,10 +948,19 @@ extern int			sock_setsockopt(struct socket *sock, int level,
- extern int			sock_getsockopt(struct socket *sock, int level,
- 						int op, char __user *optval, 
- 						int __user *optlen);
--extern struct sk_buff 		*sock_alloc_send_skb(struct sock *sk,
--						     unsigned long size,
--						     int noblock,
--						     int *errcode);
-+extern struct sk_buff		*sock_alloc_send_skb_flags(struct sock *sk,
-+						unsigned long size,
-+						int flags,
-+						int *errcode);
-+inline static struct sk_buff 	*sock_alloc_send_skb(struct sock *sk,
-+						unsigned long size,
-+						int noblock,
-+						int *errcode)
+diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
+index f88d32f..d379189 100644
+--- a/include/linux/clocksource.h
++++ b/include/linux/clocksource.h
+@@ -22,8 +22,107 @@ typedef u64 cycle_t;
+ struct clocksource;
+ 
+ /**
++ * struct cyclecounter - hardware abstraction for a free running counter
++ *	Provides completely state-free accessors to the underlying hardware.
++ *	Depending on which hardware it reads, the cycle counter may wrap
++ *	around quickly. Locking rules (if necessary) have to be defined
++ *	by the implementor and user of specific instances of this API.
++ *
++ * @read:		returns the current cycle value
++ * @mask:		bitmask for two's complement
++ *			subtraction of non 64 bit counters,
++ *			see CLOCKSOURCE_MASK() helper macro
++ * @mult:		cycle to nanosecond multiplier
++ * @shift:		cycle to nanosecond divisor (power of two)
++ */
++struct cyclecounter {
++	cycle_t (*read)(const struct cyclecounter *cc);
++	cycle_t mask;
++	u32 mult;
++	u32 shift;
++};
++
++/**
++ * struct timecounter - layer above a %struct cyclecounter which counts nanoseconds
++ *	Contains the state needed by timecounter_read() to detect
++ *	cycle counter wrap around. Initialize with
++ *	timecounter_init(). Also used to convert cycle counts into the
++ *	corresponding nanosecond counts with timecounter_cyc2time(). Users
++ *	of this code are responsible for initializing the underlying
++ *	cycle counter hardware, locking issues and reading the time
++ *	more often than the cycle counter wraps around. The nanosecond
++ *	counter will only wrap around after ~585 years.
++ *
++ * @cc:			the cycle counter used by this instance
++ * @cycle_last:		most recent cycle counter value seen by timecounter_read()
++ * @nsec:		
++ */
++struct timecounter {
++	const struct cyclecounter *cc;
++	cycle_t cycle_last;
++	u64 nsec;
++};
++
++/**
++ * cyclecounter_cyc2ns - converts cycle counter cycles to nanoseconds
++ * @tc:		Pointer to cycle counter.
++ * @cycles:	Cycles
++ *
++ * XXX - This could use some mult_lxl_ll() asm optimization. Same code
++ * as in cyc2ns, but with unsigned result.
++ */
++static inline u64 cyclecounter_cyc2ns(const struct cyclecounter *cc, cycle_t cycles)
 +{
-+	return sock_alloc_send_skb_flags(sk, size,
-+					noblock ? SKB_FLAGS_NOBLOCK : 0,
-+					errcode);
++	u64 ret = (u64)cycles;
++	ret = (ret * cc->mult) >> cc->shift;
++	return ret;
 +}
- extern void *sock_kmalloc(struct sock *sk, int size,
- 			  gfp_t priority);
- extern void sock_kfree_s(struct sock *sk, void *mem, int size);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 35b4f4c..64f959e 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1304,10 +1304,9 @@ static long sock_wait_for_wmem(struct sock * sk, long timeo)
-  *	Generic send/receive buffer handlers
-  */
++
++/**
++ * timecounter_init - initialize a time counter
++ * @tc:			Pointer to time counter which is to be initialized/reset
++ * @cc:			A cycle counter, ready to be used.
++ * @start_tstamp:	Arbitrary initial time stamp.
++ *
++ * After this call the current cycle register (roughly) corresponds to
++ * the initial time stamp. Every call to timecounter_read() increments
++ * the time stamp counter by the number of elapsed nanoseconds.
++ */
++extern void timecounter_init(struct timecounter *tc,
++			const struct cyclecounter *cc,
++			u64 start_tstamp);
++
++/**
++ * timecounter_read - return nanoseconds elapsed since timecounter_init()
++ *                         plus the initial time stamp
++ * @tc:          Pointer to time counter.
++ *
++ * In other words, keeps track of time since the same epoch as
++ * the function which generated the initial time stamp.
++ */
++extern u64 timecounter_read(struct timecounter *tc);
++
++/**
++ * timecounter_cyc2time - convert a cycle counter to same
++ *                        time base as values returned by
++ *                        timecounter_read()
++ * @tc:		Pointer to time counter.
++ * @cycle:	a value returned by tc->cc->read()
++ *
++ * Cycle counts that are converted correctly as long as they
++ * fall into the interval [-1/2 max cycle count, +1/2 max cycle count],
++ * with "max cycle count" == cs->mask+1.
++ *
++ * This allows conversion of cycle counter values which were generated
++ * in the past.
++ */
++extern u64 timecounter_cyc2time(struct timecounter *tc,
++				cycle_t cycle_tstamp);
++
++/**
+  * struct clocksource - hardware abstraction for a free running counter
+  *	Provides mostly state-free accessors to the underlying hardware.
++ *	This is the structure used for system time.
+  *
+  * @name:		ptr to clocksource name
+  * @list:		list head for registration
+diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
+index 9ed2eec..0d7a2cb 100644
+--- a/kernel/time/clocksource.c
++++ b/kernel/time/clocksource.c
+@@ -31,6 +31,82 @@
+ #include <linux/sched.h> /* for spin_unlock_irq() using preempt_count() m68k */
+ #include <linux/tick.h>
  
--static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
-+struct sk_buff *sock_alloc_send_skb_flags(struct sock *sk,
- 					    unsigned long header_len,
--					    unsigned long data_len,
--					    int noblock, int *errcode)
-+					    int flags, int *errcode)
- {
- 	struct sk_buff *skb;
- 	gfp_t gfp_mask;
-@@ -1318,7 +1317,9 @@ static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
- 	if (gfp_mask & __GFP_WAIT)
- 		gfp_mask |= __GFP_REPEAT;
++void timecounter_init(struct timecounter *tc,
++		const struct cyclecounter *cc,
++		u64 start_tstamp)
++{
++	tc->cc = cc;
++	tc->cycle_last = cc->read(cc);
++	tc->nsec = start_tstamp;
++}
++EXPORT_SYMBOL(timecounter_init);
++
++/**
++ * clocksource_read_ns - get nanoseconds since last call of this function
++ * @tc:         Pointer to time counter
++ *
++ * When the underlying cycle counter runs over, this will be handled
++ * correctly as long as it does not run over more than once between
++ * calls.
++ *
++ * The first call to this function for a new time counter initializes
++ * the time tracking and returns bogus results.
++ */
++static u64 timecounter_read_delta(struct timecounter *tc)
++{
++	cycle_t cycle_now, cycle_delta;
++	u64 ns_offset;
++
++	/* read cycle counter: */
++	cycle_now = tc->cc->read(tc->cc);
++
++	/* calculate the delta since the last timecounter_read_delta(): */
++	cycle_delta = (cycle_now - tc->cycle_last) & tc->cc->mask;
++
++	/* convert to nanoseconds: */
++	ns_offset = cyclecounter_cyc2ns(tc->cc, cycle_delta);
++
++	/* update time stamp of timecounter_read_delta() call: */
++	tc->cycle_last = cycle_now;
++
++	return ns_offset;
++}
++
++u64 timecounter_read(struct timecounter *tc)
++{
++	u64 nsec;
++
++	/* increment time by nanoseconds since last call */
++	nsec = timecounter_read_delta(tc);
++	nsec += tc->nsec;
++	tc->nsec = nsec;
++
++	return nsec;
++}
++EXPORT_SYMBOL(timecounter_read);
++
++u64 timecounter_cyc2time(struct timecounter *tc,
++			cycle_t cycle_tstamp)
++{
++	u64 cycle_delta = (cycle_tstamp - tc->cycle_last) & tc->cc->mask;
++	u64 nsec;
++
++	/*
++	 * Instead of always treating cycle_tstamp as more recent
++	 * than tc->cycle_last, detect when it is too far in the
++	 * future and treat it as old time stamp instead.
++	 */
++	if (cycle_delta > tc->cc->mask / 2) {
++		cycle_delta = (tc->cycle_last - cycle_tstamp) & tc->cc->mask;
++		nsec = tc->nsec - cyclecounter_cyc2ns(tc->cc, cycle_delta);
++	} else {
++		nsec = cyclecounter_cyc2ns(tc->cc, cycle_delta) + tc->nsec;
++	}
++
++	return nsec;
++}
++EXPORT_SYMBOL(timecounter_cyc2time);
++
+ /* XXX - Would like a better way for initializing curr_clocksource */
+ extern struct clocksource clocksource_jiffies;
  
--	timeo = sock_sndtimeo(sk, noblock);
-+	timeo = sock_sndtimeo(sk, 
-+			(flags & SKB_FLAGS_NOBLOCK) ?
-+			MSG_DONTWAIT : 0);
- 	while (1) {
- 		err = sock_error(sk);
- 		if (err != 0)
-@@ -1329,39 +1330,8 @@ static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
- 			goto failure;
- 
- 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
--			skb = alloc_skb(header_len, gfp_mask);
-+			skb = __alloc_skb_flags(header_len, gfp_mask, flags, -1);
- 			if (skb) {
--				int npages;
--				int i;
--
--				/* No pages, we're done... */
--				if (!data_len)
--					break;
--
--				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
--				skb->truesize += data_len;
--				skb_shinfo(skb)->nr_frags = npages;
--				for (i = 0; i < npages; i++) {
--					struct page *page;
--					skb_frag_t *frag;
--
--					page = alloc_pages(sk->sk_allocation, 0);
--					if (!page) {
--						err = -ENOBUFS;
--						skb_shinfo(skb)->nr_frags = i;
--						kfree_skb(skb);
--						goto failure;
--					}
--
--					frag = &skb_shinfo(skb)->frags[i];
--					frag->page = page;
--					frag->page_offset = 0;
--					frag->size = (data_len >= PAGE_SIZE ?
--						      PAGE_SIZE :
--						      data_len);
--					data_len -= PAGE_SIZE;
--				}
--
- 				/* Full success... */
- 				break;
- 			}
-@@ -1388,12 +1358,6 @@ failure:
- 	return NULL;
- }
- 
--struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
--				    int noblock, int *errcode)
--{
--	return sock_alloc_send_pskb(sk, size, 0, noblock, errcode);
--}
--
- static void __lock_sock(struct sock *sk)
- {
- 	DEFINE_WAIT(wait);
-@@ -2327,7 +2291,7 @@ subsys_initcall(proto_init);
- EXPORT_SYMBOL(sk_alloc);
- EXPORT_SYMBOL(sk_free);
- EXPORT_SYMBOL(sk_send_sigurg);
--EXPORT_SYMBOL(sock_alloc_send_skb);
-+EXPORT_SYMBOL(sock_alloc_send_skb_flags);
- EXPORT_SYMBOL(sock_init_data);
- EXPORT_SYMBOL(sock_kfree_s);
- EXPORT_SYMBOL(sock_kmalloc);
 -- 
 1.5.5.3
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-api" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
