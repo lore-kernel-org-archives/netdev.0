@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] simnet: convert to net_device_ops
-Date: Tue, 16 Dec 2008 01:56:02 -0800 (PST)
-Message-ID: <20081216.015602.58187314.davem@davemloft.net>
-References: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
-	<20081209150827.GA8134@x200.localdomain>
+Subject: Re: [RFC PATCH 1/2] move flow control definitions to mii.h
+Date: Tue, 16 Dec 2008 02:00:28 -0800 (PST)
+Message-ID: <20081216.020028.20961543.davem@davemloft.net>
+References: <1229258301-5073-1-git-send-email-steve.glendinning@smsc.com>
+	<1229258301-5073-2-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: a.beregalov@gmail.com, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-ia64@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20081209150827.GA8134@x200.localdomain>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
+To: steve.glendinning@smsc.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34813
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752135AbYLPKA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 05:00:27 -0500
+In-Reply-To: <1229258301-5073-2-git-send-email-steve.glendinning@smsc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 9 Dec 2008 18:08:27 +0300
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Sun, 14 Dec 2008 12:38:20 +0000
 
-> On Tue, Dec 09, 2008 at 05:11:17PM +0300, Alexander Beregalov wrote:
-> >   CC      arch/ia64/hp/sim/simeth.o
-> > arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
-> > arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no member named 'open'
+> flags used within drivers for indicating tx and rx flow control are
+> defined in 4 drivers (and probably more), move these constants to mii.h.
 > 
-> [PATCH] simeth: convert to net_device_ops
+> The 3 SMSC drivers use the same constants (FLOW_CTRL_TX), but TG3 uses
+> TG3_FLOW_CTRL_TX, so this patch also renames the constants within TG3.
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Now that the kconfig badness has been fixed, I've applied
-this.
-
-Thanks Alexey.
+Applied.
