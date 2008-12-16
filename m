@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phylib: Remove unnecessary "reset" fixups in
- genphy_setup_forced
-Date: Tue, 16 Dec 2008 15:39:59 -0800 (PST)
-Message-ID: <20081216.153959.53163736.davem@davemloft.net>
-References: <1229469389-24926-1-git-send-email-afleming@freescale.com>
+Subject: Re: [PATCH] Re: kernel panics with net_rx_action on kernels >2.6.26
+Date: Tue, 16 Dec 2008 15:42:37 -0800 (PST)
+Message-ID: <20081216.154237.263705877.davem@davemloft.net>
+References: <20081215133521.GA6697@ff.dom.local>
+	<20081216.012247.267028680.davem@davemloft.net>
+	<20081216140651.GA6537@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: afleming@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45734
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751010AbYLPXj6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 18:39:58 -0500
-In-Reply-To: <1229469389-24926-1-git-send-email-afleming@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jgarzik@pobox.com, alexander.huemer@sbg.ac.at,
+	linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: jarkao2@gmail.com
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <20081216140651.GA6537@ff.dom.local>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Fleming <afleming@freescale.com>
-Date: Tue, 16 Dec 2008 17:16:29 -0600
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 16 Dec 2008 14:06:51 +0000
 
-> genphy_setup_forced hasn't actually reset the PHY for a long time,
-> but a comment to that effect remained in the code, so code continued
-> to act as if it *had* reset the PHY, and called the necessary fixup
-> functions to respond to a PHY reset.  With no reset, those functions
-> are no longer needed, so we remove them.
+> drivers/net: starfire: Fix napi ->poll() weight handling
 > 
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
+> starfire napi ->poll() handler can return work == weight after calling
+> netif_rx_complete() (if there is no more work). It is illegal and this
+> patch fixes it.
+> 
+> Reported-by: Alexander Huemer <alexander.huemer@sbg.ac.at>
+> Tested-by: Alexander Huemer <alexander.huemer@sbg.ac.at>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Applied.
+Applied, thanks everyone.
