@@ -1,30 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host communication.
-Date: Tue, 16 Dec 2008 13:55:42 +1100
-Message-ID: <E1LCQ62-0001oT-2b@gondolin.me.apana.org.au>
-References: <4946E597.6070308@codemonkey.ws>
-Cc: davem@davemloft.net, gleb@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
-To: anthony@codemonkey.ws (Anthony Liguori)
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4946E597.6070308@codemonkey.ws>
-Sender: kvm-owner@vger.kernel.org
+From: Wang Chen <wangchen@cn.fujitsu.com>
+Subject: Re: [PATCH 02/29] wimax: headers for kernel API and user space
+	interaction
+Date: Tue, 16 Dec 2008 11:43:48 +0800
+Message-ID: <494723F4.8020707@cn.fujitsu.com>
+References: <cover.1229345769.git.inaky@linux.intel.com>
+	<b0f6aee9c3e6de399e9a29e2c6a9ab3c1017b0d0.1229345776.git.inaky@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wimax@linuxwimax.org, greg@kroah.com
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <b0f6aee9c3e6de399e9a29e2c6a9ab3c1017b0d0.1229345776.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Anthony Liguori <anthony@codemonkey.ws> wrote:
-> 
-> If we used TCP, we don't have a useful TCP/IP stack in QEMU, so we'd 
-> have to inject that traffic into the host Linux instance, and then 
-> receive the traffic in QEMU.  Besides being indirect, it has some nasty 
-> security implications that I outlined in my response to Jeremy's last note.
+Inaky Perez-Gonzalez said the following on 2008-12-15 20:57:
+> + * Usage:
+> + *  1. Embed a &struct wimax_dev at *the beginning* the network
+> + *     device structure so that net_dev->priv points to it.
+> + *
 
-When combined with namespaces I don't see why using the kernel TCP
-stack would create any security problems that wouldn't otherwise
-exist.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+There is no net_device->priv anymore in net-next tree.
