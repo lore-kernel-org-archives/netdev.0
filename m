@@ -1,76 +1,73 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
-Date: Mon, 15 Dec 2008 16:02:01 -0800
-Message-ID: <20081216000201.GG6759@linux.vnet.ibm.com>
-References: <20081213013420.GA13549@gondor.apana.org.au> <E1LBJPd-0003YU-Ap@gondolin.me.apana.org.au> <20081215232942.GD6759@linux.vnet.ibm.com> <20081215.153920.105386030.davem@davemloft.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Dan Williams" <dan.j.williams@intel.com>
+Subject: Re: [PATCH 11/13] dmaengine: kill struct dma_client and supporting infrastructure
+Date: Mon, 15 Dec 2008 17:09:27 -0700
+Message-ID: <e9c3a7c20812151609k2100fc8et5218e4e1f2336367@mail.gmail.com>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+	 <20081114213513.32354.58256.stgit@dwillia2-linux.ch.intel.com>
+	 <129600E5E5FB004392DDC3FB599660D70C8F3407@irsmsx504.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	johnpol@2ka.mipt.ru, bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
+	"g.liakhovetski@gmx.de" <g.liakhovetski@gmx.de>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
+To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:56497 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753565AbYLPACD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 19:02:03 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mBG01HmI025901
-	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 19:01:17 -0500
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mBG021Ra172800
-	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 19:02:01 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mBG12BZO013134
-	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 20:02:11 -0500
+Received: from wf-out-1314.google.com ([209.85.200.171]:60793 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753559AbYLPAJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 19:09:29 -0500
+In-Reply-To: <129600E5E5FB004392DDC3FB599660D70C8F3407@irsmsx504.ger.corp.intel.com>
 Content-Disposition: inline
-In-Reply-To: <20081215.153920.105386030.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 15, 2008 at 03:39:20PM -0800, David Miller wrote:
-> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> Date: Mon, 15 Dec 2008 15:29:42 -0800
-> 
-> > On Sat, Dec 13, 2008 at 12:35:21PM +1100, Herbert Xu wrote:
-> > > +static int napi_gro_complete(struct sk_buff *skb)
-> > > +{
-> > > +	struct packet_type *ptype;
-> > > +	__be16 type = skb->protocol;
-> > > +	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
-> > > +	int err = -ENOENT;
-> > > +
-> > > +	if (!skb_shinfo(skb)->frag_list)
-> > > +		goto out;
-> > > +
-> > > +	rcu_read_lock();
-> > > +	list_for_each_entry_rcu(ptype, head, list) {
-> > > +		if (ptype->type != type || ptype->dev || !ptype->gro_complete)
-> > > +			continue;
-> > > +
-> > > +		err = ptype->gro_complete(skb);
-> > > +		break;
-> > > +	}
-> > > +	rcu_read_unlock();
-> > > +
-> > > +	if (err) {
-> > > +		WARN_ON(&ptype->list == head);
-> > 
-> > Presumably ptype_base[] is a static array rather than a dynamically
-> > allocated array that is resized under RCU protection, right?  Otherwise,
-> > you could get in trouble if the above raced with the resize operation due
-> > to the fact that you are outside of the RCU read-side critical section.
-> 
-> Yes, and we've been using RCU this way for this table for quite
-> some time.  From net/core/dev.c:
-> 
-> #define PTYPE_HASH_SIZE	(16)
-> #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
-> 
-> static DEFINE_SPINLOCK(ptype_lock);
-> static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
-> static struct list_head ptype_all __read_mostly;	/* Taps */
+On Fri, Dec 12, 2008 at 7:29 AM, Sosnowski, Maciej
+<maciej.sosnowski@intel.com> wrote:
+> Williams, Dan J wrote:
+>> All users have been converted to either the general-purpose allocator,
+>> dma_find_channel, or dma_request_channel.
+>>
+>> Signed-off-by: Dan Williams <dan.j.williams@intel.com>
+>> ---
+> (...)
+>>  /**
+>> - * dma_chans_notify_available - broadcast available channels to the
+>> clients
+>> - */
+>> -static void dma_clients_notify_available(void)
+>> -{
+>> -     struct dma_client *client;
+>> -
+>> -     mutex_lock(&dma_list_mutex);
+>> -
+>> -     list_for_each_entry(client, &dma_client_list, global_node)
+>> -             dma_client_chan_alloc(client);
+>> -
+>> -     mutex_unlock(&dma_list_mutex);
+>> -}
+>
+> I agree with Guennadi's concern about removing clients' notification
+> of new devices available in the system.
+> I understand that this design is based on polling instead,
+> however polling is always less efficient approach.
+> Do you think that restoring notifications in this redesigned dmaengine
+> would be more painful than limiting clients to polling solution?
+>
 
-Works for me, then!
+You are missing that net_dma has always "polled".  Consider the case
+of how net_dma currently operates prior to ioatdma.ko being loaded.
+It periodically calls get_softnet_dma() to see if a channel is
+available, if it does not find one it falls back to a cpu copy.  All
+that has changed is replacing this custom channel allocation routine
+with the unified dma_find_channel() interface.  Channel notifications
+are not required.  Either everything is built-in to guarantee that an
+engine is available upon request[1], or the client is smart enough to
+run without a channel for while like net_dma and raid offload.
 
-							Thanx, Paul
+Regards,
+Dan
+
+[1] http://marc.info/?l=linux-kernel&m=122835195303213&w=2
