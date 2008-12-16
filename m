@@ -1,33 +1,28 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH 12/29] i2400m: host/device procotol and core driver
-	definitions
-Date: Tue, 16 Dec 2008 11:43:45 +0800
-Message-ID: <494723F1.3050705@cn.fujitsu.com>
-References: <cover.1229345769.git.inaky@linux.intel.com>
-	<a43305547de5e6c569f584d3d5b863e2def5fb6a.1229345778.git.inaky@linux.intel.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
+	negotiation
+Date: Tue, 16 Dec 2008 06:29:54 +0100
+Message-ID: <20081216052954.GA6199@gerrit.erg.abdn.ac.uk>
+References: <20081208.011917.176472177.davem@davemloft.net> <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk> <e2d7436a0812130555r52422bel1dd9b66ba8479e2a@mail.gmail.com> <20081213145655.GA14240@gerrit.erg.abdn.ac.uk> <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com> <36660.148.187.160.35.1229358346.squirrel@148.187.160.35>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org, greg@kroah.com
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <a43305547de5e6c569f584d3d5b863e2def5fb6a.1229345778.git.inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Micha? Miros?aw <mirqus@gmail.com>, acme@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50193 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750787AbYLPFaY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Dec 2008 00:30:24 -0500
+Content-Disposition: inline
+In-Reply-To: <36660.148.187.160.35.1229358346.squirrel@148.187.160.35>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Inaky Perez-Gonzalez said the following on 2008-12-15 20:58:
-> + * @wimax_dev: WiMAX generic device for linkage into the kernel WiMAX
-> + *     stack. Due to the way a net_device is allocated, we need to
-> + *     force this to be the first field so that we can get from
-> + *     net_dev_priv() the right pointer.
-> + *
-
-net_dev_priv() -> netdev_priv()
+| Hence I think we have a chance by going completely lockless here, by
+| loading all configured CCIDs at runtime. In this manner the per-connection
+| check "are all advertised CCIDs are loaded?" falls under the table, we
+| do not need to worry about concurrent access, and loading DCCP implies that
+| all needed CCIDs are there.
+Unfortunately this won't work since the CCIDs depend on dccp.ko being
+fully loaded, so requiring that CCID module are loaded during the
+loading process of dccp.ko creates a cyclic dependency.
