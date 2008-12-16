@@ -1,47 +1,60 @@
-From: Dor Laor <dlaor@redhat.com>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host communication.
-Date: Wed, 17 Dec 2008 01:20:15 +0200
-Message-ID: <494837AF.6090108@redhat.com>
-References: <4946717F.2090809@codemonkey.ws> <20081215.114315.165733593.davem@davemloft.net> <4946C1AA.4080404@codemonkey.ws> <20081215.142918.190909950.davem@davemloft.net> <4946E1BA.80206@codemonkey.ws> <20081215234511.GA24579@ioremap.net> <20081216065727.GD13794@redhat.com> <20081216212532.GA15360@ioremap.net>
-Reply-To: dlaor@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gleb Natapov <gleb@redhat.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20081216212532.GA15360@ioremap.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH v2.6.29 01/14] gianfar: Use gfar_halt to stop DMA in gfar_probe
+Date: Tue, 16 Dec 2008 17:20:54 -0600
+Message-ID: <1229469667-25002-2-git-send-email-afleming@freescale.com>
+References: <1229469667-25002-1-git-send-email-afleming@freescale.com>
+Cc: galak@kernel.crashing.org, netdev@vger.kernel.org,
+	Andy Fleming <afleming@freescale.com>
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:39643 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752880AbYLPXVT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 18:21:19 -0500
+Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id mBGNL8nm013509
+	for <netdev@vger.kernel.org>; Tue, 16 Dec 2008 16:21:08 -0700 (MST)
+Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
+	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id mBGNL8YK020979
+	for <netdev@vger.kernel.org>; Tue, 16 Dec 2008 17:21:08 -0600 (CST)
+In-Reply-To: <1229469667-25002-1-git-send-email-afleming@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> On Tue, Dec 16, 2008 at 08:57:27AM +0200, Gleb Natapov (gleb@redhat.com) wrote:
->   
->>> Another approach is to implement that virtio backend with netlink based
->>> userspace interface (like using connector or genetlink). This does not
->>> differ too much from what you have with special socket family, but at
->>> least it does not duplicate existing functionality of
->>> userspace-kernelspace communications.
->>>
->>>       
->> I implemented vmchannel using connector initially (the downside is that
->> message can be dropped). Is this more expectable for upstream? The
->> implementation was 300 lines of code.
->>     
->
-> Hard to tell, it depends on implementation. But if things are good, I
-> have no objections as connector maintainer :)
->
-> Messages in connector in particular and netlink in general are only
-> dropped, when receiving buffer is full (or when there is no memory), you
-> can tune buffer size to match virtual queue size or vice versa.
->
->   
-Gleb was aware of that and it's not a problem since all of the 
-anticipated usages may
-drop msgs (guest statistics, cut&paste, mouse movements, single sign on 
-commands, etc).
-Service that would need reliability could use basic acks.
+gfar_halt does everything we want to do there, including disabling
+TX/RX.  It also doesn't unnecessarily enable DMA if it's already
+stopped.
+
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+---
+ drivers/net/gianfar.c |   14 +-------------
+ 1 files changed, 1 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 451f6b8..6ceff8d 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -225,19 +225,7 @@ static int gfar_probe(struct platform_device *pdev)
+ 
+ 	/* Stop the DMA engine now, in case it was running before */
+ 	/* (The firmware could have used it, and left it running). */
+-	/* To do this, we write Graceful Receive Stop and Graceful */
+-	/* Transmit Stop, and then wait until the corresponding bits */
+-	/* in IEVENT indicate the stops have completed. */
+-	tempval = gfar_read(&priv->regs->dmactrl);
+-	tempval &= ~(DMACTRL_GRS | DMACTRL_GTS);
+-	gfar_write(&priv->regs->dmactrl, tempval);
+-
+-	tempval = gfar_read(&priv->regs->dmactrl);
+-	tempval |= (DMACTRL_GRS | DMACTRL_GTS);
+-	gfar_write(&priv->regs->dmactrl, tempval);
+-
+-	while (!(gfar_read(&priv->regs->ievent) & (IEVENT_GRSC | IEVENT_GTSC)))
+-		cpu_relax();
++	gfar_halt(dev);
+ 
+ 	/* Reset MAC layer */
+ 	gfar_write(&priv->regs->maccfg1, MACCFG1_SOFT_RESET);
+-- 
+1.5.4.GIT
+
