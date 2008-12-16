@@ -1,66 +1,59 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 6/11] drivers/net/hamradio: Move a dereference below a NULL
- test
-Date: Tue, 16 Dec 2008 16:13:50 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0812161613320.20444@pc-004.diku.dk>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+From: Sakari Ailus <sakari.ailus@iki.fi>
+Subject: [PATCH 1/2] tlan: Fix pci memory unmapping
+Date: Tue, 16 Dec 2008 17:25:15 +0200
+Message-ID: <1229441116-15077-1-git-send-email-sakari.ailus@iki.fi>
+References: <4947C842.1020503@iki.fi>
+Cc: Sakari Ailus <sakari.ailus@iki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:59739 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756088AbYLPPNx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 10:13:53 -0500
+Received: from gw01.mail.saunalahti.fi ([195.197.172.115]:45126 "EHLO
+	gw01.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756444AbYLPPZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 10:25:23 -0500
+In-Reply-To: <4947C842.1020503@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Fix pci unmapping problem introduced by commit id
+8953f1282793882a5444924f7a273dc72a43d0a3 "tlan: Fix small (< 64 bytes)
+datagram transmissions".
 
-In each case, if the NULL test is necessary, then the dereference should be
-moved below the NULL test.
-
-The semantic patch that makes this change is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
-
-// <smpl>
-@@
-type T;
-expression E;
-identifier i,fld;
-statement S;
-@@
-
-- T i = E->fld;
-+ T i;
-  ... when != E
-      when != i
-  if (E == NULL) S
-+ i = E->fld;
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
+Signed-off-by: Sakari Ailus <sakari.ailus@iki.fi>
 ---
- drivers/net/hamradio/mkiss.c        |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/tlan.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
-index b8e25c4..e5770d1 100644
---- a/drivers/net/hamradio/mkiss.c
-+++ b/drivers/net/hamradio/mkiss.c
-@@ -847,12 +847,13 @@ static int mkiss_ioctl(struct tty_struct *tty, struct file *file,
- 	unsigned int cmd, unsigned long arg)
- {
- 	struct mkiss *ax = mkiss_get(tty);
--	struct net_device *dev = ax->dev;
-+	struct net_device *dev;
- 	unsigned int tmp, err;
- 
- 	/* First make sure we're connected. */
- 	if (ax == NULL)
- 		return -ENXIO;
-+	dev = ax->dev;
- 
- 	switch (cmd) {
-  	case SIOCGIFNAME:
+diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
+index cf8cdaf..e604982 100644
+--- a/drivers/net/tlan.c
++++ b/drivers/net/tlan.c
+@@ -1433,7 +1433,9 @@ static u32 TLan_HandleTxEOF( struct net_device *dev, u16 host_int )
+ 		if ( ! bbuf ) {
+ 			struct sk_buff *skb = TLan_GetSKB(head_list);
+ 			pci_unmap_single(priv->pciDev, head_list->buffer[0].address,
+-					 skb->len, PCI_DMA_TODEVICE);
++					 max(skb->len,
++					     (unsigned int)TLAN_MIN_FRAME_SIZE),
++					 PCI_DMA_TODEVICE);
+ 			dev_kfree_skb_any(skb);
+ 			head_list->buffer[8].address = 0;
+ 			head_list->buffer[9].address = 0;
+@@ -2057,9 +2059,12 @@ static void TLan_FreeLists( struct net_device *dev )
+ 			list = priv->txList + i;
+ 			skb = TLan_GetSKB(list);
+ 			if ( skb ) {
+-				pci_unmap_single(priv->pciDev,
+-						 list->buffer[0].address, skb->len,
+-						 PCI_DMA_TODEVICE);
++				pci_unmap_single(
++					priv->pciDev,
++					list->buffer[0].address,
++					max(skb->len,
++					    (unsigned int)TLAN_MIN_FRAME_SIZE),
++					PCI_DMA_TODEVICE);
+ 				dev_kfree_skb_any( skb );
+ 				list->buffer[8].address = 0;
+ 				list->buffer[9].address = 0;
+-- 
+1.5.6.5
+
