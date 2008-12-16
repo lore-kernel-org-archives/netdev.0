@@ -1,59 +1,54 @@
-From: "=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?=" <mirqus@gmail.com>
-Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for negotiation
-Date: Tue, 16 Dec 2008 12:31:39 +0100
-Message-ID: <e2d7436a0812160331h63152b26kd4aad6b449ed7f8@mail.gmail.com>
-References: <20081208.011917.176472177.davem@davemloft.net>
-	 <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
-	 <e2d7436a0812130555r52422bel1dd9b66ba8479e2a@mail.gmail.com>
-	 <20081213145655.GA14240@gerrit.erg.abdn.ac.uk>
-	 <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com>
-	 <20081216055540.GC6199@gerrit.erg.abdn.ac.uk>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] Re: kernel panics with net_rx_action on kernels >2.6.26
+Date: Tue, 16 Dec 2008 14:06:51 +0000
+Message-ID: <20081216140651.GA6537@ff.dom.local>
+References: <20081214.224800.125614949.davem@davemloft.net> <20081215133521.GA6697@ff.dom.local> <20081216.012247.267028680.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:58078 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752917AbYLPLbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 06:31:41 -0500
-In-Reply-To: <20081216055540.GC6199@gerrit.erg.abdn.ac.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Huemer <alexander.huemer@sbg.ac.at>,
+	linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>, David Miller <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20081216.012247.267028680.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-MjAwOC8xMi8xNiBHZXJyaXQgUmVua2VyIDxnZXJyaXRAZXJnLmFiZG4uYWMudWs+Ogo+IHwgU2lu
-Y2UgdGhlIGxvY2sgaXMgZHJvcHBlZCBhZnRlciBjaGVja2luZyBjY2lkc1tpZF0gdGhlbiB0aGVy
-ZSdzCj4gfCBhIHdpbmRvdyB3aGVyZSBtdWx0aXBsZSByZXF1ZXN0X21vZHVsZSgpcyBjYW4gYmUg
-Y2FsbGVkIGlmIG11bHRpcGxlCj4gfCBhcHBsaWNhdGlvbnMgY3JlYXRlIGEgRENDUCBzb2NrZXQg
-YXQgYSBzYW1lIHRpbWUuIFRoZSBjb2RlIGJlbG93Cj4gfCBzaG91bGQgZG8gdGhlIHNhbWUgd2l0
-aG91dCBhIGxvY2sgKGNjaWRzIGlzIGEgc3RhdGljIGFycmF5LAo+IHwgc28gY2NpZHNbTl0gaXMg
-YWx3YXlzIGF0IHRoZSBzYW1lIHBsYWNlKS4KPiB8Cj4gfCBzdGF0aWMgaW50IGNjaWRfcmVxdWVz
-dF9tb2R1bGUodTggaWQpCj4gfCB7Cj4gfCAgICAgICAgaWYgKCFpbl9hdG9taWMoKSkgewo+IHwg
-ICAgICAgICAgICAgICAgcm1iKCk7Cj4gfCAgICAgICAgICAgICAgICBpZiAoY2NpZHNbaWRdID09
-IE5VTEwpCj4gfCAgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiByZXF1ZXN0X21vZHVsZSgi
-bmV0LWRjY3AtY2NpZC0lZCIsIGlkKTsKPiB8ICAgICAgICB9Cj4gfCAgICAgICAgcmV0dXJuIDA7
-Cj4gfCB9Cj4gfAo+IFNvcnJ5IE1pY2hhZWwsIGJ1dCB0aGlzIGlzIHJlYWxseSBqdXN0IGEgInJh
-bmRvbSB0aG91Z2h0Ii4gV2hhdCB5b3UgYXJlCj4gaW4gZWZmZWN0IHNheWluZyBpcyB0aGF0IHJl
-YWRlci93cml0ZXIgbG9ja3MgY2FuIGJlIHJlcGxhY2VkIHdpdGgganVzdCBhCj4gcmVhZCBtZW1v
-cnkgYmFycmllci4KCj4gUGxlYXNlIGhhdmUgYSBtb3JlIGRldGFpbGVkIGxvb2sgYXQgbmV0L2Rj
-Y3AvY2NpZC5jLiBJIGFsc28gY2hlY2tlZCBob3cKPiBvdGhlciBzdWJzeXN0ZW1zIGhhbmRsZSBj
-b21wYXJhYmxlIHNpdHVhdGlvbnMgb2YgbW9kdWxlIGxvYWRpbmc6IHRoZQo+IGltcGxlbWVudGF0
-aW9uIGRldGFpbHMgZGlmZmVyLCBidXQgdGhlIHByaW5jaXBsZSBpcyB0aGUgc2FtZTogdGhlcmUg
-YXJlCj4gbXV0ZXhlcywgc2VtYXBob3JlcywgYW5kIHNwaW5sb2NrcyBpbiB1c2UgdG8gcHJvdGVj
-dCB0aG9zZSBzaGFyZWQKPiBzdHJ1Y3R1cmVzIHRoYXQgYXJlIHJlbGF0ZWQgdG8gdGhlIGxvYWRl
-ZCBtb2R1bGUuCj4KPiBIZW5jZSB5b3VyIHN1Z2dlc3Rpb24gZG9lcyBub3QgaW1wcm92ZSB0aGUg
-Y29kZS4gSSBtYWludGFpbiB0aGF0IGl0IGlzCj4gY29ycmVjdC4gQW5kIGl0IGhhcyBwcm92ZW4g
-dG8gd29yayBpbiB0aGUgdGVzdCB0cmVlIGZvciBtb3JlIHRoYW4gb25lCj4geWVhciwgaW5jbHVk
-aW5nIHRlc3RzIHdpdGggdXAgdG8gMTAwIHBhcmFsbGVsIChpcGVyZikgY29ubmVjdGlvbnMuCgpU
-aGUgcmVhZC1sb2NrIGlzIGp1c3QgYSBtZW1vcnkgYmFycmllciBoZXJlIChub3QgYSByZWFkIG1l
-bW9yeSBiYXJyaWVyCmFzIEkgd3JvdGUKYmVmb3JlKSBhbmQgaXQncyBub3QgbmVlZGVkIGhlcmUu
-IElmIEkgcmVhZCB0aGUgY29kZSBjb3JyZWN0bHkgeW91IGFyZQp0ZXN0aW5nIGEgc2luZ2xlCnBv
-aW50ZXIgdG8gYmUgTlVMTCBhbmQgZG9uJ3QgcmVhbGx5IGNhcmUgYWJvdXQgb3JkZXJpbmcgd3J0
-IG1vZHVsZQppbml0aWFsaXphdGlvbi4KCllvdSBjYW4gYWN0dWFsbHkgYW5ub3RhdGUgY2NpZHNb
-XSBhcyByZWFkX21vc3RseSAoaXQncyBjaGFuZ2VkIG9ubHkgb24gbW9kdWxlCmxvYWQvdW5sb2Fk
-KSBhbmQgcHJvdGVjdCBpdCB3aXRoIFJDVSBpbnN0ZWFkIG9mIHRoZSBob21lLWdyb3duIHJ3bG9j
-awp5b3UgYXJlIHVzaW5nLgoKQmVzdCBSZWdhcmRzLApNaWNoYbMgTWlyb3OzYXcK
+On Tue, Dec 16, 2008 at 01:22:47AM -0800, David Miller wrote:
+...
+> Jarek this looks good and it looks to be tested as well.
+> 
+> Could you formally submit this?
+
+------------------->
+
+drivers/net: starfire: Fix napi ->poll() weight handling
+
+starfire napi ->poll() handler can return work == weight after calling
+netif_rx_complete() (if there is no more work). It is illegal and this
+patch fixes it.
+
+Reported-by: Alexander Huemer <alexander.huemer@sbg.ac.at>
+Tested-by: Alexander Huemer <alexander.huemer@sbg.ac.at>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ drivers/net/starfire.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
+index 0358809..f86d6bb 100644
+--- a/drivers/net/starfire.c
++++ b/drivers/net/starfire.c
+@@ -1503,6 +1503,11 @@ static int __netdev_rx(struct net_device *dev, int *quota)
+ 		desc->status = 0;
+ 		np->rx_done = (np->rx_done + 1) % DONE_Q_SIZE;
+ 	}
++
++	if (*quota == 0) {	/* out of rx quota */
++		retcode = 1;
++		goto out;
++	}
+ 	writew(np->rx_done, np->base + CompletionQConsumerIdx);
+ 
+  out:
