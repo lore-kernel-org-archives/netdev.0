@@ -1,47 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
-Date: Tue, 16 Dec 2008 13:04:32 +1100
-Message-ID: <20081216020432.GA6454@gondor.apana.org.au>
-References: <20081213013420.GA13549@gondor.apana.org.au> <E1LBJPd-0003YU-Ap@gondolin.me.apana.org.au> <20081215232942.GD6759@linux.vnet.ibm.com> <20081215.153920.105386030.davem@davemloft.net>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: net: RFC ethtool 5-tuple filter set/get feature
+Date: Mon, 15 Dec 2008 18:52:07 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0812151630570.10472@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	johnpol@2ka.mipt.ru, bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34249 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751461AbYLPCEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 21:04:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20081215.153920.105386030.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:18564 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751589AbYLPCwP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 21:52:15 -0500
+Received: from ppwaskie-MOBL2.amr.corp.intel.com ([10.254.65.135])
+	by plxs0284.pdx.intel.com (8.12.11.20060308/8.12.10/MailSET/Hub) with ESMTP id mBG2qCHv004661
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 18:52:13 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 15, 2008 at 03:39:20PM -0800, David Miller wrote:
-> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
->
-> > Presumably ptype_base[] is a static array rather than a dynamically
-> > allocated array that is resized under RCU protection, right?  Otherwise,
-> > you could get in trouble if the above raced with the resize operation due
-> > to the fact that you are outside of the RCU read-side critical section.
-> 
-> Yes, and we've been using RCU this way for this table for quite
-> some time.  From net/core/dev.c:
-> 
-> #define PTYPE_HASH_SIZE	(16)
-> #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
-> 
-> static DEFINE_SPINLOCK(ptype_lock);
-> static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
-> static struct list_head ptype_all __read_mostly;	/* Taps */
+I am looking at current methods to support adding 5-tuple filters to a 
+network device.  3 methods I can see are 1) Creating a sysfs interface, 2) 
+writing a custom application using netlink or some other interface, or 3) 
+Adding support to ethtool.
 
-Thanks for confirming.  Yes unless there is a sudden surge of
-new Ethernet protocols we shouldn't need to resize this ever :)
+The latest ethtool bits support the rxhash callbacks, allowing different 
+Rx hashing methods to be enabled or disabled in Sun's Neptune device.  I 
+would like to add similar options to ethtool to support features in 
+current versions of igb hardware, and in future ixgbe hardware.
+
+I'm soliciting feedback from the community before laying down code, in 
+case someone has a better suggestion to solve this problem.  The data I 
+need to pass through to the driver is: L4 source port, L4 destination 
+port, Source address and Destination address (both IPv4 and IPv6), VLAN 
+id, and a flexible layer 2 word (word anywhere in the L2 header) with 
+masks for all of these.  I also need to pass through an Rx queue to assign 
+the matching traffic to.  I'm also thinking of having the set operation 
+take an add or remove command, so a filter can be popped out or added.
+
+Any ideas or suggestions are appreciated.  I will work to get code out for 
+review asap, but in the meantime any suggestions one way or another to 
+possibly prevent lots of unnecessary work is appreciated.
 
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-PJ Waskiewicz
+<peter.p.waskiewicz.jr@intel.com>
