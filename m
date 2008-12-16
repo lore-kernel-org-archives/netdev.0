@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Re: kernel panics with net_rx_action on kernels >2.6.26
-Date: Tue, 16 Dec 2008 15:42:37 -0800 (PST)
-Message-ID: <20081216.154237.263705877.davem@davemloft.net>
-References: <20081215133521.GA6697@ff.dom.local>
-	<20081216.012247.267028680.davem@davemloft.net>
-	<20081216140651.GA6537@ff.dom.local>
+Subject: Re: [PATCH 6/11] drivers/net/hamradio: Move a dereference below a
+ NULL test
+Date: Tue, 16 Dec 2008 15:43:43 -0800 (PST)
+Message-ID: <20081216.154343.142632693.davem@davemloft.net>
+References: <Pine.LNX.4.64.0812161613320.20444@pc-004.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, alexander.huemer@sbg.ac.at,
-	linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: jarkao2@gmail.com
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <20081216140651.GA6537@ff.dom.local>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35306
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756479AbYLPXnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 18:43:41 -0500
+In-Reply-To: <Pine.LNX.4.64.0812161613320.20444@pc-004.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 16 Dec 2008 14:06:51 +0000
+From: Julia Lawall <julia@diku.dk>
+Date: Tue, 16 Dec 2008 16:13:50 +0100 (CET)
 
-> drivers/net: starfire: Fix napi ->poll() weight handling
+> In each case, if the NULL test is necessary, then the dereference should be
+> moved below the NULL test.
 > 
-> starfire napi ->poll() handler can return work == weight after calling
-> netif_rx_complete() (if there is no more work). It is illegal and this
-> patch fixes it.
-> 
-> Reported-by: Alexander Huemer <alexander.huemer@sbg.ac.at>
-> Tested-by: Alexander Huemer <alexander.huemer@sbg.ac.at>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> The semantic patch that makes this change is as follows:
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Applied, thanks everyone.
+Applied to net-next-2.6
+
