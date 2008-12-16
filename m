@@ -1,60 +1,59 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
-	negotiation
-Date: Tue, 16 Dec 2008 09:19:08 -0200
-Message-ID: <20081216111908.GI14518@ghostprotocols.net>
-References: <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com> <36660.148.187.160.35.1229358346.squirrel@148.187.160.35> <20081216052954.GA6199@gerrit.erg.abdn.ac.uk> <20081216.014045.217150811.davem@davemloft.net>
+From: "=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?=" <mirqus@gmail.com>
+Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for negotiation
+Date: Tue, 16 Dec 2008 12:31:39 +0100
+Message-ID: <e2d7436a0812160331h63152b26kd4aad6b449ed7f8@mail.gmail.com>
+References: <20081208.011917.176472177.davem@davemloft.net>
+	 <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	 <e2d7436a0812130555r52422bel1dd9b66ba8479e2a@mail.gmail.com>
+	 <20081213145655.GA14240@gerrit.erg.abdn.ac.uk>
+	 <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com>
+	 <20081216055540.GC6199@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gerrit@erg.abdn.ac.uk, mirqus@gmail.com, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: base64
+Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:58410 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751091AbYLPLTR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 06:19:17 -0500
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:58078 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752917AbYLPLbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 06:31:41 -0500
+In-Reply-To: <20081216055540.GC6199@gerrit.erg.abdn.ac.uk>
 Content-Disposition: inline
-In-Reply-To: <20081216.014045.217150811.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Dec 16, 2008 at 01:40:45AM -0800, David Miller escreveu:
-> From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Date: Tue, 16 Dec 2008 06:29:54 +0100
-> 
-> > | Hence I think we have a chance by going completely lockless here, by
-> > | loading all configured CCIDs at runtime. In this manner the per-connection
-> > | check "are all advertised CCIDs are loaded?" falls under the table, we
-> > | do not need to worry about concurrent access, and loading DCCP implies that
-> > | all needed CCIDs are there.
-> > Unfortunately this won't work since the CCIDs depend on dccp.ko being
-> > fully loaded, so requiring that CCID module are loaded during the
-> > loading process of dccp.ko creates a cyclic dependency.
-> 
-> I don't like this stuff at all.
-> 
-> Every new connection you're going to loop over the CCID
-> table and grab that CCID read lock N times.
-> 
-> The first time it will do something meaningful, and then
-> %99.999999999999 of subsequent calls will do nothing.
-> 
-> What kind of overhead is deserved by that access pattern?
-> 
-> And, if the first thing the first connection is going to do
-> is load all the modules, there is ZERO reason to make them
-> modular.  It's just useless seperation and it adds all of
-> this rediculious synchronization.
-> 
-> If it's modular "for the sake of development" I'm sure you
-> can simply reload the dccp.ko module when you make some
-> CCID algorithm change.
-> 
-> I'm tossing this patch set until we get something better
-> in this area.
-
-I guess that looking at tcp_set_congestion_control() could be a good
-start. 8-)
-
-- Arnaldo
+MjAwOC8xMi8xNiBHZXJyaXQgUmVua2VyIDxnZXJyaXRAZXJnLmFiZG4uYWMudWs+Ogo+IHwgU2lu
+Y2UgdGhlIGxvY2sgaXMgZHJvcHBlZCBhZnRlciBjaGVja2luZyBjY2lkc1tpZF0gdGhlbiB0aGVy
+ZSdzCj4gfCBhIHdpbmRvdyB3aGVyZSBtdWx0aXBsZSByZXF1ZXN0X21vZHVsZSgpcyBjYW4gYmUg
+Y2FsbGVkIGlmIG11bHRpcGxlCj4gfCBhcHBsaWNhdGlvbnMgY3JlYXRlIGEgRENDUCBzb2NrZXQg
+YXQgYSBzYW1lIHRpbWUuIFRoZSBjb2RlIGJlbG93Cj4gfCBzaG91bGQgZG8gdGhlIHNhbWUgd2l0
+aG91dCBhIGxvY2sgKGNjaWRzIGlzIGEgc3RhdGljIGFycmF5LAo+IHwgc28gY2NpZHNbTl0gaXMg
+YWx3YXlzIGF0IHRoZSBzYW1lIHBsYWNlKS4KPiB8Cj4gfCBzdGF0aWMgaW50IGNjaWRfcmVxdWVz
+dF9tb2R1bGUodTggaWQpCj4gfCB7Cj4gfCAgICAgICAgaWYgKCFpbl9hdG9taWMoKSkgewo+IHwg
+ICAgICAgICAgICAgICAgcm1iKCk7Cj4gfCAgICAgICAgICAgICAgICBpZiAoY2NpZHNbaWRdID09
+IE5VTEwpCj4gfCAgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiByZXF1ZXN0X21vZHVsZSgi
+bmV0LWRjY3AtY2NpZC0lZCIsIGlkKTsKPiB8ICAgICAgICB9Cj4gfCAgICAgICAgcmV0dXJuIDA7
+Cj4gfCB9Cj4gfAo+IFNvcnJ5IE1pY2hhZWwsIGJ1dCB0aGlzIGlzIHJlYWxseSBqdXN0IGEgInJh
+bmRvbSB0aG91Z2h0Ii4gV2hhdCB5b3UgYXJlCj4gaW4gZWZmZWN0IHNheWluZyBpcyB0aGF0IHJl
+YWRlci93cml0ZXIgbG9ja3MgY2FuIGJlIHJlcGxhY2VkIHdpdGgganVzdCBhCj4gcmVhZCBtZW1v
+cnkgYmFycmllci4KCj4gUGxlYXNlIGhhdmUgYSBtb3JlIGRldGFpbGVkIGxvb2sgYXQgbmV0L2Rj
+Y3AvY2NpZC5jLiBJIGFsc28gY2hlY2tlZCBob3cKPiBvdGhlciBzdWJzeXN0ZW1zIGhhbmRsZSBj
+b21wYXJhYmxlIHNpdHVhdGlvbnMgb2YgbW9kdWxlIGxvYWRpbmc6IHRoZQo+IGltcGxlbWVudGF0
+aW9uIGRldGFpbHMgZGlmZmVyLCBidXQgdGhlIHByaW5jaXBsZSBpcyB0aGUgc2FtZTogdGhlcmUg
+YXJlCj4gbXV0ZXhlcywgc2VtYXBob3JlcywgYW5kIHNwaW5sb2NrcyBpbiB1c2UgdG8gcHJvdGVj
+dCB0aG9zZSBzaGFyZWQKPiBzdHJ1Y3R1cmVzIHRoYXQgYXJlIHJlbGF0ZWQgdG8gdGhlIGxvYWRl
+ZCBtb2R1bGUuCj4KPiBIZW5jZSB5b3VyIHN1Z2dlc3Rpb24gZG9lcyBub3QgaW1wcm92ZSB0aGUg
+Y29kZS4gSSBtYWludGFpbiB0aGF0IGl0IGlzCj4gY29ycmVjdC4gQW5kIGl0IGhhcyBwcm92ZW4g
+dG8gd29yayBpbiB0aGUgdGVzdCB0cmVlIGZvciBtb3JlIHRoYW4gb25lCj4geWVhciwgaW5jbHVk
+aW5nIHRlc3RzIHdpdGggdXAgdG8gMTAwIHBhcmFsbGVsIChpcGVyZikgY29ubmVjdGlvbnMuCgpU
+aGUgcmVhZC1sb2NrIGlzIGp1c3QgYSBtZW1vcnkgYmFycmllciBoZXJlIChub3QgYSByZWFkIG1l
+bW9yeSBiYXJyaWVyCmFzIEkgd3JvdGUKYmVmb3JlKSBhbmQgaXQncyBub3QgbmVlZGVkIGhlcmUu
+IElmIEkgcmVhZCB0aGUgY29kZSBjb3JyZWN0bHkgeW91IGFyZQp0ZXN0aW5nIGEgc2luZ2xlCnBv
+aW50ZXIgdG8gYmUgTlVMTCBhbmQgZG9uJ3QgcmVhbGx5IGNhcmUgYWJvdXQgb3JkZXJpbmcgd3J0
+IG1vZHVsZQppbml0aWFsaXphdGlvbi4KCllvdSBjYW4gYWN0dWFsbHkgYW5ub3RhdGUgY2NpZHNb
+XSBhcyByZWFkX21vc3RseSAoaXQncyBjaGFuZ2VkIG9ubHkgb24gbW9kdWxlCmxvYWQvdW5sb2Fk
+KSBhbmQgcHJvdGVjdCBpdCB3aXRoIFJDVSBpbnN0ZWFkIG9mIHRoZSBob21lLWdyb3duIHJ3bG9j
+awp5b3UgYXJlIHVzaW5nLgoKQmVzdCBSZWdhcmRzLApNaWNoYbMgTWlyb3OzYXcK
