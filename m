@@ -1,69 +1,66 @@
-From: Sakari Ailus <sakari.ailus@iki.fi>
-Subject: [PATCH] tlan: Fix small (< 64 bytes) datagram transmissions
-Date: Tue, 16 Dec 2008 09:27:05 +0200
-Message-ID: <1229412425-2619-1-git-send-email-sakari.ailus@iki.fi>
-Cc: Sakari Ailus <sakari.ailus@iki.fi>
-To: netdev@vger.kernel.org
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: deadlocks if use htb
+Date: Tue, 16 Dec 2008 10:37:11 +0300
+Message-ID: <49475AA7.70307@bigtelecom.ru>
+References: <20081010075640.GA5204@ff.dom.local> <48EF17EA.5020306@bigtelecom.ru> <20081010090426.GA6054@ff.dom.local> <20081010095129.GB6054@ff.dom.local> <48F6FB3E.7060903@bigtelecom.ru> <20081016084027.GA17632@ff.dom.local> <48FEC302.5090707@bigtelecom.ru> <20081022070200.GB4178@ff.dom.local> <493FDCD4.5020108@bigtelecom.ru> <20081211084606.GA4129@ff.dom.local> <20081215111308.GA5853@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw01.mail.saunalahti.fi ([195.197.172.115]:41200 "EHLO
-	gw01.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189AbYLPHfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 02:35:16 -0500
+Received: from mail.bigtelecom.ru ([87.255.0.61]:49986 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755851AbYLPHhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 02:37:17 -0500
+In-Reply-To: <20081215111308.GA5853@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TLAN chip does not support tranmissions smaller than 64 bytes. Smaller
-transfers need to be padded up to that size. This was broken by commit id
-41873e9aff0632d80c74380d58a89e8d420151bd.
-
-<URL:http://bugzilla.kernel.org/show_bug.cgi?id=11754>
-
-Signed-off-by: Sakari Ailus <sakari.ailus@iki.fi>
----
- drivers/net/tlan.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
-index c41d687..cf8cdaf 100644
---- a/drivers/net/tlan.c
-+++ b/drivers/net/tlan.c
-@@ -1098,6 +1098,7 @@ static int TLan_StartTx( struct sk_buff *skb, struct net_device *dev )
- 	dma_addr_t	tail_list_phys;
- 	u8		*tail_buffer;
- 	unsigned long	flags;
-+	unsigned int    txlen;
- 
- 	if ( ! priv->phyOnline ) {
- 		TLAN_DBG( TLAN_DEBUG_TX, "TRANSMIT:  %s PHY is not ready\n",
-@@ -1108,6 +1109,7 @@ static int TLan_StartTx( struct sk_buff *skb, struct net_device *dev )
- 
- 	if (skb_padto(skb, TLAN_MIN_FRAME_SIZE))
- 		return 0;
-+	txlen = max(skb->len, (unsigned int)TLAN_MIN_FRAME_SIZE);
- 
- 	tail_list = priv->txList + priv->txTail;
- 	tail_list_phys = priv->txListDMA + sizeof(TLanList) * priv->txTail;
-@@ -1125,16 +1127,16 @@ static int TLan_StartTx( struct sk_buff *skb, struct net_device *dev )
- 
- 	if ( bbuf ) {
- 		tail_buffer = priv->txBuffer + ( priv->txTail * TLAN_MAX_FRAME_SIZE );
--		skb_copy_from_linear_data(skb, tail_buffer, skb->len);
-+		skb_copy_from_linear_data(skb, tail_buffer, txlen);
- 	} else {
- 		tail_list->buffer[0].address = pci_map_single(priv->pciDev,
--							      skb->data, skb->len,
-+							      skb->data, txlen,
- 							      PCI_DMA_TODEVICE);
- 		TLan_StoreSKB(tail_list, skb);
- 	}
- 
--	tail_list->frameSize = (u16) skb->len;
--	tail_list->buffer[0].count = TLAN_LAST_BUFFER | (u32) skb->len;
-+	tail_list->frameSize = (u16) txlen;
-+	tail_list->buffer[0].count = TLAN_LAST_BUFFER | (u32) txlen;
- 	tail_list->buffer[1].count = 0;
- 	tail_list->buffer[1].address = 0;
- 
--- 
-1.5.6.5
+Now i test patches 2+3. 5 pc work without oops 5 days
+> On Thu, Dec 11, 2008 at 08:46:06AM +0000, Jarek Poplawski wrote:
+>   
+>> On Wed, Dec 10, 2008 at 06:14:28PM +0300, Badalian Vyacheslav wrote:
+>>     
+>>> Hello again! Sorry for long away.
+>>>       
+>> Hi!
+>>
+>>     
+>>> I was go away from this work for long time.
+>>>
+>>> May we return to this bug?
+>>> Servers at last stable kernel 2.6.27.8
+>>> HZ=1000, HR=off, DynamicTicks=off, hysteresis=1
+>>> Sorry - no patched, update do not i. Do you have fresh patches or ideas
+>>> for tests?
+>>>       
+>> Not much, but I can have if you only are willing to test them...
+>> I attach below a patch which combines 2 patches I sent yesterday to
+>> netdev (PATCH 7/6 and 8/6) vs. 2.6.27.7 (named testing patch #3 here).
+>>
+>> You can still try the testing patch #2 I sent previously (quoted below)
+>> with or without this new #3 patch.
+>>
+>>     
+>
+> Here is another idea worth checking (instead of patch #2).
+>
+> Jarek P.
+>
+> --- (testing patch #4)
+>
+> diff -Nurp a2.6.27.7/net/sched/sch_htb.c b2.6.27.7/net/sched/sch_htb.c
+> --- a2.6.27.7/net/sched/sch_htb.c	2008-12-11 08:16:16.000000000 +0000
+> +++ b2.6.27.7/net/sched/sch_htb.c	2008-12-15 10:44:32.000000000 +0000
+> @@ -924,6 +924,7 @@ static struct sk_buff *htb_dequeue(struc
+>  		}
+>  	}
+>  	sch->qstats.overlimits++;
+> +	qdisc_watchdog_cancel(&q->watchdog);
+>  	qdisc_watchdog_schedule(&q->watchdog, next_event);
+>  fin:
+>  	return skb;
+>
+>   
 
