@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2.6.29 11/14] gianfar: Add Scatter Gather support
-Date: Tue, 16 Dec 2008 15:36:37 -0800 (PST)
-Message-ID: <20081216.153637.238655751.davem@davemloft.net>
-References: <1229469667-25002-10-git-send-email-afleming@freescale.com>
-	<1229469667-25002-11-git-send-email-afleming@freescale.com>
-	<1229469667-25002-12-git-send-email-afleming@freescale.com>
+Subject: Re: [PATCH] phylib: Remove unnecessary "reset" fixups in
+ genphy_setup_forced
+Date: Tue, 16 Dec 2008 15:39:59 -0800 (PST)
+Message-ID: <20081216.153959.53163736.davem@davemloft.net>
+References: <1229469389-24926-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, galak@kernel.crashing.org, netdev@vger.kernel.org,
-	Dai.Haruki@freescale.com, poonam.aggrwal@freescale.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org
 To: afleming@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40683
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45734
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753369AbYLPXgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 18:36:35 -0500
-In-Reply-To: <1229469667-25002-12-git-send-email-afleming@freescale.com>
+	by vger.kernel.org with ESMTP id S1751010AbYLPXj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 18:39:58 -0500
+In-Reply-To: <1229469389-24926-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andy Fleming <afleming@freescale.com>
-Date: Tue, 16 Dec 2008 17:21:04 -0600
+Date: Tue, 16 Dec 2008 17:16:29 -0600
 
-> From: Haruki Dai <Dai.Haruki@freescale.com>
+> genphy_setup_forced hasn't actually reset the PHY for a long time,
+> but a comment to that effect remained in the code, so code continued
+> to act as if it *had* reset the PHY, and called the necessary fixup
+> functions to respond to a PHY reset.  With no reset, those functions
+> are no longer needed, so we remove them.
 > 
-> Scatter Gather support in gianfar driver to handle fragmented frames on
-> the transmit side.
-> 
-> Signed-off-by: Poonam Aggrwal <poonam.aggrwal@freescale.com>
-> Signed-off-by: Dai Haruki <dai.haruki@freescale.com>
 > Signed-off-by: Andy Fleming <afleming@freescale.com>
 
-Because patch #2 was bogus and didn't apply, that screws
-up this patch and probably the rest of the series, which
-I'm tossing.
-
-Please resubmit #2, #11, #12, #13, and #14 once you've
-fixed everything up and make it relative to what I have
-in fact added to net-next-2.6, thanks.
+Applied.
