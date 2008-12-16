@@ -1,78 +1,92 @@
-From: "Dan Williams" <dan.j.williams@intel.com>
-Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and private channels
-Date: Mon, 15 Dec 2008 16:55:06 -0700
-Message-ID: <e9c3a7c20812151555g14080561q18cf2d0db4c1813b@mail.gmail.com>
-References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
-	 <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
-	 <129600E5E5FB004392DDC3FB599660D70C8F3406@irsmsx504.ger.corp.intel.com>
+From: Dor Laor <dlaor@redhat.com>
+Subject: Re: [PATCH] AF_VMCHANNEL address family for	guest<->host	communication.
+Date: Tue, 16 Dec 2008 02:01:27 +0200
+Message-ID: <4946EFD7.7080606@redhat.com>
+References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com> <20081214.224436.55256593.davem@davemloft.net> <4946717F.2090809@codemonkey.ws> <494697D4.6080300@goop.org> <4946A5E0.5080303@codemonkey.ws> <4946DF97.7070600@goop.org> <4946E36D.8060503@codemonkey.ws> <20081215235253.GB24579@ioremap.net>
+Reply-To: dlaor@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
-	"g.liakhovetski@gmx.de" <g.liakhovetski@gmx.de>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
-To: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:10959 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753622AbYLOXzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 18:55:08 -0500
-In-Reply-To: <129600E5E5FB004392DDC3FB599660D70C8F3406@irsmsx504.ger.corp.intel.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Jeremy Fitzhardinge <jeremy@goop.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20081215235253.GB24579@ioremap.net>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 12, 2008 at 7:29 AM, Sosnowski, Maciej
-<maciej.sosnowski@intel.com> wrote:
->>       clear_bit(DMA_INTERRUPT, dma_cap_mask_all.bits);
->> +     clear_bit(DMA_PRIVATE, dma_cap_mask_all.bits);
->>       clear_bit(DMA_SLAVE, dma_cap_mask_all.bits);
+Evgeniy Polyakov wrote:
+> On Mon, Dec 15, 2008 at 05:08:29PM -0600, Anthony Liguori (anthony@codemonkey.ws) wrote:
+>   
+>> The KVM model is that a guest is a process.  Any IO operations original 
+>> from the process (QEMU).  The advantage to this is that you get very 
+>> good security because you can use things like SELinux and simply treat 
+>> the QEMU process as you would the guest.  In fact, in general, I think 
+>> we want to assume that QEMU is guest code from a security perspective.
+>>
+>> By passing up the network traffic to the host kernel, we now face a 
+>> problem when we try to get the data back.  We could setup a tun device 
+>> to send traffic to the kernel but then the rest of the system can see 
+>> that traffic too.  If that traffic is sensitive, it's potentially unsafe.
+>>     
 >
-> The comment above should be updated according to this change:
-> -/* 'interrupt' and 'slave' are channel capabilities, but are not
-> +/* 'interrupt', 'private' and 'slave' are channel capabilities, but are not
+> You can even use unix sockets in this case, and each socket will be
+> named as virtio channels names. IIRC tun/tap devices can be virtualizen
+> with recent kernels, which also solves all problems of shared access.
 >
-
-ok.
-
->> +static struct dma_chan *private_candidate(dma_cap_mask_t *mask,
->> struct dma_device *dev) +{
->> +     struct dma_chan *chan;
->> +     struct dma_chan *ret = NULL;
->> +
->> +     /* devices with multiple channels need special handling as we need
->> to +   * ensure that all channels are either private or public.
->> +      */
->> +     if (dev->chancnt > 1 && !dma_has_cap(DMA_PRIVATE, dev->cap_mask))
->> +             list_for_each_entry(chan, &dev->channels, device_node) {
->> +                     /* some channels are already publicly allocated */
->> +                     if (chan->client_count)
->> +                             return NULL;
->> +             }
+> There are plenty of ways to implement this kind of functionality instead
+> of developing some new protocol, which is effectively a duplication of
+> what already exists in the kernel.
 >
-> Isn't it a dangerous approach to let clients consume for their exclusive usage channels
-> meant for general-purpose ("pubilc" ones)?
-> Why not to limit private_candidate to devices with DMA_PRIVATE capability only?
->
+>   
 
-This allows unused channels to be claimed by dma_request_channel().
-It is not dangerous as long as ->client_count is zero.
+Well, it is kinda pv-unix-domain-socket.
+I did not understand how a standard unix domain in the guest can reach 
+the host according
+to your solution.
 
->> +
->> +     list_for_each_entry(chan, &dev->channels, device_node) {
->> +             if (!__dma_chan_satisfies_mask(chan, mask)) {
->> +                     pr_debug("%s: %s wrong capabilities\n",
->> +                              __func__, dev_name(&chan->dev));
->> +                     continue;
->> +             }
->
-> As capabilities are per device, this check could be performed just once
-> before list_for_each_entry(chan, &dev->channels, device_node).
->
+The initial implementation was some sort of pv-serial. Serial itself is 
+low performing and
+there is no naming services what so every. Gleb did offer the netlink 
+option as a beginning
+but we though a new address family would be more robust (you say too 
+robust).
+So by suggestion new address family what can think of it as a 
+pv-unix-domain-socket.
+Networking IS used since we think it is a good 'wheel'.
+Indeed, David is right that instead of adding a new chunk of code we can 
+re-use the
+existing one. But we do have some 'new' (afraid to tell virtualization) 
+problems that
+might prevent us of using a standard virtual nic:
+    - Even if we can teach iptables to ignore this interface, other
+      3rd firewall might not obey: What if the VM is a Checkpoint firewall?
+      What if the VM is windows? + using a non MS firewall?
+    - Who will assign IPs for the vnic? How can I assure there is no ip 
+clash?
+       The standard dhcp for the other standard vnics might not be in 
+our control.
 
-Yes, changed.
+So I do understand the idea of using a standard network interface. It's 
+just not that simple.
+So ideas to handle the above are welcomed.
+Otherwise we might need to go back to serial/pv-serial approach.
 
-Thanks,
-Dan
+btw: here are the usages/next usages of vmchannel:
+VMchannel is a host-guest interface and in the future guest-guest interface.
+Currently/soon it is used for
+    - guest statistics
+    - guest info
+    - guest single sign own
+    - guest log-in log-out
+    - mouse channel for multiple monitors
+    - cut&paste (guest-host, sometimes client-host-guest, company 
+firewall blocks client-guest).
+    - fencing (potentially)
+
+tw2: without virtualization we wouldn't have new passionate issues to 
+discuss about!
+Cheers,
+Dor
