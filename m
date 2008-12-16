@@ -1,66 +1,39 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: deadlocks if use htb
-Date: Tue, 16 Dec 2008 10:37:11 +0300
-Message-ID: <49475AA7.70307@bigtelecom.ru>
-References: <20081010075640.GA5204@ff.dom.local> <48EF17EA.5020306@bigtelecom.ru> <20081010090426.GA6054@ff.dom.local> <20081010095129.GB6054@ff.dom.local> <48F6FB3E.7060903@bigtelecom.ru> <20081016084027.GA17632@ff.dom.local> <48FEC302.5090707@bigtelecom.ru> <20081022070200.GB4178@ff.dom.local> <493FDCD4.5020108@bigtelecom.ru> <20081211084606.GA4129@ff.dom.local> <20081215111308.GA5853@ff.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Mon, 15 Dec 2008 23:40:32 -0800 (PST)
+Message-ID: <20081215.234032.141150303.davem@davemloft.net>
+References: <20081213013420.GA13549@gondor.apana.org.au>
+	<E1LBJPd-0003YU-Ap@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev@vger.kernel.org, johnpol@2ka.mipt.ru,
+	bhutchings@solarflare.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:49986 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755851AbYLPHhR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 02:37:17 -0500
-In-Reply-To: <20081215111308.GA5853@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41393
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753110AbYLPHkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 02:40:32 -0500
+In-Reply-To: <E1LBJPd-0003YU-Ap@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now i test patches 2+3. 5 pc work without oops 5 days
-> On Thu, Dec 11, 2008 at 08:46:06AM +0000, Jarek Poplawski wrote:
->   
->> On Wed, Dec 10, 2008 at 06:14:28PM +0300, Badalian Vyacheslav wrote:
->>     
->>> Hello again! Sorry for long away.
->>>       
->> Hi!
->>
->>     
->>> I was go away from this work for long time.
->>>
->>> May we return to this bug?
->>> Servers at last stable kernel 2.6.27.8
->>> HZ=1000, HR=off, DynamicTicks=off, hysteresis=1
->>> Sorry - no patched, update do not i. Do you have fresh patches or ideas
->>> for tests?
->>>       
->> Not much, but I can have if you only are willing to test them...
->> I attach below a patch which combines 2 patches I sent yesterday to
->> netdev (PATCH 7/6 and 8/6) vs. 2.6.27.7 (named testing patch #3 here).
->>
->> You can still try the testing patch #2 I sent previously (quoted below)
->> with or without this new #3 patch.
->>
->>     
->
-> Here is another idea worth checking (instead of patch #2).
->
-> Jarek P.
->
-> --- (testing patch #4)
->
-> diff -Nurp a2.6.27.7/net/sched/sch_htb.c b2.6.27.7/net/sched/sch_htb.c
-> --- a2.6.27.7/net/sched/sch_htb.c	2008-12-11 08:16:16.000000000 +0000
-> +++ b2.6.27.7/net/sched/sch_htb.c	2008-12-15 10:44:32.000000000 +0000
-> @@ -924,6 +924,7 @@ static struct sk_buff *htb_dequeue(struc
->  		}
->  	}
->  	sch->qstats.overlimits++;
-> +	qdisc_watchdog_cancel(&q->watchdog);
->  	qdisc_watchdog_schedule(&q->watchdog, next_event);
->  fin:
->  	return skb;
->
->   
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 13 Dec 2008 12:35:21 +1100
 
+> net: Add Generic Receive Offload infrastructure
+ ...
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Applied, although there were some merge issues to deal with
+wrt. Neil's netpoll race fix.  That wasn't too bad.
+
+Also:
+
+> +int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+> +{
+> +	struct sk_buff **pp;
+
+I made this 'pp' variable get initialized to NULL because
+gcc is stupid and thinks this might get used uninitialized.
