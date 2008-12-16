@@ -1,49 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: RFC ethtool 5-tuple filter set/get feature
-Date: Mon, 15 Dec 2008 22:50:13 -0800 (PST)
-Message-ID: <20081215.225013.248487837.davem@davemloft.net>
-References: <Pine.WNT.4.64.0812151630570.10472@ppwaskie-MOBL2.amr.corp.intel.com>
+From: Gleb Natapov <gleb@redhat.com>
+Subject: Re: [PATCH] AF_VMCHANNEL address family for guest<->host
+	communication.
+Date: Tue, 16 Dec 2008 08:57:27 +0200
+Message-ID: <20081216065727.GD13794@redhat.com>
+References: <4946717F.2090809@codemonkey.ws> <20081215.114315.165733593.davem@davemloft.net> <4946C1AA.4080404@codemonkey.ws> <20081215.142918.190909950.davem@davemloft.net> <4946E1BA.80206@codemonkey.ws> <20081215234511.GA24579@ioremap.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Santwona.Behera@Sun.COM,
-	Matheos.Worku@Sun.COM
-To: peter.p.waskiewicz.jr@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45337
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751341AbYLPGuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 01:50:12 -0500
-In-Reply-To: <Pine.WNT.4.64.0812151630570.10472@ppwaskie-MOBL2.amr.corp.intel.com>
+Received: from mx2.redhat.com ([66.187.237.31]:39406 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751158AbYLPG5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Dec 2008 01:57:24 -0500
+Content-Disposition: inline
+In-Reply-To: <20081215234511.GA24579@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Mon, 15 Dec 2008 18:52:07 -0800 (Pacific Standard Time)
+On Tue, Dec 16, 2008 at 02:45:11AM +0300, Evgeniy Polyakov wrote:
+> Hi Anthony.
+> 
+> On Mon, Dec 15, 2008 at 05:01:14PM -0600, Anthony Liguori (anthony@codemonkey.ws) wrote:
+> > Yes, and I went down the road of using a dedicated network device and 
+> > using raw ethernet as the protocol.  The thing that killed that was the 
+> > fact that it's not reliable.  You need something like TCP to add 
+> > reliability.
+> > 
+> > But that's a lot of work and a bit backwards.  Use a unreliable 
+> > transport but use TCP on top of it to get reliability.  Our link 
+> > (virtio) is inherently reliable so why not just expose a reliable 
+> > interface to userspace?
+> 
+> I removed original mail and did not check archive, but doesn't rx/tx
+> queues of the virtio device have limited size? I do hope they have,
+> which means that either your network drops packets or blocks.
+> 
+It blocks.
 
-> I am looking at current methods to support adding 5-tuple filters to a 
-> network device.  3 methods I can see are 1) Creating a sysfs interface, 2) 
-> writing a custom application using netlink or some other interface, or 3) 
-> Adding support to ethtool.
+> Another approach is to implement that virtio backend with netlink based
+> userspace interface (like using connector or genetlink). This does not
+> differ too much from what you have with special socket family, but at
+> least it does not duplicate existing functionality of
+> userspace-kernelspace communications.
+> 
+I implemented vmchannel using connector initially (the downside is that
+message can be dropped). Is this more expectable for upstream? The
+implementation was 300 lines of code.
 
-I'm pretty sure ethtool is the best mechanism currently.
-
-> The latest ethtool bits support the rxhash callbacks, allowing different 
-> Rx hashing methods to be enabled or disabled in Sun's Neptune device.  I 
-> would like to add similar options to ethtool to support features in 
-> current versions of igb hardware, and in future ixgbe hardware.
-
-You could extend the existing RXHASH ethtool thing, adding your
-key specifiers and some capability flags.
-
-Actually, the Neptune folks (Santwona and Matheos CC:'d) are working
-on ethtool interfaces to load TCAM entries, which would specify the
-same things (except be a lot more flexible, multiple entries can be
-loaded into Neptune, up to 128 or 256, with all kinds of masking etc.)
-
-We could represent igb/ixgbe as a TCAM with one entry and no
-masking support.  Or something like that.
-
-You can find their proposal by looking for "Interface proposal for rx
-classification using ethtool" subject in the netdev archives for
-September 2008.  I believe it was posted on the 29th.
+--
+			Gleb.
