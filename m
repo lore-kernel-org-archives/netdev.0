@@ -1,34 +1,34 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [RFC][PATCH 2/3]ipv6:fix the return interface index when get
- it while no message is received
-Date: Tue, 16 Dec 2008 08:52:06 +0800
-Message-ID: <4946FBB6.3040507@cn.fujitsu.com>
-References: <493E19FC.1080609@cn.fujitsu.com>	<49461DF2.8030502@cn.fujitsu.com> <20081215.151943.136730438.davem@davemloft.net>
+From: Uk Online Result <galbraith@sympatico.ca>
+Subject: winner
+Date: Mon, 15 Dec 2008 19:59:02 -0500
+Message-ID: <20081216005902.HQST1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: agtuk_ltd005@ymail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@winner.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61028 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752356AbYLPAwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 19:52:34 -0500
-In-Reply-To: <20081215.151943.136730438.davem@davemloft.net>
+Received: from simmts12.bellnexxia.net ([206.47.199.141]:58973 "EHLO
+	simmts12-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754339AbYLPA7D convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 19:59:03 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts12-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20081216005902.HQST1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 19:59:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Yang Hongyang <yanghy@cn.fujitsu.com>
-> Date: Mon, 15 Dec 2008 17:05:54 +0800
-> 
->> Updated patch:
-> 
-> Thanks Yang.  I'm still reviewing this and deciding if I will
-> apply the latest version of your patches.
-> 
-> Thanks in advance for your patience.
-> 
-> 
+=A3500,000  pounds has been won by you in our UK National Promo Bonanza=
+=2Eget back to this office with your details =20
+Names
+Address=20
+Contry
 
-Thanks Dave,I'm patiently waiting for your response.^_^
+Email:agtuk_ltd005@ymail.com
+
+
+Best Regards
+
