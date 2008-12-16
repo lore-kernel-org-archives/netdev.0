@@ -1,42 +1,49 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH] enc28j60: use netif_rx_ni() to deliver RX packets
-Date: Tue, 16 Dec 2008 08:18:52 +0200
-Message-ID: <20081216061851.GA4773@diamond.tkos.co.il>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: RFC ethtool 5-tuple filter set/get feature
+Date: Mon, 15 Dec 2008 22:50:13 -0800 (PST)
+Message-ID: <20081215.225013.248487837.davem@davemloft.net>
+References: <Pine.WNT.4.64.0812151630570.10472@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Santwona.Behera@Sun.COM,
+	Matheos.Worku@Sun.COM
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:34566 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751332AbYLPGTB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 01:19:01 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45337
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751341AbYLPGuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 01:50:12 -0500
+In-Reply-To: <Pine.WNT.4.64.0812151630570.10472@ppwaskie-MOBL2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The enc28j60 driver reads incoming packets in the process (workqueue) context, 
-not in a tasklet or the interrupt context.  Thus, we should use netif_rx_ni() 
-to deliver those packets to the networking layer, instead of netif_rx(). This 
-way incoming packets don't wait in the incoming queue for the next IRQ to be 
-serviced.
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Mon, 15 Dec 2008 18:52:07 -0800 (Pacific Standard Time)
 
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
+> I am looking at current methods to support adding 5-tuple filters to a 
+> network device.  3 methods I can see are 1) Creating a sysfs interface, 2) 
+> writing a custom application using netlink or some other interface, or 3) 
+> Adding support to ethtool.
 
---- drivers/net/enc28j60.c-git	2008-12-16 08:06:53.000000000 +0200
-+++ drivers/net/enc28j60.c	2008-12-16 08:08:32.000000000 +0200
-@@ -959,7 +959,7 @@ static void enc28j60_hw_rx(struct net_de
- 			ndev->stats.rx_packets++;
- 			ndev->stats.rx_bytes += len;
- 			ndev->last_rx = jiffies;
--			netif_rx(skb);
-+			netif_rx_ni(skb);
- 		}
- 	}
- 	/*
+I'm pretty sure ethtool is the best mechanism currently.
 
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+> The latest ethtool bits support the rxhash callbacks, allowing different 
+> Rx hashing methods to be enabled or disabled in Sun's Neptune device.  I 
+> would like to add similar options to ethtool to support features in 
+> current versions of igb hardware, and in future ixgbe hardware.
+
+You could extend the existing RXHASH ethtool thing, adding your
+key specifiers and some capability flags.
+
+Actually, the Neptune folks (Santwona and Matheos CC:'d) are working
+on ethtool interfaces to load TCAM entries, which would specify the
+same things (except be a lot more flexible, multiple entries can be
+loaded into Neptune, up to 128 or 256, with all kinds of masking etc.)
+
+We could represent igb/ixgbe as a TCAM with one entry and no
+masking support.  Or something like that.
+
+You can find their proposal by looking for "Interface proposal for rx
+classification using ethtool" subject in the netdev archives for
+September 2008.  I believe it was posted on the 29th.
