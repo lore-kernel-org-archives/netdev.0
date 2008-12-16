@@ -1,48 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
- negotiation
-Date: Tue, 16 Dec 2008 15:11:51 -0800 (PST)
-Message-ID: <20081216.151151.220977047.davem@davemloft.net>
-References: <20081216111908.GI14518@ghostprotocols.net>
-	<20081216.133200.229085084.davem@davemloft.net>
-	<20081216222559.GR14518@ghostprotocols.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, mirqus@gmail.com, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: acme@redhat.com
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH] phylib: Remove unnecessary "reset" fixups in genphy_setup_forced
+Date: Tue, 16 Dec 2008 17:16:29 -0600
+Message-ID: <1229469389-24926-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49145
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752880AbYLPXLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 18:11:50 -0500
-In-Reply-To: <20081216222559.GR14518@ghostprotocols.net>
+Received: from az33egw02.freescale.net ([192.88.158.103]:39266 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751392AbYLPXQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 18:16:46 -0500
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id mBGNGVSk012810
+	for <netdev@vger.kernel.org>; Tue, 16 Dec 2008 16:16:41 -0700 (MST)
+Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id mBGNGUwk019119
+	for <netdev@vger.kernel.org>; Tue, 16 Dec 2008 17:16:30 -0600 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Tue, 16 Dec 2008 20:25:59 -0200
+genphy_setup_forced hasn't actually reset the PHY for a long time,
+but a comment to that effect remained in the code, so code continued
+to act as if it *had* reset the PHY, and called the necessary fixup
+functions to respond to a PHY reset.  With no reset, those functions
+are no longer needed, so we remove them.
 
-> Em Tue, Dec 16, 2008 at 01:32:00PM -0800, David Miller escreveu:
-> > From: Arnaldo Carvalho de Melo <acme@redhat.com>
-> > Date: Tue, 16 Dec 2008 09:19:08 -0200
-> > 
-> > Whereas the DCCP case is right in the connection creation fast path
-> > and unconditionally executes, because it is trying to figure out what
-> > CCID algorithms it can advertise.
-> 
-> Well, there must be some way to locklessly advertise what was previously
-> loaded (and thus can't ever be unloaded).
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+---
+ drivers/net/phy/phy_device.c |   17 -----------------
+ 1 files changed, 0 insertions(+), 17 deletions(-)
 
-This gets us back to my original objection.
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index e976c1c..b312d9c 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -508,23 +508,6 @@ int genphy_setup_forced(struct phy_device *phydev)
+ 	
+ 	err = phy_write(phydev, MII_BMCR, ctl);
+ 
+-	if (err < 0)
+-		return err;
+-
+-	/*
+-	 * Run the fixups on this PHY, just in case the
+-	 * board code needs to change something after a reset
+-	 */
+-	err = phy_scan_fixups(phydev);
+-
+-	if (err < 0)
+-		return err;
+-
+-	/* We just reset the device, so we'd better configure any
+-	 * settings the PHY requires to operate */
+-	if (phydev->drv->config_init)
+-		err = phydev->drv->config_init(phydev);
+-
+ 	return err;
+ }
+ 
+-- 
+1.5.4.GIT
 
-Can these things be unloaded?  If not, and they get unconditionally
-all loaded up on the first DCCP connection, why make them seperate
-modules at all?
-
-If they can get unloaded, then you need synchronization.
-
-I would recommend that everything gets built into dccp.ko
-and thus the table is fixed and never changes and thus no
-locking nor any of this funny mod loading is needed at all.
