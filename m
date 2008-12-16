@@ -1,44 +1,71 @@
-From: Sakari Ailus <sakari.ailus@iki.fi>
-Subject: [PATCH 0/2] tlan: fix earlier fixes, remove big buffer mode
-Date: Tue, 16 Dec 2008 17:24:50 +0200
-Message-ID: <4947C842.1020503@iki.fi>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [PATCH] igmp: allow IPPROTO_IGMP sockets in netns
+Date: Tue, 16 Dec 2008 16:45:13 +0100
+Message-ID: <4947CD09.6060605@bull.net>
+References: <20080908012919.GD575@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw02.mail.saunalahti.fi ([195.197.172.116]:40880 "EHLO
-	gw02.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752070AbYLPPfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 10:35:05 -0500
-Received: from retiisi.dyndns.org (a91-152-223-52.elisa-laajakaista.fi [91.152.223.52])
-	by gw02.mail.saunalahti.fi (Postfix) with ESMTP id E762613992B
-	for <netdev@vger.kernel.org>; Tue, 16 Dec 2008 17:24:50 +0200 (EET)
-Received: from [192.168.1.1] (masiina.localdomain [192.168.1.1])
-	by retiisi.dyndns.org (Postfix) with ESMTP id A645252E28
-	for <netdev@vger.kernel.org>; Tue, 16 Dec 2008 17:24:50 +0200 (EET)
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:38738 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756037AbYLPPpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 10:45:24 -0500
+In-Reply-To: <20080908012919.GD575@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-Unfortunately it seems that my last patch introduced a few problems.
+I was wondering what happened to this patch to support igmp socket 
+per-netns sent by Alexey in September?
 
-So here are two patches: the first one fixes the pci memory unmapping. 
-The second one removes the big buffer mode.
+It looks like it has never been merged in net-next-2.6?
 
-That mode has never worked for me and I've been using tlan cards since 
-2001 or so. With Google I could find one case where someone claimed it 
-was working on 2.4.0-test1-ac7. ;-)
+There's also this other patch sent at the same time by Alexey to make 
+igmp proc entries per-netns that was "lost":
 
-<URL:http://lkml.indiana.edu/hypermail/linux/kernel/0006.0/0193.html>
+http://thread.gmane.org/gmane.linux.network/105226
 
-There's another (likely) bug in the bbuf mode (think skb copying there 
-by txlen bytes), introduced by my earlier patch, which is fixed by the 
-second patch by removing the mode altogether.
+Thanks,
+Benjamin
 
-Cheers,
+
+
+Alexey Dobriyan wrote:
+> Looks like everything is already ready.
+> 
+> Required for ebtables(8) for one thing.
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> ---
+> 
+>  net/ipv4/af_inet.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1310,6 +1310,7 @@ EXPORT_SYMBOL_GPL(snmp_mib_free);
+>  #ifdef CONFIG_IP_MULTICAST
+>  static struct net_protocol igmp_protocol = {
+>  	.handler =	igmp_rcv,
+> +	.netns_ok =	1,
+>  };
+>  #endif
+>  
+> 
+> _______________________________________________
+> Containers mailing list
+> Containers@lists.linux-foundation.org
+> https://lists.linux-foundation.org/mailman/listinfo/containers
+> 
+> 
+
 
 -- 
-Sakari Ailus
-sakari.ailus@iki.fi
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
