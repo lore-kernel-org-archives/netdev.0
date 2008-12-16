@@ -1,29 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] isdn: eicon: fix sparse warning: make global
- functions static
-Date: Tue, 16 Dec 2008 01:17:49 -0800 (PST)
-Message-ID: <20081216.011749.124113130.davem@davemloft.net>
-References: <49463d0c.09c5660a.36f7.ffffc710@mx.google.com>
+Subject: Re: [PATCH] Phonet: improve GPRS variable names
+Date: Tue, 16 Dec 2008 01:18:38 -0800 (PST)
+Message-ID: <20081216.011838.101602864.davem@davemloft.net>
+References: <1229349724-12905-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kkeil@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: hannes@hanneseder.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46790
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46794
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751225AbYLPJRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 04:17:47 -0500
-In-Reply-To: <49463d0c.09c5660a.36f7.ffffc710@mx.google.com>
+	by vger.kernel.org with ESMTP id S1751510AbYLPJSh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Dec 2008 04:18:37 -0500
+In-Reply-To: <1229349724-12905-1-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Eder <hannes@hanneseder.net>
-Date: Thu, 11 Dec 2008 17:59:14 +0100
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Mon, 15 Dec 2008 16:02:04 +0200
 
-> Fix this sparse warnings by making the functions static:
- ...
-> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Applied, thanks Hannes.
+Applied, thanks.
