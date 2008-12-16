@@ -1,71 +1,35 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: [PATCH] igmp: allow IPPROTO_IGMP sockets in netns
-Date: Tue, 16 Dec 2008 16:45:13 +0100
-Message-ID: <4947CD09.6060605@bull.net>
-References: <20080908012919.GD575@x200.localdomain>
+From: "Bart Van Assche" <bart.vanassche@gmail.com>
+Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user space data
+Date: Tue, 16 Dec 2008 17:00:07 +0100
+Message-ID: <e2e108260812160800h66e525f2p8c6c78b1b73630d1@mail.gmail.com>
+References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net>
+	 <20081210214500.GA24212@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:38738 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756037AbYLPPpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 10:45:24 -0500
-In-Reply-To: <20080908012919.GD575@x200.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Vladislav Bolkhovitin" <vst@vlnb.net>, linux-scsi@vger.kernel.org,
+	"James Bottomley" <James.Bottomley@hansenpartnership.com>,
+	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: "Evgeniy Polyakov" <zbr@ioremap.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20081210214500.GA24212@ioremap.net>
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Dec 10, 2008 at 10:45 PM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
+> Another approach is to increase skb's shared data (at the end of the
+> skb->data), and this approach was not frowned upon too much either, but
+> it requires to mess with skb->destructor, which may not be appropriate
+> in some cases. If iscsi does not use sockets (it does iirc), things are
+> much simpler.
 
-I was wondering what happened to this patch to support igmp socket 
-per-netns sent by Alexey in September?
+Hello Evgeniy,
 
-It looks like it has never been merged in net-next-2.6?
+Any idea whether it would be acceptable to extend "struct sock" with
+one or two pointers to callback functions ? These callback functions
+could be called from skb_release_data() etc. through the "struct sock*
+sk" member of "struct sk_buff".
 
-There's also this other patch sent at the same time by Alexey to make 
-igmp proc entries per-netns that was "lost":
-
-http://thread.gmane.org/gmane.linux.network/105226
-
-Thanks,
-Benjamin
-
-
-
-Alexey Dobriyan wrote:
-> Looks like everything is already ready.
-> 
-> Required for ebtables(8) for one thing.
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ---
-> 
->  net/ipv4/af_inet.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1310,6 +1310,7 @@ EXPORT_SYMBOL_GPL(snmp_mib_free);
->  #ifdef CONFIG_IP_MULTICAST
->  static struct net_protocol igmp_protocol = {
->  	.handler =	igmp_rcv,
-> +	.netns_ok =	1,
->  };
->  #endif
->  
-> 
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/containers
-> 
-> 
-
-
--- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
-
-    http://www.bull.com
+Bart.
