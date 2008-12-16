@@ -1,92 +1,76 @@
-From: Dor Laor <dlaor@redhat.com>
-Subject: Re: [PATCH] AF_VMCHANNEL address family for	guest<->host	communication.
-Date: Tue, 16 Dec 2008 02:01:27 +0200
-Message-ID: <4946EFD7.7080606@redhat.com>
-References: <20081214115054.4066.14557.stgit@dhcp-1-237.tlv.redhat.com> <20081214.224436.55256593.davem@davemloft.net> <4946717F.2090809@codemonkey.ws> <494697D4.6080300@goop.org> <4946A5E0.5080303@codemonkey.ws> <4946DF97.7070600@goop.org> <4946E36D.8060503@codemonkey.ws> <20081215235253.GB24579@ioremap.net>
-Reply-To: dlaor@redhat.com
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Mon, 15 Dec 2008 16:02:01 -0800
+Message-ID: <20081216000201.GG6759@linux.vnet.ibm.com>
+References: <20081213013420.GA13549@gondor.apana.org.au> <E1LBJPd-0003YU-Ap@gondolin.me.apana.org.au> <20081215232942.GD6759@linux.vnet.ibm.com> <20081215.153920.105386030.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Jeremy Fitzhardinge <jeremy@goop.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20081215235253.GB24579@ioremap.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	johnpol@2ka.mipt.ru, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:56497 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753565AbYLPACD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Dec 2008 19:02:03 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id mBG01HmI025901
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 19:01:17 -0500
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id mBG021Ra172800
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 19:02:01 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id mBG12BZO013134
+	for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 20:02:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20081215.153920.105386030.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> On Mon, Dec 15, 2008 at 05:08:29PM -0600, Anthony Liguori (anthony@codemonkey.ws) wrote:
->   
->> The KVM model is that a guest is a process.  Any IO operations original 
->> from the process (QEMU).  The advantage to this is that you get very 
->> good security because you can use things like SELinux and simply treat 
->> the QEMU process as you would the guest.  In fact, in general, I think 
->> we want to assume that QEMU is guest code from a security perspective.
->>
->> By passing up the network traffic to the host kernel, we now face a 
->> problem when we try to get the data back.  We could setup a tun device 
->> to send traffic to the kernel but then the rest of the system can see 
->> that traffic too.  If that traffic is sensitive, it's potentially unsafe.
->>     
->
-> You can even use unix sockets in this case, and each socket will be
-> named as virtio channels names. IIRC tun/tap devices can be virtualizen
-> with recent kernels, which also solves all problems of shared access.
->
-> There are plenty of ways to implement this kind of functionality instead
-> of developing some new protocol, which is effectively a duplication of
-> what already exists in the kernel.
->
->   
+On Mon, Dec 15, 2008 at 03:39:20PM -0800, David Miller wrote:
+> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Date: Mon, 15 Dec 2008 15:29:42 -0800
+> 
+> > On Sat, Dec 13, 2008 at 12:35:21PM +1100, Herbert Xu wrote:
+> > > +static int napi_gro_complete(struct sk_buff *skb)
+> > > +{
+> > > +	struct packet_type *ptype;
+> > > +	__be16 type = skb->protocol;
+> > > +	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+> > > +	int err = -ENOENT;
+> > > +
+> > > +	if (!skb_shinfo(skb)->frag_list)
+> > > +		goto out;
+> > > +
+> > > +	rcu_read_lock();
+> > > +	list_for_each_entry_rcu(ptype, head, list) {
+> > > +		if (ptype->type != type || ptype->dev || !ptype->gro_complete)
+> > > +			continue;
+> > > +
+> > > +		err = ptype->gro_complete(skb);
+> > > +		break;
+> > > +	}
+> > > +	rcu_read_unlock();
+> > > +
+> > > +	if (err) {
+> > > +		WARN_ON(&ptype->list == head);
+> > 
+> > Presumably ptype_base[] is a static array rather than a dynamically
+> > allocated array that is resized under RCU protection, right?  Otherwise,
+> > you could get in trouble if the above raced with the resize operation due
+> > to the fact that you are outside of the RCU read-side critical section.
+> 
+> Yes, and we've been using RCU this way for this table for quite
+> some time.  From net/core/dev.c:
+> 
+> #define PTYPE_HASH_SIZE	(16)
+> #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
+> 
+> static DEFINE_SPINLOCK(ptype_lock);
+> static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+> static struct list_head ptype_all __read_mostly;	/* Taps */
 
-Well, it is kinda pv-unix-domain-socket.
-I did not understand how a standard unix domain in the guest can reach 
-the host according
-to your solution.
+Works for me, then!
 
-The initial implementation was some sort of pv-serial. Serial itself is 
-low performing and
-there is no naming services what so every. Gleb did offer the netlink 
-option as a beginning
-but we though a new address family would be more robust (you say too 
-robust).
-So by suggestion new address family what can think of it as a 
-pv-unix-domain-socket.
-Networking IS used since we think it is a good 'wheel'.
-Indeed, David is right that instead of adding a new chunk of code we can 
-re-use the
-existing one. But we do have some 'new' (afraid to tell virtualization) 
-problems that
-might prevent us of using a standard virtual nic:
-    - Even if we can teach iptables to ignore this interface, other
-      3rd firewall might not obey: What if the VM is a Checkpoint firewall?
-      What if the VM is windows? + using a non MS firewall?
-    - Who will assign IPs for the vnic? How can I assure there is no ip 
-clash?
-       The standard dhcp for the other standard vnics might not be in 
-our control.
-
-So I do understand the idea of using a standard network interface. It's 
-just not that simple.
-So ideas to handle the above are welcomed.
-Otherwise we might need to go back to serial/pv-serial approach.
-
-btw: here are the usages/next usages of vmchannel:
-VMchannel is a host-guest interface and in the future guest-guest interface.
-Currently/soon it is used for
-    - guest statistics
-    - guest info
-    - guest single sign own
-    - guest log-in log-out
-    - mouse channel for multiple monitors
-    - cut&paste (guest-host, sometimes client-host-guest, company 
-firewall blocks client-guest).
-    - fencing (potentially)
-
-tw2: without virtualization we wouldn't have new passionate issues to 
-discuss about!
-Cheers,
-Dor
+							Thanx, Paul
