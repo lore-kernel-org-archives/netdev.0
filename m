@@ -1,34 +1,47 @@
-From: Uk Online Result <galbraith@sympatico.ca>
-Subject: winner
-Date: Mon, 15 Dec 2008 19:59:02 -0500
-Message-ID: <20081216005902.HQST1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: agtuk_ltd005@ymail.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/8] net: Add Generic Receive Offload infrastructure
+Date: Tue, 16 Dec 2008 13:04:32 +1100
+Message-ID: <20081216020432.GA6454@gondor.apana.org.au>
+References: <20081213013420.GA13549@gondor.apana.org.au> <E1LBJPd-0003YU-Ap@gondolin.me.apana.org.au> <20081215232942.GD6759@linux.vnet.ibm.com> <20081215.153920.105386030.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@winner.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	johnpol@2ka.mipt.ru, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts12.bellnexxia.net ([206.47.199.141]:58973 "EHLO
-	simmts12-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754339AbYLPA7D convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Dec 2008 19:59:03 -0500
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts12-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20081216005902.HQST1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Mon, 15 Dec 2008 19:59:02 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:34249 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751461AbYLPCEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Dec 2008 21:04:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20081215.153920.105386030.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=A3500,000  pounds has been won by you in our UK National Promo Bonanza=
-=2Eget back to this office with your details =20
-Names
-Address=20
-Contry
+On Mon, Dec 15, 2008 at 03:39:20PM -0800, David Miller wrote:
+> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+>
+> > Presumably ptype_base[] is a static array rather than a dynamically
+> > allocated array that is resized under RCU protection, right?  Otherwise,
+> > you could get in trouble if the above raced with the resize operation due
+> > to the fact that you are outside of the RCU read-side critical section.
+> 
+> Yes, and we've been using RCU this way for this table for quite
+> some time.  From net/core/dev.c:
+> 
+> #define PTYPE_HASH_SIZE	(16)
+> #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
+> 
+> static DEFINE_SPINLOCK(ptype_lock);
+> static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+> static struct list_head ptype_all __read_mostly;	/* Taps */
 
-Email:agtuk_ltd005@ymail.com
+Thanks for confirming.  Yes unless there is a sudden surge of
+new Ethernet protocols we shouldn't need to resize this ever :)
 
-
-Best Regards
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
