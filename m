@@ -1,211 +1,59 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v3 5/7] fs: new_inode_single() and iput_single()
-Date: Tue, 16 Dec 2008 13:41:11 -0800
-Message-ID: <20081216214111.GP6681@linux.vnet.ibm.com>
-References: <49267694.1030506@cosmosbay.com> <20081121.010508.40225532.davem@davemloft.net> <4926AEDB.10007@cosmosbay.com> <4926D022.5060008@cosmosbay.com> <20081121152148.GA20388@elte.hu> <4926D39D.9050603@cosmosbay.com> <20081121153453.GA23713@elte.hu> <492DDB6A.8090806@cosmosbay.com> <493100B0.6090104@cosmosbay.com> <494196C7.2050005@cosmosbay.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
+	negotiation
+Date: Tue, 16 Dec 2008 20:25:59 -0200
+Message-ID: <20081216222559.GR14518@ghostprotocols.net>
+References: <20081216052954.GA6199@gerrit.erg.abdn.ac.uk> <20081216.014045.217150811.davem@davemloft.net> <20081216111908.GI14518@ghostprotocols.net> <20081216.133200.229085084.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
-	"kernel-testers@vger.kernel.org >> Kernel Testers List"
-	<kernel-testers@vger.kernel.org>, Mike Galbraith <efault@gmx.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	linux-fsdevel@vger.kernel.org, Al Viro <viro@ZenIV.linux.org.uk>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: acme@redhat.com, gerrit@erg.abdn.ac.uk, mirqus@gmail.com,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:57981 "EHLO e8.ny.us.ibm.com"
+Received: from mx2.redhat.com ([66.187.237.31]:51453 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752902AbYLPVlO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 16:41:14 -0500
+	id S1753396AbYLPW0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Dec 2008 17:26:11 -0500
 Content-Disposition: inline
-In-Reply-To: <494196C7.2050005@cosmosbay.com>
+In-Reply-To: <20081216.133200.229085084.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 11, 2008 at 11:40:07PM +0100, Eric Dumazet wrote:
-> Goal of this patch is to not touch inode_lock for socket/pipes/anonfd
-> inodes allocation/freeing.
+Em Tue, Dec 16, 2008 at 01:32:00PM -0800, David Miller escreveu:
+> From: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Date: Tue, 16 Dec 2008 09:19:08 -0200
 > 
-> SINGLE dentries are attached to inodes that dont need to be linked
-> in a list of inodes, being "inode_in_use" or "sb->s_inodes"
-> As inode_lock was taken only to protect these lists, we avoid taking it
-> as well.
+> > I guess that looking at tcp_set_congestion_control() could be a good
+> > start. 8-)
 > 
-> Using iput_single() from dput_single() avoids taking inode_lock
-> at freeing time.
+> Certainly.
 > 
-> This patch has a very noticeable effect, because we avoid dirtying of
-> three contended cache lines in new_inode(), and five cache lines in iput()
+> But it seems to me we are dealing with a different situation here
+> in DCCP.
 > 
-> ("socketallocbench -n 8" result : from 19.9s to 3.01s)
+> On the TCP side we have:
+> 
+> 1) A default congestion control module, already loaded and
+>    which has been selected by the admin via a sysctl setting.
 
-Nice!
+Which we should have in DCCP too, its even in the RFC that CCID2 should
+be always available, making a good choice for a default one.
+ 
+> 2) A socket option facility to select a non-default congestion
+>    control algorithm to use.
 
-Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+This is the same for DCCP, i.e. the app can tell the ones it wants via
+setsockopt, and if the default is all they want, no need to ask for
+something to be loaded, i.e. ccid2 (or the one that we think should be
+the default, like reno -> BIC -> CUBIC) should be always available.
+ 
+> These are both outside of the fast path.
+> 
+> Whereas the DCCP case is right in the connection creation fast path
+> and unconditionally executes, because it is trying to figure out what
+> CCID algorithms it can advertise.
 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> ---
->  fs/anon_inodes.c   |    2 +-
->  fs/dcache.c        |    2 +-
->  fs/inode.c         |   29 ++++++++++++++++++++---------
->  fs/pipe.c          |    2 +-
->  include/linux/fs.h |   12 +++++++++++-
->  net/socket.c       |    2 +-
->  6 files changed, 35 insertions(+), 14 deletions(-)
-> 
-> diff --git a/fs/anon_inodes.c b/fs/anon_inodes.c
-> index 8bf83cb..89fd36d 100644
-> --- a/fs/anon_inodes.c
-> +++ b/fs/anon_inodes.c
-> @@ -125,7 +125,7 @@ EXPORT_SYMBOL_GPL(anon_inode_getfd);
->   */
->  static struct inode *anon_inode_mkinode(void)
->  {
-> -	struct inode *inode = new_inode(anon_inode_mnt->mnt_sb);
-> +	struct inode *inode = new_inode_single(anon_inode_mnt->mnt_sb);
-> 
->  	if (!inode)
->  		return ERR_PTR(-ENOMEM);
-> diff --git a/fs/dcache.c b/fs/dcache.c
-> index af3bfb3..3363853 100644
-> --- a/fs/dcache.c
-> +++ b/fs/dcache.c
-> @@ -231,7 +231,7 @@ static void dput_single(struct dentry *dentry)
->  		return;
->  	inode = dentry->d_inode;
->  	if (inode)
-> -		iput(inode);
-> +		iput_single(inode);
->  	d_free(dentry);
->  }
-> 
-> diff --git a/fs/inode.c b/fs/inode.c
-> index dc8e72a..0fdfe1b 100644
-> --- a/fs/inode.c
-> +++ b/fs/inode.c
-> @@ -221,6 +221,13 @@ void destroy_inode(struct inode *inode)
->  		kmem_cache_free(inode_cachep, (inode));
->  }
-> 
-> +void iput_single(struct inode *inode)
-> +{
-> +	if (atomic_dec_and_test(&inode->i_count)) {
-> +		destroy_inode(inode);
-> +		percpu_counter_dec(&nr_inodes);
-> +	}
-> +}
-> 
->  /*
->   * These are initializations that only need to be done
-> @@ -587,8 +594,9 @@ static int last_ino_get(void)
->  #endif
-> 
->  /**
-> - *	new_inode 	- obtain an inode
-> + *	__new_inode 	- obtain an inode
->   *	@sb: superblock
-> + *  @single: if true, dont link new inode in a list
->   *
->   *	Allocates a new inode for given superblock. The default gfp_mask
->   *	for allocations related to inode->i_mapping is GFP_HIGHUSER_PAGECACHE.
-> @@ -598,7 +606,7 @@ static int last_ino_get(void)
->   *	newly created inode's mapping
->   *
->   */
-> -struct inode *new_inode(struct super_block *sb)
-> +struct inode *__new_inode(struct super_block *sb, int single)
->  {
->  	/*
->  	 * On a 32bit, non LFS stat() call, glibc will generate an EOVERFLOW
-> @@ -607,22 +615,25 @@ struct inode *new_inode(struct super_block *sb)
->  	 */
->  	struct inode * inode;
-> 
-> -	spin_lock_prefetch(&inode_lock);
-> -	
->  	inode = alloc_inode(sb);
->  	if (inode) {
->  		percpu_counter_inc(&nr_inodes);
->  		inode->i_state = 0;
->  		inode->i_ino = last_ino_get();
-> -		spin_lock(&inode_lock);
-> -		list_add(&inode->i_list, &inode_in_use);
-> -		list_add(&inode->i_sb_list, &sb->s_inodes);
-> -		spin_unlock(&inode_lock);
-> + 		if (single) {
-> +  			INIT_LIST_HEAD(&inode->i_list);
-> +  			INIT_LIST_HEAD(&inode->i_sb_list);
-> + 		} else {
-> +			spin_lock(&inode_lock);
-> +			list_add(&inode->i_list, &inode_in_use);
-> +			list_add(&inode->i_sb_list, &sb->s_inodes);
-> +			spin_unlock(&inode_lock);
-> +		}
->  	}
->  	return inode;
->  }
-> 
-> -EXPORT_SYMBOL(new_inode);
-> +EXPORT_SYMBOL(__new_inode);
-> 
->  void unlock_new_inode(struct inode *inode)
->  {
-> diff --git a/fs/pipe.c b/fs/pipe.c
-> index 4de6dd5..8c51a0d 100644
-> --- a/fs/pipe.c
-> +++ b/fs/pipe.c
-> @@ -865,7 +865,7 @@ static struct dentry_operations pipefs_dentry_operations = {
-> 
->  static struct inode * get_pipe_inode(void)
->  {
-> -	struct inode *inode = new_inode(pipe_mnt->mnt_sb);
-> +	struct inode *inode = new_inode_single(pipe_mnt->mnt_sb);
->  	struct pipe_inode_info *pipe;
-> 
->  	if (!inode)
-> diff --git a/include/linux/fs.h b/include/linux/fs.h
-> index a789346..a702d81 100644
-> --- a/include/linux/fs.h
-> +++ b/include/linux/fs.h
-> @@ -1899,7 +1899,17 @@ extern void __iget(struct inode * inode);
->  extern void iget_failed(struct inode *);
->  extern void clear_inode(struct inode *);
->  extern void destroy_inode(struct inode *);
-> -extern struct inode *new_inode(struct super_block *);
-> +extern struct inode *__new_inode(struct super_block *, int);
-> +static inline struct inode *new_inode(struct super_block *sb)
-> +{
-> +	return __new_inode(sb, 0);
-> +}
-> +static inline struct inode *new_inode_single(struct super_block *sb)
-> +{
-> +	return __new_inode(sb, 1);
-> +}
-> +extern void iput_single(struct inode *);
-> +
->  extern int should_remove_suid(struct dentry *);
->  extern int file_remove_suid(struct file *);
-> 
-> diff --git a/net/socket.c b/net/socket.c
-> index 353c928..4017409 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -464,7 +464,7 @@ static struct socket *sock_alloc(void)
->  	struct inode *inode;
->  	struct socket *sock;
-> 
-> -	inode = new_inode(sock_mnt->mnt_sb);
-> +	inode = new_inode_single(sock_mnt->mnt_sb);
->  	if (!inode)
->  		return NULL;
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Well, there must be some way to locklessly advertise what was previously
+loaded (and thus can't ever be unloaded).
+
+- Arnaldo
