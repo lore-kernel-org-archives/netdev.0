@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.29] cxgb3 - untie strict FW matching
-Date: Tue, 16 Dec 2008 01:51:57 -0800 (PST)
-Message-ID: <20081216.015157.101673618.davem@davemloft.net>
-References: <20081215191338.22028.66965.stgit@speedy5>
+Subject: Re: [PATCH] simnet: convert to net_device_ops
+Date: Tue, 16 Dec 2008 01:56:02 -0800 (PST)
+Message-ID: <20081216.015602.58187314.davem@davemloft.net>
+References: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
+	<20081209150827.GA8134@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: divy@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56410
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752038AbYLPJv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 04:51:56 -0500
-In-Reply-To: <20081215191338.22028.66965.stgit@speedy5>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: a.beregalov@gmail.com, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, linux-ia64@vger.kernel.org
+To: adobriyan@gmail.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20081209150827.GA8134@x200.localdomain>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Mon, 15 Dec 2008 11:13:38 -0800
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 9 Dec 2008 18:08:27 +0300
 
-> The NIC driver can work with mutliple versions of the FW.
-> Let the driver load when the embedded FW does not match,
-> and the FW update mechanism failed.
-> The iWARP module will make its own loading decision.
+> On Tue, Dec 09, 2008 at 05:11:17PM +0300, Alexander Beregalov wrote:
+> >   CC      arch/ia64/hp/sim/simeth.o
+> > arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
+> > arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no member named 'open'
 > 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> [PATCH] simeth: convert to net_device_ops
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied, thanks Divy.
+Now that the kconfig badness has been fixed, I've applied
+this.
+
+Thanks Alexey.
