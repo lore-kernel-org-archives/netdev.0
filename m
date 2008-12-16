@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Phonet: improve GPRS variable names
-Date: Tue, 16 Dec 2008 01:18:38 -0800 (PST)
-Message-ID: <20081216.011838.101602864.davem@davemloft.net>
-References: <1229349724-12905-1-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: netfilter: ctnetlink: fix missing CTA_NAT_SEQ_UNSPEC
+Date: Tue, 16 Dec 2008 01:20:18 -0800 (PST)
+Message-ID: <20081216.012018.196068498.davem@davemloft.net>
+References: <49467ACC.8080107@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46794
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751510AbYLPJSh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 04:18:37 -0500
-In-Reply-To: <1229349724-12905-1-git-send-email-remi.denis-courmont@nokia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <49467ACC.8080107@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-Date: Mon, 15 Dec 2008 16:02:04 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 15 Dec 2008 16:42:04 +0100
 
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> following is a single netfilter patch for 2.6.28, fixing incorrect
+> ctnetlink NAT attribute definitions that break common userspace
+> attribute parsing code.
+> 
+> Please apply, thanks.
 
-Applied, thanks.
+Applied, thanks Patrick.
