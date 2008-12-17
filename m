@@ -1,31 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: Add irda_skb_cb qdisc related padding
-Date: Wed, 17 Dec 2008 15:45:08 -0800 (PST)
-Message-ID: <20081217.154508.87177275.davem@davemloft.net>
-References: <20081217224906.GA5783@sortiz.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Wed, 17 Dec 2008 18:44:51 -0500
+Message-ID: <20081217234451.GA31742@hmsreliant.think-freely.org>
+References: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com> <20081211160307.20709435@s6510> <20081212121835.GA2402@hmsreliant.think-freely.org> <20081216.155540.34452478.davem@davemloft.net> <20081217211628.GD7356@hmsreliant.think-freely.org> <20081217133131.44a4f67f@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
-To: samuel@sortiz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38413
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752308AbYLQXpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 18:45:06 -0500
-In-Reply-To: <20081217224906.GA5783@sortiz.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60110 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752154AbYLQXq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 18:46:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20081217133131.44a4f67f@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Ortiz <samuel@sortiz.org>
-Date: Wed, 17 Dec 2008 23:49:06 +0100
-
-> We need to pad irda_skb_cb in order to keep it safe accross dev_queue_xmit()
-> calls. This is some ugly and temporary hack triggered by recent qisc code
-> changes.
-> Even though it fixes bugzilla.kernel.org bug #11795, it will be replaced by a
-> proper fix before 2.6.29 is released.
+On Wed, Dec 17, 2008 at 01:31:31PM -0800, Stephen Hemminger wrote:
+> On Wed, 17 Dec 2008 16:16:28 -0500
+> Neil Horman <nhorman@tuxdriver.com> wrote:
 > 
-> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+> > On Tue, Dec 16, 2008 at 03:55:40PM -0800, David Miller wrote:
+> > > From: Neil Horman <nhorman@tuxdriver.com>
+> > > Date: Fri, 12 Dec 2008 07:18:35 -0500
+> > > 
+> > > > On Thu, Dec 11, 2008 at 04:03:07PM -0800, Stephen Hemminger wrote:
+> > > > > I would ask it the other way. Why is interface an argument to netif_rx_complete
+> > > > > if it is never used?  
+> > > > > 
+> > > > Thats a fair question, and I don't know the answer, Dave?
+> > > 
+> > > That's just what the old code uses, since the NAPI context
+> > > sat inside of the device.  I just never removed it.
+> > 
+> > 
+> > To that end, Dave, I've got a tree with that api fixup complete.  Its on the
+> > napi_api_fixup branch of the tree here:
+> > http://git.infradead.org/users/nhorman/net-2.6.git?a=shortlog;h=refs/heads/napi_api_fixup
+> > 
+> > If you'd like to pull it, please go ahead, or I can submit individual patches
+> > for it, if you prefer
+> > 
+> > Regards
+> > Neil
+> > 
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > 
+> > 
+> 
+> Since this a kernel API change, you have to do it as a one big patch
+> otherwise the kernel source won't build for the intermediate steps,
+> which makes 'git bisect' impossible.  Please merge the patches together.
+> 
 
-Applied, thanks Samuel.
+Sure, no problem.  I'll rediff it all and post an omnibus patch in the morning
+Thanks!
+Neil
+
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
