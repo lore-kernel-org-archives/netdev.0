@@ -1,42 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Thu, 18 Dec 2008 08:30:52 +1100
-Message-ID: <20081217213052.GB27243@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi> <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au> <20081217103129.GA17248@gondor.apana.org.au> <20081217104254.GA17407@gondor.apana.org.au> <1229511143.13305.23.camel@nathan.suse.cz> <20081217112600.GA19106@gondor.apana.org.au> <20081217114138.GA20976@gondor.apana.org.au> <20081217125505.GA8379@ms2.inr.ac.ru> <20081217153015.GA17903@ms2.inr.ac.ru> <1229529888.13305.57.camel@nathan.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Petr Tesarik <ptesarik@suse.cz>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: [patch 7/9] bonding: use port_params in __update_selected()
+Date: Wed, 17 Dec 2008 22:28:34 +0100
+Message-ID: <20081217213015.269486347@jonathan.eitzenberger.org>
+References: <20081217212827.080073908@jonathan.eitzenberger.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57096 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751871AbYLQVbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 16:31:09 -0500
-Content-Disposition: inline
-In-Reply-To: <1229529888.13305.57.camel@nathan.suse.cz>
+Received: from moutng.kundenserver.de ([212.227.126.186]:59374 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751844AbYLQVaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 16:30:19 -0500
+Content-Disposition: inline; filename=bonding-3ad-__update-selected-use-port_params.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 17, 2008 at 05:04:48PM +0100, Petr Tesarik wrote:
->
-> This is all nice, but it still does not solve those series of SIGURGs on
-> the receiving side. My suggestion is to not generate a new SIGURG until
-> the data for the latest one have arrived. There can be only one byte of
-> urgent data, so if somebody sends more than one, it cannot be handled by
-> the receiver, anyway, so that use case is broken and need not be taken
-> into account.
+Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
 
-No we need to send a SIGURG as soon as we enter urgent mode.  The
-whole point of urgent mode is to inform the receiver ASAP.  As the
-urgent data itself cannot be expedited due to the in-order nature
-of TCP, setting the flag and sending the signal is the best we can
-do.
+Index: bonding-2.6/drivers/net/bonding/bond_3ad.c
+===================================================================
+--- bonding-2.6.orig/drivers/net/bonding/bond_3ad.c
++++ bonding-2.6/drivers/net/bonding/bond_3ad.c
+@@ -513,16 +513,16 @@ static void __record_default(struct port
+  */
+ static void __update_selected(struct lacpdu *lacpdu, struct port *port)
+ {
+-	// validate lacpdu and port
+ 	if (lacpdu && port) {
++		const struct port_params *partner = &port->partner_oper;
++
+ 		// check if any parameter is different
+-		if ((ntohs(lacpdu->actor_port) != port->partner_oper.port_number) ||
+-		    (ntohs(lacpdu->actor_port_priority) != port->partner_oper.port_priority) ||
+-		    MAC_ADDRESS_COMPARE(&(lacpdu->actor_system), &(port->partner_oper.system)) ||
+-		    (ntohs(lacpdu->actor_system_priority) != port->partner_oper.system_priority) ||
+-		    (ntohs(lacpdu->actor_key) != port->partner_oper.key) ||
+-		    ((lacpdu->actor_state & AD_STATE_AGGREGATION) != (port->partner_oper.port_state & AD_STATE_AGGREGATION))
+-		   ) {
++		if (ntohs(lacpdu->actor_port) != partner->port_number
++		    || ntohs(lacpdu->actor_port_priority) != partner->port_priority
++		    || MAC_ADDRESS_COMPARE(&lacpdu->actor_system, &partner->system)
++		    || ntohs(lacpdu->actor_system_priority) != partner->system_priority
++		    || ntohs(lacpdu->actor_key) != partner->key
++		    || (lacpdu->actor_state & AD_STATE_AGGREGATION) != (partner->port_state & AD_STATE_AGGREGATION)) {
+ 			// update the state machine Selected variable
+ 			port->sm_vars &= ~AD_PORT_SELECTED;
+ 		}
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
