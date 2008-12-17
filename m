@@ -1,60 +1,51 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: kernel BUG at drivers/net/phy/mdio_bus.c:165!
-Date: Wed, 17 Dec 2008 03:29:46 +0100
-Message-ID: <m3ej07zg85.fsf@maximus.localdomain>
+From: Trent Piepho <tpiepho@freescale.com>
+Subject: Re: Bonding gigabit and fast?
+Date: Tue, 16 Dec 2008 18:53:10 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0812161331270.28806@t2.domain.actdsltmp>
+References: <200812161939.30033.tvrtko@ursulin.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: "Tvrtko A. Ursulin" <tvrtko@ursulin.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:34004 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752534AbYLQC3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 21:29:48 -0500
+Received: from az33egw02.freescale.net ([192.88.158.103]:61613 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752858AbYLQCyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 21:54:09 -0500
+In-Reply-To: <200812161939.30033.tvrtko@ursulin.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-kernel BUG at drivers/net/phy/mdio_bus.c:165!
-Unable to handle kernel NULL pointer dereference at virtual address 00000000
+On Tue, 16 Dec 2008, Tvrtko A. Ursulin wrote:
+> Does it make any sense from bandwith point of view to bond gigabit and fast
+> ethernet?
+>
+> I wanted to use adaptive-alb mode to load balance both transmit and receive
+> direction of traffic but it seems 8139too does not support it so I use
+> balance-rr.
 
-How?
+My experience from channel bonding in Beowulf clusters, which is now
+somewhat dated wrt the current kernel, is that channel bonding with gigabit
+didn't work well.
 
-mdiobus_alloc() sets bus->state = MDIOBUS_ALLOCATED.
+The problem is that at gigabit speeds, one IRQ per packet is very costly. 
+So gigabit drivers have to use interrupt mitigation to transfer multiple
+packets per interrupt (and/or use jumbo frames to move more data per
+packet).
 
-mdiobus_register() sets bus->state = MDIOBUS_REGISTERED but then can
-   fail (mdiobus_scan()) returning an error to the caller.
+If the transmitter is sending out packets round-robin on two links, it's
+sending the packets like this:
 
-The caller aborts correctly with mdiobus_free() which does:
-        if (bus->state == MDIOBUS_ALLOCATED) {
-                kfree(bus);
-                return;
-        }
+Link A:  1   3   5   7
+Link B:    2   4   6   8
 
-        BUG_ON(bus->state != MDIOBUS_UNREGISTERED);
+If the cards return two packets per interrupt, the receiver gets them like
+this:
 
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+Link A:  1 3     5 7
+Link B:      2 4     6 8
 
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -105,8 +105,6 @@ int mdiobus_register(struct mii_bus *bus)
- 		return -EINVAL;
- 	}
- 
--	bus->state = MDIOBUS_REGISTERED;
--
- 	mutex_init(&bus->mdio_lock);
- 
- 	if (bus->reset)
-@@ -123,6 +121,9 @@ int mdiobus_register(struct mii_bus *bus)
- 		}
- 	}
- 
-+	if (!err)
-+		bus->state = MDIOBUS_REGISTERED;
-+
- 	pr_info("%s: probed\n", bus->name);
- 
- 	return err;
-
--- 
-Krzysztof Halasa
+Well, the Linux kernel does not like getting the packets in the order (1 3
+2 4 5 7 6 8).  It likes to get the packets in the correct order.  And so
+performance suffers.  At the time, it suffered greatly.  Maybe it's better
+or worse now?
