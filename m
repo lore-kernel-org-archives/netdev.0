@@ -1,53 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Thu, 18 Dec 2008 09:16:37 +1100
-Message-ID: <20081217221637.GA27811@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi> <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au> <20081217103129.GA17248@gondor.apana.org.au> <20081217104254.GA17407@gondor.apana.org.au> <1229511143.13305.23.camel@nathan.suse.cz> <20081217112600.GA19106@gondor.apana.org.au> <20081217114138.GA20976@gondor.apana.org.au> <20081217125505.GA8379@ms2.inr.ac.ru>
+From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: [PATCH 1/5] Phonet: allocate a non-Ethernet ARP type
+Date: Thu, 18 Dec 2008 00:18:43 +0200
+Message-ID: <200812180018.44988@auguste.remlab.net>
+References: <200812171607.14184.remi.denis-courmont@nokia.com> <1229522874-20636-1-git-send-email-remi.denis-courmont@nokia.com> <1229544449.10889.19.camel@violet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Petr Tesarik <ptesarik@suse.cz>,
-	Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?R=C3=A9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>, netdev@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33636 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751154AbYLQWQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:16:57 -0500
+Received: from yop.chewa.net ([91.121.105.214]:58664 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751607AbYLQWSu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:18:50 -0500
+In-Reply-To: <1229544449.10889.19.camel@violet>
 Content-Disposition: inline
-In-Reply-To: <20081217125505.GA8379@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 17, 2008 at 03:55:05PM +0300, Alexey Kuznetsov wrote:
->
-> Probably, netbsd/openbsd have some another quirk to work this around.
-> I do not see how, though.
+Le mercredi 17 d=C3=A9cembre 2008, Marcel Holtmann a =C3=A9crit :
+> what kind of communication are you doing over that device.
 
-Indeed they do have more quirks.  I only saw it after reading it
-again, but they always use snd_nxt instead of the current sequence
-number:
+Phonet packets on the wire. That is to say, Phonet packets including th=
+e=20
+leading media type byte, which the Linux Phonet implementation consider=
+=20
+to be the Phonet "link-layer", and is not visible to the Phonet sockets=
+=20
+stack.
 
-	if (SEQ_GT(tp->snd_up, tp->snd_nxt)) {
-		u_int32_t urp = tp->snd_up - tp->snd_nxt;
-		if (urp > IP_MAXPACKET)
-			urp = IP_MAXPACKET;
-		th->th_urp = htons((u_int16_t)urp);
-		th->th_flags |= TH_URG;
+No IP here.
 
-So on the one hand this means that for a fresh transmission we
-only use 0xffff when the urgent data is not in the packet.
-
-However, for retransmissions the urgent pointer is comletely
-bogus!
-
-Again this shows that any application that's relying on the urgent
-data to be out-of-band is just broken.  The only sane way to use
-urgent mode is as a notification.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--=20
+R=C3=A9mi Denis-Courmont
+http://www.remlab.net/
