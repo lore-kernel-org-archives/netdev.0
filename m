@@ -1,77 +1,85 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: net: RFC ethtool 5-tuple filter set/get feature
-Date: Wed, 17 Dec 2008 02:55:59 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0812170244020.9772@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <Pine.WNT.4.64.0812151630570.10472@ppwaskie-MOBL2.amr.corp.intel.com>
- <20081215.225013.248487837.davem@davemloft.net>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: net-next: broken IP_PKTINFO [was Re: [PATCH] net: release skb->dst
+ in sock_queue_rcv_skb()]
+Date: Wed, 17 Dec 2008 11:25:01 +0000
+Message-ID: <1229513101.3685.57.camel@localhost.localdomain>
+References: <492A7E85.3060502@cosmosbay.com>
+	 <20081124.153954.215777060.davem@davemloft.net>
+	 <492B8274.6080609@cosmosbay.com>
+	 <20081124.210038.90767194.davem@davemloft.net>
+	 <492C919E.3050108@cosmosbay.com>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Santwona.Behera@Sun.COM" <Santwona.Behera@Sun.COM>,
-	"Matheos.Worku@Sun.COM" <Matheos.Worku@Sun.COM>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:58800 "EHLO mga11.intel.com"
+Received: from mx2.redhat.com ([66.187.237.31]:37126 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721AbYLQK4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2008 05:56:07 -0500
-In-Reply-To: <20081215.225013.248487837.davem@davemloft.net>
+	id S1751010AbYLQLZX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2008 06:25:23 -0500
+In-Reply-To: <492C919E.3050108@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Dec 2008, David Miller wrote:
+Hi,
 
-> From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-> Date: Mon, 15 Dec 2008 18:52:07 -0800 (Pacific Standard Time)
+On Wed, 2008-11-26 at 01:00 +0100, Eric Dumazet wrote:
+
+> [PATCH] net: release skb->dst in sock_queue_rcv_skb()
 > 
-> > I am looking at current methods to support adding 5-tuple filters to a 
-> > network device.  3 methods I can see are 1) Creating a sysfs interface, 2) 
-> > writing a custom application using netlink or some other interface, or 3) 
-> > Adding support to ethtool.
+> When queuing a skb to sk->sk_receive_queue, we can release its dst, not
+> anymore needed.
+> Since current cpu did the dst_hold(), refcount is probably still hot
+> int this cpu caches.
 > 
-> I'm pretty sure ethtool is the best mechanism currently.
-
-I'm glad.  I was targeting that, but wanted community confirmation.  :-)
-
+> This avoids readers to access the original dst to decrement its refcount,
+> possibly a long time after packet reception. This should speedup UDP
+> and RAW receive path.
 > 
-> > The latest ethtool bits support the rxhash callbacks, allowing different 
-> > Rx hashing methods to be enabled or disabled in Sun's Neptune device.  I 
-> > would like to add similar options to ethtool to support features in 
-> > current versions of igb hardware, and in future ixgbe hardware.
-> 
-> You could extend the existing RXHASH ethtool thing, adding your
-> key specifiers and some capability flags.
-> 
-> Actually, the Neptune folks (Santwona and Matheos CC:'d) are working
-> on ethtool interfaces to load TCAM entries, which would specify the
-> same things (except be a lot more flexible, multiple entries can be
-> loaded into Neptune, up to 128 or 256, with all kinds of masking etc.)
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> plain text document attachment (sock_queue_rcv_skb.patch)
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index a4e840e..b287645 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -289,7 +289,11 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  
+>  	skb->dev = NULL;
+>  	skb_set_owner_r(skb, sk);
+> -
+> +	/*
+> +	 * release dst right now while its hot
+> +	 */
+> +	dst_release(skb->dst);
+> +	skb->dst = NULL;
 
-Future ixgbe-supported hardware can support 128 entries to start, and then 
-has another mode to support 8192 entries, plus masking on each field.  igb 
-supports 8 entries today (not many Rx queues at 1G...), so it's a subset.  
-So I think my needs would definately be satisfied with the work being 
-proposed.
+IP_PKTINFO cmsg data is one post-queueing user:
 
-> We could represent igb/ixgbe as a TCAM with one entry and no
-> masking support.  Or something like that.
+  static void ip_cmsg_recv_pktinfo(struct msghdr *msg, struct sk_buff *skb)
+  {
+          struct in_pktinfo info;
+          struct rtable *rt = skb->rtable;
 
-If that's for a first cut, sure thing.  But ixgbe will require full 
-masking support in the future.  We can take care of this when the need 
-arises if it doesn't exist out of the gate.
+          info.ipi_addr.s_addr = ip_hdr(skb)->daddr;
+          if (rt) {
+                  info.ipi_ifindex = rt->rt_iif;
+                  info.ipi_spec_dst.s_addr = rt->rt_spec_dst;
+          } else {
+                  info.ipi_ifindex = 0;
+                  info.ipi_spec_dst.s_addr = 0;
+          }
 
-> You can find their proposal by looking for "Interface proposal for rx
-> classification using ethtool" subject in the netdev archives for
-> September 2008.  I believe it was posted on the 29th.
+          put_cmsg(msg, SOL_IP, IP_PKTINFO, sizeof(info), &info);
+  }
 
-I found the thread, and am echo'ing the same question that was posted last 
-to that thread.  What's the state of the patches?  I know there was a 
-target of mid-November to submit a new patchset, but I'm also sensitive 
-that priorities shift day to day, let alone month to month.  I'm ready to 
-work on this, and have some early code chunks if needed.  I will hold off 
-on posting anything until the Sun folks have a chance to respond, since I 
-don't want to cloud their efforts by posting my patches.
+(i.e. skb->rtable is NULL at this point)
+
+I'm seeing dnsmasq not working on net-next-2.6 because of this and
+reverting commit 7035560 makes things work as expected again.
 
 Cheers,
--PJ Waskiewicz
-<peter.p.waskiewicz.jr@intel.com>
+Mark.
+
