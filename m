@@ -1,38 +1,46 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Wed, 17 Dec 2008 15:21:18 -0800 (PST)
-Message-ID: <20081217.152118.103503644.davem@davemloft.net>
-References: <20081217212907.GA27243@gondor.apana.org.au>
-	<20081217225231.GA28052@gondor.apana.org.au>
-	<20081217231543.GA28459@gondor.apana.org.au>
+Date: Wed, 17 Dec 2008 15:23:33 -0800 (PST)
+Message-ID: <20081217.152333.89527205.davem@davemloft.net>
+References: <20081217104254.GA17407@gondor.apana.org.au>
+	<1229511143.13305.23.camel@nathan.suse.cz>
+	<20081217112600.GA19106@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, ptesarik@suse.cz, ilpo.jarvinen@helsinki.fi,
-	netdev@vger.kernel.org
+Cc: ptesarik@suse.cz, ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57927
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57934
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751496AbYLQXVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 18:21:17 -0500
-In-Reply-To: <20081217231543.GA28459@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751049AbYLQXXb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 18:23:31 -0500
+In-Reply-To: <20081217112600.GA19106@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 18 Dec 2008 10:15:43 +1100
+Date: Wed, 17 Dec 2008 22:26:00 +1100
 
-> +		if (between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFFF)) {
-> +			th->urg_ptr = htons(tp->snd_up - tcb->seq);
-> +			th->urg = 1;
-> +		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
-> +			th->urg_ptr = 0xFFFF;
-> +			th->urg = 1;
-> +		}
+> 	if (SEQ_GT(tp->snd_up, tp->snd_nxt)) {
+> 		u_int32_t urp = tp->snd_up - tp->snd_nxt;
+> 		if (urp > IP_MAXPACKET)
+> 			urp = IP_MAXPACKET;
+> 		th->th_urp = htons((u_int16_t)urp);
+> 		th->th_flags |= TH_URG;
+> 	} else  
+> 
+> So if you think this is bad then it's been there for decades :)
 
-What does this make happen for a jumbo frame where the urgent pointer
-is within this packet, yet is beyond the 0xffff offset limit?
+No, this is a hack the BSD guys added.
 
-I think this can't be used.
+This code does not appear in Richard Steven's TCP/IP Illustrated
+Volume 2, as I showed in my other reply.
+
+And bad or not, you cannot compare exposure and deployment of
+the BSD stack compared to say our's or Microsoft's.  Especially
+in such the unusual circumstance of URG with the URG pointer
+outside of the 16-bit offset limit.
+
+Your quick discovery of the retransmit bug nearly proves this :)
 
