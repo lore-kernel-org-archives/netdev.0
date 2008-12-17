@@ -1,54 +1,60 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 2/2] bnx2: Update version to 1.9.0.
-Date: Tue, 16 Dec 2008 18:18:35 -0800
-Message-ID: <1229480315-16912-2-git-send-email-mchan@broadcom.com>
-References: <1229480315-16912-1-git-send-email-mchan@broadcom.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: kernel BUG at drivers/net/phy/mdio_bus.c:165!
+Date: Wed, 17 Dec 2008 03:29:46 +0100
+Message-ID: <m3ej07zg85.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1774 "EHLO mms1.broadcom.com"
+Received: from khc.piap.pl ([195.187.100.11]:34004 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752458AbYLQCLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 21:11:22 -0500
-In-Reply-To: <1229480315-16912-1-git-send-email-mchan@broadcom.com>
+	id S1752534AbYLQC3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Dec 2008 21:29:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And fix the 5716S pci_device_id entry to point to the proper string.
+kernel BUG at drivers/net/phy/mdio_bus.c:165!
+Unable to handle kernel NULL pointer dereference at virtual address 00000000
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+How?
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 6ba2fec..1a27803 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -57,8 +57,8 @@
+mdiobus_alloc() sets bus->state = MDIOBUS_ALLOCATED.
+
+mdiobus_register() sets bus->state = MDIOBUS_REGISTERED but then can
+   fail (mdiobus_scan()) returning an error to the caller.
+
+The caller aborts correctly with mdiobus_free() which does:
+        if (bus->state == MDIOBUS_ALLOCATED) {
+                kfree(bus);
+                return;
+        }
+
+        BUG_ON(bus->state != MDIOBUS_UNREGISTERED);
+
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -105,8 +105,6 @@ int mdiobus_register(struct mii_bus *bus)
+ 		return -EINVAL;
+ 	}
  
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.8.2"
--#define DRV_MODULE_RELDATE	"Nov 10, 2008"
-+#define DRV_MODULE_VERSION	"1.9.0"
-+#define DRV_MODULE_RELDATE	"Dec 16, 2008"
+-	bus->state = MDIOBUS_REGISTERED;
+-
+ 	mutex_init(&bus->mdio_lock);
  
- #define RUN_AT(x) (jiffies + (x))
+ 	if (bus->reset)
+@@ -123,6 +121,9 @@ int mdiobus_register(struct mii_bus *bus)
+ 		}
+ 	}
  
-@@ -131,7 +131,7 @@ static DEFINE_PCI_DEVICE_TABLE(bnx2_pci_tbl) = {
- 	{ PCI_VENDOR_ID_BROADCOM, 0x163b,
- 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM5716 },
- 	{ PCI_VENDOR_ID_BROADCOM, 0x163c,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM5716 },
-+	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, BCM5716S },
- 	{ 0, }
- };
++	if (!err)
++		bus->state = MDIOBUS_REGISTERED;
++
+ 	pr_info("%s: probed\n", bus->name);
  
+ 	return err;
+
 -- 
-1.5.6.GIT
-
-
+Krzysztof Halasa
