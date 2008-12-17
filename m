@@ -1,37 +1,33 @@
-From: =?utf-8?q?R=C3=A9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [PATCH 1/5] Phonet: allocate a non-Ethernet ARP type
-Date: Thu, 18 Dec 2008 00:18:43 +0200
-Message-ID: <200812180018.44988@auguste.remlab.net>
-References: <200812171607.14184.remi.denis-courmont@nokia.com> <1229522874-20636-1-git-send-email-remi.denis-courmont@nokia.com> <1229544449.10889.19.camel@violet>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
+Subject: Re: [PATCH] IPv4 raw_hdrincl_nomangle sysctl
+Date: Thu, 18 Dec 2008 00:21:00 +0200
+Message-ID: <200812180021.00962@auguste.remlab.net>
+References: <494964CA.5050109@gmail.com> <20081217.124841.169000877.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?q?R=C3=A9mi_Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>, netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Cc: katterjohn@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:58664 "EHLO yop.chewa.net"
+Received: from yop.chewa.net ([91.121.105.214]:34474 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751607AbYLQWSu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:18:50 -0500
-In-Reply-To: <1229544449.10889.19.camel@violet>
+	id S1751968AbYLQWVG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:21:06 -0500
+In-Reply-To: <20081217.124841.169000877.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 17 d=C3=A9cembre 2008, Marcel Holtmann a =C3=A9crit :
-> what kind of communication are you doing over that device.
+Le mercredi 17 d=E9cembre 2008, David Miller a =E9crit :
+> If you want full control, use AF_PACKET to send your frames.
+>
+> Yes, this means you'll need to choose the outgoing device and compose
+> the link level header, but that's the price for control.
 
-Phonet packets on the wire. That is to say, Phonet packets including th=
-e=20
-leading media type byte, which the Linux Phonet implementation consider=
-=20
-to be the Phonet "link-layer", and is not visible to the Phonet sockets=
-=20
-stack.
-
-No IP here.
+Does SOCK_DGRAM not save userland from crafting the LL header - contrar=
+y=20
+to SOCK_RAW?
 
 --=20
-R=C3=A9mi Denis-Courmont
+R=E9mi Denis-Courmont
 http://www.remlab.net/
