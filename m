@@ -1,46 +1,61 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Wed, 17 Dec 2008 15:23:33 -0800 (PST)
-Message-ID: <20081217.152333.89527205.davem@davemloft.net>
-References: <20081217104254.GA17407@gondor.apana.org.au>
-	<1229511143.13305.23.camel@nathan.suse.cz>
-	<20081217112600.GA19106@gondor.apana.org.au>
+Date: Thu, 18 Dec 2008 10:25:54 +1100
+Message-ID: <20081217232553.GA28582@gondor.apana.org.au>
+References: <20081217114138.GA20976@gondor.apana.org.au> <20081217125505.GA8379@ms2.inr.ac.ru> <20081217221637.GA27811@gondor.apana.org.au> <20081217.151713.90960645.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ptesarik@suse.cz, ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: kuznet@ms2.inr.ac.ru, ptesarik@suse.cz, ilpo.jarvinen@helsinki.fi,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57934
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751049AbYLQXXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 18:23:31 -0500
-In-Reply-To: <20081217112600.GA19106@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:46240 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751892AbYLQX0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 18:26:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20081217.151713.90960645.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 17 Dec 2008 22:26:00 +1100
-
-> 	if (SEQ_GT(tp->snd_up, tp->snd_nxt)) {
-> 		u_int32_t urp = tp->snd_up - tp->snd_nxt;
-> 		if (urp > IP_MAXPACKET)
-> 			urp = IP_MAXPACKET;
-> 		th->th_urp = htons((u_int16_t)urp);
-> 		th->th_flags |= TH_URG;
-> 	} else  
+On Wed, Dec 17, 2008 at 03:17:13PM -0800, David Miller wrote:
 > 
-> So if you think this is bad then it's been there for decades :)
+> Also, what if we're using IPV6 jumbo frames and we advertise this
+> special 0xffff URG offset turd?  That points to a real byte in the
+> packet, but it might not be the right one since we can only accurately
+> point up to 0xffff into there.
 
-No, this is a hack the BSD guys added.
+1) We don't support that right now.
 
-This code does not appear in Richard Steven's TCP/IP Illustrated
-Volume 2, as I showed in my other reply.
+2) Even if we did this would be broken either way because just
+where do you put the urgent pointer if your packet is > 64K and
+the urgent pointer lies in the packet but beyond 64K to the start?
 
-And bad or not, you cannot compare exposure and deployment of
-the BSD stack compared to say our's or Microsoft's.  Especially
-in such the unusual circumstance of URG with the URG pointer
-outside of the 16-bit offset limit.
+In any case we can easily fix this up with an additional check
+so I don't think it's central to the issue overall.
 
-Your quick discovery of the retransmit bug nearly proves this :)
+> Given all of this I still think our current compromise is likely the
+> best one.  We never will advertise an URG pointer that is not pointing
+> to where the URG data will be in the sequence space.
 
+I agree to the extent that urgent mode is hopelessly broken in
+so many ways so one more isn't going to make that much of a
+difference.
+
+However, I still think that the approach suggested by Alexey is
+better than the status quo:
+
+1) It's unlikely to break any existing apps (all it does is send SIGURG
+multiple times).
+
+2) For those apps that use urgent mode in the first place, they're
+likely to want to see the urgent notification ASAP, rather than having
+it delayed due to the receiver being busy.  So this is an improvement
+over what we have.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
