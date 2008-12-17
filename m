@@ -1,33 +1,51 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: [PATCH] IPv4 raw_hdrincl_nomangle sysctl
-Date: Thu, 18 Dec 2008 00:21:00 +0200
-Message-ID: <200812180021.00962@auguste.remlab.net>
-References: <494964CA.5050109@gmail.com> <20081217.124841.169000877.davem@davemloft.net>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: [PATCH] irda: Add irda_skb_cb qdisc related padding
+Date: Wed, 17 Dec 2008 23:49:06 +0100
+Message-ID: <20081217224906.GA5783@sortiz.org>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: katterjohn@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:34474 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751968AbYLQWVG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:21:06 -0500
-In-Reply-To: <20081217.124841.169000877.davem@davemloft.net>
+Received: from 30.mail-out.ovh.net ([213.186.62.213]:42671 "HELO
+	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750961AbYLQWqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:46:43 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 17 d=E9cembre 2008, David Miller a =E9crit :
-> If you want full control, use AF_PACKET to send your frames.
->
-> Yes, this means you'll need to choose the outgoing device and compose
-> the link level header, but that's the price for control.
+Hi Dave,
 
-Does SOCK_DGRAM not save userland from crafting the LL header - contrar=
-y=20
-to SOCK_RAW?
+We need to pad irda_skb_cb in order to keep it safe accross dev_queue_xmit()
+calls. This is some ugly and temporary hack triggered by recent qisc code
+changes.
+Even though it fixes bugzilla.kernel.org bug #11795, it will be replaced by a
+proper fix before 2.6.29 is released.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+---
+ include/net/irda/irda_device.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/irda/irda_device.h b/include/net/irda/irda_device.h
+index 3025ae1..94c852d 100644
+--- a/include/net/irda/irda_device.h
++++ b/include/net/irda/irda_device.h
+@@ -135,9 +135,11 @@ struct dongle_reg {
+ 
+ /* 
+  * Per-packet information we need to hide inside sk_buff 
+- * (must not exceed 48 bytes, check with struct sk_buff) 
++ * (must not exceed 48 bytes, check with struct sk_buff)
++ * The default_qdisc_pad field is a temporary hack.
+  */
+ struct irda_skb_cb {
++	unsigned int default_qdisc_pad;
+ 	magic_t magic;       /* Be sure that we can trust the information */
+ 	__u32   next_speed;  /* The Speed to be set *after* this frame */
+ 	__u16   mtt;         /* Minimum turn around time */
+-- 
+1.6.0.4.766.g6fc4a.dirty
+
