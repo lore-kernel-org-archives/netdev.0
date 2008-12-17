@@ -1,91 +1,56 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Wed, 17 Dec 2008 10:42:05 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0812171033250.9494@wrl-59.cs.helsinki.fi>
-References: <E1LCl3n-00052k-6h@gondolin.me.apana.org.au>
- <1229501899.13305.12.camel@nathan.suse.cz>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [PATCH] igmp: allow IPPROTO_IGMP sockets in netns
+Date: Wed, 17 Dec 2008 09:48:44 +0100
+Message-ID: <4948BCEC.3080301@bull.net>
+References: <20080908012919.GD575@x200.localdomain>	<4947CD09.6060605@bull.net> <20081216.154442.128200358.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-751646983-1229503325=:9494"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Petr Tesarik <ptesarik@suse.cz>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49110 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbYLQImJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 03:42:09 -0500
-In-Reply-To: <1229501899.13305.12.camel@nathan.suse.cz>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:44604 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753853AbYLQIsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 03:48:52 -0500
+In-Reply-To: <20081216.154442.128200358.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-751646983-1229503325=:9494
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Wed, 17 Dec 2008, Petr Tesarik wrote:
-
-> Herbert Xu píse v St 17. 12. 2008 v 12:18 +1100:
-> > Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
-> > > 
-> > > I should have noticed this earlier... :-) The previous solution
-> > > to URG+GSO/TSO will cause SACK block tcp_fragment to do zig-zig
-> > > patterns, or even worse, a steep downward slope into packet
-> > > counting because each skb pcount would be truncated to pcount
-> > > of 2 and then the following fragments of the later portion would
-> > > restore the window again.
-> > 
-> > How about just handling it, URG isn't that hard.  If anyone is
-> > bored you can do this for GRO as well.
-> > 
-> > tcp: Add GSO support for urgent data
-> > 
-> > When segmenting packets with urgent data we need to clear the
-> > urgent flag/pointer once we move past the end of the urgent data.
-> > This was not handled correctly in GSO or (presumably) in existing
-> > hardware.
-> > 
-> > This patch adds a new GSO flag for TCP urgent data and also fixes
-> > its handling in GSO.
+David Miller wrote:
+> From: Benjamin Thery <benjamin.thery@bull.net>
+> Date: Tue, 16 Dec 2008 16:45:13 +0100
 > 
-> This would work, but:
+>> I was wondering what happened to this patch to support igmp socket per-netns sent by Alexey in September?
+>>
+>> It looks like it has never been merged in net-next-2.6?
+>>
+>> There's also this other patch sent at the same time by Alexey to make igmp proc entries per-netns that was "lost":
+>>
+>> http://thread.gmane.org/gmane.linux.network/105226
 > 
->   1. Currently this code path will never get run, because large
->      offloads are avoided both for hardware TSO and software GSO.
->      You'd also have to modify the conditionals that guard calls
->      to tcp_mss_split_point().
+> Please make a formal resubmission if I've missed something.
 > 
->   2. Is it worth the trouble?
->      This slows down the software GSO slightly. I mean, urgent
->      data should be quite rare, so it makes sense to treat
->      non-urgent data as "fast path" and urgent data as "slow
->      path". While Ilpo's approach only slows down the slow path,
->      your patch slows down both.
+> That way there is no confusion about what patch I should
+> be adding.
 
-My intention is to make it slightly more fine-grained on tcp side still, 
-so that affected portion only includes those segments that really reside 
-within 64k from the urg seq and rest will be unaffected.
+Sure.
 
->      No, I don't have any numbers, no. ;)
+Alexey, will you resend these patches for IGMP?
+Or do you mind if I resend them for you?
 
-To put this in contrast (an example for elsewhere)... Once we got any
-SACK blocks, we were doing tcp_fragment for almost every incoming segment, 
-in practice for the whole window (I made it a lot better in net-next
-though still some tcp_fragment()s will be needed), and that send-used 
-fragment calls for tso_fragment which is less heavy-weight than sack-used 
-tcp_fragment.
+Benjamin
 
-> Anyway, we have to keep the code that avoids large offloads with URG,
-> because many NICs are broken in this regard (at least all Intel NICs
-> I've seen so far), so why treat software GSO specially?
 
-All TSO implementation will be subject to the other problem I mentioned in 
-my response to Herbert. There just isn't enough bits for them to do 
-things right w.r.t. 64k-before point.
+
+
+> 
+> Thanks.
+> 
+> 
+
 
 -- 
- i.
----696208474-751646983-1229503325=:9494--
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
