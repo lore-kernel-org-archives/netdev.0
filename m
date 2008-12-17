@@ -1,51 +1,54 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH] irda: Add irda_skb_cb qdisc related padding
-Date: Wed, 17 Dec 2008 23:49:06 +0100
-Message-ID: <20081217224906.GA5783@sortiz.org>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Thu, 18 Dec 2008 09:52:31 +1100
+Message-ID: <20081217225231.GA28052@gondor.apana.org.au>
+References: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi> <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au> <20081217103129.GA17248@gondor.apana.org.au> <20081217104254.GA17407@gondor.apana.org.au> <1229511143.13305.23.camel@nathan.suse.cz> <20081217112600.GA19106@gondor.apana.org.au> <20081217114138.GA20976@gondor.apana.org.au> <20081217125505.GA8379@ms2.inr.ac.ru> <20081217153015.GA17903@ms2.inr.ac.ru> <20081217212907.GA27243@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
-To: "David S. Miller" <davem@davemloft.net>
+Cc: Petr Tesarik <ptesarik@suse.cz>,
+	Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 30.mail-out.ovh.net ([213.186.62.213]:42671 "HELO
-	30.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750961AbYLQWqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:46:43 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:54546 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752402AbYLQWwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 17:52:50 -0500
 Content-Disposition: inline
+In-Reply-To: <20081217212907.GA27243@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Thu, Dec 18, 2008 at 08:29:07AM +1100, Herbert Xu wrote:
+>
+> > I.e. we set URG and urg_ptr to fake scb->seq + 0xFFFF only when:
+> > 
+> > 	after(scb->seq + 0xFFFF, tp->snd_nxt)
+> > 
+> > My brains are rusty, so take this critically. :-)
+> 
+> Indeed that's a great idea!
 
-We need to pad irda_skb_cb in order to keep it safe accross dev_queue_xmit()
-calls. This is some ugly and temporary hack triggered by recent qisc code
-changes.
-Even though it fixes bugzilla.kernel.org bug #11795, it will be replaced by a
-proper fix before 2.6.29 is released.
+OK, I think this is what we should do:
 
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
----
- include/net/irda/irda_device.h |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+1) Fix fresh transmissions of urgent mode as Alexey suggested.
 
-diff --git a/include/net/irda/irda_device.h b/include/net/irda/irda_device.h
-index 3025ae1..94c852d 100644
---- a/include/net/irda/irda_device.h
-+++ b/include/net/irda/irda_device.h
-@@ -135,9 +135,11 @@ struct dongle_reg {
- 
- /* 
-  * Per-packet information we need to hide inside sk_buff 
-- * (must not exceed 48 bytes, check with struct sk_buff) 
-+ * (must not exceed 48 bytes, check with struct sk_buff)
-+ * The default_qdisc_pad field is a temporary hack.
-  */
- struct irda_skb_cb {
-+	unsigned int default_qdisc_pad;
- 	magic_t magic;       /* Be sure that we can trust the information */
- 	__u32   next_speed;  /* The Speed to be set *after* this frame */
- 	__u16   mtt;         /* Minimum turn around time */
+This is the safest way of ensuring that the urgent notification
+is not delayed.  This is still not as "fast" as the BSD behaviour
+but it is much safer with respect to broken^H^H^H^H^H^Hlegacy
+applications.
+
+2) Continue to use the current test for retransmissions.
+
+3) Apply my original GSO patch and revert the existing URG fixes.
+
+With Alexey's fix, the scenario that Ilpo identified would only
+occur on retransmissions.  As we disable TSO on retransmissions,
+it no longer affects my patch.
+
+Thanks,
 -- 
-1.6.0.4.766.g6fc4a.dirty
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
