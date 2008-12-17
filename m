@@ -1,49 +1,62 @@
-From: Holger Eitzenberger <holger@eitzenberger.org>
-Subject: [patch 7/9] bonding: use port_params in __update_selected()
-Date: Wed, 17 Dec 2008 22:28:34 +0100
-Message-ID: <20081217213015.269486347@jonathan.eitzenberger.org>
-References: <20081217212827.080073908@jonathan.eitzenberger.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+ entry
+Date: Wed, 17 Dec 2008 13:31:31 -0800
+Message-ID: <20081217133131.44a4f67f@extreme>
+References: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
+	<20081211160307.20709435@s6510>
+	<20081212121835.GA2402@hmsreliant.think-freely.org>
+	<20081216.155540.34452478.davem@davemloft.net>
+	<20081217211628.GD7356@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:59374 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751844AbYLQVaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 16:30:19 -0500
-Content-Disposition: inline; filename=bonding-3ad-__update-selected-use-port_params.diff
+Received: from mail.vyatta.com ([76.74.103.46]:39107 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751759AbYLQVbe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2008 16:31:34 -0500
+In-Reply-To: <20081217211628.GD7356@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+On Wed, 17 Dec 2008 16:16:28 -0500
+Neil Horman <nhorman@tuxdriver.com> wrote:
 
-Index: bonding-2.6/drivers/net/bonding/bond_3ad.c
-===================================================================
---- bonding-2.6.orig/drivers/net/bonding/bond_3ad.c
-+++ bonding-2.6/drivers/net/bonding/bond_3ad.c
-@@ -513,16 +513,16 @@ static void __record_default(struct port
-  */
- static void __update_selected(struct lacpdu *lacpdu, struct port *port)
- {
--	// validate lacpdu and port
- 	if (lacpdu && port) {
-+		const struct port_params *partner = &port->partner_oper;
-+
- 		// check if any parameter is different
--		if ((ntohs(lacpdu->actor_port) != port->partner_oper.port_number) ||
--		    (ntohs(lacpdu->actor_port_priority) != port->partner_oper.port_priority) ||
--		    MAC_ADDRESS_COMPARE(&(lacpdu->actor_system), &(port->partner_oper.system)) ||
--		    (ntohs(lacpdu->actor_system_priority) != port->partner_oper.system_priority) ||
--		    (ntohs(lacpdu->actor_key) != port->partner_oper.key) ||
--		    ((lacpdu->actor_state & AD_STATE_AGGREGATION) != (port->partner_oper.port_state & AD_STATE_AGGREGATION))
--		   ) {
-+		if (ntohs(lacpdu->actor_port) != partner->port_number
-+		    || ntohs(lacpdu->actor_port_priority) != partner->port_priority
-+		    || MAC_ADDRESS_COMPARE(&lacpdu->actor_system, &partner->system)
-+		    || ntohs(lacpdu->actor_system_priority) != partner->system_priority
-+		    || ntohs(lacpdu->actor_key) != partner->key
-+		    || (lacpdu->actor_state & AD_STATE_AGGREGATION) != (partner->port_state & AD_STATE_AGGREGATION)) {
- 			// update the state machine Selected variable
- 			port->sm_vars &= ~AD_PORT_SELECTED;
- 		}
+> On Tue, Dec 16, 2008 at 03:55:40PM -0800, David Miller wrote:
+> > From: Neil Horman <nhorman@tuxdriver.com>
+> > Date: Fri, 12 Dec 2008 07:18:35 -0500
+> > 
+> > > On Thu, Dec 11, 2008 at 04:03:07PM -0800, Stephen Hemminger wrote:
+> > > > I would ask it the other way. Why is interface an argument to netif_rx_complete
+> > > > if it is never used?  
+> > > > 
+> > > Thats a fair question, and I don't know the answer, Dave?
+> > 
+> > That's just what the old code uses, since the NAPI context
+> > sat inside of the device.  I just never removed it.
+> 
+> 
+> To that end, Dave, I've got a tree with that api fixup complete.  Its on the
+> napi_api_fixup branch of the tree here:
+> http://git.infradead.org/users/nhorman/net-2.6.git?a=shortlog;h=refs/heads/napi_api_fixup
+> 
+> If you'd like to pull it, please go ahead, or I can submit individual patches
+> for it, if you prefer
+> 
+> Regards
+> Neil
+> 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> 
 
--- 
+Since this a kernel API change, you have to do it as a one big patch
+otherwise the kernel source won't build for the intermediate steps,
+which makes 'git bisect' impossible.  Please merge the patches together.
