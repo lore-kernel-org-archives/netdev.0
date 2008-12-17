@@ -1,69 +1,45 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Wed, 17 Dec 2008 14:31:25 +0100
-Message-ID: <1229520685.13305.32.camel@nathan.suse.cz>
-References: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi>
-	 <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au>
-	 <20081217103129.GA17248@gondor.apana.org.au>
-	 <20081217104254.GA17407@gondor.apana.org.au>
-	 <1229511143.13305.23.camel@nathan.suse.cz>
-	 <20081217112600.GA19106@gondor.apana.org.au>
-	 <20081217114138.GA20976@gondor.apana.org.au>
-	 <20081217125505.GA8379@ms2.inr.ac.ru>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: [RFC] [PATCH 0/5] Phonet enhancements
+Date: Wed, 17 Dec 2008 16:07:14 +0200
+Message-ID: <200812171607.14184.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:54654 "EHLO mail.suse.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751272AbYLQNb1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2008 08:31:27 -0500
-In-Reply-To: <20081217125505.GA8379@ms2.inr.ac.ru>
+Received: from smtp.nokia.com ([192.100.122.230]:30888 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398AbYLQOHZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 09:07:25 -0500
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx03.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id mBHE71XN020330
+	for <netdev@vger.kernel.org>; Wed, 17 Dec 2008 16:07:21 +0200
+Received: from esdhcp041160.research.nokia.com (esdhcp041160.research.nokia.com [172.21.41.160])
+	by mgw-int02.ntc.nokia.com (Switch-3.2.5/Switch-3.2.5) with ESMTP id mBHE7ER0016132
+	for <netdev@vger.kernel.org>; Wed, 17 Dec 2008 16:07:14 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexey Kuznetsov p=C3=AD=C5=A1e v St 17. 12. 2008 v 15:55 +0300:
-> Hello!
->=20
-> > In other words what we do currently potentially makes urgent
-> > mode completely useless since it may delay the sending of the
-> > urgent notification indefinitely.  While the BSD behaviour would
-> > only break "broken" applications.
->=20
-> This is true.
->=20
-> It definitely will work with correct application (those which
-> use SO_OOBINLINE), and surely will kill those which treat
-> urg data in _default_ __BSD__("BSD behaviour", you say, huh:-))
-> way and withdraw octet at urgent pointer.=20
->=20
-> Probably, netbsd/openbsd have some another quirk to work this around.
-> I do not see how, though.
->=20
-> I decided that this is a fatal conflict, which can be solved cleanly
-> only in a painful way like you suggested. Current approach delaying
-> URG is the way which does not spoil any data, breaking only in the
-> case of aborts.
->=20
-> If you are serious about this, also it would be a good idea
-> to make SO_OOBINLINE default option. Consider this. At least this
-> will allow to trap applications which will corrupt data stream
-> earlier.
 
-This might turn out to be a dangerous decision. I am aware at least of
-one big application which uses urgent data and doesn't use SO_OOBINLINE=
-:
-Oracle.
+	Hello,
 
-Yes, of course it's broken, but do we really want to join the much-hate=
-d
-folks who are stuck with an only-we-do-it-correctly approach?
+This simplifies the GPRS over Phonet virtual interface driver, and
+adds support for a Phonet USB gadget (the latter will need to go
+through linux-usb?). Comments welcome.
 
-Just my 2 cents,
-Petr Tesarik
-
-
+--
+ drivers/usb/gadget/f_phonet.c |  621 +++++++++++++++++++++++++++++++++=
++++++++++
+ drivers/usb/gadget/u_phonet.h |   21 +
+ include/linux/if_arp.h        |    3
+ include/net/phonet/pep.h      |    2
+ net/core/dev.c                |   12
+ net/phonet/pep-gprs.c         |   93 +-----
+ net/phonet/pep.c              |   38 +-
+ net/phonet/socket.c           |    2
+ 8 files changed, 703 insertions(+), 89 deletions(-)
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
