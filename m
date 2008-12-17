@@ -1,52 +1,60 @@
 From: "Tvrtko A. Ursulin" <tvrtko@ursulin.net>
 Subject: Re: Bonding gigabit and fast?
-Date: Wed, 17 Dec 2008 07:51:55 +0000
-Message-ID: <200812170751.55999.tvrtko@ursulin.net>
-References: <200812161939.30033.tvrtko@ursulin.net> <Pine.LNX.4.64.0812161331270.28806@t2.domain.actdsltmp>
+Date: Wed, 17 Dec 2008 07:51:42 +0000
+Message-ID: <200812170751.42387.tvrtko@ursulin.net>
+References: <200812161939.30033.tvrtko@ursulin.net> <200812162255.47731.tvrtko@ursulin.net> <20484.1229489335@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Trent Piepho <tpiepho@freescale.com>
+Cc: Chris Snook <csnook@redhat.com>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mk-outboundfilter-6-a-2.mail.uk.tiscali.com ([212.74.114.16]:17765
-	"EHLO mk-outboundfilter-6-a-2.mail.uk.tiscali.com"
+Received: from mk-outboundfilter-5-a-2.mail.uk.tiscali.com ([212.74.114.4]:6163
+	"EHLO mk-outboundfilter-5-a-2.mail.uk.tiscali.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758966AbYLQHv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2008 02:51:58 -0500
-In-Reply-To: <Pine.LNX.4.64.0812161331270.28806@t2.domain.actdsltmp>
+	id S1759247AbYLQHvq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2008 02:51:46 -0500
+In-Reply-To: <20484.1229489335@death.nxdomain.ibm.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 17 December 2008 02:53:10 Trent Piepho wrote:
-> If the transmitter is sending out packets round-robin on two links, it's
-> sending the packets like this:
+On Wednesday 17 December 2008 04:48:55 Jay Vosburgh wrote:
+> Tvrtko A. Ursulin <tvrtko@ursulin.net> wrote:
+> [...]
 >
-> Link A:  1   3   5   7
-> Link B:    2   4   6   8
+> >I was using balance-rr, alb flavour does not seem to like 8139too.
 >
-> If the cards return two packets per interrupt, the receiver gets them like
-> this:
+> 	The choice of balance-rr may be half of your problem.  Try
+> balance-xor with xmit_hash_policy=layer3+4, it may behave better.  That
+> mode doesn't know about dissimilar speed slaves, so it simply balances
+> by math, but that still may behave better than balance-rr because it
+> won't stripe single connections across slaves.
 >
-> Link A:  1 3     5 7
-> Link B:      2 4     6 8
+> 	The balance-alb mode would likely be better (it's smarter about
+> balancing across slaves of differing speeds), but requires that the
+> slaves be able to change MAC address while up, which not every device is
+> capable of doing.
 >
-> Well, the Linux kernel does not like getting the packets in the order (1 3
-> 2 4 5 7 6 8).  It likes to get the packets in the correct order.  And so
-> performance suffers.  At the time, it suffered greatly.  Maybe it's better
-> or worse now?
+> 	To elaborate a bit on balance-rr, it will usually cause out of
+> order delivery to varying degrees, which in turn causes TCP's congestion
+> control and/or fast retransmits to kick in.  The effect can be mitigated
+> to some degree (but not eliminated) by raising the value of the
+> net.ipv4.tcp_reordering sysctl.  If memory serves, values more than
+> about 125 don't make much additional difference.
 
-I don't know, but to clarify I was never aiming to get higher than gigabit 
-speed, even on the receiver side there is only single gigabit link. From the 
-bonding HOWTO I understood that in this configuration packets my actually 
-arrive in order.
+Yes, makes sense and is in line from what is written in the bonding HOWTO. My 
+problem is that I actually wanted to stripe single connections in order to 
+work around really slow gigabit (slower than fast ethernet) performance. 
+There is a single GbE link on the receiver side so maybe there shouldn't be 
+that much out of order traffic, although something is causing aggregated 
+bandwith to be around 50% less than hypothetical sum of two (9+9 alone vs 12 
+bonded). And without stripping I couldn't measure aggregated bandwith with a 
+single client.
 
-Point of my experiment was to see if I can work around very slow gigabit 
-speeds (<10Mb/s) I was getting while serving data out with Samba. So I was 
-hoping to get 20 Mb/s sustained with this slow gigabit and normally fast fast 
-ethernet. But yeah, bonding seemed to cause aggregated speed to be somewhat 
-less than when each were alone.
+Subject I put for this thread is actually misleading..
+
+Thanks,
 
 Tvrtko
