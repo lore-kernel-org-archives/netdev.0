@@ -1,74 +1,157 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 11/22] net: eliminate warning from NETIF_F_UFO on bridge
-Date: Tue, 16 Dec 2008 16:04:21 -0800
-Message-ID: <20081217000421.GL4504@kroah.com>
-References: <20081216235704.347182084@mini.kroah.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>, Willy Tarreau <w@1wt.eu>,
-	Rodrigo Rubira Branco <rbranco@la.checkpoint.com>,
-	Jake Edge <jake@lwn.net>, Eugene Teo <eteo@redhat.com>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Wed, 17 Dec 2008 12:18:47 +1100
+Message-ID: <E1LCl3n-00052k-6h@gondolin.me.apana.org.au>
+References: <Pine.LNX.4.64.0812031320340.31282@wrl-59.cs.helsinki.fi>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ptesarik@suse.cz
+To: ilpo.jarvinen@helsinki.fi (Ilpo J??rvinen)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:41292 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759346AbYLQAGD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Dec 2008 19:06:03 -0500
-Content-Disposition: inline; filename="net-eliminate-warning-from-netif_f_ufo-on-bridge.patch"
-In-Reply-To: <20081217000306.GA4504@kroah.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:58188 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750983AbYLQBS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Dec 2008 20:18:57 -0500
+In-Reply-To: <Pine.LNX.4.64.0812031320340.31282@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2.6.27-stable review patch.  If anyone has any objections, please let us know.
+Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> 
+> I should have noticed this earlier... :-) The previous solution
+> to URG+GSO/TSO will cause SACK block tcp_fragment to do zig-zig
+> patterns, or even worse, a steep downward slope into packet
+> counting because each skb pcount would be truncated to pcount
+> of 2 and then the following fragments of the later portion would
+> restore the window again.
 
-------------------
+How about just handling it, URG isn't that hard.  If anyone is
+bored you can do this for GRO as well.
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+tcp: Add GSO support for urgent data
 
-Based on commit b63365a2d60268a3988285d6c3c6003d7066f93a upstream, but
-drastically cut down for 2.6.27.y
+When segmenting packets with urgent data we need to clear the
+urgent flag/pointer once we move past the end of the urgent data.
+This was not handled correctly in GSO or (presumably) in existing
+hardware.
 
-The bridge device always causes a warning because when it is first created
-it has the no checksum flag set along with all the segmentation/fragmentation
-offload bits.  The code in register_netdevice incorrectly checks for only
-hardware checksum bit and ignores no checksum bit.
+This patch adds a new GSO flag for TCP urgent data and also fixes
+its handling in GSO.
 
-Similar code is already in 2.6.28:
-   commit b63365a2d60268a3988285d6c3c6003d7066f93a
-   net: Fix disjunct computation of netdev features
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3990,7 +3990,7 @@ int register_netdevice(struct net_device
- 		dev->features &= ~NETIF_F_TSO;
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e26f549..4508c48 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -532,9 +532,11 @@ struct net_device
+ #define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
+ #define NETIF_F_TSO_ECN		(SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
+ #define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
++#define NETIF_F_TSO_URG		(SKB_GSO_TCP_URG << NETIF_F_GSO_SHIFT)
+ 
+ 	/* List of features with software fallbacks. */
+-#define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6)
++#define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
++				 NETIF_F_TSO6 | NETIF_F_TSO_URG)
+ 
+ 
+ #define NETIF_F_GEN_CSUM	(NETIF_F_NO_CSUM | NETIF_F_HW_CSUM)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2725f4e..56e9179 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -188,6 +188,9 @@ enum {
+ 	SKB_GSO_TCP_ECN = 1 << 3,
+ 
+ 	SKB_GSO_TCPV6 = 1 << 4,
++
++	/* This indicates the tcp segment has URG set. */
++	SKB_GSO_TCP_URG = 1 << 5,
+ };
+ 
+ #if BITS_PER_LONG > 32
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 1aa2dc9..33305f6 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1202,6 +1202,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb, int features)
+ 		       SKB_GSO_UDP |
+ 		       SKB_GSO_DODGY |
+ 		       SKB_GSO_TCP_ECN |
++		       SKB_GSO_TCP_URG |
+ 		       0)))
+ 		goto out;
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index c5aca0b..e6796a8 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2383,6 +2383,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+ 	__be32 delta;
+ 	unsigned int oldlen;
+ 	unsigned int len;
++	unsigned int urg_ptr;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(*th)))
+ 		goto out;
+@@ -2408,6 +2409,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+ 			       SKB_GSO_DODGY |
+ 			       SKB_GSO_TCP_ECN |
+ 			       SKB_GSO_TCPV6 |
++			       SKB_GSO_TCP_URG |
+ 			       0) ||
+ 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
+ 			goto out;
+@@ -2429,6 +2431,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+ 	skb = segs;
+ 	th = tcp_hdr(skb);
+ 	seq = ntohl(th->seq);
++	urg_ptr = th->urg ? ntohs(th->urg_ptr) : 0;
+ 
+ 	do {
+ 		th->fin = th->psh = 0;
+@@ -2446,6 +2449,14 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+ 
+ 		th->seq = htonl(seq);
+ 		th->cwr = 0;
++
++		if (urg_ptr <= len)
++			urg_ptr = 0;
++		else
++			urg_ptr -= len;
++
++		th->urg = !!urg_ptr;
++		th->urg_ptr = htons(urg_ptr);
+ 	} while (skb->next);
+ 
+ 	delta = htonl(oldlen + (skb->tail - skb->transport_header) +
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index fe3b4bd..d4dc0fa 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -667,6 +667,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 		     between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFFF))) {
+ 		th->urg_ptr		= htons(tp->snd_up - tcb->seq);
+ 		th->urg			= 1;
++		skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_URG;
  	}
- 	if (dev->features & NETIF_F_UFO) {
--		if (!(dev->features & NETIF_F_HW_CSUM)) {
-+		if (!(dev->features & NETIF_F_GEN_CSUM)) {
- 			printk(KERN_ERR "%s: Dropping NETIF_F_UFO since no "
- 					"NETIF_F_HW_CSUM feature.\n",
- 							dev->name);
-
+ 
+ 	tcp_options_write((__be32 *)(th + 1), tp, &opts, &md5_hash_location);
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 01edac8..c11d3d9 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -746,6 +746,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
+ 		       SKB_GSO_DODGY |
+ 		       SKB_GSO_TCP_ECN |
+ 		       SKB_GSO_TCPV6 |
++		       SKB_GSO_TCP_URG |
+ 		       0)))
+ 		goto out;
+ 
