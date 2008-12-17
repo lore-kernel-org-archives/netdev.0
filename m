@@ -1,86 +1,49 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH net-next] vcan: whitepace fixes
-Date: Wed, 17 Dec 2008 10:40:14 +0100
-Message-ID: <4948C8FE.3010506@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040605030902040505030105"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Wed, 17 Dec 2008 21:13:22 +1100
+Message-ID: <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au>
+References: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi>
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org, ptesarik@suse.cz
+To: ilpo.jarvinen@helsinki.fi (Ilpo J??rvinen)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:37619 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759965AbYLQJkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 04:40:15 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:42335 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752308AbYLQKN2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 05:13:28 -0500
+In-Reply-To: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040605030902040505030105
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> 
+> This is certainly nice and possible but as mention earlier, the harder 
+> problem is that the urg_ptr is only 16-bits so there will be still be 
+> problem if the urgent seq-64k mark is within a super-skb as tail segments 
+> need urg while the head ones won't. I think we would need out-of-band 
+> means to communicate the extra bit (17th) from tcp if we want to solve 
+> that one. It would be rather easy to change TCP to only do splitting for 
+> that particular skb though and keep everything else intact.
 
-vcan: whitespace fixes
+I think you've got it the wrong way around.  The test for setting
+urg_ptr is:
 
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
----
+        if (unlikely(tcp_urg_mode(tp) &&
+                     between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFFF))) {
 
-Hello Dave,
+So if this is true for the super-packet, then by definition it is
+also true for the first packet.  In fact, it will be true for the
+first n packets where
 
-when adding the net_device_ops support to the vcan driver i discovered several 
-whitepace issues in the driver setup section. This patch fixes them.
+	tcb->seq + n * mss + 1 <= tp->snd_up
 
-Thanks,
-Oliver
+The only time when this will fall apart is if we had super-packets
+bigger than 64K.  Fortunately or unfortunately that is a long way
+off.
 
-
-
-
---------------040605030902040505030105
-Content-Type: text/x-patch;
- name="vcan_whitespace_fixes.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="vcan_whitespace_fixes.patch"
-
-diff --git a/drivers/net/can/vcan.c b/drivers/net/can/vcan.c
-index f127ec9..a10c1d7 100644
---- a/drivers/net/can/vcan.c
-+++ b/drivers/net/can/vcan.c
-@@ -134,24 +134,24 @@ static const struct net_device_ops vcan_netdev_ops = {
- 
- static void vcan_setup(struct net_device *dev)
- {
--	dev->type              = ARPHRD_CAN;
--	dev->mtu               = sizeof(struct can_frame);
--	dev->hard_header_len   = 0;
--	dev->addr_len          = 0;
--	dev->tx_queue_len      = 0;
--	dev->flags             = IFF_NOARP;
-+	dev->type		= ARPHRD_CAN;
-+	dev->mtu		= sizeof(struct can_frame);
-+	dev->hard_header_len	= 0;
-+	dev->addr_len		= 0;
-+	dev->tx_queue_len	= 0;
-+	dev->flags		= IFF_NOARP;
- 
- 	/* set flags according to driver capabilities */
- 	if (echo)
- 		dev->flags |= IFF_ECHO;
- 
--	dev->netdev_ops        = &vcan_netdev_ops;
--	dev->destructor        = free_netdev;
-+	dev->netdev_ops		= &vcan_netdev_ops;
-+	dev->destructor		= free_netdev;
- }
- 
- static struct rtnl_link_ops vcan_link_ops __read_mostly = {
--       .kind           = "vcan",
--       .setup          = vcan_setup,
-+	.kind	= "vcan",
-+	.setup	= vcan_setup,
- };
- 
- static __init int vcan_init_module(void)
-
---------------040605030902040505030105--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
