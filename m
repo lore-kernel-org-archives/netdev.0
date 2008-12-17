@@ -1,148 +1,56 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2.6.29 v2 4/5] gianfar: Merge Tx and Rx interrupt for scheduling clean up ring
-Date: Wed, 17 Dec 2008 12:53:00 -0600
-Message-ID: <1229539981-14041-5-git-send-email-afleming@freescale.com>
-References: <1229539981-14041-1-git-send-email-afleming@freescale.com>
- <1229539981-14041-2-git-send-email-afleming@freescale.com>
- <1229539981-14041-3-git-send-email-afleming@freescale.com>
- <1229539981-14041-4-git-send-email-afleming@freescale.com>
-Cc: netdev@vger.kernel.org, Haruki Dai <Dai.Haruki@freescale.com>,
-	Dai Haruki <dai.haruki@freescale.com>
-To: davem@davemloft.net, jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:58735 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327AbYLQSxS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 13:53:18 -0500
-Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id mBHIr3cF011182
-	for <netdev@vger.kernel.org>; Wed, 17 Dec 2008 11:53:13 -0700 (MST)
-Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id mBHIr23X010599
-	for <netdev@vger.kernel.org>; Wed, 17 Dec 2008 12:53:02 -0600 (CST)
-In-Reply-To: <1229539981-14041-4-git-send-email-afleming@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Soft Lockups on 2.6.28-rc8 under netperf bulk receive workload
+Date: Wed, 17 Dec 2008 11:44:09 -0800
+Message-ID: <49495689.9090205@hp.com>
+References: <4948566E.1050309@hp.com> <494934C5.5000003@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	linux-ia64@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <494934C5.5000003@chelsio.com>
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Haruki Dai <Dai.Haruki@freescale.com>
+Divy Le Ray wrote:
+> Can you please reconfigure your kernel with the following kernel hacking
+> options enabled, and run your tests again?
+> 
+> Kernel hacking
+> 	Kernel debugging
+> 		Detect soft lockups
+> 	RT mutex debugging
+> 	Spinlock and rw-lock debugging: basic checks
+> 	Mutex debugging: basic checks
 
-No clean up function is executed in the interrupt context by this patch.
+Got the above
 
-Signed-off-by: Dai Haruki <dai.haruki@freescale.com>
-Acked-by: Andy Fleming <afleming@freescale.com>
----
- drivers/net/gianfar.c |   59 +++++++++++++++----------------------------------
- drivers/net/gianfar.h |    2 +-
- 2 files changed, 19 insertions(+), 42 deletions(-)
+> 	Lock debugging: detect incorrect freeing of live locks
+> 	Lock debugging: prove locking correctness
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 4d7c225..939e38c 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1604,29 +1604,19 @@ static int gfar_clean_tx_ring(struct net_device *dev)
- 	return howmany;
- }
- 
--/* Interrupt Handler for Transmit complete */
--static irqreturn_t gfar_transmit(int irq, void *dev_id)
-+static void gfar_schedule_cleanup(struct net_device *dev)
- {
--	struct net_device *dev = (struct net_device *) dev_id;
- 	struct gfar_private *priv = netdev_priv(dev);
--
--	/* Clear IEVENT */
--	gfar_write(&priv->regs->ievent, IEVENT_TX_MASK);
--
--	/* Lock priv */
--	spin_lock(&priv->txlock);
--
--	gfar_clean_tx_ring(dev);
--
--	/* If we are coalescing the interrupts, reset the timer */
--	/* Otherwise, clear it */
--	if (likely(priv->txcoalescing)) {
--		gfar_write(&priv->regs->txic, 0);
--		gfar_write(&priv->regs->txic, priv->txic);
-+	if (netif_rx_schedule_prep(dev, &priv->napi)) {
-+		gfar_write(&priv->regs->imask, IMASK_RTX_DISABLED);
-+		__netif_rx_schedule(dev, &priv->napi);
- 	}
-+}
- 
--	spin_unlock(&priv->txlock);
--
-+/* Interrupt Handler for Transmit complete */
-+static irqreturn_t gfar_transmit(int irq, void *dev_id)
-+{
-+	gfar_schedule_cleanup((struct net_device *)dev_id);
- 	return IRQ_HANDLED;
- }
- 
-@@ -1713,28 +1703,7 @@ static inline void count_errors(unsigned short status, struct net_device *dev)
- 
- irqreturn_t gfar_receive(int irq, void *dev_id)
- {
--	struct net_device *dev = (struct net_device *) dev_id;
--	struct gfar_private *priv = netdev_priv(dev);
--	u32 tempval;
--
--	/* support NAPI */
--	/* Clear IEVENT, so interrupts aren't called again
--	 * because of the packets that have already arrived */
--	gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
--
--	if (netif_rx_schedule_prep(dev, &priv->napi)) {
--		tempval = gfar_read(&priv->regs->imask);
--		tempval &= IMASK_RTX_DISABLED;
--		gfar_write(&priv->regs->imask, tempval);
--
--		__netif_rx_schedule(dev, &priv->napi);
--	} else {
--		if (netif_msg_rx_err(priv))
--			printk(KERN_DEBUG "%s: receive called twice (%x)[%x]\n",
--				dev->name, gfar_read(&priv->regs->ievent),
--				gfar_read(&priv->regs->imask));
--	}
--
-+	gfar_schedule_cleanup((struct net_device *)dev_id);
- 	return IRQ_HANDLED;
- }
- 
-@@ -1877,6 +1846,10 @@ static int gfar_poll(struct napi_struct *napi, int budget)
- 	int howmany;
- 	unsigned long flags;
- 
-+	/* Clear IEVENT, so interrupts aren't called again
-+	 * because of the packets that have already arrived */
-+	gfar_write(&priv->regs->ievent, IEVENT_RTX_MASK);
-+
- 	/* If we fail to get the lock, don't bother with the TX BDs */
- 	if (spin_trylock_irqsave(&priv->txlock, flags)) {
- 		gfar_clean_tx_ring(dev);
-@@ -1899,6 +1872,10 @@ static int gfar_poll(struct napi_struct *napi, int budget)
- 			gfar_write(&priv->regs->rxic, 0);
- 			gfar_write(&priv->regs->rxic, priv->rxic);
- 		}
-+		if (likely(priv->txcoalescing)) {
-+			gfar_write(&priv->regs->txic, 0);
-+			gfar_write(&priv->regs->txic, priv->txic);
-+		}
- 	}
- 
- 	return howmany;
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 06bac34..b1a8334 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -251,7 +251,7 @@ extern const char gfar_driver_version[];
- #define IEVENT_FIQ		0x00000004
- #define IEVENT_DPE		0x00000002
- #define IEVENT_PERR		0x00000001
--#define IEVENT_RX_MASK          (IEVENT_RXB0 | IEVENT_RXF0)
-+#define IEVENT_RX_MASK          (IEVENT_RXB0 | IEVENT_RXF0 | IEVENT_BSY)
- #define IEVENT_TX_MASK          (IEVENT_TXB | IEVENT_TXF)
- #define IEVENT_RTX_MASK         (IEVENT_RX_MASK | IEVENT_TX_MASK)
- #define IEVENT_ERR_MASK         \
--- 
-1.5.4.GIT
+I don't see those two above in a make menuconfig
 
+> 	Spinlock debugging: sleep-inside-spinlock checking
+> 	Compile the kernel with debug info
+
+Got those above.
+
+> 	Compile the kernel with frame pointers
+
+That doesn't appear in make menuconfig in kernel hacking either.
+
+I built a kernel with those I could find enabled, and I think it invoked 
+the spirit of Heisenberg - no more soft lockups appearing on the 
+console.  I think it has also _significantly_ dropped the throughput.
+
+I've since learned how to tell caliper one doesn't care about the 
+per-process stuff and just lump it all together.  The cycles and cgprof 
+profiles for the debug run can be found under the same URL as before:
+
+ftp://ftp.netperf.org/lockup
+
+with what I hope are obvious names.
+
+rick jones
