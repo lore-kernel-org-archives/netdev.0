@@ -1,36 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv4 raw_hdrincl_nomangle sysctl
-Date: Wed, 17 Dec 2008 12:48:41 -0800 (PST)
-Message-ID: <20081217.124841.169000877.davem@davemloft.net>
-References: <494964CA.5050109@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Wed, 17 Dec 2008 16:16:28 -0500
+Message-ID: <20081217211628.GD7356@hmsreliant.think-freely.org>
+References: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com> <20081211160307.20709435@s6510> <20081212121835.GA2402@hmsreliant.think-freely.org> <20081216.155540.34452478.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: katterjohn@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, jarkao2@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35512
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751463AbYLQUsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 15:48:39 -0500
-In-Reply-To: <494964CA.5050109@gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48645 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751237AbYLQVSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 16:18:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20081216.155540.34452478.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kris Katterjohn <katterjohn@gmail.com>
-Date: Wed, 17 Dec 2008 14:44:58 -0600
+On Tue, Dec 16, 2008 at 03:55:40PM -0800, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Fri, 12 Dec 2008 07:18:35 -0500
+> 
+> > On Thu, Dec 11, 2008 at 04:03:07PM -0800, Stephen Hemminger wrote:
+> > > I would ask it the other way. Why is interface an argument to netif_rx_complete
+> > > if it is never used?  
+> > > 
+> > Thats a fair question, and I don't know the answer, Dave?
+> 
+> That's just what the old code uses, since the NAPI context
+> sat inside of the device.  I just never removed it.
 
-> I've attached a patch to add a net.ipv4.raw_hdrincl_nomangle sysctl (defaults
-> to 0) to control whether or not Linux changes the header passed using
-> IP_HDRINCL (checksum, IPID, etc).  This way it's not required to build a
-> special kernel simply to have control over what you send.  This was needed,
-> for example, in this discussion[1] on Nmap's packet handling.
 
-If you want full control, use AF_PACKET to send your frames.
+To that end, Dave, I've got a tree with that api fixup complete.  Its on the
+napi_api_fixup branch of the tree here:
+http://git.infradead.org/users/nhorman/net-2.6.git?a=shortlog;h=refs/heads/napi_api_fixup
 
-Yes, this means you'll need to choose the outgoing device and compose
-the link level header, but that's the price for control.
+If you'd like to pull it, please go ahead, or I can submit individual patches
+for it, if you prefer
 
-Using IPV4 RAW sockets implies you want some help from that
-part of the stack, if you don't then simply use direct pure
-packet sends via AF_PACKET.
+Regards
+Neil
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+-- 
+/****************************************************
+ * Neil Horman <nhorman@tuxdriver.com>
+ * Software Engineer, Red Hat
+ ****************************************************/
