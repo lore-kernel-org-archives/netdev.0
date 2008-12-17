@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/6] Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used
- jiffies in htb_dequeue()
-Date: Tue, 16 Dec 2008 23:38:01 -0800 (PST)
-Message-ID: <20081216.233801.26557633.davem@davemloft.net>
-References: <20081210093532.GA7926@ff.dom.local>
-	<20081216.155722.144236025.davem@davemloft.net>
-	<20081217070303.GA4577@ff.dom.local>
+From: "Tvrtko A. Ursulin" <tvrtko@ursulin.net>
+Subject: Re: Bonding gigabit and fast?
+Date: Wed, 17 Dec 2008 07:51:55 +0000
+Message-ID: <200812170751.55999.tvrtko@ursulin.net>
+References: <200812161939.30033.tvrtko@ursulin.net> <Pine.LNX.4.64.0812161331270.28806@t2.domain.actdsltmp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, devik@cdi.cz, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org
+To: Trent Piepho <tpiepho@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45057
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751294AbYLQHiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 02:38:00 -0500
-In-Reply-To: <20081217070303.GA4577@ff.dom.local>
+Received: from mk-outboundfilter-6-a-2.mail.uk.tiscali.com ([212.74.114.16]:17765
+	"EHLO mk-outboundfilter-6-a-2.mail.uk.tiscali.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758966AbYLQHv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2008 02:51:58 -0500
+In-Reply-To: <Pine.LNX.4.64.0812161331270.28806@t2.domain.actdsltmp>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Wed, 17 Dec 2008 07:03:03 +0000
+On Wednesday 17 December 2008 02:53:10 Trent Piepho wrote:
+> If the transmitter is sending out packets round-robin on two links, it's
+> sending the packets like this:
+>
+> Link A:  1   3   5   7
+> Link B:    2   4   6   8
+>
+> If the cards return two packets per interrupt, the receiver gets them like
+> this:
+>
+> Link A:  1 3     5 7
+> Link B:      2 4     6 8
+>
+> Well, the Linux kernel does not like getting the packets in the order (1 3
+> 2 4 5 7 6 8).  It likes to get the packets in the correct order.  And so
+> performance suffers.  At the time, it suffered greatly.  Maybe it's better
+> or worse now?
 
-> On Tue, Dec 16, 2008 at 03:57:22PM -0800, David Miller wrote:
-> > 
-> > Patrick, I know you said you were travelling and very busy,
-> > but Jarek has been waiting patiently for you to review
-> > these two newly respun patches.
-> > 
-> > These are just rotting in my patch queue and I'd like to
-> > do something with them.
-> 
-> I guess Patrick has some doubts, but since these patches are not
-> critical, let's say I'll resend them within a few weeks.
+I don't know, but to clarify I was never aiming to get higher than gigabit 
+speed, even on the receiver side there is only single gigabit link. From the 
+bonding HOWTO I understood that in this configuration packets my actually 
+arrive in order.
 
-Fair enough, I'll mark them deferred on patchwork
+Point of my experiment was to see if I can work around very slow gigabit 
+speeds (<10Mb/s) I was getting while serving data out with Samba. So I was 
+hoping to get 20 Mb/s sustained with this slow gigabit and normally fast fast 
+ethernet. But yeah, bonding seemed to cause aggregated speed to be somewhat 
+less than when each were alone.
+
+Tvrtko
