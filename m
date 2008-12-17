@@ -1,30 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [irda-users] [RFC PATCH 0/9] IrDA 2.6.28 bug fix
-Date: Tue, 16 Dec 2008 23:59:10 -0800 (PST)
-Message-ID: <20081216.235910.100061161.davem@davemloft.net>
-References: <20081215015729.587697008@sortiz.org>
-	<20081214.230837.169487041.davem@davemloft.net>
-	<20081215123144.GC4017@sortiz.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Wed, 17 Dec 2008 10:15:34 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi>
+References: <E1LCl3n-00052k-6h@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
-To: samuel@sortiz.org
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, ptesarik@suse.cz
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47097
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751326AbYLQH7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 02:59:08 -0500
-In-Reply-To: <20081215123144.GC4017@sortiz.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:59797 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbYLQIPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 03:15:37 -0500
+In-Reply-To: <E1LCl3n-00052k-6h@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Ortiz <samuel@sortiz.org>
-Date: Mon, 15 Dec 2008 13:31:44 +0100
+On Wed, 17 Dec 2008, Herbert Xu wrote:
 
-> Regarding hackish fixes, would something like commit
-> f7cd168645dda3e9067f24fabbfa787f9a237488 (see
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=f7cd168645dda3e9067f24fabbfa787f9a237488 )
-> be acceptable to you as a short term solution ?
+> Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> > 
+> > I should have noticed this earlier... :-) The previous solution
+> > to URG+GSO/TSO will cause SACK block tcp_fragment to do zig-zig
+> > patterns, or even worse, a steep downward slope into packet
+> > counting because each skb pcount would be truncated to pcount
+> > of 2 and then the following fragments of the later portion would
+> > restore the window again.
+> 
+> How about just handling it, URG isn't that hard.  If anyone is
+> bored you can do this for GRO as well.
+>
+> tcp: Add GSO support for urgent data
+> 
+> When segmenting packets with urgent data we need to clear the
+> urgent flag/pointer once we move past the end of the urgent data.
+> This was not handled correctly in GSO or (presumably) in existing
+> hardware.
+>
+> This patch adds a new GSO flag for TCP urgent data and also fixes
+> its handling in GSO.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Most definitely, yes.
+This is certainly nice and possible but as mention earlier, the harder 
+problem is that the urg_ptr is only 16-bits so there will be still be 
+problem if the urgent seq-64k mark is within a super-skb as tail segments 
+need urg while the head ones won't. I think we would need out-of-band 
+means to communicate the extra bit (17th) from tcp if we want to solve 
+that one. It would be rather easy to change TCP to only do splitting for 
+that particular skb though and keep everything else intact.
+
+...The same consideration applies to gro as well.
+
+
+-- 
+ i.
