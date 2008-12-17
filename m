@@ -1,52 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Wed, 17 Dec 2008 21:17:11 +1100
-Message-ID: <E1LCtSp-0004Rc-Lb@gondolin.me.apana.org.au>
-References: <1229501899.13305.12.camel@nathan.suse.cz>
-Cc: herbert@gondor.apana.org.au, ilpo.jarvinen@helsinki.fi,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: ptesarik@suse.cz (Petr Tesarik)
+Date: Wed, 17 Dec 2008 21:31:29 +1100
+Message-ID: <20081217103129.GA17248@gondor.apana.org.au>
+References: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi> <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ptesarik@suse.cz
+To: Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40303 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:52612 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752453AbYLQKRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 05:17:23 -0500
-In-Reply-To: <1229501899.13305.12.camel@nathan.suse.cz>
+	with ESMTP id S1752805AbYLQKbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 05:31:36 -0500
+Content-Disposition: inline
+In-Reply-To: <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Petr Tesarik <ptesarik@suse.cz> wrote:
+On Wed, Dec 17, 2008 at 09:13:22PM +1100, Herbert Xu wrote:
+> Ilpo J??rvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> > 
+> > This is certainly nice and possible but as mention earlier, the harder 
+> > problem is that the urg_ptr is only 16-bits so there will be still be 
+> > problem if the urgent seq-64k mark is within a super-skb as tail segments 
+> > need urg while the head ones won't. I think we would need out-of-band 
+> > means to communicate the extra bit (17th) from tcp if we want to solve 
+> > that one. It would be rather easy to change TCP to only do splitting for 
+> > that particular skb though and keep everything else intact.
 > 
->  1. Currently this code path will never get run, because large
->     offloads are avoided both for hardware TSO and software GSO.
->     You'd also have to modify the conditionals that guard calls
->     to tcp_mss_split_point().
+> I think you've got it the wrong way around.  The test for setting
+> urg_ptr is:
 
-Obviously one would revert the existing fixes after this is applied.
+Oh I see what you mean now.  Yes this isn't as easy as it appears.
 
->  2. Is it worth the trouble?
->     This slows down the software GSO slightly. I mean, urgent
->     data should be quite rare, so it makes sense to treat
->     non-urgent data as "fast path" and urgent data as "slow
->     path". While Ilpo's approach only slows down the slow path,
->     your patch slows down both.
-
-Well it might slow down the GSO path slightly, but it speeds
-up the TSO generation path accordingly :) I think the cost is
-negligible in either case so the benefit of TSO dominates.
- 
-> Anyway, we have to keep the code that avoids large offloads with URG,
-> because many NICs are broken in this regard (at least all Intel NICs
-> I've seen so far), so why treat software GSO specially?
-
-That's not a problem.  Unless the NIC sets NETIF_F_TSO_URG (which
-nobody does currently because it's a new flag), we'll do the
-segmentation in software, but only if the packet is marked as URG.
-
-This is identical to how we handle ECN which most NICs get wrong
-as well.
-
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
