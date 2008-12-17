@@ -1,62 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
- entry
-Date: Wed, 17 Dec 2008 13:31:31 -0800
-Message-ID: <20081217133131.44a4f67f@extreme>
-References: <20081211181528.GB10558@hmsendeavour.rdu.redhat.com>
-	<20081211160307.20709435@s6510>
-	<20081212121835.GA2402@hmsreliant.think-freely.org>
-	<20081216.155540.34452478.davem@davemloft.net>
-	<20081217211628.GD7356@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH v2.6.29 v2 1/5] gianfar: Fix skb allocation error
+Date: Wed, 17 Dec 2008 15:41:09 -0600
+Message-ID: <47F56387-69C8-4537-AA3E-6EAC22CFBDFE@freescale.com>
+References: <1229539981-14041-1-git-send-email-afleming@freescale.com> <1229539981-14041-2-git-send-email-afleming@freescale.com> <20081217.122252.267759802.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39107 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751759AbYLQVbe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2008 16:31:34 -0500
-In-Reply-To: <20081217211628.GD7356@hmsreliant.think-freely.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:59100 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751360AbYLQVlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 16:41:19 -0500
+In-Reply-To: <20081217.122252.267759802.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 17 Dec 2008 16:16:28 -0500
-Neil Horman <nhorman@tuxdriver.com> wrote:
 
-> On Tue, Dec 16, 2008 at 03:55:40PM -0800, David Miller wrote:
-> > From: Neil Horman <nhorman@tuxdriver.com>
-> > Date: Fri, 12 Dec 2008 07:18:35 -0500
-> > 
-> > > On Thu, Dec 11, 2008 at 04:03:07PM -0800, Stephen Hemminger wrote:
-> > > > I would ask it the other way. Why is interface an argument to netif_rx_complete
-> > > > if it is never used?  
-> > > > 
-> > > Thats a fair question, and I don't know the answer, Dave?
-> > 
-> > That's just what the old code uses, since the NAPI context
-> > sat inside of the device.  I just never removed it.
-> 
-> 
-> To that end, Dave, I've got a tree with that api fixup complete.  Its on the
-> napi_api_fixup branch of the tree here:
-> http://git.infradead.org/users/nhorman/net-2.6.git?a=shortlog;h=refs/heads/napi_api_fixup
-> 
-> If you'd like to pull it, please go ahead, or I can submit individual patches
-> for it, if you prefer
-> 
-> Regards
-> Neil
-> 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
-> 
+On Dec 17, 2008, at 2:22 PM, David Miller wrote:
 
-Since this a kernel API change, you have to do it as a one big patch
-otherwise the kernel source won't build for the intermediate steps,
-which makes 'git bisect' impossible.  Please merge the patches together.
+> From: Andy Fleming <afleming@freescale.com>
+> Date: Wed, 17 Dec 2008 12:52:57 -0600
+>
+>> We don't want to unmap the skb if we've decided to use the old one,  
+>> so we only
+>> unmap it if we're *not* using the old one.
+>>
+>> Signed-off-by: Andy Fleming <afleming@freescale.com>
+>
+> Andy.... look at what you're doing here.  Your patch talks about DMA
+> mapping, yet the patch deals with protecting an SKB free call.
+>
+> Your commit message matches the original patch but not this one.
+>
+> In fact I fear that, in fact, there was a bug being fixed originally,
+> and in fact you do need to modify where the DMA unmap occurs in this
+> function, but in fixing up the patch to apply you've not gotten that
+> part straight.
+>
+> I'm tossing these patches again.  If the commit message can't even
+> match what the patch is doing, you need to take a good long look at
+> these changes and then resubmit them with accurate commit messages.
+
+Argh, I apologize.  The patch still does the same thing, but the  
+dma_unmap got moved up.  The commit message got hastily composed when  
+I had to reapply the patch on an older tree, and I forgot to change it  
+when I fixed it.  I will review and make sure I haven't made more such  
+mistakes.
+
+Andy
