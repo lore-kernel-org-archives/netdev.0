@@ -1,37 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Matt Mackall <mpm@selenic.com>
 Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
-Date: Fri, 19 Dec 2008 10:02:53 +1100
-Message-ID: <20081218230253.GA1855@gondor.apana.org.au>
-References: <1229638581.3726.546.camel@calx> <E1LDRbc-0000Ro-1j@gondolin.me.apana.org.au> <20081218224905.2bc81664@lxorguk.ukuu.org.uk>
+Date: Thu, 18 Dec 2008 17:06:13 -0600
+Message-ID: <1229641573.3726.563.camel@calx>
+References: <E1LDRbc-0000Ro-1j@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54053 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754133AbYLRXDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 18:03:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20081218224905.2bc81664@lxorguk.ukuu.org.uk>
+Received: from waste.org ([66.93.16.53]:41463 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751339AbYLRXKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 18:10:31 -0500
+In-Reply-To: <E1LDRbc-0000Ro-1j@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 18, 2008 at 10:49:05PM +0000, Alan Cox wrote:
->
-> It was changed. The printer on fire ? bit was adjusted to make it clear
-> because the original message *did* confuse and worry a few people.
+On Fri, 2008-12-19 at 09:44 +1100, Herbert Xu wrote:
+> Matt Mackall <mpm@selenic.com> wrote:
+> > These debug messages are uninformative and extremely alarming. Rather
+> > than reporting a peer as a treacherous attacker, report it more
+> > correctly as simply broken. 
+> 
+> What's next, you're going to remove "printer on fire" as well?
+> This message has been there for eons and is part of Linux lore.
 
-Well
+No one has printer ports any more so it hardly seems worth the trouble.
 
-$ grep fire drivers/char/lp.c
-                        printk(KERN_INFO "lp%d on fire\n", minor);
-$ 
+Most people won't actually think their printer is on fire. But most
+people WILL think there is serious cause for concern when they see this
+for the first time in dmesg. Many will search the net for explanations
+and come away confused and not entirely reassured. And at least one
+clueless guy will call the police because he still thinks he's under
+attack.
 
-Cheers,
+Now that certainly fits my definition of amusing and if my goal for
+Linux was to amuse myself at the expense of users, I'd be all for
+keeping it[1]. But perversely, I actually want users to enjoy their
+Linux experience.
+
+[1] Hell, I'd probably even get them to use git.
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Mathematics is the supreme nostalgia of our time.
+
