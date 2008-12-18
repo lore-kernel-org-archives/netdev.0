@@ -1,30 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2.6.29 v3 5/5] gianfar: Continue polling until both tx
- and rx are empty
-Date: Wed, 17 Dec 2008 18:44:39 -0800 (PST)
-Message-ID: <20081217.184439.150569557.davem@davemloft.net>
-References: <1229550175-15600-5-git-send-email-afleming@freescale.com>
-	<20081217.165440.259566423.davem@davemloft.net>
-	<3034A747-1AD3-43FA-8939-67D654E3078A@freescale.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH] bnx2: Fix bug in bnx2_free_rx_mem().
+Date: Wed, 17 Dec 2008 18:59:09 -0800
+Message-ID: <1229569149-18954-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: afleming@freescale.com
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55355
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750950AbYLRCoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 21:44:38 -0500
-In-Reply-To: <3034A747-1AD3-43FA-8939-67D654E3078A@freescale.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:1166 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753967AbYLRCvy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2008 21:51:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Fleming Andy-AFLEMING" <afleming@freescale.com>
-Date: Wed, 17 Dec 2008 20:40:20 -0600
+DMA memory for the jumbo rx page rings was freed incorrectly using the
+wrong local variable as the array index.
 
-> It may just require better tuning of my tx coalescing parameters-I
-> was getting 7x the number of tx irqs as rx.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-It's hard to decrease TX irqs, but yes some tuning in that area
-might help.
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index a1a3d0e..9e8222f 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -543,9 +543,9 @@ bnx2_free_rx_mem(struct bnx2 *bp)
+ 		for (j = 0; j < bp->rx_max_pg_ring; j++) {
+ 			if (rxr->rx_pg_desc_ring[j])
+ 				pci_free_consistent(bp->pdev, RXBD_RING_SIZE,
+-						    rxr->rx_pg_desc_ring[i],
+-						    rxr->rx_pg_desc_mapping[i]);
+-			rxr->rx_pg_desc_ring[i] = NULL;
++						    rxr->rx_pg_desc_ring[j],
++						    rxr->rx_pg_desc_mapping[j]);
++			rxr->rx_pg_desc_ring[j] = NULL;
+ 		}
+ 		if (rxr->rx_pg_ring)
+ 			vfree(rxr->rx_pg_ring);
+-- 
+1.5.6.GIT
+
+
