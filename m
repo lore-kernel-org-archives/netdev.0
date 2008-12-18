@@ -1,42 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: Accept ESP packets regardless of UDP
- encapsulation mode
-Date: Wed, 17 Dec 2008 20:17:55 -0800 (PST)
-Message-ID: <20081217.201755.11960524.davem@davemloft.net>
-References: <20081217.194942.01082060.davem@davemloft.net>
-	<20081218035758.GA31610@gondor.apana.org.au>
-	<20081218041419.GA11722@gondor.apana.org.au>
+From: "Cyrill Gorcunov" <gorcunov@gmail.com>
+Subject: Re: [PATCH] net: ppp_generic - use idr technique instead of cardmaps
+Date: Thu, 18 Dec 2008 07:20:07 +0300
+Message-ID: <aa79d98a0812172020q2f541f82g8e0bfe973d12217f@mail.gmail.com>
+References: <20081216192000.GF26390@localhost>
+	 <20081217171625.776d4e46.akpm@linux-foundation.org>
+	 <20081217.174102.121955000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: martin@strongswan.org, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: akpm@linux-foundation.org, paulus@samba.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	xemul@openvz.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35845
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751150AbYLRERx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 23:17:53 -0500
-In-Reply-To: <20081218041419.GA11722@gondor.apana.org.au>
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:60617 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbYLREUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 23:20:10 -0500
+In-Reply-To: <20081217.174102.121955000.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 18 Dec 2008 15:14:19 +1100
-
-> A quick google failed to reveal any specific requirements apart
-> from the need to move in and out of NAT environments.
-> 
-> That isn't actually an issue because when your addresses change
-> you have to renegotiate with the other side to ensure that this
-> isn't some kind of an attack.  Afterwards you have to recreate
-> the SAs at which point you can easily set the encapsulation to
-> whatever it should be.
-> 
-> The only time when you need this patch is if the other side
-> unilaterally switched from NAT-T to no NAT-T, or vice versa,
-> which does not sound like a sane thing to do.
-
-My interpretation of the situation is that when you change (address or
-NAT-T) you still have to perform the renegotiation over the old SA.
-
-Or something like that.
+I'll fix the snippets pointed by Andrew within 12 hours (can't make it
+right now), thanks!
