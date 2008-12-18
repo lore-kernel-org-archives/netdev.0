@@ -1,35 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tcp: make urg+gso work for real this time
-Date: Thu, 18 Dec 2008 20:06:18 +1100
-Message-ID: <20081218090618.GA29096@gondor.apana.org.au>
-References: <20081217103129.GA17248@gondor.apana.org.au> <20081217104254.GA17407@gondor.apana.org.au> <1229511143.13305.23.camel@nathan.suse.cz> <20081217112600.GA19106@gondor.apana.org.au> <20081217114138.GA20976@gondor.apana.org.au> <20081217125505.GA8379@ms2.inr.ac.ru> <20081217153015.GA17903@ms2.inr.ac.ru> <1229529888.13305.57.camel@nathan.suse.cz> <20081217213052.GB27243@gondor.apana.org.au> <1229590692.12322.2.camel@nathan.suse.cz>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] net: Fix module refcount leak in kernel_accept()
+Date: Thu, 18 Dec 2008 18:20:46 +0800
+Message-ID: <494A23FE.6020305@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Petr Tesarik <ptesarik@suse.cz>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43927 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751457AbYLRJHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 04:07:14 -0500
-Content-Disposition: inline
-In-Reply-To: <1229590692.12322.2.camel@nathan.suse.cz>
+Received: from cn.fujitsu.com ([222.73.24.84]:59824 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752128AbYLRKUD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 05:20:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 18, 2008 at 09:58:12AM +0100, Petr Tesarik wrote:
->
-> That doesn't contradict my suggestion, which is: "Send the SIGURG as
-> soon as possible, but do not send _more_ SIGURGs until the urgent data
-> arrives."  I'm going to send a patch to make it clear.
+The kernel_accept() does not hold the module refcount of newsock->ops->owner,
+so we need __module_get(newsock->ops->owner) code after call kernel_accept()
+by hand.
+In sunrpc, the module refcount is missing to hold. So this cause kernel panic.
 
-OK that does make sense.
+Used following script to reproduct:
 
-Thanks,
+while [ 1 ];
+do
+    mount -t nfs4 192.168.0.19:/ /mnt
+    touch /mnt/file
+    umount /mnt
+    lsmod | grep ipv6
+done
+
+This patch fixed the problem by add __module_get(newsock->ops->owner) to
+kernel_accept(). So we do not need to used __module_get(newsock->ops->owner)
+in every place when used kernel_accept().
+
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/bluetooth/rfcomm/core.c |    2 --
+ net/socket.c                |    1 +
+ 2 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
+index ba537fa..ce68e04 100644
+--- a/net/bluetooth/rfcomm/core.c
++++ b/net/bluetooth/rfcomm/core.c
+@@ -1786,8 +1786,6 @@ static inline void rfcomm_accept_connection(struct rfcomm_session *s)
+ 	if (err < 0)
+ 		return;
+ 
+-	__module_get(nsock->ops->owner);
+-
+ 	/* Set our callbacks */
+ 	nsock->sk->sk_data_ready   = rfcomm_l2data_ready;
+ 	nsock->sk->sk_state_change = rfcomm_l2state_change;
+diff --git a/net/socket.c b/net/socket.c
+index 92764d8..76ba80a 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2307,6 +2307,7 @@ int kernel_accept(struct socket *sock, struct socket **newsock, int flags)
+ 	}
+ 
+ 	(*newsock)->ops = sock->ops;
++	__module_get((*newsock)->ops->owner);
+ 
+ done:
+ 	return err;
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.3.8
+
+
+
