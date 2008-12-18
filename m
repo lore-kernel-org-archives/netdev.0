@@ -1,38 +1,45 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFCv2][PATCH] static builtin CCIDs was Re: [PATCH 2/5] dccp:
+Subject: Re: [RFC][PATCH] static builtin CCIDs was  Re: [PATCH 2/5] dccp:
 	Auto-load (when supported) CCID plugins for negotiation
-Date: Thu, 18 Dec 2008 06:33:49 +0100
-Message-ID: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk>
-References: <20081217214608.GC14518@ghostprotocols.net> <20081217.212151.230224281.davem@davemloft.net>
+Date: Thu, 18 Dec 2008 06:41:10 +0100
+Message-ID: <20081218054110.GA6298@gerrit.erg.abdn.ac.uk>
+References: <20081216111908.GI14518@ghostprotocols.net> <20081216.133200.229085084.davem@davemloft.net> <20081216222559.GR14518@ghostprotocols.net> <20081216.151151.220977047.davem@davemloft.net> <20081217131347.GS14518@ghostprotocols.net> <20081217182038.GV14518@ghostprotocols.net> <20081217183041.GW14518@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: acme@ghostprotocols.net, mirqus@gmail.com, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>, mirqus@gmail.com,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63875 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64031 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750778AbYLRFeE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2008 00:34:04 -0500
+	id S1750778AbYLRFlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 00:41:32 -0500
 Content-Disposition: inline
-In-Reply-To: <20081217.212151.230224281.davem@davemloft.net>
+In-Reply-To: <20081217183041.GW14518@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| > Build CCID2, because the RFC requires it to be always available, and
-| > CCID3 too as it is the most interesting one for VoIP, etc, together with
-| > the main, layer 3 agnostic, DCCP core code, so that we have a faster
-| > connection path by eliminating the need to always go thru the CCID
-| > registration lock. But keep it there, so that we can experiment with
-| > newer CCIDs without having to rebuild/reboot the whole kernel.
+Quoting Arnaldo:
+| Em Wed, Dec 17, 2008 at 04:20:38PM -0200, Arnaldo Carvalho de Melo escreveu:
+| > > IOW we're back to my suggestion on looking at
+| > > tcp_set_congestion_control(). :-)
 | > 
-| > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+| > I tried to test this using ttcp over loopback but the tree seems broken
+| > somehow, with or without this patch I'm getting:
+| > 
+| > Could not activate 0 at /home/acme/git/net-next-2.6/net/dccp/feat.c:1176
+| > 
+| > I tried doing a quick chase on this one but failed miserably, Gerrit,
+| > any ideas?
 | 
-| Gerrit, are you OK with this?
-| 
-Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+| Well, without the patch the problem was that dccp_ccid2 was not being
+| autoloaded, as soon as I manually loaded it, ttcp worked. Now to see
+| why...
+I have acked your patch but haven't had time to compile and test it.
+Will do this in due course and integrate it into the test tree. 
 
-Yes absolutely and thanks a lot to Arnaldo for the quick reply.
+With regard to the error message, this says that the feature with index 0
+could not be activated. According to table 6.4 in RFC 4340 this is a bug
+because it tries to activate a reserved feature.
 
-I apologize being late in replying, I actually sat down after work
-yesterday and formulated a reply which is in agreement with this code.
+Will do in-depth testing later on today.
