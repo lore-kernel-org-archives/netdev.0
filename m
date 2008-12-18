@@ -1,75 +1,40 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
 	negotiation
-Date: Thu, 18 Dec 2008 06:46:31 +0100
-Message-ID: <20081218054631.GB6298@gerrit.erg.abdn.ac.uk>
-References: <20081216111908.GI14518@ghostprotocols.net> <20081216.133200.229085084.davem@davemloft.net> <20081216222559.GR14518@ghostprotocols.net> <20081216.151151.220977047.davem@davemloft.net> <20081217131347.GS14518@ghostprotocols.net>
+Date: Thu, 18 Dec 2008 06:56:17 +0100
+Message-ID: <20081218055617.GC6298@gerrit.erg.abdn.ac.uk>
+References: <20081208.011917.176472177.davem@davemloft.net> <1229175685-18716-1-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-2-git-send-email-gerrit@erg.abdn.ac.uk> <1229175685-18716-3-git-send-email-gerrit@erg.abdn.ac.uk> <e2d7436a0812130555r52422bel1dd9b66ba8479e2a@mail.gmail.com> <20081213145655.GA14240@gerrit.erg.abdn.ac.uk> <e2d7436a0812140650r41b601dfgc3bbf41f01c2bb5d@mail.gmail.com> <20081216055540.GC6199@gerrit.erg.abdn.ac.uk> <e2d7436a0812160331h63152b26kd4aad6b449ed7f8@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>, mirqus@gmail.com,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: davem@davemloft.net, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Micha? Miros?aw <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64150 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64283 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750915AbYLRFq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2008 00:46:58 -0500
+	id S1751378AbYLRF4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 00:56:25 -0500
 Content-Disposition: inline
-In-Reply-To: <20081217131347.GS14518@ghostprotocols.net>
+In-Reply-To: <e2d7436a0812160331h63152b26kd4aad6b449ed7f8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Sorry for being late in replying, this is the answer from yesterday]
-
-I think that if we look too much into the direction of TCP we
-might miss some of the notable differences.
-
-In TCP the congestion module stays the same for the lifetime of a
-connection and there is no real negotiation. If the TCP congestion
-control module is a sender-side only modification then that even
-works transparently for any unmodified standard TCP client.
-
-In DCCP the negotiation is more like SIP where both endpoints compare
-their capabilities and make a hanshake to vote for a common value.
-
-(Although it is not supported by the current implementation, it
- is in theory possible to re-negotiate a CCID in the middle of
- a connection.  This could for example make sense when
-  * a satellite connection suddenly changes, e.g. reduced
-    bandwidth due to rain fading;
-  * a mobile IP device makes a handoff from Ethernet to WiFi.)
-
-
-
-Before a connection, a user can specify/select candidates:
-
- * he can advertise simply just "everything that is there";
- * the other extreme is to use just a single CCID (where 
-   connection might fail due to lack of alternatives).		 
-
-Only the CCIDs requested currently by the users on a system need
-to be loaded, but it would make life much simpler if the configured
-modules were already loaded.
-
-
-With regard to "experimental versus standardised" CCIDs, it takes 
-actually quite long before a RFC becomes sufficiently standardised.
-
-For the experimental CCIDs I think that David's suggestion is  preferable:
-
- * for the sake of development we can create a special way of integrating
-   whatever kind of new CCID we are testing;
- * instead of complicating the mainline mechanism by implementing answers
-   for all (including pathological) possible cases.
-
-Thinking ahead, if in a few years there is suddenly an abundant choice of
-practically useful/useable CCIDs then it may make sense to divide CCIDs
-into separate modules again, after conquering their implementation.
-
-
->From both of your answers I see consensus that at least the standardised
-CCIDs should be integrated with dccp.ko. And there is already Arnaldo's
-patch to realise this, which is great.
-
-Will integrate Arnaldo's patch with the test tree and the current patch
-set. Will be back once this is accomplished.
+| > Hence your suggestion does not improve the code. I maintain that it is
+| > correct. And it has proven to work in the test tree for more than one
+| > year, including tests with up to 100 parallel (iperf) connections.
+| 
+| The read-lock is just a memory barrier here (not a read memory barrier
+| as I wrote
+| before) and it's not needed here. If I read the code correctly you are
+| testing a single
+| pointer to be NULL and don't really care about ordering wrt module
+| initialization.
+| 
+| You can actually annotate ccids[] as read_mostly (it's changed only on module
+| load/unload) and protect it with RCU instead of the home-grown rwlock
+| you are using.
+| 
+Hm the details are not so important here. What is important is that your
+observation and questioning whether the code makes sense has lead to 
+finding a deeper problem. Without your posting that may not have
+happened. So many thanks indeed, if you have any more observations,
+please keep them coming.
