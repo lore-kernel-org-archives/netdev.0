@@ -1,42 +1,52 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
-Date: Thu, 18 Dec 2008 23:14:07 +0000
-Message-ID: <20081218231407.4096a64e@lxorguk.ukuu.org.uk>
-References: <1229638581.3726.546.camel@calx>
-	<E1LDRbc-0000Ro-1j@gondolin.me.apana.org.au>
-	<20081218224905.2bc81664@lxorguk.ukuu.org.uk>
-	<20081218230253.GA1855@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Thu, 18 Dec 2008 22:40:15 +0000
+Message-ID: <1229640015.2914.20.camel@hashbaz.i.decadent.org.uk>
+References: <20081217211628.GD7356@hmsreliant.think-freely.org>
+	 <20081217133131.44a4f67f@extreme>
+	 <20081218011306.GA32191@hmsreliant.think-freely.org>
+	 <20081217.192936.169928910.davem@davemloft.net>
+	 <20081218195236.GA5191@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	jarkao2@gmail.com, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:42638 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752270AbYLRXOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 18:14:05 -0500
-In-Reply-To: <20081218230253.GA1855@gondor.apana.org.au>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:2509 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752552AbYLRXWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 18:22:09 -0500
+In-Reply-To: <20081218195236.GA5191@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Dec 2008 10:02:53 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Thu, 2008-12-18 at 14:52 -0500, Neil Horman wrote:
+[...]
+> diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+> index 086629c..75273bb 100644
+> --- a/drivers/net/sfc/efx.c
+> +++ b/drivers/net/sfc/efx.c
+> @@ -226,11 +226,11 @@ static int efx_poll(struct napi_struct *napi, int budget)
+>  
+>  	if (rx_packets < budget) {
+>  		/* There is no race here; although napi_disable() will
+> -		 * only wait for netif_rx_complete(), this isn't a problem
+> +		 * only wait for netif_rx_complete(this isn't a problem
+>  		 * since efx_channel_processed() will have no effect if
+>  		 * interrupts have already been disabled.
+>  		 */
+[...]
 
-> On Thu, Dec 18, 2008 at 10:49:05PM +0000, Alan Cox wrote:
-> >
-> > It was changed. The printer on fire ? bit was adjusted to make it clear
-> > because the original message *did* confuse and worry a few people.
-> 
-> Well
-> 
-> $ grep fire drivers/char/lp.c
->                         printk(KERN_INFO "lp%d on fire\n", minor);
+You'll want to exclude comments from your search-and-replace.
 
-Interesting. It got changed and then the change got lost between 2.2 and
-2.4 somewhere. It was changed to report
+Ben.
 
-"lp0 reported invalid error status (on fire, eh?)"
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-and it looks like that needs re-fixing.
+
