@@ -1,83 +1,59 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
-	entry
-Date: Fri, 19 Dec 2008 00:30:03 +0100
-Message-ID: <1229643003.3601.58.camel@johannes.berg>
-References: <20081217211628.GD7356@hmsreliant.think-freely.org>
-	 <20081217133131.44a4f67f@extreme>
-	 <20081218011306.GA32191@hmsreliant.think-freely.org>
-	 <20081217.192936.169928910.davem@davemloft.net>
-	 <20081218195236.GA5191@hmsreliant.think-freely.org>
-	 <1229640015.2914.20.camel@hashbaz.i.decadent.org.uk>
-	 (sfid-20081219_002215_896671_C1B9AA7B)
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
+Date: Thu, 18 Dec 2008 17:50:34 -0600
+Message-ID: <1229644234.3726.577.camel@calx>
+References: <1229638581.3726.546.camel@calx>
+	 <Pine.LNX.4.64.0812190028560.12061@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-aUSwMccb/AzIQX1j8uWf"
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	jarkao2@gmail.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:59066 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752385AbYLRXaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 18:30:17 -0500
-In-Reply-To: <1229640015.2914.20.camel@hashbaz.i.decadent.org.uk> (sfid-20081219_002215_896671_C1B9AA7B)
+Received: from waste.org ([66.93.16.53]:41015 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750894AbYLRXu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 18:50:56 -0500
+In-Reply-To: <Pine.LNX.4.64.0812190028560.12061@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-aUSwMccb/AzIQX1j8uWf
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2008-12-18 at 22:40 +0000, Ben Hutchings wrote:
-
-> >  	if (rx_packets < budget) {
-> >  		/* There is no race here; although napi_disable() will
-> > -		 * only wait for netif_rx_complete(), this isn't a problem
-> > +		 * only wait for netif_rx_complete(this isn't a problem
-> >  		 * since efx_channel_processed() will have no effect if
-> >  		 * interrupts have already been disabled.
-> >  		 */
-> [...]
+On Fri, 2008-12-19 at 00:33 +0200, Ilpo J=C3=A4rvinen wrote:
+> On Thu, 18 Dec 2008, Matt Mackall wrote:
 >=20
-> You'll want to exclude comments from your search-and-replace.
+> > These debug messages are uninformative and extremely alarming. Rath=
+er
+> > than reporting a peer as a treacherous attacker, report it more
+> > correctly as simply broken.=20
+>=20
+> Last time (well, ignoring some report on ancient vendor kernel) I've =
+seen=20
+> this to trigger it wasn't the fault of the peer but ours (we sent pas=
+t the=20
+> advertized window and window ended up being shrunk to zero). I agree =
+that=20
+> the message as-is is not very good but your change is not very good=20
+> either.
 
-Or just use spatch (http://www.emn.fr/x-info/coccinelle/)
+Here this is the bulk of messages on my server (which is otherwise
+fairly quiet).
 
-Should be as easy as:
+It really doesn't matter whether the message is technically accurate -
+it's mostly there for the benefit of kernel hackers. The average end
+user is not going to have the slightest clue what is going on nor shoul=
+d
+they even care. An advanced network admin might be able to figure thing=
+s
+out by poking at packet traces, but again: not much reason to care. For
+most admins, the vast majority of these treasonous peers won't be under
+their administrative control.=20
 
-@@
-expression A, B;
-@@
--netif_rx_schedule(A, B);
-+netif_rx_schedule(B);
+If you want, we can instead say "Peer %d unexpectedly shrunk window..."=
+=2E
+So long as the scary bit is gone, I don't care.
 
-etc.
-
-johannes
-
---=-aUSwMccb/AzIQX1j8uWf
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJStz4AAoJEKVg1VMiehFYORoP/2MMPHZOh86np5Vu7v629pyR
-fRaueNsrp1TVKgZ/p8waaEbu8WiB45Joo0h+ByKzx/yeNnLqN1ZEIOQmn5Nz0Es9
-fyhIhv3m20B+nrUEBxjMvfuXK7TE2epEKYbk7K4/UiDQTDzlsDMA4ej5fCBVB0bl
-YjFPA6GHJINy/ur/PTL6AqiChsMVqLa9PfLC/Id+DtK8EZWENjGM8AX0E309ojkf
-YWqVOMvKvw6VBlmnhVITgMu/GOjW6rgPZVo/zf82AjrfRA1aaiFjh9HgSETrWY1B
-nbqp/VVno8zOCmeIHBGhlX+YesMrVFSxUV2X4q10pi9EMsOvsWQt3+sVhV93xOP8
-iVFXoOhoAHrnMG+GlJRh0RANrgRsJcxoSCxV1UOKt8czUZ9CYXun82rV3FbP/WpR
-kwbBeSDlo6gu3MkrlSDZ1fyLw6mhDQUWFwhSmT12gMAmyU7+JeVOh0bU91PNODTT
-7eUGSSmt04eHMqpmf5EtLimHXJtH39mYOYbuoGypuxrJVv3jm0DWmy8XYQA3Y/Zr
-SKo4BQC0Ti76zlRMrlKPHwW4LdOdteHisqSg3MIYlC2rJNhMgHYMRyl0QR1ZuUKs
-thu6jDnnKG3RVFlN+Vd3Ry064rPB6DgZVGEXgwbqxYWV+TzEiV/YMzX3XBcXBlAK
-LxkOvB3YCdM4/w/pq4B8
-=hXjn
------END PGP SIGNATURE-----
-
---=-aUSwMccb/AzIQX1j8uWf--
+--=20
+Mathematics is the supreme nostalgia of our time.
 
