@@ -1,97 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Thu, 18 Dec 2008 08:17:37 +0000
-Message-ID: <20081218081737.GA8416@ff.dom.local>
-References: <20081010090426.GA6054@ff.dom.local> <20081010095129.GB6054@ff.dom.local> <48F6FB3E.7060903@bigtelecom.ru> <20081016084027.GA17632@ff.dom.local> <48FEC302.5090707@bigtelecom.ru> <20081022070200.GB4178@ff.dom.local> <493FDCD4.5020108@bigtelecom.ru> <20081211084606.GA4129@ff.dom.local> <20081215111308.GA5853@ff.dom.local> <4949F127.6030105@bigtelecom.ru>
+From: Petr Tesarik <ptesarik@suse.cz>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Thu, 18 Dec 2008 09:58:12 +0100
+Message-ID: <1229590692.12322.2.camel@nathan.suse.cz>
+References: <Pine.LNX.4.64.0812171004500.9494@wrl-59.cs.helsinki.fi>
+	 <E1LCtP8-0004QO-Bp@gondolin.me.apana.org.au>
+	 <20081217103129.GA17248@gondor.apana.org.au>
+	 <20081217104254.GA17407@gondor.apana.org.au>
+	 <1229511143.13305.23.camel@nathan.suse.cz>
+	 <20081217112600.GA19106@gondor.apana.org.au>
+	 <20081217114138.GA20976@gondor.apana.org.au>
+	 <20081217125505.GA8379@ms2.inr.ac.ru>
+	 <20081217153015.GA17903@ms2.inr.ac.ru>
+	 <1229529888.13305.57.camel@nathan.suse.cz>
+	 <20081217213052.GB27243@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:34969 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752103AbYLRIRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 03:17:44 -0500
-Received: by ey-out-2122.google.com with SMTP id 6so38608eyi.37
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2008 00:17:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4949F127.6030105@bigtelecom.ru>
+Received: from styx.suse.cz ([82.119.242.94]:42270 "EHLO mail.suse.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750927AbYLRI6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 03:58:14 -0500
+In-Reply-To: <20081217213052.GB27243@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 18, 2008 at 09:43:51AM +0300, Badalian Vyacheslav wrote:
-> Hello
-> result: Patch 2+3 = uptime 7 days without crashes.
-> May i revert patches and try single new patch?
-
-Here is my current opinion on this bug:
-
-1) I'm almost sure it's not a htb, but hrtimers bug (some race),
-
-2) the htb patches you've tested are not "the proper" way of fixing
-   it; I see substantial changes in hrtimers code in the "-tip" tree
-   (probably for 2.6.29), which, probably, you'll be advised by
-   hrtimers maintainers to try, and I guess, it's not easy on a
-   production system,
-
-So, it's up to you:
-
-1) since these patches work for you, you can stop with testing and
-   wait with these patched kernels until 2.6.29 (I can propose this
-   #2 patch as a temporary fix then),
-
-2) for curiosity you could try this patch #4 alone on one box first
-   (after reverting at least patch #2), but again: if it works, it
-   could be only treated as a temporary hack, and alternative of #2.
-
-Thanks,
-Jarek P.
-
-> 
-> > On Thu, Dec 11, 2008 at 08:46:06AM +0000, Jarek Poplawski wrote:
-> >   
-> >> On Wed, Dec 10, 2008 at 06:14:28PM +0300, Badalian Vyacheslav wrote:
-> >>     
-> >>> Hello again! Sorry for long away.
-> >>>       
-> >> Hi!
-> >>
-> >>     
-> >>> I was go away from this work for long time.
-> >>>
-> >>> May we return to this bug?
-> >>> Servers at last stable kernel 2.6.27.8
-> >>> HZ=1000, HR=off, DynamicTicks=off, hysteresis=1
-> >>> Sorry - no patched, update do not i. Do you have fresh patches or ideas
-> >>> for tests?
-> >>>       
-> >> Not much, but I can have if you only are willing to test them...
-> >> I attach below a patch which combines 2 patches I sent yesterday to
-> >> netdev (PATCH 7/6 and 8/6) vs. 2.6.27.7 (named testing patch #3 here).
-> >>
-> >> You can still try the testing patch #2 I sent previously (quoted below)
-> >> with or without this new #3 patch.
-> >>
-> >>     
+Herbert Xu p=C3=AD=C5=A1e v =C4=8Ct 18. 12. 2008 v 08:30 +1100:
+> On Wed, Dec 17, 2008 at 05:04:48PM +0100, Petr Tesarik wrote:
 > >
-> > Here is another idea worth checking (instead of patch #2).
-> >
-> > Jarek P.
-> >
-> > --- (testing patch #4)
-> >
-> > diff -Nurp a2.6.27.7/net/sched/sch_htb.c b2.6.27.7/net/sched/sch_htb.c
-> > --- a2.6.27.7/net/sched/sch_htb.c	2008-12-11 08:16:16.000000000 +0000
-> > +++ b2.6.27.7/net/sched/sch_htb.c	2008-12-15 10:44:32.000000000 +0000
-> > @@ -924,6 +924,7 @@ static struct sk_buff *htb_dequeue(struc
-> >  		}
-> >  	}
-> >  	sch->qstats.overlimits++;
-> > +	qdisc_watchdog_cancel(&q->watchdog);
-> >  	qdisc_watchdog_schedule(&q->watchdog, next_event);
-> >  fin:
-> >  	return skb;
-> >
-> >
-> >   
-> 
+> > This is all nice, but it still does not solve those series of SIGUR=
+Gs on
+> > the receiving side. My suggestion is to not generate a new SIGURG u=
+ntil
+> > the data for the latest one have arrived. There can be only one byt=
+e of
+> > urgent data, so if somebody sends more than one, it cannot be handl=
+ed by
+> > the receiver, anyway, so that use case is broken and need not be ta=
+ken
+> > into account.
+>=20
+> No we need to send a SIGURG as soon as we enter urgent mode.  The
+> whole point of urgent mode is to inform the receiver ASAP.  As the
+> urgent data itself cannot be expedited due to the in-order nature
+> of TCP, setting the flag and sending the signal is the best we can
+> do.
+
+That doesn't contradict my suggestion, which is: "Send the SIGURG as
+soon as possible, but do not send _more_ SIGURGs until the urgent data
+arrives."  I'm going to send a patch to make it clear.
+
+Petr Tesarik
+
+
