@@ -1,26 +1,46 @@
-From: "Cyrill Gorcunov" <gorcunov@gmail.com>
-Subject: Re: [PATCH] net: ppp_generic - use idr technique instead of cardmaps
-Date: Thu, 18 Dec 2008 07:20:07 +0300
-Message-ID: <aa79d98a0812172020q2f541f82g8e0bfe973d12217f@mail.gmail.com>
-References: <20081216192000.GF26390@localhost>
-	 <20081217171625.776d4e46.akpm@linux-foundation.org>
-	 <20081217.174102.121955000.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: Accept ESP packets regardless of UDP
+	encapsulation mode
+Date: Thu, 18 Dec 2008 15:21:42 +1100
+Message-ID: <20081218042142.GA15884@gondor.apana.org.au>
+References: <20081217.194942.01082060.davem@davemloft.net> <20081218035758.GA31610@gondor.apana.org.au> <20081218041419.GA11722@gondor.apana.org.au> <20081217.201755.11960524.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, paulus@samba.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	xemul@openvz.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: martin@strongswan.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:60617 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210AbYLREUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 23:20:10 -0500
-In-Reply-To: <20081217.174102.121955000.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:51471 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751210AbYLREVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 23:21:48 -0500
 Content-Disposition: inline
+In-Reply-To: <20081217.201755.11960524.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'll fix the snippets pointed by Andrew within 12 hours (can't make it
-right now), thanks!
+On Wed, Dec 17, 2008 at 08:17:55PM -0800, David Miller wrote:
+>
+> My interpretation of the situation is that when you change (address or
+> NAT-T) you still have to perform the renegotiation over the old SA.
+> 
+> Or something like that.
+
+Do you have a pointer to that?
+
+For each connection you have a pair of SAs, they're keyed by
+
+	(dst, spi, proto)
+
+So if one party's address changes then you immediately lose one
+direction, which means the SAs are now inoperable as a bi-directional
+channel.
+
+In any case, AFAIK negotiations are conducted outside of SAs, on
+port 500 or 4500, so this shouldn't matter.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
