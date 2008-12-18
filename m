@@ -1,41 +1,41 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
-Date: Fri, 19 Dec 2008 09:36:51 +1100
-Message-ID: <20081218223651.GA1574@gondor.apana.org.au>
-References: <1229638581.3726.546.camel@calx> <Pine.LNX.4.64.0812190028560.12061@wrl-59.cs.helsinki.fi>
+Subject: Re: [PATCH] xfrm: Accept ESP packets regardless of UDP
+	encapsulation mode
+Date: Fri, 19 Dec 2008 09:38:51 +1100
+Message-ID: <20081218223851.GA1637@gondor.apana.org.au>
+References: <1229596531.10402.121.camel@martin> <E1LDGgX-0007JE-T9@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Mackall <mpm@selenic.com>, David Miller <davem@davemloft.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Martin Willi <martin@strongswan.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60379 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:60386 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752371AbYLRWhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 17:37:06 -0500
+	with ESMTP id S1751394AbYLRWi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 17:38:56 -0500
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0812190028560.12061@wrl-59.cs.helsinki.fi>
+In-Reply-To: <E1LDGgX-0007JE-T9@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 18, 2008 at 10:33:46PM +0000, Ilpo J=E4rvinen wrote:
->=20
-> Last time (well, ignoring some report on ancient vendor kernel) I've =
-seen=20
-> this to trigger it wasn't the fault of the peer but ours (we sent pas=
-t the=20
-> advertized window and window ended up being shrunk to zero). I agree =
-that=20
-> the message as-is is not very good but your change is not very good=20
-> either.
+On Thu, Dec 18, 2008 at 10:04:53PM +1100, Herbert Xu wrote:
+>
+> > [1]https://lists.strongswan.org/pipermail/users/2008-December/002936.html
+> 
+> Right that's what led to this patch.
+> 
+> Reading this it seems that there is either a bug in strongswan or
+> in its peer.  IKE or IKEv2 is supposed to negotiate UDP encapsulation
+> explicitly.  So either we did negotiate to use UDP encapsulation,
+> and Strongswan ignored it (it's buggy), or we didn't and the peer
+> still chose to use it (the peer is buggy).
 
-Indeed I had fixed a bug in our kernel that triggered this too
-so this is definitely treason :)
+You didn't address this part.
+
+What KM/OS was the peer running? How was it configured?
 
 Cheers,
---=20
+-- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
