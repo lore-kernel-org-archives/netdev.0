@@ -1,98 +1,58 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH] ppp: fix segfaults introduced by netdev_priv changes
-Date: Thu, 18 Dec 2008 10:15:28 +0800
-Message-ID: <4949B240.7060102@cn.fujitsu.com>
-References: <200812172202.mBHM2GHi012456@bert.katalix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: "Fleming Andy-AFLEMING" <afleming@freescale.com>
+Subject: Re: [PATCH v2.6.29 v3 5/5] gianfar: Continue polling until both tx and rx are empty
+Date: Wed, 17 Dec 2008 20:40:20 -0600
+Message-ID: <3034A747-1AD3-43FA-8939-67D654E3078A@freescale.com>
+References: <1229550175-15600-3-git-send-email-afleming@freescale.com> <1229550175-15600-4-git-send-email-afleming@freescale.com> <1229550175-15600-5-git-send-email-afleming@freescale.com> <20081217.165440.259566423.davem@davemloft.net>
+Mime-Version: 1.0 (iPhone Mail 5G77)
+Content-Type: text/plain;
+	format=flowed;
+	delsp=yes;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: James Chapman <jchapman@katalix.com>
+Cc: "Jeff Garzik" <jeff@garzik.org>, <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59413 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751251AbYLRCPn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2008 21:15:43 -0500
-In-Reply-To: <200812172202.mBHM2GHi012456@bert.katalix.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:43799 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbYLRClF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 21:41:05 -0500
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id mBI2eraU005966
+	for <netdev@vger.kernel.org>; Wed, 17 Dec 2008 19:40:53 -0700 (MST)
+Received: from az33exm23.fsl.freescale.net (az33exm23.am.freescale.net [10.64.32.8])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id mBI2eqbs015509
+	for <netdev@vger.kernel.org>; Wed, 17 Dec 2008 20:40:52 -0600 (CST)
+In-Reply-To: <20081217.165440.259566423.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Chapman said the following on 2008-12-18 6:02:
-> This patch fixes a segfault in ppp_shutdown_interface() and
-> ppp_destroy_interface() when a PPP connection is closed. I bisected
-> the problem to the following commit:
-> 
->   commit c8019bf3aff653cceb64f66489fc299ee5957b57
->   Author: Wang Chen <wangchen@cn.fujitsu.com>
->   Date:   Thu Nov 20 04:24:17 2008 -0800
-> 
->     netdevice ppp: Convert directly reference of netdev->priv
->     
->     1. Use netdev_priv(dev) to replace dev->priv.
->     2. Alloc netdev's private data by alloc_netdev().
->     
->     Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
 
-Yes. My bad.
-I should cc my previous patch to you ;)
 
->  static void ppp_shutdown_interface(struct ppp *ppp)
->  {
-> -	struct net_device *dev;
-> -
->  	mutex_lock(&all_ppp_mutex);
-> -	ppp_lock(ppp);
-> -	dev = ppp->dev;
-> -	ppp->dev = NULL;
-> -	ppp_unlock(ppp);
->  	/* This will call dev_close() for us. */
-> -	if (dev) {
-> -		unregister_netdev(dev);
-> -		free_netdev(dev);
-> -	}
-> +	ppp_lock(ppp);
-> +	if (!ppp->closing) {
-> +		ppp->closing = 1;
-> +		ppp_unlock(ppp);
-> +		unregister_netdev(ppp->dev);
-> +	} else
-> +		ppp_unlock(ppp);
-> +
->  	cardmap_set(&all_ppp_units, ppp->file.index, NULL);
->  	ppp->file.dead = 1;
->  	ppp->owner = NULL;
-> @@ -2554,7 +2552,7 @@ static void ppp_destroy_interface(struct ppp *ppp)
->  	if (ppp->xmit_pending)
->  		kfree_skb(ppp->xmit_pending);
->  
-> -	kfree(ppp);
-> +	free_netdev(ppp->dev);
->  }
->  
+On Dec 17, 2008, at 18:55, "David Miller" <davem@davemloft.net> wrote:
 
-I have no comment on these changes, but
-there is a path that calls only ppp_destroy_interface() no
-ppp_shutdown_interface().
-it's:
-ppp_unregister_channel
-    --->ppp_disconnect_channel()
-        ---> ppp_destroy_interface()
->  /*
-> @@ -2616,7 +2614,7 @@ ppp_connect_channel(struct channel *pch, int unit)
->  	if (pch->file.hdrlen > ppp->file.hdrlen)
->  		ppp->file.hdrlen = pch->file.hdrlen;
->  	hdrlen = pch->file.hdrlen + 2;	/* for protocol bytes */
-> -	if (ppp->dev && hdrlen > ppp->dev->hard_header_len)
-> +	if (hdrlen > ppp->dev->hard_header_len)
->  		ppp->dev->hard_header_len = hdrlen;
->  	list_add_tail(&pch->clist, &ppp->channels);
->  	++ppp->n_channels;
+> From: Andy Fleming <afleming@freescale.com>
+> Date: Wed, 17 Dec 2008 15:42:55 -0600
+>
+>> gfar_poll would declare polling done once the rx queue was empty,
+>> but the tx queue could still have packets left.
+>>
+>> Stolen mostly from the e1000 driver.
+>>
+>> Signed-off-by: Andy Fleming <afleming@freescale.com>
+>
+> Applied.
+>
+> But I absolutely do not recommend this polling technique at all.
+>
+> The best scheme is to first purge your TX ring completely, and do not
+> apply any quota to this work.  It's relatively cheap and batches well.
+>
+> Then, you process the RX ring and apply the quota only to the RX ring
+> work.
+>
+> This is what every NAPI driver I've written does and it gives the best
+> results.
 
-I don't understand this change.
-Do you mean that in this place, ppp->dev will never be NULL?
-
-B.R
-Wang Chen
-
+I agree it seems a bit screwy, but I got a 4-5% performance increase.   
+It may just require better tuning of my tx coalescing parameters-I was  
+getting 7x the number of tx irqs as rx.
