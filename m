@@ -1,52 +1,44 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] xfrm: Accept ESP packets regardless of UDP
- encapsulation mode
-Date: Wed, 17 Dec 2008 19:49:42 -0800 (PST)
-Message-ID: <20081217.194942.01082060.davem@davemloft.net>
-References: <1228396731.1643.57.camel@martin>
-	<E1LD9rC-0007y7-KY@gondolin.me.apana.org.au>
+	encapsulation mode
+Date: Thu, 18 Dec 2008 14:57:58 +1100
+Message-ID: <20081218035758.GA31610@gondor.apana.org.au>
+References: <1228396731.1643.57.camel@martin> <E1LD9rC-0007y7-KY@gondolin.me.apana.org.au> <20081217.194942.01082060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: martin@strongswan.org, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48705
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751320AbYLRDtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 22:49:41 -0500
-In-Reply-To: <E1LD9rC-0007y7-KY@gondolin.me.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:52391 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750789AbYLRD6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 22:58:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20081217.194942.01082060.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 18 Dec 2008 14:47:26 +1100
-
-> Martin Willi <martin@strongswan.org> wrote:
-> > An IPsec node speaking IKEv2 MUST accept incoming UDP encapsulated
-> > ESP packets, even if no NAT situation is detected. This is important
-> > if MOBIKE is in use. Some implementation keep the encapsulation
-> > mode if they move out of a NAT situation.
-> > 
-> > diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-> > index b4a1317..65bcf09 100644
-> > --- a/net/xfrm/xfrm_input.c
-> > +++ b/net/xfrm/xfrm_input.c
-> > @@ -167,11 +167,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
-> >                        goto drop_unlock;
-> >                }
-> > 
-> > -               if ((x->encap ? x->encap->encap_type : 0) != encap_type) {
-> > -                       XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEMISMATCH);
-> > -                       goto drop_unlock;
-> > -               }
+On Wed, Dec 17, 2008 at 07:49:42PM -0800, David Miller wrote:
+>
+> IKEv2 daemon needs to be agnostic about this situation.  So we have to
+> accept everything, regardless of configured encapsulation type.
 > 
-> This can't work as ESP relies on this check.  Now that it's gone
-> ESP may touch a UDP header which doesn't exist.
-> 
-> What exactly are you trying to achieve?
+> At least that is my impression after reading the MOBIKE documents.
 
-IKEv2 daemon needs to be agnostic about this situation.  So we have to
-accept everything, regardless of configured encapsulation type.
+The NAT-T encapsulation is an SA-specific attribute, so it's
+decided when the SA is negotiated.  There is a mechanism for
+detecting changes in the peer's address and updating the SA.
 
-At least that is my impression after reading the MOBIKE documents.
+However, I can't see why you would ever need to switch between
+having UDP encapsulation and not having it, without negotiating
+it with the peer.  That is, the UDP encapsulation works whether
+you have NAT or not.
+
+Do you have a specific quote that I can check against?
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
