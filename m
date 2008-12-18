@@ -1,38 +1,54 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
-Date: Thu, 18 Dec 2008 22:49:05 +0000
-Message-ID: <20081218224905.2bc81664@lxorguk.ukuu.org.uk>
-References: <1229638581.3726.546.camel@calx>
-	<E1LDRbc-0000Ro-1j@gondolin.me.apana.org.au>
+From: dfoley <dfoley@telus.net>
+Subject: smsc911x unloading crash
+Date: Thu, 18 Dec 2008 14:50:34 -0800
+Message-ID: <494AD3BA.9030602@telus.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com (Matt Mackall), davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: steve.glendinning@smsc.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47868 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751339AbYLRWtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 17:49:18 -0500
-In-Reply-To: <E1LDRbc-0000Ro-1j@gondolin.me.apana.org.au>
+Received: from main.gmane.org ([80.91.229.2]:56243 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752681AbYLRWzH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 17:55:07 -0500
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1LDRlm-0000gq-T5
+	for netdev@vger.kernel.org; Thu, 18 Dec 2008 22:55:03 +0000
+Received: from d75-157-1-250.bchsia.telus.net ([75.157.1.250])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 18 Dec 2008 22:55:02 +0000
+Received: from dfoley by d75-157-1-250.bchsia.telus.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 18 Dec 2008 22:55:02 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Dec 2008 09:44:32 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+I am testing out the new smsc911x driver that is in the linux-next tree.
+I get a crash when unloading the module. I've got this patch to fix it. 
+I noticed that the dev_set_drvdata is clobbering the data when
+the driver's ..._remove function calls dev = platform_get_drvdata(pdev);
+I've back ported this to run on 2.6.27, so this patch may or
+may not be needed. Sorry if it's a matter of not having the latest version.
 
-> Matt Mackall <mpm@selenic.com> wrote:
-> > These debug messages are uninformative and extremely alarming. Rather
-> > than reporting a peer as a treacherous attacker, report it more
-> > correctly as simply broken. 
-> 
-> What's next, you're going to remove "printer on fire" as well?
-> This message has been there for eons and is part of Linux lore.
+diff -purN a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+--- a/drivers/net/smsc911x.c    2008-12-18 10:03:27.000000000 -0800
++++ b/drivers/net/smsc911x.c    2008-12-18 12:03:52.000000000 -0800
+@@ -822,7 +822,6 @@ static int __devinit smsc911x_mii_init(s
+                 pdata->mii_bus->irq[i] = PHY_POLL;
 
-It was changed. The printer on fire ? bit was adjusted to make it clear
-because the original message *did* confuse and worry a few people.
+         pdata->mii_bus->parent = &pdev->dev;
+-       dev_set_drvdata(&pdev->dev, &pdata->mii_bus);
 
-IMHO Matt is right on this.
+         pdata->using_extphy = 0;
 
-Alan
+@@ -1872,7 +1871,7 @@ static int __devexit smsc911x_drv_remove
+         res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+                                            "smsc911x-memory");
+         if (!res)
+-               platform_get_resource(pdev, IORESOURCE_MEM, 0);
++               res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+         release_mem_region(res->start, res->end - res->start);
+
