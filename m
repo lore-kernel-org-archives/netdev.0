@@ -1,7 +1,7 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 1/6] ucc_geth: Fix endless loop in stop_{tx,rx} routines
-Date: Thu, 18 Dec 2008 21:23:22 +0300
-Message-ID: <20081218182322.GA30682@oksana.dev.rtsoft.ru>
+Subject: [PATCH 2/6] ucc_geth: Fix TX watchdog timeout handling
+Date: Thu, 18 Dec 2008 21:23:26 +0300
+Message-ID: <20081218182326.GB30682@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1251
 Cc: David Miller <davem@davemloft.net>, Li Yang <leoli@freescale.com>,
@@ -10,73 +10,117 @@ Cc: David Miller <davem@davemloft.net>, Li Yang <leoli@freescale.com>,
 	linuxppc-dev@ozlabs.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:26572 "EHLO
+Received: from rtsoft3.corbina.net ([85.21.88.6]:26581 "EHLO
 	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751705AbYLRSXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 13:23:23 -0500
+	by vger.kernel.org with ESMTP id S1752219AbYLRSX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 13:23:27 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the routines wait for the various bits w/o an assumption that
-bits may never get set. When timeouts happen I see that these bits never
-get set and so the routines hang the kernel.
+The timeout handling code is currently broken in several ways:
 
-With this patch we'll wait the graceful stop for 100 ms, and then will
-simply exit. There is nothing* we can do about that, but it's OK since
-we'll do full reset later.
+- It calls stop() (which frees all the memory and IRQ), and then
+  calls startup() (which won't re-request IRQ, neither it will
+  re-init the Fast UCC structure).
+- It calls these routines from the softirq context, which is wrong,
+  since stop() calls free_irq() (which might sleep) and startup()
+  allocates things with GFP_KERNEL.
+- It won't soft-reset the PHY. We need the PHY reset for at least
+  MPC8360E-MDS boards with Marvell 88E1111 PHY, the PHY won't recover
+  from timeouts w/o the reset.
 
-* Well, actually, there is also not-graceful variant for the TX stop,
-  but specs says that we never should use it.
+So the patch fixes these problems by implementing the workqueue for the
+timeout handling, and there we fully re-open the device via close() and
+open() calls. The close/open paths do the right things, and I can see
+that the driver actually survive the timeouts.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/ucc_geth.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/ucc_geth.c |   37 +++++++++++++++++++++++++++++--------
+ drivers/net/ucc_geth.h |    1 +
+ 2 files changed, 30 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index c87747b..79e6d3d 100644
+index 79e6d3d..98a7bd4 100644
 --- a/drivers/net/ucc_geth.c
 +++ b/drivers/net/ucc_geth.c
-@@ -1647,6 +1647,7 @@ static int ugeth_graceful_stop_tx(struct ucc_geth_private *ugeth)
+@@ -3355,13 +3355,17 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	return 0;
+ }
+ 
+-/* ucc_geth_timeout gets called when a packet has not been
+- * transmitted after a set amount of time.
+- * For now, assume that clearing out all the structures, and
+- * starting over will fix the problem. */
+-static void ucc_geth_timeout(struct net_device *dev)
++static int ucc_geth_close(struct net_device *dev);
++static int ucc_geth_open(struct net_device *dev);
++
++/* Reopen device. This will reset the MAC and PHY. */
++static void ucc_geth_timeout_work(struct work_struct *work)
+ {
+-	struct ucc_geth_private *ugeth = netdev_priv(dev);
++	struct ucc_geth_private *ugeth;
++	struct net_device *dev;
++
++	ugeth = container_of(work, struct ucc_geth_private, timeout_work);
++	dev = ugeth->dev;
+ 
+ 	ugeth_vdbg("%s: IN", __func__);
+ 
+@@ -3370,13 +3374,29 @@ static void ucc_geth_timeout(struct net_device *dev)
+ 	ugeth_dump_regs(ugeth);
+ 
+ 	if (dev->flags & IFF_UP) {
+-		ucc_geth_stop(ugeth);
+-		ucc_geth_startup(ugeth);
++		/*
++		 * Must reset MAC *and* PHY. This is done by reopening
++		 * the device.
++		 */
++		ucc_geth_close(dev);
++		ucc_geth_open(dev);
+ 	}
+ 
+ 	netif_tx_schedule_all(dev);
+ }
+ 
++/*
++ * ucc_geth_timeout gets called when a packet has not been
++ * transmitted after a set amount of time.
++ */
++static void ucc_geth_timeout(struct net_device *dev)
++{
++	struct ucc_geth_private *ugeth = netdev_priv(dev);
++
++	netif_carrier_off(dev);
++	schedule_work(&ugeth->timeout_work);
++}
++
+ /* This is called by the kernel when a frame is ready for transmission. */
+ /* It is pointed to by the dev->hard_start_xmit function pointer */
+ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -4029,6 +4049,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	dev->hard_start_xmit = ucc_geth_start_xmit;
+ 	dev->tx_timeout = ucc_geth_timeout;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
++	INIT_WORK(&ugeth->timeout_work, ucc_geth_timeout_work);
+ 	netif_napi_add(dev, &ugeth->napi, ucc_geth_poll, UCC_GETH_DEV_WEIGHT);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	dev->poll_controller = ucc_netpoll;
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index abc0e22..d74d2f7 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -1186,6 +1186,7 @@ struct ucc_geth_private {
  	struct ucc_fast_private *uccf;
- 	u32 cecr_subblock;
- 	u32 temp;
-+	int i = 10;
- 
- 	uccf = ugeth->uccf;
- 
-@@ -1664,8 +1665,9 @@ static int ugeth_graceful_stop_tx(struct ucc_geth_private *ugeth)
- 
- 	/* Wait for command to complete */
- 	do {
-+		msleep(10);
- 		temp = in_be32(uccf->p_ucce);
--	} while (!(temp & UCCE_GRA));
-+	} while (!(temp & UCCE_GRA) && --i);
- 
- 	uccf->stopped_tx = 1;
- 
-@@ -1677,6 +1679,7 @@ static int ugeth_graceful_stop_rx(struct ucc_geth_private * ugeth)
- 	struct ucc_fast_private *uccf;
- 	u32 cecr_subblock;
- 	u8 temp;
-+	int i = 10;
- 
- 	uccf = ugeth->uccf;
- 
-@@ -1694,9 +1697,9 @@ static int ugeth_graceful_stop_rx(struct ucc_geth_private * ugeth)
- 						ucc_num);
- 		qe_issue_cmd(QE_GRACEFUL_STOP_RX, cecr_subblock,
- 			     QE_CR_PROTOCOL_ETHERNET, 0);
--
-+		msleep(10);
- 		temp = in_8(&ugeth->p_rx_glbl_pram->rxgstpack);
--	} while (!(temp & GRACEFUL_STOP_ACKNOWLEDGE_RX));
-+	} while (!(temp & GRACEFUL_STOP_ACKNOWLEDGE_RX) && --i);
- 
- 	uccf->stopped_rx = 1;
- 
+ 	struct net_device *dev;
+ 	struct napi_struct napi;
++	struct work_struct timeout_work;
+ 	struct ucc_geth __iomem *ug_regs;
+ 	struct ucc_geth_init_pram *p_init_enet_param_shadow;
+ 	struct ucc_geth_exf_global_pram __iomem *p_exf_glbl_param;
 -- 
 1.5.6.5
 
