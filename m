@@ -1,51 +1,42 @@
 From: James Chapman <jchapman@katalix.com>
 Subject: Re: [PATCH] ppp: fix segfaults introduced by netdev_priv changes
-Date: Thu, 18 Dec 2008 10:24:43 +0000
-Message-ID: <494A24EB.8020307@katalix.com>
-References: <200812172202.mBHM2GHi012456@bert.katalix.com> <4949B240.7060102@cn.fujitsu.com>
+Date: Thu, 18 Dec 2008 10:28:19 +0000
+Message-ID: <494A25C3.1050603@katalix.com>
+References: <200812172202.mBHM2GHi012456@bert.katalix.com> <20081217.192047.117548302.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, wangchen@cn.fujitsu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:57018 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:57017 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751321AbYLRKex (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2008 05:34:53 -0500
-In-Reply-To: <4949B240.7060102@cn.fujitsu.com>
+	id S1751164AbYLRKew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 05:34:52 -0500
+In-Reply-To: <20081217.192047.117548302.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wang Chen wrote:
-
-> I have no comment on these changes, but
-> there is a path that calls only ppp_destroy_interface() no
-> ppp_shutdown_interface().
-> it's:
-> ppp_unregister_channel
->     --->ppp_disconnect_channel()
->         ---> ppp_destroy_interface()
-
-Isn't ppp_shutdown_interface() always called first? If not, then we need
-to unregister_netdev() before the free_netdev() call in
-ppp_destroy_interface(). The original code didn't cover that case.
-
->>  /*
->> @@ -2616,7 +2614,7 @@ ppp_connect_channel(struct channel *pch, int unit)
->>  	if (pch->file.hdrlen > ppp->file.hdrlen)
->>  		ppp->file.hdrlen = pch->file.hdrlen;
->>  	hdrlen = pch->file.hdrlen + 2;	/* for protocol bytes */
->> -	if (ppp->dev && hdrlen > ppp->dev->hard_header_len)
->> +	if (hdrlen > ppp->dev->hard_header_len)
->>  		ppp->dev->hard_header_len = hdrlen;
->>  	list_add_tail(&pch->clist, &ppp->channels);
->>  	++ppp->n_channels;
+David Miller wrote:
+> From: James Chapman <jchapman@katalix.com>
+> Date: Wed, 17 Dec 2008 22:02:16 GMT
 > 
-> I don't understand this change.
-> Do you mean that in this place, ppp->dev will never be NULL?
+>> +	} else
+>> +		ppp_unlock(ppp);
+>> +
+>>  	cardmap_set(&all_ppp_units, ppp->file.index, NULL);
+>>  	ppp->file.dead = 1;
+>>  	ppp->owner = NULL;
+> 
+> James, thanks for this fix.  But you'll need to respin this
+> as it conflicts with the IDR changes that are in net-next-2.6
+> (this cardmap_set call isn't there any more, for example).
 
-After my change, yes. See the comment in the patch preamble.
+The patch is against net-2.6. I assumed it was appropriate for net-2.6
+since we're on rc8 and ppp has been broken since rc6. :) Sorry I didn't
+mention that in the patch.
+
+I'll spin a version for net-next-2.6 later today.
 
 
 -- 
