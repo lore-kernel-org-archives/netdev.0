@@ -1,7 +1,7 @@
 From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 2/3] NIU: Implement discard counters, info/debug statements.
-Date: Thu, 18 Dec 2008 14:56:18 +0100
-Message-ID: <1229608578.16904.28.camel@localhost.localdomain>
+Subject: [PATCH 3/3] NIU: Implement discard counters, optimize
+Date: Thu, 18 Dec 2008 14:58:26 +0100
+Message-ID: <1229608706.16904.31.camel@localhost.localdomain>
 References: <1229608331.16904.23.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,47 +10,40 @@ Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, hawk@comx.dk
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:32841 "EHLO
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:32986 "EHLO
 	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751483AbYLRN4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 08:56:19 -0500
+	with ESMTP id S1750971AbYLRN62 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 08:58:28 -0500
 In-Reply-To: <1229608331.16904.23.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Discard packet counter debug statements that can be turned on
-runtime, by users to assist debugging of the driver code.
+Optimize the lightly loaded case, by only syncronizing discards stats
+when qlen > 10 indicate potential for drops.
+
+Notice Robert Olsson might disagree with this patch.
 
 Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 ---
 
- drivers/net/niu.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/niu.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 1bd7018..9f6a98f 100644
+index 9f6a98f..7746230 100644
 --- a/drivers/net/niu.c
 +++ b/drivers/net/niu.c
-@@ -3560,6 +3560,9 @@ static inline void niu_sync_rx_discard_stats(struct niu *np,
- 		if (unlikely(misc & RXMISC_OFLOW))
- 			dev_err(np->device, "rx-%d: Counter overflow "
- 				"RXMISC discard\n", rx_channel);
-+
-+		niudbg(RX_ERR, "%s-rx-%d: MISC drop=%u over=%u\n",
-+		       np->dev->name, rx_channel, misc, misc-limit);
- 	}
+@@ -3620,7 +3620,9 @@ static int niu_rx_work(struct niu *np, struct rx_ring_info *rp, int budget)
  
- 	/* WRED (Weighted Random Early Discard) by hardware */
-@@ -3571,6 +3574,9 @@ static inline void niu_sync_rx_discard_stats(struct niu *np,
- 		if (unlikely(wred & RED_DIS_CNT_OFLOW))
- 			dev_err(np->device, "rx-%d: Counter overflow "
- 				"WRED discard\n", rx_channel);
-+
-+		niudbg(RX_ERR, "%s-rx-%d: WRED drop=%u over=%u\n",
-+		       np->dev->name, rx_channel, wred, wred-limit);
- 	}
+ 	nw64(RX_DMA_CTL_STAT(rp->rx_channel), stat);
+ 
+-	niu_sync_rx_discard_stats(np, rp, 0x7FFF);
++	/* Only sync discards stats when qlen indicate potential for drops */
++	if (qlen > 10)
++		niu_sync_rx_discard_stats(np, rp, 0x7FFF);
+ 
+ 	return work_done;
  }
- 
 
 
