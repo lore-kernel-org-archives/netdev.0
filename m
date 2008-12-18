@@ -1,76 +1,56 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [patch]startup race in hso driver
-Date: Thu, 18 Dec 2008 14:59:04 +0100
-Message-ID: <494A5728.9070908@option.com>
-References: <200812181457.36340.oliver@neukum.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH -next] netdevice zd1201: Use after free
+Date: Thu, 18 Dec 2008 08:58:13 -0500
+Message-ID: <20081218135813.GA4121@tuxdriver.com>
+References: <20081031182207.GD4310@tuxdriver.com> <1225478896-28987-1-git-send-email-linville@tuxdriver.com> <4949F36B.7080707@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200812181457.36340.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	NETDEV <netdev@vger.kernel.org>
+To: Wang Chen <wangchen@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36079 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583AbYLROAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 09:00:20 -0500
+Content-Disposition: inline
+In-Reply-To: <4949F36B.7080707@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks Oliver,
-I'll add it to our internal tree.
+On Thu, Dec 18, 2008 at 02:53:31PM +0800, Wang Chen wrote:
+> | commit 3d29b0c33d431ecc69ec778f8c236d382f59a85f
+> | Author: John W. Linville <linville@tuxdriver.com>
+> | Date:   Fri Oct 31 14:13:12 2008 -0400
+> | 
+> |     netdevice zd1201: Convert directly reference of netdev->priv to netdev_priv()
+> | 
+> |     We have some reasons to kill netdev->priv:
+> |     1. netdev->priv is equal to netdev_priv().
+> |     2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
+> |        netdev_priv() is more flexible than netdev->priv.
+> |     But we cann't kill netdev->priv, because so many drivers reference to it
+> |     directly.
+> | 
+> |     OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
+> |     and I want to kill netdev->priv later, I decided to convert all the direct
+> |     reference of netdev->priv first.
+> | 
+> |     (Original patch posted by Wang Chen <wangchen@cn.fujitsu.com> w/ above
+> |     changelog but using dev->ml_priv.  That doesn't seem appropriate
+> |     to me for this driver, so I've revamped it to use netdev_priv()
+> |     instead. -- JWL)
+> 
+> This commit changed the allocation of netdev, but didn't change
+> the free method of it.
+> This causes "zd" be used after the memory, which is pointed by "zd", being
+> freed by free_netdev().
 
-Oliver Neukum wrote:
-> The flag marking a device running must be set before the URBs for
-> recption are submitted or they may complete too early and fail to resubmit.
-> 
-> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-> 
-> 	Regards
-> 		Oliver
-> 
-> ---
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index 8e90891..cc75c8b 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -658,10 +658,9 @@ static int hso_net_open(struct net_device *net)
->  	odev->rx_buf_missing = sizeof(struct iphdr);
->  	spin_unlock_irqrestore(&odev->net_lock, flags);
->  
-> -	hso_start_net_device(odev->parent);
-> -
->  	/* We are up and running. */
->  	set_bit(HSO_NET_RUNNING, &odev->flags);
-> +	hso_start_net_device(odev->parent);
->  
->  	/* Tell the kernel we are ready to start receiving from it */
->  	netif_start_queue(net);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Oops...thanks!
 
-
+John
 -- 
-best regards,
-D.J. Barrow
-
-Linux Kernel Developer
-Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
- 
-T: +32 16 311 621
-F: +32 16 207 164
-Mobile Ireland: +353-86-1715438
-Mobile Belgium  +32-496-226190
-d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-barrow_dj-/E1597aS9LQAvxtiuMwx3w@public.gmane.org
-www.option.com
-www.travelsmart.ie
-
-Disclaimer:
-http://www.option.com/company/disclaimer.shtml
- RPR Leuven 0429.375.448
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+John W. Linville		Linux should be at the core
+linville@tuxdriver.com			of your literate lifestyle.
