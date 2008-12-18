@@ -1,158 +1,131 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 8/8] sky2: handle dma mapping errors
-Date: Wed, 17 Dec 2008 16:01:52 -0800
-Message-ID: <20081218000241.509451634@vyatta.com>
+Subject: [PATCH 6/8] skge: add VPD display into debug interface
+Date: Wed, 17 Dec 2008 16:01:50 -0800
+Message-ID: <20081218000241.351764085@vyatta.com>
 References: <20081218000144.964015472@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:52788 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:52783 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752284AbYLRAFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Dec 2008 19:05:43 -0500
-Content-Disposition: inline; filename=sky2-dma-error.patch
+	id S1752572AbYLRAFl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Dec 2008 19:05:41 -0500
+Content-Disposition: inline; filename=skge-vpd-debug.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On non-x86 platforms it is possible to run out of DMA mapping resources.
-The driver was ignoring this and could cause corruptions.
-
-Compile and walkthrough only, don't have any non-x86 hardware to 
-actually test this on.
+The VPD stuff has more data and useful only when debugging.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/sky2.c	2008-12-09 09:16:48.557334377 -0800
-+++ b/drivers/net/sky2.c	2008-12-09 10:08:37.206334330 -0800
-@@ -1068,13 +1068,16 @@ static void sky2_rx_submit(struct sky2_p
- }
+--- a/drivers/net/skge.c	2008-11-21 12:14:49.000000000 -0800
++++ b/drivers/net/skge.c	2008-11-24 08:50:54.000000000 -0800
+@@ -3668,19 +3668,102 @@ static int skge_reset(struct skge_hw *hw
  
+ static struct dentry *skge_debug;
  
--static void sky2_rx_map_skb(struct pci_dev *pdev, struct rx_ring_info *re,
-+static int sky2_rx_map_skb(struct pci_dev *pdev, struct rx_ring_info *re,
- 			    unsigned size)
++/*
++ * Read and parse the first part of Vital Product Data
++ */
++#define VPD_SIZE	128
++#define VPD_MAGIC	0x82
++
++static const struct vpd_tag {
++	char tag[2];
++	char *label;
++} vpd_tags[] = {
++	{ "PN",	"Part Number" },
++	{ "EC", "Engineering Level" },
++	{ "MN", "Manufacturer" },
++	{ "SN", "Serial Number" },
++	{ "YA", "Asset Tag" },
++	{ "VL", "First Error Log Message" },
++	{ "VF", "Second Error Log Message" },
++	{ "VB", "Boot Agent ROM Configuration" },
++	{ "VE", "EFI UNDI Configuration" },
++};
++
++static void skge_show_vpd(struct seq_file *seq, struct skge_hw *hw)
++{
++	size_t vpd_size;
++	loff_t offs;
++	u8 len;
++	unsigned char *buf;
++	u32 reg2;
++
++	pci_read_config_dword(hw->pdev, PCI_DEV_REG2, &reg2);
++	vpd_size = 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
++
++	seq_printf(seq, "%s Product Data\n", pci_name(hw->pdev));
++	buf = kmalloc(vpd_size, GFP_KERNEL);
++	if (!buf) {
++		seq_puts(seq, "no memory!\n");
++		return;
++	}
++
++	if (pci_read_vpd(hw->pdev, 0, vpd_size, buf) < 0) {
++		seq_puts(seq, "VPD read failed\n");
++		goto out;
++	}
++
++	if (buf[0] != VPD_MAGIC) {
++		seq_printf(seq, "VPD tag mismatch: %#x\n", buf[0]);
++		goto out;
++	}
++	len = buf[1];
++	if (len == 0 || len > vpd_size - 4) {
++		seq_printf(seq, "Invalid id length: %d\n", len);
++		goto out;
++	}
++
++	seq_printf(seq, "%.*s\n", len, buf + 3);
++	offs = len + 3;
++
++	while (offs < vpd_size - 4) {
++		int i;
++
++		if (!memcmp("RW", buf + offs, 2))	/* end marker */
++			break;
++		len = buf[offs + 2];
++		if (offs + len + 3 >= vpd_size)
++			break;
++
++		for (i = 0; i < ARRAY_SIZE(vpd_tags); i++) {
++			if (!memcmp(vpd_tags[i].tag, buf + offs, 2)) {
++				seq_printf(seq, " %s: %.*s\n",
++					   vpd_tags[i].label, len, buf + offs + 3);
++				break;
++			}
++		}
++		offs += len + 3;
++	}
++out:
++	kfree(buf);
++}
++
+ static int skge_debug_show(struct seq_file *seq, void *v)
  {
- 	struct sk_buff *skb = re->skb;
- 	int i;
+ 	struct net_device *dev = seq->private;
+ 	const struct skge_port *skge = netdev_priv(dev);
+-	const struct skge_hw *hw = skge->hw;
++	struct skge_hw *hw = skge->hw;
+ 	const struct skge_element *e;
  
- 	re->data_addr = pci_map_single(pdev, skb->data, size, PCI_DMA_FROMDEVICE);
-+	if (unlikely(pci_dma_mapping_error(pdev, re->data_addr)))
-+		return -EIO;
-+
- 	pci_unmap_len_set(re, data_size, size);
+-	if (!netif_running(dev))
+-		return -ENETDOWN;
++	skge_show_vpd(seq, hw);
  
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-@@ -1083,6 +1086,7 @@ static void sky2_rx_map_skb(struct pci_d
- 						skb_shinfo(skb)->frags[i].page_offset,
- 						skb_shinfo(skb)->frags[i].size,
- 						PCI_DMA_FROMDEVICE);
-+	return 0;
- }
+ 	seq_printf(seq, "IRQ src=%x mask=%x\n", skge_read32(hw, B0_ISRC),
+ 		   skge_read32(hw, B0_IMSK));
  
- static void sky2_rx_unmap_skb(struct pci_dev *pdev, struct rx_ring_info *re)
-@@ -1354,7 +1358,12 @@ static int sky2_rx_start(struct sky2_por
- 		if (!re->skb)
- 			goto nomem;
- 
--		sky2_rx_map_skb(hw->pdev, re, sky2->rx_data_size);
-+		if (sky2_rx_map_skb(hw->pdev, re, sky2->rx_data_size)) {
-+			dev_kfree_skb(re->skb);
-+			re->skb = NULL;
-+			goto nomem;
-+		}
-+
- 		sky2_rx_submit(sky2, re);
- 	}
- 
-@@ -1547,7 +1556,7 @@ static int sky2_xmit_frame(struct sk_buf
- 	struct sky2_hw *hw = sky2->hw;
- 	struct sky2_tx_le *le = NULL;
- 	struct tx_ring_info *re;
--	unsigned i, len;
-+	unsigned i, len, first_slot;
- 	dma_addr_t mapping;
- 	u16 mss;
- 	u8 ctrl;
-@@ -1555,13 +1564,17 @@ static int sky2_xmit_frame(struct sk_buf
-  	if (unlikely(tx_avail(sky2) < tx_le_req(skb)))
-   		return NETDEV_TX_BUSY;
- 
--	if (unlikely(netif_msg_tx_queued(sky2)))
--		printk(KERN_DEBUG "%s: tx queued, slot %u, len %d\n",
--		       dev->name, sky2->tx_prod, skb->len);
--
- 	len = skb_headlen(skb);
- 	mapping = pci_map_single(hw->pdev, skb->data, len, PCI_DMA_TODEVICE);
- 
-+	if (pci_dma_mapping_error(hw->pdev, mapping))
-+		goto mapping_error;
-+
-+	first_slot = sky2->tx_prod;
-+	if (unlikely(netif_msg_tx_queued(sky2)))
-+		printk(KERN_DEBUG "%s: tx queued, slot %u, len %d\n",
-+		       dev->name, first_slot, skb->len);
-+
- 	/* Send high bits if needed */
- 	if (sizeof(dma_addr_t) > sizeof(u32)) {
- 		le = get_tx_le(sky2);
-@@ -1648,6 +1661,9 @@ static int sky2_xmit_frame(struct sk_buf
- 		mapping = pci_map_page(hw->pdev, frag->page, frag->page_offset,
- 				       frag->size, PCI_DMA_TODEVICE);
- 
-+		if (pci_dma_mapping_error(hw->pdev, mapping))
-+			goto mapping_unwind;
-+
- 		if (sizeof(dma_addr_t) > sizeof(u32)) {
- 			le = get_tx_le(sky2);
- 			le->addr = cpu_to_le32(upper_32_bits(mapping));
-@@ -1676,6 +1692,34 @@ static int sky2_xmit_frame(struct sk_buf
- 
- 	dev->trans_start = jiffies;
- 	return NETDEV_TX_OK;
-+
-+mapping_unwind:
-+	for (i = first_slot; i != sky2->tx_prod; i = RING_NEXT(i, TX_RING_SIZE)) {
-+		le = sky2->tx_le + i;
-+		re = sky2->tx_ring + i;
-+
-+		switch(le->opcode & ~HW_OWNER) {
-+		case OP_LARGESEND:
-+		case OP_PACKET:
-+			pci_unmap_single(hw->pdev,
-+					 pci_unmap_addr(re, mapaddr),
-+					 pci_unmap_len(re, maplen),
-+					 PCI_DMA_TODEVICE);
-+			break;
-+		case OP_BUFFER:
-+			pci_unmap_page(hw->pdev, pci_unmap_addr(re, mapaddr),
-+				       pci_unmap_len(re, maplen),
-+				       PCI_DMA_TODEVICE);
-+			break;
-+		}
++	if (!netif_running(dev)) {
++		seq_printf(seq, "network not running\n");
++		return 0;
 +	}
 +
-+	sky2->tx_prod = first_slot;
-+mapping_error:
-+	if (net_ratelimit())
-+		dev_warn(&hw->pdev->dev, "%s: tx mapping error\n", dev->name);
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
- }
- 
- /*
-@@ -2191,7 +2235,11 @@ static struct sk_buff *receive_new(struc
- 
- 	prefetch(skb->data);
- 	re->skb = nskb;
--	sky2_rx_map_skb(sky2->hw->pdev, re, hdr_space);
-+	if (sky2_rx_map_skb(sky2->hw->pdev, re, hdr_space)) {
-+		dev_kfree_skb(nskb);
-+		re->skb = skb;
-+		return NULL;
-+	}
- 
- 	if (skb_shinfo(skb)->nr_frags)
- 		skb_put_frags(skb, hdr_space, length);
+ 	seq_printf(seq, "Tx Ring: (%d)\n", skge_avail(&skge->tx_ring));
+ 	for (e = skge->tx_ring.to_clean; e != skge->tx_ring.to_use; e = e->next) {
+ 		const struct skge_tx_desc *t = e->desc;
 
 -- 
 
