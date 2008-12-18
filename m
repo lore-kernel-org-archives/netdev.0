@@ -1,88 +1,83 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: [PATCH -next] netdevice zd1201: Use after free
-Date: Thu, 18 Dec 2008 14:53:31 +0800
-Message-ID: <4949F36B.7080707@cn.fujitsu.com>
-References: <20081031182207.GD4310@tuxdriver.com> <1225478896-28987-1-git-send-email-linville@tuxdriver.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH] enc28j60: reduce the number of spi transfers in
+	enc28j60_set_bank()
+Date: Thu, 18 Dec 2008 09:57:32 +0200
+Message-ID: <20081218075732.GA1880@diamond.tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	NETDEV <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Claudio Lanconelli <lanconelli.claudio@eptar.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60865 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751064AbYLRGxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2008 01:53:45 -0500
-In-Reply-To: <1225478896-28987-1-git-send-email-linville@tuxdriver.com>
+Received: from tango.tkos.co.il ([62.219.50.35]:58548 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750888AbYLRH5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 02:57:50 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| commit 3d29b0c33d431ecc69ec778f8c236d382f59a85f
-| Author: John W. Linville <linville@tuxdriver.com>
-| Date:   Fri Oct 31 14:13:12 2008 -0400
-| 
-|     netdevice zd1201: Convert directly reference of netdev->priv to netdev_priv()
-| 
-|     We have some reasons to kill netdev->priv:
-|     1. netdev->priv is equal to netdev_priv().
-|     2. netdev_priv() wraps the calculation of netdev->priv's offset, obviously
-|        netdev_priv() is more flexible than netdev->priv.
-|     But we cann't kill netdev->priv, because so many drivers reference to it
-|     directly.
-| 
-|     OK, becasue Dave S. Miller said, "every direct netdev->priv usage is a bug",
-|     and I want to kill netdev->priv later, I decided to convert all the direct
-|     reference of netdev->priv first.
-| 
-|     (Original patch posted by Wang Chen <wangchen@cn.fujitsu.com> w/ above
-|     changelog but using dev->ml_priv.  That doesn't seem appropriate
-|     to me for this driver, so I've revamped it to use netdev_priv()
-|     instead. -- JWL)
+A major source of overhead in the enc28j60 driver is the SPI transfers. Each 
+SPI transfer entails two kernel thread context switches. One major source of 
+SPI transfers is the enc28j60_set_bank() functions which runs before every 
+register access. This patch reduces the number of SPI transfers that 
+enc28j60_set_bank() performs in two ways:
 
-This commit changed the allocation of netdev, but didn't change
-the free method of it.
-This causes "zd" be used after the memory, which is pointed by "zd", being
-freed by free_netdev().
+  1. removes unnecessary bank switch for the registers that are present in all 
+	 banks
 
-Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
-Cc: John W. Linville <linville@tuxdriver.com>
+  2. when switching from banks 0 or 3 to banks 1 or 2 (i.e. only one bit 
+	 changes) enc28j60_set_bank() does only one SPI transfer instead of two
+
+According to my tests these changes reduce the number of SPI transfers in 
+about 25%.
+
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 ---
- drivers/net/wireless/zd1201.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
-index 3404807..b45c27d 100644
---- a/drivers/net/wireless/zd1201.c
-+++ b/drivers/net/wireless/zd1201.c
-@@ -1841,10 +1841,6 @@ static void zd1201_disconnect(struct usb_interface *interface)
- 	if (!zd)
- 		return;
- 	usb_set_intfdata(interface, NULL);
--	if (zd->dev) {
--		unregister_netdev(zd->dev);
--		free_netdev(zd->dev);
--	}
+--- drivers/net/enc28j60.c-git	2008-12-18 09:29:49.000000000 +0200
++++ drivers/net/enc28j60.c	2008-12-18 09:33:14.000000000 +0200
+@@ -196,16 +196,32 @@ static void enc28j60_soft_reset(struct e
+  */
+ static void enc28j60_set_bank(struct enc28j60_net *priv, u8 addr)
+ {
+-	if ((addr & BANK_MASK) != priv->bank) {
+-		u8 b = (addr & BANK_MASK) >> 5;
++	u8 b = (addr & BANK_MASK) >> 5;
  
- 	hlist_for_each_entry_safe(frag, node, node2, &zd->fraglist, fnode) {
- 		hlist_del_init(&frag->fnode);
-@@ -1860,7 +1856,11 @@ static void zd1201_disconnect(struct usb_interface *interface)
- 		usb_kill_urb(zd->rx_urb);
- 		usb_free_urb(zd->rx_urb);
- 	}
--	kfree(zd);
+-		if (b != (ECON1_BSEL1 | ECON1_BSEL0))
++	/* These registers (EIE, EIR, ESTAT, ECON2, ECON1)
++	 * are present in all banks, no need to switch bank
++	 */
++	if (addr >= EIE && addr <= ECON1)
++		return;
 +
-+	if (zd->dev) {
-+		unregister_netdev(zd->dev);
-+		free_netdev(zd->dev);
++	/* Clear or set each bank selection bit as needed */
++	if ((b & ECON1_BSEL0) != (priv->bank & ECON1_BSEL0)) {
++		if (b & ECON1_BSEL0)
++			spi_write_op(priv, ENC28J60_BIT_FIELD_SET, ECON1,
++					ECON1_BSEL0);
++		else
++			spi_write_op(priv, ENC28J60_BIT_FIELD_CLR, ECON1,
++					ECON1_BSEL0);
 +	}
++	if ((b & ECON1_BSEL1) != (priv->bank & ECON1_BSEL1)) {
++		if (b & ECON1_BSEL1)
++			spi_write_op(priv, ENC28J60_BIT_FIELD_SET, ECON1,
++					ECON1_BSEL1);
++		else
+ 			spi_write_op(priv, ENC28J60_BIT_FIELD_CLR, ECON1,
+-				     ECON1_BSEL1 | ECON1_BSEL0);
+-		if (b != 0)
+-			spi_write_op(priv, ENC28J60_BIT_FIELD_SET, ECON1, b);
+-		priv->bank = (addr & BANK_MASK);
++					ECON1_BSEL1);
+ 	}
++	priv->bank = b;
  }
  
- #ifdef CONFIG_PM
+ /*
+
 -- 
-1.5.3.4
-
-
-
+                                                     ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
