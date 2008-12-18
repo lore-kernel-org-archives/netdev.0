@@ -1,102 +1,104 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 2/5] dccp: Auto-load (when supported) CCID plugins for
-	negotiation
-Date: Thu, 18 Dec 2008 12:01:11 -0200
-Message-ID: <20081218140111.GF21653@ghostprotocols.net>
-References: <20081216111908.GI14518@ghostprotocols.net> <20081216.133200.229085084.davem@davemloft.net> <20081216222559.GR14518@ghostprotocols.net> <20081216.151151.220977047.davem@davemloft.net> <20081217131347.GS14518@ghostprotocols.net> <20081218054631.GB6298@gerrit.erg.abdn.ac.uk>
+From: "Sosnowski, Maciej" <maciej.sosnowski@intel.com>
+Subject: RE: [PATCH 03/13] dmaengine: up-level reference counting to the
+ module level
+Date: Thu, 18 Dec 2008 14:26:00 +0000
+Message-ID: <129600E5E5FB004392DDC3FB599660D70C984F5D@irsmsx504.ger.corp.intel.com>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+	 <20081114213432.32354.2427.stgit@dwillia2-linux.ch.intel.com>
+	 <129600E5E5FB004392DDC3FB599660D70C8F3405@irsmsx504.ger.corp.intel.com>
+ <e9c3a7c20812151412va63c2ceob7d57ea91a8c208@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mirqus@gmail.com,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hskinnemoen@atmel.com" <hskinnemoen@atmel.com>,
+	"g.liakhovetski@gmx.de" <g.liakhovetski@gmx.de>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
+To: "Williams, Dan J" <dan.j.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:44355 "EHLO mx2.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:25898 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751212AbYLROB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2008 09:01:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20081218054631.GB6298@gerrit.erg.abdn.ac.uk>
+	id S1751047AbYLRO1G convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 09:27:06 -0500
+In-Reply-To: <e9c3a7c20812151412va63c2ceob7d57ea91a8c208@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Dec 18, 2008 at 06:46:31AM +0100, Gerrit Renker escreveu:
-> [Sorry for being late in replying, this is the answer from yesterday]
-> 
-> I think that if we look too much into the direction of TCP we
-> might miss some of the notable differences.
+Dan Williams wrote:
+> On Fri, Dec 12, 2008 at 7:28 AM, Sosnowski, Maciej
+> <maciej.sosnowski@intel.com> wrote:
+>> Dan,
+>>
+>> General concern I see about this change is that it makes impossible
+>> to rmmod ioatdma in case of NET_DMA enabled.
+>> This is a specific case of situation when client is permanently
+>> registered in dmaengine,
+>> making it impossible to rmmod any device with "public" channels.
+>> Ioatdma is just an example here.
+>> However in ioatdma case it would be problematic now to switch
+>> between CPU and DMA copy modes.
+>> It seems that the only way to disable DMA after loading ioatdma
+>> would be raising tcp_dma_copybreak to some high enough value to
+>> direct all buffers to CPU copy path.
+>> This way is yet rather more like hacking than "normal" usage way
+>> (like "rmmod ioatdma" used so far).
+>>
+>
+> Hi Maciej,
+>
+> I have been waiting for you to point this out because I believe it
+> shows where more work is needed in net_dma.  The problem with net_dma
+> is that it never says "I am done with dma channels".  The result was
+> the old/complicated per-operation reference counting in dmaengine that
+> lead to the, now deleted, comment for ioat_remove():
+>
+> /*
+>  * It is unsafe to remove this module: if removed while a requested
+>  * dma is outstanding, esp. from tcp, it is possible to hang while
+>  * waiting for something that will never finish.  However, if you're
+>  * feeling lucky, this usually works just fine.
+>  */
+>
+> This also required the complexity of each client needing to handle
+> asynchronous channel removal events.  In all other cases in the kernel
+> a module is pinned as long as it has users, so dmaengine was backwards
+> in this regard.
+>
+> Putting the end-node principal to work here means that the
+> complexity/effort of determining when net_dma is done with channels
+> should reside in net_dma, not dmaengine.  Since we cannot hook into a
+> "rmmod net" event to drop the dmaengine reference we will need some
+> out-of-band signal to enable "rmmod ioatdma" like detecting
+> network-idle, or having an explicit "dma disable" sysctl.
 
-The look at TCP code was more in the sense that TCP doesn't takes the
-lock always, having the default congestion control module builtin and
-always "advertised"/used, but allows changing it in a slow path
-function.
+Hi Dan,
+I agree that net_dma needs to be modified
+so that it releases dma channels if not used.
+However in the mean time, as long as net_dma is not ready to do this,
+the problem of "rmmod ioatdma" in the redesigned dmaengine remains...
 
-With the new patch this is what we have now in DCCP too.
- 
-> In TCP the congestion module stays the same for the lifetime of a
-> connection and there is no real negotiation. If the TCP congestion
-> control module is a sender-side only modification then that even
-> works transparently for any unmodified standard TCP client.
-> 
-> In DCCP the negotiation is more like SIP where both endpoints compare
-> their capabilities and make a hanshake to vote for a common value.
-> 
-> (Although it is not supported by the current implementation, it
->  is in theory possible to re-negotiate a CCID in the middle of
->  a connection.  This could for example make sense when
->   * a satellite connection suddenly changes, e.g. reduced
->     bandwidth due to rain fading;
->   * a mobile IP device makes a handoff from Ethernet to WiFi.)
+>
+>> Another issue I find problematic in this solution is that _any_
+>> client
+>> declaring its presence in dmaengine causes holding reference for
+>> _all_ channels (and blocking them), does not matter if they are used
+>> or not.
+>> I agree with Guennadi's doubts here.
+>> Why not at least hold a reference only for channels with
+>> capabilities matching client's ones?
+>>
+>
+> All channels share the same parent module, so taking a reference on
+> one will always involve blocking all channels.
 
-And that, at least for CCID2 and CCID3 now can be done wihtout having to
-first check if they are loaded, taking locks, etc, that was the crux of
-this discussion.
+This is true for channels of the same device/module.
+However, if we have two different devices with different capabilities,
+should they both be blocked by single client?
+For example, what is use of blocking channels of device
+with DMA_MEMCPY capabilities only
+by a client interested in DMA_XOR or DMA_MEMSET?
 
-> Before a connection, a user can specify/select candidates:
-> 
->  * he can advertise simply just "everything that is there";
->  * the other extreme is to use just a single CCID (where 
->    connection might fail due to lack of alternatives).		 
-> 
-> Only the CCIDs requested currently by the users on a system need
-> to be loaded, but it would make life much simpler if the configured
-> modules were already loaded.
-> 
-> With regard to "experimental versus standardised" CCIDs, it takes 
-> actually quite long before a RFC becomes sufficiently standardised.
-> 
-> For the experimental CCIDs I think that David's suggestion is  preferable:
-> 
->  * for the sake of development we can create a special way of integrating
->    whatever kind of new CCID we are testing;
->  * instead of complicating the mainline mechanism by implementing answers
->    for all (including pathological) possible cases.
-
-I believe that the RFCv2 patch I submitted accomplishes these two goals
-with a minimal patch to the current code.
-
-And if we look higher up in the stack, say at sock_create we can see
-that we have this module loading verification all over again done at
-socket creation time for all families, but there it uses RCU, etc, but
-it used to be something familiar replaced by Stephen Hemminger in this
-cset:
-
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=55737fda0bc73cb20f702301d8b52938a5a43630
-
-Looks familiar? Yes, thats is where the ccid locking scheme came from.
- 
-> Thinking ahead, if in a few years there is suddenly an abundant choice of
-> practically useful/useable CCIDs then it may make sense to divide CCIDs
-> into separate modules again, after conquering their implementation.
-> 
-> 
-> >From both of your answers I see consensus that at least the standardised
-> CCIDs should be integrated with dccp.ko. And there is already Arnaldo's
-> patch to realise this, which is great.
-> 
-> Will integrate Arnaldo's patch with the test tree and the current patch
-> set. Will be back once this is accomplished.
-
-Thanks a lot,
-
-- Arnaldo
-
+Thanks,
+Maciej
