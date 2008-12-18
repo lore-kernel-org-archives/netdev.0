@@ -1,35 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] IPv4 raw_hdrincl_nomangle sysctl
-Date: Thu, 18 Dec 2008 11:52:10 +1100
-Message-ID: <20081218005210.GA29247@gondor.apana.org.au>
-References: <494964CA.5050109@gmail.com> <20081217.124841.169000877.davem@davemloft.net> <200812180021.00962@auguste.remlab.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2.6.29 v3 1/5] gianfar: Fix packet drop when out of
+ memory
+Date: Wed, 17 Dec 2008 16:52:40 -0800 (PST)
+Message-ID: <20081217.165240.175376796.davem@davemloft.net>
+References: <1229550175-15600-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, katterjohn@gmail.com,
-	netdev@vger.kernel.org
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: afleming@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:32876 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751661AbYLRAwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 19:52:20 -0500
-Content-Disposition: inline
-In-Reply-To: <200812180021.00962@auguste.remlab.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38112
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752642AbYLRAwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Dec 2008 19:52:38 -0500
+In-Reply-To: <1229550175-15600-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 17, 2008 at 10:21:00PM +0000, R=E9mi Denis-Courmont wrote:
->
-> Does SOCK_DGRAM not save userland from crafting the LL header - contr=
-ary=20
-> to SOCK_RAW?
+From: Andy Fleming <afleming@freescale.com>
+Date: Wed, 17 Dec 2008 15:42:51 -0600
 
-Right, but you still need to supply the destination MAC address.
+> The patch which fixed gianfar so it drops packets when it runs out
+> of memory left in the code which frees the skb when it drops packets.
+> Change the code so that we only free the skb if the new skb was successfully
+> created.
+> 
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
