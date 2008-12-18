@@ -1,60 +1,113 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [RFC][PATCH] static builtin CCIDs was  Re: [PATCH 2/5] dccp:
-	Auto-load (when supported) CCID plugins for negotiation
-Date: Thu, 18 Dec 2008 08:55:02 -0200
-Message-ID: <20081218105502.GA21653@ghostprotocols.net>
-References: <20081216111908.GI14518@ghostprotocols.net> <20081216.133200.229085084.davem@davemloft.net> <20081216222559.GR14518@ghostprotocols.net> <20081216.151151.220977047.davem@davemloft.net> <20081217131347.GS14518@ghostprotocols.net> <20081217182038.GV14518@ghostprotocols.net> <20081217183041.GW14518@ghostprotocols.net> <20081218054110.GA6298@gerrit.erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	David Miller <davem@davemloft.net>, mirqus@gmail.com,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: Accept ESP packets regardless of UDP  encapsulation mode
+Date: Thu, 18 Dec 2008 22:04:53 +1100
+Message-ID: <E1LDGgX-0007JE-T9@gondolin.me.apana.org.au>
+References: <1229596531.10402.121.camel@martin>
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: martin@strongswan.org (Martin Willi)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:11773 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbYLRKzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 05:55:14 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so136375yxm.1
-        for <netdev@vger.kernel.org>; Thu, 18 Dec 2008 02:55:13 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081218054110.GA6298@gerrit.erg.abdn.ac.uk>
+Received: from rhun.apana.org.au ([64.62.148.172]:41346 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751411AbYLRLFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 06:05:06 -0500
+In-Reply-To: <1229596531.10402.121.camel@martin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Dec 18, 2008 at 06:41:10AM +0100, Gerrit Renker escreveu:
-> Quoting Arnaldo:
-> | Em Wed, Dec 17, 2008 at 04:20:38PM -0200, Arnaldo Carvalho de Melo escreveu:
-> | > > IOW we're back to my suggestion on looking at
-> | > > tcp_set_congestion_control(). :-)
-> | > 
-> | > I tried to test this using ttcp over loopback but the tree seems broken
-> | > somehow, with or without this patch I'm getting:
-> | > 
-> | > Could not activate 0 at /home/acme/git/net-next-2.6/net/dccp/feat.c:1176
-> | > 
-> | > I tried doing a quick chase on this one but failed miserably, Gerrit,
-> | > any ideas?
-> | 
-> | Well, without the patch the problem was that dccp_ccid2 was not being
-> | autoloaded, as soon as I manually loaded it, ttcp worked. Now to see
-> | why...
-> I have acked your patch but haven't had time to compile and test it.
-> Will do this in due course and integrate it into the test tree. 
+Martin Willi <martin@strongswan.org> wrote:
 > 
-> With regard to the error message, this says that the feature with index 0
-> could not be activated. According to table 6.4 in RFC 4340 this is a bug
+>> This can't work as ESP relies on this check.  Now that it's gone
+>> ESP may touch a UDP header which doesn't exist.
+> 
+> Hm, this worked perfectly fine in my tests...
 
-I figured that out later, after some more tweaking and systemtapping it
-ended up with index 5 failing and that was the ackvec code that was not
-being included, just the stubs that always return NULL on the allocation
-routine, after that was fixed by removing CONFIG_IP_DCCP_ACKVEC, i.e.
-always including that code since CCID2 now is always included, all
-worked with a simple, over loopback, ttcp test.
+Well if you setup an SA with encap != NULL, then send it an
+unencapsulated ESP packet it'll try to access the UDP header
+(to check for address/port changes) which isn't there.
 
-> because it tries to activate a reserved feature.
+>> ... when your addresses change
+>> you have to renegotiate with the other side to ensure that this
+>> isn't some kind of an attack.  Afterwards you have to recreate
+>> the SAs at which point you can easily set the encapsulation to
+>> whatever it should be.
+> 
+> Such address changes are recorded in the IKEv2 daemon and addresses are
+> updated through MOBIKE (RFC4555). Each peer updates its SA using the new
+> address. 
+
+I know.  The point is when such an address change occurs you need
+to recreate the kernel SAs anyway, in which case you can reset the
+encapsulation status to what it should be.
+
+> This is a perfectly valid use case. MOBIKE allows you roam your SAs
+> between different networks, NATed or not. In our implementation, we
+> switch UDP encapsulation strictly on and off depending on the new NAT
+> situation. However, other implementations don't [1].
+
+You didn't understand me correctly.  Of course the peer is allowed
+to change addresses.  The point is that after such an address
+change occurs, we must replace the existing SAs with a new set of
+SAs (otherwise the communication breaks down), at which point you
+can set the NAT-T encapsulation status to what it should be.
+
+> It is a requirement for MOBIKE enabled peers to accept UDP encapsulated
+> packets in any case (see discussion [2]), and it is currently discussed
+> to add this requirement to the revised IKEv2 core standard [3]:
+
+I have absolutely no qualms about that.  But this has nothing to
+do with the kernel.  What they were discussing in [2] is that the
+IKE manager must be willing to negotiate SAs with/without UDP
+encapsulation if NAT is not detected.  The kernel only gets involved
+once the negotiation is complete at which point you have agreed
+with the other side whether UDP encapsulation is to be used.
+
+Once this negotiation is complete, neither the other side nor us can
+unilaterally change the UDP encapsulation status without performing
+a new negotiation.  So there is absolutely no need to handle this
+in the kernel.
+
+>> o  Implementations MUST process received UDP-encapsulated ESP packets
+>>       even when no NAT was detected.
+> 
+> The fact that there is not NAT between peers is no guarantee that the
+> peer will not use UDP encapsulation.
+
+Which is fine.  The kernel is perfectly able to perform ESP-over-UDP
+without your patch.  What it doesn't do is automatically switch
+from UDP encapsulation to without UDP encapsulation, or vice versa
+without key manager instructions.
+
+> I don't see any reason to drop ESP packets because of the used UDP
+> encapsulation mode. What's the point of doing so?
+
+For a start, you've introduced a bug in the ESP code as it may try
+access a non-existant UDP header and then interpret that as an
+address change which will generate bogus events to your daemon.
+This will happen on every packet if you move from with encapsulation
+to without encapsulation.
+
+More importantly, you've failed to demonstrate why you need this
+in the first place.  None of the URLs you've quoted tells us that
+the kernel needs to handle an SA switching between with encap and
+without encap without the key manager telling it to do so.
  
-> Will do in-depth testing later on today.
+> [1]https://lists.strongswan.org/pipermail/users/2008-December/002936.html
 
-Thanks!
+Right that's what led to this patch.
 
-- Arnaldo
+Reading this it seems that there is either a bug in strongswan or
+in its peer.  IKE or IKEv2 is supposed to negotiate UDP encapsulation
+explicitly.  So either we did negotiate to use UDP encapsulation,
+and Strongswan ignored it (it's buggy), or we didn't and the peer
+still chose to use it (the peer is buggy).
+
+In either case it's a serious bug in the key manager.  I don't see
+why we should work around such brokenness in the kernel.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
