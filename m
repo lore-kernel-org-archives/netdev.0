@@ -1,65 +1,242 @@
 From: David Daney <ddaney@caviumnetworks.com>
-Subject: [PATCH 0/3] Add driver for OCTEON MGMT ethernet device.
-Date: Fri, 19 Dec 2008 15:41:34 -0800
-Message-ID: <494C312E.9000901@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: linux-mips <linux-mips@linux-mips.org>, netdev@vger.kernel.org
+Subject: [PATCH 1/3] MIPS: Add named alloc functions to OCTEON boot monitor memory allocator.
+Date: Fri, 19 Dec 2008 15:43:10 -0800
+Message-ID: <1229730192-11870-1-git-send-email-ddaney@caviumnetworks.com>
+References: <494C312E.9000901@caviumnetworks.com>
+Cc: David Daney <ddaney@caviumnetworks.com>
+To: linux-mips@linux-mips.org, netdev@vger.kernel.org
 Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <494C312E.9000901@caviumnetworks.com>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Queued for inclusion in 2.6.29 is support for the Cavium OCTEON
-processor.  See:
+The MGMT ethernet driver uses these new functions.
 
-http://marc.info/?l=linux-mips&m=122903840412896&w=2
-http://marc.info/?l=linux-mips&m=122972878908450&w=2
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+---
+ arch/mips/cavium-octeon/executive/cvmx-bootmem.c |  101 ++++++++++++++++++++++
+ arch/mips/include/asm/octeon/cvmx-bootmem.h      |   85 ++++++++++++++++++
+ 2 files changed, 186 insertions(+), 0 deletions(-)
 
-This patch set adds support for the OCTEON SOC's on-board mgmt ethernet
-devices.
-
-The first patch is not too interesting, it adds a missing function to
-the boot monitor memory allocator.  This is needed by the third patch.
-
-Second I add register definitions for the hardware blocks used by the
-driver.  This is just a lot of boiler plate.
-
-Third is the main driver patch.
-
-I anticipate that some changes may have to be made to the driver, but
-I wanted to get some feedback before proceeding.  So please let me
-know what you think should change with an eye to getting the driver
-merged.
-
-I will reply with the three patches.
-
-David Daney (3):
-  MIPS: Add named alloc functions to OCTEON boot monitor memory
-    allocator.
-  MIPS: Add some register definitions to OCTEON for MGMT ethernet
-    driver.
-  netdev: New driver for OCTEON's MGMT ethernet devices.
-
- arch/mips/cavium-octeon/executive/cvmx-bootmem.c |  101 ++
- arch/mips/include/asm/octeon/cvmx-agl-defs.h     | 1194 ++++++++++++++++++++++
- arch/mips/include/asm/octeon/cvmx-bootmem.h      |   85 ++
- arch/mips/include/asm/octeon/cvmx-mdio.h         |  577 +++++++++++
- arch/mips/include/asm/octeon/cvmx-mixx-defs.h    |  248 +++++
- arch/mips/include/asm/octeon/cvmx-smix-defs.h    |  178 ++++
- drivers/net/Kconfig                              |    8 +
- drivers/net/Makefile                             |    1 +
- drivers/net/octeon/Makefile                      |   11 +
- drivers/net/octeon/cvmx-mgmt-port.c              |  818 +++++++++++++++
- drivers/net/octeon/cvmx-mgmt-port.h              |  168 +++
- drivers/net/octeon/octeon-mgmt-port.c            |  389 +++++++
- 12 files changed, 3778 insertions(+), 0 deletions(-)
- create mode 100644 arch/mips/include/asm/octeon/cvmx-agl-defs.h
- create mode 100644 arch/mips/include/asm/octeon/cvmx-mdio.h
- create mode 100644 arch/mips/include/asm/octeon/cvmx-mixx-defs.h
- create mode 100644 arch/mips/include/asm/octeon/cvmx-smix-defs.h
- create mode 100644 drivers/net/octeon/Makefile
- create mode 100644 drivers/net/octeon/cvmx-mgmt-port.c
- create mode 100644 drivers/net/octeon/cvmx-mgmt-port.h
- create mode 100644 drivers/net/octeon/octeon-mgmt-port.c
+diff --git a/arch/mips/cavium-octeon/executive/cvmx-bootmem.c b/arch/mips/cavium-octeon/executive/cvmx-bootmem.c
+index 4f5a08b..8972448 100644
+--- a/arch/mips/cavium-octeon/executive/cvmx-bootmem.c
++++ b/arch/mips/cavium-octeon/executive/cvmx-bootmem.c
+@@ -97,6 +97,32 @@ void *cvmx_bootmem_alloc(uint64_t size, uint64_t alignment)
+ 	return cvmx_bootmem_alloc_range(size, alignment, 0, 0);
+ }
+ 
++void *cvmx_bootmem_alloc_named_range(uint64_t size, uint64_t min_addr,
++				     uint64_t max_addr, uint64_t align,
++				     char *name)
++{
++	int64_t addr;
++
++	addr = cvmx_bootmem_phy_named_block_alloc(size, min_addr, max_addr,
++						  align, name, 0);
++	if (addr >= 0)
++		return cvmx_phys_to_ptr(addr);
++	else
++		return NULL;
++}
++
++void *cvmx_bootmem_alloc_named_address(uint64_t size, uint64_t address,
++				       char *name)
++{
++    return cvmx_bootmem_alloc_named_range(size, address, address + size,
++					  0, name);
++}
++
++void *cvmx_bootmem_alloc_named(uint64_t size, uint64_t alignment, char *name)
++{
++    return cvmx_bootmem_alloc_named_range(size, 0, 0, alignment, name);
++}
++
+ int cvmx_bootmem_free_named(char *name)
+ {
+ 	return cvmx_bootmem_phy_named_block_free(name, 0);
+@@ -584,3 +610,78 @@ int cvmx_bootmem_phy_named_block_free(char *name, uint32_t flags)
+ 	cvmx_bootmem_unlock();
+ 	return named_block_ptr != NULL;	/* 0 on failure, 1 on success */
+ }
++
++int64_t cvmx_bootmem_phy_named_block_alloc(uint64_t size, uint64_t min_addr,
++					   uint64_t max_addr,
++					   uint64_t alignment,
++					   char *name,
++					   uint32_t flags)
++{
++	int64_t addr_allocated;
++	struct cvmx_bootmem_named_block_desc *named_block_desc_ptr;
++
++#ifdef DEBUG
++	cvmx_dprintf("cvmx_bootmem_phy_named_block_alloc: size: 0x%llx, min: "
++		     "0x%llx, max: 0x%llx, align: 0x%llx, name: %s\n",
++		     (unsigned long long)size,
++		     (unsigned long long)min_addr,
++		     (unsigned long long)max_addr,
++		     (unsigned long long)alignment,
++		     name);
++#endif
++	if (cvmx_bootmem_desc->major_version != 3) {
++		cvmx_dprintf("ERROR: Incompatible bootmem descriptor version: "
++			     "%d.%d at addr: %p\n",
++			     (int)cvmx_bootmem_desc->major_version,
++			     (int)cvmx_bootmem_desc->minor_version,
++			     cvmx_bootmem_desc);
++		return -1;
++	}
++
++	/*
++	 * Take lock here, as name lookup/block alloc/name add need to
++	 * be atomic.
++	 */
++	if (!(flags & CVMX_BOOTMEM_FLAG_NO_LOCKING))
++		cvmx_spinlock_lock((cvmx_spinlock_t *)&(cvmx_bootmem_desc->lock));
++
++	/* Get pointer to first available named block descriptor */
++	named_block_desc_ptr =
++		cvmx_bootmem_phy_named_block_find(NULL,
++						  flags | CVMX_BOOTMEM_FLAG_NO_LOCKING);
++
++	/*
++	 * Check to see if name already in use, return error if name
++	 * not available or no more room for blocks.
++	 */
++	if (cvmx_bootmem_phy_named_block_find(name,
++					      flags | CVMX_BOOTMEM_FLAG_NO_LOCKING) || !named_block_desc_ptr) {
++		if (!(flags & CVMX_BOOTMEM_FLAG_NO_LOCKING))
++			cvmx_spinlock_unlock((cvmx_spinlock_t *)&(cvmx_bootmem_desc->lock));
++		return -1;
++	}
++
++
++	/*
++	 * Round size up to mult of minimum alignment bytes We need
++	 * the actual size allocated to allow for blocks to be
++	 * coallesced when they are freed.  The alloc routine does the
++	 * same rounding up on all allocations.
++	 */
++	size = __ALIGN_MASK(size, (CVMX_BOOTMEM_ALIGNMENT_SIZE - 1));
++
++	addr_allocated = cvmx_bootmem_phy_alloc(size, min_addr, max_addr,
++						alignment,
++						flags | CVMX_BOOTMEM_FLAG_NO_LOCKING);
++	if (addr_allocated >= 0) {
++		named_block_desc_ptr->base_addr = addr_allocated;
++		named_block_desc_ptr->size = size;
++		strncpy(named_block_desc_ptr->name, name,
++			cvmx_bootmem_desc->named_block_name_len);
++		named_block_desc_ptr->name[cvmx_bootmem_desc->named_block_name_len - 1] = 0;
++	}
++
++	if (!(flags & CVMX_BOOTMEM_FLAG_NO_LOCKING))
++		cvmx_spinlock_unlock((cvmx_spinlock_t *)&(cvmx_bootmem_desc->lock));
++	return addr_allocated;
++}
+diff --git a/arch/mips/include/asm/octeon/cvmx-bootmem.h b/arch/mips/include/asm/octeon/cvmx-bootmem.h
+index 1cbe4b5..8e708bd 100644
+--- a/arch/mips/include/asm/octeon/cvmx-bootmem.h
++++ b/arch/mips/include/asm/octeon/cvmx-bootmem.h
+@@ -183,6 +183,64 @@ extern void *cvmx_bootmem_alloc_range(uint64_t size, uint64_t alignment,
+  * Returns 0 on failure,
+  *         !0 on success
+  */
++
++
++/**
++ * Allocate a block of memory from the free list that was passed
++ * to the application by the bootloader, and assign it a name in the
++ * global named block table.  (part of the cvmx_bootmem_descriptor_t structure)
++ * Named blocks can later be freed.
++ *
++ * @size:      Size in bytes of block to allocate
++ * @alignment: Alignment required - must be power of 2
++ * @name:      name of block - must be less than CVMX_BOOTMEM_NAME_LEN bytes
++ *
++ * Returns a pointer to block of memory, NULL on error
++ */
++extern void *cvmx_bootmem_alloc_named(uint64_t size, uint64_t alignment,
++				      char *name);
++
++
++
++/**
++ * Allocate a block of memory from the free list that was passed
++ * to the application by the bootloader, and assign it a name in the
++ * global named block table.  (part of the cvmx_bootmem_descriptor_t structure)
++ * Named blocks can later be freed.
++ *
++ * @size:     Size in bytes of block to allocate
++ * @address:  Physical address to allocate memory at.  If this
++ *            memory is not available, the allocation fails.
++ * @name:     name of block - must be less than CVMX_BOOTMEM_NAME_LEN
++ *            bytes
++ *
++ * Returns a pointer to block of memory, NULL on error
++ */
++extern void *cvmx_bootmem_alloc_named_address(uint64_t size, uint64_t address,
++					      char *name);
++
++
++
++/**
++ * Allocate a block of memory from a specific range of the free list
++ * that was passed to the application by the bootloader, and assign it
++ * a name in the global named block table.  (part of the
++ * cvmx_bootmem_descriptor_t structure) Named blocks can later be
++ * freed.  If request cannot be satisfied within the address range
++ * specified, NULL is returned
++ *
++ * @size:      Size in bytes of block to allocate
++ * @min_addr:  minimum address of range
++ * @max_addr:  maximum address of range
++ * @align:     Alignment of memory to be allocated. (must be a power of 2)
++ * @name:      name of block - must be less than CVMX_BOOTMEM_NAME_LEN bytes
++ *
++ * Returns a pointer to block of memory, NULL on error
++ */
++extern void *cvmx_bootmem_alloc_named_range(uint64_t size, uint64_t min_addr,
++					    uint64_t max_addr, uint64_t align,
++					    char *name);
++
+ extern int cvmx_bootmem_free_named(char *name);
+ 
+ /**
+@@ -224,6 +282,33 @@ int64_t cvmx_bootmem_phy_alloc(uint64_t req_size, uint64_t address_min,
+ 			       uint32_t flags);
+ 
+ /**
++ * Allocates a named block of physical memory from the free list, at
++ * (optional) requested address and alignment.
++ *
++ * @param size      size of region to allocate.  All requests are rounded
++ *                  up to be a multiple CVMX_BOOTMEM_ALIGNMENT_SIZE
++ *                  bytes size
++ * @param min_addr Minimum address that block can occupy.
++ * @param max_addr  Specifies the maximum address_min (inclusive) that
++ *                  the allocation can use.
++ * @param alignment Requested alignment of the block.  If this
++ *                  alignment cannot be met, the allocation fails.
++ *                  This must be a power of 2.  (Note: Alignment of
++ *                  CVMX_BOOTMEM_ALIGNMENT_SIZE bytes is required, and
++ *                  internally enforced.  Requested alignments of less
++ *                  than CVMX_BOOTMEM_ALIGNMENT_SIZE are set to
++ *                  CVMX_BOOTMEM_ALIGNMENT_SIZE.)
++ * @param name      name to assign to named block
++ * @param flags     Flags to control options for the allocation.
++ *
++ * @return physical address of block allocated, or -1 on failure
++ */
++int64_t cvmx_bootmem_phy_named_block_alloc(uint64_t size, uint64_t min_addr,
++					   uint64_t max_addr,
++					   uint64_t alignment,
++					   char *name, uint32_t flags);
++
++/**
+  * Finds a named memory block by name.
+  * Also used for finding an unused entry in the named block table.
+  *
+-- 
+1.5.6.5
