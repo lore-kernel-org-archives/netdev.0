@@ -1,45 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: Accept ESP packets regardless of UDP
-	encapsulation mode
-Date: Fri, 19 Dec 2008 21:19:27 +1100
-Message-ID: <20081219101927.GA6898@gondor.apana.org.au>
-References: <E1LDGgX-0007JE-T9@gondolin.me.apana.org.au> <1229603816.10402.178.camel@martin> <20081218205406.GA451@gondor.apana.org.au> <20081218.192313.250049404.davem@davemloft.net> <1229680846.13159.115.camel@martin>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: another race in hso
+Date: Fri, 19 Dec 2008 11:45:30 +0100
+Message-ID: <200812191145.31556.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	sbergman@cc.hut.fi
-To: Martin Willi <martin@strongswan.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52127 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753140AbYLSKTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 05:19:35 -0500
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, "Greg Kroah-Hartman" <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1229680846.13159.115.camel@martin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 19, 2008 at 11:00:45AM +0100, Martin Willi wrote:
->
-> I'll do some testing with a modified patch that accepts encapsulated
-> packets on a non-encapsulating SA, but not vice-versa. This should solve
-> that specific issue without introducing that (and hopefully no other)
-> regression.
+Hi,
 
-Yes this patch looks safe to me from ESP's point of view.
+there is another race.
 
-However, I still don't think this makes sense as ESP will no longer
-react to an address change (since it may have no x->encap) should a
-routing change cause NAT to occur.
+static int hso_get_activity(struct hso_device *hso_dev)
+{
+	if (hso_dev->usb->state == USB_STATE_SUSPENDED) {
+		if (!hso_dev->is_active) {
+			hso_dev->is_active = 1;
+			schedule_work(&hso_dev->async_get_intf);
+		}
+	}
 
-Moreover, the fact that we need this patch in the first place
-means that the two sides may be sending different encapsulations
-to each other which should raise a big red flag since any stateful
-firewall in the middle is going to break this completely.
+	if (hso_dev->usb->state != USB_STATE_CONFIGURED)
+		return -EAGAIN;
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+here's the window.
+
+	usb_mark_last_busy(hso_dev->usb);
+
+	return 0;
+}
+
+CPU A							CPU B
+
+run until the window
+								autosuspend of device
+submitting URB to suspended device
+
+You get an unnecessary error.
+
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
