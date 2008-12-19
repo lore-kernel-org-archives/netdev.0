@@ -1,39 +1,54 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] net: Remove a noisy printk
-Date: Fri, 19 Dec 2008 11:51:54 +1030
-Message-ID: <200812191151.55607.rusty@rustcorp.com.au>
-References: <1229033625-30825-1-git-send-email-ajax@redhat.com> <alpine.DEB.2.00.0812141745550.2447@blackhole.kfki.hu> <20081214200353.GA2994@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+	entry
+Date: Thu, 18 Dec 2008 20:25:27 -0500
+Message-ID: <20081219012527.GA2669@localhost.localdomain>
+References: <20081217211628.GD7356@hmsreliant.think-freely.org> <20081217133131.44a4f67f@extreme> <20081218011306.GA32191@hmsreliant.think-freely.org> <20081217.192936.169928910.davem@davemloft.net> <20081218195236.GA5191@hmsreliant.think-freely.org> <1229640015.2914.20.camel@hashbaz.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	David Miller <davem@davemloft.net>, ajax@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Dave Jones <davej@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20081214200353.GA2994@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	jarkao2@gmail.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48824 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752980AbYLSB1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 20:27:38 -0500
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1229640015.2914.20.camel@hashbaz.i.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 15 December 2008 06:33:53 Dave Jones wrote:
-> On Sun, Dec 14, 2008 at 06:09:17PM +0100, Jozsef Kadlecsik wrote:
->  > In a >normal< system one usually does not use raw sockets. So if a root 
->  > process do use raw socket, at least netfilter sends a notification and 
->  > there's a chance that someone take notice it by checking the kernel logs.
+On Thu, Dec 18, 2008 at 10:40:15PM +0000, Ben Hutchings wrote:
+> On Thu, 2008-12-18 at 14:52 -0500, Neil Horman wrote:
+> [...]
+> > diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+> > index 086629c..75273bb 100644
+> > --- a/drivers/net/sfc/efx.c
+> > +++ b/drivers/net/sfc/efx.c
+> > @@ -226,11 +226,11 @@ static int efx_poll(struct napi_struct *napi, int budget)
+> >  
+> >  	if (rx_packets < budget) {
+> >  		/* There is no race here; although napi_disable() will
+> > -		 * only wait for netif_rx_complete(), this isn't a problem
+> > +		 * only wait for netif_rx_complete(this isn't a problem
+> >  		 * since efx_channel_processed() will have no effect if
+> >  		 * interrupts have already been disabled.
+> >  		 */
+> [...]
 > 
-> 'normal' systems are irrelevant here. This message is triggerable remotely.
+> You'll want to exclude comments from your search-and-replace.
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> 
+> 
 
-I don't think it can be.  This is for truncated locally-generated outgoing
-packets, which can only happen when root is playing with raw sockets.
+Dave, can you fix this up, or would you rather I repost the patch?
+Neil
 
-As you can probably tell, I was the one who wrote this printk :)  IMHO,
-one reasonable complaint is sufficient to have it removed, so just remove
-it.  If anyone thinks it's valuable, put a static counter < 5 around it
-and add pid/comm info.
-
-Cheers,
-Rusty.
