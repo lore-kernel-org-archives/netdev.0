@@ -1,59 +1,52 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [patch]startup race in hso driver
-Date: Fri, 19 Dec 2008 10:20:54 +0100
-Message-ID: <494B6776.4050309@option.com>
-References: <200812181457.36340.oliver@neukum.org>	<494A5728.9070908@option.com> <20081218.195251.186334055.davem@davemloft.net>
+From: Joerg Pommnitz <pommnitz@yahoo.com>
+Subject: Bug? Undocumented interaction between IPv6 IPsec and iptables MARK target
+Date: Fri, 19 Dec 2008 01:26:21 -0800 (PST)
+Message-ID: <757922.43152.qm@web51405.mail.re2.yahoo.com>
+Reply-To: pommnitz@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081218.195251.186334055.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web51405.mail.re2.yahoo.com ([206.190.38.184]:48241 "HELO
+	web51405.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751013AbYLSJdF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2008 04:33:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-No no no.
-Please put it in Dave,
-Our internal tree is a completely seperately maintained hso module
-which is ifdeffed out of existance to compile back to 2.6.11.
+Hello all,
+the following script demonstrates a behaviour of IPv6 IPsec that I would
+consider to be a bug (tested with 2.6.23 and 2.6.27-9 from Ubuntu Intrepid):
 
-It's typically made available at www.pharscape.org, the center
-of the universe for 3G on linux.
+======================================================
+#!/bin/bash
+ip addr add dev eth0 2001:1b10:1001:ff00::0001/64 setkey -c << __EOF__ 
+spdflush;
+flush;
+
+add 2001:1b10:1001:ff00::0001 2001:1b10:1001:ff00::0002 esp 0x00000005 -m tunnel -E rijndael-cbc 0xefe8e2e8a43e518afa8e9474ad9a4abf986807fc178bd192;
+spdadd 2001:1b10:1001:ff00::0001 2001:1b10:1001:ff00::/64 any -P out ipsec esp/tunnel/2001:1b10:1001:ff00::0001-2001:1b10:1001:ff00::0002/require;
+__EOF__
+
+ip6tables -t mangle -A OUTPUT -d 2001:1b10:1001:ff00::2 -j MARK --set-mark=1
+
+ping6 2001:1b10:1001:ff00::2
+======================================================
+
+This script adds an IPsec policy that should encrypt packets sent to 
+2001:1b10:1001:ff00::2. This works fine as long as no MARK value is
+assigned to the packets. When one applies a MARK value different from 0,
+the policy doesn't match any more. In IPv4 the IPsec policies are 
+unaffected by the MARK.
+
+So: Is this intended on the kernel side? If yes, how can I write manual
+policies that either ignore the MARK value or contain a matching value?
+
+Thanks in advance and kind regards
+  Joerg
 
 
-David Miller wrote:
-> From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-> Date: Thu, 18 Dec 2008 14:59:04 +0100
-> 
->> Thanks Oliver,
->> I'll add it to our internal tree.
-> 
-> Ok, I'll pull it out of net-next-2.6 then...
 
-
--- 
-best regards,
-D.J. Barrow
-
-Linux Kernel Developer
-Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
- 
-T: +32 16 311 621
-F: +32 16 207 164
-Mobile Ireland: +353-86-1715438
-Mobile Belgium  +32-496-226190
-d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-barrow_dj-/E1597aS9LQAvxtiuMwx3w@public.gmane.org
-www.option.com
-www.travelsmart.ie
-
-Disclaimer:
-http://www.option.com/company/disclaimer.shtml
- RPR Leuven 0429.375.448
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+      
