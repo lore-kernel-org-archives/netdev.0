@@ -1,29 +1,47 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch]startup race in hso driver
-Date: Thu, 18 Dec 2008 19:52:51 -0800 (PST)
-Message-ID: <20081218.195251.186334055.davem@davemloft.net>
-References: <200812181457.36340.oliver@neukum.org>
-	<494A5728.9070908@option.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
+Date: Thu, 18 Dec 2008 19:54:33 -0800 (PST)
+Message-ID: <20081218.195433.203436159.davem@davemloft.net>
+References: <1229644234.3726.577.camel@calx>
+	<20081218.161513.241236470.davem@davemloft.net>
+	<1229658561.3726.602.camel@calx>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <494A5728.9070908-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ilpo.jarvinen@helsinki.fi, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mpm@selenic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60936
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751412AbYLSDyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 22:54:31 -0500
+In-Reply-To: <1229658561.3726.602.camel@calx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 18 Dec 2008 14:59:04 +0100
+From: Matt Mackall <mpm@selenic.com>
+Date: Thu, 18 Dec 2008 21:49:21 -0600
 
-> Thanks Oliver,
-> I'll add it to our internal tree.
+> On Thu, 2008-12-18 at 16:15 -0800, David Miller wrote:
+> > From: Matt Mackall <mpm@selenic.com>
+> > Date: Thu, 18 Dec 2008 17:50:34 -0600
+> > 
+> > > If you want, we can instead say "Peer %d unexpectedly shrunk window...".
+> > > So long as the scary bit is gone, I don't care.
+> > 
+> > Since we have established that the blame is equally possible to
+> > be the local as the remote system, something like:
+> > 
+> > 	TCP: Unexpected shrink of advertised window detected ...
+> > 
+> > is probably the best.
+> 
+> How's this:
+> 
+> The original message was unhelpful and extremely alarming to our poor
+> users, despite its charm. Make it less frightening.
+> 
+> Signed-off-by: Matt Mackall <mpm@selenic.com>
 
-Ok, I'll pull it out of net-next-2.6 then...
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good, applied, thanks Matt.
