@@ -1,50 +1,40 @@
-From: Vladislav Bolkhovitin <vst@vlnb.net>
-Subject: Re: [RFC]: Support for zero-copy TCP transmit of user space data
-Date: Fri, 19 Dec 2008 20:57:33 +0300
-Message-ID: <494BE08D.30101@vlnb.net>
-References: <4941590F.3070705@vlnb.net> <1229022734.3266.67.camel@localhost.localdomain> <4942BAB8.4050007@vlnb.net> <1229110673.3262.94.camel@localhost.localdomain> <49469ADB.6010709@vlnb.net> <20081215231801.GA27168@infradead.org> <4947FA1C.2090509@vlnb.net> <494A97DD.7080503@vlnb.net> <87zlisz9pg.fsf@basil.nowhere.org> <494BDBFC.7060707@vlnb.net> <20081219180009.GP25779@one.firstfloor.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Christoph Hellwig <hch@infradead.org>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH 1/2] smsc911x: don't clobber driver_data
+Date: Fri, 19 Dec 2008 18:05:29 +0000
+Message-ID: <1229709930-19925-1-git-send-email-steve.glendinning@smsc.com>
+Cc: dfoley@telus.net, Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout-bounce.kundenserver.de ([212.227.17.1]:57665 "EHLO
-	mout-bounce.kundenserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751660AbYLSR5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 12:57:17 -0500
-In-Reply-To: <20081219180009.GP25779@one.firstfloor.org>
+Received: from [86.54.240.115] ([86.54.240.115]:40774 "EHLO
+	drevil2.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751758AbYLSSFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 13:05:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen, on 12/19/2008 09:00 PM wrote:
->> Sure, this is why I propose to disable that option by default in 
->> distribution kernels, so it would produce no harm.
-> 
-> That would make the option useless for most users. You might as well
-> not bother merging then.
+smsc911x uses driver_data to store our net_device, don't overwrite this
+with the mii_bus.
 
-I believe 99.(9)% of users prefer don't patch kernel, if possible.
+Reported and fixed by dfoley@telus.net.
 
->> first, only then enable that option, then rebuild the kernel. (I'm 
->> repeating it to make sure you didn't miss this my point; it was in the 
->> part of my original message, which you cut out.)
-> 
-> That was such a ridiculous suggestion, I didn't take it seriously.
-> 
-> Also it should be really not rocket science to use a separate 
-> table for this.
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/smsc911x.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-Sorry, what do you mean? If usage of something like a hash table to map 
-pages to the corresponding iSCSI commands, this approach was evaluated 
-and rejected, because it wouldn't provide much performance increase, 
-which would worth the effort. See details in the end of the patch 
-description in http://lkml.org/lkml/2008/12/10/296
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index fa28542..cd925de 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -822,7 +822,6 @@ static int __devinit smsc911x_mii_init(struct platform_device *pdev,
+ 		pdata->mii_bus->irq[i] = PHY_POLL;
+ 
+ 	pdata->mii_bus->parent = &pdev->dev;
+-	dev_set_drvdata(&pdev->dev, &pdata->mii_bus);
+ 
+ 	pdata->using_extphy = 0;
+ 
+-- 
+1.6.0.4
 
-Thanks,
-Vlad
