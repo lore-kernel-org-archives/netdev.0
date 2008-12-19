@@ -1,29 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch]startup race in hso driver
-Date: Thu, 18 Dec 2008 19:45:25 -0800 (PST)
-Message-ID: <20081218.194525.42553360.davem@davemloft.net>
-References: <200812181457.36340.oliver@neukum.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] NIU: Implement discard counters
+Date: Thu, 18 Dec 2008 19:48:38 -0800 (PST)
+Message-ID: <20081218.194838.122455220.davem@davemloft.net>
+References: <1229608331.16904.23.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200812181457.36340.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org
+To: hawk@comx.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33245
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752374AbYLSDsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 22:48:36 -0500
+In-Reply-To: <1229608331.16904.23.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Date: Thu, 18 Dec 2008 14:57:35 +0100
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Date: Thu, 18 Dec 2008 14:52:11 +0100
 
-> The flag marking a device running must be set before the URBs for
-> recption are submitted or they may complete too early and fail to resubmit.
 > 
-> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+> This patch series implements discard counter stats for the NIU driver.
+> 
+> This work has been done together with Robert Olsson.  We have come to a
+> stage where the patches needs public review, and possible discussion.
+> 
+> Tested with hardware:
+>  Sun Quad GbE x8 PCIe
+>  Sun Dual 10GbE XFP PCIe
 
-Applied to net-next-2.6, thanks Oliver.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To be honest these patches look great, I'll add them to
+net-next-2.6
+
+Thanks!
