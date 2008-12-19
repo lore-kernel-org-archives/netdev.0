@@ -1,88 +1,47 @@
-From: Denis Joseph Barrow <D.Barow@option.com>
-Subject: Re: another race in hso
-Date: Fri, 19 Dec 2008 12:06:35 +0100
-Message-ID: <494B803B.9000703@option.com>
-References: <200812191145.31556.oliver@neukum.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC]: Support for zero-copy TCP transmit of user space data
+Date: Fri, 19 Dec 2008 12:27:23 +0100
+Message-ID: <87zlisz9pg.fsf@basil.nowhere.org>
+References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net>
+	<20081210214500.GA24212@ioremap.net> <4941590F.3070705@vlnb.net>
+	<1229022734.3266.67.camel@localhost.localdomain>
+	<4942BAB8.4050007@vlnb.net>
+	<1229110673.3262.94.camel@localhost.localdomain>
+	<49469ADB.6010709@vlnb.net> <20081215231801.GA27168@infradead.org>
+	<4947FA1C.2090509@vlnb.net> <494A97DD.7080503@vlnb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ajb@spheresystems.co.uk, Greg Kroah-Hartman <greg@kroah.com>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Oliver Neukum <oliver@neukum.org>, schwidefsky@de.ibm.com,
-	strasse@de.ibm.com, Paul Hardwick <P.Hardwick@option.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.option.com ([81.246.70.163]:60064 "EHLO
-	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751471AbYLSLHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 06:07:04 -0500
-In-Reply-To: <200812191145.31556.oliver@neukum.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org,  Christoph Hellwig <hch@infradead.org>,
+	  James Bottomley <James.Bottomley@HansenPartnership.com>,
+	  linux-scsi@vger.kernel.org,  linux-kernel@vger.kernel.org,
+	  scst-devel@lists.sourceforge.net,
+	  Bart Van Assche <bart.vanassche@gmail.com>,  netdev@vger.kernel.org
+To: Vladislav Bolkhovitin <vst@vlnb.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <494A97DD.7080503@vlnb.net> (Vladislav Bolkhovitin's message of "Thu, 18 Dec 2008 21:35:09 +0300")
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Yes Oliver,
-There are loads of races in the hso driver it's as ugly as sin.
-I've been doing nothing but blocking holes not eliminating races which probably
-would require a serious redesign & I don't have the clarity of thought like martin schwidefsky
-to do it.
-There were almost none in my lcs driver though martin didn't believe me & had to rewrite it.
-Get Martin Schwidefsky to look over it.
-I hope he needs to write a 3g modem driver for linux on the z series anyway
-so he may as well get used to the code.
+Vladislav Bolkhovitin <vst@vlnb.net> writes:
+>
+>  - Although usage of struct page to keep network related pointer might
+> look as a layering violation, it isn't. I wrote in
+> http://lkml.org/lkml/2008/12/15/190 why.
 
+Sorry but extending struct page for this is really a bad idea because
+of the extreme memory overhead even when it's not used (which is a 
+problem on distribution kernels) Find some other way to store this
+information.  Even for patches with more general value it was not
+acceptable.
 
-Oliver Neukum wrote:
-> Hi,
-> 
-> there is another race.
-> 
-> static int hso_get_activity(struct hso_device *hso_dev)
-> {
-> 	if (hso_dev->usb->state == USB_STATE_SUSPENDED) {
-> 		if (!hso_dev->is_active) {
-> 			hso_dev->is_active = 1;
-> 			schedule_work(&hso_dev->async_get_intf);
-> 		}
-> 	}
-> 
-> 	if (hso_dev->usb->state != USB_STATE_CONFIGURED)
-> 		return -EAGAIN;
-> 
-> here's the window.
-> 
-> 	usb_mark_last_busy(hso_dev->usb);
-> 
-> 	return 0;
-> }
-> 
-> CPU A							CPU B
-> 
-> run until the window
-> 								autosuspend of device
-> submitting URB to suspended device
-> 
-> You get an unnecessary error.
-> 
-> 	Regards
-> 		Oliver
+-Andi
 
 
 -- 
-best regards,
-D.J. Barrow
+ak@linux.intel.com
 
-Linux Kernel Developer
-Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
- 
-T: +32 16 311 621
-F: +32 16 207 164
-Mobile Ireland: +353-86-1715438
-Mobile Belgium  +32-496-226190
-d.barow@option.com
-barrow_dj@yahoo.com
-www.option.com
-www.travelsmart.ie
-
-Disclaimer:
-http://www.option.com/company/disclaimer.shtml
- RPR Leuven 0429.375.448
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
