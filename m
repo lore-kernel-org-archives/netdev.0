@@ -1,20 +1,20 @@
 From: Florian Fainelli <florian@openwrt.org>
 Subject: [PATCH 1/3] r6040: fix wrong logic in mdio code
-Date: Fri, 19 Dec 2008 10:56:20 +0100
-Message-ID: <200812191056.21176.florian@openwrt.org>
+Date: Fri, 19 Dec 2008 11:02:05 +0100
+Message-ID: <200812191102.05810.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Joe Chou <Joe.Chou@rdc.com.tw>, Jeff Garzik <jeff@garzik.org>
+To: David Miller <davem@davemloft.net>, Joe Chou <Joe.Chou@rdc.com.tw>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.187]:53551 "EHLO
+Received: from mu-out-0910.google.com ([209.85.134.189]:49589 "EHLO
 	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752603AbYLSKCJ (ORCPT
+	with ESMTP id S1752778AbYLSKCJ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 05:02:09 -0500
-Received: by mu-out-0910.google.com with SMTP id g7so402098muf.1
-        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 02:02:07 -0800 (PST)
+Received: by mu-out-0910.google.com with SMTP id g7so402099muf.1
+        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 02:02:08 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,6 +23,9 @@ Hello David, Jeff,
 
 Those patches should be applied to -stable as well.
 --
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 1/3] r6040: fix wrong logic in mdio code
+
 From: Florian Fainelli <florian@openwrt.org>
 Subject: [PATCH 1/3] r6040: fix wrong logic in mdio code
 
