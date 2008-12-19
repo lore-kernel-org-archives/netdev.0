@@ -1,58 +1,43 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 1/3] r6040: fix wrong logic in mdio code
-Date: Fri, 19 Dec 2008 11:02:05 +0100
-Message-ID: <200812191102.05810.florian@openwrt.org>
+Subject: [PATCH 3/3] r6040: bump release number to 0.19
+Date: Fri, 19 Dec 2008 11:02:23 +0100
+Message-ID: <200812191102.23897.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, Joe Chou <Joe.Chou@rdc.com.tw>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jeff@garzik.org>,
+	Joe Chou <Joe.Chou@rdc.com.tw>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.189]:49589 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbYLSKCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 05:02:09 -0500
-Received: by mu-out-0910.google.com with SMTP id g7so402099muf.1
-        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 02:02:08 -0800 (PST)
+Received: from fg-out-1718.google.com ([72.14.220.154]:32973 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753060AbYLSKC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 05:02:26 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so349619fgg.17
+        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 02:02:25 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David, Jeff,
-
-Those patches should be applied to -stable as well.
---
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 1/3] r6040: fix wrong logic in mdio code
+Subject: [PATCH 3/3] r6040: bump release number to 0.19
 
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 1/3] r6040: fix wrong logic in mdio code
+This patch bumps the release number of the driver.
 
-This patch fixes a reverse logic in the MDIO code.
-
-Signed-off-by: Joe Chou <Joe.Chou@rdc.com.tw>
 Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
 diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 34fe7ef..c2e8ac1 100644
+index 1117ffa..9d2de32 100644
 --- a/drivers/net/r6040.c
 +++ b/drivers/net/r6040.c
-@@ -214,7 +214,7 @@ static int r6040_phy_read(void __iomem *ioaddr, int phy_addr, int reg)
- 	/* Wait for the read bit to be cleared */
- 	while (limit--) {
- 		cmd = ioread16(ioaddr + MMDIO);
--		if (cmd & MDIO_READ)
-+		if (!(cmd & MDIO_READ))
- 			break;
- 	}
+@@ -49,8 +49,8 @@
+ #include <asm/processor.h>
  
-@@ -233,7 +233,7 @@ static void r6040_phy_write(void __iomem *ioaddr, int phy_addr, int reg, u16 val
- 	/* Wait for the write bit to be cleared */
- 	while (limit--) {
- 		cmd = ioread16(ioaddr + MMDIO);
--		if (cmd & MDIO_WRITE)
-+		if (!(cmd & MDIO_WRITE))
- 			break;
- 	}
- }
+ #define DRV_NAME	"r6040"
+-#define DRV_VERSION	"0.18"
+-#define DRV_RELDATE	"13Jul2008"
++#define DRV_VERSION	"0.19"
++#define DRV_RELDATE	"18Dec2008"
+ 
+ /* PHY CHIP Address */
+ #define PHY1_ADDR	1	/* For MAC1 */
