@@ -1,41 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] enc28j60: reduce the number of spi transfers in
- enc28j60_set_bank()
-Date: Thu, 18 Dec 2008 19:39:24 -0800 (PST)
-Message-ID: <20081218.193924.157025825.davem@davemloft.net>
-References: <20081218075732.GA1880@diamond.tkos.co.il>
+Subject: Re: [PATCH] ppp: fix segfaults introduced by netdev_priv changes
+Date: Thu, 18 Dec 2008 19:40:28 -0800 (PST)
+Message-ID: <20081218.194028.165029603.davem@davemloft.net>
+References: <200812172202.mBHM2GHi012456@bert.katalix.com>
+	<20081217.192047.117548302.davem@davemloft.net>
+	<494A25C3.1050603@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lanconelli.claudio@eptar.com, netdev@vger.kernel.org
-To: baruch@tkos.co.il
+Cc: netdev@vger.kernel.org, wangchen@cn.fujitsu.com
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47805
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47809
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752237AbYLSDjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 22:39:22 -0500
-In-Reply-To: <20081218075732.GA1880@diamond.tkos.co.il>
+	by vger.kernel.org with ESMTP id S1752090AbYLSDk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 22:40:26 -0500
+In-Reply-To: <494A25C3.1050603@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Baruch Siach <baruch@tkos.co.il>
-Date: Thu, 18 Dec 2008 09:57:32 +0200
+From: James Chapman <jchapman@katalix.com>
+Date: Thu, 18 Dec 2008 10:28:19 +0000
 
-> A major source of overhead in the enc28j60 driver is the SPI transfers. Each 
-> SPI transfer entails two kernel thread context switches. One major source of 
-> SPI transfers is the enc28j60_set_bank() functions which runs before every 
-> register access. This patch reduces the number of SPI transfers that 
-> enc28j60_set_bank() performs in two ways:
+> David Miller wrote:
+> > From: James Chapman <jchapman@katalix.com>
+> > Date: Wed, 17 Dec 2008 22:02:16 GMT
+> > 
+> >> +	} else
+> >> +		ppp_unlock(ppp);
+> >> +
+> >>  	cardmap_set(&all_ppp_units, ppp->file.index, NULL);
+> >>  	ppp->file.dead = 1;
+> >>  	ppp->owner = NULL;
+> > 
+> > James, thanks for this fix.  But you'll need to respin this
+> > as it conflicts with the IDR changes that are in net-next-2.6
+> > (this cardmap_set call isn't there any more, for example).
 > 
->   1. removes unnecessary bank switch for the registers that are present in all 
-> 	 banks
-> 
->   2. when switching from banks 0 or 3 to banks 1 or 2 (i.e. only one bit 
-> 	 changes) enc28j60_set_bank() does only one SPI transfer instead of two
-> 
-> According to my tests these changes reduce the number of SPI transfers in 
-> about 25%.
-> 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> The patch is against net-2.6. I assumed it was appropriate for net-2.6
+> since we're on rc8 and ppp has been broken since rc6. :) Sorry I didn't
+> mention that in the patch.
 
-Applied, thanks Baruch.
+That part I missed, I thought it was caused by the conversions
+we did only in net-next-2.6
+
+I'll apply your original net-2.6 patch, thanks James!
