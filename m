@@ -1,47 +1,65 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC]: Support for zero-copy TCP transmit of user space data
-Date: Fri, 19 Dec 2008 12:27:23 +0100
-Message-ID: <87zlisz9pg.fsf@basil.nowhere.org>
-References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net>
-	<20081210214500.GA24212@ioremap.net> <4941590F.3070705@vlnb.net>
-	<1229022734.3266.67.camel@localhost.localdomain>
-	<4942BAB8.4050007@vlnb.net>
-	<1229110673.3262.94.camel@localhost.localdomain>
-	<49469ADB.6010709@vlnb.net> <20081215231801.GA27168@infradead.org>
-	<4947FA1C.2090509@vlnb.net> <494A97DD.7080503@vlnb.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH RFC] pkt_sched: Remove smp_wmb() in qdisc_watchdog()
+Date: Fri, 19 Dec 2008 11:30:47 +0000
+Message-ID: <20081219113047.GA17826@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org,  Christoph Hellwig <hch@infradead.org>,
-	  James Bottomley <James.Bottomley@HansenPartnership.com>,
-	  linux-scsi@vger.kernel.org,  linux-kernel@vger.kernel.org,
-	  scst-devel@lists.sourceforge.net,
-	  Bart Van Assche <bart.vanassche@gmail.com>,  netdev@vger.kernel.org
-To: Vladislav Bolkhovitin <vst@vlnb.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <494A97DD.7080503@vlnb.net> (Vladislav Bolkhovitin's message of "Thu, 18 Dec 2008 21:35:09 +0300")
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:52076 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853AbYLSLax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 06:30:53 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so132595nfc.21
+        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 03:30:51 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Vladislav Bolkhovitin <vst@vlnb.net> writes:
->
->  - Although usage of struct page to keep network related pointer might
-> look as a layering violation, it isn't. I wrote in
-> http://lkml.org/lkml/2008/12/15/190 why.
+Hi,
 
-Sorry but extending struct page for this is really a bad idea because
-of the extreme memory overhead even when it's not used (which is a 
-problem on distribution kernels) Find some other way to store this
-information.  Even for patches with more general value it was not
-acceptable.
+I hope Stephen will find a minute to reconsider and/or comment this
+a bit.
 
--Andi
+Thanks,
+Jarek P.
+---------->
 
+While implementing a TCQ_F_THROTTLED flag there was used an smp_wmb()
+in qdisc_watchdog(), but since this flag is practically used only in
+sch_netem(), and since it's not even clear what reordering is avoided
+here (TCQ_F_THROTTLED vs. __QDISC_STATE_SCHED?) it seems the barrier
+could be safely removed.
 
--- 
-ak@linux.intel.com
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ net/sched/sch_api.c   |    1 -
+ net/sched/sch_netem.c |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 6bc29e8..0fc4a18 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -450,7 +450,6 @@ static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
+ 						 timer);
+ 
+ 	wd->qdisc->flags &= ~TCQ_F_THROTTLED;
+-	smp_wmb();
+ 	__netif_schedule(qdisc_root(wd->qdisc));
+ 
+ 	return HRTIMER_NORESTART;
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 7e78f1c..d876b87 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -266,7 +266,6 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	struct sk_buff *skb;
+ 
+-	smp_mb();
+ 	if (sch->flags & TCQ_F_THROTTLED)
+ 		return NULL;
+ 
