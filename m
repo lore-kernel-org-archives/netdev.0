@@ -1,66 +1,54 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 2/3] r6040: save and restore MIER correctly in the interrupt routine
-Date: Fri, 19 Dec 2008 11:02:16 +0100
-Message-ID: <200812191102.16497.florian@openwrt.org>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: hso has a very nice race between hard_start_xmit and resume
+Date: Fri, 19 Dec 2008 11:21:21 +0100
+Message-ID: <200812191121.22860.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, Joe Chou <Joe.Chou@rdc.com.tw>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:61777 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752914AbYLSKCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 05:02:20 -0500
-Received: by bwz14 with SMTP id 14so3316797bwz.13
-        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 02:02:18 -0800 (PST)
+To: ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, "Greg Kroah-Hartman" <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 2/3] r6040: save and restore MIER correctly in the interrupt routine
+Hi,
 
-This patch saves the MIER register contents before treating
-interrupts, then restores them correcty at the end of the
-interrupt routine.
+this one is beautiful. The hso driver has a race condition between
+hard_start_xmit and resume, caused by using a workqueue. It starts here:
 
-Signed-off-by: Joe Chou <Joe.Chou@rdc.com.tw>
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
+static int hso_net_start_xmit(struct sk_buff *skb, struct net_device *net)
+{
+	struct hso_net *odev = netdev_priv(net);
+	int result;
 
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index c2e8ac1..1117ffa 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -681,8 +681,10 @@ static irqreturn_t r6040_interrupt(int irq, void *dev_id)
- 	struct net_device *dev = dev_id;
- 	struct r6040_private *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->base;
--	u16 status;
-+	u16 misr, status;
- 
-+	/* Save MIER */
-+	misr = ioread16(ioaddr + MIER);
- 	/* Mask off RDC MAC interrupt */
- 	iowrite16(MSK_INT, ioaddr + MIER);
- 	/* Read MISR status and clear */
-@@ -702,7 +704,7 @@ static irqreturn_t r6040_interrupt(int irq, void *dev_id)
- 			dev->stats.rx_fifo_errors++;
- 
- 		/* Mask off RX interrupt */
--		iowrite16(ioread16(ioaddr + MIER) & ~RX_INTS, ioaddr + MIER);
-+		misr &= ~RX_INTS;
- 		netif_rx_schedule(dev, &lp->napi);
- 	}
- 
-@@ -710,6 +712,9 @@ static irqreturn_t r6040_interrupt(int irq, void *dev_id)
- 	if (status & TX_INTS)
- 		r6040_tx(dev);
- 
-+	/* Restore RDC MAC interrupt */
-+	iowrite16(misr, ioaddr + MIER);	
-+
- 	return IRQ_HANDLED;
- }
+	/* Tell the kernel, "No more frames 'til we are done with this one." */
+	netif_stop_queue(net);
+	if (hso_get_activity(odev->parent) == -EAGAIN) {
+
+here's the window
+
+		odev->skb_tx_buf = skb;
+		return 0;
+	}
+
+hso_get_activity() schedules work which will call usb_autopm_get_interface.
+It may run any time after that. In particular it may run before
+odev->skb_tx_buf is set. If that happens resume will not submit
+mux_bulk_tx_buf. Thus netif_start_queue() will not be called from
+write_bulk_callback. Later on a timeout will strike which will do nothing
+because the URB has never been submitted.
+
+This will need some interesting locking because you cannot assume that
+the driver's usb_autopm_get_interface will cause resume to run. Somebody
+may be running lsusb causing an earlier resumption. So simply setting
+odev->skb_tx_buf before you call hso_get_activity does not solve the problem.
+
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
