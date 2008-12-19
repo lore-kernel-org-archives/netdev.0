@@ -1,31 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH RFC] pkt_sched: Remove smp_wmb() in qdisc_watchdog()
-Date: Fri, 19 Dec 2008 11:41:25 +0000
-Message-ID: <20081219114125.GB17826@ff.dom.local>
-References: <20081219113047.GA17826@ff.dom.local>
+From: Steve.Glendinning@smsc.com
+Subject: Re: smsc911x unloading crash
+Date: Fri, 19 Dec 2008 12:13:31 +0000
+Message-ID: <OFB5E57180.CCA30733-ON80257524.00382ADA-80257524.004340AF@smsc.com>
+References: <20081218.225515.12838744.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ian.Saturley@smsc.com
+To: dfoley@telus.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:57308 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874AbYLSLla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 06:41:30 -0500
-Received: by ewy10 with SMTP id 10so1014472ewy.13
-        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 03:41:29 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20081219113047.GA17826@ff.dom.local>
+Received: from mail.smsc.com ([170.129.50.11]:2519 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752680AbYLSMPF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2008 07:15:05 -0500
+In-Reply-To: <20081218.225515.12838744.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 19, 2008 at 11:30:47AM +0000, Jarek Poplawski wrote:
-...
-> While implementing a TCQ_F_THROTTLED flag there was used an smp_wmb()
-> in qdisc_watchdog(), but since this flag is practically used only in
-> sch_netem(), and since it's not even clear what reordering is avoided
+Hi dfoley,
 
-Hmm.. I forgot to mention sch_cbq(), but it doesn't use a barrier
-anyway.
+> I am testing out the new smsc911x driver that is in the linux-next tree.
+> I get a crash when unloading the module. I've got this patch to 
+> fix it. I noticed that the dev_set_drvdata is clobbering the data when
+> the driver's ..._remove function calls dev = platform_get_drvdata(pdev);
+> I've back ported this to run on 2.6.27, so this patch may or
+> may not be needed. Sorry if it's a matter of not having the latest 
+version.
 
-Jarek P.
+This is indeed a bug, thanks for finding it.  Some other drivers use the
+device driver_data for storing their mii_bus, but we already store our
+net_device there so we shouldn't be setting this here.
+
+> dfoley, even if your patch is correct your email client has severely
+> corrupted the patch (changing tab characters into spaces, etc.) so if
+> this patch is still needed you'll need to resubmit with your email
+> client fixed to not corrupt the patch with formatting changes.
+
+The [broken] patch actually fixes two different bugs, can you split this
+into two patches?
+
+The second bug is a typo - It's supposed to look the same as the code
+in smsc911x_drv_probe 35 lines later, but it's missing the assignment.
+
+Both Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
