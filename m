@@ -1,42 +1,41 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: Re: [PATCH] net: Fix oops in dev_ifsioc()
-Date: Fri, 19 Dec 2008 09:33:01 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0812190929180.934@ask.diku.dk>
-References: <20081219070431.GA7189@ff.dom.local> <494B552B.1010602@cn.fujitsu.com>
- <20081219081104.GB7189@ff.dom.local> <494B57FE.3070706@cn.fujitsu.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] pkt_sched: Annotate uninitialized var in sfq_enqueue()
+Date: Fri, 19 Dec 2008 08:44:07 +0000
+Message-ID: <20081219084407.GC7189@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:54727 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751139AbYLSIdF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Dec 2008 03:33:05 -0500
-In-Reply-To: <494B57FE.3070706@cn.fujitsu.com>
+Received: from ug-out-1314.google.com ([66.249.92.171]:56746 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751836AbYLSIoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 03:44:13 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so538527ugf.37
+        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 00:44:11 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Dec 2008, Wang Chen wrote:
+Some gcc versions warn that ret may be used uninitialized in
+sfq_enqueue(). It's a false positive, so let's annotate this.
 
-> Jarek Poplawski said the following on 2008-12-19 16:11:
-> > On Fri, Dec 19, 2008 at 04:02:51PM +0800, Wang Chen wrote:
-> >> Jarek Poplawski said the following on 2008-12-19 15:04:
-> >>> A command like this: "brctl addif br1 eth1" issued as a user gave me
-> >>> an oops when bridge module wasn't loaded. It's caused by using a dev
-> >>> pointer before checking for NULL.
-> > ...
-> >> Subject will be changed, sorry.
-> >> Seems Julia  is doing "Move a dereference below a NULL test" check,
-> >> but why the coccinelle missed this one?
-> > 
-> > Probably because it's quite fresh?
-> > 
-> 
-> Yes. Maybe Julia never check the source of -next. :)
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-Sorry, my -next was mysteriously quite out of date.  It's up to date now.
-Indeed, I found that one just now.
+ net/sched/sch_sfq.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-julia
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index ab8cfee..f3965df 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -281,7 +281,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	unsigned int hash;
+ 	sfq_index x;
+-	int ret;
++	int uninitialized_var(ret);
+ 
+ 	hash = sfq_classify(skb, sch, &ret);
+ 	if (hash == 0) {
