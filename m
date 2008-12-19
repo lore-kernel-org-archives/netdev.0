@@ -1,38 +1,28 @@
-From: "David Schwartz" <davids@webmaster.com>
-Subject: RE: [PATCH] Stop scaring users with "treason uncloaked!"
-Date: Thu, 18 Dec 2008 16:45:32 -0800
-Message-ID: <MDEHLPKNGKAHNMBLJOLKKEJJBPAD.davids@webmaster.com>
-References: <1229641573.3726.563.camel@calx>
-Reply-To: davids@webmaster.com
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
+Date: Fri, 19 Dec 2008 01:55:51 +0100
+Message-ID: <m3r645nfu0.fsf@maximus.localdomain>
+References: <MDEHLPKNGKAHNMBLJOLKKEJJBPAD.davids@webmaster.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753958AbYLSAqo@vger.kernel.org>
-In-Reply-To: <1229641573.3726.563.camel@calx>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: davids@webmaster.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:47999 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750753AbYLSAzx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 19:55:53 -0500
+In-Reply-To: <MDEHLPKNGKAHNMBLJOLKKEJJBPAD.davids@webmaster.com> (David Schwartz's message of "Thu\, 18 Dec 2008 16\:45\:32 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+"David Schwartz" <davids@webmaster.com> writes:
 
-> Most people won't actually think their printer is on fire. But most
-> people WILL think there is serious cause for concern when they see this
-> for the first time in dmesg. Many will search the net for explanations
-> and come away confused and not entirely reassured. And at least one
-> clueless guy will call the police because he still thinks he's under
-> attack.
+> Messages about something or other being "illegal" occur about 345 times in
+> the Linux kernel source code. Are we going to start patching those too?
 
-Messages about something or other being "illegal" occur about 345 times in
-the Linux kernel source code. Are we going to start patching those too?
-
-We have "illegal norm", "illegal input", "illegal call", "illegal type",
-"illegal bits", "illegal root port number", "illegal host number", "illegal
-DMA data", "illegal dimensions" (who do you call about that one?), "illegal
-phase", "illegal page number", "illegal seek", and on, and on, and on.
-
-I suspect that if I submitted a patch to change all of those to "invalid",
-I'd be considered a kook. (Well, more of a kook, anyway.)
-
-DS
+I think we should.
+Except for those which are part of some reasonable userspace interface.
+-- 
+Krzysztof Halasa
