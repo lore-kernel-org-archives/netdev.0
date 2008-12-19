@@ -1,52 +1,38 @@
-From: Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [PATCH -next] ppp: fix segfaults introduced by netdev_priv changes
-Date: Fri, 19 Dec 2008 08:42:01 +0800
-Message-ID: <494AEDD9.9060802@cn.fujitsu.com>
-References: <200812181838.mBIIcLlw019317@bert.katalix.com>
+From: "David Schwartz" <davids@webmaster.com>
+Subject: RE: [PATCH] Stop scaring users with "treason uncloaked!"
+Date: Thu, 18 Dec 2008 16:45:32 -0800
+Message-ID: <MDEHLPKNGKAHNMBLJOLKKEJJBPAD.davids@webmaster.com>
+References: <1229641573.3726.563.camel@calx>
+Reply-To: davids@webmaster.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55416 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbYLSAmO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Dec 2008 19:42:14 -0500
-In-Reply-To: <200812181838.mBIIcLlw019317@bert.katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753958AbYLSAqo@vger.kernel.org>
+In-Reply-To: <1229641573.3726.563.camel@calx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-James Chapman said the following on 2008-12-19 2:38:
-> This patch fixes a segfault in ppp_shutdown_interface() and
-> ppp_destroy_interface() when a PPP connection is closed. I bisected
-> the problem to the following commit:
-> 
->   commit c8019bf3aff653cceb64f66489fc299ee5957b57
->   Author: Wang Chen <wangchen@cn.fujitsu.com>
->   Date:   Thu Nov 20 04:24:17 2008 -0800
-> 
->     netdevice ppp: Convert directly reference of netdev->priv
->     
->     1. Use netdev_priv(dev) to replace dev->priv.
->     2. Alloc netdev's private data by alloc_netdev().
->     
->     Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> The original ppp_generic code treated the netdev and struct ppp as
-> independent data structures which were freed separately. In moving the
-> ppp struct into the netdev, it is now possible for the private data to
-> be freed before the call to ppp_shutdown_interface(), which is bad.
-> 
-> The kfree(ppp) in ppp_destroy_interface() is also wrong; presumably
-> ppp hasn't worked since the above commit.
-> 
-> The following patch fixes both problems.
-> 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
-> 
 
-It's ok to me.
-Reviewed-by: Wang Chen <wangchen@cn.fujitsu.com>
+> Most people won't actually think their printer is on fire. But most
+> people WILL think there is serious cause for concern when they see this
+> for the first time in dmesg. Many will search the net for explanations
+> and come away confused and not entirely reassured. And at least one
+> clueless guy will call the police because he still thinks he's under
+> attack.
 
+Messages about something or other being "illegal" occur about 345 times in
+the Linux kernel source code. Are we going to start patching those too?
+
+We have "illegal norm", "illegal input", "illegal call", "illegal type",
+"illegal bits", "illegal root port number", "illegal host number", "illegal
+DMA data", "illegal dimensions" (who do you call about that one?), "illegal
+phase", "illegal page number", "illegal seek", and on, and on, and on.
+
+I suspect that if I submitted a patch to change all of those to "invalid",
+I'd be considered a kook. (Well, more of a kook, anyway.)
+
+DS
