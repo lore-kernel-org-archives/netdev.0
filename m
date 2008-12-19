@@ -1,41 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] pkt_sched: Annotate uninitialized var in sfq_enqueue()
-Date: Fri, 19 Dec 2008 08:44:07 +0000
-Message-ID: <20081219084407.GC7189@ff.dom.local>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch]startup race in hso driver
+Date: Fri, 19 Dec 2008 10:20:54 +0100
+Message-ID: <494B6776.4050309@option.com>
+References: <200812181457.36340.oliver@neukum.org>	<494A5728.9070908@option.com> <20081218.195251.186334055.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:56746 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751836AbYLSIoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 03:44:13 -0500
-Received: by ug-out-1314.google.com with SMTP id 39so538527ugf.37
-        for <netdev@vger.kernel.org>; Fri, 19 Dec 2008 00:44:11 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081218.195251.186334055.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Some gcc versions warn that ret may be used uninitialized in
-sfq_enqueue(). It's a false positive, so let's annotate this.
+No no no.
+Please put it in Dave,
+Our internal tree is a completely seperately maintained hso module
+which is ifdeffed out of existance to compile back to 2.6.11.
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
+It's typically made available at www.pharscape.org, the center
+of the universe for 3G on linux.
 
- net/sched/sch_sfq.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index ab8cfee..f3965df 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -281,7 +281,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	struct sfq_sched_data *q = qdisc_priv(sch);
- 	unsigned int hash;
- 	sfq_index x;
--	int ret;
-+	int uninitialized_var(ret);
+David Miller wrote:
+> From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+> Date: Thu, 18 Dec 2008 14:59:04 +0100
+> 
+>> Thanks Oliver,
+>> I'll add it to our internal tree.
+> 
+> Ok, I'll pull it out of net-next-2.6 then...
+
+
+-- 
+best regards,
+D.J. Barrow
+
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
  
- 	hash = sfq_classify(skb, sch, &ret);
- 	if (hash == 0) {
+T: +32 16 311 621
+F: +32 16 207 164
+Mobile Ireland: +353-86-1715438
+Mobile Belgium  +32-496-226190
+d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+barrow_dj-/E1597aS9LQAvxtiuMwx3w@public.gmane.org
+www.option.com
+www.travelsmart.ie
+
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
+ RPR Leuven 0429.375.448
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
