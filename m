@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3][RFC] Fix security and SELinux handling of proc/*
- filesystems
-Date: Thu, 18 Dec 2008 22:40:50 -0800 (PST)
-Message-ID: <20081218.224050.118595359.davem@davemloft.net>
-References: <1229117086.3134.22.camel@localhost.localdomain>
-	<alpine.LRH.1.10.0812160021030.10723@tundra.namei.org>
-	<alpine.LRH.1.10.0812191144370.4137@tundra.namei.org>
+Subject: Re: [PATCH] netpoll: fix race on poll_list resulting in garbage
+ entry
+Date: Thu, 18 Dec 2008 22:42:24 -0800 (PST)
+Message-ID: <20081218.224224.227412554.davem@davemloft.net>
+References: <20081218195236.GA5191@hmsreliant.think-freely.org>
+	<1229640015.2914.20.camel@hashbaz.i.decadent.org.uk>
+	<20081219012527.GA2669@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org, adobriyan@gmail.com,
-	ebiederm@xmission.com, auke-jan.h.kok@intel.com,
-	akpm@linux-foundation.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, eparis@parisplace.org, sds@tycho.nsa.gov,
-	viro@ftp.linux.org.uk, chrisw@sous-sol.org
-To: jmorris@namei.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.1.10.0812191144370.4137@tundra.namei.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, shemminger@vyatta.com,
+	jarkao2@gmail.com, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36072
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751474AbYLSGmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 01:42:22 -0500
+In-Reply-To: <20081219012527.GA2669@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: James Morris <jmorris@namei.org>
-Date: Fri, 19 Dec 2008 12:04:07 +1100 (EST)
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Thu, 18 Dec 2008 20:25:27 -0500
 
-> Please review and ack if ok.
+> Dave, can you fix this up, or would you rather I repost the patch?
 
-Although the changes are outside of networking, they look
-fine to me, ACK
+You need to do that anyways so that you can provide a proper
+full commit message and a proper signoff.
+
+Thanks.
+
