@@ -1,47 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
-Date: Thu, 18 Dec 2008 19:54:33 -0800 (PST)
-Message-ID: <20081218.195433.203436159.davem@davemloft.net>
-References: <1229644234.3726.577.camel@calx>
-	<20081218.161513.241236470.davem@davemloft.net>
-	<1229658561.3726.602.camel@calx>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: jme: Fixed a typo
+Date: Fri, 19 Dec 2008 12:34:11 +0800
+Message-ID: <20081219043219.M1620@cooldavid.org>
+References: <20081217.002700.167924575.davem@davemloft.net>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mpm@selenic.com
+Content-Type: text/plain;
+	charset=iso-8859-1
+Cc: netdev@vger.kernel.org
+To: cwm97m@cse.nsysu.edu.tw, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60936
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751412AbYLSDyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 22:54:31 -0500
-In-Reply-To: <1229658561.3726.602.camel@calx>
+Received: from cooldavid.org ([220.133.139.86]:54921 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752231AbYLSEem (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Dec 2008 23:34:42 -0500
+In-Reply-To: <20081217.002700.167924575.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Mackall <mpm@selenic.com>
-Date: Thu, 18 Dec 2008 21:49:21 -0600
+On Wed, 17 Dec 2008 00:27:00 -0800 (PST), David Miller wrote
+> Patch applied, thank you.
 
-> On Thu, 2008-12-18 at 16:15 -0800, David Miller wrote:
-> > From: Matt Mackall <mpm@selenic.com>
-> > Date: Thu, 18 Dec 2008 17:50:34 -0600
-> > 
-> > > If you want, we can instead say "Peer %d unexpectedly shrunk window...".
-> > > So long as the scary bit is gone, I don't care.
-> > 
-> > Since we have established that the blame is equally possible to
-> > be the local as the remote system, something like:
-> > 
-> > 	TCP: Unexpected shrink of advertised window detected ...
-> > 
-> > is probably the best.
-> 
-> How's this:
-> 
-> The original message was unhelpful and extremely alarming to our poor
-> users, despite its charm. Make it less frightening.
-> 
-> Signed-off-by: Matt Mackall <mpm@selenic.com>
+Should it also apply to net-next-2.6 git?
+Thanks. ^^
 
-Looks good, applied, thanks Matt.
+Guo-Fu Tseng
+
