@@ -1,55 +1,54 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [RFC]: Support for zero-copy TCP transmit of user space data
-Date: Sat, 20 Dec 2008 00:58:17 +0300
-Message-ID: <20081219215817.GA704@ioremap.net>
-References: <1229110673.3262.94.camel@localhost.localdomain> <49469ADB.6010709@vlnb.net> <20081215231801.GA27168@infradead.org> <4947FA1C.2090509@vlnb.net> <494A97DD.7080503@vlnb.net> <494A99EF.6070400@flurg.com> <494BDBC5.7050701@vlnb.net> <20081219190701.GP32491@kernel.dk> <494BF361.1090003@vlnb.net> <20081219192736.GQ32491@kernel.dk>
+Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user space data
+Date: Sat, 20 Dec 2008 01:04:52 +0300
+Message-ID: <20081219220452.GB704@ioremap.net>
+References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net> <494C0255.8010208@goop.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vladislav Bolkhovitin <vst@vlnb.net>,
-	"David M. Lloyd" <dmlloyd@flurg.com>, linux-mm@kvack.org,
-	Christoph Hellwig <hch@infradead.org>,
+Cc: Vladislav Bolkhovitin <vst@vlnb.net>, linux-scsi@vger.kernel.org,
 	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>, netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
-Return-path: <owner-linux-mm@kvack.org>
+	Andrew Morton <akpm@linux-foundation.org>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Jeff Garzik <jeff@garzik.org>,
+	Boaz Harrosh <bharrosh@panasas.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
+	Bart Van Assche <bart.vanassche@gmail.com>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netgear.net.ru ([195.178.208.66]:47068 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752048AbYLSWEx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2008 17:04:53 -0500
 Content-Disposition: inline
-In-Reply-To: <20081219192736.GQ32491@kernel.dk>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <494C0255.8010208@goop.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 19, 2008 at 08:27:36PM +0100, Jens Axboe (jens.axboe@oracle.com) wrote:
-> What is missing, as I wrote, is the 'release on ack' and not on pipe
-> buffer release. This is similar to the get_page/put_page stuff you did
-> in your patch, but don't go claiming that zero-copy transmit is a
-> Vladislav original - the ->sendpage() does no copies.
+On Fri, Dec 19, 2008 at 12:21:41PM -0800, Jeremy Fitzhardinge (jeremy@goop.org) wrote:
+> I think Rusty has a patch to put some kind of put notifier in struct 
+> skb_shared_info, but I'm not sure of the details.
 
-Just my small rant: it does, when underlying device does not support
-hardware tx checksumming and scatter/gather, which is likely exception
-than a rule for the modern NICs.
+Yes, he added destructor callback into shared info.
 
-As of having notifications of the received ack (or from user's point of
-view notification of the freeing of the buffer), I have following idea
-in mind: extend skb ahsred info by copy of the frag array and additional
-destructor field, which will be invoked when not only skb but also all
-its clones are freed (that's when shared info is freed), so that user
-could save some per-page context in fraglist and work with it when data
-is not used anymore.
+There maybe a problem though, if iscsi will run over xen network, but in
+this case xen may copy the data, or iscsi may do that after determining
+that underlying network device does not allow shared info destructor
+(vis device/route flag for example).
 
-Extending page or skb structure is a no-go for sure, and actually even
-shared info is not rubber, but there we can at least add something...
+> Wouldn't you only need to do the lookup on the last put?
+> 
+> An external lookup table might well for for us, if the net_put_page() 
+> change is acceptable to the network folk.
 
-If only destructor field is allowed (similar patch was not rejected),
-scsi can save its pages in the tree (indexed by the page pointer) and
-traverse it when destructor is invoked selecting pages found in the
-freed skb.
+That sounds like the best solution for this problem.
+David, will you accept shared info destructor?
+And second fraglist? (Put to the new line to easily say no here :)
 
 -- 
 	Evgeniy Polyakov
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
