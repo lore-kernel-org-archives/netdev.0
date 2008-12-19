@@ -1,37 +1,86 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Firmware patches for Network
-Date: Fri, 19 Dec 2008 19:46:11 +0000
-Message-ID: <1229715971.3097.6.camel@achroite>
-References: <3f9a31f40812191131m48802157r596d7773fb435f34@mail.gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] PHYLIB mdio fixes #2
+Date: Fri, 19 Dec 2008 20:52:36 +0100
+Message-ID: <m3r644aqnv.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net,
-	Jeff Garzik <jeff@garzik.org>,
-	David Woodhouse <dwmw2@infradead.org>, sfr@canb.auug.org.au
-To: Jaswinder Singh <jaswinderlinux@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:39539 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751992AbYLSTqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 14:46:35 -0500
-In-Reply-To: <3f9a31f40812191131m48802157r596d7773fb435f34@mail.gmail.com>
+Received: from khc.piap.pl ([195.187.100.11]:58922 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751570AbYLSTwj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2008 14:52:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2008-12-20 at 01:01 +0530, Jaswinder Singh wrote:
-[...]
-> Please let me know, should I update these patches for :
-[...]
-> 3. git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+The PHYLIB mdio code has more problems in error paths:
+- mdiobus_release can be called before bus->state is set to
+  MDIOBUS_REGISTERED
+- mdiobus_scan allocates resources which need to be freed
+- the comment is wrong, the resistors used are actually pull-ups.
 
-This one.
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -63,7 +63,9 @@ EXPORT_SYMBOL(mdiobus_alloc);
+ static void mdiobus_release(struct device *d)
+ {
+ 	struct mii_bus *bus = to_mii_bus(d);
+-	BUG_ON(bus->state != MDIOBUS_RELEASED);
++	BUG_ON(bus->state != MDIOBUS_RELEASED &&
++	       /* for compatibility with error handling in drivers */
++	       bus->state != MDIOBUS_ALLOCATED);
+ 	kfree(bus);
+ }
+ 
+@@ -83,8 +85,7 @@ static struct class mdio_bus_class = {
+  */
+ int mdiobus_register(struct mii_bus *bus)
+ {
+-	int i;
+-	int err = 0;
++	int i, err;
+ 
+ 	if (NULL == bus || NULL == bus->name ||
+ 			NULL == bus->read ||
+@@ -116,16 +117,23 @@ int mdiobus_register(struct mii_bus *bus)
+ 			struct phy_device *phydev;
+ 
+ 			phydev = mdiobus_scan(bus, i);
+-			if (IS_ERR(phydev))
++			if (IS_ERR(phydev)) {
+ 				err = PTR_ERR(phydev);
++				goto error;
++			}
+ 		}
+ 	}
+ 
+-	if (!err)
+-		bus->state = MDIOBUS_REGISTERED;
+-
++	bus->state = MDIOBUS_REGISTERED;
+ 	pr_info("%s: probed\n", bus->name);
++	return 0;
+ 
++error:
++	while (--i >= 0) {
++		if (bus->phy_map[i])
++			device_unregister(&bus->phy_map[i]->dev);
++	}
++	device_del(&bus->dev);
+ 	return err;
+ }
+ EXPORT_SYMBOL(mdiobus_register);
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -232,7 +232,7 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
+ 		return NULL;
+ 
+ 	/*
+-	 * Broken hardware is sometimes missing the pull down resistor on the
++	 * Broken hardware is sometimes missing the pull-up resistor on the
+ 	 * MDIO line, which results in reads to non-existent devices returning
+ 	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
+ 	 * device as well.
