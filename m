@@ -1,80 +1,65 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user space data
-Date: Sat, 20 Dec 2008 01:33:15 +0300
-Message-ID: <20081219223314.GA2736@ioremap.net>
-References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net> <494C0255.8010208@goop.org> <20081219220452.GB704@ioremap.net> <494C1E5E.7070809@goop.org>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: [PATCH 0/3] Add driver for OCTEON MGMT ethernet device.
+Date: Fri, 19 Dec 2008 15:41:34 -0800
+Message-ID: <494C312E.9000901@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vladislav Bolkhovitin <vst@vlnb.net>, linux-scsi@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Jeff Garzik <jeff@garzik.org>,
-	Boaz Harrosh <bharrosh@panasas.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <494C1E5E.7070809@goop.org>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: linux-mips <linux-mips@linux-mips.org>, netdev@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 19, 2008 at 02:21:18PM -0800, Jeremy Fitzhardinge (jeremy@goop.org) wrote:
-> >There maybe a problem though, if iscsi will run over xen network, but in
-> >this case xen may copy the data, or iscsi may do that after determining
-> >that underlying network device does not allow shared info destructor
-> >(vis device/route flag for example).
-> >  
-> 
-> Xen only needs the callback in the case of traffic originating in 
-> another Xen domain.  If iscsi is involved, it will be running in the 
-> other domain, and so all its callbacks and so on will happen there.  
-> There's no conflict.
+Queued for inclusion in 2.6.29 is support for the Cavium OCTEON
+processor.  See:
 
-That's good news.
+http://marc.info/?l=linux-mips&m=122903840412896&w=2
+http://marc.info/?l=linux-mips&m=122972878908450&w=2
 
-> >>Wouldn't you only need to do the lookup on the last put?
-> >>
-> >>An external lookup table might well for for us, if the net_put_page() 
-> >>change is acceptable to the network folk.
-> >>    
-> >
-> >That sounds like the best solution for this problem.
-> >  
-> 
-> An external lookup would just need to change put_page -> net_put_page, I 
-> think.
+This patch set adds support for the OCTEON SOC's on-board mgmt ethernet
+devices.
 
-It is not needed I think, having skb shared info destructor has access
-to the all pages in that skb.
+The first patch is not too interesting, it adds a missing function to
+the boot monitor memory allocator.  This is needed by the third patch.
 
-> >David, will you accept shared info destructor?
-> >  
-> 
-> I'm not very familiar with the network stack, but am I right in assuming 
-> that the shared_info destructor would be called when the network stack 
-> has finished with all the pages it refers to?  And those pages could be 
-> the combination of pages separately submitted in different skbs?
+Second I add register definitions for the hardware blocks used by the
+driver.  This is just a lot of boiler plate.
 
-Shared info is freed when there are no skbs referring to the shared info
-in question. Skb holds all pages in shared info in the fraglist array,
-so when it is about to be freed, it means that network stack does not
-use it (particulary it will putpage every page in fraglist). Usually
-there are two skbs in the network stack per packet in TCP (allocated at
-once though via fastclone mechanims): one is provided to the device
-(and will be freed there) and another one is placed into retransmit
-queue, where it will be located and freed when ack has been received.
+Third is the main driver patch.
 
-There may be another layers which may clone skb, but its shared info
-structure (shared between the clones) will only be freed when all users
-freed appropriate cloned skbs.
+I anticipate that some changes may have to be made to the driver, but
+I wanted to get some feedback before proceeding.  So please let me
+know what you think should change with an eye to getting the driver
+merged.
 
--- 
-	Evgeniy Polyakov
+I will reply with the three patches.
+
+David Daney (3):
+  MIPS: Add named alloc functions to OCTEON boot monitor memory
+    allocator.
+  MIPS: Add some register definitions to OCTEON for MGMT ethernet
+    driver.
+  netdev: New driver for OCTEON's MGMT ethernet devices.
+
+ arch/mips/cavium-octeon/executive/cvmx-bootmem.c |  101 ++
+ arch/mips/include/asm/octeon/cvmx-agl-defs.h     | 1194 ++++++++++++++++++++++
+ arch/mips/include/asm/octeon/cvmx-bootmem.h      |   85 ++
+ arch/mips/include/asm/octeon/cvmx-mdio.h         |  577 +++++++++++
+ arch/mips/include/asm/octeon/cvmx-mixx-defs.h    |  248 +++++
+ arch/mips/include/asm/octeon/cvmx-smix-defs.h    |  178 ++++
+ drivers/net/Kconfig                              |    8 +
+ drivers/net/Makefile                             |    1 +
+ drivers/net/octeon/Makefile                      |   11 +
+ drivers/net/octeon/cvmx-mgmt-port.c              |  818 +++++++++++++++
+ drivers/net/octeon/cvmx-mgmt-port.h              |  168 +++
+ drivers/net/octeon/octeon-mgmt-port.c            |  389 +++++++
+ 12 files changed, 3778 insertions(+), 0 deletions(-)
+ create mode 100644 arch/mips/include/asm/octeon/cvmx-agl-defs.h
+ create mode 100644 arch/mips/include/asm/octeon/cvmx-mdio.h
+ create mode 100644 arch/mips/include/asm/octeon/cvmx-mixx-defs.h
+ create mode 100644 arch/mips/include/asm/octeon/cvmx-smix-defs.h
+ create mode 100644 drivers/net/octeon/Makefile
+ create mode 100644 drivers/net/octeon/cvmx-mgmt-port.c
+ create mode 100644 drivers/net/octeon/cvmx-mgmt-port.h
+ create mode 100644 drivers/net/octeon/octeon-mgmt-port.c
