@@ -1,47 +1,98 @@
-From: "Jaswinder Singh" <jaswinderlinux@gmail.com>
-Subject: Re: Firmware patches for Network
-Date: Sat, 20 Dec 2008 01:41:36 +0530
-Message-ID: <3f9a31f40812191211x12fc08cateb3502c6765d0c4c@mail.gmail.com>
-References: <3f9a31f40812191131m48802157r596d7773fb435f34@mail.gmail.com>
-	 <1229715971.3097.6.camel@achroite>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
+ space data
+Date: Fri, 19 Dec 2008 12:21:41 -0800
+Message-ID: <494C0255.8010208@goop.org>
+References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net,
-	"Jeff Garzik" <jeff@garzik.org>,
-	"David Woodhouse" <dwmw2@infradead.org>, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org
-To: "Ben Hutchings" <bhutchings@solarflare.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1229715971.3097.6.camel@achroite>
-Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-scsi@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Jeff Garzik <jeff@garzik.org>,
+	Boaz Harrosh <bharrosh@panasas.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
+	Bart Van Assche <bart.vanassche@gmail.com>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Vladislav Bolkhovitin <vst@vlnb.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw.goop.org ([64.81.55.164]:55521 "EHLO mail.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751320AbYLSUVs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Dec 2008 15:21:48 -0500
+In-Reply-To: <494012C4.7090304@vlnb.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Ben,
+Vladislav Bolkhovitin wrote:
+> This patch implements support for zero-copy TCP transmit of user space 
+> data. It is necessary in iSCSI-SCST target driver for transmitting data 
+> from user space buffers, supplied by user space backend handlers. In 
+> this case SCST core needs to know when TCP finished transmitting the 
+> data, so the corresponding buffers can be reused or freed. Without this 
+> patch it isn't possible, so iSCSI-SCST has to use data copying to TCP 
+> send buffers function sock_sendpage(). ISCSI-SCST also works without 
+> this patch, but that this patch gives a nice performance improvement.
+>   
 
-On Sat, Dec 20, 2008 at 1:16 AM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
->> 3. git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
->
-> This one.
->
+In Xen networking it looks like we're going to need to solve a very 
+similar problem.
 
-4 out of 10 Networking's firmware patches are already floating in
-linux-next from long time :
+When a guest (non-privileged, with no direct hardware access) wants to 
+send a network packet, it passes it over to the privileged (host) 
+domain, who then puts it into the network stack for transmission.
 
-1. firmware: convert e100 driver to request_firmware()
-http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=commit;h=c98e632b660ef49b67a9591040230b518785e38a
-2. firmware: convert acenic driver to request_firmware()
-http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=commit;h=e39c0e190f52331b35931fbe5e34a07114d66171
-3. firmware: convert tg3 driver to request_firmware()
-http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=commit;h=aadd3ed38a6745e21dc8d2f388bbba42ead0a085
-4. starfire: use request_firmware()
-http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=commit;h=df3eea674103ce451357be8eb873092943ad3551
+The packet gets passed over in a page granted (read "borrowed") from the 
+guest domain.   We can't return it to the guest while its tangled up in 
+the host's network stack, so we need notification of when the stack has 
+finished with the page.
 
-Should I need to resend all 10 or remaining 6.
+The out of tree Xen patches do this by marking a page as having been 
+allocated by a foreign allocator, and overloads the private memory of 
+struct page with a destructor function pointer, which put_page calls as 
+appropriate.  We can do this because the page is definitely "owned" by 
+the Xen subsystem, so most of the fields are available for recycling; 
+the main problem is that we need to grab another page flag.  Your case 
+sounds more complex because the source page can be mapped by userspace 
+and/or be in the pagecache, so everything is already claimed.
 
-Thank you,
+As with your case, we can simply copy the page data if this mechanism 
+isn't available.  But it would be nice if it were.
 
-Jaswinder Singh.
+> 1. Add net_priv analog in struct sk_buff, not in struct page. But then 
+> it would be required that all the pages in each skb must be from the 
+> same originator, i.e. with the same net_priv. It is unpractical to 
+> change all the operations with skb's to forbid merging them, if they 
+> have different net_priv. I tried, but quickly gave up. There are too 
+> many such places in very not obvious code pieces.
+>   
+
+I think Rusty has a patch to put some kind of put notifier in struct 
+skb_shared_info, but I'm not sure of the details.
+
+> 2. Have in iSCSI-SCST a hashed list to translate page to iSCSI cmd by a 
+> simple search function. This approach was rejected, because to copy a 
+> page a modern CPU needs using MMX about 1500 ticks.
+
+Is that the cold cache timing?
+
+>  It was observed, 
+> that each page can be referenced by TCP during transmit about 20 times 
+> or even more. So, if each search needs, say, 20 ticks, the overall 
+> search time will be 20*20*2 (to get() and put()) = 800 ticks. So, this 
+> approach would considerably worse performance-wise to the chosen 
+> approach and provide not too much benefit.
+>   
+
+Wouldn't you only need to do the lookup on the last put?
+
+An external lookup table might well for for us, if the net_put_page() 
+change is acceptable to the network folk.
+
+    J
