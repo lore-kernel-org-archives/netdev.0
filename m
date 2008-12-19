@@ -1,40 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH -next] netdevice zd1201: Use after free
-Date: Thu, 18 Dec 2008 19:37:03 -0800 (PST)
-Message-ID: <20081218.193703.92433900.davem@davemloft.net>
-References: <20081031182207.GD4310@tuxdriver.com>
-	<1225478896-28987-1-git-send-email-linville@tuxdriver.com>
-	<4949F36B.7080707@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] enc28j60: reduce the number of spi transfers in
+ enc28j60_set_bank()
+Date: Thu, 18 Dec 2008 19:39:24 -0800 (PST)
+Message-ID: <20081218.193924.157025825.davem@davemloft.net>
+References: <20081218075732.GA1880@diamond.tkos.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4949F36B.7080707-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: lanconelli.claudio@eptar.com, netdev@vger.kernel.org
+To: baruch@tkos.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47805
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752237AbYLSDjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Dec 2008 22:39:22 -0500
+In-Reply-To: <20081218075732.GA1880@diamond.tkos.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Date: Thu, 18 Dec 2008 14:53:31 +0800
+From: Baruch Siach <baruch@tkos.co.il>
+Date: Thu, 18 Dec 2008 09:57:32 +0200
 
-> | commit 3d29b0c33d431ecc69ec778f8c236d382f59a85f
-> | Author: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> | Date:   Fri Oct 31 14:13:12 2008 -0400
-> | 
-> |     netdevice zd1201: Convert directly reference of netdev->priv to netdev_priv()
- ...
+> A major source of overhead in the enc28j60 driver is the SPI transfers. Each 
+> SPI transfer entails two kernel thread context switches. One major source of 
+> SPI transfers is the enc28j60_set_bank() functions which runs before every 
+> register access. This patch reduces the number of SPI transfers that 
+> enc28j60_set_bank() performs in two ways:
 > 
-> This commit changed the allocation of netdev, but didn't change
-> the free method of it.
-> This causes "zd" be used after the memory, which is pointed by "zd", being
-> freed by free_netdev().
+>   1. removes unnecessary bank switch for the registers that are present in all 
+> 	 banks
 > 
-> Signed-off-by: Wang Chen <wangchen-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+>   2. when switching from banks 0 or 3 to banks 1 or 2 (i.e. only one bit 
+> 	 changes) enc28j60_set_bank() does only one SPI transfer instead of two
+> 
+> According to my tests these changes reduce the number of SPI transfers in 
+> about 25%.
+> 
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 
-Patch applied to net-next-2.6, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Baruch.
