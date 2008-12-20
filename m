@@ -1,57 +1,25 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 3/3] ixgbe: fix the display of DCB control stats in
-	ethtool
-Date: Fri, 19 Dec 2008 16:15:20 -0800
-Message-ID: <20081220001520.5908.65998.stgit@lost.foo-projects.org>
-References: <20081220001438.5908.23307.stgit@lost.foo-projects.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Eric W Multanen <eric.w.multanen@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH net-next 0/5]: SCTP updates
+Date: Fri, 19 Dec 2008 20:47:46 -0500
+Message-ID: <1229737672-28328-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:52076
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752259AbYLTAPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 19:15:43 -0500
-In-Reply-To: <20081220001438.5908.23307.stgit@lost.foo-projects.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:42261 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250AbYLTBrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 20:47:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+Hi David
 
-Priority flow contol statistics for Data Center Bridging (DCB) weren't
-included in ethtool.  This patch adds them.
+The following series is set of updates for net-next.  It is primarily
+new API and cleanups.  However patch 04/05 (Avoid memory overflow while
+FWD-TSN chunk is received with bad stream ID) probably needs to be pushed
+to stable.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Signed-off-by: Eric W Multanen <eric.w.multanen@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Please apply.  If you want me to respin 04/05 against net-2.6, let me know.
 
- drivers/net/ixgbe/ixgbe_ethtool.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index ad9759d..849c1fe 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -881,8 +881,15 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
- 			for (i = 0; i < MAX_TX_PACKET_BUFFERS; i++) {
- 				sprintf(p, "tx_pb_%u_pxon", i);
-+				p += ETH_GSTRING_LEN;
-+				sprintf(p, "tx_pb_%u_pxoff", i);
-+				p += ETH_GSTRING_LEN;
- 			}
- 			for (i = 0; i < MAX_RX_PACKET_BUFFERS; i++) {
-+				sprintf(p, "rx_pb_%u_pxon", i);
-+				p += ETH_GSTRING_LEN;
-+				sprintf(p, "rx_pb_%u_pxoff", i);
-+				p += ETH_GSTRING_LEN;
- 			}
- 		}
- 		/* BUG_ON(p - data != IXGBE_STATS_LEN * ETH_GSTRING_LEN); */
-
+Thanks
+-vlad
