@@ -1,168 +1,49 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [RFC] [Patch 4/4] dccp: Integrate the TFRC library (dependency)
-Date: Sat, 20 Dec 2008 09:08:26 +0100
-Message-ID: <20081220080826.GE3853@gerrit.erg.abdn.ac.uk>
-References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
+	space data
+Date: Sat, 20 Dec 2008 19:10:45 +1100
+Message-ID: <20081220081045.GA17439@gondor.apana.org.au>
+References: <494012C4.7090304@vlnb.net> <494C0255.8010208@goop.org> <20081219220452.GB704@ioremap.net> <494C1E5E.7070809@goop.org> <20081219223314.GA2736@ioremap.net> <494C50BB.5030809@goop.org> <20081220020250.GA15064@gondor.apana.org.au> <494C8D57.7040808@goop.org> <20081220065105.GA16936@gondor.apana.org.au> <494CA226.9000200@goop.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: acme@ghostprotocols.net
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	Vladislav Bolkhovitin <vst@vlnb.net>,
+	linux-scsi@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Jeff Garzik <jeff@garzik.org>,
+	Boaz Harrosh <bharrosh@panasas.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
+	Bart Van Assche <bart.vanassche@gmail.com>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63628 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752758AbYLTIIc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2008 03:08:32 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:51045 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752869AbYLTILc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2008 03:11:32 -0500
 Content-Disposition: inline
+In-Reply-To: <494CA226.9000200@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp: Integrate the TFRC library objects into DCCP
+On Fri, Dec 19, 2008 at 11:43:34PM -0800, Jeremy Fitzhardinge wrote:
+>
+> Hm.  So if I get a destructor call from the shared_info, can I go an  
+> inspect the page refcounts to see if its really the last use?
 
-The TFRC library is a dependency of the CCID-3 (and CCID-4)
-modules. The patch updates the Kconfig menu and Makefiles.
+The pages that were originally in the shared_info at creation
+time may no longer be there by the time it's freed because of
+pskb_pull_tail.
 
-Note -- This solution is simple, I am sure that it can be
-done better and thus welcome suggestions to improve the
-conditional build statement below.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/Makefile           |    7 +++++--
- net/dccp/ccid.c             |    5 +++++
- net/dccp/ccid.h             |    9 +++++++++
- net/dccp/ccids/Kconfig      |    5 ++---
- net/dccp/ccids/Makefile     |    1 -
- net/dccp/ccids/lib/Makefile |    3 ---
- net/dccp/ccids/lib/tfrc.c   |   15 +++------------
- 7 files changed, 24 insertions(+), 21 deletions(-)
-
---- a/net/dccp/ccids/Kconfig
-+++ b/net/dccp/ccids/Kconfig
-@@ -16,7 +16,6 @@ config IP_DCCP_CCID2_DEBUG
- config IP_DCCP_CCID3
- 	bool "CCID3 (TCP-Friendly) (EXPERIMENTAL)"
- 	def_bool y if (IP_DCCP = y || IP_DCCP = m)
--	select IP_DCCP_TFRC_LIB
- 	---help---
- 	  CCID 3 denotes TCP-Friendly Rate Control (TFRC), an equation-based
- 	  rate-controlled congestion control mechanism.  TFRC is designed to
-@@ -83,8 +82,8 @@ config IP_DCCP_CCID3_RTO
- 	    therefore not be performed on WANs.
- 
- config IP_DCCP_TFRC_LIB
--	tristate
--	default n
-+	bool
-+	def_bool y if (IP_DCCP_CCID3 = y)
- 
- config IP_DCCP_TFRC_DEBUG
- 	bool
---- a/net/dccp/Makefile
-+++ b/net/dccp/Makefile
-@@ -5,6 +5,11 @@ dccp-y := ccid.o feat.o input.o minisock
- 
- dccp-$(CONFIG_IP_DCCP_CCID3) += ccids/ccid3.o
- 
-+dccp-$(CONFIG_IP_DCCP_TFRC_LIB) += ccids/lib/tfrc.o		\
-+				   ccids/lib/tfrc_equation.o	\
-+				   ccids/lib/packet_history.o	\
-+				   ccids/lib/loss_interval.o
-+
- dccp_ipv4-y := ipv4.o
- 
- # build dccp_ipv6 as module whenever either IPv6 or DCCP is a module
-@@ -18,5 +23,3 @@ dccp-$(CONFIG_SYSCTL) += sysctl.o
- 
- dccp_diag-y := diag.o
- dccp_probe-y := probe.o
--
--obj-y += ccids/
---- a/net/dccp/ccids/lib/Makefile
-+++ /dev/null
-@@ -1,3 +0,0 @@
--obj-$(CONFIG_IP_DCCP_TFRC_LIB) += dccp_tfrc_lib.o
--
--dccp_tfrc_lib-y := tfrc.o tfrc_equation.o packet_history.o loss_interval.o
---- a/net/dccp/ccids/Makefile
-+++ /dev/null
-@@ -1 +0,0 @@
--obj-y += lib/
---- a/net/dccp/ccids/lib/tfrc.c
-+++ b/net/dccp/ccids/lib/tfrc.c
-@@ -11,10 +11,10 @@
- #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
- int tfrc_debug;
- module_param(tfrc_debug, bool, 0644);
--MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
-+MODULE_PARM_DESC(tfrc_debug, "Enable TFRC debug messages");
- #endif
- 
--static int __init tfrc_module_init(void)
-+int __init tfrc_lib_init(void)
- {
- 	int rc = tfrc_li_init();
- 
-@@ -38,18 +38,9 @@ out:
- 	return rc;
- }
- 
--static void __exit tfrc_module_exit(void)
-+void __exit tfrc_lib_exit(void)
- {
- 	tfrc_rx_packet_history_exit();
- 	tfrc_tx_packet_history_exit();
- 	tfrc_li_exit();
- }
--
--module_init(tfrc_module_init);
--module_exit(tfrc_module_exit);
--
--MODULE_AUTHOR("Gerrit Renker <gerrit@erg.abdn.ac.uk>, "
--	      "Ian McDonald <ian.mcdonald@jandi.co.nz>, "
--	      "Arnaldo Carvalho de Melo <acme@redhat.com>");
--MODULE_DESCRIPTION("DCCP TFRC library");
--MODULE_LICENSE("GPL");
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -216,6 +216,9 @@ int __init ccid_register_builtins(void)
- {
- 	int i, err;
- 
-+	err = tfrc_lib_init();
-+	if (err)
-+		return err;
- 	for (i = 0; i < ARRAY_SIZE(ccids); i++) {
- 		err = ccid_register(ccids[i]);
- 		if (err)
-@@ -225,6 +228,7 @@ int __init ccid_register_builtins(void)
- 	return 0;
- 
- unwind_registrations:
-+	tfrc_lib_exit();
- 	while(--i >= 0)
- 		ccid_unregister(ccids[i]);
- 	return err;
-@@ -236,4 +240,5 @@ void ccid_unregister_builtins(void)
- 
- 	for (i = 0; i < ARRAY_SIZE(ccids); i++)
- 		ccid_unregister(ccids[i]);
-+	tfrc_lib_exit();
- }
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -91,6 +91,15 @@ extern struct ccid_operations ccid2_ops;
- extern struct ccid_operations ccid3_ops;
- #endif
- 
-+/* The TFRC library is a dependency of CCID-3 */
-+#ifdef CONFIG_IP_DCCP_TFRC_LIB
-+extern	int  tfrc_lib_init(void);
-+extern	void tfrc_lib_exit(void);
-+#else
-+#define	tfrc_lib_init() (0)
-+#define	tfrc_lib_exit()
-+#endif
-+
- extern int  ccid_register_builtins(void);
- extern void ccid_unregister_builtins(void);
- 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
