@@ -1,81 +1,92 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH net-next 5/5] sctp: Add validity check for SCTP_PARTIAL_DELIVERY_POINT socket option
-Date: Fri, 19 Dec 2008 20:47:52 -0500
-Message-ID: <1229737672-28328-7-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH net-next 4/5] sctp: Avoid memory overflow while FWD-TSN chunk is received with bad stream ID
+Date: Fri, 19 Dec 2008 20:47:51 -0500
+Message-ID: <1229737672-28328-6-git-send-email-vladislav.yasevich@hp.com>
 References: <1229737672-28328-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
 	Wei Yongjun <yjwei@cn.fujitsu.com>,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:37888 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753275AbYLTBr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 20:47:59 -0500
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:42278 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753250AbYLTBr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Dec 2008 20:47:58 -0500
 In-Reply-To: <1229737672-28328-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-The latest ietf socket extensions API draft said:
+If FWD-TSN chunk is received with bad stream ID, the sctp will not do the
+validity check, this may cause memory overflow when overwrite the TSN of
+the stream ID.
 
-  8.1.21.  Set or Get the SCTP Partial Delivery Point
+The FORWARD-TSN chunk is like this:
 
-    Note also that the call will fail if the user attempts to set
-    this value larger than the socket receive buffer size.
+FORWARD-TSN chunk
+  Type                       = 192
+  Flags                      = 0
+  Length                     = 172
+  NewTSN                     = 99
+  Stream                     = 10000
+  StreamSequence             = 0xFFFF
 
-This patch add this validity check for SCTP_PARTIAL_DELIVERY_POINT
-socket option.
+This patch fix this problem by discard the chunk if stream ID is not
+less than MIS.
 
 Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- net/sctp/socket.c |   19 ++++++++++++++++---
- 1 files changed, 16 insertions(+), 3 deletions(-)
+ net/sctp/sm_statefuns.c |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9f5fe23..b14a8f3 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3010,14 +3010,21 @@ static int sctp_setsockopt_fragment_interleave(struct sock *sk,
- }
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 9f2a3eb..1c4e5d6 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -3689,6 +3689,7 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(const struct sctp_endpoint *ep,
+ {
+ 	struct sctp_chunk *chunk = arg;
+ 	struct sctp_fwdtsn_hdr *fwdtsn_hdr;
++	struct sctp_fwdtsn_skip *skip;
+ 	__u16 len;
+ 	__u32 tsn;
  
- /*
-- * 7.1.25.  Set or Get the sctp partial delivery point
-+ * 8.1.21.  Set or Get the SCTP Partial Delivery Point
-  *       (SCTP_PARTIAL_DELIVERY_POINT)
-+ *
-  * This option will set or get the SCTP partial delivery point.  This
-  * point is the size of a message where the partial delivery API will be
-  * invoked to help free up rwnd space for the peer.  Setting this to a
-- * lower value will cause partial delivery's to happen more often.  The
-+ * lower value will cause partial deliveries to happen more often.  The
-  * calls argument is an integer that sets or gets the partial delivery
-- * point.
-+ * point.  Note also that the call will fail if the user attempts to set
-+ * this value larger than the socket receive buffer size.
-+ *
-+ * Note that any single message having a length smaller than or equal to
-+ * the SCTP partial delivery point will be delivered in one single read
-+ * call as long as the user provided buffer is large enough to hold the
-+ * message.
-  */
- static int sctp_setsockopt_partial_delivery_point(struct sock *sk,
- 						  char __user *optval,
-@@ -3030,6 +3037,12 @@ static int sctp_setsockopt_partial_delivery_point(struct sock *sk,
- 	if (get_user(val, (int __user *)optval))
- 		return -EFAULT;
+@@ -3718,6 +3719,12 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(const struct sctp_endpoint *ep,
+ 	if (sctp_tsnmap_check(&asoc->peer.tsn_map, tsn) < 0)
+ 		goto discard_noforce;
  
-+	/* Note: We double the receive buffer from what the user sets
-+	 * it to be, also initial rwnd is based on rcvbuf/2.
-+	 */
-+	if (val > (sk->sk_rcvbuf >> 1))
-+		return -EINVAL;
++	/* Silently discard the chunk if stream-id is not valid */
++	sctp_walk_fwdtsn(skip, chunk) {
++		if (ntohs(skip->stream) >= asoc->c.sinit_max_instreams)
++			goto discard_noforce;
++	}
 +
- 	sctp_sk(sk)->pd_point = val;
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_FWDTSN, SCTP_U32(tsn));
+ 	if (len > sizeof(struct sctp_fwdtsn_hdr))
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_FWDTSN,
+@@ -3749,6 +3756,7 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn_fast(
+ {
+ 	struct sctp_chunk *chunk = arg;
+ 	struct sctp_fwdtsn_hdr *fwdtsn_hdr;
++	struct sctp_fwdtsn_skip *skip;
+ 	__u16 len;
+ 	__u32 tsn;
  
- 	return 0; /* is this the right error code? */
+@@ -3778,6 +3786,12 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn_fast(
+ 	if (sctp_tsnmap_check(&asoc->peer.tsn_map, tsn) < 0)
+ 		goto gen_shutdown;
+ 
++	/* Silently discard the chunk if stream-id is not valid */
++	sctp_walk_fwdtsn(skip, chunk) {
++		if (ntohs(skip->stream) >= asoc->c.sinit_max_instreams)
++			goto gen_shutdown;
++	}
++
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_FWDTSN, SCTP_U32(tsn));
+ 	if (len > sizeof(struct sctp_fwdtsn_hdr))
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_PROCESS_FWDTSN,
 -- 
 1.5.3.5
 
