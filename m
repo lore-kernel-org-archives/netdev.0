@@ -1,42 +1,105 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
- space data
-Date: Fri, 19 Dec 2008 23:43:34 -0800
-Message-ID: <494CA226.9000200@goop.org>
-References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net> <494C0255.8010208@goop.org> <20081219220452.GB704@ioremap.net> <494C1E5E.7070809@goop.org> <20081219223314.GA2736@ioremap.net> <494C50BB.5030809@goop.org> <20081220020250.GA15064@gondor.apana.org.au> <494C8D57.7040808@goop.org> <20081220065105.GA16936@gondor.apana.org.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [RFC] [Patch 1/4] dccp: Remove old CCID-module references
+Date: Sat, 20 Dec 2008 09:08:08 +0100
+Message-ID: <20081220080808.GB3853@gerrit.erg.abdn.ac.uk>
+References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Vladislav Bolkhovitin <vst@vlnb.net>,
-	linux-scsi@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Jeff Garzik <jeff@garzik.org>,
-	Boaz Harrosh <bharrosh@panasas.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20081220065105.GA16936@gondor.apana.org.au>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: acme@ghostprotocols.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63598 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752540AbYLTIIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2008 03:08:13 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
->> If so, how can it be solved?
->>     
->
-> Well since each individual page can be pulled out I think you
-> just have to track them.
->   
+dccp: Remove module references
 
-Hm.  So if I get a destructor call from the shared_info, can I go an 
-inspect the page refcounts to see if its really the last use?
+This removes module references of CCID modules, which are no longer
+needed as the configured CCIDs are linked into dccp.ko.
+ 
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccid.c        |   12 ------------
+ net/dccp/ccid.h        |    2 --
+ net/dccp/ccids/ccid2.c |    1 -
+ net/dccp/ccids/ccid3.c |    1 -
+ 4 files changed, 16 deletions(-)
 
-    J
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -29,7 +29,6 @@ struct tcp_info;
+  *  @ccid_id: numerical CCID ID (up to %CCID_MAX, cf. table 5 in RFC 4340, 10.)
+  *  @ccid_ccmps: the CCMPS including network/transport headers (0 when disabled)
+  *  @ccid_name: alphabetical identifier string for @ccid_id
+- *  @ccid_owner: module which implements/owns this CCID
+  *  @ccid_hc_{r,t}x_slab: memory pool for the receiver/sender half-connection
+  *  @ccid_hc_{r,t}x_obj_size: size of the receiver/sender half-connection socket
+  *
+@@ -48,7 +47,6 @@ struct ccid_operations {
+ 	unsigned char		ccid_id;
+ 	__u32			ccid_ccmps;
+ 	const char		*ccid_name;
+-	struct module		*ccid_owner;
+ 	struct kmem_cache	*ccid_hc_rx_slab,
+ 				*ccid_hc_tx_slab;
+ 	__u32			ccid_hc_rx_obj_size,
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -283,22 +283,14 @@ struct ccid *ccid_new(unsigned char id, 
+ 	if (ccid_ops == NULL)
+ 		goto out_unlock;
+ 
+-	if (!try_module_get(ccid_ops->ccid_owner))
+-		goto out_unlock;
+-
+ 	ccids_read_unlock();
+ 
+ 	ccid = __ccid_new(ccid_ops, sk, rx, gfp);
+-	if (ccid == NULL)
+-		goto out_module_put;
+ out:
+ 	return ccid;
+ out_unlock:
+ 	ccids_read_unlock();
+ 	goto out;
+-out_module_put:
+-	module_put(ccid_ops->ccid_owner);
+-	goto out;
+ }
+ 
+ EXPORT_SYMBOL_GPL(ccid_new);
+@@ -320,10 +312,6 @@ static void ccid_delete(struct ccid *cci
+ 			ccid_ops->ccid_hc_tx_exit(sk);
+ 		kmem_cache_free(ccid_ops->ccid_hc_tx_slab,  ccid);
+ 	}
+-	ccids_read_lock();
+-	if (ccids[ccid_ops->ccid_id] != NULL)
+-		module_put(ccid_ops->ccid_owner);
+-	ccids_read_unlock();
+ }
+ 
+ void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk)
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -771,7 +771,6 @@ static void ccid2_hc_rx_packet_recv(stru
+ struct ccid_operations ccid2_ops = {
+ 	.ccid_id		= DCCPC_CCID2,
+ 	.ccid_name		= "TCP-like",
+-	.ccid_owner		= THIS_MODULE,
+ 	.ccid_hc_tx_obj_size	= sizeof(struct ccid2_hc_tx_sock),
+ 	.ccid_hc_tx_init	= ccid2_hc_tx_init,
+ 	.ccid_hc_tx_exit	= ccid2_hc_tx_exit,
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -943,7 +943,6 @@ static int ccid3_hc_rx_getsockopt(struct
+ struct ccid_operations ccid3_ops = {
+ 	.ccid_id		   = DCCPC_CCID3,
+ 	.ccid_name		   = "TCP-Friendly Rate Control",
+-	.ccid_owner		   = THIS_MODULE,
+ 	.ccid_hc_tx_obj_size	   = sizeof(struct ccid3_hc_tx_sock),
+ 	.ccid_hc_tx_init	   = ccid3_hc_tx_init,
+ 	.ccid_hc_tx_exit	   = ccid3_hc_tx_exit,
