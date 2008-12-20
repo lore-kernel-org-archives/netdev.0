@@ -1,105 +1,55 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [RFC] [Patch 1/4] dccp: Remove old CCID-module references
-Date: Sat, 20 Dec 2008 09:08:08 +0100
-Message-ID: <20081220080808.GB3853@gerrit.erg.abdn.ac.uk>
+Subject: [RFC] [Patch 0/4] dccp: Working prototype of integrating the
+	modules
+Date: Sat, 20 Dec 2008 09:08:02 +0100
+Message-ID: <20081220080802.GA3853@gerrit.erg.abdn.ac.uk>
 References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63598 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63596 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752540AbYLTIIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2008 03:08:13 -0500
+	id S1752428AbYLTIIM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2008 03:08:12 -0500
 Content-Disposition: inline
+In-Reply-To: <20081218.222842.174783235.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp: Remove module references
+This set addresses the issues in making CCIDs an available part of DCCP.
 
-This removes module references of CCID modules, which are no longer
-needed as the configured CCIDs are linked into dccp.ko.
- 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccid.c        |   12 ------------
- net/dccp/ccid.h        |    2 --
- net/dccp/ccids/ccid2.c |    1 -
- net/dccp/ccids/ccid3.c |    1 -
- 4 files changed, 16 deletions(-)
+I am sending this for discussion, it differs in one point from the previous
+patch - this set does not keep the module loading and locking code.
 
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -29,7 +29,6 @@ struct tcp_info;
-  *  @ccid_id: numerical CCID ID (up to %CCID_MAX, cf. table 5 in RFC 4340, 10.)
-  *  @ccid_ccmps: the CCMPS including network/transport headers (0 when disabled)
-  *  @ccid_name: alphabetical identifier string for @ccid_id
-- *  @ccid_owner: module which implements/owns this CCID
-  *  @ccid_hc_{r,t}x_slab: memory pool for the receiver/sender half-connection
-  *  @ccid_hc_{r,t}x_obj_size: size of the receiver/sender half-connection socket
-  *
-@@ -48,7 +47,6 @@ struct ccid_operations {
- 	unsigned char		ccid_id;
- 	__u32			ccid_ccmps;
- 	const char		*ccid_name;
--	struct module		*ccid_owner;
- 	struct kmem_cache	*ccid_hc_rx_slab,
- 				*ccid_hc_tx_slab;
- 	__u32			ccid_hc_rx_obj_size,
---- a/net/dccp/ccid.c
-+++ b/net/dccp/ccid.c
-@@ -283,22 +283,14 @@ struct ccid *ccid_new(unsigned char id, 
- 	if (ccid_ops == NULL)
- 		goto out_unlock;
- 
--	if (!try_module_get(ccid_ops->ccid_owner))
--		goto out_unlock;
--
- 	ccids_read_unlock();
- 
- 	ccid = __ccid_new(ccid_ops, sk, rx, gfp);
--	if (ccid == NULL)
--		goto out_module_put;
- out:
- 	return ccid;
- out_unlock:
- 	ccids_read_unlock();
- 	goto out;
--out_module_put:
--	module_put(ccid_ops->ccid_owner);
--	goto out;
- }
- 
- EXPORT_SYMBOL_GPL(ccid_new);
-@@ -320,10 +312,6 @@ static void ccid_delete(struct ccid *cci
- 			ccid_ops->ccid_hc_tx_exit(sk);
- 		kmem_cache_free(ccid_ops->ccid_hc_tx_slab,  ccid);
- 	}
--	ccids_read_lock();
--	if (ccids[ccid_ops->ccid_id] != NULL)
--		module_put(ccid_ops->ccid_owner);
--	ccids_read_unlock();
- }
- 
- void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk)
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -771,7 +771,6 @@ static void ccid2_hc_rx_packet_recv(stru
- struct ccid_operations ccid2_ops = {
- 	.ccid_id		= DCCPC_CCID2,
- 	.ccid_name		= "TCP-like",
--	.ccid_owner		= THIS_MODULE,
- 	.ccid_hc_tx_obj_size	= sizeof(struct ccid2_hc_tx_sock),
- 	.ccid_hc_tx_init	= ccid2_hc_tx_init,
- 	.ccid_hc_tx_exit	= ccid2_hc_tx_exit,
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -943,7 +943,6 @@ static int ccid3_hc_rx_getsockopt(struct
- struct ccid_operations ccid3_ops = {
- 	.ccid_id		   = DCCPC_CCID3,
- 	.ccid_name		   = "TCP-Friendly Rate Control",
--	.ccid_owner		   = THIS_MODULE,
- 	.ccid_hc_tx_obj_size	   = sizeof(struct ccid3_hc_tx_sock),
- 	.ccid_hc_tx_init	   = ccid3_hc_tx_init,
- 	.ccid_hc_tx_exit	   = ccid3_hc_tx_exit,
+The rationale for this is that
+ * at the moment there are only 2 fully standardised CCIDs
+ * this situation is not likely to change in the foreseeable
+   future (RFC progress is very slow, the update of RFC 3448
+   for instance took over 1 year and went through 6 revisions)
+ * so it would only be research prototypes as candidates for
+   the non-builtin case
+ * and for this I think we are better off temporarily modifying
+   the build process
+ * this includes CCID-4, since its Internet draft has expired
+   (http://www.ietf.org/internet-drafts/draft-ietf-dccp-ccid4-03.txt)
+ * (but for heretics, we still have the "UDP-like" no-op module)
+
+All patches apply on top of Arnaldo's (your) patch to simplify discussion.
+Awaiting feedback, please do not apply immediately.
+
+Patch #1: Removes CCID module references that were still around.
+Patch #2: Removes the r/w locks around module loading.
+Patch #3: Adds a missing ccid_unregister_builtins() function.
+Patch #4: Integrates the TFRC library (which is a dependency of
+          CCID-3/4) with DCCP, including necessary initialisation.
+
+I have performed testing with this set yesterday, it worked very
+well, including module unloading, use of dccp_probe, different links
+(WiFi/Ethernet/loopback).
+
+The set is also available via the test tree (git/patch/tarball):
+
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp	[subtree `dccp']
+	http://  (same host)
