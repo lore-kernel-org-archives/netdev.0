@@ -1,55 +1,130 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [RFC] [Patch 0/4] dccp: Working prototype of integrating the
-	modules
-Date: Sat, 20 Dec 2008 09:08:02 +0100
-Message-ID: <20081220080802.GA3853@gerrit.erg.abdn.ac.uk>
+Subject: [RFC] [Patch 3/4] dccp: Add unregister function
+Date: Sat, 20 Dec 2008 09:08:21 +0100
+Message-ID: <20081220080821.GD3853@gerrit.erg.abdn.ac.uk>
 References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63596 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63620 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752428AbYLTIIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2008 03:08:12 -0500
+	id S1752718AbYLTIIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2008 03:08:25 -0500
 Content-Disposition: inline
-In-Reply-To: <20081218.222842.174783235.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set addresses the issues in making CCIDs an available part of DCCP.
+dccp: Add unregister function
 
-I am sending this for discussion, it differs in one point from the previous
-patch - this set does not keep the module loading and locking code.
+This adds an unregister function to facilitate unloading the DCCP module.
 
-The rationale for this is that
- * at the moment there are only 2 fully standardised CCIDs
- * this situation is not likely to change in the foreseeable
-   future (RFC progress is very slow, the update of RFC 3448
-   for instance took over 1 year and went through 6 revisions)
- * so it would only be research prototypes as candidates for
-   the non-builtin case
- * and for this I think we are better off temporarily modifying
-   the build process
- * this includes CCID-4, since its Internet draft has expired
-   (http://www.ietf.org/internet-drafts/draft-ietf-dccp-ccid4-03.txt)
- * (but for heretics, we still have the "UDP-like" no-op module)
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccid.h  |    3 ++-
+ net/dccp/ccid.c  |   48 +++++++++++++++++++++++++++---------------------
+ net/dccp/proto.c |    3 ++-
+ 3 files changed, 31 insertions(+), 23 deletions(-)
 
-All patches apply on top of Arnaldo's (your) patch to simplify discussion.
-Awaiting feedback, please do not apply immediately.
-
-Patch #1: Removes CCID module references that were still around.
-Patch #2: Removes the r/w locks around module loading.
-Patch #3: Adds a missing ccid_unregister_builtins() function.
-Patch #4: Integrates the TFRC library (which is a dependency of
-          CCID-3/4) with DCCP, including necessary initialisation.
-
-I have performed testing with this set yesterday, it worked very
-well, including module unloading, use of dccp_probe, different links
-(WiFi/Ethernet/loopback).
-
-The set is also available via the test tree (git/patch/tarball):
-
-	git://eden-feed.erg.abdn.ac.uk/dccp_exp	[subtree `dccp']
-	http://  (same host)
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -91,7 +91,8 @@ extern struct ccid_operations ccid2_ops;
+ extern struct ccid_operations ccid3_ops;
+ #endif
+ 
+-extern int ccids_register_builtins(void);
++extern int  ccid_register_builtins(void);
++extern void ccid_unregister_builtins(void);
+ 
+ struct ccid {
+ 	struct ccid_operations *ccid_ops;
+--- a/net/dccp/ccid.c
++++ b/net/dccp/ccid.c
+@@ -123,7 +123,7 @@ static int ccid_register(struct ccid_ope
+ 	return 0;
+ }
+ 
+-static int ccid_unregister(struct ccid_operations *ccid_ops)
++static void ccid_unregister(struct ccid_operations *ccid_ops)
+ {
+ 	ccid_kmem_cache_destroy(ccid_ops->ccid_hc_tx_slab);
+ 	ccid_ops->ccid_hc_tx_slab = NULL;
+@@ -132,28 +132,8 @@ static int ccid_unregister(struct ccid_o
+ 
+ 	pr_info("CCID: Unregistered CCID %d (%s)\n",
+ 		ccid_ops->ccid_id, ccid_ops->ccid_name);
+-	return 0;
+-}
+-
+-int ccids_register_builtins(void)
+-{
+-	int i, err;
+-
+-	for (i = 0; i < ARRAY_SIZE(ccids); i++) {
+-		err = ccid_register(ccids[i]);
+-		if (err)
+-			goto unwind_registrations;
+-	}
+-
+-	return 0;
+-
+-unwind_registrations:
+-	while(--i >= 0)
+-		ccid_unregister(ccids[i]);
+-	return err;
+ }
+ 
+-
+ static struct ccid_operations *ccid_find_by_id(const u8 id)
+ {
+ 	int i;
+@@ -231,3 +211,29 @@ void ccid_hc_tx_delete(struct ccid *ccid
+ }
+ 
+ EXPORT_SYMBOL_GPL(ccid_hc_tx_delete);
++
++int __init ccid_register_builtins(void)
++{
++	int i, err;
++
++	for (i = 0; i < ARRAY_SIZE(ccids); i++) {
++		err = ccid_register(ccids[i]);
++		if (err)
++			goto unwind_registrations;
++	}
++
++	return 0;
++
++unwind_registrations:
++	while(--i >= 0)
++		ccid_unregister(ccids[i]);
++	return err;
++}
++
++void ccid_unregister_builtins(void)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(ccids); i++)
++		ccid_unregister(ccids[i]);
++}
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1119,7 +1119,7 @@ static int __init dccp_init(void)
+ 	if (rc)
+ 		goto out_ackvec_exit;
+ 
+-	rc = ccids_register_builtins();
++	rc = ccid_register_builtins();
+ 	if (rc)
+ 		goto out_sysctl_exit;
+ 
+@@ -1148,6 +1148,7 @@ out_free_bind_bucket_cachep:
+ 
+ static void __exit dccp_fini(void)
+ {
++	ccid_unregister_builtins();
+ 	dccp_mib_exit();
+ 	free_pages((unsigned long)dccp_hashinfo.bhash,
+ 		   get_order(dccp_hashinfo.bhash_size *
