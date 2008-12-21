@@ -1,52 +1,50 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 28/29] wimax: export linux/wimax.h and linux/wimax/i2400m.h
-	with headers_install
-Date: Sat, 20 Dec 2008 16:57:59 -0800
-Message-ID: <2a7ebc201ca59bbac909e77248eddc1c39fd1a93.1229820957.git.inaky@linux.intel.com>
-References: <cover.1229820956.git.inaky@linux.intel.com>
-Cc: greg@kroah.com, David Woodhouse <dwmw2@infradead.org>, wimax@linuxwimax.org
-To: netdev@vger.kernel.org
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <cover.1229820956.git.inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [RFC] IXP4xx: Silence section mismatch warning in Ethernet driver.
+Date: Sun, 21 Dec 2008 02:11:10 +0100
+Message-ID: <m3vdtebadt.fsf@maximus.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:37433 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751629AbYLUBLX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Dec 2008 20:11:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These two files are what user space can use to establish communication
-with the WiMAX kernel API and to speak the Intel 2400m Wireless WiMAX
-connection's control protocol.
+Few patches I'm posting for review only.
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: David Woodhouse <dwmw2@infradead.org>
----
- include/linux/Kbuild       |    2 ++
- include/linux/wimax/Kbuild |    1 +
- 2 files changed, 3 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax/Kbuild
+Not for operational use.
 
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index e531783..89079ff 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -375,3 +375,5 @@ unifdef-y += xattr.h
- unifdef-y += xfrm.h
+    IXP4xx: Silence section mismatch warning in Ethernet driver.
+
+--- a/drivers/net/arm/ixp4xx_eth.c
++++ b/drivers/net/arm/ixp4xx_eth.c
+@@ -1232,7 +1232,7 @@ static int __devexit eth_remove_one(struct platform_device *pdev)
+ 	return 0;
+ }
  
- objhdr-y += version.h
-+header-y += wimax.h
-+header-y += wimax/
-diff --git a/include/linux/wimax/Kbuild b/include/linux/wimax/Kbuild
-new file mode 100644
-index 0000000..3cb4f26
---- /dev/null
-+++ b/include/linux/wimax/Kbuild
-@@ -0,0 +1 @@
-+header-y += i2400m.h
+-static struct platform_driver drv = {
++static struct platform_driver ixp4xx_eth_driver = {
+ 	.driver.name	= DRV_NAME,
+ 	.probe		= eth_init_one,
+ 	.remove		= eth_remove_one,
+@@ -1248,12 +1248,12 @@ static int __init eth_init_module(void)
+ 	mdio_regs = (struct eth_regs __iomem *)IXP4XX_EthB_BASE_VIRT;
+ 	__raw_writel(DEFAULT_CORE_CNTRL, &mdio_regs->core_control);
+ 
+-	return platform_driver_register(&drv);
++	return platform_driver_register(&ixp4xx_eth_driver);
+ }
+ 
+ static void __exit eth_cleanup_module(void)
+ {
+-	platform_driver_unregister(&drv);
++	platform_driver_unregister(&ixp4xx_eth_driver);
+ }
+ 
+ MODULE_AUTHOR("Krzysztof Halasa");
+
 -- 
-1.5.6.5
+Krzysztof Halasa
