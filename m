@@ -1,7 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 27/29] i2400m: Makefile and Kconfig
-Date: Sat, 20 Dec 2008 16:57:58 -0800
-Message-ID: <dc5cb8f91926f452133078c8bc8cad30ab263a22.1229820957.git.inaky@linux.intel.com>
+Subject: [PATCH 23/29] i2400m/SDIO: header for the SDIO subdriver
+Date: Sat, 20 Dec 2008 16:57:54 -0800
+Message-ID: <fae096cf88a6ee56d70dee3c846628e00d97c860.1229820957.git.inaky@linux.intel.com>
 References: <cover.1229820956.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,164 +18,183 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Integrate the i2400m driver into the kernel's build and Kconfig.
+This contains the common function declaration and constants for the
+SDIO driver for the 2400m Wireless WiMAX Connection and it's debug
+level settings.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/Kconfig               |    2 +
- drivers/net/Makefile              |    1 +
- drivers/net/wimax/Kconfig         |   17 +++++++++++++
- drivers/net/wimax/Makefile        |    2 +
- drivers/net/wimax/i2400m/Kconfig  |   49 +++++++++++++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/Makefile |   29 ++++++++++++++++++++++
- 6 files changed, 100 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/Kconfig
- create mode 100644 drivers/net/wimax/Makefile
- create mode 100644 drivers/net/wimax/i2400m/Kconfig
- create mode 100644 drivers/net/wimax/i2400m/Makefile
+ drivers/net/wimax/i2400m/i2400m-sdio.h       |  132 ++++++++++++++++++++++++++
+ drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 +++++
+ 2 files changed, 154 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
+ create mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 231eeaf..6255b79 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2585,6 +2585,8 @@ source "drivers/net/tokenring/Kconfig"
- 
- source "drivers/net/wireless/Kconfig"
- 
-+source "drivers/net/wimax/Kconfig"
-+
- source "drivers/net/usb/Kconfig"
- 
- source "drivers/net/pcmcia/Kconfig"
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index f19acf8..3ac378f 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -262,3 +262,4 @@ obj-$(CONFIG_NIU) += niu.o
- obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_SFC) += sfc/
- 
-+obj-y += wimax/
-diff --git a/drivers/net/wimax/Kconfig b/drivers/net/wimax/Kconfig
+diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
 new file mode 100644
-index 0000000..30347e4
+index 0000000..08c2fb7
 --- /dev/null
-+++ b/drivers/net/wimax/Kconfig
-@@ -0,0 +1,17 @@
-+#
-+# WiMAX LAN device drivers configuration
-+#
++++ b/drivers/net/wimax/i2400m/i2400m-sdio.h
+@@ -0,0 +1,132 @@
++/*
++ * Intel Wireless WiMAX Connection 2400m
++ * SDIO-specific i2400m driver definitions
++ *
++ *
++ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   * Redistributions of source code must retain the above copyright
++ *     notice, this list of conditions and the following disclaimer.
++ *   * Redistributions in binary form must reproduce the above copyright
++ *     notice, this list of conditions and the following disclaimer in
++ *     the documentation and/or other materials provided with the
++ *     distribution.
++ *   * Neither the name of Intel Corporation nor the names of its
++ *     contributors may be used to endorse or promote products derived
++ *     from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * Intel Corporation <linux-wimax@intel.com>
++ * Brian Bian <brian.bian@intel.com>
++ * Dirk Brandewie <dirk.j.brandewie@intel.com>
++ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
++ *  - Initial implementation
++ *
++ *
++ * This driver implements the bus-specific part of the i2400m for
++ * SDIO. Check i2400m.h for a generic driver description.
++ *
++ * ARCHITECTURE
++ *
++ * This driver sits under the bus-generic i2400m driver, providing the
++ * connection to the device.
++ *
++ * When probed, all the function pointers are setup and then the
++ * bus-generic code called. The generic driver will then use the
++ * provided pointers for uploading firmware (i2400ms_bus_bm*() in
++ * sdio-fw.c) and then setting up the device (i2400ms_dev_*() in
++ * sdio.c).
++ *
++ * Once firmware is uploaded, TX functions (sdio-tx.c) are called when
++ * data is ready for transmission in the TX fifo; then the SDIO IRQ is
++ * fired and data is available (sdio-rx.c), it is sent to the generic
++ * driver for processing with i2400m_rx.
++ */
++
++#ifndef __I2400M_SDIO_H__
++#define __I2400M_SDIO_H__
++
++#include "i2400m.h"
++
++/* Host-Device interface for SDIO */
++enum {
++	I2400MS_BLK_SIZE = 256,
++	I2400MS_PL_SIZE_MAX = 0x3E00,
++
++	I2400MS_DATA_ADDR = 0x0,
++	I2400MS_INTR_STATUS_ADDR = 0x13,
++	I2400MS_INTR_CLEAR_ADDR = 0x13,
++	I2400MS_INTR_ENABLE_ADDR = 0x14,
++	I2400MS_INTR_GET_SIZE_ADDR = 0x2C,
++	/* The number of ticks to wait for the device to signal that
++	 * it is ready */
++	I2400MS_INIT_SLEEP_INTERVAL = 10,
++};
 +
 +
-+comment "Enable WiMAX (Networking options) to see the WiMAX drivers"
-+        depends on WIMAX = n
++/**
++ * struct i2400ms - descriptor for a SDIO connected i2400m
++ *
++ * @i2400m: bus-generic i2400m implementation; has to be first (see
++ *     it's documentation in i2400m.h).
++ *
++ * @func: pointer to our SDIO function
++ *
++ * @tx_worker: workqueue struct used to TX data when the bus-generic
++ *     code signals packets are pending for transmission to the device.
++ *
++ * @tx_workqueue: workqeueue used for data TX; we don't use the
++ *     system's workqueue as that might cause deadlocks with code in
++ *     the bus-generic driver.
++ */
++struct i2400ms {
++	struct i2400m i2400m;		/* FIRST! See doc */
++	struct sdio_func *func;
 +
-+if WIMAX
++	struct work_struct tx_worker;
++	struct workqueue_struct *tx_workqueue;
++	char tx_wq_name[32];
 +
-+menu "WiMAX Wireless Broadband devices"
++	struct dentry *debugfs_dentry;
++};
 +
-+source "drivers/net/wimax/i2400m/Kconfig"
 +
-+endmenu
++static inline
++void i2400ms_init(struct i2400ms *i2400ms)
++{
++	i2400m_init(&i2400ms->i2400m);
++}
 +
-+endif
-diff --git a/drivers/net/wimax/Makefile b/drivers/net/wimax/Makefile
++
++extern int i2400ms_rx_setup(struct i2400ms *);
++extern void i2400ms_rx_release(struct i2400ms *);
++extern ssize_t __i2400ms_rx_get_size(struct i2400ms *);
++
++extern int i2400ms_tx_setup(struct i2400ms *);
++extern void i2400ms_tx_release(struct i2400ms *);
++extern void i2400ms_bus_tx_kick(struct i2400m *);
++
++extern ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *,
++				       const struct i2400m_bootrom_header *,
++				       size_t, int);
++extern ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *,
++					   struct i2400m_bootrom_header *,
++					   size_t);
++#endif /* #ifndef __I2400M_SDIO_H__ */
+diff --git a/drivers/net/wimax/i2400m/sdio-debug-levels.h b/drivers/net/wimax/i2400m/sdio-debug-levels.h
 new file mode 100644
-index 0000000..bda9430
+index 0000000..c519987
 --- /dev/null
-+++ b/drivers/net/wimax/Makefile
-@@ -0,0 +1,2 @@
++++ b/drivers/net/wimax/i2400m/sdio-debug-levels.h
+@@ -0,0 +1,22 @@
++/*
++ * debug levels control file for the i2400m module's
++ */
++#ifndef __debug_levels__h__
++#define __debug_levels__h__
 +
-+obj-$(CONFIG_WIMAX_I2400M)	+= i2400m/
-diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
-new file mode 100644
-index 0000000..e977c46
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/Kconfig
-@@ -0,0 +1,49 @@
++/* Maximum compile and run time debug level for all submodules */
++#define D_MODULENAME i2400m_sdio
++#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
 +
-+config WIMAX_I2400M
-+        tristate
-+	depends on WIMAX
-+        select FW_LOADER
++#include <linux/wimax/debug.h>
 +
-+comment "Enable USB support to see WiMAX USB drivers"
-+        depends on USB = n
-+
-+comment "Enable MMC support to see WiMAX SDIO drivers"
-+        depends on MMC = n
-+
-+config WIMAX_I2400M_USB
-+	tristate "Intel Wireless WiMAX Connection 2400 over USB (including 5x50)"
-+	depends on WIMAX && USB
-+        select WIMAX_I2400M
-+	help
-+	  Select if you have a device based on the Intel WiMAX
-+	  Connection 2400 over USB (like any of the Intel Wireless
-+	  WiMAX/WiFi Link 5x50 series).
-+
-+          If unsure, it is safe to select M (module).
-+
-+config WIMAX_I2400M_SDIO
-+	tristate "Intel Wireless WiMAX Connection 2400 over SDIO"
-+	depends on WIMAX && MMC
-+        select WIMAX_I2400M
-+	help
-+	  Select if you have a device based on the Intel WiMAX
-+          Connection 2400 over SDIO.
-+
-+          If unsure, it is safe to select M (module).
-+
-+config WIMAX_I2400M_DEBUG_LEVEL
-+       int "WiMAX i2400m debug level"
-+       depends on WIMAX_I2400M
-+       default 8
-+       help
-+
-+         Select the maximum debug verbosity level to be compiled into
-+         the WiMAX i2400m driver code.
-+
-+         By default, this is disabled at runtime and can be
-+         selectively enabled at runtime for different parts of the
-+         code using the sysfs debug-levels file.
-+
-+         If set at zero, this will compile out all the debug code.
-+
-+         It is recommended that it is left at 8.
-diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
-new file mode 100644
-index 0000000..2e8c15b
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/Makefile
-@@ -0,0 +1,29 @@
-+
-+obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
-+obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
-+obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
-+
-+i2400m-objs :=		\
-+	control.o	\
-+	driver.o	\
-+	fw.o		\
-+	op-rfkill.o	\
-+	netdev.o	\
-+	tx.o		\
-+	rx.o
-+
-+i2400m-$(CONFIG_DEBUG_FS) += debugfs.o
-+
-+i2400m-usb-objs :=		\
-+	usb-fw.o		\
-+	usb-notif.o		\
-+	usb-tx.o		\
-+	usb-rx.o		\
-+	usb.o
++/* List of all the enabled modules */
++enum d_module {
++	D_SUBMODULE_DECLARE(main),
++	D_SUBMODULE_DECLARE(tx),
++	D_SUBMODULE_DECLARE(rx),
++	D_SUBMODULE_DECLARE(fw)
++};
 +
 +
-+i2400m-sdio-objs := 		\
-+	sdio.o      		\
-+	sdio-tx.o   		\
-+	sdio-fw.o	 	\
-+	sdio-rx.o
++#endif /* #ifndef __debug_levels__h__ */
 -- 
 1.5.6.5
