@@ -1,38 +1,41 @@
-From: "Timur Tabi" <timur@freescale.com>
-Subject: Re: [PATCH 6/6] ucc_geth: Remove UGETH_FILTERING dead code
-Date: Sat, 20 Dec 2008 21:23:06 -0600
-Message-ID: <ed82fe3e0812201923s7ff3401i2d12aca4ae9de1e7@mail.gmail.com>
-References: <20081218182335.GF30682@oksana.dev.rtsoft.ru>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH 2/6] ucc_geth: Fix TX watchdog timeout handling
+Date: Sun, 21 Dec 2008 06:37:41 +0300
+Message-ID: <20081221033741.GB3885@oksana.dev.rtsoft.ru>
+References: <20081218182326.GB30682@oksana.dev.rtsoft.ru> <ed82fe3e0812201919o619fd7e7jb87bbec551caa4d@mail.gmail.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Li Yang" <leoli@freescale.com>,
-	"Andy Fleming" <afleming@freescale.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=windows-1251
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>,
+	Li Yang <leoli@freescale.com>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
 	linuxppc-dev@ozlabs.org
-To: "Anton Vorontsov" <avorontsov@ru.mvista.com>
+To: Timur Tabi <timur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.250]:18167 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751597AbYLUDXH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2008 22:23:07 -0500
-Received: by an-out-0708.google.com with SMTP id d40so536987and.1
-        for <netdev@vger.kernel.org>; Sat, 20 Dec 2008 19:23:06 -0800 (PST)
-In-Reply-To: <20081218182335.GF30682@oksana.dev.rtsoft.ru>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:35812 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751487AbYLUDhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Dec 2008 22:37:47 -0500
 Content-Disposition: inline
+In-Reply-To: <ed82fe3e0812201919o619fd7e7jb87bbec551caa4d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 18, 2008 at 12:23 PM, Anton Vorontsov
-<avorontsov@ru.mvista.com> wrote:
-> The code appears to be dead: nobody call these functions, plus build
-> breaks when UGETH_FILTERING is enabled:
+On Sat, Dec 20, 2008 at 09:19:23PM -0600, Timur Tabi wrote:
+> On Thu, Dec 18, 2008 at 12:23 PM, Anton Vorontsov
+> <avorontsov@ru.mvista.com> wrote:
+> > +static int ucc_geth_close(struct net_device *dev);
+> > +static int ucc_geth_open(struct net_device *dev);
+> 
+> I would prefer that you reorder the functions to eliminate the need
+> for forward references.
 
-I general, I agree with patches like this, but I'd like to hear from
-Leo first why this code was written in the first place before I can
-ack it.
+I'll post a cleanup patch (0/6 series is already in the netdev tree).
+
+Thanks!
 
 -- 
-Timur Tabi
-Linux kernel developer at Freescale
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
