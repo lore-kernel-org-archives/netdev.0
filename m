@@ -1,8 +1,7 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 04/29] wimax: debug macros and debug settings for the WiMAX
-	stack
-Date: Sat, 20 Dec 2008 16:57:35 -0800
-Message-ID: <5f88a8fb22576416d4bbe25b32f92317ca396e30.1229820957.git.inaky@linux.intel.com>
+Subject: [PATCH 14/29] i2400m: linkage to the networking stack
+Date: Sat, 20 Dec 2008 16:57:45 -0800
+Message-ID: <43f815c5adb17bb4296b78d90eddc95b2cc2e33c.1229820957.git.inaky@linux.intel.com>
 References: <cover.1229820956.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -19,34 +18,47 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This file contains a simple debug framework that is used in the stack;
-it allows the debug level to be controlled at compile-time (so the
-debug code is optimized out) and at run-time (for what wasn't compiled
-out).
+Implementation of the glue to the network stack so the WiMAX device
+shows up as an Ethernet device.
 
-This is eventually going to be moved to use dynamic_printk(). Just
-need to find time to do it.
+Initially we shot for implementing a Pure IP device -- however, the
+world seems to turn around Ethernet devices. Main issues were with the
+ISC DHCP client and servers (as they don't understand types other than
+Ethernet and Token Ring).
+
+We proceeded to register with IANA the PureIP hw type, so that DHCP
+requests could declare such. We also created patches to the main ISC
+DHCP versions to support it. However, until all that permeates into
+deployments, there is going to be a long time.
+
+So we moved back to wrap Ethernet frames around the PureIP device. At
+the time being this has overhead; we need to reallocate with space for
+an Ethernet header. The reason is the device-to-host protocol
+coalesces many network packets into a single message, so we can't
+introduce Ethernet headers without overwriting valid data from other
+packets.
+
+Coming-soon versions of the firmware have this issue solved.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax/debug.h |  453 +++++++++++++++++++++++++++++++++++++++++++
- net/wimax/debug-levels.h    |   42 ++++
- 2 files changed, 495 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/wimax/debug.h
- create mode 100644 net/wimax/debug-levels.h
+ drivers/net/wimax/i2400m/netdev.c |  524 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 524 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/netdev.c
 
-diff --git a/include/linux/wimax/debug.h b/include/linux/wimax/debug.h
+diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
 new file mode 100644
-index 0000000..ba0c493
+index 0000000..63fe708
 --- /dev/null
-+++ b/include/linux/wimax/debug.h
-@@ -0,0 +1,453 @@
++++ b/drivers/net/wimax/i2400m/netdev.c
+@@ -0,0 +1,524 @@
 +/*
-+ * Linux WiMAX
-+ * Collection of tools to manage debug operations.
++ * Intel Wireless WiMAX Connection 2400m
++ * Glue with the networking stack
 + *
 + *
-+ * Copyright (C) 2005-2007 Intel Corporation
++ * Copyright (C) 2007 Intel Corporation <linux-wimax@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
@@ -64,483 +76,505 @@ index 0000000..ba0c493
 + * 02110-1301, USA.
 + *
 + *
-+ * Don't #include this file directly, read on!
++ * This implements an ethernet device for the i2400m.
 + *
++ * We fake being an ethernet device to simplify the support from user
++ * space and from the other side. The world is (sadly) configured to
++ * take in only Ethernet devices...
 + *
-+ * EXECUTING DEBUGGING ACTIONS OR NOT
++ * Because of this, currently there is an copy-each-rxed-packet
++ * overhead on the RX path. Each IP packet has to be reallocated to
++ * add an ethernet header (as there is no space in what we get from
++ * the device). This is a known drawback and coming versions of the
++ * device's firmware are being changed to add header space that can be
++ * used to insert the ethernet header without having to reallocate and
++ * copy.
 + *
-+ * The main thing this framework provides is decission power to take a
-+ * debug action (like printing a message) if the current debug level
-+ * allows it.
++ * TX error handling is tricky; because we have to FIFO/queue the
++ * buffers for transmission (as the hardware likes it aggregated), we
++ * just give the skb to the TX subsystem and by the time it is
++ * transmitted, we have long forgotten about it. So we just don't care
++ * too much about it.
 + *
-+ * The decission power is at two levels: at compile-time (what does
-+ * not make it is compiled out) and at run-time. The run-time
-+ * selection is done per-submodule (as they are declared by the user
-+ * of the framework).
++ * Note that when the device is in idle mode with the basestation, we
++ * need to negotiate coming back up online. That involves negotiation
++ * and possible user space interaction. Thus, we defer to a workqueue
++ * to do all that. By default, we only queue a single packet and drop
++ * the rest, as potentially the time to go back from idle to normal is
++ * long.
 + *
-+ * A call to d_test(L) (L being the target debug level) returns true
-+ * if the action should be taken because the current debug levels
-+ * allow it (both compile and run time).
++ * ROADMAP
 + *
-+ * It follows that a call to d_test() that can be determined to be
-+ * always false at compile time will get the code depending on it
-+ * compiled out by optimization.
++ * i2400m_open         Called on ifconfig up
++ * i2400m_stop         Called on ifconfig down
 + *
++ * i2400m_hard_start_xmit Called by the network stack to send a packet
++ *   i2400m_net_wake_tx	  Wake up device from basestation-IDLE & TX
++ *     i2400m_wake_tx_work
++ *       i2400m_cmd_exit_idle
++ *       i2400m_tx
++ *   i2400m_net_tx        TX a data frame
++ *     i2400m_tx
 + *
-+ * DEBUG LEVELS
++ * i2400m_change_mtu      Called on ifconfig mtu XXX
 + *
-+ * It is up to the caller to define how much a debugging level is.
++ * i2400m_tx_timeout      Called when the device times out
 + *
-+ * Convention sets 0 as "no debug" (so an action marked as debug level 0
-+ * will always be taken). The increasing debug levels are used for
-+ * increased verbosity.
-+ *
-+ *
-+ * USAGE
-+ *
-+ * Group the code in modules and submodules inside each module [which
-+ * in most cases maps to Linux modules and .c files that compose
-+ * those].
-+ *
-+ *
-+ * For each module, there is:
-+ *
-+ *  - a MODULENAME (single word, legal C identifier)
-+ *
-+ *  - a debug-levels.h header file that declares the list of
-+ *    submodules and that is included by all .c files that use
-+ *    the debugging tools. The file name can be anything.
-+ *
-+ *  - some (optional) .c code to manipulate the runtime debug levels
-+ *    through debugfs.
-+ *
-+ * The debug-levels.h file would look like:
-+ *
-+ *     #ifndef __debug_levels__h__
-+ *     #define __debug_levels__h__
-+ *
-+ *     #define D_MODULENAME modulename
-+ *     #define D_MASTER 10
-+ *
-+ *     #include <linux/wimax/debug.h>
-+ *
-+ *     enum d_module {
-+ *             D_SUBMODULE_DECLARE(submodule_1),
-+ *             D_SUBMODULE_DECLARE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DECLARE(submodule_N)
-+ *     };
-+ *
-+ *     #endif
-+ *
-+ * D_MASTER is the maximum compile-time debug level; any debug actions
-+ * above this will be out. D_MODULENAME is the module name (legal C
-+ * identifier), which has to be unique for each module (to avoid
-+ * namespace collisions during linkage). Note those #defines need to
-+ * be done before #including debug.h
-+ *
-+ * We declare N different submodules whose debug level can be
-+ * independently controlled during runtime.
-+ *
-+ * In a .c file of the module (and only in one of them), define the
-+ * following code:
-+ *
-+ *     struct d_level D_LEVEL[] = {
-+ *             D_SUBMODULE_DEFINE(submodule_1),
-+ *             D_SUBMODULE_DEFINE(submodule_2),
-+ *             ...
-+ *             D_SUBMODULE_DEFINE(submodule_N),
-+ *     };
-+ *     size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+ *
-+ * Externs for d_level_MODULENAME and d_level_size_MODULENAME are used
-+ * and declared in this file using the D_LEVEL and D_LEVEL_SIZE macros
-+ * #defined also in this file.
-+ *
-+ * To manipulate from user space the levels, create a debugfs dentry
-+ * and then register each submodule with:
-+ *
-+ *     result = d_level_register_debugfs("PREFIX_", submodule_X, parent);
-+ *     if (result < 0)
-+ *            goto error;
-+ *
-+ * Where PREFIX_ is a name of your chosing. This will create debugfs
-+ * file with a single numeric value that can be use to tweak it. To
-+ * remove the entires, just use debugfs_remove_recursive() on 'parent'.
-+ *
-+ * NOTE: remember that even if this will show attached to some
-+ *     particular instance of a device, the settings are *global*.
-+ *
-+ *
-+ * On each submodule (for example, .c files), the debug infrastructure
-+ * should be included like this:
-+ *
-+ *     #define D_SUBMODULE submodule_x     // matches one in debug-levels.h
-+ *     #include "debug-levels.h"
-+ *
-+ * after #including all your include files.
-+ *
-+ *
-+ * Now you can use the d_*() macros below [d_test(), d_fnstart(),
-+ * d_fnend(), d_printf(), d_dump()].
-+ *
-+ * If their debug level is greater than D_MASTER, they will be
-+ * compiled out.
-+ *
-+ * If their debug level is lower or equal than D_MASTER but greater
-+ * than the current debug level of their submodule, they'll be
-+ * ignored.
-+ *
-+ * Otherwise, the action will be performed.
++ * i2400m_net_rx          Called by the RX code when a data frame is
++ *                        available.
++ * i2400m_netdev_setup    Called to setup all the netdev stuff from
++ *                        alloc_netdev.
 + */
-+#ifndef __debug__h__
-+#define __debug__h__
-+
-+#include <linux/types.h>
-+#include <linux/device.h>
++#include <linux/if_arp.h>
++#include <linux/netdevice.h>
++#include "i2400m.h"
 +
 +
-+/* Backend stuff */
++#define D_SUBMODULE netdev
++#include "debug-levels.h"
 +
-+/*
-+ * Debug backend: generate a message header from a 'struct device'
-+ *
-+ * @head: buffer where to place the header
-+ * @head_size: length of @head
-+ * @dev: pointer to device used to generate a header from. If NULL,
-+ *     an empty ("") header is generated.
-+ */
-+static inline
-+void __d_head(char *head, size_t head_size,
-+	      struct device *dev)
++enum {
++/* netdev interface */
++	/*
++	 * Out of NWG spec (R1_v1.2.2), 3.3.3 ASN Bearer Plane MTU Size
++	 *
++	 * The MTU is 1400 or less
++	 */
++	I2400M_MAX_MTU = 1400,
++	I2400M_TX_TIMEOUT = HZ,
++	I2400M_TX_QLEN = 5,
++};
++
++
++static
++int i2400m_open(struct net_device *net_dev)
 +{
-+	if (dev == NULL)
-+		head[0] = 0;
-+	else if ((unsigned long)dev < 4096) {
-+		printk(KERN_ERR "E: Corrupt dev %p\n", dev);
-+		WARN_ON(1);
++	int result;
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(net_dev %p [i2400m %p])\n", net_dev, i2400m);
++	if (i2400m->ready == 0) {
++		dev_err(dev, "Device is still initializing\n");
++		result = -EBUSY;
 +	} else
-+		snprintf(head, head_size, "%s %s: ",
-+			 dev_driver_string(dev), dev->bus_id);
++		result = 0;
++	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = %d\n",
++		net_dev, i2400m, result);
++	return result;
 +}
 +
 +
 +/*
-+ * Debug backend: log some message if debugging is enabled
 + *
-+ * @l: intended debug level
-+ * @tag: tag to prefix the message with
-+ * @dev: 'struct device' associated to this message
-+ * @f: printf-like format and arguments
-+ *
-+ * Note this is optimized out if it doesn't pass the compile-time
-+ * check; however, it is *always* compiled. This is useful to make
-+ * sure the printf-like formats and variables are always checked and
-+ * they don't get bit rot if you have all the debugging disabled.
++ * On kernel versions where cancel_work_sync() didn't return anything,
++ * we rely on wake_tx_skb() being non-NULL.
 + */
-+#define _d_printf(l, tag, dev, f, a...)					\
-+do {									\
-+	char head[64];							\
-+	if (!d_test(l))							\
-+		break;							\
-+	__d_head(head, sizeof(head), dev);				\
-+	printk(KERN_ERR "%s%s%s: " f, head, __func__, tag, ##a);	\
-+} while (0)
++static
++int i2400m_stop(struct net_device *net_dev)
++{
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
 +
-+
-+/*
-+ * CPP sintatic sugar to generate A_B like symbol names when one of
-+ * the arguments is a a preprocessor #define.
-+ */
-+#define __D_PASTE__(varname, modulename) varname##_##modulename
-+#define __D_PASTE(varname, modulename) (__D_PASTE__(varname, modulename))
-+#define _D_SUBMODULE_INDEX(_name) (D_SUBMODULE_DECLARE(_name))
-+
-+
-+/*
-+ * Store a submodule's runtime debug level and name
-+ */
-+struct d_level {
-+	u8 level;
-+	const char *name;
-+};
-+
-+
-+/*
-+ * List of available submodules and their debug levels
-+ *
-+ * We call them d_level_MODULENAME and d_level_size_MODULENAME; the
-+ * macros D_LEVEL and D_LEVEL_SIZE contain the name already for
-+ * convenience.
-+ *
-+ * This array and the size are defined on some .c file that is part of
-+ * the current module.
-+ */
-+#define D_LEVEL __D_PASTE(d_level, D_MODULENAME)
-+#define D_LEVEL_SIZE __D_PASTE(d_level_size, D_MODULENAME)
-+
-+extern struct d_level D_LEVEL[];
-+extern size_t D_LEVEL_SIZE;
-+
-+
-+/*
-+ * Frontend stuff
-+ *
-+ *
-+ * Stuff you need to declare prior to using the actual "debug" actions
-+ * (defined below).
-+ */
-+
-+#ifndef D_MODULENAME
-+#error D_MODULENAME is not defined in your debug-levels.h file
-+/**
-+ * D_MODULE - Name of the current module
-+ *
-+ * #define in your module's debug-levels.h, making sure it is
-+ * unique. This has to be a legal C identifier.
-+ */
-+#define D_MODULENAME undefined_modulename
-+#endif
-+
-+
-+#ifndef D_MASTER
-+#warning D_MASTER not defined, but debug.h included! [see docs]
-+/**
-+ * D_MASTER - Compile time maximum debug level
-+ *
-+ * #define in your debug-levels.h file to the maximum debug level the
-+ * runtime code will be allowed to have. This allows you to provide a
-+ * main knob.
-+ *
-+ * Anything above that level will be optimized out of the compile.
-+ *
-+ * Defaults to zero (no debug code compiled in).
-+ *
-+ * Maximum one definition per module (at the debug-levels.h file).
-+ */
-+#define D_MASTER 0
-+#endif
-+
-+#ifndef D_SUBMODULE
-+#error D_SUBMODULE not defined, but debug.h included! [see docs]
-+/**
-+ * D_SUBMODULE - Name of the current submodule
-+ *
-+ * #define in your submodule .c file before #including debug-levels.h
-+ * to the name of the current submodule as previously declared and
-+ * defined with D_SUBMODULE_DECLARE() (in your module's
-+ * debug-levels.h) and D_SUBMODULE_DEFINE().
-+ *
-+ * This is used to provide runtime-control over the debug levels.
-+ *
-+ * Maximum one per .c file! Can be shared among different .c files
-+ * (meaning they belong to the same submodule categorization).
-+ */
-+#define D_SUBMODULE undefined_module
-+#endif
-+
-+
-+/**
-+ * D_SUBMODULE_DECLARE - Declare a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Declare in the module's debug-levels.h header file as:
-+ *
-+ * enum d_module {
-+ *         D_SUBMODULE_DECLARE(submodule_1),
-+ *         D_SUBMODULE_DECLARE(submodule_2),
-+ *         D_SUBMODULE_DECLARE(submodule_3),
-+ * };
-+ *
-+ * Some corresponding .c file needs to have a matching
-+ * D_SUBMODULE_DEFINE().
-+ */
-+#define D_SUBMODULE_DECLARE(_name) __D_SUBMODULE_##_name
-+
-+
-+/**
-+ * D_SUBMODULE_DEFINE - Define a submodule for runtime debug level control
-+ *
-+ * @_name: name of the submodule, restricted to the chars that make up a
-+ *     valid C identifier ([a-zA-Z0-9_]).
-+ *
-+ * Use once per module (in some .c file) as:
-+ *
-+ * static
-+ * struct d_level d_level_SUBMODULENAME[] = {
-+ *         D_SUBMODULE_DEFINE(submodule_1),
-+ *         D_SUBMODULE_DEFINE(submodule_2),
-+ *         D_SUBMODULE_DEFINE(submodule_3),
-+ * };
-+ * size_t d_level_size_SUBDMODULENAME = ARRAY_SIZE(d_level_SUBDMODULENAME);
-+ *
-+ * Matching D_SUBMODULE_DECLARE()s have to be present in a
-+ * debug-levels.h header file.
-+ */
-+#define D_SUBMODULE_DEFINE(_name)		\
-+[__D_SUBMODULE_##_name] = {			\
-+	.level = 0,				\
-+	.name = #_name				\
++	d_fnstart(3, dev, "(net_dev %p [i2400m %p])\n", net_dev, i2400m);
++	/* See i2400m_hard_start_xmit(), references are taken there
++	 * and here we release them if the work was still
++	 * pending. Note we can't differentiate work not pending vs
++	 * never scheduled, so the NULL check does that. */
++	if (cancel_work_sync(&i2400m->wake_tx_ws) == 0
++	    && i2400m->wake_tx_skb != NULL) {
++		unsigned long flags;
++		struct sk_buff *wake_tx_skb;
++		spin_lock_irqsave(&i2400m->tx_lock, flags);
++		wake_tx_skb = i2400m->wake_tx_skb;	/* compat help */
++		i2400m->wake_tx_skb = NULL;	/* compat help */
++		spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++		i2400m_put(i2400m);
++		kfree_skb(wake_tx_skb);
++	}
++	d_fnend(3, dev, "(net_dev %p [i2400m %p]) = 0\n", net_dev, i2400m);
++	return 0;
 +}
 +
 +
-+
-+/* The actual "debug" operations */
-+
-+
-+/**
-+ * d_test - Returns true if debugging should be enabled
-+ *
-+ * @l: intended debug level (unsigned)
-+ *
-+ * If the master debug switch is enabled and the current settings are
-+ * higher or equal to the requested level, then debugging
-+ * output/actions should be enabled.
-+ *
-+ * NOTE:
-+ *
-+ * This needs to be coded so that it can be evaluated in compile
-+ * time; this is why the ugly BUG_ON() is placed in there, so the
-+ * D_MASTER evaluation compiles all out if it is compile-time false.
-+ */
-+#define d_test(l)							\
-+({									\
-+	unsigned __l = l;	/* type enforcer */			\
-+	(D_MASTER) >= __l						\
-+	&& ({								\
-+		BUG_ON(_D_SUBMODULE_INDEX(D_SUBMODULE) >= D_LEVEL_SIZE);\
-+		D_LEVEL[_D_SUBMODULE_INDEX(D_SUBMODULE)].level >= __l;	\
-+	});								\
-+})
-+
-+
-+/**
-+ * d_fnstart - log message at function start if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnstart(l, _dev, f, a...) _d_printf(l, " FNSTART", _dev, f, ## a)
-+
-+
-+/**
-+ * d_fnend - log message at function end if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_fnend(l, _dev, f, a...) _d_printf(l, " FNEND", _dev, f, ## a)
-+
-+
-+/**
-+ * d_printf - log message if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_printf(l, _dev, f, a...) _d_printf(l, "", _dev, f, ## a)
-+
-+
-+/**
-+ * d_dump - log buffer hex dump if debugging enabled
-+ *
-+ * @l: intended debug level
-+ * @_dev: 'struct device' pointer, NULL if none (for context)
-+ * @f: printf-like format and arguments
-+ */
-+#define d_dump(l, dev, ptr, size)			\
-+do {							\
-+	char head[64];					\
-+	if (!d_test(l))					\
-+		break;					\
-+	__d_head(head, sizeof(head), dev);		\
-+	print_hex_dump(KERN_ERR, head, 0, 16, 1,	\
-+		       ((void *) ptr), (size), 0);	\
-+} while (0)
-+
-+
-+/**
-+ * Export a submodule's debug level over debugfs as PREFIXSUBMODULE
-+ *
-+ * @prefix: string to prefix the name with
-+ * @submodule: name of submodule (not a string, just the name)
-+ * @dentry: debugfs parent dentry
-+ *
-+ * Returns: 0 if ok, < 0 errno on error.
-+ *
-+ * For removing, just use debugfs_remove_recursive() on the parent.
-+ */
-+#define d_level_register_debugfs(prefix, name, parent)			\
-+({									\
-+	int rc;								\
-+	struct dentry *fd;						\
-+	struct dentry *verify_parent_type = parent;			\
-+	fd = debugfs_create_u8(						\
-+		prefix #name, 0600, verify_parent_type,			\
-+		&(D_LEVEL[__D_SUBMODULE_ ## name].level));		\
-+	rc = PTR_ERR(fd);						\
-+	if (IS_ERR(fd) && rc != -ENODEV)				\
-+		printk(KERN_ERR "%s: Can't create debugfs entry %s: "	\
-+		       "%d\n", __func__, prefix #name, rc);		\
-+	else								\
-+		rc = 0;							\
-+	rc;								\
-+})
-+
-+
-+#endif /* #ifndef __debug__h__ */
-diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
-new file mode 100644
-index 0000000..1c29123
---- /dev/null
-+++ b/net/wimax/debug-levels.h
-@@ -0,0 +1,42 @@
 +/*
-+ * Linux WiMAX Stack
-+ * Debug levels control file for the wimax module
++ * Wake up the device and transmit a held SKB, then restart the net queue
 + *
++ * When the device goes into basestation-idle mode, we need to tell it
++ * to exit that mode; it will negotiate with the base station, user
++ * space may have to intervene to rehandshake crypto and then tell us
++ * when it is ready to transmit the packet we have "queued". Still we
++ * need to give it sometime after it reports being ok.
 + *
-+ * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * On error, there is not much we can do. If the error was on TX, we
++ * still wake the queue up to see if the next packet will be luckier.
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
++ * If _cmd_exit_idle() fails...well, it could be many things; most
++ * commonly it is that something else took the device out of IDLE mode
++ * (for example, the base station). In that case we get an -EILSEQ and
++ * we are just going to ignore that one. If the device is back to
++ * connected, then fine -- if it is someother state, the packet will
++ * be dropped anyway.
 + */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
++void i2400m_wake_tx_work(struct work_struct *ws)
++{
++	int result;
++	struct i2400m *i2400m = container_of(ws, struct i2400m, wake_tx_ws);
++	struct device *dev = i2400m_dev(i2400m);
++	struct sk_buff *skb = i2400m->wake_tx_skb;
++	unsigned long flags;
 +
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME wimax
-+#define D_MASTER CONFIG_WIMAX_DEBUG_LEVEL
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++	skb = i2400m->wake_tx_skb;
++	i2400m->wake_tx_skb = NULL;
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
 +
-+#include <linux/wimax/debug.h>
++	d_fnstart(3, dev, "(ws %p i2400m %p skb %p)\n", ws, i2400m, skb);
++	result = -EINVAL;
++	if (skb == NULL) {
++		dev_err(dev, "WAKE&TX: skb dissapeared!\n");
++		goto out_put;
++	}
++	result = i2400m_cmd_exit_idle(i2400m);
++	if (result == -EILSEQ)
++		result = 0;
++	if (result < 0) {
++		dev_err(dev, "WAKE&TX: device didn't get out of idle: "
++			"%d\n", result);
++			goto error;
++	}
++	result = wait_event_timeout(i2400m->state_wq,
++				    i2400m->state != I2400M_SS_IDLE, 5 * HZ);
++	if (result == 0)
++		result = -ETIMEDOUT;
++	if (result < 0) {
++		dev_err(dev, "WAKE&TX: error waiting for device to exit IDLE: "
++			"%d\n", result);
++		goto error;
++	}
++	msleep(20);	/* device still needs some time or it drops it */
++	result = i2400m_tx(i2400m, skb->data, skb->len, I2400M_PT_DATA);
++	netif_wake_queue(i2400m->wimax_dev.net_dev);
++error:
++	kfree_skb(skb);	/* refcount transferred by _hard_start_xmit() */
++out_put:
++	i2400m_put(i2400m);
++	d_fnend(3, dev, "(ws %p i2400m %p skb %p) = void [%d]\n",
++		ws, i2400m, skb, result);
++}
 +
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(debugfs),
-+	D_SUBMODULE_DECLARE(id_table),
-+	D_SUBMODULE_DECLARE(op_msg),
-+	D_SUBMODULE_DECLARE(op_reset),
-+	D_SUBMODULE_DECLARE(op_rfkill),
-+	D_SUBMODULE_DECLARE(stack),
-+};
 +
-+#endif /* #ifndef __debug_levels__h__ */
++/*
++ * Prepare the data payload TX header
++ *
++ * The i2400m expects a 4 byte header in front of a data packet.
++ *
++ * Because we pretend to be an ethernet device, this packet comes with
++ * an ethernet header. Pull it and push our header.
++ */
++static
++void i2400m_tx_prep_header(struct sk_buff *skb)
++{
++	struct i2400m_pl_data_hdr *pl_hdr;
++	skb_pull(skb, ETH_HLEN);
++	pl_hdr = (struct i2400m_pl_data_hdr *) skb_push(skb, sizeof(*pl_hdr));
++	pl_hdr->reserved = 0;
++}
++
++
++/*
++ * TX an skb to an idle device
++ *
++ * When the device is in basestation-idle mode, we need to wake it up
++ * and then TX. So we queue a work_struct for doing so.
++ *
++ * We need to get an extra ref for the skb (so it is not dropped), as
++ * well as be careful not to queue more than one request (won't help
++ * at all). If more than one request comes or there are errors, we
++ * just drop the packets (see i2400m_hard_start_xmit()).
++ */
++static
++int i2400m_net_wake_tx(struct i2400m *i2400m, struct net_device *net_dev,
++		       struct sk_buff *skb)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++	unsigned long flags;
++
++	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
++	if (net_ratelimit()) {
++		d_printf(3, dev, "WAKE&NETTX: "
++			 "skb %p sending %d bytes to radio\n",
++			 skb, skb->len);
++		d_dump(4, dev, skb->data, skb->len);
++	}
++	/* We hold a ref count for i2400m and skb, so when
++	 * stopping() the device, we need to cancel that work
++	 * and if pending, release those resources. */
++	result = 0;
++	spin_lock_irqsave(&i2400m->tx_lock, flags);
++	if (!work_pending(&i2400m->wake_tx_ws)) {
++		netif_stop_queue(net_dev);
++		i2400m_get(i2400m);
++		i2400m->wake_tx_skb = skb_get(skb);	/* transfer ref count */
++		i2400m_tx_prep_header(skb);
++		result = schedule_work(&i2400m->wake_tx_ws);
++		WARN_ON(result == 0);
++	}
++	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
++	if (result == 0) {
++		/* Yes, this happens even if we stopped the
++		 * queue -- blame the queue disciplines that
++		 * queue without looking -- I guess there is a reason
++		 * for that. */
++		if (net_ratelimit())
++			d_printf(1, dev, "NETTX: device exiting idle, "
++				 "dropping skb %p, queue running %d\n",
++				 skb, netif_queue_stopped(net_dev));
++		result = -EBUSY;
++	}
++	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
++	return result;
++}
++
++
++/*
++ * Transmit a packet to the base station on behalf of the network stack.
++ *
++ * Returns: 0 if ok, < 0 errno code on error.
++ *
++ * We need to pull the ethernet header and add the hardware header,
++ * which is currently set to all zeroes and reserved.
++ */
++static
++int i2400m_net_tx(struct i2400m *i2400m, struct net_device *net_dev,
++		  struct sk_buff *skb)
++{
++	int result;
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(i2400m %p net_dev %p skb %p)\n",
++		  i2400m, net_dev, skb);
++	/* FIXME: check eth hdr, only IPv4 is routed by the device as of now */
++	net_dev->trans_start = jiffies;
++	i2400m_tx_prep_header(skb);
++	d_printf(3, dev, "NETTX: skb %p sending %d bytes to radio\n",
++		 skb, skb->len);
++	d_dump(4, dev, skb->data, skb->len);
++	result = i2400m_tx(i2400m, skb->data, skb->len, I2400M_PT_DATA);
++	d_fnend(3, dev, "(i2400m %p net_dev %p skb %p) = %d\n",
++		i2400m, net_dev, skb, result);
++	return result;
++}
++
++
++/*
++ * Transmit a packet to the base station on behalf of the network stack
++ *
++ *
++ * Returns: NETDEV_TX_OK (always, even in case of error)
++ *
++ * In case of error, we just drop it. Reasons:
++ *
++ *  - we add a hw header to each skb, and if the network stack
++ *    retries, we have no way to know if that skb has it or not.
++ *
++ *  - network protocols have their own drop-recovery mechanisms
++ *
++ *  - there is not much else we can do
++ *
++ * If the device is idle, we need to wake it up; that is an operation
++ * that will sleep. See i2400m_net_wake_tx() for details.
++ */
++static
++int i2400m_hard_start_xmit(struct sk_buff *skb,
++			   struct net_device *net_dev)
++{
++	int result;
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
++
++	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
++	if (i2400m->state == I2400M_SS_IDLE)
++		result = i2400m_net_wake_tx(i2400m, net_dev, skb);
++	else
++		result = i2400m_net_tx(i2400m, net_dev, skb);
++	if (result <  0)
++		net_dev->stats.tx_dropped++;
++	else {
++		net_dev->stats.tx_packets++;
++		net_dev->stats.tx_bytes += skb->len;
++	}
++	kfree_skb(skb);
++	result = NETDEV_TX_OK;
++	d_fnend(3, dev, "(skb %p net_dev %p) = %d\n", skb, net_dev, result);
++	return result;
++}
++
++
++static
++int i2400m_change_mtu(struct net_device *net_dev, int new_mtu)
++{
++	int result;
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct device *dev = i2400m_dev(i2400m);
++
++	if (new_mtu >= I2400M_MAX_MTU) {
++		dev_err(dev, "Cannot change MTU to %d (max is %d)\n",
++			new_mtu, I2400M_MAX_MTU);
++		result = -EINVAL;
++	} else {
++		net_dev->mtu = new_mtu;
++		result = 0;
++	}
++	return result;
++}
++
++
++static
++void i2400m_tx_timeout(struct net_device *net_dev)
++{
++	/*
++	 * We might want to kick the device
++	 *
++	 * There is not much we can do though, as the device requires
++	 * that we send the data aggregated. By the time we receive
++	 * this, there might be data pending to be sent or not...
++	 */
++	net_dev->stats.tx_errors++;
++	return;
++}
++
++
++/*
++ * Create a fake ethernet header
++ *
++ * For emulating an ethernet device, every received IP header has to
++ * be prefixed with an ethernet header.
++ *
++ * What we receive has (potentially) many IP packets concatenated with
++ * no ETH_HLEN bytes prefixed. Thus there is no space for an eth
++ * header.
++ *
++ * We would have to reallocate or do ugly fragment tricks in order to
++ * add it.
++ *
++ * But what we do is use the header space of the RX transaction
++ * (*msg_hdr) as we don't need it anymore; then we'll point all the
++ * data skbs there, as they share the same backing store.
++ *
++ * We only support IPv4 for v3 firmware.
++ */
++static
++void i2400m_rx_fake_eth_header(struct net_device *net_dev,
++			       void *_eth_hdr)
++{
++	struct ethhdr *eth_hdr = _eth_hdr;
++
++	memcpy(eth_hdr->h_dest, net_dev->dev_addr, sizeof(eth_hdr->h_dest));
++	memset(eth_hdr->h_source, 0, sizeof(eth_hdr->h_dest));
++	eth_hdr->h_proto = __constant_cpu_to_be16(ETH_P_IP);
++}
++
++
++/*
++ * i2400m_net_rx - pass a network packet to the stack
++ *
++ * @i2400m: device instance
++ * @skb_rx: the skb where the buffer pointed to by @buf is
++ * @i: 1 if payload is the only one
++ * @buf: pointer to the buffer containing the data
++ * @len: buffer's length
++ *
++ * We just clone the skb and set it up so that it's skb->data pointer
++ * points to "buf" and it's length.
++ *
++ * Note that if the payload is the last (or the only one) in a
++ * multi-payload message, we don't clone the SKB but just reuse it.
++ *
++ * This function is normally run from a thread context. However, we
++ * still use netif_rx() instead of netif_receive_skb() as was
++ * recommended in the mailing list. Reason is in some stress tests
++ * when sending/receiving a lot of data we seem to hit a softlock in
++ * the kernel's TCP implementation [aroudn tcp_delay_timer()]. Using
++ * netif_rx() took care of the issue.
++ *
++ * This is, of course, still open to do more research on why running
++ * with netif_receive_skb() hits this softlock. FIXME.
++ *
++ * FIXME: currently we don't do any efforts at distinguishing if what
++ * we got was an IPv4 or IPv6 header, to setup the protocol field
++ * correctly.
++ */
++void i2400m_net_rx(struct i2400m *i2400m, struct sk_buff *skb_rx,
++		   unsigned i, const void *buf, int buf_len)
++{
++	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++	struct device *dev = i2400m_dev(i2400m);
++	struct sk_buff *skb;
++
++	d_fnstart(2, dev, "(i2400m %p buf %p buf_len %d)\n",
++		  i2400m, buf, buf_len);
++	if (i) {
++		skb = skb_get(skb_rx);
++		d_printf(2, dev, "RX: reusing first payload skb %p\n", skb);
++		skb_pull(skb, buf - (void *) skb->data);
++		skb_trim(skb, (void *) skb_end_pointer(skb) - buf);
++	} else {
++		/* Yes, this is bad -- a lot of overhead -- see
++		 * comments at the top of the file */
++		skb = __netdev_alloc_skb(net_dev, buf_len, GFP_KERNEL);
++		if (skb == NULL) {
++			dev_err(dev, "NETRX: no memory to realloc skb\n");
++			net_dev->stats.rx_dropped++;
++			goto error_skb_realloc;
++		}
++		memcpy(skb_put(skb, buf_len), buf, buf_len);
++	}
++	i2400m_rx_fake_eth_header(i2400m->wimax_dev.net_dev,
++				  skb->data - ETH_HLEN);
++	skb_set_mac_header(skb, -ETH_HLEN);
++	skb->dev = i2400m->wimax_dev.net_dev;
++	skb->protocol = htons(ETH_P_IP);
++	net_dev->stats.rx_packets++;
++	net_dev->stats.rx_bytes += buf_len;
++	d_printf(3, dev, "NETRX: receiving %d bytes to network stack\n",
++		buf_len);
++	d_dump(4, dev, buf, buf_len);
++	netif_rx_ni(skb);	/* see notes in function header */
++error_skb_realloc:
++	d_fnend(2, dev, "(i2400m %p buf %p buf_len %d) = void\n",
++		i2400m, buf, buf_len);
++}
++
++
++/**
++ * i2400m_netdev_setup - Setup setup @net_dev's i2400m private data
++ *
++ * Called by alloc_netdev()
++ */
++void i2400m_netdev_setup(struct net_device *net_dev)
++{
++	d_fnstart(3, NULL, "(net_dev %p)\n", net_dev);
++	ether_setup(net_dev);
++	net_dev->mtu = I2400M_MAX_MTU;
++	net_dev->tx_queue_len = I2400M_TX_QLEN;
++	net_dev->features =
++		  NETIF_F_VLAN_CHALLENGED
++		| NETIF_F_HIGHDMA;
++	net_dev->flags =
++		IFF_NOARP		/* i2400m is apure IP device */
++		& (~IFF_BROADCAST	/* i2400m is P2P */
++		   & ~IFF_MULTICAST);
++	net_dev->watchdog_timeo = I2400M_TX_TIMEOUT;
++	net_dev->open = i2400m_open;
++	net_dev->stop = i2400m_stop;
++	net_dev->hard_start_xmit = i2400m_hard_start_xmit;
++	net_dev->change_mtu = i2400m_change_mtu;
++	net_dev->tx_timeout = i2400m_tx_timeout;
++	d_fnend(3, NULL, "(net_dev %p) = void\n", net_dev);
++}
++EXPORT_SYMBOL_GPL(i2400m_netdev_setup);
++
 -- 
 1.5.6.5
