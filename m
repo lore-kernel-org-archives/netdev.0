@@ -1,7 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 19/29] i2400m/USB: header for the USB bus driver
-Date: Sat, 20 Dec 2008 16:57:50 -0800
-Message-ID: <304f9c0e65fcd771a0724e005708d7d6a2756b66.1229820957.git.inaky@linux.intel.com>
+Subject: [PATCH 20/29] i2400m/USB: probe/disconnect,
+	dev init/shutdown and reset backends
+Date: Sat, 20 Dec 2008 16:57:51 -0800
+Message-ID: <dc178afb54a987c2f24bc4d8f800a2401c807afc.1229820957.git.inaky@linux.intel.com>
 References: <cover.1229820956.git.inaky@linux.intel.com>
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
@@ -18,301 +19,30 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This contains the common function declaration and constants for the
-USB driver for the 2400m Wireless WiMAX Connection, as well as it's
-debug level settings.
+Implements probe/disconnect for the USB device, as well as main
+backends for the generic driver to control the USB device
+(bus_dev_start(), bus_dev_stop() and bus_reset()).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/i2400m-usb.h       |  264 +++++++++++++++++++++++++++
- drivers/net/wimax/i2400m/usb-debug-levels.h |   42 +++++
- 2 files changed, 306 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wimax/i2400m/i2400m-usb.h
- create mode 100644 drivers/net/wimax/i2400m/usb-debug-levels.h
+ drivers/net/wimax/i2400m/usb.c |  591 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 591 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wimax/i2400m/usb.c
 
-diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
 new file mode 100644
-index 0000000..6f76558
+index 0000000..6d4b65f
 --- /dev/null
-+++ b/drivers/net/wimax/i2400m/i2400m-usb.h
-@@ -0,0 +1,264 @@
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -0,0 +1,591 @@
 +/*
 + * Intel Wireless WiMAX Connection 2400m
-+ * USB-specific i2400m driver definitions
-+ *
-+ *
-+ * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *   * Redistributions of source code must retain the above copyright
-+ *     notice, this list of conditions and the following disclaimer.
-+ *   * Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in
-+ *     the documentation and/or other materials provided with the
-+ *     distribution.
-+ *   * Neither the name of Intel Corporation nor the names of its
-+ *     contributors may be used to endorse or promote products derived
-+ *     from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ *
-+ * Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-+ *  - Initial implementation
-+ *
-+ *
-+ * This driver implements the bus-specific part of the i2400m for
-+ * USB. Check i2400m.h for a generic driver description.
-+ *
-+ * ARCHITECTURE
-+ *
-+ * This driver listens to notifications sent from the notification
-+ * endpoint (in usb-notif.c); when data is ready to read, the code in
-+ * there schedules a read from the device (usb-rx.c) and then passes
-+ * the data to the generic RX code (rx.c).
-+ *
-+ * When the generic driver needs to send data (network or control), it
-+ * queues up in the TX FIFO (tx.c) and that will notify the driver
-+ * through the i2400m->bus_tx_kick() callback
-+ * (usb-tx.c:i2400mu_bus_tx_kick) which will send the items in the
-+ * FIFO queue.
-+ *
-+ * This driver, as well, implements the USB-specific ops for the generic
-+ * driver to be able to setup/teardown communication with the device
-+ * [i2400m_bus_dev_start() and i2400m_bus_dev_stop()], reseting the
-+ * device [i2400m_bus_reset()] and performing firmware upload
-+ * [i2400m_bus_bm_cmd() and i2400_bus_bm_wait_for_ack()].
-+ */
-+
-+#ifndef __I2400M_USB_H__
-+#define __I2400M_USB_H__
-+
-+#include "i2400m.h"
-+#include <linux/kthread.h>
-+
-+
-+/*
-+ * Error Density Count: cheapo error density (over time) counter
-+ *
-+ * Originally by Reinette Chatre <reinette.chatre@intel.com>
-+ *
-+ * Embed an 'struct edc' somewhere. Each time there is a soft or
-+ * retryable error, call edc_inc() and check if the error top
-+ * watermark has been reached.
-+ */
-+enum {
-+	EDC_MAX_ERRORS = 10,
-+	EDC_ERROR_TIMEFRAME = HZ,
-+};
-+
-+/* error density counter */
-+struct edc {
-+	unsigned long timestart;
-+	u16 errorcount;
-+};
-+
-+static inline void edc_init(struct edc *edc)
-+{
-+	edc->timestart = jiffies;
-+}
-+
-+/**
-+ * edc_inc - report a soft error and check if we are over the watermark
-+ *
-+ * @edc: pointer to error density counter.
-+ * @max_err: maximum number of errors we can accept over the timeframe
-+ * @timeframe: lenght of the timeframe (in jiffies).
-+ *
-+ * Returns: !0 1 if maximum acceptable errors per timeframe has been
-+ *     exceeded. 0 otherwise.
-+ *
-+ * This is way to determine if the number of acceptable errors per time
-+ * period has been exceeded. It is not accurate as there are cases in which
-+ * this scheme will not work, for example if there are periodic occurences
-+ * of errors that straddle updates to the start time. This scheme is
-+ * sufficient for our usage.
-+ *
-+ * To use, embed a 'struct edc' somewhere, initialize it with
-+ * edc_init() and when an error hits:
-+ *
-+ * if (do_something_fails_with_a_soft_error) {
-+ *        if (edc_inc(&my->edc, MAX_ERRORS, MAX_TIMEFRAME))
-+ * 	           Ops, hard error, do something about it
-+ *        else
-+ *                 Retry or ignore, depending on whatever
-+ * }
-+ */
-+static inline int edc_inc(struct edc *edc, u16 max_err, u16 timeframe)
-+{
-+	unsigned long now;
-+
-+	now = jiffies;
-+	if (now - edc->timestart > timeframe) {
-+		edc->errorcount = 1;
-+		edc->timestart = now;
-+	} else if (++edc->errorcount > max_err) {
-+		edc->errorcount = 0;
-+		edc->timestart = now;
-+		return 1;
-+	}
-+	return 0;
-+}
-+
-+/* Host-Device interface for USB */
-+enum {
-+	I2400MU_MAX_NOTIFICATION_LEN = 256,
-+	I2400MU_BLK_SIZE = 16,
-+	I2400MU_PL_SIZE_MAX = 0x3EFF,
-+
-+	/* Endpoints */
-+	I2400MU_EP_BULK_OUT = 0,
-+	I2400MU_EP_NOTIFICATION,
-+	I2400MU_EP_RESET_COLD,
-+	I2400MU_EP_BULK_IN,
-+};
-+
-+
-+/**
-+ * struct i2400mu - descriptor for a USB connected i2400m
-+ *
-+ * @i2400m: bus-generic i2400m implementation; has to be first (see
-+ *     it's documentation in i2400m.h).
-+ *
-+ * @usb_dev: pointer to our USB device
-+ *
-+ * @usb_iface: pointer to our USB interface
-+ *
-+ * @urb_edc: error density counter; used to keep a density-on-time tab
-+ *     on how many soft (retryable or ignorable) errors we get. If we
-+ *     go over the threshold, we consider the bus transport is failing
-+ *     too much and reset.
-+ *
-+ * @notif_urb: URB for receiving notifications from the device.
-+ *
-+ * @tx_kthread: thread we use for data TX. We use a thread because in
-+ *     order to do deep power saving and put the device to sleep, we
-+ *     need to call usb_autopm_*() [blocking functions].
-+ *
-+ * @tx_wq: waitqueue for the TX kthread to sleep when there is no data
-+ *     to be sent; when more data is available, it is woken up by
-+ *     i2400mu_bus_tx_kick().
-+ *
-+ * @rx_kthread: thread we use for data RX. We use a thread because in
-+ *     order to do deep power saving and put the device to sleep, we
-+ *     need to call usb_autopm_*() [blocking functions].
-+ *
-+ * @rx_wq: waitqueue for the RX kthread to sleep when there is no data
-+ *     to receive. When data is available, it is woken up by
-+ *     usb-notif.c:i2400mu_notification_grok().
-+ *
-+ * @rx_pending_count: number of rx-data-ready notifications that were
-+ *     still not handled by the RX kthread.
-+ *
-+ * @rx_size: current RX buffer size that is being used.
-+ *
-+ * @rx_size_acc: accumulator of the sizes of the previous read
-+ *     transactions.
-+ *
-+ * @rx_size_cnt: number of read transactions accumulated in
-+ *     @rx_size_acc.
-+ *
-+ * @do_autopm: disable(0)/enable(>0) calling the
-+ *     usb_autopm_get/put_interface() barriers when executing
-+ *     commands. See doc in i2400mu_suspend() for more information.
-+ *
-+ * @rx_size_auto_shrink: if true, the rx_size is shrinked
-+ *     automatically based on the average size of the received
-+ *     transactions. This allows the receive code to allocate smaller
-+ *     chunks of memory and thus reduce pressure on the memory
-+ *     allocator by not wasting so much space. By default it is
-+ *     enabled.
-+ *
-+ * @debugfs_dentry: hookup for debugfs files.
-+ *     These have to be in a separate directory, a child of
-+ *     (wimax_dev->debugfs_dentry) so they can be removed when the
-+ *     module unloads, as we don't keep each dentry.
-+ */
-+struct i2400mu {
-+	struct i2400m i2400m;		/* FIRST! See doc */
-+
-+	struct usb_device *usb_dev;
-+	struct usb_interface *usb_iface;
-+	struct edc urb_edc;		/* Error density counter */
-+
-+	struct urb *notif_urb;
-+	struct task_struct *tx_kthread;
-+	wait_queue_head_t tx_wq;
-+
-+	struct task_struct *rx_kthread;
-+	wait_queue_head_t rx_wq;
-+	atomic_t rx_pending_count;
-+	size_t rx_size, rx_size_acc, rx_size_cnt;
-+	atomic_t do_autopm;
-+	u8 rx_size_auto_shrink;
-+
-+	struct dentry *debugfs_dentry;
-+};
-+
-+
-+static inline
-+void i2400mu_init(struct i2400mu *i2400mu)
-+{
-+	i2400m_init(&i2400mu->i2400m);
-+	edc_init(&i2400mu->urb_edc);
-+	init_waitqueue_head(&i2400mu->tx_wq);
-+	atomic_set(&i2400mu->rx_pending_count, 0);
-+	init_waitqueue_head(&i2400mu->rx_wq);
-+	i2400mu->rx_size = PAGE_SIZE - sizeof(struct skb_shared_info);
-+	atomic_set(&i2400mu->do_autopm, 1);
-+	i2400mu->rx_size_auto_shrink = 1;
-+}
-+
-+extern int i2400mu_notification_setup(struct i2400mu *);
-+extern void i2400mu_notification_release(struct i2400mu *);
-+
-+extern int i2400mu_rx_setup(struct i2400mu *);
-+extern void i2400mu_rx_release(struct i2400mu *);
-+extern void i2400mu_rx_kick(struct i2400mu *);
-+
-+extern int i2400mu_tx_setup(struct i2400mu *);
-+extern void i2400mu_tx_release(struct i2400mu *);
-+extern void i2400mu_bus_tx_kick(struct i2400m *);
-+
-+extern ssize_t i2400mu_bus_bm_cmd_send(struct i2400m *,
-+				       const struct i2400m_bootrom_header *,
-+				       size_t, int);
-+extern ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *,
-+					   struct i2400m_bootrom_header *,
-+					   size_t);
-+#endif /* #ifndef __I2400M_USB_H__ */
-diff --git a/drivers/net/wimax/i2400m/usb-debug-levels.h b/drivers/net/wimax/i2400m/usb-debug-levels.h
-new file mode 100644
-index 0000000..e4358bd
---- /dev/null
-+++ b/drivers/net/wimax/i2400m/usb-debug-levels.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Intel Wireless WiMAX Connection 2400m
-+ * Debug levels control file for the i2400m-usb module
++ * Linux driver model glue for USB device, reset & fw upload
 + *
 + *
 + * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
 + * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
++ * Yanir Lubetkin <yanirx.lubetkin@intel.com>
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of the GNU General Public License version
@@ -327,26 +57,574 @@ index 0000000..e4358bd
 + * along with this program; if not, write to the Free Software
 + * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 + * 02110-1301, USA.
++ *
++ *
++ * See i2400m-usb.h for a general description of this driver.
++ *
++ * This file implements driver model glue, and hook ups for the
++ * generic driver to implement the bus-specific functions (device
++ * communication setup/tear down, firmware upload and resetting).
++ *
++ * ROADMAP
++ *
++ * i2400mu_probe()
++ *   alloc_netdev()...
++ *     i2400mu_netdev_setup()
++ *       i2400mu_init()
++ *       i2400m_netdev_setup()
++ *   i2400m_setup()...
++ *
++ * i2400mu_disconnect
++ *   i2400m_release()
++ *   free_netdev()
++ *
++ * i2400mu_suspend()
++ *   i2400m_cmd_enter_powersave()
++ *   i2400mu_notification_release()
++ *
++ * i2400mu_resume()
++ *   i2400mu_notification_setup()
++ *
++ * i2400mu_bus_dev_start()        Called by i2400m_dev_start() [who is
++ *   i2400mu_tx_setup()           called by i2400m_setup()]
++ *   i2400mu_rx_setup()
++ *   i2400mu_notification_setup()
++ *
++ * i2400mu_bus_dev_stop()         Called by i2400m_dev_stop() [who is
++ *   i2400mu_notification_release()  called by i2400m_release()]
++ *   i2400mu_rx_release()
++ *   i2400mu_tx_release()
++ *
++ * i2400mu_bus_reset()            Called by i2400m->bus_reset
++ *   __i2400mu_reset()
++ *     __i2400mu_send_barker()
++ *   usb_reset_device()
 + */
-+#ifndef __debug_levels__h__
-+#define __debug_levels__h__
++#include "i2400m-usb.h"
++#include <linux/wimax/i2400m.h>
++#include <linux/debugfs.h>
 +
-+/* Maximum compile and run time debug level for all submodules */
-+#define D_MODULENAME i2400m_usb
-+#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
 +
-+#include <linux/wimax/debug.h>
++#define D_SUBMODULE usb
++#include "usb-debug-levels.h"
 +
-+/* List of all the enabled modules */
-+enum d_module {
-+	D_SUBMODULE_DECLARE(usb),
-+	D_SUBMODULE_DECLARE(fw),
-+	D_SUBMODULE_DECLARE(notif),
-+	D_SUBMODULE_DECLARE(rx),
-+	D_SUBMODULE_DECLARE(tx),
++
++/* Our firmware file name */
++#define I2400MU_FW_FILE_NAME "i2400m-fw-usb-" I2400M_FW_VERSION ".sbcf"
++
++static
++int i2400mu_bus_dev_start(struct i2400m *i2400m)
++{
++	int result;
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct device *dev = &i2400mu->usb_iface->dev;
++
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	result = i2400mu_tx_setup(i2400mu);
++	if (result < 0)
++		goto error_usb_tx_setup;
++	result = i2400mu_rx_setup(i2400mu);
++	if (result < 0)
++		goto error_usb_rx_setup;
++	result = i2400mu_notification_setup(i2400mu);
++	if (result < 0)
++		goto error_notif_setup;
++	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
++	return result;
++
++error_notif_setup:
++	i2400mu_rx_release(i2400mu);
++error_usb_rx_setup:
++	i2400mu_tx_release(i2400mu);
++error_usb_tx_setup:
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++	return result;
++}
++
++
++static
++void i2400mu_bus_dev_stop(struct i2400m *i2400m)
++{
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct device *dev = &i2400mu->usb_iface->dev;
++
++	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
++	i2400mu_notification_release(i2400mu);
++	i2400mu_rx_release(i2400mu);
++	i2400mu_tx_release(i2400mu);
++	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
++}
++
++
++/*
++ * Sends a barker buffer to the device
++ *
++ * This helper will allocate a kmalloced buffer and use it to transmit
++ * (then free it). Reason for this is that other arches cannot use
++ * stack/vmalloc/text areas for DMA transfers.
++ *
++ * Error recovery here is simpler: anything is considered a hard error
++ * and will move the reset code to use a last-resort bus-based reset.
++ */
++static
++int __i2400mu_send_barker(struct i2400mu *i2400mu,
++			  const __le32 *barker,
++			  size_t barker_size,
++			  unsigned endpoint)
++{
++	struct usb_endpoint_descriptor *epd = NULL;
++	int pipe, actual_len, ret;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	void *buffer;
++	int do_autopm = 1;
++
++	ret = usb_autopm_get_interface(i2400mu->usb_iface);
++	if (ret < 0) {
++		dev_err(dev, "RESET: can't get autopm: %d\n", ret);
++		do_autopm = 0;
++	}
++	ret = -ENOMEM;
++	buffer = kmalloc(barker_size, GFP_KERNEL);
++	if (buffer == NULL)
++		goto error_kzalloc;
++	epd = usb_get_epd(i2400mu->usb_iface, endpoint);
++	pipe = usb_sndbulkpipe(i2400mu->usb_dev, epd->bEndpointAddress);
++	memcpy(buffer, barker, barker_size);
++	ret = usb_bulk_msg(i2400mu->usb_dev, pipe, buffer, barker_size,
++			   &actual_len, HZ);
++	if (ret < 0) {
++		if (ret != -EINVAL)
++			dev_err(dev, "E: barker error: %d\n", ret);
++	} else if (actual_len != barker_size) {
++		dev_err(dev, "E: only %d bytes transmitted\n", actual_len);
++		ret = -EIO;
++	}
++	kfree(buffer);
++error_kzalloc:
++	if (do_autopm)
++		usb_autopm_put_interface(i2400mu->usb_iface);
++	return ret;
++}
++
++
++/*
++ * Reset a device at different levels (warm, cold or bus)
++ *
++ * @i2400m: device descriptor
++ * @reset_type: soft, warm or bus reset (I2400M_RT_WARM/SOFT/BUS)
++ *
++ * Warm and cold resets get a USB reset if they fail.
++ *
++ * Warm reset:
++ *
++ * The device will be fully reset internally, but won't be
++ * disconnected from the USB bus (so no reenumeration will
++ * happen). Firmware upload will be neccessary.
++ *
++ * The device will send a reboot barker in the notification endpoint
++ * that will trigger the driver to reinitialize the state
++ * automatically from notif.c:i2400m_notification_grok() into
++ * i2400m_dev_bootstrap_delayed().
++ *
++ * Cold and bus (USB) reset:
++ *
++ * The device will be fully reset internally, disconnected from the
++ * USB bus an a reenumeration will happen. Firmware upload will be
++ * neccessary. Thus, we don't do any locking or struct
++ * reinitialization, as we are going to be fully disconnected and
++ * reenumerated.
++ *
++ * Note we need to return -ENODEV if a warm reset was requested and we
++ * had to resort to a bus reset. See i2400m_op_reset(), wimax_reset()
++ * and wimax_dev->op_reset.
++ *
++ * WARNING: no driver state saved/fixed
++ */
++static
++int i2400mu_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
++{
++	int result;
++	struct i2400mu *i2400mu =
++		container_of(i2400m, struct i2400mu, i2400m);
++	struct device *dev = i2400m_dev(i2400m);
++	static const __le32 i2400m_WARM_BOOT_BARKER[4] = {
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_WARM_RESET_BARKER),
++	};
++	static const __le32 i2400m_COLD_BOOT_BARKER[4] = {
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++		__constant_cpu_to_le32(I2400M_COLD_RESET_BARKER),
++	};
++
++	d_fnstart(3, dev, "(i2400m %p rt %u)\n", i2400m, rt);
++	if (rt == I2400M_RT_WARM)
++		result = __i2400mu_send_barker(i2400mu, i2400m_WARM_BOOT_BARKER,
++					       sizeof(i2400m_WARM_BOOT_BARKER),
++					       I2400MU_EP_BULK_OUT);
++	else if (rt == I2400M_RT_COLD)
++		result = __i2400mu_send_barker(i2400mu, i2400m_COLD_BOOT_BARKER,
++					       sizeof(i2400m_COLD_BOOT_BARKER),
++					       I2400MU_EP_RESET_COLD);
++	else if (rt == I2400M_RT_BUS) {
++do_bus_reset:
++		result = usb_reset_device(i2400mu->usb_dev);
++		switch (result) {
++		case 0:
++		case -EINVAL:	/* device is gone */
++		case -ENODEV:
++		case -ENOENT:
++		case -ESHUTDOWN:
++			result = rt == I2400M_RT_WARM ? -ENODEV : 0;
++			break;	/* We assume the device is disconnected */
++		default:
++			dev_err(dev, "USB reset failed (%d), giving up!\n",
++				result);
++		}
++	} else
++		BUG();
++	if (result < 0
++	    && result != -EINVAL	/* device is gone */
++	    && rt != I2400M_RT_BUS) {
++		dev_err(dev, "%s reset failed (%d); trying USB reset\n",
++			rt == I2400M_RT_WARM ? "warm" : "cold", result);
++		rt = I2400M_RT_BUS;
++		goto do_bus_reset;
++	}
++	d_fnend(3, dev, "(i2400m %p rt %u) = %d\n", i2400m, rt, result);
++	return result;
++}
++
++
++static
++void i2400mu_netdev_setup(struct net_device *net_dev)
++{
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	i2400mu_init(i2400mu);
++	i2400m_netdev_setup(net_dev);
++}
++
++
++/*
++ * Debug levels control; see debug.h
++ */
++struct d_level D_LEVEL[] = {
++	D_SUBMODULE_DEFINE(usb),
++	D_SUBMODULE_DEFINE(fw),
++	D_SUBMODULE_DEFINE(notif),
++	D_SUBMODULE_DEFINE(rx),
++	D_SUBMODULE_DEFINE(tx),
++};
++size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
++
++
++#define __debugfs_register(prefix, name, parent)			\
++do {									\
++	result = d_level_register_debugfs(prefix, name, parent);	\
++	if (result < 0)							\
++		goto error;						\
++} while (0)
++
++
++static
++int i2400mu_debugfs_add(struct i2400mu *i2400mu)
++{
++	int result;
++	struct device *dev = &i2400mu->usb_iface->dev;
++	struct dentry *dentry = i2400mu->i2400m.wimax_dev.debugfs_dentry;
++	struct dentry *fd;
++
++	dentry = debugfs_create_dir("i2400m-usb", dentry);
++	result = PTR_ERR(dentry);
++	if (IS_ERR(dentry)) {
++		if (result == -ENODEV)
++			result = 0;	/* No debugfs support */
++		goto error;
++	}
++	i2400mu->debugfs_dentry = dentry;
++	__debugfs_register("dl_", usb, dentry);
++	__debugfs_register("dl_", fw, dentry);
++	__debugfs_register("dl_", notif, dentry);
++	__debugfs_register("dl_", rx, dentry);
++	__debugfs_register("dl_", tx, dentry);
++
++	/* Don't touch these if you don't know what you are doing */
++	fd = debugfs_create_u8("rx_size_auto_shrink", 0600, dentry,
++			       &i2400mu->rx_size_auto_shrink);
++	result = PTR_ERR(fd);
++	if (IS_ERR(fd) && result != -ENODEV) {
++		dev_err(dev, "Can't create debugfs entry "
++			"rx_size_auto_shrink: %d\n", result);
++		goto error;
++	}
++
++	fd = debugfs_create_size_t("rx_size", 0600, dentry,
++				   &i2400mu->rx_size);
++	result = PTR_ERR(fd);
++	if (IS_ERR(fd) && result != -ENODEV) {
++		dev_err(dev, "Can't create debugfs entry "
++			"rx_size: %d\n", result);
++		goto error;
++	}
++
++	return 0;
++
++error:
++	debugfs_remove_recursive(i2400mu->debugfs_dentry);
++	return result;
++}
++
++
++/*
++ * Probe a i2400m interface and register it
++ *
++ * @iface:   USB interface to link to
++ * @id:      USB class/subclass/protocol id
++ * @returns: 0 if ok, < 0 errno code on error.
++ *
++ * Alloc a net device, initialize the bus-specific details and then
++ * calls the bus-generic initialization routine. That will register
++ * the wimax and netdev devices, upload the firmware [using
++ * _bus_bm_*()], call _bus_dev_start() to finalize the setup of the
++ * communication with the device and then will start to talk to it to
++ * finnish setting it up.
++ */
++static
++int i2400mu_probe(struct usb_interface *iface,
++		  const struct usb_device_id *id)
++{
++	int result;
++	struct net_device *net_dev;
++	struct device *dev = &iface->dev;
++	struct i2400m *i2400m;
++	struct i2400mu *i2400mu;
++	struct usb_device *usb_dev = interface_to_usbdev(iface);
++
++	if (usb_dev->speed != USB_SPEED_HIGH)
++		dev_err(dev, "device not connected as high speed\n");
++
++	/* Allocate instance [calls i2400m_netdev_setup() on it]. */
++	result = -ENOMEM;
++	net_dev = alloc_netdev(sizeof(*i2400mu), "wmx%d",
++			       i2400mu_netdev_setup);
++	if (net_dev == NULL) {
++		dev_err(dev, "no memory for network device instance\n");
++		goto error_alloc_netdev;
++	}
++	SET_NETDEV_DEV(net_dev, dev);
++	i2400m = net_dev_to_i2400m(net_dev);
++	i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	i2400m->wimax_dev.net_dev = net_dev;
++	i2400mu->usb_dev = usb_get_dev(usb_dev);
++	i2400mu->usb_iface = iface;
++	usb_set_intfdata(iface, i2400mu);
++
++	i2400m->bus_tx_block_size = I2400MU_BLK_SIZE;
++	i2400m->bus_pl_size_max = I2400MU_PL_SIZE_MAX;
++	i2400m->bus_dev_start = i2400mu_bus_dev_start;
++	i2400m->bus_dev_stop = i2400mu_bus_dev_stop;
++	i2400m->bus_tx_kick = i2400mu_bus_tx_kick;
++	i2400m->bus_reset = i2400mu_bus_reset;
++	i2400m->bus_bm_cmd_send = i2400mu_bus_bm_cmd_send;
++	i2400m->bus_bm_wait_for_ack = i2400mu_bus_bm_wait_for_ack;
++	i2400m->bus_fw_name = I2400MU_FW_FILE_NAME;
++	i2400m->bus_bm_mac_addr_impaired = 0;
++
++	iface->needs_remote_wakeup = 1;		/* autosuspend (15s delay) */
++	device_init_wakeup(dev, 1);
++	usb_autopm_enable(i2400mu->usb_iface);
++	usb_dev->autosuspend_delay = 15 * HZ;
++	usb_dev->autosuspend_disabled = 0;
++
++	result = i2400m_setup(i2400m, I2400M_BRI_MAC_REINIT);
++	if (result < 0) {
++		dev_err(dev, "cannot setup device: %d\n", result);
++		goto error_setup;
++	}
++	result = i2400mu_debugfs_add(i2400mu);
++	if (result < 0) {
++		dev_err(dev, "Can't register i2400mu's debugfs: %d\n", result);
++		goto error_debugfs_add;
++	}
++	return 0;
++
++error_debugfs_add:
++	i2400m_release(i2400m);
++error_setup:
++	usb_set_intfdata(iface, NULL);
++	usb_put_dev(i2400mu->usb_dev);
++	free_netdev(net_dev);
++error_alloc_netdev:
++	return result;
++}
++
++
++/*
++ * Disconect a i2400m from the system.
++ *
++ * i2400m_stop() has been called before, so al the rx and tx contexts
++ * have been taken down already. Make sure the queue is stopped,
++ * unregister netdev and i2400m, free and kill.
++ */
++static
++void i2400mu_disconnect(struct usb_interface *iface)
++{
++	struct i2400mu *i2400mu = usb_get_intfdata(iface);
++	struct i2400m *i2400m = &i2400mu->i2400m;
++	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
++	struct device *dev = &iface->dev;
++
++	d_fnstart(3, dev, "(iface %p i2400m %p)\n", iface, i2400m);
++
++	debugfs_remove_recursive(i2400mu->debugfs_dentry);
++	i2400m_release(i2400m);
++	usb_set_intfdata(iface, NULL);
++	usb_put_dev(i2400mu->usb_dev);
++	free_netdev(net_dev);
++	d_fnend(3, dev, "(iface %p i2400m %p) = void\n", iface, i2400m);
++}
++
++
++/*
++ * Get the device ready for USB port or system standby and hibernation
++ *
++ * USB port and system standby are handled the same.
++ *
++ * When the system hibernates, the USB device is powered down and then
++ * up, so we don't really have to do much here, as it will be seen as
++ * a reconnect. Still for simplicity we consider this case the same as
++ * suspend, so that the device has a chance to do notify the base
++ * station (if connected).
++ *
++ * So at the end, the three cases require common handling.
++ *
++ * If at the time of this call the device's firmware is not loaded,
++ * nothing has to be done.
++ *
++ * If the firmware is loaded, we need to:
++ *
++ *  - tell the device to go into host interface power save mode, wait
++ *    for it to ack
++ *
++ *    This is quite more interesting than it is; we need to execute a
++ *    command, but this time, we don't want the code in usb-{tx,rx}.c
++ *    to call the usb_autopm_get/put_interface() barriers as it'd
++ *    deadlock, so we need to decrement i2400mu->do_autopm, that acts
++ *    as a poor man's semaphore. Ugly, but it works.
++ *
++ *    As well, the device might refuse going to sleep for whichever
++ *    reason. In this case we just fail. For system suspend/hibernate,
++ *    we *can't* fail. We look at usb_dev->auto_pm to see if the
++ *    suspend call comes from the USB stack or from the system and act
++ *    in consequence.
++ *
++ *  - stop the notification endpoint polling
++ */
++static
++int i2400mu_suspend(struct usb_interface *iface, pm_message_t pm_msg)
++{
++	int result = 0;
++	struct device *dev = &iface->dev;
++	struct i2400mu *i2400mu = usb_get_intfdata(iface);
++	struct usb_device *usb_dev = i2400mu->usb_dev;
++	struct i2400m *i2400m = &i2400mu->i2400m;
++
++	d_fnstart(3, dev, "(iface %p pm_msg %u)\n", iface, pm_msg.event);
++	if (i2400m->updown == 0)
++		goto no_firmware;
++	d_printf(1, dev, "fw up, requesting standby\n");
++	atomic_dec(&i2400mu->do_autopm);
++	result = i2400m_cmd_enter_powersave(i2400m);
++	atomic_inc(&i2400mu->do_autopm);
++	if (result < 0 && usb_dev->auto_pm == 0) {
++		/* System suspend, can't fail */
++		dev_err(dev, "failed to suspend, will reset on resume\n");
++		result = 0;
++	}
++	if (result < 0)
++		goto error_enter_powersave;
++	i2400mu_notification_release(i2400mu);
++	d_printf(1, dev, "fw up, got standby\n");
++error_enter_powersave:
++no_firmware:
++	d_fnend(3, dev, "(iface %p pm_msg %u) = %d\n",
++		iface, pm_msg.event, result);
++	return result;
++}
++
++
++static
++int i2400mu_resume(struct usb_interface *iface)
++{
++	int ret = 0;
++	struct device *dev = &iface->dev;
++	struct i2400mu *i2400mu = usb_get_intfdata(iface);
++	struct i2400m *i2400m = &i2400mu->i2400m;
++
++	d_fnstart(3, dev, "(iface %p)\n", iface);
++	if (i2400m->updown == 0) {
++		d_printf(1, dev, "fw was down, no resume neeed\n");
++		goto out;
++	}
++	d_printf(1, dev, "fw was up, resuming\n");
++	i2400mu_notification_setup(i2400mu);
++	/* USB has flow control, so we don't need to give it time to
++	 * come back; otherwise, we'd use something like a get-state
++	 * command... */
++out:
++	d_fnend(3, dev, "(iface %p) = %d\n", iface, ret);
++	return ret;
++}
++
++
++static
++struct usb_device_id i2400mu_id_table[] = {
++	{ USB_DEVICE(0x8086, 0x0181) },
++	{ USB_DEVICE(0x8086, 0x1403) },
++	{ USB_DEVICE(0x8086, 0x1405) },
++	{ USB_DEVICE(0x8086, 0x0180) },
++	{ USB_DEVICE(0x8086, 0x0182) },
++	{ USB_DEVICE(0x8086, 0x1406) },
++	{ USB_DEVICE(0x8086, 0x1403) },
++	{ },
++};
++MODULE_DEVICE_TABLE(usb, i2400mu_id_table);
++
++
++static
++struct usb_driver i2400mu_driver = {
++	.name = KBUILD_MODNAME,
++	.suspend = i2400mu_suspend,
++	.resume = i2400mu_resume,
++	.probe = i2400mu_probe,
++	.disconnect = i2400mu_disconnect,
++	.id_table = i2400mu_id_table,
++	.supports_autosuspend = 1,
 +};
 +
++static
++int __init i2400mu_driver_init(void)
++{
++	return usb_register(&i2400mu_driver);
++}
++module_init(i2400mu_driver_init);
 +
-+#endif /* #ifndef __debug_levels__h__ */
++
++static
++void __exit i2400mu_driver_exit(void)
++{
++	flush_scheduled_work();	/* for the stuff we schedule from sysfs.c */
++	usb_deregister(&i2400mu_driver);
++}
++module_exit(i2400mu_driver_exit);
++
++MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
++MODULE_DESCRIPTION("Intel 2400M WiMAX networking for USB");
++MODULE_LICENSE("GPL");
++MODULE_FIRMWARE(I2400MU_FW_FILE_NAME);
 -- 
 1.5.6.5
