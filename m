@@ -1,9 +1,10 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 29/29] wimax/i2400m: add CREDITS and MAINTAINERS entries
-Date: Sat, 20 Dec 2008 16:58:00 -0800
-Message-ID: <e5bb1838f1255637aef03a5bd36b3373c526b92d.1229820957.git.inaky@linux.intel.com>
+Subject: [PATCH 28/29] wimax: export linux/wimax.h and linux/wimax/i2400m.h
+	with headers_install
+Date: Sat, 20 Dec 2008 16:57:59 -0800
+Message-ID: <2a7ebc201ca59bbac909e77248eddc1c39fd1a93.1229820957.git.inaky@linux.intel.com>
 References: <cover.1229820956.git.inaky@linux.intel.com>
-Cc: greg@kroah.com, wimax@linuxwimax.org
+Cc: greg@kroah.com, David Woodhouse <dwmw2@infradead.org>, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <wimax-bounces@linuxwimax.org>
 In-Reply-To: <cover.1229820956.git.inaky@linux.intel.com>
@@ -18,90 +19,34 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds entries for the original developers of the i2400m
-drivers and up-to-date maintainer entries.
+These two files are what user space can use to establish communication
+with the WiMAX kernel API and to speak the Intel 2400m Wireless WiMAX
+connection's control protocol.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Cc: David Woodhouse <dwmw2@infradead.org>
 ---
- CREDITS     |   17 +++++++++++++++++
- MAINTAINERS |   16 ++++++++++++++++
- 2 files changed, 33 insertions(+), 0 deletions(-)
+ include/linux/Kbuild       |    2 ++
+ include/linux/wimax/Kbuild |    1 +
+ 2 files changed, 3 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/wimax/Kbuild
 
-diff --git a/CREDITS b/CREDITS
-index b50db17..ae5b804 100644
---- a/CREDITS
-+++ b/CREDITS
-@@ -464,6 +464,11 @@ S: 1200 Goldenrod Dr.
- S: Nampa, Idaho 83686
- S: USA
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index e531783..89079ff 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -375,3 +375,5 @@ unifdef-y += xattr.h
+ unifdef-y += xfrm.h
  
-+N: Dirk J. Brandewie
-+E: dirk.j.brandewie@intel.com
-+E: linux-wimax@intel.com
-+D: Intel Wireless WiMAX Connection 2400 SDIO driver
-+
- N: Derrick J. Brashear
- E: shadow@dementia.org
- W: http://www.dementia.org/~shadow
-@@ -2119,6 +2124,11 @@ N: H.J. Lu
- E: hjl@gnu.ai.mit.edu
- D: GCC + libraries hacker
- 
-+N: Yanir Lubetkin
-+E: yanirx.lubatkin@intel.com
-+E: linux-wimax@intel.com
-+D: Intel Wireless WiMAX Connection 2400 driver
-+
- N: Michal Ludvig
- E: michal@logix.cz
- E: michal.ludvig@asterisk.co.nz
-@@ -2693,6 +2703,13 @@ S: RR #5, 497 Pole Line Road
- S: Thunder Bay, Ontario
- S: CANADA P7C 5M9
- 
-+N: Inaky Perez-Gonzalez
-+E: inaky.perez-gonzalez@intel.com
-+E: linux-wimax@intel.com
-+E: inakypg@yahoo.com
-+D: WiMAX stack
-+D: Intel Wireless WiMAX Connection 2400 driver
-+
- N: Yuri Per
- E: yuri@pts.mipt.ru
- D: Some smbfs fixes
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c1ea1f6..892b57a 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2299,6 +2299,14 @@ W:	http://lists.sourceforge.net/mailman/listinfo/ipw2100-devel
- W:	http://ipw2200.sourceforge.net
- S:	Supported
- 
-+INTEL WIRELESS WIMAX CONNECTION 2400
-+P:	Inaky Perez-Gonzalez
-+M:	inaky.perez-gonzalez@intel.com
-+M:	linux-wimax@intel.com
-+L:	wimax@linuxwimax.org
-+S:	Supported
-+W:	http://linuxwimax.org
-+
- INTEL WIRELESS WIFI LINK (iwlwifi)
- P:	Zhu Yi
- M:	yi.zhu@intel.com
-@@ -4703,6 +4711,14 @@ M:	zaga@fly.cc.fer.hr
- L:	linux-scsi@vger.kernel.org
- S:	Maintained
- 
-+WIMAX STACK
-+P:	Inaky Perez-Gonzalez
-+M:	inaky.perez-gonzalez@intel.com
-+M:	linux-wimax@intel.com
-+L:	wimax@linuxwimax.org
-+S:	Supported
-+W:	http://linuxwimax.org
-+
- WIMEDIA LLC PROTOCOL (WLP) SUBSYSTEM
- P:	David Vrabel
- M:	david.vrabel@csr.com
+ objhdr-y += version.h
++header-y += wimax.h
++header-y += wimax/
+diff --git a/include/linux/wimax/Kbuild b/include/linux/wimax/Kbuild
+new file mode 100644
+index 0000000..3cb4f26
+--- /dev/null
++++ b/include/linux/wimax/Kbuild
+@@ -0,0 +1 @@
++header-y += i2400m.h
 -- 
 1.5.6.5
