@@ -1,206 +1,304 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [RFC] [Patch 4/4] dccp: Integrate the TFRC library (dependency)
-Date: Sat, 20 Dec 2008 22:55:11 -0200
-Message-ID: <20081221005511.GC5700@ghostprotocols.net>
-References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net> <20081220080826.GE3853@gerrit.erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:59190 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754780AbYLUAzS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Dec 2008 19:55:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20081220080826.GE3853@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 11/29] i2400m: documentation and instructions for usage
+Date: Sat, 20 Dec 2008 16:57:42 -0800
+Message-ID: <191ea0319b428b9457d54084914ba1344d34ffa3.1229820957.git.inaky@linux.intel.com>
+References: <cover.1229820956.git.inaky@linux.intel.com>
+Cc: greg@kroah.com, wimax@linuxwimax.org
+To: netdev@vger.kernel.org
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1229820956.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-Em Sat, Dec 20, 2008 at 09:08:26AM +0100, Gerrit Renker escreveu:
-> dccp: Integrate the TFRC library objects into DCCP
-> 
-> The TFRC library is a dependency of the CCID-3 (and CCID-4)
-> modules. The patch updates the Kconfig menu and Makefiles.
-> 
-> Note -- This solution is simple, I am sure that it can be
-> done better and thus welcome suggestions to improve the
-> conditional build statement below.
+The driver for the i2400m is a stacked driver. There is a core driver,
+the bus-generic driver that has no knowledge or dependencies on how
+the device is connected to the system; it only knows how to speak the
+device protocol. Then there are the bus-specific drivers (for USB and
+SDIO) that provide backends for the generic driver to communicate with
+the device.
 
-See below how I was reworking the Makefile and Kconfig files before
-fetchmail got to your patch series.
+The bus generic driver connects to the network and WiMAX stacks on the
+top side, and on the bottom to the bus-specific drivers.
 
-I.e. IP_DCCP_TFRC_LIB is also deleted, and in
-net/dccp/ccids/libs/Makefile we do simply:
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ Documentation/wimax/README.i2400m |  260 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 260 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/wimax/README.i2400m
 
-dccp-$(CONFIG_IP_DCCP_CCID3) += tfrc.o tfrc_equation.o packet_history.o loss_interval.o
-
-- Arnaldo
-
-P.S. It just feels wrong that TCP, that was not designed with multiple
-congestion modules in mind have in Linux a plugabble congestion control
-infrastructure, one idea that was something that BSD also adopted after
-Linux became a more easy platform to try new congestion algorithms.
-
-Now DCCP, that was specifically designed with such infrastructure in
-mind will not have such facility :-\
-
-Yes, the locking there used code from other parts of the kernel
-(sock_create) and bitrotted while the sock_create code took advantage of
-better locking facilities later introduced (RCU), so we could just make
-DCCP use that new facilities and not simply remove altogether the
-dynamic loading capability.
-
-I mentioned where the old code came from and pointed the cset where it
-was transformed into RCU, didn't made the conversion trying to keep the
-initial patch as small as possible.
- 
-diff --git a/net/dccp/Kconfig b/net/dccp/Kconfig
-index 7aa2a7a..ad6dffd 100644
---- a/net/dccp/Kconfig
-+++ b/net/dccp/Kconfig
-@@ -1,7 +1,6 @@
- menuconfig IP_DCCP
- 	tristate "The DCCP Protocol (EXPERIMENTAL)"
- 	depends on INET && EXPERIMENTAL
--	select IP_DCCP_CCID2
- 	---help---
- 	  Datagram Congestion Control Protocol (RFC 4340)
- 
-@@ -25,9 +24,6 @@ config INET_DCCP_DIAG
- 	def_tristate y if (IP_DCCP = y && INET_DIAG = y)
- 	def_tristate m
- 
--config IP_DCCP_ACKVEC
--	bool
--
- source "net/dccp/ccids/Kconfig"
- 
- menu "DCCP Kernel Hacking"
-diff --git a/net/dccp/Makefile b/net/dccp/Makefile
-index f4f8793..e923a4d 100644
---- a/net/dccp/Makefile
-+++ b/net/dccp/Makefile
-@@ -1,6 +1,7 @@
- obj-$(CONFIG_IP_DCCP) += dccp.o dccp_ipv4.o
- 
--dccp-y := ccid.o feat.o input.o minisocks.o options.o output.o proto.o timer.o
-+dccp-y := ccid.o feat.o input.o minisocks.o options.o output.o proto.o timer.o \
-+	  ackvec.o
- 
- dccp_ipv4-y := ipv4.o
- 
-@@ -8,8 +9,6 @@ dccp_ipv4-y := ipv4.o
- obj-$(subst y,$(CONFIG_IP_DCCP),$(CONFIG_IPV6)) += dccp_ipv6.o
- dccp_ipv6-y := ipv6.o
- 
--dccp-$(CONFIG_IP_DCCP_ACKVEC) += ackvec.o
--
- obj-$(CONFIG_INET_DCCP_DIAG) += dccp_diag.o
- obj-$(CONFIG_NET_DCCPPROBE) += dccp_probe.o
- 
-diff --git a/net/dccp/ccids/Kconfig b/net/dccp/ccids/Kconfig
-index 1227594..96bfa1f 100644
---- a/net/dccp/ccids/Kconfig
-+++ b/net/dccp/ccids/Kconfig
-@@ -1,44 +1,21 @@
- menu "DCCP CCIDs Configuration (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL
- 
--config IP_DCCP_CCID2
--	tristate "CCID2 (TCP-Like) (EXPERIMENTAL)"
--	def_tristate IP_DCCP
--	select IP_DCCP_ACKVEC
--	---help---
--	  CCID 2, TCP-like Congestion Control, denotes Additive Increase,
--	  Multiplicative Decrease (AIMD) congestion control with behavior
--	  modelled directly on TCP, including congestion window, slow start,
--	  timeouts, and so forth [RFC 2581].  CCID 2 achieves maximum
--	  bandwidth over the long term, consistent with the use of end-to-end
--	  congestion control, but halves its congestion window in response to
--	  each congestion event.  This leads to the abrupt rate changes
--	  typical of TCP.  Applications should use CCID 2 if they prefer
--	  maximum bandwidth utilization to steadiness of rate.  This is often
--	  the case for applications that are not playing their data directly
--	  to the user.  For example, a hypothetical application that
--	  transferred files over DCCP, using application-level retransmissions
--	  for lost packets, would prefer CCID 2 to CCID 3.  On-line games may
--	  also prefer CCID 2.  See RFC 4341 for further details.
--
--	  CCID2 is the default CCID used by DCCP.
--
- config IP_DCCP_CCID2_DEBUG
- 	  bool "CCID2 debugging messages"
--	  depends on IP_DCCP_CCID2
-+	  depends on IP_DCCP
- 	  ---help---
- 	    Enable CCID2-specific debugging messages.
- 
--	    When compiling CCID2 as a module, this debugging output can
-+	    When compiling DCCP as a module, this debugging output can
- 	    additionally be toggled by setting the ccid2_debug module
- 	    parameter to 0 or 1.
- 
- 	    If in doubt, say N.
- 
- config IP_DCCP_CCID3
--	tristate "CCID3 (TCP-Friendly) (EXPERIMENTAL)"
--	def_tristate IP_DCCP
--	select IP_DCCP_TFRC_LIB
-+	bool "CCID3 (TCP-Friendly) (EXPERIMENTAL)"
-+	def_bool y if (IP_DCCP = y || IP_DCCP = m)
- 	---help---
- 	  CCID 3 denotes TCP-Friendly Rate Control (TFRC), an equation-based
- 	  rate-controlled congestion control mechanism.  TFRC is designed to
-@@ -59,10 +36,7 @@ config IP_DCCP_CCID3
- 	  This text was extracted from RFC 4340 (sec. 10.2),
- 	  http://www.ietf.org/rfc/rfc4340.txt
- 	  
--	  To compile this CCID as a module, choose M here: the module will be
--	  called dccp_ccid3.
--
--	  If in doubt, say M.
-+	  If in doubt, say N.
- 
- config IP_DCCP_CCID3_DEBUG
- 	  bool "CCID3 debugging messages"
-@@ -107,13 +81,8 @@ config IP_DCCP_CCID3_RTO
- 	    is serious network congestion: experimenting with larger values should
- 	    therefore not be performed on WANs.
- 
--config IP_DCCP_TFRC_LIB
--	tristate
--	default n
--
- config IP_DCCP_TFRC_DEBUG
- 	bool
--	depends on IP_DCCP_TFRC_LIB
- 	default y if IP_DCCP_CCID3_DEBUG
- 
- endmenu
-diff --git a/net/dccp/ccids/Makefile b/net/dccp/ccids/Makefile
-index 438f20b..4d4b1da 100644
---- a/net/dccp/ccids/Makefile
-+++ b/net/dccp/ccids/Makefile
-@@ -1,9 +1,4 @@
--obj-$(CONFIG_IP_DCCP_CCID3) += dccp_ccid3.o
--
--dccp_ccid3-y := ccid3.o
--
--obj-$(CONFIG_IP_DCCP_CCID2) += dccp_ccid2.o
--
--dccp_ccid2-y := ccid2.o
--
- obj-y += lib/
+diff --git a/Documentation/wimax/README.i2400m b/Documentation/wimax/README.i2400m
+new file mode 100644
+index 0000000..7dffd89
+--- /dev/null
++++ b/Documentation/wimax/README.i2400m
+@@ -0,0 +1,260 @@
 +
-+dccp-y += ccid2.o
-+dccp-$(CONFIG_IP_DCCP_CCID3) += ccid3.o
-diff --git a/net/dccp/ccids/lib/Makefile b/net/dccp/ccids/lib/Makefile
-index 68c93e3..95ad0d9 100644
---- a/net/dccp/ccids/lib/Makefile
-+++ b/net/dccp/ccids/lib/Makefile
-@@ -1,3 +1 @@
--obj-$(CONFIG_IP_DCCP_TFRC_LIB) += dccp_tfrc_lib.o
--
--dccp_tfrc_lib-y := tfrc.o tfrc_equation.o packet_history.o loss_interval.o
-+dccp-$(CONFIG_IP_DCCP_CCID3) += tfrc.o tfrc_equation.o packet_history.o loss_interval.o
++   Driver for the Intel Wireless Wimax Connection 2400m
++
++   (C) 2008 Intel Corporation < linux-wimax@intel.com >
++
++   This provides a driver for the Intel Wireless WiMAX Connection 2400m
++   and a basic Linux kernel WiMAX stack.
++
++1. Requirements
++
++     * Linux installation with Linux kernel 2.6.22 or newer (if building
++       from a separate tree)
++     * Intel i2400m Echo Peak or Baxter Peak; this includes the Intel
++       Wireless WiMAX/WiFi Link 5x50 series.
++     * build tools:
++          + Linux kernel development package for the target kernel; to
++            build against your currently running kernel, you need to have
++            the kernel development package corresponding to the running
++            image installed (usually if your kernel is named
++            linux-VERSION, the development package is called
++            linux-dev-VERSION or linux-headers-VERSION).
++          + GNU C Compiler, make
++
++2. Compilation and installation
++
++2.1. Compilation of the drivers included in the kernel
++
++   Configure the kernel; to enable the WiMAX drivers select Drivers >
++   Networking Drivers > WiMAX device support. Enable all of them as
++   modules (easier).
++
++   If USB or SDIO are not enabled in the kernel configuration, the options
++   to build the i2400m USB or SDIO drivers will not show. Enable said
++   subsystems and go back to the WiMAX menu to enable the drivers.
++
++   Compile and install your kernel as usual.
++
++2.2. Compilation of the drivers distributed as an standalone module
++
++   To compile
++
++$ cd source/directory
++$ make
++
++   Once built you can load and unload using the provided load.sh script;
++   load.sh will load the modules, load.sh u will unload them.
++
++   To install in the default kernel directories (and enable auto loading
++   when the device is plugged):
++
++$ make install
++$ depmod -a
++
++   If your kernel development files are located in a non standard
++   directory or if you want to build for a kernel that is not the
++   currently running one, set KDIR to the right location:
++
++$ make KDIR=/path/to/kernel/dev/tree
++
++   For more information, please contact linux-wimax@intel.com.
++
++3. Installing the firmware
++
++   The firmware can be obtained from http://linuxwimax.org or might have
++   been supplied with your hardware.
++
++   It has to be installed in the target system:
++     *
++$ cp FIRMWAREFILE.sbcf /lib/firmware/i2400m-fw-BUSTYPE-1.3.sbcf
++
++     * NOTE: if your firmware came in an .rpm or .deb file, just install
++       it as normal, with the rpm (rpm -i FIRMWARE.rpm) or dpkg
++       (dpkg -i FIRMWARE.deb) commands. No further action is needed.
++     * BUSTYPE will be usb or sdio, depending on the hardware you have.
++       Each hardware type comes with its own firmware and will not work
++       with other types.
++
++4. Design
++
++   This package contains two major parts: a WiMAX kernel stack and a
++   driver for the Intel i2400m.
++
++   The WiMAX stack is designed to provide for common WiMAX control
++   services to current and future WiMAX devices from any vendor; please
++   see README.wimax for details.
++
++   The i2400m kernel driver is broken up in two main parts: the bus
++   generic driver and the bus-specific drivers. The bus generic driver
++   forms the drivercore and contain no knowledge of the actual method we
++   use to connect to the device. The bus specific drivers are just the
++   glue to connect the bus-generic driver and the device. Currently only
++   USB and SDIO are supported. See drivers/net/wimax/i2400m/i2400m.h for
++   more information.
++
++   The bus generic driver is logically broken up in two parts: OS-glue and
++   hardware-glue. The OS-glue interfaces with Linux. The hardware-glue
++   interfaces with the device on using an interface provided by the
++   bus-specific driver. The reason for this breakup is to be able to
++   easily reuse the hardware-glue to write drivers for other OSes; note
++   the hardware glue part is written as a native Linux driver; no
++   abstraction layers are used, so to port to another OS, the Linux kernel
++   API calls should be replaced with the target OS's.
++
++5. Usage
++
++   To load the driver, follow the instructions in the install section;
++   once the driver is loaded, plug in the device (unless it is permanently
++   plugged in). The driver will enumerate the device, upload the firmware
++   and output messages in the kernel log (dmesg, /var/log/messages or
++   /var/log/kern.log) such as:
++
++...
++i2400m_usb 5-4:1.0: firmware interface version 8.0.0
++i2400m_usb 5-4:1.0: WiMAX interface wmx0 (00:1d:e1:01:94:2c) ready
++
++   At this point the device is ready to work.
++
++   Current versions require the Intel WiMAX Network Service in userspace
++   to make things work. See the network service's README for instructions
++   on how to scan, connect and disconnect.
++
++5.1. Module parameters
++
++   Module parameters can be set at kernel or module load time or by
++   echoing values:
++
++$ echo VALUE > /sys/module/MODULENAME/parameters/PARAMETERNAME
++
++   To make changes permanent, for example, for the i2400m module, you can
++   also create a file named /etc/modprobe.d/i2400m containing:
++
++options i2400m idle_mode_disabled=1
++
++   To find which parameters are supported by a module, run:
++
++$ modinfo path/to/module.ko
++
++   During kernel bootup (if the driver is linked in the kernel), specify
++   the following to the kernel command line:
++
++i2400m.PARAMETER=VALUE
++
++5.1.1. i2400m: idle_mode_disabled
++
++   The i2400m module supports a parameter to disable idle mode. This
++   parameter, once set, will take effect only when the device is
++   reinitialized by the driver (eg: following a reset or a reconnect).
++
++5.2. Debug operations: debugfs entries
++
++   The driver will register debugfs entries that allow the user to tweak
++   debug settings. There are three main container directories where
++   entries are placed, which correspond to the three blocks a i2400m WiMAX
++   driver has:
++     * /sys/kernel/debug/wimax:DEVNAME/ for the generic WiMAX stack
++       controls
++     * /sys/kernel/debug/wimax:DEVNAME/i2400m for the i2400m generic
++       driver controls
++     * /sys/kernel/debug/wimax:DEVNAME/i2400m-usb (or -sdio) for the
++       bus-specific i2400m-usb or i2400m-sdio controls).
++
++   Of course, if debugfs is mounted in a directory other than
++   /sys/kernel/debug, those paths will change.
++
++5.2.1. Increasing debug output
++
++   The files named *dl_* indicate knobs for controlling the debug output
++   of different submodules:
++     *
++# find /sys/kernel/debug/wimax\:wmx0 -name \*dl_\*
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_tx
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_rx
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_notif
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_fw
++/sys/kernel/debug/wimax:wmx0/i2400m-usb/dl_usb
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_tx
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_rx
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_rfkill
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_netdev
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_fw
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_debugfs
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_driver
++/sys/kernel/debug/wimax:wmx0/i2400m/dl_control
++/sys/kernel/debug/wimax:wmx0/wimax_dl_stack
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_rfkill
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_reset
++/sys/kernel/debug/wimax:wmx0/wimax_dl_op_msg
++/sys/kernel/debug/wimax:wmx0/wimax_dl_id_table
++/sys/kernel/debug/wimax:wmx0/wimax_dl_debugfs
++
++   By reading the file you can obtain the current value of said debug
++   level; by writing to it, you can set it.
++
++   To increase the debug level of, for example, the i2400m's generic TX
++   engine, just write:
++
++$ echo 3 > /sys/kernel/debug/wimax:wmx0/i2400m/dl_tx
++
++   Increasing numbers yield increasing debug information; for details of
++   what is printed and the available levels, check the source. The code
++   uses 0 for disabled and increasing values until 8.
++
++5.2.2. RX and TX statistics
++
++   The i2400m/rx_stats and i2400m/tx_stats provide statistics about the
++   data reception/delivery from the device:
++
++$ cat /sys/kernel/debug/wimax:wmx0/i2400m/rx_stats
++45 1 3 34 3104 48 480
++
++   The numbers reported are
++     * packets/RX-buffer: total, min, max
++     * RX-buffers: total RX buffers received, accumulated RX buffer size
++       in bytes, min size received, max size received
++
++   Thus, to find the average buffer size received, divide accumulated
++   RX-buffer / total RX-buffers.
++
++   To clear the statistics back to 0, write anything to the rx_stats file:
++
++$ echo 1 > /sys/kernel/debug/wimax:wmx0/i2400m_rx_stats
++
++   Likewise for TX.
++
++   Note the packets this debug file refers to are not network packet, but
++   packets in the sense of the device-specific protocol for communication
++   to the host. See drivers/net/wimax/i2400m/tx.c.
++
++5.2.3. Tracing messages received from user space
++
++   To echo messages received from user space into the trace pipe that the
++   i2400m driver creates, set the debug file i2400m/trace_msg_from_user to
++   1:
++     *
++$ echo 1 > /sys/kernel/debug/wimax:wmx0/i2400m/trace_msg_from_user
++
++5.2.4. Performing a device reset
++
++   By writing a 0, a 1 or a 2 to the file
++   /sys/kernel/debug/wimax:wmx0/reset, the driver performs a warm (without
++   disconnecting from the bus), cold (disconnecting from the bus) or bus
++   (bus specific) reset on the device.
++
++5.2.5. Asking the device to enter power saving mode
++
++   By writing any value to the /sys/kernel/debug/wimax:wmx0 file, the
++   device will attempt to enter power saving mode.
++
++6. Troubleshooting
++
++6.1. Driver complains about 'i2400m-fw-usb-1.2.sbcf: request failed'
++
++   If upon connecting the device, the following is output in the kernel
++   log:
++
++i2400m_usb 5-4:1.0: fw i2400m-fw-usb-1.3.sbcf: request failed: -2
++
++   This means that the driver cannot locate the firmware file named
++   /lib/firmware/i2400m-fw-usb-1.2.sbcf. Check that the file is present in
++   the right location.
+-- 
+1.5.6.5
