@@ -1,8 +1,12 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 09/29] wimax: debugfs controls
-Date: Sat, 20 Dec 2008 16:57:40 -0800
-Message-ID: <58ee10bb7cc18e211d3290817f6012a9dac373b9.1229820957.git.inaky@linux.intel.com>
+Subject: [PATCH 08/29] debugfs: add helpers for exporting a size_t simple
+	value
+Date: Sat, 20 Dec 2008 16:57:39 -0800
+Message-ID: <a6968b634ccb119b518e74572f340208d203c871.1229820957.git.inaky@linux.intel.com>
 References: <cover.1229820956.git.inaky@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <wimax-bounces@linuxwimax.org>
@@ -18,109 +22,80 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Expose knobs to control the stack's debug output.
+In the same spirit as debugfs_create_*(), introduce helpers for
+exporting size_t values over debugfs.
+
+The only trick done is that the format verifier is kept at %llu
+instead of %zu; otherwise type warnings would pop up:
+
+format ‘%zu’ expects type ‘size_t’, but argument 2 has type ‘long long unsigned int’
+
+There is no real way to fix this one--however, we can consider %llu
+and %zu to be compatible if we consider that we are using the same for
+validating in debugfs_create_{x,u}{8,16,32}().
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Cc: Greg KH <greg@kroah.com>
 ---
- net/wimax/debugfs.c |   90 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 90 insertions(+), 0 deletions(-)
- create mode 100644 net/wimax/debugfs.c
+ fs/debugfs/file.c       |   32 ++++++++++++++++++++++++++++++++
+ include/linux/debugfs.h |    2 ++
+ 2 files changed, 34 insertions(+), 0 deletions(-)
 
-diff --git a/net/wimax/debugfs.c b/net/wimax/debugfs.c
-new file mode 100644
-index 0000000..87cf443
---- /dev/null
-+++ b/net/wimax/debugfs.c
-@@ -0,0 +1,90 @@
-+/*
-+ * Linux WiMAX
-+ * Debugfs support
-+ *
-+ *
-+ * Copyright (C) 2005-2006 Intel Corporation <linux-wimax@intel.com>
-+ * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
+diff --git a/fs/debugfs/file.c b/fs/debugfs/file.c
+index 159a5ef..33a9012 100644
+--- a/fs/debugfs/file.c
++++ b/fs/debugfs/file.c
+@@ -294,6 +294,38 @@ struct dentry *debugfs_create_x32(const char *name, mode_t mode,
+ }
+ EXPORT_SYMBOL_GPL(debugfs_create_x32);
+ 
++
++static int debugfs_size_t_set(void *data, u64 val)
++{
++	*(size_t *)data = val;
++	return 0;
++}
++static int debugfs_size_t_get(void *data, u64 *val)
++{
++	*val = *(size_t *)data;
++	return 0;
++}
++DEFINE_SIMPLE_ATTRIBUTE(fops_size_t, debugfs_size_t_get, debugfs_size_t_set,
++			"%llu\n");	/* %llu and %zu are more or less the same */
++
++/**
++ * debugfs_create_size_t - create a debugfs file that is used to read and write an size_t value
++ * @name: a pointer to a string containing the name of the file to create.
++ * @mode: the permission that the file should have
++ * @parent: a pointer to the parent dentry for this file.  This should be a
++ *          directory dentry if set.  If this parameter is %NULL, then the
++ *          file will be created in the root of the debugfs filesystem.
++ * @value: a pointer to the variable that the file should read to and write
++ *         from.
 + */
-+#include <linux/debugfs.h>
-+#include <linux/wimax.h>
-+#include "wimax-internal.h"
-+
-+#define D_SUBMODULE debugfs
-+#include "debug-levels.h"
-+
-+
-+/* Debug framework control of debug levels */
-+struct d_level D_LEVEL[] = {
-+	D_SUBMODULE_DEFINE(debugfs),
-+	D_SUBMODULE_DEFINE(id_table),
-+	D_SUBMODULE_DEFINE(op_msg),
-+	D_SUBMODULE_DEFINE(op_reset),
-+	D_SUBMODULE_DEFINE(op_rfkill),
-+	D_SUBMODULE_DEFINE(stack),
-+};
-+size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
-+
-+#define __debugfs_register(prefix, name, parent)			\
-+do {									\
-+	result = d_level_register_debugfs(prefix, name, parent);	\
-+	if (result < 0)							\
-+		goto error;						\
-+} while (0)
-+
-+
-+int wimax_debugfs_add(struct wimax_dev *wimax_dev)
++struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
++				     struct dentry *parent, size_t *value)
 +{
-+	int result;
-+	struct net_device *net_dev = wimax_dev->net_dev;
-+	struct device *dev = net_dev->dev.parent;
-+	struct dentry *dentry;
-+	char buf[128];
-+
-+	snprintf(buf, sizeof(buf), "wimax:%s", net_dev->name);
-+	dentry = debugfs_create_dir(buf, NULL);
-+	result = PTR_ERR(dentry);
-+	if (IS_ERR(dentry)) {
-+		if (result == -ENODEV)
-+			result = 0;	/* No debugfs support */
-+		else
-+			dev_err(dev, "Can't create debugfs dentry: %d\n",
-+				result);
-+		goto out;
-+	}
-+	wimax_dev->debugfs_dentry = dentry;
-+	__debugfs_register("wimax_dl_", debugfs, dentry);
-+	__debugfs_register("wimax_dl_", id_table, dentry);
-+	__debugfs_register("wimax_dl_", op_msg, dentry);
-+	__debugfs_register("wimax_dl_", op_reset, dentry);
-+	__debugfs_register("wimax_dl_", op_rfkill, dentry);
-+	__debugfs_register("wimax_dl_", stack, dentry);
-+	result = 0;
-+out:
-+	return result;
-+
-+error:
-+	debugfs_remove_recursive(wimax_dev->debugfs_dentry);
-+	return result;
++	return debugfs_create_file(name, mode, parent, value, &fops_size_t);
 +}
-+
-+void wimax_debugfs_rm(struct wimax_dev *wimax_dev)
-+{
-+	debugfs_remove_recursive(wimax_dev->debugfs_dentry);
-+}
++EXPORT_SYMBOL_GPL(debugfs_create_size_t);
 +
 +
+ static ssize_t read_file_bool(struct file *file, char __user *user_buf,
+ 			      size_t count, loff_t *ppos)
+ {
+diff --git a/include/linux/debugfs.h b/include/linux/debugfs.h
+index e1a6c04..23936b1 100644
+--- a/include/linux/debugfs.h
++++ b/include/linux/debugfs.h
+@@ -63,6 +63,8 @@ struct dentry *debugfs_create_x16(const char *name, mode_t mode,
+ 				  struct dentry *parent, u16 *value);
+ struct dentry *debugfs_create_x32(const char *name, mode_t mode,
+ 				  struct dentry *parent, u32 *value);
++struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
++				     struct dentry *parent, size_t *value);
+ struct dentry *debugfs_create_bool(const char *name, mode_t mode,
+ 				  struct dentry *parent, u32 *value);
+ 
 -- 
 1.5.6.5
