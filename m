@@ -1,35 +1,91 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH net-next] myri10ge: update driver version to 1.4.4-1.395
-Date: Sun, 21 Dec 2008 22:29:37 +0100
-Message-ID: <494EB541.6030608@myri.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Wimax - Makefile & Kconfig patch
+Date: Sun, 21 Dec 2008 22:59:07 +0100
+Message-ID: <20081221215907.GA20856@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>,
-	"David S. Miller" <davem@davemloft.net>
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbox2.myri.com ([64.172.73.26]:1965 "EHLO myri.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751216AbYLUV3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Dec 2008 16:29:38 -0500
+Received: from pqueuea.post.tele.dk ([193.162.153.9]:56358 "EHLO
+	pqueuea.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751168AbYLUV6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2008 16:58:52 -0500
+Received: from pfepb.post.tele.dk (pfepb.post.tele.dk [195.41.46.236])
+	by pqueuea.post.tele.dk (Postfix) with ESMTP id 4ED5EDC0A2
+	for <netdev@vger.kernel.org>; Sun, 21 Dec 2008 22:58:48 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update myri10ge driver version to 1.4.4-1.395.
+Hi Inaky.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
+Noticed your wimax patchset when I browsed netdev on marc.info.
+A few comments:
 
---- net-next-2.6/drivers/net/myri10ge/myri10ge.c	2008-12-09 12:37:59.000000000 +0100
-+++ linux-tmp/drivers/net/myri10ge/myri10ge.c	2008-12-21 22:07:52.000000000 +0100
-@@ -75,7 +75,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index f19acf8..3ac378f 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -262,3 +262,4 @@ obj-$(CONFIG_NIU) += niu.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_SFC) += sfc/
  
--#define MYRI10GE_VERSION_STR "1.4.3-1.378"
-+#define MYRI10GE_VERSION_STR "1.4.4-1.395"
- 
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
++obj-y += wimax/
+
+There is no reason to visit this directory if WIMAX is
+not enabled so change it to:
+
+obj-$(CONFIG_WIMAX) += wimax/
+
+diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
+new file mode 100644
+index 0000000..e977c46
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/Kconfig
+@@ -0,0 +1,49 @@
++
++config WIMAX_I2400M
++        tristate
++	depends on WIMAX
++        select FW_LOADER
++
+
+Above and in several other spots in the Kconfig
+file you mix use of spaces and tabs for ident.
+Please use tabs consistent and remember to indent
+help text with:
+<tab><space><space>
+
+diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
+new file mode 100644
+index 0000000..2e8c15b
+--- /dev/null
++++ b/drivers/net/wimax/i2400m/Makefile
+@@ -0,0 +1,29 @@
++
++obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
++obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
++obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
++
++i2400m-objs :=		\
++	control.o	\
++	driver.o	\
++	fw.o		\
++	op-rfkill.o	\
++	netdev.o	\
++	tx.o		\
++	rx.o
 
 
+It is recommended to use:
+
+i2400m-y := control.o
+i2400m-y += driver.o
+
+The important point here is that -y is preferred over -objs.
+
+If you use '\' or '+=' is more personal preferences.
+
+
+	Sam
