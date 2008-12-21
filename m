@@ -1,12 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 08/29] debugfs: add helpers for exporting a size_t simple
-	value
-Date: Sat, 20 Dec 2008 16:57:39 -0800
-Message-ID: <a6968b634ccb119b518e74572f340208d203c871.1229820957.git.inaky@linux.intel.com>
+Subject: [PATCH 06/29] genetlink: export genl_unregister_mc_group()
+Date: Sat, 20 Dec 2008 16:57:37 -0800
+Message-ID: <d4aa8f9d77fd57d4aebe9cb5806f8ff134ec0dc3.1229820957.git.inaky@linux.intel.com>
 References: <cover.1229820956.git.inaky@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
 Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
 Return-path: <wimax-bounces@linuxwimax.org>
@@ -22,80 +18,36 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-In the same spirit as debugfs_create_*(), introduce helpers for
-exporting size_t values over debugfs.
+Add an EXPORT_SYMBOL() to genl_unregister_mc_group(), to allow
+unregistering groups on the run. EXPORT_SYMBOL_GPL() is not used as
+the rest of the functions exported by this module (eg:
+genl_register_mc_group) are also not _GPL().
 
-The only trick done is that the format verifier is kept at %llu
-instead of %zu; otherwise type warnings would pop up:
+Cleanup is currently done when unregistering a family, but there is
+no way to unregister a single multicast group due to that function not
+being exported. Seems to be a mistake as it is documented as for
+external consumption.
 
-format ‘%zu’ expects type ‘size_t’, but argument 2 has type ‘long long unsigned int’
-
-There is no real way to fix this one--however, we can consider %llu
-and %zu to be compatible if we consider that we are using the same for
-validating in debugfs_create_{x,u}{8,16,32}().
+This is needed by the WiMAX stack to be able to cleanup unused mc
+groups.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: Greg KH <greg@kroah.com>
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
 ---
- fs/debugfs/file.c       |   32 ++++++++++++++++++++++++++++++++
- include/linux/debugfs.h |    2 ++
- 2 files changed, 34 insertions(+), 0 deletions(-)
+ net/netlink/genetlink.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/fs/debugfs/file.c b/fs/debugfs/file.c
-index 159a5ef..33a9012 100644
---- a/fs/debugfs/file.c
-+++ b/fs/debugfs/file.c
-@@ -294,6 +294,38 @@ struct dentry *debugfs_create_x32(const char *name, mode_t mode,
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 3e1191c..1d3dd30 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -225,6 +225,7 @@ void genl_unregister_mc_group(struct genl_family *family,
+ 	__genl_unregister_mc_group(family, grp);
+ 	genl_unlock();
  }
- EXPORT_SYMBOL_GPL(debugfs_create_x32);
++EXPORT_SYMBOL(genl_unregister_mc_group);
  
-+
-+static int debugfs_size_t_set(void *data, u64 val)
-+{
-+	*(size_t *)data = val;
-+	return 0;
-+}
-+static int debugfs_size_t_get(void *data, u64 *val)
-+{
-+	*val = *(size_t *)data;
-+	return 0;
-+}
-+DEFINE_SIMPLE_ATTRIBUTE(fops_size_t, debugfs_size_t_get, debugfs_size_t_set,
-+			"%llu\n");	/* %llu and %zu are more or less the same */
-+
-+/**
-+ * debugfs_create_size_t - create a debugfs file that is used to read and write an size_t value
-+ * @name: a pointer to a string containing the name of the file to create.
-+ * @mode: the permission that the file should have
-+ * @parent: a pointer to the parent dentry for this file.  This should be a
-+ *          directory dentry if set.  If this parameter is %NULL, then the
-+ *          file will be created in the root of the debugfs filesystem.
-+ * @value: a pointer to the variable that the file should read to and write
-+ *         from.
-+ */
-+struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
-+				     struct dentry *parent, size_t *value)
-+{
-+	return debugfs_create_file(name, mode, parent, value, &fops_size_t);
-+}
-+EXPORT_SYMBOL_GPL(debugfs_create_size_t);
-+
-+
- static ssize_t read_file_bool(struct file *file, char __user *user_buf,
- 			      size_t count, loff_t *ppos)
+ static void genl_unregister_mc_groups(struct genl_family *family)
  {
-diff --git a/include/linux/debugfs.h b/include/linux/debugfs.h
-index e1a6c04..23936b1 100644
---- a/include/linux/debugfs.h
-+++ b/include/linux/debugfs.h
-@@ -63,6 +63,8 @@ struct dentry *debugfs_create_x16(const char *name, mode_t mode,
- 				  struct dentry *parent, u16 *value);
- struct dentry *debugfs_create_x32(const char *name, mode_t mode,
- 				  struct dentry *parent, u32 *value);
-+struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
-+				     struct dentry *parent, size_t *value);
- struct dentry *debugfs_create_bool(const char *name, mode_t mode,
- 				  struct dentry *parent, u32 *value);
- 
 -- 
 1.5.6.5
