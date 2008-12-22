@@ -1,7 +1,7 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 10/27] drivers/net/enic: fix sparse warning: make symbol static
-Date: Mon, 22 Dec 2008 20:16:23 +0100
-Message-ID: <20081222191622.11807.9132.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 21/27] drivers/net/wan: fix sparse warning: make symbol static
+Date: Mon, 22 Dec 2008 20:18:04 +0100
+Message-ID: <20081222191804.11807.55143.stgit@vmbox.hanneseder.net>
 References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,32 +11,32 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bw0-f21.google.com ([209.85.218.21]:50184 "EHLO
 	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755212AbYLVTQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 14:16:28 -0500
+	with ESMTP id S1755981AbYLVTSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 14:18:10 -0500
 In-Reply-To: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Fix this sparse warning:
 
-  drivers/net/enic/vnic_dev.c:288:5: warning: symbol 'vnic_dev_capable' was not declared. Should it be static?
+  drivers/net/wan/x25_asy.c:623:5: warning: symbol 'x25_asy_esc' was not declared. Should it be static?
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/enic/vnic_dev.c |    2 +-
+ drivers/net/wan/x25_asy.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
-index 08a37b0..1170857 100644
---- a/drivers/net/enic/vnic_dev.c
-+++ b/drivers/net/enic/vnic_dev.c
-@@ -285,7 +285,7 @@ int vnic_dev_cmd(struct vnic_dev *vdev, enum vnic_devcmd_cmd cmd,
- 	return -ETIMEDOUT;
- }
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index 472bd0e..e6e2ce3 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -620,7 +620,7 @@ static struct net_device_stats *x25_asy_get_stats(struct net_device *dev)
+   *			STANDARD X.25 ENCAPSULATION		  	 *
+   ************************************************************************/
  
--int vnic_dev_capable(struct vnic_dev *vdev, enum vnic_devcmd_cmd cmd)
-+static int vnic_dev_capable(struct vnic_dev *vdev, enum vnic_devcmd_cmd cmd)
+-int x25_asy_esc(unsigned char *s, unsigned char *d, int len)
++static int x25_asy_esc(unsigned char *s, unsigned char *d, int len)
  {
- 	u64 a0 = (u32)cmd, a1 = 0;
- 	int wait = 1000;
+ 	unsigned char *ptr = d;
+ 	unsigned char c;
 
