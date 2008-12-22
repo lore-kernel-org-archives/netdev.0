@@ -1,47 +1,66 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #12261] kernel panics with net_rx_action on kernels above
-	2.6.26
-Date: Mon, 22 Dec 2008 07:26:14 +0000
-Message-ID: <20081222072614.GB2631@ff.dom.local>
-References: <_EB9bLpq_z.A.hAC.NkYTJB@chimera> <CMMRhk39O-L.A.tMC.TkYTJB@chimera>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH v2] pkt_sched: Remove smp_wmb() in qdisc_watchdog()
+Date: Mon, 22 Dec 2008 07:57:05 +0000
+Message-ID: <20081222075705.GA4419@ff.dom.local>
+References: <20081219113047.GA17826@ff.dom.local> <20081219114125.GB17826@ff.dom.local> <20081219181851.7cda3fc1@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexander Huemer <alexander.huemer-CeK7gDkSoXheoWH0uzbU5w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.26]:30515 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752786AbYLVH5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 02:57:12 -0500
+Received: by ey-out-2122.google.com with SMTP id 22so197126eye.37
+        for <netdev@vger.kernel.org>; Sun, 21 Dec 2008 23:57:10 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CMMRhk39O-L.A.tMC.TkYTJB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20081219181851.7cda3fc1@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 20, 2008 at 11:16:15PM +0100, Rafael J. Wysocki wrote:
-> This message has been generated automatically as a part of a report
-> of regressions introduced between 2.6.26 and 2.6.27.
-> 
-> The following bug entry is on the current list of known regressions
-> introduced between 2.6.26 and 2.6.27.  Please verify if it still should
-> be listed and let me know (either way).
-> 
-> 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12261
-> Subject		: kernel panics with net_rx_action on kernels above 2.6.26
-> Submitter	: Alexander Huemer <alexander.huemer-CeK7gDkSoXheoWH0uzbU5w@public.gmane.org>
-> Date		: 2008-12-13 18:43 (8 days old)
-> References	: http://marc.info/?l=linux-kernel&m=122919424932016&w=4
-> Handled-By	: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Patch		: http://marc.info/?l=linux-net&m=122934825227768&w=4
-> 
-> 
+On Fri, Dec 19, 2008 at 06:18:51PM -0800, Stephen Hemminger wrote:
+...
+> The barrier was copied from earlier version of tbf is unnecessary.
 
-It's fixed in the mainline:
+So I resend this patch with only a changelog updated
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9a3de25544dadab1971847f28f33b1cd0d1770a6
-
-But stables need this too:
-- 2.6.27 - always
-- 2.6.26, 2.6.25 (...?) for CONFIG_ADAPTEC_STARFIRE_NAPI
-
+Thanks,
 Jarek P.
+---------->
+While implementing a TCQ_F_THROTTLED flag there was used an smp_wmb()
+in qdisc_watchdog(). Stephen Hemminger acknowledged the barrier was
+copied from earlier version of tbf and is unnecessaray, so it's
+removed here.
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ net/sched/sch_api.c   |    1 -
+ net/sched/sch_netem.c |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 6bc29e8..0fc4a18 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -450,7 +450,6 @@ static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
+ 						 timer);
+ 
+ 	wd->qdisc->flags &= ~TCQ_F_THROTTLED;
+-	smp_wmb();
+ 	__netif_schedule(qdisc_root(wd->qdisc));
+ 
+ 	return HRTIMER_NORESTART;
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 7e78f1c..d876b87 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -266,7 +266,6 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 	struct sk_buff *skb;
+ 
+-	smp_mb();
+ 	if (sch->flags & TCQ_F_THROTTLED)
+ 		return NULL;
+ 
