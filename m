@@ -1,47 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Sun, 21 Dec 2008 19:49:17 -0800 (PST)
-Message-ID: <20081221.194917.45190672.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2008-12-19
+Date: Sun, 21 Dec 2008 20:07:00 -0800 (PST)
+Message-ID: <20081221.200700.117597404.davem@davemloft.net>
+References: <20081219204008.GD4041@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cc@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49920
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752142AbYLVDtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2008 22:49:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20081219204008.GD4041-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 19 Dec 2008 15:40:08 -0500
 
-Please pull to get these two bug fixes:
+> Here is yet another big round of patches intended for 2.6.29 -- wireless
+> seems to continue its break-neck pace of development...  At least this
+> batch continues the trend of being primarily driver updates rather than
+> huge changes farther up the stack...
+> 
+> Please let me know if there are problems!
 
-1) PPP device unregister crash regression.  Fix from
-   James Chapman.
-
-2) kernel_accept() socket module refcounting is bolixed,
-   fix from Wei Yongjun.
-
-Thanks!
-
-The following changes since commit 3298a7388c00227e736d1037328788073c80c7b4:
-  Michael Chan (1):
-        bnx2: Fix bug in bnx2_free_rx_mem().
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-James Chapman (1):
-      ppp: fix segfaults introduced by netdev_priv changes
-
-Wei Yongjun (1):
-      net: Fix module refcount leak in kernel_accept()
-
- drivers/net/ppp_generic.c   |   28 +++++++++++++---------------
- net/bluetooth/rfcomm/core.c |    2 --
- net/socket.c                |    1 +
- 3 files changed, 14 insertions(+), 17 deletions(-)
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
