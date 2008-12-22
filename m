@@ -1,61 +1,59 @@
-From: Alexander Huemer <alexander.huemer-CeK7gDkSoXheoWH0uzbU5w@public.gmane.org>
-Subject: Re: [Bug #12261] kernel panics with net_rx_action on kernels above
- 2.6.26
-Date: Tue, 23 Dec 2008 00:29:26 +0100
-Message-ID: <495022D6.3050703@sbg.ac.at>
-References: <_EB9bLpq_z.A.hAC.NkYTJB@chimera> <CMMRhk39O-L.A.tMC.TkYTJB@chimera> <20081222072614.GB2631@ff.dom.local> <200812222126.41727.rjw@sisk.pl>
+From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
+Subject: Re: [PATCH 02/27] drivers/net: fix sparse warnings: make do-while a compound statement
+Date: Tue, 23 Dec 2008 00:44:25 +0100
+Message-ID: <a01a16b50812221544x45c3559ap808ac0095ee8f01@mail.gmail.com>
+References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
+	 <20081222191507.11807.50794.stgit@vmbox.hanneseder.net>
+	 <m3hc4voo2a.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200812222126.41727.rjw-KKrjLPT3xs0@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: "Hannes Eder" <hannes@hanneseder.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Krzysztof Halasa" <khc@pm.waw.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f13.google.com ([209.85.217.13]:65402 "EHLO
+	mail-gx0-f13.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754623AbYLVXo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 18:44:27 -0500
+In-Reply-To: <m3hc4voo2a.fsf@maximus.localdomain>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafael J. Wysocki wrote:
-> On Monday, 22 of December 2008, Jarek Poplawski wrote:
->   
->> On Sat, Dec 20, 2008 at 11:16:15PM +0100, Rafael J. Wysocki wrote:
->>     
->>> This message has been generated automatically as a part of a report
->>> of regressions introduced between 2.6.26 and 2.6.27.
->>>
->>> The following bug entry is on the current list of known regressions
->>> introduced between 2.6.26 and 2.6.27.  Please verify if it still should
->>> be listed and let me know (either way).
->>>
->>>
->>> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12261
->>> Subject		: kernel panics with net_rx_action on kernels above 2.6.26
->>> Submitter	: Alexander Huemer <alexander.huemer-CeK7gDkSoXheoWH0uzbU5w@public.gmane.org>
->>> Date		: 2008-12-13 18:43 (8 days old)
->>> References	: http://marc.info/?l=linux-kernel&m=122919424932016&w=4
->>> Handled-By	: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> Patch		: http://marc.info/?l=linux-net&m=122934825227768&w=4
->>>
->>>
->>>       
->> It's fixed in the mainline:
->>
->> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9a3de25544dadab1971847f28f33b1cd0d1770a6
->>
->> But stables need this too:
->> - 2.6.27 - always
->> - 2.6.26, 2.6.25 (...?) for CONFIG_ADAPTEC_STARFIRE_NAPI
->>     
->
-> Thanks, I've just pushed inclusion request to -stable.
->
-> Rafael
->   
-thanks you for your help, guys.
-the problem id definitely fixed with this patch.
-
--- 
-kind regards
-alex
+MjAwOC8xMi8yMiBLcnp5c3p0b2YgSGFsYXNhIDxraGNAcG0ud2F3LnBsPjoKPj4gLS0tIGEvZHJp
+dmVycy9uZXQvc3RhcmZpcmUuYwo+PiArKysgYi9kcml2ZXJzL25ldC9zdGFyZmlyZS5jCj4+IEBA
+IC04ODIsOSArODgyLDkgQEAgc3RhdGljIGludCBtZGlvX3JlYWQoc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldiwgaW50IHBoeV9pZCwgaW50IGxvY2F0aW9uKQo+PiAgICAgICB2b2lkIF9faW9tZW0gKm1k
+aW9fYWRkciA9IG5wLT5iYXNlICsgTUlJQ3RybCArIChwaHlfaWQ8PDcpICsgKGxvY2F0aW9uPDwy
+KTsKPj4gICAgICAgaW50IHJlc3VsdCwgYm9ndXNjbnQ9MTAwMDsKPj4gICAgICAgLyogPz8/IFNo
+b3VsZCB3ZSBhZGQgYSBidXN5LXdhaXQgaGVyZT8gKi8KPj4gLSAgICAgZG8KPj4gKyAgICAgZG8g
+ewo+PiAgICAgICAgICAgICAgIHJlc3VsdCA9IHJlYWRsKG1kaW9fYWRkcik7Cj4+IC0gICAgIHdo
+aWxlICgocmVzdWx0ICYgMHhDMDAwMDAwMCkgIT0gMHg4MDAwMDAwMCAmJiAtLWJvZ3VzY250ID4g
+MCk7Cj4+ICsgICAgIH0gd2hpbGUgKChyZXN1bHQgJiAweEMwMDAwMDAwKSAhPSAweDgwMDAwMDAw
+ICYmIC0tYm9ndXNjbnQgPiAwKTsKPj4gICAgICAgaWYgKGJvZ3VzY250ID09IDApCj4+ICAgICAg
+ICAgICAgICAgcmV0dXJuIDA7Cj4+ICAgICAgIGlmICgocmVzdWx0ICYgMHhmZmZmKSA9PSAweGZm
+ZmYpCj4KPgo+IEkgZG9uJ3Qga25vdyBob3cgb25lIGNvdWxkIHRoaW5rIHRoZSBhYm92ZSBpcyBh
+biBpbXByb3ZlbWVudC4KCkZvciB0aGlzIHNwZWNpZmljIGlzc3VlIHRoZSBpbXBvcnRhbnQgYXNw
+ZWN0IGlzIHRvIGltcHJvdmUgcmVhZGFiaWxpdHkKKGFuZCBub3QganVzdCBldmVudHVhbGx5IHNh
+dGlzZnkgc29tZSB3YXJuaW5nIGZyb20gYSB0b29sKSwgd2hpY2ggSQphc3N1bWUgdGhlcmUgaXMg
+bm8gZGlzYWdyZW1lbnQgb24uIE5vdyB3aGF0IGNvbnN0aXR1dGVzIGltcHJvdmVkCnJlYWRiaWxp
+dHkgb24gdGhlIG90aGVyIGhhbmQgaXMgYW5vdGhlciBpc3N1ZSwgYW5kIEkgZ3Vlc3MgdGhlcmUg
+YXJlCm5leHQgdG8gYXMgbWFueSBvcHBpbmlvbnMgYXMgZGV2ZWxvcGVycy4uLiA6KQpJIHdvdWxk
+IG1vc3QgY2VydGFpbmx5IHByZWZlciB0byBoYXZlIGNvZGUgbG9vayBjb25zaXN0ZW50bHkgYW5k
+IGFsd2F5cwpoYXZlIGJyYWNrZXRzLCBldmVuIGluIHRoZSBjYXNlIG9mIGp1c3Qgb25lIGJvZHkg
+bGluZS4KCk9mIHNlY29uZGFyeSBpbXBvcnRhbmNlIGlzIHRoZSBiZW5lZml0IHRoYXQgYWx3YXlz
+IHVzaW5nIGJyYWNrZXRzCm1ha2VzIHRoZW0gbXVjaCBtb3JlIG1lcmdlIGZyaWVuZGx5LiBDb25z
+aWRlciB0aGUgZm9sbG93aW5nIHNjZW5hcmlvOgoKQ29tbW9uIGJhc2U6CiAgICAgICAgZG8KICAg
+ICAgICAgICAgICAgIHJlc3VsdCA9IHJlYWRsKG1kaW9fYWRkcik7CiAgICAgICAgd2hpbGUgKChy
+ZXN1bHQgJiAweEMwMDAwMDAwKSAhPSAweDgwMDAwMDAwICYmIC0tYm9ndXNjbnQgPiAwKTsKCkJy
+YW5jaCAxCiAgICAgICAgZG8gewogICAgICAgICAgICAgICAgcmVzdWx0ID0gcmVhZGwobWRpb19h
+ZGRyKTsKICAgICAgICAgICAgICAgIGRvX3NvbWV0aGluZygpOwogICAgICAgIH0gd2hpbGUgKChy
+ZXN1bHQgJiAweEMwMDAwMDAwKSAhPSAweDgwMDAwMDAwICYmIC0tYm9ndXNjbnQgPiAwKTsKCkJy
+YW5jaCAyCiAgICAgICAgZG8KICAgICAgICAgICAgICAgIHJlc3VsdCA9IHJlYWRsKG1kaW9fYWRk
+cik7CiAgICAgICAgd2hpbGUgKE5PVF9PSyhyZXN1bHQpICYmIC0tYm9ndXNjbnQgPiAwKTsKCklu
+IHRoaXMgY2FzZSBpZiBib3RoIGJyYW5jaCAxIGFuZCAyIGFyZSBtZXJnZWQsIHRoZXJlIHdpbGwg
+YmUgYSBtZXJnZSBjb25mbGljdAp0aGF0IGhhcyB0byBiZSByZXNvbHZlZCBtYW51YWxseS4gSWYg
+dGhlIGJyYWNrZXRzIGhhZCBiZWVuIGluIHBsYWNlIGZyb20gdGhlCnN0YXJ0IHRvb2xzIHNob3Vs
+ZCBiZSBhYmxlIHRvIHJlc29sdiB0aGlzIGF1dG9tYXRpY2FsbHkuCgpCUiBIw6Vrb24gTMO4dmRh
+bAo=
