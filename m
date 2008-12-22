@@ -1,8 +1,8 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 22/27] drivers/net/wan/z85230.c: fix sparse warnings:
-	un-EXPORT symbols
-Date: Mon, 22 Dec 2008 20:18:13 +0100
-Message-ID: <20081222191813.11807.144.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 19/27] drivers/net/usb: fix sparse warnings: make symbols
+	static
+Date: Mon, 22 Dec 2008 20:17:46 +0100
+Message-ID: <20081222191745.11807.75548.stgit@vmbox.hanneseder.net>
 References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,54 +12,71 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bw0-f21.google.com ([209.85.218.21]:50184 "EHLO
 	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756006AbYLVTSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 14:18:20 -0500
+	with ESMTP id S1755504AbYLVTRv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 14:17:51 -0500
 In-Reply-To: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The symbols are only references within the translation unit they are
-defined in, so un-EXPORT them und make them 'static'.
-
 Fix this sparse warnings:
 
-  drivers/net/wan/z85230.c:604:25: warning: symbol 'z8530_dma_sync' was not declared. Should it be static?
-  drivers/net/wan/z85230.c:613:25: warning: symbol 'z8530_txdma_sync' was not declared. Should it be static?
+  drivers/net/usb/hso.c:1249:6: warning: symbol 'hso_unthrottle_tasklet' was not declared. Should it be static?
+  drivers/net/usb/hso.c:1268:6: warning: symbol 'hso_unthrottle_workfunc' was not declared. Should it be static?
+  drivers/net/usb/hso.c:1466:5: warning: symbol 'tiocmget_submit_urb' was not declared. Should it be static?
+  drivers/net/usb/smsc95xx.c:62:5: warning: symbol 'turbo_mode' was not declared. Should it be static?
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/wan/z85230.c |   10 ++--------
- 1 files changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/usb/hso.c      |   10 +++++-----
+ drivers/net/usb/smsc95xx.c |    2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wan/z85230.c b/drivers/net/wan/z85230.c
-index d7bf53a..3d00971 100644
---- a/drivers/net/wan/z85230.c
-+++ b/drivers/net/wan/z85230.c
-@@ -601,24 +601,18 @@ static void z8530_dma_status(struct z8530_channel *chan)
- 	write_zsctrl(chan, RES_H_IUS);
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 2d41a10..1a09288 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -1246,7 +1246,7 @@ static void hso_std_serial_read_bulk_callback(struct urb *urb)
+  * This needs to be a tasklet otherwise we will
+  * end up recursively calling this function.
+  */
+-void hso_unthrottle_tasklet(struct hso_serial *serial)
++static void hso_unthrottle_tasklet(struct hso_serial *serial)
+ {
+ 	unsigned long flags;
+ 
+@@ -1265,7 +1265,7 @@ static	void hso_unthrottle(struct tty_struct *tty)
+ 	tasklet_hi_schedule(&serial->unthrottle_tasklet);
  }
  
--struct z8530_irqhandler z8530_dma_sync=
--{
-+static struct z8530_irqhandler z8530_dma_sync = {
- 	z8530_dma_rx,
- 	z8530_dma_tx,
- 	z8530_dma_status
+-void hso_unthrottle_workfunc(struct work_struct *work)
++static void hso_unthrottle_workfunc(struct work_struct *work)
+ {
+ 	struct hso_serial *serial =
+ 	    container_of(work, struct hso_serial,
+@@ -1463,9 +1463,9 @@ static int hso_serial_chars_in_buffer(struct tty_struct *tty)
+ 
+ 	return chars;
+ }
+-int tiocmget_submit_urb(struct hso_serial *serial,
+-			struct hso_tiocmget  *tiocmget,
+-			struct usb_device *usb)
++static int tiocmget_submit_urb(struct hso_serial *serial,
++			       struct hso_tiocmget *tiocmget,
++			       struct usb_device *usb)
+ {
+ 	int result;
+ 
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index fed22ff..111a365 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -59,7 +59,7 @@ struct usb_context {
+ 	struct usbnet *dev;
  };
  
--EXPORT_SYMBOL(z8530_dma_sync);
--
--struct z8530_irqhandler z8530_txdma_sync=
--{
-+static struct z8530_irqhandler z8530_txdma_sync = {
- 	z8530_rx,
- 	z8530_dma_tx,
- 	z8530_dma_status
- };
+-int turbo_mode = true;
++static int turbo_mode = true;
+ module_param(turbo_mode, bool, 0644);
+ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
  
--EXPORT_SYMBOL(z8530_txdma_sync);
--
- /**
-  *	z8530_rx_clear - Handle RX events from a stopped chip
-  *	@c: Z8530 channel to shut up
 
