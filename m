@@ -1,66 +1,44 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [pull request - net-next] my WAN and ixp4xx ethernet stuff
-Date: Mon, 22 Dec 2008 02:43:23 +0100
-Message-ID: <m3skohq91g.fsf@maximus.localdomain>
+From: "Divy Le Ray" <divy@chelsio.com>
+Subject: RE: [PATCH v3 2.6.29] cxgb3 - manage private iSCSI IP address
+Date: Sun, 21 Dec 2008 18:32:18 -0800
+Message-ID: <8A71B368A89016469F72CD08050AD334040AA4AA@maui.asicdesigners.com>
+References: <200812190243.mBJ2hPZY008757@localhost.localdomain> <20081218.225632.113687804.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<michaelc@cs.wisc.edu>, <James.Bottomley@HansenPartnership.com>,
+	"Steve Wise" <swise@opengridcomputing.com>
+To: "David Miller" <davem@davemloft.net>,
+	"Karen Xie" <kxie@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:55010 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751273AbYLVBnZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2008 20:43:25 -0500
+Received: from stargate.chelsio.com ([12.22.49.110]:16506 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751906AbYLVCd6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2008 21:33:58 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+> > [PATCH v3 2.6.29] cxgb3 - manage private iSCSI IP address
+> >
+> > The accelerated iSCSI traffic could use a private IP address unknown
+> to the OS:
+> > - The IP address is required in both drivers to manage ARP requests
+> and connection set up.
+> > - Added an control call to retrieve the ip address.
+> > - Reply to ARP requests dedicated to the private IP address.
+> >
+> > Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> > Signed-off-by: Karen Xie <kxie@chelsio.com>
+> 
+> Patch applied, thank you.
 
-The following changes since commit 221b3d60cbb2740ec7d46a4f1ea6d3318a11=
-2e51:
-  Anton Vorontsov (1): ucc_geth: Remove UGETH_FILTERING dead code
-(IOW, your current net-next)
+Hi Dave,
 
-are available in the git repository at:
+I don't see the patch committed in net-next-2.6. Did it go in another
+branch?
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/chris/linux-2.6.git for=
--david
-
-Please pull. Thanks.
-
-Julia Lawall (1):
-      drivers/net/wan: Remove redundant test
-
-Krzysztof Ha=B3asa (12):
-      IXP4xx: check for queue being empty in qmgr_release_queue().
-      IXP4xx: clear IRQ stat in qmgr_disable_irq().
-      IXP4xx: Silence section mismatch warning in Ethernet driver.
-      IXP4xx: Make the Ethernet driver use built-in netdev stats.
-      IXP4xx: Add PHYLIB support to Ethernet driver.
-      IXP4xx: Add PHYLIB MII ioctl to the Ethernet driver.
-      IXP4xx: Add ethtool support to Ethernet driver.
-      WAN: Add IXP4xx HSS HDLC driver.
-      Update MAINTAINERS entries for IXP4xx and WAN network drivers.
-      IXP4xx: move common debugging from network drivers to QMGR module=
-=2E
-      HDLC_PPP: Fix Configure-Ack to return original options as
-            required by the standard.
-      Convert ixp4xx_eth driver to use net_device_ops.
-
- MAINTAINERS                              |    7 +-
- arch/arm/mach-ixp4xx/include/mach/qmgr.h |   35 +-
- arch/arm/mach-ixp4xx/ixp4xx_qmgr.c       |   44 +-
- drivers/net/arm/Kconfig                  |    2 +-
- drivers/net/arm/ixp4xx_eth.c             |  337 ++++----
- drivers/net/wan/Kconfig                  |    7 +
- drivers/net/wan/Makefile                 |    1 +
- drivers/net/wan/hdlc_ppp.c               |   11 +-
- drivers/net/wan/ixp4xx_hss.c             | 1325 ++++++++++++++++++++++=
-++++++++
- drivers/net/wan/pc300_drv.c              |    5 +-
- 10 files changed, 1587 insertions(+), 187 deletions(-)
- create mode 100644 drivers/net/wan/ixp4xx_hss.c
-
---=20
-Krzysztof Halasa
+Cheers,
+Divy
