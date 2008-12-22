@@ -1,33 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] tg3: Update version to 3.97
-Date: Sun, 21 Dec 2008 20:23:42 -0800 (PST)
-Message-ID: <20081221.202342.84100102.davem@davemloft.net>
-References: <1229717362.5508@xw6200>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: net-next: mii-tool qweasd: Unable to handle kernel NULL ptr
+	dereference
+Date: Mon, 22 Dec 2008 06:41:46 +0000
+Message-ID: <20081222064146.GA2631@ff.dom.local>
+References: <m3y6y9qb2w.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, andy@greyhouse.net
-To: mcarlson@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41173
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753154AbYLVEXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2008 23:23:40 -0500
-In-Reply-To: <1229717362.5508@xw6200>
+Received: from nf-out-0910.google.com ([64.233.182.187]:65067 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751244AbYLVGlv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 01:41:51 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so259334nfc.21
+        for <netdev@vger.kernel.org>; Sun, 21 Dec 2008 22:41:49 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <m3y6y9qb2w.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Thu, 18 Dec 2008 16:56:11 -0800
-
-> This patch updates the version number to 3.97.
+On 22-12-2008 01:59, Krzysztof Halasa wrote:
+> Hmm...
 > 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Signed-off-by: Benjamin Li <benli@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> IXP4xx (ARM), basically net-next:
+> 
+> # mii-tool qweasd
+> 
+> Unable to handle kernel NULL pointer dereference at virtual address 000000b4
+> pgd = c66b4000
+> [000000b4] *pgd=066eb031, *pte=00000000, *ppte=00000000
+> Internal error: Oops: 17 [#1]
+> Modules linked in: ixp4xx_hss ixp4xx_eth ixp4xx_npe ixp4xx_qmgr e1000
+> CPU: 0    Not tainted  (2.6.28-rc8 #81)
+> PC is at dev_ifsioc+0x24/0x3f8
+...
+> I can bisect this but perhaps someone already knows what's wrong?
 
-Applied.
+Looks similarly to this problem:
 
-BTW, Matt, I think there is something wrong with the date on your
-computer.  These patches arrived today (Dec 21) but the date on your
-emails is Dec 17th and Dec 18th
+http://marc.info/?l=linux-netdev&m=122967029022058&w=2
+
+Jarek P.
