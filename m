@@ -1,234 +1,75 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user space data
-Date: Mon, 22 Dec 2008 11:13:22 +1030
-Message-ID: <200812221113.24044.rusty@rustcorp.com.au>
-References: <494C0255.8010208@goop.org> <20081220103209.GA23632@ioremap.net> <494D49E6.9000703@goop.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: net-next: mii-tool qweasd: Unable to handle kernel NULL ptr dereference
+Date: Mon, 22 Dec 2008 01:59:19 +0100
+Message-ID: <m3y6y9qb2w.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Vladislav Bolkhovitin <vst@vlnb.net>,
-	linux-scsi@vger.kernel.org,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Jeff Garzik <jeff@garzik.org>,
-	Boaz Harrosh <bharrosh@panasas.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
-	Bart Van Assche <bart.vanassche@gmail.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <494D49E6.9000703@goop.org>
-Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:36342 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751439AbYLVA7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Dec 2008 19:59:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 21 December 2008 06:09:18 Jeremy Fitzhardinge wrote:
-> Evgeniy Polyakov wrote:
-> > Things should work fine, since pskb_expand_head() copies whole shared
-> > info structure (and thus will copy destructor), get all pages and then
-> > copy all pointers into the new skb, and then release old skb's data.
-> >
-> > So destructor for the pages should not rely on which skb it is called on
-> > and check if pages are about to be really freed (i.e. check theirs
-> > reference counter).
-> >   
-> 
-> OK.
-> 
-> > __pskb_pull_tail() is tricky, it just puts some pages it does not want
-> > to be present in the skb, but it could be possible to add there
-> > destructor callback from the original skb with partial flag (or just
-> > having destructor with two parameters: skb and page, and if page is not
-> > NULL, then actually only given page is freed, otherwise the whole skb).
-> >   
-> 
-> Yes, that doesn't sound too bad.
+Hmm...
 
-That would be one approach.  Actually, my patch solved this by keeping a
-parent ref in various cases if the parent had a destructor: we only destroy
-the parent when all the clones are gone.
+IXP4xx (ARM), basically net-next:
 
-Here's the patch for reference:
+# mii-tool qweasd
 
-net: add destructor for skb data.
+Unable to handle kernel NULL pointer dereference at virtual address 000000b4
+pgd = c66b4000
+[000000b4] *pgd=066eb031, *pte=00000000, *ppte=00000000
+Internal error: Oops: 17 [#1]
+Modules linked in: ixp4xx_hss ixp4xx_eth ixp4xx_npe ixp4xx_qmgr e1000
+CPU: 0    Not tainted  (2.6.28-rc8 #81)
+PC is at dev_ifsioc+0x24/0x3f8
+LR is at 0xb
+pc : [<c0268530>]    lr : [<0000000b>]    psr: 60000013
+sp : c6701e4c  ip : d38cb615  fp : c6701e64
+r10: 000124e8  r9 : 000125a4  r8 : 00000000
+r7 : c6701e8c  r6 : c6701e8c  r5 : 00000000  r4 : 00008947
+r3 : 00000033  r2 : 00000064  r1 : 00000006  r0 : 00000000
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 0000397f  Table: 066b4000  DAC: 00000015
+Process mii-tool (pid: 372, stack limit = 0xc6700268)
+Stack: (0xc6701e4c to 0xc6702000)
+1e40:                            00008947 c0469630 00000000 c6701edc c6701e68 
+1e60: c0269038 c0268518 c6701e98 c6701e78 c0116864 c00eca20 c663801c c78b6940 
+1e80: 00000015 c68d333c c044dd74 61657771 00006473 00000000 00000000 00000000 
+1ea0: 00000000 00000000 00000000 c00fbadc c6700000 00008947 fffffdfd 000125a4 
+1ec0: c65ca83c c00e8004 c6700000 000124e8 c6701ef8 c6701ee0 c02577cc c0268910 
+1ee0: c65ca83c 00008947 000125a4 c6701f14 c6701efc c0153fc8 c0257738 00000003 
+1f00: c65ca83c 000125a4 c6701f80 c6701f18 c01543ac c0153fa0 00000000 00000000 
+1f20: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
+1f40: 00000000 00000000 00000000 00000000 00000000 00000000 00000003 000125a4 
+1f60: 00008947 c65ca83c c00e8004 c6700000 000124e8 c6701fa4 c6701f84 c015452c 
+1f80: c0154040 00000000 00000000 00000003 bec31f7e 00000036 00000000 c6701fa8 
+1fa0: c00e7fcc c01544f8 00000000 00000003 00000003 00008947 000125a4 000125b3 
+1fc0: 00000000 00000003 bec31f7e bec31ebc 000124e0 bec31eb4 000124e8 00012518 
+1fe0: 400e2290 bec31de0 00009208 400e2294 60000010 00000003 00000000 00000000 
+Backtrace: 
+[<c026850c>] (dev_ifsioc+0x0/0x3f8) from [<c0269038>] (dev_ioctl+0x734/0x88c)
+ r6:00000000 r5:c0469630 r4:00008947
+[<c0268904>] (dev_ioctl+0x0/0x88c) from [<c02577cc>] (sock_ioctl+0xa0/0x268)
+[<c025772c>] (sock_ioctl+0x0/0x268) from [<c0153fc8>] (vfs_ioctl+0x34/0x78)
+ r6:000125a4 r5:00008947 r4:c65ca83c
+[<c0153f94>] (vfs_ioctl+0x0/0x78) from [<c01543ac>] (do_vfs_ioctl+0x378/0x4b8)
+ r6:000125a4 r5:c65ca83c r4:00000003
+[<c0154034>] (do_vfs_ioctl+0x0/0x4b8) from [<c015452c>] (sys_ioctl+0x40/0x68)
+[<c01544ec>] (sys_ioctl+0x0/0x68) from [<c00e7fcc>] (__sys_trace_return+0x0/0x34
+)
+ r7:00000036 r6:bec31f7e r5:00000003 r4:00000000
+Code: ebfff3a3 e2443c89 e2433014 e1a05000 (e59010b4) 
+---[ end trace d056cfda3cfe4acb ]---
 
-If we want to notify something when an skb is truly finished (such as
-for tun vringfd support), we need a destructor on the data.
+strace says:
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
+ioctl(3, SIOCGMIIPHY <unfinished ...>
++++ killed by SIGSEGV +++
 
-This turns out to be slightly non-trivial as fragments from one skb
-get copied to another skb: if the first skb has a destructor (or its
-parent does) we need to keep a reference to it and destroy it only
-when (all the) children are destroyed.  We add an 'orig' pointer to
-the skb_shared_info to do this.
-
-But there's currently no way to get from the shinfo to the head (to
-kfree it), so we add a 'len' field.  A better alternative to this
-might be to move the skb_shared_info to before the head of the skb data.
-
-Note that the destructor is responsible for calling kfree: for the tun
-device, this is critical since the destructor can be called from any
-context and it has to do a copy_to_user, so it queues the skb.
-
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- include/linux/skbuff.h |    9 ++++++
- net/core/skbuff.c      |   66 ++++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 64 insertions(+), 11 deletions(-)
-
-diff -r 3948a0050f81 include/linux/skbuff.h
---- a/include/linux/skbuff.h	Tue May 06 21:18:01 2008 +1000
-+++ b/include/linux/skbuff.h	Thu May 08 13:12:47 2008 +1000
-@@ -146,8 +146,12 @@ struct skb_shared_info {
- 	unsigned short	gso_segs;
- 	unsigned short  gso_type;
- 	__be32          ip6_frag_id;
-+	unsigned int	len; /* Subtract from this shinfo to find skb->head */
- 	struct sk_buff	*frag_list;
- 	skb_frag_t	frags[MAX_SKB_FRAGS];
-+	struct skb_shared_info *orig;
-+	/* This is responsible for kfree() of header. */
-+	void		(*destructor)(struct skb_shared_info *);
- };
- 
- /* We divide dataref into two halves.  The higher 16 bits hold references
-@@ -827,6 +831,11 @@ static inline void skb_fill_page_desc(st
- #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
- #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->frag_list)
- #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
-+
-+static inline unsigned char *skb_shinfo_to_head(struct skb_shared_info *shinfo)
-+{
-+	return (unsigned char *)shinfo - shinfo->len;
-+}
- 
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- static inline unsigned char *skb_tail_pointer(const struct sk_buff *skb)
-diff -r 3948a0050f81 net/core/skbuff.c
---- a/net/core/skbuff.c	Tue May 06 21:18:01 2008 +1000
-+++ b/net/core/skbuff.c	Thu May 08 13:12:47 2008 +1000
-@@ -218,6 +218,9 @@ struct sk_buff *__alloc_skb(unsigned int
- 	shinfo->gso_type = 0;
- 	shinfo->ip6_frag_id = 0;
- 	shinfo->frag_list = NULL;
-+	shinfo->destructor = NULL;
-+	shinfo->orig = NULL;
-+	shinfo->len = skb_end_pointer(skb) - skb->head;
- 
- 	if (fclone) {
- 		struct sk_buff *child = skb + 1;
-@@ -311,21 +314,53 @@ static void skb_clone_fraglist(struct sk
- 		skb_get(list);
- }
- 
-+static void shinfo_put(struct skb_shared_info *shinfo, bool nohdr, bool clone)
-+{
-+	struct skb_shared_info *orig;
-+
-+	do {
-+		if (clone &&
-+		    atomic_sub_return(nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
-+				      &shinfo->dataref)) {
-+			return;
-+		}
-+
-+		if (shinfo->nr_frags) {
-+			int i;
-+			for (i = 0; i < shinfo->nr_frags; i++)
-+				put_page(shinfo->frags[i].page);
-+		}
-+
-+		if (shinfo->frag_list)
-+			skb_drop_list(&shinfo->frag_list);
-+
-+		orig = shinfo->orig;
-+		if (shinfo->destructor)
-+			shinfo->destructor(shinfo);
-+		else
-+			kfree(skb_shinfo_to_head(shinfo));
-+
-+		/* We hold a payload reference to our parent. */
-+		nohdr = true;
-+		clone = true;
-+	} while ((shinfo = orig) != NULL);
-+}
-+
- static void skb_release_data(struct sk_buff *skb)
- {
--	if (!skb->cloned ||
--	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
--			       &skb_shinfo(skb)->dataref)) {
--		if (skb_shinfo(skb)->nr_frags) {
--			int i;
--			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
--				put_page(skb_shinfo(skb)->frags[i].page);
--		}
-+	shinfo_put(skb_shinfo(skb), skb->nohdr, skb->cloned);
-+}
- 
--		if (skb_shinfo(skb)->frag_list)
--			skb_drop_fraglist(skb);
-+/* Now hold reference to older data, if has a destructor (recursively). */
-+static void skb_ref_data_parent(struct sk_buff *parent,
-+				struct skb_shared_info *shinfo)
-+{
-+	struct skb_shared_info *pshinfo = skb_shinfo(parent);
- 
--		kfree(skb->head);
-+	if (pshinfo->destructor || pshinfo->orig) {
-+		shinfo->orig = pshinfo;
-+		atomic_add((1 << SKB_DATAREF_SHIFT) + 1, &pshinfo->dataref);
-+		parent->cloned = 1;
- 	}
- }
- 
-@@ -656,6 +691,7 @@ struct sk_buff *pskb_copy(struct sk_buff
- 			get_page(skb_shinfo(n)->frags[i].page);
- 		}
- 		skb_shinfo(n)->nr_frags = i;
-+		skb_ref_data_parent(skb, skb_shinfo(n));
- 	}
- 
- 	if (skb_shinfo(skb)->frag_list) {
-@@ -721,6 +757,8 @@ int pskb_expand_head(struct sk_buff *skb
- 	if (skb_shinfo(skb)->frag_list)
- 		skb_clone_fraglist(skb);
- 
-+	skb_ref_data_parent(skb, (void *)(data + size));
-+
- 	skb_release_data(skb);
- 
- 	off = (data + nhead) - skb->head;
-@@ -743,6 +781,8 @@ int pskb_expand_head(struct sk_buff *skb
- 	skb->hdr_len  = 0;
- 	skb->nohdr    = 0;
- 	atomic_set(&skb_shinfo(skb)->dataref, 1);
-+	skb_shinfo(skb)->len = skb_end_pointer(skb) - skb->head;
-+	skb_shinfo(skb)->destructor = NULL;
- 	return 0;
- 
- nodata:
-@@ -1962,6 +2002,8 @@ void skb_split(struct sk_buff *skb, stru
- 		skb_split_inside_header(skb, skb1, len, pos);
- 	else		/* Second chunk has no header, nothing to copy. */
- 		skb_split_no_header(skb, skb1, len, pos);
-+
-+	skb_ref_data_parent(skb, skb_shinfo(skb1));
- }
- 
- /**
-@@ -2334,6 +2376,8 @@ struct sk_buff *skb_segment(struct sk_bu
- 		nskb->data_len = len - hsize;
- 		nskb->len += nskb->data_len;
- 		nskb->truesize += nskb->data_len;
-+
-+		skb_ref_data_parent(skb, skb_shinfo(nskb));
- 	} while ((offset += len) < skb->len);
- 
- 	return segs;
+I can bisect this but perhaps someone already knows what's wrong?
+-- 
+Krzysztof Halasa
