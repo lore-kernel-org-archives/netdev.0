@@ -1,30 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2008-12-19
-Date: Sun, 21 Dec 2008 20:07:00 -0800 (PST)
-Message-ID: <20081221.200700.117597404.davem@davemloft.net>
-References: <20081219204008.GD4041@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET-NEXT PATCH 1/3] net: fix DCB setstate to return
+ success/failure
+Date: Sun, 21 Dec 2008 20:10:05 -0800 (PST)
+Message-ID: <20081221.201005.24296811.davem@davemloft.net>
+References: <20081220001438.5908.23307.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20081219204008.GD4041-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	donald.c.skidmore@intel.com, eric.w.multanen@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38044
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752621AbYLVEKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Dec 2008 23:10:03 -0500
+In-Reply-To: <20081220001438.5908.23307.stgit@lost.foo-projects.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 19 Dec 2008 15:40:08 -0500
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 19 Dec 2008 16:14:38 -0800
 
-> Here is yet another big round of patches intended for 2.6.29 -- wireless
-> seems to continue its break-neck pace of development...  At least this
-> batch continues the trend of being primarily driver updates rather than
-> huge changes farther up the stack...
+> Data Center Bridging (DCB) had no way to know if setstate had failed in the
+> driver.  This patch enables dcb netlink code to handle the status for the DCB
+> setstate interface.  Likewise it allows the driver to return a failed status
+> if MSI-X isn't enabled.
 > 
-> Please let me know if there are problems!
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> Signed-off-by: Eric W Multanen <eric.w.multanen@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
