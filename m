@@ -1,8 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [ofa-general] [PATCH 5/9] mlx4_en: Removed Interrupt moderation
-	module parameters
-Date: Mon, 22 Dec 2008 12:00:59 +0200
-Message-ID: <494F655B.1070405@mellanox.co.il>
+Subject: [ofa-general] [PATCH 6/9] mlx4_en: Remove pauses module parameters
+Date: Mon, 22 Dec 2008 12:01:13 +0200
+Message-ID: <494F6569.3080105@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -20,96 +19,46 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-They are controlled through Ethtool interface, no need to have two
-ways to modify them.
+>From 8bd9271caddadecb6310d7306dc50075c371f8c7 Mon Sep 17 00:00:00 2001
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Sun, 14 Dec 2008 11:37:01 +0200
+Subject: [PATCH] mlx4_en: Remove pauses module parameters.
+
+They are controlled through Ethtool interface.
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/en_netdev.c |   14 +++-----------
- drivers/net/mlx4/en_params.c |   10 ----------
- drivers/net/mlx4/mlx4_en.h   |    3 ---
- 3 files changed, 3 insertions(+), 24 deletions(-)
+ drivers/net/mlx4/en_params.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
-index 96e709d..8b5e8f0 100644
---- a/drivers/net/mlx4/en_netdev.c
-+++ b/drivers/net/mlx4/en_netdev.c
-@@ -369,7 +369,6 @@ static struct net_device_stats *mlx4_en_get_stats(struct net_device *dev)
-
- static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- {
--	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_cq *cq;
- 	int i;
-
-@@ -379,15 +378,8 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- 	 *   satisfy our coelsing target.
- 	 * - moder_time is set to a fixed value.
- 	 */
--	priv->rx_frames = (mdev->profile.rx_moder_cnt ==
--			   MLX4_EN_AUTO_CONF) ?
--				MLX4_EN_RX_COAL_TARGET /
--				priv->dev->mtu + 1 :
--				mdev->profile.rx_moder_cnt;
--	priv->rx_usecs = (mdev->profile.rx_moder_time ==
--			  MLX4_EN_AUTO_CONF) ?
--				MLX4_EN_RX_COAL_TIME :
--				mdev->profile.rx_moder_time;
-+	priv->rx_frames = MLX4_EN_RX_COAL_TARGET / priv->dev->mtu + 1;
-+	priv->rx_usecs = MLX4_EN_RX_COAL_TIME;
- 	mlx4_dbg(INTR, priv, "Default coalesing params for mtu:%d - "
- 			     "rx_frames:%d rx_usecs:%d\n",
- 		 priv->dev->mtu, priv->rx_frames, priv->rx_usecs);
-@@ -411,7 +403,7 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- 	priv->pkt_rate_high = MLX4_EN_RX_RATE_HIGH;
- 	priv->rx_usecs_high = MLX4_EN_RX_COAL_TIME_HIGH;
- 	priv->sample_interval = MLX4_EN_SAMPLE_INTERVAL;
--	priv->adaptive_rx_coal = mdev->profile.auto_moder;
-+	priv->adaptive_rx_coal = 1;
- 	priv->last_moder_time = MLX4_EN_AUTO_CONF;
- 	priv->last_moder_jiffies = 0;
- 	priv->last_moder_packets = 0;
 diff --git a/drivers/net/mlx4/en_params.c b/drivers/net/mlx4/en_params.c
-index 95706ee..86f4031 100644
+index 86f4031..047b37f 100644
 --- a/drivers/net/mlx4/en_params.c
 +++ b/drivers/net/mlx4/en_params.c
-@@ -71,13 +71,6 @@ MLX4_EN_PARM_INT(pfctx, 0, "Priority based Flow Control policy on TX[7:0]."
- MLX4_EN_PARM_INT(pfcrx, 0, "Priority based Flow Control policy on RX[7:0]."
+@@ -60,12 +60,6 @@ MLX4_EN_PARM_INT(num_lro, MLX4_EN_MAX_LRO_DESCRIPTORS,
+ 		 "Number of LRO sessions per ring or disabled (0)");
+
+ /* Priority pausing */
+-MLX4_EN_PARM_INT(pptx, MLX4_EN_DEF_TX_PAUSE,
+-		 "Pause policy on TX: 0 never generate pause frames "
+-		 "1 generate pause frames according to RX buffer threshold");
+-MLX4_EN_PARM_INT(pprx, MLX4_EN_DEF_RX_PAUSE,
+-		 "Pause policy on RX: 0 ignore received pause frames "
+-		 "1 respect received pause frames");
+ MLX4_EN_PARM_INT(pfctx, 0, "Priority based Flow Control policy on TX[7:0]."
  			   " Per priority bit mask");
-
--/* Interrupt moderation tunning */
--MLX4_EN_PARM_INT(rx_moder_cnt, MLX4_EN_AUTO_CONF,
--	       "Max coalesced descriptors for Rx interrupt moderation");
--MLX4_EN_PARM_INT(rx_moder_time, MLX4_EN_AUTO_CONF,
--	       "Timeout following last packet for Rx interrupt moderation");
--MLX4_EN_PARM_INT(auto_moder, 1, "Enable dynamic interrupt moderation");
--
- MLX4_EN_PARM_INT(rx_ring_num1, 0, "Number or Rx rings for port 1 (0 = #cores)");
- MLX4_EN_PARM_INT(rx_ring_num2, 0, "Number or Rx rings for port 2 (0 = #cores)");
-
-@@ -92,9 +85,6 @@ int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 	struct mlx4_en_profile *params = &mdev->profile;
- 	int i;
-
--	params->rx_moder_cnt = min_t(int, rx_moder_cnt, MLX4_EN_AUTO_CONF);
--	params->rx_moder_time = min_t(int, rx_moder_time, MLX4_EN_AUTO_CONF);
--	params->auto_moder = auto_moder;
- 	params->rss_xor = (rss_xor != 0);
+ MLX4_EN_PARM_INT(pfcrx, 0, "Priority based Flow Control policy on RX[7:0]."
+@@ -89,9 +83,9 @@ int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
  	params->rss_mask = rss_mask & 0x1f;
  	params->num_lro = min_t(int, num_lro , MLX4_EN_MAX_LRO_DESCRIPTORS);
-diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 45b975f..63c42e4 100644
---- a/drivers/net/mlx4/mlx4_en.h
-+++ b/drivers/net/mlx4/mlx4_en.h
-@@ -333,9 +333,6 @@ struct mlx4_en_profile {
- 	u8 rss_mask;
- 	u32 active_ports;
- 	u32 small_pkt_int;
--	int rx_moder_cnt;
--	int rx_moder_time;
--	int auto_moder;
- 	u8 no_reset;
- 	struct mlx4_en_port_profile prof[MLX4_MAX_PORTS + 1];
- };
+ 	for (i = 1; i <= MLX4_MAX_PORTS; i++) {
+-		params->prof[i].rx_pause = pprx;
++		params->prof[i].rx_pause = 1;
+ 		params->prof[i].rx_ppp = pfcrx;
+-		params->prof[i].tx_pause = pptx;
++		params->prof[i].tx_pause = 1;
+ 		params->prof[i].tx_ppp = pfctx;
+ 	}
+ 	if (pfcrx || pfctx) {
 -- 
 1.5.4
