@@ -1,65 +1,91 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 20/27] drivers/net/wan: fix sparse warnings: make do-while a
-	compound statement
-Date: Mon, 22 Dec 2008 20:17:55 +0100
-Message-ID: <20081222191755.11807.57896.stgit@vmbox.hanneseder.net>
-References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/3] Add support for RX packet classification in a
+	network device
+Date: Mon, 22 Dec 2008 19:27:13 +0000
+Message-ID: <1229974033.3077.14.camel@achroite>
+References: <494FE060.8020600@Sun.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
+	gkernel-commit@lists.sourceforge.net,
+	Matheos Worku <Matheos.Worku@Sun.COM>,
+	Mehdi Bonyadi <Mehdi.Bonyadi@Sun.COM>
+To: Santwona.Behera@Sun.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:34234 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757130AbYLVT0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 14:26:05 -0500
-Received: by bwz14 with SMTP id 14so8615871bwz.13
-        for <netdev@vger.kernel.org>; Mon, 22 Dec 2008 11:26:03 -0800 (PST)
-In-Reply-To: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:60152 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753317AbYLVT1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 14:27:31 -0500
+In-Reply-To: <494FE060.8020600@Sun.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix this sparse warnings:
+On Mon, 2008-12-22 at 10:45 -0800, Santwona.Behera@Sun.COM wrote:
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index b4b038b..d3289b0 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -55,12 +55,13 @@ struct ethtool_drvinfo {
+>         char    bus_info[ETHTOOL_BUSINFO_LEN];  /* Bus info for this IF. */
+>                                 /* For PCI devices, use pci_name(pci_dev). */
+>         char    reserved1[32];
+> -       char    reserved2[12];
+> +       char    reserved2[8];
+>         __u32   n_priv_flags;   /* number of flags valid in ETHTOOL_GPFLAGS */
+>         __u32   n_stats;        /* number of u64's from ETHTOOL_GSTATS */
+>         __u32   testinfo_len;
+>         __u32   eedump_len;     /* Size of data from ETHTOOL_GEEPROM (bytes) */
+>         __u32   regdump_len;    /* Size of data from ETHTOOL_GREGS (bytes) */
+> +       __u32   n_rx_rules;     /* number of rx classification rules */
+>  };
 
-  drivers/net/wan/wanxl.c:414:3: warning: do-while statement is not a compound statement
-  drivers/net/wan/wanxl.c:441:3: warning: do-while statement is not a compound statement
+This shifts all the fields between n_priv_flags and regdump_len
+inclusive.  What is the point of reserving space in the structure if we
+then go and move fields around elsewhere?
 
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
----
- drivers/net/wan/wanxl.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Also, why do you think n_rx_rules is driver or hardware information?
+The maximum number of RX filters is not necessarily a static property.
+Consider hardware that has separate limited-size sets of layer-2 and
+layer-3 filters, or that has a single set but needs more storage for
+some types of filters.
 
-diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
-index 8845949..4bffb67 100644
---- a/drivers/net/wan/wanxl.c
-+++ b/drivers/net/wan/wanxl.c
-@@ -410,12 +410,12 @@ static int wanxl_open(struct net_device *dev)
- 	writel(1 << (DOORBELL_TO_CARD_OPEN_0 + port->node), dbr);
- 
- 	timeout = jiffies + HZ;
--	do
-+	do {
- 		if (get_status(port)->open) {
- 			netif_start_queue(dev);
- 			return 0;
- 		}
--	while (time_after(timeout, jiffies));
-+	} while (time_after(timeout, jiffies));
- 
- 	printk(KERN_ERR "%s: unable to open port\n", dev->name);
- 	/* ask the card to close the port, should it be still alive */
-@@ -437,10 +437,10 @@ static int wanxl_close(struct net_device *dev)
- 	       port->card->plx + PLX_DOORBELL_TO_CARD);
- 
- 	timeout = jiffies + HZ;
--	do
-+	do {
- 		if (!get_status(port)->open)
- 			break;
--	while (time_after(timeout, jiffies));
-+	} while (time_after(timeout, jiffies));
- 
- 	if (get_status(port)->open)
- 		printk(KERN_ERR "%s: unable to close port\n", dev->name);
+The important value is the current number of rules which is dynamic and
+does not belong here.
+
+[...]
+> @@ -558,14 +626,16 @@ struct ethtool_ops {
+>  #define        TCP_V4_FLOW     0x01
+>  #define        UDP_V4_FLOW     0x02
+>  #define        SCTP_V4_FLOW    0x03
+> -#define        AH_ESP_V4_FLOW  0x04
+> -#define        TCP_V6_FLOW     0x05
+> -#define        UDP_V6_FLOW     0x06
+> -#define        SCTP_V6_FLOW    0x07
+> -#define        AH_ESP_V6_FLOW  0x08
+> +#define        AH_V4_FLOW      0x04
+> +#define        ESP_V4_FLOW     0x05
+> +#define        TCP_V6_FLOW     0x06
+> +#define        UDP_V6_FLOW     0x07
+> +#define        SCTP_V6_FLOW    0x08
+> +#define        AH_V6_FLOW      0x09
+> +#define        ESP_V6_FLOW     0x0a
+> +#define        IP_USER_FLOW    0x0b
+>  
+>  /* L3-L4 network traffic flow hash options */
+> -#define        RXH_DEV_PORT    (1 << 0)
+>  #define        RXH_L2DA        (1 << 1)
+>  #define        RXH_VLAN        (1 << 2)
+>  #define        RXH_L3_PROTO    (1 << 3)
+[...]
+
+No, you can't do this.  Leave the existing definitions unchanged and
+only add new ones.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
