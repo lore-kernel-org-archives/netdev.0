@@ -1,55 +1,77 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [Bug #12261] kernel panics with net_rx_action on kernels above 2.6.26
-Date: Mon, 22 Dec 2008 21:26:41 +0100
-Message-ID: <200812222126.41727.rjw@sisk.pl>
-References: <_EB9bLpq_z.A.hAC.NkYTJB@chimera> <CMMRhk39O-L.A.tMC.TkYTJB@chimera> <20081222072614.GB2631@ff.dom.local>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 2.6.29] cxgb3 - add control to access embedded images
+Date: Mon, 22 Dec 2008 12:55:01 -0800
+Message-ID: <20081222205500.12971.4243.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Alexander Huemer <alexander.huemer@sbg.ac.at>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:55645 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753175AbYLVU0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Dec 2008 15:26:32 -0500
-In-Reply-To: <20081222072614.GB2631@ff.dom.local>
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([12.22.49.110]:17825 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754050AbYLVUzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 15:55:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, 22 of December 2008, Jarek Poplawski wrote:
-> On Sat, Dec 20, 2008 at 11:16:15PM +0100, Rafael J. Wysocki wrote:
-> > This message has been generated automatically as a part of a report
-> > of regressions introduced between 2.6.26 and 2.6.27.
-> > 
-> > The following bug entry is on the current list of known regressions
-> > introduced between 2.6.26 and 2.6.27.  Please verify if it still should
-> > be listed and let me know (either way).
-> > 
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12261
-> > Subject		: kernel panics with net_rx_action on kernels above 2.6.26
-> > Submitter	: Alexander Huemer <alexander.huemer@sbg.ac.at>
-> > Date		: 2008-12-13 18:43 (8 days old)
-> > References	: http://marc.info/?l=linux-kernel&m=122919424932016&w=4
-> > Handled-By	: Jarek Poplawski <jarkao2@gmail.com>
-> > Patch		: http://marc.info/?l=linux-net&m=122934825227768&w=4
-> > 
-> > 
-> 
-> It's fixed in the mainline:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9a3de25544dadab1971847f28f33b1cd0d1770a6
-> 
-> But stables need this too:
-> - 2.6.27 - always
-> - 2.6.26, 2.6.25 (...?) for CONFIG_ADAPTEC_STARFIRE_NAPI
+From: Divy Le Ray <divy@chelsio.com>
 
-Thanks, I've just pushed inclusion request to -stable.
+Update contol path between cxgb3 and ULP modules (iWARP, iSCSI)
+to provide access to firware and protocol engine info.
 
-Rafael
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
+
+ drivers/net/cxgb3/cxgb3_ctl_defs.h |   10 ++++++++++
+ drivers/net/cxgb3/cxgb3_offload.c  |    9 +++++++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/cxgb3/cxgb3_ctl_defs.h b/drivers/net/cxgb3/cxgb3_ctl_defs.h
+index 55099eb..369fe71 100644
+--- a/drivers/net/cxgb3/cxgb3_ctl_defs.h
++++ b/drivers/net/cxgb3/cxgb3_ctl_defs.h
+@@ -58,6 +58,8 @@ enum {
+ 
+ 	GET_RX_PAGE_INFO	= 50,
+ 	GET_ISCSI_IPV4ADDR	= 51,
++
++	GET_EMBEDDED_INFO	= 70,
+ };
+ 
+ /*
+@@ -176,4 +178,12 @@ struct ofld_page_info {
+ 	unsigned int page_size;  /* Page size, should be a power of 2 */
+ 	unsigned int num;        /* Number of pages */
+ };
++
++/*
++ * Structure used to get firmware and protocol engine versions.
++ */
++struct ch_embedded_info {
++	u32 fw_vers;
++	u32 tp_vers;
++};
+ #endif				/* _CXGB3_OFFLOAD_CTL_DEFS_H */
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+index 1ce69b7..2d7f69a 100644
+--- a/drivers/net/cxgb3/cxgb3_offload.c
++++ b/drivers/net/cxgb3/cxgb3_offload.c
+@@ -438,6 +438,15 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
+ 		p->ipv4addr = pi->iscsi_ipv4addr;
+ 		break;
+ 	}
++	case GET_EMBEDDED_INFO: {
++		struct ch_embedded_info *e = data;
++
++		spin_lock(&adapter->stats_lock);
++		t3_get_fw_version(adapter, &e->fw_vers);
++		t3_get_tp_version(adapter, &e->tp_vers);
++		spin_unlock(&adapter->stats_lock);
++		break;
++	}
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+
