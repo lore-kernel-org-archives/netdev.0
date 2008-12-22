@@ -1,8 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [ofa-general] [PATCH 2/9] mlx4_en: Removed TX locking when polling
-	TX cq
-Date: Mon, 22 Dec 2008 12:00:22 +0200
-Message-ID: <494F6536.6040107@mellanox.co.il>
+Subject: [ofa-general] [PATCH 3/9] mlx4_en: Removed redundant cq->armed flag
+Date: Mon, 22 Dec 2008 12:00:31 +0200
+Message-ID: <494F653F.2010806@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -20,74 +19,59 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-There is no need to synchronize the polling with the transmit
-function. The only place to synchronize is when we process
-the cq from the transmit function. Also removed spin_lock_irq,
-and using spin_trylock, if somebody else is already processing the cq,
-no need to wait for it to finish.
-
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/en_tx.c |   24 +++++++++++++-----------
- 1 files changed, 13 insertions(+), 11 deletions(-)
+ drivers/net/mlx4/en_cq.c   |    1 -
+ drivers/net/mlx4/en_tx.c   |    5 ++---
+ drivers/net/mlx4/mlx4_en.h |    1 -
+ 3 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/mlx4/en_cq.c b/drivers/net/mlx4/en_cq.c
+index 4aa3b0f..04a2804 100644
+--- a/drivers/net/mlx4/en_cq.c
++++ b/drivers/net/mlx4/en_cq.c
+@@ -140,7 +140,6 @@ int mlx4_en_set_cq_moder(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
+
+ int mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
+ {
+-	cq->armed = 1;
+ 	mlx4_cq_arm(&cq->mcq, MLX4_CQ_DB_REQ_NOT, priv->mdev->uar_map,
+ 		    &priv->mdev->uar_lock);
 
 diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
-index 8592f8f..1f25821 100644
+index 1f25821..ff4d752 100644
 --- a/drivers/net/mlx4/en_tx.c
 +++ b/drivers/net/mlx4/en_tx.c
-@@ -404,14 +404,12 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq)
+@@ -379,8 +379,8 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
+
+ 	/* Wakeup Tx queue if this ring stopped it */
+ 	if (unlikely(ring->blocked)) {
+-		if (((u32) (ring->prod - ring->cons) <=
+-		     ring->size - HEADROOM - MAX_DESC_TXBBS) && !cq->armed) {
++		if ((u32) (ring->prod - ring->cons) <=
++		     ring->size - HEADROOM - MAX_DESC_TXBBS) {
+
+ 			/* TODO: support multiqueue netdevs. Currently, we block
+ 			 * when *any* ring is full. Note that:
+@@ -404,7 +404,6 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq)
  	struct mlx4_en_priv *priv = netdev_priv(cq->dev);
  	struct mlx4_en_tx_ring *ring = &priv->tx_ring[cq->ring];
 
--	spin_lock_irq(&ring->comp_lock);
- 	cq->armed = 0;
-+	if (!spin_trylock(&ring->comp_lock))
-+		return;
+-	cq->armed = 0;
+ 	if (!spin_trylock(&ring->comp_lock))
+ 		return;
  	mlx4_en_process_tx_cq(cq->dev, cq);
--	if (ring->blocked)
--		mlx4_en_arm_cq(priv, cq);
--	else
--		mod_timer(&cq->timer, jiffies + 1);
--	spin_unlock_irq(&ring->comp_lock);
-+	mod_timer(&cq->timer, jiffies + 1);
-+	spin_unlock(&ring->comp_lock);
- }
-
-
-@@ -424,8 +422,10 @@ void mlx4_en_poll_tx_cq(unsigned long data)
-
- 	INC_PERF_COUNTER(priv->pstats.tx_poll);
-
--	netif_tx_lock(priv->dev);
--	spin_lock_irq(&ring->comp_lock);
-+	if (!spin_trylock(&ring->comp_lock)) {
-+		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
-+		return;
-+	}
- 	mlx4_en_process_tx_cq(cq->dev, cq);
- 	inflight = (u32) (ring->prod - ring->cons - ring->last_nr_txbb);
-
-@@ -435,8 +435,7 @@ void mlx4_en_poll_tx_cq(unsigned long data)
- 	if (inflight && priv->port_up)
- 		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
-
--	spin_unlock_irq(&ring->comp_lock);
--	netif_tx_unlock(priv->dev);
-+	spin_unlock(&ring->comp_lock);
- }
-
- static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
-@@ -479,7 +478,10 @@ static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind)
-
- 	/* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
- 	if ((++ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) == 0)
--		mlx4_en_process_tx_cq(priv->dev, cq);
-+		if (spin_trylock(&ring->comp_lock)) {
-+			mlx4_en_process_tx_cq(priv->dev, cq);
-+			spin_unlock(&ring->comp_lock);
-+		}
- }
-
- static void *get_frag_ptr(struct sk_buff *skb)
+diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
+index 98ddc08..45b975f 100644
+--- a/drivers/net/mlx4/mlx4_en.h
++++ b/drivers/net/mlx4/mlx4_en.h
+@@ -311,7 +311,6 @@ struct mlx4_en_cq {
+ 	enum cq_type is_tx;
+ 	u16 moder_time;
+ 	u16 moder_cnt;
+-	int armed;
+ 	struct mlx4_cqe *buf;
+ #define MLX4_EN_OPCODE_ERROR	0x1e
+ };
 -- 
 1.5.4
