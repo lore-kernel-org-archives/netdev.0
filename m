@@ -1,39 +1,31 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [PATCH] qlge: ql_adapter_down() typo
-Date: Mon, 22 Dec 2008 08:55:07 -0800
-Message-ID: <20081222165507.GA32049@susedev.qlogic.org>
-References: <494E609E.3090808@gmail.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: Wimax - Makefile & Kconfig patch
+Date: Mon, 22 Dec 2008 09:27:49 -0800
+Message-ID: <200812220927.49617.inaky@linux.intel.com>
+References: <20081221215907.GA20856@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Roel Kluin <roel.kluin@gmail.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:12809 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751977AbYLVQzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 11:55:08 -0500
+Received: from mga05.intel.com ([192.55.52.89]:56950 "EHLO
+	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751853AbYLVR2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 12:28:21 -0500
+In-Reply-To: <20081221215907.GA20856@uranus.ravnborg.org>
 Content-Disposition: inline
-In-Reply-To: <494E609E.3090808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Roel
+On Sunday 21 December 2008, Sam Ravnborg wrote:
+> Hi Inaky.
+>
+> Noticed your wimax patchset when I browsed netdev on marc.info.
+> A few comments:
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+Thanks, I'll work on the changes.
 
-On Sun, Dec 21, 2008 at 07:28:30AM -0800, Roel Kluin wrote:
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-> index b83a9c9..4a66aa5 100644
-> --- a/drivers/net/qlge/qlge_main.c
-> +++ b/drivers/net/qlge/qlge_main.c
-> @@ -3156,7 +3156,7 @@ static int ql_adapter_down(struct ql_adapter *qdev)
->  	 * a workqueue only if it's a single interrupt
->  	 * environment (MSI/Legacy).
->  	 */
-> -	for (i = 1; i > qdev->rx_ring_count; i++) {
-> +	for (i = 1; i < qdev->rx_ring_count; i++) {
->  		rx_ring = &qdev->rx_ring[i];
->  		/* Only the RSS rings use NAPI on multi irq
->  		 * environment.  Outbound completion processing
+-- 
+Inaky
