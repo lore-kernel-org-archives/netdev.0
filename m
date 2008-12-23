@@ -1,80 +1,69 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC] [Patch 4/4] dccp: Integrate the TFRC library (dependency)
-Date: Tue, 23 Dec 2008 11:54:22 +0100
-Message-ID: <20081223105422.GA8209@gerrit.erg.abdn.ac.uk>
-References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net> <20081220080826.GE3853@gerrit.erg.abdn.ac.uk> <20081221005511.GC5700@ghostprotocols.net>
+Subject: Re: [RFC] [Patch 2/4] dccp: Lockless use of CCID blocks
+Date: Tue, 23 Dec 2008 18:08:23 +0100
+Message-ID: <20081223170823.GA3855@gerrit.erg.abdn.ac.uk>
+References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net> <20081220080813.GC3853@gerrit.erg.abdn.ac.uk> <20081221003239.GA5700@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:49309 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50081 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751174AbYLWRJX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2008 12:09:23 -0500
+	id S1750782AbYLWRTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Dec 2008 12:19:33 -0500
 Content-Disposition: inline
-In-Reply-To: <20081221005511.GC5700@ghostprotocols.net>
+In-Reply-To: <20081221003239.GA5700@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Arnaldo,
-
-thanks a lot for the replies. The patches that I have sent were also
-bona fide 'RFC', i.e. they also need more work. I am in the process
-of revising the patches again, but will probably not finish before
-the holidays.
-
-The plan is to address the comments, combine that with your patch
-and then resubmit the tidied-up results.
-
-| I.e. IP_DCCP_TFRC_LIB is also deleted, and in
-| net/dccp/ccids/libs/Makefile we do simply:
-|
-| dccp-$(CONFIG_IP_DCCP_CCID3) += tfrc.o tfrc_equation.o packet_history.o loss_interval.o
-|
-At first I didn't like the removal of 'IP_DCCP_TFRC_LIB', but I also don't like
-TFRC. If there is consensus to forget the expired CCID-4 then we can remove it,
-otherwise we probably need to keep IP_DCCP_TFRC_LIB for the sake of CCID-4.
-
-I tried above suggestion in different variations: the problem is that kbuild considers
-objects for dccp-y/dccp-objs only from within the Makefile in net/dccp, i.e. the above
-does not compile (lost a lot of time about it).
-
-Hence I will revert to the previous solution which is similar to the above and worked
-fine.
-
-| P.S. It just feels wrong that TCP, that was not designed with multiple
-| congestion modules in mind have in Linux a plugabble congestion control
-| infrastructure, one idea that was something that BSD also adopted after
-| Linux became a more easy platform to try new congestion algorithms.
+| > -int ccid_unregister(struct ccid_operations *ccid_ops)
+| > +static int ccid_unregister(struct ccid_operations *ccid_ops)
+| >  {
+<snip>
 | 
-| Now DCCP, that was specifically designed with such infrastructure in
-| mind will not have such facility :-\
+| And "register/unregister" now don't make much sense since there is no
+| registration being done, just allocating/deallocating resources
 | 
-Yes, at the moment it is sad to see the loading and locking code go, in
-particular since a lot of thought had been put into its design. Frankly,
-I think that this code is too good/much/rich for the present situation.
+Yes agree - this needs revision. We can also drop the EXPORT_SYMBOLS
+from the now-static routines.
 
-The situation is that at the moment we only have a handful of CCIDs which
-still need a lot more work (after the work that went in already) before they
-could be considered a serious alternative to UDP/TCP/SCTP.
+| > +
+| > +static struct ccid_operations *ccid_find_by_id(const u8 id)
+| >  {
+| > -	struct ccid *ccid = kmem_cache_alloc(rx ? ccid_ops->ccid_hc_rx_slab :
+| > -						  ccid_ops->ccid_hc_tx_slab, gfp);
+| > +	int i;
+| > +
+| > +	for (i = 0; i < ARRAY_SIZE(ccids); i++)
+| > +		if (ccids[i]->ccid_id == id)
+| > +			return ccids[i];
+| > +	return NULL;
+| 
+| Why the we searching? Can't we just do:
+| 
+| {
+| 	if (id > ARRAY_SIZE(ccids) - 2)
+| 		return NULL;
+| 	return ccids[id - 2];
+| }
+| 
+Agree 100%, I don't like the routine myself and have been thinking about
+how to rewrite it. Current idea is to go back to the original and use
 
-And I think that David Miller is right here - for those two CCIDs we don't
-need elaborate locking/loading.
+static struct ccid_operations *ccids[CCIDS_MAX] = {
+	[DCCPC_CCID2] = &ccid2_ops,
+#ifdef CONFIG_IP_DCCP_CCID3
+	[DCCPC_CCID3] = &ccid3_ops,
+#endif
+};
 
-At the moment there are also no Internet Drafts specifying CCIDs. As soon
-as there is one, the new CCID either becomes a potential new builtin CCID
-or reaches the current state of CCID-4 ('expired').
+And then use 
+	
+	if (id < 0 || id >= CCIDS_MAX)
+		return NULL;
+	return ccids[id];		
 
-But the 'builtin' solution also has a natural limit: each new CCID module
-will increase the size of dccp.ko. A connection can only use 1 CCID (since
-mixing different CCIDs for RX/TX is not practicable/supported), so loading
-the code of 9 CCIDs where only one is used means a "size" overhead.
+which may be NULL if there is no entry in the array. Better?	
 
-When and if this situation is reached it again would make sense to use
-loadable modules, where the loading/locking scheme is then needed again.
-
-Once this feature-negotiation patch set is over, we are one step ahead of TCP,
-which was not designed for negotiating capabilities (e.g. the "negotiation"
-of timestamp usage in RFC1323).
-
+Gerrit
