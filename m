@@ -1,17 +1,16 @@
 From: Vladislav Bolkhovitin <vst@vlnb.net>
 Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
  space data
-Date: Tue, 23 Dec 2008 22:14:05 +0300
-Message-ID: <4951387D.2030003@vlnb.net>
-References: <494C0255.8010208@goop.org> <20081220103209.GA23632@ioremap.net> <494D49E6.9000703@goop.org> <200812221113.24044.rusty@rustcorp.com.au>
+Date: Tue, 23 Dec 2008 22:16:25 +0300
+Message-ID: <49513909.1050100@vlnb.net>
+References: <494C0255.8010208@goop.org> <20081219220452.GB704@ioremap.net> <494C1E5E.7070809@goop.org> <20081219223314.GA2736@ioremap.net> <494C50BB.5030809@goop.org> <20081220020250.GA15064@gondor.apana.org.au> <494C8D57.7040808@goop.org> <20081220065105.GA16936@gondor.apana.org.au> <494CA226.9000200@goop.org> <20081220081045.GA17439@gondor.apana.org.au> <20081220103209.GA23632@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
 	linux-scsi@vger.kernel.org,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
 	Mike Christie <michaelc@cs.wisc.edu>,
@@ -21,67 +20,64 @@ Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
 	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
 	Bart Van Assche <bart.vanassche@gmail.com>,
 	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:55730 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143AbYLWTOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 14:14:55 -0500
-In-Reply-To: <200812221113.24044.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20081220103209.GA23632@ioremap.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rusty Russell, on 12/22/2008 03:43 AM wrote:
-> On Sunday 21 December 2008 06:09:18 Jeremy Fitzhardinge wrote:
->> Evgeniy Polyakov wrote:
->>> Things should work fine, since pskb_expand_head() copies whole shared
->>> info structure (and thus will copy destructor), get all pages and then
->>> copy all pointers into the new skb, and then release old skb's data.
->>>
->>> So destructor for the pages should not rely on which skb it is called on
->>> and check if pages are about to be really freed (i.e. check theirs
->>> reference counter).
->>>   
->> OK.
->>
->>> __pskb_pull_tail() is tricky, it just puts some pages it does not want
->>> to be present in the skb, but it could be possible to add there
->>> destructor callback from the original skb with partial flag (or just
->>> having destructor with two parameters: skb and page, and if page is not
->>> NULL, then actually only given page is freed, otherwise the whole skb).
->>>   
->> Yes, that doesn't sound too bad.
+Evgeniy Polyakov, on 12/20/2008 01:32 PM wrote:
+> On Sat, Dec 20, 2008 at 07:10:45PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+>>> Hm.  So if I get a destructor call from the shared_info, can I go an  
+>>> inspect the page refcounts to see if its really the last use?
+>> The pages that were originally in the shared_info at creation
+>> time may no longer be there by the time it's freed because of
+>> pskb_pull_tail.
 > 
-> That would be one approach.  Actually, my patch solved this by keeping a
-> parent ref in various cases if the parent had a destructor: we only destroy
-> the parent when all the clones are gone.
+> Things should work fine, since pskb_expand_head() copies whole shared
+> info structure (and thus will copy destructor), get all pages and then
+> copy all pointers into the new skb, and then release old skb's data.
 > 
-> Here's the patch for reference:
+> So destructor for the pages should not rely on which skb it is called on
+> and check if pages are about to be really freed (i.e. check theirs
+> reference counter).
 > 
-> net: add destructor for skb data.
-> 
-> If we want to notify something when an skb is truly finished (such as
-> for tun vringfd support), we need a destructor on the data.
-> 
-> This turns out to be slightly non-trivial as fragments from one skb
-> get copied to another skb: if the first skb has a destructor (or its
-> parent does) we need to keep a reference to it and destroy it only
-> when (all the) children are destroyed.  We add an 'orig' pointer to
-> the skb_shared_info to do this.
-> 
-> But there's currently no way to get from the shinfo to the head (to
-> kfree it), so we add a 'len' field.  A better alternative to this
-> might be to move the skb_shared_info to before the head of the skb data.
-> 
-> Note that the destructor is responsible for calling kfree: for the tun
-> device, this is critical since the destructor can be called from any
-> context and it has to do a copy_to_user, so it queues the skb.
+> __pskb_pull_tail() is tricky, it just puts some pages it does not want
+> to be present in the skb, but it could be possible to add there
+> destructor callback from the original skb with partial flag (or just
+> having destructor with two parameters: skb and page, and if page is not
+> NULL, then actually only given page is freed, otherwise the whole skb).
 
-Rusty,
+Actually, there's another way, which seems to be a lot simpler. Alexey 
+Kuznetsov privately suggested it to me.
 
-Can you describe how one should use your patch, please? Maybe, there is 
-some code you use to test it?
+In skb_shared_info new pointer transaction_token would be added, which 
+would point on:
 
-Thanks,
+struct sk_transaction_token
+{
+	atomic_t			io_count;
+	struct sk_transaction_token	*next;
+	unsigned long			token;
+	unsigned long			private;
+	void				(*finish_callback)(struct sk_transaction_token *);
+};
+
+When skb is translated, transaction_token inherited. If 2 skb are merged 
+(the same places where I put net_get_page's in my patch), the *older* 
+token is inherited. This is the main point of this idea.
+
+Before starting new asynchronous send a client would open a new token. 
+Everything sent then would receive that token. Finish_callback() would 
+be called and the corresponding token freed, when io_count == 0 *AND* 
+all previous tokens closed.
+
+This idea seems to be simpler, than even what Rusty implemented. Correct 
+me, if I wrong. But, unfortunately, in the near future I will have no 
+time to develop it.. :-(
+
 Vlad
+
