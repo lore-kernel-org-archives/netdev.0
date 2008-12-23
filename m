@@ -1,59 +1,81 @@
-From: "=?UTF-8?Q?H=C3=A5kon_L=C3=B8vdal?=" <hlovdal@gmail.com>
-Subject: Re: [PATCH 02/27] drivers/net: fix sparse warnings: make do-while a compound statement
-Date: Tue, 23 Dec 2008 00:44:25 +0100
-Message-ID: <a01a16b50812221544x45c3559ap808ac0095ee8f01@mail.gmail.com>
-References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
-	 <20081222191507.11807.50794.stgit@vmbox.hanneseder.net>
-	 <m3hc4voo2a.fsf@maximus.localdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/3] Add support for RX packet classification in
+	a	network device
+Date: Tue, 23 Dec 2008 00:16:48 +0000
+Message-ID: <1229991408.3077.19.camel@achroite>
+References: <494FE060.8020600@Sun.COM> <1229974033.3077.14.camel@achroite>
+	 <49501CEF.8010101@Sun.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "Hannes Eder" <hannes@hanneseder.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Krzysztof Halasa" <khc@pm.waw.pl>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
+	gkernel-commit@lists.sourceforge.net,
+	Matheos Worku <Matheos.Worku@Sun.COM>,
+	Mehdi Bonyadi <Mehdi.Bonyadi@Sun.COM>
+To: Santwona.Behera@Sun.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f13.google.com ([209.85.217.13]:65402 "EHLO
-	mail-gx0-f13.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754623AbYLVXo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 18:44:27 -0500
-In-Reply-To: <m3hc4voo2a.fsf@maximus.localdomain>
-Content-Disposition: inline
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:56785 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755471AbYLWARI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Dec 2008 19:17:08 -0500
+In-Reply-To: <49501CEF.8010101@Sun.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MjAwOC8xMi8yMiBLcnp5c3p0b2YgSGFsYXNhIDxraGNAcG0ud2F3LnBsPjoKPj4gLS0tIGEvZHJp
-dmVycy9uZXQvc3RhcmZpcmUuYwo+PiArKysgYi9kcml2ZXJzL25ldC9zdGFyZmlyZS5jCj4+IEBA
-IC04ODIsOSArODgyLDkgQEAgc3RhdGljIGludCBtZGlvX3JlYWQoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldiwgaW50IHBoeV9pZCwgaW50IGxvY2F0aW9uKQo+PiAgICAgICB2b2lkIF9faW9tZW0gKm1k
-aW9fYWRkciA9IG5wLT5iYXNlICsgTUlJQ3RybCArIChwaHlfaWQ8PDcpICsgKGxvY2F0aW9uPDwy
-KTsKPj4gICAgICAgaW50IHJlc3VsdCwgYm9ndXNjbnQ9MTAwMDsKPj4gICAgICAgLyogPz8/IFNo
-b3VsZCB3ZSBhZGQgYSBidXN5LXdhaXQgaGVyZT8gKi8KPj4gLSAgICAgZG8KPj4gKyAgICAgZG8g
-ewo+PiAgICAgICAgICAgICAgIHJlc3VsdCA9IHJlYWRsKG1kaW9fYWRkcik7Cj4+IC0gICAgIHdo
-aWxlICgocmVzdWx0ICYgMHhDMDAwMDAwMCkgIT0gMHg4MDAwMDAwMCAmJiAtLWJvZ3VzY250ID4g
-MCk7Cj4+ICsgICAgIH0gd2hpbGUgKChyZXN1bHQgJiAweEMwMDAwMDAwKSAhPSAweDgwMDAwMDAw
-ICYmIC0tYm9ndXNjbnQgPiAwKTsKPj4gICAgICAgaWYgKGJvZ3VzY250ID09IDApCj4+ICAgICAg
-ICAgICAgICAgcmV0dXJuIDA7Cj4+ICAgICAgIGlmICgocmVzdWx0ICYgMHhmZmZmKSA9PSAweGZm
-ZmYpCj4KPgo+IEkgZG9uJ3Qga25vdyBob3cgb25lIGNvdWxkIHRoaW5rIHRoZSBhYm92ZSBpcyBh
-biBpbXByb3ZlbWVudC4KCkZvciB0aGlzIHNwZWNpZmljIGlzc3VlIHRoZSBpbXBvcnRhbnQgYXNw
-ZWN0IGlzIHRvIGltcHJvdmUgcmVhZGFiaWxpdHkKKGFuZCBub3QganVzdCBldmVudHVhbGx5IHNh
-dGlzZnkgc29tZSB3YXJuaW5nIGZyb20gYSB0b29sKSwgd2hpY2ggSQphc3N1bWUgdGhlcmUgaXMg
-bm8gZGlzYWdyZW1lbnQgb24uIE5vdyB3aGF0IGNvbnN0aXR1dGVzIGltcHJvdmVkCnJlYWRiaWxp
-dHkgb24gdGhlIG90aGVyIGhhbmQgaXMgYW5vdGhlciBpc3N1ZSwgYW5kIEkgZ3Vlc3MgdGhlcmUg
-YXJlCm5leHQgdG8gYXMgbWFueSBvcHBpbmlvbnMgYXMgZGV2ZWxvcGVycy4uLiA6KQpJIHdvdWxk
-IG1vc3QgY2VydGFpbmx5IHByZWZlciB0byBoYXZlIGNvZGUgbG9vayBjb25zaXN0ZW50bHkgYW5k
-IGFsd2F5cwpoYXZlIGJyYWNrZXRzLCBldmVuIGluIHRoZSBjYXNlIG9mIGp1c3Qgb25lIGJvZHkg
-bGluZS4KCk9mIHNlY29uZGFyeSBpbXBvcnRhbmNlIGlzIHRoZSBiZW5lZml0IHRoYXQgYWx3YXlz
-IHVzaW5nIGJyYWNrZXRzCm1ha2VzIHRoZW0gbXVjaCBtb3JlIG1lcmdlIGZyaWVuZGx5LiBDb25z
-aWRlciB0aGUgZm9sbG93aW5nIHNjZW5hcmlvOgoKQ29tbW9uIGJhc2U6CiAgICAgICAgZG8KICAg
-ICAgICAgICAgICAgIHJlc3VsdCA9IHJlYWRsKG1kaW9fYWRkcik7CiAgICAgICAgd2hpbGUgKChy
-ZXN1bHQgJiAweEMwMDAwMDAwKSAhPSAweDgwMDAwMDAwICYmIC0tYm9ndXNjbnQgPiAwKTsKCkJy
-YW5jaCAxCiAgICAgICAgZG8gewogICAgICAgICAgICAgICAgcmVzdWx0ID0gcmVhZGwobWRpb19h
-ZGRyKTsKICAgICAgICAgICAgICAgIGRvX3NvbWV0aGluZygpOwogICAgICAgIH0gd2hpbGUgKChy
-ZXN1bHQgJiAweEMwMDAwMDAwKSAhPSAweDgwMDAwMDAwICYmIC0tYm9ndXNjbnQgPiAwKTsKCkJy
-YW5jaCAyCiAgICAgICAgZG8KICAgICAgICAgICAgICAgIHJlc3VsdCA9IHJlYWRsKG1kaW9fYWRk
-cik7CiAgICAgICAgd2hpbGUgKE5PVF9PSyhyZXN1bHQpICYmIC0tYm9ndXNjbnQgPiAwKTsKCklu
-IHRoaXMgY2FzZSBpZiBib3RoIGJyYW5jaCAxIGFuZCAyIGFyZSBtZXJnZWQsIHRoZXJlIHdpbGwg
-YmUgYSBtZXJnZSBjb25mbGljdAp0aGF0IGhhcyB0byBiZSByZXNvbHZlZCBtYW51YWxseS4gSWYg
-dGhlIGJyYWNrZXRzIGhhZCBiZWVuIGluIHBsYWNlIGZyb20gdGhlCnN0YXJ0IHRvb2xzIHNob3Vs
-ZCBiZSBhYmxlIHRvIHJlc29sdiB0aGlzIGF1dG9tYXRpY2FsbHkuCgpCUiBIw6Vrb24gTMO4dmRh
-bAo=
+On Mon, 2008-12-22 at 15:04 -0800, Santwona.Behera@Sun.COM wrote:
+[...]
+> >> @@ -558,14 +626,16 @@ struct ethtool_ops {
+> >>  #define        TCP_V4_FLOW     0x01
+> >>  #define        UDP_V4_FLOW     0x02
+> >>  #define        SCTP_V4_FLOW    0x03
+> >> -#define        AH_ESP_V4_FLOW  0x04
+> >> -#define        TCP_V6_FLOW     0x05
+> >> -#define        UDP_V6_FLOW     0x06
+> >> -#define        SCTP_V6_FLOW    0x07
+> >> -#define        AH_ESP_V6_FLOW  0x08
+> >> +#define        AH_V4_FLOW      0x04
+> >> +#define        ESP_V4_FLOW     0x05
+> >> +#define        TCP_V6_FLOW     0x06
+> >> +#define        UDP_V6_FLOW     0x07
+> >> +#define        SCTP_V6_FLOW    0x08
+> >> +#define        AH_V6_FLOW      0x09
+> >> +#define        ESP_V6_FLOW     0x0a
+> >> +#define        IP_USER_FLOW    0x0b
+> >>  
+> >>  /* L3-L4 network traffic flow hash options */
+> >> -#define        RXH_DEV_PORT    (1 << 0)
+> >>  #define        RXH_L2DA        (1 << 1)
+> >>  #define        RXH_VLAN        (1 << 2)
+> >>  #define        RXH_L3_PROTO    (1 << 3)
+> > [...]
+> > 
+> > No, you can't do this.  Leave the existing definitions unchanged and
+> > only add new ones.
+> 
+> The original code/patch was not quite correct where the AH_ESP_V4_FLOW 
+> was being used to represent AH flows. So my goal here was to remove that 
+> and add 2 separate flow types for AH and ESP. I have two ways of 
+> achieving this without changing the existing definitions completely:
+> 
+> 1. I change AH_ESP_Vx_FLOW defines to AH_Vx_FLOW defines and add 2 new 
+> defines for ESP_Vx_FLOW at the end, with values 0x9 and 0xa.
+
+If AH_ESP_Vx_FLOW has only ever been implemented as AH-only then perhaps
+this is reasonable.
+
+> 2. I keep the AH_ESP_Vx_FLOW defines as is (but this will be dead code 
+> as it will not be used) and add 2 new AH_Vx_FLOW defines and 2 new 
+> ESP_Vx_FLOW defines at the end with values 0x9, 0xa, 0xb, 0xc.
+
+This is safest.
+
+Also you are probably right to remove RXH_DEV_PORT as that appears to be
+an niu quirk that shouldn't be exposed.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
