@@ -1,115 +1,105 @@
 From: Holger Eitzenberger <holger@eitzenberger.org>
-Subject: [patch 10/10] 802.3ad: cleanup around lacpdu and bond_marker
-Date: Tue, 23 Dec 2008 23:01:11 +0100
-Message-ID: <20081223220603.062744707@jonathan.eitzenberger.org>
+Subject: [patch 08/10] 802.3ad: remove public lacpdu_header
+Date: Tue, 23 Dec 2008 23:01:09 +0100
+Message-ID: <20081223220600.479443201@jonathan.eitzenberger.org>
 References: <20081223220101.747816175@jonathan.eitzenberger.org>
 Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout-xforward.kundenserver.de ([212.227.17.5]:50664 "EHLO
-	mout-xforward.kundenserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752128AbYLWWGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 17:06:09 -0500
-Content-Disposition: inline; filename=bonding-3ad-remove-typedef-around-bond_marker.diff
+Received: from moutng.kundenserver.de ([212.227.126.187]:50274 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751952AbYLWWGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 17:06:06 -0500
+Content-Disposition: inline; filename=bonding-3ad-remove-lacpdu_header.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the typedef around lacpdu and bond_marker.  Also turn C++
-comments into C comments and some more or less pretty printing.
+It's strictly not necessary to define lacpdu_header in an include
+file because it's only used in ad_lacpdu_send().  Remove that definition
+and use an unnamed structure instead just for our purpose.  Which also
+gives a chance to use shorter names which are still descriptive.
+
+As the port is left unmodified it's now const.
+
+Also cleanup that function a bit by removing useless braces around
+one-liners and turn C++ style comments into C comments.
 
 Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
 
+Index: bonding-2.6/drivers/net/bonding/bond_3ad.c
+===================================================================
+--- bonding-2.6.orig/drivers/net/bonding/bond_3ad.c
++++ bonding-2.6/drivers/net/bonding/bond_3ad.c
+@@ -98,7 +98,6 @@ static const int ad_delta_in_ticks = (AD
+ static const u8 lacpdu_mcast_addr[ETH_ALEN] = MULTICAST_LACPDU_ADDR;
+ 
+ // ================= main 802.3ad protocol functions ==================
+-static int ad_lacpdu_send(struct port *port);
+ static int ad_marker_send(struct port *port, struct bond_marker *marker);
+ static void ad_mux_machine(struct port *port);
+ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port);
+@@ -820,17 +819,19 @@ static inline void __update_lacpdu_from_
+  * Returns:   0 on success
+  *          < 0 on error
+  */
+-static int ad_lacpdu_send(struct port *port)
++static int ad_lacpdu_send(const struct port *port)
+ {
+ 	struct slave *slave = port->slave;
+ 	struct sk_buff *skb;
+-	struct lacpdu_header *lacpdu_header;
+-	int length = sizeof(struct lacpdu_header);
++	struct {
++		struct ethhdr hdr;
++		struct lacpdu lacpdu;
++	} __packed *pdu;
++	int len = sizeof(*pdu);
+ 
+-	skb = dev_alloc_skb(length);
+-	if (!skb) {
++	skb = dev_alloc_skb(len);
++	if (skb == NULL)
+ 		return -ENOMEM;
+-	}
+ 
+ 	skb->dev = slave->dev;
+ 	skb_reset_mac_header(skb);
+@@ -838,15 +839,15 @@ static int ad_lacpdu_send(struct port *p
+ 	skb->protocol = PKT_TYPE_LACPDU;
+ 	skb->priority = TC_PRIO_CONTROL;
+ 
+-	lacpdu_header = (struct lacpdu_header *)skb_put(skb, length);
++	pdu = (void *)skb_put(skb, len);
+ 
+-	memcpy(lacpdu_header->hdr.h_dest, lacpdu_mcast_addr, ETH_ALEN);
++	memcpy(pdu->hdr.h_dest, lacpdu_mcast_addr, ETH_ALEN);
+ 	/* Note: source addres is set to be the member's PERMANENT address,
+ 	   because we use it to identify loopback lacpdus in receive. */
+-	memcpy(lacpdu_header->hdr.h_source, slave->perm_hwaddr, ETH_ALEN);
+-	lacpdu_header->hdr.h_proto = PKT_TYPE_LACPDU;
++	memcpy(pdu->hdr.h_source, slave->perm_hwaddr, ETH_ALEN);
++	pdu->hdr.h_proto = PKT_TYPE_LACPDU;
+ 
+-	lacpdu_header->lacpdu = port->lacpdu; // struct copy
++	memcpy(&pdu->lacpdu, &port->lacpdu, sizeof(pdu->lacpdu));
+ 
+ 	dev_queue_xmit(skb);
+ 
 Index: bonding-2.6/drivers/net/bonding/bond_3ad.h
 ===================================================================
 --- bonding-2.6.orig/drivers/net/bonding/bond_3ad.h
 +++ bonding-2.6/drivers/net/bonding/bond_3ad.h
-@@ -105,52 +105,56 @@ typedef enum {
+@@ -136,11 +136,6 @@ typedef struct lacpdu {
+ 	u8 reserved_50[50];	     // = 0
+ } lacpdu_t;
  
- #pragma pack(1)
- 
--// Link Aggregation Control Protocol(LACP) data unit structure(43.4.2.2 in the 802.3ad standard)
--typedef struct lacpdu {
--	u8 subtype;		     // = LACP(= 0x01)
-+/* Link Aggregation Control Protocol (LACP) data unit structure
-+   (43.4.2.2 in the 802.3ad standard) */
-+struct lacpdu {
-+	u8 subtype;			/* LACP(= 0x01) */
- 	u8 version_number;
--	u8 tlv_type_actor_info;	      // = actor information(type/length/value)
--	u8 actor_information_length; // = 20
-+	u8 tlv_type_actor_info;		/* actor information TLV */
-+	u8 actor_information_length;	/* = 20 */
- 	__be16 actor_system_priority;
- 	struct mac_addr actor_system;
- 	__be16 actor_key;
- 	__be16 actor_port_priority;
- 	__be16 actor_port;
- 	u8 actor_state;
--	u8 reserved_3_1[3];	     // = 0
--	u8 tlv_type_partner_info;     // = partner information
--	u8 partner_information_length;	 // = 20
-+	u8 reserved_3_1[3];		/* = 0 */
-+	u8 tlv_type_partner_info;	/* partner information */
-+	u8 partner_information_length;	/* = 20 */
- 	__be16 partner_system_priority;
- 	struct mac_addr partner_system;
- 	__be16 partner_key;
- 	__be16 partner_port_priority;
- 	__be16 partner_port;
- 	u8 partner_state;
--	u8 reserved_3_2[3];	     // = 0
--	u8 tlv_type_collector_info;	  // = collector information
--	u8 collector_information_length; // = 16
-+	u8 reserved_3_2[3];		 /* = 0 */
-+	u8 tlv_type_collector_info;	 /* collector information */
-+	u8 collector_information_length; /* = 16 */
- 	__be16 collector_max_delay;
- 	u8 reserved_12[12];
--	u8 tlv_type_terminator;	     // = terminator
--	u8 terminator_length;	     // = 0
--	u8 reserved_50[50];	     // = 0
--} lacpdu_t;
+-typedef struct lacpdu_header {
+-	struct ethhdr hdr;
+-	struct lacpdu lacpdu;
+-} lacpdu_header_t;
 -
--// Marker Protocol Data Unit(PDU) structure(43.5.3.2 in the 802.3ad standard)
--typedef struct bond_marker {
--	u8 subtype;		 //  = 0x02  (marker PDU)
--	u8 version_number;	 //  = 0x01
--	u8 tlv_type;		 //  = 0x01  (marker information)
--	//  = 0x02  (marker response information)
--	u8 marker_length;	 //  = 0x16
--	u16 requester_port;	 //   The number assigned to the port by the requester
--	struct mac_addr requester_system;      //   The requester's system id
--	u32 requester_transaction_id;	//   The transaction id allocated by the requester,
--	u16 pad;		 //  = 0
--	u8 tlv_type_terminator;	     //  = 0x00
--	u8 terminator_length;	     //  = 0x00
--	u8 reserved_90[90];	     //  = 0
--} bond_marker_t;
-+	u8 tlv_type_terminator;		/* terminator */
-+	u8 terminator_length;		/* = 0 */
-+	u8 reserved_50[50];		/* = 0 */
-+};
-+
-+/* Marker Protocol Data Unit (PDU) structure (43.5.3.2 in the 802.3ad
-+   standard) */
-+struct bond_marker {
-+	u8 subtype;			/* = 0x02 (marker PDU) */
-+	u8 version_number;		/* = 0x01 */
-+	u8 tlv_type;			/* 0x01: marker info,
-+					   0x02: marker response info */
-+	u8 marker_length;		/* = 0x16 */
-+	u16 requester_port;		/* number assigned to the port
-+					   requester */
-+	struct mac_addr requester_system; /* he requester's system id */
-+	u32 requester_transaction_id;	/* transaction id allocated by
-+					   requester */
-+	u16 pad;			/* = 00 */
-+	u8 tlv_type_terminator;		/* = 0x00 */
-+	u8 terminator_length;		/* = 0x00 */
-+	u8 reserved_90[90];		/* = 0 */
-+};
- 
- #pragma pack()
- 
+ // Marker Protocol Data Unit(PDU) structure(43.5.3.2 in the 802.3ad standard)
+ typedef struct bond_marker {
+ 	u8 subtype;		 //  = 0x02  (marker PDU)
 
 -- 
