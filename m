@@ -1,65 +1,43 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 2/2] refactor full duplex flow control resolution
-Date: Tue, 23 Dec 2008 17:45:35 +0000
-Message-ID: <1230054335.3402.29.camel@deadeye.i.decadent.org.uk>
+Subject: Re: [RFC PATCH 1/2] move flow control definitions to mii.h
+Date: Tue, 23 Dec 2008 17:47:30 +0000
+Message-ID: <1230054450.3402.31.camel@deadeye.i.decadent.org.uk>
 References: <1229258301-5073-1-git-send-email-steve.glendinning@smsc.com>
 	 <1229258301-5073-2-git-send-email-steve.glendinning@smsc.com>
-	 <1229258301-5073-3-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>
 To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:2495 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:2501 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750916AbYLWRpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 12:45:39 -0500
-In-Reply-To: <1229258301-5073-3-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1750955AbYLWRrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 12:47:33 -0500
+In-Reply-To: <1229258301-5073-2-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Sun, 2008-12-14 at 12:38 +0000, Steve Glendinning wrote:
 [...]
-> +/**
-> + * mii_resolve_flowctrl_fdx
-> + * @lcladv: value of MII ADVERTISE register
-> + * @rmtadv: value of MII LPA register
-> + *
-> + * Resolve full duplex flow control as per IEEE 802.3-2005 table 28B-3
-> + */
-> +static inline u8 mii_resolve_flowctrl_fdx(u16 lcladv, u16 rmtadv)
-> +{
-> +	u8 cap = 0;
+> diff --git a/include/linux/mii.h b/include/linux/mii.h
+> index 151b7e0..4a376e0 100644
+> --- a/include/linux/mii.h
+> +++ b/include/linux/mii.h
+> @@ -135,6 +135,10 @@
+>  #define LPA_1000FULL            0x0800  /* Link partner 1000BASE-T full duplex */
+>  #define LPA_1000HALF            0x0400  /* Link partner 1000BASE-T half duplex */
+>  
+> +/* Flow control flags */
+> +#define FLOW_CTRL_TX		0x01
+> +#define FLOW_CTRL_RX		0x02
 > +
-> +	if (lcladv & ADVERTISE_PAUSE_CAP) {
-> +		if (lcladv & ADVERTISE_PAUSE_ASYM) {
-> +			if (rmtadv & LPA_PAUSE_CAP)
-> +				cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
-> +			else if (rmtadv & LPA_PAUSE_ASYM)
-> +				cap = FLOW_CTRL_RX;
-> +		} else {
-> +			if (rmtadv & LPA_PAUSE_CAP)
-> +				cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
-> +		}
-> +	} else if (lcladv & ADVERTISE_PAUSE_ASYM) {
-> +		if ((rmtadv & LPA_PAUSE_CAP) && (rmtadv & LPA_PAUSE_ASYM))
-> +			cap = FLOW_CTRL_TX;
-> +	}
-> +
-> +	return cap;
-> +}
+>  /* This structure is used in all SIOCxMIIxxx ioctl calls */
+>  struct mii_ioctl_data {
+>  	__u16		phy_id;
 
-There's a rather more elegant way to write this, which is:
-
-	if (lcladv & rmtadv & ADVERTISE_PAUSE_CAP) {
-		cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
-	} else if (lcladv & rmtadv & ADVERTISE_PAUSE_ASYM) {
-		if (lcladv & ADVERTISE_PAUSE_CAP)
-			cap = FLOW_CTRL_RX;
-		else if (rmtadv & ADVERTISE_PAUSE_CAP)
-			cap = FLOW_CTRL_TX;
-	}
+How about a FLOW_CTRL_AUTO flag to represent whether auto-negotiation of
+FC is enabled (or inversely FLOW_CTRL_FORCE)?
 
 Ben.
 
