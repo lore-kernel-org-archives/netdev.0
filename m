@@ -1,14 +1,17 @@
 From: Vladislav Bolkhovitin <vst@vlnb.net>
 Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
  space data
-Date: Tue, 23 Dec 2008 22:13:40 +0300
-Message-ID: <49513864.7030306@vlnb.net>
-References: <494009D7.4020602@vlnb.net> <494012C4.7090304@vlnb.net> <494C0255.8010208@goop.org>
+Date: Tue, 23 Dec 2008 22:14:05 +0300
+Message-ID: <4951387D.2030003@vlnb.net>
+References: <494C0255.8010208@goop.org> <20081220103209.GA23632@ioremap.net> <494D49E6.9000703@goop.org> <200812221113.24044.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-scsi@vger.kernel.org,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
 	Mike Christie <michaelc@cs.wisc.edu>,
@@ -18,58 +21,67 @@ Cc: linux-scsi@vger.kernel.org,
 	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
 	Bart Van Assche <bart.vanassche@gmail.com>,
 	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:53063 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.171]:55730 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751022AbYLWTNk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 14:13:40 -0500
-In-Reply-To: <494C0255.8010208@goop.org>
+	with ESMTP id S1751143AbYLWTOz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 14:14:55 -0500
+In-Reply-To: <200812221113.24044.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeremy Fitzhardinge, on 12/19/2008 11:21 PM wrote:
-
-[...]
-
-> As with your case, we can simply copy the page data if this mechanism 
-> isn't available.  But it would be nice if it were.
+Rusty Russell, on 12/22/2008 03:43 AM wrote:
+> On Sunday 21 December 2008 06:09:18 Jeremy Fitzhardinge wrote:
+>> Evgeniy Polyakov wrote:
+>>> Things should work fine, since pskb_expand_head() copies whole shared
+>>> info structure (and thus will copy destructor), get all pages and then
+>>> copy all pointers into the new skb, and then release old skb's data.
+>>>
+>>> So destructor for the pages should not rely on which skb it is called on
+>>> and check if pages are about to be really freed (i.e. check theirs
+>>> reference counter).
+>>>   
+>> OK.
+>>
+>>> __pskb_pull_tail() is tricky, it just puts some pages it does not want
+>>> to be present in the skb, but it could be possible to add there
+>>> destructor callback from the original skb with partial flag (or just
+>>> having destructor with two parameters: skb and page, and if page is not
+>>> NULL, then actually only given page is freed, otherwise the whole skb).
+>>>   
+>> Yes, that doesn't sound too bad.
 > 
->> 1. Add net_priv analog in struct sk_buff, not in struct page. But then 
->> it would be required that all the pages in each skb must be from the 
->> same originator, i.e. with the same net_priv. It is unpractical to 
->> change all the operations with skb's to forbid merging them, if they 
->> have different net_priv. I tried, but quickly gave up. There are too 
->> many such places in very not obvious code pieces.
->>   
+> That would be one approach.  Actually, my patch solved this by keeping a
+> parent ref in various cases if the parent had a destructor: we only destroy
+> the parent when all the clones are gone.
 > 
-> I think Rusty has a patch to put some kind of put notifier in struct 
-> skb_shared_info, but I'm not sure of the details.
+> Here's the patch for reference:
 > 
->> 2. Have in iSCSI-SCST a hashed list to translate page to iSCSI cmd by a 
->> simple search function. This approach was rejected, because to copy a 
->> page a modern CPU needs using MMX about 1500 ticks.
+> net: add destructor for skb data.
 > 
-> Is that the cold cache timing?
-
-Should be L2 cache hot, which is almost always the case if FILEIO is 
-used, because data are just copied from the page cache. Although, 
-frankly, at the moment I can't find from where I got that number..
-
->>  It was observed, 
->> that each page can be referenced by TCP during transmit about 20 times 
->> or even more. So, if each search needs, say, 20 ticks, the overall 
->> search time will be 20*20*2 (to get() and put()) = 800 ticks. So, this 
->> approach would considerably worse performance-wise to the chosen 
->> approach and provide not too much benefit.
+> If we want to notify something when an skb is truly finished (such as
+> for tun vringfd support), we need a destructor on the data.
 > 
-> Wouldn't you only need to do the lookup on the last put?
+> This turns out to be slightly non-trivial as fragments from one skb
+> get copied to another skb: if the first skb has a destructor (or its
+> parent does) we need to keep a reference to it and destroy it only
+> when (all the) children are destroyed.  We add an 'orig' pointer to
+> the skb_shared_info to do this.
+> 
+> But there's currently no way to get from the shinfo to the head (to
+> kfree it), so we add a 'len' field.  A better alternative to this
+> might be to move the skb_shared_info to before the head of the skb data.
+> 
+> Note that the destructor is responsible for calling kfree: for the tun
+> device, this is critical since the destructor can be called from any
+> context and it has to do a copy_to_user, so it queues the skb.
 
-No, because you can't say which one is the last. E.g., a page can be 
-mmaped to another process, while it's being transmitted. So, the only 
-possible way is to track all gets and puts done by networking using some 
-external reference counting (net_ref_cnt in case if iscsi-scst).
+Rusty,
 
+Can you describe how one should use your patch, please? Maybe, there is 
+some code you use to test it?
+
+Thanks,
 Vlad
