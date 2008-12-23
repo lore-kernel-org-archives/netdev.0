@@ -1,42 +1,69 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 02/27] drivers/net: fix sparse warnings: make do-while a compound statement
-Date: Tue, 23 Dec 2008 18:36:22 +0100
-Message-ID: <m3k59qssix.fsf@maximus.localdomain>
-References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
-	<20081222191507.11807.50794.stgit@vmbox.hanneseder.net>
-	<m3hc4voo2a.fsf@maximus.localdomain>
-	<a01a16b50812221544x45c3559ap808ac0095ee8f01@mail.gmail.com>
-	<m3ocz2ua3w.fsf@maximus.localdomain> <1230053186.1447.9.camel@brick>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH 2/2] refactor full duplex flow control resolution
+Date: Tue, 23 Dec 2008 17:45:35 +0000
+Message-ID: <1230054335.3402.29.camel@deadeye.i.decadent.org.uk>
+References: <1229258301-5073-1-git-send-email-steve.glendinning@smsc.com>
+	 <1229258301-5073-2-git-send-email-steve.glendinning@smsc.com>
+	 <1229258301-5073-3-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	=?utf-8?B?SMOla29uIEzDuHZkYWw=?= <hlovdal@gmail.com>,
-	Hannes Eder <hannes@hanneseder.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>
+To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:35942 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751174AbYLWRgY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2008 12:36:24 -0500
-In-Reply-To: <1230053186.1447.9.camel@brick> (Harvey Harrison's message of "Tue\, 23 Dec 2008 09\:26\:26 -0800")
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:2495 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750916AbYLWRpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 12:45:39 -0500
+In-Reply-To: <1229258301-5073-3-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Harvey Harrison <harvey.harrison@gmail.com> writes:
+On Sun, 2008-12-14 at 12:38 +0000, Steve Glendinning wrote:
+[...]
+> +/**
+> + * mii_resolve_flowctrl_fdx
+> + * @lcladv: value of MII ADVERTISE register
+> + * @rmtadv: value of MII LPA register
+> + *
+> + * Resolve full duplex flow control as per IEEE 802.3-2005 table 28B-3
+> + */
+> +static inline u8 mii_resolve_flowctrl_fdx(u16 lcladv, u16 rmtadv)
+> +{
+> +	u8 cap = 0;
+> +
+> +	if (lcladv & ADVERTISE_PAUSE_CAP) {
+> +		if (lcladv & ADVERTISE_PAUSE_ASYM) {
+> +			if (rmtadv & LPA_PAUSE_CAP)
+> +				cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
+> +			else if (rmtadv & LPA_PAUSE_ASYM)
+> +				cap = FLOW_CTRL_RX;
+> +		} else {
+> +			if (rmtadv & LPA_PAUSE_CAP)
+> +				cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
+> +		}
+> +	} else if (lcladv & ADVERTISE_PAUSE_ASYM) {
+> +		if ((rmtadv & LPA_PAUSE_CAP) && (rmtadv & LPA_PAUSE_ASYM))
+> +			cap = FLOW_CTRL_TX;
+> +	}
+> +
+> +	return cap;
+> +}
 
->> There are many ways to make the code more merge friendly at a cost of
->> readability. Hope we don't go this way.
->
-> Linus himself added that particular warning to sparse...may want to check
-> with him the reason for it.
+There's a rather more elegant way to write this, which is:
 
-Once again, this is a personal thing, and a harmless one.
+	if (lcladv & rmtadv & ADVERTISE_PAUSE_CAP) {
+		cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
+	} else if (lcladv & rmtadv & ADVERTISE_PAUSE_ASYM) {
+		if (lcladv & ADVERTISE_PAUSE_CAP)
+			cap = FLOW_CTRL_RX;
+		else if (rmtadv & ADVERTISE_PAUSE_CAP)
+			cap = FLOW_CTRL_TX;
+	}
 
-Sometimes I think using this sparse thing does more harm than good.
-Not that the tool itself is bad - I find it really useful, many sparse
-warnings actually did cause code improvement.
+Ben.
 
-It's like with knives, there are good uses and a bit less good ones.
 -- 
-Krzysztof Halasa
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
