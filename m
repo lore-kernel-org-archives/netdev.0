@@ -1,17 +1,17 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Subject: Re: [RFC] [Patch 2/4] dccp: Lockless use of CCID blocks
-Date: Tue, 23 Dec 2008 18:08:23 +0100
-Message-ID: <20081223170823.GA3855@gerrit.erg.abdn.ac.uk>
+Date: Tue, 23 Dec 2008 18:17:29 +0100
+Message-ID: <20081223171729.GB3855@gerrit.erg.abdn.ac.uk>
 References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net> <20081220080813.GC3853@gerrit.erg.abdn.ac.uk> <20081221003239.GA5700@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50081 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50146 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750782AbYLWRTd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Dec 2008 12:19:33 -0500
+	id S1750955AbYLWRXP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Dec 2008 12:23:15 -0500
 Content-Disposition: inline
 In-Reply-To: <20081221003239.GA5700@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
