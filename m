@@ -1,134 +1,65 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 5/5] qlge: bugfix: Fix register access error checking.
-Date: Wed, 24 Dec 2008 10:21:36 -0800
-Message-ID: <1230142896-15533-5-git-send-email-ron.mercer@qlogic.com>
+Subject: [PATCH 4/5] qlge: bugfix: Fix rx ring and large and small rx buffer length settings.
+Date: Wed, 24 Dec 2008 10:21:35 -0800
+Message-ID: <1230142896-15533-4-git-send-email-ron.mercer@qlogic.com>
 References: <20081224181834.GA15470@susedev.qlogic.org>
 Cc: ron.mercer@qlogic.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:27618 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbYLXSVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 13:21:37 -0500
+	with ESMTP id S1751183AbYLXSVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 13:21:36 -0500
 In-Reply-To: <20081224181834.GA15470@susedev.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some indexed register do not have error bits.  In this case a
-value of zero should be used for error checking.
+The length field for rx ring and buffer rings is 16-bits.  To indicate
+a maximum length of 65536 the value should be set to zero.
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge_main.c |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/qlge/qlge_main.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index b58f5df..db226c5 100755
+index 92dc3f7..b58f5df 100755
 --- a/drivers/net/qlge/qlge_main.c
 +++ b/drivers/net/qlge/qlge_main.c
-@@ -257,7 +257,7 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
- 		{
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
- 			if (status)
- 				goto exit;
- 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
-@@ -265,13 +265,13 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
- 				   MAC_ADDR_ADR | MAC_ADDR_RS | type); /* type */
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MR, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MR, 0);
- 			if (status)
- 				goto exit;
- 			*value++ = ql_read32(qdev, MAC_ADDR_DATA);
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
- 			if (status)
- 				goto exit;
- 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
-@@ -279,14 +279,14 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
- 				   MAC_ADDR_ADR | MAC_ADDR_RS | type); /* type */
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MR, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MR, 0);
- 			if (status)
- 				goto exit;
- 			*value++ = ql_read32(qdev, MAC_ADDR_DATA);
- 			if (type == MAC_ADDR_TYPE_CAM_MAC) {
- 				status =
- 				    ql_wait_reg_rdy(qdev,
--					MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
-+					MAC_ADDR_IDX, MAC_ADDR_MW, 0);
- 				if (status)
- 					goto exit;
- 				ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
-@@ -294,7 +294,7 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
- 					   MAC_ADDR_ADR | MAC_ADDR_RS | type); /* type */
- 				status =
- 				    ql_wait_reg_rdy(qdev, MAC_ADDR_IDX,
--						    MAC_ADDR_MR, MAC_ADDR_E);
-+						    MAC_ADDR_MR, 0);
- 				if (status)
- 					goto exit;
- 				*value++ = ql_read32(qdev, MAC_ADDR_DATA);
-@@ -344,7 +344,7 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
+@@ -2491,8 +2491,9 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
  
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
- 			if (status)
- 				goto exit;
- 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
-@@ -353,7 +353,7 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
- 			ql_write32(qdev, MAC_ADDR_DATA, lower);
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
- 			if (status)
- 				goto exit;
- 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
-@@ -362,7 +362,7 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
- 			ql_write32(qdev, MAC_ADDR_DATA, upper);
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
- 			if (status)
- 				goto exit;
- 			ql_write32(qdev, MAC_ADDR_IDX, (offset) |	/* offset */
-@@ -400,7 +400,7 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
+ 	memset((void *)cqicb, 0, sizeof(struct cqicb));
+ 	cqicb->msix_vect = rx_ring->irq;
++	bq_len = (rx_ring->cq_len == 65536) ? 0 : (u16)rx_ring->cq_len;
  
- 			status =
- 			    ql_wait_reg_rdy(qdev,
--				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
-+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
- 			if (status)
- 				goto exit;
- 			ql_write32(qdev, MAC_ADDR_IDX, offset |	/* offset */
-@@ -431,13 +431,13 @@ int ql_get_routing_reg(struct ql_adapter *qdev, u32 index, u32 *value)
- 	if (status)
- 		goto exit;
+-	cqicb->len = cpu_to_le16(rx_ring->cq_len | LEN_V | LEN_CPP_CONT);
++	cqicb->len = cpu_to_le16(bq_len | LEN_V | LEN_CPP_CONT);
  
--	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MW, RT_IDX_E);
-+	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MW, 0);
- 	if (status)
- 		goto exit;
- 
- 	ql_write32(qdev, RT_IDX,
- 		   RT_IDX_TYPE_NICQ | RT_IDX_RS | (index << RT_IDX_IDX_SHIFT));
--	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MR, RT_IDX_E);
-+	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MR, 0);
- 	if (status)
- 		goto exit;
- 	*value = ql_read32(qdev, RT_DATA);
+ 	cqicb->addr_lo = cpu_to_le32(rx_ring->cq_base_dma);
+ 	cqicb->addr_hi = cpu_to_le32((u64) rx_ring->cq_base_dma >> 32);
+@@ -2514,8 +2515,9 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
+ 		    cpu_to_le32(rx_ring->lbq_base_indirect_dma);
+ 		cqicb->lbq_addr_hi =
+ 		    cpu_to_le32((u64) rx_ring->lbq_base_indirect_dma >> 32);
+-		cqicb->lbq_buf_size = cpu_to_le32(rx_ring->lbq_buf_size);
+-		bq_len = (u16) rx_ring->lbq_len;
++		bq_len = (rx_ring->lbq_buf_size == 65536) ? 0 : (u16)rx_ring->lbq_buf_size;
++		cqicb->lbq_buf_size = cpu_to_le16(bq_len);
++		bq_len = (rx_ring->lbq_len == 65536) ? 0 : (u16)rx_ring->lbq_len;
+ 		cqicb->lbq_len = cpu_to_le16(bq_len);
+ 		rx_ring->lbq_prod_idx = rx_ring->lbq_len - 16;
+ 		rx_ring->lbq_curr_idx = 0;
+@@ -2530,8 +2532,8 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
+ 		cqicb->sbq_addr_hi =
+ 		    cpu_to_le32((u64) rx_ring->sbq_base_indirect_dma >> 32);
+ 		cqicb->sbq_buf_size =
+-		    cpu_to_le16(((rx_ring->sbq_buf_size / 2) + 8) & 0xfffffff8);
+-		bq_len = (u16) rx_ring->sbq_len;
++		    cpu_to_le16((u16)(rx_ring->sbq_buf_size/2));
++		bq_len = (rx_ring->sbq_len == 65536) ? 0 : (u16)rx_ring->sbq_len;
+ 		cqicb->sbq_len = cpu_to_le16(bq_len);
+ 		rx_ring->sbq_prod_idx = rx_ring->sbq_len - 16;
+ 		rx_ring->sbq_curr_idx = 0;
 -- 
 1.6.0
 
