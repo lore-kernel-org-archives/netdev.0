@@ -1,49 +1,54 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 02/27] drivers/net: fix sparse warnings: make do-while
- a compound statement
-Date: Tue, 23 Dec 2008 18:10:27 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0812231808030.3535@localhost.localdomain>
-References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net> <20081222191507.11807.50794.stgit@vmbox.hanneseder.net> <m3hc4voo2a.fsf@maximus.localdomain> <a01a16b50812221544x45c3559ap808ac0095ee8f01@mail.gmail.com> <m3ocz2ua3w.fsf@maximus.localdomain>
- <1230053186.1447.9.camel@brick> <m3k59qssix.fsf@maximus.localdomain> <alpine.LFD.2.00.0812231008350.3535@localhost.localdomain> <m3hc4usco9.fsf@maximus.localdomain> <alpine.LFD.2.00.0812231529030.3535@localhost.localdomain>
- <m3myemqqgp.fsf@maximus.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: ipsec: Remove useless ret variable
+Date: Wed, 24 Dec 2008 16:37:24 +1100
+Message-ID: <20081224053724.GA23476@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Harvey Harrison <harvey.harrison@gmail.com>,
-	=?ISO-8859-15?Q?H=E5kon_L=F8vdal?= <hlovdal@gmail.com>,
-	Hannes Eder <hannes@hanneseder.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49191 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751577AbYLXCKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Dec 2008 21:10:35 -0500
-In-Reply-To: <m3myemqqgp.fsf@maximus.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:60259 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750701AbYLXFh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 00:37:28 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi:
 
+ipsec: Remove useless ret variable
 
-On Wed, 24 Dec 2008, Krzysztof Halasa wrote:
-> 
-> People learn, or should, through the life :-)
+This patch removes a useless ret variable from the IPv4 ESP/UDP
+decapsulation code.
 
-Sure. But you should learn about the things that matter - not learn to 
-avoid the stupid pitfalls that come from confusingly doing things so that 
-they visually look similar even when they do different things.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-So don't make people learn by putting traps in their face. That just 
-wastes everybodys time.
+diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
+index 390dcb1..4ec2162 100644
+--- a/net/ipv4/xfrm4_input.c
++++ b/net/ipv4/xfrm4_input.c
+@@ -78,7 +78,6 @@ int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
+ 	struct udphdr *uh;
+ 	struct iphdr *iph;
+ 	int iphlen, len;
+-	int ret;
+ 
+ 	__u8 *udpdata;
+ 	__be32 *udpdata32;
+@@ -152,8 +151,7 @@ int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
+ 	skb_reset_transport_header(skb);
+ 
+ 	/* process ESP */
+-	ret = xfrm4_rcv_encap(skb, IPPROTO_ESP, 0, encap_type);
+-	return ret;
++	return xfrm4_rcv_encap(skb, IPPROTO_ESP, 0, encap_type);
+ 
+ drop:
+ 	kfree_skb(skb);
 
-> I'm not sure being common or less common does matter here much.
-> 
-> OTOH I think it's pretty common. Approx as common as while (x) y is,
-> isn't it?
-
-I doubt it. It certainly wasn't in the kernel. When we added the sparse 
-warning, I think we got a couple of hits. 
-
-Anyway,  not worth discussing. The fact is, the kernel does not accept do 
-while without braces. I told you why. You can ignore it. I'll ignore you.
-
-		Linus
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
