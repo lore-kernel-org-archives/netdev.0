@@ -1,65 +1,74 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 4/5] qlge: bugfix: Fix rx ring and large and small rx buffer length settings.
-Date: Wed, 24 Dec 2008 10:21:35 -0800
-Message-ID: <1230142896-15533-4-git-send-email-ron.mercer@qlogic.com>
-References: <20081224181834.GA15470@susedev.qlogic.org>
-Cc: ron.mercer@qlogic.com
-To: netdev@vger.kernel.org
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH] [IPSEC]: Change the ICV length of sha256 to 128 bits
+Date: Wed, 24 Dec 2008 11:33:55 -0700
+Message-ID: <20081224183355.GB26084@obsidianresearch.com>
+References: <20081224060225.GA26084@obsidianresearch.com> <20081224085940.GA24830@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:27618 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183AbYLXSVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 13:21:36 -0500
-In-Reply-To: <20081224181834.GA15470@susedev.qlogic.org>
+Received: from quartz.orcorp.ca ([142.179.161.236]:48302 "EHLO
+	quartz.edm.orcorp.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750946AbYLXSd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 13:33:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20081224085940.GA24830@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The length field for rx ring and buffer rings is 16-bits.  To indicate
-a maximum length of 65536 the value should be set to zero.
-
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge_main.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 92dc3f7..b58f5df 100755
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -2491,8 +2491,9 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
+On Wed, Dec 24, 2008 at 07:59:40PM +1100, Herbert Xu wrote:
+> On Tue, Dec 23, 2008 at 11:02:25PM -0700, Jason Gunthorpe wrote:
+> > The existing setting is 96 bits which does not match the RFCs and is
+> > not negotiable via IKEv2. RFC 4868 says the ICV should be 128 bits,
+> > and IKEv2 uses AUTH_HMAC_SHA2_256_128 = 12 to identify it.
+> > 
+> > git blame says this setting was made before RFC 4868 was published,
+> > so I'm not sure that it was chosen with any standard in mind.
+> > 
+> > NOTE: This 'breaks' the user space API, however at least StrongSwan
+> > 4.2.9's charon already associates AUTH_HMAC_SHA2_256_128 with
+> > the transform name 'sha256'.
+> > 
+> > Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
  
- 	memset((void *)cqicb, 0, sizeof(struct cqicb));
- 	cqicb->msix_vect = rx_ring->irq;
-+	bq_len = (rx_ring->cq_len == 65536) ? 0 : (u16)rx_ring->cq_len;
- 
--	cqicb->len = cpu_to_le16(rx_ring->cq_len | LEN_V | LEN_CPP_CONT);
-+	cqicb->len = cpu_to_le16(bq_len | LEN_V | LEN_CPP_CONT);
- 
- 	cqicb->addr_lo = cpu_to_le32(rx_ring->cq_base_dma);
- 	cqicb->addr_hi = cpu_to_le32((u64) rx_ring->cq_base_dma >> 32);
-@@ -2514,8 +2515,9 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
- 		    cpu_to_le32(rx_ring->lbq_base_indirect_dma);
- 		cqicb->lbq_addr_hi =
- 		    cpu_to_le32((u64) rx_ring->lbq_base_indirect_dma >> 32);
--		cqicb->lbq_buf_size = cpu_to_le32(rx_ring->lbq_buf_size);
--		bq_len = (u16) rx_ring->lbq_len;
-+		bq_len = (rx_ring->lbq_buf_size == 65536) ? 0 : (u16)rx_ring->lbq_buf_size;
-+		cqicb->lbq_buf_size = cpu_to_le16(bq_len);
-+		bq_len = (rx_ring->lbq_len == 65536) ? 0 : (u16)rx_ring->lbq_len;
- 		cqicb->lbq_len = cpu_to_le16(bq_len);
- 		rx_ring->lbq_prod_idx = rx_ring->lbq_len - 16;
- 		rx_ring->lbq_curr_idx = 0;
-@@ -2530,8 +2532,8 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
- 		cqicb->sbq_addr_hi =
- 		    cpu_to_le32((u64) rx_ring->sbq_base_indirect_dma >> 32);
- 		cqicb->sbq_buf_size =
--		    cpu_to_le16(((rx_ring->sbq_buf_size / 2) + 8) & 0xfffffff8);
--		bq_len = (u16) rx_ring->sbq_len;
-+		    cpu_to_le16((u16)(rx_ring->sbq_buf_size/2));
-+		bq_len = (rx_ring->sbq_len == 65536) ? 0 : (u16)rx_ring->sbq_len;
- 		cqicb->sbq_len = cpu_to_le16(bq_len);
- 		rx_ring->sbq_prod_idx = rx_ring->sbq_len - 16;
- 		rx_ring->sbq_curr_idx = 0;
--- 
-1.6.0
+> The 96 bits is actually still correct for the auth algorithm IDs
+> 5, 6, and 7.  The parameters in 4868 have been assigned new IDs
+> starting from 12.
 
+Oh? Ok, I didn't realize there was something that defined those usages
+on PF_KEY. They are not defined for use with IKEv2 at all..
+
+BTW, is there some reason why SADB_X_AALG_SHA2_384HMAC and
+SADB_X_AALG_SHA2_512HMAC are absent from the table in xfrm_algos?
+
+> This is easy to do for af_key as it uses IDs to identify the
+> algorithms.  To make this work for xfrm, we need to extend the
+> auth algorithm specification to include the truncation length,
+> just like AEAD.
+
+Yes, I was already thinking this was the best way to support the
+128/160 bit ICV lens for MD5/SHA1 that are now defined.
+
+> So if you feel adventurous, please prepare a patch to create a
+> new xfrm attribute XFRMA_AUTH2 that uses xfrm_algo_aead instead
+> of xfrm_algo, and allow that in place of XFRMA_AUTH.
+
+Thats not too hard, I might have a little time to do that over the
+break.
+
+> After that we can restructure the auth algorithm list to be like
+> AEAD and then you can add a new set of SHA algorithms for RFC 4868.
+
+It seems like those can be added today, they already have unique
+names: hmac(sha384), hmac(sha512)
+
+BTW, Herbert, if this is the way to go can you fix StrongSwan?
+Mapping AUTH_HMAC_SHA2_256_128 to 'sha256' in
+src/charon/plugins/kernel_netlink/kernel_netlink_ipsec.c is not
+correct based on this discussion. It needs to be 'hmac(sha256)' and
+use this XFRMA_AUTH2 idea. Similarly for all the SHA-2 family of
+functions I guess.
+
+Thanks,
+Jason
