@@ -1,44 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [IPSEC]: Change the ICV length of sha256 to 128 bits
-Date: Thu, 25 Dec 2008 07:41:53 +1100
-Message-ID: <20081224204152.GB32060@gondor.apana.org.au>
-References: <20081224060225.GA26084@obsidianresearch.com> <20081224085940.GA24830@gondor.apana.org.au> <20081224183355.GB26084@obsidianresearch.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 3/5] qlge: bugfix: Fix endian issue regarding shadow
+	registers.
+Date: Wed, 24 Dec 2008 16:15:21 -0500
+Message-ID: <20081224211521.GA25617@infradead.org>
+References: <20081224181834.GA15470@susedev.qlogic.org> <1230142896-15533-3-git-send-email-ron.mercer@qlogic.com> <1230143731.3070.2.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	Andreas Steffen <andreas.steffen@strongswan.org>,
-	Martin Willi <martin@strongswan.org>
+Cc: Ron Mercer <ron.mercer@qlogic.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43083 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750952AbYLXUmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 15:42:03 -0500
+Received: from bombadil.infradead.org ([18.85.46.34]:34668 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952AbYLXVPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 16:15:23 -0500
 Content-Disposition: inline
-In-Reply-To: <20081224183355.GB26084@obsidianresearch.com>
+In-Reply-To: <1230143731.3070.2.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 24, 2008 at 11:33:55AM -0700, Jason Gunthorpe wrote:
->
-> BTW, Herbert, if this is the way to go can you fix StrongSwan?
+On Wed, Dec 24, 2008 at 06:35:31PM +0000, Ben Hutchings wrote:
+> > -static inline unsigned int ql_read_sh_reg(const volatile void  *addr)
+> > +static inline u32 ql_read_sh_reg(const volatile void  *addr)
+> >  {
+> > -	return *(volatile unsigned int __force *)addr;
+> > +	return le32_to_cpu(*(volatile unsigned int __force *)addr);
+> 
+> I think that should be:
+> 	???return le32_to_cpu(*(const volatile __le32 *)addr);
 
-No I can't since I'm not a Strongswan developer :)
+No.  It needs more love than that.
 
-I've cced the people who can though.
+ql_read_sh_reg is only used to access .prod_idx_sh_reg in the rx_ring
+structure, which is an offset from the .rx_ring_shadow_reg_area member.
+So instead of all this werid casting .prod_idx_sh_reg should simply
+be a __le32 pointer, whithout volatile and the other mess, and then
+you can use le32_to_cpu directly and kill the helper.
 
-> Mapping AUTH_HMAC_SHA2_256_128 to 'sha256' in
-> src/charon/plugins/kernel_netlink/kernel_netlink_ipsec.c is not
-> correct based on this discussion. It needs to be 'hmac(sha256)' and
-> use this XFRMA_AUTH2 idea. Similarly for all the SHA-2 family of
-> functions I guess.
-
-Strongswan needs to drop SHA2-256-128 for now since we don't support
-it currently.  Once we have XFRMA_AUTH2 it can be restored of course.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+And please verify the whole driver for endianess issues using sparse
+while you're at it...
