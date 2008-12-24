@@ -1,74 +1,65 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH] [IPSEC]: Change the ICV length of sha256 to 128 bits
-Date: Wed, 24 Dec 2008 11:33:55 -0700
-Message-ID: <20081224183355.GB26084@obsidianresearch.com>
-References: <20081224060225.GA26084@obsidianresearch.com> <20081224085940.GA24830@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/5] qlge: bugfix: Fix endian issue regarding shadow
+	registers.
+Date: Wed, 24 Dec 2008 18:35:31 +0000
+Message-ID: <1230143731.3070.2.camel@achroite>
+References: <20081224181834.GA15470@susedev.qlogic.org>
+	 <1230142896-15533-3-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([142.179.161.236]:48302 "EHLO
-	quartz.edm.orcorp.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750946AbYLXSd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 13:33:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20081224085940.GA24830@gondor.apana.org.au>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:53814 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751273AbYLXSfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 13:35:34 -0500
+In-Reply-To: <1230142896-15533-3-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 24, 2008 at 07:59:40PM +1100, Herbert Xu wrote:
-> On Tue, Dec 23, 2008 at 11:02:25PM -0700, Jason Gunthorpe wrote:
-> > The existing setting is 96 bits which does not match the RFCs and is
-> > not negotiable via IKEv2. RFC 4868 says the ICV should be 128 bits,
-> > and IKEv2 uses AUTH_HMAC_SHA2_256_128 = 12 to identify it.
-> > 
-> > git blame says this setting was made before RFC 4868 was published,
-> > so I'm not sure that it was chosen with any standard in mind.
-> > 
-> > NOTE: This 'breaks' the user space API, however at least StrongSwan
-> > 4.2.9's charon already associates AUTH_HMAC_SHA2_256_128 with
-> > the transform name 'sha256'.
-> > 
-> > Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
- 
-> The 96 bits is actually still correct for the auth algorithm IDs
-> 5, 6, and 7.  The parameters in 4868 have been assigned new IDs
-> starting from 12.
+On Wed, 2008-12-24 at 10:21 -0800, Ron Mercer wrote:
+> Shadow registers are host memory locations that the chip echos queue =
+indexes to.
+> The chip does this in little endian values, so they need to be swappe=
+d before referencing.
+>=20
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> ---
+>  drivers/net/qlge/qlge.h |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+>  mode change 100644 =3D> 100755 drivers/net/qlge/qlge.h
+>=20
+> diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+> old mode 100644
+> new mode 100755
+> index ba2e1c5..f1751a2
+> --- a/drivers/net/qlge/qlge.h
+> +++ b/drivers/net/qlge/qlge.h
+> @@ -1477,9 +1477,9 @@ static inline void ql_write_db_reg(u32 val, voi=
+d __iomem *addr)
+>   * update the relevant index register and then copy the value to the
+>   * shadow register in host memory.
+>   */
+> -static inline unsigned int ql_read_sh_reg(const volatile void  *addr=
+)
+> +static inline u32 ql_read_sh_reg(const volatile void  *addr)
+>  {
+> -	return *(volatile unsigned int __force *)addr;
+> +	return le32_to_cpu(*(volatile unsigned int __force *)addr);
 
-Oh? Ok, I didn't realize there was something that defined those usages
-on PF_KEY. They are not defined for use with IKEv2 at all..
+I think that should be:
+	=EF=BB=BFreturn le32_to_cpu(*(const volatile __le32 *)addr);
 
-BTW, is there some reason why SADB_X_AALG_SHA2_384HMAC and
-SADB_X_AALG_SHA2_512HMAC are absent from the table in xfrm_algos?
+Ben.
 
-> This is easy to do for af_key as it uses IDs to identify the
-> algorithms.  To make this work for xfrm, we need to extend the
-> auth algorithm specification to include the truncation length,
-> just like AEAD.
+>  }
+> =20
+>  extern char qlge_driver_name[];
 
-Yes, I was already thinking this was the best way to support the
-128/160 bit ICV lens for MD5/SHA1 that are now defined.
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-> So if you feel adventurous, please prepare a patch to create a
-> new xfrm attribute XFRMA_AUTH2 that uses xfrm_algo_aead instead
-> of xfrm_algo, and allow that in place of XFRMA_AUTH.
-
-Thats not too hard, I might have a little time to do that over the
-break.
-
-> After that we can restructure the auth algorithm list to be like
-> AEAD and then you can add a new set of SHA algorithms for RFC 4868.
-
-It seems like those can be added today, they already have unique
-names: hmac(sha384), hmac(sha512)
-
-BTW, Herbert, if this is the way to go can you fix StrongSwan?
-Mapping AUTH_HMAC_SHA2_256_128 to 'sha256' in
-src/charon/plugins/kernel_netlink/kernel_netlink_ipsec.c is not
-correct based on this discussion. It needs to be 'hmac(sha256)' and
-use this XFRMA_AUTH2 idea. Similarly for all the SHA-2 family of
-functions I guess.
-
-Thanks,
-Jason
