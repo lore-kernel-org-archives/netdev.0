@@ -1,39 +1,73 @@
-From: "J. K. Cliburn" <jcliburn@gmail.com>
-Subject: Re: [Bugme-new] [Bug 12282] New: Network data corruption on eee 1000
-Date: Wed, 24 Dec 2008 07:32:36 -0600
-Message-ID: <3400f2f60812240532s23c8f218q51e4717f4231b3bc@mail.gmail.com>
-References: <bug-12282-10286@http.bugzilla.kernel.org/>
-	 <20081223232035.5a5caea9.akpm@linux-foundation.org>
+From: Vladislav Bolkhovitin <vst@vlnb.net>
+Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
+ space data
+Date: Wed, 24 Dec 2008 17:37:51 +0300
+Message-ID: <4952493F.10508@vlnb.net>
+References: <494C1E5E.7070809@goop.org> <20081219223314.GA2736@ioremap.net> <494C50BB.5030809@goop.org> <20081220020250.GA15064@gondor.apana.org.au> <494C8D57.7040808@goop.org> <20081220065105.GA16936@gondor.apana.org.au> <494CA226.9000200@goop.org> <20081220081045.GA17439@gondor.apana.org.au> <20081220103209.GA23632@ioremap.net> <49513909.1050100@vlnb.net> <20081223213817.GB16883@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	"Jie Yang" <jie.yang@atheros.com>
-To: walken@zoy.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:50524 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbYLXNcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 08:32:39 -0500
-Received: by ewy10 with SMTP id 10so3244823ewy.13
-        for <netdev@vger.kernel.org>; Wed, 24 Dec 2008 05:32:37 -0800 (PST)
-In-Reply-To: <20081223232035.5a5caea9.akpm@linux-foundation.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	linux-scsi@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Jeff Garzik <jeff@garzik.org>,
+	Boaz Harrosh <bharrosh@panasas.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, scst-devel@lists.sourceforge.net,
+	Bart Van Assche <bart.vanassche@gmail.com>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20081223213817.GB16883@ioremap.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 24, 2008 at 1:20 AM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
->
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
->
-> On Tue, 23 Dec 2008 21:24:45 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
->
->> http://bugzilla.kernel.org/show_bug.cgi?id=12282
+Evgeniy Polyakov, on 12/24/2008 12:38 AM wrote:
+> On Tue, Dec 23, 2008 at 10:16:25PM +0300, Vladislav Bolkhovitin (vst@vlnb.net) wrote:
+>> Actually, there's another way, which seems to be a lot simpler. Alexey 
+>> Kuznetsov privately suggested it to me.
 >>
->>            Summary: Network data corruption on eee 1000
+>> In skb_shared_info new pointer transaction_token would be added, which 
+>> would point on:
+>>
+>> struct sk_transaction_token
+>> {
+>> 	atomic_t			io_count;
+>> 	struct sk_transaction_token	*next;
+>> 	unsigned long			token;
+>> 	unsigned long			private;
+>> 	void				(*finish_callback)(struct 
+>> 	sk_transaction_token *);
+>> };
+>>
+>> When skb is translated, transaction_token inherited. If 2 skb are merged 
+>> (the same places where I put net_get_page's in my patch), the *older* 
+>> token is inherited. This is the main point of this idea.
+>>
+>> Before starting new asynchronous send a client would open a new token. 
+>> Everything sent then would receive that token. Finish_callback() would 
+>> be called and the corresponding token freed, when io_count == 0 *AND* 
+>> all previous tokens closed.
+>>
+>> This idea seems to be simpler, than even what Rusty implemented. Correct 
+>> me, if I wrong. But, unfortunately, in the near future I will have no 
+>> time to develop it.. :-(
+> 
+> Yes, it is simpler and cleaner, but it requires additional allocation.
+> This is additional (and quite noticeble) overhead.
 
-Do things improve if you turn off TSO in the atl1e driver?
+Not necessary requires. For instance, in iscsi-scst sk_transaction_token 
+can (and should) be part of iSCSI cmd structure, so no additional 
+allocations would be needed.
 
-ethtool -K eth0 tso off
+Thanks,
+Vlad
+
+
