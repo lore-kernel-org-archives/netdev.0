@@ -1,12 +1,10 @@
-From: Vladislav Bolkhovitin <vst@vlnb.net>
-Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user
- space data
-Date: Wed, 24 Dec 2008 17:37:51 +0300
-Message-ID: <4952493F.10508@vlnb.net>
-References: <494C1E5E.7070809@goop.org> <20081219223314.GA2736@ioremap.net> <494C50BB.5030809@goop.org> <20081220020250.GA15064@gondor.apana.org.au> <494C8D57.7040808@goop.org> <20081220065105.GA16936@gondor.apana.org.au> <494CA226.9000200@goop.org> <20081220081045.GA17439@gondor.apana.org.au> <20081220103209.GA23632@ioremap.net> <49513909.1050100@vlnb.net> <20081223213817.GB16883@ioremap.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH][RFC 23/23]: Support for zero-copy TCP transmit of user space data
+Date: Wed, 24 Dec 2008 17:44:22 +0300
+Message-ID: <20081224144422.GA25089@ioremap.net>
+References: <494C50BB.5030809@goop.org> <20081220020250.GA15064@gondor.apana.org.au> <494C8D57.7040808@goop.org> <20081220065105.GA16936@gondor.apana.org.au> <494CA226.9000200@goop.org> <20081220081045.GA17439@gondor.apana.org.au> <20081220103209.GA23632@ioremap.net> <49513909.1050100@vlnb.net> <20081223213817.GB16883@ioremap.net> <4952493F.10508@vlnb.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Jeremy Fitzhardinge <jeremy@goop.org>,
 	linux-scsi@vger.kernel.org,
@@ -23,51 +21,24 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
 	David Miller <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+To: Vladislav Bolkhovitin <vst@vlnb.net>
 Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20081223213817.GB16883@ioremap.net>
+Content-Disposition: inline
+In-Reply-To: <4952493F.10508@vlnb.net>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov, on 12/24/2008 12:38 AM wrote:
-> On Tue, Dec 23, 2008 at 10:16:25PM +0300, Vladislav Bolkhovitin (vst@vlnb.net) wrote:
->> Actually, there's another way, which seems to be a lot simpler. Alexey 
->> Kuznetsov privately suggested it to me.
->>
->> In skb_shared_info new pointer transaction_token would be added, which 
->> would point on:
->>
->> struct sk_transaction_token
->> {
->> 	atomic_t			io_count;
->> 	struct sk_transaction_token	*next;
->> 	unsigned long			token;
->> 	unsigned long			private;
->> 	void				(*finish_callback)(struct 
->> 	sk_transaction_token *);
->> };
->>
->> When skb is translated, transaction_token inherited. If 2 skb are merged 
->> (the same places where I put net_get_page's in my patch), the *older* 
->> token is inherited. This is the main point of this idea.
->>
->> Before starting new asynchronous send a client would open a new token. 
->> Everything sent then would receive that token. Finish_callback() would 
->> be called and the corresponding token freed, when io_count == 0 *AND* 
->> all previous tokens closed.
->>
->> This idea seems to be simpler, than even what Rusty implemented. Correct 
->> me, if I wrong. But, unfortunately, in the near future I will have no 
->> time to develop it.. :-(
+On Wed, Dec 24, 2008 at 05:37:51PM +0300, Vladislav Bolkhovitin (vst@vlnb.net) wrote:
+> >Yes, it is simpler and cleaner, but it requires additional allocation.
+> >This is additional (and quite noticeble) overhead.
 > 
-> Yes, it is simpler and cleaner, but it requires additional allocation.
-> This is additional (and quite noticeble) overhead.
+> Not necessary requires. For instance, in iscsi-scst sk_transaction_token 
+> can (and should) be part of iSCSI cmd structure, so no additional 
+> allocations would be needed.
 
-Not necessary requires. For instance, in iscsi-scst sk_transaction_token 
-can (and should) be part of iSCSI cmd structure, so no additional 
-allocations would be needed.
+This is special case, I'm not sure it is always possible to cache that
+token and attach to every skb, but if it can be done, then of course
+this does not end up with additional overhead.
 
-Thanks,
-Vlad
-
-
+-- 
+	Evgeniy Polyakov
