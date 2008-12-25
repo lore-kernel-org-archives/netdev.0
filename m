@@ -1,131 +1,66 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 2/8] sfc: Fix unreliable link detection in some loopback
-	modes
-Date: Thu, 25 Dec 2008 03:38:57 +0000
-Message-ID: <1230176337.3401.41.camel@deadeye.i.decadent.org.uk>
+Subject: [PATCH 1/8] sfc: Generate unique names for per-NIC workqueues
+Date: Thu, 25 Dec 2008 03:37:47 +0000
+Message-ID: <1230176267.3401.38.camel@deadeye.i.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:3908 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:3903 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751515AbYLYDjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 22:39:01 -0500
+	by vger.kernel.org with ESMTP id S1751481AbYLYDh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Dec 2008 22:37:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-Loopback self-tests are flaky on the SFT9001 without this.
+This time, we store the name in struct efx_nic.
 
 Ben.
 
- drivers/net/sfc/mdio_10g.c  |   22 +++++++++++++---------
- drivers/net/sfc/mdio_10g.h  |    4 ++++
- drivers/net/sfc/tenxpress.c |   11 +++++++----
- 3 files changed, 24 insertions(+), 13 deletions(-)
+ drivers/net/sfc/efx.c        |    5 ++++-
+ drivers/net/sfc/net_driver.h |    2 ++
+ 2 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
-index 037601e..f131ad2 100644
---- a/drivers/net/sfc/mdio_10g.c
-+++ b/drivers/net/sfc/mdio_10g.c
-@@ -167,7 +167,7 @@ int mdio_clause45_check_mmds(struct efx_nic *efx,
- bool mdio_clause45_links_ok(struct efx_nic *efx, unsigned int mmd_mask)
- {
- 	int phy_id = efx->mii.phy_id;
--	int status;
-+	u32 reg;
- 	bool ok = true;
- 	int mmd = 0;
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 42934ba..46c2a8b 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1929,7 +1929,10 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 	efx->interrupt_mode = max(efx->type->max_interrupt_mode,
+ 				  interrupt_mode);
  
-@@ -179,12 +179,17 @@ bool mdio_clause45_links_ok(struct efx_nic *efx, unsigned int mmd_mask)
- 		return false;
- 	else if (efx_phy_mode_disabled(efx->phy_mode))
- 		return false;
--	else if (efx->loopback_mode == LOOPBACK_PHYXS)
-+	else if (efx->loopback_mode == LOOPBACK_PHYXS) {
- 		mmd_mask &= ~(MDIO_MMDREG_DEVS_PHYXS |
- 			      MDIO_MMDREG_DEVS_PCS |
- 			      MDIO_MMDREG_DEVS_PMAPMD |
- 			      MDIO_MMDREG_DEVS_AN);
--	else if (efx->loopback_mode == LOOPBACK_PCS)
-+		if (!mmd_mask) {
-+			reg = mdio_clause45_read(efx, phy_id, MDIO_MMD_PHYXS,
-+						 MDIO_PHYXS_STATUS2);
-+			return !(reg & (1 << MDIO_PHYXS_STATUS2_RX_FAULT_LBN));
-+		}
-+	} else if (efx->loopback_mode == LOOPBACK_PCS)
- 		mmd_mask &= ~(MDIO_MMDREG_DEVS_PCS |
- 			      MDIO_MMDREG_DEVS_PMAPMD |
- 			      MDIO_MMDREG_DEVS_AN);
-@@ -196,12 +201,11 @@ bool mdio_clause45_links_ok(struct efx_nic *efx, unsigned int mmd_mask)
- 		if (mmd_mask & 1) {
- 			/* Double reads because link state is latched, and a
- 			 * read moves the current state into the register */
--			status = mdio_clause45_read(efx, phy_id,
--						    mmd, MDIO_MMDREG_STAT1);
--			status = mdio_clause45_read(efx, phy_id,
--						    mmd, MDIO_MMDREG_STAT1);
--
--			ok = ok && (status & (1 << MDIO_MMDREG_STAT1_LINK_LBN));
-+			reg = mdio_clause45_read(efx, phy_id,
-+						 mmd, MDIO_MMDREG_STAT1);
-+			reg = mdio_clause45_read(efx, phy_id,
-+						 mmd, MDIO_MMDREG_STAT1);
-+			ok = ok && (reg & (1 << MDIO_MMDREG_STAT1_LINK_LBN));
- 		}
- 		mmd_mask = (mmd_mask >> 1);
- 		mmd++;
-diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/sfc/mdio_10g.h
-index 4091182..09bf801 100644
---- a/drivers/net/sfc/mdio_10g.h
-+++ b/drivers/net/sfc/mdio_10g.h
-@@ -133,6 +133,10 @@
- #define MDIO_PMAPMD_10GBT_TXPWR_SHORT_LBN (0)
- #define MDIO_PMAPMD_10GBT_TXPWR_SHORT_WIDTH (1)
+-	efx->workqueue = create_singlethread_workqueue("sfc_work");
++	/* Would be good to use the net_dev name, but we're too early */
++	snprintf(efx->workqueue_name, sizeof(efx->workqueue_name), "sfc%s",
++		 pci_name(pci_dev));
++	efx->workqueue = create_singlethread_workqueue(efx->workqueue_name);
+ 	if (!efx->workqueue)
+ 		return -ENOMEM;
  
-+/* PHY XGXS Status 2 */
-+#define MDIO_PHYXS_STATUS2              (8)
-+#define MDIO_PHYXS_STATUS2_RX_FAULT_LBN 10
-+
- /* PHY XGXS lane state */
- #define MDIO_PHYXS_LANE_STATE		(0x18)
- #define MDIO_PHYXS_LANE_ALIGNED_LBN	(12)
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index b3ca2dc..1567ab5 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -445,14 +445,13 @@ static bool sft9001_link_ok(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 	int phy_id = efx->mii.phy_id;
- 	u32 reg;
- 
--	if (efx->loopback_mode == LOOPBACK_GPHY)
--		return true;
--	else if (efx_phy_mode_disabled(efx->phy_mode))
-+	if (efx_phy_mode_disabled(efx->phy_mode))
- 		return false;
-+	else if (efx->loopback_mode == LOOPBACK_GPHY)
-+		return true;
- 	else if (efx->loopback_mode)
- 		return mdio_clause45_links_ok(efx,
- 					      MDIO_MMDREG_DEVS_PMAPMD |
--					      MDIO_MMDREG_DEVS_PCS |
- 					      MDIO_MMDREG_DEVS_PHYXS);
- 
- 	/* We must use the same definition of link state as LASI,
-@@ -588,6 +587,10 @@ static void tenxpress_phy_poll(struct efx_nic *efx)
- 				change = true;
- 		}
- 		sfx7101_check_bad_lp(efx, link_ok);
-+	} else if (efx->loopback_mode) {
-+		bool link_ok = sft9001_link_ok(efx, NULL);
-+		if (link_ok != efx->link_up)
-+			change = true;
- 	} else {
- 		u32 status = mdio_clause45_read(efx, efx->mii.phy_id,
- 						MDIO_MMD_PMAPMD,
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 03feaee..b0c7975 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -700,6 +700,7 @@ union efx_multicast_hash {
+  * @legacy_irq: IRQ number
+  * @workqueue: Workqueue for port reconfigures and the HW monitor.
+  *	Work items do not hold and must not acquire RTNL.
++ * @workqueue_name: Name of workqueue
+  * @reset_work: Scheduled reset workitem
+  * @monitor_work: Hardware monitor workitem
+  * @membase_phys: Memory BAR value as physical address
+@@ -781,6 +782,7 @@ struct efx_nic {
+ 	const struct efx_nic_type *type;
+ 	int legacy_irq;
+ 	struct workqueue_struct *workqueue;
++	char workqueue_name[16];
+ 	struct work_struct reset_work;
+ 	struct delayed_work monitor_work;
+ 	resource_size_t membase_phys;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
