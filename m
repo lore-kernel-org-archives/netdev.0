@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [NET-NEXT PATCH 2/3] ixgbe: Fix NAPI enable/disable path when using
-	DCB
-Date: Thu, 25 Dec 2008 01:02:23 -0800
-Message-ID: <20081225090223.13754.9178.stgit@lost.foo-projects.org>
+Subject: [NET-NEXT PATCH 3/3] ixgbe: Fix set_ringparam in ixgbe to use the
+	same memory pools.
+Date: Thu, 25 Dec 2008 01:02:41 -0800
+Message-ID: <20081225090241.13754.31673.stgit@lost.foo-projects.org>
 References: <20081225090204.13754.25244.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,113 +12,136 @@ Cc: netdev@vger.kernel.org, jeff@garzik.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:50907 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751597AbYLYJCl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 04:02:41 -0500
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:42068 "EHLO
+	QMTA04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751595AbYLYJC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 04:02:59 -0500
 In-Reply-To: <20081225090204.13754.25244.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-This change allows DCB mode to change the number of queues, and presumably
-the number of NAPI instances, safely.
+The adapter rings are kcalloc()'d, but in set_ringparam() in ixgbe_ethtool,
+we replace that memory from the vmalloc() pool.  This can result in a NULL
+pointer reference when trying to modify the rings at a later time, or on
+device removal.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_dcb_nl.c |    4 ++--
- drivers/net/ixgbe/ixgbe_main.c   |   11 ++++++++---
- 2 files changed, 10 insertions(+), 5 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   64 +++++++++++++++++--------------------
+ 1 files changed, 30 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index 8ac639d..4129976 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -148,6 +148,7 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 			netdev->netdev_ops->ndo_stop(netdev);
- 		ixgbe_reset_interrupt_capability(adapter);
- 		ixgbe_napi_del_all(adapter);
-+		INIT_LIST_HEAD(&netdev->napi_list);
- 		kfree(adapter->tx_ring);
- 		kfree(adapter->rx_ring);
- 		adapter->tx_ring = NULL;
-@@ -157,7 +158,6 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 		adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
- 		adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
- 		ixgbe_init_interrupt_scheme(adapter);
--		ixgbe_napi_add_all(adapter);
- 		if (netif_running(netdev))
- 			netdev->netdev_ops->ndo_open(netdev);
- 	} else {
-@@ -167,6 +167,7 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 				netdev->netdev_ops->ndo_stop(netdev);
- 			ixgbe_reset_interrupt_capability(adapter);
- 			ixgbe_napi_del_all(adapter);
-+			INIT_LIST_HEAD(&netdev->napi_list);
- 			kfree(adapter->tx_ring);
- 			kfree(adapter->rx_ring);
- 			adapter->tx_ring = NULL;
-@@ -176,7 +177,6 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 			adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
- 			adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
- 			ixgbe_init_interrupt_scheme(adapter);
--			ixgbe_napi_add_all(adapter);
- 			if (netif_running(netdev))
- 				netdev->netdev_ops->ndo_open(netdev);
- 		}
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index b6ae9f6..acef3c6 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2064,6 +2064,8 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 	else
- 		ixgbe_configure_msi_and_legacy(adapter);
- 
-+	ixgbe_napi_add_all(adapter);
-+
- 	clear_bit(__IXGBE_DOWN, &adapter->state);
- 	ixgbe_napi_enable_all(adapter);
- 
-@@ -3176,8 +3178,13 @@ static int ixgbe_close(struct net_device *netdev)
- void ixgbe_napi_add_all(struct ixgbe_adapter *adapter)
- {
- 	int q_idx, q_vectors;
-+	struct net_device *netdev = adapter->netdev;
- 	int (*poll)(struct napi_struct *, int);
- 
-+	/* check if we already have our netdev->napi_list populated */
-+	if (&netdev->napi_list != netdev->napi_list.next)
-+		return;
-+
- 	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
- 		poll = &ixgbe_clean_rxonly;
- 		/* Only enable as many vectors as we have rx queues. */
-@@ -3271,6 +3278,7 @@ static int ixgbe_suspend(struct pci_dev *pdev, pm_message_t state)
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 849c1fe..67f87a7 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -712,30 +712,15 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+ 		return 0;
  	}
- 	ixgbe_reset_interrupt_capability(adapter);
- 	ixgbe_napi_del_all(adapter);
-+	INIT_LIST_HEAD(&netdev->napi_list);
- 	kfree(adapter->tx_ring);
- 	kfree(adapter->rx_ring);
  
-@@ -4212,8 +4220,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	netif_carrier_off(netdev);
- 	netif_tx_stop_all_queues(netdev);
+-	if (adapter->num_tx_queues > adapter->num_rx_queues)
+-		temp_ring = vmalloc(adapter->num_tx_queues *
+-		                    sizeof(struct ixgbe_ring));
+-	else
+-		temp_ring = vmalloc(adapter->num_rx_queues *
+-		                    sizeof(struct ixgbe_ring));
++	temp_ring = kcalloc(adapter->num_tx_queues,
++	                    sizeof(struct ixgbe_ring), GFP_KERNEL);
+ 	if (!temp_ring)
+ 		return -ENOMEM;
  
--	ixgbe_napi_add_all(adapter);
+ 	while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
+ 		msleep(1);
+ 
+-	if (netif_running(netdev))
+-		ixgbe_down(adapter);
 -
- 	strcpy(netdev->name, "eth%d");
- 	err = register_netdev(netdev);
- 	if (err)
-@@ -4299,7 +4305,6 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
- 	pci_release_regions(pdev);
+-	/*
+-	 * We can't just free everything and then setup again,
+-	 * because the ISRs in MSI-X mode get passed pointers
+-	 * to the tx and rx ring structs.
+-	 */
+ 	if (new_tx_count != adapter->tx_ring->count) {
+-		memcpy(temp_ring, adapter->tx_ring,
+-		       adapter->num_tx_queues * sizeof(struct ixgbe_ring));
+-
+ 		for (i = 0; i < adapter->num_tx_queues; i++) {
+ 			temp_ring[i].count = new_tx_count;
+ 			err = ixgbe_setup_tx_resources(adapter, &temp_ring[i]);
+@@ -747,21 +732,28 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+ 				}
+ 				goto err_setup;
+ 			}
++			temp_ring[i].v_idx = adapter->tx_ring[i].v_idx;
+ 		}
+-
+-		for (i = 0; i < adapter->num_tx_queues; i++)
+-			ixgbe_free_tx_resources(adapter, &adapter->tx_ring[i]);
+-
+-		memcpy(adapter->tx_ring, temp_ring,
+-		       adapter->num_tx_queues * sizeof(struct ixgbe_ring));
+-
++		if (netif_running(netdev))
++			netdev->netdev_ops->ndo_stop(netdev);
++		ixgbe_reset_interrupt_capability(adapter);
++		ixgbe_napi_del_all(adapter);
++		INIT_LIST_HEAD(&netdev->napi_list);
++		kfree(adapter->tx_ring);
++		adapter->tx_ring = temp_ring;
++		temp_ring = NULL;
+ 		adapter->tx_ring_count = new_tx_count;
+ 	}
  
- 	DPRINTK(PROBE, INFO, "complete\n");
--	ixgbe_napi_del_all(adapter);
- 	kfree(adapter->tx_ring);
- 	kfree(adapter->rx_ring);
+-	if (new_rx_count != adapter->rx_ring->count) {
+-		memcpy(temp_ring, adapter->rx_ring,
+-		       adapter->num_rx_queues * sizeof(struct ixgbe_ring));
++	temp_ring = kcalloc(adapter->num_rx_queues,
++	                    sizeof(struct ixgbe_ring), GFP_KERNEL);
++	if (!temp_ring) {
++		if (netif_running(netdev))
++			netdev->netdev_ops->ndo_open(netdev);
++		return -ENOMEM;
++	}
  
++	if (new_rx_count != adapter->rx_ring->count) {
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+ 			temp_ring[i].count = new_rx_count;
+ 			err = ixgbe_setup_rx_resources(adapter, &temp_ring[i]);
+@@ -773,13 +765,16 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+ 				}
+ 				goto err_setup;
+ 			}
++			temp_ring[i].v_idx = adapter->rx_ring[i].v_idx;
+ 		}
+-
+-		for (i = 0; i < adapter->num_rx_queues; i++)
+-			ixgbe_free_rx_resources(adapter, &adapter->rx_ring[i]);
+-
+-		memcpy(adapter->rx_ring, temp_ring,
+-		       adapter->num_rx_queues * sizeof(struct ixgbe_ring));
++		if (netif_running(netdev))
++			netdev->netdev_ops->ndo_stop(netdev);
++		ixgbe_reset_interrupt_capability(adapter);
++		ixgbe_napi_del_all(adapter);
++		INIT_LIST_HEAD(&netdev->napi_list);
++		kfree(adapter->rx_ring);
++		adapter->rx_ring = temp_ring;
++		temp_ring = NULL;
+ 
+ 		adapter->rx_ring_count = new_rx_count;
+ 	}
+@@ -787,8 +782,9 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+ 	/* success! */
+ 	err = 0;
+ err_setup:
++	ixgbe_init_interrupt_scheme(adapter);
+ 	if (netif_running(netdev))
+-		ixgbe_up(adapter);
++		netdev->netdev_ops->ndo_open(netdev);
+ 
+ 	clear_bit(__IXGBE_RESETTING, &adapter->state);
+ 	return err;
 
