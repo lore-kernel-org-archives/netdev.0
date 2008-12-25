@@ -1,70 +1,53 @@
-From: Junio C Hamano <gitster@pobox.com>
-Subject: Re: [PATCH 02/27] drivers/net: fix sparse warnings: make do-while a
- compound statement
-Date: Wed, 24 Dec 2008 22:17:15 -0800
-Message-ID: <7vd4fgdbis.fsf@gitster.siamese.dyndns.org>
-References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
- <20081222191507.11807.50794.stgit@vmbox.hanneseder.net>
- <m3hc4voo2a.fsf@maximus.localdomain>
- <a01a16b50812221544x45c3559ap808ac0095ee8f01@mail.gmail.com>
- <m3ocz2ua3w.fsf@maximus.localdomain> <1230053186.1447.9.camel@brick>
- <m3k59qssix.fsf@maximus.localdomain>
- <alpine.LFD.2.00.0812231008350.3535@localhost.localdomain>
- <m3hc4usco9.fsf@maximus.localdomain>
- <alpine.LFD.2.00.0812231529030.3535@localhost.localdomain>
- <m3myemqqgp.fsf@maximus.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [NET-NEXT PATCH 1/3] net: Init NAPI dev_list on napi_del
+Date: Thu, 25 Dec 2008 01:02:04 -0800
+Message-ID: <20081225090204.13754.25244.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Harvey Harrison <harvey.harrison@gmail.com>,
-	=?utf-8?B?SMOla29uIEzDuHZkYWw=?= <hlovdal@gmail.com>,
-	Hannes Eder <hannes@hanneseder.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-sasl-fastnet.sasl.smtp.pobox.com ([207.106.133.19]:57499 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750948AbYLYGR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 01:17:29 -0500
-In-Reply-To: <m3myemqqgp.fsf@maximus.localdomain> (Krzysztof Halasa's message
- of "Wed, 24 Dec 2008 03:03:50 +0100")
+Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:33406 "EHLO
+	QMTA03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751524AbYLYJCX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 04:02:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa <khc@pm.waw.pl> writes:
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-> Linus Torvalds <torvalds@linux-foundation.org> writes:
-> ...
->> Another example of "common vs non-common" is this:
->>
->> 	if (0 <= x)
->> 		do something..
->>
->> is something that crazy people do (sadly, one of the crazy people taught 
->> the git maintainer C programming, so now even sane people do it). It's 
->> crazy because it's uncommon, which means that most people have to think 
->> about it A LOT MORE than about
->>
->> 	if (x >= 0)
->> 		do something..
->
-> No. It's crazy not because it's uncommon, but because this is how we
-> have been taught in school.
->
-> I don't know reasons for "0 >= x" but I know one for
-> 	if (0 == x)
-> 		do something..
->
-> It's because people sometimes write "=" instead of "==" and "0 = x"
-> doesn't make sense to gcc.
+The recent GRO patches introduced the NAPI removal of devices in
+free_netdev.  For drivers that can change the number of queues during
+driver operation, the NAPI infrastructure doesn't allow the freeing and
+re-addition of NAPI entities without reloading the driver.
 
-It does not have anything to do with the assignment confusion.
+This change reinitializes the dev_list in each NAPI struct on delete,
+instead of just deleting it (and assigning the list pointers to POISON).
+Drivers that wish to remove/re-add NAPI will need to re-initialize the
+netdev napi_list after removing all NAPI instances, before re-adding NAPI
+devices again.
 
-It is "textual order should reflect actual order" (aka "have number line
-in your head when you write your comparison conditional"):
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-    http://thread.gmane.org/gmane.comp.version-control.git/3903/focus=4126
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Even if it may make logical sense, I would not suggest using it when other
-people are not familiar with the convention, though.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index daca72e..536a8ac 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2548,7 +2548,7 @@ void netif_napi_del(struct napi_struct *napi)
+ {
+ 	struct sk_buff *skb, *next;
+ 
+-	list_del(&napi->dev_list);
++	list_del_init(&napi->dev_list);
+ 
+ 	for (skb = napi->gro_list; skb; skb = next) {
+ 		next = skb->next;
 
