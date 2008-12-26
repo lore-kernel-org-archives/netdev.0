@@ -1,54 +1,38 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: [5/7] dst: transactions.
-Date: Fri, 26 Dec 2008 14:56:14 +0300
-Message-ID: <1230292576-23963-6-git-send-email-zbr@ioremap.net>
+Subject: [3/7] dst: export node.
+Date: Fri, 26 Dec 2008 14:56:12 +0300
+Message-ID: <1230292576-23963-4-git-send-email-zbr@ioremap.net>
 References: <1230292576-23963-1-git-send-email-zbr@ioremap.net>
  <1230292576-23963-2-git-send-email-zbr@ioremap.net>
  <1230292576-23963-3-git-send-email-zbr@ioremap.net>
- <1230292576-23963-4-git-send-email-zbr@ioremap.net>
- <1230292576-23963-5-git-send-email-zbr@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, dst@ioremap.net,
 	netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavolo.yandex.ru ([87.250.244.45]:19079 "EHLO cavolo.yandex.ru"
+Received: from cavolo.yandex.ru ([87.250.244.45]:19121 "EHLO cavolo.yandex.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753827AbYLZLz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Dec 2008 06:55:59 -0500
-In-Reply-To: <1230292576-23963-5-git-send-email-zbr@ioremap.net>
+	id S1754259AbYLZL42 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Dec 2008 06:56:28 -0500
+In-Reply-To: <1230292576-23963-3-git-send-email-zbr@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DST uses transaction model, when each store has to be explicitly acked
-from the remote node to be considered as successfully written. There
-may be lots of in-flight transactions. When remote host does not ack
-the transaction it will be resent predefined number of times with specified
-timeouts between them. All those parameters are configurable. Transactions
-are marked as failed after all resends completed unsuccessfully, having
-long enough resend timeout and/or large number of resends allows not to
-return error to the higher (FS usually) layer in case of short network
-problems or remote node outages. In case of network RAID setup this means
-that storage will not degrade until transactions are marked as failed, and
-thus will not force checksum recalculation and data rebuild. In case of
-connection failure DST will try to reconnect to the remote node automatically.
-DST sends ping commands at idle time to detect if remote node is alive.
-
-Because of transactional model it is possible to use zero-copy sending
-without worry of data corruption (which in turn could be detected by the
-strong checksums though).
-
-Transactions are handled in this patch: allocation/freeing/completion,
-scanning for stall and to-be-resent transactions and overall management
-of the storing tree.
+This patch introduces remote (export) node machinery: initialization
+address/port (and other socket parameters), export block device (can be
+another DST storage for example or local device like /dev/sda1), local
+IO processing engine (BIO state machines, receiving/submitting logic).
+Network management for the export node like accepting new client, scheduling
+its command processing thread, receiving/sending IO requests, all are placed
+here.
 
 Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-diff --git a/drivers/block/dst/trans.c b/drivers/block/dst/trans.c
+diff --git a/drivers/block/dst/export.c b/drivers/block/dst/export.c
 new file mode 100644
-index 0000000..557d372
+index 0000000..122fe75
 --- /dev/null
-+++ b/drivers/block/dst/trans.c
-@@ -0,0 +1,335 @@
++++ b/drivers/block/dst/export.c
+@@ -0,0 +1,664 @@
 +/*
 + * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
 + * All rights reserved.
@@ -64,323 +48,652 @@ index 0000000..557d372
 + * GNU General Public License for more details.
 + */
 +
++#include <linux/blkdev.h>
 +#include <linux/bio.h>
 +#include <linux/dst.h>
++#include <linux/in.h>
++#include <linux/in6.h>
++#include <linux/poll.h>
 +#include <linux/slab.h>
-+#include <linux/mempool.h>
++#include <linux/socket.h>
++
++#include <net/sock.h>
 +
 +/*
-+ * Transaction memory pool size.
++ * Export bioset is used for server block IO requests.
 + */
-+static int dst_mempool_num = 32;
-+module_param(dst_mempool_num, int, 0644);
++static struct bio_set *dst_bio_set;
 +
-+/*
-+ * Transaction tree management.
-+ */
-+static inline int dst_trans_cmp(dst_gen_t gen, dst_gen_t new)
++int __init dst_export_init(void)
 +{
-+	if (gen < new)
-+		return 1;
-+	if (gen > new)
-+		return -1;
-+	return 0;
-+}
-+
-+struct dst_trans *dst_trans_search(struct dst_node *node, dst_gen_t gen)
-+{
-+	struct rb_root *root = &node->trans_root;
-+	struct rb_node *n = root->rb_node;
-+	struct dst_trans *t, *ret = NULL;
-+	int cmp;
-+
-+	while (n) {
-+		t = rb_entry(n, struct dst_trans, trans_entry);
-+
-+		cmp = dst_trans_cmp(t->gen, gen);
-+		if (cmp < 0)
-+			n = n->rb_left;
-+		else if (cmp > 0)
-+			n = n->rb_right;
-+		else {
-+			ret = t;
-+			break;
-+		}
-+	}
-+
-+	dprintk("%s: %s transaction: id: %llu.\n", __func__,
-+			(ret)?"found":"not found", gen);
-+
-+	return ret;
-+}
-+
-+static int dst_trans_insert(struct dst_trans *new)
-+{
-+	struct rb_root *root = &new->n->trans_root;
-+	struct rb_node **n = &root->rb_node, *parent = NULL;
-+	struct dst_trans *ret = NULL, *t;
-+	int cmp;
-+
-+	while (*n) {
-+		parent = *n;
-+
-+		t = rb_entry(parent, struct dst_trans, trans_entry);
-+
-+		cmp = dst_trans_cmp(t->gen, new->gen);
-+		if (cmp < 0)
-+			n = &parent->rb_left;
-+		else if (cmp > 0)
-+			n = &parent->rb_right;
-+		else {
-+			ret = t;
-+			break;
-+		}
-+	}
-+
-+	new->send_time = jiffies;
-+	if (ret) {
-+		printk("%s: exist: old: gen: %llu, bio: %llu/%u, send_time: %lu, "
-+				"new: gen: %llu, bio: %llu/%u, send_time: %lu.\n",
-+			__func__,
-+			ret->gen, (u64)ret->bio->bi_sector,
-+			ret->bio->bi_size, ret->send_time,
-+			new->gen, (u64)new->bio->bi_sector,
-+			new->bio->bi_size, new->send_time);
-+		return -EEXIST;
-+	}
-+
-+	rb_link_node(&new->trans_entry, parent, n);
-+	rb_insert_color(&new->trans_entry, root);
-+
-+	dprintk("%s: inserted: gen: %llu, bio: %llu/%u, send_time: %lu.\n",
-+		__func__, new->gen, (u64)new->bio->bi_sector,
-+		new->bio->bi_size, new->send_time);
-+
-+	return 0;
-+}
-+
-+int dst_trans_remove_nolock(struct dst_trans *t)
-+{
-+	struct dst_node *n = t->n;
-+
-+	if (t->trans_entry.rb_parent_color) {
-+		rb_erase(&t->trans_entry, &n->trans_root);
-+		t->trans_entry.rb_parent_color = 0;
-+	}
-+	return 0;
-+}
-+
-+int dst_trans_remove(struct dst_trans *t)
-+{
-+	int ret;
-+	struct dst_node *n = t->n;
-+
-+	mutex_lock(&n->trans_lock);
-+	ret = dst_trans_remove_nolock(t);
-+	mutex_unlock(&n->trans_lock);
-+
-+	return ret;
-+}
-+
-+/*
-+ * When transaction is completed and there are no more users,
-+ * we complete appriate block IO request with given error status.
-+ */
-+void dst_trans_put(struct dst_trans *t)
-+{
-+	if (atomic_dec_and_test(&t->refcnt)) {
-+		struct bio *bio = t->bio;
-+
-+		dprintk("%s: completed t: %p, gen: %llu, bio: %p.\n",
-+				__func__, t, t->gen, bio);
-+
-+		bio_endio(bio, t->error);
-+		bio_put(bio);
-+
-+		dst_node_put(t->n);
-+		mempool_free(t, t->n->trans_pool);
-+	}
-+}
-+
-+/*
-+ * Process given block IO request: allocate transaction, insert it into the tree
-+ * and send/schedule crypto processing.
-+ */
-+int dst_process_bio(struct dst_node *n, struct bio *bio)
-+{
-+	struct dst_trans *t;
 +	int err = -ENOMEM;
 +
-+	t = mempool_alloc(n->trans_pool, GFP_NOFS);
-+	if (!t)
++	dst_bio_set = bioset_create(32, 32);
++	if (!dst_bio_set)
 +		goto err_out_exit;
-+
-+	t->n = dst_node_get(n);
-+	t->bio = bio;
-+	t->error = 0;
-+	t->retries = 0;
-+	atomic_set(&t->refcnt, 1);
-+	t->gen = atomic_long_inc_return(&n->gen);
-+
-+	t->enc = bio_data_dir(bio);
-+	dst_bio_to_cmd(bio, &t->cmd, DST_IO, t->gen);
-+
-+	mutex_lock(&n->trans_lock);
-+	err = dst_trans_insert(t);
-+	mutex_unlock(&n->trans_lock);
-+	if (err)
-+		goto err_out_free;
-+
-+	dprintk("%s: gen: %llu, bio: %llu/%u, dir/enc: %d, need_crypto: %d.\n",
-+			__func__, t->gen, (u64)bio->bi_sector,
-+			bio->bi_size, t->enc, dst_need_crypto(n));
-+
-+	if (dst_need_crypto(n) && t->enc)
-+		dst_trans_crypto(t);
-+	else
-+		dst_trans_send(t);
 +
 +	return 0;
 +
-+err_out_free:
-+	dst_node_put(n);
-+	mempool_free(t, n->trans_pool);
 +err_out_exit:
-+	bio_endio(bio, err);
-+	bio_put(bio);
++	return err;
++}
++
++void dst_export_exit(void)
++{
++	bioset_free(dst_bio_set);
++}
++
++/*
++ * When client connects and autonegotiates with the server node,
++ * its permissions are checked in a security attributes and sent
++ * back.
++ */
++static unsigned int dst_check_permissions(struct dst_state *main, struct dst_state *st)
++{
++	struct dst_node *n = main->node;
++	struct dst_secure *sentry;
++	struct dst_secure_user *s;
++	struct saddr *sa = &st->ctl.addr;
++	unsigned int perm = 0;
++
++	mutex_lock(&n->security_lock);
++	list_for_each_entry(sentry, &n->security_list, sec_entry) {
++		s = &sentry->sec;
++
++		if (s->addr.sa_family != sa->sa_family)
++			continue;
++
++		if (s->addr.sa_data_len != sa->sa_data_len)
++			continue;
++
++		/*
++		 * This '2' below is a port field. This may be very wrong to do
++		 * in atalk for example though. If there will be any need to extent
++		 * protocol to something else, I can create per-family helpers and
++		 * use them instead of this memcmp.
++		 */
++		if (memcmp(s->addr.sa_data + 2, sa->sa_data + 2,
++					sa->sa_data_len - 2))
++			continue;
++
++		perm = s->permissions;
++	}
++	mutex_unlock(&n->security_lock);
++
++	return perm;
++}
++
++/*
++ * Accept new client: allocate appropriate network state and check permissions.
++ */
++static struct dst_state *dst_accept_client(struct dst_state *st)
++{
++	unsigned int revents = 0;
++	unsigned int err_mask = POLLERR | POLLHUP | POLLRDHUP;
++	unsigned int mask = err_mask | POLLIN;
++	struct dst_node *n = st->node;
++	int err = 0;
++	struct socket *sock = NULL;
++	struct dst_state *new;
++
++	while (!err && !sock) {
++		revents = dst_state_poll(st);
++
++		if (!(revents & mask)) {
++			DEFINE_WAIT(wait);
++
++			for (;;) {
++				prepare_to_wait(&st->thread_wait,
++						&wait, TASK_INTERRUPTIBLE);
++				if (!n->trans_scan_timeout || st->need_exit)
++					break;
++
++				revents = dst_state_poll(st);
++
++				if (revents & mask)
++					break;
++
++				if (signal_pending(current))
++					break;
++
++				/*
++				 * Magic HZ? Polling check above is not safe in
++				 * all cases (like socket reset in BH context),
++				 * so it is simpler just to postpone it to the
++				 * process context instead of implementing special
++				 * locking there.
++				 */
++				schedule_timeout(HZ);
++			}
++			finish_wait(&st->thread_wait, &wait);
++		}
++
++		err = -ECONNRESET;
++		dst_state_lock(st);
++
++		dprintk("%s: st: %p, revents: %x [err: %d, in: %d].\n",
++			__func__, st, revents, revents & err_mask,
++			revents & POLLIN);
++
++		if (revents & err_mask) {
++			dprintk("%s: revents: %x, socket: %p, err: %d.\n",
++					__func__, revents, st->socket, err);
++			err = -ECONNRESET;
++		}
++
++		if (!n->trans_scan_timeout || st->need_exit)
++			err = -ENODEV;
++
++		if (st->socket && (revents & POLLIN))
++			err = kernel_accept(st->socket, &sock, 0);
++
++		dst_state_unlock(st);
++	}
++
++	if (err)
++		goto err_out_exit;
++
++	new = dst_state_alloc(st->node);
++	if (!new) {
++		err = -ENOMEM;
++		goto err_out_release;
++	}
++	new->socket = sock;
++
++	new->ctl.addr.sa_data_len = sizeof(struct sockaddr);
++	err = kernel_getpeername(sock, (struct sockaddr *)&new->ctl.addr,
++			(int *)&new->ctl.addr.sa_data_len);
++	if (err)
++		goto err_out_put;
++
++	new->permissions = dst_check_permissions(st, new);
++	if (new->permissions == 0) {
++		err = -EPERM;
++		dst_dump_addr(sock, (struct sockaddr *)&new->ctl.addr,
++				"Client is not allowed to connect");
++		goto err_out_put;
++	}
++
++	err = dst_poll_init(new);
++	if (err)
++		goto err_out_put;
++
++	dst_dump_addr(sock, (struct sockaddr *)&new->ctl.addr,
++			"Connected client");
++
++	return new;
++
++err_out_put:
++	dst_state_put(new);
++err_out_release:
++	sock_release(sock);
++err_out_exit:
++	return ERR_PTR(err);
++}
++
++/*
++ * Each server's block request sometime finishes.
++ * Usually it happens in hard irq context of the appropriate controller,
++ * so to play good with all cases we just queue BIO into the queue
++ * and wake up processing thread, which gets completed request and
++ * send (encrypting if needed) it back to the client (if it was a read
++ * request), or sends back reply that writing succesfully completed.
++ */
++static int dst_export_process_request_queue(struct dst_state *st)
++{
++	unsigned long flags;
++	struct dst_export_priv *p = NULL;
++	struct bio *bio;
++	int err = 0;
++
++	while (!list_empty(&st->request_list)) {
++		spin_lock_irqsave(&st->request_lock, flags);
++		if (!list_empty(&st->request_list)) {
++			p = list_first_entry(&st->request_list,
++				struct dst_export_priv, request_entry);
++			list_del(&p->request_entry);
++		}
++		spin_unlock_irqrestore(&st->request_lock, flags);
++
++		if (!p)
++			break;
++
++		bio = p->bio;
++
++		if (dst_need_crypto(st->node) && (bio_data_dir(bio) == READ))
++			err = dst_export_crypto(st->node, bio);
++		else
++			err = dst_export_send_bio(bio);
++
++		if (err)
++			break;
++	}
++
 +	return err;
 +}
 +
 +/*
-+ * Scan for timeout/stale transactions.
-+ * Each transaction is being resent multiple times before error completion.
++ * Cleanup export state.
++ * It has to wait until all requests are finished,
++ * and then free them all.
 + */
-+static void dst_trans_scan(struct work_struct *work)
++static void dst_state_cleanup_export(struct dst_state *st)
 +{
-+	struct dst_node *n = container_of(work, struct dst_node, trans_work.work);
-+	struct rb_node *rb_node;
-+	struct dst_trans *t;
-+	unsigned long timeout = n->trans_scan_timeout;
-+	int num = 10 * n->trans_max_retries;
++	struct dst_export_priv *p;
++	unsigned long flags;
 +
-+	mutex_lock(&n->trans_lock);
++	/*
++	 * This loop waits for all pending bios to be completed and freed.
++	 */
++	while (atomic_read(&st->refcnt) > 1) {
++		dprintk("%s: st: %p, refcnt: %d, list_empty: %d.\n",
++				__func__, st, atomic_read(&st->refcnt),
++				list_empty(&st->request_list));
++		wait_event_timeout(st->thread_wait,
++				(atomic_read(&st->refcnt) == 1) ||
++				!list_empty(&st->request_list),
++				HZ/2);
 +
-+	for (rb_node = rb_first(&n->trans_root); rb_node; ) {
-+		t = rb_entry(rb_node, struct dst_trans, trans_entry);
++		while (!list_empty(&st->request_list)) {
++			p = NULL;
++			spin_lock_irqsave(&st->request_lock, flags);
++			if (!list_empty(&st->request_list)) {
++				p = list_first_entry(&st->request_list,
++					struct dst_export_priv, request_entry);
++				list_del(&p->request_entry);
++			}
++			spin_unlock_irqrestore(&st->request_lock, flags);
 +
-+		if (timeout && time_after(t->send_time + timeout, jiffies)
-+				&& t->retries == 0)
-+			break;
-+#if 0
-+		dprintk("%s: t: %p, gen: %llu, n: %s, retries: %u, max: %u.\n",
-+			__func__, t, t->gen, n->name,
-+			t->retries, n->trans_max_retries);
-+#endif
-+		if (--num == 0)
-+			break;
++			if (p)
++				bio_put(p->bio);
 +
-+		dst_trans_get(t);
++			dprintk("%s: st: %p, refcnt: %d, list_empty: %d, p: %p.\n",
++				__func__, st, atomic_read(&st->refcnt),
++				list_empty(&st->request_list), p);
++		}
++	}
 +
-+		rb_node = rb_next(rb_node);
++	dst_state_put(st);
++}
 +
-+		if (timeout && (++t->retries < n->trans_max_retries)) {
-+			dst_trans_send(t);
-+		} else {
-+			t->error = -ETIMEDOUT;
-+			dst_trans_remove_nolock(t);
-+			dst_trans_put(t);
++/*
++ * Client accepting thread.
++ * Not only accepts new connection, but also schedules receiving thread
++ * and performs request completion described above.
++ */
++static int dst_accept(void *init_data, void *schedule_data)
++{
++	struct dst_state *main_st = schedule_data;
++	struct dst_node *n = init_data;
++	struct dst_state *st;
++	int err;
++
++	while (n->trans_scan_timeout && !main_st->need_exit) {
++		dprintk("%s: main_st: %p, n: %p.\n", __func__, main_st, n);
++		st = dst_accept_client(main_st);
++		if (IS_ERR(st))
++			continue;
++
++		err = dst_state_schedule_receiver(st);
++		if (!err) {
++			while (n->trans_scan_timeout) {
++				err = wait_event_interruptible_timeout(st->thread_wait,
++						!list_empty(&st->request_list) ||
++						!n->trans_scan_timeout ||
++						st->need_exit,
++					HZ);
++
++				if (!n->trans_scan_timeout || st->need_exit)
++					break;
++
++				if (list_empty(&st->request_list))
++					continue;
++
++				err = dst_export_process_request_queue(st);
++				if (err)
++					break;
++			}
++
++			st->need_exit = 1;
++			wake_up(&st->thread_wait);
 +		}
 +
-+		dst_trans_put(t);
++		dst_state_cleanup_export(st);
 +	}
 +
-+	mutex_unlock(&n->trans_lock);
++	dprintk("%s: freeing listening socket st: %p.\n", __func__, main_st);
 +
-+	/*
-+	 * If no timeout specified then system is in the middle of exiting process,
-+	 * so no need to reschedule scanning process again.
-+	 */
-+	if (timeout) {
-+		if (!num)
-+			timeout = HZ;
-+		schedule_delayed_work(&n->trans_work, timeout);
++	dst_state_lock(main_st);
++	dst_poll_exit(main_st);
++	dst_state_socket_release(main_st);
++	dst_state_unlock(main_st);
++	dst_state_put(main_st);
++	dprintk("%s: freed listening socket st: %p.\n", __func__, main_st);
++
++	return 0;
++}
++
++int dst_start_export(struct dst_node *n)
++{
++	if (list_empty(&n->security_list)) {
++		printk(KERN_ERR "You are trying to export node '%s' without security attributes.\n"
++				"No clients will be allowed to connect. Exiting.\n", n->name);
++		return -EINVAL;
 +	}
++	return dst_node_trans_init(n, sizeof(struct dst_export_priv));
 +}
 +
 +/*
-+ * Flush all transactions and mark them as timed out.
-+ * Destroy transaction pools.
++ * Initialize listening state and schedule accepting thread.
 + */
-+void dst_node_trans_exit(struct dst_node *n)
++int dst_node_init_listened(struct dst_node *n, struct dst_export_ctl *le)
 +{
-+	struct dst_trans *t;
-+	struct rb_node *rb_node;
++	struct dst_state *st;
++	int err = -ENOMEM;
++	struct dst_network_ctl *ctl = &le->ctl;
 +
-+	if (!n->trans_cache)
-+		return;
++	memcpy(&n->info->net, ctl, sizeof(struct dst_network_ctl));
 +
-+	dprintk("%s: n: %p, cancelling the work.\n", __func__, n);
-+	cancel_delayed_work_sync(&n->trans_work);
-+	flush_scheduled_work();
-+	dprintk("%s: n: %p, work has been cancelled.\n", __func__, n);
-+
-+	for (rb_node = rb_first(&n->trans_root); rb_node; ) {
-+		t = rb_entry(rb_node, struct dst_trans, trans_entry);
-+
-+		dprintk("%s: t: %p, gen: %llu, n: %s.\n",
-+			__func__, t, t->gen, n->name);
-+
-+		rb_node = rb_next(rb_node);
-+
-+		t->error = -ETIMEDOUT;
-+		dst_trans_remove_nolock(t);
-+		dst_trans_put(t);
-+	}
-+
-+	mempool_destroy(n->trans_pool);
-+	kmem_cache_destroy(n->trans_cache);
-+}
-+
-+/*
-+ * Initialize transaction storage for given node.
-+ * Transaction stores not only control information,
-+ * but also network command and crypto data (if needed)
-+ * to reduce number of allocations. Thus transaction size
-+ * differs from node to node.
-+ */
-+int dst_node_trans_init(struct dst_node *n, unsigned int size)
-+{
-+	/*
-+	 * We need this, since node with given name can be dropped from the
-+	 * hash table, but be still alive, so subsequent creation of the node
-+	 * with the same name may collide with existing cache name.
-+	 */
-+
-+	snprintf(n->cache_name, sizeof(n->cache_name), "%s-%p", n->name, n);
-+
-+	n->trans_cache = kmem_cache_create(n->cache_name,
-+			size + n->crypto.crypto_attached_size,
-+			0, 0, NULL);
-+	if (!n->trans_cache)
++	st = dst_state_alloc(n);
++	if (IS_ERR(st)) {
++		err = PTR_ERR(st);
 +		goto err_out_exit;
++	}
++	memcpy(&st->ctl, ctl, sizeof(struct dst_network_ctl));
 +
-+	n->trans_pool = mempool_create_slab_pool(dst_mempool_num, n->trans_cache);
-+	if (!n->trans_pool)
-+		goto err_out_cache_destroy;
++	err = dst_state_socket_create(st);
++	if (err)
++		goto err_out_put;
 +
-+	mutex_init(&n->trans_lock);
-+	n->trans_root = RB_ROOT;
++	st->socket->sk->sk_reuse = 1;
 +
-+	INIT_DELAYED_WORK(&n->trans_work, dst_trans_scan);
-+	schedule_delayed_work(&n->trans_work, n->trans_scan_timeout);
++	err = kernel_bind(st->socket, (struct sockaddr *)&ctl->addr,
++			ctl->addr.sa_data_len);
++	if (err)
++		goto err_out_socket_release;
 +
-+	dprintk("%s: n: %p, size: %u, crypto: %u.\n",
-+		__func__, n, size, n->crypto.crypto_attached_size);
++	err = kernel_listen(st->socket, 1024);
++	if (err)
++		goto err_out_socket_release;
++	n->state = st;
++
++	err = dst_poll_init(st);
++	if (err)
++		goto err_out_socket_release;
++
++	dst_state_get(st);
++
++	err = thread_pool_schedule(n->pool, dst_thread_setup,
++			dst_accept, st, MAX_SCHEDULE_TIMEOUT);
++	if (err)
++		goto err_out_poll_exit;
 +
 +	return 0;
 +
-+err_out_cache_destroy:
-+	kmem_cache_destroy(n->trans_cache);
++err_out_poll_exit:
++	dst_poll_exit(st);
++err_out_socket_release:
++	dst_state_socket_release(st);
++err_out_put:
++	dst_state_put(st);
 +err_out_exit:
-+	return -ENOMEM;
++	n->state = NULL;
++	return err;
++}
++
++/*
++ * Free bio and related private data.
++ * Also drop a reference counter for appropriate state,
++ * which waits when there are no more block IOs in-flight.
++ */
++static void dst_bio_destructor(struct bio *bio)
++{
++	struct bio_vec *bv;
++	struct dst_export_priv *priv = bio->bi_private;
++	int i;
++
++	bio_for_each_segment(bv, bio, i) {
++		if (!bv->bv_page)
++			break;
++
++		__free_page(bv->bv_page);
++	}
++
++	if (priv) {
++		struct dst_node *n = priv->state->node;
++
++		dst_state_put(priv->state);
++		mempool_free(priv, n->trans_pool);
++	}
++	bio_free(bio, dst_bio_set);
++}
++
++/*
++ * Block IO completion. Queue request to be sent back to
++ * the client (or just confirmation).
++ */
++static void dst_bio_end_io(struct bio *bio, int err)
++{
++	struct dst_export_priv *p = bio->bi_private;
++	struct dst_state *st = p->state;
++	unsigned long flags;
++
++	spin_lock_irqsave(&st->request_lock, flags);
++	list_add_tail(&p->request_entry, &st->request_list);
++	spin_unlock_irqrestore(&st->request_lock, flags);
++
++	wake_up(&st->thread_wait);
++}
++
++/*
++ * Allocate read request for the server.
++ */
++static int dst_export_read_request(struct bio *bio, unsigned int total_size)
++{
++	unsigned int size;
++	struct page *page;
++	int err;
++
++	while (total_size) {
++		err = -ENOMEM;
++		page = alloc_page(GFP_KERNEL);
++		if (!page)
++			goto err_out_exit;
++
++		size = min_t(unsigned int, PAGE_SIZE, total_size);
++
++		err = bio_add_page(bio, page, size, 0);
++		dprintk("%s: bio: %llu/%u, size: %u, err: %d.\n",
++				__func__, (u64)bio->bi_sector, bio->bi_size,
++				size, err);
++		if (err <= 0)
++			goto err_out_free_page;
++
++		total_size -= size;
++	}
++
++	return 0;
++
++err_out_free_page:
++	__free_page(page);
++err_out_exit:
++	return err;
++}
++
++/*
++ * Allocate write request for the server.
++ * Should not only get pages, but also read data from the network.
++ */
++static int dst_export_write_request(struct dst_state *st,
++		struct bio *bio, unsigned int total_size)
++{
++	unsigned int size;
++	struct page *page;
++	void *data;
++	int err;
++
++	while (total_size) {
++		err = -ENOMEM;
++		page = alloc_page(GFP_KERNEL);
++		if (!page)
++			goto err_out_exit;
++
++		data = kmap(page);
++		if (!data)
++			goto err_out_free_page;
++
++		size = min_t(unsigned int, PAGE_SIZE, total_size);
++
++		err = dst_data_recv(st, data, size);
++		if (err)
++			goto err_out_unmap_page;
++
++		err = bio_add_page(bio, page, size, 0);
++		if (err <= 0)
++			goto err_out_unmap_page;
++
++		kunmap(page);
++
++		total_size -= size;
++	}
++
++	return 0;
++
++err_out_unmap_page:
++	kunmap(page);
++err_out_free_page:
++	__free_page(page);
++err_out_exit:
++	return err;
++}
++
++/*
++ * Groovy, we've gotten an IO request from the client.
++ * Allocate BIO from the bioset, private data from the mempool
++ * and lots of pages for IO.
++ */
++int dst_process_io(struct dst_state *st)
++{
++	struct dst_node *n = st->node;
++	struct dst_cmd *cmd = st->data;
++	struct bio *bio;
++	struct dst_export_priv *priv;
++	int err = -ENOMEM;
++
++	if (unlikely(!n->bdev)) {
++		err = -EINVAL;
++		goto err_out_exit;
++	}
++
++	bio = bio_alloc_bioset(GFP_KERNEL,
++			PAGE_ALIGN(cmd->size) >> PAGE_SHIFT,
++			dst_bio_set);
++	if (!bio)
++		goto err_out_exit;
++	bio->bi_private = NULL;
++
++	priv = mempool_alloc(st->node->trans_pool, GFP_KERNEL);
++	if (!priv)
++		goto err_out_free;
++
++	priv->state = dst_state_get(st);
++	priv->bio = bio;
++
++	bio->bi_private = priv;
++	bio->bi_end_io = dst_bio_end_io;
++	bio->bi_destructor = dst_bio_destructor;
++	bio->bi_bdev = n->bdev;
++
++	/*
++	 * Server side is only interested in two low bits:
++	 * uptodate (set by itself actually) and rw block
++	 */
++	bio->bi_flags |= cmd->flags & 3;
++
++	bio->bi_rw = cmd->rw;
++	bio->bi_size = 0;
++	bio->bi_sector = cmd->sector;
++
++	dst_bio_to_cmd(bio, &priv->cmd, DST_IO_RESPONSE, cmd->id);
++
++	priv->cmd.flags = 0;
++	priv->cmd.size = cmd->size;
++
++	if (bio_data_dir(bio) == WRITE) {
++		err = dst_recv_cdata(st, priv->cmd.hash);
++		if (err)
++			goto err_out_free;
++
++		err = dst_export_write_request(st, bio, cmd->size);
++		if (err)
++			goto err_out_free;
++
++		if (dst_need_crypto(n))
++			return dst_export_crypto(n, bio);
++	} else {
++		err = dst_export_read_request(bio, cmd->size);
++		if (err)
++			goto err_out_free;
++	}
++
++	dprintk("%s: bio: %llu/%u, rw: %lu, dir: %lu, flags: %lx, phys: %d.\n",
++			__func__, (u64)bio->bi_sector, bio->bi_size,
++			bio->bi_rw, bio_data_dir(bio),
++			bio->bi_flags, bio->bi_phys_segments);
++
++	generic_make_request(bio);
++
++	return 0;
++
++err_out_free:
++	bio_put(bio);
++err_out_exit:
++	return err;
++}
++
++/*
++ * Ok, block IO is ready, let's send it back to the client...
++ */
++int dst_export_send_bio(struct bio *bio)
++{
++	struct dst_export_priv *p = bio->bi_private;
++	struct dst_state *st = p->state;
++	struct dst_cmd *cmd = &p->cmd;
++	int err;
++
++	dprintk("%s: id: %llu, bio: %llu/%u, csize: %u, flags: %lu, rw: %lu.\n",
++			__func__, cmd->id, (u64)bio->bi_sector, bio->bi_size,
++			cmd->csize, bio->bi_flags, bio->bi_rw);
++
++	dst_convert_cmd(cmd);
++
++	dst_state_lock(st);
++	if (!st->socket) {
++		err = -ECONNRESET;
++		goto err_out_unlock;
++	}
++
++	if (bio_data_dir(bio) == WRITE) {
++		/* ... or just confirmation that writing has completed. */
++		cmd->size = cmd->csize = 0;
++		err = dst_data_send_header(st->socket, cmd,
++				sizeof(struct dst_cmd), 0);
++		if (err)
++			goto err_out_unlock;
++	} else {
++		err = dst_send_bio(st, cmd, bio);
++		if (err)
++			goto err_out_unlock;
++	}
++
++	dst_state_unlock(st);
++
++	bio_put(bio);
++	return 0;
++
++err_out_unlock:
++	dst_state_unlock(st);
++
++	bio_put(bio);
++	return err;
 +}
