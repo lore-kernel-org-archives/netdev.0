@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: don't poll NV event 36
-Date: Thu, 25 Dec 2008 18:08:00 -0800 (PST)
-Message-ID: <20081225.180800.233126632.davem@davemloft.net>
-References: <1229888646.3050.4.camel@johannes>
+Subject: Re: [PATCH net-next] myri10ge: update firmware headers to 1.4.37
+Date: Thu, 25 Dec 2008 18:09:22 -0800 (PST)
+Message-ID: <20081225.180922.30075775.davem@davemloft.net>
+References: <494EB4C0.4090707@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aabdulla@nvidia.com, arjan@infradead.org,
-	manfred@colorfullife.com
-To: johannes@sipsolutions.net
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35050
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35056
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752537AbYLZCH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 21:07:57 -0500
-In-Reply-To: <1229888646.3050.4.camel@johannes>
+	by vger.kernel.org with ESMTP id S1752487AbYLZCJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 21:09:20 -0500
+In-Reply-To: <494EB4C0.4090707@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Sun, 21 Dec 2008 20:44:06 +0100
+From: Brice Goglin <brice@myri.com>
+Date: Sun, 21 Dec 2008 22:27:28 +0100
 
-> Polling doesn't seem to be necessary on my hardware, at
-> least I haven't seen any bad effects testing it a while.
-> Remove the polling so the CPU doesn't have to wake up a
-> hundred times per second.
+> Update myri10ge firmware headers to 1.4.37:
+> * Make each member of the error/cmd enum an initialized one, so there
+>   is a convenient numerical reference to look for reverse conversion.
+> * Add new MXGEFW_CMD_RELAX_RXBUFFER_ALIGNMENT command.
+> * Add new "features" field to mcp_header.
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-Applied, thanks Johannes.
+Applied.
