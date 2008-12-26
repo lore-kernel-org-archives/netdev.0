@@ -1,28 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: qdisc requeue stats
-Date: Fri, 26 Dec 2008 14:29:23 -0800 (PST)
-Message-ID: <20081226.142923.63754891.davem@davemloft.net>
-References: <be9d10f20812261414n30d8061bkf2af90d3cbca8e95@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gro: Fix potential use after free
+Date: Sat, 27 Dec 2008 09:44:01 +1100
+Message-ID: <20081226224401.GA22329@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: donash4@gmail.com
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52811
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751292AbYLZW3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Dec 2008 17:29:21 -0500
-In-Reply-To: <be9d10f20812261414n30d8061bkf2af90d3cbca8e95@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:35575 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751919AbYLZWoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Dec 2008 17:44:06 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Don Ash" <donash4@gmail.com>
-Date: Sat, 27 Dec 2008 00:14:03 +0200
+Hi Dave:
 
-> Is there a way to see q->qstats.requeues statistics
-> (dev_requeue_skb()) ? I tried tc tool but it does not
-> show it...
+While implementing GRO support for page frags, I found a little bug
+in the original code.
 
-You'll have better luck with this question on the networking
-developer list, which has been added to the CC:
+gro: Fix potential use after free
+
+The initial skb may have been freed after napi_gro_complete in
+napi_gro_receive if it was merged into an existing packet.  Thus
+we cannot check same_flow (which indicates whether it was merged)
+after calling napi_gro_complete.
+
+This patch fixes this by saving the same_flow status before the
+call to napi_gro_complete.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index daca72e..9d60941 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2390,6 +2390,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	__be16 type = skb->protocol;
+ 	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+ 	int count = 0;
++	int same_flow;
+ 	int mac_len;
+ 
+ 	if (!(skb->dev->features & NETIF_F_GRO))
+@@ -2425,6 +2426,8 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	if (&ptype->list == head)
+ 		goto normal;
+ 
++	same_flow = NAPI_GRO_CB(skb)->same_flow;
++
+ 	if (pp) {
+ 		struct sk_buff *nskb = *pp;
+ 
+@@ -2434,7 +2437,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 		count--;
+ 	}
+ 
+-	if (NAPI_GRO_CB(skb)->same_flow)
++	if (same_flow)
+ 		goto ok;
+ 
+ 	if (NAPI_GRO_CB(skb)->flush || count >= MAX_GRO_SKBS) {
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
