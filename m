@@ -1,29 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 01/10] 802.3ad: make ntt bool
-Date: Fri, 26 Dec 2008 11:18:22 -0800 (PST)
-Message-ID: <20081226.111822.230170299.davem@davemloft.net>
-References: <20081223220101.747816175@jonathan.eitzenberger.org>
-	<20081223220551.162884495@jonathan.eitzenberger.org>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [PATCH 03/27] drivers/net: fix sparse warning: returning
+ void-valued expression
+Date: Fri, 26 Dec 2008 11:59:21 -0800
+Message-ID: <20081226115921.bb094c58.rdunlap@xenotime.net>
+References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
+	<20081222191517.11807.20718.stgit@vmbox.hanneseder.net>
+	<20081225.161740.10052019.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org
-To: holger@eitzenberger.org
+Cc: hannes@hanneseder.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57817
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752190AbYLZTSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Dec 2008 14:18:20 -0500
-In-Reply-To: <20081223220551.162884495@jonathan.eitzenberger.org>
+Received: from xenotime.net ([72.52.64.118]:53880 "HELO xenotime.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752373AbYLZT72 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Dec 2008 14:59:28 -0500
+Received: from dragon ([71.117.247.66]) by xenotime.net for <netdev@vger.kernel.org>; Fri, 26 Dec 2008 11:59:26 -0800
+In-Reply-To: <20081225.161740.10052019.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Holger Eitzenberger <holger@eitzenberger.org>
-Date: Tue, 23 Dec 2008 23:01:02 +0100
+On Thu, 25 Dec 2008 16:17:40 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> Turn Need-To-Transmit port variable into a bool.  There is no functional
-> change.
+> From: Hannes Eder <hannes@hanneseder.net>
+> Date: Mon, 22 Dec 2008 20:15:17 +0100
 > 
-> Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+> > Fix this sparse warning:
+> > 
+> >   drivers/net/niu.c:8850:2: warning: returning void-valued expression
+> > 
+> > Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+> 
+> Can we just fix sparse not to generate this warning?  It's
+> marginal, at best.  C++ even explicitly defines this as valid
+> and last time I brought this up Linus even agreed.
 
-Applied.
+Ack, I discussed it with him also and he thought that
+they were just fine as they were...
+
+> The types match, the function returns void and it is returning a void,
+> what is the problem?
+
+
+-- 
+~Randy
