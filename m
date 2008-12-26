@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc911x: make smsc911x_ethtool_ops constant
-Date: Thu, 25 Dec 2008 16:41:49 -0800 (PST)
-Message-ID: <20081225.164149.109743979.davem@davemloft.net>
-References: <1229696646-13666-1-git-send-email-steve.glendinning@smsc.com>
-	<1229696646-13666-2-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [PATCH 1/2] netns: igmp: allow IPPROTO_IGMP sockets in netns
+Date: Thu, 25 Dec 2008 16:42:31 -0800 (PST)
+Message-ID: <20081225.164231.125269219.davem@davemloft.net>
+References: <20081219142505.469589973@theryb.frec.bull.fr>
+	<20081219142508.351224256@theryb.frec.bull.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Cc: netdev@vger.kernel.org, adobriyan@gmail.com, dlezcano@fr.ibm.com
+To: benjamin.thery@bull.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55987
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55989
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752165AbYLZAlr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 19:41:47 -0500
-In-Reply-To: <1229696646-13666-2-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1752151AbYLZAm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 19:42:28 -0500
+In-Reply-To: <20081219142508.351224256@theryb.frec.bull.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Fri, 19 Dec 2008 14:24:06 +0000
+From: Benjamin Thery <benjamin.thery@bull.net>
+Date: Fri, 19 Dec 2008 15:25:06 +0100
 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> Looks like everything is already ready.
+> 
+> Required for ebtables(8) for one thing.
+> 
+> Also, required for ipmr per-netns (coming soon). (Benjamin)
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Acked-by: Benjamin Thery <benjamin.thery@bull.net>
 
-Also applied, thanks Steve.
+Applied.
