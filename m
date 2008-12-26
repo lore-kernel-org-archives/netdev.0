@@ -1,43 +1,53 @@
 From: Evgeniy Polyakov <zbe@ioremap.net>
-Subject: [5/9] pohmelfs: inode operations.
-Date: Fri, 26 Dec 2008 17:18:46 +0300
-Message-ID: <1230301130-1325-6-git-send-email-zbe@ioremap.net>
+Subject: [7/9] pohmelfs: network operations.
+Date: Fri, 26 Dec 2008 17:18:48 +0300
+Message-ID: <1230301130-1325-8-git-send-email-zbe@ioremap.net>
 References: <1230301130-1325-1-git-send-email-zbe@ioremap.net>
  <1230301130-1325-2-git-send-email-zbe@ioremap.net>
  <1230301130-1325-3-git-send-email-zbe@ioremap.net>
  <1230301130-1325-4-git-send-email-zbe@ioremap.net>
  <1230301130-1325-5-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-6-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-7-git-send-email-zbe@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, pohmelfs@ioremap.net,
 	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	Evgeniy Polyakov <zbr@ioremap.net>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavolo.yandex.ru ([87.250.244.45]:31844 "EHLO cavolo.yandex.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753907AbYLZOaC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Dec 2008 09:30:02 -0500
-In-Reply-To: <1230301130-1325-5-git-send-email-zbe@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1230301130-1325-7-git-send-email-zbe@ioremap.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a main patch which implements inode operations
-(like reading and writing) and superblock processing
-(filesystem registration, initial autoconfiguration
-with the server like permissions, size of the exported
-dir, amount of the objects created and so on).
+This is a main network processing patch. It includes
+both low-level socket machinery, zero-copy sending helpers,
+receiving and parsing callbacks and mainly logical
+commands handlers.
 
-POHMELFS relies on system's writeback cache mechanism
-shown here, as long as cache coherency protocol described
-later.
+POHMELFS uses async network approach, when every command
+can be separated from its answer and received after some
+time after the request during which another lots of commands
+can be injected into the network and replies to them received.
+
+With read operation balancing between multiple hosts it is possible
+that operations will arrive out of order and this is handled
+by the transaction mechanism described partially here.
+
+Having transaction to guard set of logically compound operations
+allows to send data without thinking about its status and using
+zero-copy sending mechanism, since transaction will receive explicit
+acks from the servers when they are completed.
+
+This patch also contains header with network srtuctures, commands
+and short comments on how they are used.
 
 Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-diff --git a/fs/pohmelfs/inode.c b/fs/pohmelfs/inode.c
+diff --git a/fs/pohmelfs/net.c b/fs/pohmelfs/net.c
 new file mode 100644
-index 0000000..f66d6c6
+index 0000000..87ca7da
 --- /dev/null
-+++ b/fs/pohmelfs/inode.c
-@@ -0,0 +1,2085 @@
++++ b/fs/pohmelfs/net.c
+@@ -0,0 +1,1180 @@
 +/*
 + * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
 + * All rights reserved.
@@ -53,2073 +63,2108 @@ index 0000000..f66d6c6
 + * GNU General Public License for more details.
 + */
 +
-+#include <linux/module.h>
-+#include <linux/backing-dev.h>
-+#include <linux/crypto.h>
-+#include <linux/fs.h>
++#include <linux/fsnotify.h>
 +#include <linux/jhash.h>
-+#include <linux/hash.h>
-+#include <linux/ktime.h>
-+#include <linux/mm.h>
-+#include <linux/mount.h>
++#include <linux/in.h>
++#include <linux/in6.h>
++#include <linux/kthread.h>
 +#include <linux/pagemap.h>
-+#include <linux/pagevec.h>
-+#include <linux/parser.h>
++#include <linux/poll.h>
 +#include <linux/swap.h>
-+#include <linux/slab.h>
-+#include <linux/statfs.h>
-+#include <linux/writeback.h>
-+#include <linux/quotaops.h>
++#include <linux/syscalls.h>
 +
 +#include "netfs.h"
 +
-+#define POHMELFS_MAGIC_NUM	0x504f482e
-+
-+static struct kmem_cache *pohmelfs_inode_cache;
++/*
++ * Async machinery lives here.
++ * All commands being sent to server do _not_ require sync reply,
++ * instead, if it is really needed, like readdir or readpage, caller
++ * sleeps waiting for data, which will be placed into provided buffer
++ * and caller will be awakened.
++ *
++ * Every command response can come without some listener. For example
++ * readdir response will add new objects into cache without appropriate
++ * request from userspace. This is used in cache coherency.
++ *
++ * If object is not found for given data, it is discarded.
++ *
++ * All requests are received by dedicated kernel thread.
++ */
 +
 +/*
-+ * Removes inode from all trees, drops local name cache and removes all queued
-+ * requests for object removal.
++ * Basic network sending/receiving functions.
++ * Blocked mode is used.
 + */
-+void pohmelfs_inode_del_inode(struct pohmelfs_sb *psb, struct pohmelfs_inode *pi)
++static int netfs_data_recv(struct netfs_state *st, void *buf, u64 size)
 +{
-+	struct pohmelfs_name *n, *tmp;
++	struct msghdr msg;
++	struct kvec iov;
++	int err;
 +
-+	mutex_lock(&pi->offset_lock);
-+	pohmelfs_free_names(pi);
++	BUG_ON(!size);
 +
-+	list_for_each_entry_safe(n, tmp, &pi->sync_create_list, sync_create_entry) {
-+		list_del_init(&n->sync_create_entry);
-+		list_del_init(&n->sync_del_entry);
-+		kfree(n);
++	iov.iov_base = buf;
++	iov.iov_len = size;
++
++	msg.msg_iov = (struct iovec *)&iov;
++	msg.msg_iovlen = 1;
++	msg.msg_name = NULL;
++	msg.msg_namelen = 0;
++	msg.msg_control = NULL;
++	msg.msg_controllen = 0;
++	msg.msg_flags = MSG_DONTWAIT;
++
++	err = kernel_recvmsg(st->socket, &msg, &iov, 1, iov.iov_len,
++			msg.msg_flags);
++	if (err <= 0) {
++		printk("%s: failed to recv data: size: %llu, err: %d.\n", __func__, size, err);
++		if (err == 0)
++			err = -ECONNRESET;
++
++		netfs_state_exit(st);
 +	}
 +
-+	list_for_each_entry_safe(n, tmp, &pi->sync_del_list, sync_del_entry) {
-+		list_del_init(&n->sync_create_entry);
-+		list_del_init(&n->sync_del_entry);
-+		kfree(n);
-+	}
-+	mutex_unlock(&pi->offset_lock);
++	return err;
++}
 +
-+	dprintk("%s: deleted stuff in ino: %llu.\n", __func__, pi->ino);
++static int pohmelfs_data_recv(struct netfs_state *st, void *data, unsigned int size)
++{
++	unsigned int revents = 0;
++	unsigned int err_mask = POLLERR | POLLHUP | POLLRDHUP;
++	unsigned int mask = err_mask | POLLIN;
++	int err = 0;
++
++	while (size && !err) {
++		revents = netfs_state_poll(st);
++
++		if (!(revents & mask)) {
++			DEFINE_WAIT(wait);
++
++			for (;;) {
++				prepare_to_wait(&st->thread_wait, &wait, TASK_INTERRUPTIBLE);
++				if (kthread_should_stop())
++					break;
++
++				revents = netfs_state_poll(st);
++
++				if (revents & mask)
++					break;
++
++				if (signal_pending(current))
++					break;
++
++				schedule();
++				continue;
++			}
++			finish_wait(&st->thread_wait, &wait);
++		}
++
++		err = -ECONNRESET;
++		netfs_state_lock(st);
++
++		if (st->socket && (st->read_socket == st->socket) && (revents & POLLIN)) {
++			err = netfs_data_recv(st, data, size);
++			if (err > 0) {
++				data += err;
++				size -= err;
++				err = 0;
++			}
++		}
++
++		if (revents & err_mask) {
++			printk("%s: revents: %x, socket: %p, size: %u, err: %d.\n",
++					__func__, revents, st->socket, size, err);
++			netfs_state_exit(st);
++			err = -ECONNRESET;
++		}
++
++		if (!st->socket) {
++			err = netfs_state_init(st);
++			if (!err)
++				err = -EAGAIN;
++		}
++
++		netfs_state_unlock(st);
++
++		if (kthread_should_stop())
++			err = -ENODEV;
++
++		if (err)
++			printk("%s: socket: %p, read_socket: %p, revents: %x, rev_error: %d, "
++					"should_stop: %d, size: %u, err: %d.\n",
++				__func__, st->socket, st->read_socket,
++				revents, revents & err_mask, kthread_should_stop(), size, err);
++	}
++
++	return err;
++}
++
++int pohmelfs_data_recv_and_check(struct netfs_state *st, void *data, unsigned int size)
++{
++	struct netfs_cmd *cmd = &st->cmd;
++	int err;
++	
++	err = pohmelfs_data_recv(st, data, size);
++	if (err)
++		return err;
++	
++	return pohmelfs_crypto_process_input_data(&st->eng, cmd->iv, data, NULL, size);
 +}
 +
 +/*
-+ * Sync inode to server.
-+ * Returns zero in success and negative error value otherwise.
-+ * It will gather path to root directory into structures containing
-+ * creation mode, permissions and names, so that the whole path
-+ * to given inode could be created using only single network command.
++ * Polling machinery.
 + */
-+int pohmelfs_write_inode_create(struct inode *inode, struct netfs_trans *trans)
++
++struct netfs_poll_helper
 +{
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	int err = -ENOMEM, size;
-+	struct netfs_cmd *cmd;
-+	void *data;
-+	int cur_len = netfs_trans_cur_len(trans);
++	poll_table 		pt;
++	struct netfs_state	*st;
++};
 +
-+	if (unlikely(cur_len < 0))
-+		return -ETOOSMALL;
++static int netfs_queue_wake(wait_queue_t *wait, unsigned mode, int sync, void *key)
++{
++	struct netfs_state *st = container_of(wait, struct netfs_state, wait);
 +
-+	cmd = netfs_trans_current(trans);
-+	cur_len -= sizeof(struct netfs_cmd);
++	wake_up(&st->thread_wait);
++	return 1;
++}
 +
-+	data = (void *)(cmd + 1);
++static void netfs_queue_func(struct file *file, wait_queue_head_t *whead,
++				 poll_table *pt)
++{
++	struct netfs_state *st = container_of(pt, struct netfs_poll_helper, pt)->st;
 +
-+	mutex_lock(&psb->path_lock);
-+	err = pohmelfs_construct_path(pi, data, cur_len);
-+	mutex_unlock(&psb->path_lock);
++	st->whead = whead;
++	init_waitqueue_func_entry(&st->wait, netfs_queue_wake);
++	add_wait_queue(whead, &st->wait);
++}
 +
-+	dprintk("%s: cmd: %p, data: %p, len: %u, err: %u.\n",
-+			__func__, cmd, data, cur_len, err);
++static void netfs_poll_exit(struct netfs_state *st)
++{
++	if (st->whead) {
++		remove_wait_queue(st->whead, &st->wait);
++		st->whead = NULL;
++	}
++}
 +
-+	if (err < 0)
++static int netfs_poll_init(struct netfs_state *st)
++{
++	struct netfs_poll_helper ph;
++
++	ph.st = st;
++	init_poll_funcptr(&ph.pt, &netfs_queue_func);
++
++	st->socket->ops->poll(NULL, st->socket, &ph.pt);
++	return 0;
++}
++
++/*
++ * Get response for readpage command. We search inode and page in its mapping
++ * and copy data into. If it was async request, then we queue page into shared
++ * data and wakeup listener, who will copy it to userspace.
++ *
++ * There is a work in progress of allowing to call copy_to_user() directly from
++ * async receiving kernel thread.
++ */
++static int pohmelfs_read_page_response(struct netfs_state *st)
++{
++	struct pohmelfs_sb *psb = st->psb;
++	struct netfs_cmd *cmd = &st->cmd;
++	struct inode *inode;
++	struct page *page;
++	int err = 0;
++
++	if (cmd->size > PAGE_CACHE_SIZE) {
++		err = -EINVAL;
 +		goto err_out_exit;
-+
-+	size = err;
-+
-+	if (size) {
-+		cmd->start = 0;
-+		cmd->cmd = NETFS_CREATE;
-+		cmd->size = size;
-+		cmd->id = pi->ino;
-+		cmd->ext = 0;
-+
-+		netfs_convert_cmd(cmd);
 +	}
 +
-+	netfs_trans_update(cmd, trans, size);
++	inode = ilookup(st->psb->sb, cmd->id);
++	if (!inode) {
++		printk("%s: failed to find inode: id: %llu.\n", __func__, cmd->id);
++		err = -ENOENT;
++		goto err_out_exit;
++	}
 +
++	page = find_get_page(inode->i_mapping, cmd->start >> PAGE_CACHE_SHIFT);
++	if (!page || !PageLocked(page)) {
++		printk("%s: failed to find/lock page: page: %p, id: %llu, start: %llu, index: %llu.\n",
++				__func__, page, cmd->id, cmd->start, cmd->start >> PAGE_CACHE_SHIFT);
++
++		while (cmd->size) {
++			unsigned int sz = min(cmd->size, st->size);
++
++			err = pohmelfs_data_recv(st, st->data, sz);
++			if (err)
++				break;
++
++			cmd->size -= sz;
++		}
++
++		err = -ENODEV;
++		if (page)
++			goto err_out_page_put;
++		goto err_out_put;
++	}
++
++	if (cmd->size) {
++		void *addr;
++
++		addr = kmap(page);
++		err = pohmelfs_data_recv(st, addr, cmd->size);
++		kunmap(page);
++
++		if (err)
++			goto err_out_page_unlock;
++	}
++
++	dprintk("%s: page: %p, start: %llu, size: %u, locked: %d.\n",
++		__func__, page, cmd->start, cmd->size, PageLocked(page));
++
++	SetPageChecked(page);
++	if ((psb->hash_string || psb->cipher_string) && psb->perform_crypto && cmd->size) {
++		err = pohmelfs_crypto_process_input_page(&st->eng, page, cmd->size, cmd->iv);
++		if (err < 0)
++			goto err_out_page_unlock;
++	} else {
++		SetPageUptodate(page);
++		unlock_page(page);
++		page_cache_release(page);
++	}
++
++	pohmelfs_put_inode(POHMELFS_I(inode));
++	wake_up(&st->psb->wait);
++
++	return 0;
++
++err_out_page_unlock:
++	SetPageError(page);
++	unlock_page(page);
++err_out_page_put:
++	page_cache_release(page);
++err_out_put:
++	pohmelfs_put_inode(POHMELFS_I(inode));
++err_out_exit:
++	wake_up(&st->psb->wait);
++	return err;
++}
++
++static int pohmelfs_check_name(struct pohmelfs_inode *parent, struct qstr *str,
++		struct netfs_inode_info *info)
++{
++	struct inode *inode;
++	struct pohmelfs_name *n;
++	int err = 0;
++	u64 ino = 0;
++
++	mutex_lock(&parent->offset_lock);
++	n = pohmelfs_search_hash(parent, str->hash);
++	if (n)
++		ino = n->ino;
++	mutex_unlock(&parent->offset_lock);
++
++	if (!ino)
++		goto out;
++
++	inode = ilookup(parent->vfs_inode.i_sb, ino);
++	if (!inode)
++		goto out;
++
++	dprintk("%s: parent: %llu, inode: %llu.\n", __func__, parent->ino, ino);
++
++	pohmelfs_fill_inode(inode, info);
++	pohmelfs_put_inode(POHMELFS_I(inode));
++	err = -EEXIST;
++out:
++	return err;
++}
++
++/*
++ * Readdir response from server. If special field is set, we wakeup
++ * listener (readdir() call), which will copy data to userspace.
++ */
++static int pohmelfs_readdir_response(struct netfs_state *st)
++{
++	struct inode *inode;
++	struct netfs_cmd *cmd = &st->cmd;
++	struct netfs_inode_info *info;
++	struct pohmelfs_inode *parent = NULL, *npi;
++	int err = 0, last = cmd->ext;
++	struct qstr str;
++
++	if (cmd->size > st->size)
++		return -EINVAL;
++
++	inode = ilookup(st->psb->sb, cmd->id);
++	if (!inode)
++		return -ENOENT;
++	parent = POHMELFS_I(inode);
++
++	if (!cmd->size && cmd->start) {
++		err = -cmd->start;
++		goto out;
++	}
++
++	if (cmd->size) {
++		char *name;
++
++		err = pohmelfs_data_recv_and_check(st, st->data, cmd->size);
++		if (err)
++			goto err_out_put;
++
++		info = (struct netfs_inode_info *)(st->data);
++
++		name = (char *)(info + 1);
++		str.len = cmd->size - sizeof(struct netfs_inode_info) - 1 - cmd->cpad;
++		name[str.len] = 0;
++		str.name = name;
++		str.hash = jhash(str.name, str.len, 0);
++
++		netfs_convert_inode_info(info);
++
++		if (parent) {
++			err = pohmelfs_check_name(parent, &str, info);
++			if (err) {
++				if (err == -EEXIST)
++					err = 0;
++				goto out;
++			}
++		}
++
++		info->ino = cmd->start;
++		if (!info->ino)
++			info->ino = pohmelfs_new_ino(st->psb);
++
++		dprintk("%s: parent: %llu, ino: %llu, name: '%s', hash: %x, len: %u, mode: %o.\n",
++				__func__, parent->ino, info->ino, str.name, str.hash, str.len,
++				info->mode);
++
++		npi = pohmelfs_new_inode(st->psb, parent, &str, info, 0);
++		if (IS_ERR(npi)) {
++			err = PTR_ERR(npi);
++
++			if (err != -EEXIST)
++				goto err_out_put;
++		} else {
++			set_bit(NETFS_INODE_CREATED, &npi->state);
++		}
++	}
++out:
++	if (last) {
++		set_bit(NETFS_INODE_REMOTE_SYNCED, &parent->state);
++		wake_up(&st->psb->wait);
++	}
++	pohmelfs_put_inode(parent);
++
++	return err;
++
++err_out_put:
++	clear_bit(NETFS_INODE_REMOTE_SYNCED, &parent->state);
++	printk("%s: parent: %llu, ino: %llu, cmd_id: %llu.\n", __func__, parent->ino, cmd->start, cmd->id);
++	pohmelfs_put_inode(parent);
++	wake_up(&st->psb->wait);
++	return err;
++}
++
++/*
++ * Lookup command response.
++ * It searches for inode to be looked at (if it exists) and substitutes
++ * its inode information (size, permission, mode and so on), if inode does
++ * not exist, new one will be created and inserted into caches.
++ */
++static int pohmelfs_lookup_response(struct netfs_state *st)
++{
++	struct inode *inode = NULL;
++	struct netfs_cmd *cmd = &st->cmd;
++	struct netfs_inode_info *info;
++	struct pohmelfs_inode *parent = NULL, *npi;
++	int err = -EINVAL;
++	char *name;
++
++	inode = ilookup(st->psb->sb, cmd->id);
++	if (!inode) {
++		printk("%s: lookup response: id: %llu, start: %llu, size: %u.\n",
++				__func__, cmd->id, cmd->start, cmd->size);
++		err = -ENOENT;
++		goto err_out_exit;
++	}
++	parent = POHMELFS_I(inode);
++
++	if (!cmd->size) {
++		err = -cmd->start;
++		goto err_out_put;
++	}
++
++	if (cmd->size < sizeof(struct netfs_inode_info)) {
++		printk("%s: broken lookup response: id: %llu, start: %llu, size: %u.\n",
++				__func__, cmd->id, cmd->start, cmd->size);
++		err = -EINVAL;
++		goto err_out_put;
++	}
++
++	err = pohmelfs_data_recv_and_check(st, st->data, cmd->size);
++	if (err)
++		goto err_out_put;
++
++	info = (struct netfs_inode_info *)(st->data);
++	name = (char *)(info + 1);
++
++	netfs_convert_inode_info(info);
++
++	info->ino = cmd->start;
++	if (!info->ino)
++		info->ino = pohmelfs_new_ino(st->psb);
++
++	dprintk("%s: parent: %llu, ino: %llu, name: '%s', start: %llu.\n",
++			__func__, parent->ino, info->ino, name, cmd->start);
++
++	if (cmd->start)
++		npi = pohmelfs_new_inode(st->psb, parent, NULL, info, 0);
++	else {
++		struct qstr str;
++
++		str.name = name;
++		str.len = cmd->size - sizeof(struct netfs_inode_info) - 1 - cmd->cpad;
++		str.hash = jhash(name, str.len, 0);
++
++		npi = pohmelfs_new_inode(st->psb, parent, &str, info, 0);
++	}
++	if (IS_ERR(npi)) {
++		err = PTR_ERR(npi);
++
++		if (err != -EEXIST)
++			goto err_out_put;
++	} else {
++		set_bit(NETFS_INODE_CREATED, &npi->state);
++	}
++
++	clear_bit(NETFS_COMMAND_PENDING, &parent->state);
++	pohmelfs_put_inode(parent);
++
++	wake_up(&st->psb->wait);
++
++	return 0;
++
++err_out_put:
++	pohmelfs_put_inode(parent);
++err_out_exit:
++	clear_bit(NETFS_COMMAND_PENDING, &parent->state);
++	wake_up(&st->psb->wait);
++	printk("%s: inode: %p, id: %llu, start: %llu, size: %u, err: %d.\n",
++			__func__, inode, cmd->id, cmd->start, cmd->size, err);
++	return err;
++}
++
++/*
++ * Create response, just marks local inode as 'created', so that writeback
++ * for any of its children (or own) would not try to sync it again.
++ */
++static int pohmelfs_create_response(struct netfs_state *st)
++{
++	struct inode *inode;
++	struct netfs_cmd *cmd = &st->cmd;
++
++	inode = ilookup(st->psb->sb, cmd->id);
++	if (!inode) {
++		printk("%s: failed to find inode: id: %llu, start: %llu.\n",
++				__func__, cmd->id, cmd->start);
++		goto err_out_exit;
++	}
++
++	/*
++	 * To lock or not to lock?
++	 * We actually do not care if it races...
++	 */
++	if (cmd->start)
++		make_bad_inode(inode);
++
++	set_bit(NETFS_INODE_CREATED, &POHMELFS_I(inode)->state);
++
++	pohmelfs_put_inode(POHMELFS_I(inode));
++
++	wake_up(&st->psb->wait);
 +	return 0;
 +
 +err_out_exit:
-+	clear_bit(NETFS_INODE_CREATED, &pi->state);
-+	printk("%s: completed ino: %llu, err: %d.\n", __func__, pi->ino, err);
-+	return err;
-+}
-+
-+static int pohmelfs_write_trans_complete(struct page **pages, unsigned int page_num,
-+		void *private, int err)
-+{
-+	unsigned i;
-+
-+	dprintk("%s: pages: %lu-%lu, page_num: %u, err: %d.\n",
-+			__func__, pages[0]->index, pages[page_num-1]->index,
-+			page_num, err);
-+
-+	for (i = 0; i < page_num; i++) {
-+		struct page *page = pages[i];
-+
-+		if (!page)
-+			continue;
-+
-+		end_page_writeback(page);
-+
-+		if (err < 0) {
-+			SetPageError(page);
-+			set_page_dirty(page);
-+		}
-+
-+		unlock_page(page);
-+		page_cache_release(page);
-+
-+		/* dprintk("%s: %3u/%u: page: %p.\n", __func__, i, page_num, page); */
-+	}
-+	return err;
-+}
-+
-+static int pohmelfs_inode_has_dirty_pages(struct address_space *mapping, pgoff_t index)
-+{
-+	int ret;
-+	struct page *page;
-+
-+	rcu_read_lock();
-+	ret = radix_tree_gang_lookup_tag(&mapping->page_tree,
-+				(void **)&page, index, 1, PAGECACHE_TAG_DIRTY);
-+	rcu_read_unlock();
-+	return ret;
-+}
-+
-+static int pohmelfs_writepages(struct address_space *mapping, struct writeback_control *wbc)
-+{
-+	struct inode *inode = mapping->host;
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct backing_dev_info *bdi = mapping->backing_dev_info;
-+	int err = 0;
-+	int done = 0;
-+	int nr_pages;
-+	int created = 0;
-+	pgoff_t index;
-+	pgoff_t end;		/* Inclusive */
-+	int scanned = 0;
-+	int range_whole = 0;
-+
-+	if (wbc->nonblocking && bdi_write_congested(bdi)) {
-+		wbc->encountered_congestion = 1;
-+		return 0;
-+	}
-+
-+	if (wbc->range_cyclic) {
-+		index = mapping->writeback_index; /* Start from prev offset */
-+		end = -1;
-+	} else {
-+		index = wbc->range_start >> PAGE_CACHE_SHIFT;
-+		end = wbc->range_end >> PAGE_CACHE_SHIFT;
-+		if (wbc->range_start == 0 && wbc->range_end == LLONG_MAX)
-+			range_whole = 1;
-+		scanned = 1;
-+	}
-+retry:
-+	while (!done && (index <= end)) {
-+		unsigned int i = min(end - index, (pgoff_t)psb->trans_max_pages);
-+		unsigned int path_len;
-+		struct netfs_trans *trans;
-+
-+		err = pohmelfs_inode_has_dirty_pages(mapping, index);
-+		if (!err)
-+			break;
-+
-+		mutex_lock(&psb->path_lock);
-+		if (!test_bit(NETFS_INODE_CREATED, &pi->state))
-+			err = pohmelfs_path_length_create(pi);
-+		else
-+			err = pohmelfs_path_length(pi);
-+		mutex_unlock(&psb->path_lock);
-+
-+		if (err < 0)
-+			break;
-+
-+		path_len = err;
-+
-+		trans = netfs_trans_alloc(psb, path_len, 0, i);
-+		if (!trans) {
-+			err = -ENOMEM;
-+			break;
-+		}
-+		trans->complete = &pohmelfs_write_trans_complete;
-+
-+		trans->page_num = nr_pages = find_get_pages_tag(mapping, &index,
-+				PAGECACHE_TAG_DIRTY, trans->page_num,
-+				trans->pages);
-+
-+		dprintk("%s: t: %p, nr_pages: %u, end: %lu, index: %lu, max: %u.\n",
-+				__func__, trans, nr_pages, end, index, trans->page_num);
-+
-+		if (!nr_pages)
-+			goto err_out_reset;
-+		
-+		if (!test_bit(NETFS_INODE_CREATED, &pi->state)) {
-+			err = pohmelfs_write_inode_create(inode, trans);
-+			if (err)
-+				goto err_out_reset;
-+			created = 1;
-+		} else {
-+			void *data;
-+			struct netfs_cmd *cmd = netfs_trans_current(trans);
-+
-+			data = (void *)(cmd + 1);
-+
-+			mutex_lock(&psb->path_lock);
-+			err = pohmelfs_construct_path_string(pi, data, path_len);
-+			mutex_unlock(&psb->path_lock);
-+			if (err < 0)
-+				goto err_out_reset;
-+
-+			cmd->id = pi->ino;
-+			cmd->start = 0;
-+			cmd->size = err + 1;
-+			cmd->cmd = NETFS_OPEN;
-+			cmd->ext = O_RDWR | O_LARGEFILE;
-+			cmd->csize = 0;
-+			cmd->cpad = 0;
-+
-+			netfs_convert_cmd(cmd);
-+			netfs_trans_update(cmd, trans, err + 1);
-+		}
-+
-+		err = 0;
-+		scanned = 1;
-+		for (i = 0; i < trans->page_num; i++) {
-+			struct page *page = trans->pages[i];
-+
-+			lock_page(page);
-+
-+			if (unlikely(page->mapping != mapping))
-+				goto out_continue;
-+
-+			if (!wbc->range_cyclic && page->index > end) {
-+				done = 1;
-+				goto out_continue;
-+			}
-+
-+			if (wbc->sync_mode != WB_SYNC_NONE)
-+				wait_on_page_writeback(page);
-+
-+			if (PageWriteback(page) ||
-+			    !clear_page_dirty_for_io(page)) {
-+				dprintk("%s: not clear for io page: %p, writeback: %d.\n",
-+						__func__, page, PageWriteback(page));
-+				goto out_continue;
-+			}
-+
-+			set_page_writeback(page);
-+
-+			trans->attached_size += page_private(page);
-+			trans->attached_pages++;
-+#if 0
-+			dprintk("%s: %u/%u added trans: %p, gen: %u, page: %p, [High: %d], size: %lu, idx: %lu.\n",
-+					__func__, i, trans->page_num, trans, trans->gen, page,
-+					!!PageHighMem(page), page_private(page), page->index);
-+#endif
-+			wbc->nr_to_write--;
-+
-+			if (wbc->nr_to_write <= 0)
-+				done = 1;
-+			if (wbc->nonblocking && bdi_write_congested(bdi)) {
-+				wbc->encountered_congestion = 1;
-+				done = 1;
-+			}
-+
-+			continue;
-+out_continue:
-+			unlock_page(page);
-+			trans->pages[i] = NULL;
-+		}
-+
-+		if (trans->attached_size || created) {
-+			err = netfs_trans_finish(trans, psb);
-+		} else {
-+			netfs_trans_reset(trans);
-+			netfs_trans_put(trans);
-+		}
-+
-+		if (err)
-+			break;
-+
-+		continue;
-+
-+err_out_reset:
-+		trans->result = err;
-+		netfs_trans_reset(trans);
-+		netfs_trans_put(trans);
-+		break;
-+	}
-+
-+	if (!scanned && !done) {
-+		/*
-+		 * We hit the last page and there is more work to be done: wrap
-+		 * back to the start of the file
-+		 */
-+		scanned = 1;
-+		index = 0;
-+		goto retry;
-+	}
-+
-+	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
-+		mapping->writeback_index = index;
-+
-+	return err;
++	wake_up(&st->psb->wait);
++	return -ENOENT;
 +}
 +
 +/*
-+ * Sync all not-yet-created children in given directory to the server.
++ * Object remove response. Just says that remove request has been received.
++ * Used in cache coherency protocol.
 + */
-+static int pohmelfs_write_inode_create_children(struct inode *inode)
++static int pohmelfs_remove_response(struct netfs_state *st)
 +{
-+	struct pohmelfs_inode *parent = POHMELFS_I(inode);
-+	struct super_block *sb = inode->i_sb;
-+	struct pohmelfs_name *n;
++	struct netfs_cmd *cmd = &st->cmd;
++	int err;
 +
-+	while (!list_empty(&parent->sync_create_list)) {
-+		n = NULL;
-+		mutex_lock(&parent->offset_lock);
-+		if (!list_empty(&parent->sync_create_list)) {
-+			n = list_first_entry(&parent->sync_create_list,
-+				struct pohmelfs_name, sync_create_entry);
-+			list_del_init(&n->sync_create_entry);
-+		}
-+		mutex_unlock(&parent->offset_lock);
++	err = pohmelfs_data_recv_and_check(st, st->data, cmd->size);
++	if (err)
++		return err;
 +
-+		if (!n)
-+			break;
-+
-+		inode = ilookup(sb, n->ino);
-+
-+		dprintk("%s: parent: %llu, ino: %llu, inode: %p.\n",
-+				__func__, parent->ino, n->ino, inode);
-+
-+		if (inode && (inode->i_state & I_DIRTY)) {
-+			pohmelfs_meta_command(POHMELFS_I(inode),
-+				NETFS_INODE_INFO, 0, NULL, NULL, 0);
-+			iput(inode);
-+		}
-+	}
++	dprintk("%s: parent: %llu, path: '%s'.\n", __func__, cmd->id, (char *)st->data);
 +
 +	return 0;
 +}
 +
 +/*
-+ * Removes given child from given inode on server.
++ * Transaction reply processing.
++ *
++ * Find transaction based on its generation number, bump its reference counter,
++ * so that none could free it under us, drop from the trees and lists and
++ * drop reference counter. When it hits zero (when all destinations replied
++ * and all timeout handled by async scanning code), completion will be called
++ * and transaction will be freed.
 + */
-+static int pohmelfs_remove_child(struct pohmelfs_inode *parent, struct pohmelfs_name *n)
++static int pohmelfs_transaction_response(struct netfs_state *st)
 +{
-+	dprintk("%s: parent: %llu, ino: %llu, name: '%s'.\n",
-+			__func__, parent->ino, n->ino, n->data);
++	struct netfs_trans_dst *dst;
++	struct netfs_trans *t = NULL;
++	struct netfs_cmd *cmd = &st->cmd;
++	short err = (signed)cmd->ext;
 +
-+	return pohmelfs_meta_command_data(parent, parent->ino, NETFS_REMOVE, n->data, 0, NULL, NULL, 0);
++	mutex_lock(&st->trans_lock);
++	dst = netfs_trans_search(st, cmd->start);
++	if (dst) {
++		netfs_trans_remove_nolock(dst, st);
++		t = dst->trans;
++	}
++	mutex_unlock(&st->trans_lock);
++
++	if (!t) {
++		printk("%s: failed to find transaction: start: %llu: id: %llu, size: %u, ext: %u.\n",
++				__func__, cmd->start, cmd->id, cmd->size, cmd->ext);
++		err = -EINVAL;
++		goto out;
++	}
++
++	t->result = err;
++	netfs_trans_drop_dst_nostate(dst);
++
++out:
++	wake_up(&st->psb->wait);
++	return err;
 +}
 +
 +/*
-+ * Removes all childs, marked for deletion, on server.
++ * Inode metadata cache coherency message.
 + */
-+static int pohmelfs_write_inode_remove_children(struct inode *inode)
++static int pohmelfs_page_cache_response(struct netfs_state *st)
 +{
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	int err, error = 0;
-+	struct pohmelfs_name *n, *tmp;
++	struct netfs_cmd *cmd = &st->cmd;
++	struct inode *inode;
 +
-+	if (!list_empty(&pi->sync_del_list)) {
-+		mutex_lock(&pi->offset_lock);
-+		list_for_each_entry_safe(n, tmp, &pi->sync_del_list, sync_del_entry) {
-+			list_del_init(&n->sync_del_entry);
-+			list_del_init(&n->sync_create_entry);
++	dprintk("%s: st: %p, id: %llu, start: %llu, size: %u.\n", __func__, st, cmd->id, cmd->start, cmd->size);
 +
-+			err = pohmelfs_remove_child(pi, n);
-+			if (err)
-+				error = err;
-+
-+			kfree(n);
-+		}
-+		mutex_unlock(&pi->offset_lock);
++	inode = ilookup(st->psb->sb, cmd->id);
++	if (!inode) {
++		printk("%s: failed to find inode: id: %llu.\n", __func__, cmd->id);
++		return -ENOENT;
 +	}
++
++	set_bit(NETFS_INODE_NEED_FLUSH, &POHMELFS_I(inode)->state);
++	pohmelfs_put_inode(POHMELFS_I(inode));
++
++	return 0;
++}
++
++/*
++ * Root capabilities response: export statistics
++ * like used and available size, number of files and dirs,
++ * permissions.
++ */
++static int pohmelfs_root_cap_response(struct netfs_state *st)
++{
++	struct netfs_cmd *cmd = &st->cmd;
++	struct netfs_root_capabilities *cap;
++	struct pohmelfs_sb *psb = st->psb;
++
++	if (cmd->size != sizeof(struct netfs_root_capabilities)) {
++		psb->flags = EPROTO;
++		wake_up(&psb->wait);
++		return -EPROTO;
++	}
++
++	cap = st->data;
++
++	netfs_convert_root_capabilities(cap);
++
++	if (psb->total_size < cap->used + cap->avail)
++		psb->total_size = cap->used + cap->avail;
++	if (cap->avail)
++		psb->avail_size = cap->avail;
++	psb->state_flags = cap->flags;
++
++	if (psb->state_flags & POHMELFS_FLAGS_RO) {
++		psb->sb->s_flags |= MS_RDONLY;
++		printk(KERN_INFO "Mounting POHMELFS (%d) read-only.\n", psb->idx);
++	}
++
++	if (psb->state_flags & POHMELFS_FLAGS_XATTR)
++		printk(KERN_INFO "Mounting POHMELFS (%d) "
++			"with extended attributes support.\n", psb->idx);
++
++	if (atomic_read(&psb->total_inodes) <= 1)
++		atomic_long_set(&psb->total_inodes, cap->nr_files);
++
++	dprintk("%s: total: %llu, avail: %llu, flags: %llx, inodes: %llu.\n",
++		__func__, psb->total_size, psb->avail_size, psb->state_flags, cap->nr_files);
++
++	psb->flags = 0;
++	wake_up(&psb->wait);
++	return 0;
++}
++
++/*
++ * Crypto capabilities of the server, where it says that
++ * it supports or does not requested hash/cipher algorithms.
++ */
++static int pohmelfs_crypto_cap_response(struct netfs_state *st)
++{
++	struct netfs_cmd *cmd = &st->cmd;
++	struct netfs_crypto_capabilities *cap;
++	struct pohmelfs_sb *psb = st->psb;
++	int err = 0;
++
++	if (cmd->size != sizeof(struct netfs_crypto_capabilities)) {
++		psb->flags = EPROTO;
++		wake_up(&psb->wait);
++		return -EPROTO;
++	}
++
++	cap = st->data;
++
++	dprintk("%s: cipher '%s': %s, hash: '%s': %s.\n",
++			__func__,
++			psb->cipher_string, (cap->cipher_strlen)?"SUPPORTED":"NOT SUPPORTED",
++			psb->hash_string, (cap->hash_strlen)?"SUPPORTED":"NOT SUPPORTED");
++
++	if (!cap->hash_strlen) {
++		if (psb->hash_strlen && psb->crypto_fail_unsupported)
++			err = -ENOTSUPP;
++		psb->hash_strlen = 0;
++		kfree(psb->hash_string);
++		psb->hash_string = NULL;
++	}
++
++	if (!cap->cipher_strlen) {
++		if (psb->cipher_strlen && psb->crypto_fail_unsupported)
++			err = -ENOTSUPP;
++		psb->cipher_strlen = 0;
++		kfree(psb->cipher_string);
++		psb->cipher_string = NULL;
++	}
++
++	return err;
++}
++
++/*
++ * Capabilities handshake response.
++ */
++static int pohmelfs_capabilities_response(struct netfs_state *st)
++{
++	struct netfs_cmd *cmd = &st->cmd;
++	int err = 0;
++
++	err = pohmelfs_data_recv(st, st->data, cmd->size);
++	if (err)
++		return err;
++
++	switch (cmd->id) {
++		case POHMELFS_CRYPTO_CAPABILITIES:
++			return pohmelfs_crypto_cap_response(st);
++		case POHMELFS_ROOT_CAPABILITIES:
++			return pohmelfs_root_cap_response(st);
++		default:
++			break;
++	}
++	return -EINVAL;
++}
++
++/*
++ * Receiving extended attribute.
++ * Does not work properly if received size is more than requested one,
++ * it should not happen with current request/reply model though.
++ */
++static int pohmelfs_getxattr_response(struct netfs_state *st)
++{
++	struct pohmelfs_sb *psb = st->psb;
++	struct netfs_cmd *cmd = &st->cmd;
++	struct pohmelfs_mcache *m;
++	short error = (signed short)cmd->ext, err;
++	unsigned int sz, total_size;
++
++	m = pohmelfs_mcache_search(psb, cmd->id);
++
++	dprintk("%s: id: %llu, gen: %llu, err: %d.\n",
++		__func__, cmd->id, (m)?m->gen:0, error);
++
++	if (!m)
++		return -ENOENT;
++
++	if (cmd->size) {
++		sz = min_t(unsigned int, cmd->size, m->size);
++		err = pohmelfs_data_recv_and_check(st, m->data, sz);
++		if (err) {
++			error = err;
++			goto out;
++		}
++
++		m->size = sz;
++		total_size = cmd->size - sz;
++
++		while (total_size) {
++			sz = min(total_size, st->size);
++
++			err = pohmelfs_data_recv_and_check(st, st->data, sz);
++			if (err) {
++				error = err;
++				break;
++			}
++
++			total_size -= sz;
++		}
++	}
++
++out:
++	m->err = error;
++	complete(&m->complete);
++	pohmelfs_mcache_put(psb, m);
 +
 +	return error;
 +}
 +
-+/*
-+ * Inode writeback creation completion callback.
-+ * Only invoked for just created inodes, which do not have pages attached,
-+ * like dirs and empty files.
-+ */
-+static int pohmelfs_write_inode_complete(struct page **pages, unsigned int page_num,
-+		void *private, int err)
++int pohmelfs_data_lock_response(struct netfs_state *st)
 +{
-+	struct inode *inode = private;
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
++	struct pohmelfs_sb *psb = st->psb;
++	struct netfs_cmd *cmd = &st->cmd;
++	struct pohmelfs_mcache *m;
++	short err = (signed short)cmd->ext;
++	u64 id = cmd->id;
 +
-+	if (inode) {
++	m = pohmelfs_mcache_search(psb, id);
++
++	dprintk("%s: id: %llu, gen: %llu, err: %d.\n",
++		__func__, cmd->id, (m)?m->gen:0, err);
++
++	if (!m) {
++		pohmelfs_data_recv(st, st->data, cmd->size);
++		return -ENOENT;
++	}
++
++	if (cmd->size)
++		err = pohmelfs_data_recv_and_check(st, &m->info, cmd->size);
++
++	m->err = err;
++	complete(&m->complete);
++	pohmelfs_mcache_put(psb, m);
++
++	return err;
++}
++
++static void __inline__ netfs_state_reset(struct netfs_state *st)
++{
++	netfs_state_lock(st);
++	netfs_state_exit(st);
++	netfs_state_init(st);
++	netfs_state_unlock(st);
++}
++
++/*
++ * Main receiving function, called from dedicated kernel thread.
++ */
++static int pohmelfs_recv(void *data)
++{
++	int err = -EINTR;
++	struct netfs_state *st = data;
++	struct netfs_cmd *cmd = &st->cmd;
++
++	while (!kthread_should_stop()) {
++		/*
++		 * If socket will be reset after this statement, then
++		 * pohmelfs_data_recv() will just fail and loop will
++		 * start again, so it can be done without any locks.
++		 *
++		 * st->read_socket is needed to prevents state machine
++		 * breaking between this data reading and subsequent one
++		 * in protocol specific functions during connection reset.
++		 * In case of reset we have to read next command and do
++		 * not expect data for old command to magically appear in
++		 * new connection.
++		 */
++		st->read_socket = st->socket;
++		err = pohmelfs_data_recv(st, cmd, sizeof(struct netfs_cmd));
 +		if (err) {
-+			mark_inode_dirty(inode);
-+			clear_bit(NETFS_INODE_CREATED, &pi->state);
-+		} else
-+			set_bit(NETFS_INODE_CREATED, &pi->state);
-+
-+		pohmelfs_put_inode(pi);
-+	}
-+
-+	return err;
-+}
-+
-+/*
-+ * Writeback for given inode.
-+ */
-+static int pohmelfs_write_inode(struct inode *inode, int sync)
-+{
-+	int err;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	struct netfs_trans *t;
-+
-+	if (!test_bit(NETFS_INODE_CREATED, &pi->state)) {
-+		dprintk("%s: started ino: %llu.\n", __func__, pi->ino);
-+
-+		mutex_lock(&psb->path_lock);
-+		err = pohmelfs_path_length_create(pi);
-+		mutex_unlock(&psb->path_lock);
-+		if (err < 0)
-+			goto err_out_remove;
-+
-+		t = netfs_trans_alloc(psb, err + 1, 0, 0);
-+		if (!t) {
-+			err = -ENOMEM;
-+			goto err_out_put;
-+		}
-+		t->complete = pohmelfs_write_inode_complete;
-+		t->private = igrab(inode);
-+		if (!t->private) {
-+			err = -ENOENT;
-+			goto err_out_put;
-+		}
-+
-+		err = pohmelfs_write_inode_create(inode, t);
-+		if (err)
-+			goto err_out_put;
-+
-+		err = netfs_trans_finish(t, POHMELFS_SB(inode->i_sb));
-+		if (err)
-+			goto err_out_remove;
-+	}
-+
-+	pohmelfs_write_inode_create_children(inode);
-+	pohmelfs_write_inode_remove_children(inode);
-+
-+	return 0;
-+
-+err_out_put:
-+	t->result = err;
-+	netfs_trans_put(t);
-+err_out_remove:
-+	pohmelfs_write_inode_create_children(inode);
-+	pohmelfs_write_inode_remove_children(inode);
-+
-+	return err;
-+}
-+
-+/*
-+ * It is not exported, sorry...
-+ */
-+static inline wait_queue_head_t *page_waitqueue(struct page *page)
-+{
-+	const struct zone *zone = page_zone(page);
-+
-+	return &zone->wait_table[hash_ptr(page, zone->wait_table_bits)];
-+}
-+
-+static int pohmelfs_wait_on_page_locked(struct page *page)
-+{
-+	struct pohmelfs_sb *psb = POHMELFS_SB(page->mapping->host->i_sb);
-+	long ret = psb->wait_on_page_timeout;
-+	DEFINE_WAIT_BIT(wait, &page->flags, PG_locked);
-+	int err = 0;
-+
-+	if (!PageLocked(page))
-+		return 0;
-+
-+	for (;;) {
-+		prepare_to_wait(page_waitqueue(page),
-+				&wait.wait, TASK_INTERRUPTIBLE);
-+
-+		dprintk("%s: page: %p, locked: %d, uptodate: %d, error: %d, flags: %lx.\n",
-+				__func__, page, PageLocked(page), PageUptodate(page),
-+				PageError(page), page->flags);
-+
-+		if (!PageLocked(page))
-+			break;
-+
-+		if (!signal_pending(current)) {
-+			ret = schedule_timeout(ret);
-+			if (!ret)
-+				break;
-+			continue;
-+		}
-+		ret = -ERESTARTSYS;
-+		break;
-+	}
-+	finish_wait(page_waitqueue(page), &wait.wait);
-+
-+	if (!ret)
-+		err = -ETIMEDOUT;
-+
-+
-+	if (!err)
-+		SetPageUptodate(page);
-+
-+	dprintk("%s: page: %p, uptodate: %d, locked: %d, err: %d.\n",
-+			__func__, page, PageUptodate(page), PageLocked(page), err);
-+
-+	return err;
-+}
-+
-+static int pohmelfs_read_page_complete(struct page **pages, unsigned int page_num,
-+		void *private, int err)
-+{
-+	struct page *page = private;
-+	
-+	if (PageChecked(page))
-+		return err;
-+
-+	if (err < 0)
-+		SetPageError(page);
-+
-+	unlock_page(page);
-+
-+	return err;
-+}
-+
-+/*
-+ * Read a page from remote server.
-+ * Function will wait until page is unlocked.
-+ */
-+static int pohmelfs_readpage(struct file *file, struct page *page)
-+{
-+	struct inode *inode = page->mapping->host;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	struct netfs_trans *t;
-+	struct netfs_cmd *cmd;
-+	int err, path_len;
-+	void *data;
-+
-+	err = pohmelfs_data_lock(pi, page->index << PAGE_CACHE_SHIFT,
-+			PAGE_SIZE, POHMELFS_READ_LOCK);
-+	if (err)
-+		goto err_out_exit;
-+
-+	mutex_lock(&psb->path_lock);
-+	path_len = pohmelfs_path_length(pi);
-+	mutex_unlock(&psb->path_lock);
-+
-+	if (path_len < 0) {
-+		err = path_len;
-+		goto err_out_exit;
-+	}
-+
-+	t = netfs_trans_alloc(psb, path_len, NETFS_TRANS_SINGLE_DST, 0);
-+	if (!t) {
-+		err = -ENOMEM;
-+		goto err_out_exit;
-+	}
-+
-+	t->complete = pohmelfs_read_page_complete;
-+	t->private = page;
-+
-+	cmd = netfs_trans_current(t);
-+	data = (void *)(cmd + 1);
-+
-+	mutex_lock(&psb->path_lock);
-+	err = pohmelfs_construct_path_string(pi, data, path_len);
-+	mutex_unlock(&psb->path_lock);
-+	if (err < 0)
-+		goto err_out_free;
-+
-+	path_len = err + 1;
-+
-+	cmd->id = pi->ino;
-+	cmd->start = page->index;
-+	cmd->start <<= PAGE_CACHE_SHIFT;
-+	cmd->size = PAGE_CACHE_SIZE + path_len;
-+	cmd->cmd = NETFS_READ_PAGE;
-+	cmd->ext = path_len;
-+
-+	dprintk("%s: path: '%s', page: %p, ino: %llu, start: %llu, size: %lu.\n",
-+			__func__, (char *)data, page, pi->ino, cmd->start, PAGE_CACHE_SIZE);
-+
-+	netfs_convert_cmd(cmd);
-+	netfs_trans_update(cmd, t, path_len);
-+
-+	err = netfs_trans_finish(t, psb);
-+	if (err)
-+		goto err_out_return;
-+
-+	return pohmelfs_wait_on_page_locked(page);
-+
-+err_out_free:
-+	t->result = err;
-+	netfs_trans_put(t);
-+err_out_exit:
-+	SetPageError(page);
-+	if (PageLocked(page))
-+		unlock_page(page);
-+err_out_return:
-+	printk("%s: page: %p, start: %lu, size: %lu, err: %d.\n",
-+		__func__, page, page->index << PAGE_CACHE_SHIFT, PAGE_CACHE_SIZE, err);
-+
-+	return err;
-+}
-+
-+/*
-+ * Write begin/end magic.
-+ * Allocates a page and writes inode if it was not synced to server before.
-+ */
-+static int pohmelfs_write_begin(struct file *file, struct address_space *mapping,
-+		loff_t pos, unsigned len, unsigned flags,
-+		struct page **pagep, void **fsdata)
-+{
-+	struct inode *inode = mapping->host;
-+	struct page *page;
-+	pgoff_t index;
-+	unsigned start, end;
-+	int err;
-+
-+	*pagep = NULL;
-+
-+	index = pos >> PAGE_CACHE_SHIFT;
-+	start = pos & (PAGE_CACHE_SIZE - 1);
-+	end = start + len;
-+
-+	page = __grab_cache_page(mapping, index);
-+
-+	dprintk("%s: page: %p pos: %llu, len: %u, index: %lu, start: %u, end: %u, uptodate: %d.\n",
-+			__func__, page,	pos, len, index, start, end, PageUptodate(page));
-+
-+	if (!page) {
-+		err = -ENOMEM;
-+		goto err_out_exit;
-+	}
-+
-+	while (!PageUptodate(page)) {
-+		if (start && test_bit(NETFS_INODE_CREATED, &POHMELFS_I(inode)->state)) {
-+			err = pohmelfs_readpage(file, page);
-+			if (err)
-+				goto err_out_exit;
-+
-+			lock_page(page);
++			msleep(1000);
 +			continue;
 +		}
 +
-+		if (len != PAGE_CACHE_SIZE) {
-+			void *kaddr = kmap_atomic(page, KM_USER0);
++		netfs_convert_cmd(cmd);
 +
-+			memset(kaddr + start, 0, PAGE_CACHE_SIZE - start);
-+			flush_dcache_page(page);
-+			kunmap_atomic(kaddr, KM_USER0);
-+		}
-+		SetPageUptodate(page);
-+	}
++		dprintk("%s: cmd: %u, id: %llu, start: %llu, size: %u, "
++				"ext: %u, csize: %u, cpad: %u.\n",
++				__func__, cmd->cmd, cmd->id, cmd->start,
++				cmd->size, cmd->ext, cmd->csize, cmd->cpad);
 +
-+	set_page_private(page, end);
++		if (cmd->csize) {
++			struct pohmelfs_crypto_engine *e = &st->eng;
 +
-+	*pagep = page;
-+
-+	return 0;
-+
-+err_out_exit:
-+	page_cache_release(page);
-+	*pagep = NULL;
-+
-+	return err;
-+}
-+
-+static int pohmelfs_write_end(struct file *file, struct address_space *mapping,
-+			loff_t pos, unsigned len, unsigned copied,
-+			struct page *page, void *fsdata)
-+{
-+	struct inode *inode = mapping->host;
-+
-+	if (copied != len) {
-+		unsigned from = pos & (PAGE_CACHE_SIZE - 1);
-+		void *kaddr = kmap_atomic(page, KM_USER0);
-+
-+		memset(kaddr + from + copied, 0, len - copied);
-+		flush_dcache_page(page);
-+		kunmap_atomic(kaddr, KM_USER0);
-+	}
-+
-+	SetPageUptodate(page);
-+	set_page_dirty(page);
-+
-+	dprintk("%s: page: %p [U: %d, D: %d, L: %d], pos: %llu, len: %u, copied: %u.\n",
-+			__func__, page,
-+			PageUptodate(page), PageDirty(page), PageLocked(page),
-+			pos, len, copied);
-+
-+	flush_dcache_page(page);
-+
-+	unlock_page(page);
-+	page_cache_release(page);
-+
-+	if (pos + copied > inode->i_size) {
-+		struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+
-+		mutex_lock(&psb->path_lock);
-+		psb->avail_size -= pos + copied - inode->i_size;
-+		mutex_unlock(&psb->path_lock);
-+
-+		i_size_write(inode, pos + copied);
-+	}
-+
-+	return copied;
-+}
-+
-+static int pohmelfs_readpages_trans_complete(struct page **__pages, unsigned int page_num,
-+		void *private, int err)
-+{
-+	struct pohmelfs_inode *pi = private;
-+	unsigned int i, num;
-+	struct page **pages, *page = (struct page *)__pages;
-+	loff_t index = page->index;
-+
-+	pages = kzalloc(sizeof(void *) * page_num, GFP_NOIO);
-+	if (!pages)
-+		return -ENOMEM;
-+
-+	num = find_get_pages_contig(pi->vfs_inode.i_mapping, index, page_num, pages);
-+	if (num <= 0) {
-+		err = num;
-+		goto err_out_free;
-+	}
-+
-+	for (i=0; i<num; ++i) {
-+		page = pages[i];
-+
-+		if (err)
-+			printk("%s: %u/%u: page: %p, index: %lu, uptodate: %d, locked: %d, err: %d.\n",
-+				__func__, i, num, page, page->index,
-+				PageUptodate(page), PageLocked(page), err);
-+
-+		if (!PageChecked(page)) {
-+			if (err < 0)
-+				SetPageError(page);
-+			unlock_page(page);
-+		}
-+		page_cache_release(page);
-+	}
-+
-+err_out_free:
-+	kfree(pages);
-+	return err;
-+}
-+
-+static int pohmelfs_send_readpages(struct pohmelfs_inode *pi, struct page *first, unsigned int num)
-+{
-+	struct netfs_trans *t;
-+	struct netfs_cmd *cmd;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(pi->vfs_inode.i_sb);
-+	int err, path_len;
-+	void *data;
-+
-+	err = pohmelfs_data_lock(pi, first->index << PAGE_CACHE_SHIFT,
-+			num * PAGE_SIZE, POHMELFS_READ_LOCK);
-+	if (err)
-+		goto err_out_exit;
-+
-+	mutex_lock(&psb->path_lock);
-+	path_len = pohmelfs_path_length(pi);
-+	mutex_unlock(&psb->path_lock);
-+
-+	if (path_len < 0) {
-+		err = path_len;
-+		goto err_out_exit;
-+	}
-+
-+	t = netfs_trans_alloc(psb, path_len, NETFS_TRANS_SINGLE_DST, 0);
-+	if (!t) {
-+		err = -ENOMEM;
-+		goto err_out_exit;
-+	}
-+
-+	cmd = netfs_trans_current(t);
-+	data = (void *)(cmd + 1);
-+
-+	t->complete = pohmelfs_readpages_trans_complete;
-+	t->private = pi;
-+	t->page_num = num;
-+	t->pages = (struct page **)first;
-+
-+	mutex_lock(&psb->path_lock);
-+	err = pohmelfs_construct_path_string(pi, data, path_len);
-+	mutex_unlock(&psb->path_lock);
-+	if (err < 0)
-+		goto err_out_put;
-+
-+	path_len = err + 1;
-+
-+	cmd->cmd = NETFS_READ_PAGES;
-+	cmd->start = first->index;
-+	cmd->start <<= PAGE_CACHE_SHIFT;
-+	cmd->size = (num << 8 | PAGE_CACHE_SHIFT);
-+	cmd->id = pi->ino;
-+	cmd->ext = path_len;
-+
-+	dprintk("%s: t: %p, gen: %u, path: '%s', path_len: %u, "
-+			"start: %lu, num: %u.\n",
-+			__func__, t, t->gen, (char *)data, path_len,
-+			first->index, num);
-+
-+	netfs_convert_cmd(cmd);
-+	netfs_trans_update(cmd, t, path_len);
-+
-+	return netfs_trans_finish(t, psb);
-+
-+err_out_put:
-+	netfs_trans_free(t);
-+err_out_exit:
-+	pohmelfs_readpages_trans_complete((struct page **)first, num, pi, err);
-+	return err;
-+}
-+
-+#define list_to_page(head) (list_entry((head)->prev, struct page, lru))
-+
-+static int pohmelfs_readpages(struct file *file, struct address_space *mapping,
-+			struct list_head *pages, unsigned nr_pages)
-+{
-+	unsigned int page_idx, num = 0;
-+	struct page *page = NULL, *first = NULL;
-+
-+	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
-+		page = list_to_page(pages);
-+
-+		prefetchw(&page->flags);
-+		list_del(&page->lru);
-+
-+		if (!add_to_page_cache_lru(page, mapping,
-+					page->index, GFP_KERNEL)) {
-+
-+			if (!num) {
-+				num = 1;
-+				first = page;
-+				page_cache_release(page);
++			if (unlikely(cmd->csize > e->size/2)) {
++				netfs_state_reset(st);
 +				continue;
 +			}
 +
-+			dprintk("%s: added to lru page: %p, page_index: %lu, first_index: %lu.\n",
-+					__func__, page, page->index, first->index);
-+
-+			if (unlikely(first->index + num != page->index) || (num > 500)) {
-+				pohmelfs_send_readpages(POHMELFS_I(mapping->host),
-+						first, num);
-+				first = page;
-+				num = 0;
++			if (e->hash && unlikely(cmd->csize != st->psb->crypto_attached_size)) {
++				dprintk("%s: cmd: cmd: %u, id: %llu, start: %llu, size: %u, "
++						"csize: %u != digest size %u.\n",
++						__func__, cmd->cmd, cmd->id, cmd->start, cmd->size,
++						cmd->csize, st->psb->crypto_attached_size);
++				netfs_state_reset(st);
++				continue;
 +			}
 +
-+			num++;
-+		}
-+		page_cache_release(page);
-+	}
-+	pohmelfs_send_readpages(POHMELFS_I(mapping->host), first, num);
-+
-+	/*
-+	 * This will be sync read, so when last page is processed,
-+	 * all previous are alerady unlocked and ready to be used.
-+	 */
-+	return 0;
-+}
-+
-+/*
-+ * Small addres space operations for POHMELFS.
-+ */
-+const struct address_space_operations pohmelfs_aops = {
-+	.readpage		= pohmelfs_readpage,
-+	.readpages		= pohmelfs_readpages,
-+	.writepages		= pohmelfs_writepages,
-+	.write_begin		= pohmelfs_write_begin,
-+	.write_end		= pohmelfs_write_end,
-+	.set_page_dirty 	= __set_page_dirty_nobuffers,
-+};
-+
-+/*
-+ * ->detroy_inode() callback. Deletes inode from the caches
-+ *  and frees private data.
-+ */
-+static void pohmelfs_destroy_inode(struct inode *inode)
-+{
-+	struct super_block *sb = inode->i_sb;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(sb);
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+
-+	pohmelfs_data_unlock(pi, 0, inode->i_size, POHMELFS_READ_LOCK);
-+
-+	pohmelfs_inode_del_inode(psb, pi);
-+
-+	dprintk("%s: pi: %p, inode: %p, ino: %llu.\n",
-+		__func__, pi, &pi->vfs_inode, pi->ino);
-+	kmem_cache_free(pohmelfs_inode_cache, pi);
-+	atomic_long_dec(&psb->total_inodes);
-+}
-+
-+/*
-+ * ->alloc_inode() callback. Allocates inode and initilizes private data.
-+ */
-+static struct inode *pohmelfs_alloc_inode(struct super_block *sb)
-+{
-+	struct pohmelfs_inode *pi;
-+
-+	pi = kmem_cache_alloc(pohmelfs_inode_cache, GFP_NOIO);
-+	if (!pi)
-+		return NULL;
-+
-+	pi->hash_root = RB_ROOT;
-+	mutex_init(&pi->offset_lock);
-+
-+	INIT_LIST_HEAD(&pi->sync_del_list);
-+	INIT_LIST_HEAD(&pi->sync_create_list);
-+
-+	INIT_LIST_HEAD(&pi->inode_entry);
-+
-+	pi->lock_type = 0;
-+	pi->state = 0;
-+	pi->total_len = 0;
-+	pi->drop_count = 0;
-+
-+	dprintk("%s: pi: %p, inode: %p.\n", __func__, pi, &pi->vfs_inode);
-+
-+	atomic_long_inc(&POHMELFS_SB(sb)->total_inodes);
-+
-+	return &pi->vfs_inode;
-+}
-+
-+/*
-+ * We want fsync() to work on POHMELFS.
-+ */
-+static int pohmelfs_fsync(struct file *file, struct dentry *dentry, int datasync)
-+{
-+	struct inode *inode = file->f_mapping->host;
-+	struct writeback_control wbc = {
-+		.sync_mode = WB_SYNC_ALL,
-+		.nr_to_write = 0,	/* sys_fsync did this */
-+	};
-+
-+	return sync_inode(inode, &wbc);
-+}
-+
-+ssize_t pohmelfs_write(struct file *file, const char __user *buf,
-+		size_t len, loff_t *ppos)
-+{
-+	struct address_space *mapping = file->f_mapping;
-+	struct inode *inode = mapping->host;
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	struct iovec iov = { .iov_base = (void __user *)buf, .iov_len = len };
-+	struct kiocb kiocb;
-+	ssize_t ret;
-+	loff_t pos = *ppos;
-+
-+	init_sync_kiocb(&kiocb, file);
-+	kiocb.ki_pos = pos;
-+	kiocb.ki_left = len;
-+
-+	dprintk("%s: len: %u, pos: %llu.\n", __func__, len, pos);
-+
-+	mutex_lock(&inode->i_mutex);
-+	ret = pohmelfs_data_lock(pi, pos, len, POHMELFS_WRITE_LOCK);
-+	if (ret)
-+		goto err_out_unlock;
-+
-+	ret = generic_file_aio_write_nolock(&kiocb, &iov, 1, pos);
-+	*ppos = kiocb.ki_pos;
-+
-+	mutex_unlock(&inode->i_mutex);
-+	WARN_ON(ret < 0);
-+
-+	if (ret > 0 && ((file->f_flags & O_SYNC) || IS_SYNC(inode))) {
-+		ssize_t err;
-+
-+		err = sync_page_range(inode, mapping, pos, ret);
-+		if (err < 0)
-+			ret = err;
-+		WARN_ON(ret < 0);
-+	}
-+
-+	return ret;
-+
-+err_out_unlock:
-+	mutex_unlock(&inode->i_mutex);
-+	return ret;
-+}
-+
-+const static struct file_operations pohmelfs_file_ops = {
-+	.open		= generic_file_open,
-+	.fsync		= pohmelfs_fsync,
-+
-+	.llseek		= generic_file_llseek,
-+
-+	.read		= do_sync_read,
-+	.aio_read	= generic_file_aio_read,
-+
-+	.mmap		= generic_file_mmap,
-+
-+	.splice_read	= generic_file_splice_read,
-+	.splice_write	= generic_file_splice_write,
-+
-+	.write		= pohmelfs_write,
-+	.aio_write	= generic_file_aio_write,
-+};
-+
-+const struct inode_operations pohmelfs_symlink_inode_operations = {
-+	.readlink	= generic_readlink,
-+	.follow_link	= page_follow_link_light,
-+	.put_link	= page_put_link,
-+};
-+
-+int pohmelfs_setattr_raw(struct inode *inode, struct iattr *attr)
-+{
-+	int err;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+
-+	err = inode_change_ok(inode, attr);
-+	if (err)
-+		goto err_out_exit;
-+
-+	if ((attr->ia_valid & ATTR_UID && attr->ia_uid != inode->i_uid) ||
-+	    (attr->ia_valid & ATTR_GID && attr->ia_gid != inode->i_gid)) {
-+		err = DQUOT_TRANSFER(inode, attr) ? -EDQUOT : 0;
-+		if (err)
-+			goto err_out_exit;
-+	}
-+
-+	err = inode_setattr(inode, attr);
-+	if (err)
-+		goto err_out_exit;
-+
-+	if (attr->ia_valid & ATTR_MODE) {
-+		mutex_lock(&psb->path_lock);
-+		pohmelfs_change_path_entry(psb, pi->ino, inode->i_mode);
-+		mutex_unlock(&psb->path_lock);
-+	}
-+
-+	dprintk("%s: ino: %llu, mode: %o -> %o, uid: %u -> %u, gid: %u -> %u, size: %llu -> %llu.\n",
-+			__func__, pi->ino, inode->i_mode, attr->ia_mode,
-+			inode->i_uid, attr->ia_uid, inode->i_gid, attr->ia_gid, inode->i_size, attr->ia_size);
-+
-+	return 0;
-+
-+err_out_exit:
-+	return err;
-+}
-+
-+int pohmelfs_setattr(struct dentry *dentry, struct iattr *attr)
-+{
-+	struct inode *inode = dentry->d_inode;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	int err;
-+
-+	if (!(psb->state_flags & POHMELFS_FLAGS_XATTR))
-+		return -EOPNOTSUPP;
-+
-+	err = pohmelfs_data_lock(pi, 0, ~0, POHMELFS_WRITE_LOCK);
-+	if (err)
-+		goto err_out_exit;
-+
-+	err = security_inode_setattr(dentry, attr);
-+	if (err)
-+		goto err_out_exit;
-+
-+	err = pohmelfs_setattr_raw(inode, attr);
-+	if (err)
-+		goto err_out_exit;
-+
-+	return 0;
-+
-+err_out_exit:
-+	return err;
-+}
-+
-+static int pohmelfs_send_xattr_req(struct pohmelfs_inode *pi, u64 id, u64 start,
-+		const char *name, const void *value, size_t attrsize, int command)
-+{
-+	struct pohmelfs_sb *psb = POHMELFS_SB(pi->vfs_inode.i_sb);
-+	int err, path_len, namelen = strlen(name) + 1; /* 0-byte */
-+	struct netfs_trans *t;
-+	struct netfs_cmd *cmd;
-+	void *data;
-+
-+	dprintk("%s: id: %llu, start: %llu, name: '%s', attrsize: %u, cmd: %d.\n",
-+			__func__, id, start, name, attrsize, command);
-+
-+	mutex_lock(&psb->path_lock);
-+	path_len = pohmelfs_path_length(pi);
-+	mutex_unlock(&psb->path_lock);
-+	if (path_len < 0) {
-+		err = path_len;
-+		goto err_out_exit;
-+	}
-+
-+	t = netfs_trans_alloc(psb, namelen + path_len + attrsize, 0, 0);
-+	if (!t) {
-+		err = -ENOMEM;
-+		goto err_out_exit;
-+	}
-+
-+	cmd = netfs_trans_current(t);
-+	data = cmd + 1;
-+
-+	mutex_lock(&psb->path_lock);
-+	path_len = pohmelfs_construct_path_string(pi, data, path_len);
-+	mutex_unlock(&psb->path_lock);
-+	if (path_len < 0) {
-+		err = path_len;
-+		goto err_out_put;
-+	}
-+	path_len++; /* 0-byte */
-+	data += path_len;
-+
-+	/*
-+	 * 'name' is a NUL-terminated string already and
-+	 * 'namelen' includes 0-byte.
-+	 */
-+	memcpy(data, name, namelen);
-+	data += namelen;
-+
-+	memcpy(data, value, attrsize);
-+
-+	cmd->cmd = command;
-+	cmd->id = id;
-+	cmd->start = start;
-+	cmd->size = attrsize + namelen + path_len;
-+	cmd->ext = path_len;
-+	cmd->csize = 0;
-+	cmd->cpad = 0;
-+
-+	netfs_convert_cmd(cmd);
-+	netfs_trans_update(cmd, t, namelen + path_len + attrsize);
-+
-+	return netfs_trans_finish(t, psb);
-+
-+err_out_put:
-+	t->result = err;
-+	netfs_trans_put(t);
-+err_out_exit:
-+	return err;
-+}
-+
-+static int pohmelfs_setxattr(struct dentry *dentry, const char *name,
-+		const void *value, size_t attrsize, int flags)
-+{
-+	struct inode *inode = dentry->d_inode;
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+
-+	return pohmelfs_send_xattr_req(pi, flags, attrsize, name,
-+			value, attrsize, NETFS_XATTR_SET);
-+}
-+
-+static ssize_t pohmelfs_getxattr(struct dentry *dentry, const char *name,
-+		void *value, size_t attrsize)
-+{
-+	struct inode *inode = dentry->d_inode;
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct pohmelfs_mcache *m;
-+	int err;
-+	long timeout = psb->mcache_timeout;
-+
-+	if (!(psb->state_flags & POHMELFS_FLAGS_XATTR))
-+		return -EOPNOTSUPP;
-+
-+	m = pohmelfs_mcache_alloc(psb, 0, attrsize, value);
-+	if (IS_ERR(m))
-+		return PTR_ERR(m);
-+
-+	dprintk("%s: ino: %llu, name: '%s', size: %zu.\n",
-+			__func__, pi->ino, name, attrsize);
-+
-+	err = pohmelfs_send_xattr_req(pi, m->gen, attrsize, name, value, 0, NETFS_XATTR_GET);
-+	if (err)
-+		goto err_out_put;
-+
-+	do {
-+		err = wait_for_completion_timeout(&m->complete, timeout);
-+		if (err) {
-+			err = m->err;
-+			break;
++			err = pohmelfs_data_recv(st, e->data, cmd->csize);
++			if (err) {
++				netfs_state_reset(st);
++				continue;
++			}
++
++#ifdef CONFIG_POHMELFS_DEBUG
++			{
++				unsigned int i;
++				unsigned char *hash = e->data;
++
++				dprintk("%s: received hash: ", __func__);
++				for (i=0; i<cmd->csize; ++i) {
++					printk("%02x ", hash[i]);
++				}
++				printk("\n");
++			}
++#endif
++			cmd->size -= cmd->csize;
 +		}
 +
 +		/*
-+		 * This loop is a bit ugly, since it waits until reference counter
-+		 * hits 1 and then put object here. Main goal is to prevent race with
-+		 * network thread, when it can start processing given request, i.e.
-+		 * increase its reference counter but yet not complete it, while
-+		 * we will exit from ->getxattr() with timeout, and although request
-+		 * will not be freed (its reference counter was increased by network
-+		 * thread), data pointer provided by user may be released, so we will
-+		 * overwrite already freed area in network thread.
-+		 *
-+		 * Now after timeout we remove request from the cache, so it can not be
-+		 * found by network thread, and wait for its reference counter to hit 1,
-+		 * i.e. if network thread already started to process this request, we wait
-+		 * it to finish, and then free object locally. If reference counter is
-+		 * already 1, i.e. request is not used by anyone else, we can free it without
-+		 * problem.
++		 * This should catch protocol breakage and random garbage instead of commands.
 +		 */
-+		err = -ETIMEDOUT;
-+		timeout = HZ;
-+
-+		pohmelfs_mcache_remove_locked(psb, m);
-+	} while (atomic_read(&m->refcnt) != 1);
-+
-+	pohmelfs_mcache_put(psb, m);
-+
-+	dprintk("%s: ino: %llu, err: %d.\n", __func__, pi->ino, err);
-+
-+	return err;
-+
-+err_out_put:
-+	pohmelfs_mcache_put(psb, m);
-+	return err;
-+}
-+
-+static int pohmelfs_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
-+{
-+	struct inode *inode = dentry->d_inode;
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+	int err;
-+
-+	err = pohmelfs_data_lock(pi, 0, ~0, POHMELFS_READ_LOCK);
-+	if (err)
-+		return err;
-+
-+	dprintk("%s: ino: %llu, mode: %o, uid: %u, gid: %u, size: %llu.\n",
-+			__func__, pi->ino, inode->i_mode, inode->i_uid,
-+			inode->i_gid, inode->i_size);
-+
-+	generic_fillattr(inode, stat);
-+	return 0;
-+}
-+
-+const struct inode_operations pohmelfs_file_inode_operations = {
-+	.setattr	= pohmelfs_setattr,
-+	.getattr	= pohmelfs_getattr,
-+	.setxattr	= pohmelfs_setxattr,
-+	.getxattr	= pohmelfs_getxattr,
-+};
-+
-+/*
-+ * Fill inode data: mode, size, operation callbacks and so on...
-+ */
-+void pohmelfs_fill_inode(struct inode *inode, struct netfs_inode_info *info)
-+{
-+	inode->i_mode = info->mode;
-+	inode->i_nlink = info->nlink;
-+	inode->i_uid = info->uid;
-+	inode->i_gid = info->gid;
-+	inode->i_blocks = info->blocks;
-+	inode->i_rdev = info->rdev;
-+	inode->i_size = info->size;
-+	inode->i_version = info->version;
-+	inode->i_blkbits = ffs(info->blocksize);
-+
-+	dprintk("%s: inode: %p, num: %lu/%llu inode is regular: %d, dir: %d, link: %d, mode: %o, size: %llu.\n",
-+			__func__, inode, inode->i_ino, info->ino,
-+			S_ISREG(inode->i_mode), S_ISDIR(inode->i_mode),
-+			S_ISLNK(inode->i_mode), inode->i_mode, inode->i_size);
-+
-+	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME_SEC;
-+
-+	/*
-+	 * i_mapping is a pointer to i_data during inode initialization.
-+	 */
-+	inode->i_data.a_ops = &pohmelfs_aops;
-+
-+	if (S_ISREG(inode->i_mode)) {
-+		inode->i_fop = &pohmelfs_file_ops;
-+		inode->i_op = &pohmelfs_file_inode_operations;
-+	} else if (S_ISDIR(inode->i_mode)) {
-+		inode->i_fop = &pohmelfs_dir_fops;
-+		inode->i_op = &pohmelfs_dir_inode_ops;
-+	} else if (S_ISLNK(inode->i_mode)) {
-+		inode->i_op = &pohmelfs_symlink_inode_operations;
-+		inode->i_fop = &pohmelfs_file_ops;
-+	} else {
-+		inode->i_fop = &generic_ro_fops;
-+	}
-+}
-+
-+static void pohmelfs_drop_inode(struct inode *inode)
-+{
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct pohmelfs_inode *pi = POHMELFS_I(inode);
-+
-+	spin_lock(&psb->ino_lock);
-+	list_del_init(&pi->inode_entry);
-+	spin_unlock(&psb->ino_lock);
-+
-+	generic_drop_inode(inode);
-+}
-+
-+static struct pohmelfs_inode *pohmelfs_get_inode_from_list(struct pohmelfs_sb *psb,
-+		struct list_head *head, unsigned int *count)
-+{
-+	struct pohmelfs_inode *pi = NULL;
-+
-+	spin_lock(&psb->ino_lock);
-+	if (!list_empty(head)) {
-+		pi = list_entry(head->next, struct pohmelfs_inode,
-+					inode_entry);
-+		list_del_init(&pi->inode_entry);
-+		*count = pi->drop_count;
-+		pi->drop_count = 0;
-+	}
-+	spin_unlock(&psb->ino_lock);
-+
-+	return pi;
-+}
-+
-+static void pohmelfs_flush_transactions(struct pohmelfs_sb *psb)
-+{
-+	struct pohmelfs_config *c;
-+
-+	mutex_lock(&psb->state_lock);
-+	list_for_each_entry(c, &psb->state_list, config_entry) {
-+		pohmelfs_state_flush_transactions(&c->state);
-+	}
-+	mutex_unlock(&psb->state_lock);
-+}
-+
-+/*
-+ * ->put_super() callback. Invoked before superblock is destroyed,
-+ *  so it has to clean all private data.
-+ */
-+static void pohmelfs_put_super(struct super_block *sb)
-+{
-+	struct pohmelfs_sb *psb = POHMELFS_SB(sb);
-+	struct rb_node *rb_node;
-+	struct pohmelfs_path_entry *e;
-+	struct pohmelfs_inode *pi;
-+	unsigned int count;
-+	unsigned int in_drop_list = 0;
-+	struct inode *inode, *tmp;
-+
-+	dprintk("%s.\n", __func__);
-+
-+	/*
-+	 * Kill pending transactions, which could affect inodes in-flight.
-+	 */
-+	pohmelfs_flush_transactions(psb);
-+
-+	while ((pi = pohmelfs_get_inode_from_list(psb, &psb->drop_list, &count))) {
-+		inode = &pi->vfs_inode;
-+
-+		dprintk("%s: ino: %llu, pi: %p, inode: %p, count: %u.\n",
-+				__func__, pi->ino, pi, inode, count);
-+
-+		if (atomic_read(&inode->i_count) != count) {
-+			printk("%s: ino: %llu, pi: %p, inode: %p, count: %u, i_count: %d.\n",
-+					__func__, pi->ino, pi, inode, count,
-+					atomic_read(&inode->i_count));
-+			count = atomic_read(&inode->i_count);
-+			in_drop_list++;
-+		}
-+
-+		while (count--)
-+			iput(&pi->vfs_inode);
-+	}
-+
-+	list_for_each_entry_safe(inode, tmp, &sb->s_inodes, i_sb_list) {
-+		pi = POHMELFS_I(inode);
-+
-+		dprintk("%s: ino: %llu, pi: %p, inode: %p, i_count: %u.\n",
-+				__func__, pi->ino, pi, inode, atomic_read(&inode->i_count));
-+
-+		/*
-+		 * These are special inodes, they were created during
-+		 * directory reading or lookup, and were not bound to dentry,
-+		 * so they live here with reference counter being 1 and prevent
-+		 * umount from succeed since it believes that they are busy.
-+		 */
-+		count = atomic_read(&inode->i_count);
-+		if (count) {
-+			list_del_init(&inode->i_sb_list);
-+			while (count--)
-+				iput(&pi->vfs_inode);
-+		}
-+	}
-+
-+	psb->trans_scan_timeout = psb->drop_scan_timeout = 0;
-+	cancel_rearming_delayed_work(&psb->dwork);
-+	cancel_rearming_delayed_work(&psb->drop_dwork);
-+	flush_scheduled_work();
-+
-+	dprintk("%s: stopped workqueues.\n", __func__);
-+
-+	pohmelfs_crypto_exit(psb);
-+	pohmelfs_state_exit(psb);
-+
-+	for (rb_node = rb_first(&psb->path_root); rb_node; ) {
-+		e = rb_entry(rb_node, struct pohmelfs_path_entry, path_entry);
-+		rb_node = rb_next(rb_node);
-+
-+		pohmelfs_remove_path_entry(psb, e);
-+	}
-+
-+	kfree(psb);
-+	sb->s_fs_info = NULL;
-+}
-+
-+static int pohmelfs_remount(struct super_block *sb, int *flags, char *data)
-+{
-+	*flags |= MS_RDONLY;
-+	return 0;
-+}
-+
-+static int pohmelfs_statfs(struct dentry *dentry, struct kstatfs *buf)
-+{
-+	struct super_block *sb = dentry->d_sb;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(sb);
-+
-+	/*
-+	 * There are no filesystem size limits yet.
-+	 */
-+	memset(buf, 0, sizeof(struct kstatfs));
-+
-+	buf->f_type = POHMELFS_MAGIC_NUM; /* 'POH.' */
-+	buf->f_bsize = sb->s_blocksize;
-+	buf->f_files = psb->ino;
-+	buf->f_namelen = 255;
-+	buf->f_files = atomic_long_read(&psb->total_inodes);
-+	buf->f_bfree = buf->f_bavail = psb->avail_size >> PAGE_SHIFT;
-+	buf->f_blocks = psb->total_size >> PAGE_SHIFT;
-+
-+	dprintk("%s: total: %llu, avail: %llu, inodes: %llu, bsize: %lu.\n",
-+		__func__, psb->total_size, psb->avail_size, buf->f_files, sb->s_blocksize);
-+
-+	return 0;
-+}
-+
-+static int pohmelfs_show_options(struct seq_file *seq, struct vfsmount *vfs)
-+{
-+	struct pohmelfs_sb *psb = POHMELFS_SB(vfs->mnt_sb);
-+
-+	seq_printf(seq, ",idx=%u", psb->idx);
-+	seq_printf(seq, ",trans_scan_timeout=%u", jiffies_to_msecs(psb->trans_scan_timeout));
-+	seq_printf(seq, ",drop_scan_timeout=%u", jiffies_to_msecs(psb->drop_scan_timeout));
-+	seq_printf(seq, ",wait_on_page_timeout=%u", jiffies_to_msecs(psb->wait_on_page_timeout));
-+	seq_printf(seq, ",trans_retries=%u", psb->trans_retries);
-+	seq_printf(seq, ",crypto_thread_num=%u", psb->crypto_thread_num);
-+	seq_printf(seq, ",trans_max_pages=%u", psb->trans_max_pages);
-+	seq_printf(seq, ",mcache_timeout=%u", jiffies_to_msecs(psb->mcache_timeout));
-+	if (psb->crypto_fail_unsupported)
-+		seq_printf(seq, ",crypto_fail_unsupported");
-+
-+	return 0;
-+}
-+
-+static const struct super_operations pohmelfs_sb_ops = {
-+	.alloc_inode	= pohmelfs_alloc_inode,
-+	.destroy_inode	= pohmelfs_destroy_inode,
-+	.drop_inode	= pohmelfs_drop_inode,
-+	.write_inode	= pohmelfs_write_inode,
-+	.put_super	= pohmelfs_put_super,
-+	.remount_fs	= pohmelfs_remount,
-+	.statfs		= pohmelfs_statfs,
-+	.show_options	= pohmelfs_show_options,
-+};
-+
-+enum {
-+	pohmelfs_opt_idx,
-+	pohmelfs_opt_trans_scan_timeout,
-+	pohmelfs_opt_drop_scan_timeout,
-+	pohmelfs_opt_wait_on_page_timeout,
-+	pohmelfs_opt_trans_retries,
-+	pohmelfs_opt_crypto_thread_num,
-+	pohmelfs_opt_trans_max_pages,
-+	pohmelfs_opt_crypto_fail_unsupported,
-+	pohmelfs_opt_mcache_timeout,
-+};
-+
-+static struct match_token pohmelfs_tokens[] = {
-+	{pohmelfs_opt_idx, "idx=%u"},
-+	{pohmelfs_opt_trans_scan_timeout, "trans_scan_timeout=%u"},
-+	{pohmelfs_opt_drop_scan_timeout, "drop_scan_timeout=%u"},
-+	{pohmelfs_opt_wait_on_page_timeout, "wait_on_page_timeout=%u"},
-+	{pohmelfs_opt_trans_retries, "trans_retries=%u"},
-+	{pohmelfs_opt_crypto_thread_num, "crypto_thread_num=%u"},
-+	{pohmelfs_opt_trans_max_pages, "trans_max_pages=%u"},
-+	{pohmelfs_opt_crypto_fail_unsupported, "crypto_fail_unsupported"},
-+	{pohmelfs_opt_mcache_timeout, "mcache_timeout=%u"},
-+};
-+
-+static int pohmelfs_parse_options(char *options, struct pohmelfs_sb *psb)
-+{
-+	char *p;
-+	substring_t args[MAX_OPT_ARGS];
-+	int option, err;
-+
-+	if (!options)
-+		return 0;
-+
-+	while ((p = strsep(&options, ",")) != NULL) {
-+		int token;
-+		if (!*p)
++		if (unlikely((cmd->size > st->size) && (cmd->cmd != NETFS_XATTR_GET))) {
++			netfs_state_reset(st);
 +			continue;
++		}
 +
-+		token = match_token(p, pohmelfs_tokens, args);
-+
-+		err = match_int(&args[0], &option);
-+		if (err)
-+			return err;
-+
-+		switch (token) {
-+			case pohmelfs_opt_idx:
-+				psb->idx = option;
++		switch (cmd->cmd) {
++			case NETFS_READ_PAGE:
++				err = pohmelfs_read_page_response(st);
 +				break;
-+			case pohmelfs_opt_trans_scan_timeout:
-+				psb->trans_scan_timeout = msecs_to_jiffies(option);
++			case NETFS_READDIR:
++				err = pohmelfs_readdir_response(st);
 +				break;
-+			case pohmelfs_opt_drop_scan_timeout:
-+				psb->drop_scan_timeout = msecs_to_jiffies(option);
++			case NETFS_LOOKUP:
++				err = pohmelfs_lookup_response(st);
 +				break;
-+			case pohmelfs_opt_wait_on_page_timeout:
-+				psb->wait_on_page_timeout = msecs_to_jiffies(option);
++			case NETFS_CREATE:
++				err = pohmelfs_create_response(st);
 +				break;
-+			case pohmelfs_opt_mcache_timeout:
-+				psb->mcache_timeout = msecs_to_jiffies(option);
++			case NETFS_REMOVE:
++				err = pohmelfs_remove_response(st);
 +				break;
-+			case pohmelfs_opt_trans_retries:
-+				psb->trans_retries = option;
++			case NETFS_TRANS:
++				err = pohmelfs_transaction_response(st);
 +				break;
-+			case pohmelfs_opt_crypto_thread_num:
-+				psb->crypto_thread_num = option;
++			case NETFS_PAGE_CACHE:
++				err = pohmelfs_page_cache_response(st);
 +				break;
-+			case pohmelfs_opt_trans_max_pages:
-+				psb->trans_max_pages = option;
++			case NETFS_CAPABILITIES:
++				err = pohmelfs_capabilities_response(st);
 +				break;
-+			case pohmelfs_opt_crypto_fail_unsupported:
-+				psb->crypto_fail_unsupported = 1;
++			case NETFS_LOCK:
++				err = pohmelfs_data_lock_response(st);
++				break;
++			case NETFS_XATTR_GET:
++				err = pohmelfs_getxattr_response(st);
 +				break;
 +			default:
-+				return -EINVAL;
++				printk("%s: wrong cmd: %u, id: %llu, start: %llu, size: %u, ext: %u.\n",
++					__func__, cmd->cmd, cmd->id, cmd->start, cmd->size, cmd->ext);
++				netfs_state_lock(st);
++				netfs_state_exit(st);
++				netfs_state_init(st);
++				netfs_state_unlock(st);
++				break;
 +		}
 +	}
 +
++	while (!kthread_should_stop())
++		schedule_timeout_uninterruptible(msecs_to_jiffies(10));
++
++	return err;
++}
++
++int netfs_state_init(struct netfs_state *st)
++{
++	int err;
++	struct pohmelfs_ctl *ctl = &st->ctl;
++
++	err = sock_create(ctl->addr.sa_family, ctl->type, ctl->proto, &st->socket);
++	if (err)
++		goto err_out_exit;
++
++	st->socket->sk->sk_allocation = GFP_NOIO;
++	st->socket->sk->sk_sndtimeo = st->socket->sk->sk_rcvtimeo = msecs_to_jiffies(60000);
++
++	err = kernel_connect(st->socket, (struct sockaddr *)&ctl->addr, ctl->addrlen, 0);
++	if (err) {
++		printk("%s: failed to connect to server: idx: %u, err: %d.\n",
++				__func__, st->psb->idx, err);
++		goto err_out_release;
++	}
++	st->socket->sk->sk_sndtimeo = st->socket->sk->sk_rcvtimeo = msecs_to_jiffies(10000);
++
++	err = netfs_poll_init(st);
++	if (err)
++		goto err_out_release;
++
++	if (st->socket->ops->family == AF_INET) {
++		struct sockaddr_in *sin = (struct sockaddr_in *)&ctl->addr;
++		printk(KERN_INFO "%s: (re)connected to peer %u.%u.%u.%u:%d.\n", __func__,
++			NIPQUAD(sin->sin_addr.s_addr), ntohs(sin->sin_port));
++	} else if (st->socket->ops->family == AF_INET6) {
++		struct sockaddr_in6 *sin = (struct sockaddr_in6 *)&ctl->addr;
++		printk(KERN_INFO "%s: (re)connected to peer "
++			"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d",
++			__func__, NIP6(sin->sin6_addr), ntohs(sin->sin6_port));
++	}
++
 +	return 0;
++
++err_out_release:
++	sock_release(st->socket);
++err_out_exit:
++	st->socket = NULL;
++	return err;
 +}
 +
-+static void pohmelfs_flush_inode(struct pohmelfs_inode *pi, unsigned int count)
++void netfs_state_exit(struct netfs_state *st)
 +{
-+	struct inode *inode = &pi->vfs_inode;
++	if (st->socket) {
++		netfs_poll_exit(st);
++		st->socket->ops->shutdown(st->socket, 2);
 +
-+	dprintk("%s: %p: ino: %llu, owned: %d.\n",
-+		__func__, inode, pi->ino, test_bit(NETFS_INODE_OWNED, &pi->state));
++		if (st->socket->ops->family == AF_INET) {
++			struct sockaddr_in *sin = (struct sockaddr_in *)&st->ctl.addr;
++			printk("%s: disconnected from peer %u.%u.%u.%u:%d.\n", __func__,
++				NIPQUAD(sin->sin_addr.s_addr), ntohs(sin->sin_port));
++		} else if (st->socket->ops->family == AF_INET6) {
++			struct sockaddr_in6 *sin = (struct sockaddr_in6 *)&st->ctl.addr;
++			printk("%s: disconnected from peer "
++				"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d",
++				__func__, NIP6(sin->sin6_addr), ntohs(sin->sin6_port));
++		}
 +
-+	mutex_lock(&inode->i_mutex);
-+	if (test_and_clear_bit(NETFS_INODE_OWNED, &pi->state)) {
-+		filemap_fdatawrite(inode->i_mapping);
-+		inode->i_sb->s_op->write_inode(inode, 0);
++		sock_release(st->socket);
++		st->socket = NULL;
++		st->read_socket = NULL;
++	}
++}
++
++int pohmelfs_state_init_one(struct pohmelfs_sb *psb, struct pohmelfs_config *conf)
++{
++	struct netfs_state *st = &conf->state;
++	int err = -ENOMEM;
++
++	mutex_init(&st->__state_lock);
++	init_waitqueue_head(&st->thread_wait);
++
++	st->psb = psb;
++	st->trans_root = RB_ROOT;
++	mutex_init(&st->trans_lock);
++
++	st->size = psb->trans_data_size;
++	st->data = kmalloc(st->size, GFP_KERNEL);
++	if (!st->data)
++		goto err_out_exit;
++
++	if (psb->perform_crypto) {
++		err = pohmelfs_crypto_engine_init(&st->eng, psb);
++		if (err)
++			goto err_out_free_data;
 +	}
 +
-+	truncate_inode_pages(inode->i_mapping, 0);
++	err = netfs_state_init(st);
++	if (err)
++		goto err_out_free_engine;
 +
-+	pohmelfs_data_unlock(pi, 0, ~0, POHMELFS_WRITE_LOCK);
-+	mutex_unlock(&inode->i_mutex);
-+}
-+
-+static void pohmelfs_put_inode_count(struct pohmelfs_inode *pi, unsigned int count)
-+{
-+	dprintk("%s: ino: %llu, pi: %p, inode: %p, count: %u.\n",
-+			__func__, pi->ino, pi, &pi->vfs_inode, count);
-+
-+	if (test_and_clear_bit(NETFS_INODE_NEED_FLUSH, &pi->state))
-+		pohmelfs_flush_inode(pi, count);
-+
-+	while (count--)
-+		iput(&pi->vfs_inode);
-+}
-+
-+static void pohmelfs_drop_scan(struct work_struct *work)
-+{
-+	struct pohmelfs_sb *psb =
-+		container_of(work, struct pohmelfs_sb, drop_dwork.work);
-+	struct pohmelfs_inode *pi;
-+	unsigned int count = 0;
-+
-+	while ((pi = pohmelfs_get_inode_from_list(psb, &psb->drop_list, &count))) {
-+		pohmelfs_put_inode_count(pi, count);
++	st->thread = kthread_run(pohmelfs_recv, st, "pohmelfs/%u", psb->idx);
++	if (IS_ERR(st->thread)) {
++		err = PTR_ERR(st->thread);
++		goto err_out_netfs_exit;
 +	}
-+	pohmelfs_check_states(psb);
 +
-+	if (psb->drop_scan_timeout)
-+		schedule_delayed_work(&psb->drop_dwork, psb->drop_scan_timeout);
++	if (!psb->active_state)
++		psb->active_state = conf;
++
++	dprintk("%s: conf: %p, st: %p, socket: %p.\n",
++			__func__, conf, st, st->socket);
++	return 0;
++
++err_out_netfs_exit:
++	netfs_state_exit(st);
++err_out_free_engine:
++	pohmelfs_crypto_engine_exit(&st->eng);
++err_out_free_data:
++	kfree(st->data);
++err_out_exit:
++	return err;
++
 +}
 +
-+/*
-+ * Run through all transactions starting from the oldest,
-+ * drop transaction from current state and try to send it
-+ * to all remote nodes, which are currently installed.
-+ */
-+static void pohmelfs_trans_scan_state(struct netfs_state *st)
++void pohmelfs_state_flush_transactions(struct netfs_state *st)
 +{
 +	struct rb_node *rb_node;
 +	struct netfs_trans_dst *dst;
-+	struct pohmelfs_sb *psb = st->psb;
-+	unsigned int timeout = psb->trans_scan_timeout;
-+	struct netfs_trans *t;
-+	int err;
 +
-+	mutex_lock(&st->trans_lock);
 +	for (rb_node = rb_first(&st->trans_root); rb_node; ) {
 +		dst = rb_entry(rb_node, struct netfs_trans_dst, state_entry);
-+		t = dst->trans;
-+
-+		if (timeout && time_after(dst->send_time + timeout, jiffies)
-+				&& dst->retries == 0)
-+			break;
-+
-+		dprintk("%s: t: %p, gen: %u, st: %p, retries: %u, max: %u.\n",
-+			__func__, t, t->gen, st, dst->retries, psb->trans_retries);
-+		netfs_trans_get(t);
-+
 +		rb_node = rb_next(rb_node);
 +
-+		err = -ETIMEDOUT;
-+		if (timeout && (++dst->retries < psb->trans_retries)) {
-+			err = netfs_trans_resend(t, psb);
-+		}
++		dst->trans->result = -EINVAL;
++		netfs_trans_remove_nolock(dst, st);
++		netfs_trans_finish_send(dst->trans, st->psb);
 +
-+		if (err || (t->flags & NETFS_TRANS_SINGLE_DST)) {
-+			netfs_trans_remove_nolock(dst, st);
-+			netfs_trans_drop_dst_nostate(dst);
-+		}
-+
-+		t->result = err;
-+		netfs_trans_put(t);
++		netfs_trans_drop_dst_nostate(dst);
 +	}
-+	mutex_unlock(&st->trans_lock);
++}
++
++static void pohmelfs_state_exit_one(struct pohmelfs_config *c)
++{
++	struct netfs_state *st = &c->state;
++
++	dprintk("%s: exiting, st: %p.\n", __func__, st);
++	if (st->thread) {
++		kthread_stop(st->thread);
++		st->thread = NULL;
++	}
++
++	netfs_state_lock(st);
++	netfs_state_exit(st);
++	netfs_state_unlock(st);
++
++	pohmelfs_state_flush_transactions(st);
++
++	pohmelfs_crypto_engine_exit(&st->eng);
++	kfree(st->data);
++
++	kfree(c);
 +}
 +
 +/*
-+ * Walk through all installed network states and resend all
-+ * transactions, which are old enough.
++ * Initialize network stack. It searches for given ID in global
++ * configuration table, this contains information of the remote server
++ * (address (any supported by socket interface) and port, protocol and so on).
 + */
-+static void pohmelfs_trans_scan(struct work_struct *work)
++int pohmelfs_state_init(struct pohmelfs_sb *psb)
 +{
-+	struct pohmelfs_sb *psb =
-+		container_of(work, struct pohmelfs_sb, dwork.work);
-+	struct netfs_state *st;
-+	struct pohmelfs_config *c;
++	int err = -ENOMEM;
++
++	err = pohmelfs_copy_config(psb);
++	if (err) {
++		pohmelfs_state_exit(psb);
++		return err;
++	}
++
++	return 0;
++}
++
++void pohmelfs_state_exit(struct pohmelfs_sb *psb)
++{
++	struct pohmelfs_config *c, *tmp;
++
++	list_for_each_entry_safe(c, tmp, &psb->state_list, config_entry) {
++		list_del(&c->config_entry);
++		pohmelfs_state_exit_one(c);
++	}
++}
++
++void pohmelfs_switch_active(struct pohmelfs_sb *psb)
++{
++	struct pohmelfs_config *c = psb->active_state;
++
++	if (!list_empty(&psb->state_list)) {
++		if (c->config_entry.next != &psb->state_list) {
++			psb->active_state = list_entry(c->config_entry.next,
++				struct pohmelfs_config, config_entry);
++		} else {
++			psb->active_state = list_entry(psb->state_list.next,
++				struct pohmelfs_config, config_entry);
++		}
++
++		dprintk("%s: empty: %d, active %p -> %p.\n",
++			__func__, list_empty(&psb->state_list), c,
++			psb->active_state);
++	} else
++		psb->active_state = NULL;
++}
++
++void pohmelfs_check_states(struct pohmelfs_sb *psb)
++{
++	struct pohmelfs_config *c, *tmp;
++	LIST_HEAD(delete_list);
 +
 +	mutex_lock(&psb->state_lock);
-+	list_for_each_entry(c, &psb->state_list, config_entry) {
-+		st = &c->state;
++	list_for_each_entry_safe(c, tmp, &psb->state_list, config_entry) {
++		if (pohmelfs_config_check(c, psb->idx)) {
 +
-+		pohmelfs_trans_scan_state(st);
++			if (psb->active_state == c)
++				pohmelfs_switch_active(psb);
++			list_move(&c->config_entry, &delete_list);
++		}
 +	}
++	pohmelfs_copy_config(psb);
 +	mutex_unlock(&psb->state_lock);
-+
-+	/*
-+	 * If no timeout specified then system is in the middle of umount process,
-+	 * so no need to reschedule scanning process again.
-+	 */
-+	if (psb->trans_scan_timeout)
-+		schedule_delayed_work(&psb->dwork, psb->trans_scan_timeout);
-+}
-+
-+int pohmelfs_meta_command_data(struct pohmelfs_inode *pi, u64 id, unsigned int cmd_op, char *addon,
-+		unsigned int flags, netfs_trans_complete_t complete, void *priv, u64 start)
-+{
-+	struct inode *inode = &pi->vfs_inode;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	int err, sz, diff;
-+	struct netfs_trans *t;
-+	unsigned int path_len, addon_len = 0;
-+	void *data;
-+	struct netfs_inode_info *info;
-+	struct netfs_cmd *cmd;
-+
-+	dprintk("%s: ino: %llu, cmd: %u, addon: %p.\n", __func__, pi->ino, cmd_op, addon);
 +	
-+	mutex_lock(&psb->path_lock);
-+	sz = path_len = pohmelfs_path_length(pi);
-+	mutex_unlock(&psb->path_lock);
-+
-+	if (path_len < 0) {
-+		err = path_len;
-+		goto err_out_exit;
++	list_for_each_entry_safe(c, tmp, &delete_list, config_entry) {
++		list_del(&c->config_entry);
++		pohmelfs_state_exit_one(c);
 +	}
-+
-+	if (addon)
-+		addon_len = strlen(addon) + 1; /* 0-byte */
-+	sz += addon_len;
-+
-+	if (cmd_op == NETFS_INODE_INFO)
-+		sz += sizeof(struct netfs_inode_info);
-+
-+	t = netfs_trans_alloc(psb, sz, flags, 0);
-+	if (!t) {
-+		err = -ENOMEM;
-+		goto err_out_exit;
-+	}
-+	t->complete = complete;
-+	t->private = priv;
-+
-+	cmd = netfs_trans_current(t);
-+	data = (void *)(cmd + 1);
-+
-+	if (cmd_op == NETFS_INODE_INFO) {
-+		info = (struct netfs_inode_info *)(cmd + 1);
-+		data = (void *)(info + 1);
-+
-+		/*
-+		 * We are under i_mutex, can read and change whatever we want...
-+		 */
-+		info->mode = inode->i_mode;
-+		info->nlink = inode->i_nlink;
-+		info->uid = inode->i_uid;
-+		info->gid = inode->i_gid;
-+		info->blocks = inode->i_blocks;
-+		info->rdev = inode->i_rdev;
-+		info->size = inode->i_size;
-+		info->version = inode->i_version;
-+
-+		netfs_convert_inode_info(info);
-+	}
-+
-+	mutex_lock(&psb->path_lock);
-+	err = pohmelfs_construct_path_string(pi, data, path_len);
-+	mutex_unlock(&psb->path_lock);
-+	if (err < 0)
-+		goto err_out_free;
-+
-+	dprintk("%s: err: %d, path_len: %d.\n", __func__, err, path_len);
-+
-+	diff = err + 1 - path_len;
-+	sz += diff;
-+	path_len += diff;
-+
-+	if (addon)
-+		path_len += sprintf(data + err, "/%s", addon) + 1 /* 0 - byte */;
-+
-+	cmd->cmd = cmd_op;
-+	cmd->ext = path_len;
-+	cmd->size = sz;
-+	cmd->id = id;
-+	cmd->start = start;
-+
-+	netfs_convert_cmd(cmd);
-+	netfs_trans_update(cmd, t, sz);
-+
-+	/*
-+	 * Note, that it is possible to leak error here: transaction callback will not
-+	 * be invoked for allocation path failure.
-+	 */
-+	return netfs_trans_finish(t, psb);
-+
-+err_out_free:
-+	netfs_trans_free(t);
-+err_out_exit:
-+	if (complete)
-+		complete(NULL, 0, priv, err);
-+	return err;
 +}
+diff --git a/fs/pohmelfs/netfs.h b/fs/pohmelfs/netfs.h
+new file mode 100644
+index 0000000..9b80c44
+--- /dev/null
++++ b/fs/pohmelfs/netfs.h
+@@ -0,0 +1,934 @@
++/*
++ * 2007+ Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
-+int pohmelfs_meta_command(struct pohmelfs_inode *pi, unsigned int cmd_op, unsigned int flags,
-+		netfs_trans_complete_t complete, void *priv, u64 start)
-+{
-+	return pohmelfs_meta_command_data(pi, pi->ino, cmd_op, NULL, flags, complete, priv, start);
-+}
++#ifndef __NETFS_H
++#define __NETFS_H
++
++#include <linux/types.h>
++#include <linux/connector.h>
++
++#define POHMELFS_CN_IDX			5
++#define POHMELFS_CN_VAL			0
++
++#define POHMELFS_CTLINFO_ACK		1
++#define POHMELFS_NOINFO_ACK		2
++
 +
 +/*
-+ * Send request and wait for POHMELFS root capabilities response,
-+ * which will update server's informaion about size of the export,
-+ * permissions, number of objects, available size and so on.
++ * Network command structure.
++ * Will be extended.
 + */
-+static int pohmelfs_root_handshake(struct pohmelfs_sb *psb)
++struct netfs_cmd
 +{
-+	struct netfs_trans *t;
-+	struct netfs_cmd *cmd;
-+	int err = -ENOMEM;
++	__u16			cmd;	/* Command number */
++	__u16			csize;	/* Attached crypto information size */
++	__u16			cpad;	/* Attached padding size */
++	__u16			ext;	/* External flags */
++	__u32			size;	/* Size of the attached data */
++	__u32			trans;	/* Transaction id */
++	__u64			id;	/* Object ID to operate on. Used for feedback.*/
++	__u64			start;	/* Start of the object. */
++	__u64			iv;	/* IV sequence */
++	__u8			data[0];
++};
 +
-+	t = netfs_trans_alloc(psb, 0, 0, 0);
-+	if (!t)
-+		goto err_out_exit;
-+
-+	cmd = netfs_trans_current(t);
-+
-+	cmd->cmd = NETFS_CAPABILITIES;
-+	cmd->id = POHMELFS_ROOT_CAPABILITIES;
-+	cmd->size = 0;
-+	cmd->start = 0;
-+	cmd->ext = 0;
-+	cmd->csize = 0;
-+
-+	netfs_convert_cmd(cmd);
-+	netfs_trans_update(cmd, t, 0);
-+
-+	err = netfs_trans_finish(t, psb);
-+	if (err)
-+		goto err_out_exit;
-+
-+	psb->flags = ~0;
-+	err = wait_event_interruptible_timeout(psb->wait,
-+			(psb->flags != ~0),
-+			psb->wait_on_page_timeout);
-+	if (!err) {
-+		err = -ETIMEDOUT;
-+	} else {
-+		err = -psb->flags;
-+	}
-+
-+	if (err)
-+		goto err_out_exit;
-+
-+	return 0;
-+
-+err_out_exit:
-+	return err;
++static inline void netfs_convert_cmd(struct netfs_cmd *cmd)
++{
++	cmd->id = __be64_to_cpu(cmd->id);
++	cmd->start = __be64_to_cpu(cmd->start);
++	cmd->iv = __be64_to_cpu(cmd->iv);
++	cmd->cmd = __be16_to_cpu(cmd->cmd);
++	cmd->ext = __be16_to_cpu(cmd->ext);
++	cmd->csize = __be16_to_cpu(cmd->csize);
++	cmd->cpad = __be16_to_cpu(cmd->cpad);
++	cmd->size = __be32_to_cpu(cmd->size);
 +}
 +
-+/*
-+ * Allocate private superblock and create root dir.
-+ */
-+static int pohmelfs_fill_super(struct super_block *sb, void *data, int silent)
-+{
-+	struct pohmelfs_sb *psb;
-+	int err = -ENOMEM;
-+	struct inode *root;
-+	struct pohmelfs_inode *npi;
-+	struct qstr str;
++#define NETFS_TRANS_SINGLE_DST		(1<<0)
 +
-+	psb = kzalloc(sizeof(struct pohmelfs_sb), GFP_KERNEL);
-+	if (!psb)
-+		goto err_out_exit;
++enum {
++	NETFS_READDIR	= 1,	/* Read directory for given inode number */
++	NETFS_READ_PAGE,	/* Read data page from the server */
++	NETFS_WRITE_PAGE,	/* Write data page to the server */
++	NETFS_CREATE,		/* Create directory entry */
++	NETFS_REMOVE,		/* Remove directory entry */
 +
-+	sb->s_fs_info = psb;
-+	sb->s_op = &pohmelfs_sb_ops;
-+	sb->s_magic = POHMELFS_MAGIC_NUM;
-+	sb->s_maxbytes = MAX_LFS_FILESIZE;
-+	sb->s_blocksize = PAGE_SIZE;
++	NETFS_LOOKUP,		/* Lookup single object */
++	NETFS_LINK,		/* Create a link */
++	NETFS_TRANS,		/* Transaction */
++	NETFS_OPEN,		/* Open intent */
++	NETFS_INODE_INFO,	/* Metadata cache coherency synchronization message */
 +
-+	psb->sb = sb;
-+	psb->path_root = RB_ROOT;
++	NETFS_PAGE_CACHE,	/* Page cache invalidation message */
++	NETFS_READ_PAGES,	/* Read multiple contiguous pages in one go */
++	NETFS_RENAME,		/* Rename object */
++	NETFS_CAPABILITIES,	/* Capabilities of the client, for example supported crypto */
++	NETFS_LOCK,		/* Distributed lock message */
 +
-+	psb->ino = 2;
-+	psb->idx = 0;
-+	psb->active_state = NULL;
-+	psb->trans_retries = 5;
-+	psb->trans_data_size = PAGE_SIZE;
-+	psb->drop_scan_timeout = msecs_to_jiffies(1000);
-+	psb->trans_scan_timeout = msecs_to_jiffies(5000);
-+	psb->wait_on_page_timeout = msecs_to_jiffies(5000);
-+	init_waitqueue_head(&psb->wait);
++	NETFS_XATTR_SET,	/* Set extended attribute */
++	NETFS_XATTR_GET,	/* Get extended attribute */
++	NETFS_CMD_MAX
++};
 +
-+	spin_lock_init(&psb->ino_lock);
-+
-+	mutex_init(&psb->path_lock);
-+	INIT_LIST_HEAD(&psb->drop_list);
-+	
-+	mutex_init(&psb->mcache_lock);
-+	psb->mcache_root = RB_ROOT;
-+	psb->mcache_timeout = msecs_to_jiffies(5000);
-+	atomic_long_set(&psb->mcache_gen, 0);
-+
-+	psb->trans_max_pages = 100;
-+
-+	psb->crypto_align_size = 16;
-+	psb->crypto_attached_size = 0;
-+	psb->hash_strlen = 0;
-+	psb->cipher_strlen = 0;
-+	psb->perform_crypto = 0;
-+	psb->crypto_thread_num = 2;
-+	psb->crypto_fail_unsupported = 0;
-+	mutex_init(&psb->crypto_thread_lock);
-+	INIT_LIST_HEAD(&psb->crypto_ready_list);
-+	INIT_LIST_HEAD(&psb->crypto_active_list);
-+
-+	atomic_set(&psb->trans_gen, 1);
-+	atomic_set(&psb->total_inodes, 0);
-+
-+	mutex_init(&psb->state_lock);
-+	INIT_LIST_HEAD(&psb->state_list);
-+
-+	err = pohmelfs_parse_options((char *) data, psb);
-+	if (err)
-+		goto err_out_free_sb;
-+
-+	err = pohmelfs_copy_crypto(psb);
-+	if (err)
-+		goto err_out_free_sb;
-+
-+	err = pohmelfs_state_init(psb);
-+	if (err)
-+		goto err_out_free_strings;
-+
-+	err = pohmelfs_crypto_init(psb);
-+	if (err)
-+		goto err_out_state_exit;
-+
-+	err = pohmelfs_root_handshake(psb);
-+	if (err)
-+		goto err_out_crypto_exit;
-+
-+	str.name = "/";
-+	str.hash = jhash("/", 1, 0);
-+	str.len = 1;
-+
-+	npi = pohmelfs_create_entry_local(psb, NULL, &str, 0, 0755|S_IFDIR);
-+	if (IS_ERR(npi)) {
-+		err = PTR_ERR(npi);
-+		goto err_out_crypto_exit;
-+	}
-+	set_bit(NETFS_INODE_CREATED, &npi->state);
-+	clear_bit(NETFS_INODE_REMOTE_SYNCED, &npi->state);
-+
-+	root = &npi->vfs_inode;
-+
-+	sb->s_root = d_alloc_root(root);
-+	if (!sb->s_root)
-+		goto err_out_put_root;
-+	
-+	INIT_DELAYED_WORK(&psb->drop_dwork, pohmelfs_drop_scan);
-+	schedule_delayed_work(&psb->drop_dwork, psb->drop_scan_timeout);
-+
-+	INIT_DELAYED_WORK(&psb->dwork, pohmelfs_trans_scan);
-+	schedule_delayed_work(&psb->dwork, psb->trans_scan_timeout);
-+
-+	return 0;
-+
-+err_out_put_root:
-+	iput(root);
-+err_out_crypto_exit:
-+	pohmelfs_crypto_exit(psb);
-+err_out_state_exit:
-+	pohmelfs_state_exit(psb);
-+err_out_free_strings:
-+	kfree(psb->cipher_string);
-+	kfree(psb->hash_string);
-+err_out_free_sb:
-+	kfree(psb);
-+err_out_exit:
-+
-+	dprintk("%s: err: %d.\n", __func__, err);
-+	return err;
-+}
-+
-+/*
-+ * Some VFS magic here...
-+ */
-+static int pohmelfs_get_sb(struct file_system_type *fs_type,
-+	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
-+{
-+	return get_sb_nodev(fs_type, flags, data, pohmelfs_fill_super,
-+				mnt);
-+}
-+
-+static struct file_system_type pohmel_fs_type = {
-+	.owner		= THIS_MODULE,
-+	.name		= "pohmel",
-+	.get_sb		= pohmelfs_get_sb,
-+	.kill_sb 	= kill_anon_super,
++enum {
++	POHMELFS_FLAGS_ADD = 0, /* Network state control message for ADD */
++	POHMELFS_FLAGS_DEL,     /* Network state control message for DEL */
++	POHMELFS_FLAGS_SHOW,    /* Network state control message for SHOW */
++	POHMELFS_FLAGS_CRYPTO,	/* Crypto data control message */
 +};
 +
 +/*
-+ * Cache and module initializations and freeing routings.
++ * Always wanted to copy it from socket headers into public one,
++ * since they are __KERNEL__ protected there.
 + */
-+static void pohmelfs_init_once(void *data)
-+{
-+	struct pohmelfs_inode *pi = data;
++#define _K_SS_MAXSIZE	128
 +
-+	inode_init_once(&pi->vfs_inode);
++struct saddr
++{
++	unsigned short		sa_family;
++	char			addr[_K_SS_MAXSIZE];
++};
++
++enum {
++	POHMELFS_CRYPTO_HASH = 0,
++	POHMELFS_CRYPTO_CIPHER,
++};
++
++struct pohmelfs_crypto
++{
++	unsigned int		idx;		/* Config index */
++	unsigned short		strlen;		/* Size of the attached crypto string including 0-byte
++						 * "cbc(aes)" for example */
++	unsigned short		type;		/* HMAC, cipher, both */
++	unsigned int		keysize;	/* Key size */
++	unsigned char		data[0];	/* Algorithm string, key and IV */
++};
++
++/*
++ * Configuration command used to create table of different remote servers.
++ */
++struct pohmelfs_ctl
++{
++	unsigned int		idx;		/* Config index */
++	unsigned int		type;		/* Socket type */
++	unsigned int		proto;		/* Socket protocol */
++	unsigned int		addrlen;	/* Size of the address */
++	unsigned short		unused;		/* Align structure by 4 bytes */
++	struct saddr		addr;		/* Remote server address */
++};
++
++/*
++ * Ack for userspace about requested command.
++ */
++struct pohmelfs_cn_ack
++{
++	struct cn_msg		msg;
++	int			error;
++	int			msg_num;
++	int			unused[3];
++	struct pohmelfs_ctl	ctl;
++};
++
++/*
++ * Inode info structure used to sync with server.
++ * Check what stat() returns.
++ */
++struct netfs_inode_info
++{
++	unsigned int		mode;
++	unsigned int		nlink;
++	unsigned int		uid;
++	unsigned int		gid;
++	unsigned int		blocksize;
++	unsigned int		padding;
++	__u64			ino;
++	__u64			blocks;
++	__u64			rdev;
++	__u64			size;
++	__u64			version;
++};
++
++static inline void netfs_convert_inode_info(struct netfs_inode_info *info)
++{
++	info->mode = __cpu_to_be32(info->mode);
++	info->nlink = __cpu_to_be32(info->nlink);
++	info->uid = __cpu_to_be32(info->uid);
++	info->gid = __cpu_to_be32(info->gid);
++	info->blocksize = __cpu_to_be32(info->blocksize);
++	info->blocks = __cpu_to_be64(info->blocks);
++	info->rdev = __cpu_to_be64(info->rdev);
++	info->size = __cpu_to_be64(info->size);
++	info->version = __cpu_to_be64(info->version);
++	info->ino = __cpu_to_be64(info->ino);
 +}
 +
-+static int __init pohmelfs_init_inodecache(void)
-+{
-+	pohmelfs_inode_cache = kmem_cache_create("pohmelfs_inode_cache",
-+				sizeof(struct pohmelfs_inode),
-+				0, (SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD),
-+				pohmelfs_init_once);
-+	if (!pohmelfs_inode_cache)
-+		return -ENOMEM;
++/*
++ * Cache state machine.
++ */
++enum {
++	NETFS_COMMAND_PENDING = 0,	/* Command is being executed */
++	NETFS_INODE_CREATED,		/* Inode was created locally */
++	NETFS_INODE_REMOTE_SYNCED,	/* Inode was synced to server */
++	NETFS_INODE_OWNED,		/* Inode is owned by given host */
++	NETFS_INODE_NEED_FLUSH,		/* Inode has to be flushed to the server */
++};
 +
-+	return 0;
++/*
++ * Path entry, used to create full path to object by single command.
++ */
++struct netfs_path_entry
++{
++	__u8			len;		/* Data length, if less than 5 */
++	__u8			unused[5];	/* then data is embedded here */
++
++	__u16			mode;		/* mode of the object (dir, file and so on) */
++
++	char			data[];
++};
++
++static inline void netfs_convert_path_entry(struct netfs_path_entry *e)
++{
++	e->mode = __cpu_to_be16(e->mode);
++};
++
++/*
++ * POHMELFS capabilities: information about supported
++ * crypto operations (hash/cipher, modes, key sizes and so on),
++ * root informaion (used/available size, number of objects, permissions)
++ */
++enum pohmelfs_capabilities {
++	POHMELFS_CRYPTO_CAPABILITIES = 0,
++	POHMELFS_ROOT_CAPABILITIES,
++};
++
++/* Read-only mount */
++#define POHMELFS_FLAGS_RO		(1<<0)
++/* Extended attributes support on/off */
++#define POHMELFS_FLAGS_XATTR		(1<<1)
++
++struct netfs_root_capabilities
++{
++	__u64			nr_files;
++	__u64			used, avail;
++	__u64			flags;
++};
++
++static inline void netfs_convert_root_capabilities(struct netfs_root_capabilities *cap)
++{
++	cap->nr_files = __cpu_to_be64(cap->nr_files);
++	cap->used = __cpu_to_be64(cap->used);
++	cap->avail = __cpu_to_be64(cap->avail);
++	cap->flags = __cpu_to_be64(cap->flags);
 +}
 +
-+static void pohmelfs_destroy_inodecache(void)
++struct netfs_crypto_capabilities
 +{
-+	kmem_cache_destroy(pohmelfs_inode_cache);
++	unsigned short		hash_strlen;	/* Hash string length, like "hmac(sha1) including 0 byte "*/
++	unsigned short		cipher_strlen;	/* Cipher string length with the same format */
++	unsigned int		cipher_keysize;	/* Cipher key size */
++};
++
++static inline void netfs_convert_crypto_capabilities(struct netfs_crypto_capabilities *cap)
++{
++	cap->hash_strlen = __cpu_to_be16(cap->hash_strlen);
++	cap->cipher_strlen = __cpu_to_be16(cap->cipher_strlen);
++	cap->cipher_keysize = __cpu_to_be32(cap->cipher_keysize);
 +}
 +
-+static int __init init_pohmel_fs(void)
++enum pohmelfs_lock_type {
++	POHMELFS_LOCK_GRAB	= (1<<15),
++
++	POHMELFS_READ_LOCK	= 0,
++	POHMELFS_WRITE_LOCK,
++};
++
++struct netfs_lock
 +{
-+	int err;
++	__u64			start;
++	__u64			ino;
++	__u32			size;
++	__u32			type;
++};
 +
-+	err = pohmelfs_config_init();
-+	if (err)
-+		goto err_out_exit;
-+
-+	err = pohmelfs_init_inodecache();
-+	if (err)
-+		goto err_out_config_exit;
-+
-+	err = pohmelfs_mcache_init();
-+	if (err)
-+		goto err_out_destroy;
-+
-+	err = netfs_trans_init();
-+	if (err)
-+		goto err_out_mcache_exit;
-+
-+	err = register_filesystem(&pohmel_fs_type);
-+	if (err)
-+		goto err_out_trans;
-+
-+	return 0;
-+
-+err_out_trans:
-+	netfs_trans_exit();
-+err_out_mcache_exit:
-+	pohmelfs_mcache_exit();
-+err_out_destroy:
-+	pohmelfs_destroy_inodecache();
-+err_out_config_exit:
-+	pohmelfs_config_exit();
-+err_out_exit:
-+	return err;
++static inline void netfs_convert_lock(struct netfs_lock *lock)
++{
++	lock->start = __cpu_to_be64(lock->start);
++	lock->ino = __cpu_to_be64(lock->ino);
++	lock->size = __cpu_to_be32(lock->size);
++	lock->type = __cpu_to_be32(lock->type);
 +}
 +
-+static void __exit exit_pohmel_fs(void)
++#ifdef __KERNEL__
++
++#include <linux/kernel.h>
++#include <linux/completion.h>
++#include <linux/rbtree.h>
++#include <linux/net.h>
++#include <linux/poll.h>
++
++/*
++ * Private POHMELFS cache of objects in directory.
++ */
++struct pohmelfs_name
 +{
-+        unregister_filesystem(&pohmel_fs_type);
-+	pohmelfs_destroy_inodecache();
-+	pohmelfs_mcache_exit();
-+	pohmelfs_config_exit();
-+	netfs_trans_exit();
++	struct rb_node		hash_node;
++
++	struct list_head	sync_del_entry, sync_create_entry;
++
++	u64			ino;
++
++	u32			hash;
++	u32			mode;
++	u32			len;
++
++	char			*data;
++};
++
++/*
++ * POHMELFS inode. Main object.
++ */
++struct pohmelfs_inode
++{
++	struct list_head	inode_entry;		/* Entry in superblock list.
++							 * Objects which are not bound to dentry require to be dropped
++							 * in ->put_super()
++							 */
++	struct rb_root		hash_root;		/* The same, but indexed by name hash and len */
++	struct mutex		offset_lock;		/* Protect both above trees */
++
++	struct list_head	sync_del_list, sync_create_list;	/* Sync list (create is not used).
++									 * It contains children scheduled to be removed
++									 */
++
++	unsigned int		drop_count;
++
++	int			lock_type;		/* How this inode is locked: read or write */
++
++	int			error;			/* Transaction error for given inode */
++
++	long			state;			/* State machine above */
++
++	u64			ino;			/* Inode number */
++	u64			total_len;		/* Total length of all children names, used to create offsets */
++
++	struct inode		vfs_inode;
++};
++
++struct netfs_trans;
++typedef int (* netfs_trans_complete_t)(struct page **pages, unsigned int page_num,
++		void *private, int err);
++
++struct netfs_state;
++struct pohmelfs_sb;
++
++struct netfs_trans
++{
++	/*
++	 * Transaction header and attached contiguous data live here.
++	 */
++	struct iovec			iovec;
++
++	/*
++	 * Pages attached to transaction.
++	 */
++	struct page			**pages;
++
++	/*
++	 * List and protecting lock for transaction destination
++	 * network states.
++	 */
++	struct mutex			dst_lock;
++	struct list_head		dst_list;
++
++	/*
++	 * Number of users for given transaction.
++	 * For example each network state attached to transaction
++	 * via dst_list increases it.
++	 */
++	atomic_t			refcnt;
++
++	/*
++	 * Number of pages attached to given transaction.
++	 * Some slots in above page array can be NULL, since
++	 * for example page can be under writeback already,
++	 * so we skip it in this transaction.
++	 */
++	unsigned int			page_num;
++
++	/*
++	 * Transaction flags: single dst or broadcast and so on.
++	 */
++	unsigned int			flags;
++
++	/*
++	 * Size of the data, which can be placed into
++	 * iovec.iov_base area.
++	 */
++	unsigned int			total_size;
++
++	/*
++	 * Number of pages to be sent to remote server.
++	 * Usually equal to above page_num, but in case of partial
++	 * writeback it can accumulate only pages already completed
++	 * previous writeback.
++	 */
++	unsigned int			attached_pages;
++
++	/*
++	 * Attached number of bytes in all above pages.
++	 */
++	unsigned int			attached_size;
++
++	/*
++	 * Unique transacton generation number.
++	 * Used as identity in the network state tree of transactions.
++	 */
++	unsigned int			gen;
++
++	/*
++	 * Transaction completion status.
++	 */
++	int				result;
++	
++	/*
++	 * Superblock this transaction belongs to
++	 */
++	struct pohmelfs_sb		*psb;
++
++	/*
++	 * Crypto engine, which processed this transaction.
++	 * Can be not NULL only if crypto engine holds encrypted pages.
++	 */
++	struct pohmelfs_crypto_engine	*eng;
++
++	/* Private data */
++	void				*private;
++
++	/* Completion callback, invoked just before transaction is destroyed */
++	netfs_trans_complete_t		complete;
++};
++
++static inline int netfs_trans_cur_len(struct netfs_trans *t)
++{
++	return (signed)(t->total_size - t->iovec.iov_len);
 +}
 +
-+module_init(init_pohmel_fs);
-+module_exit(exit_pohmel_fs);
++static inline void *netfs_trans_current(struct netfs_trans *t)
++{
++	return t->iovec.iov_base + t->iovec.iov_len;
++}
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Evgeniy Polyakov <zbr@ioremap.net>");
-+MODULE_DESCRIPTION("Pohmel filesystem");
++struct netfs_trans *netfs_trans_alloc(struct pohmelfs_sb *psb, unsigned int size,
++		unsigned int flags, unsigned int nr);
++void netfs_trans_free(struct netfs_trans *t);
++int netfs_trans_finish(struct netfs_trans *t, struct pohmelfs_sb *psb);
++int netfs_trans_finish_send(struct netfs_trans *t, struct pohmelfs_sb *psb);
++
++static inline void netfs_trans_reset(struct netfs_trans *t)
++{
++	t->complete = NULL;
++}
++
++struct netfs_trans_dst
++{
++	struct list_head		trans_entry;
++	struct rb_node			state_entry;
++
++	unsigned long			send_time;
++
++	/*
++	 * Times this transaction was resent to its old or new,
++	 * depending on flags, destinations. When it reaches maximum
++	 * allowed number, specified in superblock->trans_retries,
++	 * transaction will be freed with ETIMEDOUT error.
++	 */
++	unsigned int			retries;
++
++	struct netfs_trans		*trans;
++	struct netfs_state		*state;
++};
++
++struct netfs_trans_dst *netfs_trans_search(struct netfs_state *st, unsigned int gen);
++void netfs_trans_drop_dst(struct netfs_trans_dst *dst);
++void netfs_trans_drop_dst_nostate(struct netfs_trans_dst *dst);
++void netfs_trans_drop_trans(struct netfs_trans *t, struct netfs_state *st);
++void netfs_trans_drop_last(struct netfs_trans *t, struct netfs_state *st);
++int netfs_trans_resend(struct netfs_trans *t, struct pohmelfs_sb *psb);
++int netfs_trans_remove_nolock(struct netfs_trans_dst *dst, struct netfs_state *st);
++
++int netfs_trans_init(void);
++void netfs_trans_exit(void);
++
++struct pohmelfs_crypto_engine
++{
++	u64				iv;		/* Crypto IV for current operation */
++	unsigned long			timeout;	/* Crypto waiting timeout */
++	unsigned int			size;		/* Size of crypto scratchpad */
++	void				*data;		/* Temporal crypto scratchpad */
++	/*
++	 * Crypto operations performed on objects.
++	 */
++	struct crypto_hash		*hash;
++	struct crypto_ablkcipher	*cipher;
++
++	struct pohmelfs_crypto_thread	*thread;	/* Crypto thread which hosts this engine */
++
++	struct page			**pages;
++	unsigned int			page_num;
++};
++
++struct pohmelfs_crypto_thread
++{
++	struct list_head		thread_entry;
++
++	struct task_struct		*thread;
++	struct pohmelfs_sb		*psb;
++
++	struct pohmelfs_crypto_engine	eng;
++
++	struct netfs_trans		*trans;
++
++	wait_queue_head_t		wait;
++	int				error;
++
++	unsigned int			size;
++	struct page			*page;
++};
++
++void pohmelfs_crypto_thread_make_ready(struct pohmelfs_crypto_thread *th);
++
++/*
++ * Network state, attached to one server.
++ */
++struct netfs_state
++{
++	struct mutex		__state_lock;		/* Can not allow to use the same socket simultaneously */
++	struct netfs_cmd 	cmd;			/* Cached command */
++	struct netfs_inode_info	info;			/* Cached inode info */
++
++	void			*data;			/* Cached some data */
++	unsigned int		size;			/* Size of that data */
++
++	struct pohmelfs_sb	*psb;			/* Superblock */
++
++	struct task_struct	*thread;		/* Async receiving thread */
++
++	/* Waiting/polling machinery */
++	wait_queue_t 		wait;
++	wait_queue_head_t 	*whead;
++	wait_queue_head_t 	thread_wait;
++
++	struct mutex		trans_lock;
++	struct rb_root		trans_root;
++
++	struct pohmelfs_ctl	ctl;			/* Remote peer */
++
++	struct socket		*socket;		/* Socket object */
++	struct socket		*read_socket;		/* Cached pointer to socket object.
++							 * Used to determine if between lock drops socket was changed.
++							 * Never used to read data or any kind of access.
++							 */
++	/*
++	 * Crypto engines to process incoming data.
++	 */
++	struct pohmelfs_crypto_engine	eng;
++};
++
++int netfs_state_init(struct netfs_state *st);
++void netfs_state_exit(struct netfs_state *st);
++
++static inline void netfs_state_lock(struct netfs_state *st)
++{
++	mutex_lock(&st->__state_lock);
++}
++
++static inline void netfs_state_unlock(struct netfs_state *st)
++{
++	BUG_ON(!mutex_is_locked(&st->__state_lock));
++
++	mutex_unlock(&st->__state_lock);
++}
++
++static inline unsigned int netfs_state_poll(struct netfs_state *st)
++{
++	unsigned int revents = POLLHUP | POLLERR;
++
++	netfs_state_lock(st);
++	if (st->socket)
++		revents = st->socket->ops->poll(NULL, st->socket, NULL);
++	netfs_state_unlock(st);
++
++	return revents;
++}
++
++struct pohmelfs_config;
++
++struct pohmelfs_sb
++{
++	struct rb_root		path_root;
++	struct mutex		path_lock;
++
++	struct rb_root		mcache_root;
++	struct mutex		mcache_lock;
++	atomic_long_t		mcache_gen;
++	unsigned long		mcache_timeout;
++
++	unsigned int		idx;
++
++	unsigned int		trans_retries;
++
++	atomic_t		trans_gen;
++
++	unsigned int		crypto_attached_size;
++	unsigned int		crypto_align_size;
++
++	unsigned int		crypto_fail_unsupported;
++
++	unsigned int		crypto_thread_num;
++	struct list_head	crypto_active_list, crypto_ready_list;
++	struct mutex		crypto_thread_lock;
++
++	unsigned int		trans_max_pages;
++	unsigned long		trans_data_size;
++	unsigned long		trans_timeout;
++
++	unsigned long		drop_scan_timeout;
++	unsigned long		trans_scan_timeout;
++
++	unsigned long		wait_on_page_timeout;
++
++	struct list_head	flush_list;
++	struct list_head	drop_list;
++	spinlock_t		ino_lock;
++	u64			ino;
++
++	/*
++	 * Remote nodes POHMELFS connected to.
++	 */
++	struct list_head	state_list;
++	struct mutex		state_lock;
++
++	/*
++	 * Currently active state to request data from.
++	 */
++	struct pohmelfs_config	*active_state;
++
++	
++	wait_queue_head_t	wait;
++
++	/*
++	 * Timed checks: stale transactions, inodes to be freed and so on.
++	 */
++	struct delayed_work 	dwork;
++	struct delayed_work 	drop_dwork;
++
++	struct super_block	*sb;
++
++	/*
++	 * Algorithm strings.
++	 */
++	char			*hash_string;
++	char			*cipher_string;
++
++	u8			*hash_key;
++	u8			*cipher_key;
++
++	/*
++	 * Algorithm string lengths.
++	 */
++	unsigned int		hash_strlen;
++	unsigned int		cipher_strlen;
++	unsigned int		hash_keysize;
++	unsigned int		cipher_keysize;
++
++	/*
++	 * Controls whether to perfrom crypto processing or not.
++	 */
++	int			perform_crypto;
++
++	/*
++	 * POHMELFS statistics.
++	 */
++	u64			total_size;
++	u64			avail_size;
++	atomic_long_t		total_inodes;
++
++	/*
++	 * Xattr support, read-only and so on.
++	 */
++	u64			state_flags;
++
++	/*
++	 * Temporary storage to detect changes in the wait queue.
++	 */
++	long			flags;
++};
++
++static inline void netfs_trans_update(struct netfs_cmd *cmd,
++		struct netfs_trans *t, unsigned int size)
++{
++	unsigned int sz = ALIGN(size, t->psb->crypto_align_size);
++
++	t->iovec.iov_len += sizeof(struct netfs_cmd) + sz;
++	cmd->cpad = __cpu_to_be16(sz - size);
++}
++
++static inline struct pohmelfs_sb *POHMELFS_SB(struct super_block *sb)
++{
++	return sb->s_fs_info;
++}
++
++static inline struct pohmelfs_inode *POHMELFS_I(struct inode *inode)
++{
++	return container_of(inode, struct pohmelfs_inode, vfs_inode);
++}
++
++static inline u64 pohmelfs_new_ino(struct pohmelfs_sb *psb)
++{
++	u64 ino;
++
++	spin_lock(&psb->ino_lock);
++	ino = psb->ino++;
++	spin_unlock(&psb->ino_lock);
++
++	return ino;
++}
++
++static inline void pohmelfs_put_inode(struct pohmelfs_inode *pi)
++{
++	struct pohmelfs_sb *psb = POHMELFS_SB(pi->vfs_inode.i_sb);
++
++	spin_lock(&psb->ino_lock);
++	list_move_tail(&pi->inode_entry, &psb->drop_list);
++	pi->drop_count++;
++	spin_unlock(&psb->ino_lock);
++}
++
++struct pohmelfs_config
++{
++	struct list_head	config_entry;
++
++	struct netfs_state	state;
++};
++
++struct pohmelfs_config_group
++{
++	/*
++	 * Entry in the global config group list.
++	 */
++	struct list_head	group_entry;
++
++	/*
++	 * Index of the current group.
++	 */
++	unsigned int		idx;
++	/*
++	 * Number of config_list entries in this group entry.
++	 */
++	unsigned int		num_entry;
++	/*
++	 * Algorithm strings.
++	 */
++	char			*hash_string;
++	char			*cipher_string;
++
++	/*
++	 * Algorithm string lengths.
++	 */
++	unsigned int		hash_strlen;
++	unsigned int		cipher_strlen;
++
++	/*
++	 * Key and its size.
++	 */
++	unsigned int		hash_keysize;
++	unsigned int		cipher_keysize;
++	u8			*hash_key;
++	u8			*cipher_key;
++
++	/*
++	 * List of config entries (network state info) for given idx.
++	 */
++	struct list_head	config_list;
++};
++
++int __init pohmelfs_config_init(void);
++void pohmelfs_config_exit(void);
++int pohmelfs_copy_config(struct pohmelfs_sb *psb);
++int pohmelfs_copy_crypto(struct pohmelfs_sb *psb);
++int pohmelfs_config_check(struct pohmelfs_config *config, int idx);
++int pohmelfs_state_init_one(struct pohmelfs_sb *psb, struct pohmelfs_config *conf);
++
++extern const struct file_operations pohmelfs_dir_fops;
++extern const struct inode_operations pohmelfs_dir_inode_ops;
++
++int pohmelfs_state_init(struct pohmelfs_sb *psb);
++void pohmelfs_state_exit(struct pohmelfs_sb *psb);
++void pohmelfs_state_flush_transactions(struct netfs_state *st);
++
++void pohmelfs_fill_inode(struct inode *inode, struct netfs_inode_info *info);
++
++void pohmelfs_name_del(struct pohmelfs_inode *parent, struct pohmelfs_name *n);
++void pohmelfs_free_names(struct pohmelfs_inode *parent);
++struct pohmelfs_name *pohmelfs_search_hash(struct pohmelfs_inode *pi, u32 hash);
++
++void pohmelfs_inode_del_inode(struct pohmelfs_sb *psb, struct pohmelfs_inode *pi);
++
++struct pohmelfs_inode *pohmelfs_create_entry_local(struct pohmelfs_sb *psb,
++	struct pohmelfs_inode *parent, struct qstr *str, u64 start, int mode);
++
++int pohmelfs_write_inode_create(struct inode *inode, struct netfs_trans *trans);
++
++struct pohmelfs_inode *pohmelfs_new_inode(struct pohmelfs_sb *psb,
++		struct pohmelfs_inode *parent, struct qstr *str,
++		struct netfs_inode_info *info, int link);
++
++int pohmelfs_setattr(struct dentry *dentry, struct iattr *attr);
++int pohmelfs_setattr_raw(struct inode *inode, struct iattr *attr);
++
++int pohmelfs_meta_command(struct pohmelfs_inode *pi, unsigned int cmd_op, unsigned int flags,
++		netfs_trans_complete_t complete, void *priv, u64 start);
++int pohmelfs_meta_command_data(struct pohmelfs_inode *pi, u64 id, unsigned int cmd_op, char *addon,
++		unsigned int flags, netfs_trans_complete_t complete, void *priv, u64 start);
++
++void pohmelfs_check_states(struct pohmelfs_sb *psb);
++void pohmelfs_switch_active(struct pohmelfs_sb *psb);
++
++struct pohmelfs_path_entry
++{
++	struct rb_node			path_entry;
++	struct list_head		entry;
++	u8				len, link;
++	u8				unused[2];
++	atomic_t			refcnt;
++	u32				mode;
++	u32				hash;
++	u64				ino;
++	struct pohmelfs_path_entry	*parent;
++	char				*name;
++};
++
++void pohmelfs_remove_path_entry(struct pohmelfs_sb *psb, struct pohmelfs_path_entry *e);
++void pohmelfs_remove_path_entry_by_ino(struct pohmelfs_sb *psb, u64 ino);
++struct pohmelfs_path_entry * pohmelfs_add_path_entry(struct pohmelfs_sb *psb,
++	u64 parent_ino, u64 ino, struct qstr *str, int link, unsigned int mode);
++int pohmelfs_rename_path_entry(struct pohmelfs_sb *psb, u64 ino, u64 parent_ino, struct qstr *str);
++int pohmelfs_change_path_entry(struct pohmelfs_sb *psb, u64 ino, unsigned int mode);
++int pohmelfs_construct_path(struct pohmelfs_inode *pi, void *data, int len);
++int pohmelfs_construct_path_string(struct pohmelfs_inode *pi, void *data, int len);
++
++int pohmelfs_path_length(struct pohmelfs_inode *pi);
++int pohmelfs_path_length_create(struct pohmelfs_inode *pi);
++
++struct pohmelfs_crypto_completion
++{
++	struct completion	complete;
++	int			error;
++};
++
++int pohmelfs_trans_crypt(struct netfs_trans *t, struct pohmelfs_sb *psb);
++void pohmelfs_crypto_exit(struct pohmelfs_sb *psb);
++int pohmelfs_crypto_init(struct pohmelfs_sb *psb);
++
++int pohmelfs_crypto_engine_init(struct pohmelfs_crypto_engine *e, struct pohmelfs_sb *psb);
++void pohmelfs_crypto_engine_exit(struct pohmelfs_crypto_engine *e);
++
++int pohmelfs_crypto_process_input_data(struct pohmelfs_crypto_engine *e, u64 iv,
++		void *data, struct page *page, unsigned int size);
++int pohmelfs_crypto_process_input_page(struct pohmelfs_crypto_engine *e,
++		struct page *page, unsigned int size, u64 iv);
++
++static inline u64 pohmelfs_gen_iv(struct netfs_trans *t)
++{
++	u64 iv = t->gen;
++
++	iv <<= 32;
++	iv |= ((unsigned long)t) & 0xffffffff;
++
++	return iv;
++}
++
++int pohmelfs_data_lock(struct pohmelfs_inode *pi, u64 start, u32 size, int type);
++int pohmelfs_data_unlock(struct pohmelfs_inode *pi, u64 start, u32 size, int type);
++int pohmelfs_data_lock_response(struct netfs_state *st);
++
++int __init pohmelfs_mcache_init(void);
++void pohmelfs_mcache_exit(void);
++
++//#define CONFIG_POHMELFS_DEBUG
++
++#ifdef CONFIG_POHMELFS_DEBUG
++#define dprintka(f, a...) printk(f, ##a)
++#define dprintk(f, a...) printk("%d: " f, task_pid_vnr(current), ##a)
++#else
++#define dprintka(f, a...) do {} while (0)
++#define dprintk(f, a...) do {} while (0)
++#endif
++
++static inline void netfs_trans_get(struct netfs_trans *t)
++{
++	atomic_inc(&t->refcnt);
++}
++
++static inline void netfs_trans_put(struct netfs_trans *t)
++{
++	if (atomic_dec_and_test(&t->refcnt)) {
++		dprintk("%s: t: %p, gen: %u, err: %d.\n",
++			__func__, t, t->gen, t->result);
++		if (t->complete)
++			t->complete(t->pages, t->page_num,
++				t->private, t->result);
++		netfs_trans_free(t);
++	}
++}
++
++struct pohmelfs_mcache
++{
++	struct rb_node			mcache_entry;
++	struct completion		complete;
++
++	atomic_t			refcnt;
++
++	u64				gen;
++
++	void				*data;
++	u64				start;
++	u32				size;
++	int				err;
++
++	struct netfs_inode_info		info;
++};
++
++struct pohmelfs_mcache *pohmelfs_mcache_alloc(struct pohmelfs_sb *psb, u64 start,
++		unsigned int size, void *data);
++void pohmelfs_mcache_free(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m);
++struct pohmelfs_mcache *pohmelfs_mcache_search(struct pohmelfs_sb *psb, u64 gen);
++void pohmelfs_mcache_remove_locked(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m);
++
++static inline void pohmelfs_mcache_get(struct pohmelfs_mcache *m)
++{
++	atomic_inc(&m->refcnt);
++}
++
++static inline void pohmelfs_mcache_put(struct pohmelfs_sb *psb,
++		struct pohmelfs_mcache *m)
++{
++	if (atomic_dec_and_test(&m->refcnt))
++		pohmelfs_mcache_free(psb, m);
++}
++
++#endif /* __KERNEL__*/
++
++#endif /* __NETFS_H */
