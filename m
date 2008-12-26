@@ -1,190 +1,107 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
-Date: Fri, 26 Dec 2008 15:08:55 +0100
-Message-ID: <1230300535.9487.292.camel@twins>
-References: <9929d2390812250225w19bcd2f7n11357ff26de78c52@mail.gmail.com>
-	 <20081225112658.GA7260@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Ingo Molnar <mingo@elte.hu>, Eric Dumazet <dada1@cosmosbay.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep25-int.chello.at ([62.179.121.45]:53210 "EHLO
-	viefep25-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265AbYLZOZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Dec 2008 09:25:57 -0500
-In-Reply-To: <20081225112658.GA7260@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Evgeniy Polyakov <zbe@ioremap.net>
+Subject: [9/9] pohmelfs: kconfig/makefile and vfs changes.
+Date: Fri, 26 Dec 2008 17:18:50 +0300
+Message-ID: <1230301130-1325-10-git-send-email-zbe@ioremap.net>
+References: <1230301130-1325-1-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-2-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-3-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-4-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-5-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-6-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-7-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-8-git-send-email-zbe@ioremap.net>
+ <1230301130-1325-9-git-send-email-zbe@ioremap.net>
+Cc: linux-kernel@vger.kernel.org, pohmelfs@ioremap.net,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Evgeniy Polyakov <zbr@ioremap.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1230301130-1325-9-git-send-email-zbe@ioremap.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2008-12-25 at 22:26 +1100, Herbert Xu wrote:
-> On Thu, Dec 25, 2008 at 10:25:44AM +0000, Jeff Kirsher wrote:
-> >
-> > [ 1439.758437] ======================================================
-> > [ 1439.758724] [ INFO: soft-safe -> soft-unsafe lock order detected ]
-> > [ 1439.758868] 2.6.28-rc8-net-next-igb #13
-> > [ 1439.759007] ------------------------------------------------------
-> > [ 1439.759150] netperf/22302 [HC0[0]:SC0[1]:HE1:SE0] is trying to acquire:
-> > [ 1439.759293]  (&fbc->lock){--..}, at: [<ffffffff803691a6>]
-> > __percpu_counter_add+0x4a/0x6d
-> > [ 1439.759581]
-> > [ 1439.759582] and this task is already holding:
-> > [ 1439.759853]  (slock-AF_INET){-+..}, at: [<ffffffff804fdca6>]
-> > tcp_close+0x16c/0x2da
-> > [ 1439.760137] which would create a new lock dependency:
-> > [ 1439.762122]  (slock-AF_INET){-+..} -> (&fbc->lock){--..}
-> 
-> This is a false positive.  The lock slock is not a normal lock.
-> It's an ancient creature that's a spinlock in interrupt context
-> and a semaphore in process context.
-> 
-> In particular, holding slock in process context does not disable
-> softirqs and you're still allowed to take the spinlock portion of
-> slock on the same CPU through an interrupt.  What happens is that
-> the softirq will notice that the slock is already taken by process
-> context, and defer the work for later.
+This patch adds Kconfig and Makefile entries and exports to
+VFS functions to be used by POHMELFS.
 
-Which doesn't seem to be relevant to the report in question.
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-What happens is that two different percpu counters with different irq
-semantics get put in the same class (I suspect Eric never tested this
-stuff with lockdep enabled).
-
-Does the below -- which isn't even compile tested solve the issue?
-
-Jeff, would you, in future, take care not to word wrap splats like that,
-it takes way too much effort to untangle that mess.
-
----
-Subject: lockdep: annotate percpu_counter
-
-Classify percpu_counter instances similar to regular lock objects --
-that is, per instantiation site.
-
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- include/linux/percpu_counter.h |   14 ++++++++++----
- lib/percpu_counter.c           |   18 ++++--------------
- lib/proportions.c              |    6 +++---
- mm/backing-dev.c               |    2 +-
- 4 files changed, 18 insertions(+), 22 deletions(-)
-
-diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
-index 9007ccd..a074d77 100644
---- a/include/linux/percpu_counter.h
-+++ b/include/linux/percpu_counter.h
-@@ -30,8 +30,16 @@ struct percpu_counter {
- #define FBC_BATCH	(NR_CPUS*4)
- #endif
+diff --git a/fs/Kconfig b/fs/Kconfig
+index 522469a..f4bc2b2 100644
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -1140,6 +1140,8 @@ menuconfig NETWORK_FILESYSTEMS
  
--int percpu_counter_init(struct percpu_counter *fbc, s64 amount);
--int percpu_counter_init_irq(struct percpu_counter *fbc, s64 amount);
-+int __percpu_counter_init(struct percpu_counter *fbc, s64 amount,
-+			  struct lock_class_key *key);
+ if NETWORK_FILESYSTEMS
+ 
++source "fs/pohmelfs/Kconfig"
 +
-+#define percpu_counter_init(fbc, value)					\
-+	do {								\
-+		static struct lock_class_key __key;			\
-+									\
-+		__percpu_counter_init(fbc, value, &__key);		\
-+	} while (0)
+ config NFS_FS
+ 	tristate "NFS client support"
+ 	depends on INET
+diff --git a/fs/Makefile b/fs/Makefile
+index d9f8afe..4f715c4 100644
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -122,3 +122,4 @@ obj-$(CONFIG_HPPFS)		+= hppfs/
+ obj-$(CONFIG_DEBUG_FS)		+= debugfs/
+ obj-$(CONFIG_OCFS2_FS)		+= ocfs2/
+ obj-$(CONFIG_GFS2_FS)           += gfs2/
++obj-$(CONFIG_POHMELFS)		+= pohmelfs/
+diff --git a/fs/pohmelfs/Kconfig b/fs/pohmelfs/Kconfig
+new file mode 100644
+index 0000000..82d13ad
+--- /dev/null
++++ b/fs/pohmelfs/Kconfig
+@@ -0,0 +1,23 @@
++config POHMELFS
++	tristate "POHMELFS filesystem support"
++	select CONNECTOR
++	help
++	  POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
++	  This is a network filesystem which supports coherent caching of data and metadata
++	  on clients.
 +
- void percpu_counter_destroy(struct percpu_counter *fbc);
- void percpu_counter_set(struct percpu_counter *fbc, s64 amount);
- void __percpu_counter_add(struct percpu_counter *fbc, s64 amount, s32 batch);
-@@ -85,8 +93,6 @@ static inline int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
- 	return 0;
- }
- 
--#define percpu_counter_init_irq percpu_counter_init
--
- static inline void percpu_counter_destroy(struct percpu_counter *fbc)
- {
- }
-diff --git a/lib/percpu_counter.c b/lib/percpu_counter.c
-index b255b93..4bb0ed3 100644
---- a/lib/percpu_counter.c
-+++ b/lib/percpu_counter.c
-@@ -68,11 +68,11 @@ s64 __percpu_counter_sum(struct percpu_counter *fbc)
- }
- EXPORT_SYMBOL(__percpu_counter_sum);
- 
--static struct lock_class_key percpu_counter_irqsafe;
--
--int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
-+int __percpu_counter_init(struct percpu_counter *fbc, s64 amount,
-+			  struct lock_class_key *key)
- {
- 	spin_lock_init(&fbc->lock);
-+	lockdep_set_class(&fbc->lock, key);
- 	fbc->count = amount;
- 	fbc->counters = alloc_percpu(s32);
- 	if (!fbc->counters)
-@@ -84,17 +84,7 @@ int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
- #endif
- 	return 0;
- }
--EXPORT_SYMBOL(percpu_counter_init);
--
--int percpu_counter_init_irq(struct percpu_counter *fbc, s64 amount)
--{
--	int err;
--
--	err = percpu_counter_init(fbc, amount);
--	if (!err)
--		lockdep_set_class(&fbc->lock, &percpu_counter_irqsafe);
--	return err;
--}
-+EXPORT_SYMBOL(__percpu_counter_init);
- 
- void percpu_counter_destroy(struct percpu_counter *fbc)
- {
-diff --git a/lib/proportions.c b/lib/proportions.c
-index 4f387a6..7367f2b 100644
---- a/lib/proportions.c
-+++ b/lib/proportions.c
-@@ -83,11 +83,11 @@ int prop_descriptor_init(struct prop_descriptor *pd, int shift)
- 	pd->index = 0;
- 	pd->pg[0].shift = shift;
- 	mutex_init(&pd->mutex);
--	err = percpu_counter_init_irq(&pd->pg[0].events, 0);
-+	err = percpu_counter_init(&pd->pg[0].events, 0);
- 	if (err)
- 		goto out;
- 
--	err = percpu_counter_init_irq(&pd->pg[1].events, 0);
-+	err = percpu_counter_init(&pd->pg[1].events, 0);
- 	if (err)
- 		percpu_counter_destroy(&pd->pg[0].events);
- 
-@@ -191,7 +191,7 @@ int prop_local_init_percpu(struct prop_local_percpu *pl)
- 	spin_lock_init(&pl->lock);
- 	pl->shift = 0;
- 	pl->period = 0;
--	return percpu_counter_init_irq(&pl->events, 0);
-+	return percpu_counter_init(&pl->events, 0);
- }
- 
- void prop_local_destroy_percpu(struct prop_local_percpu *pl)
-diff --git a/mm/backing-dev.c b/mm/backing-dev.c
-index 801c08b..a7c6c56 100644
---- a/mm/backing-dev.c
-+++ b/mm/backing-dev.c
-@@ -223,7 +223,7 @@ int bdi_init(struct backing_dev_info *bdi)
- 	bdi->max_prop_frac = PROP_FRAC_BASE;
- 
- 	for (i = 0; i < NR_BDI_STAT_ITEMS; i++) {
--		err = percpu_counter_init_irq(&bdi->bdi_stat[i], 0);
-+		err = percpu_counter_init(&bdi->bdi_stat[i], 0);
- 		if (err)
- 			goto err;
++config POHMELFS_DEBUG
++	bool "POHMELFS debugging"
++	depends on POHMELFS
++	default n
++	help
++	  Turns on excessive POHMELFS debugging facilities.
++	  You usually do not want to slow things down noticebly and get really lots of kernel
++	  messages in syslog.
++
++config POHMELFS_CRYPTO
++	bool "POHMELFS crypto support"
++	depends on CONFIG_CRYPTO_BLKCIPHER && CONFIG_CRYPTO_HASH
++	help
++	  This option allows to encrypt and/or protect with strong cryptographic hash all dataflow
++	  between server and clients. Each config group can have own keys.
+diff --git a/fs/pohmelfs/Makefile b/fs/pohmelfs/Makefile
+new file mode 100644
+index 0000000..196561c
+--- /dev/null
++++ b/fs/pohmelfs/Makefile
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_POHMELFS)	+= pohmelfs.o
++
++pohmelfs-y := inode.o config.o dir.o net.o path_entry.o trans.o crypto.o lock.o mcache.o
+diff --git a/mm/filemap.c b/mm/filemap.c
+index f3e5f89..3f77548 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -513,6 +513,7 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
  	}
-
-
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(add_to_page_cache_lru);
+ 
+ #ifdef CONFIG_NUMA
+ struct page *__page_cache_alloc(gfp_t gfp)
+@@ -627,6 +628,7 @@ int __lock_page_killable(struct page *page)
+ 	return __wait_on_bit_lock(page_waitqueue(page), &wait,
+ 					sync_page_killable, TASK_KILLABLE);
+ }
++EXPORT_SYMBOL_GPL(__lock_page_killable);
+ 
+ /**
+  * __lock_page_nosync - get a lock on the page, without calling sync_page()
