@@ -1,26 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/13] drivers/net/wan: Remove redundant test
-Date: Thu, 25 Dec 2008 18:04:16 -0800 (PST)
-Message-ID: <20081225.180416.113146112.davem@davemloft.net>
-References: <Pine.LNX.4.64.0812211638550.9555@pc-004.diku.dk>
+Subject: Re: [PATCH] tcp: make urg+gso work for real this time
+Date: Thu, 25 Dec 2008 18:00:51 -0800 (PST)
+Message-ID: <20081225.180051.116331110.davem@davemloft.net>
+References: <Pine.LNX.4.64.0812182040120.11995@wrl-59.cs.helsinki.fi>
+	<20081225.171146.208898156.davem@davemloft.net>
+	<20081226014739.GA11880@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: julia@diku.dk
+Cc: ilpo.jarvinen@helsinki.fi, kuznet@ms2.inr.ac.ru, ptesarik@suse.cz,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34503
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34484
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753145AbYLZCEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 21:04:13 -0500
-In-Reply-To: <Pine.LNX.4.64.0812211638550.9555@pc-004.diku.dk>
+	by vger.kernel.org with ESMTP id S1752310AbYLZCAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 21:00:49 -0500
+In-Reply-To: <20081226014739.GA11880@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Sun, 21 Dec 2008 16:39:15 +0100 (CET)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 26 Dec 2008 12:47:39 +1100
 
-> arg is checked not to be NULL a few lines before.
+> If all these packets are delivered in order, then what'll happen
+> is that RCV.UP starts out at 65535, and once the final segment is
+> delivered it'll be updated to 66240.
+> 
+> If out-of-order delivery occurs and the final segment arrives earlier,
+> then all that'll happen is that RCV.UP will hit 66240 earlier, which
+> is not an issue since all subsequent urgent pointers will be less and
+> hence ignored.
 
-Applied.
+So it all hinges on how the receiver updates his URG pointer.  This is
+what legitimizes a sender advertising a changing URG pointer.
+
+So it works, but it isn't the nicest thing in the world :-)
