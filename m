@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/9] mlx4_en: Added "set_ringparam" Ethtool interface
- implementation
-Date: Thu, 25 Dec 2008 18:22:19 -0800 (PST)
-Message-ID: <20081225.182219.268310314.davem@davemloft.net>
-References: <494F657C.2080100@mellanox.co.il>
+Subject: [ofa-general] Re: [PATCH 9/9] mlx4_en: Multi queue support
+Date: Thu, 25 Dec 2008 18:23:17 -0800 (PST)
+Message-ID: <20081225.182317.28395960.davem@davemloft.net>
+References: <494F6584.2030304@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org,
-	general@lists.openfabrics.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	jeff@garzik.org
 To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45247
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752252AbYLZCWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 21:22:16 -0500
-In-Reply-To: <494F657C.2080100@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <494F6584.2030304@mellanox.co.il>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Mon, 22 Dec 2008 12:01:32 +0200
+Date: Mon, 22 Dec 2008 12:01:40 +0200
 
-> Now using Ethtool to determine ring sizes, removed the module parameters
-> that controlled those values.
-> Modifying ring size requires restart of the interface.
+> Added a function that performs hashing on the TX traffic.
+> The hashing is only done for TCP or UDP packets, all other packets
+> are sent to a default queue.
+> We use an indirection table with an entry for each hash result.
+> For each entry in the table, we hold statistics regarding the stream
+> that corresponds to that entry. Packets are then directed to a TX queue
+> according to stream's pattern.
+> A ring is opened for each queue.
 > 
 > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-Also doesn't apply because 4 and 7 didn't.
+Also doesn't apply because patches 4, 7, and 8 did not.
