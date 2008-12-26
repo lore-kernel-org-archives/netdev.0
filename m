@@ -1,64 +1,190 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: Driver for Solos PCI ADSL2+ card.
-Date: Fri, 26 Dec 2008 12:44:23 +0000
-Message-ID: <1230295463.4148.263.camel@macbook.infradead.org>
-References: <20081226.012728.264387569.davem@davemloft.net>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
+Date: Fri, 26 Dec 2008 15:08:55 +0100
+Message-ID: <1230300535.9487.292.camel@twins>
+References: <9929d2390812250225w19bcd2f7n11357ff26de78c52@mail.gmail.com>
+	 <20081225112658.GA7260@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Ingo Molnar <mingo@elte.hu>, Eric Dumazet <dada1@cosmosbay.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:53895 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752333AbYLZMo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Dec 2008 07:44:28 -0500
-In-Reply-To: <20081226.012728.264387569.davem@davemloft.net>
+Received: from viefep25-int.chello.at ([62.179.121.45]:53210 "EHLO
+	viefep25-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752265AbYLZOZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Dec 2008 09:25:57 -0500
+In-Reply-To: <20081225112658.GA7260@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-12-26 at 01:27 -0800, David Miller wrote:
-> Applied, but I don't need to tell you that this driver needs
-> some work :)
+On Thu, 2008-12-25 at 22:26 +1100, Herbert Xu wrote:
+> On Thu, Dec 25, 2008 at 10:25:44AM +0000, Jeff Kirsher wrote:
+> >
+> > [ 1439.758437] ======================================================
+> > [ 1439.758724] [ INFO: soft-safe -> soft-unsafe lock order detected ]
+> > [ 1439.758868] 2.6.28-rc8-net-next-igb #13
+> > [ 1439.759007] ------------------------------------------------------
+> > [ 1439.759150] netperf/22302 [HC0[0]:SC0[1]:HE1:SE0] is trying to acquire:
+> > [ 1439.759293]  (&fbc->lock){--..}, at: [<ffffffff803691a6>]
+> > __percpu_counter_add+0x4a/0x6d
+> > [ 1439.759581]
+> > [ 1439.759582] and this task is already holding:
+> > [ 1439.759853]  (slock-AF_INET){-+..}, at: [<ffffffff804fdca6>]
+> > tcp_close+0x16c/0x2da
+> > [ 1439.760137] which would create a new lock dependency:
+> > [ 1439.762122]  (slock-AF_INET){-+..} -> (&fbc->lock){--..}
+> 
+> This is a false positive.  The lock slock is not a normal lock.
+> It's an ancient creature that's a spinlock in interrupt context
+> and a semaphore in process context.
+> 
+> In particular, holding slock in process context does not disable
+> softirqs and you're still allowed to take the spinlock portion of
+> slock on the same CPU through an interrupt.  What happens is that
+> the softirq will notice that the slock is already taken by process
+> context, and defer the work for later.
 
-Thanks. We'll be continuing to clean the driver up -- I have a card of
-my own now, and should soon have a spare line to play with it without
-having to disrupt my connectivity. One the way home from LCA I'll be
-dropping in to Melbourne to see Traverse for a few days, and we should
-get DMA working then.
+Which doesn't seem to be relevant to the report in question.
 
-One thing I'm not sure how to handle is the attributes. Currently we
-expose a 'console' attribute file in sysfs. Reading parameters is done
-by sending text to that:
-	echo -en $$\\nParameterName\\n > /sys/.../console
-	cat /sys/.../console
+What happens is that two different percpu counters with different irq
+semantics get put in the same class (I suspect Eric never tested this
+stuff with lockdep enabled).
 
-...and parameters are written by sending three lines of test:
-	echo -en $$\\nParameterName\\nValue\\n > /sys/.../console
-	cat /sys/.../console # to check for error
+Does the below -- which isn't even compile tested solve the issue?
 
-Currently, the kernel doesn't look at the request ID at all, and a
-userspace program reading back from the file will receive _any_
-responses and discard the ones it doesn't want.
+Jeff, would you, in future, take care not to word wrap splats like that,
+it takes way too much effort to untangle that mess.
 
-We'll have to handle that properly, and we want to make the driver deal
-with certain parameters for itself too -- like line speed and sync
-status, which should be represented to the ATM layer.
+---
+Subject: lockdep: annotate percpu_counter
 
-I'm a little dubious about just exposing _all_ the parameters as
-separate attribute files in sysfs though, because there are over 300 of
-them. Maybe we could expose the _common_ ones like that, and have some
-other interface which lets the user access others as required... but I
-don't have strong opinions about how that latter interface should look.
+Classify percpu_counter instances similar to regular lock objects --
+that is, per instantiation site.
 
-One option is a character device which looks similar to the existing
-interface. Or an ioctl, perhaps.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+---
+ include/linux/percpu_counter.h |   14 ++++++++++----
+ lib/percpu_counter.c           |   18 ++++--------------
+ lib/proportions.c              |    6 +++---
+ mm/backing-dev.c               |    2 +-
+ 4 files changed, 18 insertions(+), 22 deletions(-)
 
-Another option is to let the user create attribute files in sysfs
-dynamically, perhaps by echoing the desired parameter name to another
-sysfs file.
+diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
+index 9007ccd..a074d77 100644
+--- a/include/linux/percpu_counter.h
++++ b/include/linux/percpu_counter.h
+@@ -30,8 +30,16 @@ struct percpu_counter {
+ #define FBC_BATCH	(NR_CPUS*4)
+ #endif
+ 
+-int percpu_counter_init(struct percpu_counter *fbc, s64 amount);
+-int percpu_counter_init_irq(struct percpu_counter *fbc, s64 amount);
++int __percpu_counter_init(struct percpu_counter *fbc, s64 amount,
++			  struct lock_class_key *key);
++
++#define percpu_counter_init(fbc, value)					\
++	do {								\
++		static struct lock_class_key __key;			\
++									\
++		__percpu_counter_init(fbc, value, &__key);		\
++	} while (0)
++
+ void percpu_counter_destroy(struct percpu_counter *fbc);
+ void percpu_counter_set(struct percpu_counter *fbc, s64 amount);
+ void __percpu_counter_add(struct percpu_counter *fbc, s64 amount, s32 batch);
+@@ -85,8 +93,6 @@ static inline int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
+ 	return 0;
+ }
+ 
+-#define percpu_counter_init_irq percpu_counter_init
+-
+ static inline void percpu_counter_destroy(struct percpu_counter *fbc)
+ {
+ }
+diff --git a/lib/percpu_counter.c b/lib/percpu_counter.c
+index b255b93..4bb0ed3 100644
+--- a/lib/percpu_counter.c
++++ b/lib/percpu_counter.c
+@@ -68,11 +68,11 @@ s64 __percpu_counter_sum(struct percpu_counter *fbc)
+ }
+ EXPORT_SYMBOL(__percpu_counter_sum);
+ 
+-static struct lock_class_key percpu_counter_irqsafe;
+-
+-int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
++int __percpu_counter_init(struct percpu_counter *fbc, s64 amount,
++			  struct lock_class_key *key)
+ {
+ 	spin_lock_init(&fbc->lock);
++	lockdep_set_class(&fbc->lock, key);
+ 	fbc->count = amount;
+ 	fbc->counters = alloc_percpu(s32);
+ 	if (!fbc->counters)
+@@ -84,17 +84,7 @@ int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
+ #endif
+ 	return 0;
+ }
+-EXPORT_SYMBOL(percpu_counter_init);
+-
+-int percpu_counter_init_irq(struct percpu_counter *fbc, s64 amount)
+-{
+-	int err;
+-
+-	err = percpu_counter_init(fbc, amount);
+-	if (!err)
+-		lockdep_set_class(&fbc->lock, &percpu_counter_irqsafe);
+-	return err;
+-}
++EXPORT_SYMBOL(__percpu_counter_init);
+ 
+ void percpu_counter_destroy(struct percpu_counter *fbc)
+ {
+diff --git a/lib/proportions.c b/lib/proportions.c
+index 4f387a6..7367f2b 100644
+--- a/lib/proportions.c
++++ b/lib/proportions.c
+@@ -83,11 +83,11 @@ int prop_descriptor_init(struct prop_descriptor *pd, int shift)
+ 	pd->index = 0;
+ 	pd->pg[0].shift = shift;
+ 	mutex_init(&pd->mutex);
+-	err = percpu_counter_init_irq(&pd->pg[0].events, 0);
++	err = percpu_counter_init(&pd->pg[0].events, 0);
+ 	if (err)
+ 		goto out;
+ 
+-	err = percpu_counter_init_irq(&pd->pg[1].events, 0);
++	err = percpu_counter_init(&pd->pg[1].events, 0);
+ 	if (err)
+ 		percpu_counter_destroy(&pd->pg[0].events);
+ 
+@@ -191,7 +191,7 @@ int prop_local_init_percpu(struct prop_local_percpu *pl)
+ 	spin_lock_init(&pl->lock);
+ 	pl->shift = 0;
+ 	pl->period = 0;
+-	return percpu_counter_init_irq(&pl->events, 0);
++	return percpu_counter_init(&pl->events, 0);
+ }
+ 
+ void prop_local_destroy_percpu(struct prop_local_percpu *pl)
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+index 801c08b..a7c6c56 100644
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -223,7 +223,7 @@ int bdi_init(struct backing_dev_info *bdi)
+ 	bdi->max_prop_frac = PROP_FRAC_BASE;
+ 
+ 	for (i = 0; i < NR_BDI_STAT_ITEMS; i++) {
+-		err = percpu_counter_init_irq(&bdi->bdi_stat[i], 0);
++		err = percpu_counter_init(&bdi->bdi_stat[i], 0);
+ 		if (err)
+ 			goto err;
+ 	}
 
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
 
