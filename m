@@ -1,132 +1,392 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: [7/7] dst: kconfig and makefile changes.
-Date: Fri, 26 Dec 2008 14:56:16 +0300
-Message-ID: <1230292576-23963-8-git-send-email-zbr@ioremap.net>
+Subject: [4/7] dst: thread pool.
+Date: Fri, 26 Dec 2008 14:56:13 +0300
+Message-ID: <1230292576-23963-5-git-send-email-zbr@ioremap.net>
 References: <1230292576-23963-1-git-send-email-zbr@ioremap.net>
  <1230292576-23963-2-git-send-email-zbr@ioremap.net>
  <1230292576-23963-3-git-send-email-zbr@ioremap.net>
  <1230292576-23963-4-git-send-email-zbr@ioremap.net>
- <1230292576-23963-5-git-send-email-zbr@ioremap.net>
- <1230292576-23963-6-git-send-email-zbr@ioremap.net>
- <1230292576-23963-7-git-send-email-zbr@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, dst@ioremap.net,
-	netdev@vger.kernel.org, Evgeniy Polaykov <zbr@ioremap.net>
+	netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cavolo.yandex.ru ([87.250.244.45]:19081 "EHLO cavolo.yandex.ru"
+Received: from cavolo.yandex.ru ([87.250.244.45]:19085 "EHLO cavolo.yandex.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753823AbYLZLz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753811AbYLZLz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 26 Dec 2008 06:55:59 -0500
-In-Reply-To: <1230292576-23963-7-git-send-email-zbr@ioremap.net>
+In-Reply-To: <1230292576-23963-4-git-send-email-zbr@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Evgeniy Polaykov <zbr@ioremap.net>
+Kernel currently does not allow to queue work into some entity which
+will perform it in the process context and have simple way to extend
+number of worker and work with them not as separate objects, but with
+pool as a whole. So thread pool model was implemented in the DST.
 
-diff --git a/drivers/block/Kconfig b/drivers/block/Kconfig
-index 61ad8d6..2a92cd8 100644
---- a/drivers/block/Kconfig
-+++ b/drivers/block/Kconfig
-@@ -445,4 +445,6 @@ config BLK_DEV_HD
- 
- 	  If unsure, say N.
- 
-+source "drivers/block/dst/Kconfig"
-+
- endif # BLK_DEV
-diff --git a/drivers/block/Makefile b/drivers/block/Makefile
-index 204332b..6400de0 100644
---- a/drivers/block/Makefile
-+++ b/drivers/block/Makefile
-@@ -32,3 +32,5 @@ obj-$(CONFIG_BLK_DEV_UB)	+= ub.o
- obj-$(CONFIG_BLK_DEV_HD)	+= hd.o
- 
- obj-$(CONFIG_XEN_BLKDEV_FRONTEND)	+= xen-blkfront.o
-+
-+obj-$(CONFIG_DST)	+= dst/
-diff --git a/drivers/block/dst/Kconfig b/drivers/block/dst/Kconfig
+Thread pool abstraction allows to schedule a work to be performed
+on behalf of kernel thread. One does not operate with threads itself,
+instead user provides setup and cleanup callbacks for thread pool itself,
+and action and cleanup callbacks for each submitted work.
+
+Each worker has private data initialized at creation time and data,
+provided by user at scheduling time.
+
+When action is being performed, thread can not be used by other users,
+instead they will sleep until there is free thread to pick their work.
+
+Thread pool is used for crypto processing of incoming and outgoing IO
+requests to reduce the overall overhead.
+
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
+
+diff --git a/drivers/block/dst/thread_pool.c b/drivers/block/dst/thread_pool.c
 new file mode 100644
-index 0000000..12ffa37
+index 0000000..c35754d
 --- /dev/null
-+++ b/drivers/block/dst/Kconfig
-@@ -0,0 +1,71 @@
-+config DST
-+	tristate "Distributed storage"
-+	depends on NET && CRYPTO && SYSFS
-+	select CONNECTOR
-+	select LIBCRC32C
-+	---help---
-+	DST is a network block device storage, which can be used to organize
-+	exported storages on the remote nodes into the local block device.
++++ b/drivers/block/dst/thread_pool.c
+@@ -0,0 +1,345 @@
++/*
++ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
-+	DST is a network block device storage, which can be used to organize
-+	exported storages on the remote nodes into the local block device.
++#include <linux/kernel.h>
++#include <linux/dst.h>
++#include <linux/kthread.h>
++#include <linux/slab.h>
 +
-+	DST works on top of any network media and protocol, it is just a matter
-+	of configuration utility to understand the correct addresses. The most
-+	common example is TCP over IP allows to pass through firewalls and
-+	created remote backup storage in the different datacenter. DST requires
-+	single port to be enabled on the exporting node and outgoing connections
-+	on the local node.
++/*
++ * Thread pool abstraction allows to schedule a work to be performed
++ * on behalf of kernel thread. One does not operate with threads itself,
++ * instead user provides setup and cleanup callbacks for thread pool itself,
++ * and action and cleanup callbacks for each submitted work.
++ *
++ * Each worker has private data initialized at creation time and data,
++ * provided by user at scheduling time.
++ *
++ * When action is being performed, thread can not be used by other users,
++ * instead they will sleep until there is free thread to pick their work.
++ */
++struct thread_pool_worker
++{
++	struct list_head	worker_entry;
 +
-+	DST works with in-kernel client and server, which improves the performance
-+	eliminating unneded data copies and allows not to depend on the version
-+	of the external IO components. It requires userspace configuration utility
-+	though.
++	struct task_struct	*thread;
 +
-+	DST uses transaction model, when each store has to be explicitly acked
-+	from the remote node to be considered as successfully written. There
-+	may be lots of in-flight transactions. When remote host does not ack
-+	the transaction it will be resent predefined number of times with specified
-+	timeouts between them. All those parameters are configurable. Transactions
-+	are marked as failed after all resends completed unsuccessfully, having
-+	long enough resend timeout and/or large number of resends allows not to
-+	return error to the higher (FS usually) layer in case of short network
-+	problems or remote node outages. In case of network RAID setup this means
-+	that storage will not degrade until transactions are marked as failed, and
-+	thus will not force checksum recalculation and data rebuild. In case of
-+	connection failure DST will try to reconnect to the remote node automatically.
-+	DST sends ping commands at idle time to detect if remote node is alive.
++	struct thread_pool	*pool;
 +
-+	Because of transactional model it is possible to use zero-copy sending
-+	without worry of data corruption (which in turn could be detected by the
-+	strong checksums though).
++	int			error;
++	int			has_data;
++	int			need_exit;
++	unsigned int		id;
 +
-+	DST may fully encrypt the data channel in case of untrusted channel and implement
-+	strong checksum of the transferred data. It is possible to configure algorithms
-+	and crypto keys, they should match on both sides of the network channel.
-+	Crypto processing does not introduce noticeble performance overhead, since DST
-+	uses configurable pool of threads to perform crypto processing.
++	wait_queue_head_t	wait;
 +
-+	DST utilizes memory pool model of all its transaction allocations (it is the
-+	only additional allocation on the client) and server allocations (bio pools,
-+	while pages are allocated from the slab).
++	void			*private;
++	void			*schedule_data;
 +
-+	At startup DST performs a simple negotiation with the export node to determine
-+	access permissions and size of the exported storage. It can be extended if
-+	new parameters should be autonegotiated.
++	int			(* action)(void *private, void *schedule_data);
++	void			(* cleanup)(void *private);
++};
 +
-+	DST carries block IO flags in the protocol, which allows to transparently implement
-+	barriers and sync/flush operations. Those flags are used in the export node where
-+	IO against the local storage is performed, which means that sync write will be sync
-+	on the remote node too, which in turn improves data integrity and improved resistance
-+	to errors and data corruption during power outages or storage damages.
++static void thread_pool_exit_worker(struct thread_pool_worker *w)
++{
++	kthread_stop(w->thread);
 +
-+	Homepage: http://www.ioremap.net/projects/dst
-+	Userspace configuration utility and the latest releases: http://www.ioremap.net/archive/dst/
++	w->cleanup(w->private);
++	kfree(w);
++}
 +
-+config DST_DEBUG
-+	bool "DST debug"
-+	depends on DST
-+	---help---
-+	This option will turn HEAVY debugging of the DST.
-+	Turn it on ONLY if you have to debug some really obscure problem.
-diff --git a/drivers/block/dst/Makefile b/drivers/block/dst/Makefile
-new file mode 100644
-index 0000000..3a8b0cf
---- /dev/null
-+++ b/drivers/block/dst/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_DST) += nst.o
++/*
++ * Called to mark thread as ready and allow users to schedule new work.
++ */
++static void thread_pool_worker_make_ready(struct thread_pool_worker *w)
++{
++	struct thread_pool *p = w->pool;
 +
-+nst-y := dcore.o state.o export.o thread_pool.o crypto.o trans.o
++	mutex_lock(&p->thread_lock);
++
++	if (!w->need_exit) {
++		list_move_tail(&w->worker_entry, &p->ready_list);
++		w->has_data = 0;
++		mutex_unlock(&p->thread_lock);
++
++		wake_up(&p->wait);
++	} else {
++		p->thread_num--;
++		list_del(&w->worker_entry);
++		mutex_unlock(&p->thread_lock);
++
++		thread_pool_exit_worker(w);
++	}
++}
++
++/*
++ * Thread action loop: waits until there is new work.
++ */
++static int thread_pool_worker_func(void *data)
++{
++	struct thread_pool_worker *w = data;
++
++	while (!kthread_should_stop()) {
++		wait_event_interruptible(w->wait,
++			kthread_should_stop() || w->has_data);
++
++		if (kthread_should_stop())
++			break;
++
++		if (!w->has_data)
++			continue;
++
++		w->action(w->private, w->schedule_data);
++		thread_pool_worker_make_ready(w);
++	}
++
++	return 0;
++}
++
++/*
++ * Remove single worker without specifying which one.
++ */
++void thread_pool_del_worker(struct thread_pool *p)
++{
++	struct thread_pool_worker *w = NULL;
++
++	while (!w) {
++		wait_event(p->wait, !list_empty(&p->ready_list) || !p->thread_num);
++
++		dprintk("%s: locking list_empty: %d, thread_num: %d.\n",
++				__func__, list_empty(&p->ready_list), p->thread_num);
++
++		mutex_lock(&p->thread_lock);
++		if (!list_empty(&p->ready_list)) {
++			w = list_first_entry(&p->ready_list,
++					struct thread_pool_worker,
++					worker_entry);
++
++			dprintk("%s: deleting w: %p, thread_num: %d, list: %p [%p.%p].\n",
++					__func__, w, p->thread_num, &p->ready_list,
++					p->ready_list.prev, p->ready_list.next);
++
++			p->thread_num--;
++			list_del(&w->worker_entry);
++		}
++		mutex_unlock(&p->thread_lock);
++	}
++
++	if (w)
++		thread_pool_exit_worker(w);
++	dprintk("%s: deleted w: %p, thread_num: %d.\n",
++			__func__, w, p->thread_num);
++}
++
++/*
++ * Remove a worker with given ID.
++ */
++void thread_pool_del_worker_id(struct thread_pool *p, unsigned int id)
++{
++	struct thread_pool_worker *w;
++	int found = 0;
++
++	mutex_lock(&p->thread_lock);
++	list_for_each_entry(w, &p->ready_list, worker_entry) {
++		if (w->id == id) {
++			found = 1;
++			p->thread_num--;
++			list_del(&w->worker_entry);
++			break;
++		}
++	}
++
++	if (!found) {
++		list_for_each_entry(w, &p->active_list, worker_entry) {
++			if (w->id == id) {
++				w->need_exit = 1;
++				break;
++			}
++		}
++	}
++	mutex_unlock(&p->thread_lock);
++
++	if (found)
++		thread_pool_exit_worker(w);
++}
++
++/*
++ * Add new worker thread with given parameters.
++ * If initialization callback fails, return error.
++ */
++int thread_pool_add_worker(struct thread_pool *p,
++		char *name,
++		unsigned int id,
++		void *(* init)(void *private),
++		void (* cleanup)(void *private),
++		void *private)
++{
++	struct thread_pool_worker *w;
++	int err = -ENOMEM;
++
++	w = kzalloc(sizeof(struct thread_pool_worker), GFP_KERNEL);
++	if (!w)
++		goto err_out_exit;
++
++	w->pool = p;
++	init_waitqueue_head(&w->wait);
++	w->cleanup = cleanup;
++	w->id = id;
++
++	w->thread = kthread_run(thread_pool_worker_func, w, "%s", name);
++	if (IS_ERR(w->thread)) {
++		err = PTR_ERR(w->thread);
++		goto err_out_free;
++	}
++
++	w->private = init(private);
++	if (IS_ERR(w->private)) {
++		err = PTR_ERR(w->private);
++		goto err_out_stop_thread;
++	}
++
++	mutex_lock(&p->thread_lock);
++	list_add_tail(&w->worker_entry, &p->ready_list);
++	p->thread_num++;
++	mutex_unlock(&p->thread_lock);
++
++	return 0;
++
++err_out_stop_thread:
++	kthread_stop(w->thread);
++err_out_free:
++	kfree(w);
++err_out_exit:
++	return err;
++}
++
++/*
++ * Destroy the whole pool.
++ */
++void thread_pool_destroy(struct thread_pool *p)
++{
++	while (p->thread_num) {
++		dprintk("%s: num: %d.\n", __func__, p->thread_num);
++		thread_pool_del_worker(p);
++	}
++
++	kfree(p);
++}
++
++/*
++ * Create a pool with given number of threads.
++ * They will have sequential IDs started from zero.
++ */
++struct thread_pool *thread_pool_create(int num, char *name,
++		void *(* init)(void *private),
++		void (* cleanup)(void *private),
++		void *private)
++{
++	struct thread_pool_worker *w, *tmp;
++	struct thread_pool *p;
++	int err = -ENOMEM;
++	int i;
++
++	p = kzalloc(sizeof(struct thread_pool), GFP_KERNEL);
++	if (!p)
++		goto err_out_exit;
++
++	init_waitqueue_head(&p->wait);
++	mutex_init(&p->thread_lock);
++	INIT_LIST_HEAD(&p->ready_list);
++	INIT_LIST_HEAD(&p->active_list);
++	p->thread_num = 0;
++
++	for (i=0; i<num; ++i) {
++		err = thread_pool_add_worker(p, name, i, init,
++				cleanup, private);
++		if (err)
++			goto err_out_free_all;
++	}
++
++	return p;
++
++err_out_free_all:
++	list_for_each_entry_safe(w, tmp, &p->ready_list, worker_entry) {
++		list_del(&w->worker_entry);
++		thread_pool_exit_worker(w);
++	}
++	kfree(p);
++err_out_exit:
++	return ERR_PTR(err);
++}
++
++/*
++ * Schedule execution of the action on a given thread,
++ * provided ID pointer has to match previously stored
++ * private data.
++ */
++int thread_pool_schedule_private(struct thread_pool *p,
++		int (* setup)(void *private, void *data),
++		int (* action)(void *private, void *data),
++		void *data, long timeout, void *id)
++{
++	struct thread_pool_worker *w, *tmp, *worker = NULL;
++	int err = 0;
++
++	while (!worker && !err) {
++		timeout = wait_event_interruptible_timeout(p->wait,
++				!list_empty(&p->ready_list),
++				timeout);
++
++		if (!timeout) {
++			err = -ETIMEDOUT;
++			break;
++		}
++
++		worker = NULL;
++		mutex_lock(&p->thread_lock);
++		list_for_each_entry_safe(w, tmp, &p->ready_list, worker_entry) {
++			if (id && id != w->private)
++				continue;
++
++			worker = w;
++
++			list_move_tail(&w->worker_entry, &p->active_list);
++
++			err = setup(w->private, data);
++			if (!err) {
++				w->schedule_data = data;
++				w->action = action;
++				w->has_data = 1;
++				wake_up(&w->wait);
++			} else {
++				list_move_tail(&w->worker_entry, &p->ready_list);
++			}
++
++			break;
++		}
++		mutex_unlock(&p->thread_lock);
++	}
++
++	return err;
++}
++
++/*
++ * Schedule execution on arbitrary thread from the pool.
++ */
++int thread_pool_schedule(struct thread_pool *p,
++		int (* setup)(void *private, void *data),
++		int (* action)(void *private, void *data),
++		void *data, long timeout)
++{
++	return thread_pool_schedule_private(p, setup,
++			action, data, timeout, NULL);
++}
