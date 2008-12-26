@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] smsc911x: fix platform resource call during module
- unload
-Date: Thu, 25 Dec 2008 16:44:09 -0800 (PST)
-Message-ID: <20081225.164409.108388714.davem@davemloft.net>
-References: <1229709930-19925-1-git-send-email-steve.glendinning@smsc.com>
-	<1229709930-19925-2-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [net-next-2.6 BUG] VLAN out of service ?
+Date: Thu, 25 Dec 2008 16:45:32 -0800 (PST)
+Message-ID: <20081225.164532.250950190.davem@davemloft.net>
+References: <494BFA0A.8010202@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dfoley@telus.net, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56004
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44652
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752205AbYLZAoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 19:44:07 -0500
-In-Reply-To: <1229709930-19925-2-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1752198AbYLZApa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 19:45:30 -0500
+In-Reply-To: <494BFA0A.8010202@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Fri, 19 Dec 2008 18:05:30 +0000
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 19 Dec 2008 20:46:18 +0100
 
-> This patch fixes a typo, the platform_get_resource calls in
-> smsc911x_drv_remove are supposed to look the same as those in
-> smsc911x_drv_probe.
+> [PATCH] vlan: fix convertion to net_device_ops
 > 
-> Reported and fixed by dfoley@telus.net.
+> commit 656299f706e52e0409733d704c2761f1b12d6954
+> (vlan: convert to net_device_ops) added a net_device_ops
+> with a NULL ndo_start_xmit field.
 > 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> This gives a crash in dev_hard_start_xmit()
+> 
+> Fix it using two net_device_ops structures, one for hwaccel vlan,
+> one for non hwaccel vlan.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-Also applied, thanks Steve.
+Applied, thanks a lot Eric.
