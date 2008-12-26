@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/9] mlx4_en: Memory leak on completion queue free
-Date: Thu, 25 Dec 2008 18:16:10 -0800 (PST)
-Message-ID: <20081225.181610.141840360.davem@davemloft.net>
-References: <494F6524.1030301@mellanox.co.il>
+Subject: [ofa-general] Re: [PATCH 2/9] mlx4_en: Removed TX locking when
+	polling TX cq
+Date: Thu, 25 Dec 2008 18:16:16 -0800 (PST)
+Message-ID: <20081225.181616.195227579.davem@davemloft.net>
+References: <494F6536.6040107@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org,
-	general@lists.openfabrics.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	jeff@garzik.org
 To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36748
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752349AbYLZCQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Dec 2008 21:16:08 -0500
-In-Reply-To: <494F6524.1030301@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <494F6536.6040107@mellanox.co.il>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Mon, 22 Dec 2008 12:00:04 +0200
+Date: Mon, 22 Dec 2008 12:00:22 +0200
 
-> If port is being destroyed without being activated before,
-> CQ resources are not freed.
+> There is no need to synchronize the polling with the transmit
+> function. The only place to synchronize is when we process
+> the cq from the transmit function. Also removed spin_lock_irq,
+> and using spin_trylock, if somebody else is already processing the cq,
+> no need to wait for it to finish.
 > 
 > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
 Applied.
-
