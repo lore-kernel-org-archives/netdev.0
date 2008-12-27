@@ -1,138 +1,131 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 12306] New: unable to handle kernel paging
- request at ffff8900c6685e00
-Date: Sat, 27 Dec 2008 00:29:17 -0800
-Message-ID: <20081227002917.df13f930.akpm@linux-foundation.org>
-References: <bug-12306-10286@http.bugzilla.kernel.org/>
+From: "Subbu Seetharaman" <subbus@serverengines.com>
+Subject: Re: [PATCH 11/11] benet: Kconfig, MAINTAINETS, drivers/net Makefile
+Date: Sat, 27 Dec 2008 07:41:51 -0800
+Message-ID: <20081227154151.c46a87cd@mailhost.serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, antonprk@mail.ru
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, romieu@fr.zoreil.com,
+	kaber@trash.net
+To: "Subbu Seetharaman" <subbus@serverengines.com>,
+	"David Miller" <davem@davemloft.net>, sathyap@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35555 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751455AbYL0I3y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Dec 2008 03:29:54 -0500
-In-Reply-To: <bug-12306-10286@http.bugzilla.kernel.org/>
+Received: from mail96.messagelabs.com ([216.82.254.19]:53104 "EHLO
+	mail96.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754006AbYL0PmB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Dec 2008 10:42:01 -0500
+In-Reply-To: 20081211114306.55826235@mailhost.serverengines.com
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David,
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Do you still have objection to the use of the the macros to 
+calculate the offsets and shifts with the help of the pseudo 
+structure ratger than defining constants ?
 
-On Fri, 26 Dec 2008 22:17:29 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+Thanks.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=12306
-> 
->            Summary: unable to handle kernel paging request at
->                     ffff8900c6685e00
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: Linux host.name.hiden 2.6.28 #1 SMP Thu Dec 25 07:28:00
->                     MSK 2008
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: drivers_other@kernel-bugs.osdl.org
->         ReportedBy: antonprk@mail.ru
-
-2.6.28 crashed in tcp_recvmsg.
-
-> 
-> Latest working kernel version: none
-> Earliest failing kernel version: 2.6.26.5
-
-And apparently 2.6.26.5 does the same thing?
-
-I would be suspecting a hardware failure here.  Can we have more
-details please?  Some additional oops traces from this or earlier
-kenrels might help.
-
-Is the failure seen on other machines, or just this one?
+Subbu
 
 
-> Distribution:
-> Hardware Environment: Intel(R) Core(TM)2 CPU 6320  @ 1.86GHz
-> Software Environment: Web Server
-> Problem Description: Server crash
-> 
-> Kernel report in syslog:
-> kernel: dcpumon[26379]: segfault at 7fff225fd1c8 ip 00000000004c142f sp
-> 00007fff225e01f0 error 6 in dcpumon[400000+d3000]
-> kernel: 3w-9xxx: scsi0: ERROR: (0x03:0x010D): Invalid field in CDB:.
-> kernel: mkbb.sh[5721]: segfault at 10000000000 ip 0000000000425080 sp
-> 00007fffb30e2560 error 4 in bash[400000+ab000]
-> kernel: BUG: unable to handle kernel paging request at ffff8900c6685e00
-> kernel: IP: [<ffffffff804f57e5>] tcp_recvmsg+0x265/0xca0
-> kernel: PGD 0 
-> kernel: Oops: 0002 [#1] SMP 
-> kernel: last sysfs file:
-> /sys/devices/pci0000:00/0000:00:1c.0/0000:09:00.0/0000:0a:01.0/host0/target0:0:0/0:0:0:0/vendor
-> kernel: CPU 0 
-> kernel: Modules linked in: piix ide_core
-> kernel: Pid: 31968, comm: httpd Not tainted 2.6.28 #1
-> kernel: RIP: 0010:[<ffffffff804f57e5>]  [<ffffffff804f57e5>]
-> tcp_recvmsg+0x265/0xca0
-> kernel: RSP: 0018:ffff8800d1a63c98  EFLAGS: 00010296
-> kernel: RAX: 0000000000000000 RBX: 0000000000000000 RCX: 00000000c0000100
-> kernel: RDX: 0000000000000000 RSI: ffff8800d1a63c38 RDI: ffff8800ca15caf0
-> kernel: RBP: 0000000000000000 R08: 00000000ffffffff R09: 0000000000000000
-> kernel: R10: ffff880219dd5da8 R11: 0000000000000000 R12: ffff8900c66859c0
-> kernel: R13: ffff8800c6685a68 R14: ffff8800c6685dac R15: 00000000ffffff95
-> kernel: FS:  00007f7c10d286e0(0000) GS:ffffffff80757500(0000)
-> knlGS:0000000000000000
-> kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> kernel: CR2: ffff8900c6685e00 CR3: 0000000019bb3000 CR4: 00000000000006e0
-> kernel: DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> kernel: DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> kernel: Process httpd (pid: 31968, threadinfo ffff8800d1a62000, task
-> ffff880148778050)
-> kernel: Stack:
-> kernel:  00000001000000be 0000000000000001 ffff880148778050 ffff8800d1a63e68
-> kernel:  0000000000000000 0000000000001000 ffff8800d1a63d80 00000000000000be
-> kernel:  0000000000bb4b84 7fffffffffffffff 000005b400002238 ffff8800d1a63d80
-> kernel: Call Trace:
-> kernel:  [<ffffffff804b40b0>] sock_common_recvmsg+0x30/0x50
-> kernel:  [<ffffffff804af9df>] sock_aio_read+0x10f/0x120
-> kernel:  [<ffffffff8029e73b>] do_sync_read+0xdb/0x140
-> kernel:  [<ffffffff802521e0>] autoremove_wake_function+0x0/0x30
-> kernel:  [<ffffffff8034468e>] _atomic_dec_and_lock+0x4e/0x80
-> kernel:  [<ffffffff802b4981>] mntput_no_expire+0x21/0x120
-> kernel:  [<ffffffff8024aa8f>] do_sigaction+0xff/0x1c0
-> kernel:  [<ffffffff8029e901>] vfs_read+0x161/0x170
-> kernel:  [<ffffffff8029ec13>] sys_read+0x53/0x90
-> kernel:  [<ffffffff8020b61b>] system_call_fastpath+0x16/0x1b
-> kernel: Code: 24 20 04 00 00 0f 84 c6 06 00 00 8b 54 24 08 39 54 24 20 0f 8c 80
-> 03 00 00 4c 89 e7 e8 85 d9 fb ff 31 f6 4c 89 e7 e8 9b d8 fb ff <41> c7 84 24 40
-> 04 00 00 00 00 00 00 48 83 7c 24 10 00 74 4f 8b 
-> kernel: RIP  [<ffffffff804f57e5>] tcp_recvmsg+0x265/0xca0
-> kernel:  RSP <ffff8800d1a63c98>
-> kernel: CR2: ffff8900c6685e00
-> kernel: ---[ end trace 7b4209a86045831c ]---
-> 
-> 
-> 
-> Other:
-> #cat
-> /sys/devices/pci0000:00/0000:00:1c.0/0000:09:00.0/0000:0a:01.0/host0/target0:0:0/0:0:0:0/vendor
-> 
-> AMCC    
-> 
-> 
-> # free -m
->              total       used       free     shared    buffers     cached
-> Mem:          8005       7960         44          0        560       6622
-> -/+ buffers/cache:        777       7227
-> Swap:        16386         34      16352
-> 
-> #cat /etc/redhat-release
-> 
-> CentOS release 4.7 (Final)
-> 
+
+
+----- Original Message -----
+From: Subbu Seetharaman [mailto:subbus@serverengines.com]
+To: David Miller [mailto:davem@davemloft.net], sathyap@serverengines.com
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, romieu@fr.zoreil.com, kaber@trash.net
+Sent: Thu, 11 Dec 2008 03:43:06 -0800
+Subject: Re: [PATCH 11/11] benet: Kconfig, MAINTAINETS, drivers/net Makefile
+
+
+
+
+Thanks to everyone who reviwed and commented on the driver.
+
+Regarding David's comments, some explation is due from us.
+
+Unlike most other NICs, inititilizations and configuration of 
+the BladeEngine NIC is done by issuing f/w commands to the 
+embedded processor and not by writing / reading 
+hardware registers. Most of these f/w commands involve passing
+a request message with several fields of parameters and getting a
+response message with a several fields.  It is best to use
+structures to represent these request and response messages.
+The header files that describe these structures are generated
+automatically by a tool as part of the f/w build.  These
+header files are used by both the drivers and f/w.  The first
+version of the driver we posted had bit fields in many of these
+structures and it was suggested that we get rid of bit fields.
+We removed the bit fields and currently using offsets and masks 
+to get and set these bit fileds.  Instead of a constant definitions
+for these offsets and masks, we calculate them using the pseudo 
+structures BE_XXX_AMAP where a byte (u8) represents a bit.
+
+Regarding the abstraction, there is no separate layering here.
+We use a bunch of  functions to create / destroy rings; but these
+functions are Linux native.  There is some more simplifcation possible
+here.
+
+Thanks.
+
+Subbu
+
+
+----- Original Message -----
+From: David Miller [mailto:davem@davemloft.net]
+To: sathyap@serverengines.com
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, subbus@serverengines.com
+Sent: Tue, 09 Dec 2008 22:54:53 -0800
+Subject: Re: [PATCH 11/11] benet: Kconfig, MAINTAINETS, drivers/net Makefile
+
+
+
+Ok I looked at this driver some more and I have many comments.
+
+The hardware library abstraction has to go.  You aren't writing a
+native linux driver if you split things up like this.  I know you want
+code sharing with your other supported platforms, but that's too bad.
+If we let every vendor do this the whole tree would be one big
+unmaintainable mess.
+
+Many structures have all-caps or capitalized names.  Good coding style
+indicates that only CPP macros are to be named with capital letters.
+(capital letterd symbols say to the reader "I'm a CPP macro and
+probably have side-effects, beware") What's happening here looks ugly
+and is inconsistent with the rest of the linux kernel.
+
+The definition of the access to the chip registers is overly
+obfuscated.  All of this structure stuff and offsetof() business
+adds complexity to the driver and makes it harder to understand.
+
+The bit twiddling is difficult to understand and makes the compiler
+work too hard.
+
+I would suggest to fix all of this by simply using macros which
+define chip register offsets, and next to those offset define
+macros which define the bit values within the register.  Endianness
+is not an issue, and all read*()/write*() calls will write out
+to the chip in little endian regardless of cpu endianness.
+
+See other drivers such as drivers/net/tg3.[ch] or drivers/net/niu.[ch]
+As you'll notice even such huge drivers as those can be done cleanly
+in a single source file with no hardware abstraction library layer and
+no funny register access structures and bit twiddling, so you can
+strive for that as well.
+
+So, this driver still needs a lot of work. :)
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
 
