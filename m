@@ -1,60 +1,55 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [0/9] pohmelfs: The Great Southern Trendkill release.
-Date: Sun, 28 Dec 2008 16:53:31 +0300
-Message-ID: <20081228135331.GC858@ioremap.net>
-References: <1230301130-1325-1-git-send-email-zbe@ioremap.net> <20081226192618.GC1761@ucw.cz>
+From: Bill Davidsen <davidsen@tmr.com>
+Subject: Re: [0/7] Distributed storage release.
+Date: Sun, 28 Dec 2008 13:17:40 -0500
+Message-ID: <4957C2C4.5080007@tmr.com>
+References: <1230292576-23963-1-git-send-email-zbr@ioremap.net> <20081226191701.GA1761@ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <zbe@ioremap.net>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, pohmelfs@ioremap.net,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+	linux-kernel@vger.kernel.org, dst@ioremap.net,
+	netdev@vger.kernel.org
 To: Pavel Machek <pavel@suse.cz>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081226192618.GC1761@ucw.cz>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tmr.com ([64.65.253.246]:36566 "EHLO partygirl.tmr.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755287AbYL1SSD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Dec 2008 13:18:03 -0500
+In-Reply-To: <20081226191701.GA1761@ucw.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel.
-
-On Fri, Dec 26, 2008 at 08:26:19PM +0100, Pavel Machek (pavel@suse.cz) wrote:
-> > POHMELFS is a kernel client for the developed distributed parallel internet
-> > filesystem. As it exists today, it is a high-performance parallel network
-> > filesystem with ability to balance reading from multiple hosts and simultaneously
-> > write data to multiple hosts.
+Pavel Machek wrote:
+> On Fri 2008-12-26 14:56:09, Evgeniy Polyakov wrote:
+>> Hi.
+>>
+>> This is a maintenance distributed storage release, which includes a
+>> rebase against the 2.6.28 kernel tree only.
+>>
+>> DST is a network block device storage, which can be used to organize
+>> exported storages on the remote nodes into the local block device.
+>>
+>> Its main goal of the project is to allow creation of the block devices
+>> on top of different network media and connect physically distributed devices
+>> into single storage using existing network infrastructure and not
+>> introducing new limitations into the protocol and network usage model.
 > 
-> So ocfs2 -alike fs?
-
-I think POHMELFS is more like pNFS now (yet), kernel client does not
-get into similar to ocfs distributed facilities. POHMELFS server is
-rather simple right now and when it will be ready with own distributed
-design it will be very different from what we have in kernel.
-Distributed processing engine is being built with distributed hash
-table design in mind, so there will be no need for any kind of
-metadata servers, locking daemons or special node management controls.
-
-> > Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
+> So it is basically nbd on steroids?
 > 
-> Do you think its ready for -mm?
+> ...reminds me, nbd-server should really fsync data before returning success...
+> 									Pavel
 > 
-> Can it survive test such as paralel kernel compilation(s), fsx, etc?
+If you really want reliable operation without killing performance on the server 
+you could use aio and just wait until the data is written to the device. Lots of 
+discussion of this in various places, "on the device" may not mean on the 
+platter, then you talk disabling write cache, barriers, etc. At least aio should 
+(a) be more reliable than just issuing the i/o and (b) not impact the 
+performance of the server as fsync would.
 
-I did not run fsx but kernel compilations, iozone, bonnie and the like
-benchmarks run without any problems on the mounted partitions in my
-test lab. There will be some extensions to the network protocol (mainly
-new commands to force client to connect to the diferent server when
-current one asks for that), but except that I do not have any
-additional complex extensions in design. So I consider this kernel
-client as mostly ready.
-
-> How fast is it compared to nfs? to ext3 over fast network?
-
-I ran really lots of tests and POHMELFS performance is frequently way
-ahead of what async NFS provides, but this of course depends on the
-final workload and probably may have some drawbacks found.
-
-Links with graphs and numbers were sent in the another mail.
+Comments welcome, pointers to a benchmark even more so, now I'm curious.
 
 -- 
-	Evgeniy Polyakov
+Bill Davidsen <davidsen@tmr.com>
+   "We have more to fear from the bungling of the incompetent than from
+the machinations of the wicked."  - from Slashdot
