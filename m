@@ -1,39 +1,60 @@
-From: "Paolo Ciarrocchi" <paolo.ciarrocchi@gmail.com>
-Subject: Re: [1/9] pohmelfs: documentation.
-Date: Sun, 28 Dec 2008 23:19:29 +0100
-Message-ID: <4d8e3fd30812281419y4d40a78fha3eb7bc05e55e8ef@mail.gmail.com>
-References: <1230301130-1325-1-git-send-email-zbe@ioremap.net>
-	 <1230301130-1325-2-git-send-email-zbe@ioremap.net>
-	 <20081226192219.GB1761@ucw.cz> <20081228134155.GB858@ioremap.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: origin tree build failure
+Date: Mon, 29 Dec 2008 10:51:59 +1100
+Message-ID: <20081229105159.585e4d25.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Pavel Machek" <pavel@suse.cz>,
-	"Evgeniy Polyakov" <zbe@ioremap.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, pohmelfs@ioremap.net,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: "Evgeniy Polyakov" <zbr@ioremap.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20081228134155.GB858@ioremap.net>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Linus <torvalds@linux-foundation.org>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/28/08, Evgeniy Polyakov <zbr@ioremap.net>
->
->> > + * Very high performance.
+Hi Dave, Neil,
 
-Evgeniy,
-Performance seems to be the most important argument in favour of pohmelfs.
-You should probably add more performance data in the cover letter of
-the patch serie. All the information are already available but not
-easy to be reached.
-In short, try to do a better work in "selling" your product :-)
+Today's linux-next build (powerpc ppc64_defconfig) failed like this:
 
+drivers/net/ehea/ehea_main.c: In function 'ehea_poll':
+drivers/net/ehea/ehea_main.c:844: warning: passing argument 1 of 'netif_rx_reschedule' from incompatible pointer type
+drivers/net/ehea/ehea_main.c:844: error: too many arguments to function 'netif_rx_reschedule'
 
-Ciao,
+Caused by commit 908a7a16b852ffd618a9127be8d62432182d81b4 ("net: Remove
+unused netdev arg from some NAPI interfaces") which missed a call that
+needed fixing up.  This commit was never in a linux-next tree.
+
+I have added the below patch for today.
 -- 
-Paolo
-http://paolo.ciarrocchi.googlepages.com/
-http://mypage.vodafone.it/
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 29 Dec 2008 10:46:13 +1100
+Subject: [PATCH] net: ehea NAPI interface cleanup fix
+
+Commit 908a7a16b852ffd618a9127be8d62432182d81b4 ("net: Remove unused
+netdev arg from some NAPI interfaces") missed one spot.
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/ehea/ehea_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 035aa7d..a2f1905 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -841,7 +841,7 @@ static int ehea_poll(struct napi_struct *napi, int budget)
+ 		if (!cqe && !cqe_skb)
+ 			return rx;
+ 
+-		if (!netif_rx_reschedule(dev, napi))
++		if (!netif_rx_reschedule(napi))
+ 			return rx;
+ 
+ 		cqe_skb = ehea_proc_cqes(pr, EHEA_POLL_MAX_CQES);
+-- 
+1.6.0.5
