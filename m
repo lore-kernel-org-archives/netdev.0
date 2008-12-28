@@ -1,55 +1,132 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: [0/7] Distributed storage release.
-Date: Sun, 28 Dec 2008 13:17:40 -0500
-Message-ID: <4957C2C4.5080007@tmr.com>
-References: <1230292576-23963-1-git-send-email-zbr@ioremap.net> <20081226191701.GA1761@ucw.cz>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] EtherExpress16: fix printing timed out status
+Date: Sun, 28 Dec 2008 22:18:01 +0100
+Message-ID: <4957ED09.2040806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, dst@ioremap.net,
-	netdev@vger.kernel.org
-To: Pavel Machek <pavel@suse.cz>
+Cc: netdev@vger.kernel.org
+To: philb@gnu.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tmr.com ([64.65.253.246]:36566 "EHLO partygirl.tmr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755287AbYL1SSD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Dec 2008 13:18:03 -0500
-In-Reply-To: <20081226191701.GA1761@ucw.cz>
+Received: from ey-out-2122.google.com ([74.125.78.26]:19136 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755528AbYL1VR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2008 16:17:58 -0500
+Received: by ey-out-2122.google.com with SMTP id 22so501511eye.37
+        for <netdev@vger.kernel.org>; Sun, 28 Dec 2008 13:17:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Machek wrote:
-> On Fri 2008-12-26 14:56:09, Evgeniy Polyakov wrote:
->> Hi.
->>
->> This is a maintenance distributed storage release, which includes a
->> rebase against the 2.6.28 kernel tree only.
->>
->> DST is a network block device storage, which can be used to organize
->> exported storages on the remote nodes into the local block device.
->>
->> Its main goal of the project is to allow creation of the block devices
->> on top of different network media and connect physically distributed devices
->> into single storage using existing network infrastructure and not
->> introducing new limitations into the protocol and network usage model.
-> 
-> So it is basically nbd on steroids?
-> 
-> ...reminds me, nbd-server should really fsync data before returning success...
-> 									Pavel
-> 
-If you really want reliable operation without killing performance on the server 
-you could use aio and just wait until the data is written to the device. Lots of 
-discussion of this in various places, "on the device" may not mean on the 
-platter, then you talk disabling write cache, barriers, etc. At least aio should 
-(a) be more reliable than just issuing the i/o and (b) not impact the 
-performance of the server as fsync would.
+in drivers/net/eexpress.c:558, function unstick_cu()
 
-Comments welcome, pointers to a benchmark even more so, now I'm curious.
+while (!SCB_complete(rsst=scb_status(dev))) {
+	...
+	if (...)
+		printk(KERN_WARNING "%s: Reset timed out status %04x, retrying...\n",
+                                                       dev->name,rsst);
+}
 
--- 
-Bill Davidsen <davidsen@tmr.com>
-   "We have more to fear from the bungling of the incompetent than from
-the machinations of the wicked."  - from Slashdot
+but this will become 
+
+while (!((rsst = scb_status(dev) & 0x8000) != 0) ...
+
+because of the macro:
+
+#define SCB_complete(s) ((s&0x8000)!=0)
+
+so rsst can only become either 0x8000 or 0, but in the latter case the loop ends,
+I think the wrong timed out status is printed. This also cleans up similar macros.
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+
+ drivers/net/eexpress.h |   56 ++++++++++++++++++++++++------------------------
+ 1 files changed, 28 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/net/eexpress.h b/drivers/net/eexpress.h
+index 707df3f..dc9c6ea 100644
+--- a/drivers/net/eexpress.h
++++ b/drivers/net/eexpress.h
+@@ -68,17 +68,17 @@
+  */
+ 
+ /* these functions take the SCB status word and test the relevant status bit */
+-#define SCB_complete(s) ((s&0x8000)!=0)
+-#define SCB_rxdframe(s) ((s&0x4000)!=0)
+-#define SCB_CUdead(s)   ((s&0x2000)!=0)
+-#define SCB_RUdead(s)   ((s&0x1000)!=0)
+-#define SCB_ack(s)      (s & 0xf000)
++#define SCB_complete(s) (((s) & 0x8000) != 0)
++#define SCB_rxdframe(s) (((s) & 0x4000) != 0)
++#define SCB_CUdead(s)   (((s) & 0x2000) != 0)
++#define SCB_RUdead(s)   (((s) & 0x1000) != 0)
++#define SCB_ack(s)      ((s) & 0xf000)
+ 
+ /* Command unit status: 0=idle, 1=suspended, 2=active */
+-#define SCB_CUstat(s)   ((s&0x0300)>>8)
++#define SCB_CUstat(s)   (((s)&0x0300)>>8)
+ 
+ /* Receive unit status: 0=idle, 1=suspended, 2=out of resources, 4=ready */
+-#define SCB_RUstat(s)   ((s&0x0070)>>4)
++#define SCB_RUstat(s)   (((s)&0x0070)>>4)
+ 
+ /* SCB commands */
+ #define SCB_CUnop       0x0000
+@@ -98,18 +98,18 @@
+  * Command block defines
+  */
+ 
+-#define Stat_Done(s)    ((s&0x8000)!=0)
+-#define Stat_Busy(s)    ((s&0x4000)!=0)
+-#define Stat_OK(s)      ((s&0x2000)!=0)
+-#define Stat_Abort(s)   ((s&0x1000)!=0)
+-#define Stat_STFail     ((s&0x0800)!=0)
+-#define Stat_TNoCar(s)  ((s&0x0400)!=0)
+-#define Stat_TNoCTS(s)  ((s&0x0200)!=0)
+-#define Stat_TNoDMA(s)  ((s&0x0100)!=0)
+-#define Stat_TDefer(s)  ((s&0x0080)!=0)
+-#define Stat_TColl(s)   ((s&0x0040)!=0)
+-#define Stat_TXColl(s)  ((s&0x0020)!=0)
+-#define Stat_NoColl(s)  (s&0x000f)
++#define Stat_Done(s)    (((s) & 0x8000) != 0)
++#define Stat_Busy(s)    (((s) & 0x4000) != 0)
++#define Stat_OK(s)      (((s) & 0x2000) != 0)
++#define Stat_Abort(s)   (((s) & 0x1000) != 0)
++#define Stat_STFail     (((s) & 0x0800) != 0)
++#define Stat_TNoCar(s)  (((s) & 0x0400) != 0)
++#define Stat_TNoCTS(s)  (((s) & 0x0200) != 0)
++#define Stat_TNoDMA(s)  (((s) & 0x0100) != 0)
++#define Stat_TDefer(s)  (((s) & 0x0080) != 0)
++#define Stat_TColl(s)   (((s) & 0x0040) != 0)
++#define Stat_TXColl(s)  (((s) & 0x0020) != 0)
++#define Stat_NoColl(s)  ((s) & 0x000f)
+ 
+ /* Cmd_END will end AFTER the command if this is the first
+  * command block after an SCB_CUstart, but BEFORE the command
+@@ -136,16 +136,16 @@
+  * Frame Descriptor (Receive block) defines
+  */
+ 
+-#define FD_Done(s)  ((s&0x8000)!=0)
+-#define FD_Busy(s)  ((s&0x4000)!=0)
+-#define FD_OK(s)    ((s&0x2000)!=0)
++#define FD_Done(s)  (((s) & 0x8000) != 0)
++#define FD_Busy(s)  (((s) & 0x4000) != 0)
++#define FD_OK(s)    (((s) & 0x2000) != 0)
+ 
+-#define FD_CRC(s)   ((s&0x0800)!=0)
+-#define FD_Align(s) ((s&0x0400)!=0)
+-#define FD_Resrc(s) ((s&0x0200)!=0)
+-#define FD_DMA(s)   ((s&0x0100)!=0)
+-#define FD_Short(s) ((s&0x0080)!=0)
+-#define FD_NoEOF(s) ((s&0x0040)!=0)
++#define FD_CRC(s)   (((s) & 0x0800) != 0)
++#define FD_Align(s) (((s) & 0x0400) != 0)
++#define FD_Resrc(s) (((s) & 0x0200) != 0)
++#define FD_DMA(s)   (((s) & 0x0100) != 0)
++#define FD_Short(s) (((s) & 0x0080) != 0)
++#define FD_NoEOF(s) (((s) & 0x0040) != 0)
+ 
+ struct rfd_header {
+ 	volatile unsigned long flags;
+
