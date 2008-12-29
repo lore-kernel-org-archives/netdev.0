@@ -1,40 +1,52 @@
-From: Holger Eitzenberger <holger@eitzenberger.org>
-Subject: Re: [patch 08/10] 802.3ad: remove public lacpdu_header
-Date: Mon, 29 Dec 2008 17:15:41 +0100
-Message-ID: <20081229161541.GA19173@mail.eitzenberger.org>
-References: <20081223220101.747816175@jonathan.eitzenberger.org> <20081223220600.479443201@jonathan.eitzenberger.org> <20081226.134349.56490565.davem@davemloft.net> <20081226.134537.212403770.davem@davemloft.net>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] smsc911x: compile fix re netif_rx signature changes
+Date: Mon, 29 Dec 2008 16:43:41 +0000
+Message-ID: <OF7ED135E6.60E49762-ON8025752E.005BAA36-8025752E.005BFFA9@smsc.com>
+References: <20081229115706.GA21117@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout-bounce.kundenserver.de ([212.227.17.2]:62795 "EHLO
-	mout-bounce.kundenserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750960AbYL2QPq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 11:15:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20081226.134537.212403770.davem@davemloft.net>
+Received: from mail.smsc.com ([170.129.50.11]:3729 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751591AbYL2QpL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Dec 2008 11:45:11 -0500
+In-Reply-To: <20081229115706.GA21117@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 26, 2008 at 01:45:37PM -0800, David Miller wrote:
+Thanks Alexey.
 
-> > > -	skb = dev_alloc_skb(length);
-> > > -	if (!skb) {
-> > > +	skb = dev_alloc_skb(len);
-> > > +	if (skb == NULL)
-> > 
-> > "!skb" is preferred to the long-winded "skb == NULL", so
-> > I'm tossing this patch and the rest which touch similar
-> > areas.
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> ---
 > 
-> Also, I want to mention that your C++ comment conversions are not in
-> the proper coding style as well.  You are doing:
-
-As I'm currently offline most of the time I'll resend once I'm back
-home.
-
-Thanks for your feedback!
-
- /holger
+>  drivers/net/smsc911x.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> --- a/drivers/net/smsc911x.c
+> +++ b/drivers/net/smsc911x.c
+> @@ -1484,13 +1484,13 @@ static irqreturn_t smsc911x_irqhandler(int 
+> irq, void *dev_id)
+>     }
+> 
+>     if (likely(intsts & inten & INT_STS_RSFL_)) {
+> -      if (likely(netif_rx_schedule_prep(dev, &pdata->napi))) {
+> +      if (likely(netif_rx_schedule_prep(&pdata->napi))) {
+>           /* Disable Rx interrupts */
+>           temp = smsc911x_reg_read(pdata, INT_EN);
+>           temp &= (~INT_EN_RSFL_EN_);
+>           smsc911x_reg_write(pdata, INT_EN, temp);
+>           /* Schedule a NAPI poll */
+> -         __netif_rx_schedule(dev, &pdata->napi);
+> +         __netif_rx_schedule(&pdata->napi);
+>        } else {
+>           SMSC_WARNING(RX_ERR,
+>              "netif_rx_schedule_prep failed");
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
