@@ -1,31 +1,29 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: 2.6.28-git1 build failure
-Date: Sun, 28 Dec 2008 20:36:22 -0800
-Message-ID: <495853C6.6030000@oracle.com>
+From: Dave Jones <davej@redhat.com>
+Subject: 2.6.28-git1 gianfar compile failure (ppc).
+Date: Mon, 29 Dec 2008 00:41:23 -0500
+Message-ID: <20081229054026.GA14962@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sean.hefty@intel.com
-To: Roland Dreier <rdreier@cisco.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dai Haruki <dai.haruki@freescale.com>,
+	Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet11.oracle.com ([148.87.113.123]:55782 "EHLO
-	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbYL2Egb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2008 23:36:31 -0500
+Received: from mx2.redhat.com ([66.187.237.31]:43483 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750849AbYL2FoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Dec 2008 00:44:04 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/built-in.o: In function `addr_resolve_remote':
-addr.c:(.text+0x12fe75): undefined reference to `ip6_route_output'
-drivers/built-in.o: In function `rdma_translate_ip':
-(.text+0x1301a7): undefined reference to `ipv6_chk_addr'
-drivers/built-in.o: In function `rdma_resolve_ip':
-(.text+0x1303a9): undefined reference to `ipv6_chk_addr'
-drivers/built-in.o: In function `rdma_resolve_ip':
-(.text+0x13051b): undefined reference to `ip6_route_output'
+ERROR: "cacheable_memzero" [drivers/net/gianfar_driver.ko] undefined!
 
-when CONFIG_IPV6=n.
+Introduced in a22823e72a4821ce1d4a248fbd8f5a81795af339
+
+I guess that needs exporting for when gianfar is modular, but I've no
+idea how to export things from powerpc assembly.
+
+	Dave
 
 -- 
-~Randy
+http://www.codemonkey.org.uk
