@@ -1,72 +1,44 @@
-From: Poornima Kamath <poornimak@gslab.com>
-Subject: Re: Detecting backup slaves of bonding interface in network driver
-Date: Mon, 29 Dec 2008 15:58:49 +0530
-Message-ID: <4958A661.9020601@gslab.com>
-References: <494108D7.3040304@gslab.com> <25821.1229013359@death.nxdomain.ibm.com> <4942663A.3080801@gslab.com> <3481.1229099865@death.nxdomain.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
+Date: Mon, 29 Dec 2008 21:31:54 +1100
+Message-ID: <20081229103154.GA9691@gondor.apana.org.au>
+References: <9929d2390812250225w19bcd2f7n11357ff26de78c52@mail.gmail.com> <20081225112658.GA7260@gondor.apana.org.au> <1230300535.9487.292.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B6648A@rrsmsx501.amr.corp.intel.com> <1230410308.9487.295.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B664A3@rrsmsx501.amr.corp.intel.com> <1230544927.16718.12.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Ingo Molnar <mingo@elte.hu>, Eric Dumazet <dada1@cosmosbay.com>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from padma.gslab.com ([59.163.66.102]:38450 "HELO padma.gslab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753246AbYL2K2x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Dec 2008 05:28:53 -0500
-In-Reply-To: <3481.1229099865@death.nxdomain.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:54416 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752509AbYL2KcC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 05:32:02 -0500
+Content-Disposition: inline
+In-Reply-To: <1230544927.16718.12.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jay,
+On Mon, Dec 29, 2008 at 11:02:07AM +0100, Peter Zijlstra wrote:
+>
+> Subject: net: fix tcp deadlock
+> 
+> Lockdep spotted that the percpu counter op takes a lock so that softirq
+> recursion deadlocks can occur. Delay the op until we've disabled
+> softirqs to avoid this.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 
- Thanks a lot for your  response.
- ib-bonding does have  fail_over_mac functionality and works on both 
-RHEL5 and SLES10.
+You also need to patch the other places where we use that percpu
+counter from process context, e.g., for /proc/net/tcp.
 
 Thanks,
-Poornima
-
-Jay Vosburgh wrote:
-> Poornima Kamath <poornimak@gslab.com> wrote:
->
->   
->> The driver creates virtual interfaces that talk to ethernet interfaces over
->> infiniband,  using an infiniband to ethernet gateway device.
->> The gateway device sends data to all interfaces having same mac address.  For
->> this the driver needs to explicitly tell the gateway device not to send data to
->> the backup slaves.
->> Therefore the driver needs to  know which slaves are backup slaves.
->> The failover mac option  works well,  but it is present for kernels greater
->> than 2.6.24.  So this option is not available for distros like RHEL5, SLES10
->> etc
->>     
->
-> 	I believe that RHEL5 and SLES10 contain an "ib-bonding" package
-> which includes a backport of the current (or at least a more current)
-> bonding driver specifically for use over Infiniband.  I think it's also
-> got a couple of other patches to bonding that aren't in the mainline.
-> In any event, it has the fail_over_mac functionality.
->
-> 	Have you looked at ib-bonding?
->
->   
->> So in order to support these distros I need some way of identifying the backup
->> slaves.
->> Is it ok to check the IFF_SLAVE_INACTIVE flags for these distros?
->>     
->
-> 	It will do what you want (identify backup slaves), and is not
-> guaranteed to be available in the future.  I doubt that the flag would
-> ever go away on RHEL5 or SLES10, but, again, no guarantee.
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->   
-
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
