@@ -1,8 +1,8 @@
 From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
-Date: Mon, 29 Dec 2008 13:38:19 +0100
-Message-ID: <20081229123819.GA18321@elte.hu>
-References: <1230410308.9487.295.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B664A3@rrsmsx501.amr.corp.intel.com> <1230544927.16718.12.camel@twins> <20081229103154.GA9691@gondor.apana.org.au> <20081229103735.GA9763@gondor.apana.org.au> <20081229112858.GA16385@elte.hu> <20081229114907.GA10170@gondor.apana.org.au> <20081229115827.GA441@elte.hu> <20081229120132.GA10363@gondor.apana.org.au> <20081229121626.GF9628@elte.hu>
+Subject: [patch] locking, percpu counters: introduce separate lock classes
+Date: Mon, 29 Dec 2008 13:44:44 +0100
+Message-ID: <20081229124444.GA20306@elte.hu>
+References: <EA929A9653AAE14F841771FB1DE5A1365F56B664A3@rrsmsx501.amr.corp.intel.com> <1230544927.16718.12.camel@twins> <20081229103154.GA9691@gondor.apana.org.au> <20081229103735.GA9763@gondor.apana.org.au> <20081229112858.GA16385@elte.hu> <20081229114907.GA10170@gondor.apana.org.au> <20081229115827.GA441@elte.hu> <20081229120132.GA10363@gondor.apana.org.au> <20081229121626.GF9628@elte.hu> <20081229123819.GA18321@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
@@ -15,124 +15,158 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Eric Dumazet <dada1@cosmosbay.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:57835 "EHLO mx3.mail.elte.hu"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:55715 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750710AbYL2Mif (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Dec 2008 07:38:35 -0500
+	id S1752855AbYL2MpE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Dec 2008 07:45:04 -0500
 Content-Disposition: inline
-In-Reply-To: <20081229121626.GF9628@elte.hu>
+In-Reply-To: <20081229123819.GA18321@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 * Ingo Molnar <mingo@elte.hu> wrote:
 
-> 
-> * Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > On Mon, Dec 29, 2008 at 12:58:27PM +0100, Ingo Molnar wrote:
-> > >
-> > > no, i only applied one of them. Is his second patch a good solution in 
-> > > your opinion, and should i thus test both of them? (or will the second one 
-> > > iterate some more - in which case i will keep the revert for now)
-> > 
-> > Well the second patch is definitely the right solution to the problem 
-> > as reported.  It just needs to be extended to fix other similar bugs 
-> > introduced by the original changeset.
-> 
-> okay - will keep the revert for now and will wait for you guys to do the 
-> full fix.
+> hm, even with the revert i got the splat below. So some other commits 
+> are causing this too?
 
-hm, even with the revert i got the splat below. So some other commits are 
-causing this too?
+in any case, i picked up and tidied up Peter's annotation patch - see it 
+below. Chances are that this plus the revert will do the trick - and 
+that's what i'm testing now in tip/master.
 
 	Ingo
 
-=================================
-[ INFO: inconsistent lock state ]
-2.6.28-tip-03883-gf855e6c-dirty #13150
----------------------------------
-inconsistent {softirq-on-W} -> {in-softirq-W} usage.
-kjournald/1435 [HC0[0]:SC1[1]:HE1:SE0] takes:
- (&fbc->lock){-+..}, at: [<c034fc75>] __percpu_counter_add+0x65/0xb0
-{softirq-on-W} state was registered at:
-  [<c015da56>] __lock_acquire+0x4c6/0xae0
-  [<c015e0f9>] lock_acquire+0x89/0xc0
-  [<c07247a8>] _spin_lock+0x38/0x50
-  [<c034fc75>] __percpu_counter_add+0x65/0xb0
-  [<c01b704a>] get_empty_filp+0x6a/0x1d0
-  [<c01c10a9>] path_lookup_open+0x29/0x90
-  [<c01c134e>] do_filp_open+0x9e/0x790
-  [<c01b3e60>] do_sys_open+0x50/0xe0
-  [<c01b3f5e>] sys_open+0x2e/0x40
-  [<c0103e76>] syscall_call+0x7/0xb
-  [<ffffffff>] 0xffffffff
-irq event stamp: 125790
-hardirqs last  enabled at (125790): [<c0191c56>] free_hot_cold_page+0x1b6/0x280
-hardirqs last disabled at (125789): [<c0191bae>] free_hot_cold_page+0x10e/0x280
-softirqs last  enabled at (123900): [<c013ca12>] __do_softirq+0x132/0x180
-softirqs last disabled at (125765): [<c010621a>] call_on_stack+0x1a/0x30
+------------------------>
+>From ea319518ba3de282c13ae1cf4bf2215c5e03e67e Mon Sep 17 00:00:00 2001
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date: Fri, 26 Dec 2008 15:08:55 +0100
+Subject: [PATCH] locking, percpu counters: introduce separate lock classes
 
-other info that might help us debug this:
-4 locks held by kjournald/1435:
- #0:  (rcu_read_lock){..--}, at: [<c05bef70>] net_rx_action+0xd0/0x220
- #1:  (rcu_read_lock){..--}, at: [<c05bbfb1>] netif_receive_skb+0x101/0x3a0
- #2:  (rcu_read_lock){..--}, at: [<c05f1bf5>] ip_local_deliver+0x55/0x1d0
- #3:  (slock-AF_INET/1){-+..}, at: [<c060ec3a>] tcp_v4_rcv+0x55a/0x6e0
+Impact: fix lockdep false positives
 
-stack backtrace:
-Pid: 1435, comm: kjournald Not tainted 2.6.28-tip-03883-gf855e6c-dirty #13150
-Call Trace:
- [<c015a0d6>] print_usage_bug+0x176/0x1d0
- [<c015b800>] mark_lock+0xbd0/0xd80
- [<c015da13>] __lock_acquire+0x483/0xae0
- [<c015bcdb>] ? trace_hardirqs_on+0xb/0x10
- [<c015e0f9>] lock_acquire+0x89/0xc0
- [<c034fc75>] ? __percpu_counter_add+0x65/0xb0
- [<c07247a8>] _spin_lock+0x38/0x50
- [<c034fc75>] ? __percpu_counter_add+0x65/0xb0
- [<c034fc75>] __percpu_counter_add+0x65/0xb0
- [<c060dc49>] tcp_v4_destroy_sock+0x1d9/0x240
- [<c05fa06a>] inet_csk_destroy_sock+0x4a/0x140
- [<c05fa675>] ? inet_csk_clear_xmit_timers+0x45/0x50
- [<c05fb96d>] tcp_done+0x4d/0x70
- [<c060655c>] tcp_rcv_state_process+0x68c/0x950
- [<c060c9b6>] tcp_v4_do_rcv+0xd6/0x310
- [<c072475d>] ? _spin_lock_nested+0x3d/0x50
- [<c060ecc4>] tcp_v4_rcv+0x5e4/0x6e0
- [<c05f1bf5>] ? ip_local_deliver+0x55/0x1d0
- [<c05f1c44>] ip_local_deliver+0xa4/0x1d0
- [<c05f1bf5>] ? ip_local_deliver+0x55/0x1d0
- [<c05f201a>] ip_rcv+0x2aa/0x510
- [<c05bbfb1>] ? netif_receive_skb+0x101/0x3a0
- [<c05f1d70>] ? ip_rcv+0x0/0x510
- [<c05bc199>] netif_receive_skb+0x2e9/0x3a0
- [<c05bbfb1>] ? netif_receive_skb+0x101/0x3a0
- [<c015d8f1>] ? __lock_acquire+0x361/0xae0
- [<c05bc541>] napi_gro_receive+0x1c1/0x200
- [<c015b9e0>] ? mark_held_locks+0x30/0x80
- [<c05bf1bb>] ? process_backlog+0x7b/0xd0
- [<c05bf1d2>] process_backlog+0x92/0xd0
- [<c05beff4>] net_rx_action+0x154/0x220
- [<c05bef70>] ? net_rx_action+0xd0/0x220
- [<c013c989>] __do_softirq+0xa9/0x180
- [<c013c8e0>] ? __do_softirq+0x0/0x180
- <IRQ>  [<c013c8cd>] ? irq_exit+0x4d/0x60
- [<c01064ca>] ? do_IRQ+0x8a/0xe0
- [<c01b086f>] ? check_object+0xef/0x1f0
- [<c01044ac>] ? common_interrupt+0x2c/0x34
- [<c01b27d2>] ? kmem_cache_free+0xc2/0xf0
- [<c0234b65>] ? journal_write_revoke_records+0xa5/0x140
- [<c0234b65>] ? journal_write_revoke_records+0xa5/0x140
- [<c0234b65>] ? journal_write_revoke_records+0xa5/0x140
- [<c023276d>] ? journal_commit_transaction+0x42d/0xe80
- [<c015bc6e>] ? trace_hardirqs_on_caller+0x17e/0x1e0
- [<c015bcdb>] ? trace_hardirqs_on+0xb/0x10
- [<c014101e>] ? try_to_del_timer_sync+0x4e/0x60
- [<c023608b>] ? kjournald+0xbb/0x1d0
- [<c014b8e0>] ? autoremove_wake_function+0x0/0x40
- [<c0235fd0>] ? kjournald+0x0/0x1d0
- [<c014b5d7>] ? kthread+0x47/0x80
- [<c014b590>] ? kthread+0x0/0x80
- [<c010472f>] ? kernel_thread_helper+0x7/0x10
+Classify percpu_counter instances similar to regular lock objects --
+that is, per instantiation site.
+
+The networking code has increased its use of percpu_counters, which
+leads to false positives if they are treated as a single class.
+
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ include/linux/percpu_counter.h |   14 ++++++++++----
+ lib/percpu_counter.c           |   18 ++++--------------
+ lib/proportions.c              |    6 +++---
+ mm/backing-dev.c               |    2 +-
+ 4 files changed, 18 insertions(+), 22 deletions(-)
+
+diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
+index 9007ccd..96bdde3 100644
+--- a/include/linux/percpu_counter.h
++++ b/include/linux/percpu_counter.h
+@@ -30,8 +30,16 @@ struct percpu_counter {
+ #define FBC_BATCH	(NR_CPUS*4)
+ #endif
+ 
+-int percpu_counter_init(struct percpu_counter *fbc, s64 amount);
+-int percpu_counter_init_irq(struct percpu_counter *fbc, s64 amount);
++int __percpu_counter_init(struct percpu_counter *fbc, s64 amount,
++			  struct lock_class_key *key);
++
++#define percpu_counter_init(fbc, value)					\
++	({								\
++		static struct lock_class_key __key;			\
++									\
++		__percpu_counter_init(fbc, value, &__key);		\
++	})
++
+ void percpu_counter_destroy(struct percpu_counter *fbc);
+ void percpu_counter_set(struct percpu_counter *fbc, s64 amount);
+ void __percpu_counter_add(struct percpu_counter *fbc, s64 amount, s32 batch);
+@@ -85,8 +93,6 @@ static inline int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
+ 	return 0;
+ }
+ 
+-#define percpu_counter_init_irq percpu_counter_init
+-
+ static inline void percpu_counter_destroy(struct percpu_counter *fbc)
+ {
+ }
+diff --git a/lib/percpu_counter.c b/lib/percpu_counter.c
+index a866389..c7fe2e4 100644
+--- a/lib/percpu_counter.c
++++ b/lib/percpu_counter.c
+@@ -71,11 +71,11 @@ s64 __percpu_counter_sum(struct percpu_counter *fbc)
+ }
+ EXPORT_SYMBOL(__percpu_counter_sum);
+ 
+-static struct lock_class_key percpu_counter_irqsafe;
+-
+-int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
++int __percpu_counter_init(struct percpu_counter *fbc, s64 amount,
++			  struct lock_class_key *key)
+ {
+ 	spin_lock_init(&fbc->lock);
++	lockdep_set_class(&fbc->lock, key);
+ 	fbc->count = amount;
+ 	fbc->counters = alloc_percpu(s32);
+ 	if (!fbc->counters)
+@@ -87,17 +87,7 @@ int percpu_counter_init(struct percpu_counter *fbc, s64 amount)
+ #endif
+ 	return 0;
+ }
+-EXPORT_SYMBOL(percpu_counter_init);
+-
+-int percpu_counter_init_irq(struct percpu_counter *fbc, s64 amount)
+-{
+-	int err;
+-
+-	err = percpu_counter_init(fbc, amount);
+-	if (!err)
+-		lockdep_set_class(&fbc->lock, &percpu_counter_irqsafe);
+-	return err;
+-}
++EXPORT_SYMBOL(__percpu_counter_init);
+ 
+ void percpu_counter_destroy(struct percpu_counter *fbc)
+ {
+diff --git a/lib/proportions.c b/lib/proportions.c
+index 4f387a6..7367f2b 100644
+--- a/lib/proportions.c
++++ b/lib/proportions.c
+@@ -83,11 +83,11 @@ int prop_descriptor_init(struct prop_descriptor *pd, int shift)
+ 	pd->index = 0;
+ 	pd->pg[0].shift = shift;
+ 	mutex_init(&pd->mutex);
+-	err = percpu_counter_init_irq(&pd->pg[0].events, 0);
++	err = percpu_counter_init(&pd->pg[0].events, 0);
+ 	if (err)
+ 		goto out;
+ 
+-	err = percpu_counter_init_irq(&pd->pg[1].events, 0);
++	err = percpu_counter_init(&pd->pg[1].events, 0);
+ 	if (err)
+ 		percpu_counter_destroy(&pd->pg[0].events);
+ 
+@@ -191,7 +191,7 @@ int prop_local_init_percpu(struct prop_local_percpu *pl)
+ 	spin_lock_init(&pl->lock);
+ 	pl->shift = 0;
+ 	pl->period = 0;
+-	return percpu_counter_init_irq(&pl->events, 0);
++	return percpu_counter_init(&pl->events, 0);
+ }
+ 
+ void prop_local_destroy_percpu(struct prop_local_percpu *pl)
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+index f2e574d..f3b1258 100644
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -220,7 +220,7 @@ int bdi_init(struct backing_dev_info *bdi)
+ 	bdi->max_prop_frac = PROP_FRAC_BASE;
+ 
+ 	for (i = 0; i < NR_BDI_STAT_ITEMS; i++) {
+-		err = percpu_counter_init_irq(&bdi->bdi_stat[i], 0);
++		err = percpu_counter_init(&bdi->bdi_stat[i], 0);
+ 		if (err)
+ 			goto err;
+ 	}
 
