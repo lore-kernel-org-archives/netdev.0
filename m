@@ -1,55 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] clean up of netif_rx_reschedule() changes in drivers
-Date: Mon, 29 Dec 2008 10:37:57 -0500
-Message-ID: <20081229153757.GA2857@localhost.localdomain>
-References: <20081229110041.0eca977a.sfr@canb.auug.org.au> <20081229102509.GA11111@linux.vnet.ibm.com> <20081229214144.43be8c1d.sfr@canb.auug.org.au>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 5/5] Phonet: USB CDC Phonet function for gadget
+ framework
+Date: Mon, 29 Dec 2008 16:44:08 +0100
+Message-ID: <1230565448.15666.25.camel@californication>
+References: <200812171607.14184.remi.denis-courmont@nokia.com>
+	 <1229522874-20636-5-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Linus <torvalds@linux-foundation.org>, netdev@vger.kernel.org,
-	ppc-dev <linuxppc-dev@ozlabs.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20081229214144.43be8c1d.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:55297 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751417AbYL2PnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 10:43:03 -0500
+In-Reply-To: <1229522874-20636-5-git-send-email-remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 29, 2008 at 09:41:44PM +1100, Stephen Rothwell wrote:
-> Hi Kamalesh,
-> 
-> On Mon, 29 Dec 2008 15:55:29 +0530 Kamalesh Babulal <kamalesh@linux.vnet.ibm.com> wrote:
-> >
-> > I hit similar build failure due to the change in the netif_rx_reschedule()
-> > 
-> > drivers/net/ehea/ehea_main.c: In function 'ehea_poll':
-> > drivers/net/ehea/ehea_main.c:844: warning: passing argument 1 of 'netif_rx_reschedule' from incompatible pointer type
-> > drivers/net/ehea/ehea_main.c:844: error: too many arguments to function 'netif_rx_reschedule'
-> > make[3]: *** [drivers/net/ehea/ehea_main.o] Error 1
-> 
-> Linus already took a patch for ibmveth and ehea.
-> 
-> > greping through the sources for the changes missed out, we have
-> > 
-> 	.
-> 	.
-> > 
-> > Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-> > --
-> >  drivers/net/arm/ep93xx_eth.c |    2 +-
-> >  drivers/net/arm/ixp4xx_eth.c |    2 +-
-> >  drivers/net/wan/ixp4xx_hss.c |    2 +-
-> >  3 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> Thanks for the patch, I assume that Dave or Linus will take care of that.
-> -- 
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
-> http://www.canb.auug.org.au/~sfr/
+Hi Remi,
 
-Thanks guys, not sure how my patch missed that.  I did an allmodconfig build
-that passed successfully.  Thanks!
+> This implements the Nokia vendor-specific communication device class
+> function to exchange Phonet messages over USB. This function is alrea=
+dy
+> found in the "PC suite" USB profile of (non-Linux) Nokia handsets.
+>=20
+> Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.co=
+m>
+> ---
+>  drivers/usb/gadget/f_phonet.c |  621 +++++++++++++++++++++++++++++++=
+++++++++++
+>  drivers/usb/gadget/u_phonet.h |   21 ++
+>  2 files changed, 642 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/usb/gadget/f_phonet.c
+>  create mode 100644 drivers/usb/gadget/u_phonet.h
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+any reason why you didn't add an option to Kconfig to actually select
+this gadget?
+
+Regards
+
+Marcel
+
+
