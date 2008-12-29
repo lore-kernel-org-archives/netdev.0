@@ -1,71 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [GIT]: Networking
-Date: Mon, 29 Dec 2008 09:17:28 -0800
-Message-ID: <20081229091728.d869f1c1.akpm@linux-foundation.org>
-References: <20081228.000118.121541932.davem@davemloft.net>
-	<20081229102515.GA17171@rhlx01.hs-esslingen.de>
+From: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
+Subject: [PATCH] tun: Fix SIOCSIFHWADDR error.
+Date: Tue, 30 Dec 2008 05:03:12 +0900
+Message-ID: <200812292003127246950006MAD1@nm06mta.auone-net.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	auke-jan.h.kok@intel.com, linux-kernel@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, torvalds@linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Andreas Mohr <andi@lisas.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20081229102515.GA17171@rhlx01.hs-esslingen.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm06omta12.auone-net.jp ([219.125.112.29]:4480 "HELO
+	nmomta.auone-net.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752698AbYL2USR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 15:18:17 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 29 Dec 2008 11:25:15 +0100 Andreas Mohr <andi@lisas.de> wrote:
+Set proper operations.
 
-> Hi,
-> 
-> > Adrian Bunk (1):
-> > 
-> >       The overdue eepro100 removal.
-> 
-> That would be a rather pronounced NAK then? (sorry ;)
-> (reason: rendering my web surfing box useless due to networking loss,
-> see thread "[RFC/PATCH] e100 driver didn't support any MII-less PHYs...")
-> 
-> AFAICS e100 is still "non-MII"-challenged (2.6.28 doesn't appear to have
-> the necessary changes, and this pull doesn't seem to contain updates either),
-> and a long chain of attempts to get this resolved hasn't worked yet.
+Signed-off-by: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
+---
+ drivers/net/tun.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I didn't know about this, and that patch has been around for a
-loooooooong time.  Please make more noise about these things.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 666c1d9..69f9a0e 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -343,7 +343,7 @@ static void tun_net_init(struct net_device *dev)
+ 		break;
+ 
+ 	case TUN_TAP_DEV:
+-		dev->netdev_ops = &tun_netdev_ops;
++		dev->netdev_ops = &tap_netdev_ops;
+ 		/* Ethernet TAP Device */
+ 		ether_setup(dev);
+ 
+-- 
+1.5.6.5
 
->
-> Somehow I seem to hit some nice walls getting my stuff into kernel.
-> - e100 MII
-
-What's that?  Does it make your web surfing work again?
-
-> - i810 AGP resume fix
-
-Whats that?
-
-> - acx100 (ok, that one is a bit mean to add to this list ;)
-
-What's that?
-
-Just resend everything, please, fulyl changelogged, with all necessary
-cc's.
-
-> - ...
-> ALSA patches handled by Takashi OTOH were almost always a
-> "bammm, in it is, there you are, HAND".
-
-Fell free to cc me on these things - especially bugfixes.  I help
-prevent things from getting lost.
-
-
-------------------------------------------------------------------------------
