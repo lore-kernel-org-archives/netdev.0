@@ -1,47 +1,40 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 5/5] Phonet: USB CDC Phonet function for gadget
- framework
-Date: Mon, 29 Dec 2008 16:44:08 +0100
-Message-ID: <1230565448.15666.25.camel@californication>
-References: <200812171607.14184.remi.denis-courmont@nokia.com>
-	 <1229522874-20636-5-git-send-email-remi.denis-courmont@nokia.com>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: Re: [patch 08/10] 802.3ad: remove public lacpdu_header
+Date: Mon, 29 Dec 2008 17:15:41 +0100
+Message-ID: <20081229161541.GA19173@mail.eitzenberger.org>
+References: <20081223220101.747816175@jonathan.eitzenberger.org> <20081223220600.479443201@jonathan.eitzenberger.org> <20081226.134349.56490565.davem@davemloft.net> <20081226.134537.212403770.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:55297 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417AbYL2PnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 10:43:03 -0500
-In-Reply-To: <1229522874-20636-5-git-send-email-remi.denis-courmont@nokia.com>
+Received: from mout-bounce.kundenserver.de ([212.227.17.2]:62795 "EHLO
+	mout-bounce.kundenserver.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750960AbYL2QPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 11:15:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20081226.134537.212403770.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Remi,
+On Fri, Dec 26, 2008 at 01:45:37PM -0800, David Miller wrote:
 
-> This implements the Nokia vendor-specific communication device class
-> function to exchange Phonet messages over USB. This function is alrea=
-dy
-> found in the "PC suite" USB profile of (non-Linux) Nokia handsets.
->=20
-> Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.co=
-m>
-> ---
->  drivers/usb/gadget/f_phonet.c |  621 +++++++++++++++++++++++++++++++=
-++++++++++
->  drivers/usb/gadget/u_phonet.h |   21 ++
->  2 files changed, 642 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/usb/gadget/f_phonet.c
->  create mode 100644 drivers/usb/gadget/u_phonet.h
+> > > -	skb = dev_alloc_skb(length);
+> > > -	if (!skb) {
+> > > +	skb = dev_alloc_skb(len);
+> > > +	if (skb == NULL)
+> > 
+> > "!skb" is preferred to the long-winded "skb == NULL", so
+> > I'm tossing this patch and the rest which touch similar
+> > areas.
+> 
+> Also, I want to mention that your C++ comment conversions are not in
+> the proper coding style as well.  You are doing:
 
-any reason why you didn't add an option to Kconfig to actually select
-this gadget?
+As I'm currently offline most of the time I'll resend once I'm back
+home.
 
-Regards
+Thanks for your feedback!
 
-Marcel
-
+ /holger
 
