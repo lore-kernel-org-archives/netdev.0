@@ -1,37 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: origin tree build warnings
-Date: Sun, 28 Dec 2008 20:21:15 -0800 (PST)
-Message-ID: <20081228.202115.210807179.davem@davemloft.net>
-References: <20081229113525.89450db7.sfr@canb.auug.org.au>
-	<20081228.200145.33502228.davem@davemloft.net>
-	<20081229151749.8dd82c02.sfr@canb.auug.org.au>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: 2.6.28-git1 build failure
+Date: Sun, 28 Dec 2008 20:36:22 -0800
+Message-ID: <495853C6.6030000@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: sfr@canb.auug.org.au
+Cc: netdev@vger.kernel.org, sean.hefty@intel.com
+To: Roland Dreier <rdreier@cisco.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36647
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750843AbYL2EVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2008 23:21:12 -0500
-In-Reply-To: <20081229151749.8dd82c02.sfr@canb.auug.org.au>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:55782 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbYL2Egb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Dec 2008 23:36:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 29 Dec 2008 15:17:49 +1100
+drivers/built-in.o: In function `addr_resolve_remote':
+addr.c:(.text+0x12fe75): undefined reference to `ip6_route_output'
+drivers/built-in.o: In function `rdma_translate_ip':
+(.text+0x1301a7): undefined reference to `ipv6_chk_addr'
+drivers/built-in.o: In function `rdma_resolve_ip':
+(.text+0x1303a9): undefined reference to `ipv6_chk_addr'
+drivers/built-in.o: In function `rdma_resolve_ip':
+(.text+0x13051b): undefined reference to `ip6_route_output'
 
-> On Sun, 28 Dec 2008 20:01:45 -0800 (PST) David Miller <davem@davemloft.net> wrote:
-> >
-> > I'll take care of all of these issues, along with the
-> 
-> Thanks.
-> 
-> > ibmveth et al. ones you reported seperately.
-> 
-> Linus already took my patches for cifs, ibmveth and ehea (probably
-> assuming that they were trivial).
+when CONFIG_IPV6=n.
 
-Yep I noticed that, thanks a lot Stephen.
+-- 
+~Randy
