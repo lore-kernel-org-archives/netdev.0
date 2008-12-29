@@ -1,37 +1,34 @@
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Subject: net: KS8695: removed duplicated #include
-Date: Tue, 30 Dec 2008 06:48:23 +0800
-Message-ID: <20081230064550.4609.WEIYI.HUANG@gmail.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH 1/6] qlge: bugfix: Fix register access error checking.
+Date: Mon, 29 Dec 2008 14:49:18 -0800
+Message-ID: <20081229224918.GC16018@susedev.qlogic.org>
+References: <1229990258-14507-1-git-send-email-ron.mercer@qlogic.com> <20081226.012007.164611402.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	Linux Driver <Linux-Driver@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.188]:6252 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbYL2Ws0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 17:48:26 -0500
-Received: by ti-out-0910.google.com with SMTP id b6so7864434tic.23
-        for <netdev@vger.kernel.org>; Mon, 29 Dec 2008 14:48:24 -0800 (PST)
+Received: from avexch1.qlogic.com ([198.70.193.115]:58618 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753337AbYL2WtT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 17:49:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20081226.012007.164611402.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removed duplicated include in drivers/net/arm/ks8695net.c.
+On Fri, Dec 26, 2008 at 01:20:07AM -0800, David Miller wrote:
+> From: Ron Mercer <ron.mercer@qlogic.com>
+> Date: Mon, 22 Dec 2008 15:57:33 -0800
+> 
+> > diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+> > old mode 100644
+> > new mode 100755
+> 
+> Please resubmit this patch set without these file mode changes.
 
-Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
-
-diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
-index 592daee..9ad22d1 100644
---- a/drivers/net/arm/ks8695net.c
-+++ b/drivers/net/arm/ks8695net.c
-@@ -29,7 +29,6 @@
- #include <linux/delay.h>
- #include <linux/platform_device.h>
- #include <linux/irq.h>
--#include <linux/delay.h>
- #include <linux/io.h>
-
- #include <asm/irq.h>
-
+I will respin all the patches tomorrow as I am cleaning up one of them
+due to some useful feedback.
 
