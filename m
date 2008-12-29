@@ -1,66 +1,77 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
-Date: Mon, 29 Dec 2008 13:55:28 +0100
-Message-ID: <20081229125528.GA23674@elte.hu>
-References: <1230544927.16718.12.camel@twins> <20081229103154.GA9691@gondor.apana.org.au> <20081229103735.GA9763@gondor.apana.org.au> <20081229112858.GA16385@elte.hu> <20081229114907.GA10170@gondor.apana.org.au> <20081229115827.GA441@elte.hu> <20081229120132.GA10363@gondor.apana.org.au> <20081229121626.GF9628@elte.hu> <20081229123819.GA18321@elte.hu> <20081229124942.GA11343@gondor.apana.org.au>
+From: Martin Willi <martin@strongswan.org>
+Subject: Re: [PATCH] [IPSEC]: Change the ICV length of sha256 to 128 bits
+Date: Mon, 29 Dec 2008 14:05:19 +0100
+Message-ID: <1230555919.6644.36.camel@martin>
+References: <20081224060225.GA26084@obsidianresearch.com>
+	 <20081224085940.GA24830@gondor.apana.org.au>
+	 <20081224183355.GB26084@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:45115 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751665AbYL2Mzm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Dec 2008 07:55:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20081229124942.GA11343@gondor.apana.org.au>
+Received: from ns.km23152-01.keymachine.de ([87.118.114.125]:40329 "EHLO
+	km23152-01.keymachine.de" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751620AbYL2NFs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Dec 2008 08:05:48 -0500
+Received: from localhost (km23152-01.keymachine.de [127.0.0.1])
+	by km23152-01.keymachine.de (Postfix) with SMTP id B7514130022
+	for <netdev@vger.kernel.org>; Mon, 29 Dec 2008 14:05:24 +0100 (CET)
+In-Reply-To: <20081224183355.GB26084@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > > git blame says this setting was made before RFC 4868 was publishe=
+d,
+> > > so I'm not sure that it was chosen with any standard in mind.
+> > >=20
+> > > NOTE: This 'breaks' the user space API, however at least StrongSw=
+an
+> > > 4.2.9's charon already associates AUTH_HMAC_SHA2_256_128 with
+> > > the transform name 'sha256'.
 
-> On Mon, Dec 29, 2008 at 01:38:19PM +0100, Ingo Molnar wrote:
-> >
-> > hm, even with the revert i got the splat below. So some other commits are 
-> > causing this too?
-> 
-> Indeed, there is more :)
-> 
-> > stack backtrace:
-> > Pid: 1435, comm: kjournald Not tainted 2.6.28-tip-03883-gf855e6c-dirty #13150
-> > Call Trace:
-> >  [<c015a0d6>] print_usage_bug+0x176/0x1d0
-> >  [<c015b800>] mark_lock+0xbd0/0xd80
-> >  [<c015da13>] __lock_acquire+0x483/0xae0
-> >  [<c015bcdb>] ? trace_hardirqs_on+0xb/0x10
-> >  [<c015e0f9>] lock_acquire+0x89/0xc0
-> >  [<c034fc75>] ? __percpu_counter_add+0x65/0xb0
-> >  [<c07247a8>] _spin_lock+0x38/0x50
-> >  [<c034fc75>] ? __percpu_counter_add+0x65/0xb0
-> >  [<c034fc75>] __percpu_counter_add+0x65/0xb0
-> >  [<c060dc49>] tcp_v4_destroy_sock+0x1d9/0x240
-> 
-> This came from 1748376b6626acf59c24e9592ac67b3fe2a0e026 which also
-> has the same bug (although this particular trace is bogus and is
-> fixed by Peter's first patch).
-> 
-> I think these are the only two percpu counter patches around that
-> time frame.
-> 
-> Also watch out for 6976a1d6c222c50ac93d2273b9cf57e6fd047e59 when
-> reverting.
+We already discussed this in
+http://kerneltrap.org/mailarchive/linux-kernel/2008/6/5/2039114 ,
+but it was too much effort for me to fix this properly then.
 
-okay, since i'm not really in the business of reverting various networking 
-patches, would you mind to Cc: me to the real fixes, once they are 
-available? Or do you think a revert will be the approach in -git? (in 
-which case i can guinea-pig the above reverts i guess)
+> > The 96 bits is actually still correct for the auth algorithm IDs
+> > 5, 6, and 7.  The parameters in 4868 have been assigned new IDs
+> > starting from 12.
+>=20
+> Oh? Ok, I didn't realize there was something that defined those usage=
+s
+> on PF_KEY. They are not defined for use with IKEv2 at all..
 
-	Ingo
+=EF=BB=BFIn PF_KEY, SADB_X_AALG_SHA2_256HMAC (5) was defined in
+draft-ietf-ipsec-ciph-sha-256-00 to 96 bit truncation (what is currentl=
+y
+implemented). draft-ietf-ipsec-ciph-sha-256-01 defined it to 128 bit
+truncation (what is now RFC 4868).
+Those numbers starting from 12 are IKEv2 algorithm identifiers and are
+never passed to the kernel.
+
+> BTW, is there some reason why SADB_X_AALG_SHA2_384HMAC and
+> SADB_X_AALG_SHA2_512HMAC are absent from the table in xfrm_algos?
+
+Yes, it was not specified in draft-ietf-ipsec-ciph-sha-256-00, but is
+defined in RFC 4868.
+
+> BTW, Herbert, if this is the way to go can you fix StrongSwan?
+> Mapping AUTH_HMAC_SHA2_256_128 to 'sha256' in
+> src/charon/plugins/kernel_netlink/kernel_netlink_ipsec.c is not
+> correct based on this discussion. It needs to be 'hmac(sha256)' and
+> use this XFRMA_AUTH2 idea. Similarly for all the SHA-2 family of
+> functions I guess.
+
+Yes I'm aware of that. I'll fix it a soon as it is available in the
+kernel.=20
+
+Regards
+Martin
+
+
