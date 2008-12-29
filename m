@@ -1,38 +1,87 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] net: make xfrm_statistics_seq_show use generic snmp_fold_field
-Date: Mon, 29 Dec 2008 13:22:47 +1030
-Message-ID: <200812291322.47467.rusty@rustcorp.com.au>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: [PATCH 2/3] cls_cgroup: clean up for cgroup part
+Date: Mon, 29 Dec 2008 11:57:22 +0800
+Message-ID: <49584AA2.4010506@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43018 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751280AbYL2Cwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Dec 2008 21:52:54 -0500
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:59457 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752242AbYL2D61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Dec 2008 22:58:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tm8gcmVhc29uIHRvIHJvbGwgb3VyIG93biBoZXJlLgoKU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVz
-c2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgoKZGlmZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1f
-cHJvYy5jIGIvbmV0L3hmcm0veGZybV9wcm9jLmMKLS0tIGEvbmV0L3hmcm0veGZybV9wcm9jLmMK
-KysrIGIvbmV0L3hmcm0veGZybV9wcm9jLmMKQEAgLTQ0LDI3ICs0NCwxNCBAQCBzdGF0aWMgc3Ry
-dWN0IHNubXBfbWliIHhmcm1fbWliX2xpc3RbXSA9CiAJU05NUF9NSUJfU0VOVElORUwKIH07CiAK
-LXN0YXRpYyB1bnNpZ25lZCBsb25nCi1mb2xkX2ZpZWxkKHZvaWQgKm1pYltdLCBpbnQgb2ZmdCkK
-LXsKLSAgICAgICAgdW5zaWduZWQgbG9uZyByZXMgPSAwOwotICAgICAgICBpbnQgaTsKLQotICAg
-ICAgICBmb3JfZWFjaF9wb3NzaWJsZV9jcHUoaSkgewotICAgICAgICAgICAgICAgIHJlcyArPSAq
-KCgodW5zaWduZWQgbG9uZyAqKXBlcl9jcHVfcHRyKG1pYlswXSwgaSkpICsgb2ZmdCk7Ci0gICAg
-ICAgICAgICAgICAgcmVzICs9ICooKCh1bnNpZ25lZCBsb25nICopcGVyX2NwdV9wdHIobWliWzFd
-LCBpKSkgKyBvZmZ0KTsKLSAgICAgICAgfQotICAgICAgICByZXR1cm4gcmVzOwotfQotCiBzdGF0
-aWMgaW50IHhmcm1fc3RhdGlzdGljc19zZXFfc2hvdyhzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9p
-ZCAqdikKIHsKIAlzdHJ1Y3QgbmV0ICpuZXQgPSBzZXEtPnByaXZhdGU7CiAJaW50IGk7CiAJZm9y
-IChpPTA7IHhmcm1fbWliX2xpc3RbaV0ubmFtZTsgaSsrKQogCQlzZXFfcHJpbnRmKHNlcSwgIiUt
-MjRzXHQlbHVcbiIsIHhmcm1fbWliX2xpc3RbaV0ubmFtZSwKLQkJCSAgIGZvbGRfZmllbGQoKHZv
-aWQgKiopbmV0LT5taWIueGZybV9zdGF0aXN0aWNzLAotCQkJCSAgICAgIHhmcm1fbWliX2xpc3Rb
-aV0uZW50cnkpKTsKKwkJCSAgIHNubXBfZm9sZF9maWVsZCgodm9pZCAqKiluZXQtPm1pYi54ZnJt
-X3N0YXRpc3RpY3MsCisJCQkJCSAgIHhmcm1fbWliX2xpc3RbaV0uZW50cnkpKTsKIAlyZXR1cm4g
-MDsKIH0KIAoACg==
+- It's better to use container_of() instead of casting cgroup_subsys_state *
+  to cgroup_cls_state *.
+- Add helper function task_cls_state().
+- Rename net_cls_state() to cgrp_cls_state().
+
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+---
+ net/sched/cls_cgroup.c |   21 +++++++++++++--------
+ 1 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 31d95b1..40e1411 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -24,10 +24,16 @@ struct cgroup_cls_state
+ 	u32 classid;
+ };
+ 
+-static inline struct cgroup_cls_state *net_cls_state(struct cgroup *cgrp)
++static inline struct cgroup_cls_state *cgrp_cls_state(struct cgroup *cgrp)
+ {
+-	return (struct cgroup_cls_state *)
+-		cgroup_subsys_state(cgrp, net_cls_subsys_id);
++	return container_of(cgroup_subsys_state(cgrp, net_cls_subsys_id),
++			    struct cgroup_cls_state, css);
++}
++
++static inline struct cgroup_cls_state *task_cls_state(struct task_struct *p)
++{
++	return container_of(task_subsys_state(p, net_cls_subsys_id),
++			    struct cgroup_cls_state, css);
+ }
+ 
+ static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
+@@ -39,19 +45,19 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	if (cgrp->parent)
+-		cs->classid = net_cls_state(cgrp->parent)->classid;
++		cs->classid = cgrp_cls_state(cgrp->parent)->classid;
+ 
+ 	return &cs->css;
+ }
+ 
+ static void cgrp_destroy(struct cgroup_subsys *ss, struct cgroup *cgrp)
+ {
+-	kfree(net_cls_state(cgrp));
++	kfree(cgrp_cls_state(cgrp));
+ }
+ 
+ static u64 read_classid(struct cgroup *cgrp, struct cftype *cft)
+ {
+-	return net_cls_state(cgrp)->classid;
++	return cgrp_cls_state(cgrp)->classid;
+ }
+ 
+ static int write_classid(struct cgroup *cgrp, struct cftype *cft, u64 value)
+@@ -115,8 +121,7 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 		return -1;
+ 
+ 	rcu_read_lock();
+-	cs = (struct cgroup_cls_state *) task_subsys_state(current,
+-							   net_cls_subsys_id);
++	cs = task_cls_state(current);
+ 	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
+ 		res->classid = cs->classid;
+ 		res->class = 0;
+-- 
+1.5.4.rc3
