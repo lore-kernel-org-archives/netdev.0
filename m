@@ -1,72 +1,40 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] clean up of netif_rx_reschedule() changes in drivers
-Date: Mon, 29 Dec 2008 21:41:44 +1100
-Message-ID: <20081229214144.43be8c1d.sfr@canb.auug.org.au>
-References: <20081229110041.0eca977a.sfr@canb.auug.org.au>
-	<20081229102509.GA11111@linux.vnet.ibm.com>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: Happy v2.6.28
+Date: Mon, 29 Dec 2008 12:57:10 +0200
+Message-ID: <1230548230.8603.5.camel@penberg-laptop>
+References: <bMLNZ-3QM-1@gated-at.bofh.it>
+	 <200812250853.mBP8rxrr004080@server.home.lan>
+	 <84144f020812250426x255cc00esd33f0075292b486b@mail.gmail.com>
+	 <Pine.LNX.4.64.0812251336320.4497@server.home.lan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Linus <torvalds@linux-foundation.org>, netdev@vger.kernel.org,
-	ppc-dev <linuxppc-dev@ozlabs.org>
-To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20081229102509.GA11111@linux.vnet.ibm.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Hans Lambrechts <hans.lambrechts@skynet.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:57424 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752811AbYL2K5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 05:57:12 -0500
+In-Reply-To: <Pine.LNX.4.64.0812251336320.4497@server.home.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Hans,
 
-Hi Kamalesh,
+On Thu, 2008-12-25 at 13:45 +0100, Hans Lambrechts wrote:
+> > Looks like slab corruption. Can we have your .config, please? I'm
+> > cc'ing netdev as the oops happens in kmem_cache_alloc() so the
+> > networking code is a prime suspect of the corrupting kmem_cache_free()
+> > call (although the bug might be elsewhere as well).
 
-On Mon, 29 Dec 2008 15:55:29 +0530 Kamalesh Babulal <kamalesh@linux.vnet.ib=
-m.com> wrote:
->
-> I hit similar build failure due to the change in the netif_rx_reschedule()
->=20
-> drivers/net/ehea/ehea_main.c: In function 'ehea_poll':
-> drivers/net/ehea/ehea_main.c:844: warning: passing argument 1 of 'netif_r=
-x_reschedule' from incompatible pointer type
-> drivers/net/ehea/ehea_main.c:844: error: too many arguments to function '=
-netif_rx_reschedule'
-> make[3]: *** [drivers/net/ehea/ehea_main.o] Error 1
+Can you boot the kernel with "slub_debug slub_nomerge" passed as kernel
+parameters and try to reproduce the oops, please? Maybe we can get more
+information on the bug.
 
-Linus already took a patch for ibmveth and ehea.
+Alternatively, you can do a git bisect to pinpoint the broken patch
+between -rc9 and -final.
 
-> greping through the sources for the changes missed out, we have
->=20
-	.
-	.
->=20
-> Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-> --
->  drivers/net/arm/ep93xx_eth.c |    2 +-
->  drivers/net/arm/ixp4xx_eth.c |    2 +-
->  drivers/net/wan/ixp4xx_hss.c |    2 +-
->  3 files changed, 3 insertions(+), 3 deletions(-)
+		Pekka
 
-Thanks for the patch, I assume that Dave or Linus will take care of that.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAklYqWgACgkQjjKRsyhoI8yNdwCdFgntGytN5djrgItDgbErjx9S
-YuEAn0SWGpiEYM8A0yZA9FnEHJn6mWBd
-=B5Pg
------END PGP SIGNATURE-----
-
---Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm--
