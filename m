@@ -1,34 +1,65 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [PATCH 1/6] qlge: bugfix: Fix register access error checking.
-Date: Mon, 29 Dec 2008 14:49:18 -0800
-Message-ID: <20081229224918.GC16018@susedev.qlogic.org>
-References: <1229990258-14507-1-git-send-email-ron.mercer@qlogic.com> <20081226.012007.164611402.davem@davemloft.net>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [GIT]: Networking
+Date: Mon, 29 Dec 2008 15:15:37 -0800
+Message-ID: <9929d2390812291515y623d6a51yed1bef021ab6847e@mail.gmail.com>
+References: <20081228.000118.121541932.davem@davemloft.net>
+	<20081229102515.GA17171@rhlx01.hs-esslingen.de>
+	<20081229091728.d869f1c1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	Linux Driver <Linux-Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:58618 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753337AbYL2WtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 17:49:19 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bunk@kernel.org, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	auke-jan.h.kok@intel.com, Andreas Mohr <andi@lisas.de>,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: "Andrew Morton" <akpm@linux-foundation.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20081229091728.d869f1c1.akpm@linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20081226.012007.164611402.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 26, 2008 at 01:20:07AM -0800, David Miller wrote:
-> From: Ron Mercer <ron.mercer@qlogic.com>
-> Date: Mon, 22 Dec 2008 15:57:33 -0800
-> 
-> > diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-> > old mode 100644
-> > new mode 100755
-> 
-> Please resubmit this patch set without these file mode changes.
+On Mon, Dec 29, 2008 at 9:17 AM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
+> On Mon, 29 Dec 2008 11:25:15 +0100 Andreas Mohr <andi@lisas.de> wrote:
+>
+>> Hi,
+>>
+>> > Adrian Bunk (1):
+>> >
+>> >       The overdue eepro100 removal.
+>>
+>> That would be a rather pronounced NAK then? (sorry ;)
+>> (reason: rendering my web surfing box useless due to networking loss,
+>> see thread "[RFC/PATCH] e100 driver didn't support any MII-less PHYs...")
+>>
+>> AFAICS e100 is still "non-MII"-challenged (2.6.28 doesn't appear to have
+>> the necessary changes, and this pull doesn't seem to contain updates either),
+>> and a long chain of attempts to get this resolved hasn't worked yet.
+>
+> I didn't know about this, and that patch has been around for a
+> loooooooong time.  Please make more noise about these things.
+>
+>>
+>> Somehow I seem to hit some nice walls getting my stuff into kernel.
+>> - e100 MII
+>
+> What's that?  Does it make your web surfing work again?
 
-I will respin all the patches tomorrow as I am cleaning up one of them
-due to some useful feedback.
+He is referring to a patch to add support for devices which do not use
+the MII interface which use an Intel MAC.  I have the patch in my
+local tree and have been keeping it up-to-date.  I should have an
+update on this patch after the New Year.
 
+-- 
+Cheers,
+Jeff
+
+------------------------------------------------------------------------------
