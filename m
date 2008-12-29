@@ -1,40 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
-Date: Mon, 29 Dec 2008 22:49:07 +1100
-Message-ID: <20081229114907.GA10170@gondor.apana.org.au>
-References: <9929d2390812250225w19bcd2f7n11357ff26de78c52@mail.gmail.com> <20081225112658.GA7260@gondor.apana.org.au> <1230300535.9487.292.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B6648A@rrsmsx501.amr.corp.intel.com> <1230410308.9487.295.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B664A3@rrsmsx501.amr.corp.intel.com> <1230544927.16718.12.camel@twins> <20081229103154.GA9691@gondor.apana.org.au> <20081229103735.GA9763@gondor.apana.org.au> <20081229112858.GA16385@elte.hu>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] smsc911x: compile fix re netif_rx signature changes
+Date: Mon, 29 Dec 2008 14:57:06 +0300
+Message-ID: <20081229115706.GA21117@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Eric Dumazet <dada1@cosmosbay.com>
-To: Ingo Molnar <mingo@elte.hu>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59065 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751761AbYL2LtW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 06:49:22 -0500
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:45438 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753042AbYL2LwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 06:52:04 -0500
+Received: by ewy10 with SMTP id 10so4980465ewy.13
+        for <netdev@vger.kernel.org>; Mon, 29 Dec 2008 03:52:00 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20081229112858.GA16385@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 29, 2008 at 12:28:58PM +0100, Ingo Molnar wrote:
->
-> i got the splat further below with Peter's workaround applied.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-This looks like the issue that Peter's original patch (the one
-that differentiated between instances of percpu counters) fixed.
-Did you have both of his patches applied?
+ drivers/net/smsc911x.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1484,13 +1484,13 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
+ 	}
+ 
+ 	if (likely(intsts & inten & INT_STS_RSFL_)) {
+-		if (likely(netif_rx_schedule_prep(dev, &pdata->napi))) {
++		if (likely(netif_rx_schedule_prep(&pdata->napi))) {
+ 			/* Disable Rx interrupts */
+ 			temp = smsc911x_reg_read(pdata, INT_EN);
+ 			temp &= (~INT_EN_RSFL_EN_);
+ 			smsc911x_reg_write(pdata, INT_EN, temp);
+ 			/* Schedule a NAPI poll */
+-			__netif_rx_schedule(dev, &pdata->napi);
++			__netif_rx_schedule(&pdata->napi);
+ 		} else {
+ 			SMSC_WARNING(RX_ERR,
+ 				"netif_rx_schedule_prep failed");
