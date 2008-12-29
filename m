@@ -1,41 +1,72 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
-Date: Mon, 29 Dec 2008 21:37:35 +1100
-Message-ID: <20081229103735.GA9763@gondor.apana.org.au>
-References: <9929d2390812250225w19bcd2f7n11357ff26de78c52@mail.gmail.com> <20081225112658.GA7260@gondor.apana.org.au> <1230300535.9487.292.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B6648A@rrsmsx501.amr.corp.intel.com> <1230410308.9487.295.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B664A3@rrsmsx501.amr.corp.intel.com> <1230544927.16718.12.camel@twins> <20081229103154.GA9691@gondor.apana.org.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH] clean up of netif_rx_reschedule() changes in drivers
+Date: Mon, 29 Dec 2008 21:41:44 +1100
+Message-ID: <20081229214144.43be8c1d.sfr@canb.auug.org.au>
+References: <20081229110041.0eca977a.sfr@canb.auug.org.au>
+	<20081229102509.GA11111@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Ingo Molnar <mingo@elte.hu>, Eric Dumazet <dada1@cosmosbay.com>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55167 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752067AbYL2Kho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 05:37:44 -0500
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Linus <torvalds@linux-foundation.org>, netdev@vger.kernel.org,
+	ppc-dev <linuxppc-dev@ozlabs.org>
+To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20081229102509.GA11111@linux.vnet.ibm.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <20081229103154.GA9691@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, Dec 29, 2008 at 09:31:54PM +1100, Herbert Xu wrote:
+Hi Kamalesh,
+
+On Mon, 29 Dec 2008 15:55:29 +0530 Kamalesh Babulal <kamalesh@linux.vnet.ib=
+m.com> wrote:
 >
-> You also need to patch the other places where we use that percpu
-> counter from process context, e.g., for /proc/net/tcp.
+> I hit similar build failure due to the change in the netif_rx_reschedule()
+>=20
+> drivers/net/ehea/ehea_main.c: In function 'ehea_poll':
+> drivers/net/ehea/ehea_main.c:844: warning: passing argument 1 of 'netif_r=
+x_reschedule' from incompatible pointer type
+> drivers/net/ehea/ehea_main.c:844: error: too many arguments to function '=
+netif_rx_reschedule'
+> make[3]: *** [drivers/net/ehea/ehea_main.o] Error 1
 
-In fact, it looks like just about every spot in the original
-changeset (dd24c00191d5e4a1ae896aafe33c6b8095ab4bd1) may be run
-from process context.  So you might be better off making BH-disabling
-variants of the percpu counter ops.
+Linus already took a patch for ibmveth and ehea.
 
+> greping through the sources for the changes missed out, we have
+>=20
+	.
+	.
+>=20
+> Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+> --
+>  drivers/net/arm/ep93xx_eth.c |    2 +-
+>  drivers/net/arm/ixp4xx_eth.c |    2 +-
+>  drivers/net/wan/ixp4xx_hss.c |    2 +-
+>  3 files changed, 3 insertions(+), 3 deletions(-)
+
+Thanks for the patch, I assume that Dave or Linus will take care of that.
+--=20
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAklYqWgACgkQjjKRsyhoI8yNdwCdFgntGytN5djrgItDgbErjx9S
+YuEAn0SWGpiEYM8A0yZA9FnEHJn6mWBd
+=B5Pg
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__29_Dec_2008_21_41_44_+1100_Vy=lfNnRvOVlTdOm--
