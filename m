@@ -1,52 +1,83 @@
 From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH] smsc911x: compile fix re netif_rx signature changes
-Date: Mon, 29 Dec 2008 16:43:41 +0000
-Message-ID: <OF7ED135E6.60E49762-ON8025752E.005BAA36-8025752E.005BFFA9@smsc.com>
-References: <20081229115706.GA21117@x200.localdomain>
+Subject: Re: [RFC PATCH 2/2] refactor full duplex flow control resolution
+Date: Mon, 29 Dec 2008 17:12:51 +0000
+Message-ID: <OF7B34BB2C.B6A69F84-ON8025752E.005E7485-8025752E.005EAB70@smsc.com>
+References: <1230054335.3402.29.camel@deadeye.i.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: ian.saturley@smsc.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:3729 "EHLO smsc.com"
+Received: from mail.smsc.com ([170.129.50.11]:3407 "EHLO smsc.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751591AbYL2QpL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Dec 2008 11:45:11 -0500
-In-Reply-To: <20081229115706.GA21117@x200.localdomain>
+	id S1751801AbYL2ROO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Dec 2008 12:14:14 -0500
+In-Reply-To: <1230054335.3402.29.camel@deadeye.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Alexey.
+Thanks Ben, this looks good.
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Do you want to submit a patch for this or should I?
 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ---
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
+
+
+
+Ben Hutchings <bhutchings@solarflare.com> wrote on 23/12/2008 17:45:35:
+
+> On Sun, 2008-12-14 at 12:38 +0000, Steve Glendinning wrote:
+> [...]
+> > +/**
+> > + * mii_resolve_flowctrl_fdx
+> > + * @lcladv: value of MII ADVERTISE register
+> > + * @rmtadv: value of MII LPA register
+> > + *
+> > + * Resolve full duplex flow control as per IEEE 802.3-2005 table 
+28B-3
+> > + */
+> > +static inline u8 mii_resolve_flowctrl_fdx(u16 lcladv, u16 rmtadv)
+> > +{
+> > +   u8 cap = 0;
+> > +
+> > +   if (lcladv & ADVERTISE_PAUSE_CAP) {
+> > +      if (lcladv & ADVERTISE_PAUSE_ASYM) {
+> > +         if (rmtadv & LPA_PAUSE_CAP)
+> > +            cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
+> > +         else if (rmtadv & LPA_PAUSE_ASYM)
+> > +            cap = FLOW_CTRL_RX;
+> > +      } else {
+> > +         if (rmtadv & LPA_PAUSE_CAP)
+> > +            cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
+> > +      }
+> > +   } else if (lcladv & ADVERTISE_PAUSE_ASYM) {
+> > +      if ((rmtadv & LPA_PAUSE_CAP) && (rmtadv & LPA_PAUSE_ASYM))
+> > +         cap = FLOW_CTRL_TX;
+> > +   }
+> > +
+> > +   return cap;
+> > +}
 > 
->  drivers/net/smsc911x.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+> There's a rather more elegant way to write this, which is:
 > 
-> --- a/drivers/net/smsc911x.c
-> +++ b/drivers/net/smsc911x.c
-> @@ -1484,13 +1484,13 @@ static irqreturn_t smsc911x_irqhandler(int 
-> irq, void *dev_id)
->     }
+>    if (lcladv & rmtadv & ADVERTISE_PAUSE_CAP) {
+>       cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
+>    } else if (lcladv & rmtadv & ADVERTISE_PAUSE_ASYM) {
+>       if (lcladv & ADVERTISE_PAUSE_CAP)
+>          cap = FLOW_CTRL_RX;
+>       else if (rmtadv & ADVERTISE_PAUSE_CAP)
+>          cap = FLOW_CTRL_TX;
+>    }
 > 
->     if (likely(intsts & inten & INT_STS_RSFL_)) {
-> -      if (likely(netif_rx_schedule_prep(dev, &pdata->napi))) {
-> +      if (likely(netif_rx_schedule_prep(&pdata->napi))) {
->           /* Disable Rx interrupts */
->           temp = smsc911x_reg_read(pdata, INT_EN);
->           temp &= (~INT_EN_RSFL_EN_);
->           smsc911x_reg_write(pdata, INT_EN, temp);
->           /* Schedule a NAPI poll */
-> -         __netif_rx_schedule(dev, &pdata->napi);
-> +         __netif_rx_schedule(&pdata->napi);
->        } else {
->           SMSC_WARNING(RX_ERR,
->              "netif_rx_schedule_prep failed");
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
 
