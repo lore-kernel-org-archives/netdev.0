@@ -1,40 +1,46 @@
-From: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
-Subject: [PATCH] tun: Fix SIOCSIFHWADDR error.
-Date: Tue, 30 Dec 2008 05:03:12 +0900
-Message-ID: <200812292003127246950006MAD1@nm06mta.auone-net.jp>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [IPSEC]: Change the ICV length of sha256 to 128 bits
+Date: Tue, 30 Dec 2008 07:47:50 +1100
+Message-ID: <20081229204750.GA13680@gondor.apana.org.au>
+References: <20081224060225.GA26084@obsidianresearch.com> <20081224085940.GA24830@gondor.apana.org.au> <20081224183355.GB26084@obsidianresearch.com> <1230555919.6644.36.camel@martin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Martin Willi <martin@strongswan.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm06omta12.auone-net.jp ([219.125.112.29]:4480 "HELO
-	nmomta.auone-net.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752698AbYL2USR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 15:18:17 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:56659 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751713AbYL2UsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 15:48:01 -0500
 Content-Disposition: inline
+In-Reply-To: <1230555919.6644.36.camel@martin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set proper operations.
+On Mon, Dec 29, 2008 at 02:05:19PM +0100, Martin Willi wrote:
+>
+> =EF=BB=BFIn PF_KEY, SADB_X_AALG_SHA2_256HMAC (5) was defined in
+> draft-ietf-ipsec-ciph-sha-256-00 to 96 bit truncation (what is curren=
+tly
+> implemented). draft-ietf-ipsec-ciph-sha-256-01 defined it to 128 bit
+> truncation (what is now RFC 4868).
+> Those numbers starting from 12 are IKEv2 algorithm identifiers and ar=
+e
+> never passed to the kernel.
 
-Signed-off-by: Kusanagi Kouichi <slash@ma.neweb.ne.jp>
----
- drivers/net/tun.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+What are you talking about? Neither of those two drafts talks
+about the ID used between the KM and the kernel.  So the PF_KEY
+ID is simply irrelevant.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 666c1d9..69f9a0e 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -343,7 +343,7 @@ static void tun_net_init(struct net_device *dev)
- 		break;
- 
- 	case TUN_TAP_DEV:
--		dev->netdev_ops = &tun_netdev_ops;
-+		dev->netdev_ops = &tap_netdev_ops;
- 		/* Ethernet TAP Device */
- 		ether_setup(dev);
- 
--- 
-1.5.6.5
+What is important though is what's deployed in the field with
+respect to IKE.  All the BSDs support 96-bit truncation so we
+should continue to do that as well.
 
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
