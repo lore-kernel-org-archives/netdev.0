@@ -1,63 +1,53 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: origin tree build failure
-Date: Mon, 29 Dec 2008 11:00:41 +1100
-Message-ID: <20081229110041.0eca977a.sfr@canb.auug.org.au>
+Subject: linux-next: origin tree build warnings
+Date: Mon, 29 Dec 2008 11:35:25 +1100
+Message-ID: <20081229113525.89450db7.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7"
 Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Linus <torvalds@linux-foundation.org>, netdev@vger.kernel.org,
-	ppc-dev <linuxppc-dev@ozlabs.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave, Neil,
+--Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Today's linux-next build (powerpc ppc64_defconfig) failed like this:
+Hi Neil,
 
-drivers/net/ibmveth.c: In function 'ibmveth_poll':
-drivers/net/ibmveth.c:1034: warning: passing argument 1 of 'netif_rx_reschedule' from incompatible pointer type
-drivers/net/ibmveth.c:1034: error: too many arguments to function 'netif_rx_reschedule'
+Today's linux-next build (powerpc ppc64_defconfig) produced these new
+warnings:
 
-Another miss in commit 908a7a16b852ffd618a9127be8d62432182d81b4 ("net: Remove
-unused netdev arg from some NAPI interfaces").
+drivers/net/pasemi_mac.c: In function 'pasemi_mac_rx_intr':
+drivers/net/pasemi_mac.c:957: warning: unused variable 'dev'
+drivers/net/pasemi_mac.c: In function 'pasemi_mac_poll':
+drivers/net/pasemi_mac.c:1637: warning: unused variable 'dev'
+drivers/net/spider_net.c: In function 'spider_net_poll':
+drivers/net/spider_net.c:1280: warning: unused variable 'netdev'
 
-I have added the following patch for today.
+Probably caused by commit 908a7a16b852ffd618a9127be8d62432182d81b4 ("net:
+Remove unused netdev arg from some NAPI interfaces").
 
-(I wonder how many more there will be? :-()
-
--- 
+Please fix these up.
+--=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 http://www.canb.auug.org.au/~sfr/
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 29 Dec 2008 10:56:00 +1100
-Subject: [PATCH] net: ibmveth NAPI interface cleanup fix
+--Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7
+Content-Type: application/pgp-signature
 
-Commit 908a7a16b852ffd618a9127be8d62432182d81b4 ("net: Remove unused
-netdev arg from some NAPI interfaces") missed one spot.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/ibmveth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+iEYEARECAAYFAklYG00ACgkQjjKRsyhoI8yvTQCfXkccGACpqZBgDNgq1nynu8O3
+7ckAnjSCx7ansntuMEzxqXkOf4wnpJRP
+=d48q
+-----END PGP SIGNATURE-----
 
-diff --git a/drivers/net/ibmveth.c b/drivers/net/ibmveth.c
-index 1f055a9..9bc0f17 100644
---- a/drivers/net/ibmveth.c
-+++ b/drivers/net/ibmveth.c
-@@ -1031,7 +1031,7 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
- 		netif_rx_complete(napi);
- 
- 		if (ibmveth_rxq_pending_buffer(adapter) &&
--		    netif_rx_reschedule(netdev, napi)) {
-+		    netif_rx_reschedule(napi)) {
- 			lpar_rc = h_vio_signal(adapter->vdev->unit_address,
- 					       VIO_IRQ_DISABLE);
- 			goto restart_poll;
--- 
-1.6.0.5
+--Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7--
