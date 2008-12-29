@@ -1,364 +1,138 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [UNTESTED] gro: Add page frag support
-Date: Mon, 29 Dec 2008 23:24:46 +1100
-Message-ID: <20081229122445.GA11161@gondor.apana.org.au>
-References: <20081226225157.GA22866@gondor.apana.org.au>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: unsafe locks seen with netperf on net-2.6.29 tree
+Date: Mon, 29 Dec 2008 13:38:19 +0100
+Message-ID: <20081229123819.GA18321@elte.hu>
+References: <1230410308.9487.295.camel@twins> <EA929A9653AAE14F841771FB1DE5A1365F56B664A3@rrsmsx501.amr.corp.intel.com> <1230544927.16718.12.camel@twins> <20081229103154.GA9691@gondor.apana.org.au> <20081229103735.GA9763@gondor.apana.org.au> <20081229112858.GA16385@elte.hu> <20081229114907.GA10170@gondor.apana.org.au> <20081229115827.GA441@elte.hu> <20081229120132.GA10363@gondor.apana.org.au> <20081229121626.GF9628@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40799 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752750AbYL2MYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 07:24:49 -0500
-Received: from gondolin.me.apana.org.au ([192.168.0.6])
-	by arnor.apana.org.au with esmtp (Exim 4.63 #1 (Debian))
-	id 1LHHAt-0005hy-57
-	for <netdev@vger.kernel.org>; Mon, 29 Dec 2008 23:24:47 +1100
-Received: from herbert by gondolin.me.apana.org.au with local (Exim 4.69)
-	(envelope-from <herbert@gondor.apana.org.au>)
-	id 1LHHAs-0002uU-D9
-	for netdev@vger.kernel.org; Mon, 29 Dec 2008 23:24:46 +1100
+Received: from mx3.mail.elte.hu ([157.181.1.138]:57835 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750710AbYL2Mif (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Dec 2008 07:38:35 -0500
 Content-Disposition: inline
-In-Reply-To: <20081226225157.GA22866@gondor.apana.org.au>
+In-Reply-To: <20081229121626.GF9628@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 27, 2008 at 09:51:57AM +1100, Herbert Xu wrote:
+
+* Ingo Molnar <mingo@elte.hu> wrote:
+
 > 
-> This patch is totally untested so please don't apply it.  I need
-> to hack the e1000e driver to not make skbs before I can test it.
+> * Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > On Mon, Dec 29, 2008 at 12:58:27PM +0100, Ingo Molnar wrote:
+> > >
+> > > no, i only applied one of them. Is his second patch a good solution in 
+> > > your opinion, and should i thus test both of them? (or will the second one 
+> > > iterate some more - in which case i will keep the revert for now)
+> > 
+> > Well the second patch is definitely the right solution to the problem 
+> > as reported.  It just needs to be extended to fix other similar bugs 
+> > introduced by the original changeset.
+> 
+> okay - will keep the revert for now and will wait for you guys to do the 
+> full fix.
 
-OK I've tested it with a hacked e1000e driver, which indeed revealed
-a gaping hole in my design :) The pages interface needs to have some
-extra fields for the checksum information.
+hm, even with the revert i got the splat below. So some other commits are 
+causing this too?
 
-Here's a patch that actually works.
+	Ingo
 
-    gro: Use gso_size to store MSS
-    
-    In order to allow GRO packets without frag_list at all, we need to
-    store the MSS in the packet itself.  The obvious place is gso_size.
-    The only thing to watch out for is if the packet ends up not being
-    GRO then we need to clear gso_size before pushing the packet into
-    the stack.
+=================================
+[ INFO: inconsistent lock state ]
+2.6.28-tip-03883-gf855e6c-dirty #13150
+---------------------------------
+inconsistent {softirq-on-W} -> {in-softirq-W} usage.
+kjournald/1435 [HC0[0]:SC1[1]:HE1:SE0] takes:
+ (&fbc->lock){-+..}, at: [<c034fc75>] __percpu_counter_add+0x65/0xb0
+{softirq-on-W} state was registered at:
+  [<c015da56>] __lock_acquire+0x4c6/0xae0
+  [<c015e0f9>] lock_acquire+0x89/0xc0
+  [<c07247a8>] _spin_lock+0x38/0x50
+  [<c034fc75>] __percpu_counter_add+0x65/0xb0
+  [<c01b704a>] get_empty_filp+0x6a/0x1d0
+  [<c01c10a9>] path_lookup_open+0x29/0x90
+  [<c01c134e>] do_filp_open+0x9e/0x790
+  [<c01b3e60>] do_sys_open+0x50/0xe0
+  [<c01b3f5e>] sys_open+0x2e/0x40
+  [<c0103e76>] syscall_call+0x7/0xb
+  [<ffffffff>] 0xffffffff
+irq event stamp: 125790
+hardirqs last  enabled at (125790): [<c0191c56>] free_hot_cold_page+0x1b6/0x280
+hardirqs last disabled at (125789): [<c0191bae>] free_hot_cold_page+0x10e/0x280
+softirqs last  enabled at (123900): [<c013ca12>] __do_softirq+0x132/0x180
+softirqs last disabled at (125765): [<c010621a>] call_on_stack+0x1a/0x30
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4464240..67a6ff4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2365,6 +2365,7 @@ static int napi_gro_complete(struct sk_buff *skb)
- 	}
- 
- out:
-+	skb_shinfo(skb)->gso_size = 0;
- 	__skb_push(skb, -skb_network_offset(skb));
- 	return netif_receive_skb(skb);
- }
-@@ -2446,6 +2447,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 	}
- 
- 	NAPI_GRO_CB(skb)->count = 1;
-+	skb_shinfo(skb)->gso_size = skb->len;
- 	skb->next = napi->gro_list;
- 	napi->gro_list = skb;
- 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b8d0abb..3aafb10 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2613,6 +2613,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 
- 	*NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
- 	skb_shinfo(nskb)->frag_list = p;
-+	skb_shinfo(nskb)->gso_size = skb_shinfo(p)->gso_size;
- 	skb_header_release(p);
- 	nskb->prev = p;
- 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1f3d529..218a6e5 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2518,9 +2518,7 @@ found:
- 	flush |= memcmp(th + 1, th2 + 1, thlen - sizeof(*th));
- 
- 	total = p->len;
--	mss = total;
--	if (skb_shinfo(p)->frag_list)
--		mss = skb_shinfo(p)->frag_list->len;
-+	mss = skb_shinfo(p)->gso_size;
- 
- 	flush |= skb->len > mss || skb->len <= 0;
- 	flush |= ntohl(th2->seq) + total != ntohl(th->seq);
-@@ -2556,7 +2554,6 @@ int tcp_gro_complete(struct sk_buff *skb)
- 	skb->csum_offset = offsetof(struct tcphdr, check);
- 	skb->ip_summed = CHECKSUM_PARTIAL;
- 
--	skb_shinfo(skb)->gso_size = skb_shinfo(skb)->frag_list->len;
- 	skb_shinfo(skb)->gso_segs = NAPI_GRO_CB(skb)->count;
- 
- 	if (th->cwr)
+other info that might help us debug this:
+4 locks held by kjournald/1435:
+ #0:  (rcu_read_lock){..--}, at: [<c05bef70>] net_rx_action+0xd0/0x220
+ #1:  (rcu_read_lock){..--}, at: [<c05bbfb1>] netif_receive_skb+0x101/0x3a0
+ #2:  (rcu_read_lock){..--}, at: [<c05f1bf5>] ip_local_deliver+0x55/0x1d0
+ #3:  (slock-AF_INET/1){-+..}, at: [<c060ec3a>] tcp_v4_rcv+0x55a/0x6e0
 
-And the real thing.
+stack backtrace:
+Pid: 1435, comm: kjournald Not tainted 2.6.28-tip-03883-gf855e6c-dirty #13150
+Call Trace:
+ [<c015a0d6>] print_usage_bug+0x176/0x1d0
+ [<c015b800>] mark_lock+0xbd0/0xd80
+ [<c015da13>] __lock_acquire+0x483/0xae0
+ [<c015bcdb>] ? trace_hardirqs_on+0xb/0x10
+ [<c015e0f9>] lock_acquire+0x89/0xc0
+ [<c034fc75>] ? __percpu_counter_add+0x65/0xb0
+ [<c07247a8>] _spin_lock+0x38/0x50
+ [<c034fc75>] ? __percpu_counter_add+0x65/0xb0
+ [<c034fc75>] __percpu_counter_add+0x65/0xb0
+ [<c060dc49>] tcp_v4_destroy_sock+0x1d9/0x240
+ [<c05fa06a>] inet_csk_destroy_sock+0x4a/0x140
+ [<c05fa675>] ? inet_csk_clear_xmit_timers+0x45/0x50
+ [<c05fb96d>] tcp_done+0x4d/0x70
+ [<c060655c>] tcp_rcv_state_process+0x68c/0x950
+ [<c060c9b6>] tcp_v4_do_rcv+0xd6/0x310
+ [<c072475d>] ? _spin_lock_nested+0x3d/0x50
+ [<c060ecc4>] tcp_v4_rcv+0x5e4/0x6e0
+ [<c05f1bf5>] ? ip_local_deliver+0x55/0x1d0
+ [<c05f1c44>] ip_local_deliver+0xa4/0x1d0
+ [<c05f1bf5>] ? ip_local_deliver+0x55/0x1d0
+ [<c05f201a>] ip_rcv+0x2aa/0x510
+ [<c05bbfb1>] ? netif_receive_skb+0x101/0x3a0
+ [<c05f1d70>] ? ip_rcv+0x0/0x510
+ [<c05bc199>] netif_receive_skb+0x2e9/0x3a0
+ [<c05bbfb1>] ? netif_receive_skb+0x101/0x3a0
+ [<c015d8f1>] ? __lock_acquire+0x361/0xae0
+ [<c05bc541>] napi_gro_receive+0x1c1/0x200
+ [<c015b9e0>] ? mark_held_locks+0x30/0x80
+ [<c05bf1bb>] ? process_backlog+0x7b/0xd0
+ [<c05bf1d2>] process_backlog+0x92/0xd0
+ [<c05beff4>] net_rx_action+0x154/0x220
+ [<c05bef70>] ? net_rx_action+0xd0/0x220
+ [<c013c989>] __do_softirq+0xa9/0x180
+ [<c013c8e0>] ? __do_softirq+0x0/0x180
+ <IRQ>  [<c013c8cd>] ? irq_exit+0x4d/0x60
+ [<c01064ca>] ? do_IRQ+0x8a/0xe0
+ [<c01b086f>] ? check_object+0xef/0x1f0
+ [<c01044ac>] ? common_interrupt+0x2c/0x34
+ [<c01b27d2>] ? kmem_cache_free+0xc2/0xf0
+ [<c0234b65>] ? journal_write_revoke_records+0xa5/0x140
+ [<c0234b65>] ? journal_write_revoke_records+0xa5/0x140
+ [<c0234b65>] ? journal_write_revoke_records+0xa5/0x140
+ [<c023276d>] ? journal_commit_transaction+0x42d/0xe80
+ [<c015bc6e>] ? trace_hardirqs_on_caller+0x17e/0x1e0
+ [<c015bcdb>] ? trace_hardirqs_on+0xb/0x10
+ [<c014101e>] ? try_to_del_timer_sync+0x4e/0x60
+ [<c023608b>] ? kjournald+0xbb/0x1d0
+ [<c014b8e0>] ? autoremove_wake_function+0x0/0x40
+ [<c0235fd0>] ? kjournald+0x0/0x1d0
+ [<c014b5d7>] ? kthread+0x47/0x80
+ [<c014b590>] ? kthread+0x0/0x80
+ [<c010472f>] ? kernel_thread_helper+0x7/0x10
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 41e1224..c28bbba 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -313,10 +313,11 @@ struct napi_struct {
- #ifdef CONFIG_NETPOLL
- 	spinlock_t		poll_lock;
- 	int			poll_owner;
--	struct net_device	*dev;
- #endif
-+	struct net_device	*dev;
- 	struct list_head	dev_list;
- 	struct sk_buff		*gro_list;
-+	struct sk_buff		*skb;
- };
- 
- enum
-@@ -990,6 +991,9 @@ struct napi_gro_cb {
- 
- 	/* Number of segments aggregated. */
- 	int count;
-+
-+	/* Free the skb? */
-+	int free;
- };
- 
- #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
-@@ -1011,6 +1015,14 @@ struct packet_type {
- 	struct list_head	list;
- };
- 
-+struct napi_gro_fraginfo {
-+	skb_frag_t frags[MAX_SKB_FRAGS];
-+	unsigned int nr_frags;
-+	unsigned int ip_summed;
-+	unsigned int len;
-+	__wsum csum;
-+};
-+
- #include <linux/interrupt.h>
- #include <linux/notifier.h>
- 
-@@ -1363,6 +1375,8 @@ extern int		netif_receive_skb(struct sk_buff *skb);
- extern void		napi_gro_flush(struct napi_struct *napi);
- extern int		napi_gro_receive(struct napi_struct *napi,
- 					 struct sk_buff *skb);
-+extern int		napi_gro_frags(struct napi_struct *napi,
-+				       struct napi_gro_fraginfo *info);
- extern void		netif_nit_deliver(struct sk_buff *skb);
- extern int		dev_valid_name(const char *name);
- extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 67a6ff4..c392bed 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -132,6 +132,9 @@
- /* Instead of increasing this, you should create a hash table. */
- #define MAX_GRO_SKBS 8
- 
-+/* This should be increased if a protocol with a bigger head is added. */
-+#define GRO_MAX_HEAD (MAX_HEADER + 128)
-+
- /*
-  *	The list of packet types we will receive (as opposed to discard)
-  *	and the routines to invoke.
-@@ -2345,7 +2348,7 @@ static int napi_gro_complete(struct sk_buff *skb)
- 	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
- 	int err = -ENOENT;
- 
--	if (!skb_shinfo(skb)->frag_list)
-+	if (NAPI_GRO_CB(skb)->count == 1)
- 		goto out;
- 
- 	rcu_read_lock();
-@@ -2384,7 +2387,7 @@ void napi_gro_flush(struct napi_struct *napi)
- }
- EXPORT_SYMBOL(napi_gro_flush);
- 
--int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
-+static int __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	struct sk_buff **pp = NULL;
- 	struct packet_type *ptype;
-@@ -2393,6 +2396,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 	int count = 0;
- 	int same_flow;
- 	int mac_len;
-+	int free;
- 
- 	if (!(skb->dev->features & NETIF_F_GRO))
- 		goto normal;
-@@ -2409,6 +2413,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 		skb->mac_len = mac_len;
- 		NAPI_GRO_CB(skb)->same_flow = 0;
- 		NAPI_GRO_CB(skb)->flush = 0;
-+		NAPI_GRO_CB(skb)->free = 0;
- 
- 		for (p = napi->gro_list; p; p = p->next) {
- 			count++;
-@@ -2428,6 +2433,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 		goto normal;
- 
- 	same_flow = NAPI_GRO_CB(skb)->same_flow;
-+	free = NAPI_GRO_CB(skb)->free;
- 
- 	if (pp) {
- 		struct sk_buff *nskb = *pp;
-@@ -2452,13 +2458,86 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 	napi->gro_list = skb;
- 
- ok:
--	return NET_RX_SUCCESS;
-+	return free;
- 
- normal:
--	return netif_receive_skb(skb);
-+	return -1;
-+}
-+
-+int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
-+{
-+
-+	switch (__napi_gro_receive(napi, skb)) {
-+	case -1:
-+		return netif_receive_skb(skb);
-+
-+	case 1:
-+		kfree_skb(skb);
-+	}
-+
-+	return  NET_RX_SUCCESS;
- }
- EXPORT_SYMBOL(napi_gro_receive);
- 
-+int napi_gro_frags(struct napi_struct *napi, struct napi_gro_fraginfo *info)
-+{
-+	struct net_device *dev = napi->dev;
-+	struct sk_buff *skb = napi->skb;
-+	int err = NET_RX_DROP;
-+
-+	napi->skb = NULL;
-+
-+	if (!skb) {
-+		skb = netdev_alloc_skb(dev, GRO_MAX_HEAD + NET_IP_ALIGN);
-+		if (!skb)
-+			goto out;
-+
-+		skb_reserve(skb, NET_IP_ALIGN);
-+	}
-+
-+	BUG_ON(info->nr_frags > MAX_SKB_FRAGS);
-+	skb_shinfo(skb)->nr_frags = info->nr_frags;
-+	memcpy(skb_shinfo(skb)->frags, info->frags, sizeof(info->frags));
-+
-+	skb->data_len = info->len;
-+	skb->len += info->len;
-+	skb->truesize += info->len;
-+
-+	if (!pskb_may_pull(skb, ETH_HLEN))
-+		goto reuse;
-+
-+	err = NET_RX_SUCCESS;
-+
-+	skb->protocol = eth_type_trans(skb, dev);
-+
-+	skb->ip_summed = info->ip_summed;
-+	skb->csum = info->csum;
-+
-+	switch (__napi_gro_receive(napi, skb)) {
-+	case -1:
-+		return netif_receive_skb(skb);
-+
-+	case 0:
-+		goto out;
-+	}
-+
-+reuse:
-+	skb_shinfo(skb)->nr_frags = 0;
-+
-+	skb->len -= skb->data_len;
-+	skb->truesize -= skb->data_len;
-+	skb->data_len = 0;
-+
-+	__skb_pull(skb, skb_headlen(skb));
-+	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
-+
-+	napi->skb = skb;
-+
-+out:
-+	return err;
-+}
-+EXPORT_SYMBOL(napi_gro_frags);
-+
- static int process_backlog(struct napi_struct *napi, int quota)
- {
- 	int work = 0;
-@@ -2537,11 +2616,12 @@ void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
- {
- 	INIT_LIST_HEAD(&napi->poll_list);
- 	napi->gro_list = NULL;
-+	napi->skb = NULL;
- 	napi->poll = poll;
- 	napi->weight = weight;
- 	list_add(&napi->dev_list, &dev->napi_list);
--#ifdef CONFIG_NETPOLL
- 	napi->dev = dev;
-+#ifdef CONFIG_NETPOLL
- 	spin_lock_init(&napi->poll_lock);
- 	napi->poll_owner = -1;
- #endif
-@@ -2554,6 +2634,7 @@ void netif_napi_del(struct napi_struct *napi)
- 	struct sk_buff *skb, *next;
- 
- 	list_del_init(&napi->dev_list);
-+	kfree(napi->skb);
- 
- 	for (skb = napi->gro_list; skb; skb = next) {
- 		next = skb->next;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3aafb10..5110b35 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2594,6 +2594,17 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 
- 	if (skb_shinfo(p)->frag_list)
- 		goto merge;
-+	else if (!skb_headlen(p) && !skb_headlen(skb) &&
-+		 skb_shinfo(p)->nr_frags + skb_shinfo(skb)->nr_frags <
-+		 MAX_SKB_FRAGS) {
-+		memcpy(skb_shinfo(p)->frags + skb_shinfo(p)->nr_frags,
-+		       skb_shinfo(skb)->frags,
-+		       skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
-+
-+		skb_shinfo(p)->nr_frags += skb_shinfo(skb)->nr_frags;
-+		NAPI_GRO_CB(skb)->free = 1;
-+		goto done;
-+	}
- 
- 	headroom = skb_headroom(p);
- 	nskb = netdev_alloc_skb(p->dev, headroom);
-@@ -2628,11 +2639,12 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	p = nskb;
- 
- merge:
--	NAPI_GRO_CB(p)->count++;
- 	p->prev->next = skb;
- 	p->prev = skb;
- 	skb_header_release(skb);
- 
-+done:
-+	NAPI_GRO_CB(p)->count++;
- 	p->data_len += skb->len;
- 	p->truesize += skb->len;
- 	p->len += skb->len;
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
