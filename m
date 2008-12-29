@@ -1,83 +1,71 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [RFC PATCH 2/2] refactor full duplex flow control resolution
-Date: Mon, 29 Dec 2008 17:12:51 +0000
-Message-ID: <OF7B34BB2C.B6A69F84-ON8025752E.005E7485-8025752E.005EAB70@smsc.com>
-References: <1230054335.3402.29.camel@deadeye.i.decadent.org.uk>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Mon, 29 Dec 2008 09:17:28 -0800
+Message-ID: <20081229091728.d869f1c1.akpm@linux-foundation.org>
+References: <20081228.000118.121541932.davem@davemloft.net>
+	<20081229102515.GA17171@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: ian.saturley@smsc.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:3407 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751801AbYL2ROO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Dec 2008 12:14:14 -0500
-In-Reply-To: <1230054335.3402.29.camel@deadeye.i.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bunk@kernel.org, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	auke-jan.h.kok@intel.com, linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, torvalds@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Andreas Mohr <andi@lisas.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20081229102515.GA17171@rhlx01.hs-esslingen.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Thanks Ben, this looks good.
+On Mon, 29 Dec 2008 11:25:15 +0100 Andreas Mohr <andi@lisas.de> wrote:
 
-Do you want to submit a patch for this or should I?
-
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
-
-
-
-Ben Hutchings <bhutchings@solarflare.com> wrote on 23/12/2008 17:45:35:
-
-> On Sun, 2008-12-14 at 12:38 +0000, Steve Glendinning wrote:
-> [...]
-> > +/**
-> > + * mii_resolve_flowctrl_fdx
-> > + * @lcladv: value of MII ADVERTISE register
-> > + * @rmtadv: value of MII LPA register
-> > + *
-> > + * Resolve full duplex flow control as per IEEE 802.3-2005 table 
-28B-3
-> > + */
-> > +static inline u8 mii_resolve_flowctrl_fdx(u16 lcladv, u16 rmtadv)
-> > +{
-> > +   u8 cap = 0;
-> > +
-> > +   if (lcladv & ADVERTISE_PAUSE_CAP) {
-> > +      if (lcladv & ADVERTISE_PAUSE_ASYM) {
-> > +         if (rmtadv & LPA_PAUSE_CAP)
-> > +            cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
-> > +         else if (rmtadv & LPA_PAUSE_ASYM)
-> > +            cap = FLOW_CTRL_RX;
-> > +      } else {
-> > +         if (rmtadv & LPA_PAUSE_CAP)
-> > +            cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
-> > +      }
-> > +   } else if (lcladv & ADVERTISE_PAUSE_ASYM) {
-> > +      if ((rmtadv & LPA_PAUSE_CAP) && (rmtadv & LPA_PAUSE_ASYM))
-> > +         cap = FLOW_CTRL_TX;
-> > +   }
-> > +
-> > +   return cap;
-> > +}
+> Hi,
 > 
-> There's a rather more elegant way to write this, which is:
+> > Adrian Bunk (1):
+> > 
+> >       The overdue eepro100 removal.
 > 
->    if (lcladv & rmtadv & ADVERTISE_PAUSE_CAP) {
->       cap = FLOW_CTRL_TX | FLOW_CTRL_RX;
->    } else if (lcladv & rmtadv & ADVERTISE_PAUSE_ASYM) {
->       if (lcladv & ADVERTISE_PAUSE_CAP)
->          cap = FLOW_CTRL_RX;
->       else if (rmtadv & ADVERTISE_PAUSE_CAP)
->          cap = FLOW_CTRL_TX;
->    }
+> That would be a rather pronounced NAK then? (sorry ;)
+> (reason: rendering my web surfing box useless due to networking loss,
+> see thread "[RFC/PATCH] e100 driver didn't support any MII-less PHYs...")
 > 
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+> AFAICS e100 is still "non-MII"-challenged (2.6.28 doesn't appear to have
+> the necessary changes, and this pull doesn't seem to contain updates either),
+> and a long chain of attempts to get this resolved hasn't worked yet.
 
+I didn't know about this, and that patch has been around for a
+loooooooong time.  Please make more noise about these things.
+
+>
+> Somehow I seem to hit some nice walls getting my stuff into kernel.
+> - e100 MII
+
+What's that?  Does it make your web surfing work again?
+
+> - i810 AGP resume fix
+
+Whats that?
+
+> - acx100 (ok, that one is a bit mean to add to this list ;)
+
+What's that?
+
+Just resend everything, please, fulyl changelogged, with all necessary
+cc's.
+
+> - ...
+> ALSA patches handled by Takashi OTOH were almost always a
+> "bammm, in it is, there you are, HAND".
+
+Fell free to cc me on these things - especially bugfixes.  I help
+prevent things from getting lost.
+
+
+------------------------------------------------------------------------------
