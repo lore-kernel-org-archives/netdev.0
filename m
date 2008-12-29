@@ -1,123 +1,193 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch] locking, percpu counters: introduce separate lock
-	classes
-Date: Mon, 29 Dec 2008 15:14:17 +0100
-Message-ID: <20081229141417.GA1493@elte.hu>
-References: <1230544927.16718.12.camel@twins> <20081229103154.GA9691@gondor.apana.org.au> <20081229103735.GA9763@gondor.apana.org.au> <20081229112858.GA16385@elte.hu> <20081229114907.GA10170@gondor.apana.org.au> <20081229115827.GA441@elte.hu> <20081229120132.GA10363@gondor.apana.org.au> <20081229121626.GF9628@elte.hu> <20081229123819.GA18321@elte.hu> <20081229124444.GA20306@elte.hu>
+From: "Hannes Eder" <hannes@hanneseder.net>
+Subject: Re: [PATCH 02/27] drivers/net: fix sparse warnings: make do-while a compound statement
+Date: Mon, 29 Dec 2008 15:35:31 +0100
+Message-ID: <154e089b0812290635o5792af25jd26fa184a02dc7af@mail.gmail.com>
+References: <20081222191259.11807.53190.stgit@vmbox.hanneseder.net>
+	 <20081222191507.11807.50794.stgit@vmbox.hanneseder.net>
+	 <m3hc4voo2a.fsf@maximus.localdomain>
+	 <a01a16b50812221544x45c3559ap808ac0095ee8f01@mail.gmail.com>
+	 <m3ocz2ua3w.fsf@maximus.localdomain> <1230053186.1447.9.camel@brick>
+	 <m3k59qssix.fsf@maximus.localdomain>
+	 <alpine.LFD.2.00.0812231008350.3535@localhost.localdomain>
+	 <m3hc4usco9.fsf@maximus.localdomain>
+	 <alpine.LFD.2.00.0812231529030.3535@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Eric Dumazet <dada1@cosmosbay.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Krzysztof Halasa" <khc@pm.waw.pl>,
+	"Harvey Harrison" <harvey.harrison@gmail.com>,
+	"=?ISO-8859-1?Q?H=E5kon_L=F8vdal?=" <hlovdal@gmail.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:41098 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753699AbYL2OOk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Dec 2008 09:14:40 -0500
+Received: from fg-out-1718.google.com ([72.14.220.159]:3073 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750811AbYL2Ofe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 09:35:34 -0500
+In-Reply-To: <alpine.LFD.2.00.0812231529030.3535@localhost.localdomain>
 Content-Disposition: inline
-In-Reply-To: <20081229124444.GA20306@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Dec 24, 2008 at 12:38 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+>
+> On Wed, 24 Dec 2008, Krzysztof Halasa wrote:
+>>
+>> So is a case like
+>>       do
+>>               x;
+>>       while (y);
+>> It can't be made more clear with brackets.
+>
+> Oh yes it can. People look at that, and it's so uncommon that they
+> literally believe it is a mis-indent.
+>
+> [snip]
+>
+>> kmalloc(sizeof i) just doesn't look good, the operator looks like
+>> a variable name.
+>
+> And I agree with you. "sizeof i" doesn't look good. It's uncommon, and
+> doesn't match peoples expectations.
+>
+>> But there is this return statement. Some people tend to write
+>> return (x); I simply write return x;
+>
+> I do to. And it's the common thing to do, and only totally confused people
+> think that 'return' is a somehow remotely like a "function" of its
+> arguments (the way 'sizeof' is - sizeof _is_ a function of its arguments,
+> albeit a very rare one).
+>
+>> It's clear, and so is a simple do-while.
+>
+> No. "return x;" is clear because it's the common thing, which means that
+> peopel are good at reading it.
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+I got curious and conducted a little experiment, here is the outcome
+for the linux-2.6 kernel tree:
 
-> > hm, even with the revert i got the splat below. So some other commits 
-> > are causing this too?
-> 
-> in any case, i picked up and tidied up Peter's annotation patch - see it 
-> below. Chances are that this plus the revert will do the trick - and 
-> that's what i'm testing now in tip/master.
+hannes@vmbox:~/linux-2.6$ find . -name "*.[ch]" -print0 | xargs -0 cat
+| ../sparse/cstats -
 
-my testing efforts today are not particularly dominated by luck :-)
+stats for '-':
+  do's:         8092, non compound:              79 (  1.0%)
+  sizeof's:    51216, without parenthesis:     1543 (  3.0%)
+  return's:   286167, with parenthesis:       13552 (  4.7%)
 
-Below is the latest splat that i got with Peter's patch plus the revert of 
-dd24c00191 applied.
+'cstats' is a little program I wrote using the sparse library, see below.
 
-	Ingo
+The value for "return's with parenthesis" is a bit of an estimation,
+as 'cstats' operates only at the token level, so
+"return (x) ? y : z;" counts as "return with parenthesis".
 
-[   78.679386] 
-[   78.679389] =================================
-[   78.680039] [ INFO: inconsistent lock state ]
-[   78.680039] 2.6.28-tip-03885-g44c31d5-dirty #13188
-[   78.680039] ---------------------------------
-[   78.680039] inconsistent {softirq-on-W} -> {in-softirq-W} usage.
-[   78.680039] ssh/4054 [HC0[0]:SC1[1]:HE1:SE0] takes:
-[   78.680039]  (key#8){-+..}, at: [<c042710e>] __percpu_counter_add+0x52/0x7a
-[   78.680039] {softirq-on-W} state was registered at:
-[   78.680039]   [<c0163e6e>] __lock_acquire+0x288/0xa93
-[   78.680039]   [<c01646d6>] lock_acquire+0x5d/0x7a
-[   78.680039]   [<c0ae0473>] _spin_lock+0x20/0x2f
-[   78.680039]   [<c042710e>] __percpu_counter_add+0x52/0x7a
-[   78.680039]   [<c09c3e2f>] percpu_counter_add+0xf/0x12
-[   78.680039]   [<c09c50ef>] tcp_v4_init_sock+0xe5/0xea
-[   78.680039]   [<c09d10d5>] inet_create+0x277/0x2a4
-[   78.680039]   [<c095e5d0>] __sock_create+0xfd/0x159
-[   78.680039]   [<c095e673>] sock_create+0x29/0x2e
-[   78.680039]   [<c095e844>] sys_socket+0x31/0x5f
-[   78.680039]   [<c095ef20>] sys_socketcall+0x56/0x16a
-[   78.680039]   [<c011bff5>] sysenter_do_call+0x12/0x35
-[   78.680039]   [<ffffffff>] 0xffffffff
-[   78.680039] irq event stamp: 16094
-[   78.680039] hardirqs last  enabled at (16094): [<c0188987>] free_hot_cold_page+0x117/0x123
-[   78.680039] hardirqs last disabled at (16093): [<c01888e0>] free_hot_cold_page+0x70/0x123
-[   78.680039] softirqs last  enabled at (16022): [<c09b817f>] tcp_close+0x2bd/0x2d6
-[   78.680039] softirqs last disabled at (16045): [<c014a6a8>] do_softirq+0x3f/0x57
-[   78.680039] 
-[   78.680039] other info that might help us debug this:
-[   78.680039] 4 locks held by ssh/4054:
-[   78.680039]  #0:  (rcu_read_lock){..--}, at: [<c096bb18>] net_rx_action+0x61/0x1a8
-[   78.680039]  #1:  (rcu_read_lock){..--}, at: [<c096904d>] netif_receive_skb+0xda/0x312
-[   78.680039]  #2:  (rcu_read_lock){..--}, at: [<c09aeb24>] ip_local_deliver_finish+0x42/0x1c3
-[   78.680039]  #3:  (slock-AF_INET/1){-+..}, at: [<c09c597a>] tcp_v4_rcv+0x1f5/0x4e2
-[   78.680039] 
-[   78.680039] stack backtrace:
-[   78.680039] Pid: 4054, comm: ssh Not tainted 2.6.28-tip-03885-g44c31d5-dirty #13188
-[   78.680039] Call Trace:
-[   78.680039]  [<c0162c1d>] valid_state+0x12a/0x13d
-[   78.680039]  [<c016343c>] mark_lock+0x109/0x313
-[   78.680039]  [<c0163e01>] __lock_acquire+0x21b/0xa93
-[   78.680039]  [<c0164660>] ? __lock_acquire+0xa7a/0xa93
-[   78.680039]  [<c0163353>] ? mark_lock+0x20/0x313
-[   78.680039]  [<c01646d6>] lock_acquire+0x5d/0x7a
-[   78.680039]  [<c042710e>] ? __percpu_counter_add+0x52/0x7a
-[   78.680039]  [<c0ae0473>] _spin_lock+0x20/0x2f
-[   78.680039]  [<c042710e>] ? __percpu_counter_add+0x52/0x7a
-[   78.680039]  [<c042710e>] __percpu_counter_add+0x52/0x7a
-[   78.680039]  [<c09c3e2f>] percpu_counter_add+0xf/0x12
-[   78.680039]  [<c09c5005>] tcp_v4_destroy_sock+0xe7/0xec
-[   78.680039]  [<c09b5ea5>] inet_csk_destroy_sock+0x90/0xe8
-[   78.680039]  [<c09b7ebf>] tcp_done+0x66/0x69
-[   78.680039]  [<c09c716a>] tcp_time_wait+0x18f/0x199
-[   78.680039]  [<c09c13d3>] ? tcp_send_ack+0x85/0x8d
-[   78.680039]  [<c09bc712>] tcp_fin+0x7f/0x10a
-[   78.680039]  [<c09bd012>] tcp_data_queue+0x1c4/0x7ff
-[   78.680039]  [<c014e5c9>] ? mod_timer+0x35/0x39
-[   78.680039]  [<c09bc49e>] ? tcp_urg+0xe/0x174
-[   78.680039]  [<c0961986>] ? sk_reset_timer+0x14/0x22
-[   78.680039]  [<c09bff27>] tcp_rcv_state_process+0x7ce/0x807
-[   78.680039]  [<c09c4d8d>] tcp_v4_do_rcv+0x156/0x197
-[   78.680039]  [<c09c5c13>] tcp_v4_rcv+0x48e/0x4e2
-[   78.680039]  [<c09aec02>] ip_local_deliver_finish+0x120/0x1c3
-[   78.680039]  [<c09aef21>] ip_local_deliver+0x5b/0x64
-[   78.680039]  [<c09aea68>] ip_rcv_finish+0x26d/0x283
-[   78.680039]  [<c09aee83>] ? ip_rcv+0x1de/0x221
-[   78.680039]  [<c09aee92>] ip_rcv+0x1ed/0x221
-[   78.680039]  [<c0969252>] netif_receive_skb+0x2df/0x312
-[   78.680039]  [<c096953d>] napi_gro_receive+0x1bd/0x1c5
-[   78.680039]  [<c01637ac>] ? trace_hardirqs_on_caller+0x10a/0x15f
-[   78.680039]  [<c096b604>] process_backlog+0x6c/0x8d
-[   78.680039]  [<c096bb85>] net_rx_action+0xce/0x1a8
-[   78.680039]  [<c014a5d6>] __do_softirq+0x94/0x127
-[   78.680039]  [<c014a6a8>] do_softirq+0x3f/0x57
-[   78.680039]  [<c014ab0b>] irq_exit+0x4c/0x83
-[   78.680039]  [<c011df67>] do_IRQ+0x97/0xb0
-[   78.680039]  [<c011c5ec>] common_interrupt+0x2c/0x34
-[   93.926827] cc1 used greatest stack depth: 5332 bytes left
+some sanity checks, to ensure the magnitudes are right:
+
+hannes@vmbox:~/linux-2.6$ git grep -w do -- *.[ch] | wc -l
+20599
+
+hannes@vmbox:~/linux-2.6$ git grep '\bdo[ \t]*{' -- *.[ch] | wc -l
+7805
+
+I assume 'do' is used frequently in comments:
+
+hannes@vmbox:~/linux-2.6$ git grep '\*.*\bdo\b' -- *.[ch] | wc -l
+11358
+
+hannes@vmbox:~/linux-2.6$ git grep '^[ \t]*do$' -- *.[ch] | wc -l
+34
+
+hannes@vmbox:~/linux-2.6$ git grep -w sizeof -- *.[ch] | wc -l
+49631
+
+constructs like sizeof(array)/sizeof(array[0]) or common:
+
+hannes@vmbox:~/linux-2.6$ git grep  'sizeof.*sizeof' -- *.[ch] | wc -l
+1827
+
+hannes@vmbox:~/linux-2.6$ git grep '\bsizeof [^(]' -- *.[ch] | wc -l
+1534
+
+hannes@vmbox:~/linux-2.6$ git grep -w return -- *.[ch] | wc -l
+295304
+
+hannes@vmbox:~/linux-2.6$ git grep '\breturn (' -- *.[ch] | wc -l
+11067
+
+Best,
+Hannes
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#include "token.h"
+#include "parse.h"
+
+int main(int argc, char **argv)
+{
+        struct string_list *filelist = NULL;
+        char *filename;
+
+        sparse_initialize(argc, argv, &filelist);
+        FOR_EACH_PTR_NOTAG(filelist, filename) {
+                int fd;
+                struct token *token;
+                int do_stats = 0;
+                int do_stats_nc = 0;
+                int sizeof_exprs = 0;
+                int sizeof_exprs_np = 0;
+                int return_stats = 0;
+                int return_stats_wp = 0;
+
+                if (strcmp(filename, "-") == 0) {
+                        fd = 0;
+                } else {
+                        fd = open(filename, O_RDONLY);
+                        if (fd < 0)
+                                die("No such file: %s", filename);
+                }
+
+                // Tokenize the input stream
+                token = tokenize(filename, fd, NULL, includepath);
+                close(fd);
+
+                for ( ; !eof_token(token); token = token->next) {
+                        if (token_type(token) == TOKEN_IDENT) {
+                                if (token->ident == &do_ident) {
+                                        do_stats++;
+                                        if (!match_op(token->next, '{'))
+                                                do_stats_nc++;
+                                }
+                                else if (token->ident == &sizeof_ident) {
+                                        sizeof_exprs++;
+                                        if (!match_op(token->next, '('))
+                                                sizeof_exprs_np++;
+                                }
+                                else if (token->ident == &return_ident) {
+                                        return_stats++;
+                                        if (match_op(token->next, '('))
+                                                return_stats_wp++;
+                                }
+                        }
+                }
+
+                printf("stats for '%s':\n", filename);
+                printf("  do's:     %8d, non compound:        %8d (%5.1f%%)\n",
+                       do_stats, do_stats_nc,
+                       100.0 * do_stats_nc / (do_stats?:1) );
+                printf("  sizeof's: %8d, without parenthesis: %8d (%5.1f%%)\n",
+                       sizeof_exprs, sizeof_exprs_np,
+                       100.0 * sizeof_exprs_np / (sizeof_exprs?:1) );
+                printf("  return's: %8d, with parenthesis:    %8d (%5.1f%%)\n",
+                       return_stats, return_stats_wp,
+                       100.0 * return_stats_wp / (return_stats?:1) );
+
+        } END_FOR_EACH_PTR_NOTAG(filename);
+        return 0;
+}
