@@ -1,53 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: origin tree build warnings
-Date: Mon, 29 Dec 2008 11:35:25 +1100
-Message-ID: <20081229113525.89450db7.sfr@canb.auug.org.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] net: make xfrm_statistics_seq_show use generic snmp_fold_field
+Date: Mon, 29 Dec 2008 13:22:47 +1030
+Message-ID: <200812291322.47467.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7"
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:43018 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751280AbYL2Cwy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Dec 2008 21:52:54 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Neil,
-
-Today's linux-next build (powerpc ppc64_defconfig) produced these new
-warnings:
-
-drivers/net/pasemi_mac.c: In function 'pasemi_mac_rx_intr':
-drivers/net/pasemi_mac.c:957: warning: unused variable 'dev'
-drivers/net/pasemi_mac.c: In function 'pasemi_mac_poll':
-drivers/net/pasemi_mac.c:1637: warning: unused variable 'dev'
-drivers/net/spider_net.c: In function 'spider_net_poll':
-drivers/net/spider_net.c:1280: warning: unused variable 'netdev'
-
-Probably caused by commit 908a7a16b852ffd618a9127be8d62432182d81b4 ("net:
-Remove unused netdev arg from some NAPI interfaces").
-
-Please fix these up.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAklYG00ACgkQjjKRsyhoI8yvTQCfXkccGACpqZBgDNgq1nynu8O3
-7ckAnjSCx7ansntuMEzxqXkOf4wnpJRP
-=d48q
------END PGP SIGNATURE-----
-
---Signature=_Mon__29_Dec_2008_11_35_25_+1100_.ieb+79n/2P1izS7--
+Tm8gcmVhc29uIHRvIHJvbGwgb3VyIG93biBoZXJlLgoKU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVz
+c2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgoKZGlmZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1f
+cHJvYy5jIGIvbmV0L3hmcm0veGZybV9wcm9jLmMKLS0tIGEvbmV0L3hmcm0veGZybV9wcm9jLmMK
+KysrIGIvbmV0L3hmcm0veGZybV9wcm9jLmMKQEAgLTQ0LDI3ICs0NCwxNCBAQCBzdGF0aWMgc3Ry
+dWN0IHNubXBfbWliIHhmcm1fbWliX2xpc3RbXSA9CiAJU05NUF9NSUJfU0VOVElORUwKIH07CiAK
+LXN0YXRpYyB1bnNpZ25lZCBsb25nCi1mb2xkX2ZpZWxkKHZvaWQgKm1pYltdLCBpbnQgb2ZmdCkK
+LXsKLSAgICAgICAgdW5zaWduZWQgbG9uZyByZXMgPSAwOwotICAgICAgICBpbnQgaTsKLQotICAg
+ICAgICBmb3JfZWFjaF9wb3NzaWJsZV9jcHUoaSkgewotICAgICAgICAgICAgICAgIHJlcyArPSAq
+KCgodW5zaWduZWQgbG9uZyAqKXBlcl9jcHVfcHRyKG1pYlswXSwgaSkpICsgb2ZmdCk7Ci0gICAg
+ICAgICAgICAgICAgcmVzICs9ICooKCh1bnNpZ25lZCBsb25nICopcGVyX2NwdV9wdHIobWliWzFd
+LCBpKSkgKyBvZmZ0KTsKLSAgICAgICAgfQotICAgICAgICByZXR1cm4gcmVzOwotfQotCiBzdGF0
+aWMgaW50IHhmcm1fc3RhdGlzdGljc19zZXFfc2hvdyhzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9p
+ZCAqdikKIHsKIAlzdHJ1Y3QgbmV0ICpuZXQgPSBzZXEtPnByaXZhdGU7CiAJaW50IGk7CiAJZm9y
+IChpPTA7IHhmcm1fbWliX2xpc3RbaV0ubmFtZTsgaSsrKQogCQlzZXFfcHJpbnRmKHNlcSwgIiUt
+MjRzXHQlbHVcbiIsIHhmcm1fbWliX2xpc3RbaV0ubmFtZSwKLQkJCSAgIGZvbGRfZmllbGQoKHZv
+aWQgKiopbmV0LT5taWIueGZybV9zdGF0aXN0aWNzLAotCQkJCSAgICAgIHhmcm1fbWliX2xpc3Rb
+aV0uZW50cnkpKTsKKwkJCSAgIHNubXBfZm9sZF9maWVsZCgodm9pZCAqKiluZXQtPm1pYi54ZnJt
+X3N0YXRpc3RpY3MsCisJCQkJCSAgIHhmcm1fbWliX2xpc3RbaV0uZW50cnkpKTsKIAlyZXR1cm4g
+MDsKIH0KIAoACg==
