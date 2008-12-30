@@ -1,24 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] IPVS: Make "no destination available" message more
- consistent between schedulers
-Date: Mon, 29 Dec 2008 18:37:47 -0800 (PST)
-Message-ID: <20081229.183747.67525369.davem@davemloft.net>
-References: <20081230004644.GA18464@verge.net.au>
+Subject: Re: [PATCH 4/9 V2] mlx4_en: Verify number of RX rings doesn't
+ exceed MAX_RX_RINGS
+Date: Mon, 29 Dec 2008 18:38:32 -0800 (PST)
+Message-ID: <20081229.183832.211942137.davem@davemloft.net>
+References: <49589EDF.9040803@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org, jmack@wm7d.net,
-	graeme@graemef.net, windo@p6drad-teel.net
-To: horms@verge.net.au
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20081230004644.GA18464@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41806
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752019AbYL3Ci3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 21:38:29 -0500
+In-Reply-To: <49589EDF.9040803@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 30 Dec 2008 11:46:44 +1100
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Mon, 29 Dec 2008 11:56:47 +0200
 
-> Acked-by: Graeme Fowler <graeme@graemef.net>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+> Required in cases were dev->caps.num_comp_vectors > MAX_RX_RINGS.
+> For current values this would happen on machines that have more
+> then 16 cores.
+> 
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-Applied, thanks a lot Simon.
+Applied.
