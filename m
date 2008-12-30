@@ -1,53 +1,165 @@
-From: Hans Lambrechts <hans.lambrechts@skynet.be>
-Subject: Re: Happy v2.6.28
-Date: Tue, 30 Dec 2008 08:42:34 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0812300835300.3744@server.home.lan>
-References: <bMLNZ-3QM-1@gated-at.bofh.it>  <200812250853.mBP8rxrr004080@server.home.lan>
-  <84144f020812250426x255cc00esd33f0075292b486b@mail.gmail.com>
- <Pine.LNX.4.64.0812251336320.4497@server.home.lan> <1230548230.8603.5.camel@penberg-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPv6] "sendmsg: invalid argument" to multicast group after
+ some time
+Date: Mon, 29 Dec 2008 23:52:30 -0800 (PST)
+Message-ID: <20081229.235230.53178944.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Hans Lambrechts <hans.lambrechts@skynet.be>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: berni@birkenwald.de, dlstevens@us.ibm.com, pekkas@netcore.fi,
+	netdev@vger.kernel.org
+To: eguzovsky@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:48555 "EHLO
-	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753994AbYL3Hmh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2008 02:42:37 -0500
-In-Reply-To: <1230548230.8603.5.camel@penberg-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36598
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753722AbYL3Hw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2008 02:52:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Eduard, thanks for your analysis and RFC patch.
 
-On Mon, 29 Dec 2008, Pekka Enberg wrote:
+I agree this is an ugly situation.
 
-> Hi Hans,
-> 
-> On Thu, 2008-12-25 at 13:45 +0100, Hans Lambrechts wrote:
-> > > Looks like slab corruption. Can we have your .config, please? I'm
-> > > cc'ing netdev as the oops happens in kmem_cache_alloc() so the
-> > > networking code is a prime suspect of the corrupting kmem_cache_free()
-> > > call (although the bug might be elsewhere as well).
-> 
-> Can you boot the kernel with "slub_debug slub_nomerge" passed as kernel
-> parameters and try to reproduce the oops, please? Maybe we can get more
-> information on the bug.
-> 
-> Alternatively, you can do a git bisect to pinpoint the broken patch
-> between -rc9 and -final.
-> 
-> 		Pekka
-> 
+Looking over this area the real problem is that the neighbour cache
+can't do anything to apply back pressure on the routing cache when it
+fills up with essentially unused multicast entries like this.
 
+When we hit the upper limits (such as gc_thresh3) for the neighbour
+cache, it tries to do things like neigh_forced_gc().
 
-Hi Pekka,
+But this won't accomplish anything since all of these ipv6 multicast
+routes have a reference on the neigh entries filling up the table, so
+the forced GC won't be able to liberate them
 
-after the first oops I've decided to try 2.6.28 again so I could send 
-you more information. I'm running 2.6.28 now for a few days with several 
-restarts and no more oops.
-This seems a very rare to hit bug or my 6yo box is almost end of life.
+So you're absolutely right that the route cache pollution is the core
+problem.
 
-	Hans
+Looking at the IPV4 routing cache we have code which goes:
+
+		int err = arp_bind_neighbour(&rt->u.dst);
+		if (err) {
+ ...
+			/* Neighbour tables are full and nothing
+			   can be released. Try to shrink route cache,
+			   it is most likely it holds some neighbour records.
+			 */
+
+and then proceeds to try and forcefully flush some routing cache
+entries.
+
+So the real fix is that IPV6 should do something similar.
+
+Something like the following (untested) patch:
+
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index ce532f2..1459ed3 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -155,9 +155,9 @@ static inline struct neighbour * ndisc_get_neigh(struct net_device *dev, const s
+ {
+ 
+ 	if (dev)
+-		return __neigh_lookup(&nd_tbl, addr, dev, 1);
++		return __neigh_lookup_errno(&nd_tbl, addr, dev);
+ 
+-	return NULL;
++	return ERR_PTR(-ENODEV);
+ }
+ 
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 18c486c..0db4129 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -627,6 +627,9 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort, struct in6_addr *dad
+ 	rt = ip6_rt_copy(ort);
+ 
+ 	if (rt) {
++		struct neighbour *neigh;
++		int attempts = !in_softirq();
++
+ 		if (!(rt->rt6i_flags&RTF_GATEWAY)) {
+ 			if (rt->rt6i_dst.plen != 128 &&
+ 			    ipv6_addr_equal(&rt->rt6i_dst.addr, daddr))
+@@ -646,7 +649,35 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort, struct in6_addr *dad
+ 		}
+ #endif
+ 
+-		rt->rt6i_nexthop = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
++	retry:
++		neigh = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
++		if (IS_ERR(neigh)) {
++			struct net *net = dev_net(rt->rt6i_dev);
++			int saved_rt_min_interval =
++				net->ipv6.sysctl.ip6_rt_gc_min_interval;
++			int saved_rt_elasticity =
++				net->ipv6.sysctl.ip6_rt_gc_elasticity;
++
++			if (attempts-- > 0) {
++				net->ipv6.sysctl.ip6_rt_gc_elasticity = 1;
++				net->ipv6.sysctl.ip6_rt_gc_min_interval = 0;
++
++				ip6_dst_gc(net->ipv6.ip6_dst_ops);
++
++				net->ipv6.sysctl.ip6_rt_gc_elasticity =
++					saved_rt_elasticity;
++				net->ipv6.sysctl.ip6_rt_gc_min_interval =
++					saved_rt_min_interval;
++				goto retry;
++			}
++
++			if (net_ratelimit())
++				printk(KERN_WARNING
++				       "Neighbour table overflow.\n");
++			dst_free(&rt->u.dst);
++			return NULL;
++		}
++		rt->rt6i_nexthop = neigh;
+ 
+ 	}
+ 
+@@ -945,8 +976,11 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 	dev_hold(dev);
+ 	if (neigh)
+ 		neigh_hold(neigh);
+-	else
++	else {
+ 		neigh = ndisc_get_neigh(dev, addr);
++		if (IS_ERR(neigh))
++			neigh = NULL;
++	}
+ 
+ 	rt->rt6i_dev	  = dev;
+ 	rt->rt6i_idev     = idev;
+@@ -1887,6 +1921,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ {
+ 	struct net *net = dev_net(idev->dev);
+ 	struct rt6_info *rt = ip6_dst_alloc(net->ipv6.ip6_dst_ops);
++	struct neighbour *neigh;
+ 
+ 	if (rt == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1909,11 +1944,18 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 		rt->rt6i_flags |= RTF_ANYCAST;
+ 	else
+ 		rt->rt6i_flags |= RTF_LOCAL;
+-	rt->rt6i_nexthop = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
+-	if (rt->rt6i_nexthop == NULL) {
++	neigh = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
++	if (IS_ERR(neigh)) {
+ 		dst_free(&rt->u.dst);
+-		return ERR_PTR(-ENOMEM);
++
++		/* We are casting this because that is the return
++		 * value type.  But a errno encoded pointer is the
++		 * same regardless of the underlying pointer type,
++		 * and that's what we are returning.  So this is OK.
++		 */
++		return (struct rt6_info *) neigh;
+ 	}
++	rt->rt6i_nexthop = neigh;
+ 
+ 	ipv6_addr_copy(&rt->rt6i_dst.addr, addr);
+ 	rt->rt6i_dst.plen = 128;
