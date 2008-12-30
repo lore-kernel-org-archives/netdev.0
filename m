@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
+From: Li Zefan <lizf@cn.fujitsu.com>
 Subject: Re: cls_cgroup: clean up for cgroup part
-Date: Mon, 29 Dec 2008 19:38:36 -0800 (PST)
-Message-ID: <20081229.193836.123306072.davem@davemloft.net>
-References: <20081229.190724.20711084.davem@davemloft.net>
+Date: Tue, 30 Dec 2008 11:43:56 +0800
+Message-ID: <495998FC.8050503@cn.fujitsu.com>
+References: <20081229.190724.20711084.davem@davemloft.net> <20081229.193836.123306072.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: lizf@cn.fujitsu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58058
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752324AbYL3Did (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 22:38:33 -0500
-In-Reply-To: <20081229.190724.20711084.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:59740 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751769AbYL3DpD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Dec 2008 22:45:03 -0500
+In-Reply-To: <20081229.193836.123306072.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpBY3R1YWxseSwgdGhlIHRyZWUgZG9lc24ndCBldmVuIGJ1aWxkIGFmdGVyIGFwcGx5aW5nIHRo
-aXMNCnBhdGNoLg0KDQpIb3cgZGlkIHlvdSB0ZXN0IHRoaXM/DQoNCm5ldC9zY2hlZC9jbHNfY2dy
-b3VwLmM6IEluIGZ1bmN0aW9uIOKAmHdyaXRlX2NsYXNzaWTigJk6DQpuZXQvc2NoZWQvY2xzX2Nn
-cm91cC5jOjY4OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24g4oCYbmV0
-X2Nsc19zdGF0ZeKAmQ0KbmV0L3NjaGVkL2Nsc19jZ3JvdXAuYzo2ODogZXJyb3I6IGludmFsaWQg
-dHlwZSBhcmd1bWVudCBvZiDigJgtPuKAmQ0KDQpJIG1hZGUgdGhlIG9idmlvdXMgZml4dXAgdG8g
-dGhpcyBjaGFuZ2UsIGJ1dC4uLg0KDQpDb21lIG9uLCBidWlsZCB0ZXN0IHlvdXIgY2hhbmdlcy4g
-Oi0oDQoNCg0KDQo=
+David Miller wrote:
+> Actually, the tree doesn't even build after applying this
+> patch.
+>=20
+> How did you test this?
+>=20
+> net/sched/cls_cgroup.c: In function =E2=80=98write_classid=E2=80=99:
+> net/sched/cls_cgroup.c:68: error: implicit declaration of function =E2=
+=80=98net_cls_state=E2=80=99
+> net/sched/cls_cgroup.c:68: error: invalid type argument of =E2=80=98-=
+>=E2=80=99
+>=20
+> I made the obvious fixup to this change, but...
+>=20
+> Come on, build test your changes. :-(
+>=20
+
+Ouch, sorry.. I did a fixup when I was making those patches,
+but forgot to update the patch..
+
