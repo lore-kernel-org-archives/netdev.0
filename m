@@ -1,58 +1,53 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch] locking, percpu counters: introduce separate lock
-	classes
-Date: Tue, 30 Dec 2008 08:21:25 +0100
-Message-ID: <20081230072125.GB20225@elte.hu>
-References: <20081230060536.GG11037@elte.hu> <20081229.223945.149941966.davem@davemloft.net> <20081230065650.GD30975@elte.hu> <20081229.230438.90548187.davem@davemloft.net>
+From: Hans Lambrechts <hans.lambrechts@skynet.be>
+Subject: Re: Happy v2.6.28
+Date: Tue, 30 Dec 2008 08:42:34 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0812300835300.3744@server.home.lan>
+References: <bMLNZ-3QM-1@gated-at.bofh.it>  <200812250853.mBP8rxrr004080@server.home.lan>
+  <84144f020812250426x255cc00esd33f0075292b486b@mail.gmail.com>
+ <Pine.LNX.4.64.0812251336320.4497@server.home.lan> <1230548230.8603.5.camel@penberg-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, a.p.zijlstra@chello.nl,
-	emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	alexander.h.duyck@intel.com, dada1@cosmosbay.com,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hans Lambrechts <hans.lambrechts@skynet.be>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:39779 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751373AbYL3HVs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Dec 2008 02:21:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20081229.230438.90548187.davem@davemloft.net>
+Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:48555 "EHLO
+	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753994AbYL3Hmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2008 02:42:37 -0500
+In-Reply-To: <1230548230.8603.5.camel@penberg-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-* David Miller <davem@davemloft.net> wrote:
 
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Tue, 30 Dec 2008 07:56:50 +0100
+On Mon, 29 Dec 2008, Pekka Enberg wrote:
+
+> Hi Hans,
 > 
-> > 
-> > * David Miller <davem@davemloft.net> wrote:
-> > 
-> > > From: Ingo Molnar <mingo@elte.hu>
-> > > Date: Tue, 30 Dec 2008 07:05:36 +0100
-> > > 
-> > > > One small nit: could you please add the Reported-by line for Jeff Kirscher 
-> > > > who reported the problem originally:
-> > > > 
-> > > >  Reported-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > 
-> > > I'll make sure to add that to the commit message after
-> > > you successfully test Herbert's patch.
-> > > 
-> > > Thanks.
-> > 
-> > early indications are good: after about 15 random bootup tests the lockdep 
-> > warning has not triggered. (it would trigger on every 2nd kernel before 
-> > that - there's a 66% chance for lockdep to be enabled in my randconfig 
-> > tests)
+> On Thu, 2008-12-25 at 13:45 +0100, Hans Lambrechts wrote:
+> > > Looks like slab corruption. Can we have your .config, please? I'm
+> > > cc'ing netdev as the oops happens in kmem_cache_alloc() so the
+> > > networking code is a prime suspect of the corrupting kmem_cache_free()
+> > > call (although the bug might be elsewhere as well).
 > 
-> Sounds good.  I'll toss this into my net-2.6 tree, with Jeff's 
-> reported-by and your Tested-by, and send this off to Linus tonight.
+> Can you boot the kernel with "slub_debug slub_nomerge" passed as kernel
+> parameters and try to reproduce the oops, please? Maybe we can get more
+> information on the bug.
+> 
+> Alternatively, you can do a git bisect to pinpoint the broken patch
+> between -rc9 and -final.
+> 
+> 		Pekka
+> 
 
-cool. If by tonight you dont get a followup mail from me then you can 
-assume that the patch passed hundreds of tests here.
 
-	Ingo
+Hi Pekka,
+
+after the first oops I've decided to try 2.6.28 again so I could send 
+you more information. I'm running 2.6.28 now for a few days with several 
+restarts and no more oops.
+This seems a very rare to hit bug or my 6yo box is almost end of life.
+
+	Hans
