@@ -1,42 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] clean up of netif_rx_reschedule() changes in drivers
-Date: Mon, 29 Dec 2008 18:19:08 -0800 (PST)
-Message-ID: <20081229.181908.214463121.davem@davemloft.net>
-References: <20081229102509.GA11111@linux.vnet.ibm.com>
-	<20081229214144.43be8c1d.sfr@canb.auug.org.au>
-	<20081229153757.GA2857@localhost.localdomain>
+Subject: Re: [PATCH] net: make xfrm_statistics_seq_show use generic
+ snmp_fold_field
+Date: Mon, 29 Dec 2008 18:20:14 -0800 (PST)
+Message-ID: <20081229.182014.207864601.davem@davemloft.net>
+References: <200812291322.47467.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, kamalesh@linux.vnet.ibm.com,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: nhorman@tuxdriver.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20081229153757.GA2857@localhost.localdomain>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nakam@linux-ipv6.org
+To: rusty@rustcorp.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33214
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751811AbYL3CUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 21:20:11 -0500
+In-Reply-To: <200812291322.47467.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 29 Dec 2008 10:37:57 -0500
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Mon, 29 Dec 2008 13:22:47 +1030
 
-> On Mon, Dec 29, 2008 at 09:41:44PM +1100, Stephen Rothwell wrote:
-> > Hi Kamalesh,
-> > 
-> > On Mon, 29 Dec 2008 15:55:29 +0530 Kamalesh Babulal <kamalesh@linux.vnet.ibm.com> wrote:
-> > > greping through the sources for the changes missed out, we have
-> > > 
-> > 	.
-> > 	.
-> > > 
-> > > Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
- ...
-> Thanks guys, not sure how my patch missed that.  I did an allmodconfig build
-> that passed successfully.  Thanks!
+> No reason to roll our own here.
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-It's very simple, you're not building on powerpc or ARM :-)
-
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-
-Applied, thanks everyone.
+Applied, thanks Rusty.
