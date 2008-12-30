@@ -1,48 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] clean up of netif_rx_reschedule() changes in drivers
-Date: Tue, 30 Dec 2008 11:39:48 -0500
-Message-ID: <20081230163948.GB2701@localhost.localdomain>
-References: <20081229102509.GA11111@linux.vnet.ibm.com> <20081229214144.43be8c1d.sfr@canb.auug.org.au> <20081229153757.GA2857@localhost.localdomain> <20081229.181908.214463121.davem@davemloft.net>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: Re: Re: [PATCH 9/9 V2] mlx4_en: Multiqueue support
+Date: Tue, 30 Dec 2008 18:54:58 +0200
+Message-ID: <495A5262.50100@mellanox.co.il>
+References: <49589EF5.8070800@mellanox.co.il> <20081229.184109.77843771.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfr@canb.auug.org.au, kamalesh@linux.vnet.ibm.com,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39329 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551AbYL3Ql5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2008 11:41:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20081229.181908.214463121.davem@davemloft.net>
+Received: from mail.mellanox.co.il ([194.90.237.43]:44784 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750887AbYL3Q4L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Dec 2008 11:56:11 -0500
+In-Reply-To: <20081229.184109.77843771.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 29, 2008 at 06:19:08PM -0800, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Mon, 29 Dec 2008 10:37:57 -0500
+David Miller wrote:
+> You are not supposed to provide a driver private function
+> to hash the traffic.
 > 
-> > On Mon, Dec 29, 2008 at 09:41:44PM +1100, Stephen Rothwell wrote:
-> > > Hi Kamalesh,
-> > > 
-> > > On Mon, 29 Dec 2008 15:55:29 +0530 Kamalesh Babulal <kamalesh@linux.vnet.ibm.com> wrote:
-> > > > greping through the sources for the changes missed out, we have
-> > > > 
-> > > 	.
-> > > 	.
-> > > > 
-> > > > Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
->  ...
-> > Thanks guys, not sure how my patch missed that.  I did an allmodconfig build
-> > that passed successfully.  Thanks!
+> The generic code already hashes traffic for you, and whatever
+> it doesn't handle currently will be handled in the future.
+> The generic code is where gaps should be filled in.
 > 
-> It's very simple, you're not building on powerpc or ARM :-)
+> The override function pointer is only for wireless which has
+> special needs in queue selection that have nothing to do with
+> flow seperation.
 > 
-Doh!  Stupid of me.  apologies.
 
-> > Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> Applied, thanks everyone.
-> 
+The generic hash function (simple_tx_hash) doesn't consider Vlan priority when making the hash.
+When working in Per Priority Pause mode, packets with different Vlan priority should be sent from
+a different transmit queue. How can we ensure this without using private hashing function?
+
+Thank you,
+Yevgeny.
