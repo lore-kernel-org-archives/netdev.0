@@ -1,572 +1,331 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH -net-next 1/4] firmware: convert e100
-	driver to request_firmware()
-Date: Tue, 30 Dec 2008 14:33:36 -0800
-Message-ID: <9929d2390812301433pae01ea4g5bfdef6d4d4c7a9c@mail.gmail.com>
-References: <1230626401.24796.22.camel@jaswinder.satnam>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [RFC] cpualloc: improvements to per-cpu allocation
+Date: Wed, 31 Dec 2008 09:38:09 +1030
+Message-ID: <200812310938.09912.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org,
-	davem@redhat.com
-To: "Jaswinder Singh Rajput" <jaswinder@infradead.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1230626401.24796.22.camel@jaswinder.satnam>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: catalin.marinas@arm.com,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:54920 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751351AbYL3XIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Dec 2008 18:08:18 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 30, 2008 at 12:40 AM, Jaswinder Singh Rajput
-<jaswinder@infradead.org> wrote:
-> Thanks to David Woodhouse for help.
->
-> Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
-> ---
->  drivers/net/e100.c                 |  289 ++++++++++++------------------------
->  firmware/Makefile                  |    2 +
->  firmware/WHENCE                    |   11 ++
->  firmware/e100/d101m_ucode.bin.ihex |   38 +++++
->  firmware/e100/d101s_ucode.bin.ihex |   38 +++++
->  firmware/e100/d102e_ucode.bin.ihex |   38 +++++
->  6 files changed, 219 insertions(+), 197 deletions(-)
->  create mode 100644 firmware/e100/d101m_ucode.bin.ihex
->  create mode 100644 firmware/e100/d101s_ucode.bin.ihex
->  create mode 100644 firmware/e100/d102e_ucode.bin.ihex
->
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index 9f38b16..c2b3fce 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -161,6 +161,7 @@
->  #include <linux/skbuff.h>
->  #include <linux/ethtool.h>
->  #include <linux/string.h>
-> +#include <linux/firmware.h>
->  #include <asm/unaligned.h>
->
->
-> @@ -174,10 +175,17 @@
->  #define E100_WATCHDOG_PERIOD   (2 * HZ)
->  #define E100_NAPI_WEIGHT       16
->
-> +#define FIRMWARE_D101M         "e100/d101m_ucode.bin"
-> +#define FIRMWARE_D101S         "e100/d101s_ucode.bin"
-> +#define FIRMWARE_D102E         "e100/d102e_ucode.bin"
-> +
->  MODULE_DESCRIPTION(DRV_DESCRIPTION);
->  MODULE_AUTHOR(DRV_COPYRIGHT);
->  MODULE_LICENSE("GPL");
->  MODULE_VERSION(DRV_VERSION);
-> +MODULE_FIRMWARE(FIRMWARE_D101M);
-> +MODULE_FIRMWARE(FIRMWARE_D101S);
-> +MODULE_FIRMWARE(FIRMWARE_D102E);
->
->  static int debug = 3;
->  static int eeprom_bad_csum_allow = 0;
-> @@ -1049,178 +1057,6 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
->                c[16], c[17], c[18], c[19], c[20], c[21], c[22], c[23]);
->  }
->
-> -/********************************************************/
-> -/*  Micro code for 8086:1229 Rev 8                      */
-> -/********************************************************/
-> -
-> -/*  Parameter values for the D101M B-step  */
-> -#define D101M_CPUSAVER_TIMER_DWORD             78
-> -#define D101M_CPUSAVER_BUNDLE_DWORD            65
-> -#define D101M_CPUSAVER_MIN_SIZE_DWORD          126
-> -
-> -#define D101M_B_RCVBUNDLE_UCODE \
-> -{\
-> -0x00550215, 0xFFFF0437, 0xFFFFFFFF, 0x06A70789, 0xFFFFFFFF, 0x0558FFFF, \
-> -0x000C0001, 0x00101312, 0x000C0008, 0x00380216, \
-> -0x0010009C, 0x00204056, 0x002380CC, 0x00380056, \
-> -0x0010009C, 0x00244C0B, 0x00000800, 0x00124818, \
-> -0x00380438, 0x00000000, 0x00140000, 0x00380555, \
-> -0x00308000, 0x00100662, 0x00100561, 0x000E0408, \
-> -0x00134861, 0x000C0002, 0x00103093, 0x00308000, \
-> -0x00100624, 0x00100561, 0x000E0408, 0x00100861, \
-> -0x000C007E, 0x00222C21, 0x000C0002, 0x00103093, \
-> -0x00380C7A, 0x00080000, 0x00103090, 0x00380C7A, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x0010009C, 0x00244C2D, 0x00010004, 0x00041000, \
-> -0x003A0437, 0x00044010, 0x0038078A, 0x00000000, \
-> -0x00100099, 0x00206C7A, 0x0010009C, 0x00244C48, \
-> -0x00130824, 0x000C0001, 0x00101213, 0x00260C75, \
-> -0x00041000, 0x00010004, 0x00130826, 0x000C0006, \
-> -0x002206A8, 0x0013C926, 0x00101313, 0x003806A8, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00080600, 0x00101B10, 0x00050004, 0x00100826, \
-> -0x00101210, 0x00380C34, 0x00000000, 0x00000000, \
-> -0x0021155B, 0x00100099, 0x00206559, 0x0010009C, \
-> -0x00244559, 0x00130836, 0x000C0000, 0x00220C62, \
-> -0x000C0001, 0x00101B13, 0x00229C0E, 0x00210C0E, \
-> -0x00226C0E, 0x00216C0E, 0x0022FC0E, 0x00215C0E, \
-> -0x00214C0E, 0x00380555, 0x00010004, 0x00041000, \
-> -0x00278C67, 0x00040800, 0x00018100, 0x003A0437, \
-> -0x00130826, 0x000C0001, 0x00220559, 0x00101313, \
-> -0x00380559, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00130831, 0x0010090B, 0x00124813, \
-> -0x000CFF80, 0x002606AB, 0x00041000, 0x00010004, \
-> -0x003806A8, 0x00000000, 0x00000000, 0x00000000, \
-> -}
-> -
-> -/********************************************************/
-> -/*  Micro code for 8086:1229 Rev 9                      */
-> -/********************************************************/
-> -
-> -/*  Parameter values for the D101S  */
-> -#define D101S_CPUSAVER_TIMER_DWORD             78
-> -#define D101S_CPUSAVER_BUNDLE_DWORD            67
-> -#define D101S_CPUSAVER_MIN_SIZE_DWORD          128
-> -
-> -#define D101S_RCVBUNDLE_UCODE \
-> -{\
-> -0x00550242, 0xFFFF047E, 0xFFFFFFFF, 0x06FF0818, 0xFFFFFFFF, 0x05A6FFFF, \
-> -0x000C0001, 0x00101312, 0x000C0008, 0x00380243, \
-> -0x0010009C, 0x00204056, 0x002380D0, 0x00380056, \
-> -0x0010009C, 0x00244F8B, 0x00000800, 0x00124818, \
-> -0x0038047F, 0x00000000, 0x00140000, 0x003805A3, \
-> -0x00308000, 0x00100610, 0x00100561, 0x000E0408, \
-> -0x00134861, 0x000C0002, 0x00103093, 0x00308000, \
-> -0x00100624, 0x00100561, 0x000E0408, 0x00100861, \
-> -0x000C007E, 0x00222FA1, 0x000C0002, 0x00103093, \
-> -0x00380F90, 0x00080000, 0x00103090, 0x00380F90, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x0010009C, 0x00244FAD, 0x00010004, 0x00041000, \
-> -0x003A047E, 0x00044010, 0x00380819, 0x00000000, \
-> -0x00100099, 0x00206FFD, 0x0010009A, 0x0020AFFD, \
-> -0x0010009C, 0x00244FC8, 0x00130824, 0x000C0001, \
-> -0x00101213, 0x00260FF7, 0x00041000, 0x00010004, \
-> -0x00130826, 0x000C0006, 0x00220700, 0x0013C926, \
-> -0x00101313, 0x00380700, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00080600, 0x00101B10, 0x00050004, 0x00100826, \
-> -0x00101210, 0x00380FB6, 0x00000000, 0x00000000, \
-> -0x002115A9, 0x00100099, 0x002065A7, 0x0010009A, \
-> -0x0020A5A7, 0x0010009C, 0x002445A7, 0x00130836, \
-> -0x000C0000, 0x00220FE4, 0x000C0001, 0x00101B13, \
-> -0x00229F8E, 0x00210F8E, 0x00226F8E, 0x00216F8E, \
-> -0x0022FF8E, 0x00215F8E, 0x00214F8E, 0x003805A3, \
-> -0x00010004, 0x00041000, 0x00278FE9, 0x00040800, \
-> -0x00018100, 0x003A047E, 0x00130826, 0x000C0001, \
-> -0x002205A7, 0x00101313, 0x003805A7, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00130831, \
-> -0x0010090B, 0x00124813, 0x000CFF80, 0x00260703, \
-> -0x00041000, 0x00010004, 0x00380700  \
-> -}
-> -
-> -/********************************************************/
-> -/*  Micro code for the 8086:1229 Rev F/10               */
-> -/********************************************************/
-> -
-> -/*  Parameter values for the D102 E-step  */
-> -#define D102_E_CPUSAVER_TIMER_DWORD            42
-> -#define D102_E_CPUSAVER_BUNDLE_DWORD           54
-> -#define D102_E_CPUSAVER_MIN_SIZE_DWORD         46
-> -
-> -#define     D102_E_RCVBUNDLE_UCODE \
-> -{\
-> -0x007D028F, 0x0E4204F9, 0x14ED0C85, 0x14FA14E9, 0x0EF70E36, 0x1FFF1FFF, \
-> -0x00E014B9, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00E014BD, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00E014D5, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00E014C1, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00E014C8, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00200600, 0x00E014EE, 0x00000000, 0x00000000, \
-> -0x0030FF80, 0x00940E46, 0x00038200, 0x00102000, \
-> -0x00E00E43, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00300006, 0x00E014FB, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00906E41, 0x00800E3C, 0x00E00E39, 0x00000000, \
-> -0x00906EFD, 0x00900EFD, 0x00E00EF8, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -0x00000000, 0x00000000, 0x00000000, 0x00000000, \
-> -}
-> -
-> -static void e100_setup_ucode(struct nic *nic, struct cb *cb, struct sk_buff *skb)
-> -{
-> -/* *INDENT-OFF* */
-> -       static struct {
-> -               u32 ucode[UCODE_SIZE + 1];
-> -               u8 mac;
-> -               u8 timer_dword;
-> -               u8 bundle_dword;
-> -               u8 min_size_dword;
-> -       } ucode_opts[] = {
-> -               { D101M_B_RCVBUNDLE_UCODE,
-> -                 mac_82559_D101M,
-> -                 D101M_CPUSAVER_TIMER_DWORD,
-> -                 D101M_CPUSAVER_BUNDLE_DWORD,
-> -                 D101M_CPUSAVER_MIN_SIZE_DWORD },
-> -               { D101S_RCVBUNDLE_UCODE,
-> -                 mac_82559_D101S,
-> -                 D101S_CPUSAVER_TIMER_DWORD,
-> -                 D101S_CPUSAVER_BUNDLE_DWORD,
-> -                 D101S_CPUSAVER_MIN_SIZE_DWORD },
-> -               { D102_E_RCVBUNDLE_UCODE,
-> -                 mac_82551_F,
-> -                 D102_E_CPUSAVER_TIMER_DWORD,
-> -                 D102_E_CPUSAVER_BUNDLE_DWORD,
-> -                 D102_E_CPUSAVER_MIN_SIZE_DWORD },
-> -               { D102_E_RCVBUNDLE_UCODE,
-> -                 mac_82551_10,
-> -                 D102_E_CPUSAVER_TIMER_DWORD,
-> -                 D102_E_CPUSAVER_BUNDLE_DWORD,
-> -                 D102_E_CPUSAVER_MIN_SIZE_DWORD },
-> -               { {0}, 0, 0, 0, 0}
-> -       }, *opts;
-> -/* *INDENT-ON* */
-> -
->  /*************************************************************************
->  *  CPUSaver parameters
->  *
-> @@ -1280,42 +1116,101 @@ static void e100_setup_ucode(struct nic *nic, struct cb *cb, struct sk_buff *skb
->  #define BUNDLEMAX (u16)6
->  #define INTDELAY (u16)1536 /* 0x600 */
->
-> +/* Initialize firmware */
-> +static const struct firmware *e100_request_firmware(struct nic *nic)
-> +{
-> +       const char *fw_name;
-> +       const struct firmware *fw;
-> +       u8 timer, bundle, min_size;
-> +       int err;
-> +
->        /* do not load u-code for ICH devices */
->        if (nic->flags & ich)
-> -               goto noloaducode;
-> +               return NULL;
->
->        /* Search for ucode match against h/w revision */
-> -       for (opts = ucode_opts; opts->mac; opts++) {
-> -               int i;
-> -               u32 *ucode = opts->ucode;
-> -               if (nic->mac != opts->mac)
-> -                       continue;
-> -
-> -               /* Insert user-tunable settings */
-> -               ucode[opts->timer_dword] &= 0xFFFF0000;
-> -               ucode[opts->timer_dword] |= INTDELAY;
-> -               ucode[opts->bundle_dword] &= 0xFFFF0000;
-> -               ucode[opts->bundle_dword] |= BUNDLEMAX;
-> -               ucode[opts->min_size_dword] &= 0xFFFF0000;
-> -               ucode[opts->min_size_dword] |= (BUNDLESMALL) ? 0xFFFF : 0xFF80;
-> -
-> -               for (i = 0; i < UCODE_SIZE; i++)
-> -                       cb->u.ucode[i] = cpu_to_le32(ucode[i]);
-> -               cb->command = cpu_to_le16(cb_ucode | cb_el);
-> -               return;
-> -       }
-> -
-> -noloaducode:
-> -       cb->command = cpu_to_le16(cb_nop | cb_el);
-> -}
-> -
-> -static inline int e100_exec_cb_wait(struct nic *nic, struct sk_buff *skb,
-> -       void (*cb_prepare)(struct nic *, struct cb *, struct sk_buff *))
-> -{
-> +       if (nic->mac == mac_82559_D101M)
-> +               fw_name = FIRMWARE_D101M;
-> +       else if (nic->mac == mac_82559_D101S)
-> +               fw_name = FIRMWARE_D101S;
-> +       else if (nic->mac == mac_82551_F || nic->mac == mac_82551_10)
-> +               fw_name = FIRMWARE_D102E;
-> +       else /* No ucode on other devices */
-> +               return NULL;
-> +
-> +       err = request_firmware(&fw, fw_name, &nic->pdev->dev);
-> +       if (err) {
-> +               DPRINTK(PROBE, ERR, "Failed to load firmware \"%s\": %d\n",
-> +                       fw_name, err);
-> +               return ERR_PTR(err);
-> +       }
-> +       /* Firmware should be precisely UCODE_SIZE (words) plus three bytes
-> +          indicating the offsets for BUNDLESMALL, BUNDLEMAX, INTDELAY */
-> +       if (fw->size != UCODE_SIZE * 4 + 3) {
-> +               DPRINTK(PROBE, ERR, "Firmware \"%s\" has wrong size %zu\n",
-> +                       fw_name, fw->size);
-> +               release_firmware(fw);
-> +               return ERR_PTR(-EINVAL);
-> +       }
-> +
-> +       /* Read timer, bundle and min_size from end of firmware blob */
-> +       timer = fw->data[UCODE_SIZE * 4];
-> +       bundle = fw->data[UCODE_SIZE * 4 + 1];
-> +       min_size = fw->data[UCODE_SIZE * 4 + 2];
-> +
-> +       if (timer >= UCODE_SIZE || bundle >= UCODE_SIZE ||
-> +           min_size >= UCODE_SIZE) {
-> +               DPRINTK(PROBE, ERR,
-> +                       "\"%s\" has bogus offset values (0x%x,0x%x,0x%x)\n",
-> +                       fw_name, timer, bundle, min_size);
-> +               release_firmware(fw);
-> +               return ERR_PTR(-EINVAL);
-> +       }
-> +       /* OK, firmware is validated and ready to use... */
-> +       return fw;
-> +}
-> +
-> +static void e100_setup_ucode(struct nic *nic, struct cb *cb,
-> +                            struct sk_buff *skb)
-> +{
-> +       const struct firmware *fw = (void *)skb;
-> +       u8 timer, bundle, min_size;
-> +
-> +       /* It's not a real skb; we just abused the fact that e100_exec_cb
-> +          will pass it through to here... */
-> +       cb->skb = NULL;
-> +
-> +       /* firmware is stored as little endian already */
-> +       memcpy(cb->u.ucode, fw->data, UCODE_SIZE * 4);
-> +
-> +       /* Read timer, bundle and min_size from end of firmware blob */
-> +       timer = fw->data[UCODE_SIZE * 4];
-> +       bundle = fw->data[UCODE_SIZE * 4 + 1];
-> +       min_size = fw->data[UCODE_SIZE * 4 + 2];
-> +
-> +       /* Insert user-tunable settings in cb->u.ucode */
-> +       cb->u.ucode[timer] &= cpu_to_le32(0xFFFF0000);
-> +       cb->u.ucode[timer] |= cpu_to_le32(INTDELAY);
-> +       cb->u.ucode[bundle] &= cpu_to_le32(0xFFFF0000);
-> +       cb->u.ucode[bundle] |= cpu_to_le32(BUNDLEMAX);
-> +       cb->u.ucode[min_size] &= cpu_to_le32(0xFFFF0000);
-> +       cb->u.ucode[min_size] |= cpu_to_le32((BUNDLESMALL) ? 0xFFFF : 0xFF80);
-> +
-> +       cb->command = cpu_to_le16(cb_ucode | cb_el);
-> +}
-> +
-> +static inline int e100_load_ucode_wait(struct nic *nic)
-> +{
-> +       const struct firmware *fw;
->        int err = 0, counter = 50;
->        struct cb *cb = nic->cb_to_clean;
->
-> -       if ((err = e100_exec_cb(nic, NULL, e100_setup_ucode)))
-> +       fw = e100_request_firmware(nic);
-> +       /* If it's NULL, then no ucode is required */
-> +       if (!fw || IS_ERR(fw))
-> +               return PTR_ERR(fw);
-> +
-> +       if ((err = e100_exec_cb(nic, (void *)fw, e100_setup_ucode)))
->                DPRINTK(PROBE,ERR, "ucode cmd failed with error %d\n", err);
->
->        /* must restart cuc */
-> @@ -1435,7 +1330,7 @@ static int e100_hw_init(struct nic *nic)
->                return err;
->        if((err = e100_exec_cmd(nic, ruc_load_base, 0)))
->                return err;
-> -       if ((err = e100_exec_cb_wait(nic, NULL, e100_setup_ucode)))
-> +       if ((err = e100_load_ucode_wait(nic)))
->                return err;
->        if((err = e100_exec_cb(nic, NULL, e100_configure)))
->                return err;
-> diff --git a/firmware/Makefile b/firmware/Makefile
-> index 4993a4b..d99000d 100644
-> --- a/firmware/Makefile
-> +++ b/firmware/Makefile
-> @@ -28,6 +28,8 @@ fw-shipped-$(CONFIG_CHELSIO_T3) += cxgb3/t3b_psram-1.1.0.bin \
->                                   cxgb3/t3c_psram-1.1.0.bin \
->                                   cxgb3/t3fw-7.0.0.bin
->  fw-shipped-$(CONFIG_DVB_TTUSB_BUDGET) += ttusb-budget/dspbootcode.bin
-> +fw-shipped-$(CONFIG_E100) += e100/d101m_ucode.bin e100/d101s_ucode.bin \
-> +                            e100/d102e_ucode.bin
->  fw-shipped-$(CONFIG_SMCTR) += tr_smctr.bin
->  fw-shipped-$(CONFIG_SND_KORG1212) += korg/k1212.dsp
->  fw-shipped-$(CONFIG_SND_MAESTRO3) += ess/maestro3_assp_kernel.fw \
-> diff --git a/firmware/WHENCE b/firmware/WHENCE
-> index 8f06639..040967f 100644
-> --- a/firmware/WHENCE
-> +++ b/firmware/WHENCE
-> @@ -360,3 +360,14 @@ License: GPLv2 or OpenIB.org BSD license, no source visible
->
->  --------------------------------------------------------------------------
->
-> +Driver: e100 -- Intel PRO/100 Ethernet NIC
-> +
-> +File: e100/d101m_ucode.bin
-> +File: e100/d101s_ucode.bin
-> +File: e100/d102e_ucode.bin
-> +
-> +Licence: Unknown
-> +
-> +Found in hex form in kernel source.
-> +
-> +--------------------------------------------------------------------------
-> diff --git a/firmware/e100/d101m_ucode.bin.ihex b/firmware/e100/d101m_ucode.bin.ihex
-> new file mode 100644
-> index 0000000..12971ed
-> --- /dev/null
-> +++ b/firmware/e100/d101m_ucode.bin.ihex
-> @@ -0,0 +1,38 @@
-> +:10000000150255003704FFFFFFFFFFFF8907A70612
-> +:10001000FFFFFFFFFFFF580501000C001213100047
-> +:1000200008000C00160238009C001000564020000A
-> +:10003000CC802300560038009C0010000B4C24009C
-> +:1000400000080000184812003804380000000000C2
-> +:1000500000001400550538000080300062061000D2
-> +:100060006105100008040E006148130002000C0036
-> +:10007000933010000080300024061000610510004D
-> +:1000800008040E00610810007E000C00212C2200E4
-> +:1000900002000C00933010007A0C380000000800B9
-> +:1000A000903010007A0C38000000000000000000C2
-> +:1000B00000000000000000009C0010002D4C2400F7
-> +:1000C000040001000010040037043A00104004004E
-> +:1000D0008A07380000000000990010007A6C2000A8
-> +:1000E0009C001000484C24002408130001000C0060
-> +:1000F00013121000750C260000100400040001000B
-> +:100100002608130006000C00A806220026C91300CA
-> +:1001100013131000A80638000000000000000000C3
-> +:1001200000000000000000000000000000000000CF
-> +:10013000000000000000000000060800101B100076
-> +:10014000040005002608100010121000340C3800BE
-> +:1001500000000000000000005B1521009900100065
-> +:10016000596520009C0010005945240036081300F2
-> +:1001700000000C00620C220001000C00131B100098
-> +:100180000E9C22000E0C21000E6C22000E6C210031
-> +:100190000EFC22000E5C21000E4C2100550538009B
-> +:1001A0000400010000100400678C27000008040010
-> +:1001B0000081010037043A002608130001000C00FA
-> +:1001C00059052200131310005905380000000000E3
-> +:1001D000000000000000000000000000000000001F
-> +:1001E00000000000000000000000000031081300C3
-> +:1001F0000B0910001348120080FF0C00AB0626000C
-> +:100200000010040004000100A806380000000000EF
-> +:0B02100000000000000000004E417ED6
-> +:00000001FF
-> +/********************************************************/
-> +/*  Micro code for 8086:1229 Rev 8                      */
-> +/********************************************************/
-> diff --git a/firmware/e100/d101s_ucode.bin.ihex b/firmware/e100/d101s_ucode.bin.ihex
-> new file mode 100644
-> index 0000000..102c7fe
-> --- /dev/null
-> +++ b/firmware/e100/d101s_ucode.bin.ihex
-> @@ -0,0 +1,38 @@
-> +:10000000420255007E04FFFFFFFFFFFF1808FF06B6
-> +:10001000FFFFFFFFFFFFA60501000C0012131000F9
-> +:1000200008000C00430238009C00100056402000DD
-> +:10003000D0802300560038009C0010008B4F240015
-> +:1000400000080000184812007F043800000000007B
-> +:1000500000001400A30538000080300010061000D6
-> +:100060006105100008040E006148130002000C0036
-> +:10007000933010000080300024061000610510004D
-> +:1000800008040E00610810007E000C00A12F220061
-> +:1000900002000C0093301000900F380000000800A0
-> +:1000A00090301000900F38000000000000000000A9
-> +:1000B00000000000000000009C001000AD4F240074
-> +:1000C00004000100001004007E043A001040040007
-> +:1000D000190838000000000099001000FD6F200092
-> +:1000E0009A001000FDAF20009C001000C84F2400B3
-> +:1000F0002408130001000C0013121000F70F260053
-> +:1001000000100400040001002608130006000C0083
-> +:100110000007220026C9130013131000000738003F
-> +:1001200000000000000000000000000000000000CF
-> +:10013000000000000000000000060800101B100076
-> +:10014000040005002608100010121000B60F380039
-> +:100150000000000000000000A91521009900100017
-> +:10016000A76520009A001000A7A520009C001000A1
-> +:10017000A74524003608130000000C00E40F2200FD
-> +:1001800001000C00131B10008E9F22008E0F210017
-> +:100190008E6F22008E6F21008EFF22008E5F210065
-> +:1001A0008E4F2100A3053800040001000010040058
-> +:1001B000E98F270000080400008101007E043A0056
-> +:1001C0002608130001000C00A705220013131000DD
-> +:1001D000A70538000000000000000000000000003B
-> +:1001E000000000000000000000000000000000000F
-> +:1001F00000000000310813000B0910001348120022
-> +:1002000080FF0C000307260000100400040001001A
-> +:0B02100000073800000000004E438093
-> +:00000001FF
-> +/********************************************************/
-> +/*  Micro code for 8086:1229 Rev 9                      */
-> +/********************************************************/
-> diff --git a/firmware/e100/d102e_ucode.bin.ihex b/firmware/e100/d102e_ucode.bin.ihex
-> new file mode 100644
-> index 0000000..9e806da
-> --- /dev/null
-> +++ b/firmware/e100/d102e_ucode.bin.ihex
-> @@ -0,0 +1,38 @@
-> +:100000008F027D00F904420E850CED14E914FA14F8
-> +:10001000360EF70EFF1FFF1FB914E00000000000AE
-> +:100020000000000000000000BD14E000000000001F
-> +:100030000000000000000000D514E00000000000F7
-> +:1000400000000000000000000000000000000000B0
-> +:100050000000000000000000C114E00000000000EB
-> +:100060000000000000000000000000000000000090
-> +:100070000000000000000000000000000000000080
-> +:100080000000000000000000000000000000000070
-> +:100090000000000000000000C814E00000000000A4
-> +:1000A000000000000000000000062000EE14E00048
-> +:1000B000000000000000000080FF3000460E9400A9
-> +:1000C0000082030000201000430EE000000000004A
-> +:1000D000000000000000000006003000FB14E000FB
-> +:1000E0000000000000000000000000000000000010
-> +:1000F0000000000000000000000000000000000000
-> +:1001000000000000000000000000000000000000EF
-> +:100110000000000000000000416E90003C0E8000D6
-> +:10012000390EE00000000000FD6E9000FD0E900012
-> +:10013000F80EE000000000000000000000000000D9
-> +:1001400000000000000000000000000000000000AF
-> +:10015000000000000000000000000000000000009F
-> +:10016000000000000000000000000000000000008F
-> +:10017000000000000000000000000000000000007F
-> +:10018000000000000000000000000000000000006F
-> +:10019000000000000000000000000000000000005F
-> +:1001A000000000000000000000000000000000004F
-> +:1001B000000000000000000000000000000000003F
-> +:1001C000000000000000000000000000000000002F
-> +:1001D000000000000000000000000000000000001F
-> +:1001E000000000000000000000000000000000000F
-> +:1001F00000000000000000000000000000000000FF
-> +:1002000000000000000000000000000000000000EE
-> +:0B02100000000000000000002A362E55
-> +:00000001FF
-> +/********************************************************/
-> +/*  Micro code for the 8086:1229 Rev F/10               */
-> +/********************************************************/
-> --
-> 1.5.5.1
->
-
-Please hold off on committing, until we have had ample time to do some
-regression testing.  While this patch may have been in linux-next,
-this is the first we have seen of it.
-
-I am concerned that IPMI traffic will be adversely affected by this patch.
-
--- 
-Cheers,
-Jeff
-
-------------------------------------------------------------------------------
+VGhpcyBmaW5hbGx5IHVzZXMgdGhlICJzdGF0aWMiIHBlci1jcHUgcmVnaW9uIGZvciBhbGxvY19w
+ZXJjcHUuICBJdCBpbmNsdWRlcwphIG51bWJlciBvZiBjbGVhbnVwcyByZXF1aXJlZCB0byBtYWtl
+IHRoYXQgaGFwcGVuLCBhbmQgc29tZSBjbGVhbnVwcyBhcmUgZG9uZQphZnRlcndhcmRzLCB3aXRo
+IG1hbnkgbW9yZSB0byBjb21lIChlZy4gbG9jYWxfdCBpcyBub3cgbW9yZSB1c2VmdWwsIGlmIHdl
+IHNvcnQKdGhlIHNlbWFudGljcyBvZiB3aGF0IGl0IHNob3VsZCBsb29rIGxpa2UpLgoKICBodHRw
+Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L3J1c3R5L2xpbnV4LTIu
+Ni1jcHVhbGxvYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgIAoKY29tbWl0IDZiMjQxNDEzOTZjNDI0ZGQzYjk5NzlmYzFiOTE1YTUxNjM2
+ZjZhZDYKQXV0aG9yOiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6
+ICAgV2VkIERlYyAzMSAwOToyMTo0NiAyMDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiBiaWdf
+cGVyY3B1X2FsbG9jCiAgICAKICAgIEltcGFjdDogTmV3IEFQSQogICAgCiAgICBXZSBuZXZlciBh
+bGxvd2VkIHRoZSBkeW5hbWljIHBlci1jcHUgYWxsb2NhdG9yIHRvIHVzZSB0aGUgcGVyLWNwdSBy
+ZWdpb24sCiAgICB3YWl0aW5nIHVudGlsIHRoYXQgcmVnaW9uIGJlY2FtZSByZXNpemFibGUuICBU
+aGF0IHdhcyBvdmVyIDUgeWVhcnMgYWdvLgogICAgCiAgICBDaHJpc3RvcGggTGFtZXRlciBoYXMg
+ZGVtb25zdHJhdGVkIHRoYXQgc21hbGwgZHluYW1pYyBwZXItY3B1IGFsbG9jYXRpb25zCiAgICBt
+YWtlIHNlbnNlLCBhbmQgbW9zdCBhbGxvY2F0aW9ucyBhcmUgc21hbGwuICBTbyB3ZSB3YW50IHRv
+IHVzZSB0aGUgc2FtZQogICAgZWZmaWNpZW50IHBlci1jcHUgYWNjZXNzIHBhdGhzIGZvciBhbGxv
+Y19wZXJjcHUoKSBtZW1vcnkuCiAgICAKICAgIEJ1dCBzb21lIHBsYWNlcyByZWFsbHkgZG8gYWxs
+b2NhdGUgbGFyZ2UgYW1vdW50cyBvZiBwZXJjcHUgbWVtb3J5LiAgV2UKICAgIGdpdmUgdGhlbSBh
+IHNlcGFyYXRlIEFQSSAoZXF1aXZhbGVudCB0byB0aGUgY3VycmVudCBpbmVmZmljaWVudCBvbmUp
+LgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5j
+b20uYXU+Cgpjb21taXQgYjliNjdmM2M4MThiNjE3YmI0NzM0NGE4NTc0ZGU4YmNkNWY2YjI5NApB
+dXRob3I6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KRGF0ZTogICBXZWQg
+RGVjIDMxIDA5OjIxOjQ2IDIwMDggKzEwMzAKCiAgICBhbGxvY19wZXJjcHU6IE1vdmUgU05NUCBh
+bmQgaXBfcnRfYWNjdCB0byBiaWdfcGVyY3B1CiAgICAKICAgIElmIHdlIGxvb2sgYXQgcGVyY3B1
+IGFsbG9jYXRpb25zIHRvIGJvb3QgYW4geDg2LzMyICJhbGx5ZXNjb25maWciCiAgICBrZXJuZWws
+IHdlIHNlZSB0aGUgZm9sbG93aW5nOgogICAgCiAgICBGaWxlIGFuZCBsaW5lCQkJTnVtYmVyCQlT
+aXplCQlUb3RhbAogICAgbmV0L2lwdjQvYWZfaW5ldC5jOjEyODcJCSAyMQkJMjA0OAkJIDQzMDA4
+CiAgICBuZXQvaXB2NC9hZl9pbmV0LmM6MTI5MAkJIDIxCQkyMDQ4CQkgNDMwMDgKICAgIG5ldC9p
+cHY0L2FmX2luZXQuYzoxMjg3CQkgNDgJCSAxMjgJCSAgNjE0NAogICAgbmV0L2lwdjQvYWZfaW5l
+dC5jOjEyOTAJCSA0OAkJIDEyOAkJICA2MTQ0CiAgICBuZXQvaXB2NC9yb3V0ZS5jOjMyNTgJCSAg
+MQkJNDA5NgkJICA0MDk2CiAgICBuZXQvaXB2NC9hZl9pbmV0LmM6MTI4NwkJICAxCQkgMjg4CQkg
+ICAyODgKICAgIG5ldC9pcHY0L2FmX2luZXQuYzoxMjkwCQkgIDEJCSAyODgJCSAgIDI4OAogICAg
+bmV0L2lwdjQvYWZfaW5ldC5jOjEyODcJCSAgMQkJIDI1NgkJICAgMjU2CiAgICBuZXQvaXB2NC9h
+Zl9pbmV0LmM6MTI5MAkJICAxCQkgMjU2CQkgICAyNTYKICAgIG5ldC9pcHY0L2FmX2luZXQuYzox
+Mjg3CQkgIDEJCSAxMDQJCSAgIDEwNAogICAgbmV0L2lwdjQvYWZfaW5ldC5jOjEyOTAJCSAgMQkJ
+IDEwNAkJICAgMTA0CiAgICBTdWJ0b3RhbDoJCQkJCQkJMTAzNjk2CiAgICAKICAgIFRvdGFsIChp
+bmNsdWRpbmcgb3RoZXIgY2FsbGVycyB1bnRvdWNoZWQgYnkgdGhpcyBwYXRjaCkJCTExNzIyOAog
+ICAgCiAgICBTbyBuZXR3b3JraW5nIGlzIGNodWJieTogd29yc3QgY2FzZSBhYm91dCAxMDBrIHBl
+ciBjcHUgZm9yIFNOTVAgc3RhdHMuCiAgICBUaGlzIGNhbiBiZSByZWR1Y2VkLCBidXQgaXQncyBz
+dGlsbCA4OCUgb2YgdGhlIHBlcmNwdSBtZW1vcnksIGFuZCBJQTY0CiAgICBoYXMgYSBoYXJkY29k
+ZWQgbGltaXQgb2YgNjRrIGF0IHRoZSBtb21lbnQuCiAgICAKICAgIFRoYXQncyB3aHkgdGhlc2Ug
+dHdvIGNhbGxlcnMgZ2V0IG1vdmVkIHRvIGJpZ19wZXJjcHVfYWxsb2MuCiAgICAKICAgIE5vdGU6
+IGlwX3J0X2FjY3QgY291bGQgYmUgc2ltcGxpZmllZCBhbmQgbWFkZSBtb3JlIGVmZmljaWVudCBi
+eSBtYWtpbmcKICAgIGl0IGEgREVGSU5FX1BFUl9DUFUuICBCdXQgRGF2ZU0gbWFkZSBzb21lIGFy
+Z3VtZW50IGFib3V0IGltYWdlIHNpemUKICAgIGFuZCBJIGhhdmUgZmFyIHRvbyBtdWNoIHJlc3Bl
+Y3QgdG8gYXJndWUgd2l0aCBCbG9hdEJveSA6KQogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBSdXN0
+eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CiAgICBDYzogbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZwoKY29tbWl0IGQ3ODI4MjRjZGVhY2M1MzA4MzY2NjFkOTgwMTRhMzg3Mjc3MmQzYTAK
+QXV0aG9yOiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6ICAgV2Vk
+IERlYyAzMSAwOToyMTo0NyAyMDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiByZW1vdmUgYWxp
+Z25tZW50IG9uIGNwdV93b3JrcXVldWVfc3RydWN0LgogICAgCiAgICBTaW5jZSB3ZSdyZSBpbXBy
+b3ZpbmcgYWxsb2NfcGVyY3B1LCB3ZSBkb24ndCBuZWVkIHRvIHdhc3RlIHNwYWNlLgogICAgT24g
+MzItYml0IHRoaXMgZHJvcHMgc3RydWN0IGNwdV93b3JrcXVldWVfc3RydWN0IGZyb20gMTI4IHRv
+IDY0IGJ5dGVzLgogICAgCiAgICBGaWxlIGFuZCBsaW5lCQkJTnVtYmVyCQlTaXplCQlUb3RhbAog
+ICAgQmVmb3JlOgogICAgICBrZXJuZWwvd29ya3F1ZXVlLmM6ODE5CSA3MgkJIDEyOAkJIDkxMjYK
+ICAgIEFmdGVyOgogICAgICBrZXJuZWwvd29ya3F1ZXVlLmM6ODE5CSA3MgkJICA2NAkJIDQ2MDgK
+ICAgIAogICAgSXQncyBzdGlsbCB0aGUgYmlnZ2VzdCBkeW5hbWljIHBlcmNwdSB1c2VyIHRob3Vn
+aC4KICAgIAogICAgU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAu
+Y29tLmF1PgoKY29tbWl0IDllYWM5ZDA3NzQ0ODgyYjUyNjUzZDQ3ZmVmNmZhY2Q5M2Q0NjliMzUK
+QXV0aG9yOiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6ICAgV2Vk
+IERlYyAzMSAwOToyMTo0NyAyMDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiBjaGFuZ2UgcGVy
+Y3B1X3B0ciB0byBwZXJfY3B1X3B0cgogICAgCiAgICBJbXBhY3Q6IGNsZWFudXAKICAgIAogICAg
+VGhlcmUgYXJlIHR3byBhbGxvY2F0ZWQgcGVyLWNwdSBhY2Nlc3NvciBtYWNyb3Mgd2l0aCBhbG1v
+c3QgaWRlbnRpY2FsCiAgICBzcGVsbGluZy4gIFRoZSBvcmlnaW5hbCBhbmQgZmFyIG1vcmUgcG9w
+dWxhciBpcyBwZXJfY3B1X3B0ciAoNDQKICAgIGZpbGVzKSwgc28gY2hhbmdlIG92ZXIgdGhlIG90
+aGVyIDQgZmlsZXMuCiAgICAKICAgIFNpZ25lZC1vZmYtYnk6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5
+QHJ1c3Rjb3JwLmNvbS5hdT4KICAgIENjOiBtaW5nb0ByZWRoYXQuY29tCiAgICBDYzogbGVuYkBr
+ZXJuZWwub3JnCiAgICBDYzogY3B1ZnJlcUB2Z2VyLmtlcm5lbC5vcmcKCmNvbW1pdCAxYWViZGU2
+NzZkNWExZTQ5NjVlOThkZTQwMWNmNjBlOWE4ZTM1MzUxCkF1dGhvcjogUnVzdHkgUnVzc2VsbCA8
+cnVzdHlAcnVzdGNvcnAuY29tLmF1PgpEYXRlOiAgIFdlZCBEZWMgMzEgMDk6MjE6NDggMjAwOCAr
+MTAzMAoKICAgIGFsbG9jX3BlcmNwdTogYWRkIGFsaWduIGFyZ3VtZW50IHRvIF9fYWxsb2NfcGVy
+Y3B1LgogICAgCiAgICBUaGlzIHByZXBhcmVzIGZvciBhIHJlYWwgX19hbGxvY19wZXJjcHUsIGJ5
+IGFkZGluZyBhbiBhbGlnbm1lbnQgYXJndW1lbnQuCiAgICBPbmx5IG9uZSBwbGFjZSB1c2VzIF9f
+YWxsb2NfcGVyY3B1IGRpcmVjdGx5LCBhbmQgdGhhdCdzIGZvciBhIHN0cmluZy4KICAgIAogICAg
+U2lnbmVkLW9mZi1ieTogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgogICAg
+Q2M6IENocmlzdG9waCBMYW1ldGVyIDxjbEBsaW51eC1mb3VuZGF0aW9uLm9yZz4KICAgIENjOiBK
+ZW5zIEF4Ym9lIDxheGJvZUBrZXJuZWwuZGs+Cgpjb21taXQgYmEyNmM4NjBkNWQ0Nzg5NmFlZTQ1
+ZWM1ZjEzYzBkN2JkMjFhNzg0YQpBdXRob3I6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3Jw
+LmNvbS5hdT4KRGF0ZTogICBXZWQgRGVjIDMxIDA5OjIxOjQ4IDIwMDggKzEwMzAKCiAgICBhbGxv
+Y19wZXJjcHU6IG1ha2UgdGhlIHBlciBjcHUgcmVzZXJ2ZSBjb25maWd1cmFibGUgYW5kIGxhcmdl
+ci4KICAgIAogICAgVGhpcyBpcyBiYXNlZCBvbiBDaHJpc3RvcGggTGFtZXRlcidzICJjcHVhbGxv
+YzogbWFrZSB0aGUgcGVyIGNwdQogICAgcmVzZXJ2ZSBjb25maWd1cmFibGUiIHBhdGNoLCBhbmQg
+aGlzICJJbmNyZWFzZSBkZWZhdWx0IHJlc2VydmUgcGVyY3B1CiAgICBhcmVhIiBwYXRjaC4KICAg
+IAogICAgQ2hyaXN0b3BoIGRpZCB0aGUgaGFyZCB3b3JrIG9mIGZpZ3VyaW5nIG91dCB3aGF0IHRo
+ZSBudW1iZXIgc2hvdWxkIGJlCiAgICAoYmFzZWQgb24gY29udmVydGluZyB0aGUgc2x1YiBhbGxv
+Y2F0b3IpLiAgYWxseWVzY29uZmlnIG9uIHg4Ni0zMiB1c2VzCiAgICA3ayBiZWZvcmUgbW91bnRp
+bmcgcm9vdCwgc28gMTBrIHNlZW1zIHJlYXNvbmFibGUuCiAgICAKICAgIFNpZ25lZC1vZmYtYnk6
+IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KICAgIENjOiBDaHJpc3RvcGgg
+TGFtZXRlciA8Y2xAbGludXgtZm91bmRhdGlvbi5vcmc+Cgpjb21taXQgZjM5YjgwZDEwMDljMTYx
+MWY3OTFiNjY1NjQwZThiNDExOTE3MzNmMgpBdXRob3I6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1
+c3Rjb3JwLmNvbS5hdT4KRGF0ZTogICBXZWQgRGVjIDMxIDA5OjIxOjQ5IDIwMDggKzEwMzAKCiAg
+ICBhbGxvY19wZXJjcHU6IG1ha2UgcGVyY3B1X21vZGFsbG9jL21vZGZyZWUgbW9yZSBnZW5lcmlj
+CiAgICAKICAgIFJlbW92ZSB0aGUgIm5hbWUiIGFyZyB0byBwZXJjcHVfbW9kYWxsb2MsIGFuZCBt
+YWtlIGl0IHplcm8gbWVtb3J5LgogICAgTWFrZSBwZXJjcHVfbW9kZnJlZSB0YWtlIE5VTEwgd2l0
+aG91dCBiYXJmaW5nLgogICAgTWFrZSBub24tU01QIHZlcnNpb25zIGRvIGt6YWxsb2Mva2ZyZWUu
+CiAgICAKICAgIFRoZXNlIHRyaXZpYWwgY2hhbmdlcyBtYWtlIGl0IHN1aXRhYmxlIGZvciB1c2Ug
+YXMgYSBnZW5lcmFsIHBlci1jcHUKICAgIGFsbG9jYXRvci4KICAgIAogICAgU2lnbmVkLW9mZi1i
+eTogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgogICAgQ2M6IENocmlzdG9w
+aCBMYW1ldGVyIDxjbEBsaW51eC1mb3VuZGF0aW9uLm9yZz4KCmNvbW1pdCA5OGJkMTUxOTUzNmVm
+NjJkMjgzY2VlMjIxMjMyYzNjMmQ2MTU3MjE4CkF1dGhvcjogUnVzdHkgUnVzc2VsbCA8cnVzdHlA
+cnVzdGNvcnAuY29tLmF1PgpEYXRlOiAgIFdlZCBEZWMgMzEgMDk6MjE6NDkgMjAwOCArMTAzMAoK
+ICAgIGFsbG9jX3BlcmNwdTogZXhwb3NlIHBlcmNwdV9tb2RhbGxvYyBhbmQgcGVyY3B1X21vZGZy
+ZWUKICAgIAogICAgVGhpcyBzaW1wbHkgbW92ZXMgdGhlIHBlcmNwdSBhbGxvY2F0b3IgZnVuY3Rp
+b25zIGZyb20gdGhlIG1vZHVsZSBjb2RlCiAgICB0byBtbS9hbGxvY3BlcmNwdS5jLiAgcGVyY3B1
+X21vZGluaXQgaXMgcmVuYW1lZCBwZXJjcHVfYWxsb2NfaW5pdCBhbmQKICAgIGNhbGxlZCBmcm9t
+IGluaXQvbWFpbi5jLgogICAgCiAgICAoTm90ZTogdGhpcyBhbGxvY2F0b3Igd2lsbCBuZWVkIHRv
+IGJlIHdlYW5lZCBvZmYga3JlYWxsb2MgZm9yIHVzZSBpbgogICAgdGhlIHNsYWIgYWxsb2NhdG9y
+IGl0c2VsZiBhcyBDaHJpc3RvcGggZG9lcyBpbiBvbmUgb2YgaGlzIHBhdGNoZXMpLgogICAgCiAg
+ICBTaWduZWQtb2ZmLWJ5OiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CiAg
+ICBDYzogQ2hyaXN0b3BoIExhbWV0ZXIgPGNsQGxpbnV4LWZvdW5kYXRpb24ub3JnPgoKY29tbWl0
+IDVmZTYzM2EzNDMyMDIxZDBjZjcxOWFiMjM4ZjZjOTM2ZWY5OWQ1ZWUKQXV0aG9yOiBSdXN0eSBS
+dXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6ICAgV2VkIERlYyAzMSAwOToyMTo1
+MCAyMDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiBzd2l0Y2ggb3ZlciB0byAocmVuYW1lZCkg
+cGVyY3B1X21vZGZyZWUuCiAgICAKICAgIE5vdyB0aGUgc3dpdGNoOiByZW5hbWUgcGVyY3B1X21v
+ZGFsbG9jIHRvIF9fYWxsb2NfcGVyY3B1LCBhbmQKICAgIHBlcmNwdV9tb2RmcmVlIHRvIGZyZWVf
+cGVyY3B1IGFuZCBleHBvcnQgdGhlbS4KICAgIAogICAgV2UgZGVsZXRlIHRoZSBvbGQgb25lcywg
+aW5jbHVkaW5nIHRoZSB1bnVzZWQgcGVyY3B1X2FsbG9jLAogICAgcGVyY3B1X2FsbG9jX21hc2sg
+YW5kIHBlcmNwdV9wdHIuCiAgICAKICAgIHBlcl9jcHVfcHRyIG5vdyB1c2VzIFJFTE9DX0hJREUg
+b24gcGVyX2NwdV9vZmZzZXQsIGp1c3QgbGlrZSBzdGF0aWMKICAgIHBlci1jcHUgdmFyaWFibGVz
+IChub3QgU0hJRlRfUEVSQ1BVX1BUUjogdGhpcyBoYXMgc2lkZSBlZmZlY3RzIG9uCiAgICBTLzM5
+MCBhbmQgQWxwaGEpLgogICAgCiAgICBUaGUgQWxwaGEgY2hhbmdlcyBhcmUgdW50ZXN0ZWQuCiAg
+ICAKICAgIFNpZ25lZC1vZmYtYnk6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5h
+dT4KICAgIENjOiBDaHJpc3RvcGggTGFtZXRlciA8Y2xAbGludXgtZm91bmRhdGlvbi5vcmc+Cgpj
+b21taXQgNWY5MzA1NDE1NzFhZTc1MWI1YjA2MzljMDI5NGMzMTA5Zjc2OTMzZgpBdXRob3I6IFJ1
+c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KRGF0ZTogICBXZWQgRGVjIDMxIDA5
+OjIxOjUwIDIwMDggKzEwMzAKCiAgICBhbGxvY19wZXJjcHU6IGRvY3VtZW50YXRpb24KICAgIAog
+ICAgU2luY2Ugd2UgY2FuIG5vdyBlbmRvcnNlIHRoaXMgaW50ZXJmYWNlIHdpdGhvdXQgd2luY2lu
+Zywgd2Ugc2hvdWxkCiAgICBkb2N1bWVudCBpdC4gICBOb3RoaW5nIGhhcyBjaGFuZ2VkIEFQSS13
+aXNlLCBidXQgaXQncyBhIG5pY2UgY2xlYW51cC4KICAgIAogICAgU2lnbmVkLW9mZi1ieTogUnVz
+dHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgogICAgQ2M6IENocmlzdG9waCBMYW1l
+dGVyIDxjbEBsaW51eC1mb3VuZGF0aW9uLm9yZz4KCmNvbW1pdCA5ODdhZmNiNjQzNDg1MjU4NTY4
+ZTAyY2Q5NGUyYjkwNjk2OWUwODBlCkF1dGhvcjogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNv
+cnAuY29tLmF1PgpEYXRlOiAgIFdlZCBEZWMgMzEgMDk6MjE6NTEgMjAwOCArMTAzMAoKICAgIGFs
+bG9jX3BlcmNwdTogX19nZXRfY3B1X3B0ci9nZXRfY3B1X3B0ci9wdXRfY3B1X3B0cgogICAgCiAg
+ICBOb3cgd2UgaGF2ZSBhIGRlY2VudCBpbXBsZW1lbnRhdGlvbiBpdCBtYWtlcyBzZW5zZSB0byBo
+YXZlIGFuCiAgICBpbnRlcmZhY2UgZm9yICJ0aGlzIGNwdSIsIGFuYWxvZ291cyB0byBfX2dldF9j
+cHVfdmFyLgogICAgCiAgICBBbHBoYSBpcyB1bnRlc3RlZC4KICAgIAogICAgU2lnbmVkLW9mZi1i
+eTogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgogICAgQ2M6IENocmlzdG9w
+aCBMYW1ldGVyIDxjbEBsaW51eC1mb3VuZGF0aW9uLm9yZz4KCmNvbW1pdCBhZTZmODZhMTQ5MmRk
+NjI1MjNlZjhjNzU0NTViM2I3ODQ3OTljZWZhCkF1dGhvcjogUnVzdHkgUnVzc2VsbCA8cnVzdHlA
+cnVzdGNvcnAuY29tLmF1PgpEYXRlOiAgIFdlZCBEZWMgMzEgMDk6MjE6NTIgMjAwOCArMTAzMAoK
+ICAgIGFsbG9jX3BlcmNwdTogcmVhZF9wZXJjcHVfdmFyIC8gcmVhZF9wZXJjcHVfcHRyCiAgICAK
+ICAgIEltcGFjdDogTmV3IEFQSQogICAgCiAgICBnZXRfY3B1X3Zhci9nZXRfY3B1X3B0ciByZXR1
+cm4gbHZhbHVlcywgYnV0IGZvciBpYTY0IGFuZCB4ODYvMzIgKGFuZCBvbmUKICAgIGRheSB4ODYv
+NjQpIHRoZXJlIGFyZSBtb3JlIGVmZmljaWVudCB3YXlzIGlmIHlvdSBqdXN0IHdhbnQgYW4gcnZh
+bHVlLgogICAgCiAgICBUaGUgeDg2LXNwZWNpZmljIHZlcnNpb25zIGhhdmUgcHJvdmVuIHBvcHVs
+YXIgaW4gdGhhdCBhcmNoLCBzbyBJIGV4cGVjdAogICAgdGhleSdsbCBiZSBwb3B1bGFyIGdlbmVy
+YWxseS4KICAgIAogICAgU28gaW50cm9kdWNlIHJlYWRfcGVyY3B1X3ZhciBhbmQgcmVhZF9wZXJj
+cHVfcHRyLiAgVGhleSBhcmUgc2VwYXJhdGUsCiAgICBiZWNhdXNlIHdoZW4gd2UgZW5sYXJnZSBw
+ZXJjcHUgYXJlYXMgSUE2NCBpcyBub3QgZ29pbmcgdG8gYmUgYWJsZSB0bwogICAgZG8gaXRzIHRy
+aWNrIG9uIGFiaXRyYXJ5IHBlci1jcHUgcG9pbnRlcnMsIG9ubHkgdmFycyAod2hpY2ggYXJlIGlu
+IHRoZQogICAgZmlyc3QgNjRrKS4KICAgIAogICAgU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVzc2Vs
+bCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgoKY29tbWl0IGRlZmJkZWNjMmI5NzEwNjNjNjMxMWRi
+OTFmMGJlNjAwNzMwNmE5YmQKQXV0aG9yOiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5j
+b20uYXU+CkRhdGU6ICAgV2VkIERlYyAzMSAwOToyMTo1MiAyMDA4ICsxMDMwCgogICAgYWxsb2Nf
+cGVyY3B1OiByZW5hbWUgcGVyY3B1IHZhcnMgd2hpY2ggY2F1c2UgbmFtZSBjbGFzaGVzLgogICAg
+CiAgICBDdXJyZW50bHkgREVDTEFSRV9QRVJfQ1BVIHZhcnMgaGF2ZSBwZXJfY3B1X18gcHJlZml4
+ZWQgdG8gdGhlbSwgYW5kCiAgICB0aGlzIGVmZmVjdGl2ZWx5IHB1dHMgdGhlbSBpbiBhIHNlcGFy
+YXRlIG5hbWVzcGFjZS4gIE5vIHN1cnByaXNlIHRoYXQKICAgIHRoZXkgY2xhc2ggd2l0aCBvdGhl
+ciBuYW1lcyB3aGVuIHRoYXQgcHJlZml4IGlzIHJlbW92ZWQuCiAgICAKICAgIFRoZXJlIG1heSBi
+ZSBvdGhlcnMgSSd2ZSBtaXNzZWQsIGJ1dCBpZiBzbyB0aGUgdHJhbnNmb3JtIGlzIHNpbXBsZS4K
+ICAgIAogICAgU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29t
+LmF1PgoKY29tbWl0IGE1NmYzMGU4YTA3NWU4Y2UxNWI0ZGZmOGUzZmUwZWRiOWJhZmY3ZWEKQXV0
+aG9yOiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6ICAgV2VkIERl
+YyAzMSAwOToyMTo1MyAyMDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiByZW1vdmUgcGVyX2Nw
+dV9fIHByZWZpeC4KICAgIAogICAgTm93IHRoYXQgdGhlIHJldHVybiBmcm9tIGFsbG9jX3BlcmNw
+dSBpcyBjb21wYXRpYmxlIHdpdGggdGhlIGFkZHJlc3MKICAgIG9mIHBlci1jcHUgdmFycywgaXQg
+bWFrZXMgc2Vuc2UgdG8gaGFuZCBhcm91bmQgdGhlIGFkZHJlc3Mgb2YgcGVyLWNwdQogICAgdmFy
+aWFibGVzLiAgVG8gbWFrZSB0aGlzIHNhbmUsIHdlIHJlbW92ZSB0aGUgcGVyX2NwdV9fIHByZWZp
+eCB3ZSB1c2VkCiAgICBjcmVhdGVkIHRvIHN0b3AgcGVvcGxlIGFjY2lkZW50YWxseSB1c2luZyB0
+aGVzZSB2YXJzIGRpcmVjdGx5LgogICAgCiAgICBOb3cgd2UgaGF2ZSBzcGFyc2UsIHdlIGNhbiB1
+c2UgdGhhdCAobmV4dCBwYXRjaCkuCiAgICAKICAgIFNpZ25lZC1vZmYtYnk6IFJ1c3R5IFJ1c3Nl
+bGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KCmNvbW1pdCBhM2M0NWU1OWJiNzFkYTFhMDEzZTAw
+NjM0NjljNTIzZmNhNTAyOTViCkF1dGhvcjogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAu
+Y29tLmF1PgpEYXRlOiAgIFdlZCBEZWMgMzEgMDk6MjE6NTMgMjAwOCArMTAzMAoKICAgIGFsbG9j
+X3BlcmNwdTogdXNlIF9fcGVyY3B1IGFubm90YXRpb24gZm9yIHNwYXJzZS4KICAgIAogICAgQWRk
+IF9fcGVyY3B1IGZvciBzcGFyc2UuCiAgICAKICAgIFdlIGhhdmUgdG8gbWFrZSBfX2tlcm5lbCAi
+X19hdHRyaWJ1dGVfXygoYWRkcmVzc19zcGFjZSgwKSkpIiBzbyB3ZSBjYW4KICAgIGNhc3QgdG8g
+aXQuCiAgICAKICAgIFNpZ25lZC1vZmYtYnk6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3Jw
+LmNvbS5hdT4KICAgIENjOiBBbCBWaXJvIDx2aXJvQHplbml2LmxpbnV4Lm9yZy51az4KCmNvbW1p
+dCAxZDhlNGJkMDQ0MzZkMDhkNjY4MDdiZmM3NzJmNmFkYWRmMGVhZGY4CkF1dGhvcjogUnVzdHkg
+UnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgpEYXRlOiAgIFdlZCBEZWMgMzEgMDk6MjE6
+NTQgMjAwOCArMTAzMAoKICAgIGFsbG9jX3BlcmNwdTogVXNlIF9fZ2V0X2NwdV9wdHIgaW4gYmxv
+Y2svCiAgICAKICAgIEltcGFjdDogc2xpZ2h0IGVmZmljaWVuY3kgaW1wcm92ZW1lbnQgb24gc29t
+ZSBhcmNocy4KICAgIAogICAgTGV0J3MgdXNlIF9fZ2V0X2NwdV9wdHIgYW5kIGdldF9jcHVfcHRy
+IG5vdywgcmF0aGVyIHRoYW4KICAgIHBlcl9jcHVfcHRyKC4uLiwgc21wX3Byb2Nlc3Nvcl9pZCgp
+KS4KICAgIAogICAgU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAu
+Y29tLmF1PgogICAgQ2M6IEplbnMgQXhib2UgPGF4Ym9lQGtlcm5lbC5kaz4KCmNvbW1pdCA3ZGU4
+ODM2YTRjNTRiYjk1MDkzMjUwOGEyMzk2YjgyMmJjNDFmOTM5CkF1dGhvcjogUnVzdHkgUnVzc2Vs
+bCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PgpEYXRlOiAgIFdlZCBEZWMgMzEgMDk6MjE6NTQgMjAw
+OCArMTAzMAoKICAgIGFsbG9jX3BlcmNwdTogVXNlIF9fZ2V0X2NwdV9wdHIgaW4gY3J5cHRvLwog
+ICAgCiAgICBJbXBhY3Q6IHNsaWdodCBlZmZpY2llbmN5IGltcHJvdmVtZW50IG9uIHNvbWUgYXJj
+aHMuCiAgICAKICAgIExldCdzIHVzZSBfX2dldF9jcHVfcHRyIGFuZCBnZXRfY3B1X3B0ciBub3cs
+IHJhdGhlciB0aGFuCiAgICBwZXJfY3B1X3B0ciguLi4sIHNtcF9wcm9jZXNzb3JfaWQoKSkuCiAg
+ICAKICAgIFNpZ25lZC1vZmYtYnk6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5h
+dT4KICAgIENjOiBIZXJiZXJ0IFh1IDxoZXJiZXJ0QGdvbmRvci5hcGFuYS5vcmcuYXU+Cgpjb21t
+aXQgMjEzMDcxMTRhYjc4MmM5OGFlMTcyZjRiZDFkYjY2ODVkZThmMDI2OQpBdXRob3I6IFJ1c3R5
+IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KRGF0ZTogICBXZWQgRGVjIDMxIDA5OjIx
+OjU1IDIwMDggKzEwMzAKCiAgICBhbGxvY19wZXJjcHU6IFVzZSBfX2dldF9jcHVfcHRyIGluIGRy
+aXZlcnMvZG1hCiAgICAKICAgIEltcGFjdDogc2xpZ2h0IGVmZmljaWVuY3kgaW1wcm92ZW1lbnQg
+b24gc29tZSBhcmNocy4KICAgIAogICAgTGV0J3MgdXNlIF9fZ2V0X2NwdV9wdHIgYW5kIGdldF9j
+cHVfcHRyIG5vdywgcmF0aGVyIHRoYW4KICAgIHBlcl9jcHVfcHRyKC4uLiwgc21wX3Byb2Nlc3Nv
+cl9pZCgpKS4KICAgIAogICAgU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVz
+dGNvcnAuY29tLmF1PgogICAgQ2M6IE1hY2llaiBTb3Nub3dza2kgPG1hY2llai5zb3Nub3dza2lA
+aW50ZWwuY29tPgogICAgQ2M6IERhbiBXaWxsaWFtcyA8ZGFuLmoud2lsbGlhbXNAaW50ZWwuY29t
+PgoKY29tbWl0IGM4OGMzZDhlZDdlZWE2YmMwNmQxZjEyOGM4NmJjNWYzMDlkNzEyMzUKQXV0aG9y
+OiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6ICAgV2VkIERlYyAz
+MSAwOToyMTo1NSAyMDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiBVc2UgX19yYXdfZ2V0X2Nw
+dV9wdHIgaW4gZnMvZXh0NAogICAgCiAgICBJbXBhY3Q6IHNsaWdodCBlZmZpY2llbmN5IGltcHJv
+dmVtZW50IG9uIHNvbWUgYXJjaHMuCiAgICAKICAgIExldCdzIHVzZSBfX3Jhd19nZXRfY3B1X3B0
+ciBub3csIHJhdGhlciB0aGFuIHBlcl9jcHVfcHRyKC4uLiwKICAgIHJhd19zbXBfcHJvY2Vzc29y
+X2lkKCkpLgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0
+Y29ycC5jb20uYXU+CiAgICBDYzogVGhlb2RvcmUgVHMnbyA8dHl0c29AbWl0LmVkdT4KICAgIENj
+OiBhZGlsZ2VyQHN1bi5jb20KICAgIENjOiBsaW51eC1leHQ0QHZnZXIua2VybmVsLm9yZwoKY29t
+bWl0IDAxMDY3NDg3NjQ1MDcwMWQ0NThjZmIxNWQ4ZDRjNzAzODg2MDNjZjYKQXV0aG9yOiBSdXN0
+eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6ICAgV2VkIERlYyAzMSAwOToy
+MTo1NiAyMDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiBVc2UgZ2V0X2NwdV9wdHIgaW4gZnMv
+bmZzCiAgICAKICAgIEltcGFjdDogc2xpZ2h0IGVmZmljaWVuY3kgaW1wcm92ZW1lbnQgb24gc29t
+ZSBhcmNocy4KICAgIAogICAgTGV0J3MgdXNlIGdldF9jcHVfcHRyX3B0ciBub3csIHJhdGhlciB0
+aGFuIHBlcl9jcHVfcHRyKC4uLiwgc21wX3Byb2Nlc3Nvcl9pZCgpKS4KICAgIAogICAgTm90ZSB0
+aGF0IG5vdyB3ZSBoYXZlIHJlYWwgZHluYW1pYyBwZXItY3B1IGFsbG9jYXRpb25zLCBjYWNoZWxp
+bmUgYWxpZ25pbmcKICAgIHNob3VsZCBub3Qgd2luIGFueXRoaW5nLCBhbmQgaXMgYSBsaXR0bGUg
+YW50aXNvY2lhbC4KICAgIAogICAgU2lnbmVkLW9mZi1ieTogUnVzdHkgUnVzc2VsbCA8cnVzdHlA
+cnVzdGNvcnAuY29tLmF1PgogICAgQ2M6IFRyb25kIE15a2xlYnVzdCA8VHJvbmQuTXlrbGVidXN0
+QG5ldGFwcC5jb20+CiAgICBDYzogbGludXgtbmZzQHZnZXIua2VybmVsLm9yZwoKY29tbWl0IGI0
+NTYyODJhZjA3MTViZDk4NmQ1N2NiYTZhNjI5YTViNzFjYTc2OTIKQXV0aG9yOiBSdXN0eSBSdXNz
+ZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CkRhdGU6ICAgV2VkIERlYyAzMSAwOToyMTo1NiAy
+MDA4ICsxMDMwCgogICAgYWxsb2NfcGVyY3B1OiBVc2UgX19nZXRfY3B1X3B0ciBpbiBmcy94ZnMK
+ICAgIAogICAgSW1wYWN0OiBzbGlnaHQgZWZmaWNpZW5jeSBpbXByb3ZlbWVudCBvbiBzb21lIGFy
+Y2hzLgogICAgCiAgICBMZXQncyB1c2UgZ2V0X2NwdV9wdHIgbm93LCByYXRoZXIgdGhhbiBwZXJf
+Y3B1X3B0ciguLi4sIHNtcF9wcm9jZXNzb3JfaWQoKSkuCiAgICAKICAgIFNpZ25lZC1vZmYtYnk6
+IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KICAgIENjOiBUaW0gU2hpbW1p
+biA8eGZzLW1hc3RlcnNAb3NzLnNnaS5jb20+CiAgICBDYzogeGZzQG9zcy5zZ2kuY29tCgpjb21t
+aXQgZWE1OTM4NGNkYThjYmViNDBjNTc0OWYzYjA3MGRmMzQ2NjY3ZjdhNwpBdXRob3I6IFJ1c3R5
+IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KRGF0ZTogICBXZWQgRGVjIDMxIDA5OjIx
+OjU3IDIwMDggKzEwMzAKCiAgICBhbGxvY19wZXJjcHU6IFVzZSBfX2dldF9jcHVfcHRyIC8gZ2V0
+X2NwdV9wdHIgLyBnZXRfY3B1X3ZhciBpbiBrZXJuZWwKICAgIAogICAgSW1wYWN0OiBzbGlnaHQg
+ZWZmaWNpZW5jeSBpbXByb3ZlbWVudCBvbiBzb21lIGFyY2hzLgogICAgCiAgICBMZXQncyB1c2Ug
+X19nZXRfY3B1X3B0ciBhbmQgZ2V0X2NwdV9wdHIgbm93LCByYXRoZXIgdGhhbgogICAgcGVyX2Nw
+dV9wdHIoLi4uLCBzbXBfcHJvY2Vzc29yX2lkKCkpLgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBS
+dXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+CiAgICBDYzogVGhvbWFzIEdsZWl4
+bmVyIDx0Z2x4QGxpbnV0cm9uaXguZGU+CiAgICBDYzogSW5nbyBNb2xuYXIgPG1pbmdvQGVsdGUu
+aHU+CiAgICBDYzogRGlwYW5rYXIgU2FybWEgPGRpcGFua2FyQGluLmlibS5jb20+Cgpjb21taXQg
+OWJhNzAyM2ZkZWJjYTU4ZDM1Zjk3MGJiNjZmYmNkOTE0MDNhOWFiNwpBdXRob3I6IFJ1c3R5IFJ1
+c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KRGF0ZTogICBXZWQgRGVjIDMxIDA5OjIxOjU3
+IDIwMDggKzEwMzAKCiAgICBhbGxvY19wZXJjcHU6IFVzZSBfX2dldF9jcHVfcHRyIGluIG5ldHdv
+cmtpbmcKICAgIAogICAgSW1wYWN0OiBzbGlnaHQgZWZmaWNpZW5jeSBpbXByb3ZlbWVudCBvbiBz
+b21lIGFyY2hzLgogICAgCiAgICBMZXQncyB1c2UgX19nZXRfY3B1X3B0ciBhbmQgZ2V0X2NwdV9w
+dHIgbm93LCByYXRoZXIgdGhhbgogICAgcGVyX2NwdV9wdHIoLi4uLCBzbXBfcHJvY2Vzc29yX2lk
+KCkpLgogICAgCiAgICAoVGhlIG5mY29ubnRyYWNrIGNvZGUgc2VlbXMgYSBiaXQgY29uZnVzZWQg
+b3ZlciB3aGVuIHJhd19zbXBfcHJvY2Vzc29yX2lkKCkKICAgICBzaG91bGQgYmUgdXNlZDogbm90
+IGhlcmUpLgogICAgCiAgICBTaWduZWQtb2ZmLWJ5OiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0
+Y29ycC5jb20uYXU+CiAgICBDYzogSG9hbmctTmFtIE5ndXllbiA8aG5ndXllbkBkZS5pYm0uY29t
+PgogICAgQ2M6IENocmlzdG9waCBSYWlzY2ggPHJhaXNjaEBkZS5pYm0uY29tPgogICAgQ2M6IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmcKAAoKIERvY3VtZW50YXRpb24va2VybmVsLXBhcmFtZXRlcnMu
+dHh0ICAgICAgICAgfCAgICA4ICsKIGFyY2gvYWxwaGEvaW5jbHVkZS9hc20vcGVyY3B1LmggICAg
+ICAgICAgICAgfCAgIDIxICsrLQogYXJjaC9jcmlzL2FyY2gtdjEwL2tlcm5lbC9lbnRyeS5TICAg
+ICAgICAgICB8ICAgIDIgKy0gCiBhcmNoL2NyaXMvYXJjaC12MzIvbW0vbW11LlMgICAgICAgICAg
+ICAgICAgIHwgICAgMiArLSAKIGFyY2gvaWE2NC9pbmNsdWRlL2FzbS9wZXJjcHUuaCAgICAgICAg
+ICAgICAgfCAgICA1ICstIAogYXJjaC9pYTY0L2tlcm5lbC9pYTY0X2tzeW1zLmMgICAgICAgICAg
+ICAgICB8ICAgIDQgKy0gCiBhcmNoL2lhNjQvbW0vZGlzY29udGlnLmMgICAgICAgICAgICAgICAg
+ICAgIHwgICAgMiArLSAKIGFyY2gvcGFyaXNjL2xpYi9maXh1cC5TICAgICAgICAgICAgICAgICAg
+ICAgfCAgICA4ICstIAogYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9wc2VyaWVzL2h2Q2FsbC5TICAg
+ICB8ICAgIDIgKy0gCiBhcmNoL3NwYXJjNjQva2VybmVsL3J0cmFwLlMgICAgICAgICAgICAgICAg
+IHwgICAgOCArLSAKIGFyY2gveDg2L2luY2x1ZGUvYXNtL3BlcmNwdS5oICAgICAgICAgICAgICAg
+fCAgIDI0ICsrLQogYXJjaC94ODYvaW5jbHVkZS9hc20vdGltZXIuaCAgICAgICAgICAgICAgICB8
+ICAgIDUgKy0gCiBhcmNoL3g4Ni9rZXJuZWwvY3B1L2NwdWZyZXEvYWNwaS1jcHVmcmVxLmMgIHwg
+ICAgMiArLSAKIGFyY2gveDg2L2tlcm5lbC9lbnRyeV82NC5TICAgICAgICAgICAgICAgICAgfCAg
+ICA0ICstIAogYXJjaC94ODYva2VybmVsL2hlYWRfMzIuUyAgICAgICAgICAgICAgICAgICB8ICAg
+IDIgKy0gCiBhcmNoL3g4Ni9rZXJuZWwvaGVhZF82NC5TICAgICAgICAgICAgICAgICAgIHwgICAg
+MiArLSAKIGFyY2gveDg2L2tlcm5lbC90c2MuYyAgICAgICAgICAgICAgICAgICAgICAgfCAgICA0
+ICstIAogYXJjaC94ODYveGVuL3hlbi1hc21fMzIuUyAgICAgICAgICAgICAgICAgICB8ICAgIDQg
+Ky0gCiBibG9jay9ibGt0cmFjZS5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNCAr
+LSAKIGNyeXB0by9hc3luY190eC9hc3luY190eC5jICAgICAgICAgICAgICAgICAgfCAgICA1ICst
+IAogZHJpdmVycy9hY3BpL3Byb2Nlc3Nvcl9wZXJmbGliLmMgICAgICAgICAgICB8ICAgIDQgKy0g
+CiBkcml2ZXJzL2RtYS9kbWFlbmdpbmUuYyAgICAgICAgICAgICAgICAgICAgIHwgICAzMiArKy0t
+CiBkcml2ZXJzL2luZmluaWJhbmQvaHcvZWhjYS9laGNhX2lycS5jICAgICAgIHwgICAgMyArLSAg
+CiBkcml2ZXJzL25ldC9jaGVsc2lvL3NnZS5jICAgICAgICAgICAgICAgICAgIHwgICAgNSArLSAg
+CiBkcml2ZXJzL25ldC9sb29wYmFjay5jICAgICAgICAgICAgICAgICAgICAgIHwgICAgNCArLSAg
+CiBkcml2ZXJzL25ldC92ZXRoLmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNyArLQog
+ZnMvZXh0NC9tYmFsbG9jLmMgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDIgKy0KIGZz
+L25mcy9pb3N0YXQuaCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDEwICstCiBmcy94
+ZnMveGZzX21vdW50LmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgOSArLQogaW5jbHVk
+ZS9hc20tZ2VuZXJpYy9wZXJjcHUuaCAgICAgICAgICAgICAgICB8ICAgNjAgKysrKysrLQogaW5j
+bHVkZS9saW51eC9jb21waWxlci5oICAgICAgICAgICAgICAgICAgICB8ICAgIDQgKy0KIGluY2x1
+ZGUvbGludXgvcGVyY3B1LmggICAgICAgICAgICAgICAgICAgICAgfCAgMTE3ICsrKysrKystLS0t
+LQogaW5jbHVkZS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFjay5oICAgICAgICB8ICAgIDQgKy0K
+IGluY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfZWNhY2hlLmggfCAgICAyICstCiBp
+bmNsdWRlL25ldC9zbm1wLmggICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAxMiArLQogaW5p
+dC9tYWluLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDMgKwoga2VybmVs
+L2xvY2tkZXAuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgMTEgKy0KIGtlcm5lbC9t
+b2R1bGUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMTU0ICstLS0tLS0tLS0tLS0t
+LS0KIGtlcm5lbC9wb3NpeC1jcHUtdGltZXJzLmMgICAgICAgICAgICAgICAgICAgfCAgICAyICst
+CiBrZXJuZWwvc2NoZWQuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAyMSArLQog
+a2VybmVsL3NjaGVkX3N0YXRzLmggICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDQgKy0KIGtl
+cm5lbC9zb2Z0aXJxLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICA0ICstCiBrZXJu
+ZWwvc29mdGxvY2t1cC5jICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAxMiArLQoga2VybmVs
+L3NyY3UuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDQgKy0KIGtlcm5lbC9z
+dG9wX21hY2hpbmUuYyAgICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstCiBrZXJuZWwvd29y
+a3F1ZXVlLmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNiArLQogbW0vYWxsb2NwZXJj
+cHUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAyNjUgKysrKysrKysrKysrKysrKy0t
+LS0tLS0tLS0tCiBtbS92bXN0YXQuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
+ICAgNiArLQogbmV0L2NvcmUvc29jay5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAg
+IDMgKy0KIG5ldC9pcHY0L2FmX2luZXQuYyAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDE0
+ICstCiBuZXQvaXB2NC9pcF9pbnB1dC5jICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMyAr
+LQogbmV0L2lwdjQvcm91dGUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDQgKy0K
+IG5ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2VjYWNoZS5jICAgICAgICAgfCAgICA0ICstCiBu
+ZXQveGZybS94ZnJtX2lwY29tcC5jICAgICAgICAgICAgICAgICAgICAgIHwgICAyMCArLS0KIDU0
+IGZpbGVzIGNoYW5nZWQsIDQ2OSBpbnNlcnRpb25zKCspLCA0NjYgZGVsZXRpb25zKC0pCgo=
