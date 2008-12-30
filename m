@@ -1,40 +1,33 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [7/7] dst: kconfig and makefile changes.
-Date: Wed, 31 Dec 2008 00:21:16 +0300
-Message-ID: <20081230212116.GB20238@ioremap.net>
-References: <1230292576-23963-1-git-send-email-zbr@ioremap.net> <1230292576-23963-2-git-send-email-zbr@ioremap.net> <1230292576-23963-3-git-send-email-zbr@ioremap.net> <1230292576-23963-4-git-send-email-zbr@ioremap.net> <1230292576-23963-5-git-send-email-zbr@ioremap.net> <1230292576-23963-6-git-send-email-zbr@ioremap.net> <1230292576-23963-7-git-send-email-zbr@ioremap.net> <1230292576-23963-8-git-send-email-zbr@ioremap.net> <20081230092628.16662796.randy.dunlap@oracle.com>
+Subject: Re: [1/9] pohmelfs: documentation.
+Date: Wed, 31 Dec 2008 00:23:33 +0300
+Message-ID: <20081230212333.GC20238@ioremap.net>
+References: <1230301130-1325-1-git-send-email-zbe@ioremap.net> <1230301130-1325-2-git-send-email-zbe@ioremap.net> <20081226192219.GB1761@ucw.cz> <20081228134155.GB858@ioremap.net> <4d8e3fd30812281419y4d40a78fha3eb7bc05e55e8ef@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, dst@ioremap.net,
-	netdev@vger.kernel.org
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kandzendo.ru ([195.178.208.66]:58014 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752400AbYL3VVT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Dec 2008 16:21:19 -0500
+Cc: Pavel Machek <pavel@suse.cz>, Evgeniy Polyakov <zbe@ioremap.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, pohmelfs@ioremap.net,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Paolo Ciarrocchi <paolo.ciarrocchi@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20081230092628.16662796.randy.dunlap@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4d8e3fd30812281419y4d40a78fha3eb7bc05e55e8ef@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 30, 2008 at 09:26:28AM -0800, Randy Dunlap (randy.dunlap@oracle.com) wrote:
-> > +	---help---
-> > +	DST is a network block device storage, which can be used to organize
-> > +	exported storages on the remote nodes into the local block device.
-> > +
-> > +	DST is a network block device storage, which can be used to organize
-> > +	exported storages on the remote nodes into the local block device.
-> > +
-> (I thought that I had already reported this...)
-> 
-> Above paragraph is duplicated.  Also, "storages" isn't proper AFAIK.
-> Just use "storage".
+Hi Paolo.
 
-Nope :)
+On Sun, Dec 28, 2008 at 11:19:29PM +0100, Paolo Ciarrocchi (paolo.ciarrocchi@gmail.com) wrote:
+> Performance seems to be the most important argument in favour of pohmelfs.
+> You should probably add more performance data in the cover letter of
+> the patch serie. All the information are already available but not
+> easy to be reached.
+> In short, try to do a better work in "selling" your product :-)
 
-Thanks a lot Randy, I will fix the spelling.
+I will create easily understandible graphs and put a link to them into
+the description. Performance is indeed one of the interesting parts
+among POHMELFS features.
 
 -- 
 	Evgeniy Polyakov
