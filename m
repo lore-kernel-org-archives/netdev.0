@@ -1,55 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] locking, percpu counters: introduce separate lock
- classes
-Date: Mon, 29 Dec 2008 23:04:38 -0800 (PST)
-Message-ID: <20081229.230438.90548187.davem@davemloft.net>
-References: <20081230060536.GG11037@elte.hu>
-	<20081229.223945.149941966.davem@davemloft.net>
-	<20081230065650.GD30975@elte.hu>
+Subject: Re: [UNTESTED] gro: Add page frag support
+Date: Mon, 29 Dec 2008 23:07:03 -0800 (PST)
+Message-ID: <20081229.230703.265458431.davem@davemloft.net>
+References: <20081226225157.GA22866@gondor.apana.org.au>
+	<20081229122445.GA11161@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, a.p.zijlstra@chello.nl,
-	emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	alexander.h.duyck@intel.com, dada1@cosmosbay.com,
-	linux-kernel@vger.kernel.org
-To: mingo@elte.hu
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53171
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53544
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751310AbYL3HEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2008 02:04:36 -0500
-In-Reply-To: <20081230065650.GD30975@elte.hu>
+	by vger.kernel.org with ESMTP id S1751629AbYL3HHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2008 02:07:00 -0500
+In-Reply-To: <20081229122445.GA11161@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Tue, 30 Dec 2008 07:56:50 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 29 Dec 2008 23:24:46 +1100
 
-> 
-> * David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Ingo Molnar <mingo@elte.hu>
-> > Date: Tue, 30 Dec 2008 07:05:36 +0100
+> On Sat, Dec 27, 2008 at 09:51:57AM +1100, Herbert Xu wrote:
 > > 
-> > > One small nit: could you please add the Reported-by line for Jeff Kirscher 
-> > > who reported the problem originally:
-> > > 
-> > >  Reported-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > 
-> > I'll make sure to add that to the commit message after
-> > you successfully test Herbert's patch.
-> > 
-> > Thanks.
+> > This patch is totally untested so please don't apply it.  I need
+> > to hack the e1000e driver to not make skbs before I can test it.
 > 
-> early indications are good: after about 15 random bootup tests the lockdep 
-> warning has not triggered. (it would trigger on every 2nd kernel before 
-> that - there's a 66% chance for lockdep to be enabled in my randconfig 
-> tests)
+> OK I've tested it with a hacked e1000e driver, which indeed revealed
+> a gaping hole in my design :) The pages interface needs to have some
+> extra fields for the checksum information.
+> 
+> Here's a patch that actually works.
+> 
+>     gro: Use gso_size to store MSS
+>     
+>     In order to allow GRO packets without frag_list at all, we need to
+>     store the MSS in the packet itself.  The obvious place is gso_size.
+>     The only thing to watch out for is if the packet ends up not being
+>     GRO then we need to clear gso_size before pushing the packet into
+>     the stack.
+ ...
+> And the real thing.
 
-Sounds good.  I'll toss this into my net-2.6 tree, with Jeff's
-reported-by and your Tested-by, and send this off to Linus
-tonight.
+This work looks great to me Herbert.
 
-Thanks everyone.
+When you want me to apply this stuff, send them as two
+seperate changes with updated commit messages.
+
+Thanks a lot!
