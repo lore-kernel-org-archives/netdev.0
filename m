@@ -1,27 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: KS8695: removed duplicated #include
-Date: Mon, 29 Dec 2008 18:30:12 -0800 (PST)
-Message-ID: <20081229.183012.215838621.davem@davemloft.net>
-References: <20081230064550.4609.WEIYI.HUANG@gmail.com>
+Subject: Re: [patch] IPVS: Make "no destination available" message more
+ consistent between schedulers
+Date: Mon, 29 Dec 2008 18:37:47 -0800 (PST)
+Message-ID: <20081229.183747.67525369.davem@davemloft.net>
+References: <20081230004644.GA18464@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weiyi.huang@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37559
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751928AbYL3CaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Dec 2008 21:30:09 -0500
-In-Reply-To: <20081230064550.4609.WEIYI.HUANG@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org, jmack@wm7d.net,
+	graeme@graemef.net, windo@p6drad-teel.net
+To: horms@verge.net.au
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20081230004644.GA18464@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Huang Weiyi <weiyi.huang@gmail.com>
-Date: Tue, 30 Dec 2008 06:48:23 +0800
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 30 Dec 2008 11:46:44 +1100
 
-> Removed duplicated include in drivers/net/arm/ks8695net.c.
-> 
-> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+> Acked-by: Graeme Fowler <graeme@graemef.net>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Applied, thank you.
+Applied, thanks a lot Simon.
