@@ -1,7 +1,7 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: [PATCH] net/ehea: use consistent type
-Date: Wed, 31 Dec 2008 14:17:30 +1100
-Message-ID: <20081231141730.81449124.sfr@canb.auug.org.au>
+Subject: [PATCH] net/ehea: bitops work on unsigned longs
+Date: Wed, 31 Dec 2008 14:18:53 +1100
+Message-ID: <20081231141853.c6d123c4.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,99 +11,58 @@ Cc: netdev@vger.kernel.org, ppc-dev <linuxppc-dev@ozlabs.org>,
 	Thomas Klein <tklein@de.ibm.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:38383 "EHLO smtps.tip.net.au"
+Received: from chilli.pcug.org.au ([203.10.76.44]:38425 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751994AbYLaDRd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Dec 2008 22:17:33 -0500
+	id S1752673AbYLaDSz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Dec 2008 22:18:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ehea_plpar_hcall9() takes an unsigned long array, so pass that.
-
-This change will avoid some warnings when we change u64 to unsigned
+These changes will avoid several warnings when we change u64 to unsigned
 long long.
+
+Also, ehea_driver_flags is only used in ehca_main.c
 
 Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- drivers/net/ehea/ehea_phyp.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ehea/ehea.h      |    3 +--
+ drivers/net/ehea/ehea_main.c |    2 +-
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ehea/ehea_phyp.c b/drivers/net/ehea/ehea_phyp.c
-index 2a33a61..8fe9dca 100644
---- a/drivers/net/ehea/ehea_phyp.c
-+++ b/drivers/net/ehea/ehea_phyp.c
-@@ -214,7 +214,7 @@ u64 ehea_h_alloc_resource_qp(const u64 adapter_handle,
- 			     u64 *qp_handle, struct h_epas *h_epas)
- {
- 	u64 hret;
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
+diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
+index 9930d5f..6271b94 100644
+--- a/drivers/net/ehea/ehea.h
++++ b/drivers/net/ehea/ehea.h
+@@ -478,7 +478,7 @@ struct ehea_port {
+ 	int num_add_tx_qps;
+ 	int num_mcs;
+ 	int resets;
+-	u64 flags;
++	unsigned long flags;
+ 	u64 mac_addr;
+ 	u32 logical_port_id;
+ 	u32 port_speed;
+@@ -510,7 +510,6 @@ void ehea_set_ethtool_ops(struct net_device *netdev);
+ int ehea_sense_port_attr(struct ehea_port *port);
+ int ehea_set_portspeed(struct ehea_port *port, u32 port_speed);
  
- 	u64 allocate_controls =
- 	    EHEA_BMASK_SET(H_ALL_RES_QP_EQPO, init_attr->low_lat_rq1 ? 1 : 0)
-@@ -312,7 +312,7 @@ u64 ehea_h_alloc_resource_cq(const u64 adapter_handle,
- 			     u64 *cq_handle, struct h_epas *epas)
- {
- 	u64 hret;
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
+-extern u64 ehea_driver_flags;
+ extern struct work_struct ehea_rereg_mr_task;
  
- 	hret = ehea_plpar_hcall9(H_ALLOC_HEA_RESOURCE,
- 				 outs,
-@@ -374,7 +374,7 @@ u64 ehea_h_alloc_resource_eq(const u64 adapter_handle,
- 			     struct ehea_eq_attr *eq_attr, u64 *eq_handle)
- {
- 	u64 hret, allocate_controls;
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
+ #endif	/* __EHEA_H__ */
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index a2f1905..e3131ea 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -99,7 +99,7 @@ MODULE_PARM_DESC(use_lro, " Large Receive Offload, 1: enable, 0: disable, "
  
- 	/* resource type */
- 	allocate_controls =
-@@ -407,7 +407,7 @@ u64 ehea_h_modify_ehea_qp(const u64 adapter_handle, const u8 cat,
- 			  u16 *out_swr, u16 *out_rwr)
- {
- 	u64 hret;
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
- 
- 	hret = ehea_plpar_hcall9(H_MODIFY_HEA_QP,
- 				 outs,
-@@ -449,7 +449,7 @@ u64 ehea_h_register_smr(const u64 adapter_handle, const u64 orig_mr_handle,
- 			struct ehea_mr *mr)
- {
- 	u64 hret;
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
- 
- 	hret = ehea_plpar_hcall9(H_REGISTER_SMR,
- 				 outs,
-@@ -468,7 +468,7 @@ u64 ehea_h_register_smr(const u64 adapter_handle, const u64 orig_mr_handle,
- 
- u64 ehea_h_disable_and_get_hea(const u64 adapter_handle, const u64 qp_handle)
- {
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
- 
- 	return ehea_plpar_hcall9(H_DISABLE_AND_GET_HEA,
- 				 outs,
-@@ -493,7 +493,7 @@ u64 ehea_h_alloc_resource_mr(const u64 adapter_handle, const u64 vaddr,
- 			     const u32 pd, u64 *mr_handle, u32 *lkey)
- {
- 	u64 hret;
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
- 
- 	hret = ehea_plpar_hcall9(H_ALLOC_HEA_RESOURCE,
- 				 outs,
-@@ -564,7 +564,7 @@ u64 ehea_h_modify_ehea_port(const u64 adapter_handle, const u16 port_num,
- 			    const u8 cb_cat, const u64 select_mask,
- 			    void *cb_addr)
- {
--	u64 outs[PLPAR_HCALL9_BUFSIZE];
-+	unsigned long outs[PLPAR_HCALL9_BUFSIZE];
- 	u64 port_info;
- 	u64 arr_index = 0;
- 	u64 cb_logaddr = virt_to_abs(cb_addr);
+ static int port_name_cnt;
+ static LIST_HEAD(adapter_list);
+-u64 ehea_driver_flags;
++static unsigned long ehea_driver_flags;
+ struct work_struct ehea_rereg_mr_task;
+ static DEFINE_MUTEX(dlpar_mem_lock);
+ struct ehea_fw_handle_array ehea_fw_handles;
 -- 
 1.6.0.5
 
