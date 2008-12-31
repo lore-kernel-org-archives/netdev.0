@@ -1,39 +1,67 @@
-From: Michel Lespinasse <walken@zoy.org>
-Subject: Re: [Bugme-new] [Bug 12282] New: Network data corruption on eee 1000
-Date: Wed, 31 Dec 2008 01:34:31 -0800
-Message-ID: <20081231093431.GB28913@zoy.org>
-References: <bug-12282-10286@http.bugzilla.kernel.org/> <20081223232035.5a5caea9.akpm@linux-foundation.org> <3400f2f60812240532s23c8f218q51e4717f4231b3bc@mail.gmail.com>
+From: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
+Subject: [PATCH] net/rfkill/rfkill.c: fix unused rfkill_led_trigger()
+	warning
+Date: Wed, 31 Dec 2008 10:09:18 +0100
+Message-ID: <1230714558.24416.1.camel@odie.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	Jie Yang <jie.yang@atheros.com>
-To: "J. K. Cliburn" <jcliburn@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ivo van Doorn <IvDoorn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.lespinasse.org ([64.142.28.226]:43409 "EHLO
-	server.lespinasse.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752949AbYLaJec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2008 04:34:32 -0500
-Content-Disposition: inline
-In-Reply-To: <3400f2f60812240532s23c8f218q51e4717f4231b3bc@mail.gmail.com>
+Received: from smtp.cs.aau.dk ([130.225.194.6]:46859 "EHLO smtp.cs.aau.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755170AbYLaKHi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Dec 2008 05:07:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 24, 2008 at 07:32:36AM -0600, J. K. Cliburn wrote:
-> Do things improve if you turn off TSO in the atl1e driver?
-> 
-> ethtool -K eth0 tso off
+commit 4dec9b807be757780ca3611a959ac22c28d292a7 ("rfkill: strip pointle=
+ss
+notifier chain") removed the only user of rfkill_led_trigger() that was=
+ not
+guarded by #ifdef CONFIG_RFKILL_LEDS. Therefore, move rfkill_led_trigge=
+r()
+completely inside #ifdef CONFIG_RFKILL_LEDS and avoid the compile time
+warning:
 
-I said yes in a previous message, but I think I was confused.
+net/rfkill/rfkill.c:59: warning: 'rfkill_led_trigger' defined but not u=
+sed
 
-I'm now running 2.6.28 with a driver change that removes NETIF_F_TSO and
-NETIF_F_TSO6 from netdev->features. Last night I transferred 180 GB
-with scp without any corrupted MACs, however today while compiling stuff
-over NFS I got a 128-byte block of source code that was corrupted
-(replaced with text from a different source file). So, my issue does not
-seem to disappear even after disabling TSO support in the driver.
-Also the issue seems to be somewhat intermittent, since I was not able
-to triger it at will with scp last night.... :/
+Signed-off-by: Simon Holm Th=C3=B8gersen <odie@cs.aau.dk>
+---
+ net/rfkill/rfkill.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
--- 
-Michel "Walken" Lespinasse
-A program is never fully debugged until the last user dies.
+diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
+index 3c94f76..3eaa394 100644
+--- a/net/rfkill/rfkill.c
++++ b/net/rfkill/rfkill.c
+@@ -54,10 +54,10 @@ static unsigned long rfkill_states_lockdflt[BITS_TO=
+_LONGS(RFKILL_TYPE_MAX)];
+ static bool rfkill_epo_lock_active;
+=20
+
++#ifdef CONFIG_RFKILL_LEDS
+ static void rfkill_led_trigger(struct rfkill *rfkill,
+ 			       enum rfkill_state state)
+ {
+-#ifdef CONFIG_RFKILL_LEDS
+ 	struct led_trigger *led =3D &rfkill->led_trigger;
+=20
+ 	if (!led->name)
+@@ -66,10 +66,8 @@ static void rfkill_led_trigger(struct rfkill *rfkill=
+,
+ 		led_trigger_event(led, LED_OFF);
+ 	else
+ 		led_trigger_event(led, LED_FULL);
+-#endif /* CONFIG_RFKILL_LEDS */
+ }
+=20
+-#ifdef CONFIG_RFKILL_LEDS
+ static void rfkill_led_trigger_activate(struct led_classdev *led)
+ {
+ 	struct rfkill *rfkill =3D container_of(led->trigger,
+--=20
+1.6.0.2.526.g5c283
+
