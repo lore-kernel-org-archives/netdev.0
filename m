@@ -1,165 +1,32 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: Linux IP stack change to obtain TTL min/max/avg
-Date: Wed, 31 Dec 2008 14:34:19 +0100
-Message-ID: <20081231133419.GA2388@uranus.ravnborg.org>
-References: <21230026.post@talk.nabble.com>
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: 2.6.27.8 (+the idr fix) TCP Ack issue
+Date: Wed, 31 Dec 2008 17:10:16 +0000
+Message-ID: <20081231171016.GA1901@flint.arm.linux.org.uk>
+References: <20081230195858.GA23530@flint.arm.linux.org.uk> <Pine.LNX.4.64.0812311200570.3120@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: mpk_india <mpk_india@yahoo.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756549AbYLaNcx@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:41753 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756016AbYLaRKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2008 12:10:49 -0500
 Content-Disposition: inline
-In-Reply-To: <21230026.post@talk.nabble.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0812311200570.3120@wrl-59.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-netdev is a much better place for this - added.
+On Wed, Dec 31, 2008 at 12:38:24PM +0200, Ilpo J=E4rvinen wrote:
+> If you have the dump still at handy, could you add couple of -v -v fo=
+r
+> tcpdump. It could be that the peer is using bogus seqnos in the
+> duplicate ACK but by default that's not visible for zero sized segs
+> (checked in tcp_validate_incoming in the 2.6.28.7 kernel).
 
-	Sam
+Is "seqno" another name for the IP ID field?
 
-On Wed, Dec 31, 2008 at 03:20:53AM -0800, mpk_india wrote:
-> 
-> Hello All,
-> 
-> I am trying to modify the linux ip stack to get the avg/min/max of the TTL
-> value (in trasport layer) from the received UDP packet. I have modifed the
-> 2.6.28 kernel for this and added new setsockopt flags as IP_RECVTTL_AVG,
-> IP_RECVTLL_MIN, IP_RECVTTL_MAX.
-> 
-> Please see below changes I have made to do this:
-> 
-> 1. Inside "in.h" file Added following macros
-> #define IP_RECVTTL_AVG	20
-> #define IP_RECVTTL_MIN	21
-> #define IP_RECVTTL_MAX	22
-> 
-> 2. Inside "inet_sock.h" in struct inet_sock {
-> added 3 variables
-> __s16	 uc_ttl_avg;
-> __s16	 uc_ttl_min;
-> __s16	 uc_ttl_max;
-> 
-> 3. In ipv4/udp.c added following peice of code
-> sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
-> if (sk != NULL) {
-> 
-> #if 1	// Changes to get TTL stats..Start
-> struct iphdr *iph;
-> struct inet_sock *inet;
-> inet = inet_sk(sk);
-> iph = ip_hdr(skb);
-> inet->uc_ttl_avg = (iph->ttl + inet->uc_ttl_avg)>>1;
-> if (inet->uc_ttl_max < iph->ttl)
-> inet->uc_ttl_max = iph->ttl;
-> if (inet->uc_ttl_min > iph->ttl)
-> inet->uc_ttl_min = iph->ttl;
-> #endif	// Changes to get TTL stats..Start
-> 
-> int ret = udp_queue_rcv_skb(sk, skb);
-> sock_put(sk);
-> 
-> 4. Changes inside "ip_sockglue.c" file
-> 
-> static void ip_cmsg_recv_ttl_avg(struct msghdr *msg, struct sk_buff *skb)
-> {
-> struct inet_sock *inet = inet_sk(skb->sk);
-> int ttl = inet->uc_ttl_avg;
-> printk(KERN_DEBUG "***<recv ttl avg () is called -- value = %d***\n", ttl);
-> put_cmsg(msg, SOL_IP, IP_TTL, sizeof(int), &ttl);
-> }
-> 
-> static void ip_cmsg_recv_ttl_max(struct msghdr *msg, struct sk_buff *skb)
-> {
-> struct inet_sock *inet = inet_sk(skb->sk);
-> int ttl = inet->uc_ttl_max;
-> printk(KERN_DEBUG "***<recv ttl max () is called -- value = %d***\n", ttl);
-> put_cmsg(msg, SOL_IP, IP_TTL, sizeof(int), &ttl);
-> }
-> 
-> static void ip_cmsg_recv_ttl_min(struct msghdr *msg, struct sk_buff *skb)
-> {
-> struct inet_sock *inet = inet_sk(skb->sk);
-> int ttl = inet->uc_ttl_min;
-> printk(KERN_DEBUG "***<recv ttl min () is called -- value = %d***\n", ttl);
-> put_cmsg(msg, SOL_IP, IP_TTL, sizeof(int), &ttl);
-> }
-> 
-> void ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb)
-> {
-> .
-> .
-> .
-> .
-> #if 1	// Changes to get TTL stats..Start
-> if (flags & 1)
-> ip_cmsg_recv_ttl_avg(msg, skb);
-> if ((flags>>=1) == 0)
-> return;
-> if (flags & 1)
-> ip_cmsg_recv_ttl_min(msg, skb);
-> if ((flags>>=1) == 0)
-> return;
-> if (flags & 1)
-> ip_cmsg_recv_ttl_max(msg, skb);
-> #endif	// Changes to get TTL stats..Start
-> 
-> }
-> 
-> inside do_ip_setsockopt() added following code
-> 
-> #if 1	// Changes to get TTL stats..Start
-> case IP_RECVTTL_AVG:
-> if (val)
-> inet->cmsg_flags |= IP_CMSG_TTL_AVG;
-> else
-> inet->cmsg_flags &= ~IP_CMSG_TTL_AVG;
-> break;
-> case IP_RECVTTL_MIN:
-> if (val)
-> inet->cmsg_flags |= IP_CMSG_TTL_MIN;
-> else
-> inet->cmsg_flags &= ~IP_CMSG_TTL_MIN;
-> break;
-> case IP_RECVTTL_MAX:
-> if (val)
-> inet->cmsg_flags |= IP_CMSG_TTL_MAX;
-> else
-> inet->cmsg_flags &= ~IP_CMSG_TTL_MAX;
-> break;
-> #endif	// Changes to get TTL stats..End
-> 
-> =================================================================
-> 
-> I have compiled this and written the udp client server to test this. 
-> 
-> 
-> In my client application i am sending 64 packets with some dummy message. In
-> server I have used the recvmsg() and setsockopt() to test these changes as
-> below:
-> 
-> setsockopt(serverfd, IPPROTO_IP, IP_OPTIONS, NULL, 0);
-> if (setsockopt (serverfd,IPPROTO_IP, IP_RECVTTL_AVG, &ttl,ttlSize)<0) {
-> 
-> printf ("Error occured in setsockopt\n");
-> exit(1);
-> }
-> 
-> now if i do the recvmsg 64 times after recvfrom in my server code it gives
-> me proper ttl avg values.. but i do not want to seek this values for every
-> packet i receive.. i want them once for all sent 64 udp packets.. the same
-> recvmsg fails if i doit single recvmsg after 64 received packets..
-> 
-> 
-> Can anyone tell about what i am doing wrong in the present scenario?
-> 
-> Thanks in advance
-> mpk
-> -- 
-> View this message in context: http://www.nabble.com/Linux-IP-stack-change-to-obtain-TTL-min-max-avg-tp21230026p21230026.html
-> Sent from the linux-kernel mailing list archive at Nabble.com.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+--=20
+Russell King
