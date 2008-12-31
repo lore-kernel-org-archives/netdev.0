@@ -1,52 +1,40 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Fw: [Bug 12334] New: Ack flood
-Date: Tue, 30 Dec 2008 20:59:09 -0800
-Message-ID: <20081230205909.729200aa@extreme>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ibmveth: use consistent types
+Date: Tue, 30 Dec 2008 21:49:59 -0800 (PST)
+Message-ID: <20081230.214959.141224132.davem@davemloft.net>
+References: <20081231140225.48b695ef.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, santil@us.ibm.com
+To: sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51184 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754738AbYLaE72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Dec 2008 23:59:28 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51268
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751141AbYLaFt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2008 00:49:57 -0500
+In-Reply-To: <20081231140225.48b695ef.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 31 Dec 2008 14:02:25 +1100
 
+> These variables are only used with an interface involving "unsigned
+> long" and the macros are only used with these variables.  This change
+> will prevent some warnings when we change u64 to "unsigned long long".
+> 
+> This code is only built for 64bit powerpc, so the transformation is
+> really a noop.
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-Begin forwarded message:
+I'd prefer if the types were to remain 32-bit portable.
 
-Date: Tue, 30 Dec 2008 15:12:51 -0800 (PST)
-From: bugme-daemon@bugzilla.kernel.org
-To: shemminger@linux-foundation.org
-Subject: [Bug 12334] New: Ack flood
+Doing things like this is just a problem waiting to happen,
+either for the first person who actually finds a need and
+a way to use this driver on 32-bit or the person who cut and
+pastes this code into their driver which should work on both
+32-bit and 64-bit.
 
-
-http://bugzilla.kernel.org/show_bug.cgi?id=12334
-
-           Summary: Ack flood
-           Product: Networking
-           Version: 2.5
-     KernelVersion: 2.6.27.8
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-        AssignedTo: shemminger@linux-foundation.org
-        ReportedBy: rmk@arm.linux.org.uk
-
-
-See http://marc.info/?l=linux-netdev&m=123066717011178&q=raw
-
-
--- 
-Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug, or are watching the assignee.
+Patch not applied.
