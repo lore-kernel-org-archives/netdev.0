@@ -1,125 +1,165 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.27.8 (+the idr fix) TCP Ack issue
-Date: Wed, 31 Dec 2008 12:38:24 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0812311200570.3120@wrl-59.cs.helsinki.fi>
-References: <20081230195858.GA23530@flint.arm.linux.org.uk>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: Linux IP stack change to obtain TTL min/max/avg
+Date: Wed, 31 Dec 2008 14:34:19 +0100
+Message-ID: <20081231133419.GA2388@uranus.ravnborg.org>
+References: <21230026.post@talk.nabble.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Russell King <rmk@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33413 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452AbYLaKi1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2008 05:38:27 -0500
-In-Reply-To: <20081230195858.GA23530@flint.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
+To: mpk_india <mpk_india@yahoo.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756549AbYLaNcx@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <21230026.post@talk.nabble.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Dec 2008, Russell King wrote:
+netdev is a much better place for this - added.
 
-> While trying to access a website on a FC5 machine, I encountered what seemed
-> to be excessive traffic without much progress.
+	Sam
 
-And what kernel that would be, btw?
-
-> tcpdumping the connection showed a permanent stream of acks from both ends
-> of the connection.  Ben Hutchings suggested that 607bfbf might fix it, so
-> I built 2.6.27.8 which has this fix in some 20 days ago.
-
-Considering your dump, 607bfbf cannot do any change.
-
-> After encountering
-> other problems, a fix to lib/idr.c was applied.  This kernel seemed to be
-> fine, until...
+On Wed, Dec 31, 2008 at 03:20:53AM -0800, mpk_india wrote:
 > 
-> 19:47:32.062670 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: S 3543174870:3543174870(0) win 5840 <mss 1460,sackOK,timestamp 26999689 0,nop,wscale 6>
-> 19:47:32.135812 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: S 3016012818:3016012818(0) ack 3543174871 win 8192 <mss 1276>
-> 19:47:32.135837 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 1 win 5840
-> 19:47:32.135899 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: P 1:644(643) ack 1 win 5840
-> 19:47:32.167644 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 644 win 7073
-
-Just for the record, the peer certainly shrinks window here, not
-that it should affect us in bad way since we don't even get that far 
-and the window opens more again in the later packet anyway...
-
-> 19:47:32.174366 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: P 1:1190(1189) ack 644 win 7073
-> 19:47:32.174414 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 1190 win 8323
-> 19:47:32.174701 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . 644:3196(2552) ack 1190 win 8323
-> 19:47:32.174720 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: P 3196:3216(20) ack 1190 win 8323
-> 19:47:32.218718 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: P 1190:2215(1025) ack 1920 win 8932
-
-Here the peer acks to 1920, this is likely last feedback we consider 
-valid.
-
-> 19:47:32.258402 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.285388 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-
-It would be interesting to know if this segment gets discarded. It's most 
-likely considered out-of-sequence for some reason because the response is
-an immediate duplicate ack:
-
-> 19:47:32.285397 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.320287 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.320300 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.353016 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.353022 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.382702 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.382712 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.404786 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.404793 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.446827 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.446835 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.451343 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . 1920:3196(1276) ack 2215 win 10701
-> 19:47:32.480976 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.480984 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.530343 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.530356 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.554244 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.554251 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.582139 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.582146 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.613093 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.613121 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
+> Hello All,
 > 
-> and then it ploughs into ack-madness at as high a speed as the link can
-> handle:
+> I am trying to modify the linux ip stack to get the avg/min/max of the TTL
+> value (in trasport layer) from the received UDP packet. I have modifed the
+> 2.6.28 kernel for this and added new setsockopt flags as IP_RECVTTL_AVG,
+> IP_RECVTLL_MIN, IP_RECVTTL_MAX.
 > 
-> 19:47:32.634725 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.634753 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.654389 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.654408 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.674332 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.674339 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.692550 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.692555 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
-> 19:47:32.712249 IP 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: . ack 3216 win 10701
-> 19:47:32.712265 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . ack 2215 win 10701
+> Please see below changes I have made to do this:
 > 
-> which is the same thing as the FC5 kernel.  It took three attempts
-> (killing off the browser and restarting it) to access the website.
-
-I tried couple of times but got at perfectly working connection from 
-here (that's so typical wrt. these bugs).
-
-> The retransmission at 19:47:32.451343 looks like quite silly behaviour
-> from the Linux kernel - the remote end has acked data up to 3216 but
-> it's resending old data.
->
-> Any ideas?
-
-Most likely the latest acks are considered invalid for some reason.
-...That perfectly explains why you get that retransmission there.
-
-If you have the dump still at handy, could you add couple of -v -v for
-tcpdump. It could be that the peer is using bogus seqnos in the
-duplicate ACK but by default that's not visible for zero sized segs
-(checked in tcp_validate_incoming in the 2.6.28.7 kernel).
-
-...Grr, we seem to be lacking a mib for that seqno check failure.
-
-
--- 
- i.
+> 1. Inside "in.h" file Added following macros
+> #define IP_RECVTTL_AVG	20
+> #define IP_RECVTTL_MIN	21
+> #define IP_RECVTTL_MAX	22
+> 
+> 2. Inside "inet_sock.h" in struct inet_sock {
+> added 3 variables
+> __s16	 uc_ttl_avg;
+> __s16	 uc_ttl_min;
+> __s16	 uc_ttl_max;
+> 
+> 3. In ipv4/udp.c added following peice of code
+> sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+> if (sk != NULL) {
+> 
+> #if 1	// Changes to get TTL stats..Start
+> struct iphdr *iph;
+> struct inet_sock *inet;
+> inet = inet_sk(sk);
+> iph = ip_hdr(skb);
+> inet->uc_ttl_avg = (iph->ttl + inet->uc_ttl_avg)>>1;
+> if (inet->uc_ttl_max < iph->ttl)
+> inet->uc_ttl_max = iph->ttl;
+> if (inet->uc_ttl_min > iph->ttl)
+> inet->uc_ttl_min = iph->ttl;
+> #endif	// Changes to get TTL stats..Start
+> 
+> int ret = udp_queue_rcv_skb(sk, skb);
+> sock_put(sk);
+> 
+> 4. Changes inside "ip_sockglue.c" file
+> 
+> static void ip_cmsg_recv_ttl_avg(struct msghdr *msg, struct sk_buff *skb)
+> {
+> struct inet_sock *inet = inet_sk(skb->sk);
+> int ttl = inet->uc_ttl_avg;
+> printk(KERN_DEBUG "***<recv ttl avg () is called -- value = %d***\n", ttl);
+> put_cmsg(msg, SOL_IP, IP_TTL, sizeof(int), &ttl);
+> }
+> 
+> static void ip_cmsg_recv_ttl_max(struct msghdr *msg, struct sk_buff *skb)
+> {
+> struct inet_sock *inet = inet_sk(skb->sk);
+> int ttl = inet->uc_ttl_max;
+> printk(KERN_DEBUG "***<recv ttl max () is called -- value = %d***\n", ttl);
+> put_cmsg(msg, SOL_IP, IP_TTL, sizeof(int), &ttl);
+> }
+> 
+> static void ip_cmsg_recv_ttl_min(struct msghdr *msg, struct sk_buff *skb)
+> {
+> struct inet_sock *inet = inet_sk(skb->sk);
+> int ttl = inet->uc_ttl_min;
+> printk(KERN_DEBUG "***<recv ttl min () is called -- value = %d***\n", ttl);
+> put_cmsg(msg, SOL_IP, IP_TTL, sizeof(int), &ttl);
+> }
+> 
+> void ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb)
+> {
+> .
+> .
+> .
+> .
+> #if 1	// Changes to get TTL stats..Start
+> if (flags & 1)
+> ip_cmsg_recv_ttl_avg(msg, skb);
+> if ((flags>>=1) == 0)
+> return;
+> if (flags & 1)
+> ip_cmsg_recv_ttl_min(msg, skb);
+> if ((flags>>=1) == 0)
+> return;
+> if (flags & 1)
+> ip_cmsg_recv_ttl_max(msg, skb);
+> #endif	// Changes to get TTL stats..Start
+> 
+> }
+> 
+> inside do_ip_setsockopt() added following code
+> 
+> #if 1	// Changes to get TTL stats..Start
+> case IP_RECVTTL_AVG:
+> if (val)
+> inet->cmsg_flags |= IP_CMSG_TTL_AVG;
+> else
+> inet->cmsg_flags &= ~IP_CMSG_TTL_AVG;
+> break;
+> case IP_RECVTTL_MIN:
+> if (val)
+> inet->cmsg_flags |= IP_CMSG_TTL_MIN;
+> else
+> inet->cmsg_flags &= ~IP_CMSG_TTL_MIN;
+> break;
+> case IP_RECVTTL_MAX:
+> if (val)
+> inet->cmsg_flags |= IP_CMSG_TTL_MAX;
+> else
+> inet->cmsg_flags &= ~IP_CMSG_TTL_MAX;
+> break;
+> #endif	// Changes to get TTL stats..End
+> 
+> =================================================================
+> 
+> I have compiled this and written the udp client server to test this. 
+> 
+> 
+> In my client application i am sending 64 packets with some dummy message. In
+> server I have used the recvmsg() and setsockopt() to test these changes as
+> below:
+> 
+> setsockopt(serverfd, IPPROTO_IP, IP_OPTIONS, NULL, 0);
+> if (setsockopt (serverfd,IPPROTO_IP, IP_RECVTTL_AVG, &ttl,ttlSize)<0) {
+> 
+> printf ("Error occured in setsockopt\n");
+> exit(1);
+> }
+> 
+> now if i do the recvmsg 64 times after recvfrom in my server code it gives
+> me proper ttl avg values.. but i do not want to seek this values for every
+> packet i receive.. i want them once for all sent 64 udp packets.. the same
+> recvmsg fails if i doit single recvmsg after 64 received packets..
+> 
+> 
+> Can anyone tell about what i am doing wrong in the present scenario?
+> 
+> Thanks in advance
+> mpk
+> -- 
+> View this message in context: http://www.nabble.com/Linux-IP-stack-change-to-obtain-TTL-min-max-avg-tp21230026p21230026.html
+> Sent from the linux-kernel mailing list archive at Nabble.com.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
