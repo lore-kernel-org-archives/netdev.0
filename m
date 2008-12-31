@@ -1,78 +1,39 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: [PATCH] net/rfkill/rfkill.c: fix unused rfkill_led_trigger() warning
-Date: Wed, 31 Dec 2008 10:31:13 +0100
-Message-ID: <a32f33a40812310131o3207f10p2499b129d2701f3a@mail.gmail.com>
-References: <1230714558.24416.1.camel@odie.local>
+From: Michel Lespinasse <walken@zoy.org>
+Subject: Re: [Bugme-new] [Bug 12282] New: Network data corruption on eee 1000
+Date: Wed, 31 Dec 2008 01:34:31 -0800
+Message-ID: <20081231093431.GB28913@zoy.org>
+References: <bug-12282-10286@http.bugzilla.kernel.org/> <20081223232035.5a5caea9.akpm@linux-foundation.org> <3400f2f60812240532s23c8f218q51e4717f4231b3bc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"John Linville" <linville@tuxdriver.com>
-To: "=?ISO-8859-1?Q?Simon_Holm_Th=F8gersen?=" <odie@cs.aau.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	Jie Yang <jie.yang@atheros.com>
+To: "J. K. Cliburn" <jcliburn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:2242 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752957AbYLaJbP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2008 04:31:15 -0500
-In-Reply-To: <1230714558.24416.1.camel@odie.local>
+Received: from server.lespinasse.org ([64.142.28.226]:43409 "EHLO
+	server.lespinasse.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752949AbYLaJec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Dec 2008 04:34:32 -0500
 Content-Disposition: inline
+In-Reply-To: <3400f2f60812240532s23c8f218q51e4717f4231b3bc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 31, 2008 at 10:09 AM, Simon Holm Th=F8gersen <odie@cs.aau.d=
-k> wrote:
-> commit 4dec9b807be757780ca3611a959ac22c28d292a7 ("rfkill: strip point=
-less
-> notifier chain") removed the only user of rfkill_led_trigger() that w=
-as not
-> guarded by #ifdef CONFIG_RFKILL_LEDS. Therefore, move rfkill_led_trig=
-ger()
-> completely inside #ifdef CONFIG_RFKILL_LEDS and avoid the compile tim=
-e
-> warning:
->
-> net/rfkill/rfkill.c:59: warning: 'rfkill_led_trigger' defined but not=
- used
->
-> Signed-off-by: Simon Holm Th=F8gersen <odie@cs.aau.dk>
+On Wed, Dec 24, 2008 at 07:32:36AM -0600, J. K. Cliburn wrote:
+> Do things improve if you turn off TSO in the atl1e driver?
+> 
+> ethtool -K eth0 tso off
 
-Acked-by: Ivo van Doorn <IvDoorn@gmail.com>
+I said yes in a previous message, but I think I was confused.
 
-> ---
->  net/rfkill/rfkill.c |    4 +---
->  1 files changed, 1 insertions(+), 3 deletions(-)
->
-> diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
-> index 3c94f76..3eaa394 100644
-> --- a/net/rfkill/rfkill.c
-> +++ b/net/rfkill/rfkill.c
-> @@ -54,10 +54,10 @@ static unsigned long rfkill_states_lockdflt[BITS_=
-TO_LONGS(RFKILL_TYPE_MAX)];
->  static bool rfkill_epo_lock_active;
->
->
-> +#ifdef CONFIG_RFKILL_LEDS
->  static void rfkill_led_trigger(struct rfkill *rfkill,
->                               enum rfkill_state state)
->  {
-> -#ifdef CONFIG_RFKILL_LEDS
->        struct led_trigger *led =3D &rfkill->led_trigger;
->
->        if (!led->name)
-> @@ -66,10 +66,8 @@ static void rfkill_led_trigger(struct rfkill *rfki=
-ll,
->                led_trigger_event(led, LED_OFF);
->        else
->                led_trigger_event(led, LED_FULL);
-> -#endif /* CONFIG_RFKILL_LEDS */
->  }
->
-> -#ifdef CONFIG_RFKILL_LEDS
->  static void rfkill_led_trigger_activate(struct led_classdev *led)
->  {
->        struct rfkill *rfkill =3D container_of(led->trigger,
-> --
-> 1.6.0.2.526.g5c283
->
->
+I'm now running 2.6.28 with a driver change that removes NETIF_F_TSO and
+NETIF_F_TSO6 from netdev->features. Last night I transferred 180 GB
+with scp without any corrupted MACs, however today while compiling stuff
+over NFS I got a 128-byte block of source code that was corrupted
+(replaced with text from a different source file). So, my issue does not
+seem to disappear even after disabling TSO support in the driver.
+Also the issue seems to be somewhat intermittent, since I was not able
+to triger it at will with scp last night.... :/
+
+-- 
+Michel "Walken" Lespinasse
+A program is never fully debugged until the last user dies.
