@@ -1,49 +1,53 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [Patch 1/1] tun: signedness warning
-Date: Thu, 1 Jan 2009 11:55:57 +0100
-Message-ID: <20090101105557.GA4695@gerrit.erg.abdn.ac.uk>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: 2.6.28-03117: WARNING: at net/ipv4/tcp_input.c:2504
+	tcp_mark_head_lost()
+Date: Thu, 1 Jan 2009 15:41:14 +0300
+Message-ID: <20090101124114.GA4281@orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50930 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755532AbZAAK4B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jan 2009 05:56:01 -0500
-Received: from laptev.erg.abdn.ac.uk (Debian-exim@ra-gerrit.erg.abdn.ac.uk [139.133.204.38])
-	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id n01AtpsX000224
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 1 Jan 2009 10:55:56 GMT
-Received: from gerrit by laptev.erg.abdn.ac.uk with local (Exim 4.69)
-	(envelope-from <gerrit@laptev.erg.abdn.ac.uk>)
-	id 1LILDZ-0001Ew-26
-	for netdev@vger.kernel.org; Thu, 01 Jan 2009 11:55:57 +0100
+Received: from fg-out-1718.google.com ([72.14.220.155]:6842 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755952AbZAAMlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2009 07:41:24 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so2168575fgg.17
+        for <netdev@vger.kernel.org>; Thu, 01 Jan 2009 04:41:21 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tun: Eliminate sparse signedness warning
+WARNING: at net/ipv4/tcp_input.c:2504 tcp_mark_head_lost+0x1df/0x200()
+ Modules linked in: w83627hf hwmon_vid i2c_nforce2
+ Pid: 0, comm: swapper Not tainted 2.6.28-03117-g6a94cb7 #1
+ Call Trace:
+  [<c040f321>] ? printk+0x18/0x1f
+  [<c0128354>] warn_on_slowpath+0x54/0x80
+  [<c014bd25>] ? __lock_acquire+0x2c5/0x1000
+  [<c014b74c>] ? trace_hardirqs_on_caller+0x7c/0x160
+  [<c0399041>] ? dev_queue_xmit+0xe1/0x5d0
+  [<c014bd25>] ? __lock_acquire+0x2c5/0x1000
+  [<c014862b>] ? trace_hardirqs_off+0xb/0x10
+  [<c03bfaff>] tcp_mark_head_lost+0x1df/0x200
+  [<c03c561d>] tcp_ack+0x18dd/0x1ef0
+  [<c03c5ec9>] tcp_rcv_established+0x299/0x5b0
+  [<c03cc840>] tcp_v4_do_rcv+0x90/0x1b0
+  [<c0411b5c>] ? _spin_lock_nested+0x6c/0x80
+  [<c03cdd27>] ? tcp_v4_rcv+0x467/0x5f0
+  [<c03cddf2>] tcp_v4_rcv+0x532/0x5f0
+  [<c03b149c>] ip_local_deliver+0x6c/0xe0
+  [<c03b12b5>] ip_rcv+0x2b5/0x430
+  [<c0396b60>] netif_receive_skb+0x240/0x310
+  [<c03484d8>] nv_napi_poll+0x298/0x670
+  [<c014b83b>] ? trace_hardirqs_on+0xb/0x10
+  [<c039a636>] net_rx_action+0x106/0x1b0
+  [<c012cf0f>] __do_softirq+0x7f/0x120
+  [<c012d015>] do_softirq+0x65/0x70
+  [<c012d0ad>] irq_exit+0x8d/0xa0
+  [<c0105525>] do_IRQ+0x95/0xc0
+  [<c014b7de>] ? trace_hardirqs_on_caller+0x10e/0x160
+  [<c0103a2c>] common_interrupt+0x2c/0x34
+  [<c0109fbf>] ? default_idle+0x4f/0x60
+  [<c0101ba5>] cpu_idle+0x55/0xb0
+  [<c0405781>] rest_init+0x61/0x70
 
-register_pernet_gen_device() expects 'int*', found via sparse.
-
- CHECK   drivers/net/tun.c
- drivers/net/tun.c:1245:36: warning: incorrect type in argument 1 (different signedness)
- drivers/net/tun.c:1245:36:    expected int *id
- drivers/net/tun.c:1245:36:    got unsigned int static [toplevel] *<noident>
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- tun.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -213,7 +213,7 @@ static int check_filter(struct tap_filter *filter, const struct sk_buff *skb)
- 
- /* Network device part of the driver */
- 
--static unsigned int tun_net_id;
-+static int tun_net_id;
- struct tun_net {
- 	struct list_head dev_list;
- };
