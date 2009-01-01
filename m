@@ -1,98 +1,49 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [RFC] [Patch 2/4] dccp: Lockless use of CCID blocks
-Date: Thu, 1 Jan 2009 11:49:23 +0100
-Message-ID: <20090101104923.GA4269@gerrit.erg.abdn.ac.uk>
-References: <20081218053349.GA6172@gerrit.erg.abdn.ac.uk> <20081218.191534.194793981.davem@davemloft.net> <20081219052446.GA3651@gerrit.erg.abdn.ac.uk> <20081218.222842.174783235.davem@davemloft.net> <20081220080813.GC3853@gerrit.erg.abdn.ac.uk> <20081221003239.GA5700@ghostprotocols.net> <20081223171729.GB3855@gerrit.erg.abdn.ac.uk>
+Subject: [Patch 1/1] tun: signedness warning
+Date: Thu, 1 Jan 2009 11:55:57 +0100
+Message-ID: <20090101105557.GA4695@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Arnaldo Carvalho de Melo <acme@redhat.com>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50799 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50930 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754406AbZAAKtl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jan 2009 05:49:41 -0500
+	id S1755532AbZAAK4B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jan 2009 05:56:01 -0500
+Received: from laptev.erg.abdn.ac.uk (Debian-exim@ra-gerrit.erg.abdn.ac.uk [139.133.204.38])
+	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id n01AtpsX000224
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 1 Jan 2009 10:55:56 GMT
+Received: from gerrit by laptev.erg.abdn.ac.uk with local (Exim 4.69)
+	(envelope-from <gerrit@laptev.erg.abdn.ac.uk>)
+	id 1LILDZ-0001Ew-26
+	for netdev@vger.kernel.org; Thu, 01 Jan 2009 11:55:57 +0100
 Content-Disposition: inline
-In-Reply-To: <20081223171729.GB3855@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| | > +	for (i = 0; i < ARRAY_SIZE(ccids); i++)
-| | > +		if (ccids[i]->ccid_id == id)
-| | > +			return ccids[i];
-| | > +	return NULL;
-| | 
-| | Why the we searching? Can't we just do:
-| | 
-| | {
-| | 	if (id > ARRAY_SIZE(ccids) - 2)
-| | 		return NULL;
-| | 	return ccids[id - 2];
-| | }
-| | 
-| Agree 100%, I don't like the routine myself and have been thinking about
-| how to rewrite it. Current idea is to go back to the original and use
-| 
-| static struct ccid_operations *ccids[CCIDS_MAX] = {
-| 	[DCCPC_CCID2] = &ccid2_ops,
-| #ifdef CONFIG_IP_DCCP_CCID3
-| 	[DCCPC_CCID3] = &ccid3_ops,
-| #endif
-| };
-| 
-Unfortunately I found later that this solution introduces a lot of waste: 
-during initialisation, the code must step over 255 - 2 = 253 NULL entries
-and the same happens when ejecting the CCID.
+tun: Eliminate sparse signedness warning
 
-I went through several revisions and summarize the findings below.
+register_pernet_gen_device() expects 'int*', found via sparse.
 
-The following functions need to query for built-in CCIDs:
+ CHECK   drivers/net/tun.c
+ drivers/net/tun.c:1245:36: warning: incorrect type in argument 1 (different signedness)
+ drivers/net/tun.c:1245:36:    expected int *id
+ drivers/net/tun.c:1245:36:    got unsigned int static [toplevel] *<noident>
 
-bool ccid_support_check(u8 const *ccid_array, u8 array_len);
-   This is used by the feature-negotiation code to determine whether
-   all elements in 'ccid_array' are supported; for checking the CCID
-   setsockopt values and to check whether the CCID suggested by the
-   peer is locally available.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ tun.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-int ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
-   This is used during initialisation of the feature-negotiation code,
-   to create a list of the CCID values that can be advertised.
-
-int ccid_getsockopt_builtin_ccids(struct sock *sk, int len, ...);
-   Used to provide the DCCP_SOCKOPT_AVAILABLE_CCIDS getsockopt option
-   which passes a list of available CCIDs to userspace.
-   
-struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, ...);
-   This function is called by the CCID handler in feat.c to set the RX/TX	
-   CCID after it has been negotiated with the peer.
-
-
-The first 3 functions can be implemented by simply walking through the
-array, the last one requires to map a CCID value (Table 5 in RFC 4340,
-10) into an array index. In the above, CCID ID = array index but only
-2 out of 256 possible IDs (0..255) are non-empty (less than 0.8%).
-
-Furthermore, the CCIDs need not be in consecutive order. For example
-CCID-248 .. CCID-254 are experimental (RFC 4340, 19.5), so we could
-have an array like
-
- struct ccid_operations *ccids[] = {
-	 &ccid2_ops, &ccid3_ops, &ccid247_ops, &ccid254_ops
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -213,7 +213,7 @@ static int check_filter(struct tap_filter *filter, const struct sk_buff *skb)
+ 
+ /* Network device part of the driver */
+ 
+-static unsigned int tun_net_id;
++static int tun_net_id;
+ struct tun_net {
+ 	struct list_head dev_list;
  };
-
-This gives the mapping 0 +-> 2, 1 +-> 3, 2 +-> 247, 3 +-> 254. The
-ccid_new() function needs the inverse mapping, e.g. for CCID-247 it
-needs to find the third array entry.
-
-So we have the choice of
- * O(1) access for ccid_new() when using an array with 256 entries,
-   but have to pay the price of more complex registration /
-   unregistration routines. In addition, the 'get_builtin_xxx'
-   routines need to make two passes instead of one, to determine
-   the number of non-NULL entries.
- * O(n) linear search to map a CCID number into the corresponding
-   array index, but simpler implementation of several routines.
-
-Since n is much smaller than 255, I think the latter is better here.
-
-[patch is on the way, need to finish testing]
