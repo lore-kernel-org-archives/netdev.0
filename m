@@ -1,43 +1,39 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.28-03117: WARNING: at net/ipv4/tcp_input.c:2504	tcp_mark_head_lost()
-Date: Thu, 1 Jan 2009 16:28:27 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901011627020.4692@wrl-59.cs.helsinki.fi>
+From: "Alexander Beregalov" <a.beregalov@gmail.com>
+Subject: Re: 2.6.28-03117: WARNING: at net/ipv4/tcp_input.c:2504 tcp_mark_head_lost()
+Date: Thu, 1 Jan 2009 17:50:26 +0300
+Message-ID: <a4423d670901010650iefe98e5je2e53d9f7d74df81@mail.gmail.com>
 References: <20090101124114.GA4281@orion>
+	 <Pine.LNX.4.64.0901011627020.4692@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
-To: Alexander Beregalov <a.beregalov@gmail.com>
+To: "=?UTF-8?Q?Ilpo_J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41132 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756193AbZAAO2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2009 09:28:31 -0500
-In-Reply-To: <20090101124114.GA4281@orion>
+Received: from yw-out-2324.google.com ([74.125.46.28]:15234 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756138AbZAAOu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2009 09:50:29 -0500
+Received: by yw-out-2324.google.com with SMTP id 9so1902533ywe.1
+        for <netdev@vger.kernel.org>; Thu, 01 Jan 2009 06:50:26 -0800 (PST)
+In-Reply-To: <Pine.LNX.4.64.0901011627020.4692@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 Jan 2009, Alexander Beregalov wrote:
-
-> WARNING: at net/ipv4/tcp_input.c:2504 tcp_mark_head_lost+0x1df/0x200()
->  Modules linked in: w83627hf hwmon_vid i2c_nforce2
->  Pid: 0, comm: swapper Not tainted 2.6.28-03117-g6a94cb7 #1
->  Call Trace:
->   [<c040f321>] ? printk+0x18/0x1f
->   [<c0128354>] warn_on_slowpath+0x54/0x80
->   [<c014bd25>] ? __lock_acquire+0x2c5/0x1000
->   [<c014b74c>] ? trace_hardirqs_on_caller+0x7c/0x160
->   [<c0399041>] ? dev_queue_xmit+0xe1/0x5d0
->   [<c014bd25>] ? __lock_acquire+0x2c5/0x1000
->   [<c014862b>] ? trace_hardirqs_off+0xb/0x10
->   [<c03bfaff>] tcp_mark_head_lost+0x1df/0x200
->   [<c03c561d>] tcp_ack+0x18dd/0x1ef0
->   [<c03c5ec9>] tcp_rcv_established+0x299/0x5b0
->   [<c03cc840>] tcp_v4_do_rcv+0x90/0x1b0
-
-...snip... 
-
-Can you reproduce it?
-
--- 
- i.
+MjAwOS8xLzEgSWxwbyBKw6RydmluZW4gPGlscG8uamFydmluZW5AaGVsc2lua2kuZmk+Ogo+IE9u
+IFRodSwgMSBKYW4gMjAwOSwgQWxleGFuZGVyIEJlcmVnYWxvdiB3cm90ZToKPgo+PiBXQVJOSU5H
+OiBhdCBuZXQvaXB2NC90Y3BfaW5wdXQuYzoyNTA0IHRjcF9tYXJrX2hlYWRfbG9zdCsweDFkZi8w
+eDIwMCgpCj4+ICBNb2R1bGVzIGxpbmtlZCBpbjogdzgzNjI3aGYgaHdtb25fdmlkIGkyY19uZm9y
+Y2UyCj4+ICBQaWQ6IDAsIGNvbW06IHN3YXBwZXIgTm90IHRhaW50ZWQgMi42LjI4LTAzMTE3LWc2
+YTk0Y2I3ICMxCj4+ICBDYWxsIFRyYWNlOgo+PiAgIFs8YzA0MGYzMjE+XSA/IHByaW50aysweDE4
+LzB4MWYKPj4gICBbPGMwMTI4MzU0Pl0gd2Fybl9vbl9zbG93cGF0aCsweDU0LzB4ODAKPj4gICBb
+PGMwMTRiZDI1Pl0gPyBfX2xvY2tfYWNxdWlyZSsweDJjNS8weDEwMDAKPj4gICBbPGMwMTRiNzRj
+Pl0gPyB0cmFjZV9oYXJkaXJxc19vbl9jYWxsZXIrMHg3Yy8weDE2MAo+PiAgIFs8YzAzOTkwNDE+
+XSA/IGRldl9xdWV1ZV94bWl0KzB4ZTEvMHg1ZDAKPj4gICBbPGMwMTRiZDI1Pl0gPyBfX2xvY2tf
+YWNxdWlyZSsweDJjNS8weDEwMDAKPj4gICBbPGMwMTQ4NjJiPl0gPyB0cmFjZV9oYXJkaXJxc19v
+ZmYrMHhiLzB4MTAKPj4gICBbPGMwM2JmYWZmPl0gdGNwX21hcmtfaGVhZF9sb3N0KzB4MWRmLzB4
+MjAwCj4+ICAgWzxjMDNjNTYxZD5dIHRjcF9hY2srMHgxOGRkLzB4MWVmMAo+PiAgIFs8YzAzYzVl
+Yzk+XSB0Y3BfcmN2X2VzdGFibGlzaGVkKzB4Mjk5LzB4NWIwCj4+ICAgWzxjMDNjYzg0MD5dIHRj
+cF92NF9kb19yY3YrMHg5MC8weDFiMAo+Cj4gLi4uc25pcC4uLgo+Cj4gQ2FuIHlvdSByZXByb2R1
+Y2UgaXQ/Ck5vLCBJIGRvIG5vdCBrbm93IGhvdyB0byByZXByb2R1Y2UgaXQuCg==
