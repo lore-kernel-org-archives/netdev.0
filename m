@@ -1,38 +1,39 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: BUG - 2.4.37 fealnx.c NETDEV WATCHDOG: eth0: transmit timed out
-Date: Fri, 2 Jan 2009 19:57:18 +0100
-Message-ID: <20090102185718.GB20741@electric-eye.fr.zoreil.com>
-References: <3f9a31f40901020640m4a9a63caq9c96ba84ccd64d88@mail.gmail.com> <20090102144813.GA13757@1wt.eu> <3f9a31f40901020748m242c46djf153fbab90eeca60@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.27.8 (+the idr fix) TCP Ack issue
+Date: Fri, 02 Jan 2009 13:34:35 -0800 (PST)
+Message-ID: <20090102.133435.105577950.davem@davemloft.net>
+References: <20081231171016.GA1901@flint.arm.linux.org.uk>
+	<Pine.LNX.4.64.0812312215590.3247@wrl-59.cs.helsinki.fi>
+	<20090102142608.GC26093@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <w@1wt.eu>, wtarreau@hera.kernel.org,
-	kernel-testers@vger.kernel.org, netdev@vger.kernel.org,
-	jeff@garzik.org, linux-kernel@vger.kernel.org
-To: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42696 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755325AbZABS7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2009 13:59:18 -0500
-Content-Disposition: inline
-In-Reply-To: <3f9a31f40901020748m242c46djf153fbab90eeca60@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36032
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756943AbZABVec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2009 16:34:32 -0500
+In-Reply-To: <20090102142608.GC26093@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jaswinder Singh Rajput <jaswinderlinux@gmail.com> :
-[..]
-> Output of mii-diag -v :
-> eth0: 10 Mbit, half duplex, no link
->   product info: vendor 00:00:00, model 0 rev 0
->   basic mode:   10 Mbit, half duplex
->   basic status: no link
->   capabilities:
->   advertising:
+From: Russell King <rmk@arm.linux.org.uk>
+Date: Fri, 2 Jan 2009 14:26:09 +0000
+
+> Remote end sequence number is still at 1190.
 > 
-> This is the output from very old machine Pentium MMX with Redhat 7.1
+> 19:47:32.285397 IP (tos 0x0, ttl  64, id 30055, offset 0, flags [DF], proto: TCP (6), length: 40) dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: ., cksum 0x41e5 (correct), 3216:3216(0) ack 2215 win 10701
+> 19:47:32.320287 IP (tos 0x0, ttl 238, id 10, offset 0, flags [none], proto: TCP (6), length: 40) 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: ., cksum 0x45e6 (correct), 1190:1190(0) ack 3216 win 10701
+> 19:47:32.320300 IP (tos 0x0, ttl  64, id 30056, offset 0, flags [DF], proto: TCP (6), length: 40) dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: ., cksum 0x41e5 (correct), 3216:3216(0) ack 2215 win 10701
+> 19:47:32.353016 IP (tos 0x0, ttl 238, id 12, offset 0, flags [none], proto: TCP (6), length: 40) 193.108.74.209.http > dyn-67.arm.linux.org.uk.38803: ., cksum 0x45e6 (correct), 1190:1190(0) ack 3216 win 10701
+> ...
+> 
+> So it looks to me like the remote end doesn't like our ack of 2215 for
+> some reason.
 
-Can you check with 'mii-tool -vv eth0' that the mii registers are not
-all zeroes ?
+Let's make sure the checksum is OK.  That's a reason the ACK might
+get dropped at the remote end.
 
--- 
-Ueimor
