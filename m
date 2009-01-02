@@ -1,37 +1,55 @@
-From: "Motorola Company" <info@winner.com>
-Subject: Att
-Date: Fri, 02 Jan 2009 05:59:08 -0600
-Message-ID: <fujeYkBI.1230897548.3448560.transint@cablenet.com.ni>
-Reply-To: "Motorola Company" <excellentdispatchservice@yahoo.com.hk>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [PATCH] isdn: capi: &&/|| typos
+Date: Fri, 2 Jan 2009 13:16:30 +0100
+Message-ID: <20090102121630.GA14957@pingi.kke.suse.de>
+References: <495A14AA.2060200@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: motorola@winner.net
+Content-Type: text/plain; charset=us-ascii
+Cc: kkeil@suse.de, netdev@vger.kernel.org
+To: Roel Kluin <roel.kluin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.cablenet.com.ni ([165.98.148.3]:42094 "EHLO
-	mail.cablenet.com.ni" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757428AbZABMKX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2009 07:10:23 -0500
+Received: from ns2.suse.de ([195.135.220.15]:60587 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751587AbZABMqj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jan 2009 07:46:39 -0500
+Content-Disposition: inline
+In-Reply-To: <495A14AA.2060200@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Tue, Dec 30, 2008 at 01:31:38PM +0100, Roel Kluin wrote:
+> Correct two typos.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-=46rom the online email ballot promotions held by Motorola, You have be=
-en
-awarded =A3400,000.00. For claim please contact with the below informat=
-ion:
+Acked-by: Karsten Keil <kkeil@suse.de>
 
-Name of Delivery Company:=3D=3D=3D EXCELLENT DISPATCH SERVICES LTD
-Contact Person: =3D=3D=3D MR. ANTHONY RICHARD
-Email: =3D=3D=3D excellentdispatchservice@yahoo.com.hk
-Telephone: =3D=3D=3D +447045741686 +447045741677 .
+> ---
+> diff --git a/drivers/isdn/capi/capidrv.c b/drivers/isdn/capi/capidrv.c
+> index d5b4cc3..6501202 100644
+> --- a/drivers/isdn/capi/capidrv.c
+> +++ b/drivers/isdn/capi/capidrv.c
+> @@ -1519,7 +1519,7 @@ static int decodeFVteln(char *teln, unsigned long *bmaskp, int *activep)
+>  		int digit2 = 0;
+>  		if (!isdigit(*s)) return -3;
+>  		while (isdigit(*s)) { digit1 = digit1*10 + (*s - '0'); s++; }
+> -		if (digit1 <= 0 && digit1 > 30) return -4;
+> +		if (digit1 <= 0 || digit1 > 30) return -4;
+>  		if (*s == 0 || *s == ',' || *s == ' ') {
+>  			bmask |= (1 << digit1);
+>  			digit1 = 0;
+> @@ -1530,7 +1530,7 @@ static int decodeFVteln(char *teln, unsigned long *bmaskp, int *activep)
+>  		s++;
+>  		if (!isdigit(*s)) return -3;
+>  		while (isdigit(*s)) { digit2 = digit2*10 + (*s - '0'); s++; }
+> -		if (digit2 <= 0 && digit2 > 30) return -4;
+> +		if (digit2 <= 0 || digit2 > 30) return -4;
+>  		if (*s == 0 || *s == ',' || *s == ' ') {
+>  			if (digit1 > digit2)
+>  				for (i = digit2; i <= digit1 ; i++)
 
-Please fill in your personal details for claim:
-1. Full name.............. 2. Contact Address........
-3. Age.................... 4. Telephone Number.......
-5. Sex.................... 6. Occupation.............
-7. State:................. 8. Country................
-
-Regards
-Mr.Mark Alex
+-- 
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
