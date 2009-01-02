@@ -1,39 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
-	2.6.27
-Date: Fri, 2 Jan 2009 19:34:02 +1100
-Message-ID: <20090102083402.GA24383@gondor.apana.org.au>
-References: <bug-12327-10286@http.bugzilla.kernel.org/> <20081229214101.4c4f5ac1.akpm@linux-foundation.org> <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com>
+Subject: Re: 2.6.27.8 (+the idr fix) TCP Ack issue
+Date: Fri, 2 Jan 2009 19:43:35 +1100
+Message-ID: <20090102084335.GA24513@gondor.apana.org.au>
+References: <20081230195858.GA23530@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Speedster <speedster@haveacry.com>
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: Russell King <rmk@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.62.148.172] ([64.62.148.172]:56255 "EHLO arnor.apana.org.au"
+Received: from [64.62.148.172] ([64.62.148.172]:36264 "EHLO arnor.apana.org.au"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751141AbZABIhr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jan 2009 03:37:47 -0500
+	id S1750860AbZABIoJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jan 2009 03:44:09 -0500
 Content-Disposition: inline
-In-Reply-To: <495BFEAF.6000006@haveacry.com>
+In-Reply-To: <20081230195858.GA23530@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 31, 2008 at 11:22:23PM +0000, Speedster wrote:
+On Tue, Dec 30, 2008 at 07:58:58PM +0000, Russell King wrote:
 >
-> The gateway machine (whinge) runs as a KVM guest, and shares a physical  
-> host with three other guests (one Windows, two Linux). Below are the  
-> outputs of bridge topology and VLAN tagging on the physical host.
+> 19:47:32.174701 IP dyn-67.arm.linux.org.uk.38803 > 193.108.74.209.http: . 644:3196(2552) ack 1190 win 8323
 
-What driver are you using on whinge?
+You are to be using TSO/GSO, what driver are you using and what
+does ethtool -k <ifname> say? You could try disabling TSO to see
+if the problem goes away with ethtool -K ifname tso off.
 
-When you took the packet dumps, was it on whinge or the physical
-host? If it was taken on whinge, can you try to take the same
-dumps on the outgoing physical interface on the host?
+If you could please take a dump one hop away from your host to
+see the segmented packets.
 
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
