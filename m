@@ -1,99 +1,88 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 2/6] qeth: exploit source MAC address for inbound layer3 packets
-Date: Fri, 02 Jan 2009 16:01:41 +0100
-Message-ID: <20090102150253.923245000@de.ibm.com>
+Subject: [patch 4/6] qeth: do not spin for SETIP ip assist command
+Date: Fri, 02 Jan 2009 16:01:43 +0100
+Message-ID: <20090102150255.266826000@de.ibm.com>
 References: <20090102150139.830998000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:42549 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbZABPC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2009 10:02:57 -0500
-Content-Disposition: inline; filename=606-qeth-source-mac.diff
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:37521 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756148AbZABPDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2009 10:03:54 -0500
+Content-Disposition: inline; filename=608-qeth-nospin.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-OSA-devices operating in layer3 mode offer adding of the source MAC
-address to the QDIO header of inbound packets. The qeth driver can
-exploit this functionality to replace FAKELL-entries in the ethernet
-header of received packets.
+The ip assist hw command for setting an IP address last unacceptable
+long so we can not spin while we waiting for the irq. Since we can
+ensure process context for all occurrences of this command we can use
+wait.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_core.h      |    1 -
- drivers/s390/net/qeth_core_main.c |    1 -
- drivers/s390/net/qeth_l3_main.c   |   16 +++++++++-------
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/s390/net/qeth_core_main.c |   40 +++++++++++++++++++++++++++-----------
+ 1 file changed, 29 insertions(+), 11 deletions(-)
 
-diff -urpN linux-2.6/drivers/s390/net/qeth_core.h linux-2.6-patched/drivers/s390/net/qeth_core.h
---- linux-2.6/drivers/s390/net/qeth_core.h	2009-01-02 10:21:51.000000000 +0100
-+++ linux-2.6-patched/drivers/s390/net/qeth_core.h	2009-01-02 10:22:06.000000000 +0100
-@@ -643,7 +643,6 @@ struct qeth_card_options {
- 	int macaddr_mode;
- 	int fake_broadcast;
- 	int add_hhlen;
--	int fake_ll;
- 	int layer2;
- 	enum qeth_large_send_types large_send;
- 	int performance_stats;
 diff -urpN linux-2.6/drivers/s390/net/qeth_core_main.c linux-2.6-patched/drivers/s390/net/qeth_core_main.c
---- linux-2.6/drivers/s390/net/qeth_core_main.c	2009-01-02 10:22:06.000000000 +0100
-+++ linux-2.6-patched/drivers/s390/net/qeth_core_main.c	2009-01-02 10:22:06.000000000 +0100
-@@ -1072,7 +1072,6 @@ static void qeth_set_intial_options(stru
- 	card->options.macaddr_mode = QETH_TR_MACADDR_NONCANONICAL;
- 	card->options.fake_broadcast = 0;
- 	card->options.add_hhlen = DEFAULT_ADD_HHLEN;
--	card->options.fake_ll = 0;
- 	card->options.performance_stats = 0;
- 	card->options.rx_sg_cb = QETH_RX_SG_CB;
- }
-diff -urpN linux-2.6/drivers/s390/net/qeth_l3_main.c linux-2.6-patched/drivers/s390/net/qeth_l3_main.c
---- linux-2.6/drivers/s390/net/qeth_l3_main.c	2009-01-02 10:21:51.000000000 +0100
-+++ linux-2.6-patched/drivers/s390/net/qeth_l3_main.c	2009-01-02 10:22:06.000000000 +0100
-@@ -1207,12 +1207,9 @@ static int qeth_l3_start_ipa_source_mac(
+--- linux-2.6/drivers/s390/net/qeth_core_main.c	2009-01-02 10:22:07.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/qeth_core_main.c	2009-01-02 10:22:07.000000000 +0100
+@@ -1685,6 +1685,7 @@ int qeth_send_control_data(struct qeth_c
+ 	unsigned long flags;
+ 	struct qeth_reply *reply = NULL;
+ 	unsigned long timeout;
++	struct qeth_ipa_cmd *cmd;
  
- 	QETH_DBF_TEXT(TRACE, 3, "stsrcmac");
+ 	QETH_DBF_TEXT(TRACE, 2, "sendctl");
  
--	if (!card->options.fake_ll)
--		return -EOPNOTSUPP;
--
- 	if (!qeth_is_supported(card, IPA_SOURCE_MAC)) {
- 		dev_info(&card->gdev->dev,
--			"Inbound source address not supported on %s\n",
-+			"Inbound source MAC-address not supported on %s\n",
- 			QETH_CARD_IFNAME(card));
- 		return -EOPNOTSUPP;
+@@ -1731,17 +1732,34 @@ int qeth_send_control_data(struct qeth_c
+ 		wake_up(&card->wait_q);
+ 		return rc;
  	}
-@@ -1221,7 +1218,7 @@ static int qeth_l3_start_ipa_source_mac(
- 					  IPA_CMD_ASS_START, 0);
- 	if (rc)
- 		dev_warn(&card->gdev->dev,
--			"Starting proxy ARP support for %s failed\n",
-+			"Starting source MAC-address support for %s failed\n",
- 			QETH_CARD_IFNAME(card));
+-	while (!atomic_read(&reply->received)) {
+-		if (time_after(jiffies, timeout)) {
+-			spin_lock_irqsave(&reply->card->lock, flags);
+-			list_del_init(&reply->list);
+-			spin_unlock_irqrestore(&reply->card->lock, flags);
+-			reply->rc = -ETIME;
+-			atomic_inc(&reply->received);
+-			wake_up(&reply->wait_q);
+-		}
+-		cpu_relax();
+-	};
++
++	/* we have only one long running ipassist, since we can ensure
++	   process context of this command we can sleep */
++	cmd = (struct qeth_ipa_cmd *)(iob->data+IPA_PDU_HEADER_SIZE);
++	if ((cmd->hdr.command == IPA_CMD_SETIP) &&
++	    (cmd->hdr.prot_version == QETH_PROT_IPV4)) {
++		if (!wait_event_timeout(reply->wait_q,
++		    atomic_read(&reply->received), timeout))
++			goto time_err;
++	} else {
++		while (!atomic_read(&reply->received)) {
++			if (time_after(jiffies, timeout))
++				goto time_err;
++			cpu_relax();
++		};
++	}
++
++	rc = reply->rc;
++	qeth_put_reply(reply);
++	return rc;
++
++time_err:
++	spin_lock_irqsave(&reply->card->lock, flags);
++	list_del_init(&reply->list);
++	spin_unlock_irqrestore(&reply->card->lock, flags);
++	reply->rc = -ETIME;
++	atomic_inc(&reply->received);
++	wake_up(&reply->wait_q);
+ 	rc = reply->rc;
+ 	qeth_put_reply(reply);
  	return rc;
- }
-@@ -1921,8 +1918,13 @@ static inline __u16 qeth_l3_rebuild_skb(
- 			memcpy(tg_addr, card->dev->dev_addr,
- 				card->dev->addr_len);
- 		}
--		card->dev->header_ops->create(skb, card->dev, prot, tg_addr,
--					      "FAKELL", card->dev->addr_len);
-+		if (hdr->hdr.l3.ext_flags & QETH_HDR_EXT_SRC_MAC_ADDR)
-+			card->dev->header_ops->create(skb, card->dev, prot,
-+				tg_addr, &hdr->hdr.l3.dest_addr[2],
-+				card->dev->addr_len);
-+		else
-+			card->dev->header_ops->create(skb, card->dev, prot,
-+				tg_addr, "FAKELL", card->dev->addr_len);
- 	}
- 
- #ifdef CONFIG_TR
 
 -- 
