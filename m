@@ -1,65 +1,37 @@
-From: Eric Sesterhenn <snakebyte@gmx.de>
-Subject: Re: [BUG] icmpv6fuzz creates bad paging request
-Date: Fri, 2 Jan 2009 11:28:20 +0100
-Message-ID: <20090102102820.GA6088@alice>
-References: <20090101201304.GA6698@alice> <Pine.LNX.4.64.0901021040050.6207@wrl-59.cs.helsinki.fi>
+From: "Motorola Company" <info@winner.com>
+Subject: Att
+Date: Fri, 02 Jan 2009 05:59:08 -0600
+Message-ID: <fujeYkBI.1230897548.3448560.transint@cablenet.com.ni>
+Reply-To: "Motorola Company" <excellentdispatchservice@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org
-To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+To: motorola@winner.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:33448 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756208AbZABK2Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2009 05:28:25 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0901021040050.6207@wrl-59.cs.helsinki.fi>
+Received: from mail.cablenet.com.ni ([165.98.148.3]:42094 "EHLO
+	mail.cablenet.com.ni" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757428AbZABMKX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jan 2009 07:10:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
+Hello,
 
-* Ilpo J=C3=A4rvinen (ilpo.jarvinen@helsinki.fi) wrote:
-> On Thu, 1 Jan 2009, Eric Sesterhenn wrote:
->=20
-> > Hi,
-> >=20
-> > running "icmpv6fuzz -r 2187" gives me the following oops with curre=
-nt -git
->=20
-> Can you try the patch below.
->=20
-> I wonder btw what's the correct policy wrt. those optval =3D=3D NULL =
-checks=20
-> that's visible in the patch' context (IPV6_PKTINFO is the only one wh=
-ich
-> is doing that while many there fetch to sizeof(struct something)).
+=46rom the online email ballot promotions held by Motorola, You have be=
+en
+awarded =A3400,000.00. For claim please contact with the below informat=
+ion:
 
-patch works for me, thanks for the fast reply.
+Name of Delivery Company:=3D=3D=3D EXCELLENT DISPATCH SERVICES LTD
+Contact Person: =3D=3D=3D MR. ANTHONY RICHARD
+Email: =3D=3D=3D excellentdispatchservice@yahoo.com.hk
+Telephone: =3D=3D=3D +447045741686 +447045741677 .
 
-Greetings, Eric
+Please fill in your personal details for claim:
+1. Full name.............. 2. Contact Address........
+3. Age.................... 4. Telephone Number.......
+5. Sex.................... 6. Occupation.............
+7. State:................. 8. Country................
 
-> [PATCH] ipv6: IPV6_PKTINFO relied userspace providing correct length
->=20
-> Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-> Reported-by: Eric Sesterhenn <snakebyte@gmx.de>
-> ---
->  net/ipv6/ipv6_sockglue.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-> index 0069b7e..d31df0f 100644
-> --- a/net/ipv6/ipv6_sockglue.c
-> +++ b/net/ipv6/ipv6_sockglue.c
-> @@ -403,7 +403,7 @@ sticky_done:
->  		else if (optlen < sizeof(struct in6_pktinfo) || optval =3D=3D NULL=
-)
->  			goto e_inval;
-> =20
-> -		if (copy_from_user(&pkt, optval, optlen)) {
-> +		if (copy_from_user(&pkt, optval, sizeof(struct in6_pktinfo))) {
->  				retv =3D -EFAULT;
->  				break;
->  		}
+Regards
+Mr.Mark Alex
