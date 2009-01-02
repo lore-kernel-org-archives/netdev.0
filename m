@@ -1,101 +1,309 @@
-From: "Michael Marineau" <mike@marineau.org>
-Subject: [PATCH] fix for initial link state in 2.6.28
-Date: Thu, 1 Jan 2009 18:12:59 -0500
-Message-ID: <c0526ddf0901011512t258978e9n2c9ecf7488a4a35f@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2/2] gro: Add page frag support
+Date: Fri, 2 Jan 2009 15:20:11 +1100
+Message-ID: <20090102042011.GA20920@gondor.apana.org.au>
+References: <20081226225157.GA22866@gondor.apana.org.au> <20081229122445.GA11161@gondor.apana.org.au> <20081229.230703.265458431.davem@davemloft.net> <20081230100705.GA31741@gondor.apana.org.au> <20081230100819.GA31787@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_109320_32456033.1230851579068"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.229]:16654 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753555AbZAAXNA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jan 2009 18:13:00 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so5722402rvb.1
-        for <netdev@vger.kernel.org>; Thu, 01 Jan 2009 15:12:59 -0800 (PST)
+Received: from [64.62.148.172] ([64.62.148.172]:38469 "EHLO arnor.apana.org.au"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750911AbZABEU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jan 2009 23:20:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20081230100819.GA31787@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_109320_32456033.1230851579068
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hi:
 
-Greetings,
+Here's an updated version with a redundant blank line removed.
 
-Commit b47300168e770b60ab96c8924854c3b0eb4260eb "Do not fire linkwatch
-events until the device is registered." was made as a workaround for
-drivers that call netif_carrier_off before registering the device.
-Unfortunately this causes these drivers to incorrectly report their
-link status as IF_OPER_UNKNOWN which can falsely set the IFF_RUNNING
-flag when the interface is first brought up. This issues was
-previously pointed out[1] but was dismissed saying that IFF_RUNNING is
-not related to the link status. From my digging IFF_RUNNING, as
-reported to userspace, is based on the link state. It is set based on
-__LINK_STATE_START and IF_OPER_UP or IF_OPER_UNKNOWN. See [2], [3],
-and [4]. (Whether or not the kernel has IFF_RUNNING set in flags is
-not reported to user space so it may well be independent of the link,
-I don't know if and when it may get set.)
+gro: Add page frag support
 
-The end result depends slightly depending on the driver. The the two I
-tested were e1000e and b44. With e1000e if the system is booted
-without a network cable attached the interface will falsely report
-RUNNING when it is brought up causing NetworkManager to attempt to
-start it and eventually time out. With b44 when the system is booted
-with a network cable attached and brought up with dhcpcd it will time
-out the first time.
+This patch allows GRO to merge page frags (skb_shinfo(skb)->frags)
+in one skb, rather than using the less efficient frag_list.
 
-The attached patch that will still set the operstate variable
-correctly to IF_OPER_UP/DOWN/etc when linkwatch_fire_event is called
-but then return rather than skipping the linkwatch_fire_event call
-entirely as the previous fix did. (sorry it isn't inline, I don't have
-a patch friendly email client at the moment)
+It also adds a new interface, napi_gro_frags to allow drivers
+to inject page frags directly into the stack without allocating
+an skb.  This is intended to be the GRO equivalent for LRO's
+lro_receive_frags interface.
 
-What ever the final fix for this is, it should probably be pushed into
-the stable tree since this is a minor but annoying regression in
-2.6.28.
+The existing GSO interface can already handle page frags with
+or without an appended frag_list so nothing needs to be changed
+there.
 
-[1] http://marc.info/?l=linux-netdev&m=122922534630000&w=2
-[2] http://lxr.linux.no/linux+v2.6.28/net/core/dev.c#L3349
-[3] http://lxr.linux.no/linux+v2.6.28/include/linux/netdevice.h#L1147
-[4] http://lxr.linux.no/linux+v2.6.28/include/linux/netdevice.h#L1376
+The merging itself is rather simple.  We store any new frag entries
+after the last existing entry, without checking whether the first
+new entry can be merged with the last existing entry.  Making this
+check would actually be easy but since no existing driver can
+produce contiguous frags anyway it would just be mental masturbation.
+
+If the total number of entries would exceed the capacity of a
+single skb, we simply resort to using frag_list as we do now.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 41e1224..c28bbba 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -313,10 +313,11 @@ struct napi_struct {
+ #ifdef CONFIG_NETPOLL
+ 	spinlock_t		poll_lock;
+ 	int			poll_owner;
+-	struct net_device	*dev;
+ #endif
++	struct net_device	*dev;
+ 	struct list_head	dev_list;
+ 	struct sk_buff		*gro_list;
++	struct sk_buff		*skb;
+ };
+ 
+ enum
+@@ -990,6 +991,9 @@ struct napi_gro_cb {
+ 
+ 	/* Number of segments aggregated. */
+ 	int count;
++
++	/* Free the skb? */
++	int free;
+ };
+ 
+ #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
+@@ -1011,6 +1015,14 @@ struct packet_type {
+ 	struct list_head	list;
+ };
+ 
++struct napi_gro_fraginfo {
++	skb_frag_t frags[MAX_SKB_FRAGS];
++	unsigned int nr_frags;
++	unsigned int ip_summed;
++	unsigned int len;
++	__wsum csum;
++};
++
+ #include <linux/interrupt.h>
+ #include <linux/notifier.h>
+ 
+@@ -1363,6 +1375,8 @@ extern int		netif_receive_skb(struct sk_buff *skb);
+ extern void		napi_gro_flush(struct napi_struct *napi);
+ extern int		napi_gro_receive(struct napi_struct *napi,
+ 					 struct sk_buff *skb);
++extern int		napi_gro_frags(struct napi_struct *napi,
++				       struct napi_gro_fraginfo *info);
+ extern void		netif_nit_deliver(struct sk_buff *skb);
+ extern int		dev_valid_name(const char *name);
+ extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 67a6ff4..18be66b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -132,6 +132,9 @@
+ /* Instead of increasing this, you should create a hash table. */
+ #define MAX_GRO_SKBS 8
+ 
++/* This should be increased if a protocol with a bigger head is added. */
++#define GRO_MAX_HEAD (MAX_HEADER + 128)
++
+ /*
+  *	The list of packet types we will receive (as opposed to discard)
+  *	and the routines to invoke.
+@@ -2345,7 +2348,7 @@ static int napi_gro_complete(struct sk_buff *skb)
+ 	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+ 	int err = -ENOENT;
+ 
+-	if (!skb_shinfo(skb)->frag_list)
++	if (NAPI_GRO_CB(skb)->count == 1)
+ 		goto out;
+ 
+ 	rcu_read_lock();
+@@ -2384,7 +2387,7 @@ void napi_gro_flush(struct napi_struct *napi)
+ }
+ EXPORT_SYMBOL(napi_gro_flush);
+ 
+-int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
++static int __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff **pp = NULL;
+ 	struct packet_type *ptype;
+@@ -2393,6 +2396,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	int count = 0;
+ 	int same_flow;
+ 	int mac_len;
++	int free;
+ 
+ 	if (!(skb->dev->features & NETIF_F_GRO))
+ 		goto normal;
+@@ -2409,6 +2413,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 		skb->mac_len = mac_len;
+ 		NAPI_GRO_CB(skb)->same_flow = 0;
+ 		NAPI_GRO_CB(skb)->flush = 0;
++		NAPI_GRO_CB(skb)->free = 0;
+ 
+ 		for (p = napi->gro_list; p; p = p->next) {
+ 			count++;
+@@ -2428,6 +2433,7 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 		goto normal;
+ 
+ 	same_flow = NAPI_GRO_CB(skb)->same_flow;
++	free = NAPI_GRO_CB(skb)->free;
+ 
+ 	if (pp) {
+ 		struct sk_buff *nskb = *pp;
+@@ -2452,13 +2458,86 @@ int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	napi->gro_list = skb;
+ 
+ ok:
+-	return NET_RX_SUCCESS;
++	return free;
+ 
+ normal:
+-	return netif_receive_skb(skb);
++	return -1;
++}
++
++int napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
++{
++	switch (__napi_gro_receive(napi, skb)) {
++	case -1:
++		return netif_receive_skb(skb);
++
++	case 1:
++		kfree_skb(skb);
++		break;
++	}
++
++	return NET_RX_SUCCESS;
+ }
+ EXPORT_SYMBOL(napi_gro_receive);
+ 
++int napi_gro_frags(struct napi_struct *napi, struct napi_gro_fraginfo *info)
++{
++	struct net_device *dev = napi->dev;
++	struct sk_buff *skb = napi->skb;
++	int err = NET_RX_DROP;
++
++	napi->skb = NULL;
++
++	if (!skb) {
++		skb = netdev_alloc_skb(dev, GRO_MAX_HEAD + NET_IP_ALIGN);
++		if (!skb)
++			goto out;
++
++		skb_reserve(skb, NET_IP_ALIGN);
++	}
++
++	BUG_ON(info->nr_frags > MAX_SKB_FRAGS);
++	skb_shinfo(skb)->nr_frags = info->nr_frags;
++	memcpy(skb_shinfo(skb)->frags, info->frags, sizeof(info->frags));
++
++	skb->data_len = info->len;
++	skb->len += info->len;
++	skb->truesize += info->len;
++
++	if (!pskb_may_pull(skb, ETH_HLEN))
++		goto reuse;
++
++	err = NET_RX_SUCCESS;
++
++	skb->protocol = eth_type_trans(skb, dev);
++
++	skb->ip_summed = info->ip_summed;
++	skb->csum = info->csum;
++
++	switch (__napi_gro_receive(napi, skb)) {
++	case -1:
++		return netif_receive_skb(skb);
++
++	case 0:
++		goto out;
++	}
++
++reuse:
++	skb_shinfo(skb)->nr_frags = 0;
++
++	skb->len -= skb->data_len;
++	skb->truesize -= skb->data_len;
++	skb->data_len = 0;
++
++	__skb_pull(skb, skb_headlen(skb));
++	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
++
++	napi->skb = skb;
++
++out:
++	return err;
++}
++EXPORT_SYMBOL(napi_gro_frags);
++
+ static int process_backlog(struct napi_struct *napi, int quota)
+ {
+ 	int work = 0;
+@@ -2537,11 +2616,12 @@ void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
+ {
+ 	INIT_LIST_HEAD(&napi->poll_list);
+ 	napi->gro_list = NULL;
++	napi->skb = NULL;
+ 	napi->poll = poll;
+ 	napi->weight = weight;
+ 	list_add(&napi->dev_list, &dev->napi_list);
+-#ifdef CONFIG_NETPOLL
+ 	napi->dev = dev;
++#ifdef CONFIG_NETPOLL
+ 	spin_lock_init(&napi->poll_lock);
+ 	napi->poll_owner = -1;
+ #endif
+@@ -2554,6 +2634,7 @@ void netif_napi_del(struct napi_struct *napi)
+ 	struct sk_buff *skb, *next;
+ 
+ 	list_del_init(&napi->dev_list);
++	kfree(napi->skb);
+ 
+ 	for (skb = napi->gro_list; skb; skb = next) {
+ 		next = skb->next;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3aafb10..5110b35 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2594,6 +2594,17 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 
+ 	if (skb_shinfo(p)->frag_list)
+ 		goto merge;
++	else if (!skb_headlen(p) && !skb_headlen(skb) &&
++		 skb_shinfo(p)->nr_frags + skb_shinfo(skb)->nr_frags <
++		 MAX_SKB_FRAGS) {
++		memcpy(skb_shinfo(p)->frags + skb_shinfo(p)->nr_frags,
++		       skb_shinfo(skb)->frags,
++		       skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
++
++		skb_shinfo(p)->nr_frags += skb_shinfo(skb)->nr_frags;
++		NAPI_GRO_CB(skb)->free = 1;
++		goto done;
++	}
+ 
+ 	headroom = skb_headroom(p);
+ 	nskb = netdev_alloc_skb(p->dev, headroom);
+@@ -2628,11 +2639,12 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	p = nskb;
+ 
+ merge:
+-	NAPI_GRO_CB(p)->count++;
+ 	p->prev->next = skb;
+ 	p->prev = skb;
+ 	skb_header_release(skb);
+ 
++done:
++	NAPI_GRO_CB(p)->count++;
+ 	p->data_len += skb->len;
+ 	p->truesize += skb->len;
+ 	p->len += skb->len;
 
 Cheers,
 -- 
-Michael Marineau
-mike@marineau.org
-
-------=_Part_109320_32456033.1230851579068
-Content-Type: text/x-patch; name=operstate-fix.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fpg14tin0
-Content-Disposition: attachment; filename=operstate-fix.patch
-
-ZGlmZiAtLWdpdCBhL25ldC9jb3JlL2xpbmtfd2F0Y2guYyBiL25ldC9jb3JlL2xpbmtfd2F0Y2gu
-YwppbmRleCAxODNkMTgwLi4xZTQwMWUxIDEwMDY0NAotLS0gYS9uZXQvY29yZS9saW5rX3dhdGNo
-LmMKKysrIGIvbmV0L2NvcmUvbGlua193YXRjaC5jCkBAIC0xNzksNyArMTc4LDYgQEAgc3RhdGlj
-IHZvaWQgX19saW5rd2F0Y2hfcnVuX3F1ZXVlKGludCB1cmdlbnRfb25seSkKIAkJICovCiAJCWNs
-ZWFyX2JpdChfX0xJTktfU1RBVEVfTElOS1dBVENIX1BFTkRJTkcsICZkZXYtPnN0YXRlKTsKIAot
-CQlyZmMyODYzX3BvbGljeShkZXYpOwogCQlpZiAoZGV2LT5mbGFncyAmIElGRl9VUCkgewogCQkJ
-aWYgKG5ldGlmX2NhcnJpZXJfb2soZGV2KSkKIAkJCQlkZXZfYWN0aXZhdGUoZGV2KTsKQEAgLTIx
-Niw2ICsyMTQsMTIgQEAgdm9pZCBsaW5rd2F0Y2hfZmlyZV9ldmVudChzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqZGV2KQogewogCWJvb2wgdXJnZW50ID0gbGlua3dhdGNoX3VyZ2VudF9ldmVudChkZXYpOwog
-CisJcmZjMjg2M19wb2xpY3koZGV2KTsKKworCS8qIFNvbWUgZHJpdmVycyBjYWxsIG5ldGlmX2Nh
-cnJpZXJfb2ZmIGVhcmx5ICovCisJaWYgKGRldi0+cmVnX3N0YXRlID09IE5FVFJFR19VTklOSVRJ
-QUxJWkVEKQorCQlyZXR1cm47CisKIAlpZiAoIXRlc3RfYW5kX3NldF9iaXQoX19MSU5LX1NUQVRF
-X0xJTktXQVRDSF9QRU5ESU5HLCAmZGV2LT5zdGF0ZSkpIHsKIAkJZGV2X2hvbGQoZGV2KTsKIApk
-aWZmIC0tZ2l0IGEvbmV0L3NjaGVkL3NjaF9nZW5lcmljLmMgYi9uZXQvc2NoZWQvc2NoX2dlbmVy
-aWMuYwppbmRleCBjZGNkMTZmLi4zZWE2NzQxIDEwMDY0NAotLS0gYS9uZXQvc2NoZWQvc2NoX2dl
-bmVyaWMuYworKysgYi9uZXQvc2NoZWQvc2NoX2dlbmVyaWMuYwpAQCAtMjcwLDggKzI3MCw2IEBA
-IHN0YXRpYyB2b2lkIGRldl93YXRjaGRvZ19kb3duKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiB2
-b2lkIG5ldGlmX2NhcnJpZXJfb24oc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIHsKIAlpZiAodGVz
-dF9hbmRfY2xlYXJfYml0KF9fTElOS19TVEFURV9OT0NBUlJJRVIsICZkZXYtPnN0YXRlKSkgewot
-CQlpZiAoZGV2LT5yZWdfc3RhdGUgPT0gTkVUUkVHX1VOSU5JVElBTElaRUQpCi0JCQlyZXR1cm47
-CiAJCWxpbmt3YXRjaF9maXJlX2V2ZW50KGRldik7CiAJCWlmIChuZXRpZl9ydW5uaW5nKGRldikp
-CiAJCQlfX25ldGRldl93YXRjaGRvZ191cChkZXYpOwpAQCAtMjg4LDggKzI4Niw2IEBAIEVYUE9S
-VF9TWU1CT0wobmV0aWZfY2Fycmllcl9vbik7CiB2b2lkIG5ldGlmX2NhcnJpZXJfb2ZmKHN0cnVj
-dCBuZXRfZGV2aWNlICpkZXYpCiB7CiAJaWYgKCF0ZXN0X2FuZF9zZXRfYml0KF9fTElOS19TVEFU
-RV9OT0NBUlJJRVIsICZkZXYtPnN0YXRlKSkgewotCQlpZiAoZGV2LT5yZWdfc3RhdGUgPT0gTkVU
-UkVHX1VOSU5JVElBTElaRUQpCi0JCQlyZXR1cm47CiAJCWxpbmt3YXRjaF9maXJlX2V2ZW50KGRl
-dik7CiAJfQogfQo=
-------=_Part_109320_32456033.1230851579068--
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
