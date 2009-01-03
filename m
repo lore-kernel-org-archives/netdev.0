@@ -1,56 +1,71 @@
-From: "Jaswinder Singh Rajput" <jaswinderlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: BUG - 2.4.37 fealnx.c NETDEV WATCHDOG: eth0: transmit timed out
-Date: Sat, 3 Jan 2009 16:40:29 +0530
-Message-ID: <3f9a31f40901030310l211e3ca8hd3c7d2b0e7b18adc@mail.gmail.com>
-References: <3f9a31f40901020640m4a9a63caq9c96ba84ccd64d88@mail.gmail.com>
-	 <20090102144813.GA13757@1wt.eu>
-	 <3f9a31f40901020748m242c46djf153fbab90eeca60@mail.gmail.com>
-	 <20090102185718.GB20741@electric-eye.fr.zoreil.com>
+From: Mck <mick@semb.wever.org>
+Subject: Re: bnep module in 2.6.27 fails to provide bnep0 device
+Date: Sat, 03 Jan 2009 12:24:44 +0100
+Message-ID: <1230981884.6118.5.camel@localhost>
+References: <20081229131222.5C2902F889@sch-sesat01.dev.osl.basefarm.net>
+	 <1230945613.10187.13.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Willy Tarreau" <w@1wt.eu>, wtarreau-Dj75qbTlC0E76Z2rM5mHXA@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Francois Romieu" <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090102185718.GB20741-lmTtMILVy1jWQcoT9B9Ug5SCg42XY1Uw0E9HWUfgJXw@public.gmane.org>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-oYfMULWbRG1j7CCfxtsq"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from main.gmane.org ([80.91.229.2]:56599 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752982AbZACLZV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jan 2009 06:25:21 -0500
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1LJ4d5-00079M-1s
+	for netdev@vger.kernel.org; Sat, 03 Jan 2009 11:25:19 +0000
+Received: from wever.org ([83.243.151.80])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 03 Jan 2009 11:25:18 +0000
+Received: from mick by wever.org with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 03 Jan 2009 11:25:18 +0000
+In-Reply-To: <1230945613.10187.13.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 3, 2009 at 12:27 AM, Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org> wrote:
-> Jaswinder Singh Rajput <jaswinderlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> :
-> [..]
->> Output of mii-diag -v :
->> eth0: 10 Mbit, half duplex, no link
->>   product info: vendor 00:00:00, model 0 rev 0
->>   basic mode:   10 Mbit, half duplex
->>   basic status: no link
->>   capabilities:
->>   advertising:
->>
->> This is the output from very old machine Pentium MMX with Redhat 7.1
->
-> Can you check with 'mii-tool -vv eth0' that the mii registers are not
-> all zeroes ?
->
 
-Yes all are zeros :-)
+--=-oYfMULWbRG1j7CCfxtsq
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-eth0: 10 Mbit, half duplex, no link
-  registers for MII PHY 32:
-    0000 0000 0000 0000 0000 0000 0000 0000
-    0000 0000 0000 0000 0000 0000 0000 0000
-    0000 0000 0000 0000 0000 0000 0000 0000
-    0000 0000 0000 0000 0000 0000 0000 0000
-  product info: vendor 00:00:00, model 0 rev 0
-  basic mode:   10 Mbit, half duplex
-  basic status: no link
-  capabilities:
-  advertising:
+> Then running "pand -c XX" I get:
+>=20
+> [pand] Connecting to 00:19:63:14:8C:6C
+> [hcid] link_key_request (sba=3D00:10:60:D1:7C:31, dba=3D00:19:63:14:8C:6C=
+)
+> [pand] bnep0 connected
+> [/etc/init.d/net.bnep0] ERROR: interface bnep0 does not exist
+> [/etc/init.d/net.bnep0] Ensure that you have loaded the correct kernel mo=
+dule for your hardware
+> [/etc/init.d/net.bnep0] ERROR: net.bnep0 failed to start
 
-Now what is next step.
+Sorry, i see now this list is a development list and my post is user
+orientated.
+I came to it via gmane.org and read posts that /looked/ user-like.
+apologies.
 
-Thank you,
-JSR
+~mck
+
+--=20
+"The shortest and surest way to live with honour in the world is to be
+in reality what we appear to be." Socrates=20
+| semb.wever.org | sesat.no | sesam.no |
+
+--=-oYfMULWbRG1j7CCfxtsq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+
+iEYEABECAAYFAklfSvwACgkQkdPrePiuutMgDwCgjnYVlr4SIiedn+rnLY8wYhgT
+11QAnRjIXA7zSZQ+jXBJIpVz5JVe82eL
+=nkBF
+-----END PGP SIGNATURE-----
+
+--=-oYfMULWbRG1j7CCfxtsq--
+
+
