@@ -1,49 +1,39 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] net: fix SONIC_READ definition
-Date: Sat, 03 Jan 2009 19:43:24 +0100
-Message-ID: <495FB1CC.5090506@gmail.com>
+From: Yawhen Kasarzhewski <yevg@pisem.net>
+Subject: tc ipt action bug
+Date: Sat, 03 Jan 2009 22:29:28 +0200
+Message-ID: <495FCAA8.1000005@pisem.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:42938 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757984AbZACSnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2009 13:43:24 -0500
+Received: from mail.tut.by ([195.137.160.40]:36121 "EHLO speedy.tutby.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754353AbZACUpJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jan 2009 15:45:09 -0500
+Received: from [86.57.254.161] (account deza50293@tut.by HELO [192.168.1.7])
+  by speedy.tutby.com (CommuniGate Pro SMTP 5.1.12)
+  with ESMTPA id 122867108 for netdev@vger.kernel.org; Sat, 03 Jan 2009 22:29:49 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/net/jazzsonic.c:56:
-#define SONIC_READ(reg) (*((volatile unsigned int *)dev->base_addr+reg))
+iproute is still using old iptables so failing to work with new xt_tables:
 
-drivers/net/sonic.h:53:
-#define SONIC_CAP0             0x24
+warp:~# tc filter add dev ppp0 parent ffff: protocol ip prio 10 u32 \
+ >   match u32 0 0 flowid 1:1 \
+ >   action ipt -j MARK --set-mark 1 \
+ >   action mirred egress redirect dev ifb0
+/lib/iptables/libipt_mark.so: cannot open shared object file: No such 
+file or directory
+failed to find target MARK
+warp:~# find /lib -name "*mark.so"
+/lib/ebtables/libebt_mark.so
+/lib/xtables/libxt_connmark.so
+/lib/xtables/libxt_mark.so
+warp:~# iptables -V
+iptables v1.4.1.1
+warp:~# tc -V
+tc utility, iproute2-ss080725
+warp:~# uname -a
+Linux warp 2.6.26 #2 Sun Jul 27 21:06:55 EEST 2008 i686 GNU/Linux
 
-so drivers/net/jazzsonic.c:143:
-val = SONIC_READ(SONIC_CAP0-i);
-
-becomes
-
-val = (*((volatile unsigned int *)dev->base_addr+0x24-i));
-
-That is wrong, isn't it?
-------------->8---------8<------------------
-Fix SONIC_READ definition
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
-index 334ff9e..b872f23 100644
---- a/drivers/net/jazzsonic.c
-+++ b/drivers/net/jazzsonic.c
-@@ -53,7 +53,7 @@ static char jazz_sonic_string[] = "jazzsonic";
- /*
-  * Macros to access SONIC registers
-  */
--#define SONIC_READ(reg) (*((volatile unsigned int *)dev->base_addr+reg))
-+#define SONIC_READ(reg) (*((volatile unsigned int *)dev->base_addr+(reg)))
- 
- #define SONIC_WRITE(reg,val)						\
- do {									\
