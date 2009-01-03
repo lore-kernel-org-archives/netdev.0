@@ -1,22 +1,49 @@
-From: "Paul" <hong.thai@wurth.pl>
-Subject: Wishing you a Happy New Year!
-Date: Sat, 3 Jan 2009 18:55:14 +0530
-Message-ID: <20090103185514.1020106@wurth.pl>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] net: fix SONIC_READ definition
+Date: Sat, 03 Jan 2009 19:43:24 +0100
+Message-ID: <495FB1CC.5090506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 219.64.198.51.static-Ahmedabad.vsnl.net.in ([219.64.198.51]:1546
-	"HELO 219.64.198.51.static-Ahmedabad.vsnl.net.in"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752786AbZACNij (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jan 2009 08:38:39 -0500
+Received: from ug-out-1314.google.com ([66.249.92.172]:42938 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757984AbZACSnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jan 2009 13:43:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul mailed a postcard.
-Your Ecard will be available at this link below: 
-http://bestyearcard.com/?cardnum=e9a880084203026bd283874b7930c
-Thanks for Using Crosscards.com!
+drivers/net/jazzsonic.c:56:
+#define SONIC_READ(reg) (*((volatile unsigned int *)dev->base_addr+reg))
 
+drivers/net/sonic.h:53:
+#define SONIC_CAP0             0x24
+
+so drivers/net/jazzsonic.c:143:
+val = SONIC_READ(SONIC_CAP0-i);
+
+becomes
+
+val = (*((volatile unsigned int *)dev->base_addr+0x24-i));
+
+That is wrong, isn't it?
+------------->8---------8<------------------
+Fix SONIC_READ definition
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
+index 334ff9e..b872f23 100644
+--- a/drivers/net/jazzsonic.c
++++ b/drivers/net/jazzsonic.c
+@@ -53,7 +53,7 @@ static char jazz_sonic_string[] = "jazzsonic";
+ /*
+  * Macros to access SONIC registers
+  */
+-#define SONIC_READ(reg) (*((volatile unsigned int *)dev->base_addr+reg))
++#define SONIC_READ(reg) (*((volatile unsigned int *)dev->base_addr+(reg)))
+ 
+ #define SONIC_WRITE(reg,val)						\
+ do {									\
