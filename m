@@ -1,299 +1,340 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/3] dccp: Clean up ccid.c after integration of CCID plugins
-Date: Sat,  3 Jan 2009 08:30:48 +0100
-Message-ID: <1230967849-9456-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/3] dccp: Integrate the TFRC library with DCCP
+Date: Sat,  3 Jan 2009 08:30:49 +0100
+Message-ID: <1230967849-9456-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20090101104923.GA4269@gerrit.erg.abdn.ac.uk>
  <1230967849-9456-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1230967849-9456-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1230967849-9456-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:57722 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752452AbZACHbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jan 2009 02:31:08 -0500
-In-Reply-To: <1230967849-9456-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1752452AbZACHbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jan 2009 02:31:12 -0500
+In-Reply-To: <1230967849-9456-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch cleans up after integrating the CCID modules and, in addition,
-
- * moves the if/else cases from ccid_delete() into ccid_hc_{tx,rx}_delete();
- * removes the 'gfp' argument to ccid_new() - since it is always gfp_any().
+This patch integrates the TFRC library, which is a dependency of CCID-3 (and
+CCID-4), with the new use of CCIDs in the DCCP module.		
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ackvec.h |   49 -------------------
- net/dccp/ccid.c   |  136 ++++--------------------------------------------------
- net/dccp/ccid.h   |    3 -
- net/dccp/feat.c   |    2 
- 4 files changed, 14 insertions(+), 176 deletions(-)
+ net/dccp/Makefile                   |    6 ++++--
+ net/dccp/ccid.c                     |    8 +++++++-
+ net/dccp/ccids/Kconfig              |    9 ++-------
+ net/dccp/ccids/Makefile             |    1 -
+ net/dccp/ccids/lib/Makefile         |    3 ---
+ net/dccp/ccids/lib/loss_interval.c  |    3 ---
+ net/dccp/ccids/lib/packet_history.c |    9 ---------
+ net/dccp/ccids/lib/tfrc.c           |   19 ++++---------------
+ net/dccp/ccids/lib/tfrc.h           |   11 ++++++++++-
+ net/dccp/ccids/lib/tfrc_equation.c  |    4 ----
+ net/dccp/feat.c                     |    4 ----
+ net/dccp/input.c                    |    2 --
+ 12 files changed, 27 insertions(+), 52 deletions(-)
 
---- a/net/dccp/ackvec.h
-+++ b/net/dccp/ackvec.h
-@@ -84,7 +84,6 @@ struct dccp_ackvec_record {
- struct sock;
- struct sk_buff;
+--- a/net/dccp/ccids/Kconfig
++++ b/net/dccp/ccids/Kconfig
+@@ -14,7 +14,6 @@ config IP_DCCP_CCID2_DEBUG
+ config IP_DCCP_CCID3
+ 	bool "CCID-3 (TCP-Friendly) (EXPERIMENTAL)"
+ 	def_bool y if (IP_DCCP = y || IP_DCCP = m)
+-	select IP_DCCP_TFRC_LIB
+ 	---help---
+ 	  CCID 3 denotes TCP-Friendly Rate Control (TFRC), an equation-based
+ 	  rate-controlled congestion control mechanism.  TFRC is designed to
+@@ -80,12 +79,8 @@ config IP_DCCP_CCID3_RTO
+ 	    therefore not be performed on WANs.
  
--#ifndef ___OLD_INTERFACE_TO_BE_REMOVED___
- extern int dccp_ackvec_init(void);
- extern void dccp_ackvec_exit(void);
+ config IP_DCCP_TFRC_LIB
+-	tristate
+-	default n
++	def_bool y if IP_DCCP_CCID3
  
-@@ -106,52 +105,4 @@ static inline int dccp_ackvec_pending(co
+ config IP_DCCP_TFRC_DEBUG
+-	bool
+-	depends on IP_DCCP_TFRC_LIB
+-	default y if IP_DCCP_CCID3_DEBUG
+-
++	def_bool y if IP_DCCP_CCID3_DEBUG
+ endmenu
+--- a/net/dccp/Makefile
++++ b/net/dccp/Makefile
+@@ -8,6 +8,10 @@ dccp-y := ccid.o feat.o input.o minisock
+ # CCID-2 is default (RFC 4340, p. 77) and has Ack Vectors as dependency
+ dccp-y += ccids/ccid2.o ackvec.o
+ dccp-$(CONFIG_IP_DCCP_CCID3)	+= ccids/ccid3.o
++dccp-$(CONFIG_IP_DCCP_TFRC_LIB) += ccids/lib/tfrc.o		\
++				   ccids/lib/tfrc_equation.o	\
++				   ccids/lib/packet_history.o	\
++				   ccids/lib/loss_interval.o
+ 
+ dccp_ipv4-y := ipv4.o
+ 
+@@ -22,5 +26,3 @@ dccp-$(CONFIG_SYSCTL) += sysctl.o
+ 
+ dccp_diag-y := diag.o
+ dccp_probe-y := probe.o
+-
+-obj-y += ccids/
+--- a/net/dccp/ccids/Makefile
++++ /dev/null
+@@ -1 +0,0 @@
+-obj-y += lib/
+--- a/net/dccp/ccids/lib/Makefile
++++ /dev/null
+@@ -1,3 +0,0 @@
+-obj-$(CONFIG_IP_DCCP_TFRC_LIB) += dccp_tfrc_lib.o
+-
+-dccp_tfrc_lib-y := tfrc.o tfrc_equation.o packet_history.o loss_interval.o
+--- a/net/dccp/ccids/lib/tfrc.h
++++ b/net/dccp/ccids/lib/tfrc.h
+@@ -17,7 +17,8 @@
+ #include <linux/types.h>
+ #include <linux/math64.h>
+ #include "../../dccp.h"
+-/* internal includes that this module exports: */
++
++/* internal includes that this library exports: */
+ #include "loss_interval.h"
+ #include "packet_history.h"
+ 
+@@ -66,4 +67,12 @@ extern void tfrc_rx_packet_history_exit(
+ 
+ extern int  tfrc_li_init(void);
+ extern void tfrc_li_exit(void);
++
++#ifdef CONFIG_IP_DCCP_TFRC_LIB
++extern int  tfrc_lib_init(void);
++extern void tfrc_lib_exit(void);
++#else
++#define tfrc_lib_init() (0)
++#define tfrc_lib_exit()
++#endif
+ #endif /* _TFRC_H_ */
+--- a/net/dccp/ccids/lib/tfrc.c
++++ b/net/dccp/ccids/lib/tfrc.c
+@@ -1,20 +1,18 @@
+ /*
+- * TFRC: main module holding the pieces of the TFRC library together
++ * TFRC library initialisation
+  *
+  * Copyright (c) 2007 The University of Aberdeen, Scotland, UK
+  * Copyright (c) 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+  */
+-#include <linux/module.h>
+-#include <linux/moduleparam.h>
+ #include "tfrc.h"
+ 
+ #ifdef CONFIG_IP_DCCP_TFRC_DEBUG
+ int tfrc_debug;
+ module_param(tfrc_debug, bool, 0644);
+-MODULE_PARM_DESC(tfrc_debug, "Enable debug messages");
++MODULE_PARM_DESC(tfrc_debug, "Enable TFRC debug messages");
+ #endif
+ 
+-static int __init tfrc_module_init(void)
++int __init tfrc_lib_init(void)
  {
- 	return av->av_vec_len;
+ 	int rc = tfrc_li_init();
+ 
+@@ -38,18 +36,9 @@ out:
+ 	return rc;
  }
--#else /* ___OLD_INTERFACE_TO_BE_REMOVED___ */
--static inline int dccp_ackvec_init(void)
--{
--	return 0;
--}
+ 
+-static void __exit tfrc_module_exit(void)
++void __exit tfrc_lib_exit(void)
+ {
+ 	tfrc_rx_packet_history_exit();
+ 	tfrc_tx_packet_history_exit();
+ 	tfrc_li_exit();
+ }
 -
--static inline void dccp_ackvec_exit(void)
--{
--}
+-module_init(tfrc_module_init);
+-module_exit(tfrc_module_exit);
 -
--static inline struct dccp_ackvec *dccp_ackvec_alloc(const gfp_t priority)
--{
--	return NULL;
--}
--
--static inline void dccp_ackvec_free(struct dccp_ackvec *av)
--{
--}
--
--static inline int dccp_ackvec_add(struct dccp_ackvec *av, const struct sock *sk,
--				  const u64 ackno, const u8 state)
--{
--	return -1;
--}
--
--static inline void dccp_ackvec_check_rcv_ackno(struct dccp_ackvec *av,
--					       struct sock *sk, const u64 ackno)
--{
--}
--
--static inline int dccp_ackvec_parse(struct sock *sk, const struct sk_buff *skb,
--				    const u64 *ackno, const u8 opt,
--				    const u8 *value, const u8 len)
--{
--	return -1;
--}
--
--static inline int dccp_insert_option_ackvec(const struct sock *sk,
--					    const struct sk_buff *skb)
--{
--	return -1;
--}
--
--static inline int dccp_ackvec_pending(const struct dccp_ackvec *av)
--{
--	return 0;
--}
--#endif /* CONFIG_IP_DCCP_ACKVEC */
- #endif /* _ACKVEC_H */
+-MODULE_AUTHOR("Gerrit Renker <gerrit@erg.abdn.ac.uk>, "
+-	      "Ian McDonald <ian.mcdonald@jandi.co.nz>, "
+-	      "Arnaldo Carvalho de Melo <acme@redhat.com>");
+-MODULE_DESCRIPTION("DCCP TFRC library");
+-MODULE_LICENSE("GPL");
 --- a/net/dccp/ccid.c
 +++ b/net/dccp/ccid.c
-@@ -76,58 +76,6 @@ int ccid_getsockopt_builtin_ccids(struct
+@@ -12,6 +12,7 @@
+  */
+ 
+ #include "ccid.h"
++#include "ccids/lib/tfrc.h"
+ 
+ static struct ccid_operations *ccids[] = {
+ 	&ccid2_ops,
+@@ -199,7 +200,10 @@ void ccid_hc_tx_delete(struct ccid *ccid
+ 
+ int __init ccid_initialize_builtins(void)
+ {
+-	int i, err;
++	int i, err = tfrc_lib_init();
++
++	if (err)
++		return err;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ccids); i++) {
+ 		err = ccid_activate(ccids[i]);
+@@ -211,6 +215,7 @@ int __init ccid_initialize_builtins(void
+ unwind_registrations:
+ 	while(--i >= 0)
+ 		ccid_deactivate(ccids[i]);
++	tfrc_lib_exit();
  	return err;
  }
  
--#ifdef ___OLD_INTERFACE_TO_BE_REMOVED___
--static u8 builtin_ccids[] = {
--	DCCPC_CCID2,		/* CCID2 is supported by default */
--#if defined(CONFIG_IP_DCCP_CCID3) || defined(CONFIG_IP_DCCP_CCID3_MODULE)
--	DCCPC_CCID3,
--#endif
--};
--
--static struct ccid_operations *ccids[CCID_MAX];
--#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT)
--static atomic_t ccids_lockct = ATOMIC_INIT(0);
--static DEFINE_SPINLOCK(ccids_lock);
--
--/*
-- * The strategy is: modifications ccids vector are short, do not sleep and
-- * veeery rare, but read access should be free of any exclusive locks.
-- */
--static void ccids_write_lock(void)
--{
--	spin_lock(&ccids_lock);
--	while (atomic_read(&ccids_lockct) != 0) {
--		spin_unlock(&ccids_lock);
--		yield();
--		spin_lock(&ccids_lock);
--	}
--}
--
--static inline void ccids_write_unlock(void)
--{
--	spin_unlock(&ccids_lock);
--}
--
--static inline void ccids_read_lock(void)
--{
--	atomic_inc(&ccids_lockct);
--	smp_mb__after_atomic_inc();
--	spin_unlock_wait(&ccids_lock);
--}
--
--static inline void ccids_read_unlock(void)
--{
--	atomic_dec(&ccids_lockct);
--}
--
--#else
--#define ccids_write_lock() do { } while(0)
--#define ccids_write_unlock() do { } while(0)
--#define ccids_read_lock() do { } while(0)
--#define ccids_read_unlock() do { } while(0)
--#endif
--#endif /* ___OLD_INTERFACE_TO_BE_REMOVED___ */
--
- static struct kmem_cache *ccid_kmem_cache_create(int obj_size, const char *fmt,...)
+@@ -220,4 +225,5 @@ void ccid_cleanup_builtins(void)
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ccids); i++)
+ 		ccid_deactivate(ccids[i]);
++	tfrc_lib_exit();
+ }
+--- a/net/dccp/ccids/lib/loss_interval.c
++++ b/net/dccp/ccids/lib/loss_interval.c
+@@ -60,7 +60,6 @@ void tfrc_lh_cleanup(struct tfrc_loss_hi
+ 			lh->ring[LIH_INDEX(lh->counter)] = NULL;
+ 		}
+ }
+-EXPORT_SYMBOL_GPL(tfrc_lh_cleanup);
+ 
+ static void tfrc_lh_calc_i_mean(struct tfrc_loss_hist *lh)
  {
- 	struct kmem_cache *slab;
-@@ -158,49 +106,6 @@ static void ccid_kmem_cache_destroy(stru
+@@ -121,7 +120,6 @@ u8 tfrc_lh_update_i_mean(struct tfrc_los
+ 
+ 	return (lh->i_mean < old_i_mean);
+ }
+-EXPORT_SYMBOL_GPL(tfrc_lh_update_i_mean);
+ 
+ /* Determine if `new_loss' does begin a new loss interval [RFC 4342, 10.2] */
+ static inline u8 tfrc_lh_is_new_loss(struct tfrc_loss_interval *cur,
+@@ -169,7 +167,6 @@ int tfrc_lh_interval_add(struct tfrc_los
  	}
+ 	return 1;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_lh_interval_add);
+ 
+ int __init tfrc_li_init(void)
+ {
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -94,7 +94,6 @@ int tfrc_tx_hist_add(struct tfrc_tx_hist
+ 	*headp	     = entry;
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_tx_hist_add);
+ 
+ void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp)
+ {
+@@ -109,7 +108,6 @@ void tfrc_tx_hist_purge(struct tfrc_tx_h
+ 
+ 	*headp = NULL;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_tx_hist_purge);
+ 
+ u32 tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head, const u64 seqno,
+ 		     const ktime_t now)
+@@ -127,7 +125,6 @@ u32 tfrc_tx_hist_rtt(struct tfrc_tx_hist
+ 
+ 	return rtt;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_tx_hist_rtt);
+ 
+ 
+ /*
+@@ -172,7 +169,6 @@ void tfrc_rx_hist_add_packet(struct tfrc
+ 
+ 	tfrc_rx_hist_entry_from_skb(entry, skb, ndp);
+ }
+-EXPORT_SYMBOL_GPL(tfrc_rx_hist_add_packet);
+ 
+ /* has the packet contained in skb been seen before? */
+ int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb)
+@@ -189,7 +185,6 @@ int tfrc_rx_hist_duplicate(struct tfrc_r
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_rx_hist_duplicate);
+ 
+ static void tfrc_rx_hist_swap(struct tfrc_rx_hist *h, const u8 a, const u8 b)
+ {
+@@ -390,7 +385,6 @@ int tfrc_rx_handle_loss(struct tfrc_rx_h
+ 	}
+ 	return is_new_loss;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_rx_handle_loss);
+ 
+ int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h)
+ {
+@@ -412,7 +406,6 @@ out_free:
+ 	}
+ 	return -ENOBUFS;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_rx_hist_alloc);
+ 
+ void tfrc_rx_hist_purge(struct tfrc_rx_hist *h)
+ {
+@@ -424,7 +417,6 @@ void tfrc_rx_hist_purge(struct tfrc_rx_h
+ 			h->ring[i] = NULL;
+ 		}
+ }
+-EXPORT_SYMBOL_GPL(tfrc_rx_hist_purge);
+ 
+ /**
+  * tfrc_rx_hist_rtt_last_s - reference entry to compute RTT samples against
+@@ -495,4 +487,3 @@ keep_ref_for_next_time:
+ 
+ 	return sample;
+ }
+-EXPORT_SYMBOL_GPL(tfrc_rx_hist_sample_rtt);
+--- a/net/dccp/ccids/lib/tfrc_equation.c
++++ b/net/dccp/ccids/lib/tfrc_equation.c
+@@ -659,8 +659,6 @@ u32 tfrc_calc_x(u16 s, u32 R, u32 p)
+ 	return scaled_div32(result, f);
  }
  
--#ifdef ___OLD_INTERFACE_TO_BE_REMOVED___
--/* check that up to @array_len members in @ccid_array are supported */
--bool ccid_support_check(u8 const *ccid_array, u8 array_len)
--{
--	u8 i, j, found;
+-EXPORT_SYMBOL_GPL(tfrc_calc_x);
 -
--	for (i = 0, found = 0; i < array_len; i++, found = 0) {
--		for (j = 0; !found && j < ARRAY_SIZE(builtin_ccids); j++)
--			found = (ccid_array[i] == builtin_ccids[j]);
--		if (!found)
--			return false;
--	}
--	return true;
--}
--
--/**
-- * ccid_get_builtin_ccids  -  Provide copy of `builtin' CCID array
-- * @ccid_array: pointer to copy into
-- * @array_len: value to return length into
-- * This function allocates memory - caller must see that it is freed after use.
-- */
--int ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len)
--{
--	*ccid_array = kmemdup(builtin_ccids, sizeof(builtin_ccids), gfp_any());
--	if (*ccid_array == NULL)
--		return -ENOBUFS;
--	*array_len = ARRAY_SIZE(builtin_ccids);
--	return 0;
--}
--
--int ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
--				    char __user *optval, int __user *optlen)
--{
--	if (len < sizeof(builtin_ccids))
--		return -EINVAL;
--
--	if (put_user(sizeof(builtin_ccids), optlen) ||
--	    copy_to_user(optval, builtin_ccids, sizeof(builtin_ccids)))
--		return -EFAULT;
--	return 0;
--}
--#endif /* ___OLD_INTERFACE_TO_BE_REMOVED___ */
--
- static int ccid_activate(struct ccid_operations *ccid_ops)
- {
- 	int err = -ENOBUFS;
-@@ -241,7 +146,7 @@ static void ccid_deactivate(struct ccid_
- 		ccid_ops->ccid_id, ccid_ops->ccid_name);
+ /**
+  *  tfrc_calc_x_reverse_lookup  -  try to find p given f(p)
+  *
+@@ -693,5 +691,3 @@ u32 tfrc_calc_x_reverse_lookup(u32 fvalu
+ 	index = tfrc_binsearch(fvalue, 0);
+ 	return (index + 1) * 1000000 / TFRC_CALC_X_ARRSIZE;
  }
- 
--struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
-+struct ccid *ccid_new(const u8 id, struct sock *sk, bool rx)
- {
- 	struct ccid_operations *ccid_ops = ccid_by_number(id);
- 	struct ccid *ccid = NULL;
-@@ -250,7 +155,7 @@ struct ccid *ccid_new(unsigned char id, 
- 		goto out;
- 
- 	ccid = kmem_cache_alloc(rx ? ccid_ops->ccid_hc_rx_slab :
--				     ccid_ops->ccid_hc_tx_slab, gfp);
-+				     ccid_ops->ccid_hc_tx_slab, gfp_any());
- 	if (ccid == NULL)
- 		goto out;
- 	ccid->ccid_ops = ccid_ops;
-@@ -274,41 +179,24 @@ out_free_ccid:
- 	goto out;
- }
- 
--EXPORT_SYMBOL_GPL(ccid_new);
 -
--static void ccid_delete(struct ccid *ccid, struct sock *sk, int rx)
--{
--	struct ccid_operations *ccid_ops;
--
--	if (ccid == NULL)
--		return;
--
--	ccid_ops = ccid->ccid_ops;
--	if (rx) {
--		if (ccid_ops->ccid_hc_rx_exit != NULL)
--			ccid_ops->ccid_hc_rx_exit(sk);
--		kmem_cache_free(ccid_ops->ccid_hc_rx_slab,  ccid);
--	} else {
--		if (ccid_ops->ccid_hc_tx_exit != NULL)
--			ccid_ops->ccid_hc_tx_exit(sk);
--		kmem_cache_free(ccid_ops->ccid_hc_tx_slab,  ccid);
--	}
--}
--
- void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk)
- {
--	ccid_delete(ccid, sk, 1);
-+	if (ccid != NULL) {
-+		if (ccid->ccid_ops->ccid_hc_rx_exit != NULL)
-+			ccid->ccid_ops->ccid_hc_rx_exit(sk);
-+		kmem_cache_free(ccid->ccid_ops->ccid_hc_rx_slab, ccid);
-+	}
- }
- 
--EXPORT_SYMBOL_GPL(ccid_hc_rx_delete);
--
- void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk)
- {
--	ccid_delete(ccid, sk, 0);
-+	if (ccid != NULL) {
-+		if (ccid->ccid_ops->ccid_hc_tx_exit != NULL)
-+			ccid->ccid_ops->ccid_hc_tx_exit(sk);
-+		kmem_cache_free(ccid->ccid_ops->ccid_hc_tx_slab, ccid);
-+	}
- }
- 
--EXPORT_SYMBOL_GPL(ccid_hc_tx_delete);
--
- int __init ccid_initialize_builtins(void)
- {
- 	int i, err;
---- a/net/dccp/ccid.h
-+++ b/net/dccp/ccid.h
-@@ -111,8 +111,7 @@ extern int  ccid_get_builtin_ccids(u8 **
- extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
- 					  char __user *, int __user *);
- 
--extern struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx,
--			     gfp_t gfp);
-+extern struct ccid *ccid_new(const u8 id, struct sock *sk, bool rx);
- 
- static inline int ccid_get_current_rx_ccid(struct dccp_sock *dp)
- {
+-EXPORT_SYMBOL_GPL(tfrc_calc_x_reverse_lookup);
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -34,7 +34,7 @@
- static int dccp_hdlr_ccid(struct sock *sk, u64 ccid, bool rx)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
--	struct ccid *new_ccid = ccid_new(ccid, sk, rx, gfp_any());
-+	struct ccid *new_ccid = ccid_new(ccid, sk, rx);
+@@ -1214,8 +1214,6 @@ const char *dccp_feat_typename(const u8 
+ 	return NULL;
+ }
  
- 	if (new_ccid == NULL)
- 		return -ENOMEM;
+-EXPORT_SYMBOL_GPL(dccp_feat_typename);
+-
+ const char *dccp_feat_name(const u8 feat)
+ {
+ 	static const char *feature_names[] = {
+@@ -1240,6 +1238,4 @@ const char *dccp_feat_name(const u8 feat
+ 
+ 	return feature_names[feat];
+ }
+-
+-EXPORT_SYMBOL_GPL(dccp_feat_name);
+ #endif /* CONFIG_IP_DCCP_DEBUG */
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -741,5 +741,3 @@ u32 dccp_sample_rtt(struct sock *sk, lon
+ 
+ 	return delta;
+ }
+-
+-EXPORT_SYMBOL_GPL(dccp_sample_rtt);
