@@ -1,132 +1,70 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: splice from half-closed socket returning -EAGAIN
-Date: Sun, 4 Jan 2009 14:30:54 +0100
-Message-ID: <20090104133054.GB16185@xi.wantstofly.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: tc ipt action bug
+Date: Sun, 04 Jan 2009 09:48:27 -0500
+Message-ID: <1231080507.3345.7.camel@dogo.mojatatu.com>
+References: <495FCAA8.1000005@pisem.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Mansell <ben@zeus.com>, netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Yawhen Kasarzhewski <yevg@pisem.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:55296 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751531AbZADNy3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 08:54:29 -0500
-Content-Disposition: inline
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:43253 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750856AbZADOtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 09:49:39 -0500
+Received: by ewy10 with SMTP id 10so7465448ewy.13
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2009 06:49:36 -0800 (PST)
+In-Reply-To: <495FCAA8.1000005@pisem.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Upgrade to latest iproute2 - probably from git tree which should fix
+this in the following commit:
+-----
 
-When doing a nonblocking splice() from a half-closed TCP socket
-(POLLRDHUP, FIN sent by the other side), I get -EAGAIN, while I was
-expecting that to return zero.  Non-blocking read/readv/recv/recvfrom/
-recvmsg on a half-closed socket also returns zero AFAIK, and in
-general, a zero return on a read operation meaning "EOF" seems to be
-well-established.
+commit 53c017880b311d7d68926109d4248c900286f6b7
+Author: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Date:   Mon Dec 24 11:51:11 2007 -0500
 
-Is there any reason why splice() doesn't do this?  -EAGAIN hints that
-the operation might succeed in the future, but since the socket is
-half-closed, this won't ever happen.  Also, it's kind of annoying to
-have to poll for POLLRDHUP separately, as this isn't needed when using
-"copyful" socket I/O -- and there doesn't seem to be any other way of
-telling that a half-close has occured on the source socket.
+    iptables compatiablity
+    
+    New iptables 1.4.0 has some library names changed from libipt to
+libxt.
+    It is prefferable also to open libxt_ first, as newer "style".
+    
+    Signed-off-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+    Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
+-------
 
-(Test app attached, tested on 2.6.27.5 and 2.6.28.)
+cheers,
+jamal
 
+On Sat, 2009-01-03 at 22:29 +0200, Yawhen Kasarzhewski wrote:
+> iproute is still using old iptables so failing to work with new xt_tables:
+> 
+> warp:~# tc filter add dev ppp0 parent ffff: protocol ip prio 10 u32 \
+>  >   match u32 0 0 flowid 1:1 \
+>  >   action ipt -j MARK --set-mark 1 \
+>  >   action mirred egress redirect dev ifb0
+> /lib/iptables/libipt_mark.so: cannot open shared object file: No such 
+> file or directory
+> failed to find target MARK
+> warp:~# find /lib -name "*mark.so"
+> /lib/ebtables/libebt_mark.so
+> /lib/xtables/libxt_connmark.so
+> /lib/xtables/libxt_mark.so
+> warp:~# iptables -V
+> iptables v1.4.1.1
+> warp:~# tc -V
+> tc utility, iproute2-ss080725
+> warp:~# uname -a
+> Linux warp 2.6.26 #2 Sun Jul 27 21:06:55 EEST 2008 i686 GNU/Linux
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-thanks,
-Lennert
-
-
-
-
-#define _GNU_SOURCE
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <unistd.h>
-
-int listening_fd;
-int connecting_fd;
-int accepted_fd;
-
-
-int main()
-{
-	struct sockaddr_in addr;
-	socklen_t addrlen;
-	int pfd[2];
-	int ret;
-
-	/*
-	 * Step 1: set up listening socket.
-	 */
-	listening_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (listening_fd < 0) {
-		perror("socket");
-		abort();
-	}
-
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	addr.sin_port = htons(6667);
-	if (bind(listening_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		perror("bind");
-		abort();
-	}
-
-	listen(listening_fd, 1);
-
-
-	/*
-	 * Step 2: set up socket to connect to listening socket
-	 * created in step 1.
- 	 */
-	connecting_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (connecting_fd < 0) {
-		perror("socket");
-		exit(-1);
-	}
-
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(0x7f000001);
-	addr.sin_port = htons(6667);
-	if (connect(connecting_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		perror("connect");
-		exit(-1);
-	}
-
-
-	/*
-	 * Step 3: accept the connection created in step 2.
-	 */
-	addrlen = sizeof(addr);
-	accepted_fd = accept(listening_fd, (struct sockaddr *)&addr, &addrlen);
-	if (accepted_fd < 0) {
-		perror("accept");
-		exit(-1);
-	}
-
-
-	/*
-	 * Step 4: close the other half of the connection, and try
-	 * to splice into a pipe.
-	 */
-	close(connecting_fd);
-
-	if (pipe(pfd) < 0) {
-		perror("pipe");
-		exit(-1);
-	}
-
-	ret = splice(accepted_fd, NULL, pfd[1], NULL, 4096, SPLICE_F_NONBLOCK);
-	printf("splice returned %d\n", ret);
-	if (ret < 0)
-		perror("splice");
-
-	return 0;
-}
