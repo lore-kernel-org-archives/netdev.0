@@ -1,70 +1,89 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: tc ipt action bug
-Date: Sun, 04 Jan 2009 09:48:27 -0500
-Message-ID: <1231080507.3345.7.camel@dogo.mojatatu.com>
-References: <495FCAA8.1000005@pisem.net>
-Reply-To: hadi@cyberus.ca
+From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Subject: [PATCH] Fix up truesize after pskb_expand_head() in wireless stack
+Date: Sun, 4 Jan 2009 16:18:19 +0100
+Message-ID: <20090104151819.GA6590@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yawhen Kasarzhewski <yevg@pisem.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:43253 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbZADOtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 09:49:39 -0500
-Received: by ewy10 with SMTP id 10so7465448ewy.13
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2009 06:49:36 -0800 (PST)
-In-Reply-To: <495FCAA8.1000005@pisem.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Upgrade to latest iproute2 - probably from git tree which should fix
-this in the following commit:
------
+Fix up truesize after pskb_expand_head() in wireless stack
+ 
+When using a zd1211rw wireless usb stick I regularly got truesize
+warnings in the kernel log.
 
-commit 53c017880b311d7d68926109d4248c900286f6b7
-Author: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Date:   Mon Dec 24 11:51:11 2007 -0500
+This patch fixes those up in the wireless layer. tx.c already
+did that, but not rx.c. I think my messages only came from
+the middle case, but I fixed up all three users in rx.c 
 
-    iptables compatiablity
-    
-    New iptables 1.4.0 has some library names changed from libipt to
-libxt.
-    It is prefferable also to open libxt_ first, as newer "style".
-    
-    Signed-off-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-    Signed-off-by: Stephen Hemminger <stephen.hemminger@vyatta.com>
--------
+The underlying problem seems to be that pskb_expand_head() doesn't 
+manipulate truesize. Perhaps it should? I suspect more users of it have 
+the same problem. I didn't change the low level code because
+I was afraid to break some callers, but perhaps it would be
+better to do it this way. Anyways here's a patch that only
+changes it in the wireless layer with minimal risk.
 
-cheers,
-jamal
+Patch against 2.6.28, but I think linus git still has the same
+issue.
 
-On Sat, 2009-01-03 at 22:29 +0200, Yawhen Kasarzhewski wrote:
-> iproute is still using old iptables so failing to work with new xt_tables:
-> 
-> warp:~# tc filter add dev ppp0 parent ffff: protocol ip prio 10 u32 \
->  >   match u32 0 0 flowid 1:1 \
->  >   action ipt -j MARK --set-mark 1 \
->  >   action mirred egress redirect dev ifb0
-> /lib/iptables/libipt_mark.so: cannot open shared object file: No such 
-> file or directory
-> failed to find target MARK
-> warp:~# find /lib -name "*mark.so"
-> /lib/ebtables/libebt_mark.so
-> /lib/xtables/libxt_connmark.so
-> /lib/xtables/libxt_mark.so
-> warp:~# iptables -V
-> iptables v1.4.1.1
-> warp:~# tc -V
-> tc utility, iproute2-ss080725
-> warp:~# uname -a
-> Linux warp 2.6.26 #2 Sun Jul 27 21:06:55 EEST 2008 i686 GNU/Linux
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I believe this is a 2.6.28 stable candidate. I even saw
+the same problem in 2.6.27.
 
+Signed-off-by: Andi Kleen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+
+---
+ net/mac80211/rx.c |   19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+Index: linux-2.6.28-test/net/mac80211/rx.c
+===================================================================
+--- linux-2.6.28-test.orig/net/mac80211/rx.c	2008-10-24 13:35:11.000000000 +0200
++++ linux-2.6.28-test/net/mac80211/rx.c	2009-01-01 15:51:34.000000000 +0100
+@@ -263,10 +263,12 @@
+ 		 * probably export the length to drivers so that we can have
+ 		 * them allocate enough headroom to start with.
+ 		 */
+-		if (skb_headroom(skb) < needed_headroom &&
+-		    pskb_expand_head(skb, needed_headroom, 0, GFP_ATOMIC)) {
+-			dev_kfree_skb(skb);
+-			return NULL;
++		if (skb_headroom(skb) < needed_headroom) {
++			if (pskb_expand_head(skb, needed_headroom, 0, GFP_ATOMIC)) {
++				dev_kfree_skb(skb);
++				return NULL;
++			}
++			skb->truesize += needed_headroom;
+ 		}
+ 	} else {
+ 		/*
+@@ -945,6 +947,7 @@
+ 			__skb_queue_purge(&entry->skb_list);
+ 			return RX_DROP_UNUSABLE;
+ 		}
++		rx->skb->truesize += entry->extra_len;
+ 	}
+ 	while ((skb = __skb_dequeue(&entry->skb_list))) {
+ 		memcpy(skb_put(rx->skb, skb->len), skb->data, skb->len);
+@@ -1691,9 +1694,11 @@
+ 	if (rx->flags & IEEE80211_RX_CMNTR_REPORTED)
+ 		goto out_free_skb;
+ 
+-	if (skb_headroom(skb) < sizeof(*rthdr) &&
+-	    pskb_expand_head(skb, sizeof(*rthdr), 0, GFP_ATOMIC))
+-		goto out_free_skb;
++	if (skb_headroom(skb) < sizeof(*rthdr)) {
++		if (pskb_expand_head(skb, sizeof(*rthdr), 0, GFP_ATOMIC))
++			goto out_free_skb;
++		skb->truesize += sizeof(*rthdr);
++	}
+ 
+ 	rthdr = (void *)skb_push(skb, sizeof(*rthdr));
+ 	memset(rthdr, 0, sizeof(*rthdr));
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
