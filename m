@@ -1,45 +1,69 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] Fix up truesize after pskb_expand_head() in wireless stack
-Date: Sun, 4 Jan 2009 19:41:36 +0100
-Message-ID: <20090104184136.GY496@one.firstfloor.org>
-References: <20090104151819.GA6590@basil.nowhere.org> <1231085150.3296.3.camel@johannes> <20090104162826.GT496@one.firstfloor.org> <1231087288.3296.15.camel@johannes> <20090104174339.GX496@one.firstfloor.org> <1231090388.3296.17.camel@johannes>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Kernel 2.6.28 regression: Hang after hibernate (patch included)
+Date: Sun, 4 Jan 2009 20:25:02 +0100
+Message-ID: <20090104192502.GA6196@electric-eye.fr.zoreil.com>
+References: <a00b9da20812281234u76da2ef5tb715f4c409eaf37c@mail.gmail.com> <a00b9da20901020910i2625073av96ce68ec0c313a8c@mail.gmail.com> <a00b9da20901021118h3e698d04q33fa9e87519e4d42@mail.gmail.com> <200901022318.45675.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linville@tuxdriver.com,
-	davem <davem@davemloft.net>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@suse.cz>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Frank Groeneveld <frankgroeneveld@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:55942 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448AbZADS1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 13:27:51 -0500
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58276 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752164AbZADTYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 14:24:46 -0500
 Content-Disposition: inline
-In-Reply-To: <1231090388.3296.17.camel@johannes>
+In-Reply-To: <200901022318.45675.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 04, 2009 at 06:33:08PM +0100, Johannes Berg wrote:
-> On Sun, 2009-01-04 at 18:43 +0100, Andi Kleen wrote:
+Rafael J. Wysocki <rjw@sisk.pl> :
+[...]
+> Please don't top post, it makes following the discussion really difficult.
 > 
-> > > we need to do is figure out is why the skb has a wrong truesize.
-> > 
-> > Because it was expanded without truesize being adjusted (see my
-> > original mail) 
+> On Friday 02 January 2009, Frank Groeneveld wrote:
+> > A kernel without SMP doesn't solve the problem. It gives the same
+> > output as before, except without the CPU notices. I also found out
+> > that a "vanilla" 2.6.27 does have the same problem. A patched 2.6.27
+> > kernel (by Gentoo Linux) doesn't have this problem. I attached that
+> > patch, so you might see what the problem is now.
 > 
-> So why is this not making trouble with all the other users?
+> Not really, the patch (reproduced below for reference) is quite big and does
+> a couple of different things.  Also, it should be shown to the maintainer of
+> the code in question.
 
-I think most adjustments are too small to be noticed. Typically
-they are just for a few bytes in the header. truesize
-is already larger, so it can tolerate some slag.
+Thanks for the Cc Rafael.
 
-I also only see it occasionally (maybe 5-10 times/day) when
-the wireless stack appends a lot of data.
+The aforementioned patch matches three commits - mostly bugfixes - which
+went in between 2.6.27 and 2.6.28:
 
-My proposal would be to include this patch for 2.6.28/2.6.29
-and investigate fixing pskb_expand_head for 2.6.30.
+commit ccdffb9a88b2907b159538d7bfd6256621db4f84
 
--Andi
+    r8169: get ethtool settings through the generic mii helper
+
+commit 2857ffb7b8913ef713533ac5783abd70a20529e4
+
+    r8169: additional 8101 and 8102 support
+
+commit 523a609496dbc3897e530db2a2f27650d125ea00
+
+    r8169: fix RxMissed register access
+
+Frank, can you:
+1. try the r8169.c file from the 2.6.28 tree with Ubuntu's kernel
+2. grep for the XID line printed by the r8169 driver in the lernel's dmesg
+
+If 1. does not work , you can peel the onion with the patchkit available
+at http://userweb.kernel.org/~romieu/r8169/2.6.27/ : apply them in
+increasing order to your working Ubuntu driver until is stops waking
+up correctly (skip patches #0001, #0006 and #0007 as they match the
+commits above) or try a binary search.
+
+As a side note for those who remember the early 2.6.27-rc "null mac
+address with the r8169 driver", the patchkit does not include the
+patches which were included between 2.6.27 and 2.6.28 then later
+reverted.
 
 -- 
-ak@linux.intel.com
+Ueimor
