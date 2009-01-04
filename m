@@ -1,88 +1,132 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] printk: Let %pR handle NULL pointers
-Date: Sun, 04 Jan 2009 10:31:26 +0100
-Message-ID: <1231061486.3313.5.camel@johannes>
-References: <1230979341-23029-1-git-send-email-xyzzy@speakeasy.org>
-	 <alpine.LFD.2.00.0901030905140.3179@localhost.localdomain>
-	 <1231019614.15389.104.camel@pasglop>
-	 <Pine.LNX.4.58.0901031827380.25853@shell2.speakeasy.net>
-	 <25339.1231046074@turing-police.cc.vt.edu>
-	 (sfid-20090104_061506_353829_E8D12250)
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: splice from half-closed socket returning -EAGAIN
+Date: Sun, 4 Jan 2009 14:30:54 +0100
+Message-ID: <20090104133054.GB16185@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-+22ClqJgGoN6VBNiBDrI"
-Cc: Trent Piepho <xyzzy@speakeasy.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Harvey Harrison <harvey.harrison@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Mansell <ben@zeus.com>, netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:60725 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750980AbZADJbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 04:31:41 -0500
-In-Reply-To: <25339.1231046074@turing-police.cc.vt.edu> (sfid-20090104_061506_353829_E8D12250)
+Received: from xi.wantstofly.org ([80.101.37.227]:55296 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531AbZADNy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 08:54:29 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
---=-+22ClqJgGoN6VBNiBDrI
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+When doing a nonblocking splice() from a half-closed TCP socket
+(POLLRDHUP, FIN sent by the other side), I get -EAGAIN, while I was
+expecting that to return zero.  Non-blocking read/readv/recv/recvfrom/
+recvmsg on a half-closed socket also returns zero AFAIK, and in
+general, a zero return on a read operation meaning "EOF" seems to be
+well-established.
 
-On Sun, 2009-01-04 at 00:14 -0500, Valdis.Kletnieks@vt.edu wrote:
-> On Sat, 03 Jan 2009 21:02:15 PST, Trent Piepho said:
-> > resource pointer.  Maybe "[]" or "[-]" would be better?  A null MAC add=
-ress
-> > could be ":::::" or "x:x:x:x:x:x".  "N.U.L.L" or "x.x.x.x" for a null I=
-P4
-> > address.  And so on.  So the printout looks nicer when a NULL pointer i=
-sn't
-> > a bug.
->=20
-> Have to be careful for IPv6 addresses - '::' is a legal representation of
-> an all-zeros address.  Also, N.U.L.L. may give indigestion to logfile par=
-sers
-> that are expecting a numeric value in the IP address.  It's however uncle=
-ar
-> whether we should pick something that doesn't have 3 periods in it, so it
-> can't match, or whether *that* will give regexp-based logfile readers
-> indigestion when they don't pick up an IP address where they expected...
->=20
-> Do we want the %pI6 format to do the multiple-zeros -> :: compression?
+Is there any reason why splice() doesn't do this?  -EAGAIN hints that
+the operation might succeed in the future, but since the socket is
+half-closed, this won't ever happen.  Also, it's kind of annoying to
+have to poll for POLLRDHUP separately, as this isn't needed when using
+"copyful" socket I/O -- and there doesn't seem to be any other way of
+telling that a half-close has occured on the source socket.
 
-Eh, why ever care? We aren't passing NULL pointers in, hopefully, or the
-code was crashing, at least before the conversion... So as long as we're
-careful adding new users, I don't see a problem with not handling NULL.
+(Test app attached, tested on 2.6.27.5 and 2.6.28.)
 
-FWIW, I'd think for MAC addresses there are multiple possible
-interpretations, some wireless code assumes broadcast for NULL, and I'm
-sure there are others like all-zeroes.
 
-johannes
+thanks,
+Lennert
 
---=-+22ClqJgGoN6VBNiBDrI
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
 
-iQIcBAABAgAGBQJJYIHsAAoJEKVg1VMiehFYNokQALdorQ7+klQZHotS+K8LlvNb
-nMrb/x+YyGwoVGxbkFa3JrbmxS0fOOWnd5q2lDEz0QEO33BOWWstHmxyg13pcKJf
-T0/gyZ5wHxPraqUf8i1TgbVZi2gqZXbRAlXNG/vF2B4zY7aiX3k1a7YzGVGFvd06
-umLK1b1soKthpY9jIna5aGOqrasiZ4f4cguAQ1QUtrkk4XsfdVuy1esESX9J8hod
-Ej1KXyXSeJujRBhI0QkNsZGLnftJIMdN5KoE9I+jJ1wgl3xO+iaXi+HygK/tTKtc
-+saMWVnssJ/FagYjh+I9oCayAHYQru+x/tfkwD6Wx10u+kBm5berUo3TbZPbWuv2
-8b/qISoRtaboiRiCXJ8zV/u5mSS3eGC9Tg+q4pmqIACcXtM/43io3Wq5bnsDmm5g
-bdmPmFRX328G/2yooSZsC7h0p8Y2ournLRBTm+dQYfakdCLCehf0Ljx4J2pYtqRb
-7N/mH40oCl0T39dLoJzzuaVRnL0NDMhAjxVSQ0MJHiJK4c7HqSGvcvKPVGV7Ga8n
-VBuxak6CSPXNVp2Hca4wK1eu1SAqErFETvFP2u5NmTWTM5NSMxpw1n4gb649c0IJ
-zd1eUFLzWVuBd9+TzPA7++Am6J+DC5XnnBvVnydASSdRawOqVvfsa87peIFRV933
-wDMB8P9vBSMzyapOwTVF
-=FUwv
------END PGP SIGNATURE-----
 
---=-+22ClqJgGoN6VBNiBDrI--
+#define _GNU_SOURCE
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <unistd.h>
+
+int listening_fd;
+int connecting_fd;
+int accepted_fd;
+
+
+int main()
+{
+	struct sockaddr_in addr;
+	socklen_t addrlen;
+	int pfd[2];
+	int ret;
+
+	/*
+	 * Step 1: set up listening socket.
+	 */
+	listening_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (listening_fd < 0) {
+		perror("socket");
+		abort();
+	}
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr.sin_port = htons(6667);
+	if (bind(listening_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("bind");
+		abort();
+	}
+
+	listen(listening_fd, 1);
+
+
+	/*
+	 * Step 2: set up socket to connect to listening socket
+	 * created in step 1.
+ 	 */
+	connecting_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (connecting_fd < 0) {
+		perror("socket");
+		exit(-1);
+	}
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(0x7f000001);
+	addr.sin_port = htons(6667);
+	if (connect(connecting_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("connect");
+		exit(-1);
+	}
+
+
+	/*
+	 * Step 3: accept the connection created in step 2.
+	 */
+	addrlen = sizeof(addr);
+	accepted_fd = accept(listening_fd, (struct sockaddr *)&addr, &addrlen);
+	if (accepted_fd < 0) {
+		perror("accept");
+		exit(-1);
+	}
+
+
+	/*
+	 * Step 4: close the other half of the connection, and try
+	 * to splice into a pipe.
+	 */
+	close(connecting_fd);
+
+	if (pipe(pfd) < 0) {
+		perror("pipe");
+		exit(-1);
+	}
+
+	ret = splice(accepted_fd, NULL, pfd[1], NULL, 4096, SPLICE_F_NONBLOCK);
+	printf("splice returned %d\n", ret);
+	if (ret < 0)
+		perror("splice");
+
+	return 0;
+}
