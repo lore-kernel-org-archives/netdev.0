@@ -1,47 +1,64 @@
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [NET-2.6 PATCH] e100: cosmetic cleanup
-Date: Sun, 4 Jan 2009 18:28:28 -0800
-Message-ID: <9929d2390901041828k118275f4pe03eac199850cc72@mail.gmail.com>
-References: <20081231233057.23132.43080.stgit@lost.foo-projects.org>
-	 <20090104.171345.257011394.davem@davemloft.net>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: ixgbe select_queue broken in 2.6.28
+Date: Sun, 4 Jan 2009 19:23:20 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0901041918010.1888@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20090101225456.68f4fe9d@extreme> <20090102.001933.70654029.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, bruce.w.allan@intel.com
-To: "David Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:59787 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbZAEC2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 21:28:31 -0500
-Received: by yx-out-2324.google.com with SMTP id 8so2248326yxm.1
-        for <netdev@vger.kernel.org>; Sun, 04 Jan 2009 18:28:28 -0800 (PST)
-In-Reply-To: <20090104.171345.257011394.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mga01.intel.com ([192.55.52.88]:55049 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753413AbZAEDXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Jan 2009 22:23:35 -0500
+In-Reply-To: <20090102.001933.70654029.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 4, 2009 at 5:13 PM, David Miller <davem@davemloft.net> wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed, 31 Dec 2008 15:31:50 -0800
->
->> Add missing space after if, switch, for and while keywords.
->>
->> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->
-> I find it kind of rotten that you held up the e100 firmware
-> submission so you could do "important testing" and then
-> you fire off a completely useless patch like this meanwhile.
->
-> Applied, but know that this kind of prioritization really
-> and truly ticks me off.
-> --
->
+On Fri, 2 Jan 2009, David Miller wrote:
 
-I am sorry, I did not see this as a big deal, especially that this was
-just a cosmetic patch.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 1 Jan 2009 22:54:56 -0800
+> 
+> > The ixgbe driver in 2.6.28 modifies select_queue. This is bad
+> > in a couple of ways:
+> >   1) select_queue is now in net_device_ops so the driver won't build
+> >      unless CONFIG_COMPAT_NET_DEV_OPS is defined
+> >   2) it is changing data that is shared and supposed to be immutable.
+> > 
+> > Looks like a some of the DCB stuff forgot to look at net_device_ops
+> 
+> Drivers shouldn't be overriding the ->select_queue() method unless
+> there is a very specific reason to do so.  Ethernet drivers will not
+> have such a reason.
 
--- 
+Agreed.  I stumbled across this override in the DCB code in ixgbe right 
+before the holidays.  I plan to find out why that was put in and submit a 
+patch to correct it.
+
+> This is a very bad trend and I think I'm going to need to simply
+> remove the ->select_queue() method to stop the bleeding.
+
+I understand why you want to remove this, but at the same time it is 
+something that is useful if we don't abuse it.  I know for a fact this 
+function pointer is very useful for routing performance setups, where 
+binding a Tx queue to the CPU is very useful.  Jesse actually did the work 
+on testing and getting good results with this.
+
+> If people keep overriding this method in their drivers, then when we
+> move to more sophisticated methods of computing the hash we will have
+> to hit all of these override spots which makes the generic queue
+> selection function pointless.
+
+Understood.  If I clean up the use in ixgbe, and we can influence others 
+to not abuse the function pointer, can we please keep it?  It really does 
+provide flexibility with certain advanced features in future devices in 
+specific configurations, which would be impossible to support without this 
+ops pointer.
+
 Cheers,
-Jeff
+-PJ Waskiewicz
