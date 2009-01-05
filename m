@@ -1,42 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: splice from half-closed socket returning -EAGAIN
-Date: Mon, 5 Jan 2009 08:11:37 +0000
-Message-ID: <20090105081136.GA4460@ff.dom.local>
-References: <20090104133054.GB16185@xi.wantstofly.org> <20090105064728.GE16185@xi.wantstofly.org> <20090104.235946.90553420.davem@davemloft.net>
+Date: Mon, 05 Jan 2009 00:14:01 -0800 (PST)
+Message-ID: <20090105.001401.63730458.davem@davemloft.net>
+References: <20090105064728.GE16185@xi.wantstofly.org>
+	<20090104.235946.90553420.davem@davemloft.net>
+	<20090105081136.GA4460@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: buytenh@wantstofly.org, jens.axboe@oracle.com, ben@zeus.com,
 	opurdila@ixiacom.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:18277 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751329AbZAEILo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 03:11:44 -0500
-Received: by ey-out-2122.google.com with SMTP id 22so840118eye.37
-        for <netdev@vger.kernel.org>; Mon, 05 Jan 2009 00:11:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20090104.235946.90553420.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37771
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751448AbZAEIOA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 03:14:00 -0500
+In-Reply-To: <20090105081136.GA4460@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 04, 2009 at 11:59:46PM -0800, David Miller wrote:
-> From: Lennert Buytenhek <buytenh@wantstofly.org>
-> Date: Mon, 5 Jan 2009 07:47:29 +0100
-> 
-> > tcp: don't mask EOF and socket errors on nonblocking splice receive
-> > 
-> > Currently, setting SPLICE_F_NONBLOCK on splice from a TCP socket
-> > results in masking of EOF (RDHUP) and error conditions on the socket
-> > by an -EAGAIN return.  Move the NONBLOCK check in tcp_splice_read()
-> > to be after the EOF and error checks to fix this.
-> > 
-> > Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> 
-> This change looks like the perfect fix for this problem.
-> 
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 5 Jan 2009 08:11:37 +0000
 
-Actually, I wonder why this "if (flags & SPLICE_F_NONBLOCK)" can't
-be skipped at all. Isn't "if (!timeo)" enough now?
+> On Sun, Jan 04, 2009 at 11:59:46PM -0800, David Miller wrote:
+> > From: Lennert Buytenhek <buytenh@wantstofly.org>
+> > Date: Mon, 5 Jan 2009 07:47:29 +0100
+> > 
+> > > tcp: don't mask EOF and socket errors on nonblocking splice receive
+> > > 
+> > > Currently, setting SPLICE_F_NONBLOCK on splice from a TCP socket
+> > > results in masking of EOF (RDHUP) and error conditions on the socket
+> > > by an -EAGAIN return.  Move the NONBLOCK check in tcp_splice_read()
+> > > to be after the EOF and error checks to fix this.
+> > > 
+> > > Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> > 
+> > This change looks like the perfect fix for this problem.
+> > 
+> 
+> Actually, I wonder why this "if (flags & SPLICE_F_NONBLOCK)" can't
+> be skipped at all. Isn't "if (!timeo)" enough now?
 
-Jarek P.
+Is it really the same condition in the end?
