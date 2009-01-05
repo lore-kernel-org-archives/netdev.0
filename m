@@ -1,78 +1,42 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: Hello! Making some rattling noise! RE: Bug? Undocumented interaction between IPv6 IPsec and iptables MARK target
-Date: Mon, 5 Jan 2009 06:21:02 -0800 (PST)
-Message-ID: <53703.46131.qm@web51405.mail.re2.yahoo.com>
-Reply-To: pommnitz@yahoo.com
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH -net-next 3/4] firmware: convert tg3 driver to
+ request_firmware()
+Date: Mon, 05 Jan 2009 14:22:31 +0000
+Message-ID: <1231165351.8286.279.camel@macbook.infradead.org>
+References: <1230626497.24796.26.camel@jaswinder.satnam>
+	 <49620AFE.6040409@hartkopp.net>
+	 <3f9a31f40901050612v700d2542r1e3e400bf0fe3d33@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51405.mail.re2.yahoo.com ([206.190.38.184]:36374 "HELO
-	web51405.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752780AbZAEOVF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2009 09:21:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Hartkopp <oliver@hartkopp.net>,
+	Jaswinder Singh Rajput <jaswinder@infradead.org>,
+	davem@redhat.com, jgarzik@redhat.com,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org,
+	mchan@broadcom.com, Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <3f9a31f40901050612v700d2542r1e3e400bf0fe3d33@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I still have not read anybody commenting on the observed behavior. I still consider this a bug. Am I right?
+On Mon, 2009-01-05 at 19:42 +0530, Jaswinder Singh Rajput wrote:
+> On Mon, Jan 5, 2009 at 6:58 PM, Oliver Hartkopp <oliver@hartkopp.net> wrote:
+> > 077f849de42e58172e25ccb24df4c1a13e82420c ("firmware: convert tg3 driver to
+> > request_firmware()")
+> >
+> > and i discovered that
+> >
+> > 1. I needed to compile the tg3 driver as *module* now as it was not able to
+> > read the firmware when built-in.
+> >
+> 
+> Please compile it as build in.
+> 
+> David Woodhouse: Do you have any plans to support firmware by using modules.
+
+Que?
 
 -- 
-Regards
-       Joerg
-
-
---- Joerg Pommnitz <pommnitz@yahoo.com> schrieb am Fr, 19.12.2008:
-
-> Von: Joerg Pommnitz <pommnitz@yahoo.com>
-> Betreff: Bug? Undocumented interaction between IPv6 IPsec and iptables MARK target
-> An: netdev@vger.kernel.org
-> Datum: Freitag, 19. Dezember 2008, 10:26
-> Hello all,
-> the following script demonstrates a behaviour of IPv6 IPsec
-> that I would
-> consider to be a bug (tested with 2.6.23 and 2.6.27-9 from
-> Ubuntu Intrepid):
-> 
-> ======================================================
-> #!/bin/bash
-> ip addr add dev eth0 2001:1b10:1001:ff00::0001/64 setkey -c
-> << __EOF__ 
-> spdflush;
-> flush;
-> 
-> add 2001:1b10:1001:ff00::0001 2001:1b10:1001:ff00::0002 esp
-> 0x00000005 -m tunnel -E rijndael-cbc
-> 0xefe8e2e8a43e518afa8e9474ad9a4abf986807fc178bd192;
-> spdadd 2001:1b10:1001:ff00::0001 2001:1b10:1001:ff00::/64
-> any -P out ipsec
-> esp/tunnel/2001:1b10:1001:ff00::0001-2001:1b10:1001:ff00::0002/require;
-> __EOF__
-> 
-> ip6tables -t mangle -A OUTPUT -d 2001:1b10:1001:ff00::2 -j
-> MARK --set-mark=1
-> 
-> ping6 2001:1b10:1001:ff00::2
-> ======================================================
-> 
-> This script adds an IPsec policy that should encrypt
-> packets sent to 
-> 2001:1b10:1001:ff00::2. This works fine as long as no MARK
-> value is
-> assigned to the packets. When one applies a MARK value
-> different from 0,
-> the policy doesn't match any more. In IPv4 the IPsec
-> policies are 
-> unaffected by the MARK.
-> 
-> So: Is this intended on the kernel side? If yes, how can I
-> write manual
-> policies that either ignore the MARK value or contain a
-> matching value?
-> 
-> Thanks in advance and kind regards
->   Joerg
-
-
-      
+dwmw2
