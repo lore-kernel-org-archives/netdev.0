@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 6/6] qeth: get rid of extra argument after printk to
- dev_* conversion
-Date: Sun, 04 Jan 2009 17:37:17 -0800 (PST)
-Message-ID: <20090104.173717.124451945.davem@davemloft.net>
-References: <20090102150139.830998000@de.ibm.com>
-	<20090102150256.663537000@de.ibm.com>
+From: "Michael Marineau" <mike@marineau.org>
+Subject: Re: [PATCH] fix for initial link state in 2.6.28
+Date: Sun, 4 Jan 2009 21:11:10 -0500
+Message-ID: <c0526ddf0901041811v11015db7oa080f5b1dfd3db6f@mail.gmail.com>
+References: <c0526ddf0901011512t258978e9n2c9ecf7488a4a35f@mail.gmail.com>
+	 <20090104.171839.14814429.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, heiko.carstens@de.ibm.com
-To: frank.blaschka@de.ibm.com
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60041
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751029AbZAEBhO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 20:37:14 -0500
-In-Reply-To: <20090102150256.663537000@de.ibm.com>
+Received: from rv-out-0506.google.com ([209.85.198.225]:63989 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105AbZAECLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 21:11:13 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so6637287rvb.1
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2009 18:11:11 -0800 (PST)
+In-Reply-To: <20090104.171839.14814429.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: frank.blaschka@de.ibm.com
-Date: Fri, 02 Jan 2009 16:01:45 +0100
+On Sun, Jan 4, 2009 at 8:18 PM, David Miller <davem@davemloft.net> wrote:
+>
+> I find it mysterious how someone can write such an excellent
+> patch and such a well written commit message, then in the
+> end not give a proper signoff for their changes :-/
 
-> drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_setadapter_parms':
-> drivers/s390/net/qeth_l3_main.c:1049: warning: too many arguments for format
-> 
-> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+Being completely unfamiliar with network drivers I was a bit fried
+after tracing though enough code to finally understand what was going
+on so it slipped my mind. :-)
 
-Also applied, thanks.
+>
+> Applied, and queued up for -stable, but please provide proper
+> signoffs in the future.
+
+Noted. Thanks for queuing it up!
+-- 
+Michael Marineau
+mike@marineau.org
