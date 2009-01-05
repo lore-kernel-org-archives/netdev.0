@@ -1,59 +1,74 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 6/8] xen-netfront: convert to net_device_ops
-Date: Mon, 05 Jan 2009 12:14:48 -0800
-Message-ID: <20090105201514.756248396@vyatta.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 7/8] infiniband: driver API update
+Date: Mon, 05 Jan 2009 13:02:15 -0800
+Message-ID: <adawsd9mppk.fsf@cisco.com>
 References: <20090105201442.749889072@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Jeremy Fitzhardinge <jeremy@goop.org>
+	<20090105201514.828840735@vyatta.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Roland Dreier <rolandd@cisco.com>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	netdev@vger.kernel.org, general@lists.openfabrics.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:35293 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752524AbZAEU2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2009 15:28:22 -0500
-Content-Disposition: inline; filename=xen-netfront.patch
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:59364 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753117AbZAEVCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 16:02:17 -0500
+In-Reply-To: <20090105201514.828840735@vyatta.com> (Stephen Hemminger's
+	message of "Mon, 05 Jan 2009 12:14:49 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert Xen device to new API.
+Looks good enough, so Dave if you want to merge it, you can add
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Acked-by: Roland Dreier <rolandd@cisco.com>
 
+or let me know if you want me to pull it in through my tree.  A couple
+of nits that are probably not worth fixing.  First, globally, it might
+be slightly nicer to merge this as one patch per module, rather than all
+lumped together.  And also:
 
---- a/drivers/net/xen-netfront.c	2009-01-05 12:10:31.373819168 -0800
-+++ b/drivers/net/xen-netfront.c	2009-01-05 12:11:22.754068943 -0800
-@@ -1105,6 +1105,16 @@ static void xennet_uninit(struct net_dev
- 	gnttab_free_grant_references(np->gref_rx_head);
- }
- 
-+static const struct net_device_ops xennet_netdev_ops = {
-+	.ndo_open            = xennet_open,
-+	.ndo_uninit          = xennet_uninit,
-+	.ndo_stop            = xennet_close,
-+	.ndo_start_xmit      = xennet_start_xmit,
-+	.ndo_change_mtu	     = xennet_change_mtu,
-+	.ndo_set_mac_address = eth_mac_addr,
-+	.ndo_validate_addr   = eth_validate_addr,
-+};
-+
- static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev)
- {
- 	int i, err;
-@@ -1161,12 +1171,9 @@ static struct net_device * __devinit xen
- 		goto exit_free_tx;
- 	}
- 
--	netdev->open            = xennet_open;
--	netdev->hard_start_xmit = xennet_start_xmit;
--	netdev->stop            = xennet_close;
-+	netdev->netdev_ops	= &xennet_netdev_ops;
-+
- 	netif_napi_add(netdev, &np->napi, xennet_poll, 64);
--	netdev->uninit          = xennet_uninit;
--	netdev->change_mtu	= xennet_change_mtu;
- 	netdev->features        = NETIF_F_IP_CSUM;
- 
- 	SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
+ > +static const struct net_device_ops c2_netdev_ops = {
+ > +	.ndo_open       = c2_pseudo_up,
+ > +	.ndo_stop       = c2_pseudo_down,
+ > +	.ndo_start_xmit = c2_pseudo_xmit_frame,
+ > +	.ndo_change_mtu = c2_pseudo_change_mtu,
+ > +};
+ > +
+ > +
 
--- 
+would have preferred only one empty line here.
 
+ > @@ -735,7 +737,6 @@ static void setup(struct net_device *net
+ >  	netdev->addr_len = ETH_ALEN;
+ >  	netdev->tx_queue_len = 0;
+ >  	netdev->flags |= IFF_NOARP;
+ > -	return;
+ >  }
+ >  
+ >  static struct net_device *c2_pseudo_netdev_init(struct c2_dev *c2dev)
+
+would preferred to leave out unrelated changes.
+
+ > +static const struct net_device_ops nes_netdev_ops = {
+ > +	.ndo_open		= nes_netdev_open,
+ > +	.ndo_stop		= nes_netdev_stop,
+ > +	.ndo_start_xmit		= nes_netdev_start_xmit,
+ > +	.ndo_get_stats		= nes_netdev_get_stats,
+ > +	.ndo_tx_timeout		= nes_netdev_tx_timeout,
+ > +	.ndo_validate_addr	= eth_validate_addr,
+ > +	.ndo_set_mac_address	= nes_netdev_set_mac_address,
+ > +	.ndo_set_multicast_list = nes_netdev_set_multicast_list,
+ > +	.ndo_change_mtu 	= nes_netdev_change_mtu,
+ > +	.ndo_vlan_rx_register   = nes_netdev_vlan_rx_register,
+ > +};
+ > +
+ >  
+ >  /**
+
+extra blank line here too.
+
+ - R.
