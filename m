@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -net-next 1/4] firmware: convert e100 driver to
- request_firmware()
-Date: Sun, 04 Jan 2009 16:06:11 -0800 (PST)
-Message-ID: <20090104.160611.252248503.davem@davemloft.net>
-References: <1230626401.24796.22.camel@jaswinder.satnam>
-	<9929d2390812301433pae01ea4g5bfdef6d4d4c7a9c@mail.gmail.com>
+Subject: Re: [PATCH -net-next 2/4] firmware: convert acenic driver to
+ request_firmware() -- without firmware data
+Date: Sun, 04 Jan 2009 16:10:25 -0800 (PST)
+Message-ID: <20090104.161025.50402227.davem@davemloft.net>
+References: <1230635694.10603.20.camel@jaswinder.satnam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jaswinder@infradead.org, linux.nics@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <9929d2390812301433pae01ea4g5bfdef6d4d4c7a9c@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jes@sgi.com, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org
+To: jaswinder@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41364
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751586AbZAEAKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 19:10:22 -0500
+In-Reply-To: <1230635694.10603.20.camel@jaswinder.satnam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Date: Tue, 30 Dec 2008 14:33:36 -0800
+From: Jaswinder Singh Rajput <jaswinder@infradead.org>
+Date: Tue, 30 Dec 2008 16:44:54 +0530
 
-> Please hold off on committing, until we have had ample time to do some
-> regression testing.  While this patch may have been in linux-next,
-> this is the first we have seen of it.
+> firmware: convert acenic driver to request_firmware()
 > 
-> I am concerned that IPMI traffic will be adversely affected by this patch.
+> We store the firmware in its native big-endian form now, so the loop in
+> ace_copy() is modified to use be32_to_cpup() when writing it out.
+> 
+> We can forget the BSS,SBSS sections of the firmware, since we were
+> clearing all the device's RAM anyway. And the text,rodata,data sections
+> can all be loaded as a single chunk since they're contiguous (give or
+> take a few dozen bytes in between).
+> 
+> Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
 
-Status please?
+Applied.
