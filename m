@@ -1,24 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -net-next 4/4] starfire: use request_firmware()
-Date: Sun, 04 Jan 2009 16:12:20 -0800 (PST)
-Message-ID: <20090104.161220.143617759.davem@davemloft.net>
-References: <1230626510.24796.28.camel@jaswinder.satnam>
+Subject: Re: [1/2] gro: Use gso_size to store MSS
+Date: Sun, 04 Jan 2009 16:13:25 -0800 (PST)
+Message-ID: <20090104.161325.211585417.davem@davemloft.net>
+References: <20081229122445.GA11161@gondor.apana.org.au>
+	<20081229.230703.265458431.davem@davemloft.net>
+	<20081230100705.GA31741@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, becker@scyld.com,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: jaswinder@infradead.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1230626510.24796.28.camel@jaswinder.satnam>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58650
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750964AbZAEANW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 19:13:22 -0500
+In-Reply-To: <20081230100705.GA31741@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jaswinder Singh Rajput <jaswinder@infradead.org>
-Date: Tue, 30 Dec 2008 14:11:50 +0530
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 30 Dec 2008 21:07:05 +1100
 
-> Firmware blob is big endian
+> gro: Use gso_size to store MSS
 > 
-> Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
+> In order to allow GRO packets without frag_list at all, we need to
+> store the MSS in the packet itself.  The obvious place is gso_size.
+> The only thing to watch out for is if the packet ends up not being
+> GRO then we need to clear gso_size before pushing the packet into
+> the stack.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Applied.
