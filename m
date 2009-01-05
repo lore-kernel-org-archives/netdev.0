@@ -1,52 +1,47 @@
 From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH -net-next 1/4] firmware: convert e100
-	driver to request_firmware()
-Date: Sun, 4 Jan 2009 18:20:24 -0800
-Message-ID: <9929d2390901041820h4cf51e2h3612108c516b6869@mail.gmail.com>
-References: <1230626401.24796.22.camel@jaswinder.satnam>
-	<9929d2390812301433pae01ea4g5bfdef6d4d4c7a9c@mail.gmail.com>
-	<20090104.160611.252248503.davem@davemloft.net>
+Subject: Re: [NET-2.6 PATCH] e100: cosmetic cleanup
+Date: Sun, 4 Jan 2009 18:28:28 -0800
+Message-ID: <9929d2390901041828k118275f4pe03eac199850cc72@mail.gmail.com>
+References: <20081231233057.23132.43080.stgit@lost.foo-projects.org>
+	 <20090104.171345.257011394.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, jaswinder@infradead.org
+Cc: netdev@vger.kernel.org, jeff@garzik.org, bruce.w.allan@intel.com
 To: "David Miller" <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20090104.160611.252248503.davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yx-out-2324.google.com ([74.125.44.30]:59787 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbZAEC2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 21:28:31 -0500
+Received: by yx-out-2324.google.com with SMTP id 8so2248326yxm.1
+        for <netdev@vger.kernel.org>; Sun, 04 Jan 2009 18:28:28 -0800 (PST)
+In-Reply-To: <20090104.171345.257011394.davem@davemloft.net>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 4, 2009 at 4:06 PM, David Miller <davem@davemloft.net> wrote:
-> From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-> Date: Tue, 30 Dec 2008 14:33:36 -0800
+On Sun, Jan 4, 2009 at 5:13 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed, 31 Dec 2008 15:31:50 -0800
 >
->> Please hold off on committing, until we have had ample time to do some
->> regression testing.  While this patch may have been in linux-next,
->> this is the first we have seen of it.
+>> Add missing space after if, switch, for and while keywords.
 >>
->> I am concerned that IPMI traffic will be adversely affected by this patch.
+>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 >
-> Status please?
+> I find it kind of rotten that you held up the e100 firmware
+> submission so you could do "important testing" and then
+> you fire off a completely useless patch like this meanwhile.
+>
+> Applied, but know that this kind of prioritization really
+> and truly ticks me off.
 > --
 >
 
-The only testing left to do is to make sure that ICH devices still
-work and to make sure the IPMI traffic is not affected by this patch.
-All other testing looks good.  I am sorry that I have been slow to
-give status, the holiday's have put a strain on available resources.
+I am sorry, I did not see this as a big deal, especially that this was
+just a cosmetic patch.
 
 -- 
 Cheers,
 Jeff
-
-------------------------------------------------------------------------------
