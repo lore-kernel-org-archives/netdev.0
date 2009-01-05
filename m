@@ -1,27 +1,48 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/3] cls_cgroup: clean up Kconfig
-Date: Mon, 5 Jan 2009 17:12:08 +0100
-Message-ID: <20090105161208.GO20815@postel.suug.ch>
-References: <49584AA5.9030509@cn.fujitsu.com>
+From: NEW YEAR PROMO <info@live.com>
+Subject: Dell NEW YEAR PROMO Notification
+Date: Mon, 05 Jan 2009 17:28:09 +0100
+Message-ID: <20090105172809.5wnsxr8rqccs0088@webmail.mnet-online.de>
+Reply-To: delloffice2@onlineclaimsdept.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Li Zefan <lizf@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:52873 "EHLO postel.suug.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750823AbZAEQLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2009 11:11:49 -0500
+Received: from mail-out.m-online.net ([212.18.0.9]:37436 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002AbZAEQhr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 11:37:47 -0500
 Content-Disposition: inline
-In-Reply-To: <49584AA5.9030509@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Li Zefan <lizf@cn.fujitsu.com> 2008-12-29 11:57
-> cls_cgroup can't be compiled as a module, since it's not supported by
-> cgroup.
+Dell NEW YEAR PROMO Notification
+Dell NEW YEAR PROMO Notification
 
-Good catch, thanks.
+We are delighted to inform you that you are one of the THREE LUCKY WINN=
+ERS
+whose e-mail address won the sum payout of =A3500,000 pounds.(Five Hund=
+red
+Thousand Pounds Sterlings Only) in the DELL ELECTRONICS NEW YEAR PROMO =
+2009.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Please be informed that all participants were selected through a comput=
+er
+ballot system drawn from over 30,000 company and 50,000,000 individual =
+email
+addresses and names from all over the world. To file in for your claims=
+,
+contact our claim's agent  with your information as provided below:
+
+Brown .J. Williams
+Tell:+447031953595
+Email: delloffice2@onlineclaimsdept.co.uk
+
+=46ull Names:......Country:....... Tel:......Marital
+Status.........Sex.......Age:.... Occupation:.... Nationality:.......
+Residential Address: .........
+
+Dr.Carl A.Moore
+(Information Officer
+
