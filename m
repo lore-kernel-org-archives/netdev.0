@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -net-next 1/4] firmware: convert e100 driver to
- request_firmware()
-Date: Sun, 04 Jan 2009 21:34:02 -0800 (PST)
-Message-ID: <20090104.213402.12464178.davem@davemloft.net>
-References: <9929d2390812301433pae01ea4g5bfdef6d4d4c7a9c@mail.gmail.com>
-	<20090104.160611.252248503.davem@davemloft.net>
-	<9929d2390901041820h4cf51e2h3612108c516b6869@mail.gmail.com>
+Subject: Re: ixgbe select_queue broken in 2.6.28
+Date: Sun, 04 Jan 2009 21:36:26 -0800 (PST)
+Message-ID: <20090104.213626.253755149.davem@davemloft.net>
+References: <20090101225456.68f4fe9d@extreme>
+	<20090102.001933.70654029.davem@davemloft.net>
+	<Pine.WNT.4.64.0901041918010.1888@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jaswinder@infradead.org, linux.nics@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <9929d2390901041820h4cf51e2h3612108c516b6869@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, jeffrey.t.kirsher@intel.com,
+	donald.c.skidmore@intel.com, netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57928
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751189AbZAEFgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 00:36:22 -0500
+In-Reply-To: <Pine.WNT.4.64.0901041918010.1888@ppwaskie-MOBL2.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-Date: Sun, 4 Jan 2009 18:20:24 -0800
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Sun, 4 Jan 2009 19:23:20 -0800 (Pacific Standard Time)
 
-> On Sun, Jan 4, 2009 at 4:06 PM, David Miller <davem@davemloft.net> wrote:
-> > From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-> > Date: Tue, 30 Dec 2008 14:33:36 -0800
-> >
-> >> Please hold off on committing, until we have had ample time to do some
-> >> regression testing.  While this patch may have been in linux-next,
-> >> this is the first we have seen of it.
-> >>
-> >> I am concerned that IPMI traffic will be adversely affected by this patch.
-> >
-> > Status please?
-> > --
-> 
-> The only testing left to do is to make sure that ICH devices still
-> work and to make sure the IPMI traffic is not affected by this patch.
-> All other testing looks good.  I am sorry that I have been slow to
-> give status, the holiday's have put a strain on available resources.
+> I understand why you want to remove this, but at the same time it is 
+> something that is useful if we don't abuse it.  I know for a fact this 
+> function pointer is very useful for routing performance setups, where 
+> binding a Tx queue to the CPU is very useful.  Jesse actually did the work 
+> on testing and getting good results with this.
 
-Ok, thanks for the update.
+This can be done generically, and in fact we have plans to make
+this work.
+
+All you want for routing is to remember the RX hash, and feed
+that in (in some form) as the TX hash.
