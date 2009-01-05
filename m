@@ -1,93 +1,56 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp test tree [RFC/RFT] [Patch 1/3] dccp: minor Kconfig cosmetics
-Date: Mon, 5 Jan 2009 15:42:13 +0100
-Message-ID: <20090105144213.GB3773@gerrit.erg.abdn.ac.uk>
+Subject: dccp test tree [RFC/RFT] [Patch 3/3] dccp: dccp_probe hook for
+	CCID-2
+Date: Mon, 5 Jan 2009 15:42:27 +0100
+Message-ID: <20090105144227.GD3773@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43943 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43956 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754660AbZAEOmT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2009 09:42:19 -0500
+	id S1754681AbZAEOmk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2009 09:42:40 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp ccid-3: Reformat Kconfig option for RTO timeout
+dccp: Add dccp_probe support for CCID-2
 
-Apart from fixing indenting, it also updates the references 
-(RFC 5348 has replaced RFC 3448).
+This adds dccp_probe support for CCID-2.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/Kconfig |   58 ++++++++++++++++++++++++-------------------------
- 1 file changed, 29 insertions(+), 29 deletions(-)
+ net/dccp/ccids/ccid2.c |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
---- a/net/dccp/ccids/Kconfig
-+++ b/net/dccp/ccids/Kconfig
-@@ -48,35 +48,35 @@ config IP_DCCP_CCID3_DEBUG
- 	  If in doubt, say N.
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -248,6 +248,19 @@ static void ccid2_hc_tx_packet_sent(stru
+ #endif
+ }
  
- config IP_DCCP_CCID3_RTO
--	  int "Use higher bound for nofeedback timer"
--	  default 100
--	  depends on IP_DCCP_CCID3 && EXPERIMENTAL
--	  ---help---
--	    Use higher lower bound for nofeedback timer expiration.
--
--	    The TFRC nofeedback timer normally expires after the maximum of 4
--	    RTTs and twice the current send interval (RFC 3448, 4.3). On LANs
--	    with a small RTT this can mean a high processing load and reduced
--	    performance, since then the nofeedback timer is triggered very
--	    frequently.
--
--	    This option enables to set a higher lower bound for the nofeedback
--	    value. Values in units of milliseconds can be set here.
--
--	    A value of 0 disables this feature by enforcing the value specified
--	    in RFC 3448. The following values have been suggested as bounds for
--	    experimental use:
--	    	* 16-20ms to match the typical multimedia inter-frame interval
--	    	* 100ms as a reasonable compromise [default]
--	    	* 1000ms corresponds to the lower TCP RTO bound (RFC 2988, 2.4)
--
--	    The default of 100ms is a compromise between a large value for
--	    efficient DCCP implementations, and a small value to avoid disrupting
--	    the network in times of congestion.
--
--	    The purpose of the nofeedback timer is to slow DCCP down when there
--	    is serious network congestion: experimenting with larger values should
--	    therefore not be performed on WANs.
-+	int "Use higher bound for nofeedback timer"
-+	default 100
-+	depends on IP_DCCP_CCID3
-+	---help---
-+	  Use higher lower bound for nofeedback timer expiration.
++static size_t ccid2_hc_tx_probe(struct sock *sk, char *buf, const size_t maxlen)
++{
++	struct ccid2_hc_tx_sock *hctx = ccid2_hc_tx_sk(sk);
 +
-+	  The TFRC nofeedback timer normally expires after the maximum of 4
-+	  RTTs and twice the current send interval (RFC 5448, 4.3). On LANs
-+	  with a small RTT this can mean a high processing load and reduced
-+	  performance, since then the nofeedback timer is triggered very
-+	  frequently.
++	/* Specific field numbering:
++			5     6    7      8        9      10     11
++			rto   rtt  mdev   rttvar   cwnd   pipe   ssthresh  */
++	return snprintf(buf, maxlen, " %u %u %u %u %u %u %u", hctx->rto,
++			hctx->srtt >> 3, hctx->mdev >> 2, hctx->rttvar >> 2,
++			hctx->cwnd, hctx->pipe, hctx->ssthresh);
 +
-+	  This option enables to set a higher lower bound for the nofeedback
-+	  value. Values in units of milliseconds can be set here.
++}
 +
-+	  A value of 0 disables this feature by enforcing the value specified
-+	  in RFC 5448. The following values have been suggested as bounds for
-+	  experimental use:
-+	    * 16-20ms to match the typical multimedia inter-frame interval
-+	    * 100ms as a reasonable compromise [default]
-+	    * 1000ms corresponds to the lower TCP RTO bound (RFC 2988, 2.4)
-+
-+	  The default of 100ms is a compromise between a large value for
-+	  efficient DCCP implementations, and a small value to avoid disrupting
-+	  the network in times of congestion.
-+
-+	  The purpose of the nofeedback timer is to slow DCCP down when there
-+	  is serious network congestion: experimenting with larger values should
-+	  therefore not be performed on WANs.
- 
- config IP_DCCP_TFRC_LIB
- 	def_bool y if IP_DCCP_CCID3
+ /**
+  * ccid2_rtt_estimator - Sample RTT and compute RTO using RFC2988 algorithm
+  * This code is almost identical with TCP's tcp_rtt_estimator(), since
+@@ -650,6 +663,7 @@ struct ccid_operations ccid2_ops = {
+ 	.ccid_hc_tx_exit	  = ccid2_hc_tx_exit,
+ 	.ccid_hc_tx_send_packet	  = ccid2_hc_tx_send_packet,
+ 	.ccid_hc_tx_packet_sent	  = ccid2_hc_tx_packet_sent,
++	.ccid_hc_tx_probe	  = ccid2_hc_tx_probe,
+ 	.ccid_hc_tx_parse_options = ccid2_hc_tx_parse_options,
+ 	.ccid_hc_tx_packet_recv	  = ccid2_hc_tx_packet_recv,
+ 	.ccid_hc_rx_obj_size	  = sizeof(struct ccid2_hc_rx_sock),
