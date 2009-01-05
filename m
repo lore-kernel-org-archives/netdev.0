@@ -1,83 +1,35 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] Fix up truesize after pskb_expand_head() in wireless
-	stack
-Date: Mon, 05 Jan 2009 09:36:14 +0100
-Message-ID: <1231144574.3286.15.camel@johannes>
-References: <20090104151819.GA6590@basil.nowhere.org>
-	 <1231085150.3296.3.camel@johannes>
-	 <20090104162826.GT496@one.firstfloor.org>
-	 <1231087288.3296.15.camel@johannes>
-	 <20090104174339.GX496@one.firstfloor.org>
-	 <1231090388.3296.17.camel@johannes>
-	 <20090104184136.GY496@one.firstfloor.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: splice from half-closed socket returning -EAGAIN
+Date: Mon, 05 Jan 2009 00:52:49 -0800 (PST)
+Message-ID: <20090105.005249.193722431.davem@davemloft.net>
+References: <20090105081136.GA4460@ff.dom.local>
+	<20090105.001401.63730458.davem@davemloft.net>
+	<20090105082252.GB4460@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-XG+m6QfDIuW39io5uPJL"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linville@tuxdriver.com, davem <davem@davemloft.net>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: buytenh@wantstofly.org, jens.axboe@oracle.com, ben@zeus.com,
+	opurdila@ixiacom.com, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:48570 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554AbZAEIfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 03:35:33 -0500
-In-Reply-To: <20090104184136.GY496@one.firstfloor.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43432
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751570AbZAEIwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 03:52:49 -0500
+In-Reply-To: <20090105082252.GB4460@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 5 Jan 2009 08:22:52 +0000
 
---=-XG+m6QfDIuW39io5uPJL
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> On Mon, Jan 05, 2009 at 12:14:01AM -0800, David Miller wrote:
+> > Is it really the same condition in the end?
+> 
+> Yes!?
 
-On Sun, 2009-01-04 at 19:41 +0100, Andi Kleen wrote:
+Indeed, as you explained in your follow-up, this splice
+non-block flag is used to compute the socket timeout value
+and thus it is in fact totally unnecessary.
 
-> I think most adjustments are too small to be noticed. Typically
-> they are just for a few bytes in the header. truesize
-> is already larger, so it can tolerate some slag.
-
-This statement is incompatible with your patch when you think about the
-exact definition of truesize and the (unconditional!) adjustments your
-patch makes.
-
-> I also only see it occasionally (maybe 5-10 times/day) when
-> the wireless stack appends a lot of data.
-
-Except the data it appends should generally be of the same or very
-similar size under unchanging conditions, so that doesn't make a lot of
-sense either.
-
-> My proposal would be to include this patch for 2.6.28/2.6.29
-> and investigate fixing pskb_expand_head for 2.6.30.
-
-I disagree, obviously. I knew there was some truesize corruption, and I
-think you for tracing down where it occurs. I'll investigate a proper
-fix when I get around to that, meanwhile I don't think the problem is
-awfully urgent since we've had this going on for quite a while and, if
-any, it probably only affects/corrupts the raw monitor sockets.
-
-johannes
-
---=-XG+m6QfDIuW39io5uPJL
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJYcZ7AAoJEKVg1VMiehFYmHMP/RhvtkeYWZgv/mctgmTsxrbN
-GaFyHsExlrB/2JvpHJRCZy61jmHRG9b3YWfO8ZI9W4mR9a0WO3/8cT2YGp2H3+6Y
-upO+V9N8KUTcuqtvRFnYW0jcEmyCL7PqE8haYAklYVYwarbhGt9llugznqJlLtql
-o2j+aLRVSSvjs11M2KhDGcUTeQtZ9Xw6nygJSAs2KMf3pFwIgdmC8uFh/4Mrt8C7
-wFb//nJyBzmA/GYdesOk44/dJUwoLiUCueN9hqflSAEmRgUU3aQJBSZp4dqZhsBx
-fsM0OXOl4KWgjMSQmb5KS/NBMGh0DkEUV9WZawAK3EnSv+c/6orQluJ+78/FdgwU
-Ov3ASZV3QxTGWOmWcQ7JlzPOXW8LRxtRaYS9Aq31hGyymKdpBNBrFp1TKsPczGuz
-G51m23McWRRIn0bcWKTzHzhGBc1XZbco60nLlFuTwC5tsLAdv9hj9IJcZNVs5ufQ
-d1cyeTswDTAUPEPWn+2Tkg3+KxEE6FEel2MZnD38vagqLiIwipvr/4ENkGc4WkT7
-BiwcKooBmQwzqp7Las1v5PIJvShB5mFjdXd6sYminauZAEonHzmqH4gj0Uj/40KZ
-TJuRwGTlJZFeq+shbEKYhuWw5zsfKQ2hdSO7idY48xIaNp2gNU4yUaXAceT0VcCi
-pBN1Y3c7D/UTco7Zab9a
-=GmMd
------END PGP SIGNATURE-----
-
---=-XG+m6QfDIuW39io5uPJL--
-
+I'll toss these checks in the net-2.6 tree, thanks!
