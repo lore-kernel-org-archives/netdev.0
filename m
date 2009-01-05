@@ -1,64 +1,42 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: ixgbe select_queue broken in 2.6.28
-Date: Sun, 4 Jan 2009 19:23:20 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0901041918010.1888@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090101225456.68f4fe9d@extreme> <20090102.001933.70654029.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -net-next 1/4] firmware: convert e100 driver to
+ request_firmware()
+Date: Sun, 04 Jan 2009 21:34:02 -0800 (PST)
+Message-ID: <20090104.213402.12464178.davem@davemloft.net>
+References: <9929d2390812301433pae01ea4g5bfdef6d4d4c7a9c@mail.gmail.com>
+	<20090104.160611.252248503.davem@davemloft.net>
+	<9929d2390901041820h4cf51e2h3612108c516b6869@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55049 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753413AbZAEDXf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jan 2009 22:23:35 -0500
-In-Reply-To: <20090102.001933.70654029.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jaswinder@infradead.org, linux.nics@intel.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <9929d2390901041820h4cf51e2h3612108c516b6869@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Jan 2009, David Miller wrote:
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Date: Sun, 4 Jan 2009 18:20:24 -0800
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Thu, 1 Jan 2009 22:54:56 -0800
+> On Sun, Jan 4, 2009 at 4:06 PM, David Miller <davem@davemloft.net> wrote:
+> > From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+> > Date: Tue, 30 Dec 2008 14:33:36 -0800
+> >
+> >> Please hold off on committing, until we have had ample time to do some
+> >> regression testing.  While this patch may have been in linux-next,
+> >> this is the first we have seen of it.
+> >>
+> >> I am concerned that IPMI traffic will be adversely affected by this patch.
+> >
+> > Status please?
+> > --
 > 
-> > The ixgbe driver in 2.6.28 modifies select_queue. This is bad
-> > in a couple of ways:
-> >   1) select_queue is now in net_device_ops so the driver won't build
-> >      unless CONFIG_COMPAT_NET_DEV_OPS is defined
-> >   2) it is changing data that is shared and supposed to be immutable.
-> > 
-> > Looks like a some of the DCB stuff forgot to look at net_device_ops
-> 
-> Drivers shouldn't be overriding the ->select_queue() method unless
-> there is a very specific reason to do so.  Ethernet drivers will not
-> have such a reason.
+> The only testing left to do is to make sure that ICH devices still
+> work and to make sure the IPMI traffic is not affected by this patch.
+> All other testing looks good.  I am sorry that I have been slow to
+> give status, the holiday's have put a strain on available resources.
 
-Agreed.  I stumbled across this override in the DCB code in ixgbe right 
-before the holidays.  I plan to find out why that was put in and submit a 
-patch to correct it.
-
-> This is a very bad trend and I think I'm going to need to simply
-> remove the ->select_queue() method to stop the bleeding.
-
-I understand why you want to remove this, but at the same time it is 
-something that is useful if we don't abuse it.  I know for a fact this 
-function pointer is very useful for routing performance setups, where 
-binding a Tx queue to the CPU is very useful.  Jesse actually did the work 
-on testing and getting good results with this.
-
-> If people keep overriding this method in their drivers, then when we
-> move to more sophisticated methods of computing the hash we will have
-> to hit all of these override spots which makes the generic queue
-> selection function pointless.
-
-Understood.  If I clean up the use in ixgbe, and we can influence others 
-to not abuse the function pointer, can we please keep it?  It really does 
-provide flexibility with certain advanced features in future devices in 
-specific configurations, which would be impossible to support without this 
-ops pointer.
-
-Cheers,
--PJ Waskiewicz
+Ok, thanks for the update.
