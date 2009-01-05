@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET-2.6 PATCH] e100: cosmetic cleanup
-Date: Sun, 04 Jan 2009 17:13:45 -0800 (PST)
-Message-ID: <20090104.171345.257011394.davem@davemloft.net>
-References: <20081231233057.23132.43080.stgit@lost.foo-projects.org>
+Subject: Re: [Patch 1/1] tun: signedness warning
+Date: Sun, 04 Jan 2009 17:14:56 -0800 (PST)
+Message-ID: <20090104.171456.246995886.davem@davemloft.net>
+References: <20090101105557.GA4695@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, bruce.w.allan@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41320
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41325
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751029AbZAEBNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 20:13:41 -0500
-In-Reply-To: <20081231233057.23132.43080.stgit@lost.foo-projects.org>
+	by vger.kernel.org with ESMTP id S1759830AbZAEBOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 20:14:53 -0500
+In-Reply-To: <20090101105557.GA4695@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 31 Dec 2008 15:31:50 -0800
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu, 1 Jan 2009 11:55:57 +0100
 
-> Add missing space after if, switch, for and while keywords.
+> tun: Eliminate sparse signedness warning
 > 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> register_pernet_gen_device() expects 'int*', found via sparse.
+> 
+>  CHECK   drivers/net/tun.c
+>  drivers/net/tun.c:1245:36: warning: incorrect type in argument 1 (different signedness)
+>  drivers/net/tun.c:1245:36:    expected int *id
+>  drivers/net/tun.c:1245:36:    got unsigned int static [toplevel] *<noident>
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
-I find it kind of rotten that you held up the e100 firmware
-submission so you could do "important testing" and then
-you fire off a completely useless patch like this meanwhile.
-
-Applied, but know that this kind of prioritization really
-and truly ticks me off.
+Applied, thanks Gerrit.
