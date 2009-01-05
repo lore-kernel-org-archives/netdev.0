@@ -1,63 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix up truesize after pskb_expand_head() in wireless
- stack
-Date: Sun, 04 Jan 2009 22:49:16 -0800 (PST)
-Message-ID: <20090104.224916.253586382.davem@davemloft.net>
-References: <20090104174339.GX496@one.firstfloor.org>
-	<1231090388.3296.17.camel@johannes>
-	<20090104184136.GY496@one.firstfloor.org>
+Subject: Re: [UNTESTED] Add hardware-assisted VLAN support for GRO
+Date: Sun, 04 Jan 2009 22:57:27 -0800 (PST)
+Message-ID: <20090104.225727.236263263.davem@davemloft.net>
+References: <20090102054714.GA23106@gondor.apana.org.au>
+	<20090102054921.GA23174@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linville@tuxdriver.com
-To: andi@firstfloor.org
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50600
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46912
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750904AbZAEGtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 01:49:15 -0500
-In-Reply-To: <20090104184136.GY496@one.firstfloor.org>
+	by vger.kernel.org with ESMTP id S1751301AbZAEG51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 01:57:27 -0500
+In-Reply-To: <20090102054921.GA23174@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Sun, 4 Jan 2009 19:41:36 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 2 Jan 2009 16:49:21 +1100
 
-> On Sun, Jan 04, 2009 at 06:33:08PM +0100, Johannes Berg wrote:
-> > On Sun, 2009-01-04 at 18:43 +0100, Andi Kleen wrote:
+> On Fri, Jan 02, 2009 at 04:47:14PM +1100, Herbert Xu wrote:
+> >
+> > vlan: Add GRO interfaces
 > > 
-> > > > we need to do is figure out is why the skb has a wrong truesize.
-> > > 
-> > > Because it was expanded without truesize being adjusted (see my
-> > > original mail) 
-> > 
-> > So why is this not making trouble with all the other users?
+> > This patch adds GRO interfaces for hardware-assisted VLAN reception.
+> > With this in place we're now at parity with LRO as far as the
+> > interface is concerned.  That is, you can now take any LRO driver
+> > and convert it over to GRO.
 > 
-> I think most adjustments are too small to be noticed. Typically
-> they are just for a few bytes in the header. truesize
-> is already larger, so it can tolerate some slag.
-> 
-> I also only see it occasionally (maybe 5-10 times/day) when
-> the wireless stack appends a lot of data.
-> 
-> My proposal would be to include this patch for 2.6.28/2.6.29
-> and investigate fixing pskb_expand_head for 2.6.30.
+> Here's an updated description for the 2nd patch:
 
-At a minimum you need to add a skb->sk == NULL warn-on and abort path
-here, otherwise we will corrupt socket accounting and just explode
-somewhere else.  Adding this patch as-is will just introduce a new
-bug in exchange for an existing one.
+These changes look fine to me, although the skb->dev trick
+is... exciting :-)
 
-There are cases where the Tx path of the wireless loops back packets
-back to the Rx path, and in such cases we certainly could see sockets
-attached to the SKB.
-
-And Johannes is right, the other alternative is to orphan the SKB, you
-absolutely cannot modify ->truesize blindly.  You can't change the
-truesize value if a socket is attached.
-
-There is, as usual, an exception.  TCP does this kind of adjustment,
-but it also fixes the socket memory accounting to match.  Only it can
-do this because it happens to have the socket locked at the time and
-it's running in the proper context.
+Please resubmit these changes individually when you've tested
+them, thanks!
