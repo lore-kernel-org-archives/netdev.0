@@ -1,7 +1,7 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 2/5] qlge: Fix sparse endian warning for inbound packet control block flags.
-Date: Mon,  5 Jan 2009 14:27:29 -0800
-Message-ID: <1231194452-10671-2-git-send-email-ron.mercer@qlogic.com>
+Subject: [PATCH 1/5] qlge: Fix sparse warnings for byte swapping in qlge_ethool.c
+Date: Mon,  5 Jan 2009 14:27:28 -0800
+Message-ID: <1231194452-10671-1-git-send-email-ron.mercer@qlogic.com>
 References: <20090105222600.GA4232@susedev.qlogic.org>
 Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
 	ron.mercer@qlogic.com
@@ -9,73 +9,62 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from avexch1.qlogic.com ([198.70.193.115]:42213 "EHLO
 	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356AbZAEW1g (ORCPT
+	with ESMTP id S1751339AbZAEW1g (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 17:27:36 -0500
 In-Reply-To: <20090105222600.GA4232@susedev.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changed flags element from __le32 to 3 reserved bytes and one byte of
-flags.  Changed flags bit definitions to reflect byte width instead of
-__le32 width.
-
-Warnings:
-drivers/net/qlge/qlge_main.c:1206:16: warning: restricted degrades to integer
-drivers/net/qlge/qlge_main.c:1207:16: warning: restricted degrades to integer
-drivers/net/qlge/qlge_main.c:1233:17: warning: restricted degrades to integer
-drivers/net/qlge/qlge_main.c:1276:17: warning: restricted degrades to integer
-drivers/net/qlge/qlge_main.c:1349:19: warning: restricted degrades to integer
+drivers/net/qlge/qlge_ethtool.c:59:23: warning: cast to restricted type
+drivers/net/qlge/qlge_ethtool.c:59:21: warning: incorrect type in assignment (different base types)
+drivers/net/qlge/qlge_ethtool.c:59:21:    expected restricted unsigned short [usertype] irq_delay
+drivers/net/qlge/qlge_ethtool.c:59:21:    got unsigned short [unsigned] [usertype] <noident>
+drivers/net/qlge/qlge_ethtool.c:61:8: warning: cast to restricted type
+drivers/net/qlge/qlge_ethtool.c:60:21: warning: incorrect type in assignment (different base types)
+drivers/net/qlge/qlge_ethtool.c:60:21:    expected restricted unsigned short [usertype] pkt_delay
+drivers/net/qlge/qlge_ethtool.c:60:21:    got unsigned short [unsigned] [usertype] <noident>
+drivers/net/qlge/qlge_ethtool.c:82:23: warning: cast to restricted type
+drivers/net/qlge/qlge_ethtool.c:82:21: warning: incorrect type in assignment (different base types)
+drivers/net/qlge/qlge_ethtool.c:82:21:    expected restricted unsigned short [usertype] irq_delay
+drivers/net/qlge/qlge_ethtool.c:82:21:    got unsigned short [unsigned] [usertype] <noident>
+drivers/net/qlge/qlge_ethtool.c:84:8: warning: cast to restricted type
+drivers/net/qlge/qlge_ethtool.c:83:21: warning: incorrect type in assignment (different base types)
+drivers/net/qlge/qlge_ethtool.c:83:21:    expected restricted unsigned short [usertype] pkt_delay
+drivers/net/qlge/qlge_ethtool.c:83:21:    got unsigned short [unsigned] [usertype] <noident>
 
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge.h     |    9 +++++----
- drivers/net/qlge/qlge_dbg.c |   13 +++++--------
- 2 files changed, 10 insertions(+), 12 deletions(-)
+ drivers/net/qlge/qlge_ethtool.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 97321bb..71cc487 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -979,10 +979,11 @@ struct ib_mac_iocb_rsp {
- 
- 	__le16 reserved1;
- 	__le32 reserved2[6];
--	__le32 flags4;
--#define IB_MAC_IOCB_RSP_HV	0x20000000	/* */
--#define IB_MAC_IOCB_RSP_HS	0x40000000	/* */
--#define IB_MAC_IOCB_RSP_HL	0x80000000	/* */
-+	u8 reserved3[3];
-+	u8 flags4;
-+#define IB_MAC_IOCB_RSP_HV	0x20
-+#define IB_MAC_IOCB_RSP_HS	0x40
-+#define IB_MAC_IOCB_RSP_HL	0x80
- 	__le32 hdr_len;		/* */
- 	__le32 hdr_addr_lo;	/* */
- 	__le32 hdr_addr_hi;	/* */
-diff --git a/drivers/net/qlge/qlge_dbg.c b/drivers/net/qlge/qlge_dbg.c
-index 47df304..3f5e02d 100644
---- a/drivers/net/qlge/qlge_dbg.c
-+++ b/drivers/net/qlge/qlge_dbg.c
-@@ -821,14 +821,11 @@ void ql_dump_ib_mac_rsp(struct ib_mac_iocb_rsp *ib_mac_rsp)
- 		       le16_to_cpu(ib_mac_rsp->vlan_id));
- 
- 	printk(KERN_ERR PFX "flags4 = %s%s%s.\n",
--	       le32_to_cpu(ib_mac_rsp->
--			   flags4) & IB_MAC_IOCB_RSP_HV ? "HV " : "",
--	       le32_to_cpu(ib_mac_rsp->
--			   flags4) & IB_MAC_IOCB_RSP_HS ? "HS " : "",
--	       le32_to_cpu(ib_mac_rsp->
--			   flags4) & IB_MAC_IOCB_RSP_HL ? "HL " : "");
--
--	if (le32_to_cpu(ib_mac_rsp->flags4) & IB_MAC_IOCB_RSP_HV) {
-+		ib_mac_rsp->flags4 & IB_MAC_IOCB_RSP_HV ? "HV " : "",
-+		ib_mac_rsp->flags4 & IB_MAC_IOCB_RSP_HS ? "HS " : "",
-+		ib_mac_rsp->flags4 & IB_MAC_IOCB_RSP_HL ? "HL " : "");
-+
-+	if (ib_mac_rsp->flags4 & IB_MAC_IOCB_RSP_HV) {
- 		printk(KERN_ERR PFX "hdr length	= %d.\n",
- 		       le32_to_cpu(ib_mac_rsp->hdr_len));
- 		printk(KERN_ERR PFX "hdr addr_hi    = 0x%x.\n",
+diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/qlge/qlge_ethtool.c
+index eefb81b..9d922e2 100644
+--- a/drivers/net/qlge/qlge_ethtool.c
++++ b/drivers/net/qlge/qlge_ethtool.c
+@@ -56,9 +56,9 @@ static int ql_update_ring_coalescing(struct ql_adapter *qdev)
+ 		for (i = 1; i < qdev->rss_ring_first_cq_id; i++, rx_ring++) {
+ 			rx_ring = &qdev->rx_ring[i];
+ 			cqicb = (struct cqicb *)rx_ring;
+-			cqicb->irq_delay = le16_to_cpu(qdev->tx_coalesce_usecs);
++			cqicb->irq_delay = cpu_to_le16(qdev->tx_coalesce_usecs);
+ 			cqicb->pkt_delay =
+-			    le16_to_cpu(qdev->tx_max_coalesced_frames);
++			    cpu_to_le16(qdev->tx_max_coalesced_frames);
+ 			cqicb->flags = FLAGS_LI;
+ 			status = ql_write_cfg(qdev, cqicb, sizeof(cqicb),
+ 						CFG_LCQ, rx_ring->cq_id);
+@@ -79,9 +79,9 @@ static int ql_update_ring_coalescing(struct ql_adapter *qdev)
+ 		     i++) {
+ 			rx_ring = &qdev->rx_ring[i];
+ 			cqicb = (struct cqicb *)rx_ring;
+-			cqicb->irq_delay = le16_to_cpu(qdev->rx_coalesce_usecs);
++			cqicb->irq_delay = cpu_to_le16(qdev->rx_coalesce_usecs);
+ 			cqicb->pkt_delay =
+-			    le16_to_cpu(qdev->rx_max_coalesced_frames);
++			    cpu_to_le16(qdev->rx_max_coalesced_frames);
+ 			cqicb->flags = FLAGS_LI;
+ 			status = ql_write_cfg(qdev, cqicb, sizeof(cqicb),
+ 						CFG_LCQ, rx_ring->cq_id);
 -- 
 1.6.0
 
