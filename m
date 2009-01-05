@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: capi: &&/|| typos
-Date: Sun, 04 Jan 2009 16:22:18 -0800 (PST)
-Message-ID: <20090104.162218.42934015.davem@davemloft.net>
-References: <495A14AA.2060200@gmail.com>
-	<20090102121630.GA14957@pingi.kke.suse.de>
+Subject: Re: [PATCH] enc28j60: fix RX buffer overflow
+Date: Sun, 04 Jan 2009 16:23:19 -0800 (PST)
+Message-ID: <20090104.162319.207306783.davem@davemloft.net>
+References: <20081230135539.GA10015@diamond.tkos.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org
-To: kkeil@suse.de
+Cc: lanconelli.claudio@eptar.com, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: baruch@tkos.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52393
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52396
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751496AbZAEAWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 19:22:14 -0500
-In-Reply-To: <20090102121630.GA14957@pingi.kke.suse.de>
+	by vger.kernel.org with ESMTP id S1750964AbZAEAXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jan 2009 19:23:16 -0500
+In-Reply-To: <20081230135539.GA10015@diamond.tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <kkeil@suse.de>
-Date: Fri, 2 Jan 2009 13:16:30 +0100
+From: Baruch Siach <baruch@tkos.co.il>
+Date: Tue, 30 Dec 2008 15:55:39 +0200
 
-> On Tue, Dec 30, 2008 at 01:31:38PM +0100, Roel Kluin wrote:
-> > Correct two typos.
-> > 
-> > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> The enc28j60 driver doesn't check whether the length of the packet as reported 
+> by the hardware fits into the preallocated buffer. When stressed, the hardware 
+> may report insanely large packets even tough the "Receive OK" bit is set. Fix 
+> this.
 > 
-> Acked-by: Karsten Keil <kkeil@suse.de>
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 
-Applied, thanks everyone.
+Applied, thanks.
