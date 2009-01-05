@@ -1,58 +1,93 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp test tree [RFC/RFC] [Patch 0/3] dccp: CCID-independent
-	connection probing
-Date: Mon, 5 Jan 2009 15:41:52 +0100
-Message-ID: <20090105144152.GA3773@gerrit.erg.abdn.ac.uk>
+Subject: dccp test tree [RFC/RFT] [Patch 1/3] dccp: minor Kconfig cosmetics
+Date: Mon, 5 Jan 2009 15:42:13 +0100
+Message-ID: <20090105144213.GB3773@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43916 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:43943 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754411AbZAEOmB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2009 09:42:01 -0500
+	id S1754660AbZAEOmT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2009 09:42:19 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This submission presents recent updates of the DCCP test tree, it is
-meant to generate feedback but not as a submission of mainline patches.
+dccp ccid-3: Reformat Kconfig option for RTO timeout
 
-These three patches reflect recent work and available via the tree on
+Apart from fixing indenting, it also updates the references 
+(RFC 5348 has replaced RFC 3448).
 
-	git://eden-feed.erg.abdn.ac.uk
-	subtrees 'dccp' and 'ccid4'.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/Kconfig |   58 ++++++++++++++++++++++++-------------------------
+ 1 file changed, 29 insertions(+), 29 deletions(-)
 
-The two patches have been mentioned several times before, now there was
-time to realise them.
-
-Patch #1: Updates the Kconfig menu, minor cosmetics.
-
-Patch #2: Removes CCID-3 specific code from dccp_probe and
-          generates a plugin function point that can be used
-	  by other subsystems (for instance, it is also used
-          to use dccp_probe with CCID-4).
-	  The now unused 'size' field is used to detail the
-	  CCID number, which is useful for automatic analysis
-	  of the output (test plot scripts available).
-
-Patch #3: Based on patch #2, it equips CCID-2 with dccp_probe
-          functionality. Please note that the patch is deeper
-	  in the test tree, since it requires on the other
-	  patches of the test tree to make srtt/mdev/rto available.
-
-
-Comments welcome.
-
-Gerrit
-
-
-Patch stats
------------
- ccid.h        |   11 +++++++++++
- ccids/Kconfig |   58 +++++++++++++++++++++++++++++-----------------------------
- ccids/ccid2.c |   14 ++++++++++++++
- ccids/ccid3.c |   14 ++++++++++++++
- dccp.h        |   11 ++++++++++-
- probe.c       |   29 ++++++++++++-----------------
- 6 files changed, 90 insertions(+), 47 deletions(-)
+--- a/net/dccp/ccids/Kconfig
++++ b/net/dccp/ccids/Kconfig
+@@ -48,35 +48,35 @@ config IP_DCCP_CCID3_DEBUG
+ 	  If in doubt, say N.
+ 
+ config IP_DCCP_CCID3_RTO
+-	  int "Use higher bound for nofeedback timer"
+-	  default 100
+-	  depends on IP_DCCP_CCID3 && EXPERIMENTAL
+-	  ---help---
+-	    Use higher lower bound for nofeedback timer expiration.
+-
+-	    The TFRC nofeedback timer normally expires after the maximum of 4
+-	    RTTs and twice the current send interval (RFC 3448, 4.3). On LANs
+-	    with a small RTT this can mean a high processing load and reduced
+-	    performance, since then the nofeedback timer is triggered very
+-	    frequently.
+-
+-	    This option enables to set a higher lower bound for the nofeedback
+-	    value. Values in units of milliseconds can be set here.
+-
+-	    A value of 0 disables this feature by enforcing the value specified
+-	    in RFC 3448. The following values have been suggested as bounds for
+-	    experimental use:
+-	    	* 16-20ms to match the typical multimedia inter-frame interval
+-	    	* 100ms as a reasonable compromise [default]
+-	    	* 1000ms corresponds to the lower TCP RTO bound (RFC 2988, 2.4)
+-
+-	    The default of 100ms is a compromise between a large value for
+-	    efficient DCCP implementations, and a small value to avoid disrupting
+-	    the network in times of congestion.
+-
+-	    The purpose of the nofeedback timer is to slow DCCP down when there
+-	    is serious network congestion: experimenting with larger values should
+-	    therefore not be performed on WANs.
++	int "Use higher bound for nofeedback timer"
++	default 100
++	depends on IP_DCCP_CCID3
++	---help---
++	  Use higher lower bound for nofeedback timer expiration.
++
++	  The TFRC nofeedback timer normally expires after the maximum of 4
++	  RTTs and twice the current send interval (RFC 5448, 4.3). On LANs
++	  with a small RTT this can mean a high processing load and reduced
++	  performance, since then the nofeedback timer is triggered very
++	  frequently.
++
++	  This option enables to set a higher lower bound for the nofeedback
++	  value. Values in units of milliseconds can be set here.
++
++	  A value of 0 disables this feature by enforcing the value specified
++	  in RFC 5448. The following values have been suggested as bounds for
++	  experimental use:
++	    * 16-20ms to match the typical multimedia inter-frame interval
++	    * 100ms as a reasonable compromise [default]
++	    * 1000ms corresponds to the lower TCP RTO bound (RFC 2988, 2.4)
++
++	  The default of 100ms is a compromise between a large value for
++	  efficient DCCP implementations, and a small value to avoid disrupting
++	  the network in times of congestion.
++
++	  The purpose of the nofeedback timer is to slow DCCP down when there
++	  is serious network congestion: experimenting with larger values should
++	  therefore not be performed on WANs.
+ 
+ config IP_DCCP_TFRC_LIB
+ 	def_bool y if IP_DCCP_CCID3
