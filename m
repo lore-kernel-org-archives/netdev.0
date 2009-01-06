@@ -1,56 +1,28 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] net/ehea: bitops work on unsigned longs
-Date: Tue, 6 Jan 2009 11:11:48 +1100
-Message-ID: <20090106111148.90da9b78.sfr@canb.auug.org.au>
-References: <20081231141853.c6d123c4.sfr@canb.auug.org.au>
-	<20081230.215156.151347026.davem@davemloft.net>
-	<20090106105951.62b0429d.sfr@canb.auug.org.au>
-	<20090105.160535.24967514.davem@davemloft.net>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [PATCH 6/8] xen-netfront: convert to net_device_ops
+Date: Tue, 06 Jan 2009 11:17:06 +1100
+Message-ID: <4962A302.2040506@goop.org>
+References: <20090105201442.749889072@vyatta.com> <20090105201514.756248396@vyatta.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__6_Jan_2009_11_11_48_+1100_IRgU9yNttcNMywX1"
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, raisch@de.ibm.com,
-	themann@de.ibm.com, tklein@de.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:34935 "EHLO smtps.tip.net.au"
+Received: from gw.goop.org ([64.81.55.164]:36221 "EHLO mail.goop.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750863AbZAFAMB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2009 19:12:01 -0500
-In-Reply-To: <20090105.160535.24967514.davem@davemloft.net>
+	id S1751664AbZAFARO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2009 19:17:14 -0500
+In-Reply-To: <20090105201514.756248396@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__6_Jan_2009_11_11_48_+1100_IRgU9yNttcNMywX1
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Stephen Hemminger wrote:
+> Convert Xen device to new API.
+>   
 
-Hi Dave,
+Looks fine to me.
 
-On Mon, 05 Jan 2009 16:05:35 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> Aha, yes the commit message fooled me :-)  New patch is fine and
-> I'll toss this into net-2.6
+Signed-off-by: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
 
-I will try to do better in the future, thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Tue__6_Jan_2009_11_11_48_+1100_IRgU9yNttcNMywX1
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkliocQACgkQjjKRsyhoI8w7HACfYAgOyx9NXyXR5JgRkLniWWNQ
-dggAn14ZZDw6CRCpQVf9wRwQXjzYolqE
-=B87q
------END PGP SIGNATURE-----
-
---Signature=_Tue__6_Jan_2009_11_11_48_+1100_IRgU9yNttcNMywX1--
+    J
