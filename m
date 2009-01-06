@@ -1,73 +1,92 @@
 From: Wu Fengguang <wfg@linux.intel.com>
-Subject: Re: [PATCH] dm9601: warn on invalid mac address
-Date: Tue, 6 Jan 2009 17:47:57 +0800
-Message-ID: <20090106094757.GA19587@localhost>
-References: <20090106091050.GA19316@localhost> <87zli4u71i.fsf@macbook.be.48ers.dk>
+Subject: Re: [PATCH] dm9601: handle corrupt mac address
+Date: Tue, 6 Jan 2009 17:50:08 +0800
+Message-ID: <20090106095008.GA19365@localhost>
+References: <20090106061414.GA3677@localhost> <87hc4cvp05.fsf@macbook.be.48ers.dk> <20090106082928.GB19690@localhost> <874p0cvnae.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: dbrownell@users.sourceforge.net, netdev@vger.kernel.org
 To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:15584 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751559AbZAFJsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 04:48:00 -0500
+Received: from mga12.intel.com ([143.182.124.36]:40394 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750711AbZAFJuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 04:50:10 -0500
 Content-Disposition: inline
-In-Reply-To: <87zli4u71i.fsf@macbook.be.48ers.dk>
+In-Reply-To: <874p0cvnae.fsf@macbook.be.48ers.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 06, 2009 at 10:18:17AM +0100, Peter Korsgaard wrote:
+On Tue, Jan 06, 2009 at 09:42:01AM +0100, Peter Korsgaard wrote:
 > >>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
 > 
 > Hi,
 > 
->  Wu> Add warnings on invalid mac address to help disclose/debug problems.
->  Wu> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
->  Wu> ---
->  Wu>  drivers/net/usb/dm9601.c |   12 +++++++++++-
->  Wu>  1 file changed, 11 insertions(+), 1 deletion(-)
+>  >> Do we automatically get a random address in netdev nowadays without
+>  >> calling random_ether_addr? I didn't know that.
 > 
->  Wu> --- linux-2.6.orig/drivers/net/usb/dm9601.c
->  Wu> +++ linux-2.6/drivers/net/usb/dm9601.c
->  Wu> @@ -401,8 +401,12 @@ static int dm9601_set_mac_address(struct
->  Wu>  	struct sockaddr *addr = p;
->  Wu>  	struct usbnet *dev = netdev_priv(net);
->  
->  Wu> -	if (!is_valid_ether_addr(addr->sa_data))
->  Wu> +	if (!is_valid_ether_addr(addr->sa_data)) {
->  Wu> +		DECLARE_MAC_BUF(mac_buf);
->  Wu> +		print_mac(mac_buf, addr->sa_data);
->  Wu> +		dev_warn(&net->dev, "not setting invalid mac address %s\n", mac_buf);
+>  Wu> I confirmed based on both code review and tests.
+>  Wu> The logic goes like this in usbnet.c:
 > 
-> This should be an error and not a warning.
-> Notice that print_mac returns the string, so you can do:
+>  Wu>   80 // randomly generated ethernet address
+>  Wu>   81 static u8       node_id [ETH_ALEN];
+>  Wu> ...
+>  Wu> 1118 int
+>  Wu> 1119 usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+>  Wu> 1120 {
+>  Wu> ...
+>  Wu> 1168         dev->net = net;
+>  Wu> 1169         strcpy (net->name, "usb%d");
+>  Wu> 1170         memcpy (net->dev_addr, node_id, sizeof node_id);
+>  Wu> ...
 > 
-> dev_err(&net->dev, "... %s", print_mac(mac_buf, addr->sa_data));
+> So what happens if you plug in 2 devices without an EEPROM? Do they
+> get the same MAC address? That seems broken.
 
-OK.
+Good catch. The following patch for this case was tested OK.
 
->  Wu>  	memcpy(net->dev_addr, addr->sa_data, net->addr_len);
->  Wu>  	dm_write_async(dev, DM_PHY_ADDR, net->addr_len, net->dev_addr);
->  Wu> @@ -449,6 +453,12 @@ static int dm9601_bind(struct usbnet *de
->  Wu>  	 */
->  Wu>  	if (is_valid_ether_addr(mac))
->  Wu>  		memcpy(dev->net->dev_addr, mac, ETH_ALEN);
->  Wu> +	else {
->  Wu> +		DECLARE_MAC_BUF(mac_buf);
->  Wu> +		print_mac(mac_buf, mac);
->  Wu> +		devdbg(dev, "EEPROM reported mac address %s is invalid,"
->  Wu> +				" use the randomly generated one.", mac_buf);
-> 
-> And this should be a warning.
-
-Then let the warning message appear repeatedly for some devices?
-
-Also dev_warn() won't be able to show the device name at that time,
-like this:
-
-[28489.062180]  : EEPROM reported mac address ff:ff:ff:ff:ff:ff is invalid, use the randomly generated one.
+But this simple fix will make the mac address change between
+ifup/ifdowns, is this acceptable?
 
 Thanks,
 Fengguang
+---
+usbnet: use different random mac addresses for multiple usbnet devices
 
+It is a bug to use the same mac address for possibly 2+ connected
+usbnet devices.  Fix this concern raised by Peter Korsgaard.
+
+Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+---
+ drivers/net/usb/usbnet.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+--- linux-2.6.orig/drivers/net/usb/usbnet.c
++++ linux-2.6/drivers/net/usb/usbnet.c
+@@ -77,9 +77,6 @@
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-// randomly generated ethernet address
+-static u8	node_id [ETH_ALEN];
+-
+ static const char driver_name [] = "usbnet";
+ 
+ /* use ethtool to change the level for any given device */
+@@ -1167,7 +1164,7 @@ usbnet_probe (struct usb_interface *udev
+ 
+ 	dev->net = net;
+ 	strcpy (net->name, "usb%d");
+-	memcpy (net->dev_addr, node_id, sizeof node_id);
++	random_ether_addr(net->dev_addr);
+ 
+ 	/* rx and tx sides can use different message sizes;
+ 	 * bind() should set rx_urb_size in that case.
+@@ -1310,7 +1307,6 @@ static int __init usbnet_init(void)
+ 	BUILD_BUG_ON (sizeof (((struct sk_buff *)0)->cb)
+ 			< sizeof (struct skb_data));
+ 
+-	random_ether_addr(node_id);
+ 	return 0;
+ }
+ module_init(usbnet_init);
