@@ -1,55 +1,54 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
- 2.6.27
-Date: Tue, 6 Jan 2009 21:10:28 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901062106340.26105@wrl-59.cs.helsinki.fi>
-References: <bug-12327-10286@http.bugzilla.kernel.org/>
- <20081229214101.4c4f5ac1.akpm@linux-foundation.org>
- <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com>
- <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Speedster <speedster@haveacry.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: [PATCH] gianfar: ensure ECNTRL[R100] is cleared on link state change
+Date: Tue,  6 Jan 2009 14:52:51 -0600
+Message-ID: <1231275171-21388-1-git-send-email-galak@kernel.crashing.org>
+Cc: linuxppc-dev@ozlabs.org, afleming@freescale.com,
+	davem@davemloft.net, Leo Li <leo@rock.ap.freescale.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47377 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846AbZAFTKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 14:10:30 -0500
-In-Reply-To: <4961ECD2.1000502@haveacry.com>
-Content-ID: <Pine.LNX.4.64.0901062106342.26105@wrl-59.cs.helsinki.fi>
+Received: from gate.crashing.org ([63.228.1.57]:46067 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751390AbZAFUzG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 15:55:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 5 Jan 2009, Speedster wrote:
+From: Leo Li <leo@rock.ap.freescale.net>
 
-> Herbert Xu wrote:
-> > On Wed, Dec 31, 2008 at 11:22:23PM +0000, Speedster wrote:
-> > > The gateway machine (whinge) runs as a KVM guest, and shares a physical
-> > > host with three other guests (one Windows, two Linux). Below are the
-> > > outputs of bridge topology and VLAN tagging on the physical host.
-> > 
-> > What driver are you using on whinge?
-> > 
-> > When you took the packet dumps, was it on whinge or the physical
-> > host? If it was taken on whinge, can you try to take the same
-> > dumps on the outgoing physical interface on the host?
-> > 
-> > Thanks,
-> 
-> I have tried both virtio and the default (8139too).
+When changing the link between 100Mbps and 1Gbps in SGMII mode it was
+found out that the link would stop working.  The issue is that ECNTRL[R100]
+needs to be cleared when in 1Gbps mode.  Older reference manuals didn't
+require the explicitly clearing but has since been found it that it is
+needed.
 
-And what is the actual eth hw on the host?
+Signed-off-by: Li Yang <leoli@freescale.com>
+Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+---
 
-> The original dumps were taken on whinge, I have attached two new dumps 
-> showing the functional (2.6.24) and non-functional (2.6.27) states from 
-> the host.
+Dave,
 
-At least to me those didn't reveal anything new :-(.
+Please apply for 2.6.29 as it addresses a "HW" bug in real systems.
 
+thanks
+
+- k
+
+ drivers/net/gianfar.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index c672ecf..7fcc3af 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1973,6 +1973,8 @@ static void adjust_link(struct net_device *dev)
+ 			case 1000:
+ 				tempval =
+ 				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_GMII);
++
++				ecntrl &= ~(ECNTRL_R100);
+ 				break;
+ 			case 100:
+ 			case 10:
 -- 
- i.
+1.5.6.5
+
