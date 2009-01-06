@@ -1,37 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Mon, 05 Jan 2009 22:07:42 -0800 (PST)
-Message-ID: <20090105.220742.176919041.davem@davemloft.net>
-References: <20090105.204934.65827705.davem@davemloft.net>
-	<3f9a31f40901052114t68cac881md439bf24b602f269@mail.gmail.com>
-	<20090106055144.GA11695@uranus.ravnborg.org>
+From: Wu Fengguang <wfg@linux.intel.com>
+Subject: [PATCH] dm9601: handle corrupt mac address
+Date: Tue, 6 Jan 2009 14:14:14 +0800
+Message-ID: <20090106061414.GA3677@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jaswinderlinux@gmail.com, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dwmw2@infradead.org
-To: sam@ravnborg.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Korsgaard <jacmet@sunsite.dk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43194
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751167AbZAFGHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 01:07:40 -0500
-In-Reply-To: <20090106055144.GA11695@uranus.ravnborg.org>
+Received: from mga12.intel.com ([143.182.124.36]:51842 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751167AbZAFGOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 01:14:17 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Tue, 6 Jan 2009 06:51:44 +0100
+Some cheap devices ship with dangling EEPROM pins!
+They always return invalid address ff:ff:ff:ff:ff:ff.
 
-> We should avoid a central file and push this information
-> out to the Kconfig files that are at the driver site.
-> 
-> Then we can postprocess autoconf.h to get the filenames etc.
+Inherit the auto-generated address in this case,
+so that these products can work with zero configuration.
 
-I'll take this opportunity to once again promote my idea wherein build
-information (and perhaps other bits like firmware info) for a driver
-is encoded into the source of the driver itself, and the build system
-just extracts that stuff into Makefiles and whatnot at build time. :-)
+Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+---
+ drivers/net/usb/dm9601.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Couldn't resist.
+--- linux-2.6.orig/drivers/net/usb/dm9601.c
++++ linux-2.6/drivers/net/usb/dm9601.c
+@@ -413,6 +413,7 @@ static int dm9601_set_mac_address(struct
+ static int dm9601_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	int ret;
++	u8 mac[ETH_ALEN];
+ 
+ 	ret = usbnet_get_endpoints(dev, intf);
+ 	if (ret)
+@@ -437,12 +438,18 @@ static int dm9601_bind(struct usbnet *de
+ 	udelay(20);
+ 
+ 	/* read MAC */
+-	if (dm_read(dev, DM_PHY_ADDR, ETH_ALEN, dev->net->dev_addr) < 0) {
++	if (dm_read(dev, DM_PHY_ADDR, ETH_ALEN, mac) < 0) {
+ 		printk(KERN_ERR "Error reading MAC address\n");
+ 		ret = -ENODEV;
+ 		goto out;
+ 	}
+ 
++	/*
++	 * Overwrite the auto-generated address only with good ones.
++	 */
++	if (is_valid_ether_addr(mac))
++		memcpy(dev->net->dev_addr, mac, ETH_ALEN);
++
+ 	/* power up phy */
+ 	dm_write_reg(dev, DM_GPR_CTRL, 1);
+ 	dm_write_reg(dev, DM_GPR_DATA, 0);
