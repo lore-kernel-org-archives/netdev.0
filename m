@@ -1,29 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/8] bonding: use net_device_ops
-Date: Tue, 06 Jan 2009 10:42:04 -0800 (PST)
-Message-ID: <20090106.104204.28167286.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 3/8] wireless: convert wireless ioctl to net_device_ops
+Date: Tue, 06 Jan 2009 10:42:31 -0800 (PST)
+Message-ID: <20090106.104231.217868582.davem@davemloft.net>
 References: <20090105201442.749889072@vyatta.com>
-	<20090105201514.320689529@vyatta.com>
+	<20090105201514.442703045@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34929
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751386AbZAFSmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 13:42:02 -0500
-In-Reply-To: <20090105201514.320689529@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090105201514.442703045-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 05 Jan 2009 12:14:44 -0800
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Date: Mon, 05 Jan 2009 12:14:45 -0800
 
-> Use the correct pointer in debug message.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
