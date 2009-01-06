@@ -1,38 +1,38 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: dccp test tree [RFC/RFT] [Patch 1/3] dccp: minor Kconfig cosmetics
-Date: Mon, 5 Jan 2009 23:17:29 -0200
-Message-ID: <39e6f6c70901051717p33da63b2ra8dade1da945624@mail.gmail.com>
-References: <20090105144213.GB3773@gerrit.erg.abdn.ac.uk>
-	 <4962AE90.3030706@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Re: [Bugme-new] [Bug 11571] New: u32_classify Kernel
+ Panic
+Date: Mon, 05 Jan 2009 18:14:51 -0800 (PST)
+Message-ID: <20090105.181451.193271284.davem@davemloft.net>
+References: <48D1FDB8.4040805@plotinka.ru>
+	<20080918075351.GA4633@ff.dom.local>
+	<20090105135245.GC4460@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Gerrit Renker" <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Wei Yongjun" <yjwei@cn.fujitsu.com>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:45642 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbZAFBRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 20:17:33 -0500
-In-Reply-To: <4962AE90.3030706@cn.fujitsu.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47505
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751293AbZAFCOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jan 2009 21:14:51 -0500
+In-Reply-To: <20090105135245.GC4460@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 5, 2009 at 11:06 PM, Wei Yongjun <yjwei@cn.fujitsu.com> wrote:
-> Gerrit Renker wrote:
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Mon, 5 Jan 2009 13:52:45 +0000
 
->> +         value. Values in units of milliseconds can be set here.
->> +
->> +         A value of 0 disables this feature by enforcing the value
->> specified
->> +         in RFC 5448. The following values have been suggested as bounds
->> for
->>
->
-> RFC 5448 should be RFC 5348.
+> pkt_sched: cls_u32: Fix locking in u32_change()
+> 
+> New nodes are inserted in u32_change() under rtnl_lock() with wmb(),
+> so without tcf_tree_lock() like in other classifiers (e.g. cls_fw).
+> This isn't enough without rmb() on the read side, but on the other
+> hand adding such barriers doesn't give any savings, so the lock is
+> added instead.
+> 
+> Reported-by: m0sia <m0sia@plotinka.ru>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Indeed.
-
-- Arnaldo
+Applied and queued up for -stable, thanks Jarek.
