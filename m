@@ -1,60 +1,55 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Tue, 6 Jan 2009 19:50:12 +0100
-Message-ID: <20090106185012.GA30322@1wt.eu>
-References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dm9601: warn on invalid mac address
+Date: Tue, 06 Jan 2009 10:52:26 -0800 (PST)
+Message-ID: <20090106.105226.58880881.davem@davemloft.net>
+References: <20090106091050.GA19316@localhost>
+	<87zli4u71i.fsf@macbook.be.48ers.dk>
+	<1231242755.3789.9.camel@deadeye.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jacmet@sunsite.dk, wfg@linux.intel.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1138 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752840AbZAFSuX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 13:50:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20090106183223.GA11964@ioremap.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43197
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750988AbZAFSwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 13:52:24 -0500
+In-Reply-To: <1231242755.3789.9.camel@deadeye.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Evgeniy,
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 06 Jan 2009 11:52:35 +0000
 
-On Tue, Jan 06, 2009 at 09:32:23PM +0300, Evgeniy Polyakov wrote:
-> Hi Willy.
+> On Tue, 2009-01-06 at 10:18 +0100, Peter Korsgaard wrote:
+> > >>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
+> > 
+> > Hi,
+> > 
+> >  Wu> Add warnings on invalid mac address to help disclose/debug problems.
+> >  Wu> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+> >  Wu> ---
+> >  Wu>  drivers/net/usb/dm9601.c |   12 +++++++++++-
+> >  Wu>  1 file changed, 11 insertions(+), 1 deletion(-)
+> > 
+> >  Wu> --- linux-2.6.orig/drivers/net/usb/dm9601.c
+> >  Wu> +++ linux-2.6/drivers/net/usb/dm9601.c
+> >  Wu> @@ -401,8 +401,12 @@ static int dm9601_set_mac_address(struct
+> >  Wu>  	struct sockaddr *addr = p;
+> >  Wu>  	struct usbnet *dev = netdev_priv(net);
+> >  
+> >  Wu> -	if (!is_valid_ether_addr(addr->sa_data))
+> >  Wu> +	if (!is_valid_ether_addr(addr->sa_data)) {
+> >  Wu> +		DECLARE_MAC_BUF(mac_buf);
+> >  Wu> +		print_mac(mac_buf, addr->sa_data);
+> >  Wu> +		dev_warn(&net->dev, "not setting invalid mac address %s\n", mac_buf);
+> > 
+> > This should be an error and not a warning.
+> > Notice that print_mac returns the string, so you can do:
+> > 
+> > dev_err(&net->dev, "... %s", print_mac(mac_buf, addr->sa_data));
 > 
-> Unfortunately I can not work on this problem right now, but will do if
-> things are not resolved after Jan 11 (long vacations will be finished in
-> Russia and I will return to my test machines :) But right now I have
-> one quesstion: I read several times your mail but still can not figure
-> out if receiving or sending side is broken?
-> 
-> I.e. can you splice from socket into the file, check the file, and then
-> splice to the another socket and check received data to find out which
-> side is broken? Or did I just missed that in the problem description?
+> print_mac() is already obsolete; use %pM in the format string instead.
 
-Maybe I wasn't very clear. It's only when splicing from a socket to another
-socket that it breaks. Splicing from a file to a socket is OK (sendfile is
-OK too BTW). Splicing from a socket to a file is OK.
-
-And BTW, the receiving side must be on a real interface, not loopback. Here
-are my observations :
-  - splice data from lo to lo     => no corruption at all
-  - splice data from lo to eth0   => no corruption at all
-  - splice data from eth0 to lo   => occasional corruption
-  - splice data from eth0 to eth0 => massive corruption
-
-I think this may ring a bell for someone.
-
-> Thanks a lot for the test application, it will greatly help to resolve
-> this issue.
-
-I figured it was an absolute necessity. The original code in my proxy is in
-an experimental state and far too hard to debug for these purposes. It was
-enough to detect the problem, but I could run a lot more tests with this
-small test app ! An who know, maybe it will serve as an example for
-non-blocking splice ;-)
-
-Cheers,
-Willy
-
+Yep, please fix this.
