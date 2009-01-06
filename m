@@ -1,221 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Mon, 05 Jan 2009 18:31:06 -0800 (PST)
-Message-ID: <20090105.183106.252630446.davem@davemloft.net>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: [BUG] INFO: inconsistent lock state
+Date: Tue, 06 Jan 2009 10:34:10 +0800
+Message-ID: <4962C322.8000201@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33155
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751585AbZAFCbF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jan 2009 21:31:05 -0500
+Received: from cn.fujitsu.com ([222.73.24.84]:63114 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751286AbZAFCfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jan 2009 21:35:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I am using Linus' tree, and the top commit is:
 
-Largely there are healthy chunks of driver bug fixes and sparse
-warning cures here.  But, otherwise:
+commit fe0bdec68b77020281dc814805edfe594ae89e0f
+Merge: 099e657... 5af75d8...
+Author: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Sun Jan 4 16:32:11 2009 -0800
 
-1) TCP splice receive non-block semantic cures from Lennert Buytenhek.
+    Merge branch 'audit.b61' of git://git.kernel.org/pub/scm/linux/kernel/git/viro/audit-current
 
-2) GRO enhancements from Herbert Xu.
+don't know how I triggered this, and not sure whom to CC, network related?
 
-3) IPV6 routing cache entry creation needs to run a quick
-   garbage collection when the neighbour table overflows,
-   otherwise we'll fail unnecessarily and give bogus
-   -EINVAL errors to sendmsg() calls when sending to multicast
-   groups.
+=================================
+[ INFO: inconsistent lock state ]
+2.6.28 #483
+---------------------------------
+inconsistent {softirq-on-W} -> {in-softirq-W} usage.
+swapper/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
+ (&fbc->lock){-+..}, at: [<c05127a6>] __percpu_counter_add+0x52/0x7a
+{softirq-on-W} state was registered at:
+  [<c044bcd2>] __lock_acquire+0x539/0x700
+  [<c044bef6>] lock_acquire+0x5d/0x7a
+  [<c061ca68>] _spin_lock+0x20/0x2f
+  [<c05127a6>] __percpu_counter_add+0x52/0x7a
+  [<c049d615>] get_empty_filp+0x97/0x135
+  [<c04a59c2>] path_lookup_open+0x23/0x7a
+  [<c04a5ac0>] do_filp_open+0xa7/0x659
+  [<c049af1d>] do_sys_open+0x49/0xbe
+  [<c049afde>] sys_open+0x23/0x2b
+  [<c040332a>] syscall_call+0x7/0xb
+  [<ffffffff>] 0xffffffff
+irq event stamp: 3606392
+hardirqs last  enabled at (3606392): [<c061ce03>] _spin_unlock_irqrestore+0x3b/0x41
+hardirqs last disabled at (3606391): [<c061cd31>] _spin_lock_irqsave+0x14/0x39
+softirqs last  enabled at (3606338): [<c0430aef>] __do_softirq+0x135/0x13d
+softirqs last disabled at (3606369): [<c0404ab6>] do_softirq+0x6a/0xc0
 
-4) U32 packet classifier locking fix from Jarek Poplawski.
+other info that might help us debug this:
+4 locks held by swapper/0:
+ #0:  (rcu_read_lock){..--}, at: [<c05c3226>] net_rx_action+0x57/0x194
+ #1:  (rcu_read_lock){..--}, at: [<c05c0a7b>] netif_receive_skb+0x123/0x2c3
+ #2:  (rcu_read_lock){..--}, at: [<c05da9dc>] ip_local_deliver+0x4b/0x119
+ #3:  (slock-AF_INET/1){-+..}, at: [<c05f1eec>] tcp_v4_rcv+0x237/0x50f
 
-5) Some of the remaining net driver firmware conversions.
-   Other than these the e100 is the only one pending with
-   a patch that I am aware of, and Intel folks are testing
-   that one out before I apply it.
-
-Please pull, thanks a lot!
-
-The following changes since commit fe0bdec68b77020281dc814805edfe594ae8=
-9e0f:
-  Linus Torvalds (1):
-        Merge branch 'audit.b61' of git://git.kernel.org/.../viro/audit=
--current
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Baruch Siach (1):
-      enc28j60: fix RX buffer overflow
-
-Brice Goglin (1):
-      myri10ge: print MAC and serial number on probe failure
-
-Bruce Allan (1):
-      e100: cosmetic cleanup
-
-David S. Miller (4):
-      ipv6: Fix sporadic sendmsg -EINVAL when sending to multicast grou=
-ps.
-      tcp: Kill extraneous SPLICE_F_NONBLOCK checks.
-      Revert "net: Fix for initial link state in 2.6.28"
-
-=46rank Blaschka (1):
-      qeth: do not spin for SETIP ip assist command
-
-Gerrit Renker (4):
-      tun: Eliminate sparse signedness warning
-      dccp: Lockless integration of CCID congestion-control plugins
-      dccp: Clean up ccid.c after integration of CCID plugins
-      dccp: Integrate the TFRC library with DCCP
-
-Heiko Carstens (2):
-      qeth: get rid of extra argument after printk to dev_* conversion
-      iucv: fix cpu hotplug
-
-Hendrik Brueckner (2):
-      af_iucv: New error return codes for connect()
-      af_iucv: Free iucv path/socket in path_pending callback
-
-Herbert Xu (2):
-      gro: Use gso_size to store MSS
-      gro: Add page frag support
-
-Ilpo J=E4rvinen (1):
-      ipv6: IPV6_PKTINFO relied userspace providing correct length
-
-Jarek Poplawski (1):
-      pkt_sched: cls_u32: Fix locking in u32_change()
-
-Jaswinder Singh (1):
-      firmware: convert acenic driver to request_firmware()
-
-Jaswinder Singh Rajput (2):
-      firmware: convert tg3 driver to request_firmware()
-      starfire: use request_firmware()
-
-Klaus-Dieter Wacker (2):
-      qeth: HiperSockets mcl string conversion (pre z9 mach)
-      qeth: No large send using EDDP for HiperSockets.
-
-Lennert Buytenhek (1):
-      tcp: don't mask EOF and socket errors on nonblocking splice recei=
-ve
-
-Michael Marineau (1):
-      net: Fix for initial link state in 2.6.28
-
-Oliver Hartkopp (1):
-      can: update can-bcm for hrtimer hardirq callbacks
-
-Roel Kluin (2):
-      isdn: capi: &&/|| typos
-      DCB: fix kfree(skb)
-
-Ron Mercer (10):
-      qlge: bugfix: Add missing pci_mapping_err checking.
-      qlge: bugfix: Add missing pci_unmap_page call in receive path.
-      qlge: bugfix: Fix shadow register endian issue.
-      qlge: bugfix: Fix ring length setting for rx ring, large/small
-      qlge: bugfix: Fix register access error checking.
-      qlge: Fix sparse warnings for byte swapping in qlge_ethool.c
-      qlge: Fix sparse endian warning for inbound packet control block =
-flags.
-      qlge: Fix sparse endian warning in ql_hw_csum_setup().
-      qlge: Fix sparse warning regarding rx buffer queues.
-      qlge: Fix sparse warnings for tx ring indexes.
-
-Simon Holm Th=F8gersen (1):
-      net/rfkill/rfkill.c: fix unused rfkill_led_trigger() warning
-
-Stephen Rothwell (1):
-      net/ehea: bitops work on unsigned longs
-
-Ursula Braun (3):
-      qeth: exploit source MAC address for inbound layer3 packets
-      qeth: avoid crash in case of layer mismatch for VSWITCH
-      af_iucv: avoid left over IUCV connections from failing connects
-
- drivers/isdn/capi/capidrv.c           |    4 +-
- drivers/net/acenic.c                  |  117 +-
- drivers/net/acenic.h                  |    4 +
- drivers/net/e100.c                    |  268 +-
- drivers/net/ehea/ehea.h               |    3 +-
- drivers/net/ehea/ehea_main.c          |    2 +-
- drivers/net/enc28j60.c                |    4 +-
- drivers/net/myri10ge/myri10ge.c       |    6 +-
- drivers/net/qlge/qlge.h               |   57 +-
- drivers/net/qlge/qlge_dbg.c           |   13 +-
- drivers/net/qlge/qlge_ethtool.c       |    8 +-
- drivers/net/qlge/qlge_main.c          |  116 +-
- drivers/net/starfire.c                |   54 +-
- drivers/net/starfire_firmware.h       |  346 ---
- drivers/net/starfire_firmware.pl      |   31 -
- drivers/net/tg3.c                     |  792 +-----
- drivers/net/tg3.h                     |    4 +
- drivers/net/tun.c                     |    2 +-
- drivers/s390/net/qeth_core.h          |    1 -
- drivers/s390/net/qeth_core_main.c     |   57 +-
- drivers/s390/net/qeth_l2_main.c       |    8 +-
- drivers/s390/net/qeth_l3_main.c       |   26 +-
- firmware/Makefile                     |   11 +
- firmware/WHENCE                       |   49 +
- firmware/acenic/tg1.bin.ihex          | 4573 +++++++++++++++++++++++++=
-++++++
- firmware/acenic/tg2.bin.ihex          | 4844 +++++++++++++++++++++++++=
-++++++++
- firmware/adaptec/starfire_rx.bin.ihex |   53 +
- firmware/adaptec/starfire_tx.bin.ihex |   53 +
- firmware/tigon/tg3.bin.ihex           |  175 ++
- firmware/tigon/tg3_tso.bin.ihex       |  446 +++
- firmware/tigon/tg3_tso5.bin.ihex      |  252 ++
- include/linux/netdevice.h             |   16 +-
- include/net/ndisc.h                   |    4 +-
- net/can/bcm.c                         |  208 +-
- net/core/dev.c                        |   93 +-
- net/core/skbuff.c                     |   15 +-
- net/dcb/dcbnl.c                       |   14 +-
- net/dccp/Kconfig                      |    4 -
- net/dccp/Makefile                     |   15 +-
- net/dccp/ackvec.h                     |   49 -
- net/dccp/ccid.c                       |  254 +--
- net/dccp/ccid.h                       |   14 +-
- net/dccp/ccids/Kconfig                |   79 +-
- net/dccp/ccids/Makefile               |    9 -
- net/dccp/ccids/ccid2.c                |   22 +-
- net/dccp/ccids/ccid3.c                |   23 +-
- net/dccp/ccids/lib/Makefile           |    3 -
- net/dccp/ccids/lib/loss_interval.c    |    3 -
- net/dccp/ccids/lib/packet_history.c   |    9 -
- net/dccp/ccids/lib/tfrc.c             |   19 +-
- net/dccp/ccids/lib/tfrc.h             |   11 +-
- net/dccp/ccids/lib/tfrc_equation.c    |    4 -
- net/dccp/dccp.h                       |    2 -
- net/dccp/feat.c                       |    6 +-
- net/dccp/input.c                      |    2 -
- net/dccp/proto.c                      |    7 +
- net/ipv4/tcp.c                        |    9 +-
- net/ipv6/ipv6_sockglue.c              |    2 +-
- net/ipv6/route.c                      |   52 +-
- net/iucv/af_iucv.c                    |   28 +-
- net/iucv/iucv.c                       |   18 +-
- net/rfkill/rfkill.c                   |    4 +-
- net/sched/cls_u32.c                   |    3 +-
- 63 files changed, 11470 insertions(+), 1910 deletions(-)
- delete mode 100644 drivers/net/starfire_firmware.h
- delete mode 100644 drivers/net/starfire_firmware.pl
- create mode 100644 firmware/acenic/tg1.bin.ihex
- create mode 100644 firmware/acenic/tg2.bin.ihex
- create mode 100644 firmware/adaptec/starfire_rx.bin.ihex
- create mode 100644 firmware/adaptec/starfire_tx.bin.ihex
- create mode 100644 firmware/tigon/tg3.bin.ihex
- create mode 100644 firmware/tigon/tg3_tso.bin.ihex
- create mode 100644 firmware/tigon/tg3_tso5.bin.ihex
- delete mode 100644 net/dccp/ccids/Makefile
- delete mode 100644 net/dccp/ccids/lib/Makefile
-
+stack backtrace:
+Pid: 0, comm: swapper Not tainted 2.6.28-mc #483
+Call Trace:
+ [<c0449246>] print_usage_bug+0x155/0x161
+ [<c0449e2e>] mark_lock+0x34b/0x905
+ [<c044bc5a>] __lock_acquire+0x4c1/0x700
+ [<c044bef6>] lock_acquire+0x5d/0x7a
+ [<c05127a6>] ? __percpu_counter_add+0x52/0x7a
+ [<c061ca68>] _spin_lock+0x20/0x2f
+ [<c05127a6>] ? __percpu_counter_add+0x52/0x7a
+ [<c05127a6>] __percpu_counter_add+0x52/0x7a
+ [<c05f1403>] tcp_v4_destroy_sock+0x15d/0x165
+ [<c05e184b>] inet_csk_destroy_sock+0x8c/0xbd
+ [<c05e2a5d>] tcp_done+0x5e/0x61
+ [<c05eba12>] tcp_rcv_state_process+0x7b9/0x8ad
+ [<c05f1eec>] ? tcp_v4_rcv+0x237/0x50f
+ [<c05f0901>] tcp_v4_do_rcv+0x138/0x17d
+ [<c05f217d>] tcp_v4_rcv+0x4c8/0x50f
+ [<c05daa2d>] ip_local_deliver+0x9c/0x119
+ [<c05daeb5>] ip_rcv+0x40b/0x452
+ [<c05c0bd5>] netif_receive_skb+0x27d/0x2c3
+ [<f83f06f0>] rtl8169_rx_interrupt+0x2de/0x39a [r8169]
+ [<f83f1963>] rtl8169_poll+0x34/0x155 [r8169]
+ [<c05c3291>] net_rx_action+0xc2/0x194
+ [<c0430a44>] __do_softirq+0x8a/0x13d
+ [<c04309ba>] ? __do_softirq+0x0/0x13d
+ <IRQ>  [<c046891f>] ? handle_fasteoi_irq+0x0/0xb5
+ [<c043098c>] ? irq_exit+0x49/0x77
+ [<c0404bbf>] ? do_IRQ+0xb3/0xcc
+ [<c04038ac>] ? common_interrupt+0x2c/0x34
+ [<c044007b>] ? hrtimer_get_next_event+0x55/0xc0
+ [<c0408541>] ? mwait_idle+0x41/0x4c
+ [<c0401dd0>] ? cpu_idle+0x78/0x91
+ [<c0617ad4>] ? start_secondary+0x193/0x198
