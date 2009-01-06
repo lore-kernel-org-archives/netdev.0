@@ -1,62 +1,56 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH] dm9601: warn on invalid mac address
-Date: Tue, 06 Jan 2009 12:17:56 +0100
-Message-ID: <87r63gu1i3.fsf@macbook.be.48ers.dk>
+Date: Tue, 06 Jan 2009 11:52:35 +0000
+Message-ID: <1231242755.3789.9.camel@deadeye.i.decadent.org.uk>
 References: <20090106091050.GA19316@localhost>
-	<87zli4u71i.fsf@macbook.be.48ers.dk>
-	<20090106094757.GA19587@localhost>
+	 <87zli4u71i.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Wu Fengguang <wfg@linux.intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Wu Fengguang <wfg@linux.intel.com>, netdev@vger.kernel.org
+To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:11447 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292AbZAFLSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 06:18:00 -0500
-Received: by ey-out-2122.google.com with SMTP id 22so911424eye.37
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2009 03:17:58 -0800 (PST)
-In-Reply-To: <20090106094757.GA19587@localhost> (Wu Fengguang's message of "Tue\, 6 Jan 2009 17\:47\:57 +0800")
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:3853 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750878AbZAFLwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 06:52:50 -0500
+In-Reply-To: <87zli4u71i.fsf@macbook.be.48ers.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
+On Tue, 2009-01-06 at 10:18 +0100, Peter Korsgaard wrote:
+> >>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
+> 
+> Hi,
+> 
+>  Wu> Add warnings on invalid mac address to help disclose/debug problems.
+>  Wu> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+>  Wu> ---
+>  Wu>  drivers/net/usb/dm9601.c |   12 +++++++++++-
+>  Wu>  1 file changed, 11 insertions(+), 1 deletion(-)
+> 
+>  Wu> --- linux-2.6.orig/drivers/net/usb/dm9601.c
+>  Wu> +++ linux-2.6/drivers/net/usb/dm9601.c
+>  Wu> @@ -401,8 +401,12 @@ static int dm9601_set_mac_address(struct
+>  Wu>  	struct sockaddr *addr = p;
+>  Wu>  	struct usbnet *dev = netdev_priv(net);
+>  
+>  Wu> -	if (!is_valid_ether_addr(addr->sa_data))
+>  Wu> +	if (!is_valid_ether_addr(addr->sa_data)) {
+>  Wu> +		DECLARE_MAC_BUF(mac_buf);
+>  Wu> +		print_mac(mac_buf, addr->sa_data);
+>  Wu> +		dev_warn(&net->dev, "not setting invalid mac address %s\n", mac_buf);
+> 
+> This should be an error and not a warning.
+> Notice that print_mac returns the string, so you can do:
+> 
+> dev_err(&net->dev, "... %s", print_mac(mac_buf, addr->sa_data));
 
-Hi,
+print_mac() is already obsolete; use %pM in the format string instead.
 
- Wu> if (is_valid_ether_addr(mac))
- Wu> memcpy(dev->net->dev_addr, mac, ETH_ALEN);
- Wu> +	else {
- Wu> +		DECLARE_MAC_BUF(mac_buf);
- Wu> +		print_mac(mac_buf, mac);
- Wu> +		devdbg(dev, "EEPROM reported mac address %s is invalid,"
- Wu> +				" use the randomly generated one.", mac_buf);
- >> 
- >> And this should be a warning.
-
- Wu> Then let the warning message appear repeatedly for some devices?
-
-This is called at probe time - But yes, I think it makes sense to print
-it.
-
-We should print the random address instead of the ff's though.
-
- Wu> Also dev_warn() won't be able to show the device name at that time,
- Wu> like this:
-
-Ah yes, that's presumably why I used a raw printk just above.
-
- Wu> [28489.062180] : EEPROM reported mac address ff:ff:ff:ff:ff:ff is
- Wu> invalid, use the randomly generated one.
-
-I would prefer something like:
-
-printk(KERN_WARNING "dm9601: No valid MAC address in EEPROM, using %s\n",
-       print_mac(..));
-
-Also, it seems like you're not writing the random address to the
-hardware registers, so you won't be able to receive any unicast -
-You'll need to add a call to dm9601_set_mac_address() or similar.
+Ben.
 
 -- 
-Bye, Peter Korsgaard
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
