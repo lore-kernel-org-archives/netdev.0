@@ -1,58 +1,47 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] dm9601: handle corrupt mac address
-Date: Tue, 06 Jan 2009 09:42:01 +0100
-Message-ID: <874p0cvnae.fsf@macbook.be.48ers.dk>
-References: <20090106061414.GA3677@localhost>
-	<87hc4cvp05.fsf@macbook.be.48ers.dk>
-	<20090106082928.GB19690@localhost>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Tue, 6 Jan 2009 08:54:42 +0000
+Message-ID: <20090106085442.GA9513@ff.dom.local>
+References: <20081224152841.GB13113@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Wu Fengguang <wfg@linux.intel.com>, dbrownell@users.sourceforge.net
+Cc: Jens Axboe <jens.axboe@oracle.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:58358 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbZAFImH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 03:42:07 -0500
-Received: by ey-out-2122.google.com with SMTP id 22so904818eye.37
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2009 00:42:04 -0800 (PST)
-In-Reply-To: <20090106082928.GB19690@localhost> (Wu Fengguang's message of "Tue\, 6 Jan 2009 16\:29\:28 +0800")
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:33311 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711AbZAFIyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 03:54:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20081224152841.GB13113@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
+On 24-12-2008 16:28, Willy Tarreau wrote:
+> Hi Jens,
+> 
+> I'm facing a data corruption problem with splice() between two
+> non-blocking TCP sockets on 2.6.27.10. I could finally write a
+> simpler proof of concept, and capture a snapshot of the issue
+> with the associated strace result.
+...
+> I found an analysis [1] for a potential corruption problem between two
+> sockets, but I noticed there were no responses and I did not fully
+> understand the report anyway.
+> 
+> What can I do to help debug the problem ? I'm really willing to help
+> getting this fixed, and I also have at least one user who definitely
+> wants splice() to work because the recv/send model currently limits
+> haproxy to 3 Gbps on his machines, while I have no problem reaching
+> 10 Gbps with splice().
+...
+> ----
+> [1] http://lkml.org/lkml/2008/2/26/210
 
-Hi,
+Great story! Alas I don't understand this fully either, but it seems
+Changli Gao was concerned with sendpage sending this "as pages", so
+when NETIF_F_SG flag is available. Did you try this without SG btw?
 
- >> Do we automatically get a random address in netdev nowadays without
- >> calling random_ether_addr? I didn't know that.
-
- Wu> I confirmed based on both code review and tests.
- Wu> The logic goes like this in usbnet.c:
-
- Wu>   80 // randomly generated ethernet address
- Wu>   81 static u8       node_id [ETH_ALEN];
- Wu> ...
- Wu> 1118 int
- Wu> 1119 usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- Wu> 1120 {
- Wu> ...
- Wu> 1168         dev->net = net;
- Wu> 1169         strcpy (net->name, "usb%d");
- Wu> 1170         memcpy (net->dev_addr, node_id, sizeof node_id);
- Wu> ...
-
-So what happens if you plug in 2 devices without an EEPROM? Do they
-get the same MAC address? That seems broken.
-
- >> Anyway, I would prefer to add a dev_warn mentioning the fact that
- >> we're using a random address (and which one).
-
- Wu> I'll do that in another patch. Since I'd like to add one more similar
- Wu> warning to dm9601_set_mac_address(). That warning helped me identify
- Wu> this bug.
-
-Ok.
-
--- 
-Bye, Peter Korsgaard
+Thanks,
+Jarek P.
