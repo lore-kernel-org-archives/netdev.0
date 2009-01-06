@@ -1,56 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] dm9601: warn on invalid mac address
-Date: Tue, 06 Jan 2009 11:52:35 +0000
-Message-ID: <1231242755.3789.9.camel@deadeye.i.decadent.org.uk>
-References: <20090106091050.GA19316@localhost>
-	 <87zli4u71i.fsf@macbook.be.48ers.dk>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: dccp test tree [RFC/RFT] [Patch 1/3] dccp: minor Kconfig
+	cosmetics
+Date: Tue, 6 Jan 2009 13:22:23 +0100
+Message-ID: <20090106122222.GA4448@gerrit.erg.abdn.ac.uk>
+References: <20090105144213.GB3773@gerrit.erg.abdn.ac.uk> <4962AE90.3030706@cn.fujitsu.com> <39e6f6c70901051717p33da63b2ra8dade1da945624@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Wu Fengguang <wfg@linux.intel.com>, netdev@vger.kernel.org
-To: Peter Korsgaard <jacmet@sunsite.dk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:3853 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750878AbZAFLwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 06:52:50 -0500
-In-Reply-To: <87zli4u71i.fsf@macbook.be.48ers.dk>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:34245 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751823AbZAFMWl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 07:22:41 -0500
+Content-Disposition: inline
+In-Reply-To: <39e6f6c70901051717p33da63b2ra8dade1da945624@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-01-06 at 10:18 +0100, Peter Korsgaard wrote:
-> >>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
-> 
-> Hi,
-> 
->  Wu> Add warnings on invalid mac address to help disclose/debug problems.
->  Wu> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
->  Wu> ---
->  Wu>  drivers/net/usb/dm9601.c |   12 +++++++++++-
->  Wu>  1 file changed, 11 insertions(+), 1 deletion(-)
-> 
->  Wu> --- linux-2.6.orig/drivers/net/usb/dm9601.c
->  Wu> +++ linux-2.6/drivers/net/usb/dm9601.c
->  Wu> @@ -401,8 +401,12 @@ static int dm9601_set_mac_address(struct
->  Wu>  	struct sockaddr *addr = p;
->  Wu>  	struct usbnet *dev = netdev_priv(net);
->  
->  Wu> -	if (!is_valid_ether_addr(addr->sa_data))
->  Wu> +	if (!is_valid_ether_addr(addr->sa_data)) {
->  Wu> +		DECLARE_MAC_BUF(mac_buf);
->  Wu> +		print_mac(mac_buf, addr->sa_data);
->  Wu> +		dev_warn(&net->dev, "not setting invalid mac address %s\n", mac_buf);
-> 
-> This should be an error and not a warning.
-> Notice that print_mac returns the string, so you can do:
-> 
-> dev_err(&net->dev, "... %s", print_mac(mac_buf, addr->sa_data));
+Quoting Arnaldo Carvalho de Melo:
+| On Mon, Jan 5, 2009 at 11:06 PM, Wei Yongjun <yjwei@cn.fujitsu.com> wrote:
+| > Gerrit Renker wrote:
+| 
+| >> +         value. Values in units of milliseconds can be set here.
+| >> +
+| >> +         A value of 0 disables this feature by enforcing the value
+| >> specified
+| >> +         in RFC 5448. The following values have been suggested as bounds
+| >> for
+| >>
+| >
+| > RFC 5448 should be RFC 5348.
+| 
+| Indeed.
+| 
+A genuine blunder - I had verified the section references but not the
+RFC number. It is really good to see that people do look: that is why
+I don't make changes to the test tree without also submitting these.
 
-print_mac() is already obsolete; use %pM in the format string instead.
+The only exception to this rule are a few patches that have been
+deleted, such as the one to auto-load CCIDs, and 2 patches that became
+obsolete in the CCID-4 tree. At the moment I don't know what to do
+with that CCID-4 tree, will just keep it up-to-date, it might be good to
+reorganise the about 20 patches some time.
 
-Ben.
+Again thanks a lot to you, Wei, and Ian
+Gerrit
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Just fixed it in the test tree
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git;a=commitdiff;h=11fc1dc11eafab0bd18c22f717a9b2155a383383
