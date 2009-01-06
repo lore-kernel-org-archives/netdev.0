@@ -1,40 +1,35 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Problem using iptables MARK from tc.
-Date: Tue, 06 Jan 2009 14:24:36 +0100
-Message-ID: <1231248276.11025.148.camel@amd64.fatal.se>
+From: "Motorola Company" <info@winner.com>
+Subject: MOTOROLA  PROMOTION
+Date: Tue, 06 Jan 2009 09:17:40 -0600
+Message-ID: <43TH5iYo.1231255060.1976020.transint@cablenet.com.ni>
+Reply-To: "Motorola Company" <pr_moto@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: info@winner.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:56240 "EHLO
-	amd64.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751588AbZAFOMG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 09:12:06 -0500
+Received: from mail.cablenet.com.ni ([165.98.148.3]:48135 "EHLO
+	mail.cablenet.com.ni" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859AbZAFPaL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 10:30:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Patrick and co.
+=46rom the online email ballot promotions held by
+Motorola Company, your email have been approved to claim the
+sum of =A3400,000 (Four hundred thousand pounds) .
 
-I was hoping you might have some time to help out with a problem in tc
-related to iptables modules. A bit of historical knowledge about
-libipt_MARK.c is probably useful.
+To file for claim, you are required to
+provide us with the information below for verification:
 
-The full bug-report is available at:
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=510924
+=46ull Name:
+Mailing address:
+Permanent house address:
+Country of resident:
+Phone Number:
+Age:
+Occupation:
 
-In iproute2's tc/m_ipt.c there's a function called get_target_name with
-some logic to look up a symbol with the same name as the so-file. (ie.
-"mark" for libipt_MARK.so or libxt_MARK.so).
-There seems to have been a structure with that name in the past, but
-nowadays there are several ones which are jacked in with a registration
-hook.
-
-Does this sound about right? Do you have any suggestions on how the tc
-modules functionality could be fixed up to find what it needs properly?
-The structures doesn't even seem to be exported in the ABI anymore...
-
--- 
-Regards,
-Andreas Henriksson
+Reply this email with the information
+for claim
+(pr_moto@yahoo.com.hk)
