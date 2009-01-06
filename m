@@ -1,49 +1,47 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] dm9601: handle corrupt mac address
-Date: Tue, 06 Jan 2009 11:56:16 +0100
-Message-ID: <87vdssu2i7.fsf@macbook.be.48ers.dk>
-References: <20090106061414.GA3677@localhost>
-	<20090106082928.GB19690@localhost>
-	<874p0cvnae.fsf@macbook.be.48ers.dk>
-	<200901060228.16744.david-b@pacbell.net>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: can't apply sch_multiq
+Date: Tue, 06 Jan 2009 13:57:46 +0300
+Message-ID: <4963392A.2000709@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wu Fengguang <wfg@linux.intel.com>, netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:51424 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751372AbZAFK4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 05:56:21 -0500
-Received: by ewy10 with SMTP id 10so8366449ewy.13
-        for <netdev@vger.kernel.org>; Tue, 06 Jan 2009 02:56:19 -0800 (PST)
-In-Reply-To: <200901060228.16744.david-b@pacbell.net> (David Brownell's message of "Tue\, 6 Jan 2009 02\:28\:16 -0800")
+Received: from mail.bigtelecom.ru ([87.255.0.61]:53128 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751427AbZAFK5u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 05:57:50 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id 3056CA6C3E7
+	for <netdev@vger.kernel.org>; Tue,  6 Jan 2009 13:57:43 +0300 (MSK)
+Received: from mail.bigtelecom.ru ([127.0.0.1])
+	by localhost (mail.bigtelecom.ru [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id H6mTOlwrO9Ut for <netdev@vger.kernel.org>;
+	Tue,  6 Jan 2009 13:57:41 +0300 (MSK)
+Received: from [87.255.0.131] (slavon.bigtelecom.ru [87.255.0.131])
+	by mail.bigtelecom.ru (Postfix) with ESMTP id E0213A6C285
+	for <netdev@vger.kernel.org>; Tue,  6 Jan 2009 13:57:41 +0300 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "David" == David Brownell <david-b@pacbell.net> writes:
+Hello all.
+kernel 2.6.28, iproute2 - 2.6.26 (last release)
 
- David> On Tuesday 06 January 2009, Peter Korsgaard wrote:
- >> So what happens if you plug in 2 devices without an EEPROM? Do they
- >> get the same MAC address? That seems broken.
+Look to Documentation/networking/multiqueue.txt we see:
+---
+The userspace command 'tc,' part of the iproute2 package, is used to
+configure
+qdiscs.  To add the MULTIQ qdisc to your network device, assuming the device
+is called eth0, run the following command:
 
- David> What happens when you unplug one then re-plug it?  Maybe
- David> someone trips over the USB cable, or it gets an electrical
- David> glitch that evalutes to disconnect/reconnect... It gets
- David> the same address again.  Not particularly broken.
+# tc qdisc add dev eth0 root handle 1: multiq
+---
 
- David> Note that Ethernet was *designed* around using a single
- David> address per host ... I still have XNS docs sitting around
- David> somewhere, that was a fairly significant thing.  One of the
- David> original reasons Ethernet adapter addresses could change
- David> was to make sure that all Ethernet interfaces on a host
- David> would use the same address.
+Let's try!
+# tc qdisc add dev eth0 root handle 1: multiq
+RTNETLINK answers: Invalid argument
 
- David> That said ... if it bothers you, that's easy to change
- David> in userspace.  This code has worked this way for around
- David> nine years now; I don't recall any previous complaints.
+Where mistake?
 
-Ok, I don't feel particular strongly about it, just found it odd.
+Thanks for answers!
 
--- 
-Bye, Peter Korsgaard
