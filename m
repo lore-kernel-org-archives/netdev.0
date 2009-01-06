@@ -1,47 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Tue, 06 Jan 2009 08:12:33 -0800 (PST)
-Message-ID: <20090106.081233.50701367.davem@davemloft.net>
-References: <20090106055144.GA11695@uranus.ravnborg.org>
-	<20090105.220742.176919041.davem@davemloft.net>
-	<20090106081135.GA12695@uranus.ravnborg.org>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: can't apply sch_multiq
+Date: Tue, 6 Jan 2009 08:50:15 -0800
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F24A2DE19@orsmsx501.amr.corp.intel.com>
+References: <4963392A.2000709@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jaswinderlinux@gmail.com, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dwmw2@infradead.org
-To: sam@ravnborg.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56006
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751934AbZAFQMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 11:12:32 -0500
-In-Reply-To: <20090106081135.GA12695@uranus.ravnborg.org>
+Received: from mga11.intel.com ([192.55.52.93]:4151 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751355AbZAFQub convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 11:50:31 -0500
+In-Reply-To: <4963392A.2000709@bigtelecom.ru>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Tue, 6 Jan 2009 09:11:35 +0100
+Badalian Vyacheslav wrote:
+> Hello all.
+> kernel 2.6.28, iproute2 - 2.6.26 (last release)
+>
+> Look to Documentation/networking/multiqueue.txt we see:
+> ---
+> The userspace command 'tc,' part of the iproute2 package, is used to
+> configure
+> qdiscs.  To add the MULTIQ qdisc to your network device, assuming the
+> device is called eth0, run the following command:
+>
+> # tc qdisc add dev eth0 root handle 1: multiq
+> ---
+>
+> Let's try!
+> # tc qdisc add dev eth0 root handle 1: multiq
+> RTNETLINK answers: Invalid argument
+>
+> Where mistake?
+>
+> Thanks for answers!
 
-> One of the pratical issues I have with this is when to read which files.
-> 
-> What we could do is something like:
-> 
-> - during *config scan all "wildcard enabled" directories
->   and read the Kconfig info from the relevant .C files.
-> - record which .C files which included Kconfig and do
->   an automatic "scan + oldconfig" when one of these files
->   changes
-> 
-> When we add new Kconfig info to a file we would have
-> to manually do the *config to trigger a scan for the .C files
+The only part that is probably missing is that I don't believe the sch_multiq patch been accepted into the iproute2.  Once that is in then tc should work with the multiq qdisc without any issues.
 
-Yes, this is the only cheap way to do this.
+Thanks,
 
-Note, we are already scanning the full source files using a custom
-tool to generate dependencies.... oh nevermind, we used to use a
-custom tool, we seem to be just transforming gcc -MD output now.
+Alex
 
-Anyways, if we were still using that custom optimized parser we could
-have put the Kconfig/Makefile info extracter in there.
