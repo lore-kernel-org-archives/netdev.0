@@ -1,99 +1,39 @@
-From: Wu Fengguang <wfg@linux.intel.com>
-Subject: Re: [PATCH] dm9601: warn on invalid mac address
-Date: Wed, 7 Jan 2009 12:55:05 +0800
-Message-ID: <20090107045505.GB8071@localhost>
-References: <20090106091050.GA19316@localhost> <87zli4u71i.fsf@macbook.be.48ers.dk> <1231242755.3789.9.camel@deadeye.i.decadent.org.uk> <20090106.105226.58880881.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, jacmet@sunsite.dk,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Michael Stone <michael@laptop.org>
+Subject: RFC: Network privilege separation.
+Date: Wed,  7 Jan 2009 00:48:53 -0500
+Message-ID: <1231307334-9542-1-git-send-email-michael@laptop.org>
+Cc: netdev@vger.kernel.org, Michael Stone <michael@laptop.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:44757 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752394AbZAGEz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 23:55:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20090106.105226.58880881.davem@davemloft.net>
+Received: from lists.laptop.org ([18.85.2.145]:57353 "EHLO mail.laptop.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751470AbZAGF6B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 00:58:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 06, 2009 at 10:52:26AM -0800, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 06 Jan 2009 11:52:35 +0000
-> 
-> > On Tue, 2009-01-06 at 10:18 +0100, Peter Korsgaard wrote:
-> > > >>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
-> > > 
-> > > Hi,
-> > > 
-> > >  Wu> Add warnings on invalid mac address to help disclose/debug problems.
-> > >  Wu> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
-> > >  Wu> ---
-> > >  Wu>  drivers/net/usb/dm9601.c |   12 +++++++++++-
-> > >  Wu>  1 file changed, 11 insertions(+), 1 deletion(-)
-> > > 
-> > >  Wu> --- linux-2.6.orig/drivers/net/usb/dm9601.c
-> > >  Wu> +++ linux-2.6/drivers/net/usb/dm9601.c
-> > >  Wu> @@ -401,8 +401,12 @@ static int dm9601_set_mac_address(struct
-> > >  Wu>  	struct sockaddr *addr = p;
-> > >  Wu>  	struct usbnet *dev = netdev_priv(net);
-> > >  
-> > >  Wu> -	if (!is_valid_ether_addr(addr->sa_data))
-> > >  Wu> +	if (!is_valid_ether_addr(addr->sa_data)) {
-> > >  Wu> +		DECLARE_MAC_BUF(mac_buf);
-> > >  Wu> +		print_mac(mac_buf, addr->sa_data);
-> > >  Wu> +		dev_warn(&net->dev, "not setting invalid mac address %s\n", mac_buf);
-> > > 
-> > > This should be an error and not a warning.
-> > > Notice that print_mac returns the string, so you can do:
-> > > 
-> > > dev_err(&net->dev, "... %s", print_mac(mac_buf, addr->sa_data));
-> > 
-> > print_mac() is already obsolete; use %pM in the format string instead.
-> 
-> Yep, please fix this.
+Dear lkml and netdev,
 
-Thanks for the tip. Here is the updated patch.
+I'm trying to implement a kernel facility for unprivileged processes to
+irrevocably discard their and their future children's ability to perform
+unrestricted network I/O. (Restricted network I/O, e.g. on sockets which were
+connected before the privilege-reduction or on filesystem-based sockets is
+okay.)
 
-Thanks,
-Fengguang
----
-dm9601: warn on invalid mac address
+I want the kernel to provide a facility like this one because such a facility
+will make it much easier for users, authors, and distributors of userland
+software to protect themselves and one another from a broad class of malicious
+software.
 
-Add warnings on invalid mac address to help disclose/debug problems.
+For the sake of discussion, I have written up and documented one possible
+implementation of this concept based on the idea of a new rlimit named
+RLIMIT_NETWORK in the following patch series. 
 
-Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
----
- drivers/net/usb/dm9601.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+I eagerly await your questions, comments, suggestions, and improvements.
 
---- linux-2.6.orig/drivers/net/usb/dm9601.c
-+++ linux-2.6/drivers/net/usb/dm9601.c
-@@ -406,8 +406,11 @@ static int dm9601_set_mac_address(struct
- 	struct sockaddr *addr = p;
- 	struct usbnet *dev = netdev_priv(net);
- 
--	if (!is_valid_ether_addr(addr->sa_data))
-+	if (!is_valid_ether_addr(addr->sa_data)) {
-+		dev_err(&net->dev, "not setting invalid mac address %pM\n",
-+								addr->sa_data);
- 		return -EINVAL;
-+	}
- 
- 	memcpy(net->dev_addr, addr->sa_data, net->addr_len);
- 	__dm9601_set_mac_address(dev);
-@@ -454,8 +457,12 @@ static int dm9601_bind(struct usbnet *de
- 	 */
- 	if (is_valid_ether_addr(mac))
- 		memcpy(dev->net->dev_addr, mac, ETH_ALEN);
--	else
-+	else {
-+		printk(KERN_WARNING
-+			"dm9601: No valid MAC address in EEPROM, using %pM\n",
-+			dev->net->dev_addr);
- 		__dm9601_set_mac_address(dev);
-+	}
- 
- 	/* power up phy */
- 	dm_write_reg(dev, DM_GPR_CTRL, 1);
+Thanks very much,
+
+Michael
+
+P.S. - I'm not subscribed to either lkml or netdev, so please CC me on
+responses. Thanks!
