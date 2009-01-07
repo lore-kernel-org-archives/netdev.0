@@ -1,73 +1,61 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 05/42] cassini: update to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:21 -0800
-Message-ID: <20090107003345.992109753@vyatta.com>
+Subject: [PATCH 06/42] ipg: update to net_device_ops
+Date: Tue, 06 Jan 2009 16:33:22 -0800
+Message-ID: <20090107003346.112191664@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>,
+	Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58984 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:58990 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754697AbZAGAxH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:53:07 -0500
-Content-Disposition: inline; filename=cassini.patch
+	id S1755424AbZAGAxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:53:12 -0500
+Content-Disposition: inline; filename=ipg.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/drivers/net/cassini.c	2009-01-03 21:36:30.471764781 -0800
-+++ b/drivers/net/cassini.c	2009-01-03 21:39:40.431264020 -0800
-@@ -4977,6 +4977,22 @@ static void __devinit cas_program_bridge
- 	pci_write_config_byte(pdev, PCI_LATENCY_TIMER, 0xff);
+--- a/drivers/net/ipg.c	2009-01-05 16:45:32.729571177 -0800
++++ b/drivers/net/ipg.c	2009-01-05 16:48:07.518569219 -0800
+@@ -2210,6 +2210,19 @@ static void __devexit ipg_remove(struct 
+ 	pci_set_drvdata(pdev, NULL);
  }
  
-+static const struct net_device_ops cas_netdev_ops = {
-+	.ndo_open		= cas_open,
-+	.ndo_stop		= cas_close,
-+	.ndo_start_xmit		= cas_start_xmit,
-+	.ndo_get_stats 		= cas_get_stats,
-+	.ndo_set_multicast_list = cas_set_multicast,
-+	.ndo_do_ioctl		= cas_ioctl,
-+	.ndo_tx_timeout		= cas_tx_timeout,
-+	.ndo_change_mtu		= cas_change_mtu,
++static const struct net_device_ops ipg_netdev_ops = {
++	.ndo_open		= ipg_nic_open,
++	.ndo_stop		= ipg_nic_stop,
++	.ndo_start_xmit		= ipg_nic_hard_start_xmit,
++	.ndo_get_stats		= ipg_nic_get_stats,
++	.ndo_set_multicast_list = ipg_nic_set_multicast_list,
++	.ndo_do_ioctl		= ipg_ioctl,
++	.ndo_tx_timeout 	= ipg_tx_timeout,
++	.ndo_change_mtu 	= ipg_nic_change_mtu,
 +	.ndo_set_mac_address	= eth_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= cas_netpoll,
-+#endif
 +};
 +
- static int __devinit cas_init_one(struct pci_dev *pdev,
- 				  const struct pci_device_id *ent)
+ static int __devinit ipg_probe(struct pci_dev *pdev,
+ 			       const struct pci_device_id *id)
  {
-@@ -5165,23 +5181,14 @@ static int __devinit cas_init_one(struct
+@@ -2258,15 +2271,7 @@ static int __devinit ipg_probe(struct pc
  
- 	for (i = 0; i < N_RX_FLOWS; i++)
- 		skb_queue_head_init(&cp->rx_flows[i]);
+ 	/* Declare IPG NIC functions for Ethernet device methods.
+ 	 */
+-	dev->open = &ipg_nic_open;
+-	dev->stop = &ipg_nic_stop;
+-	dev->hard_start_xmit = &ipg_nic_hard_start_xmit;
+-	dev->get_stats = &ipg_nic_get_stats;
+-	dev->set_multicast_list = &ipg_nic_set_multicast_list;
+-	dev->do_ioctl = ipg_ioctl;
+-	dev->tx_timeout = ipg_tx_timeout;
+-	dev->change_mtu = &ipg_nic_change_mtu;
 -
--	dev->open = cas_open;
--	dev->stop = cas_close;
--	dev->hard_start_xmit = cas_start_xmit;
--	dev->get_stats = cas_get_stats;
--	dev->set_multicast_list = cas_set_multicast;
--	dev->do_ioctl = cas_ioctl;
-+
-+	dev->netdev_ops = &cas_netdev_ops;
- 	dev->ethtool_ops = &cas_ethtool_ops;
--	dev->tx_timeout = cas_tx_timeout;
- 	dev->watchdog_timeo = CAS_TX_TIMEOUT;
--	dev->change_mtu = cas_change_mtu;
-+
- #ifdef USE_NAPI
- 	netif_napi_add(dev, &cp->napi, cas_poll, 64);
- #endif
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = cas_netpoll;
--#endif
- 	dev->irq = pdev->irq;
- 	dev->dma = 0;
++	dev->netdev_ops = &ipg_netdev_ops;
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	SET_ETHTOOL_OPS(dev, &ipg_ethtool_ops);
  
 
 -- 
