@@ -1,84 +1,68 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 41/42] atp: convert to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:57 -0800
-Message-ID: <20090107003349.884794895@vyatta.com>
+Subject: [PATCH 42/42] b44: convert to net_device_ops
+Date: Tue, 06 Jan 2009 16:33:58 -0800
+Message-ID: <20090107003349.987938173@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:60728 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:60730 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756869AbZAGAyR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:54:17 -0500
-Content-Disposition: inline; filename=atp.patch
+	id S1757131AbZAGAyS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:54:18 -0500
+Content-Disposition: inline; filename=b44.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/net/atp.c	2009-01-05 14:54:20.114569210 -0800
-+++ b/drivers/net/atp.c	2009-01-05 14:58:55.166569651 -0800
-@@ -204,8 +204,7 @@ static irqreturn_t atp_interrupt(int irq
- static void net_rx(struct net_device *dev);
- static void read_block(long ioaddr, int length, unsigned char *buffer, int data_mode);
- static int net_close(struct net_device *dev);
--static void set_rx_mode_8002(struct net_device *dev);
--static void set_rx_mode_8012(struct net_device *dev);
-+static void set_rx_mode(struct net_device *dev);
- static void tx_timeout(struct net_device *dev);
- 
- 
-@@ -242,6 +241,17 @@ static int __init atp_init(void)
- 	return -ENODEV;
+--- a/drivers/net/b44.c	2009-01-06 14:16:03.441860786 -0800
++++ b/drivers/net/b44.c	2009-01-06 14:29:04.120610422 -0800
+@@ -2108,6 +2108,22 @@ static int __devinit b44_get_invariants(
+ 	return err;
  }
  
-+static const struct net_device_ops atp_netdev_ops = {
-+	.ndo_open		= net_open,
-+	.ndo_stop		= net_close,
-+	.ndo_start_xmit		= atp_send_packet,
-+	.ndo_set_multicast_list = set_rx_mode,
-+	.ndo_tx_timeout		= tx_timeout,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
++static const struct net_device_ops b44_netdev_ops = {
++	.ndo_open		= b44_open,
++	.ndo_stop		= b44_close,
++	.ndo_start_xmit		= b44_start_xmit,
++	.ndo_get_stats		= b44_get_stats,
++	.ndo_set_multicast_list = b44_set_rx_mode,
++	.ndo_set_mac_address	= b44_set_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_do_ioctl		= b44_ioctl,
++	.ndo_tx_timeout		= b44_tx_timeout,
++	.ndo_change_mtu		= b44_change_mtu,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= b44_poll_controller,
++#endif
 +};
 +
- static int __init atp_probe1(long ioaddr)
+ static int __devinit b44_init_one(struct ssb_device *sdev,
+ 				  const struct ssb_device_id *ent)
  {
- 	struct net_device *dev = NULL;
-@@ -342,12 +352,7 @@ static int __init atp_probe1(long ioaddr
- 	if (dev->mem_end & 0xf)
- 		net_debug = dev->mem_end & 7;
+@@ -2145,20 +2161,9 @@ static int __devinit b44_init_one(struct
+ 	bp->rx_pending = B44_DEF_RX_RING_PENDING;
+ 	bp->tx_pending = B44_DEF_TX_RING_PENDING;
  
--	dev->open		= net_open;
--	dev->stop		= net_close;
--	dev->hard_start_xmit	= atp_send_packet;
--	dev->set_multicast_list =
--	  lp->chip_type == RTL8002 ? &set_rx_mode_8002 : &set_rx_mode_8012;
--	dev->tx_timeout		= tx_timeout;
-+	dev->netdev_ops 	= &atp_netdev_ops;
- 	dev->watchdog_timeo	= TX_TIMEOUT;
+-	dev->open = b44_open;
+-	dev->stop = b44_close;
+-	dev->hard_start_xmit = b44_start_xmit;
+-	dev->get_stats = b44_get_stats;
+-	dev->set_multicast_list = b44_set_rx_mode;
+-	dev->set_mac_address = b44_set_mac_addr;
+-	dev->do_ioctl = b44_ioctl;
+-	dev->tx_timeout = b44_tx_timeout;
++	dev->netdev_ops = &b44_netdev_ops;
+ 	netif_napi_add(dev, &bp->napi, b44_poll, 64);
+ 	dev->watchdog_timeo = B44_TX_TIMEOUT;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = b44_poll_controller;
+-#endif
+-	dev->change_mtu = b44_change_mtu;
+ 	dev->irq = sdev->irq;
+ 	SET_ETHTOOL_OPS(dev, &b44_ethtool_ops);
  
- 	res = register_netdev(dev);
-@@ -903,6 +908,17 @@ static void set_rx_mode_8012(struct net_
-     write_reg(ioaddr, CMR2, CMR2_IRQOUT); /* Switch back to page 0 */
- }
- 
-+static void set_rx_mode(struct net_device *dev)
-+{
-+	struct net_local *lp = netdev_priv(dev);
-+
-+	if (lp->chip_type == RTL8002)
-+		return set_rx_mode_8002(dev);
-+	else
-+		return set_rx_mode_8012(dev);
-+}
-+
-+
- static int __init atp_init_module(void) {
- 	if (debug)					/* Emit version even if no cards detected. */
- 		printk(KERN_INFO "%s", version);
 
 -- 
 
