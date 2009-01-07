@@ -1,49 +1,60 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH 0/2][RFC] virtio_net: MAC filtering
-Date: Wed, 07 Jan 2009 11:28:25 -0700
-Message-ID: <1231352906.7109.140.camel@lappy>
-References: <1231351559.7109.128.camel@lappy>
-	 <4964F11B.7020509@codemonkey.ws>
+From: "C. Scott Ananian" <cscott@laptop.org>
+Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
+Date: Wed, 7 Jan 2009 13:35:13 -0500
+Message-ID: <c6d9bea0901071035p1b8b4fc1u49bc7bb7c89782a@mail.gmail.com>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org>
+	 <1231307334-9542-2-git-send-email-michael@laptop.org>
+	 <20090107114703.GB28161@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Mark McLoughlin <markmc@redhat.com>
-To: Anthony Liguori <anthony@codemonkey.ws>
+Cc: "Michael Stone" <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Evgeniy Polyakov" <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:40200 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751893AbZAGS16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 13:27:58 -0500
-In-Reply-To: <4964F11B.7020509@codemonkey.ws>
+Received: from fk-out-0910.google.com ([209.85.128.187]:1785 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415AbZAGSfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 13:35:15 -0500
+In-Reply-To: <20090107114703.GB28161@ioremap.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-07 at 12:14 -0600, Anthony Liguori wrote:
-> Alex Williamson wrote:
-> >
-> > As noted in the RFC thread adding the kvm/qemu backing, this does
-> > increase the size of the virtio-net device I/O port space, up to 1kB
-> > with PCI rounding if we add a 4k entry VLAN bitmap.  A 64 device limit
-> > is still pretty high for a VM, but maybe we should think about adding
-> > MMIO space for virtio-pci.  Thanks,
-> >   
-> 
-> I'm not quite sure the best way to address this.  Maybe another control 
-> queue for sending commands to control this sort of stuff?  What are your 
-> thoughts Rusty?
+On Wed, Jan 7, 2009 at 6:47 AM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
+>> +This facility is particularly attractive to security platforms like OLPC
+>> +Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4] because:
+>> +  * it integrates well with standard techniques for writing privilege-separated
+>> +    Unix programs
+>> +  * it's available to unprivileged programs
 
-This is also a good time to decide if a fixed 16 entry MAC filter table
-is sufficient.  Should the size be programmed into the config space?
-There's plenty of room to make it a bigger fixed size and still stay at
-1kB of I/O port space with the VLAN table.  This implementation is a
-little wasteful of space in using 8 bytes to store the MAC and a valid
-bit, but I suspect there's some endian issues I'm ignoring and a
-standard data type might make that easier later.
+> It isn't, since it can not set rlimit, and if it can, it still can drop it.
 
-Alex
+Privilege dropping is voluntary, in the same way that a setuid root
+program can voluntarily drop root permissions after it has finished
+using them.  (Standard example: apache starts as root to open port 80,
+and then drops root by changing uid to www or nobody before it
+actually processes requests.)
+
+If I understand correctly, rlimit has both 'hard' and 'soft' limits.
+An unpriviledged process can change its soft limit at will, up to the
+hard limit, but can only *irrevocably lower* its hard limit. (man 2
+setrlimit)
+
+I haven't reviewed the patch to confirm this, but this is how I would
+expect RLIMIT_NETWORK functions.  A trusted process like inetd (say)
+would accept a network connection and create a file handle.  It would
+then fork, drop the hard and soft RLIMIT_NETWORK to 0, and then exec
+the untrusted client program.  This would allow the untrusted program
+to use the 'trusted' network resource via the open file handle, but
+prevent it from (say) leaking sensitive transaction data by making
+further connections to some other network resource.  (There are better
+use cases than inetd, of course.)
+
+According to man 2 setrlimit, "A child process created via fork(2)
+inherits its parent's resource limits.  Resource limits are preserved
+across execve(2).".
+ --scott
 
 -- 
-Alex Williamson                             HP Open Source & Linux Org.
-
+                         ( http://cscott.net/ )
