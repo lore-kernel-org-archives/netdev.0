@@ -1,50 +1,71 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 0/3] wimax: Kbuild / rfkill-build fixes (v2)
-Date: Wed,  7 Jan 2009 09:18:44 -0800
-Message-ID: <cover.1231348339.git.inaky@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: wimax@linuxwimax.org, greg@kroah.com,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux-wimax@intel.com
+Subject: [PATCH 2/3] wimax: fix kconfig interactions with rfkill and input
+	layers
+Date: Wed,  7 Jan 2009 09:18:46 -0800
+Message-ID: <f0f7dc5763046cc336ca087a2525c8b52811ddb4.1231348339.git.inaky@linux.intel.com>
+References: <cover.1231348339.git.inaky@linux.intel.com>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>, wimax@linuxwimax.org,
+	greg@kroah.com, LKML <linux-kernel@vger.kernel.org>,
+	linux-wimax@intel.com, linux-next@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 076-076-148-181.pdx.net ([76.76.148.181]:44712 "EHLO gocho"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753685AbZAGRS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 12:18:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1231348339.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-These three patches fix issues reported by Randy Dunlap on the
-linux-next tree for Jan 6:
+WiMAX can work without RFKILL, but it was missing a check to make sure
+RFKILL is not being made a module with wimax compiled into the
+kernel. This caused failed builds in s390, where CONFIG_INPUT is
+always off.
 
-http://lkml.org/lkml/2009/1/6/340
+When RFKILL is enabled, the code uses the input layer to report
+hardware switch changes; thus, if RFKILL is enabled, INPUT has to be
+too. It also needs to display some message when INPUT is disabled that
+explains why WiMAX is not selectable.
 
-The issue fixed by patch #3 wasn't reported on the emails but was
-uncovered while discussing the fixes.
+(issues found by Randy Dunlap in the linux-next tree).
 
-This applies to the wimax tree kept in gregkh's repository:
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ net/wimax/Kconfig |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-http://kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/gregkh-04-u=
-sb/
-
-Changes in v2
-
-- fixed silly one-char typo #ifndef CONFIG_BUG vs #ifdef CONFIG_BUG
-  reported by Ilpo J=C3=A4rvinen=20
-
-Inaky Perez-Gonzalez (3):
-  wimax: fix '#ifndef CONFIG_BUG' layout to avoid warning
-  wimax: fix kconfig interactions with rfkill and input layers
-  wimax: testing for rfkill support should also test for
-    CONFIG_RFKILL_MODULE
-
- net/wimax/Kconfig     |   14 ++++++++++++++
- net/wimax/id-table.c  |    8 +++++---
- net/wimax/op-rfkill.c |    2 +-
- 3 files changed, 20 insertions(+), 4 deletions(-)
-
+diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
+index 0bdbb69..18495cd 100644
+--- a/net/wimax/Kconfig
++++ b/net/wimax/Kconfig
+@@ -1,9 +1,23 @@
+ #
+ # WiMAX LAN device configuration
+ #
++# Note the ugly 'depends on' on WIMAX: that disallows RFKILL to be a
++# module if WIMAX is to be linked in. The WiMAX code is done in such a
++# way that it doesn't require and explicit dependency on RFKILL in
++# case an embedded system wants to rip it out.
++#
++# As well, enablement of the RFKILL code means we need the INPUT layer
++# support to inject events coming from hw rfkill switches. That
++# dependency could be killed if input.h provided appropiate means to
++# work when input is disabled.
++
++comment "WiMAX Wireless Broadband support requires CONFIG_INPUT enabled"
++	depends on INPUT = n && RFKILL != n
+ 
+ menuconfig WIMAX
+ 	tristate "WiMAX Wireless Broadband support"
++	depends on (y && RFKILL != m) || m
++	depends on (INPUT && RFKILL != n) || RFKILL = n
+ 	help
+ 
+ 	  Select to configure support for devices that provide
+-- 
+1.5.6.5
