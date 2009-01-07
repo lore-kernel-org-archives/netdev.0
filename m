@@ -1,198 +1,141 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [1/2] ipv6: Add GRO support
-Date: Wed, 7 Jan 2009 14:14:04 +1100
-Message-ID: <20090107031404.GA16827@gondor.apana.org.au>
+Subject: [2/2] tcp6: Add GRO support
+Date: Wed, 7 Jan 2009 14:15:36 +1100
+Message-ID: <20090107031536.GA18655@gondor.apana.org.au>
+References: <20090107031404.GA16827@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44511 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:44515 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751838AbZAGDOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 22:14:08 -0500
+	with ESMTP id S1751661AbZAGDPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 22:15:38 -0500
 Content-Disposition: inline
+In-Reply-To: <20090107031404.GA16827@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+tcp6: Add GRO support
 
-Give an inch and take a mile, parity with LRO just isn't enough :)
-I've tested it locally and it does work.
+This patch adds GRO support for TCP over IPv6.  The code is exactly
+the same as the IPv4 version except for the pseudo-header checksum
+computation.
 
-ipv6: Add GRO support
-
-This patch adds GRO support for IPv6.  IPv6 GRO supports extension
-headers in the same way as GSO (by using the same infrastructure).
-It's also simpler compared to IPv4 since we no longer have to worry
-about fragmentation attributes or header checksums.
+Note that I've removed the unused tcphdr argument from tcp_v6_check
+rather than invent a bogus value for GRO.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/include/net/protocol.h b/include/net/protocol.h
-index cb2965a..ffa5b8b 100644
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -59,6 +59,9 @@ struct inet6_protocol
- 	int	(*gso_send_check)(struct sk_buff *skb);
- 	struct sk_buff *(*gso_segment)(struct sk_buff *skb,
- 				       int features);
-+	struct sk_buff **(*gro_receive)(struct sk_buff **head,
-+					struct sk_buff *skb);
-+	int	(*gro_complete)(struct sk_buff *skb);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 218a6e5..e23bbb6 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2545,6 +2545,7 @@ out:
  
- 	unsigned int	flags;	/* INET6_PROTO_xxx */
- };
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 437b750..94f74f5 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -672,8 +672,7 @@ int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb)
+ 	return pp;
+ }
++EXPORT_SYMBOL(tcp_gro_receive);
  
- EXPORT_SYMBOL_GPL(ipv6_opt_accepted);
- 
--static struct inet6_protocol *ipv6_gso_pull_exthdrs(struct sk_buff *skb,
--						    int proto)
-+static int ipv6_gso_pull_exthdrs(struct sk_buff *skb, int proto)
+ int tcp_gro_complete(struct sk_buff *skb)
  {
- 	struct inet6_protocol *ops = NULL;
+@@ -2561,6 +2562,7 @@ int tcp_gro_complete(struct sk_buff *skb)
  
-@@ -704,7 +703,7 @@ static struct inet6_protocol *ipv6_gso_pull_exthdrs(struct sk_buff *skb,
- 		__skb_pull(skb, len);
+ 	return 0;
+ }
++EXPORT_SYMBOL(tcp_gro_complete);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ static unsigned long tcp_md5sig_users;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 8702b06..be668ac 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -100,7 +100,7 @@ static void tcp_v6_hash(struct sock *sk)
  	}
- 
--	return ops;
-+	return proto;
  }
  
- static int ipv6_gso_send_check(struct sk_buff *skb)
-@@ -721,7 +720,9 @@ static int ipv6_gso_send_check(struct sk_buff *skb)
- 	err = -EPROTONOSUPPORT;
+-static __inline__ __sum16 tcp_v6_check(struct tcphdr *th, int len,
++static __inline__ __sum16 tcp_v6_check(int len,
+ 				   struct in6_addr *saddr,
+ 				   struct in6_addr *daddr,
+ 				   __wsum base)
+@@ -500,7 +500,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req)
+ 	if (skb) {
+ 		struct tcphdr *th = tcp_hdr(skb);
  
- 	rcu_read_lock();
--	ops = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
-+	ops = rcu_dereference(inet6_protos[
-+		ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr)]);
-+
- 	if (likely(ops && ops->gso_send_check)) {
- 		skb_reset_transport_header(skb);
- 		err = ops->gso_send_check(skb);
-@@ -757,7 +758,9 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
- 	segs = ERR_PTR(-EPROTONOSUPPORT);
+-		th->check = tcp_v6_check(th, skb->len,
++		th->check = tcp_v6_check(skb->len,
+ 					 &treq->loc_addr, &treq->rmt_addr,
+ 					 csum_partial(th, skb->len, skb->csum));
  
- 	rcu_read_lock();
--	ops = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
-+	ops = rcu_dereference(inet6_protos[
-+		ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr)]);
-+
- 	if (likely(ops && ops->gso_segment)) {
- 		skb_reset_transport_header(skb);
- 		segs = ops->gso_segment(skb, features);
-@@ -777,11 +780,105 @@ out:
- 	return segs;
+@@ -941,6 +941,41 @@ static int tcp_v6_gso_send_check(struct sk_buff *skb)
+ 	return 0;
  }
  
-+struct ipv6_gro_cb {
-+	struct napi_gro_cb napi;
-+	int proto;
-+};
-+
-+#define IPV6_GRO_CB(skb) ((struct ipv6_gro_cb *)(skb)->cb)
-+
-+static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
-+					 struct sk_buff *skb)
++struct sk_buff **tcp6_gro_receive(struct sk_buff **head, struct sk_buff *skb)
 +{
-+	struct inet6_protocol *ops;
-+	struct sk_buff **pp = NULL;
-+	struct sk_buff *p;
-+	struct ipv6hdr *iph;
-+	unsigned int nlen;
-+	int flush = 1;
-+	int proto;
++	struct ipv6hdr *iph = ipv6_hdr(skb);
 +
-+	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
-+		goto out;
-+
-+	iph = ipv6_hdr(skb);
-+	__skb_pull(skb, sizeof(*iph));
-+
-+	flush += ntohs(iph->payload_len) != skb->len;
-+
-+	rcu_read_lock();
-+	proto = ipv6_gso_pull_exthdrs(skb, iph->nexthdr);
-+	IPV6_GRO_CB(skb)->proto = proto;
-+	ops = rcu_dereference(inet6_protos[proto]);
-+	if (!ops || !ops->gro_receive)
-+		goto out_unlock;
-+
-+	flush--;
-+	skb_reset_transport_header(skb);
-+	nlen = skb_network_header_len(skb);
-+
-+	for (p = *head; p; p = p->next) {
-+		struct ipv6hdr *iph2;
-+
-+		if (!NAPI_GRO_CB(p)->same_flow)
-+			continue;
-+
-+		iph2 = ipv6_hdr(p);
-+
-+		/* All fields must match except length. */
-+		if (nlen != skb_network_header_len(p) ||
-+		    memcmp(iph, iph2, offsetof(struct ipv6hdr, payload_len)) ||
-+		    memcmp(&iph->nexthdr, &iph2->nexthdr,
-+			   nlen - offsetof(struct ipv6hdr, nexthdr))) {
-+			NAPI_GRO_CB(p)->same_flow = 0;
-+			continue;
++	switch (skb->ip_summed) {
++	case CHECKSUM_COMPLETE:
++		if (!tcp_v6_check(skb->len, &iph->saddr, &iph->daddr,
++				  skb->csum)) {
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++			break;
 +		}
 +
-+		NAPI_GRO_CB(p)->flush |= flush;
++		/* fall through */
++	case CHECKSUM_NONE:
++		NAPI_GRO_CB(skb)->flush = 1;
++		return NULL;
 +	}
 +
-+	NAPI_GRO_CB(skb)->flush |= flush;
-+
-+	pp = ops->gro_receive(head, skb);
-+
-+out_unlock:
-+	rcu_read_unlock();
-+
-+out:
-+	NAPI_GRO_CB(skb)->flush |= flush;
-+
-+	return pp;
++	return tcp_gro_receive(head, skb);
 +}
++EXPORT_SYMBOL(tcp6_gro_receive);
 +
-+static int ipv6_gro_complete(struct sk_buff *skb)
++int tcp6_gro_complete(struct sk_buff *skb)
 +{
-+	struct inet6_protocol *ops;
 +	struct ipv6hdr *iph = ipv6_hdr(skb);
-+	int err = -ENOSYS;
++	struct tcphdr *th = tcp_hdr(skb);
 +
-+	iph->payload_len = htons(skb->len - skb_network_offset(skb) -
-+				 sizeof(*iph));
++	th->check = ~tcp_v6_check(skb->len - skb_transport_offset(skb),
++				  &iph->saddr, &iph->daddr, 0);
++	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
 +
-+	rcu_read_lock();
-+	ops = rcu_dereference(inet6_protos[IPV6_GRO_CB(skb)->proto]);
-+	if (WARN_ON(!ops || !ops->gro_complete))
-+		goto out_unlock;
-+
-+	err = ops->gro_complete(skb);
-+
-+out_unlock:
-+	rcu_read_unlock();
-+
-+	return err;
++	return tcp_gro_complete(skb);
 +}
++EXPORT_SYMBOL(tcp6_gro_complete);
 +
- static struct packet_type ipv6_packet_type = {
- 	.type = __constant_htons(ETH_P_IPV6),
- 	.func = ipv6_rcv,
- 	.gso_send_check = ipv6_gso_send_check,
- 	.gso_segment = ipv6_gso_segment,
-+	.gro_receive = ipv6_gro_receive,
-+	.gro_complete = ipv6_gro_complete,
- };
+ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 				 u32 ts, struct tcp_md5sig_key *key, int rst)
+ {
+@@ -1428,14 +1463,14 @@ out:
+ static __sum16 tcp_v6_checksum_init(struct sk_buff *skb)
+ {
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!tcp_v6_check(tcp_hdr(skb), skb->len, &ipv6_hdr(skb)->saddr,
++		if (!tcp_v6_check(skb->len, &ipv6_hdr(skb)->saddr,
+ 				  &ipv6_hdr(skb)->daddr, skb->csum)) {
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 			return 0;
+ 		}
+ 	}
  
- static int __init ipv6_packet_init(void)
+-	skb->csum = ~csum_unfold(tcp_v6_check(tcp_hdr(skb), skb->len,
++	skb->csum = ~csum_unfold(tcp_v6_check(skb->len,
+ 					      &ipv6_hdr(skb)->saddr,
+ 					      &ipv6_hdr(skb)->daddr, 0));
+ 
+@@ -2059,6 +2094,8 @@ static struct inet6_protocol tcpv6_protocol = {
+ 	.err_handler	=	tcp_v6_err,
+ 	.gso_send_check	=	tcp_v6_gso_send_check,
+ 	.gso_segment	=	tcp_tso_segment,
++	.gro_receive	=	tcp6_gro_receive,
++	.gro_complete	=	tcp6_gro_complete,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
 
 Cheers,
 -- 
