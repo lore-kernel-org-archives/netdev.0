@@ -1,136 +1,68 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 1/2] mlx4_en: Consider inline packets on completion
-Date: Wed, 07 Jan 2009 17:04:18 +0200
-Message-ID: <4964C472.2060906@mellanox.co.il>
+Subject: [PATCH 2/2] mlx4_en: Returning real Max in get_ringparam
+Date: Wed, 07 Jan 2009 17:04:31 +0200
+Message-ID: <4964C47F.1090203@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:57466 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:57473 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759172AbZAGPFa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 10:05:30 -0500
+	id S1759402AbZAGPFb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 10:05:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Was trying to unmap work queue entries that had inline packets,
-so naturally weren't mapped.
-
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/en_tx.c   |   59 ++++++++++++++++++++++++-------------------
- drivers/net/mlx4/mlx4_en.h |    1 +
- 2 files changed, 34 insertions(+), 26 deletions(-)
+ drivers/net/mlx4/en_params.c |    6 ++++--
+ drivers/net/mlx4/mlx4_en.h   |    4 ++++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
-index ff4d752..4afd599 100644
---- a/drivers/net/mlx4/en_tx.c
-+++ b/drivers/net/mlx4/en_tx.c
-@@ -203,19 +203,21 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+diff --git a/drivers/net/mlx4/en_params.c b/drivers/net/mlx4/en_params.c
+index cfeef0f..c1bd040 100644
+--- a/drivers/net/mlx4/en_params.c
++++ b/drivers/net/mlx4/en_params.c
+@@ -399,8 +399,10 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
 
- 	/* Optimize the common case when there are no wraparounds */
- 	if (likely((void *) tx_desc + tx_info->nr_txbb * TXBB_SIZE <= end)) {
--		if (tx_info->linear) {
--			pci_unmap_single(mdev->pdev,
--					 (dma_addr_t) be64_to_cpu(data->addr),
-+		if (!tx_info->inl) {
-+			if (tx_info->linear) {
-+				pci_unmap_single(mdev->pdev,
-+					(dma_addr_t) be64_to_cpu(data->addr),
- 					 be32_to_cpu(data->byte_count),
- 					 PCI_DMA_TODEVICE);
--			++data;
--		}
-+				++data;
-+			}
+ 	rx_size = roundup_pow_of_two(param->rx_pending);
+ 	rx_size = max_t(u32, rx_size, MLX4_EN_MIN_RX_SIZE);
++	rx_size = min_t(u32, rx_size, MLX4_EN_MAX_RX_SIZE);
+ 	tx_size = roundup_pow_of_two(param->tx_pending);
+ 	tx_size = max_t(u32, tx_size, MLX4_EN_MIN_TX_SIZE);
++	tx_size = min_t(u32, tx_size, MLX4_EN_MAX_TX_SIZE);
 
--		for (i = 0; i < frags; i++) {
--			frag = &skb_shinfo(skb)->frags[i];
--			pci_unmap_page(mdev->pdev,
--				       (dma_addr_t) be64_to_cpu(data[i].addr),
--				       frag->size, PCI_DMA_TODEVICE);
-+			for (i = 0; i < frags; i++) {
-+				frag = &skb_shinfo(skb)->frags[i];
-+				pci_unmap_page(mdev->pdev,
-+					(dma_addr_t) be64_to_cpu(data[i].addr),
-+					frag->size, PCI_DMA_TODEVICE);
-+			}
- 		}
- 		/* Stamp the freed descriptor */
- 		for (i = 0; i < tx_info->nr_txbb * TXBB_SIZE; i += STAMP_STRIDE) {
-@@ -224,27 +226,29 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 		}
+ 	if (rx_size == priv->prof->rx_ring_size &&
+ 	    tx_size == priv->prof->tx_ring_size)
+@@ -440,8 +442,8 @@ static void mlx4_en_get_ringparam(struct net_device *dev,
+ 	struct mlx4_en_dev *mdev = priv->mdev;
 
- 	} else {
--		if ((void *) data >= end) {
--			data = (struct mlx4_wqe_data_seg *)
--					(ring->buf + ((void *) data - end));
--		}
-+		if (!tx_info->inl) {
-+			if ((void *) data >= end) {
-+				data = (struct mlx4_wqe_data_seg *)
-+						(ring->buf + ((void *) data - end));
-+			}
-
--		if (tx_info->linear) {
--			pci_unmap_single(mdev->pdev,
--					 (dma_addr_t) be64_to_cpu(data->addr),
-+			if (tx_info->linear) {
-+				pci_unmap_single(mdev->pdev,
-+					(dma_addr_t) be64_to_cpu(data->addr),
- 					 be32_to_cpu(data->byte_count),
- 					 PCI_DMA_TODEVICE);
--			++data;
--		}
-+				++data;
-+			}
-
--		for (i = 0; i < frags; i++) {
--			/* Check for wraparound before unmapping */
--			if ((void *) data >= end)
--				data = (struct mlx4_wqe_data_seg *) ring->buf;
--			frag = &skb_shinfo(skb)->frags[i];
--			pci_unmap_page(mdev->pdev,
-+			for (i = 0; i < frags; i++) {
-+				/* Check for wraparound before unmapping */
-+				if ((void *) data >= end)
-+					data = (struct mlx4_wqe_data_seg *) ring->buf;
-+				frag = &skb_shinfo(skb)->frags[i];
-+				pci_unmap_page(mdev->pdev,
- 					(dma_addr_t) be64_to_cpu(data->addr),
- 					 frag->size, PCI_DMA_TODEVICE);
-+			}
- 		}
- 		/* Stamp the freed descriptor */
- 		for (i = 0; i < tx_info->nr_txbb * TXBB_SIZE; i += STAMP_STRIDE) {
-@@ -790,8 +794,11 @@ int mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 			wmb();
- 			data->byte_count = cpu_to_be32(skb_headlen(skb) - lso_header_size);
- 		}
--	} else
-+		tx_info->inl = 0;
-+	} else {
- 		build_inline_wqe(tx_desc, skb, real_size, &vlan_tag, tx_ind, fragptr);
-+		tx_info->inl = 1;
-+	}
-
- 	ring->prod += nr_txbb;
-
+ 	memset(param, 0, sizeof(*param));
+-	param->rx_max_pending = mdev->dev->caps.max_rq_sg;
+-	param->tx_max_pending = mdev->dev->caps.max_sq_sg;
++	param->rx_max_pending = MLX4_EN_MAX_RX_SIZE;
++	param->tx_max_pending = MLX4_EN_MAX_TX_SIZE;
+ 	param->rx_pending = mdev->profile.prof[priv->port].rx_ring_size;
+ 	param->tx_pending = mdev->profile.prof[priv->port].tx_ring_size;
+ }
 diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 2e96c7b..08bf321 100644
+index 08bf321..e9af32d 100644
 --- a/drivers/net/mlx4/mlx4_en.h
 +++ b/drivers/net/mlx4/mlx4_en.h
-@@ -202,6 +202,7 @@ struct mlx4_en_tx_info {
- 	u32 nr_txbb;
- 	u8 linear;
- 	u8 data_offset;
-+	u8 inl;
+@@ -115,6 +115,10 @@ enum {
  };
+ #define MLX4_EN_MAX_RX_FRAGS	4
 
-
++/* Maximum ring sizes */
++#define MLX4_EN_MAX_TX_SIZE	8192
++#define MLX4_EN_MAX_RX_SIZE	8192
++
+ /* Minimum ring size for our page-allocation sceme to work */
+ #define MLX4_EN_MIN_RX_SIZE	(MLX4_EN_ALLOC_SIZE / SMP_CACHE_BYTES)
+ #define MLX4_EN_MIN_TX_SIZE	(4096 / TXBB_SIZE)
 -- 
 1.5.4
 
