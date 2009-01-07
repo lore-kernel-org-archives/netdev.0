@@ -1,25 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: reset network device counters on the fly
-Date: Tue, 06 Jan 2009 23:23:13 -0800 (PST)
-Message-ID: <20090106.232313.116086802.davem@davemloft.net>
-References: <3375b4020901061808g527cb872ia64b47147783b91c@mail.gmail.com>
+From: Grzegorz Nosek <root-AfQBxy1nhrQ00sYp1HPQUA@public.gmane.org>
+Subject: Re: [RFC][PATCH] IP address restricting cgroup subsystem
+Date: Wed, 7 Jan 2009 08:38:32 +0100
+Message-ID: <20090107073831.GA23648@megiteam.pl>
+References: <20090106230554.GB25228@eskarina.localdomain.pl>
+	<49644526.8030205@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: htejeda@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59837
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751123AbZAGHXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 02:23:11 -0500
-In-Reply-To: <3375b4020901061808g527cb872ia64b47147783b91c@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <49644526.8030205-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-This change has been turned down numerous times in the past.  I don't
-have a link to the previous discussions in the archives, sorry.
-
-But this feature has been proposed many times before, and it is not
-going in.
+T24gxZtybywgc3R5IDA3LCAyMDA5IGF0IDAyOjAxOjEwICswODAwLCBMaSBaZWZhbiB3cm90ZToK
+PiBDQzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZwo+IAo+IEknbGwgcmV2aWV3IHRoZSBjZ3JvdXAg
+cGFydCBpZiB0aGlzIHBhdGNoIGlzIHJlZ2FyZGVkIGFzIHVzZWZ1bC4KPiAKPiBHcnplZ29yeiBO
+b3NlayB3cm90ZToKPiA+IFRoaXMgaXMgYSB2ZXJ5IHNpbXBsZSBjZ3JvdXAgc3Vic3lzdGVtIHRv
+IHJlc3RyaWN0IElQIGFkZHJlc3NlcyB1c2VkCj4gPiBieSBtZW1iZXIgcHJvY2Vzc2VzLiBDdXJy
+ZW50bHkgaXQgaXMgbGltaXRlZCB0byBJUHY0IG9ubHkgYnV0IElQdjYgKG9yCj4gPiBvdGhlciBw
+cm90b2NvbHMpIHNob3VsZCBiZSBlYXN5IHRvIGltcGxlbWVudC4KPiA+IAo+ID4gSVAgYWRkcmVz
+c2VzIGFyZSB3cml0ZS1vbmNlICh2aWEgL2Nncm91cC8uLi4vaXBhZGRyLmlwdjQgaW4gZG90dGVk
+LXF1YWQKPiAKPiBXaHkgdGhleSBzaG91bGQgYmUgd3JpdGUtb25jZSA/CgpObyByZWFsICh0ZWNo
+bmljYWwpIHJlYXNvbi4gTWFraW5nIGl0IHJlYWQtd3JpdGUgd291bGQgYmUgZmluZSB3aXRoIG1l
+LgpJIHdhbnRlZCB0byBtYWtlIHRoZSByZXN0cmljdGlvbiBhIG9uZS13YXkgcm9hZCBidXQgSSBn
+dWVzcyBJIGNhbiBwb2xpY2UKdGhhdCBpbiB1c2Vyc3BhY2UgKHNpbXBseSBkb24ndCB3cml0ZSBh
+bnl0aGluZyB0byB0aGUgZmlsZSB0d2ljZSkuCgpIb3dldmVyLCBJIHRoaW5rIHRoYXQgdGhlIHJl
+c3RyaWN0aW9uIHNob3VsZCBiZSBpbmhlcml0ZWQsIHNvIHRoYXQgaWYKQ0cxIGlzIGJvdW5kIHRv
+IGUuZy4gMTAuMC4wLjEsIENHMS9DRzIgbXVzdCBiZSBib3VuZCB0byB0aGUgc2FtZQphZGRyZXNz
+LiBCdXQgd2hhdCB3b3VsZCBJIGRvIHRoZW4gd2l0aCBkZXNjZW5kYW50IGNncm91cHM/IExlYXZl
+IHRoZW0gYXMKaXMgKGJyZWFraW5nIHRoZSBpbmhlcml0YW5jZSk/IEZpbmQgdGhlbSBhbGwgYW5k
+IGNoYW5nZSB0aGVpciBib3VuZAphZGRyZXNzIGJlaGluZCB0aGVpciBiYWNrIChkbyB3ZSBoYXZl
+IGFuIEFQSSBmb3IgdGhhdD8pPwoKSSBndWVzcyBJIGhhdmUgdGhlIHNhbWUgcHJvYmxlbSByaWdo
+dCBub3csIGFueXdheSAob25seSBvbmNlIGluc3RlYWQgb2YKbXVsdGlwbGUgdGltZXMpLCBzbyBJ
+J2QgcmVhbGx5IGFwcHJlY2lhdGUgeW91ciBpbnB1dCBvbiB0aGlzLgoKQmVzdCByZWdhcmRzLAog
+R3J6ZWdvcnogTm9zZWsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1mb3Vu
+ZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlz
+dGluZm8vY29udGFpbmVycw==
