@@ -1,97 +1,81 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
-Date: Thu, 8 Jan 2009 00:42:28 +0300
-Message-ID: <20090107214228.GA4610@ioremap.net>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <200901071852.32078.rdenis@simphalempin.com> <20090107174809.GA8989@ioremap.net> <200901072254.14017.rdenis@simphalempin.com>
+Date: Thu, 8 Jan 2009 00:59:36 +0300
+Message-ID: <20090107215935.GB4610@ioremap.net>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <20090107210758.GH3164@didacte.laptop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: =?utf-8?B?UsOpbWk=?= Denis-Courmont <rdenis@simphalempin.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Stone <michael@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:58673 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762083AbZAGVma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 16:42:30 -0500
+Received: from matrixpower.ru ([195.178.208.66]:50092 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762065AbZAGV7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 16:59:38 -0500
 Content-Disposition: inline
-In-Reply-To: <200901072254.14017.rdenis@simphalempin.com>
+In-Reply-To: <20090107210758.GH3164@didacte.laptop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 10:54:13PM +0200, R=C3=A9mi Denis-Courmont (rde=
-nis@simphalempin.com) wrote:
-> No no no.
->=20
-> There is a huge fundamental difference between setrlimit, prctl(SECCO=
-MP),=20
-> set*uid and chroot on the one side, and iptables on the other side: T=
-he first=20
-> ones are APIs for a process to control its own permission. iptables i=
-s an=20
-> interface to control the _whole_ system.
->=20
-> In other words, the first ones are usable programmatically. iptables =
-is not,=20
-> unless you're willing to assume the kernel only operates one single=20
-> userland "software".
+On Wed, Jan 07, 2009 at 04:07:58PM -0500, Michael Stone (michael@laptop.org) wrote:
+> First, thanks very much for all your comments and questions.
 
-iptables 'owner' match module exactly 'operates one signel userland sof=
-tware'.
+you are welcome :)
 
-> From the perspective of distros and system admins, perhaps SELinux an=
-d=20
-> iptables are sufficient to address this. But from that of a third-par=
-ty,=20
-> upstream, distro-independent or whatever-you-want-to-call-it software=
- vendor,=20
-> they don't quite work due to their centralized nature.
+> >It isn't, since it can not set rlimit, and if it can, it still can drop
+> >it.
+> 
+> Some sample code will probably clarify the use of my patch: 
+> 
+>   http://dev.laptop.org/git?p=users/mstone/test-rlimit-network;a=blob;f=disable_network.c;hb=HEAD
+> 
+> This C code describes a 'disable_network' exec-chain script which, when run 
+> as
+> any user, irrevocably disables network access as described in my previous
+> emails. 
+> 
+> As you can see, processes start with full access to the 'network' resource 
+> and
+> may, at any time, irrevocably (modulo CAP_SYS_RESOURCE) limit their and 
+> their
+> future children's access to this resource by lowering both their soft and 
+> hard
+> limits to 0.
 
-Actually selinux is even better example although this does depend on th=
-e
-distro. System which wants to secure network connections already knows
-what is the netfilter. This dependency equals to the recent-enough
-kernel with the new rlimit.
+Argh, I see. That clarifies most questions indeed.
 
-To be clear: I do _not_ object against this patch. This is likely a goo=
-d
-idea and while it potentially can be implemented via different way, it
-has its right for the existance :)
+> >Your code does not cover sendpage() interface (aka splice() and
+> >sendfile()) 
+> 
+> Nor should it. Applications should continue to be able to send data on any
+> sockets where were already connected and should be able to accept new
+> connections on sockets which were already bound.
+> 
+> I have done some primitive testing to ensure that the patch implements this
+> functionality by means of the test utilities provided here:
+> 
+>  http://dev.laptop.org/git?p=users/mstone/test-rlimit-network;a=tree
+> 
+> Can you confirm my results?
 
-> > > As I understand it, Michael is trying to build something similar =
-to
-> > > SECCOMP,  only way less restrictive and way more usable by real-l=
-ife
-> > > userland programs.=20
->=20
-> > Security and unpriveledged setup are mutually impossible cases.
->=20
-> On a high-level, sure. You need a trusted privileged entity somewhere=
-=2E
->=20
-> But when it comes _specifically_ to "unprivileged" as in "non-root", =
-I believe=20
-> there is a use case for something less restrictive than SECCOMP, yet =
-more=20
-> restrictive than just being a normal non-root process. Something alon=
-g the=20
-> lines of: cannot debug other processes, cannot send signal to them, c=
-annot=20
-> create file descriptors, cannot bind sockets, yet can allocate memory=
-, can=20
-> read timers, can read/write from any type of (already opened) file. O=
-r=20
-> whatever brighter and more knowledgeable mind than mine could define.
->=20
-> Or can someone prove that there is no set of permissions bigger than =
-those of=20
-> SECCOMP that would effectively equate to those of a normal non-privil=
-eged=20
-> process?
+Your patch adds a rlimit check into __sock_sendmsg() call, which is
+invoked via usual send() path, but sendfile() and splice() are still
+exectuted without this check and thus will be able to send data after
+rlimit applied.
 
-We have a good capabilities subsystem and it has proper layered design.
-But still rlimit has to be assigned by something higher in this
-hierarchy.
+> >and with your approach application will suddenly stops sending data even 
+> >into
+> >old sockets, but will be able to receive it from anywhere. Is it 
+> >intentional?
+> 
+> Why do you think this would happen? 
+> 
+> (My test results, e.g. via
+>    http://dev.laptop.org/git?p=users/mstone/test-rlimit-network;a=blob;f=positive_localhost_tcp;hb=HEAD
+>  show otherwise.)
 
---=20
+I meant that connected or accepted socket will not be able to send data
+via send() call, but will be able to receive data using recv().
+
+-- 
 	Evgeniy Polyakov
