@@ -1,67 +1,60 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 17/42] sis190: update to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:33 -0800
-Message-ID: <20090107003347.229708019@vyatta.com>
+Subject: [PATCH 13/42] typhoon: update to net_device_ops
+Date: Tue, 06 Jan 2009 16:33:29 -0800
+Message-ID: <20090107003346.819560580@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:59025 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:59012 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756183AbZAGAxg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:53:36 -0500
-Content-Disposition: inline; filename=sis190.patch
+	id S1755463AbZAGAx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:53:27 -0500
+Content-Disposition: inline; filename=typhoon.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/sis190.c	2009-01-05 11:06:13.882579097 -0800
-+++ b/drivers/net/sis190.c	2009-01-05 11:09:18.773568969 -0800
-@@ -1782,6 +1782,21 @@ static int sis190_ioctl(struct net_devic
- 		generic_mii_ioctl(&tp->mii_if, if_mii(ifr), cmd, NULL);
+--- a/drivers/net/typhoon.c	2009-01-05 22:40:41.830818586 -0800
++++ b/drivers/net/typhoon.c	2009-01-05 22:42:52.110068563 -0800
+@@ -2296,6 +2296,19 @@ out:
+ 	return mode;
  }
  
-+static const struct net_device_ops sis190_netdev_ops = {
-+	.ndo_open		= sis190_open,
-+	.ndo_stop		= sis190_close,
-+	.ndo_do_ioctl		= sis190_ioctl,
-+	.ndo_start_xmit		= sis190_start_xmit,
-+	.ndo_tx_timeout		= sis190_tx_timeout,
-+	.ndo_set_multicast_list = sis190_set_rx_mode,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
++static const struct net_device_ops typhoon_netdev_ops = {
++	.ndo_open		= typhoon_open,
++	.ndo_stop		= typhoon_close,
++	.ndo_start_xmit		= typhoon_start_tx,
++	.ndo_set_multicast_list	= typhoon_set_rx_mode,
++	.ndo_tx_timeout		= typhoon_tx_timeout,
++	.ndo_get_stats		= typhoon_get_stats,
 +	.ndo_validate_addr	= eth_validate_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	 = sis190_netpoll,
-+#endif
++	.ndo_set_mac_address	= typhoon_set_mac_address,
++	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_vlan_rx_register	= typhoon_vlan_rx_register,
 +};
 +
- static int __devinit sis190_init_one(struct pci_dev *pdev,
- 				     const struct pci_device_id *ent)
+ static int __devinit
+ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  {
-@@ -1815,19 +1830,12 @@ static int __devinit sis190_init_one(str
+@@ -2495,16 +2508,9 @@ typhoon_init_one(struct pci_dev *pdev, c
+ 	}
  
- 	INIT_WORK(&tp->phy_task, sis190_phy_task);
+ 	/* The chip-specific entries in the device structure. */
+-	dev->open		= typhoon_open;
+-	dev->hard_start_xmit	= typhoon_start_tx;
+-	dev->stop		= typhoon_close;
+-	dev->set_multicast_list	= typhoon_set_rx_mode;
+-	dev->tx_timeout		= typhoon_tx_timeout;
++	dev->netdev_ops		= &typhoon_netdev_ops;
+ 	netif_napi_add(dev, &tp->napi, typhoon_poll, 16);
+ 	dev->watchdog_timeo	= TX_TIMEOUT;
+-	dev->get_stats		= typhoon_get_stats;
+-	dev->set_mac_address	= typhoon_set_mac_address;
+-	dev->vlan_rx_register	= typhoon_vlan_rx_register;
  
--	dev->open = sis190_open;
--	dev->stop = sis190_close;
--	dev->do_ioctl = sis190_ioctl;
--	dev->tx_timeout = sis190_tx_timeout;
--	dev->watchdog_timeo = SIS190_TX_TIMEOUT;
--	dev->hard_start_xmit = sis190_start_xmit;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = sis190_netpoll;
--#endif
--	dev->set_multicast_list = sis190_set_rx_mode;
-+	dev->netdev_ops = &sis190_netdev_ops;
-+
- 	SET_ETHTOOL_OPS(dev, &sis190_ethtool_ops);
- 	dev->irq = pdev->irq;
- 	dev->base_addr = (unsigned long) 0xdead;
-+	dev->watchdog_timeo = SIS190_TX_TIMEOUT;
- 
- 	spin_lock_init(&tp->lock);
+ 	SET_ETHTOOL_OPS(dev, &typhoon_ethtool_ops);
  
 
 -- 
