@@ -1,85 +1,68 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 16/42] de600: update to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:32 -0800
-Message-ID: <20090107003347.155432544@vyatta.com>
+Subject: [PATCH 20/42] natsemi: update to net_device_ops
+Date: Tue, 06 Jan 2009 16:33:36 -0800
+Message-ID: <20090107003347.571857284@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:59029 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:59035 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751877AbZAGAxm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:53:42 -0500
-Content-Disposition: inline; filename=de620.patch
+	id S1756484AbZAGAxo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:53:44 -0500
+Content-Disposition: inline; filename=natsemi.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/de600.c	2009-01-05 09:57:00.313823290 -0800
-+++ b/drivers/net/de600.c	2009-01-05 09:58:37.145589173 -0800
-@@ -378,6 +378,16 @@ static void de600_rx_intr(struct net_dev
- 	 */
+--- a/drivers/net/natsemi.c	2009-01-05 16:37:41.039070167 -0800
++++ b/drivers/net/natsemi.c	2009-01-05 17:22:10.793568537 -0800
+@@ -779,6 +779,22 @@ static void __devinit natsemi_init_media
+ 
  }
  
-+static const struct net_device_ops de600_netdev_ops = {
-+	.ndo_open		= de600_open,
-+	.ndo_stop		= de600_close,
-+	.ndo_start_xmit		= de600_start_xmit,
-+	.ndo_change_mtu		= eth_change_mtu,
++static const struct net_device_ops natsemi_netdev_ops = {
++	.ndo_open		= netdev_open,
++	.ndo_stop		= netdev_close,
++	.ndo_start_xmit		= start_tx,
++	.ndo_get_stats		= get_stats,
++	.ndo_set_multicast_list = set_rx_mode,
++	.ndo_change_mtu		= natsemi_change_mtu,
++	.ndo_do_ioctl		= netdev_ioctl,
++	.ndo_tx_timeout 	= ns_tx_timeout,
 +	.ndo_set_mac_address 	= eth_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= natsemi_poll_controller,
++#endif
 +};
 +
-+
- static struct net_device * __init de600_probe(void)
+ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
+ 	const struct pci_device_id *ent)
  {
- 	int	i;
-@@ -439,9 +449,7 @@ static struct net_device * __init de600_
+@@ -911,20 +927,9 @@ static int __devinit natsemi_probe1 (str
+ 	if (find_cnt < MAX_UNITS  &&  full_duplex[find_cnt])
+ 		np->full_duplex = 1;
  
- 	printk(", Ethernet Address: %pM\n", dev->dev_addr);
+-	/* The chip-specific entries in the device structure. */
+-	dev->open = &netdev_open;
+-	dev->hard_start_xmit = &start_tx;
+-	dev->stop = &netdev_close;
+-	dev->get_stats = &get_stats;
+-	dev->set_multicast_list = &set_rx_mode;
+-	dev->change_mtu = &natsemi_change_mtu;
+-	dev->do_ioctl = &netdev_ioctl;
+-	dev->tx_timeout = &ns_tx_timeout;
++	dev->netdev_ops = &natsemi_netdev_ops;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
  
--	dev->open = de600_open;
--	dev->stop = de600_close;
--	dev->hard_start_xmit = &de600_start_xmit;
-+	dev->netdev_ops = &de600_netdev_ops;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = &natsemi_poll_controller;
+-#endif
+ 	SET_ETHTOOL_OPS(dev, &ethtool_ops);
  
- 	dev->flags&=~IFF_MULTICAST;
- 
---- a/drivers/net/de620.c	2009-01-05 09:54:40.509573827 -0800
-+++ b/drivers/net/de620.c	2009-01-05 09:56:31.049569488 -0800
-@@ -784,6 +784,17 @@ static int adapter_init(struct net_devic
- 	return 0; /* all ok */
- }
- 
-+static const struct net_device_ops de620_netdev_ops = {
-+	.ndo_open 		= de620_open,
-+	.ndo_stop 		= de620_close,
-+	.ndo_start_xmit 	= de620_start_xmit,
-+	.ndo_tx_timeout 	= de620_timeout,
-+	.ndo_set_multicast_list = de620_set_multicast_list,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_validate_addr	= eth_validate_addr,
-+};
-+
- /******************************************************************************
-  *
-  * Only start-up code below
-@@ -861,12 +872,8 @@ struct net_device * __init de620_probe(i
- 	else
- 		printk(" UTP)\n");
- 
--	dev->open 		= de620_open;
--	dev->stop 		= de620_close;
--	dev->hard_start_xmit 	= de620_start_xmit;
--	dev->tx_timeout 	= de620_timeout;
-+	dev->netdev_ops = &de620_netdev_ops;
- 	dev->watchdog_timeo	= HZ*2;
--	dev->set_multicast_list = de620_set_multicast_list;
- 
- 	/* base_addr and irq are already set, see above! */
- 
+ 	if (mtu)
 
 -- 
 
