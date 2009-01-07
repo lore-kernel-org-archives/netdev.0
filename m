@@ -1,45 +1,63 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
-Date: Wed, 7 Jan 2009 22:39:30 +0300
-Message-ID: <20090107193929.GA12979@ioremap.net>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <c6d9bea0901071035p1b8b4fc1u49bc7bb7c89782a@mail.gmail.com> <20090107190230.GB11037@ioremap.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 1/3] wimax: fix '#ifdef CONFIG_BUG' layout to avoid
+ warning
+Date: Wed, 7 Jan 2009 21:42:53 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0901072139001.27541@wrl-59.cs.helsinki.fi>
+References: <cover.1231314782.git.inaky@linux.intel.com>
+ <8baeb9679011f4f01a5f9709c725c4d829cb28bd.1231314782.git.inaky@linux.intel.com>
+ <Pine.LNX.4.64.0901071200080.27307@wrl-59.cs.helsinki.fi>
+ <200901070920.18032.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "C. Scott Ananian" <cscott@laptop.org>
+Content-Type: MULTIPART/MIXED; boundary="-696208474-1266802129-1231357264=:27541"
+Cc: Netdev <netdev@vger.kernel.org>, wimax@linuxwimax.org,
+	greg@kroah.com
+To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:39901 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753186AbZAGTjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 14:39:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20090107190230.GB11037@ioremap.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33131 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756251AbZAGTmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 14:42:55 -0500
+In-Reply-To: <200901070920.18032.inaky@linux.intel.com>
+Content-ID: <Pine.LNX.4.64.0901072141510.27541@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 10:02:30PM +0300, Evgeniy Polyakov (zbr@ioremap.net) wrote:
-> > I haven't reviewed the patch to confirm this, but this is how I would
-> > expect RLIMIT_NETWORK functions.  A trusted process like inetd (say)
-> > would accept a network connection and create a file handle.  It would
-> > then fork, drop the hard and soft RLIMIT_NETWORK to 0, and then exec
-> > the untrusted client program.  This would allow the untrusted program
-> > to use the 'trusted' network resource via the open file handle, but
-> > prevent it from (say) leaking sensitive transaction data by making
-> > further connections to some other network resource.  (There are better
-> > use cases than inetd, of course.)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696208474-1266802129-1231357264=:27541
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0901072141511.27541@wrl-59.cs.helsinki.fi>
+
+On Wed, 7 Jan 2009, Inaky Perez-Gonzalez wrote:
+
+> On Wednesday 07 January 2009, Ilpo Järvinen wrote:
+> > On Tue, 6 Jan 2009, Inaky Perez-Gonzalez wrote:
+> > > Reported by Randy Dunlap:
+> > > > Also, this warning needs to be fixed:
+> > > >
+> > > > linux-next-20090106/net/wimax/id-table.c:133: warning: ISO C90
+> > > > forbids mixed declarations and code
+> > >
+> > > Move the return on #defined(CONFIG_BUG) below the variable
+> > > declarations so it doesn't violate ISO C90.
+> > >
+> > > On wimax_id_table_release() we want to do a debug check if CONFIG_BUG
+> > > is enabled. However, we also want the debug code to be always compiled
+> > > to ensure there is no bitrot.
+> >
+> > I hope this kind of solution won't add some warnings? Besides, this seems
+> > rather strange reasoning as CONFIG_BUG is mostly enabled anyway?
 > 
-> So effectively it requires higher-prio process to set the limit and then
-> drop own priviledges. And by default network rlimit is turned off, so
-> this does not work for usual processes?
+> Well, it is legal code -- short of 'if (1) return'. It doesn't warn (and 
+> it should not).
 
-More on this: patch operates with rlim_cur, which can be set and cleared
-without checking the permissions at all, so process is allowed to set it
-to 1, which means disabling all sendmsg calls except for unix sockets,
-but then the same (or child) process is allowed to set rlim_cur to zero.
+Obviously, but I was concerned on the other lines than that 
+particular one, e.g., gcc might think that wimax_dev is unused 
+variable and emit a warning or along those lines...?
 
-Setting rlim_max to be higher than it is requires CAP_SYS_RESOURCE
-capabilities.
 
 -- 
-	Evgeniy Polyakov
+ i.
+---696208474-1266802129-1231357264=:27541--
