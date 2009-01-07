@@ -1,154 +1,73 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 03/42] bluetooth: driver API update
-Date: Tue, 06 Jan 2009 16:33:19 -0800
-Message-ID: <20090107003345.753201945@vyatta.com>
+Subject: [PATCH 05/42] cassini: update to net_device_ops
+Date: Tue, 06 Jan 2009 16:33:21 -0800
+Message-ID: <20090107003345.992109753@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: David Miller <davem@davemloft.net>, marcel@holtmann.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:58977 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:58984 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754744AbZAGAxC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:53:02 -0500
-Content-Disposition: inline; filename=bluetooth.patch
+	id S1754697AbZAGAxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:53:07 -0500
+Content-Disposition: inline; filename=cassini.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-Convert to net_device_ops and use internal net_device_stats in bnep
-device. 
-
-Note: no need for bnep_net_ioctl since if ioctl is not set, then
-dev_ifsioc handles it by returning -EOPNOTSUPP
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
----
- net/bluetooth/bnep/bnep.h   |    1 -
- net/bluetooth/bnep/core.c   |   12 ++++++------
- net/bluetooth/bnep/netdev.c |   33 +++++++++++++--------------------
- 3 files changed, 19 insertions(+), 27 deletions(-)
-
---- a/net/bluetooth/bnep/bnep.h	2009-01-06 15:36:57.660614286 -0800
-+++ b/net/bluetooth/bnep/bnep.h	2009-01-06 15:49:48.920360342 -0800
-@@ -165,7 +165,6 @@ struct bnep_session {
- 
- 	struct socket    *sock;
- 	struct net_device *dev;
--	struct net_device_stats stats;
- };
- 
- void bnep_net_setup(struct net_device *dev);
---- a/net/bluetooth/bnep/netdev.c	2009-01-06 15:36:57.652614285 -0800
-+++ b/net/bluetooth/bnep/netdev.c	2009-01-06 16:13:10.628360045 -0800
-@@ -55,12 +55,6 @@ static int bnep_net_close(struct net_dev
- 	return 0;
+--- a/drivers/net/cassini.c	2009-01-03 21:36:30.471764781 -0800
++++ b/drivers/net/cassini.c	2009-01-03 21:39:40.431264020 -0800
+@@ -4977,6 +4977,22 @@ static void __devinit cas_program_bridge
+ 	pci_write_config_byte(pdev, PCI_LATENCY_TIMER, 0xff);
  }
  
--static struct net_device_stats *bnep_net_get_stats(struct net_device *dev)
--{
--	struct bnep_session *s = netdev_priv(dev);
--	return &s->stats;
--}
--
- static void bnep_net_set_mc_list(struct net_device *dev)
- {
- #ifdef CONFIG_BT_BNEP_MC_FILTER
-@@ -128,11 +122,6 @@ static void bnep_net_timeout(struct net_
- 	netif_wake_queue(dev);
- }
- 
--static int bnep_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
--{
--	return -EINVAL;
--}
--
- #ifdef CONFIG_BT_BNEP_MC_FILTER
- static inline int bnep_net_mc_filter(struct sk_buff *skb, struct bnep_session *s)
- {
-@@ -217,6 +206,18 @@ static int bnep_net_xmit(struct sk_buff 
- 	return 0;
- }
- 
-+static const struct net_device_ops bnep_netdev_ops = {
-+	.ndo_open            = bnep_net_open,
-+	.ndo_stop            = bnep_net_close,
-+	.ndo_start_xmit	     = bnep_net_xmit,
-+	.ndo_validate_addr   = eth_validate_addr,
-+	.ndo_set_multicast_list = bnep_net_set_mc_list,
-+	.ndo_set_mac_address = bnep_net_set_mac_addr,
-+	.ndo_tx_timeout      = bnep_net_timeout,
-+	.ndo_change_mtu	     = eth_change_mtu,
-+
++static const struct net_device_ops cas_netdev_ops = {
++	.ndo_open		= cas_open,
++	.ndo_stop		= cas_close,
++	.ndo_start_xmit		= cas_start_xmit,
++	.ndo_get_stats 		= cas_get_stats,
++	.ndo_set_multicast_list = cas_set_multicast,
++	.ndo_do_ioctl		= cas_ioctl,
++	.ndo_tx_timeout		= cas_tx_timeout,
++	.ndo_change_mtu		= cas_change_mtu,
++	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= cas_netpoll,
++#endif
 +};
 +
- void bnep_net_setup(struct net_device *dev)
+ static int __devinit cas_init_one(struct pci_dev *pdev,
+ 				  const struct pci_device_id *ent)
  {
+@@ -5165,23 +5181,14 @@ static int __devinit cas_init_one(struct
  
-@@ -224,15 +225,7 @@ void bnep_net_setup(struct net_device *d
- 	dev->addr_len = ETH_ALEN;
- 
- 	ether_setup(dev);
+ 	for (i = 0; i < N_RX_FLOWS; i++)
+ 		skb_queue_head_init(&cp->rx_flows[i]);
 -
--	dev->open            = bnep_net_open;
--	dev->stop            = bnep_net_close;
--	dev->hard_start_xmit = bnep_net_xmit;
--	dev->get_stats       = bnep_net_get_stats;
--	dev->do_ioctl        = bnep_net_ioctl;
--	dev->set_mac_address = bnep_net_set_mac_addr;
--	dev->set_multicast_list = bnep_net_set_mc_list;
-+	dev->netdev_ops = &bnep_netdev_ops;
- 
- 	dev->watchdog_timeo  = HZ * 2;
--	dev->tx_timeout      = bnep_net_timeout;
- }
---- a/net/bluetooth/bnep/core.c	2009-01-06 15:36:57.668614314 -0800
-+++ b/net/bluetooth/bnep/core.c	2009-01-06 15:49:48.920360342 -0800
-@@ -306,7 +306,7 @@ static inline int bnep_rx_frame(struct b
- 	struct sk_buff *nskb;
- 	u8 type;
- 
--	s->stats.rx_bytes += skb->len;
-+	dev->stats.rx_bytes += skb->len;
- 
- 	type = *(u8 *) skb->data; skb_pull(skb, 1);
- 
-@@ -343,7 +343,7 @@ static inline int bnep_rx_frame(struct b
- 	 * may not be modified and because of the alignment requirements. */
- 	nskb = alloc_skb(2 + ETH_HLEN + skb->len, GFP_KERNEL);
- 	if (!nskb) {
--		s->stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 		kfree_skb(skb);
- 		return -ENOMEM;
- 	}
-@@ -378,14 +378,14 @@ static inline int bnep_rx_frame(struct b
- 	skb_copy_from_linear_data(skb, __skb_put(nskb, skb->len), skb->len);
- 	kfree_skb(skb);
- 
--	s->stats.rx_packets++;
-+	dev->stats.rx_packets++;
- 	nskb->ip_summed = CHECKSUM_NONE;
- 	nskb->protocol  = eth_type_trans(nskb, dev);
- 	netif_rx_ni(nskb);
- 	return 0;
- 
- badframe:
--	s->stats.rx_errors++;
-+	dev->stats.rx_errors++;
- 	kfree_skb(skb);
- 	return 0;
- }
-@@ -448,8 +448,8 @@ send:
- 	kfree_skb(skb);
- 
- 	if (len > 0) {
--		s->stats.tx_bytes += len;
--		s->stats.tx_packets++;
-+		s->dev->stats.tx_bytes += len;
-+		s->dev->stats.tx_packets++;
- 		return 0;
- 	}
+-	dev->open = cas_open;
+-	dev->stop = cas_close;
+-	dev->hard_start_xmit = cas_start_xmit;
+-	dev->get_stats = cas_get_stats;
+-	dev->set_multicast_list = cas_set_multicast;
+-	dev->do_ioctl = cas_ioctl;
++
++	dev->netdev_ops = &cas_netdev_ops;
+ 	dev->ethtool_ops = &cas_ethtool_ops;
+-	dev->tx_timeout = cas_tx_timeout;
+ 	dev->watchdog_timeo = CAS_TX_TIMEOUT;
+-	dev->change_mtu = cas_change_mtu;
++
+ #ifdef USE_NAPI
+ 	netif_napi_add(dev, &cp->napi, cas_poll, 64);
+ #endif
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = cas_netpoll;
+-#endif
+ 	dev->irq = pdev->irq;
+ 	dev->dma = 0;
  
 
 -- 
