@@ -1,33 +1,45 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 0/3] wimax: Kbuild / rfkill-build fixes
-Date: Tue,  6 Jan 2009 23:58:19 -0800
-Message-ID: <cover.1231314782.git.inaky@linux.intel.com>
-Cc: wimax@linuxwimax.org, greg@kroah.com
+Subject: [PATCH 3/3] wimax: testing for rfkill support should also test for
+	CONFIG_RFKILL_MODULE
+Date: Tue,  6 Jan 2009 23:58:22 -0800
+Message-ID: <2683eec8eab0a647089cd4c8fc1b1daac44e9bdb.1231314782.git.inaky@linux.intel.com>
+References: <cover.1231314782.git.inaky@linux.intel.com>
+Cc: greg@kroah.com, wimax@linuxwimax.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 076-076-148-181.pdx.net ([76.76.148.181]:42319 "EHLO gocho"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752834AbZAGH60 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 02:58:26 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1231314782.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-These three patches fix issues reported by Randy Dunlap on the
-linux-next tree for Jan 6:
+Current WiMAX rfkill code is missing the case where rfkill is compiled
+in as modules and works only when rfkill is compiled in. This is not
+correct. Fixed to test for CONFIG_RFKILL or CONFIG_RKILL_MODULE.
 
-http://lkml.org/lkml/2009/1/6/340
-
-The issue fixed by patch #3 wasn't reported on the emails but was
-uncovered while discussing the fixes.
-
-Inaky Perez-Gonzalez (3):
-  wimax: fix '#ifdef CONFIG_BUG' layout to avoid warning
-  wimax: fix kconfig interactions with rfkill and input layers
-  wimax: testing for rfkill support should also test for
-    CONFIG_RFKILL_MODULE
-
- net/wimax/Kconfig     |   14 ++++++++++++++
- net/wimax/id-table.c  |   10 ++++++----
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
  net/wimax/op-rfkill.c |    2 +-
- 3 files changed, 21 insertions(+), 5 deletions(-)
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/net/wimax/op-rfkill.c b/net/wimax/op-rfkill.c
+index 8745bac..2b75aee 100644
+--- a/net/wimax/op-rfkill.c
++++ b/net/wimax/op-rfkill.c
+@@ -71,7 +71,7 @@
+ #define D_SUBMODULE op_rfkill
+ #include "debug-levels.h"
+ 
+-#ifdef CONFIG_RFKILL
++#if defined(CONFIG_RFKILL) || defined(CONFIG_RFKILL_MODULE)
+ 
+ 
+ /**
+-- 
+1.5.6.5
