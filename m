@@ -1,71 +1,63 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 2/3] wimax: fix kconfig interactions with rfkill and input
-	layers
-Date: Wed,  7 Jan 2009 09:18:46 -0800
-Message-ID: <f0f7dc5763046cc336ca087a2525c8b52811ddb4.1231348339.git.inaky@linux.intel.com>
-References: <cover.1231348339.git.inaky@linux.intel.com>
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>, wimax@linuxwimax.org,
-	greg@kroah.com, LKML <linux-kernel@vger.kernel.org>,
-	linux-wimax@intel.com, linux-next@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <cover.1231348339.git.inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: [PATCH 1/3] wimax: fix '#ifdef CONFIG_BUG' layout to avoid warning
+Date: Wed, 7 Jan 2009 09:20:17 -0800
+Message-ID: <200901070920.18032.inaky@linux.intel.com>
+References: <cover.1231314782.git.inaky@linux.intel.com> <8baeb9679011f4f01a5f9709c725c4d829cb28bd.1231314782.git.inaky@linux.intel.com> <Pine.LNX.4.64.0901071200080.27307@wrl-59.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>, wimax@linuxwimax.org,
+	greg@kroah.com
+To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga10.intel.com ([192.55.52.92]:18480 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753208AbZAGRUe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 12:20:34 -0500
+In-Reply-To: <Pine.LNX.4.64.0901071200080.27307@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WiMAX can work without RFKILL, but it was missing a check to make sure
-RFKILL is not being made a module with wimax compiled into the
-kernel. This caused failed builds in s390, where CONFIG_INPUT is
-always off.
+On Wednesday 07 January 2009, Ilpo J=E4rvinen wrote:
+> On Tue, 6 Jan 2009, Inaky Perez-Gonzalez wrote:
+> > Reported by Randy Dunlap:
+> > > Also, this warning needs to be fixed:
+> > >
+> > > linux-next-20090106/net/wimax/id-table.c:133: warning: ISO C90
+> > > forbids mixed declarations and code
+> >
+> > Move the return on #defined(CONFIG_BUG) below the variable
+> > declarations so it doesn't violate ISO C90.
+> >
+> > On wimax_id_table_release() we want to do a debug check if CONFIG_B=
+UG
+> > is enabled. However, we also want the debug code to be always compi=
+led
+> > to ensure there is no bitrot.
+>
+> I hope this kind of solution won't add some warnings? Besides, this s=
+eems
+> rather strange reasoning as CONFIG_BUG is mostly enabled anyway?
 
-When RFKILL is enabled, the code uses the input layer to report
-hardware switch changes; thus, if RFKILL is enabled, INPUT has to be
-too. It also needs to display some message when INPUT is disabled that
-explains why WiMAX is not selectable.
+Well, it is legal code -- short of 'if (1) return'. It doesn't warn (an=
+d=20
+it should not).
 
-(issues found by Randy Dunlap in the linux-next tree).
+> > -#ifndef CONFIG_BUG
+> > -	return;
+> > -#endif
+> >  	struct wimax_dev *wimax_dev;
+> >
+> > +#ifdef CONFIG_BUG
+>
+> Did you perhaps mean ifndef here??? :-)
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- net/wimax/Kconfig |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+Sigh ... you are right ... good thing I triple checked.
 
-diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
-index 0bdbb69..18495cd 100644
---- a/net/wimax/Kconfig
-+++ b/net/wimax/Kconfig
-@@ -1,9 +1,23 @@
- #
- # WiMAX LAN device configuration
- #
-+# Note the ugly 'depends on' on WIMAX: that disallows RFKILL to be a
-+# module if WIMAX is to be linked in. The WiMAX code is done in such a
-+# way that it doesn't require and explicit dependency on RFKILL in
-+# case an embedded system wants to rip it out.
-+#
-+# As well, enablement of the RFKILL code means we need the INPUT layer
-+# support to inject events coming from hw rfkill switches. That
-+# dependency could be killed if input.h provided appropiate means to
-+# work when input is disabled.
-+
-+comment "WiMAX Wireless Broadband support requires CONFIG_INPUT enabled"
-+	depends on INPUT = n && RFKILL != n
- 
- menuconfig WIMAX
- 	tristate "WiMAX Wireless Broadband support"
-+	depends on (y && RFKILL != m) || m
-+	depends on (INPUT && RFKILL != n) || RFKILL = n
- 	help
- 
- 	  Select to configure support for devices that provide
--- 
-1.5.6.5
+Sending updated patch series.
+
+Thanks,
+
+--=20
+Inaky
