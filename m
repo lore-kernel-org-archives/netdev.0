@@ -1,41 +1,40 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
-	2.6.27
-Date: Wed, 7 Jan 2009 15:17:32 +1100
-Message-ID: <20090107041732.GA22041@gondor.apana.org.au>
-References: <bug-12327-10286@http.bugzilla.kernel.org/> <20081229214101.4c4f5ac1.akpm@linux-foundation.org> <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com> <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Wed, 7 Jan 2009 15:42:32 +1100
+Message-ID: <20090107044232.GA22218@gondor.apana.org.au>
+References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106183704.GC32491@kernel.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Speedster <speedster@haveacry.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55076 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756958AbZAGERn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 23:17:43 -0500
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, Willy Tarreau <w@1wt.eu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755495AbZAGEnG@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4961ECD2.1000502@haveacry.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090106183704.GC32491@kernel.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 05, 2009 at 08:19:46PM +0900, Speedster wrote:
->
-> I have tried both virtio and the default (8139too). The original dumps  
-> were taken on whinge, I have attached two new dumps showing the  
-> functional (2.6.24) and non-functional (2.6.27) states from the host.
+On Tue, Jan 06, 2009 at 06:37:05PM +0000, Jens Axboe wrote:
+> 
+> I'll give this a spin tomorrow as well. A hunch tells me that this is
+> likely a page reuse issue, that splice is getting the reference to the
+> buffer dropped before the data has really been transmitted. IOW, the
+> page is likely fine reaching the ->sendpage() bit, but will be reused
+> before the data has actually been transmitted. So once you get that far,
+> other random data from that page is going out.
 
-The MAC on the PPPoE packets appears bogus:
+I see the problem.
 
-22:07:58.344027 00:16:3e:24:f7:a1 > 00:18:18:54:19:54
+The socket pipes in net/core/skbuff.c use references on the skb
+to hold down the memory in skb->head as well as the pages in the
+skb.
 
-Can you also attach a dump for connections that do work under
-2.6.27? That should tell us whether this MAC is genuine.
+Unfortunately, once the pipe is fed into sendpage we only use
+page reference counting to pin down the memory.  So as soon as
+sendpage returns we drop the ref count on the skb, thus freeing
+the memory in skb->head, which is yet to be transmitted.
 
-If it is bogus, can you dump on the other interfaces to see
-who is corrupting it?
+Moral: Using page reference counts on skb->head is wrong.
 
 Cheers,
 -- 
