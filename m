@@ -1,37 +1,174 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 15:46:29 +0300
-Message-ID: <20090107124629.GA31732@ioremap.net>
-References: <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au> <20090107112906.GA28161@ioremap.net> <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net> <20090107115921.GA25323@gondor.apana.org.au> <20090107121530.GA30164@ioremap.net> <20090107122238.GB25673@gondor.apana.org.au> <20090107123741.GA31255@ioremap.net> <20090107124246.GA26034@gondor.apana.org.au>
+Date: Wed, 7 Jan 2009 12:49:46 +0000
+Message-ID: <20090107124946.GA9677@ff.dom.local>
+References: <20081224152841.GB13113@1wt.eu> <20090106085442.GA9513@ff.dom.local> <20090106094138.GE25644@1wt.eu> <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
+Cc: Willy Tarreau <w@1wt.eu>, Changli Gao <xiaosuo@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from matrixpower.ru ([195.178.208.66]:55360 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751107AbZAGMqb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 07:46:31 -0500
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:62613 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751003AbZAGMt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:49:57 -0500
 Content-Disposition: inline
-In-Reply-To: <20090107124246.GA26034@gondor.apana.org.au>
+In-Reply-To: <20090107123504.GN32491@kernel.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 11:42:46PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > Doesn't your tcp fallbacks to kernel_sendmsg() without sg in
-> > tcp_sendpage()? And then just feeds data into the stack the same way it
-> > happens with send() i.e. by copying it.
+On Wed, Jan 07, 2009 at 01:35:04PM +0100, Jens Axboe wrote:
+> On Wed, Jan 07 2009, Jarek Poplawski wrote:
+> > On Wed, Jan 07, 2009 at 01:22:05PM +0100, Willy Tarreau wrote:
+> > > [ CCing Evgeniy and Herbert who also participate to the thread ]
+> > ...
+> > > Well, I've just tested it. It did not fix the problem but made it worse.
+> > ...
+> > 
+> > Terrible mistake! Here is take 2.
 > 
-> Good point.  Did he check GSO though? GSO will always enable SG
-> on the socket regardless of the netdev's setting.  And if the device
-> started out with SG enabled then recent kernels will enable GSO
-> by default.
+> Not sure what this:
+> 
+> > +static inline struct page *linear_to_page(struct page *page, unsigned int len,
+> > +					  unsigned int offset)
+> > +{
+> > +	struct page *p = alloc_pages(GFP_KERNEL, 0);
+> > +
+> > +	if (!p)
+> > +		return NULL;
+> > +	memcpy((void *)p + offset, (void *)page + offset, len);
+> 
+> is trying to do. I'm assuming you want to copy the page contents? If so,
+> you'd want something like
+> 
+>         memcpy(page_address(p) + offset, page_address(page) + offset, len);
+> 
+> with possible kmaps for 'page'.
 
-Willy, what was the kernel you are tested no-accel behaviour and what
-were the gso settings?
-Can you add a simple single print into tcp_sendpage() to determine if
-content was copied or fed into do_tcp_sendpages() otherwise?
+My BAD!!! Thanks!
 
--- 
-	Evgeniy Polyakov
+> 
+> Irregardless of that particular oddity, I don't think this is the right
+> path to take at all. We need to delay the pipe buffer consumption until
+> the appropriate time.
+
+Hmm... in any case: take 3
+
+Jarek P. 
+
+---
+
+ net/core/skbuff.c |   41 +++++++++++++++++++++++++++--------------
+ 1 files changed, 27 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5110b35..6e43d52 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -73,17 +73,13 @@ static struct kmem_cache *skbuff_fclone_cache __read_mostly;
+ static void sock_pipe_buf_release(struct pipe_inode_info *pipe,
+ 				  struct pipe_buffer *buf)
+ {
+-	struct sk_buff *skb = (struct sk_buff *) buf->private;
+-
+-	kfree_skb(skb);
++	put_page(buf->page);
+ }
+ 
+ static void sock_pipe_buf_get(struct pipe_inode_info *pipe,
+ 				struct pipe_buffer *buf)
+ {
+-	struct sk_buff *skb = (struct sk_buff *) buf->private;
+-
+-	skb_get(skb);
++	get_page(buf->page);
+ }
+ 
+ static int sock_pipe_buf_steal(struct pipe_inode_info *pipe,
+@@ -1334,9 +1330,19 @@ fault:
+  */
+ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
+ {
+-	struct sk_buff *skb = (struct sk_buff *) spd->partial[i].private;
++	put_page(spd->pages[i]);
++}
+ 
+-	kfree_skb(skb);
++static inline struct page *linear_to_page(struct page *page, unsigned int len,
++					  unsigned int offset)
++{
++	struct page *p = alloc_pages(GFP_KERNEL, 0);
++
++	if (!p)
++		return NULL;
++	memcpy(page_address(p) + offset, page_address(page) + offset, len);
++
++	return p;
+ }
+ 
+ /*
+@@ -1344,16 +1350,23 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
+  */
+ static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
+ 				unsigned int len, unsigned int offset,
+-				struct sk_buff *skb)
++				struct sk_buff *skb, int linear)
+ {
+ 	if (unlikely(spd->nr_pages == PIPE_BUFFERS))
+ 		return 1;
+ 
++	if (linear) {
++		page = linear_to_page(page, len, offset);
++		if (!page)
++			return 1;
++	}
++
+ 	spd->pages[spd->nr_pages] = page;
+ 	spd->partial[spd->nr_pages].len = len;
+ 	spd->partial[spd->nr_pages].offset = offset;
+-	spd->partial[spd->nr_pages].private = (unsigned long) skb_get(skb);
+ 	spd->nr_pages++;
++	get_page(page);
++
+ 	return 0;
+ }
+ 
+@@ -1369,7 +1382,7 @@ static inline void __segment_seek(struct page **page, unsigned int *poff,
+ static inline int __splice_segment(struct page *page, unsigned int poff,
+ 				   unsigned int plen, unsigned int *off,
+ 				   unsigned int *len, struct sk_buff *skb,
+-				   struct splice_pipe_desc *spd)
++				   struct splice_pipe_desc *spd, int linear)
+ {
+ 	if (!*len)
+ 		return 1;
+@@ -1392,7 +1405,7 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
+ 		/* the linear region may spread across several pages  */
+ 		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
+ 
+-		if (spd_fill_page(spd, page, flen, poff, skb))
++		if (spd_fill_page(spd, page, flen, poff, skb, linear))
+ 			return 1;
+ 
+ 		__segment_seek(&page, &poff, &plen, flen);
+@@ -1419,7 +1432,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+ 	if (__splice_segment(virt_to_page(skb->data),
+ 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
+ 			     skb_headlen(skb),
+-			     offset, len, skb, spd))
++			     offset, len, skb, spd, 1))
+ 		return 1;
+ 
+ 	/*
+@@ -1429,7 +1442,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+ 		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
+ 
+ 		if (__splice_segment(f->page, f->page_offset, f->size,
+-				     offset, len, skb, spd))
++				     offset, len, skb, spd, 0))
+ 			return 1;
+ 	}
+ 
