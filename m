@@ -1,39 +1,50 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 15:15:30 +0300
-Message-ID: <20090107121530.GA30164@ioremap.net>
-References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au> <20090107112906.GA28161@ioremap.net> <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net> <20090107115921.GA25323@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [BUG] INFO: inconsistent lock state
+Date: Wed, 7 Jan 2009 23:16:54 +1100
+Message-ID: <20090107121654.GA25591@gondor.apana.org.au>
+References: <4962C322.8000201@cn.fujitsu.com> <49633005.5080305@redhat.com> <4963319D.8040204@cn.fujitsu.com> <496350DF.5030500@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Li Zefan <lizf@cn.fujitsu.com>, David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Zdenek Kabelac <zkabelac@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kandzendo.ru ([195.178.208.66]:42895 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924AbZAGMPb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 07:15:31 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:33658 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751811AbZAGMRB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:17:01 -0500
 Content-Disposition: inline
-In-Reply-To: <20090107115921.GA25323@gondor.apana.org.au>
+In-Reply-To: <496350DF.5030500@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 10:59:21PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> On Wed, Jan 07, 2009 at 02:56:05PM +0300, Evgeniy Polyakov wrote:
-> >
-> > But it will not push pages into the stack, but copy them including copy
-> > of the submitted head?
-> 
-> It will use a single page entry for skb->head with splice, see
-> skb_splice_bits.
+On Tue, Jan 06, 2009 at 12:38:55PM +0000, Zdenek Kabelac wrote:
+>
+> I've just tested the very latest build from git repository:
+> (commit: 238c6d54830c624f34ac9cf123ac04aebfca5013)
 
-Looks like we are talking about different directions of the dataflow.
-I meant that set of pages submitted into the sending part will be copied
-if sending interface does not support acceleration, and thus it will
-copy part of the page corresponding to the linear part of the skb prior
-the transmission, so even if skb will be freed right after that call
-(prior data transmission by the hardware), it should not affect copied
-data.
+You also need
 
+commit ea319518ba3de282c13ae1cf4bf2215c5e03e67e
+Author: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date:   Fri Dec 26 15:08:55 2008 +0100
+
+    locking, percpu counters: introduce separate lock classes
+    
+    Impact: fix lockdep false positives
+    
+    Classify percpu_counter instances similar to regular lock objects --
+    that is, per instantiation site.
+    
+    The networking code has increased its use of percpu_counters, which
+    leads to false positives if they are treated as a single class.
+    
+    Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+
+Cheers,
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
