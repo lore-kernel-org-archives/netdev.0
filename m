@@ -1,117 +1,80 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: [git pull] async_tx/dmaengine update for 2.6.29 (part 1)
-Date: Wed, 07 Jan 2009 12:19:09 -0700
-Message-ID: <1231355949.4895.28.camel@dwillia2-linux.ch.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Haavard Skinnemoen <hskinnemoen@atmel.com>,
-	Maciej Sosnowski <maciej.sosnowski@intel.com>,
-	g.liakhovetski@gmx.de, sfr@canb.auug.org.au,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17508 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751491AbZAGTTL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 14:19:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH 4/4] i2400m/usb: wrap USB power saving in #ifdef CONFIG_PM
+Date: Wed,  7 Jan 2009 11:22:22 -0800
+Message-ID: <0e511f3772ac9887551bec34ee682fa5bf63fb69.1231355768.git.inaky@linux.intel.com>
+References: <cover.1231355768.git.inaky@linux.intel.com>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>, wimax@linuxwimax.org,
+	greg@kroah.com, LKML <linux-kernel@vger.kernel.org>,
+	linux-wimax@intel.com, linux-next@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1231355768.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-Hi Linus, please pull from:
+Current code was assuming PM was always enabled, which is not
+correct. Code which accesses members in the struct usb_device that are
+dependant on CONFIG_PM must be protected the same.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/djbw/async_tx.git next
+Reported by Randy Dunlap from a build error in the linux-next tree on
+07/01/2009.
 
-...to receive:
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/wimax/i2400m/usb.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Dan Williams (22):
-      async_tx, dmaengine: document channel allocation and api rework
-      dmaengine: remove dependency on async_tx
-      dmaengine: up-level reference counting to the module level
-      dmaengine: centralize channel allocation, introduce dma_find_channel
-      dmaengine: provide a common 'issue_pending_all' implementation
-      net_dma: convert to dma_find_channel
-      dmaengine: introduce dma_request_channel and private channels
-      dmatest: convert to dma_request_channel
-      atmel-mci: convert to dma_request_channel and down-level dma_slave
-      dmaengine: replace dma_async_client_register with dmaengine_get
-      dmaengine: kill struct dma_client and supporting infrastructure
-      dmaengine: remove 'bigref' infrastructure
-      dmaengine: kill enum dma_state_client
-      iop-adma: let devm do its job, don't duplicate free
-      iop-adma: kill debug BUG_ON
-      iop-adma: enable module removal
-      ioat: do not perform removal actions at shutdown
-      dmaengine: add a release for dma class devices and dependent infrastructure
-      dmaengine: use idr for registering dma device numbers
-      dmaengine: advertise all channels on a device to dma_filter_fn
-      dmaengine: bump initcall level to arch_initcall
-      ioat: fix self test for multi-channel case
-
- Documentation/crypto/async-tx-api.txt |   96 ++---
- Documentation/dmaengine.txt           |    1 +
- arch/avr32/include/asm/atmel-mci.h    |    6 +-
- arch/avr32/mach-at32ap/at32ap700x.c   |   15 +-
- crypto/async_tx/async_tx.c            |  350 +---------------
- drivers/dca/dca-core.c                |    2 +-
- drivers/dma/Kconfig                   |    2 -
- drivers/dma/dmaengine.c               |  778 ++++++++++++++++++++++++---------
- drivers/dma/dmatest.c                 |  129 ++----
- drivers/dma/dw_dmac.c                 |  119 +++---
- drivers/dma/fsldma.c                  |    5 +-
- drivers/dma/ioat.c                    |   92 ++---
- drivers/dma/ioat_dma.c                |   18 +-
- drivers/dma/iop-adma.c                |   30 +--
- drivers/dma/mv_xor.c                  |   11 +-
- drivers/mmc/host/atmel-mci.c          |  103 ++----
- include/linux/async_tx.h              |   17 +-
- include/linux/dmaengine.h             |  181 +++------
- include/linux/dw_dmac.h               |   31 +-
- include/linux/netdevice.h             |    3 -
- include/net/netdma.h                  |   11 -
- net/core/dev.c                        |  149 +------
- net/ipv4/tcp.c                        |    5 +-
- net/ipv4/tcp_input.c                  |    2 +-
- net/ipv4/tcp_ipv4.c                   |    2 +-
- net/ipv6/tcp_ipv6.c                   |    2 +-
- 26 files changed, 900 insertions(+), 1260 deletions(-)
- create mode 100644 Documentation/dmaengine.txt
-
-1) Channel allocation rework
-The dmaengine subsystem collects and advertises dma channels for two
-classes of users in the kernel, memory-to-memory offload and traditional
-device-to-memory DMA.  The original design was driven by the
-memory-to-memory case and is starting to show its limitations now that
-more device-to-memory DMA users are appearing.  The primary difference
-between the two classes is that memory-to-memory offload is very
-amenable to channel sharing and is tolerant of dynamic channel changes.
-Compare this to the device-to-memory case where a channel must be
-dedicated to a device and may have platform-specific reasons why it
-cannot talk to a different device.
-
-This rework allows channels to be targeted to a public mem-to-mem pool
-or be reserved for an exclusive (private) dev-to-mem allocation.
-
-2) Fixes for dmaengine
-Stephen Hemminger pointed out that the dmaengine sysfs implementation
-was broken.  It now has a proper ->release() routine.
-
-3) Fixes for ioat
-The previous channel allocation scheme covered a shutdown bug.
-
-4) Fixes for iop-adma
-Some devm fixups, and module removal enablement.
-
-These commits have been in linux-next, although I bit the bullet and
-rebased recently to cover a git-bisect breakage case.  This was caused
-by net-next-2.6.git moving a routine that was deleted by this branch.
-Thanks to Stephen Rothwell for pointing this out.
-
-There is at least 1 pending driver that depends on this code, it may
-come in a "part 2" pull request once some final comments are resolved.
-
-Thanks!
-Dan
-
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
+index 6d4b65f..c6d9346 100644
+--- a/drivers/net/wimax/i2400m/usb.c
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -397,11 +397,13 @@ int i2400mu_probe(struct usb_interface *iface,
+ 	i2400m->bus_fw_name = I2400MU_FW_FILE_NAME;
+ 	i2400m->bus_bm_mac_addr_impaired = 0;
+ 
++#ifdef CONFIG_PM
+ 	iface->needs_remote_wakeup = 1;		/* autosuspend (15s delay) */
+ 	device_init_wakeup(dev, 1);
+ 	usb_autopm_enable(i2400mu->usb_iface);
+ 	usb_dev->autosuspend_delay = 15 * HZ;
+ 	usb_dev->autosuspend_disabled = 0;
++#endif
+ 
+ 	result = i2400m_setup(i2400m, I2400M_BRI_MAC_REINIT);
+ 	if (result < 0) {
+@@ -493,7 +495,9 @@ int i2400mu_suspend(struct usb_interface *iface, pm_message_t pm_msg)
+ 	int result = 0;
+ 	struct device *dev = &iface->dev;
+ 	struct i2400mu *i2400mu = usb_get_intfdata(iface);
++#ifdef CONFIG_PM
+ 	struct usb_device *usb_dev = i2400mu->usb_dev;
++#endif
+ 	struct i2400m *i2400m = &i2400mu->i2400m;
+ 
+ 	d_fnstart(3, dev, "(iface %p pm_msg %u)\n", iface, pm_msg.event);
+@@ -503,11 +507,13 @@ int i2400mu_suspend(struct usb_interface *iface, pm_message_t pm_msg)
+ 	atomic_dec(&i2400mu->do_autopm);
+ 	result = i2400m_cmd_enter_powersave(i2400m);
+ 	atomic_inc(&i2400mu->do_autopm);
++#ifdef CONFIG_PM
+ 	if (result < 0 && usb_dev->auto_pm == 0) {
+ 		/* System suspend, can't fail */
+ 		dev_err(dev, "failed to suspend, will reset on resume\n");
+ 		result = 0;
+ 	}
++#endif
+ 	if (result < 0)
+ 		goto error_enter_powersave;
+ 	i2400mu_notification_release(i2400mu);
+-- 
+1.5.6.5
