@@ -1,63 +1,56 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH 1/3] wimax: fix '#ifdef CONFIG_BUG' layout to avoid warning
-Date: Wed, 7 Jan 2009 09:20:17 -0800
-Message-ID: <200901070920.18032.inaky@linux.intel.com>
-References: <cover.1231314782.git.inaky@linux.intel.com> <8baeb9679011f4f01a5f9709c725c4d829cb28bd.1231314782.git.inaky@linux.intel.com> <Pine.LNX.4.64.0901071200080.27307@wrl-59.cs.helsinki.fi>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
+Date: Wed, 7 Jan 2009 20:48:09 +0300
+Message-ID: <20090107174809.GA8989@ioremap.net>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <200901071852.32078.rdenis@simphalempin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>, wimax@linuxwimax.org,
-	greg@kroah.com
-To: "Ilpo =?iso-8859-1?q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: =?utf-8?B?UsOpbWk=?= Denis-Courmont <rdenis@simphalempin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:18480 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753208AbZAGRUe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 12:20:34 -0500
-In-Reply-To: <Pine.LNX.4.64.0901071200080.27307@wrl-59.cs.helsinki.fi>
+Received: from cet.com.ru ([195.178.208.66]:41507 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752719AbZAGRsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 12:48:12 -0500
 Content-Disposition: inline
+In-Reply-To: <200901071852.32078.rdenis@simphalempin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 07 January 2009, Ilpo J=E4rvinen wrote:
-> On Tue, 6 Jan 2009, Inaky Perez-Gonzalez wrote:
-> > Reported by Randy Dunlap:
-> > > Also, this warning needs to be fixed:
-> > >
-> > > linux-next-20090106/net/wimax/id-table.c:133: warning: ISO C90
-> > > forbids mixed declarations and code
-> >
-> > Move the return on #defined(CONFIG_BUG) below the variable
-> > declarations so it doesn't violate ISO C90.
-> >
-> > On wimax_id_table_release() we want to do a debug check if CONFIG_B=
-UG
-> > is enabled. However, we also want the debug code to be always compi=
-led
-> > to ensure there is no bitrot.
->
-> I hope this kind of solution won't add some warnings? Besides, this s=
-eems
-> rather strange reasoning as CONFIG_BUG is mostly enabled anyway?
+On Wed, Jan 07, 2009 at 06:52:27PM +0200, R=C3=A9mi Denis-Courmont (rde=
+nis@simphalempin.com) wrote:
+> Le mercredi 7 janvier 2009 13:47:03 Evgeniy Polyakov, vous avez =C3=A9=
+crit=C2=A0:
+> > The same goal can be achieved with 'owner' iptables match module bt=
+w.
+>=20
+> Err no. iptables is _not_ suitable for userland applications dropping=
+ their=20
+> _own_ privileges. For privileged processes, it's clumsy at best, as i=
+ptables=20
+> does not quite work if more than one applications uses it. That's typ=
+ically=20
+> your firewall configuration wizard or some custom admin-made script.
+> As for UNprivileged processes, iptables is not allowed.
 
-Well, it is legal code -- short of 'if (1) return'. It doesn't warn (an=
-d=20
-it should not).
+If setting that rlimit does not require admin priviledges, then it does
+not require to drop this. So it is superuser or admin who does this.
+And exactly the same can be achieved with 'owner' iptables module.
 
-> > -#ifndef CONFIG_BUG
-> > -	return;
-> > -#endif
-> >  	struct wimax_dev *wimax_dev;
-> >
-> > +#ifdef CONFIG_BUG
->
-> Did you perhaps mean ifndef here??? :-)
+If process itself changes own rlimit, then it is not a rlimit, but a
+hint to how it is supposed to work.
 
-Sigh ... you are right ... good thing I triple checked.
+Plus I did not see how fork is protected, i.e. does children get the
+same rlimit, it looks like it does not.
 
-Sending updated patch series.
+> As I understand it, Michael is trying to build something similar to S=
+ECCOMP,=20
+> only way less restrictive and way more usable by real-life userland p=
+rograms.
 
-Thanks,
+Security and unpriveledged setup are mutually impossible cases.
 
 --=20
-Inaky
+	Evgeniy Polyakov
