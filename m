@@ -1,159 +1,186 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 33/42] I4l: convert to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:49 -0800
-Message-ID: <20090107003349.068812158@vyatta.com>
+Subject: [PATCH 35/42] xpnet: convert devices to new API
+Date: Tue, 06 Jan 2009 16:33:51 -0800
+Message-ID: <20090107003349.257844151@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Karsten Keil <kkeil@suse.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:60708 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:60713 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754734AbZAGAyH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:54:07 -0500
-Content-Disposition: inline; filename=i4l.patch
+	id S1754923AbZAGAyK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:54:10 -0500
+Content-Disposition: inline; filename=xpnet.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add net_device_ops and use interal stats 
+Convert to net_device_ops and internal net_device_stats
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/isdn/i4l/isdn_net.c	2009-01-03 22:04:20.322771793 -0800
-+++ b/drivers/isdn/i4l/isdn_net.c	2009-01-03 22:25:41.290763701 -0800
-@@ -1485,6 +1485,24 @@ isdn_ciscohdlck_dev_ioctl(struct net_dev
- 	return (rc);
+--- a/drivers/misc/sgi-xp/xpnet.c	2009-01-03 22:31:54.138766578 -0800
++++ b/drivers/misc/sgi-xp/xpnet.c	2009-01-03 22:44:08.668261847 -0800
+@@ -95,11 +95,6 @@ struct xpnet_pending_msg {
+ 	atomic_t use_count;
+ };
+ 
+-/* driver specific structure pointed to by the device structure */
+-struct xpnet_dev_private {
+-	struct net_device_stats stats;
+-};
+-
+ struct net_device *xpnet_device;
+ 
+ /*
+@@ -153,7 +148,6 @@ xpnet_receive(short partid, int channel,
+ 	struct sk_buff *skb;
+ 	void *dst;
+ 	enum xp_retval ret;
+-	struct xpnet_dev_private *priv = netdev_priv(xpnet_device);
+ 
+ 	if (!XPNET_VALID_MSG(msg)) {
+ 		/*
+@@ -161,7 +155,7 @@ xpnet_receive(short partid, int channel,
+ 		 */
+ 		xpc_received(partid, channel, (void *)msg);
+ 
+-		priv->stats.rx_errors++;
++		xpnet_device->stats.rx_errors++;
+ 
+ 		return;
+ 	}
+@@ -176,7 +170,7 @@ xpnet_receive(short partid, int channel,
+ 
+ 		xpc_received(partid, channel, (void *)msg);
+ 
+-		priv->stats.rx_errors++;
++		xpnet_device->stats.rx_errors++;
+ 
+ 		return;
+ 	}
+@@ -226,7 +220,7 @@ xpnet_receive(short partid, int channel,
+ 
+ 			xpc_received(partid, channel, (void *)msg);
+ 
+-			priv->stats.rx_errors++;
++			xpnet_device->stats.rx_errors++;
+ 
+ 			return;
+ 		}
+@@ -247,8 +241,8 @@ xpnet_receive(short partid, int channel,
+ 		skb_end_pointer(skb), skb->len);
+ 
+ 	xpnet_device->last_rx = jiffies;
+-	priv->stats.rx_packets++;
+-	priv->stats.rx_bytes += skb->len + ETH_HLEN;
++	xpnet_device->stats.rx_packets++;
++	xpnet_device->stats.rx_bytes += skb->len + ETH_HLEN;
+ 
+ 	netif_rx_ni(skb);
+ 	xpc_received(partid, channel, (void *)msg);
+@@ -353,26 +347,6 @@ xpnet_dev_change_mtu(struct net_device *
  }
  
-+
-+static int isdn_net_ioctl(struct net_device *dev,
-+			  struct ifreq *ifr, int cmd)
-+{
-+	isdn_net_local *lp = (isdn_net_local *) netdev_priv(dev);
-+
-+	switch (lp->p_encap) {
-+#ifdef CONFIG_ISDN_PPP
-+	case ISDN_NET_ENCAP_SYNCPPP:
-+		return isdn_ppp_dev_ioctl(dev, ifr, cmd);
-+#endif
-+	case ISDN_NET_ENCAP_CISCOHDLCK:
-+		return isdn_ciscohdlck_dev_ioctl(dev, ifr, cmd);
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- /* called via cisco_timer.function */
- static void
- isdn_net_ciscohdlck_slarp_send_keepalive(unsigned long data)
-@@ -1998,23 +2016,6 @@ isdn_net_init(struct net_device *ndev)
- 	ushort max_hlhdr_len = 0;
- 	int drvidx;
+ /*
+- * Required for the net_device structure.
+- */
+-static int
+-xpnet_dev_set_config(struct net_device *dev, struct ifmap *new_map)
+-{
+-	return 0;
+-}
+-
+-/*
+- * Return statistics to the caller.
+- */
+-static struct net_device_stats *
+-xpnet_dev_get_stats(struct net_device *dev)
+-{
+-	struct xpnet_dev_private *priv = netdev_priv(dev);
+-
+-	return &priv->stats;
+-}
+-
+-/*
+  * Notification that the other end has received the message and
+  * DMA'd the skb information.  At this point, they are done with
+  * our side.  When all recipients are done processing, we
+@@ -453,7 +427,6 @@ xpnet_dev_hard_start_xmit(struct sk_buff
+ 	struct xpnet_pending_msg *queued_msg;
+ 	u64 start_addr, end_addr;
+ 	short dest_partid;
+-	struct xpnet_dev_private *priv = netdev_priv(dev);
+ 	u16 embedded_bytes = 0;
  
--	ether_setup(ndev);
--	ndev->header_ops = NULL;
--
--	/* Setup the generic properties */
--	ndev->mtu = 1500;
--	ndev->flags = IFF_NOARP|IFF_POINTOPOINT;
--	ndev->type = ARPHRD_ETHER;
--	ndev->addr_len = ETH_ALEN;
--	ndev->validate_addr = NULL;
--
--	/* for clients with MPPP maybe higher values better */
--	ndev->tx_queue_len = 30;
--
--	/* The ISDN-specific entries in the device structure. */
--	ndev->open = &isdn_net_open;
--	ndev->hard_start_xmit = &isdn_net_start_xmit;
--
- 	/*
- 	 *  up till binding we ask the protocol layer to reserve as much
- 	 *  as we might need for HL layer
-@@ -2026,9 +2027,6 @@ isdn_net_init(struct net_device *ndev)
- 				max_hlhdr_len = dev->drv[drvidx]->interface->hl_hdrlen;
+ 	dev_dbg(xpnet, ">skb->head=0x%p skb->data=0x%p skb->tail=0x%p "
+@@ -476,7 +449,7 @@ xpnet_dev_hard_start_xmit(struct sk_buff
+ 		dev_warn(xpnet, "failed to kmalloc %ld bytes; dropping "
+ 			 "packet\n", sizeof(struct xpnet_pending_msg));
  
- 	ndev->hard_header_len = ETH_HLEN + max_hlhdr_len;
--	ndev->stop = &isdn_net_close;
--	ndev->get_stats = &isdn_net_get_stats;
--	ndev->do_ioctl = NULL;
+-		priv->stats.tx_errors++;
++		dev->stats.tx_errors++;
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -526,8 +499,8 @@ xpnet_dev_hard_start_xmit(struct sk_buff
+ 		kfree(queued_msg);
+ 	}
+ 
+-	priv->stats.tx_packets++;
+-	priv->stats.tx_bytes += skb->len;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
+ 
  	return 0;
  }
- 
-@@ -2508,6 +2506,19 @@ isdn_net_force_dial(char *name)
- 	return (isdn_net_force_dial_lp(p->local));
+@@ -538,12 +511,19 @@ xpnet_dev_hard_start_xmit(struct sk_buff
+ static void
+ xpnet_dev_tx_timeout(struct net_device *dev)
+ {
+-	struct xpnet_dev_private *priv = netdev_priv(dev);
+-
+-	priv->stats.tx_errors++;
+-	return;
++	dev->stats.tx_errors++;
  }
  
-+/* The ISDN-specific entries in the device structure. */
-+static const struct net_device_ops isdn_netdev_ops = {
-+	.ndo_init	      = isdn_net_init,
-+	.ndo_open	      = isdn_net_open,
-+	.ndo_stop	      = isdn_net_close,
-+	.ndo_do_ioctl	      = isdn_net_ioctl,
-+
-+	.ndo_validate_addr    = NULL,
-+	.ndo_start_xmit	      = isdn_net_start_xmit,
-+	.ndo_get_stats	      = isdn_net_get_stats,
-+	.ndo_tx_timeout	      = isdn_net_tx_timeout,
++static const struct net_device_ops xpnet_netdev_ops = {
++	.ndo_open		= xpnet_dev_open,
++	.ndo_stop		= xpnet_dev_stop,
++	.ndo_start_xmit		= xpnet_dev_hard_start_xmit,
++	.ndo_change_mtu		= xpnet_dev_change_mtu,
++	.ndo_tx_timeout		= xpnet_dev_tx_timeout,
++	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_validate_addr	= eth_validate_addr,
 +};
 +
- /*
-  * Helper for alloc_netdev()
-  */
-@@ -2515,7 +2526,20 @@ static void _isdn_setup(struct net_devic
+ static int __init
+ xpnet_init(void)
  {
- 	isdn_net_local *lp = netdev_priv(dev);
+@@ -563,8 +543,7 @@ xpnet_init(void)
+ 	 * use ether_setup() to init the majority of our device
+ 	 * structure and then override the necessary pieces.
+ 	 */
+-	xpnet_device = alloc_netdev(sizeof(struct xpnet_dev_private),
+-				    XPNET_DEVICE_NAME, ether_setup);
++	xpnet_device = alloc_netdev(0, XPNET_DEVICE_NAME, ether_setup);
+ 	if (xpnet_device == NULL) {
+ 		kfree(xpnet_broadcast_partitions);
+ 		return -ENOMEM;
+@@ -573,13 +552,6 @@ xpnet_init(void)
+ 	netif_carrier_off(xpnet_device);
  
-+	ether_setup(dev);
-+
- 	dev->flags = IFF_NOARP | IFF_POINTOPOINT;
-+	/* Setup the generic properties */
-+	dev->mtu = 1500;
-+	dev->flags = IFF_NOARP|IFF_POINTOPOINT;
-+	dev->type = ARPHRD_ETHER;
-+	dev->addr_len = ETH_ALEN;
-+	dev->header_ops = NULL;
-+	dev->netdev_ops = &isdn_netdev_ops;
-+
-+	/* for clients with MPPP maybe higher values better */
-+	dev->tx_queue_len = 30;
-+
- 	lp->p_encap = ISDN_NET_ENCAP_RAWIP;
- 	lp->magic = ISDN_NET_MAGIC;
- 	lp->last = lp;
-@@ -2570,7 +2594,7 @@ isdn_net_new(char *name, struct net_devi
- 		return NULL;
- 	}
- 	netdev->local = netdev_priv(netdev->dev);
--	netdev->dev->init = isdn_net_init;
-+
- 	if (master) {
- 		/* Device shall be a slave */
- 		struct net_device *p = MASTER_TO_SLAVE(master);
-@@ -2588,7 +2612,6 @@ isdn_net_new(char *name, struct net_devi
- 		/*
- 		 * Watchdog timer (currently) for master only.
- 		 */
--		netdev->dev->tx_timeout = isdn_net_tx_timeout;
- 		netdev->dev->watchdog_timeo = ISDN_NET_TX_TIMEOUT;
- 		if (register_netdev(netdev->dev) != 0) {
- 			printk(KERN_WARNING "isdn_net: Could not register net-device\n");
-@@ -2704,7 +2727,6 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg
- #else
- 			p->dev->type = ARPHRD_PPP;	/* change ARP type */
- 			p->dev->addr_len = 0;
--			p->dev->do_ioctl = isdn_ppp_dev_ioctl;
- #endif
- 			break;
- 		case ISDN_NET_ENCAP_X25IFACE:
-@@ -2718,7 +2740,6 @@ isdn_net_setcfg(isdn_net_ioctl_cfg * cfg
- #endif
- 			break;
- 		case ISDN_NET_ENCAP_CISCOHDLCK:
--			p->dev->do_ioctl = isdn_ciscohdlck_dev_ioctl;
- 			break;
- 		default:
- 			if( cfg->p_encap >= 0 &&
+ 	xpnet_device->mtu = XPNET_DEF_MTU;
+-	xpnet_device->change_mtu = xpnet_dev_change_mtu;
+-	xpnet_device->open = xpnet_dev_open;
+-	xpnet_device->get_stats = xpnet_dev_get_stats;
+-	xpnet_device->stop = xpnet_dev_stop;
+-	xpnet_device->hard_start_xmit = xpnet_dev_hard_start_xmit;
+-	xpnet_device->tx_timeout = xpnet_dev_tx_timeout;
+-	xpnet_device->set_config = xpnet_dev_set_config;
+ 
+ 	/*
+ 	 * Multicast assumes the LSB of the first octet is set for multicast
 
 -- 
 
