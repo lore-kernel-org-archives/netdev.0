@@ -1,75 +1,105 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [PATCH 1/3] wimax: fix '#ifdef CONFIG_BUG' layout to avoid warning
-Date: Wed, 7 Jan 2009 12:57:25 -0800
-Message-ID: <200901071257.27225.inaky@linux.intel.com>
-References: <cover.1231314782.git.inaky@linux.intel.com> <200901070920.18032.inaky@linux.intel.com> <Pine.LNX.4.64.0901072139001.27541@wrl-59.cs.helsinki.fi>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
+Date: Wed, 7 Jan 2009 16:07:58 -0500
+Message-ID: <20090107210758.GH3164@didacte.laptop.org>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>, wimax@linuxwimax.org,
-	greg@kroah.com
-To: "Ilpo =?utf-8?q?J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45748 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756272AbZAGU6e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 15:58:34 -0500
-In-Reply-To: <Pine.LNX.4.64.0901072139001.27541@wrl-59.cs.helsinki.fi>
+Received: from lists.laptop.org ([18.85.2.145]:49137 "EHLO mail.laptop.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1761202AbZAGVH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 16:07:59 -0500
+Received: from didacte.laptop.org (dhcp-47-72.media.mit.edu [18.85.47.72])
+	by mail.laptop.org (Postfix) with SMTP id 3391AB96F6
+	for <netdev@vger.kernel.org>; Wed,  7 Jan 2009 16:08:00 -0500 (EST)
 Content-Disposition: inline
+In-Reply-To: <20090107114703.GB28161@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 07 January 2009, Ilpo J=C3=A4rvinen wrote:
-> On Wed, 7 Jan 2009, Inaky Perez-Gonzalez wrote:
-> > On Wednesday 07 January 2009, Ilpo J=C3=A4rvinen wrote:
-> > > On Tue, 6 Jan 2009, Inaky Perez-Gonzalez wrote:
-> > > > Reported by Randy Dunlap:
-> > > > > Also, this warning needs to be fixed:
-> > > > >
-> > > > > linux-next-20090106/net/wimax/id-table.c:133: warning: ISO C9=
-0
-> > > > > forbids mixed declarations and code
-> > > >
-> > > > Move the return on #defined(CONFIG_BUG) below the variable
-> > > > declarations so it doesn't violate ISO C90.
-> > > >
-> > > > On wimax_id_table_release() we want to do a debug check if CONF=
-IG_BUG
-> > > > is enabled. However, we also want the debug code to be always
-> > > > compiled to ensure there is no bitrot.
-> > >
-> > > I hope this kind of solution won't add some warnings? Besides, th=
-is
-> > > seems rather strange reasoning as CONFIG_BUG is mostly enabled an=
-yway?
-> >
-> > Well, it is legal code -- short of 'if (1) return'. It doesn't warn=
- (and
-> > it should not).
+Evgeniy,
+
+=46irst, thanks very much for all your comments and questions.
+
+On Wed, Jan 07, 2009 at 02:47:03PM +0300, Evgeniy Polyakov wrote:
+
+>> +  * it's available to unprivileged programs
+>> +
 >
-> Obviously, but I was concerned on the other lines than that
-> particular one, e.g., gcc might think that wimax_dev is unused
-> variable and emit a warning or along those lines...?
+>It isn't, since it can not set rlimit, and if it can, it still can dro=
+p
+>it.
 
-Ah, I see -- no, it won't. [disclaimer: not know much about compiler=20
-optimization] In theory, as we were saying, it works just as in a case=20
-where you have
+Some sample code will probably clarify the use of my patch:=20
 
-int somevar;
+   http://dev.laptop.org/git?p=3Dusers/mstone/test-rlimit-network;a=3Db=
+lob;f=3Ddisable_network.c;hb=3DHEAD
 
-if (1)
-   return;
+This C code describes a 'disable_network' exec-chain script which, when=
+ run as
+any user, irrevocably disables network access as described in my previo=
+us
+emails.=20
 
-somevar =3D call_some_func();
+As you can see, processes start with full access to the 'network' resou=
+rce and
+may, at any time, irrevocably (modulo CAP_SYS_RESOURCE) limit their and=
+ their
+future children's access to this resource by lowering both their soft a=
+nd hard
+limits to 0.
 
-with 1 being the result of a compile time evaluation. The compiler sees
-that somevar is being used, but the code path is never executed, so eve=
-rything
-gets dumped.
+>Your code does not cover sendpage() interface (aka splice() and
+>sendfile())=20
 
-If it ever did, it'd be a matter of changing that return to an if (1) r=
-eturn.
-It'd look uglier though.
+Nor should it. Applications should continue to be able to send data on =
+any
+sockets where were already connected and should be able to accept new
+connections on sockets which were already bound.
 
---=20
-Inaky
+I have done some primitive testing to ensure that the patch implements =
+this
+functionality by means of the test utilities provided here:
+
+  http://dev.laptop.org/git?p=3Dusers/mstone/test-rlimit-network;a=3Dtr=
+ee
+
+Can you confirm my results?
+
+> and with your approach application will suddenly stops sending data e=
+ven into
+> old sockets, but will be able to receive it from anywhere. Is it inte=
+ntional?
+
+Why do you think this would happen?=20
+
+(My test results, e.g. via
+    http://dev.laptop.org/git?p=3Dusers/mstone/test-rlimit-network;a=3D=
+blob;f=3Dpositive_localhost_tcp;hb=3DHEAD
+  show otherwise.)
+
+>The same goal can be achieved with 'owner' iptables match module btw.
+
+As R=E9mi explained, the iptables 'owner' match module solves a differe=
+nt
+problem.
+
+> but when parent sets the rlimit it is not updated in the childs.
+
+This is by design. Limiting my shell's networking privileges in prepara=
+tion for
+running an untrusted command should not limit the privileges of program=
+s that I
+have previously started running from the same shell process.
+
+Regards,
+
+Michael
+
+P.S. - R=E9mi, Scott: Thanks very much for your supportive comments.
+
