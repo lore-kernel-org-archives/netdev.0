@@ -1,67 +1,48 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/2] vlan: add neigh_setup
-Date: Wed, 07 Jan 2009 13:15:51 +0100
-Message-ID: <20090107121659.385897000@de.ibm.com>
-References: <20090107121550.878339000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: davem@davemloft.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Deadlock after info soft-safe -> soft-unsafe lock order detected
+Date: Wed, 07 Jan 2009 23:17:59 +1100
+Message-ID: <E1LKXMF-0006fe-DK@gondolin.me.apana.org.au>
+References: <20090105201811.00242be7.akpm@linux-foundation.org>
+Cc: zdenek.kabelac@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, dada1@cosmosbay.com
+To: akpm@linux-foundation.org (Andrew Morton)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.de.ibm.com ([195.212.29.156]:48071 "EHLO
-	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755784AbZAGMRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:17:53 -0500
-Content-Disposition: inline; filename=vlan_neigh_setup.diff
+Received: from rhun.apana.org.au ([64.62.148.172]:59059 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755453AbZAGMSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:18:07 -0500
+In-Reply-To: <20090105201811.00242be7.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> I'd be suspecting the percpu counter work in TCP?
 
-In case the real device has a neigh_setup function, this
-neigh_setup function should be used for the vlan device.
+This is the bogus lockdep output which is fixed by
 
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
- net/8021q/vlan_dev.c |   14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+commit ea319518ba3de282c13ae1cf4bf2215c5e03e67e
+Author: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date:   Fri Dec 26 15:08:55 2008 +0100
 
-Index: git_linus/net/8021q/vlan_dev.c
-===================================================================
---- git_linus.orig/net/8021q/vlan_dev.c
-+++ git_linus/net/8021q/vlan_dev.c
-@@ -546,6 +546,18 @@ static int vlan_dev_ioctl(struct net_dev
- 	return err;
- }
- 
-+static int vlan_dev_neigh_setup(struct net_device *dev, struct neigh_parms *pa)
-+{
-+	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
-+	const struct net_device_ops *ops = real_dev->netdev_ops;
-+	int err = 0;
-+
-+	if (netif_device_present(real_dev) && ops->ndo_neigh_setup)
-+		err = ops->ndo_neigh_setup(dev, pa);
-+
-+	return err;
-+}
-+
- static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
- {
- 	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
-@@ -713,6 +725,7 @@ static const struct net_device_ops vlan_
- 	.ndo_set_multicast_list	= vlan_dev_set_rx_mode,
- 	.ndo_change_rx_flags	= vlan_dev_change_rx_flags,
- 	.ndo_do_ioctl		= vlan_dev_ioctl,
-+	.ndo_neigh_setup	= vlan_dev_neigh_setup,
- };
- 
- static const struct net_device_ops vlan_netdev_accel_ops = {
-@@ -728,6 +741,7 @@ static const struct net_device_ops vlan_
- 	.ndo_set_multicast_list	= vlan_dev_set_rx_mode,
- 	.ndo_change_rx_flags	= vlan_dev_change_rx_flags,
- 	.ndo_do_ioctl		= vlan_dev_ioctl,
-+	.ndo_neigh_setup	= vlan_dev_neigh_setup,
- };
- 
- void vlan_setup(struct net_device *dev)
+    locking, percpu counters: introduce separate lock classes
+    
+    Impact: fix lockdep false positives
+    
+    Classify percpu_counter instances similar to regular lock objects --
+    that is, per instantiation site.
+    
+    The networking code has increased its use of percpu_counters, which
+    leads to false positives if they are treated as a single class.
+    
+    Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+    Signed-off-by: Ingo Molnar <mingo@elte.hu>
 
+It was only pulled very recently despite the Dec 26 date.
+
+Cheers,
 -- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
