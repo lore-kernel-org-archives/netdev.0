@@ -1,50 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [BUG] INFO: inconsistent lock state
-Date: Wed, 7 Jan 2009 23:16:54 +1100
-Message-ID: <20090107121654.GA25591@gondor.apana.org.au>
-References: <4962C322.8000201@cn.fujitsu.com> <49633005.5080305@redhat.com> <4963319D.8040204@cn.fujitsu.com> <496350DF.5030500@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Li Zefan <lizf@cn.fujitsu.com>, David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Zdenek Kabelac <zkabelac@redhat.com>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 0/2] vlan, qeth: neigh_setup
+Date: Wed, 07 Jan 2009 13:15:50 +0100
+Message-ID: <20090107121550.878339000@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33658 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751811AbZAGMRB (ORCPT
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:62576 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbZAGMRB (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:17:01 -0500
-Content-Disposition: inline
-In-Reply-To: <496350DF.5030500@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 06, 2009 at 12:38:55PM +0000, Zdenek Kabelac wrote:
->
-> I've just tested the very latest build from git repository:
-> (commit: 238c6d54830c624f34ac9cf123ac04aebfca5013)
+Hi Dave,
 
-You also need
+the qeth_l3 driver uses the neigh_setup function to turn off ARP for
+IPv4. But since the vlan driver does not support a neigh_setup
+function I had to add an ugly hack to the qeth_l3_add_vid function
+(set the neigh_setup function of the vlan device to the function of
+the real device). With the new net_device_ops this hack will not work
+any longer so I want to add neigh_setup to the vlan driver.
 
-commit ea319518ba3de282c13ae1cf4bf2215c5e03e67e
-Author: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date:   Fri Dec 26 15:08:55 2008 +0100
+Following patches add the neigh_setup to vlan and change qeth to
+use the net_device_ops. Do you see any problems?
 
-    locking, percpu counters: introduce separate lock classes
-    
-    Impact: fix lockdep false positives
-    
-    Classify percpu_counter instances similar to regular lock objects --
-    that is, per instantiation site.
-    
-    The networking code has increased its use of percpu_counters, which
-    leads to false positives if they are treated as a single class.
-    
-    Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Or is there a better way to turn off ARP for IPv4 (we still need
+neighbour solicitation for IPv6 so IFF_NOARP is no option)?
 
-Cheers,
+Thanks,
+        Frank
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
