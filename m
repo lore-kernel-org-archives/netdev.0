@@ -1,69 +1,58 @@
-From: Grzegorz Nosek <root@localdomain.pl>
-Subject: Re: [RFC][PATCH] IP address restricting cgroup subsystem
-Date: Wed, 7 Jan 2009 10:16:00 +0100
-Message-ID: <20090107091600.GA17612@megiteam.pl>
-References: <20090106230554.GB25228@eskarina.localdomain.pl> <49644526.8030205@cn.fujitsu.com> <20090107073831.GA23648@megiteam.pl> <49646993.6080802@cn.fujitsu.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH -net-next 3/4] firmware: convert tg3 driver to	request_firmware()
+Date: Wed, 07 Jan 2009 10:31:23 +0100
+Message-ID: <4964766B.2080105@hartkopp.net>
+References: <1230626497.24796.26.camel@jaswinder.satnam> <49620AFE.6040409@hartkopp.net> <20090105.160112.119906029.davem@davemloft.net> <20090107031724.GA6118@porter.dyn.128.marineau.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Grzegorz Nosek <root@localdomain.pl>, containers@lists.osdl.org,
-	netdev@vger.kernel.org
-To: Li Zefan <lizf@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e208.rev.megiteam.pl ([77.79.226.8]:45783 "EHLO
-	vadmin.megiteam.pl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752547AbZAGJQF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 04:16:05 -0500
-Content-Disposition: inline
-In-Reply-To: <49646993.6080802@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jaswinder@infradead.org,
+	jgarzik@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
+	mchan@broadcom.com
+To: Michael Marineau <mike@marineau.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090107031724.GA6118@porter.dyn.128.marineau.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On =C5=9Bro, sty 07, 2009 at 04:36:35 +0800, Li Zefan wrote:
-> Grzegorz Nosek wrote:
-> >>> IP addresses are write-once (via /cgroup/.../ipaddr.ipv4 in dotte=
-d-quad
-> >> Why they should be write-once ?
-> >=20
-> > No real (technical) reason. Making it read-write would be fine with=
- me.
-> > I wanted to make the restriction a one-way road but I guess I can p=
-olice
-> > that in userspace (simply don't write anything to the file twice).
-> >=20
->=20
-> But seems the patch makes it impossible to re-allow a restricted task=
- to
-> be binded to INADDR_ANY.
+Michael Marineau wrote:
+> On Mon, Jan 05, 2009 at 04:01:12PM -0800, David Miller wrote:
+>   
+>> From: Oliver Hartkopp <oliver@hartkopp.net>
+>> Date: Mon, 05 Jan 2009 14:28:30 +0100
+>>
+>>     
+>>> 2. I got this inconsistent lock state, i've not seen before:
+>>>       
+>> I know what causes it.  It's this change:
+>>
+>> commit 22604c866889c4b2e12b73cbf1683bda1b72a313
+>> Author: Michael Marineau <mike@marineau.org>
+>> Date:   Sun Jan 4 17:18:51 2009 -0800
+>>
+>>     net: Fix for initial link state in 2.6.28
+>>
+>> It causes us to now call the linkwatch even trigger code inside of
+>> software interrupt context, but that is illegal because that code path
+>> takes the dev_base_lock rwlock as a writer.
+>>
+>> I'm going to revert, and Michael will need to find a way to fix the
+>> initial link state issue without adding locking problems :-)
+>>     
+>
+> Ok, here's another try. Rather than find a safer way to sync up the
+> operstate variable with the normal state flags I decided to just nuke
+> operstate entirely, it just duplicated what was already in the state
+> flags for the most part. 
 
-Yes, my goal is to disallow that but I don't insist to do that in the
-kernel (I'm not currently planning to let untrusted root loose in a
-container).
+Hi Michael,
 
-> Firstly, is inheritance necessary ?
+i just compiled my current net-2.6 with your new patch and had no 
+problems booting my machine afterwards.
 
-It would be nice to have when the container's root is untrusted but
-might want to subdivide the container's cgroup for other purposes.
-Without inheritance, they would be able to circumvent the IP address
-restriction. One could argue that a full untrusted-root container would
-need a proper network namespace anyway (and giving CAP_SYS_ADMIN there
-is probably a very bad idea), but still, I'd feel uneasy.
+Holding the relevant information in one place looks like a good approach 
+to me even though i did not test the functionality in detail.
 
-> If yes, then how about:
->=20
-> The root cgroup is read-only, so the tasks in it always bind to INADD=
-R_ANY.
-> For other cgroups, write is allowed only if it has no children and th=
-e
-> parent is INADDR_ANY.
-
-Yes, I like that. Will update the patch. I assume that I must check
-list_empty(&cgroup->children)? Should I use cgroup_lock()/cgroup_unlock=
-()
-or other locking? I think it will be safe to do without locks but would
-rather get some expert advice.
-
-Thanks a lot for your comments.
-
-Best regards,
- Grzegorz Nosek
+Thanks,
+Oliver
