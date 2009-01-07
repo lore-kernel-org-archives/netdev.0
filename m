@@ -1,50 +1,52 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 09:17:08 +0100
-Message-ID: <20090107081708.GG32491@kernel.dk>
-References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH] dm9601: warn on invalid mac address
+Date: Wed, 07 Jan 2009 09:24:43 +0100
+Message-ID: <874p0bmsl0.fsf@macbook.be.48ers.dk>
+References: <20090106091050.GA19316@localhost>
+	<87zli4u71i.fsf@macbook.be.48ers.dk>
+	<20090106094757.GA19587@localhost>
+	<87r63gu1i3.fsf@macbook.be.48ers.dk> <20090107045258.GA8071@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <zbr@ioremap.net>, Willy Tarreau <w@1wt.eu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org
+To: Wu Fengguang <wfg@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([93.163.65.50]:22582 "EHLO kernel.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751836AbZAGISO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 03:18:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20090107044232.GA22218@gondor.apana.org.au>
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:50152 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751647AbZAGIYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 03:24:53 -0500
+Received: by ewy10 with SMTP id 10so8879316ewy.13
+        for <netdev@vger.kernel.org>; Wed, 07 Jan 2009 00:24:51 -0800 (PST)
+In-Reply-To: <20090107045258.GA8071@localhost> (Wu Fengguang's message of "Wed\, 7 Jan 2009 12\:52\:58 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07 2009, Herbert Xu wrote:
-> On Tue, Jan 06, 2009 at 06:37:05PM +0000, Jens Axboe wrote:
-> > 
-> > I'll give this a spin tomorrow as well. A hunch tells me that this is
-> > likely a page reuse issue, that splice is getting the reference to the
-> > buffer dropped before the data has really been transmitted. IOW, the
-> > page is likely fine reaching the ->sendpage() bit, but will be reused
-> > before the data has actually been transmitted. So once you get that far,
-> > other random data from that page is going out.
-> 
-> I see the problem.
-> 
-> The socket pipes in net/core/skbuff.c use references on the skb
-> to hold down the memory in skb->head as well as the pages in the
-> skb.
-> 
-> Unfortunately, once the pipe is fed into sendpage we only use
-> page reference counting to pin down the memory.  So as soon as
-> sendpage returns we drop the ref count on the skb, thus freeing
-> the memory in skb->head, which is yet to be transmitted.
-> 
-> Moral: Using page reference counts on skb->head is wrong.
+>>>>> "Wu" == Wu Fengguang <wfg@linux.intel.com> writes:
 
-So my hunch was pretty close. The fix would seem to involve NOT calling
-ops->release(pipe, buf) until we actually have an ACK on that data gone
-out.
+Hi,
+
+ >> Also, it seems like you're not writing the random address to the
+ >> hardware registers, so you won't be able to receive any unicast -
+ >> You'll need to add a call to dm9601_set_mac_address() or similar.
+
+ Wu> Good catch. I had wanted to ask why it only works with promisc
+ Wu> mode ;-)
+
+;)
+
+ Wu> Here is the tested patch.
+
+ Wu> Thanks,
+ Wu> Fengguang
+ Wu> ---
+ Wu> dm9601: tell HW about random generated mac address
+
+ Wu> Otherwise unicast RX will only work in promisc mode.
+
+ Wu> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+ Wu> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+
+Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
 
 -- 
-Jens Axboe
-
+Bye, Peter Korsgaard
