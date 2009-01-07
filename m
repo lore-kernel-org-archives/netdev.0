@@ -1,29 +1,136 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 14:01:41 +0000
-Message-ID: <20090107140141.GF9677@ff.dom.local>
-References: <20090107122238.GB25673@gondor.apana.org.au> <20090107123741.GA31255@ioremap.net> <20090107124246.GA26034@gondor.apana.org.au> <20090107124629.GA31732@ioremap.net> <20090107125535.GC6307@1wt.eu> <20090107125734.GA26331@gondor.apana.org.au> <20090107130259.GB32336@ioremap.net> <20090107131057.GD9677@ff.dom.local> <20090107131539.GF6307@1wt.eu> <20090107132258.GE9677@ff.dom.local>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 1/2] mlx4_en: Consider inline packets on completion
+Date: Wed, 07 Jan 2009 17:04:18 +0200
+Message-ID: <4964C472.2060906@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f31.google.com ([209.85.219.31]:61622 "EHLO
-	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823AbZAGOBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 09:01:50 -0500
-Content-Disposition: inline
-In-Reply-To: <20090107132258.GE9677@ff.dom.local>
+Received: from mail.mellanox.co.il ([194.90.237.43]:57466 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759172AbZAGPFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 10:05:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 01:22:58PM +0000, Jarek Poplawski wrote:
-...
-> Sure! Congratulations for debugging to you and Evgeniy!
 
-...and Herbert! (I missed the beginning of this GSO trail...)
+Was trying to unmap work queue entries that had inline packets,
+so naturally weren't mapped.
 
-Jarek P.
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_tx.c   |   59 ++++++++++++++++++++++++-------------------
+ drivers/net/mlx4/mlx4_en.h |    1 +
+ 2 files changed, 34 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
+index ff4d752..4afd599 100644
+--- a/drivers/net/mlx4/en_tx.c
++++ b/drivers/net/mlx4/en_tx.c
+@@ -203,19 +203,21 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+
+ 	/* Optimize the common case when there are no wraparounds */
+ 	if (likely((void *) tx_desc + tx_info->nr_txbb * TXBB_SIZE <= end)) {
+-		if (tx_info->linear) {
+-			pci_unmap_single(mdev->pdev,
+-					 (dma_addr_t) be64_to_cpu(data->addr),
++		if (!tx_info->inl) {
++			if (tx_info->linear) {
++				pci_unmap_single(mdev->pdev,
++					(dma_addr_t) be64_to_cpu(data->addr),
+ 					 be32_to_cpu(data->byte_count),
+ 					 PCI_DMA_TODEVICE);
+-			++data;
+-		}
++				++data;
++			}
+
+-		for (i = 0; i < frags; i++) {
+-			frag = &skb_shinfo(skb)->frags[i];
+-			pci_unmap_page(mdev->pdev,
+-				       (dma_addr_t) be64_to_cpu(data[i].addr),
+-				       frag->size, PCI_DMA_TODEVICE);
++			for (i = 0; i < frags; i++) {
++				frag = &skb_shinfo(skb)->frags[i];
++				pci_unmap_page(mdev->pdev,
++					(dma_addr_t) be64_to_cpu(data[i].addr),
++					frag->size, PCI_DMA_TODEVICE);
++			}
+ 		}
+ 		/* Stamp the freed descriptor */
+ 		for (i = 0; i < tx_info->nr_txbb * TXBB_SIZE; i += STAMP_STRIDE) {
+@@ -224,27 +226,29 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 		}
+
+ 	} else {
+-		if ((void *) data >= end) {
+-			data = (struct mlx4_wqe_data_seg *)
+-					(ring->buf + ((void *) data - end));
+-		}
++		if (!tx_info->inl) {
++			if ((void *) data >= end) {
++				data = (struct mlx4_wqe_data_seg *)
++						(ring->buf + ((void *) data - end));
++			}
+
+-		if (tx_info->linear) {
+-			pci_unmap_single(mdev->pdev,
+-					 (dma_addr_t) be64_to_cpu(data->addr),
++			if (tx_info->linear) {
++				pci_unmap_single(mdev->pdev,
++					(dma_addr_t) be64_to_cpu(data->addr),
+ 					 be32_to_cpu(data->byte_count),
+ 					 PCI_DMA_TODEVICE);
+-			++data;
+-		}
++				++data;
++			}
+
+-		for (i = 0; i < frags; i++) {
+-			/* Check for wraparound before unmapping */
+-			if ((void *) data >= end)
+-				data = (struct mlx4_wqe_data_seg *) ring->buf;
+-			frag = &skb_shinfo(skb)->frags[i];
+-			pci_unmap_page(mdev->pdev,
++			for (i = 0; i < frags; i++) {
++				/* Check for wraparound before unmapping */
++				if ((void *) data >= end)
++					data = (struct mlx4_wqe_data_seg *) ring->buf;
++				frag = &skb_shinfo(skb)->frags[i];
++				pci_unmap_page(mdev->pdev,
+ 					(dma_addr_t) be64_to_cpu(data->addr),
+ 					 frag->size, PCI_DMA_TODEVICE);
++			}
+ 		}
+ 		/* Stamp the freed descriptor */
+ 		for (i = 0; i < tx_info->nr_txbb * TXBB_SIZE; i += STAMP_STRIDE) {
+@@ -790,8 +794,11 @@ int mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			wmb();
+ 			data->byte_count = cpu_to_be32(skb_headlen(skb) - lso_header_size);
+ 		}
+-	} else
++		tx_info->inl = 0;
++	} else {
+ 		build_inline_wqe(tx_desc, skb, real_size, &vlan_tag, tx_ind, fragptr);
++		tx_info->inl = 1;
++	}
+
+ 	ring->prod += nr_txbb;
+
+diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
+index 2e96c7b..08bf321 100644
+--- a/drivers/net/mlx4/mlx4_en.h
++++ b/drivers/net/mlx4/mlx4_en.h
+@@ -202,6 +202,7 @@ struct mlx4_en_tx_info {
+ 	u32 nr_txbb;
+ 	u8 linear;
+ 	u8 data_offset;
++	u8 inl;
+ };
+
+
+-- 
+1.5.4
+
