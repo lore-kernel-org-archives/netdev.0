@@ -1,56 +1,64 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 14/42] enc28j60: update to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:30 -0800
-Message-ID: <20090107003346.940014842@vyatta.com>
+Subject: [PATCH 08/42] tlan: update to net_device_ops
+Date: Tue, 06 Jan 2009 16:33:24 -0800
+Message-ID: <20090107003346.352148671@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
-	Baruch Siach <baruch@tkos.co.il>
+	Sakari Ailus <sakari.ailus@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:59027 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:59017 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754246AbZAGAxi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:53:38 -0500
-Content-Disposition: inline; filename=enc28j60.patch
+	id S1755762AbZAGAxb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:53:31 -0500
+Content-Disposition: inline; filename=tlan.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/enc28j60.c	2009-01-05 09:43:14.970576391 -0800
-+++ b/drivers/net/enc28j60.c	2009-01-05 09:46:16.138139560 -0800
-@@ -1529,6 +1529,17 @@ static int enc28j60_chipset_init(struct 
- 	return enc28j60_hw_init(priv);
+--- a/drivers/net/tlan.c	2009-01-05 17:21:57.919070541 -0800
++++ b/drivers/net/tlan.c	2009-01-05 22:45:26.054570112 -0800
+@@ -831,6 +831,21 @@ static void TLan_Poll(struct net_device 
  }
+ #endif
  
-+static const struct net_device_ops enc28j60_netdev_ops = {
-+	.ndo_open		= enc28j60_net_open,
-+	.ndo_stop		= enc28j60_net_close,
-+	.ndo_start_xmit		= enc28j60_send_packet,
-+	.ndo_set_multicast_list = enc28j60_set_multicast_list,
-+	.ndo_set_mac_address	= enc28j60_set_mac_address,
-+	.ndo_tx_timeout		= enc28j60_tx_timeout,
++static const struct net_device_ops TLan_netdev_ops = {
++	.ndo_open 		= TLan_Open,
++	.ndo_stop		= TLan_Close,
++	.ndo_start_xmit		= TLan_StartTx,
++	.ndo_tx_timeout		= TLan_tx_timeout,
++	.ndo_get_stats		= TLan_GetStats,
++	.ndo_set_multicast_list = TLan_SetMulticastList,
++	.ndo_do_ioctl		= TLan_ioctl,
 +	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_set_mac_address 	= eth_mac_addr,
 +	.ndo_validate_addr	= eth_validate_addr,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	 = TLan_Poll,
++#endif
 +};
-+
- static int __devinit enc28j60_probe(struct spi_device *spi)
- {
- 	struct net_device *dev;
-@@ -1583,12 +1594,7 @@ static int __devinit enc28j60_probe(stru
  
- 	dev->if_port = IF_PORT_10BASET;
- 	dev->irq = spi->irq;
--	dev->open = enc28j60_net_open;
--	dev->stop = enc28j60_net_close;
--	dev->hard_start_xmit = enc28j60_send_packet;
--	dev->set_multicast_list = &enc28j60_set_multicast_list;
--	dev->set_mac_address = enc28j60_set_mac_address;
--	dev->tx_timeout = &enc28j60_tx_timeout;
-+	dev->netdev_ops = &enc28j60_netdev_ops;
+ 
+ 
+@@ -892,16 +907,7 @@ static int TLan_Init( struct net_device 
+ 	netif_carrier_off(dev);
+ 
+ 	/* Device methods */
+-	dev->open = &TLan_Open;
+-	dev->hard_start_xmit = &TLan_StartTx;
+-	dev->stop = &TLan_Close;
+-	dev->get_stats = &TLan_GetStats;
+-	dev->set_multicast_list = &TLan_SetMulticastList;
+-	dev->do_ioctl = &TLan_ioctl;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = &TLan_Poll;
+-#endif
+-	dev->tx_timeout = &TLan_tx_timeout;
++	dev->netdev_ops = &TLan_netdev_ops;
  	dev->watchdog_timeo = TX_TIMEOUT;
- 	SET_ETHTOOL_OPS(dev, &enc28j60_ethtool_ops);
  
+ 	return 0;
 
 -- 
 
