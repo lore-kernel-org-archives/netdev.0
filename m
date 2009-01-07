@@ -1,34 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 22:59:21 +1100
-Message-ID: <20090107115921.GA25323@gondor.apana.org.au>
-References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au> <20090107112906.GA28161@ioremap.net> <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: RE: can't apply sch_multiq
+Date: Wed, 7 Jan 2009 13:10:03 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0901071304130.11851@ask.diku.dk>
+References: <4963392A.2000709@bigtelecom.ru>
+ <80769D7B14936844A23C0C43D9FBCF0F24A2DE19@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:47939 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750924AbZAGL7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 06:59:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20090107115605.GA29250@ioremap.net>
+Received: from mgw2.diku.dk ([130.225.96.92]:46941 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751466AbZAGMKG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 07:10:06 -0500
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F24A2DE19@orsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 02:56:05PM +0300, Evgeniy Polyakov wrote:
->
-> But it will not push pages into the stack, but copy them including copy
-> of the submitted head?
 
-It will use a single page entry for skb->head with splice, see
-skb_splice_bits.
+On Tue, 6 Jan 2009, Duyck, Alexander H wrote:
+
+> Badalian Vyacheslav wrote:
+>> Hello all.
+>> kernel 2.6.28, iproute2 - 2.6.26 (last release)
+>>
+> The only part that is probably missing is that I don't believe the 
+> sch_multiq patch been accepted into the iproute2.  Once that is in then 
+> tc should work with the multiq qdisc without any issues.
+
+You can use the lastest iproute2 git tree at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+I just checked that the sch_multiq changes have been added to this tree 
+(although it looks like Stephen just added that patch yesterday ;-))
 
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
