@@ -1,60 +1,55 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 09/42] epic100: update to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:25 -0800
-Message-ID: <20090107003346.467466993@vyatta.com>
+Subject: [PATCH 07/42] plip: update to net_device_ops
+Date: Tue, 06 Jan 2009 16:33:23 -0800
+Message-ID: <20090107003346.232090962@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:59002 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:59000 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755456AbZAGAxX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755318AbZAGAxX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 6 Jan 2009 19:53:23 -0500
-Content-Disposition: inline; filename=epic100.patch
+Content-Disposition: inline; filename=plip.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/epic100.c	2009-01-05 17:21:57.791070052 -0800
-+++ b/drivers/net/epic100.c	2009-01-05 22:31:16.209590402 -0800
-@@ -308,7 +308,18 @@ static int epic_close(struct net_device 
- static struct net_device_stats *epic_get_stats(struct net_device *dev);
- static void set_rx_mode(struct net_device *dev);
+--- a/drivers/net/plip.c	2009-01-05 16:54:45.381820105 -0800
++++ b/drivers/net/plip.c	2009-01-05 16:59:08.254569570 -0800
+@@ -265,6 +265,13 @@ static const struct header_ops plip_head
+ 	.cache  = plip_hard_header_cache,
+ };
  
--
-+static const struct net_device_ops epic_netdev_ops = {
-+	.ndo_open		= epic_open,
-+	.ndo_stop		= epic_close,
-+	.ndo_start_xmit		= epic_start_xmit,
-+	.ndo_tx_timeout 	= epic_tx_timeout,
-+	.ndo_get_stats		= epic_get_stats,
-+	.ndo_set_multicast_list = set_rx_mode,
-+	.ndo_do_ioctl 		= netdev_ioctl,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_validate_addr	= eth_validate_addr,
++static const struct net_device_ops plip_netdev_ops = {
++	.ndo_open		 = plip_open,
++	.ndo_stop		 = plip_close,
++	.ndo_start_xmit		 = plip_tx_packet,
++	.ndo_do_ioctl		 = plip_ioctl,
 +};
++
+ /* Entry point of PLIP driver.
+    Probe the hardware, and register/initialize the driver.
  
- static int __devinit epic_init_one (struct pci_dev *pdev,
- 				    const struct pci_device_id *ent)
-@@ -483,15 +494,9 @@ static int __devinit epic_init_one (stru
- 	dev->if_port = ep->default_port = option;
+@@ -280,15 +287,11 @@ plip_init_netdev(struct net_device *dev)
+ 	struct net_local *nl = netdev_priv(dev);
  
- 	/* The Epic-specific entries in the device structure. */
--	dev->open = &epic_open;
--	dev->hard_start_xmit = &epic_start_xmit;
--	dev->stop = &epic_close;
--	dev->get_stats = &epic_get_stats;
--	dev->set_multicast_list = &set_rx_mode;
--	dev->do_ioctl = &netdev_ioctl;
-+	dev->netdev_ops = &epic_netdev_ops;
- 	dev->ethtool_ops = &netdev_ethtool_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	dev->tx_timeout = &epic_tx_timeout;
- 	netif_napi_add(dev, &ep->napi, epic_poll, 64);
+ 	/* Then, override parts of it */
+-	dev->hard_start_xmit	 = plip_tx_packet;
+-	dev->open		 = plip_open;
+-	dev->stop		 = plip_close;
+-	dev->do_ioctl		 = plip_ioctl;
+-
+ 	dev->tx_queue_len 	 = 10;
+ 	dev->flags	         = IFF_POINTOPOINT|IFF_NOARP;
+ 	memset(dev->dev_addr, 0xfc, ETH_ALEN);
  
- 	ret = register_netdev(dev);
++	dev->netdev_ops		 = &plip_netdev_ops;
+ 	dev->header_ops          = &plip_header_ops;
+ 
+ 
 
 -- 
 
