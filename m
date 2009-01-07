@@ -1,56 +1,48 @@
-From: Jens Axboe <jens.axboe@oracle.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 13:35:04 +0100
-Message-ID: <20090107123504.GN32491@kernel.dk>
-References: <20081224152841.GB13113@1wt.eu> <20090106085442.GA9513@ff.dom.local> <20090106094138.GE25644@1wt.eu> <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local>
+Date: Wed, 7 Jan 2009 15:37:41 +0300
+Message-ID: <20090107123741.GA31255@ioremap.net>
+References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au> <20090107112906.GA28161@ioremap.net> <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net> <20090107115921.GA25323@gondor.apana.org.au> <20090107121530.GA30164@ioremap.net> <20090107122238.GB25673@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <w@1wt.eu>, Changli Gao <xiaosuo@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([93.163.65.50]:17417 "EHLO kernel.dk"
+Received: from tservice.net.ru ([195.178.208.66]:55196 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752283AbZAGMgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 07:36:11 -0500
+	id S1751081AbZAGMhm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 07:37:42 -0500
 Content-Disposition: inline
-In-Reply-To: <20090107123153.GA9597@ff.dom.local>
+In-Reply-To: <20090107122238.GB25673@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07 2009, Jarek Poplawski wrote:
-> On Wed, Jan 07, 2009 at 01:22:05PM +0100, Willy Tarreau wrote:
-> > [ CCing Evgeniy and Herbert who also participate to the thread ]
-> ...
-> > Well, I've just tested it. It did not fix the problem but made it worse.
-> ...
+On Wed, Jan 07, 2009 at 11:22:38PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > Looks like we are talking about different directions of the dataflow.
+> > I meant that set of pages submitted into the sending part will be copied
+> > if sending interface does not support acceleration, and thus it will
+> > copy part of the page corresponding to the linear part of the skb prior
+> > the transmission, so even if skb will be freed right after that call
+> > (prior data transmission by the hardware), it should not affect copied
+> > data.
 > 
-> Terrible mistake! Here is take 2.
+> You must be looking at a different tcp.c than the one I've got
+> because mine clearly always uses skb frags in sendpage regardless
+> of SG support.
 
-Not sure what this:
+Doesn't your tcp fallbacks to kernel_sendmsg() without sg in
+tcp_sendpage()? And then just feeds data into the stack the same way it
+happens with send() i.e. by copying it.
 
-> +static inline struct page *linear_to_page(struct page *page, unsigned int len,
-> +					  unsigned int offset)
-> +{
-> +	struct page *p = alloc_pages(GFP_KERNEL, 0);
-> +
-> +	if (!p)
-> +		return NULL;
-> +	memcpy((void *)p + offset, (void *)page + offset, len);
+> Yes we will linearize the packet in dev_queue_xmit but as soon
+> as the netdev stops the tx queue you'll get corruption.
 
-is trying to do. I'm assuming you want to copy the page contents? If so,
-you'd want something like
-
-        memcpy(page_address(p) + offset, page_address(page) + offset, len);
-
-with possible kmaps for 'page'.
-
-Irregardless of that particular oddity, I don't think this is the right
-path to take at all. We need to delay the pipe buffer consumption until
-the appropriate time.
+That's perfectly valid when sendpage() returns and holds a reference to
+the pages but not skb->head, so freed skb will free (and potentially
+reuse) that area which has not been transmitted yet.
+But without acceleration it will copy data and the whole original skb
+may be freed without any problems.
 
 -- 
-Jens Axboe
-
+	Evgeniy Polyakov
