@@ -1,7 +1,8 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH 1/4] wimax: fix '#ifndef CONFIG_BUG' layout to avoid warning
-Date: Wed,  7 Jan 2009 11:22:19 -0800
-Message-ID: <7e92a3e498e02567876f901eba29c59c294a417b.1231355768.git.inaky@linux.intel.com>
+Subject: [PATCH 2/4] wimax: fix kconfig interactions with rfkill and input
+	layers
+Date: Wed,  7 Jan 2009 11:22:20 -0800
+Message-ID: <f0f7dc5763046cc336ca087a2525c8b52811ddb4.1231355768.git.inaky@linux.intel.com>
 References: <cover.1231355768.git.inaky@linux.intel.com>
 Cc: Randy Dunlap <randy.dunlap@oracle.com>,
 	Stephen Rothwell <sfr@canb.auug.org.au>, wimax@linuxwimax.org,
@@ -21,52 +22,50 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-Reported by Randy Dunlap:
+WiMAX can work without RFKILL, but it was missing a check to make sure
+RFKILL is not being made a module with wimax compiled into the
+kernel. This caused failed builds in s390, where CONFIG_INPUT is
+always off.
 
-> Also, this warning needs to be fixed:
->
-> linux-next-20090106/net/wimax/id-table.c:133: warning: ISO C90
-> forbids mixed declarations and code
+When RFKILL is enabled, the code uses the input layer to report
+hardware switch changes; thus, if RFKILL is enabled, INPUT has to be
+too. It also needs to display some message when INPUT is disabled that
+explains why WiMAX is not selectable.
 
-Move the return on #defined(CONFIG_BUG) below the variable
-declarations so it doesn't violate ISO C90.
-
-On wimax_id_table_release() we want to do a debug check if CONFIG_BUG
-is enabled. However, we also want the debug code to be always compiled
-to ensure there is no bitrot. It will be optimized out by the compiler
-when CONFIG_BUG is disabled.
-
-Added a note to the function header stating this.
+(issues found by Randy Dunlap in the linux-next tree).
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- net/wimax/id-table.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ net/wimax/Kconfig |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-diff --git a/net/wimax/id-table.c b/net/wimax/id-table.c
-index d3b8855..5e685f7 100644
---- a/net/wimax/id-table.c
-+++ b/net/wimax/id-table.c
-@@ -123,15 +123,17 @@ void wimax_id_table_rm(struct wimax_dev *wimax_dev)
- /*
-  * Release the gennetlink family id / mapping table
-  *
-- * On debug, verify that the table is empty upon removal.
-+ * On debug, verify that the table is empty upon removal. We want the
-+ * code always compiled, to ensure it doesn't bit rot. It will be
-+ * compiled out if CONFIG_BUG is disabled.
-  */
- void wimax_id_table_release(void)
- {
-+	struct wimax_dev *wimax_dev;
+diff --git a/net/wimax/Kconfig b/net/wimax/Kconfig
+index 0bdbb69..18495cd 100644
+--- a/net/wimax/Kconfig
++++ b/net/wimax/Kconfig
+@@ -1,9 +1,23 @@
+ #
+ # WiMAX LAN device configuration
+ #
++# Note the ugly 'depends on' on WIMAX: that disallows RFKILL to be a
++# module if WIMAX is to be linked in. The WiMAX code is done in such a
++# way that it doesn't require and explicit dependency on RFKILL in
++# case an embedded system wants to rip it out.
++#
++# As well, enablement of the RFKILL code means we need the INPUT layer
++# support to inject events coming from hw rfkill switches. That
++# dependency could be killed if input.h provided appropiate means to
++# work when input is disabled.
 +
- #ifndef CONFIG_BUG
- 	return;
- #endif
--	struct wimax_dev *wimax_dev;
--
- 	spin_lock(&wimax_id_table_lock);
- 	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
- 		printk(KERN_ERR "BUG: %s wimax_dev %p ifindex %d not cleared\n",
++comment "WiMAX Wireless Broadband support requires CONFIG_INPUT enabled"
++	depends on INPUT = n && RFKILL != n
+ 
+ menuconfig WIMAX
+ 	tristate "WiMAX Wireless Broadband support"
++	depends on (y && RFKILL != m) || m
++	depends on (INPUT && RFKILL != n) || RFKILL = n
+ 	help
+ 
+ 	  Select to configure support for devices that provide
 -- 
 1.5.6.5
