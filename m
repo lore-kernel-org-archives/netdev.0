@@ -1,39 +1,55 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 23:22:38 +1100
-Message-ID: <20090107122238.GB25673@gondor.apana.org.au>
-References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au> <20090107112906.GA28161@ioremap.net> <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net> <20090107115921.GA25323@gondor.apana.org.au> <20090107121530.GA30164@ioremap.net>
+Date: Wed, 7 Jan 2009 23:24:07 +1100
+Message-ID: <20090107122407.GC25673@gondor.apana.org.au>
+References: <20081224152841.GB13113@1wt.eu> <20090106085442.GA9513@ff.dom.local> <20090106094138.GE25644@1wt.eu> <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59074 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:38679 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751094AbZAGMWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:22:48 -0500
+	with ESMTP id S1751481AbZAGMYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:24:53 -0500
 Content-Disposition: inline
-In-Reply-To: <20090107121530.GA30164@ioremap.net>
+In-Reply-To: <20090107122205.GA6051@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 03:15:30PM +0300, Evgeniy Polyakov wrote:
-> 
-> Looks like we are talking about different directions of the dataflow.
-> I meant that set of pages submitted into the sending part will be copied
-> if sending interface does not support acceleration, and thus it will
-> copy part of the page corresponding to the linear part of the skb prior
-> the transmission, so even if skb will be freed right after that call
-> (prior data transmission by the hardware), it should not affect copied
-> data.
+On Wed, Jan 07, 2009 at 01:22:05PM +0100, Willy Tarreau wrote:
+>
+> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > index 5110b35..4c080cd 100644
+> > --- a/net/core/skbuff.c
+> > +++ b/net/core/skbuff.c
+> > @@ -73,17 +73,13 @@ static struct kmem_cache *skbuff_fclone_cache __read_mostly;
+> >  static void sock_pipe_buf_release(struct pipe_inode_info *pipe,
+> >  				  struct pipe_buffer *buf)
+> >  {
+> > -	struct sk_buff *skb = (struct sk_buff *) buf->private;
+> > -
+> > -	kfree_skb(skb);
+> > +	put_page(buf->page);
+> >  }
+> >  
+> >  static void sock_pipe_buf_get(struct pipe_inode_info *pipe,
+> >  				struct pipe_buffer *buf)
+> >  {
+> > -	struct sk_buff *skb = (struct sk_buff *) buf->private;
+> > -
+> > -	skb_get(skb);
+> > +	get_page(buf->page);
+> >  }
 
-You must be looking at a different tcp.c than the one I've got
-because mine clearly always uses skb frags in sendpage regardless
-of SG support.
-
-Yes we will linearize the packet in dev_queue_xmit but as soon
-as the netdev stops the tx queue you'll get corruption.
+Well this patch can only make it worse because not only are you
+still ref counting skb->head with get_page, but you've also
+completely removed the skb ref count which means that the corruption
+can only occur sooner.
 
 Cheers,
 -- 
