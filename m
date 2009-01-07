@@ -1,3024 +1,512 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: [PATCH RFC v5] net: add PCINet driver
-Date: Wed, 7 Jan 2009 11:50:52 -0800
-Message-ID: <20090107195052.GA24981__7239.44172864339$1231359146$gmane$org@ovro.caltech.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Arnd Bergmann <arnd@arndb.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756430AbZAGUKe@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timur Tabi <timur@freescale.com>
+Subject: [PATCH] ucc_geth: use correct UCCE macros
+Date: Wed,  7 Jan 2009 14:12:52 -0600
+Message-ID: <1231359172-6119-1-git-send-email-timur@freescale.com>
+To: netdev@vger.kernel.org, leoli@freescale.com, davem@davemloft.net,
+	galak@kernel.crashing.org, linuxppc-dev@ozlabs.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:36311 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751665AbZAGUNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 15:13:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds support to Linux for a virtual ethernet interface which uses the
-PCI bus as its transport mechanism. It creates a simple, familiar, and fast
-method of communication for two devices connected by a PCI interface.
+The UCC Event Register (UCCE) already has unambigous macro definitions in qe.h,
+so we should not be defining our own in the UCC Ethernet driver.
 
-I have implemented client support for the Freescale MPC8349EMDS board,
-which is capable of running in PCI Agent mode (It acts like a PCI card, but
-is a complete PowerPC computer, running Linux). It is almost certainly
-trivially ported to any MPC83xx system.
+Removed unused local variable 'dev' from ucc_geth_poll(), which fixes a warning
+caused by commit 908a7a16b852ffd618a9127be8d62432182d81b4.
 
-It was developed to work in a CompactPCI crate of computers, one of which
-is a relatively standard x86 system (acting as the host) and many PowerPC
-systems (acting as clients).
+Replaced in_be/out_be pairs with setbits32 or clrbits32, where applicable.
 
-I have tested with two boards in my system. The host is a 1066MHz
-Pentium3-M. I am able to achieve the following bandwidth, as measured with
-netperf's TCP_STREAM test. Some improvement would be nice. I'm out of
-ideas and need suggestions at this point.
-
-Host -> Board1 (Board2 idle):	18 MB/sec
-Host -> Board1, Board2:		18 MB/sec
-Board1 -> Host (Board2 idle):	32 MB/sec
-Board1, Board2 -> Host:		44 MB/sec
-
-RFC v4 -> RFC v5:
-  * convert to net_device_ops infrastructure
-  * fix fallout from NAPI API changes
-  * use seperate DMA channels for RX and TX
-  * use skb_dma_map()/skb_dma_unmap() infrastructure
-  * unify the RX and TX DMA routines
-  * fix uart allocation with multiple boards in a single system
-  * mask interrupts when not in use
-  * remove status bits, relying on the state of interrupts instead
-  * fix circular locking violation reported by the locking validator
-
-RFC v3 -> RFC v4:
-  * dropped NETIF_F_NO_CSUM from struct net_device->features, it was
-    causing nfsroot to fail due to UDP checksum errors
-
-RFC v2 -> RFC v3:
-  * use inline functions for accessing struct circ_buf_desc
-  * use pointer dereferencing on PowerPC local memory instead of ioread32()
-  * move IMMR and buffer descriptor accessors inside drivers
-  * update for dma_mapping_error() API changes
-  * use minimal locking primitives (i.e. spin_lock() instead of _irqsave())
-  * always disable checksumming, PCI is reliable
-  * replace typedef cbd_t with struct circ_buf_desc
-  * use get_immrbase() to get IMMR register offsets
-
-RFC v1 -> RFC v2:
-  * remove vim modelines
-  * use net_device->name in request_irq(), for irqbalance
-  * remove unneccesary wqt_get_stats(), use default get_stats() instead
-  * use dev_printk() and friends
-  * add message unit to MPC8349EMDS dts file
-
-Signed-off-by: Ira W. Snyder <iws@ovro.caltech.edu>
+Signed-off-by: Timur Tabi <timur@freescale.com>
 ---
-This is the fifth RFC posting of this driver. I haven't gotten much
-feedback recently. I'd really like to see some version of this go
-upstream, so I appreciate your review.
 
-Thanks to all of those who have posted comments about the driver.
+This patch will break ucc_geth.c if my other patch, "powerpc: add Ethernet
+UPSMR definitions to QE library" isn't also applied.  That patch is currently
+in Kumar's 'next' branch, so it will make 2.6.29-rc0.  Therefore, it should
+be safe to apply this patch to 'net-next' today, with the understanding that
+everything will be peachy once Linus pulls everyone's 2.6.29 branches.
 
-Remaining Issues:
-1) Naming
-   The name wqt originally stood for "workqueue test". That test driver
-   eventually evolved into this one. I'm open to suggestions for names.
-2) IMMR Usage
-   In the Freescale client driver, I ioremap() the whole set of board
-   control registers, even though I don't make use of most of them. This
-   was done so that the register offsets could be shared between the drivers
-   in pcinet_hw.h
-3) Hardcoded DMA Window Address
-   In the Freescale client driver, the DMA window address (0x80000000) is
-   hardcoded into the DMA transfer code. Suggestions on how to get this
-   value at runtime are welcome (if it matters).
-4) Speed
-   This driver is relatively fast, but not quite fast enough for my
-   application. I'm out of ideas, and I need some help speeding this up.
+ drivers/net/ucc_geth.c |  128 ++++++++++++++++--------------------------------
+ drivers/net/ucc_geth.h |  114 +++++++++---------------------------------
+ 2 files changed, 68 insertions(+), 174 deletions(-)
 
-Rationale behind some decisions:
-1) Buffer Descriptors in client memory
-   I chose to put the buffer descriptors in client memory rather than host
-   memory. It seemed more logical to me at the time. In my usage of this
-   driver, I'll have 19 boards + 1 host per cPCI chassis. I thought this
-   would cut down on the number of PCI accesses needed. I'm willing to
-   make changes.
-2) Usage of client DMA controller for all data transfers
-   This was done purely for speed. I tried using the CPU to transfer all
-   data, and it is very slow: about 3MB/sec. Using the DMA controller
-   brings the transfer rate up to about 30MB/sec.
-3) Static 1GB DMA window
-   Maintaining changing DMA windows while DMA are in flight seemed like
-   it would overcomplicate the design.
-4) Serial Driver
-   Unfortunately, there are two drivers here. I needed a method to
-   with the U-Boot bootloader on these boards without plugging in a physical
-   cable. With 19 clients + 1 host per chassis, the cable clutter is worth
-   avoiding.
-
-I'll post both U-Boot drivers to their mailing list once this driver is
-finalized.
-
-Thanks,
-Ira
-
- arch/powerpc/boot/dts/mpc834x_mds.dts |    7 +
- drivers/net/Kconfig                   |   29 +
- drivers/net/Makefile                  |    3 +
- drivers/net/pcinet.h                  |   62 ++
- drivers/net/pcinet_fsl.c              | 1335 +++++++++++++++++++++++++++++++++
- drivers/net/pcinet_host.c             | 1318 ++++++++++++++++++++++++++++++++
- drivers/net/pcinet_hw.h               |   77 ++
- 7 files changed, 2831 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/pcinet.h
- create mode 100644 drivers/net/pcinet_fsl.c
- create mode 100644 drivers/net/pcinet_host.c
- create mode 100644 drivers/net/pcinet_hw.h
-
-diff --git a/arch/powerpc/boot/dts/mpc834x_mds.dts b/arch/powerpc/boot/dts/mpc834x_mds.dts
-index d9adba0..5c7617d 100644
---- a/arch/powerpc/boot/dts/mpc834x_mds.dts
-+++ b/arch/powerpc/boot/dts/mpc834x_mds.dts
-@@ -104,6 +104,13 @@
- 			mode = "cpu";
- 		};
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 7d5a130..1144122 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -442,40 +442,30 @@ static void magic_packet_detection_enable(struct ucc_geth_private *ugeth)
+ {
+ 	struct ucc_fast_private *uccf;
+ 	struct ucc_geth __iomem *ug_regs;
+-	u32 maccfg2, uccm;
  
-+		message-unit@8030 {
-+			compatible = "fsl,mpc8349-mu";
-+			reg = <0x8030 0xd0>;
-+			interrupts = <69 0x8>;
-+			interrupt-parent = <&ipic>;
-+		};
-+
- 		dma@82a8 {
- 			#address-cells = <1>;
- 			#size-cells = <1>;
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 9a18270..3a8ad4d 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2298,6 +2298,35 @@ config UGETH_TX_ON_DEMAND
- 	bool "Transmit on Demand support"
- 	depends on UCC_GETH
+ 	uccf = ugeth->uccf;
+ 	ug_regs = ugeth->ug_regs;
  
-+config PCINET_FSL
-+	tristate "PCINet Virtual Ethernet over PCI support (Freescale)"
-+	depends on MPC834x_MDS
-+	select DMA_ENGINE
-+	select FSL_DMA
-+	help
-+	  When running as a PCI Agent, this driver will create a virtual
-+	  ethernet link running over the PCI bus, allowing simplified
-+	  communication with the host system. The host system will need
-+	  to use the corresponding driver.
-+
-+	  If in doubt, say N.
-+
-+config PCINET_HOST
-+	tristate "PCINet Virtual Ethernet over PCI support (Host)"
-+	depends on PCI
-+	help
-+	  This driver will let you communicate with a PCINet client device
-+	  using a virtual ethernet link running over the PCI bus. This
-+	  allows simplified communication with the client system.
-+
-+	  This is inteded for use in a system that has a crate full of
-+	  computers running Linux, all connected by a PCI backplane.
-+
-+	  The currently, the only board implementing client support is the
-+	  Freescale MPC8349EMDS. Enable support with CONFIG_PCINET_FSL=y.
-+
-+	  If in doubt, say N.
-+
- config MV643XX_ETH
- 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
- 	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32) || PLAT_ORION
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index e5c34b4..664849a 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -30,6 +30,9 @@ gianfar_driver-objs := gianfar.o \
- obj-$(CONFIG_UCC_GETH) += ucc_geth_driver.o
- ucc_geth_driver-objs := ucc_geth.o ucc_geth_mii.o ucc_geth_ethtool.o
+ 	/* Enable interrupts for magic packet detection */
+-	uccm = in_be32(uccf->p_uccm);
+-	uccm |= UCCE_MPD;
+-	out_be32(uccf->p_uccm, uccm);
++	setbits32(uccf->p_uccm, UCC_GETH_UCCE_MPD);
  
-+obj-$(CONFIG_PCINET_FSL) += pcinet_fsl.o
-+obj-$(CONFIG_PCINET_HOST) += pcinet_host.o
-+
- #
- # link order important here
- #
-diff --git a/drivers/net/pcinet.h b/drivers/net/pcinet.h
-new file mode 100644
-index 0000000..ea1f806
---- /dev/null
-+++ b/drivers/net/pcinet.h
-@@ -0,0 +1,62 @@
-+/*
-+ * Shared Definitions for the PCINet / PCISerial drivers
-+ *
-+ * Copyright (c) 2008 Ira W. Snyder <iws@ovro.caltech.edu>
-+ *
-+ * Heavily inspired by the drivers/net/fs_enet driver
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2. This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#ifndef PCINET_H
-+#define PCINET_H
-+
-+#include <linux/kernel.h>
-+#include <linux/if_ether.h>
-+
-+/* Ring and Frame size -- these must match between the drivers */
-+#define PH_RING_SIZE	(64)
-+#define PH_MAX_FRSIZE	(64 * 1024)
-+#define PH_MAX_MTU	(PH_MAX_FRSIZE - ETH_HLEN)
-+
-+struct circ_buf_desc {
-+	__le32 sc;
-+	__le32 len;
-+	__le32 addr;
-+	__le32 padding; /* unused padding */
-+};
-+
-+/* Buffer Descriptor Registers */
-+#define PCINET_TXBD_BASE	0x400
-+#define PCINET_RXBD_BASE	0x800
-+
-+/* Buffer Descriptor Status */
-+#define BD_MEM_READY		0x1
-+#define BD_MEM_DIRTY		0x2
-+#define BD_MEM_FREE		0x3
-+
-+/* Status Register Bits */
-+#define PCINET_UART_RX_ENABLED		(1<<0)
-+#define PCINET_NET_STATUS_RUNNING	(1<<1)
-+#define PCINET_NET_RXINT_OFF		(1<<2)
-+#define PCINET_NET_REGISTERS_VALID	(1<<3)
-+
-+/* Driver State Bits */
-+#define NET_STATE_STOPPED		0
-+#define NET_STATE_RUNNING		1
-+
-+/* Doorbell Registers */
-+#define UART_RX_READY_DBELL		(1<<0)
-+#define UART_TX_EMPTY_DBELL		(1<<1)
-+#define NET_RX_PACKET_DBELL		(1<<2)
-+#define NET_TX_COMPLETE_DBELL		(1<<3)
-+#define NET_START_REQ_DBELL		(1<<4)
-+#define NET_START_ACK_DBELL		(1<<5)
-+#define NET_STOP_REQ_DBELL		(1<<6)
-+#define NET_STOP_ACK_DBELL		(1<<7)
-+#define NET_ENABLE_RX_PACKET_DBELL	(1<<8)
-+#define NET_DISABLE_RX_PACKET_DBELL	(1<<9)
-+
-+#endif /* PCINET_H */
-diff --git a/drivers/net/pcinet_fsl.c b/drivers/net/pcinet_fsl.c
-new file mode 100644
-index 0000000..3c05e8d
---- /dev/null
-+++ b/drivers/net/pcinet_fsl.c
-@@ -0,0 +1,1335 @@
-+/*
-+ * PCINet and PCISerial Driver for Freescale MPC8349EMDS
-+ *
-+ * Copyright (c) 2008 Ira W. Snyder <iws@ovro.caltech.edu>
-+ *
-+ * Heavily inspired by the drivers/net/fs_enet driver
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2. This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/of_platform.h>
-+#include <linux/sched.h>
-+#include <linux/wait.h>
-+#include <linux/interrupt.h>
-+#include <linux/irqreturn.h>
-+#include <linux/delay.h>
-+#include <linux/io.h>
-+#include <linux/serial.h>
-+#include <linux/serial_core.h>
-+#include <linux/etherdevice.h>
-+#include <linux/mutex.h>
-+#include <linux/dmaengine.h>
-+
-+/* MPC8349EMDS specific get_immrbase() */
-+#include <sysdev/fsl_soc.h>
-+
-+#include "pcinet.h"
-+#include "pcinet_hw.h"
-+
-+/* IMMR Accessor Helpers */
-+#define IMMR_R32(_off) ioread32(priv->immr+(_off))
-+#define IMMR_W32(_off, _val) iowrite32((_val), priv->immr+(_off))
-+#define IMMR_R32BE(_off) ioread32be(priv->immr+(_off))
-+#define IMMR_W32BE(_off, _val) iowrite32be((_val), priv->immr+(_off))
-+
-+static const char driver_name[] = "wqt";
-+
-+static void wqtuart_stop_tx(struct uart_port *port);
-+
-+struct wqt_dev;
-+typedef void (*wqt_irqhandler_t)(struct wqt_dev *);
-+
-+struct wqt_irqhandlers {
-+	wqt_irqhandler_t net_start_req_handler;
-+	wqt_irqhandler_t net_start_ack_handler;
-+	wqt_irqhandler_t net_stop_req_handler;
-+	wqt_irqhandler_t net_stop_ack_handler;
-+	wqt_irqhandler_t net_rx_packet_handler;
-+	wqt_irqhandler_t net_tx_complete_handler;
-+	wqt_irqhandler_t uart_rx_ready_handler;
-+	wqt_irqhandler_t uart_tx_empty_handler;
-+};
-+
-+struct wqt_dev {
-+	/*--------------------------------------------------------------------*/
-+	/* OpenFirmware Infrastructure                                        */
-+	/*--------------------------------------------------------------------*/
-+	int irq;
-+	struct device *dev;
-+	void __iomem *immr;
-+
-+	struct mutex irq_mutex;
-+	int interrupt_count;
-+
-+	spinlock_t irq_lock;
-+	struct wqt_irqhandlers handlers;
-+
-+	/*--------------------------------------------------------------------*/
-+	/* UART Device Infrastructure                                         */
-+	/*--------------------------------------------------------------------*/
-+	struct uart_port port;
-+	bool uart_open;
-+
-+	struct workqueue_struct *wq;
-+	struct work_struct uart_tx_work;
-+	wait_queue_head_t uart_tx_wait; /* sleep for uart_tx_ready */
-+	bool uart_tx_ready; /* transmitter state */
-+
-+	/*--------------------------------------------------------------------*/
-+	/* Ethernet Device Infrastructure                                     */
-+	/*--------------------------------------------------------------------*/
-+	struct net_device *ndev;
-+	void *netregs;
-+	dma_addr_t netregs_addr;
-+
-+	/* Circular Buffer Descriptor base */
-+	struct circ_buf_desc *rx_base;
-+	struct circ_buf_desc *tx_base;
-+
-+	/* Current SKB index */
-+	struct circ_buf_desc *cur_rx;
-+	struct circ_buf_desc *cur_tx;
-+	struct circ_buf_desc *dirty_tx;
-+	int tx_free;
-+
-+	struct tasklet_struct tx_complete_tasklet;
-+	spinlock_t net_lock;
-+
-+	struct mutex net_mutex;
-+	int net_state;
-+	struct work_struct net_start_work;
-+	struct work_struct net_stop_work;
-+	struct completion net_start_completion;
-+	struct completion net_stop_completion;
-+	struct napi_struct napi;
-+
-+	bool net_send_rx_packet_dbell;
-+
-+	/*--------------------------------------------------------------------*/
-+	/* DMA Controller                                                     */
-+	/*--------------------------------------------------------------------*/
-+	struct dma_client client;
-+	struct dma_chan *rx_chan;
-+	struct dma_chan *tx_chan;
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* Buffer Descriptor Accessor Helpers                                         */
-+/*----------------------------------------------------------------------------*/
-+
-+static inline void cbd_write(__le32 *addr, u32 val)
-+{
-+	(*addr) = cpu_to_le32(val);
-+}
-+
-+static inline u32 cbd_read(__le32 *addr)
-+{
-+	return le32_to_cpu(*addr);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Doorbell Register Helper Operations                                        */
-+/*----------------------------------------------------------------------------*/
-+
-+static bool wqt_remote_is_ready(struct wqt_dev *priv)
-+{
-+	/* If the doorbell mask bit is cleared, then someone is listening */
-+	return (IMMR_R32(OMIMR_OFFSET) & 0x8) ? false : true;
-+}
-+
-+static inline void wqt_raise_doorbell(struct wqt_dev *priv, u32 dbell)
-+{
-+	IMMR_W32(ODR_OFFSET, dbell);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Message Sending and Processing Operations                                  */
-+/*----------------------------------------------------------------------------*/
-+
-+static irqreturn_t wqt_interrupt(int irq, void *dev_id)
-+{
-+	struct wqt_dev *priv = dev_id;
-+	u32 imisr, idr;
-+
-+	imisr = IMMR_R32(IMISR_OFFSET);
-+	idr = IMMR_R32(IDR_OFFSET);
-+
-+	if (!(imisr & 0x8))
-+		return IRQ_NONE;
-+
-+	/* Clear all of the interrupt sources, we'll handle them next */
-+	IMMR_W32(IDR_OFFSET, idr);
-+
-+	/* Lock over all of the handlers, so they cannot get called when
-+	 * the code doesn't expect them to be called */
-+	spin_lock(&priv->irq_lock);
-+
-+	if (idr & UART_RX_READY_DBELL)
-+		priv->handlers.uart_rx_ready_handler(priv);
-+
-+	if (idr & UART_TX_EMPTY_DBELL)
-+		priv->handlers.uart_tx_empty_handler(priv);
-+
-+	if (idr & NET_RX_PACKET_DBELL)
-+		priv->handlers.net_rx_packet_handler(priv);
-+
-+	if (idr & NET_TX_COMPLETE_DBELL)
-+		priv->handlers.net_tx_complete_handler(priv);
-+
-+	if (idr & NET_START_REQ_DBELL)
-+		priv->handlers.net_start_req_handler(priv);
-+
-+	if (idr & NET_START_ACK_DBELL)
-+		priv->handlers.net_start_ack_handler(priv);
-+
-+	if (idr & NET_STOP_REQ_DBELL)
-+		priv->handlers.net_stop_req_handler(priv);
-+
-+	if (idr & NET_STOP_ACK_DBELL)
-+		priv->handlers.net_stop_ack_handler(priv);
-+
-+	if (idr & NET_DISABLE_RX_PACKET_DBELL)
-+		priv->net_send_rx_packet_dbell = false;
-+
-+	if (idr & NET_ENABLE_RX_PACKET_DBELL)
-+		priv->net_send_rx_packet_dbell = true;
-+
-+	spin_unlock(&priv->irq_lock);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+/* Send a character through the mbox when it becomes available
-+ * Blocking, must not be called with any spinlocks held */
-+static int do_send_message(struct wqt_dev *priv, const char ch)
-+{
-+	struct uart_port *port = &priv->port;
-+	bool tmp;
-+
-+	spin_lock_irq(&priv->irq_lock);
-+	while (priv->uart_tx_ready != true) {
-+		spin_unlock_irq(&priv->irq_lock);
-+		wait_event_timeout(priv->uart_tx_wait, priv->uart_tx_ready, HZ);
-+
-+		spin_lock_irq(&port->lock);
-+		tmp = priv->uart_open;
-+		spin_unlock_irq(&port->lock);
-+
-+		if (!tmp)
-+			return -EIO;
-+
-+		spin_lock_irq(&priv->irq_lock);
-+	}
-+
-+	/* Now the transmitter is free, send the message */
-+	IMMR_W32(OMR0_OFFSET, ch);
-+	wqt_raise_doorbell(priv, UART_RX_READY_DBELL);
-+
-+	/* Mark the transmitter busy */
-+	priv->uart_tx_ready = false;
-+	spin_unlock_irq(&priv->irq_lock);
-+	return 0;
-+}
-+
-+/* Grab a character out of the uart tx buffer and send it */
-+static void uart_tx_work_fn(struct work_struct *work)
-+{
-+	struct wqt_dev *priv = container_of(work, struct wqt_dev, uart_tx_work);
-+	struct uart_port *port = &priv->port;
-+	struct circ_buf *xmit = &port->info->xmit;
-+	char ch;
-+
-+	spin_lock_irq(&port->lock);
-+	while (true) {
-+
-+		/* Check for XON/XOFF (high priority) */
-+		if (port->x_char) {
-+			ch = port->x_char;
-+			port->x_char = 0;
-+			spin_unlock_irq(&port->lock);
-+
-+			if (do_send_message(priv, ch))
-+				return;
-+
-+			spin_lock_irq(&port->lock);
-+			continue;
-+		}
-+
-+		/* If we're out of chars or the port is stopped, we're done */
-+		if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
-+			wqtuart_stop_tx(port);
-+			break;
-+		}
-+
-+		/* Grab the next char out of the buffer and send it */
-+		ch = xmit->buf[xmit->tail];
-+		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
-+		spin_unlock_irq(&port->lock);
-+
-+		if (do_send_message(priv, ch))
-+			return;
-+
-+		spin_lock_irq(&port->lock);
-+	}
-+
-+	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
-+		uart_write_wakeup(port);
-+
-+	if (uart_circ_empty(xmit))
-+		wqtuart_stop_tx(port);
-+
-+	spin_unlock_irq(&port->lock);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Interrupt Handlers                                                         */
-+/*----------------------------------------------------------------------------*/
-+
-+/* NOTE: All handlers are called with priv->irq_lock held */
-+
-+static void empty_handler(struct wqt_dev *priv)
-+{
-+	/* Intentionally left empty */
-+}
-+
-+static void net_start_req_handler(struct wqt_dev *priv)
-+{
-+	schedule_work(&priv->net_start_work);
-+}
-+
-+static void net_start_ack_handler(struct wqt_dev *priv)
-+{
-+	complete(&priv->net_start_completion);
-+}
-+
-+static void net_stop_req_handler(struct wqt_dev *priv)
-+{
-+	schedule_work(&priv->net_stop_work);
-+}
-+
-+static void net_stop_ack_handler(struct wqt_dev *priv)
-+{
-+	complete(&priv->net_stop_completion);
-+}
-+
-+static void net_tx_complete_handler(struct wqt_dev *priv)
-+{
-+	tasklet_schedule(&priv->tx_complete_tasklet);
-+}
-+
-+static void net_rx_packet_handler(struct wqt_dev *priv)
-+{
-+	wqt_raise_doorbell(priv, NET_DISABLE_RX_PACKET_DBELL);
-+	netif_rx_schedule(&priv->napi);
-+}
-+
-+static void uart_rx_ready_handler(struct wqt_dev *priv)
-+{
-+	struct tty_struct *tty = priv->port.info->port.tty;
-+	const char ch = IMMR_R32(IMR0_OFFSET) & 0xff;
-+
-+	/* Write the character to the tty layer */
-+	tty_insert_flip_char(tty, ch, TTY_NORMAL);
-+	tty_flip_buffer_push(tty);
-+
-+	/* Let the other side know we're ready for more */
-+	wqt_raise_doorbell(priv, UART_TX_EMPTY_DBELL);
-+}
-+
-+static void uart_tx_empty_handler(struct wqt_dev *priv)
-+{
-+	priv->uart_tx_ready = true;
-+	wake_up(&priv->uart_tx_wait);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Interrupt Request / Free Helpers                                           */
-+/*----------------------------------------------------------------------------*/
-+
-+static void do_enable_net_startstop_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_start_req_handler = net_start_req_handler;
-+	priv->handlers.net_start_ack_handler = net_start_ack_handler;
-+	priv->handlers.net_stop_req_handler = net_stop_req_handler;
-+	priv->handlers.net_stop_ack_handler = net_stop_ack_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_disable_net_startstop_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_start_req_handler = empty_handler;
-+	priv->handlers.net_start_ack_handler = empty_handler;
-+	priv->handlers.net_stop_req_handler = empty_handler;
-+	priv->handlers.net_stop_ack_handler = empty_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_enable_net_rxtx_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_rx_packet_handler = net_rx_packet_handler;
-+	priv->handlers.net_tx_complete_handler = net_tx_complete_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_disable_net_rxtx_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_rx_packet_handler = empty_handler;
-+	priv->handlers.net_tx_complete_handler = empty_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_enable_uart_handlers(struct wqt_dev *priv)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->irq_lock, flags);
-+	priv->handlers.uart_rx_ready_handler = uart_rx_ready_handler;
-+	priv->handlers.uart_tx_empty_handler = uart_tx_empty_handler;
-+	spin_unlock_irqrestore(&priv->irq_lock, flags);
-+}
-+
-+static void do_disable_uart_handlers(struct wqt_dev *priv)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->irq_lock, flags);
-+	priv->handlers.uart_rx_ready_handler = empty_handler;
-+	priv->handlers.uart_tx_empty_handler = empty_handler;
-+	spin_unlock_irqrestore(&priv->irq_lock, flags);
-+}
-+
-+static int wqt_request_irq(struct wqt_dev *priv)
-+{
-+	int ret = 0;
-+
-+	mutex_lock(&priv->irq_mutex);
-+
-+	if (priv->interrupt_count > 0)
-+		goto out_unlock;
-+
-+	/* Force all handlers to be disabled before attaching the handler */
-+	do_disable_net_startstop_handlers(priv);
-+	do_disable_net_rxtx_handlers(priv);
-+	do_disable_uart_handlers(priv);
-+
-+	ret = request_irq(priv->irq,
-+			  wqt_interrupt,
-+			  IRQF_SHARED,
-+			  priv->ndev->name,
-+			  priv);
-+
-+	/* Unmask the doorbell interrupt */
-+	IMMR_W32(IMIMR_OFFSET, 0x2 | 0x1);
-+
-+out_unlock:
-+	priv->interrupt_count++;
-+	mutex_unlock(&priv->irq_mutex);
-+
-+	return ret;
-+}
-+
-+static void wqt_free_irq(struct wqt_dev *priv)
-+{
-+	mutex_lock(&priv->irq_mutex);
-+	priv->interrupt_count--;
-+
-+	if (priv->interrupt_count > 0)
-+		goto out_unlock;
-+
-+	/* Disable all interrupts */
-+	IMMR_W32(IMIMR_OFFSET, 0x8 | 0x2 | 0x1);
-+
-+	free_irq(priv->irq, priv);
-+
-+out_unlock:
-+	mutex_unlock(&priv->irq_mutex);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Network Startup and Shutdown Helpers                                       */
-+/*----------------------------------------------------------------------------*/
-+
-+/* NOTE: All helper functions prefixed with "do" must be called only from
-+ * process context, with priv->net_mutex held. They are expected to sleep */
-+
-+static void do_net_start_queues(struct wqt_dev *priv)
-+{
-+	if (priv->net_state == NET_STATE_RUNNING)
-+		return;
-+
-+	priv->net_send_rx_packet_dbell = true;
-+
-+	dev_dbg(priv->dev, "resetting buffer positions\n");
-+	priv->cur_rx = priv->rx_base;
-+	priv->cur_tx = priv->tx_base;
-+	priv->dirty_tx = priv->tx_base;
-+	priv->tx_free = PH_RING_SIZE;
-+
-+	dev_dbg(priv->dev, "enabling NAPI queue\n");
-+	napi_enable(&priv->napi);
-+
-+	dev_dbg(priv->dev, "enabling tx_complete() tasklet\n");
-+	tasklet_enable(&priv->tx_complete_tasklet);
-+
-+	dev_dbg(priv->dev, "enabling TX queue\n");
-+	netif_start_queue(priv->ndev);
-+
-+	dev_dbg(priv->dev, "carrier on!\n");
-+	netif_carrier_on(priv->ndev);
-+
-+	/* Enable the RX_PACKET and TX_COMPLETE interrupt handlers */
-+	do_enable_net_rxtx_handlers(priv);
-+
-+	priv->net_state = NET_STATE_RUNNING;
-+}
-+
-+static void do_net_stop_queues(struct wqt_dev *priv)
-+{
-+	if (priv->net_state == NET_STATE_STOPPED)
-+		return;
-+
-+	/* Disable the RX_PACKET and TX_COMPLETE interrupt handlers */
-+	do_disable_net_rxtx_handlers(priv);
-+
-+	dev_dbg(priv->dev, "disabling NAPI queue\n");
-+	napi_disable(&priv->napi);
-+
-+	dev_dbg(priv->dev, "disabling tx_complete() tasklet\n");
-+	tasklet_disable(&priv->tx_complete_tasklet);
-+
-+	dev_dbg(priv->dev, "disabling TX queue\n");
-+	netif_tx_disable(priv->ndev);
-+
-+	dev_dbg(priv->dev, "carrier off!\n");
-+	netif_carrier_off(priv->ndev);
-+
-+	priv->net_state = NET_STATE_STOPPED;
-+}
-+
-+/* Called when we get a request to start our queues and acknowledge */
-+static void wqtnet_start_work_fn(struct work_struct *work)
-+{
-+	struct wqt_dev *priv = container_of(work, struct wqt_dev,
-+					    net_start_work);
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	do_net_start_queues(priv);
-+	wqt_raise_doorbell(priv, NET_START_ACK_DBELL);
-+
-+	mutex_unlock(&priv->net_mutex);
-+}
-+
-+/* Called when we get a request to stop our queues and acknowledge */
-+static void wqtnet_stop_work_fn(struct work_struct *work)
-+{
-+	struct wqt_dev *priv = container_of(work, struct wqt_dev,
-+					    net_stop_work);
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	do_net_stop_queues(priv);
-+	wqt_raise_doorbell(priv, NET_STOP_ACK_DBELL);
-+
-+	mutex_unlock(&priv->net_mutex);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* DMA Operation Helpers                                                      */
-+/*----------------------------------------------------------------------------*/
-+
-+/* Setup a static 1GB window starting at PCI address 0x0
-+ *
-+ * This means that all DMA must be within the first 1GB of the other side's
-+ * memory, which shouldn't be a problem
-+ */
-+static int wqtdma_setup_outbound_window(struct wqt_dev *priv)
-+{
-+	IMMR_W32BE(LAWAR0_OFFSET, LAWAR0_ENABLE | 0x1d);
-+	IMMR_W32BE(POCMR0_OFFSET, POCMR0_ENABLE | 0xc0000);
-+	IMMR_W32BE(POTAR0_OFFSET, 0x0);
-+
-+	return 0;
-+}
-+
-+static enum dma_state_client wqt_dma_event(struct dma_client *client,
-+					   struct dma_chan *chan,
-+					   enum dma_state state)
-+{
-+	struct wqt_dev *priv = container_of(client, struct wqt_dev, client);
-+	struct device *chandev = &chan->dev;
-+	enum dma_state_client ack = DMA_NAK;
-+
-+	switch (state) {
-+	case DMA_RESOURCE_AVAILABLE:
-+		if (chan == priv->rx_chan || chan == priv->tx_chan) {
-+			ack = DMA_DUP;
-+			break;
-+		}
-+
-+		if (!priv->rx_chan) {
-+			priv->rx_chan = chan;
-+			dev_info(priv->dev, "RX DMA: %s\n", dev_name(chandev));
-+			ack = DMA_ACK;
-+			break;
-+		}
-+
-+		if (!priv->tx_chan) {
-+			priv->tx_chan = chan;
-+			dev_info(priv->dev, "TX DMA: %s\n", dev_name(chandev));
-+			ack = DMA_ACK;
-+			break;
-+		}
-+
-+		/* Both channels are already allocated */
-+		ack = DMA_NAK;
-+		break;
-+
-+	case DMA_RESOURCE_REMOVED:
-+		if (chan == priv->rx_chan)
-+			priv->rx_chan = NULL;
-+
-+		if (chan == priv->tx_chan)
-+			priv->tx_chan = NULL;
-+
-+		ack = DMA_ACK;
-+		break;
-+
-+	default:
-+		dev_dbg(priv->dev, "unhandled DMA event %u (%s)\n",
-+				state, chan->dev.bus_id);
-+		break;
-+	}
-+
-+	return ack;
-+}
-+
-+/* NOTE: this function does not automatically unmap the src and dst */
-+static dma_cookie_t dma_async_memcpy_raw_to_raw(struct dma_chan *chan,
-+						dma_addr_t dst,
-+						dma_addr_t src,
-+						size_t len)
-+{
-+	struct dma_device *dev = chan->device;
-+	struct dma_async_tx_descriptor *tx;
-+	enum dma_ctrl_flags flags;
-+	dma_cookie_t cookie;
-+	int cpu;
-+
-+	flags = DMA_COMPL_SKIP_SRC_UNMAP | DMA_COMPL_SKIP_DEST_UNMAP;
-+	tx = dev->device_prep_dma_memcpy(chan, dst, src, len, flags);
-+	if (!tx)
-+		return -ENOMEM;
-+
-+	tx->callback = NULL;
-+	cookie = tx->tx_submit(tx);
-+
-+	cpu = get_cpu();
-+	per_cpu_ptr(chan->local, cpu)->bytes_transferred += len;
-+	per_cpu_ptr(chan->local, cpu)->memcpy_count++;
-+	put_cpu();
-+
-+	return cookie;
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Network Device Operations                                                  */
-+/*----------------------------------------------------------------------------*/
-+
-+static int wqt_open(struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	int ret;
-+
-+	/* Pretend the cable is unplugged until we are up and running */
-+	netif_carrier_off(dev);
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	ret = wqt_request_irq(priv);
-+	if (ret)
-+		goto out_unlock;
-+
-+	/* Enable only the network start/stop interrupts */
-+	do_enable_net_startstop_handlers(priv);
-+
-+	/* Check if the other side is running. If it is not, it will
-+	 * start us when it comes up */
-+	if (!wqt_remote_is_ready(priv)) {
-+		ret = 0;
-+		goto out_unlock;
-+	}
-+
-+	/* Begin the startup sequence, giving 5 seconds for a reply */
-+	wqt_raise_doorbell(priv, NET_START_REQ_DBELL);
-+	ret = wait_for_completion_timeout(&priv->net_start_completion, 5*HZ);
-+
-+	/* The startup sequence timed out, therefore the other side is down.
-+	 * We'll just leave our interrupt handler hooked up and ready */
-+	if (!ret) {
-+		dev_warn(priv->dev, "startup sequence timed out\n");
-+		ret = 0;
-+		goto out_unlock;
-+	}
-+
-+	do_net_start_queues(priv);
-+	ret = 0;
-+
-+out_unlock:
-+	mutex_unlock(&priv->net_mutex);
-+	return ret;
-+}
-+
-+static int wqt_stop(struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	int ret;
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	do_net_stop_queues(priv);
-+
-+	wqt_raise_doorbell(priv, NET_STOP_REQ_DBELL);
-+	ret = wait_for_completion_timeout(&priv->net_stop_completion, 5*HZ);
-+
-+	/* The shutdown sequence timed out, therefore the other side is down
-+	 * and we shouldn't be messing with the registers */
-+	if (!ret)
-+		dev_warn(priv->dev, "shutdown sequence timed out\n");
-+
-+	do_disable_net_startstop_handlers(priv);
-+	wqt_free_irq(priv);
-+
-+	mutex_unlock(&priv->net_mutex);
-+	return 0;
-+}
-+
-+static int wqt_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if ((new_mtu < 68) || (new_mtu > PH_MAX_MTU))
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
-+static int wqt_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	struct circ_buf_desc *bdp;
-+	dma_addr_t dma_src, dma_dst;
-+	dma_cookie_t cookie;
-+	enum dma_status status;
-+	int dirty_idx;
-+
-+	spin_lock_bh(&priv->net_lock);
-+
-+	bdp = priv->cur_tx;
-+	dirty_idx = bdp - priv->tx_base;
-+
-+	/* This should not happen, the queue should be stopped */
-+	if (priv->tx_free == 0 || cbd_read(&bdp->sc) != BD_MEM_READY) {
-+		dev_warn(priv->dev, "TX queue not stopped!\n");
-+		netif_stop_queue(dev);
-+		goto out_unlock;
-+	}
-+
-+	if (skb_dma_map(priv->dev, skb, DMA_TO_DEVICE)) {
-+		dev_warn(priv->dev, "DMA mapping error\n");
-+		goto out_unlock;
-+	}
-+
-+	dma_dst = 0x80000000 + cbd_read(&bdp->addr);
-+	dma_src = skb_shinfo(skb)->dma_maps[0];
-+	cookie = dma_async_memcpy_raw_to_raw(priv->tx_chan,
-+					     dma_dst,
-+					     dma_src,
-+					     skb->len);
-+	if (dma_submit_error(cookie)) {
-+		dev_warn(priv->dev, "DMA submit error\n");
-+		goto out_unmap;
-+	}
-+
-+	status = dma_sync_wait(priv->tx_chan, cookie);
-+	if (status == DMA_ERROR) {
-+		dev_warn(priv->dev, "DMA error\n");
-+		goto out_unmap;
-+	}
-+
-+	/* Update the buffer descriptor with the packet information */
-+	cbd_write(&bdp->len, skb->len);
-+	wmb();
-+	cbd_write(&bdp->sc, BD_MEM_DIRTY);
-+
-+	/* We're done with the skb, update stats and free it */
-+	dev->stats.tx_bytes += skb->len;
-+	dev->stats.tx_packets++;
-+	skb_dma_unmap(priv->dev, skb, DMA_TO_DEVICE);
-+	dev_kfree_skb_irq(skb);
-+
-+	if (dirty_idx == PH_RING_SIZE - 1)
-+		bdp = priv->tx_base;
-+	else
-+		bdp++;
-+
-+	priv->cur_tx = bdp;
-+	priv->tx_free--;
-+	dev->trans_start = jiffies;
-+
-+	if (priv->tx_free == 0)
-+		netif_stop_queue(dev);
-+
-+	if (priv->net_send_rx_packet_dbell)
-+		wqt_raise_doorbell(priv, NET_RX_PACKET_DBELL);
-+
-+	spin_unlock_bh(&priv->net_lock);
-+	return NETDEV_TX_OK;
-+
-+out_unmap:
-+	skb_dma_unmap(priv->dev, skb, DMA_TO_DEVICE);
-+out_unlock:
-+	spin_unlock_bh(&priv->net_lock);
-+	return NETDEV_TX_BUSY;
-+}
-+
-+static void wqt_tx_timeout(struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+
-+	dev->stats.tx_errors++;
-+	wqt_raise_doorbell(priv, NET_RX_PACKET_DBELL);
-+}
-+
-+static void wqt_tx_complete(unsigned long data)
-+{
-+	struct net_device *dev = (struct net_device *)data;
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	struct circ_buf_desc *bdp;
-+	int do_wake, dirty_idx;
-+
-+	spin_lock_bh(&priv->net_lock);
-+
-+	bdp = priv->dirty_tx;
-+	do_wake = 0;
-+
-+	while (cbd_read(&bdp->sc) == BD_MEM_FREE) {
-+		dirty_idx = bdp - priv->tx_base;
-+
-+		/* Mark the BDP as ready */
-+		cbd_write(&bdp->sc, BD_MEM_READY);
-+		wmb();
-+
-+		/* Update the bdp */
-+		if (dirty_idx == PH_RING_SIZE - 1)
-+			bdp = priv->tx_base;
-+		else
-+			bdp++;
-+
-+		if (!priv->tx_free++)
-+			do_wake = 1;
-+	}
-+
-+	priv->dirty_tx = bdp;
-+
-+	spin_unlock_bh(&priv->net_lock);
-+
-+	if (do_wake)
-+		netif_wake_queue(dev);
-+}
-+
-+static int wqt_rx_napi(struct napi_struct *napi, int budget)
-+{
-+	struct wqt_dev *priv = container_of(napi, struct wqt_dev, napi);
-+	struct net_device *dev = priv->ndev;
-+	int dirty_idx;
-+	int received = 0;
-+	u32 sc, len, addr;
-+	struct sk_buff *skb;
-+	dma_cookie_t cookie;
-+	enum dma_status status;
-+	struct circ_buf_desc *bdp;
-+	dma_addr_t dma_src, dma_dst;
-+
-+	bdp = priv->cur_rx;
-+
-+	while (received < budget) {
-+		dirty_idx = bdp - priv->rx_base;
-+
-+		sc = cbd_read(&bdp->sc);
-+		len = cbd_read(&bdp->len);
-+		addr = cbd_read(&bdp->addr);
-+
-+		/* Check if we're out of packets to process */
-+		if (sc != BD_MEM_DIRTY)
-+			break;
-+
-+		/* Allocate a packet for the data */
-+		skb = dev_alloc_skb(len + NET_IP_ALIGN);
-+		if (skb == NULL) {
-+			dev->stats.rx_dropped++;
-+			goto out_err;
-+		}
-+
-+		skb_reserve(skb, NET_IP_ALIGN);
-+
-+		if (skb_dma_map(priv->dev, skb, DMA_FROM_DEVICE)) {
-+			dev_warn(priv->dev, "DMA mapping error\n");
-+			dev_kfree_skb_irq(skb);
-+			dev->stats.rx_dropped++;
-+			goto out_err;
-+		}
-+
-+		dma_dst = skb_shinfo(skb)->dma_maps[0];
-+		dma_src = 0x80000000 + addr;
-+
-+		cookie = dma_async_memcpy_raw_to_raw(priv->rx_chan,
-+						     dma_dst,
-+						     dma_src,
-+						     len);
-+		if (dma_submit_error(cookie)) {
-+			dev_warn(priv->dev, "DMA submit error\n");
-+			skb_dma_unmap(priv->dev, skb, DMA_FROM_DEVICE);
-+			dev_kfree_skb_irq(skb);
-+			dev->stats.rx_dropped++;
-+			goto out_err;
-+		}
-+
-+		status = dma_sync_wait(priv->rx_chan, cookie);
-+		if (status == DMA_ERROR) {
-+			dev_warn(priv->dev, "DMA error\n");
-+			skb_dma_unmap(priv->dev, skb, DMA_FROM_DEVICE);
-+			dev_kfree_skb_irq(skb);
-+			dev->stats.rx_dropped++;
-+			goto out_err;
-+		}
-+
-+		/* Unmap and push the skb into the network stack */
-+		skb_dma_unmap(priv->dev, skb, DMA_FROM_DEVICE);
-+		skb_put(skb, len);
-+		skb->protocol = eth_type_trans(skb, dev);
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		dev->stats.rx_bytes += len;
-+		dev->stats.rx_packets++;
-+
-+		netif_receive_skb(skb);
-+		received++;
-+
-+out_err:
-+		cbd_write(&bdp->sc, BD_MEM_FREE);
-+		wmb();
-+
-+		if (dirty_idx == PH_RING_SIZE - 1)
-+			bdp = priv->rx_base;
-+		else
-+			bdp++;
-+	}
-+
-+	priv->cur_rx = bdp;
-+
-+	/* We have processed all packets that the adapter had, but it
-+	 * was less than our budget, stop polling */
-+	if (received < budget) {
-+		netif_rx_complete(napi);
-+		wqt_raise_doorbell(priv, NET_ENABLE_RX_PACKET_DBELL);
-+	}
-+
-+	wqt_raise_doorbell(priv, NET_TX_COMPLETE_DBELL);
-+
-+	return received;
-+}
-+
-+static const struct net_device_ops wqt_net_ops = {
-+	.ndo_open		= wqt_open,
-+	.ndo_stop		= wqt_stop,
-+	.ndo_change_mtu		= wqt_change_mtu,
-+	.ndo_start_xmit		= wqt_hard_start_xmit,
-+	.ndo_tx_timeout		= wqt_tx_timeout,
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* UART Device Operations                                                     */
-+/*----------------------------------------------------------------------------*/
-+
-+static unsigned int wqtuart_tx_empty(struct uart_port *port)
-+{
-+	return TIOCSER_TEMT;
-+}
-+
-+static void wqtuart_set_mctrl(struct uart_port *port, unsigned int mctrl)
-+{
-+}
-+
-+static unsigned int wqtuart_get_mctrl(struct uart_port *port)
-+{
-+	return TIOCM_CAR | TIOCM_DSR | TIOCM_CTS;
-+}
-+
-+static void wqtuart_stop_tx(struct uart_port *port)
-+{
-+}
-+
-+static void wqtuart_start_tx(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+
-+	queue_work(priv->wq, &priv->uart_tx_work);
-+}
-+
-+static void wqtuart_stop_rx(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+
-+	do_disable_uart_handlers(priv);
-+}
-+
-+static void wqtuart_enable_ms(struct uart_port *port)
-+{
-+}
-+
-+static void wqtuart_break_ctl(struct uart_port *port, int break_state)
-+{
-+}
-+
-+static int wqtuart_startup(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+	int ret;
-+
-+	ret = wqt_request_irq(priv);
-+	if (ret)
-+		return ret;
-+
-+	do_enable_uart_handlers(priv);
-+
-+	/* Mark the transmitter and receiver ready */
-+	priv->uart_tx_ready = true;
-+
-+	/* Let the other side know that we are ready to receive chars now */
-+	wqt_raise_doorbell(priv, UART_TX_EMPTY_DBELL);
-+	priv->uart_open = true;
-+	return 0;
-+}
-+
-+static void wqtuart_shutdown(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+
-+	wqt_free_irq(priv);
-+
-+	/* Make sure the uart_tx_work_fn() exits cleanly */
-+	priv->uart_open = false;
-+	wake_up(&priv->uart_tx_wait);
-+}
-+
-+static void wqtuart_set_termios(struct uart_port *port,
-+			       struct ktermios *termios,
-+			       struct ktermios *old)
-+{
-+}
-+
-+static const char *wqtuart_type(struct uart_port *port)
-+{
-+	return "WQTUART";
-+}
-+
-+static int wqtuart_request_port(struct uart_port *port)
-+{
-+	return 0;
-+}
-+
-+static void wqtuart_config_port(struct uart_port *port, int flags)
-+{
-+}
-+
-+static void wqtuart_release_port(struct uart_port *port)
-+{
-+}
-+
-+static int wqtuart_verify_port(struct uart_port *port,
-+			      struct serial_struct *ser)
-+{
-+	return 0;
-+}
-+
-+static struct uart_ops wqtuart_ops = {
-+	.tx_empty	= wqtuart_tx_empty,
-+	.set_mctrl	= wqtuart_set_mctrl,
-+	.get_mctrl	= wqtuart_get_mctrl,
-+	.stop_tx	= wqtuart_stop_tx,
-+	.start_tx	= wqtuart_start_tx,
-+	.stop_rx	= wqtuart_stop_rx,
-+	.enable_ms	= wqtuart_enable_ms,
-+	.break_ctl	= wqtuart_break_ctl,
-+	.startup	= wqtuart_startup,
-+	.shutdown	= wqtuart_shutdown,
-+	.set_termios	= wqtuart_set_termios,
-+	.type		= wqtuart_type,
-+	.release_port	= wqtuart_release_port,
-+	.request_port	= wqtuart_request_port,
-+	.config_port	= wqtuart_config_port,
-+	.verify_port	= wqtuart_verify_port,
-+};
-+
-+static struct uart_driver wqtuart_driver = {
-+	.owner		= THIS_MODULE,
-+	.driver_name	= driver_name,
-+	.dev_name	= "ttyPCI",
-+	.major		= 240,
-+	.minor		= 0,
-+	.nr		= 1,
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* Network Registers                                                          */
-+/*----------------------------------------------------------------------------*/
-+
-+static void wqt_free_netregs(struct wqt_dev *priv)
-+{
-+	BUG_ON(priv->netregs == NULL);
-+	BUG_ON(priv->netregs_addr == 0x0);
-+
-+	dma_free_coherent(priv->dev,
-+			  PAGE_SIZE,
-+			  priv->netregs,
-+			  priv->netregs_addr);
-+
-+	priv->netregs = NULL;
-+	priv->netregs_addr = 0x0;
-+}
-+
-+static int wqt_init_netregs(struct wqt_dev *priv)
-+{
-+	u32 val;
-+
-+	BUG_ON(priv->netregs != NULL);
-+	BUG_ON(priv->netregs_addr != 0x0);
-+
-+	/* Check the PCI Inbound Window Attributes Register 0 for a 4k window
-+	 * This is PCI BAR1, and will be used as network device registers */
-+	val = IMMR_R32BE(PIWAR0_OFFSET);
-+	val = val & (PIWAR0_ENABLED | PIWAR0_IWS_4K);
-+	if (val != (PIWAR0_ENABLED | PIWAR0_IWS_4K)) {
-+		dev_dbg(priv->dev, "PIWAR0 set up incorrectly\n");
-+		return -ENODEV;
-+	}
-+
-+	priv->netregs = dma_alloc_coherent(priv->dev,
-+					   PAGE_SIZE,
-+					   &priv->netregs_addr,
-+					   GFP_KERNEL);
-+	if (!priv->netregs) {
-+		dev_dbg(priv->dev, "Unable to allocate netregs\n");
-+		return -ENOMEM;
-+	}
-+
-+	/* Write the page address into the address register */
-+	IMMR_W32BE(PITAR0_OFFSET, priv->netregs_addr >> 12);
-+	return 0;
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* OpenFirmware Device Subsystem                                              */
-+/*----------------------------------------------------------------------------*/
-+
-+static int wqt_probe(struct of_device *op, const struct of_device_id *match)
-+{
-+	struct net_device *ndev;
-+	struct wqt_dev *priv;
-+	int ret;
-+
-+	ndev = alloc_etherdev(sizeof(*priv));
-+	if (!ndev) {
-+		ret = -ENOMEM;
-+		goto out_alloc_ndev;
-+	}
-+
-+	dev_set_drvdata(&op->dev, ndev);
-+	priv = netdev_priv(ndev);
-+	priv->dev = &op->dev;
-+	priv->ndev = ndev;
-+
-+	spin_lock_init(&priv->irq_lock);
-+	mutex_init(&priv->irq_mutex);
-+
-+	/* Hardware Initialization */
-+	priv->irq = irq_of_parse_and_map(op->node, 0);
-+	priv->immr = ioremap(get_immrbase(), 0x100000);
-+	if (!priv->immr) {
-+		ret = -ENOMEM;
-+		goto out_ioremap_immr;
-+	}
-+
-+	ret = wqt_init_netregs(priv);
-+	if (ret)
-+		goto out_init_netregs;
-+
-+	/* NOTE: Yes, this is correct. Everything was written as if this
-+	 * NOTE: side *is* a network card. So the place the card is
-+	 * NOTE: receiving from is the other side's TX buffers */
-+	priv->rx_base = priv->netregs + PCINET_TXBD_BASE;
-+	priv->tx_base = priv->netregs + PCINET_RXBD_BASE;
-+
-+	/* DMA Client */
-+	wqtdma_setup_outbound_window(priv);
-+	priv->client.event_callback = wqt_dma_event;
-+	dma_cap_set(DMA_MEMCPY, priv->client.cap_mask);
-+	dma_async_client_register(&priv->client);
-+	dma_async_client_chan_request(&priv->client);
-+
-+	/* Initialize private data */
-+	priv->wq = create_singlethread_workqueue(driver_name);
-+	if (!priv->wq) {
-+		ret = -ENOMEM;
-+		goto out_create_workqueue;
-+	}
-+
-+	INIT_WORK(&priv->uart_tx_work, uart_tx_work_fn);
-+	init_waitqueue_head(&priv->uart_tx_wait);
-+	priv->uart_tx_ready = true;
-+
-+	tasklet_init(&priv->tx_complete_tasklet, wqt_tx_complete,
-+		     (unsigned long)ndev);
-+	tasklet_disable(&priv->tx_complete_tasklet);
-+	spin_lock_init(&priv->net_lock);
-+
-+	mutex_init(&priv->net_mutex);
-+	priv->net_state = NET_STATE_STOPPED;
-+	INIT_WORK(&priv->net_start_work, wqtnet_start_work_fn);
-+	INIT_WORK(&priv->net_stop_work, wqtnet_stop_work_fn);
-+	init_completion(&priv->net_start_completion);
-+	init_completion(&priv->net_stop_completion);
-+
-+	/* Disable all interrupts */
-+	IMMR_W32(IMIMR_OFFSET, 0x8 | 0x2 | 0x1);
-+
-+	/* Network Device */
-+	random_ether_addr(ndev->dev_addr);
-+
-+	ndev->netdev_ops        = &wqt_net_ops;
-+	ndev->watchdog_timeo    = HZ / 4;
-+	ndev->flags            &= ~IFF_MULTICAST;  /* No multicast support */
-+	ndev->mtu               = PH_MAX_MTU;
-+	netif_napi_add(ndev, &priv->napi, wqt_rx_napi, PH_RING_SIZE);
-+
-+	ret = register_netdev(ndev);
-+	if (ret)
-+		goto out_register_netdev;
-+
-+	/* UART Device */
-+	priv->port.ops = &wqtuart_ops;
-+	priv->port.type = PORT_16550A;
-+	priv->port.dev = &op->dev;
-+	priv->port.line = 0;
-+	spin_lock_init(&priv->port.lock);
-+
-+	ret = uart_add_one_port(&wqtuart_driver, &priv->port);
-+	if (ret)
-+		goto out_add_uart_port;
-+
-+	dev_info(priv->dev, "using ethernet device %s\n", ndev->name);
-+	dev_info(priv->dev, "using serial device %s%d\n",
-+			wqtuart_driver.dev_name, priv->port.line);
-+	return 0;
-+
-+out_add_uart_port:
-+	unregister_netdev(ndev);
-+out_register_netdev:
-+	destroy_workqueue(priv->wq);
-+out_create_workqueue:
-+	wqt_free_netregs(priv);
-+out_init_netregs:
-+	iounmap(priv->immr);
-+out_ioremap_immr:
-+	free_netdev(ndev);
-+out_alloc_ndev:
-+	return ret;
-+}
-+
-+static int wqt_remove(struct of_device *op)
-+{
-+	struct net_device *ndev = dev_get_drvdata(&op->dev);
-+	struct wqt_dev *priv = netdev_priv(ndev);
-+
-+	uart_remove_one_port(&wqtuart_driver, &priv->port);
-+	unregister_netdev(priv->ndev);
-+
-+	flush_workqueue(priv->wq);
-+	destroy_workqueue(priv->wq);
-+
-+	/* Disable all interrupts */
-+	IMMR_W32(IMIMR_OFFSET, 0x8 | 0x2 | 0x1);
-+
-+	wqt_free_netregs(priv);
-+
-+	dma_async_client_unregister(&priv->client);
-+
-+	iounmap(priv->immr);
-+
-+	free_netdev(ndev);
-+
-+	return 0;
-+}
-+
-+static struct of_device_id wqt_match[] = {
-+	{ .compatible = "fsl,mpc8349-mu", },
-+	{},
-+};
-+
-+static struct of_platform_driver wqt_of_driver = {
-+	.owner		= THIS_MODULE,
-+	.name		= driver_name,
-+	.match_table	= wqt_match,
-+	.probe		= wqt_probe,
-+	.remove		= wqt_remove,
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* DMA Client Infrastructure                                                  */
-+/*----------------------------------------------------------------------------*/
-+
-+/*----------------------------------------------------------------------------*/
-+/* Module Init / Exit                                                         */
-+/*----------------------------------------------------------------------------*/
-+
-+static int __init wqt_init(void)
-+{
-+	int ret;
-+
-+	ret = uart_register_driver(&wqtuart_driver);
-+	if (ret)
-+		goto out_uart_register_driver;
-+
-+	ret = of_register_platform_driver(&wqt_of_driver);
-+	if (ret)
-+		goto out_of_register_platform_driver;
-+
-+	return 0;
-+
-+out_of_register_platform_driver:
-+	uart_unregister_driver(&wqtuart_driver);
-+out_uart_register_driver:
-+	return ret;
-+}
-+
-+static void __exit wqt_exit(void)
-+{
-+	of_unregister_platform_driver(&wqt_of_driver);
-+	uart_unregister_driver(&wqtuart_driver);
-+}
-+
-+MODULE_AUTHOR("Ira W. Snyder <iws@ovro.caltech.edu>");
-+MODULE_DESCRIPTION("PCINet/PCISerial Driver for MPC8349EMDS");
-+MODULE_LICENSE("GPL");
-+
-+module_init(wqt_init);
-+module_exit(wqt_exit);
-diff --git a/drivers/net/pcinet_host.c b/drivers/net/pcinet_host.c
-new file mode 100644
-index 0000000..3b5c38a
---- /dev/null
-+++ b/drivers/net/pcinet_host.c
-@@ -0,0 +1,1318 @@
-+/*
-+ * PCINet and PCISerial Driver for Freescale MPC8349EMDS (Host side)
-+ *
-+ * Copyright (c) 2008 Ira W. Snyder <iws@ovro.caltech.edu>
-+ *
-+ * Heavily inspired by the drivers/net/fs_enet driver
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2. This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/sched.h>
-+#include <linux/wait.h>
-+#include <linux/interrupt.h>
-+#include <linux/irqreturn.h>
-+#include <linux/pci.h>
-+#include <linux/serial.h>
-+#include <linux/serial_core.h>
-+#include <linux/etherdevice.h>
-+#include <linux/mutex.h>
-+
-+#include "pcinet.h"
-+#include "pcinet_hw.h"
-+
-+/* IMMR Accessor Helpers */
-+#define IMMR_R32(_off) ioread32(priv->immr+(_off))
-+#define IMMR_W32(_off, _val) iowrite32((_val), priv->immr+(_off))
-+#define IMMR_R32BE(_off) ioread32be(priv->immr+(_off))
-+#define IMMR_W32BE(_off, _val) iowrite32be((_val), priv->immr+(_off))
-+
-+static const char driver_name[] = "wqt";
-+
-+static void wqtuart_stop_tx(struct uart_port *port);
-+
-+struct wqt_dev;
-+typedef void (*wqt_irqhandler_t)(struct wqt_dev *);
-+
-+struct wqt_irqhandlers {
-+	wqt_irqhandler_t net_start_req_handler;
-+	wqt_irqhandler_t net_start_ack_handler;
-+	wqt_irqhandler_t net_stop_req_handler;
-+	wqt_irqhandler_t net_stop_ack_handler;
-+	wqt_irqhandler_t net_rx_packet_handler;
-+	wqt_irqhandler_t net_tx_complete_handler;
-+	wqt_irqhandler_t uart_rx_ready_handler;
-+	wqt_irqhandler_t uart_tx_empty_handler;
-+};
-+
-+struct wqt_dev {
-+	/*--------------------------------------------------------------------*/
-+	/* PCI Infrastructure                                                 */
-+	/*--------------------------------------------------------------------*/
-+	struct pci_dev *pdev;
-+	struct device *dev;
-+	void __iomem *immr;
-+
-+	struct mutex irq_mutex;
-+	int interrupt_count;
-+
-+	spinlock_t irq_lock;
-+	struct wqt_irqhandlers handlers;
-+
-+	/*--------------------------------------------------------------------*/
-+	/* UART Device Infrastructure                                         */
-+	/*--------------------------------------------------------------------*/
-+	struct uart_port port;
-+	bool uart_open;
-+
-+	struct workqueue_struct *wq;
-+	struct work_struct uart_tx_work;
-+	wait_queue_head_t uart_tx_wait; /* sleep for uart_tx_ready */
-+	bool uart_tx_ready; /* transmitter state */
-+
-+	/*--------------------------------------------------------------------*/
-+	/* Ethernet Device Infrastructure                                     */
-+	/*--------------------------------------------------------------------*/
-+	struct net_device *ndev;
-+	void __iomem *netregs;
-+
-+	/* Outstanding SKB */
-+	struct sk_buff *rx_skbs[PH_RING_SIZE];
-+	struct sk_buff *tx_skbs[PH_RING_SIZE];
-+
-+	/* Circular Buffer Descriptor base */
-+	struct circ_buf_desc __iomem *rx_base;
-+	struct circ_buf_desc __iomem *tx_base;
-+
-+	/* Current SKB index */
-+	struct circ_buf_desc __iomem *cur_rx;
-+	struct circ_buf_desc __iomem *cur_tx;
-+	struct circ_buf_desc __iomem *dirty_tx;
-+	int tx_free;
-+
-+	struct tasklet_struct tx_complete_tasklet;
-+	spinlock_t net_lock;
-+
-+	struct mutex net_mutex;
-+	int net_state;
-+	struct work_struct net_start_work;
-+	struct work_struct net_stop_work;
-+	struct completion net_start_completion;
-+	struct completion net_stop_completion;
-+	struct napi_struct napi;
-+
-+	bool net_send_rx_packet_dbell;
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* Buffer Descriptor Accessor Helpers                                         */
-+/*----------------------------------------------------------------------------*/
-+
-+static inline void cbd_write(void __iomem *addr, u32 val)
-+{
-+	iowrite32(val, addr);
-+}
-+
-+static inline u32 cbd_read(void __iomem *addr)
-+{
-+	return ioread32(addr);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Doorbell Register Helper Operations                                        */
-+/*----------------------------------------------------------------------------*/
-+
-+static bool wqt_remote_is_ready(struct wqt_dev *priv)
-+{
-+	/* If the doorbell mask bit is cleared, then someone is listening */
-+	return (IMMR_R32(IMIMR_OFFSET) & 0x8) ? false : true;
-+}
-+
-+/* Set a doorbell bit */
-+static inline void wqt_raise_doorbell(struct wqt_dev *priv, u32 dbell)
-+{
-+	IMMR_W32(IDR_OFFSET, dbell);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Message Sending and Processing Operations                                  */
-+/*----------------------------------------------------------------------------*/
-+
-+static irqreturn_t wqt_interrupt(int irq, void *dev_id)
-+{
-+	struct wqt_dev *priv = dev_id;
-+	u32 omisr, odr;
-+
-+	omisr = IMMR_R32(OMISR_OFFSET);
-+	odr = IMMR_R32(ODR_OFFSET);
-+
-+	if (!(omisr & 0x8))
-+		return IRQ_NONE;
-+
-+	/* Clear all of the interrupt sources, we'll handle them next */
-+	IMMR_W32(ODR_OFFSET, odr);
-+
-+	/* Lock over all of the handlers, so they cannot get called when
-+	 * the code doesn't expect them to be called */
-+	spin_lock(&priv->irq_lock);
-+
-+	if (odr & UART_RX_READY_DBELL)
-+		priv->handlers.uart_rx_ready_handler(priv);
-+
-+	if (odr & UART_TX_EMPTY_DBELL)
-+		priv->handlers.uart_tx_empty_handler(priv);
-+
-+	if (odr & NET_RX_PACKET_DBELL)
-+		priv->handlers.net_rx_packet_handler(priv);
-+
-+	if (odr & NET_TX_COMPLETE_DBELL)
-+		priv->handlers.net_tx_complete_handler(priv);
-+
-+	if (odr & NET_START_REQ_DBELL)
-+		priv->handlers.net_start_req_handler(priv);
-+
-+	if (odr & NET_START_ACK_DBELL)
-+		priv->handlers.net_start_ack_handler(priv);
-+
-+	if (odr & NET_STOP_REQ_DBELL)
-+		priv->handlers.net_stop_req_handler(priv);
-+
-+	if (odr & NET_STOP_ACK_DBELL)
-+		priv->handlers.net_stop_ack_handler(priv);
-+
-+	if (odr & NET_DISABLE_RX_PACKET_DBELL)
-+		priv->net_send_rx_packet_dbell = false;
-+
-+	if (odr & NET_ENABLE_RX_PACKET_DBELL)
-+		priv->net_send_rx_packet_dbell = true;
-+
-+	spin_unlock(&priv->irq_lock);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+/* Send a character through the mbox when it becomes available
-+ * Blocking, must not be called with any spinlocks held */
-+static int do_send_message(struct wqt_dev *priv, const char ch)
-+{
-+	struct uart_port *port = &priv->port;
-+	bool tmp;
-+
-+	spin_lock_irq(&priv->irq_lock);
-+	while (priv->uart_tx_ready != true) {
-+		spin_unlock_irq(&priv->irq_lock);
-+		wait_event_timeout(priv->uart_tx_wait, priv->uart_tx_ready, HZ);
-+
-+		spin_lock_irq(&port->lock);
-+		tmp = priv->uart_open;
-+		spin_unlock_irq(&port->lock);
-+
-+		if (!tmp)
-+			return -EIO;
-+
-+		spin_lock_irq(&priv->irq_lock);
-+	}
-+
-+	/* Now the transmitter is free, send the message */
-+	IMMR_W32(IMR0_OFFSET, ch);
-+	wqt_raise_doorbell(priv, UART_RX_READY_DBELL);
-+
-+	/* Mark the transmitter busy */
-+	priv->uart_tx_ready = false;
-+	spin_unlock_irq(&priv->irq_lock);
-+	return 0;
-+}
-+
-+/* Grab a character out of the uart tx buffer and send it */
-+static void uart_tx_work_fn(struct work_struct *work)
-+{
-+	struct wqt_dev *priv = container_of(work, struct wqt_dev, uart_tx_work);
-+	struct uart_port *port = &priv->port;
-+	struct circ_buf *xmit = &port->info->xmit;
-+	char ch;
-+
-+	spin_lock_irq(&port->lock);
-+	while (true) {
-+
-+		/* Check for XON/XOFF (high priority) */
-+		if (port->x_char) {
-+			ch = port->x_char;
-+			port->x_char = 0;
-+			spin_unlock_irq(&port->lock);
-+
-+			if (do_send_message(priv, ch))
-+				return;
-+
-+			spin_lock_irq(&port->lock);
-+			continue;
-+		}
-+
-+		/* If we're out of chars or the port is stopped, we're done */
-+		if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
-+			wqtuart_stop_tx(port);
-+			break;
-+		}
-+
-+		/* Grab the next char out of the buffer and send it */
-+		ch = xmit->buf[xmit->tail];
-+		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
-+		spin_unlock_irq(&port->lock);
-+
-+		if (do_send_message(priv, ch))
-+			return;
-+
-+		spin_lock_irq(&port->lock);
-+	}
-+
-+	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
-+		uart_write_wakeup(port);
-+
-+	if (uart_circ_empty(xmit))
-+		wqtuart_stop_tx(port);
-+
-+	spin_unlock_irq(&port->lock);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Interrupt Handlers                                                         */
-+/*----------------------------------------------------------------------------*/
-+
-+/* NOTE: All handlers are called with priv->irq_lock held */
-+
-+static void empty_handler(struct wqt_dev *priv)
-+{
-+	/* Intentionally left empty */
-+}
-+
-+static void net_start_req_handler(struct wqt_dev *priv)
-+{
-+	schedule_work(&priv->net_start_work);
-+}
-+
-+static void net_start_ack_handler(struct wqt_dev *priv)
-+{
-+	complete(&priv->net_start_completion);
-+}
-+
-+static void net_stop_req_handler(struct wqt_dev *priv)
-+{
-+	schedule_work(&priv->net_stop_work);
-+}
-+
-+static void net_stop_ack_handler(struct wqt_dev *priv)
-+{
-+	complete(&priv->net_stop_completion);
-+}
-+
-+static void net_tx_complete_handler(struct wqt_dev *priv)
-+{
-+	tasklet_schedule(&priv->tx_complete_tasklet);
-+}
-+
-+static void net_rx_packet_handler(struct wqt_dev *priv)
-+{
-+	wqt_raise_doorbell(priv, NET_DISABLE_RX_PACKET_DBELL);
-+	netif_rx_schedule(&priv->napi);
-+}
-+
-+static void uart_rx_ready_handler(struct wqt_dev *priv)
-+{
-+	struct tty_struct *tty = priv->port.info->port.tty;
-+	const char ch = IMMR_R32(OMR0_OFFSET) & 0xff;
-+
-+	/* Write the character to the tty layer */
-+	tty_insert_flip_char(tty, ch, TTY_NORMAL);
-+	tty_flip_buffer_push(tty);
-+
-+	/* Let the other side know we're ready for more */
-+	wqt_raise_doorbell(priv, UART_TX_EMPTY_DBELL);
-+}
-+
-+static void uart_tx_empty_handler(struct wqt_dev *priv)
-+{
-+	priv->uart_tx_ready = true;
-+	wake_up(&priv->uart_tx_wait);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Interrupt Request / Free Helpers                                           */
-+/*----------------------------------------------------------------------------*/
-+
-+static void do_enable_net_startstop_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_start_req_handler = net_start_req_handler;
-+	priv->handlers.net_start_ack_handler = net_start_ack_handler;
-+	priv->handlers.net_stop_req_handler = net_stop_req_handler;
-+	priv->handlers.net_stop_ack_handler = net_stop_ack_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_disable_net_startstop_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_start_req_handler = empty_handler;
-+	priv->handlers.net_start_ack_handler = empty_handler;
-+	priv->handlers.net_stop_req_handler = empty_handler;
-+	priv->handlers.net_stop_ack_handler = empty_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_enable_net_rxtx_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_rx_packet_handler = net_rx_packet_handler;
-+	priv->handlers.net_tx_complete_handler = net_tx_complete_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_disable_net_rxtx_handlers(struct wqt_dev *priv)
-+{
-+	spin_lock_irq(&priv->irq_lock);
-+	priv->handlers.net_rx_packet_handler = empty_handler;
-+	priv->handlers.net_tx_complete_handler = empty_handler;
-+	spin_unlock_irq(&priv->irq_lock);
-+}
-+
-+static void do_enable_uart_handlers(struct wqt_dev *priv)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->irq_lock, flags);
-+	priv->handlers.uart_rx_ready_handler = uart_rx_ready_handler;
-+	priv->handlers.uart_tx_empty_handler = uart_tx_empty_handler;
-+	spin_unlock_irqrestore(&priv->irq_lock, flags);
-+}
-+
-+static void do_disable_uart_handlers(struct wqt_dev *priv)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->irq_lock, flags);
-+	priv->handlers.uart_rx_ready_handler = empty_handler;
-+	priv->handlers.uart_tx_empty_handler = empty_handler;
-+	spin_unlock_irqrestore(&priv->irq_lock, flags);
-+}
-+
-+static int wqt_request_irq(struct wqt_dev *priv)
-+{
-+	int ret = 0;
-+
-+	mutex_lock(&priv->irq_mutex);
-+
-+	if (priv->interrupt_count > 0)
-+		goto out_unlock;
-+
-+	/* Force all handlers to be disabled before attaching the handler */
-+	do_disable_net_startstop_handlers(priv);
-+	do_disable_net_rxtx_handlers(priv);
-+	do_disable_uart_handlers(priv);
-+
-+	/* NOTE: we MUST use pdev->irq here, sometimes it changes AFTER
-+	 * NOTE: probe() has finished.... */
-+	ret = request_irq(priv->pdev->irq,
-+			  wqt_interrupt,
-+			  IRQF_SHARED,
-+			  priv->ndev->name,
-+			  priv);
-+
-+	/* Unmask the doorbell interrupt */
-+	IMMR_W32(OMIMR_OFFSET, 0x2 | 0x1);
-+
-+out_unlock:
-+	priv->interrupt_count++;
-+	mutex_unlock(&priv->irq_mutex);
-+
-+	return ret;
-+}
-+
-+static void wqt_free_irq(struct wqt_dev *priv)
-+{
-+	mutex_lock(&priv->irq_mutex);
-+	priv->interrupt_count--;
-+
-+	if (priv->interrupt_count > 0)
-+		goto out_unlock;
-+
-+	/* Disable all interrupts */
-+	IMMR_W32(OMIMR_OFFSET, 0x8 | 0x2 | 0x1);
-+
-+	free_irq(priv->pdev->irq, priv);
-+
-+out_unlock:
-+	mutex_unlock(&priv->irq_mutex);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Network Startup and Shutdown Helpers                                       */
-+/*----------------------------------------------------------------------------*/
-+
-+/* NOTE: All helper functions prefixed with "do" must be called only from
-+ * process context, with priv->net_mutex held. They are expected to sleep */
-+
-+/* NOTE: queues must be stopped before initializing and uninitializing */
-+
-+static void do_net_initialize_board(struct wqt_dev *priv)
-+{
-+	int i;
-+	struct sk_buff *skb;
-+	struct circ_buf_desc __iomem *bdp;
-+
-+	/* Fill in RX ring */
-+	for (i = 0, bdp = priv->rx_base; i < PH_RING_SIZE; bdp++, i++) {
-+		skb = priv->rx_skbs[i];
-+
-+		cbd_write(&bdp->sc, BD_MEM_READY);
-+		cbd_write(&bdp->len, PH_MAX_FRSIZE);
-+		cbd_write(&bdp->addr, skb_shinfo(skb)->dma_maps[0]);
-+	}
-+
-+	/* Fill in TX ring */
-+	for (i = 0, bdp = priv->tx_base; i < PH_RING_SIZE; bdp++, i++) {
-+		cbd_write(&bdp->sc, BD_MEM_READY);
-+		cbd_write(&bdp->len, 0);
-+		cbd_write(&bdp->addr, 0x0);
-+	}
-+}
-+
-+static void do_net_uninitialize_board(struct wqt_dev *priv)
-+{
-+	struct sk_buff *skb;
-+	struct circ_buf_desc __iomem *bdp;
-+	int i;
-+
-+	/* Reset TX ring */
-+	for (i = 0, bdp = priv->tx_base; i < PH_RING_SIZE; bdp++, i++) {
-+		if (priv->tx_skbs[i]) {
-+			skb = priv->tx_skbs[i];
-+			skb_dma_unmap(priv->dev, skb, DMA_TO_DEVICE);
-+			dev_kfree_skb(skb);
-+
-+			priv->tx_skbs[i] = NULL;
-+		}
-+
-+		cbd_write(&bdp->sc, BD_MEM_READY);
-+		cbd_write(&bdp->len, 0);
-+		cbd_write(&bdp->addr, 0x0);
-+	}
-+}
-+
-+static void do_net_start_queues(struct wqt_dev *priv)
-+{
-+	if (priv->net_state == NET_STATE_RUNNING)
-+		return;
-+
-+	priv->net_send_rx_packet_dbell = true;
-+
-+	dev_dbg(priv->dev, "resetting buffer positions\n");
-+	priv->cur_rx = priv->rx_base;
-+	priv->cur_tx = priv->tx_base;
-+	priv->dirty_tx = priv->tx_base;
-+	priv->tx_free = PH_RING_SIZE;
-+
-+	dev_dbg(priv->dev, "enabling NAPI queue\n");
-+	napi_enable(&priv->napi);
-+
-+	dev_dbg(priv->dev, "enabling tx_complete() tasklet\n");
-+	tasklet_enable(&priv->tx_complete_tasklet);
-+
-+	dev_dbg(priv->dev, "enabling TX queue\n");
-+	netif_start_queue(priv->ndev);
-+
-+	dev_dbg(priv->dev, "carrier on!\n");
-+	netif_carrier_on(priv->ndev);
-+
-+	/* Enable the RX_PACKET and TX_COMPLETE interrupt handlers */
-+	do_enable_net_rxtx_handlers(priv);
-+
-+	priv->net_state = NET_STATE_RUNNING;
-+}
-+
-+static void do_net_stop_queues(struct wqt_dev *priv)
-+{
-+	if (priv->net_state == NET_STATE_STOPPED)
-+		return;
-+
-+	/* Disable the RX_PACKET and TX_COMPLETE interrupt handlers */
-+	do_disable_net_rxtx_handlers(priv);
-+
-+	dev_dbg(priv->dev, "disabling NAPI queue\n");
-+	napi_disable(&priv->napi);
-+
-+	dev_dbg(priv->dev, "disabling tx_complete() tasklet\n");
-+	tasklet_disable(&priv->tx_complete_tasklet);
-+
-+	dev_dbg(priv->dev, "disabling TX queue\n");
-+	netif_tx_disable(priv->ndev);
-+
-+	dev_dbg(priv->dev, "carrier off!\n");
-+	netif_carrier_off(priv->ndev);
-+
-+	priv->net_state = NET_STATE_STOPPED;
-+}
-+
-+/* Called when we get a request to start our queues and acknowledge */
-+static void wqtnet_start_work_fn(struct work_struct *work)
-+{
-+	struct wqt_dev *priv = container_of(work, struct wqt_dev,
-+					    net_start_work);
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	do_net_initialize_board(priv);
-+	do_net_start_queues(priv);
-+	wqt_raise_doorbell(priv, NET_START_ACK_DBELL);
-+
-+	mutex_unlock(&priv->net_mutex);
-+}
-+
-+/* Called when we get a request to stop our queues and acknowledge */
-+static void wqtnet_stop_work_fn(struct work_struct *work)
-+{
-+	struct wqt_dev *priv = container_of(work, struct wqt_dev,
-+					    net_stop_work);
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	do_net_stop_queues(priv);
-+	do_net_uninitialize_board(priv);
-+	wqt_raise_doorbell(priv, NET_STOP_ACK_DBELL);
-+
-+	mutex_unlock(&priv->net_mutex);
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* SKB Allocation Helpers                                                     */
-+/*----------------------------------------------------------------------------*/
-+
-+static void wqt_cleanup_skbs(struct wqt_dev *priv)
-+{
-+	struct sk_buff *skb;
-+	int i;
-+
-+	/* TX ring */
-+	for (i = 0; i < PH_RING_SIZE; ++i) {
-+		skb = priv->tx_skbs[i];
-+
-+		if (skb) {
-+			skb_dma_unmap(priv->dev, skb, DMA_TO_DEVICE);
-+			dev_kfree_skb(skb);
-+			priv->tx_skbs[i] = NULL;
-+		}
-+	}
-+
-+	/* RX ring */
-+	for (i = 0; i < PH_RING_SIZE; ++i) {
-+		skb = priv->rx_skbs[i];
-+
-+		if (skb) {
-+			skb_dma_unmap(priv->dev, skb, DMA_FROM_DEVICE);
-+			dev_kfree_skb(skb);
-+			priv->rx_skbs[i] = NULL;
-+		}
-+	}
-+}
-+
-+/*
-+ * Allocate and DMA map a new skb to receive a packet
-+ *
-+ * When the skb is received, it must be unmapped and trimmed
-+ * to the appropriate length
-+ */
-+static struct sk_buff *wqt_alloc_rx_skb(struct wqt_dev *priv)
-+{
-+	struct net_device *dev = priv->ndev;
-+	struct sk_buff *skb;
-+
-+	skb = netdev_alloc_skb(dev, PH_MAX_FRSIZE + NET_IP_ALIGN);
-+	if (unlikely(!skb))
-+		return NULL;
-+
-+	skb_reserve(skb, NET_IP_ALIGN);
-+
-+	/* We "fill" the skb with data so that the DMA mapping code works
-+	 * as expected. The skb will be trimmed down to the actual data
-+	 * size during RX */
-+	skb_put(skb, PH_MAX_FRSIZE);
-+
-+	if (unlikely(skb_dma_map(priv->dev, skb, DMA_FROM_DEVICE))) {
-+		dev_kfree_skb_any(skb);
-+		return NULL;
-+	}
-+
-+	return skb;
-+}
-+
-+static int wqt_alloc_skbs(struct wqt_dev *priv)
-+{
-+	struct sk_buff *skb;
-+	int i;
-+
-+	/* RX ring */
-+	for (i = 0; i < PH_RING_SIZE; ++i) {
-+		/* Paranoia check */
-+		BUG_ON(priv->rx_skbs[i] != NULL);
-+
-+		skb = wqt_alloc_rx_skb(priv);
-+		if (skb == NULL)
-+			goto out_err;
-+
-+		priv->rx_skbs[i] = skb;
-+	}
-+
-+	/* TX ring */
-+	for (i = 0; i < PH_RING_SIZE; ++i) {
-+		/* Paranoia check */
-+		BUG_ON(priv->tx_skbs[i] != NULL);
-+	}
-+
-+	/* NOTE: the actual initialization of the board happens
-+	 * NOTE: in ph_initialize_board(), once the board has
-+	 * NOTE: requested to be initialized */
-+
-+	return 0;
-+
-+out_err:
-+	wqt_cleanup_skbs(priv);
-+	return -ENOMEM;
-+}
-+
-+/*----------------------------------------------------------------------------*/
-+/* Network Device Operations                                                  */
-+/*----------------------------------------------------------------------------*/
-+
-+static int wqt_open(struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	int ret;
-+
-+	/* Pretend the cable is unplugged until we are up and running */
-+	netif_carrier_off(dev);
-+
-+	/* Check that the other side has set up the network registers */
-+	if (!wqt_remote_is_ready(priv)) {
-+		dev_err(priv->dev, "no driver installed at other end\n");
-+		return -ENOTCONN; /* Transport endpoint not connected */
-+	}
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	/* Allocate skbs, initialize the board, start the irq handler */
-+	ret = wqt_alloc_skbs(priv);
-+	if (ret)
-+		goto out_err;
-+
-+	do_net_initialize_board(priv);
-+
-+	ret = wqt_request_irq(priv);
-+	if (ret)
-+		goto out_err;
-+
-+	/* Enable only the network start/stop interrupts */
-+	do_enable_net_startstop_handlers(priv);
-+
-+	/* Begin the startup sequence, giving 5 seconds for a reply */
-+	wqt_raise_doorbell(priv, NET_START_REQ_DBELL);
-+	ret = wait_for_completion_timeout(&priv->net_start_completion, 5*HZ);
-+
-+	/* The startup sequence timed out, therefore the other side is down
-+	 * and we shouldn't be messing with the registers */
-+	if (!ret) {
-+		dev_warn(priv->dev, "startup sequence timed out\n");
-+		ret = -ENOTCONN;
-+		goto out_free_irq;
-+	}
-+
-+	/* Start the network queues */
-+	do_net_start_queues(priv);
-+
-+	mutex_unlock(&priv->net_mutex);
-+	return 0;
-+
-+out_free_irq:
-+	wqt_free_irq(priv);
-+out_err:
-+	wqt_cleanup_skbs(priv);
-+	mutex_unlock(&priv->net_mutex);
-+	return ret;
-+}
-+
-+static int wqt_stop(struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	int ret;
-+
-+	mutex_lock(&priv->net_mutex);
-+
-+	do_net_stop_queues(priv);
-+
-+	wqt_raise_doorbell(priv, NET_STOP_REQ_DBELL);
-+	ret = wait_for_completion_timeout(&priv->net_stop_completion, 5*HZ);
-+
-+	/* The shutdown sequence timed out, therefore the other side is down
-+	 * and we shouldn't be messing with the registers */
-+	if (!ret)
-+		dev_warn(priv->dev, "shutdown sequence timed out\n");
-+
-+	do_disable_net_startstop_handlers(priv);
-+	wqt_free_irq(priv);
-+	do_net_uninitialize_board(priv);
-+	wqt_cleanup_skbs(priv);
-+
-+	mutex_unlock(&priv->net_mutex);
-+	return 0;
-+}
-+
-+static int wqt_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if ((new_mtu < 68) || (new_mtu > PH_MAX_MTU))
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
-+static int wqt_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	struct circ_buf_desc __iomem *bdp;
-+	int dirty_idx;
-+
-+	spin_lock_bh(&priv->net_lock);
-+
-+	bdp = priv->cur_tx;
-+	dirty_idx = bdp - priv->tx_base;
-+
-+	/* This should not happen, the queue should be stopped */
-+	if (priv->tx_free == 0 || cbd_read(&bdp->sc) != BD_MEM_READY) {
-+		dev_warn(priv->dev, "TX queue not stopped!\n");
-+		netif_stop_queue(dev);
-+		goto out_unlock;
-+	}
-+
-+	if (skb_dma_map(priv->dev, skb, DMA_TO_DEVICE)) {
-+		dev_warn(priv->dev, "DMA mapping error\n");
-+		goto out_unlock;
-+	}
-+
-+	BUG_ON(priv->tx_skbs[dirty_idx] != NULL);
-+	priv->tx_skbs[dirty_idx] = skb;
-+
-+	/* Update the buffer descriptor with the packet information */
-+	cbd_write(&bdp->len, skb->len);
-+	cbd_write(&bdp->addr, skb_shinfo(skb)->dma_maps[0]);
-+	cbd_write(&bdp->sc, BD_MEM_DIRTY);
-+
-+	if (dirty_idx == PH_RING_SIZE - 1)
-+		bdp = priv->tx_base;
-+	else
-+		bdp++;
-+
-+	priv->cur_tx = bdp;
-+	priv->tx_free--;
-+	dev->trans_start = jiffies;
-+
-+	if (priv->tx_free == 0)
-+		netif_stop_queue(dev);
-+
-+	if (priv->net_send_rx_packet_dbell)
-+		wqt_raise_doorbell(priv, NET_RX_PACKET_DBELL);
-+
-+	spin_unlock_bh(&priv->net_lock);
-+	return NETDEV_TX_OK;
-+
-+out_unlock:
-+	spin_unlock_bh(&priv->net_lock);
-+	return NETDEV_TX_BUSY;
-+}
-+
-+static void wqt_tx_timeout(struct net_device *dev)
-+{
-+	struct wqt_dev *priv = netdev_priv(dev);
-+
-+	dev->stats.tx_errors++;
-+	wqt_raise_doorbell(priv, NET_RX_PACKET_DBELL);
-+}
-+
-+static void wqt_tx_complete(unsigned long data)
-+{
-+	struct net_device *dev = (struct net_device *)data;
-+	struct wqt_dev *priv = netdev_priv(dev);
-+	struct circ_buf_desc __iomem *bdp;
-+	struct sk_buff *skb;
-+	int do_wake, dirty_idx;
-+
-+	spin_lock_bh(&priv->net_lock);
-+
-+	bdp = priv->dirty_tx;
-+	do_wake = 0;
-+
-+	while (cbd_read(&bdp->sc) == BD_MEM_FREE) {
-+		dirty_idx = bdp - priv->tx_base;
-+
-+		skb = priv->tx_skbs[dirty_idx];
-+		BUG_ON(skb == NULL);
-+
-+		dev->stats.tx_bytes += skb->len;
-+		dev->stats.tx_packets++;
-+
-+		/* Unmap and free the transmitted skb */
-+		skb_dma_unmap(priv->dev, skb, DMA_TO_DEVICE);
-+		dev_kfree_skb_irq(skb);
-+		priv->tx_skbs[dirty_idx] = NULL;
-+
-+		/* Invalidate the buffer descriptor */
-+		cbd_write(&bdp->len, 0);
-+		cbd_write(&bdp->addr, 0x0);
-+		cbd_write(&bdp->sc, BD_MEM_READY);
-+
-+		/* Update the bdp */
-+		if (dirty_idx == PH_RING_SIZE - 1)
-+			bdp = priv->tx_base;
-+		else
-+			bdp++;
-+
-+		if (!priv->tx_free++)
-+			do_wake = 1;
-+	}
-+
-+	priv->dirty_tx = bdp;
-+
-+	spin_unlock_bh(&priv->net_lock);
-+
-+	if (do_wake)
-+		netif_wake_queue(dev);
-+}
-+
-+static int wqt_rx_napi(struct napi_struct *napi, int budget)
-+{
-+	struct wqt_dev *priv = container_of(napi, struct wqt_dev, napi);
-+	struct net_device *dev = priv->ndev;
-+	int dirty_idx;
-+	int received = 0;
-+	u32 sc, len;
-+	struct sk_buff *skb, *skbn;
-+	struct circ_buf_desc __iomem *bdp;
-+
-+	bdp = priv->cur_rx;
-+
-+	while (received < budget) {
-+		dirty_idx = bdp - priv->rx_base;
-+
-+		sc = cbd_read(&bdp->sc);
-+		len = cbd_read(&bdp->len);
-+
-+		/* Check if we are out of buffers to process */
-+		if (sc != BD_MEM_DIRTY)
-+			break;
-+
-+		skb = priv->rx_skbs[dirty_idx];
-+		BUG_ON(skb == NULL);
-+
-+		/* Allocate a new RX skb to replace the dirty one */
-+		skbn = wqt_alloc_rx_skb(priv);
-+		if (unlikely(skbn == NULL)) {
-+			skbn = skb;
-+			dev->stats.rx_dropped++;
-+			goto out_noalloc;
-+		}
-+
-+		/* Unmap, trim, and push the skb into the network stack */
-+		skb_dma_unmap(priv->dev, skb, DMA_FROM_DEVICE);
-+		skb_trim(skb, len);
-+		skb->protocol = eth_type_trans(skb, dev);
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		dev->stats.rx_bytes += len;
-+		dev->stats.rx_packets++;
-+
-+		netif_receive_skb(skb);
-+		received++;
-+
-+out_noalloc:
-+		/* Write the new skb into the buffer descriptor */
-+		cbd_write(&bdp->len, PH_MAX_FRSIZE);
-+		cbd_write(&bdp->addr, skb_shinfo(skbn)->dma_maps[0]);
-+		cbd_write(&bdp->sc, BD_MEM_FREE);
-+
-+		priv->rx_skbs[dirty_idx] = skbn;
-+
-+		/* Update the bdp */
-+		if (dirty_idx == PH_RING_SIZE - 1)
-+			bdp = priv->rx_base;
-+		else
-+			bdp++;
-+	}
-+
-+	priv->cur_rx = bdp;
-+
-+	/* We have processed all packets that the adapter had, but it
-+	 * was less than our budget, stop polling */
-+	if (received < budget) {
-+		netif_rx_complete(napi);
-+		wqt_raise_doorbell(priv, NET_ENABLE_RX_PACKET_DBELL);
-+	}
-+
-+	wqt_raise_doorbell(priv, NET_TX_COMPLETE_DBELL);
-+
-+	return received;
-+}
-+
-+static const struct net_device_ops wqt_net_ops = {
-+	.ndo_open		= wqt_open,
-+	.ndo_stop		= wqt_stop,
-+	.ndo_change_mtu		= wqt_change_mtu,
-+	.ndo_start_xmit		= wqt_hard_start_xmit,
-+	.ndo_tx_timeout		= wqt_tx_timeout,
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* UART Device Operations                                                     */
-+/*----------------------------------------------------------------------------*/
-+
-+static unsigned int wqtuart_tx_empty(struct uart_port *port)
-+{
-+	return TIOCSER_TEMT;
-+}
-+
-+static void wqtuart_set_mctrl(struct uart_port *port, unsigned int mctrl)
-+{
-+}
-+
-+static unsigned int wqtuart_get_mctrl(struct uart_port *port)
-+{
-+	return TIOCM_CAR | TIOCM_DSR | TIOCM_CTS;
-+}
-+
-+static void wqtuart_stop_tx(struct uart_port *port)
-+{
-+}
-+
-+static void wqtuart_start_tx(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+
-+	queue_work(priv->wq, &priv->uart_tx_work);
-+}
-+
-+static void wqtuart_stop_rx(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+
-+	do_disable_uart_handlers(priv);
-+}
-+
-+static void wqtuart_enable_ms(struct uart_port *port)
-+{
-+}
-+
-+static void wqtuart_break_ctl(struct uart_port *port, int break_state)
-+{
-+}
-+
-+static int wqtuart_startup(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+	int ret;
-+
-+	ret = wqt_request_irq(priv);
-+	if (ret)
-+		return ret;
-+
-+	do_enable_uart_handlers(priv);
-+
-+	/* Mark the transmitter and receiver ready */
-+	priv->uart_tx_ready = true;
-+
-+	/* Let the other side know that we are ready to receive chars now */
-+	wqt_raise_doorbell(priv, UART_TX_EMPTY_DBELL);
-+	priv->uart_open = true;
-+	return 0;
-+}
-+
-+static void wqtuart_shutdown(struct uart_port *port)
-+{
-+	struct wqt_dev *priv = container_of(port, struct wqt_dev, port);
-+
-+	wqt_free_irq(priv);
-+
-+	/* Make sure the uart_tx_work_fn() exits cleanly */
-+	priv->uart_open = false;
-+	wake_up(&priv->uart_tx_wait);
-+}
-+
-+static void wqtuart_set_termios(struct uart_port *port,
-+			       struct ktermios *termios,
-+			       struct ktermios *old)
-+{
-+}
-+
-+static const char *wqtuart_type(struct uart_port *port)
-+{
-+	return "WQTUART";
-+}
-+
-+static int wqtuart_request_port(struct uart_port *port)
-+{
-+	return 0;
-+}
-+
-+static void wqtuart_config_port(struct uart_port *port, int flags)
-+{
-+}
-+
-+static void wqtuart_release_port(struct uart_port *port)
-+{
-+}
-+
-+static int wqtuart_verify_port(struct uart_port *port,
-+			      struct serial_struct *ser)
-+{
-+	return 0;
-+}
-+
-+static struct uart_ops wqtuart_ops = {
-+	.tx_empty	= wqtuart_tx_empty,
-+	.set_mctrl	= wqtuart_set_mctrl,
-+	.get_mctrl	= wqtuart_get_mctrl,
-+	.stop_tx	= wqtuart_stop_tx,
-+	.start_tx	= wqtuart_start_tx,
-+	.stop_rx	= wqtuart_stop_rx,
-+	.enable_ms	= wqtuart_enable_ms,
-+	.break_ctl	= wqtuart_break_ctl,
-+	.startup	= wqtuart_startup,
-+	.shutdown	= wqtuart_shutdown,
-+	.set_termios	= wqtuart_set_termios,
-+	.type		= wqtuart_type,
-+	.release_port	= wqtuart_release_port,
-+	.request_port	= wqtuart_request_port,
-+	.config_port	= wqtuart_config_port,
-+	.verify_port	= wqtuart_verify_port,
-+};
-+
-+static struct uart_driver wqtuart_driver = {
-+	.owner		= THIS_MODULE,
-+	.driver_name	= driver_name,
-+	.dev_name	= "ttyPCI",
-+	.major		= 240,
-+	.minor		= 0,
-+	.nr		= 32, /* 32 ports maximum */
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* PCI Subsystem                                                              */
-+/*----------------------------------------------------------------------------*/
-+
-+static int wqt_probe(struct pci_dev *dev, const struct pci_device_id *id)
-+{
-+	struct net_device *ndev;
-+	struct wqt_dev *priv;
-+	int ret, i;
-+
-+	ndev = alloc_etherdev(sizeof(*priv));
-+	if (!ndev) {
-+		ret = -ENOMEM;
-+		goto out_alloc_ndev;
-+	}
-+
-+	pci_set_drvdata(dev, ndev);
-+	priv = netdev_priv(ndev);
-+	priv->pdev = dev;
-+	priv->dev = &dev->dev;
-+	priv->ndev = ndev;
-+
-+	mutex_init(&priv->irq_mutex);
-+	spin_lock_init(&priv->irq_lock);
-+
-+	/* Hardware Initialization */
-+	ret = pci_enable_device(dev);
-+	if (ret)
-+		goto out_pci_enable_dev;
-+
-+	pci_set_master(dev);
-+
-+	ret = pci_request_regions(dev, driver_name);
-+	if (ret)
-+		goto out_pci_request_regions;
-+
-+	priv->immr = pci_ioremap_bar(dev, 0);
-+	if (!priv->immr) {
-+		ret = -ENOMEM;
-+		goto out_ioremap_immr;
-+	}
-+
-+	priv->netregs = pci_ioremap_bar(dev, 1);
-+	if (!priv->netregs) {
-+		ret = -ENOMEM;
-+		goto out_ioremap_netregs;
-+	}
-+
-+	priv->rx_base = priv->netregs + PCINET_RXBD_BASE;
-+	priv->tx_base = priv->netregs + PCINET_TXBD_BASE;
-+
-+	ret = dma_set_mask(&dev->dev, 0xcfffffff);
-+	if (ret) {
-+		dev_err(&dev->dev, "Unable to set DMA mask\n");
-+		ret = -ENODEV;
-+		goto out_set_dma_mask;
-+	}
-+
-+	/* Initialize private data */
-+	priv->wq = create_singlethread_workqueue(driver_name);
-+	if (!priv->wq) {
-+		ret = -ENOMEM;
-+		goto out_create_workqueue;
-+	}
-+
-+	INIT_WORK(&priv->uart_tx_work, uart_tx_work_fn);
-+	init_waitqueue_head(&priv->uart_tx_wait);
-+	priv->uart_tx_ready = true;
-+
-+	tasklet_init(&priv->tx_complete_tasklet, wqt_tx_complete,
-+		     (unsigned long)ndev);
-+	tasklet_disable(&priv->tx_complete_tasklet);
-+	spin_lock_init(&priv->net_lock);
-+
-+	mutex_init(&priv->net_mutex);
-+	priv->net_state = NET_STATE_STOPPED;
-+	INIT_WORK(&priv->net_start_work, wqtnet_start_work_fn);
-+	INIT_WORK(&priv->net_stop_work, wqtnet_stop_work_fn);
-+	init_completion(&priv->net_start_completion);
-+	init_completion(&priv->net_stop_completion);
-+
-+	/* Disable all interrupts */
-+	IMMR_W32(OMIMR_OFFSET, 0x8 | 0x2 | 0x1);
-+
-+	/* Network Device */
-+	random_ether_addr(ndev->dev_addr);
-+
-+	ndev->netdev_ops        = &wqt_net_ops;
-+	ndev->watchdog_timeo    = HZ / 4;
-+	ndev->flags            &= ~IFF_MULTICAST;  /* No multicast support */
-+	ndev->mtu               = PH_MAX_MTU;
-+	netif_napi_add(ndev, &priv->napi, wqt_rx_napi, PH_RING_SIZE);
-+
-+	ret = register_netdev(ndev);
-+	if (ret)
-+		goto out_register_netdev;
-+
-+	/* UART Device */
-+	priv->port.ops = &wqtuart_ops;
-+	priv->port.type = PORT_16550A;
-+	priv->port.dev = &dev->dev;
-+	priv->port.line = 0;
-+	spin_lock_init(&priv->port.lock);
-+
-+	/* Try to find a free uart port */
-+	for (i = 0; i < wqtuart_driver.nr; i++) {
-+		priv->port.line = i;
-+		ret = uart_add_one_port(&wqtuart_driver, &priv->port);
-+		if (ret == 0)
-+			break;
-+	}
-+
-+	if (ret)
-+		goto out_add_uart_port;
-+
-+	dev_info(priv->dev, "using ethernet device %s\n", ndev->name);
-+	dev_info(priv->dev, "using serial device %s%d\n",
-+			wqtuart_driver.dev_name, priv->port.line);
-+	return 0;
-+
-+out_add_uart_port:
-+	unregister_netdev(ndev);
-+out_register_netdev:
-+	destroy_workqueue(priv->wq);
-+out_create_workqueue:
-+out_set_dma_mask:
-+	iounmap(priv->netregs);
-+out_ioremap_netregs:
-+	iounmap(priv->immr);
-+out_ioremap_immr:
-+	pci_release_regions(dev);
-+out_pci_request_regions:
-+	pci_disable_device(dev);
-+out_pci_enable_dev:
-+	free_netdev(ndev);
-+out_alloc_ndev:
-+	return ret;
-+}
-+
-+static void wqt_remove(struct pci_dev *dev)
-+{
-+	struct net_device *ndev = pci_get_drvdata(dev);
-+	struct wqt_dev *priv = netdev_priv(ndev);
-+
-+	uart_remove_one_port(&wqtuart_driver, &priv->port);
-+	unregister_netdev(priv->ndev);
-+
-+	flush_workqueue(priv->wq);
-+	destroy_workqueue(priv->wq);
-+
-+	/* Disable all interrupts */
-+	IMMR_W32(OMIMR_OFFSET, 0x8 | 0x2 | 0x1);
-+
-+	iounmap(priv->netregs);
-+	iounmap(priv->immr);
-+	pci_release_regions(dev);
-+	pci_disable_device(dev);
-+
-+	free_netdev(ndev);
-+}
-+
-+#define PCI_DEVID_FSL_MPC8349EMDS 0x0080
-+
-+/* The list of devices that this module will support */
-+static struct pci_device_id wqt_ids[] = {
-+	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, PCI_DEVID_FSL_MPC8349EMDS), },
-+	{ 0, }
-+};
-+MODULE_DEVICE_TABLE(pci, wqt_ids);
-+
-+static struct pci_driver wqt_pci_driver = {
-+	.name     = (char *)driver_name,
-+	.id_table = wqt_ids,
-+	.probe    = wqt_probe,
-+	.remove   = wqt_remove,
-+};
-+
-+/*----------------------------------------------------------------------------*/
-+/* Module Init / Exit                                                         */
-+/*----------------------------------------------------------------------------*/
-+
-+static int __init wqt_init(void)
-+{
-+	int ret;
-+
-+	ret = uart_register_driver(&wqtuart_driver);
-+	if (ret)
-+		goto out_uart_register_driver;
-+
-+	ret = pci_register_driver(&wqt_pci_driver);
-+	if (ret)
-+		goto out_pci_register_driver;
-+
-+	return 0;
-+
-+out_pci_register_driver:
-+	uart_unregister_driver(&wqtuart_driver);
-+out_uart_register_driver:
-+	return ret;
-+}
-+
-+static void __exit wqt_exit(void)
-+{
-+	pci_unregister_driver(&wqt_pci_driver);
-+	uart_unregister_driver(&wqtuart_driver);
-+}
-+
-+MODULE_AUTHOR("Ira W. Snyder <iws@ovro.caltech.edu>");
-+MODULE_DESCRIPTION("PCINet/PCISerial Driver for MPC8349EMDS (Host side)");
-+MODULE_LICENSE("GPL");
-+
-+module_init(wqt_init);
-+module_exit(wqt_exit);
-diff --git a/drivers/net/pcinet_hw.h b/drivers/net/pcinet_hw.h
-new file mode 100644
-index 0000000..499ba61
---- /dev/null
-+++ b/drivers/net/pcinet_hw.h
-@@ -0,0 +1,77 @@
-+/*
-+ * Register offsets for the MPC8349EMDS Message Unit from the IMMR base address
-+ *
-+ * Copyright (c) 2008 Ira W. Snyder <iws@ovro.caltech.edu>
-+ *
-+ * This file is licensed under the terms of the GNU General Public License
-+ * version 2. This program is licensed "as is" without any warranty of any
-+ * kind, whether express or implied.
-+ */
-+
-+#ifndef PCINET_HW_H
-+#define PCINET_HW_H
-+
-+/* mpc8349emds message unit register offsets */
-+#define OMISR_OFFSET		0x8030
-+#define OMIMR_OFFSET		0x8034
-+#define IMR0_OFFSET		0x8050
-+#define IMR1_OFFSET		0x8054
-+#define OMR0_OFFSET		0x8058
-+#define OMR1_OFFSET		0x805C
-+#define ODR_OFFSET		0x8060
-+#define IDR_OFFSET		0x8068
-+#define IMISR_OFFSET		0x8080
-+#define IMIMR_OFFSET		0x8084
-+
-+
-+/* mpc8349emds pci and local access window register offsets */
-+#define LAWAR0_OFFSET		0x0064
-+#define LAWAR0_ENABLE		(1<<31)
-+
-+#define POCMR0_OFFSET		0x8410
-+#define POCMR0_ENABLE		(1<<31)
-+
-+#define POTAR0_OFFSET		0x8400
-+
-+#define LAWAR1_OFFSET		0x006c
-+#define LAWAR1_ENABLE		(1<<31)
-+
-+#define POCMR1_OFFSET		0x8428
-+#define POCMR1_ENABLE		(1<<31)
-+
-+#define POTAR1_OFFSET		0x8418
-+
-+
-+/* mpc8349emds dma controller register offsets */
-+#define DMAMR0_OFFSET		0x8100
-+#define DMASR0_OFFSET		0x8104
-+#define DMASAR0_OFFSET		0x8110
-+#define DMADAR0_OFFSET		0x8118
-+#define DMABCR0_OFFSET		0x8120
-+
-+#define DMA_CHANNEL_BUSY	(1<<2)
-+
-+#define DMA_DIRECT_MODE_SNOOP	(1<<20)
-+#define DMA_CHANNEL_MODE_DIRECT	(1<<2)
-+#define DMA_CHANNEL_START	(1<<0)
-+
-+
-+/* mpc8349emds pci and local access window register offsets */
-+#define LAWAR0_OFFSET		0x0064
-+#define LAWAR0_ENABLE		(1<<31)
-+
-+#define POCMR0_OFFSET		0x8410
-+#define POCMR0_ENABLE		(1<<31)
-+
-+#define POTAR0_OFFSET		0x8400
-+
-+
-+/* mpc8349emds pci and inbound window register offsets */
-+#define PITAR0_OFFSET		0x8568
-+#define PIWAR0_OFFSET		0x8578
-+
-+#define PIWAR0_ENABLED		(1<<31)
-+#define PIWAR0_PREFETCH		(1<<29)
-+#define PIWAR0_IWS_4K		0xb
-+
-+#endif /* PCINET_HW_H */
+ 	/* Enable magic packet detection */
+-	maccfg2 = in_be32(&ug_regs->maccfg2);
+-	maccfg2 |= MACCFG2_MPE;
+-	out_be32(&ug_regs->maccfg2, maccfg2);
++	setbits32(&ug_regs->maccfg2, MACCFG2_MPE);
+ }
+ 
+ static void magic_packet_detection_disable(struct ucc_geth_private *ugeth)
+ {
+ 	struct ucc_fast_private *uccf;
+ 	struct ucc_geth __iomem *ug_regs;
+-	u32 maccfg2, uccm;
+ 
+ 	uccf = ugeth->uccf;
+ 	ug_regs = ugeth->ug_regs;
+ 
+ 	/* Disable interrupts for magic packet detection */
+-	uccm = in_be32(uccf->p_uccm);
+-	uccm &= ~UCCE_MPD;
+-	out_be32(uccf->p_uccm, uccm);
++	clrbits32(uccf->p_uccm, UCC_GETH_UCCE_MPD);
+ 
+ 	/* Disable magic packet detection */
+-	maccfg2 = in_be32(&ug_regs->maccfg2);
+-	maccfg2 &= ~MACCFG2_MPE;
+-	out_be32(&ug_regs->maccfg2, maccfg2);
++	clrbits32(&ug_regs->maccfg2, MACCFG2_MPE);
+ }
+ #endif /* MAGIC_PACKET */
+ 
+@@ -585,7 +575,8 @@ static void get_statistics(struct ucc_geth_private *ugeth,
+ 
+ 	/* Hardware only if user handed pointer and driver actually
+ 	gathers hardware statistics */
+-	if (hardware_statistics && (in_be32(&uf_regs->upsmr) & UPSMR_HSE)) {
++	if (hardware_statistics &&
++	    (in_be32(&uf_regs->upsmr) & UCC_GETH_UPSMR_HSE)) {
+ 		hardware_statistics->tx64 = in_be32(&ug_regs->tx64);
+ 		hardware_statistics->tx127 = in_be32(&ug_regs->tx127);
+ 		hardware_statistics->tx255 = in_be32(&ug_regs->tx255);
+@@ -1181,9 +1172,7 @@ int init_flow_control_params(u32 automatic_flow_control_mode,
+ 	out_be32(uempr_register, value);
+ 
+ 	/* Set UPSMR register */
+-	value = in_be32(upsmr_register);
+-	value |= automatic_flow_control_mode;
+-	out_be32(upsmr_register, value);
++	setbits32(upsmr_register, automatic_flow_control_mode);
+ 
+ 	value = in_be32(maccfg1_register);
+ 	if (rx_flow_control_enable)
+@@ -1200,14 +1189,11 @@ static int init_hw_statistics_gathering_mode(int enable_hardware_statistics,
+ 					     u32 __iomem *upsmr_register,
+ 					     u16 __iomem *uescr_register)
+ {
+-	u32 upsmr_value = 0;
+ 	u16 uescr_value = 0;
++
+ 	/* Enable hardware statistics gathering if requested */
+-	if (enable_hardware_statistics) {
+-		upsmr_value = in_be32(upsmr_register);
+-		upsmr_value |= UPSMR_HSE;
+-		out_be32(upsmr_register, upsmr_value);
+-	}
++	if (enable_hardware_statistics)
++		setbits32(upsmr_register, UCC_GETH_UPSMR_HSE);
+ 
+ 	/* Clear hardware statistics counters */
+ 	uescr_value = in_be16(uescr_register);
+@@ -1233,23 +1219,17 @@ static int init_firmware_statistics_gathering_mode(int
+ {
+ 	/* Note: this function does not check if */
+ 	/* the parameters it receives are NULL   */
+-	u16 temoder_value;
+-	u32 remoder_value;
+ 
+ 	if (enable_tx_firmware_statistics) {
+ 		out_be32(tx_rmon_base_ptr,
+ 			 tx_firmware_statistics_structure_address);
+-		temoder_value = in_be16(temoder_register);
+-		temoder_value |= TEMODER_TX_RMON_STATISTICS_ENABLE;
+-		out_be16(temoder_register, temoder_value);
++		setbits16(temoder_register, TEMODER_TX_RMON_STATISTICS_ENABLE);
+ 	}
+ 
+ 	if (enable_rx_firmware_statistics) {
+ 		out_be32(rx_rmon_base_ptr,
+ 			 rx_firmware_statistics_structure_address);
+-		remoder_value = in_be32(remoder_register);
+-		remoder_value |= REMODER_RX_RMON_STATISTICS_ENABLE;
+-		out_be32(remoder_register, remoder_value);
++		setbits32(remoder_register, REMODER_RX_RMON_STATISTICS_ENABLE);
+ 	}
+ 
+ 	return 0;
+@@ -1316,15 +1296,12 @@ static int init_check_frame_length_mode(int length_check,
+ static int init_preamble_length(u8 preamble_length,
+ 				u32 __iomem *maccfg2_register)
+ {
+-	u32 value = 0;
+-
+ 	if ((preamble_length < 3) || (preamble_length > 7))
+ 		return -EINVAL;
+ 
+-	value = in_be32(maccfg2_register);
+-	value &= ~MACCFG2_PREL_MASK;
+-	value |= (preamble_length << MACCFG2_PREL_SHIFT);
+-	out_be32(maccfg2_register, value);
++	clrsetbits_be32(maccfg2_register, MACCFG2_PREL_MASK,
++			preamble_length << MACCFG2_PREL_SHIFT);
++
+ 	return 0;
+ }
+ 
+@@ -1337,19 +1314,19 @@ static int init_rx_parameters(int reject_broadcast,
+ 	value = in_be32(upsmr_register);
+ 
+ 	if (reject_broadcast)
+-		value |= UPSMR_BRO;
++		value |= UCC_GETH_UPSMR_BRO;
+ 	else
+-		value &= ~UPSMR_BRO;
++		value &= ~UCC_GETH_UPSMR_BRO;
+ 
+ 	if (receive_short_frames)
+-		value |= UPSMR_RSH;
++		value |= UCC_GETH_UPSMR_RSH;
+ 	else
+-		value &= ~UPSMR_RSH;
++		value &= ~UCC_GETH_UPSMR_RSH;
+ 
+ 	if (promiscuous)
+-		value |= UPSMR_PRO;
++		value |= UCC_GETH_UPSMR_PRO;
+ 	else
+-		value &= ~UPSMR_PRO;
++		value &= ~UCC_GETH_UPSMR_PRO;
+ 
+ 	out_be32(upsmr_register, value);
+ 
+@@ -1410,26 +1387,27 @@ static int adjust_enet_interface(struct ucc_geth_private *ugeth)
+ 
+ 	/*                    Set UPSMR                      */
+ 	upsmr = in_be32(&uf_regs->upsmr);
+-	upsmr &= ~(UPSMR_RPM | UPSMR_R10M | UPSMR_TBIM | UPSMR_RMM);
++	upsmr &= ~(UCC_GETH_UPSMR_RPM | UCC_GETH_UPSMR_R10M |
++		   UCC_GETH_UPSMR_TBIM | UCC_GETH_UPSMR_RMM);
+ 	if ((ugeth->phy_interface == PHY_INTERFACE_MODE_RMII) ||
+ 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RGMII) ||
+ 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RGMII_ID) ||
+ 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
+ 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RGMII_TXID) ||
+ 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RTBI)) {
+-		upsmr |= UPSMR_RPM;
++		upsmr |= UCC_GETH_UPSMR_RPM;
+ 		switch (ugeth->max_speed) {
+ 		case SPEED_10:
+-			upsmr |= UPSMR_R10M;
++			upsmr |= UCC_GETH_UPSMR_R10M;
+ 			/* FALLTHROUGH */
+ 		case SPEED_100:
+ 			if (ugeth->phy_interface != PHY_INTERFACE_MODE_RTBI)
+-				upsmr |= UPSMR_RMM;
++				upsmr |= UCC_GETH_UPSMR_RMM;
+ 		}
+ 	}
+ 	if ((ugeth->phy_interface == PHY_INTERFACE_MODE_TBI) ||
+ 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RTBI)) {
+-		upsmr |= UPSMR_TBIM;
++		upsmr |= UCC_GETH_UPSMR_TBIM;
+ 	}
+ 	out_be32(&uf_regs->upsmr, upsmr);
+ 
+@@ -1517,9 +1495,9 @@ static void adjust_link(struct net_device *dev)
+ 				    (ugeth->phy_interface == PHY_INTERFACE_MODE_RGMII_TXID) ||
+ 				    (ugeth->phy_interface == PHY_INTERFACE_MODE_RTBI)) {
+ 					if (phydev->speed == SPEED_10)
+-						upsmr |= UPSMR_R10M;
++						upsmr |= UCC_GETH_UPSMR_R10M;
+ 					else
+-						upsmr &= ~(UPSMR_R10M);
++						upsmr &= ~UCC_GETH_UPSMR_R10M;
+ 				}
+ 				break;
+ 			default:
+@@ -1602,10 +1580,8 @@ static int ugeth_graceful_stop_tx(struct ucc_geth_private *ugeth)
+ 	uccf = ugeth->uccf;
+ 
+ 	/* Mask GRACEFUL STOP TX interrupt bit and clear it */
+-	temp = in_be32(uccf->p_uccm);
+-	temp &= ~UCCE_GRA;
+-	out_be32(uccf->p_uccm, temp);
+-	out_be32(uccf->p_ucce, UCCE_GRA);	/* clear by writing 1 */
++	clrbits32(uccf->p_uccm, UCC_GETH_UCCE_GRA);
++	out_be32(uccf->p_ucce, UCC_GETH_UCCE_GRA);  /* clear by writing 1 */
+ 
+ 	/* Issue host command */
+ 	cecr_subblock =
+@@ -1617,7 +1593,7 @@ static int ugeth_graceful_stop_tx(struct ucc_geth_private *ugeth)
+ 	do {
+ 		msleep(10);
+ 		temp = in_be32(uccf->p_ucce);
+-	} while (!(temp & UCCE_GRA) && --i);
++	} while (!(temp & UCC_GETH_UCCE_GRA) && --i);
+ 
+ 	uccf->stopped_tx = 1;
+ 
+@@ -1975,12 +1951,9 @@ static void ucc_geth_set_multi(struct net_device *dev)
+ 	uf_regs = ugeth->uccf->uf_regs;
+ 
+ 	if (dev->flags & IFF_PROMISC) {
+-
+-		out_be32(&uf_regs->upsmr, in_be32(&uf_regs->upsmr) | UPSMR_PRO);
+-
++		setbits32(&uf_regs->upsmr, UCC_GETH_UPSMR_PRO);
+ 	} else {
+-
+-		out_be32(&uf_regs->upsmr, in_be32(&uf_regs->upsmr)&~UPSMR_PRO);
++		clrbits32(&uf_regs->upsmr, UCC_GETH_UPSMR_PRO);
+ 
+ 		p_82xx_addr_filt =
+ 		    (struct ucc_geth_82xx_address_filtering_pram __iomem *) ugeth->
+@@ -2020,7 +1993,6 @@ static void ucc_geth_stop(struct ucc_geth_private *ugeth)
+ {
+ 	struct ucc_geth __iomem *ug_regs = ugeth->ug_regs;
+ 	struct phy_device *phydev = ugeth->phydev;
+-	u32 tempval;
+ 
+ 	ugeth_vdbg("%s: IN", __func__);
+ 
+@@ -2037,9 +2009,7 @@ static void ucc_geth_stop(struct ucc_geth_private *ugeth)
+ 	out_be32(ugeth->uccf->p_ucce, 0xffffffff);
+ 
+ 	/* Disable Rx and Tx */
+-	tempval = in_be32(&ug_regs->maccfg1);
+-	tempval &= ~(MACCFG1_ENABLE_RX | MACCFG1_ENABLE_TX);
+-	out_be32(&ug_regs->maccfg1, tempval);
++	clrbits32(&ug_regs->maccfg1, MACCFG1_ENABLE_RX | MACCFG1_ENABLE_TX);
+ 
+ 	ucc_geth_memclean(ugeth);
+ }
+@@ -2153,10 +2123,10 @@ static int ucc_struct_init(struct ucc_geth_private *ugeth)
+ 	/* Generate uccm_mask for receive */
+ 	uf_info->uccm_mask = ug_info->eventRegMask & UCCE_OTHER;/* Errors */
+ 	for (i = 0; i < ug_info->numQueuesRx; i++)
+-		uf_info->uccm_mask |= (UCCE_RXBF_SINGLE_MASK << i);
++		uf_info->uccm_mask |= (UCC_GETH_UCCE_RXF0 << i);
+ 
+ 	for (i = 0; i < ug_info->numQueuesTx; i++)
+-		uf_info->uccm_mask |= (UCCE_TXBF_SINGLE_MASK << i);
++		uf_info->uccm_mask |= (UCC_GETH_UCCE_TXB0 << i);
+ 	/* Initialize the general fast UCC block. */
+ 	if (ucc_fast_init(uf_info, &ugeth->uccf)) {
+ 		if (netif_msg_probe(ugeth))
+@@ -2185,7 +2155,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	struct ucc_geth __iomem *ug_regs;
+ 	int ret_val = -EINVAL;
+ 	u32 remoder = UCC_GETH_REMODER_INIT;
+-	u32 init_enet_pram_offset, cecr_subblock, command, maccfg1;
++	u32 init_enet_pram_offset, cecr_subblock, command;
+ 	u32 ifstat, i, j, size, l2qt, l3qt, length;
+ 	u16 temoder = UCC_GETH_TEMODER_INIT;
+ 	u16 test;
+@@ -2281,10 +2251,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 				 &uf_regs->upsmr,
+ 				 &ug_regs->uempr, &ug_regs->maccfg1);
+ 
+-	maccfg1 = in_be32(&ug_regs->maccfg1);
+-	maccfg1 |= MACCFG1_ENABLE_RX;
+-	maccfg1 |= MACCFG1_ENABLE_TX;
+-	out_be32(&ug_regs->maccfg1, maccfg1);
++	setbits32(&ug_regs->maccfg1, MACCFG1_ENABLE_RX | MACCFG1_ENABLE_TX);
+ 
+ 	/*                    Set IPGIFG                     */
+ 	/* For more details see the hardware spec.           */
+@@ -3274,7 +3241,6 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
+ static int ucc_geth_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct ucc_geth_private *ugeth = container_of(napi, struct ucc_geth_private, napi);
+-	struct net_device *dev = ugeth->dev;
+ 	struct ucc_geth_info *ug_info;
+ 	int howmany, i;
+ 
+@@ -3285,14 +3251,8 @@ static int ucc_geth_poll(struct napi_struct *napi, int budget)
+ 		howmany += ucc_geth_rx(ugeth, i, budget - howmany);
+ 
+ 	if (howmany < budget) {
+-		struct ucc_fast_private *uccf;
+-		u32 uccm;
+-
+ 		netif_rx_complete(napi);
+-		uccf = ugeth->uccf;
+-		uccm = in_be32(uccf->p_uccm);
+-		uccm |= UCCE_RX_EVENTS;
+-		out_be32(uccf->p_uccm, uccm);
++		setbits32(ugeth->uccf->p_uccm, UCCE_RX_EVENTS);
+ 	}
+ 
+ 	return howmany;
+@@ -3332,7 +3292,7 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
+ 	/* Tx event processing */
+ 	if (ucce & UCCE_TX_EVENTS) {
+ 		spin_lock(&ugeth->lock);
+-		tx_mask = UCCE_TXBF_SINGLE_MASK;
++		tx_mask = UCC_GETH_UCCE_TXB0;
+ 		for (i = 0; i < ug_info->numQueuesTx; i++) {
+ 			if (ucce & tx_mask)
+ 				ucc_geth_tx(dev, i);
+@@ -3344,12 +3304,10 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
+ 
+ 	/* Errors and other events */
+ 	if (ucce & UCCE_OTHER) {
+-		if (ucce & UCCE_BSY) {
++		if (ucce & UCC_GETH_UCCE_BSY)
+ 			dev->stats.rx_errors++;
+-		}
+-		if (ucce & UCCE_TXE) {
++		if (ucce & UCC_GETH_UCCE_TXE)
+ 			dev->stats.tx_errors++;
+-		}
+ 	}
+ 
+ 	return IRQ_HANDLED;
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index d74d2f7..8f699cb 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -162,92 +162,27 @@ struct ucc_geth {
+ 								   boundary */
+ 
+ /* UCC GETH Event Register */
+-#define UCCE_MPD                                0x80000000	/* Magic packet
+-								   detection */
+-#define UCCE_SCAR                               0x40000000
+-#define UCCE_GRA                                0x20000000	/* Tx graceful
+-								   stop
+-								   complete */
+-#define UCCE_CBPR                               0x10000000
+-#define UCCE_BSY                                0x08000000
+-#define UCCE_RXC                                0x04000000
+-#define UCCE_TXC                                0x02000000
+-#define UCCE_TXE                                0x01000000
+-#define UCCE_TXB7                               0x00800000
+-#define UCCE_TXB6                               0x00400000
+-#define UCCE_TXB5                               0x00200000
+-#define UCCE_TXB4                               0x00100000
+-#define UCCE_TXB3                               0x00080000
+-#define UCCE_TXB2                               0x00040000
+-#define UCCE_TXB1                               0x00020000
+-#define UCCE_TXB0                               0x00010000
+-#define UCCE_RXB7                               0x00008000
+-#define UCCE_RXB6                               0x00004000
+-#define UCCE_RXB5                               0x00002000
+-#define UCCE_RXB4                               0x00001000
+-#define UCCE_RXB3                               0x00000800
+-#define UCCE_RXB2                               0x00000400
+-#define UCCE_RXB1                               0x00000200
+-#define UCCE_RXB0                               0x00000100
+-#define UCCE_RXF7                               0x00000080
+-#define UCCE_RXF6                               0x00000040
+-#define UCCE_RXF5                               0x00000020
+-#define UCCE_RXF4                               0x00000010
+-#define UCCE_RXF3                               0x00000008
+-#define UCCE_RXF2                               0x00000004
+-#define UCCE_RXF1                               0x00000002
+-#define UCCE_RXF0                               0x00000001
+-
+-#define UCCE_RXBF_SINGLE_MASK                   (UCCE_RXF0)
+-#define UCCE_TXBF_SINGLE_MASK                   (UCCE_TXB0)
+-
+-#define UCCE_TXB         (UCCE_TXB7 | UCCE_TXB6 | UCCE_TXB5 | UCCE_TXB4 |\
+-			UCCE_TXB3 | UCCE_TXB2 | UCCE_TXB1 | UCCE_TXB0)
+-#define UCCE_RXB         (UCCE_RXB7 | UCCE_RXB6 | UCCE_RXB5 | UCCE_RXB4 |\
+-			UCCE_RXB3 | UCCE_RXB2 | UCCE_RXB1 | UCCE_RXB0)
+-#define UCCE_RXF         (UCCE_RXF7 | UCCE_RXF6 | UCCE_RXF5 | UCCE_RXF4 |\
+-			UCCE_RXF3 | UCCE_RXF2 | UCCE_RXF1 | UCCE_RXF0)
+-#define UCCE_OTHER       (UCCE_SCAR | UCCE_GRA  | UCCE_CBPR | UCCE_BSY  |\
+-			UCCE_RXC  | UCCE_TXC  | UCCE_TXE)
+-
+-#define UCCE_RX_EVENTS							(UCCE_RXF | UCCE_BSY)
+-#define UCCE_TX_EVENTS							(UCCE_TXB | UCCE_TXE)
+-
+-/* UCC GETH UPSMR (Protocol Specific Mode Register) */
+-#define UPSMR_ECM                               0x04000000	/* Enable CAM
+-								   Miss or
+-								   Enable
+-								   Filtering
+-								   Miss */
+-#define UPSMR_HSE                               0x02000000	/* Hardware
+-								   Statistics
+-								   Enable */
+-#define UPSMR_PRO                               0x00400000	/* Promiscuous*/
+-#define UPSMR_CAP                               0x00200000	/* CAM polarity
+-								 */
+-#define UPSMR_RSH                               0x00100000	/* Receive
+-								   Short Frames
+-								 */
+-#define UPSMR_RPM                               0x00080000	/* Reduced Pin
+-								   Mode
+-								   interfaces */
+-#define UPSMR_R10M                              0x00040000	/* RGMII/RMII
+-								   10 Mode */
+-#define UPSMR_RLPB                              0x00020000	/* RMII
+-								   Loopback
+-								   Mode */
+-#define UPSMR_TBIM                              0x00010000	/* Ten-bit
+-								   Interface
+-								   Mode */
+-#define UPSMR_RMM                               0x00001000	/* RMII/RGMII
+-								   Mode */
+-#define UPSMR_CAM                               0x00000400	/* CAM Address
+-								   Matching */
+-#define UPSMR_BRO                               0x00000200	/* Broadcast
+-								   Address */
+-#define UPSMR_RES1                              0x00002000	/* Reserved
+-								   feild - must
+-								   be 1 */
++#define UCCE_TXB   (UCC_GETH_UCCE_TXB7 | UCC_GETH_UCCE_TXB6 | \
++		    UCC_GETH_UCCE_TXB5 | UCC_GETH_UCCE_TXB4 | \
++		    UCC_GETH_UCCE_TXB3 | UCC_GETH_UCCE_TXB2 | \
++		    UCC_GETH_UCCE_TXB1 | UCC_GETH_UCCE_TXB0)
++
++#define UCCE_RXB   (UCC_GETH_UCCE_RXB7 | UCC_GETH_UCCE_RXB6 | \
++		    UCC_GETH_UCCE_RXB5 | UCC_GETH_UCCE_RXB4 | \
++		    UCC_GETH_UCCE_RXB3 | UCC_GETH_UCCE_RXB2 | \
++		    UCC_GETH_UCCE_RXB1 | UCC_GETH_UCCE_RXB0)
++
++#define UCCE_RXF   (UCC_GETH_UCCE_RXF7 | UCC_GETH_UCCE_RXF6 | \
++		    UCC_GETH_UCCE_RXF5 | UCC_GETH_UCCE_RXF4 | \
++		    UCC_GETH_UCCE_RXF3 | UCC_GETH_UCCE_RXF2 | \
++		    UCC_GETH_UCCE_RXF1 | UCC_GETH_UCCE_RXF0)
++
++#define UCCE_OTHER (UCC_GETH_UCCE_SCAR | UCC_GETH_UCCE_GRA | \
++		    UCC_GETH_UCCE_CBPR | UCC_GETH_UCCE_BSY | \
++		    UCC_GETH_UCCE_RXC  | UCC_GETH_UCCE_TXC | UCC_GETH_UCCE_TXE)
++
++#define UCCE_RX_EVENTS  (UCCE_RXF | UCC_GETH_UCCE_BSY)
++#define UCCE_TX_EVENTS	(UCCE_TXB | UCC_GETH_UCCE_TXE)
+ 
+ /* UCC GETH MACCFG1 (MAC Configuration 1 Register) */
+ #define MACCFG1_FLOW_RX                         0x00000020	/* Flow Control
+@@ -945,9 +880,10 @@ struct ucc_geth_hardware_statistics {
+ #define UCC_GETH_REMODER_INIT                   0	/* bits that must be
+ 							   set */
+ #define UCC_GETH_TEMODER_INIT                   0xC000	/* bits that must */
+-#define UCC_GETH_UPSMR_INIT                     (UPSMR_RES1)	/* Start value
+-								   for this
+-								   register */
++
++/* Initial value for UPSMR */
++#define UCC_GETH_UPSMR_INIT                     UCC_GETH_UPSMR_RES1
++
+ #define UCC_GETH_MACCFG1_INIT                   0
+ #define UCC_GETH_MACCFG2_INIT                   (MACCFG2_RESERVED_1)
+ 
 -- 
-1.5.4.3
+1.5.5
+
