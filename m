@@ -1,37 +1,91 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 03/42] bluetooth: driver API update
-Date: Wed, 07 Jan 2009 02:53:52 +0100
-Message-ID: <1231293232.14901.13.camel@californication>
-References: <20090107003316.784424362@vyatta.com>
-	 <20090107003345.753201945@vyatta.com>
+From: "Huascar Tejeda" <htejeda@gmail.com>
+Subject: [PATCH] net: reset network device counters on the fly
+Date: Tue, 6 Jan 2009 22:08:39 -0400
+Message-ID: <3375b4020901061808g527cb872ia64b47147783b91c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/mixed;
+	boundary="----=_Part_38721_16772803.1231294119717"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:35087 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758745AbZAGCIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 21:08:41 -0500
+Received: by ewy10 with SMTP id 10so8781468ewy.13
+        for <netdev@vger.kernel.org>; Tue, 06 Jan 2009 18:08:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+------=_Part_38721_16772803.1231294119717
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090107003345.753201945-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: inline
 
-Hi Stephen,
+Hello everyone,
 
-> Convert to net_device_ops and use internal net_device_stats in bnep
-> device. 
-> 
-> Note: no need for bnep_net_ioctl since if ioctl is not set, then
-> dev_ifsioc handles it by returning -EOPNOTSUPP
-> 
-> Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+This is my first post to the mailing list and also my first kernel patch.
 
-looks good to me.
+There was an scenario where I needed to clear network device counters
+without shutting down the interface.
+With this patch I add this functionality to /proc/net/dev.
 
-Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Usage example:
+echo clear eth0 > /proc/net/dev
+echo clear all > /proc/net/dev
 
-Dave, I assume you take the whole series in one go, so I leave it up to
-you to apply.
+Thanks for your comments and please feel free to reply with any
+suggestions you may have.
 
-Regards
+Huascar Tejeda
 
-Marcel
+------=_Part_38721_16772803.1231294119717
+Content-Type: application/octet-stream; name=reset_netdev_counters.patch
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fpncn3cm0
+Content-Disposition: attachment; filename=reset_netdev_counters.patch
+
+LS0tIG5ldC9jb3JlL2Rldi5jLm9yaWcJMjAwOS0wMS0wNSAxNzozODo1MS4wMDAwMDAwMDAgLTA0
+MDAKKysrIG5ldC9jb3JlL2Rldi5jCTIwMDktMDEtMDYgMTY6MzY6MzUuMDAwMDAwMDAwIC0wNDAw
+CkBAIC0xNjEsNiArMTYxLDExIEBACiAjZGVmaW5lIFBUWVBFX0hBU0hfU0laRQkoMTYpCiAjZGVm
+aW5lIFBUWVBFX0hBU0hfTUFTSwkoUFRZUEVfSEFTSF9TSVpFIC0gMSkKIAorLyoKKyAqIAlNYXhp
+bXVtIGxlbmd0aCBvZiB0aGUgY29tbWFuZCBzZW50IGJ5IHRoZSB1c2VyCisgKi8KKyNkZWZpbmUg
+UlNUREVWX0NPTU1BTkRfTUFYX1NJWkUgKDE1KQorCiBzdGF0aWMgREVGSU5FX1NQSU5MT0NLKHB0
+eXBlX2xvY2spOwogc3RhdGljIHN0cnVjdCBsaXN0X2hlYWQgcHR5cGVfYmFzZVtQVFlQRV9IQVNI
+X1NJWkVdIF9fcmVhZF9tb3N0bHk7CiBzdGF0aWMgc3RydWN0IGxpc3RfaGVhZCBwdHlwZV9hbGwg
+X19yZWFkX21vc3RseTsJLyogVGFwcyAqLwpAQCAtMjY3MSwxMCArMjY3Niw3OCBAQAogCQkJICAg
+IHNpemVvZihzdHJ1Y3Qgc2VxX25ldF9wcml2YXRlKSk7CiB9CiAKKworLyoJCisgKglDYWxsZWQg
+d2hlbiAvcHJvYy9uZXQvZGV2IGlzIHdyaXR0ZW4KKyAqLworc3RhdGljIHNzaXplX3QgcmVzZXRf
+ZGV2aWNlX2NvdW50ZXJzKHN0cnVjdCBmaWxlICpmaWxlLCBjb25zdCBjaGFyICpidWZmZXIsIHNp
+emVfdCBsZW4sIGxvZmZfdCAqIG9mZikKK3sKKwlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2OworCXN0
+cnVjdCBuZXRfZGV2aWNlX3N0YXRzICpzdGF0czsKKwljaGFyIGNtZFtSU1RERVZfQ09NTUFORF9N
+QVhfU0laRV07CisJdW5zaWduZWQgbG9uZyBjbWRfc2l6ZSA9IDA7CisJY2hhciAqY21kX3B0ciA9
+IGNtZDsKKwljaGFyICoqYXJndiA9IChjaGFyICoqKSBrbWFsbG9jKHNpemVvZihjaGFyICopLCBH
+RlBfS0VSTkVMKTsKKwljaGFyICp0bXBfdG9rZW4sICphY3Rpb24sICppZm5hbWU7CisJaW50IGFy
+Z2MgPSAwOworCisJY21kX3NpemUgPSAoIGxlbiA+IFJTVERFVl9DT01NQU5EX01BWF9TSVpFICkg
+PyBSU1RERVZfQ09NTUFORF9NQVhfU0laRSA6IGxlbjsKKwlpZiAoIGNvcHlfZnJvbV91c2VyKGNt
+ZCwgYnVmZmVyLCBjbWRfc2l6ZSkgKSB7CisJCXJldHVybiAtRUZBVUxUOworCX0KKworCS8vUGFy
+c2UgdXNlciBpbnB1dAorCXdoaWxlICggKHRtcF90b2tlbiA9IHN0cnNlcCgmY21kX3B0ciwgIiBc
+biIpKSApIHsKKwkJaWYgKCAqdG1wX3Rva2VuICkgeworCQkJYXJndlthcmdjXSA9IChjaGFyICop
+IGttYWxsb2MoKHN0cmxlbih0bXBfdG9rZW4pICsgMSkgKiBzaXplb2YoY2hhciksIEdGUF9LRVJO
+RUwpOworCQkJc3RyY3B5KGFyZ3ZbYXJnYysrXSwgdG1wX3Rva2VuKTsKKwkJfQorCX0KKworCWlm
+ICggIWFyZ3ZbMF0gfHwgIWFyZ3ZbMV0gKSB7CisJCXByaW50ayhLRVJOX0lORk8gIlBsZWFzZSB1
+c2FnZTogcmVzZXQgXCJbbmV0d29yayBpbnRlcmZhY2VdXCIgb3IgXCJyZXNldCBhbGxcIlxuIik7
+CisJCXJldHVybiAtRUlOVkFMOworCX0KKworCS8vVE9ETzogY3JlYXRlIGEgc3RydWN0IGZvciB0
+aGlzLgorCWFjdGlvbiA9IGFyZ3ZbMF07CisJaWZuYW1lID0gYXJndlsxXTsKKwkKKwlrZnJlZShh
+cmd2KTsKKworCWlmICggc3Ryc3RyKGFjdGlvbiwgInJlc2V0IikgKSB7CisJCWlmICggIXN0cmNt
+cChpZm5hbWUsICJhbGwiKSApIHsKKwkJCWZvcl9lYWNoX25ldGRldigmaW5pdF9uZXQsIGRldikg
+eworCQkJCXN0YXRzID0gZGV2LT5nZXRfc3RhdHMoZGV2KTsKKwkJCQlpZiAoIHN0YXRzICkgewor
+CQkJCQltZW1zZXQoc3RhdHMsIDAsIHNpemVvZihzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cykpOwor
+CQkJCX0KKwkJCX0KKwkJfSBlbHNlIHsKKwkJCWRldiA9IGRldl9nZXRfYnlfbmFtZSgmaW5pdF9u
+ZXQsIGlmbmFtZSk7CisJCQlpZiAoIGRldiApIHsKKwkJCQlzdGF0cyA9IGRldi0+Z2V0X3N0YXRz
+KGRldik7CisJCQkJaWYgKCBzdGF0cyApIHsKKwkJCQkJbWVtc2V0KHN0YXRzLCAwLCBzaXplb2Yo
+c3RydWN0IG5ldF9kZXZpY2Vfc3RhdHMpKTsKKwkJCQl9CisJCQl9IGVsc2UgeworCQkJCXByaW50
+ayhLRVJOX0lORk8gIkRldmljZSAlcyBub3QgZm91bmQhXG4iLCBpZm5hbWUpOworCQkJCXJldHVy
+biAtRU5PREVWOworCQkJfQorCQl9CisJfSBlbHNlIHsKKwkJcHJpbnRrKEtFUk5fSU5GTyAiXCJy
+ZXNldFwiIGlzIHRoZSBvbmx5IHN1cHBvcnRlZCBjb21tYW5kIVxuIik7CisJCXJldHVybiAtRUlO
+VkFMOworCX0KKworCXJldHVybiBjbWRfc2l6ZTsKK30KKwogc3RhdGljIGNvbnN0IHN0cnVjdCBm
+aWxlX29wZXJhdGlvbnMgZGV2X3NlcV9mb3BzID0gewogCS5vd25lcgkgPSBUSElTX01PRFVMRSwK
+IAkub3BlbiAgICA9IGRldl9zZXFfb3BlbiwKIAkucmVhZCAgICA9IHNlcV9yZWFkLAorICAgICAg
+ICAud3JpdGUgICA9IHJlc2V0X2RldmljZV9jb3VudGVycywKIAkubGxzZWVrICA9IHNlcV9sc2Vl
+aywKIAkucmVsZWFzZSA9IHNlcV9yZWxlYXNlX25ldCwKIH07Cg==
+------=_Part_38721_16772803.1231294119717--
