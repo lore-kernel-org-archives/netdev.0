@@ -1,70 +1,50 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH 06/42] ipg: update to net_device_ops
-Date: Wed, 07 Jan 2009 09:59:58 +0200
-Message-ID: <1231315198.14720.3.camel@penberg-laptop>
-References: <20090107003316.784424362@vyatta.com>
-	 <20090107003346.112191664@vyatta.com>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Wed, 7 Jan 2009 09:17:08 +0100
+Message-ID: <20090107081708.GG32491@kernel.dk>
+References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com, sorbica@icplus.com.tw, jesse@icplus.com.tw
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, Willy Tarreau <w@1wt.eu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34450 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752419AbZAGIAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 03:00:00 -0500
-In-Reply-To: <20090107003346.112191664@vyatta.com>
+Received: from brick.kernel.dk ([93.163.65.50]:22582 "EHLO kernel.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751836AbZAGISO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 03:18:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20090107044232.GA22218@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-01-06 at 16:33 -0800, Stephen Hemminger wrote:
-> plain text document attachment (ipg.patch)
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-Looks good to me.
-
-Acked-by: Pekka Enberg <penberg@cs.helsinki.fi>
-
-> --- a/drivers/net/ipg.c	2009-01-05 16:45:32.729571177 -0800
-> +++ b/drivers/net/ipg.c	2009-01-05 16:48:07.518569219 -0800
-> @@ -2210,6 +2210,19 @@ static void __devexit ipg_remove(struct 
->  	pci_set_drvdata(pdev, NULL);
->  }
->  
-> +static const struct net_device_ops ipg_netdev_ops = {
-> +	.ndo_open		= ipg_nic_open,
-> +	.ndo_stop		= ipg_nic_stop,
-> +	.ndo_start_xmit		= ipg_nic_hard_start_xmit,
-> +	.ndo_get_stats		= ipg_nic_get_stats,
-> +	.ndo_set_multicast_list = ipg_nic_set_multicast_list,
-> +	.ndo_do_ioctl		= ipg_ioctl,
-> +	.ndo_tx_timeout 	= ipg_tx_timeout,
-> +	.ndo_change_mtu 	= ipg_nic_change_mtu,
-> +	.ndo_set_mac_address	= eth_mac_addr,
-> +	.ndo_validate_addr	= eth_validate_addr,
-> +};
-> +
->  static int __devinit ipg_probe(struct pci_dev *pdev,
->  			       const struct pci_device_id *id)
->  {
-> @@ -2258,15 +2271,7 @@ static int __devinit ipg_probe(struct pc
->  
->  	/* Declare IPG NIC functions for Ethernet device methods.
->  	 */
-> -	dev->open = &ipg_nic_open;
-> -	dev->stop = &ipg_nic_stop;
-> -	dev->hard_start_xmit = &ipg_nic_hard_start_xmit;
-> -	dev->get_stats = &ipg_nic_get_stats;
-> -	dev->set_multicast_list = &ipg_nic_set_multicast_list;
-> -	dev->do_ioctl = ipg_ioctl;
-> -	dev->tx_timeout = ipg_tx_timeout;
-> -	dev->change_mtu = &ipg_nic_change_mtu;
-> -
-> +	dev->netdev_ops = &ipg_netdev_ops;
->  	SET_NETDEV_DEV(dev, &pdev->dev);
->  	SET_ETHTOOL_OPS(dev, &ipg_ethtool_ops);
->  
+On Wed, Jan 07 2009, Herbert Xu wrote:
+> On Tue, Jan 06, 2009 at 06:37:05PM +0000, Jens Axboe wrote:
+> > 
+> > I'll give this a spin tomorrow as well. A hunch tells me that this is
+> > likely a page reuse issue, that splice is getting the reference to the
+> > buffer dropped before the data has really been transmitted. IOW, the
+> > page is likely fine reaching the ->sendpage() bit, but will be reused
+> > before the data has actually been transmitted. So once you get that far,
+> > other random data from that page is going out.
 > 
+> I see the problem.
+> 
+> The socket pipes in net/core/skbuff.c use references on the skb
+> to hold down the memory in skb->head as well as the pages in the
+> skb.
+> 
+> Unfortunately, once the pipe is fed into sendpage we only use
+> page reference counting to pin down the memory.  So as soon as
+> sendpage returns we drop the ref count on the skb, thus freeing
+> the memory in skb->head, which is yet to be transmitted.
+> 
+> Moral: Using page reference counts on skb->head is wrong.
+
+So my hunch was pretty close. The fix would seem to involve NOT calling
+ops->release(pipe, buf) until we actually have an ACK on that data gone
+out.
+
+-- 
+Jens Axboe
 
