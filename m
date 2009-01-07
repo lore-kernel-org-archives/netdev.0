@@ -1,39 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 07 Jan 2009 23:44:52 +1100
-Message-ID: <E1LKXmG-0006nY-14@gondolin.me.apana.org.au>
-References: <20090106155715.GA28783@1wt.eu>
-Cc: jarkao2@gmail.com, jens.axboe@oracle.com,
+Date: Wed, 7 Jan 2009 15:46:29 +0300
+Message-ID: <20090107124629.GA31732@ioremap.net>
+References: <20090106183704.GC32491@kernel.dk> <20090107044232.GA22218@gondor.apana.org.au> <20090107112906.GA28161@ioremap.net> <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net> <20090107115921.GA25323@gondor.apana.org.au> <20090107121530.GA30164@ioremap.net> <20090107122238.GB25673@gondor.apana.org.au> <20090107123741.GA31255@ioremap.net> <20090107124246.GA26034@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: w@1wt.eu (Willy Tarreau)
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46575 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753807AbZAGMpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:45:05 -0500
-In-Reply-To: <20090106155715.GA28783@1wt.eu>
+Received: from matrixpower.ru ([195.178.208.66]:55360 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751107AbZAGMqb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 07:46:31 -0500
+Content-Disposition: inline
+In-Reply-To: <20090107124246.GA26034@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau <w@1wt.eu> wrote:
+On Wed, Jan 07, 2009 at 11:42:46PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > Doesn't your tcp fallbacks to kernel_sendmsg() without sg in
+> > tcp_sendpage()? And then just feeds data into the stack the same way it
+> > happens with send() i.e. by copying it.
 > 
-> root@wtap:~# ethtool -k eth0
-> Offload parameters for eth0:
-> rx-checksumming: off
-> tx-checksumming: off
-> scatter-gather: off
-> tcp segmentation offload: off
+> Good point.  Did he check GSO though? GSO will always enable SG
+> on the socket regardless of the netdev's setting.  And if the device
+> started out with SG enabled then recent kernels will enable GSO
+> by default.
 
-Can you please upgrade your ethtool so that it knows about GSO?
-Once you've done that please retest with everything including
-GSO turned off.
+Willy, what was the kernel you are tested no-accel behaviour and what
+were the gso settings?
+Can you add a simple single print into tcp_sendpage() to determine if
+content was copied or fed into do_tcp_sendpages() otherwise?
 
-Alternatively edit out the bit that enables GSO by default in
-net/core/dev.c.
-
-Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Evgeniy Polyakov
