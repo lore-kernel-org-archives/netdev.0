@@ -1,57 +1,72 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] hdlc: fix compile problem
-Date: Wed, 7 Jan 2009 15:28:58 -0800
-Message-ID: <20090107152858.6fb8ac5d@extreme>
-References: <20090107141343.3e256119@extreme>
-	<m3d4eyvh28.fsf@maximus.localdomain>
+From: mysql.jorge@decimal.pt
+Subject: Re: HTB - very bad precision? HFSC works fine! 2.6.28
+Date: Wed, 7 Jan 2009 23:42:01 -0000 (WET)
+Message-ID: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt>
+References: <200901080002.37223.denys@visp.net.lb>
+    <200901080036.39519.denys@visp.net.lb>
+    <00a101c97118$e25a6ae0$a70f40a0$@jorge@decimal.pt>
+    <200901080044.48641.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: "Denys Fedoryschenko" <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33106 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754621AbZAGX3A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 18:29:00 -0500
-In-Reply-To: <m3d4eyvh28.fsf@maximus.localdomain>
+Received: from mailrly01.isp.novis.pt ([195.23.133.211]:51461 "EHLO
+	mailrly01.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880AbZAGXsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 18:48:06 -0500
+In-Reply-To: <200901080044.48641.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 08 Jan 2009 00:21:03 +0100
-Krzysztof Halasa <khc@pm.waw.pl> wrote:
+Is there anyway to debug this?
 
-> Stephen Hemminger <shemminger@vyatta.com> writes:
-> 
-> > Fix build problem with hdlc driver. hdlc_null_ops was being referenced
-> > before it was defined!
-> 
-> :-)
-> 
-> Unfortunately I can't see it, which tree is it?
-> 
-> 
-> In David's and Linus' trees it appears twice, it seem to be entirely
-> correct and btw you are the author :-)
-> ... and it compiled here 100 times or so :-)
-> 
-> static const struct header_ops hdlc_null_ops;
->                                ^^^^^^^^^^^^^
-> static void hdlc_setup_dev(struct net_device *dev)
-> {
->         /* Re-init all variables changed by HDLC protocol drivers,
->          * including ether_setup() called from hdlc_raw_eth.c.
->          */
->         dev->get_stats           = hdlc_get_stats;
->         dev->flags               = IFF_POINTOPOINT | IFF_NOARP;
->         dev->mtu                 = HDLC_MAX_MTU;
->         dev->type                = ARPHRD_RAWHDLC;
->         dev->hard_header_len     = 16;
->         dev->addr_len            = 0;
->         dev->header_ops          = &hdlc_null_ops;
->                                   ^^^^^^^^^^^^^^^^
->         dev->change_mtu          = hdlc_change_mtu;
-> }
 
-It was introduced (by me) in previous patch. Since that isn't applied yet,
-I'll go back and fix.
+
+
+> No, it is completely different disciplines
+>
+> Here is my rules
+> http://www.nuclearcat.com/badhtb.txt
+>
+>
+> On Thursday 08 January 2009 00:40:03 Jorge Bastos wrote:
+>> Sorry my ignorance, HFSC = CBQ ?
+>> If not, on CBQ it's not working when I apply the rules that I have in
+>> the
+>> bug report.
+>> One interesting thing, this when I'm using the 1000Mbit card, if I
+>> remove
+>> the TBF line, it works +/- good on the 1000Mbit card.
+>>
+>> ---
+>> /sbin/tc qdisc add dev eth0 parent 1:1280 handle 1280 tbf rate 200Kbit
+>> buffer 10Kb/8 limit 15Kb mtu 1500
+>> ---
+>>
+>> > -----Original Message-----
+>> > From: Denys Fedoryschenko [mailto:denys@visp.net.lb]
+>> > Sent: quarta-feira, 7 de Janeiro de 2009 22:37
+>> > To: Jorge Bastos
+>> > Cc: netdev@vger.kernel.org
+>> > Subject: Re: HTB - very bad precision? HFSC works fine! 2.6.28
+>> >
+>> > Well, but byte couting on HFSC works fine.
+>> >
+>> > On Thursday 08 January 2009 00:12:30 Jorge Bastos wrote:
+>> > > I have a similar problem with CBQ that I've been reporting, that may
+>> >
+>> > be
+>> >
+>> > > related to byte counting also.
+>> > > It just happens when I use a 1000Mbit NIC.
+>> > > I've reported it to netfilter@ and created a but report here.
+>> > > When I insert the old 100Mbit card, it works OK.
+>> > >
+>> > > http://bugzilla.kernel.org/show_bug.cgi?id=12364
+>
+>
+>
+
+
