@@ -1,235 +1,172 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 37/42] synclink: convert devices to new API
-Date: Tue, 06 Jan 2009 16:33:53 -0800
-Message-ID: <20090107003349.468715485@vyatta.com>
+Subject: [PATCH 31/42] dvb: update network device to current API
+Date: Tue, 06 Jan 2009 16:33:47 -0800
+Message-ID: <20090107003348.828888483@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: David Miller <davem@davemloft.net>, v4l-dvb-maintainer@linuxtv.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:60731 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:60734 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757206AbZAGAyV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:54:21 -0500
-Content-Disposition: inline; filename=synclink.patch
+	id S1755738AbZAGAzh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:55:37 -0500
+Content-Disposition: inline; filename=dvb.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert to net_device_ops and internal net_device_stats.
-
-Remove unneeded last_rx update.
+Use internal network_device_stats that exist in network device and
+net_device_ops. Compile tested only.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- drivers/char/pcmcia/synclink_cs.c |   15 +++++++++------
- drivers/char/synclink.c           |   15 +++++++++------
- drivers/char/synclink_gt.c        |   15 +++++++++------
- drivers/char/synclinkmp.c         |   15 +++++++++------
- drivers/net/wan/hdlc.c            |   17 +++--------------
- include/linux/hdlc.h              |    2 ++
- 6 files changed, 41 insertions(+), 38 deletions(-)
 
---- a/drivers/char/pcmcia/synclink_cs.c	2009-01-04 21:53:17.002282444 -0800
-+++ b/drivers/char/pcmcia/synclink_cs.c	2009-01-04 21:53:51.974533932 -0800
-@@ -4311,10 +4311,16 @@ static void hdlcdev_rx(MGSLPC_INFO *info
- 	dev->stats.rx_bytes += size;
+--- a/drivers/media/dvb/dvb-core/dvb_net.c	2009-01-03 21:41:52.667265286 -0800
++++ b/drivers/media/dvb/dvb-core/dvb_net.c	2009-01-03 21:46:40.886764565 -0800
+@@ -125,7 +125,6 @@ static void hexdump( const unsigned char
  
- 	netif_rx(skb);
--
--	dev->last_rx = jiffies;
- }
+ struct dvb_net_priv {
+ 	int in_use;
+-	struct net_device_stats stats;
+ 	u16 pid;
+ 	struct net_device *net;
+ 	struct dvb_net *host;
+@@ -384,8 +383,8 @@ static void dvb_net_ule( struct net_devi
+ 				if (priv->ule_skb) {
+ 					dev_kfree_skb( priv->ule_skb );
+ 					/* Prepare for next SNDU. */
+-					priv->stats.rx_errors++;
+-					priv->stats.rx_frame_errors++;
++					dev->stats.rx_errors++;
++					dev->stats.rx_frame_errors++;
+ 				}
+ 				reset_ule(priv);
+ 				priv->need_pusi = 1;
+@@ -438,8 +437,8 @@ static void dvb_net_ule( struct net_devi
+ 					dev_kfree_skb( priv->ule_skb );
+ 					/* Prepare for next SNDU. */
+ 					// reset_ule(priv);  moved to below.
+-					priv->stats.rx_errors++;
+-					priv->stats.rx_frame_errors++;
++					dev->stats.rx_errors++;
++					dev->stats.rx_frame_errors++;
+ 				}
+ 				reset_ule(priv);
+ 				/* skip to next PUSI. */
+@@ -460,8 +459,8 @@ static void dvb_net_ule( struct net_devi
+ 						/* Drop partly decoded SNDU, reset state, resync on PUSI. */
+ 						if (priv->ule_skb) {
+ 							dev_kfree_skb( priv->ule_skb );
+-							priv->stats.rx_errors++;
+-							priv->stats.rx_frame_errors++;
++							dev->stats.rx_errors++;
++							dev->stats.rx_frame_errors++;
+ 						}
+ 						reset_ule(priv);
+ 						priv->need_pusi = 1;
+@@ -477,8 +476,8 @@ static void dvb_net_ule( struct net_devi
+ 				if (priv->ule_sndu_remain > 183) {
+ 					/* Current SNDU lacks more data than there could be available in the
+ 					 * current TS cell. */
+-					priv->stats.rx_errors++;
+-					priv->stats.rx_length_errors++;
++					dev->stats.rx_errors++;
++					dev->stats.rx_length_errors++;
+ 					printk(KERN_WARNING "%lu: Expected %d more SNDU bytes, but "
+ 					       "got PUSI (pf %d, ts_remain %d).  Flushing incomplete payload.\n",
+ 					       priv->ts_count, priv->ule_sndu_remain, ts[4], ts_remain);
+@@ -520,8 +519,8 @@ static void dvb_net_ule( struct net_devi
+ 				if (priv->ule_sndu_len < 5) {
+ 					printk(KERN_WARNING "%lu: Invalid ULE SNDU length %u. "
+ 					       "Resyncing.\n", priv->ts_count, priv->ule_sndu_len);
+-					priv->stats.rx_errors++;
+-					priv->stats.rx_length_errors++;
++					dev->stats.rx_errors++;
++					dev->stats.rx_length_errors++;
+ 					priv->ule_sndu_len = 0;
+ 					priv->need_pusi = 1;
+ 					new_ts = 1;
+@@ -573,7 +572,7 @@ static void dvb_net_ule( struct net_devi
+ 			if (priv->ule_skb == NULL) {
+ 				printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n",
+ 				       dev->name);
+-				priv->stats.rx_dropped++;
++				dev->stats.rx_dropped++;
+ 				return;
+ 			}
  
-+static const struct net_device_ops hdlcdev_ops = {
-+	.ndo_open       = hdlcdev_open,
-+	.ndo_stop       = hdlcdev_close,
-+	.ndo_change_mtu = hdlc_change_mtu,
-+	.ndo_do_ioctl	= hdlcdev_ioctl,
-+	.ndo_tx_timeout = hdlcdev_tx_timeout,
-+};
-+
- /**
-  * called by device driver when adding device instance
-  * do generic HDLC initialization
-@@ -4341,10 +4347,7 @@ static int hdlcdev_init(MGSLPC_INFO *inf
- 	dev->irq       = info->irq_level;
+@@ -637,8 +636,8 @@ static void dvb_net_ule( struct net_devi
+ 				ule_dump = 1;
+ #endif
  
- 	/* network layer callbacks and settings */
--	dev->do_ioctl       = hdlcdev_ioctl;
--	dev->open           = hdlcdev_open;
--	dev->stop           = hdlcdev_close;
--	dev->tx_timeout     = hdlcdev_tx_timeout;
-+	dev->netdev_ops	    = &hdlcdev_ops;
- 	dev->watchdog_timeo = 10*HZ;
- 	dev->tx_queue_len   = 50;
- 
---- a/drivers/char/synclink.c	2009-01-04 21:53:17.010282322 -0800
-+++ b/drivers/char/synclink.c	2009-01-04 21:53:51.978533634 -0800
-@@ -8007,10 +8007,16 @@ static void hdlcdev_rx(struct mgsl_struc
- 	dev->stats.rx_bytes += size;
- 
- 	netif_rx(skb);
--
--	dev->last_rx = jiffies;
- }
- 
-+static const struct net_device_ops hdlcdev_ops = {
-+	.ndo_open       = hdlcdev_open,
-+	.ndo_stop       = hdlcdev_close,
-+	.ndo_change_mtu = hdlc_change_mtu,
-+	.ndo_do_ioctl	= hdlcdev_ioctl,
-+	.ndo_tx_timeout = hdlcdev_tx_timeout,
-+};
-+
- /**
-  * called by device driver when adding device instance
-  * do generic HDLC initialization
-@@ -8033,15 +8039,12 @@ static int hdlcdev_init(struct mgsl_stru
- 	}
- 
- 	/* for network layer reporting purposes only */
-+	dev->netdev_ops = &hdlcdev_ops;
- 	dev->base_addr = info->io_base;
- 	dev->irq       = info->irq_level;
- 	dev->dma       = info->dma_level;
- 
- 	/* network layer callbacks and settings */
--	dev->do_ioctl       = hdlcdev_ioctl;
--	dev->open           = hdlcdev_open;
--	dev->stop           = hdlcdev_close;
--	dev->tx_timeout     = hdlcdev_tx_timeout;
- 	dev->watchdog_timeo = 10*HZ;
- 	dev->tx_queue_len   = 50;
- 
---- a/drivers/char/synclink_gt.c	2009-01-04 21:53:17.010282322 -0800
-+++ b/drivers/char/synclink_gt.c	2009-01-04 21:53:51.982533169 -0800
-@@ -1766,10 +1766,16 @@ static void hdlcdev_rx(struct slgt_info 
- 	dev->stats.rx_bytes += size;
- 
- 	netif_rx(skb);
--
--	dev->last_rx = jiffies;
- }
- 
-+static const struct net_device_ops hdlcdev_ops = {
-+	.ndo_open       = hdlcdev_open,
-+	.ndo_stop       = hdlcdev_close,
-+	.ndo_change_mtu = hdlc_change_mtu,
-+	.ndo_do_ioctl	= hdlcdev_ioctl,
-+	.ndo_tx_timeout = hdlcdev_tx_timeout,
-+};
-+
- /**
-  * called by device driver when adding device instance
-  * do generic HDLC initialization
-@@ -1797,10 +1803,7 @@ static int hdlcdev_init(struct slgt_info
- 	dev->irq       = info->irq_level;
- 
- 	/* network layer callbacks and settings */
--	dev->do_ioctl       = hdlcdev_ioctl;
--	dev->open           = hdlcdev_open;
--	dev->stop           = hdlcdev_close;
--	dev->tx_timeout     = hdlcdev_tx_timeout;
-+	dev->netdev_ops	    = &hdlcdev_ops;
- 	dev->watchdog_timeo = 10*HZ;
- 	dev->tx_queue_len   = 50;
- 
---- a/drivers/char/synclinkmp.c	2009-01-04 21:53:17.010282322 -0800
-+++ b/drivers/char/synclinkmp.c	2009-01-04 21:53:51.986533063 -0800
-@@ -1907,10 +1907,16 @@ static void hdlcdev_rx(SLMP_INFO *info, 
- 	dev->stats.rx_bytes += size;
- 
- 	netif_rx(skb);
--
--	dev->last_rx = jiffies;
- }
- 
-+static const struct net_device_ops hdlcdev_ops = {
-+	.ndo_open       = hdlcdev_open,
-+	.ndo_stop       = hdlcdev_close,
-+	.ndo_change_mtu = hdlc_change_mtu,
-+	.ndo_do_ioctl	= hdlcdev_ioctl,
-+	.ndo_tx_timeout = hdlcdev_tx_timeout,
-+};
-+
- /**
-  * called by device driver when adding device instance
-  * do generic HDLC initialization
-@@ -1938,10 +1944,7 @@ static int hdlcdev_init(SLMP_INFO *info)
- 	dev->irq       = info->irq_level;
- 
- 	/* network layer callbacks and settings */
--	dev->do_ioctl       = hdlcdev_ioctl;
--	dev->open           = hdlcdev_open;
--	dev->stop           = hdlcdev_close;
--	dev->tx_timeout     = hdlcdev_tx_timeout;
-+	dev->netdev_ops	    = &hdlcdev_ops;
- 	dev->watchdog_timeo = 10*HZ;
- 	dev->tx_queue_len   = 50;
- 
---- a/drivers/net/wan/hdlc.c	2009-01-04 21:43:07.402034096 -0800
-+++ b/drivers/net/wan/hdlc.c	2009-01-04 21:53:51.986533063 -0800
-@@ -44,22 +44,14 @@ static const char* version = "HDLC suppo
- 
- static struct hdlc_proto *first_proto;
- 
--static int hdlc_change_mtu(struct net_device *dev, int new_mtu)
-+int hdlc_change_mtu(struct net_device *dev, int new_mtu)
+-				priv->stats.rx_errors++;
+-				priv->stats.rx_crc_errors++;
++				dev->stats.rx_errors++;
++				dev->stats.rx_crc_errors++;
+ 				dev_kfree_skb(priv->ule_skb);
+ 			} else {
+ 				/* CRC32 verified OK. */
+@@ -744,8 +743,8 @@ static void dvb_net_ule( struct net_devi
+ 				 * receive the packet anyhow. */
+ 				/* if (priv->ule_dbit && skb->pkt_type == PACKET_OTHERHOST)
+ 					priv->ule_skb->pkt_type = PACKET_HOST; */
+-				priv->stats.rx_packets++;
+-				priv->stats.rx_bytes += priv->ule_skb->len;
++				dev->stats.rx_packets++;
++				dev->stats.rx_bytes += priv->ule_skb->len;
+ 				netif_rx(priv->ule_skb);
+ 			}
+ 			sndu_done:
+@@ -800,8 +799,7 @@ static void dvb_net_sec(struct net_devic
  {
- 	if ((new_mtu < 68) || (new_mtu > HDLC_MAX_MTU))
- 		return -EINVAL;
- 	dev->mtu = new_mtu;
- 	return 0;
+ 	u8 *eth;
+ 	struct sk_buff *skb;
+-	struct net_device_stats *stats =
+-		&((struct dvb_net_priv *) netdev_priv(dev))->stats;
++	struct net_device_stats *stats = &dev->stats;
+ 	int snap = 0;
+ 
+ 	/* note: pkt_len includes a 32bit checksum */
+@@ -1216,28 +1214,29 @@ static int dvb_net_stop(struct net_devic
+ 	return dvb_net_feed_stop(dev);
  }
--
--
--
--static struct net_device_stats *hdlc_get_stats(struct net_device *dev)
+ 
+-static struct net_device_stats * dvb_net_get_stats(struct net_device *dev)
 -{
--	return &dev->stats;
+-	return &((struct dvb_net_priv *) netdev_priv(dev))->stats;
 -}
 -
--
-+EXPORT_SYMBOL(hdlc_change_mtu);
+ static const struct header_ops dvb_header_ops = {
+ 	.create		= eth_header,
+ 	.parse		= eth_header_parse,
+ 	.rebuild	= eth_rebuild_header,
+ };
  
- static int hdlc_rcv(struct sk_buff *skb, struct net_device *dev,
- 		    struct packet_type *p, struct net_device *orig_dev)
-@@ -106,7 +98,7 @@ static int hdlc_device_event(struct noti
- 	if (dev_net(dev) != &init_net)
- 		return NOTIFY_DONE;
- 
--	if (dev->get_stats != hdlc_get_stats)
-+	if (dev->header_ops != &hdlc_null_ops)
- 		return NOTIFY_DONE; /* not an HDLC device */
- 
- 	if (event != NETDEV_CHANGE)
-@@ -233,15 +225,12 @@ static void hdlc_setup_dev(struct net_de
- 	/* Re-init all variables changed by HDLC protocol drivers,
- 	 * including ether_setup() called from hdlc_raw_eth.c.
- 	 */
--	dev->get_stats		 = hdlc_get_stats;
- 	dev->flags		 = IFF_POINTOPOINT | IFF_NOARP;
- 	dev->mtu		 = HDLC_MAX_MTU;
- 	dev->type		 = ARPHRD_RAWHDLC;
- 	dev->hard_header_len	 = 16;
- 	dev->addr_len		 = 0;
- 	dev->header_ops		 = &hdlc_null_ops;
--
--	dev->change_mtu		 = hdlc_change_mtu;
- }
- 
- static void hdlc_setup(struct net_device *dev)
---- a/include/linux/hdlc.h	2009-01-04 21:43:07.466037830 -0800
-+++ b/include/linux/hdlc.h	2009-01-04 21:53:51.986533063 -0800
-@@ -103,6 +103,8 @@ int hdlc_open(struct net_device *dev);
- /* Must be called by hardware driver when HDLC device is being closed */
- void hdlc_close(struct net_device *dev);
- 
-+int hdlc_change_mtu(struct net_device *dev, int new_mtu);
 +
- int attach_hdlc_protocol(struct net_device *dev, struct hdlc_proto *proto,
- 			 size_t size);
- /* May be used by hardware driver to gain control over HDLC device */
++static const struct net_device_ops dvb_netdev_ops = {
++	.ndo_open		= dvb_net_open,
++	.ndo_stop		= dvb_net_stop,
++	.ndo_start_xmit		= dvb_net_tx,
++	.ndo_set_multicast_list = dvb_net_set_multicast_list,
++	.ndo_set_mac_address    = dvb_net_set_mac,
++	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_validate_addr	= eth_validate_addr,
++};
++
+ static void dvb_net_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+ 
+ 	dev->header_ops		= &dvb_header_ops;
+-	dev->open		= dvb_net_open;
+-	dev->stop		= dvb_net_stop;
+-	dev->hard_start_xmit	= dvb_net_tx;
+-	dev->get_stats		= dvb_net_get_stats;
+-	dev->set_multicast_list = dvb_net_set_multicast_list;
+-	dev->set_mac_address    = dvb_net_set_mac;
++	dev->netdev_ops		= &dvb_netdev_ops;
+ 	dev->mtu		= 4096;
+ 	dev->mc_count           = 0;
+ 
 
 -- 
 
