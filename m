@@ -1,44 +1,137 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 13:22:58 +0000
-Message-ID: <20090107132258.GE9677@ff.dom.local>
-References: <20090107121530.GA30164@ioremap.net> <20090107122238.GB25673@gondor.apana.org.au> <20090107123741.GA31255@ioremap.net> <20090107124246.GA26034@gondor.apana.org.au> <20090107124629.GA31732@ioremap.net> <20090107125535.GC6307@1wt.eu> <20090107125734.GA26331@gondor.apana.org.au> <20090107130259.GB32336@ioremap.net> <20090107131057.GD9677@ff.dom.local> <20090107131539.GF6307@1wt.eu>
+From: Speedster <speedster@haveacry.com>
+Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
+ 2.6.27
+Date: Wed, 07 Jan 2009 22:49:55 +0900
+Message-ID: <4964B303.4020708@haveacry.com>
+References: <bug-12327-10286@http.bugzilla.kernel.org/> <20081229214101.4c4f5ac1.akpm@linux-foundation.org> <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com> <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com> <20090107041732.GA22041@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: multipart/mixed;
+ boundary="------------010608080500010000010000"
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:5868 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbZAGNXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 08:23:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20090107131539.GF6307@1wt.eu>
+Received: from hosted01.westnet.com.au ([203.10.1.211]:49344 "EHLO
+	hosted01.westnet.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752471AbZAGNuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 08:50:00 -0500
+In-Reply-To: <20090107041732.GA22041@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 02:15:39PM +0100, Willy Tarreau wrote:
-> On Wed, Jan 07, 2009 at 01:10:57PM +0000, Jarek Poplawski wrote:
-> > On Wed, Jan 07, 2009 at 04:02:59PM +0300, Evgeniy Polyakov wrote:
-> > ...
-> > > If I understood correctly Jarek's patch, he wants to allocate a page and
-> > > copy linear content of the skb there, so this will end up being the same
-> > > case as with splicing from the file. And while generally this may be a
-> > > good idea, but with usual 1.5k mtu this will copy every skb, which is
-> > > rather bad idea. Will have to think :)
-> > > 
-> > 
-> > As I mentioned earlier, I (poorly) tried to realize Changli's idea
-> > only, and it's more to verify the reason still (after it failed with
-> > SG method...).
+This is a multi-part message in MIME format.
+--------------010608080500010000010000
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Herbert Xu wrote:
+> Can you also attach a dump for connections that do work under
+> 2.6.27? That should tell us whether this MAC is genuine.
+
+Done. I also realised my wireshark display filter was dst_host rather 
+than simply host - it looks as though replies _do_ come back but for 
+some reason are ignored? My apologies.
+
+The 2.6.27 dump contains a connection to a local file mirror 
+(203.21.20.200) and an attempted connection to store.apple.com 
+(17.149.156.10).
+
+> If it is bogus, can you dump on the other interfaces to see
+> who is corrupting it?
 > 
-> Jarek, since it now works when disabling both SG and GSO, we know that the
-> bug is triggered when passing through do_tcp_sendpage(). Thus, I will not
-> try your patch #3 yet, but rather wait for fix candidates to try.
 
-Sure! Congratulations for debugging to you and Evgeniy!
+I believe the differing MAC addresses on the PPP remote endpoint are due 
+to my ISP having multiple layer 2 termination routers for 
+load-balancing/redundancy and not a symptom of the issue.
 
-Jarek P.
+Cheers,
+Dean
+
+--------------010608080500010000010000
+Content-Type: application/octet-stream;
+ name="whinge-2.6.24_whimper-dump-bidir.cap"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="whinge-2.6.24_whimper-dump-bidir.cap"
+
+1MOyoQIABAAAAAAAAAAAAP//AAABAAAA4OthSUnUCgBSAAAAUgAAAAAbDDwHJAAWPiT3oYhk
+EQAWrwA+ACFFEAA8at5AAEAGtQLKSKLjEZWcCtqwAFCwJsuVAAAAAKACFrAehwAAAgQFrAQC
+CAr//6FLAAAAAAEDAwTg62FJhbsOAEIAAABCAAAAABY+JPehABsMPAckiGQRABavAC4AIUUA
+ACwzvAAA7gZ+RBGVnArKSKLjAFDasKBrtDCwJsuWYBIf/rH6AAACBAWs4OthSZK9DgA+AAAA
+PgAAAAAbDDwHJAAWPiT3oYhkEQAWrwAqACFFEAAoat9AAEAGtRXKSKLjEZWcCtqwAFCwJsuW
+oGu0MVAQFrDS/QAA5+thSR7IBgBPAAAATwAAAAAbDDwHJAAWPiT3oYhkEQAWrwA7ACFFEAA5
+auBAAEAGtQPKSKLjEZWcCtqwAFCwJsuWoGu0MVAYFrD4JAAASEVBRCAvIEhUVFAvMS4xDQrn
+62FJMq4KAD4AAAA+AAAAABY+JPehABsMPAckiGQRABavACoAIUUAACiThAAA7gYegBGVnArK
+SKLjAFDasKBrtDGwJsunUBAf/smeAADr62FJesMNAFUAAABVAAAAABsMPAckABY+JPehiGQR
+ABavAEEAIUUQAD9q4UAAQAa0/MpIouMRlZwK2rAAULAmy6ega7QxUBgWsIMsAABIb3N0OiBz
+dG9yZS5hcHBsZS5jb20NCuzrYUnHaQIAPgAAAD4AAAAAFj4k96EAGww8BySIZBEAFq8AKgAh
+RQAAKOm7AADuBshIEZWcCspIouMAUNqwoGu0MbAmy75QEB/+yYcAAOzrYUmI7wMAQAAAAEAA
+AAAAGww8ByQAFj4k96GIZBEAFq8ALAAhRRAAKmriQABABrUQykii4xGVnArasABQsCbLvqBr
+tDFQGBawxcEAAA0K7OthScrQBwA+AAAAPgAAAAAWPiT3oQAbDDwHJIhkEQAWrwAqACFFAAAo
+5UVAAC8GS78RlZwKykii4wBQ2rCga7QxsCbLvlAQ///phQAA7OthSajRBwA+AAAAPgAAAAAW
+PiT3oQAbDDwHJIhkEQAWrwAqACFFAAAo5UdAAC8GS70RlZwKykii4wBQ2rCga7QxsCbLwFAQ
+///pgwAA7OthSZDSBwA+AAAAPgAAAAAWPiT3oQAbDDwHJIhkEQAWrwAqACFFAAAo5UZAAC8G
+S74RlZwKykii4wBQ2rCga7QxsCbLvlAQ///phQAA7OthSYjUBwCCAAAAggAAAAAWPiT3oQAb
+DDwHJIhkEQAWrwBuACFFAABs5UhAAC8GS3gRlZwKykii4wBQ2rCga7QxsCbLwFAY///2ngAA
+SFRUUC8xLjEgMzAxIE1vdmVkIFBlcm1hbmVudGx5DQpMb2NhdGlvbjogL3VzDQpDb250ZW50
+LUxlbmd0aDogMA0KDQrs62FJA9YHAD4AAAA+AAAAABsMPAckABY+JPehiGQRABavACoAIUUQ
+AChq40AAQAa1EcpIouMRlZwK2rAAULAmy8Cga7R1UBAWsNKPAADu62FJRNwJAD4AAAA+AAAA
+ABsMPAckABY+JPehiGQRABavACoAIUUQAChq5EAAQAa1EMpIouMRlZwK2rAAULAmy8Cga7R1
+UBEWsNKOAADu62FJzb0NAD4AAAA+AAAAABY+JPehABsMPAckiGQRABavACoAIUUAAChDggAA
+7gZughGVnArKSKLjAFDasKBrtHWwJsvBUBEf/sk/AADu62FJjL8NAD4AAAA+AAAAABsMPAck
+ABY+JPehiGQRABavACoAIUUQAChq5UAAQAa1D8pIouMRlZwK2rAAULAmy8Gga7R2UBAWsNKN
+AAA=
+--------------010608080500010000010000
+Content-Type: application/octet-stream;
+ name="whinge-2.6.27_whimper-dump-twohosts.cap"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="whinge-2.6.27_whimper-dump-twohosts.cap"
+
+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
+CchKYBIf/mVtAAACBAWsAAA=
+--------------010608080500010000010000--
