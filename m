@@ -1,53 +1,43 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: HTB - very bad precision? HFSC works fine! 2.6.28
-Date: Thu, 8 Jan 2009 00:02:36 +0200
-Message-ID: <200901080002.37223.denys@visp.net.lb>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] hdlc: fix compile problem
+Date: Wed, 7 Jan 2009 14:13:43 -0800
+Message-ID: <20090107141343.3e256119@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Krzysztof =?UTF-8?B?SGHFgmFzYQ==?= <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:39304 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754746AbZAGWCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 17:02:32 -0500
-Received: from [192.168.4.94] (unknown [195.69.208.250])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: denys@visp.net.lb)
-	by hosting.visp.net.lb (Postfix) with ESMTPSA id 55D771A4AAD
-	for <netdev@vger.kernel.org>; Thu,  8 Jan 2009 00:02:26 +0200 (EET)
-Content-Disposition: inline
+Received: from mail.vyatta.com ([76.74.103.46]:57466 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762165AbZAGWNt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 17:13:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I notice that our uplink ISP complaining, that we are exceeding our UP rate.
+Fix build problem with hdlc driver. hdlc_null_ops was being referenced
+before it was defined!
 
-I have configured at HTB 60Mbps, but he is actually receiving bursts up to 
-64Mbps.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I tried to lower down HTB values to 57Mbps, and even on Cisco switch interface 
-counter(it is averaging 30 seconds of data i guess, to calculate bandwidth) - 
-it shows 60.1 - 60.4.
-
-Funny thing, root class in HTB shows 57.1 - 57.3 Mbps. So maybe byte counting 
-is wrong in HTB?
-
-I have also "default filter" 
-tc filter add dev ${DEV} parent 1:0 protocol ip prio 800 u32 match ip src 
-0.0.0.0/0 flowid 1:50
-
-and for HFSC i did also filter for arp.
-
-I tried just to replace HTB plainly by HFSC, and it works perfectly and 
-precise. Just what i did - removed prio in class, PARAM variable, and changed 
-names by replace 
-"htb rate" to "est 1sec 8sec hfsc sc rate"
-and
-"ceil" to "ul rate"
-
-And 57 and bandwidth on switch went to 56.7 - 56.9, and stays very stable.
-
-P.S. overhead 16 - i tried first without it, then with - no difference.
-
+--- a/drivers/net/wan/hdlc.c	2009-01-07 14:08:43.510247589 -0800
++++ b/drivers/net/wan/hdlc.c	2009-01-07 14:09:39.093495837 -0800
+@@ -40,6 +40,8 @@
+ 
+ static const char* version = "HDLC support module revision 1.22";
+ 
++static const struct header_ops hdlc_null_ops;
++
+ #undef DEBUG_LINK
+ 
+ static struct hdlc_proto *first_proto;
+@@ -218,8 +220,6 @@ int hdlc_ioctl(struct net_device *dev, s
+ 	return -EINVAL;
+ }
+ 
+-static const struct header_ops hdlc_null_ops;
+-
+ static void hdlc_setup_dev(struct net_device *dev)
+ {
+ 	/* Re-init all variables changed by HDLC protocol drivers,
