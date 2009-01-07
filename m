@@ -1,22 +1,18 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ieee1394 netdev_ops patches
-Date: Tue, 06 Jan 2009 16:50:21 -0800 (PST)
-Message-ID: <20090106.165021.44613156.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stefanr@s5r6.in-berlin.de, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 00/42] Still more net_device API updates
+Date: Tue, 06 Jan 2009 16:33:16 -0800
+Message-ID: <20090107003316.784424362@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40920
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750917AbZAGAuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 19:50:19 -0500
+Received: from suva.vyatta.com ([76.74.103.44]:58968 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751640AbZAGAwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:52:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Mostly trivial conversions to net_device_ops
 
-I've applied all three of Stephen's patches to net-2.6,
-with Stefan's ACKs.
+-- 
 
-Thanks!
