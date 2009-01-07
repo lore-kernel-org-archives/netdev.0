@@ -1,56 +1,34 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
-Date: Wed, 7 Jan 2009 20:48:09 +0300
-Message-ID: <20090107174809.GA8989@ioremap.net>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <200901071852.32078.rdenis@simphalempin.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: [PATCH 0/2][RFC] virtio_net: MAC filtering
+Date: Wed, 07 Jan 2009 11:05:59 -0700
+Message-ID: <1231351559.7109.128.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: =?utf-8?B?UsOpbWk=?= Denis-Courmont <rdenis@simphalempin.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cet.com.ru ([195.178.208.66]:41507 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752719AbZAGRsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 12:48:12 -0500
-Content-Disposition: inline
-In-Reply-To: <200901071852.32078.rdenis@simphalempin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kvm <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Mark McLoughlin <markmc@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 07, 2009 at 06:52:27PM +0200, R=C3=A9mi Denis-Courmont (rde=
-nis@simphalempin.com) wrote:
-> Le mercredi 7 janvier 2009 13:47:03 Evgeniy Polyakov, vous avez =C3=A9=
-crit=C2=A0:
-> > The same goal can be achieved with 'owner' iptables match module bt=
-w.
->=20
-> Err no. iptables is _not_ suitable for userland applications dropping=
- their=20
-> _own_ privileges. For privileged processes, it's clumsy at best, as i=
-ptables=20
-> does not quite work if more than one applications uses it. That's typ=
-ically=20
-> your firewall configuration wizard or some custom admin-made script.
-> As for UNprivileged processes, iptables is not allowed.
 
-If setting that rlimit does not require admin priviledges, then it does
-not require to drop this. So it is superuser or admin who does this.
-And exactly the same can be achieved with 'owner' iptables module.
+This series builds on some of the patches Mark McLoughlin has sent out
+recently, so likely won't apply to any current trees until those get
+upstream.  The goal is to enable MAC filtering at the kvm/qemu level for
+virtio-net packets.  Promiscuous and allmulti mode are handled by adding
+bits to Mark's proposed status field.  I also add a 16 entry MAC table
+for additional unicast and multicast addresses to filter.  If this looks
+reasonable, I'll follow-up with VLAN filtering.
 
-If process itself changes own rlimit, then it is not a rlimit, but a
-hint to how it is supposed to work.
+As noted in the RFC thread adding the kvm/qemu backing, this does
+increase the size of the virtio-net device I/O port space, up to 1kB
+with PCI rounding if we add a 4k entry VLAN bitmap.  A 64 device limit
+is still pretty high for a VM, but maybe we should think about adding
+MMIO space for virtio-pci.  Thanks,
 
-Plus I did not see how fork is protected, i.e. does children get the
-same rlimit, it looks like it does not.
+Alex
 
-> As I understand it, Michael is trying to build something similar to S=
-ECCOMP,=20
-> only way less restrictive and way more usable by real-life userland p=
-rograms.
+-- 
+Alex Williamson                             HP Open Source & Linux Org.
 
-Security and unpriveledged setup are mutually impossible cases.
-
---=20
-	Evgeniy Polyakov
