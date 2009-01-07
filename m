@@ -1,135 +1,45 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: [PATCH 2/2][RFC] virtio_net: Add MAC fitler table support
-Date: Wed, 07 Jan 2009 11:06:03 -0700
-Message-ID: <1231351563.7109.130.camel@lappy>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH 0/2][RFC] virtio_net: MAC filtering
+Date: Wed, 07 Jan 2009 12:14:51 -0600
+Message-ID: <4964F11B.7020509@codemonkey.ws>
+References: <1231351559.7109.128.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kvm <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
 	Mark McLoughlin <markmc@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
+To: Alex Williamson <alex.williamson@hp.com>
 Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1231351559.7109.128.camel@lappy>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-virtio_net: Add MAC fitler table support
+Alex Williamson wrote:
+> This series builds on some of the patches Mark McLoughlin has sent out
+> recently, so likely won't apply to any current trees until those get
+> upstream.  The goal is to enable MAC filtering at the kvm/qemu level for
+> virtio-net packets.  Promiscuous and allmulti mode are handled by adding
+> bits to Mark's proposed status field.  I also add a 16 entry MAC table
+> for additional unicast and multicast addresses to filter.  If this looks
+> reasonable, I'll follow-up with VLAN filtering.
+>
+> As noted in the RFC thread adding the kvm/qemu backing, this does
+> increase the size of the virtio-net device I/O port space, up to 1kB
+> with PCI rounding if we add a 4k entry VLAN bitmap.  A 64 device limit
+> is still pretty high for a VM, but maybe we should think about adding
+> MMIO space for virtio-pci.  Thanks,
+>   
 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
----
+I'm not quite sure the best way to address this.  Maybe another control 
+queue for sending commands to control this sort of stuff?  What are your 
+thoughts Rusty?
 
- drivers/net/virtio_net.c   |   52 +++++++++++++++++++++++++++++++++++++++++---
- include/linux/virtio_net.h |    6 ++++-
- 2 files changed, 54 insertions(+), 4 deletions(-)
+Regards,
 
+Anthony Liguori
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f502edd..d751711 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -505,6 +505,8 @@ static void virtnet_set_rx_mode(struct net_device *dev)
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct virtio_device *vdev = vi->vdev;
- 	u16 status = vi->status.raw;
-+	struct dev_addr_list *uc_ptr, *mc_ptr;
-+	int i;
- 
- 	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS))
- 		return;
-@@ -519,11 +521,55 @@ static void virtnet_set_rx_mode(struct net_device *dev)
- 	else
- 		status &= ~VIRTIO_NET_S_ALLMULTI;
- 		
--	if (dev->uc_count)
-+	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_MAC_TABLE)) {
-+		if (dev->uc_count)
-+			status |= VIRTIO_NET_S_PROMISC;
-+		if (dev->mc_count)
-+			status |= VIRTIO_NET_S_ALLMULTI;
-+		if (status != vi->status.raw) {
-+			vi->status.raw = status;
-+			vdev->config->set(vdev,
-+					  offsetof(struct virtio_net_config,
-+					  status), &vi->status,
-+					  sizeof(vi->status));
-+		}
-+		return;
-+	}
-+
-+	if (dev->uc_count > 16) {
- 		status |= VIRTIO_NET_S_PROMISC;
--	if (dev->mc_count)
-+		if (dev->mc_count > 16)
-+			status |= VIRTIO_NET_S_ALLMULTI;
-+	} else if (dev->uc_count + dev->mc_count > 16)
- 		status |= VIRTIO_NET_S_ALLMULTI;
- 
-+	if ((dev->uc_count && !(status & VIRTIO_NET_S_PROMISC)) ||
-+	    (dev->mc_count && !(status & VIRTIO_NET_S_ALLMULTI)))
-+		status |= VIRTIO_NET_S_MAC_TABLE;
-+	else
-+		status &= ~VIRTIO_NET_S_MAC_TABLE;
-+
-+	uc_ptr = dev->uc_list;
-+	mc_ptr = dev->mc_list;
-+
-+	for (i = 0; i < 16; i++) {
-+		uint8_t entry[8] = { 0 };
-+
-+		if (uc_ptr && !(status & VIRTIO_NET_S_PROMISC)) {
-+			memcpy(entry, uc_ptr->da_addr, 6);
-+			entry[7] = 1;
-+			uc_ptr = uc_ptr->next;
-+		} else if (mc_ptr && !(status & VIRTIO_NET_S_ALLMULTI)) {
-+			memcpy(entry, mc_ptr->da_addr, 6);
-+			entry[7] = 1;
-+			mc_ptr = mc_ptr->next;
-+		}
-+
-+		vdev->config->set(vdev, offsetof(struct virtio_net_config,
-+				  mac_table) + (sizeof(entry) * i),
-+				  &entry, sizeof(entry));
-+	}
-+
- 	if (status != vi->status.raw) {
- 		vi->status.raw = status;
- 		vdev->config->set(vdev, offsetof(struct virtio_net_config,
-@@ -744,7 +790,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
- 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
- 	VIRTIO_NET_F_GUEST_ECN, /* We don't yet handle UFO input. */
--	VIRTIO_NET_F_STATUS,
-+	VIRTIO_NET_F_STATUS, VIRTIO_NET_F_MAC_TABLE,
- 	VIRTIO_F_NOTIFY_ON_EMPTY,
- };
- 
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 5a70edb..905319b 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -21,10 +21,12 @@
- #define VIRTIO_NET_F_HOST_ECN	13	/* Host can handle TSO[6] w/ ECN in. */
- #define VIRTIO_NET_F_HOST_UFO	14	/* Host can handle UFO in. */
- #define VIRTIO_NET_F_STATUS	16	/* virtio_net_config.status available */
-+#define VIRTIO_NET_F_MAC_TABLE	17	/* Additional MAC addresses */
- 
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
- #define VIRTIO_NET_S_PROMISC	2	/* Promiscuous mode */
- #define VIRTIO_NET_S_ALLMULTI	4	/* All-multicast mode */
-+#define VIRTIO_NET_S_MAC_TABLE	8	/* Enable MAC filter table */
- 
- struct virtio_net_config
- {
-@@ -38,8 +40,10 @@ struct virtio_net_config
- 			__u16 link:1;
- 			__u16 promisc:1;
- 			__u16 allmulti:1;
-+			__u16 mac_table:1;
- 		} bits;
--       } status;
-+	} status;
-+	__u64 mac_table[16];
- } __attribute__((packed));
- 
- /* This is the first element of the scatter-gather list.  If you don't
-
+> Alex
+>
+>   
 
