@@ -1,55 +1,202 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] net: reset network device counters on the fly
-Date: Tue, 06 Jan 2009 18:29:45 -0800
-Message-ID: <49641399.80305@hp.com>
-References: <3375b4020901061808g527cb872ia64b47147783b91c@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [1/2] ipv6: Add GRO support
+Date: Wed, 7 Jan 2009 14:14:04 +1100
+Message-ID: <20090107031404.GA16827@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Huascar Tejeda <htejeda@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:45845 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754110AbZAGC3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 21:29:47 -0500
-In-Reply-To: <3375b4020901061808g527cb872ia64b47147783b91c@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:44511 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751838AbZAGDOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jan 2009 22:14:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Huascar Tejeda wrote:
-> Hello everyone,
-> 
-> This is my first post to the mailing list and also my first kernel patch.
-> 
-> There was an scenario where I needed to clear network device counters
-> without shutting down the interface.
-> With this patch I add this functionality to /proc/net/dev.
-> 
-> Usage example:
-> echo clear eth0 > /proc/net/dev
-> echo clear all > /proc/net/dev
-> 
-> Thanks for your comments and please feel free to reply with any
-> suggestions you may have.
+Hi Dave:
 
-Having been at least once bitten as a patch submittor, I'll point-out 
-that patches are generally requested to be inline, not attachments. 
-Also, in any kernel tree there should be a file describing how a patch 
-should be put together and what addtional bits of information need to be 
-included.  That file is ./Documentation/SubmittingPatches.
+Give an inch and take a mile, parity with LRO just isn't enough :)
+I've tested it locally and it does work.
 
-Finally, my recollection is this same sort of thing (zeroing counters) 
-has been proposed before, and shot-down.  Doesn't a priori mean it will 
-be shot-down this time, but it suggests the chances are slim.  You can 
-probably find the discussion in one or more of the various archives for 
-the netdev list.  For those situations where you want to know the 
-statistics for a given interval, you can snap the stats to files at 
-either end of the interval and run them through "beforeafter" or 
-something similar:
+ipv6: Add GRO support
 
-http://ftp.cup.hp.com/dist/networking/tools/
+This patch adds GRO support for IPv6.  IPv6 GRO supports extension
+headers in the same way as GSO (by using the same infrastructure).
+It's also simpler compared to IPv4 since we no longer have to worry
+about fragmentation attributes or header checksums.
 
-rick jones
-wondering what has become of his ethtool patch to recognize speeds other 
-than 10/100/1000/10000... perhaps it too tripped over some of the above :(
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index cb2965a..ffa5b8b 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -59,6 +59,9 @@ struct inet6_protocol
+ 	int	(*gso_send_check)(struct sk_buff *skb);
+ 	struct sk_buff *(*gso_segment)(struct sk_buff *skb,
+ 				       int features);
++	struct sk_buff **(*gro_receive)(struct sk_buff **head,
++					struct sk_buff *skb);
++	int	(*gro_complete)(struct sk_buff *skb);
+ 
+ 	unsigned int	flags;	/* INET6_PROTO_xxx */
+ };
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 437b750..94f74f5 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -672,8 +672,7 @@ int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb)
+ 
+ EXPORT_SYMBOL_GPL(ipv6_opt_accepted);
+ 
+-static struct inet6_protocol *ipv6_gso_pull_exthdrs(struct sk_buff *skb,
+-						    int proto)
++static int ipv6_gso_pull_exthdrs(struct sk_buff *skb, int proto)
+ {
+ 	struct inet6_protocol *ops = NULL;
+ 
+@@ -704,7 +703,7 @@ static struct inet6_protocol *ipv6_gso_pull_exthdrs(struct sk_buff *skb,
+ 		__skb_pull(skb, len);
+ 	}
+ 
+-	return ops;
++	return proto;
+ }
+ 
+ static int ipv6_gso_send_check(struct sk_buff *skb)
+@@ -721,7 +720,9 @@ static int ipv6_gso_send_check(struct sk_buff *skb)
+ 	err = -EPROTONOSUPPORT;
+ 
+ 	rcu_read_lock();
+-	ops = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
++	ops = rcu_dereference(inet6_protos[
++		ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr)]);
++
+ 	if (likely(ops && ops->gso_send_check)) {
+ 		skb_reset_transport_header(skb);
+ 		err = ops->gso_send_check(skb);
+@@ -757,7 +758,9 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
+ 	segs = ERR_PTR(-EPROTONOSUPPORT);
+ 
+ 	rcu_read_lock();
+-	ops = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
++	ops = rcu_dereference(inet6_protos[
++		ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr)]);
++
+ 	if (likely(ops && ops->gso_segment)) {
+ 		skb_reset_transport_header(skb);
+ 		segs = ops->gso_segment(skb, features);
+@@ -777,11 +780,105 @@ out:
+ 	return segs;
+ }
+ 
++struct ipv6_gro_cb {
++	struct napi_gro_cb napi;
++	int proto;
++};
++
++#define IPV6_GRO_CB(skb) ((struct ipv6_gro_cb *)(skb)->cb)
++
++static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
++					 struct sk_buff *skb)
++{
++	struct inet6_protocol *ops;
++	struct sk_buff **pp = NULL;
++	struct sk_buff *p;
++	struct ipv6hdr *iph;
++	unsigned int nlen;
++	int flush = 1;
++	int proto;
++
++	if (unlikely(!pskb_may_pull(skb, sizeof(*iph))))
++		goto out;
++
++	iph = ipv6_hdr(skb);
++	__skb_pull(skb, sizeof(*iph));
++
++	flush += ntohs(iph->payload_len) != skb->len;
++
++	rcu_read_lock();
++	proto = ipv6_gso_pull_exthdrs(skb, iph->nexthdr);
++	IPV6_GRO_CB(skb)->proto = proto;
++	ops = rcu_dereference(inet6_protos[proto]);
++	if (!ops || !ops->gro_receive)
++		goto out_unlock;
++
++	flush--;
++	skb_reset_transport_header(skb);
++	nlen = skb_network_header_len(skb);
++
++	for (p = *head; p; p = p->next) {
++		struct ipv6hdr *iph2;
++
++		if (!NAPI_GRO_CB(p)->same_flow)
++			continue;
++
++		iph2 = ipv6_hdr(p);
++
++		/* All fields must match except length. */
++		if (nlen != skb_network_header_len(p) ||
++		    memcmp(iph, iph2, offsetof(struct ipv6hdr, payload_len)) ||
++		    memcmp(&iph->nexthdr, &iph2->nexthdr,
++			   nlen - offsetof(struct ipv6hdr, nexthdr))) {
++			NAPI_GRO_CB(p)->same_flow = 0;
++			continue;
++		}
++
++		NAPI_GRO_CB(p)->flush |= flush;
++	}
++
++	NAPI_GRO_CB(skb)->flush |= flush;
++
++	pp = ops->gro_receive(head, skb);
++
++out_unlock:
++	rcu_read_unlock();
++
++out:
++	NAPI_GRO_CB(skb)->flush |= flush;
++
++	return pp;
++}
++
++static int ipv6_gro_complete(struct sk_buff *skb)
++{
++	struct inet6_protocol *ops;
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	int err = -ENOSYS;
++
++	iph->payload_len = htons(skb->len - skb_network_offset(skb) -
++				 sizeof(*iph));
++
++	rcu_read_lock();
++	ops = rcu_dereference(inet6_protos[IPV6_GRO_CB(skb)->proto]);
++	if (WARN_ON(!ops || !ops->gro_complete))
++		goto out_unlock;
++
++	err = ops->gro_complete(skb);
++
++out_unlock:
++	rcu_read_unlock();
++
++	return err;
++}
++
+ static struct packet_type ipv6_packet_type = {
+ 	.type = __constant_htons(ETH_P_IPV6),
+ 	.func = ipv6_rcv,
+ 	.gso_send_check = ipv6_gso_send_check,
+ 	.gso_segment = ipv6_gso_segment,
++	.gro_receive = ipv6_gro_receive,
++	.gro_complete = ipv6_gro_complete,
+ };
+ 
+ static int __init ipv6_packet_init(void)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
