@@ -1,75 +1,69 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
+From: Grzegorz Nosek <root@localdomain.pl>
 Subject: Re: [RFC][PATCH] IP address restricting cgroup subsystem
-Date: Wed, 07 Jan 2009 16:36:35 +0800
-Message-ID: <49646993.6080802@cn.fujitsu.com>
-References: <20090106230554.GB25228@eskarina.localdomain.pl> <49644526.8030205@cn.fujitsu.com> <20090107073831.GA23648@megiteam.pl>
+Date: Wed, 7 Jan 2009 10:16:00 +0100
+Message-ID: <20090107091600.GA17612@megiteam.pl>
+References: <20090106230554.GB25228@eskarina.localdomain.pl> <49644526.8030205@cn.fujitsu.com> <20090107073831.GA23648@megiteam.pl> <49646993.6080802@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: Grzegorz Nosek <root@localdomain.pl>
+Cc: Grzegorz Nosek <root@localdomain.pl>, containers@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Li Zefan <lizf@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:65287 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752315AbZAGIh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 03:37:27 -0500
-In-Reply-To: <20090107073831.GA23648@megiteam.pl>
+Received: from e208.rev.megiteam.pl ([77.79.226.8]:45783 "EHLO
+	vadmin.megiteam.pl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752547AbZAGJQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 04:16:05 -0500
+Content-Disposition: inline
+In-Reply-To: <49646993.6080802@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Grzegorz Nosek wrote:
-> On =C5=9Bro, sty 07, 2009 at 02:01:10 +0800, Li Zefan wrote:
->> CC: netdev@vger.kernel.org
->>
->> I'll review the cgroup part if this patch is regarded as useful.
->>
->> Grzegorz Nosek wrote:
->>> This is a very simple cgroup subsystem to restrict IP addresses use=
-d
->>> by member processes. Currently it is limited to IPv4 only but IPv6 =
-(or
->>> other protocols) should be easy to implement.
->>>
->>> IP addresses are write-once (via /cgroup/.../ipaddr.ipv4 in dotted-=
-quad
->> Why they should be write-once ?
+On =C5=9Bro, sty 07, 2009 at 04:36:35 +0800, Li Zefan wrote:
+> Grzegorz Nosek wrote:
+> >>> IP addresses are write-once (via /cgroup/.../ipaddr.ipv4 in dotte=
+d-quad
+> >> Why they should be write-once ?
+> >=20
+> > No real (technical) reason. Making it read-write would be fine with=
+ me.
+> > I wanted to make the restriction a one-way road but I guess I can p=
+olice
+> > that in userspace (simply don't write anything to the file twice).
+> >=20
 >=20
-> No real (technical) reason. Making it read-write would be fine with m=
-e.
-> I wanted to make the restriction a one-way road but I guess I can pol=
-ice
-> that in userspace (simply don't write anything to the file twice).
+> But seems the patch makes it impossible to re-allow a restricted task=
+ to
+> be binded to INADDR_ANY.
+
+Yes, my goal is to disallow that but I don't insist to do that in the
+kernel (I'm not currently planning to let untrusted root loose in a
+container).
+
+> Firstly, is inheritance necessary ?
+
+It would be nice to have when the container's root is untrusted but
+might want to subdivide the container's cgroup for other purposes.
+Without inheritance, they would be able to circumvent the IP address
+restriction. One could argue that a full untrusted-root container would
+need a proper network namespace anyway (and giving CAP_SYS_ADMIN there
+is probably a very bad idea), but still, I'd feel uneasy.
+
+> If yes, then how about:
 >=20
-
-But seems the patch makes it impossible to re-allow a restricted task t=
-o
-be binded to INADDR_ANY.
-
-> However, I think that the restriction should be inherited, so that if
-> CG1 is bound to e.g. 10.0.0.1, CG1/CG2 must be bound to the same
-> address. But what would I do then with descendant cgroups? Leave them=
- as
-> is (breaking the inheritance)? Find them all and change their bound
-> address behind their back (do we have an API for that?)?
->=20
-
-=46irstly, is inheritance necessary ?
-
-If yes, then how about:
-
-The root cgroup is read-only, so the tasks in it always bind to INADDR_=
-ANY.
-=46or other cgroups, write is allowed only if it has no children and th=
+> The root cgroup is read-only, so the tasks in it always bind to INADD=
+R_ANY.
+> For other cgroups, write is allowed only if it has no children and th=
 e
-parent is INADDR_ANY.
+> parent is INADDR_ANY.
 
-> I guess I have the same problem right now, anyway (only once instead =
-of
-> multiple times), so I'd really appreciate your input on this.
->=20
-> Best regards,
->  Grzegorz Nosek
->=20
->=20
+Yes, I like that. Will update the patch. I assume that I must check
+list_empty(&cgroup->children)? Should I use cgroup_lock()/cgroup_unlock=
+()
+or other locking? I think it will be safe to do without locks but would
+rather get some expert advice.
 
+Thanks a lot for your comments.
 
+Best regards,
+ Grzegorz Nosek
