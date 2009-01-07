@@ -1,43 +1,36 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 16:02:59 +0300
-Message-ID: <20090107130259.GB32336@ioremap.net>
-References: <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net> <20090107115921.GA25323@gondor.apana.org.au> <20090107121530.GA30164@ioremap.net> <20090107122238.GB25673@gondor.apana.org.au> <20090107123741.GA31255@ioremap.net> <20090107124246.GA26034@gondor.apana.org.au> <20090107124629.GA31732@ioremap.net> <20090107125535.GC6307@1wt.eu> <20090107125734.GA26331@gondor.apana.org.au>
+Date: Wed, 7 Jan 2009 14:00:31 +0100
+Message-ID: <20090107130031.GD6307@1wt.eu>
+References: <20090106085442.GA9513@ff.dom.local> <20090106094138.GE25644@1wt.eu> <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk> <20090107124946.GA9677@ff.dom.local> <20090107125217.GA26235@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <w@1wt.eu>, Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jarek Poplawski <jarkao2@gmail.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:34170 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756919AbZAGNDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 08:03:01 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757521AbZAGNEU@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090107125734.GA26331@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090107125217.GA26235@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 07, 2009 at 11:57:34PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> On Wed, Jan 07, 2009 at 01:55:35PM +0100, Willy Tarreau wrote:
+On Wed, Jan 07, 2009 at 11:52:17PM +1100, Herbert Xu wrote:
+> On Wed, Jan 07, 2009 at 12:49:46PM +0000, Jarek Poplawski wrote:
 > > 
-> > kernel is 2.6.27.10 + a few patches (squashfs, etc..., nothing related to
+> > Hmm... in any case: take 3
 > 
-> 2.6.27 will enable GSO by default if SG is enabled at registration
-> time.
+> Yes this should fix the corruption but it kind of defeats the
+> purpose of splice by copying the data.
 
-So even if later sg was turned off without gso being turned off, it
-will try doing fair page transfer and not falling back to the copy.
+that's what I was initially wondering about, but it looks like only linear
+data is copied. Will that cause too much a overhead ? (I don't like copying
+at all anyway, but if it can help us find the cause, I'll happily test it).
 
-The simplest case is to also turn gso off, but with older ethtools it is
-not possible and you hit the bug.
+BTW, Jarek, don't be sorry, I *am* expecting to crash my laptop a number of
+times before ensuring the bug is fixed. I just don't want to lose my data.
 
-If I understood correctly Jarek's patch, he wants to allocate a page and
-copy linear content of the skb there, so this will end up being the same
-case as with splicing from the file. And while generally this may be a
-good idea, but with usual 1.5k mtu this will copy every skb, which is
-rather bad idea. Will have to think :)
-
--- 
-	Evgeniy Polyakov
+Cheers,
+Willy
