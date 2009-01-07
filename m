@@ -1,53 +1,80 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH] virtio_net: add link status handling
-Date: Wed, 07 Jan 2009 18:18:03 +0000
-Message-ID: <1231352283.5050.76.camel@localhost.localdomain>
-References: <1228817973.26198.1.camel@blaa> <493F336B.5010402@codemonkey.ws>
-	 <1228934084.5384.66.camel@blaa>  <200812121834.49464.rusty@rustcorp.com.au>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH -net-next 1/4] firmware: convert e100
+	driver to request_firmware()
+Date: Wed, 7 Jan 2009 10:23:44 -0800
+Message-ID: <9929d2390901071023s590f439fre15696786f098b81@mail.gmail.com>
+References: <9929d2390812301433pae01ea4g5bfdef6d4d4c7a9c@mail.gmail.com>
+	<20090104.160611.252248503.davem@davemloft.net>
+	<9929d2390901041820h4cf51e2h3612108c516b6869@mail.gmail.com>
+	<20090104.213402.12464178.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:47025 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751880AbZAGSSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 13:18:11 -0500
-In-Reply-To: <200812121834.49464.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org, jaswinder@infradead.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20090104.213402.12464178.davem@davemloft.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi Rusty,
+On Sun, Jan 4, 2009 at 9:34 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+> Date: Sun, 4 Jan 2009 18:20:24 -0800
+>
+>> On Sun, Jan 4, 2009 at 4:06 PM, David Miller <davem@davemloft.net> wrote:
+>> > From: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+>> > Date: Tue, 30 Dec 2008 14:33:36 -0800
+>> >
+>> >> Please hold off on committing, until we have had ample time to do some
+>> >> regression testing.  While this patch may have been in linux-next,
+>> >> this is the first we have seen of it.
+>> >>
+>> >> I am concerned that IPMI traffic will be adversely affected by this patch.
+>> >
+>> > Status please?
+>> > --
+>>
+>> The only testing left to do is to make sure that ICH devices still
+>> work and to make sure the IPMI traffic is not affected by this patch.
+>> All other testing looks good.  I am sorry that I have been slow to
+>> give status, the holiday's have put a strain on available resources.
+>
+> Ok, thanks for the update.
+> --
+>
 
-On Fri, 2008-12-12 at 18:34 +1030, Rusty Russell wrote:
-> On Thursday 11 December 2008 05:04:44 Mark McLoughlin wrote:
-> > On Tue, 2008-12-09 at 21:11 -0600, Anthony Liguori wrote:
-> > > Rusty Russell wrote:
-> > > > On Wednesday 10 December 2008 08:02:14 Anthony Liguori wrote:    
-> > > >> It would be nice if the virtio-net card wrote some acknowledgement that 
-> > > >> it has received the link status down/up events.
-> > > >
-> > > > How about of every status change event? ie. a generic virtio_pci solution?
-> > > 
-> > > A really simple way to do it would just be to have another status field 
-> > > that was the guest's status (verses the host requested status which the 
-> > > current field is).  All config reads/writes result in exits so it's easy 
-> > > to track.
-> > > 
-> > > Adding YA virtio event may be a little overkill.
-> > 
-> > Sounds very reasonable; that and Rusty's "mask out unknown bits"
-> > suggestion in the version below.
-> 
-> Not quite what I was after.  I've taken the original patch, added the
-> masking change.  I'll test here and feed to DaveM.
+So here is the latest testing update...
 
-This never got pushed to davem, did it? What you've got in your queue
-looks fine to me ...
+The only testing that we were not able to do was the IPMI testing,
+because of the lack of resources.  All other testing passed.
 
+While all other testing passed, I am concerned about not being able to
+test whether or not this change affects the ability to pass IPMI
+traffic.  I am not sure if the "gain" of using request_firmware() out
+weighs the potential risk that IPMI traffic may be broken with this
+patch.  I guess I wondering what the gain is in using the
+request_firmware() function?
+
+>From past experience with IPMI traffic and the e100, the loading of
+the microcode in the correct manner greatly affected whether IPMI
+traffic would pass or not.
+
+-- 
 Cheers,
-Mark.
+Jeff
 
+------------------------------------------------------------------------------
+Check out the new SourceForge.net Marketplace.
+It is the best place to buy or sell services for
+just about anything Open Source.
+http://p.sf.net/sfu/Xq1LFB
