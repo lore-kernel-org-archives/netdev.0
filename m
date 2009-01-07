@@ -1,68 +1,44 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 20/42] natsemi: update to net_device_ops
-Date: Tue, 06 Jan 2009 16:33:36 -0800
-Message-ID: <20090107003347.571857284@vyatta.com>
+Subject: [PATCH 18/42] ns83820: fix net_device_ops support
+Date: Tue, 06 Jan 2009 16:33:34 -0800
+Message-ID: <20090107003347.314121969@vyatta.com>
 References: <20090107003316.784424362@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:59035 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:59026 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756484AbZAGAxo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jan 2009 19:53:44 -0500
-Content-Disposition: inline; filename=natsemi.patch
+	id S1753019AbZAGAxh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jan 2009 19:53:37 -0500
+Content-Disposition: inline; filename=ns83820.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The vlan_rx_register fuction is now in net_device_ops
+
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/natsemi.c	2009-01-05 16:37:41.039070167 -0800
-+++ b/drivers/net/natsemi.c	2009-01-05 17:22:10.793568537 -0800
-@@ -779,6 +779,22 @@ static void __devinit natsemi_init_media
- 
- }
- 
-+static const struct net_device_ops natsemi_netdev_ops = {
-+	.ndo_open		= netdev_open,
-+	.ndo_stop		= netdev_close,
-+	.ndo_start_xmit		= start_tx,
-+	.ndo_get_stats		= get_stats,
-+	.ndo_set_multicast_list = set_rx_mode,
-+	.ndo_change_mtu		= natsemi_change_mtu,
-+	.ndo_do_ioctl		= netdev_ioctl,
-+	.ndo_tx_timeout 	= ns_tx_timeout,
-+	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_validate_addr	= eth_validate_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= natsemi_poll_controller,
+
+--- a/drivers/net/ns83820.c	2009-01-05 11:09:58.413568915 -0800
++++ b/drivers/net/ns83820.c	2009-01-05 11:10:50.579012963 -0800
+@@ -1957,6 +1957,9 @@ static const struct net_device_ops netde
+ 	.ndo_set_multicast_list = ns83820_set_multicast,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_tx_timeout		= ns83820_tx_timeout,
++#ifdef NS83820_VLAN_ACCEL_SUPPORT
++	.ndo_vlan_rx_register	= ns83820_vlan_rx_register,
 +#endif
-+};
-+
- static int __devinit natsemi_probe1 (struct pci_dev *pdev,
- 	const struct pci_device_id *ent)
- {
-@@ -911,20 +927,9 @@ static int __devinit natsemi_probe1 (str
- 	if (find_cnt < MAX_UNITS  &&  full_duplex[find_cnt])
- 		np->full_duplex = 1;
+ };
  
--	/* The chip-specific entries in the device structure. */
--	dev->open = &netdev_open;
--	dev->hard_start_xmit = &start_tx;
--	dev->stop = &netdev_close;
--	dev->get_stats = &get_stats;
--	dev->set_multicast_list = &set_rx_mode;
--	dev->change_mtu = &natsemi_change_mtu;
--	dev->do_ioctl = &netdev_ioctl;
--	dev->tx_timeout = &ns_tx_timeout;
-+	dev->netdev_ops = &natsemi_netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
+ static int __devinit ns83820_init_one(struct pci_dev *pci_dev,
+@@ -2216,7 +2219,6 @@ static int __devinit ns83820_init_one(st
+ #ifdef NS83820_VLAN_ACCEL_SUPPORT
+ 	/* We also support hardware vlan acceleration */
+ 	ndev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-	ndev->vlan_rx_register = ns83820_vlan_rx_register;
+ #endif
  
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = &natsemi_poll_controller;
--#endif
- 	SET_ETHTOOL_OPS(dev, &ethtool_ops);
- 
- 	if (mtu)
+ 	if (using_dac) {
 
 -- 
 
