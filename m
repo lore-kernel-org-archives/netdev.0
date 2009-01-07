@@ -1,34 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Wed, 7 Jan 2009 23:57:34 +1100
-Message-ID: <20090107125734.GA26331@gondor.apana.org.au>
-References: <20090107112906.GA28161@ioremap.net> <20090107115032.GA25198@gondor.apana.org.au> <20090107115605.GA29250@ioremap.net> <20090107115921.GA25323@gondor.apana.org.au> <20090107121530.GA30164@ioremap.net> <20090107122238.GB25673@gondor.apana.org.au> <20090107123741.GA31255@ioremap.net> <20090107124246.GA26034@gondor.apana.org.au> <20090107124629.GA31732@ioremap.net> <20090107125535.GC6307@1wt.eu>
+Date: Wed, 7 Jan 2009 15:57:56 +0300
+Message-ID: <20090107125756.GA32336@ioremap.net>
+References: <20090106094138.GE25644@1wt.eu> <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk> <20090107124034.GB31255@ioremap.net> <20090107125201.GB6307@1wt.eu> <20090107125356.GB26235@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Cc: Willy Tarreau <w@1wt.eu>, Jens Axboe <jens.axboe@oracle.com>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34045 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752358AbZAGM5q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 07:57:46 -0500
+Received: from genesysrack.ru ([195.178.208.66]:33774 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756491AbZAGM55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 07:57:57 -0500
 Content-Disposition: inline
-In-Reply-To: <20090107125535.GC6307@1wt.eu>
+In-Reply-To: <20090107125356.GB26235@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 01:55:35PM +0100, Willy Tarreau wrote:
+On Wed, Jan 07, 2009 at 11:53:56PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> On Wed, Jan 07, 2009 at 01:52:01PM +0100, Willy Tarreau wrote:
+> > 
+> > Evgeniy, I'd like to understand something related to our apparent lack of
+> > knowledge of when the data is effectively transmitted. If we're focusing
+> > on the send part, I can't understand why I never reproduce the corruption
+> > when the data source is a file or loopback, but I only see it when the source
+> > is an ethernet interface. How is it possible that a problem affecting only
 > 
-> kernel is 2.6.27.10 + a few patches (squashfs, etc..., nothing related to
+> It doesn't happen with a file because in that case you don't
+> start with an skb so there is no skb->head.  It probably doesn't
+> happen with loopback because loopback does GSO so again skb->head
+> does not exist (so to speak).
 
-2.6.27 will enable GSO by default if SG is enabled at registration
-time.
+Yup, basically splice's transmit pipe buffer contains page references,
+where the first one is actually not a real page but skb, while in the
+case of sendfile() and/or splice() from the file first page is a real
+page of the appropriate file.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Evgeniy Polyakov
