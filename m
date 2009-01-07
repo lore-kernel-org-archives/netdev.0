@@ -1,63 +1,84 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 1/3] wimax: fix '#ifdef CONFIG_BUG' layout to avoid
- warning
-Date: Wed, 7 Jan 2009 21:42:53 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901072139001.27541@wrl-59.cs.helsinki.fi>
-References: <cover.1231314782.git.inaky@linux.intel.com>
- <8baeb9679011f4f01a5f9709c725c4d829cb28bd.1231314782.git.inaky@linux.intel.com>
- <Pine.LNX.4.64.0901071200080.27307@wrl-59.cs.helsinki.fi>
- <200901070920.18032.inaky@linux.intel.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: [Bug 12378] New: Panic when sending heavy traffic
+Date: Wed, 7 Jan 2009 11:42:33 -0800
+Message-ID: <20090107114233.20b1c280@extreme>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696208474-1266802129-1231357264=:27541"
-Cc: Netdev <netdev@vger.kernel.org>, wimax@linuxwimax.org,
-	greg@kroah.com
-To: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33131 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756251AbZAGTmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 14:42:55 -0500
-In-Reply-To: <200901070920.18032.inaky@linux.intel.com>
-Content-ID: <Pine.LNX.4.64.0901072141510.27541@wrl-59.cs.helsinki.fi>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38525 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758054AbZAGTm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 14:42:56 -0500
+Received: from extreme (pool-96-225-207-155.ptldor.fios.verizon.net [96.225.207.155])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id n07Jgbxi022308
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 7 Jan 2009 11:42:38 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696208474-1266802129-1231357264=:27541
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0901072141511.27541@wrl-59.cs.helsinki.fi>
 
-On Wed, 7 Jan 2009, Inaky Perez-Gonzalez wrote:
+Begin forwarded message:
 
-> On Wednesday 07 January 2009, Ilpo Järvinen wrote:
-> > On Tue, 6 Jan 2009, Inaky Perez-Gonzalez wrote:
-> > > Reported by Randy Dunlap:
-> > > > Also, this warning needs to be fixed:
-> > > >
-> > > > linux-next-20090106/net/wimax/id-table.c:133: warning: ISO C90
-> > > > forbids mixed declarations and code
-> > >
-> > > Move the return on #defined(CONFIG_BUG) below the variable
-> > > declarations so it doesn't violate ISO C90.
-> > >
-> > > On wimax_id_table_release() we want to do a debug check if CONFIG_BUG
-> > > is enabled. However, we also want the debug code to be always compiled
-> > > to ensure there is no bitrot.
-> >
-> > I hope this kind of solution won't add some warnings? Besides, this seems
-> > rather strange reasoning as CONFIG_BUG is mostly enabled anyway?
-> 
-> Well, it is legal code -- short of 'if (1) return'. It doesn't warn (and 
-> it should not).
+Date: Wed,  7 Jan 2009 06:45:32 -0800 (PST)
+From: bugme-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 12378] New: Panic when sending heavy traffic
 
-Obviously, but I was concerned on the other lines than that 
-particular one, e.g., gcc might think that wimax_dev is unused 
-variable and emit a warning or along those lines...?
+
+http://bugzilla.kernel.org/show_bug.cgi?id=12378
+
+           Summary: Panic when sending heavy traffic
+           Product: Networking
+           Version: 2.5
+     KernelVersion: 2.6.17.13
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: csevijay@gmail.com
+
+
+Latest working kernel version: 2.6.17.13 
+Earliest failing kernel version:
+Distribution:
+Hardware Environment:e1000 card Supermicro-PDSBA
+pro1000GT
+Ram:512mb
+Software Environment:
+Problem Description: Panic when sending heavy traffic
+
+Steps to reproduce:When i pass heavy traffic after some time the linux box went
+to panic. and in the backtrace is shows as 
+
+PID: 2194   TASK: f71e50b0  CPU: 0   COMMAND: "xtremed"
+ #0 [f71be8c0] crash_kexec at c012edcc
+ #1 [f71be904] do_page_fault at c033d6dc
+ #2 [f71be950] error_code (via page_fault) at c0102e7d
+    EAX: 00000000  EBX: 00000000  ECX: 000f3f23  EDX: f71e5020  EBP: f71be9b4 
+    DS:  007b      ESI: 000f3f23  ES:  007b      EDI: 00000000
+    CS:  0060      EIP: c01135cf  ERR: ffffffff  EFLAGS: 00010003 
+ #3 [f71be984] scheduler_tick at c01135cf
+ #4 [f71be9b8] update_process_times at c011e239
+ #5 [f71be9d4] timer_interrupt at c01052fb
+ #6 [f71be9e8] handle_IRQ_event at c012fd61
+ #7 [f71bea10] __do_IRQ at c012fded
+ #8 [f71bea38] do_IRQ at c0104587
+ #9 [f71bea40] common_interrupt at c0102e1d
+    EAX: 1400020a  EBX: 0f070707  ECX: 00000000  EDX: f3b40180  EBP: f71beca8 
+    DS:  007b      ESI: f76e5000  ES:  007b      EDI: f71beb3c
+    CS:  0060      EIP: c02e036b  ERR: ffffff00  EFLAGS: 00000287 
+#10 [f71bea74] ip_route_input at c02e036b
 
 
 -- 
- i.
----696208474-1266802129-1231357264=:27541--
+Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
