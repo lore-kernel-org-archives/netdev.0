@@ -1,25 +1,21 @@
 From: Ira Snyder <iws@ovro.caltech.edu>
 Subject: [PATCH RFC v5] net: add PCINet driver
 Date: Wed, 7 Jan 2009 11:50:52 -0800
-Message-ID: <20090107195052.GA24981__45641.0241699361$1231358109$gmane$org@ovro.caltech.edu>
+Message-ID: <20090107195052.GA24981__37463.1591643721$1231359107$gmane$org@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Arnd Bergmann <arnd@arndb.de>
 To: linux-kernel@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ovro.ovro.caltech.edu ([192.100.16.2]:54595 "EHLO
+	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901AbZAGUKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 15:10:03 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This adds support to Linux for a virtual ethernet interface which uses the
 PCI bus as its transport mechanism. It creates a simple, familiar, and fast
@@ -3030,3 +3026,4 @@ index 0000000..499ba61
 +#endif /* PCINET_HW_H */
 -- 
 1.5.4.3
+
