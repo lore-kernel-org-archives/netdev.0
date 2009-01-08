@@ -1,39 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] IPV6 address management
-Date: Thu, 08 Jan 2009 11:24:20 -0800 (PST)
-Message-ID: <20090108.112420.102641584.davem@davemloft.net>
-References: <20090108093430.0f966738@extreme>
+From: Ira Snyder <iws@ovro.caltech.edu>
+Subject: Re: [PATCH RFC v5] net: add PCINet driver
+Date: Thu, 8 Jan 2009 11:27:16 -0800
+Message-ID: <20090108192716.GA19863@ovro.caltech.edu>
+References: <20090107195052.GA24981@ovro.caltech.edu>
+	<20090108.111610.132149837.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57815
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760863AbZAHTYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:24:18 -0500
-In-Reply-To: <20090108093430.0f966738@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, shemminger@vyatta.com,
+	linux-kernel@vger.kernel.org, arnd@arndb.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20090108.111610.132149837.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 8 Jan 2009 09:34:30 -0800
-
-> I notice that with IPV6 when interface is brought down, all addresses
-> are removed. This looks like intentional behaviour but means the
-> administrator (or daemon) must reinsert addresses. Since this is not
-> what the users expect it does lead to confusion.
+On Thu, Jan 08, 2009 at 11:16:10AM -0800, David Miller wrote:
+> From: Ira Snyder <iws@ovro.caltech.edu>
+> Date: Wed, 7 Jan 2009 11:50:52 -0800
 > 
-> Maybe the kernel should do this?
+> > This adds support to Linux for a virtual ethernet interface which uses the
+> > PCI bus as its transport mechanism. It creates a simple, familiar, and fast
+> > method of communication for two devices connected by a PCI interface.
+> 
+> Well, it looks like much more than that to me.
+> 
+> What is this UART thing in here for?
+> 
+> I can only assume it's meant to be used as a console port between the
+> x86 host and the powerpc nodes.
+> 
 
-After we've had this behavior for as long as we have, I doubt we can
-safely change it.
+Exactly right. I needed it to tell the U-Boot bootloader to tftp the
+kernel and boot the board. These boards don't keep their PCI settings
+(assigned by the BIOS at boot) over a soft or hard reset.
 
-I do agree it is unintuitive, and it also disagrees with ipv4 as you
-already know.
+I couldn't think of a better way to get them started.
 
-There are several crucial areas where our behavior deviates between
-ipv4 and ipv6, including this case.  And as more people start making
-real use of ipv6 we will see these complaints pop up over and over
-again from users.
+> You haven't even mentioned this UART aspect even indirectly in the
+> commit message.
+> 
+
+Sorry, I'll add something about it.
+
+> This just looks like yet another set of virtualization drivers
+> to me.  You could have just have easily built this using your
+> own PCI backplane framework, and using the virtio stuff on top.
+> 
+> And the virtio stuff has all kinds of snazzy optimizations that
+> will likely improve your throughput, it has console drivers that
+> distributions already probe for and attach appropriately, etc.
+> 
+> In short I really don't like this conceptually, it can be done
+> so much better using facilities we already have that are
+> heavily optimized and userland understands already.
+
+I've had a really hard time understanding the virtio code. I haven't
+been able to find much in the way of documentation for it. Can you point
+me to some code that does anything vaguely similar to what you are
+suggesting?
+
+Arnd Bergmann said that there is a similar driver (for different
+hardware) that uses virtio, but it is very slow, because it doesn't use
+the DMA controller to transfer data. I need at very minimum 40MB/sec of
+client -> host data transfer.
+
+Thanks for the comments,
+Ira
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
