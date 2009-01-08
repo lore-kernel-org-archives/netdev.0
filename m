@@ -1,56 +1,31 @@
-From: "Mike Frysinger" <vapier.adi@gmail.com>
-Subject: Re: [PATCH 2/2] netdev: bfin_mac: enable VLAN support in Blackfin MAC driver
-Date: Thu, 8 Jan 2009 14:01:49 -0500
-Message-ID: <8bd0f97a0901081101t6fdfa485rbd7ccc4e47691ddb@mail.gmail.com>
-References: <1231344879-26069-1-git-send-email-cooloney@kernel.org>
-	 <1231344879-26069-3-git-send-email-cooloney@kernel.org>
-	 <20090108.105531.176161465.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 2/2] qeth: convert to net_device_ops
+Date: Thu, 08 Jan 2009 10:50:59 -0800 (PST)
+Message-ID: <20090108.105059.214628615.davem@davemloft.net>
+References: <20090107121550.878339000@de.ibm.com>
+	<20090107121700.139748000@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cooloney@kernel.org, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, graf.yang@analog.com
-To: "David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:57046 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750988AbZAHTBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:01:51 -0500
-In-Reply-To: <20090108.105531.176161465.davem@davemloft.net>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39373
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756213AbZAHSu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 13:50:58 -0500
+In-Reply-To: <20090107121700.139748000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 8, 2009 at 13:55, David Miller <davem@davemloft.net> wrote:
-> From: Bryan Wu <cooloney@kernel.org>
->> +#define VLAN_ETHER_TYPE 0x8100
->
-> Please use ETH_P_8021Q from linux/if_ether.h instead of inventing
-> your own definition.
+From: frank.blaschka@de.ibm.com
+Date: Wed, 07 Jan 2009 13:15:52 +0100
 
-was a copy & paste due to not finding a better definition (3c59x.c)
+> qeth_l2, qeth_l3 convert to net_device_ops.
+> qeth_l3 remove vlan neigh_setup hack since it does not work any longer
+> with the new net_device_ops.
+> 
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 
->> +     /* The legal length of the frame is increased to 1538 bytes */
->> +     /*bfin_write_EMAC_VLAN2(VLAN_ETHER_TYPE);*/
->
-> Please do not add code that is just going to be commented
-> out and not used.
->
-> Also, I disagree with the:
->
-> +#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
->
-> conditional.  Probably this part of the chip should be programmed
-> unconditionally.
+Also applied, thanks.
 
-again, more of a copy & paste ... this is how a bunch of drivers are
-doing it now ...
-
-> We can get VLAN packets received and sent, using AF_PACKET
-> sockets, for example.  The chip should still respect those
-> even if VLAN proper is not being utilized.
-
-any tips on doing that ?
-
-thanks for reviewing!
--mike
