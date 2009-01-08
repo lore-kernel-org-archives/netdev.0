@@ -1,66 +1,74 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 5/5] Phonet: USB CDC Phonet function for gadget
- framework
-Date: Thu, 08 Jan 2009 18:15:05 +0100
-Message-ID: <1231434905.5298.22.camel@californication>
-References: <200812171607.14184.remi.denis-courmont@nokia.com>
-	 <1229522874-20636-5-git-send-email-remi.denis-courmont@nokia.com>
-	 <1230565448.15666.25.camel@californication>
-	 <200901080954.01181.remi.denis-courmont@nokia.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: [patch]convert pegasus driver to net_device_ops
+Date: Thu, 8 Jan 2009 18:16:42 +0100
+Message-ID: <200901081816.43102.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
+	petkan@users.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:49840 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751746AbZAHRPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 12:15:07 -0500
-In-Reply-To: <200901080954.01181.remi.denis-courmont@nokia.com>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:58068 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753197AbZAHRQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 12:16:21 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Remi,
+This converts the pegasus driver to use of the new net_device_ops structure
 
-> > > This implements the Nokia vendor-specific communication device cl=
-ass
-> > > function to exchange Phonet messages over USB. This function is a=
-lready
-> > > found in the "PC suite" USB profile of (non-Linux) Nokia handsets=
-=2E
-> > >
-> > > Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@noki=
-a.com>
-> > > ---
-> > >  drivers/usb/gadget/f_phonet.c |  621
-> > > +++++++++++++++++++++++++++++++++++++++++ drivers/usb/gadget/u_ph=
-onet.h |
-> > >   21 ++
-> > >  2 files changed, 642 insertions(+), 0 deletions(-)
-> > >  create mode 100644 drivers/usb/gadget/f_phonet.c
-> > >  create mode 100644 drivers/usb/gadget/u_phonet.h
-> >
-> > any reason why you didn't add an option to Kconfig to actually sele=
-ct
-> > this gadget?
->=20
-> Yeah: this is NOT a gadget. This is a function for any gadget that wi=
-shes to=20
-> use it. Same as the OBEX function in fact. What would be needed is a =
-Kconfig=20
-> for some gadget that actually uses that.
->=20
-> A -slightly outdated- example is here:
-> http://repository.maemo.org/pool/maemo5.0/free/k/kernel/
+Signed-off-by: Oliver Neukum<oneukum@suse.de>
 
-I see. Makes sense to me now. Any reason why the g_nokia gadget is not
-merged upstream? Would be nice to have this around for actually testing
-the PhoNet stuff.
+	Regards
+		Oliver
 
-Regards
+----
 
-Marcel
-
-
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -93,6 +93,7 @@ module_param (msg_level, int, 0);
+ MODULE_PARM_DESC (msg_level, "Override default message level");
+ 
+ MODULE_DEVICE_TABLE(usb, pegasus_ids);
++static const struct net_device_ops pegasus_netdev_ops;
+ 
+ static int update_eth_regs_async(pegasus_t *);
+ /* Aargh!!! I _really_ hate such tweaks */
+@@ -1360,14 +1361,10 @@ static int pegasus_probe(struct usb_interface *intf,
+ 	pegasus->intf = intf;
+ 	pegasus->usb = dev;
+ 	pegasus->net = net;
+-	net->open = pegasus_open;
+-	net->stop = pegasus_close;
++
++
+ 	net->watchdog_timeo = PEGASUS_TX_TIMEOUT;
+-	net->tx_timeout = pegasus_tx_timeout;
+-	net->do_ioctl = pegasus_ioctl;
+-	net->hard_start_xmit = pegasus_start_xmit;
+-	net->set_multicast_list = pegasus_set_multicast;
+-	net->get_stats = pegasus_netdev_stats;
++	net->netdev_ops = &pegasus_netdev_ops;
+ 	SET_ETHTOOL_OPS(net, &ops);
+ 	pegasus->mii.dev = net;
+ 	pegasus->mii.mdio_read = mdio_read;
+@@ -1482,6 +1479,16 @@ static int pegasus_resume (struct usb_interface *intf)
+ 	return 0;
+ }
+ 
++static const struct net_device_ops pegasus_netdev_ops = {
++	.ndo_open =			pegasus_open,
++	.ndo_stop =			pegasus_close,
++	.ndo_do_ioctl =			pegasus_ioctl,
++	.ndo_start_xmit =		pegasus_start_xmit,
++	.ndo_set_multicast_list =	pegasus_set_multicast,
++	.ndo_get_stats =		pegasus_netdev_stats,
++	.ndo_tx_timeout =		pegasus_tx_timeout,
++};
++
+ static struct usb_driver pegasus_driver = {
+ 	.name = driver_name,
+ 	.probe = pegasus_probe,
