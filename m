@@ -1,43 +1,47 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: IP LRO
-Date: Thu, 8 Jan 2009 12:17:56 +0300
-Message-ID: <20090108091755.GA23458@ioremap.net>
-References: <4965BF43.1060801@mellanox.co.il>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB - very bad precision? HFSC works fine! 2.6.28
+Date: Thu, 8 Jan 2009 09:27:20 +0000
+Message-ID: <20090108092720.GC4496@ff.dom.local>
+References: <200901080002.37223.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, liranl@mellanox.co.il,
-	tziporet@mellanox.co.il
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:57595 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068AbZAHJR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 04:17:58 -0500
+Received: from mail-ew0-f31.google.com ([209.85.219.31]:56796 "EHLO
+	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753525AbZAHJ11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 04:27:27 -0500
+Received: by ewy12 with SMTP id 12so3094335ewy.13
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 01:27:24 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <4965BF43.1060801@mellanox.co.il>
+In-Reply-To: <200901080002.37223.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Yevgeny.
+On 07-01-2009 23:02, Denys Fedoryschenko wrote:
+> I notice that our uplink ISP complaining, that we are exceeding our UP rate.
+> 
+> I have configured at HTB 60Mbps, but he is actually receiving bursts up to 
+> 64Mbps.
+> 
+> I tried to lower down HTB values to 57Mbps, and even on Cisco switch interface 
+> counter(it is averaging 30 seconds of data i guess, to calculate bandwidth) - 
+> it shows 60.1 - 60.4.
+> 
+> Funny thing, root class in HTB shows 57.1 - 57.3 Mbps. So maybe byte counting 
+> is wrong in HTB?
 
-On Thu, Jan 08, 2009 at 10:54:27AM +0200, Yevgeny Petrilin (yevgenyp@mellanox.co.il) wrote:
-> We have recently implemented a reassembly of fragmented IP packets in
-> mlx4_en driver. This offload gives a performance boost in case of incoming
-> traffic with fragmented packets (such as UDP traffic with message size larger
-> then MTU). The attached patch contains this offload. I believe that we can make
-> this code generic, maybe part of inet_lro.
-> Please review and comment.
+Does this "2.6.28" in the subject mean it was better before or not
+tested? Could you do a few snapshots with: tc -s qdisc show dev $DEV
 
-Frankly from the patch it is quite hard to tell if it is suitable or not
-for the generic usage. For example no structure access or lookup are
-guarded with some locks, likely they are somewhere in the driver itself,
-so at least it should be documented. Fragment structure can be
-rearranged to better fit the alignment rules of the platform (there are
-gaps even on 32bit). Please provide higher-level description on how it
-operates compared to existing GRO/LRO (except that it is one layer lower),
-how strcutres are operated, what are the lifetime rules for them and
-appropriate skbs, what are the usage case. How will it live with
-GRO/LRO, i.e. who will steal the skb if it matches both subsystems.
+> 
+> I have also "default filter" 
+> tc filter add dev ${DEV} parent 1:0 protocol ip prio 800 u32 match ip src 
+> 0.0.0.0/0 flowid 1:50
 
--- 
-	Evgeniy Polyakov
+I can see "tc qdisc add ... default 1000" in your config; is there a
+class with this classid? Is there something in "direct_packets_stats"?
+Maybe: "ethtool -k $DEV", BTW?
+
+Jarek P.
