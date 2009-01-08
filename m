@@ -1,44 +1,31 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
-Date: Thu, 8 Jan 2009 12:22:17 +1100 (EST)
-Message-ID: <alpine.LRH.1.10.0901081057430.10976@tundra.namei.org>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <20090107210758.GH3164@didacte.laptop.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 02/42] appletalk: convert ipddp to net_device_ops
+Date: Wed, 07 Jan 2009 17:22:47 -0800 (PST)
+Message-ID: <20090107.172247.152425486.davem@davemloft.net>
+References: <20090107003316.784424362@vyatta.com>
+	<20090107003345.633563939@vyatta.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: Michael Stone <michael@laptop.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20090107210758.GH3164@didacte.laptop.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36708
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754971AbZAHBWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 20:22:45 -0500
+In-Reply-To: <20090107003345.633563939@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[added lsm list to the cc]
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 06 Jan 2009 16:33:18 -0800
 
-> Daniel Bernstein has observed [1] that security-conscious userland 
-> processes may benefit from the ability to irrevocably remove their 
-> ability to  create, bind, connect to, or send messages except in the 
-> case of previously connected sockets or AF_UNIX filesystem sockets. We 
-> provide this facility by implementing support for a new rlimit called 
-> RLIMIT_NETWORK.
-> 
-> This facility is particularly attractive to security platforms like OLPC
-> Bitfrost [2] and to isolation programs like Rainbow [3] and Plash [4].
-> 
-> [1]: http://cr.yp.to/unix/disablenetwork.html
-> [2]: http://wiki.laptop.org/go/OLPC_Bitfrost
-> [3]: http://wiki.laptop.org/go/Rainbow
-> [4]: http://plash.beasts.org/
+> Use internal element in network device for stats as well.
 
-Have you considered utilizing network namespaces [1] ?  A process created 
-with a private network namespace has no network interfaces configured, 
-except loopback, which is down.  Does this do what you want?  The launcher 
-could optionally allow local IP by bringing up the loopback interface.
+Tsk tsk, combining two seperate changes into one patch
+submission...
 
-[1] http://lxc.sourceforge.net/network.php
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Applied.
