@@ -1,43 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-	2.6.28
-Date: Thu, 8 Jan 2009 13:59:27 +0000
-Message-ID: <20090108135927.GC5493@ff.dom.local>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <20090108094231.GD4496@ff.dom.local> <20090108095403.GE4496@ff.dom.local> <20090108100614.GA5418@ff.dom.local> <2025.192.168.1.3.1231410939.squirrel@webmail.decimal.pt> <20090108110430.GB5493@ff.dom.local> <2111.192.168.1.3.1231413721.squirrel@webmail.decimal.pt>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: dev->get_stats(dev) in COMPAT_NET_DEV_OPS case
+Date: Thu, 08 Jan 2009 15:02:28 +0100
+Message-ID: <49660774.6060603@hartkopp.net>
+References: <4965FBA5.2010605@hartkopp.net> <1231421397.3408.5.camel@hashbaz.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: mysql.jorge@decimal.pt
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f31.google.com ([209.85.219.31]:39493 "EHLO
-	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755021AbZAHN7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 08:59:35 -0500
-Received: by ewy12 with SMTP id 12so3132768ewy.13
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 05:59:33 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <2111.192.168.1.3.1231413721.squirrel@webmail.decimal.pt>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:19504 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751586AbZAHOC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 09:02:29 -0500
+In-Reply-To: <1231421397.3408.5.camel@hashbaz.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2009 at 11:22:01AM -0000, mysql.jorge@decimal.pt wrote:
-...
-> lira:~# ethtool -k eth0
-> Offload parameters for eth0:
-> Cannot get device flags: Operation not supported
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp segmentation offload: on
-> udp fragmentation offload: off
-> generic segmentation offload: off
-> large receive offload: off
-> 
+Ben Hutchings wrote:
+> On Thu, 2009-01-08 at 14:12 +0100, Oliver Hartkopp wrote:
+>   
+>> Hello Stephen,
+>>
+>> in commit eeda3fd64f75bcbfaa70ce946513abaf3f23b8e0 ("netdev: introduce dev_get_stats()")
+>> you remove the setting of dev->get_stats :
+>>
+>> @@ -4370,7  +4384,6 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+>>  
+>>         netdev_init_queues(dev);
+>>  
+>> -       dev->get_stats = internal_stats;
+>>         netpoll_netdev_init(dev);
+>>         setup(dev);
+>>         strcpy(dev->name, name);
+>>
+>> I really appreciate your introduction of COMPAT_NET_DEV_OPS but when i 
+>> try to compile and run a non-converted driver, i get a NULL pointer 
+>> dereference. I tracked it down to be the call of dev->get_stats(dev).
+>>
+>> Did you miss something or is this behaviour intended?
+>>     
+>
+> You should be calling dev_get_stats() now.
+>
+>   
 
-Could you try to check this with scatter-gather and tcp segmentation
-offload off too? If there is no difference please send the stats
-again both for working and non-working case.
+I noticed that myself and besides a warning (about the const / non-const 
+definition) i got it working again.
+But the question remains, if it still makes sense to provide 
+dev->get_stats() (referencing to dev_get_stats()) in the 
+COMPAT_NET_DEV_OPS case, as i would surely not be the only one tapping 
+into this problem ...
 
-Thanks,
-Jarek P.
+Regards,
+Oliver
+
