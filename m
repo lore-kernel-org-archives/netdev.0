@@ -1,153 +1,59 @@
-From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
-Date: Thu, 8 Jan 2009 05:03:07 +0100
-Message-ID: <5a4c581d0901072003j1d3c7d0dy9b2f4cdd68bc1663@mail.gmail.com>
-References: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
+Date: Thu, 8 Jan 2009 07:27:15 +0300
+Message-ID: <20090108042715.GA16187@ioremap.net>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <20090107210758.GH3164@didacte.laptop.org> <20090107215935.GB4610@ioremap.net> <20090108005621.GI3164@didacte.laptop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Michael Stone <michael@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.189]:9801 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814AbZAHEDK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 23:03:10 -0500
-In-Reply-To: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
+Received: from cs-studio.ru ([195.178.208.66]:52697 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751810AbZAHE1S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 23:27:18 -0500
 Content-Disposition: inline
+In-Reply-To: <20090108005621.GI3164@didacte.laptop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 7, 2009 at 3:24 PM, Alessandro Suardi
-<alessandro.suardi@gmail.com> wrote:
-> From dmesg:
->
-> [asuardi@sandman src]$ dmesg | grep tg3
-> tg3.c:v3.97 (December 10, 2008)
-> tg3 0000:02:00.0: PCI INT A -> Link[LNKA] -> GSI 11 (level, low) -> IRQ 11
-> tg3 0000:02:00.0: setting latency timer to 64
-> tg3 0000:02:00.0: wake-up capability disabled by ACPI
-> tg3 0000:02:00.0: PME# disabled
-> tg3 0000:02:00.0: firmware: requesting tigon/tg3_tso.bin
-> tg3: Failed to load firmware "tigon/tg3_tso.bin"
-> tg3 0000:02:00.0: PCI INT A disabled
-> tg3: probe of 0000:02:00.0 failed with error -2
->
->
-> But /lib/firmware/tigon/tg3_tso.bin is actually present:
->
-> [asuardi@sandman src]$ ls -l /lib/firmware/tigon/tg3_tso.bin
-> -rw-r--r-- 1 root root 7004 2009-01-06 22:58 /lib/firmware/tigon/tg3_tso.bin
->
->
->
-> Diffing the .configs one can see CONFIG_KMOD disappeared; and
->  the output of the kernel build in -git8 also has the IHEX parts about
->  tg3 firmware which are new (I don't recall seeing those in the last
->  1000 builds or so ;)
->
-> [asuardi@sandman src]$ diff .config-2.6.28-git[78]
-> 3,4c3,4
-> < # Linux kernel version: 2.6.28-git7
-> < # Mon Jan  5 17:34:11 2009
-> ---
->> # Linux kernel version: 2.6.28-git8
->> # Tue Jan  6 22:06:19 2009
-> 133d132
-> < CONFIG_KMOD=y
-> 1324a1324
->> # CONFIG_TWL4030_CORE is not set
-> 1591d1590
-> < CONFIG_HID_BRIGHT=y
-> 1595d1593
-> < CONFIG_HID_DELL=y
-> 1602a1601
->> CONFIG_HID_NTRIG=y
-> 1608a1608,1609
->> # CONFIG_GREENASIA_FF is not set
->> CONFIG_HID_TOPSEED=y
-> 1821c1822
-> < # CONFIG_OCFS2_COMPAT_JBD is not set
-> ---
->> CONFIG_OCFS2_FS_POSIX_ACL=y
-> 1825c1826,1832
-> < # CONFIG_QUOTA is not set
-> ---
->> CONFIG_QUOTA=y
->> CONFIG_QUOTA_NETLINK_INTERFACE=y
->> # CONFIG_PRINT_QUOTA_WARNING is not set
->> CONFIG_QUOTA_TREE=y
->> # CONFIG_QFMT_V1 is not set
->> CONFIG_QFMT_V2=y
->> CONFIG_QUOTACTL=y
->
->
->
-> [asuardi@sandman src]$ diff /tmp/make-kernel-2.6.28-git[78].out
-> 669a670
->>   CC [M]  fs/ocfs2/blockcheck.o
-> 692a694,695
->>   CC [M]  fs/ocfs2/quota_local.o
->>   CC [M]  fs/ocfs2/quota_global.o
-> 693a697
->>   CC [M]  fs/ocfs2/acl.o
-> 810a815,818
->>   CC      fs/dquot.o
->>   CC      fs/quota_v2.o
->>   CC      fs/quota_tree.o
->>   CC      fs/quota.o
-> 1045c1053
-> < /share/src/linux-2.6.28-git7/arch/x86/include/asm/string_32.h:75:
-> warning: array subscript is above array bounds
-> ---
->> /share/src/linux-2.6.28-git8/arch/x86/include/asm/string_32.h:75: warning: array subscript is above array bounds
-> 1286d1293
-> <   CC      drivers/hid/hid-bright.o
-> 1290d1296
-> <   CC      drivers/hid/hid-dell.o
-> 1295a1302
->>   CC      drivers/hid/hid-ntrig.o
-> 1300a1308
->>   CC      drivers/hid/hid-topseed.o
-> 1521c1529
-> < /share/src/linux-2.6.28-git7/arch/x86/include/asm/string_32.h:75:
-> warning: array subscript is above array bounds
-> ---
->> /share/src/linux-2.6.28-git8/arch/x86/include/asm/string_32.h:75: warning: array subscript is above array bounds
-> 1983d1990
-> < net/rfkill/rfkill.c:59: warning: 'rfkill_led_trigger' defined but not used
-> 2234,2235c2241,2242
-> < System is 2000 kB
-> < CRC 8dd05de2
-> ---
->> System is 2013 kB
->> CRC 37411210
-> 2646a2654,2656
->>   IHEX    firmware/tigon/tg3.bin
->>   IHEX    firmware/tigon/tg3_tso.bin
->>   IHEX    firmware/tigon/tg3_tso5.bin
->
->
-> So which is it, whatever the IHEX part did or the disappearance of
->  CONFIG_KMOD (which is in the -git8 patch, indeed) to cause
->  this issue ?
->
-> Note that I don't have CONFIG_FIRMWARE_IN_KERNEL, but on
->  the other hand I didn't earlier, either... and yes, CONFIG_MODULES=y.
->
->
-> thanks in advance, ciao,
+On Wed, Jan 07, 2009 at 07:56:21PM -0500, Michael Stone (michael@laptop.org) wrote:
+> On Thu, Jan 08, 2009 at 12:59:36AM +0300, Evgeniy Polyakov wrote:
+> >I meant that connected or accepted socket will not be able to send data
+> >via send() call, but will be able to receive data using recv().
+> 
+> A key fact which may not have stood out, since I didn't comment on it
+> explicitly in the code, is that the disqualification tests inserted by
+> the __sock_sendmsg() and unix_dgram_sendmsg hunks contain additional
+> conditions like
+> 
+> __sock_sendmsg():
+> +               && (msg->msg_name != NULL || msg->msg_namelen != 0))
+> 
+> unix_dgram_sendmsg():
+> +                       && !sunaddr->sun_path[0])
+> 
+> which return us to the usual codepaths whenever we're dealing with an
+> already-connected socket. Since my tests pass, can you post an example
+> of a failing send() call which you think should work?
 
-Still broken in -git10, cc'ing netdev... h/w is the onboard
- Gigabit ethernet on my Dell Latitude D610, that is
+You are right, I misread the documentation part where it is explained
+that already connected sockets are allowed to operate. Btw that code
+part breaks codying style with trailing '\' and '&&' on the new line.
+There should be something wrong in the patch :)
 
-02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5751
-Gigabit Ethernet PCI Express (rev 01)
+> >Your patch adds a rlimit check into __sock_sendmsg() call, which is
+> >invoked via usual send() path, but sendfile() and splice() are still
+> >exectuted without this check and thus will be able to send data after
+> >rlimit applied.
+> 
+> As far as I can tell, sendfile() and splice(), which operate solely on
+> fds, cannot be used to send messages via a disconnected socket.
+> Therefore, I /believe/ that they require no modification. Am I terribly
+> mistaken about this?
 
-thanks,
+No you are not, as long as user is allowed to operate with already
+connected and/or bound sockets there should be no problems.
 
---alessandro
-
- "Sun keeps rising in the west / I keep on waking fully confused"
-
-   (The Replacements, "Within Your Reach")
+-- 
+	Evgeniy Polyakov
