@@ -1,37 +1,66 @@
-From: "Jorge Bastos" <mysql.jorge@decimal.pt>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!    
-      2.6.28
-Date: Thu, 8 Jan 2009 21:46:04 -0000 (WET)
-Message-ID: <1059.87.196.62.168.1231451164.squirrel@webmail.decimal.pt>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt>
-    <3226.192.168.1.3.1231435651.squirrel@webmail.decimal.pt>
-    <200901082032.16859.denys@visp.net.lb>
-    <200901082041.58597.denys@visp.net.lb>
+From: Ben Mansell <ben@zeus.com>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Thu, 08 Jan 2009 21:50:44 +0000
+Message-ID: <49667534.5060501@zeus.com>
+References: <20090108173028.GA22531@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Jarek Poplawski" <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: "Denys Fedoryschenko" <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Jens Axboe <jens.axboe@oracle.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly08.isp.novis.pt ([195.23.133.218]:41383 "EHLO
-	mailrly08.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753991AbZAHVpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 16:45:44 -0500
-In-Reply-To: <200901082041.58597.denys@visp.net.lb>
+Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:7091 "EHLO
+	mtaout03-winn.ispmail.ntl.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751031AbZAHVvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 16:51:06 -0500
+In-Reply-To: <20090108173028.GA22531@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Well... i'm out of ideias.
-CBQ seems to be working OK without the parameters disables that Jarek told
-me to disable.
+> From fafe76713523c8e9767805cfdc7b73323d7bf180 Mon Sep 17 00:00:00 2001
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Thu, 8 Jan 2009 17:10:13 +0100
+> Subject: [PATCH] tcp: splice as many packets as possible at once
+> 
+> Currently, in non-blocking mode, tcp_splice_read() returns after
+> splicing one segment regardless of the len argument. This results
+> in low performance and very high overhead due to syscall rate when
+> splicing from interfaces which do not support LRO.
+> 
+> The fix simply consists in not breaking out of the loop after the
+> first read. That way, we can read up to the size requested by the
+> caller and still return when there is no data left.
+> 
+> Performance has significantly improved with this fix, with the
+> number of calls to splice() divided by about 20, and CPU usage
+> dropped from 100% to 75%.
+> 
 
-What can you say about this Jarek?
+I get similar results with my testing here. Benchmarking an application 
+with this patch shows that more than one packet is being splice()d in at 
+once, as a result I see a doubling in throughput.
 
+Tested-by: Ben Mansell <ben@zeus.com>
 
-> I check, also HFSC not keeping bandwidth accurate.
-> Seems i am totally lost, what to do.
-> Any ideas what i can try?
->
-
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
+> ---
+>  net/ipv4/tcp.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 35bcddf..80261b4 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -615,7 +615,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
+>  		lock_sock(sk);
+>  
+>  		if (sk->sk_err || sk->sk_state == TCP_CLOSE ||
+> -		    (sk->sk_shutdown & RCV_SHUTDOWN) || !timeo ||
+> +		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
+>  		    signal_pending(current))
+>  			break;
+>  	}
 
