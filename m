@@ -1,45 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] pcnet32: round off carrier watch timer
-Date: Wed, 7 Jan 2009 16:38:19 -0800
-Message-ID: <20090107163819.3ef02507@extreme>
-References: <20090107121036.4e16b7cf@extreme>
-	<496549AF.3050500@cn.fujitsu.com>
+From: Michael Stone <michael@laptop.org>
+Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
+Date: Wed, 7 Jan 2009 19:56:21 -0500
+Message-ID: <20090108005621.GI3164@didacte.laptop.org>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <20090107210758.GH3164@didacte.laptop.org> <20090107215935.GB4610@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Wang Chen <wangchen@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37044 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756887AbZAHAiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 19:38:21 -0500
-In-Reply-To: <496549AF.3050500@cn.fujitsu.com>
+Received: from lists.laptop.org ([18.85.2.145]:50012 "EHLO mail.laptop.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753956AbZAHA4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 19:56:22 -0500
+Received: from didacte.laptop.org (dhcp-47-72.media.mit.edu [18.85.47.72])
+	by mail.laptop.org (Postfix) with SMTP id 0C8D723AD1
+	for <netdev@vger.kernel.org>; Wed,  7 Jan 2009 19:56:23 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <20090107215935.GB4610@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 08 Jan 2009 08:32:47 +0800
-Wang Chen <wangchen@cn.fujitsu.com> wrote:
+On Thu, Jan 08, 2009 at 12:59:36AM +0300, Evgeniy Polyakov wrote:
+>I meant that connected or accepted socket will not be able to send data
+>via send() call, but will be able to receive data using recv().
 
-> Stephen Hemminger said the following on 2009-1-8 4:10:
-> > The link check watchdog timer on this driver fires every two seconds, but
-> > since not aligned it causes extra wakeups. It is more important on this
-> > driver than most because it is the hardware that is emulated by default
-> > when using network interfaces on VMware.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > 
-> > --- a/drivers/net/pcnet32.c	2009-01-07 12:05:54.218712996 -0800
-> > +++ b/drivers/net/pcnet32.c	2009-01-07 12:06:37.430288101 -0800
-> > @@ -2282,7 +2282,7 @@ static int pcnet32_open(struct net_devic
-> >  	if (lp->chip_version >= PCNET32_79C970A) {
-> >  		/* Print the link status and start the watchdog */
-> >  		pcnet32_check_media(dev, 1);
-> > -		mod_timer(&(lp->watchdog_timer), PCNET32_WATCHDOG_TIMEOUT);
-> > +		mod_timer(&lp->watchdog_timer, PCNET32_WATCHDOG_TIMEOUT);
-> 
-> should be
-> +		mod_timer(&lp->watchdog_timer, round_jiffies(PCNET32_WATCHDOG_TIMEOUT));
-> same as that in pcnet32_watchdog()?
+A key fact which may not have stood out, since I didn't comment on it
+explicitly in the code, is that the disqualification tests inserted by
+the __sock_sendmsg() and unix_dgram_sendmsg hunks contain additional
+conditions like
 
-It only gets run on the first tick so it doesn't matter.
+__sock_sendmsg():
++               && (msg->msg_name != NULL || msg->msg_namelen != 0))
+
+unix_dgram_sendmsg():
++                       && !sunaddr->sun_path[0])
+
+which return us to the usual codepaths whenever we're dealing with an
+already-connected socket. Since my tests pass, can you post an example
+of a failing send() call which you think should work?
+
+>Your patch adds a rlimit check into __sock_sendmsg() call, which is
+>invoked via usual send() path, but sendfile() and splice() are still
+>exectuted without this check and thus will be able to send data after
+>rlimit applied.
+
+As far as I can tell, sendfile() and splice(), which operate solely on
+fds, cannot be used to send messages via a disconnected socket.
+Therefore, I /believe/ that they require no modification. Am I terribly
+mistaken about this?
+
+Thanks,
+
+Michael
