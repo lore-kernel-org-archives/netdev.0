@@ -1,57 +1,31 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!     2.6.28
-Date: Thu, 8 Jan 2009 20:46:07 +0200
-Message-ID: <200901082046.07857.denys@visp.net.lb>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <200901082032.16859.denys@visp.net.lb> <3827.192.168.1.3.1231439836.squirrel@webmail.decimal.pt>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] r6040: make printks consistent with DRV_NAME
+Date: Thu, 08 Jan 2009 11:01:18 -0800 (PST)
+Message-ID: <20090108.110118.211778968.davem@davemloft.net>
+References: <200901071740.31046.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Jarek Poplawski" <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: "Jorge Bastos" <mysql.jorge@decimal.pt>
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:60721 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757738AbZAHSqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 13:46:06 -0500
-In-Reply-To: <3827.192.168.1.3.1231439836.squirrel@webmail.decimal.pt>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42273
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757525AbZAHTBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:01:16 -0500
+In-Reply-To: <200901071740.31046.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-on this interface 
+From: Florian Fainelli <florian@openwrt.org>
+Date: Wed, 7 Jan 2009 17:40:30 +0100
 
-Router-Dora /config # ethtool -i eth0
-driver: e1000e
-version: 0.3.3.3-k6
-firmware-version: 2.1-11
-bus-info: 0000:04:00.0
+> r6040: make printks consistent with DRV_NAME
+> 
+> This patch fixes some printks which were not prefixed
+> with DRV_NAME, useful when having multiple cards/drivers
+> on the system.
+> 
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-Router-Dora /config # ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 1
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: pumbag
-        Wake-on: g
-        Current message level: 0x00000001 (1)
-        Link detected: yes
-
-
-On Thursday 08 January 2009 20:37:16 Jorge Bastos wrote:
-> What's your NIC?
-> Speed, and driver that you are using.
->
+Applied.
