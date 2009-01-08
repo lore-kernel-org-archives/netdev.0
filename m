@@ -1,49 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Thu, 08 Jan 2009 13:55:15 -0800 (PST)
-Message-ID: <20090108.135515.85489589.davem@davemloft.net>
-References: <20090108173028.GA22531@1wt.eu>
-	<49667534.5060501@zeus.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] IPV6 address management
+Date: Thu, 8 Jan 2009 13:56:14 -0800
+Message-ID: <20090108135614.23aed603@extreme>
+References: <20090108121220.789325a6@extreme>
+	<20090108.125830.142298950.davem@davemloft.net>
+	<20090108134402.6e88438f@extreme>
+	<20090108.135125.13529853.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, jarkao2@gmail.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: ben@zeus.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54409
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752100AbZAHVzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 16:55:13 -0500
-In-Reply-To: <49667534.5060501@zeus.com>
+Received: from mail.vyatta.com ([76.74.103.46]:36916 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752100AbZAHV4P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 16:56:15 -0500
+In-Reply-To: <20090108.135125.13529853.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Mansell <ben@zeus.com>
-Date: Thu, 08 Jan 2009 21:50:44 +0000
+On Thu, 08 Jan 2009 13:51:25 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-> > From fafe76713523c8e9767805cfdc7b73323d7bf180 Mon Sep 17 00:00:00 2001
-> > From: Willy Tarreau <w@1wt.eu>
-> > Date: Thu, 8 Jan 2009 17:10:13 +0100
-> > Subject: [PATCH] tcp: splice as many packets as possible at once
-> > Currently, in non-blocking mode, tcp_splice_read() returns after
-> > splicing one segment regardless of the len argument. This results
-> > in low performance and very high overhead due to syscall rate when
-> > splicing from interfaces which do not support LRO.
-> > The fix simply consists in not breaking out of the loop after the
-> > first read. That way, we can read up to the size requested by the
-> > caller and still return when there is no data left.
-> > Performance has significantly improved with this fix, with the
-> > number of calls to splice() divided by about 20, and CPU usage
-> > dropped from 100% to 75%.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 8 Jan 2009 13:44:02 -0800
+> 
+> > On Thu, 08 Jan 2009 12:58:30 -0800 (PST)
+> > David Miller <davem@davemloft.net> wrote:
 > > 
+> > > Or is it to gradually get people to use the non-default
+> > > (via distribution sysctl settings etc.) and eventually
+> > > make it the default?
+> > No plan to ever change the default. Just ship with sysctl.conf
+> > setting.
 > 
-> I get similar results with my testing here. Benchmarking an application with this patch shows that more than one packet is being splice()d in at once, as a result I see a doubling in throughput.
-> 
-> Tested-by: Ben Mansell <ben@zeus.com>
+> If the distributions all ship with the sysctl changed
+> to the non-default, our "default" is pretty meaningless
+> wouldn't you say?
 
-I'm not applying this until someone explains to me why
-we should remove this test from the splice receive but
-keep it in the tcp_recvmsg() code where it has been
-essentially forever.
+It seems the only logical way to undo a poor choice
+in the original design
