@@ -1,50 +1,153 @@
-From: Michael Stone <michael@laptop.org>
-Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
-Date: Wed, 7 Jan 2009 22:34:54 -0500
-Message-ID: <20090108033454.GK3164@didacte.laptop.org>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <20090107210758.GH3164@didacte.laptop.org> <alpine.LRH.1.10.0901081057430.10976@tundra.namei.org>
+From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
+Date: Thu, 8 Jan 2009 05:03:07 +0100
+Message-ID: <5a4c581d0901072003j1d3c7d0dy9b2f4cdd68bc1663@mail.gmail.com>
+References: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: James Morris <jmorris@namei.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.laptop.org ([18.85.2.145]:50985 "EHLO mail.laptop.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752350AbZAHDez (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 22:34:55 -0500
-Received: from didacte.laptop.org (dhcp-47-72.media.mit.edu [18.85.47.72])
-	by mail.laptop.org (Postfix) with SMTP id F3A7E23B6B
-	for <netdev@vger.kernel.org>; Wed,  7 Jan 2009 22:34:55 -0500 (EST)
+Received: from fk-out-0910.google.com ([209.85.128.189]:9801 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750814AbZAHEDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 23:03:10 -0500
+In-Reply-To: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <alpine.LRH.1.10.0901081057430.10976@tundra.namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2009 at 12:22:17PM +1100, James Morris wrote:
->Have you considered utilizing network namespaces [1] ?  A process created 
->with a private network namespace has no network interfaces configured, 
->except loopback, which is down.  Does this do what you want?  The launcher 
->could optionally allow local IP by bringing up the loopback interface.
+On Wed, Jan 7, 2009 at 3:24 PM, Alessandro Suardi
+<alessandro.suardi@gmail.com> wrote:
+> From dmesg:
+>
+> [asuardi@sandman src]$ dmesg | grep tg3
+> tg3.c:v3.97 (December 10, 2008)
+> tg3 0000:02:00.0: PCI INT A -> Link[LNKA] -> GSI 11 (level, low) -> IRQ 11
+> tg3 0000:02:00.0: setting latency timer to 64
+> tg3 0000:02:00.0: wake-up capability disabled by ACPI
+> tg3 0000:02:00.0: PME# disabled
+> tg3 0000:02:00.0: firmware: requesting tigon/tg3_tso.bin
+> tg3: Failed to load firmware "tigon/tg3_tso.bin"
+> tg3 0000:02:00.0: PCI INT A disabled
+> tg3: probe of 0000:02:00.0 failed with error -2
+>
+>
+> But /lib/firmware/tigon/tg3_tso.bin is actually present:
+>
+> [asuardi@sandman src]$ ls -l /lib/firmware/tigon/tg3_tso.bin
+> -rw-r--r-- 1 root root 7004 2009-01-06 22:58 /lib/firmware/tigon/tg3_tso.bin
+>
+>
+>
+> Diffing the .configs one can see CONFIG_KMOD disappeared; and
+>  the output of the kernel build in -git8 also has the IHEX parts about
+>  tg3 firmware which are new (I don't recall seeing those in the last
+>  1000 builds or so ;)
+>
+> [asuardi@sandman src]$ diff .config-2.6.28-git[78]
+> 3,4c3,4
+> < # Linux kernel version: 2.6.28-git7
+> < # Mon Jan  5 17:34:11 2009
+> ---
+>> # Linux kernel version: 2.6.28-git8
+>> # Tue Jan  6 22:06:19 2009
+> 133d132
+> < CONFIG_KMOD=y
+> 1324a1324
+>> # CONFIG_TWL4030_CORE is not set
+> 1591d1590
+> < CONFIG_HID_BRIGHT=y
+> 1595d1593
+> < CONFIG_HID_DELL=y
+> 1602a1601
+>> CONFIG_HID_NTRIG=y
+> 1608a1608,1609
+>> # CONFIG_GREENASIA_FF is not set
+>> CONFIG_HID_TOPSEED=y
+> 1821c1822
+> < # CONFIG_OCFS2_COMPAT_JBD is not set
+> ---
+>> CONFIG_OCFS2_FS_POSIX_ACL=y
+> 1825c1826,1832
+> < # CONFIG_QUOTA is not set
+> ---
+>> CONFIG_QUOTA=y
+>> CONFIG_QUOTA_NETLINK_INTERFACE=y
+>> # CONFIG_PRINT_QUOTA_WARNING is not set
+>> CONFIG_QUOTA_TREE=y
+>> # CONFIG_QFMT_V1 is not set
+>> CONFIG_QFMT_V2=y
+>> CONFIG_QUOTACTL=y
+>
+>
+>
+> [asuardi@sandman src]$ diff /tmp/make-kernel-2.6.28-git[78].out
+> 669a670
+>>   CC [M]  fs/ocfs2/blockcheck.o
+> 692a694,695
+>>   CC [M]  fs/ocfs2/quota_local.o
+>>   CC [M]  fs/ocfs2/quota_global.o
+> 693a697
+>>   CC [M]  fs/ocfs2/acl.o
+> 810a815,818
+>>   CC      fs/dquot.o
+>>   CC      fs/quota_v2.o
+>>   CC      fs/quota_tree.o
+>>   CC      fs/quota.o
+> 1045c1053
+> < /share/src/linux-2.6.28-git7/arch/x86/include/asm/string_32.h:75:
+> warning: array subscript is above array bounds
+> ---
+>> /share/src/linux-2.6.28-git8/arch/x86/include/asm/string_32.h:75: warning: array subscript is above array bounds
+> 1286d1293
+> <   CC      drivers/hid/hid-bright.o
+> 1290d1296
+> <   CC      drivers/hid/hid-dell.o
+> 1295a1302
+>>   CC      drivers/hid/hid-ntrig.o
+> 1300a1308
+>>   CC      drivers/hid/hid-topseed.o
+> 1521c1529
+> < /share/src/linux-2.6.28-git7/arch/x86/include/asm/string_32.h:75:
+> warning: array subscript is above array bounds
+> ---
+>> /share/src/linux-2.6.28-git8/arch/x86/include/asm/string_32.h:75: warning: array subscript is above array bounds
+> 1983d1990
+> < net/rfkill/rfkill.c:59: warning: 'rfkill_led_trigger' defined but not used
+> 2234,2235c2241,2242
+> < System is 2000 kB
+> < CRC 8dd05de2
+> ---
+>> System is 2013 kB
+>> CRC 37411210
+> 2646a2654,2656
+>>   IHEX    firmware/tigon/tg3.bin
+>>   IHEX    firmware/tigon/tg3_tso.bin
+>>   IHEX    firmware/tigon/tg3_tso5.bin
+>
+>
+> So which is it, whatever the IHEX part did or the disappearance of
+>  CONFIG_KMOD (which is in the -git8 patch, indeed) to cause
+>  this issue ?
+>
+> Note that I don't have CONFIG_FIRMWARE_IN_KERNEL, but on
+>  the other hand I didn't earlier, either... and yes, CONFIG_MODULES=y.
+>
+>
+> thanks in advance, ciao,
 
-James,
+Still broken in -git10, cc'ing netdev... h/w is the onboard
+ Gigabit ethernet on my Dell Latitude D610, that is
 
-This net-namespaces work sounds quite apropos to some of my other
-projects but I'm having trouble figuring out whether it can be used to
-solve my current problem. Two questions which immediately occur to me
-include:
+02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5751
+Gigabit Ethernet PCI Express (rev 01)
 
-  1) As with the netfilter suggestions provided by Andi and Evgeniy, it
-  seems that processes require special privileges (e.g. CAP_NET_ADMIN) in
-  order to drop network privileges by means of entering a new net
-  namespace. Is this correct? If so, why is it necessary or appropriate?
+thanks,
 
-  2) What happens if I call unshare(CLONE_NEWNET) after I've bound some
-  sockets to an address or connected some sockets to remote endpoints?
+--alessandro
 
-Perhaps you can help straighten me out, e.g. by pointing me at the
-relevant code?
+ "Sun keeps rising in the west / I keep on waking fully confused"
 
-Thanks very much,
-
-Michael
+   (The Replacements, "Within Your Reach")
