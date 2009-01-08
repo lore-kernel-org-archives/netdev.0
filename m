@@ -1,36 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] r6040: warn about MAC address being unset
-Date: Thu, 08 Jan 2009 11:03:29 -0800 (PST)
-Message-ID: <20090108.110329.148510077.davem@davemloft.net>
-References: <200901071740.42130.florian@openwrt.org>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: [PATCH 2/2] netdev: bfin_mac: enable VLAN support in Blackfin MAC driver
+Date: Thu, 8 Jan 2009 14:01:49 -0500
+Message-ID: <8bd0f97a0901081101t6fdfa485rbd7ccc4e47691ddb@mail.gmail.com>
+References: <1231344879-26069-1-git-send-email-cooloney@kernel.org>
+	 <1231344879-26069-3-git-send-email-cooloney@kernel.org>
+	 <20090108.105531.176161465.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: florian@openwrt.org
+Cc: cooloney@kernel.org, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, graf.yang@analog.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42282
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758756AbZAHTD2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:03:28 -0500
-In-Reply-To: <200901071740.42130.florian@openwrt.org>
+Received: from yw-out-2324.google.com ([74.125.46.31]:57046 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988AbZAHTBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:01:51 -0500
+In-Reply-To: <20090108.105531.176161465.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 7 Jan 2009 17:40:41 +0100
+On Thu, Jan 8, 2009 at 13:55, David Miller <davem@davemloft.net> wrote:
+> From: Bryan Wu <cooloney@kernel.org>
+>> +#define VLAN_ETHER_TYPE 0x8100
+>
+> Please use ETH_P_8021Q from linux/if_ether.h instead of inventing
+> your own definition.
 
-> r6040: warn about MAC address being unset
-> 
-> Some bootloader/BIOSes do not set the MAC
-> address, warn about that.
-> 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+was a copy & paste due to not finding a better definition (3c59x.c)
 
-Applied.
+>> +     /* The legal length of the frame is increased to 1538 bytes */
+>> +     /*bfin_write_EMAC_VLAN2(VLAN_ETHER_TYPE);*/
+>
+> Please do not add code that is just going to be commented
+> out and not used.
+>
+> Also, I disagree with the:
+>
+> +#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+>
+> conditional.  Probably this part of the chip should be programmed
+> unconditionally.
 
-Even better behavior would be to use a random ethernet address after
-emitting the warning, so that the user still has a usable interface.
+again, more of a copy & paste ... this is how a bunch of drivers are
+doing it now ...
 
-See the random_ether_addr() interface and how many other net drivers
-make use of it in situations nearly identical to this one.
+> We can get VLAN packets received and sent, using AF_PACKET
+> sockets, for example.  The chip should still respect those
+> even if VLAN proper is not being utilized.
+
+any tips on doing that ?
+
+thanks for reviewing!
+-mike
