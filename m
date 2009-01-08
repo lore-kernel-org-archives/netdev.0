@@ -1,62 +1,85 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] Make possible speeds known to ethtool
-Date: Thu, 08 Jan 2009 11:50:03 -0800
-Message-ID: <496658EB.1080206@hp.com>
-References: <200901080203.SAA19103@tardy.cup.hp.com>	<1231384446.2677.32.camel@hashbaz.i.decadent.org.uk>	<49656F01.3090603@pobox.com>  <49664FFD.1010608@hp.com> <1231442701.3893.4.camel@achroite>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
+ 2.6.27
+Date: Thu, 8 Jan 2009 11:54:51 -0800
+Message-ID: <20090108115451.0b0b854e@extreme>
+References: <bug-12327-10286@http.bugzilla.kernel.org/>
+	<20081229214101.4c4f5ac1.akpm@linux-foundation.org>
+	<Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi>
+	<495BFEAF.6000006@haveacry.com>
+	<20090102083402.GA24383@gondor.apana.org.au>
+	<4961ECD2.1000502@haveacry.com>
+	<20090107041732.GA22041@gondor.apana.org.au>
+	<4964B303.4020708@haveacry.com>
+	<20090108030745.GA1204@gondor.apana.org.au>
+	<4966160A.20001@haveacry.com>
+	<20090108083753.14670943@extreme>
+	<Pine.LNX.4.64.0901082138060.31441@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Speedster <speedster@haveacry.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "Ilpo =?UTF-8?B?SsOkcnZpbmVu?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:2483 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507AbZAHTuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:50:09 -0500
-In-Reply-To: <1231442701.3893.4.camel@achroite>
+Received: from mail.vyatta.com ([76.74.103.46]:59059 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755453AbZAHTyy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:54:54 -0500
+In-Reply-To: <Pine.LNX.4.64.0901082138060.31441@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 8 Jan 2009 21:39:30 +0200 (EET)
+"Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
 
-> 
-> I think 0, (u32)(-1) and (u16)(-1) may have to be special-cased as
-> unknown, but everything else can be treated as a number of Mbit/s.  I
-> don't know what a driver should do about an interface that really runs
-> at 65.535 Gbit/s though...
+> On Thu, 8 Jan 2009, Stephen Hemminger wrote:
+>=20
+> > On Fri, 09 Jan 2009 00:04:42 +0900
+> > Speedster <speedster@haveacry.com> wrote:
+> >=20
+> > > Herbert Xu wrote:
+> > > >=20
+> > > > Can you please take a look at /proc/net/snmp on the host and th=
+e
+> > > > guest to see if IP InDiscards is non-zero?
+> > >=20
+> > > Both are 0
+> > >=20
+> > > > Also now that we know the problem is definitely in the host/gue=
+st
+> > > > please take another set of dumps on the interfaces leading to a=
+nd
+> > > > within the guest to see exactly which path of the system is dro=
+pping
+> > > > the reply.
+> > >=20
+> > > Attached (all are the exact same attempted connection), and revea=
+l some=20
+> > > interesting information.
+> > >=20
+> > > The path the inbound traffic should take is
+> > > 1. vlan50 (host)
+> > > 2. tap interface vnet3 (host) / eth0 (guest)
+> > > 3. ppp0 (guest)
+> > >=20
+> > > It looks as though when it is sent out the tap interface the payl=
+oad=20
+> > > length is incorrect in the PPPoE section of the frame. When it ar=
+rives=20
+> > > via vlan50 it appears fine. Or at least that's what wireshark hig=
+hlights=20
+> > > for me :)
+> >=20
+> > Maybe there is an issue that GRO receive isn't handling padding
+> > properly?
+>=20
+> Hmm, is gro supposed to have something to do with 2.6.27??? Or are yo=
+u=20
+> talking something else than Herbert's recent GRO stuff?
 
-Something along these lines then? (assuming my mailer doesn't fubar this
-:( - I normally send matches via mailx)
-
---- ethtool.c.orig      2008-11-17 11:53:40.000000000 -0800
-+++ ethtool.c   2009-01-08 11:41:54.000000000 -0800
-@@ -813,23 +813,12 @@ static int dump_ecmd(struct ethtool_cmd
-
-         fprintf(stdout, "       Speed: ");
-         switch (ep->speed) {
--       case SPEED_10:
--               fprintf(stdout, "10Mb/s\n");
--               break;
--       case SPEED_100:
--               fprintf(stdout, "100Mb/s\n");
--               break;
--       case SPEED_1000:
--               fprintf(stdout, "1000Mb/s\n");
--               break;
--       case SPEED_2500:
--               fprintf(stdout, "2500Mb/s\n");
--               break;
--       case SPEED_10000:
--               fprintf(stdout, "10000Mb/s\n");
-+       case 0:
-+       case (u16)(-1):
-+               fprintf(stdout, "Unknown! (%i)\n", ep->speed);
-                 break;
-         default:
--               fprintf(stdout, "Unknown! (%i)\n", ep->speed);
-+               fprintf(stdout, "%dMb/s\n", ep->speed);
-                 break;
-         };
-
-If that looks reasonable I'll post a proper one with the apropriate text and such with mailx...
-
-rick jones
+Trying to find a common thread of why splice and TCP is having
+issues in some cases.
