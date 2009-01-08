@@ -1,44 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
- (-git7 is ok)
-Date: Thu, 08 Jan 2009 12:53:31 -0800 (PST)
-Message-ID: <20090108.125331.03608787.davem@davemloft.net>
-References: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
-	<3f9a31f40901072212x41e405fh7e36f6adb927814b@mail.gmail.com>
-	<5a4c581d0901081233y6b546167sbe3ed9f2ea37f1f9@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, dwmw2@infradead.org
-To: alessandro.suardi@gmail.com
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH] wimax: fix kernel-doc for debufs_dentry member of struct wimax_dev
+Date: Thu,  8 Jan 2009 12:50:27 -0800
+Message-ID: <1231447827-7999-1-git-send-email-inaky@linux.intel.com>
+Cc: Inaky Perez-Gonzalez <inaky@linux.intel.com>,
+	Randy Dunlapy <randy.dunlap@intel.com>
+To: wimax@linuxwimax.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49341
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751796AbZAHUx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 15:53:29 -0500
-In-Reply-To: <5a4c581d0901081233y6b546167sbe3ed9f2ea37f1f9@mail.gmail.com>
+Received: from mga10.intel.com ([192.55.52.92]:14228 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750833AbZAHUu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 15:50:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Date: Thu, 8 Jan 2009 21:33:35 +0100
+Reported by Randy Dunlap from a warning in the v2.6.29 merge window
+tree as of 2009/1/8.
 
-> On Thu, Jan 8, 2009 at 7:12 AM, Jaswinder Singh Rajput
-> <jaswinderlinux@gmail.com> wrote:
-> > Hello alessandro,
-> >
-> > On Wed, Jan 7, 2009 at 7:54 PM, Alessandro Suardi
-> > <alessandro.suardi@gmail.com> wrote:
-> >>
-> >> Note that I don't have CONFIG_FIRMWARE_IN_KERNEL, but on
-> >>  the other hand I didn't earlier, either... and yes, CONFIG_MODULES=y.
-> >>
-> >
-> > Please try with CONFIG_FIRMWARE_IN_KERNEL , is this makes some difference.
-> 
-> Yes it does, thank you - 2.6.28-git11 with CONFIG_FIRMWARE_IN_KERNEL
->  gets my tg3 back to work on boot. Must be a requirement since -git8 then ?
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Cc: Randy Dunlapy <randy.dunlap@intel.com>
+---
+ include/net/wimax.h |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-It is if you don't have the tg3 firmware files in your filesystem
-already.
+diff --git a/include/net/wimax.h b/include/net/wimax.h
+index 1602614..073809c 100644
+--- a/include/net/wimax.h
++++ b/include/net/wimax.h
+@@ -323,6 +323,9 @@ struct input_dev;
+  *
+  * @rf_hw: [private] State of the hardware radio switch (OFF/ON)
+  *
++ * @debufs_dentry: [private] Used to hook up a debugfs entry. This
++ *     shows up in the debugfs root as wimax:DEVICENAME.
++ *
+  * Description:
+  * This structure defines a common interface to access all WiMAX
+  * devices from different vendors and provides a common API as well as
+-- 
+1.5.6.5
+
