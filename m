@@ -1,41 +1,73 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] wimax: fix kernel-doc for debufs_dentry member of struct wimax_dev
-Date: Thu,  8 Jan 2009 12:50:27 -0800
-Message-ID: <1231447827-7999-1-git-send-email-inaky@linux.intel.com>
-Cc: Inaky Perez-Gonzalez <inaky@linux.intel.com>,
-	Randy Dunlapy <randy.dunlap@intel.com>
-To: wimax@linuxwimax.org, netdev@vger.kernel.org
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH] tcp: splice as many packets as possible at once
+Date: Thu, 8 Jan 2009 21:16:46 +0100
+Message-ID: <20090108201646.GA23687@1wt.eu>
+References: <20090108173028.GA22531@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:14228 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750833AbZAHUu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 15:50:28 -0500
+Received: from 1wt.eu ([62.212.114.60]:1270 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752003AbZAHUUF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 15:20:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20090108173028.GA22531@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reported by Randy Dunlap from a warning in the v2.6.29 merge window
-tree as of 2009/1/8.
+Hi David,
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: Randy Dunlapy <randy.dunlap@intel.com>
+would you please accept this patch (acked by Jens) ?
+
+Also, would you mind adding this one as well as
+4f7d54f59bc470f0aaa932f747a95232d7ebf8b1 to your stable queue, because
+without them, splicing between sockets is unusable or worthless, and
+having both in the long-term 2.6.27 will certainly promote splice()
+usage among applications.
+
+Thanks!
+Willy
+
+
+>From fafe76713523c8e9767805cfdc7b73323d7bf180 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Thu, 8 Jan 2009 17:10:13 +0100
+Subject: [PATCH] tcp: splice as many packets as possible at once
+
+Currently, in non-blocking mode, tcp_splice_read() returns after
+splicing one segment regardless of the len argument. This results
+in low performance and very high overhead due to syscall rate when
+splicing from interfaces which do not support LRO.
+
+The fix simply consists in not breaking out of the loop after the
+first read. That way, we can read up to the size requested by the
+caller and still return when there is no data left.
+
+Performance has significantly improved with this fix, with the
+number of calls to splice() divided by about 20, and CPU usage
+dropped from 100% to 75%.
+
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+Acked-by: Jens Axboe <jens.axboe@oracle.com>
 ---
- include/net/wimax.h |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ net/ipv4/tcp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/wimax.h b/include/net/wimax.h
-index 1602614..073809c 100644
---- a/include/net/wimax.h
-+++ b/include/net/wimax.h
-@@ -323,6 +323,9 @@ struct input_dev;
-  *
-  * @rf_hw: [private] State of the hardware radio switch (OFF/ON)
-  *
-+ * @debufs_dentry: [private] Used to hook up a debugfs entry. This
-+ *     shows up in the debugfs root as wimax:DEVICENAME.
-+ *
-  * Description:
-  * This structure defines a common interface to access all WiMAX
-  * devices from different vendors and provides a common API as well as
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 35bcddf..80261b4 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -615,7 +615,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
+ 		lock_sock(sk);
+ 
+ 		if (sk->sk_err || sk->sk_state == TCP_CLOSE ||
+-		    (sk->sk_shutdown & RCV_SHUTDOWN) || !timeo ||
++		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
+ 		    signal_pending(current))
+ 			break;
+ 	}
 -- 
-1.5.6.5
+1.6.0.3
 
