@@ -1,43 +1,58 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 3/4] r6040: warn about MAC address being unset
-Date: Thu, 8 Jan 2009 22:09:52 +0100
-Message-ID: <200901082209.53254.florian@openwrt.org>
-References: <200901071740.42130.florian@openwrt.org> <20090108.110329.148510077.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC] IPV6 address management
+Date: Thu, 08 Jan 2009 13:11:32 -0800
+Message-ID: <49666C04.6050605@candelatech.com>
+References: <20090108093430.0f966738@extreme>	<20090108.112420.102641584.davem@davemloft.net>	<20090108121220.789325a6@extreme> <20090108.125830.142298950.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jeff@garzik.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:34505 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249AbZAHVJ7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 16:09:59 -0500
-Received: by bwz14 with SMTP id 14so28016598bwz.13
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 13:09:57 -0800 (PST)
-In-Reply-To: <20090108.110329.148510077.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail.candelatech.com ([208.74.158.172]:50541 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756273AbZAHVLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 16:11:42 -0500
+In-Reply-To: <20090108.125830.142298950.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 8 Jan 2009 12:12:20 -0800
+> 
+>> What about this?
+>>
+>> If it works (still testing), I'll submit it.
+> 
+> So what is your plan?
+> 
+> Make the routing daemons depend upon the non-default
+> behavior in order to act correctly?
 
-Le Thursday 08 January 2009 20:03:29 David Miller, vous avez =E9crit=A0=
-:
-> Applied.
->
-> Even better behavior would be to use a random ethernet address after
-> emitting the warning, so that the user still has a usable interface.
+They could check and take corrective action or tell the user
+to set it one way or another.  Robust and complex apps already
+have to check all sorts of things anyway.
 
-Yes, I realised that right after sending the patch ;)
+> Or is it to gradually get people to use the non-default
+> (via distribution sysctl settings etc.) and eventually
+> make it the default?
+> 
+> I disagree with both plans, and with that the facility
+> is basically useless.
+> 
+> We absolutely have to live with the behavior we have now,
+> and for a long time if not forever.
 
->
-> See the random_ether_addr() interface and how many other net drivers
-> make use of it in situations nearly identical to this one.
+It could be argued we need to have the default behaviour stay
+the same, but that's no reason to keep things difficult for
+people/programs flexible enough to deal with change.
 
-Thanks, will send a patch using this.
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
