@@ -1,38 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] IPV6 address management
-Date: Thu, 08 Jan 2009 14:03:39 -0800 (PST)
-Message-ID: <20090108.140339.00980764.davem@davemloft.net>
-References: <20090108135614.23aed603@extreme>
-	<20090108.135819.103389689.davem@davemloft.net>
-	<20090108140122.5488d84c@extreme>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Thu, 8 Jan 2009 23:03:45 +0100
+Message-ID: <20090108220345.GB24243@1wt.eu>
+References: <20090108173028.GA22531@1wt.eu> <20090108194424.GE32491@kernel.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36088
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754746AbZAHWDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 17:03:38 -0500
-In-Reply-To: <20090108140122.5488d84c@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Ben Mansell <ben@zeus.com>, Ingo Molnar <mingo@elte.hu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jens Axboe <jens.axboe@oracle.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761751AbZAHWEU@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090108194424.GE32491@kernel.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 8 Jan 2009 14:01:22 -0800
+On Thu, Jan 08, 2009 at 08:44:24PM +0100, Jens Axboe wrote:
+> On Thu, Jan 08 2009, Willy Tarreau wrote:
+> > Jens,
+> > 
+> > here's the other patch I was talking about, for better behaviour of
+> > non-blocking splice(). Ben Mansell also confirms similar improvements
+> > in his tests, where non-blocking splice() initially showed half of
+> > read()/write() performance. Ben, would you mind adding a Tested-By
+> > line ?
+> 
+> Looks very good to me, I don't see any valid reason to have that !timeo
+> break. So feel free to add my acked-by to that patch and send it to
+> Dave.
 
-> Fine, it won't be the first or last vendor specific kernel patch.
+Done, thanks.
 
-You're just supporting my argument even more.
+Also, I tried to follow the code path from the userspace splice() call and
+the kernel code. While splicing from socket to a pipe seems obvious till
+tcp_splice_read(), I have a hard time finding the correct way from the pipe
+to the socket.
 
-If all the dists ship it and turn it on, then logically we should
-include it and have it on by default.
+It *seems* to me that we proceed like this, I'd like someone to confirm :
 
-But you know we can't do that.
+sys_splice()
+  do_splice()
+    do_splice_from()
+      generic_splice_sendpage()      [ I assumed this from socket_file_ops ]
+        splice_from_pipe(,,pipe_to_sendpage)
+          __splice_from_pipe(,,pipe_to_sendpage)
+            pipe_to_sendpage()
+              tcp_sendpage()         [ I assumed this from inet_stream_ops ]
+                do_tcp_sendpages()   (if NETIF_F_SG) or sock_no_sendpage()
 
-Therefore, it's detrimental for the dists to ship it too because it
-does break things.
+I hope that I guessed it right because it does not appear obvious to me. It
+will help me try to understand better the corruption problem.
 
-I know you want to shove this in, via some avenue, but it is really
-so undesirable to cope with existing behavior?
+Now for the read part, am I wrong tcp_splice_read() will return -EAGAIN
+if the pipe is full ? It seems to me that this will be brought up by
+splice_to_pipe(), via __tcp_splice_read, tcp_read_sock, tcp_splice_data_recv
+and skb_splice_bits.
+
+If so, this can cause serious trouble because if there is data available in
+a socket, poll() will return POLLIN. Then we call splice(sock, pipe) but the
+pipe is full, so we get -EAGAIN, which in turn makes the application think
+that we need to poll again, and since no data has moved, we'll immediately
+call splice() again. In my early experiments, I'm pretty sure I already came
+across such a situation. Shouldn't we return -EBUSY or -ENOSPC in this case ?
+I can work on patches if there is a consensus around those issues, and this
+will also help me understand better the splice internals. I just don't want
+to work in the wrong direction for nothing.
+
+Thanks,
+Willy
