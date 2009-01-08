@@ -1,79 +1,52 @@
-From: mysql.jorge@decimal.pt
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-     2.6.28
-Date: Thu, 8 Jan 2009 14:09:03 -0000 (WET)
-Message-ID: <2321.192.168.1.3.1231423743.squirrel@webmail.decimal.pt>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt>
-    <20090108094231.GD4496@ff.dom.local>
-    <20090108095403.GE4496@ff.dom.local>
-    <20090108100614.GA5418@ff.dom.local>
-    <2025.192.168.1.3.1231410939.squirrel@webmail.decimal.pt>
-    <20090108110430.GB5493@ff.dom.local>
-    <2111.192.168.1.3.1231413721.squirrel@webmail.decimal.pt>
-    <20090108135927.GC5493@ff.dom.local>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Thu, 8 Jan 2009 15:53:00 +0100
+Message-ID: <20090108145259.GF18120@elte.hu>
+References: <20090106181559.GA29426@1wt.eu> <20090108071651.GA4496@ff.dom.local> <20090108080520.GG30749@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Denys Fedoryschenko" <denys@visp.net.lb>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>, Ben Mansell <ben@zeus.com>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly08.isp.novis.pt ([195.23.133.218]:42887 "EHLO
-	mailrly08.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751323AbZAHOIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 09:08:51 -0500
-In-Reply-To: <20090108135927.GC5493@ff.dom.local>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:54967 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751811AbZAHOxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 09:53:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20090108080520.GG30749@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An active connection when running this commands:
-(now it seams to work, the 200Kbit i defined, are gaving me 22.5/23Kbyte
-/sec)
 
-Did you catch it?
+* Willy Tarreau <w@1wt.eu> wrote:
 
+> On Thu, Jan 08, 2009 at 07:16:51AM +0000, Jarek Poplawski wrote:
+> > On 06-01-2009 19:15, Willy Tarreau wrote:
+> > ...
+> > > Ah, so you might also have discovered a few annoyances with the API, eg
+> > > the fact that splice() returns after the first read in non-blocking mode,
+> > > as well as the fact that it never returns zero on close, but -EAGAIN,
+> > > which requires an additional recv(MSG_PEEK) to distinguish between a
+> > > close and a lack of data. But I leave that for a later discussion, let's
+> > > address the corruption issue first.
+> > 
+> > FYI, this should be just fixed:
+> > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=4f7d54f59bc470f0aaa932f747a95232d7ebf8b1
+> > 
+> 
+> Ah cool, thanks Jarek for notifying us. Indeed, it's the exact same patch
+> I had pending here ;-)
+> 
+> I'll ping Greg for a backport into -stable, as applications relying on 
+> this will clearly not work without that fix.
+> 
+> The other one I had consists in removing "|| !timeo" at the end of the 
+> loop, because otherwise splice() returns very small chunks (typically 
+> 1448 or 1460 bytes), leading to disastrous performance on high bandwidth 
+> links. At 10 Gbps, this means about 800000 calls to splice() per second!
 
-lira:~# ethtool -k eth0
-Offload parameters for eth0:
-Cannot get device flags: Operation not supported
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: off
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
-large receive offload: off
-lira:~# tc -s qdisc show dev eth0
-qdisc cbq 1: root rate 12500000bps (bounded,isolated) prio no-transmit
- Sent 5336353 bytes 5737 pkts (dropped 16, overlimits 1382)
- backlog 8p
-  borrowed 0 overactions 0 avgidle 78 undertime 0
+looks interesting - would you mind to submit it?
 
- qdisc tbf 1280: parent 1:1280 rate 25000bps burst 10Kb lat 209.7ms
- Sent 441812 bytes 310 pkts (dropped 16, overlimits 2215)
- backlog 8p
-
-lira:~# tc -s class show dev eth0
-class cbq 1: root rate 12500000bps (bounded,isolated) prio no-transmit
- Sent 5128779 bytes 5827 pkts (dropped 0, overlimits 0)
-  borrowed 0 overactions 0 avgidle 78 undertime 0
-class cbq 1:1280 parent 1: leaf 1280: rate 25000bps (bounded,isolated) prio 5
- Sent 811784 bytes 568 pkts (dropped 22, overlimits 0)
- backlog 9p
-  borrowed 0 overactions 0 avgidle 4507 undertime 0
-class tbf 1280:1 parent 1280: [UNKNOWN]
- Sent 0 bytes 0 pkts (dropped 0, overlimits 0)
-
-
-
-
-
-> Could you try to check this with scatter-gather and tcp segmentation
-> offload off too? If there is no difference please send the stats
-> again both for working and non-working case.
->
-> Thanks,
-> Jarek P.
->
-
-
+	Ingo
