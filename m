@@ -1,59 +1,78 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
- 2.6.27
-Date: Thu, 8 Jan 2009 15:13:24 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901081510360.1889@wrl-59.cs.helsinki.fi>
-References: <bug-12327-10286@http.bugzilla.kernel.org/>
- <20081229214101.4c4f5ac1.akpm@linux-foundation.org>
- <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com>
- <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com>
- <20090107041732.GA22041@gondor.apana.org.au> <4964B303.4020708@haveacry.com>
- <20090108030745.GA1204@gondor.apana.org.au>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: [patch]switch kaweth driver to netdevops
+Date: Thu, 8 Jan 2009 14:22:54 +0100
+Message-ID: <200901081422.55536.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Speedster <speedster@haveacry.com>,
-	Netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33784 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752794AbZAHNN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 08:13:27 -0500
-In-Reply-To: <20090108030745.GA1204@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Jan 2009, Herbert Xu wrote:
+This converts the kaweth ethernet USB driver to netdevops.
 
-> On Wed, Jan 07, 2009 at 10:49:55PM +0900, Speedster wrote:
-> >
-> > Done. I also realised my wireshark display filter was dst_host rather  
-> > than simply host - it looks as though replies _do_ come back but for  
-> > some reason are ignored? My apologies.
-> 
-> Great I think we're getting closer.  With your latest dumps it'd
-> appear that there is an odd difference between the replies that
-> get through and the ones that don't.  The ones that're somehow
-> dropped have 2 bytes of transport padding at the end.  I suspect
-> there's something buggy in your system that's dropping it because
-> of this.
-> 
-> Can you please take a look at /proc/net/snmp on the host and the
-> guest to see if IP InDiscards is non-zero?
-> 
-> Also now that we know the problem is definitely in the host/guest
-> please take another set of dumps on the interfaces leading to and
-> within the guest to see exactly which path of the system is dropping
-> the reply.
+Signed-off-by: Oliver Neukum<oneukum-l3A5Bk7waGM@public.gmane.org>
 
-Another possiblity that comes into my mind is that at TCP side seqnos get 
-messed up because of skb->len getting that padding counted in (end_seq 
-is depending on skb->len) and something don't like encountering such 
-a synack.
+	Regards
+		Oliver
 
+commit f439f3ec3c68586f92dd692f220e44fd898a50bb
+Author: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Date:   Wed Jan 7 14:31:21 2009 +0100
 
--- 
- i.
+    convert kaweth to new netdev ops
+
+diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+index 2ee034f..e166b87 100644
+--- a/drivers/net/usb/kaweth.c
++++ b/drivers/net/usb/kaweth.c
+@@ -251,7 +251,6 @@ struct kaweth_device
+ 	struct net_device_stats stats;
+ };
+ 
+-
+ /****************************************************************
+  *     kaweth_control
+  ****************************************************************/
+@@ -975,6 +974,17 @@ static int kaweth_resume(struct usb_interface *intf)
+ /****************************************************************
+  *     kaweth_probe
+  ****************************************************************/
++
++
++static const struct net_device_ops kaweth_netdev_ops = {
++	.ndo_open =			kaweth_open,
++	.ndo_stop =			kaweth_close,
++	.ndo_start_xmit =		kaweth_start_xmit,
++	.ndo_tx_timeout =		kaweth_tx_timeout,
++	.ndo_set_multicast_list =	kaweth_set_rx_mode,
++	.ndo_get_stats =		kaweth_netdev_stats,
++};
++
+ static int kaweth_probe(
+ 		struct usb_interface *intf,
+ 		const struct usb_device_id *id      /* from id_table */
+@@ -1147,22 +1157,13 @@ err_fw:
+ 	memcpy(netdev->dev_addr, &kaweth->configuration.hw_addr,
+                sizeof(kaweth->configuration.hw_addr));
+ 
+-	netdev->open = kaweth_open;
+-	netdev->stop = kaweth_close;
+-
++	netdev->netdev_ops = &kaweth_netdev_ops;
+ 	netdev->watchdog_timeo = KAWETH_TX_TIMEOUT;
+-	netdev->tx_timeout = kaweth_tx_timeout;
+-
+-	netdev->hard_start_xmit = kaweth_start_xmit;
+-	netdev->set_multicast_list = kaweth_set_rx_mode;
+-	netdev->get_stats = kaweth_netdev_stats;
+ 	netdev->mtu = le16_to_cpu(kaweth->configuration.segment_size);
+ 	SET_ETHTOOL_OPS(netdev, &ops);
+ 
+ 	/* kaweth is zeroed as part of alloc_netdev */
+-
+ 	INIT_DELAYED_WORK(&kaweth->lowmem_work, kaweth_resubmit_tl);
