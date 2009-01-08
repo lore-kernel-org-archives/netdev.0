@@ -1,34 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Fixup use of BUS_ID_SIZE
-Date: Thu, 08 Jan 2009 10:58:48 -0800 (PST)
-Message-ID: <20090108.105848.174722136.davem__26706.2486651868$1231442547$gmane$org@davemloft.net>
-References: <1231343521-22171-1-git-send-email-galak@kernel.crashing.org>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH] ucc_geth: use correct UCCE macros
+Date: Thu, 08 Jan 2009 13:20:17 -0600
+Message-ID: <496651F1.6050102@freescale.com>
+References: <1231359172-6119-1-git-send-email-timur@freescale.com>	<ed82fe3e0901071217y44900869n7af2e99d6174fd45@mail.gmail.com> <20090108.111833.163761985.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kay.sievers@vrfy.org, afleming@freescale.com,
+Cc: netdev@vger.kernel.org, galak@kernel.crashing.org,
 	linuxppc-dev@ozlabs.org
-To: galak@kernel.crashing.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1231343521-22171-1-git-send-email-galak@kernel.crashing.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:37432 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756914AbZAHTVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:21:07 -0500
+In-Reply-To: <20090108.111833.163761985.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Gala <galak@kernel.crashing.org>
-Date: Wed,  7 Jan 2009 09:52:01 -0600
+David Miller wrote:
 
-> Commit b31a1d8b41513b96e9c7ec2f68c5734cef0b26a4 went back to using
-> BUS_ID_SIZE instead of sizeof() as per the larger patch series
-> that will remove "char bus_id[20]" from struct device.
+> I think I'll wait for Kumar's stuff to hit Linus's tree, then
+> apply this patch.
 > 
-> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+> The patch is safely stored in my inbox and patchwork so there
+> is no need to fear it getting lost :-)
 
-Applied, thanks Kumar.
+That's good enough for me.  Thanks!
+
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
