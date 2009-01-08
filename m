@@ -1,43 +1,69 @@
-From: "Mike Frysinger" <vapier.adi@gmail.com>
-Subject: Re: [PATCH 2/2] netdev: bfin_mac: enable VLAN support in Blackfin MAC driver
-Date: Thu, 8 Jan 2009 14:34:43 -0500
-Message-ID: <8bd0f97a0901081134gc5b6eb9h7f20dea146fc6cd0@mail.gmail.com>
-References: <20090108.105531.176161465.davem@davemloft.net>
-	 <8bd0f97a0901081101t6fdfa485rbd7ccc4e47691ddb@mail.gmail.com>
-	 <8bd0f97a0901081105q1e897254kad9a8533b5845403@mail.gmail.com>
-	 <20090108.113009.263402475.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
+ 2.6.27
+Date: Thu, 8 Jan 2009 21:39:30 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0901082138060.31441@wrl-59.cs.helsinki.fi>
+References: <bug-12327-10286@http.bugzilla.kernel.org/>
+ <20081229214101.4c4f5ac1.akpm@linux-foundation.org>
+ <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com>
+ <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com>
+ <20090107041732.GA22041@gondor.apana.org.au> <4964B303.4020708@haveacry.com>
+ <20090108030745.GA1204@gondor.apana.org.au> <4966160A.20001@haveacry.com>
+ <20090108083753.14670943@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cooloney@kernel.org, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, graf.yang@analog.com
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759545AbZAHTe4@vger.kernel.org>
-In-Reply-To: <20090108.113009.263402475.davem@davemloft.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Speedster <speedster@haveacry.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43200 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753908AbZAHTjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:39:33 -0500
+In-Reply-To: <20090108083753.14670943@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 8, 2009 at 14:30, David Miller wrote:
-> From: "Mike Frysinger" <vapier
->> On Thu, Jan 8, 2009 at 14:01, Mike Frysinger wrote:
->> > On Thu, Jan 8, 2009 at 13:55, David Miller wrote:
->> >> We can get VLAN packets received and sent, using AF_PACKET
->> >> sockets, for example.  The chip should still respect those
->> >> even if VLAN proper is not being utilized.
->> >
->> > any tips on doing that ?
->>
->> or rather, is there a driver or you two you can point out that is
->> doing this correctly ?  the ones i looked at seemed to be doing it
->> like the patch we posted ...
->
-> And I disagree with how those drivers are doing it :-)
->
-> At least the programming of the chip to accept all packet
-> types properly, VLAN or not, regardless of kernel config,
-> is definitely IMHO the way to go.
+On Thu, 8 Jan 2009, Stephen Hemminger wrote:
 
-i know on our side we all agree with you, we just didnt (dont) know
-any better ;)
--mike
+> On Fri, 09 Jan 2009 00:04:42 +0900
+> Speedster <speedster@haveacry.com> wrote:
+> 
+> > Herbert Xu wrote:
+> > > 
+> > > Can you please take a look at /proc/net/snmp on the host and the
+> > > guest to see if IP InDiscards is non-zero?
+> > 
+> > Both are 0
+> > 
+> > > Also now that we know the problem is definitely in the host/guest
+> > > please take another set of dumps on the interfaces leading to and
+> > > within the guest to see exactly which path of the system is dropping
+> > > the reply.
+> > 
+> > Attached (all are the exact same attempted connection), and reveal some 
+> > interesting information.
+> > 
+> > The path the inbound traffic should take is
+> > 1. vlan50 (host)
+> > 2. tap interface vnet3 (host) / eth0 (guest)
+> > 3. ppp0 (guest)
+> > 
+> > It looks as though when it is sent out the tap interface the payload 
+> > length is incorrect in the PPPoE section of the frame. When it arrives 
+> > via vlan50 it appears fine. Or at least that's what wireshark highlights 
+> > for me :)
+> 
+> Maybe there is an issue that GRO receive isn't handling padding
+> properly?
+
+Hmm, is gro supposed to have something to do with 2.6.27??? Or are you 
+talking something else than Herbert's recent GRO stuff?
+
+
+-- 
+ i.
