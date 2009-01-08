@@ -1,25 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: Prevent eeprom set when driver is down
-Date: Thu, 08 Jan 2009 11:21:51 -0800 (PST)
-Message-ID: <20090108.112151.56961065.davem@davemloft.net>
-References: <1231429212.11301.13.camel@lb-tlvb-eliezer>
+Subject: Re: [PATCH RFC v5] net: add PCINet driver
+Date: Thu, 08 Jan 2009 11:16:10 -0800 (PST)
+Message-ID: <20090108.111610.132149837.davem__37375.5182292827$1231444104$gmane$org@davemloft.net>
+References: <20090107195052.GA24981@ovro.caltech.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pl@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: eilong@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59812
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759545AbZAHTVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:21:49 -0500
-In-Reply-To: <1231429212.11301.13.camel@lb-tlvb-eliezer>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	shemminger@vyatta.com, arnd@arndb.de, netdev@vger.kernel.org
+To: iws@ovro.caltech.edu
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762294AbZAHTQd@vger.kernel.org>
+In-Reply-To: <20090107195052.GA24981@ovro.caltech.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Thu, 08 Jan 2009 17:40:12 +0200
+From: Ira Snyder <iws@ovro.caltech.edu>
+Date: Wed, 7 Jan 2009 11:50:52 -0800
 
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> This adds support to Linux for a virtual ethernet interface which uses the
+> PCI bus as its transport mechanism. It creates a simple, familiar, and fast
+> method of communication for two devices connected by a PCI interface.
 
-Applied, thank you.
+Well, it looks like much more than that to me.
+
+What is this UART thing in here for?
+
+I can only assume it's meant to be used as a console port between the
+x86 host and the powerpc nodes.
+
+You haven't even mentioned this UART aspect even indirectly in the
+commit message.
+
+This just looks like yet another set of virtualization drivers
+to me.  You could have just have easily built this using your
+own PCI backplane framework, and using the virtio stuff on top.
+
+And the virtio stuff has all kinds of snazzy optimizations that
+will likely improve your throughput, it has console drivers that
+distributions already probe for and attach appropriately, etc.
+
+In short I really don't like this conceptually, it can be done
+so much better using facilities we already have that are
+heavily optimized and userland understands already.
