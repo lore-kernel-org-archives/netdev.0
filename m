@@ -1,41 +1,34 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: RFC: Network privilege separation.
-Date: Thu, 08 Jan 2009 08:05:45 +0100
-Message-ID: <4965A5C9.9070201@hartkopp.net>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <87mye2yg8a.fsf@basil.nowhere.org> <20090108023111.GJ3164@didacte.laptop.org> <20090108031042.GQ496@one.firstfloor.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Thu, 8 Jan 2009 07:16:51 +0000
+Message-ID: <20090108071651.GA4496@ff.dom.local>
+References: <20090106181559.GA29426@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Mansell <ben@zeus.com>, Jens Axboe <jens.axboe@oracle.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:12312 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbZAHHFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 02:05:46 -0500
-In-Reply-To: <20090108031042.GQ496@one.firstfloor.org>
+Received: from mail-ew0-f31.google.com ([209.85.219.31]:57861 "EHLO
+	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752620AbZAHHQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 02:16:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20090106181559.GA29426@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> On Wed, Jan 07, 2009 at 09:31:11PM -0500, Michael Stone wrote:
->   
->>   * so far as I know, netfilter is only commonly used to filter IP traffic. 
->>   Can
->>     I really use it to limit connections to abstract unix sockets?
->>     
->
-> No you can't. But is that really your requirement? Why limiting Unix
-> sockets and not e.g. named pipes? Unix sockets do not talk to the network.
->
-> I suppose I don't understand your requirements very well.
->   
+On 06-01-2009 19:15, Willy Tarreau wrote:
+...
+> Ah, so you might also have discovered a few annoyances with the API, eg
+> the fact that splice() returns after the first read in non-blocking mode,
+> as well as the fact that it never returns zero on close, but -EAGAIN,
+> which requires an additional recv(MSG_PEEK) to distinguish between a
+> close and a lack of data. But I leave that for a later discussion, let's
+> address the corruption issue first.
 
-I think it would be very interesting for PF_CAN sockets also.
-CAN has no IP at all and the suggested idea of 'self-limiting' a user 
-process to use only the already open sockets could be a way to address 
-the use-cases Michael stated in his RFC.
+FYI, this should be just fixed:
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=4f7d54f59bc470f0aaa932f747a95232d7ebf8b1
 
 Regards,
-Oliver
+Jarek P.
