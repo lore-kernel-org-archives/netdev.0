@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 23/42] sundance: update to net_device_ops
-Date: Wed, 07 Jan 2009 17:58:49 -0800 (PST)
-Message-ID: <20090107.175849.258815436.davem@davemloft.net>
+Subject: Re: [PATCH 24/42] tulip: convert devices to new API
+Date: Wed, 07 Jan 2009 17:59:21 -0800 (PST)
+Message-ID: <20090107.175921.43668413.davem@davemloft.net>
 References: <20090107003316.784424362@vyatta.com>
-	<20090107003347.965927410@vyatta.com>
+	<20090107003348.110775064@vyatta.com>
+	<20090107074949.GB23818@colo.lackof.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: shemminger@vyatta.com, kyle@mcmartin.ca, netdev@vger.kernel.org
+To: grundler@parisc-linux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53071
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38211
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752786AbZAHB6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 20:58:47 -0500
-In-Reply-To: <20090107003347.965927410@vyatta.com>
+	by vger.kernel.org with ESMTP id S1753238AbZAHB7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 20:59:20 -0500
+In-Reply-To: <20090107074949.GB23818@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 06 Jan 2009 16:33:39 -0800
+From: Grant Grundler <grundler@parisc-linux.org>
+Date: Wed, 7 Jan 2009 00:49:49 -0700
 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> On Tue, Jan 06, 2009 at 04:33:40PM -0800, Stephen Hemminger wrote:
+> > Convert to net_device_ops and internal net_device_stats
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
 Applied.
