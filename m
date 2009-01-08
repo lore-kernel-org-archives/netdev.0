@@ -1,46 +1,59 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: dev->get_stats(dev) in COMPAT_NET_DEV_OPS case
-Date: Thu, 08 Jan 2009 14:12:05 +0100
-Message-ID: <4965FBA5.2010605@hartkopp.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
+ 2.6.27
+Date: Thu, 8 Jan 2009 15:13:24 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0901081510360.1889@wrl-59.cs.helsinki.fi>
+References: <bug-12327-10286@http.bugzilla.kernel.org/>
+ <20081229214101.4c4f5ac1.akpm@linux-foundation.org>
+ <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com>
+ <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com>
+ <20090107041732.GA22041@gondor.apana.org.au> <4964B303.4020708@haveacry.com>
+ <20090108030745.GA1204@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Speedster <speedster@haveacry.com>,
+	Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:49903 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755385AbZAHNMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 08:12:06 -0500
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33784 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752794AbZAHNN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 08:13:27 -0500
+In-Reply-To: <20090108030745.GA1204@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Stephen,
+On Thu, 8 Jan 2009, Herbert Xu wrote:
 
-in commit eeda3fd64f75bcbfaa70ce946513abaf3f23b8e0 ("netdev: introduce 
-dev_get_stats() 
-<http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=eeda3fd64f75bcbfaa70ce946513abaf3f23b8e0>")
-you remove the setting of dev->get_stats :
+> On Wed, Jan 07, 2009 at 10:49:55PM +0900, Speedster wrote:
+> >
+> > Done. I also realised my wireshark display filter was dst_host rather  
+> > than simply host - it looks as though replies _do_ come back but for  
+> > some reason are ignored? My apologies.
+> 
+> Great I think we're getting closer.  With your latest dumps it'd
+> appear that there is an odd difference between the replies that
+> get through and the ones that don't.  The ones that're somehow
+> dropped have 2 bytes of transport padding at the end.  I suspect
+> there's something buggy in your system that's dropping it because
+> of this.
+> 
+> Can you please take a look at /proc/net/snmp on the host and the
+> guest to see if IP InDiscards is non-zero?
+> 
+> Also now that we know the problem is definitely in the host/guest
+> please take another set of dumps on the interfaces leading to and
+> within the guest to see exactly which path of the system is dropping
+> the reply.
 
-@@ -4370,7 
-<http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=blob;f=net/core/dev.c;h=ca14ab407b338172758bc409efd2baaf75bdee99;hb=d314774cf2cd5dfeb39a00d37deee65d4c627927#l4370> 
-+4384,6 
-<http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=blob;f=net/core/dev.c;h=8843f4e3f5e192eba9eb5154faa1ca4131fb01fc;hb=eeda3fd64f75bcbfaa70ce946513abaf3f23b8e0#l4384> 
-@@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 
-        netdev_init_queues(dev);
- 
--       dev->get_stats = internal_stats;
-        netpoll_netdev_init(dev);
-        setup(dev);
-        strcpy(dev->name, name);
+Another possiblity that comes into my mind is that at TCP side seqnos get 
+messed up because of skb->len getting that padding counted in (end_seq 
+is depending on skb->len) and something don't like encountering such 
+a synack.
 
-I really appreciate your introduction of COMPAT_NET_DEV_OPS but when i 
-try to compile and run a non-converted driver, i get a NULL pointer 
-dereference. I tracked it down to be the call of dev->get_stats(dev).
 
-Did you miss something or is this behaviour intended?
-
-Regards,
-Oliver
-
+-- 
+ i.
