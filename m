@@ -1,73 +1,24 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH] tcp: splice as many packets as possible at once
-Date: Thu, 8 Jan 2009 18:30:28 +0100
-Message-ID: <20090108173028.GA22531@1wt.eu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] IPV6 address management
+Date: Thu, 8 Jan 2009 09:34:30 -0800
+Message-ID: <20090108093430.0f966738@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Ben Mansell <ben@zeus.com>, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jens Axboe <jens.axboe@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	=?UTF-8?B?5ZCJ6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1264 "EHLO 1wt.eu"
+Received: from mail.vyatta.com ([76.74.103.46]:51775 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759951AbZAHRdz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 12:33:55 -0500
-Content-Disposition: inline
+	id S1755836AbZAHRee (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 12:34:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jens,
+I notice that with IPV6 when interface is brought down, all addresses
+are removed. This looks like intentional behaviour but means the
+administrator (or daemon) must reinsert addresses. Since this is not
+what the users expect it does lead to confusion.
 
-here's the other patch I was talking about, for better behaviour of
-non-blocking splice(). Ben Mansell also confirms similar improvements
-in his tests, where non-blocking splice() initially showed half of
-read()/write() performance. Ben, would you mind adding a Tested-By
-line ?
-
-Also, please note that this is unrelated to the corruption bug I reported
-and does not fix it.
-
-Regards,
-Willy
-
->From fafe76713523c8e9767805cfdc7b73323d7bf180 Mon Sep 17 00:00:00 2001
-From: Willy Tarreau <w@1wt.eu>
-Date: Thu, 8 Jan 2009 17:10:13 +0100
-Subject: [PATCH] tcp: splice as many packets as possible at once
-
-Currently, in non-blocking mode, tcp_splice_read() returns after
-splicing one segment regardless of the len argument. This results
-in low performance and very high overhead due to syscall rate when
-splicing from interfaces which do not support LRO.
-
-The fix simply consists in not breaking out of the loop after the
-first read. That way, we can read up to the size requested by the
-caller and still return when there is no data left.
-
-Performance has significantly improved with this fix, with the
-number of calls to splice() divided by about 20, and CPU usage
-dropped from 100% to 75%.
-
-Signed-off-by: Willy Tarreau <w@1wt.eu>
----
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 35bcddf..80261b4 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -615,7 +615,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
- 		lock_sock(sk);
- 
- 		if (sk->sk_err || sk->sk_state == TCP_CLOSE ||
--		    (sk->sk_shutdown & RCV_SHUTDOWN) || !timeo ||
-+		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
- 		    signal_pending(current))
- 			break;
- 	}
--- 
-1.6.0.3
-
+Maybe the kernel should do this?
