@@ -1,27 +1,35 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] hdlc: fix compile problem
-Date: Thu, 08 Jan 2009 16:40:42 +0100
-Message-ID: <m3vdsplsat.fsf@maximus.localdomain>
-References: <20090107141343.3e256119@extreme>
-	<m3d4eyvh28.fsf@maximus.localdomain> <20090107152858.6fb8ac5d@extreme>
-	<m3tz8atxwv.fsf@maximus.localdomain> <20090107170842.6ee4eb77@extreme>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] Don't dump eeprom when bnx2x adapter is down
+Date: Thu, 08 Jan 2009 17:40:10 +0200
+Message-ID: <1231429210.11301.12.camel@lb-tlvb-eliezer>
+References: <20090107223411.GA4585@plap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Paul Larson" <pl@linux.vnet.ibm.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:41786 "EHLO khc.piap.pl"
+Received: from mms1.broadcom.com ([216.31.210.17]:1207 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751916AbZAHPko (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 10:40:44 -0500
-In-Reply-To: <20090107170842.6ee4eb77@extreme> (Stephen Hemminger's message of "Wed\, 7 Jan 2009 17\:08\:42 -0800")
+	id S1758067AbZAHPkp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 10:40:45 -0500
+In-Reply-To: <20090107223411.GA4585@plap>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> The changes have to be applied to the 4 synclink drivers and to most
->> .c files in drivers/net/wan simultaneously, perhaps it's more practical
->> if I do it?
+On Wed, 2009-01-07 at 14:34 -0800, Paul Larson wrote:
+> Don't dump eeprom when bnx2x adapter is down.  Running ethtool -e gave
+> me an eeh in testing only when the adapter was down.
+> 
+> Signed-off-by: Paul Larson <pl@linux.vnet.ibm.com>
 
-Ok, I will do.
--- 
-Krzysztof Halasa
+Thanks Paul,
+
+This is indeed a required patch. I will send another one for the set
+eeprom method as well.
+
+Thanks,
+Eilon
+
+
