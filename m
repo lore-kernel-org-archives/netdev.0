@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] i2400m/usb: wrap USB power saving in #ifdef
- CONFIG_PM
-Date: Thu, 08 Jan 2009 11:08:35 -0800 (PST)
-Message-ID: <20090108.110835.109199764.davem@davemloft.net>
+Subject: Re: [PATCH 3/4] wimax: testing for rfkill support should also test
+ for CONFIG_RFKILL_MODULE
+Date: Thu, 08 Jan 2009 11:08:07 -0800 (PST)
+Message-ID: <20090108.110807.103950637.davem@davemloft.net>
 References: <cover.1231355768.git.inaky@linux.intel.com>
-	<0e511f3772ac9887551bec34ee682fa5bf63fb69.1231355768.git.inaky@linux.intel.com>
+	<ce4d7f71df1471d502e02861a7db65cbb2a5548f.1231355768.git.inaky@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org, greg@kroah.com,
-	randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wimax@intel.com
+Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au, wimax@linuxwimax.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wimax@intel.com, linux-next@vger.kernel.org, greg@kroah.com
 To: inaky@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49400
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758006AbZAHTId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:08:33 -0500
-In-Reply-To: <0e511f3772ac9887551bec34ee682fa5bf63fb69.1231355768.git.inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <ce4d7f71df1471d502e02861a7db65cbb2a5548f.1231355768.git.inaky@linux.intel.com>
+List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.moblin.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Date: Wed,  7 Jan 2009 11:22:22 -0800
+Date: Wed,  7 Jan 2009 11:22:21 -0800
 
-> Current code was assuming PM was always enabled, which is not
-> correct. Code which accesses members in the struct usb_device that are
-> dependant on CONFIG_PM must be protected the same.
-> 
-> Reported by Randy Dunlap from a build error in the linux-next tree on
-> 07/01/2009.
+> Current WiMAX rfkill code is missing the case where rfkill is compiled
+> in as modules and works only when rfkill is compiled in. This is not
+> correct. Fixed to test for CONFIG_RFKILL or CONFIG_RKILL_MODULE.
 > 
 > Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 
-Also applied, thanks a lot.
+Applied.
