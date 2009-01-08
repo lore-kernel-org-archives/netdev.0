@@ -1,41 +1,83 @@
-From: david@lang.hm
-Subject: Re: RFC: Network privilege separation.
-Date: Wed, 7 Jan 2009 23:52:29 -0800 (PST)
-Message-ID: <alpine.DEB.1.10.0901072350480.31038@asgard.lang.hm>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <87mye2yg8a.fsf@basil.nowhere.org> <20090108023111.GJ3164@didacte.laptop.org> <20090108031042.GQ496@one.firstfloor.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK. (fwd)
+Date: Wed, 07 Jan 2009 22:54:54 -0800
+Message-ID: <m1eizez3r5.fsf@frodo.ebiederm.org>
+References: <alpine.LRH.1.10.0901081542580.13212@tundra.namei.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>
+To: James Morris <jmorris@namei.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.lang.hm ([64.81.33.126]:39068 "EHLO bifrost.lang.hm"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751081AbZAHGtz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 01:49:55 -0500
-In-Reply-To: <20090108031042.GQ496@one.firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+In-Reply-To: <alpine.LRH.1.10.0901081542580.13212@tundra.namei.org> (James
+	Morris's message of "Thu, 8 Jan 2009 15:44:07 +1100 (EST)")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Jan 2009, Andi Kleen wrote:
+James Morris <jmorris@namei.org> writes:
 
-> On Wed, Jan 07, 2009 at 09:31:11PM -0500, Michael Stone wrote:
->>     -- if it's different from Joe User's regular uid, then where did it come
->>        from and how is Joe going to clean it up when he no longer needs it?
+> Would you be able to help answer these queries on the list?
 >
-> You always create  joe-nonet one when you create joe
+> I'm not sure what the network namespace semantics are in (2) below.
 >
-> Now writing to joe's files: you can either use ACLs or do everything
-> through group accesses (it's very common to have a "joe" group for this
-> purpose for each user)
+> ---------- Forwarded message ----------
+> Date: Wed, 7 Jan 2009 22:34:54 -0500
+> From: Michael Stone <michael@laptop.org>
+> To: James Morris <jmorris@namei.org>
+> Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+>     linux-security-module@vger.kernel.org
+> Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
 >
-> But perhaps it's a good idea to not allow writing to all of Joe's
-> files by those "no network" processes too. It at least sounds like
-> that might be useful to combine.
+> On Thu, Jan 08, 2009 at 12:22:17PM +1100, James Morris wrote:
+>> Have you considered utilizing network namespaces [1] ?  A process created with
+>> a private network namespace has no network interfaces configured, except
+>> loopback, which is down.  Does this do what you want?  The launcher could
+>> optionally allow local IP by bringing up the loopback interface.
+>
+> James,
+>
+> This net-namespaces work sounds quite apropos to some of my other
+> projects but I'm having trouble figuring out whether it can be used to
+> solve my current problem. Two questions which immediately occur to me
+> include:
+>
+>  1) As with the netfilter suggestions provided by Andi and Evgeniy, it
+>  seems that processes require special privileges (e.g. CAP_NET_ADMIN) in
+>  order to drop network privileges by means of entering a new net
+>  namespace. Is this correct? If so, why is it necessary or appropriate?
 
-there are times when that would be nice, but it's also a bit of a pain to 
-have to change the permissions so that joe-nonet can access all the files 
-that joe can access (they will have to be set with the correct group 
-ownership and hope that there wasn't a reason to use any other group)
+Yes.
 
-David Lang
+Mostly general paranoia.  The problem is that the process could later
+exec a suid root executable.  Potentially that suid root executable
+could be fooled into a breach of security (such as not logging audit
+records) because it is running in a network namespace.
+
+The classic example of this class of exploits is using a mount
+namespace to replace libc or /etc/passwd.  Both of which can lead
+to privilege escalation.
+
+I'm not creative enough at the moment to see how that class of exploits
+would apply to a network namespace, but that is the reasoning for
+requiring privilege.  
+
+Let's see.  Having a network namespace namespace could allow you
+to impersonate the local X server and steal a more privileged
+users authentication tokens, provided by a suid binary.
+
+>  2) What happens if I call unshare(CLONE_NEWNET) after I've bound some
+>  sockets to an address or connected some sockets to remote endpoints?
+
+All sockets are associated with a network namespace, and they don't change
+when an unshare happens.  Accept still continues to work, and create
+new sockets in the original network namespace.
+
+However all calls to socket and to socketpair create new sockets that are
+limited to living in the processes default network namespace.
+
+> Perhaps you can help straighten me out, e.g. by pointing me at the
+> relevant code?
+>
+
+Eric
