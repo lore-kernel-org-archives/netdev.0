@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] mlx4_en: Consider inline packets on completion
-Date: Thu, 08 Jan 2009 10:57:22 -0800 (PST)
-Message-ID: <20090108.105722.243554394.davem@davemloft.net>
-References: <4964C472.2060906@mellanox.co.il>
+Subject: Re: [patch 1/2] vlan: add neigh_setup
+Date: Thu, 08 Jan 2009 10:50:30 -0800 (PST)
+Message-ID: <20090108.105030.229991099.davem@davemloft.net>
+References: <20090107121550.878339000@de.ibm.com>
+	<20090107121659.385897000@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59722
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39370
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755189AbZAHS5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 13:57:21 -0500
-In-Reply-To: <4964C472.2060906@mellanox.co.il>
+	by vger.kernel.org with ESMTP id S1754738AbZAHSu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 13:50:29 -0500
+In-Reply-To: <20090107121659.385897000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Wed, 07 Jan 2009 17:04:18 +0200
+From: frank.blaschka@de.ibm.com
+Date: Wed, 07 Jan 2009 13:15:51 +0100
 
-> Was trying to unmap work queue entries that had inline packets,
-> so naturally weren't mapped.
+> In case the real device has a neigh_setup function, this
+> neigh_setup function should be used for the vlan device.
 > 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Applied.
+This looks fine, applied.
