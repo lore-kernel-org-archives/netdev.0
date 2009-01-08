@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH RFC v5] net: add PCINet driver
 Date: Thu, 08 Jan 2009 11:16:10 -0800 (PST)
-Message-ID: <20090108.111610.132149837.davem__37375.5182292827$1231444104$gmane$org@davemloft.net>
+Message-ID: <20090108.111610.132149837.davem__19840.6179006726$1231444146$gmane$org@davemloft.net>
 References: <20090107195052.GA24981@ovro.caltech.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -9,10 +9,14 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
 	shemminger@vyatta.com, arnd@arndb.de, netdev@vger.kernel.org
 To: iws@ovro.caltech.edu
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762294AbZAHTQd@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33789
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761112AbZAHTQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:16:09 -0500
 In-Reply-To: <20090107195052.GA24981@ovro.caltech.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Ira Snyder <iws@ovro.caltech.edu>
 Date: Wed, 7 Jan 2009 11:50:52 -0800
