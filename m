@@ -1,83 +1,50 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: Network privilege separation.
-Date: Thu, 8 Jan 2009 04:10:42 +0100
-Message-ID: <20090108031042.GQ496@one.firstfloor.org>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <87mye2yg8a.fsf@basil.nowhere.org> <20090108023111.GJ3164@didacte.laptop.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
+	2.6.27
+Date: Thu, 8 Jan 2009 14:07:45 +1100
+Message-ID: <20090108030745.GA1204@gondor.apana.org.au>
+References: <bug-12327-10286@http.bugzilla.kernel.org/> <20081229214101.4c4f5ac1.akpm@linux-foundation.org> <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com> <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com> <20090107041732.GA22041@gondor.apana.org.au> <4964B303.4020708@haveacry.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Stone <michael@laptop.org>
+Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Speedster <speedster@haveacry.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:36820 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751438AbZAHC4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 21:56:40 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:38872 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751677AbZAHDIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 22:08:00 -0500
 Content-Disposition: inline
-In-Reply-To: <20090108023111.GJ3164@didacte.laptop.org>
+In-Reply-To: <4964B303.4020708@haveacry.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 07, 2009 at 09:31:11PM -0500, Michael Stone wrote:
->     -- if it's different from Joe User's regular uid, then where did it come
->        from and how is Joe going to clean it up when he no longer needs it?
+On Wed, Jan 07, 2009 at 10:49:55PM +0900, Speedster wrote:
+>
+> Done. I also realised my wireshark display filter was dst_host rather  
+> than simply host - it looks as though replies _do_ come back but for  
+> some reason are ignored? My apologies.
 
-You always create  joe-nonet one when you create joe
+Great I think we're getting closer.  With your latest dumps it'd
+appear that there is an odd difference between the replies that
+get through and the ones that don't.  The ones that're somehow
+dropped have 2 bytes of transport padding at the end.  I suspect
+there's something buggy in your system that's dropping it because
+of this.
 
-Now writing to joe's files: you can either use ACLs or do everything
-through group accesses (it's very common to have a "joe" group for this
-purpose for each user) 
+Can you please take a look at /proc/net/snmp on the host and the
+guest to see if IP InDiscards is non-zero?
 
-But perhaps it's a good idea to not allow writing to all of Joe's
-files by those "no network" processes too. It at least sounds like 
-that might be useful to combine.
+Also now that we know the problem is definitely in the host/guest
+please take another set of dumps on the interfaces leading to and
+within the guest to see exactly which path of the system is dropping
+the reply.
 
->   * so far as I know, netfilter is only commonly used to filter IP traffic. 
->   Can
->     I really use it to limit connections to abstract unix sockets?
-
-No you can't. But is that really your requirement? Why limiting Unix
-sockets and not e.g. named pipes? Unix sockets do not talk to the network.
-
-I suppose I don't understand your requirements very well.
-
-> 
->   * I think there are some problems with resource acquisition, trust, and
->     finalization:
-> 
->     -- something has to work out the actual firewall rules which need to be
->        added. 
-> 
->         + why should you or your sysadmin trust whatever is doing this to 
->         pick
->           the right ones?
-
-You always define static ones at system boot. 
-
-It would probably not scale to a lot of users, but I understand you're
-talking about the OLPC which probably only has a limited set of users?
-
-Even on a true multiuser system it could be done in a PAM module.
-
-> 
->     -- something (with privilege) needs to install the firewall rules and 
->     needs
->        to remove unneeded rules or you've got a space leak.
-> 
->         + are there any significant race conditions between whatever is
->           installing the rules and whatever is removing the dead rules?
-> 
-> Conclusion: so far as I can see, RLIMIT_NETWORK is, in every way, a smaller
-> expansion of the end user's trusted code base and should therefore be 
-> preferred
-> in comparison netfilter-based solutions for process-level network privilege
-> separation tasks. Do you see things differently?
-
-Your arguments don't seem very convincing to me, but 
-the big problem is more the control of incoming packets. I think
-it would be possible to fix OWNER match to support the INPUT chain
-though.
-
--Andi
+Thanks,
 -- 
-ak@linux.intel.com
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
