@@ -1,46 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] netdev: bfin_mac: enable VLAN support in Blackfin
- MAC driver
-Date: Thu, 08 Jan 2009 10:55:31 -0800 (PST)
-Message-ID: <20090108.105531.176161465.davem@davemloft.net>
-References: <1231344879-26069-1-git-send-email-cooloney@kernel.org>
-	<1231344879-26069-3-git-send-email-cooloney@kernel.org>
+Subject: Re: [PATCH] gianfar: Fixup use of BUS_ID_SIZE
+Date: Thu, 08 Jan 2009 10:58:48 -0800 (PST)
+Message-ID: <20090108.105848.174722136.davem__40134.085834916$1231442538$gmane$org@davemloft.net>
+References: <1231343521-22171-1-git-send-email-galak@kernel.crashing.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, graf.yang@analog.com
-To: cooloney@kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	afleming@freescale.com, kay.sievers@vrfy.org
+To: galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59716
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59732
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761812AbZAHSz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 13:55:29 -0500
-In-Reply-To: <1231344879-26069-3-git-send-email-cooloney@kernel.org>
+	by vger.kernel.org with ESMTP id S1761632AbZAHS6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 13:58:46 -0500
+In-Reply-To: <1231343521-22171-1-git-send-email-galak@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bryan Wu <cooloney@kernel.org>
-Date: Thu,  8 Jan 2009 00:14:39 +0800
+From: Kumar Gala <galak@kernel.crashing.org>
+Date: Wed,  7 Jan 2009 09:52:01 -0600
 
-> +#define VLAN_ETHER_TYPE 0x8100
+> Commit b31a1d8b41513b96e9c7ec2f68c5734cef0b26a4 went back to using
+> BUS_ID_SIZE instead of sizeof() as per the larger patch series
+> that will remove "char bus_id[20]" from struct device.
+> 
+> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
 
-Please use ETH_P_8021Q from linux/if_ether.h instead of inventing
-your own definition.
-
-> +	/* The legal length of the frame is increased to 1538 bytes */
-> +	/*bfin_write_EMAC_VLAN2(VLAN_ETHER_TYPE);*/
-
-Please do not add code that is just going to be commented
-out and not used.
-
-Also, I disagree with the:
-
-+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-
-conditional.  Probably this part of the chip should be programmed
-unconditionally.
-
-We can get VLAN packets received and sent, using AF_PACKET
-sockets, for example.  The chip should still respect those
-even if VLAN proper is not being utilized.
+Applied, thanks Kumar.
