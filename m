@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] r6040: make printks consistent with DRV_NAME
-Date: Thu, 08 Jan 2009 11:01:18 -0800 (PST)
-Message-ID: <20090108.110118.211778968.davem@davemloft.net>
-References: <200901071740.31046.florian@openwrt.org>
+Subject: Re: [PATCH 1/2] mlx4_en: Consider inline packets on completion
+Date: Thu, 08 Jan 2009 10:57:22 -0800 (PST)
+Message-ID: <20090108.105722.243554394.davem@davemloft.net>
+References: <4964C472.2060906@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: florian@openwrt.org
+Cc: jeff@garzik.org, rdreier@cisco.com, netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42273
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59722
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757525AbZAHTBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:01:16 -0500
-In-Reply-To: <200901071740.31046.florian@openwrt.org>
+	by vger.kernel.org with ESMTP id S1755189AbZAHS5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 13:57:21 -0500
+In-Reply-To: <4964C472.2060906@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 7 Jan 2009 17:40:30 +0100
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Wed, 07 Jan 2009 17:04:18 +0200
 
-> r6040: make printks consistent with DRV_NAME
+> Was trying to unmap work queue entries that had inline packets,
+> so naturally weren't mapped.
 > 
-> This patch fixes some printks which were not prefixed
-> with DRV_NAME, useful when having multiple cards/drivers
-> on the system.
-> 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
 Applied.
