@@ -1,69 +1,80 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
- 2.6.27
-Date: Thu, 8 Jan 2009 21:39:30 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901082138060.31441@wrl-59.cs.helsinki.fi>
-References: <bug-12327-10286@http.bugzilla.kernel.org/>
- <20081229214101.4c4f5ac1.akpm@linux-foundation.org>
- <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi> <495BFEAF.6000006@haveacry.com>
- <20090102083402.GA24383@gondor.apana.org.au> <4961ECD2.1000502@haveacry.com>
- <20090107041732.GA22041@gondor.apana.org.au> <4964B303.4020708@haveacry.com>
- <20090108030745.GA1204@gondor.apana.org.au> <4966160A.20001@haveacry.com>
- <20090108083753.14670943@extreme>
+From: Jens Axboe <jens.axboe@oracle.com>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Thu, 8 Jan 2009 20:44:24 +0100
+Message-ID: <20090108194424.GE32491@kernel.dk>
+References: <20090108173028.GA22531@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Speedster <speedster@haveacry.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43200 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753908AbZAHTjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 14:39:33 -0500
-In-Reply-To: <20090108083753.14670943@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Ben Mansell <ben@zeus.com>, Ingo Molnar <mingo@elte.hu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762222AbZAHTqC@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090108173028.GA22531@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Jan 2009, Stephen Hemminger wrote:
-
-> On Fri, 09 Jan 2009 00:04:42 +0900
-> Speedster <speedster@haveacry.com> wrote:
+On Thu, Jan 08 2009, Willy Tarreau wrote:
+> Jens,
 > 
-> > Herbert Xu wrote:
-> > > 
-> > > Can you please take a look at /proc/net/snmp on the host and the
-> > > guest to see if IP InDiscards is non-zero?
-> > 
-> > Both are 0
-> > 
-> > > Also now that we know the problem is definitely in the host/guest
-> > > please take another set of dumps on the interfaces leading to and
-> > > within the guest to see exactly which path of the system is dropping
-> > > the reply.
-> > 
-> > Attached (all are the exact same attempted connection), and reveal some 
-> > interesting information.
-> > 
-> > The path the inbound traffic should take is
-> > 1. vlan50 (host)
-> > 2. tap interface vnet3 (host) / eth0 (guest)
-> > 3. ppp0 (guest)
-> > 
-> > It looks as though when it is sent out the tap interface the payload 
-> > length is incorrect in the PPPoE section of the frame. When it arrives 
-> > via vlan50 it appears fine. Or at least that's what wireshark highlights 
-> > for me :)
+> here's the other patch I was talking about, for better behaviour of
+> non-blocking splice(). Ben Mansell also confirms similar improvements
+> in his tests, where non-blocking splice() initially showed half of
+> read()/write() performance. Ben, would you mind adding a Tested-By
+> line ?
+
+Looks very good to me, I don't see any valid reason to have that !timeo
+break. So feel free to add my acked-by to that patch and send it to
+Dave.
+
 > 
-> Maybe there is an issue that GRO receive isn't handling padding
-> properly?
-
-Hmm, is gro supposed to have something to do with 2.6.27??? Or are you 
-talking something else than Herbert's recent GRO stuff?
-
+> Also, please note that this is unrelated to the corruption bug I reported
+> and does not fix it.
+> 
+> Regards,
+> Willy
+> 
+> From fafe76713523c8e9767805cfdc7b73323d7bf180 Mon Sep 17 00:00:00 2001
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Thu, 8 Jan 2009 17:10:13 +0100
+> Subject: [PATCH] tcp: splice as many packets as possible at once
+> 
+> Currently, in non-blocking mode, tcp_splice_read() returns after
+> splicing one segment regardless of the len argument. This results
+> in low performance and very high overhead due to syscall rate when
+> splicing from interfaces which do not support LRO.
+> 
+> The fix simply consists in not breaking out of the loop after the
+> first read. That way, we can read up to the size requested by the
+> caller and still return when there is no data left.
+> 
+> Performance has significantly improved with this fix, with the
+> number of calls to splice() divided by about 20, and CPU usage
+> dropped from 100% to 75%.
+> 
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
+> ---
+>  net/ipv4/tcp.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 35bcddf..80261b4 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -615,7 +615,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
+>  		lock_sock(sk);
+>  
+>  		if (sk->sk_err || sk->sk_state == TCP_CLOSE ||
+> -		    (sk->sk_shutdown & RCV_SHUTDOWN) || !timeo ||
+> +		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
+>  		    signal_pending(current))
+>  			break;
+>  	}
+> -- 
+> 1.6.0.3
+> 
 
 -- 
- i.
+Jens Axboe
