@@ -1,55 +1,27 @@
-From: Ben Mansell <ben@zeus.com>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Thu, 08 Jan 2009 15:16:16 +0000
-Message-ID: <496618C0.4060103@zeus.com>
-References: <20090106181559.GA29426@1wt.eu> <20090108071651.GA4496@ff.dom.local> <20090108080520.GG30749@1wt.eu> <20090108145259.GF18120@elte.hu>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] hdlc: fix compile problem
+Date: Thu, 08 Jan 2009 16:40:42 +0100
+Message-ID: <m3vdsplsat.fsf@maximus.localdomain>
+References: <20090107141343.3e256119@extreme>
+	<m3d4eyvh28.fsf@maximus.localdomain> <20090107152858.6fb8ac5d@extreme>
+	<m3tz8atxwv.fsf@maximus.localdomain> <20090107170842.6ee4eb77@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, Jarek Poplawski <jarkao2@gmail.com>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailin.zeus.com ([212.44.21.7]:4109 "EHLO mailin.zeus.com"
+Received: from khc.piap.pl ([195.187.100.11]:41786 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751206AbZAHPQT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 10:16:19 -0500
-In-Reply-To: <20090108145259.GF18120@elte.hu>
+	id S1751916AbZAHPko (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 10:40:44 -0500
+In-Reply-To: <20090107170842.6ee4eb77@extreme> (Stephen Hemminger's message of "Wed\, 7 Jan 2009 17\:08\:42 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Willy Tarreau <w@1wt.eu> wrote:
-> 
->> On Thu, Jan 08, 2009 at 07:16:51AM +0000, Jarek Poplawski wrote:
->>> On 06-01-2009 19:15, Willy Tarreau wrote:
->>> ...
->>>> Ah, so you might also have discovered a few annoyances with the API, eg
->>>> the fact that splice() returns after the first read in non-blocking mode,
->>>> as well as the fact that it never returns zero on close, but -EAGAIN,
->>>> which requires an additional recv(MSG_PEEK) to distinguish between a
->>>> close and a lack of data. But I leave that for a later discussion, let's
->>>> address the corruption issue first.
->>> FYI, this should be just fixed:
->>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=4f7d54f59bc470f0aaa932f747a95232d7ebf8b1
->>>
->> Ah cool, thanks Jarek for notifying us. Indeed, it's the exact same patch
->> I had pending here ;-)
->>
->> I'll ping Greg for a backport into -stable, as applications relying on 
->> this will clearly not work without that fix.
->>
->> The other one I had consists in removing "|| !timeo" at the end of the 
->> loop, because otherwise splice() returns very small chunks (typically 
->> 1448 or 1460 bytes), leading to disastrous performance on high bandwidth 
->> links. At 10 Gbps, this means about 800000 calls to splice() per second!
-> 
-> looks interesting - would you mind to submit it?
+>> The changes have to be applied to the 4 synclink drivers and to most
+>> .c files in drivers/net/wan simultaneously, perhaps it's more practical
+>> if I do it?
 
-FWIW, I've also tested this change with some splice() benchmarks. I can 
-confirm that removing the "|| !timeo" works well and improves 
-performance significantly.
-
-
-Ben
+Ok, I will do.
+-- 
+Krzysztof Halasa
