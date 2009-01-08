@@ -1,35 +1,41 @@
-From: "Jaswinder Singh Rajput" <jaswinderlinux@gmail.com>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
-Date: Thu, 8 Jan 2009 11:42:42 +0530
-Message-ID: <3f9a31f40901072212x41e405fh7e36f6adb927814b@mail.gmail.com>
-References: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
+From: david@lang.hm
+Subject: Re: RFC: Network privilege separation.
+Date: Wed, 7 Jan 2009 23:52:29 -0800 (PST)
+Message-ID: <alpine.DEB.1.10.0901072350480.31038@asgard.lang.hm>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org> <87mye2yg8a.fsf@basil.nowhere.org> <20090108023111.GJ3164@didacte.laptop.org> <20090108031042.GQ496@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David Woodhouse" <dwmw2@infradead.org>
-To: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Michael Stone <michael@laptop.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:53070 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534AbZAHGMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 01:12:43 -0500
-In-Reply-To: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
-Content-Disposition: inline
+Received: from mail.lang.hm ([64.81.33.126]:39068 "EHLO bifrost.lang.hm"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751081AbZAHGtz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 01:49:55 -0500
+In-Reply-To: <20090108031042.GQ496@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello alessandro,
+On Thu, 8 Jan 2009, Andi Kleen wrote:
 
-On Wed, Jan 7, 2009 at 7:54 PM, Alessandro Suardi
-<alessandro.suardi@gmail.com> wrote:
+> On Wed, Jan 07, 2009 at 09:31:11PM -0500, Michael Stone wrote:
+>>     -- if it's different from Joe User's regular uid, then where did it come
+>>        from and how is Joe going to clean it up when he no longer needs it?
 >
-> Note that I don't have CONFIG_FIRMWARE_IN_KERNEL, but on
->  the other hand I didn't earlier, either... and yes, CONFIG_MODULES=y.
+> You always create  joe-nonet one when you create joe
 >
+> Now writing to joe's files: you can either use ACLs or do everything
+> through group accesses (it's very common to have a "joe" group for this
+> purpose for each user)
+>
+> But perhaps it's a good idea to not allow writing to all of Joe's
+> files by those "no network" processes too. It at least sounds like
+> that might be useful to combine.
 
-Please try with CONFIG_FIRMWARE_IN_KERNEL , is this makes some difference.
+there are times when that would be nice, but it's also a bit of a pain to 
+have to change the permissions so that joe-nonet can access all the files 
+that joe can access (they will have to be set with the correct group 
+ownership and hope that there wasn't a reason to use any other group)
 
---
-JSR
+David Lang
