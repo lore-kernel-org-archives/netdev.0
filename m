@@ -1,52 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] IPV6 address management
-Date: Thu, 8 Jan 2009 13:44:02 -0800
-Message-ID: <20090108134402.6e88438f@extreme>
-References: <20090108093430.0f966738@extreme>
-	<20090108.112420.102641584.davem@davemloft.net>
-	<20090108121220.789325a6@extreme>
-	<20090108.125830.142298950.davem@davemloft.net>
+From: "Jorge Bastos" <mysql.jorge@decimal.pt>
+Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!    
+      2.6.28
+Date: Thu, 8 Jan 2009 21:46:04 -0000 (WET)
+Message-ID: <1059.87.196.62.168.1231451164.squirrel@webmail.decimal.pt>
+References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt>
+    <3226.192.168.1.3.1231435651.squirrel@webmail.decimal.pt>
+    <200901082032.16859.denys@visp.net.lb>
+    <200901082041.58597.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7BIT
+Cc: "Jarek Poplawski" <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: "Denys Fedoryschenko" <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35995 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756627AbZAHVoF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 16:44:05 -0500
-In-Reply-To: <20090108.125830.142298950.davem@davemloft.net>
+Received: from mailrly08.isp.novis.pt ([195.23.133.218]:41383 "EHLO
+	mailrly08.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753991AbZAHVpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 16:45:44 -0500
+In-Reply-To: <200901082041.58597.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 08 Jan 2009 12:58:30 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Well... i'm out of ideias.
+CBQ seems to be working OK without the parameters disables that Jarek told
+me to disable.
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Thu, 8 Jan 2009 12:12:20 -0800
-> 
-> > What about this?
-> > 
-> > If it works (still testing), I'll submit it.
-> 
-> So what is your plan?
-> 
-> Make the routing daemons depend upon the non-default
-> behavior in order to act correctly?
-routing daemons don't deal with addresses directly now,
-and getting them to do it would be painful.
+What can you say about this Jarek?
 
-> Or is it to gradually get people to use the non-default
-> (via distribution sysctl settings etc.) and eventually
-> make it the default?
-No plan to ever change the default. Just ship with sysctl.conf
-setting.
 
-> I disagree with both plans, and with that the facility
-> is basically useless.
-> 
-> We absolutely have to live with the behavior we have now,
-> and for a long time if not forever.
+> I check, also HFSC not keeping bandwidth accurate.
+> Seems i am totally lost, what to do.
+> Any ideas what i can try?
+>
 
 
