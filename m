@@ -1,54 +1,78 @@
-From: Michael Stone <michael@laptop.org>
-Subject: Re: [PATCH] Security: Implement and document RLIMIT_NETWORK.
-Date: Wed, 7 Jan 2009 19:56:21 -0500
-Message-ID: <20090108005621.GI3164@didacte.laptop.org>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <1231307334-9542-2-git-send-email-michael@laptop.org> <20090107114703.GB28161@ioremap.net> <20090107210758.GH3164@didacte.laptop.org> <20090107215935.GB4610@ioremap.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] hdlc: fix compile problem
+Date: Thu, 08 Jan 2009 02:00:00 +0100
+Message-ID: <m3tz8atxwv.fsf@maximus.localdomain>
+References: <20090107141343.3e256119@extreme>
+	<m3d4eyvh28.fsf@maximus.localdomain> <20090107152858.6fb8ac5d@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.laptop.org ([18.85.2.145]:50012 "EHLO mail.laptop.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753956AbZAHA4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jan 2009 19:56:22 -0500
-Received: from didacte.laptop.org (dhcp-47-72.media.mit.edu [18.85.47.72])
-	by mail.laptop.org (Postfix) with SMTP id 0C8D723AD1
-	for <netdev@vger.kernel.org>; Wed,  7 Jan 2009 19:56:23 -0500 (EST)
-Content-Disposition: inline
-In-Reply-To: <20090107215935.GB4610@ioremap.net>
+Received: from khc.piap.pl ([195.187.100.11]:53361 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753436AbZAHBAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jan 2009 20:00:03 -0500
+In-Reply-To: <20090107152858.6fb8ac5d@extreme> (Stephen Hemminger's message of "Wed\, 7 Jan 2009 15\:28\:58 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2009 at 12:59:36AM +0300, Evgeniy Polyakov wrote:
->I meant that connected or accepted socket will not be able to send data
->via send() call, but will be able to receive data using recv().
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-A key fact which may not have stood out, since I didn't comment on it
-explicitly in the code, is that the disqualification tests inserted by
-the __sock_sendmsg() and unix_dgram_sendmsg hunks contain additional
-conditions like
+> It was introduced (by me) in previous patch. Since that isn't applied yet,
+> I'll go back and fix.
 
-__sock_sendmsg():
-+               && (msg->msg_name != NULL || msg->msg_namelen != 0))
+I can see it now, I must have missed it because of the "synclink"
+subject.
 
-unix_dgram_sendmsg():
-+                       && !sunaddr->sun_path[0])
+@@ -106,7 +98,7 @@ static int hdlc_device_event(struct noti
+        if (dev_net(dev) != &init_net)
+                return NOTIFY_DONE;
+ 
+-       if (dev->get_stats != hdlc_get_stats)
++       if (dev->header_ops != &hdlc_null_ops)
+                return NOTIFY_DONE; /* not an HDLC device */
 
-which return us to the usual codepaths whenever we're dealing with an
-already-connected socket. Since my tests pass, can you post an example
-of a failing send() call which you think should work?
+This won't work because hdlc_null_ops may be substituted by
+cisco_header_ops or ppp_header_ops. Current test works for now but is
+wrong, too, at least for wanxl driver (it tries to use its
+get_stats()).
 
->Your patch adds a rlimit check into __sock_sendmsg() call, which is
->invoked via usual send() path, but sendfile() and splice() are still
->exectuted without this check and thus will be able to send data after
->rlimit applied.
+Perhaps some
++       if (dev->header_ops->something != &something)
+would do? Alternatively we can return to hdlc_carrier_on|off() and
+hdlc_device_event() won't be needed.
 
-As far as I can tell, sendfile() and splice(), which operate solely on
-fds, cannot be used to send messages via a disconnected socket.
-Therefore, I /believe/ that they require no modification. Am I terribly
-mistaken about this?
+Essentially, it's a bit hard to check if the device is one of ours if
+we are the middle layer.
 
-Thanks,
 
-Michael
+There are two layers here:
+- hardware drivers (10+)
+- protocol drivers (5 - hdlc* files)
+
+Protocol drivers want to define things like:
+- dev->header_ops (no problem)
+- dev->change_mtu (perhaps)
+- dev->hard_start_xmit
+
+Hardware drivers need to define the rest of NDO.
+
+Hmm, not much, only hard_start_xmit() is really problematic. I think
+we need a trampoline: hw driver will define the NDO and set
+hard_start_xmit and possibly change_mtu to (exported by hdlc.c)
+hdlc_xmit (hdlc_change_mtu), and hdlc_start_xmit will just call
+protocol's xmit().
+We could also use it for the test in hdlc_device_event:
+	if (dev->netdev_ops->start_hard_xmit != hdlc_xmit)
+
+If we could then get rid of this special xmit() and do all header and
+TX preparations in hard_header(), it would be even better (cleaner)
+though IIRC it requires some changes to Ethernet(?) code.
+
+
+The changes have to be applied to the 4 synclink drivers and to most
+.c files in drivers/net/wan simultaneously, perhaps it's more practical
+if I do it?
+-- 
+Krzysztof Halasa
