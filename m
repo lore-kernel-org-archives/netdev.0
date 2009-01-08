@@ -1,42 +1,38 @@
-From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
-Date: Thu, 8 Jan 2009 21:33:35 +0100
-Message-ID: <5a4c581d0901081233y6b546167sbe3ed9f2ea37f1f9@mail.gmail.com>
-References: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
-	 <3f9a31f40901072212x41e405fh7e36f6adb927814b@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: Remove redundant NAPI functions
+Date: Thu, 08 Jan 2009 12:40:46 -0800
+Message-ID: <1231447246.1739.61.camel@localhost>
+References: <1231446610.3893.17.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David Woodhouse" <dwmw2@infradead.org>
-To: "Jaswinder Singh Rajput" <jaswinderlinux@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762080AbZAHUdy@vger.kernel.org>
-In-Reply-To: <3f9a31f40901072212x41e405fh7e36f6adb927814b@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>, shemminger@vyatta.com,
+	jarkao2@gmail.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4073 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856AbZAHUlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 15:41:04 -0500
+In-Reply-To: <1231446610.3893.17.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 8, 2009 at 7:12 AM, Jaswinder Singh Rajput
-<jaswinderlinux@gmail.com> wrote:
-> Hello alessandro,
->
-> On Wed, Jan 7, 2009 at 7:54 PM, Alessandro Suardi
-> <alessandro.suardi@gmail.com> wrote:
->>
->> Note that I don't have CONFIG_FIRMWARE_IN_KERNEL, but on
->>  the other hand I didn't earlier, either... and yes, CONFIG_MODULES=y.
->>
->
-> Please try with CONFIG_FIRMWARE_IN_KERNEL , is this makes some difference.
+On Thu, 2009-01-08 at 20:30 +0000, Ben Hutchings wrote:
+> Following the removal of the unused struct net_device * parameter from
+> the NAPI functions named *netif_rx_* in commit 908a7a1, they are
+> exactly equivalent to the corresponding *napi_* functions and are
+> therefore redundant.
 
-Yes it does, thank you - 2.6.28-git11 with CONFIG_FIRMWARE_IN_KERNEL
- gets my tg3 back to work on boot. Must be a requirement since -git8 then ?
+[]
 
-Thanks again, ciao,
+> I revisited this to update the out-of-tree version of the sfc driver.
+> This makes the *netif_rx_* functions equivalent to the corresponding
+> *napi_* functions.  So let's finish the job.  This is another search-
+> and-replace, mostly compile-tested.
 
---alessandro
+napi was just new-api.
+Why persist what seems a poor naming choice?
 
- "Sun keeps rising in the west / I keep on waking fully confused"
 
-   (The Replacements, "Within Your Reach")
