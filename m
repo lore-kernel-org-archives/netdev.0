@@ -1,34 +1,38 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB - very bad precision? HFSC works fine! 2.6.28
-Date: Thu, 8 Jan 2009 10:40:32 +0000
-Message-ID: <20090108104032.GA5493@ff.dom.local>
-References: <20090108092720.GC4496@ff.dom.local> <200901081134.41467.denys@visp.net.lb>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: RFC: Network privilege separation.
+Date: Thu, 8 Jan 2009 10:43:05 +0000
+Message-ID: <20090108104305.7b271053@lxorguk.ukuu.org.uk>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org>
+	<87mye2yg8a.fsf@basil.nowhere.org>
+	<20090108023111.GJ3164@didacte.laptop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Stone <michael@laptop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f31.google.com ([209.85.219.31]:42046 "EHLO
-	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754633AbZAHKki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 05:40:38 -0500
-Received: by ewy12 with SMTP id 12so3104115ewy.13
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 02:40:36 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <200901081134.41467.denys@visp.net.lb>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:41358 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751010AbZAHKmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 05:42:50 -0500
+In-Reply-To: <20090108023111.GJ3164@didacte.laptop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2009 at 11:34:41AM +0200, Denys Fedoryschenko wrote:
-> I will check all this things, as soon as traffic reach peak (after 6 hours i 
-> think).
-...
-> On Thursday 08 January 2009 11:27:20 Jarek Poplawski wrote:
-...
-> > tested? Could you do a few snapshots with: tc -s qdisc show dev $DEV
+> Conclusion: so far as I can see, RLIMIT_NETWORK is, in every way, a smaller
+> expansion of the end user's trusted code base and should therefore be preferred
+> in comparison netfilter-based solutions for process-level network privilege
+> separation tasks. Do you see things differently?
 
-I forgot to mention: tc -s class show dev $DEV
-as well.
+If you have the same uid then you can just use ptrace to drive another
+task with that uid to do the creations for you. Chances are you can also
+attack shared executable files (eg that uids .bashrc)
 
-Thanks,
-Jarek P.
+That to me says controlling network access is only useful as part of a
+more fine grained and general purpose interface. We already have that
+interface in the form of things like SELinux. We already have systems
+actively using it to control stuff like which ports are accessed by some
+services.
+
+Alan
