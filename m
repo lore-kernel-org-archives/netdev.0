@@ -1,39 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 03/42] bluetooth: driver API update
-Date: Wed, 07 Jan 2009 17:23:28 -0800 (PST)
-Message-ID: <20090107.172328.193611931.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 04/42] phonet: update to net_device_ops
+Date: Wed, 07 Jan 2009 17:25:07 -0800 (PST)
+Message-ID: <20090107.172507.70787623.davem@davemloft.net>
 References: <20090107003316.784424362@vyatta.com>
-	<20090107003345.753201945@vyatta.com>
-	<1231293232.14901.13.camel@californication>
+	<20090107003345.872219054@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1231293232.14901.13.camel@californication>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38010
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751465AbZAHBZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 20:25:06 -0500
+In-Reply-To: <20090107003345.872219054@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Date: Wed, 07 Jan 2009 02:53:52 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 06 Jan 2009 16:33:20 -0800
 
-> > Convert to net_device_ops and use internal net_device_stats in bnep
-> > device. 
-> > 
-> > Note: no need for bnep_net_ioctl since if ioctl is not set, then
-> > dev_ifsioc handles it by returning -EOPNOTSUPP
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-> 
-> looks good to me.
-> 
-> Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied.
-
-> Dave, I assume you take the whole series in one go, so I leave it up to
-> you to apply.
-
-Yep, thanks.
+Applied, thanks.
