@@ -1,34 +1,34 @@
-From: mysql.jorge@decimal.pt
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-     2.6.28
-Date: Thu, 8 Jan 2009 10:37:45 -0000 (WET)
-Message-ID: <2030.192.168.1.3.1231411065.squirrel@webmail.decimal.pt>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt>
-    <20090108094231.GD4496@ff.dom.local>
-    <20090108095403.GE4496@ff.dom.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB - very bad precision? HFSC works fine! 2.6.28
+Date: Thu, 8 Jan 2009 10:40:32 +0000
+Message-ID: <20090108104032.GA5493@ff.dom.local>
+References: <20090108092720.GC4496@ff.dom.local> <200901081134.41467.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Denys Fedoryschenko" <denys@visp.net.lb>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly08.isp.novis.pt ([195.23.133.218]:38938 "EHLO
-	mailrly08.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752836AbZAHKh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 05:37:27 -0500
-In-Reply-To: <20090108095403.GE4496@ff.dom.local>
+Received: from mail-ew0-f31.google.com ([209.85.219.31]:42046 "EHLO
+	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754633AbZAHKki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 05:40:38 -0500
+Received: by ewy12 with SMTP id 12so3104115ewy.13
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 02:40:36 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <200901081134.41467.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My rules, iproute, or the kernel QoS modules?
+On Thu, Jan 08, 2009 at 11:34:41AM +0200, Denys Fedoryschenko wrote:
+> I will check all this things, as soon as traffic reach peak (after 6 hours i 
+> think).
+...
+> On Thursday 08 January 2009 11:27:20 Jarek Poplawski wrote:
+...
+> > tested? Could you do a few snapshots with: tc -s qdisc show dev $DEV
 
+I forgot to mention: tc -s class show dev $DEV
+as well.
 
-> Hmm... Actually, it's probably about config: I'm not cbq user or
-> expert, but AFAIK it depends on precise info about the real link
-> rate, so it probably needs an update to 1000Mbit.
->
-> Jarek P.
->
-
-
+Thanks,
+Jarek P.
