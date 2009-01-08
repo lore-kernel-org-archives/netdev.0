@@ -1,27 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 38/42] uwb: convert devices to net_device_ops
-Date: Wed, 07 Jan 2009 18:09:15 -0800 (PST)
-Message-ID: <20090107.180915.92017954.davem@davemloft.net>
+Subject: Re: [PATCH 39/42] slip: convert to net_device_ops
+Date: Wed, 07 Jan 2009 18:09:41 -0800 (PST)
+Message-ID: <20090107.180941.241188379.davem@davemloft.net>
 References: <20090107003316.784424362@vyatta.com>
-	<20090107003349.555693360@vyatta.com>
-	<49648617.3060801@csr.com>
+	<20090107003349.686816790@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: david.vrabel@csr.com
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37461
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37465
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751400AbZAHCJO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 21:09:14 -0500
-In-Reply-To: <49648617.3060801@csr.com>
+	by vger.kernel.org with ESMTP id S1752720AbZAHCJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jan 2009 21:09:39 -0500
+In-Reply-To: <20090107003349.686816790@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@csr.com>
-Date: Wed, 07 Jan 2009 10:38:15 +0000
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 06 Jan 2009 16:33:55 -0800
 
-> Acked-by: David Vrabel <david.vrabel@csr.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 Applied.
