@@ -1,73 +1,42 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH] tcp: splice as many packets as possible at once
-Date: Thu, 8 Jan 2009 21:16:46 +0100
-Message-ID: <20090108201646.GA23687@1wt.eu>
-References: <20090108173028.GA22531@1wt.eu>
+From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
+Date: Thu, 8 Jan 2009 21:33:35 +0100
+Message-ID: <5a4c581d0901081233y6b546167sbe3ed9f2ea37f1f9@mail.gmail.com>
+References: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
+	 <3f9a31f40901072212x41e405fh7e36f6adb927814b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1270 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752003AbZAHUUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 15:20:05 -0500
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David Woodhouse" <dwmw2@infradead.org>
+To: "Jaswinder Singh Rajput" <jaswinderlinux@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762080AbZAHUdy@vger.kernel.org>
+In-Reply-To: <3f9a31f40901072212x41e405fh7e36f6adb927814b@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20090108173028.GA22531@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Thu, Jan 8, 2009 at 7:12 AM, Jaswinder Singh Rajput
+<jaswinderlinux@gmail.com> wrote:
+> Hello alessandro,
+>
+> On Wed, Jan 7, 2009 at 7:54 PM, Alessandro Suardi
+> <alessandro.suardi@gmail.com> wrote:
+>>
+>> Note that I don't have CONFIG_FIRMWARE_IN_KERNEL, but on
+>>  the other hand I didn't earlier, either... and yes, CONFIG_MODULES=y.
+>>
+>
+> Please try with CONFIG_FIRMWARE_IN_KERNEL , is this makes some difference.
 
-would you please accept this patch (acked by Jens) ?
+Yes it does, thank you - 2.6.28-git11 with CONFIG_FIRMWARE_IN_KERNEL
+ gets my tg3 back to work on boot. Must be a requirement since -git8 then ?
 
-Also, would you mind adding this one as well as
-4f7d54f59bc470f0aaa932f747a95232d7ebf8b1 to your stable queue, because
-without them, splicing between sockets is unusable or worthless, and
-having both in the long-term 2.6.27 will certainly promote splice()
-usage among applications.
+Thanks again, ciao,
 
-Thanks!
-Willy
+--alessandro
 
+ "Sun keeps rising in the west / I keep on waking fully confused"
 
->From fafe76713523c8e9767805cfdc7b73323d7bf180 Mon Sep 17 00:00:00 2001
-From: Willy Tarreau <w@1wt.eu>
-Date: Thu, 8 Jan 2009 17:10:13 +0100
-Subject: [PATCH] tcp: splice as many packets as possible at once
-
-Currently, in non-blocking mode, tcp_splice_read() returns after
-splicing one segment regardless of the len argument. This results
-in low performance and very high overhead due to syscall rate when
-splicing from interfaces which do not support LRO.
-
-The fix simply consists in not breaking out of the loop after the
-first read. That way, we can read up to the size requested by the
-caller and still return when there is no data left.
-
-Performance has significantly improved with this fix, with the
-number of calls to splice() divided by about 20, and CPU usage
-dropped from 100% to 75%.
-
-Signed-off-by: Willy Tarreau <w@1wt.eu>
-Acked-by: Jens Axboe <jens.axboe@oracle.com>
----
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 35bcddf..80261b4 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -615,7 +615,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
- 		lock_sock(sk);
- 
- 		if (sk->sk_err || sk->sk_state == TCP_CLOSE ||
--		    (sk->sk_shutdown & RCV_SHUTDOWN) || !timeo ||
-+		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
- 		    signal_pending(current))
- 			break;
- 	}
--- 
-1.6.0.3
-
+   (The Replacements, "Within Your Reach")
