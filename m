@@ -1,38 +1,51 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: RFC: Network privilege separation.
-Date: Thu, 8 Jan 2009 10:43:05 +0000
-Message-ID: <20090108104305.7b271053@lxorguk.ukuu.org.uk>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org>
-	<87mye2yg8a.fsf@basil.nowhere.org>
-	<20090108023111.GJ3164@didacte.laptop.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
+	2.6.28
+Date: Thu, 8 Jan 2009 11:04:30 +0000
+Message-ID: <20090108110430.GB5493@ff.dom.local>
+References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <20090108094231.GD4496@ff.dom.local> <20090108095403.GE4496@ff.dom.local> <20090108100614.GA5418@ff.dom.local> <2025.192.168.1.3.1231410939.squirrel@webmail.decimal.pt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Stone <michael@laptop.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: mysql.jorge@decimal.pt
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:41358 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751010AbZAHKmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 05:42:50 -0500
-In-Reply-To: <20090108023111.GJ3164@didacte.laptop.org>
+Received: from mail-ew0-f31.google.com ([209.85.219.31]:64887 "EHLO
+	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbZAHLEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 06:04:37 -0500
+Received: by ewy12 with SMTP id 12so3107710ewy.13
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 03:04:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <2025.192.168.1.3.1231410939.squirrel@webmail.decimal.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Conclusion: so far as I can see, RLIMIT_NETWORK is, in every way, a smaller
-> expansion of the end user's trusted code base and should therefore be preferred
-> in comparison netfilter-based solutions for process-level network privilege
-> separation tasks. Do you see things differently?
+On Thu, Jan 08, 2009 at 10:35:39AM -0000, mysql.jorge@decimal.pt wrote:
+> Well, even with that, why it works perfectly when i use the 100Mbit NIC?
+> There must be something here that needs an ajustment, no?
 
-If you have the same uid then you can just use ptrace to drive another
-task with that uid to do the creations for you. Chances are you can also
-attack shared executable files (eg that uids .bashrc)
+It's hard to tell because these two things (cbq and tbf) use different
+methods, which could interact strange way (and are not expected to work
+together). I think you should test them alone first (especially tbf),
+and send here the tc comannd plus "tc -s qdisc show dev eth0" and
+"tc -s class show dev eth0" output while traffic is run. You could also
+add this "ethtool -k eth0" and "ifconfig eth0".
 
-That to me says controlling network access is only useful as part of a
-more fine grained and general purpose interface. We already have that
-interface in the form of things like SELinux. We already have systems
-actively using it to control stuff like which ports are accessed by some
-services.
+Jarek P. 
 
-Alan
+
+> >>
+> >> Hmm... Actually, it's probably about config: I'm not cbq user or
+> >> expert, but AFAIK it depends on precise info about the real link
+> >> rate, so it probably needs an update to 1000Mbit.
+> >
+> > Hmm#2... I missed this tbf thing: this could point to GSO again, but
+> > generally it's considered as a bug to use more than one non-work-
+> > conserving qdisc in a tree (so e.g. cbq with any of tbf/htb/hfsc
+> > together).
+> >
+> > Jarek P.
+> >
+> 
+> 
