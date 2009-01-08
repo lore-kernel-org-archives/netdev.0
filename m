@@ -1,79 +1,43 @@
-From: Alexander Schulz <alex@shark-linux.de>
-Subject: Reading MAC Address from a CS89x0 without eeprom
-Date: Thu, 08 Jan 2009 20:25:01 +0100
-Message-ID: <4966530D.3050103@shark-linux.de>
+From: "Mike Frysinger" <vapier.adi@gmail.com>
+Subject: Re: [PATCH 2/2] netdev: bfin_mac: enable VLAN support in Blackfin MAC driver
+Date: Thu, 8 Jan 2009 14:34:43 -0500
+Message-ID: <8bd0f97a0901081134gc5b6eb9h7f20dea146fc6cd0@mail.gmail.com>
+References: <20090108.105531.176161465.davem@davemloft.net>
+	 <8bd0f97a0901081101t6fdfa485rbd7ccc4e47691ddb@mail.gmail.com>
+	 <8bd0f97a0901081105q1e897254kad9a8533b5845403@mail.gmail.com>
+	 <20090108.113009.263402475.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: alex@shark-linux.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shark-linux.de ([81.169.184.142]:58276 "EHLO shark-linux.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751474AbZAHTaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jan 2009 14:30:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cooloney@kernel.org, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, graf.yang@analog.com
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759545AbZAHTe4@vger.kernel.org>
+In-Reply-To: <20090108.113009.263402475.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, Jan 8, 2009 at 14:30, David Miller wrote:
+> From: "Mike Frysinger" <vapier
+>> On Thu, Jan 8, 2009 at 14:01, Mike Frysinger wrote:
+>> > On Thu, Jan 8, 2009 at 13:55, David Miller wrote:
+>> >> We can get VLAN packets received and sent, using AF_PACKET
+>> >> sockets, for example.  The chip should still respect those
+>> >> even if VLAN proper is not being utilized.
+>> >
+>> > any tips on doing that ?
+>>
+>> or rather, is there a driver or you two you can point out that is
+>> doing this correctly ?  the ones i looked at seemed to be doing it
+>> like the patch we posted ...
+>
+> And I disagree with how those drivers are doing it :-)
+>
+> At least the programming of the chip to accept all packet
+> types properly, VLAN or not, regardless of kernel config,
+> is definitely IMHO the way to go.
 
-on my machine, an ARM based board, there is a SUN-like openprom
-firmware that initializes hardware using one global eeprom. It
-also initializes the network chip (CS89x0) with a MAC Address. The
-current Linux driver has the ability to read the address from the
-chip but it only does it if it detects an eeprom attached to the
-chip. There is no dedicated eeprom on my board. So I would like
-to include something like the following possibility to read the mac
-address from the chip anyway. I discussed this on the ARM devel
-list and was redirected here, so I hope you can help me.
-
-Thanks
-   Alexander
-
-diff -udpNr -x '*.cmd' -x '*.o'
-linux-2.6.28-git6-org/drivers/net/cs89x0.c linux-2.6.28/drivers/net/cs89x0.c
---- linux-2.6.28-git6-org/drivers/net/cs89x0.c  2009-01-04
-12:07:04.000000000 +0100
-+++ linux-2.6.28/drivers/net/cs89x0.c   2009-01-08 17:17:32.000000000 +0100
-@@ -670,8 +670,14 @@ cs89x0_probe1(struct net_device *dev, in
-          } else
-   #endif
-
-+#ifndef CONFIG_CS89x0_NOEEPROM
-+        /* On some systems the chip might be initialized by firmware
-+         * even though it does not have an EEPROM.
-+         * So let's read the config from the chip anyway. */
-           if ((readreg(dev, PP_SelfST) & (EEPROM_OK | EEPROM_PRESENT)) ==
--             (EEPROM_OK|EEPROM_PRESENT)) {
-+             (EEPROM_OK|EEPROM_PRESENT))
-+#endif
-+              {
-                  /* Load the MAC. */
-                  for (i=0; i < ETH_ALEN/2; i++) {
-                          unsigned int Addr;
-diff -udpNr -x '*.cmd' -x '*.o'
-linux-2.6.28-git6-org/drivers/net/Kconfig linux-2.6.28/drivers/net/Kconfig
---- linux-2.6.28-git6-org/drivers/net/Kconfig   2009-01-04
-12:07:02.000000000 +0100
-+++ linux-2.6.28/drivers/net/Kconfig    2009-01-08 17:22:32.000000000 +0100
-@@ -1424,6 +1424,19 @@ config CS89x0_NONISA_IRQ
-          depends on CS89x0 != n
-          depends on MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X ||
-MACH_MX31ADS
-
-+config CS89x0_NOEEPROM
-+       bool "Always read MAC Address from the chip"
-+       depends on CS89x0 != n
-+       default y if ARCH_SHARK
-+       ---help---
-+         If you say Y here, the MAC address is read from the CS89x0
-+         even if there is no EEPROM connected to it that could hold
-+         the address. This is useful if the chip was previously
-+         initialized by some firmware or bootloader that uses other
-+         means to determine a unique MAC address like a global EEPROM
-+         for many different hardware settings.
-+
-+
-   config TC35815
-          tristate "TOSHIBA TC35815 Ethernet support"
-          depends on NET_PCI && PCI && MIPS
+i know on our side we all agree with you, we just didnt (dont) know
+any better ;)
+-mike
