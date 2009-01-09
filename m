@@ -1,85 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
-	2.6.27
-Date: Fri, 9 Jan 2009 23:04:55 +1100
-Message-ID: <20090109120455.GB12486@gondor.apana.org.au>
-References: <e7c4531f0901081558n429f7275w717774dbe9ccd895@mail.gmail.com> <20090109031408.GB11336@gondor.apana.org.au> <20090109115515.GA12486@gondor.apana.org.au>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: Re: [patch 1/4] lcs: convert to net_device_ops
+Date: Fri, 09 Jan 2009 13:18:38 +0100
+Message-ID: <4967409E.2020608@linux.vnet.ibm.com>
+References: <20090109090156.422658000@de.ibm.com> <20090109090220.554541000@de.ibm.com> <20090109105447.GA2929@wavehammer.waldi.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Speedster <speedster@haveacry.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Dykstra <john.dykstra1@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com
+To: Bastian Blank <bastian@waldi.eu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40645 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752691AbZAIMFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 07:05:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20090109115515.GA12486@gondor.apana.org.au>
+Received: from mtagate2.uk.ibm.com ([194.196.100.162]:47134 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859AbZAIMSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 07:18:40 -0500
+In-Reply-To: <20090109105447.GA2929@wavehammer.waldi.eu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 10:55:15PM +1100, Herbert Xu wrote:
+good catch, thanks a lot. I will rework the complete patch set because
+there is the same issue with ctcm and qeth_l3.
+
+Frank
+
+> On Fri, Jan 09, 2009 at 10:01:57AM +0100, frank.blaschka@de.ibm.com wrote:
+>>  #ifdef CONFIG_IP_MULTICAST
+>>  	if (!lcs_check_multicast_support(card))
+>> -		card->dev->set_multicast_list = lcs_set_multicast_list;
+>> +		lcs_netdev_ops.ndo_set_multicast_list = lcs_set_multicast_list;
 > 
-> It turns out that even though we have sysctl's that's supposed
-> to control pppoe/vlan processing, they don't actually work.
+> This looks wrong. lcs_netdev_ops is static but this code used to set it
+> up per card.
 > 
-> This patch should make them work.
+> Bastian
+> 
 
-With that we can actually turn them off.
 
-bridge: Disable PPPOE/VLAN processing by default
-
-The PPPOE/VLAN processing code in the bridge netfilter is broken
-by design.  The VLAN tag and the PPPOE session ID are an integral
-part of the packet flow information, yet they're completely
-ignored by the bridge netfilter.  This is potentially a security
-hole as it treats all VLANs and PPPOE sessions as the same.
-
-What's more, it's actually broken for PPPOE as the bridge netfilter
-tries to trim the packets to the IP length without adjusting the
-PPPOE header (and adjusting the PPPOE header isn't much better
-since the PPPOE peer may require the padding to be present).
-
-Therefore we should disable this by default.
-
-It does mean that people relying on this feature may lose networking
-depending on how their bridge netfilter rules are configured.
-However, IMHO the problems this code causes are serious enough to
-warrant this.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 9a1cd75..cf754ac 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -58,11 +58,11 @@ static struct ctl_table_header *brnf_sysctl_header;
- static int brnf_call_iptables __read_mostly = 1;
- static int brnf_call_ip6tables __read_mostly = 1;
- static int brnf_call_arptables __read_mostly = 1;
--static int brnf_filter_vlan_tagged __read_mostly = 1;
--static int brnf_filter_pppoe_tagged __read_mostly = 1;
-+static int brnf_filter_vlan_tagged __read_mostly = 0;
-+static int brnf_filter_pppoe_tagged __read_mostly = 0;
- #else
--#define brnf_filter_vlan_tagged 1
--#define brnf_filter_pppoe_tagged 1
-+#define brnf_filter_vlan_tagged 0
-+#define brnf_filter_pppoe_tagged 0
- #endif
- 
- static inline __be16 vlan_proto(const struct sk_buff *skb)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
