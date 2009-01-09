@@ -1,55 +1,47 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] wimax: fix typo in kernel-doc for debugfs_dentry in struct
-	wimax_dev
-Date: Fri,  9 Jan 2009 09:34:00 -0800
-Message-ID: <1231522440-30059-1-git-send-email-inaky@linux.intel.com>
-References: <4966E268.20101@oracle.com>
-Cc: Randy Dunlap <randy.dunlap@oracle.com>
-To: wimax@linuxwimax.org,
-	netdev@vger.kernel.org
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <4966E268.20101@oracle.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH 0/2][RFC] virtio_net: MAC filtering
+Date: Fri, 09 Jan 2009 19:54:12 +0200
+Message-ID: <49678F44.4090900@redhat.com>
+References: <1231351559.7109.128.camel@lappy> <4964F11B.7020509@codemonkey.ws>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alex Williamson <alex.williamson@hp.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	kvm <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Mark McLoughlin <markmc@redhat.com>
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4964F11B.7020509@codemonkey.ws>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The kernel-doc was referring to member @debufs_dentry instead of
-@debugfs_dentry.
+Anthony Liguori wrote:
+> Alex Williamson wrote:
+>> This series builds on some of the patches Mark McLoughlin has sent out
+>> recently, so likely won't apply to any current trees until those get
+>> upstream.  The goal is to enable MAC filtering at the kvm/qemu level for
+>> virtio-net packets.  Promiscuous and allmulti mode are handled by adding
+>> bits to Mark's proposed status field.  I also add a 16 entry MAC table
+>> for additional unicast and multicast addresses to filter.  If this looks
+>> reasonable, I'll follow-up with VLAN filtering.
+>>
+>> As noted in the RFC thread adding the kvm/qemu backing, this does
+>> increase the size of the virtio-net device I/O port space, up to 1kB
+>> with PCI rounding if we add a 4k entry VLAN bitmap.  A 64 device limit
+>> is still pretty high for a VM, but maybe we should think about adding
+>> MMIO space for virtio-pci.  Thanks,
+>>   
+>
+> I'm not quite sure the best way to address this.  Maybe another 
+> control queue for sending commands to control this sort of stuff?  
+> What are your thoughts Rusty?
 
-Reported by Randy Dunlap http://marc.info/?l=linux-netdev&m=123147942302885&w=2
+Reducing the amount of shared state will make maintaining compatibility 
+easier.  A command queue introduces asynchronity and its associated 
+problems, but I think it's worthwhile.
 
-As well, escape the colon in the field's text description, as it is
-causing the generated text to be erraticly broken up (with paragraphs
-moved down). Could not find a reason why it is happening so, even when
-other field descriptions use colons and work as expected.
-
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/net/wimax.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/wimax.h b/include/net/wimax.h
-index 073809c..6b3824e 100644
---- a/include/net/wimax.h
-+++ b/include/net/wimax.h
-@@ -323,8 +323,8 @@ struct input_dev;
-  *
-  * @rf_hw: [private] State of the hardware radio switch (OFF/ON)
-  *
-- * @debufs_dentry: [private] Used to hook up a debugfs entry. This
-- *     shows up in the debugfs root as wimax:DEVICENAME.
-+ * @debugfs_dentry: [private] Used to hook up a debugfs entry. This
-+ *     shows up in the debugfs root as wimax\:DEVICENAME.
-  *
-  * Description:
-  * This structure defines a common interface to access all WiMAX
 -- 
-1.5.6.5
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
+
