@@ -1,30 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: "Jorge Bastos" <mysql.jorge@decimal.pt>
 Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-	2.6.28
-Date: Fri, 9 Jan 2009 10:30:30 +0000
-Message-ID: <20090109103030.GI4605@ff.dom.local>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <200901082041.58597.denys@visp.net.lb> <1059.87.196.62.168.1231451164.squirrel@webmail.decimal.pt> <200901082357.13396.denys@visp.net.lb>
+     2.6.28
+Date: Fri, 9 Jan 2009 10:32:13 -0000 (WET)
+Message-ID: <1451.192.168.1.3.1231497133.squirrel@webmail.decimal.pt>
+References: <2025.192.168.1.3.1231410939.squirrel@webmail.decimal.pt>
+    <20090108110430.GB5493@ff.dom.local>
+    <2111.192.168.1.3.1231413721.squirrel@webmail.decimal.pt>
+    <20090108135927.GC5493@ff.dom.local>
+    <2321.192.168.1.3.1231423743.squirrel@webmail.decimal.pt>
+    <3226.192.168.1.3.1231435651.squirrel@webmail.decimal.pt>
+    <20090109075450.GC4605@ff.dom.local>
+    <1071.192.168.1.3.1231494140.squirrel@webmail.decimal.pt>
+    <20090109101214.GG4605@ff.dom.local>
+    <1216.192.168.1.3.1231496132.squirrel@webmail.decimal.pt>
+    <20090109102223.GH4605@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jorge Bastos <mysql.jorge@decimal.pt>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Denys Fedoryschenko" <denys@visp.net.lb>, netdev@vger.kernel.org,
 	bugme-daemon@bugzilla.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+To: "Jarek Poplawski" <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:44752 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104AbZAIKah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 05:30:37 -0500
-Received: by ewy10 with SMTP id 10so10122185ewy.13
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2009 02:30:35 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <200901082357.13396.denys@visp.net.lb>
+Received: from mailrly03.isp.novis.pt ([195.23.133.213]:56270 "EHLO
+	mailrly03.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727AbZAIKbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 05:31:42 -0500
+In-Reply-To: <20090109102223.GH4605@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2009 at 11:57:13PM +0200, Denys Fedoryschenko wrote:
-> Can 100HZ be issue?
+Ops i missread your post.
+I always prefer to compile my own kernels.
 
-Generally, if you need precise scheduling HZ=1000 should be used if
-higher cpu usage isn't a problem.
 
-Jarek P.
+> On Fri, Jan 09, 2009 at 10:15:32AM -0000, Jorge Bastos wrote:
+>> Iproute is from distro, the kernel i compiled it by hand as always.
+>> GCC 4.3.1 (could this interfer since it's very eary gcc version?)
+>
+> I don't now, could be also something about kernel headers. Distro
+> versions are more supposed to work, I hope.
+>
+> Jarek P.
+>
+>>
+
