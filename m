@@ -1,64 +1,60 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/2] net/bridge/netfilter: move a dereference below a NULL test
-Date: Fri, 09 Jan 2009 12:22:22 -0800
-Message-ID: <200901092022.n09KMNE5019522@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk
+Subject: [patch 1/2] net/tipc/bcast.h: use ARRAY_SIZE
+Date: Fri, 09 Jan 2009 12:22:21 -0800
+Message-ID: <200901092022.n09KMLkf019501@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk,
+	per.liden@nospam.ericsson.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55162 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52505 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752430AbZAIUW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:22:56 -0500
+	by vger.kernel.org with ESMTP id S1754565AbZAIUW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:22:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
-In each case, if the NULL test is necessary, then the dereference should be
-moved below the NULL test.
+ARRAY_SIZE is more concise to use when the size of an array is divided by
+the size of its type or the size of its first element.
 
 The semantic patch that makes this change is as follows:
 (http://www.emn.fr/x-info/coccinelle/)
 
 // <smpl>
-@@
-type T;
-expression E;
-identifier i,fld;
-statement S;
+@i@
 @@
 
-- T i = E->fld;
-+ T i;
-  ... when != E
-      when != i
-  if (E == NULL) S
-+ i = E->fld;
+#include <linux/kernel.h>
+
+@depends on i using "paren.iso"@
+type T;
+T[] E;
+@@
+
+- (sizeof(E)/sizeof(T))
++ ARRAY_SIZE(E)
 // </smpl>
 
 Signed-off-by: Julia Lawall <julia@diku.dk>
+Cc: Per Liden <per.liden@nospam.ericsson.com>
+Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/bridge/netfilter/ebtables.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/tipc/bcast.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/bridge/netfilter/ebtables.c~net-bridge-netfilter-move-a-dereference-below-a-null-test net/bridge/netfilter/ebtables.c
---- a/net/bridge/netfilter/ebtables.c~net-bridge-netfilter-move-a-dereference-below-a-null-test
-+++ a/net/bridge/netfilter/ebtables.c
-@@ -85,12 +85,13 @@ static inline int ebt_do_match (struct e
- static inline int ebt_dev_check(char *entry, const struct net_device *device)
+diff -puN net/tipc/bcast.h~net-tipc-bcasth-use-array_size net/tipc/bcast.h
+--- a/net/tipc/bcast.h~net-tipc-bcasth-use-array_size
++++ a/net/tipc/bcast.h
+@@ -124,7 +124,7 @@ static inline int tipc_nmap_equal(struct
+ static inline void tipc_nmap_diff(struct tipc_node_map *nm_a, struct tipc_node_map *nm_b,
+ 				  struct tipc_node_map *nm_diff)
  {
- 	int i = 0;
--	const char *devname = device->name;
-+	const char *devname;
- 
- 	if (*entry == '\0')
- 		return 0;
- 	if (!device)
- 		return 1;
-+	devname = device->name;
- 	/* 1 is the wildcard token */
- 	while (entry[i] != '\0' && entry[i] != 1 && entry[i] == devname[i])
- 		i++;
+-	int stop = sizeof(nm_a->map) / sizeof(u32);
++	int stop = ARRAY_SIZE(nm_a->map);
+ 	int w;
+ 	int b;
+ 	u32 map;
 _
