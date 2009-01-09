@@ -1,82 +1,75 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/4] forcedeth: fix MAC address detection on network card (regression in 2.6.23)
-Date: Fri, 09 Jan 2009 12:23:07 -0800
-Message-ID: <200901092023.n09KN72t020166@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	michael.pyne@kdemail.net, AAbdulla@nvidia.com, aabdulla@nvidia.com,
-	jeff@garzik.org, stable@kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43095 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754845AbZAIUX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:23:57 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: nfs client lockdep warning
+Date: Fri, 9 Jan 2009 15:29:39 -0500
+Message-ID: <20090109202939.GA5466@fieldses.org>
+References: <20090108203658.GE19312@fieldses.org> <1231447707.7179.10.camel@heimdal.trondhjem.org> <20090108212056.GF19312@fieldses.org> <20090109043315.GA12139@gondor.apana.org.au> <1231480697.11687.522.camel@twins> <20090109062333.GB13304@gondor.apana.org.au> <1231483868.11687.523.camel@twins>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond Myklebust <trond-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, Nick Piggin <npiggin-l3A5Bk7waGM@public.gmane.org>
+To: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1231483868.11687.523.camel@twins>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Pyne <michael.pyne@kdemail.net>
-
-Partially revert a change to mac address detection introduced to the forcedeth
-driver.  The change was intended to correct mac address detection for newer
-nVidia chipsets where the mac address was stored in reverse order.  One of
-those chipsets appears to still have the mac address in reverse order (or at
-least, it does on my system).
-
-The change that broke mac address detection for my card was commit
-ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
-
-My network card is an nVidia built-in Ethernet card, output from lspci as
-follows (with text and numeric ids):
-$ lspci | grep Ethernet
-00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
-$ lspci -n | grep 07.0
-00:07.0 0680: 10de:03ef (rev a2)
-
-The vendor id is, of course, nVidia.  The device id corresponds to the
-NVIDIA_NVENET_19 entry.
-
-The included patch fixes the MAC address detection on my system.
-Interestingly, the MAC address appears to be in the range reserved for my
-motherboard manufacturer (Gigabyte) and not nVidia.
-
-Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Cc: <stable@kernel.org>
-
-On Wed, 21 Nov 2007 15:34:52 -0800
-"Ayaz Abdulla" <AAbdulla@nvidia.com> wrote:
-
-> The solution is to get the OEM to update their BIOS (instead of
-> integrating this patch) since the MCP61 specs indicate that the MAC
-> Address should be in correct order from BIOS.
+On Fri, Jan 09, 2009 at 07:51:08AM +0100, Peter Zijlstra wrote:
+> On Fri, 2009-01-09 at 17:23 +1100, Herbert Xu wrote:
+> > On Fri, Jan 09, 2009 at 06:58:17AM +0100, Peter Zijlstra wrote:
+> > >
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c054bb26>] copy_from_user+0x36/0x90
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c0737800>] memcpy_fromiovecend+0x60/0x90
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c075ce9f>] ip_generic_getfrag+0x9f/0xb0
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c075cb6b>] ip_append_data+0x6bb/0x950
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c077cb0d>] udp_sendmsg+0x2bd/0x680
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07835f9>] inet_sendmsg+0x39/0x70
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c072f0e6>] sock_sendmsg+0xd6/0x100
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c072f485>] kernel_sendmsg+0x35/0x50
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07da698>] xs_send_kvec+0xa8/0xb0
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07da711>] xs_sendpages+0x71/0x210
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07dab30>] xs_udp_send_request+0x40/0x120
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07d91ff>] xprt_transmit+0x6f/0x280
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07d6c1f>] call_transmit+0x17f/0x250
+> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07dda13>] __rpc_execute+0x73/0x250
+> > > 
+> > > Is there anything pinning that user-space page, if not its free to
+> > > fault, which would mean its a real warning... 
+> > 
+> > It's kernel memory, not user memory.  See xs_udp_send_request in
+> > net/sunrpc.
 > 
-> By changing the feature DEV_HAS_CORRECT_MACADDR to all MCP61 boards, it
-> could cause it to break on other OEM systems who have implemented it
-> correctly.
+> Ahh, so something like this ought to fix it I think...
 > 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
+> ---
+> diff --git a/mm/memory.c b/mm/memory.c
+> index 7b9db65..a2ed52e 100644
+> --- a/mm/memory.c
+> +++ b/mm/memory.c
+> @@ -3079,6 +3079,9 @@ void print_vma_addr(char *prefix, unsigned long ip)
+>  #ifdef CONFIG_PROVE_LOCKING
+>  void might_fault(void)
+>  {
+> +	if (get_fs() == KERNEL_DS)
 
-On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
-> NAK - this fixes one set of users, and breaks a working set of users.
+Looks like that should be
+
+	if ((segment_eq(get_fs(), KERNEL_DS))
+
+?  Anyway, with that, sure, that eliminates the lockdep warning.
+
+--b.
+
+> +		return;
+> +
+>  	might_sleep();
+>  	/*
+>  	 * it would be nicer only to annotate paths which are not under
 > 
-> Need to add DMI check for the specific motherboard (dmi_check_system), 
-> and flip flag according to success/failure of that check.
-
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/forcedeth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623 drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-fix-mac-address-detection-on-network-card-regression-in-2623
-+++ a/drivers/net/forcedeth.c
-@@ -6087,7 +6087,7 @@ static struct pci_device_id pci_tbl[] = 
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_16),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_17),
-_
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
