@@ -1,82 +1,67 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: Re: mal_probe crash
-Date: Fri, 9 Jan 2009 15:42:25 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0901091533000.13230__2740.69188531048$1231512290$gmane$org@vixen.sonytel.be>
-References: <20090107154434.0c9437ef@lappy.seanm.ca>
-	<20090108204634.GB2337@yoda.jdub.homelinux.org>
-	<1231368610.2142.27.camel@pasglop>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: PROBLEM: networking - port 80 not accessible on eth0
+Date: Fri, 9 Jan 2009 16:43:41 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0901091637350.1889@wrl-59.cs.helsinki.fi>
+References: <af2dae3d0901082220i6d819f31tfb26ac9ad57f750@mail.gmail.com>
+ <af2dae3d0901090401l19ea59b6j1812c9d16c843116@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linuxppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
-	Sean MacLennan <smaclennan@pikatech.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1231368610.2142.27.camel@pasglop>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Orgad Shaneh <orgads@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:37985 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753921AbZAIOnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 09:43:43 -0500
+In-Reply-To: <af2dae3d0901090401l19ea59b6j1812c9d16c843116@mail.gmail.com>
+Content-ID: <Pine.LNX.4.64.0901091637352.1889@wrl-59.cs.helsinki.fi>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCA4IEphbiAyMDA5LCBCZW5qYW1pbiBIZXJyZW5zY2htaWR0IHdyb3RlOgo+IE9uIFRo
-dSwgMjAwOS0wMS0wOCBhdCAxNTo0NiAtMDUwMCwgSm9zaCBCb3llciB3cm90ZToKPiA+IE9uIFdl
-ZCwgSmFuIDA3LCAyMDA5IGF0IDAzOjQ0OjM0UE0gLTA1MDAsIFNlYW4gTWFjTGVubmFuIHdyb3Rl
-Ogo+ID4gPldpdGggTGludXMnIGxhdGVzdCBnaXQsIG1hbF9wcm9iZSBjcmFzaGVzLiBJdCBjYWxs
-cyBuZXRpZl9uYXBpX2FkZCB3aXRoCj4gPiA+dGhlIGZpcnN0IHBhcmFtZXRlciBOVUxMLiBUaGlz
-IHdhcyBvayBzaW5jZSB0aGUgcGFyYW1ldGVyLCBhIG5ldAo+ID4gPmRldmljZSwgd2FzIG9ubHkg
-dXNlZCBpZiBDT05GSUdfTkVUUE9MTCB3YXMgc2V0Lgo+ID4gPgo+ID4gPk5vdyBpdCBpcyBhbHdh
-eXMgZGUtcmVmZXJlbmNlZC4gQSBxdWljayBjaGVjayBzaG93cyB0aGF0IGlibV9uZXdlbWFjIGlz
-Cj4gPiA+dGhlIG9ubHkgZHJpdmVyIHRoYXQgcGFzc2VkIE5VTEwgYXMgdGhlIGZpcnN0IHBhcmFt
-ZXRlciB0byB0aGlzIGNhbGwgaW4KPiA+ID4yLjYuMjguCj4gPiA+Cj4gPiA+SSBkb24ndCByZWFs
-bHkgZm9sbG93IGlibV9uZXdlbWFjIGNoYW5nZXMsIHNvIHRoZSBwYXRjaCBtYXkgYmUgd2FpdGlu
-Zwo+ID4gPnRvIGJlIGFwcGxpZWQuIFRoaXMgaXMgcmVhbGx5IGp1c3QgYSBoZWFkcyB1cC4KPiA+
-IAo+ID4gSSBoYXZlbid0IGhlYXJkIG9mIHRoYXQsIHNvIEkgZG91YnQgdGhlcmUncyBhIHBhdGNo
-IHBlbmRpbmcuICAqU2lnaCoKPiAKPiBUaGVyZSBpc24ndCB0aGF0IEkga25vdyBvZi4gVGhlIEVN
-QUMgY29kZSBjcmVhdGVzIGEgc2luZ2xlIE5BUEkgaW5zdGFuY2UKPiBmb3IgYWxsIEVNQUNzIGFu
-ZCBJIHRoaW5rIHVzZWQgdG8gY29tcGxldGVseSBkaXNjb25uZWN0IHRoaW5ncy4gVGhlIG9sZAo+
-IGNvZGUgY3JlYXRlZCBhIGZha2UgbmV0ZGV2IGp1c3QgZm9yIE5BUEksIHRoYXQgYmVjYW1lIHVu
-bmVjZXNzYXJ5IHdpdGgKPiB0aGUgbmV3IE5BUEkgc3R1ZmYuLi4uIGJ1dCBpdCBsb29rcyBsaWtl
-IHRoZSB3YXkgd2UgZG8gdGhpbmdzIG5vdwo+IGRpc3BsZWFzZXMgc29tZSBjaGFuZ2VzIGluIHRo
-ZSBuZXR3b3JrIHN0YWNrLiBJJ2xsIGhhdmUgdG8gZGlnLgoKVmVyaWZpZWQgb24gbXkgU2VxdW9p
-YSAod2hpY2ggbm93IGxvc3QgaXRzIG5ldHdvcmsgOi0oCgpUaGUgcmVncmVzc2lvbi9wcm9ibGVt
-IChyZXF1aXJpbmcgYSB2YWxpZCBuZXRfZGV2aWNlIGluIG5ldGlmX25hcGlfYWRkKCksIGV2ZW4K
-aWYgQ09ORklHX05FVFBPTEw9bikgc2VlbXMgdG8gYmUgaW50cm9kdWNlZCBieSBjb21taXQKZDU2
-NWIwYTFhOWI2ZWU3ZGZmNDZlMWY2OGIyNmI1MjZhYzExYWU1MCAoIm5ldDogQWRkIEdlbmVyaWMg
-UmVjZWl2ZSBPZmZsb2FkCmluZnJhc3RydWN0dXJlIikuCgpIb3dldmVyLCBpdCB3YXMgYnJva2Vu
-IGJlZm9yZSwgaW4gY2FzZSBDT05GSUdfTkVUUE9MTD15LgoKU28gbWFsX3Byb2JlKCkgKHRyaWdn
-ZXJlZCBieSBtYWxfaW5pdCgpKSBuZWVkcyB0byBrbm93IGFib3V0IHRoZSBuZXRfZGV2aWNlCmJl
-Zm9yZSBpdCBoYXMgYmVlbiBhbGxvY2F0ZWQgYnkgZW1hY19wcm9iZSgpICh0cmlnZ2VyZWQgYnkK
-b2ZfcmVnaXN0ZXJfcGxhdGZvcm1fZHJpdmVyKCZlbWFjX2RyaXZlcikpOgoKfCBzdGF0aWMgaW50
-IF9faW5pdCBlbWFjX2luaXQodm9pZCkKfCB7CnwgCWludCByYzsKfCAKfCAJcHJpbnRrKEtFUk5f
-SU5GTyBEUlZfREVTQyAiLCB2ZXJzaW9uICIgRFJWX1ZFUlNJT04gIlxuIik7CnwgCnwgCS8qIElu
-aXQgZGVidWcgc3R1ZmYgKi8KfCAJZW1hY19pbml0X2RlYnVnKCk7CnwgCnwgCS8qIEJ1aWxkIEVN
-QUMgYm9vdCBsaXN0ICovCnwgCWVtYWNfbWFrZV9ib290bGlzdCgpOwp8IAp8IAkvKiBJbml0IHN1
-Ym1vZHVsZXMgKi8KfCAJcmMgPSBtYWxfaW5pdCgpOwp8IAlpZiAocmMpCnwgCQlnb3RvIGVycjsK
-fCAJcmMgPSB6bWlpX2luaXQoKTsKfCAJaWYgKHJjKQp8IAkJZ290byBlcnJfbWFsOwp8IAlyYyA9
-IHJnbWlpX2luaXQoKTsKfCAJaWYgKHJjKQp8IAkJZ290byBlcnJfem1paTsKfCAJcmMgPSB0YWhf
-aW5pdCgpOwp8IAlpZiAocmMpCnwgCQlnb3RvIGVycl9yZ21paTsKfCAJcmMgPSBvZl9yZWdpc3Rl
-cl9wbGF0Zm9ybV9kcml2ZXIoJmVtYWNfZHJpdmVyKTsKfCAJaWYgKHJjKQp8IAkJZ290byBlcnJf
-dGFoOwp8IAp8IAlyZXR1cm4gMDsKfCAKfCAgZXJyX3RhaDoKfCAJdGFoX2V4aXQoKTsKfCAgZXJy
-X3JnbWlpOgp8IAlyZ21paV9leGl0KCk7CnwgIGVycl96bWlpOgp8IAl6bWlpX2V4aXQoKTsKfCAg
-ZXJyX21hbDoKfCAJbWFsX2V4aXQoKTsKfCAgZXJyOgp8IAlyZXR1cm4gcmM7CnwgfQoKQ2FuIHRo
-ZSBvcmRlciBvZiBtYWxfaW5pdCgpIGFuZCBvZl9yZWdpc3Rlcl9wbGF0Zm9ybV9kcml2ZXIoJmVt
-YWNfZHJpdmVyKSBiZQpyZXZlcnNlZD8gSWYgeWVzLCB0aGVyZSBzdGlsbCBoYXMgc29tZSBsaW5r
-IHRvIGJlIG1hZGUgYmV0d2VlbiB0aGUgbWFsIGFuZCB0aGUKZW1hYyBkZXZpY2VzLgoKV2l0aCBr
-aW5kIHJlZ2FyZHMsCgpHZWVydCBVeXR0ZXJob2V2ZW4KU29mdHdhcmUgQXJjaGl0ZWN0CgpTb255
-IFRlY2hzb2Z0IENlbnRyZSBFdXJvcGUKVGhlIENvcnBvcmF0ZSBWaWxsYWdlIMK3IERhIFZpbmNp
-bGFhbiA3LUQxIMK3IEItMTkzNSBaYXZlbnRlbSDCtyBCZWxnaXVtCgpQaG9uZTogICAgKzMyICgw
-KTIgNzAwIDg0NTMKRmF4OiAgICAgICszMiAoMCkyIDcwMCA4NjIyCkUtbWFpbDogICBHZWVydC5V
-eXR0ZXJob2V2ZW5Ac29ueWNvbS5jb20KSW50ZXJuZXQ6IGh0dHA6Ly93d3cuc29ueS1ldXJvcGUu
-Y29tLwoKQSBkaXZpc2lvbiBvZiBTb255IEV1cm9wZSAoQmVsZ2l1bSkgTi5WLgpWQVQgQkUgMDQx
-My44MjUuMTYwIMK3IFJQUiBCcnVzc2VscwpGb3J0aXMgwrcgQklDIEdFQkFCRUJCIMK3IElCQU4g
-QkU0MTI5MzAzNzY4MDAxMApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3Jn
-Cmh0dHBzOi8vb3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+Added netdev though this is unlikely to end up being dev related.
+
+On Fri, 9 Jan 2009, Orgad Shaneh wrote:
+
+> ---------- Forwarded message ----------
+> From: Orgad Shaneh <orgads@gmail.com>
+> Date: Fri, Jan 9, 2009 at 8:20 AM
+> Subject: PROBLEM: networking - port 80 not accessible on eth0
+> To: linux-kernel@vger.kernel.org
+> 
+> 
+> I have a "VIA Technologies, VIA Technologies, Inc. VT6102 [Rhine-II]"
+> NIC connected to an ECI B-FOCuS 270PR ADSL model. I used fedora since
+> version 5. On FC5 (using kernel 2.6.15) the modem functioned as a
+> router, and it worked fine.
+> 
+> When I upgraded to FC6 (which was published with kernel 2.6.18) I
+> couldn't access any websites. I found out that I can access https, ftp
+> etc. but not http. I figured out that for some reason, port 80 was
+> blocked. When using VMWare with Windows, I could access websites.
+> 
+> I configured the modem to be a bridge, and I'm connecting through
+> pppoe. This way it works. Anyway, although I can access websites on
+> ppp0, I cannot access the modem itself (for configuration), which is
+> on eth0 port 80.
+> 
+> I attached a tcpdump when trying to connect to the modem (the same
+> applies for websites, when the modem is configured as a gateway):
+> 
+> After trying some different distributions (fedora up to 9, ubuntu 8.04
+> and 8.10), the problem remains. That's what leads me to the conclusion
+> that the problem is in the kernel.
+
+Unlikely so, more likely the router is broken and some kernel TCP settings 
+got changed in the newer kernels. I took a short look into the provided 
+tcpdump and the modem negotiates tcp connection ok but then goes dead 
+silent.
+
+Your could try playing around with tcp_window_scaling sysctl,
+most likely the modem has some problem related to it.
+
+
+-- 
+ i.
