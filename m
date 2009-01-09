@@ -1,14 +1,14 @@
 From: akpm@linux-foundation.org
-Subject: [patch 4/4] drivers/isdn/hardware/mISDN: move a dereference below a NULL test
-Date: Fri, 09 Jan 2009 12:22:53 -0800
-Message-ID: <200901092022.n09KMr76019952@imap1.linux-foundation.org>
+Subject: [patch 2/4] drivers/net/hamradio/6pack.c: move a dereference below a NULL test
+Date: Fri, 09 Jan 2009 12:23:09 -0800
+Message-ID: <200901092023.n09KN91a020170@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk
-To: kkeil@suse.de
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:42017 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50309 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754797AbZAIUX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:23:27 -0500
+	by vger.kernel.org with ESMTP id S1754846AbZAIUXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:23:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -40,27 +40,24 @@ Signed-off-by: Julia Lawall <julia@diku.dk>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/isdn/hardware/mISDN/hfcmulti.c |    3 ++-
+ drivers/net/hamradio/6pack.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff -puN drivers/isdn/hardware/mISDN/hfcmulti.c~drivers-isdn-hardware-misdn-move-a-dereference-below-a-null-test drivers/isdn/hardware/mISDN/hfcmulti.c
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c~drivers-isdn-hardware-misdn-move-a-dereference-below-a-null-test
-+++ a/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -3610,7 +3610,7 @@ hfcm_bctrl(struct mISDNchannel *ch, u_in
- static void
- ph_state_change(struct dchannel *dch)
+diff -puN drivers/net/hamradio/6pack.c~drivers-net-hamradio-6packc-move-a-dereference-below-a-null-test drivers/net/hamradio/6pack.c
+--- a/drivers/net/hamradio/6pack.c~drivers-net-hamradio-6packc-move-a-dereference-below-a-null-test
++++ a/drivers/net/hamradio/6pack.c
+@@ -717,11 +717,12 @@ static int sixpack_ioctl(struct tty_stru
+ 	unsigned int cmd, unsigned long arg)
  {
--	struct hfc_multi *hc = dch->hw;
-+	struct hfc_multi *hc;
- 	int ch, i;
+ 	struct sixpack *sp = sp_get(tty);
+-	struct net_device *dev = sp->dev;
++	struct net_device *dev;
+ 	unsigned int tmp, err;
  
- 	if (!dch) {
-@@ -3618,6 +3618,7 @@ ph_state_change(struct dchannel *dch)
- 		    __func__);
- 		return;
- 	}
-+	hc = dch->hw;
- 	ch = dch->slot;
+ 	if (!sp)
+ 		return -ENXIO;
++	dev = sp->dev;
  
- 	if (hc->type == 1) {
+ 	switch(cmd) {
+ 	case SIOCGIFNAME:
 _
