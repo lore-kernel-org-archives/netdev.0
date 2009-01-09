@@ -1,72 +1,56 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [patch 02/45] br2684: convert to net_device_ops
-Date: Fri, 09 Jan 2009 15:00:59 -0800
-Message-ID: <20090109230136.856606078@linux-foundation.org>
+Subject: [patch 31/45] 6pack: convert to net_device_ops
+Date: Fri, 09 Jan 2009 15:01:28 -0800
+Message-ID: <20090109230139.002167454@linux-foundation.org>
 References: <20090109230057.575650817@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Chas Williams <chas@cmf.nrl.navy.mil>
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
+To: David Miller <davem@davemloft.net>, ajk@iehk.rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:42305 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:42243 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755286AbZAIXSO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 18:18:14 -0500
-Content-Disposition: inline; filename=br2684-netdev-ops.patch
+	id S1754466AbZAIXSF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 18:18:05 -0500
+Content-Disposition: inline; filename=6pack.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/net/atm/br2684.c	2009-01-08 23:20:52.000000000 -0800
-+++ b/net/atm/br2684.c	2009-01-08 23:29:33.000000000 -0800
-@@ -259,10 +259,9 @@ static int br2684_start_xmit(struct sk_b
-  * We remember when the MAC gets set, so we don't override it later with
-  * the ESI of the ATM card of the first VC
-  */
--static int (*my_eth_mac_addr) (struct net_device *, void *);
- static int br2684_mac_addr(struct net_device *dev, void *p)
- {
--	int err = my_eth_mac_addr(dev, p);
-+	int err = eth_mac_addr(dev, p);
- 	if (!err)
- 		BRPRIV(dev)->mac_was_set = 1;
- 	return err;
-@@ -538,16 +537,20 @@ static int br2684_regvcc(struct atm_vcc 
- 	return err;
- }
+
+--- a/drivers/net/hamradio/6pack.c	2009-01-09 10:16:50.000000000 -0800
++++ b/drivers/net/hamradio/6pack.c	2009-01-09 10:17:52.000000000 -0800
+@@ -322,23 +322,25 @@ static const struct header_ops sp_header
+ 	.rebuild	= sp_rebuild_header,
+ };
  
-+static const struct net_device_ops br2684_netdev_ops = {
-+	.ndo_start_xmit 	= br2684_start_xmit,
-+	.ndo_set_mac_address	= br2684_mac_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_validate_addr	= eth_validate_addr,
++static const struct net_device_ops sp_netdev_ops = {
++	.ndo_open		= sp_open_dev,
++	.ndo_stop		= sp_close,
++	.ndo_start_xmit		= sp_xmit,
++	.ndo_set_mac_address    = sp_set_mac_address,
 +};
 +
- static void br2684_setup(struct net_device *netdev)
+ static void sp_setup(struct net_device *dev)
  {
- 	struct br2684_dev *brdev = BRPRIV(netdev);
+ 	/* Finish setting up the DEVICE info. */
+-	dev->mtu		= SIXP_MTU;
+-	dev->hard_start_xmit	= sp_xmit;
+-	dev->open		= sp_open_dev;
++	dev->netdev_ops		= &sp_netdev_ops;
+ 	dev->destructor		= free_netdev;
+-	dev->stop		= sp_close;
+-
+-	dev->set_mac_address    = sp_set_mac_address;
++	dev->mtu		= SIXP_MTU;
+ 	dev->hard_header_len	= AX25_MAX_HEADER_LEN;
+ 	dev->header_ops 	= &sp_header_ops;
  
- 	ether_setup(netdev);
--	brdev->net_dev = netdev;
+ 	dev->addr_len		= AX25_ADDR_LEN;
+ 	dev->type		= ARPHRD_AX25;
+ 	dev->tx_queue_len	= 10;
+-	dev->tx_timeout		= NULL;
  
--	my_eth_mac_addr = netdev->set_mac_address;
--	netdev->set_mac_address = br2684_mac_addr;
--	netdev->hard_start_xmit = br2684_start_xmit;
-+	netdev->netdev_ops = &br2684_netdev_ops;
- 
- 	INIT_LIST_HEAD(&brdev->brvccs);
- }
-@@ -558,9 +561,8 @@ static void br2684_setup_routed(struct n
- 	brdev->net_dev = netdev;
- 
- 	netdev->hard_header_len = 0;
--	my_eth_mac_addr = netdev->set_mac_address;
--	netdev->set_mac_address = br2684_mac_addr;
--	netdev->hard_start_xmit = br2684_start_xmit;
-+
-+	netdev->netdev_ops = &br2684_netdev_ops;
- 	netdev->addr_len = 0;
- 	netdev->mtu = 1500;
- 	netdev->type = ARPHRD_PPP;
+ 	/* Only activated in AX.25 mode */
+ 	memcpy(dev->broadcast, &ax25_bcast, AX25_ADDR_LEN);
 
 
