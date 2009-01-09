@@ -1,56 +1,83 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH 2/2][RFC] virtio_net: Add MAC fitler table support
-Date: Fri, 09 Jan 2009 08:34:30 -0700
-Message-ID: <1231515270.7109.202.camel@lappy>
-References: <1231351563.7109.130.camel@lappy>
-	 <1231500852.4481.72.camel@localhost.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Fri, 09 Jan 2009 16:42:44 +0100
+Message-ID: <49677074.5090802@cosmosbay.com>
+References: <20090108173028.GA22531@1wt.eu>	<49667534.5060501@zeus.com> <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Mark McLoughlin <markmc@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1231500852.4481.72.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ben@zeus.com, w@1wt.eu, jarkao2@gmail.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:37896 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185AbZAIPnj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 10:43:39 -0500
+In-Reply-To: <4966F2F4.9080901@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-01-09 at 11:34 +0000, Mark McLoughlin wrote:
-> On Wed, 2009-01-07 at 11:06 -0700, Alex Williamson wrote:
-> > @@ -38,8 +40,10 @@ struct virtio_net_config
-> >  			__u16 link:1;
-> >  			__u16 promisc:1;
-> >  			__u16 allmulti:1;
-> > +			__u16 mac_table:1;
-> >  		} bits;
-> > -       } status;
-> > +	} status;
-> > +	__u64 mac_table[16];
-> 
-> You're using two bytes per entry to indicate the flag is valid. Why
-> not
-> an array of 6 byte entries with a count of how many entries are valid?
-> 
-> That would also keep the virtio-net I/O space under 128 bytes.
+Eric Dumazet a =E9crit :
+> David Miller a =E9crit :
+>> I'm not applying this until someone explains to me why
+>> we should remove this test from the splice receive but
+>> keep it in the tcp_recvmsg() code where it has been
+>> essentially forever.
 
-Thanks for the comments, they look correct.  For the mac_table, that's
-exactly how I'm thinking of doing it with virt-queues.  The problem with
-that here is that the driver has direct access to the table and doesn't
-necessarily have to make it contiguous.  If we expose a table, I think
-the more space efficient way is to make the table size a multiple of 8
-and have a bitmap of valid entries.
+Reading again tcp_recvmsg(), I found it already is able to eat several =
+skb
+even in nonblocking mode.
 
-The virt-queue implementation I'm thinking of has 2 interfaces, ALLOC
-and SET.  ALLOC can only be called once by the guest driver and
-allocates a mac filter table supporting the given number of entries.
-The SET interface provides a contiguous list of MACs, fitting into the
-size previously allocated.  SET can also be used to clear if called with
-no entries.  I'm steering away from a dynamically changeable size as
-that implies locking or some kind of linked list implementation, or
-both.  Thanks,
+setsockopt(5, SOL_SOCKET, SO_RCVLOWAT, [61440], 4) =3D 0
+ioctl(5, FIONBIO, [1])                  =3D 0
+poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
+536, MSG_DONTWAIT) =3D 65536
+write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
+5536) =3D 65536
+poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
+536, MSG_DONTWAIT) =3D 65536
+write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
+5536) =3D 65536
+poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
+536, MSG_DONTWAIT) =3D 65536
+write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
+5536) =3D 65536
+poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
+536, MSG_DONTWAIT) =3D 65536
+write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
+5536) =3D 65536
 
-Alex
 
--- 
-Alex Williamson                             HP Open Source & Linux Org.
+David, if you referred to code at line 1374 of net/ipv4/tcp.c, I believ=
+e there is
+no issue with it. We really want to break from this loop if !timeo .
+
+Willy patch makes splice() behaving like tcp_recvmsg(), but we might ca=
+ll
+tcp_cleanup_rbuf() several times, with copied=3D1460 (for each frame pr=
+ocessed)
+
+I wonder if the right fix should be done in tcp_read_sock() : this is t=
+he
+one who should eat several skbs IMHO, if we want optimal ACK generation=
+=2E
+
+We break out of its loop at line 1246
+
+if (!desc->count) /* this test is always true */
+	break;
+
+(__tcp_splice_read() set count to 0, right before calling tcp_read_sock=
+())
+
+So code at line 1246 (tcp_read_sock()) seems wrong, or pessimistic at l=
+east.
+
+
 
