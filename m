@@ -1,107 +1,80 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Fri, 09 Jan 2009 08:28:09 +0100
-Message-ID: <4966FC89.8040006@cosmosbay.com>
-References: <20090108173028.GA22531@1wt.eu> <49667534.5060501@zeus.com> <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com> <20090109070415.GA27758@1wt.eu>
+Date: Fri, 9 Jan 2009 08:42:17 +0100
+Message-ID: <20090109074217.GB27758@1wt.eu>
+References: <20090108173028.GA22531@1wt.eu> <49667534.5060501@zeus.com> <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com> <20090109070415.GA27758@1wt.eu> <4966FC89.8040006@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, ben@zeus.com,
 	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:44118 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752101AbZAIH2x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 02:28:53 -0500
-In-Reply-To: <20090109070415.GA27758@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754583AbZAIHm4@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4966FC89.8040006@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Willy Tarreau a =E9crit :
-> On Fri, Jan 09, 2009 at 07:47:16AM +0100, Eric Dumazet wrote:
->>> I'm not applying this until someone explains to me why
->>> we should remove this test from the splice receive but
->>> keep it in the tcp_recvmsg() code where it has been
->>> essentially forever.
->> I found this patch usefull in my testings, but had a feeling somethi=
-ng
->> was not complete. If the goal is to reduce number of splice() calls,
->> we also should reduce number of wakeups. If splice() is used in non
->> blocking mode, nothing we can do here of course, since the applicati=
-on
->> will use a poll()/select()/epoll() event before calling splice(). A
->> good setting of SO_RCVLOWAT to (16*PAGE_SIZE)/2 might improve things=
-=2E
->>
->> I tested this on current tree and it is not working : we still have
->> one wakeup for each frame (ethernet link is a 100 Mb/s one)
->=20
-> Well, it simply means that data are not coming in fast enough compare=
-d to
-> the tiny amount of work you have to perform to forward them, there's =
-nothing
-> wrong with that. It is important in my opinion not to wait for *enoug=
-h* data
-> to come in, otherwise it might become impossible to forward small chu=
-nks.
-> I mean, if there are only 300 bytes left to forward, we must not wait
-> indefinitely for more data to come, we must forward those 300 bytes.
->=20
-> In your case below, it simply means that the performance improvement =
-brought
-> by splice will be really minor because you'll just avoid 2 memory cop=
-ies,
-> which are ridiculously cheap at 100 Mbps. If you would change your pr=
-ogram
-> to use recv/send, you would observe the exact same pattern, because a=
-s soon
-> as poll() wakes you up, you still only have one frame in the system b=
-uffers.
-> On a small machine I have here (geode 500 MHz), I easily have multipl=
-e
-> frames queued at 100 Mbps because when epoll() wakes me up, I have tr=
-affic
-> on something like 10-100 sockets, and by the time I process the first=
- ones,
-> the later have time to queue up more data.
+On Fri, Jan 09, 2009 at 08:28:09AM +0100, Eric Dumazet wrote:
+> My point is to use Gigabit links or 10Gb links and hundred or thousand of flows :)
+> 
+> But if it doesnt work on a single flow, it wont work on many :)
 
-My point is to use Gigabit links or 10Gb links and hundred or thousand =
-of flows :)
+Yes it will, precisely because during the time you spend processing flow #1,
+you're still receiving data for flow #2. I really invite you to try. That's
+what I've been observing for years of userland coding of proxies.
 
-But if it doesnt work on a single flow, it wont work on many :)
+> I tried my test program with a Gb link, one flow, and got splice() calls returns 23000 bytes
+> in average, using a litle too much of CPU : If poll() could wait a litle bit more, CPU
+> could be available for other tasks.
 
-I tried my test program with a Gb link, one flow, and got splice() call=
-s returns 23000 bytes
-in average, using a litle too much of CPU : If poll() could wait a litl=
-e bit more, CPU
-could be available for other tasks.
+I also observe 23000 bytes on average on gigabit, which is very good
+(only about 5000 calls per second). And the CPU usage is lower than
+with recv/send, and I'd like to be able to run some profiling because
+I observed very different performance patterns depending on the network
+cards used. Generally, almost all the time is spent in softirqs.
 
-If the application uses setsockopt(sock, SOL_SOCKET, SO_RCVLOWAT, [3276=
-8], 4), it
-would be good if kernel was smart enough and could reduce number of wak=
-eups.
+It's easy to make poll wait a little bit more : call it later and do
+your work before calling it. Also, epoll_wait() lets you ask it to
+return just a few amount of FDs. This really improves data gathering.
+I generally observe best performance between 30-200 FDs per call, even
+with 10000 concurrent connections. During the time I process the first
+200 FDs, data is accumulating in the other's buffers.
 
-(Next blocking point is the fixed limit of 16 pages per pipe, but thats=
- another story)
+> If the application uses setsockopt(sock, SOL_SOCKET, SO_RCVLOWAT, [32768], 4), it
+> would be good if kernel was smart enough and could reduce number of wakeups.
 
->=20
->> About tcp_recvmsg(), we might also remove the "!timeo" test as well,
->> more testings are needed.
->=20
-> No right now we can't (we must move it somewhere else at least). Beca=
-use
-> once at least one byte has been received (copied !=3D 0), no other ch=
-eck
-> will break out of the loop (or at least I have not found it).
->=20
+Yes, I agree about that. But my comment was about not making this
+behaviour mandatory for splice(). Letting the application choose is
+the way to go, of course.
 
-Of course we cant remove the test totally, but change the logic so that=
- several skb
-might be used/consumed per tcp_recvmsg() call, like your patch did for =
-splice()
+> (Next blocking point is the fixed limit of 16 pages per pipe, but
+> thats another story)
 
-Lets focus on functional changes, not on implementation details :)
+Yes but that's not always easy to guess how many data you can feed
+into the pipe. It seems that depending on how the segments are
+gathered, you can store between 16 segments and 64 kB. I have
+observed some cases in blocking mode where I could not push more
+than a few kbytes with a small MSS, indicating to me that all those
+segments were each on a distinct page. I don't know precisely how
+that's handled internally.
 
+> >> About tcp_recvmsg(), we might also remove the "!timeo" test as well,
+> >> more testings are needed.
+> > 
+> > No right now we can't (we must move it somewhere else at least). Because
+> > once at least one byte has been received (copied != 0), no other check
+> > will break out of the loop (or at least I have not found it).
+> > 
+> 
+> Of course we cant remove the test totally, but change the logic so that several skb
+> might be used/consumed per tcp_recvmsg() call, like your patch did for splice()
 
+OK, I initially understood that you suggested we could simply remove
+it like I did for splice.
+
+> Lets focus on functional changes, not on implementation details :)
+
+Agreed :-)
+
+Willy
