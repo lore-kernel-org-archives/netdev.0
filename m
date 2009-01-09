@@ -1,56 +1,46 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: ip xfrm policy semantics
-Date: Fri, 09 Jan 2009 16:16:30 +0200
-Message-ID: <49675C3E.6010109@iki.fi>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: [PATCH] 3c59x: Use device_set_wakeup_enable
+Date: Fri, 9 Jan 2009 14:53:17 +0100
+Message-ID: <20090109135317.GC6473@bayes.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, gwilford@gmail.com, degnbol@danbbs.dk
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:51501 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752428AbZAIOQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 09:16:29 -0500
-Received: by ewy10 with SMTP id 10so10235045ewy.13
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2009 06:16:27 -0800 (PST)
+Received: from lana.hrz.tu-chemnitz.de ([134.109.132.3]:37492 "EHLO
+	lana.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751589AbZAIOUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 09:20:20 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Since dev->power.should_wakeup bit is used by the PCI core to
+decide whether the device should wake up the system from sleep
+states, set this bit by calling device_set_wakeup_enable().
 
-I'm trying to setup a vpnc gateway device that is a part of Cisco DMVPN and also
-generic NAT gateway to Internet.
+This restores proper WOL for the 3c59x driver.
 
-The DMVPN part is achieved by a gre tunnel, which is protected by IPsec xfrm
-policy.
+Reported-and-tested-by: Graeme Wilford <gwilford@gmail.com>
+Reported-by: Gunnar Degnbol <degnbol@danbbs.dk>
+Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+---
+ drivers/net/3c59x.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-So I want to encrypt all GRE traffic that is to/from the local box, thus I have:
-src 0.0.0.0/0 dst 0.0.0.0/0 proto gre 
-	dir in priority 2147483648 ptype main 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-src 0.0.0.0/0 dst 0.0.0.0/0 proto gre 
-	dir out priority 2147483648 ptype main 
-	tmpl src 0.0.0.0 dst 0.0.0.0
-		proto esp reqid 0 mode transport
-
-Which works perfect for the DMVPN part.
-
-Now, I have a second device behind a subnet, that wants to talk to Internet
-using PPTP (which ends up sending GRE packets). So what I want is that locally
-generated / received packages should be protected by the ipsec policy. But
-forwarded GRE packets (that are masqueraded) should not get any xfrm treatment.
-
-It looks like that if xfrm out policy still affects the forwarded packets.
-If I add an overriding policy for the PPTP server, things seem to work
-better. But I'd rather not do that as it's a bit hacky.
-
-I was not able to find any authoritative place how netfilter and xfrm policies
-and routing interact. The only thing I found was [1], but that seems to be
-inaccurate. Anyone care to shed light on this part?
-
-Thanks,
-  Timo
-
-[1] http://www.strongswan.org/docs/netfilter.pdf
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 665e7fd..cdbbb62 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -3109,6 +3109,8 @@ static void acpi_set_WOL(struct net_device *dev)
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 	void __iomem *ioaddr = vp->ioaddr;
+ 
++	device_set_wakeup_enable(vp->gendev, vp->enable_wol);
++
+ 	if (vp->enable_wol) {
+ 		/* Power up on: 1==Downloaded Filter, 2==Magic Packets, 4==Link Status. */
+ 		EL3WINDOW(7);
+-- 
+1.5.3
 
