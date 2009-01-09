@@ -1,55 +1,24 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] wimax: fix typo in kernel-doc for debugfs_dentry in struct
-	wimax_dev
-Date: Fri,  9 Jan 2009 00:41:26 -0800
-Message-ID: <1231490486-6770-1-git-send-email-inaky@linux.intel.com>
-References: <200901082323.04014.inaky@linux.intel.com>
-Cc: Randy Dunlap <randy.dunlap@oracle.com>
-To: wimax@linuxwimax.org,
-	netdev@vger.kernel.org
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <200901082323.04014.inaky@linux.intel.com>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+From: Peter Dusel <hdusel@macbay.de>
+Subject: (unknown)
+Date: Fri, 09 Jan 2009 08:46:38 +0100
+Message-ID: <1231487198.2364.31.camel@rage>
+Reply-To: hdusel@macbay.de
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.macnews.de ([193.164.134.233]:45180 "EHLO macnews.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753323AbZAIIrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 03:47:25 -0500
+Received: from [62.245.222.98] (account pl10765 HELO [192.168.101.75])
+  by macnews.de (CommuniGate Pro SMTP 5.1.16)
+  with ESMTPA id 100423717 for netdev@vger.kernel.org; Fri, 09 Jan 2009 08:47:23 +0100
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The kernel-doc was referring to member @debufs_dentry instead of
-@debugfs_dentry.
+subscribe netdev
 
-Reported by Randy Dunlap http://marc.info/?l=linux-netdev&m=123147942302885&w=2
 
-As well, escape the colon in the field's text description, as it is
-causing the generated text to be erraticly broken up (with paragraphs
-moved down). Could not find a reason why it is happening so, even when
-other field descriptions use colons and work as expected.
-
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/net/wimax.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/wimax.h b/include/net/wimax.h
-index 073809c..6b3824e 100644
---- a/include/net/wimax.h
-+++ b/include/net/wimax.h
-@@ -323,8 +323,8 @@ struct input_dev;
-  *
-  * @rf_hw: [private] State of the hardware radio switch (OFF/ON)
-  *
-- * @debufs_dentry: [private] Used to hook up a debugfs entry. This
-- *     shows up in the debugfs root as wimax:DEVICENAME.
-+ * @debugfs_dentry: [private] Used to hook up a debugfs entry. This
-+ *     shows up in the debugfs root as wimax\:DEVICENAME.
-  *
-  * Description:
-  * This structure defines a common interface to access all WiMAX
--- 
-1.5.6.5
