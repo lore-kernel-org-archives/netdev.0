@@ -1,35 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix section mismatch warnings in
- dccp/ccids/lib/tfrc.c
-Date: Thu, 08 Jan 2009 15:43:54 -0800 (PST)
-Message-ID: <20090108.154354.251018369.davem@davemloft.net>
-References: <200901081957.03413.lpotenza@inwind.it>
-	<20090108232847.GV23891@ghostprotocols.net>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: m_ipt in iproute2
+Date: Fri, 9 Jan 2009 02:14:44 +0200
+Message-ID: <200901090214.44328.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: lpotenza@inwind.it, gerrit@erg.abdn.ac.uk,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
-To: acme@redhat.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38046
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753101AbZAHXnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 18:43:52 -0500
-In-Reply-To: <20090108232847.GV23891@ghostprotocols.net>
+Received: from hosting.visp.net.lb ([194.146.153.11]:46624 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755704AbZAIAOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 19:14:33 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Thu, 8 Jan 2009 21:28:47 -0200
+Well, the bad news, that iptables 1.4.2 won't work again with m_ipt. Again 
+something changed, and even ugly way fixes i did for 1.4.1 (for myself, they 
+are too ugly for mainline) - doesn't work anymore.
 
-> Adding netdev to the CC list.
- ...
-> Dave/Gerrit,
-> 
-> 	Please apply.
-> 
-> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-
-I'll take care of this, thanks!
+Good news there is xtables.so . Bad news - i have no idea how to use it.
+I will try to understand it, but till now m_ipt is broken for 1.4.1 and 1.4.2 
+iptables :-(
