@@ -1,50 +1,54 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: nfs client lockdep warning
-Date: Fri, 9 Jan 2009 17:23:33 +1100
-Message-ID: <20090109062333.GB13304@gondor.apana.org.au>
-References: <20090108203658.GE19312@fieldses.org> <1231447707.7179.10.camel@heimdal.trondhjem.org> <20090108212056.GF19312@fieldses.org> <20090109043315.GA12139@gondor.apana.org.au> <1231480697.11687.522.camel@twins>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Make possible speeds known to ethtool
+Date: Fri, 09 Jan 2009 01:28:22 -0500
+Message-ID: <4966EE86.3030704@pobox.com>
+References: <20090109041952.GA12087@gondor.apana.org.au> <4966DABD.1000203@pobox.com> <20090109051500.GA12836@gondor.apana.org.au> <4966E0ED.9090905@pobox.com> <20090109053520.GA13219@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond Myklebust <trond-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, Nick Piggin <npiggin-l3A5Bk7waGM@public.gmane.org>
-To: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1231480697.11687.522.camel@twins>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, rick.jones2@hp.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:59723 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752447AbZAIG2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 01:28:35 -0500
+In-Reply-To: <20090109053520.GA13219@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 06:58:17AM +0100, Peter Zijlstra wrote:
->
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c054bb26>] copy_from_user+0x36/0x90
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c0737800>] memcpy_fromiovecend+0x60/0x90
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c075ce9f>] ip_generic_getfrag+0x9f/0xb0
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c075cb6b>] ip_append_data+0x6bb/0x950
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c077cb0d>] udp_sendmsg+0x2bd/0x680
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c07835f9>] inet_sendmsg+0x39/0x70
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c072f0e6>] sock_sendmsg+0xd6/0x100
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c072f485>] kernel_sendmsg+0x35/0x50
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c07da698>] xs_send_kvec+0xa8/0xb0
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c07da711>] xs_sendpages+0x71/0x210
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c07dab30>] xs_udp_send_request+0x40/0x120
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c07d91ff>] xprt_transmit+0x6f/0x280
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c07d6c1f>] call_transmit+0x17f/0x250
-> > > > > Jan  8 15:29:17 ying3 kernel:        [<c07dda13>] __rpc_execute+0x73/0x250
+Herbert Xu wrote:
+> On Fri, Jan 09, 2009 at 12:30:21AM -0500, Jeff Garzik wrote:
+>> Actually it's just the opposite -- _the_ most common complaint from  
+>> users and driver developers of the ethtool interface, over the years,  
+>> has been that there is no way to collect all the modifications and then  
+>> commit it to hardware all in one go.
 > 
-> Is there anything pinning that user-space page, if not its free to
-> fault, which would mean its a real warning... 
+> Yes that's a problem for flags that require the drivers to reset
+> itself.
+> 
+>> Each new ethtool command added often winds up pausing and resetting the  
+>> hardware completely, and ETHTOOL_SGRO is no exception.
+> 
+> But as I explained before, GRO (like GSO) is purely a software
+> setting, it has nothing to do with the driver at all.  In other
 
-It's kernel memory, not user memory.  See xs_udp_send_request in
-net/sunrpc.
+Not quite true...  it touches the driver's rx-csum hook.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+> If anything by going into the driver's set_flags function as you
+> suggested may cause a spurious reset that wouldn't have happened
+> otherwise.
+> 
+> So for software flags like GSO/GRO at least, I don't see any
+> benefit in going to a multi-bit interface.  On the flip side,
+> I see potential complications with a multi-bit interfaces that
+> simply don't exist with a single-bit interface.
+
+Well, whichever.  Overall, if [GS]GRO remains I am happy to take patches 
+supporting it in the userspace utility...
+
+	Jeff
+
+
