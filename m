@@ -1,43 +1,34 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-	2.6.28
-Date: Fri, 9 Jan 2009 10:58:58 +0000
-Message-ID: <20090109105858.GA6098@ff.dom.local>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <200901082357.13396.denys@visp.net.lb> <20090109103030.GI4605@ff.dom.local> <200901091232.09923.denys@visp.net.lb> <20090109104411.GJ4605@ff.dom.local> <1504.192.168.1.3.1231498031.squirrel@webmail.decimal.pt>
+From: Bastian Blank <bastian@waldi.eu.org>
+Subject: Re: [patch 1/4] lcs: convert to net_device_ops
+Date: Fri, 9 Jan 2009 11:54:47 +0100
+Message-ID: <20090109105447.GA2929@wavehammer.waldi.eu.org>
+References: <20090109090156.422658000@de.ibm.com> <20090109090220.554541000@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Jorge Bastos <mysql.jorge@decimal.pt>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:37225 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbZAIK7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 05:59:05 -0500
-Received: by ewy10 with SMTP id 10so10134459ewy.13
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2009 02:59:03 -0800 (PST)
+Received: from wavehammer.waldi.eu.org ([82.139.201.20]:40053 "EHLO
+	wavehammer.waldi.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134AbZAILB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 06:01:56 -0500
 Content-Disposition: inline
-In-Reply-To: <1504.192.168.1.3.1231498031.squirrel@webmail.decimal.pt>
+In-Reply-To: <20090109090220.554541000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 10:47:11AM -0000, Jorge Bastos wrote:
-> For my case this has any matter?
-> 
+On Fri, Jan 09, 2009 at 10:01:57AM +0100, frank.blaschka@de.ibm.com wrote:
+>  #ifdef CONFIG_IP_MULTICAST
+>  	if (!lcs_check_multicast_support(card))
+> -		card->dev->set_multicast_list = lcs_set_multicast_list;
+> +		lcs_netdev_ops.ndo_set_multicast_list = lcs_set_multicast_list;
 
-I guess not: it's about better resolution, so e.g. when 2% matters.
-And it matters for a desktop box, if you care about responsiveness.
+This looks wrong. lcs_netdev_ops is static but this code used to set it
+up per card.
 
-Jarek P.
+Bastian
 
-> 
-> > On Fri, Jan 09, 2009 at 12:32:09PM +0200, Denys Fedoryschenko wrote:
-> >> HZ still matter? With tickless kernel and hrtimers?
-> >
-> > Sure, "jiffies" value which depends on CONFIG_HZ is added/checked for
-> > in many places in networking and elsewhere.
-> >
-> > Jarek P.
-> >
-> 
-> 
+-- 
+History tends to exaggerate.
+		-- Col. Green, "The Savage Curtain", stardate 5906.4
