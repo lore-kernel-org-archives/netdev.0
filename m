@@ -1,75 +1,63 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: nfs client lockdep warning
-Date: Fri, 9 Jan 2009 15:29:39 -0500
-Message-ID: <20090109202939.GA5466@fieldses.org>
-References: <20090108203658.GE19312@fieldses.org> <1231447707.7179.10.camel@heimdal.trondhjem.org> <20090108212056.GF19312@fieldses.org> <20090109043315.GA12139@gondor.apana.org.au> <1231480697.11687.522.camel@twins> <20090109062333.GB13304@gondor.apana.org.au> <1231483868.11687.523.camel@twins>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond Myklebust <trond-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, Nick Piggin <npiggin-l3A5Bk7waGM@public.gmane.org>
-To: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1231483868.11687.523.camel@twins>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: akpm@linux-foundation.org
+Subject: [patch 4/4] netdev: gianfar: add MII ioctl handler
+Date: Fri, 09 Jan 2009 12:23:11 -0800
+Message-ID: <200901092023.n09KNBAl020243@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	clifford@clifford.at
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48678 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756577AbZAIUbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:31:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 07:51:08AM +0100, Peter Zijlstra wrote:
-> On Fri, 2009-01-09 at 17:23 +1100, Herbert Xu wrote:
-> > On Fri, Jan 09, 2009 at 06:58:17AM +0100, Peter Zijlstra wrote:
-> > >
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c054bb26>] copy_from_user+0x36/0x90
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c0737800>] memcpy_fromiovecend+0x60/0x90
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c075ce9f>] ip_generic_getfrag+0x9f/0xb0
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c075cb6b>] ip_append_data+0x6bb/0x950
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c077cb0d>] udp_sendmsg+0x2bd/0x680
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07835f9>] inet_sendmsg+0x39/0x70
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c072f0e6>] sock_sendmsg+0xd6/0x100
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c072f485>] kernel_sendmsg+0x35/0x50
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07da698>] xs_send_kvec+0xa8/0xb0
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07da711>] xs_sendpages+0x71/0x210
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07dab30>] xs_udp_send_request+0x40/0x120
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07d91ff>] xprt_transmit+0x6f/0x280
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07d6c1f>] call_transmit+0x17f/0x250
-> > > > > > > Jan  8 15:29:17 ying3 kernel:        [<c07dda13>] __rpc_execute+0x73/0x250
-> > > 
-> > > Is there anything pinning that user-space page, if not its free to
-> > > fault, which would mean its a real warning... 
-> > 
-> > It's kernel memory, not user memory.  See xs_udp_send_request in
-> > net/sunrpc.
-> 
-> Ahh, so something like this ought to fix it I think...
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
-> ---
-> diff --git a/mm/memory.c b/mm/memory.c
-> index 7b9db65..a2ed52e 100644
-> --- a/mm/memory.c
-> +++ b/mm/memory.c
-> @@ -3079,6 +3079,9 @@ void print_vma_addr(char *prefix, unsigned long ip)
->  #ifdef CONFIG_PROVE_LOCKING
->  void might_fault(void)
->  {
-> +	if (get_fs() == KERNEL_DS)
+From: Clifford Wolf <clifford@clifford.at>
 
-Looks like that should be
+This is the same kind of wrapper that can also be found in many
+other network device drivers.
 
-	if ((segment_eq(get_fs(), KERNEL_DS))
+Tested with a freescale MPC8349E host CPU:
+Toggled the interface LEDs on a DP83865 PHY.
 
-?  Anyway, with that, sure, that eliminates the lockdep warning.
+Signed-off-by: Clifford Wolf <clifford@clifford.at>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
---b.
+ drivers/net/gianfar.c |   15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-> +		return;
-> +
->  	might_sleep();
->  	/*
->  	 * it would be nicer only to annotate paths which are not under
-> 
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff -puN drivers/net/gianfar.c~netdev-gianfar-add-mii-ioctl-handler drivers/net/gianfar.c
+--- a/drivers/net/gianfar.c~netdev-gianfar-add-mii-ioctl-handler
++++ a/drivers/net/gianfar.c
+@@ -296,6 +296,20 @@ err_out:
+ 	return err;
+ }
+ 
++/* Ioctl MII Interface */
++static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++
++	if (!netif_running(dev))
++		return -EINVAL;
++
++	if (!priv->phydev)
++		return -ENODEV;
++
++	return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
++}
++
+ /* Set up the ethernet device structure, private data,
+  * and anything else we need before we start */
+ static int gfar_probe(struct of_device *ofdev,
+@@ -366,6 +380,7 @@ static int gfar_probe(struct of_device *
+ 	dev->set_multicast_list = gfar_set_multi;
+ 
+ 	dev->ethtool_ops = &gfar_ethtool_ops;
++	dev->do_ioctl = gfar_ioctl;
+ 
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_CSUM) {
+ 		priv->rx_csum_enable = 1;
+_
