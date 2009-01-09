@@ -1,115 +1,93 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Sat, 10 Jan 2009 00:34:40 +0100
-Message-ID: <4967DF10.2010107@cosmosbay.com>
-References: <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com> <49677074.5090802@cosmosbay.com> <20090109185448.GA1999@1wt.eu> <4967B8C5.10803@cosmosbay.com> <20090109212400.GA3727@1wt.eu> <20090109220737.GA4111@1wt.eu> <4967CBB9.1060403@cosmosbay.com> <20090109221744.GA4819@1wt.eu> <4967D36E.6020207@cosmosbay.com> <20090109225309.GC4819@1wt.eu>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: [PATCH] net_dma: acquire/release dma channels on ifup/ifdown
+Date: Fri, 09 Jan 2009 16:57:53 -0700
+Message-ID: <20090109235752.16379.98359.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, ben@zeus.com,
-	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760370AbZAIXix@vger.kernel.org>
-In-Reply-To: <20090109225309.GC4819@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, maciej.sosnowski@intel.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:27805 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751640AbZAIX5x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 18:57:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau a =E9crit :
-> On Fri, Jan 09, 2009 at 11:45:02PM +0100, Eric Dumazet wrote:
->> Only the (!timeo) can be above. Other conditions must be checked aft=
-er
->> the release/lock.
->=20
-> Yes that's what Evgeniy explained too. I smelled something like this
-> but did not know.
->=20
-> Care to redo the whole patch, since you already have all code parts
-> at hand as well as some fragments of commit messages ? You can even
-> add my Tested-by if you want. Finally it was nice that Dave asked
-> for this explanation because it drove our nose to the fishy parts ;-)
+The recent dmaengine rework removed the capability to remove dma device
+driver modules while net_dma is active.  Rather than notify
+dmaengine-clients that channels are trying to be removed, we now rely on
+clients to notify dmaengine when they no longer have a need for
+channels.  Teach net_dma to release channels by taking dmaengine
+references at netdevice open and dropping references at netdevice close.
 
-Sure, here it is :
-
-
-David, do you think we still must call __tcp_splice_read() only once
-in tcp_splice_read() if SPLICE_F_NONBLOCK is set ?
-
-With following patch, a splice() call is limited to 16 frames, typicall=
-y
-16*1460 =3D 23360 bytes. Removing the test as Willy did in its patch
-could return the exact length requested by user (limited to 16 pages),
-giving nice blocks if feeding a file on disk...
-
-Thank you
-
-=46rom: Willy Tarreau <w@1wt.eu>
-
-[PATCH] tcp: splice as many packets as possible at once
-
-As spotted by Willy Tarreau, current splice() from tcp socket to pipe i=
-s not
-optimal. It processes at most one segment per call.
-This results in low performance and very high overhead due to syscall r=
-ate
-when splicing from interfaces which do not support LRO.
-
-Willy provided a patch inside tcp_splice_read(), but a better fix
-is to let tcp_read_sock() process as many segments as possible, so
-that tcp_rcv_space_adjust() and tcp_cleanup_rbuf() are called less
-often.
-
-With this change, splice() behaves like tcp_recvmsg(), being able
-to consume many skbs in one system call. With typical 1460 bytes
-of payload per frame, that means splice(SPLICE_F_NONBLOCK) can return
-16*1460 =3D 23360 bytes.
-
-Signed-off-by: Willy Tarreau <w@1wt.eu>
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Acked-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 ---
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index bd6ff90..1233835 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -522,8 +522,12 @@ static int tcp_splice_data_recv(read_descriptor_t =
-*rd_desc, struct sk_buff *skb,
- 				unsigned int offset, size_t len)
- {
- 	struct tcp_splice_state *tss =3D rd_desc->arg.data;
-+	int ret;
-=20
--	return skb_splice_bits(skb, offset, tss->pipe, tss->len, tss->flags);
-+	ret =3D skb_splice_bits(skb, offset, tss->pipe, rd_desc->count, tss->=
-flags);
-+	if (ret > 0)
-+		rd_desc->count -=3D ret;
-+	return ret;
+ include/linux/dmaengine.h |   10 ++++++++++
+ net/core/dev.c            |   13 ++++++++++---
+ 2 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
+index 64dea2a..c73f1e2 100644
+--- a/include/linux/dmaengine.h
++++ b/include/linux/dmaengine.h
+@@ -270,8 +270,18 @@ struct dma_device {
+ 
+ /* --- public DMA engine API --- */
+ 
++#ifdef CONFIG_DMA_ENGINE
+ void dmaengine_get(void);
+ void dmaengine_put(void);
++#else
++static inline void dmaengine_get(void)
++{
++}
++static inline void dmaengine_put(void)
++{
++}
++#endif
++
+ dma_cookie_t dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
+ 	void *dest, void *src, size_t len);
+ dma_cookie_t dma_async_memcpy_buf_to_pg(struct dma_chan *chan,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5f736f1..b715a55 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1088,6 +1088,11 @@ int dev_open(struct net_device *dev)
+ 		dev->flags |= IFF_UP;
+ 
+ 		/*
++		 *	Enable NET_DMA
++		 */
++		dmaengine_get();
++
++		/*
+ 		 *	Initialize multicasting status
+ 		 */
+ 		dev_set_rx_mode(dev);
+@@ -1164,6 +1169,11 @@ int dev_close(struct net_device *dev)
+ 	 */
+ 	call_netdevice_notifiers(NETDEV_DOWN, dev);
+ 
++	/*
++	 *	Shutdown NET_DMA
++	 */
++	dmaengine_put();
++
+ 	return 0;
  }
-=20
- static int __tcp_splice_read(struct sock *sk, struct tcp_splice_state =
-*tss)
-@@ -531,6 +535,7 @@ static int __tcp_splice_read(struct sock *sk, struc=
-t tcp_splice_state *tss)
- 	/* Store TCP splice context information in read_descriptor_t. */
- 	read_descriptor_t rd_desc =3D {
- 		.arg.data =3D tss,
-+		.count	  =3D tss->len,
- 	};
-=20
- 	return tcp_read_sock(sk, &rd_desc, tcp_splice_data_recv);
-@@ -611,11 +616,13 @@ ssize_t tcp_splice_read(struct socket *sock, loff=
-_t *ppos,
- 		tss.len -=3D ret;
- 		spliced +=3D ret;
-=20
-+		if (!timeo)
-+			break;
- 		release_sock(sk);
- 		lock_sock(sk);
-=20
- 		if (sk->sk_err || sk->sk_state =3D=3D TCP_CLOSE ||
--		    (sk->sk_shutdown & RCV_SHUTDOWN) || !timeo ||
-+		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
- 		    signal_pending(current))
- 			break;
- 	}
+ 
+@@ -5151,9 +5161,6 @@ static int __init net_dev_init(void)
+ 	hotcpu_notifier(dev_cpu_callback, 0);
+ 	dst_init();
+ 	dev_mcast_init();
+-	#ifdef CONFIG_NET_DMA
+-	dmaengine_get();
+-	#endif
+ 	rc = 0;
+ out:
+ 	return rc;
+
