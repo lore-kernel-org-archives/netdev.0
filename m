@@ -1,61 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 12392] New: Can't change mac addr
-Date: Fri, 9 Jan 2009 10:36:09 -0800
-Message-ID: <20090109103609.04b3b538.akpm@linux-foundation.org>
-References: <bug-12392-10286@http.bugzilla.kernel.org/>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] ethtool: Support arbitrary speeds
+Date: Fri, 09 Jan 2009 10:40:09 -0800
+Message-ID: <49679A09.8070105@hp.com>
+References: <200901080203.SAA19103@tardy.cup.hp.com>	<1231384446.2677.32.camel@hashbaz.i.decadent.org.uk>	<49656F01.3090603@pobox.com>  <49664FFD.1010608@hp.com>	<1231442701.3893.4.camel@achroite>  <496658EB.1080206@hp.com>	<1231506974.3006.18.camel@achroite>  <49678FAB.3040007@hp.com> <1231525443.3006.35.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44211 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753653AbZAISgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 13:36:23 -0500
-In-Reply-To: <bug-12392-10286@http.bugzilla.kernel.org/>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:41458 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752952AbZAISkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 13:40:14 -0500
+In-Reply-To: <1231525443.3006.35.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Fri,  9 Jan 2009 05:30:07 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=12392
-> 
->            Summary: Can't change mac addr
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: >=2.6.28 fail woks <=2.6.28-rc9-git1
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: Network
->         AssignedTo: jgarzik@pobox.com
->         ReportedBy: diabelx@gmail.com
+>>Doesn't that need to keep the reporting of the unknown speed in parens 
+>>like the original?
 > 
 > 
-> Latest working kernel version: 2.6.28-rc9-git1
-> Earliest failing kernel version: >=2.6.28
+> We'll only be doing it for known invalid values, so the value isn't
+> useful information.  I suppose it's conceivable that there are tools out
+> there that are parsing the output and expect "Unknown! (0)" when link is
+> down.
 
-A regression.
+That was my paranoid assumption :) (albeit for the 65535 value :)
 
-> Distribution:gantoo
-> Hardware Environment: 04:05.0 Ethernet controller: Realtek Semiconductor Co.,
-> Ltd. RTL-8139/8139C/8139C+ (rev 10)
-> Software Environment: ifconfig,macchanger
-> Problem Description:
-> Can't change mac address, Any attempt to change the address ends in an error :
-> RTNETLINK answers: Operation not supported
-> ERROR: Can't change MAC: interface up or not permission: Operation not
-> supported
-> 
-> 
-> Steps to reproduce:
-
+rick
