@@ -1,58 +1,69 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Problem with platform specific RFKILL switches
-Date: Fri, 09 Jan 2009 20:15:49 +0100
-Message-ID: <1231528549.20618.34.camel@californication>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: ip xfrm policy semantics
+Date: Fri, 09 Jan 2009 21:21:42 +0200
+Message-ID: <4967A3C6.30901@iki.fi>
+References: <49675C3E.6010109@iki.fi> <496784AE.6000505@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:58197 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752992AbZAITPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 14:15:52 -0500
-Received: from [192.168.1.142] (S0106001cf062885c.vc.shawcable.net [24.82.150.230])
-	by mail.holtmann.org (Postfix) with ESMTP id 87BA98B547
-	for <netdev@vger.kernel.org>; Fri,  9 Jan 2009 20:15:53 +0100 (CET)
+Received: from ey-out-2122.google.com ([74.125.78.26]:44788 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753394AbZAITVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 14:21:49 -0500
+Received: by ey-out-2122.google.com with SMTP id 22so1146343eye.37
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2009 11:21:47 -0800 (PST)
+In-Reply-To: <496784AE.6000505@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Timo Ter=E4s wrote:
+> Ok, I tried to find what the code does. Apparently the ip_forward() c=
+alls=20
+> xfrm4_route_forward() which ends up doing __xfrm_route_forward() fall=
+ing
+> back to xfrm_lookup() which is fixed to use XFRM_POLICY_OUT. So 'out'
+> policy is always used; even for packets that are being forwarded.
+>=20
+> Ok, now I tried adding:
+>   policy in  src pptp-server
+>   policy out dst pptp-server
+>   policy out dst internal-pptp-client
+>=20
+> all with high priority and policy 'none'. Now it looks like the packe=
+ts
+> from pptp-client go out to internet properly. The connection tracking
+> entries are recorded, but the reply packets from pptp-server do not
+> get back to internal-pptp-client. Apparently the 'none' policy preven=
+ts
+> NAT to work.
 
-so I am working with RFKILL subsystem right now. One major problem that
-I have is that in the cases of platform RFKILL switches, I have no idea
-which device it actually belongs to. Lets take my X61 as an example:
+=46orget the above. I had a typo in my policy config.
 
-# udevadm info --query=all --path=/class/rfkill/rfkill0
-P: /devices/platform/thinkpad_acpi/rfkill/rfkill0
-E: UDEV_LOG=3
-E: DEVPATH=/devices/platform/thinkpad_acpi/rfkill/rfkill0
-E: RFKILL_NAME=tpacpi_bluetooth_sw
-E: RFKILL_TYPE=bluetooth
-E: RFKILL_STATE=1
+Having:
+  policy out dst pptp-server
+  policy out dst internal-pptp-client
 
-# udevadm info --query=all --path=/class/rfkill/rfkill1
-P: /devices/pci0000:00/0000:00:1c.1/0000:03:00.0/rfkill/rfkill1
-E: UDEV_LOG=3
-E: DEVPATH=/devices/pci0000:00/0000:00:1c.1/0000:03:00.0/rfkill/rfkill1
-E: RFKILL_NAME=4965AGN
-E: RFKILL_TYPE=wlan
-E: RFKILL_STATE=1
+set to high priority and no transforms works great too.
 
-As you can see for the 4965 WiFi, we clearly have a proper parent and
-know which device is affected by the RFKILL switch. For the Bluetooth
-one we have the problem that it just points to a platform device and not
-the Bluetooth device.
+> Any ideas what would the proper way to patch XFRM to distinguish if
+> forwarded packets should be touched or not?
 
-Do we have any plans on how to handle this? I would like to identify the
-affected device. It is kinda tricky with hotplug devices like Bluetooth
-were it just disconnects from the bus when using the RFKILL switch, but
-at least when enabled we would see which device is attached to it.
+So basically, I would like to have separate policy for 'out' and
+'fwd_out'. But adding new policy type is kinda bad. I wonder why
+in the first place 'in' and 'fwd' were split, but 'out' was left
+all alone without any information about if it's forwarded or local
+packet?
 
-So any ideas or is this just wishful thinking on my part?
+So, I'm back to thinking how to fix this without adding IP
+addresses to my security policies.
 
-Regards
+The options I could think of are:
+1. A way to test input interface on policy selector
+2. GRE upper layer awareness. gre key being the likely key.
+(3. Splitting 'out' policy to 'out' and 'outfwd')
 
-Marcel
+Any comment on which would the preferred way to go?
 
-
+- Timo
