@@ -1,131 +1,66 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Fri, 9 Jan 2009 23:53:09 +0100
-Message-ID: <20090109225309.GC4819@1wt.eu>
-References: <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com> <49677074.5090802@cosmosbay.com> <20090109185448.GA1999@1wt.eu> <4967B8C5.10803@cosmosbay.com> <20090109212400.GA3727@1wt.eu> <20090109220737.GA4111@1wt.eu> <4967CBB9.1060403@cosmosbay.com> <20090109221744.GA4819@1wt.eu> <4967D36E.6020207@cosmosbay.com>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: Re: [PATCH v2] b44: fix misalignment and wasted space in rx handling
+Date: Fri, 09 Jan 2009 23:55:26 +0100
+Message-ID: <4967D5DE.2050002@openwrt.org>
+References: <4967459D.3070207@openwrt.org> <200901092325.50955.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, ben@zeus.com,
-	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, zambrano@broadcom.com
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1366 "EHLO 1wt.eu"
+Received: from nbd.name ([88.198.39.176]:34143 "EHLO ds10.mine.nu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760211AbZAIWxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 17:53:35 -0500
-Content-Disposition: inline
-In-Reply-To: <4967D36E.6020207@cosmosbay.com>
+	id S1754400AbZAIWzf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 17:55:35 -0500
+In-Reply-To: <200901092325.50955.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 11:45:02PM +0100, Eric Dumazet wrote:
-> Willy Tarreau a =E9crit :
-> > On Fri, Jan 09, 2009 at 11:12:09PM +0100, Eric Dumazet wrote:
-> >> Willy Tarreau a =E9crit :
-> >>> On Fri, Jan 09, 2009 at 10:24:00PM +0100, Willy Tarreau wrote:
-> >>>> On Fri, Jan 09, 2009 at 09:51:17PM +0100, Eric Dumazet wrote:
-> >>>> (...)
-> >>>>>> Also, in your second mail, you're saying that your change
-> >>>>>> might return more data than requested by the user. I can't
-> >>>>>> find why, could you please explain to me, as I'm still quite
-> >>>>>> ignorant in this area ?
-> >>>>> Well, I just tested various user programs and indeed got this
-> >>>>> strange result :
-> >>>>>
-> >>>>> Here I call splice() with len=3D1000 (0x3e8), and you can see
-> >>>>> it gives a result of 1460 at the second call.
-> >>> OK finally I could reproduce it and found why we have this. It's
-> >>> expected in fact.
-> >>>
-> >>> The problem when we loop in tcp_read_sock() is that tss->len is
-> >>> not decremented by the amount of bytes read, this one is done
-> >>> only in tcp_splice_read() which is outer.
-> >>>
-> >>> The solution I found was to do just like other callers, which mea=
-ns
-> >>> use desc->count to keep the remaining number of bytes we want to
-> >>> read. In fact, tcp_read_sock() is designed to use that one as a s=
-top
-> >>> condition, which explains why you first had to hide it.
-> >>>
-> >>> Now with the attached patch as a replacement for my previous one,
-> >>> both issues are solved :
-> >>>   - I splice 1000 bytes if I ask to do so
-> >>>   - I splice as much as possible if available (typically 23 kB).
-> >>>
-> >>> My observed performances are still at the top of earlier results
-> >>> and IMHO that way of counting bytes makes sense for an actor call=
-ed
-> >>> from tcp_read_sock().
-> >>>
-> >>> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> >>> index 35bcddf..51ff3aa 100644
-> >>> --- a/net/ipv4/tcp.c
-> >>> +++ b/net/ipv4/tcp.c
-> >>> @@ -522,8 +522,12 @@ static int tcp_splice_data_recv(read_descrip=
-tor_t *rd_desc, struct sk_buff *skb,
-> >>>  				unsigned int offset, size_t len)
-> >>>  {
-> >>>  	struct tcp_splice_state *tss =3D rd_desc->arg.data;
-> >>> +	int ret;
-> >>> =20
-> >>> -	return skb_splice_bits(skb, offset, tss->pipe, tss->len, tss->f=
-lags);
-> >>> +	ret =3D skb_splice_bits(skb, offset, tss->pipe, rd_desc->count,=
- tss->flags);
-> >>> +	if (ret > 0)
-> >>> +		rd_desc->count -=3D ret;
-> >>> +	return ret;
-> >>>  }
-> >>> =20
-> >>>  static int __tcp_splice_read(struct sock *sk, struct tcp_splice_=
-state *tss)
-> >>> @@ -531,6 +535,7 @@ static int __tcp_splice_read(struct sock *sk,=
- struct tcp_splice_state *tss)
-> >>>  	/* Store TCP splice context information in read_descriptor_t. *=
-/
-> >>>  	read_descriptor_t rd_desc =3D {
-> >>>  		.arg.data =3D tss,
-> >>> +		.count =3D tss->len,
-> >>>  	};
-> >>> =20
-> >>>  	return tcp_read_sock(sk, &rd_desc, tcp_splice_data_recv);
-> >>>
-> >> OK, I came to a different patch. Please check other tcp_read_sock(=
-) callers in tree :)
-> >=20
-> > I've seen the other callers, but they all use desc->count for their=
- own
-> > purpose. That's how I understood what it was used for :-)
->=20
-> Ah yes, I reread your patch and you are right.
->=20
-> >=20
-> > I think it's better not to change the API here and use tcp_read_soc=
-k()
-> > how it's supposed to be used. Also, the less parameters to the func=
-tion,
-> > the better.
-> >=20
-> > However I'm OK for the !timeo before release_sock/lock_sock. I just
-> > don't know if we can put the rest of the if above or not. I don't
-> > know what changes we're supposed to collect by doing release_sock/
-> > lock_sock before the if().
->=20
-> Only the (!timeo) can be above. Other conditions must be checked afte=
-r
-> the release/lock.
+Michael Buesch wrote:
+> On Friday 09 January 2009 13:39:57 Felix Fietkau wrote:
+>> --- a/drivers/net/b44.c
+>> +++ b/drivers/net/b44.c
+>> @@ -73,8 +73,8 @@
+>>  	  (BP)->tx_cons - (BP)->tx_prod - TX_RING_GAP(BP))
+>>  #define NEXT_TX(N)		(((N) + 1) & (B44_TX_RING_SIZE - 1))
+>>  
+>> -#define RX_PKT_OFFSET		30
+>> -#define RX_PKT_BUF_SZ		(1536 + RX_PKT_OFFSET + 64)
+>> +#define RX_PKT_OFFSET		(RX_HEADER_LEN + 2)
+>> +#define RX_PKT_BUF_SZ		(1536 + RX_PKT_OFFSET)
+>>  
+>>  /* minimum number of free TX descriptors required to wake up TX process */
+>>  #define B44_TX_WAKEUP_THRESH		(B44_TX_RING_SIZE / 4)
+>> @@ -682,7 +682,6 @@ static int b44_alloc_rx_skb(struct b44 *
+>>  	}
+>>  
+>>  	rh = (struct rx_header *) skb->data;
+>> -	skb_reserve(skb, RX_PKT_OFFSET);
+> 
+> Looks correct.
+> 
+>>  	rh->len = 0;
+>>  	rh->flags = 0;
+>> @@ -693,13 +692,13 @@ static int b44_alloc_rx_skb(struct b44 *
+>>  	if (src_map != NULL)
+>>  		src_map->skb = NULL;
+>>  
+>> -	ctrl  = (DESC_CTRL_LEN & (RX_PKT_BUF_SZ - RX_PKT_OFFSET));
+>> +	ctrl = (DESC_CTRL_LEN & RX_PKT_BUF_SZ);
+> 
+> Are you sure this is right? b43 has the same DMA engine, and we
+> subtract the offset from the buffer size there. So we end up with
+> the descriptor control field telling the space available for the frame payload.
+Quote from a Datasheet for the BCM5365 that I found online:
 
-Yes that's what Evgeniy explained too. I smelled something like this
-but did not know.
+"This field is the length, in bytes, of the data buffer associated with this
+descriptor. A descriptor with a BufCount value greater than 0x1000 causes a
+descriptor protocol error."
 
-Care to redo the whole patch, since you already have all code parts
-at hand as well as some fragments of commit messages ? You can even
-add my Tested-by if you want. Finally it was nice that Dave asked
-for this explanation because it drove our nose to the fishy parts ;-)
+I checked the public hnddma.c code and it also appears to not subtract
+the packet offset either, so I think my version is correct.
 
-Thanks,
-Willy
+- Felix
+
 
