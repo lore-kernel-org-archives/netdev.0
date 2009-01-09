@@ -1,83 +1,108 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Fri, 09 Jan 2009 16:42:44 +0100
-Message-ID: <49677074.5090802@cosmosbay.com>
-References: <20090108173028.GA22531@1wt.eu>	<49667534.5060501@zeus.com> <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com>
+From: Joerg Roedel <joerg.roedel@amd.com>
+Subject: [PATCH 13/16] dma-debug: add checks for sync_single_range_*
+Date: Fri, 9 Jan 2009 17:19:27 +0100
+Message-ID: <1231517970-20288-14-git-send-email-joerg.roedel@amd.com>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ben@zeus.com, w@1wt.eu, jarkao2@gmail.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: mingo@redhat.com, dwmw2@infradead.org,
+	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org,
+	Joerg Roedel <joerg.roedel@amd.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:37896 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185AbZAIPnj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 10:43:39 -0500
-In-Reply-To: <4966F2F4.9080901@cosmosbay.com>
+Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:31932 "EHLO
+	WA4EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752137AbZAIQTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:19:42 -0500
+In-Reply-To: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> David Miller a =E9crit :
->> I'm not applying this until someone explains to me why
->> we should remove this test from the splice receive but
->> keep it in the tcp_recvmsg() code where it has been
->> essentially forever.
+Impact: add debug callbacks for dma_sync_single_range_for_* functions
 
-Reading again tcp_recvmsg(), I found it already is able to eat several =
-skb
-even in nonblocking mode.
+Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
+---
+ include/linux/dma-debug.h |   26 ++++++++++++++++++++++++++
+ lib/dma-debug.c           |   23 +++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 0 deletions(-)
 
-setsockopt(5, SOL_SOCKET, SO_RCVLOWAT, [61440], 4) =3D 0
-ioctl(5, FIONBIO, [1])                  =3D 0
-poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
-recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
-536, MSG_DONTWAIT) =3D 65536
-write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
-5536) =3D 65536
-poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
-recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
-536, MSG_DONTWAIT) =3D 65536
-write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
-5536) =3D 65536
-poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
-recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
-536, MSG_DONTWAIT) =3D 65536
-write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
-5536) =3D 65536
-poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
-recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 65=
-536, MSG_DONTWAIT) =3D 65536
-write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 6=
-5536) =3D 65536
-
-
-David, if you referred to code at line 1374 of net/ipv4/tcp.c, I believ=
-e there is
-no issue with it. We really want to break from this loop if !timeo .
-
-Willy patch makes splice() behaving like tcp_recvmsg(), but we might ca=
-ll
-tcp_cleanup_rbuf() several times, with copied=3D1460 (for each frame pr=
-ocessed)
-
-I wonder if the right fix should be done in tcp_read_sock() : this is t=
-he
-one who should eat several skbs IMHO, if we want optimal ACK generation=
-=2E
-
-We break out of its loop at line 1246
-
-if (!desc->count) /* this test is always true */
-	break;
-
-(__tcp_splice_read() set count to 0, right before calling tcp_read_sock=
-())
-
-So code at line 1246 (tcp_read_sock()) seems wrong, or pessimistic at l=
-east.
-
+diff --git a/include/linux/dma-debug.h b/include/linux/dma-debug.h
+index f39c2a8..b9c221a 100644
+--- a/include/linux/dma-debug.h
++++ b/include/linux/dma-debug.h
+@@ -54,6 +54,16 @@ extern void debug_sync_single_for_device(struct device *dev,
+ 					 dma_addr_t dma_handle,
+ 					 size_t size, int direction);
+ 
++extern void debug_sync_single_range_for_cpu(struct device *dev,
++					    dma_addr_t dma_handle,
++					    unsigned long offset, size_t size,
++					    int direction);
++
++extern void debug_sync_single_range_for_device(struct device *dev,
++					       dma_addr_t dma_handle,
++					       unsigned long offset,
++					       size_t size, int direction);
++
+ #else /* CONFIG_DMA_API_DEBUG */
+ 
+ static inline void dma_debug_init(u32 num_entries)
+@@ -104,6 +114,22 @@ static inline void debug_sync_single_for_device(struct device *dev,
+ {
+ }
+ 
++static inline void debug_sync_single_range_for_cpu(struct device *dev,
++						   dma_addr_t dma_handle,
++						   unsigned long offset,
++						   size_t size,
++						   int direction)
++{
++}
++
++static inline void debug_sync_single_range_for_device(struct device *dev,
++						      dma_addr_t dma_handle,
++						      unsigned long offset,
++						      size_t size,
++						      int direction)
++{
++}
++
+ #endif /* CONFIG_DMA_API_DEBUG */
+ 
+ #endif /* __DMA_DEBUG_H */
+diff --git a/lib/dma-debug.c b/lib/dma-debug.c
+index a7f2369..6f73bed 100644
+--- a/lib/dma-debug.c
++++ b/lib/dma-debug.c
+@@ -669,3 +669,26 @@ void debug_sync_single_for_device(struct device *dev, dma_addr_t dma_handle,
+ }
+ EXPORT_SYMBOL(debug_sync_single_for_device);
+ 
++void debug_sync_single_range_for_cpu(struct device *dev, dma_addr_t dma_handle,
++				     unsigned long offset, size_t size,
++				     int direction)
++{
++	if (global_disable)
++		return;
++
++	check_sync(dev, dma_handle, size, offset, direction, true);
++}
++EXPORT_SYMBOL(debug_sync_single_range_for_cpu);
++
++void debug_sync_single_range_for_device(struct device *dev,
++					dma_addr_t dma_handle,
++					unsigned long offset,
++					size_t size, int direction)
++{
++	if (global_disable)
++		return;
++
++	check_sync(dev, dma_handle, size, offset, direction, false);
++}
++EXPORT_SYMBOL(debug_sync_single_range_for_device);
++
+-- 
+1.5.6.4
 
 
