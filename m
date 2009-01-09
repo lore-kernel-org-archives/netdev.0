@@ -1,70 +1,62 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH] irda: fix incomplete conversation to internal stats
-Date: Fri, 9 Jan 2009 03:14:21 +0300
-Message-ID: <20090109001421.GA22382@orion>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
+	2.6.27
+Date: Fri, 09 Jan 2009 00:14:51 +0000
+Message-ID: <1231460091.11674.94.camel@Maple>
+References: <bug-12327-10286@http.bugzilla.kernel.org/>
+	 <20081229214101.4c4f5ac1.akpm@linux-foundation.org>
+	 <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi>
+	 <495BFEAF.6000006@haveacry.com>
+	 <20090102083402.GA24383@gondor.apana.org.au>
+	 <4961ECD2.1000502@haveacry.com>
+	 <20090107041732.GA22041@gondor.apana.org.au>
+	 <4964B303.4020708@haveacry.com> <20090108030745.GA1204@gondor.apana.org.au>
+	 <4966160A.20001@haveacry.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:33959 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755704AbZAIAOc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 19:14:32 -0500
-Received: by bwz14 with SMTP id 14so28234954bwz.13
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 16:14:30 -0800 (PST)
-Content-Disposition: inline
+Received: from yw-out-2324.google.com ([74.125.46.28]:11295 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756660AbZAIAOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 19:14:54 -0500
+Received: by yw-out-2324.google.com with SMTP id 9so2943561ywe.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 16:14:52 -0800 (PST)
+In-Reply-To: <4966160A.20001@haveacry.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix for commit af0490810c (irda: convert to internal stats)
+On Fri, 2009-01-09 at 00:04 +0900, Speedster wrote:
 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
+> Attached (all are the exact same attempted connection), and reveal some 
+> interesting information.
+> 
+> The path the inbound traffic should take is
+> 1. vlan50 (host)
+> 2. tap interface vnet3 (host) / eth0 (guest)
+> 3. ppp0 (guest)
+> 
+> It looks as though when it is sent out the tap interface the payload 
+> length is incorrect in the PPPoE section of the frame. When it arrives 
+> via vlan50 it appears fine. Or at least that's what wireshark highlights 
+> for me :)
 
- drivers/net/irda/au1k_ir.c  |    2 +-
- drivers/net/irda/donauboe.c |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+The length field in the PPPoE header doesn't change.  
 
-diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
-index 75a1d0a..9411640 100644
---- a/drivers/net/irda/au1k_ir.c
-+++ b/drivers/net/irda/au1k_ir.c
-@@ -594,7 +594,7 @@ static int au1k_irda_rx(struct net_device *dev)
- 			update_rx_stats(dev, flags, count);
- 			skb=alloc_skb(count+1,GFP_ATOMIC);
- 			if (skb == NULL) {
--				aup->stats.rx_dropped++;
-+				aup->netdev->stats.rx_dropped++;
- 				continue;
- 			}
- 			skb_reserve(skb, 1);
-diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
-index 687c2d5..6f3e7f7 100644
---- a/drivers/net/irda/donauboe.c
-+++ b/drivers/net/irda/donauboe.c
-@@ -1194,13 +1194,13 @@ toshoboe_interrupt (int irq, void *dev_id)
-               txp = txpc;
-               txpc++;
-               txpc %= TX_SLOTS;
--              self->stats.tx_packets++;
-+              self->netdev->stats.tx_packets++;
-               if (self->ring->tx[txpc].control & OBOE_CTL_TX_HW_OWNS)
-                   self->ring->tx[txp].control &= ~OBOE_CTL_TX_RTCENTX;
-             }
--          self->stats.tx_packets--;
-+          self->netdev->stats.tx_packets--;
- #else
--          self->stats.tx_packets++;
-+          self->netdev->stats.tx_packets++;
- #endif
-           toshoboe_start_DMA(self, OBOE_CONFIG0H_ENTX);
-         }
-@@ -1280,7 +1280,7 @@ dumpbufs(self->rx_bufs[self->rxs],len,'<');
-                       skb_put (skb, len);
-                       skb_copy_to_linear_data(skb, self->rx_bufs[self->rxs],
- 					      len);
--                      self->stats.rx_packets++;
-+                      self->netdev->stats.rx_packets++;
-                       skb->dev = self->netdev;
-                       skb_reset_mac_header(skb);
-                       skb->protocol = htons (ETH_P_IRDA);
+The packet arrives from the ISP with its PPPoE header length field
+showing two extra bytes past the IP payload.  The bridge or something
+close to it trims those two bytes from the sk_buff, leaving a packet
+whose PPPoE header is wrong, but whose upper headers make sense.  The
+PPPoE driver in the virtual machine then drops the packet.
+
+I haven't unscrambled where the drop occurs in the PPPoE driver, but
+that's presumably what changed in 2.6.27.  It seems to me that the drop
+is proper.  What's wrong is trimming the sk_buff to match the IP header
+while ignoring the L2 header, and that's apparently been that way for a
+while (if I understand what the reporter is running where).
+
+Or have I screwed up my first posting to netdev?
+
+  --  John
+
