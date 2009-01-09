@@ -1,53 +1,61 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 03/16] dma-debug: add hash functions for dma_debug_entries
-Date: Fri, 9 Jan 2009 21:23:39 +0300
-Message-ID: <20090109182339.GA31661@ioremap.net>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-4-git-send-email-joerg.roedel@amd.com> <20090109175542.GB30168@ioremap.net> <20090109181446.GB9466@8bytes.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12392] New: Can't change mac addr
+Date: Fri, 9 Jan 2009 10:36:09 -0800
+Message-ID: <20090109103609.04b3b538.akpm@linux-foundation.org>
+References: <bug-12392-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Roedel <joerg.roedel@amd.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org,
-	mingo@redhat.com
-To: Joerg Roedel <joro@8bytes.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755107AbZAISXy@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090109181446.GB9466@8bytes.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:44211 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753653AbZAISgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 13:36:23 -0500
+In-Reply-To: <bug-12392-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 07:14:46PM +0100, Joerg Roedel (joro@8bytes.org) wrote:
-> > > +static struct hash_bucket *get_hash_bucket(struct dma_debug_entry *entry,
-> > > +					   unsigned long *flags)
-> > > +{
-> > > +	int idx = hash_fn(entry);
-> > > +	unsigned long __flags;
-> > > +
-> > > +	spin_lock_irqsave(&dma_entry_hash[idx].lock, __flags);
-> > > +	*flags = __flags;
-> > > +	return &dma_entry_hash[idx];
-> > > +}
-> > > +
-> > > +/*
-> > > + * Give up exclusive access to the hash bucket
-> > > + */
-> > > +static void put_hash_bucket(struct hash_bucket *bucket,
-> > > +			    unsigned long *flags)
-> > > +{
-> > > +	unsigned long __flags = *flags;
-> > > +
-> > > +	spin_unlock_irqrestore(&bucket->lock, __flags);
-> > > +}
-> > 
-> > Why do you need such ugly helpers?
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Fri,  9 Jan 2009 05:30:07 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=12392
 > 
-> Because everything else I thought about here was even more ugly. But
-> maybe you have a better idea? I tried to lock directly in the debug_
-> functions. But this is ugly and unnecessary code duplication.
+>            Summary: Can't change mac addr
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: >=2.6.28 fail woks <=2.6.28-rc9-git1
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: jgarzik@pobox.com
+>         ReportedBy: diabelx@gmail.com
+> 
+> 
+> Latest working kernel version: 2.6.28-rc9-git1
+> Earliest failing kernel version: >=2.6.28
 
-I believe that having direct locking in the debug_ functions is not a
-duplication, anyone will have a direct vision on the locking and hash
-array dereference, and this will be just one additional line compared to
-the get_* call and the same number of lines for the put :)
+A regression.
 
--- 
-	Evgeniy Polyakov
+> Distribution:gantoo
+> Hardware Environment: 04:05.0 Ethernet controller: Realtek Semiconductor Co.,
+> Ltd. RTL-8139/8139C/8139C+ (rev 10)
+> Software Environment: ifconfig,macchanger
+> Problem Description:
+> Can't change mac address, Any attempt to change the address ends in an error :
+> RTNETLINK answers: Operation not supported
+> ERROR: Can't change MAC: interface up or not permission: Operation not
+> supported
+> 
+> 
+> Steps to reproduce:
+
