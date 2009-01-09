@@ -1,91 +1,131 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] ethtool: Support arbitrary speeds
-Date: Fri, 09 Jan 2009 09:55:55 -0800
-Message-ID: <49678FAB.3040007@hp.com>
-References: <200901080203.SAA19103@tardy.cup.hp.com>	<1231384446.2677.32.camel@hashbaz.i.decadent.org.uk>	<49656F01.3090603@pobox.com>  <49664FFD.1010608@hp.com>	<1231442701.3893.4.camel@achroite>  <496658EB.1080206@hp.com> <1231506974.3006.18.camel@achroite>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Fri, 09 Jan 2009 18:57:38 +0100
+Message-ID: <49679012.3000702@cosmosbay.com>
+References: <20090108173028.GA22531@1wt.eu>	<49667534.5060501@zeus.com> <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com> <49677074.5090802@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ben@zeus.com, w@1wt.eu, jarkao2@gmail.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:36720 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754442AbZAIR4B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 12:56:01 -0500
-In-Reply-To: <1231506974.3006.18.camel@achroite>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:38464 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752053AbZAIR6c convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 12:58:32 -0500
+In-Reply-To: <49677074.5090802@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> The speed and speed_hi fields of struct ethtool_cmd together represent
-> a value in units of Mbit/s.  The valid speed settings are hardware-
-> dependent and should be checked by the driver.  Remove our validation
-> and allow arbitrary positive values.  Continue to report 0 and -1 as
-> "Unknown!" since some drivers will report these invalid values when
-> the link is down.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> On Thu, 2009-01-08 at 11:50 -0800, Rick Jones wrote:
-> 
->>>I think 0, (u32)(-1) and (u16)(-1) may have to be special-cased as
->>>unknown, but everything else can be treated as a number of Mbit/s.  I
->>>don't know what a driver should do about an interface that really runs
->>>at 65.535 Gbit/s though...
->>
->>Something along these lines then? (assuming my mailer doesn't fubar this
->>:( - I normally send matches via mailx)
-> 
-> 
-> That's kind of incomplete.  Here's my attempt.
-> 
-> In a quick test I found that the tg3 driver *doesn't* validate the speed
-> setting if autonegotiation is off, and will accept and report back e.g.
-> 99.  But this patch doesn't create a new problem as you could already
-> set it to the unsupported speeds of 2500 and 10000.
+Eric Dumazet a =E9crit :
+> Eric Dumazet a =E9crit :
+>> David Miller a =E9crit :
+>>> I'm not applying this until someone explains to me why
+>>> we should remove this test from the splice receive but
+>>> keep it in the tcp_recvmsg() code where it has been
+>>> essentially forever.
+>=20
+> Reading again tcp_recvmsg(), I found it already is able to eat severa=
+l skb
+> even in nonblocking mode.
+>=20
+> setsockopt(5, SOL_SOCKET, SO_RCVLOWAT, [61440], 4) =3D 0
+> ioctl(5, FIONBIO, [1])                  =3D 0
+> poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+> recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., =
+65536, MSG_DONTWAIT) =3D 65536
+> write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"...,=
+ 65536) =3D 65536
+> poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+> recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., =
+65536, MSG_DONTWAIT) =3D 65536
+> write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"...,=
+ 65536) =3D 65536
+> poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+> recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., =
+65536, MSG_DONTWAIT) =3D 65536
+> write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"...,=
+ 65536) =3D 65536
+> poll([{fd=3D5, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+> recv(5, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., =
+65536, MSG_DONTWAIT) =3D 65536
+> write(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"...,=
+ 65536) =3D 65536
+>=20
+>=20
+> David, if you referred to code at line 1374 of net/ipv4/tcp.c, I beli=
+eve there is
+> no issue with it. We really want to break from this loop if !timeo .
+>=20
+> Willy patch makes splice() behaving like tcp_recvmsg(), but we might =
+call
+> tcp_cleanup_rbuf() several times, with copied=3D1460 (for each frame =
+processed)
+>=20
+> I wonder if the right fix should be done in tcp_read_sock() : this is=
+ the
+> one who should eat several skbs IMHO, if we want optimal ACK generati=
+on.
+>=20
+> We break out of its loop at line 1246
+>=20
+> if (!desc->count) /* this test is always true */
+> 	break;
+>=20
+> (__tcp_splice_read() set count to 0, right before calling tcp_read_so=
+ck())
+>=20
+> So code at line 1246 (tcp_read_sock()) seems wrong, or pessimistic at=
+ least.
 
-I'm fine with yanking the vetting on set - didn't do it initially 
-because what got me patching in the first place does the setting of the 
-speeds "elsewhere" so set support wasn't an issue.
+I tested following patch and got expected result :
 
-WRT the get part:
+- less ACK, and correct rcvbuf adjustments.
+- I can fill the Gb link with one flow only, using less than
+  10% of the cpu, instead of 40% without patch.
 
-> @@ -893,30 +884,17 @@ static void dump_advertised(struct ethtool_cmd *ep)
->  
->  static int dump_ecmd(struct ethtool_cmd *ep)
->  {
-> +	u32 speed;
-> +
->  	dump_supported(ep);
->  	dump_advertised(ep);
->  
->  	fprintf(stdout, "	Speed: ");
-> -	switch (ethtool_cmd_speed(ep)) {
-> -	case SPEED_10:
-> -		fprintf(stdout, "10Mb/s\n");
-> -		break;
-> -	case SPEED_100:
-> -		fprintf(stdout, "100Mb/s\n");
-> -		break;
-> -	case SPEED_1000:
-> -		fprintf(stdout, "1000Mb/s\n");
-> -		break;
-> -	case SPEED_2500:
-> -		fprintf(stdout, "2500Mb/s\n");
-> -		break;
-> -	case SPEED_10000:
-> -		fprintf(stdout, "10000Mb/s\n");
-> -		break;
-> -	default:
-> -		fprintf(stdout, "Unknown! (%i)\n", ethtool_cmd_speed(ep));
-> -		break;
-> -	};
-> +	speed = ethtool_cmd_speed(ep);
-> +	if (speed == 0 || speed == (u16)(-1) || speed == (u32)(-1))
-> +		fprintf(stdout, "Unknown!\n");
+Setting desc->count to 1 seems to be the current practice.
+(Example in drivers/scsi/iscsi_tcp.c : iscsi_sw_tcp_data_ready())
 
-Doesn't that need to keep the reporting of the unknown speed in parens 
-like the original?
+******************************************************************
+* Note : this patch is wrong, because splice() can now           *
+* return  more bytes than asked for (if SPLICE_F_NONBLOCK asked) *
+******************************************************************
 
-rick jones
+[PATCH] tcp: splice as many packets as possible at once
+
+As spotted by Willy Tarreau, current splice() from tcp socket to pipe i=
+s not
+optimal. It processes at most one segment per call.
+This results in low performance and very high overhead due to syscall r=
+ate
+when splicing from interfaces which do not support LRO.
+
+Willy provided a patch inside tcp_splice_read(), but a better fix
+is to let tcp_read_sock() process as many segments as possible, so
+that tcp_rcv_space_adjust() and tcp_cleanup_rbuf() are called once
+per syscall.
+
+With this change, splice() behaves like tcp_recvmsg(), being able
+to consume many skbs in one system call.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index bd6ff90..15bd67b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -533,6 +533,9 @@ static int __tcp_splice_read(struct sock *sk, struc=
+t tcp_splice_state *tss)
+ 		.arg.data =3D tss,
+ 	};
+=20
++	if (tss->flags & SPLICE_F_NONBLOCK)
++		rd_desc.count =3D 1; /* we want as many segments as possible */
++
+ 	return tcp_read_sock(sk, &rd_desc, tcp_splice_data_recv);
+ }
+=20
+
