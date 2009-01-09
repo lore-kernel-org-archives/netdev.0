@@ -1,63 +1,32 @@
-From: "Jorge Bastos" <mysql.jorge@decimal.pt>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-     2.6.28
-Date: Fri, 9 Jan 2009 09:51:59 -0000 (WET)
-Message-ID: <1099.192.168.1.3.1231494719.squirrel@webmail.decimal.pt>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt>
-    <2321.192.168.1.3.1231423743.squirrel@webmail.decimal.pt>
-    <3226.192.168.1.3.1231435651.squirrel@webmail.decimal.pt>
-    <200901082032.16859.denys@visp.net.lb>
-    <20090109094813.GD4605@ff.dom.local>
+	2.6.28
+Date: Fri, 9 Jan 2009 10:02:23 +0000
+Message-ID: <20090109100223.GE4605@ff.dom.local>
+References: <20090108095403.GE4496@ff.dom.local> <20090108100614.GA5418@ff.dom.local> <2025.192.168.1.3.1231410939.squirrel@webmail.decimal.pt> <20090108110430.GB5493@ff.dom.local> <2111.192.168.1.3.1231413721.squirrel@webmail.decimal.pt> <20090108135927.GC5493@ff.dom.local> <2321.192.168.1.3.1231423743.squirrel@webmail.decimal.pt> <3226.192.168.1.3.1231435651.squirrel@webmail.decimal.pt> <20090109072452.GA4605@ff.dom.local> <1052.192.168.1.3.1231493984.squirrel@webmail.decimal.pt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Denys Fedoryschenko" <denys@visp.net.lb>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org,
 	bugme-daemon@bugzilla.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+To: Jorge Bastos <mysql.jorge@decimal.pt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly07.isp.novis.pt ([195.23.133.217]:56877 "EHLO
-	mailrly07.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754502AbZAIJv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 04:51:29 -0500
-In-Reply-To: <20090109094813.GD4605@ff.dom.local>
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:38787 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754006AbZAIKCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 05:02:30 -0500
+Received: by ewy10 with SMTP id 10so10109416ewy.13
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2009 02:02:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1052.192.168.1.3.1231493984.squirrel@webmail.decimal.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The below info is for the other user correct?
+On Fri, Jan 09, 2009 at 09:39:44AM -0000, Jorge Bastos wrote:
+> Going to.
+> But tell me, for this, all 3 params should be disabled, correct?
 
-I've closed my bug report:
+Yes, but only if you are doing packet scheduling on an interface.
+Otherwise they could be needed to get full performance from new
+network cards.
 
-http://bugzilla.kernel.org/show_bug.cgi?id=12364
-
-Is there's something you want me to change just say.
-Thanks for all Jarek.
-Jorge,
-
-> On Thu, Jan 08, 2009 at 08:32:16PM +0200, Denys Fedoryschenko wrote:
->> I disable tso/gso and others. No difference at all. Here is actual
->> output,
->> after running it for 1-2 minutes.
->>
->> Cisco
->>   30 second output rate 59600000 bits/sec, 32978 packets/sec
->> Linux
->>
-> ....
->> class htb 1:10 root rate 57000Kbit ceil 57000Kbit burst 72838b cburst
->> 72838b
->>  Sent 75203300117 bytes 328680653 pkt (dropped 0, overlimits 0 requeues
->> 0)
->>  rate 58008Kbit 32891pps backlog 0b 0p requeues 0
->
-> Alas you forgot to add "tc -s qdisc" output, so there could be
-> something more, but what I can see here doesn't look terribly wrong.
-> The rate is exceeded less than 2%, so it seems some tweaking is
-> needed. My proposal is to start with setting lower cburst params for
-> all classes e.g. half of the current values (if no difference go
-> lower). If it doesn't help send new stats.
->
-> Thanks,
-> Jarek P.
->
-
-
+Jarek P. 
