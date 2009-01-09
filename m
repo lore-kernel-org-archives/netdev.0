@@ -1,8 +1,8 @@
-From: John Dykstra <john.dykstra1@gmail.com>
+From: John Dykstra <jdykstra72@gmail.com>
 Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
 	2.6.27
-Date: Fri, 09 Jan 2009 00:14:51 +0000
-Message-ID: <1231460091.11674.94.camel@Maple>
+Date: Fri, 09 Jan 2009 00:30:30 +0000
+Message-ID: <1231461030.11674.101.camel@Maple>
 References: <bug-12327-10286@http.bugzilla.kernel.org/>
 	 <20081229214101.4c4f5ac1.akpm@linux-foundation.org>
 	 <Pine.LNX.4.64.0812311241490.3120@wrl-59.cs.helsinki.fi>
@@ -17,12 +17,12 @@ Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:11295 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756660AbZAIAOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 19:14:54 -0500
-Received: by yw-out-2324.google.com with SMTP id 9so2943561ywe.1
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 16:14:52 -0800 (PST)
+Received: from rv-out-0506.google.com ([209.85.198.231]:14220 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755923AbZAIAad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 19:30:33 -0500
+Received: by rv-out-0506.google.com with SMTP id k40so8655982rvb.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2009 16:30:32 -0800 (PST)
 In-Reply-To: <4966160A.20001@haveacry.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -59,4 +59,5 @@ while (if I understand what the reporter is running where).
 Or have I screwed up my first posting to netdev?
 
   --  John
+
 
