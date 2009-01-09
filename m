@@ -1,44 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch 1/4] lcs: convert to net_device_ops
-Date: Fri, 9 Jan 2009 08:36:45 -0800
-Message-ID: <20090109083645.3d2841c0@extreme>
-References: <20090109090156.422658000@de.ibm.com>
-	<20090109090220.554541000@de.ibm.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH] qlge: Naming interrupt vectors
+Date: Fri, 9 Jan 2009 08:49:50 -0800
+Message-ID: <20090109164949.GC10803@susedev.qlogic.org>
+References: <1231506887.10395.63.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com
-To: frank.blaschka@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Jesper Dangaard Brouer <jdb@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57030 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752278AbZAIQgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 11:36:47 -0500
-In-Reply-To: <20090109090220.554541000@de.ibm.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:21674 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752264AbZAIQt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:49:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1231506887.10395.63.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 09 Jan 2009 10:01:57 +0100
-frank.blaschka@de.ibm.com wrote:
+On Fri, Jan 09, 2009 at 05:14:47AM -0800, Jesper Dangaard Brouer wrote:
+> Name interrupt vectors according to the new naming standard, by Robert
+> Olsson and DaveM.
+> 
+> The qlge driver were very close to the new standard, thus the change
+> is kind of trivial.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 
-> From: Frank Blaschka <frank.blaschka@de.ibm.com>
-> 
-> lcs convert to net_device_ops.
-> 
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-> ---
->  drivers/s390/net/lcs.c |   13 ++++++++-----
->  1 file changed, 8 insertions(+), 5 deletions(-)
-> 
-> Index: git_linus/drivers/s390/net/lcs.c
-> ===================================================================
-> --- git_linus.orig/drivers/s390/net/lcs.c
-> +++ git_linus/drivers/s390/net/lcs.c
-> @@ -2097,6 +2097,12 @@ lcs_register_netdev(struct ccwgroup_devi
->  /**
->   * lcs_new_device will be called by setting the group device online.
->   */
-> +static struct net_device_ops lcs_netdev_ops = {
-should be const (if it was you would catch your other problem
+Thanks Jesper
 
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
