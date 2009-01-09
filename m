@@ -1,7 +1,7 @@
 From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: [PATCH 01/16] dma-debug: add Kconfig entry
-Date: Fri, 9 Jan 2009 17:19:15 +0100
-Message-ID: <1231517970-20288-2-git-send-email-joerg.roedel@amd.com>
+Subject: [PATCH 09/16] dma-debug: add checking for map/unmap_single
+Date: Fri, 9 Jan 2009 17:19:23 +0100
+Message-ID: <1231517970-20288-10-git-send-email-joerg.roedel@amd.com>
 References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,54 +11,107 @@ Cc: mingo@redhat.com, dwmw2@infradead.org,
 	Joerg Roedel <joerg.roedel@amd.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:32087 "EHLO
-	WA4EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752137AbZAIQTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:19:44 -0500
+Received: from outbound-sin.frontbridge.com ([207.46.51.80]:45975 "EHLO
+	SG2EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752439AbZAIQTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:19:48 -0500
 In-Reply-To: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: add a Kconfig entry for DMA-API debugging
+Impact: add debug callbacks for dma_{un}map_single
 
 Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
- arch/Kconfig      |    2 ++
- lib/Kconfig.debug |   11 +++++++++++
- 2 files changed, 13 insertions(+), 0 deletions(-)
+ include/linux/dma-debug.h |   19 +++++++++++++++++++
+ lib/dma-debug.c           |   41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+), 0 deletions(-)
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index 2e13aa2..068554c 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -103,3 +103,5 @@ config HAVE_CLK
- 	  The <linux/clk.h> calls support software clock gating and
- 	  thus are a key power management tool on many systems.
+diff --git a/include/linux/dma-debug.h b/include/linux/dma-debug.h
+index 345d538..82ae9ca 100644
+--- a/include/linux/dma-debug.h
++++ b/include/linux/dma-debug.h
+@@ -28,12 +28,31 @@ struct device;
  
-+config HAVE_DMA_API_DEBUG
-+	bool
-diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 2e75478..cba5778 100644
---- a/lib/Kconfig.debug
-+++ b/lib/Kconfig.debug
-@@ -899,6 +899,17 @@ config DYNAMIC_PRINTK_DEBUG
- 	  debugging for all modules. This mode can be turned off via the above
- 	  disable command.
+ extern void dma_debug_init(u32 num_entries);
  
-+config DMA_API_DEBUG
-+	bool "Enable debugging of DMA-API usage"
-+	depends on HAVE_DMA_API_DEBUG
-+	help
-+	  Enable this option to debug the use of the DMA API by device drivers.
-+	  With this option you will be able to detect common bugs in device
-+	  drivers like double-freeing of DMA mappings or freeing mappings that
-+	  were never allocated.
-+	  This option causes a performance degredation.  Use only if you want
-+	  to debug device drivers. If unsure, say N.
++extern void debug_map_single(struct device *dev, void *ptr, size_t size,
++			     int direction, dma_addr_t dma_addr);
 +
- source "samples/Kconfig"
++extern void debug_unmap_single(struct device *dev, dma_addr_t addr,
++			       size_t size, int direction);
++
++
+ #else /* CONFIG_DMA_API_DEBUG */
  
- source "lib/Kconfig.kgdb"
+ static inline void dma_debug_init(u32 num_entries)
+ {
+ }
+ 
++static inline void debug_map_single(struct device *dev, void *ptr,
++				    size_t size, int direction,
++				    dma_addr_t dma_addr)
++{
++}
++
++static inline void debug_unmap_single(struct device *dev, dma_addr_t addr,
++				      size_t size, int direction)
++{
++}
++
++
+ #endif /* CONFIG_DMA_API_DEBUG */
+ 
+ #endif /* __DMA_DEBUG_H */
+diff --git a/lib/dma-debug.c b/lib/dma-debug.c
+index 9f730a4..d4d14e5 100644
+--- a/lib/dma-debug.c
++++ b/lib/dma-debug.c
+@@ -510,3 +510,44 @@ out:
+ 
+ }
+ 
++void debug_map_single(struct device *dev, void *ptr, size_t size,
++		      int direction, dma_addr_t dma_addr)
++{
++	struct dma_debug_entry *entry;
++
++	if (global_disable)
++		return;
++
++	entry = dma_entry_alloc();
++	if (!entry)
++		return;
++
++	entry->dev       = dev;
++	entry->type      = dma_debug_single;
++	entry->cpu_addr  = ptr;
++	entry->dev_addr  = dma_addr;
++	entry->size      = size;
++	entry->direction = direction;
++
++	add_dma_entry(entry);
++}
++EXPORT_SYMBOL(debug_map_single);
++
++void debug_unmap_single(struct device *dev, dma_addr_t addr,
++			size_t size, int direction)
++{
++	struct dma_debug_entry ref = {
++		.type           = dma_debug_single,
++		.dev            = dev,
++		.dev_addr       = addr,
++		.size           = size,
++		.direction      = direction,
++	};
++
++	if (global_disable)
++		return;
++
++	check_unmap(&ref);
++}
++EXPORT_SYMBOL(debug_unmap_single);
++
 -- 
 1.5.6.4
 
