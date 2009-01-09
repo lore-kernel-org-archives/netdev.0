@@ -1,7 +1,7 @@
 From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: [PATCH 02/16] dma-debug: add header file and core data structures
-Date: Fri, 9 Jan 2009 17:19:16 +0100
-Message-ID: <1231517970-20288-3-git-send-email-joerg.roedel@amd.com>
+Subject: [PATCH 12/16] dma-debug: add checks for sync_single_*
+Date: Fri, 9 Jan 2009 17:19:26 +0100
+Message-ID: <1231517970-20288-13-git-send-email-joerg.roedel@amd.com>
 References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,113 +11,87 @@ Cc: mingo@redhat.com, dwmw2@infradead.org,
 	Joerg Roedel <joerg.roedel@amd.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-dub.frontbridge.com ([213.199.154.16]:28484 "EHLO
-	IE1EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752498AbZAIQTt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:19:49 -0500
+Received: from outbound-sin.frontbridge.com ([207.46.51.80]:46152 "EHLO
+	SG2EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467AbZAIQTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:19:48 -0500
 In-Reply-To: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: add groundwork for DMA-API debugging
+Impact: add debug callbacks for dma_sync_single_for_* functions
 
 Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
- include/linux/dma-debug.h |   25 +++++++++++++++++++++++++
- lib/Makefile              |    2 ++
- lib/dma-debug.c           |   39 +++++++++++++++++++++++++++++++++++++++
- 3 files changed, 66 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/dma-debug.h
- create mode 100644 lib/dma-debug.c
+ include/linux/dma-debug.h |   20 ++++++++++++++++++++
+ lib/dma-debug.c           |   20 ++++++++++++++++++++
+ 2 files changed, 40 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/dma-debug.h b/include/linux/dma-debug.h
-new file mode 100644
-index 0000000..ce4ace7
---- /dev/null
+index a28a701..f39c2a8 100644
+--- a/include/linux/dma-debug.h
 +++ b/include/linux/dma-debug.h
-@@ -0,0 +1,25 @@
-+/*
-+ * Copyright (C) 2008 Advanced Micro Devices, Inc.
-+ *
-+ * Author: Joerg Roedel <joerg.roedel@amd.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
-+ */
-+
-+#ifndef __DMA_DEBUG_H
-+#define __DMA_DEBUG_H
-+
-+struct device;
-+
-+#endif /* __DMA_DEBUG_H */
-diff --git a/lib/Makefile b/lib/Makefile
-index 32b0e64..50b48cf 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -84,6 +84,8 @@ obj-$(CONFIG_HAVE_ARCH_TRACEHOOK) += syscall.o
+@@ -46,6 +46,14 @@ extern void debug_alloc_coherent(struct device *dev, size_t size,
+ extern void debug_free_coherent(struct device *dev, size_t size,
+ 				void *virt, dma_addr_t addr);
  
- obj-$(CONFIG_DYNAMIC_PRINTK_DEBUG) += dynamic_printk.o
- 
-+obj-$(CONFIG_DMA_API_DEBUG) += dma-debug.o
++extern void debug_sync_single_for_cpu(struct device *dev,
++				      dma_addr_t dma_handle, size_t size,
++				      int direction);
 +
- hostprogs-y	:= gen_crc32table
- clean-files	:= crc32table.h
++extern void debug_sync_single_for_device(struct device *dev,
++					 dma_addr_t dma_handle,
++					 size_t size, int direction);
++
+ #else /* CONFIG_DMA_API_DEBUG */
  
+ static inline void dma_debug_init(u32 num_entries)
+@@ -84,6 +92,18 @@ static inline void debug_free_coherent(struct device *dev, size_t size,
+ {
+ }
+ 
++static inline void debug_sync_single_for_cpu(struct device *dev,
++					     dma_addr_t dma_handle,
++					     size_t size, int direction)
++{
++}
++
++static inline void debug_sync_single_for_device(struct device *dev,
++						dma_addr_t dma_handle,
++						size_t size, int direction)
++{
++}
++
+ #endif /* CONFIG_DMA_API_DEBUG */
+ 
+ #endif /* __DMA_DEBUG_H */
 diff --git a/lib/dma-debug.c b/lib/dma-debug.c
-new file mode 100644
-index 0000000..d04f8b6
---- /dev/null
+index a4a5b0f..a7f2369 100644
+--- a/lib/dma-debug.c
 +++ b/lib/dma-debug.c
-@@ -0,0 +1,39 @@
-+/*
-+ * Copyright (C) 2008 Advanced Micro Devices, Inc.
-+ *
-+ * Author: Joerg Roedel <joerg.roedel@amd.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
-+ */
+@@ -649,3 +649,23 @@ void debug_free_coherent(struct device *dev, size_t size,
+ }
+ EXPORT_SYMBOL(debug_free_coherent);
+ 
++void debug_sync_single_for_cpu(struct device *dev, dma_addr_t dma_handle,
++			       size_t size, int direction)
++{
++	if (global_disable)
++		return;
 +
-+#include <linux/dma-debug.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
++	check_sync(dev, dma_handle, size, 0, direction, true);
++}
++EXPORT_SYMBOL(debug_sync_single_for_cpu);
 +
-+enum {
-+	dma_debug_single,
-+	dma_debug_sg,
-+	dma_debug_coherent,
-+};
++void debug_sync_single_for_device(struct device *dev, dma_addr_t dma_handle,
++				  size_t size, int direction)
++{
++	if (global_disable)
++		return;
 +
-+struct dma_debug_entry {
-+	struct list_head list;
-+	struct device    *dev;
-+	int              type;
-+	void             *cpu_addr;
-+	u64              dev_addr;
-+	u64              size;
-+	int              direction;
-+};
++	check_sync(dev, dma_handle, size, 0, direction, false);
++}
++EXPORT_SYMBOL(debug_sync_single_for_device);
 +
 -- 
 1.5.6.4
