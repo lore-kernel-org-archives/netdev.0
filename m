@@ -1,62 +1,20 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 3/5] netiucv: convert to net_device_ops
-Date: Fri, 09 Jan 2009 14:43:58 +0100
-Message-ID: <20090109134442.202394000@de.ibm.com>
-References: <20090109134355.784732000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com
-To: davem@davemloft.net
+From: Sanjay Rao <srao@verisign.com>
+Subject: (no subject)
+Date: Fri, 09 Jan 2009 08:38:41 -0500
+Message-ID: <49675361.5070308@verisign.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:44753 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752753AbZAINpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 08:45:07 -0500
-Content-Disposition: inline; filename=netiucv_devops.diff
+Received: from colibri.verisign.com ([65.205.251.74]:36411 "EHLO
+	colibri.verisign.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753552AbZAINpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 08:45:24 -0500
+Received: from MOU1WNEXCN02.vcorp.ad.vrsn.com (mailer2.verisign.com [65.205.251.35])
+	by colibri.verisign.com (8.13.6/8.13.4) with ESMTP id n09DGJI5018812
+	for <netdev@vger.kernel.org>; Fri, 9 Jan 2009 05:16:20 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
-
-netiucv convert to net_device_ops.
-
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
- drivers/s390/net/netiucv.c |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
-
-Index: git_linus/drivers/s390/net/netiucv.c
-===================================================================
---- git_linus.orig/drivers/s390/net/netiucv.c
-+++ git_linus/drivers/s390/net/netiucv.c
-@@ -1876,20 +1876,24 @@ static void netiucv_free_netdevice(struc
- /**
-  * Initialize a net device. (Called from kernel in alloc_netdev())
-  */
-+static const struct net_device_ops netiucv_netdev_ops = {
-+	.ndo_open		= netiucv_open,
-+	.ndo_stop		= netiucv_close,
-+	.ndo_get_stats		= netiucv_stats,
-+	.ndo_start_xmit		= netiucv_tx,
-+	.ndo_change_mtu	   	= netiucv_change_mtu,
-+};
-+
- static void netiucv_setup_netdevice(struct net_device *dev)
- {
- 	dev->mtu	         = NETIUCV_MTU_DEFAULT;
--	dev->hard_start_xmit     = netiucv_tx;
--	dev->open	         = netiucv_open;
--	dev->stop	         = netiucv_close;
--	dev->get_stats	         = netiucv_stats;
--	dev->change_mtu          = netiucv_change_mtu;
- 	dev->destructor          = netiucv_free_netdevice;
- 	dev->hard_header_len     = NETIUCV_HDRLEN;
- 	dev->addr_len            = 0;
- 	dev->type                = ARPHRD_SLIP;
- 	dev->tx_queue_len        = NETIUCV_QUEUELEN_DEFAULT;
- 	dev->flags	         = IFF_POINTOPOINT | IFF_NOARP;
-+	dev->netdev_ops		 = &netiucv_netdev_ops;
- }
- 
- /**
-
--- 
+subscribe netdev
