@@ -1,398 +1,458 @@
 From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [RFC 3/4] net: pppol2tp - introduce net-namespace functionality
-Date: Fri, 09 Jan 2009 22:51:57 +0300
-Message-ID: <4967accc.0c58560a.2ee6.3de4@mx.google.com>
+Subject: [RFC 1/4] net: pppoe - code cleanup and helpers
+Date: Fri, 09 Jan 2009 22:51:55 +0300
+Message-ID: <4967accc.1438560a.7367.2689@mx.google.com>
 References: <20090109195154.320495476@gmail.com>>
 Cc: gorcunov@gmail.com, devel@openvz.org, xemul@openvz.org,
-	James Chapman <jchapman@katalix.com>,
+	Michal Ostrowski <mostrows@earthlink.net>,
 	Cyrill Gorcunov <gorcunov@openvz.org>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:23769 "EHLO
+Received: from fg-out-1718.google.com ([72.14.220.157]:14980 "EHLO
 	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755320AbZAIUAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:00:14 -0500
-Content-Disposition: inline; filename=net-pppol2tp-namespace
+	with ESMTP id S1755306AbZAIUAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:00:15 -0500
+Content-Disposition: inline; filename=net-pppoe-cleanup
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Each tunnel and appropriate lock are inside own namespace now.
-- pppox code allows to create per-namespace sockets for
-  both PX_PROTO_OE and PX_PROTO_OL2TP protocols. Actually since
-  now pppox_create support net-namespaces new PPPo... protocols
-  (if they ever will be) should support net-namespace too otherwise
-  explicit check for &init_net would be needed.
+- Introduce PPPOE_HASH_MASK.
+- Remove redundant declaration of pppoe_chan_ops.
+- Introduce stage_session helper.
+- Tabs, space, long-line-split cleanup.
 
-CC: James Chapman <jchapman@katalix.com>
+CC: Michal Ostrowski <mostrows@earthlink.net>
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
- drivers/net/pppol2tp.c |  164 ++++++++++++++++++++++++++++++++++++-------------
- drivers/net/pppox.c    |    4 -
- 2 files changed, 121 insertions(+), 47 deletions(-)
+ drivers/net/pppoe.c |  167 ++++++++++++++++++++++++++--------------------------
+ 1 file changed, 86 insertions(+), 81 deletions(-)
 
-Index: linux-2.6.git/drivers/net/pppol2tp.c
+Index: linux-2.6.git/drivers/net/pppoe.c
 ===================================================================
---- linux-2.6.git.orig/drivers/net/pppol2tp.c
-+++ linux-2.6.git/drivers/net/pppol2tp.c
-@@ -90,7 +90,9 @@
- #include <linux/hash.h>
- #include <linux/sort.h>
- #include <linux/proc_fs.h>
-+#include <linux/nsproxy.h>
- #include <net/net_namespace.h>
-+#include <net/netns/generic.h>
- #include <net/dst.h>
- #include <net/ip.h>
- #include <net/udp.h>
-@@ -204,6 +206,7 @@ struct pppol2tp_tunnel
- 	struct sock		*sock;		/* Parent socket */
- 	struct list_head	list;		/* Keep a list of all open
- 						 * prepared sockets */
-+	struct net		*pppol2tp_net;	/* the net we belong to */
+--- linux-2.6.git.orig/drivers/net/pppoe.c
++++ linux-2.6.git/drivers/net/pppoe.c
+@@ -84,32 +84,43 @@
+ #include <asm/uaccess.h>
  
- 	atomic_t		ref_count;
- };
-@@ -227,8 +230,20 @@ static atomic_t pppol2tp_tunnel_count;
- static atomic_t pppol2tp_session_count;
- static struct ppp_channel_ops pppol2tp_chan_ops = { pppol2tp_xmit , NULL };
- static struct proto_ops pppol2tp_ops;
--static LIST_HEAD(pppol2tp_tunnel_list);
--static DEFINE_RWLOCK(pppol2tp_tunnel_list_lock);
-+
-+/* per-net private data for this module */
-+static unsigned int pppol2tp_net_id;
-+struct pppol2tp_net {
-+	struct list_head pppol2tp_tunnel_list;
-+	rwlock_t pppol2tp_tunnel_list_lock;
-+};
-+
-+static inline struct pppol2tp_net *pppol2tp_pernet(struct net *net)
+ #define PPPOE_HASH_BITS 4
+-#define PPPOE_HASH_SIZE (1<<PPPOE_HASH_BITS)
+-
+-static struct ppp_channel_ops pppoe_chan_ops;
++#define PPPOE_HASH_SIZE (1 << PPPOE_HASH_BITS)
++#define PPPOE_HASH_MASK	(PPPOE_HASH_SIZE - 1)
+ 
+ static int pppoe_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
+ static int pppoe_xmit(struct ppp_channel *chan, struct sk_buff *skb);
+ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb);
+ 
+ static const struct proto_ops pppoe_ops;
++static struct ppp_channel_ops pppoe_chan_ops;
+ static DEFINE_RWLOCK(pppoe_hash_lock);
+ 
+-static struct ppp_channel_ops pppoe_chan_ops;
++/*
++ * PPPoE could be in the following stages:
++ * 1) Discovery stage (to obtain remote MAC and Session ID)
++ * 2) Session stage (MAC and SID are known)
++ *
++ * Ethernet frames have a special tag for this but
++ * we use simplier approach based on session id
++ */
++static inline bool stage_session(__be16 sid)
 +{
-+	BUG_ON(!net);
-+
-+	return net_generic(net, pppol2tp_net_id);
++	return sid != 0;
 +}
  
- /* Helpers to obtain tunnel/session contexts from sockets.
-  */
-@@ -321,18 +336,19 @@ pppol2tp_session_find(struct pppol2tp_tu
- 
- /* Lookup a tunnel by id
-  */
--static struct pppol2tp_tunnel *pppol2tp_tunnel_find(u16 tunnel_id)
-+static struct pppol2tp_tunnel *pppol2tp_tunnel_find(struct net *net, u16 tunnel_id)
+ static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
  {
--	struct pppol2tp_tunnel *tunnel = NULL;
-+	struct pppol2tp_tunnel *tunnel;
-+	struct pppol2tp_net *pn = pppol2tp_pernet(net);
- 
--	read_lock_bh(&pppol2tp_tunnel_list_lock);
--	list_for_each_entry(tunnel, &pppol2tp_tunnel_list, list) {
-+	read_lock_bh(&pn->pppol2tp_tunnel_list_lock);
-+	list_for_each_entry(tunnel, &pn->pppol2tp_tunnel_list, list) {
- 		if (tunnel->stats.tunnel_id == tunnel_id) {
--			read_unlock_bh(&pppol2tp_tunnel_list_lock);
-+			read_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 			return tunnel;
- 		}
- 	}
--	read_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	read_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 
- 	return NULL;
+-	return (a->sid == b->sid &&
+-		(memcmp(a->remote, b->remote, ETH_ALEN) == 0));
++	return a->sid == b->sid &&
++		(memcmp(a->remote, b->remote, ETH_ALEN) == 0);
  }
-@@ -1287,10 +1303,12 @@ again:
-  */
- static void pppol2tp_tunnel_free(struct pppol2tp_tunnel *tunnel)
+ 
+ static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
  {
-+	struct pppol2tp_net *pn = pppol2tp_pernet(tunnel->pppol2tp_net);
+-	return (a->sid == sid &&
+-		(memcmp(a->remote,addr,ETH_ALEN) == 0));
++	return a->sid == sid &&
++		(memcmp(a->remote, addr, ETH_ALEN) == 0);
+ }
+ 
+-#if 8%PPPOE_HASH_BITS
++#if 8 % PPPOE_HASH_BITS
+ #error 8 must be a multiple of PPPOE_HASH_BITS
+ #endif
+ 
+@@ -118,17 +129,14 @@ static int hash_item(__be16 sid, unsigne
+ 	unsigned char hash = 0;
+ 	unsigned int i;
+ 
+-	for (i = 0 ; i < ETH_ALEN ; i++) {
++	for (i = 0; i < ETH_ALEN; i++)
+ 		hash ^= addr[i];
+-	}
+-	for (i = 0 ; i < sizeof(sid_t)*8 ; i += 8 ){
+-		hash ^= (__force __u32)sid>>i;
+-	}
+-	for (i = 8 ; (i>>=1) >= PPPOE_HASH_BITS ; ) {
+-		hash ^= hash>>i;
+-	}
++	for (i = 0; i < sizeof(sid_t) * 8; i += 8)
++		hash ^= (__force __u32)sid >> i;
++	for (i = 8; (i >>= 1) >= PPPOE_HASH_BITS;)
++		hash ^= hash >> i;
+ 
+-	return hash & ( PPPOE_HASH_SIZE - 1 );
++	return hash & PPPOE_HASH_MASK;
+ }
+ 
+ /* zeroed because its in .bss */
+@@ -146,10 +154,15 @@ static struct pppox_sock *__get_item(__b
+ 
+ 	ret = item_hash_table[hash];
+ 
+-	while (ret && !(cmp_addr(&ret->pppoe_pa, sid, addr) && ret->pppoe_ifindex == ifindex))
++	while (ret) {
++		if (cmp_addr(&ret->pppoe_pa, sid, addr) &&
++		    ret->pppoe_ifindex == ifindex)
++			return ret;
 +
- 	/* Remove from socket list */
--	write_lock_bh(&pppol2tp_tunnel_list_lock);
-+	write_lock_bh(&pn->pppol2tp_tunnel_list_lock);
- 	list_del_init(&tunnel->list);
--	write_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	write_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
+ 		ret = ret->next;
++	}
  
- 	atomic_dec(&pppol2tp_tunnel_count);
- 	kfree(tunnel);
-@@ -1444,13 +1462,14 @@ error:
- /* Internal function to prepare a tunnel (UDP) socket to have PPPoX
-  * sockets attached to it.
-  */
--static struct sock *pppol2tp_prepare_tunnel_socket(int fd, u16 tunnel_id,
--						   int *error)
-+static struct sock *pppol2tp_prepare_tunnel_socket(struct net *net,
-+					int fd, u16 tunnel_id, int *error)
- {
- 	int err;
- 	struct socket *sock = NULL;
- 	struct sock *sk;
- 	struct pppol2tp_tunnel *tunnel;
-+	struct pppol2tp_net *pn;
- 	struct sock *ret = NULL;
+-	return ret;
++	return NULL;
+ }
  
- 	/* Get the tunnel UDP socket from the fd, which was opened by
-@@ -1524,11 +1543,15 @@ static struct sock *pppol2tp_prepare_tun
- 	/* Misc init */
- 	rwlock_init(&tunnel->hlist_lock);
+ static int __set_item(struct pppox_sock *po)
+@@ -159,7 +172,8 @@ static int __set_item(struct pppox_sock 
  
-+	/* The net we belong to */
-+	tunnel->pppol2tp_net = net;
-+	pn = pppol2tp_pernet(net);
-+
- 	/* Add tunnel to our list */
- 	INIT_LIST_HEAD(&tunnel->list);
--	write_lock_bh(&pppol2tp_tunnel_list_lock);
--	list_add(&tunnel->list, &pppol2tp_tunnel_list);
--	write_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	write_lock_bh(&pn->pppol2tp_tunnel_list_lock);
-+	list_add(&tunnel->list, &pn->pppol2tp_tunnel_list);
-+	write_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 	atomic_inc(&pppol2tp_tunnel_count);
+ 	ret = item_hash_table[hash];
+ 	while (ret) {
+-		if (cmp_2_addr(&ret->pppoe_pa, &po->pppoe_pa) && ret->pppoe_ifindex == po->pppoe_ifindex)
++		if (cmp_2_addr(&ret->pppoe_pa, &po->pppoe_pa) &&
++		    ret->pppoe_ifindex == po->pppoe_ifindex)
+ 			return -EALREADY;
  
- 	/* Bump the reference count. The tunnel context is deleted
-@@ -1629,7 +1652,8 @@ static int pppol2tp_connect(struct socke
- 	 * tunnel id.
- 	 */
- 	if ((sp->pppol2tp.s_session == 0) && (sp->pppol2tp.d_session == 0)) {
--		tunnel_sock = pppol2tp_prepare_tunnel_socket(sp->pppol2tp.fd,
-+		tunnel_sock = pppol2tp_prepare_tunnel_socket(current->nsproxy->net_ns,
-+							     sp->pppol2tp.fd,
- 							     sp->pppol2tp.s_tunnel,
- 							     &error);
- 		if (tunnel_sock == NULL)
-@@ -1637,7 +1661,7 @@ static int pppol2tp_connect(struct socke
+ 		ret = ret->next;
+@@ -180,7 +194,8 @@ static struct pppox_sock *__delete_item(
+ 	src = &item_hash_table[hash];
  
- 		tunnel = tunnel_sock->sk_user_data;
- 	} else {
--		tunnel = pppol2tp_tunnel_find(sp->pppol2tp.s_tunnel);
-+		tunnel = pppol2tp_tunnel_find(current->nsproxy->net_ns, sp->pppol2tp.s_tunnel);
+ 	while (ret) {
+-		if (cmp_addr(&ret->pppoe_pa, sid, addr) && ret->pppoe_ifindex == ifindex) {
++		if (cmp_addr(&ret->pppoe_pa, sid, addr) &&
++		    ret->pppoe_ifindex == ifindex) {
+ 			*src = ret->next;
+ 			break;
+ 		}
+@@ -217,7 +232,7 @@ static inline struct pppox_sock *get_ite
+ 	int ifindex;
  
- 		/* Error if we can't find the tunnel */
- 		error = -ENOENT;
-@@ -2347,8 +2371,9 @@ end:
- #include <linux/seq_file.h>
- 
- struct pppol2tp_seq_data {
--	struct pppol2tp_tunnel *tunnel; /* current tunnel */
--	struct pppol2tp_session *session; /* NULL means get first session in tunnel */
-+	struct net *seq_net;			/* net of inode */
-+	struct pppol2tp_tunnel *tunnel;		/* current tunnel */
-+	struct pppol2tp_session *session;	/* NULL means get first session in tunnel */
+ 	dev = dev_get_by_name(&init_net, sp->sa_addr.pppoe.dev);
+-	if(!dev)
++	if (!dev)
+ 		return NULL;
+ 	ifindex = dev->ifindex;
+ 	dev_put(dev);
+@@ -329,7 +344,6 @@ static struct notifier_block pppoe_notif
+ 	.notifier_call = pppoe_device_event,
  };
  
- static struct pppol2tp_session *next_session(struct pppol2tp_tunnel *tunnel, struct pppol2tp_session *curr)
-@@ -2384,17 +2409,18 @@ out:
- 	return session;
- }
- 
--static struct pppol2tp_tunnel *next_tunnel(struct pppol2tp_tunnel *curr)
-+static struct pppol2tp_tunnel *next_tunnel(struct pppol2tp_net *pn,
-+					   struct pppol2tp_tunnel *curr)
- {
- 	struct pppol2tp_tunnel *tunnel = NULL;
- 
--	read_lock_bh(&pppol2tp_tunnel_list_lock);
--	if (list_is_last(&curr->list, &pppol2tp_tunnel_list)) {
-+	read_lock_bh(&pn->pppol2tp_tunnel_list_lock);
-+	if (list_is_last(&curr->list, &pn->pppol2tp_tunnel_list)) {
- 		goto out;
- 	}
- 	tunnel = list_entry(curr->list.next, struct pppol2tp_tunnel, list);
- out:
--	read_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	read_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 
- 	return tunnel;
- }
-@@ -2402,6 +2428,7 @@ out:
- static void *pppol2tp_seq_start(struct seq_file *m, loff_t *offs)
- {
- 	struct pppol2tp_seq_data *pd = SEQ_START_TOKEN;
-+	struct pppol2tp_net *pn;
- 	loff_t pos = *offs;
- 
- 	if (!pos)
-@@ -2409,14 +2436,15 @@ static void *pppol2tp_seq_start(struct s
- 
- 	BUG_ON(m->private == NULL);
- 	pd = m->private;
-+	pn = pppol2tp_pernet(pd->seq_net);
- 
- 	if (pd->tunnel == NULL) {
--		if (!list_empty(&pppol2tp_tunnel_list))
--			pd->tunnel = list_entry(pppol2tp_tunnel_list.next, struct pppol2tp_tunnel, list);
-+		if (!list_empty(&pn->pppol2tp_tunnel_list))
-+			pd->tunnel = list_entry(pn->pppol2tp_tunnel_list.next, struct pppol2tp_tunnel, list);
- 	} else {
- 		pd->session = next_session(pd->tunnel, pd->session);
- 		if (pd->session == NULL) {
--			pd->tunnel = next_tunnel(pd->tunnel);
-+			pd->tunnel = next_tunnel(pn, pd->tunnel);
- 		}
- 	}
- 
-@@ -2532,6 +2560,7 @@ static int pppol2tp_proc_open(struct ino
- {
- 	struct seq_file *m;
- 	struct pppol2tp_seq_data *pd;
-+	struct net *net;
- 	int ret = 0;
- 
- 	ret = seq_open(file, &pppol2tp_seq_ops);
-@@ -2542,12 +2571,15 @@ static int pppol2tp_proc_open(struct ino
- 
- 	/* Allocate and fill our proc_data for access later */
- 	ret = -ENOMEM;
--	m->private = kzalloc(sizeof(struct pppol2tp_seq_data), GFP_KERNEL);
-+	m->private = kzalloc(sizeof(*pd), GFP_KERNEL);
- 	if (m->private == NULL)
- 		goto out;
- 
- 	pd = m->private;
--	ret = 0;
-+	net = maybe_get_net(PDE_NET(PDE(inode)));
-+	BUG_ON(!net);
-+	pd->seq_net = net;
-+	return 0;
- 
- out:
- 	return ret;
-@@ -2558,6 +2590,9 @@ out:
- static int pppol2tp_proc_release(struct inode *inode, struct file *file)
- {
- 	struct seq_file *m = (struct seq_file *)file->private_data;
-+	struct pppol2tp_seq_data *pd = m->private;
-+
-+	put_net(pd->seq_net);
- 
- 	kfree(m->private);
- 	m->private = NULL;
-@@ -2573,8 +2608,6 @@ static struct file_operations pppol2tp_p
- 	.release	= pppol2tp_proc_release,
- };
- 
--static struct proc_dir_entry *pppol2tp_proc;
 -
+ /************************************************************************
+  *
+  * Do the real work of receiving a PPPoE Session frame.
+@@ -383,7 +397,8 @@ static int pppoe_rcv(struct sk_buff *skb
+ 	struct pppox_sock *po;
+ 	int len;
+ 
+-	if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (!skb)
+ 		goto out;
+ 
+ 	if (dev_net(dev) != &init_net)
+@@ -432,7 +447,8 @@ static int pppoe_disc_rcv(struct sk_buff
+ 	if (dev_net(dev) != &init_net)
+ 		goto abort;
+ 
+-	if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (!skb)
+ 		goto out;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
+@@ -493,12 +509,11 @@ static struct proto pppoe_sk_proto = {
+  **********************************************************************/
+ static int pppoe_create(struct net *net, struct socket *sock)
+ {
+-	int error = -ENOMEM;
+ 	struct sock *sk;
+ 
+ 	sk = sk_alloc(net, PF_PPPOX, GFP_KERNEL, &pppoe_sk_proto);
+ 	if (!sk)
+-		goto out;
++		return -ENOMEM;
+ 
+ 	sock_init_data(sock, sk);
+ 
+@@ -511,8 +526,7 @@ static int pppoe_create(struct net *net,
+ 	sk->sk_family	   = PF_PPPOX;
+ 	sk->sk_protocol	   = PX_PROTO_OE;
+ 
+-	error = 0;
+-out:	return error;
++	return 0;
+ }
+ 
+ static int pppoe_release(struct socket *sock)
+@@ -524,7 +538,7 @@ static int pppoe_release(struct socket *
+ 		return 0;
+ 
+ 	lock_sock(sk);
+-	if (sock_flag(sk, SOCK_DEAD)){
++	if (sock_flag(sk, SOCK_DEAD)) {
+ 		release_sock(sk);
+ 		return -EBADF;
+ 	}
+@@ -542,7 +556,7 @@ static int pppoe_release(struct socket *
+ 	write_lock_bh(&pppoe_hash_lock);
+ 
+ 	po = pppox_sk(sk);
+-	if (po->pppoe_pa.sid) {
++	if (stage_session(po->pppoe_pa.sid)) {
+ 		__delete_item(po->pppoe_pa.sid,
+ 			      po->pppoe_pa.remote, po->pppoe_ifindex);
+ 	}
+@@ -564,7 +578,6 @@ static int pppoe_release(struct socket *
+ 	return 0;
+ }
+ 
+-
+ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 		  int sockaddr_len, int flags)
+ {
+@@ -582,32 +595,31 @@ static int pppoe_connect(struct socket *
+ 
+ 	/* Check for already bound sockets */
+ 	error = -EBUSY;
+-	if ((sk->sk_state & PPPOX_CONNECTED) && sp->sa_addr.pppoe.sid)
++	if ((sk->sk_state & PPPOX_CONNECTED) &&
++	     stage_session(sp->sa_addr.pppoe.sid))
+ 		goto end;
+ 
+ 	/* Check for already disconnected sockets, on attempts to disconnect */
+ 	error = -EALREADY;
+-	if ((sk->sk_state & PPPOX_DEAD) && !sp->sa_addr.pppoe.sid )
++	if ((sk->sk_state & PPPOX_DEAD) &&
++	     !stage_session(sp->sa_addr.pppoe.sid))
+ 		goto end;
+ 
+ 	error = 0;
+-	if (po->pppoe_pa.sid) {
+-		pppox_unbind_sock(sk);
+-
+-		/* Delete the old binding */
+-		delete_item(po->pppoe_pa.sid,po->pppoe_pa.remote,po->pppoe_ifindex);
+ 
+-		if(po->pppoe_dev)
++	/* Delete the old binding */
++	if (stage_session(po->pppoe_pa.sid)) {
++		pppox_unbind_sock(sk);
++		delete_item(po->pppoe_pa.sid, po->pppoe_pa.remote, po->pppoe_ifindex);
++		if (po->pppoe_dev)
+ 			dev_put(po->pppoe_dev);
+-
+ 		memset(sk_pppox(po) + 1, 0,
+ 		       sizeof(struct pppox_sock) - sizeof(struct sock));
+-
+ 		sk->sk_state = PPPOX_NONE;
+ 	}
+ 
+-	/* Don't re-bind if sid==0 */
+-	if (sp->sa_addr.pppoe.sid != 0) {
++	/* Re-bind in session stage only */
++	if (stage_session(sp->sa_addr.pppoe.sid)) {
+ 		dev = dev_get_by_name(&init_net, sp->sa_addr.pppoe.dev);
+ 
+ 		error = -ENODEV;
+@@ -618,7 +630,7 @@ static int pppoe_connect(struct socket *
+ 		po->pppoe_ifindex = dev->ifindex;
+ 
+ 		write_lock_bh(&pppoe_hash_lock);
+-		if (!(dev->flags & IFF_UP)){
++		if (!(dev->flags & IFF_UP)) {
+ 			write_unlock_bh(&pppoe_hash_lock);
+ 			goto err_put;
+ 		}
+@@ -648,7 +660,7 @@ static int pppoe_connect(struct socket *
+ 
+ 	po->num = sp->sa_addr.pppoe.sid;
+ 
+- end:
++end:
+ 	release_sock(sk);
+ 	return error;
+ err_put:
+@@ -659,7 +671,6 @@ err_put:
+ 	goto end;
+ }
+ 
+-
+ static int pppoe_getname(struct socket *sock, struct sockaddr *uaddr,
+ 		  int *usockaddr_len, int peer)
+ {
+@@ -678,7 +689,6 @@ static int pppoe_getname(struct socket *
+ 	return 0;
+ }
+ 
+-
+ static int pppoe_ioctl(struct socket *sock, unsigned int cmd,
+ 		unsigned long arg)
+ {
+@@ -709,7 +719,7 @@ static int pppoe_ioctl(struct socket *so
+ 			break;
+ 
+ 		err = -EFAULT;
+-		if (get_user(val,(int __user *) arg))
++		if (get_user(val, (int __user *)arg))
+ 			break;
+ 
+ 		if (val < (po->pppoe_dev->mtu
+@@ -722,7 +732,7 @@ static int pppoe_ioctl(struct socket *so
+ 
+ 	case PPPIOCSFLAGS:
+ 		err = -EFAULT;
+-		if (get_user(val, (int __user *) arg))
++		if (get_user(val, (int __user *)arg))
+ 			break;
+ 		err = 0;
+ 		break;
+@@ -749,7 +759,7 @@ static int pppoe_ioctl(struct socket *so
+ 
+ 		err = -EINVAL;
+ 		if (po->pppoe_relay.sa_family != AF_PPPOX ||
+-		    po->pppoe_relay.sa_protocol!= PX_PROTO_OE)
++		    po->pppoe_relay.sa_protocol != PX_PROTO_OE)
+ 			break;
+ 
+ 		/* Check that the socket referenced by the address
+@@ -781,7 +791,6 @@ static int pppoe_ioctl(struct socket *so
+ 	return err;
+ }
+ 
+-
+ static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		  struct msghdr *m, size_t total_len)
+ {
+@@ -808,7 +817,7 @@ static int pppoe_sendmsg(struct kiocb *i
+ 	dev = po->pppoe_dev;
+ 
+ 	error = -EMSGSIZE;
+- 	if (total_len > (dev->mtu + dev->hard_header_len))
++	if (total_len > (dev->mtu + dev->hard_header_len))
+ 		goto end;
+ 
+ 
+@@ -853,7 +862,6 @@ end:
+ 	return error;
+ }
+ 
+-
+ /************************************************************************
+  *
+  * xmit function for internal use.
+@@ -903,7 +911,6 @@ abort:
+ 	return 1;
+ }
+ 
+-
+ /************************************************************************
+  *
+  * xmit function called by generic PPP driver
+@@ -916,7 +923,6 @@ static int pppoe_xmit(struct ppp_channel
+ 	return __pppoe_xmit(sk, skb);
+ }
+ 
+-
+ static struct ppp_channel_ops pppoe_chan_ops = {
+ 	.start_xmit = pppoe_xmit,
+ };
+@@ -976,9 +982,9 @@ out:
+ static __inline__ struct pppox_sock *pppoe_get_idx(loff_t pos)
+ {
+ 	struct pppox_sock *po;
+-	int i = 0;
++	int i;
+ 
+-	for (; i < PPPOE_HASH_SIZE; i++) {
++	for (i = 0; i < PPPOE_HASH_SIZE; i++) {
+ 		po = item_hash_table[i];
+ 		while (po) {
+ 			if (!pos--)
+@@ -1064,32 +1070,31 @@ static inline int pppoe_proc_init(void) 
  #endif /* CONFIG_PROC_FS */
  
- /*****************************************************************************
-@@ -2606,6 +2639,61 @@ static struct pppox_proto pppol2tp_proto
- 	.ioctl		= pppol2tp_ioctl
+ static const struct proto_ops pppoe_ops = {
+-    .family		= AF_PPPOX,
+-    .owner		= THIS_MODULE,
+-    .release		= pppoe_release,
+-    .bind		= sock_no_bind,
+-    .connect		= pppoe_connect,
+-    .socketpair		= sock_no_socketpair,
+-    .accept		= sock_no_accept,
+-    .getname		= pppoe_getname,
+-    .poll		= datagram_poll,
+-    .listen		= sock_no_listen,
+-    .shutdown		= sock_no_shutdown,
+-    .setsockopt		= sock_no_setsockopt,
+-    .getsockopt		= sock_no_getsockopt,
+-    .sendmsg		= pppoe_sendmsg,
+-    .recvmsg		= pppoe_recvmsg,
+-    .mmap		= sock_no_mmap,
+-    .ioctl		= pppox_ioctl,
++	.family		= AF_PPPOX,
++	.owner		= THIS_MODULE,
++	.release	= pppoe_release,
++	.bind		= sock_no_bind,
++	.connect	= pppoe_connect,
++	.socketpair	= sock_no_socketpair,
++	.accept		= sock_no_accept,
++	.getname	= pppoe_getname,
++	.poll		= datagram_poll,
++	.listen		= sock_no_listen,
++	.shutdown	= sock_no_shutdown,
++	.setsockopt	= sock_no_setsockopt,
++	.getsockopt	= sock_no_getsockopt,
++	.sendmsg	= pppoe_sendmsg,
++	.recvmsg	= pppoe_recvmsg,
++	.mmap		= sock_no_mmap,
++	.ioctl		= pppox_ioctl,
  };
  
-+static __net_init int pppol2tp_init_net(struct net *net)
-+{
-+	struct pppol2tp_net *pn;
-+	struct proc_dir_entry *pde;
-+	int err;
-+
-+	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
-+	if (!pn)
-+		return -ENOMEM;
-+
-+	INIT_LIST_HEAD(&pn->pppol2tp_tunnel_list);
-+	rwlock_init(&pn->pppol2tp_tunnel_list_lock);
-+
-+	err = net_assign_generic(net, pppol2tp_net_id, pn);
-+	if (err)
-+		goto out;
-+
-+	pde = proc_net_fops_create(net, "pppol2tp", S_IRUGO, &pppol2tp_proc_fops);
-+#ifdef CONFIG_PROC_FS
-+	if (!pde) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+#endif
-+
-+	try_module_get(THIS_MODULE);
-+
-+	return 0;
-+
-+out:
-+	kfree(pn);
-+	return err;
-+}
-+
-+static __net_exit void pppol2tp_exit_net(struct net *net)
-+{
-+	struct pppoe_net *pn;
-+
-+	proc_net_remove(net, "pppol2tp");
-+	pn = net_generic(net, pppol2tp_net_id);
-+	/*
-+	 * if someone has cached our net then
-+	 * further net_generic call will return NULL
-+	 */
-+	net_assign_generic(net, pppol2tp_net_id, NULL);
-+	kfree(pn);
-+
-+	module_put(THIS_MODULE);
-+}
-+
-+static __net_initdata struct pernet_operations pppol2tp_net_ops = {
-+	.init = pppol2tp_init_net,
-+	.exit = pppol2tp_exit_net,
-+};
-+
- static int __init pppol2tp_init(void)
- {
- 	int err;
-@@ -2617,23 +2705,17 @@ static int __init pppol2tp_init(void)
- 	if (err)
- 		goto out_unregister_pppol2tp_proto;
+ static struct pppox_proto pppoe_proto = {
+-    .create	= pppoe_create,
+-    .ioctl	= pppoe_ioctl,
+-    .owner	= THIS_MODULE,
++	.create	= pppoe_create,
++	.ioctl	= pppoe_ioctl,
++	.owner	= THIS_MODULE,
+ };
  
--#ifdef CONFIG_PROC_FS
--	pppol2tp_proc = proc_net_fops_create(&init_net, "pppol2tp", 0,
--					     &pppol2tp_proc_fops);
--	if (!pppol2tp_proc) {
--		err = -ENOMEM;
-+	err = register_pernet_gen_device(&pppol2tp_net_id, &pppol2tp_net_ops);
-+	if (err)
- 		goto out_unregister_pppox_proto;
--	}
--#endif /* CONFIG_PROC_FS */
-+
- 	printk(KERN_INFO "PPPoL2TP kernel driver, %s\n",
- 	       PPPOL2TP_DRV_VERSION);
- 
- out:
- 	return err;
--#ifdef CONFIG_PROC_FS
- out_unregister_pppox_proto:
- 	unregister_pppox_proto(PX_PROTO_OL2TP);
--#endif
- out_unregister_pppol2tp_proto:
- 	proto_unregister(&pppol2tp_sk_proto);
- 	goto out;
-@@ -2642,10 +2724,6 @@ out_unregister_pppol2tp_proto:
- static void __exit pppol2tp_exit(void)
- {
- 	unregister_pppox_proto(PX_PROTO_OL2TP);
 -
--#ifdef CONFIG_PROC_FS
--	remove_proc_entry("pppol2tp", init_net.proc_net);
--#endif
- 	proto_unregister(&pppol2tp_sk_proto);
- }
- 
-Index: linux-2.6.git/drivers/net/pppox.c
-===================================================================
---- linux-2.6.git.orig/drivers/net/pppox.c
-+++ linux-2.6.git/drivers/net/pppox.c
-@@ -111,10 +111,6 @@ static int pppox_create(struct net *net,
- 	if (protocol < 0 || protocol > PX_MAX_PROTO)
+ static int __init pppoe_init(void)
+ {
+ 	int err = proto_register(&pppoe_sk_proto, 0);
+@@ -1097,7 +1102,7 @@ static int __init pppoe_init(void)
+ 	if (err)
  		goto out;
  
--	/* we support net-namespaces for PPPoE only (yet) */
--	if (protocol != PX_PROTO_OE && net != &init_net)
--		return -EAFNOSUPPORT;
--
- 	rc = -EPROTONOSUPPORT;
- 	if (!pppox_protos[protocol])
- 		request_module("pppox-proto-%d", protocol);
+- 	err = register_pppox_proto(PX_PROTO_OE, &pppoe_proto);
++	err = register_pppox_proto(PX_PROTO_OE, &pppoe_proto);
+ 	if (err)
+ 		goto out_unregister_pppoe_proto;
+ 
 
 -- 
