@@ -1,45 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: Support arbitrary speeds
-Date: Fri, 09 Jan 2009 18:24:03 +0000
-Message-ID: <1231525443.3006.35.camel@achroite>
-References: <200901080203.SAA19103@tardy.cup.hp.com>
-	 <1231384446.2677.32.camel@hashbaz.i.decadent.org.uk>
-	 <49656F01.3090603@pobox.com>  <49664FFD.1010608@hp.com>
-	 <1231442701.3893.4.camel@achroite>  <496658EB.1080206@hp.com>
-	 <1231506974.3006.18.camel@achroite>  <49678FAB.3040007@hp.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 03/16] dma-debug: add hash functions for dma_debug_entries
+Date: Fri, 9 Jan 2009 21:23:39 +0300
+Message-ID: <20090109182339.GA31661@ioremap.net>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-4-git-send-email-joerg.roedel@amd.com> <20090109175542.GB30168@ioremap.net> <20090109181446.GB9466@8bytes.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:52739 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753462AbZAISYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 13:24:13 -0500
-In-Reply-To: <49678FAB.3040007@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joerg Roedel <joerg.roedel@amd.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org,
+	mingo@redhat.com
+To: Joerg Roedel <joro@8bytes.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755107AbZAISXy@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090109181446.GB9466@8bytes.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-01-09 at 09:55 -0800, Rick Jones wrote:
-> Ben Hutchings wrote:
-[...]
-> > +	speed = ethtool_cmd_speed(ep);
-> > +	if (speed == 0 || speed == (u16)(-1) || speed == (u32)(-1))
-> > +		fprintf(stdout, "Unknown!\n");
+On Fri, Jan 09, 2009 at 07:14:46PM +0100, Joerg Roedel (joro@8bytes.org) wrote:
+> > > +static struct hash_bucket *get_hash_bucket(struct dma_debug_entry *entry,
+> > > +					   unsigned long *flags)
+> > > +{
+> > > +	int idx = hash_fn(entry);
+> > > +	unsigned long __flags;
+> > > +
+> > > +	spin_lock_irqsave(&dma_entry_hash[idx].lock, __flags);
+> > > +	*flags = __flags;
+> > > +	return &dma_entry_hash[idx];
+> > > +}
+> > > +
+> > > +/*
+> > > + * Give up exclusive access to the hash bucket
+> > > + */
+> > > +static void put_hash_bucket(struct hash_bucket *bucket,
+> > > +			    unsigned long *flags)
+> > > +{
+> > > +	unsigned long __flags = *flags;
+> > > +
+> > > +	spin_unlock_irqrestore(&bucket->lock, __flags);
+> > > +}
+> > 
+> > Why do you need such ugly helpers?
 > 
-> Doesn't that need to keep the reporting of the unknown speed in parens 
-> like the original?
+> Because everything else I thought about here was even more ugly. But
+> maybe you have a better idea? I tried to lock directly in the debug_
+> functions. But this is ugly and unnecessary code duplication.
 
-We'll only be doing it for known invalid values, so the value isn't
-useful information.  I suppose it's conceivable that there are tools out
-there that are parsing the output and expect "Unknown! (0)" when link is
-down.
-
-Ben.
+I believe that having direct locking in the debug_ functions is not a
+duplication, anyone will have a direct vision on the locking and hash
+array dereference, and this will be just one additional line compared to
+the get_* call and the same number of lines for the put :)
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+	Evgeniy Polyakov
