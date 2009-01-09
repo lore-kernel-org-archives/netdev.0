@@ -1,53 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
-	2.6.27
-Date: Fri, 9 Jan 2009 14:14:08 +1100
-Message-ID: <20090109031408.GB11336@gondor.apana.org.au>
-References: <e7c4531f0901081558n429f7275w717774dbe9ccd895@mail.gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Make possible speeds known to ethtool
+Date: Thu, 08 Jan 2009 22:20:43 -0500
+Message-ID: <4966C28B.6060304@pobox.com>
+References: <200901080203.SAA19103@tardy.cup.hp.com> <1231384446.2677.32.camel@hashbaz.i.decadent.org.uk> <49656F01.3090603@pobox.com> <20090109025244.GA11336@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>,
-	bugme-daemon@bugzilla.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Speedster <speedster@haveacry.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Dykstra <john.dykstra1@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Rick Jones <rick.jones2@hp.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33139 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753073AbZAIDOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2009 22:14:21 -0500
-Content-Disposition: inline
-In-Reply-To: <e7c4531f0901081558n429f7275w717774dbe9ccd895@mail.gmail.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:43556 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753096AbZAIDU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2009 22:20:56 -0500
+In-Reply-To: <20090109025244.GA11336@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 08, 2009 at 05:58:11PM -0600, John Dykstra wrote:
+Herbert Xu wrote:
+> On Thu, Jan 08, 2009 at 03:12:01AM +0000, Jeff Garzik wrote:
+>> The next release of ethtool is coming in about 4 weeks, and we can  
+>> definitely get something like this in there.
 > 
-> I haven't unscrambled where the drop occurs in the PPPoE driver, but that's
-> presumably what changed in 2.6.27.  It seems to me that the drop is proper.
-> What's wrong is trimming the sk_buff to match the IP header while ignoring
-> the L2 header, and that's apparently been that way for a while (if I
-> understand what the reporter is running where).
+> Jeff, any chance you can stick this patch in there to add the GRO
+> toggle?
 > 
-> Or have I screwed up my first posting to netdev?
+> ethtool: Add GRO toggle
+> 
+> This patch adds the -k toggles to query and set GRO on a device.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/ethtool-copy.h b/ethtool-copy.h
+> index eadba25..3ca4e2c 100644
+> --- a/ethtool-copy.h
+> +++ b/ethtool-copy.h
+> @@ -336,6 +336,8 @@ struct ethtool_rxnfc {
+>  
+>  #define	ETHTOOL_GRXFH		0x00000029 /* Get RX flow hash configuration */
+>  #define	ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
+> +#define	ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
+> +#define	ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
 
-You've hit the nail on the head :)
+Ugh...  is it too late to change this interface?
 
-The bridge netfilter is just one huge pile of crap that should
-be deleted.
+The person who added this should have used the new flags interface, and 
+added ETH_FLAG_GRO right next to the pre-existing ETH_FLAG_LRO.
 
-The least we should do is delete the VLAN/PPPOE parts of it because
-it's simply bogus.  What if two VLANs/PPPOE sessions use the same
-IP address pairs? They'll be treated as a single flow which is just
-insane.
+It is incorrect to add new ioctls just to toggle a boolean value.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Jeff
+
+
+
+
