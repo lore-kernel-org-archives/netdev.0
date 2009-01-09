@@ -1,50 +1,57 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Sat, 10 Jan 2009 00:06:41 +0100
-Message-ID: <20090109230641.GD4819@1wt.eu>
-References: <49677074.5090802@cosmosbay.com> <20090109185448.GA1999@1wt.eu> <4967B8C5.10803@cosmosbay.com> <20090109212400.GA3727@1wt.eu> <20090109220737.GA4111@1wt.eu> <4967CBB9.1060403@cosmosbay.com> <20090109221744.GA4819@1wt.eu> <20090109224258.GA10257@ioremap.net> <20090109225010.GB4819@1wt.eu> <20090109230124.GA11592@ioremap.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: mal_probe crash
+Date: Sat, 10 Jan 2009 10:13:11 +1100
+Message-ID: <1231542792.2142.87.camel@pasglop>
+References: <20090107154434.0c9437ef@lappy.seanm.ca>
+	 <20090108204634.GB2337@yoda.jdub.homelinux.org>
+	 <1231368610.2142.27.camel@pasglop>
+	 <Pine.LNX.4.64.0901091533000.13230@vixen.sonytel.be>
+	 <20090109223410.GA18319@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>, ben@zeus.com,
-	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Josh Boyer <jwboyer@gmail.com>,
+	linuxppc-dev <linuxppc-dev@ozlabs.org>,
+	Sean MacLennan <smaclennan@pikatech.com>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1374 "EHLO 1wt.eu"
+Received: from gate.crashing.org ([63.228.1.57]:35776 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754427AbZAIXHG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 18:07:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20090109230124.GA11592@ioremap.net>
+	id S1757708AbZAIXNh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 18:13:37 -0500
+In-Reply-To: <20090109223410.GA18319@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 10, 2009 at 02:01:24AM +0300, Evgeniy Polyakov wrote:
-> On Fri, Jan 09, 2009 at 11:50:10PM +0100, Willy Tarreau (w@1wt.eu) wrote:
-> > Well, I'm now trying to educate myself on the send part. It's still
-> > not very clear to me and I'd like to understand a little bit better
-> > why we have this corruption problem and why there is a difference
-> > between sending segments from memory and sending them from another
-> > socket where they were already waiting.
+On Sat, 2009-01-10 at 09:34 +1100, Herbert Xu wrote:
+> On Fri, Jan 09, 2009 at 03:42:25PM +0100, Geert Uytterhoeven wrote:
+> > On Thu, 8 Jan 2009, Benjamin Herrenschmidt wrote:
+> >
+> > > There isn't that I know of. The EMAC code creates a single NAPI instance
+> > > for all EMACs and I think used to completely disconnect things. The old
+> > > code created a fake netdev just for NAPI, that became unnecessary with
+> > > the new NAPI stuff.... but it looks like the way we do things now
+> > > displeases some changes in the network stack. I'll have to dig.
+> > 
+> > Verified on my Sequoia (which now lost its network :-(
+> > 
+> > The regression/problem (requiring a valid net_device in netif_napi_add(), even
+> > if CONFIG_NETPOLL=n) seems to be introduced by commit
+> > d565b0a1a9b6ee7dff46e1f68b26b526ac11ae50 ("net: Add Generic Receive Offload
+> > infrastructure").
 > 
-> printks are the best choice, since you will get exactly what you are
-> looking for instead of deciphering what developer or code told you.
+> Yes EMAC just needs to go back to the old fake dev setup.
 
-I know, but as I told in an earlier mail, it was not even clear to
-me what function were called. I have made guesses but that's quite
-hard when you don't know the entry point. I think I'm not too far
-from having discovered the call chain. Understanding it will be
-another story, of course ;-)
+One thing I wanted to do back then... which triggered the discussion
+with Stephen just before he broke NAPI up from netdev, was to add a core
+function that creates such dummy netdev so that drivers don't have to
+break every time some new internal field changes or such...
 
-> > I think I'll put printks everywhere and see what I can observe.
-> > Knowing about the GSO/SG workaround already helps me enable/disable
-> > the bug.
-> 
-> I wish I could also be capable to disable the bugs... :)
+I'll give that a spin asap, though it might have to wait for monday.
 
-Me too :-)
-Here we have an opportunity to turn it on/off, let's take it !
-
-Willy
+Cheers,
+Ben.
 
