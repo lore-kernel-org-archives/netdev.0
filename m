@@ -1,83 +1,48 @@
-From: Joerg Roedel <joro@8bytes.org>
-Subject: Re: [PATCH 0/16] DMA-API debugging facility v2
-Date: Fri, 9 Jan 2009 23:33:27 +0100
-Message-ID: <20090109223327.GD9466@8bytes.org>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231536264.10384.11.camel@HP1>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: mal_probe crash
+Date: Sat, 10 Jan 2009 09:34:10 +1100
+Message-ID: <20090109223410.GA18319@gondor.apana.org.au>
+References: <20090107154434.0c9437ef@lappy.seanm.ca> <20090108204634.GB2337@yoda.jdub.homelinux.org> <1231368610.2142.27.camel@pasglop> <Pine.LNX.4.64.0901091533000.13230@vixen.sonytel.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Roedel <joerg.roedel@amd.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>,
-	"mingo@redhat.com" <mingo@redhat.com>
-To: Michael Chan <mchan@broadcom.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Josh Boyer <jwboyer@gmail.com>,
+	linuxppc-dev <linuxppc-dev@ozlabs.org>,
+	Sean MacLennan <smaclennan@pikatech.com>,
+	netdev@vger.kernel.org
+To: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 8bytes.org ([88.198.83.132]:48592 "EHLO 8bytes.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754395AbZAIWd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 17:33:29 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:55485 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759889AbZAIWed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 17:34:33 -0500
 Content-Disposition: inline
-In-Reply-To: <1231536264.10384.11.camel@HP1>
+In-Reply-To: <Pine.LNX.4.64.0901091533000.13230@vixen.sonytel.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 01:24:24PM -0800, Michael Chan wrote:
+On Fri, Jan 09, 2009 at 03:42:25PM +0100, Geert Uytterhoeven wrote:
+> On Thu, 8 Jan 2009, Benjamin Herrenschmidt wrote:
+>
+> > There isn't that I know of. The EMAC code creates a single NAPI instance
+> > for all EMACs and I think used to completely disconnect things. The old
+> > code created a fake netdev just for NAPI, that became unnecessary with
+> > the new NAPI stuff.... but it looks like the way we do things now
+> > displeases some changes in the network stack. I'll have to dig.
 > 
-> On Fri, 2009-01-09 at 08:19 -0800, Joerg Roedel wrote:
-> > 
-> > With the code these patches introduce driver developers can find several
-> > bugs of misusing the DMA-API in their drivers. But be aware, it can not
-> > find all possible bugs. If it finds a problem it prints out messages
-> > like
-> > 
-> > ------------[ cut here ]------------
-> > WARNING: at /data2/repos/linux.trees.git/lib/dma-debug.c:231 check_unmap+0xab/0x3d9()
-> > Hardware name: Toonie
-> > bnx2 0000:01:00.0: DMA-API: device driver tries to free DMA memory it has not allocated [device address=0x00000000011]
-> > Modules linked in:
-> > Pid: 0, comm: swapper Not tainted 2.6.28 #174
-> > Call Trace:
-> >  <IRQ>  [<ffffffff8105af3a>] warn_slowpath+0xd3/0xf2
-> >  [<ffffffff8107c36f>] ? find_usage_backwards+0xe2/0x116
-> >  [<ffffffff8107c36f>] ? find_usage_backwards+0xe2/0x116
-> >  [<ffffffff812efd16>] ? usb_hcd_link_urb_to_ep+0x94/0xa0
-> >  [<ffffffff8107c52b>] ? mark_lock+0x1c/0x364
-> >  [<ffffffff8107d8f7>] ? __lock_acquire+0xaec/0xb55
-> >  [<ffffffff8107c52b>] ? mark_lock+0x1c/0x364
-> >  [<ffffffff811e2b4b>] ? get_hash_bucket+0x28/0x33
-> >  [<ffffffff814b25a5>] ? _spin_lock_irqsave+0x69/0x75
-> >  [<ffffffff811e2b4b>] ? get_hash_bucket+0x28/0x33
-> >  [<ffffffff811e2ff2>] check_unmap+0xab/0x3d9
-> >  [<ffffffff8107c9ed>] ? trace_hardirqs_on_caller+0x108/0x14a
-> >  [<ffffffff8107ca3c>] ? trace_hardirqs_on+0xd/0xf
-> >  [<ffffffff811e3433>] debug_unmap_single+0x3e/0x40
-> >  [<ffffffff8128d2d8>] dma_unmap_single+0x3d/0x60
-> >  [<ffffffff8128d335>] pci_unmap_page+0x1c/0x1e
-> >  [<ffffffff81290759>] bnx2_poll_work+0x626/0x8cb
-> >  [<ffffffff8107d8f7>] ? __lock_acquire+0xaec/0xb55
-> >  [<ffffffff81070100>] ? run_posix_cpu_timers+0x49c/0x603
-> >  [<ffffffff81070000>] ? run_posix_cpu_timers+0x39c/0x603
-> >  [<ffffffff8107c52b>] ? mark_lock+0x1c/0x364
-> >  [<ffffffff8107d8f7>] ? __lock_acquire+0xaec/0xb55
-> >  [<ffffffff81292804>] bnx2_poll_msix+0x33/0x81
-> >  [<ffffffff813b6478>] net_rx_action+0x8a/0x139
-> >  [<ffffffff8105ff39>] __do_softirq+0x8b/0x147
-> >  [<ffffffff8102933c>] call_softirq+0x1c/0x34
-> >  [<ffffffff8102a611>] do_softirq+0x39/0x90
-> >  [<ffffffff8105fde8>] irq_exit+0x4e/0x98
-> >  [<ffffffff8102a5c2>] do_IRQ+0x11f/0x135
-> >  [<ffffffff81028b93>] ret_from_intr+0x0/0xf
-> >  <EOI> <4>---[ end trace 4339d58302097423 ]---
-> > 
-> This was triggered during pci_unmap_page() -> dma_unmap_single() where
-> check_unmap() did not find the entry.
+> Verified on my Sequoia (which now lost its network :-(
 > 
-> The original mapping was done in bnx2 using pci_map_page().  I did not
-> see how the debug entry was added to the hash during the call to
-> pci_map_page() -> dma_map_page().  Did I miss something?
+> The regression/problem (requiring a valid net_device in netif_napi_add(), even
+> if CONFIG_NETPOLL=n) seems to be introduced by commit
+> d565b0a1a9b6ee7dff46e1f68b26b526ac11ae50 ("net: Add Generic Receive Offload
+> infrastructure").
 
-dma_map_page() results in dma_map_single() -> debug_map_single() call on
-x86. This way the entry would be added. Maybe the error from a double
-free?
+Yes EMAC just needs to go back to the old fake dev setup.
 
-Joerg
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
