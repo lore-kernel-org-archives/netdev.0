@@ -1,76 +1,75 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: ip xfrm policy semantics
-Date: Fri, 09 Jan 2009 19:09:02 +0200
-Message-ID: <496784AE.6000505@iki.fi>
-References: <49675C3E.6010109@iki.fi>
+From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
+Date: Fri, 9 Jan 2009 18:30:40 +0100
+Message-ID: <5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
+References: <5a4c581d0901070624t6e769966t6b034b14d4732bd@mail.gmail.com>
+	 <3f9a31f40901072212x41e405fh7e36f6adb927814b@mail.gmail.com>
+	 <5a4c581d0901081233y6b546167sbe3ed9f2ea37f1f9@mail.gmail.com>
+	 <20090108.125331.03608787.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, dwmw2@infradead.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:43863 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbZAIRJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 12:09:02 -0500
-Received: by ewy10 with SMTP id 10so10326729ewy.13
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2009 09:09:00 -0800 (PST)
-In-Reply-To: <49675C3E.6010109@iki.fi>
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:38349 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752708AbZAIRan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 12:30:43 -0500
+In-Reply-To: <20090108.125331.03608787.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timo Ter=E4s wrote:
-> So what I want is that locally generated / received packages should
-> be protected by the ipsec policy. But forwarded GRE packets (that are
-> masqueraded) should not get any xfrm treatment.
->=20
-> It looks like that if xfrm out policy still affects the forwarded pac=
-kets.
-> If I add an overriding policy for the PPTP server, things seem to wor=
-k
-> better. But I'd rather not do that as it's a bit hacky.
->=20
-> I was not able to find any authoritative place how netfilter and xfrm=
- policies
-> and routing interact. The only thing I found was [1], but that seems =
-to be
-> inaccurate. Anyone care to shed light on this part?
->=20
-> [1] http://www.strongswan.org/docs/netfilter.pdf
+On Thu, Jan 8, 2009 at 9:53 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+> Date: Thu, 8 Jan 2009 21:33:35 +0100
+>
+>> On Thu, Jan 8, 2009 at 7:12 AM, Jaswinder Singh Rajput
+>> <jaswinderlinux@gmail.com> wrote:
+>> > Hello alessandro,
+>> >
+>> > On Wed, Jan 7, 2009 at 7:54 PM, Alessandro Suardi
+>> > <alessandro.suardi@gmail.com> wrote:
+>> >>
+>> >> Note that I don't have CONFIG_FIRMWARE_IN_KERNEL, but on
+>> >>  the other hand I didn't earlier, either... and yes, CONFIG_MODULES=y.
+>> >>
+>> >
+>> > Please try with CONFIG_FIRMWARE_IN_KERNEL , is this makes some difference.
+>>
+>> Yes it does, thank you - 2.6.28-git11 with CONFIG_FIRMWARE_IN_KERNEL
+>>  gets my tg3 back to work on boot. Must be a requirement since -git8 then ?
+>
+> It is if you don't have the tg3 firmware files in your filesystem
+> already.
 
-Ok, I tried to find what the code does. Apparently the ip_forward() cal=
-ls=20
-xfrm4_route_forward() which ends up doing __xfrm_route_forward() fallin=
-g
-back to xfrm_lookup() which is fixed to use XFRM_POLICY_OUT. So 'out'
-policy is always used; even for packets that are being forwarded.
+As I mentioned in the original email to LKML about -git8, and in
+ the first CC to netdev about -git10, I appear to have these files
+ in /lib/firmware/tigon. I save every single .config file I used in the
+ last, what, four years ?
 
-Ok, now I tried adding:
-  policy in  src pptp-server
-  policy out dst pptp-server
-  policy out dst internal-pptp-client
+.config-2.6.28-git10:# CONFIG_FIRMWARE_IN_KERNEL is not set
+.config-2.6.28-git11:CONFIG_FIRMWARE_IN_KERNEL=y
+.config-2.6.28-git2:# CONFIG_FIRMWARE_IN_KERNEL is not set
+.config-2.6.28-git3:# CONFIG_FIRMWARE_IN_KERNEL is not set
+.config-2.6.28-git4:# CONFIG_FIRMWARE_IN_KERNEL is not set
+.config-2.6.28-git5:# CONFIG_FIRMWARE_IN_KERNEL is not set
+.config-2.6.28-git6:# CONFIG_FIRMWARE_IN_KERNEL is not set
+.config-2.6.28-git7:# CONFIG_FIRMWARE_IN_KERNEL is not set
+.config-2.6.28-git8:# CONFIG_FIRMWARE_IN_KERNEL is not set
 
-all with high priority and policy 'none'. Now it looks like the packets
-from pptp-client go out to internet properly. The connection tracking
-entries are recorded, but the reply packets from pptp-server do not
-get back to internal-pptp-client. Apparently the 'none' policy prevents
-NAT to work.
+-git-2 through -git-7 work
+-git8 and -git10 don't work
+-git11 works
 
-And yes, when there is no XFRM policies at all, the PPTP connection
-works great.
+Clearly the requirement changed in -git8, AFAICS.
 
-Any ideas what would the proper way to patch XFRM to distinguish if
-forwarded packets should be touched or not?
+thanks,
 
-There's several things that differ:
-- gre inner protocol
-- gre key
-- input interface
-- forwarded/local
+--alessandro
 
-I'm thinking the easiest way out is to make XFRM GRE aware and add
-an upper layer match (like icmp code; we could have gre key). But
-I'm out of good ideas how to properly tie the policy to be my
-local gre interface specific.
+ "Sun keeps rising in the west / I keep on waking fully confused"
 
-- Timo
-
+   (The Replacements, "Within Your Reach")
