@@ -1,7 +1,7 @@
 From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: [PATCH 10/16] dma-debug: add add checking for map/unmap_sg
-Date: Fri, 9 Jan 2009 17:19:24 +0100
-Message-ID: <1231517970-20288-11-git-send-email-joerg.roedel@amd.com>
+Subject: [PATCH 07/16] dma-debug: add debugfs interface
+Date: Fri, 9 Jan 2009 17:19:21 +0100
+Message-ID: <1231517970-20288-8-git-send-email-joerg.roedel@amd.com>
 References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,123 +11,137 @@ Cc: mingo@redhat.com, dwmw2@infradead.org,
 	Joerg Roedel <joerg.roedel@amd.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-sin.frontbridge.com ([207.46.51.80]:47695 "EHLO
-	SG2EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752976AbZAIQUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:20:09 -0500
+Received: from outbound-wa4.frontbridge.com ([216.32.181.16]:31931 "EHLO
+	WA4EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069AbZAIQTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 11:19:42 -0500
 In-Reply-To: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: add debug callbacks for dma_{un}map_sg
+Impact: add debugfs interface for configuring DMA-API debugging
 
 Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
- include/linux/dma-debug.h |   15 ++++++++++++
- lib/dma-debug.c           |   53 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 68 insertions(+), 0 deletions(-)
+ lib/dma-debug.c |   78 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 78 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/dma-debug.h b/include/linux/dma-debug.h
-index 82ae9ca..b2131f4 100644
---- a/include/linux/dma-debug.h
-+++ b/include/linux/dma-debug.h
-@@ -34,6 +34,11 @@ extern void debug_map_single(struct device *dev, void *ptr, size_t size,
- extern void debug_unmap_single(struct device *dev, dma_addr_t addr,
- 			       size_t size, int direction);
- 
-+extern void debug_map_sg(struct device *dev, struct scatterlist *sg,
-+			 int nents, int direction);
-+
-+extern void debug_unmap_sg(struct device *dev, struct scatterlist *sglist,
-+			   int nelems, int dir);
- 
- #else /* CONFIG_DMA_API_DEBUG */
- 
-@@ -52,6 +57,16 @@ static inline void debug_unmap_single(struct device *dev, dma_addr_t addr,
- {
- }
- 
-+static inline void debug_map_sg(struct device *dev, struct scatterlist *sg,
-+				int nents, int direction)
-+{
-+}
-+
-+static inline void debug_unmap_sg(struct device *dev,
-+				  struct scatterlist *sglist,
-+				  int nelems, int dir)
-+{
-+}
- 
- #endif /* CONFIG_DMA_API_DEBUG */
- 
 diff --git a/lib/dma-debug.c b/lib/dma-debug.c
-index d4d14e5..e6d45f9 100644
+index 4e58d09..ca0ccb1 100644
 --- a/lib/dma-debug.c
 +++ b/lib/dma-debug.c
-@@ -17,6 +17,7 @@
-  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
-  */
+@@ -19,6 +19,7 @@
  
-+#include <linux/scatterlist.h>
- #include <linux/dma-mapping.h>
  #include <linux/dma-debug.h>
  #include <linux/spinlock.h>
-@@ -551,3 +552,55 @@ void debug_unmap_single(struct device *dev, dma_addr_t addr,
- }
- EXPORT_SYMBOL(debug_unmap_single);
++#include <linux/debugfs.h>
+ #include <linux/types.h>
+ #include <linux/list.h>
+ #include <linux/slab.h>
+@@ -58,12 +59,29 @@ static DEFINE_SPINLOCK(free_entries_lock);
+ /* Global disable flag - will be set in case of an error */
+ static bool global_disable __read_mostly;
  
-+void debug_map_sg(struct device *dev, struct scatterlist *sg,
-+		  int nents, int direction)
++/* Global error count */
++static u32 error_count;
++
++/* Global error show enable*/
++static u32 show_all_errors __read_mostly;
++/* Number of errors to show */
++static u32 show_num_errors = 1;
++
+ static u32 num_free_entries;
+ static u32 min_free_entries;
+ 
+ /* number of preallocated entries requested by kernel cmdline */
+ static u32 req_entries;
+ 
++/* debugfs dentry's for the stuff above */
++static struct dentry *dma_debug_dent;
++static struct dentry *global_disable_dent;
++static struct dentry *error_count_dent;
++static struct dentry *show_all_errors_dent;
++static struct dentry *show_num_errors_dent;
++static struct dentry *num_free_entries_dent;
++static struct dentry *min_free_entries_dent;
++
+ /*
+  * Hash related functions
+  *
+@@ -238,6 +256,58 @@ out_err:
+ 	return -ENOMEM;
+ }
+ 
++static int dma_debug_fs_init(void)
 +{
-+	struct dma_debug_entry *entry;
-+	struct scatterlist *s;
-+	int i;
-+
-+	if (global_disable)
-+		return;
-+
-+	for_each_sg(sg, s, nents, i) {
-+		entry = dma_entry_alloc();
-+		if (!entry)
-+			return;
-+
-+		entry->type      = dma_debug_sg;
-+		entry->dev       = dev;
-+		entry->cpu_addr  = sg_virt(s);
-+		entry->size      = s->length;
-+		entry->dev_addr  = s->dma_address;
-+		entry->direction = direction;
-+
-+		add_dma_entry(entry);
++	dma_debug_dent = debugfs_create_dir("dma-api", NULL);
++	if (!dma_debug_dent) {
++		printk(KERN_ERR "DMA-API: can not create debugfs directory\n");
++		return -ENOMEM;
 +	}
++
++	global_disable_dent = debugfs_create_bool("disabled", 0444,
++			dma_debug_dent,
++			(u32 *)&global_disable);
++	if (!global_disable_dent)
++		goto out_err;
++
++	error_count_dent = debugfs_create_u32("error_count", 0444,
++			dma_debug_dent, &error_count);
++	if (!error_count_dent)
++		goto out_err;
++
++	show_all_errors_dent = debugfs_create_u32("all_errors", 0644,
++			dma_debug_dent,
++			&show_all_errors);
++	if (!show_all_errors_dent)
++		goto out_err;
++
++	show_num_errors_dent = debugfs_create_u32("num_errors", 0644,
++			dma_debug_dent,
++			&show_num_errors);
++	if (!show_num_errors_dent)
++		goto out_err;
++
++	num_free_entries_dent = debugfs_create_u32("num_free_entries", 0444,
++			dma_debug_dent,
++			&num_free_entries);
++	if (!num_free_entries_dent)
++		goto out_err;
++
++	min_free_entries_dent = debugfs_create_u32("min_free_entries", 0444,
++			dma_debug_dent,
++			&min_free_entries);
++	if (!min_free_entries_dent)
++		goto out_err;
++
++	return 0;
++
++out_err:
++	debugfs_remove_recursive(dma_debug_dent);
++
++	return -ENOMEM;
 +}
-+EXPORT_SYMBOL(debug_map_sg);
 +
-+void debug_unmap_sg(struct device *dev, struct scatterlist *sglist,
-+		    int nelems, int dir)
-+{
-+	struct scatterlist *s;
-+	int i;
 +
-+	if (global_disable)
+ /*
+  * Let the architectures decide how many entries should be preallocated.
+  */
+@@ -253,6 +323,14 @@ void dma_debug_init(u32 num_entries)
+ 		dma_entry_hash[i].lock = SPIN_LOCK_UNLOCKED;
+ 	}
+ 
++	if (dma_debug_fs_init() != 0) {
++		printk(KERN_ERR "DMA-API: error creating debugfs entries "
++				"- disabling\n");
++		global_disable = true;
++
 +		return;
-+
-+	for_each_sg(sglist, s, nelems, i) {
-+
-+		struct dma_debug_entry ref = {
-+			.type           = dma_debug_sg,
-+			.dev            = dev,
-+			.cpu_addr       = sg_virt(s),
-+			.dev_addr       = s->dma_address,
-+			.size           = s->length,
-+			.direction      = dir,
-+		};
-+
-+		check_unmap(&ref);
 +	}
-+}
-+EXPORT_SYMBOL(debug_unmap_sg);
 +
+ 	if (req_entries)
+ 		num_entries = req_entries;
+ 
 -- 
 1.5.6.4
 
