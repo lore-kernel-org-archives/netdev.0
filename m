@@ -1,123 +1,123 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [patch 22/45] ibmtr: convert to internal network_device_stats
-Date: Fri, 09 Jan 2009 15:01:19 -0800
-Message-ID: <20090109230138.344948381@linux-foundation.org>
+Subject: [patch 40/45] yam: convert to internal net_device_stats
+Date: Fri, 09 Jan 2009 15:01:37 -0800
+Message-ID: <20090109230139.693081454@linux-foundation.org>
 References: <20090109230057.575650817@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jpr@f6fbb.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:42209 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:42316 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754239AbZAIXR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 18:17:58 -0500
-Content-Disposition: inline; filename=ibmtr-stats.patch
+	id S1755380AbZAIXSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 18:18:20 -0500
+Content-Disposition: inline; filename=yam-stats.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- drivers/net/tokenring/ibmtr.c |   29 ++++++-----------------------
- include/linux/ibmtr.h         |    2 +-
- 2 files changed, 7 insertions(+), 24 deletions(-)
-
---- a/drivers/net/tokenring/ibmtr.c	2009-01-09 13:53:36.000000000 -0800
-+++ b/drivers/net/tokenring/ibmtr.c	2009-01-09 13:54:29.000000000 -0800
-@@ -200,7 +200,6 @@ static void 	tr_rx(struct net_device *de
- static void	ibmtr_reset_timer(struct timer_list*tmr,struct net_device *dev);
- static void	tok_rerun(unsigned long dev_addr);
- static void	ibmtr_readlog(struct net_device *dev);
--static struct 	net_device_stats *tok_get_stats(struct net_device *dev);
- static int	ibmtr_change_mtu(struct net_device *dev, int mtu);
- static void	find_turbo_adapters(int *iolist);
+--- a/drivers/net/hamradio/yam.c	2009-01-09 10:16:50.000000000 -0800
++++ b/drivers/net/hamradio/yam.c	2009-01-09 12:54:25.000000000 -0800
+@@ -115,10 +115,6 @@ struct yam_port {
  
-@@ -825,7 +824,6 @@ static int __devinit trdev_init(struct n
- 	dev->open = tok_open;
- 	dev->stop = tok_close;
- 	dev->hard_start_xmit = tok_send_packet;
--	dev->get_stats = tok_get_stats;
- 	dev->set_multicast_list = tok_set_multicast_list;
- 	dev->change_mtu = ibmtr_change_mtu;
+ 	struct net_device *dev;
  
-@@ -1460,7 +1458,7 @@ static irqreturn_t tok_interrupt(int irq
- 					"%02X\n",
- 					(int)retcode, (int)readb(ti->ssb + 6));
- 			else
--				ti->tr_stats.tx_packets++;
-+				dev->stats.tx_packets++;
- 			break;
- 		case XMIT_XID_CMD:
- 			DPRINTK("xmit xid ret_code: %02X\n",
-@@ -1646,7 +1644,7 @@ static void tr_tx(struct net_device *dev
+-	/* Stats section */
+-
+-	struct net_device_stats stats;
+-
+ 	int nb_rxint;
+ 	int nb_mdint;
+ 
+@@ -507,7 +503,7 @@ static inline void yam_rx_flag(struct ne
+ 		} else {
+ 			if (!(skb = dev_alloc_skb(pkt_len))) {
+ 				printk(KERN_WARNING "%s: memory squeeze, dropping packet\n", dev->name);
+-				++yp->stats.rx_dropped;
++				++dev->stats.rx_dropped;
+ 			} else {
+ 				unsigned char *cp;
+ 				cp = skb_put(skb, pkt_len);
+@@ -515,7 +511,7 @@ static inline void yam_rx_flag(struct ne
+ 				memcpy(cp, yp->rx_buf, pkt_len - 1);
+ 				skb->protocol = ax25_type_trans(skb, dev);
+ 				netif_rx(skb);
+-				++yp->stats.rx_packets;
++				++dev->stats.rx_packets;
+ 			}
+ 		}
+ 	}
+@@ -677,7 +673,7 @@ static void yam_tx_byte(struct net_devic
+ 			yp->tx_count = 1;
+ 			yp->tx_state = TX_HEAD;
+ 		}
+-		++yp->stats.tx_packets;
++		++dev->stats.tx_packets;
  		break;
- 	}
- 	writeb(RESP_IN_ASB, ti->mmio + ACA_OFFSET + ACA_SET + ISRA_ODD);
--	ti->tr_stats.tx_bytes += ti->current_skb->len;
-+	dev->stats.tx_bytes += ti->current_skb->len;
- 	dev_kfree_skb_irq(ti->current_skb);
- 	ti->current_skb = NULL;
- 	netif_wake_queue(dev);
-@@ -1722,7 +1720,7 @@ static void tr_rx(struct net_device *dev
- 	if (readb(llc + offsetof(struct trllc, llc)) != UI_CMD) {
- 		SET_PAGE(ti->asb_page);
- 		writeb(DATA_LOST, ti->asb + RETCODE_OFST);
--		ti->tr_stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 		writeb(RESP_IN_ASB, ti->mmio + ACA_OFFSET + ACA_SET + ISRA_ODD);
- 		return;
- 	}
-@@ -1757,7 +1755,7 @@ static void tr_rx(struct net_device *dev
+ 	case TX_TAIL:
+ 		if (--yp->tx_count <= 0) {
+@@ -716,7 +712,7 @@ static irqreturn_t yam_interrupt(int irq
+ 			handled = 1;
  
- 	if (!(skb = dev_alloc_skb(skb_size))) {
- 		DPRINTK("out of memory. frame dropped.\n");
--		ti->tr_stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 		SET_PAGE(ti->asb_page);
- 		writeb(DATA_LOST, ti->asb + offsetof(struct asb_rec, ret_code));
- 		writeb(RESP_IN_ASB, ti->mmio + ACA_OFFSET + ACA_SET + ISRA_ODD);
-@@ -1813,8 +1811,8 @@ static void tr_rx(struct net_device *dev
+ 			if (lsr & LSR_OE)
+-				++yp->stats.rx_fifo_errors;
++				++dev->stats.rx_fifo_errors;
  
- 	writeb(RESP_IN_ASB, ti->mmio + ACA_OFFSET + ACA_SET + ISRA_ODD);
+ 			yp->dcd = (msr & RX_DCD) ? 1 : 0;
  
--	ti->tr_stats.rx_bytes += skb->len;
--	ti->tr_stats.rx_packets++;
-+	dev->stats.rx_bytes += skb->len;
-+	dev->stats.rx_packets++;
+@@ -778,11 +774,11 @@ static int yam_seq_show(struct seq_file 
+ 	seq_printf(seq, "  TxTail   %u\n", yp->txtail);
+ 	seq_printf(seq, "  SlotTime %u\n", yp->slot);
+ 	seq_printf(seq, "  Persist  %u\n", yp->pers);
+-	seq_printf(seq, "  TxFrames %lu\n", yp->stats.tx_packets);
+-	seq_printf(seq, "  RxFrames %lu\n", yp->stats.rx_packets);
++	seq_printf(seq, "  TxFrames %lu\n", dev->stats.tx_packets);
++	seq_printf(seq, "  RxFrames %lu\n", dev->stats.rx_packets);
+ 	seq_printf(seq, "  TxInt    %u\n", yp->nb_mdint);
+ 	seq_printf(seq, "  RxInt    %u\n", yp->nb_rxint);
+-	seq_printf(seq, "  RxOver   %lu\n", yp->stats.rx_fifo_errors);
++	seq_printf(seq, "  RxOver   %lu\n", dev->stats.rx_fifo_errors);
+ 	seq_printf(seq, "\n");
+ 	return 0;
+ }
+@@ -812,26 +808,6 @@ static const struct file_operations yam_
  
- 	skb->protocol = tr_type_trans(skb, dev);
- 	if (IPv4_p) {
-@@ -1876,21 +1874,6 @@ static void ibmtr_readlog(struct net_dev
+ /* --------------------------------------------------------------------- */
  
- /*****************************************************************************/
- 
--/* tok_get_stats():  Basically a scaffold routine which will return
--   the address of the tr_statistics structure associated with
--   this device -- the tr.... structure is an ethnet look-alike
--   so at least for this iteration may suffice.   */
--
--static struct net_device_stats *tok_get_stats(struct net_device *dev)
+-static struct net_device_stats *yam_get_stats(struct net_device *dev)
 -{
+-	struct yam_port *yp;
 -
--	struct tok_info *toki;
--	toki = netdev_priv(dev);
--	return (struct net_device_stats *) &toki->tr_stats;
+-	if (!dev)
+-		return NULL;
+-
+-	yp = netdev_priv(dev);
+-	if (yp->magic != YAM_MAGIC)
+-		return NULL;
+-
+-	/* 
+-	 * Get the current statistics.  This may be called with the
+-	 * card open or closed. 
+-	 */
+-	return &yp->stats;
 -}
 -
--/*****************************************************************************/
+-/* --------------------------------------------------------------------- */
 -
- static int ibmtr_change_mtu(struct net_device *dev, int mtu)
+ static int yam_open(struct net_device *dev)
  {
- 	struct tok_info *ti = netdev_priv(dev);
---- a/include/linux/ibmtr.h	2009-01-09 13:53:36.000000000 -0800
-+++ b/include/linux/ibmtr.h	2009-01-09 13:53:57.000000000 -0800
-@@ -207,7 +207,7 @@ struct tok_info {
- 	unsigned short exsap_station_id;
- 	unsigned short global_int_enable;
- 	struct sk_buff *current_skb;
--	struct net_device_stats tr_stats;
+ 	struct yam_port *yp = netdev_priv(dev);
+@@ -878,9 +854,9 @@ static int yam_open(struct net_device *d
+ 	/* Reset overruns for all ports - FPGA programming makes overruns */
+ 	for (i = 0; i < NR_PORTS; i++) {
+ 		struct net_device *dev = yam_devs[i];
+-		struct yam_port *yp = netdev_priv(dev);
 +
- 	unsigned char auto_speedsave;
- 	open_state			open_status, sap_status;
- 	enum {MANUAL, AUTOMATIC}	open_mode;
+ 		inb(LSR(dev->base_addr));
+-		yp->stats.rx_fifo_errors = 0;
++		dev->stats.rx_fifo_errors = 0;
+ 	}
+ 
+ 	printk(KERN_INFO "%s at iobase 0x%lx irq %u uart %s\n", dev->name, dev->base_addr, dev->irq,
 
 
