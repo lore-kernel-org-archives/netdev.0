@@ -1,85 +1,58 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Fri, 9 Jan 2009 19:54:48 +0100
-Message-ID: <20090109185448.GA1999@1wt.eu>
-References: <20090108173028.GA22531@1wt.eu> <49667534.5060501@zeus.com> <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com> <49677074.5090802@cosmosbay.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Problem with platform specific RFKILL switches
+Date: Fri, 09 Jan 2009 20:15:49 +0100
+Message-ID: <1231528549.20618.34.camel@californication>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, ben@zeus.com,
-	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1321 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752610AbZAISzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 13:55:17 -0500
-Content-Disposition: inline
-In-Reply-To: <49677074.5090802@cosmosbay.com>
+Received: from senator.holtmann.net ([87.106.208.187]:58197 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752992AbZAITPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 14:15:52 -0500
+Received: from [192.168.1.142] (S0106001cf062885c.vc.shawcable.net [24.82.150.230])
+	by mail.holtmann.org (Postfix) with ESMTP id 87BA98B547
+	for <netdev@vger.kernel.org>; Fri,  9 Jan 2009 20:15:53 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Hi,
 
-On Fri, Jan 09, 2009 at 04:42:44PM +0100, Eric Dumazet wrote:
-(...)
-> Willy patch makes splice() behaving like tcp_recvmsg(), but we might call
-> tcp_cleanup_rbuf() several times, with copied=1460 (for each frame processed)
-> 
-> I wonder if the right fix should be done in tcp_read_sock() : this is the
-> one who should eat several skbs IMHO, if we want optimal ACK generation.
-> 
-> We break out of its loop at line 1246
-> 
-> if (!desc->count) /* this test is always true */
-> 	break;
-> 
-> (__tcp_splice_read() set count to 0, right before calling tcp_read_sock())
-> 
-> So code at line 1246 (tcp_read_sock()) seems wrong, or pessimistic at least.
+so I am working with RFKILL subsystem right now. One major problem that
+I have is that in the cases of platform RFKILL switches, I have no idea
+which device it actually belongs to. Lets take my X61 as an example:
 
-That's a very interesting discovery that you made here. I have made
-mesurements with this line commented out just to get an idea. The
-hardest part was to find a CPU-bound machine. Finally I slowed my
-laptop down to 300 MHz (in fact, 600 with throttle 50%, but let's
-call that 300). That way, I cannot saturate the PCI-based tg3 and
-I can observe the effects of various changes on the data rate.
+# udevadm info --query=all --path=/class/rfkill/rfkill0
+P: /devices/platform/thinkpad_acpi/rfkill/rfkill0
+E: UDEV_LOG=3
+E: DEVPATH=/devices/platform/thinkpad_acpi/rfkill/rfkill0
+E: RFKILL_NAME=tpacpi_bluetooth_sw
+E: RFKILL_TYPE=bluetooth
+E: RFKILL_STATE=1
 
-- original tcp_splice_read(), with "!timeo"    : 24.1 MB/s
-- modified tcp_splice_read(), without "!timeo" : 32.5 MB/s (+34%)
-- original with line #1246 commented out       : 34.5 MB/s (+43%)
+# udevadm info --query=all --path=/class/rfkill/rfkill1
+P: /devices/pci0000:00/0000:00:1c.1/0000:03:00.0/rfkill/rfkill1
+E: UDEV_LOG=3
+E: DEVPATH=/devices/pci0000:00/0000:00:1c.1/0000:03:00.0/rfkill/rfkill1
+E: RFKILL_NAME=4965AGN
+E: RFKILL_TYPE=wlan
+E: RFKILL_STATE=1
 
-So you're right, avoiding calling tcp_read_sock() all the time
-gives a nice performance boost.
+As you can see for the 4965 WiFi, we clearly have a proper parent and
+know which device is affected by the RFKILL switch. For the Bluetooth
+one we have the problem that it just points to a platform device and not
+the Bluetooth device.
 
-Also, I found that tcp_splice_read() behaves like this when breaking
-out of the loop :
+Do we have any plans on how to handle this? I would like to identify the
+affected device. It is kinda tricky with hotplug devices like Bluetooth
+were it just disconnects from the bus when using the RFKILL switch, but
+at least when enabled we would see which device is attached to it.
 
-    lock_sock();
-    while () {
-         ...
-         __tcp_splice_read();
-         ...
-         release_sock();
-         lock_sock();
-         if (break condition)
-              break;
-    }
-    release_sock();
+So any ideas or is this just wishful thinking on my part?
 
-Which means that when breaking out of the loop on (!timeo)
-with ret > 0, we do release_sock/lock_sock/release_sock.
+Regards
 
-So I tried a minor modification, consisting in moving the
-test before release_sock(), and leaving !timeo there with
-line #1246 commented out. That's a noticeable winner, as
-the data rate went up to 35.7 MB/s (+48%).
+Marcel
 
-Also, in your second mail, you're saying that your change
-might return more data than requested by the user. I can't
-find why, could you please explain to me, as I'm still quite
-ignorant in this area ?
-
-Thanks,
-Willy
 
