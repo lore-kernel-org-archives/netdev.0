@@ -1,64 +1,56 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 4/5] claw: convert to net_device_ops
-Date: Fri, 09 Jan 2009 14:43:59 +0100
-Message-ID: <20090109134442.878297000@de.ibm.com>
-References: <20090109134355.784732000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com
-To: davem@davemloft.net
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: ip xfrm policy semantics
+Date: Fri, 09 Jan 2009 16:16:30 +0200
+Message-ID: <49675C3E.6010109@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:42165 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752428AbZAINqL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 08:46:11 -0500
-Content-Disposition: inline; filename=claw_devops.diff
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:51501 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752428AbZAIOQ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 09:16:29 -0500
+Received: by ewy10 with SMTP id 10so10235045ewy.13
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2009 06:16:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+Hi,
 
-claw convert to net_device_ops.
+I'm trying to setup a vpnc gateway device that is a part of Cisco DMVPN and also
+generic NAT gateway to Internet.
 
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com
----
- drivers/s390/net/claw.c |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+The DMVPN part is achieved by a gre tunnel, which is protected by IPsec xfrm
+policy.
 
-Index: git_linus/drivers/s390/net/claw.c
-===================================================================
---- git_linus.orig/drivers/s390/net/claw.c
-+++ git_linus/drivers/s390/net/claw.c
-@@ -2816,22 +2816,26 @@ claw_free_netdevice(struct net_device * 
-  * Initialize everything of the net device except the name and the
-  * channel structs.
-  */
-+static const struct net_device_ops claw_netdev_ops = {
-+	.ndo_open		= claw_open,
-+	.ndo_stop		= claw_release,
-+	.ndo_get_stats		= claw_stats,
-+	.ndo_start_xmit		= claw_tx,
-+	.ndo_change_mtu		= claw_change_mtu,
-+};
-+
- static void
- claw_init_netdevice(struct net_device * dev)
- {
- 	CLAW_DBF_TEXT(2, setup, "init_dev");
- 	CLAW_DBF_TEXT_(2, setup, "%s", dev->name);
- 	dev->mtu = CLAW_DEFAULT_MTU_SIZE;
--	dev->hard_start_xmit = claw_tx;
--	dev->open = claw_open;
--	dev->stop = claw_release;
--	dev->get_stats = claw_stats;
--	dev->change_mtu = claw_change_mtu;
- 	dev->hard_header_len = 0;
- 	dev->addr_len = 0;
- 	dev->type = ARPHRD_SLIP;
- 	dev->tx_queue_len = 1300;
- 	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
-+	dev->netdev_ops = &claw_netdev_ops;
- 	CLAW_DBF_TEXT(2, setup, "initok");
- 	return;
- }
+So I want to encrypt all GRE traffic that is to/from the local box, thus I have:
+src 0.0.0.0/0 dst 0.0.0.0/0 proto gre 
+	dir in priority 2147483648 ptype main 
+	tmpl src 0.0.0.0 dst 0.0.0.0
+		proto esp reqid 0 mode transport
+src 0.0.0.0/0 dst 0.0.0.0/0 proto gre 
+	dir out priority 2147483648 ptype main 
+	tmpl src 0.0.0.0 dst 0.0.0.0
+		proto esp reqid 0 mode transport
 
--- 
+Which works perfect for the DMVPN part.
+
+Now, I have a second device behind a subnet, that wants to talk to Internet
+using PPTP (which ends up sending GRE packets). So what I want is that locally
+generated / received packages should be protected by the ipsec policy. But
+forwarded GRE packets (that are masqueraded) should not get any xfrm treatment.
+
+It looks like that if xfrm out policy still affects the forwarded packets.
+If I add an overriding policy for the PPTP server, things seem to work
+better. But I'd rather not do that as it's a bit hacky.
+
+I was not able to find any authoritative place how netfilter and xfrm policies
+and routing interact. The only thing I found was [1], but that seems to be
+inaccurate. Anyone care to shed light on this part?
+
+Thanks,
+  Timo
+
+[1] http://www.strongswan.org/docs/netfilter.pdf
+
