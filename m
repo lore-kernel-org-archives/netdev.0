@@ -1,36 +1,45 @@
-From: Joerg Roedel <joro@8bytes.org>
-Subject: Re: [PATCH 05/16] dma-debug: add initialization code
-Date: Fri, 9 Jan 2009 19:17:31 +0100
-Message-ID: <20090109181731.GC9466@8bytes.org>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-6-git-send-email-joerg.roedel@amd.com> <20090109175842.GC30168@ioremap.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: Support arbitrary speeds
+Date: Fri, 09 Jan 2009 18:24:03 +0000
+Message-ID: <1231525443.3006.35.camel@achroite>
+References: <200901080203.SAA19103@tardy.cup.hp.com>
+	 <1231384446.2677.32.camel@hashbaz.i.decadent.org.uk>
+	 <49656F01.3090603@pobox.com>  <49664FFD.1010608@hp.com>
+	 <1231442701.3893.4.camel@achroite>  <496658EB.1080206@hp.com>
+	 <1231506974.3006.18.camel@achroite>  <49678FAB.3040007@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Roedel <joerg.roedel@amd.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org,
-	mingo@redhat.com
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 8bytes.org ([88.198.83.132]:52464 "EHLO 8bytes.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754860AbZAISRc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 13:17:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20090109175842.GC30168@ioremap.net>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:52739 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753462AbZAISYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 13:24:13 -0500
+In-Reply-To: <49678FAB.3040007@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 08:58:42PM +0300, Evgeniy Polyakov wrote:
-> On Fri, Jan 09, 2009 at 05:19:19PM +0100, Joerg Roedel (joerg.roedel@amd.com) wrote:
->  +static int prealloc_memory(u32 num_entries)
-> > +{
-> > +	struct dma_debug_entry *entry, *next_entry;
-> > +	int i;
-> > +
-> > +	for (i = 0; i < num_entries; ++i) {
-> > +		entry = kmalloc(sizeof(*entry), GFP_KERNEL | __GFP_ZERO);
+On Fri, 2009-01-09 at 09:55 -0800, Rick Jones wrote:
+> Ben Hutchings wrote:
+[...]
+> > +	speed = ethtool_cmd_speed(ep);
+> > +	if (speed == 0 || speed == (u16)(-1) || speed == (u32)(-1))
+> > +		fprintf(stdout, "Unknown!\n");
 > 
-> kzalloc?
+> Doesn't that need to keep the reporting of the unknown speed in parens 
+> like the original?
 
-True. kzalloc is better. I will change that.
+We'll only be doing it for known invalid values, so the value isn't
+useful information.  I suppose it's conceivable that there are tools out
+there that are parsing the output and expect "Unknown! (0)" when link is
+down.
 
-Joerg
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
