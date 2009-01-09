@@ -1,66 +1,64 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 3/4] forcedeth: napi schedule lock fix
-Date: Fri, 09 Jan 2009 16:03:49 -0500
-Message-ID: <4967BBB5.9080803@nvidia.com>
+Subject: [PATCH 1/4] forcedeth: remove mgmt unit for mcp79 chipset
+Date: Fri, 09 Jan 2009 16:03:25 -0500
+Message-ID: <4967BB9D.6020006@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080704090407070807010208"
+ boundary="------------060808030907030801080402"
 To: Manfred Spraul <manfred@colorfullife.com>,
 	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
 	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:8306 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752919AbZAJAJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 19:09:04 -0500
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:1622 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754447AbZAJAJF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 19:09:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------080704090407070807010208
+--------------060808030907030801080402
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch fixes a potential race condition between scheduling napi and 
-completing napi poll. The call to netif_rx_schedule should be under 
-protection of the lock (as is the completion), otherwise, interrupts 
-could be masked off.
+This patch removes the feature flag for mgmt unit as it is not used for 
+this chipset.
 
 Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------080704090407070807010208
+--------------060808030907030801080402
 Content-Type: text/plain;
- name="patch-forcedeth-napi-lock"
+ name="patch-forcedeth-mcp79-mgmtunitremove"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forcedeth-napi-lock"
+ filename="patch-forcedeth-mcp79-mgmtunitremove"
 
---- old/drivers/net/forcedeth.c	2009-01-09 15:11:55.000000000 -0800
-+++ new/drivers/net/forcedeth.c	2009-01-09 15:17:27.000000000 -0800
-@@ -3407,10 +3407,10 @@
- 
- #ifdef CONFIG_FORCEDETH_NAPI
- 		if (events & NVREG_IRQ_RX_ALL) {
-+			spin_lock(&np->lock);
- 			netif_rx_schedule(dev, &np->napi);
- 
- 			/* Disable furthur receive irq's */
--			spin_lock(&np->lock);
- 			np->irqmask &= ~NVREG_IRQ_RX_ALL;
- 
- 			if (np->msi_flags & NV_MSI_X_ENABLED)
-@@ -3524,10 +3524,10 @@
- 
- #ifdef CONFIG_FORCEDETH_NAPI
- 		if (events & NVREG_IRQ_RX_ALL) {
-+			spin_lock(&np->lock);
- 			netif_rx_schedule(dev, &np->napi);
- 
- 			/* Disable furthur receive irq's */
--			spin_lock(&np->lock);
- 			np->irqmask &= ~NVREG_IRQ_RX_ALL;
- 
- 			if (np->msi_flags & NV_MSI_X_ENABLED)
+--- old/drivers/net/forcedeth.c	2009-01-09 14:47:32.000000000 -0800
++++ new/drivers/net/forcedeth.c	2009-01-09 14:47:35.000000000 -0800
+@@ -6141,19 +6141,19 @@
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_36),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_37),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_38),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{	/* MCP79 Ethernet Controller */
+ 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
+-		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
++		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
+ 	},
+ 	{0,},
+ };
 
---------------080704090407070807010208--
+--------------060808030907030801080402--
