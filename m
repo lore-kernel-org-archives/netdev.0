@@ -1,137 +1,82 @@
 From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
 Subject: Re: mal_probe crash
 Date: Fri, 9 Jan 2009 15:42:25 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0901091533000.13230__28810.4178537198$1231512268$gmane$org@vixen.sonytel.be>
+Message-ID: <Pine.LNX.4.64.0901091533000.13230__2740.69188531048$1231512290$gmane$org@vixen.sonytel.be>
 References: <20090107154434.0c9437ef@lappy.seanm.ca>
- <20090108204634.GB2337@yoda.jdub.homelinux.org> <1231368610.2142.27.camel@pasglop>
+	<20090108204634.GB2337@yoda.jdub.homelinux.org>
+	<1231368610.2142.27.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Josh Boyer <jwboyer@gmail.com>,
-	linuxppc-dev <linuxppc-dev@ozlabs.org>,
-	Sean MacLennan <smaclennan@pikatech.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linuxppc-dev <linuxppc-dev@ozlabs.org>, netdev@vger.kernel.org,
+	Sean MacLennan <smaclennan@pikatech.com>
 To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vervifontaine.sonytel.be ([80.88.33.193]:37114 "EHLO
-	vervifontaine.sonycom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753626AbZAIOmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 09:42:32 -0500
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 In-Reply-To: <1231368610.2142.27.camel@pasglop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Jan 2009, Benjamin Herrenschmidt wrote:
-> On Thu, 2009-01-08 at 15:46 -0500, Josh Boyer wrote:
-> > On Wed, Jan 07, 2009 at 03:44:34PM -0500, Sean MacLennan wrote:
-> > >With Linus' latest git, mal_probe crashes. It calls netif_napi_add=
- with
-> > >the first parameter NULL. This was ok since the parameter, a net
-> > >device, was only used if CONFIG_NETPOLL was set.
-> > >
-> > >Now it is always de-referenced. A quick check shows that ibm_newem=
-ac is
-> > >the only driver that passed NULL as the first parameter to this ca=
-ll in
-> > >2.6.28.
-> > >
-> > >I don't really follow ibm_newemac changes, so the patch may be wai=
-ting
-> > >to be applied. This is really just a heads up.
-> >=20
-> > I haven't heard of that, so I doubt there's a patch pending.  *Sigh=
-*
->=20
-> There isn't that I know of. The EMAC code creates a single NAPI insta=
-nce
-> for all EMACs and I think used to completely disconnect things. The o=
-ld
-> code created a fake netdev just for NAPI, that became unnecessary wit=
-h
-> the new NAPI stuff.... but it looks like the way we do things now
-> displeases some changes in the network stack. I'll have to dig.
-
-Verified on my Sequoia (which now lost its network :-(
-
-The regression/problem (requiring a valid net_device in netif_napi_add(=
-), even
-if CONFIG_NETPOLL=3Dn) seems to be introduced by commit
-d565b0a1a9b6ee7dff46e1f68b26b526ac11ae50 ("net: Add Generic Receive Off=
-load
-infrastructure").
-
-However, it was broken before, in case CONFIG_NETPOLL=3Dy.
-
-So mal_probe() (triggered by mal_init()) needs to know about the net_de=
-vice
-before it has been allocated by emac_probe() (triggered by
-of_register_platform_driver(&emac_driver)):
-
-| static int __init emac_init(void)
-| {
-| 	int rc;
-|=20
-| 	printk(KERN_INFO DRV_DESC ", version " DRV_VERSION "\n");
-|=20
-| 	/* Init debug stuff */
-| 	emac_init_debug();
-|=20
-| 	/* Build EMAC boot list */
-| 	emac_make_bootlist();
-|=20
-| 	/* Init submodules */
-| 	rc =3D mal_init();
-| 	if (rc)
-| 		goto err;
-| 	rc =3D zmii_init();
-| 	if (rc)
-| 		goto err_mal;
-| 	rc =3D rgmii_init();
-| 	if (rc)
-| 		goto err_zmii;
-| 	rc =3D tah_init();
-| 	if (rc)
-| 		goto err_rgmii;
-| 	rc =3D of_register_platform_driver(&emac_driver);
-| 	if (rc)
-| 		goto err_tah;
-|=20
-| 	return 0;
-|=20
-|  err_tah:
-| 	tah_exit();
-|  err_rgmii:
-| 	rgmii_exit();
-|  err_zmii:
-| 	zmii_exit();
-|  err_mal:
-| 	mal_exit();
-|  err:
-| 	return rc;
-| }
-
-Can the order of mal_init() and of_register_platform_driver(&emac_drive=
-r) be
-reversed? If yes, there still has some link to be made between the mal =
-and the
-emac devices.
-
-With kind regards,
-
-Geert Uytterhoeven
-Software Architect
-
-Sony Techsoft Centre Europe
-The Corporate Village =C2=B7 Da Vincilaan 7-D1 =C2=B7 B-1935 Zaventem =C2=
-=B7 Belgium
-
-Phone:    +32 (0)2 700 8453
-=46ax:      +32 (0)2 700 8622
-E-mail:   Geert.Uytterhoeven@sonycom.com
-Internet: http://www.sony-europe.com/
-
-A division of Sony Europe (Belgium) N.V.
-VAT BE 0413.825.160 =C2=B7 RPR Brussels
-=46ortis =C2=B7 BIC GEBABEBB =C2=B7 IBAN BE41293037680010
+T24gVGh1LCA4IEphbiAyMDA5LCBCZW5qYW1pbiBIZXJyZW5zY2htaWR0IHdyb3RlOgo+IE9uIFRo
+dSwgMjAwOS0wMS0wOCBhdCAxNTo0NiAtMDUwMCwgSm9zaCBCb3llciB3cm90ZToKPiA+IE9uIFdl
+ZCwgSmFuIDA3LCAyMDA5IGF0IDAzOjQ0OjM0UE0gLTA1MDAsIFNlYW4gTWFjTGVubmFuIHdyb3Rl
+Ogo+ID4gPldpdGggTGludXMnIGxhdGVzdCBnaXQsIG1hbF9wcm9iZSBjcmFzaGVzLiBJdCBjYWxs
+cyBuZXRpZl9uYXBpX2FkZCB3aXRoCj4gPiA+dGhlIGZpcnN0IHBhcmFtZXRlciBOVUxMLiBUaGlz
+IHdhcyBvayBzaW5jZSB0aGUgcGFyYW1ldGVyLCBhIG5ldAo+ID4gPmRldmljZSwgd2FzIG9ubHkg
+dXNlZCBpZiBDT05GSUdfTkVUUE9MTCB3YXMgc2V0Lgo+ID4gPgo+ID4gPk5vdyBpdCBpcyBhbHdh
+eXMgZGUtcmVmZXJlbmNlZC4gQSBxdWljayBjaGVjayBzaG93cyB0aGF0IGlibV9uZXdlbWFjIGlz
+Cj4gPiA+dGhlIG9ubHkgZHJpdmVyIHRoYXQgcGFzc2VkIE5VTEwgYXMgdGhlIGZpcnN0IHBhcmFt
+ZXRlciB0byB0aGlzIGNhbGwgaW4KPiA+ID4yLjYuMjguCj4gPiA+Cj4gPiA+SSBkb24ndCByZWFs
+bHkgZm9sbG93IGlibV9uZXdlbWFjIGNoYW5nZXMsIHNvIHRoZSBwYXRjaCBtYXkgYmUgd2FpdGlu
+Zwo+ID4gPnRvIGJlIGFwcGxpZWQuIFRoaXMgaXMgcmVhbGx5IGp1c3QgYSBoZWFkcyB1cC4KPiA+
+IAo+ID4gSSBoYXZlbid0IGhlYXJkIG9mIHRoYXQsIHNvIEkgZG91YnQgdGhlcmUncyBhIHBhdGNo
+IHBlbmRpbmcuICAqU2lnaCoKPiAKPiBUaGVyZSBpc24ndCB0aGF0IEkga25vdyBvZi4gVGhlIEVN
+QUMgY29kZSBjcmVhdGVzIGEgc2luZ2xlIE5BUEkgaW5zdGFuY2UKPiBmb3IgYWxsIEVNQUNzIGFu
+ZCBJIHRoaW5rIHVzZWQgdG8gY29tcGxldGVseSBkaXNjb25uZWN0IHRoaW5ncy4gVGhlIG9sZAo+
+IGNvZGUgY3JlYXRlZCBhIGZha2UgbmV0ZGV2IGp1c3QgZm9yIE5BUEksIHRoYXQgYmVjYW1lIHVu
+bmVjZXNzYXJ5IHdpdGgKPiB0aGUgbmV3IE5BUEkgc3R1ZmYuLi4uIGJ1dCBpdCBsb29rcyBsaWtl
+IHRoZSB3YXkgd2UgZG8gdGhpbmdzIG5vdwo+IGRpc3BsZWFzZXMgc29tZSBjaGFuZ2VzIGluIHRo
+ZSBuZXR3b3JrIHN0YWNrLiBJJ2xsIGhhdmUgdG8gZGlnLgoKVmVyaWZpZWQgb24gbXkgU2VxdW9p
+YSAod2hpY2ggbm93IGxvc3QgaXRzIG5ldHdvcmsgOi0oCgpUaGUgcmVncmVzc2lvbi9wcm9ibGVt
+IChyZXF1aXJpbmcgYSB2YWxpZCBuZXRfZGV2aWNlIGluIG5ldGlmX25hcGlfYWRkKCksIGV2ZW4K
+aWYgQ09ORklHX05FVFBPTEw9bikgc2VlbXMgdG8gYmUgaW50cm9kdWNlZCBieSBjb21taXQKZDU2
+NWIwYTFhOWI2ZWU3ZGZmNDZlMWY2OGIyNmI1MjZhYzExYWU1MCAoIm5ldDogQWRkIEdlbmVyaWMg
+UmVjZWl2ZSBPZmZsb2FkCmluZnJhc3RydWN0dXJlIikuCgpIb3dldmVyLCBpdCB3YXMgYnJva2Vu
+IGJlZm9yZSwgaW4gY2FzZSBDT05GSUdfTkVUUE9MTD15LgoKU28gbWFsX3Byb2JlKCkgKHRyaWdn
+ZXJlZCBieSBtYWxfaW5pdCgpKSBuZWVkcyB0byBrbm93IGFib3V0IHRoZSBuZXRfZGV2aWNlCmJl
+Zm9yZSBpdCBoYXMgYmVlbiBhbGxvY2F0ZWQgYnkgZW1hY19wcm9iZSgpICh0cmlnZ2VyZWQgYnkK
+b2ZfcmVnaXN0ZXJfcGxhdGZvcm1fZHJpdmVyKCZlbWFjX2RyaXZlcikpOgoKfCBzdGF0aWMgaW50
+IF9faW5pdCBlbWFjX2luaXQodm9pZCkKfCB7CnwgCWludCByYzsKfCAKfCAJcHJpbnRrKEtFUk5f
+SU5GTyBEUlZfREVTQyAiLCB2ZXJzaW9uICIgRFJWX1ZFUlNJT04gIlxuIik7CnwgCnwgCS8qIElu
+aXQgZGVidWcgc3R1ZmYgKi8KfCAJZW1hY19pbml0X2RlYnVnKCk7CnwgCnwgCS8qIEJ1aWxkIEVN
+QUMgYm9vdCBsaXN0ICovCnwgCWVtYWNfbWFrZV9ib290bGlzdCgpOwp8IAp8IAkvKiBJbml0IHN1
+Ym1vZHVsZXMgKi8KfCAJcmMgPSBtYWxfaW5pdCgpOwp8IAlpZiAocmMpCnwgCQlnb3RvIGVycjsK
+fCAJcmMgPSB6bWlpX2luaXQoKTsKfCAJaWYgKHJjKQp8IAkJZ290byBlcnJfbWFsOwp8IAlyYyA9
+IHJnbWlpX2luaXQoKTsKfCAJaWYgKHJjKQp8IAkJZ290byBlcnJfem1paTsKfCAJcmMgPSB0YWhf
+aW5pdCgpOwp8IAlpZiAocmMpCnwgCQlnb3RvIGVycl9yZ21paTsKfCAJcmMgPSBvZl9yZWdpc3Rl
+cl9wbGF0Zm9ybV9kcml2ZXIoJmVtYWNfZHJpdmVyKTsKfCAJaWYgKHJjKQp8IAkJZ290byBlcnJf
+dGFoOwp8IAp8IAlyZXR1cm4gMDsKfCAKfCAgZXJyX3RhaDoKfCAJdGFoX2V4aXQoKTsKfCAgZXJy
+X3JnbWlpOgp8IAlyZ21paV9leGl0KCk7CnwgIGVycl96bWlpOgp8IAl6bWlpX2V4aXQoKTsKfCAg
+ZXJyX21hbDoKfCAJbWFsX2V4aXQoKTsKfCAgZXJyOgp8IAlyZXR1cm4gcmM7CnwgfQoKQ2FuIHRo
+ZSBvcmRlciBvZiBtYWxfaW5pdCgpIGFuZCBvZl9yZWdpc3Rlcl9wbGF0Zm9ybV9kcml2ZXIoJmVt
+YWNfZHJpdmVyKSBiZQpyZXZlcnNlZD8gSWYgeWVzLCB0aGVyZSBzdGlsbCBoYXMgc29tZSBsaW5r
+IHRvIGJlIG1hZGUgYmV0d2VlbiB0aGUgbWFsIGFuZCB0aGUKZW1hYyBkZXZpY2VzLgoKV2l0aCBr
+aW5kIHJlZ2FyZHMsCgpHZWVydCBVeXR0ZXJob2V2ZW4KU29mdHdhcmUgQXJjaGl0ZWN0CgpTb255
+IFRlY2hzb2Z0IENlbnRyZSBFdXJvcGUKVGhlIENvcnBvcmF0ZSBWaWxsYWdlIMK3IERhIFZpbmNp
+bGFhbiA3LUQxIMK3IEItMTkzNSBaYXZlbnRlbSDCtyBCZWxnaXVtCgpQaG9uZTogICAgKzMyICgw
+KTIgNzAwIDg0NTMKRmF4OiAgICAgICszMiAoMCkyIDcwMCA4NjIyCkUtbWFpbDogICBHZWVydC5V
+eXR0ZXJob2V2ZW5Ac29ueWNvbS5jb20KSW50ZXJuZXQ6IGh0dHA6Ly93d3cuc29ueS1ldXJvcGUu
+Y29tLwoKQSBkaXZpc2lvbiBvZiBTb255IEV1cm9wZSAoQmVsZ2l1bSkgTi5WLgpWQVQgQkUgMDQx
+My44MjUuMTYwIMK3IFJQUiBCcnVzc2VscwpGb3J0aXMgwrcgQklDIEdFQkFCRUJCIMK3IElCQU4g
+QkU0MTI5MzAzNzY4MDAxMApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBvemxhYnMub3Jn
+Cmh0dHBzOi8vb3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
