@@ -1,38 +1,79 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: Re: [patch 1/4] lcs: convert to net_device_ops
-Date: Fri, 09 Jan 2009 13:18:38 +0100
-Message-ID: <4967409E.2020608@linux.vnet.ibm.com>
-References: <20090109090156.422658000@de.ibm.com> <20090109090220.554541000@de.ibm.com> <20090109105447.GA2929@wavehammer.waldi.eu.org>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [PATCH v2] b44: fix misalignment and wasted space in rx handling
+Date: Fri, 09 Jan 2009 13:39:57 +0100
+Message-ID: <4967459D.3070207@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, ursula.braun@de.ibm.com
-To: Bastian Blank <bastian@waldi.eu.org>
+Cc: Michael Buesch <mb@bu3sch.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:47134 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752859AbZAIMSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 07:18:40 -0500
-In-Reply-To: <20090109105447.GA2929@wavehammer.waldi.eu.org>
+Received: from nbd.name ([88.198.39.176]:54226 "EHLO ds10.mine.nu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752534AbZAIMkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 07:40:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-good catch, thanks a lot. I will rework the complete patch set because
-there is the same issue with ctcm and qeth_l3.
+Broadcom 4400 puts a header of configurable size (apparently needs
+to be at least 28 bytes) in front of received packets. When handling
+this, the previous code accidentally added the offset 30 *twice* for
+the software and once for the hardware, thereby cancelling out the
+IP alignment effect of the 30 byte padding and wasting an additional
+30 bytes of memory per packet.
 
-Frank
+This patch fixes this problem and improves routing throughput by
+about 30% on MIPS, where unaligned access is expensive.
 
-> On Fri, Jan 09, 2009 at 10:01:57AM +0100, frank.blaschka@de.ibm.com wrote:
->>  #ifdef CONFIG_IP_MULTICAST
->>  	if (!lcs_check_multicast_support(card))
->> -		card->dev->set_multicast_list = lcs_set_multicast_list;
->> +		lcs_netdev_ops.ndo_set_multicast_list = lcs_set_multicast_list;
-> 
-> This looks wrong. lcs_netdev_ops is static but this code used to set it
-> up per card.
-> 
-> Bastian
-> 
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+Sorry about the line wrapping in the previous mail. Should be fixed now
 
-
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -73,8 +73,8 @@
+ 	  (BP)->tx_cons - (BP)->tx_prod - TX_RING_GAP(BP))
+ #define NEXT_TX(N)		(((N) + 1) & (B44_TX_RING_SIZE - 1))
+ 
+-#define RX_PKT_OFFSET		30
+-#define RX_PKT_BUF_SZ		(1536 + RX_PKT_OFFSET + 64)
++#define RX_PKT_OFFSET		(RX_HEADER_LEN + 2)
++#define RX_PKT_BUF_SZ		(1536 + RX_PKT_OFFSET)
+ 
+ /* minimum number of free TX descriptors required to wake up TX process */
+ #define B44_TX_WAKEUP_THRESH		(B44_TX_RING_SIZE / 4)
+@@ -682,7 +682,6 @@ static int b44_alloc_rx_skb(struct b44 *
+ 	}
+ 
+ 	rh = (struct rx_header *) skb->data;
+-	skb_reserve(skb, RX_PKT_OFFSET);
+ 
+ 	rh->len = 0;
+ 	rh->flags = 0;
+@@ -693,13 +692,13 @@ static int b44_alloc_rx_skb(struct b44 *
+ 	if (src_map != NULL)
+ 		src_map->skb = NULL;
+ 
+-	ctrl  = (DESC_CTRL_LEN & (RX_PKT_BUF_SZ - RX_PKT_OFFSET));
++	ctrl = (DESC_CTRL_LEN & RX_PKT_BUF_SZ);
+ 	if (dest_idx == (B44_RX_RING_SIZE - 1))
+ 		ctrl |= DESC_CTRL_EOT;
+ 
+ 	dp = &bp->rx_ring[dest_idx];
+ 	dp->ctrl = cpu_to_le32(ctrl);
+-	dp->addr = cpu_to_le32((u32) mapping + RX_PKT_OFFSET + bp->dma_offset);
++	dp->addr = cpu_to_le32((u32) mapping + bp->dma_offset);
+ 
+ 	if (bp->flags & B44_FLAG_RX_RING_HACK)
+ 		b44_sync_dma_desc_for_device(bp->sdev, bp->rx_ring_dma,
+@@ -809,8 +808,8 @@ static int b44_rx(struct b44 *bp, int bu
+ 			ssb_dma_unmap_single(bp->sdev, map,
+ 					     skb_size, DMA_FROM_DEVICE);
+ 			/* Leave out rx_header */
+-                	skb_put(skb, len + RX_PKT_OFFSET);
+-            	        skb_pull(skb, RX_PKT_OFFSET);
++			skb_put(skb, len + RX_PKT_OFFSET);
++			skb_pull(skb, RX_PKT_OFFSET);
+ 		} else {
+ 			struct sk_buff *copy_skb;
+ 
