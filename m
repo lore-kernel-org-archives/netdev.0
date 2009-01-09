@@ -1,340 +1,118 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] netdev: add missing set_mac_address hook
-Date: Fri, 9 Jan 2009 12:44:27 -0800
-Message-ID: <20090109124427.71d15306@s6510>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Fri, 09 Jan 2009 21:51:17 +0100
+Message-ID: <4967B8C5.10803@cosmosbay.com>
+References: <20090108173028.GA22531@1wt.eu> <49667534.5060501@zeus.com> <20090108.135515.85489589.davem@davemloft.net> <4966F2F4.9080901@cosmosbay.com> <49677074.5090802@cosmosbay.com> <20090109185448.GA1999@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, ben@zeus.com,
+	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41440 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751900AbZAIUqD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 15:46:03 -0500
+Received: from gw1.cosmosbay.com ([86.65.150.130]:55370 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845AbZAIUwI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 15:52:08 -0500
+In-Reply-To: <20090109185448.GA1999@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Willy Tarreau a =E9crit :
+> Hi Eric,
+>=20
+> On Fri, Jan 09, 2009 at 04:42:44PM +0100, Eric Dumazet wrote:
+> (...)
+>> Willy patch makes splice() behaving like tcp_recvmsg(), but we might=
+ call
+>> tcp_cleanup_rbuf() several times, with copied=3D1460 (for each frame=
+ processed)
+>>
+>> I wonder if the right fix should be done in tcp_read_sock() : this i=
+s the
+>> one who should eat several skbs IMHO, if we want optimal ACK generat=
+ion.
+>>
+>> We break out of its loop at line 1246
+>>
+>> if (!desc->count) /* this test is always true */
+>> 	break;
+>>
+>> (__tcp_splice_read() set count to 0, right before calling tcp_read_s=
+ock())
+>>
+>> So code at line 1246 (tcp_read_sock()) seems wrong, or pessimistic a=
+t least.
+>=20
+> That's a very interesting discovery that you made here. I have made
+> mesurements with this line commented out just to get an idea. The
+> hardest part was to find a CPU-bound machine. Finally I slowed my
+> laptop down to 300 MHz (in fact, 600 with throttle 50%, but let's
+> call that 300). That way, I cannot saturate the PCI-based tg3 and
+> I can observe the effects of various changes on the data rate.
+>=20
+> - original tcp_splice_read(), with "!timeo"    : 24.1 MB/s
+> - modified tcp_splice_read(), without "!timeo" : 32.5 MB/s (+34%)
+> - original with line #1246 commented out       : 34.5 MB/s (+43%)
+>=20
+> So you're right, avoiding calling tcp_read_sock() all the time
+> gives a nice performance boost.
+>=20
+> Also, I found that tcp_splice_read() behaves like this when breaking
+> out of the loop :
+>=20
+>     lock_sock();
+>     while () {
+>          ...
+>          __tcp_splice_read();
+>          ...
+>          release_sock();
+>          lock_sock();
+>          if (break condition)
+>               break;
+>     }
+>     release_sock();
+>=20
+> Which means that when breaking out of the loop on (!timeo)
+> with ret > 0, we do release_sock/lock_sock/release_sock.
+>=20
+> So I tried a minor modification, consisting in moving the
+> test before release_sock(), and leaving !timeo there with
+> line #1246 commented out. That's a noticeable winner, as
+> the data rate went up to 35.7 MB/s (+48%).
+>=20
+> Also, in your second mail, you're saying that your change
+> might return more data than requested by the user. I can't
+> find why, could you please explain to me, as I'm still quite
+> ignorant in this area ?
 
-Many drivers lost the ability to set ethernet address accidently
-during the net_device_ops conversion.
+Well, I just tested various user programs and indeed got this
+strange result :
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Here I call splice() with len=3D1000 (0x3e8), and you can see
+it gives a result of 1460 at the second call.
+
+I suspect a bug in splice code, that my patch just exposed.
+
+pipe([3, 4])                            =3D 0
+open("/dev/null", O_RDWR|O_CREAT|O_TRUNC, 0644) =3D 5
+socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 6
+bind(6, {sa_family=3DAF_INET, sin_port=3Dhtons(4711), sin_addr=3Dinet_a=
+ddr("0.0.0.0")}, 16) =3D 0
+listen(6, 5)                            =3D 0
+accept(6, 0, NULL)                      =3D 7
+setsockopt(7, SOL_SOCKET, SO_RCVLOWAT, [1000], 4) =3D 0
+poll([{fd=3D7, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+splice(0x7, 0, 0x4, 0, 0x3e8, 0x3)      =3D 1000                OK
+splice(0x3, 0, 0x5, 0, 0x3e8, 0x5)      =3D 1000
+poll([{fd=3D7, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+splice(0x7, 0, 0x4, 0, 0x3e8, 0x3)      =3D 1460                Oh well=
+=2E.. 1460 > 1000 !!!
+splice(0x3, 0, 0x5, 0, 0x5b4, 0x5)      =3D 1460
+poll([{fd=3D7, events=3DPOLLIN, revents=3DPOLLIN}], 1, -1) =3D 1
+splice(0x7, 0, 0x4, 0, 0x3e8, 0x3)      =3D 1460
+splice(0x3, 0, 0x5, 0, 0x5b4, 0x5)      =3D 1460
 
 
----
- drivers/net/3c503.c          |    1 +
- drivers/net/8139cp.c         |    2 ++
- drivers/net/8139too.c        |    2 +-
- drivers/net/8390.c           |    1 +
- drivers/net/8390p.c          |    1 +
- drivers/net/arm/etherh.c     |    1 +
- drivers/net/e2100.c          |    1 +
- drivers/net/enic/enic_main.c |    1 +
- drivers/net/hamachi.c        |    1 +
- drivers/net/hp-plus.c        |    1 +
- drivers/net/hydra.c          |    1 +
- drivers/net/mac8390.c        |    1 +
- drivers/net/ne-h8300.c       |    1 +
- drivers/net/ne2k-pci.c       |    1 +
- drivers/net/ns83820.c        |    1 +
- drivers/net/r6040.c          |    1 +
- drivers/net/sc92031.c        |    1 +
- drivers/net/sis900.c         |    1 +
- drivers/net/smc-mca.c        |    1 +
- drivers/net/smc-ultra.c      |    1 +
- drivers/net/smsc911x.c       |    1 +
- drivers/net/smsc9420.c       |    1 +
- drivers/net/via-rhine.c      |    1 +
- drivers/net/via-velocity.c   |    1 +
- drivers/net/wd.c             |    1 +
- drivers/net/yellowfin.c      |    1 +
- drivers/net/zorro8390.c      |    1 +
- 27 files changed, 28 insertions(+), 1 deletion(-)
 
---- a/drivers/net/8139cp.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/8139cp.c	2009-01-09 12:34:33.000000000 -0800
-@@ -1821,6 +1821,7 @@ static const struct net_device_ops cp_ne
- 	.ndo_open		= cp_open,
- 	.ndo_stop		= cp_close,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_set_multicast_list	= cp_set_rx_mode,
- 	.ndo_get_stats		= cp_get_stats,
- 	.ndo_do_ioctl		= cp_ioctl,
-@@ -1832,6 +1833,7 @@ static const struct net_device_ops cp_ne
- #ifdef BROKEN
- 	.ndo_change_mtu		= cp_change_mtu,
- #endif
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= cp_poll_controller,
- #endif
---- a/drivers/net/8139too.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/8139too.c	2009-01-09 12:34:33.000000000 -0800
-@@ -917,6 +917,7 @@ static const struct net_device_ops rtl81
- 	.ndo_stop		= rtl8139_close,
- 	.ndo_get_stats		= rtl8139_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_start_xmit		= rtl8139_start_xmit,
- 	.ndo_set_multicast_list	= rtl8139_set_rx_mode,
- 	.ndo_do_ioctl		= netdev_ioctl,
-@@ -924,7 +925,6 @@ static const struct net_device_ops rtl81
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= rtl8139_poll_controller,
- #endif
--
- };
- 
- static int __devinit rtl8139_init_one (struct pci_dev *pdev,
---- a/drivers/net/3c503.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/3c503.c	2009-01-09 12:34:33.000000000 -0800
-@@ -177,6 +177,7 @@ static const struct net_device_ops el2_n
- 	.ndo_get_stats		= eip_get_stats,
- 	.ndo_set_multicast_list = eip_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller 	= eip_poll,
---- a/drivers/net/8390.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/8390.c	2009-01-09 12:34:33.000000000 -0800
-@@ -63,6 +63,7 @@ const struct net_device_ops ei_netdev_op
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ei_poll,
---- a/drivers/net/8390p.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/8390p.c	2009-01-09 12:34:33.000000000 -0800
-@@ -68,6 +68,7 @@ const struct net_device_ops eip_netdev_o
- 	.ndo_get_stats		= eip_get_stats,
- 	.ndo_set_multicast_list = eip_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= eip_poll,
---- a/drivers/net/e2100.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/e2100.c	2009-01-09 12:34:33.000000000 -0800
-@@ -169,6 +169,7 @@ static const struct net_device_ops e21_n
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller 	= ei_poll,
---- a/drivers/net/hamachi.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/hamachi.c	2009-01-09 12:34:33.000000000 -0800
-@@ -576,6 +576,7 @@ static const struct net_device_ops hamac
- 	.ndo_set_multicast_list	= set_rx_mode,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_tx_timeout		= hamachi_tx_timeout,
- 	.ndo_do_ioctl		= netdev_ioctl,
- };
---- a/drivers/net/hp-plus.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/hp-plus.c	2009-01-09 12:34:33.000000000 -0800
-@@ -166,6 +166,7 @@ static const struct net_device_ops hpp_n
- 	.ndo_get_stats		= eip_get_stats,
- 	.ndo_set_multicast_list = eip_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= eip_poll,
---- a/drivers/net/hydra.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/hydra.c	2009-01-09 12:34:33.000000000 -0800
-@@ -103,6 +103,7 @@ static const struct net_device_ops hydra
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ei_poll,
---- a/drivers/net/mac8390.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/mac8390.c	2009-01-09 12:34:33.000000000 -0800
-@@ -486,6 +486,7 @@ static const struct net_device_ops mac83
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ei_poll,
---- a/drivers/net/ne-h8300.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/ne-h8300.c	2009-01-09 12:34:33.000000000 -0800
-@@ -202,6 +202,7 @@ static const struct net_device_ops ne_ne
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ei_poll,
---- a/drivers/net/ne2k-pci.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/ne2k-pci.c	2009-01-09 12:34:33.000000000 -0800
-@@ -208,6 +208,7 @@ static const struct net_device_ops ne2k_
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = ei_poll,
---- a/drivers/net/ns83820.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/ns83820.c	2009-01-09 12:34:33.000000000 -0800
-@@ -1956,6 +1956,7 @@ static const struct net_device_ops netde
- 	.ndo_change_mtu		= ns83820_change_mtu,
- 	.ndo_set_multicast_list = ns83820_set_multicast,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_tx_timeout		= ns83820_tx_timeout,
- #ifdef NS83820_VLAN_ACCEL_SUPPORT
- 	.ndo_vlan_rx_register	= ns83820_vlan_rx_register,
---- a/drivers/net/r6040.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/r6040.c	2009-01-09 12:34:33.000000000 -0800
-@@ -1049,6 +1049,7 @@ static const struct net_device_ops r6040
- 	.ndo_set_multicast_list = r6040_multicast_list,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_do_ioctl		= r6040_ioctl,
- 	.ndo_tx_timeout		= r6040_tx_timeout,
- #ifdef CONFIG_NET_POLL_CONTROLLER
---- a/drivers/net/sc92031.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/sc92031.c	2009-01-09 12:34:33.000000000 -0800
-@@ -1408,6 +1408,7 @@ static const struct net_device_ops sc920
- 	.ndo_set_multicast_list	= sc92031_set_multicast_list,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_tx_timeout		= sc92031_tx_timeout,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= sc92031_poll_controller,
---- a/drivers/net/sis900.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/sis900.c	2009-01-09 12:34:33.000000000 -0800
-@@ -389,6 +389,7 @@ static const struct net_device_ops sis90
- 	.ndo_set_multicast_list	= set_rx_mode,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_do_ioctl		= mii_ioctl,
- 	.ndo_tx_timeout		= sis900_tx_timeout,
- #ifdef CONFIG_NET_POLL_CONTROLLER
---- a/drivers/net/smc-mca.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/smc-mca.c	2009-01-09 12:34:33.000000000 -0800
-@@ -192,6 +192,7 @@ static const struct net_device_ops ultra
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller 	= ei_poll,
---- a/drivers/net/smc-ultra.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/smc-ultra.c	2009-01-09 12:34:33.000000000 -0800
-@@ -196,6 +196,7 @@ static const struct net_device_ops ultra
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller 	= ei_poll,
---- a/drivers/net/smsc911x.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/smsc911x.c	2009-01-09 12:34:33.000000000 -0800
-@@ -1740,6 +1740,7 @@ static const struct net_device_ops smsc9
- 	.ndo_set_multicast_list	= smsc911x_set_multicast_list,
- 	.ndo_do_ioctl		= smsc911x_do_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= smsc911x_poll_controller,
- #endif
---- a/drivers/net/smsc9420.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/smsc9420.c	2009-01-09 12:34:33.000000000 -0800
-@@ -1551,6 +1551,7 @@ static const struct net_device_ops smsc9
- 	.ndo_set_multicast_list	= smsc9420_set_multicast_list,
- 	.ndo_do_ioctl		= smsc9420_do_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= smsc9420_poll_controller,
- #endif /* CONFIG_NET_POLL_CONTROLLER */
---- a/drivers/net/via-rhine.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/via-rhine.c	2009-01-09 12:34:33.000000000 -0800
-@@ -622,6 +622,7 @@ static const struct net_device_ops rhine
- 	.ndo_get_stats		 = rhine_get_stats,
- 	.ndo_set_multicast_list	 = rhine_set_rx_mode,
- 	.ndo_validate_addr	 = eth_validate_addr,
-+	.ndo_set_mac_address 	 = eth_mac_addr,
- 	.ndo_do_ioctl		 = netdev_ioctl,
- 	.ndo_tx_timeout 	 = rhine_tx_timeout,
- #ifdef CONFIG_NET_POLL_CONTROLLER
---- a/drivers/net/via-velocity.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/via-velocity.c	2009-01-09 12:34:33.000000000 -0800
-@@ -855,6 +855,7 @@ static const struct net_device_ops veloc
- 	.ndo_start_xmit		= velocity_xmit,
- 	.ndo_get_stats		= velocity_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_set_multicast_list	= velocity_set_multi,
- 	.ndo_change_mtu		= velocity_change_mtu,
- 	.ndo_do_ioctl		= velocity_ioctl,
---- a/drivers/net/wd.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/wd.c	2009-01-09 12:34:33.000000000 -0800
-@@ -155,6 +155,7 @@ static const struct net_device_ops wd_ne
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller 	= ei_poll,
---- a/drivers/net/yellowfin.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/yellowfin.c	2009-01-09 12:34:33.000000000 -0800
-@@ -362,6 +362,7 @@ static const struct net_device_ops netde
- 	.ndo_set_multicast_list = set_rx_mode,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_do_ioctl 		= netdev_ioctl,
- 	.ndo_tx_timeout 	= yellowfin_tx_timeout,
- };
---- a/drivers/net/zorro8390.c	2009-01-09 12:34:28.000000000 -0800
-+++ b/drivers/net/zorro8390.c	2009-01-09 12:34:33.000000000 -0800
-@@ -147,6 +147,7 @@ static const struct net_device_ops zorro
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ei_poll,
---- a/drivers/net/arm/etherh.c	2009-01-08 08:30:09.000000000 -0800
-+++ b/drivers/net/arm/etherh.c	2009-01-09 12:35:55.000000000 -0800
-@@ -646,6 +646,7 @@ static const struct net_device_ops ether
- 	.ndo_get_stats		= ei_get_stats,
- 	.ndo_set_multicast_list = ei_set_multicast_list,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_addr	= eth_set_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ei_poll,
---- a/drivers/net/enic/enic_main.c	2009-01-08 08:30:11.000000000 -0800
-+++ b/drivers/net/enic/enic_main.c	2009-01-09 12:36:37.000000000 -0800
-@@ -1599,6 +1599,7 @@ static const struct net_device_ops enic_
- 	.ndo_start_xmit		= enic_hard_start_xmit,
- 	.ndo_get_stats		= enic_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_addr	= eth_set_mac_addr,
- 	.ndo_set_multicast_list	= enic_set_multicast_list,
- 	.ndo_change_mtu		= enic_change_mtu,
- 	.ndo_vlan_rx_register	= enic_vlan_rx_register,
