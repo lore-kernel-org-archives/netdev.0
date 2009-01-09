@@ -1,46 +1,34 @@
-From: "Jorge Bastos" <mysql.jorge@decimal.pt>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-     2.6.28
-Date: Fri, 9 Jan 2009 10:32:13 -0000 (WET)
-Message-ID: <1451.192.168.1.3.1231497133.squirrel@webmail.decimal.pt>
-References: <2025.192.168.1.3.1231410939.squirrel@webmail.decimal.pt>
-    <20090108110430.GB5493@ff.dom.local>
-    <2111.192.168.1.3.1231413721.squirrel@webmail.decimal.pt>
-    <20090108135927.GC5493@ff.dom.local>
-    <2321.192.168.1.3.1231423743.squirrel@webmail.decimal.pt>
-    <3226.192.168.1.3.1231435651.squirrel@webmail.decimal.pt>
-    <20090109075450.GC4605@ff.dom.local>
-    <1071.192.168.1.3.1231494140.squirrel@webmail.decimal.pt>
-    <20090109101214.GG4605@ff.dom.local>
-    <1216.192.168.1.3.1231496132.squirrel@webmail.decimal.pt>
-    <20090109102223.GH4605@ff.dom.local>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine! 2.6.28
+Date: Fri, 9 Jan 2009 12:32:09 +0200
+Message-ID: <200901091232.09923.denys@visp.net.lb>
+References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <200901082357.13396.denys@visp.net.lb> <20090109103030.GI4605@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Denys Fedoryschenko" <denys@visp.net.lb>, netdev@vger.kernel.org,
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jorge Bastos <mysql.jorge@decimal.pt>, netdev@vger.kernel.org,
 	bugme-daemon@bugzilla.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly03.isp.novis.pt ([195.23.133.213]:56270 "EHLO
-	mailrly03.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751727AbZAIKbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 05:31:42 -0500
-In-Reply-To: <20090109102223.GH4605@ff.dom.local>
+Received: from hosting.visp.net.lb ([194.146.153.11]:43321 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751466AbZAIKcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 05:32:00 -0500
+In-Reply-To: <20090109103030.GI4605@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ops i missread your post.
-I always prefer to compile my own kernels.
+HZ still matter? With tickless kernel and hrtimers?
 
-
-> On Fri, Jan 09, 2009 at 10:15:32AM -0000, Jorge Bastos wrote:
->> Iproute is from distro, the kernel i compiled it by hand as always.
->> GCC 4.3.1 (could this interfer since it's very eary gcc version?)
+On Friday 09 January 2009 12:30:30 Jarek Poplawski wrote:
+> On Thu, Jan 08, 2009 at 11:57:13PM +0200, Denys Fedoryschenko wrote:
+> > Can 100HZ be issue?
 >
-> I don't now, could be also something about kernel headers. Distro
-> versions are more supposed to work, I hope.
+> Generally, if you need precise scheduling HZ=1000 should be used if
+> higher cpu usage isn't a problem.
 >
 > Jarek P.
->
->>
+
 
