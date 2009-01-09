@@ -1,101 +1,137 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [patch 32/45] baycom: convert to internal net_device_stats
-Date: Fri, 09 Jan 2009 15:01:29 -0800
-Message-ID: <20090109230139.075685318@linux-foundation.org>
+Subject: [patch 36/45] dmascc: convert to internal network device stats
+Date: Fri, 09 Jan 2009 15:01:33 -0800
+Message-ID: <20090109230139.400592115@linux-foundation.org>
 References: <20090109230057.575650817@linux-foundation.org>
 Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
-To: David Miller <davem@davemloft.net>, t.sailer@alumni.ethz.ch
+To: David Miller <davem@davemloft.net>, klaus.kudielka@ieee.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:42256 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:42253 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754597AbZAIXSG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754588AbZAIXSG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 9 Jan 2009 18:18:06 -0500
-Content-Disposition: inline; filename=baycom-stats.patch
+Content-Disposition: inline; filename=dmascc-stats.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/net/hamradio/baycom_epp.c	2009-01-09 10:16:50.000000000 -0800
-+++ b/drivers/net/hamradio/baycom_epp.c	2009-01-09 10:22:45.000000000 -0800
-@@ -203,7 +203,6 @@ struct baycom_state {
- 		unsigned char buf[TXBUFFER_SIZE];
-         } hdlctx;
+--- a/drivers/net/hamradio/dmascc.c	2009-01-09 10:16:50.000000000 -0800
++++ b/drivers/net/hamradio/dmascc.c	2009-01-09 11:07:16.000000000 -0800
+@@ -195,7 +195,7 @@ struct scc_priv {
+ 	int chip;
+ 	struct net_device *dev;
+ 	struct scc_info *info;
+-	struct net_device_stats stats;
++
+ 	int channel;
+ 	int card_base, scc_cmd, scc_data;
+ 	int tmr_cnt, tmr_ctrl, tmr_mode;
+@@ -239,7 +239,6 @@ static int scc_open(struct net_device *d
+ static int scc_close(struct net_device *dev);
+ static int scc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
+ static int scc_send_packet(struct sk_buff *skb, struct net_device *dev);
+-static struct net_device_stats *scc_get_stats(struct net_device *dev);
+ static int scc_set_mac_address(struct net_device *dev, void *sa);
  
--        struct net_device_stats stats;
- 	unsigned int ptt_keyed;
- 	struct sk_buff *skb;  /* next transmit packet  */
- 
-@@ -423,7 +422,7 @@ static void encode_hdlc(struct baycom_st
- 	bc->hdlctx.bufptr = bc->hdlctx.buf;
- 	bc->hdlctx.bufcnt = wp - bc->hdlctx.buf;
- 	dev_kfree_skb(skb);
--	bc->stats.tx_packets++;
-+	bc->dev->stats.tx_packets++;
+ static inline void tx_on(struct scc_priv *priv);
+@@ -961,14 +960,6 @@ static int scc_send_packet(struct sk_buf
  }
  
- /* ---------------------------------------------------------------------- */
-@@ -547,7 +546,7 @@ static void do_rxpacket(struct net_devic
- 	pktlen = bc->hdlcrx.bufcnt-2+1; /* KISS kludge */
- 	if (!(skb = dev_alloc_skb(pktlen))) {
- 		printk("%s: memory squeeze, dropping packet\n", dev->name);
--		bc->stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 		return;
- 	}
- 	cp = skb_put(skb, pktlen);
-@@ -555,7 +554,7 @@ static void do_rxpacket(struct net_devic
- 	memcpy(cp, bc->hdlcrx.buf, pktlen - 1);
- 	skb->protocol = ax25_type_trans(skb, dev);
- 	netif_rx(skb);
--	bc->stats.rx_packets++;
-+	dev->stats.rx_packets++;
- }
  
- static int receive(struct net_device *dev, int cnt)
-@@ -802,19 +801,6 @@ static int baycom_set_mac_address(struct
- 
- /* --------------------------------------------------------------------- */
- 
--static struct net_device_stats *baycom_get_stats(struct net_device *dev)
+-static struct net_device_stats *scc_get_stats(struct net_device *dev)
 -{
--	struct baycom_state *bc = netdev_priv(dev);
+-	struct scc_priv *priv = dev->ml_priv;
 -
--	/* 
--	 * Get the current statistics.  This may be called with the
--	 * card open or closed. 
--	 */
--	return &bc->stats;
+-	return &priv->stats;
 -}
 -
--/* --------------------------------------------------------------------- */
 -
- static void epp_wakeup(void *handle)
+ static int scc_set_mac_address(struct net_device *dev, void *sa)
  {
-         struct net_device *dev = (struct net_device *)handle;
-@@ -1065,10 +1051,10 @@ static int baycom_ioctl(struct net_devic
- 		hi.data.cs.ptt = !!(bc->stat & EPP_PTTBIT);
- 		hi.data.cs.dcd = !(bc->stat & EPP_DCDBIT);
- 		hi.data.cs.ptt_keyed = bc->ptt_keyed;
--		hi.data.cs.tx_packets = bc->stats.tx_packets;
--		hi.data.cs.tx_errors = bc->stats.tx_errors;
--		hi.data.cs.rx_packets = bc->stats.rx_packets;
--		hi.data.cs.rx_errors = bc->stats.rx_errors;
-+		hi.data.cs.tx_packets = dev->stats.tx_packets;
-+		hi.data.cs.tx_errors = dev->stats.tx_errors;
-+		hi.data.cs.rx_packets = dev->stats.rx_packets;
-+		hi.data.cs.rx_errors = dev->stats.rx_errors;
- 		break;		
- 
- 	case HDLCDRVCTL_OLDGETSTAT:
-@@ -1147,7 +1133,6 @@ static void baycom_probe(struct net_devi
- 	dev->stop = epp_close;
- 	dev->do_ioctl = baycom_ioctl;
- 	dev->hard_start_xmit = baycom_send_packet;
--	dev->get_stats = baycom_get_stats;
- 
- 	/* Fill in the fields of the device structure */
- 	bc->skb = NULL;
+ 	memcpy(dev->dev_addr, ((struct sockaddr *) sa)->sa_data,
+@@ -1216,17 +1207,17 @@ static void special_condition(struct scc
+ 		}
+ 		if (priv->rx_over) {
+ 			/* We had an overrun */
+-			priv->stats.rx_errors++;
++			priv->dev->stats.rx_errors++;
+ 			if (priv->rx_over == 2)
+-				priv->stats.rx_length_errors++;
++				priv->dev->stats.rx_length_errors++;
+ 			else
+-				priv->stats.rx_fifo_errors++;
++				priv->dev->stats.rx_fifo_errors++;
+ 			priv->rx_over = 0;
+ 		} else if (rc & CRC_ERR) {
+ 			/* Count invalid CRC only if packet length >= minimum */
+ 			if (cb >= 15) {
+-				priv->stats.rx_errors++;
+-				priv->stats.rx_crc_errors++;
++				priv->dev->stats.rx_errors++;
++				priv->dev->stats.rx_crc_errors++;
+ 			}
+ 		} else {
+ 			if (cb >= 15) {
+@@ -1239,8 +1230,8 @@ static void special_condition(struct scc
+ 					priv->rx_count++;
+ 					schedule_work(&priv->rx_work);
+ 				} else {
+-					priv->stats.rx_errors++;
+-					priv->stats.rx_over_errors++;
++					priv->dev->stats.rx_errors++;
++					priv->dev->stats.rx_over_errors++;
+ 				}
+ 			}
+ 		}
+@@ -1275,7 +1266,7 @@ static void rx_bh(struct work_struct *ug
+ 		skb = dev_alloc_skb(cb + 1);
+ 		if (skb == NULL) {
+ 			/* Drop packet */
+-			priv->stats.rx_dropped++;
++			priv->dev->stats.rx_dropped++;
+ 		} else {
+ 			/* Fill buffer */
+ 			data = skb_put(skb, cb + 1);
+@@ -1283,8 +1274,8 @@ static void rx_bh(struct work_struct *ug
+ 			memcpy(&data[1], priv->rx_buf[i], cb);
+ 			skb->protocol = ax25_type_trans(skb, priv->dev);
+ 			netif_rx(skb);
+-			priv->stats.rx_packets++;
+-			priv->stats.rx_bytes += cb;
++			priv->dev->stats.rx_packets++;
++			priv->dev->stats.rx_bytes += cb;
+ 		}
+ 		spin_lock_irqsave(&priv->ring_lock, flags);
+ 		/* Move tail */
+@@ -1351,15 +1342,15 @@ static void es_isr(struct scc_priv *priv
+ 			write_scc(priv, R1, EXT_INT_ENAB | WT_FN_RDYFN);
+ 		if (res) {
+ 			/* Update packet statistics */
+-			priv->stats.tx_errors++;
+-			priv->stats.tx_fifo_errors++;
++			priv->dev->stats.tx_errors++;
++			priv->dev->stats.tx_fifo_errors++;
+ 			/* Other underrun interrupts may already be waiting */
+ 			write_scc(priv, R0, RES_EXT_INT);
+ 			write_scc(priv, R0, RES_EXT_INT);
+ 		} else {
+ 			/* Update packet statistics */
+-			priv->stats.tx_packets++;
+-			priv->stats.tx_bytes += priv->tx_len[i];
++			priv->dev->stats.tx_packets++;
++			priv->dev->stats.tx_bytes += priv->tx_len[i];
+ 			/* Remove frame from FIFO */
+ 			priv->tx_tail = (i + 1) % NUM_TX_BUF;
+ 			priv->tx_count--;
+@@ -1425,7 +1416,7 @@ static void tm_isr(struct scc_priv *priv
+ 		write_scc(priv, R15, DCDIE);
+ 		priv->rr0 = read_scc(priv, R0);
+ 		if (priv->rr0 & DCD) {
+-			priv->stats.collisions++;
++			priv->dev->stats.collisions++;
+ 			rx_on(priv);
+ 			priv->state = RX_ON;
+ 		} else {
 
 
