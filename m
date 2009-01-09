@@ -1,57 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 1/4] forcedeth: fix MAC address detection on network card
- (regression in 2.6.23)
-Date: Fri, 09 Jan 2009 17:04:47 -0500
-Message-ID: <4967C9FF.6020504@garzik.org>
-References: <200901092023.n09KN72t020166@imap1.linux-foundation.org>	<4967C05A.2070509@garzik.org> <20090109133749.59c20e40.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
+ (-git7 is ok)
+Date: Fri, 09 Jan 2009 14:04:22 -0800 (PST)
+Message-ID: <20090109.140422.60087297.davem@davemloft.net>
+References: <5a4c581d0901081233y6b546167sbe3ed9f2ea37f1f9@mail.gmail.com>
+	<20090108.125331.03608787.davem@davemloft.net>
+	<5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	michael.pyne@kdemail.net, AAbdulla@nvidia.com, stable@kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34690 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758674AbZAIWEx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2009 17:04:53 -0500
-In-Reply-To: <20090109133749.59c20e40.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, dwmw2@infradead.org
+To: alessandro.suardi@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759182AbZAIWEp@vger.kernel.org>
+In-Reply-To: <5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Fri, 09 Jan 2009 16:23:38 -0500
-> Jeff Garzik <jeff@garzik.org> wrote:
-> 
->>> On Tue, 05 Feb 2008 13:20:59 -0500 Jeff Garzik <jeff@garzik.org> wrote:
->>>> NAK - this fixes one set of users, and breaks a working set of users.
->>>>
->>>> Need to add DMI check for the specific motherboard (dmi_check_system), 
->>>> and flip flag according to success/failure of that check.
->>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
->> I'll just highlight this quoted bit for David...
->>
->> I've already posted a dmi_check_system() solution too
-> 
-> What is the status of that?  Where is it?
+From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+Date: Fri, 9 Jan 2009 18:30:40 +0100
 
-You were CC'd on it each time...  Here's a copy from the archives:
+> Clearly the requirement changed in -git8, AFAICS.
 
-http://www.mail-archive.com/netdev@vger.kernel.org/msg61096.html
+Because -git8 is where the firmware requirement got added.
 
+If you build the TG3 driver statically into your kernel,
+the only way to get the firmware properly loaded is to
+enable that CONFIG_FIRMWARE_IN_KERNEL option.
 
->> -- you just need 
->> to fill in the motherboard details to fix the regression while keeping 
->> others' systems working.
-> 
-> Can you please tell Michael what info is needed to wrap this up?  And
-> how he is to obtain it?
-
-I think he posted dmidecode output.
-
-I also think he said a BIOS update fixed the problem, at least according 
-to the mail thread.
-
-	Jeff
-
-
+Your filesystem isn't mounted when the driver initializes
+in that case, therefore there is no way to get at the
+firwware that might be present there.
