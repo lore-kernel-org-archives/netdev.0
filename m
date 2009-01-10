@@ -1,73 +1,60 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [RFC 3/4] net: pppol2tp - introduce net-namespace functionality
-Date: Sat, 10 Jan 2009 18:14:33 +0000
-Message-ID: <4968E589.2020904@katalix.com>
-References: <20090109195154.320495476@gmail.com>> <4967accc.0c58560a.2ee6.3de4@mx.google.com> <49688120.9000507@katalix.com> <20090110111359.GA29349@localhost> <20090110125444.GB29349@localhost> <4968B929.10801@katalix.com> <20090110151958.GC29349@localhost> <20090110161257.GD29349@localhost>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH 2/2][RFC] virtio_net: Add MAC fitler table support
+Date: Sat, 10 Jan 2009 12:18:17 -0600
+Message-ID: <4968E669.8040707@codemonkey.ws>
+References: <1231351563.7109.130.camel@lappy> <200901102148.54962.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
-To: Cyrill Gorcunov <gorcunov@gmail.com>
+Cc: Alex Williamson <alex.williamson@hp.com>,
+	kvm <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Mark McLoughlin <markmc@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:37232 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752327AbZAJSOo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jan 2009 13:14:44 -0500
-In-Reply-To: <20090110161257.GD29349@localhost>
+Received: from an-out-0708.google.com ([209.85.132.240]:17224 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752661AbZAJSS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 13:18:28 -0500
+In-Reply-To: <200901102148.54962.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cyrill Gorcunov wrote:
-> [Cyrill Gorcunov - Sat, Jan 10, 2009 at 06:19:58PM +0300]
-> | [James Chapman - Sat, Jan 10, 2009 at 03:05:13PM +0000]
-> | | Cyrill Gorcunov wrote:
-> | | > [Cyrill Gorcunov - Sat, Jan 10, 2009 at 02:13:59PM +0300]
-> | | > | [James Chapman - Sat, Jan 10, 2009 at 11:06:08AM +0000]
-> | | > | | Cyrill Gorcunov wrote:
-> | | > | | > - Each tunnel and appropriate lock are inside own namespace now.
-> | | > | | > - pppox code allows to create per-namespace sockets for
-> | | > | | >   both PX_PROTO_OE and PX_PROTO_OL2TP protocols. Actually since
-> | | > | | >   now pppox_create support net-namespaces new PPPo... protocols
-> | | > | | >   (if they ever will be) should support net-namespace too otherwise
-> | | > | | >   explicit check for &init_net would be needed.
-> | | 
-> | | Ok, I tested this in my L2TP setup. The first ppp session setup fails
-> | | because the PPPIOCNEWUNIT ioctl returns -EEXIST. I think the problem is
-> | |  the logic in ppp_create_interface(), which does the following to create
-> | | a new ppp interface:
-> | | 
-> | |         /* Initialize the new ppp unit */
-> | |         ppp->file.index = unit;
-> | |         sprintf(dev->name, "ppp%d", unit);
-> | | 
-> | |         ret = register_netdev(dev);
-> | | 
-> | | Looks like there is more work to do in the ppp changes.
-> | | 
-> | |
-> ...
-> 
-> Btw James did connection work without these patches? On
-> pure net-next-2.6 tree? I've some bad feeling that this
-> fail is related to different patch. Just to be sure.
+Rusty Russell wrote:
+> On Thursday 08 January 2009 04:36:03 Alex Williamson wrote:
+>   
+>> virtio_net: Add MAC fitler table support
+>>     
+>
+> Ah, I see.  You really want multiple mac addresses, not just multicast
+> filtering?
+>
+> Anthony, you think a control channel?  We can add a virtqueue, but it seems like a lot of work...
+>   
 
-If you mean, does pppol2tp work with the patches applied when no
-namespace is configured, yes it does.
+I think it's the only way to solve the problem in a virtio friendly way.
 
-But to test this patch, I ran two l2tp daemons (in different namespaces
-on the same box) and used the veth device to connect them. The failure
-happened on the first l2tp session create because each side tried to
-create a ppp interface called ppp0.
+Another option would be extending the config space by a very large 
+size.  We would have to make some changes to virtio-pci to switch to 
+MMIO but that's easy enough.  From a high level perspective, I don't 
+like the idea of having the config space be extremely large and used as 
+a communication mechanism between guests.  It really should be for 
+device configuration data that's relatively static.  I think we abuse 
+the config space in the virtio-balloon driver.
 
-Should all interface names be unique across the system even when netns
-is used? If so, then ppp_generic needs to assign system-wide unique ppp
-unit numbers.
+Ideally, you'd have an area of guest memory sized by the guest (so there 
+was no intrinsic limit on table size) that was given to the host to use 
+as the filter tables.  The only way this works with virtio is if you 
+send this over a virtqueue in the form of messages.  You could write a 
+pfn to the config space but then you lose all the mapping/unmapping 
+abstraction that virtqueue gives you (even though we don't do anything 
+useful with that abstraction today :-)).
 
+So yeah, I think a control queue is the way to go.
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+Regards,
+
+Anthony Liguori
+
+> Rusty.
+>   
 
