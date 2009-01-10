@@ -1,59 +1,37 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] wimax/i2400m: convert to net_device_ops
-Date: Fri,  9 Jan 2009 18:43:49 -0800
-Message-ID: <1231555429-32020-1-git-send-email-inaky@linux.intel.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@linux-foundation.org>,
-	wimax@linuxwimax.org
-To: David Miller <davem@davemloft.net>
-Return-path: <wimax-bounces@linuxwimax.org>
-List-Unsubscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.moblin.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://www.linuxwimax.org/mailman/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Some NIPQUAD_FMT -> %pI4 conversions are broken
+Date: Fri, 09 Jan 2009 19:47:51 -0800
+Message-ID: <adaprivom8o.fsf@cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Harvey Harrison <harvey.harrison@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:29996 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010AbZAJDrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 22:47:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
----
- drivers/net/wimax/i2400m/netdev.c |   14 +++++++++-----
- 1 files changed, 9 insertions(+), 5 deletions(-)
+I just noticed (by getting a messed up print in my kernel log) that most
+of the changes to drivers/infiniband/hw/nes in commit 63779436
+("drivers: replace NIPQUAD()") were wrong: the idea was to change printk
+statements like
 
-diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
-index 63fe708..57159e4 100644
---- a/drivers/net/wimax/i2400m/netdev.c
-+++ b/drivers/net/wimax/i2400m/netdev.c
-@@ -493,6 +493,14 @@ error_skb_realloc:
- 		i2400m, buf, buf_len);
- }
- 
-+static const struct net_device_ops i2400m_netdev_ops = {
-+	.ndo_open = i2400m_open,
-+	.ndo_stop = i2400m_stop,
-+	.ndo_start_xmit = i2400m_hard_start_xmit,
-+	.ndo_tx_timeout = i2400m_tx_timeout,
-+	.ndo_change_mtu = i2400m_change_mtu,
-+};
-+
- 
- /**
-  * i2400m_netdev_setup - Setup setup @net_dev's i2400m private data
-@@ -513,11 +521,7 @@ void i2400m_netdev_setup(struct net_device *net_dev)
- 		& (~IFF_BROADCAST	/* i2400m is P2P */
- 		   & ~IFF_MULTICAST);
- 	net_dev->watchdog_timeo = I2400M_TX_TIMEOUT;
--	net_dev->open = i2400m_open;
--	net_dev->stop = i2400m_stop;
--	net_dev->hard_start_xmit = i2400m_hard_start_xmit;
--	net_dev->change_mtu = i2400m_change_mtu;
--	net_dev->tx_timeout = i2400m_tx_timeout;
-+	net_dev->netdev_ops = &i2400m_netdev_ops;
- 	d_fnend(3, NULL, "(net_dev %p) = void\n", net_dev);
- }
- EXPORT_SYMBOL_GPL(i2400m_netdev_setup);
--- 
-1.5.6.5
+	printk("..." NIPQUAD_FMT "...", NIPQUAD(foo));
+
+but most of the changes in nes were to code like
+
+	printk("..." NIPQUAD_FMT "...", HIPQUAD(foo));
+
+ie *H* IPQUAD not *N* IPQUAD, indicating the foo is in host endian
+order, and hence the new code
+
+	printk("...%pI4...", &foo);
+
+prints the IP in reverse order now.
+
+I don't see a good way to fix this without introducing a temporary
+variable to hold a swapped IP address... but is there a better way?
+
+ - R.
