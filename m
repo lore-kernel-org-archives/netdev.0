@@ -1,45 +1,23 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 1/2] smsc911x: fix smsc911x_reg_read compiler warning
-Date: Sat, 10 Jan 2009 13:29:28 +0000
-Message-ID: <1231594169-24988-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Ian Saturley <ian.saturley@smsc.com>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [86.54.240.115] ([86.54.240.115]:60415 "EHLO
-	drevil2.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753416AbZAJN24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 08:28:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Subject: Re: [patch 06/45] netrom: convert to internal net_device_stats
+Date: Sat, 10 Jan 2009 12:54:48 +0000
+Message-ID: <20090110125448.GB12807@linux-mips.org>
+References: <20090109230057.575650817@linux-foundation.org> <20090109230137.149310736@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090109230137.149310736@linux-foundation.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-if this code path is ever hit, the platform_data struct isn't properly
-configured with a bus width flag so the device won't work (hence the
-BUG()).
+On Fri, Jan 09, 2009 at 03:01:03PM -0800, Stephen Hemminger wrote:
 
-This patch adds a dummy return statement to eliminate this compiler
-warning:
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-drivers/net/smsc911x.c: In function 'smsc911x_reg_read':
-drivers/net/smsc911x.c:148: warning: control reaches end of non-void function
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/smsc911x.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index dc3f110..1f443d8 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -144,6 +144,7 @@ static inline u32 smsc911x_reg_read(struct smsc911x_data *pdata, u32 reg)
- 	}
- 
- 	BUG();
-+	return 0;
- }
- 
- static inline void smsc911x_reg_write(struct smsc911x_data *pdata, u32 reg,
--- 
-1.6.0.6
-
+  Ralf
