@@ -1,37 +1,38 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Some NIPQUAD_FMT -> %pI4 conversions are broken
-Date: Fri, 09 Jan 2009 19:47:51 -0800
-Message-ID: <adaprivom8o.fsf@cisco.com>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: [Devel] Re: [RFC][PATCH] IP address restricting cgroup subsystem
+Date: Sat, 10 Jan 2009 12:50:41 +0800
+Message-ID: <49682921.4020100@cn.fujitsu.com>
+References: <20090106230554.GB25228@eskarina.localdomain.pl>	 <49644526.8030205@cn.fujitsu.com> <20090107073831.GA23648@megiteam.pl>	 <49646993.6080802@cn.fujitsu.com> <20090107091600.GA17612@megiteam.pl>	 <496476FD.8090209@cn.fujitsu.com> <6599ad830901091338t38f5d5bav6adcd55ea188e28d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Harvey Harrison <harvey.harrison@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Grzegorz Nosek <root@localdomain.pl>, containers@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Paul Menage <menage@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:29996 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbZAJDrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2009 22:47:52 -0500
+Received: from cn.fujitsu.com ([222.73.24.84]:62152 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751493AbZAJEvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2009 23:51:39 -0500
+In-Reply-To: <6599ad830901091338t38f5d5bav6adcd55ea188e28d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I just noticed (by getting a messed up print in my kernel log) that most
-of the changes to drivers/infiniband/hw/nes in commit 63779436
-("drivers: replace NIPQUAD()") were wrong: the idea was to change printk
-statements like
+Paul Menage wrote:
+> On Wed, Jan 7, 2009 at 1:33 AM, Li Zefan <lizf@cn.fujitsu.com> wrote:
+>>> Yes, I like that. Will update the patch. I assume that I must check
+>>> list_empty(&cgroup->children)?
+>> Yes.
+>>
+>>> Should I use cgroup_lock()/cgroup_unlock()
+>> Yes.
+> 
+> For checking the "children" list, you can just lock
+> ipaddr_subsys.hierarchy_mutex.
+> 
 
-	printk("..." NIPQUAD_FMT "...", NIPQUAD(foo));
+Unfortunately hierarchy_mutex can't be used here, since hierarchy_mutex
+doesn't protect subsys's create() method, and the create() will access
+parent cgroup's data.
 
-but most of the changes in nes were to code like
 
-	printk("..." NIPQUAD_FMT "...", HIPQUAD(foo));
-
-ie *H* IPQUAD not *N* IPQUAD, indicating the foo is in host endian
-order, and hence the new code
-
-	printk("...%pI4...", &foo);
-
-prints the IP in reverse order now.
-
-I don't see a good way to fix this without introducing a temporary
-variable to hold a swapped IP address... but is there a better way?
-
- - R.
