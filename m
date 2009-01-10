@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 5/5] qeth: fix usage of netdev_ops
-Date: Fri, 09 Jan 2009 23:08:59 -0800 (PST)
-Message-ID: <20090109.230859.142542577.davem@davemloft.net>
-References: <20090109134355.784732000@de.ibm.com>
-	<20090109134443.557577000@de.ibm.com>
+Subject: Re: [PATCH] 3c59x: Use device_set_wakeup_enable
+Date: Fri, 09 Jan 2009 23:09:07 -0800 (PST)
+Message-ID: <20090109.230907.106580567.davem@davemloft.net>
+References: <20090109135317.GC6473@bayes.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com
-To: frank.blaschka@de.ibm.com
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, gwilford@gmail.com,
+	degnbol@danbbs.dk
+To: klassert@mathematik.tu-chemnitz.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56630
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56633
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753437AbZAJHI6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:08:58 -0500
-In-Reply-To: <20090109134443.557577000@de.ibm.com>
+	by vger.kernel.org with ESMTP id S1753440AbZAJHJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:09:06 -0500
+In-Reply-To: <20090109135317.GC6473@bayes.mathematik.tu-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: frank.blaschka@de.ibm.com
-Date: Fri, 09 Jan 2009 14:44:00 +0100
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Date: Fri, 9 Jan 2009 14:53:17 +0100
 
-> From: Frank Blaschka <frank.blaschka@de.ibm.com>
+> Since dev->power.should_wakeup bit is used by the PCI core to
+> decide whether the device should wake up the system from sleep
+> states, set this bit by calling device_set_wakeup_enable().
 > 
-> Have separate netdev_ops for OSA and HiperSocket/TR. 
+> This restores proper WOL for the 3c59x driver.
 > 
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+> Reported-and-tested-by: Graeme Wilford <gwilford@gmail.com>
+> Reported-by: Gunnar Degnbol <degnbol@danbbs.dk>
+> Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 
 Applied.
