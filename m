@@ -1,50 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] sfc: SFT9001: Fix condition for LNPGA power-off
-Date: Sat, 10 Jan 2009 23:05:03 +0000
-Message-ID: <1231628703.2671.3.camel@hashbaz.i.decadent.org.uk>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 15/16] dma-debug: x86 architecture bindings
+Date: Sun, 11 Jan 2009 00:04:54 +0100
+Message-ID: <20090110230454.GI17917@elte.hu>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-16-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
+	dwmw2@infradead.org, fujita.tomonori@lab.ntt.co.jp,
+	netdev@vger.kernel.org, iommu@lists.linux-foundation.org
+To: Joerg Roedel <joerg.roedel@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:1187 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751163AbZAJW7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 17:59:51 -0500
+Received: from mx2.mail.elte.hu ([157.181.151.9]:47320 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755088AbZAJXFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jan 2009 18:05:22 -0500
+Content-Disposition: inline
+In-Reply-To: <1231517970-20288-16-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only the SFX7101 requires software power control.  This was
-incorrectly being applied to the SFT9001 rev A as well.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/tenxpress.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+* Joerg Roedel <joerg.roedel@amd.com> wrote:
 
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index b976876..9ecb77d 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -636,10 +636,11 @@ static void tenxpress_phy_fini(struct efx_nic *efx)
- {
- 	int reg;
- 
--	if (efx->phy_type == PHY_TYPE_SFT9001B) {
-+	if (efx->phy_type == PHY_TYPE_SFT9001B)
- 		device_remove_file(&efx->pci_dev->dev,
- 				   &dev_attr_phy_short_reach);
--	} else {
-+
-+	if (efx->phy_type == PHY_TYPE_SFX7101) {
- 		/* Power down the LNPGA */
- 		reg = (1 << PMA_PMD_LNPGA_POWERDOWN_LBN);
- 		mdio_clause45_write(efx, efx->mii.phy_id, MDIO_MMD_PMAPMD,
+> @@ -105,6 +109,7 @@ dma_unmap_single(struct device *dev, dma_addr_t addr, size_t size,
+>  	struct dma_mapping_ops *ops = get_dma_ops(dev);
+>  
+>  	BUG_ON(!valid_dma_direction(direction));
+> +	debug_unmap_single(dev, addr, size, direction);
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It all looks very nice, i've got one small namespace structure request: 
+could you please name all the callbacks in a consistent way, so that they 
+mirror the method they instrument - with a "debug_" prefix?
 
+I.e. the above one would be: debug_dma_unmap_single().
 
+	Ingo
