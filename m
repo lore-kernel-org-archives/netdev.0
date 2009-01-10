@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] b44: fix misalignment and wasted space in rx
- handling
-Date: Fri, 09 Jan 2009 23:08:17 -0800 (PST)
-Message-ID: <20090109.230817.36393679.davem@davemloft.net>
-References: <4967459D.3070207@openwrt.org>
+Subject: Re: [PATCH] qlge: Naming interrupt vectors
+Date: Fri, 09 Jan 2009 23:08:24 -0800 (PST)
+Message-ID: <20090109.230824.231807058.davem@davemloft.net>
+References: <1231506887.10395.63.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mb@bu3sch.de
-To: nbd@openwrt.org
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
+	Robert.Olsson@data.slu.se
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56608
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56612
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752221AbZAJHIQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:08:16 -0500
-In-Reply-To: <4967459D.3070207@openwrt.org>
+	by vger.kernel.org with ESMTP id S1752953AbZAJHIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:08:23 -0500
+In-Reply-To: <1231506887.10395.63.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Fietkau <nbd@openwrt.org>
-Date: Fri, 09 Jan 2009 13:39:57 +0100
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Date: Fri, 09 Jan 2009 14:14:47 +0100
 
-> Broadcom 4400 puts a header of configurable size (apparently needs
-> to be at least 28 bytes) in front of received packets. When handling
-> this, the previous code accidentally added the offset 30 *twice* for
-> the software and once for the hardware, thereby cancelling out the
-> IP alignment effect of the 30 byte padding and wasting an additional
-> 30 bytes of memory per packet.
+> Name interrupt vectors according to the new naming standard, by Robert
+> Olsson and DaveM.
 > 
-> This patch fixes this problem and improves routing throughput by
-> about 30% on MIPS, where unaligned access is expensive.
+> The qlge driver were very close to the new standard, thus the change
+> is kind of trivial.
 > 
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 
 Applied.
