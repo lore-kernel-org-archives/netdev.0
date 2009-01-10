@@ -1,59 +1,51 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC 3/4] net: pppol2tp - introduce net-namespace functionality
-Date: Sat, 10 Jan 2009 19:12:57 +0300
-Message-ID: <20090110161257.GD29349@localhost>
-References: <20090109195154.320495476@gmail.com>> <4967accc.0c58560a.2ee6.3de4@mx.google.com> <49688120.9000507@katalix.com> <20090110111359.GA29349@localhost> <20090110125444.GB29349@localhost> <4968B929.10801@katalix.com> <20090110151958.GC29349@localhost>
+From: Paul Menage <menage@google.com>
+Subject: Re: [Devel] Re: [RFC][PATCH] IP address restricting cgroup subsystem
+Date: Sat, 10 Jan 2009 08:14:19 -0800
+Message-ID: <6599ad830901100814g5faeb611v7a36eed987c103ff@mail.gmail.com>
+References: <20090106230554.GB25228@eskarina.localdomain.pl>
+	 <49644526.8030205@cn.fujitsu.com> <20090107073831.GA23648@megiteam.pl>
+	 <49646993.6080802@cn.fujitsu.com> <20090107091600.GA17612@megiteam.pl>
+	 <496476FD.8090209@cn.fujitsu.com>
+	 <6599ad830901091338t38f5d5bav6adcd55ea188e28d@mail.gmail.com>
+	 <49682921.4020100@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: James Chapman <jchapman@katalix.com>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@openvz.org, xemul@openvz.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Grzegorz Nosek <root@localdomain.pl>, containers@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Li Zefan <lizf@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:62167 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbZAJQNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 11:13:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20090110151958.GC29349@localhost>
+Received: from smtp-out.google.com ([216.239.45.13]:58582 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752140AbZAJQOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 11:14:24 -0500
+Received: from zps77.corp.google.com (zps77.corp.google.com [172.25.146.77])
+	by smtp-out.google.com with ESMTP id n0AGEMOv008164
+	for <netdev@vger.kernel.org>; Sat, 10 Jan 2009 08:14:22 -0800
+Received: from rv-out-0506.google.com (rvbf6.prod.google.com [10.140.82.6])
+	by zps77.corp.google.com with ESMTP id n0AGEJdw009018
+	for <netdev@vger.kernel.org>; Sat, 10 Jan 2009 08:14:19 -0800
+Received: by rv-out-0506.google.com with SMTP id f6so10241027rvb.9
+        for <netdev@vger.kernel.org>; Sat, 10 Jan 2009 08:14:19 -0800 (PST)
+In-Reply-To: <49682921.4020100@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Cyrill Gorcunov - Sat, Jan 10, 2009 at 06:19:58PM +0300]
-| [James Chapman - Sat, Jan 10, 2009 at 03:05:13PM +0000]
-| | Cyrill Gorcunov wrote:
-| | > [Cyrill Gorcunov - Sat, Jan 10, 2009 at 02:13:59PM +0300]
-| | > | [James Chapman - Sat, Jan 10, 2009 at 11:06:08AM +0000]
-| | > | | Cyrill Gorcunov wrote:
-| | > | | > - Each tunnel and appropriate lock are inside own namespace now.
-| | > | | > - pppox code allows to create per-namespace sockets for
-| | > | | >   both PX_PROTO_OE and PX_PROTO_OL2TP protocols. Actually since
-| | > | | >   now pppox_create support net-namespaces new PPPo... protocols
-| | > | | >   (if they ever will be) should support net-namespace too otherwise
-| | > | | >   explicit check for &init_net would be needed.
-| | 
-| | Ok, I tested this in my L2TP setup. The first ppp session setup fails
-| | because the PPPIOCNEWUNIT ioctl returns -EEXIST. I think the problem is
-| |  the logic in ppp_create_interface(), which does the following to create
-| | a new ppp interface:
-| | 
-| |         /* Initialize the new ppp unit */
-| |         ppp->file.index = unit;
-| |         sprintf(dev->name, "ppp%d", unit);
-| | 
-| |         ret = register_netdev(dev);
-| | 
-| | Looks like there is more work to do in the ppp changes.
-| | 
-| | -- 
-| | James Chapman
-| | Katalix Systems Ltd
-| | http://www.katalix.com
-| | Catalysts for your Embedded Linux software development
-| |
-...
+On Fri, Jan 9, 2009 at 8:50 PM, Li Zefan <lizf@cn.fujitsu.com> wrote:
+>>
+>> For checking the "children" list, you can just lock
+>> ipaddr_subsys.hierarchy_mutex.
+>>
+>
+> Unfortunately hierarchy_mutex can't be used here, since hierarchy_mutex
+> doesn't protect subsys's create() method, and the create() will access
+> parent cgroup's data.
+>
 
-Btw James did connection work without these patches? On
-pure net-next-2.6 tree? I've some bad feeling that this
-fail is related to different patch. Just to be sure.
- 
-		- Cyrill -
+But that can be solved by putting a spinlock in the ipaddr_cgroup
+structure and taking it in the write handler (and the connect/bind
+handlers, which should also be using RCU), and taking the parent
+structure's lock before copying from it in the create callback. No
+need for something as heavy as cgroup_lock().
+
+Paul
