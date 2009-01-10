@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qlge: Naming interrupt vectors
-Date: Fri, 09 Jan 2009 23:08:24 -0800 (PST)
-Message-ID: <20090109.230824.231807058.davem@davemloft.net>
-References: <1231506887.10395.63.camel@localhost.localdomain>
+Subject: Re: [patch 1/5] lcs: convert to net_device_ops
+Date: Fri, 09 Jan 2009 23:08:33 -0800 (PST)
+Message-ID: <20090109.230833.261419587.davem@davemloft.net>
+References: <20090109134355.784732000@de.ibm.com>
+	<20090109134440.787579000@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
-	Robert.Olsson@data.slu.se
-To: jdb@comx.dk
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ursula.braun@de.ibm.com
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56612
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56618
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752953AbZAJHIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:08:23 -0500
-In-Reply-To: <1231506887.10395.63.camel@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753058AbZAJHId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:08:33 -0500
+In-Reply-To: <20090109134440.787579000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Date: Fri, 09 Jan 2009 14:14:47 +0100
+From: frank.blaschka@de.ibm.com
+Date: Fri, 09 Jan 2009 14:43:56 +0100
 
-> Name interrupt vectors according to the new naming standard, by Robert
-> Olsson and DaveM.
+> From: Frank Blaschka <frank.blaschka@de.ibm.com>
 > 
-> The qlge driver were very close to the new standard, thus the change
-> is kind of trivial.
+> lcs convert to net_device_ops.
 > 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 
 Applied.
