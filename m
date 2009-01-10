@@ -1,80 +1,41 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [RFC 3/4] net: pppol2tp - introduce net-namespace functionality
-Date: Sat, 10 Jan 2009 13:13:43 +0000
-Message-ID: <49689F07.3000401@katalix.com>
-References: <20090109195154.320495476@gmail.com>> <4967accc.0c58560a.2ee6.3de4@mx.google.com> <49688120.9000507@katalix.com> <20090110111359.GA29349@localhost> <20090110125444.GB29349@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
-To: Cyrill Gorcunov <gorcunov@gmail.com>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH 2/2] smsc911x: register irq with device name, not driver name
+Date: Sat, 10 Jan 2009 13:29:29 +0000
+Message-ID: <1231594169-24988-2-git-send-email-steve.glendinning@smsc.com>
+References: <1231594169-24988-1-git-send-email-steve.glendinning@smsc.com>
+Cc: Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:47960 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751441AbZAJNNw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jan 2009 08:13:52 -0500
-In-Reply-To: <20090110125444.GB29349@localhost>
+Received: from [86.54.240.115] ([86.54.240.115]:60417 "EHLO
+	drevil2.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751802AbZAJN24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 08:28:56 -0500
+In-Reply-To: <1231594169-24988-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cyrill Gorcunov wrote:
-> [Cyrill Gorcunov - Sat, Jan 10, 2009 at 02:13:59PM +0300]
-> | [James Chapman - Sat, Jan 10, 2009 at 11:06:08AM +0000]
-> | | Cyrill Gorcunov wrote:
-> | | > - Each tunnel and appropriate lock are inside own namespace now.
-> | | > - pppox code allows to create per-namespace sockets for
-> | | >   both PX_PROTO_OE and PX_PROTO_OL2TP protocols. Actually since
-> | | >   now pppox_create support net-namespaces new PPPo... protocols
-> | | >   (if they ever will be) should support net-namespace too otherwise
-> | | >   explicit check for &init_net would be needed.
-> | | > 
-> | | > CC: James Chapman <jchapman@katalix.com>
-> | | > Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-> | | > ---
-> | | >  drivers/net/pppol2tp.c |  164 ++++++++++++++++++++++++++++++++++++-------------
-> | | >  drivers/net/pppox.c    |    4 -
-> | | >  2 files changed, 121 insertions(+), 47 deletions(-)
-> | | 
-> | | Looks ok from a pppol2tp point of view, though I'm not an expert on the
-> | | netns stuff.
-> | | 
-> | | The patches don't apply against latest net-next-2.6. If you respin the
-> | | patches, I'll test them for pppol2tp.
-> | | 
-> | | -- 
-> | | James Chapman
-> | | Katalix Systems Ltd
-> | | http://www.katalix.com
-> | | Catalysts for your Embedded Linux software development
-> | | 
-> | 
-> | Thanks James for taken look on. I'll check the latest net-next-2.6
-> | tree and update the patches soon. Thanks!
-> | 
-> | 		- Cyrill -
-> 
-> James I just fetched latest net-next-2.6 with
-> commit
-> 
-> ---
-> commit 3c92ec8ae91ecf59d88c798301833d7cf83f2179
-> Merge: c4c9f01... ca9153a...
-> Author: Linus Torvalds <torvalds@linux-foundation.org>
-> Date:   Sun Dec 28 16:54:33 2008 -0800
-> 
->     Merge branch 'next' of git://git.kernel.org/pub/scm/linux/kernel/git/paulus/powerpc
-> ---
-> 
-> and patches are being applied on top without problems.
-> Maybe you have some other commits which are not propogated
-> to net-next-2.6 yet?
+This change lets "cat /proc/interrupts" show the name of the ethernet
+device (e.g. eth0) rather than the driver name (smsc911x).
 
-My mistake. I missed one of the patches when applying the series.
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/smsc911x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index 1f443d8..ad47899 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1968,7 +1968,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
+ 
+ 	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
+-			     SMSC_CHIPNAME, dev);
++			     dev->name, dev);
+ 	if (retval) {
+ 		SMSC_WARNING(PROBE,
+ 			"Unable to claim requested irq: %d", dev->irq);
 -- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+1.6.0.6
 
