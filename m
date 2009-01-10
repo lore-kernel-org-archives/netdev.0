@@ -1,38 +1,73 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/1] dccp ccid-3: Fix RFC reference
-Date: Sat, 10 Jan 2009 18:47:04 +0100
-Message-ID: <20090110174704.GA4648@gerrit.erg.abdn.ac.uk>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [RFC 3/4] net: pppol2tp - introduce net-namespace functionality
+Date: Sat, 10 Jan 2009 18:14:33 +0000
+Message-ID: <4968E589.2020904@katalix.com>
+References: <20090109195154.320495476@gmail.com>> <4967accc.0c58560a.2ee6.3de4@mx.google.com> <49688120.9000507@katalix.com> <20090110111359.GA29349@localhost> <20090110125444.GB29349@localhost> <4968B929.10801@katalix.com> <20090110151958.GC29349@localhost> <20090110161257.GD29349@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:55314 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752616AbZAJRrM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jan 2009 12:47:12 -0500
-Content-Disposition: inline
+Received: from katalix.com ([82.103.140.233]:37232 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752327AbZAJSOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jan 2009 13:14:44 -0500
+In-Reply-To: <20090110161257.GD29349@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dccp ccid-3: Fix RFC reference
+Cyrill Gorcunov wrote:
+> [Cyrill Gorcunov - Sat, Jan 10, 2009 at 06:19:58PM +0300]
+> | [James Chapman - Sat, Jan 10, 2009 at 03:05:13PM +0000]
+> | | Cyrill Gorcunov wrote:
+> | | > [Cyrill Gorcunov - Sat, Jan 10, 2009 at 02:13:59PM +0300]
+> | | > | [James Chapman - Sat, Jan 10, 2009 at 11:06:08AM +0000]
+> | | > | | Cyrill Gorcunov wrote:
+> | | > | | > - Each tunnel and appropriate lock are inside own namespace now.
+> | | > | | > - pppox code allows to create per-namespace sockets for
+> | | > | | >   both PX_PROTO_OE and PX_PROTO_OL2TP protocols. Actually since
+> | | > | | >   now pppox_create support net-namespaces new PPPo... protocols
+> | | > | | >   (if they ever will be) should support net-namespace too otherwise
+> | | > | | >   explicit check for &init_net would be needed.
+> | | 
+> | | Ok, I tested this in my L2TP setup. The first ppp session setup fails
+> | | because the PPPIOCNEWUNIT ioctl returns -EEXIST. I think the problem is
+> | |  the logic in ppp_create_interface(), which does the following to create
+> | | a new ppp interface:
+> | | 
+> | |         /* Initialize the new ppp unit */
+> | |         ppp->file.index = unit;
+> | |         sprintf(dev->name, "ppp%d", unit);
+> | | 
+> | |         ret = register_netdev(dev);
+> | | 
+> | | Looks like there is more work to do in the ppp changes.
+> | | 
+> | |
+> ...
+> 
+> Btw James did connection work without these patches? On
+> pure net-next-2.6 tree? I've some bad feeling that this
+> fail is related to different patch. Just to be sure.
 
-Thanks to Wei and Arnaldo for pointing out the correct
-new reference for CCID-3.
+If you mean, does pppol2tp work with the patches applied when no
+namespace is configured, yes it does.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+But to test this patch, I ran two l2tp daemons (in different namespaces
+on the same box) and used the veth device to connect them. The failure
+happened on the first l2tp session create because each side tried to
+create a ppp interface called ppp0.
 
---- a/net/dccp/ccids/Kconfig
-+++ b/net/dccp/ccids/Kconfig
-@@ -29,7 +29,7 @@ config IP_DCCP_CCID3
- 	  http://www.ietf.org/rfc/rfc4342.txt
- 
- 	  The TFRC congestion control algorithms were initially described in
--	  RFC 5448.
-+	  RFC 5348.
- 
- 	  This text was extracted from RFC 4340 (sec. 10.2),
- 	  http://www.ietf.org/rfc/rfc4340.txt
+Should all interface names be unique across the system even when netns
+is used? If so, then ppp_generic needs to assign system-wide unique ppp
+unit numbers.
+
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
