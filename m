@@ -1,35 +1,34 @@
-From: "Motorola Company" <info@winner.com>
-Subject: MOTOROLA PROMOTION
-Date: Sat, 10 Jan 2009 02:29:12 -0600
-Message-ID: <CcipDv4R.1231576152.2246800.solucionlogica@cablenet.com.ni>
-Reply-To: "Motorola Company" <pr_moto@yahoo.com.hk>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC 4/4] net: ppp_generic - introduce net-namespace
+	functionality
+Date: Sat, 10 Jan 2009 12:22:58 +0300
+Message-ID: <20090110092258.GA7622@localhost>
+References: <20090109195154.320495476@gmail.com>> <4967accd.0305560a.3553.ffffd187@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: info@winner.com
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org,
+	Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.cablenet.com.ni ([165.98.148.3]:52079 "EHLO
-	mail.cablenet.com.ni" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751233AbZAJIlX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 03:41:23 -0500
+Received: from ik-out-1112.google.com ([66.249.90.179]:43339 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752031AbZAJJXC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 04:23:02 -0500
+Content-Disposition: inline
+In-Reply-To: <4967accd.0305560a.3553.ffffd187@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom the online email ballot promotions held by
-Motorola Company, your email have been approved to claim the
-sum of =A3400,000 (Four hundred thousand pounds) .
+[Cyrill Gorcunov - Fri, Jan 09, 2009 at 10:51:58PM +0300]
+| - Each namespace contain ppp channels and units separately
+|   with appropriate locks
+| 
+| CC: Paul Mackerras <paulus@samba.org>
+| Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+...
 
-To file for claim, you are required to
-provide us with the information below for verification:
+Please ignore this one -- I forgot to update
+ppp_init while was porting the patch. Will
+fix.
 
-=46ull Name:
-Mailing address:
-Permanent house address:
-Country of resident:
-Phone Number:
-Age:
-Occupation:
-
-Reply this email with the information
-for claim
-(pr_moto@yahoo.com.hk)
+		- Cyrill -
