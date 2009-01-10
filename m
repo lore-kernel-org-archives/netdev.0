@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ipcomp: Remove spurious truesize increase
-Date: Fri, 09 Jan 2009 23:07:41 -0800 (PST)
-Message-ID: <20090109.230741.216082438.davem@davemloft.net>
-References: <20090109072706.GA7599@gondor.apana.org.au>
+Subject: Re: [PATCH v2] b44: fix misalignment and wasted space in rx
+ handling
+Date: Fri, 09 Jan 2009 23:08:17 -0800 (PST)
+Message-ID: <20090109.230817.36393679.davem@davemloft.net>
+References: <4967459D.3070207@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, mb@bu3sch.de
+To: nbd@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47019
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56608
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752747AbZAJHHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:07:41 -0500
-In-Reply-To: <20090109072706.GA7599@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752221AbZAJHIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2009 02:08:16 -0500
+In-Reply-To: <4967459D.3070207@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 9 Jan 2009 18:27:06 +1100
+From: Felix Fietkau <nbd@openwrt.org>
+Date: Fri, 09 Jan 2009 13:39:57 +0100
 
-> ipcomp: Remove spurious truesize increase
+> Broadcom 4400 puts a header of configurable size (apparently needs
+> to be at least 28 bytes) in front of received packets. When handling
+> this, the previous code accidentally added the offset 30 *twice* for
+> the software and once for the hardware, thereby cancelling out the
+> IP alignment effect of the 30 byte padding and wasting an additional
+> 30 bytes of memory per packet.
 > 
-> When I made ipcomp use frags, I forgot to take out the original
-> truesize update that was added for pskb_expand_head.  As we no
-> longer expand the head of skb, that update should have been removed.
+> This patch fixes this problem and improves routing throughput by
+> about 30% on MIPS, where unaligned access is expensive.
 > 
-> This bug is not related to the truesize warnings since we only
-> made it bigger than what it should've been.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 
 Applied.
