@@ -1,34 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC 4/4] net: ppp_generic - introduce net-namespace
-	functionality
-Date: Sun, 11 Jan 2009 22:20:19 +1100
-Message-ID: <20090111112019.GA29691@gondor.apana.org.au>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [PATCH] net: ppp_generic - fix broken userspace
+Date: Sun, 11 Jan 2009 21:29:49 +1100
+Message-ID: <18793.51741.28374.460500@cargo.ozlabs.ibm.com>
+References: <20090110202802.GF29349@localhost>
+	<20090110203112.GG29349@localhost>
+	<18793.15831.279207.252421@cargo.ozlabs.ibm.com>
+	<20090110.233503.222465267.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: gorcunov@gmail.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@openvz.org, xemul@openvz.org
-To: paulus@samba.org
+Content-Transfer-Encoding: 7bit
+Cc: gorcunov@gmail.com, akpm@linux-foundation.org,
+	jchapman@katalix.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39337 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750938AbZAKLUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 06:20:33 -0500
-Content-Disposition: inline
+Received: from ozlabs.org ([203.10.76.45]:47049 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751367AbZAKLdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jan 2009 06:33:10 -0500
+In-Reply-To: <20090110.233503.222465267.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Mackerras <paulus@samba.org> wrote:
+David Miller writes:
+
+> PPP was converted to use IDR instead of PPP's duplicate
+> implementation.
 > 
-> This looks like a lot of uglification to me.  Why exactly do
-> individual network drivers need to know or care about namespaces?
+> A bug was introduced in that conversion, and that bug is being fixed
+> here.
+> 
+> What is not to like? :-)
 
-I think ppp is special because it's closer to the tunnel drivers
-than a straight NIC driver which is why it needs this work.
+Ah OK, that sounds all right.  I was reacting to the "broken
+userspace" in the patch description which at first glance seemed to be
+saying that userspace (i.e. pppd :) is doing something which has
+recently been declared to be wrong and therefore it is "broken".
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I think "fix broken userspace" as a patch headline is quite
+ambiguous.  Something like "Fix bug in conversion to use IDR" would be
+more informative.
+
+Paul.
