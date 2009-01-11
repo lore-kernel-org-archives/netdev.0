@@ -1,58 +1,79 @@
-From: Joerg Roedel <joro@8bytes.org>
-Subject: Re: [PATCH 08/16] dma-debug: add core checking functions
-Date: Sun, 11 Jan 2009 09:34:02 +0100
-Message-ID: <20090111083402.GN9466@8bytes.org>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-9-git-send-email-joerg.roedel@amd.com> <20090110231127.GK17917@elte.hu> <20090111075752.GI9466@8bytes.org>
+From: Daniele Venzano <venza@brownhat.org>
+Subject: [PATCH] SIS900 show warning if bogus MAC address
+Date: Sun, 11 Jan 2009 09:45:04 +0100
+Message-ID: <20090111084504.GB12226@brownhat.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: iommu@lists.linux-foundation.org, mingo@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: multipart/mixed; boundary="7AUc2qLy4jB3hD7Z"
+Cc: akpm@linux-foundation.org, venza@brownhat.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 8bytes.org ([88.198.83.132]:33477 "EHLO 8bytes.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750836AbZAKIeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jan 2009 03:34:05 -0500
+Received: from smtp1.infomaniak.ch ([84.16.68.89]:43203 "EHLO
+	smtp1.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbZAKIzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 03:55:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20090111075752.GI9466@8bytes.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 11, 2009 at 08:57:52AM +0100, Joerg Roedel wrote:
-> On Sun, Jan 11, 2009 at 12:11:27AM +0100, Ingo Molnar wrote:
-> > 
-> > * Joerg Roedel <joerg.roedel@amd.com> wrote:
-> > 
-> > > +#define err_printk(dev, format, arg...) do {			\
-> > > +		error_count += 1;				\
-> > > +		if (show_all_errors || show_num_errors > 0) {	\
-> > > +			WARN(1, "%s %s: " format,		\
-> > > +			     dev_driver_string(dev),		\
-> > > +			     dev_name(dev) , ## arg);		\
-> > > +		}						\
-> > > +		if (!show_all_errors && show_num_errors > 0)	\
-> > > +			show_num_errors -= 1;			\
-> > 
-> > Note that the arithmetics here is SMP-unsafe: we only hold the hash bucket 
-> > so if two errors hit at once on two CPUs then the error tracking variables 
-> > can be accessed at once.
-> > 
-> > I'd suggest a simple global lock for this error case (taken inside the 
-> > hash bucket lock), to be on the safe side.
-> > 
-> > Also, please dont use a macro for this - printk details can be passed in 
-> > to helper inlines/functions too.
-> 
-> Yeah, this is not SMP-safe, I know. But debugfs does not support
-> atomic_t so I made the variables u32. But at least a race condition has
-> not a too bad impact. What may habben is that error_count misses a error
-> or the show_num_errors become negative.
-> But if we really want to avoid this I think its better to add atomic_t
-> support to debugfs. What do you think?
 
-Even a global lock will not really help here because show_num_errors and
-show_all_errors can be set using debugfs. Either we live with the small
-race (with limited impact) or I add atomic_t support to debugfs.
+--7AUc2qLy4jB3hD7Z
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Joerg
+The attached patch modifies the sis900 driver to show a warning at boot
+or module load time to show a message when a null MAC address
+(00:00:00:00:00:00) is read from the the hardware.
+This seems to happen with newer usage of the sis900 chipset, since this
+never came up before.
 
+Signed-off-by: Daniele Venzano <venza@brownhat.org>
+
+--
+Daniele Venzano
+http://www.brownhat.org
+
+
+--7AUc2qLy4jB3hD7Z
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="sis900_check_mac.diff"
+
+--- a/drivers/net/sis900.c	2008-12-31 09:15:17.000000000 +0100
++++ b/drivers/net/sis900.c	2008-12-31 09:24:47.000000000 +0100
+@@ -382,6 +382,25 @@ static int __devinit sis96x_get_mac_addr
+ }
+ 
+ /**
++ *      sis900_check_mac_addr - Check the MAc adress for validity
++ *	@net_dev: the net device that has the address to check
++ *
++ * 	Return false (0) if the mac address read from the hardware is
++ * 	composed of all zeros.
++ */
++
++static int __devinit sis900_check_mac_addr(struct net_device *net_dev)
++{
++	int i;
++
++	for (i = 0; i < 6; i++)
++		if (net_dev->dev_addr[i] != 0)
++			return 1;
++
++	return 0;
++}
++
++/**
+  *	sis900_probe - Probe for sis900 device
+  *	@pci_dev: the sis900 pci device
+  *	@pci_id: the pci device ID
+@@ -504,6 +523,9 @@ static int __devinit sis900_probe(struct
+ 	else
+ 		ret = sis900_get_mac_addr(pci_dev, net_dev);
+ 
++	if (sis900_check_mac_addr(net_dev) == 0)
++		printk(KERN_WARNING "%s: Read an invalid MAC address, remember to set one manually\n", dev_name);
++
+ 	if (ret == 0) {
+ 		printk(KERN_WARNING "%s: Cannot read MAC address.\n", dev_name);
+ 		ret = -ENODEV;
+
+--7AUc2qLy4jB3hD7Z--
