@@ -1,53 +1,158 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Sun, 11 Jan 2009 15:58:00 +0300
-Message-ID: <20090111125759.GB24173@ioremap.net>
-References: <4966F2F4.9080901@cosmosbay.com> <49677074.5090802@cosmosbay.com> <20090109185448.GA1999@1wt.eu> <4967B8C5.10803@cosmosbay.com> <20090109212400.GA3727@1wt.eu> <20090109220737.GA4111@1wt.eu> <4967CBB9.1060403@cosmosbay.com> <20090109221744.GA4819@1wt.eu> <20090109224258.GA10257@ioremap.net> <496850D5.8040907@cosmosbay.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
+ (-git7 is ok)
+Date: Sun, 11 Jan 2009 12:59:59 +0000
+Message-ID: <1231678799.25018.195.camel@macbook.infradead.org>
+References: <5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
+	 <20090109.140422.60087297.davem@davemloft.net>
+	 <43805.1231672258@turing-police.cc.vt.edu>
+	 <20090111.040842.86784676.davem@davemloft.net>
+	 <1231676698.25018.147.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	ben@zeus.com, jarkao2@gmail.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Valdis.Kletnieks@vt.edu, alessandro.suardi@gmail.com,
+	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from matrixpower.ru ([195.178.208.66]:47558 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751577AbZAKM6C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jan 2009 07:58:02 -0500
-Content-Disposition: inline
-In-Reply-To: <496850D5.8040907@cosmosbay.com>
+Received: from casper.infradead.org ([85.118.1.10]:42121 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751617AbZAKNCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 08:02:38 -0500
+In-Reply-To: <1231676698.25018.147.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric.
+On Sun, 2009-01-11 at 12:25 +0000, David Woodhouse wrote:
+> I'll take a look and see if I can remedy that. Then we wouldn't _need_
+> the FIRMWARE_IN_KERNEL option.
 
-On Sat, Jan 10, 2009 at 08:40:05AM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > Not to interrupt the discussion, but for the clarification, that
-> > release_sock/lock_sock is used to process the backlog accumulated while
-> > socket was locked. And while dropping additional pair before the final
-> > release is ok, but moving this itself should be thought of twice.
-> > 
-> 
-> Hum... I just caught the release_sock(sk)/lock_sock(sk) done in skb_splice_bits()
-> 
-> So :
-> 
-> 1) the release_sock/lock_sock done in tcp_splice_read() is not necessary
-> to process backlog. Its already done in skb_splice_bits()
+How about this? If it fails to load the firmware from userspace during
+the initialisation, it'll try again later in tg3_open(). 
 
-Yes, in the tcp_splice_read() they are added to remove a deadlock.
+I _think_ that's fine, because we don't do anything else in the early
+initialisation which requires the firmware to be loaded.
 
-> 2) If we loop in tcp_read_sock() calling skb_splice_bits() several times
-> then we should perform the following tests inside this loop ?
-> 
-> if (sk->sk_err || sk->sk_state == TCP_CLOSE || (sk->sk_shutdown & RCV_SHUTDOWN) ||
->    signal_pending(current)) break;
-> 
-> And removie them from tcp_splice_read() ?
+So if you build with CONFIG_TIGON3=y, CONFIG_FIRMWARE_IN_KERNEL=n, you
+should see it fail to load the firmware at boot, but then it should load
+it successfully when you bring the device up.
 
-It could be done, but for what reason? To detect disconnected socket early?
-Does it worth the changes?
+Untested-but-otherwise-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 5e2dbae..f99218c 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -7535,11 +7535,45 @@ static int tg3_test_msi(struct tg3 *tp)
+ 	return err;
+ }
+ 
++static int tg3_request_firmware(struct tg3 *tp)
++{
++	const __be32 *fw_data;
++
++	if (request_firmware(&tp->fw, tp->fw_needed, &tp->pdev->dev)) {
++		printk(KERN_ERR "tg3: Failed to load firmware \"%s\"\n",
++		       tp->fw_needed);
++		return -ENOENT;
++	}
++
++	fw_data = (void *)tp->fw->data;
++
++	/* Firmware blob starts with version numbers, followed by
++	   start address and _full_ length including BSS sections
++	   (which must be longer than the actual data, of course */
++
++	tp->fw_len = be32_to_cpu(fw_data[2]);	/* includes bss */
++	if (tp->fw_len < (tp->fw->size - 12)) {
++		printk(KERN_ERR "tg3: bogus length %d in \"%s\"\n",
++		       tp->fw_len, tp->fw_needed);
++		return -EINVAL;
++	}
++
++	/* We no longer need firmware; we have it. */
++	tp->fw_needed = NULL;
++	return 0;
++}
++
+ static int tg3_open(struct net_device *dev)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+ 	int err;
+ 
++	if (tp->fw_needed) {
++		err = tg3_request_firmware(tp);
++		if (err)
++			return err;
++	}
++
+ 	netif_carrier_off(tp->dev);
+ 
+ 	err = tg3_set_power_state(tp, PCI_D0);
+@@ -12934,7 +12968,6 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	struct net_device *dev;
+ 	struct tg3 *tp;
+ 	int err, pm_cap;
+-	const char *fw_name = NULL;
+ 	char str[40];
+ 	u64 dma_mask, persist_dma_mask;
+ 
+@@ -13091,7 +13124,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	tg3_init_bufmgr_config(tp);
+ 
+ 	if (tp->pci_chip_rev_id == CHIPREV_ID_5701_A0)
+-		fw_name = FIRMWARE_TG3;
++		tp->fw_needed = FIRMWARE_TG3;
+ 
+ 	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
+ 		tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE;
+@@ -13107,34 +13140,19 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	}
+ 	if (tp->tg3_flags2 & TG3_FLG2_TSO_CAPABLE) {
+ 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)
+-			fw_name = FIRMWARE_TG3TSO5;
++			tp->fw_needed = FIRMWARE_TG3TSO5;
+ 		else
+-			fw_name = FIRMWARE_TG3TSO;
++			tp->fw_needed = FIRMWARE_TG3TSO;
+ 	}
+ 
+-	if (fw_name) {
+-		const __be32 *fw_data;
+-
+-		err = request_firmware(&tp->fw, fw_name, &tp->pdev->dev);
+-		if (err) {
+-			printk(KERN_ERR "tg3: Failed to load firmware \"%s\"\n",
+-			       fw_name);
+-			goto err_out_iounmap;
+-		}
+-
+-		fw_data = (void *)tp->fw->data;
+-
+-		/* Firmware blob starts with version numbers, followed by
+-		   start address and _full_ length including BSS sections
+-		   (which must be longer than the actual data, of course */
+-
+-		tp->fw_len = be32_to_cpu(fw_data[2]);	/* includes bss */
+-		if (tp->fw_len < (tp->fw->size - 12)) {
+-			printk(KERN_ERR "tg3: bogus length %d in \"%s\"\n",
+-			       tp->fw_len, fw_name);
+-			err = -EINVAL;
++	if (tp->fw_needed) {
++		err = tg3_request_firmware(tp);
++		/* Failure to load firmware at this stage is not fatal; we'll
++		   try again in tg3_open(). So if you have the driver built
++		   into the kernel, you can still get the firmware loaded
++		   after userspace is running, when the device comes up. */
++		if (err != -ENOENT)
+ 			goto err_out_fw;
+-		}
+ 	}
+ 
+ 	/* TSO is on by default on chips that support hardware TSO.
 
 -- 
-	Evgeniy Polyakov
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
