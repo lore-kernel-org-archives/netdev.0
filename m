@@ -1,26 +1,60 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] infiniband: fix for NIPQUAD removal
-Date: Sat, 10 Jan 2009 21:46:28 -0800
-Message-ID: <aday6ximm2z.fsf@cisco.com>
-References: <1231651594.5714.65.camel@brick>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: can't apply sch_multiq
+Date: Sun, 11 Jan 2009 09:06:20 +0300
+Message-ID: <49698C5C.6040609@bigtelecom.ru>
+References: <4963392A.2000709@bigtelecom.ru> <80769D7B14936844A23C0C43D9FBCF0F24A2DE19@orsmsx501.amr.corp.intel.com> <Pine.LNX.4.64.0901071304130.11851@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:12749 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbZAKFqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 00:46:30 -0500
-In-Reply-To: <1231651594.5714.65.camel@brick> (Harvey Harrison's message of
-	"Sat, 10 Jan 2009 21:26:34 -0800")
+Received: from mail.bigtelecom.ru ([87.255.0.61]:57404 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750893AbZAKGGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 01:06:24 -0500
+In-Reply-To: <Pine.LNX.4.64.0901071304130.11851@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-applied, thanks a lot for fixing this.
+Thanks all!
 
-any further work you want to do in cleaning up some of the endian mess
-in this driver would be gratefully received :)
+I hope iproute2 build release for new features what added at 2.6.28 =)
 
- - R.
+Best regals, Badalian Vyacheslav
+
+>
+> On Tue, 6 Jan 2009, Duyck, Alexander H wrote:
+>
+>> Badalian Vyacheslav wrote:
+>>> Hello all.
+>>> kernel 2.6.28, iproute2 - 2.6.26 (last release)
+>>>
+>> The only part that is probably missing is that I don't believe the
+>> sch_multiq patch been accepted into the iproute2.  Once that is in
+>> then tc should work with the multiq qdisc without any issues.
+>
+> You can use the lastest iproute2 git tree at:
+>
+>  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+>
+> I just checked that the sch_multiq changes have been added to this
+> tree (although it looks like Stephen just added that patch yesterday ;-))
+>
+> Cheers,
+>   Jesper Brouer
+>
+> -- 
+> -------------------------------------------------------------------
+> MSc. Master of Computer Science
+> Dept. of Computer Science, University of Copenhagen
+> Author of http://www.adsl-optimizer.dk
+> -------------------------------------------------------------------
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
