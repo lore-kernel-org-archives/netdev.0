@@ -1,37 +1,39 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [RFC 0/4] net namespace for PPP
-Date: Mon, 12 Jan 2009 00:27:00 +0300
-Message-ID: <20090111212700.GA4008@x200.localdomain>
-References: <4967acca.0437560a.511e.0221@mx.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
+ (-git7 is ok)
+Date: Sun, 11 Jan 2009 13:39:29 -0800 (PST)
+Message-ID: <20090111.133929.57600645.davem@davemloft.net>
+References: <43805.1231672258@turing-police.cc.vt.edu>
+	<20090111.040842.86784676.davem@davemloft.net>
+	<1231676698.25018.147.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
-To: Cyrill Gorcunov <gorcunov@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Valdis.Kletnieks@vt.edu, alessandro.suardi@gmail.com,
+	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:15094 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753906AbZAKVVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 16:21:44 -0500
-Content-Disposition: inline
-In-Reply-To: <4967acca.0437560a.511e.0221@mx.google.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38330
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752924AbZAKVj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 16:39:29 -0500
+In-Reply-To: <1231676698.25018.147.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2009 at 10:51:54PM +0300, Cyrill Gorcunov wrote:
-> here is a series of RFC in attempt to implement
-> net-namespaces for PPP protocol (including PPPoE
-> and PPPoL2TP).
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Sun, 11 Jan 2009 12:24:58 +0000
 
-You need assign netns to netdevice after alloc_netdev().
-This should fix much confusion and non-bugs mentioned in this thread.
+> Other drivers will load the firmware later, at the time the device is
+> brought up. This means that even if you build the driver into the kernel
+> without its firmware, it can still request the firmware later, when you
+> try to start _using_ it. And when the file system is available.
 
-After that struct ppp shouldn't need netns pointer as it will be netns
-of it's netdevice.
+For example, for mounting an NFS root using that device.... Oh, will I
+need an initramfs for that once you pull the firmware-in-kernel
+option?
 
-current->nsproxy->net_ns while being correct in ioctl context
-(it's synchronous) is easy to screwup. For example, in netfilter code netns
-is taken from socket on which ioctl is done.
-
-Regardless of netns, try_module_get() calls by hand are suspicious
-and they're copied to netns init hook.
+To me, device probe is in fact the place to fail firmware discovery
+for networking devices.  Because such a failure can mean you can't
+mount your root filesystem.
