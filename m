@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix section mismatch warnings in
- dccp/ccids/lib/tfrc.c
-Date: Sun, 11 Jan 2009 00:11:43 -0800 (PST)
-Message-ID: <20090111.001143.261474932.davem@davemloft.net>
-References: <20090108232847.GV23891@ghostprotocols.net>
-	<20090108.154354.251018369.davem@davemloft.net>
-	<50007.81.62.190.199.1231608264.squirrel@81.62.190.199>
+Subject: Re: [PATCH 1/2] smsc911x: fix smsc911x_reg_read compiler warning
+Date: Sun, 11 Jan 2009 00:14:33 -0800 (PST)
+Message-ID: <20090111.001433.209033327.davem@davemloft.net>
+References: <1231594169-24988-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@redhat.com, lpotenza@inwind.it, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
+To: steve.glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45997
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56114
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750955AbZAKILm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 03:11:42 -0500
-In-Reply-To: <50007.81.62.190.199.1231608264.squirrel@81.62.190.199>
+	by vger.kernel.org with ESMTP id S1750946AbZAKIOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 03:14:32 -0500
+In-Reply-To: <1231594169-24988-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: gerrit@erg.abdn.ac.uk
-Date: Sat, 10 Jan 2009 17:24:24 -0000 (GMT)
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Sat, 10 Jan 2009 13:29:28 +0000
 
-> >>
-> >> Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> >
-> > I'll take care of this, thanks!
+> if this code path is ever hit, the platform_data struct isn't properly
+> configured with a bus width flag so the device won't work (hence the
+> BUG()).
 > 
-> Thank you - if it is not too late,
-> Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> This patch adds a dummy return statement to eliminate this compiler
+> warning:
+> 
+> drivers/net/smsc911x.c: In function 'smsc911x_reg_read':
+> drivers/net/smsc911x.c:148: warning: control reaches end of non-void function
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 
-Ack added, thanks for the review :)
+Applied.
