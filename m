@@ -1,54 +1,53 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH] korina: fix probing crash
-Date: Sun, 11 Jan 2009 16:54:24 +0100
-Message-ID: <200901111654.24651.florian@openwrt.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Sun, 11 Jan 2009 19:05:48 +0300
+Message-ID: <20090111160548.GA362@ioremap.net>
+References: <20090109212400.GA3727@1wt.eu> <20090109220737.GA4111@1wt.eu> <4967CBB9.1060403@cosmosbay.com> <20090109221744.GA4819@1wt.eu> <20090109224258.GA10257@ioremap.net> <496850D5.8040907@cosmosbay.com> <20090111125759.GB24173@ioremap.net> <4969F0D1.8020504@cosmosbay.com> <20090111133533.GB25337@ioremap.net> <496A17A5.7010200@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, jeff@garzik.org,
-	netdev@vger.kernel.org, Phil Sutter <n0-1@freewrt.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
+	ben@zeus.com, jarkao2@gmail.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:35540 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751746AbZAKPyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 10:54:31 -0500
-Received: by bwz14 with SMTP id 14so31067631bwz.13
-        for <netdev@vger.kernel.org>; Sun, 11 Jan 2009 07:54:29 -0800 (PST)
+Received: from tservice.net.ru ([195.178.208.66]:59903 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751936AbZAKQFu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jan 2009 11:05:50 -0500
 Content-Disposition: inline
+In-Reply-To: <496A17A5.7010200@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH] korina: fix probing crash
+On Sun, Jan 11, 2009 at 05:00:37PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> >>>> 1) the release_sock/lock_sock done in tcp_splice_read() is not necessary
+> >>>> to process backlog. Its already done in skb_splice_bits()
+> >>> Yes, in the tcp_splice_read() they are added to remove a deadlock.
+> >> Could you elaborate ? A deadlock only if !SPLICE_F_NONBLOCK ?
+> > 
+> > Sorry, I meant that we drop lock in skb_splice_bits() to prevent the deadlock,
+> > and tcp_splice_read() needs it to process the backlog.
+> 
+> While we drop lock in skb_splice_bits() to prevent the deadlock, we
+> also process backlog at this stage. No need to process backlog
+> again in the higher level function.
 
-This patch fixes the wrong retrieval of platform_data
-which makes the driver crash on probe. Propagate error
-if the platform_driver cannot use its data.
+Yes, but having it earlier allows to receive new skb while processing
+already received.
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index e185763..b2a3949 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -1078,12 +1078,18 @@ static int korina_close(struct net_device *dev)
- 
- static int korina_probe(struct platform_device *pdev)
- {
--	struct korina_device *bif = platform_get_drvdata(pdev);
-+	struct korina_device *bif;
- 	struct korina_private *lp;
- 	struct net_device *dev;
- 	struct resource *r;
- 	int rc;
- 
-+	bif = (struct korina_device *)pdev->dev.platform_data;
-+	if (!bif) {
-+		printk(KERN_ERR DRV_NAME ": missing platform data\n");
-+		return -ENODEV;
-+	}
-+
- 	dev = alloc_etherdev(sizeof(struct korina_private));
- 	if (!dev) {
- 		printk(KERN_ERR DRV_NAME ": alloc_etherdev failed\n");
+> > I think that even with non-blocking splice that release_sock/lock_sock
+> > is needed, since we are able to do a parallel job: to receive new data
+> > (scheduled by early release_sock backlog processing) in bh and to
+> > process already received data via splice codepath.
+> > Maybe in non-blocking splice mode this is not an issue though, but for
+> > the blocking mode this allows to grab more skbs at once in skb_splice_bits.
+> 
+> skb_splice_bits() operates on one skb, you lost me :)
+
+Exactly, and to have it we earlier release a socket so that it could be
+acked and while we copy it or doing anything else, the next one would
+received.
+
+-- 
+	Evgeniy Polyakov
