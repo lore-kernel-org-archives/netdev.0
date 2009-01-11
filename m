@@ -1,37 +1,51 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [Bug #12160] networking oops after resume from s2ram (2.6.28-rc6)
-Date: Sun, 11 Jan 2009 12:41:01 +0100 (CET)
-Message-ID: <nHCfeC0YLrE.A.xMD.hbfaJB@chimera>
-References: <nn3SOLVZ28H.A.bY.CafaJB@chimera>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: MAC address runtime configuration in new driver (was Re: ...no subject)
+Date: Sun, 11 Jan 2009 16:12:14 +0100
+Message-ID: <496A0C4E.5040502@s5r6.in-berlin.de>
+References: <204164.94418.qm@web34403.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers@vger.kernel.org>,
-	"Marcin Slusarz" <marcin.slusarz@gmail.com>,
-	"netdev" <netdev@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: joseluismarchetti@yahoo.com.br
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:36814 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752932AbZAKN5o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 08:57:44 -0500
-In-Reply-To: <nn3SOLVZ28H.A.bY.CafaJB@chimera>
-Content-Disposition: inline
+Received: from einhorn.in-berlin.de ([192.109.42.8]:44080 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751311AbZAKPMX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 10:12:23 -0500
+In-Reply-To: <204164.94418.qm@web34403.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This message has been generated automatically as a part of a report
-of regressions introduced between 2.6.27 and 2.6.28.
+Jose Luis Marchetti wrote:
+> Hi,
+>=20
+> I would like to open/read/write/close a regular file from my device
+> driver.
+> I think it would be possible, but I am confused, the "The Linux Kerne=
+l
+> Module Programming Guide" states that I can not use standard librarie=
+s
+> from within a module, I know the standard library ends up calling
+> system calls, but which calls should I use to deal with regular
+> files ?
 
-The following bug entry is on the current list of known regressions
-introduced between 2.6.27 and 2.6.28.  Please verify if it still should
-be listed and let me know (either way).
+http://kernelnewbies.org/FAQ/WhyWritingFilesFromKernelIsBad discusses t=
+his.
 
+> I am developing a Ethernet driver and the Mac address configuration
+>=20
+> Thanks in advance!
+>=20
+> Jos=E9 Lu=EDs Marchetti
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12160
-Subject		: networking oops after resume from s2ram (2.6.28-rc6)
-Submitter	: Marcin Slusarz <marcin.slusarz@gmail.com>
-Date		: 2008-11-28 21:15 (45 days old)
-References	: http://marc.info/?l=linux-kernel&m=122790701615723&w=4
-
-
+Userspace could write the necessary configuration data into the kernel,
+for example a sysfs attribute.  Of course the attribute could also be
+readable.  But perhaps there are already established mechanisms for
+exactly this purpose.  I added Cc: netdev, maybe somebody there can giv=
+e
+advice.
+--=20
+Stefan Richter
+-=3D=3D=3D=3D=3D-=3D=3D--=3D ---=3D -=3D-=3D=3D
+http://arcgraph.de/sr/
