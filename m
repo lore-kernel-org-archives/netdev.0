@@ -1,61 +1,65 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29-rc1: Reported regressions from 2.6.28
-Date: Sun, 11 Jan 2009 20:00:59 +0100
-Message-ID: <200901112001.00394.rjw@sisk.pl>
-References: <XU-8icArWLM.A.UpG.8GfaJB@chimera> <3f9a31f40901110546h4c069b5dx9726a0fbf8caf5a1@mail.gmail.com> <20090111135237.GA20184@elte.hu>
+From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
+Date: Sun, 11 Jan 2009 20:24:02 +0100
+Message-ID: <5a4c581d0901111124p753e0436q5dc3f4645e481c8b@mail.gmail.com>
+References: <5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
+	 <20090109.140422.60087297.davem@davemloft.net>
+	 <43805.1231672258@turing-police.cc.vt.edu>
+	 <20090111.040842.86784676.davem@davemloft.net>
+	 <1231676698.25018.147.camel@macbook.infradead.org>
+	 <1231678799.25018.195.camel@macbook.infradead.org>
+	 <5a4c581d0901110842i5520cea1uff89d5772d0f3b6e@mail.gmail.com>
+	 <1231692789.25018.415.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20090111135237.GA20184@elte.hu>
+Cc: "David Miller" <davem@davemloft.net>, Valdis.Kletnieks@vt.edu,
+	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "David Woodhouse" <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:34724 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221AbZAKTYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 14:24:04 -0500
+In-Reply-To: <1231692789.25018.415.camel@macbook.infradead.org>
 Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 11 January 2009, Ingo Molnar wrote:
-> 
-> * Jaswinder Singh Rajput <jaswinderlinux@gmail.com> wrote:
-> 
-> > On Sun, Jan 11, 2009 at 4:42 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> > >
-> > > Regressions with patches
-> > > ------------------------
-> > >
-> > > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12428
-> > > Subject         : Build error on latest git
-> > > Submitter       : Petr Titera <P.Titera@century.cz>
-> > > Date            : 2009-01-11 9:49 (1 days old)
-> > > References      : http://marc.info/?l=linux-kernel&m=123166856318712&w=4
-> > > Handled-By      : Petr Titera <P.Titera@century.cz>
-> > > Patch           : http://marc.info/?l=linux-kernel&m=123167509024996&w=4
-> > 
-> > This is a wrong fix, asm/smp.h should only be included when CONFIG_SMP 
-> > is defined.
-> > 
-> > I am still in the process of cleaning non-smp data from asm/smp.h for 
-> > x86
-> > 
-> > Attach patch is the solution for the time being
-> > 
-> > Ingo, can you please put this in urgent queue.
-> 
-> yes, it already is - see below.
+On Sun, Jan 11, 2009 at 5:53 PM, David Woodhouse <dwmw2@infradead.org> wrote:
+> On Sun, 2009-01-11 at 17:42 +0100, Alessandro Suardi wrote:
+>> Patches cleanly but doesn't build in 2.6.29-rc1:
+>
+> Pants; sorry, I omitted this bit...
+>
+> diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+> index ae5da60..508def3 100644
+> --- a/drivers/net/tg3.h
+> +++ b/drivers/net/tg3.h
+> @@ -2764,6 +2764,7 @@ struct tg3 {
+>        struct ethtool_coalesce         coal;
+>
+>        /* firmware info */
+> +       const char                      *fw_needed;
+>        const struct firmware           *fw;
+>        u32                             fw_len; /* includes BSS */
+>  };
+>
 
-Link to this patch was added to the bug entry.  Pleaes let me know or close the
-bug when it's merged.
+This one works, thank you.
 
-Thanks,
-Rafael
+However, with the combination of in-kernel tg3 and
+ CONFIG_IN_KERNEL_FIRMWARE=n there is at least a 30" delay
+ during boot while waiting for the firmware request (which will fail).
+
+Such wait didn't use to be there, and stuff worked. Could the wait
+ be removed, to behave as it used to - as well ?
+
+Thanks again, ciao,
+
+--alessandro
+
+ "Sun keeps rising in the west / I keep on waking fully confused"
+
+   (The Replacements, "Within Your Reach")
