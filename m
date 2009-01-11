@@ -1,43 +1,37 @@
-From: bert hubert <bert.hubert@netherlabs.nl>
-Subject: SO_LINGER dead: I get an immediate RST on 2.6.24?
-Date: Sun, 11 Jan 2009 22:23:03 +0100
-Message-ID: <20090111212303.GA8612@outpost.ds9a.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
+ (-git7 is ok)
+Date: Sun, 11 Jan 2009 13:49:37 -0800 (PST)
+Message-ID: <20090111.134937.135396505.davem@davemloft.net>
+References: <1231676698.25018.147.camel@macbook.infradead.org>
+	<1231678799.25018.195.camel@macbook.infradead.org>
+	<58054.1231692502@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dwmw2@infradead.org, alessandro.suardi@gmail.com,
+	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpost.ds9a.nl ([85.17.220.215]:40006 "EHLO outpost.ds9a.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753299AbZAKVtI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jan 2009 16:49:08 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53637
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751568AbZAKVtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 16:49:36 -0500
+In-Reply-To: <58054.1231692502@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi everybody,
+From: Valdis.Kletnieks@vt.edu
+Date: Sun, 11 Jan 2009 11:48:22 -0500
 
-I have an application where I need to send data from A to B, and beforehand,
-I don't know how much data this will be. 
+> One unanswered question:  What do we expect the system to do if they have this
+> patch, TIGON3=y, FIRMWARE_IN_KERNEL=n, and configure a netconsole for boot
+> messages?  I'm *hoping* the answer is "the netconsole doesn't come up at boot,
+> but can be re-enabled via the /sys/kernel/config/netconsole interface after
+> you've done an 'ifconfig eth0 up' or similar, or do a 'modprobe netconsole'.
+> 
+> Those seem like reasonable semantics to me - anybody got a different opinion?
 
-B is 'stupid', and consists solely of a TCP/IP port accepting data, and I
-have no way to chunk this data. So what I do is issue blocking calls to
-write(), shutdown(fd, SHUT_WR), and wait for the fd to become readable which
-tells me that the remote has packed up, and I'm good to go.
-
-Before this, I've tried SO_LINGER with various timeouts but nothing helped.
-
-When I tcpdump, I find that my close() is immediately turned into an RST
-packet.
-
-Is SO_LINGER a NOOP? Does it still do anything?
-
-I'm about to blog this up - the 'shutdown() and read()' technique is
-something I had to purloin from the Apache source.
-
-So I'd love to know the words of the wise on this one.
-
-Thanks.
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+Even better, how about nfsroot?  There is no "later", either you
+can mount to root filesystem or you fail.
