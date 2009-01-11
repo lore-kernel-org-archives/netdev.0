@@ -1,77 +1,46 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH 15/16] dma-debug: x86 architecture bindings
-Date: Sun, 11 Jan 2009 15:25:47 +0900
-Message-ID: <20090111152209D.fujita.tomonori@lab.ntt.co.jp>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
-	<1231517970-20288-16-git-send-email-joerg.roedel@amd.com>
+Subject: Re: [PATCH 0/16] DMA-API debugging facility v2
+Date: Sun, 11 Jan 2009 15:25:46 +0900
+Message-ID: <20090111150526N.fujita.tomonori@lab.ntt.co.jp>
+References: <1231536264.10384.11.camel@HP1>
+	<20090109223327.GD9466@8bytes.org>
+	<20090109223747.GE9466@8bytes.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
-	dwmw2@infradead.org, fujita.tomonori@lab.ntt.co.jp,
-	netdev@vger.kernel.org, iommu@lists.linux-foundation.org
-To: joerg.roedel@amd.com
+Cc: mchan@broadcom.com, iommu@lists.linux-foundation.org,
+	mingo@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: joro@8bytes.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:45345 "EHLO sh.osrg.net"
+Received: from sh.osrg.net ([192.16.179.4]:45347 "EHLO sh.osrg.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750959AbZAKG0M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jan 2009 01:26:12 -0500
-In-Reply-To: <1231517970-20288-16-git-send-email-joerg.roedel@amd.com>
+	id S1751320AbZAKG0T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jan 2009 01:26:19 -0500
+In-Reply-To: <20090109223747.GE9466@8bytes.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 9 Jan 2009 17:19:29 +0100
-Joerg Roedel <joerg.roedel@amd.com> wrote:
+On Fri, 9 Jan 2009 23:37:47 +0100
+Joerg Roedel <joro@8bytes.org> wrote:
 
-> Impact: make use of DMA-API debugging code in x86
+> On Fri, Jan 09, 2009 at 11:33:27PM +0100, Joerg Roedel wrote:
+> > > This was triggered during pci_unmap_page() -> dma_unmap_single() where
+> > > check_unmap() did not find the entry.
+> > > 
+> > > The original mapping was done in bnx2 using pci_map_page().  I did not
+> > > see how the debug entry was added to the hash during the call to
+> > > pci_map_page() -> dma_map_page().  Did I miss something?
+> > 
+> > dma_map_page() results in dma_map_single() -> debug_map_single() call on
+> > x86. This way the entry would be added. Maybe the error from a double
+> > free?
 > 
-> Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
-> ---
->  arch/x86/Kconfig                   |    1 +
->  arch/x86/include/asm/dma-mapping.h |   30 ++++++++++++++++++++++++++----
->  arch/x86/kernel/pci-dma.c          |    5 +++++
->  3 files changed, 32 insertions(+), 4 deletions(-)
-> 
-> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-> index 862adb9..68a806c 100644
-> --- a/arch/x86/Kconfig
-> +++ b/arch/x86/Kconfig
-> @@ -39,6 +39,7 @@ config X86
->  	select HAVE_GENERIC_DMA_COHERENT if X86_32
->  	select HAVE_EFFICIENT_UNALIGNED_ACCESS
->  	select USER_STACKTRACE_SUPPORT
-> +	select HAVE_DMA_API_DEBUG
->  
->  config ARCH_DEFCONFIG
->  	string
-> diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-> index 4035357..939d5b3 100644
-> --- a/arch/x86/include/asm/dma-mapping.h
-> +++ b/arch/x86/include/asm/dma-mapping.h
-> @@ -7,6 +7,7 @@
->   */
->  
->  #include <linux/scatterlist.h>
-> +#include <linux/dma-debug.h>
->  #include <asm/io.h>
->  #include <asm/swiotlb.h>
->  #include <asm-generic/dma-coherent.h>
-> @@ -93,9 +94,12 @@ dma_map_single(struct device *hwdev, void *ptr, size_t size,
->  	       int direction)
->  {
->  	struct dma_mapping_ops *ops = get_dma_ops(hwdev);
-> +	dma_addr_t addr;
->  
->  	BUG_ON(!valid_dma_direction(direction));
-> -	return ops->map_single(hwdev, virt_to_phys(ptr), size, direction);
-> +	addr = ops->map_single(hwdev, virt_to_phys(ptr), size, direction);
-> +	debug_map_single(hwdev, ptr, size, direction, addr);
-> +	return addr;
+> Ah, it only calls ops->map_single. Thanks for pointing that out. I will
+> add a call to debug_map_single to dma_map_page too. So the error above
+> may be a false positive.
 
-What happens if ops->map_single fails?
+Then you will find that the interface of debug_map_single is wrong.
+You can't use cpu address here. I explained this to you before:
 
-Seems that debug_map_single doesn't check the dma mapping fails. So it
-allocates a new entries and nobody frees it?
-
-Another problem is that what happens if ops->map_single succeeds but
-debug_map_single fails? Seems that it gives a false warning.
+http://marc.info/?t=123116736500005&r=1&w=2
