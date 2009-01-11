@@ -1,44 +1,58 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
- (-git7 is ok)
-Date: Sun, 11 Jan 2009 19:26:42 +0000
-Message-ID: <1231702002.25018.482.camel@macbook.infradead.org>
-References: <5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
-	 <20090109.140422.60087297.davem@davemloft.net>
-	 <43805.1231672258@turing-police.cc.vt.edu>
-	 <20090111.040842.86784676.davem@davemloft.net>
-	 <1231676698.25018.147.camel@macbook.infradead.org>
-	 <1231678799.25018.195.camel@macbook.infradead.org>
-	 <5a4c581d0901110842i5520cea1uff89d5772d0f3b6e@mail.gmail.com>
-	 <1231692789.25018.415.camel@macbook.infradead.org>
-	 <5a4c581d0901111124p753e0436q5dc3f4645e481c8b@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12432] New: [2.6.28 regression] sis900 fast
+ ethernet breakage
+Date: Sun, 11 Jan 2009 11:39:56 -0800
+Message-ID: <20090111113956.b5c75e83.akpm@linux-foundation.org>
+References: <bug-12432-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Valdis.Kletnieks@vt.edu,
-	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alessandro Suardi <alessandro.suardi@gmail.com>
+Cc: bugme-daemon@bugzilla.kernel.org, gionnico@email.it
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41458 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544AbZAKT1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 14:27:03 -0500
-In-Reply-To: <5a4c581d0901111124p753e0436q5dc3f4645e481c8b@mail.gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43887 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750905AbZAKTkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 14:40:31 -0500
+In-Reply-To: <bug-12432-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-01-11 at 20:24 +0100, Alessandro Suardi wrote:
-> However, with the combination of in-kernel tg3 and
->  CONFIG_IN_KERNEL_FIRMWARE=n there is at least a 30" delay
->  during boot while waiting for the firmware request (which will fail).
 
-Hm, ideally it should fail fast if the root file system isn't yet
-mounted. I thought we'd seen and fixed a 'long delay' problem already.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-I'll take another look.
+On Sun, 11 Jan 2009 11:00:58 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
 
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+> http://bugzilla.kernel.org/show_bug.cgi?id=12432
+> 
+>            Summary: [2.6.28 regression] sis900 fast ethernet breakage
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.28
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: gionnico@email.it
+> 
+> 
+> Latest working kernel version: 2.6.27
+> Earliest failing kernel version: 2.6.28
+> Distribution: gentoo
+> Hardware Environment: i686, sis900 ethernet
+> Problem Description: i can't reach the machine anymore, since i've installed
+> 2.6.28 vanilla. it worked in 2.6.27 with the same configuration.
+> 
+> Steps to reproduce:
+> You need a sis900 ethernet and even if you set an ip, the machine doesn't
+> respond anymore to the net.
+> I tried assigning a dynamic ip with dhcpcd eth0 and i'll post the dmesg.
+
+It's a regression and I'm not seeing any likely-looking changes to that
+driver in 2.6.28.
 
