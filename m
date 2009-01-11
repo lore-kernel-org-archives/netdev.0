@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
- (-git7 is ok)
-Date: Sun, 11 Jan 2009 13:41:12 -0800 (PST)
-Message-ID: <20090111.134112.140046525.davem@davemloft.net>
-References: <20090111.040842.86784676.davem@davemloft.net>
-	<1231676698.25018.147.camel@macbook.infradead.org>
-	<1231678799.25018.195.camel@macbook.infradead.org>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [patch review 1/3] net/usb: catc.c - place dev_err instead of err()
+Date: Sun, 11 Jan 2009 13:48:37 -0800
+Message-ID: <200901111348.37993.david-b@pacbell.net>
+References: <1231690591.2050.103.camel@tux.localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, alessandro.suardi@gmail.com,
-	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dwmw2@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38335
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752605AbZAKVlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 16:41:11 -0500
-In-Reply-To: <1231678799.25018.195.camel@macbook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexey Klimov <klimov.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1231690591.2050.103.camel-XMdqyYT0w3Zyw3qLyVIJKA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Sun, 11 Jan 2009 12:59:59 +0000
+On Sunday 11 January 2009, Alexey Klimov wrote:
+> -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0err("submit(rx_urb) status %d", res);
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0dev_err(&urb->dev->dev, "submit(rx_urb) status =
+%d\n", res);
 
-> So if you build with CONFIG_TIGON3=y, CONFIG_FIRMWARE_IN_KERNEL=n, you
-> should see it fail to load the firmware at boot, but then it should load
-> it successfully when you bring the device up.
+You should really find and use the device on the *interface* to which
+that driver is bound, rather than the one in the URB.  That's what
+gets passed in to probe(); drivers normally remember that until a
+remove() callback unbinds the driver from that interface.
 
-And you won't be able to mount an NFS root filesystem.
+A weak analogy is issuing a diagnostic about the PCI bus to which
+the PCI device is attached, instead of the PCI device itself.  In
+both cases, the diagnostic would point to the wrong thing...
+
+The other two patches got this right in at least some cases, but I
+didn't look in any detail.
+
+- Dave
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
