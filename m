@@ -1,40 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: decisions, decisions...
-Date: Sun, 11 Jan 2009 04:14:57 -0800 (PST)
-Message-ID: <20090111.041457.204135461.davem@davemloft.net>
-References: <20090110.235141.223618374.davem@davemloft.net>
-	<20090110.235740.20607970.davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
+ (-git7 is ok)
+Date: Sun, 11 Jan 2009 12:24:58 +0000
+Message-ID: <1231676698.25018.147.camel@macbook.infradead.org>
+References: <5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
+	 <20090109.140422.60087297.davem@davemloft.net>
+	 <43805.1231672258@turing-police.cc.vt.edu>
+	 <20090111.040842.86784676.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: Valdis.Kletnieks@vt.edu, alessandro.suardi@gmail.com,
+	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37263
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751480AbZAKMO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 07:14:56 -0500
-In-Reply-To: <20090110.235740.20607970.davem@davemloft.net>
+Received: from casper.infradead.org ([85.118.1.10]:51983 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbZAKMZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 07:25:21 -0500
+In-Reply-To: <20090111.040842.86784676.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sat, 10 Jan 2009 23:57:40 -0800 (PST)
-
-> From: David Miller <davem@davemloft.net>
-> Date: Sat, 10 Jan 2009 23:51:41 -0800 (PST)
+On Sun, 2009-01-11 at 04:08 -0800, David Miller wrote:
+> From: Valdis.Kletnieks@vt.edu
+> Date: Sun, 11 Jan 2009 06:10:58 -0500
 > 
-> > So I'm going to rework the net-2.6 tree do that only bug fixes and
-> > -RCx material remains in there.  In particular the latest batch
-> > of net_dev_ops conversions are getting pulled out.
+> > On Fri, 09 Jan 2009 14:04:22 PST, David Miller said:
+> > > From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+> > > Date: Fri, 9 Jan 2009 18:30:40 +0100
+> > > 
+> > > > Clearly the requirement changed in -git8, AFAICS.
+> > > 
+> > > Because -git8 is where the firmware requirement got added.
+> > > 
+> > > If you build the TG3 driver statically into your kernel,
+> > > the only way to get the firmware properly loaded is to
+> > > enable that CONFIG_FIRMWARE_IN_KERNEL option.
 > > 
-> > I'm going to put those removed changes aside somewhere locally, and I
-> > will not push them into net-next-2.6 until Stephen Rothwell gives the
-> > OK for that kind of stuff showing up in -next.
+> > Maybe this is one of those cases where we actually do want a SELECT?
+> > 
+> > 	select FIRMWARE_IN_KERNEL if TIGON3=y
+> > 
+> > or similar?
 > 
-> BTW, in case it wasn't obvious, this means net-2.6 will need to be
-> rebased.
-> 
-> I'll make a posting here when that has been completed.
+> I have no idea how this is intended to work, David will know.
 
-This has now been done and a pull request sent to Linus.
+Actually, I think the real issue here might be that the tg3 driver is
+now behaving _differently_ to how other modern drivers work. It tries to
+obtain the firmware once at initialisation time and if that fails it
+doesn't register the device.
+
+Other drivers will load the firmware later, at the time the device is
+brought up. This means that even if you build the driver into the kernel
+without its firmware, it can still request the firmware later, when you
+try to start _using_ it. And when the file system is available.
+
+I'll take a look and see if I can remedy that. Then we wouldn't _need_
+the FIRMWARE_IN_KERNEL option.
+
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
