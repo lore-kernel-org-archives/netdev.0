@@ -1,10 +1,9 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH 02/16] dma-debug: add header file and core data
- structures
-Date: Sun, 11 Jan 2009 15:25:47 +0900
-Message-ID: <20090111152412V.fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH 11/16] dma-debug: add checking for [alloc|free]_coherent
+Date: Sun, 11 Jan 2009 15:25:42 +0900
+Message-ID: <20090111150026Y.fujita.tomonori@lab.ntt.co.jp>
 References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
-	<1231517970-20288-3-git-send-email-joerg.roedel@amd.com>
+	<1231517970-20288-12-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,111 +12,81 @@ Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
 	netdev@vger.kernel.org, iommu@lists.linux-foundation.org
 To: joerg.roedel@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:45346 "EHLO sh.osrg.net"
+Received: from sh.osrg.net ([192.16.179.4]:45344 "EHLO sh.osrg.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751108AbZAKG0M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750893AbZAKG0M (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 11 Jan 2009 01:26:12 -0500
-In-Reply-To: <1231517970-20288-3-git-send-email-joerg.roedel@amd.com>
+In-Reply-To: <1231517970-20288-12-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 9 Jan 2009 17:19:16 +0100
+On Fri, 9 Jan 2009 17:19:25 +0100
 Joerg Roedel <joerg.roedel@amd.com> wrote:
 
-> Impact: add groundwork for DMA-API debugging
+> Impact: add debug callbacks for dma_[alloc|free]_coherent
 > 
 > Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
 > ---
->  include/linux/dma-debug.h |   25 +++++++++++++++++++++++++
->  lib/Makefile              |    2 ++
->  lib/dma-debug.c           |   39 +++++++++++++++++++++++++++++++++++++++
->  3 files changed, 66 insertions(+), 0 deletions(-)
->  create mode 100644 include/linux/dma-debug.h
->  create mode 100644 lib/dma-debug.c
+>  include/linux/dma-debug.h |   16 ++++++++++++++++
+>  lib/dma-debug.c           |   45 +++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 61 insertions(+), 0 deletions(-)
 > 
 > diff --git a/include/linux/dma-debug.h b/include/linux/dma-debug.h
-> new file mode 100644
-> index 0000000..ce4ace7
-> --- /dev/null
+> index b2131f4..a28a701 100644
+> --- a/include/linux/dma-debug.h
 > +++ b/include/linux/dma-debug.h
-> @@ -0,0 +1,25 @@
-> +/*
-> + * Copyright (C) 2008 Advanced Micro Devices, Inc.
-> + *
-> + * Author: Joerg Roedel <joerg.roedel@amd.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify it
-> + * under the terms of the GNU General Public License version 2 as published
-> + * by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
-> + */
-> +
-> +#ifndef __DMA_DEBUG_H
-> +#define __DMA_DEBUG_H
-> +
-> +struct device;
-> +
-> +#endif /* __DMA_DEBUG_H */
-> diff --git a/lib/Makefile b/lib/Makefile
-> index 32b0e64..50b48cf 100644
-> --- a/lib/Makefile
-> +++ b/lib/Makefile
-> @@ -84,6 +84,8 @@ obj-$(CONFIG_HAVE_ARCH_TRACEHOOK) += syscall.o
+> @@ -40,6 +40,12 @@ extern void debug_map_sg(struct device *dev, struct scatterlist *sg,
+>  extern void debug_unmap_sg(struct device *dev, struct scatterlist *sglist,
+>  			   int nelems, int dir);
 >  
->  obj-$(CONFIG_DYNAMIC_PRINTK_DEBUG) += dynamic_printk.o
->  
-> +obj-$(CONFIG_DMA_API_DEBUG) += dma-debug.o
+> +extern void debug_alloc_coherent(struct device *dev, size_t size,
+> +				 dma_addr_t dma_addr, void *virt);
 > +
->  hostprogs-y	:= gen_crc32table
->  clean-files	:= crc32table.h
+> +extern void debug_free_coherent(struct device *dev, size_t size,
+> +				void *virt, dma_addr_t addr);
+> +
+>  #else /* CONFIG_DMA_API_DEBUG */
 >  
+>  static inline void dma_debug_init(u32 num_entries)
+> @@ -68,6 +74,16 @@ static inline void debug_unmap_sg(struct device *dev,
+>  {
+>  }
+>  
+> +static inline void debug_alloc_coherent(struct device *dev, size_t size,
+> +					dma_addr_t dma_addr, void *virt)
+> +{
+> +}
+> +
+> +static inline void debug_free_coherent(struct device *dev, size_t size,
+> +				       void *virt, dma_addr_t addr)
+> +{
+> +}
+> +
+>  #endif /* CONFIG_DMA_API_DEBUG */
+>  
+>  #endif /* __DMA_DEBUG_H */
 > diff --git a/lib/dma-debug.c b/lib/dma-debug.c
-> new file mode 100644
-> index 0000000..d04f8b6
-> --- /dev/null
+> index e6d45f9..a4a5b0f 100644
+> --- a/lib/dma-debug.c
 > +++ b/lib/dma-debug.c
-> @@ -0,0 +1,39 @@
-> +/*
-> + * Copyright (C) 2008 Advanced Micro Devices, Inc.
-> + *
-> + * Author: Joerg Roedel <joerg.roedel@amd.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify it
-> + * under the terms of the GNU General Public License version 2 as published
-> + * by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
-> + */
+> @@ -604,3 +604,48 @@ void debug_unmap_sg(struct device *dev, struct scatterlist *sglist,
+>  }
+>  EXPORT_SYMBOL(debug_unmap_sg);
+>  
+> +void debug_alloc_coherent(struct device *dev, size_t size,
+> +			  dma_addr_t dma_addr, void *virt)
+> +{
+> +	struct dma_debug_entry *entry;
 > +
-> +#include <linux/dma-debug.h>
-> +#include <linux/types.h>
-> +#include <linux/list.h>
+> +	if (global_disable)
+> +		return;
 > +
-> +enum {
-> +	dma_debug_single,
-> +	dma_debug_sg,
-> +	dma_debug_coherent,
-> +};
-> +
-> +struct dma_debug_entry {
-> +	struct list_head list;
-> +	struct device    *dev;
-> +	int              type;
-> +	void             *cpu_addr;
+> +	if (dma_addr == bad_dma_address)
+> +		return;
 
-I don't think that cpu addresses are appropriate here.
+Only X86 has 'bad_dma_address' (IA64 also has with some configurations
+though). You need to use dma_mapping_error, as I pointed out in the
+previous submission.
+
+I recommend you to try this on one non-x86 box (at least). Even if you
+don't have non x86, you can use cross compiler.
