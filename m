@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] smsc911x: register irq with device name, not
- driver name
-Date: Sun, 11 Jan 2009 00:14:59 -0800 (PST)
-Message-ID: <20090111.001459.141684232.davem@davemloft.net>
-References: <1231594169-24988-1-git-send-email-steve.glendinning@smsc.com>
-	<1231594169-24988-2-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [patch 06/45] netrom: convert to internal net_device_stats
+Date: Sun, 11 Jan 2009 00:15:12 -0800 (PST)
+Message-ID: <20090111.001512.107482802.davem@davemloft.net>
+References: <20090109230057.575650817@linux-foundation.org>
+	<20090109230137.149310736@linux-foundation.org>
+	<20090110125448.GB12807@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56117
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751065AbZAKIO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 03:14:59 -0500
-In-Reply-To: <1231594169-24988-2-git-send-email-steve.glendinning@smsc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
+To: ralf@linux-mips.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20090110125448.GB12807@linux-mips.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Sat, 10 Jan 2009 13:29:29 +0000
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Date: Sat, 10 Jan 2009 12:54:48 +0000
 
-> This change lets "cat /proc/interrupts" show the name of the ethernet
-> device (e.g. eth0) rather than the driver name (smsc911x).
+> On Fri, Jan 09, 2009 at 03:01:03PM -0800, Stephen Hemminger wrote:
 > 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Also applied, thanks Steve.
+I've added your ACKs for these 4 patches, thanks Ralf.
