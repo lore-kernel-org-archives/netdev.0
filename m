@@ -1,58 +1,37 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 12432] New: [2.6.28 regression] sis900 fast
- ethernet breakage
-Date: Sun, 11 Jan 2009 11:39:56 -0800
-Message-ID: <20090111113956.b5c75e83.akpm@linux-foundation.org>
-References: <bug-12432-10286@http.bugzilla.kernel.org/>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [RFC 0/4] net namespace for PPP
+Date: Mon, 12 Jan 2009 00:27:00 +0300
+Message-ID: <20090111212700.GA4008@x200.localdomain>
+References: <4967acca.0437560a.511e.0221@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, gionnico@email.it
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43887 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750905AbZAKTkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 14:40:31 -0500
-In-Reply-To: <bug-12432-10286@http.bugzilla.kernel.org/>
+Received: from fg-out-1718.google.com ([72.14.220.157]:15094 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753906AbZAKVVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 16:21:44 -0500
+Content-Disposition: inline
+In-Reply-To: <4967acca.0437560a.511e.0221@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jan 09, 2009 at 10:51:54PM +0300, Cyrill Gorcunov wrote:
+> here is a series of RFC in attempt to implement
+> net-namespaces for PPP protocol (including PPPoE
+> and PPPoL2TP).
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+You need assign netns to netdevice after alloc_netdev().
+This should fix much confusion and non-bugs mentioned in this thread.
 
-On Sun, 11 Jan 2009 11:00:58 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+After that struct ppp shouldn't need netns pointer as it will be netns
+of it's netdevice.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=12432
-> 
->            Summary: [2.6.28 regression] sis900 fast ethernet breakage
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.28
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: gionnico@email.it
-> 
-> 
-> Latest working kernel version: 2.6.27
-> Earliest failing kernel version: 2.6.28
-> Distribution: gentoo
-> Hardware Environment: i686, sis900 ethernet
-> Problem Description: i can't reach the machine anymore, since i've installed
-> 2.6.28 vanilla. it worked in 2.6.27 with the same configuration.
-> 
-> Steps to reproduce:
-> You need a sis900 ethernet and even if you set an ip, the machine doesn't
-> respond anymore to the net.
-> I tried assigning a dynamic ip with dhcpcd eth0 and i'll post the dmesg.
+current->nsproxy->net_ns while being correct in ioctl context
+(it's synchronous) is easy to screwup. For example, in netfilter code netns
+is taken from socket on which ioctl is done.
 
-It's a regression and I'm not seeing any likely-looking changes to that
-driver in 2.6.28.
-
+Regardless of netns, try_module_get() calls by hand are suspicious
+and they're copied to netns init hook.
