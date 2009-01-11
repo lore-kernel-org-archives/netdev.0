@@ -1,45 +1,61 @@
-From: Qinghuang Feng <qhfeng.kernel@gmail.com>
-Subject: [PATCH] NET: fix wrong English expression in comments
-Date: Mon, 12 Jan 2009 02:36:59 +0800
-Message-ID: <496a3c51.09876e0a.03fe.7e80@mx.google.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.187]:64321 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568AbZAKShH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 13:37:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.29-rc1: Reported regressions from 2.6.28
+Date: Sun, 11 Jan 2009 20:00:59 +0100
+Message-ID: <200901112001.00394.rjw@sisk.pl>
+References: <XU-8icArWLM.A.UpG.8GfaJB@chimera> <3f9a31f40901110546h4c069b5dx9726a0fbf8caf5a1@mail.gmail.com> <20090111135237.GA20184@elte.hu>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20090111135237.GA20184@elte.hu>
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sunday 11 January 2009, Ingo Molnar wrote:
+> 
+> * Jaswinder Singh Rajput <jaswinderlinux@gmail.com> wrote:
+> 
+> > On Sun, Jan 11, 2009 at 4:42 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> > >
+> > > Regressions with patches
+> > > ------------------------
+> > >
+> > > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=12428
+> > > Subject         : Build error on latest git
+> > > Submitter       : Petr Titera <P.Titera@century.cz>
+> > > Date            : 2009-01-11 9:49 (1 days old)
+> > > References      : http://marc.info/?l=linux-kernel&m=123166856318712&w=4
+> > > Handled-By      : Petr Titera <P.Titera@century.cz>
+> > > Patch           : http://marc.info/?l=linux-kernel&m=123167509024996&w=4
+> > 
+> > This is a wrong fix, asm/smp.h should only be included when CONFIG_SMP 
+> > is defined.
+> > 
+> > I am still in the process of cleaning non-smp data from asm/smp.h for 
+> > x86
+> > 
+> > Attach patch is the solution for the time being
+> > 
+> > Ingo, can you please put this in urgent queue.
+> 
+> yes, it already is - see below.
 
+Link to this patch was added to the bug entry.  Pleaes let me know or close the
+bug when it's merged.
 
-Signed-off-by: Qinghuang Feng <qhfeng.kernel@gmail.com>
----
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-index 4b8ece2..2540d3a 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -103,7 +103,7 @@ struct inet_bind_bucket;
- struct inet_timewait_sock {
- 	/*
- 	 * Now struct sock also uses sock_common, so please just
--	 * don't add nothing before this first member (__tw_common) --acme
-+	 * don't add anything before this first member (__tw_common) --acme
- 	 */
- 	struct sock_common	__tw_common;
- #define tw_family		__tw_common.skc_family
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 5a3a151..a587e9d 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -204,7 +204,7 @@ struct sock_common {
- struct sock {
- 	/*
- 	 * Now struct inet_timewait_sock also uses sock_common, so please just
--	 * don't add nothing before this first member (__sk_common) --acme
-+	 * don't add anything before this first member (__sk_common) --acme
- 	 */
- 	struct sock_common	__sk_common;
- #define sk_family		__sk_common.skc_family
-
+Thanks,
+Rafael
