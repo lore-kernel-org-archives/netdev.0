@@ -1,37 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: e1000 fails to initialize in current -git
-Date: Mon, 12 Jan 2009 07:18:13 +0100
-Message-ID: <496AE0A5.903@trash.net>
+Subject: Re: [PATCH 7/6] Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used
+ jiffies in htb_dequeue()
+Date: Mon, 12 Jan 2009 07:56:37 +0100
+Message-ID: <496AE9A5.9060507@trash.net>
+References: <20081210093532.GA7926@ff.dom.local>	<20081216.155722.144236025.davem@davemloft.net>	<20081217070303.GA4577@ff.dom.local> <20081216.233801.26557633.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Cc: jarkao2@gmail.com, devik@cdi.cz, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56616 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:57165 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750695AbZALGSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 01:18:15 -0500
-Received: from [192.168.0.100] (unknown [78.42.204.165])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by stinky.trash.net (Postfix) with ESMTPSA id 6DF60948AE
-	for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 07:18:14 +0100 (MET)
+	with ESMTP id S1751653AbZALG4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 01:56:39 -0500
+In-Reply-To: <20081216.233801.26557633.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I get this with 2.6.29-rc1
+David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Wed, 17 Dec 2008 07:03:03 +0000
+> 
+>> On Tue, Dec 16, 2008 at 03:57:22PM -0800, David Miller wrote:
+>>> Patrick, I know you said you were travelling and very busy,
+>>> but Jarek has been waiting patiently for you to review
+>>> these two newly respun patches.
+>>>
+>>> These are just rotting in my patch queue and I'd like to
+>>> do something with them.
+>> I guess Patrick has some doubts, but since these patches are not
+>> critical, let's say I'll resend them within a few weeks.
+> 
+> Fair enough, I'll mark them deferred on patchwork
 
-[    1.415322] Intel(R) PRO/1000 Network Driver - version 7.3.20-k3-NAPI
-[    1.415402] Copyright (c) 1999-2006 Intel Corporation.
-[    1.426013] e1000 0000:00:0c.0: enabling device (0000 -> 0003)
-[    1.426101] e1000 0000:00:0c.0: PCI INT A -> GSI 17 (level, low) -> 
-IRQ 17
-[    1.426187] e1000 0000:00:0c.0: PCI: Disallowing DAC for device
-[    1.426277] e1000 0000:00:0c.0: setting latency timer to 64
-[    1.495882] e1000: EEPROM initialization failed
-[    1.516170] e1000 0000:00:0c.0: PCI INT A disabled
-[    1.516252] e1000: probe of 0000:00:0c.0 failed with error -5
+Sorry, I dropped the ball on this one. I still think scheduling
+a work-queue or something else running in process context to
+kick the queue once the scheduler had a chance to run would
+be a better solution. But Jarek's patches are an improvement
+to the current situation, so no objections from me.
 
-and the device is not registered. If someone wants me to test patches
-or do something else, just let me know.
 
