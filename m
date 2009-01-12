@@ -1,41 +1,35 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [patch]startup race in hso driver
-Date: Mon, 12 Jan 2009 11:57:37 +0100
-Message-ID: <200901121157.38962.oliver@neukum.org>
-References: <200812181457.36340.oliver@neukum.org> <496B1556.3010901@option.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 7/6] Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used
+	jiffies in htb_dequeue()
+Date: Mon, 12 Jan 2009 10:59:03 +0000
+Message-ID: <20090112105902.GA5901@ff.dom.local>
+References: <20081216.233801.26557633.davem@davemloft.net> <496AE9A5.9060507@trash.net> <20090112101047.GA5448@ff.dom.local> <20090112.023250.141234653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, "Greg Kroah-Hartman" <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <496B1556.3010901-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, devik@cdi.cz, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.27]:60410 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751763AbZALK7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 05:59:11 -0500
+Received: by ey-out-2122.google.com with SMTP id 22so1334233eye.37
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 02:59:09 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090112.023250.141234653.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Monday 12 January 2009 11:03:02 schrieb Denis Joseph Barrow:
-> Hi Oliver,
-> Is the patch below now obselete?
-> I applied it to our internal tree, should I remove it?
+On Mon, Jan 12, 2009 at 02:32:50AM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Mon, 12 Jan 2009 10:10:47 +0000
+> 
+> > David, I'm not sure you can still track these patches, so I'll
+> > soon resend them (2 patches: #7/6 and 8/6).
+> 
+> Thanks, please do that.
 
-Hi,
+I hope you've received them.
 
-this patch is still needed. It fixes a completely different issue
-than the second, large patch I sent later. This patch solves
-a race between startup and urb completion. The second patch
-fixes a race between xmit and autosuspend.
-
-Earlier today you wanted your patches broken down by bugs
-they fix, so you've already gotten what you wanted ;-)
-
-	Regards
-		Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Jarek P.
