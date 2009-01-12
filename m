@@ -1,44 +1,78 @@
-From: "Jorge Bastos" <mysql.jorge@decimal.pt>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-     2.6.28
-Date: Mon, 12 Jan 2009 09:49:16 -0000 (WET)
-Message-ID: <2113.192.168.1.3.1231753756.squirrel@webmail.decimal.pt>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt>
-    <200901082357.13396.denys@visp.net.lb>
-    <20090109103030.GI4605@ff.dom.local>
-    <200901091232.09923.denys@visp.net.lb>
-    <20090109104411.GJ4605@ff.dom.local>
-    <1504.192.168.1.3.1231498031.squirrel@webmail.decimal.pt>
-    <20090109105858.GA6098@ff.dom.local> <496AF0CE.7060406@trash.net>
-    <20090112081342.GB4212@ff.dom.local>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch]startup race in hso driver
+Date: Mon, 12 Jan 2009 11:03:02 +0100
+Message-ID: <496B1556.3010901@option.com>
+References: <200812181457.36340.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	"Denys Fedoryschenko" <denys@visp.net.lb>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: "Jarek Poplawski" <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly04.isp.novis.pt ([195.23.133.224]:48093 "EHLO
-	mailrly04.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984AbZALJtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 04:49:24 -0500
-In-Reply-To: <20090112081342.GB4212@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200812181457.36340.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->> Just wondering since this thread is very hard to follow with all
->> the top postings, incorrect timestamps on mails etc. - has there
->> been a resolution to this problem?
->>
->
-> AFAIK, Jorge's CBQ+TBF problem was resolved with turning off TSO, but
-> it looks like the resolution will be some warning added somewhere...
->
-> Denys didn't yet confirm his HTB problem was resolved.
->
-> Jarek P.
->
+Hi Oliver,
+Is the patch below now obselete?
+I applied it to our internal tree, should I remove it?
 
-Reading this, this warnings must/will be added to TC correcto?
+I've yet to check the code in the big patch with subject
+Re: another race in hso
+Does this patch render the small one below obselete?
 
+
+
+Oliver Neukum wrote:
+> The flag marking a device running must be set before the URBs for
+> recption are submitted or they may complete too early and fail to resubmit.
+> 
+> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+> 
+> 	Regards
+> 		Oliver
+> 
+> ---
+> 
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index 8e90891..cc75c8b 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -658,10 +658,9 @@ static int hso_net_open(struct net_device *net)
+>  	odev->rx_buf_missing = sizeof(struct iphdr);
+>  	spin_unlock_irqrestore(&odev->net_lock, flags);
+>  
+> -	hso_start_net_device(odev->parent);
+> -
+>  	/* We are up and running. */
+>  	set_bit(HSO_NET_RUNNING, &odev->flags);
+> +	hso_start_net_device(odev->parent);
+>  
+>  	/* Tell the kernel we are ready to start receiving from it */
+>  	netif_start_queue(net);
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+-- 
+best regards,
+D.J. Barrow
+
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
+ 
+T: +32 16 311 621
+F: +32 16 207 164
+d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+www.option.com
+
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
