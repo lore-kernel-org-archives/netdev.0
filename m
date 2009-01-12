@@ -1,9 +1,9 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
  2.6.27
-Date: Mon, 12 Jan 2009 06:27:43 +0100
-Message-ID: <496AD4CF.4070807@trash.net>
-References: <e7c4531f0901081558n429f7275w717774dbe9ccd895@mail.gmail.com> <20090109031408.GB11336@gondor.apana.org.au> <20090109115515.GA12486@gondor.apana.org.au>
+Date: Mon, 12 Jan 2009 06:30:08 +0100
+Message-ID: <496AD560.4060009@trash.net>
+References: <e7c4531f0901081558n429f7275w717774dbe9ccd895@mail.gmail.com> <20090109031408.GB11336@gondor.apana.org.au> <20090109115515.GA12486@gondor.apana.org.au> <20090109120455.GB12486@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -17,29 +17,37 @@ Cc: John Dykstra <john.dykstra1@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55809 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:55850 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158AbZALF2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 00:28:00 -0500
-In-Reply-To: <20090109115515.GA12486@gondor.apana.org.au>
+	with ESMTP id S1750952AbZALFaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 00:30:24 -0500
+In-Reply-To: <20090109120455.GB12486@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Herbert Xu wrote:
-> It turns out that even though we have sysctl's that's supposed
-> to control pppoe/vlan processing, they don't actually work.
-
-Which reminds me - I think we should change them to default to off,
-they regulary break things for unsuspecting users. I'm not sure
-though what the best way to warn people for a while would be,
-feature-removal-schedule doesn't seem approriate.
-
-> This patch should make them work.
+> bridge: Disable PPPOE/VLAN processing by default
 > 
-> bridge: Fix handling of non-IP packets in FORWARD/POST_ROUTING
+> The PPPOE/VLAN processing code in the bridge netfilter is broken
+> by design.  The VLAN tag and the PPPOE session ID are an integral
+> part of the packet flow information, yet they're completely
+> ignored by the bridge netfilter.  This is potentially a security
+> hole as it treats all VLANs and PPPOE sessions as the same.
 > 
-> Currently the bridge FORWARD/POST_ROUTING chains treats all
-> non-IPv4 packets as IPv6.  This packet fixes that by returning
-> NF_ACCEPT on non-IP packets instead, just as is done in PRE_ROUTING.
+> What's more, it's actually broken for PPPOE as the bridge netfilter
+> tries to trim the packets to the IP length without adjusting the
+> PPPOE header (and adjusting the PPPOE header isn't much better
+> since the PPPOE peer may require the padding to be present).
+> 
+> Therefore we should disable this by default.
+> 
+> It does mean that people relying on this feature may lose networking
+> depending on how their bridge netfilter rules are configured.
+> However, IMHO the problems this code causes are serious enough to
+> warrant this.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+A good reason to disable this crap :)
 
 Applied, thanks.
