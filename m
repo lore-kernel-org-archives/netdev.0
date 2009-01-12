@@ -1,38 +1,39 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <rdenis@simphalempin.com>
-Subject: Re: RFC: Network privilege separation.
-Date: Mon, 12 Jan 2009 22:47:21 +0200
-Message-ID: <200901122247.22059.rdenis@simphalempin.com>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <200901122230.25976.rdenis@simphalempin.com> <20090112205547.GE23848@one.firstfloor.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Tue, 13 Jan 2009 08:11:08 +1100
+Message-ID: <20090112211108.GA11134@gondor.apana.org.au>
+References: <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk> <20090107124946.GA9677@ff.dom.local> <20090107125217.GA26235@gondor.apana.org.au> <20090112120257.GA5697@gondor.apana.org.au> <20090112124545.GA10893@ioremap.net> <20090112125607.GA6370@gondor.apana.org.au> <20090112125914.GA12142@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Valdis.Kletnieks@vt.edu, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
+	Changli Gao <xiaosuo@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:51812 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752247AbZALUr0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 15:47:26 -0500
-In-Reply-To: <20090112205547.GE23848@one.firstfloor.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:38573 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752088AbZALVL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 16:11:28 -0500
 Content-Disposition: inline
+In-Reply-To: <20090112125914.GA12142@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 12 janvier 2009 22:55:47 Andi Kleen, vous avez =E9crit=A0:
-> Fair point, although I'm afraid you didn't do a very good
-> job explaining your reasons, so it sounds like a
-> quite arbitary decision.
+On Mon, Jan 12, 2009 at 03:59:14PM +0300, Evgeniy Polyakov wrote:
+>
+> That's the part I referred to as a network own allocator. We can have
+> multiple kmem_caches though for the popular MTUs and round up the
+> requested size otherwise.
 
-=46air enough. It's just way too much interface/adaptation work compare=
-d to the=20
-benefit. Especially considering that it would be much easier, and almos=
-t as=20
-secure, with a "relaxed" SECCOMP. And on top of that, it's causing=20
-unnecessary overhead (we're also interested in those small Linux-based=20
-handsets that aren't as fast and power-hungry as desktop PCs).
+No we can't use kmem_caches because we're relying on using the
+page refereounce count to free the page.  It has to be naked
+pages.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
