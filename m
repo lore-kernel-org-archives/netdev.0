@@ -1,49 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL, resend] async_tx/dmaengine update for 2.6.29
-Date: Mon, 12 Jan 2009 13:16:32 -0800 (PST)
-Message-ID: <20090112.131632.119282940.davem@davemloft.net>
-References: <20090112121539.GA6058@gondor.apana.org.au>
-	<e9c3a7c20901120945r2728e6d3oc9237249d748f8dd@mail.gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: RFC: Network privilege separation.
+Date: Mon, 12 Jan 2009 22:50:01 +0100
+Message-ID: <20090112215001.GG23848@one.firstfloor.org>
+References: <1231307334-9542-1-git-send-email-michael@laptop.org> <200901122230.25976.rdenis@simphalempin.com> <20090112205547.GE23848@one.firstfloor.org> <200901122247.22059.rdenis@simphalempin.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	hskinnemoen@atmel.com, maciej.sosnowski@intel.com,
-	g.liakhovetski@gmx.de, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: dan.j.williams@intel.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>, Valdis.Kletnieks@vt.edu,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Michael Stone <michael@laptop.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36777
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753229AbZALVQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 16:16:32 -0500
-In-Reply-To: <e9c3a7c20901120945r2728e6d3oc9237249d748f8dd@mail.gmail.com>
+Received: from one.firstfloor.org ([213.235.205.2]:56362 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753343AbZALVfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 16:35:34 -0500
+Content-Disposition: inline
+In-Reply-To: <200901122247.22059.rdenis@simphalempin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dan Williams" <dan.j.williams@intel.com>
-Date: Mon, 12 Jan 2009 10:45:02 -0700
+On Mon, Jan 12, 2009 at 10:47:21PM +0200, R=E9mi Denis-Courmont wrote:
+> Le lundi 12 janvier 2009 22:55:47 Andi Kleen, vous avez =E9crit=A0:
+> > Fair point, although I'm afraid you didn't do a very good
+> > job explaining your reasons, so it sounds like a
+> > quite arbitary decision.
+>=20
+> Fair enough. It's just way too much interface/adaptation work compare=
+d to the=20
+> benefit. Especially considering that it would be much easier, and alm=
+ost as=20
+> secure, with a "relaxed" SECCOMP.=20
 
-> On Mon, Jan 12, 2009 at 5:15 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > Dan Williams <dan.j.williams@intel.com> wrote:
-> >>
-> >> net/core/dev.c                        |  149 +------
-> >> net/ipv4/tcp.c                        |    5 +-
-> >> net/ipv4/tcp_input.c                  |    2 +-
-> >> net/ipv4/tcp_ipv4.c                   |    2 +-
-> >> net/ipv6/tcp_ipv6.c                   |    2 +-
-> >
-> > Wouldn't it be better for these changes to go through the net
-> > tree?
-> >
-> 
-> It was awkward to separate the reformatting of the core api from its
-> users.  In this exceptional case these changes were limited to areas
-> inside #ifdef CONFIG_DMA_ENGINE/CONFIG_NET_DMA.
-> 
-> In general, Maciej and I send purely incremental patches through the
-> net tree [1].
+What system calls would you want in a relaxed SECCOMP?
 
-Yes, I think in this case it didn't make much sense to send
-the changes via the net tree.
+> And on top of that, it's causing=20
+> unnecessary overhead (we're also interested in those small Linux-base=
+d=20
+
+Would be interesting to try that out -- just adding two memcpyies to=20
+the existing code and see how much slower it gets. My guess
+would be not very, even e.g. on a Atom system (which are really
+not all that slow).
+
+Presumably you could always #ifdef it if it's really a problem
+on some specific system. That would be needed anyways for=20
+non linux systems.
+
+-And
+
+--=20
+ak@linux.intel.com -- Speaking for myself only.
