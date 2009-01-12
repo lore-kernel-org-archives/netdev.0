@@ -1,56 +1,57 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Mon, 12 Jan 2009 15:45:46 +0300
-Message-ID: <20090112124545.GA10893@ioremap.net>
-References: <20090106094138.GE25644@1wt.eu> <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk> <20090107124946.GA9677@ff.dom.local> <20090107125217.GA26235@gondor.apana.org.au> <20090112120257.GA5697@gondor.apana.org.au>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [i4l] minor cleanups
+Date: Mon, 12 Jan 2009 13:37:38 +0100
+Message-ID: <1231763858.7132.8.camel@test.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
-	Changli Gao <xiaosuo@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:51898 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754764AbZALMpr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jan 2009 07:45:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20090112120257.GA5697@gondor.apana.org.au>
+Received: from smtp-out1.tiscali.nl ([195.241.79.176]:59301 "EHLO
+	smtp-out1.tiscali.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751729AbZALMyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 07:54:52 -0500
+Received: from [212.123.169.34] (helo=[192.168.1.42])
+	by smtp-out1.tiscali.nl with esmtp
+	id 1LMM31-0003Vx-Oh
+	for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 13:37:39 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2009 at 11:02:57PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > > Hmm... in any case: take 3
-> > 
-> > Yes this should fix the corruption but it kind of defeats the
-> > purpose of splice by copying the data.
-> 
-> However, as we don't have a better fix yet, we probably should
-> take Jarek's patch for now since data corruption is bad.
+Minor cleanups, either made possible or obvious after commit d700555 (I4l:
+convert to net_device_ops).
 
-Iirc it copies data from skb to the new pipe page unconditionally while
-it is needed only for skb->sendpage path, although it is not possible to
-know what is the other side of the pipe (or not?).
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+Sent only to netdev@vger.kernel.org (and not also to
+isdn4linux@listserv.isdn4linux.de) because an earlier ISDN patch I wrote
+only got a response from this list (and this patch is NETWORKING related
+anyway).
+---
+diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
+index 7c5f970..ecc92c8 100644
+--- a/drivers/isdn/i4l/isdn_net.c
++++ b/drivers/isdn/i4l/isdn_net.c
+@@ -2513,7 +2513,6 @@ static const struct net_device_ops isdn_netdev_ops = {
+ 	.ndo_stop	      = isdn_net_close,
+ 	.ndo_do_ioctl	      = isdn_net_ioctl,
+ 
+-	.ndo_validate_addr    = NULL,
+ 	.ndo_start_xmit	      = isdn_net_start_xmit,
+ 	.ndo_get_stats	      = isdn_net_get_stats,
+ 	.ndo_tx_timeout	      = isdn_net_tx_timeout,
+@@ -2528,12 +2527,8 @@ static void _isdn_setup(struct net_device *dev)
+ 
+ 	ether_setup(dev);
+ 
+-	dev->flags = IFF_NOARP | IFF_POINTOPOINT;
+ 	/* Setup the generic properties */
+-	dev->mtu = 1500;
+ 	dev->flags = IFF_NOARP|IFF_POINTOPOINT;
+-	dev->type = ARPHRD_ETHER;
+-	dev->addr_len = ETH_ALEN;
+ 	dev->header_ops = NULL;
+ 	dev->netdev_ops = &isdn_netdev_ops;
+ 
 
-What about storing a callback and private pointer in the shared info for
-the skb and clone them during usual clone, and invoke the callback at
-shared info freeing time, which in turn will call spd->spd_release()?
 
-Given that we only need to protect linear part, it should be simple
-enough and we will not need to mess with the pskb_expand* calls.
-
-> This is a very hard problem, so in the end the only viable solution
-> might be to get the drivers to switch to using page frags, like
-> the Intel page split method.
-
-As a long-term solution this sounds as the best case, but introduces
-quite heavy overhead for the allocators. Right now we allocate
-1500+shared_info rounded up to the nearest power of the two (2k), but
-then we will either need to have own network allocator (I have one :) or
-allocate PAGE_SIZE+shared_info rounded up to the pwoer of the two (i.e.
-8k), which is unfeasible.
-
--- 
-	Evgeniy Polyakov
