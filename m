@@ -1,47 +1,44 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH] cxgb3: Keep LRO off if disabled when interface is down
-Date: Sun, 11 Jan 2009 21:10:54 -0800
-Message-ID: <496AD0DE.2020009@chelsio.com>
-References: <adaljtimh4m.fsf@cisco.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 12327] New: Intermittent TCP issues with =>
+ 2.6.27
+Date: Mon, 12 Jan 2009 06:25:54 +0100
+Message-ID: <496AD462.7030106@trash.net>
+References: <e7c4531f0901081558n429f7275w717774dbe9ccd895@mail.gmail.com> <20090109031408.GB11336@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
+Cc: John Dykstra <john.dykstra1@gmail.com>,
+	=?ISO-8859-15?Q?Ilpo_J=E4rv?= =?ISO-8859-15?Q?inen?=
+	<ilpo.jarvinen@helsinki.fi>, Netdev <netdev@vger.kernel.org>,
+	bugme-daemon@bugzilla.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Speedster <speedster@haveacry.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:19839 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750791AbZALFLw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 00:11:52 -0500
-In-Reply-To: <adaljtimh4m.fsf@cisco.com>
+Received: from stinky.trash.net ([213.144.137.162]:55776 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952AbZALF0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 00:26:10 -0500
+In-Reply-To: <20090109031408.GB11336@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roland Dreier wrote:
-> I have a system with a Chelsio adapter (driven by cxgb3) whose ports are
-> part of a Linux bridge.  Recently I updated the kernel and discovered
-> that things stopped working because cxgb3 was doing LRO on packets that
-> were passed into the bridge code for forwarding.  (Incidentally, this
-> problem manifested itself in a strange way that made debugging a bit
-> interesting -- for some reason, the skb_warn_if_lro() check in bridge
-> didn't trigger and these LROed packets were forwarded out a forcedeth
-> interface, and caused the forcedeth transmit path to get stuck)
+Herbert Xu wrote:
+> On Thu, Jan 08, 2009 at 05:58:11PM -0600, John Dykstra wrote:
+>> I haven't unscrambled where the drop occurs in the PPPoE driver, but that's
+>> presumably what changed in 2.6.27.  It seems to me that the drop is proper.
+>> What's wrong is trimming the sk_buff to match the IP header while ignoring
+>> the L2 header, and that's apparently been that way for a while (if I
+>> understand what the reporter is running where).
+>>
+>> Or have I screwed up my first posting to netdev?
 > 
-> This is because cxgb3 has no way of keeping state for the LRO flag until
-> the interface is brought up, so if the bridging code disables LRO while
-> the interface is down, then cxgb3_up() will just reenable LRO, and on my
-> Debian system at least, the init scripts add interfaces to a bridge
-> before bringing the interfaces up.
+> You've hit the nail on the head :)
 > 
-> Fix this by keeping track of each interface's LRO state in cxgb3 so that
-> when bridge disables LRO, it stays disabled in cxgb3_up() when the
-> interface is brought up.  I did this by changing the rx_csum_offload
-> flag into a pair of bit flags; the effect of this on the rx_eth() fast
-> path is miniscule enough that it should be fine (eg on x86, a cmpb
-> instruction becomes a testb instruction).
-> 
+> The bridge netfilter is just one huge pile of crap that should
+> be deleted.
 
-Hi Roland, thanks a lot for finding and fixing this bug.
-
-Cheers,
-Divy
+Fully agreed. So far unfortunately nobody had the stomach to
+get rid of this piece of junk.
