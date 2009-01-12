@@ -1,32 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
-	2.6.28
-Date: Mon, 12 Jan 2009 11:14:39 +0000
-Message-ID: <20090112111439.GC5901@ff.dom.local>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <200901082357.13396.denys@visp.net.lb> <20090109103030.GI4605@ff.dom.local> <200901091232.09923.denys@visp.net.lb> <20090109104411.GJ4605@ff.dom.local> <1504.192.168.1.3.1231498031.squirrel@webmail.decimal.pt> <20090109105858.GA6098@ff.dom.local> <496AF0CE.7060406@trash.net> <20090112081342.GB4212@ff.dom.local> <2113.192.168.1.3.1231753756.squirrel@webmail.decimal.pt>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: another race in hso
+Date: Mon, 12 Jan 2009 12:33:44 +0100
+Message-ID: <200901121233.47050.oliver@neukum.org>
+References: <200812221454.57794.oliver@neukum.org> <496B0605.70704@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
-To: Jorge Bastos <mysql.jorge@decimal.pt>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Chris Snook <csnook@redhat.com>, schwidefsky@de.ibm.com,
+	strasse@de.ibm.com, Paul Hardwick <P.Hardwick@option.com>,
+	ajb@spheresystems.co.uk, "Greg Kroah-Hartman" <greg@kroah.com>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Denis Joseph Barrow <D.Barow@option.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:51040 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752959AbZALLOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 06:14:45 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so1331191nfc.21
-        for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 03:14:44 -0800 (PST)
+Received: from smtp-out003.kontent.com ([81.88.40.217]:51791 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750773AbZALLeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 06:34:00 -0500
+In-Reply-To: <496B0605.70704@option.com>
 Content-Disposition: inline
-In-Reply-To: <2113.192.168.1.3.1231753756.squirrel@webmail.decimal.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2009 at 09:49:16AM -0000, Jorge Bastos wrote:
-...
-> Reading this, this warnings must/will be added to TC correcto?
-> 
+Am Monday 12 January 2009 09:57:41 schrieb Denis Joseph Barrow:
+> Oliver if you haven't given a detailed description of the patch you need to do so before the patch can be accepted
+> especially a patch of this size.
 
-I think it'll be in the kernel.
+The original driver has a race that left a window between submitting
+a network packet and incrementing the usage counters preventing
+autosuspension. In that window hard_start_xmit() races with suspend()
+called for autosuspension.
 
-Jarek P.
+The problem arises from having to increase the usage counters from
+a context that cannot be slept in. A driver has to be able to deal with
+suspend being called in that case and needing to return -EBUSY
+or to delay transmission of the packet until resume() is called.
+This needs to called with approriate (spin)locking.
+
+This patch implements such handling in suspend() and unifies the spinlocks
+from the network and the serial parts of the driver. Thus all code taking
+a spinlock had to be touched.
+
+	Regards
+		Oliver
+
