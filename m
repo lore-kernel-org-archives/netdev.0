@@ -1,108 +1,80 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 06/13] netxen: advertise wake-on-lan support
-Date: Mon, 12 Jan 2009 11:23:04 -0800
-Message-ID: <1231788191-23794-7-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH 07/13] netxen: cleanup mac list on driver unload
+Date: Mon, 12 Jan 2009 11:23:05 -0800
+Message-ID: <1231788191-23794-8-git-send-email-dhananjay@netxen.com>
 References: <1231788191-23794-1-git-send-email-dhananjay@netxen.com>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:56009 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:56011 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753639AbZALTew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755800AbZALTew (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 12 Jan 2009 14:34:52 -0500
 In-Reply-To: <1231788191-23794-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Advertise support for wake up on magic packet. Add control to
-enable/disable WoL for each port.
+This fixes a tiny memory leak when driver is unloaded. The mac
+address list maintained in netxen_adapter needs to deleted when
+driver is going down.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic_ethtool.c |   49 +++++++++++++++++++++++++++++++
- drivers/net/netxen/netxen_nic_hdr.h     |    2 +
- 2 files changed, 51 insertions(+), 0 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    1 +
+ drivers/net/netxen/netxen_nic_hw.c   |   13 +++++++++++++
+ drivers/net/netxen/netxen_nic_main.c |    3 +++
+ 3 files changed, 17 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 48b20f6..b403f82 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -807,6 +807,53 @@ static int netxen_nic_set_tso(struct net_device *dev, u32 data)
- 	return 0;
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index 274d19f..abfcd8e 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -1487,6 +1487,7 @@ int netxen_process_cmd_ring(struct netxen_adapter *adapter);
+ u32 netxen_process_rcv_ring(struct netxen_adapter *adapter, int ctx, int max);
+ void netxen_p2_nic_set_multi(struct net_device *netdev);
+ void netxen_p3_nic_set_multi(struct net_device *netdev);
++void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
+ int netxen_p3_nic_set_promisc(struct netxen_adapter *adapter, u32);
+ int netxen_config_intr_coalesce(struct netxen_adapter *adapter);
+ 
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 5d69997..1ce3ab1 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -627,6 +627,19 @@ int netxen_p3_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
+ 				(struct cmd_desc_type0 *)&req, 1);
  }
  
-+static void
-+netxen_nic_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++void netxen_p3_free_mac_list(struct netxen_adapter *adapter)
 +{
-+	struct netxen_adapter *adapter = netdev_priv(dev);
-+	u32 wol_cfg = 0;
++	nx_mac_list_t *cur, *next;
 +
-+	wol->supported = 0;
-+	wol->wolopts = 0;
++	cur = adapter->mac_list;
 +
-+	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
-+		return;
-+
-+	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG_NV);
-+	if (wol_cfg & (1UL << adapter->portnum))
-+		wol->supported |= WAKE_MAGIC;
-+
-+	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG);
-+	if (wol_cfg & (1UL << adapter->portnum))
-+		wol->wolopts |= WAKE_MAGIC;
++	while (cur) {
++		next = cur->next;
++		kfree(cur);
++		cur = next;
++	}
 +}
 +
-+static int
-+netxen_nic_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct netxen_adapter *adapter = netdev_priv(dev);
-+	u32 wol_cfg = 0;
-+
-+	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
-+		return -EOPNOTSUPP;
-+
-+	if (wol->wolopts & ~WAKE_MAGIC)
-+		return -EOPNOTSUPP;
-+
-+	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG_NV);
-+	if (!(wol_cfg & (1 << adapter->portnum)))
-+		return -EOPNOTSUPP;
-+
-+	wol_cfg = netxen_nic_reg_read(adapter, NETXEN_WOL_CONFIG);
-+	if (wol->wolopts & WAKE_MAGIC)
-+		wol_cfg |= 1UL << adapter->portnum;
-+	else
-+		wol_cfg &= ~(1UL << adapter->portnum);
-+	netxen_nic_reg_write(adapter, NETXEN_WOL_CONFIG, wol_cfg);
-+
-+	return 0;
-+}
-+
- /*
-  * Set the coalescing parameters. Currently only normal is supported.
-  * If rx_coalesce_usecs == 0 or rx_max_coalesced_frames == 0 then set the
-@@ -913,6 +960,8 @@ struct ethtool_ops netxen_nic_ethtool_ops = {
- 	.set_sg = ethtool_op_set_sg,
- 	.get_tso = netxen_nic_get_tso,
- 	.set_tso = netxen_nic_set_tso,
-+	.get_wol = netxen_nic_get_wol,
-+	.set_wol = netxen_nic_set_wol,
- 	.self_test = netxen_nic_diag_test,
- 	.get_strings = netxen_nic_get_strings,
- 	.get_ethtool_stats = netxen_nic_get_ethtool_stats,
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index 269a1f7..b9f6893 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -857,6 +857,8 @@ enum {
- #define NETXEN_PORT_MODE_AUTO_NEG_XG	6
- #define NETXEN_PORT_MODE_ADDR		(NETXEN_CAM_RAM(0x24))
- #define NETXEN_WOL_PORT_MODE		(NETXEN_CAM_RAM(0x198))
-+#define NETXEN_WOL_CONFIG_NV		(NETXEN_CAM_RAM(0x184))
-+#define NETXEN_WOL_CONFIG		(NETXEN_CAM_RAM(0x188))
+ #define	NETXEN_CONFIG_INTR_COALESCE	3
  
- #define NX_PEG_TUNE_MN_PRESENT		0x1
- #define NX_PEG_TUNE_CAPABILITY		(NETXEN_CAM_RAM(0x02c))
+ /*
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index d2b0c59..c0771f5 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -981,6 +981,9 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
+ 		netxen_free_hw_resources(adapter);
+ 		netxen_release_rx_buffers(adapter);
+ 		netxen_free_sw_resources(adapter);
++
++		if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
++			netxen_p3_free_mac_list(adapter);
+ 	}
+ 
+ 	if (adapter->portnum == 0)
 -- 
 1.6.0.2
 
