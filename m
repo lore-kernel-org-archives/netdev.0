@@ -1,50 +1,53 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
- (-git7 is ok)
-Date: Mon, 12 Jan 2009 08:13:59 +0000
-Message-ID: <1231748039.25018.1277.camel@macbook.infradead.org>
-References: <5a4c581d0901090930j5d4760b0x730b5609fa2b5614@mail.gmail.com>
-	 <20090109.140422.60087297.davem@davemloft.net>
-	 <43805.1231672258@turing-police.cc.vt.edu>
-	 <20090111.040842.86784676.davem@davemloft.net>
-	 <1231676698.25018.147.camel@macbook.infradead.org>
-	 <1231678799.25018.195.camel@macbook.infradead.org>
-	 <4407.1231719036@turing-police.cc.vt.edu>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works =?iso-8859-15?q?fine!=092=2E6=2E28?=
+Date: Mon, 12 Jan 2009 10:30:15 +0200
+Message-ID: <200901121030.15782.denys@visp.net.lb>
+References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <20090109105858.GA6098@ff.dom.local> <496AF0CE.7060406@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alessandro.suardi@gmail.com,
-	jaswinderlinux@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Jorge Bastos <mysql.jorge@decimal.pt>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41125 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbZALIOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 03:14:05 -0500
-In-Reply-To: <4407.1231719036@turing-police.cc.vt.edu>
+Received: from hosting.visp.net.lb ([194.146.153.11]:49555 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751249AbZALIaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 03:30:35 -0500
+In-Reply-To: <496AF0CE.7060406@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-01-11 at 19:10 -0500, Valdis.Kletnieks@vt.edu wrote:
-> So it looks like the patch is failing to finish initialization of the card.
-> Damned if *I* can see what's breaking it, the conversion to use a helper
-> function tg3_request_firmware seems sane enough....
+On Monday 12 January 2009 09:27:10 Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+> > On Fri, Jan 09, 2009 at 10:47:11AM -0000, Jorge Bastos wrote:
+> >> For my case this has any matter?
+> >
+> > I guess not: it's about better resolution, so e.g. when 2% matters.
+> > And it matters for a desktop box, if you care about responsiveness.
+>
+> Just wondering since this thread is very hard to follow with all
+> the top postings, incorrect timestamps on mails etc. - has there
+> been a resolution to this problem?
 
-Ahem...
+1000HZ made situation much better. But i'm still debugging the case.
+Difficult part, there is many small packets, and i didn't found any reference 
+how Cisco count packets. I know that HTB counts with Ethernet header, but 
+maybe Cisco catching something else.
+One thing i can say, HFSC more precise than HTB for now.
+HFSC started to be more precise after changing to 1000HZ, but i had system 
+crashed yesterday, while applying new rules. Probably it is old bug with 
+timers, which we debugged before. It is rare case now, but seems happened 
+yesterday.
+But anyway, i will try to test today again, and compare with old results.
 
---- drivers/net/tg3.c.stupiddwmw2	2009-01-12 08:13:05.000000000 +0000
-+++ drivers/net/tg3.c	2009-01-12 08:13:09.000000000 +0000
-@@ -13151,7 +13151,7 @@ static int __devinit tg3_init_one(struct
- 		   try again in tg3_open(). So if you have the driver built
- 		   into the kernel, you can still get the firmware loaded
- 		   after userspace is running, when the device comes up. */
--		if (err != -ENOENT)
-+		if (err && err != -ENOENT)
- 			goto err_out_fw;
- 	}
- 
-
--- 
-dwmw2
-
+In numbers:
+Before HFSC was reaching 60-61Mbps, when set 57. Now set 60, and now rarely 
+reach 61. Why i'm not happy about that, because it is mrtg results, which is 
+averaged by 5 minutes. I understand if there can be short bursts for 61 megs, 
+but why average(for long period of time) results become higher?
+I think misprecision must vary to both side, when it becomes higher for few 
+(milli?)seconds, it must become lower also for same time.
