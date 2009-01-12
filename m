@@ -1,46 +1,37 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Mon, 12 Jan 2009 15:59:14 +0300
-Message-ID: <20090112125914.GA12142@ioremap.net>
-References: <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk> <20090107124946.GA9677@ff.dom.local> <20090107125217.GA26235@gondor.apana.org.au> <20090112120257.GA5697@gondor.apana.org.au> <20090112124545.GA10893@ioremap.net> <20090112125607.GA6370@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 7/6] Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used
+ jiffies in htb_dequeue()
+Date: Mon, 12 Jan 2009 14:10:53 +0100
+Message-ID: <496B415D.8050401@trash.net>
+References: <20081210093532.GA7926@ff.dom.local> <20081216.155722.144236025.davem@davemloft.net> <20081217070303.GA4577@ff.dom.local> <20081216.233801.26557633.davem@davemloft.net> <496AE9A5.9060507@trash.net> <20090112101047.GA5448@ff.dom.local> <496B19F7.4060909@trash.net> <20090112110857.GB5901@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
-	Changli Gao <xiaosuo@gmail.com>, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, devik@cdi.cz,
 	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kandzendo.ru ([195.178.208.66]:48287 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752221AbZALM7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jan 2009 07:59:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20090112125607.GA6370@gondor.apana.org.au>
+Received: from stinky.trash.net ([213.144.137.162]:64089 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148AbZALNKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 08:10:55 -0500
+In-Reply-To: <20090112110857.GB5901@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2009 at 11:56:07PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > As a long-term solution this sounds as the best case, but introduces
-> > quite heavy overhead for the allocators. Right now we allocate
-> > 1500+shared_info rounded up to the nearest power of the two (2k), but
-> > then we will either need to have own network allocator (I have one :) or
-> > allocate PAGE_SIZE+shared_info rounded up to the pwoer of the two (i.e.
-> > 8k), which is unfeasible.
+Jarek Poplawski wrote:
+> On Mon, Jan 12, 2009 at 11:22:47AM +0100, Patrick McHardy wrote:
+> ...
+>> It doesn't bother me :) I just think its the technical better
+>> and also most likely code-wise cleaner solution to this problem.
+>> Cancellation wouldn't be necessary since an unnecessary
+>> netif_schedule() doesn't really matter.
 > 
-> No that's not what I was suggesting.  The page split model allocates
-> an skb with a very small head that accomodates only the headers.
-> All payload is stored in the frags structure.
-> 
-> For 1500-byte packets, we can manage the payload area efficiently
-> by dividing each allocated page into 2K chunks.  The page will
-> then be automatically freed once all the 2K chunks on it have been
-> freed through the page ref count mechanism.
+> Hmm... Do you mean during destroying... It's probably not very long,
+> but deleting and creating qdiscs especially for some virtual devices
+> can take longer I guess.
 
-That's the part I referred to as a network own allocator. We can have
-multiple kmem_caches though for the popular MTUs and round up the
-requested size otherwise.
-
--- 
-	Evgeniy Polyakov
+I was referring to your statement "but also some overhead when
+cancelling this workqueue" and assumed you meant during packet
+processing. In the destruction path it really doesn't matter at
+all.
