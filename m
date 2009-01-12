@@ -1,277 +1,115 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 09/13] netxen: handle dma mapping failures
-Date: Mon, 12 Jan 2009 11:23:07 -0800
-Message-ID: <1231788191-23794-10-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH 12/13] netxen: simplify dma mask setting
+Date: Mon, 12 Jan 2009 11:23:10 -0800
+Message-ID: <1231788191-23794-13-git-send-email-dhananjay@netxen.com>
 References: <1231788191-23794-1-git-send-email-dhananjay@netxen.com>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:56013 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:56010 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756419AbZALTex (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jan 2009 14:34:53 -0500
+	id S1754661AbZALTew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jan 2009 14:34:52 -0500
 In-Reply-To: <1231788191-23794-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Bail out if pci_map_single() fails while replenishing rx ring.
-o Drop packet if pci_map_{single,page}() fail in tx.
+o Raise consistent dma_mask for NX3031 to 39 bit.
+o Keep dma_mask for NX2031 35 bit.
+o Very old chip revisions of NX2031 have 32 bit dma_mask.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |    1 -
- drivers/net/netxen/netxen_nic_init.c |   68 ++++++++++++++++------------------
- drivers/net/netxen/netxen_nic_main.c |   38 +++++++++++++++++-
- 3 files changed, 67 insertions(+), 40 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    2 -
+ drivers/net/netxen/netxen_nic_main.c |   51 +++++++++++----------------------
+ 2 files changed, 17 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index abfcd8e..2e40099 100644
+index e028735..1fb60a5 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -869,7 +869,6 @@ struct nx_host_rds_ring {
- 	u32 skb_size;
- 	struct netxen_rx_buffer *rx_buf_arr;	/* rx buffers for receive   */
- 	struct list_head free_list;
--	int begin_alloc;
- };
+@@ -1208,8 +1208,6 @@ struct netxen_adapter {
+ 	u32 crb_win;
+ 	rwlock_t adapter_lock;
  
- /*
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index aa8d52e..476e1a2 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -306,7 +306,6 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
- 			}
- 			memset(rds_ring->rx_buf_arr, 0, RCV_BUFFSIZE);
- 			INIT_LIST_HEAD(&rds_ring->free_list);
--			rds_ring->begin_alloc = 0;
- 			/*
- 			 * Now go through all of them, set reference handles
- 			 * and put them in the queues.
-@@ -1431,7 +1430,6 @@ void netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ctx, u32 ringid)
- 	struct rcv_desc *pdesc;
- 	struct netxen_rx_buffer *buffer;
- 	int count = 0;
--	int index = 0;
- 	netxen_ctx_msg msg = 0;
- 	dma_addr_t dma;
- 	struct list_head *head;
-@@ -1439,7 +1437,6 @@ void netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ctx, u32 ringid)
- 	rds_ring = &recv_ctx->rds_rings[ringid];
- 
- 	producer = rds_ring->producer;
--	index = rds_ring->begin_alloc;
- 	head = &rds_ring->free_list;
- 
- 	/* We can start writing rx descriptors into the phantom memory. */
-@@ -1447,39 +1444,37 @@ void netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ctx, u32 ringid)
- 
- 		skb = dev_alloc_skb(rds_ring->skb_size);
- 		if (unlikely(!skb)) {
--			rds_ring->begin_alloc = index;
- 			break;
- 		}
- 
-+		if (!adapter->ahw.cut_through)
-+			skb_reserve(skb, 2);
-+
-+		dma = pci_map_single(pdev, skb->data,
-+				rds_ring->dma_size, PCI_DMA_FROMDEVICE);
-+		if (pci_dma_mapping_error(pdev, dma)) {
-+			dev_kfree_skb_any(skb);
-+			break;
-+		}
-+
-+		count++;
- 		buffer = list_entry(head->next, struct netxen_rx_buffer, list);
- 		list_del(&buffer->list);
- 
--		count++;	/* now there should be no failure */
--		pdesc = &rds_ring->desc_head[producer];
+-	uint64_t dma_mask;
 -
--		if (!adapter->ahw.cut_through)
--			skb_reserve(skb, 2);
--		/* This will be setup when we receive the
--		 * buffer after it has been filled  FSL  TBD TBD
--		 * skb->dev = netdev;
--		 */
--		dma = pci_map_single(pdev, skb->data, rds_ring->dma_size,
--				     PCI_DMA_FROMDEVICE);
--		pdesc->addr_buffer = cpu_to_le64(dma);
- 		buffer->skb = skb;
- 		buffer->state = NETXEN_BUFFER_BUSY;
- 		buffer->dma = dma;
-+
- 		/* make a rcv descriptor  */
-+		pdesc = &rds_ring->desc_head[producer];
-+		pdesc->addr_buffer = cpu_to_le64(dma);
- 		pdesc->reference_handle = cpu_to_le16(buffer->ref_handle);
- 		pdesc->buffer_length = cpu_to_le32(rds_ring->dma_size);
--		DPRINTK(INFO, "done writing descripter\n");
--		producer =
--		    get_next_index(producer, rds_ring->max_rx_desc_count);
--		index = get_next_index(index, rds_ring->max_rx_desc_count);
-+
-+		producer = get_next_index(producer, rds_ring->max_rx_desc_count);
- 	}
- 	/* if we did allocate buffers, then write the count to Phantom */
- 	if (count) {
--		rds_ring->begin_alloc = index;
- 		rds_ring->producer = producer;
- 			/* Window = 1 */
- 		adapter->pci_write_normalize(adapter,
-@@ -1518,49 +1513,50 @@ static void netxen_post_rx_buffers_nodb(struct netxen_adapter *adapter,
- 	struct rcv_desc *pdesc;
- 	struct netxen_rx_buffer *buffer;
- 	int count = 0;
--	int index = 0;
- 	struct list_head *head;
-+	dma_addr_t dma;
- 
- 	rds_ring = &recv_ctx->rds_rings[ringid];
- 
- 	producer = rds_ring->producer;
--	index = rds_ring->begin_alloc;
- 	head = &rds_ring->free_list;
- 	/* We can start writing rx descriptors into the phantom memory. */
- 	while (!list_empty(head)) {
- 
- 		skb = dev_alloc_skb(rds_ring->skb_size);
- 		if (unlikely(!skb)) {
--			rds_ring->begin_alloc = index;
- 			break;
- 		}
- 
-+		if (!adapter->ahw.cut_through)
-+			skb_reserve(skb, 2);
-+
-+		dma = pci_map_single(pdev, skb->data,
-+				rds_ring->dma_size, PCI_DMA_FROMDEVICE);
-+		if (pci_dma_mapping_error(pdev, dma)) {
-+			dev_kfree_skb_any(skb);
-+			break;
-+		}
-+
-+		count++;
- 		buffer = list_entry(head->next, struct netxen_rx_buffer, list);
- 		list_del(&buffer->list);
- 
--		count++;	/* now there should be no failure */
--		pdesc = &rds_ring->desc_head[producer];
--		if (!adapter->ahw.cut_through)
--			skb_reserve(skb, 2);
- 		buffer->skb = skb;
- 		buffer->state = NETXEN_BUFFER_BUSY;
--		buffer->dma = pci_map_single(pdev, skb->data,
--					     rds_ring->dma_size,
--					     PCI_DMA_FROMDEVICE);
-+		buffer->dma = dma;
- 
- 		/* make a rcv descriptor  */
-+		pdesc = &rds_ring->desc_head[producer];
- 		pdesc->reference_handle = cpu_to_le16(buffer->ref_handle);
- 		pdesc->buffer_length = cpu_to_le32(rds_ring->dma_size);
- 		pdesc->addr_buffer = cpu_to_le64(buffer->dma);
--		producer =
--		    get_next_index(producer, rds_ring->max_rx_desc_count);
--		index = get_next_index(index, rds_ring->max_rx_desc_count);
--		buffer = &rds_ring->rx_buf_arr[index];
-+
-+		producer = get_next_index(producer, rds_ring->max_rx_desc_count);
- 	}
- 
- 	/* if we did allocate buffers, then write the count to Phantom */
- 	if (count) {
--		rds_ring->begin_alloc = index;
- 		rds_ring->producer = producer;
- 			/* Window = 1 */
- 		adapter->pci_write_normalize(adapter,
+ 	u32 cmd_producer;
+ 	__le32 *cmd_consumer;
+ 	u32 last_cmd_consumer;
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index c0771f5..038798d 100644
+index fc49459..706722d 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1195,6 +1195,24 @@ static bool netxen_tso_check(struct net_device *netdev,
- 	return tso;
- }
- 
-+static void
-+netxen_clean_tx_dma_mapping(struct pci_dev *pdev,
-+		struct netxen_cmd_buffer *pbuf, int last)
-+{
-+	int k;
-+	struct netxen_skb_frag *buffrag;
-+
-+	buffrag = &pbuf->frag_array[0];
-+	pci_unmap_single(pdev, buffrag->dma,
-+			buffrag->length, PCI_DMA_TODEVICE);
-+
-+	for (k = 1; k < last; k++) {
-+		buffrag = &pbuf->frag_array[k];
-+		pci_unmap_page(pdev, buffrag->dma,
-+			buffrag->length, PCI_DMA_TODEVICE);
-+	}
-+}
-+
- static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+@@ -162,51 +162,34 @@ static inline void netxen_nic_enable_int(struct netxen_adapter *adapter)
+ static int nx_set_dma_mask(struct netxen_adapter *adapter, uint8_t revision_id)
  {
- 	struct netxen_adapter *adapter = netdev_priv(netdev);
-@@ -1203,6 +1221,8 @@ static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	struct netxen_cmd_buffer *pbuf;
- 	struct netxen_skb_frag *buffrag;
- 	struct cmd_desc_type0 *hwdesc;
-+	struct pci_dev *pdev = adapter->pdev;
-+	dma_addr_t temp_dma;
- 	int i, k;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	int err;
+-	uint64_t mask;
++	uint64_t mask, consistent_mask;
  
- 	u32 producer, consumer;
-@@ -1235,8 +1255,12 @@ static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	pbuf->skb = skb;
- 	pbuf->frag_count = frag_count;
- 	buffrag = &pbuf->frag_array[0];
--	buffrag->dma = pci_map_single(adapter->pdev, skb->data, first_seg_len,
-+	temp_dma = pci_map_single(pdev, skb->data, first_seg_len,
- 				      PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(pdev, temp_dma))
-+		goto drop_packet;
+ #ifdef CONFIG_IA64
+-	adapter->dma_mask = DMA_32BIT_MASK;
++	mask = DMA_32BIT_MASK;
++	consistent_mask = DMA_32BIT_MASK;
++	adapter->pci_using_dac = 0;
+ #else
+-	if (revision_id >= NX_P3_B0) {
+-		/* should go to DMA_64BIT_MASK */
+-		adapter->dma_mask = DMA_39BIT_MASK;
+-		mask = DMA_39BIT_MASK;
+-	} else if (revision_id == NX_P3_A2) {
+-		adapter->dma_mask = DMA_39BIT_MASK;
++	mask = DMA_35BIT_MASK;
++	consistent_mask = DMA_32BIT_MASK;
++	adapter->pci_using_dac = 1;
 +
-+	buffrag->dma = temp_dma;
- 	buffrag->length = first_seg_len;
- 	netxen_set_tx_frags_len(hwdesc, frag_count, skb->len);
- 	netxen_set_tx_port(hwdesc, adapter->portnum);
-@@ -1248,7 +1272,6 @@ static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		struct skb_frag_struct *frag;
- 		int len, temp_len;
- 		unsigned long offset;
--		dma_addr_t temp_dma;
++	if (NX_IS_REVISION_P3(revision_id)) {
++		/* Should go to 64-bit when firmware will support */
+ 		mask = DMA_39BIT_MASK;
+-	} else if (revision_id == NX_P2_C1) {
+-		adapter->dma_mask = DMA_35BIT_MASK;
+-		mask = DMA_35BIT_MASK;
+-	} else {
+-		adapter->dma_mask = DMA_32BIT_MASK;
++		consistent_mask = DMA_39BIT_MASK;
++	} else if (revision_id < NX_P2_C1) {
+ 		mask = DMA_32BIT_MASK;
+-		goto set_32_bit_mask;
++		consistent_mask = DMA_32BIT_MASK;
++		adapter->pci_using_dac = 0;
+ 	}
++#endif /* CONFIG_IA64 */
  
- 		/* move to next desc. if there is a need */
- 		if ((i & 0x3) == 0) {
-@@ -1264,8 +1287,12 @@ static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		offset = frag->page_offset;
+-	/*
+-	 * Consistent DMA mask is set to 32 bit because it cannot be set to
+-	 * 35 bits. For P3 also leave it at 32 bits for now. Only the rings
+-	 * come off this pool.
+-	 */
+ 	if (pci_set_dma_mask(pdev, mask) == 0 &&
+-		pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK) == 0) {
+-		adapter->pci_using_dac = 1;
++		pci_set_consistent_dma_mask(pdev, consistent_mask) == 0) {
+ 		return 0;
+ 	}
+-#endif /* CONFIG_IA64 */
  
- 		temp_len = len;
--		temp_dma = pci_map_page(adapter->pdev, frag->page, offset,
-+		temp_dma = pci_map_page(pdev, frag->page, offset,
- 					len, PCI_DMA_TODEVICE);
-+		if (pci_dma_mapping_error(pdev, temp_dma)) {
-+			netxen_clean_tx_dma_mapping(pdev, pbuf, i);
-+			goto drop_packet;
-+		}
- 
- 		buffrag++;
- 		buffrag->dma = temp_dma;
-@@ -1340,6 +1367,11 @@ static int netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	netdev->trans_start = jiffies;
- 
- 	return NETDEV_TX_OK;
-+
-+drop_packet:
-+	adapter->stats.txdropped++;
-+	dev_kfree_skb_any(skb);
-+	return NETDEV_TX_OK;
+-set_32_bit_mask:
+-	err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+-	if (!err)
+-		err = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK);
+-	if (err) {
+-		DPRINTK(ERR, "No usable DMA configuration, aborting:%d\n", err);
+-		return err;
+-	}
+-
+-	adapter->pci_using_dac = 0;
+-	return 0;
++	return -EIO;
  }
  
- static int netxen_nic_check_temp(struct netxen_adapter *adapter)
+ static void netxen_check_options(struct netxen_adapter *adapter)
 -- 
 1.6.0.2
 
