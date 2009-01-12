@@ -1,78 +1,80 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [patch]startup race in hso driver
-Date: Mon, 12 Jan 2009 11:03:02 +0100
-Message-ID: <496B1556.3010901@option.com>
-References: <200812181457.36340.oliver@neukum.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org, Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200812181457.36340.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 00/09: netfilter fixes/trivial patches
+Date: Mon, 12 Jan 2009 11:05:59 +0100 (MET)
+Message-ID: <20090112100559.9280.23431.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Oliver,
-Is the patch below now obselete?
-I applied it to our internal tree, should I remove it?
+Hi Dave,
 
-I've yet to check the code in the big patch with subject
-Re: another race in hso
-Does this patch render the small one below obselete?
+the following patches contain fixes for a number of netfilter bugs:
 
+- Herbert's patches to fix VLAN/PPPoE handling in bridge netfilter
 
+- a fix for an iptables regression in 2.6.28, breaking revision queries
+  for match and target revisions
 
-Oliver Neukum wrote:
-> The flag marking a device running must be set before the URBs for
-> recption are submitted or they may complete too early and fail to resubmit.
-> 
-> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-> 
-> 	Regards
-> 		Oliver
-> 
-> ---
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index 8e90891..cc75c8b 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -658,10 +658,9 @@ static int hso_net_open(struct net_device *net)
->  	odev->rx_buf_missing = sizeof(struct iphdr);
->  	spin_unlock_irqrestore(&odev->net_lock, flags);
->  
-> -	hso_start_net_device(odev->parent);
-> -
->  	/* We are up and running. */
->  	set_bit(HSO_NET_RUNNING, &odev->flags);
-> +	hso_start_net_device(odev->parent);
->  
->  	/* Tell the kernel we are ready to start receiving from it */
->  	netif_start_queue(net);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- a fix for an ebtables regression in 2.6.28, which inverted the
+  meaning of match result codes
+
+- a fix for a problem with the ICMP/ICMPv6 conntrack timeout sysctls
+  on big-endian
+
+Additionally it includes four trivial patches that don't seem worth
+queueing for the next merge window:
+
+- removal of the "happy cracking" and similar messages
+
+- simplification of nf_conntrack_alloc() error handling
+
+- addition of an informational message to the xt_time match
+
+- reordering of struct xt_match to make it fit into a 128 byte cacheline
+
+Feel free to ignore the last four patches in case you'd prefer to receive
+them in the next merge window. The full patchset is also available in a
+git tree at:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+
+Please apply or pull, thanks.
 
 
--- 
-best regards,
-D.J. Barrow
+ include/linux/netfilter/x_tables.h             |    2 +-
+ net/bridge/br_netfilter.c                      |   18 ++++++++++++------
+ net/bridge/netfilter/ebtables.c                |    2 +-
+ net/ipv4/netfilter/iptable_filter.c            |    7 +------
+ net/ipv4/netfilter/iptable_mangle.c            |    6 +-----
+ net/ipv4/netfilter/iptable_raw.c               |    6 +-----
+ net/ipv4/netfilter/iptable_security.c          |    6 +-----
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    5 +----
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
+ net/netfilter/nf_conntrack_core.c              |    4 ++--
+ net/netfilter/nf_conntrack_netlink.c           |    2 +-
+ net/netfilter/x_tables.c                       |    8 ++++++++
+ net/netfilter/xt_time.c                        |   11 +++++++++++
+ 14 files changed, 43 insertions(+), 38 deletions(-)
 
-Linux Kernel Developer
-Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
- 
-T: +32 16 311 621
-F: +32 16 207 164
-d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-www.option.com
+Herbert Xu (2):
+      netfilter: bridge: Fix handling of non-IP packets in FORWARD/POST_ROUTING
+      netfilter: bridge: Disable PPPOE/VLAN processing by default
 
-Disclaimer:
-http://www.option.com/company/disclaimer.shtml
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jan Engelhardt (2):
+      netfilter: ebtables: fix inversion in match code
+      netfilter: xt_time: print timezone for user information
+
+Julia Lawall (1):
+      netfilter: simplify nf_conntrack_alloc() error handling
+
+Patrick McHardy (3):
+      netfilter: remove "happy cracking" message
+      netfilter: x_tables: fix match/target revision lookup
+      netfilter: nf_conntrack: fix ICMP/ICMPv6 timeout sysctls on big-endian
+
+Richard Kennedy (1):
+      netfilter: remove padding from struct xt_match on 64bit builds
