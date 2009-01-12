@@ -1,62 +1,42 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on 2.6.24?
-Date: Mon, 12 Jan 2009 11:18:48 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901121111420.24748@wrl-59.cs.helsinki.fi>
-References: <20090111212303.GA8612@outpost.ds9a.nl>
- <175f5a0f0901111408s7905e5d9l2155b841f1ac054d@mail.gmail.com>
- <20090111224541.GA10848@outpost.ds9a.nl> <20090111225427.GA7004@ioremap.net>
- <20090111230824.GB10848@outpost.ds9a.nl> <20090111231859.GA8309@ioremap.net>
- <20090111235001.536a858d.billfink@mindspring.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: Allowing more than 64k connections and heavily optimize bind(0) time.
+Date: Mon, 12 Jan 2009 12:27:56 +0300
+Message-ID: <20090112092756.GA29498@ioremap.net>
+References: <20090110.232019.98466627.davem@davemloft.net> <20090111125206.GA24173@ioremap.net> <200901111503.10736.denys@visp.net.lb> <20090111.230138.237917213.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	bert hubert <bert.hubert@netherlabs.nl>,
-	"H. Willstrand" <h.willstrand@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Bill Fink <billfink@mindspring.com>
+Cc: denys@visp.net.lb, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56349 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751620AbZALJSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 04:18:50 -0500
-In-Reply-To: <20090111235001.536a858d.billfink@mindspring.com>
+Received: from matrixpower.ru ([195.178.208.66]:36985 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753899AbZALJ16 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jan 2009 04:27:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20090111.230138.237917213.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 11 Jan 2009, Bill Fink wrote:
+On Sun, Jan 11, 2009 at 11:01:38PM -0800, David Miller (davem@davemloft.net) wrote:
+> Ok, I applied Evegniy's patch, but it didn't even come WITHIN A MILE
+> of applying to the current tree.  Eric Dumazet's RCU hash table
+> changes and net namespace macro modifications destroyed all of the
+> context and content in these patches.  It was one huge reject, even
+> with dumb patch.
 
-> On Mon, 12 Jan 2009, Evgeniy Polyakov wrote:
+Thank you David.
+
+> As I just have been told, it results in this strange behaviour:
+> $ grep -n :60013 netstat.res
+> 33101:tcp        0      0 local1:60013       remote:80       ESTABLISHED
+> 33105:tcp        0      0 local1:60013       remote:80       ESTABLISHED
+> 52084:tcp        0      0 local2:60013       remote:80       ESTABLISHED
+> 52085:tcp        0      0 local2:60013       remote:80       ESTABLISHED
+> 58249:tcp        0      0 local3:60013       remote:80       ESTABLISHED
 > 
-> > On Mon, Jan 12, 2009 at 12:08:24AM +0100, bert hubert (bert.hubert@netherlabs.nl) wrote:
-> > > I fully understand. Sometimes I have to talk to stupid devices though. What
-> > > I do find is the TCP_INFO ioctl, which offers this field in struct tcp_info:
-> > > 
-> > >         __u32   tcpi_unacked;
-> > > 
-> > > Which comes from:
-> > > 
-> > > struct tcp_sock {
-> > > ...
-> > >         u32     packets_out;    /* Packets which are "in flight"        */
-> > > ...
-> > > }
-> > > 
-> > > If this becomes 0, perhaps this might tell me everything I sent was acked?
-> > 
-> > 0 means that there are noin-flight packets, which is effectively number
-> > of unacked packets. So if your application waits for this field to
-> > become zero, it will wait for all sent packets to be acked.
-> 
-> I use this type of strategy in nuttcp, and it seems to work fine.
-> I have a loop with a small delay and a check of tcpi_unacked, and
-> break out of the loop if tcpi_unacked becomes 0 or a defined timeout
-> period has passed.
+> it is yet to resolve what it is and how much harm it brings :)
 
-Checking tcpi_unacked alone won't be reliable. The peer might be slow 
-enough to advertize zero window for a short period of time and during 
-that period you would have packets_out zero...
-
+It should be already resolved in the patch :)
 
 -- 
- i.
+	Evgeniy Polyakov
