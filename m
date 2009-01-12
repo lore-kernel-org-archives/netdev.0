@@ -1,48 +1,43 @@
-From: "Dan Williams" <dan.j.williams@intel.com>
-Subject: Re: [GIT PULL, resend] async_tx/dmaengine update for 2.6.29
-Date: Mon, 12 Jan 2009 10:45:02 -0700
-Message-ID: <e9c3a7c20901120945r2728e6d3oc9237249d748f8dd@mail.gmail.com>
-References: <20090112121539.GA6058@gondor.apana.org.au>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: re your change to the low_latency flag in the hso driver in
+ 2.6.29-rc1
+Date: Mon, 12 Jan 2009 17:45:31 +0000
+Message-ID: <20090112174531.682f49ea@lxorguk.ukuu.org.uk>
+References: <496B7CA9.6080403@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, hskinnemoen@atmel.com,
-	maciej.sosnowski@intel.com, g.liakhovetski@gmx.de,
-	sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, "David S. Miller" <davem@davemloft.net>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.175]:6264 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751936AbZALRpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 12:45:04 -0500
-In-Reply-To: <20090112121539.GA6058@gondor.apana.org.au>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paul Hardwick <P.Hardwick-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <496B7CA9.6080403-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 12, 2009 at 5:15 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> Dan Williams <dan.j.williams@intel.com> wrote:
->>
->> net/core/dev.c                        |  149 +------
->> net/ipv4/tcp.c                        |    5 +-
->> net/ipv4/tcp_input.c                  |    2 +-
->> net/ipv4/tcp_ipv4.c                   |    2 +-
->> net/ipv6/tcp_ipv6.c                   |    2 +-
->
-> Wouldn't it be better for these changes to go through the net
-> tree?
->
+> I remember removing the low_latency flag to 0 once & if I recall correctly performance 
+> was severely impacted & there may have been other problems which I don't recall.
 
-It was awkward to separate the reformatting of the core api from its
-users.  In this exceptional case these changes were limited to areas
-inside #ifdef CONFIG_DMA_ENGINE/CONFIG_NET_DMA.
+The modern buffering and old buffering are rather different so that
+shouldn't be a problem.
 
-In general, Maciej and I send purely incremental patches through the
-net tree [1].
+> Now tty_insert_flip_string can return 0 bytes leading to an infinite loop if tty buffers are full,
+> as write_length_remaining never goes to zero as I am dependent on the line
+> discipline being called from tty_flip_buffer_push to set TTY_THROTTLED by calling flush_to_ldisc
 
-Regards,
-Dan
+In all cases tty_insert_flip_string may return 0 for other reasons (eg
+out of memory).
 
-[1]: http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=649274d993212e7c23c0cb734572c2311c200872
+> checking if curr_write_len=0 from tty_insert_flip_string might fix the problem
+> Please look at put_rxbuf_data carefully, there might be other gremlins. The serial port
+> is supposed to be high performance this fix will impact this
+
+Will do, but it should have no impact at all on throughput - in fact it
+ought to improve it. You can't call tty_flip_buffer_push() from an
+IRQ handler with tty->low_latency set anyway...
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
