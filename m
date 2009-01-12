@@ -1,34 +1,61 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: another race in hso
-Date: Mon, 12 Jan 2009 15:02:55 +0100
-Message-ID: <200901121502.56716.oliver@neukum.org>
-References: <200812221454.57794.oliver@neukum.org> <200901121436.16576.oliver@neukum.org> <496B4B39.3090908@option.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: Remove redundant NAPI functions
+Date: Mon, 12 Jan 2009 14:09:50 +0000
+Message-ID: <1231769390.3075.2.camel@achroite>
+References: <1231446610.3893.17.camel@achroite>
+	 <20090112071317.GA4212@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <496B4B39.3090908-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>, shemminger@vyatta.com,
+	netdev@vger.kernel.org,
+	Krzysztof =?UTF-8?Q?Ha=C5=82asa?= <khc@pm.waw.pl>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:47577 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751380AbZALOJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 09:09:59 -0500
+In-Reply-To: <20090112071317.GA4212@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Monday 12 January 2009 14:52:57 schrieb Denis Joseph Barrow:
-> > You can change that back, although if you need flags, you shouldn't
-> > use types that indicate a specific word length. That's outright evil.
-> Well chars are 1 byte in most architectures the most neutral bitfield
-> definition that most people go by for flags is unsigned int but I'll
+On Mon, 2009-01-12 at 07:13 +0000, Jarek Poplawski wrote:
+> On Thu, Jan 08, 2009 at 08:30:10PM +0000, Ben Hutchings wrote:
+> > Following the removal of the unused struct net_device * parameter f=
+rom
+> > the NAPI functions named *netif_rx_* in commit 908a7a1, they are
+> > exactly equivalent to the corresponding *napi_* functions and are
+> > therefore redundant.
+> >=20
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> > ---
+> ...
+>=20
+> Alas I wasn't able to send this earlier, but here is some issue
+> (I see Krzysztof tried to patch this too):
+>
+> > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_=
+hss.c
+> > index 2dc2416..9ea167b 100644
+> > --- a/drivers/net/wan/ixp4xx_hss.c
+> > +++ b/drivers/net/wan/ixp4xx_hss.c
+[...]
+=EF=BB=BF
+What's the issue - does it conflict with another change to this file?
 
-char is fine. u8 is not. u8 says you need 8 bit, no more, no less.
-Now, if you need just one bit, why not tell the compiler?
+> Plus a missing chunk for: drivers/staging/benet/be_int.c.
 
-	Regards
-		Oliver
+That didn't go in via net-next-2.6.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Since the merge window is closed I assume this will now be deferred to
+2.6.30.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
