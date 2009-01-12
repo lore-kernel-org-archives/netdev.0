@@ -1,58 +1,92 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: Remove redundant NAPI functions
-Date: Mon, 12 Jan 2009 14:46:17 +0000
-Message-ID: <1231771577.3075.5.camel@achroite>
-References: <1231446610.3893.17.camel@achroite>
-	 <20090112071317.GA4212@ff.dom.local>  <1231769390.3075.2.camel@achroite>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] hso driver fix for big endian machines.
+Date: Mon, 12 Jan 2009 15:59:10 +0100
+Message-ID: <496B5ABE.2060406@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>, shemminger@vyatta.com,
-	netdev@vger.kernel.org,
-	Krzysztof =?UTF-8?Q?Ha=C5=82asa?= <khc@pm.waw.pl>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:53524 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754580AbZALOqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 09:46:22 -0500
-In-Reply-To: <1231769390.3075.2.camel@achroite>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------090306060305070801020409"
+To: Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paul Hardwick <P.Hardwick-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-01-12 at 14:09 +0000, Ben Hutchings wrote:
-> On Mon, 2009-01-12 at 07:13 +0000, Jarek Poplawski wrote:
-> > On Thu, Jan 08, 2009 at 08:30:10PM +0000, Ben Hutchings wrote:
-> > > Following the removal of the unused struct net_device * parameter=
- from
-> > > the NAPI functions named *netif_rx_* in commit 908a7a1, they are
-> > > exactly equivalent to the corresponding *napi_* functions and are
-> > > therefore redundant.
-> > >=20
-> > > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > > ---
-> > ...
-> >=20
-> > Alas I wasn't able to send this earlier, but here is some issue
-> > (I see Krzysztof tried to patch this too):
-> >
-> > > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4x=
-x_hss.c
-> > > index 2dc2416..9ea167b 100644
-> > > --- a/drivers/net/wan/ixp4xx_hss.c
-> > > +++ b/drivers/net/wan/ixp4xx_hss.c
-> [...]
-> =EF=BB=BF
-> What's the issue - does it conflict with another change to this file?
+This is a multi-part message in MIME format.
+--------------090306060305070801020409
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Oh, now I see it - the device arguments hadn't already been removed.
-Yes, I'm afraid I failed to select this driver.
+Hi there,
+This patch is against 2.6.29-rc1 I hope it'll apply to other trees if neccessary.
+Filip Aben says this fix is neccessary for big endian machines.
 
-Ben.
+If anybody has one & a hso device & a big endian machine I'd greatly appreciate if you tell me if this
+patch works.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
+A patch needed to make the hso driver work on big endian machines.
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+Index: linux-2.6/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-12 15:49:57.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-12 15:50:33.000000000 +0100
+@@ -1792,8 +1792,8 @@
+ 
+ 	/* initialize */
+ 	ctrl_req->wValue = 0;
+-	ctrl_req->wIndex = hso_port_to_mux(port);
+-	ctrl_req->wLength = size;
++	ctrl_req->wIndex = cpu_to_le16(hso_port_to_mux(port));
++	ctrl_req->wLength = cpu_to_le16(size);
+ 
+ 	if (type == USB_CDC_GET_ENCAPSULATED_RESPONSE) {
+ 		/* Reading command */
+
+-- 
+best regards,
+D.J. Barrow
+
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
+ 
+T: +32 16 311 621
+F: +32 16 207 164
+d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+www.option.com
+
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
+
+--------------090306060305070801020409
+Content-Type: text/x-diff;
+ name="hso_big_endian.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso_big_endian.patch"
+
+A patch needed to make the hso driver work on big endian machines.
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+Index: linux-2.6/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-12 15:49:57.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-12 15:50:33.000000000 +0100
+@@ -1792,8 +1792,8 @@
+ 
+ 	/* initialize */
+ 	ctrl_req->wValue = 0;
+-	ctrl_req->wIndex = hso_port_to_mux(port);
+-	ctrl_req->wLength = size;
++	ctrl_req->wIndex = cpu_to_le16(hso_port_to_mux(port));
++	ctrl_req->wLength = cpu_to_le16(size);
+ 
+ 	if (type == USB_CDC_GET_ENCAPSULATED_RESPONSE) {
+ 		/* Reading command */
+
+--------------090306060305070801020409--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
