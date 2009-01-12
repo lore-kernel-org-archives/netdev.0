@@ -1,44 +1,57 @@
-From: Matthias Heinz <mheinz@informatik.uni-frankfurt.de>
-Subject: Re: 2.6.29-rc1: Reported regressions from 2.6.28
-Date: Sun, 11 Jan 2009 15:22:14 +0100
-Message-ID: <200901111522.18056.mheinz@informatik.uni-frankfurt.de>
-References: <XU-8icArWLM.A.UpG.8GfaJB@chimera>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] WAN: Fix NAPI interface in IXP4xx HSS driver.
+Date: Mon, 12 Jan 2009 02:04:12 +0100
+Message-ID: <m3r63949o3.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	"Linux PM List" <linux-pm@lists.linux-foundation.org>,
-	"Linux SCSI List" <linux-scsi@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.rbi.informatik.uni-frankfurt.de ([141.2.1.1]:50995 "EHLO
-	hera.rbi.informatik.uni-frankfurt.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751378AbZALAo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 19:44:58 -0500
-In-Reply-To: <XU-8icArWLM.A.UpG.8GfaJB@chimera>
-Content-Disposition: inline
+Received: from khc.piap.pl ([195.187.100.11]:45566 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751744AbZALBEP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 20:04:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Sonntag, 11. Januar 2009 schrieb Rafael J. Wysocki:
-> If you know of any other unresolved regressions from 2.6.28, please let me
-> know either and I'll add them to the list.  Also, please let me know if any
-> of the entries below are invalid.
+WAN: Fix NAPI interface in IXP4xx HSS driver.
+   =20
+Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
 
-Unresolved regressions
-----------------------
+diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.=
+c
+index 2dc2416..0dbd85b 100644
+--- a/drivers/net/wan/ixp4xx_hss.c
++++ b/drivers/net/wan/ixp4xx_hss.c
+@@ -622,7 +622,7 @@ static void hss_hdlc_rx_irq(void *pdev)
+ 	printk(KERN_DEBUG "%s: hss_hdlc_rx_irq\n", dev->name);
+ #endif
+ 	qmgr_disable_irq(queue_ids[port->id].rx);
+-	netif_rx_schedule(dev, &port->napi);
++	netif_rx_schedule(&port->napi);
+ }
+=20
+ static int hss_hdlc_poll(struct napi_struct *napi, int budget)
+@@ -651,7 +651,7 @@ static int hss_hdlc_poll(struct napi_struct *napi, =
+int budget)
+ 			printk(KERN_DEBUG "%s: hss_hdlc_poll"
+ 			       " netif_rx_complete\n", dev->name);
+ #endif
+-			netif_rx_complete(dev, napi);
++			netif_rx_complete(napi);
+ 			qmgr_enable_irq(rxq);
+ 			if (!qmgr_stat_empty(rxq) &&
+ 			    netif_rx_reschedule(napi)) {
+@@ -1069,7 +1069,7 @@ static int hss_hdlc_open(struct net_device *dev)
+ 	hss_start_hdlc(port);
+=20
+ 	/* we may already have RX data, enables IRQ */
+-	netif_rx_schedule(dev, &port->napi);
++	netif_rx_schedule(&port->napi);
+ 	return 0;
+=20
+ err_unlock:
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12174
-Subject		: No backlight control on Samsung x360
-
-I think this is a common bug on systems with a broken(?) bios, exposing wrong 
-driver names. With 2.6.27 it was at least possible to control the backlight 
-over the NVID interface.
+--=20
+Krzysztof Halasa
