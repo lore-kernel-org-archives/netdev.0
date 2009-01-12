@@ -1,66 +1,84 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: Network privilege separation.
-Date: Mon, 12 Jan 2009 21:55:47 +0100
-Message-ID: <20090112205547.GE23848@one.firstfloor.org>
-References: <1231307334-9542-1-git-send-email-michael@laptop.org> <200901122215.27842.rdenis@simphalempin.com> <20090112203931.GD23848@one.firstfloor.org> <200901122230.25976.rdenis@simphalempin.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: 802.1Q support?
+Date: Mon, 12 Jan 2009 21:43:50 +0100
+Message-ID: <200901122143.51004.florian@openwrt.org>
+References: <200901121148.26905.rgetz@blackfin.uclinux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andi Kleen <andi@firstfloor.org>, Valdis.Kletnieks@vt.edu,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Michael Stone <michael@laptop.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <rdenis@simphalempin.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757324AbZALUlq@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Robin Getz <rgetz@blackfin.uclinux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:59827 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751466AbZALUoB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 15:44:01 -0500
+Received: by bwz14 with SMTP id 14so32828809bwz.13
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 12:43:59 -0800 (PST)
+In-Reply-To: <200901121148.26905.rgetz@blackfin.uclinux.org>
 Content-Disposition: inline
-In-Reply-To: <200901122230.25976.rdenis@simphalempin.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2009 at 10:30:25PM +0200, R=E9mi Denis-Courmont wrote:
-> Le lundi 12 janvier 2009 22:39:31 Andi Kleen, vous avez =E9crit=A0:
-> > > What's the point of writing a parser (that could also have bugs) =
-when the
-> >
-> > Sorry you lost me. What do you mean with parser here?
-> >
-> > > kernel can do it?
-> >
-> > And what does it have to do with the kernel?
->=20
-> The parser at the other end of the pipe. The more intricate the over-=
-the-pipe=20
-> protocol is, the more likely it is to be buggy and the security schem=
-e to=20
-> break.
+Hi Robin,
 
-That would be very little code that would also not=20
-change very often so that it could be probably effectively
-audited.
+Le Monday 12 January 2009 17:48:26 Robin Getz, vous avez =E9crit=A0:
+> I'm trying to understand the "standard" way to control a switch which
+> supports VLAN.
+>
+> Pick any one of:
+>
+> Infineon XWAY ADM6999 (eight-port 10/100 plus one MII)
+> http://www.infineon.com/cms/en/product/channel.html?channel=3Dff80808=
+112ab681
+>d0112ab68ce8d0043
+>
+> Micrel MS8993M (2 port 10/100 plus one MII)
+> http://www.micrel.com/_PDF/Ethernet/ks8993m_pb.pdf
+>
+> Broadcom BCM5325E (five port 10/100 plus one MII)
+> http://www.broadcom.com/collateral/pb/5325E-PB00-R.pdf
+>
+> Realtek (five port 10/100 plus one MII)
+> http://www1.futureelectronics.com/doc/REALTEK%20SEMICONDUCTOR/Realtek=
+%20Sem
+>iconductor%20RTL8306SD-GR.pdf
+>
+> They all have multiple MAC/PHYs which are exposed to the wire, and a =
+single
+> MII interface - which normally connects directly to a SOC's MII/MAC.
+>
+> I would have thought that there would be separate drivers for these i=
+n the
+> phylib, but I didn't find anything that looked like it would work. (o=
+r
+> expose the right interface (all the vendor specific VLAN registers) s=
+o I
+> can program them properly from userspace)...
 
-> > Yes it would be somewhat slower, but if it avoids a couple of secur=
-ity
-> > updates that would be probably worth it.
->=20
-> If codecs did not care about performance, they'd be written in some h=
-igh-level=20
-> language that could easily be sandboxed by its own VM.
+You can check what we are doing in OpenWrt to be able to change the swi=
+tch=20
+configuration. There is some work going on to interface switch drivers =
+as PHY=20
+drivers. See :
 
-I don't think using a full JIT is anywhere comparable in=20
-performance impact to adding two cache hot copies to=20
-otherwise fully optimized code.
+https://dev.openwrt.org/browser/trunk/target/linux/generic-2.6/patches-=
+2.6.27/650-swconfig.patch
+https://dev.openwrt.org/browser/trunk/target/linux/generic-2.6/files/dr=
+ivers/net/phy/
+https://dev.openwrt.org/browser/trunk/package/swconfig
 
->=20
-> As the guy who's been dealing with VLC security issues for the past t=
-wo years,=20
-> I have to say, I am in no way interested in SECCOMP as it _currently_=
- is.
+>
+> It is possible to hack up the specific EMAC driver to do everything, =
+but
+> that doesn't seem like the right way to do it...
 
-=46air point, although I'm afraid you didn't do a very good
-job explaining your reasons, so it sounds like a=20
-quite arbitary decision.
-
--Andi
-
+Yes, you can also do it that way, though most switches could be reached=
+ using=20
+a specific PHY address like how BCM5325 switches are connected to the M=
+AC.
 --=20
-ak@linux.intel.com -- Speaking for myself only.
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
