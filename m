@@ -1,54 +1,41 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on
- 2.6.24?
-Date: Sun, 11 Jan 2009 23:50:01 -0500
-Message-ID: <20090111235001.536a858d.billfink@mindspring.com>
-References: <20090111212303.GA8612@outpost.ds9a.nl>
-	<175f5a0f0901111408s7905e5d9l2155b841f1ac054d@mail.gmail.com>
-	<20090111224541.GA10848@outpost.ds9a.nl>
-	<20090111225427.GA7004@ioremap.net>
-	<20090111230824.GB10848@outpost.ds9a.nl>
-	<20090111231859.GA8309@ioremap.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Is it valid to add a macvlan virtual interface to a bridge? If
+ so, there seems to be a bug with it.
+Date: Mon, 12 Jan 2009 05:55:25 +0100
+Message-ID: <496ACD3D.6000608@trash.net>
+References: <E1LD9nz-0007sR-OP@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bert hubert <bert.hubert@netherlabs.nl>,
-	"H. Willstrand" <h.willstrand@gmail.com>, netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Cc: ipng@69706e6720323030352d30312d31340a.nosense.org,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:56762 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751066AbZALEuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 23:50:12 -0500
-In-Reply-To: <20090111231859.GA8309@ioremap.net>
+Received: from stinky.trash.net ([213.144.137.162]:55354 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751066AbZALEzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2009 23:55:40 -0500
+In-Reply-To: <E1LD9nz-0007sR-OP@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Jan 2009, Evgeniy Polyakov wrote:
-
-> On Mon, Jan 12, 2009 at 12:08:24AM +0100, bert hubert (bert.hubert@netherlabs.nl) wrote:
-> > I fully understand. Sometimes I have to talk to stupid devices though. What
-> > I do find is the TCP_INFO ioctl, which offers this field in struct tcp_info:
-> > 
-> >         __u32   tcpi_unacked;
-> > 
-> > Which comes from:
-> > 
-> > struct tcp_sock {
-> > ...
-> >         u32     packets_out;    /* Packets which are "in flight"        */
-> > ...
-> > }
-> > 
-> > If this becomes 0, perhaps this might tell me everything I sent was acked?
+Herbert Xu wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
+>>> I've had a look at the dev.c file in 2.6.27, and my very naive guess
+>>> is that as the handle_bridge() call is before the handle_macvlan() call,
+>>> because the incoming real physical interface is not part of the bridge,
+>>> the incoming unicast packet is being dropped, before the macvlan code
+>>> gets a look at it.
+>> Yes, that seems correct.
 > 
-> 0 means that there are noin-flight packets, which is effectively number
-> of unacked packets. So if your application waits for this field to
-> become zero, it will wait for all sent packets to be acked.
+> Would it be possible to implement promiscuous mode for macvlans by
+> simply keeping a separate list of macvlan devices in promiscuous
+> mode and sending all inbound packets to them?
+> 
+> This should make bridging work, right?
 
-I use this type of strategy in nuttcp, and it seems to work fine.
-I have a loop with a small delay and a check of tcpi_unacked, and
-break out of the loop if tcpi_unacked becomes 0 or a defined timeout
-period has passed.
+I think that should work, at least if we also put the underlying device
+in promiscous mode. It wouldn't really be *mac*vlan anymore though :)
 
-						-Bill
+I've put it on my TODO list, though I won't be able to take care
+of this any time soon.
