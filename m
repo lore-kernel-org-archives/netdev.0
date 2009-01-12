@@ -1,45 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: XFRM structures binary compability
-Date: Mon, 12 Jan 2009 15:41:59 +0100
-Message-ID: <496B56B7.3080703@trash.net>
-References: <200901091324.3936@centrum.cz> <200901091325.24572@centrum.cz> <200901091326.18260@centrum.cz> <200901091327.25342@centrum.cz> <200901091328.6816@centrum.cz> <200901091329.27638@centrum.cz> <200901091330.17816@centrum.cz> <200901091331.18342@centrum.cz> <200901121454.21748@centrum.cz>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: Remove redundant NAPI functions
+Date: Mon, 12 Jan 2009 14:46:17 +0000
+Message-ID: <1231771577.3075.5.camel@achroite>
+References: <1231446610.3893.17.camel@achroite>
+	 <20090112071317.GA4212@ff.dom.local>  <1231769390.3075.2.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: klimes@centrum.cz
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>, shemminger@vyatta.com,
+	netdev@vger.kernel.org,
+	Krzysztof =?UTF-8?Q?Ha=C5=82asa?= <khc@pm.waw.pl>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33200 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221AbZALOmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 09:42:03 -0500
-In-Reply-To: <200901121454.21748@centrum.cz>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:53524 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754580AbZALOqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 09:46:22 -0500
+In-Reply-To: <1231769390.3075.2.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-klimes@centrum.cz wrote:
-> Hello,
-> 
-> I face a problem due to binary incompatibility of XFRM structures.
-> 
-> I use XFRM interface to create IPsec SAs. My user application is compiled as 32bit binary.
-> It works properly when running against 32bit kernel. However when I've run it on 64bit kernel, netlink returns an error (EINVAL).
-> I use Fedora for both 32 and 64-bit environment.
-> 
-> I'm aware that it is due to incompatibility (different alignment and padding) of XFRM structures passed between user space and kernel
-> (defined here for user space: /usr/include/linux/xfrm.h)
-> My question is: shall not the structures be designed to be the same in 32 and 64bit environment?
-> I think a padding should be added to meet the more strict alignment rules (i.e. 64bit environment).
-> 
-> I used pahole tool (available in dwarves package) to display structure alignment (see attachment).
-> pahole_32.txt - structures from 32bit binary
-> pahole_64.txt - structures from 64bit binary
-> 
-> What causes my trouble is "xfrm_usersa_info" which is padded with 7 bytes at the end in 64-bit,
-> so that the whole structure is 224 bytes in 64bit application against 220 bytes in 32bit (just 3-byte padding).
-> An explicit 7-byte padding in the structure would cure the case, IMHO.
+On Mon, 2009-01-12 at 14:09 +0000, Ben Hutchings wrote:
+> On Mon, 2009-01-12 at 07:13 +0000, Jarek Poplawski wrote:
+> > On Thu, Jan 08, 2009 at 08:30:10PM +0000, Ben Hutchings wrote:
+> > > Following the removal of the unused struct net_device * parameter=
+ from
+> > > the NAPI functions named *netif_rx_* in commit 908a7a1, they are
+> > > exactly equivalent to the corresponding *napi_* functions and are
+> > > therefore redundant.
+> > >=20
+> > > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> > > ---
+> > ...
+> >=20
+> > Alas I wasn't able to send this earlier, but here is some issue
+> > (I see Krzysztof tried to patch this too):
+> >
+> > > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4x=
+x_hss.c
+> > > index 2dc2416..9ea167b 100644
+> > > --- a/drivers/net/wan/ixp4xx_hss.c
+> > > +++ b/drivers/net/wan/ixp4xx_hss.c
+> [...]
+> =EF=BB=BF
+> What's the issue - does it conflict with another change to this file?
 
-That would break on 32 bit because userspace binaries compiled
-with the old layout would send "short" messages. I'd suggest
-to explicitly use the smaller value for the xfrm_msg_min checks
-(i.e. replace sizeof by numerical constant).
+Oh, now I see it - the device arguments hadn't already been removed.
+Yes, I'm afraid I failed to select this driver.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
