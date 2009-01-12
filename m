@@ -1,37 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 7/6] Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used
- jiffies in htb_dequeue()
-Date: Mon, 12 Jan 2009 14:10:53 +0100
-Message-ID: <496B415D.8050401@trash.net>
-References: <20081210093532.GA7926@ff.dom.local> <20081216.155722.144236025.davem@davemloft.net> <20081217070303.GA4577@ff.dom.local> <20081216.233801.26557633.davem@davemloft.net> <496AE9A5.9060507@trash.net> <20090112101047.GA5448@ff.dom.local> <496B19F7.4060909@trash.net> <20090112110857.GB5901@ff.dom.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Mon, 12 Jan 2009 13:15:17 +0000
+Message-ID: <20090112131517.GD5901@ff.dom.local>
+References: <20090106094138.GE25644@1wt.eu> <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk> <20090107124946.GA9677@ff.dom.local> <20090107125217.GA26235@gondor.apana.org.au> <20090112120257.GA5697@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, devik@cdi.cz,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64089 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148AbZALNKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 08:10:55 -0500
-In-Reply-To: <20090112110857.GB5901@ff.dom.local>
+Received: from qw-out-2122.google.com ([74.125.92.26]:4535 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751494AbZALNPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 08:15:24 -0500
+Content-Disposition: inline
+In-Reply-To: <20090112120257.GA5697@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Mon, Jan 12, 2009 at 11:22:47AM +0100, Patrick McHardy wrote:
-> ...
->> It doesn't bother me :) I just think its the technical better
->> and also most likely code-wise cleaner solution to this problem.
->> Cancellation wouldn't be necessary since an unnecessary
->> netif_schedule() doesn't really matter.
+On Mon, Jan 12, 2009 at 11:02:57PM +1100, Herbert Xu wrote:
+> On Wed, Jan 07, 2009 at 11:52:17PM +1100, Herbert Xu wrote:
+> > On Wed, Jan 07, 2009 at 12:49:46PM +0000, Jarek Poplawski wrote:
+> > > 
+> > > Hmm... in any case: take 3
+> > 
+> > Yes this should fix the corruption but it kind of defeats the
+> > purpose of splice by copying the data.
 > 
-> Hmm... Do you mean during destroying... It's probably not very long,
-> but deleting and creating qdiscs especially for some virtual devices
-> can take longer I guess.
+> However, as we don't have a better fix yet, we probably should
+> take Jarek's patch for now since data corruption is bad.
+> 
 
-I was referring to your statement "but also some overhead when
-cancelling this workqueue" and assumed you meant during packet
-processing. In the destruction path it really doesn't matter at
-all.
+I've wondered if something like this could work as a temporary hack?
+
+!!! not compiled/tested !!!
+---
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index ce572f9..99b0876 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -264,6 +264,7 @@
+ #include <linux/cache.h>
+ #include <linux/err.h>
+ #include <linux/crypto.h>
++#include <linux/page-flags.h>
+ 
+ #include <net/icmp.h>
+ #include <net/tcp.h>
+@@ -776,7 +777,8 @@ ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
+ 	struct sock *sk = sock->sk;
+ 
+ 	if (!(sk->sk_route_caps & NETIF_F_SG) ||
+-	    !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
++	    !(sk->sk_route_caps & NETIF_F_ALL_CSUM) ||
++	    PageSlab(page))
+ 		return sock_no_sendpage(sock, page, offset, size, flags);
+ 
+ 	lock_sock(sk);
