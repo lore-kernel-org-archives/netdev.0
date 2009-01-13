@@ -1,61 +1,56 @@
-From: Jaswinder Singh Rajput <jaswinder@infradead.org>
-Subject: [PATCH -tip] socket.h: extern's make no sense in userspace
-Date: Tue, 13 Jan 2009 13:50:55 +0530
-Message-ID: <1231834855.3212.35.camel@jaswinder.satnam>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
+Date: Tue, 13 Jan 2009 09:40:26 +0100
+Message-ID: <200901130940.28478.oliver@neukum.org>
+References: <1231805322.12962.4.camel@tux.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, netdev <netdev@vger.kernel.org>,
-	sam@ravnborg.org, harvey.harrison@gmail.com, gorcunov@gmail.com,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:56168 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605AbZAMIXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 03:23:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexey Klimov <klimov.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1231805322.12962.4.camel-XMdqyYT0w3Zyw3qLyVIJKA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Impact: fix 2 make headers_check warnings:
-
-usr/include/linux/socket.h:27: leaks CONFIG_PROC to userspace where it is not valid
-usr/include/linux/socket.h:29: extern's make no sense in userspace
-
-Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
----
- include/linux/socket.h |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 20fc4bb..f5771a2 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -24,11 +24,6 @@ struct __kernel_sockaddr_storage {
- #include <linux/types.h>		/* pid_t			*/
- #include <linux/compiler.h>		/* __user			*/
- 
--#ifdef CONFIG_PROC_FS
--struct seq_file;
--extern void socket_seq_show(struct seq_file *seq);
--#endif
--
- typedef unsigned short	sa_family_t;
- 
- /*
-@@ -303,6 +298,11 @@ struct ucred {
- #define IPX_TYPE	1
- 
- #ifdef __KERNEL__
-+#ifdef CONFIG_PROC_FS
-+struct seq_file;
-+extern void socket_seq_show(struct seq_file *seq);
-+#endif
-+
- extern int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
- extern int memcpy_fromiovecend(unsigned char *kdata, struct iovec *iov, 
- 				int offset, int len);
--- 
-1.5.6.6
-
-
-
+QW0gVHVlc2RheSAxMyBKYW51YXJ5IDIwMDkgMDE6MDg6NDIgc2NocmllYiBBbGV4ZXkgS2xpbW92
+Ogo+IEBAIC02NzUsNyArNjc3LDcgQEAgc3RhdGljIGludCBrYXdldGhfb3BlbihzdHJ1Y3QgbmV0
+X2RldmljZSAqbmV0KQo+IMKgCj4gwqDCoMKgwqDCoMKgwqDCoHJlcyA9IHVzYl9hdXRvcG1fZ2V0
+X2ludGVyZmFjZShrYXdldGgtPmludGYpOwo+IMKgwqDCoMKgwqDCoMKgwqBpZiAocmVzKSB7Cj4g
+LcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGVycigiSW50ZXJmYWNlIGNhbm5vdCBiZSBy
+ZXN1bWVkLiIpOwo+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBkZXZfZXJyKCZuZXQt
+PmRldiwgIkludGVyZmFjZSBjYW5ub3QgYmUgcmVzdW1lZC5cbiIpOwo+IMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuIC1FSU87Cj4gwqDCoMKgwqDCoMKgwqDCoH0KPiDCoMKg
+wqDCoMKgwqDCoMKgcmVzID0ga2F3ZXRoX3Jlc3VibWl0X3J4X3VyYihrYXdldGgsIEdGUF9LRVJO
+RUwpOwo+IEBAIC05MDIsNyArOTA0LDcgQEAgc3RhdGljIHZvaWQga2F3ZXRoX2FzeW5jX3NldF9y
+eF9tb2RlKHN0cnVjdCBrYXdldGhfZGV2aWNlICprYXdldGgpCj4gwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoEtBV0VUSF9DT05U
+Uk9MX1RJTUVPVVQpOwo+IMKgCj4gwqDCoMKgwqDCoMKgwqDCoGlmKHJlc3VsdCA8IDApIHsKPiAt
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgZXJyKCJGYWlsZWQgdG8gc2V0IFJ4IG1vZGU6
+ICVkIiwgcmVzdWx0KTsKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgZGV2X2Vycigm
+a2F3ZXRoLT5kZXYtPmRldiwgIkZhaWxlZCB0byBzZXQgUnggbW9kZTogJWRcbiIsIHJlc3VsdCk7
+Cj4gwqDCoMKgwqDCoMKgwqDCoH0KPiDCoMKgwqDCoMKgwqDCoMKgZWxzZSB7Cj4gwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBkYmcoIlNldCBSeCBtb2RlIHRvICVkIiwgcGFja2V0X2Zp
+bHRlcl9iaXRtYXApOwo+IEBAIC0xMDM4LDcgKzEwNDAsNyBAQCBzdGF0aWMgaW50IGthd2V0aF9w
+cm9iZSgKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgwqAgwqAgwqAi
+a2F3ZXRoL25ld19jb2RlLmJpbiIsCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgIMKgIMKgIMKgMTAwLAo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoCDCoCDCoCDCoDIpKSA8IDApIHsKPiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoGVycigiRXJyb3IgZG93bmxvYWRpbmcgZmlybXdhcmUgKCVkKSIsIHJl
+c3VsdCk7Cj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBk
+ZXZfZXJyKCZpbnRmLT5kZXYsICJFcnJvciBkb3dubG9hZGluZyBmaXJtd2FyZSAoJWQpXG4iLCBy
+ZXN1bHQpOwoKSSBoYXZlIHRvIHZldG8gdGhpcy4gWW91IGFyZSB1c2luZyB0aHJlZSBkaWZmZXJl
+bnQgZGV2aWNlIHN0cnVjdHVyZXMKdG8gcmVmZXIgdG8gdGhlIHNhbWUgZGV2aWNlLiBUaGF0IHdp
+bGwgbWFrZSBpdCBuZXh0IHRvIGltcG9zc2libGUgdG8KZmluZCBvdXQgd2hpY2ggZGV2aWNlIG9y
+aWdpbmF0ZWQgYSBtZXNzYWdlLgoKCVJlZ2FyZHMKCQlPbGl2ZXIKCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
