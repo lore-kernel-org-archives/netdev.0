@@ -1,86 +1,55 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] phylib: Fix Freescale TBI PHY detection
-Date: Tue, 13 Jan 2009 19:05:13 +0300
-Message-ID: <20090113160513.GA22083@oksana.dev.rtsoft.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: David Miller <davem@davemloft.net>,
-	Andy Fleming <afleming@freescale.com>,
-	Giulio Benetti <giulio.benetti@micronovasrl.com>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Jeff Garzik <jgarzik@pobox.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH v2] powerpc/fs_enet: Add missing irq free in error path.
+Date: Tue, 13 Jan 2009 10:28:15 -0600
+Message-ID: <606FE12E-797E-4C0C-8FA7-5C162BD959A9@kernel.crashing.org>
+References: <49027044.90509@consentry.com> <1D4ED273-13FB-4D2F-82B1-89D2F6F0B9A1@kernel.crashing.org> <490636B4.2010202@consentry.com>
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
+	Mike Ditto <mditto@consentry.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:58219 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751827AbZAMQFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 11:05:17 -0500
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:59121 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752299AbZAMQ21 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2009 11:28:27 -0500
+In-Reply-To: <490636B4.2010202@consentry.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Freescale on-chip TBI PHYs reports PHY ID as 0x0, but as of
 
-commit 3ee82383f0098a2e13acc8cf1be8e47512f41e5a
-Author: Giulio Benetti <giulio.benetti@micronovasrl.com>
-Date:   Thu Nov 13 21:53:13 2008 +0000
+On Oct 27, 2008, at 4:46 PM, Mike Ditto wrote:
 
-    phy: fix phy address bug
+> If something goes wrong attaching to phy driver, we weren't freeing
+> the IRQ.
+>
+> Signed-off-by: Mike Ditto <mditto@consentry.com>
+> ---
+> Reposting to CC netdev list.  (Thanks, Kumar)
+>
+> diff -r -upN 2.6.28-rc1/drivers/net/fs_enet/fs_enet-main.c NEW/ 
+> drivers/net/fs_enet/fs_enet-main.c
+> --- 2.6.28-rc1/drivers/net/fs_enet/fs_enet-main.c	2008-10-24  
+> 17:54:31.000000000 -0700
+> +++ NEW/drivers/net/fs_enet/fs_enet-main.c	2008-10-24  
+> 17:57:03.000000000 -0700
+> @@ -795,6 +795,7 @@ static int fs_enet_open(struct net_devic
+>
+> 	err = fs_init_phy(dev);
+> 	if (err) {
+> +		free_irq(fep->interrupt, dev);
+> 		if (fep->fpi->use_napi)
+> 			napi_disable(&fep->napi);
+> 		return err;
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
 
-    PHYID returns 0xffff and not 0xffffffff when not found and in some
-    case(at91sam9263) 0x0. Maybe this patch could be useful.
+Dave,
 
-phy_device.c treats PHY ID == 0x0 as bogus IDs, and that results in
-gianfar driver failure to see the TBI PHYs. This code snippet triggers:
+This seems to have gotten lost in the shuffle.  Can you please apply.
 
-	if (!priv->tbiphy) {
-		printk(KERN_WARNING "SGMII mode requires that the device "
-				"tree specify a tbi-handle\n");
-		return;
-	}
-
-Although tbi-handle is specified in the device tree.
-
-Btw, technically PHY ID == 0x0 is a valid ID (if we ever see a PHY
-manufactured by Xerox :-).
-
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
-
-There is one thing I don't actually understand though...
-
-Andy, were you testing the TBI support on a hardware where PHY ID
-!= 0x0 or maybe your TBI PHY support patch (commit b31a1d8b41513b,
-dated Tue Dec 16 15:29:15 2008) was based on a bit outdated kernel
-version? Because according to the git timestamps, the TBI support
-was not working since the submission.
-
-Just in case, the hardware I'm seeing the PHY ID == 0x0 is
-MPC8378E-MDS.
-
-Thanks,
-
- drivers/net/phy/phy_device.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index e354601..0a06e4f 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -231,15 +231,6 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
- 	if ((phy_id & 0x1fffffff) == 0x1fffffff)
- 		return NULL;
- 
--	/*
--	 * Broken hardware is sometimes missing the pull-up resistor on the
--	 * MDIO line, which results in reads to non-existent devices returning
--	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
--	 * device as well.
--	 */
--	if (phy_id == 0)
--		return NULL;
--
- 	dev = phy_device_create(bus, addr, phy_id);
- 
- 	return dev;
--- 
-1.5.6.5
+- k
