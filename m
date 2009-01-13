@@ -1,40 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Remove redundant NAPI functions
-Date: Mon, 12 Jan 2009 16:30:21 -0800 (PST)
-Message-ID: <20090112.163021.132623782.davem@davemloft.net>
-References: <1231769390.3075.2.camel@achroite>
-	<1231771577.3075.5.camel@achroite>
-	<m34p04bfd2.fsf@maximus.localdomain>
+Subject: Re: netfilter 00/09: netfilter fixes/trivial patches
+Date: Mon, 12 Jan 2009 16:39:11 -0800 (PST)
+Message-ID: <20090112.163911.59892780.davem@davemloft.net>
+References: <20090112100559.9280.23431.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: bhutchings@solarflare.com, jarkao2@gmail.com,
-	nhorman@tuxdriver.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36712
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59083
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751189AbZAMAaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 19:30:20 -0500
-In-Reply-To: <m34p04bfd2.fsf@maximus.localdomain>
+	by vger.kernel.org with ESMTP id S1751366AbZAMAjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 19:39:10 -0500
+In-Reply-To: <20090112100559.9280.23431.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogS3J6eXN6dG9mIEhhbGFzYSA8a2hjQHBtLndhdy5wbD4NCkRhdGU6IE1vbiwgMTIgSmFu
-IDIwMDkgMTg6MzE6MzcgKzAxMDANCg0KPiBCZW4gSHV0Y2hpbmdzIDxiaHV0Y2hpbmdzQHNvbGFy
-ZmxhcmUuY29tPiB3cml0ZXM6DQo+IA0KPiA+PiA+ID4gLS0tIGEvZHJpdmVycy9uZXQvd2FuL2l4
-cDR4eF9oc3MuYw0KPiA+PiA+ID4gKysrIGIvZHJpdmVycy9uZXQvd2FuL2l4cDR4eF9oc3MuYw0K
-PiA+PiBbLi4uXQ0KPiA+PiDvu78NCj4gPj4gV2hhdCdzIHRoZSBpc3N1ZSAtIGRvZXMgaXQgY29u
-ZmxpY3Qgd2l0aCBhbm90aGVyIGNoYW5nZSB0byB0aGlzIGZpbGU/DQo+ID4NCj4gPiBPaCwgbm93
-IEkgc2VlIGl0IC0gdGhlIGRldmljZSBhcmd1bWVudHMgaGFkbid0IGFscmVhZHkgYmVlbiByZW1v
-dmVkLg0KPiA+IFllcywgSSdtIGFmcmFpZCBJIGZhaWxlZCB0byBzZWxlY3QgdGhpcyBkcml2ZXIu
-DQo+IA0KPiBJdCdzIG9ubHkgcG9zc2libGUgb24gcGxhdGZvcm1zIGJhc2VkIG9uIElYUDR4eCAo
-SW50ZWwncyBuZXR3b3JraW5nDQo+IEFSTSBDUFUpLg0KDQpTbywgYXMgaXQgdHVybnMgb3V0IEkg
-dGhpbmsgSSBuZWVkIHRvIGhhbmRsZSB0aGlzIGluIGEgZmV3IHN0YWdlczoNCg0KMSkgSXQgZG9l
-c24ndCBidWlsZCB1cHN0cmVhbSBpbiBMaW51cydzIHRyZWUgYmVjYXVzZSBvZiB0aGUNCiAgIGRl
-diBhcmcsIHNvIEknbGwgZml4IHRoYXQgdXBzdHJlYW0gaW4gbmV0LTIuNg0KDQoyKSBUaGVuIEkn
-bGwgcmV3b3JrIEJlbidzIG5hcGlfKigpIHBhdGNoIHRvIGFwcGx5IG9uIHRvcCBvZiB0aGF0Lg0K
-DQpJIGNhbiBkbyB0aGlzIGJlY2F1c2UgSSBoYXZlbid0IHB1Ymxpc2hlZCBteSBuZXQtbmV4dC0y
-LjYgdHJlZQ0KeWV0IGFueXdoZXJlLCBzbyBJIGNhbiBqdXN0IHJlYmFzZSB0byBmaXggYWxsIG9m
-IHRoaXMgdXAuDQoNClRoYW5rcy4NCg==
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 12 Jan 2009 11:05:59 +0100 (MET)
+
+> the following patches contain fixes for a number of netfilter bugs:
+> 
+> - Herbert's patches to fix VLAN/PPPoE handling in bridge netfilter
+> 
+> - a fix for an iptables regression in 2.6.28, breaking revision queries
+>   for match and target revisions
+> 
+> - a fix for an ebtables regression in 2.6.28, which inverted the
+>   meaning of match result codes
+> 
+> - a fix for a problem with the ICMP/ICMPv6 conntrack timeout sysctls
+>   on big-endian
+> 
+> Additionally it includes four trivial patches that don't seem worth
+> queueing for the next merge window:
+> 
+> - removal of the "happy cracking" and similar messages
+> 
+> - simplification of nf_conntrack_alloc() error handling
+> 
+> - addition of an informational message to the xt_time match
+> 
+> - reordering of struct xt_match to make it fit into a 128 byte cacheline
+
+All applied, thanks Patrick.
+
+Your GIT tree looked perfectly fine, and the only reason I didn't
+pull was that I wanted to practice using bundles with patchwork.
+
+Next time I'll pull direct from your tree :-)
