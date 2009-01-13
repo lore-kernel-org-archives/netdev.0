@@ -1,52 +1,89 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH] NET: fix wrong English expression in comments
-Date: Tue, 13 Jan 2009 18:22:58 -0500
-Message-ID: <25981.1231888978@turing-police.cc.vt.edu>
-References: <496a3c51.09876e0a.03fe.7e80@mx.google.com> <496A9753.80802@cn.fujitsu.com> <1231724358.2674.13.camel@hashbaz.i.decadent.org.uk> <20090112.215320.197154233.davem@davemloft.net> <dc84318c0901122216s77bae26eo2dd36c4a0ee35177@mail.gmail.com>
-            <496C53AF.3080901@davidnewall.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Tue, 13 Jan 2009 15:26:36 -0800 (PST)
+Message-ID: <20090113.152636.07760819.davem@davemloft.net>
+References: <49667534.5060501@zeus.com>
+	<20090108.135515.85489589.davem@davemloft.net>
+	<4966F2F4.9080901@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1231888978_3146P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daolong Wang <ahlongxp@gmail.com>,
-	David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	lizf@cn.fujitsu.com, qhfeng.kernel@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Newall <davidn@davidnewall.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759223AbZAMXXz@vger.kernel.org>
-In-Reply-To: Your message of "Tue, 13 Jan 2009 19:11:19 +1030."
-             <496C53AF.3080901@davidnewall.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ben@zeus.com, w@1wt.eu, jarkao2@gmail.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: dada1@cosmosbay.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38258
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755127AbZAMX0f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 18:26:35 -0500
+In-Reply-To: <4966F2F4.9080901@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1231888978_3146P
-Content-Type: text/plain; charset=us-ascii
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Fri, 09 Jan 2009 07:47:16 +0100
 
-On Tue, 13 Jan 2009 19:11:19 +1030, David Newall said:
-> Daolong Wang wrote:
-> > The patch will make sense for some people. I was puzzled about the
-> > double-negative for quite a while.
-> >   
-> 
-> "Don't add nothing," is not a colloquialism; it's just bad grammar.  The
-> meaning is that you must not add no thing, therefore that you must add
-> something.  It is a common error amongst English speakers, even amongst
-> those who speak good, but.  :-)
+> I found this patch usefull in my testings, but had a feeling something
+> was not complete. If the goal is to reduce number of splice() calls,
+> we also should reduce number of wakeups. If splice() is used in non
+> blocking mode, nothing we can do here of course, since the application
+> will use a poll()/select()/epoll() event before calling splice(). A
+> good setting of SO_RCVLOWAT to (16*PAGE_SIZE)/2 might improve things.
 
-Those of us who have worked with weakly-typed languages who have coded
-stuff like 'X + 0.0' to cast X from string to floating point know all
-too well that sometimes, adding nothing is in fact what you want to do.
+Spice read does not handle SO_RCVLOWAT like tcp_recvmsg() does.
 
---==_Exmh_1231888978_3146P
-Content-Type: application/pgp-signature
+We should probably add a:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+	target = sock_rcvlowat(sk, flags & MSG_WAITALL, len);
 
-iD8DBQFJbSJScC3lWbTT17ARAvNJAKCQBl4shAHDDmr2UGrWcS2oQR/d9wCg1VMw
-HLSBdbZdVRNW8LKW9h2xBEw=
-=Mgx2
------END PGP SIGNATURE-----
+and check 'target' against 'spliced' in the main loop of
+tcp_splice_read().
 
---==_Exmh_1231888978_3146P--
+> About tcp_recvmsg(), we might also remove the "!timeo" test as well,
+> more testings are needed. But remind that if an application provides
+> a large buffer to tcp_recvmsg() call, removing the test will reduce
+> the number of syscalls but might use more DCACHE. It could reduce
+> performance on old cpus. With splice() call, we expect to not
+> copy memory and trash DCACHE, and pipe buffers being limited to 16,
+> we cope with a limited working set. 
+
+I sometimes have a suspicion we can remove this test too, but it's
+not really that clear.
+
+If an application is doing non-blocking reads and they care about
+latency, they shouldn't be providing huge buffers.  This much I
+agree with, but...
+
+If you look at where this check is placed in the recvmsg() case, it is
+done after we have verified that there is no socket backlog.
+
+		if (copied >= target && !sk->sk_backlog.tail)
+			break;
+
+		if (copied) {
+			if (sk->sk_err ||
+			    sk->sk_state == TCP_CLOSE ||
+			    (sk->sk_shutdown & RCV_SHUTDOWN) ||
+			    !timeo ||
+			    signal_pending(current))
+				break;
+		} else {
+
+So either:
+
+1) We haven't met the target.  And note that target is one unless
+   the user makes an explicit receive low-water setting.
+
+2) Or there is no backlog.
+
+When we get to the 'if (copied)' check.
+
+You can view this "!timeo" check as meaning "non-blocking".  When
+we get to it, we are guarenteed that we haven't met the target
+and we have no backlog.  So it is absolutely appropriate to break
+out of recvmsg() processing here if non-blocking.
+
+There is a lot of logic and feature handling in tcp_splice_read() and
+that's why the semantics of "!timeo" cases are not being handled
+properly here.
