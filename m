@@ -1,32 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Mon, 12 Jan 2009 21:45:50 -0800 (PST)
-Message-ID: <20090112.214550.23199011.davem@davemloft.net>
-References: <4967D36E.6020207@cosmosbay.com>
-	<20090109225309.GC4819@1wt.eu>
-	<4967DF10.2010107@cosmosbay.com>
+Subject: Re: [PATCH] korina: fix probing crash
+Date: Mon, 12 Jan 2009 21:52:02 -0800 (PST)
+Message-ID: <20090112.215202.194850308.davem@davemloft.net>
+References: <200901111654.24651.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, ben@zeus.com, jarkao2@gmail.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: dada1@cosmosbay.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org, n0-1@freewrt.org
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37807
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38766
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752280AbZAMFpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 00:45:49 -0500
-In-Reply-To: <4967DF10.2010107@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1751163AbZAMFwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 00:52:01 -0500
+In-Reply-To: <200901111654.24651.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Sat, 10 Jan 2009 00:34:40 +0100
+From: Florian Fainelli <florian@openwrt.org>
+Date: Sun, 11 Jan 2009 16:54:24 +0100
 
-> David, do you think we still must call __tcp_splice_read() only once
-> in tcp_splice_read() if SPLICE_F_NONBLOCK is set ?
+> korina: fix probing crash
+> 
+> This patch fixes the wrong retrieval of platform_data
+> which makes the driver crash on probe. Propagate error
+> if the platform_driver cannot use its data.
+> 
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-Eric, I'll get to this thread as soon as I can, perhaps tomorrow.  I
-want to get all of the build fallout and bug fixes for 2.6.29-rcX
-sorted before everyone heads off to LCA in the next week or so :-)
+There are several problems with this patch:
+
+> @@ -1078,12 +1078,18 @@ static int korina_close(struct net_device *dev)
+>  
+>  static int korina_probe(struct platform_device *pdev)
+>  {
+> -	struct korina_device *bif = platform_get_drvdata(pdev);
+> +	struct korina_device *bif;
+>  	struct korina_private *lp;
+>  	struct net_device *dev;
+>  	struct resource *r;
+>  	int rc;
+>  
+> +	bif = (struct korina_device *)pdev->dev.platform_data;
+
+This cast is unnecessary, platform_data is "void *"
+
+Secondly, korina_remove() also expects the korina_device pointer to be
+in the platform drvdata.  It therefore has the same bug as
+korina_probe() and needs to be fixed too.
+
+But I suspect there is some other weird problem here.  If
+you need to change from drvdata over to platform_data, then
+this driver never could have been probed or removed properly.
+
+This is absolutely a fundamental bug, where did it come from?
