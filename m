@@ -1,50 +1,42 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] NET: fix wrong English expression in comments
-Date: Tue, 13 Jan 2009 09:04:02 +0000
-Message-ID: <20090113090402.33d36725@lxorguk.ukuu.org.uk>
-References: <496a3c51.09876e0a.03fe.7e80@mx.google.com>
-	<496A9753.80802@cn.fujitsu.com>
-	<1231724358.2674.13.camel@hashbaz.i.decadent.org.uk>
-	<20090112.215320.197154233.davem@davemloft.net>
-	<dc84318c0901122216s77bae26eo2dd36c4a0ee35177@mail.gmail.com>
-	<496C53AF.3080901@davidnewall.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
+Date: Tue, 13 Jan 2009 10:25:38 +0100
+Message-ID: <200901131025.40285.oliver@neukum.org>
+References: <1231805322.12962.4.camel@tux.localhost> <200901130940.28478.oliver@neukum.org> <208cbae30901130057r2b3396f4gb5abdedd5647739c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Daolong Wang <ahlongxp@gmail.com>,
-	David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	lizf@cn.fujitsu.com, qhfeng.kernel@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Newall <davidn@davidnewall.com>
+Cc: dbrownell@users.sourceforge.net, davem@davemloft.net,
+	"Greg KH" <greg@kroah.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: "Alexey Klimov" <klimov.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:41436 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755974AbZAMJEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 04:04:23 -0500
-In-Reply-To: <496C53AF.3080901@davidnewall.com>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:41739 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995AbZAMJZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 04:25:08 -0500
+In-Reply-To: <208cbae30901130057r2b3396f4gb5abdedd5647739c@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> "Don't add nothing," is not a colloquialism; it's just bad grammar.  The
+Am Tuesday 13 January 2009 09:57:12 schrieb Alexey Klimov:
+> On Tue, Jan 13, 2009 at 11:40 AM, Oliver Neukum <oliver@neukum.org> wrote:
 
-It's a matter of dialect. For historical reasons English emerged from a
-mix of languages and cultures (even within the UK). In some of the
-originating languages and areas a double negative is emphatic in others
-it negates the negation. Thus it is a bad idea when using globally - as
-nobody is quite sure what you mean.
+> > I have to veto this. You are using three different device structures
+> > to refer to the same device. That will make it next to impossible to
+> > find out which device originated a message.
+> >
+> Ok, i'll reformat patch. Is it okay if i use kaweth->dev->dev,
+> kaweth->net->dev and intf->dev ? Or switch to kaweth->net->dev
+> (instead of dev->dev)?
 
-> As with spelling errors, corrections of this sort of thing are trivial
-> and a waste of time.  I'm opposed to patches like that; they add no
-> value and could be said to remove "character"; if that's important.
+kaweth in kaweth_disconnect() frees the network device. Therefore
+you cannot use it. You'd access freed memory. Pick one of the others
+and stay with it.
 
-You may be so opposed, but they can be very problematic to non-English
-speakers trying to use a dictionary or to understand if they are seeing a
-typo or an unknown word: thus we do fix them. This is why we have the
-trivial patch maintainer for such small fixes.
+	Regards
+		Oliver
 
-TRIVIAL PATCHES
-P:	Jiri Kosina
-M:	trivial@kernel.org
-L:	linux-kernel@vger.kernel.org
-T:	git kernel.org:/pub/scm/linux/kernel/git/jikos/trivial.git
-S:	Maintained
+
