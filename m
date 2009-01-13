@@ -1,46 +1,49 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: [PATCH]IPv6:remove duplicate check of optlen when setsockopt with
- IPV6_PKTINFO option
-Date: Tue, 13 Jan 2009 15:35:58 +0800
-Message-ID: <496C445E.1000707@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: fix wrong English expression in comments
+Date: Mon, 12 Jan 2009 23:44:41 -0800 (PST)
+Message-ID: <20090112.234441.131571840.davem@davemloft.net>
+References: <496a3c51.09876e0a.03fe.7e80@mx.google.com>
+	<496A9753.80802@cn.fujitsu.com>
+	<6b1ba94c0901122336r511fa316o5f520a8d2d9d6e0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: lizf@cn.fujitsu.com, qhfeng.kernel@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe.tian.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63419 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753169AbZAMHgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2009 02:36:03 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43296
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753904AbZAMHok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 02:44:40 -0500
+In-Reply-To: <6b1ba94c0901122336r511fa316o5f520a8d2d9d6e0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Actually the condition (optlen == 0) is included in (optlen < sizeof(struct in6_pktinfo)),
-so we do not need to check it separately.
+From: joe tian <joe.tian.kernel@gmail.com>
+Date: Tue, 13 Jan 2009 15:36:51 +0800
 
-Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+> 2009/1/12 Li Zefan <lizf@cn.fujitsu.com>:
+> >> @@ -103,7 +103,7 @@ struct inet_bind_bucket;
+> >>  struct inet_timewait_sock {
+> >>       /*
+> >>        * Now struct sock also uses sock_common, so please just
+> >> -      * don't add nothing before this first member (__tw_common) --acme
+> >> +      * don't add anything before this first member (__tw_common) --acme
+> >
+> > They are the same meaning...
+> >
+> I don't think they are the same meaning.
+> I think "don't add anything" means "do add nothing" but not means "don't add
+> nothing"
 
----
- net/ipv6/ipv6_sockglue.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+No offense to anyone, but the only people arguing for "correctness"
+seem to be non-native speakers of English.  Is this correct? :-)
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 40f3246..e6affa7 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -399,9 +399,7 @@ sticky_done:
- 	{
- 		struct in6_pktinfo pkt;
- 
--		if (optlen == 0)
--			goto e_inval;
--		else if (optlen < sizeof(struct in6_pktinfo) || optval == NULL)
-+		if (optlen < sizeof(struct in6_pktinfo) || optval == NULL)
- 			goto e_inval;
- 
- 		if (copy_from_user(&pkt, optval, sizeof(struct in6_pktinfo))) {
--- 
-1.6.0.3
--- 
-Regards
-Yang Hongyang
+As Ben tries to explain, "don't add nothing" is a colloquialism of
+English that in fact can mean "do not add"
+
+It sounds amusing when read, and I'm not killing the character and
+personality of this comment just for some language lawyering.
+
+No way.
