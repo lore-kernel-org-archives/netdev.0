@@ -1,65 +1,52 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: [PATCH] SIS900 show warning if bogus MAC address (take 2)
-Date: Tue, 13 Jan 2009 19:18:21 +0100
-Message-ID: <20090113181821.GA21342@milesteg.arr>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
+ (-git7 is ok)
+Date: Tue, 13 Jan 2009 10:39:48 -0800
+Message-ID: <20090113183948.GA21847@xw6200.broadcom.net>
+References: <43805.1231672258@turing-police.cc.vt.edu>
+ <20090111.040842.86784676.davem@davemloft.net>
+ <1231676698.25018.147.camel@macbook.infradead.org>
+ <20090111.133929.57600645.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="lrZ03NoBR/3+SXJZ"
-Cc: akpm@linux-foundation.org, venza@brownhat.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
+	"alessandro.suardi@gmail.com" <alessandro.suardi@gmail.com>,
+	"jaswinderlinux@gmail.com" <jaswinderlinux@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.infomaniak.ch ([84.16.68.89]:52845 "EHLO
-	smtp1.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753353AbZAMSSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 13:18:39 -0500
+Received: from mms1.broadcom.com ([216.31.210.17]:4740 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751667AbZAMSkB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2009 13:40:01 -0500
+In-Reply-To: <20090111.133929.57600645.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Jan 11, 2009 at 01:39:29PM -0800, David Miller wrote:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Sun, 11 Jan 2009 12:24:58 +0000
+> 
+> > Other drivers will load the firmware later, at the time the device is
+> > brought up. This means that even if you build the driver into the kernel
+> > without its firmware, it can still request the firmware later, when you
+> > try to start _using_ it. And when the file system is available.
+> 
+> For example, for mounting an NFS root using that device.... Oh, will I
+> need an initramfs for that once you pull the firmware-in-kernel
+> option?
+> 
+> To me, device probe is in fact the place to fail firmware discovery
+> for networking devices.  Because such a failure can mean you can't
+> mount your root filesystem.
 
---lrZ03NoBR/3+SXJZ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+David, is this the direction you want to take the fix?  I'm sitting on
+a patch that elaborates on David Woodhouse's work which moves the
+request_firmware call to tg3_open().  Before I posted it for comment,
+I wanted to make sure the patch is moving in the right direction.
 
-The attached patch modifies the sis900 driver when the MAC address
-read from the hardware is invalid. As suggested, the patch now
-generates a random address so that the user can go on and use
-the hardware. In any case a message is also shown to warn on the
-unexpected condition.
-This seems to happen with newer HW implementation of the sis900
-chipset, since this never came up before.
-
-Patch is against vanilla 2.6.28 (but the driver doesn't change so often,
-so it will probably apply to older/newer versions too).
-
-See bugzilla ID 10201 and 11649 and ignore the previous patch.
-
-Signed-off-by: Daniele Venzano <venza@brownhat.org>
-
---
-Daniele Venzano
-http://www.brownhat.org
-
-
---lrZ03NoBR/3+SXJZ
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="sis900_check_set_mac.diff"
-
---- a/drivers/net/sis900.c	2009-01-13 15:12:35.000000000 +0100
-+++ b/drivers/net/sis900.c	2009-01-13 15:38:05.000000000 +0100
-@@ -504,10 +504,10 @@ static int __devinit sis900_probe(struct
- 	else
- 		ret = sis900_get_mac_addr(pci_dev, net_dev);
- 
--	if (ret == 0) {
--		printk(KERN_WARNING "%s: Cannot read MAC address.\n", dev_name);
--		ret = -ENODEV;
--		goto err_unmap_rx;
-+	if (!ret || !is_valid_ether_addr(net_dev->dev_addr)) {
-+		random_ether_addr(net_dev->dev_addr);
-+		printk(KERN_WARNING "%s: Unreadable or invalid MAC address,"
-+				"using random generated one\n", dev_name);
- 	}
- 
- 	/* 630ET : set the mii access mode as software-mode */
-
---lrZ03NoBR/3+SXJZ--
