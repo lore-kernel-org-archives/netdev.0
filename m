@@ -1,52 +1,46 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Tue, 13 Jan 2009 15:31:04 -0800 (PST)
-Message-ID: <20090113.153104.72134741.davem@davemloft.net>
-References: <20090108.135515.85489589.davem@davemloft.net>
-	<4966F2F4.9080901@cosmosbay.com>
-	<49677074.5090802@cosmosbay.com>
+Date: Wed, 14 Jan 2009 00:35:58 +0100
+Message-ID: <496D255E.2050804@cosmosbay.com>
+References: <4966F2F4.9080901@cosmosbay.com>	<20090109070415.GA27758@1wt.eu>	<4966FC89.8040006@cosmosbay.com> <20090113.152759.29875009.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@zeus.com, w@1wt.eu, jarkao2@gmail.com, mingo@elte.hu,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: w@1wt.eu, ben@zeus.com, jarkao2@gmail.com, mingo@elte.hu,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jens.axboe@oracle.com
-To: dada1@cosmosbay.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46685
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759858AbZAMXbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 18:31:04 -0500
-In-Reply-To: <49677074.5090802@cosmosbay.com>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:54590 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760196AbZAMXhv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 18:37:51 -0500
+In-Reply-To: <20090113.152759.29875009.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 09 Jan 2009 16:42:44 +0100
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Fri, 09 Jan 2009 08:28:09 +0100
+>=20
+>> If the application uses setsockopt(sock, SOL_SOCKET, SO_RCVLOWAT,
+>> [32768], 4), it would be good if kernel was smart enough and could
+>> reduce number of wakeups.
+>=20
+> Right, and as I pointed out in previous replies the problem is
+> that splice() receive in TCP doesn't check the low water mark
+> at all.
+>=20
+>=20
 
-> David, if you referred to code at line 1374 of net/ipv4/tcp.c, I
-> believe there is no issue with it. We really want to break from this
-> loop if !timeo .
+Yes I understand, but if splice() is running, wakeup occured, and
+no need to check if the wakeup was good or not... just proceed and
+consume some skb, since we already were awaken.
 
-Correct, I agree, and I gave some detailed analysis of this in
-another response :-)
+Then, an application might setup a high SO_RCVLOWAT, but want to splice=
+()
+only few bytes, so RCVLOWAT is only a hint for the thing that perform t=
+he
+wakeup, not for the consumer.
 
-> Willy patch makes splice() behaving like tcp_recvmsg(), but we might call
-> tcp_cleanup_rbuf() several times, with copied=1460 (for each frame processed)
 
-"Like", sure, but not the same since splice() lacks the low-water
-and backlog checks.
-
-> I wonder if the right fix should be done in tcp_read_sock() : this is the
-> one who should eat several skbs IMHO, if we want optimal ACK generation.
-> 
-> We break out of its loop at line 1246
-> 
-> if (!desc->count) /* this test is always true */
-> 	break;
-> 
-> (__tcp_splice_read() set count to 0, right before calling tcp_read_sock())
-> 
-> So code at line 1246 (tcp_read_sock()) seems wrong, or pessimistic at least.
-
-Yes, that's very odd.
