@@ -1,53 +1,47 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [PATCH RFC v5] net: add PCINet driver
-Date: Tue, 13 Jan 2009 08:40:08 -0800
-Message-ID: <20090113164007.GA7434@ovro.caltech.edu>
-References: <20090107195052.GA24981@ovro.caltech.edu> <200901131302.52754.rusty@rustcorp.com.au> <20090113033420.GA11065@ovro.caltech.edu> <200901131733.04341.arnd@arndb.de>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-01-12
+Date: Tue, 13 Jan 2009 11:34:55 -0500
+Message-ID: <20090113163455.GC3623@tuxdriver.com>
+References: <20090112201302.GB3786@tuxdriver.com> <20090112.212345.259792227.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:56543 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753092AbZAMQkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 11:40:11 -0500
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <200901131733.04341.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090112.212345.259792227.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 13, 2009 at 05:33:03PM +0100, Arnd Bergmann wrote:
-> On Tuesday 13 January 2009, Ira Snyder wrote:
-> > On Tue, Jan 13, 2009 at 01:02:52PM +1030, Rusty Russell wrote:
-> > > 
-> > >    Interesting system: the guest being able to access the
-> > >    host's memory but not (fully) vice-versa makes this a
-> > >    little different from the current implementations where
-> > >    that was assumed.  virtio assumes that the guest will
-> > >    publish buffers and someone else (ie. the host) will access them.    
-> > 
-> > The guest system /could/ publish all of its RAM, but with 256MB per
-> > board, 19 boards per cPCI crate, that's way too much for a 32-bit PC to
-> > map into it's memory space. That's the real reason I use the 1MB
-> > windows. I could make them bigger (16MB would be fine, I think), but I
-> > doubt it would make much of a difference to the implementation.
+On Mon, Jan 12, 2009 at 09:23:45PM -0800, David Miller wrote:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Mon, 12 Jan 2009 15:13:02 -0500
 > 
-> The way we do it in the existing driver for cell, both sides export
-> just a little part of their memory to the other side, and they
-> also both get access to one channel of the DMA engine, which is
-> enough to transfer larger data sections, as the DMA engine has
-> access to all the memory on both sides.
+> > Please let me know if there are problems!
+> 
+> There's something funny in this tree.   In changeset
+> 19f0a391bf9d88307e52557ff3125b24e2519bd4 there is
+> a removal of arch/arm/mach-integrator/clock.h
+> 
+> I think when you installed that commit something
+> automatically deleted zero length files it found,
+> but that's just a guess.
+> 
+> Please fix this up so I can pull from you.
+> 
+> Otherwise all of those changes looked fine.
+ 
+Hmmm...dirty tree I suppose.  Sorry about that!  I should have noticed
+that in the changelog.
 
-So do you program one channel of the DMA engine from the host side and
-another channel from the guest side?
+I'll post a new pull request immediately.
 
-I tried to avoid having the host program the DMA controller at all.
-Using the DMAEngine API on the guest did better than I could achieve by
-programming the registers manually. I didn't use chaining or any of the
-fancier features in my tests, though.
-
-Ira
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
