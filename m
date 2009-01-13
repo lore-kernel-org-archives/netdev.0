@@ -1,55 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC] Expanding ethtool PHY information
-Date: Tue, 13 Jan 2009 20:45:14 +0000
-Message-ID: <1231879514.3005.31.camel@achroite>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PULL -tip] fixed few make headers_check warnings
+Date: Tue, 13 Jan 2009 13:03:52 -0800 (PST)
+Message-ID: <20090113.130352.137703887.davem@davemloft.net>
+References: <1231836016.3212.41.camel@jaswinder.satnam>
+	<20090113124921.GA30400@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Jeff Garzik <jgarzik@pobox.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:52731 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753443AbZAMUpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 15:45:18 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jaswinder@infradead.org, sam@ravnborg.org,
+	alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
+	x86@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mingo@elte.hu
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755822AbZAMVEH@vger.kernel.org>
+In-Reply-To: <20090113124921.GA30400@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The set of port types reported through the ethtool API is looking a bit
-limited:
+From: Ingo Molnar <mingo@elte.hu>
+Date: Tue, 13 Jan 2009 13:49:21 +0100
 
-/* Which connector port. */
-#define PORT_TP			0x00
-#define PORT_AUI		0x01
-#define PORT_MII		0x02
-#define PORT_FIBRE		0x03
-#define PORT_BNC		0x04
+> 
+> * Jaswinder Singh Rajput <jaswinder@infradead.org> wrote:
+> 
+> > Hello Ingo,
+> > 
+> > Please pull these patches. Earlier I also floated these patches so that 
+> > I can get some feedback.
+> 
+> Sam, Andrew, David, what's your workflow preference for these bits?
 
-There are of course many different types of fibre and several different
-types of slot for fibre transceivers.  Also there are other copper-wire
-types not included - at least CX4 and KX4.  This is even before we
-consider non-Ethernet devices which are starting to support some of the
-ethtool API.
-
-This probably doesn't matter for *setting* port type at the moment, as
-few devices other than 10 megabit Ethernet NICs allow software to selec=
-t
-between different port types.  However it does mean that other port
-types cannot be reported correctly.  At the least, I think we could do
-with a PORT_OTHER.  Similarly for the supported port type flags.
-
-Other PHY information that seems worth adding:
-=EF=BB=BF- link partner abilities (ethtool_cmd)
-- MDIO support: none, clause 22, clause 45 (ethtool_drvinfo)
-- PHY firmware version (ethtool_drvinfo?)
-
-What do you think of these?  Obviously it's easy to add these to the
-interface but the structures are filling up and extending them with new
-ethtool operations has a cost.
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+I'm fine with these changes and you can take them in via your
+tree.
