@@ -1,35 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 37/42] synclink: convert devices to new API (rev2)
-Date: Mon, 12 Jan 2009 16:18:14 -0800 (PST)
-Message-ID: <20090112.161814.241331603.davem@davemloft.net>
-References: <20090107154835.37f4de4c@extreme>
-	<20090107.180802.118061961.davem@davemloft.net>
-	<m3y6xljtvi.fsf@maximus.localdomain>
+Subject: Re: [PATCH] asix: Add support for AX88772A devices
+Date: Mon, 12 Jan 2009 16:18:50 -0800 (PST)
+Message-ID: <20090112.161850.235337113.davem@davemloft.net>
+References: <1231602265.9020.17.camel@dhollis-lnx>
+	<20090111.001704.107600670.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Cc: jeff@garzik.org, netdev@vger.kernel.org
+To: dhollis@davehollis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36740
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36744
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752674AbZAMASN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 19:18:13 -0500
-In-Reply-To: <m3y6xljtvi.fsf@maximus.localdomain>
+	by vger.kernel.org with ESMTP id S1752915AbZAMASt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 19:18:49 -0500
+In-Reply-To: <20090111.001704.107600670.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Thu, 08 Jan 2009 23:49:37 +0100
+From: David Miller <davem@davemloft.net>
+Date: Sun, 11 Jan 2009 00:17:04 -0800 (PST)
 
->   git://git.kernel.org/pub/scm/linux/kernel/git/chris/linux-2.6.git for-david
+> From: David Hollis <dhollis@davehollis.com>
+> Date: Sat, 10 Jan 2009 10:44:25 -0500
 > 
-> me:
->       WAN: Generic HDLC now uses IFF_WAN_HDLC private flag.
->       WAN: Allow hw HDLC drivers to override dev->get_stats.
->       Fix a comment in include/linux/netdevice.h.
->       WAN: Convert generic HDLC drivers to netdev_ops.
->       WAN: Fix NAPI interface in IXP4xx HSS driver.
+> > @@ -878,20 +885,22 @@ static struct ethtool_ops ax88772_ethtoo
+> >  
+> >  static int ax88772_link_reset(struct usbnet *dev)
+> >  {
+> > -	u16 mode;
+> > -	struct ethtool_cmd ecmd;
+> > +	u16 mode = AX88772_MEDIUM_DEFAULT;
+> > +	u16 bmcr;
+> >  
+> > -	mii_check_media(&dev->mii, 1, 1);
+> > -	mii_ethtool_gset(&dev->mii, &ecmd);
+> > -	mode = AX88772_MEDIUM_DEFAULT;
+> > +	bmcr = asix_mdio_read(dev->net, dev->mii.phy_id, MII_BMCR);
+> 
+> Just out of curiosity, why did you have to change this
+> function to not use the generic mii_*() routines just
+> to support this new device variant?
 
-Krzysztof, I integrated these changes into my local tree.
-Thanks a lot.
+Ping?
+
+I'm not applying this patch until you answer this question.
+
+Thank you.
