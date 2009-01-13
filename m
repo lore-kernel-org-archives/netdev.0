@@ -1,76 +1,47 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: [PATCH 1/4] virtio_net: Allow setting the MAC address of the NIC
-Date: Tue, 13 Jan 2009 14:23:16 -0700
-Message-ID: <1231881796.9095.186.camel@bling>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: kvm <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	Mark McLoughlin <markmc@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
+From: akpm@linux-foundation.org
+Subject: [patch 1/1] drivers/net/irda/irda-usb.c: fix buffer overflow
+Date: Tue, 13 Jan 2009 13:30:54 -0800
+Message-ID: <200901132130.n0DLUsjq014237@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	josevteg@gmail.com, linville@tuxdriver.com, samuel@sortiz.org,
+	stable@kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:7212 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753655AbZAMVXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 16:23:22 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35871 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752780AbZAMVbo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 16:31:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+From: Jos-Vicente Gilabert <josevteg@gmail.com>
+
+Taken from http://bugzilla.kernel.org/show_bug.cgi?id=12397
+
+We're doing an sprintf of an 11-char string into an 11-char buffer. 
+Whoops.  It breaks firmware uploading.
+
+Reported-by: Jos-Vicente Gilabert <josevteg@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: <stable@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/virtio_net.c |   23 +++++++++++++++++++++--
- 1 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/irda/irda-usb.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 43f6523..e7700de 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -561,6 +561,22 @@ stop_queue:
- 	goto done;
- }
- 
-+static int virtnet_set_mac_address(struct net_device *dev, void *p)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct virtio_device *vdev = vi->vdev;
-+	int ret;
-+
-+	ret = eth_mac_addr(dev, p);
-+	if (ret)
-+		return ret;
-+
-+	vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
-+			  dev->dev_addr, dev->addr_len);
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void virtnet_netpoll(struct net_device *dev)
+diff -puN drivers/net/irda/irda-usb.c~drivers-net-irda-irda-usbc-fix-buffer-overflow drivers/net/irda/irda-usb.c
+--- a/drivers/net/irda/irda-usb.c~drivers-net-irda-irda-usbc-fix-buffer-overflow
++++ a/drivers/net/irda/irda-usb.c
+@@ -1073,7 +1073,7 @@ static int stir421x_patch_device(struct 
  {
-@@ -629,7 +645,7 @@ static const struct net_device_ops virtnet_netdev = {
- 	.ndo_stop   	     = virtnet_close,
- 	.ndo_start_xmit      = start_xmit,
- 	.ndo_validate_addr   = eth_validate_addr,
--	.ndo_set_mac_address = eth_mac_addr,
-+	.ndo_set_mac_address = virtnet_set_mac_address,
- 	.ndo_change_mtu	     = virtnet_change_mtu,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = virtnet_netpoll,
-@@ -677,8 +693,11 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		vdev->config->get(vdev,
- 				  offsetof(struct virtio_net_config, mac),
- 				  dev->dev_addr, dev->addr_len);
--	} else
-+	} else {
- 		random_ether_addr(dev->dev_addr);
-+		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
-+				  dev->dev_addr, dev->addr_len);
-+	}
- 
- 	/* Set up our device-specific information */
- 	vi = netdev_priv(dev);
-
-
+ 	unsigned int i;
+ 	int ret;
+-	char stir421x_fw_name[11];
++	char stir421x_fw_name[12];
+ 	const struct firmware *fw;
+ 	const unsigned char *fw_version_ptr; /* pointer to version string */
+ 	unsigned long fw_version = 0;
+_
