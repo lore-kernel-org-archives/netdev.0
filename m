@@ -1,45 +1,422 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] SIS900 show warning if bogus MAC address (take 2)
-Date: Tue, 13 Jan 2009 11:06:21 -0800
-Message-ID: <20090113110621.1456a2a8@extreme>
-References: <20090113181821.GA21342@milesteg.arr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	venza@brownhat.org
-To: Daniele Venzano <venza@brownhat.org>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCHv2 1/7] netxen: fix endianness in firmware commands
+Date: Tue, 13 Jan 2009 11:52:38 -0800
+Message-ID: <1231876364-866-2-git-send-email-dhananjay@netxen.com>
+References: <1231876364-866-1-git-send-email-dhananjay@netxen.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44392 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753207AbZAMTGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2009 14:06:25 -0500
-In-Reply-To: <20090113181821.GA21342@milesteg.arr>
+Received: from nxgate.netxen.com ([38.99.60.130]:60167 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753313AbZAMTwq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2009 14:52:46 -0500
+In-Reply-To: <1231876364-866-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Jan 2009 19:18:21 +0100
-Daniele Venzano <venza@brownhat.org> wrote:
+o Set restricted (little endian) data types in firmware command
+  requests and responses.
+o Remove unnecessary conversion to LE when writing registers.
 
-> The attached patch modifies the sis900 driver when the MAC address
-> read from the hardware is invalid. As suggested, the patch now
-> generates a random address so that the user can go on and use
-> the hardware. In any case a message is also shown to warn on the
-> unexpected condition.
-> This seems to happen with newer HW implementation of the sis900
-> chipset, since this never came up before.
-> 
-> Patch is against vanilla 2.6.28 (but the driver doesn't change so often,
-> so it will probably apply to older/newer versions too).
-> 
-> See bugzilla ID 10201 and 11649 and ignore the previous patch.
-> 
-> Signed-off-by: Daniele Venzano <venza@brownhat.org>
-> 
-> --
-> Daniele Venzano
-> http://www.brownhat.org
-> 
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic.h      |   98 +++++++++++++++++-----------------
+ drivers/net/netxen/netxen_nic_ctx.c  |   50 +++++++----------
+ drivers/net/netxen/netxen_nic_hw.c   |   42 ++++++++------
+ drivers/net/netxen/netxen_nic_init.c |    2 +-
+ 4 files changed, 95 insertions(+), 97 deletions(-)
 
-It would be good if this driver was converted from using dev_name (ie pci_name()) 
-and used the standard routines which print that and more: dev_err, dev_warn, dev_dbg, etc?
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index f8e601c..31311cc 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -995,31 +995,31 @@ struct netxen_recv_context {
+  */
+ 
+ typedef struct {
+-	u64 host_phys_addr;	/* Ring base addr */
+-	u32 ring_size;		/* Ring entries */
+-	u16 msi_index;
+-	u16 rsvd;		/* Padding */
++	__le64 host_phys_addr;	/* Ring base addr */
++	__le32 ring_size;		/* Ring entries */
++	__le16 msi_index;
++	__le16 rsvd;		/* Padding */
+ } nx_hostrq_sds_ring_t;
+ 
+ typedef struct {
+-	u64 host_phys_addr;	/* Ring base addr */
+-	u64 buff_size;		/* Packet buffer size */
+-	u32 ring_size;		/* Ring entries */
+-	u32 ring_kind;		/* Class of ring */
++	__le64 host_phys_addr;	/* Ring base addr */
++	__le64 buff_size;		/* Packet buffer size */
++	__le32 ring_size;		/* Ring entries */
++	__le32 ring_kind;		/* Class of ring */
+ } nx_hostrq_rds_ring_t;
+ 
+ typedef struct {
+-	u64 host_rsp_dma_addr;	/* Response dma'd here */
+-	u32 capabilities[4];	/* Flag bit vector */
+-	u32 host_int_crb_mode;	/* Interrupt crb usage */
+-	u32 host_rds_crb_mode;	/* RDS crb usage */
++	__le64 host_rsp_dma_addr;	/* Response dma'd here */
++	__le32 capabilities[4];	/* Flag bit vector */
++	__le32 host_int_crb_mode;	/* Interrupt crb usage */
++	__le32 host_rds_crb_mode;	/* RDS crb usage */
+ 	/* These ring offsets are relative to data[0] below */
+-	u32 rds_ring_offset;	/* Offset to RDS config */
+-	u32 sds_ring_offset;	/* Offset to SDS config */
+-	u16 num_rds_rings;	/* Count of RDS rings */
+-	u16 num_sds_rings;	/* Count of SDS rings */
+-	u16 rsvd1;		/* Padding */
+-	u16 rsvd2;		/* Padding */
++	__le32 rds_ring_offset;	/* Offset to RDS config */
++	__le32 sds_ring_offset;	/* Offset to SDS config */
++	__le16 num_rds_rings;	/* Count of RDS rings */
++	__le16 num_sds_rings;	/* Count of SDS rings */
++	__le16 rsvd1;		/* Padding */
++	__le16 rsvd2;		/* Padding */
+ 	u8  reserved[128]; 	/* reserve space for future expansion*/
+ 	/* MUST BE 64-bit aligned.
+ 	   The following is packed:
+@@ -1029,24 +1029,24 @@ typedef struct {
+ } nx_hostrq_rx_ctx_t;
+ 
+ typedef struct {
+-	u32 host_producer_crb;	/* Crb to use */
+-	u32 rsvd1;		/* Padding */
++	__le32 host_producer_crb;	/* Crb to use */
++	__le32 rsvd1;		/* Padding */
+ } nx_cardrsp_rds_ring_t;
+ 
+ typedef struct {
+-	u32 host_consumer_crb;	/* Crb to use */
+-	u32 interrupt_crb;	/* Crb to use */
++	__le32 host_consumer_crb;	/* Crb to use */
++	__le32 interrupt_crb;	/* Crb to use */
+ } nx_cardrsp_sds_ring_t;
+ 
+ typedef struct {
+ 	/* These ring offsets are relative to data[0] below */
+-	u32 rds_ring_offset;	/* Offset to RDS config */
+-	u32 sds_ring_offset;	/* Offset to SDS config */
+-	u32 host_ctx_state;	/* Starting State */
+-	u32 num_fn_per_port;	/* How many PCI fn share the port */
+-	u16 num_rds_rings;	/* Count of RDS rings */
+-	u16 num_sds_rings;	/* Count of SDS rings */
+-	u16 context_id;		/* Handle for context */
++	__le32 rds_ring_offset;	/* Offset to RDS config */
++	__le32 sds_ring_offset;	/* Offset to SDS config */
++	__le32 host_ctx_state;	/* Starting State */
++	__le32 num_fn_per_port;	/* How many PCI fn share the port */
++	__le16 num_rds_rings;	/* Count of RDS rings */
++	__le16 num_sds_rings;	/* Count of SDS rings */
++	__le16 context_id;		/* Handle for context */
+ 	u8  phys_port;		/* Physical id of port */
+ 	u8  virt_port;		/* Virtual/Logical id of port */
+ 	u8  reserved[128];	/* save space for future expansion */
+@@ -1072,34 +1072,34 @@ typedef struct {
+  */
+ 
+ typedef struct {
+-	u64 host_phys_addr;	/* Ring base addr */
+-	u32 ring_size;		/* Ring entries */
+-	u32 rsvd;		/* Padding */
++	__le64 host_phys_addr;	/* Ring base addr */
++	__le32 ring_size;		/* Ring entries */
++	__le32 rsvd;		/* Padding */
+ } nx_hostrq_cds_ring_t;
+ 
+ typedef struct {
+-	u64 host_rsp_dma_addr;	/* Response dma'd here */
+-	u64 cmd_cons_dma_addr;	/*  */
+-	u64 dummy_dma_addr;	/*  */
+-	u32 capabilities[4];	/* Flag bit vector */
+-	u32 host_int_crb_mode;	/* Interrupt crb usage */
+-	u32 rsvd1;		/* Padding */
+-	u16 rsvd2;		/* Padding */
+-	u16 interrupt_ctl;
+-	u16 msi_index;
+-	u16 rsvd3;		/* Padding */
++	__le64 host_rsp_dma_addr;	/* Response dma'd here */
++	__le64 cmd_cons_dma_addr;	/*  */
++	__le64 dummy_dma_addr;	/*  */
++	__le32 capabilities[4];	/* Flag bit vector */
++	__le32 host_int_crb_mode;	/* Interrupt crb usage */
++	__le32 rsvd1;		/* Padding */
++	__le16 rsvd2;		/* Padding */
++	__le16 interrupt_ctl;
++	__le16 msi_index;
++	__le16 rsvd3;		/* Padding */
+ 	nx_hostrq_cds_ring_t cds_ring;	/* Desc of cds ring */
+ 	u8  reserved[128];	/* future expansion */
+ } nx_hostrq_tx_ctx_t;
+ 
+ typedef struct {
+-	u32 host_producer_crb;	/* Crb to use */
+-	u32 interrupt_crb;	/* Crb to use */
++	__le32 host_producer_crb;	/* Crb to use */
++	__le32 interrupt_crb;	/* Crb to use */
+ } nx_cardrsp_cds_ring_t;
+ 
+ typedef struct {
+-	u32 host_ctx_state;	/* Starting state */
+-	u16 context_id;		/* Handle for context */
++	__le32 host_ctx_state;	/* Starting state */
++	__le16 context_id;		/* Handle for context */
+ 	u8  phys_port;		/* Physical id of port */
+ 	u8  virt_port;		/* Virtual/Logical id of port */
+ 	nx_cardrsp_cds_ring_t cds_ring;	/* Card cds settings */
+@@ -1202,9 +1202,9 @@ enum {
+ #define VPORT_MISS_MODE_ACCEPT_MULTI	2 /* accept unmatched multicast */
+ 
+ typedef struct {
+-	u64 qhdr;
+-	u64 req_hdr;
+-	u64 words[6];
++	__le64 qhdr;
++	__le64 req_hdr;
++	__le64 words[6];
+ } nx_nic_req_t;
+ 
+ typedef struct {
+diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
+index 64b5164..746bdb4 100644
+--- a/drivers/net/netxen/netxen_nic_ctx.c
++++ b/drivers/net/netxen/netxen_nic_ctx.c
+@@ -76,7 +76,7 @@ netxen_api_unlock(struct netxen_adapter *adapter)
+ static u32
+ netxen_poll_rsp(struct netxen_adapter *adapter)
+ {
+-	u32 raw_rsp, rsp = NX_CDRP_RSP_OK;
++	u32 rsp = NX_CDRP_RSP_OK;
+ 	int	timeout = 0;
+ 
+ 	do {
+@@ -86,10 +86,7 @@ netxen_poll_rsp(struct netxen_adapter *adapter)
+ 		if (++timeout > NX_OS_CRB_RETRY_COUNT)
+ 			return NX_CDRP_RSP_TIMEOUT;
+ 
+-		netxen_nic_read_w1(adapter, NX_CDRP_CRB_OFFSET,
+-				&raw_rsp);
+-
+-		rsp = le32_to_cpu(raw_rsp);
++		netxen_nic_read_w1(adapter, NX_CDRP_CRB_OFFSET, &rsp);
+ 	} while (!NX_CDRP_IS_RSP(rsp));
+ 
+ 	return rsp;
+@@ -109,20 +106,16 @@ netxen_issue_cmd(struct netxen_adapter *adapter,
+ 	if (netxen_api_lock(adapter))
+ 		return NX_RCODE_TIMEOUT;
+ 
+-	netxen_nic_write_w1(adapter, NX_SIGN_CRB_OFFSET,
+-			cpu_to_le32(signature));
++	netxen_nic_write_w1(adapter, NX_SIGN_CRB_OFFSET, signature);
+ 
+-	netxen_nic_write_w1(adapter, NX_ARG1_CRB_OFFSET,
+-			cpu_to_le32(arg1));
++	netxen_nic_write_w1(adapter, NX_ARG1_CRB_OFFSET, arg1);
+ 
+-	netxen_nic_write_w1(adapter, NX_ARG2_CRB_OFFSET,
+-			cpu_to_le32(arg2));
++	netxen_nic_write_w1(adapter, NX_ARG2_CRB_OFFSET, arg2);
+ 
+-	netxen_nic_write_w1(adapter, NX_ARG3_CRB_OFFSET,
+-			cpu_to_le32(arg3));
++	netxen_nic_write_w1(adapter, NX_ARG3_CRB_OFFSET, arg3);
+ 
+ 	netxen_nic_write_w1(adapter, NX_CDRP_CRB_OFFSET,
+-			cpu_to_le32(NX_CDRP_FORM_CMD(cmd)));
++			NX_CDRP_FORM_CMD(cmd));
+ 
+ 	rsp = netxen_poll_rsp(adapter);
+ 
+@@ -133,7 +126,6 @@ netxen_issue_cmd(struct netxen_adapter *adapter,
+ 		rcode = NX_RCODE_TIMEOUT;
+ 	} else if (rsp == NX_CDRP_RSP_FAIL) {
+ 		netxen_nic_read_w1(adapter, NX_ARG1_CRB_OFFSET, &rcode);
+-		rcode = le32_to_cpu(rcode);
+ 
+ 		printk(KERN_ERR "%s: failed card response code:0x%x\n",
+ 				netxen_nic_driver_name, rcode);
+@@ -183,7 +175,7 @@ nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
+ 
+ 	int i, nrds_rings, nsds_rings;
+ 	size_t rq_size, rsp_size;
+-	u32 cap, reg;
++	u32 cap, reg, val;
+ 
+ 	int err;
+ 
+@@ -225,11 +217,14 @@ nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
+ 
+ 	prq->num_rds_rings = cpu_to_le16(nrds_rings);
+ 	prq->num_sds_rings = cpu_to_le16(nsds_rings);
+-	prq->rds_ring_offset = 0;
+-	prq->sds_ring_offset = prq->rds_ring_offset +
++	prq->rds_ring_offset = cpu_to_le32(0);
++
++	val = le32_to_cpu(prq->rds_ring_offset) +
+ 		(sizeof(nx_hostrq_rds_ring_t) * nrds_rings);
++	prq->sds_ring_offset = cpu_to_le32(val);
+ 
+-	prq_rds = (nx_hostrq_rds_ring_t *)(prq->data + prq->rds_ring_offset);
++	prq_rds = (nx_hostrq_rds_ring_t *)(prq->data +
++			le32_to_cpu(prq->rds_ring_offset));
+ 
+ 	for (i = 0; i < nrds_rings; i++) {
+ 
+@@ -241,17 +236,14 @@ nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
+ 		prq_rds[i].buff_size = cpu_to_le64(rds_ring->dma_size);
+ 	}
+ 
+-	prq_sds = (nx_hostrq_sds_ring_t *)(prq->data + prq->sds_ring_offset);
++	prq_sds = (nx_hostrq_sds_ring_t *)(prq->data +
++			le32_to_cpu(prq->sds_ring_offset));
+ 
+ 	prq_sds[0].host_phys_addr =
+ 		cpu_to_le64(recv_ctx->rcv_status_desc_phys_addr);
+ 	prq_sds[0].ring_size = cpu_to_le32(adapter->max_rx_desc_count);
+ 	/* only one msix vector for now */
+-	prq_sds[0].msi_index = cpu_to_le32(0);
+-
+-	/* now byteswap offsets */
+-	prq->rds_ring_offset = cpu_to_le32(prq->rds_ring_offset);
+-	prq->sds_ring_offset = cpu_to_le32(prq->sds_ring_offset);
++	prq_sds[0].msi_index = cpu_to_le16(0);
+ 
+ 	phys_addr = hostrq_phys_addr;
+ 	err = netxen_issue_cmd(adapter,
+@@ -269,9 +261,9 @@ nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
+ 
+ 
+ 	prsp_rds = ((nx_cardrsp_rds_ring_t *)
+-			 &prsp->data[prsp->rds_ring_offset]);
++			 &prsp->data[le32_to_cpu(prsp->rds_ring_offset)]);
+ 
+-	for (i = 0; i < le32_to_cpu(prsp->num_rds_rings); i++) {
++	for (i = 0; i < le16_to_cpu(prsp->num_rds_rings); i++) {
+ 		rds_ring = &recv_ctx->rds_rings[i];
+ 
+ 		reg = le32_to_cpu(prsp_rds[i].host_producer_crb);
+@@ -279,7 +271,7 @@ nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
+ 	}
+ 
+ 	prsp_sds = ((nx_cardrsp_sds_ring_t *)
+-			&prsp->data[prsp->sds_ring_offset]);
++			&prsp->data[le32_to_cpu(prsp->sds_ring_offset)]);
+ 	reg = le32_to_cpu(prsp_sds[0].host_consumer_crb);
+ 	recv_ctx->crb_sts_consumer = NETXEN_NIC_REG(reg - 0x200);
+ 
+@@ -288,7 +280,7 @@ nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
+ 
+ 	recv_ctx->state = le32_to_cpu(prsp->host_ctx_state);
+ 	recv_ctx->context_id = le16_to_cpu(prsp->context_id);
+-	recv_ctx->virt_port = le16_to_cpu(prsp->virt_port);
++	recv_ctx->virt_port = prsp->virt_port;
+ 
+ out_free_rsp:
+ 	pci_free_consistent(adapter->pdev, rsp_size, prsp, cardrsp_phys_addr);
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index aa6e603..e8a0eed 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -539,16 +539,19 @@ static int nx_p3_sre_macaddr_change(struct net_device *dev,
+ {
+ 	struct netxen_adapter *adapter = netdev_priv(dev);
+ 	nx_nic_req_t req;
+-	nx_mac_req_t mac_req;
++	nx_mac_req_t *mac_req;
++	u64 word;
+ 	int rv;
+ 
+ 	memset(&req, 0, sizeof(nx_nic_req_t));
+-	req.qhdr |= (NX_NIC_REQUEST << 23);
+-	req.req_hdr |= NX_MAC_EVENT;
+-	req.req_hdr |= ((u64)adapter->portnum << 16);
+-	mac_req.op = op;
+-	memcpy(&mac_req.mac_addr, addr, 6);
+-	req.words[0] = cpu_to_le64(*(u64 *)&mac_req);
++	req.qhdr = cpu_to_le64(NX_NIC_REQUEST << 23);
++
++	word = NX_MAC_EVENT | ((u64)adapter->portnum << 16);
++	req.req_hdr = cpu_to_le64(word);
++
++	mac_req = (nx_mac_req_t *)&req.words[0];
++	mac_req->op = op;
++	memcpy(mac_req->mac_addr, addr, 6);
+ 
+ 	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
+ 	if (rv != 0) {
+@@ -612,12 +615,16 @@ send_fw_cmd:
+ int netxen_p3_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
+ {
+ 	nx_nic_req_t req;
++	u64 word;
+ 
+ 	memset(&req, 0, sizeof(nx_nic_req_t));
+ 
+-	req.qhdr |= (NX_HOST_REQUEST << 23);
+-	req.req_hdr |= NX_NIC_H2C_OPCODE_PROXY_SET_VPORT_MISS_MODE;
+-	req.req_hdr |= ((u64)adapter->portnum << 16);
++	req.qhdr = cpu_to_le64(NX_HOST_REQUEST << 23);
++
++	word = NX_NIC_H2C_OPCODE_PROXY_SET_VPORT_MISS_MODE |
++			((u64)adapter->portnum << 16);
++	req.req_hdr = cpu_to_le64(word);
++
+ 	req.words[0] = cpu_to_le64(mode);
+ 
+ 	return netxen_send_cmd_descs(adapter,
+@@ -632,13 +639,15 @@ int netxen_p3_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
+ int netxen_config_intr_coalesce(struct netxen_adapter *adapter)
+ {
+ 	nx_nic_req_t req;
++	u64 word;
+ 	int rv;
+ 
+ 	memset(&req, 0, sizeof(nx_nic_req_t));
+ 
+-	req.qhdr |= (NX_NIC_REQUEST << 23);
+-	req.req_hdr |= NETXEN_CONFIG_INTR_COALESCE;
+-	req.req_hdr |= ((u64)adapter->portnum << 16);
++	req.qhdr = cpu_to_le64(NX_NIC_REQUEST << 23);
++
++	word = NETXEN_CONFIG_INTR_COALESCE | ((u64)adapter->portnum << 16);
++	req.req_hdr = cpu_to_le64(word);
+ 
+ 	memcpy(&req.words[0], &adapter->coal, sizeof(adapter->coal));
+ 
+@@ -772,13 +781,10 @@ int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
+ 	adapter->hw_read_wx(adapter, crbaddr, &mac_lo, 4);
+ 	adapter->hw_read_wx(adapter, crbaddr+4, &mac_hi, 4);
+ 
+-	mac_hi = cpu_to_le32(mac_hi);
+-	mac_lo = cpu_to_le32(mac_lo);
+-
+ 	if (pci_func & 1)
+-		*mac = ((mac_lo >> 16) | ((u64)mac_hi << 16));
++		*mac = le64_to_cpu((mac_lo >> 16) | ((u64)mac_hi << 16));
+ 	else
+-		*mac = ((mac_lo) | ((u64)mac_hi << 32));
++		*mac = le64_to_cpu((u64)mac_lo | ((u64)mac_hi << 32));
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index d924468..c0e06a6 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -1277,7 +1277,7 @@ static void netxen_process_rcv(struct netxen_adapter *adapter, int ctxid,
+ 
+ 		dev_kfree_skb_any(skb);
+ 		for (i = 0; i < nr_frags; i++) {
+-			index = frag_desc->frag_handles[i];
++			index = le16_to_cpu(frag_desc->frag_handles[i]);
+ 			skb = netxen_process_rxbuf(adapter,
+ 					rds_ring, index, cksum);
+ 			if (skb)
+-- 
+1.6.0.2
+
