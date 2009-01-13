@@ -1,53 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
- (-git7 is ok)
-Date: Tue, 13 Jan 2009 12:27:03 -0800 (PST)
-Message-ID: <20090113.122703.157508326.davem@davemloft.net>
-References: <1231676698.25018.147.camel@macbook.infradead.org>
-	<20090111.133929.57600645.davem@davemloft.net>
-	<20090113183948.GA21847@xw6200.broadcom.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: maximum buffer size for splice(2) tcp->pipe?
+Date: Tue, 13 Jan 2009 12:37:02 -0800
+Message-ID: <20090113123702.ad29cd13.akpm@linux-foundation.org>
+References: <E1LKrp3-004Tub-IR@intern.SerNet.DE>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dwmw2@infradead.org, Valdis.Kletnieks@vt.edu,
-	alessandro.suardi@gmail.com, jaswinderlinux@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mcarlson@broadcom.com
+Cc: linux-kernel@vger.kernel.org, Steven French <sfrench@us.ibm.com>,
+	Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
+To: Volker.Lendecke@SerNet.DE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39761
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752599AbZAMU1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 15:27:02 -0500
-In-Reply-To: <20090113183948.GA21847@xw6200.broadcom.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40337 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752434AbZAMUh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 15:37:28 -0500
+In-Reply-To: <E1LKrp3-004Tub-IR@intern.SerNet.DE>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Tue, 13 Jan 2009 10:39:48 -0800
+(cc's added)
 
-> On Sun, Jan 11, 2009 at 01:39:29PM -0800, David Miller wrote:
-> > From: David Woodhouse <dwmw2@infradead.org>
-> > Date: Sun, 11 Jan 2009 12:24:58 +0000
-> > 
-> > > Other drivers will load the firmware later, at the time the device is
-> > > brought up. This means that even if you build the driver into the kernel
-> > > without its firmware, it can still request the firmware later, when you
-> > > try to start _using_ it. And when the file system is available.
-> > 
-> > For example, for mounting an NFS root using that device.... Oh, will I
-> > need an initramfs for that once you pull the firmware-in-kernel
-> > option?
-> > 
-> > To me, device probe is in fact the place to fail firmware discovery
-> > for networking devices.  Because such a failure can mean you can't
-> > mount your root filesystem.
+On Thu, 8 Jan 2009 11:13:51 +0100
+Volker Lendecke <Volker.Lendecke@SerNet.DE> wrote:
+
+> Hi!
 > 
-> David, is this the direction you want to take the fix?  I'm sitting on
-> a patch that elaborates on David Woodhouse's work which moves the
-> request_firmware call to tg3_open().  Before I posted it for comment,
-> I wanted to make sure the patch is moving in the right direction.
+> While implementing splice support in Samba for better
+> performance I found it blocking when trying to pull data off
+> tcp into a pipe when the recvq was full. Attached find a
+> test program that shows this behaviour, on another host I
+> started
+> 
+> netcat 192.168.19.10 4711 < /dev/zero
+> 
+> vlendec@lenny:~$ uname -a
+> Linux lenny 2.6.28-06857-g5cbd04a #7 Wed Jan 7 10:10:42 CET 2009 x86_64 = GNU/Linux
+> vlendec@lenny:~$ gcc -o splicetest /host/home/vlendec/splicetest.c -O3 -Wall
+> vlendec@lenny:~$ ./splicetest out 65536 &
+> [1] 697
+> vlendec@lenny:~$ strace -p 697
+> Process 697 attached - interrupt to quit
+> splice(0x3, 0, 0x5, 0, 0x56a0, 0x1)     = 22176
+> splice(0x7, 0, 0x4, 0, 0x10000, 0x1^C <unfinished ...>
+> Process 697 detached
+> vlendec@lenny:~$ netstat -nt | grep 4711
+> tcp    69272      0 192.168.19.10:4711 192.168.19.1:33773 ESTABLISHED
+> vlendec@lenny:~$
+> 
+> Interestingly, whenever I start the strace, it gets another
+> chunk of data and then blocks in the next splice call.
+> 
+> If I start splicetest with a buffer size of 16384 instead of
+> 65536, it does not block. I could not find a way to ask the
+> kernel for the tipping point below which it does not block.
+> 
+> What is a safe buffer size to use with splice?
+> 
+> BTW, this kernel is from Steve French's linux-cifs.git repo.
+> 
+> Thanks,
+> 
+> Volker Lendecke
+> 
+> Samba Team
+> 
+> P.S: I'm not subscribed to linux-kernel, so if possible
+> please CC me directly. If this is inappropriate behaviour,
+> please give me a quick hint :-)
+> 
 
-You can post it, sure.
-
-But it doesn't actually fix the nfsroot case, that will still be
-broken.
