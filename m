@@ -1,77 +1,52 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: maximum buffer size for splice(2) tcp->pipe?
-Date: Wed, 14 Jan 2009 00:15:04 +0100
-Message-ID: <496D2078.9080302@cosmosbay.com>
-References: <E1LKrp3-004Tub-IR@intern.SerNet.DE> <20090113123702.ad29cd13.akpm@linux-foundation.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH] NET: fix wrong English expression in comments
+Date: Tue, 13 Jan 2009 18:22:58 -0500
+Message-ID: <25981.1231888978@turing-police.cc.vt.edu>
+References: <496a3c51.09876e0a.03fe.7e80@mx.google.com> <496A9753.80802@cn.fujitsu.com> <1231724358.2674.13.camel@hashbaz.i.decadent.org.uk> <20090112.215320.197154233.davem@davemloft.net> <dc84318c0901122216s77bae26eo2dd36c4a0ee35177@mail.gmail.com>
+            <496C53AF.3080901@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Volker.Lendecke@SerNet.DE, linux-kernel@vger.kernel.org,
-	Steven French <sfrench@us.ibm.com>,
-	Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:46468 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751928AbZAMXP5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 18:15:57 -0500
-In-Reply-To: <20090113123702.ad29cd13.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="==_Exmh_1231888978_3146P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Daolong Wang <ahlongxp@gmail.com>,
+	David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	lizf@cn.fujitsu.com, qhfeng.kernel@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Newall <davidn@davidnewall.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759223AbZAMXXz@vger.kernel.org>
+In-Reply-To: Your message of "Tue, 13 Jan 2009 19:11:19 +1030."
+             <496C53AF.3080901@davidnewall.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Morton a =E9crit :
-> (cc's added)
->=20
-> On Thu, 8 Jan 2009 11:13:51 +0100
-> Volker Lendecke <Volker.Lendecke@SerNet.DE> wrote:
->=20
->> Hi!
->>
->> While implementing splice support in Samba for better
->> performance I found it blocking when trying to pull data off
->> tcp into a pipe when the recvq was full. Attached find a
->> test program that shows this behaviour, on another host I
->> started
->>
->> netcat 192.168.19.10 4711 < /dev/zero
->>
->> vlendec@lenny:~$ uname -a
->> Linux lenny 2.6.28-06857-g5cbd04a #7 Wed Jan 7 10:10:42 CET 2009 x86=
-_64 =3D GNU/Linux
->> vlendec@lenny:~$ gcc -o splicetest /host/home/vlendec/splicetest.c -=
-O3 -Wall
->> vlendec@lenny:~$ ./splicetest out 65536 &
->> [1] 697
->> vlendec@lenny:~$ strace -p 697
->> Process 697 attached - interrupt to quit
->> splice(0x3, 0, 0x5, 0, 0x56a0, 0x1)     =3D 22176
->> splice(0x7, 0, 0x4, 0, 0x10000, 0x1^C <unfinished ...>
+--==_Exmh_1231888978_3146P
+Content-Type: text/plain; charset=us-ascii
 
-Volker, your splice() is a blocking one, from tcp socket to a pipe ?
+On Tue, 13 Jan 2009 19:11:19 +1030, David Newall said:
+> Daolong Wang wrote:
+> > The patch will make sense for some people. I was puzzled about the
+> > double-negative for quite a while.
+> >   
+> 
+> "Don't add nothing," is not a colloquialism; it's just bad grammar.  The
+> meaning is that you must not add no thing, therefore that you must add
+> something.  It is a common error amongst English speakers, even amongst
+> those who speak good, but.  :-)
 
-If no other thread is reading the pipe, then you might block forever
-in splice_to_pipe() as soon pipe is full (16 pages).
+Those of us who have worked with weakly-typed languages who have coded
+stuff like 'X + 0.0' to cast X from string to floating point know all
+too well that sometimes, adding nothing is in fact what you want to do.
 
-As pages are not necessarly full (each skb will use at least one page, =
-even if=20
-its length is small), it is not really possible to use splice() like th=
-is.
+--==_Exmh_1231888978_3146P
+Content-Type: application/pgp-signature
 
-In your case, only safe way with current kernel would be to call splice=
-()
-asking for no more than 16 bytes, that would be really insane for your =
-needs.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
-You may prefer a non blocking mode, at least when calling splice_to_pip=
-e()
+iD8DBQFJbSJScC3lWbTT17ARAvNJAKCQBl4shAHDDmr2UGrWcS2oQR/d9wCg1VMw
+HLSBdbZdVRNW8LKW9h2xBEw=
+=Mgx2
+-----END PGP SIGNATURE-----
 
-Maybe SPLICE_F_NONBLOCK splice() flag should only apply on pipe side.
-tcp_splice_read() should not use this flag to select a blocking/nonblok=
-ing
-mode on the source socket, but underlying file flag.
-
-This way, your program could let socket in blocking mode, yet call spli=
-ce()
-with SPLICE_F_NONBLOCK flag to not block on pipe.
-
-
+--==_Exmh_1231888978_3146P--
