@@ -1,265 +1,247 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCHv2 4/7] netxen: firmware init fix
-Date: Tue, 13 Jan 2009 11:52:41 -0800
-Message-ID: <1231876364-866-5-git-send-email-dhananjay@netxen.com>
+Subject: [PATCHv2 3/7] netxen: fix link speed reporting for some boards
+Date: Tue, 13 Jan 2009 11:52:40 -0800
+Message-ID: <1231876364-866-4-git-send-email-dhananjay@netxen.com>
 References: <1231876364-866-1-git-send-email-dhananjay@netxen.com>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:60180 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:60169 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753446AbZAMTwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2009 14:52:49 -0500
+	id S1753359AbZAMTwq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2009 14:52:46 -0500
 In-Reply-To: <1231876364-866-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Fix order or rom register writes.
-o Reduce udelays when writing rom registers.
-
-This cuts the firmware init time by 40%.
-
-o Do not reset core/memory clocks when reinitializing driver.
-  Firmware willl handle this when initialized.
+o Read negotiated link speed when link state changes.
+o Fix link speed reporting for hybrid nic boards, which have both 1Gbps and
+  10Gbps ports.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic_hw.c   |    6 +---
- drivers/net/netxen/netxen_nic_init.c |   35 +++++++++++++++----------
- drivers/net/netxen/netxen_nic_main.c |   47 ++++++++++++++++++++-------------
- 3 files changed, 51 insertions(+), 37 deletions(-)
+ drivers/net/netxen/netxen_nic.h         |    3 ++-
+ drivers/net/netxen/netxen_nic_ethtool.c |   31 +++++++++++++++++++++++--------
+ drivers/net/netxen/netxen_nic_hw.c      |   28 ++++++++++++++++++++--------
+ drivers/net/netxen/netxen_nic_main.c    |   14 +++++++++++++-
+ 4 files changed, 58 insertions(+), 18 deletions(-)
 
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index acb2ac9..a674a23 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -499,7 +499,8 @@ typedef enum {
+ 	NETXEN_BRDTYPE_P3_10G_SFP_CT = 0x002a,
+ 	NETXEN_BRDTYPE_P3_10G_SFP_QT = 0x002b,
+ 	NETXEN_BRDTYPE_P3_10G_CX4 = 0x0031,
+-	NETXEN_BRDTYPE_P3_10G_XFP = 0x0032
++	NETXEN_BRDTYPE_P3_10G_XFP = 0x0032,
++	NETXEN_BRDTYPE_P3_10G_TP = 0x0080
+ 
+ } netxen_brdtype_t;
+ 
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index e45ce29..c0bd40f 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -136,11 +136,9 @@ netxen_nic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 
+ 		ecmd->port = PORT_TP;
+ 
+-		if (netif_running(dev)) {
+-			ecmd->speed = adapter->link_speed;
+-			ecmd->duplex = adapter->link_duplex;
+-			ecmd->autoneg = adapter->link_autoneg;
+-		}
++		ecmd->speed = adapter->link_speed;
++		ecmd->duplex = adapter->link_duplex;
++		ecmd->autoneg = adapter->link_autoneg;
+ 
+ 	} else if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
+ 		u32 val;
+@@ -171,7 +169,7 @@ netxen_nic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 	} else
+ 		return -EIO;
+ 
+-	ecmd->phy_address = adapter->portnum;
++	ecmd->phy_address = adapter->physical_port;
+ 	ecmd->transceiver = XCVR_EXTERNAL;
+ 
+ 	switch ((netxen_brdtype_t) boardinfo->board_type) {
+@@ -180,13 +178,13 @@ netxen_nic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 	case NETXEN_BRDTYPE_P3_REF_QG:
+ 	case NETXEN_BRDTYPE_P3_4_GB:
+ 	case NETXEN_BRDTYPE_P3_4_GB_MM:
+-	case NETXEN_BRDTYPE_P3_10000_BASE_T:
+ 
+ 		ecmd->supported |= SUPPORTED_Autoneg;
+ 		ecmd->advertising |= ADVERTISED_Autoneg;
+ 	case NETXEN_BRDTYPE_P2_SB31_10G_CX4:
+ 	case NETXEN_BRDTYPE_P3_10G_CX4:
+ 	case NETXEN_BRDTYPE_P3_10G_CX4_LP:
++	case NETXEN_BRDTYPE_P3_10000_BASE_T:
+ 		ecmd->supported |= SUPPORTED_TP;
+ 		ecmd->advertising |= ADVERTISED_TP;
+ 		ecmd->port = PORT_TP;
+@@ -204,16 +202,33 @@ netxen_nic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 		ecmd->port = PORT_FIBRE;
+ 		ecmd->autoneg = AUTONEG_DISABLE;
+ 		break;
+-	case NETXEN_BRDTYPE_P2_SB31_10G:
+ 	case NETXEN_BRDTYPE_P3_10G_SFP_PLUS:
+ 	case NETXEN_BRDTYPE_P3_10G_SFP_CT:
+ 	case NETXEN_BRDTYPE_P3_10G_SFP_QT:
++		ecmd->advertising |= ADVERTISED_TP;
++		ecmd->supported |= SUPPORTED_TP;
++	case NETXEN_BRDTYPE_P2_SB31_10G:
+ 	case NETXEN_BRDTYPE_P3_10G_XFP:
+ 		ecmd->supported |= SUPPORTED_FIBRE;
+ 		ecmd->advertising |= ADVERTISED_FIBRE;
+ 		ecmd->port = PORT_FIBRE;
+ 		ecmd->autoneg = AUTONEG_DISABLE;
+ 		break;
++	case NETXEN_BRDTYPE_P3_10G_TP:
++		if (adapter->ahw.board_type == NETXEN_NIC_XGBE) {
++			ecmd->autoneg = AUTONEG_DISABLE;
++			ecmd->supported |= (SUPPORTED_FIBRE | SUPPORTED_TP);
++			ecmd->advertising |=
++				(ADVERTISED_FIBRE | ADVERTISED_TP);
++			ecmd->port = PORT_FIBRE;
++		} else {
++			ecmd->autoneg = AUTONEG_ENABLE;
++			ecmd->supported |= (SUPPORTED_TP |SUPPORTED_Autoneg);
++			ecmd->advertising |=
++				(ADVERTISED_TP | ADVERTISED_Autoneg);
++			ecmd->port = PORT_TP;
++		}
++		break;
+ 	default:
+ 		printk(KERN_ERR "netxen-nic: Unsupported board model %d\n",
+ 		       (netxen_brdtype_t) boardinfo->board_type);
 diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 4276f7f..511db2a 100644
+index 98d0bcd..4276f7f 100644
 --- a/drivers/net/netxen/netxen_nic_hw.c
 +++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -939,7 +939,7 @@ int netxen_load_firmware(struct netxen_adapter *adapter)
- {
- 	int i;
- 	u32 data, size = 0;
--	u32 flashaddr = NETXEN_BOOTLD_START, memaddr = NETXEN_BOOTLD_START;
-+	u32 flashaddr = NETXEN_BOOTLD_START;
- 
- 	size = (NETXEN_IMAGE_START - NETXEN_BOOTLD_START)/4;
- 
-@@ -951,10 +951,8 @@ int netxen_load_firmware(struct netxen_adapter *adapter)
- 		if (netxen_rom_fast_read(adapter, flashaddr, (int *)&data) != 0)
- 			return -EIO;
- 
--		adapter->pci_mem_write(adapter, memaddr, &data, 4);
-+		adapter->pci_mem_write(adapter, flashaddr, &data, 4);
- 		flashaddr += 4;
--		memaddr += 4;
--		cond_resched();
+@@ -2036,7 +2036,13 @@ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
+ 		rv = -1;
  	}
- 	msleep(1);
  
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index c0e06a6..a320364 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -439,6 +439,8 @@ static int netxen_wait_rom_done(struct netxen_adapter *adapter)
- 	long timeout = 0;
- 	long done = 0;
- 
-+	cond_resched();
+-	DPRINTK(INFO, "Discovered board type:0x%x  ", boardinfo->board_type);
++	if (boardinfo->board_type == NETXEN_BRDTYPE_P3_4_GB_MM) {
++		u32 gpio = netxen_nic_reg_read(adapter,
++				NETXEN_ROMUSB_GLB_PAD_GPIO_I);
++		if ((gpio & 0x8000) == 0)
++			boardinfo->board_type = NETXEN_BRDTYPE_P3_10G_TP;
++	}
 +
- 	while (done == 0) {
- 		done = netxen_nic_reg_read(adapter, NETXEN_ROMUSB_GLB_STATUS);
- 		done &= 2;
-@@ -533,12 +535,9 @@ static int do_rom_fast_write(struct netxen_adapter *adapter, int addr,
- static int do_rom_fast_read(struct netxen_adapter *adapter,
- 			    int addr, int *valp)
- {
--	cond_resched();
+ 	switch ((netxen_brdtype_t) boardinfo->board_type) {
+ 	case NETXEN_BRDTYPE_P2_SB35_4G:
+ 		adapter->ahw.board_type = NETXEN_NIC_GBE;
+@@ -2055,7 +2061,6 @@ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
+ 	case NETXEN_BRDTYPE_P3_10G_SFP_QT:
+ 	case NETXEN_BRDTYPE_P3_10G_XFP:
+ 	case NETXEN_BRDTYPE_P3_10000_BASE_T:
 -
- 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ADDRESS, addr);
--	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
--	udelay(100);		/* prevent bursting on CRB */
- 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_DUMMY_BYTE_CNT, 0);
-+	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
- 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_INSTR_OPCODE, 0xb);
- 	if (netxen_wait_rom_done(adapter)) {
- 		printk("Error waiting for rom done\n");
-@@ -546,7 +545,7 @@ static int do_rom_fast_read(struct netxen_adapter *adapter,
- 	}
- 	/* reset abyte_cnt and dummy_byte_cnt */
- 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 0);
--	udelay(100);		/* prevent bursting on CRB */
-+	udelay(10);
- 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_DUMMY_BYTE_CNT, 0);
- 
- 	*valp = netxen_nic_reg_read(adapter, NETXEN_ROMUSB_ROM_RDATA);
-@@ -884,14 +883,16 @@ int netxen_flash_unlock(struct netxen_adapter *adapter)
- int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 		adapter->ahw.board_type = NETXEN_NIC_XGBE;
+ 		break;
+ 	case NETXEN_BRDTYPE_P1_BD:
+@@ -2065,9 +2070,12 @@ int netxen_nic_get_board_info(struct netxen_adapter *adapter)
+ 	case NETXEN_BRDTYPE_P3_REF_QG:
+ 	case NETXEN_BRDTYPE_P3_4_GB:
+ 	case NETXEN_BRDTYPE_P3_4_GB_MM:
+-
+ 		adapter->ahw.board_type = NETXEN_NIC_GBE;
+ 		break;
++	case NETXEN_BRDTYPE_P3_10G_TP:
++		adapter->ahw.board_type = (adapter->portnum < 2) ?
++			NETXEN_NIC_XGBE : NETXEN_NIC_GBE;
++		break;
+ 	default:
+ 		printk("%s: Unknown(%x)\n", netxen_nic_driver_name,
+ 		       boardinfo->board_type);
+@@ -2112,12 +2120,16 @@ void netxen_nic_set_link_parameters(struct netxen_adapter *adapter)
  {
- 	int addr, val;
--	int i, init_delay = 0;
-+	int i, n, init_delay = 0;
- 	struct crb_addr_pair *buf;
--	unsigned offset, n;
-+	unsigned offset;
- 	u32 off;
+ 	__u32 status;
+ 	__u32 autoneg;
+-	__u32 mode;
+ 	__u32 port_mode;
  
- 	/* resetall */
-+	rom_lock(adapter);
- 	netxen_crb_writelit_adapter(adapter, NETXEN_ROMUSB_GLB_SW_RESET,
- 				    0xffffffff);
-+	netxen_rom_unlock(adapter);
+-	netxen_nic_read_w0(adapter, NETXEN_NIU_MODE, &mode);
+-	if (netxen_get_niu_enable_ge(mode)) {	/* Gb 10/100/1000 Mbps mode */
++	if (!netif_carrier_ok(adapter->netdev)) {
++		adapter->link_speed   = 0;
++		adapter->link_duplex  = -1;
++		adapter->link_autoneg = AUTONEG_ENABLE;
++		return;
++	}
  
- 	if (verbose) {
- 		if (netxen_rom_fast_read(adapter, NETXEN_BOARDTYPE, &val) == 0)
-@@ -910,7 +911,7 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
- 
- 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
- 		if (netxen_rom_fast_read(adapter, 0, &n) != 0 ||
--			(n != 0xcafecafeUL) ||
-+			(n != 0xcafecafe) ||
- 			netxen_rom_fast_read(adapter, 4, &n) != 0) {
- 			printk(KERN_ERR "%s: ERROR Reading crb_init area: "
- 					"n: %08x\n", netxen_nic_driver_name, n);
-@@ -975,6 +976,14 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
- 			/* do not reset PCI */
- 			if (off == (ROMUSB_GLB + 0xbc))
- 				continue;
-+			if (off == (ROMUSB_GLB + 0xa8))
-+				continue;
-+			if (off == (ROMUSB_GLB + 0xc8)) /* core clock */
-+				continue;
-+			if (off == (ROMUSB_GLB + 0x24)) /* MN clock */
-+				continue;
-+			if (off == (ROMUSB_GLB + 0x1c)) /* MS clock */
-+				continue;
- 			if (off == (NETXEN_CRB_PEG_NET_1 + 0x18))
- 				buf[i].data = 0x1020;
- 			/* skip the function enable register */
-@@ -992,23 +1001,21 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
- 			continue;
++	if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
+ 		adapter->hw_read_wx(adapter,
+ 				NETXEN_PORT_MODE_ADDR, &port_mode, 4);
+ 		if (port_mode == NETXEN_PORT_MODE_802_3_AP) {
+@@ -2143,7 +2155,7 @@ void netxen_nic_set_link_parameters(struct netxen_adapter *adapter)
+ 					adapter->link_speed = SPEED_1000;
+ 					break;
+ 				default:
+-					adapter->link_speed = -1;
++					adapter->link_speed = 0;
+ 					break;
+ 				}
+ 				switch (netxen_get_phy_duplex(status)) {
+@@ -2166,7 +2178,7 @@ void netxen_nic_set_link_parameters(struct netxen_adapter *adapter)
+ 				goto link_down;
+ 		} else {
+ 		      link_down:
+-			adapter->link_speed = -1;
++			adapter->link_speed = 0;
+ 			adapter->link_duplex = -1;
  		}
- 
-+		init_delay = 1;
- 		/* After writing this register, HW needs time for CRB */
- 		/* to quiet down (else crb_window returns 0xffffffff) */
- 		if (off == NETXEN_ROMUSB_GLB_SW_RESET) {
--			init_delay = 1;
-+			init_delay = 1000;
- 			if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
- 				/* hold xdma in reset also */
- 				buf[i].data = NETXEN_NIC_XDMA_RESET;
-+				buf[i].data = 0x8000ff;
- 			}
- 		}
- 
- 		adapter->hw_write_wx(adapter, off, &buf[i].data, 4);
- 
--		if (init_delay == 1) {
--			msleep(1000);
--			init_delay = 0;
--		}
--		msleep(1);
-+		msleep(init_delay);
  	}
- 	kfree(buf);
- 
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 2c6ce6f..cbe2b3e 100644
+index cb39123..2c6ce6f 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -280,10 +280,15 @@ static void netxen_check_options(struct netxen_adapter *adapter)
- static int
- netxen_check_hw_init(struct netxen_adapter *adapter, int first_boot)
- {
--	int ret = 0;
-+	u32 val, timeout;
+@@ -243,7 +243,7 @@ static void netxen_check_options(struct netxen_adapter *adapter)
+ 	case NETXEN_BRDTYPE_P3_4_GB:
+ 	case NETXEN_BRDTYPE_P3_4_GB_MM:
+ 		adapter->msix_supported = !!use_msi_x;
+-		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_10G;
++		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_1G;
+ 		break;
  
- 	if (first_boot == 0x55555555) {
- 		/* This is the first boot after power up */
-+		adapter->pci_write_normalize(adapter,
-+			NETXEN_CAM_RAM(0x1fc), NETXEN_BDINFO_MAGIC);
+ 	case NETXEN_BRDTYPE_P2_SB35_4G:
+@@ -252,6 +252,14 @@ static void netxen_check_options(struct netxen_adapter *adapter)
+ 		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_1G;
+ 		break;
+ 
++	case NETXEN_BRDTYPE_P3_10G_TP:
++		adapter->msix_supported = !!use_msi_x;
++		if (adapter->ahw.board_type == NETXEN_NIC_XGBE)
++			adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_10G;
++		else
++			adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_1G;
++		break;
 +
-+		if (!NX_IS_REVISION_P2(adapter->ahw.revision_id))
-+			return 0;
- 
- 		/* PCI bus master workaround */
- 		adapter->hw_read_wx(adapter,
-@@ -303,18 +308,26 @@ netxen_check_hw_init(struct netxen_adapter *adapter, int first_boot)
- 			/* clear the register for future unloads/loads */
- 			adapter->pci_write_normalize(adapter,
- 					NETXEN_CAM_RAM(0x1fc), 0);
--			ret = -1;
-+			return -EIO;
+ 	default:
+ 		adapter->msix_supported = 0;
+ 		adapter->max_rx_desc_count = MAX_RCV_DESCRIPTORS_1G;
+@@ -1396,6 +1404,8 @@ static void netxen_nic_handle_phy_intr(struct netxen_adapter *adapter)
+ 			netif_carrier_off(netdev);
+ 			netif_stop_queue(netdev);
  		}
- 
--		if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
--			/* Start P2 boot loader */
--			adapter->pci_write_normalize(adapter,
--				NETXEN_CAM_RAM(0x1fc), NETXEN_BDINFO_MAGIC);
--			adapter->pci_write_normalize(adapter,
--					NETXEN_ROMUSB_GLB_PEGTUNE_DONE, 1);
--		}
-+		/* Start P2 boot loader */
-+		val = adapter->pci_read_normalize(adapter,
-+				NETXEN_ROMUSB_GLB_PEGTUNE_DONE);
-+		adapter->pci_write_normalize(adapter,
-+				NETXEN_ROMUSB_GLB_PEGTUNE_DONE, val | 0x1);
-+		timeout = 0;
-+		do {
-+			msleep(1);
-+			val = adapter->pci_read_normalize(adapter,
-+					NETXEN_CAM_RAM(0x1fc));
 +
-+			if (++timeout > 5000)
-+				return -EIO;
++		netxen_nic_set_link_parameters(adapter);
+ 	} else if (!adapter->ahw.linkup && linkup) {
+ 		printk(KERN_INFO "%s: %s NIC Link is up\n",
+ 		       netxen_nic_driver_name, netdev->name);
+@@ -1404,6 +1414,8 @@ static void netxen_nic_handle_phy_intr(struct netxen_adapter *adapter)
+ 			netif_carrier_on(netdev);
+ 			netif_wake_queue(netdev);
+ 		}
 +
-+		} while (val == NETXEN_BDINFO_MAGIC);
++		netxen_nic_set_link_parameters(adapter);
  	}
--	return ret;
-+	return 0;
  }
- 
- static void netxen_set_port_mode(struct netxen_adapter *adapter)
-@@ -793,8 +806,8 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 						CRB_CMDPEG_STATE, 0);
- 			netxen_pinit_from_rom(adapter, 0);
- 			msleep(1);
--			netxen_load_firmware(adapter);
- 		}
-+		netxen_load_firmware(adapter);
- 
- 		if (NX_IS_REVISION_P3(revision_id))
- 			netxen_pcie_strap_init(adapter);
-@@ -810,13 +823,6 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 		}
- 
--		if ((first_boot == 0x55555555) &&
--			(NX_IS_REVISION_P2(revision_id))) {
--			/* Unlock the HW, prompting the boot sequence */
--			adapter->pci_write_normalize(adapter,
--					NETXEN_ROMUSB_GLB_PEGTUNE_DONE, 1);
--		}
--
- 		err = netxen_initialize_adapter_offload(adapter);
- 		if (err)
- 			goto err_out_iounmap;
-@@ -830,7 +836,9 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		adapter->pci_write_normalize(adapter, CRB_DRIVER_VERSION, i);
- 
- 		/* Handshake with the card before we register the devices. */
--		netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
-+		err = netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
-+		if (err)
-+			goto err_out_free_offload;
- 
- 	}	/* first_driver */
- 
-@@ -934,6 +942,7 @@ err_out_disable_msi:
- 	if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
- 		pci_disable_msi(pdev);
- 
-+err_out_free_offload:
- 	if (first_driver)
- 		netxen_free_adapter_offload(adapter);
  
 -- 
 1.6.0.2
