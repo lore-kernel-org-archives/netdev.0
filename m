@@ -1,32 +1,34 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
-Date: Tue, 13 Jan 2009 01:46:46 -0800
-Message-ID: <200901130146.47083.david-b@pacbell.net>
-References: <1231805322.12962.4.camel@tux.localhost>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works fine!
+	2.6.28
+Date: Tue, 13 Jan 2009 09:53:23 +0000
+Message-ID: <20090113095323.GB4808@ff.dom.local>
+References: <496C198A.4060502@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexey Klimov <klimov.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1231805322.12962.4.camel-XMdqyYT0w3Zyw3qLyVIJKA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Denys Fedoryschenko <denys@visp.net.lb>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	netdev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.24]:24393 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755003AbZAMJx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 04:53:29 -0500
+Received: by ey-out-2122.google.com with SMTP id 22so1421672eye.37
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2009 01:53:28 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <496C198A.4060502@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 12 January 2009, Alexey Klimov wrote:
-> -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0err("submit(rx_urb) status %d", res);
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0dev_err(&catc->usbdev->dev, "submit(rx_urb) sta=
-tus %d\n", res);
+On 13-01-2009 05:33, Patrick McHardy wrote:
+...
+> Its odd that HZ=1000 solved the problem despite HR timers being active.
+> Are you sure they're actually enabled? You should see something like
+> this in the ringbuffer:
 
+If packets are received in netif_rx_action() for ~2 jiffies why is it
+odd they will be xmitted differently after changing HZ?
 
-That's the same as urb->dev though.
-
-Use the interface passed into probe():  dev_err(&intf->dev, ...) etc
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jarek P.
