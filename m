@@ -1,69 +1,61 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] NET: fix wrong English expression in comments
-Date: Tue, 13 Jan 2009 08:57:59 +0100
-Message-ID: <496C4987.8040803@cosmosbay.com>
-References: <496a3c51.09876e0a.03fe.7e80@mx.google.com>	<496A9753.80802@cn.fujitsu.com>	<6b1ba94c0901122336r511fa316o5f520a8d2d9d6e0@mail.gmail.com> <20090112.234441.131571840.davem@davemloft.net>
+From: Jaswinder Singh Rajput <jaswinder@infradead.org>
+Subject: [PATCH -tip] socket.h: extern's make no sense in userspace
+Date: Tue, 13 Jan 2009 13:50:55 +0530
+Message-ID: <1231834855.3212.35.camel@jaswinder.satnam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: joe.tian.kernel@gmail.com, lizf@cn.fujitsu.com,
-	qhfeng.kernel@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: Ingo Molnar <mingo@elte.hu>, netdev <netdev@vger.kernel.org>,
+	sam@ravnborg.org, harvey.harrison@gmail.com, gorcunov@gmail.com,
+	LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:41019 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753578AbZAMH6M convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 02:58:12 -0500
-In-Reply-To: <20090112.234441.131571840.davem@davemloft.net>
+Received: from bombadil.infradead.org ([18.85.46.34]:56168 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752605AbZAMIXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 03:23:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: joe tian <joe.tian.kernel@gmail.com>
-> Date: Tue, 13 Jan 2009 15:36:51 +0800
->=20
->> 2009/1/12 Li Zefan <lizf@cn.fujitsu.com>:
->>>> @@ -103,7 +103,7 @@ struct inet_bind_bucket;
->>>>  struct inet_timewait_sock {
->>>>       /*
->>>>        * Now struct sock also uses sock_common, so please just
->>>> -      * don't add nothing before this first member (__tw_common) =
---acme
->>>> +      * don't add anything before this first member (__tw_common)=
- --acme
->>> They are the same meaning...
->>>
->> I don't think they are the same meaning.
->> I think "don't add anything" means "do add nothing" but not means "d=
-on't add
->> nothing"
->=20
-> No offense to anyone, but the only people arguing for "correctness"
-> seem to be non-native speakers of English.  Is this correct? :-)
->=20
-> As Ben tries to explain, "don't add nothing" is a colloquialism of
-> English that in fact can mean "do not add"
->=20
-> It sounds amusing when read, and I'm not killing the character and
-> personality of this comment just for some language lawyering.
->=20
-> No way.
+Impact: fix 2 make headers_check warnings:
 
-Oh my God... time for me to check what is a colloquialism :)
+usr/include/linux/socket.h:27: leaks CONFIG_PROC to userspace where it is not valid
+usr/include/linux/socket.h:29: extern's make no sense in userspace
 
+Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
+---
+ include/linux/socket.h |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-According to wikipedia :
-
-A colloquialism is an expression not used in formal speech,=20
-writing or paralinguistics. Colloquialisms are also sometimes=20
-referred to collectively as "colloquial language". [1] Colloquialisms
-or colloquial language is considered to be characteristic of or only
-appropriate for casual, ordinary, familiar, or informal conversation
-rather than formal speech or writing.[2] Dictionaries often display
-colloquial words and phrases with the abbreviation colloq. as an identi=
-fier.
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 20fc4bb..f5771a2 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -24,11 +24,6 @@ struct __kernel_sockaddr_storage {
+ #include <linux/types.h>		/* pid_t			*/
+ #include <linux/compiler.h>		/* __user			*/
+ 
+-#ifdef CONFIG_PROC_FS
+-struct seq_file;
+-extern void socket_seq_show(struct seq_file *seq);
+-#endif
+-
+ typedef unsigned short	sa_family_t;
+ 
+ /*
+@@ -303,6 +298,11 @@ struct ucred {
+ #define IPX_TYPE	1
+ 
+ #ifdef __KERNEL__
++#ifdef CONFIG_PROC_FS
++struct seq_file;
++extern void socket_seq_show(struct seq_file *seq);
++#endif
++
+ extern int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
+ extern int memcpy_fromiovecend(unsigned char *kdata, struct iovec *iov, 
+ 				int offset, int len);
+-- 
+1.5.6.6
 
 
-Ouch... back to coding :)
 
