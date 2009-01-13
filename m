@@ -1,51 +1,50 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on 2.6.24?
-Date: Mon, 12 Jan 2009 23:06:04 -0800
-Message-ID: <496C3D5C.7080407@hp.com>
-References: <20090113063205.GA26047@gondor.apana.org.au> <20090113015614.3b815ad7.billfink@mindspring.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH -tip] in6.h: extern's make no sense in userspace
+Date: Tue, 13 Jan 2009 08:15:13 +0100
+Message-ID: <20090113071513.GB20036@uranus.ravnborg.org>
+References: <1231829859.3212.19.camel@jaswinder.satnam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	ilpo.jarvinen@helsinki.fi, zbr@ioremap.net,
-	bert.hubert@netherlabs.nl, h.willstrand@gmail.com,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:35373 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751626AbZAMHGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 02:06:11 -0500
-In-Reply-To: <20090113015614.3b815ad7.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, harvey.harrison@gmail.com,
+	gorcunov@gmail.com, roque@di.fc.ul.pt,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jaswinder Singh Rajput <jaswinder@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756801AbZAMHNq@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1231829859.3212.19.camel@jaswinder.satnam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bill Fink wrote:
-> On Tue, 13 Jan 2009, Herbert Xu wrote:
+On Tue, Jan 13, 2009 at 12:27:39PM +0530, Jaswinder Singh Rajput wrote:
+> Impact: fix 2 make headers_check warnings:
 > 
+>  usr/include/linux/in6.h:47: extern's make no sense in userspace
+>  usr/include/linux/in6.h:49: extern's make no sense in userspace
 > 
->>Bill Fink <billfink@mindspring.com> wrote:
->>
->>>If I understand you correctly, to hit this corner case, just after
->>>the final TCP write, there would have to be no packets in flight
->>>together with a zero TCP window.  To make it more bullet-proof, I
->>>guess after seeing a zero tcpi_unacked, an additional small delay
->>>should be performed, and then rechecking for a zero tcpi_unacked.
->>>I don't see anything else obvious (to me anyway) in the tcp_info
->>>that would be particularly helpful in handling this.
->>
->>What's wrong with idiag_wqueue? Isn't that a much more direct
->>way to get this?
+> Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
+> ---
+>  include/linux/in6.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> 
-> I'm not familiar with idiag_wqueue, but it sounds like it has something
-> to do with INET_DIAG/INET_TCP_DIAG.  It was a long time ago, but I seem
-> to recall that using INET_DIAG had a negative impact on performance,
-> and since the main point of nuttcp is to measure TCP/UDP performance,
-> that would be contrary to its primary purpose.  Also, I don't want to
-> rely on something that's not guaranteed to be part of the running kernel.
+> diff --git a/include/linux/in6.h b/include/linux/in6.h
+> index bc49204..718bf21 100644
+> --- a/include/linux/in6.h
+> +++ b/include/linux/in6.h
+> @@ -44,11 +44,11 @@ struct in6_addr
+>   * NOTE: Be aware the IN6ADDR_* constants and in6addr_* externals are defined
+>   * in network byte order, not in host byte order as are the IPv4 equivalents
+>   */
+> +#ifdef __KERNEL__
+>  extern const struct in6_addr in6addr_any;
+>  #define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
+>  extern const struct in6_addr in6addr_loopback;
+>  #define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
+> -#ifdef __KERNEL__
 
-How likely is it that the "additional small delay" above would be much 
-less than waiting for a read return of zero after a shutdown(SHUT_WR) call?
+It looks wrong what IN6ADDR_ANY_INIT should be a kernel only symbol.
+At least google had some hits on that symbol.
 
-rick jones
+netdev people should know....
+
+	Sam
