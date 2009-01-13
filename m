@@ -1,59 +1,32 @@
-From: "Tekale Sharad-FHJN78" <FHJN78@motorola.com>
-Subject: Vlan help
-Date: Tue, 13 Jan 2009 13:34:51 +0800
-Message-ID: <E9E3926FA9CDBF489EA1684042C8A0260103776B@zmy16exm72.ds.mot.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Mon, 12 Jan 2009 21:45:50 -0800 (PST)
+Message-ID: <20090112.214550.23199011.davem@davemloft.net>
+References: <4967D36E.6020207@cosmosbay.com>
+	<20090109225309.GC4819@1wt.eu>
+	<4967DF10.2010107@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: w@1wt.eu, ben@zeus.com, jarkao2@gmail.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail119.messagelabs.com ([216.82.241.195]:54600 "HELO
-	mail119.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752280AbZAMFfC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 00:35:02 -0500
-Received: from il27exr04.cig.mot.com (il27exr04.mot.com [10.17.196.73])
-	by motgate4.mot.com (8.12.11/Motorola) with ESMTP id n0D5Z0fc019968
-	for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 22:35:00 -0700 (MST)
-Received: from il27vts01 (il27vts01.cig.mot.com [10.17.196.85])
-	by il27exr04.cig.mot.com (8.13.1/Vontu) with SMTP id n0D5Z09T004930
-	for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 23:35:00 -0600 (CST)
-Received: from zmy16exm72.ds.mot.com (zmy16exm72.ap.mot.com [10.179.4.45])
-	by il27exr04.cig.mot.com (8.13.1/8.13.0) with ESMTP id n0D5YwpC004921
-	for <netdev@vger.kernel.org>; Mon, 12 Jan 2009 23:34:59 -0600 (CST)
-Content-class: urn:content-classes:message
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37807
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752280AbZAMFpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 00:45:49 -0500
+In-Reply-To: <4967DF10.2010107@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-Hi,
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sat, 10 Jan 2009 00:34:40 +0100
 
-I have a query,
+> David, do you think we still must call __tcp_splice_read() only once
+> in tcp_splice_read() if SPLICE_F_NONBLOCK is set ?
 
-I'm trying to configure port based vlan on fonera2201(5 ports) device.
-
-I have enabled debugging in 802q/vlan.c( Kernel version 2.6.21.5 ), I
-can see the interfaces created properly, but following message is
-continuously displayed on console
- 
-vlan_skb_recv: ERROR: No net_device for VID: 103 on dev: eth0.1 [5]
-vlan_skb_recv: skb: 8122f440 vlan_id: 67
-vlan_skb_recv: ERROR: No net_device for VID: 103 on dev: eth0.1 [5]
-vlan_skb_recv: skb: 8121eee0 vlan_id: 67
-vlan_skb_recv: ERROR: No net_device for VID: 103 on dev: eth0.1 [5]
-vlan_skb_recv: skb: 81115e20 vlan_id: 67
-vlan_skb_recv: ERROR: No net_device for VID: 103 on dev: eth0.1 [5]
-vlan_skb_recv: skb: 8106dbc0 vlan_id: 67
-
-When user adds (vlan port numbers)details in /etc/config/network file,
-
-How does switch driver gets invoked and configures the ports to
-different vlans?
-
-Sorry for my basic question, but I'm trying to understand the flow?
-
-I'm unable to link, how does 8021q/vlan.c speak with either
-dsa/mv88e6*(or any other switch driver to configure vlan ports.)
-
-Thanks In Advance,
-Sharad.
+Eric, I'll get to this thread as soon as I can, perhaps tomorrow.  I
+want to get all of the build fallout and bug fixes for 2.6.29-rcX
+sorted before everyone heads off to LCA in the next week or so :-)
