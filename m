@@ -1,47 +1,46 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/1] drivers/net/irda/irda-usb.c: fix buffer overflow
-Date: Tue, 13 Jan 2009 13:30:54 -0800
-Message-ID: <200901132130.n0DLUsjq014237@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	josevteg@gmail.com, linville@tuxdriver.com, samuel@sortiz.org,
-	stable@kernel.org
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Tue, 13 Jan 2009 15:08:51 -0800 (PST)
+Message-ID: <20090113.150851.161423735.davem@davemloft.net>
+References: <49667534.5060501@zeus.com>
+	<20090108.135515.85489589.davem@davemloft.net>
+	<20090108222039.GC24243@1wt.eu>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ben@zeus.com, jarkao2@gmail.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35871 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752780AbZAMVbo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 16:31:44 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42382
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751661AbZAMXIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 18:08:50 -0500
+In-Reply-To: <20090108222039.GC24243@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jos-Vicente Gilabert <josevteg@gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Date: Thu, 8 Jan 2009 23:20:39 +0100
 
-Taken from http://bugzilla.kernel.org/show_bug.cgi?id=12397
+> On Thu, Jan 08, 2009 at 01:55:15PM -0800, David Miller wrote:
+> > I'm not applying this until someone explains to me why
+> > we should remove this test from the splice receive but
+> > keep it in the tcp_recvmsg() code where it has been
+> > essentially forever.
+> 
+> In my opinion, the code structure is different between both functions. In
+> tcp_recvmsg(), we test for it if (copied > 0), where copied is the sum of
+> all data which have been processed since the entry in the function. If we
+> removed the test here, we could not break out of the loop once we have
+> copied something. In tcp_splice_read(), the test is still present in the
+> (!ret) code path, where ret is the last number of bytes processed, so the
+> test is still performed regardless of what has been previously transferred.
+> 
+> So in summary, in tcp_splice_read without this test, we get back to the
+> top of the loop, and if __tcp_splice_read() returns 0, then we break out
+> of the loop.
 
-We're doing an sprintf of an 11-char string into an 11-char buffer. 
-Whoops.  It breaks firmware uploading.
-
-Reported-by: Jos-Vicente Gilabert <josevteg@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: <stable@kernel.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/irda/irda-usb.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN drivers/net/irda/irda-usb.c~drivers-net-irda-irda-usbc-fix-buffer-overflow drivers/net/irda/irda-usb.c
---- a/drivers/net/irda/irda-usb.c~drivers-net-irda-irda-usbc-fix-buffer-overflow
-+++ a/drivers/net/irda/irda-usb.c
-@@ -1073,7 +1073,7 @@ static int stir421x_patch_device(struct 
- {
- 	unsigned int i;
- 	int ret;
--	char stir421x_fw_name[11];
-+	char stir421x_fw_name[12];
- 	const struct firmware *fw;
- 	const unsigned char *fw_version_ptr; /* pointer to version string */
- 	unsigned long fw_version = 0;
-_
+Ok I see what you're saying, the !timeo check is only
+necessary when the receive queue has been exhausted.
