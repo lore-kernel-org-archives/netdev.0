@@ -1,55 +1,43 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [BUG #12364] Re: HTB - very bad precision? HFSC works =?iso-8859-15?q?fine!=092=2E6=2E28?=
-Date: Tue, 13 Jan 2009 12:08:09 +0200
-Message-ID: <200901131208.09692.denys@visp.net.lb>
-References: <1935.87.196.72.187.1231371721.squirrel@webmail.decimal.pt> <200901122201.19616.denys@visp.net.lb> <496C198A.4060502@trash.net>
+From: "Alexey Klimov" <klimov.linux@gmail.com>
+Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
+Date: Tue, 13 Jan 2009 13:08:27 +0300
+Message-ID: <208cbae30901130208xe47d222g6928cf4243ea1dd8@mail.gmail.com>
+References: <1231805322.12962.4.camel@tux.localhost>
+	 <208cbae30901130057r2b3396f4gb5abdedd5647739c@mail.gmail.com>
+	 <200901131025.40285.oliver@neukum.org>
+	 <200901130144.26162.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	netdev <netdev@vger.kernel.org>, bugme-daemon@bugzilla.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: "Oliver Neukum" <oliver@neukum.org>, davem@davemloft.net,
+	"Greg KH" <greg@kroah.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: "David Brownell" <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:47821 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbZAMKIR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 05:08:17 -0500
-In-Reply-To: <496C198A.4060502@trash.net>
+Received: from mu-out-0910.google.com ([209.85.134.190]:2178 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056AbZAMKI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 05:08:29 -0500
+In-Reply-To: <200901130144.26162.david-b@pacbell.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 13 January 2009 06:33:14 Patrick McHardy wrote:
+On Tue, Jan 13, 2009 at 12:44 PM, David Brownell <david-b@pacbell.net> wrote:
+> On Tuesday 13 January 2009, Oliver Neukum wrote:
+>> > Ok, i'll reformat patch. Is it okay if i use kaweth->dev->dev,
+>> > kaweth->net->dev and intf->dev ? Or switch to kaweth->net->dev
+>> > (instead of dev->dev)?
+>>
+>> kaweth in kaweth_disconnect() frees the network device. Therefore
+>> you cannot use it. You'd access freed memory. Pick one of the others
+>> and stay with it.
 >
-> Its odd that HZ=1000 solved the problem despite HR timers being active.
-> Are you sure they're actually enabled? You should see something like
-> this in the ringbuffer:
+> intf->dev is going to be "obviously correct", the others aren't.
 >
-> [    0.241972] Switched to high resolution mode on CPU 0
-> [    0.242708] Switched to high resolution mode on CPU 1
-> --
-I had nmi_watchdog enabled, and kernel log was too short to check that 
-message. But i think you are right, because of nmi_watchdog it was not in 
-high resolution.
 
-Plus my kernel is spammed by messages 
-[  105.417236] UDP: bad checksum. From 58.137.24.102:33333 to 
-213.254.233.11:42741 ulen 106
-[  105.527209] UDP: bad checksum. From 200.7.99.22:33132 to 
-213.254.233.11:61520 ulen 111
-[  130.498537] UDP: bad checksum. From 210.213.100.122:33890 to 
-213.254.233.10:64060 ulen 111
-[  132.974111] UDP: bad checksum. From 189.144.209.72:2028 to 
-213.254.233.11:1466 ulen 8259
-[  133.499172] UDP: bad checksum. From 66.41.236.245:16496 to 
-213.254.233.11:15055 ulen 71
-[  140.826429] UDP: bad checksum. From 220.165.176.236:16001 to 
-213.254.233.10:9422 ulen 297
+Is this patch touch  kaweth_disconnect() ? I see dev_warn and dev_info
+there. No dev_err.
 
-Is net.core.warnings = 0 will remove them?
-Their amount really annoying on router.
-
-I will remove nmi_watchdog, apply Jarek patches to avoid crashes which i had 
-before, and will check how much is precise shaper at peak time (after 9-10 
-hours).  For now it will be 1000 HZ (not 100), 
+-- 
+Best regards, Klimov Alexey
