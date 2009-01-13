@@ -1,42 +1,65 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH RFC v5] net: add PCINet driver
-Date: Tue, 13 Jan 2009 18:42:53 +0100
-Message-ID: <200901131842.54688.arnd@arndb.de>
-References: <20090107195052.GA24981@ovro.caltech.edu> <200901131733.04341.arnd@arndb.de> <20090113164007.GA7434@ovro.caltech.edu>
+From: Daniele Venzano <venza@brownhat.org>
+Subject: [PATCH] SIS900 show warning if bogus MAC address (take 2)
+Date: Tue, 13 Jan 2009 19:18:21 +0100
+Message-ID: <20090113181821.GA21342@milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Ira Snyder <iws@ovro.caltech.edu>
+Content-Type: multipart/mixed; boundary="lrZ03NoBR/3+SXJZ"
+Cc: akpm@linux-foundation.org, venza@brownhat.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:63211 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751661AbZAMRnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 12:43:19 -0500
-In-Reply-To: <20090113164007.GA7434@ovro.caltech.edu>
+Received: from smtp1.infomaniak.ch ([84.16.68.89]:52845 "EHLO
+	smtp1.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753353AbZAMSSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 13:18:39 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 13 January 2009, Ira Snyder wrote:
-> So do you program one channel of the DMA engine from the host side and
-> another channel from the guest side?
 
-Yes.
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> I tried to avoid having the host program the DMA controller at all.
-> Using the DMAEngine API on the guest did better than I could achieve by
-> programming the registers manually. I didn't use chaining or any of the
-> fancier features in my tests, though.
+The attached patch modifies the sis900 driver when the MAC address
+read from the hardware is invalid. As suggested, the patch now
+generates a random address so that the user can go on and use
+the hardware. In any case a message is also shown to warn on the
+unexpected condition.
+This seems to happen with newer HW implementation of the sis900
+chipset, since this never came up before.
 
-Our driver unfortunately does not use the DMA API, but it clearly
-should. What this means in your case is that you would need to port
-the freescale DMA engine driver to the host side, to operate on the
-PCI device. Not sure about how specifically this would work on fsl
-hardware, but it seems generally doable.
+Patch is against vanilla 2.6.28 (but the driver doesn't change so often,
+so it will probably apply to older/newer versions too).
 
-	Arnd <><
+See bugzilla ID 10201 and 11649 and ignore the previous patch.
+
+Signed-off-by: Daniele Venzano <venza@brownhat.org>
+
+--
+Daniele Venzano
+http://www.brownhat.org
+
+
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="sis900_check_set_mac.diff"
+
+--- a/drivers/net/sis900.c	2009-01-13 15:12:35.000000000 +0100
++++ b/drivers/net/sis900.c	2009-01-13 15:38:05.000000000 +0100
+@@ -504,10 +504,10 @@ static int __devinit sis900_probe(struct
+ 	else
+ 		ret = sis900_get_mac_addr(pci_dev, net_dev);
+ 
+-	if (ret == 0) {
+-		printk(KERN_WARNING "%s: Cannot read MAC address.\n", dev_name);
+-		ret = -ENODEV;
+-		goto err_unmap_rx;
++	if (!ret || !is_valid_ether_addr(net_dev->dev_addr)) {
++		random_ether_addr(net_dev->dev_addr);
++		printk(KERN_WARNING "%s: Unreadable or invalid MAC address,"
++				"using random generated one\n", dev_name);
+ 	}
+ 
+ 	/* 630ET : set the mii access mode as software-mode */
+
+--lrZ03NoBR/3+SXJZ--
