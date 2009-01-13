@@ -1,55 +1,42 @@
-From: Robin Getz <rgetz@blackfin.uclinux.org>
-Subject: Re: 802.1Q support?
-Date: Tue, 13 Jan 2009 11:54:07 -0500
-Message-ID: <200901131154.07729.rgetz@blackfin.uclinux.org>
-References: <200901121148.26905.rgetz@blackfin.uclinux.org> <200901130731.20538.rgetz@blackfin.uclinux.org> <200901131429.41178.florian@openwrt.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RFC v5] net: add PCINet driver
+Date: Tue, 13 Jan 2009 18:42:53 +0100
+Message-ID: <200901131842.54688.arnd@arndb.de>
+References: <20090107195052.GA24981@ovro.caltech.edu> <200901131733.04341.arnd@arndb.de> <20090113164007.GA7434@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Florian Fainelli" <florian@openwrt.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Ira Snyder <iws@ovro.caltech.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail11.analog.com ([137.71.25.57]:24826 "EHLO
-	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752827AbZAMQyE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 11:54:04 -0500
-In-Reply-To: <200901131429.41178.florian@openwrt.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:63211 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751661AbZAMRnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 12:43:19 -0500
+In-Reply-To: <20090113164007.GA7434@ovro.caltech.edu>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue 13 Jan 2009 08:29, Florian Fainelli pondered:
-> Le Tuesday 13 January 2009 13:31:20 Robin Getz, vous avez =C3=A9crit=C2=
-=A0:
-> > Great - That looks like the way to go -- is there any plan in sendi=
-ng this
-> > to mainline?
->=20
-> Yes we will definitively submit it for mainline inclusion, Felix, who=
- wrote=20
-> the swconfig stuff will probably want to clean it up a bit and/or add=
-=20
-> features.
->=20
-> Lennert Buytenhek also proposed a Distributed Switch Architecture whi=
-ch is=20
-> worth looking at, though it does not cover more "classical" switches=20
-> connection over GPIO, SPI or special PHY address.
+On Tuesday 13 January 2009, Ira Snyder wrote:
+> So do you program one channel of the DMA engine from the host side and
+> another channel from the guest side?
 
-Hmmm ...=20
-https://kerneltrap.org/mailarchive/linux-netdev/2008/9/25/3411164/threa=
-d
+Yes.
 
-> The switch driver presents each port on the switch as a separate
-> network interface to Linux, polls the switch to maintain software
-> link state of those ports, forwards MII management interface
-> accesses to those network interfaces (e.g. as done by ethtool) to
-> the switch, and exposes the switch's hardware statistics counters
-> via the appropriate Linux kernel interfaces.
+> I tried to avoid having the host program the DMA controller at all.
+> Using the DMAEngine API on the guest did better than I could achieve by
+> programming the registers manually. I didn't use chaining or any of the
+> fancier features in my tests, though.
 
-This exposes eth[n] for every port - and these are managed by the stand=
-ard=20
-userspace tools?=20
+Our driver unfortunately does not use the DMA API, but it clearly
+should. What this means in your case is that you would need to port
+the freescale DMA engine driver to the host side, to operate on the
+PCI device. Not sure about how specifically this would work on fsl
+hardware, but it seems generally doable.
 
-That seems like it would be more intuitive for end users -- wouldn't it=
-?
+	Arnd <><
