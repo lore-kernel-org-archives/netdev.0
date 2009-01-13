@@ -1,80 +1,266 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCHv2 5/7] netxen: cleanup mac list on driver unload
-Date: Tue, 13 Jan 2009 11:52:42 -0800
-Message-ID: <1231876364-866-6-git-send-email-dhananjay@netxen.com>
+Subject: [PATCHv2 4/7] netxen: firmware init fix
+Date: Tue, 13 Jan 2009 11:52:41 -0800
+Message-ID: <1231876364-866-5-git-send-email-dhananjay@netxen.com>
 References: <1231876364-866-1-git-send-email-dhananjay@netxen.com>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:60175 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:60180 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753348AbZAMTwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2009 14:52:46 -0500
+	id S1753446AbZAMTwt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2009 14:52:49 -0500
 In-Reply-To: <1231876364-866-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a tiny memory leak when driver is unloaded. The mac
-address list maintained in netxen_adapter needs to deleted when
-driver is going down.
+o Fix order or rom register writes.
+o Reduce udelays when writing rom registers.
+
+This cuts the firmware init time by 40%.
+
+o Do not reset core/memory clocks when reinitializing driver.
+  Firmware willl handle this when initialized.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |    1 +
- drivers/net/netxen/netxen_nic_hw.c   |   13 +++++++++++++
- drivers/net/netxen/netxen_nic_main.c |    3 +++
- 3 files changed, 17 insertions(+), 0 deletions(-)
+ drivers/net/netxen/netxen_nic_hw.c   |    6 +---
+ drivers/net/netxen/netxen_nic_init.c |   35 +++++++++++++++----------
+ drivers/net/netxen/netxen_nic_main.c |   47 ++++++++++++++++++++-------------
+ 3 files changed, 51 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index a674a23..6598a34 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -1478,6 +1478,7 @@ int netxen_process_cmd_ring(struct netxen_adapter *adapter);
- u32 netxen_process_rcv_ring(struct netxen_adapter *adapter, int ctx, int max);
- void netxen_p2_nic_set_multi(struct net_device *netdev);
- void netxen_p3_nic_set_multi(struct net_device *netdev);
-+void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
- int netxen_p3_nic_set_promisc(struct netxen_adapter *adapter, u32);
- int netxen_config_intr_coalesce(struct netxen_adapter *adapter);
- 
 diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 511db2a..e2d2a2f 100644
+index 4276f7f..511db2a 100644
 --- a/drivers/net/netxen/netxen_nic_hw.c
 +++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -627,6 +627,19 @@ int netxen_p3_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
- 				(struct cmd_desc_type0 *)&req, 1);
- }
+@@ -939,7 +939,7 @@ int netxen_load_firmware(struct netxen_adapter *adapter)
+ {
+ 	int i;
+ 	u32 data, size = 0;
+-	u32 flashaddr = NETXEN_BOOTLD_START, memaddr = NETXEN_BOOTLD_START;
++	u32 flashaddr = NETXEN_BOOTLD_START;
  
-+void netxen_p3_free_mac_list(struct netxen_adapter *adapter)
-+{
-+	nx_mac_list_t *cur, *next;
-+
-+	cur = adapter->mac_list;
-+
-+	while (cur) {
-+		next = cur->next;
-+		kfree(cur);
-+		cur = next;
-+	}
-+}
-+
- #define	NETXEN_CONFIG_INTR_COALESCE	3
+ 	size = (NETXEN_IMAGE_START - NETXEN_BOOTLD_START)/4;
  
- /*
+@@ -951,10 +951,8 @@ int netxen_load_firmware(struct netxen_adapter *adapter)
+ 		if (netxen_rom_fast_read(adapter, flashaddr, (int *)&data) != 0)
+ 			return -EIO;
+ 
+-		adapter->pci_mem_write(adapter, memaddr, &data, 4);
++		adapter->pci_mem_write(adapter, flashaddr, &data, 4);
+ 		flashaddr += 4;
+-		memaddr += 4;
+-		cond_resched();
+ 	}
+ 	msleep(1);
+ 
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index c0e06a6..a320364 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -439,6 +439,8 @@ static int netxen_wait_rom_done(struct netxen_adapter *adapter)
+ 	long timeout = 0;
+ 	long done = 0;
+ 
++	cond_resched();
++
+ 	while (done == 0) {
+ 		done = netxen_nic_reg_read(adapter, NETXEN_ROMUSB_GLB_STATUS);
+ 		done &= 2;
+@@ -533,12 +535,9 @@ static int do_rom_fast_write(struct netxen_adapter *adapter, int addr,
+ static int do_rom_fast_read(struct netxen_adapter *adapter,
+ 			    int addr, int *valp)
+ {
+-	cond_resched();
+-
+ 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ADDRESS, addr);
+-	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
+-	udelay(100);		/* prevent bursting on CRB */
+ 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_DUMMY_BYTE_CNT, 0);
++	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
+ 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_INSTR_OPCODE, 0xb);
+ 	if (netxen_wait_rom_done(adapter)) {
+ 		printk("Error waiting for rom done\n");
+@@ -546,7 +545,7 @@ static int do_rom_fast_read(struct netxen_adapter *adapter,
+ 	}
+ 	/* reset abyte_cnt and dummy_byte_cnt */
+ 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 0);
+-	udelay(100);		/* prevent bursting on CRB */
++	udelay(10);
+ 	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_DUMMY_BYTE_CNT, 0);
+ 
+ 	*valp = netxen_nic_reg_read(adapter, NETXEN_ROMUSB_ROM_RDATA);
+@@ -884,14 +883,16 @@ int netxen_flash_unlock(struct netxen_adapter *adapter)
+ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ {
+ 	int addr, val;
+-	int i, init_delay = 0;
++	int i, n, init_delay = 0;
+ 	struct crb_addr_pair *buf;
+-	unsigned offset, n;
++	unsigned offset;
+ 	u32 off;
+ 
+ 	/* resetall */
++	rom_lock(adapter);
+ 	netxen_crb_writelit_adapter(adapter, NETXEN_ROMUSB_GLB_SW_RESET,
+ 				    0xffffffff);
++	netxen_rom_unlock(adapter);
+ 
+ 	if (verbose) {
+ 		if (netxen_rom_fast_read(adapter, NETXEN_BOARDTYPE, &val) == 0)
+@@ -910,7 +911,7 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
+ 		if (netxen_rom_fast_read(adapter, 0, &n) != 0 ||
+-			(n != 0xcafecafeUL) ||
++			(n != 0xcafecafe) ||
+ 			netxen_rom_fast_read(adapter, 4, &n) != 0) {
+ 			printk(KERN_ERR "%s: ERROR Reading crb_init area: "
+ 					"n: %08x\n", netxen_nic_driver_name, n);
+@@ -975,6 +976,14 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 			/* do not reset PCI */
+ 			if (off == (ROMUSB_GLB + 0xbc))
+ 				continue;
++			if (off == (ROMUSB_GLB + 0xa8))
++				continue;
++			if (off == (ROMUSB_GLB + 0xc8)) /* core clock */
++				continue;
++			if (off == (ROMUSB_GLB + 0x24)) /* MN clock */
++				continue;
++			if (off == (ROMUSB_GLB + 0x1c)) /* MS clock */
++				continue;
+ 			if (off == (NETXEN_CRB_PEG_NET_1 + 0x18))
+ 				buf[i].data = 0x1020;
+ 			/* skip the function enable register */
+@@ -992,23 +1001,21 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+ 			continue;
+ 		}
+ 
++		init_delay = 1;
+ 		/* After writing this register, HW needs time for CRB */
+ 		/* to quiet down (else crb_window returns 0xffffffff) */
+ 		if (off == NETXEN_ROMUSB_GLB_SW_RESET) {
+-			init_delay = 1;
++			init_delay = 1000;
+ 			if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 				/* hold xdma in reset also */
+ 				buf[i].data = NETXEN_NIC_XDMA_RESET;
++				buf[i].data = 0x8000ff;
+ 			}
+ 		}
+ 
+ 		adapter->hw_write_wx(adapter, off, &buf[i].data, 4);
+ 
+-		if (init_delay == 1) {
+-			msleep(1000);
+-			init_delay = 0;
+-		}
+-		msleep(1);
++		msleep(init_delay);
+ 	}
+ 	kfree(buf);
+ 
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index cbe2b3e..9268fd2 100644
+index 2c6ce6f..cbe2b3e 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -986,6 +986,9 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
- 		netxen_free_hw_resources(adapter);
- 		netxen_release_rx_buffers(adapter);
- 		netxen_free_sw_resources(adapter);
-+
-+		if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
-+			netxen_p3_free_mac_list(adapter);
- 	}
+@@ -280,10 +280,15 @@ static void netxen_check_options(struct netxen_adapter *adapter)
+ static int
+ netxen_check_hw_init(struct netxen_adapter *adapter, int first_boot)
+ {
+-	int ret = 0;
++	u32 val, timeout;
  
- 	if (adapter->portnum == 0)
+ 	if (first_boot == 0x55555555) {
+ 		/* This is the first boot after power up */
++		adapter->pci_write_normalize(adapter,
++			NETXEN_CAM_RAM(0x1fc), NETXEN_BDINFO_MAGIC);
++
++		if (!NX_IS_REVISION_P2(adapter->ahw.revision_id))
++			return 0;
+ 
+ 		/* PCI bus master workaround */
+ 		adapter->hw_read_wx(adapter,
+@@ -303,18 +308,26 @@ netxen_check_hw_init(struct netxen_adapter *adapter, int first_boot)
+ 			/* clear the register for future unloads/loads */
+ 			adapter->pci_write_normalize(adapter,
+ 					NETXEN_CAM_RAM(0x1fc), 0);
+-			ret = -1;
++			return -EIO;
+ 		}
+ 
+-		if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+-			/* Start P2 boot loader */
+-			adapter->pci_write_normalize(adapter,
+-				NETXEN_CAM_RAM(0x1fc), NETXEN_BDINFO_MAGIC);
+-			adapter->pci_write_normalize(adapter,
+-					NETXEN_ROMUSB_GLB_PEGTUNE_DONE, 1);
+-		}
++		/* Start P2 boot loader */
++		val = adapter->pci_read_normalize(adapter,
++				NETXEN_ROMUSB_GLB_PEGTUNE_DONE);
++		adapter->pci_write_normalize(adapter,
++				NETXEN_ROMUSB_GLB_PEGTUNE_DONE, val | 0x1);
++		timeout = 0;
++		do {
++			msleep(1);
++			val = adapter->pci_read_normalize(adapter,
++					NETXEN_CAM_RAM(0x1fc));
++
++			if (++timeout > 5000)
++				return -EIO;
++
++		} while (val == NETXEN_BDINFO_MAGIC);
+ 	}
+-	return ret;
++	return 0;
+ }
+ 
+ static void netxen_set_port_mode(struct netxen_adapter *adapter)
+@@ -793,8 +806,8 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 						CRB_CMDPEG_STATE, 0);
+ 			netxen_pinit_from_rom(adapter, 0);
+ 			msleep(1);
+-			netxen_load_firmware(adapter);
+ 		}
++		netxen_load_firmware(adapter);
+ 
+ 		if (NX_IS_REVISION_P3(revision_id))
+ 			netxen_pcie_strap_init(adapter);
+@@ -810,13 +823,6 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 		}
+ 
+-		if ((first_boot == 0x55555555) &&
+-			(NX_IS_REVISION_P2(revision_id))) {
+-			/* Unlock the HW, prompting the boot sequence */
+-			adapter->pci_write_normalize(adapter,
+-					NETXEN_ROMUSB_GLB_PEGTUNE_DONE, 1);
+-		}
+-
+ 		err = netxen_initialize_adapter_offload(adapter);
+ 		if (err)
+ 			goto err_out_iounmap;
+@@ -830,7 +836,9 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		adapter->pci_write_normalize(adapter, CRB_DRIVER_VERSION, i);
+ 
+ 		/* Handshake with the card before we register the devices. */
+-		netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
++		err = netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
++		if (err)
++			goto err_out_free_offload;
+ 
+ 	}	/* first_driver */
+ 
+@@ -934,6 +942,7 @@ err_out_disable_msi:
+ 	if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
+ 		pci_disable_msi(pdev);
+ 
++err_out_free_offload:
+ 	if (first_driver)
+ 		netxen_free_adapter_offload(adapter);
+ 
 -- 
 1.6.0.2
 
