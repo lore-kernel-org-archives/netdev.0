@@ -1,26 +1,40 @@
-From: Kate Duncan <Kate.Duncan@asu.edu>
-Subject: You have exceeded the storage limit for your mailbox
-Date: Mon, 12 Jan 2009 16:13:18 -0700
-Message-ID: <C9D7A1F4BE39A340A7B0DC88752C2BB208E66C5F@EX03.asurite.ad.asu.edu>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] net: Remove redundant NAPI functions
+Date: Tue, 13 Jan 2009 02:35:22 +0100
+Message-ID: <m3r638ugx1.fsf@maximus.localdomain>
+References: <1231769390.3075.2.camel@achroite>
+	<1231771577.3075.5.camel@achroite>
+	<m34p04bfd2.fsf@maximus.localdomain>
+	<20090112.163021.132623782.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Undisclosed recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: bhutchings@solarflare.com, jarkao2@gmail.com,
+	nhorman@tuxdriver.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from epo-int2.asu.edu ([129.219.187.21]:25092 "EHLO epo-int2.asu.edu"
+Received: from khc.piap.pl ([195.187.100.11]:51532 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757990AbZAMBUn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2009 20:20:43 -0500
-Content-Class: urn:content-classes:message
+	id S1758415AbZAMBfZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jan 2009 20:35:25 -0500
+In-Reply-To: <20090112.163021.132623782.davem@davemloft.net> (David Miller's message of "Mon\, 12 Jan 2009 16\:30\:21 -0800 \(PST\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your mailbox has exceeded the storage limit set by your administrator. You may not be able to send or receive new mail until your mailbox size is increased by your system administrator. You are required to contact your system administrator through e-mail with your Username:{ } and Password:{ } to increase your storage limit.
+David Miller <davem@davemloft.net> writes:
 
-System Administrator
-E-mail: systemquota@live.com
+>> >> > > +++ b/drivers/net/wan/ixp4xx_hss.c
 
-You will continue to receive this warning message periodically if your inbox size continues to exceed its size limit.
+> So, as it turns out I think I need to handle this in a few stages:
+>
+> 1) It doesn't build upstream in Linus's tree because of the
+>    dev arg, so I'll fix that upstream in net-2.6
+>
+> 2) Then I'll rework Ben's napi_*() patch to apply on top of that.
+>
+> I can do this because I haven't published my net-next-2.6 tree
+> yet anywhere, so I can just rebase to fix all of this up.
 
-This email is intended only for the use of the individual or entity to which it is addressed and contains information that is privileged and confidential.
-
+Thanks.
+-- 
+Krzysztof Halasa
