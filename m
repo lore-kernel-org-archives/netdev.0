@@ -1,42 +1,53 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
-Date: Tue, 13 Jan 2009 10:25:38 +0100
-Message-ID: <200901131025.40285.oliver@neukum.org>
-References: <1231805322.12962.4.camel@tux.localhost> <200901130940.28478.oliver@neukum.org> <208cbae30901130057r2b3396f4gb5abdedd5647739c@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [1/2] e1000e: Invoke VLAN GRO handler
+Date: Tue, 13 Jan 2009 20:26:25 +1100
+Message-ID: <20090113092625.GA28015@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: dbrownell@users.sourceforge.net, davem@davemloft.net,
-	"Greg KH" <greg@kroah.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: "Alexey Klimov" <klimov.linux@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:41739 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751995AbZAMJZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 04:25:08 -0500
-In-Reply-To: <208cbae30901130057r2b3396f4gb5abdedd5647739c@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:35826 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752263AbZAMJ0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 04:26:32 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Tuesday 13 January 2009 09:57:12 schrieb Alexey Klimov:
-> On Tue, Jan 13, 2009 at 11:40 AM, Oliver Neukum <oliver@neukum.org> wrote:
+Hi Dave:
 
-> > I have to veto this. You are using three different device structures
-> > to refer to the same device. That will make it next to impossible to
-> > find out which device originated a message.
-> >
-> Ok, i'll reformat patch. Is it okay if i use kaweth->dev->dev,
-> kaweth->net->dev and intf->dev ? Or switch to kaweth->net->dev
-> (instead of dev->dev)?
+I'm starting to convert the LRO users now.  Here's the first
+patch which is trivial.  It simply completes the test driver
+that I started out with.
 
-kaweth in kaweth_disconnect() frees the network device. Therefore
-you cannot use it. You'd access freed memory. Pick one of the others
-and stay with it.
+e1000e: Invoke VLAN GRO handler
 
-	Regards
-		Oliver
+Now that VLAN has GRO support as well, we can call its GRO handler
+as well.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 91817d0..f73faac 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -99,8 +99,8 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
+ 	skb->protocol = eth_type_trans(skb, netdev);
+ 
+ 	if (adapter->vlgrp && (status & E1000_RXD_STAT_VP))
+-		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
+-					 le16_to_cpu(vlan));
++		vlan_gro_receive(&adapter->napi, adapter->vlgrp,
++				 le16_to_cpu(vlan), skb);
+ 	else
+ 		napi_gro_receive(&adapter->napi, skb);
+ }
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
