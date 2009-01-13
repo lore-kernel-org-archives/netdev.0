@@ -1,52 +1,45 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading
- (-git7 is ok)
-Date: Tue, 13 Jan 2009 10:39:48 -0800
-Message-ID: <20090113183948.GA21847@xw6200.broadcom.net>
-References: <43805.1231672258@turing-police.cc.vt.edu>
- <20090111.040842.86784676.davem@davemloft.net>
- <1231676698.25018.147.camel@macbook.infradead.org>
- <20090111.133929.57600645.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] SIS900 show warning if bogus MAC address (take 2)
+Date: Tue, 13 Jan 2009 11:06:21 -0800
+Message-ID: <20090113110621.1456a2a8@extreme>
+References: <20090113181821.GA21342@milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
-	"alessandro.suardi@gmail.com" <alessandro.suardi@gmail.com>,
-	"jaswinderlinux@gmail.com" <jaswinderlinux@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	venza@brownhat.org
+To: Daniele Venzano <venza@brownhat.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4740 "EHLO mms1.broadcom.com"
+Received: from mail.vyatta.com ([76.74.103.46]:44392 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751667AbZAMSkB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2009 13:40:01 -0500
-In-Reply-To: <20090111.133929.57600645.davem@davemloft.net>
-Content-Disposition: inline
+	id S1753207AbZAMTGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2009 14:06:25 -0500
+In-Reply-To: <20090113181821.GA21342@milesteg.arr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 11, 2009 at 01:39:29PM -0800, David Miller wrote:
-> From: David Woodhouse <dwmw2@infradead.org>
-> Date: Sun, 11 Jan 2009 12:24:58 +0000
-> 
-> > Other drivers will load the firmware later, at the time the device is
-> > brought up. This means that even if you build the driver into the kernel
-> > without its firmware, it can still request the firmware later, when you
-> > try to start _using_ it. And when the file system is available.
-> 
-> For example, for mounting an NFS root using that device.... Oh, will I
-> need an initramfs for that once you pull the firmware-in-kernel
-> option?
-> 
-> To me, device probe is in fact the place to fail firmware discovery
-> for networking devices.  Because such a failure can mean you can't
-> mount your root filesystem.
+On Tue, 13 Jan 2009 19:18:21 +0100
+Daniele Venzano <venza@brownhat.org> wrote:
 
-David, is this the direction you want to take the fix?  I'm sitting on
-a patch that elaborates on David Woodhouse's work which moves the
-request_firmware call to tg3_open().  Before I posted it for comment,
-I wanted to make sure the patch is moving in the right direction.
+> The attached patch modifies the sis900 driver when the MAC address
+> read from the hardware is invalid. As suggested, the patch now
+> generates a random address so that the user can go on and use
+> the hardware. In any case a message is also shown to warn on the
+> unexpected condition.
+> This seems to happen with newer HW implementation of the sis900
+> chipset, since this never came up before.
+> 
+> Patch is against vanilla 2.6.28 (but the driver doesn't change so often,
+> so it will probably apply to older/newer versions too).
+> 
+> See bugzilla ID 10201 and 11649 and ignore the previous patch.
+> 
+> Signed-off-by: Daniele Venzano <venza@brownhat.org>
+> 
+> --
+> Daniele Venzano
+> http://www.brownhat.org
+> 
 
+It would be good if this driver was converted from using dev_name (ie pci_name()) 
+and used the standard routines which print that and more: dev_err, dev_warn, dev_dbg, etc?
