@@ -1,58 +1,55 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: 2.6.28-git8: tg3 doesn't work due to firmware not loading (-git7 is ok)
-Date: Tue, 13 Jan 2009 07:13:23 +0100
-Message-ID: <20090113061322.GJ5038@1wt.eu>
-References: <1231676698.25018.147.camel@macbook.infradead.org> <20090111.133929.57600645.davem@davemloft.net> <1231711347.25018.658.camel@macbook.infradead.org> <20090111.140559.126980927.davem@davemloft.net> <1231713698.25018.700.camel@macbook.infradead.org>
+From: Daolong Wang <ahlongxp@gmail.com>
+Subject: Re: [PATCH] NET: fix wrong English expression in comments
+Date: Tue, 13 Jan 2009 14:16:02 +0800
+Message-ID: <dc84318c0901122216s77bae26eo2dd36c4a0ee35177@mail.gmail.com>
+References: <496a3c51.09876e0a.03fe.7e80@mx.google.com>
+	 <496A9753.80802@cn.fujitsu.com>
+	 <1231724358.2674.13.camel@hashbaz.i.decadent.org.uk>
+	 <20090112.215320.197154233.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Valdis.Kletnieks@vt.edu,
-	alessandro.suardi@gmail.com, jaswinderlinux@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, lizf@cn.fujitsu.com,
+	qhfeng.kernel@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1438 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759652AbZAMGOJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2009 01:14:09 -0500
-Content-Disposition: inline
-In-Reply-To: <1231713698.25018.700.camel@macbook.infradead.org>
+Received: from rv-out-0506.google.com ([209.85.198.227]:61996 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759908AbZAMGQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 01:16:04 -0500
+In-Reply-To: <20090112.215320.197154233.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 11, 2009 at 10:41:38PM +0000, David Woodhouse wrote:
-> On Sun, 2009-01-11 at 14:05 -0800, David Miller wrote:
-> > So what used to work out of the box by typing make now
-> > will have all kinds of strange depencies, right?
-> > 
-> > This is a regression, no matter how you spin it, in my
-> > book.
-> 
-> I know you think that, but I disagree. Yes, it's slightly less
-> convenient for a small handful of older drivers,
+The patch will make sense for some people. I was puzzled about the
+double-negative for quite a while.
 
-We're speaking about the driver for the on-board NIC which is present on
-almost 100% of the servers built since the last 5 years. There are an
-awful lot of users of this driver playing with PXE, nfsroot and other
-non-legacy boot methods. So "small handful" or not, we must ensure not
-to annoy a lot of users with strange bugs and awkward configurations.
-
-> but in the general case
-> it's a massive improvement -- because now we can have a single canonical
-> location to collect _all_ the firmware that is redistributable, for use
-> with the kernel. And we've already started adding a whole bunch of new
-> firmwares to that repository.
-
-In the past, the firmware distributed with the driver was always the
-one known to work with that version of the driver. Now you'll have to
-know what version of the firmware to use with what kernel version,
-this is adding a new dimension to troubleshooting complexity.
-
-I still think that these firmware hacks are a solution looking for
-a problem to solve. We had something which has worked well for 15
-years and now it's easy to see a machine hang at boot time for 60
-seconds because a firmware file is missing or invalid.
-
-Regression IMO, I agree with Davem.
-
-Willy
-
+On Tue, Jan 13, 2009 at 1:53 PM, David Miller <davem@davemloft.net> wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 12 Jan 2009 01:39:18 +0000
+>
+>> On Mon, 2009-01-12 at 09:05 +0800, Li Zefan wrote:
+>> > > @@ -103,7 +103,7 @@ struct inet_bind_bucket;
+>> > >  struct inet_timewait_sock {
+>> > >   /*
+>> > >    * Now struct sock also uses sock_common, so please just
+>> > > -  * don't add nothing before this first member (__tw_common) --acme
+>> > > +  * don't add anything before this first member (__tw_common) --acme
+>> >
+>> > They are the same meaning...
+>>
+>> A double-negative can be an informal way of reinforcing a negative, but
+>> can sometimes mean the positive.  So this change would remove a minor
+>> ambiguity.  However I think it should be clear that it is not compulsory
+>> to add new members to the structure. ;-)
+>
+> After all of this discussion, I think I'm going to keep this comment
+> as-is. :-)
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
