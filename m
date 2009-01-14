@@ -1,107 +1,129 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 03/34]bnx2x: Missing memory barriers
-Date: Wed, 14 Jan 2009 18:42:47 +0200
-Message-ID: <1231951368.11301.124.camel@lb-tlvb-eliezer>
+Subject: [PATCH 02/34]bnx2x: Barriers for the compiler
+Date: Wed, 14 Jan 2009 18:42:44 +0200
+Message-ID: <1231951364.11301.123.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2393 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2391 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762379AbZANQni (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761923AbZANQni (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 14 Jan 2009 11:43:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While working on IA64, it became clear that the following memory barriers are
-missing
+To make sure no swapping are made by the compiler, changed HAS_WORK to inline
+functions and added all the necessary barriers
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   28 ++++++++++++++++++++++++++--
- 1 files changed, 26 insertions(+), 2 deletions(-)
+ drivers/net/bnx2x.h      |    9 +--------
+ drivers/net/bnx2x_main.c |   37 ++++++++++++++++++++++++++-----------
+ 2 files changed, 27 insertions(+), 19 deletions(-)
 
+diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
+index 96a8889..e5346d8 100644
+--- a/drivers/net/bnx2x.h
++++ b/drivers/net/bnx2x.h
+@@ -268,14 +268,7 @@ struct bnx2x_fastpath {
+ 
+ #define bnx2x_fp(bp, nr, var)		(bp->fp[nr].var)
+ 
+-#define BNX2X_HAS_TX_WORK(fp) \
+-			((fp->tx_pkt_prod != le16_to_cpu(*fp->tx_cons_sb)) || \
+-			 (fp->tx_pkt_prod != fp->tx_pkt_cons))
+-
+-#define BNX2X_HAS_RX_WORK(fp) \
+-			(fp->rx_comp_cons != rx_cons_sb)
+-
+-#define BNX2X_HAS_WORK(fp)	(BNX2X_HAS_RX_WORK(fp) || BNX2X_HAS_TX_WORK(fp))
++#define BNX2X_HAS_WORK(fp)	(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))
+ 
+ 
+ /* MC hsi */
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index b8bc1a5..5a0a285 100644
+index cc6ffba..b8bc1a5 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -1368,11 +1368,23 @@ static inline void bnx2x_update_rx_prod(struct bnx2x *bp,
- 	rx_prods.cqe_prod = rx_comp_prod;
- 	rx_prods.sge_prod = rx_sge_prod;
+@@ -735,6 +735,17 @@ static u16 bnx2x_ack_int(struct bnx2x *bp)
+  * fast path service functions
+  */
  
-+	/*
-+	 * Make sure that the BD and SGE data is updated before updating the
-+	 * producers since FW might read the BD/SGE right after the producer
-+	 * is updated.
-+	 * This is only applicable for weak-ordered memory model archs such
-+	 * as IA-64. The following barrier is also mandatory since FW will
-+	 * assumes BDs must have buffers.
-+	 */
-+	wmb();
++static inline int bnx2x_has_tx_work(struct bnx2x_fastpath *fp)
++{
++	u16 tx_cons_sb;
 +
- 	for (i = 0; i < sizeof(struct tstorm_eth_rx_producers)/4; i++)
- 		REG_WR(bp, BAR_TSTRORM_INTMEM +
- 		       TSTORM_RX_PRODS_OFFSET(BP_PORT(bp), FP_CL_ID(fp)) + i*4,
- 		       ((u32 *)&rx_prods)[i]);
- 
-+	mmiowb(); /* keep prod updates ordered */
++	/* Tell compiler that status block fields can change */
++	barrier();
++	tx_cons_sb = le16_to_cpu(*fp->tx_cons_sb);
++	return ((fp->tx_pkt_prod != tx_cons_sb) ||
++		(fp->tx_pkt_prod != fp->tx_pkt_cons));
++}
 +
- 	DP(NETIF_MSG_RX_STATUS,
- 	   "Wrote: bd_prod %u  cqe_prod %u  sge_prod %u\n",
- 	   bd_prod, rx_comp_prod, rx_sge_prod);
-@@ -1593,7 +1605,6 @@ next_cqe:
- 	/* Update producers */
- 	bnx2x_update_rx_prod(bp, fp, bd_prod_fw, sw_comp_prod,
- 			     fp->rx_sge_prod);
--	mmiowb(); /* keep prod updates ordered */
+ /* free skb in the packet ring at pos idx
+  * return idx of last bd freed
+  */
+@@ -6665,7 +6676,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
  
- 	fp->rx_pkt += rx_pkt;
- 	fp->rx_calls++;
-@@ -8740,6 +8751,8 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode, u8 link_up)
- 	tx_bd->general_data = ((UNICAST_ADDRESS <<
- 				ETH_TX_BD_ETH_ADDR_TYPE_SHIFT) | 1);
+ 		cnt = 1000;
+ 		smp_rmb();
+-		while (BNX2X_HAS_TX_WORK(fp)) {
++		while (bnx2x_has_tx_work(fp)) {
  
-+	wmb();
+ 			bnx2x_tx_int(fp, 1000);
+ 			if (!cnt) {
+@@ -9245,6 +9256,18 @@ static int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
+ 	return 0;
+ }
+ 
++static inline int bnx2x_has_rx_work(struct bnx2x_fastpath *fp)
++{
++	u16 rx_cons_sb;
 +
- 	fp->hw_tx_prods->bds_prod =
- 		cpu_to_le16(le16_to_cpu(fp->hw_tx_prods->bds_prod) + 1);
- 	mb(); /* FW restriction: must not reorder writing nbd and packets */
-@@ -8791,7 +8804,6 @@ test_loopback_rx_exit:
- 	/* Update producers */
- 	bnx2x_update_rx_prod(bp, fp, fp->rx_bd_prod, fp->rx_comp_prod,
- 			     fp->rx_sge_prod);
--	mmiowb(); /* keep prod updates ordered */
- 
- test_loopback_exit:
- 	bp->link_params.loopback_mode = LOOPBACK_NONE;
-@@ -9722,6 +9734,15 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	DP(NETIF_MSG_TX_QUEUED, "doorbell: nbd %d  bd %u\n", nbd, bd_prod);
- 
-+	/*
-+	 * Make sure that the BD data is updated before updating the producer
-+	 * since FW might read the BD right after the producer is updated.
-+	 * This is only applicable for weak-ordered memory model archs such
-+	 * as IA-64. The following barrier is also mandatory since FW will
-+	 * assumes packets must have BDs.
-+	 */
-+	wmb();
++	/* Tell compiler that status block fields can change */
++	barrier();
++	rx_cons_sb = le16_to_cpu(*fp->rx_cons_sb);
++	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
++		rx_cons_sb++;
++	return (fp->rx_comp_cons != rx_cons_sb);
++}
 +
- 	fp->hw_tx_prods->bds_prod =
- 		cpu_to_le16(le16_to_cpu(fp->hw_tx_prods->bds_prod) + nbd);
- 	mb(); /* FW restriction: must not reorder writing nbd and packets */
-@@ -9735,6 +9756,9 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	dev->trans_start = jiffies;
+ /*
+  * net_device service functions
+  */
+@@ -9255,7 +9278,6 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 						 napi);
+ 	struct bnx2x *bp = fp->bp;
+ 	int work_done = 0;
+-	u16 rx_cons_sb;
  
- 	if (unlikely(bnx2x_tx_avail(fp) < MAX_SKB_FRAGS + 3)) {
-+		/* We want bnx2x_tx_int to "see" the updated tx_bd_prod
-+		   if we put Tx into XOFF state. */
-+		smp_mb();
- 		netif_stop_queue(dev);
- 		bp->eth_stats.driver_xoff++;
- 		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+@@ -9268,19 +9290,12 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 
+ 	bnx2x_update_fpsb_idx(fp);
+ 
+-	if (BNX2X_HAS_TX_WORK(fp))
++	if (bnx2x_has_tx_work(fp))
+ 		bnx2x_tx_int(fp, budget);
+ 
+-	rx_cons_sb = le16_to_cpu(*fp->rx_cons_sb);
+-	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
+-		rx_cons_sb++;
+-	if (BNX2X_HAS_RX_WORK(fp))
++	if (bnx2x_has_rx_work(fp))
+ 		work_done = bnx2x_rx_int(fp, budget);
+-
+ 	rmb(); /* BNX2X_HAS_WORK() reads the status block */
+-	rx_cons_sb = le16_to_cpu(*fp->rx_cons_sb);
+-	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
+-		rx_cons_sb++;
+ 
+ 	/* must not complete if we consumed full budget */
+ 	if ((work_done < budget) && !BNX2X_HAS_WORK(fp)) {
 -- 
 1.5.4.3
 
