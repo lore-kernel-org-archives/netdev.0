@@ -1,43 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Wed, 14 Jan 2009 11:45:08 +0000
-Message-ID: <20090114114508.GB5848@ff.dom.local>
-References: <20090114085308.GB4234@ff.dom.local> <20090114.012919.117682429.davem@davemloft.net> <20090114094215.GC4234@ff.dom.local> <20090114.020637.181791518.davem@davemloft.net> <20090114104716.GE4234@ff.dom.local> <20090114112903.GB18662@gondor.apana.org.au> <20090114114059.GA5848@ff.dom.local>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 08/16] dma-debug: add core checking functions
+Date: Wed, 14 Jan 2009 12:48:29 +0100
+Message-ID: <20090114114829.GI8625@elte.hu>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-9-git-send-email-joerg.roedel@amd.com> <20090110231127.GK17917@elte.hu> <20090114114401.GL20283@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net,
-	dada1@cosmosbay.com, w@1wt.eu, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
+	dwmw2@infradead.org, fujita.tomonori@lab.ntt.co.jp,
+	netdev@vger.kernel.org, iommu@lists.linux-foundation.org
+To: Joerg Roedel <joerg.roedel@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:54727 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810AbZANLpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 06:45:16 -0500
+Received: from mx3.mail.elte.hu ([157.181.1.138]:57815 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755900AbZANLtI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 06:49:08 -0500
 Content-Disposition: inline
-In-Reply-To: <20090114114059.GA5848@ff.dom.local>
+In-Reply-To: <20090114114401.GL20283@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 11:40:59AM +0000, Jarek Poplawski wrote:
-> On Wed, Jan 14, 2009 at 10:29:03PM +1100, Herbert Xu wrote:
-> > On Wed, Jan 14, 2009 at 10:47:16AM +0000, Jarek Poplawski wrote:
-> > >
-> > > > > I don't think Herbert meant other ->sendpage() implementations, but I
-> > > > > could miss something.
-> > > > 
-> > > > I think he did :-)
-> > > 
-> > > I hope Herbert will make it clear.
+
+* Joerg Roedel <joerg.roedel@amd.com> wrote:
+
+> On Sun, Jan 11, 2009 at 12:11:27AM +0100, Ingo Molnar wrote:
 > > 
-> > Yes I did mean the other splice paths, and in particular, the path
-> > to disk.  I hope that's clear enough :)
+> > * Joerg Roedel <joerg.roedel@amd.com> wrote:
+> > 
+> > > +#define err_printk(dev, format, arg...) do {			\
+> > > +		error_count += 1;				\
+> > > +		if (show_all_errors || show_num_errors > 0) {	\
+> > > +			WARN(1, "%s %s: " format,		\
+> > > +			     dev_driver_string(dev),		\
+> > > +			     dev_name(dev) , ## arg);		\
+> > > +		}						\
+> > > +		if (!show_all_errors && show_num_errors > 0)	\
+> > > +			show_num_errors -= 1;			\
+> > 
+> > Note that the arithmetics here is SMP-unsafe: we only hold the hash bucket 
+> > so if two errors hit at once on two CPUs then the error tracking variables 
+> > can be accessed at once.
+> > 
+> > I'd suggest a simple global lock for this error case (taken inside the 
+> > hash bucket lock), to be on the safe side.
 > 
-> So, I think I got it right: otherwise it would be enough to make this
-> copy to a new page only before ->sendpage() calls e.g. in
-> generic_splice_sendpage().
+> As I wrote in a previous email, a race here is no big deal. I add a 
+> comment to document it. Or do we want another global lock here?
 
-Hmm... Actually in pipe_to_sendpage().
+we commonly use global locks in debug exception cases - to serialize 
+console output. But it's certainly no big deal.
 
-Jarek P.
+	Ingo
