@@ -1,7 +1,7 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Wed, 14 Jan 2009 12:06:47 +0000
-Message-ID: <20090114120647.GA5954@ff.dom.local>
+Date: Wed, 14 Jan 2009 12:15:03 +0000
+Message-ID: <20090114121503.GA6063@ff.dom.local>
 References: <20090113.232710.55011568.davem@davemloft.net> <20090114082630.GB16692@gondor.apana.org.au> <20090114085308.GB4234@ff.dom.local> <20090114.012919.117682429.davem@davemloft.net> <20090114095454.GD4234@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,14 +11,16 @@ Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, dada1@cosmosbay.com,
 	jens.axboe@oracle.com, Changli Gao <xiaosuo@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:53535 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752071AbZANMG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 07:06:56 -0500
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:46098 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753356AbZANMP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 07:15:28 -0500
 Content-Disposition: inline
 In-Reply-To: <20090114095454.GD4234@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Sorry: take 2:
 
 On Wed, Jan 14, 2009 at 09:54:54AM +0000, Jarek Poplawski wrote:
 > On Wed, Jan 14, 2009 at 01:29:19AM -0800, David Miller wrote:
@@ -43,6 +45,7 @@ Foreseen-by: Changli Gao <xiaosuo@gmail.com>
 Diagnosed-by: Willy Tarreau <w@1wt.eu>
 Reported-by: Willy Tarreau <w@1wt.eu>
 Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Fixed-by: Jens Axboe <jens.axboe@oracle.com>
 
 > 
 > Thanks,
