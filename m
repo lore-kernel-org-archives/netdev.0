@@ -1,62 +1,66 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 15/34]bnx2x: Indirection table initialization index
-Date: Wed, 14 Jan 2009 18:43:27 +0200
-Message-ID: <1231951407.11301.136.camel@lb-tlvb-eliezer>
+Subject: [PATCH 13/34]bnx2x: System cache alignment
+Date: Wed, 14 Jan 2009 18:43:21 +0200
+Message-ID: <1231951401.11301.134.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1625 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2391 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763220AbZANQoS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:44:18 -0500
+	id S1763326AbZANQoI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:44:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wrong initialization of the multi-queue indirection table - it should be using
-the function and not the port index
+Using the system cache alignment instead of constant value
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/bnx2x.h      |    5 +++++
+ drivers/net/bnx2x_main.c |    9 +++------
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
+index c1ba541..0e848fe 100644
+--- a/drivers/net/bnx2x.h
++++ b/drivers/net/bnx2x.h
+@@ -757,6 +757,11 @@ struct bnx2x {
+ #define ETH_MAX_PACKET_SIZE		1500
+ #define ETH_MAX_JUMBO_PACKET_SIZE	9600
+ 
++	/* Max supported alignment is 256 (8 shift) */
++#define BNX2X_RX_ALIGN_SHIFT		((L1_CACHE_SHIFT < 8) ? \
++					 L1_CACHE_SHIFT : 8)
++#define BNX2X_RX_ALIGN			(1 << BNX2X_RX_ALIGN_SHIFT)
++
+ 	struct host_def_status_block *def_status_blk;
+ #define DEF_SB_ID			16
+ 	u16			def_c_idx;
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 27a9be6..e7da72d 100644
+index d32b98f..a1d8ca5 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -4537,7 +4537,7 @@ static void bnx2x_init_context(struct bnx2x *bp)
+@@ -4287,14 +4287,11 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
+ 	u16 ring_prod, cqe_ring_prod;
+ 	int i, j;
  
- static void bnx2x_init_ind_table(struct bnx2x *bp)
- {
--	int port = BP_PORT(bp);
-+	int func = BP_FUNC(bp);
- 	int i;
+-	bp->rx_buf_size = bp->dev->mtu;
+-	bp->rx_buf_size += bp->rx_offset + ETH_OVREHEAD +
+-		BCM_RX_ETH_PAYLOAD_ALIGN;
++	bp->rx_buf_size = bp->dev->mtu + ETH_OVREHEAD + BNX2X_RX_ALIGN;
++	DP(NETIF_MSG_IFUP,
++	   "mtu %d  rx_buf_size %d\n", bp->dev->mtu, bp->rx_buf_size);
  
- 	if (!is_multi(bp))
-@@ -4546,10 +4546,8 @@ static void bnx2x_init_ind_table(struct bnx2x *bp)
- 	DP(NETIF_MSG_IFUP, "Initializing indirection table\n");
- 	for (i = 0; i < TSTORM_INDIRECTION_TABLE_SIZE; i++)
- 		REG_WR8(bp, BAR_TSTRORM_INTMEM +
--			TSTORM_INDIRECTION_TABLE_OFFSET(port) + i,
--			i % bp->num_queues);
--
--	REG_WR(bp, PRS_REG_A_PRSU_20, 0xf);
-+			TSTORM_INDIRECTION_TABLE_OFFSET(func) + i,
-+			BP_CL_ID(bp) + (i % bp->num_queues));
- }
+ 	if (bp->flags & TPA_ENABLE_FLAG) {
+-		DP(NETIF_MSG_IFUP,
+-		   "rx_buf_size %d  effective_mtu %d\n",
+-		   bp->rx_buf_size, bp->dev->mtu + ETH_OVREHEAD);
  
- static void bnx2x_set_client_config(struct bnx2x *bp)
-@@ -5253,6 +5251,7 @@ static int bnx2x_init_common(struct bnx2x *bp)
- 	}
- 
- 	bnx2x_init_block(bp, PRS_COMMON_START, PRS_COMMON_END);
-+	REG_WR(bp, PRS_REG_A_PRSU_20, 0xf);
- 	/* set NIC mode */
- 	REG_WR(bp, PRS_REG_NIC_MODE, 1);
- 	if (CHIP_IS_E1H(bp))
+ 		for_each_queue(bp, j) {
+ 			struct bnx2x_fastpath *fp = &bp->fp[j];
 -- 
 1.5.4.3
 
