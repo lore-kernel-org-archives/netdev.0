@@ -1,34 +1,59 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
-Date: Wed, 14 Jan 2009 10:17:24 +0000
-Message-ID: <20090114101724.GD22976@n2100.arm.linux.org.uk>
-References: <1231916280-7391-1-git-send-email-stanley.miao@windriver.com> <OF8C316D93.937F4899-ON8025753E.0030604F-8025753E.003106B3@smsc.com> <20090114100550.GA22976@n2100.arm.linux.org.uk> <1231928570.6810.12.camel@localhost>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: maximum buffer size for splice(2) tcp->pipe?
+Date: Wed, 14 Jan 2009 11:17:57 +0100
+Message-ID: <496DBBD5.7080109@cosmosbay.com>
+References: <E1LKrp3-004Tub-IR@intern.SerNet.DE> <20090113123702.ad29cd13.akpm@linux-foundation.org> <496D2078.9080302@cosmosbay.com> <E1LN0MC-00DaJs-M2@intern.SerNet.DE> <496DACBE.3030701@cosmosbay.com> <E1LN2Vu-00DluN-6Z@intern.SerNet.DE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve.Glendinning@smsc.com, David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: "stanley.miao" <stanley.miao@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Steven French <sfrench@us.ibm.com>,
+	Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
+To: Volker.Lendecke@SerNet.DE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:59099 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752805AbZANKRk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:17:40 -0500
-Content-Disposition: inline
-In-Reply-To: <1231928570.6810.12.camel@localhost>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:54281 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752413AbZANKSt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:18:49 -0500
+In-Reply-To: <E1LN2Vu-00DluN-6Z@intern.SerNet.DE>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 06:22:50PM +0800, stanley.miao wrote:
-> Did you subscribe netdev mail list ? Maybe it was filtered into netdev
-> mail list. I just send the patch 4 hours ago.
+Volker Lendecke a =E9crit :
+> On Wed, Jan 14, 2009 at 10:13:34AM +0100, Eric Dumazet wrote:
+>> for (;;) {
+>> 	struct pollfd pfd;
+>> 	pfd.fd =3D socket;
+>> 	pfd.events =3D POLLIN;
+>> 	if (poll(&pfd, 1, -1) !=3D 1)
+>> 		continue;
+>> 	res =3D splice(socket, NULL, pipefds[1], NULL, 65536, SPLICE_F_MOVE=
+|SPLICE_F_NONBLOCK);
+>> 	if (res > 0)
+>> 		nwritten =3D splice(pipefds[0], NULL, file_fd, NULL, res, SPLICE_F=
+_MOVE|SPLICE_F_MORE);
+>> }
+>=20
+> Doesn't this reduce performance again? I thought the whole
+> point of splice() was to increase performance by avoiding
+> memory copies. If I have to do a poll syscall for each call
+> to splice, doesn't the context switch eat that performance
+> advantage again?
+>=20
+> Or was splice designed only for multi-threaded applications
+> (which at least Samba is not)?
+>=20
+> Volker
 
-No, I'm not.  Take a moment to think about why - I'm the ARM maintainer.
-Think what it would mean to be subscribed to the hundred or so mailing
-lists which cover all the kernel areas I _might_ be interested in.
-Precisely when would I get time to answer ARM related emails if I had
-to filter/read all that lot?
+splice() avoids memory copies yes, but on typical 1460 bytes
+frames its a small gain.
 
-Moreover, I don't do much if any netdev hacking anymore.
+But if no data is available on socket,
+you still have to wait (and have a context switch later).
 
-My interest comes via the addition of the ARM mailing lists to this
-thread.
+Waiting in poll() or splice() has same context switch cost.
+
+Only cost is the extra syscall of course, but it is mandatory
+if you want to avoid a possible deadlock in current splice()
+implementation.
+
