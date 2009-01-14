@@ -1,54 +1,47 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PULL -tip] fixed few make headers_check warnings
-Date: Wed, 14 Jan 2009 16:40:57 +0100
-Message-ID: <20090114154057.GC32082@uranus.ravnborg.org>
-References: <1231836016.3212.41.camel@jaswinder.satnam> <20090113124921.GA30400@elte.hu>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: Re: [PATCH 1/4] virtio_net: Allow setting the MAC address of the
+ NIC
+Date: Wed, 14 Jan 2009 08:40:12 -0700
+Message-ID: <1231947612.7109.267.camel@lappy>
+References: <1231881796.9095.186.camel@bling>
+	 <1231928106.4944.289.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jaswinder Singh Rajput <jaswinder@infradead.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	x86 maintainers <x86@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfepb.post.tele.dk ([195.41.46.236]:57010 "EHLO
-	pfepb.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755535AbZANPjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 10:39:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20090113124921.GA30400@elte.hu>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:38787 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759552AbZANPkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 10:40:11 -0500
+In-Reply-To: <1231928106.4944.289.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 13, 2009 at 01:49:21PM +0100, Ingo Molnar wrote:
+On Wed, 2009-01-14 at 10:15 +0000, Mark McLoughlin wrote:
+> On Tue, 2009-01-13 at 14:23 -0700, Alex Williamson wrote:
 > 
-> * Jaswinder Singh Rajput <jaswinder@infradead.org> wrote:
-> 
-> > Hello Ingo,
-> > 
-> > Please pull these patches. Earlier I also floated these patches so that 
-> > I can get some feedback.
-> 
-> Sam, Andrew, David, what's your workflow preference for these bits?
-> 
-> While they are oneliners and i could create a separate branch for these 
-> and pull Jaswinder's tree (and do build coverage to make sure there's no 
-> surprised on any arch), it's really up to the maintainers of these files 
-> to decide on the workflow.
-> 
-> I'd lean towards doing this via the individual maintainers and/or -mm, but 
-> no strong feelings ...
+> Commit log explaining why we need this.
 
-As they are one-liners for the most part I am fine with you handling
-them in a eparate branch.
+Sorry, my commit logs are pretty weak across the board.  I'll update
+them all.
 
-It is far better than I queue them up for at least two weeks before I
-can give the kernel a bit of attention again.
+> > +	} else {
+> >  		random_ether_addr(dev->dev_addr);
+> > +		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
+> > +				  dev->dev_addr, dev->addr_len);
+> > +	}
+> 
+> Please make sure you test this with a host which doesn't set a default
+> mac address, otherwise it's "untested buggy code" :-)
 
-Obviously it would be better if the Maintainers took them but history
-tells us we cannot rely on that for all areas.
+Good idea, I'll hack the backend to not advertise that feature and make
+sure this code gets exercised a least once.  Thanks,
 
-	Sam
+Alex
+
+-- 
+Alex Williamson                             HP Open Source & Linux Org.
+
