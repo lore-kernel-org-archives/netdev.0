@@ -1,58 +1,37 @@
-From: "Magnus Damm" <magnus.damm@gmail.com>
-Subject: Re: [PATCH 3/3] ne-h8300: convert to net_device_ops
-Date: Wed, 14 Jan 2009 15:37:24 +0900
-Message-ID: <aec7e5c30901132237t6e810763i140b76ff8623dc63@mail.gmail.com>
-References: <20081203201013.653215120@vyatta.com>
-	 <20081203201028.533294548@vyatta.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: deadlocks if use htb
+Date: Wed, 14 Jan 2009 06:39:09 +0000
+Message-ID: <20090114063909.GA4234@ff.dom.local>
+References: <20081010090426.GA6054@ff.dom.local> <20081010095129.GB6054@ff.dom.local> <48F6FB3E.7060903@bigtelecom.ru> <20081016084027.GA17632@ff.dom.local> <48FEC302.5090707@bigtelecom.ru> <20081022070200.GB4178@ff.dom.local> <493FDCD4.5020108@bigtelecom.ru> <20081218081737.GA8416@ff.dom.local> <Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"Ben Dooks" <ben-linux@fluff.org>,
-	"Paul Mundt" <lethal@linux-sh.org>, netdev <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Badalian Vyacheslav <slavon@bigtelecom.ru>,
+	Denys Fedoryschenko <denys@visp.net.lb>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Chris Caputo <ccaputo@alt.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:35823 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604AbZANGh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 01:37:27 -0500
-Received: by bwz14 with SMTP id 14so1259882bwz.13
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2009 22:37:24 -0800 (PST)
-In-Reply-To: <20081203201028.533294548@vyatta.com>
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:55376 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752323AbZANGjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 01:39:15 -0500
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 4, 2008 at 5:10 AM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> Another device using 8390 library that needs converting.
->
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->
-> --- a/drivers/net/Makefile      2008-12-03 12:04:17.000000000 -0800
-> +++ b/drivers/net/Makefile      2008-12-03 12:07:25.000000000 -0800
-> @@ -124,7 +124,7 @@ obj-$(CONFIG_NE3210) += ne3210.o 8390.o
->  obj-$(CONFIG_SB1250_MAC) += sb1250-mac.o
->  obj-$(CONFIG_B44) += b44.o
->  obj-$(CONFIG_FORCEDETH) += forcedeth.o
-> -obj-$(CONFIG_NE_H8300) += ne-h8300.o
-> +obj-$(CONFIG_NE_H8300) += ne-h8300.o 8390.o
+On Wed, Jan 14, 2009 at 02:43:13AM +0000, Chris Caputo wrote:
+...
+> Per Jarek's suggestion in bugzilla, I ran 2.6.28 plus Peter Zijlstra's 
+> "hrtimer: removing all ur callback modes" patches dated 2008-11-25, 
+> 2008-12-04 and 2008-12-08.  Uptime was 2 days 22 hours before I hit what 
+> appears to be an unrelated bug related to the IPv6 FIB.  (Separately 
+> reported with subject 'panic with 2.6.28 while doing "ip -6 route"'.)
 
-Are you sure this will work? The ne-h8300 driver includes "lib8390.c"
-in the main source with special configuration parameters such as
-EI_SHIFT, but with this patch 8390.o contains another lib8390 instance
-with a different configuration that gets tied into the net_device_ops.
-I have no hardware and I may misunderstand the code, but please double
-check.
+Chris, this is a very good news, thanks for testing this!
 
-I came across this when trying to fix another problem with ax88796.
-Basically, another lib8390 patch (link below) forgets the case with
-all drivers that include "lib8390.c" which in the ax88796 case results
-in a missing start_xmit callback.
+Peter, great work! IMHO these patches should go to the stable (at
+least 2.6.28).
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=9a4a84294b0d60b8c287131478f743ba2bc68949
-
-Paul, Ben, I have a fix for ax88796 that I'll post in a little while.
-
-Cheers,
-
-/ magnus
+Thanks,
+Jarek P.
