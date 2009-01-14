@@ -1,41 +1,64 @@
-From: Ben Greear <greearb@candelatech.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
 Subject: Re: Bad tg3 performance on S10 netbook
-Date: Wed, 14 Jan 2009 15:47:06 -0800
-Message-ID: <496E797A.3070707@candelatech.com>
-References: <496E64BB.7080709@candelatech.com> <1231975027.8964.136.camel@HP1>
+Date: Wed, 14 Jan 2009 15:47:45 -0800
+Message-ID: <20090114234745.GA23993@xw6200.broadcom.net>
+References: <496E64BB.7080709@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: NetDev <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+To: "Ben Greear" <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:41448 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757092AbZANXrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 18:47:09 -0500
-In-Reply-To: <1231975027.8964.136.camel@HP1>
+Received: from mms2.broadcom.com ([216.31.210.18]:4203 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757335AbZANXsU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 18:48:20 -0500
+In-Reply-To: <496E64BB.7080709@candelatech.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> On Wed, 2009-01-14 at 14:18 -0800, Ben Greear wrote:
->> We tried turning on adaptive-rx (it is off by default), and again,
->> no improvement.
+On Wed, Jan 14, 2009 at 02:18:35PM -0800, Ben Greear wrote:
+> We are testing an S10 netbook from Lenovo and it's built-in
+> tg3 NIC is getting lots of 'rx-irq-missed' events and is dropping
+> packets while running at about 45Mbps tx + rx.
+> This is kernel 2.6.25 plus some hacks.  We did most testing
+> on the stock 2.6.25 tg3 driver, but a quick attempt at using
+> the latest tg3 from bcm's site shows the same irq-miss issue.
 > 
-> tg3 does not support adaptive-rx.  It will be quietly ignored by the
-> driver.  ethtool -c will show that it is always off after you try to
-> turn it on.
+> We tried forcing the cpufreq to max (1.6Ghz) and that didn't
+> help much.
+> 
+> We tried setting the rx buffers to 511 (max for this chip it seems)
+> and that didn't help.
+> 
+> The one thing that *does* help is to run something that eats a lot
+> of CPU.  This is what made us think that the cpufreq was the issue,
+> but again, hard-coding it didn't help.
+> 
+> We tried turning on adaptive-rx (it is off by default), and again,
+> no improvement.
+> 
+> So, does anyone have any suggestions on what else to poke at?
+> 
+> Full lspci output is below.
+> 
+> Thanks,
+> Ben
 
-Ok.  It seems that it was still something to do with the processor
-idling or something like that.  We booted with acpi=off and now the
-system runs better (no rx-miss).
+Does the following patch fix the problem?
 
-We'll move to a newer kernel soon..maybe that will work better.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--- 1/drivers/net/tg3.c	2008-11-10 10:50:34.000000000 -0800
++++ 2/drivers/net/tg3.c	2009-01-14 08:28:10.000000000 -0800
+@@ -10709,7 +10709,7 @@ static void __devinit tg3_get_eeprom_hw_
+ 			tp->tg3_flags2 |= TG3_FLG2_IS_NIC;
+ 		}
+ 		val = tr32(VCPU_CFGSHDW);
+-		if (val & VCPU_CFGSHDW_ASPM_DBNC)
++		/* if (val & VCPU_CFGSHDW_ASPM_DBNC) */
+ 			tp->tg3_flags |= TG3_FLAG_ASPM_WORKAROUND;
+ 		if ((val & VCPU_CFGSHDW_WOL_ENABLE) &&
+ 		    (val & VCPU_CFGSHDW_WOL_MAGPKT))
 
