@@ -1,110 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xen/netfront: do not mark packets of length < MSS as
-	GSO
-Date: Wed, 14 Jan 2009 15:18:45 +1100
-Message-ID: <20090114041845.GA8881@gondor.apana.org.au>
-References: <1231860655-13182-1-git-send-email-Ian.Campbell@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Tue, 13 Jan 2009 20:25:31 -0800 (PST)
+Message-ID: <20090113.202531.43266519.davem@davemloft.net>
+References: <20090113.163705.130074998.davem@davemloft.net>
+	<20090114035124.GA8409@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeremy@goop.org, Ian.Campbell@citrix.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Ian Campbell <Ian.Campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zbr@ioremap.net, dada1@cosmosbay.com, w@1wt.eu, ben@zeus.com,
+	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36216 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751279AbZANETH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 23:19:07 -0500
-Content-Disposition: inline
-In-Reply-To: <1231860655-13182-1-git-send-email-Ian.Campbell@citrix.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58013
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752174AbZANEZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 23:25:31 -0500
+In-Reply-To: <20090114035124.GA8409@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> Linux assumes that skbs marked for GSO are longer than MSS. In
-> particular tcp_tso_segment assumes that skb_segment will return a
-> chain of at least 2 skbs.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 14 Jan 2009 14:51:24 +1100
+
+> Unfortunately this won't work, not even for network destinations.
 > 
-> Therefore netfront should not pass such a packet up the stack.
+> The reason is that this gets called as soon as the destination's
+> splice hook returns, for networking that means when sendpage returns.
 > 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-> Cc: jgarzik@pobox.com
-> Cc: netdev@vger.kernel.org
+> So by that time we'll still be left with just a page reference
+> on a page where the slab memory may already have been freed.
+> 
+> To make this work we need to get the destination's splice hooks
+> to acquire this reference.
 
-Great catch!
-
-But we should fix this in the stack instead.
-
-gso: Ensure that the packet is long enough
-
-When we get a GSO packet from an untrusted source, we need to
-ensure that it is sufficiently long so that we don't end up
-crashing.
-
-Based on discovery and patch by Ian Campbell.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index bd6ff90..12e56ec 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2383,7 +2383,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
- 	unsigned int seq;
- 	__be32 delta;
- 	unsigned int oldlen;
--	unsigned int len;
-+	unsigned int mss;
- 
- 	if (!pskb_may_pull(skb, sizeof(*th)))
- 		goto out;
-@@ -2399,10 +2399,13 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
- 	oldlen = (u16)~skb->len;
- 	__skb_pull(skb, thlen);
- 
-+	mss = skb_shinfo(skb)->gso_size;
-+	if (unlikely(skb->len <= mss))
-+		goto out;
-+
- 	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
- 		/* Packet is from an untrusted source, reset gso_segs. */
- 		int type = skb_shinfo(skb)->gso_type;
--		int mss;
- 
- 		if (unlikely(type &
- 			     ~(SKB_GSO_TCPV4 |
-@@ -2413,7 +2416,6 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
- 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
- 			goto out;
- 
--		mss = skb_shinfo(skb)->gso_size;
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
- 
- 		segs = NULL;
-@@ -2424,8 +2426,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
- 	if (IS_ERR(segs))
- 		goto out;
- 
--	len = skb_shinfo(skb)->gso_size;
--	delta = htonl(oldlen + (thlen + len));
-+	delta = htonl(oldlen + (thlen + mss));
- 
- 	skb = segs;
- 	th = tcp_hdr(skb);
-@@ -2441,7 +2442,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
- 			     csum_fold(csum_partial(skb_transport_header(skb),
- 						    thlen, skb->csum));
- 
--		seq += len;
-+		seq += mss;
- 		skb = skb->next;
- 		th = tcp_hdr(skb);
- 
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes I realized this after your earlier posting today.
