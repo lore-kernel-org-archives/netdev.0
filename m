@@ -1,63 +1,66 @@
-From: "Stanley.Miao" <stanley.miao@windriver.com>
-Subject: [PATCH] smsc911x: add irq_flags in smsc911x_platform_config.
-Date: Wed, 14 Jan 2009 13:21:52 +0800
-Message-ID: <1231910512-8420-1-git-send-email-stanley.miao@windriver.com>
-Cc: steve.glendinning@smsc.com, linux-arm-kernel@lists.arm.linux.org.uk
-To: netdev@vger.kernel.org
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
+ with IPV6_PKTINFO option
+Date: Wed, 14 Jan 2009 13:27:20 +0800
+Message-ID: <496D77B8.2000001@cn.fujitsu.com>
+References: <20090114034711.GA8361@gondor.apana.org.au> <496D61FE.7080500@cn.fujitsu.com> <496D651B.2000106@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:47420 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752894AbZANFNd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 00:13:33 -0500
+Received: from cn.fujitsu.com ([222.73.24.84]:61156 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753923AbZANF1T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 00:27:19 -0500
+In-Reply-To: <496D651B.2000106@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When calling request IRQ it is desirable to allow platforms
-to specific flags for the call to request_irq. Adding irq_flags
-to smsc911x_platform_config allows these flags to be passed.
+Wei Yongjun wrote:
+> Yang Hongyang wrote:
+>> Herbert Xu wrote:
+>>  
+>>> Yang Hongyang <yanghy@cn.fujitsu.com> wrote:
+>>>    
+>>>> Actually the condition (optlen == 0) is included in (optlen <
+>>>> sizeof(struct in6_pktinfo)),
+>>>> so we do not need to check it separately.
+>>>>       
+>>> You don't need to check optval == NULL either since that's the
+>>> job of copy_from_user.
+>>>     
+>>
+>> If optval==NULL, what we should return?EINVAL or EFAULT?
+>> If it is EINVAL,then we should check it .otherwise it's the job of
+>> copy_from_user
+>>   
+> 
+> I think if optval==NULL, the in6_pktinfo which is set should be remove.
+> So, you should handle optval==NULL. Not just return error.
 
-Signed-off-by: Stanley.Miao <stanley.miao@windriver.com>
----
- drivers/net/smsc911x.c   |    6 ++++--
- include/linux/smsc911x.h |    1 +
- 2 files changed, 5 insertions(+), 2 deletions(-)
+There's no RFC defines the behavior above,but:
+  RFC3542 said The application can remove any sticky Routing header or sticky 
+Destination options header or sticky Hop-by-Hop options header by calling 
+setsockopt() with a zero option length.
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index f513bdf..1092517 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1896,6 +1896,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	unsigned int intcfg = 0;
- 	int res_size;
- 	int retval;
-+	irq_flags;
- 	DECLARE_MAC_BUF(mac);
- 
- 	pr_info("%s: Driver version %s.\n", SMSC_CHIPNAME, SMSC_DRV_VERSION);
-@@ -1968,8 +1969,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	smsc911x_reg_write(pdata, INT_EN, 0);
- 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
- 
--	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
--			     dev->name, dev);
-+	irq_flags = IRQF_DISABLED | pdata->config.irq_flags;
-+	retval = request_irq(dev->irq, smsc911x_irqhandler, irq_flags,
-+				dev->name, dev);
- 	if (retval) {
- 		SMSC_WARNING(PROBE,
- 			"Unable to claim requested irq: %d", dev->irq);
-diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
-index 1cbf031..0330f57 100644
---- a/include/linux/smsc911x.h
-+++ b/include/linux/smsc911x.h
-@@ -28,6 +28,7 @@
- struct smsc911x_platform_config {
- 	unsigned int irq_polarity;
- 	unsigned int irq_type;
-+	unsigned int irq_flags;
- 	unsigned int flags;
- 	phy_interface_t phy_interface;
- };
+So,do we need to allow remove any sticky pktinfo option by calling 
+setsockopt() with a zero option length?
+
+> 
+>>  
+>>> Cheers,
+>>>     
+>>
+>>
+>>   
+> 
+> 
+> 
+
+
 -- 
-1.5.6.3
-
+Regards
+Yang Hongyang
