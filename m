@@ -1,75 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC] Expanding ethtool PHY information
-Date: Wed, 14 Jan 2009 11:55:19 -0500
-Message-ID: <496E18F7.10908@pobox.com>
-References: <1231879514.3005.31.camel@achroite>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
+Date: Wed, 14 Jan 2009 16:57:14 +0000
+Message-ID: <1231952234.3010.24.camel@achroite>
+References: <1231951375.11301.126.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55805 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764149AbZANQz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:55:26 -0500
-In-Reply-To: <1231879514.3005.31.camel@achroite>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:49472 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761966AbZANQ5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 11:57:17 -0500
+In-Reply-To: <1231951375.11301.126.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> The set of port types reported through the ethtool API is looking a b=
-it
-> limited:
->=20
-> /* Which connector port. */
-> #define PORT_TP			0x00
-> #define PORT_AUI		0x01
-> #define PORT_MII		0x02
-> #define PORT_FIBRE		0x03
-> #define PORT_BNC		0x04
->=20
-> There are of course many different types of fibre and several differe=
-nt
-> types of slot for fibre transceivers.  Also there are other copper-wi=
-re
-> types not included - at least CX4 and KX4.  This is even before we
-> consider non-Ethernet devices which are starting to support some of t=
-he
-> ethtool API.
->=20
-> This probably doesn't matter for *setting* port type at the moment, a=
-s
-> few devices other than 10 megabit Ethernet NICs allow software to sel=
-ect
-> between different port types.  However it does mean that other port
-> types cannot be reported correctly.  At the least, I think we could d=
-o
-> with a PORT_OTHER.  Similarly for the supported port type flags.
->=20
-> Other PHY information that seems worth adding:
-> =EF=BB=BF- link partner abilities (ethtool_cmd)
-> - MDIO support: none, clause 22, clause 45 (ethtool_drvinfo)
-> - PHY firmware version (ethtool_drvinfo?)
->=20
-> What do you think of these?  Obviously it's easy to add these to the
-> interface but the structures are filling up and extending them with n=
-ew
-> ethtool operations has a cost.
+On Wed, 2009-01-14 at 18:42 +0200, Eilon Greenstein wrote:
+> When TPA (HW GRO) is used, the GSO_TYPE should be set
+[...]
 
-It's an interesting question.  The port types are really a legacy detai=
-l=20
-left over from the ancient days.
+No it shouldn't.  That is for the output path only.
 
-I do agree that other PHY information is worth adding, but my initial=20
-reaction is to make current drivers PORT_OTHER, and then provide a=20
-separate avenue for better defining what 'other' means for that specifi=
-c=20
-driver/hardware.
+Ben.
 
-	Jeff
-
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
