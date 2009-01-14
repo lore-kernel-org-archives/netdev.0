@@ -1,35 +1,47 @@
-From: Phil Sutter <n0-1@freewrt.org>
-Subject: Re: [PATCH] korina: fix handling tx_chain_tail
-Date: Wed, 14 Jan 2009 19:21:38 +0100
-Message-ID: <20090114181822.F3EC14043831@mail.nwl.cc>
-References: <1231955400-9745-1-git-send-email-n0-1@freewrt.org> <1231955510-12240-1-git-send-email-n0-1@freewrt.org> <200901141900.14616.florian@openwrt.org>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
+Date: Wed, 14 Jan 2009 21:29:40 +0200
+Message-ID: <1231961380.25524.0.camel@lb-tlvb-eliezer>
+References: <1231951375.11301.126.camel@lb-tlvb-eliezer>
+ <1231952234.3010.24.camel@achroite>
+ <1231954948.11301.158.camel@lb-tlvb-eliezer>
+ <1231956021.3010.35.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:37819 "EHLO mail.nwl.cc"
+Received: from mms3.broadcom.com ([216.31.210.19]:1978 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753447AbZANSYl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 13:24:41 -0500
-Content-Disposition: inline
-In-Reply-To: <200901141900.14616.florian@openwrt.org>
+	id S1755353AbZANTat (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 14:30:49 -0500
+In-Reply-To: <1231956021.3010.35.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 07:00:14PM +0100, Florian Fainelli wrote:
-> Le Wednesday 14 January 2009 18:51:50 Phil Sutter, vous avez =C3=A9cr=
-it=C2=A0:
-> > Originally this must have been a rewrite error when introducing
-> > 'chain_index'. But the original driver did not use the previous cha=
-in
-> > item everywhere: when altering the address tx_chain_tail points to,=
- it
-> > should move forward, not backwards.
->=20
-> I think this was in the original driver as well.
+On Wed, 2009-01-14 at 10:00 -0800, Ben Hutchings wrote:
+> On Wed, 2009-01-14 at 19:42 +0200, Eilon Greenstein wrote:
+> > On Wed, 2009-01-14 at 08:57 -0800, Ben Hutchings wrote:
+> > > On Wed, 2009-01-14 at 18:42 +0200, Eilon Greenstein wrote:
+> > > > When TPA (HW GRO) is used, the GSO_TYPE should be set
+> > > [...]
+> > > 
+> > > No it shouldn't.  That is for the output path only.
+> > > 
+> > 
+> > Right - but it was an issue with forwarding
+> 
+> You can't use LRO together with forwarding/bridging unless you replicate
+> what Herbert Xu has done to allow reconstruction of the original frames.
+> Setting gso_type is a hack which you may or may not get away with,
+> depending on the output device's capabilities.
+> 
+This is far from bullet proof solution, but IMHO it is better set then
+not  this way, you stand a chance (depending on the output device
+capabilities)
 
-Yes, indeed.
+Eilon
 
-Greetings, Phil
+
