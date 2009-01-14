@@ -1,40 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Wed, 14 Jan 2009 11:51:10 +1100
-Message-ID: <20090114005110.GA6814@gondor.apana.org.au>
-References: <20090113.161625.111759506.davem@davemloft.net>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
+Date: Tue, 13 Jan 2009 17:05:50 -0800
+Message-ID: <200901131705.50775.david-b@pacbell.net>
+References: <1231805322.12962.4.camel@tux.localhost> <200901131207.03724.oliver@neukum.org> <208cbae30901131622heccfee6uf312022ba1d4fb28@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: zbr@ioremap.net, dada1@cosmosbay.com, w@1wt.eu, ben@zeus.com,
-	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38700 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754412AbZANAvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 19:51:51 -0500
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Oliver Neukum" <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	"Greg KH" <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Alexey Klimov" <klimov.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <208cbae30901131622heccfee6uf312022ba1d4fb28-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20090113.161625.111759506.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
->
-> I wish there were some way we could make this code grab and release a
-> reference to the SKB data area (I mean skb_shinfo(skb)->dataref) to
-> accomplish it's goals.
+On Tuesday 13 January 2009, Alexey Klimov wrote:
+> > Use the interface passed into probe(): =A0dev_err(&intf->dev, ...) =
+etc
+>=20
+> Well, in few v4l-dvb drivers successfully used &radio->usbdev->dev in
+> debug messages and that doesn't look wrong.
 
-We can probably do that for spliced data that end up going to
-the networking stack again.  However, as splice is generic the
-data may be headed to a destination other than the network stack.
+Use intf->dev ... always.  You may need to save the interface
+in probe(), but that's easy.
 
-In that case to make dataref work we'd need some mechanism
-that allows non-network entities to get/drop this ref count.
+"Doesn't look wrong" is incorrect; it doesn't list the driver
+which issued it.  Which makes it harder to track down exactly
+what issued the message, and thence what it really means.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+- Dave
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
