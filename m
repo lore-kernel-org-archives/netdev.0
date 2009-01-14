@@ -1,37 +1,48 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: New build error - ndo_set_mac_addr
-Date: Wed, 14 Jan 2009 20:19:07 +0000
-Message-ID: <20090114201907.GA2162@n2100.arm.linux.org.uk>
-References: <20090114194746.GL22976@n2100.arm.linux.org.uk> <20090114120620.13cf8039@extreme>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
+Date: Wed, 14 Jan 2009 20:27:22 +0000
+Message-ID: <1231964842.3010.46.camel@achroite>
+References: <20090114201826.GA23648@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eilon Greenstein <eilong@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:54213 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753343AbZANUTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 15:19:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20090114120620.13cf8039@extreme>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:36065 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752260AbZANU12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 15:27:28 -0500
+In-Reply-To: <20090114201826.GA23648@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 12:06:20PM -0800, Stephen Hemminger wrote:
-> On Wed, 14 Jan 2009 19:47:46 +0000
-> Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
+On Thu, 2009-01-15 at 07:18 +1100, Herbert Xu wrote:
+> Eilon Greenstein <eilong@broadcom.com> wrote:
+> >> 
+> > This is far from bullet proof solution, but IMHO it is better set then
+> > not  this way, you stand a chance (depending on the output device
+> > capabilities)
 > 
-> > This new build error poped up between rc1-git2 and rc1-git3.
-> > 
-> > drivers/net/arm/etherh.c:649: error: unknown field 'ndo_set_mac_addr' specified in initializer
-> > 
-> > Looks like this should've been ndo_set_mac_address ?
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The question is simple, does your hardware guarantee that on
+> output GSO will turn the packet into exactly the same sequence
+> of packets that was seen on input, with no changes (apart from
+> what the stack would have done to them anyway, e.g., TTL update)
+> whatsoever?
 > 
-> Yes, david didn't see the updated version of my patch.
+> If not then you mustn't set this and also you must disable it
+> if forwarding/bridging is used.
 
-Do you want me to fix it?  It'll probably be around a week before I ask
-Linus to pull my tree again.
+The driver just has to cooperate with dev_disable_lro() in order for the
+forwarding/bridging code to disable it.  Then skb_warn_if_lro() should
+catch the case where the user mistakenly turns it back on.  However,
+setting gso_type on input subverts this check.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
