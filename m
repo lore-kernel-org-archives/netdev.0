@@ -1,60 +1,67 @@
 From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 01/02] hso patch to fix a -EIO from opening a hso serial device
-Date: Wed, 14 Jan 2009 12:22:31 +0100
-Message-ID: <496DCAF7.9080906@option.com>
+Subject: [PATCH 02/02] hso remove dead workfunc code
+Date: Wed, 14 Jan 2009 12:25:59 +0100
+Message-ID: <496DCBC7.5010302@option.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050708050702090508040508"
-To: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+ boundary="------------010808000103090802020508"
+To: Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------050708050702090508040508
+--------------010808000103090802020508
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
-Hi All,
-This is an important patch the linux-2.6.29-rc1 driver with itworks much
-better than it did.
+Sorry I left this rubbish lying around 
 
-I'm about 80% sure this patch is correct
-but it needs Alan Cox'es blessing as it modifies code he added.
-
-This patch fixes -EIO caused when serial port opened more than once.
-Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
 Index: linux-2.6/drivers/net/usb/hso.c
 ===================================================================
---- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-14 11:51:26.000000000 +0100
-+++ linux-2.6/drivers/net/usb/hso.c	2009-01-14 11:57:59.000000000 +0100
-@@ -1354,13 +1354,14 @@
- 	/* do the actual close */
- 	serial->open_count--;
- 	kref_put(&serial->parent->ref, hso_serial_ref_free);
-+	if (serial->tty == tty)
-+		tty_kref_put(tty);
- 	if (serial->open_count <= 0) {
- 		serial->open_count = 0;
- 		spin_lock_irq(&serial->serial_lock);
- 		if (serial->tty == tty) {
- 			serial->tty->driver_data = NULL;
- 			serial->tty = NULL;
--			tty_kref_put(tty);
- 		}
- 		spin_unlock_irq(&serial->serial_lock);
- 		if (!usb_gone)
-@@ -1368,7 +1369,6 @@
- 		tasklet_kill(&serial->unthrottle_tasklet);
- 		cancel_work_sync(&serial->retry_unthrottle_workqueue);
- 	}
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-14 12:02:56.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-14 12:03:11.000000000 +0100
+@@ -270,7 +270,6 @@
+ 	u16  curr_rx_urb_offset;
+ 	u8   rx_urb_filled[MAX_RX_URBS];
+ 	struct tasklet_struct unthrottle_tasklet;
+-	struct work_struct    retry_unthrottle_workqueue;
+ };
+ 
+ struct hso_device {
+@@ -1264,14 +1263,6 @@
+ 	tasklet_hi_schedule(&serial->unthrottle_tasklet);
+ }
+ 
+-void hso_unthrottle_workfunc(struct work_struct *work)
+-{
+-	struct hso_serial *serial =
+-	    container_of(work, struct hso_serial,
+-			 retry_unthrottle_workqueue);
+-	hso_unthrottle_tasklet(serial);
+-}
 -
+ /* open the requested serial port */
+ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
+ {
+@@ -1310,8 +1301,6 @@
+ 		tasklet_init(&serial->unthrottle_tasklet,
+ 			     (void (*)(unsigned long))hso_unthrottle_tasklet,
+ 			     (unsigned long)serial);
+-		INIT_WORK(&serial->retry_unthrottle_workqueue,
+-			  hso_unthrottle_workfunc);
+ 		result = hso_start_serial_device(serial->parent, GFP_KERNEL);
+ 		if (result) {
+ 			hso_stop_serial_device(serial->parent);
+@@ -1367,7 +1356,6 @@
+ 		if (!usb_gone)
+ 			hso_stop_serial_device(serial->parent);
+ 		tasklet_kill(&serial->unthrottle_tasklet);
+-		cancel_work_sync(&serial->retry_unthrottle_workqueue);
+ 	}
  	if (!usb_gone)
  		usb_autopm_put_interface(serial->parent->interface);
- 
 
 -- 
 best regards,
@@ -71,38 +78,34 @@ www.option.com
 Disclaimer:
 http://www.option.com/company/disclaimer.shtml
 
---------------050708050702090508040508
+--------------010808000103090802020508
 Content-Type: text/x-diff;
- name="hso_open_eio_fix.patch"
+ name="hso_remove_obselete_workfunc.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="hso_open_eio_fix.patch"
+ filename="hso_remove_obselete_workfunc.patch"
 
-This patch fixes -EIO caused when serial port opened more than once.
-Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
 Index: linux-2.6/drivers/net/usb/hso.c
 ===================================================================
---- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-14 11:51:26.000000000 +0100
-+++ linux-2.6/drivers/net/usb/hso.c	2009-01-14 11:57:59.000000000 +0100
-@@ -1354,13 +1354,14 @@
- 	/* do the actual close */
- 	serial->open_count--;
- 	kref_put(&serial->parent->ref, hso_serial_ref_free);
-+	if (serial->tty == tty)
-+		tty_kref_put(tty);
- 	if (serial->open_count <= 0) {
- 		serial->open_count = 0;
- 		spin_lock_irq(&serial->serial_lock);
- 		if (serial->tty == tty) {
- 			serial->tty->driver_data = NULL;
- 			serial->tty = NULL;
--			tty_kref_put(tty);
- 		}
- 		spin_unlock_irq(&serial->serial_lock);
- 		if (!usb_gone)
-@@ -1368,7 +1369,6 @@
- 		tasklet_kill(&serial->unthrottle_tasklet);
- 		cancel_work_sync(&serial->retry_unthrottle_workqueue);
- 	}
---------------050708050702090508040508--
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-14 12:02:56.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-14 12:03:11.000000000 +0100
+@@ -270,7 +270,6 @@
+ 	u16  curr_rx_urb_offset;
+ 	u8   rx_urb_filled[MAX_RX_URBS];
+ 	struct tasklet_struct unthrottle_tasklet;
+-	struct work_struct    retry_unthrottle_workqueue;
+ };
+ 
+ struct hso_device {
+@@ -1264,14 +1263,6 @@
+ 	tasklet_hi_schedule(&serial->unthrottle_tasklet);
+ }
+ 
+-void hso_unthrottle_workfunc(struct work_struct *work)
+-{
+-	struct hso_serial *serial =
+-	    container_of(work, struct hso_serial,
+-			 retry_unthrottle_workqueue);
+-	hso_unthrottle_tasklet(serial);
+-}
+--------------010808000103090802020508--
