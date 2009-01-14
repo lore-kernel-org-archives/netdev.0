@@ -1,111 +1,108 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen/netfront: do not mark packets of length < MSS as
-	GSO
-Date: Wed, 14 Jan 2009 10:59:12 +0000
-Message-ID: <1231930752.4078.18.camel@zakaz.uk.xensource.com>
-References: <20090114041845.GA8881@gondor.apana.org.au>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 01/02] hso patch to fix a -EIO from opening a hso serial device
+Date: Wed, 14 Jan 2009 12:22:31 +0100
+Message-ID: <496DCAF7.9080906@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/mixed;
+ boundary="------------050708050702090508040508"
+To: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------050708050702090508040508
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, jeremy@goop.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:45539 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755277AbZANK7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:59:44 -0500
-In-Reply-To: <20090114041845.GA8881@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-14 at 15:18 +1100, Herbert Xu wrote:
-> Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> > Linux assumes that skbs marked for GSO are longer than MSS. In
-> > particular tcp_tso_segment assumes that skb_segment will return a
-> > chain of at least 2 skbs.
-> > 
-> > Therefore netfront should not pass such a packet up the stack.
-> > 
-> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> > Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-> > Cc: jgarzik@pobox.com
-> > Cc: netdev@vger.kernel.org
-> 
-> Great catch!
-> 
-> But we should fix this in the stack instead.
-> 
-> gso: Ensure that the packet is long enough
-> 
-> When we get a GSO packet from an untrusted source, we need to
-> ensure that it is sufficiently long so that we don't end up
-> crashing.
-> 
-> Based on discovery and patch by Ian Campbell.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Hi All,
+This is an important patch the linux-2.6.29-rc1 driver with itworks much
+better than it did.
 
-Looks good, thanks.
+I'm about 80% sure this patch is correct
+but it needs Alan Cox'es blessing as it modifies code he added.
 
-Tested-by: Ian Campbell <ian.campbell@citrix.com>
+This patch fixes -EIO caused when serial port opened more than once.
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+Index: linux-2.6/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-14 11:51:26.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-14 11:57:59.000000000 +0100
+@@ -1354,13 +1354,14 @@
+ 	/* do the actual close */
+ 	serial->open_count--;
+ 	kref_put(&serial->parent->ref, hso_serial_ref_free);
++	if (serial->tty == tty)
++		tty_kref_put(tty);
+ 	if (serial->open_count <= 0) {
+ 		serial->open_count = 0;
+ 		spin_lock_irq(&serial->serial_lock);
+ 		if (serial->tty == tty) {
+ 			serial->tty->driver_data = NULL;
+ 			serial->tty = NULL;
+-			tty_kref_put(tty);
+ 		}
+ 		spin_unlock_irq(&serial->serial_lock);
+ 		if (!usb_gone)
+@@ -1368,7 +1369,6 @@
+ 		tasklet_kill(&serial->unthrottle_tasklet);
+ 		cancel_work_sync(&serial->retry_unthrottle_workqueue);
+ 	}
+-
+ 	if (!usb_gone)
+ 		usb_autopm_put_interface(serial->parent->interface);
+ 
 
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index bd6ff90..12e56ec 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2383,7 +2383,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
->  	unsigned int seq;
->  	__be32 delta;
->  	unsigned int oldlen;
-> -	unsigned int len;
-> +	unsigned int mss;
->  
->  	if (!pskb_may_pull(skb, sizeof(*th)))
->  		goto out;
-> @@ -2399,10 +2399,13 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
->  	oldlen = (u16)~skb->len;
->  	__skb_pull(skb, thlen);
->  
-> +	mss = skb_shinfo(skb)->gso_size;
-> +	if (unlikely(skb->len <= mss))
-> +		goto out;
-> +
->  	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
->  		/* Packet is from an untrusted source, reset gso_segs. */
->  		int type = skb_shinfo(skb)->gso_type;
-> -		int mss;
->  
->  		if (unlikely(type &
->  			     ~(SKB_GSO_TCPV4 |
-> @@ -2413,7 +2416,6 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
->  			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
->  			goto out;
->  
-> -		mss = skb_shinfo(skb)->gso_size;
->  		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
->  
->  		segs = NULL;
-> @@ -2424,8 +2426,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
->  	if (IS_ERR(segs))
->  		goto out;
->  
-> -	len = skb_shinfo(skb)->gso_size;
-> -	delta = htonl(oldlen + (thlen + len));
-> +	delta = htonl(oldlen + (thlen + mss));
->  
->  	skb = segs;
->  	th = tcp_hdr(skb);
-> @@ -2441,7 +2442,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
->  			     csum_fold(csum_partial(skb_transport_header(skb),
->  						    thlen, skb->csum));
->  
-> -		seq += len;
-> +		seq += mss;
->  		skb = skb->next;
->  		th = tcp_hdr(skb);
->  
-> 
-> Thanks,
+-- 
+best regards,
+D.J. Barrow
 
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
+ 
+T: +32 16 311 621
+F: +32 16 207 164
+d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+www.option.com
+
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
+
+--------------050708050702090508040508
+Content-Type: text/x-diff;
+ name="hso_open_eio_fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso_open_eio_fix.patch"
+
+This patch fixes -EIO caused when serial port opened more than once.
+Signed-off-by: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+Index: linux-2.6/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-14 11:51:26.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-14 11:57:59.000000000 +0100
+@@ -1354,13 +1354,14 @@
+ 	/* do the actual close */
+ 	serial->open_count--;
+ 	kref_put(&serial->parent->ref, hso_serial_ref_free);
++	if (serial->tty == tty)
++		tty_kref_put(tty);
+ 	if (serial->open_count <= 0) {
+ 		serial->open_count = 0;
+ 		spin_lock_irq(&serial->serial_lock);
+ 		if (serial->tty == tty) {
+ 			serial->tty->driver_data = NULL;
+ 			serial->tty = NULL;
+-			tty_kref_put(tty);
+ 		}
+ 		spin_unlock_irq(&serial->serial_lock);
+ 		if (!usb_gone)
+@@ -1368,7 +1369,6 @@
+ 		tasklet_kill(&serial->unthrottle_tasklet);
+ 		cancel_work_sync(&serial->retry_unthrottle_workqueue);
+ 	}
+--------------050708050702090508040508--
