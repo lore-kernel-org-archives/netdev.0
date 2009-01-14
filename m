@@ -1,46 +1,31 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Wed, 14 Jan 2009 09:42:16 +0000
-Message-ID: <20090114094215.GC4234@ff.dom.local>
-References: <20090113.232710.55011568.davem@davemloft.net> <20090114082630.GB16692@gondor.apana.org.au> <20090114085308.GB4234@ff.dom.local> <20090114.012919.117682429.davem@davemloft.net>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
+Date: Wed, 14 Jan 2009 09:52:31 +0000
+Message-ID: <OFC17C40AC.BA569CF8-ON8025753E.0035C2A6-8025753E.0036542B@smsc.com>
+References: <20090114.013006.55972352.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, dada1@cosmosbay.com,
-	w@1wt.eu, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	stanley.miao@windriver.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:44391 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755625AbZANJmX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 04:42:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20090114.012919.117682429.davem@davemloft.net>
+Received: from mail.smsc.com ([170.129.50.11]:3044 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754407AbZANJyO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 04:54:14 -0500
+In-Reply-To: <20090114.013006.55972352.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 01:29:19AM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Wed, 14 Jan 2009 08:53:08 +0000
+> > David: would it make sense to put this driver patch into the arm
+> > tree?
 > 
-> > Actually, I still think my second approach (the PageSlab) is probably
-> > (if tested) the easiest for now, because it should fix the reported
-> > (Willy's) problem, without any change or copy overhead for splice to
-> > file (which could be still wrong, but not obviously wrong).
-> 
-> It's a simple fix, but as Herbert stated it leaves other ->sendpage()
-> implementations exposed to data corruption when the from side of the
-> pipe buffer is a socket.
+> I plan on taking it via net-2.6
 
-I don't think Herbert meant other ->sendpage() implementations, but I
-could miss something.
+Thanks David, I guess I need to wait until this is merged (and pulled into 
+the arm tree) before my arm platform patches can go in?  They break 
+compilation without the driver patch.
 
-> That, to me, is almost worse than a bad fix.
-> 
-> It's definitely worse than a slower but full fix, which the copy
-> patch is.
+I'll post the patchset to arm-kernel for review today.
 
-Sorry, I can't see how this patch could make sendpage worse.
-
-Jarek P.
+Steve
