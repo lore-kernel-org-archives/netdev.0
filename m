@@ -1,154 +1,61 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH 2.6.29] can: fix slowpath issue in hrtimer callback function
-Date: Wed, 14 Jan 2009 08:44:28 +0100
-Message-ID: <496D97DC.9020408@hartkopp.net>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on
+ 2.6.24?
+Date: Wed, 14 Jan 2009 03:05:31 -0500
+Message-ID: <20090114030531.a29680c6.billfink@mindspring.com>
+References: <20090113063205.GA26047@gondor.apana.org.au>
+	<20090113015614.3b815ad7.billfink@mindspring.com>
+	<496C3D5C.7080407@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000701080908020201000909"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	ilpo.jarvinen@helsinki.fi, zbr@ioremap.net,
+	bert.hubert@netherlabs.nl, h.willstrand@gmail.com,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:44145 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760243AbZANHo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 02:44:29 -0500
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:38923 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752569AbZANIFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 03:05:45 -0500
+In-Reply-To: <496C3D5C.7080407@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000701080908020201000909
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, 12 Jan 2009, Rick Jones wrote:
 
-Due to the loopback functionality in can_send() we can not invoke it 
-from hardirq context which was done inside the bcm_tx_timeout_handler() 
-hrtimer callback:
+> Bill Fink wrote:
+> > On Tue, 13 Jan 2009, Herbert Xu wrote:
+> > 
+> > 
+> >>Bill Fink <billfink@mindspring.com> wrote:
+> >>
+> >>>If I understand you correctly, to hit this corner case, just after
+> >>>the final TCP write, there would have to be no packets in flight
+> >>>together with a zero TCP window.  To make it more bullet-proof, I
+> >>>guess after seeing a zero tcpi_unacked, an additional small delay
+> >>>should be performed, and then rechecking for a zero tcpi_unacked.
+> >>>I don't see anything else obvious (to me anyway) in the tcp_info
+> >>>that would be particularly helpful in handling this.
+> >>
+> >>What's wrong with idiag_wqueue? Isn't that a much more direct
+> >>way to get this?
+> > 
+> > 
+> > I'm not familiar with idiag_wqueue, but it sounds like it has something
+> > to do with INET_DIAG/INET_TCP_DIAG.  It was a long time ago, but I seem
+> > to recall that using INET_DIAG had a negative impact on performance,
+> > and since the main point of nuttcp is to measure TCP/UDP performance,
+> > that would be contrary to its primary purpose.  Also, I don't want to
+> > rely on something that's not guaranteed to be part of the running kernel.
+> 
+> How likely is it that the "additional small delay" above would be much 
+> less than waiting for a read return of zero after a shutdown(SHUT_WR) call?
 
+I'm not sure I understand what you're getting at.  I did consider doing
+something like what you suggested, but in the end decided it was simpler
+to deal with a fully ESTABLISHED connection, than worrying about possible
+races with a socket being (partially or fully) closed.
 
-[  700.361154]  [<c012228c>] warn_slowpath+0x80/0xb6
-[  700.361163]  [<c013d559>] valid_state+0x125/0x136
-[  700.361171]  [<c013d858>] mark_lock+0x18e/0x332
-[  700.361180]  [<c013e300>] __lock_acquire+0x12e/0xb1e
-[  700.361189]  [<f8ab5915>] bcm_tx_timeout_handler+0x0/0xbc [can_bcm]
-[  700.361198]  [<c031e20a>] dev_queue_xmit+0x191/0x479
-[  700.361206]  [<c01262a7>] __local_bh_disable+0x2b/0x64
-[  700.361213]  [<c031e20a>] dev_queue_xmit+0x191/0x479
-[  700.361225]  [<f8aa69a1>] can_send+0xd7/0x11a [can]
-[  700.361235]  [<f8ab522b>] bcm_can_tx+0x9d/0xd9 [can_bcm]
-[  700.361245]  [<f8ab597f>] bcm_tx_timeout_handler+0x6a/0xbc [can_bcm]
-[  700.361255]  [<f8ab5915>] bcm_tx_timeout_handler+0x0/0xbc [can_bcm]
-[  700.361263]  [<c0134143>] __run_hrtimer+0x5a/0x86
-[  700.361273]  [<f8ab5915>] bcm_tx_timeout_handler+0x0/0xbc [can_bcm]
-[  700.361282]  [<c0134a50>] hrtimer_interrupt+0xb9/0x110
-
-
-This patch moves the rest of the functionality from the hrtimer callback 
-to the already existing tasklet to fix this slowpath problem.
-
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
----
-
-Hello Dave,
-
-this patch 'completes' the changes for the hrtimer update of the can-bcm 
-in 2.6.29 :-]
-
-Thanks,
-Oliver
-
-
---------------000701080908020201000909
-Content-Type: text/x-patch;
- name="bcm_tx_slowpath.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="bcm_tx_slowpath.patch"
-
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 1649c8a..b7c7d46 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -347,51 +347,54 @@ static void bcm_tx_timeout_tsklet(unsigned long data)
- 	struct bcm_op *op = (struct bcm_op *)data;
- 	struct bcm_msg_head msg_head;
- 
--	/* create notification to user */
--	msg_head.opcode  = TX_EXPIRED;
--	msg_head.flags   = op->flags;
--	msg_head.count   = op->count;
--	msg_head.ival1   = op->ival1;
--	msg_head.ival2   = op->ival2;
--	msg_head.can_id  = op->can_id;
--	msg_head.nframes = 0;
--
--	bcm_send_to_user(op, &msg_head, NULL, 0);
--}
--
--/*
-- * bcm_tx_timeout_handler - performes cyclic CAN frame transmissions
-- */
--static enum hrtimer_restart bcm_tx_timeout_handler(struct hrtimer *hrtimer)
--{
--	struct bcm_op *op = container_of(hrtimer, struct bcm_op, timer);
--	enum hrtimer_restart ret = HRTIMER_NORESTART;
--
- 	if (op->kt_ival1.tv64 && (op->count > 0)) {
- 
- 		op->count--;
--		if (!op->count && (op->flags & TX_COUNTEVT))
--			tasklet_schedule(&op->tsklet);
-+		if (!op->count && (op->flags & TX_COUNTEVT)) {
-+
-+			/* create notification to user */
-+			msg_head.opcode  = TX_EXPIRED;
-+			msg_head.flags   = op->flags;
-+			msg_head.count   = op->count;
-+			msg_head.ival1   = op->ival1;
-+			msg_head.ival2   = op->ival2;
-+			msg_head.can_id  = op->can_id;
-+			msg_head.nframes = 0;
-+
-+			bcm_send_to_user(op, &msg_head, NULL, 0);
-+		}
- 	}
- 
- 	if (op->kt_ival1.tv64 && (op->count > 0)) {
- 
- 		/* send (next) frame */
- 		bcm_can_tx(op);
--		hrtimer_forward(hrtimer, ktime_get(), op->kt_ival1);
--		ret = HRTIMER_RESTART;
-+		hrtimer_start(&op->timer,
-+			      ktime_add(ktime_get(), op->kt_ival1),
-+			      HRTIMER_MODE_ABS);
- 
- 	} else {
- 		if (op->kt_ival2.tv64) {
- 
- 			/* send (next) frame */
- 			bcm_can_tx(op);
--			hrtimer_forward(hrtimer, ktime_get(), op->kt_ival2);
--			ret = HRTIMER_RESTART;
-+			hrtimer_start(&op->timer,
-+				      ktime_add(ktime_get(), op->kt_ival2),
-+				      HRTIMER_MODE_ABS);
- 		}
- 	}
-+}
- 
--	return ret;
-+/*
-+ * bcm_tx_timeout_handler - performes cyclic CAN frame transmissions
-+ */
-+static enum hrtimer_restart bcm_tx_timeout_handler(struct hrtimer *hrtimer)
-+{
-+	struct bcm_op *op = container_of(hrtimer, struct bcm_op, timer);
-+
-+	tasklet_schedule(&op->tsklet);
-+
-+	return HRTIMER_NORESTART;
- }
- 
- /*
-
---------------000701080908020201000909--
+						-Bill
