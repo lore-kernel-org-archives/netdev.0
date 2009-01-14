@@ -1,23 +1,28 @@
 From: Andy Fleming <afleming@freescale.com>
 Subject: Re: [PATCH] phylib: Fix Freescale TBI PHY detection
 Date: Wed, 14 Jan 2009 12:20:35 -0600
-Message-ID: <4DDB8462-ACB6-494A-A1CB-4F56668A4EE1__33835.4590967812$1231957450$gmane$org@freescale.com>
-References: <20090113160513.GA22083@oksana.dev.rtsoft.ru> <20090114150332.GA839@oksana.dev.rtsoft.ru>
+Message-ID: <4DDB8462-ACB6-494A-A1CB-4F56668A4EE1__45407.8984600075$1231957490$gmane$org@freescale.com>
+References: <20090113160513.GA22083@oksana.dev.rtsoft.ru>
+	<20090114150332.GA839@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Giulio Benetti <giulio.benetti@micronovasrl.com>
+Cc: linuxppc-dev@ozlabs.org, Giulio Benetti <giulio.benetti@micronovasrl.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:48717 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752726AbZANSWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 13:22:32 -0500
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 In-Reply-To: <20090114150332.GA839@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
 
 On Jan 14, 2009, at 9:03 AM, Anton Vorontsov wrote:
