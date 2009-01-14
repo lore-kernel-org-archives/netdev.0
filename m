@@ -1,49 +1,111 @@
-From: Denis Joseph Barrow <D.Barow@option.com>
-Subject: Re: [PATCH] hso_spinlockfix.patch
-Date: Wed, 14 Jan 2009 11:14:58 +0100
-Message-ID: <496DBB22.6090909@option.com>
-References: <496DB66B.4070306@option.com> <20090114.020857.00093874.davem@davemloft.net>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: [PATCH 2/4] virtio_net: Add a virtqueue for outbound control
+ commands
+Date: Wed, 14 Jan 2009 10:15:10 +0000
+Message-ID: <1231928110.4944.290.camel@localhost.localdomain>
+References: <1231881797.9095.187.camel@bling>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Linux Serial <linux-serial@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Alex Williamson <alex.williamson@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.option.com ([81.246.70.163]:31335 "EHLO
-	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754831AbZANKPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:15:08 -0500
-In-Reply-To: <20090114.020857.00093874.davem@davemloft.net>
+Received: from mx2.redhat.com ([66.187.237.31]:53591 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755838AbZANKPU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 05:15:20 -0500
+In-Reply-To: <1231881797.9095.187.camel@bling>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks David
-Happy new year.
-I meant 2.6.28-rc6, 
-David Miller wrote:
-> From: Denis Joseph Barrow <D.Barow@option.com>
-> Date: Wed, 14 Jan 2009 10:54:51 +0100
+On Tue, 2009-01-13 at 14:23 -0700, Alex Williamson wrote:
+> This will be used for RX mode, MAC filter table, VLAN filtering, etc...
+
+Looks very reasonable. I'm a bit wary of send_command() being
+synchronous, but it probably makes sense.
+
+Could do with some details in the commit log as to why this approach was
+chosen over increasing virtio_net_config.
+
+> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+> ---
 > 
->> This is a really important fix it fixes a consistent kernel deadlock
->> when the hso driver starts going. It's against 2.6.29-rc1, 2.6.29-rc6
->> worked fine.
+>  drivers/net/virtio_net.c   |   55 +++++++++++++++++++++++++++++++++++++++++++-
+>  include/linux/virtio_net.h |    3 ++
+>  2 files changed, 57 insertions(+), 1 deletions(-)
 > 
-> Are you able to travel in time? :-)  2.6.29-rc6 has not been
-> released yet.
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index e7700de..de348de 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -39,7 +39,7 @@ module_param(gso, bool, 0444);
+>  struct virtnet_info
+>  {
+>  	struct virtio_device *vdev;
+> -	struct virtqueue *rvq, *svq;
+> +	struct virtqueue *rvq, *svq, *cvq;
+>  	struct net_device *dev;
+>  	struct napi_struct napi;
+>  
+> @@ -603,6 +603,47 @@ static int virtnet_open(struct net_device *dev)
+>  	return 0;
+>  }
+>  
+> +static int virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+> +				void *data, unsigned int len)
+> +{
+> +	struct scatterlist sg[3];
+> +	struct {
+> +		u8 class;
+> +		u8 cmd;
+> +	} ctrl_cmd;
 
+I'd like to see this defined in virtio_net_hdr.
 
--- 
-best regards,
-D.J. Barrow
+Why the need for class/cmd? Why not just a single 16 bit command field?
 
-Linux Kernel Developer
-Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
- 
-T: +32 16 311 621
-F: +32 16 207 164
-d.barow@option.com
-www.option.com
+> +	u8 ctrl_status;
+> +	unsigned int tmp;
+> +	int i = 0;
+> +
+> +	if (!vi->cvq)
+> +		return -EFAULT;
 
-Disclaimer:
-http://www.option.com/company/disclaimer.shtml
+BUG_ON() probably makes more sense here.
+
+> +
+> +	sg_init_table(sg, len ? 3 : 2);
+> +
+> +	sg_set_buf(&sg[i++], &ctrl_cmd, sizeof(ctrl_cmd));
+> +	if (len)
+> +		sg_set_buf(&sg[i++], data, len);
+> +	sg_set_buf(&sg[i], &ctrl_status, sizeof(ctrl_status));
+> +
+> +	ctrl_cmd.class = class;
+> +	ctrl_cmd.cmd = cmd;
+> +
+> +	ctrl_status = ~0;
+> +
+> +	if (vi->cvq->vq_ops->add_buf(vi->cvq, sg, i, 1, vi) != 0)
+> +		BUG();
+> +
+> +	vi->cvq->vq_ops->kick(vi->cvq);
+> +
+> +	while (!vi->cvq->vq_ops->get_buf(vi->cvq, &tmp))
+> +		cpu_relax();
+> +
+> +	if (ctrl_status == VIRTIO_NET_OK)
+> +		return 0;
+> +	else
+> +		return -EFAULT;
+
+Could be all on one line:
+
+        return ctrl_status ? -EFAULT : 0;
+
+Cheers,
+Mark.
+
