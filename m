@@ -1,70 +1,47 @@
-From: Chris Caputo <ccaputo@alt.net>
-Subject: Re: deadlocks if use htb
-Date: Wed, 14 Jan 2009 18:02:04 +0000 (UTC)
-Message-ID: <Pine.LNX.4.64.0901141748300.17915@nacho.alt.net>
-References: <20081010090426.GA6054@ff.dom.local>
-	<Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>
-	<20090114063909.GA4234@ff.dom.local>
-	<200901141417.58667.denys@visp.net.lb>
-	<1231937404.14825.4.camel@laptop>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Denys Fedoryschenko <denys@visp.net.lb>,
-	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754024AbZANSI6@vger.kernel.org>
-In-Reply-To: <1231937404.14825.4.camel@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] phylib: Fix Freescale TBI PHY detection
+Date: Wed, 14 Jan 2009 12:20:35 -0600
+Message-ID: <4DDB8462-ACB6-494A-A1CB-4F56668A4EE1__33835.4590967812$1231957450$gmane$org@freescale.com>
+References: <20090113160513.GA22083@oksana.dev.rtsoft.ru> <20090114150332.GA839@oksana.dev.rtsoft.ru>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Giulio Benetti <giulio.benetti@micronovasrl.com>
+To: avorontsov@ru.mvista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:48717 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726AbZANSWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 13:22:32 -0500
+In-Reply-To: <20090114150332.GA839@oksana.dev.rtsoft.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jan 2009, Peter Zijlstra wrote:
-> On Wed, 2009-01-14 at 14:17 +0200, Denys Fedoryschenko wrote:
-> > I will try that patches too, when i got this message, after 3 minutes i got 
-> > crash of my router :-) after working around 17 hours :-(
-> > There is 3 of them by the way, 2 fixes also.
-> > 
-> > hrtimer: removing all ur callback modes
-> > hrtimer: removing all ur callback modes, fix hotplug
-> > hrtimer: removing all ur callback modes, fix
-> 
-> I'm afraid its a bit more than that:
-> 
-> ca109491f612aab5c8152207631c0444f63da97f
-> 37810659ea7d9572c5ac284ade272f806ef8f788
-> a0a99b227da57f81319dd239bc4de811b0f530ec
-> b2e3c0adec918ea22b6c9d7c76193dd3aaba9bd4
-> 8bdec955b0da2ffbd10eb9b200651dd1f9e366f2
-> d5fd43c4ae04523e1dcd7794f9c511b289851350
-> 731a55ba0f17064f85903b7bf8e24849ec6cfa20
-> a6037b61c2f5fc99c57c15b26d7cfa58bbb34008
-> e3f1d883740b09e5116d4d4e30a6a6987264a83c
-> 82c5b7b527ccc4b5d3cf832437e842f9d2920a79
-> 
-> and
-> 
-> 6e5c172cf7ca1ab878cc6a6a4c1d52fef60f3ee0
-> 
-> Also, all this is rather invasive and large, so I'm not sure it will
-> meet the -stable criteria.
 
-In my testing (another 12 hours of uptime, BTW), the three patches I am 
-using are:
+On Jan 14, 2009, at 9:03 AM, Anton Vorontsov wrote:
+>>
+>> There is one thing I don't actually understand though...
+>>
+>> Andy, were you testing the TBI support on a hardware where PHY ID
+>> != 0x0 or maybe your TBI PHY support patch (commit b31a1d8b41513b,
+>> dated Tue Dec 16 15:29:15 2008) was based on a bit outdated kernel
+>> version? Because according to the git timestamps, the TBI support
+>> was not working since the submission.
+>>
+>> Just in case, the hardware I'm seeing the PHY ID == 0x0 is
+>> MPC8378E-MDS.
+>
+> I think I got it. Probably the TBI support patch was based on the
+> powerpc.git next, and the commit that broke the TBI support
+> was in the net-next-2.6 tree.
+>
+> That explains why nobody noticed the issue.
 
-  ca109491f612aab5c8152207631c0444f63da97f
-  37810659ea7d9572c5ac284ade272f806ef8f788
-  a0a99b227da57f81319dd239bc4de811b0f530ec
 
-I have not tried the other patches.
+Yeah, I dropped the ball.  I saw the patch go in, thought that might  
+break something, but I didn't find time to look into it.  Thanks for  
+finding and reverting this bug.
 
-That said, I would not recommend just the three for -stable unless they 
-get a much wider amount of testing, on multiple platforms.  I don't see 
-that as likely to happen, plus Peter says they are incomplete, so maybe it 
-is just best to recommend that 2.6.28 users getting crashes while using 
-HTB try these specific patches at first, and then the rest of the patches 
-if they do not work.
-
-Thanks,
-Chris
+Acked-by: Andy Fleming <afleming@freescale.com>
