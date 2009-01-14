@@ -1,74 +1,66 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PULL -tip] fixed few make headers_check warnings
-Date: Wed, 14 Jan 2009 17:36:14 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0901141732450.26663@anakin>
-References: <1231836016.3212.41.camel@jaswinder.satnam>
- <Pine.LNX.4.64.0901140954250.27308@anakin> <3f9a31f40901140129i1389f47frf32808f3a695a118@mail.gmail.com>
- <20090114153825.GB32082@uranus.ravnborg.org>
- <3f9a31f40901140759s1542e6cclae1808b796c2b1a9@mail.gmail.com>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: [PATCH 2/4] virtio_net: Add a virtqueue for outbound control
+ commands
+Date: Wed, 14 Jan 2009 16:37:06 +0000
+Message-ID: <1231951026.4944.304.camel@localhost.localdomain>
+References: <1231881797.9095.187.camel@bling>
+	 <1231928110.4944.290.camel@localhost.localdomain>
+	 <1231948868.7109.288.camel@lappy>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sam Ravnborg <sam@ravnborg.org>,
-	Jaswinder Singh Rajput <jaswinder@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	x86 maintainers <x86@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>
+To: Alex Williamson <alex.williamson@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wilson.telenet-ops.be ([195.130.132.42]:46244 "EHLO
-	wilson.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758044AbZANQgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 11:36:18 -0500
-In-Reply-To: <3f9a31f40901140759s1542e6cclae1808b796c2b1a9@mail.gmail.com>
+Received: from mx2.redhat.com ([66.187.237.31]:36003 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759338AbZANQhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:37:16 -0500
+In-Reply-To: <1231948868.7109.288.camel@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jan 2009, Jaswinder Singh Rajput wrote:
-> On Wed, Jan 14, 2009 at 9:08 PM, Sam Ravnborg <sam@ravnborg.org> wrote:
-> > I appreciate your work but I will like to question the approach.
+On Wed, 2009-01-14 at 09:01 -0700, Alex Williamson wrote:
+> On Wed, 2009-01-14 at 10:15 +0000, Mark McLoughlin wrote:
+> > On Tue, 2009-01-13 at 14:23 -0700, Alex Williamson wrote:
+
+> > > +static int virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+> > > +				void *data, unsigned int len)
+> > > +{
+> > > +	struct scatterlist sg[3];
+> > > +	struct {
+> > > +		u8 class;
+> > > +		u8 cmd;
+> > > +	} ctrl_cmd;
+> > 
+> > I'd like to see this defined in virtio_net_hdr.
 > 
-> My approach was:
-> "PATCH should solve a problem per file", like:
->  capability.h: extern's make no sense in userspace
->  coda_psdev.h: extern's make no sense in userspace
->  in6.h: extern's make no sense in userspace
->  nubus.h: extern's make no sense in userspace
->  socket.h: extern's make no sense in userspace
+> As part of struct virtio_net_hdr?  I'm not sure what that'd buy us and
+> would likely break compatibility.  Or do you simply mean defined in
+> virtio-net.h?
+
+Yep, sorry, I meant virtio-net.h
+
+> > > +	u8 ctrl_status;
+> > > +	unsigned int tmp;
+> > > +	int i = 0;
+> > > +
+> > > +	if (!vi->cvq)
+> > > +		return -EFAULT;
+> > 
+> > BUG_ON() probably makes more sense here.
 > 
-> But this warnings was in many files:
->  include of <linux/types.h> is preferred over <asm/types.h> : 15 files
->  found __[us]{8,16,32,64} type without #include <linux/types.h> : 52 files
-> 
-> So in place of making 15 + 52 = 67 patches, I made 2 patches for each warning.
-> 
-> > We should rather take the warnings as an indication that this
-> > file needs to be looked over and fix not only the warnings
-> > reported but rater to fix all the questionable issues on a file-by-file basis.
-> 
-> Should I make 67 patches ?
+> This is to allow a newer virtio_net guest driver to run on an old qemu.
+> That's why I don't generate a fatal error if we don't find the control
+> queue.  In that case the backend will be running in promiscuous mode and
+> I think all of these commands can safely fail.  Thanks for the comments.
 
-No.
+Yep, but what I mean is that virtio_net_send_command() should never be
+called if the host doesn't have send queue support - i.e. force the
+calling code to think about what should be done on older hosts.
 
-What Sam means is that the warnings about externs not making sense in userspace
-are indicators that there may be other external declarations (without "extern")
-in those files, and that you should fix those at the same time (i.e. either
-don't fix any of them, or fix all of them (in the same file)). If you don't
-fix them at the same time, people tend to forget about them.
+Cheers,
+Mark.
 
-So the warnings are just considered canaries in our coal mine. Killing only the
-canaries doesn't help.
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
