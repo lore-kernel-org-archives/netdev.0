@@ -1,54 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: gro: Check for GSO packets and packets with frag_list
-Date: Thu, 15 Jan 2009 08:56:39 +1100
-Message-ID: <20090114215639.GA25069@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: New build error - ndo_set_mac_addr
+Date: Wed, 14 Jan 2009 14:02:26 -0800 (PST)
+Message-ID: <20090114.140226.168294654.davem@davemloft.net>
+References: <20090114194746.GL22976@n2100.arm.linux.org.uk>
+	<20090114120620.13cf8039@extreme>
+	<20090114201907.GA2162@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57454 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758293AbZANV4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 16:56:43 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35552
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759403AbZANWCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 17:02:25 -0500
+In-Reply-To: <20090114201907.GA2162@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Wed, 14 Jan 2009 20:19:07 +0000
 
-Here's a patch for GRO allowing it to be used on more drivers.
+> On Wed, Jan 14, 2009 at 12:06:20PM -0800, Stephen Hemminger wrote:
+> > On Wed, 14 Jan 2009 19:47:46 +0000
+> > Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
+> > 
+> > > This new build error poped up between rc1-git2 and rc1-git3.
+> > > 
+> > > drivers/net/arm/etherh.c:649: error: unknown field 'ndo_set_mac_addr' specified in initializer
+> > > 
+> > > Looks like this should've been ndo_set_mac_address ?
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> > Yes, david didn't see the updated version of my patch.
+> 
+> Do you want me to fix it?  It'll probably be around a week before I ask
+> Linus to pull my tree again.
 
-gro: Check for GSO packets and packets with frag_list
-
-As GRO cannot be applied to packets with frag_list we need to
-make sure that we reject such packets if they are fed to us,
-e.g., through a tunnel device.
-
-Also there is no point in applying GRO on GSO packets so they
-too should be rejected.  This allows GRO to be used in virtio-net
-which may produce GSO packets directly but may still benefit
-from GRO if the other end of it doesn't support GSO.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5f736f1..972a47d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2382,6 +2382,9 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 	if (!(skb->dev->features & NETIF_F_GRO))
- 		goto normal;
- 
-+	if (skb_is_gso(skb) || skb_shinfo(skb)->frag_list)
-+		goto normal;
-+
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ptype, head, list) {
- 		struct sk_buff *p;
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'll get it fixed in the net-2.6 tree.
