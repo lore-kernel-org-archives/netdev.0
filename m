@@ -1,48 +1,45 @@
-From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: Re: [PATCH 03/16] dma-debug: add hash functions for dma_debug_entries
-Date: Wed, 14 Jan 2009 18:51:09 +0100
-Message-ID: <20090114175109.GB11842@amd.com>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-4-git-send-email-joerg.roedel@amd.com> <20090113005118.82f5037b.akpm@linux-foundation.org> <20090114114347.GG8625@elte.hu> <20090114093918.e7b0ae46.akpm@linux-foundation.org>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] korina: reset resource buffer size to 1536
+Date: Wed, 14 Jan 2009 18:57:50 +0100
+Message-ID: <200901141857.50984.florian@openwrt.org>
+References: <1231955400-9745-1-git-send-email-n0-1@freewrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, linux-kernel@vger.kernel.org,
-	mingo@redhat.com, dwmw2@infradead.org,
-	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org
+To: Phil Sutter <n0-1@freewrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-va3.frontbridge.com ([216.32.180.16]:63215 "EHLO
-	VA3EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752743AbZANRve convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 12:51:34 -0500
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:42562 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752396AbZANR6J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 12:58:09 -0500
+Received: by bwz14 with SMTP id 14so2165469bwz.13
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2009 09:58:07 -0800 (PST)
+In-Reply-To: <1231955400-9745-1-git-send-email-n0-1@freewrt.org>
 Content-Disposition: inline
-In-Reply-To: <20090114093918.e7b0ae46.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 09:39:18AM -0800, Andrew Morton wrote:
->=20
-> Have we previously found bugs by other means which this facility woul=
-d
-> have detected?  I don't recall any...
->=20
+Le Wednesday 14 January 2009 18:50:00 Phil Sutter, vous avez =E9crit=A0=
+:
+> The new value is the one used in the external patch before and allows=
+ at
+> least a standard MTU of 1500 to be handled correctly. Impact of this
+>
+> change gets visible when bigger packets are to be received, issuing:
+> | ping -s 492 <IP>
+>
+> and bigger payload sized led to 100% packet loss.
 
-See for example this bugfix:
+Thanks
 
-http://www.spinics.net/lists/netdev/msg83208.html
+>
+> Signed-off-by: Phil Sutter <n0-1@freewrt.org>
 
-The bug was found using the first version of this patchset.
-
-Joerg
-
+Acked-by: Florian Fainelli <florian@openwrt.org
 
 --=20
-           | Advanced Micro Devices GmbH
- Operating | Karl-Hammerschmidt-Str. 34, 85609 Dornach bei M=C3=BCnchen
- System    |=20
- Research  | Gesch=C3=A4ftsf=C3=BChrer: Jochen Polster, Thomas M. McCoy=
-, Giuliano Meroni
- Center    | Sitz: Dornach, Gemeinde Aschheim, Landkreis M=C3=BCnchen
-           | Registergericht M=C3=BCnchen, HRB Nr. 43632
-
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
