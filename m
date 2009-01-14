@@ -1,45 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on
-	2.6.24?
-Date: Wed, 14 Jan 2009 22:30:26 +1100
-Message-ID: <20090114113026.GC18662@gondor.apana.org.au>
-References: <20090113063205.GA26047@gondor.apana.org.au> <20090113015614.3b815ad7.billfink@mindspring.com> <20090113070138.GA26480@gondor.apana.org.au> <20090114024341.76ce0dec.billfink@mindspring.com> <20090114082910.GC16692@gondor.apana.org.au> <20090114040550.407c2a0c.billfink@mindspring.com>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: [PATCH 01/02] hso patch to fix a -EIO from opening a hso serial
+ device
+Date: Wed, 14 Jan 2009 11:38:28 +0000
+Message-ID: <20090114113828.7b9f59ca@lxorguk.ukuu.org.uk>
+References: <496DCAF7.9080906@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ilpo.jarvinen@helsinki.fi, zbr@ioremap.net,
-	bert.hubert@netherlabs.nl, h.willstrand@gmail.com,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36482 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755516AbZANLap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 06:30:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20090114040550.407c2a0c.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <496DCAF7.9080906-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 14, 2009 at 04:05:50AM -0500, Bill Fink wrote:
->
-> Well, my man tcp(7) just says:
-> 
->    SIOCOUTQ
->           Returns the amount of unsent data in the socket send queue.  The
->           socket must not be in LISTEN state, otherwise an error  (EINVAL)
->           is returned.
+On Wed, 14 Jan 2009 12:22:31 +0100
+Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
 
-You still read man pages? :)
+> Hi All,
+> This is an important patch the linux-2.6.29-rc1 driver with itworks much
+> better than it did.
 
-If you look at the actual code, SIOCOUTQ returns
+How about this. 
 
-	tp->write_seq - tp->snd_una
+tty: Fix a kref leak in the HSO driver on re-open
 
-Really you can't get any more precise than that for what you want.
+From: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+---
+
+ drivers/net/usb/hso.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index c4918b8..9df04dd 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -1297,6 +1297,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
+ 	/* setup */
+ 	spin_lock_irq(&serial->serial_lock);
+ 	tty->driver_data = serial;
++	tty_kref_put(serial->tty);
+ 	serial->tty = tty_kref_get(tty);
+ 	spin_unlock_irq(&serial->serial_lock);
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
