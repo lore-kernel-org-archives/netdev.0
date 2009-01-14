@@ -1,98 +1,59 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH] phylib: Fix Freescale TBI PHY detection
-Date: Wed, 14 Jan 2009 18:03:32 +0300
-Message-ID: <20090114150332.GA839__8603.49835497818$1231945597$gmane$org@oksana.dev.rtsoft.ru>
-References: <20090113160513.GA22083@oksana.dev.rtsoft.ru>
-Reply-To: avorontsov@ru.mvista.com
+From: Joerg Roedel <joerg.roedel@amd.com>
+Subject: Re: [PATCH 07/16] dma-debug: add debugfs interface
+Date: Wed, 14 Jan 2009 16:22:16 +0100
+Message-ID: <20090114152216.GM20283@amd.com>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-8-git-send-email-joerg.roedel@amd.com> <20090110230826.GJ17917@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Giulio Benetti <giulio.benetti@micronovasrl.com>,
-	Andy Fleming <afleming@freescale.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
+	dwmw2@infradead.org, fujita.tomonori@lab.ntt.co.jp,
+	netdev@vger.kernel.org, iommu@lists.linux-foundation.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outbound-va3.frontbridge.com ([216.32.180.16]:58364 "EHLO
+	VA3EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757468AbZANPWh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 10:22:37 -0500
 Content-Disposition: inline
-In-Reply-To: <20090113160513.GA22083@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090110230826.GJ17917@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 13, 2009 at 07:05:13PM +0300, Anton Vorontsov wrote:
-> Freescale on-chip TBI PHYs reports PHY ID as 0x0, but as of
-> 
-> commit 3ee82383f0098a2e13acc8cf1be8e47512f41e5a
-> Author: Giulio Benetti <giulio.benetti@micronovasrl.com>
-> Date:   Thu Nov 13 21:53:13 2008 +0000
-> 
->     phy: fix phy address bug
-> 
->     PHYID returns 0xffff and not 0xffffffff when not found and in some
->     case(at91sam9263) 0x0. Maybe this patch could be useful.
-> 
-> phy_device.c treats PHY ID == 0x0 as bogus IDs, and that results in
-> gianfar driver failure to see the TBI PHYs. This code snippet triggers:
-> 
-> 	if (!priv->tbiphy) {
-> 		printk(KERN_WARNING "SGMII mode requires that the device "
-> 				"tree specify a tbi-handle\n");
-> 		return;
-> 	}
-> 
-> Although tbi-handle is specified in the device tree.
-> 
-> Btw, technically PHY ID == 0x0 is a valid ID (if we ever see a PHY
-> manufactured by Xerox :-).
-> 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> ---
-> 
-> There is one thing I don't actually understand though...
-> 
-> Andy, were you testing the TBI support on a hardware where PHY ID
-> != 0x0 or maybe your TBI PHY support patch (commit b31a1d8b41513b,
-> dated Tue Dec 16 15:29:15 2008) was based on a bit outdated kernel
-> version? Because according to the git timestamps, the TBI support
-> was not working since the submission.
-> 
-> Just in case, the hardware I'm seeing the PHY ID == 0x0 is
-> MPC8378E-MDS.
+On Sun, Jan 11, 2009 at 12:08:26AM +0100, Ingo Molnar wrote:
+>=20
+> * Joerg Roedel <joerg.roedel@amd.com> wrote:
+>=20
+> > +/* Global error count */
+> > +static u32 error_count;
+> > +
+> > +/* Global error show enable*/
+> > +static u32 show_all_errors __read_mostly;
+> > +/* Number of errors to show */
+> > +static u32 show_num_errors =3D 1;
+> > +
+> >  static u32 num_free_entries;
+> >  static u32 min_free_entries;
+>=20
+> Small detail: please use native C types for non-hardware variables -=20
+> 'unsigned int', 'unsigned long', etc.
+>=20
+> u32/u64 is typically used for variables where there is a real signifi=
+cance=20
+> to the precise width of the variable: there's either a hardware or a=20
+> user-space ABI involved.
 
-I think I got it. Probably the TBI support patch was based on the
-powerpc.git next, and the commit that broke the TBI support
-was in the net-next-2.6 tree.
+There is some kind of userspace ABI: all these variables are exported
+via debugfs. And debugfs relies on these types.
 
-That explains why nobody noticed the issue.
+Joerg
 
->  drivers/net/phy/phy_device.c |    9 ---------
->  1 files changed, 0 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index e354601..0a06e4f 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -231,15 +231,6 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
->  	if ((phy_id & 0x1fffffff) == 0x1fffffff)
->  		return NULL;
->  
-> -	/*
-> -	 * Broken hardware is sometimes missing the pull-up resistor on the
-> -	 * MDIO line, which results in reads to non-existent devices returning
-> -	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
-> -	 * device as well.
-> -	 */
-> -	if (phy_id == 0)
-> -		return NULL;
-> -
->  	dev = phy_device_create(bus, addr, phy_id);
->  
->  	return dev;
-> -- 
-> 1.5.6.5
+--=20
+           | Advanced Micro Devices GmbH
+ Operating | Karl-Hammerschmidt-Str. 34, 85609 Dornach bei M=C3=BCnchen
+ System    |=20
+ Research  | Gesch=C3=A4ftsf=C3=BChrer: Jochen Polster, Thomas M. McCoy=
+, Giuliano Meroni
+ Center    | Sitz: Dornach, Gemeinde Aschheim, Landkreis M=C3=BCnchen
+           | Registergericht M=C3=BCnchen, HRB Nr. 43632
+
