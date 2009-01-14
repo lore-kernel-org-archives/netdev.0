@@ -1,66 +1,289 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 13/34]bnx2x: System cache alignment
-Date: Wed, 14 Jan 2009 18:43:21 +0200
-Message-ID: <1231951401.11301.134.camel@lb-tlvb-eliezer>
+Subject: [PATCH 20/34]bnx2x: Handling load failures
+Date: Wed, 14 Jan 2009 18:43:41 +0200
+Message-ID: <1231951421.11301.141.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2391 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2683 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763326AbZANQoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:44:08 -0500
+	id S1763560AbZANQon (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:44:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using the system cache alignment instead of constant value
+Failures on load were not handled correctly - separate the flow to handle
+different failures
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h      |    5 +++++
- drivers/net/bnx2x_main.c |    9 +++------
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/bnx2x_main.c |  154 ++++++++++++++++++++++++++--------------------
+ 1 files changed, 88 insertions(+), 66 deletions(-)
 
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index c1ba541..0e848fe 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -757,6 +757,11 @@ struct bnx2x {
- #define ETH_MAX_PACKET_SIZE		1500
- #define ETH_MAX_JUMBO_PACKET_SIZE	9600
- 
-+	/* Max supported alignment is 256 (8 shift) */
-+#define BNX2X_RX_ALIGN_SHIFT		((L1_CACHE_SHIFT < 8) ? \
-+					 L1_CACHE_SHIFT : 8)
-+#define BNX2X_RX_ALIGN			(1 << BNX2X_RX_ALIGN_SHIFT)
-+
- 	struct host_def_status_block *def_status_blk;
- #define DEF_SB_ID			16
- 	u16			def_c_idx;
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index d32b98f..a1d8ca5 100644
+index 801a283..84c8aeb 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -4287,14 +4287,11 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 	u16 ring_prod, cqe_ring_prod;
- 	int i, j;
+@@ -6330,7 +6330,7 @@ static void bnx2x_set_rx_mode(struct net_device *dev);
+ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ {
+ 	u32 load_code;
+-	int i, rc;
++	int i, rc = 0;
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+ 		return -EPERM;
+@@ -6338,48 +6338,6 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
  
--	bp->rx_buf_size = bp->dev->mtu;
--	bp->rx_buf_size += bp->rx_offset + ETH_OVREHEAD +
--		BCM_RX_ETH_PAYLOAD_ALIGN;
-+	bp->rx_buf_size = bp->dev->mtu + ETH_OVREHEAD + BNX2X_RX_ALIGN;
-+	DP(NETIF_MSG_IFUP,
-+	   "mtu %d  rx_buf_size %d\n", bp->dev->mtu, bp->rx_buf_size);
+ 	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
  
- 	if (bp->flags & TPA_ENABLE_FLAG) {
--		DP(NETIF_MSG_IFUP,
--		   "rx_buf_size %d  effective_mtu %d\n",
--		   bp->rx_buf_size, bp->dev->mtu + ETH_OVREHEAD);
+-	/* Send LOAD_REQUEST command to MCP
+-	   Returns the type of LOAD command:
+-	   if it is the first port to be initialized
+-	   common blocks should be initialized, otherwise - not
+-	*/
+-	if (!BP_NOMCP(bp)) {
+-		load_code = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_REQ);
+-		if (!load_code) {
+-			BNX2X_ERR("MCP response failure, aborting\n");
+-			return -EBUSY;
+-		}
+-		if (load_code == FW_MSG_CODE_DRV_LOAD_REFUSED)
+-			return -EBUSY; /* other port in diagnostic mode */
+-
+-	} else {
+-		int port = BP_PORT(bp);
+-
+-		DP(NETIF_MSG_IFUP, "NO MCP load counts before us %d, %d, %d\n",
+-		   load_count[0], load_count[1], load_count[2]);
+-		load_count[0]++;
+-		load_count[1 + port]++;
+-		DP(NETIF_MSG_IFUP, "NO MCP new load counts       %d, %d, %d\n",
+-		   load_count[0], load_count[1], load_count[2]);
+-		if (load_count[0] == 1)
+-			load_code = FW_MSG_CODE_DRV_LOAD_COMMON;
+-		else if (load_count[1 + port] == 1)
+-			load_code = FW_MSG_CODE_DRV_LOAD_PORT;
+-		else
+-			load_code = FW_MSG_CODE_DRV_LOAD_FUNCTION;
+-	}
+-
+-	if ((load_code == FW_MSG_CODE_DRV_LOAD_COMMON) ||
+-	    (load_code == FW_MSG_CODE_DRV_LOAD_PORT))
+-		bp->port.pmf = 1;
+-	else
+-		bp->port.pmf = 0;
+-	DP(NETIF_MSG_LINK, "pmf %d\n", bp->port.pmf);
+-
+-	/* if we can't use MSI-X we only need one fp,
+-	 * so try to enable MSI-X with the requested number of fp's
+-	 * and fallback to inta with one fp
+-	 */
+ 	if (use_inta) {
+ 		bp->num_queues = 1;
  
- 		for_each_queue(bp, j) {
- 			struct bnx2x_fastpath *fp = &bp->fp[j];
+@@ -6394,7 +6352,15 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		else
+ 			bp->num_queues = 1;
+ 
+-		if (bnx2x_enable_msix(bp)) {
++		DP(NETIF_MSG_IFUP,
++		   "set number of queues to %d\n", bp->num_queues);
++
++		/* if we can't use MSI-X we only need one fp,
++		 * so try to enable MSI-X with the requested number of fp's
++		 * and fallback to MSI or legacy INTx with one fp
++		 */
++		rc = bnx2x_enable_msix(bp);
++		if (rc) {
+ 			/* failed to enable MSI-X */
+ 			bp->num_queues = 1;
+ 			if (use_multi)
+@@ -6402,8 +6368,6 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 					  " to enable MSI-X\n");
+ 		}
+ 	}
+-	DP(NETIF_MSG_IFUP,
+-	   "set number of queues to %d\n", bp->num_queues);
+ 
+ 	if (bnx2x_alloc_mem(bp))
+ 		return -ENOMEM;
+@@ -6412,30 +6376,85 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		bnx2x_fp(bp, i, disable_tpa) =
+ 					((bp->flags & TPA_ENABLE_FLAG) == 0);
+ 
++	for_each_queue(bp, i)
++		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
++			       bnx2x_poll, 128);
++
++#ifdef BNX2X_STOP_ON_ERROR
++	for_each_queue(bp, i) {
++		struct bnx2x_fastpath *fp = &bp->fp[i];
++
++		fp->poll_no_work = 0;
++		fp->poll_calls = 0;
++		fp->poll_max_calls = 0;
++		fp->poll_complete = 0;
++		fp->poll_exit = 0;
++	}
++#endif
++	bnx2x_napi_enable(bp);
++
+ 	if (bp->flags & USING_MSIX_FLAG) {
+ 		rc = bnx2x_req_msix_irqs(bp);
+ 		if (rc) {
+ 			pci_disable_msix(bp->pdev);
+-			goto load_error;
++			goto load_error1;
+ 		}
++		printk(KERN_INFO PFX "%s: using MSI-X\n", bp->dev->name);
+ 	} else {
+ 		bnx2x_ack_int(bp);
+ 		rc = bnx2x_req_irq(bp);
+ 		if (rc) {
+-			BNX2X_ERR("IRQ request failed, aborting\n");
+-			goto load_error;
++			BNX2X_ERR("IRQ request failed  rc %d, aborting\n", rc);
++			goto load_error1;
+ 		}
+ 	}
+ 
+-	for_each_queue(bp, i)
+-		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+-			       bnx2x_poll, 128);
++	/* Send LOAD_REQUEST command to MCP
++	   Returns the type of LOAD command:
++	   if it is the first port to be initialized
++	   common blocks should be initialized, otherwise - not
++	*/
++	if (!BP_NOMCP(bp)) {
++		load_code = bnx2x_fw_command(bp, DRV_MSG_CODE_LOAD_REQ);
++		if (!load_code) {
++			BNX2X_ERR("MCP response failure, aborting\n");
++			rc = -EBUSY;
++			goto load_error2;
++		}
++		if (load_code == FW_MSG_CODE_DRV_LOAD_REFUSED) {
++			rc = -EBUSY; /* other port in diagnostic mode */
++			goto load_error2;
++		}
++
++	} else {
++		int port = BP_PORT(bp);
++
++		DP(NETIF_MSG_IFUP, "NO MCP load counts before us %d, %d, %d\n",
++		   load_count[0], load_count[1], load_count[2]);
++		load_count[0]++;
++		load_count[1 + port]++;
++		DP(NETIF_MSG_IFUP, "NO MCP new load counts       %d, %d, %d\n",
++		   load_count[0], load_count[1], load_count[2]);
++		if (load_count[0] == 1)
++			load_code = FW_MSG_CODE_DRV_LOAD_COMMON;
++		else if (load_count[1 + port] == 1)
++			load_code = FW_MSG_CODE_DRV_LOAD_PORT;
++		else
++			load_code = FW_MSG_CODE_DRV_LOAD_FUNCTION;
++	}
++
++	if ((load_code == FW_MSG_CODE_DRV_LOAD_COMMON) ||
++	    (load_code == FW_MSG_CODE_DRV_LOAD_PORT))
++		bp->port.pmf = 1;
++	else
++		bp->port.pmf = 0;
++	DP(NETIF_MSG_LINK, "pmf %d\n", bp->port.pmf);
+ 
+ 	/* Initialize HW */
+ 	rc = bnx2x_init_hw(bp, load_code);
+ 	if (rc) {
+ 		BNX2X_ERR("HW init failed, aborting\n");
+-		goto load_int_disable;
++		goto load_error2;
+ 	}
+ 
+ 	/* Setup NIC internals and enable interrupts */
+@@ -6447,7 +6466,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		if (!load_code) {
+ 			BNX2X_ERR("MCP response failure, aborting\n");
+ 			rc = -EBUSY;
+-			goto load_rings_free;
++			goto load_error3;
+ 		}
+ 	}
+ 
+@@ -6456,7 +6475,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	rc = bnx2x_setup_leading(bp);
+ 	if (rc) {
+ 		BNX2X_ERR("Setup leading failed!\n");
+-		goto load_netif_stop;
++		goto load_error3;
+ 	}
+ 
+ 	if (CHIP_IS_E1H(bp))
+@@ -6469,7 +6488,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		for_each_nondefault_queue(bp, i) {
+ 			rc = bnx2x_setup_multi(bp, i);
+ 			if (rc)
+-				goto load_netif_stop;
++				goto load_error3;
+ 		}
+ 
+ 	if (CHIP_IS_E1(bp))
+@@ -6485,18 +6504,18 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	case LOAD_NORMAL:
+ 		/* Tx queue should be only reenabled */
+ 		netif_wake_queue(bp->dev);
++		/* Initialize the receive filter. */
+ 		bnx2x_set_rx_mode(bp->dev);
+ 		break;
+ 
+ 	case LOAD_OPEN:
+ 		netif_start_queue(bp->dev);
++		/* Initialize the receive filter. */
+ 		bnx2x_set_rx_mode(bp->dev);
+-		if (bp->flags & USING_MSIX_FLAG)
+-			printk(KERN_INFO PFX "%s: using MSI-X\n",
+-			       bp->dev->name);
+ 		break;
+ 
+ 	case LOAD_DIAG:
++		/* Initialize the receive filter. */
+ 		bnx2x_set_rx_mode(bp->dev);
+ 		bp->state = BNX2X_STATE_DIAG;
+ 		break;
+@@ -6514,20 +6533,23 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 
+ 	return 0;
+ 
+-load_netif_stop:
+-	bnx2x_napi_disable(bp);
+-load_rings_free:
++load_error3:
++	bnx2x_int_disable_sync(bp, 1);
++	if (!BP_NOMCP(bp)) {
++		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP);
++		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE);
++	}
++	bp->port.pmf = 0;
+ 	/* Free SKBs, SGEs, TPA pool and driver internals */
+ 	bnx2x_free_skbs(bp);
+ 	for_each_queue(bp, i)
+ 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
+-load_int_disable:
+-	bnx2x_int_disable_sync(bp, 1);
++load_error2:
+ 	/* Release IRQs */
+ 	bnx2x_free_irq(bp);
+-load_error:
++load_error1:
++	bnx2x_napi_disable(bp);
+ 	bnx2x_free_mem(bp);
+-	bp->port.pmf = 0;
+ 
+ 	/* TBD we really need to reset the chip
+ 	   if we want to recover from this */
 -- 
 1.5.4.3
 
