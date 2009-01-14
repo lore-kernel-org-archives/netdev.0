@@ -1,36 +1,61 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Wed, 14 Jan 2009 12:36:23 +0000
-Message-ID: <20090114123623.GA6117@ff.dom.local>
-References: <20081010090426.GA6054@ff.dom.local> <Pine.LNX.4.64.0901110438050.16453@nacho.alt.net> <20090114063909.GA4234@ff.dom.local> <200901141417.58667.denys@visp.net.lb>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2/2] igb: Replace LRO with GRO
+Date: Wed, 14 Jan 2009 23:36:53 +1100
+Message-ID: <20090114123653.GA19257@gondor.apana.org.au>
+References: <9929d2390901140349v4483bd23wac254673de591bec@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Caputo <ccaputo@alt.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f31.google.com ([209.85.219.31]:45346 "EHLO
-	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754097AbZANMga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 07:36:30 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:45338 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756384AbZANMg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 07:36:59 -0500
 Content-Disposition: inline
-In-Reply-To: <200901141417.58667.denys@visp.net.lb>
+In-Reply-To: <9929d2390901140349v4483bd23wac254673de591bec@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 02:17:58PM +0200, Denys Fedoryschenko wrote:
-> I will try that patches too, when i got this message, after 3 minutes i got 
-> crash of my router :-) after working around 17 hours :-(
-> There is 3 of them by the way, 2 fixes also.
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+>
+> Ok, a couple of things...
+> First is that we should have the patch in testing (most likely today,
+> do not worry dave, it won't take a week)
+
+Thanks!
+
+> Second is I am not sure you need to keep this code wraped in CONFIG_IGB_LRO...
 > 
-> hrtimer: removing all ur callback modes
-> hrtimer: removing all ur callback modes, fix hotplug
-> hrtimer: removing all ur callback modes, fix
+>  #ifdef CONFIG_IGB_LRO
+> -       netdev->features |= NETIF_F_LRO;
+> +       netdev->features |= NETIF_F_GRO;
+>  #endif
 
-Yes, it's a very nasty bug which, BTW you reported the first AFAIK,
-but I hope it's really gone with these patches.
+My objective is to minimise changes with respect to the current
+LRO base (the e1000e was an exception, it was the only hardware
+I had :)
 
-Thanks,
-Jarek P.
+Therefore this patch is simply trying to replace LRO with GRO
+letter by letter, so to speak.  In this case, it's preserving
+the semantics of the Kconfig option, i.e., if LRO was off before,
+then GRO will be off too (although it can now be enabled using
+ethtool without recompiling).
+
+> Also, you left part of the lro code in igb_receive_skb and then put in
+> the GRO code.  Our preference is that you mirrored what you did with
+> e1000e and just replaced the main vlan_hwacel and netif_receive_skb
+> calls.
+
+No I left in the netif_receive_skb but replaced the lro calls by
+the corresponding gro calls.  Again the point is to replace LRO
+exactly as it is.
+
+Later on we can make further changes.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
