@@ -1,61 +1,54 @@
-From: "Leisner, Martin" <Martin.Leisner@xerox.com>
-Subject: using KERN_ERR in IPv6
-Date: Wed, 14 Jan 2009 16:28:28 -0500
-Message-ID: <556445368AFA1C438794ABDA8901891C0A5A07D6@USA0300MS03.na.xerox.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gro: Check for GSO packets and packets with frag_list
+Date: Thu, 15 Jan 2009 08:56:39 +1100
+Message-ID: <20090114215639.GA25069@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <martyleisner@yahoo.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wvmler2.mail.xerox.com ([13.8.138.217]:59865 "EHLO
-	wvmler2.mail.xerox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759590AbZANVyE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 16:54:04 -0500
-Content-class: urn:content-classes:message
+Received: from rhun.apana.org.au ([64.62.148.172]:57454 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758293AbZANV4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 16:56:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We're using 2.6.20 (but its also in 2.6.28).
+Hi Dave:
 
-In ipv6/ndisc.c:ndisc_router_discover() (cut and pasted from 2.6.20)
-         if (rt == NULL && lifetime) {
-                ND_PRINTK3(KERN_DEBUG
-                           "ICMPv6 RA: adding default router.\n");
+Here's a patch for GRO allowing it to be used on more drivers.
 
-                rt = rt6_add_dflt_router(&skb->nh.ipv6h->saddr,
-skb->dev, pref);
-                if (rt == NULL) {
-                        ND_PRINTK0(KERN_ERR
-                                   "ICMPv6 RA: %s() failed to add
-default route.\n",
-                                   __FUNCTION__);
-                        in6_dev_put(in6_dev);
-                        return;
-                }
+gro: Check for GSO packets and packets with frag_list
 
-                neigh = rt->rt6i_nexthop;
-                if (neigh == NULL) {
-                        ND_PRINTK0(KERN_ERR
-                                   "ICMPv6 RA: %s() got default router
-without neighbour.\n",
-                                   __FUNCTION__);
-                        dst_release(&rt->u.dst);
-                        in6_dev_put(in6_dev);
-                        return;
-                }
+As GRO cannot be applied to packets with frag_list we need to
+make sure that we reject such packets if they are fed to us,
+e.g., through a tunnel device.
 
-My understanding is when running again a Microsoft 2003 server, it has a
-bug  which excites  the message "failed to add default route" which is
-normally echoed to the console which is quite cumbersome.
+Also there is no point in applying GRO on GSO packets so they
+too should be rejected.  This allows GRO to be used in virtio-net
+which may produce GSO packets directly but may still benefit
+from GRO if the other end of it doesn't support GSO.
 
-With Microsoft 2007 servers, the problem goes away.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-But why would a protocol problem be a KERN_ERR (maybe KERN_INFO?)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5f736f1..972a47d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2382,6 +2382,9 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	if (!(skb->dev->features & NETIF_F_GRO))
+ 		goto normal;
+ 
++	if (skb_is_gso(skb) || skb_shinfo(skb)->frag_list)
++		goto normal;
++
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(ptype, head, list) {
+ 		struct sk_buff *p;
 
-Comments?
-
-marty
-
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
