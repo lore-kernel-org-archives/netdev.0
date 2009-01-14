@@ -1,7 +1,7 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 12/34]bnx2x: Fixing the doorbell size
-Date: Wed, 14 Jan 2009 18:43:17 +0200
-Message-ID: <1231951397.11301.133.camel@lb-tlvb-eliezer>
+Subject: [PATCH 14/34]bnx2x: Missing brackets
+Date: Wed, 14 Jan 2009 18:43:24 +0200
+Message-ID: <1231951404.11301.135.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,32 +10,31 @@ To: "David Miller" <davem@davemloft.net>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:1340 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763314AbZANQoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:44:08 -0500
+	id S1761123AbZANQoS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:44:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The size of the doorbell is 4KB, this bug become visible when using more than 8
-queues
+Calculation bug due to missing brackets
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h |    2 +-
+ drivers/net/bnx2x_main.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index a6c9d23..c1ba541 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -735,7 +735,7 @@ struct bnx2x {
- 	struct bnx2x_fastpath	fp[MAX_CONTEXT];
- 	void __iomem		*regview;
- 	void __iomem		*doorbells;
--#define BNX2X_DB_SIZE		(16*2048)
-+#define BNX2X_DB_SIZE		(16*BCM_PAGE_SIZE)
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index a1d8ca5..27a9be6 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -2936,7 +2936,7 @@ static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+ #define ADD_64(s_hi, a_hi, s_lo, a_lo) \
+ 	do { \
+ 		s_lo += a_lo; \
+-		s_hi += a_hi + (s_lo < a_lo) ? 1 : 0; \
++		s_hi += a_hi + ((s_lo < a_lo) ? 1 : 0); \
+ 	} while (0)
  
- 	struct net_device	*dev;
- 	struct pci_dev		*pdev;
+ /* difference = minuend - subtrahend */
 -- 
 1.5.4.3
 
