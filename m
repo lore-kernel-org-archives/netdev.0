@@ -1,93 +1,67 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: [PATCH] ax88796: start_xmit fix using net_device_ops
-Date: Wed, 14 Jan 2009 16:38:27 +0900
-Message-ID: <20090114073827.26909.56261.sendpatchset@rx1.opensource.se>
-Cc: Magnus Damm <magnus.damm@gmail.com>, lethal@linux-sh.org,
-	shemminger@vyatta.com, ben-linux@fluff.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.228]:64689 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758763AbZANHkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 02:40:21 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so409124rvb.1
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2009 23:40:21 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Volker Lendecke <Volker.Lendecke@SerNet.DE>
+Subject: Re: maximum buffer size for splice(2) tcp->pipe?
+Date: Wed, 14 Jan 2009 08:40:08 +0100
+Message-ID: <E1LN0MC-00DaJs-M2@intern.SerNet.DE>
+References: <E1LKrp3-004Tub-IR@intern.SerNet.DE> <20090113123702.ad29cd13.akpm@linux-foundation.org> <496D2078.9080302@cosmosbay.com>
+Reply-To: Volker.Lendecke@SerNet.DE
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="wac7ysb48OaltWcw"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Steven French <sfrench@us.ibm.com>,
+	Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760099AbZANHkc@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <496D2078.9080302@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Magnus Damm <damm@igel.co.jp>
 
-This patch hooks up the start_xmit/tx_timeout/get_stats callbacks
-in the ax88796 driver since they no longer are installed by the
-lib8390 code. Without this patch the function dev_hard_start_xmit()
-crashes due to a start_xmit callback with the value NULL.
+--wac7ysb48OaltWcw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-While at it, update the ax88796 driver to make use of use of struct
-net_device_ops.
+On Wed, Jan 14, 2009 at 12:15:04AM +0100, Eric Dumazet wrote:
+> Volker, your splice() is a blocking one, from tcp socket to a pipe ?
 
-Signed-off-by: Magnus Damm <damm@igel.co.jp>
----
+Yes, it is.
 
- This patch fixes the backplane ethernet crash on SuperH Highlander.
+> If no other thread is reading the pipe, then you might block forever
+> in splice_to_pipe() as soon pipe is full (16 pages).
 
- drivers/net/ax88796.c |   27 +++++++++++++++++++++------
- 1 file changed, 21 insertions(+), 6 deletions(-)
+Why does it block when the pipe is full? Why doesn't it
+return a short read, just like the read(2) call does? We
+need to cope with that behaviour anyway.
 
---- 0001/drivers/net/ax88796.c
-+++ work/drivers/net/ax88796.c	2009-01-14 15:06:13.000000000 +0900
-@@ -37,7 +37,10 @@ static int phy_debug = 0;
- #define __ei_open       ax_ei_open
- #define __ei_close      ax_ei_close
- #define __ei_poll	ax_ei_poll
-+#define __ei_start_xmit ax_ei_start_xmit
- #define __ei_tx_timeout ax_ei_tx_timeout
-+#define __ei_get_stats  ax_ei_get_stats
-+#define __ei_set_multicast_list ax_ei_set_multicast_list
- #define __ei_interrupt  ax_ei_interrupt
- #define ____alloc_ei_netdev ax__alloc_ei_netdev
- #define __NS8390_init   ax_NS8390_init
-@@ -623,6 +626,23 @@ static void ax_eeprom_register_write(str
- }
- #endif
- 
-+static const struct net_device_ops ax_netdev_ops = {
-+	.ndo_open		= ax_open,
-+	.ndo_stop		= ax_close,
-+	.ndo_do_ioctl		= ax_ioctl,
-+
-+	.ndo_start_xmit		= ax_ei_start_xmit,
-+	.ndo_tx_timeout		= ax_ei_tx_timeout,
-+	.ndo_get_stats		= ax_ei_get_stats,
-+	.ndo_set_multicast_list = ax_ei_set_multicast_list,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= ax_ei_poll,
-+#endif
-+};
-+
- /* setup code */
- 
- static void ax_initial_setup(struct net_device *dev, struct ei_device *ei_local)
-@@ -738,9 +758,7 @@ static int ax_init_dev(struct net_device
- 	ei_status.get_8390_hdr	= &ax_get_8390_hdr;
- 	ei_status.priv = 0;
- 
--	dev->open		= ax_open;
--	dev->stop		= ax_close;
--	dev->do_ioctl		= ax_ioctl;
-+	dev->netdev_ops		= &ax_netdev_ops;
- 	dev->ethtool_ops	= &ax_ethtool_ops;
- 
- 	ax->msg_enable		= NETIF_MSG_LINK;
-@@ -753,9 +771,6 @@ static int ax_init_dev(struct net_device
- 	ax->mii.mdio_write	= ax_phy_write;
- 	ax->mii.dev		= dev;
- 
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = ax_ei_poll;
--#endif
- 	ax_NS8390_init(dev, 0);
- 
- 	if (first_init)
+> As pages are not necessarly full (each skb will use at least one page, ev=
+en if=20
+> its length is small), it is not really possible to use splice() like this.
+>=20
+> In your case, only safe way with current kernel would be to call splice()
+> asking for no more than 16 bytes, that would be really insane for your ne=
+eds.
+>=20
+> You may prefer a non blocking mode, at least when calling splice_to_pipe()
+
+Which fd do I have to set the nonblocking flag on? The TCP
+socket I read from, or the pipe I write to?
+
+Thanks for the hint anyway :-)
+
+Volker
+
+--wac7ysb48OaltWcw
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFJbZbXbsgDfmnSbrYRAsruAJ9LsFBmZe0ujTclxWLT4YJi02RW5QCdHJhH
+z/AdX1fcqLIvALxDMdaPUsI=
+=G6NX
+-----END PGP SIGNATURE-----
+
+--wac7ysb48OaltWcw--
