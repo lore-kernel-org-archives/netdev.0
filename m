@@ -1,18 +1,17 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 07/34]bnx2x: Flow control updated before reporting the
- link
-Date: Wed, 14 Jan 2009 18:43:02 +0200
-Message-ID: <1231951382.11301.128.camel@lb-tlvb-eliezer>
+Subject: [PATCH 06/34]bnx2x: Missing mask when calculating flow control
+Date: Wed, 14 Jan 2009 18:42:58 +0200
+Message-ID: <1231951378.11301.127.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1340 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2653 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762877AbZANQnx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:43:53 -0500
+	id S1762965AbZANQnr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:43:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,22 +22,19 @@ Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
  1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 39ea2fc..56eae2d 100644
+index da18528..39ea2fc 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -1986,10 +1986,11 @@ static u8 bnx2x_initial_phy_init(struct bnx2x *bp)
- 		rc = bnx2x_phy_init(&bp->link_params, &bp->link_vars);
- 		bnx2x_release_phy_lock(bp);
+@@ -1915,7 +1915,8 @@ static int bnx2x_set_spio(struct bnx2x *bp, int spio_num, u32 mode)
  
-+		bnx2x_calc_fc_adv(bp);
-+
- 		if (bp->link_vars.link_up)
- 			bnx2x_link_report(bp);
- 
--		bnx2x_calc_fc_adv(bp);
- 
- 		return rc;
- 	}
+ static void bnx2x_calc_fc_adv(struct bnx2x *bp)
+ {
+-	switch (bp->link_vars.ieee_fc) {
++	switch (bp->link_vars.ieee_fc &
++		MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK) {
+ 	case MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE:
+ 		bp->port.advertising &= ~(ADVERTISED_Asym_Pause |
+ 					  ADVERTISED_Pause);
 -- 
 1.5.4.3
 
