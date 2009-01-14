@@ -1,47 +1,51 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH 1/4] virtio_net: Allow setting the MAC address of the
- NIC
-Date: Wed, 14 Jan 2009 08:40:12 -0700
-Message-ID: <1231947612.7109.267.camel@lappy>
-References: <1231881796.9095.186.camel@bling>
-	 <1231928106.4944.289.camel@localhost.localdomain>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PULL -tip] fixed few make headers_check warnings
+Date: Wed, 14 Jan 2009 16:58:50 +0100
+Message-ID: <496E0BBA.6040403@hartkopp.net>
+References: <1231836016.3212.41.camel@jaswinder.satnam> <20090113124921.GA30400@elte.hu> <20090114154057.GC32082@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Jaswinder Singh Rajput <jaswinder@infradead.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	x86 maintainers <x86@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Mark McLoughlin <markmc@redhat.com>
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:38787 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759552AbZANPkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 10:40:11 -0500
-In-Reply-To: <1231928106.4944.289.camel@localhost.localdomain>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:9333 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752127AbZANP6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 10:58:53 -0500
+In-Reply-To: <20090114154057.GC32082@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-14 at 10:15 +0000, Mark McLoughlin wrote:
-> On Tue, 2009-01-13 at 14:23 -0700, Alex Williamson wrote:
-> 
-> Commit log explaining why we need this.
+Sam Ravnborg wrote:
+> As they are one-liners for the most part I am fine with you handling
+> them in a separate branch.
+>   
 
-Sorry, my commit logs are pretty weak across the board.  I'll update
-them all.
+Hi Sam,
 
-> > +	} else {
-> >  		random_ether_addr(dev->dev_addr);
-> > +		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
-> > +				  dev->dev_addr, dev->addr_len);
-> > +	}
-> 
-> Please make sure you test this with a host which doesn't set a default
-> mac address, otherwise it's "untested buggy code" :-)
+i would split them up:
 
-Good idea, I'll hack the backend to not advertise that feature and make
-sure this code gets exercised a least once.  Thanks,
+One big single patch only for this
 
-Alex
+-#include <asm/types.h>
++#include <linux/types.h>
 
--- 
-Alex Williamson                             HP Open Source & Linux Org.
+and this
+
++#include <linux/types.h>
+
+which is trivial.
+
+And all the other stuff should additionally go through the maintainers hands (at least).
+
+
+Oliver
 
