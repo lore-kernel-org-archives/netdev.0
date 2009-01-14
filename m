@@ -1,115 +1,201 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: maximum buffer size for splice(2) tcp->pipe?
-Date: Wed, 14 Jan 2009 10:13:34 +0100
-Message-ID: <496DACBE.3030701@cosmosbay.com>
-References: <E1LKrp3-004Tub-IR@intern.SerNet.DE> <20090113123702.ad29cd13.akpm@linux-foundation.org> <496D2078.9080302@cosmosbay.com> <E1LN0MC-00DaJs-M2@intern.SerNet.DE>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Wed, 14 Jan 2009 01:29:19 -0800 (PST)
+Message-ID: <20090114.012919.117682429.davem@davemloft.net>
+References: <20090113.232710.55011568.davem@davemloft.net>
+	<20090114082630.GB16692@gondor.apana.org.au>
+	<20090114085308.GB4234@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Steven French <sfrench@us.ibm.com>,
-	Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
-To: Volker.Lendecke@SerNet.DE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, dada1@cosmosbay.com,
+	w@1wt.eu, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:46484 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753969AbZANJNw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 04:13:52 -0500
-In-Reply-To: <E1LN0MC-00DaJs-M2@intern.SerNet.DE>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44686
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754820AbZANJ3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 04:29:19 -0500
+In-Reply-To: <20090114085308.GB4234@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Volker Lendecke a =E9crit :
-> On Wed, Jan 14, 2009 at 12:15:04AM +0100, Eric Dumazet wrote:
->> Volker, your splice() is a blocking one, from tcp socket to a pipe ?
->=20
-> Yes, it is.
->=20
->> If no other thread is reading the pipe, then you might block forever
->> in splice_to_pipe() as soon pipe is full (16 pages).
->=20
-> Why does it block when the pipe is full? Why doesn't it
-> return a short read, just like the read(2) call does? We
-> need to cope with that behaviour anyway.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 14 Jan 2009 08:53:08 +0000
 
-Well, check code in fs/splice.c, function splice_to_pipe().
+> Actually, I still think my second approach (the PageSlab) is probably
+> (if tested) the easiest for now, because it should fix the reported
+> (Willy's) problem, without any change or copy overhead for splice to
+> file (which could be still wrong, but not obviously wrong).
 
-If SPLICE_F_NONBLOCK is not set, it is *expected* to block on pipe.
+It's a simple fix, but as Herbert stated it leaves other ->sendpage()
+implementations exposed to data corruption when the from side of the
+pipe buffer is a socket.
 
-In this mode, only another thread is able to drain the pipe and wakeup =
-the blocked thread.
+That, to me, is almost worse than a bad fix.
 
-Code review :
+It's definitely worse than a slower but full fix, which the copy
+patch is.
 
-When all pages are used "if (pipe->nrbufs =3D=3D PIPE_BUFFERS)"
+Therefore what I'll likely do is push Jarek's copy based cure,
+and meanwhile we can brainstorm some more on how to fix this
+properly in the long term.
 
-                if (spd->flags & SPLICE_F_NONBLOCK) {
-                        if (!ret)
-                                ret =3D -EAGAIN;
-                        break;
-                }
+So, I've put together a full commit message and Jarek's patch
+below.  One thing I notice is that the silly skb_clone() done
+by SKB splicing is no longer necessary.
 
-                if (signal_pending(current)) {
-                        if (!ret)
-                                ret =3D -ERESTARTSYS;
-                        break;
-                }
+We could get rid of that to offset (some) of the cost we are
+adding with this bug fix.
 
-                if (do_wakeup) {
-                        smp_mb();
-                        if (waitqueue_active(&pipe->wait))
-                                wake_up_interruptible_sync(&pipe->wait)=
-;
-                        kill_fasync(&pipe->fasync_readers, SIGIO, POLL_=
-IN);
-                        do_wakeup =3D 0;
-                }
+Comments?
 
-                pipe->waiting_writers++;
-HERE >>         pipe_wait(pipe);
-                pipe->waiting_writers--;
+net: Fix data corruption when splicing from sockets.
 
+From: Jarek Poplawski <jarkao2@gmail.com>
 
->=20
->> As pages are not necessarly full (each skb will use at least one pag=
-e, even if=20
->> its length is small), it is not really possible to use splice() like=
- this.
->>
->> In your case, only safe way with current kernel would be to call spl=
-ice()
->> asking for no more than 16 bytes, that would be really insane for yo=
-ur needs.
->>
->> You may prefer a non blocking mode, at least when calling splice_to_=
-pipe()
->=20
-> Which fd do I have to set the nonblocking flag on? The TCP
-> socket I read from, or the pipe I write to?
+The trick in socket splicing where we try to convert the skb->data
+into a page based reference using virt_to_page() does not work so
+well.
 
-I would say, use the SPLICE_F_NONBLOCK flag on splice() system call,
-but let tcp socket in blocking mode... But with current kernel it
-wont work. In order to avoid busy looping, you might add a poll()/selec=
-t()
-to call splice(SPLICE_F_NONBLOCK) only when socket has data
-in its receive queue.
+The idea is to pass the virt_to_page() reference via the pipe
+buffer, and refcount the buffer using a SKB reference.
 
-for (;;) {
-	struct pollfd pfd;
-	pfd.fd =3D socket;
-	pfd.events =3D POLLIN;
-	if (poll(&pfd, 1, -1) !=3D 1)
-		continue;
-	res =3D splice(socket, NULL, pipefds[1], NULL, 65536, SPLICE_F_MOVE|SP=
-LICE_F_NONBLOCK);
-	if (res > 0)
-		nwritten =3D splice(pipefds[0], NULL, file_fd, NULL, res, SPLICE_F_MO=
-VE|SPLICE_F_MORE);
-}
+But if we are splicing from a socket to a socket (via sendpage)
+this doesn't work.
 
-splice() from tcp socket to pipe is not working as is unfortunatly if !=
-SPLICE_F_NONBLOCK)
-and if using the same thread to write and read the pipe. Or risk deadlo=
-ck.
+The from side processing will grab the page (and SKB) references.
+The sendpage() calls will grab page references only, return, and
+then the from side processing completes and drops the SKB ref.
 
+The page based reference to skb->data is not enough to keep the
+kmalloc() buffer backing it from being reused.  Yet, that is
+all that the socket send side has at this point.
 
+This leads to data corruption if the skb->data buffer is reused
+by SLAB before the send side socket actually gets the TX packet
+out to the device.
+
+The fix employed here is to simply allocate a page and copy the
+skb->data bytes into that page.
+
+This will hurt performance, but there is no clear way to fix this
+properly without a copy at the present time, and it is important
+to get rid of the data corruption.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5110b35..6e43d52 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -73,17 +73,13 @@ static struct kmem_cache *skbuff_fclone_cache __read_mostly;
+ static void sock_pipe_buf_release(struct pipe_inode_info *pipe,
+ 				  struct pipe_buffer *buf)
+ {
+-	struct sk_buff *skb = (struct sk_buff *) buf->private;
+-
+-	kfree_skb(skb);
++	put_page(buf->page);
+ }
+ 
+ static void sock_pipe_buf_get(struct pipe_inode_info *pipe,
+ 				struct pipe_buffer *buf)
+ {
+-	struct sk_buff *skb = (struct sk_buff *) buf->private;
+-
+-	skb_get(skb);
++	get_page(buf->page);
+ }
+ 
+ static int sock_pipe_buf_steal(struct pipe_inode_info *pipe,
+@@ -1334,9 +1330,19 @@ fault:
+  */
+ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
+ {
+-	struct sk_buff *skb = (struct sk_buff *) spd->partial[i].private;
++	put_page(spd->pages[i]);
++}
+ 
+-	kfree_skb(skb);
++static inline struct page *linear_to_page(struct page *page, unsigned int len,
++					  unsigned int offset)
++{
++	struct page *p = alloc_pages(GFP_KERNEL, 0);
++
++	if (!p)
++		return NULL;
++	memcpy(page_address(p) + offset, page_address(page) + offset, len);
++
++	return p;
+ }
+ 
+ /*
+@@ -1344,16 +1350,23 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
+  */
+ static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
+ 				unsigned int len, unsigned int offset,
+-				struct sk_buff *skb)
++				struct sk_buff *skb, int linear)
+ {
+ 	if (unlikely(spd->nr_pages == PIPE_BUFFERS))
+ 		return 1;
+ 
++	if (linear) {
++		page = linear_to_page(page, len, offset);
++		if (!page)
++			return 1;
++	}
++
+ 	spd->pages[spd->nr_pages] = page;
+ 	spd->partial[spd->nr_pages].len = len;
+ 	spd->partial[spd->nr_pages].offset = offset;
+-	spd->partial[spd->nr_pages].private = (unsigned long) skb_get(skb);
+ 	spd->nr_pages++;
++	get_page(page);
++
+ 	return 0;
+ }
+ 
+@@ -1369,7 +1382,7 @@ static inline void __segment_seek(struct page **page, unsigned int *poff,
+ static inline int __splice_segment(struct page *page, unsigned int poff,
+ 				   unsigned int plen, unsigned int *off,
+ 				   unsigned int *len, struct sk_buff *skb,
+-				   struct splice_pipe_desc *spd)
++				   struct splice_pipe_desc *spd, int linear)
+ {
+ 	if (!*len)
+ 		return 1;
+@@ -1392,7 +1405,7 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
+ 		/* the linear region may spread across several pages  */
+ 		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
+ 
+-		if (spd_fill_page(spd, page, flen, poff, skb))
++		if (spd_fill_page(spd, page, flen, poff, skb, linear))
+ 			return 1;
+ 
+ 		__segment_seek(&page, &poff, &plen, flen);
+@@ -1419,7 +1432,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+ 	if (__splice_segment(virt_to_page(skb->data),
+ 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
+ 			     skb_headlen(skb),
+-			     offset, len, skb, spd))
++			     offset, len, skb, spd, 1))
+ 		return 1;
+ 
+ 	/*
+@@ -1429,7 +1442,7 @@ static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
+ 		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
+ 
+ 		if (__splice_segment(f->page, f->page_offset, f->size,
+-				     offset, len, skb, spd))
++				     offset, len, skb, spd, 0))
+ 			return 1;
+ 	}
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
