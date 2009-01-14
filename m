@@ -1,66 +1,106 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
- with IPV6_PKTINFO option
-Date: Wed, 14 Jan 2009 13:27:20 +0800
-Message-ID: <496D77B8.2000001@cn.fujitsu.com>
-References: <20090114034711.GA8361@gondor.apana.org.au> <496D61FE.7080500@cn.fujitsu.com> <496D651B.2000106@cn.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: panic with 2.6.28 while doing "ip -6 route"
+Date: Wed, 14 Jan 2009 16:35:34 +1100
+Message-ID: <20090114053534.GA15267@gondor.apana.org.au>
+References: <Pine.LNX.4.64.0901140204560.16420@nacho.alt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Chris Caputo <ccaputo@alt.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:61156 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753923AbZANF1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 00:27:19 -0500
-In-Reply-To: <496D651B.2000106@cn.fujitsu.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:38320 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759421AbZANFfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 00:35:41 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0901140204560.16420@nacho.alt.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wei Yongjun wrote:
-> Yang Hongyang wrote:
->> Herbert Xu wrote:
->>  
->>> Yang Hongyang <yanghy@cn.fujitsu.com> wrote:
->>>    
->>>> Actually the condition (optlen == 0) is included in (optlen <
->>>> sizeof(struct in6_pktinfo)),
->>>> so we do not need to check it separately.
->>>>       
->>> You don't need to check optval == NULL either since that's the
->>> job of copy_from_user.
->>>     
->>
->> If optval==NULL, what we should return?EINVAL or EFAULT?
->> If it is EINVAL,then we should check it .otherwise it's the job of
->> copy_from_user
->>   
+On Wed, Jan 14, 2009 at 02:30:11AM +0000, Chris Caputo wrote:
+> On a 2.6.28 x86 system with a full IPv6 route table - 1,524 routes - I can 
+> reproducibly panic the system with the following:
 > 
-> I think if optval==NULL, the in6_pktinfo which is set should be remove.
-> So, you should handle optval==NULL. Not just return error.
-
-There's no RFC defines the behavior above,but:
-  RFC3542 said The application can remove any sticky Routing header or sticky 
-Destination options header or sticky Hop-by-Hop options header by calling 
-setsockopt() with a zero option length.
-
-So,do we need to allow remove any sticky pktinfo option by calling 
-setsockopt() with a zero option length?
-
+>   ip -6 route | head
 > 
->>  
->>> Cheers,
->>>     
->>
->>
->>   
+> The above finishes and a command prompt is shown.  Then about half of the 
+> time I get a panic:
 > 
-> 
-> 
+>  BUG: unable to handle kernel paging request at 01000014
+>   [<c0432168>] ? inet6_rtm_delroute+0x0/0x22
+>   [<c0432184>] ? inet6_rtm_delroute+0x1c/0x22
+>   [<c03a0e4b>] ? rtnetlink_rcv_msg+0x188/0x1a2
+>   [<c03a0cc3>] ? rtnetlink_rcv_msg+0x0/0x1a2
+>   [<c03bdf1f>] ? netlink_rcv_skb+0x30/0x75
+>   [<c03a0cbb>] ? rtnetlink_rcv+0x17/0x1f
+>   [<c03bdd50>] ? netlink_unicast+0x1a8/0x209
+>   [<c03be40d>] ? netlink_sendmsg+0x21a/0x227
+>   [<c038f25f>] ? sock_sendmsg+0xca/0xe1
+>   [<c0231271>] ? autoremove_wake_function+0x0/0x33
+>   [<c02077f8>] ? nommu_map_single+0x0/0x41
+>   [<c0398149>] ? dev_kfree_skb_any+0x23/0x2e
+>   [<f807a73b>] ? e1000_unmap_and_free_tx_resource+0x5b/0x70 [e1000]
+>   [<c02fbb92>] ? copy_from_user+0x2c/0x4f
+>   [<c03953e1>] ? verify_iovec+0x40/0x73
+>   [<c038f3c5>] ? sys_sendmsg+0x14f/0x1aa
+>   [<c03900bb>] ? sys_socketcall+0x140/0x16d
+>   [<c0202bf1>] ? sysenter_do_call+0x12/0x25
+>  Code: 00 ff 48 0c 8b 81 dc 01 00 00 ff 40 14 39 53 18 75 07 c7 43 18 00 00 00 00 b8 d0 2d 5a c0 e8 a6 3f 04 00 8b 15 e4 2d 5a c0 eb 1f <80> 7a 14 02 75 16 39 72 10 75 11 8b 86 88 00 00 00 85 c0 89 42
+>  EIP: [<c04345e1>] fib6_del+0xd9/0x395 SS:ESP 0068:f6457c10
+>  Kernel panic - not syncing: Fatal exception in interrupt
+>  Rebooting in 10 seconds..
 
+I'm surprised that it's taken nearly 3 years for this bug to
+show itself.  It even survived a move from route.c :)
 
+ipv6: Fix fib6_dump_table walker leak
+
+When a fib6 table dump is prematurely ended, we won't unlink
+its walker from the list.  This causes all sorts of grief for
+other users of the list later.
+
+Reported-by: Chris Caputo <ccaputo@alt.net>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 29c7c99..52ee1dc 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -298,6 +298,10 @@ static void fib6_dump_end(struct netlink_callback *cb)
+ 	struct fib6_walker_t *w = (void*)cb->args[2];
+ 
+ 	if (w) {
++		if (cb->args[4]) {
++			cb->args[4] = 0;
++			fib6_walker_unlink(w);
++		}
+ 		cb->args[2] = 0;
+ 		kfree(w);
+ 	}
+@@ -330,15 +334,12 @@ static int fib6_dump_table(struct fib6_table *table, struct sk_buff *skb,
+ 		read_lock_bh(&table->tb6_lock);
+ 		res = fib6_walk_continue(w);
+ 		read_unlock_bh(&table->tb6_lock);
+-		if (res != 0) {
+-			if (res < 0)
+-				fib6_walker_unlink(w);
+-			goto end;
++		if (res <= 0) {
++			fib6_walker_unlink(w);
++			cb->args[4] = 0;
+ 		}
+-		fib6_walker_unlink(w);
+-		cb->args[4] = 0;
+ 	}
+-end:
++
+ 	return res;
+ }
+
+Thanks,
 -- 
-Regards
-Yang Hongyang
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
