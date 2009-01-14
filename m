@@ -1,67 +1,52 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] SIS900 show warning if bogus MAC address (take 2)
-Date: Tue, 13 Jan 2009 15:44:07 -0800
-Message-ID: <20090113154407.9d2fe57c.akpm@linux-foundation.org>
-References: <20090113181821.GA21342@milesteg.arr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Tue, 13 Jan 2009 16:05:05 -0800 (PST)
+Message-ID: <20090113.160505.178961721.davem@davemloft.net>
+References: <4967D36E.6020207@cosmosbay.com>
+	<20090109225309.GC4819@1wt.eu>
+	<4967DF10.2010107@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, venza@brownhat.org
-To: Daniele Venzano <venza@brownhat.org>
+Cc: w@1wt.eu, ben@zeus.com, jarkao2@gmail.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44873 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758253AbZAMXoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 18:44:18 -0500
-In-Reply-To: <20090113181821.GA21342@milesteg.arr>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52121
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752722AbZANAFE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2009 19:05:04 -0500
+In-Reply-To: <4967DF10.2010107@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Jan 2009 19:18:21 +0100
-Daniele Venzano <venza@brownhat.org> wrote:
->
-> Subject: [PATCH] SIS900 show warning if bogus MAC address (take 2)
->
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sat, 10 Jan 2009 00:34:40 +0100
 
-The title is now wrong.  I rewrote it in my copy to
+> David, do you think we still must call __tcp_splice_read() only once
+> in tcp_splice_read() if SPLICE_F_NONBLOCK is set ?
 
-sis900: generate fake MAC address if the hardware doesn't have one
+You seem to be working that out in another thread :-)
 
-> The attached patch modifies the sis900 driver when the MAC address
-> read from the hardware is invalid. As suggested, the patch now
-> generates a random address so that the user can go on and use
-> the hardware. In any case a message is also shown to warn on the
-> unexpected condition.
-> This seems to happen with newer HW implementation of the sis900
-> chipset, since this never came up before.
+> [PATCH] tcp: splice as many packets as possible at once
 > 
-> Patch is against vanilla 2.6.28 (but the driver doesn't change so often,
-> so it will probably apply to older/newer versions too).
+> As spotted by Willy Tarreau, current splice() from tcp socket to pipe is not
+> optimal. It processes at most one segment per call.
+> This results in low performance and very high overhead due to syscall rate
+> when splicing from interfaces which do not support LRO.
 > 
-> See bugzilla ID 10201 and 11649 and ignore the previous patch.
+> Willy provided a patch inside tcp_splice_read(), but a better fix
+> is to let tcp_read_sock() process as many segments as possible, so
+> that tcp_rcv_space_adjust() and tcp_cleanup_rbuf() are called less
+> often.
+> 
+> With this change, splice() behaves like tcp_recvmsg(), being able
+> to consume many skbs in one system call. With typical 1460 bytes
+> of payload per frame, that means splice(SPLICE_F_NONBLOCK) can return
+> 16*1460 = 23360 bytes.
+> 
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-When referring to bugzilla reports I like to use the full URL.  It's
-simpler for readers and makes life easier for those people who search
-changelogs looking for bug reports to close off.
-
-> diff -puN drivers/net/sis900.c~sis900-generate-fake-mac-address-if-the-hardware-doesnt-have-one drivers/net/sis900.c
-> --- a/drivers/net/sis900.c~sis900-generate-fake-mac-address-if-the-hardware-doesnt-have-one
-> +++ a/drivers/net/sis900.c
-> @@ -509,10 +509,10 @@ static int __devinit sis900_probe(struct
->  	else
->  		ret = sis900_get_mac_addr(pci_dev, net_dev);
->  
-> -	if (ret == 0) {
-> -		printk(KERN_WARNING "%s: Cannot read MAC address.\n", dev_name);
-> -		ret = -ENODEV;
-> -		goto err_unmap_rx;
-> +	if (!ret || !is_valid_ether_addr(net_dev->dev_addr)) {
-> +		random_ether_addr(net_dev->dev_addr);
-> +		printk(KERN_WARNING "%s: Unreadable or invalid MAC address,"
-> +				"using random generated one\n", dev_name);
-
-So we generate the fake address a) if the reading failed and b) if the
-reading succeeded, but returned a bad address.
-
-Fair enough, I guess.  I wonder if other drivers implement that policy.
-
+I've applied this, thanks!
