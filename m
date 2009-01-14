@@ -1,106 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: panic with 2.6.28 while doing "ip -6 route"
-Date: Wed, 14 Jan 2009 16:35:34 +1100
-Message-ID: <20090114053534.GA15267@gondor.apana.org.au>
-References: <Pine.LNX.4.64.0901140204560.16420@nacho.alt.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH 10/13] powerpc/ps3: printing fixups for l64 to ll64
+ convserion: drivers/net
+Date: Wed, 14 Jan 2009 17:09:30 +1100
+Message-ID: <20090114170930.51291bc6.sfr@canb.auug.org.au>
+References: <20090114165450.ebbc11a7.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Chris Caputo <ccaputo@alt.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ppc-dev <linuxppc-dev@ozlabs.org>, cbe-oss-dev@ozlabs.org,
+	Masakazu Mokuno <mokuno@sm.sony.co.jp>, netdev@vger.kernel.org
+To: Geoff Levand <geoffrey.levand@am.sony.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38320 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759421AbZANFfl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 00:35:41 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0901140204560.16420@nacho.alt.net>
+Received: from chilli.pcug.org.au ([203.10.76.44]:47582 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754107AbZANGOg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 01:14:36 -0500
+In-Reply-To: <20090114165450.ebbc11a7.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 02:30:11AM +0000, Chris Caputo wrote:
-> On a 2.6.28 x86 system with a full IPv6 route table - 1,524 routes - I can 
-> reproducibly panic the system with the following:
-> 
->   ip -6 route | head
-> 
-> The above finishes and a command prompt is shown.  Then about half of the 
-> time I get a panic:
-> 
->  BUG: unable to handle kernel paging request at 01000014
->   [<c0432168>] ? inet6_rtm_delroute+0x0/0x22
->   [<c0432184>] ? inet6_rtm_delroute+0x1c/0x22
->   [<c03a0e4b>] ? rtnetlink_rcv_msg+0x188/0x1a2
->   [<c03a0cc3>] ? rtnetlink_rcv_msg+0x0/0x1a2
->   [<c03bdf1f>] ? netlink_rcv_skb+0x30/0x75
->   [<c03a0cbb>] ? rtnetlink_rcv+0x17/0x1f
->   [<c03bdd50>] ? netlink_unicast+0x1a8/0x209
->   [<c03be40d>] ? netlink_sendmsg+0x21a/0x227
->   [<c038f25f>] ? sock_sendmsg+0xca/0xe1
->   [<c0231271>] ? autoremove_wake_function+0x0/0x33
->   [<c02077f8>] ? nommu_map_single+0x0/0x41
->   [<c0398149>] ? dev_kfree_skb_any+0x23/0x2e
->   [<f807a73b>] ? e1000_unmap_and_free_tx_resource+0x5b/0x70 [e1000]
->   [<c02fbb92>] ? copy_from_user+0x2c/0x4f
->   [<c03953e1>] ? verify_iovec+0x40/0x73
->   [<c038f3c5>] ? sys_sendmsg+0x14f/0x1aa
->   [<c03900bb>] ? sys_socketcall+0x140/0x16d
->   [<c0202bf1>] ? sysenter_do_call+0x12/0x25
->  Code: 00 ff 48 0c 8b 81 dc 01 00 00 ff 40 14 39 53 18 75 07 c7 43 18 00 00 00 00 b8 d0 2d 5a c0 e8 a6 3f 04 00 8b 15 e4 2d 5a c0 eb 1f <80> 7a 14 02 75 16 39 72 10 75 11 8b 86 88 00 00 00 85 c0 89 42
->  EIP: [<c04345e1>] fib6_del+0xd9/0x395 SS:ESP 0068:f6457c10
->  Kernel panic - not syncing: Fatal exception in interrupt
->  Rebooting in 10 seconds..
 
-I'm surprised that it's taken nearly 3 years for this bug to
-show itself.  It even survived a move from route.c :)
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/ps3_gelic_wireless.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-ipv6: Fix fib6_dump_table walker leak
-
-When a fib6 table dump is prematurely ended, we won't unlink
-its walker from the list.  This causes all sorts of grief for
-other users of the list later.
-
-Reported-by: Chris Caputo <ccaputo@alt.net>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 29c7c99..52ee1dc 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -298,6 +298,10 @@ static void fib6_dump_end(struct netlink_callback *cb)
- 	struct fib6_walker_t *w = (void*)cb->args[2];
- 
- 	if (w) {
-+		if (cb->args[4]) {
-+			cb->args[4] = 0;
-+			fib6_walker_unlink(w);
-+		}
- 		cb->args[2] = 0;
- 		kfree(w);
- 	}
-@@ -330,15 +334,12 @@ static int fib6_dump_table(struct fib6_table *table, struct sk_buff *skb,
- 		read_lock_bh(&table->tb6_lock);
- 		res = fib6_walk_continue(w);
- 		read_unlock_bh(&table->tb6_lock);
--		if (res != 0) {
--			if (res < 0)
--				fib6_walker_unlink(w);
--			goto end;
-+		if (res <= 0) {
-+			fib6_walker_unlink(w);
-+			cb->args[4] = 0;
- 		}
--		fib6_walker_unlink(w);
--		cb->args[4] = 0;
- 	}
--end:
-+
- 	return res;
+diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ps3_gelic_wireless.c
+index ec23142..335da48 100644
+--- a/drivers/net/ps3_gelic_wireless.c
++++ b/drivers/net/ps3_gelic_wireless.c
+@@ -2168,7 +2168,7 @@ static void gelic_wl_connected_event(struct gelic_wl_info *wl,
+ 		complete(&wl->assoc_done);
+ 		netif_carrier_on(port_to_netdev(wl_port(wl)));
+ 	} else
+-		pr_debug("%s: event %#lx under wpa\n",
++		pr_debug("%s: event %#llx under wpa\n",
+ 				 __func__, event);
  }
-
-Thanks,
+ 
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.0.5
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
