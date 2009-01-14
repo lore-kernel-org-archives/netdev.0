@@ -1,64 +1,46 @@
-From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: Re: [PATCH 08/16] dma-debug: add core checking functions
-Date: Wed, 14 Jan 2009 12:44:01 +0100
-Message-ID: <20090114114401.GL20283@amd.com>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-9-git-send-email-joerg.roedel@amd.com> <20090110231127.GK17917@elte.hu>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 03/16] dma-debug: add hash functions for
+	dma_debug_entries
+Date: Wed, 14 Jan 2009 12:43:47 +0100
+Message-ID: <20090114114347.GG8625@elte.hu>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1231517970-20288-4-git-send-email-joerg.roedel@amd.com> <20090113005118.82f5037b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
-	dwmw2@infradead.org, fujita.tomonori@lab.ntt.co.jp,
-	netdev@vger.kernel.org, iommu@lists.linux-foundation.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761409AbZANLog@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joerg Roedel <joerg.roedel@amd.com>, linux-kernel@vger.kernel.org,
+	mingo@redhat.com, dwmw2@infradead.org,
+	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:40305 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761799AbZANLon (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 06:44:43 -0500
 Content-Disposition: inline
-In-Reply-To: <20090110231127.GK17917@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090113005118.82f5037b.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 11, 2009 at 12:11:27AM +0100, Ingo Molnar wrote:
->=20
-> * Joerg Roedel <joerg.roedel@amd.com> wrote:
->=20
-> > +#define err_printk(dev, format, arg...) do {			\
-> > +		error_count +=3D 1;				\
-> > +		if (show_all_errors || show_num_errors > 0) {	\
-> > +			WARN(1, "%s %s: " format,		\
-> > +			     dev_driver_string(dev),		\
-> > +			     dev_name(dev) , ## arg);		\
-> > +		}						\
-> > +		if (!show_all_errors && show_num_errors > 0)	\
-> > +			show_num_errors -=3D 1;			\
->=20
-> Note that the arithmetics here is SMP-unsafe: we only hold the hash b=
-ucket=20
-> so if two errors hit at once on two CPUs then the error tracking vari=
-ables=20
-> can be accessed at once.
->=20
-> I'd suggest a simple global lock for this error case (taken inside th=
-e=20
-> hash bucket lock), to be on the safe side.
 
-As I wrote in a previous email, a race here is no big deal. I add a
-comment to document it. Or do we want another global lock here?
+* Andrew Morton <akpm@linux-foundation.org> wrote:
 
-> Also, please dont use a macro for this - printk details can be passed=
- in=20
-> to helper inlines/functions too.
+> On Fri, 9 Jan 2009 17:19:17 +0100 Joerg Roedel <joerg.roedel@amd.com> wrote:
+> 
+> > +struct hash_bucket {
+> > +	struct list_head list;
+> > +	spinlock_t lock;
+> > +} ____cacheline_aligned;
+> 
+> __cacheline_aligned_in_smp.
+> 
+> This all looks like an exotically large amount of code for a debug 
+> thingy?
 
-Hmm, how does this look like? There is not WARN variant which can use
-va_args as a parameter. And it is important that the error message is
-logged in the warning itself. So the driver developer can see it when a
-user reports the warning.
+this code checks the DMA usage of ~1 million lines of kernel code - all 
+the DMA using drivers. I think Joerg's feature is hugely relevant as DMA 
+scribbles are one of the hardest to debug kernel bugs: they can end up in 
+permanent data corruption or other hard to find bugs. In fact i think his 
+patchset is rather simple and even having 10 times as much debug code 
+would pay for its existence in the long run.
 
-Joerg
-
---=20
-           | Advanced Micro Devices GmbH
- Operating | Karl-Hammerschmidt-Str. 34, 85609 Dornach bei M=C3=BCnchen
- System    |=20
- Research  | Gesch=C3=A4ftsf=C3=BChrer: Jochen Polster, Thomas M. McCoy=
-, Giuliano Meroni
- Center    | Sitz: Dornach, Gemeinde Aschheim, Landkreis M=C3=BCnchen
-           | Registergericht M=C3=BCnchen, HRB Nr. 43632
+	Ingo
