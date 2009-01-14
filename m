@@ -1,54 +1,40 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH 01/02] hso patch to fix a -EIO from opening a hso serial
- device
-Date: Wed, 14 Jan 2009 11:38:28 +0000
-Message-ID: <20090114113828.7b9f59ca@lxorguk.ukuu.org.uk>
-References: <496DCAF7.9080906@option.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Wed, 14 Jan 2009 11:40:59 +0000
+Message-ID: <20090114114059.GA5848@ff.dom.local>
+References: <20090114085308.GB4234@ff.dom.local> <20090114.012919.117682429.davem@davemloft.net> <20090114094215.GC4234@ff.dom.local> <20090114.020637.181791518.davem@davemloft.net> <20090114104716.GE4234@ff.dom.local> <20090114112903.GB18662@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <496DCAF7.9080906-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net,
+	dada1@cosmosbay.com, w@1wt.eu, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f17.google.com ([209.85.219.17]:53977 "EHLO
+	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756723AbZANLlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 06:41:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20090114112903.GB18662@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jan 2009 12:22:31 +0100
-Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
+On Wed, Jan 14, 2009 at 10:29:03PM +1100, Herbert Xu wrote:
+> On Wed, Jan 14, 2009 at 10:47:16AM +0000, Jarek Poplawski wrote:
+> >
+> > > > I don't think Herbert meant other ->sendpage() implementations, but I
+> > > > could miss something.
+> > > 
+> > > I think he did :-)
+> > 
+> > I hope Herbert will make it clear.
+> 
+> Yes I did mean the other splice paths, and in particular, the path
+> to disk.  I hope that's clear enough :)
 
-> Hi All,
-> This is an important patch the linux-2.6.29-rc1 driver with itworks much
-> better than it did.
+So, I think I got it right: otherwise it would be enough to make this
+copy to a new page only before ->sendpage() calls e.g. in
+generic_splice_sendpage().
 
-How about this. 
-
-tty: Fix a kref leak in the HSO driver on re-open
-
-From: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
-
----
-
- drivers/net/usb/hso.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index c4918b8..9df04dd 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -1297,6 +1297,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
- 	/* setup */
- 	spin_lock_irq(&serial->serial_lock);
- 	tty->driver_data = serial;
-+	tty_kref_put(serial->tty);
- 	serial->tty = tty_kref_get(tty);
- 	spin_unlock_irq(&serial->serial_lock);
- 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jarek P.
