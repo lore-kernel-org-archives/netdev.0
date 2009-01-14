@@ -1,59 +1,33 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: maximum buffer size for splice(2) tcp->pipe?
-Date: Wed, 14 Jan 2009 11:17:57 +0100
-Message-ID: <496DBBD5.7080109@cosmosbay.com>
-References: <E1LKrp3-004Tub-IR@intern.SerNet.DE> <20090113123702.ad29cd13.akpm@linux-foundation.org> <496D2078.9080302@cosmosbay.com> <E1LN0MC-00DaJs-M2@intern.SerNet.DE> <496DACBE.3030701@cosmosbay.com> <E1LN2Vu-00DluN-6Z@intern.SerNet.DE>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
+Date: Wed, 14 Jan 2009 02:19:51 -0800 (PST)
+Message-ID: <20090114.021951.70638543.davem@davemloft.net>
+References: <20090114100550.GA22976@n2100.arm.linux.org.uk>
+	<1231928570.6810.12.camel@localhost>
+	<20090114101724.GD22976@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Steven French <sfrench@us.ibm.com>,
-	Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org
-To: Volker.Lendecke@SerNet.DE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stanley.miao@windriver.com, Steve.Glendinning@smsc.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:54281 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbZANKSt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:18:49 -0500
-In-Reply-To: <E1LN2Vu-00DluN-6Z@intern.SerNet.DE>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58592
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758379AbZANKTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:19:50 -0500
+In-Reply-To: <20090114101724.GD22976@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Volker Lendecke a =E9crit :
-> On Wed, Jan 14, 2009 at 10:13:34AM +0100, Eric Dumazet wrote:
->> for (;;) {
->> 	struct pollfd pfd;
->> 	pfd.fd =3D socket;
->> 	pfd.events =3D POLLIN;
->> 	if (poll(&pfd, 1, -1) !=3D 1)
->> 		continue;
->> 	res =3D splice(socket, NULL, pipefds[1], NULL, 65536, SPLICE_F_MOVE=
-|SPLICE_F_NONBLOCK);
->> 	if (res > 0)
->> 		nwritten =3D splice(pipefds[0], NULL, file_fd, NULL, res, SPLICE_F=
-_MOVE|SPLICE_F_MORE);
->> }
->=20
-> Doesn't this reduce performance again? I thought the whole
-> point of splice() was to increase performance by avoiding
-> memory copies. If I have to do a poll syscall for each call
-> to splice, doesn't the context switch eat that performance
-> advantage again?
->=20
-> Or was splice designed only for multi-threaded applications
-> (which at least Samba is not)?
->=20
-> Volker
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Wed, 14 Jan 2009 10:17:24 +0000
 
-splice() avoids memory copies yes, but on typical 1460 bytes
-frames its a small gain.
+> My interest comes via the addition of the ARM mailing lists to this
+> thread.
 
-But if no data is available on socket,
-you still have to wait (and have a context switch later).
+Good, because the patch was CC:'d to
+linux-arm-kernel@lists.arm.linux.org.uk
 
-Waiting in poll() or splice() has same context switch cost.
-
-Only cost is the extra syscall of course, but it is mandatory
-if you want to avoid a possible deadlock in current splice()
-implementation.
+Maybe some filters didn't let it pass? :-)
 
