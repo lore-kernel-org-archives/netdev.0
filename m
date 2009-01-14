@@ -1,51 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 10/34]bnx2x: Compilation issue on IA64
-Date: Wed, 14 Jan 2009 17:07:04 +0000
-Message-ID: <1231952824.3010.29.camel@achroite>
-References: <1231951391.11301.131.camel@lb-tlvb-eliezer>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
+Date: Wed, 14 Jan 2009 17:07:31 +0000
+Message-ID: <20090114170731.GH22976@n2100.arm.linux.org.uk>
+References: <1231916280-7391-1-git-send-email-stanley.miao@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eilon Greenstein <eilong@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Steve.Glendinning@smsc.com,
+	linux-arm-kernel@lists.arm.linux.org.uk
+To: "Stanley.Miao" <stanley.miao@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:43941 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753291AbZANRHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 12:07:11 -0500
-In-Reply-To: <1231951391.11301.131.camel@lb-tlvb-eliezer>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:33987 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761765AbZANRHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 12:07:39 -0500
+Content-Disposition: inline
+In-Reply-To: <1231916280-7391-1-git-send-email-stanley.miao@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-14 at 18:43 +0200, Eilon Greenstein wrote:
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> ---
->  drivers/net/bnx2x_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> index 4993707..ba56d1c 100644
-> --- a/drivers/net/bnx2x_main.c
-> +++ b/drivers/net/bnx2x_main.c
-> @@ -1199,7 +1199,7 @@ static void bnx2x_tpa_start(struct bnx2x_fastpath *fp, u16 queue,
+On Wed, Jan 14, 2009 at 02:58:00PM +0800, Stanley.Miao wrote:
+> When calling request IRQ it is desirable to allow platforms
+> to specific flags for the call to request_irq. Adding irq_flags
+> to smsc911x_platform_config allows these flags to be passed.
+
+Yay, it's finally come through.
+
+> @@ -1968,8 +1969,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+>  	smsc911x_reg_write(pdata, INT_EN, 0);
+>  	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
 >  
->  #ifdef BNX2X_STOP_ON_ERROR
->  	fp->tpa_queue_used |= (1 << queue);
-> -#ifdef __powerpc64__
-> +#if (defined __powerpc64__) || (defined _ASM_IA64_TYPES_H)
->  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%lx\n",
->  #else
->  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%llx\n",
+> -	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
+> -			     dev->name, dev);
+> +	irq_flags = IRQF_DISABLED | pdata->config.irq_flags;
+> +	retval = request_irq(dev->irq, smsc911x_irqhandler, irq_flags,
+> +				dev->name, dev);
 
-Or you could cast the value to unsigned long long and remove this
-fragile #ifdef.
-
-Maybe <linux/types.h> should define format strings like C99's PRIx64..
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Same comments as for the other driver.
