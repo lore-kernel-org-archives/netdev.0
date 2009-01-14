@@ -1,32 +1,128 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 4/4] virtio_net: Add a MAC filter table
-Date: Wed, 14 Jan 2009 16:38:56 +0000
-Message-ID: <1231951136.4944.305.camel@localhost.localdomain>
-References: <1231881800.9095.189.camel@bling>
-	 <1231928112.4944.292.camel@localhost.localdomain>
-	 <1231950031.7109.307.camel@lappy>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [PATCH 01/34]bnx2x: Using singlethread work queue
+Date: Wed, 14 Jan 2009 18:42:40 +0200
+Message-ID: <1231951360.11301.122.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
+To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
-To: Alex Williamson <alex.williamson@hp.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1231950031.7109.307.camel@lappy>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1340 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758986AbZANQn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:43:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-14 at 09:20 -0700, Alex Williamson wrote:
-> > Also, no need for the extra variable or the case, is there?
-> 
-> Initially, that's what I thought too... but it doesn't work, I always
-> got 0 on the backend.  I assume it has something to do with the memory
-> segment mac_entries lives in as a static variable.
+Since slow-path events, including link update, are handled in work-queue, a race
+condition was introduced in the self-test that sometimes caused the link status
+to fail: the self-test was running under RTNL lock, and if the link-watch was
+scheduled it stoped the shared work-queue (waiting for the RTNL lock) and so the
+link update event was not handled until the self-test ended (releasing the RTNL
+lock) with failure (since the link status was not updated)
 
-Bizarre - it'd be good to understand exactly why. Add a comment to that
-effect, at least.
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x.h      |    2 +-
+ drivers/net/bnx2x_main.c |   20 +++++++++++++++-----
+ 2 files changed, 16 insertions(+), 6 deletions(-)
 
-Cheers,
-Mark.
+diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
+index fd705d1..96a8889 100644
+--- a/drivers/net/bnx2x.h
++++ b/drivers/net/bnx2x.h
+@@ -811,7 +811,7 @@ struct bnx2x {
+ 	int			pm_cap;
+ 	int			pcie_cap;
+ 
+-	struct work_struct	sp_task;
++	struct delayed_work	sp_task;
+ 	struct work_struct	reset_task;
+ 
+ 	struct timer_list	timer;
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 4be0584..cc6ffba 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -95,6 +95,7 @@ MODULE_PARM_DESC(debug, "default debug msglevel");
+ module_param(use_multi, int, 0);
+ MODULE_PARM_DESC(use_multi, "use per-CPU queues");
+ #endif
++static struct workqueue_struct *bnx2x_wq;
+ 
+ enum bnx2x_board_type {
+ 	BCM57710 = 0,
+@@ -671,7 +672,8 @@ static void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw)
+ 		synchronize_irq(bp->pdev->irq);
+ 
+ 	/* make sure sp_task is not running */
+-	cancel_work_sync(&bp->sp_task);
++	cancel_delayed_work(&bp->sp_task);
++	flush_workqueue(bnx2x_wq);
+ }
+ 
+ /* fast path */
+@@ -1660,7 +1662,7 @@ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
+ 
+ 
+ 	if (unlikely(status & 0x1)) {
+-		schedule_work(&bp->sp_task);
++		queue_delayed_work(bnx2x_wq, &bp->sp_task, 0);
+ 
+ 		status &= ~0x1;
+ 		if (!status)
+@@ -2820,7 +2822,7 @@ static void bnx2x_attn_int(struct bnx2x *bp)
+ 
+ static void bnx2x_sp_task(struct work_struct *work)
+ {
+-	struct bnx2x *bp = container_of(work, struct bnx2x, sp_task);
++	struct bnx2x *bp = container_of(work, struct bnx2x, sp_task.work);
+ 	u16 status;
+ 
+ 
+@@ -2875,7 +2877,7 @@ static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+ 		return IRQ_HANDLED;
+ #endif
+ 
+-	schedule_work(&bp->sp_task);
++	queue_delayed_work(bnx2x_wq, &bp->sp_task, 0);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -7501,7 +7503,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 
+ 	mutex_init(&bp->port.phy_mutex);
+ 
+-	INIT_WORK(&bp->sp_task, bnx2x_sp_task);
++	INIT_DELAYED_WORK(&bp->sp_task, bnx2x_sp_task);
+ 	INIT_WORK(&bp->reset_task, bnx2x_reset_task);
+ 
+ 	rc = bnx2x_get_hwinfo(bp);
+@@ -10519,12 +10521,20 @@ static struct pci_driver bnx2x_pci_driver = {
+ 
+ static int __init bnx2x_init(void)
+ {
++	bnx2x_wq = create_singlethread_workqueue("bnx2x");
++	if (bnx2x_wq == NULL) {
++		printk(KERN_ERR PFX "Cannot create workqueue\n");
++		return -ENOMEM;
++	}
++
+ 	return pci_register_driver(&bnx2x_pci_driver);
+ }
+ 
+ static void __exit bnx2x_cleanup(void)
+ {
+ 	pci_unregister_driver(&bnx2x_pci_driver);
++
++	destroy_workqueue(bnx2x_wq);
+ }
+ 
+ module_init(bnx2x_init);
+-- 
+1.5.4.3
+
+
+
 
