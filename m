@@ -1,85 +1,74 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH 4/4] virtio_net: Add a MAC filter table
-Date: Wed, 14 Jan 2009 09:20:31 -0700
-Message-ID: <1231950031.7109.307.camel@lappy>
-References: <1231881800.9095.189.camel@bling>
-	 <1231928112.4944.292.camel@localhost.localdomain>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PULL -tip] fixed few make headers_check warnings
+Date: Wed, 14 Jan 2009 17:36:14 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0901141732450.26663@anakin>
+References: <1231836016.3212.41.camel@jaswinder.satnam>
+ <Pine.LNX.4.64.0901140954250.27308@anakin> <3f9a31f40901140129i1389f47frf32808f3a695a118@mail.gmail.com>
+ <20090114153825.GB32082@uranus.ravnborg.org>
+ <3f9a31f40901140759s1542e6cclae1808b796c2b1a9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sam Ravnborg <sam@ravnborg.org>,
+	Jaswinder Singh Rajput <jaswinder@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	x86 maintainers <x86@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Mark McLoughlin <markmc@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1231928112.4944.292.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wilson.telenet-ops.be ([195.130.132.42]:46244 "EHLO
+	wilson.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758044AbZANQgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 11:36:18 -0500
+In-Reply-To: <3f9a31f40901140759s1542e6cclae1808b796c2b1a9@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-14 at 10:15 +0000, Mark McLoughlin wrote:
-> On Tue, 2009-01-13 at 14:23 -0700, Alex Williamson wrote:
-> > Number of entries configurable via module param.
+On Wed, 14 Jan 2009, Jaswinder Singh Rajput wrote:
+> On Wed, Jan 14, 2009 at 9:08 PM, Sam Ravnborg <sam@ravnborg.org> wrote:
+> > I appreciate your work but I will like to question the approach.
 > 
-> Could do with some more details here, like explaining that it means the
-> we no longer run the NIC in promiscuous mode and the guest only receives
-> packets destined for it.
-
-Yep, thanks.
-
-> > +	else {
-> > +		unsigned int entries;
-> > +
-> > +		entries = mac_entries = min(mac_entries,
-> > +					(unsigned int)(PAGE_SIZE / ETH_ALEN));
-> > +		if (virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC_TABLE,
-> > +					 VIRTIO_NET_CTRL_MAC_TABLE_ALLOC,
-> > +					 &entries, sizeof(entries)))
-> > +			mac_entries = 0;
-> > +	}
+> My approach was:
+> "PATCH should solve a problem per file", like:
+>  capability.h: extern's make no sense in userspace
+>  coda_psdev.h: extern's make no sense in userspace
+>  in6.h: extern's make no sense in userspace
+>  nubus.h: extern's make no sense in userspace
+>  socket.h: extern's make no sense in userspace
 > 
-> Should have a warning here.
-
-I agree.
-
-> Also, no need for the extra variable or the case, is there?
-
-Initially, that's what I thought too... but it doesn't work, I always
-got 0 on the backend.  I assume it has something to do with the memory
-segment mac_entries lives in as a static variable.
-
-> >  	/* Initialize our empty receive and send queues. */
-> >  	skb_queue_head_init(&vi->recv);
-> > diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> > index 80cd7d3..31235a0 100644
-> > --- a/include/linux/virtio_net.h
-> > +++ b/include/linux/virtio_net.h
-> > @@ -60,4 +60,8 @@ struct virtio_net_hdr_mrg_rxbuf {
-> >   #define VIRTIO_NET_CTRL_RX_MODE_PROMISC      0
-> >   #define VIRTIO_NET_CTRL_RX_MODE_ALLMULTI     1
-> >  
-> > +#define VIRTIO_NET_CTRL_MAC_TABLE  1
-> > + #define VIRTIO_NET_CTRL_MAC_TABLE_ALLOC      0
-> > + #define VIRTIO_NET_CTRL_MAC_TABLE_SET        1
+> But this warnings was in many files:
+>  include of <linux/types.h> is preferred over <asm/types.h> : 15 files
+>  found __[us]{8,16,32,64} type without #include <linux/types.h> : 52 files
 > 
-> I'd prefer:
+> So in place of making 15 + 52 = 67 patches, I made 2 patches for each warning.
 > 
-> #define VIRTIO_NET_CMD_ALLOC_MAC_TABLE 1
-> #define VIRTIO_NET_CMD_SET_MAC_TABLE   2
-
-Hmm, I'm still leaning towards the class/cmd, which would allow the
-backend to logically split class commands into sub-functions.  But i'd
-be happy to rename these to VIRTIO_NET_CMD_...
-
-> Also, could do with some comments here to note e.g.:
+> > We should rather take the warnings as an indication that this
+> > file needs to be looked over and fix not only the warnings
+> > reported but rater to fix all the questionable issues on a file-by-file basis.
 > 
->   - alloc before set
->   - subsequent allocs will fail
->   - table limited to PAGE_SIZE (hmm, who's PAGE_SIZE?)
->   - format of the table
+> Should I make 67 patches ?
 
-Agree, thanks for the comments.
+No.
 
-Alex
+What Sam means is that the warnings about externs not making sense in userspace
+are indicators that there may be other external declarations (without "extern")
+in those files, and that you should fix those at the same time (i.e. either
+don't fix any of them, or fix all of them (in the same file)). If you don't
+fix them at the same time, people tend to forget about them.
 
--- 
-Alex Williamson                             HP Open Source & Linux Org.
+So the warnings are just considered canaries in our coal mine. Killing only the
+canaries doesn't help.
 
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
