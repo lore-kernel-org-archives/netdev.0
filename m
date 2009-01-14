@@ -1,85 +1,41 @@
-From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 01/02] hso patch to fix a -EIO from opening a hso serial
- device
-Date: Wed, 14 Jan 2009 13:40:34 +0100
-Message-ID: <496DDD42.6060601@option.com>
-References: <496DCAF7.9080906@option.com> <20090114113828.7b9f59ca@lxorguk.ukuu.org.uk>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: deadlocks if use htb
+Date: Wed, 14 Jan 2009 14:41:34 +0200
+Message-ID: <200901141441.34257.denys@visp.net.lb>
+References: <20081010090426.GA6054@ff.dom.local> <200901141417.58667.denys@visp.net.lb> <20090114123623.GA6117@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090114113828.7b9f59ca-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Chris Caputo <ccaputo@alt.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Badalian Vyacheslav <slavon@bigtelecom.ru>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:58674 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755950AbZANMlk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 07:41:40 -0500
+In-Reply-To: <20090114123623.GA6117@ff.dom.local>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
-Your fix works too I suspect better than mine & since you've a better idea of what
-you are doing with tty layer than I do we'll stick with
-your fix.
-
-Do you want me to switch off the low latency stuff in the
-driver?
-
-I also need to investigate the tty_kref_put & tty_kref_get
-& when it was added to the kernel so I can fix stuff for our
-internal driver
-
-
-
-Alan Cox wrote:
-> On Wed, 14 Jan 2009 12:22:31 +0100
-> Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
-> 
->> Hi All,
->> This is an important patch the linux-2.6.29-rc1 driver with itworks much
->> better than it did.
-> 
-> How about this. 
-> 
-> tty: Fix a kref leak in the HSO driver on re-open
-> 
-> From: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> 
-> 
-> ---
-> 
->  drivers/net/usb/hso.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index c4918b8..9df04dd 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -1297,6 +1297,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
->  	/* setup */
->  	spin_lock_irq(&serial->serial_lock);
->  	tty->driver_data = serial;
-> +	tty_kref_put(serial->tty);
->  	serial->tty = tty_kref_get(tty);
->  	spin_unlock_irq(&serial->serial_lock);
->  
-
-
--- 
-best regards,
-D.J. Barrow
-
-Linux Kernel Developer
-Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
- 
-T: +32 16 311 621
-F: +32 16 207 164
-d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-www.option.com
-
-Disclaimer:
-http://www.option.com/company/disclaimer.shtml
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wednesday 14 January 2009 14:36:23 Jarek Poplawski wrote:
+> On Wed, Jan 14, 2009 at 02:17:58PM +0200, Denys Fedoryschenko wrote:
+> > I will try that patches too, when i got this message, after 3 minutes i
+> > got crash of my router :-) after working around 17 hours :-(
+> > There is 3 of them by the way, 2 fixes also.
+> >
+> > hrtimer: removing all ur callback modes
+> > hrtimer: removing all ur callback modes, fix hotplug
+> > hrtimer: removing all ur callback modes, fix
+>
+> Yes, it's a very nasty bug which, BTW you reported the first AFAIK,
+> but I hope it's really gone with these patches.
+>
+If it is really fix, it must go to mainline ASAP.
+Because really many people hitting this bug... and complaining, that "Linux 
+with htb not stable".
+But i think it is not just fix :-(
