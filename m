@@ -1,89 +1,31 @@
-From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-Subject: Re: [PATCH] Add init_dummy_netdev() and fix EMAC driver using it
-Date: Wed, 14 Jan 2009 11:00:05 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0901141057110.31703@vixen.sonytel.be>
-References: <1231906495.22571.79.camel@pasglop>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Wed, 14 Jan 2009 11:01:18 +0100
+Message-ID: <20090114100118.GA9888@1wt.eu>
+References: <20090113.232710.55011568.davem@davemloft.net> <20090114082630.GB16692@gondor.apana.org.au> <20090114085308.GB4234@ff.dom.local> <20090114.012919.117682429.davem@davemloft.net> <20090114095454.GD4234@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	zbr@ioremap.net, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vervifontaine.sonytel.be ([80.88.33.193]:62510 "EHLO
-	vervifontaine.sonycom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757509AbZANKAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:00:08 -0500
-In-Reply-To: <1231906495.22571.79.camel@pasglop>
+Received: from 1wt.eu ([62.212.114.60]:1470 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754407AbZANKCD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 05:02:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20090114095454.GD4234@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jan 2009, Benjamin Herrenschmidt wrote:
-> This adds an init_dummy_netdev() function that gets a network device
-> structure (allocation and lifetime entirely under caller's control) a=
-nd
-> initialize the minimum amount of fields so it can be used to schedule
-> NAPI polls without registering a full blown interface. This is to be
-> used by drivers that need to tie several hardware interfaces to a sin=
-gle
-> NAPI poll scheduler due to HW limitations.
->=20
-> It also updates the ibm_newemac driver to use that, this fixing the
-> oops on 2.6.29 due to passing NULL as "dev" to netif_napi_add()
->=20
-> Symbol is exported GPL only a I don't think we want binary drivers do=
-ing
-> that sort of acrobatics (if we want them at all).
->=20
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+On Wed, Jan 14, 2009 at 09:54:54AM +0000, Jarek Poplawski wrote:
+> You are very brave! I'd prefer to wait for at least minimal testing
+> by Willy...
 
-Thanks, this fixed my Sequoia!
+Will test, probably this evening.
 
-Tested-by: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Thanks guys,
+Willy
 
-> --- linux-work.orig/include/linux/netdevice.h	2009-01-13 16:13:41.000=
-000000 +1100
-> +++ linux-work/include/linux/netdevice.h	2009-01-14 14:13:24.00000000=
-0 +1100
-> @@ -4434,6 +4434,45 @@ err_uninit:
->  }
-> =20
->  /**
-> + *	init_dummy_netdev	- init a dummy network device for NAPI
-> + *	@dev: device to init
-> + *
-> + *	This takes a network device structure and initialize the minimum
-                                                  ^^^^^^^^^^
-						  initializes
-> + *	amount of fields so it can be used to schedule NAPI polls without
-> + *	registering a full blown interface. This is to be used by drivers
-> + *	that need to tie several hardware interfaces to a single NAPI
-> + *	poll scheduler due to HW limitations.
-> + */
-> +int init_dummy_netdev(struct net_device *dev)
-> +{
-> +	/* Clear everything. Note we don't initialize spinlocks
-> +	 * are they aren't supposed to be taken by any of the
-           ^^^
-	   as
-> +	 * NAPI code and this dummy netdev is supposed to be
-> +	 * only ever used for NAPI polls
-> +	 */
-
-With kind regards,
-
-Geert Uytterhoeven
-Software Architect
-
-Sony Techsoft Centre Europe
-The Corporate Village =C2=B7 Da Vincilaan 7-D1 =C2=B7 B-1935 Zaventem =C2=
-=B7 Belgium
-
-Phone:    +32 (0)2 700 8453
-=46ax:      +32 (0)2 700 8622
-E-mail:   Geert.Uytterhoeven@sonycom.com
-Internet: http://www.sony-europe.com/
-
-A division of Sony Europe (Belgium) N.V.
-VAT BE 0413.825.160 =C2=B7 RPR Brussels
-=46ortis =C2=B7 BIC GEBABEBB =C2=B7 IBAN BE41293037680010
