@@ -1,72 +1,111 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Wed, 14 Jan 2009 10:47:16 +0000
-Message-ID: <20090114104716.GE4234@ff.dom.local>
-References: <20090114085308.GB4234@ff.dom.local> <20090114.012919.117682429.davem@davemloft.net> <20090114094215.GC4234@ff.dom.local> <20090114.020637.181791518.davem@davemloft.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH] xen/netfront: do not mark packets of length < MSS as
+	GSO
+Date: Wed, 14 Jan 2009 10:59:12 +0000
+Message-ID: <1231930752.4078.18.camel@zakaz.uk.xensource.com>
+References: <20090114041845.GA8881@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, dada1@cosmosbay.com,
-	w@1wt.eu, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, jeremy@goop.org,
+	jgarzik@pobox.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:47377 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752351AbZANKrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:47:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20090114.020637.181791518.davem@davemloft.net>
+Received: from smtp02.citrix.com ([66.165.176.63]:45539 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755277AbZANK7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:59:44 -0500
+In-Reply-To: <20090114041845.GA8881@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 02:06:37AM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Wed, 14 Jan 2009 09:42:16 +0000
-> 
-> > On Wed, Jan 14, 2009 at 01:29:19AM -0800, David Miller wrote:
-> > > From: Jarek Poplawski <jarkao2@gmail.com>
-> > > Date: Wed, 14 Jan 2009 08:53:08 +0000
-> > > 
-> > > > Actually, I still think my second approach (the PageSlab) is probably
-> > > > (if tested) the easiest for now, because it should fix the reported
-> > > > (Willy's) problem, without any change or copy overhead for splice to
-> > > > file (which could be still wrong, but not obviously wrong).
-> > > 
-> > > It's a simple fix, but as Herbert stated it leaves other ->sendpage()
-> > > implementations exposed to data corruption when the from side of the
-> > > pipe buffer is a socket.
+On Wed, 2009-01-14 at 15:18 +1100, Herbert Xu wrote:
+> Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> > Linux assumes that skbs marked for GSO are longer than MSS. In
+> > particular tcp_tso_segment assumes that skb_segment will return a
+> > chain of at least 2 skbs.
 > > 
-> > I don't think Herbert meant other ->sendpage() implementations, but I
-> > could miss something.
-> 
-> I think he did :-)
-
-I hope Herbert will make it clear.
-
-> 
-> Or, more generally, he could have been referring to splice pipe
-> outputs.  All of these things grab references to pages and
-> expect that to keep the underlying data from being reallocated.
-> 
-> That doesn't work for this skb->data case.
-> 
-> > > That, to me, is almost worse than a bad fix.
-> > > 
-> > > It's definitely worse than a slower but full fix, which the copy
-> > > patch is.
+> > Therefore netfront should not pass such a packet up the stack.
 > > 
-> > Sorry, I can't see how this patch could make sendpage worse.
+> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> > Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+> > Cc: jgarzik@pobox.com
+> > Cc: netdev@vger.kernel.org
 > 
-> Because that patch only fixes TCP's ->sendpage() implementation.
+> Great catch!
+> 
+> But we should fix this in the stack instead.
+> 
+> gso: Ensure that the packet is long enough
+> 
+> When we get a GSO packet from an untrusted source, we need to
+> ensure that it is sufficiently long so that we don't end up
+> crashing.
+> 
+> Based on discovery and patch by Ian Campbell.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Yes, it fixes (I hope) the only reported implementation.
+Looks good, thanks.
+
+Tested-by: Ian Campbell <ian.campbell@citrix.com>
 
 > 
-> There are others out there which could end up experiencing similar
-> data corruption.
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index bd6ff90..12e56ec 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2383,7 +2383,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+>  	unsigned int seq;
+>  	__be32 delta;
+>  	unsigned int oldlen;
+> -	unsigned int len;
+> +	unsigned int mss;
+>  
+>  	if (!pskb_may_pull(skb, sizeof(*th)))
+>  		goto out;
+> @@ -2399,10 +2399,13 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+>  	oldlen = (u16)~skb->len;
+>  	__skb_pull(skb, thlen);
+>  
+> +	mss = skb_shinfo(skb)->gso_size;
+> +	if (unlikely(skb->len <= mss))
+> +		goto out;
+> +
+>  	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+>  		/* Packet is from an untrusted source, reset gso_segs. */
+>  		int type = skb_shinfo(skb)->gso_type;
+> -		int mss;
+>  
+>  		if (unlikely(type &
+>  			     ~(SKB_GSO_TCPV4 |
+> @@ -2413,7 +2416,6 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+>  			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
+>  			goto out;
+>  
+> -		mss = skb_shinfo(skb)->gso_size;
+>  		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+>  
+>  		segs = NULL;
+> @@ -2424,8 +2426,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+>  	if (IS_ERR(segs))
+>  		goto out;
+>  
+> -	len = skb_shinfo(skb)->gso_size;
+> -	delta = htonl(oldlen + (thlen + len));
+> +	delta = htonl(oldlen + (thlen + mss));
+>  
+>  	skb = segs;
+>  	th = tcp_hdr(skb);
+> @@ -2441,7 +2442,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int features)
+>  			     csum_fold(csum_partial(skb_transport_header(skb),
+>  						    thlen, skb->csum));
+>  
+> -		seq += len;
+> +		seq += mss;
+>  		skb = skb->next;
+>  		th = tcp_hdr(skb);
+>  
+> 
+> Thanks,
 
-Since this fix is very simple (and IMHO safe) it could be probably
-used elsewhere too, but I doubt we should care at the moment.
-
-Jarek P.
