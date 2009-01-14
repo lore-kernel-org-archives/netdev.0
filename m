@@ -1,7 +1,7 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 23/34]bnx2x: Handling probe failures
-Date: Wed, 14 Jan 2009 18:43:52 +0200
-Message-ID: <1231951432.11301.144.camel@lb-tlvb-eliezer>
+Subject: [PATCH 24/34]bnx2x: Potential race after iSCSI boot
+Date: Wed, 14 Jan 2009 18:43:56 +0200
+Message-ID: <1231951436.11301.145.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,45 +10,64 @@ To: "David Miller" <davem@davemloft.net>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:1340 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764022AbZANQot (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:44:49 -0500
+	id S1763886AbZANQox (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:44:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Failures in the probe not handled correctly - separate the flow to handle
-different failures
+The lock was release too soon. Make sure the HW is marked as locked until the
+boot driver was unloaded from FW perspective
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   12 +++++-------
- 1 files changed, 5 insertions(+), 7 deletions(-)
+ drivers/net/bnx2x_main.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 6ce1388..e875dd2 100644
+index e875dd2..5f0d2de 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -10310,17 +10310,15 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
- 		return rc;
- 	}
- 
--	rc = register_netdev(dev);
--	if (rc) {
--		dev_err(&pdev->dev, "Cannot register net device\n");
--		goto init_one_exit;
--	}
+@@ -6909,10 +6909,6 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 		 */
+ 		bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
+ 		val = REG_RD(bp, DORQ_REG_NORM_CID_OFST);
+-		if (val == 0x7)
+-			REG_WR(bp, DORQ_REG_NORM_CID_OFST, 0);
+-		bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
 -
- 	pci_set_drvdata(pdev, dev);
+ 		if (val == 0x7) {
+ 			u32 reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
+ 			/* save our func */
+@@ -6920,6 +6916,9 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 			u32 swap_en;
+ 			u32 swap_val;
  
- 	rc = bnx2x_init_bp(bp);
-+	if (rc)
-+		goto init_one_exit;
++			/* clear the UNDI indication */
++			REG_WR(bp, DORQ_REG_NORM_CID_OFST, 0);
 +
-+	rc = register_netdev(dev);
- 	if (rc) {
--		unregister_netdev(dev);
-+		dev_err(&pdev->dev, "Cannot register net device\n");
- 		goto init_one_exit;
+ 			BNX2X_DEV_INFO("UNDI is active! reset device\n");
+ 
+ 			/* try unload UNDI on port 0 */
+@@ -6945,6 +6944,9 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 				bnx2x_fw_command(bp, reset_code);
+ 			}
+ 
++			/* now it's safe to release the lock */
++			bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
++
+ 			REG_WR(bp, (BP_PORT(bp) ? HC_REG_CONFIG_1 :
+ 				    HC_REG_CONFIG_0), 0x1000);
+ 
+@@ -6989,7 +6991,9 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 			bp->fw_seq =
+ 			       (SHMEM_RD(bp, func_mb[bp->func].drv_mb_header) &
+ 				DRV_MSG_SEQ_NUMBER_MASK);
+-		}
++
++		} else
++			bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
  	}
+ }
  
 -- 
 1.5.4.3
