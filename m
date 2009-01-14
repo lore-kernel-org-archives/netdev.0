@@ -1,38 +1,50 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on 2.6.24?
-Date: Wed, 14 Jan 2009 00:08:42 -0800
-Message-ID: <496D9D8A.8080804@hp.com>
-References: <20090113063205.GA26047@gondor.apana.org.au>	<20090113015614.3b815ad7.billfink@mindspring.com>	<496C3D5C.7080407@hp.com> <20090114030531.a29680c6.billfink@mindspring.com>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
+Date: Wed, 14 Jan 2009 09:09:43 +0100
+Message-ID: <200901140909.44982.oliver@neukum.org>
+References: <1231805322.12962.4.camel@tux.localhost> <200901131207.03724.oliver@neukum.org> <208cbae30901131622heccfee6uf312022ba1d4fb28@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	ilpo.jarvinen@helsinki.fi, zbr@ioremap.net,
-	bert.hubert@netherlabs.nl, h.willstrand@gmail.com,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:7370 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755100AbZANIIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 03:08:53 -0500
-In-Reply-To: <20090114030531.a29680c6.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David Brownell" <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	"Greg KH" <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Alexey Klimov" <klimov.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <208cbae30901131622heccfee6uf312022ba1d4fb28-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->>How likely is it that the "additional small delay" above would be much 
->>less than waiting for a read return of zero after a shutdown(SHUT_WR) call?
-> 
-> 
-> I'm not sure I understand what you're getting at.  I did consider doing
-> something like what you suggested, but in the end decided it was simpler
-> to deal with a fully ESTABLISHED connection, than worrying about possible
-> races with a socket being (partially or fully) closed.
+Am Wednesday 14 January 2009 01:22:26 schrieb Alexey Klimov:
+> > Use the interface passed into probe(): =A0dev_err(&intf->dev, ...) =
+etc
 
-Ostensibly, using a shutdown(SHUT_WR) and then a wait for a recv return 
-of zero would take about the same length of time as polling local 
-connection stats to see that there were no ostensibly unacked data - 
-both will take one RTT right?  and shutdown/read has the added property 
-that it will deal with zero windows automagically.
+A USB driver is fundamentally a driver for a device's interfaces.
+Therefore the interface's device struct is the obviously correct choice=
+=2E
 
-rick
+> Well, in few v4l-dvb drivers successfully used &radio->usbdev->dev in
+> debug messages and that doesn't look wrong.
+
+That will not allow you to identify which interface caused the message.
+=20
+> Hmm, i see that struct usb_interface passed to probe function for
+> example, and here in catc_irq_done struct urb passed, and then we hav=
+e
+> struct catc. So, messages based on catc->usbdev->dev. I can switch to
+> &catc->netdev->dev when it's safe to do, right?
+
+You cannot. The point of passing a device pointer is to identify the de=
+vice.
+The device in the network view and the USB view is not identical. You
+have to pick one choice and stick with it and if for some reason that i=
+s not
+possible you cannot use this debugging functions.
+
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
