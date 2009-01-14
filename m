@@ -1,37 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Wed, 14 Jan 2009 06:39:09 +0000
-Message-ID: <20090114063909.GA4234@ff.dom.local>
-References: <20081010090426.GA6054@ff.dom.local> <20081010095129.GB6054@ff.dom.local> <48F6FB3E.7060903@bigtelecom.ru> <20081016084027.GA17632@ff.dom.local> <48FEC302.5090707@bigtelecom.ru> <20081022070200.GB4178@ff.dom.local> <493FDCD4.5020108@bigtelecom.ru> <20081218081737.GA8416@ff.dom.local> <Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Chris Caputo <ccaputo@alt.net>
+From: "Stanley.Miao" <stanley.miao@windriver.com>
+Subject: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
+Date: Wed, 14 Jan 2009 14:58:00 +0800
+Message-ID: <1231916280-7391-1-git-send-email-stanley.miao@windriver.com>
+Cc: Steve.Glendinning@smsc.com, linux-arm-kernel@lists.arm.linux.org.uk
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f17.google.com ([209.85.219.17]:55376 "EHLO
-	mail-ew0-f17.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752323AbZANGjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 01:39:15 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>
+Received: from mail.windriver.com ([147.11.1.11]:60099 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752105AbZANGtq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 01:49:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 02:43:13AM +0000, Chris Caputo wrote:
-...
-> Per Jarek's suggestion in bugzilla, I ran 2.6.28 plus Peter Zijlstra's 
-> "hrtimer: removing all ur callback modes" patches dated 2008-11-25, 
-> 2008-12-04 and 2008-12-08.  Uptime was 2 days 22 hours before I hit what 
-> appears to be an unrelated bug related to the IPv6 FIB.  (Separately 
-> reported with subject 'panic with 2.6.28 while doing "ip -6 route"'.)
+When calling request IRQ it is desirable to allow platforms
+to specific flags for the call to request_irq. Adding irq_flags
+to smsc911x_platform_config allows these flags to be passed.
 
-Chris, this is a very good news, thanks for testing this!
+Signed-off-by: Stanley.Miao <stanley.miao@windriver.com>
+---
+ drivers/net/smsc911x.c   |    6 ++++--
+ include/linux/smsc911x.h |    1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-Peter, great work! IMHO these patches should go to the stable (at
-least 2.6.28).
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index f513bdf..1092517 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1896,6 +1896,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	unsigned int intcfg = 0;
+ 	int res_size;
+ 	int retval;
++	unsigned int irq_flags;
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	pr_info("%s: Driver version %s.\n", SMSC_CHIPNAME, SMSC_DRV_VERSION);
+@@ -1968,8 +1969,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	smsc911x_reg_write(pdata, INT_EN, 0);
+ 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
+ 
+-	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
+-			     dev->name, dev);
++	irq_flags = IRQF_DISABLED | pdata->config.irq_flags;
++	retval = request_irq(dev->irq, smsc911x_irqhandler, irq_flags,
++				dev->name, dev);
+ 	if (retval) {
+ 		SMSC_WARNING(PROBE,
+ 			"Unable to claim requested irq: %d", dev->irq);
+diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
+index 1cbf031..0330f57 100644
+--- a/include/linux/smsc911x.h
++++ b/include/linux/smsc911x.h
+@@ -28,6 +28,7 @@
+ struct smsc911x_platform_config {
+ 	unsigned int irq_polarity;
+ 	unsigned int irq_type;
++	unsigned int irq_flags;
+ 	unsigned int flags;
+ 	phy_interface_t phy_interface;
+ };
+-- 
+1.5.6.3
 
-Thanks,
-Jarek P.
