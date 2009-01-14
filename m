@@ -1,33 +1,49 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
-Date: Wed, 14 Jan 2009 10:14:38 +0000
-Message-ID: <20090114101438.GC22976@n2100.arm.linux.org.uk>
-References: <1231916280-7391-1-git-send-email-stanley.miao@windriver.com> <OF8C316D93.937F4899-ON8025753E.0030604F-8025753E.003106B3@smsc.com> <20090114100550.GA22976@n2100.arm.linux.org.uk> <20090114.021124.222393549.davem@davemloft.net>
+From: Denis Joseph Barrow <D.Barow@option.com>
+Subject: Re: [PATCH] hso_spinlockfix.patch
+Date: Wed, 14 Jan 2009 11:14:58 +0100
+Message-ID: <496DBB22.6090909@option.com>
+References: <496DB66B.4070306@option.com> <20090114.020857.00093874.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve.Glendinning@smsc.com, stanley.miao@windriver.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Linux Serial <linux-serial@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:59095 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbZANKOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:14:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20090114.021124.222393549.davem@davemloft.net>
+Received: from mailer2.option.com ([81.246.70.163]:31335 "EHLO
+	mailer2.option.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754831AbZANKPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:15:08 -0500
+In-Reply-To: <20090114.020857.00093874.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 02:11:24AM -0800, David Miller wrote:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-> Date: Wed, 14 Jan 2009 10:05:50 +0000
+Thanks David
+Happy new year.
+I meant 2.6.28-rc6, 
+David Miller wrote:
+> From: Denis Joseph Barrow <D.Barow@option.com>
+> Date: Wed, 14 Jan 2009 10:54:51 +0100
 > 
-> > I can't really comment because it seems that there's no way to work out
-> > what patch you're acking.
+>> This is a really important fix it fixes a consistent kernel deadlock
+>> when the hso driver starts going. It's against 2.6.29-rc1, 2.6.29-rc6
+>> worked fine.
 > 
-> http://patchwork.ozlabs.org/patch/18386/
+> Are you able to travel in time? :-)  2.6.29-rc6 has not been
+> released yet.
 
-Ah, yes, it's doing as I thought.  I'll nak it then.
 
-There's really no need for this driver to start doing this a different way
-to the rest of the kernel.
+-- 
+best regards,
+D.J. Barrow
+
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
+ 
+T: +32 16 311 621
+F: +32 16 207 164
+d.barow@option.com
+www.option.com
+
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
