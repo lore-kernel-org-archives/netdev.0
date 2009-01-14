@@ -1,63 +1,48 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 28/34]bnx2x: Overstepping array bounds
-Date: Wed, 14 Jan 2009 18:44:10 +0200
-Message-ID: <1231951450.11301.149.camel@lb-tlvb-eliezer>
+Subject: [PATCH 32/34]bnx2x: Handling PHY FW load failure
+Date: Wed, 14 Jan 2009 18:44:24 +0200
+Message-ID: <1231951464.11301.153.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: "Yaniv Rosner" <yanivr@broadcom.com>
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:3140 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754096AbZANQpX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:45:23 -0500
+	id S1764154AbZANQpi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:45:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the page size is > 8KB this violation happens
+If the default PHY version (0x4321) is read - the PHY FW load failed
 
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x_link.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 0a18af0..cc83388 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -9466,6 +9466,7 @@ static inline u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
- 	return rc;
- }
- 
-+#if (MAX_SKB_FRAGS >= MAX_FETCH_BD - 3)
- /* check if packet requires linearization (packet is too fragmented) */
- static int bnx2x_pkt_req_lin(struct bnx2x *bp, struct sk_buff *skb,
- 			     u32 xmit_type)
-@@ -9543,6 +9544,7 @@ exit_lbl:
- 
- 	return to_copy;
- }
-+#endif
- 
- /* called with netif_tx_lock
-  * bnx2x_tx_int() runs without netif_tx_lock unless it needs to call
-@@ -9583,6 +9585,7 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	   skb->ip_summed, skb->protocol, ipv6_hdr(skb)->nexthdr,
- 	   ip_hdr(skb)->protocol, skb_shinfo(skb)->gso_type, xmit_type);
- 
-+#if (MAX_SKB_FRAGS >= MAX_FETCH_BD - 3)
- 	/* First, check if we need to linearize the skb
- 	   (due to FW restrictions) */
- 	if (bnx2x_pkt_req_lin(bp, skb, xmit_type)) {
-@@ -9595,6 +9598,7 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			return NETDEV_TX_OK;
+diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+index 2fd6be0..b4527a4 100644
+--- a/drivers/net/bnx2x_link.c
++++ b/drivers/net/bnx2x_link.c
+@@ -4404,10 +4404,11 @@ static u8 bnx2x_8073_common_init_phy(struct bnx2x *bp, u32 shmem_base)
+ 			      ext_phy_addr[port],
+ 			      MDIO_PMA_DEVAD,
+ 			      MDIO_PMA_REG_ROM_VER1, &fw_ver1);
+-		if (fw_ver1 == 0) {
++		if (fw_ver1 == 0 || fw_ver1 == 0x4321) {
+ 			DP(NETIF_MSG_LINK,
+-				 "bnx2x_8073_common_init_phy port %x "
+-				 "fw Download failed\n", port);
++				 "bnx2x_8073_common_init_phy port %x:"
++				 "Download failed. fw version = 0x%x\n",
++				 port, fw_ver1);
+ 			return -EINVAL;
  		}
- 	}
-+#endif
  
- 	/*
- 	Please read carefully. First we use one BD which we mark as start,
 -- 
 1.5.4.3
 
