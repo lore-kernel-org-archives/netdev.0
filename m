@@ -1,36 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: gro: Check for GSO packets and packets with frag_list
-Date: Wed, 14 Jan 2009 14:36:24 -0800 (PST)
-Message-ID: <20090114.143624.145128481.davem@davemloft.net>
-References: <20090114215639.GA25069@gondor.apana.org.au>
+Subject: Re: [PATCH] phylib: Fix Freescale TBI PHY detection
+Date: Wed, 14 Jan 2009 14:38:41 -0800 (PST)
+Message-ID: <20090114.143841.153393716.davem@davemloft.net>
+References: <20090113160513.GA22083@oksana.dev.rtsoft.ru>
+	<20090114150332.GA839@oksana.dev.rtsoft.ru>
+	<4DDB8462-ACB6-494A-A1CB-4F56668A4EE1@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47291
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753111AbZANWgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 17:36:23 -0500
-In-Reply-To: <20090114215639.GA25069@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, jgarzik@pobox.com, giulio.benetti@micronovasrl.com,
+	netdev@vger.kernel.org
+To: afleming@freescale.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <4DDB8462-ACB6-494A-A1CB-4F56668A4EE1@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 15 Jan 2009 08:56:39 +1100
+From: Andy Fleming <afleming@freescale.com>
+Date: Wed, 14 Jan 2009 12:20:35 -0600
 
-> gro: Check for GSO packets and packets with frag_list
+> On Jan 14, 2009, at 9:03 AM, Anton Vorontsov wrote:
+> >>
+> >> There is one thing I don't actually understand though...
+> >>
+> >> Andy, were you testing the TBI support on a hardware where PHY ID
+> >> != 0x0 or maybe your TBI PHY support patch (commit b31a1d8b41513b,
+> >> dated Tue Dec 16 15:29:15 2008) was based on a bit outdated kernel
+> >> version? Because according to the git timestamps, the TBI support
+> >> was not working since the submission.
+> >>
+> >> Just in case, the hardware I'm seeing the PHY ID == 0x0 is
+> >> MPC8378E-MDS.
+> >
+> > I think I got it. Probably the TBI support patch was based on the
+> > powerpc.git next, and the commit that broke the TBI support
+> > was in the net-next-2.6 tree.
+> >
+> > That explains why nobody noticed the issue.
 > 
-> As GRO cannot be applied to packets with frag_list we need to
-> make sure that we reject such packets if they are fed to us,
-> e.g., through a tunnel device.
 > 
-> Also there is no point in applying GRO on GSO packets so they
-> too should be rejected.  This allows GRO to be used in virtio-net
-> which may produce GSO packets directly but may still benefit
-> from GRO if the other end of it doesn't support GSO.
+> Yeah, I dropped the ball.  I saw the patch go in, thought that might break something, but I didn't find time to look into it.  Thanks for finding and reverting this bug.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Acked-by: Andy Fleming <afleming@freescale.com>
 
-Applied, thanks Herbert.
+Patch applied, thanks everyone.
+
+I was worried when I applied the patch causing this, that some
+device would in fact trigger that specific test.  Turns out
+my worries were warranted :)
