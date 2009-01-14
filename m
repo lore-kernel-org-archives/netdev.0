@@ -1,112 +1,283 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH 3/4] virtio_net: Add a set_rx_mode interface
-Date: Wed, 14 Jan 2009 09:48:29 -0700
-Message-ID: <1231951709.7109.335.camel@lappy>
-References: <1231881799.9095.188.camel@bling>
-	 <1231928111.4944.291.camel@localhost.localdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH - REPOST] asix.c - Add support for AX88772A devices -
+Date: Wed, 14 Jan 2009 16:53:56 +0000
+Message-ID: <1231952036.3010.21.camel@achroite>
+References: <1231949520.4105.97.camel@dhollis-lnx>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm <kvm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Mark McLoughlin <markmc@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1231928111.4944.291.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeff@garzik.org, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: David Hollis <dhollis@davehollis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:41535 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763043AbZANQyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 11:54:07 -0500
+In-Reply-To: <1231949520.4105.97.camel@dhollis-lnx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-14 at 10:15 +0000, Mark McLoughlin wrote:
-> On Tue, 2009-01-13 at 14:23 -0700, Alex Williamson wrote:
-> 
-> Just to be sure - this patch (i.e. without the MAC table) keeps think
-> working as before? i.e. the dev->uc_count check means that you don't
-> need to put the device into promiscuous mode to receive any packets?
+On Wed, 2009-01-14 at 11:12 -0500, David Hollis wrote:
+> The attached patch adds support for ASIX AX88772A devices, which is u=
+sed
+> in some netbooks, notebooks and embedded devices.  It's largely
+> compatible with the AX88772 family.
+>=20
+> This re-post does not include changes to the ax88772_link_reset()
+> function that removed the use of the generic MII calls in favor of mo=
+re
+> explicit register reads.  Those changes were not required for AX88772=
+A
+> support.
+>=20
+> Thanks to Louis <louis@asix.com.tw> for the initial patch.
+>=20
+> Signed-off-by: David Hollis <dhollis@davehollis.com>
 
-Not quite as before, but it should be functionally correct.  Promiscuous
-mode will be enabled if either explicitly set or if there are additional
-unicast MAC address in the uc_list.  This is what drivers typically do
-if they overflow the number of available entries in the MAC filter
-table.  Likewise, allmulti will be enabled if explicitly set or if there
-are any additional multicast addresses in the mc_list.  Without bonding
-or macvlans, there will typically be no uc_list entries and 3 mc_list
-entries, so the backend will run with promisc off and allmulti on.
+This patch, including the context, has had tabs converted to spaces. =20
 
-> > +static void virtnet_set_rx_mode(struct net_device *dev)
-> > +{
-> > +	struct virtnet_info *vi = netdev_priv(dev);
-> > +	u8 promisc, allmulti;
-> > +
-> > +	promisc = ((dev->flags & IFF_PROMISC) != 0 || dev->uc_count > 0);
-> > +	allmulti = ((dev->flags & IFF_ALLMULTI) != 0 || dev->mc_count > 0);
-> > +
-> > +	virtnet_send_command(vi, VIRTIO_NET_CTRL_RX_MODE,
-> > +			     VIRTIO_NET_CTRL_RX_MODE_PROMISC,
-> > +			     &promisc, sizeof(promisc));
-> > +
-> > +	virtnet_send_command(vi, VIRTIO_NET_CTRL_RX_MODE,
-> > +			     VIRTIO_NET_CTRL_RX_MODE_ALLMULTI,
-> > +			     &allmulti, sizeof(allmulti));
-> 
-> Why two commands? Why not e.g.
-> 
->         virtnet_send_command(vi, VIRTIO_NET_SET_RX_MODE,
->                              &rx_mode, sizeof(rx_mode));
+> =EF=BB=BF--- a/drivers/net/usb/asix.c    2009-01-02 01:06:26.00000000=
+0 -0500
+> +++ b/drivers/net/usb/asix.c    2009-01-14 10:35:11.000000000 -0500
+> @@ -35,7 +35,7 @@
+>  #include <linux/crc32.h>
+>  #include <linux/usb/usbnet.h>
+> =20
+> -#define DRIVER_VERSION "14-Jun-2006"
+> +#define DRIVER_VERSION "8-Jan-2009"
+>  static const char driver_name [] =3D "asix";
+> =20
+>  /* ASIX AX8817X based USB 2.0 Ethernet Devices */
+> @@ -93,8 +93,8 @@ static const char driver_name [] =3D "asix
+>  #define AX_SWRESET_IPPD                        0x40
+> =20
+>  #define AX88772_IPG0_DEFAULT           0x15
+> -#define AX88772_IPG1_DEFAULT           0x0c
+> -#define AX88772_IPG2_DEFAULT           0x12
+> +#define AX88772_IPG1_DEFAULT           0x16
+> +#define AX88772_IPG2_DEFAULT           0x1A
 
-It seemed like a good idea to keep the command set very basic.  One
-command to do both means we need to define which bit is what and raises
-questions about how do we expand that if we decide we want to set a
-third bit.  This is also where the class/cmd comes into play by making
-it easy to add another command to a class without creating a sparse
-mapping of commands to functional areas.
+Is this change correct for the plain AX88772 as well?
 
-> Also, print warning on failure?
+>  /* AX88772 & AX88178 Medium Mode Register */
+>  #define AX_MEDIUM_PF           0x0080
+> @@ -136,6 +136,13 @@ static const char driver_name [] =3D "asix
+>  #define AX_DEFAULT_RX_CTL      \
+>         (AX_RX_CTL_SO | AX_RX_CTL_AB )
+> =20
+> +#define AX_PHYSELECT_PSEL      0x01
+> +#define AX_PHYSELECT_ASEL      0x02
+> +#define AX_PHYSELECT_SSMII     0x04
+> +#define AX_PHYSELECT_SSRMII    0x08
+> +#define AX_PHYSELECT_SSRRMII   0x0C
+> +#define AX_PHYSELECT_SSEN      0x10
+> +
+>  /* GPIO 0 .. 2 toggles */
+>  #define AX_GPIO_GPO0EN         0x01    /* GPIO0 Output enable */
+>  #define AX_GPIO_GPO_0          0x02    /* GPIO0 Output value */
+> @@ -891,7 +898,11 @@ static int ax88772_link_reset(struct usb
+>         if (ecmd.duplex !=3D DUPLEX_FULL)
+>                 mode &=3D ~AX_MEDIUM_FD;
+> =20
+> -       devdbg(dev, "ax88772_link_reset() speed: %d duplex: %d settin=
+g mode to 0x%04x", ecmd.speed, ecmd.duplex, mode);
+> +       devdbg(dev,
+> +       "ax88772_link_reset() speed: %d duplex: %d setting mode to 0x=
+%04x",
+> +               ecmd.speed,
+> +               ecmd.duplex,
+> +               mode);
 
-I was tempted to, but then came back to the new guest driver, old qemu
-issues.  Maybe I should return a different error if the command vq isn't
-present so the caller can suppress errors, -EIO maybe.
+This is just a formatting change so it belongs in a separate patch.  An=
+d
+if you're going to change it, the format string should be indented
+consistently with the other arguments.
 
-> >  static struct ethtool_ops virtnet_ethtool_ops = {
-> >  	.set_tx_csum = virtnet_set_tx_csum,
-> >  	.set_sg = ethtool_op_set_sg,
-> > @@ -687,6 +704,7 @@ static const struct net_device_ops virtnet_netdev = {
-> >  	.ndo_start_xmit      = start_xmit,
-> >  	.ndo_validate_addr   = eth_validate_addr,
-> >  	.ndo_set_mac_address = virtnet_set_mac_address,
-> > +	.ndo_set_rx_mode     = virtnet_set_rx_mode,
-> 
-> Don't think we want to hook this unless we know the host supports it -
-> i.e. unless the command queue is available.
+>         asix_write_medium_mode(dev, mode);
+> =20
+> @@ -1018,6 +1029,121 @@ out:
+>         return ret;
+>  }
+> =20
+> +static int ax88772a_bind(struct usbnet *dev, struct usb_interface *i=
+ntf)
+> +{
+> +       int ret;
+> +       u16 rx_ctl;
+> +       struct asix_data *data =3D (struct asix_data *)&dev->data;
+> +       u8 buf[ETH_ALEN];
+> +       u32 phyid;
+> +
+> +       data->eeprom_len =3D AX88772_EEPROM_LEN;
+> +
+> +       usbnet_get_endpoints(dev,intf);
+> +
+> +       /* Power up the embedded PHY */
+> +       if ((ret =3D asix_sw_reset(dev, AX_SWRESET_IPRL)) < 0)
+> +               goto out;
 
-That may be any easy way to solve the problem, I'll try it.
+Please separate the assignment and the test.  I know the existing code
+combines them and you don't need to fix that, but new code should not d=
+o
+this.
 
-> >  	.ndo_change_mtu	     = virtnet_change_mtu,
-> >  #ifdef CONFIG_NET_POLL_CONTROLLER
-> >  	.ndo_poll_controller = virtnet_netpoll,
-> > diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> > index 1de7c86..80cd7d3 100644
-> > --- a/include/linux/virtio_net.h
-> > +++ b/include/linux/virtio_net.h
-> > @@ -56,4 +56,8 @@ struct virtio_net_hdr_mrg_rxbuf {
-> >  #define VIRTIO_NET_OK     0
-> >  #define VIRTIO_NET_ERR    1
-> >  
-> > +#define VIRTIO_NET_CTRL_RX_MODE    0
-> 
-> I'd probably call the command VIRTIO_NET_CMD_SET_RX_MODE
-> 
-> > + #define VIRTIO_NET_CTRL_RX_MODE_PROMISC      0
-> > + #define VIRTIO_NET_CTRL_RX_MODE_ALLMULTI     1
-> 
-> and these VIRTIO_NET_RX_MODE_PROMISC/ALLMULTI
-> 
-> Also, kill the leading whitespace - I didn't even think that would
-> build :)
+> +       /* Select the embedded PHY as the active PHY */
+> +       if ((ret =3D asix_write_cmd(dev, AX_CMD_SW_PHY_SELECT,
+> +                               AX_PHYSELECT_SSEN | AX_PHYSELECT_PSEL=
+,
+> +                               0, 0, NULL)) < 0) {
+> +               dbg("Select PHY #1 failed: %d", ret);
+> +               goto out;
+> +       }
+> +
+> +       /* Reload the EEPROM and configure the GPIO pins */
+> +       if ((ret =3D asix_write_gpio(dev,
+> +               AX_GPIO_RSE | AX_GPIO_GPO_2 | AX_GPIO_GPO2EN, 5)) < 0=
+)
+> +       goto out;
 
-Yup, they do.  I can kill them, but I think they help delineate the
-command as being valid for that class.  Thanks for the comments.
+"goto out;" should be indented.
 
-Alex
+> +       /* Set embedded PHY in power down state */
+> +       if ((ret =3D asix_sw_reset(dev, AX_SWRESET_IPRL | AX_SWRESET_=
+IPPD)) < 0)
+> +               goto out;
+> +
+> +       msleep(10);
+> +
+> +       /* Set embedded PHY in power up state */
+> +       if ((ret =3D asix_sw_reset(dev, AX_SWRESET_IPRL)) < 0)
+> +               goto out;
+> +
+> +       msleep(60);
+> +
+> +       /* Set embedded PHY in reset state */
+> +       if ((ret =3D asix_sw_reset(dev, AX_SWRESET_CLEAR)) < 0)
+> +               goto out;
+> +
+> +       /* Set embedded PHY in operating state */
+> +       if ((ret =3D asix_sw_reset(dev, AX_SWRESET_IPRL)) < 0)
+> +               goto out;
+> +
+> +       /* Stop RX operation */
+> +       if ((ret =3D asix_write_rx_ctl(dev, 0)) < 0)
+> +               goto out;      =20
+> +
+> +       /* Get the MAC address */
+> +       if ((ret =3D asix_read_cmd(dev, AX_CMD_READ_NODE_ID,
+> +                               0, 0, ETH_ALEN, buf)) < 0) {
+> +               dbg("Failed to read MAC address: %d", ret);
+> +               goto out;
+> +       }
+> +       memcpy(dev->net->dev_addr, buf, ETH_ALEN);
+> +
+> +       /* Initialize MII structure */
+> +       dev->mii.dev =3D dev->net;
+> +       dev->mii.mdio_read =3D asix_mdio_read;
+> +       dev->mii.mdio_write =3D asix_mdio_write;
+> +       dev->mii.phy_id_mask =3D 0x1f;
+> +       dev->mii.reg_num_mask =3D 0x1f;
+> +       dev->net->do_ioctl =3D asix_ioctl;
+> +       dev->mii.phy_id =3D asix_get_phy_addr(dev);
+> +
+> +       phyid =3D asix_get_phyid(dev);
+> +       dbg("PHYID=3D0x%08x", phyid);
+> +
+> +       dev->net->set_multicast_list =3D asix_set_multicast;
+> +       dev->net->ethtool_ops =3D &ax88772_ethtool_ops;
+> +
+> +       asix_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR, BMCR_RES=
+ET);
+> +       asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
+> +                       ADVERTISE_ALL | ADVERTISE_CSMA);
+> +       mii_nway_restart(&dev->mii);
+> +
+> +       if ((ret =3D asix_write_medium_mode(dev, AX88772_MEDIUM_DEFAU=
+LT)) < 0)
+> +               goto out;
+> +
+> +       if ((ret =3D asix_write_cmd(dev, AX_CMD_WRITE_IPG0,
+> +                               AX88772_IPG0_DEFAULT | AX88772_IPG1_D=
+EFAULT,
+> +                               AX88772_IPG2_DEFAULT, 0, NULL)) < 0) =
+{
+> +               dbg("Write IPG,IPG1,IPG2 failed: %d", ret);
+> +               goto out;
+> +       }
+> +
+> +       msleep(1);
+> +
+> +       /* Set RX_CTL to default values with 2k buffer, and enable ca=
+ctus */
+> +       if ((ret =3D asix_write_rx_ctl(dev, AX_DEFAULT_RX_CTL)) < 0)
+> +               goto out;
+> +
+> +       rx_ctl =3D asix_read_rx_ctl(dev);
+> +       dbg("RX_CTL is 0x%04x after all initializations", rx_ctl);
+> +
+> +       rx_ctl =3D asix_read_medium_status(dev);
+> +       dbg("Medium Status is 0x%04x after all initializations", rx_c=
+tl);
+> +
+> +       /* Asix framing packs multiple eth frames into a 2K usb bulk =
+transfer */
+> +       if (dev->driver_info->flags & FLAG_FRAMING_AX) {
+> +               /* hard_mtu  is still the default - the device does n=
+ot support
+> +                  jumbo eth frames */
+> +               dev->rx_urb_size =3D 2048;
+> +       }
+> +       return 0;
+> +
+> +out:
+> +       return ret;
+> +}
+> +
+>  static struct ethtool_ops ax88178_ethtool_ops =3D {
+>         .get_drvinfo            =3D asix_get_drvinfo,
+>         .get_link               =3D asix_get_link,
+> @@ -1339,6 +1465,17 @@ static const struct driver_info ax88772_
+>         .tx_fixup =3D asix_tx_fixup,
+>  };
+> =20
+> +static const struct driver_info ax88772a_info =3D {
+> +       .description =3D "ASIX AX88772A USB 2.0 Ethernet",
+> +       .bind =3D ax88772a_bind,
+> +       .status =3D asix_status,
+> +       .link_reset =3D ax88772_link_reset,
+> +       .reset =3D ax88772_link_reset,
+> +       .flags =3D FLAG_ETHER | FLAG_FRAMING_AX,
+> +       .rx_fixup =3D asix_rx_fixup,
+> +       .tx_fixup =3D asix_tx_fixup,
+> +};
+> +
+>  static const struct driver_info ax88178_info =3D {
+>         .description =3D "ASIX AX88178 USB 2.0 Ethernet",
+>         .bind =3D ax88178_bind,
+> @@ -1451,6 +1588,10 @@ static const struct usb_device_id        produ=
+c
+>         // Cables-to-Go USB Ethernet Adapter
+>         USB_DEVICE(0x0b95, 0x772a),
+>         .driver_info =3D (unsigned long) &ax88772_info,
+> +}, {
+> +       // ASIX AX88772A
+> +       USB_DEVICE(0x0b95, 0x772a),
+> +       .driver_info =3D (unsigned long) &ax88772a_info,
 
--- 
-Alex Williamson                             HP Open Source & Linux Org.
+This is matching the same id as the entry above, so how will it ever be
+used?  Do the bind operations distinguish them somehow?
+
+=EF=BB=BFPlease also run checkpatch.pl and fix the errors it finds.
+
+Ben.
+
+>  },
+>         { },            // END
+>  };
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
