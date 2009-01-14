@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
-Date: Wed, 14 Jan 2009 13:12:06 -0800 (PST)
-Message-ID: <20090114.131206.193936587.davem@davemloft.net>
-References: <20090114201826.GA23648@gondor.apana.org.au>
-	<1231964842.3010.46.camel@achroite>
+Subject: Re: [PATCH 02/34]bnx2x: Barriers for the compiler
+Date: Wed, 14 Jan 2009 13:13:56 -0800 (PST)
+Message-ID: <20090114.131356.63668949.davem@davemloft.net>
+References: <1231951364.11301.123.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, eilong@broadcom.com,
-	netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55885
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38667
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755831AbZANVMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 16:12:05 -0500
-In-Reply-To: <1231964842.3010.46.camel@achroite>
+	by vger.kernel.org with ESMTP id S1756807AbZANVNy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 16:13:54 -0500
+In-Reply-To: <1231951364.11301.123.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 14 Jan 2009 20:27:22 +0000
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 14 Jan 2009 18:42:44 +0200
 
-> On Thu, 2009-01-15 at 07:18 +1100, Herbert Xu wrote:
-> > Eilon Greenstein <eilong@broadcom.com> wrote:
-> > >> 
-> > > This is far from bullet proof solution, but IMHO it is better set then
-> > > not  this way, you stand a chance (depending on the output device
-> > > capabilities)
-> > 
-> > The question is simple, does your hardware guarantee that on
-> > output GSO will turn the packet into exactly the same sequence
-> > of packets that was seen on input, with no changes (apart from
-> > what the stack would have done to them anyway, e.g., TTL update)
-> > whatsoever?
-> > 
-> > If not then you mustn't set this and also you must disable it
-> > if forwarding/bridging is used.
+> To make sure no swapping are made by the compiler, changed HAS_WORK to inline
+> functions and added all the necessary barriers
 > 
-> The driver just has to cooperate with dev_disable_lro() in order for the
-> forwarding/bridging code to disable it.  Then skb_warn_if_lro() should
-> catch the case where the user mistakenly turns it back on.  However,
-> setting gso_type on input subverts this check.
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Right, setting gso_type here is absolutely wrong.
+Don't you need cpu memory barriers too?  What if the cpu reorders what
+you're trying to order using just a compiler barrier?
