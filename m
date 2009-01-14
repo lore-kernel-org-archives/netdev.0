@@ -1,45 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on
-	2.6.24?
-Date: Wed, 14 Jan 2009 19:29:10 +1100
-Message-ID: <20090114082910.GC16692@gondor.apana.org.au>
-References: <20090113063205.GA26047@gondor.apana.org.au> <20090113015614.3b815ad7.billfink@mindspring.com> <20090113070138.GA26480@gondor.apana.org.au> <20090114024341.76ce0dec.billfink@mindspring.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
+ with IPV6_PKTINFO option
+Date: Wed, 14 Jan 2009 16:26:57 +0800
+Message-ID: <496DA1D1.2050005@cn.fujitsu.com>
+References: <20090114034711.GA8361@gondor.apana.org.au> <496D61FE.7080500@cn.fujitsu.com> <496D651B.2000106@cn.fujitsu.com> <496D77B8.2000001@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ilpo.jarvinen@helsinki.fi, zbr@ioremap.net,
-	bert.hubert@netherlabs.nl, h.willstrand@gmail.com,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Yang Hongyang <yanghy@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40981 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756265AbZANI30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 03:29:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20090114024341.76ce0dec.billfink@mindspring.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:54295 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752356AbZANIc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 03:32:26 -0500
+In-Reply-To: <496D77B8.2000001@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2009 at 02:43:41AM -0500, Bill Fink wrote:
+Yang Hongyang said:
+> Wei Yongjun wrote:
+>> Yang Hongyang wrote:
+>>> Herbert Xu wrote:
+>>>  
+>>>> Yang Hongyang <yanghy@cn.fujitsu.com> wrote:
+>>>>    
+>>>>> Actually the condition (optlen == 0) is included in (optlen <
+>>>>> sizeof(struct in6_pktinfo)),
+>>>>> so we do not need to check it separately.
+>>>>>       
+>>>> You don't need to check optval == NULL either since that's the
+>>>> job of copy_from_user.
+>>>>     
+>>> If optval==NULL, what we should return?EINVAL or EFAULT?
+>>> If it is EINVAL,then we should check it .otherwise it's the job of
+>>> copy_from_user
+>>>   
+>> I think if optval==NULL, the in6_pktinfo which is set should be remove.
+>> So, you should handle optval==NULL. Not just return error.
 > 
-> I like that.  If both tcpi_unacked and SIOCOUTQ are zero, that should
+> There's no RFC defines the behavior above,but:
+>   RFC3542 said The application can remove any sticky Routing header or sticky 
+> Destination options header or sticky Hop-by-Hop options header by calling 
+> setsockopt() with a zero option length.
+> 
+> So,do we need to allow remove any sticky pktinfo option by calling 
+> setsockopt() with a zero option length?
+> 
 
-Why do you still need tcpi_unacked? SIOCOUTQ returns the amount
-of all outstanding data so that alone should be good enough.
- 
-> The performance argument I gave against INET_DIAG appears to have been
-> bogus.  At least just loading the inet_diag and tcp_diag modules didn't
-> have a significant impact on 10-GigE performance with either 1500-byte
-> packets or 9000-byte jumbo frame packets (CPU usage may have increased
-> slightly but even that's not definite).
+Can remove the option using seting in6_pktinfo struct wiht 
+ipi6_ifindex=0,ipi6_ifindex=IN6ADDR_ANY_INIT.
 
-Well if you don't make diag requests diag has zero impact on
-the system.  How much of an impact diag has if you do make requests
-is dependent on the number of open sockets.
+If no RFC definition, not to reset with optlen=0,
+for example IPV6_TCLASS, PV6_2292DSTOPTS.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Best Regards
+Shan Wei
