@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hso_spinlockfix.patch
-Date: Wed, 14 Jan 2009 02:08:57 -0800 (PST)
-Message-ID: <20090114.020857.00093874.davem@davemloft.net>
-References: <496DB66B.4070306@option.com>
+Subject: Re: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
+Date: Wed, 14 Jan 2009 02:11:24 -0800 (PST)
+Message-ID: <20090114.021124.222393549.davem@davemloft.net>
+References: <1231916280-7391-1-git-send-email-stanley.miao@windriver.com>
+	<OF8C316D93.937F4899-ON8025753E.0030604F-8025753E.003106B3@smsc.com>
+	<20090114100550.GA22976@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: D.Barow@option.com
+Cc: Steve.Glendinning@smsc.com, stanley.miao@windriver.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51748
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51751
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750707AbZANKI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:08:56 -0500
-In-Reply-To: <496DB66B.4070306@option.com>
+	by vger.kernel.org with ESMTP id S1752413AbZANKLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 05:11:23 -0500
+In-Reply-To: <20090114100550.GA22976@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Joseph Barrow <D.Barow@option.com>
-Date: Wed, 14 Jan 2009 10:54:51 +0100
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Wed, 14 Jan 2009 10:05:50 +0000
 
-> This is a really important fix it fixes a consistent kernel deadlock
-> when the hso driver starts going. It's against 2.6.29-rc1, 2.6.29-rc6
-> worked fine.
+> I can't really comment because it seems that there's no way to work out
+> what patch you're acking.
 
-Are you able to travel in time? :-)  2.6.29-rc6 has not been
-released yet.
+http://patchwork.ozlabs.org/patch/18386/
