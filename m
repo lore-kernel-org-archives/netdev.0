@@ -1,50 +1,60 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [patch v2] net/usb: remove err() messages in few drivers
-Date: Wed, 14 Jan 2009 09:09:43 +0100
-Message-ID: <200901140909.44982.oliver@neukum.org>
-References: <1231805322.12962.4.camel@tux.localhost> <200901131207.03724.oliver@neukum.org> <208cbae30901131622heccfee6uf312022ba1d4fb28@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Wed, 14 Jan 2009 19:26:30 +1100
+Message-ID: <20090114082630.GB16692@gondor.apana.org.au>
+References: <20090113.163705.130074998.davem@davemloft.net> <20090114035124.GA8409@gondor.apana.org.au> <20090113.232710.55011568.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David Brownell" <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	"Greg KH" <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Alexey Klimov" <klimov.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <208cbae30901131622heccfee6uf312022ba1d4fb28-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: zbr@ioremap.net, dada1@cosmosbay.com, w@1wt.eu, ben@zeus.com,
+	jarkao2@gmail.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:59997 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752805AbZANI1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 03:27:12 -0500
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090113.232710.55011568.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Wednesday 14 January 2009 01:22:26 schrieb Alexey Klimov:
-> > Use the interface passed into probe(): =A0dev_err(&intf->dev, ...) =
-etc
+On Tue, Jan 13, 2009 at 11:27:10PM -0800, David Miller wrote:
+> 
+> So while trying to figure out a sane way to fix this, I found
+> another bug:
+> 
+> 	/*
+> 	 * map the linear part
+> 	 */
+> 	if (__splice_segment(virt_to_page(skb->data),
+> 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
+> 			     skb_headlen(skb),
+> 			     offset, len, skb, spd))
+> 		return 1;
+> 
+> This will explode if the SLAB cache for skb->head is using compound
+> (ie. order > 0) pages.
+> 
+> For example, if this is an order-1 page being used for the skb->head
+> data (which would be true on most systems for jumbo MTU frames being
+> received into a linear SKB), the offset will be wrong and depending
+> upon skb_headlen() we could reference past the end of that
+> non-compound page we will end up grabbing a reference to.
 
-A USB driver is fundamentally a driver for a device's interfaces.
-Therefore the interface's device struct is the obviously correct choice=
-=2E
+I'm actually not worried so much about these packets since these
+drivers should be converted to skb frags as otherwise they'll
+probably stop working after a while due to memory fragmentation.
 
-> Well, in few v4l-dvb drivers successfully used &radio->usbdev->dev in
-> debug messages and that doesn't look wrong.
+But yeah for correctness we definitely should address this in
+skb_splice_bits.
 
-That will not allow you to identify which interface caused the message.
-=20
-> Hmm, i see that struct usb_interface passed to probe function for
-> example, and here in catc_irq_done struct urb passed, and then we hav=
-e
-> struct catc. So, messages based on catc->usbdev->dev. I can switch to
-> &catc->netdev->dev when it's safe to do, right?
+I still think Jarek's approach (the copying one) is probably the
+easiest for now until we can find a better way.
 
-You cannot. The point of passing a device pointer is to identify the de=
-vice.
-The device in the network view and the USB view is not identical. You
-have to pick one choice and stick with it and if for some reason that i=
-s not
-possible you cannot use this debugging functions.
-
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
