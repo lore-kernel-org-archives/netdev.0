@@ -1,61 +1,85 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [2/2] igb: Replace LRO with GRO
-Date: Wed, 14 Jan 2009 23:36:53 +1100
-Message-ID: <20090114123653.GA19257@gondor.apana.org.au>
-References: <9929d2390901140349v4483bd23wac254673de591bec@mail.gmail.com>
+From: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 01/02] hso patch to fix a -EIO from opening a hso serial
+ device
+Date: Wed, 14 Jan 2009 13:40:34 +0100
+Message-ID: <496DDD42.6060601@option.com>
+References: <496DCAF7.9080906@option.com> <20090114113828.7b9f59ca@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45338 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756384AbZANMg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 07:36:59 -0500
-Content-Disposition: inline
-In-Reply-To: <9929d2390901140349v4483bd23wac254673de591bec@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090114113828.7b9f59ca-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
->
-> Ok, a couple of things...
-> First is that we should have the patch in testing (most likely today,
-> do not worry dave, it won't take a week)
+Hi Alan,
+Your fix works too I suspect better than mine & since you've a better idea of what
+you are doing with tty layer than I do we'll stick with
+your fix.
 
-Thanks!
+Do you want me to switch off the low latency stuff in the
+driver?
 
-> Second is I am not sure you need to keep this code wraped in CONFIG_IGB_LRO...
+I also need to investigate the tty_kref_put & tty_kref_get
+& when it was added to the kernel so I can fix stuff for our
+internal driver
+
+
+
+Alan Cox wrote:
+> On Wed, 14 Jan 2009 12:22:31 +0100
+> Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
 > 
->  #ifdef CONFIG_IGB_LRO
-> -       netdev->features |= NETIF_F_LRO;
-> +       netdev->features |= NETIF_F_GRO;
->  #endif
+>> Hi All,
+>> This is an important patch the linux-2.6.29-rc1 driver with itworks much
+>> better than it did.
+> 
+> How about this. 
+> 
+> tty: Fix a kref leak in the HSO driver on re-open
+> 
+> From: Alan Cox <alan-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> 
+> 
+> ---
+> 
+>  drivers/net/usb/hso.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> 
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index c4918b8..9df04dd 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -1297,6 +1297,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
+>  	/* setup */
+>  	spin_lock_irq(&serial->serial_lock);
+>  	tty->driver_data = serial;
+> +	tty_kref_put(serial->tty);
+>  	serial->tty = tty_kref_get(tty);
+>  	spin_unlock_irq(&serial->serial_lock);
+>  
 
-My objective is to minimise changes with respect to the current
-LRO base (the e1000e was an exception, it was the only hardware
-I had :)
 
-Therefore this patch is simply trying to replace LRO with GRO
-letter by letter, so to speak.  In this case, it's preserving
-the semantics of the Kconfig option, i.e., if LRO was off before,
-then GRO will be off too (although it can now be enabled using
-ethtool without recompiling).
-
-> Also, you left part of the lro code in igb_receive_skb and then put in
-> the GRO code.  Our preference is that you mirrored what you did with
-> e1000e and just replaced the main vlan_hwacel and netif_receive_skb
-> calls.
-
-No I left in the netif_receive_skb but replaced the lro calls by
-the corresponding gro calls.  Again the point is to replace LRO
-exactly as it is.
-
-Later on we can make further changes.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+best regards,
+D.J. Barrow
+
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
+ 
+T: +32 16 311 621
+F: +32 16 207 164
+d.barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+www.option.com
+
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
