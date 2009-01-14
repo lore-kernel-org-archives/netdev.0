@@ -1,41 +1,44 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] korina: do tx at the right position
-Date: Wed, 14 Jan 2009 18:59:19 +0100
-Message-ID: <200901141859.19609.florian@openwrt.org>
-References: <1231955400-9745-1-git-send-email-n0-1@freewrt.org> <1231955495-11911-1-git-send-email-n0-1@freewrt.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
+Date: Wed, 14 Jan 2009 18:00:21 +0000
+Message-ID: <1231956021.3010.35.camel@achroite>
+References: <1231951375.11301.126.camel@lb-tlvb-eliezer>
+	 <1231952234.3010.24.camel@achroite>
+	 <1231954948.11301.158.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org
-To: Phil Sutter <n0-1@freewrt.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:37877 "EHLO
-	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752572AbZANR7g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 12:59:36 -0500
-Received: by mail-bw0-f21.google.com with SMTP id 14so2167071bwz.13
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2009 09:59:35 -0800 (PST)
-In-Reply-To: <1231955495-11911-1-git-send-email-n0-1@freewrt.org>
-Content-Disposition: inline
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:34152 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752760AbZANSA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 13:00:26 -0500
+In-Reply-To: <1231954948.11301.158.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Wednesday 14 January 2009 18:51:35 Phil Sutter, vous avez =E9crit=A0=
-:
-> Triggering TX before the write to the DMA status mask register leads =
-to
-> transferring packets with maximum payload no matter what the actual
-> packet size is.
-> While here, also trigger RX scheduling after writing the DMA status m=
-ask
-> register, like it was in the original driver before it was sent
-> upstream.
->
-> Signed-off-by: Phil Sutter <n0-1@freewrt.org>
+On Wed, 2009-01-14 at 19:42 +0200, Eilon Greenstein wrote:
+> On Wed, 2009-01-14 at 08:57 -0800, Ben Hutchings wrote:
+> > On Wed, 2009-01-14 at 18:42 +0200, Eilon Greenstein wrote:
+> > > When TPA (HW GRO) is used, the GSO_TYPE should be set
+> > [...]
+> > 
+> > No it shouldn't.  That is for the output path only.
+> > 
+> 
+> Right - but it was an issue with forwarding
 
-Acked-by: Florian Fainelli <florian@openwrt.org>
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+You can't use LRO together with forwarding/bridging unless you replicate
+what Herbert Xu has done to allow reconstruction of the original frames.
+Setting gso_type is a hack which you may or may not get away with,
+depending on the output device's capabilities.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
