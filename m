@@ -1,51 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/34]bnx2x: Compilation issue on IA64
-Date: Wed, 14 Jan 2009 13:10:58 -0800 (PST)
-Message-ID: <20090114.131058.248785392.davem@davemloft.net>
-References: <1231951391.11301.131.camel@lb-tlvb-eliezer>
-	<1231952824.3010.29.camel@achroite>
-	<1231955073.11301.161.camel@lb-tlvb-eliezer>
+Subject: Re: [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
+Date: Wed, 14 Jan 2009 13:12:06 -0800 (PST)
+Message-ID: <20090114.131206.193936587.davem@davemloft.net>
+References: <20090114201826.GA23648@gondor.apana.org.au>
+	<1231964842.3010.46.camel@achroite>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: herbert@gondor.apana.org.au, eilong@broadcom.com,
+	netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55882
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55885
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754383AbZANVK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 16:10:57 -0500
-In-Reply-To: <1231955073.11301.161.camel@lb-tlvb-eliezer>
+	by vger.kernel.org with ESMTP id S1755831AbZANVMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 16:12:05 -0500
+In-Reply-To: <1231964842.3010.46.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 14 Jan 2009 19:44:33 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 14 Jan 2009 20:27:22 +0000
 
-> On Wed, 2009-01-14 at 09:07 -0800, Ben Hutchings wrote:
-> > On Wed, 2009-01-14 at 18:43 +0200, Eilon Greenstein wrote:
-> > > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> [...]  
-> > >  #ifdef BNX2X_STOP_ON_ERROR
-> > >  	fp->tpa_queue_used |= (1 << queue);
-> > > -#ifdef __powerpc64__
-> > > +#if (defined __powerpc64__) || (defined _ASM_IA64_TYPES_H)
-> > >  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%lx\n",
-> > >  #else
-> > >  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%llx\n",
+> On Thu, 2009-01-15 at 07:18 +1100, Herbert Xu wrote:
+> > Eilon Greenstein <eilong@broadcom.com> wrote:
+> > >> 
+> > > This is far from bullet proof solution, but IMHO it is better set then
+> > > not  this way, you stand a chance (depending on the output device
+> > > capabilities)
 > > 
-> > Or you could cast the value to unsigned long long and remove this
-> > fragile #ifdef.
+> > The question is simple, does your hardware guarantee that on
+> > output GSO will turn the packet into exactly the same sequence
+> > of packets that was seen on input, with no changes (apart from
+> > what the stack would have done to them anyway, e.g., TTL update)
+> > whatsoever?
 > > 
-> You are right - it is a better solution. The issue is that this uglier
-> solution is already in, and I hate to re-send this patch just for this.
-> Can we have this one applied and I will re visit it in net-next?
+> > If not then you mustn't set this and also you must disable it
+> > if forwarding/bridging is used.
+> 
+> The driver just has to cooperate with dev_disable_lro() in order for the
+> forwarding/bridging code to disable it.  Then skb_warn_if_lro() should
+> catch the case where the user mistakenly turns it back on.  However,
+> setting gso_type on input subverts this check.
 
-There is no reason to crap up any driver with arch ifdefs, absolutely
-none, for this typing issue.
-
-The whole point is that we're trying to get all of the arch's to use
-the same type for u64 in the kernel, so that these warnings can be
-cleared away very easily.
-
-Live with the warnings meanwhile until this is all sorted out.
+Right, setting gso_type here is absolutely wrong.
