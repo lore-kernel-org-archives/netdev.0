@@ -1,82 +1,63 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
-Date: Wed, 14 Jan 2009 18:42:55 +0200
-Message-ID: <1231951375.11301.126.camel@lb-tlvb-eliezer>
+Subject: [PATCH 08/34]bnx2x: Protecting the link change indication
+Date: Wed, 14 Jan 2009 18:43:05 +0200
+Message-ID: <1231951385.11301.129.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: "David Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2653 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2391 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762900AbZANQno (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 11:43:44 -0500
+	id S1763006AbZANQns (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 11:43:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When TPA (HW GRO) is used, the GSO_TYPE should be set
+Without this lock, in some race conditions the driver missed link change
+indication
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h      |    9 ++++++---
- drivers/net/bnx2x_main.c |    7 ++++++-
- drivers/net/bnx2x_reg.h  |    1 +
- 3 files changed, 13 insertions(+), 4 deletions(-)
+ drivers/net/bnx2x_main.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 73f6c21..b9bc285 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -401,10 +401,13 @@ struct bnx2x_fastpath {
- #define BNX2X_RX_CSUM_OK(cqe) \
- 			(!(BNX2X_L4_CSUM_ERR(cqe) || BNX2X_IP_CSUM_ERR(cqe)))
- 
-+#define BNX2X_PRS_FLAG_OVERETH_IPV4(flags) \
-+				(((le16_to_cpu(flags) & \
-+				   PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) >> \
-+				  PARSING_FLAGS_OVER_ETHERNET_PROTOCOL_SHIFT) \
-+				 == PRS_FLAG_OVERETH_IPV4)
- #define BNX2X_RX_SUM_FIX(cqe) \
--			((le16_to_cpu(cqe->fast_path_cqe.pars_flags.flags) & \
--			  PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) == \
--			 (1 << PARSING_FLAGS_OVER_ETHERNET_PROTOCOL_SHIFT))
-+	BNX2X_PRS_FLAG_OVERETH_IPV4(cqe->fast_path_cqe.pars_flags.flags)
- 
- 
- #define FP_USB_FUNC_OFF			(2 + 2*HC_USTORM_SB_NUM_INDICES)
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index e811ecb..da18528 100644
+index 56eae2d..4735f57 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -1225,9 +1225,14 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 	pages = SGE_PAGE_ALIGN(frag_size) >> SGE_PAGE_SHIFT;
+@@ -2250,9 +2250,7 @@ static void bnx2x_link_attn(struct bnx2x *bp)
+ 	/* Make sure that we are synced with the current statistics */
+ 	bnx2x_stats_handle(bp, STATS_EVENT_STOP);
  
- 	/* This is needed in order to enable forwarding support */
--	if (frag_size)
-+	if (frag_size) {
- 		skb_shinfo(skb)->gso_size = min((u32)SGE_PAGE_SIZE,
- 					       max(frag_size, (u32)len_on_bd));
-+		if (BNX2X_PRS_FLAG_OVERETH_IPV4(fp_cqe->pars_flags.flags))
-+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+		else
-+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+-	bnx2x_acquire_phy_lock(bp);
+ 	bnx2x_link_update(&bp->link_params, &bp->link_vars);
+-	bnx2x_release_phy_lock(bp);
+ 
+ 	if (bp->link_vars.link_up) {
+ 
+@@ -2501,6 +2499,8 @@ static void bnx2x_attn_int_asserted(struct bnx2x *bp, u32 asserted)
+ 	if (asserted & ATTN_HARD_WIRED_MASK) {
+ 		if (asserted & ATTN_NIG_FOR_FUNC) {
+ 
++			bnx2x_acquire_phy_lock(bp);
++
+ 			/* save nig interrupt mask */
+ 			bp->nig_mask = REG_RD(bp, nig_int_mask_addr);
+ 			REG_WR(bp, nig_int_mask_addr, 0);
+@@ -2556,8 +2556,10 @@ static void bnx2x_attn_int_asserted(struct bnx2x *bp, u32 asserted)
+ 	REG_WR(bp, hc_addr, asserted);
+ 
+ 	/* now set back the mask */
+-	if (asserted & ATTN_NIG_FOR_FUNC)
++	if (asserted & ATTN_NIG_FOR_FUNC) {
+ 		REG_WR(bp, nig_int_mask_addr, bp->nig_mask);
++		bnx2x_release_phy_lock(bp);
 +	}
+ }
  
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (pages >
-diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
-index a67b0c3..ed0d19a 100644
---- a/drivers/net/bnx2x_reg.h
-+++ b/drivers/net/bnx2x_reg.h
-@@ -5020,6 +5020,7 @@
- #define HW_LOCK_RESOURCE_PORT0_ATT_MASK 			 3
- #define HW_LOCK_RESOURCE_SPIO					 2
- #define HW_LOCK_RESOURCE_UNDI					 5
-+#define PRS_FLAG_OVERETH_IPV4					 1
- #define AEU_INPUTS_ATTN_BITS_BRB_PARITY_ERROR		      (1<<18)
- #define AEU_INPUTS_ATTN_BITS_CCM_HW_INTERRUPT		      (1<<31)
- #define AEU_INPUTS_ATTN_BITS_CDU_HW_INTERRUPT		      (1<<9)
+ static inline void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
 -- 
 1.5.4.3
 
