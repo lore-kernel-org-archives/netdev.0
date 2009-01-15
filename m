@@ -1,64 +1,72 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Thu, 15 Jan 2009 10:54:17 +0000
-Message-ID: <20090115105417.GG5461@ff.dom.local>
-References: <1231937404.14825.4.camel@laptop> <200901141505.46929.denys@visp.net.lb> <20090114131257.GC6117@ff.dom.local> <1231938929.14825.6.camel@laptop> <20090114132603.GD6117@ff.dom.local> <1231939946.14825.9.camel@laptop> <20090114141311.GA6643@ff.dom.local> <1231943283.14825.14.camel@laptop> <20090115090120.GE4190@ff.dom.local> <1232016408.8870.43.camel@laptop>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PULL -tip] fixed few make headers_check warnings
+Date: Thu, 15 Jan 2009 11:54:53 +0100
+Message-ID: <20090115105453.GF29296@elte.hu>
+References: <1231836016.3212.41.camel@jaswinder.satnam> <20090113124921.GA30400@elte.hu> <20090114154057.GC32082@uranus.ravnborg.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryschenko <denys@visp.net.lb>,
-	Chris Caputo <ccaputo@alt.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Jaswinder Singh Rajput <jaswinder@infradead.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	x86 maintainers <x86@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f31.google.com ([209.85.219.31]:53336 "EHLO
-	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763557AbZAOKyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 05:54:24 -0500
+Received: from mx3.mail.elte.hu ([157.181.1.138]:49888 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763706AbZAOKzV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2009 05:55:21 -0500
 Content-Disposition: inline
-In-Reply-To: <1232016408.8870.43.camel@laptop>
+In-Reply-To: <20090114154057.GC32082@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 15, 2009 at 11:46:48AM +0100, Peter Zijlstra wrote:
-> On Thu, 2009-01-15 at 09:01 +0000, Jarek Poplawski wrote:
-...
-> > spin_lock
-> > (not this hrtimer's anymore)
-> > __remove_hrtimer
-> > list_add_tail			enqueue_hrtimer
+
+* Sam Ravnborg <sam@ravnborg.org> wrote:
+
+> On Tue, Jan 13, 2009 at 01:49:21PM +0100, Ingo Molnar wrote:
 > > 
+> > * Jaswinder Singh Rajput <jaswinder@infradead.org> wrote:
+> > 
+> > > Hello Ingo,
+> > > 
+> > > Please pull these patches. Earlier I also floated these patches so that 
+> > > I can get some feedback.
+> > 
+> > Sam, Andrew, David, what's your workflow preference for these bits?
+> > 
+> > While they are oneliners and i could create a separate branch for these 
+> > and pull Jaswinder's tree (and do build coverage to make sure there's no 
+> > surprised on any arch), it's really up to the maintainers of these files 
+> > to decide on the workflow.
+> > 
+> > I'd lean towards doing this via the individual maintainers and/or -mm, but 
+> > no strong feelings ...
 > 
-> (looking at .28 code)
+> As they are one-liners for the most part I am fine with you handling
+> them in a eparate branch.
 > 
-> run_hrtimer_pending() reads like:
+> It is far better than I queue them up for at least two weeks before I
+> can give the kernel a bit of attention again.
 > 
-> while (pending timers) {
->   __remove_hrtimer(timer, HRTIMER_STATE_CALLBACK);
->   spin_unlock(&cpu_base->lock);
-> 
->   fn(timer);
-> 
->   spin_lock(&cpu_base->lock);
->   timer->state &= ~HRTIMER_STATE_CALLBACK; // _should_ result in HRTIMER_STATE_INACTIVE
->   if (HRTIMER_RESTART)
->     re-queue
->   else if (timer->state != INACTIVE) {
->     // so another cpu re-queued this timer _while_ we were executing it.
->     if (timer is first && !reprogramm) {
->       __remove_hrtimer(timer, HRTIMER_STATE_PENDING);
->       list_add_tail(timer, &cb_pending);
->     }
->   } 
-> }
-> 
-> So in the window where we drop the lock, one can, as you said, have
-> another cpu requeue the timer, but the rb_entry and list_entry are free,
-> so it should not cause the data corruption we're seeing.
-> 
+> Obviously it would be better if the Maintainers took them but history 
+> tells us we cannot rely on that for all areas.
 
-Can't they be enqueued to the list (without a lock) and rbtree at the
-same time? Then removing is done for the list only?
+i dont think maintainers are bad at doing this - the problem and overhead 
+is on the submission side: the logistics of spreading dozens of very small 
+commits out to dozens of maintainers - each of who prefers a different 
+submission channel.
 
-Jarek P. 
+We have no automation for that (to make sure there's guaranteed progress 
+and to make sure there's no lost patch) and hence it's simply neither 
+efficient nor reliable to do it.
+
+These particular commits seem rather uncontroversial - and they are not 
+part of some bigger facility so they are individually revertable as well. 
+Worst-case they break the build somewhere or cause a raised maintainer 
+eyebrow - we'll try to make sure that no such thing happens on a larger 
+scale.
+
+	Ingo
