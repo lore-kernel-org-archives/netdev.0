@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/34]bnx2x: MTU Filter
-Date: Wed, 14 Jan 2009 21:30:33 -0800 (PST)
-Message-ID: <20090114.213033.216330841.davem@davemloft.net>
-References: <1231951410.11301.137.camel@lb-tlvb-eliezer>
+Subject: Re: [PATCH 17/34]bnx2x: First slow path interrupt race
+Date: Wed, 14 Jan 2009 21:31:23 -0800 (PST)
+Message-ID: <20090114.213123.147085495.davem@davemloft.net>
+References: <1231951413.11301.138.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40678
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40681
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752574AbZAOFac (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:30:32 -0500
-In-Reply-To: <1231951410.11301.137.camel@lb-tlvb-eliezer>
+	by vger.kernel.org with ESMTP id S1751498AbZAOFbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:31:22 -0500
+In-Reply-To: <1231951413.11301.138.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 14 Jan 2009 18:43:30 +0200
+Date: Wed, 14 Jan 2009 18:43:33 +0200
 
-> Too big packets could pass due to wrong filter size
-> 
+> The "read for interrupts" flag must be set before enabling slow-path
+> interrupts as well (and not just before fast-path interrupts)
+>
 > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
 Applied.
