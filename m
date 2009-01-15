@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] korina: disable napi on close and restart
-Date: Wed, 14 Jan 2009 21:48:30 -0800 (PST)
-Message-ID: <20090114.214830.255386797.davem@davemloft.net>
-References: <1231955400-9745-1-git-send-email-n0-1@freewrt.org>
-	<1231955448-10877-1-git-send-email-n0-1@freewrt.org>
-	<200901141858.25530.florian@openwrt.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
+	with IPV6_PKTINFO option
+Date: Thu, 15 Jan 2009 16:48:56 +1100
+Message-ID: <20090115054856.GA30523@gondor.apana.org.au>
+References: <20090114.210242.163189105.davem@davemloft.net> <496ECACB.5090300@cn.fujitsu.com> <20090115053702.GA30403@gondor.apana.org.au> <20090114.214521.132298096.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: n0-1@freewrt.org, netdev@vger.kernel.org, jeff@garzik.org
-To: florian@openwrt.org
+Content-Type: text/plain; charset=us-ascii
+Cc: yanghy@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47685
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751382AbZAOFs3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2009 00:48:29 -0500
-In-Reply-To: <200901141858.25530.florian@openwrt.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:49442 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754224AbZAOFtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:49:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20090114.214521.132298096.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 14 Jan 2009 18:58:25 +0100
+On Wed, Jan 14, 2009 at 09:45:21PM -0800, David Miller wrote:
+>
+> I agree with Herbert, but of course we have to adhere to cases
+> where APIs actually define a user NULL pointer to have a specific
+> meaning.
 
-> Le Wednesday 14 January 2009 18:50:48 Phil Sutter, vous avez =E9crit=A0=
-:
-> > Without this the driver will crash when the NIC is being restarted.
-> >
-> > Signed-off-by: Phil Sutter <n0-1@freewrt.org>
->=20
-> Acked-by: Florian Fainelli <florian@openwrt.org>
+Absolutely.  Although AFAIK the relevant RFCs here only use the
+notion of a zero option length for such purposes rather than
+NULL pointers (presumably because the meaning of NULL pointers
+are context dependent).
 
-Applied.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
