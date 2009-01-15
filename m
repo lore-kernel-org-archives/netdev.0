@@ -1,45 +1,168 @@
-From: "stanley.miao" <stanley.miao@windriver.com>
-Subject: Re: [PATCHv2] smsc911x: add irq_flags in smsc911x_platform_config.
-Date: Thu, 15 Jan 2009 10:45:52 +0800
-Message-ID: <1231987552.6810.18.camel@localhost>
-References: <1231916280-7391-1-git-send-email-stanley.miao@windriver.com>
-	 <20090114170731.GH22976@n2100.arm.linux.org.uk>
-Reply-To: stanley.miao@windriver.com
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH] fec: remove unused #else branches
+Date: Thu, 15 Jan 2009 13:43:24 +1000
+Message-ID: <496EB0DC.2080102@snapgear.com>
+References: <1231949353-29630-1-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-2-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Steve.Glendinning@smsc.com,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Cc: netdev@vger.kernel.org, Sebastian Siewior <bigeasy@linutronix.de>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:38483 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751765AbZAOChb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 21:37:31 -0500
-In-Reply-To: <20090114170731.GH22976@n2100.arm.linux.org.uk>
+Received: from rex.securecomputing.com ([203.24.151.4]:45904 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751785AbZAODn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 22:43:28 -0500
+In-Reply-To: <1231949353-29630-2-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steve sent another patch to replace this patch.
+Hi Sascha,
 
-Stanley.
+Sascha Hauer wrote:
+> The #else branches throughout this driver belong to a PowerPC 8xx for
+> which this driver is not used.
+> 
+> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> ---
+>  drivers/net/fec.c |   94 -----------------------------------------------------
+>  1 files changed, 0 insertions(+), 94 deletions(-)
+> 
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 7e33c12..95785ef 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -72,8 +72,6 @@ static unsigned int fec_hw[] = {
+>  	(MCF_MBAR+0x30000),
+>  #elif defined(CONFIG_M532x)
+>  	(MCF_MBAR+0xfc030000),
+> -#else
+> -	&(((immap_t *)IMAP_ADDR)->im_cpm.cp_fec),
+>  #endif
+>  };
+>  
+> @@ -95,8 +93,6 @@ static unsigned char	fec_mac_default[] = {
+>  #define	FEC_FLASHMAC	(0xffe04000 + 4)
+>  #elif defined(CONFIG_MOD5272)
+>  #define FEC_FLASHMAC 	0xffc0406b
+> -#else
+> -#define	FEC_FLASHMAC	0
+>  #endif
 
-On Wed, 2009-01-14 at 17:07 +0000, Russell King - ARM Linux wrote:
-> On Wed, Jan 14, 2009 at 02:58:00PM +0800, Stanley.Miao wrote:
-> > When calling request IRQ it is desirable to allow platforms
-> > to specific flags for the call to request_irq. Adding irq_flags
-> > to smsc911x_platform_config allows these flags to be passed.
-> 
-> Yay, it's finally come through.
-> 
-> > @@ -1968,8 +1969,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
-> >  	smsc911x_reg_write(pdata, INT_EN, 0);
-> >  	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
-> >  
-> > -	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
-> > -			     dev->name, dev);
-> > +	irq_flags = IRQF_DISABLED | pdata->config.irq_flags;
-> > +	retval = request_irq(dev->irq, smsc911x_irqhandler, irq_flags,
-> > +				dev->name, dev);
-> 
-> Same comments as for the other driver.
+The breaks building for a few of the ColdFire targets. They
+expect FEC_FLASHMAC to be defined to something.
+
+Those cases could be fixed with "#ifdef"s around them,
+or by leaving this "#else" in place (simpler).
+
+
+>  /* Forward declarations of some structures to support different PHYs
+> @@ -1760,96 +1756,6 @@ static void __inline__ fec_uncache(unsigned long addr)
+>  {
+>  }
+>  
+> -/* ------------------------------------------------------------------------- */
+> -
+> -
+> -#else
+> -
+> -/*
+> - *	Code specific to the MPC860T setup.
+> - */
+> -static void __inline__ fec_request_intrs(struct net_device *dev)
+> -{
+> -	volatile immap_t *immap;
+> -
+> -	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+> -
+> -	if (request_8xxirq(FEC_INTERRUPT, fec_enet_interrupt, 0, "fec", dev) != 0)
+> -		panic("Could not allocate FEC IRQ!");
+> -}
+> -
+> -static void __inline__ fec_get_mac(struct net_device *dev)
+> -{
+> -	bd_t *bd;
+> -
+> -	bd = (bd_t *)__res;
+> -	memcpy(dev->dev_addr, bd->bi_enetaddr, ETH_ALEN);
+> -}
+> -
+> -static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
+> -{
+> -	extern uint _get_IMMR(void);
+> -	volatile immap_t *immap;
+> -	volatile fec_t *fecp;
+> -
+> -	fecp = fep->hwp;
+> -	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+> -
+> -	/* Configure all of port D for MII.
+> -	*/
+> -	immap->im_ioport.iop_pdpar = 0x1fff;
+> -
+> -	/* Bits moved from Rev. D onward.
+> -	*/
+> -	if ((_get_IMMR() & 0xffff) < 0x0501)
+> -		immap->im_ioport.iop_pddir = 0x1c58;	/* Pre rev. D */
+> -	else
+> -		immap->im_ioport.iop_pddir = 0x1fff;	/* Rev. D and later */
+> -
+> -	/* Set MII speed to 2.5 MHz
+> -	*/
+> -	fecp->fec_mii_speed = fep->phy_speed =
+> -		((bd->bi_busfreq * 1000000) / 2500000) & 0x7e;
+> -}
+> -
+> -static void __inline__ fec_enable_phy_intr(void)
+> -{
+> -	volatile fec_t *fecp;
+> -
+> -	fecp = fep->hwp;
+> -
+> -	/* Enable MII command finished interrupt
+> -	*/
+> -	fecp->fec_ivec = (FEC_INTERRUPT/2) << 29;
+> -}
+> -
+> -static void __inline__ fec_disable_phy_intr(void)
+> -{
+> -}
+> -
+> -static void __inline__ fec_phy_ack_intr(void)
+> -{
+> -}
+> -
+> -static void __inline__ fec_localhw_setup(void)
+> -{
+> -	volatile fec_t *fecp;
+> -
+> -	fecp = fep->hwp;
+> -	fecp->fec_r_hash = PKT_MAXBUF_SIZE;
+> -	/* Enable big endian and don't care about SDMA FC.
+> -	*/
+> -	fecp->fec_fun_code = 0x78000000;
+> -}
+> -
+> -static void __inline__ fec_uncache(unsigned long addr)
+> -{
+> -	pte_t *pte;
+> -	pte = va_to_pte(mem_addr);
+> -	pte_val(*pte) |= _PAGE_NO_CACHE;
+> -	flush_tlb_page(init_mm.mmap, mem_addr);
+> -}
+> -
+>  #endif
+>  
+>  /* ------------------------------------------------------------------------- */
+
+I don't see any problems with the rest of this patch.
+
+Regards
+Greg
+
+
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear, a McAfee Company                  PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
