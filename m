@@ -1,125 +1,77 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 3/5] arm: convert pcm037 platform to use smsc911x
-Date: Thu, 15 Jan 2009 09:08:00 +0000
-Message-ID: <1232010482-3744-4-git-send-email-steve.glendinning@smsc.com>
-References: <1232010482-3744-1-git-send-email-steve.glendinning@smsc.com>
- <1232010482-3744-2-git-send-email-steve.glendinning@smsc.com>
- <1232010482-3744-3-git-send-email-steve.glendinning@smsc.com>
-Cc: David Miller <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Stanley Miao <stanley.miao@windriver.com>,
-	Ian Saturley <ian.saturley@smsc.com>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
+From: Justin Piszcz <jpiszcz@lucidpixels.com>
+Subject: Re: 2.6.28: r8169: NETDEV WATCHDOG: eth0 (r8169): transmit timed
+ out
+Date: Thu, 15 Jan 2009 04:10:35 -0500 (EST)
+Message-ID: <alpine.DEB.1.10.0901150407130.6755@p34.internal.lan>
+References: <alpine.DEB.1.10.0901131617550.6193@p34.internal.lan> <20090114213618.a610d647.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, Alan Piszcz <ap@solarrain.com>,
+	netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([86.54.240.115]:49031 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755389AbZAOJHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 04:07:21 -0500
-In-Reply-To: <1232010482-3744-3-git-send-email-steve.glendinning@smsc.com>
+Received: from lucidpixels.com ([75.144.35.66]:60829 "EHLO lucidpixels.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758736AbZAOJKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2009 04:10:37 -0500
+In-Reply-To: <20090114213618.a610d647.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- arch/arm/configs/pcm037_defconfig |   23 ++++++++++++++++++++++-
- arch/arm/mach-mx3/pcm037.c        |   22 ++++++++++++----------
- 2 files changed, 34 insertions(+), 11 deletions(-)
 
-diff --git a/arch/arm/configs/pcm037_defconfig b/arch/arm/configs/pcm037_defconfig
-index 6274745..6e37c77 100644
---- a/arch/arm/configs/pcm037_defconfig
-+++ b/arch/arm/configs/pcm037_defconfig
-@@ -465,12 +465,33 @@ CONFIG_NETDEVICES=y
- # CONFIG_EQUALIZER is not set
- # CONFIG_TUN is not set
- # CONFIG_VETH is not set
--# CONFIG_PHYLIB is not set
-+CONFIG_PHYLIB=y
-+
-+#
-+# MII PHY device drivers
-+#
-+# CONFIG_MARVELL_PHY is not set
-+# CONFIG_DAVICOM_PHY is not set
-+# CONFIG_QSEMI_PHY is not set
-+# CONFIG_LXT_PHY is not set
-+# CONFIG_CICADA_PHY is not set
-+# CONFIG_VITESSE_PHY is not set
-+CONFIG_SMSC_PHY=y
-+# CONFIG_BROADCOM_PHY is not set
-+# CONFIG_ICPLUS_PHY is not set
-+# CONFIG_REALTEK_PHY is not set
-+# CONFIG_NATIONAL_PHY is not set
-+# CONFIG_STE10XP is not set
-+# CONFIG_LSI_ET1011C_PHY is not set
-+# CONFIG_FIXED_PHY is not set
-+# CONFIG_MDIO_BITBANG is not set
- CONFIG_NET_ETHERNET=y
- CONFIG_MII=y
- # CONFIG_AX88796 is not set
- CONFIG_SMC91X=y
- # CONFIG_DM9000 is not set
-+# CONFIG_SMC911X is not set
-+CONFIG_SMSC911X=y
- # CONFIG_IBM_NEW_EMAC_ZMII is not set
- # CONFIG_IBM_NEW_EMAC_RGMII is not set
- # CONFIG_IBM_NEW_EMAC_TAH is not set
-diff --git a/arch/arm/mach-mx3/pcm037.c b/arch/arm/mach-mx3/pcm037.c
-index 8cea825..64a34f6 100644
---- a/arch/arm/mach-mx3/pcm037.c
-+++ b/arch/arm/mach-mx3/pcm037.c
-@@ -24,7 +24,7 @@
- #include <linux/mtd/plat-ram.h>
- #include <linux/memory.h>
- #include <linux/gpio.h>
--#include <linux/smc911x.h>
-+#include <linux/smsc911x.h>
- #include <linux/interrupt.h>
- 
- #include <mach/hardware.h>
-@@ -64,7 +64,7 @@ static struct imxuart_platform_data uart_pdata = {
- 	.flags = IMXUART_HAVE_RTSCTS,
- };
- 
--static struct resource smc911x_resources[] = {
-+static struct resource smsc911x_resources[] = {
- 	[0] = {
- 		.start		= CS1_BASE_ADDR + 0x300,
- 		.end		= CS1_BASE_ADDR + 0x300 + SZ_64K - 1,
-@@ -73,22 +73,24 @@ static struct resource smc911x_resources[] = {
- 	[1] = {
- 		.start		= IOMUX_TO_IRQ(MX31_PIN_GPIO3_1),
- 		.end		= IOMUX_TO_IRQ(MX31_PIN_GPIO3_1),
--		.flags		= IORESOURCE_IRQ,
-+		.flags		= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
- 	},
- };
- 
--static struct smc911x_platdata smc911x_info = {
--	.flags		= SMC911X_USE_32BIT,
--	.irq_flags	= IRQF_SHARED | IRQF_TRIGGER_LOW,
-+static struct smsc911x_platform_config smsc911x_info = {
-+	.flags		= SMSC911X_USE_32BIT,
-+	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
-+	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
-+	.phy_interface	= PHY_INTERFACE_MODE_MII,
- };
- 
- static struct platform_device pcm037_eth = {
--	.name		= "smc911x",
-+	.name		= "smsc911x",
- 	.id		= -1,
--	.num_resources	= ARRAY_SIZE(smc911x_resources),
--	.resource	= smc911x_resources,
-+	.num_resources	= ARRAY_SIZE(smsc911x_resources),
-+	.resource	= smsc911x_resources,
- 	.dev		= {
--		.platform_data = &smc911x_info,
-+		.platform_data = &smsc911x_info,
- 	},
- };
- 
--- 
-1.6.0.6
 
+On Wed, 14 Jan 2009, Andrew Morton wrote:
+
+> (cc's added)
+>
+> On Tue, 13 Jan 2009 16:19:22 -0500 (EST) Justin Piszcz <jpiszcz@lucidpixels.com> wrote:
+>
+>> Most likely disabling this (onboard-nic) and using Intel PCI-Express 1
+>> Gbps card but FYI:
+>>
+>> [505628.695393] ------------[ cut here ]------------
+>> [505628.695398] WARNING: at net/sched/sch_generic.c:226 dev_watchdog+0x22e/0x240()
+>> [505628.695400] NETDEV WATCHDOG: eth0 (r8169): transmit timed out
+>> [505628.695403] Pid: 0, comm: swapper Not tainted 2.6.28 #1
+>> [505628.695405] Call Trace:
+>> [505628.695407]  <IRQ>  [<ffffffff8024f628>] warn_slowpath+0xc8/0x110
+>> [505628.695416]  [<ffffffff805b9310>] ip_finish_output+0x0/0x2b0
+>> [505628.695419]  [<ffffffff8059e3e4>] eth_header+0x34/0xd0
+>> [505628.695423]  [<ffffffff804078c9>] __next_cpu+0x19/0x30
+>> [505628.695427]  [<ffffffff802472dc>] find_busiest_group+0x1dc/0x970
+>> [505628.695432]  [<ffffffff802308b9>] read_tsc+0x9/0x20
+>> [505628.695436]  [<ffffffff802599c4>] lock_timer_base+0x34/0x70
+>> [505628.695440]  [<ffffffff8026aa98>] getnstimeofday+0x48/0xc0
+>> [505628.695443]  [<ffffffff8040d601>] strlcpy+0x41/0x50
+>> [505628.695447]  [<ffffffff8059e9fe>] dev_watchdog+0x22e/0x240
+>> [505628.695449]  [<ffffffff802308b9>] read_tsc+0x9/0x20
+>> [505628.695453]  [<ffffffff8059e7d0>] dev_watchdog+0x0/0x240
+>> [505628.695456]  [<ffffffff802594be>] run_timer_softirq+0x12e/0x200
+>> [505628.695460]  [<ffffffff80238c35>] lapic_next_event+0x15/0x20
+>> [505628.695463]  [<ffffffff80254e13>] __do_softirq+0x93/0x160
+>> [505628.695467]  [<ffffffff802684c2>] hrtimer_interrupt+0x152/0x1c0
+>> [505628.695471]  [<ffffffff8022aabc>] call_softirq+0x1c/0x30
+>> [505628.695474]  [<ffffffff8022c455>] do_softirq+0x35/0x70
+>> [505628.695477]  [<ffffffff802394f6>] smp_apic_timer_interrupt+0x86/0xd0
+>> [505628.695480]  [<ffffffff8022a50b>] apic_timer_interrupt+0x6b/0x70
+>> [505628.695482]  <EOI>  [<ffffffff805f0320>] unix_poll+0x0/0xb0
+>> [505628.695489]  [<ffffffff8023147c>] mwait_idle+0x3c/0x50
+>> [505628.695493]  [<ffffffff80228a1c>] cpu_idle+0x5c/0x90
+>> [505628.695495] ---[ end trace eddb8da7fddd6198 ]---
+>> [505628.700048] r8169: eth0: link up
+>>
+>> I believe this occured when trying to burn a DVD via Nero over a 1gbps
+>> connection.
+>
+> Is this new behaviour?  Was 2.6.27 OK?
+>
+> Thanks.
+>
+
+It is the first time I have ever seen it on this system, while running 
+2.6.28.  I have never seen the error in the past (at least not that I can 
+remember/no log entries) for 2.6.27 or below.
+
+Motherboard = Gigabyte P35-DS4
+
+Justin.
