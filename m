@@ -1,91 +1,100 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: maximum buffer size for splice(2) tcp->pipe?
-Date: Thu, 15 Jan 2009 12:47:22 +0100
-Message-ID: <496F224A.9080100@cosmosbay.com>
-References: <20090113123702.ad29cd13.akpm@linux-foundation.org>	<496D2078.9080302@cosmosbay.com>	<496D25F8.2080505@cosmosbay.com> <20090114.205839.20689555.davem@davemloft.net>
+From: Chris Caputo <ccaputo@alt.net>
+Subject: Re: deadlocks if use htb
+Date: Thu, 15 Jan 2009 12:00:50 +0000 (UTC)
+Message-ID: <Pine.LNX.4.64.0901151139440.20461@nacho.alt.net>
+References: <20081010090426.GA6054@ff.dom.local>
+	<Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>
+	<20090114063909.GA4234@ff.dom.local>
+	<200901141417.58667.denys@visp.net.lb>
+	<1231937404.14825.4.camel@laptop>
+	<Pine.LNX.4.64.0901141748300.17915@nacho.alt.net>
+	<20090115065322.GA4190@ff.dom.local>
+	<Pine.LNX.4.64.0901150724000.20461@nacho.alt.net>
+	<20090115075450.GB4190@ff.dom.local>
+	<20090115094530.GG4190@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, Volker.Lendecke@SerNet.DE,
-	linux-kernel@vger.kernel.org, sfrench@us.ibm.com,
-	jens.axboe@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Badalian Vyacheslav <slavon@bigtelecom.ru>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:48558 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753156AbZAOLrn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 06:47:43 -0500
-In-Reply-To: <20090114.205839.20689555.davem@davemloft.net>
+Received: from nacho.alt.net ([208.90.169.18]:33629 "EHLO nacho.alt.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759901AbZAOMHd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2009 07:07:33 -0500
+In-Reply-To: <20090115094530.GG4190@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Wed, 14 Jan 2009 00:38:32 +0100
->=20
->> [PATCH] net: splice() from tcp to socket should take into account O_=
-NONBLOCK
->>
->> Instead of using SPLICE_F_NONBLOCK to select a non blocking mode bot=
-h on
->> source tcp socket and pipe destination, we use the underlying file f=
-lag (O_NONBLOCK)
->> for selecting a non blocking socket.
->>
->> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->=20
-> This needs at least some more thought.
->=20
-> It seems, for one thing, that this change will interfere with the
-> intentions of the code in splice_dirt_to_actor which goes:
->=20
-> 	/*
-> 	 * Don't block on output, we have to drain the direct pipe.
-> 	 */
-> 	sd->flags &=3D ~SPLICE_F_NONBLOCK;
+On Thu, 15 Jan 2009, Jarek Poplawski wrote:
+> On Thu, Jan 15, 2009 at 07:54:50AM +0000, Jarek Poplawski wrote:
+> > On Thu, Jan 15, 2009 at 07:26:28AM +0000, Chris Caputo wrote:
+> > > On Thu, 15 Jan 2009, Jarek Poplawski wrote:
+> > > > On Wed, Jan 14, 2009 at 06:02:04PM +0000, Chris Caputo wrote:
+> > > > ...
+> > > > > That said, I would not recommend just the three for -stable unless they 
+> > > > > get a much wider amount of testing, on multiple platforms.  I don't see 
+> > > > > that as likely to happen, plus Peter says they are incomplete, so maybe it 
+> > > > > is just best to recommend that 2.6.28 users getting crashes while using 
+> > > > > HTB try these specific patches at first, and then the rest of the patches 
+> > > > > if they do not work.
+> > ...
+> > > I hope you can forgive me, but since I have something that works on a 
+> > > production machine, I am not in a position in which I can test this.
+> > 
+> > So, IOW, you don't recommend Peter's patches but prefere to use them,
+> > and recommend my patches, but you are afraid of using them...
+> 
+> Sorry, Chris! It looks like I misunderstood, and you recomend Peter's
+> patches yet. (But I guess there are users relying on official kernel
+> versions.)
+> 
+> I hope you can forgive me,
 
-Reading splice_direct_to_actor() I see nothing wrong with the patch
+:-)  No worries.
 
-(Patch is about splice from socket to pipe, while the sd->flags you men=
-tion
-in splice_direct_to_actor() only applies to the splice from internal pi=
-pe to
-something else, as splice_direct_to_actor() allocates an internal pipe =
-to perform
-its work.
+Just to be clear, by "these specific patches at first", I mean the 
+"hrtimer: removing all ur callback modes" ones:
 
-Also, the meaning of SPLICE_F_NONBLOCK, as explained in include/linux/s=
-plice.h is :
+ ca109491f612aab5c8152207631c0444f63da97f
+ 37810659ea7d9572c5ac284ade272f806ef8f788
+ a0a99b227da57f81319dd239bc4de811b0f530ec
 
-#define SPLICE_F_NONBLOCK (0x02) /* don't block on the pipe splicing (b=
-ut */
-	/* we may still block on the fd we splice */
-	/* from/to, of course */
+By "rest of the patches", I mean the above plus the others created by
+Peter for hrtimers.  Full list:
 
-If the comment is still correct, SPLICE_F_NONBLOCK only applies to the =
-pipe implied in
-splice() syscall.
+ ca109491f612aab5c8152207631c0444f63da97f
+ 37810659ea7d9572c5ac284ade272f806ef8f788
+ a0a99b227da57f81319dd239bc4de811b0f530ec
+ b2e3c0adec918ea22b6c9d7c76193dd3aaba9bd4
+ 8bdec955b0da2ffbd10eb9b200651dd1f9e366f2
+ d5fd43c4ae04523e1dcd7794f9c511b289851350
+ 731a55ba0f17064f85903b7bf8e24849ec6cfa20
+ a6037b61c2f5fc99c57c15b26d7cfa58bbb34008
+ e3f1d883740b09e5116d4d4e30a6a6987264a83c
+ 82c5b7b527ccc4b5d3cf832437e842f9d2920a79
+ 6e5c172cf7ca1ab878cc6a6a4c1d52fef60f3ee0
 
-=46or the other file, either its :
-- A regular file : nonblocking mode is not available, like a normal rea=
-d()/write() syscall
+The first 3 git patches listed above are working for me so far, so I have 
+not had a need to try the others.
 
-- A socket : We should be able to specify if its blocking or not, indep=
-endantly from
-             the SPLICE_F_NONBLOCK flag that only applies to the pipe. =
-Normal way
-             is using ioctl(FIONBIO) or other fcntl() call to change fi=
-le->f_flags O_NONBLOCK
+On Thu, Jan 15, 2009 at 11:57:13AM +0200, Denys Fedoryschenko wrote:
+> I didn't notice a bug, just because all that time i was using it without
+> hrtimers (because of nmi_watchdog).
 
+nmi_watchdog 1 or 2?  I'm running with 2 which I've read does not disable 
+hrtimers, right?
 
-In order to be able to efficiently use splice() from a socket to a file=
-, we need
-to do a loop of :
+I mention it because my original HTB/hrtimers-related crash on .28 was 
+without nmi_watchdog altogether.  I added both "nmi_watchdog=panic,2" and 
+Peter's first 3 patches (ca1, 378, a0a) at the same time, to produce an 
+apparently stable system.
 
-{
-splice(from blocking tcp socket to non blocking pipe, SPLICE_F_NONBLOCK=
-); /* nonblocking pipe or risk deadlock */
-splice(from pipe to file)
-}
+I wish I had a repro scenario in a non-production environment, so I could 
+help out further with this.  If I did, I would test without nmi_watchdog 
+while trying just 2.6.28 and Jarek's #4 patch.
 
-
+Chris
