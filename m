@@ -1,28 +1,49 @@
-From: jpo234@netscape.net
-Subject: Sending complete IPv6 packets without bypassing netfilter/IPsec
-Date: Thu, 15 Jan 2009 08:15:50 -0500
-Message-ID: <8CB452A85703FEF-9E4-FEB@FWM-M04.sysops.aol.com>
+From: Chris Caputo <ccaputo@alt.net>
+Subject: Re: deadlocks if use htb
+Date: Thu, 15 Jan 2009 13:53:09 +0000 (UTC)
+Message-ID: <Pine.LNX.4.64.0901151340540.20461@nacho.alt.net>
+References: <Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>
+	<20090114063909.GA4234@ff.dom.local>
+	<200901141417.58667.denys@visp.net.lb>
+	<1231937404.14825.4.camel@laptop>
+	<Pine.LNX.4.64.0901141748300.17915@nacho.alt.net>
+	<20090115065322.GA4190@ff.dom.local>
+	<Pine.LNX.4.64.0901150724000.20461@nacho.alt.net>
+	<20090115075450.GB4190@ff.dom.local>
+	<20090115094530.GG4190@ff.dom.local>
+	<Pine.LNX.4.64.0901151139440.20461@nacho.alt.net>
+	<20090115121801.GH5461@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from imo-m21.mx.aol.com ([64.12.137.2]:64886 "EHLO
-	imo-m21.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755703AbZAONYI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 08:24:08 -0500
-Received: from jpo234@netscape.net
-	by imo-m21.mx.aol.com  (mail_out_v39.1.) id x.d01.489a94a5 (37530)
-	 for <netdev@vger.kernel.org>; Thu, 15 Jan 2009 08:15:57 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Denys Fedoryschenko <denys@visp.net.lb>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Badalian Vyacheslav <slavon@bigtelecom.ru>
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762321AbZAONx2@vger.kernel.org>
+In-Reply-To: <20090115121801.GH5461@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello all,
-the IPv4 socket interface had the nifty IP_HDRINCL option. It seems 
-that an IPv6 version of this option is not available. The proposed 
-solution for this seems to be to use libpcap to inject the packet. 
-Unfortunately this completely bypasses both, netfilter and IPsec. So, 
-am I lost or is there a way to do what I want/need?
+On Thu, 15 Jan 2009, Jarek Poplawski wrote:
+> On Thu, Jan 15, 2009 at 12:00:50PM +0000, Chris Caputo wrote:
+> ...
+> > I wish I had a repro scenario in a non-production environment, so I could 
+> > help out further with this.  If I did, I would test without nmi_watchdog 
+> > while trying just 2.6.28 and Jarek's #4 patch.
+> 
+> I think this watchdog doesn't matter too much yet. Probably it's more
+> about hardware (smp, maybe kind of hw timer), and high traffic vs. htb
+> rules.
 
-Thanks in advance
-   Joerg
+Per Thomas' comment in http://bugzilla.kernel.org/show_bug.cgi?id=10944 
+regarding broken hrtimers:
+
+--
+  nmi_watchdog=1 disables the local apic timers and therefor highres/nohz
+
+  Try to use nmi_watchdog=2 instead.
+--
+
+Chris
