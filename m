@@ -1,39 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH RFC v5] net: add PCINet driver
-Date: Thu, 15 Jan 2009 13:58:33 +0100
-Message-ID: <200901151358.34250.arnd@arndb.de>
-References: <20090107195052.GA24981@ovro.caltech.edu> <200901131842.54688.arnd@arndb.de> <20090115001251.GA10745@ovro.caltech.edu>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: [PATCH] hso serial throttled tty kref fix.
+Date: Thu, 15 Jan 2009 13:17:40 +0000
+Message-ID: <20090115131740.5dab50ea@lxorguk.ukuu.org.uk>
+References: <496F27B9.3030802@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Ira Snyder <iws@ovro.caltech.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:56479 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754124AbZAOM6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 07:58:44 -0500
-In-Reply-To: <20090115001251.GA10745@ovro.caltech.edu>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <496F27B9.3030802-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 15 January 2009, Ira Snyder wrote:
+On Thu, 15 Jan 2009 13:10:33 +0100
+Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
 
-> The only problem with that is that you cannot route interrupts from the
-> DMA controller over PCI with the PowerPC core running. Which makes it
-> mostly useless for this case.
+> Hi,
+> This patch is for Alan Cox as it related to the tty layer.
+> Hopefully the hso driver is again relatively stable with this fix.
 
-If the host supports MSI, you can simply program the DMA controller to
-write the correct message to the inbound address of the MSI interrupt
-controller!
+ACK - hso conversion does not seem to have been my finest hour
 
-All modern host systems should have MSI, as this is required by the
-PCIe specification, but it still somewhat limits the choice of your
-hosts.
+Sorry about that.
 
-	Arnd <><
+Alan
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
