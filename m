@@ -1,33 +1,28 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH] hso serial throttled tty kref fix.
-Date: Thu, 15 Jan 2009 13:17:40 +0000
-Message-ID: <20090115131740.5dab50ea@lxorguk.ukuu.org.uk>
-References: <496F27B9.3030802@option.com>
+From: jpo234@netscape.net
+Subject: Sending complete IPv6 packets without bypassing netfilter/IPsec
+Date: Thu, 15 Jan 2009 08:15:50 -0500
+Message-ID: <8CB452A85703FEF-9E4-FEB@FWM-M04.sysops.aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Serial <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux USB kernel mailing list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux netdev Mailing list <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <496F27B9.3030802-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imo-m21.mx.aol.com ([64.12.137.2]:64886 "EHLO
+	imo-m21.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755703AbZAONYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 08:24:08 -0500
+Received: from jpo234@netscape.net
+	by imo-m21.mx.aol.com  (mail_out_v39.1.) id x.d01.489a94a5 (37530)
+	 for <netdev@vger.kernel.org>; Thu, 15 Jan 2009 08:15:57 -0500 (EST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Jan 2009 13:10:33 +0100
-Denis Joseph Barrow <D.Barow-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org> wrote:
+Hello all,
+the IPv4 socket interface had the nifty IP_HDRINCL option. It seems 
+that an IPv6 version of this option is not available. The proposed 
+solution for this seems to be to use libpcap to inject the packet. 
+Unfortunately this completely bypasses both, netfilter and IPsec. So, 
+am I lost or is there a way to do what I want/need?
 
-> Hi,
-> This patch is for Alan Cox as it related to the tty layer.
-> Hopefully the hso driver is again relatively stable with this fix.
-
-ACK - hso conversion does not seem to have been my finest hour
-
-Sorry about that.
-
-Alan
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks in advance
+   Joerg
