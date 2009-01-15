@@ -1,43 +1,49 @@
 From: Phil Sutter <n0-1@freewrt.org>
-Subject: [PATCH] korina: adjust headroom for new skb's also
-Date: Thu, 15 Jan 2009 23:29:56 +0100
-Message-ID: <20090115223020.A7EED4043838@mail.nwl.cc>
-References: <1232058598-15811-1-git-send-email-n0-1@freewrt.org>
+Subject: [PATCH] korina: fix loop back of receive descriptors
+Date: Thu, 15 Jan 2009 23:29:55 +0100
+Message-ID: <20090115223005.D6F694043831@mail.nwl.cc>
 Cc: davem@davemloft.net, jeff@garzik.org, florian@openwrt.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:58491 "EHLO mail.nwl.cc"
+Received: from orbit.nwl.cc ([91.121.169.95]:58493 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935348AbZAOWjm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2009 17:39:42 -0500
-In-Reply-To: <1232058598-15811-1-git-send-email-n0-1@freewrt.org>
+	id S935762AbZAOWjn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2009 17:39:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is copy and paste from the original driver. As skb_reserve() is
-also called within korina_alloc_ring() when initially allocating the
-receive descriptors, the same should be done when allocating new space
-after passing an skb to upper layers.
+After the last loop iteration, i has the value RC32434_NUM_RDS and
+therefore leads to an index overflow when used afterwards to address the
+last element. This is yet another another bug introduced when rewriting
+parts of the driver for upstream preparation, as the original driver
+used 'RC32434_NUM_RDS - 1' instead.
 
 Signed-off-by: Phil Sutter <n0-1@freewrt.org>
 ---
- drivers/net/korina.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/korina.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index 67fbdf4..60ae7bf 100644
+index 1d6e48e..67fbdf4 100644
 --- a/drivers/net/korina.c
 +++ b/drivers/net/korina.c
-@@ -416,6 +416,9 @@ static int korina_rx(struct net_device *dev, int limit)
- 			if (devcs & ETH_RX_MP)
- 				dev->stats.multicast++;
+@@ -769,11 +769,12 @@ static void korina_alloc_ring(struct net_device *dev)
+ 		lp->rd_ring[i].link = CPHYSADDR(&lp->rd_ring[i+1]);
+ 	}
  
-+			/* 16 bit align */
-+			skb_reserve(skb_new, 2);
-+
- 			lp->rx_skb[lp->rx_next_done] = skb_new;
- 		}
+-	/* loop back */
+-	lp->rd_ring[i].link = CPHYSADDR(&lp->rd_ring[0]);
+-	lp->rx_next_done  = 0;
++	/* loop back receive descriptors, so the last
++	 * descriptor points to the first one */
++	lp->rd_ring[i - 1].link = CPHYSADDR(&lp->rd_ring[0]);
++	lp->rd_ring[i - 1].control |= DMA_DESC_COD;
  
+-	lp->rd_ring[i].control |= DMA_DESC_COD;
++	lp->rx_next_done  = 0;
+ 	lp->rx_chain_head = 0;
+ 	lp->rx_chain_tail = 0;
+ 	lp->rx_chain_status = desc_empty;
 -- 
 1.5.6.4
 
