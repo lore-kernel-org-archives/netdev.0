@@ -1,50 +1,37 @@
-From: Phil Sutter <n0-1@freewrt.org>
-Subject: [PATCH] korina: drop leftover assignment
-Date: Thu, 15 Jan 2009 23:29:57 +0100
-Message-ID: <20090115223008.B784E4043837@mail.nwl.cc>
-References: <1232058598-15811-1-git-send-email-n0-1@freewrt.org>
- <1232058598-15811-2-git-send-email-n0-1@freewrt.org>
-Cc: davem@davemloft.net, jeff@garzik.org, florian@openwrt.org
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RFC v5] net: add PCINet driver
+Date: Thu, 15 Jan 2009 23:53:24 +0100
+Message-ID: <200901152353.25052.arnd@arndb.de>
+References: <20090107195052.GA24981@ovro.caltech.edu> <200901152222.55006.arnd@arndb.de> <20090115214056.GC9091@ovro.caltech.edu>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ira Snyder <iws@ovro.caltech.edu>,
+	Jan-Bernd Themann <themann@de.ibm.com>, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, shemminger@vyatta.com,
+	David Miller <davem@davemloft.net>
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:58494 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935578AbZAOWjn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2009 17:39:43 -0500
-In-Reply-To: <1232058598-15811-2-git-send-email-n0-1@freewrt.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:50962 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936629AbZAOWyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 17:54:05 -0500
+In-Reply-To: <20090115214056.GC9091@ovro.caltech.edu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the assigned value is being overwritten shortly after, it can be
-dropped and so the whole variable definition moved to the start of the
-function.
+On Thursday 15 January 2009, Ira Snyder wrote:
+> I do have mailboxes (two inbound, two outbound) which can generate
+> interrupts, as well as doorbell registers (one inbound, one outbound).
+> The doorbell register's bits are "write 1 to clear", and can only be
+> cleared by the opposite side.
+> 
 
-Signed-off-by: Phil Sutter <n0-1@freewrt.org>
----
- drivers/net/korina.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Ok, in this case, you should be able to use one of these to implement
+the DMA complete interrupt, but adding an extra DMA transfer to the
+mailbox after each transfer that you want to get notified for.
 
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index 60ae7bf..75010ca 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -743,6 +743,7 @@ static struct ethtool_ops netdev_ethtool_ops = {
- static void korina_alloc_ring(struct net_device *dev)
- {
- 	struct korina_private *lp = netdev_priv(dev);
-+	struct sk_buff *skb;
- 	int i;
- 
- 	/* Initialize the transmit descriptors */
-@@ -758,8 +759,6 @@ static void korina_alloc_ring(struct net_device *dev)
- 
- 	/* Initialize the receive descriptors */
- 	for (i = 0; i < KORINA_NUM_RDS; i++) {
--		struct sk_buff *skb = lp->rx_skb[i];
--
- 		skb = dev_alloc_skb(KORINA_RBSIZE + 2);
- 		if (!skb)
- 			break;
--- 
-1.5.6.4
-
+	Arnd <><
