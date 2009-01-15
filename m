@@ -1,48 +1,59 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
- with IPV6_PKTINFO option
-Date: Thu, 15 Jan 2009 13:34:03 +0800
-Message-ID: <496ECACB.5090300@cn.fujitsu.com>
-References: <496D61FE.7080500@cn.fujitsu.com>	<20090114044856.GA14726@gondor.apana.org.au> <20090114.210242.163189105.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/34]bnx2x: Bug fixes
+Date: Wed, 14 Jan 2009 21:36:22 -0800 (PST)
+Message-ID: <20090114.213622.242296202.davem@davemloft.net>
+References: <1231951356.11301.121.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, pl@linux.vnet.ibm.com, yanivr@broadcom.com
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54735 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750874AbZAOFd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2009 00:33:56 -0500
-In-Reply-To: <20090114.210242.163189105.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50326
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752941AbZAOFgV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:36:21 -0500
+In-Reply-To: <1231951356.11301.121.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 14 Jan 2009 15:48:56 +1100
-> 
->> Yang Hongyang <yanghy@cn.fujitsu.com> wrote:
->>> If optval==NULL, what we should return?EINVAL or EFAULT?
->>> If it is EINVAL,then we should check it .otherwise it's the job of 
->>> copy_from_user
->> I think EFAULT is fine.  We return that elsewhere as well.
-> 
-> Actually, we return EINVAL just a few lines above this code
-> block for some other socket option cases when optval==NULL.
-> 
-> So for consistency I'm applying Yang's original patch to
-> net-next-2.6
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 14 Jan 2009 18:42:35 +0200
 
-Dave,there are some of the code elsewhere return EFAULT when
-optval=NULL,I will post a patch to fix them:)
+> The problem is that more and more bugs required immediate attention so
+> the result is a long list of bug fixes.
 
-> 
-> Thanks.
-> 
-> 
+You have to understand that you absolutely cannot slap me with 34 "bug
+fixes" all at once after the merge window is closed.
 
+> Please consider applying.
 
--- 
-Regards
-Yang Hongyang
+I've gone through patches 1 to 17 for now.  Patched I didn't apply:
+
+1) [PATCH 02/34]bnx2x: Barriers for the compiler
+
+   Need feedback on my query, if this requires a compiler barrier
+   it almost certainly needs cpu reordering barriers too.
+
+2) [PATCH 05/34]bnx2x: Setting the GSO_TYPE with LRO
+
+   As discussed at length, this isn't correct and it's not the
+   way to fix this problem.  Implement the ethtool LRO disable
+   and the kernel will turn it off when bridging or routing is
+   being used over this interface.
+
+3) [PATCH 10/34]bnx2x: Compilation issue on IA64
+
+   This code is ugly and even in the worst case the thing to do
+   is unconditionally use "%llx" and cast the arg to "long long"
+   to kill the warning.
+
+4) [PATCH 13/34]bnx2x: System cache alignment
+
+   This is an optimization and has no business going in outside
+   of the merge window.
+
+I'll go over the rest after I send what I have now to Linus, but don't
+set your expectations high, this is way too many patches to be sending
+now.
+
