@@ -1,49 +1,91 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PULL -tip] fixed few make headers_check warnings
-Date: Thu, 15 Jan 2009 12:11:34 +0100
-Message-ID: <20090115111134.GB22850@elte.hu>
-References: <1231836016.3212.41.camel@jaswinder.satnam> <Pine.LNX.4.64.0901140954250.27308@anakin> <3f9a31f40901140129i1389f47frf32808f3a695a118@mail.gmail.com> <20090114153825.GB32082@uranus.ravnborg.org> <3f9a31f40901140759s1542e6cclae1808b796c2b1a9@mail.gmail.com> <Pine.LNX.4.64.0901141732450.26663@anakin> <20090114201513.GC1556@uranus.ravnborg.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: maximum buffer size for splice(2) tcp->pipe?
+Date: Thu, 15 Jan 2009 12:47:22 +0100
+Message-ID: <496F224A.9080100@cosmosbay.com>
+References: <20090113123702.ad29cd13.akpm@linux-foundation.org>	<496D2078.9080302@cosmosbay.com>	<496D25F8.2080505@cosmosbay.com> <20090114.205839.20689555.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jaswinder Singh Rajput <jaswinderlinux@gmail.com>,
-	Jaswinder Singh Rajput <jaswinder@infradead.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	x86 maintainers <x86@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Sam Ravnborg <sam@ravnborg.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, Volker.Lendecke@SerNet.DE,
+	linux-kernel@vger.kernel.org, sfrench@us.ibm.com,
+	jens.axboe@oracle.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:48372 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753797AbZAOLMX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2009 06:12:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20090114201513.GC1556@uranus.ravnborg.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:48558 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753156AbZAOLrn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 06:47:43 -0500
+In-Reply-To: <20090114.205839.20689555.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Wed, 14 Jan 2009 00:38:32 +0100
+>=20
+>> [PATCH] net: splice() from tcp to socket should take into account O_=
+NONBLOCK
+>>
+>> Instead of using SPLICE_F_NONBLOCK to select a non blocking mode bot=
+h on
+>> source tcp socket and pipe destination, we use the underlying file f=
+lag (O_NONBLOCK)
+>> for selecting a non blocking socket.
+>>
+>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> This needs at least some more thought.
+>=20
+> It seems, for one thing, that this change will interfere with the
+> intentions of the code in splice_dirt_to_actor which goes:
+>=20
+> 	/*
+> 	 * Don't block on output, we have to drain the direct pipe.
+> 	 */
+> 	sd->flags &=3D ~SPLICE_F_NONBLOCK;
 
-* Sam Ravnborg <sam@ravnborg.org> wrote:
+Reading splice_direct_to_actor() I see nothing wrong with the patch
 
-> So when I see "capability.h: extern's make no sense in userspace" the 
-> perfect approach would be that the whole file was checked.
-> 
-> This is a much bigger task that just removing the warning.
+(Patch is about splice from socket to pipe, while the sd->flags you men=
+tion
+in splice_direct_to_actor() only applies to the splice from internal pi=
+pe to
+something else, as splice_direct_to_actor() allocates an internal pipe =
+to perform
+its work.
 
-The problem is, you just littered the kernel with a ton of warnings and 
-declared that fixing them is a 'much bigger task'.
+Also, the meaning of SPLICE_F_NONBLOCK, as explained in include/linux/s=
+plice.h is :
 
-It's not good to start projects like this, because they simply never 
-finish. It's _much_ better to first reach a zero baseline via minimal 
-fixes, then enforce 'look at the whole thing' for all _NEW_ files and 
-changes.
+#define SPLICE_F_NONBLOCK (0x02) /* don't block on the pipe splicing (b=
+ut */
+	/* we may still block on the fd we splice */
+	/* from/to, of course */
 
-That's how we are using checkpatch in the -tip topics, and it's working 
-very nicely.
+If the comment is still correct, SPLICE_F_NONBLOCK only applies to the =
+pipe implied in
+splice() syscall.
 
-Could we please start it like that?
+=46or the other file, either its :
+- A regular file : nonblocking mode is not available, like a normal rea=
+d()/write() syscall
 
-	Ingo
+- A socket : We should be able to specify if its blocking or not, indep=
+endantly from
+             the SPLICE_F_NONBLOCK flag that only applies to the pipe. =
+Normal way
+             is using ioctl(FIONBIO) or other fcntl() call to change fi=
+le->f_flags O_NONBLOCK
+
+
+In order to be able to efficiently use splice() from a socket to a file=
+, we need
+to do a loop of :
+
+{
+splice(from blocking tcp socket to non blocking pipe, SPLICE_F_NONBLOCK=
+); /* nonblocking pipe or risk deadlock */
+splice(from pipe to file)
+}
+
+
