@@ -1,28 +1,36 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] b44: GFP_DMA skb should not escape from driver
-Date: Thu, 15 Jan 2009 18:28:49 +0100
-Message-ID: <496F7251.7030300@cosmosbay.com>
-References: <20090115111537.GA994@gondor.apana.org.au> <496F4AD4.9080201@cosmosbay.com> <496F690A.2090606@cosmosbay.com> <200901151914.11421.ionut.leonte@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RFC v5] net: add PCINet driver
+Date: Thu, 15 Jan 2009 18:53:51 +0100
+Message-ID: <200901151853.52202.arnd@arndb.de>
+References: <20090107195052.GA24981@ovro.caltech.edu> <200901151358.34250.arnd@arndb.de> <20090115165359.GA2230@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pekka Pietikainen <pp@ee.oulu.fi>,
-	=?UTF-8?B?TWloYWkgRG9uyJt1?= <mihai.dontu@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ionut Leonte <ionut.leonte@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw2.cosmosbay.com ([86.64.20.130]:54997 "EHLO gw2.cosmosbay.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752986AbZAOR3B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 12:29:01 -0500
-In-Reply-To: <200901151914.11421.ionut.leonte@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Ira Snyder <iws@ovro.caltech.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763353AbZAORyU@vger.kernel.org>
+In-Reply-To: <20090115165359.GA2230@ovro.caltech.edu>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ionut Leonte a =C3=A9crit :
-> Applied, seems to fix the problem.
+On Thursday 15 January 2009, Ira Snyder wrote:
+> 
+> These are PCI boards, not PCIe. The host computers are all Pentium3-M
+> systems. I tried enabling MSI on the Freescale boards in the driver, by
+> calling pci_enable_msi() during probe(), and it failed. 
 
-Thanks for your report and testing !
+That doesn't really mean anything, just that the PCI endpoint doesn't
+announce its capability to do MSI in the config space, or that it
+does not have an interrupt line. Since you basically implement the
+device on the FSL board, you should also be able to define the interrupt
+capabilities by writing to the config space.
 
+Do you know what kind of chipset the host uses? It should be fairly
+simple to find out whether or not it can do MSI.
+
+	Arnd <><
