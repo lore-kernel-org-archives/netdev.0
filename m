@@ -1,51 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH RFC v5] net: add PCINet driver
-Date: Thu, 15 Jan 2009 21:57:41 +0100
-Message-ID: <200901152157.42500.arnd@arndb.de>
-References: <20090107195052.GA24981@ovro.caltech.edu> <200901151853.52202.arnd@arndb.de> <20090115182034.GA9091@ovro.caltech.edu>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: mv643xx broken on pegasos
+Date: Thu, 15 Jan 2009 21:32:14 +0100
+Message-ID: <20090115203214.GB18393@deprecation.cyrius.com>
+References: <20090115012232.3852.qmail@kosh.dhis.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	shemminger@vyatta.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, buytenh@wantstofly.org
+To: pacman@kosh.dhis.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:65197 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934121AbZAOU5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 15:57:52 -0500
-In-Reply-To: <20090115182034.GA9091@ovro.caltech.edu>
+Received: from sorrow.cyrius.com ([65.19.161.204]:39406 "EHLO
+	sorrow.cyrius.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934805AbZAOVDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 16:03:39 -0500
 Content-Disposition: inline
+In-Reply-To: <20090115012232.3852.qmail@kosh.dhis.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 15 January 2009, Ira Snyder wrote:
-> Some sort of Broadcom chipset, I think. Full dmesg and lspci output are
-> appended.
-> 
-> The PCI bridge does mention MSI, so maybe it does support it. Would
-> using the DMA from the host mean that the guest system couldn't use the
-> DMA controller at all? All of the channels share the same interrupt line
-> on the guest. I need one channel on the DMA controller on the guest to
-> do realtime transfers from some data processing FPGAs on the board.
+* pacman@kosh.dhis.org <pacman@kosh.dhis.org> [2009-01-14 20:22]:
+> In 2.6.27 it was completely broken.
 
-The PCI-CompactPCI bridge supports MSI, but that does not imply that
-the host does. My limited understanding of x86 tells me that you need
-to enable the I/O-APIC in order to use MSI. Your log shows two relavant
-lines:
+I just noticed that this bug has also been reported on the Pegasos
+forum: http://www.powerdeveloper.org/forums/viewtopic.php?p=11849
+The discussion doesn't contain a lot of information, except for this
+observation:
 
-[    0.000000] Local APIC disabled by BIOS -- you can enable it with "lapic"
-and
-[    2.146845] IO APIC resources could be not be allocated.
+"I've been bisecting the problem today and the regression is indeed
+with one of Lennert's changes, but I would certainly not have bet on
+the innocent looking "mv643xx_eth: use longer DMA bursts" patch (git
+commit identifier cd4ccf76bfd2c36d351e68be7e6a597268f98a1a).
 
-I think you first need to enable the local APIC, then find out what the
-problem with the IO APIC is. If possible, try enabling ACPI (sic) in the
-BIOS in order to get the APIC support.
+With this commit reverted, Gb ethernet is working again with kernel
+2.6.27 on Pegasos."
 
-If you get that to work, you can use the interrupt line of the DMA controller
-to signal interrupts to the FSL machine, while using DMA transfers to the
-MSI address for sending interrupts to the host machine.
-
-	Arnd <><
+-- 
+Martin Michlmayr
+http://www.cyrius.com/
