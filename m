@@ -1,19 +1,19 @@
 From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH] fec: use linux/*.h instead of asm/*.h
-Date: Thu, 15 Jan 2009 13:55:12 +1000
-Message-ID: <496EB3A0.5060201@snapgear.com>
-References: <1231949353-29630-1-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-2-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-3-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-4-git-send-email-s.hauer@pengutronix.de>
+Subject: Re: [PATCH] fec: do not use memcpy on physical addresses
+Date: Thu, 15 Jan 2009 13:55:44 +1000
+Message-ID: <496EB3C0.2090002@snapgear.com>
+References: <1231949353-29630-1-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-2-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-3-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-4-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-5-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Sebastian Siewior <bigeasy@linutronix.de>
 To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:46615 "EHLO
+Received: from rex.securecomputing.com ([203.24.151.4]:46660 "EHLO
 	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752759AbZAODzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 22:55:14 -0500
-In-Reply-To: <1231949353-29630-4-git-send-email-s.hauer@pengutronix.de>
+	with ESMTP id S1752350AbZAODzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 22:55:46 -0500
+In-Reply-To: <1231949353-29630-5-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,38 +23,28 @@ Sascha Hauer wrote:
 > Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
 > ---
 
-No problems with this either for ColdFire,
+Also fine for ColdFire.
 
-Acked-by:  Greg Ungerer <gerg@uclinux.org>
+Acked-by: Greg Ungerer <gerg@uclinux.org>
 
 
 
->  drivers/net/fec.c |    8 +++-----
->  1 files changed, 3 insertions(+), 5 deletions(-)
+>  drivers/net/fec.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
 > diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 812d8be..1a07d56 100644
+> index 1a07d56..29df0df 100644
 > --- a/drivers/net/fec.c
 > +++ b/drivers/net/fec.c
-> @@ -36,15 +36,13 @@
->  #include <linux/spinlock.h>
->  #include <linux/workqueue.h>
->  #include <linux/bitops.h>
-> +#include <linux/io.h>
-> +#include <linux/irq.h>
+> @@ -339,7 +339,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	if (bdp->cbd_bufaddr & 0x3) {
+>  		unsigned int index;
+>  		index = bdp - fep->tx_bd_base;
+> -		memcpy(fep->tx_bounce[index], (void *) bdp->cbd_bufaddr, bdp->cbd_datlen);
+> +		memcpy(fep->tx_bounce[index], (void *)skb->data, skb->len);
+>  		bdp->cbd_bufaddr = __pa(fep->tx_bounce[index]);
+>  	}
 >  
-> -#include <asm/irq.h>
-> -#include <asm/uaccess.h>
-> -#include <asm/io.h>
-> -#include <asm/pgtable.h>
->  #include <asm/cacheflush.h>
-> -
->  #include <asm/coldfire.h>
->  #include <asm/mcfsim.h>
-> +
->  #include "fec.h"
->  
->  #if defined(CONFIG_FEC2)
 
 -- 
 ------------------------------------------------------------------------
