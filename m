@@ -1,47 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Thu, 15 Jan 2009 09:06:50 +0000
-Message-ID: <20090115090650.GF4190@ff.dom.local>
-References: <20081010090426.GA6054@ff.dom.local> <496EE1D4.6010709@bigtelecom.ru> <20090115080921.GC4190@ff.dom.local> <200901151101.15397.denys@visp.net.lb>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Chris Caputo <ccaputo@alt.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Denys Fedoryschenko <denys@visp.net.lb>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH REPOST 0/5] convert arm platforms to smsc911x
+Date: Thu, 15 Jan 2009 09:07:57 +0000
+Message-ID: <1232010482-3744-1-git-send-email-steve.glendinning@smsc.com>
+Cc: David Miller <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Stanley Miao <stanley.miao@windriver.com>,
+	Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f31.google.com ([209.85.219.31]:50653 "EHLO
-	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752049AbZAOJG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 04:06:57 -0500
-Content-Disposition: inline
-In-Reply-To: <200901151101.15397.denys@visp.net.lb>
+Received: from drevil.shawell.net ([86.54.240.115]:49014 "EHLO
+	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755291AbZAOJHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 04:07:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 15, 2009 at 11:01:14AM +0200, Denys Fedoryschenko wrote:
-...
-> Jarek, can you give me exact name of patch or link to it?
-> I will test it on production.
-> And i am interested in searching, what is a problem.
+This patchset, intended for 2.6.30, converts all in-tree arm platforms 
+from smc911x to the actively maintained smsc911x driver.
 
-If there is nothing better I could recommend the patch below for
--stable (2.6.28), when it's tested.
+I don't have any of these platforms available to me, so I've only been 
+able to compile-test the changes.
 
-Thanks,
-Jarek P.
----
+David Miller is planning to take the smsc911x patches via net-2.6, but 
+I've included them here to make testing easier as the other patches in 
+the set depend on them.
 
-diff -Nurp a2.6.27.7/net/sched/sch_htb.c b2.6.27.7/net/sched/sch_htb.c
---- a2.6.27.7/net/sched/sch_htb.c	2008-12-11 08:16:16.000000000 +0000
-+++ b2.6.27.7/net/sched/sch_htb.c	2008-12-15 10:44:32.000000000 +0000
-@@ -924,6 +924,7 @@ static struct sk_buff *htb_dequeue(struc
- 		}
- 	}
- 	sch->qstats.overlimits++;
-+	qdisc_watchdog_cancel(&q->watchdog);
- 	qdisc_watchdog_schedule(&q->watchdog, next_event);
- fin:
- 	return skb;
+This patchset supercedes previous irq_flags patches from me and Stanley 
+Miao.
+
+Steve Glendinning (5):
+  smsc911x: add support for platform-specific irq flags
+  smsc911x: register isr as IRQF_SHARED
+  arm: convert pcm037 platform to use smsc911x
+  arm: convert realview platform to use smsc911x
+  arm: convert omap ldp platform to use smsc911x
+
+ arch/arm/configs/omap_ldp_defconfig         |   24 ++++++++++++++-
+ arch/arm/configs/pcm037_defconfig           |   23 ++++++++++++++-
+ arch/arm/configs/realview-smp_defconfig     |   24 ++++++++++++++-
+ arch/arm/configs/realview_defconfig         |   24 ++++++++++++++-
+ arch/arm/mach-mx3/pcm037.c                  |   22 ++++++++------
+ arch/arm/mach-omap2/board-ldp.c             |   41 +++++++++++++++++----------
+ arch/arm/mach-realview/core.c               |   17 ++++++-----
+ arch/arm/plat-omap/include/mach/board-ldp.h |    4 +-
+ drivers/net/smsc911x.c                      |   19 +++++++++---
+ 9 files changed, 151 insertions(+), 47 deletions(-)
+
