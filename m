@@ -1,31 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Thu, 15 Jan 2009 15:54:34 -0800 (PST)
-Message-ID: <20090115.155434.206643894.davem@davemloft.net>
-References: <20090115.153449.204259387.davem@davemloft.net>
-	<20090115234255.GE1123@1wt.eu>
-	<20090115234408.GA1693@1wt.eu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: cxgb3: Replace LRO with GRO
+Date: Fri, 16 Jan 2009 10:58:03 +1100
+Message-ID: <20090115235803.GA9000@gondor.apana.org.au>
+References: <20090115211403.3792.24995.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jarkao2@gmail.com, zbr@ioremap.net,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: w@1wt.eu
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	swise@opengridcomputing.com
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44446
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753787AbZAOXyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 18:54:33 -0500
-In-Reply-To: <20090115234408.GA1693@1wt.eu>
+Received: from rhun.apana.org.au ([64.62.148.172]:50948 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756339AbZAOX6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 18:58:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20090115211403.3792.24995.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Fri, 16 Jan 2009 00:44:08 +0100
+Divy Le Ray <divy@chelsio.com> wrote:
+> 
+> Your patch looks fine. Early testing provides the same perfs
+> seen with LRO.
+> 
+> I resubmit the original patch with 2 changes:
+> - cxgb3_set_flags() removal did not apply.
+>  commit 47fd23fe8efeea3af4593a8424419df48724eb25 had updated the routine.
+> - replace the NETIF_F_LRO features flag with NETIF_F_GRO
 
-> And BTW feel free to add my Tested-by if you want in case you merge
-> this fix.
+Thanks for the update Divy! It looks good to me.
 
-Done, thanks Willy.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
