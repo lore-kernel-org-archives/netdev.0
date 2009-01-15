@@ -1,36 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Sending complete IPv6 packets without bypassing netfilter/IPsec
-Date: Fri, 16 Jan 2009 10:54:16 +1100
-Message-ID: <20090115235416.GA8862@gondor.apana.org.au>
-References: <8CB452A85703FEF-9E4-FEB@FWM-M04.sysops.aol.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Thu, 15 Jan 2009 15:54:34 -0800 (PST)
+Message-ID: <20090115.155434.206643894.davem@davemloft.net>
+References: <20090115.153449.204259387.davem@davemloft.net>
+	<20090115234255.GE1123@1wt.eu>
+	<20090115234408.GA1693@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jpo234@netscape.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, jarkao2@gmail.com, zbr@ioremap.net,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49752 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753049AbZAOXyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 18:54:21 -0500
-Content-Disposition: inline
-In-Reply-To: <8CB452A85703FEF-9E4-FEB@FWM-M04.sysops.aol.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44446
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753787AbZAOXyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 18:54:33 -0500
+In-Reply-To: <20090115234408.GA1693@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jpo234@netscape.net wrote:
-> the IPv4 socket interface had the nifty IP_HDRINCL option. It seems 
-> that an IPv6 version of this option is not available. The proposed 
-> solution for this seems to be to use libpcap to inject the packet. 
-> Unfortunately this completely bypasses both, netfilter and IPsec. So, 
-> am I lost or is there a way to do what I want/need?
+From: Willy Tarreau <w@1wt.eu>
+Date: Fri, 16 Jan 2009 00:44:08 +0100
 
-	socket(AF_INET6, SOCK_RAW, IPPROTO_RAW)
+> And BTW feel free to add my Tested-by if you want in case you merge
+> this fix.
 
-should have the same effect as IP_HDRINCL.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Done, thanks Willy.
