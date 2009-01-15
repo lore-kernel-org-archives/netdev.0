@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ax88796: start_xmit fix using net_device_ops
-Date: Wed, 14 Jan 2009 21:06:10 -0800 (PST)
-Message-ID: <20090114.210610.130931205.davem@davemloft.net>
-References: <20090114073827.26909.56261.sendpatchset@rx1.opensource.se>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
+	with IPV6_PKTINFO option
+Date: Thu, 15 Jan 2009 16:06:38 +1100
+Message-ID: <20090115050638.GA30224@gondor.apana.org.au>
+References: <496D61FE.7080500@cn.fujitsu.com> <20090114044856.GA14726@gondor.apana.org.au> <20090114.210242.163189105.davem@davemloft.net> <20090115050449.GA30174@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lethal@linux-sh.org, shemminger@vyatta.com,
-	ben-linux@fluff.org
-To: magnus.damm@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: yanghy@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52410
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756114AbZAOFGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:06:09 -0500
-In-Reply-To: <20090114073827.26909.56261.sendpatchset@rx1.opensource.se>
+Received: from rhun.apana.org.au ([64.62.148.172]:57496 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753362AbZAOFGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:06:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20090115050449.GA30174@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Magnus Damm <magnus.damm@gmail.com>
-Date: Wed, 14 Jan 2009 16:38:27 +0900
-
-> This patch hooks up the start_xmit/tx_timeout/get_stats callbacks
-> in the ax88796 driver since they no longer are installed by the
-> lib8390 code. Without this patch the function dev_hard_start_xmit()
-> crashes due to a start_xmit callback with the value NULL.
+On Thu, Jan 15, 2009 at 04:04:49PM +1100, Herbert Xu wrote:
+> On Wed, Jan 14, 2009 at 09:02:42PM -0800, David Miller wrote:
+> >
+> > Actually, we return EINVAL just a few lines above this code
+> > block for some other socket option cases when optval==NULL.
 > 
-> While at it, update the ax88796 driver to make use of use of struct
-> net_device_ops.
-> 
-> Signed-off-by: Magnus Damm <damm@igel.co.jp>
+> Well the very next option IPV6_2292PKTOPTIONS returns EFAULT
+> by virtue of not explicitly checking optval == NULL :)
 
-Applied, thanks a lot Magnus.
+In fact checking for a NULL pointer is strictly speaking wrong
+since NULL may actually have been mapped in user-space :)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
