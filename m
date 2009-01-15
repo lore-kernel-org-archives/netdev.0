@@ -1,28 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: deadlocks if use htb
-Date: Thu, 15 Jan 2009 10:06:16 +0000
-Message-ID: <20090115100616.GC5461@ff.dom.local>
-References: <20081010090426.GA6054@ff.dom.local> <496F04AB.2080705@bigtelecom.ru> <20090115095454.GA5461@ff.dom.local> <200901151157.13340.denys@visp.net.lb>
+From: Yang Hongyang <yanghy@cn.fujitsu.com>
+Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
+ with IPV6_PKTINFO option
+Date: Thu, 15 Jan 2009 18:07:49 +0800
+Message-ID: <496F0AF5.5060804@cn.fujitsu.com>
+References: <20090114.210242.163189105.davem@davemloft.net>	<496ECACB.5090300@cn.fujitsu.com>	<20090115053702.GA30403@gondor.apana.org.au> <20090114.214521.132298096.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Badalian Vyacheslav <slavon@bigtelecom.ru>,
-	Chris Caputo <ccaputo@alt.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Denys Fedoryschenko <denys@visp.net.lb>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761945AbZAOKGm@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200901151157.13340.denys@visp.net.lb>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:62937 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752936AbZAOKHm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2009 05:07:42 -0500
+In-Reply-To: <20090114.214521.132298096.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 15, 2009 at 11:57:13AM +0200, Denys Fedoryschenko wrote:
-> I didn't notice a bug, just because all that time i was using it without 
-> hrtimers (because of nmi_watchdog).
+David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 15 Jan 2009 16:37:02 +1100
+> 
+>> On Thu, Jan 15, 2009 at 01:34:03PM +0800, Yang Hongyang wrote:
+>>> Dave,there are some of the code elsewhere return EFAULT when
+>>> optval=NULL,I will post a patch to fix them:)
+>> I disagree.  The concept of a user-space NULL pointer is different
+>> to that of a kernel-space NULL pointer, so the kernel should not
+>> be treating a user-space NULL pointer differently than any other
+>> pointer.
+> 
+> I agree with Herbert, but of course we have to adhere to cases
+> where APIs actually define a user NULL pointer to have a specific
+> meaning.
+> 
 > 
 
-Yes, it's strange: I think Slavon reported it happened without hrtimers
-too.
+Agreed.Seems that Patch v2 is correct according to the discussion.^_^
 
-Jarek P.
+-- 
+Regards
+Yang Hongyang
