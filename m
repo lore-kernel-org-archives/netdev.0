@@ -1,36 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]IPv6:remove duplicate check of optlen when setsockopt
-	with IPV6_PKTINFO option
-Date: Thu, 15 Jan 2009 16:37:02 +1100
-Message-ID: <20090115053702.GA30403@gondor.apana.org.au>
-References: <496D61FE.7080500@cn.fujitsu.com> <20090114044856.GA14726@gondor.apana.org.au> <20090114.210242.163189105.davem@davemloft.net> <496ECACB.5090300@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH - REPOST] asix.c - Add support for AX88772A devices -
+Date: Wed, 14 Jan 2009 21:38:31 -0800 (PST)
+Message-ID: <20090114.213831.222765392.davem@davemloft.net>
+References: <1231949520.4105.97.camel@dhollis-lnx>
+	<1231952036.3010.21.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Yang Hongyang <yanghy@cn.fujitsu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dhollis@davehollis.com, jeff@garzik.org, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37395 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750874AbZAOFhJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:37:09 -0500
-Content-Disposition: inline
-In-Reply-To: <496ECACB.5090300@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54134
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754085AbZAOFia (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 00:38:30 -0500
+In-Reply-To: <1231952036.3010.21.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 15, 2009 at 01:34:03PM +0800, Yang Hongyang wrote:
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 14 Jan 2009 16:53:56 +0000
+
+> On Wed, 2009-01-14 at 11:12 -0500, David Hollis wrote:
+> > The attached patch adds support for ASIX AX88772A devices, which is used
+> > in some netbooks, notebooks and embedded devices.  It's largely
+> > compatible with the AX88772 family.
+> > 
+> > This re-post does not include changes to the ax88772_link_reset()
+> > function that removed the use of the generic MII calls in favor of more
+> > explicit register reads.  Those changes were not required for AX88772A
+> > support.
+> > 
+> > Thanks to Louis <louis@asix.com.tw> for the initial patch.
+> > 
+> > Signed-off-by: David Hollis <dhollis@davehollis.com>
 > 
-> Dave,there are some of the code elsewhere return EFAULT when
-> optval=NULL,I will post a patch to fix them:)
+> This patch, including the context, has had tabs converted to spaces.  
 
-I disagree.  The concept of a user-space NULL pointer is different
-to that of a kernel-space NULL pointer, so the kernel should not
-be treating a user-space NULL pointer differently than any other
-pointer.
+That's why he used an attachment.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I applied David's patch as-is, we can clean this code up later.
