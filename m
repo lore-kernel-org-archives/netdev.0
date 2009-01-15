@@ -1,90 +1,64 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: Re: [PATCHv2]IPv6:remove duplicate check when setsockopt with IPV6_PKTINFO
- option
-Date: Thu, 15 Jan 2009 08:50:11 +0800
-Message-ID: <496E8843.8000906@cn.fujitsu.com>
-References: <20090114034711.GA8361@gondor.apana.org.au> <496D61FE.7080500@cn.fujitsu.com> <496D651B.2000106@cn.fujitsu.com> <496D77B8.2000001@cn.fujitsu.com> <496DA1D1.2050005@cn.fujitsu.com>
+From: pacman@kosh.dhis.org
+Subject: mv643xx broken on pegasos
+Date: Wed, 14 Jan 2009 20:22:32 -0500 (GMT+5)
+Message-ID: <20090115012232.3852.qmail@kosh.dhis.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Shan Wei <shanwei@cn.fujitsu.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55349 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752513AbZAOAuM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2009 19:50:12 -0500
-In-Reply-To: <496DA1D1.2050005@cn.fujitsu.com>
+Received: from c-69-246-218-29.hsd1.in.comcast.net ([69.246.218.29]:47087 "HELO
+	kosh.dhis.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751471AbZAOBbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 20:31:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Actually the condition (optlen == 0) is included in (optlen < sizeof(struct in6_pktinfo)),
-so we do not need to check it separately.
-We don't need to check (optval==NULL) either,because copy_from_user() will do the job.
+Based on what I can find in the mailing list archives, I'm the last remaining
+Pegasos owner. (Maybe I was always the only one.) I therefore reluctantly
+offer myself as the guinea pig to get mv643xx_eth back to normal.
 
-Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+In 2.6.26 it worked. (Detected as eth1, since eth0 is the via-rhine)
 
----
- net/ipv6/ipv6_sockglue.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+In 2.6.27 it was completely broken. It detected the device and said the link
+was up, but it was not usable. From tcpdump it appears that incoming packets
+are processed correctly, but outgoing packets are delayed and/or mangled.
+Occasionally a packet goes through. Workaround: the 2.6.26 version of
+mv643xx_eth.c still compiles and works if dropped into 2.6.27/drivers/net.
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 40f3246..1c203b6 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -399,9 +399,7 @@ sticky_done:
- 	{
- 		struct in6_pktinfo pkt;
- 
--		if (optlen == 0)
--			goto e_inval;
--		else if (optlen < sizeof(struct in6_pktinfo) || optval == NULL)
-+		if (optlen < sizeof(struct in6_pktinfo))
- 			goto e_inval;
- 
- 		if (copy_from_user(&pkt, optval, sizeof(struct in6_pktinfo))) {
--- 
-1.6.0.3
+In 2.6.28, it behaves like 2.6.27 with a bonus bug: the port has moved to
+eth2, and eth1 is now a phantom port with MAC address 00:00:00:00:00:00. And
+the old 2.6.26 code doesn't compile so the workaround is dead.
 
-Shan Wei wrote:
-> Yang Hongyang said:
->> Wei Yongjun wrote:
->>> Yang Hongyang wrote:
->>>> Herbert Xu wrote:
->>>>  
->>>>> Yang Hongyang <yanghy@cn.fujitsu.com> wrote:
->>>>>    
->>>>>> Actually the condition (optlen == 0) is included in (optlen <
->>>>>> sizeof(struct in6_pktinfo)),
->>>>>> so we do not need to check it separately.
->>>>>>       
->>>>> You don't need to check optval == NULL either since that's the
->>>>> job of copy_from_user.
->>>>>     
->>>> If optval==NULL, what we should return?EINVAL or EFAULT?
->>>> If it is EINVAL,then we should check it .otherwise it's the job of
->>>> copy_from_user
->>>>   
->>> I think if optval==NULL, the in6_pktinfo which is set should be remove.
->>> So, you should handle optval==NULL. Not just return error.
->> There's no RFC defines the behavior above,but:
->>   RFC3542 said The application can remove any sticky Routing header or sticky 
->> Destination options header or sticky Hop-by-Hop options header by calling 
->> setsockopt() with a zero option length.
->>
->> So,do we need to allow remove any sticky pktinfo option by calling 
->> setsockopt() with a zero option length?
->>
-> 
-> Can remove the option using seting in6_pktinfo struct wiht 
-> ipi6_ifindex=0,ipi6_ifindex=IN6ADDR_ANY_INIT.
-> 
-> If no RFC definition, not to reset with optlen=0,
-> for example IPV6_TCLASS, PV6_2292DSTOPTS.
-> 
+To start the investigation, I'm including log excerpts showing what happens
+when the driver is first loaded in 3 different kernels. Note this interesting
+feature: the first one shows a different MAC address than the others, with an
+unregistered OUI instead of bplan's 00:0b:2f, plus the suspicious string
+"DEAD"... and this is the driver that works!
 
+2.6.26> MV-643xx 10/100/1000 Ethernet Driver
+2.6.26> eth1: port 1 with MAC address 00:2b:2f:de:ad:01
+2.6.26> eth1: Scatter Gather Enabled
+2.6.26> eth1: TX TCP/IP Checksumming Supported
+2.6.26> eth1: RX TCP/UDP Checksum Offload ON
+2.6.26> eth1: RX NAPI Enabled
+2.6.26> eth1: Using SRAM
+
+2.6.27> MV-643xx 10/100/1000 ethernet driver version 1.3
+2.6.27>  : no PHY detected at addr 0
+2.6.27> net eth1: port 1 with MAC address 00:0b:2f:6b:27:e2
+2.6.27> net eth1: scatter/gather enabled
+2.6.27> net eth1: tx checksum offload
+2.6.27> net eth1: napi enabled
+2.6.27> net eth1: configured with sram
+
+2.6.28> MV-643xx 10/100/1000 ethernet driver version 1.4
+2.6.28> mv643xx_eth smi: probed
+2.6.28> net eth1: port 0 with MAC address 00:00:00:00:00:00
+2.6.28> net eth1: configured with sram
+2.6.28> eth%d: 0:07 already attached
+2.6.28> net eth2: port 1 with MAC address 00:0b:2f:6b:27:e2
+2.6.28> net eth2: configured with sram
 
 -- 
-Regards
-Yang Hongyang
+Alan Curry
