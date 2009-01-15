@@ -1,168 +1,78 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH] fec: remove unused #else branches
-Date: Thu, 15 Jan 2009 13:43:24 +1000
-Message-ID: <496EB0DC.2080102@snapgear.com>
-References: <1231949353-29630-1-git-send-email-s.hauer@pengutronix.de> <1231949353-29630-2-git-send-email-s.hauer@pengutronix.de>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH 03/16] dma-debug: add hash functions for
+	dma_debug_entries
+Date: Thu, 15 Jan 2009 12:44:35 +0900
+Message-ID: <20090115124441V.fujita.tomonori@lab.ntt.co.jp>
+References: <20090114114347.GG8625@elte.hu>
+	<20090114093918.e7b0ae46.akpm@linux-foundation.org>
+	<20090114174804.GB31983@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sebastian Siewior <bigeasy@linutronix.de>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Cc: akpm@linux-foundation.org, joerg.roedel@amd.com,
+	linux-kernel@vger.kernel.org, mingo@redhat.com,
+	dwmw2@infradead.org, fujita.tomonori@lab.ntt.co.jp,
+	netdev@vger.kernel.org, iommu@lists.linux-foundation.org
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:45904 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751785AbZAODn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 22:43:28 -0500
-In-Reply-To: <1231949353-29630-2-git-send-email-s.hauer@pengutronix.de>
+Received: from sh.osrg.net ([192.16.179.4]:55758 "EHLO sh.osrg.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753915AbZAODpa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2009 22:45:30 -0500
+In-Reply-To: <20090114174804.GB31983@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sascha,
+On Wed, 14 Jan 2009 18:48:04 +0100
+Ingo Molnar <mingo@elte.hu> wrote:
 
-Sascha Hauer wrote:
-> The #else branches throughout this driver belong to a PowerPC 8xx for
-> which this driver is not used.
 > 
-> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
-> ---
->  drivers/net/fec.c |   94 -----------------------------------------------------
->  1 files changed, 0 insertions(+), 94 deletions(-)
+> * Andrew Morton <akpm@linux-foundation.org> wrote:
 > 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 7e33c12..95785ef 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -72,8 +72,6 @@ static unsigned int fec_hw[] = {
->  	(MCF_MBAR+0x30000),
->  #elif defined(CONFIG_M532x)
->  	(MCF_MBAR+0xfc030000),
-> -#else
-> -	&(((immap_t *)IMAP_ADDR)->im_cpm.cp_fec),
->  #endif
->  };
->  
-> @@ -95,8 +93,6 @@ static unsigned char	fec_mac_default[] = {
->  #define	FEC_FLASHMAC	(0xffe04000 + 4)
->  #elif defined(CONFIG_MOD5272)
->  #define FEC_FLASHMAC 	0xffc0406b
-> -#else
-> -#define	FEC_FLASHMAC	0
->  #endif
+> > On Wed, 14 Jan 2009 12:43:47 +0100 Ingo Molnar <mingo@elte.hu> wrote:
+> > 
+> > > 
+> > > * Andrew Morton <akpm@linux-foundation.org> wrote:
+> > > 
+> > > > On Fri, 9 Jan 2009 17:19:17 +0100 Joerg Roedel <joerg.roedel@amd.com> wrote:
+> > > > 
+> > > > > +struct hash_bucket {
+> > > > > +	struct list_head list;
+> > > > > +	spinlock_t lock;
+> > > > > +} ____cacheline_aligned;
+> > > > 
+> > > > __cacheline_aligned_in_smp.
+> > > > 
+> > > > This all looks like an exotically large amount of code for a debug 
+> > > > thingy?
+> > > 
+> > > this code checks the DMA usage of ~1 million lines of kernel code - all 
+> > > the DMA using drivers. I think Joerg's feature is hugely relevant as DMA 
+> > > scribbles are one of the hardest to debug kernel bugs: they can end up in 
+> > > permanent data corruption or other hard to find bugs. In fact i think his 
+> > > patchset is rather simple and even having 10 times as much debug code 
+> > > would pay for its existence in the long run.
+> > > 
+> > 
+> > Have we previously found bugs by other means which this facility would 
+> > have detected?  I don't recall any...
+> 
+> btw., during the past decade we have had countless very ugly driver DMA 
+> bugs in the past that took vendors months and specialized equipment to 
+> track down.
+> 
+> I cannot give you a number breakdown, only an impression: storage drivers 
+> tended to be the hardest hit (due to the severity of the bugs and due to 
+> their inherent complexity) - but DMA bugs in networking drivers can be 
+> hard to track down too.
 
-The breaks building for a few of the ColdFire targets. They
-expect FEC_FLASHMAC to be defined to something.
+We have had ugly DMA bugs in scsi drivers but I think that this new
+feature can find very few of them. I can't think of any SCSI driver
+bugs that this could find. This feature can't find any popular DMA
+bugs in scsi drivers, such as messing up driver's dma descriptor from
+a scatter gather list.
 
-Those cases could be fixed with "#ifdef"s around them,
-or by leaving this "#else" in place (simpler).
-
-
->  /* Forward declarations of some structures to support different PHYs
-> @@ -1760,96 +1756,6 @@ static void __inline__ fec_uncache(unsigned long addr)
->  {
->  }
->  
-> -/* ------------------------------------------------------------------------- */
-> -
-> -
-> -#else
-> -
-> -/*
-> - *	Code specific to the MPC860T setup.
-> - */
-> -static void __inline__ fec_request_intrs(struct net_device *dev)
-> -{
-> -	volatile immap_t *immap;
-> -
-> -	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
-> -
-> -	if (request_8xxirq(FEC_INTERRUPT, fec_enet_interrupt, 0, "fec", dev) != 0)
-> -		panic("Could not allocate FEC IRQ!");
-> -}
-> -
-> -static void __inline__ fec_get_mac(struct net_device *dev)
-> -{
-> -	bd_t *bd;
-> -
-> -	bd = (bd_t *)__res;
-> -	memcpy(dev->dev_addr, bd->bi_enetaddr, ETH_ALEN);
-> -}
-> -
-> -static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
-> -{
-> -	extern uint _get_IMMR(void);
-> -	volatile immap_t *immap;
-> -	volatile fec_t *fecp;
-> -
-> -	fecp = fep->hwp;
-> -	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
-> -
-> -	/* Configure all of port D for MII.
-> -	*/
-> -	immap->im_ioport.iop_pdpar = 0x1fff;
-> -
-> -	/* Bits moved from Rev. D onward.
-> -	*/
-> -	if ((_get_IMMR() & 0xffff) < 0x0501)
-> -		immap->im_ioport.iop_pddir = 0x1c58;	/* Pre rev. D */
-> -	else
-> -		immap->im_ioport.iop_pddir = 0x1fff;	/* Rev. D and later */
-> -
-> -	/* Set MII speed to 2.5 MHz
-> -	*/
-> -	fecp->fec_mii_speed = fep->phy_speed =
-> -		((bd->bi_busfreq * 1000000) / 2500000) & 0x7e;
-> -}
-> -
-> -static void __inline__ fec_enable_phy_intr(void)
-> -{
-> -	volatile fec_t *fecp;
-> -
-> -	fecp = fep->hwp;
-> -
-> -	/* Enable MII command finished interrupt
-> -	*/
-> -	fecp->fec_ivec = (FEC_INTERRUPT/2) << 29;
-> -}
-> -
-> -static void __inline__ fec_disable_phy_intr(void)
-> -{
-> -}
-> -
-> -static void __inline__ fec_phy_ack_intr(void)
-> -{
-> -}
-> -
-> -static void __inline__ fec_localhw_setup(void)
-> -{
-> -	volatile fec_t *fecp;
-> -
-> -	fecp = fep->hwp;
-> -	fecp->fec_r_hash = PKT_MAXBUF_SIZE;
-> -	/* Enable big endian and don't care about SDMA FC.
-> -	*/
-> -	fecp->fec_fun_code = 0x78000000;
-> -}
-> -
-> -static void __inline__ fec_uncache(unsigned long addr)
-> -{
-> -	pte_t *pte;
-> -	pte = va_to_pte(mem_addr);
-> -	pte_val(*pte) |= _PAGE_NO_CACHE;
-> -	flush_tlb_page(init_mm.mmap, mem_addr);
-> -}
-> -
->  #endif
->  
->  /* ------------------------------------------------------------------------- */
-
-I don't see any problems with the rest of this patch.
-
-Regards
-Greg
-
-
-------------------------------------------------------------------------
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-SnapGear, a McAfee Company                  PHONE:       +61 7 3435 2888
-825 Stanley St,                             FAX:         +61 7 3891 3630
-Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
+But this can find some kinds of DMA bugs and it's is just about 1,000
+lines. I don't see any problem about merging this. 1,000 lines it too
+large? Maybe cutting just 1,000 lines up into too many pieces is
+deceptive.
