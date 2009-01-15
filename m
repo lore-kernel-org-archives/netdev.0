@@ -1,311 +1,468 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ixgbe: Replace LRO with GRO
-Date: Thu, 15 Jan 2009 15:22:49 +1100
-Message-ID: <20090115042249.GA29658@gondor.apana.org.au>
-References: <20090113092625.GA28015@gondor.apana.org.au> <20090113092828.GA28052@gondor.apana.org.au> <20090114084412.GA17393@gondor.apana.org.au> <20090115034619.GA28267@gondor.apana.org.au>
+Subject: sfc: Replace LRO with GRO
+Date: Thu, 15 Jan 2009 15:24:22 +1100
+Message-ID: <20090115042422.GB29658@gondor.apana.org.au>
+References: <20090113092625.GA28015@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: "David S. Miller" <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36066 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:40117 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754752AbZAOEW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 23:22:56 -0500
+	with ESMTP id S1754182AbZAOEY3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2009 23:24:29 -0500
 Content-Disposition: inline
-In-Reply-To: <20090115034619.GA28267@gondor.apana.org.au>
+In-Reply-To: <20090113092625.GA28015@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 15, 2009 at 02:46:19PM +1100, Herbert Xu wrote:
-> 
-> ixgbe: Replace LRO with GRO
-> 
-> This patch makes igb invoke the GRO hooks instead of LRO.  As
+Hi:
 
-Doh I left the name igb in the there.
+Here's the first shot at a driver using the frags interface.
 
-ixgbe: Replace LRO with GRO
+sfc: Replace LRO with GRO
 
-This patch makes ixgbe invoke the GRO hooks instead of LRO.  As
+This patch makes sfc invoke the GRO hooks instead of LRO.  As
 GRO has a compatible external interface to LRO this is a very
 straightforward replacement.
 
-As GRO uses the napi structure to track the held packets, I've
-modified the code paths involved to pass that along.
+Everything should appear identical to the user except that the
+offload is now controlled by the GRO ethtool option instead of
+LRO.  I've kept the lro module parameter as is since that's for
+compatibility only.
+
+I have eliminated efx_rx_mk_skb as the GRO layer can take care
+of all packets regardless of whether GRO is enabled or not.
+
+So the only case where we don't call GRO is if the packet checksum
+is absent.  This is to keep the behaviour changes of the patch to
+a minimum.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index cf4fea0..ee37540 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2443,7 +2443,6 @@ config ENIC
- config IXGBE
- 	tristate "Intel(R) 10GbE PCI Express adapters support"
+diff --git a/drivers/net/sfc/Kconfig b/drivers/net/sfc/Kconfig
+index c535408..12a8296 100644
+--- a/drivers/net/sfc/Kconfig
++++ b/drivers/net/sfc/Kconfig
+@@ -2,7 +2,6 @@ config SFC
+ 	tristate "Solarflare Solarstorm SFC4000 support"
  	depends on PCI && INET
+ 	select MII
 -	select INET_LRO
- 	---help---
- 	  This driver supports Intel(R) 10GbE PCI Express family of
- 	  adapters.  For more information on how to identify your adapter, go
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index e112008..6ac361a 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -31,7 +31,6 @@
- #include <linux/types.h>
- #include <linux/pci.h>
- #include <linux/netdevice.h>
--#include <linux/inet_lro.h>
- #include <linux/aer.h>
- 
- #include "ixgbe_type.h"
-@@ -88,9 +87,6 @@
- #define IXGBE_TX_FLAGS_VLAN_PRIO_MASK   0x0000e000
- #define IXGBE_TX_FLAGS_VLAN_SHIFT	16
- 
--#define IXGBE_MAX_LRO_DESCRIPTORS       8
--#define IXGBE_MAX_LRO_AGGREGATE         32
--
- /* wrapper around a pointer to a socket buffer,
-  * so a DMA handle can be stored along with the buffer */
- struct ixgbe_tx_buffer {
-@@ -142,8 +138,6 @@ struct ixgbe_ring {
- 	/* cpu for tx queue */
- 	int cpu;
- #endif
--	struct net_lro_mgr lro_mgr;
--	bool lro_used;
- 	struct ixgbe_queue_stats stats;
- 	u16 v_idx; /* maps directly to the index for this ring in the hardware
- 	           * vector array, can also be used for finding the bit in EICR
-@@ -301,9 +295,6 @@ struct ixgbe_adapter {
- 
- 	unsigned long state;
- 	u64 tx_busy;
--	u64 lro_aggregated;
--	u64 lro_flushed;
--	u64 lro_no_desc;
- 	unsigned int tx_ring_count;
- 	unsigned int rx_ring_count;
- 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 67f87a7..4f6b5df 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -89,8 +89,6 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 	{"rx_header_split", IXGBE_STAT(rx_hdr_split)},
- 	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
- 	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
--	{"lro_aggregated", IXGBE_STAT(lro_aggregated)},
--	{"lro_flushed", IXGBE_STAT(lro_flushed)},
- };
- 
- #define IXGBE_QUEUE_STATS_LEN \
-@@ -808,15 +806,6 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 	int stat_count = sizeof(struct ixgbe_queue_stats) / sizeof(u64);
- 	int j, k;
- 	int i;
--	u64 aggregated = 0, flushed = 0, no_desc = 0;
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		aggregated += adapter->rx_ring[i].lro_mgr.stats.aggregated;
--		flushed += adapter->rx_ring[i].lro_mgr.stats.flushed;
--		no_desc += adapter->rx_ring[i].lro_mgr.stats.no_desc;
--	}
--	adapter->lro_aggregated = aggregated;
--	adapter->lro_flushed = flushed;
--	adapter->lro_no_desc = no_desc;
- 
- 	ixgbe_update_stats(adapter);
- 	for (i = 0; i < IXGBE_GLOBAL_STATS_LEN; i++) {
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index acef3c6..23f25fe 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -400,23 +400,20 @@ static int __ixgbe_notify_dca(struct device *dev, void *data)
-  * @rx_ring: rx descriptor ring (for a specific queue) to setup
-  * @rx_desc: rx descriptor
-  **/
--static void ixgbe_receive_skb(struct ixgbe_adapter *adapter,
-+static void ixgbe_receive_skb(struct ixgbe_q_vector *q_vector,
-                               struct sk_buff *skb, u8 status,
--                              struct ixgbe_ring *ring,
-                               union ixgbe_adv_rx_desc *rx_desc)
- {
-+	struct ixgbe_adapter *adapter = q_vector->adapter;
-+	struct napi_struct *napi = &q_vector->napi;
- 	bool is_vlan = (status & IXGBE_RXD_STAT_VP);
- 	u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
- 
--	if (adapter->netdev->features & NETIF_F_LRO &&
--	    skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+	if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 		if (adapter->vlgrp && is_vlan && (tag != 0))
--			lro_vlan_hwaccel_receive_skb(&ring->lro_mgr, skb,
--			                             adapter->vlgrp, tag,
--			                             rx_desc);
-+			vlan_gro_receive(napi, adapter->vlgrp, tag, skb);
- 		else
--			lro_receive_skb(&ring->lro_mgr, skb, rx_desc);
--		ring->lro_used = true;
-+			napi_gro_receive(napi, skb);
- 	} else {
- 		if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
- 			if (adapter->vlgrp && is_vlan && (tag != 0))
-@@ -571,10 +568,11 @@ static inline u16 ixgbe_get_pkt_info(union ixgbe_adv_rx_desc *rx_desc)
- 	return rx_desc->wb.lower.lo_dword.hs_rss.pkt_info;
- }
- 
--static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
-+static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
-                                struct ixgbe_ring *rx_ring,
-                                int *work_done, int work_to_do)
- {
-+	struct ixgbe_adapter *adapter = q_vector->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
- 	union ixgbe_adv_rx_desc *rx_desc, *next_rxd;
- 	struct ixgbe_rx_buffer *rx_buffer_info, *next_buffer;
-@@ -675,7 +673,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_adapter *adapter,
- 		total_rx_packets++;
- 
- 		skb->protocol = eth_type_trans(skb, adapter->netdev);
--		ixgbe_receive_skb(adapter, skb, staterr, rx_ring, rx_desc);
-+		ixgbe_receive_skb(q_vector, skb, staterr, rx_desc);
- 
- next_desc:
- 		rx_desc->wb.upper.status_error = 0;
-@@ -693,11 +691,6 @@ next_desc:
- 		staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 	select CRC32
+ 	select I2C
+ 	select I2C_ALGOBIT
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 7673fd9..38247a1 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -182,7 +182,6 @@ static int efx_process_channel(struct efx_channel *channel, int rx_quota)
+ 		channel->rx_pkt = NULL;
  	}
  
--	if (rx_ring->lro_used) {
--		lro_flush_all(&rx_ring->lro_mgr);
--		rx_ring->lro_used = false;
--	}
--
- 	rx_ring->next_to_clean = i;
- 	cleaned_count = IXGBE_DESC_UNUSED(rx_ring);
+-	efx_flush_lro(channel);
+ 	efx_rx_strategy(channel);
  
-@@ -1049,7 +1042,7 @@ static int ixgbe_clean_rxonly(struct napi_struct *napi, int budget)
- 		ixgbe_update_rx_dca(adapter, rx_ring);
- #endif
+ 	efx_fast_push_rx_descriptors(&efx->rx_queue[channel->channel]);
+@@ -1269,18 +1268,11 @@ static int efx_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
+ static int efx_init_napi(struct efx_nic *efx)
+ {
+ 	struct efx_channel *channel;
+-	int rc;
  
--	ixgbe_clean_rx_irq(adapter, rx_ring, &work_done, budget);
-+	ixgbe_clean_rx_irq(q_vector, rx_ring, &work_done, budget);
- 
- 	/* If all Rx work done, exit the polling mode */
- 	if (work_done < budget) {
-@@ -1092,7 +1085,7 @@ static int ixgbe_clean_rxonly_many(struct napi_struct *napi, int budget)
- 		if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
- 			ixgbe_update_rx_dca(adapter, rx_ring);
- #endif
--		ixgbe_clean_rx_irq(adapter, rx_ring, &work_done, budget);
-+		ixgbe_clean_rx_irq(q_vector, rx_ring, &work_done, budget);
- 		enable_mask |= rx_ring->v_idx;
- 		r_idx = find_next_bit(q_vector->rxr_idx, adapter->num_rx_queues,
- 		                      r_idx + 1);
-@@ -1565,33 +1558,6 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter, int index)
- 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_SRRCTL(index), srrctl);
+ 	efx_for_each_channel(channel, efx) {
+ 		channel->napi_dev = efx->net_dev;
+-		rc = efx_lro_init(&channel->lro_mgr, efx);
+-		if (rc)
+-			goto err;
+ 	}
+ 	return 0;
+- err:
+-	efx_fini_napi(efx);
+-	return rc;
  }
  
--/**
-- * ixgbe_get_skb_hdr - helper function for LRO header processing
-- * @skb: pointer to sk_buff to be added to LRO packet
-- * @iphdr: pointer to ip header structure
-- * @tcph: pointer to tcp header structure
-- * @hdr_flags: pointer to header flags
-- * @priv: private data
-- **/
--static int ixgbe_get_skb_hdr(struct sk_buff *skb, void **iphdr, void **tcph,
--                             u64 *hdr_flags, void *priv)
+ static void efx_fini_napi(struct efx_nic *efx)
+@@ -1288,7 +1280,6 @@ static void efx_fini_napi(struct efx_nic *efx)
+ 	struct efx_channel *channel;
+ 
+ 	efx_for_each_channel(channel, efx) {
+-		efx_lro_fini(&channel->lro_mgr);
+ 		channel->napi_dev = NULL;
+ 	}
+ }
+@@ -2097,7 +2088,7 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 	net_dev->features |= (NETIF_F_IP_CSUM | NETIF_F_SG |
+ 			      NETIF_F_HIGHDMA | NETIF_F_TSO);
+ 	if (lro)
+-		net_dev->features |= NETIF_F_LRO;
++		net_dev->features |= NETIF_F_GRO;
+ 	/* Mask for features that also apply to VLAN devices */
+ 	net_dev->vlan_features |= (NETIF_F_ALL_CSUM | NETIF_F_SG |
+ 				   NETIF_F_HIGHDMA | NETIF_F_TSO);
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 5f255f7..8643505 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -25,15 +25,11 @@
+ #include <linux/device.h>
+ #include <linux/highmem.h>
+ #include <linux/workqueue.h>
+-#include <linux/inet_lro.h>
+ #include <linux/i2c.h>
+ 
+ #include "enum.h"
+ #include "bitfield.h"
+ 
+-#define EFX_MAX_LRO_DESCRIPTORS 8
+-#define EFX_MAX_LRO_AGGR MAX_SKB_FRAGS
+-
+ /**************************************************************************
+  *
+  * Build definitions
+@@ -340,13 +336,10 @@ enum efx_rx_alloc_method {
+  * @eventq_read_ptr: Event queue read pointer
+  * @last_eventq_read_ptr: Last event queue read pointer value.
+  * @eventq_magic: Event queue magic value for driver-generated test events
+- * @lro_mgr: LRO state
+  * @rx_alloc_level: Watermark based heuristic counter for pushing descriptors
+  *	and diagnostic counters
+  * @rx_alloc_push_pages: RX allocation method currently in use for pushing
+  *	descriptors
+- * @rx_alloc_pop_pages: RX allocation method currently in use for popping
+- *	descriptors
+  * @n_rx_tobe_disc: Count of RX_TOBE_DISC errors
+  * @n_rx_ip_frag_err: Count of RX IP fragment errors
+  * @n_rx_ip_hdr_chksum_err: Count of RX IP header checksum errors
+@@ -371,10 +364,8 @@ struct efx_channel {
+ 	unsigned int last_eventq_read_ptr;
+ 	unsigned int eventq_magic;
+ 
+-	struct net_lro_mgr lro_mgr;
+ 	int rx_alloc_level;
+ 	int rx_alloc_push_pages;
+-	int rx_alloc_pop_pages;
+ 
+ 	unsigned n_rx_tobe_disc;
+ 	unsigned n_rx_ip_frag_err;
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+index b8ba4bb..a0345b3 100644
+--- a/drivers/net/sfc/rx.c
++++ b/drivers/net/sfc/rx.c
+@@ -99,109 +99,6 @@ static inline unsigned int efx_rx_buf_size(struct efx_nic *efx)
+ }
+ 
+ 
+-/**************************************************************************
+- *
+- * Linux generic LRO handling
+- *
+- **************************************************************************
+- */
+-
+-static int efx_lro_get_skb_hdr(struct sk_buff *skb, void **ip_hdr,
+-			       void **tcpudp_hdr, u64 *hdr_flags, void *priv)
 -{
--	union ixgbe_adv_rx_desc *rx_desc = priv;
+-	struct efx_channel *channel = priv;
+-	struct iphdr *iph;
+-	struct tcphdr *th;
 -
--	/* Verify that this is a valid IPv4 TCP packet */
--	if (!((ixgbe_get_pkt_info(rx_desc) & IXGBE_RXDADV_PKTTYPE_IPV4) &&
--	     (ixgbe_get_pkt_info(rx_desc) & IXGBE_RXDADV_PKTTYPE_TCP)))
--		return -1;
+-	iph = (struct iphdr *)skb->data;
+-	if (skb->protocol != htons(ETH_P_IP) || iph->protocol != IPPROTO_TCP)
+-		goto fail;
 -
--	/* Set network headers */
--	skb_reset_network_header(skb);
--	skb_set_transport_header(skb, ip_hdrlen(skb));
--	*iphdr = ip_hdr(skb);
--	*tcph = tcp_hdr(skb);
+-	th = (struct tcphdr *)(skb->data + iph->ihl * 4);
+-
+-	*tcpudp_hdr = th;
+-	*ip_hdr = iph;
 -	*hdr_flags = LRO_IPV4 | LRO_TCP;
+-
+-	channel->rx_alloc_level += RX_ALLOC_FACTOR_LRO;
+-	return 0;
+-fail:
+-	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
+-	return -1;
+-}
+-
+-static int efx_get_frag_hdr(struct skb_frag_struct *frag, void **mac_hdr,
+-			    void **ip_hdr, void **tcpudp_hdr, u64 *hdr_flags,
+-			    void *priv)
+-{
+-	struct efx_channel *channel = priv;
+-	struct ethhdr *eh;
+-	struct iphdr *iph;
+-
+-	/* We support EtherII and VLAN encapsulated IPv4 */
+-	eh = page_address(frag->page) + frag->page_offset;
+-	*mac_hdr = eh;
+-
+-	if (eh->h_proto == htons(ETH_P_IP)) {
+-		iph = (struct iphdr *)(eh + 1);
+-	} else {
+-		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)eh;
+-		if (veh->h_vlan_encapsulated_proto != htons(ETH_P_IP))
+-			goto fail;
+-
+-		iph = (struct iphdr *)(veh + 1);
+-	}
+-	*ip_hdr = iph;
+-
+-	/* We can only do LRO over TCP */
+-	if (iph->protocol != IPPROTO_TCP)
+-		goto fail;
+-
+-	*hdr_flags = LRO_IPV4 | LRO_TCP;
+-	*tcpudp_hdr = (struct tcphdr *)((u8 *) iph + iph->ihl * 4);
+-
+-	channel->rx_alloc_level += RX_ALLOC_FACTOR_LRO;
+-	return 0;
+- fail:
+-	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
+-	return -1;
+-}
+-
+-int efx_lro_init(struct net_lro_mgr *lro_mgr, struct efx_nic *efx)
+-{
+-	size_t s = sizeof(struct net_lro_desc) * EFX_MAX_LRO_DESCRIPTORS;
+-	struct net_lro_desc *lro_arr;
+-
+-	/* Allocate the LRO descriptors structure */
+-	lro_arr = kzalloc(s, GFP_KERNEL);
+-	if (lro_arr == NULL)
+-		return -ENOMEM;
+-
+-	lro_mgr->lro_arr = lro_arr;
+-	lro_mgr->max_desc = EFX_MAX_LRO_DESCRIPTORS;
+-	lro_mgr->max_aggr = EFX_MAX_LRO_AGGR;
+-	lro_mgr->frag_align_pad = EFX_PAGE_SKB_ALIGN;
+-
+-	lro_mgr->get_skb_header = efx_lro_get_skb_hdr;
+-	lro_mgr->get_frag_header = efx_get_frag_hdr;
+-	lro_mgr->dev = efx->net_dev;
+-
+-	lro_mgr->features = LRO_F_NAPI;
+-
+-	/* We can pass packets up with the checksum intact */
+-	lro_mgr->ip_summed = CHECKSUM_UNNECESSARY;
+-
+-	lro_mgr->ip_summed_aggr = CHECKSUM_UNNECESSARY;
+-
 -	return 0;
 -}
 -
- #define PAGE_USE_COUNT(S) (((S) >> PAGE_SHIFT) + \
-                            (((S) & (PAGE_SIZE - 1)) ? 1 : 0))
- 
-@@ -1663,16 +1629,6 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 		adapter->rx_ring[i].head = IXGBE_RDH(j);
- 		adapter->rx_ring[i].tail = IXGBE_RDT(j);
- 		adapter->rx_ring[i].rx_buf_len = rx_buf_len;
--		/* Intitial LRO Settings */
--		adapter->rx_ring[i].lro_mgr.max_aggr = IXGBE_MAX_LRO_AGGREGATE;
--		adapter->rx_ring[i].lro_mgr.max_desc = IXGBE_MAX_LRO_DESCRIPTORS;
--		adapter->rx_ring[i].lro_mgr.get_skb_header = ixgbe_get_skb_hdr;
--		adapter->rx_ring[i].lro_mgr.features = LRO_F_EXTRACT_VLAN_ID;
--		if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
--			adapter->rx_ring[i].lro_mgr.features |= LRO_F_NAPI;
--		adapter->rx_ring[i].lro_mgr.dev = adapter->netdev;
--		adapter->rx_ring[i].lro_mgr.ip_summed = CHECKSUM_UNNECESSARY;
--		adapter->rx_ring[i].lro_mgr.ip_summed_aggr = CHECKSUM_UNNECESSARY;
- 
- 		ixgbe_configure_srrctl(adapter, j);
- 	}
-@@ -2303,7 +2259,7 @@ static int ixgbe_poll(struct napi_struct *napi, int budget)
- #endif
- 
- 	tx_cleaned = ixgbe_clean_tx_irq(adapter, adapter->tx_ring);
--	ixgbe_clean_rx_irq(adapter, adapter->rx_ring, &work_done, budget);
-+	ixgbe_clean_rx_irq(q_vector, adapter->rx_ring, &work_done, budget);
- 
- 	if (tx_cleaned)
- 		work_done = budget;
-@@ -2919,12 +2875,6 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
- 	struct pci_dev *pdev = adapter->pdev;
- 	int size;
- 
--	size = sizeof(struct net_lro_desc) * IXGBE_MAX_LRO_DESCRIPTORS;
--	rx_ring->lro_mgr.lro_arr = vmalloc(size);
--	if (!rx_ring->lro_mgr.lro_arr)
--		return -ENOMEM;
--	memset(rx_ring->lro_mgr.lro_arr, 0, size);
+-void efx_lro_fini(struct net_lro_mgr *lro_mgr)
+-{
+-	kfree(lro_mgr->lro_arr);
+-	lro_mgr->lro_arr = NULL;
+-}
 -
- 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
- 	rx_ring->rx_buffer_info = vmalloc(size);
- 	if (!rx_ring->rx_buffer_info) {
-@@ -2953,8 +2903,6 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
- 	return 0;
+ /**
+  * efx_init_rx_buffer_skb - create new RX buffer using skb-based allocation
+  *
+@@ -549,77 +446,31 @@ static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
+ static void efx_rx_packet_lro(struct efx_channel *channel,
+ 			      struct efx_rx_buffer *rx_buf)
+ {
+-	struct net_lro_mgr *lro_mgr = &channel->lro_mgr;
+-	void *priv = channel;
++	struct napi_struct *napi = &channel->napi_str;
  
- alloc_failed:
--	vfree(rx_ring->lro_mgr.lro_arr);
--	rx_ring->lro_mgr.lro_arr = NULL;
- 	return -ENOMEM;
+ 	/* Pass the skb/page into the LRO engine */
+ 	if (rx_buf->page) {
+-		struct skb_frag_struct frags;
++		struct napi_gro_fraginfo info;
+ 
+-		frags.page = rx_buf->page;
+-		frags.page_offset = efx_rx_buf_offset(rx_buf);
+-		frags.size = rx_buf->len;
++		info.frags[0].page = rx_buf->page;
++		info.frags[0].page_offset = efx_rx_buf_offset(rx_buf);
++		info.frags[0].size = rx_buf->len;
++		info.nr_frags = 1;
++		info.ip_summed = CHECKSUM_UNNECESSARY;
++		info.len = rx_buf->len;
+ 
+-		lro_receive_frags(lro_mgr, &frags, rx_buf->len,
+-				  rx_buf->len, priv, 0);
++		napi_gro_frags(napi, &info);
+ 
+ 		EFX_BUG_ON_PARANOID(rx_buf->skb);
+ 		rx_buf->page = NULL;
+ 	} else {
+ 		EFX_BUG_ON_PARANOID(!rx_buf->skb);
+ 
+-		lro_receive_skb(lro_mgr, rx_buf->skb, priv);
++		napi_gro_receive(napi, rx_buf->skb);
+ 		rx_buf->skb = NULL;
+ 	}
  }
  
-@@ -3032,9 +2980,6 @@ void ixgbe_free_rx_resources(struct ixgbe_adapter *adapter,
- {
- 	struct pci_dev *pdev = adapter->pdev;
- 
--	vfree(rx_ring->lro_mgr.lro_arr);
--	rx_ring->lro_mgr.lro_arr = NULL;
+-/* Allocate and construct an SKB around a struct page.*/
+-static struct sk_buff *efx_rx_mk_skb(struct efx_rx_buffer *rx_buf,
+-				     struct efx_nic *efx,
+-				     int hdr_len)
+-{
+-	struct sk_buff *skb;
 -
- 	ixgbe_clean_rx_ring(adapter, rx_ring);
+-	/* Allocate an SKB to store the headers */
+-	skb = netdev_alloc_skb(efx->net_dev, hdr_len + EFX_PAGE_SKB_ALIGN);
+-	if (unlikely(skb == NULL)) {
+-		EFX_ERR_RL(efx, "RX out of memory for skb\n");
+-		return NULL;
+-	}
+-
+-	EFX_BUG_ON_PARANOID(skb_shinfo(skb)->nr_frags);
+-	EFX_BUG_ON_PARANOID(rx_buf->len < hdr_len);
+-
+-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	skb_reserve(skb, EFX_PAGE_SKB_ALIGN);
+-
+-	skb->len = rx_buf->len;
+-	skb->truesize = rx_buf->len + sizeof(struct sk_buff);
+-	memcpy(skb->data, rx_buf->data, hdr_len);
+-	skb->tail += hdr_len;
+-
+-	/* Append the remaining page onto the frag list */
+-	if (unlikely(rx_buf->len > hdr_len)) {
+-		struct skb_frag_struct *frag = skb_shinfo(skb)->frags;
+-		frag->page = rx_buf->page;
+-		frag->page_offset = efx_rx_buf_offset(rx_buf) + hdr_len;
+-		frag->size = skb->len - hdr_len;
+-		skb_shinfo(skb)->nr_frags = 1;
+-		skb->data_len = frag->size;
+-	} else {
+-		__free_pages(rx_buf->page, efx->rx_buffer_order);
+-		skb->data_len = 0;
+-	}
+-
+-	/* Ownership has transferred from the rx_buf to skb */
+-	rx_buf->page = NULL;
+-
+-	/* Move past the ethernet header */
+-	skb->protocol = eth_type_trans(skb, efx->net_dev);
+-
+-	return skb;
+-}
+-
+ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+ 		   unsigned int len, bool checksummed, bool discard)
+ {
+@@ -687,7 +538,6 @@ void __efx_rx_packet(struct efx_channel *channel,
+ {
+ 	struct efx_nic *efx = channel->efx;
+ 	struct sk_buff *skb;
+-	bool lro = !!(efx->net_dev->features & NETIF_F_LRO);
  
- 	vfree(rx_ring->rx_buffer_info);
-@@ -4136,7 +4081,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	netdev->features |= NETIF_F_IPV6_CSUM;
- 	netdev->features |= NETIF_F_TSO;
- 	netdev->features |= NETIF_F_TSO6;
--	netdev->features |= NETIF_F_LRO;
-+	netdev->features |= NETIF_F_GRO;
+ 	/* If we're in loopback test, then pass the packet directly to the
+ 	 * loopback layer, and free the rx_buf here
+@@ -709,41 +559,21 @@ void __efx_rx_packet(struct efx_channel *channel,
+ 						       efx->net_dev);
+ 	}
  
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
+-	/* Both our generic-LRO and SFC-SSR support skb and page based
+-	 * allocation, but neither support switching from one to the
+-	 * other on the fly. If we spot that the allocation mode has
+-	 * changed, then flush the LRO state.
+-	 */
+-	if (unlikely(channel->rx_alloc_pop_pages != (rx_buf->page != NULL))) {
+-		efx_flush_lro(channel);
+-		channel->rx_alloc_pop_pages = (rx_buf->page != NULL);
+-	}
+-	if (likely(checksummed && lro)) {
++	if (likely(checksummed || rx_buf->page)) {
+ 		efx_rx_packet_lro(channel, rx_buf);
+ 		goto done;
+ 	}
+ 
+-	/* Form an skb if required */
+-	if (rx_buf->page) {
+-		int hdr_len = min(rx_buf->len, EFX_SKB_HEADERS);
+-		skb = efx_rx_mk_skb(rx_buf, efx, hdr_len);
+-		if (unlikely(skb == NULL)) {
+-			efx_free_rx_buffer(efx, rx_buf);
+-			goto done;
+-		}
+-	} else {
+-		/* We now own the SKB */
+-		skb = rx_buf->skb;
+-		rx_buf->skb = NULL;
+-	}
++	/* We now own the SKB */
++	skb = rx_buf->skb;
++	rx_buf->skb = NULL;
+ 
+ 	EFX_BUG_ON_PARANOID(rx_buf->page);
+ 	EFX_BUG_ON_PARANOID(rx_buf->skb);
+ 	EFX_BUG_ON_PARANOID(!skb);
+ 
+ 	/* Set the SKB flags */
+-	if (unlikely(!checksummed || !efx->rx_checksum_enabled))
+-		skb->ip_summed = CHECKSUM_NONE;
++	skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	/* Pass the packet up */
+ 	netif_receive_skb(skb);
+@@ -760,7 +590,7 @@ void efx_rx_strategy(struct efx_channel *channel)
+ 	enum efx_rx_alloc_method method = rx_alloc_method;
+ 
+ 	/* Only makes sense to use page based allocation if LRO is enabled */
+-	if (!(channel->efx->net_dev->features & NETIF_F_LRO)) {
++	if (!(channel->efx->net_dev->features & NETIF_F_GRO)) {
+ 		method = RX_ALLOC_METHOD_SKB;
+ 	} else if (method == RX_ALLOC_METHOD_AUTO) {
+ 		/* Constrain the rx_alloc_level */
+@@ -865,11 +695,6 @@ void efx_remove_rx_queue(struct efx_rx_queue *rx_queue)
+ 	rx_queue->buffer = NULL;
+ }
+ 
+-void efx_flush_lro(struct efx_channel *channel)
+-{
+-	lro_flush_all(&channel->lro_mgr);
+-}
+-
+ 
+ module_param(rx_alloc_method, int, 0644);
+ MODULE_PARM_DESC(rx_alloc_method, "Allocation method used for RX buffers");
+diff --git a/drivers/net/sfc/rx.h b/drivers/net/sfc/rx.h
+index 0e88a9d..42ee755 100644
+--- a/drivers/net/sfc/rx.h
++++ b/drivers/net/sfc/rx.h
+@@ -17,9 +17,6 @@ void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
+ void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
+ void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
+ 
+-int efx_lro_init(struct net_lro_mgr *lro_mgr, struct efx_nic *efx);
+-void efx_lro_fini(struct net_lro_mgr *lro_mgr);
+-void efx_flush_lro(struct efx_channel *channel);
+ void efx_rx_strategy(struct efx_channel *channel);
+ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue);
+ void efx_rx_work(struct work_struct *data);
+diff --git a/drivers/net/sfc/sfe4001.c b/drivers/net/sfc/sfe4001.c
+index 16b80ac..d21d014 100644
+--- a/drivers/net/sfc/sfe4001.c
++++ b/drivers/net/sfc/sfe4001.c
+@@ -24,6 +24,7 @@
+  */
+ 
+ #include <linux/delay.h>
++#include <linux/rtnetlink.h>
+ #include "net_driver.h"
+ #include "efx.h"
+ #include "phy.h"
+diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
+index b976876..67f834e 100644
+--- a/drivers/net/sfc/tenxpress.c
++++ b/drivers/net/sfc/tenxpress.c
+@@ -8,6 +8,7 @@
+  */
+ 
+ #include <linux/delay.h>
++#include <linux/rtnetlink.h>
+ #include <linux/seq_file.h>
+ #include "efx.h"
+ #include "mdio_10g.h"
 
 Cheers,
 -- 
