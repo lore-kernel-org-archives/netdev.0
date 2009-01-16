@@ -1,75 +1,43 @@
-From: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
-Subject: [PATCH 2/2] PS3: gelic: wireless: convert the wireless part to net_device_ops
-Date: Fri, 16 Jan 2009 17:52:55 +0900
-Message-ID: <20090116174726.0B70.40F06B3A@sm.sony.co.jp>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: cxgb3: Replace LRO with GRO
+Date: Fri, 16 Jan 2009 19:56:45 +1100
+Message-ID: <20090116085645.GA14678@gondor.apana.org.au>
+References: <20090115235803.GA9000@gondor.apana.org.au> <49704015.6020503@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Geoff Levand <geoffrey.levand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
-To: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>
+To: Divy Le Ray <divy@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:56546 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755049AbZAPI4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 03:56:54 -0500
+Content-Disposition: inline
+In-Reply-To: <49704015.6020503@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert the gelic wireless driver to net_device_ops
+On Fri, Jan 16, 2009 at 12:06:45AM -0800, Divy Le Ray wrote:
+> 
+> The perfs are not actually as good as with LRO.
 
-Signed-off-by: Masakazu Mokuno <mokuno-DfbDroY8Xu1L9jVzuh4AOg@public.gmane.org>
----
- V2: added setting for ndo_validate_addr
+Thanks for testing Divy!
 
- drivers/net/ps3_gelic_wireless.c |   28 ++++++++++++++++------------
- 1 file changed, 16 insertions(+), 12 deletions(-)
+> With a slow server, 1 netperf stream gets on average:
 
---- a/drivers/net/ps3_gelic_wireless.c
-+++ b/drivers/net/ps3_gelic_wireless.c
-@@ -2697,6 +2697,19 @@ static int gelic_wl_stop(struct net_devi
- 
- /* -- */
- 
-+static const struct net_device_ops gelic_wl_netdevice_ops = {
-+	.ndo_open = gelic_wl_open,
-+	.ndo_stop = gelic_wl_stop,
-+	.ndo_start_xmit = gelic_net_xmit,
-+	.ndo_set_multicast_list = gelic_net_set_multi,
-+	.ndo_change_mtu = gelic_net_change_mtu,
-+	.ndo_tx_timeout = gelic_net_tx_timeout,
-+	.ndo_validate_addr = eth_validate_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller = gelic_net_poll_controller,
-+#endif
-+};
-+
- static struct ethtool_ops gelic_wl_ethtool_ops = {
- 	.get_drvinfo	= gelic_net_get_drvinfo,
- 	.get_link	= gelic_wl_get_link,
-@@ -2711,21 +2724,12 @@ static void gelic_wl_setup_netdev_ops(st
- 	struct gelic_wl_info *wl;
- 	wl = port_wl(netdev_priv(netdev));
- 	BUG_ON(!wl);
--	netdev->open = &gelic_wl_open;
--	netdev->stop = &gelic_wl_stop;
--	netdev->hard_start_xmit = &gelic_net_xmit;
--	netdev->set_multicast_list = &gelic_net_set_multi;
--	netdev->change_mtu = &gelic_net_change_mtu;
--	netdev->wireless_data = &wl->wireless_data;
--	netdev->wireless_handlers = &gelic_wl_wext_handler_def;
--	/* tx watchdog */
--	netdev->tx_timeout = &gelic_net_tx_timeout;
- 	netdev->watchdog_timeo = GELIC_NET_WATCHDOG_TIMEOUT;
- 
- 	netdev->ethtool_ops = &gelic_wl_ethtool_ops;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	netdev->poll_controller = gelic_net_poll_controller;
--#endif
-+	netdev->netdev_ops = &gelic_wl_netdevice_ops;
-+	netdev->wireless_data = &wl->wireless_data;
-+	netdev->wireless_handlers = &gelic_wl_wext_handler_def;
- }
- 
- /*
+I presume the server is receiving?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> without the patch, lro off: 3.8Gbs
+> without the patch, lro on: 6.1Gbs
+> with the patch, GRO on: 4.8Gbs.
+
+What about the case of GRO off with the patch? Just checking to
+make sure that nothing else has changed.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
