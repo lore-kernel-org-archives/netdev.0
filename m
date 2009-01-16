@@ -1,69 +1,53 @@
-From: kristrev@simula.no
-Subject: Re: RFC: Latency reducing TCP modifications for thin-stream
-     interactive applications
-Date: Fri, 16 Jan 2009 11:13:53 +0100 (CET)
-Message-ID: <e5152d316be79cafaf55fcf7bff64d46.squirrel@webmail.uio.no>
-References: <496B59B7.3010302@simula.no>
-    <Pine.LNX.4.64.0901121705010.1889@wrl-59.cs.helsinki.fi>
+From: jpo234@netscape.net
+Subject: Re: Sending complete IPv6 packets without bypassing netfilter/IPsec
+Date: Fri, 16 Jan 2009 05:28:57 -0500
+Message-ID: <8CB45DC5F36CAC1-2F30-897@webmail-stg-d07.sysops.aol.com>
+References: <20090116064840.GA12399@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andreas Petlund" <apetlund@simula.no>,
-	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	linux-net@vger.kernel.org, "LKML" <linux-kernel@vger.kernel.org>,
-	linux-rt-users@vger.kernel.org, mdavem@davemloft.net,
-	jgarzik@pobox.com, kohari@novell.com, peterz@infradead.org,
-	jzemlin@linux-foundation.org, mrexx@linux-foundation.org,
-	tytso@mit.edu, mingo@elte.hu, kristrev@simula.no, griff@simula.no,
-	paalh@ifi.uio.no, "Netdev" <netdev@vger.kernel.org>,
-	shemminger@vyatta.com
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0901121705010.1889@wrl-59.cs.helsinki.fi>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imo-m13.mx.aol.com ([64.12.143.101]:12888 "EHLO
+	imo-m13.mail.aol.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757714AbZAPKhq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 05:37:46 -0500
+In-Reply-To: <20090116064840.GA12399@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ilpo,
+Herbert,
+once again thanks for your help! It works fine now.
 
->> We have to admit we don't quite see the problem. Since a page can never
->> be removed before all owners have decleared that they no longer needs
->> it, all data will be correctly present. Also, since the packets are
->> placed linearly on the queue and we don't support when SACK is enabled,
->> no gaps will occur. But maybe we have misunderstood your comment, please
->> let us know if that is the case.
+Kind regards
+  Joerg
+
+
+-----Original Message-----
+From: Herbert Xu <herbert@gondor.apana.org.au>
+To: jpo234@netscape.net
+Cc: netdev@vger.kernel.org
+Sent: Fri, 16 Jan 2009 7:48 am
+Subject: Re: Sending complete IPv6 packets without bypassing 
+netfilter/IPsec
+
+jpo234@netscape.net wrote:
 >
-> Yes, the problems _may_ arise because you create afaict:
-> skb->end_seq > next_skb->seq situations which is something that certainly
-> needs an audit over every single seqno operation to see that they don't
-> implicitly assume otherwise (ie., omit redundant compares)! There are
-> certainly places I know of already which will break... I'm afraid
-> that using the approach you've select you'll end up having very many
-> places needing some extra tweaking, that's why I suggested the alternative
-> approach to just construct the redundant things on-the-fly while keeping
-> the write queue as is.
->
+> So, if you write "should have the same effect as IP_HDRINCL" does 
+this
+> mean "this is the way we designed it in Linux, so it should work" or
 
->> As far as we understand this comment, you want us to do it on the
->> application layer instead? Do you mean as a middleware,
->> application-specific solution or something similar? Also, we believe
->> doing it on the application layer will lead to the same delays that we
->> try to prevent, since sent data will be delayed on the transport layer
->> in case of loss.
->
-> No but at the time we're supposed to actually send an skb to the lower
-> layer and keeping the rest intact.
+It's designed this way in Linux.
 
-I have a small question regarding these two comments. Are you allowed to
-modify the packet data stored in a clone? Based on my understanding of the
-code and what a clone is, I thought the data was shared between the
-original and the clone. Thus, any data appended/inserted into the clone
-will also be appended to the original.
+Cheers,
+--
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-If I have understood the code correctly, what will then be the difference
-between our current solution and the one you suggest (except we can remove
-one of the bundling methods and when a packet is retransmitted)? If I have
-not understood the code correctly, feel free to yell :) (if it is a
-misunderstanding, it also explains all the checks for skb->cloned).
 
--Kristian
+
+
 
