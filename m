@@ -1,44 +1,31 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: cxgb3: Replace LRO with GRO
-Date: Fri, 16 Jan 2009 00:06:45 -0800
-Message-ID: <49704015.6020503@chelsio.com>
-References: <20090115235803.GA9000@gondor.apana.org.au>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: [PATCH 0/2] PS3: gelic: convert to net_device_ops
+Date: Fri, 16 Jan 2009 17:45:51 +0900
+Message-ID: <20090116173633.0B69.40F06B3A@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Geoff Levand <geoffrey.levand@am.sony.com>
+To: jgarzik@pobox.com, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:20483 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753456AbZAPIH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 03:07:59 -0500
-In-Reply-To: <20090115235803.GA9000@gondor.apana.org.au>
+Received: from ms6.Sony.CO.JP ([211.125.136.204]:46383 "EHLO ms6.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761059AbZAPIqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2009 03:46:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> Divy Le Ray <divy@chelsio.com> wrote:
->> Your patch looks fine. Early testing provides the same perfs
->> seen with LRO.
->>
->> I resubmit the original patch with 2 changes:
->> - cxgb3_set_flags() removal did not apply.
->>  commit 47fd23fe8efeea3af4593a8424419df48724eb25 had updated the routine.
->> - replace the NETIF_F_LRO features flag with NETIF_F_GRO
-> 
-> Thanks for the update Divy! It looks good to me.
+Hi,
 
-Hi Herbert,
+This patchset converts the gelic driver to net_device_ops
 
-The perfs are not actually as good as with LRO.
-With a slow server, 1 netperf stream gets on average:
-without the patch, lro off: 3.8Gbs
-without the patch, lro on: 6.1Gbs
-with the patch, GRO on: 4.8Gbs.
+	#1	PS3: gelic: convert the ethernet part to net_device_ops
+	#2	PS3: gelic: wireless: convert the wireless part to
+	  	net_device_ops
 
-I'll look into it.
+regards
 
-Cheers,
-Divy
+-- 
+Masakazu Mokuno
+
