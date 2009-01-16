@@ -1,70 +1,67 @@
-From: jpo234@netscape.net
-Subject: Re: Sending complete IPv6 packets without bypassing netfilter/IPsec
-Date: Fri, 16 Jan 2009 07:48:33 -0500
-Message-ID: <8CB45EFE0258939-2F30-B18@webmail-stg-d07.sysops.aol.com>
-References: <8CB452A85703FEF-9E4-FEB@FWM-M04.sysops.aol.com> <87ocy7e95w.fsf@basil.nowhere.org>
+From: "Jiri Klimes" <klimes@centrum.cz>
+Subject: Re: XFRM structures binary compability
+Date: Fri, 16 Jan 2009 14:40:02 +0100
+Message-ID: <200901161440.3616@centrum.cz>
+References: <200901091331.18342@centrum.cz> <496B56B7.3080703@trash.net> <20090114.145552.71463842.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <kaber@trash.net>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imo-m24.mx.aol.com ([64.12.137.5]:59307 "EHLO
-	imo-m24.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760614AbZAPMst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 07:48:49 -0500
-In-Reply-To: <87ocy7e95w.fsf@basil.nowhere.org>
+Received: from mail1009.centrum.cz ([90.183.38.139]:45577 "EHLO
+	mail1009.centrum.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751868AbZAPNkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 08:40:06 -0500
+Received: by mail1009.centrum.cz id S738277637AbZAPNkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 14:40:02 +0100
+In-Reply-To: <20090114.145552.71463842.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andi,
-I read the rationale in RFC 3542. Unfortunately this makes the 
-following assumptions:
-1) You know the IP protocol value when you open the socket. This is not 
-true in my case because I get packets from a tun device.
-2) Packet injection using packet sockets/libpcap provides the same 
-functionality. Bad luck that this completely bypasses IPsec and 
-netfilter.
+From: David Miller <davem@davemloft.net>
+Date: Wed, 14 Jan 2009 14:55:52 -0800 (PST)
 
-To overcome 1) I would have to strip off the IPv6 header and then have 
-a separate socket for every next-header value I might encounter. Not 
-very appealing.
+>From: Patrick McHardy <kaber@trash.net>
+>Date: Mon, 12 Jan 2009 15:41:59 +0100
+>
+>> klimes@centrum.cz wrote:
+>> > What causes my trouble is "xfrm_usersa_info" which is padded with 7 bytes at the end in 64-bit,
+>> > so that the whole structure is 224 bytes in 64bit application against 220 bytes in 32bit (just 3-byte padding).
+>> > An explicit 7-byte padding in the structure would cure the case, IMHO.
+>>
+>> That would break on 32 bit because userspace binaries compiled
+>> with the old layout would send "short" messages. I'd suggest
+>> to explicitly use the smaller value for the xfrm_msg_min checks
+>> (i.e. replace sizeof by numerical constant).
+>
+>I'll commit the following and queue it up for -stable.
+>
+>Thanks.
+>
+>xfrm: For 32/64 compatability wrt. xfrm_usersa_info
+>
 
-I know I'm partial right now, but at least the suggestion in the RFC 
-that "some other technique, such as the datalink interfaces BPF or 
-DLPI, must be used" is misguided.
+David, I'm afraid the fix is not correct.
+xfrm_msg_min is not used just for length check, but mainly to find start of the netlink attributes.
+Therefore the patch will work for the case with no attributes. However it won't work properly in case
+attributes are used (which is in most cases).
+So, I suggest to revert the patch.
 
-Regards
-  Joerg
+Alas, we have no other info about length of xfrm structures except for sizeof() that is unfortunately
+different for 32- and 64-bit.
 
+I see no solution to obtain 32/64-bit compatibility without impacting anybody :-(
+My first proposal (padding structures explicitly) would bring 32/64 compatibility, but break existing
+user applications. Nevertheless I'm afraid that any other solution (e.g. storing the length of the struct
+directly in the message) would need to change the structures, causing backward compatibility break.
+Either way, making a change (breaking backward compatibility) or letting things as they are (accepting
+32/64-bit incompatibility), the status should be documented somewhere (man pages?).
 
------Original Message-----
-From: Andi Kleen <andi@firstfloor.org>
-To: jpo234@netscape.net
-Cc: netdev@vger.kernel.org
-Sent: Fri, 16 Jan 2009 1:18 pm
-Subject: Re: Sending complete IPv6 packets without bypassing 
-netfilter/IPsec
+BTW, xfrm_userpolicy_info is the same story as xfrm_usersa_info. xfrm_userpolicy_info is 164 bytes long on 32-bit.
+However it has 168 bytes on 64-bit (4 byte pad at the end).
 
-jpo234@netscape.net writes:
-
-> Hello all,
-> the IPv4 socket interface had the nifty IP_HDRINCL option. It seems
-> that an IPv6 version of this option is not available. The proposed
-> solution for this seems to be to use libpcap to inject the
-> packet. Unfortunately this completely bypasses both, netfilter and
-> IPsec. So, am I lost or is there a way to do what I want/need?
-
-The theory is (the same on IPv4) is that the socket options should
-allow you to specify everything legal you could put into a IPv6 header
-by hand.
-
--Andi
-
---
-ak@linux.intel.com -- Speaking for myself only.
-
-
-
+Regards,
+Jiri Klimes
 
 
