@@ -1,34 +1,42 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: Sending complete IPv6 packets without bypassing netfilter/IPsec
-Date: Fri, 16 Jan 2009 16:09:53 +0200
-Message-ID: <200901161609.53283.remi.denis-courmont@nokia.com>
-References: <8CB45DED3262281-2F30-8C9@webmail-stg-d07.sysops.aol.com> <200901161256.15744.remi.denis-courmont@nokia.com> <8CB45E27B3643B3-2F30-917@webmail-stg-d07.sysops.aol.com>
+From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Subject: Re: [ANNOUNCE] iproute2 v2.6.28
+Date: Fri, 16 Jan 2009 15:46:34 +0100
+Message-ID: <200901161546.34691.a.miskiewicz@gmail.com>
+References: <20090115130845.01d7ebf4@extreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "ext jpo234@netscape.net" <jpo234@netscape.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:27770 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935371AbZAPOKd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 09:10:33 -0500
-In-Reply-To: <8CB45E27B3643B3-2F30-917@webmail-stg-d07.sysops.aol.com>
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:55138 "EHLO
+	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756901AbZAPOqk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 09:46:40 -0500
+Received: by bwz14 with SMTP id 14so5110008bwz.13
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2009 06:46:38 -0800 (PST)
+In-Reply-To: <20090115130845.01d7ebf4@extreme>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 16 January 2009 13:12:40 ext jpo234@netscape.net, you wrote:
-> R=C3=A9mi,
-> sorry, but a transport-layer raw socket is something I'd like to avoi=
-d.
-> The reason is, that I get the ready made packets from a tun device.
+On Thursday 15 of January 2009, you wrote:
+> New version of iproute2 utilities that includes bug fixes and
+> support for all the new features in kernel 2.6.28.
+>
+> Source: (note old developer.osdl.org address works as well)
+> 	http://devresources.linux-foundation.org/dev/iproute2/download/iprou=
+te2-2.
+>6.28.tar.bz2
 
-Then you have the source address from the packet read from the TUN devi=
-ce.
+>
+> Git tree:
+> 	git://git.kernel.org/pub/scm/network/iproute2/iproute2.git
+>
+> Changes since v.2.6.27:
+
+There was no 2.6.27 release, so please include changelog up to 2.6.26.
 
 --=20
-R=C3=A9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
-
+Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
