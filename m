@@ -1,60 +1,98 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: net: Add debug info to track down GSO checksum bug
-Date: Fri, 16 Jan 2009 18:22:51 +1100
-Message-ID: <20090116072251.GA13327@gondor.apana.org.au>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Fri, 16 Jan 2009 18:25:14 +1100
+Message-ID: <200901161825.15617.nickpiggin@yahoo.com.au>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com> <200901161746.25205.nickpiggin@yahoo.com.au> <20090115230043.57caae5d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au, matthew@wil.cx,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, andi.kleen@intel.com,
+	suresh.b.siddha@intel.com, harita.chilukuri@intel.com,
+	douglas.w.styner@intel.com, peter.xihong.wang@intel.com,
+	hubert.nueckel@intel.com, chris.mason@oracle.com,
+	srostedt@redhat.com, linux-scsi@vger.kernel.org,
+	andrew.vasquez@qlogic.com, anirban.chakraborty@qlogic.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45534 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750895AbZAPHWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 02:22:55 -0500
+Received: from smtp115.mail.mud.yahoo.com ([209.191.84.164]:31480 "HELO
+	smtp115.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754137AbZAPHZh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 02:25:37 -0500
+In-Reply-To: <20090115230043.57caae5d.akpm@linux-foundation.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave:
+On Friday 16 January 2009 18:00:43 Andrew Morton wrote:
+> On Fri, 16 Jan 2009 17:46:23 +1100 Nick Piggin <nickpiggin@yahoo.com.au> 
+wrote:
+> > On Friday 16 January 2009 15:12:10 Andrew Morton wrote:
+> > > On Fri, 16 Jan 2009 15:03:12 +1100 Nick Piggin
+> > > <nickpiggin@yahoo.com.au>
+> >
+> > wrote:
+> > > > I would like to see SLQB merged in mainline, made default, and wait
+> > > > for some number releases. Then we take what we know, and try to make
+> > > > an informed decision about the best one to take. I guess that is
+> > > > problematic in that the rest of the kernel is moving underneath us.
+> > > > Do you have another idea?
+> > >
+> > > Nope.  If it doesn't work out, we can remove it again I guess.
+> >
+> > OK, I have these numbers to show I'm not completely off my rocker to
+> > suggest we merge SLQB :) Given these results, how about I ask to merge
+> > SLQB as default in linux-next, then if nothing catastrophic happens,
+> > merge it upstream in the next merge window, then a couple of releases
+> > after that, given some time to test and tweak SLQB, then we plan to bite
+> > the bullet and emerge with just one main slab allocator (plus SLOB).
+>
+> That's a plan.
+>
+> > SLQB tends to be the winner here.
+>
+> Can you think of anything with which it will be the loser?
 
-net: Add debug info to track down GSO checksum bug
+Well, that fio test showed it was behind SLAB. I just discovered that
+yesterday during running these tests, so I'll take a look at that. The
+Intel performance guys I think have one or two cases where it is slower.
+They don't seem to be too serious, and tend to be specific to some
+machines (eg. the same test with a different CPU architecture turns out
+to be faster). So I'll be looking into these things, but I haven't seen
+anything too serious yet. I'm mostly interested in macro benchmarks and
+more real world workloads.
 
-I'm trying to track down why people're hitting the checksum warning
-in skb_gso_segment.  As the problem seems to be hitting lots of
-people and I can't reproduce it or locate the bug, here is a patch
-to print out more details which hopefully should help us to track
-this down.
+At a higher level, SLAB has some interesting features. It basically has
+"crossbars" of queues, that basically provide queues for allocating and
+freeing to and from different CPUs and nodes. This is what bloats up
+the kmem_cache data structures to tens or hundreds of gigabytes each
+on SGI size systems. But it is also has good properties. On smaller
+multiprocessor and NUMA systems, it might be the case that SLAB does
+better in workloads that involve objects being allocated on one CPU and
+freed on another. I haven't actually observed problems here, but I don't
+have a lot of good tests.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+SLAB is also fundamentally different from SLUB and SLQB in that it uses
+arrays to store pointers to objects in its queues, rather than having
+a linked list using pointers embedded in the objects. This might in some
+cases make it easier to prefetch objects in parallel with finding the
+object itself. I haven't actually been able to attribute a particular
+regression to this interesting difference, but it might turn up as an
+issue.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b715a55..752dd11 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1534,7 +1534,19 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, int features)
- 	skb->mac_len = skb->network_header - skb->mac_header;
- 	__skb_pull(skb, skb->mac_len);
- 
--	if (WARN_ON(skb->ip_summed != CHECKSUM_PARTIAL)) {
-+	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
-+		struct net_device *dev = skb->dev;
-+		struct ethtool_drvinfo info = {};
-+
-+		if (dev && dev->ethtool_ops && dev->ethtool_ops->get_drvinfo)
-+			dev->ethtool_ops->get_drvinfo(dev, &info);
-+
-+		WARN(1, "%s: caps=(0x%lx, 0x%lx) len=%d data_len=%d "
-+			"ip_summed=%d",
-+		     info.driver, dev ? dev->features : 0L,
-+		     skb->sk ? skb->sk->sk_route_caps : 0L,
-+		     skb->len, skb->data_len, skb->ip_summed);
-+
- 		if (skb_header_cloned(skb) &&
- 		    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
- 			return ERR_PTR(err);
+These are two big differences between SLAB and SLQB.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The linked lists of objects were used in favour of arrays again because of
+the memory overhead, and to have a better ability to tune the size of the
+queues, and reduced overhead in copying around arrays of pointers (SLQB can
+just copy the head of one the list to the tail of another in order to move
+objects around), and eliminated the need to have additional metadata beyond
+the struct page for each slab.
+
+The crossbars of queues were removed because of the bloating and memory
+overhead issues. The fact that we now have linked lists helps a little bit
+with this, because moving lists of objects around gets a bit easier.
+
