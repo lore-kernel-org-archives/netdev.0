@@ -1,64 +1,60 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [PATCH] PS3: gelic: convert to net_device_ops
-Date: Fri, 16 Jan 2009 16:09:53 +0900
-Message-ID: <20090116160550.0B62.40F06B3A@sm.sony.co.jp>
-References: <20090116134050.0B5B.40F06B3A@sm.sony.co.jp> <20090115220708.6a246ff1@extreme>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: net: Add debug info to track down GSO checksum bug
+Date: Fri, 16 Jan 2009 18:22:51 +1100
+Message-ID: <20090116072251.GA13327@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	Geoff Levand <geoffrey.levand@am.sony.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms6.Sony.CO.JP ([211.125.136.204]:35157 "EHLO ms6.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754329AbZAPHKG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2009 02:10:06 -0500
-In-Reply-To: <20090115220708.6a246ff1@extreme>
+Received: from rhun.apana.org.au ([64.62.148.172]:45534 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750895AbZAPHWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 02:22:55 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dave:
 
-On Thu, 15 Jan 2009 22:07:08 -0800
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+net: Add debug info to track down GSO checksum bug
 
-> On Fri, 16 Jan 2009 13:57:15 +0900
-> Masakazu Mokuno <mokuno@sm.sony.co.jp> wrote:
-> 
-> > Convert the gelic driver to net_device_ops
-> > 
-> > Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-> > ---
-> >  drivers/net/ps3_gelic_net.c |   23 +++++++++++++----------
-> >  1 file changed, 13 insertions(+), 10 deletions(-)
-> > 
-> > --- a/drivers/net/ps3_gelic_net.c
-> > +++ b/drivers/net/ps3_gelic_net.c
-> > @@ -1403,6 +1403,18 @@ void gelic_net_tx_timeout(struct net_dev
-> >  		atomic_dec(&card->tx_timeout_task_counter);
-> >  }
-> >  
-> > +static const struct net_device_ops gelic_netdevice_ops = {
-> > +	.ndo_open = gelic_net_open,
-> > +	.ndo_stop = gelic_net_stop,
-> > +	.ndo_start_xmit = gelic_net_xmit,
-> > +	.ndo_set_multicast_list = gelic_net_set_multi,
-> > +	.ndo_change_mtu = gelic_net_change_mtu,
-> > +	.ndo_tx_timeout = gelic_net_tx_timeout,
-> > +#ifdef CONFIG_NET_POLL_CONTROLLER
-> > +	.ndo_poll_controller = gelic_net_poll_controller,
-> > +#endif
-> >
-> 
-> You probably want to add:
-> 	.ndo_change_mtu		= eth_change_mtu,
-> 	.ndo_set_mac_address 	= eth_mac_addr,
-> 	.ndo_validate_addr	= eth_validate_addr,
+I'm trying to track down why people're hitting the checksum warning
+in skb_gso_segment.  As the problem seems to be hitting lots of
+people and I can't reproduce it or locate the bug, here is a patch
+to print out more details which hopefully should help us to track
+this down.
 
-Thanks!
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I'll respin.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b715a55..752dd11 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1534,7 +1534,19 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, int features)
+ 	skb->mac_len = skb->network_header - skb->mac_header;
+ 	__skb_pull(skb, skb->mac_len);
+ 
+-	if (WARN_ON(skb->ip_summed != CHECKSUM_PARTIAL)) {
++	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
++		struct net_device *dev = skb->dev;
++		struct ethtool_drvinfo info = {};
++
++		if (dev && dev->ethtool_ops && dev->ethtool_ops->get_drvinfo)
++			dev->ethtool_ops->get_drvinfo(dev, &info);
++
++		WARN(1, "%s: caps=(0x%lx, 0x%lx) len=%d data_len=%d "
++			"ip_summed=%d",
++		     info.driver, dev ? dev->features : 0L,
++		     skb->sk ? skb->sk->sk_route_caps : 0L,
++		     skb->len, skb->data_len, skb->ip_summed);
++
+ 		if (skb_header_cloned(skb) &&
+ 		    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
+ 			return ERR_PTR(err);
 
+Thanks,
 -- 
-Masakazu Mokuno
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
