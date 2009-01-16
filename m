@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] netxen: avoid invalid iounmap
-Date: Fri, 16 Jan 2009 11:03:47 -0800 (PST)
-Message-ID: <20090116.110347.196376948.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] netxen: include ipv6.h (fixes build failure)
+Date: Fri, 16 Jan 2009 11:04:52 -0800 (PST)
+Message-ID: <20090116.110452.77631610.davem@davemloft.net>
 References: <1232130484-25188-1-git-send-email-dhananjay@netxen.com>
-	<1232130484-25188-2-git-send-email-dhananjay@netxen.com>
+	<1232130484-25188-3-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org
+	linux-kernel@vger.kernel.org, mingo@elte.hu
 To: dhananjay@netxen.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934530AbZAPTED@vger.kernel.org>
-In-Reply-To: <1232130484-25188-2-git-send-email-dhananjay@netxen.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33548
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756195AbZAPTEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 14:04:51 -0500
+In-Reply-To: <1232130484-25188-3-git-send-email-dhananjay@netxen.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Date: Fri, 16 Jan 2009 10:28:03 -0800
+Date: Fri, 16 Jan 2009 10:28:04 -0800
 
-> For NX3031 only one I/O range is mapped, so unmapping other
-> two which are used by older chips, causes this warning on
-> ppc64.
+> Fixes a build error in absence of CONFIG_IPV6:
 > 
-> "Attempt to iounmap early bolted mapping at 0x0000000000000000"
+> drivers/net/netxen/netxen_nic_main.c:1189: error: implicit declaration of function 'ipv6_hdr'
+> drivers/net/netxen/netxen_nic_main.c:1189: error: invalid type argument of '->'
 > 
 > Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-Applied.
+Gee, thanks for not even mentioning Ingo having reported this problem
+in your commit message. :-((
+
+I've fixed this when committing.
+
+You didn't even CC: him on this patch posting, what gives?
+
