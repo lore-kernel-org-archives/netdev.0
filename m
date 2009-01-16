@@ -1,78 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Fri, 16 Jan 2009 06:51:08 +0000
-Message-ID: <20090116065107.GA4170@ff.dom.local>
-References: <20090115231934.GA8328@gondor.apana.org.au> <20090115.152608.89323697.davem@davemloft.net> <20090115233205.GA8474@gondor.apana.org.au> <20090115.153449.204259387.davem@davemloft.net> <20090115234255.GE1123@1wt.eu> <20090115234408.GA1693@1wt.eu>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: deadlocks if use htb
+Date: Fri, 16 Jan 2009 09:51:37 +0300
+Message-ID: <49702E79.6040100@bigtelecom.ru>
+References: <Pine.LNX.4.64.0901110438050.16453@nacho.alt.net>	<20090114063909.GA4234@ff.dom.local>	<200901141417.58667.denys@visp.net.lb>	<1231937404.14825.4.camel@laptop>	<Pine.LNX.4.64.0901141748300.17915@nacho.alt.net>	<20090115065322.GA4190@ff.dom.local>	<Pine.LNX.4.64.0901150724000.20461@nacho.alt.net>	<20090115075450.GB4190@ff.dom.local>	<20090115094530.GG4190@ff.dom.local>	<Pine.LNX.4.64.0901151139440.20461@nacho.alt.net>	<20090115121801.GH5461@ff.dom.local> <Pine.LNX.4.64.0901151340540.20461@nacho.alt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	zbr@ioremap.net, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Denys Fedoryschenko <denys@visp.net.lb>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chris Caputo <ccaputo@alt.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f31.google.com ([209.85.219.31]:43826 "EHLO
-	mail-ew0-f31.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755320AbZAPGvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 01:51:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20090115234408.GA1693@1wt.eu>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:60603 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758610AbZAPGvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 01:51:41 -0500
+In-Reply-To: <Pine.LNX.4.64.0901151340540.20461@nacho.alt.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 16, 2009 at 12:44:08AM +0100, Willy Tarreau wrote:
-> On Fri, Jan 16, 2009 at 12:42:55AM +0100, Willy Tarreau wrote:
-> > On Thu, Jan 15, 2009 at 03:34:49PM -0800, David Miller wrote:
-> > > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > > Date: Fri, 16 Jan 2009 10:32:05 +1100
-> > > 
-> > > > On Thu, Jan 15, 2009 at 03:26:08PM -0800, David Miller wrote:
-> > > > > +static inline struct page *linear_to_page(struct page *page, unsigned int len,
-> > > > > +					  unsigned int offset)
-> > > > > +{
-> > > > > +	struct page *p = alloc_pages(GFP_KERNEL, 0);
-> > > > > +
-> > > > > +	if (!p)
-> > > > > +		return NULL;
-> > > > > +	memcpy(page_address(p) + offset, page_address(page) + offset, len);
-> > > > 
-> > > > This won't work very well if skb->head is longer than a page.
-> > > > 
-> > > > We'll need to divide it up into individual pages.
-> > > 
-> > > Oh yes the same bug I pointed out the other day.
-> > > 
-> > > But Willy can test this patch as-is,
-> > 
-> > Hey, nice work Dave. +3% performance from your previous patch
-> > (31.6 MB/s). It's going fine and stable here.
-> 
-> And BTW feel free to add my Tested-by if you want in case you merge
-> this fix.
-> 
-> Willy
-> 
+Chris Caputo =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Thu, 15 Jan 2009, Jarek Poplawski wrote:
+>  =20
+>> On Thu, Jan 15, 2009 at 12:00:50PM +0000, Chris Caputo wrote:
+>> ...
+>>    =20
+>>> I wish I had a repro scenario in a non-production environment, so I=
+ could=20
+>>> help out further with this.  If I did, I would test without nmi_wat=
+chdog=20
+>>> while trying just 2.6.28 and Jarek's #4 patch.
+>>>      =20
+>> I think this watchdog doesn't matter too much yet. Probably it's mor=
+e
+>> about hardware (smp, maybe kind of hw timer), and high traffic vs. h=
+tb
+>> rules.
+>>    =20
+>
+> Per Thomas' comment in http://bugzilla.kernel.org/show_bug.cgi?id=3D1=
+0944=20
+> regarding broken hrtimers:
+>
+> --
+>   nmi_watchdog=3D1 disables the local apic timers and therefor highre=
+s/nohz
+>
+>   Try to use nmi_watchdog=3D2 instead.
+> --
+>
+> Chris
+>
+>
+>  =20
+Oh... after first deadlocks i add nmi_watchdog=3D1 to kernel and test w=
+ith
+it. Is this result what highres/nohz
+allways on and my message where i say what test bug which highres/nohz
+on/off is wrong?
 
-Herbert, good catch!
-
-David, if it's not too late I think more credits are needed,
-especially for Willy. He did "a bit" more than testing.
-
-Alas, I can't see this problem with skb->head longer than page. There
-is even some comment on this in __splice_segment(), but I can miss
-something.
-
-I'm more concerned with memory usage if these skbs are not acked for
-some reason. Isn't there some DOS issue possible?
-
-Thanks everybody,
-Jarek P.
---------->
-Based on a review by Changli Gao <xiaosuo@gmail.com>:
-http://lkml.org/lkml/2008/2/26/210
-
-Foreseen-by: Changli Gao <xiaosuo@gmail.com>
-Diagnosed-by: Willy Tarreau <w@1wt.eu>
-Reported-by: Willy Tarreau <w@1wt.eu>
-Fixed-by: Jens Axboe <jens.axboe@oracle.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
