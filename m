@@ -1,72 +1,40 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [RFC] FEC patches
-Date: Fri, 16 Jan 2009 10:10:41 +1000
-Message-ID: <496FD081.6060803@snapgear.com>
-References: <1231949353-29630-1-git-send-email-s.hauer@pengutronix.de> <496EB65F.2060704@snapgear.com> <20090115102413.GT11228@pengutronix.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
+Date: Fri, 16 Jan 2009 11:18:24 +1100
+Message-ID: <20090116001824.GA9221@gondor.apana.org.au>
+References: <20090115183942.GA6325@elte.hu> <20090116001200.GA9137@gondor.apana.org.au> <20090116001544.GA11073@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sebastian Siewior <bigeasy@linutronix.de>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, tj@kernel.org, hpa@zytor.com,
+	brgerst@gmail.com, ebiederm@xmission.com, cl@linux-foundation.org,
+	rusty@rustcorp.com.au, travis@sgi.com,
+	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.securecomputing.com ([203.24.151.4]:43333 "EHLO
-	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758858AbZAPAKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 19:10:48 -0500
-In-Reply-To: <20090115102413.GT11228@pengutronix.de>
+Received: from rhun.apana.org.au ([64.62.148.172]:37142 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752449AbZAPAS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 19:18:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20090116001544.GA11073@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sascha,
-
-Sascha Hauer wrote:
-> On Thu, Jan 15, 2009 at 02:06:55PM +1000, Greg Ungerer wrote:
->> Hi Sacha,
->>
->> Sascha Hauer wrote:
->>> The following patches apply to the FEC driver (drivers/net/fec.c). While
->>> found on several Freescale/Motorola chips, this driver is currently only
->>> used for Coldfire. These patches add support for the ARM based i.MX27
->>> SoC.
->>>
->>> I'm almost sure I break the driver for some (all?) Coldfire guys, but I
->>> do not have any Coldfire based board to test the patches on.
->> I can test patches on most ColdFire boards.
->>
->>
->>> The first 4 patches should be ok as is, comments?
->> Only the one that I commented on with FEC_FLASHMAC.
->> Otherwise the first 4 apply and work for ColdFire.
->>
->>
->>> The other patches are somewhat work in progress, but they show which
->>> changes I need for my hardware.
->> Currently the change to use dma_alloc_coherent breaks ColdFire.
->> I need to debug that and see why that is the case.
->>
->> Otherwise they look ok to me.
->>
->>
->>> The driver could use quite some cleanup patches for coding style, turn
->>> it into a platform device driver and add exit functions. I'm sure I
->> Yes, it does badly need this. I have been meaning to extract
->> the ColdFire platform specifics for some time. That would improve
->> it quite a bit.
->>
+On Fri, Jan 16, 2009 at 01:15:44AM +0100, Ingo Molnar wrote:
+>
+> > So if you could design the API such that we have a variant of add/inc 
+> > that automatically disables/enables preemption then we can optimise that 
+> > away on x86.
 > 
-> My plan is to put the current static initialization code into some kind
-> of #ifdef FEC_LEGACY and use a proper platform device driver otherwise.
-> This would leave the code in place for now and it could be ported over
-> to platform devices per platform. Is this ok for you?
+> Yeah. percpu_add(var, 1) does exactly that on x86.
 
-Yeah, that is ok by me.
+Awesome! Sounds like we can finally do away with those nasty
+hacks in the SNMP macros.
 
-Regards
-Greg
-
-
-------------------------------------------------------------------------
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-SnapGear, a McAfee Company                  PHONE:       +61 7 3435 2888
-825 Stanley St,                             FAX:         +61 7 3891 3630
-Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
