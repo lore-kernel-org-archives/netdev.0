@@ -1,169 +1,91 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: [PATCH 4/5] virtio_net: Add a MAC filter table
-Date: Fri, 16 Jan 2009 14:13:34 -0700
-Message-ID: <20090116211334.22836.72681.stgit@debian.lart>
-References: <20090116211312.22836.34331.stgit@debian.lart>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
+Date: Fri, 16 Jan 2009 23:08:32 +0100
+Message-ID: <20090116220832.GB20653@elte.hu>
+References: <20090115183942.GA6325@elte.hu> <20090116001544.GA11073@elte.hu> <20090116001824.GA9221@gondor.apana.org.au> <200901170827.33729.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, markmc@redhat.com, kvm@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090116211312.22836.34331.stgit@debian.lart>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	akpm@linux-foundation.org, tj@kernel.org, hpa@zytor.com,
+	brgerst@gmail.com, ebiederm@xmission.com, cl@linux-foundation.org,
+	travis@sgi.com, linux-kernel@vger.kernel.org, steiner@sgi.com,
+	hugh@veritas.com, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:42542 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762480AbZAPWJp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2009 17:09:45 -0500
+Content-Disposition: inline
+In-Reply-To: <200901170827.33729.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make use of the MAC_TABLE control virtqueue class to support a
-MAC filter table.  The size of the filter table defaults to 16
-entries and can be adjusted via the mac_entries module parameter.
-Note, the original hardware address does not count towards this.
 
-As with most real hardware, unicast addresses have priority in
-the filter table so we can avoid enabling full promiscuous
-until both unicast and multicast address overflow.
+* Rusty Russell <rusty@rustcorp.com.au> wrote:
 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com
----
+> On Friday 16 January 2009 10:48:24 Herbert Xu wrote:
+> > On Fri, Jan 16, 2009 at 01:15:44AM +0100, Ingo Molnar wrote:
+> > >
+> > > > So if you could design the API such that we have a variant of add/inc 
+> > > > that automatically disables/enables preemption then we can optimise that 
+> > > > away on x86.
+> > > 
+> > > Yeah. percpu_add(var, 1) does exactly that on x86.
+> 
+> <sigh>.  No it doesn't.
 
- drivers/net/virtio_net.c   |   82 +++++++++++++++++++++++++++++++++++++++++++-
- include/linux/virtio_net.h |   20 +++++++++++
- 2 files changed, 100 insertions(+), 2 deletions(-)
+What do you mean by "No it doesn't". It does exactly what i claimed it 
+does.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index da96368..9be0d6a 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -32,6 +32,11 @@ static int csum = 1, gso = 1;
- module_param(csum, bool, 0444);
- module_param(gso, bool, 0444);
- 
-+static unsigned int mac_entries = 16;
-+module_param(mac_entries, uint, 0444);
-+MODULE_PARM_DESC(mac_entries,
-+	"Number of entries in the MAC filter table.");
-+
- /* FIXME: MTU in config. */
- #define MAX_PACKET_LEN (ETH_HLEN+ETH_DATA_LEN)
- #define GOOD_COPY_LEN	128
-@@ -667,9 +672,64 @@ static void virtnet_set_rx_mode(struct net_device *dev)
- 	if (!vi->cvq)
- 		return;
- 
--	promisc = ((dev->flags & IFF_PROMISC) != 0 || dev->uc_count > 0);
--	allmulti = ((dev->flags & IFF_ALLMULTI) != 0 || dev->mc_count > 0);
-+	promisc = ((dev->flags & IFF_PROMISC) != 0);
-+	allmulti = ((dev->flags & IFF_ALLMULTI) != 0);
-+
-+	if (dev->uc_count > mac_entries)
-+		promisc = 1;
-+	else if (dev->uc_count + dev->mc_count > mac_entries)
-+		allmulti = 1;
-+
-+	if (!promisc && (dev->uc_count || (dev->mc_count && !allmulti))) {
-+		u8 *buf, *cur;
-+		int count, i;
-+		struct dev_addr_list *uc_ptr, *mc_ptr;
-+
-+		count = dev->uc_count + (allmulti ? 0 : dev->mc_count);
-+
-+		buf = kzalloc(count * ETH_ALEN, GFP_ATOMIC);
-+		if (!buf) {
-+			printk(KERN_WARNING "%s: "
-+			       "Failed to alloc MAC table, using promisc.\n", 
-+			       dev->name);
-+			promisc = 1;
-+			goto set_mode;
-+		}
-+
-+		cur = buf;
-+		uc_ptr = dev->uc_list;
-+		mc_ptr = dev->mc_list;
-+
-+		for (i = 0; i < dev->uc_count; i++) {
-+			memcpy(cur, uc_ptr->da_addr, ETH_ALEN);
-+			cur += ETH_ALEN;
-+			uc_ptr = uc_ptr->next;
-+		}
-+		if (!allmulti) {
-+			for (i = 0; i < dev->mc_count; i++) {
-+				memcpy(cur, mc_ptr->da_addr, ETH_ALEN);
-+				cur += ETH_ALEN;
-+				mc_ptr = mc_ptr->next;
-+			}
-+		}
-+		if (virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC_TABLE,
-+					 VIRTIO_NET_CTRL_MAC_TABLE_SET,
-+					 buf, count * ETH_ALEN)) {
-+			printk(KERN_WARNING "%s: "
-+			       "Failed to set MAC filter, using promisc.\n",
-+			       dev->name);
-+			promisc = 1;
-+		}
-+		kfree(buf);
-+	} else {
-+		/* Set an empty MAC table - disabled */
-+		if (virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC_TABLE,
-+				VIRTIO_NET_CTRL_MAC_TABLE_SET, NULL, 0))
-+			printk(KERN_WARNING "%s: "
-+			       "Failed to clear MAC filter.\n", dev->name);
-+	}
- 
-+set_mode:
- 	if (virtnet_send_command(vi, VIRTIO_NET_CTRL_RX_MODE,
- 				 VIRTIO_NET_CTRL_RX_MODE_PROMISC,
- 				 &promisc, sizeof(promisc)))
-@@ -801,6 +861,24 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	vi->cvq = vdev->config->find_vq(vdev, 2, NULL);
- 	if (IS_ERR(vi->cvq))
- 		vi->cvq = NULL;
-+	else {
-+		unsigned int entries;
-+
-+		/*
-+		 * We use a separate stack variable here because the
-+		 * data segment for the static variable doesn't translate
-+		 * across the virtqueue.
-+		 */
-+		entries = mac_entries = min(mac_entries,
-+					(unsigned int)(PAGE_SIZE / ETH_ALEN));
-+		if (virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC_TABLE,
-+					 VIRTIO_NET_CTRL_MAC_TABLE_ALLOC,
-+					 &entries, sizeof(entries))) {
-+			printk(KERN_WARNING "virtio-net: "
-+			       "MAC filter table allocation failed.\n");
-+			mac_entries = 0;
-+		}
-+	}
- 
- 	/* Initialize our empty receive and send queues. */
- 	skb_queue_head_init(&vi->recv);
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index f8afef3..84086a6 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -79,4 +79,24 @@ typedef __u8 virtio_net_ctrl_ack;
-  #define VIRTIO_NET_CTRL_RX_MODE_PROMISC      0
-  #define VIRTIO_NET_CTRL_RX_MODE_ALLMULTI     1
- 
-+/*
-+ * Control the MAC filter table.
-+ *
-+ * The ALLOC command requires a 4 byte sg entry indicating the size of
-+ * the MAC filter table to be allocated in number of entries
-+ * (ie. bytes = entries * ETH_ALEN).  The MAC filter table may only be
-+ * allocated once after a device reset.  A device reset frees the MAC
-+ * filter table, allowing a new ALLOC.  The current implementation limits
-+ * the size to a single host page.
-+ *
-+ * The SET command requires an out sg entry containing a buffer of the
-+ * entire MAC filter table.  The format is a simple byte stream
-+ * concatenating all of the ETH_ALEN MAC adresses to be inserted into
-+ * the table.  Partial updates are not available.  The SET command can
-+ * only succeed if there is a table allocated.
-+ */
-+#define VIRTIO_NET_CTRL_MAC_TABLE  1
-+ #define VIRTIO_NET_CTRL_MAC_TABLE_ALLOC      0
-+ #define VIRTIO_NET_CTRL_MAC_TABLE_SET        1
-+
- #endif /* _LINUX_VIRTIO_NET_H */
+> It's really nice that everyone's excited about this, but it's more 
+> complex than this.  Unf. I'm too busy preparing for linux.conf.au to 
+> explain it all properly right now, but here's the highlights:
+> 
+> 1) This only works on static per-cpu vars.
+>    - We are working on fixing this, but it's non-trivial for large allocs like
+>      those in networking.  Small allocs, we have patches for.
 
+How do difficulties of dynamic percpu-alloc make my above suggestion 
+unsuitable for SNMP stats in networking? Most of those stats are not 
+dynamically allocated - they are plain straightforward percpu variables.
+
+Plus the majority of percpu usage is static - just like the majority of 
+local variables is static, not dynamic. So any percpu-alloc complication 
+is a non-issue.
+
+> 2) The generic versions of these as posted by Tejun are unsuitable for
+>    networking; they need to bh_disable.  That would make networking less
+>    efficient than it is now for non-x86, and to be generic it would have
+>    to be local_irq_save/restore anyway.
+
+The generic versions will not be used on 95%+ of the active Linux systems 
+out there, as they run on x86. If you worry about the remaining 5%, those 
+can be optimized too.
+
+> 3) local_t was designed to do exactly this: a fast cpu-local counter
+>    implemented optimally for each arch.  For sparc64, doing a trivalue version
+>    seems optimal, for s390 atomics, for x86 single-insn, for powerpc
+>    irq_save/restore, etc.
+
+But local_t does not actually solve this problem at all - because one 
+still has to have per-cpu-ness.
+
+> 4) Unfortunately, local_t has been extended beyond a simple counter, meaning
+>    it now has more complex requirements (eg. Mathieu wants nmi-safe, even
+>    though that's impossible on sparc and parisc, and percpu_counter wants
+>    local_add_return, which makes trival less desirable).  These discussions
+>    are on the back burner at the moment, but ongoing.
+
+In reality local_t has almost zero users in the kernel - despite being 
+with us at least since v2.6.12. That pretty much tells us all about its 
+utility.
+
+The thing is, local_t without proper percpu integration is a toothless 
+tiger in the jungle. And our APIS do exactly that kind of integration and 
+i expect them to be more popular than local_t. There's already a dozen 
+usage sites of it in arch/x86.
+
+	Ingo
