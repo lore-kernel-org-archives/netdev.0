@@ -1,56 +1,64 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Fri, 16 Jan 2009 18:06:59 +1100
-Message-ID: <200901161807.01342.nickpiggin@yahoo.com.au>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com> <200901161746.25205.nickpiggin@yahoo.com.au> <20090116065546.GJ31013@parisc-linux.org>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: Re: [PATCH] PS3: gelic: convert to net_device_ops
+Date: Fri, 16 Jan 2009 16:09:53 +0900
+Message-ID: <20090116160550.0B62.40F06B3A@sm.sony.co.jp>
+References: <20090116134050.0B5B.40F06B3A@sm.sony.co.jp> <20090115220708.6a246ff1@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au, matthew.r.wilcox@intel.com,
-	chinang.ma@intel.com, linux-kernel@vger.kernel.org,
-	sharad.c.tripathi@intel.com, arjan@linux.intel.com,
-	andi.kleen@intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	"Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-To: Matthew Wilcox <matthew@wil.cx>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20090116065546.GJ31013@parisc-linux.org>
-Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	Geoff Levand <geoffrey.levand@am.sony.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ms6.Sony.CO.JP ([211.125.136.204]:35157 "EHLO ms6.sony.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754329AbZAPHKG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2009 02:10:06 -0500
+In-Reply-To: <20090115220708.6a246ff1@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 16 January 2009 17:55:47 Matthew Wilcox wrote:
-> On Fri, Jan 16, 2009 at 05:46:23PM +1100, Nick Piggin wrote:
-> > Intel's OLTP shows SLQB is "neutral" to SLAB. That is, literally within
-> > their measurement confidence interval. If it comes down to it, I think we
-> > could get them to do more runs to narrow that down, but we're talking a
-> > couple of tenths of a percent already.
->
-> I think I can speak with some measure of confidence for at least the
-> OLTP-testing part of my company when I say that I have no objection to
-> Nick's planned merge scheme.
->
-> I believe the kernel benchmark group have also done some testing with
-> SLQB and have generally positive things to say about it (Yanmin added to
-> the gargantuan cc).
->
-> Did slabtop get fixed to work with SLQB?
 
-Yes the old slabtop that works on /proc/slabinfo works with SLQB (ie. SLQB
-implements /proc/slabinfo).
+On Thu, 15 Jan 2009 22:07:08 -0800
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-Lin Ming recently also ported the SLUB /sys/kernel/slab/ specific slabinfo
-tool to SLQB. Basically it reports in-depth internal event counts etc. and
-can operate on individual caches, making it very useful for performance
-"observability" and tuning.
+> On Fri, 16 Jan 2009 13:57:15 +0900
+> Masakazu Mokuno <mokuno@sm.sony.co.jp> wrote:
+> 
+> > Convert the gelic driver to net_device_ops
+> > 
+> > Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+> > ---
+> >  drivers/net/ps3_gelic_net.c |   23 +++++++++++++----------
+> >  1 file changed, 13 insertions(+), 10 deletions(-)
+> > 
+> > --- a/drivers/net/ps3_gelic_net.c
+> > +++ b/drivers/net/ps3_gelic_net.c
+> > @@ -1403,6 +1403,18 @@ void gelic_net_tx_timeout(struct net_dev
+> >  		atomic_dec(&card->tx_timeout_task_counter);
+> >  }
+> >  
+> > +static const struct net_device_ops gelic_netdevice_ops = {
+> > +	.ndo_open = gelic_net_open,
+> > +	.ndo_stop = gelic_net_stop,
+> > +	.ndo_start_xmit = gelic_net_xmit,
+> > +	.ndo_set_multicast_list = gelic_net_set_multi,
+> > +	.ndo_change_mtu = gelic_net_change_mtu,
+> > +	.ndo_tx_timeout = gelic_net_tx_timeout,
+> > +#ifdef CONFIG_NET_POLL_CONTROLLER
+> > +	.ndo_poll_controller = gelic_net_poll_controller,
+> > +#endif
+> >
+> 
+> You probably want to add:
+> 	.ndo_change_mtu		= eth_change_mtu,
+> 	.ndo_set_mac_address 	= eth_mac_addr,
+> 	.ndo_validate_addr	= eth_validate_addr,
 
-It is hard to come up with a single set of statistics that apply usefully
-to all the allocators. FWIW, it would be a useful tool to port over to
-SLAB too, if we end up deciding to go with SLAB.
+Thanks!
+
+I'll respin.
+
+-- 
+Masakazu Mokuno
 
