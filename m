@@ -1,49 +1,103 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 2.6.28] cxgb3 - Fix LRO misalignment
-Date: Fri, 16 Jan 2009 11:05:50 -0800
-Message-ID: <4970DA8E.6030105@chelsio.com>
-References: <20090116004829.7437.52798.stgit@speedy5> <496FE973.1060106@hp.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [ANNOUNCE] iproute2 v2.6.28
+Date: Fri, 16 Jan 2009 20:06:39 +0100
+Message-ID: <4970DABF.40200@hartkopp.net>
+References: <20090115130845.01d7ebf4@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>,
-	Casey Leedom <leedom@chelsio.com>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: multipart/mixed;
+ boundary="------------070201060907050709040908"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:24217 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754084AbZAPTGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 14:06:07 -0500
-In-Reply-To: <496FE973.1060106@hp.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:65321 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761882AbZAPTGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 14:06:44 -0500
+In-Reply-To: <20090115130845.01d7ebf4@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rick Jones wrote:
-> Divy Le Ray wrote:
->   
->> From: Divy Le Ray <divy@chelsio.com>
->>
->> The lro manager's frag_align_pad setting was missing,
->> leading to misaligned access to the skb passed up
->> to the stack.
->>
->> Signed-off-by: Divy Le Ray <divy@chelsio.com>
->>     
->
-> I have tried this in a tree I have, and where I was once seeing unaligned access 
-> messages on an ia64 system with LRO enabled, now I see none.
->
-> Tested-by: Rick Jones <rick.jones2@hp.com>
->
-> rick jones
->
->   
-Hi Dave,
+This is a multi-part message in MIME format.
+--------------070201060907050709040908
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The patch is intended for 2.6.29, not 2.6.28 as the subject mistakenly 
-states.
+Stephen Hemminger wrote:
+> New version of iproute2 utilities that includes bug fixes and
+> support for all the new features in kernel 2.6.28.
+>   
 
-Cheers,
-Divy
+Hello Stephen,
+
+your mail reminded me that some defines for the Controller Area Network 
+(CAN) are still missing since 2.6.25.
+
+It's not a big problem, but it makes a better show in 'ip link show' on 
+CAN interfaces :-)
+
+I also moved __PF(CAN,can) in ll_proto.c to the same position where it 
+can be found in if_ether.h .
+
+The only thing i did not know if the __PF(CAN,can) in ll_types.c needs 
+to be put in #ifdef ARPHDR_CAN like __PF(HWX25,hwx25) is or not. You 
+definitely know that better than me.
+
+Regards,
+Oliver
+
+
+iproute2: add missing defines for Controller Area Network
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+
+
+
+--------------070201060907050709040908
+Content-Type: text/x-patch;
+ name="iproute2-2.6.28-can.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="iproute2-2.6.28-can.patch"
+
+diff -u -r iproute2-2.6.28-orig/ip/ipaddress.c iproute2-2.6.28/ip/ipaddress.c
+--- iproute2-2.6.28-orig/ip/ipaddress.c	2009-01-15 21:25:04.000000000 +0100
++++ iproute2-2.6.28/ip/ipaddress.c	2009-01-16 19:33:22.000000000 +0100
+@@ -109,6 +109,7 @@
+ 	_PF(UP);
+ 	_PF(LOWER_UP);
+ 	_PF(DORMANT);
++	_PF(ECHO);
+ #undef _PF
+         if (flags)
+ 		fprintf(fp, "%x", flags);
+diff -u -r iproute2-2.6.28-orig/lib/ll_proto.c iproute2-2.6.28/lib/ll_proto.c
+--- iproute2-2.6.28-orig/lib/ll_proto.c	2009-01-15 21:25:04.000000000 +0100
++++ iproute2-2.6.28/lib/ll_proto.c	2009-01-16 19:46:43.000000000 +0100
+@@ -84,6 +84,7 @@
+ __PF(WAN_PPP,wan_ppp)
+ __PF(PPP_MP,ppp_mp)
+ __PF(LOCALTALK,localtalk)
++__PF(CAN,can)
+ __PF(PPPTALK,ppptalk)
+ __PF(TR_802_2,tr_802_2)
+ __PF(MOBITEX,mobitex)
+@@ -94,7 +95,6 @@
+ #endif
+ __PF(TIPC,tipc)
+ __PF(AOE,aoe)
+-__PF(CAN,can)
+ 
+ { 0x8100, "802.1Q" },
+ { ETH_P_IP, "ipv4" },
+diff -u -r iproute2-2.6.28-orig/lib/ll_types.c iproute2-2.6.28/lib/ll_types.c
+--- iproute2-2.6.28-orig/lib/ll_types.c	2009-01-15 21:25:04.000000000 +0100
++++ iproute2-2.6.28/lib/ll_types.c	2009-01-16 19:27:35.000000000 +0100
+@@ -70,6 +70,7 @@
+ #ifdef ARPHRD_HWX25
+ __PF(HWX25,hwx25)
+ #endif
++__PF(CAN,can)
+ __PF(PPP,ppp)
+ __PF(HDLC,hdlc)
+ __PF(LAPB,lapb)
+
+--------------070201060907050709040908--
