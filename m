@@ -1,209 +1,99 @@
-From: Vernon Sauder <vernoninhand@gmail.com>
-Subject: Re: [PATCH] smc91x: enable ethtool EEPROM interface
-Date: Fri, 16 Jan 2009 18:23:19 -0500
-Message-ID: <497116E7.8020504@gmail.com>
-References: <1232081619-25580-1-git-send-email-VernonInHand@gmail.com> <alpine.LFD.2.00.0901160004110.9524@xanadu.home> <4970C3B4.1040006@gmail.com> <alpine.LFD.2.00.0901161328300.9524@xanadu.home>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: ixgbe: Replace LRO with GRO
+Date: Fri, 16 Jan 2009 15:32:56 -0800
+Message-ID: <9929d2390901161532j57528215mdb01f38be1bd4c7f@mail.gmail.com>
+References: <20090113092625.GA28015@gondor.apana.org.au>
+	 <20090113092828.GA28052@gondor.apana.org.au>
+	 <20090114084412.GA17393@gondor.apana.org.au>
+	 <20090115034619.GA28267@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Nicolas Pitre <nico@cam.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Emil Tantilov <emil.s.tantilov@intel.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f21.google.com ([209.85.217.21]:35550 "EHLO
-	mail-gx0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751338AbZAPXXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 18:23:24 -0500
-Received: by gxk14 with SMTP id 14so1763337gxk.13
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2009 15:23:22 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.00.0901161328300.9524@xanadu.home>
+Received: from yw-out-2324.google.com ([74.125.46.28]:14612 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758872AbZAPXc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 18:32:58 -0500
+Received: by yw-out-2324.google.com with SMTP id 9so828635ywe.1
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2009 15:32:57 -0800 (PST)
+In-Reply-To: <20090115034619.GA28267@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Pitre wrote, On 01/16/2009 01:35 PM:
-<snip>
-> 
-> With those fixed you can resubmit with my ACK.
-> 
-> 
-> Nicolas
+On Wed, Jan 14, 2009 at 7:46 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Wed, Jan 14, 2009 at 07:44:12PM +1100, Herbert Xu wrote:
+>>
+>> ixgbe: Replace LRO with GRO
+>
+> I forgot to delete the Kconfig dependency, here is an updated
+> version.
+>
+> ixgbe: Replace LRO with GRO
+>
+> This patch makes igb invoke the GRO hooks instead of LRO.  As
+> GRO has a compatible external interface to LRO this is a very
+> straightforward replacement.
+>
+> As GRO uses the napi structure to track the held packets, I've
+> modified the code paths involved to pass that along.
+>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
 
-Thanks. I fixed the variable declarations. I thought the patch checker would catch
-them but it doesn't. Here is the updated patch.
+Adding Emil to provide further testing details...
 
-Let me know if I should have started a new thread or if it is acceptable
-to append new patches to the end of a thread to preserve history.
+We are seeing data corruption with this patch applied.  When we
+disable GRO the data corruption goes away.
 
-Vern
+We have this simple ftp test that does put/get and then compares
+md5sum of the file. The file we get back is different then the one we
+sent with GRO enabled.  The file is around 34MB. Note that we don't
+always see the corruption with 30meg file, but it becomes more
+apparent as we increase the size of the file.
 
----
-From: Vernon Sauder <vsauder@inhand.com>
-Subject: [PATCH] smc91x: enable ethtool EEPROM interface
+If this helps - Emil did a diff off of a hexdump output between the
+sent and received file. Looks like the receive was cut off at the end:
 
+--- sent.dump	2009-01-16 11:48:50.000000000 -0800
++++ received.dump	2009-01-16 11:48:47.000000000 -0800
+@@ -62714,43 +62714,5 @@
+ 00f4f90 0000 0000 ffff ffff 0000 0000 ffff ffff  00f4fa0 0000 0000
+ffff ffff 0000 0000 ffff ffff  00f4fb0 0000 0000 ffff ffff 0000 0000
+ffff ffff -00f4fc0 0000 0000 ffff ffff 0000 0000 ffff ffff -00f4fd0
+0000 0000 ffff ffff 0000 0000 ffff ffff -00f4fe0 0000 0000 ffff ffff
+0000 0000 ffff ffff -00f4ff0 0000 0000 ffff ffff 0000 0000 ffff ffff
+-00f5000 0000 0000 ffff ffff 0000 0000 ffff ffff -00f5010 0000 0000
+ffff ffff 0000 0000 ffff ffff -00f5020 0000 0000 ffff ffff 0000 0000
+ffff ffff -00f5030 0000 0000 ffff ffff 0000 0000 ffff ffff -00f5040
+0000 0000 ffff ffff 0000 0000 ffff ffff -00f5050 0000 0000 ffff ffff
+0000 0000 ffff ffff -00f5060 0000 0000 ffff ffff 0000 0000 ffff ffff
+-00f5070 0000 0000 ffff ffff 0000 0000 ffff ffff -00f5080 0000 0000
+ffff ffff 0000 0000 ffff ffff -00f5090 0000 0000 ffff ffff 0000 0000
+ffff ffff -00f50a0 0000 0000 ffff ffff 0000 0000 ffff ffff -00f50b0
+0000 0000 ffff ffff 0000 0000 ffff ffff -00f50c0 0000 0000 ffff ffff
+0000 0000 ffff ffff -00f50d0 0000 0000 ffff ffff 0000 0000 ffff ffff
+-00f50e0 0000 0000 ffff ffff 0000 0000 ffff ffff -00f50f0 0000 0000
+ffff ffff 0000 0000 ffff ffff -00f5100 0000 0000 ffff ffff 0000 0000
+ffff ffff -00f5110 0000 0000 ffff ffff 0000 0000 ffff ffff -00f5120
+0000 0000 ffff ffff 0000 0000 ffff ffff -00f5130 0000 0000 ffff ffff
+0000 0000 ffff ffff -00f5140 0000 0000 ffff ffff 0000 0000 ffff ffff
+-00f5150 0000 0000 ffff ffff 0000 0000 ffff ffff -00f5160 0000 0000
+ffff ffff 0000 0000 ffff ffff -00f5170 0000 0000 ffff ffff 0000 0000
+ffff ffff -00f5180 0000 0000 ffff ffff 0000 0000 ffff ffff -00f5190
+0000 0000 ffff ffff 0000 0000 ffff ffff -00f51a0 0000 0000 ffff ffff
+0000 0000 ffff ffff -00f51b0 0000 0000 ffff ffff 0000 0000 ffff ffff
+-00f51c0 0000 0000 ffff ffff 0000 0000 ffff ffff -00f51d0 0000 0000
+ffff ffff 0000 0000 ffff ffff -00f51e0 0000 0000 ffff ffff 0000 0000
+ffff ffff -00f51f0 0000 0000 ffff ffff 0000 0000 ffff ffff -00f5200
+0000 0000 ffff ffff 0000 0000 ffff ffff -00f5210 0000 0000 ffff ffff
+0000 0000 ffff ffff -00f5220 0000 0000 ffff ffff 0000 0000 ffff ffff
+-00f5230
++00f4fc0 0000 0000 ffff ffff
++00f4fc8
 
-Signed-off-by: Vernon Sauder <vsauder@inhand.com>
-Acked-by: Nicolas Pitre <nico@cam.org>
-
----
-Applies to latest Linus tree.
- drivers/net/smc91x.c |  116 +++++++++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/smc91x.h |   10 ++++
- 2 files changed, 124 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index b215a8d..508e8da 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -1643,6 +1643,117 @@ static void smc_ethtool_setmsglevel(struct net_device *dev, u32 level)
- 	lp->msg_enable = level;
- }
-
-+static int smc_write_eeprom_word(struct net_device *dev, u16 addr, u16 word)
-+{
-+	u16 ctl;
-+	struct smc_local *lp = netdev_priv(dev);
-+	void __iomem *ioaddr = lp->base;
-+
-+	spin_lock_irq(&lp->lock);
-+	/* load word into GP register */
-+	SMC_SELECT_BANK(lp, 1);
-+	SMC_SET_GP(lp, word);
-+	/* set the address to put the data in EEPROM */
-+	SMC_SELECT_BANK(lp, 2);
-+	SMC_SET_PTR(lp, addr);
-+	/* tell it to write */
-+	SMC_SELECT_BANK(lp, 1);
-+	ctl = SMC_GET_CTL(lp);
-+	SMC_SET_CTL(lp, ctl | (CTL_EEPROM_SELECT | CTL_STORE));
-+	/* wait for it to finish */
-+	do {
-+		udelay(1);
-+	} while (SMC_GET_CTL(lp) & CTL_STORE);
-+	/* clean up */
-+	SMC_SET_CTL(lp, ctl);
-+	SMC_SELECT_BANK(lp, 2);
-+	spin_unlock_irq(&lp->lock);
-+	return 0;
-+}
-+
-+static int smc_read_eeprom_word(struct net_device *dev, u16 addr, u16 *word)
-+{
-+	u16 ctl;
-+	struct smc_local *lp = netdev_priv(dev);
-+	void __iomem *ioaddr = lp->base;
-+
-+	spin_lock_irq(&lp->lock);
-+	/* set the EEPROM address to get the data from */
-+	SMC_SELECT_BANK(lp, 2);
-+	SMC_SET_PTR(lp, addr | PTR_READ);
-+	/* tell it to load */
-+	SMC_SELECT_BANK(lp, 1);
-+	SMC_SET_GP(lp, 0xffff);	/* init to known */
-+	ctl = SMC_GET_CTL(lp);
-+	SMC_SET_CTL(lp, ctl | (CTL_EEPROM_SELECT | CTL_RELOAD));
-+	/* wait for it to finish */
-+	do {
-+		udelay(1);
-+	} while (SMC_GET_CTL(lp) & CTL_RELOAD);
-+	/* read word from GP register */
-+	*word = SMC_GET_GP(lp);
-+	/* clean up */
-+	SMC_SET_CTL(lp, ctl);
-+	SMC_SELECT_BANK(lp, 2);
-+	spin_unlock_irq(&lp->lock);
-+	return 0;
-+}
-+
-+static int smc_ethtool_geteeprom_len(struct net_device *dev)
-+{
-+	return 0x23 * 2;
-+}
-+
-+static int smc_ethtool_geteeprom(struct net_device *dev,
-+		struct ethtool_eeprom *eeprom, u8 *data)
-+{
-+	int i;
-+	int imax;
-+
-+	DBG(1, "Reading %d bytes at %d(0x%x)\n",
-+		eeprom->len, eeprom->offset, eeprom->offset);
-+	imax = smc_ethtool_geteeprom_len(dev);
-+	for (i = 0; i < eeprom->len; i += 2) {
-+		int ret;
-+		u16 wbuf;
-+		int offset = i + eeprom->offset;
-+		if (offset > imax)
-+			break;
-+		ret = smc_read_eeprom_word(dev, offset >> 1, &wbuf);
-+		if (ret != 0)
-+			return ret;
-+		DBG(2, "Read 0x%x from 0x%x\n", wbuf, offset >> 1);
-+		data[i] = (wbuf >> 8) & 0xff;
-+		data[i+1] = wbuf & 0xff;
-+	}
-+	return 0;
-+}
-+
-+static int smc_ethtool_seteeprom(struct net_device *dev,
-+		struct ethtool_eeprom *eeprom, u8 *data)
-+{
-+	int i;
-+	int imax;
-+
-+	DBG(1, "Writing %d bytes to %d(0x%x)\n",
-+			eeprom->len, eeprom->offset, eeprom->offset);
-+	imax = smc_ethtool_geteeprom_len(dev);
-+	for (i = 0; i < eeprom->len; i += 2) {
-+		int ret;
-+		u16 wbuf;
-+		int offset = i + eeprom->offset;
-+		if (offset > imax)
-+			break;
-+		wbuf = (data[i] << 8) | data[i + 1];
-+		DBG(2, "Writing 0x%x to 0x%x\n", wbuf, offset >> 1);
-+		ret = smc_write_eeprom_word(dev, offset >> 1, wbuf);
-+		if (ret != 0)
-+			return ret;
-+	}
-+	return 0;
-+}
-+
-+
- static const struct ethtool_ops smc_ethtool_ops = {
- 	.get_settings	= smc_ethtool_getsettings,
- 	.set_settings	= smc_ethtool_setsettings,
-@@ -1652,8 +1763,9 @@ static const struct ethtool_ops smc_ethtool_ops = {
- 	.set_msglevel	= smc_ethtool_setmsglevel,
- 	.nway_reset	= smc_ethtool_nwayreset,
- 	.get_link	= ethtool_op_get_link,
--//	.get_eeprom	= smc_ethtool_geteeprom,
--//	.set_eeprom	= smc_ethtool_seteeprom,
-+	.get_eeprom_len = smc_ethtool_geteeprom_len,
-+	.get_eeprom	= smc_ethtool_geteeprom,
-+	.set_eeprom	= smc_ethtool_seteeprom,
- };
-
- /*
-diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
-index c4ccd12..ed9ae43 100644
---- a/drivers/net/smc91x.h
-+++ b/drivers/net/smc91x.h
-@@ -1141,6 +1141,16 @@ static const char * chip_ids[ 16 ] =  {
-
- #define SMC_GET_MII(lp)		SMC_inw(ioaddr, MII_REG(lp))
-
-+#define SMC_GET_GP(lp)		SMC_inw(ioaddr, GP_REG(lp))
-+
-+#define SMC_SET_GP(lp, x)						\
-+	do {								\
-+		if (SMC_MUST_ALIGN_WRITE(lp))				\
-+			SMC_outl((x)<<16, ioaddr, SMC_REG(lp, 8, 1));	\
-+		else							\
-+			SMC_outw(x, ioaddr, GP_REG(lp));		\
-+	} while (0)
-+
- #define SMC_SET_MII(lp, x)		SMC_outw(x, ioaddr, MII_REG(lp))
-
- #define SMC_GET_MIR(lp)		SMC_inw(ioaddr, MIR_REG(lp))
 -- 
-1.6.1
-
+Cheers,
+Jeff
