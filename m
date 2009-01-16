@@ -1,36 +1,27 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2.6.28] cxgb3 - Fix LRO misalignment
-Date: Thu, 15 Jan 2009 17:57:07 -0800
-Message-ID: <496FE973.1060106@hp.com>
-References: <20090116004829.7437.52798.stgit@speedy5>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH] typhoon: replace users of __constant_{endian}
+Date: Thu, 15 Jan 2009 22:18:04 -0500
+Message-ID: <1232075884.1502.0.camel@obelisk.thedillows.org>
+References: <1232066488.11986.5.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com,
-	leedom@chelsio.com
-To: Divy Le Ray <divy@chelsio.com>
+Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Harvey Harrison <harvey.harrison@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:29098 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755983AbZAPB5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2009 20:57:10 -0500
-In-Reply-To: <20090116004829.7437.52798.stgit@speedy5>
+Received: from smtp.knology.net ([24.214.63.101]:37175 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753892AbZAPDYs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2009 22:24:48 -0500
+In-Reply-To: <1232066488.11986.5.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
+On Thu, 2009-01-15 at 16:41 -0800, Harvey Harrison wrote:
+> The base versions handle constant folding just fine, use them
+> directly.
 > 
-> The lro manager's frag_align_pad setting was missing,
-> leading to misaligned access to the skb passed up
-> to the stack.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+Acked-by: David Dillow <dave@thedillows.org>
 
-I have tried this in a tree I have, and where I was once seeing unaligned access 
-messages on an ia64 system with LRO enabled, now I see none.
-
-Tested-by: Rick Jones <rick.jones2@hp.com>
-
-rick jones
