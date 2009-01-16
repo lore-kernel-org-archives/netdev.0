@@ -1,44 +1,49 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [build bug] drivers/net/netxen/netxen_nic_main.c:1189: error:
-	implicit declaration of function 'ipv6_hdr'
-Date: Fri, 16 Jan 2009 11:32:09 +0100
-Message-ID: <20090116103209.GA9122@elte.hu>
-References: <20090115.160159.262623707.davem@davemloft.net>
+From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: hardware time stamping with optional structs in data area
+Date: Fri, 16 Jan 2009 11:36:04 +0100
+Message-ID: <1232102164.18762.72.camel@pohly-MOBL>
+References: <1229352899-31330-1-git-send-email-patrick.ohly@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Dhananjay Phadke <dhananjay@netxen.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:42382 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757462AbZAPKdD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2009 05:33:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20090115.160159.262623707.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1229352899-31330-1-git-send-email-patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, 2008-12-15 at 15:54 +0100, Patrick Ohly wrote:
+> This is the third iteration of a patch series which adds a user space
+> API for hardware time stamping of network packets and the
+> infrastructure that implements that API. The igb driver is used as
+> example for how a network driver can use this new infrastructure.
 
-* David Miller <davem@davemloft.net> wrote:
+A new year, another month => time to bring this up once more. The latest
+revision of the patch series hasn't brought up further requests for
+improvement. There still is growing demand for this feature.
 
->       netxen: fix endianness in firmware commands
->       netxen: fix ipv6 offload and tx cleanup
->       netxen: fix link speed reporting for some boards
->       netxen: firmware init fix
->       netxen: cleanup mac list on driver unload
->       netxen: hold tx lock while sending firmware commands
->       netxen: handle dma mapping failures
+David, do you think it is ready to get included?
 
-One of these causes frequent build failures on x86, on today's -git:
+John acknowledged the changes to clocksource.h. clocksync is independent
+of everything else and not active unless called; if driver developers
+don't find it useful, it can be replaced/removed. That leaves the API,
+which hasn't triggered any comments so far. As proof that it works as
+intended I adapted PTPd to use it:
+        http://github.com/pohly/ptpd/tree/master
 
- drivers/net/netxen/netxen_nic_main.c:1189: error: implicit declaration of function 'ipv6_hdr'
- drivers/net/netxen/netxen_nic_main.c:1189: error: invalid type argument of '->'
+If further discussion of the API is necessary to get this into mainline,
+perhaps including the patches in netdev-next would help to encourage
+that discussion?
 
-i suspect the key aspect is:
+Is there anything I can do myself, like rebasing against the latest
+netdev-next?
 
-# CONFIG_IPV6 is not set
+Bye, Patrick
 
-	Ingo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-api" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
