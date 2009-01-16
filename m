@@ -1,27 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: hardware time stamping with optional structs in data area
-Date: Fri, 16 Jan 2009 11:00:33 -0800 (PST)
-Message-ID: <20090116.110033.163815590.davem@davemloft.net>
-References: <1229352899-31330-1-git-send-email-patrick.ohly@intel.com>
-	<1232102164.18762.72.camel@pohly-MOBL>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] netxen: avoid invalid iounmap
+Date: Fri, 16 Jan 2009 11:03:47 -0800 (PST)
+Message-ID: <20090116.110347.196376948.davem@davemloft.net>
+References: <1232130484-25188-1-git-send-email-dhananjay@netxen.com>
+	<1232130484-25188-2-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1232102164.18762.72.camel@pohly-MOBL>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: dhananjay@netxen.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934530AbZAPTED@vger.kernel.org>
+In-Reply-To: <1232130484-25188-2-git-send-email-dhananjay@netxen.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Date: Fri, 16 Jan 2009 11:36:04 +0100
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Date: Fri, 16 Jan 2009 10:28:03 -0800
 
-> David, do you think it is ready to get included?
+> For NX3031 only one I/O range is mapped, so unmapping other
+> two which are used by older chips, causes this warning on
+> ppc64.
+> 
+> "Attempt to iounmap early bolted mapping at 0x0000000000000000"
+> 
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-Resubmit the patch set before asking such questions.
---
-To unsubscribe from this list: send the line "unsubscribe linux-api" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
