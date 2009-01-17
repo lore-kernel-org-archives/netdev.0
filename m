@@ -1,243 +1,163 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/4] dccp: Initialisation and type-checking of feature sysctls
-Date: Sat, 17 Jan 2009 10:36:32 +0100
-Message-ID: <1232184993-9927-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/4] dccp: Initialisation framework for feature negotiation
+Date: Sat, 17 Jan 2009 10:36:30 +0100
+Message-ID: <1232184993-9927-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20090104.214605.153723453.davem@davemloft.net>
  <1232184993-9927-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1232184993-9927-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1232184993-9927-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:57867 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756572AbZAQJgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Jan 2009 04:36:55 -0500
-In-Reply-To: <1232184993-9927-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1756545AbZAQJgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Jan 2009 04:36:48 -0500
+In-Reply-To: <1232184993-9927-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch takes care of initialising and type-checking sysctls related to
-feature negotiation. Type checking is important since some of the sysctls
-now directly impact the feature-negotiation process.
+This initialises feature negotiation from two tables, which are in turn are
+initialised from sysctls.
 
-The sysctls are initialised with the known default values for each feature.
-For the type-checking the value constraints from RFC 4340 are used:
-
- * Sequence Window uses the specified Wmin=32, the maximum is ulong (4 bytes),
-   tested and confirmed that it works up to 4294967295 - for Gbps speed;
- * Ack Ratio is between 0 .. 0xffff (2-byte unsigned integer);
- * CCIDs are between 0 .. 255;
- * request_retries, retries1, retries2 also between 0..255 for good measure;
- * tx_qlen is checked to be non-negative;
- * sync_ratelimit remains as before.
-
-Notes: 
-------
- 1. Die s@sysctl_dccp_feat@sysctl_dccp@g since the sysctls are now in feat.c.
- 2. As pointed out by Arnaldo, the pattern of type-checking repeats itself in
-    other places, sometimes with exactly the same kind of definitions (e.g. 
-    "static int zero;"). It may be a good idea (kernel janitors?) to consolidate
-    type checking. For the sake of keeping the changeset small and in order not
-    to affect other subsystems, I have not strived to generalise here.
+As a novel feature, specifics of the implementation (e.g. that short seqnos
+and ECN are not yet available) are advertised for robustness.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- include/linux/dccp.h |    8 --------
- net/dccp/dccp.h      |    3 ---
- net/dccp/feat.c      |   11 ++++++++---
- net/dccp/feat.h      |    8 ++++++++
- net/dccp/options.c   |    4 ----
- net/dccp/sysctl.c    |   43 ++++++++++++++++++++++++++++++-------------
- 6 files changed, 46 insertions(+), 31 deletions(-)
+ include/linux/dccp.h |   19 --------------
+ net/dccp/feat.c      |   67 +++++++++++++++++++++++++++++++++++++++++++--------
+ net/dccp/feat.h      |    2 -
+ 3 files changed, 58 insertions(+), 30 deletions(-)
 
 --- a/net/dccp/feat.h
 +++ b/net/dccp/feat.h
-@@ -100,6 +100,13 @@ struct ccid_dependency {
- 	u8	val;
- };
- 
-+/*
-+ * Sysctls to seed defaults for feature negotiation
-+ */
-+extern unsigned long sysctl_dccp_sequence_window;
-+extern int	     sysctl_dccp_rx_ccid;
-+extern int	     sysctl_dccp_tx_ccid;
-+
- #ifdef CONFIG_IP_DCCP_DEBUG
- extern const char *dccp_feat_typename(const u8 type);
- extern const char *dccp_feat_name(const u8 feat);
-@@ -114,6 +121,7 @@ static inline void dccp_feat_debug(const
+@@ -113,13 +113,13 @@ static inline void dccp_feat_debug(const
+ #define dccp_feat_debug(type, feat, val)
  #endif /* CONFIG_IP_DCCP_DEBUG */
  
- extern int  dccp_feat_init(struct sock *sk);
-+extern void dccp_feat_initialise_sysctls(void);
++extern int  dccp_feat_init(struct sock *sk);
  extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
  				  u8 const *list, u8 len);
  extern int  dccp_feat_register_nn(struct sock *sk, u8 feat, u64 val);
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -25,6 +25,11 @@
- #include "ccid.h"
- #include "feat.h"
+ extern int  dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
+ 				    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
+ extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
+-extern int  dccp_feat_init(struct sock *sk);
  
-+/* feature-specific sysctls - initialised to the defaults from RFC 4340, 6.4 */
-+unsigned long	sysctl_dccp_sequence_window __read_mostly = 100;
-+int		sysctl_dccp_rx_ccid	    __read_mostly = 2,
-+		sysctl_dccp_tx_ccid	    __read_mostly = 2;
-+
  /*
-  * Feature activation handlers.
-  *
-@@ -1146,7 +1151,7 @@ int dccp_feat_init(struct sock *sk)
- 
- 	/* Non-negotiable (NN) features */
- 	rc = __feat_register_nn(fn, DCCPF_SEQUENCE_WINDOW, 0,
--				    sysctl_dccp_feat_sequence_window);
-+				    sysctl_dccp_sequence_window);
- 	if (rc)
- 		return rc;
- 
-@@ -1172,8 +1177,8 @@ int dccp_feat_init(struct sock *sk)
- 	    ccid_get_builtin_ccids(&rx.val, &rx.len))
- 		return -ENOBUFS;
- 
--	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
--	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
-+	if (!dccp_feat_prefer(sysctl_dccp_tx_ccid, tx.val, tx.len) ||
-+	    !dccp_feat_prefer(sysctl_dccp_rx_ccid, rx.val, rx.len))
- 		goto free_ccid_lists;
- 
- 	rc = __feat_register_sp(fn, DCCPF_CCID, true, false, tx.val, tx.len);
---- a/net/dccp/sysctl.c
-+++ b/net/dccp/sysctl.c
-@@ -18,55 +18,72 @@
- #error This file should not be compiled without CONFIG_SYSCTL defined
- #endif
- 
-+/* Boundary values */
-+static int		zero     = 0,
-+			u8_max   = 0xFF;
-+static unsigned long	seqw_min = 32;
-+
- static struct ctl_table dccp_default_table[] = {
- 	{
- 		.procname	= "seq_window",
--		.data		= &sysctl_dccp_feat_sequence_window,
--		.maxlen		= sizeof(sysctl_dccp_feat_sequence_window),
-+		.data		= &sysctl_dccp_sequence_window,
-+		.maxlen		= sizeof(sysctl_dccp_sequence_window),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_doulongvec_minmax,
-+		.extra1		= &seqw_min,		/* RFC 4340, 7.5.2 */
- 	},
- 	{
- 		.procname	= "rx_ccid",
--		.data		= &sysctl_dccp_feat_rx_ccid,
--		.maxlen		= sizeof(sysctl_dccp_feat_rx_ccid),
-+		.data		= &sysctl_dccp_rx_ccid,
-+		.maxlen		= sizeof(sysctl_dccp_rx_ccid),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &u8_max,		/* RFC 4340, 10. */
- 	},
- 	{
- 		.procname	= "tx_ccid",
--		.data		= &sysctl_dccp_feat_tx_ccid,
--		.maxlen		= sizeof(sysctl_dccp_feat_tx_ccid),
-+		.data		= &sysctl_dccp_tx_ccid,
-+		.maxlen		= sizeof(sysctl_dccp_tx_ccid),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &u8_max,		/* RFC 4340, 10. */
- 	},
- 	{
- 		.procname	= "request_retries",
- 		.data		= &sysctl_dccp_request_retries,
- 		.maxlen		= sizeof(sysctl_dccp_request_retries),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &u8_max,
- 	},
- 	{
- 		.procname	= "retries1",
- 		.data		= &sysctl_dccp_retries1,
- 		.maxlen		= sizeof(sysctl_dccp_retries1),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &u8_max,
- 	},
- 	{
- 		.procname	= "retries2",
- 		.data		= &sysctl_dccp_retries2,
- 		.maxlen		= sizeof(sysctl_dccp_retries2),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &u8_max,
- 	},
- 	{
- 		.procname	= "tx_qlen",
- 		.data		= &sysctl_dccp_tx_qlen,
- 		.maxlen		= sizeof(sysctl_dccp_tx_qlen),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
- 	},
- 	{
- 		.procname	= "sync_ratelimit",
+  * Encoding variable-length options and their maximum length.
 --- a/include/linux/dccp.h
 +++ b/include/linux/dccp.h
-@@ -355,14 +355,6 @@ static inline unsigned int dccp_hdr_len(
- 	return __dccp_hdr_len(dccp_hdr(skb));
+@@ -369,28 +369,9 @@ static inline unsigned int dccp_hdr_len(
+   * Will be used to pass the state from dccp_request_sock to dccp_sock.
+   *
+   * @dccpms_sequence_window - Sequence Window Feature (section 7.5.2)
+-  * @dccpms_pending - List of features being negotiated
+-  * @dccpms_conf -
+   */
+ struct dccp_minisock {
+ 	__u64			dccpms_sequence_window;
+-	struct list_head	dccpms_pending;
+-	struct list_head	dccpms_conf;
+-};
+-
+-struct dccp_opt_conf {
+-	__u8			*dccpoc_val;
+-	__u8			dccpoc_len;
+-};
+-
+-struct dccp_opt_pend {
+-	struct list_head	dccpop_node;
+-	__u8			dccpop_type;
+-	__u8			dccpop_feat;
+-	__u8		        *dccpop_val;
+-	__u8			dccpop_len;
+-	int			dccpop_conf;
+-	struct dccp_opt_conf    *dccpop_sc;
+ };
+ 
+ extern void dccp_minisock_init(struct dccp_minisock *dmsk);
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -1115,23 +1115,70 @@ int dccp_feat_parse_options(struct sock 
+ 	return 0;	/* ignore FN options in all other states */
  }
  
--
--/* initial values for each feature */
--#define DCCPF_INITIAL_SEQUENCE_WINDOW		100
--#define DCCPF_INITIAL_ACK_RATIO			2
--#define DCCPF_INITIAL_CCID			DCCPC_CCID2
--/* FIXME: for now we're default to 1 but it should really be 0 */
--#define DCCPF_INITIAL_SEND_NDP_COUNT		1
--
- /**
-  * struct dccp_request_sock  -  represent DCCP-specific connection request
-  * @dreq_inet_rsk: structure inherited from
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -95,9 +95,6 @@ extern void dccp_time_wait(struct sock *
- extern int  sysctl_dccp_request_retries;
- extern int  sysctl_dccp_retries1;
- extern int  sysctl_dccp_retries2;
--extern int  sysctl_dccp_feat_sequence_window;
--extern int  sysctl_dccp_feat_rx_ccid;
--extern int  sysctl_dccp_feat_tx_ccid;
- extern int  sysctl_dccp_tx_qlen;
- extern int  sysctl_dccp_sync_ratelimit;
- 
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -23,10 +23,6 @@
- #include "dccp.h"
- #include "feat.h"
- 
--int sysctl_dccp_feat_sequence_window = DCCPF_INITIAL_SEQUENCE_WINDOW;
--int sysctl_dccp_feat_rx_ccid	      = DCCPF_INITIAL_CCID;
--int sysctl_dccp_feat_tx_ccid	      = DCCPF_INITIAL_CCID;
--
- u64 dccp_decode_value_var(const u8 *bf, const u8 len)
++/**
++ * dccp_feat_init  -  Seed feature negotiation with host-specific defaults
++ * This initialises global defaults, depending on the value of the sysctls.
++ * These can later be overridden by registering changes via setsockopt calls.
++ * The last link in the chain is finalise_settings, to make sure that between
++ * here and the start of actual feature negotiation no inconsistencies enter.
++ *
++ * All features not appearing below use either defaults or are otherwise
++ * later adjusted through dccp_feat_finalise_settings().
++ */
+ int dccp_feat_init(struct sock *sk)
  {
- 	u64 value = 0;
+-	struct dccp_sock *dp = dccp_sk(sk);
+-	struct dccp_minisock *dmsk = dccp_msk(sk);
++	struct list_head *fn = &dccp_sk(sk)->dccps_featneg;
++	u8 on = 1, off = 0;
+ 	int rc;
++	struct {
++		u8 *val;
++		u8 len;
++	} tx, rx;
++
++	/* Non-negotiable (NN) features */
++	rc = __feat_register_nn(fn, DCCPF_SEQUENCE_WINDOW, 0,
++				    sysctl_dccp_feat_sequence_window);
++	if (rc)
++		return rc;
++
++	/* Server-priority (SP) features */
++
++	/* Advertise that short seqnos are not supported (7.6.1) */
++	rc = __feat_register_sp(fn, DCCPF_SHORT_SEQNOS, true, true, &off, 1);
++	if (rc)
++		return rc;
++
++	/* RFC 4340 12.1: "If a DCCP is not ECN capable, ..." */
++	rc = __feat_register_sp(fn, DCCPF_ECN_INCAPABLE, true, true, &on, 1);
++	if (rc)
++		return rc;
+ 
+-	INIT_LIST_HEAD(&dmsk->dccpms_pending);	/* XXX no longer used */
+-	INIT_LIST_HEAD(&dmsk->dccpms_conf);	/* XXX no longer used */
+-
+-	/* Ack ratio */
+-	rc = __feat_register_nn(&dp->dccps_featneg, DCCPF_ACK_RATIO, 0,
+-				dp->dccps_l_ack_ratio);
++	/*
++	 * We advertise the available list of CCIDs and reorder according to
++	 * preferences, to avoid failure resulting from negotiating different
++	 * singleton values (which always leads to failure).
++	 * These settings can still (later) be overridden via sockopts.
++	 */
++	if (ccid_get_builtin_ccids(&tx.val, &tx.len) ||
++	    ccid_get_builtin_ccids(&rx.val, &rx.len))
++		return -ENOBUFS;
++
++	if (!dccp_feat_prefer(sysctl_dccp_feat_tx_ccid, tx.val, tx.len) ||
++	    !dccp_feat_prefer(sysctl_dccp_feat_rx_ccid, rx.val, rx.len))
++		goto free_ccid_lists;
++
++	rc = __feat_register_sp(fn, DCCPF_CCID, true, false, tx.val, tx.len);
++	if (rc)
++		goto free_ccid_lists;
++
++	rc = __feat_register_sp(fn, DCCPF_CCID, false, false, rx.val, rx.len);
++
++free_ccid_lists:
++	kfree(tx.val);
++	kfree(rx.val);
+ 	return rc;
+ }
+ 
+-EXPORT_SYMBOL_GPL(dccp_feat_init);
+-
+ int dccp_feat_activate_values(struct sock *sk, struct list_head *fn_list)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
