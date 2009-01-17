@@ -1,87 +1,65 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: ixgbe: Replace LRO with GRO
-Date: Sat, 17 Jan 2009 01:07:46 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F59F11A11@rrsmsx501.amr.corp.intel.com>
-References: <20090113092625.GA28015@gondor.apana.org.au>
- <20090113092828.GA28052@gondor.apana.org.au>
- <20090114084412.GA17393@gondor.apana.org.au>
- <20090115034619.GA28267@gondor.apana.org.au>
- <9929d2390901161532j57528215mdb01f38be1bd4c7f@mail.gmail.com>
- <20090117003629.GA22370@gondor.apana.org.au>
- <EA929A9653AAE14F841771FB1DE5A1365F59F11911@rrsmsx501.amr.corp.intel.com>
- <20090117034510.GA23714@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/4] dccp: Completing feature negotiation
+Date: Sat, 17 Jan 2009 10:36:29 +0100
+Message-ID: <1232184993-9927-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <20090104.214605.153723453.davem@davemloft.net>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:50044 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755528AbZAQIIH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 03:08:07 -0500
-In-Reply-To: <20090117034510.GA23714@gondor.apana.org.au>
-Content-Language: en-US
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:57867 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756426AbZAQJgp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Jan 2009 04:36:45 -0500
+In-Reply-To: <20090104.214605.153723453.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Fri, Jan 16, 2009 at 06:06:18PM -0700, Tantilov, Emil S wrote:
->> See attached.
-> 
-> Thanks Emil!
-> 
-> However, it's not very clear who is the sender in this case :)
-> 
-> FTP has a separate data connection, so the sender of the control
-> connection is not necessarily the sender of the data connection.
-> 
-> In fact, looking at the dump of the data connection it'd appear
-> that the one you marked as the sender dump is in fact the receiver
-> for the data connection:
+Hi Dave,
 
-The test is done by a script that:
+following the re-design of the CCID-plugin loading into dccp.ko and further
+testing, please find attached the patch set to complete the implementation
+of static feature negotiation in DCCP.
 
-1. checks the connection to the secondary system (ping)
-2. copies the test file to the secondary test system (put)
-3. copies the same file again from the secondary to the test system (get)
-4. Compares the checksum of the sent vs. the received file
+Patches have been tested to compile standalone, with sparse enabled.
 
-Since I had tcpdump on both ends - I think you should see both session in each. The file I named sender (probably a bit incorrect) is just the capture taken from the primary test system (the one that started the script). This is also the system on which I have the latest git with GRO.
+Gerrit
 
-> 12:07:17.045244 IP (tos 0x8, ttl 64, id 19084, offset 0, flags [DF],
-> proto TCP (6), length 1500) 190.0.15.1.9504 > 190.0.15.3.41206: .
-> 1:1449(1448) ack 1 win 46 <nop,nop,timestamp 199022661 4897363>
-> 12:07:17.045260 IP (tos 0x8, ttl 64, id 15863, offset 0, flags [DF],
-> proto TCP (6), length 52) 190.0.15.3.41206 > 190.0.15.1.9504: .,
-> cksum 0x72a1 (correct), ack 1449 win 69 <nop,nop,timestamp 4897363
-> 199022661>     
-> 
-> We can see that because the delta between the data and the ack
-> is much smaller on this side.
-> 
-> It's also peculiar that there seems to be no GRO aggregation
-> at all on either side.  Were these dumps taken with it enabled
-> on both sides? You'll need a patched ethtool to check.
 
-No only one of the systems (the sender) runs the latest git with GRO. The secondary test system runs on stock RHEL5.2 kernel.
+Commit summary:
+---------------
+This set completes the self-contained implementation of static feature
+negotiation for DCCP endpoints (RFC 4340 - 4342, RFC 5348).
 
-> The transfer itself appears to be encountering a lot of packet loss,
-> which presumably caused a premature end which is why you saw a
-> missing chunk in the file.
-> 
-> However, it is not very clear what is causing this loss.  BTW,
-> did you apply the fix b0059b50b70dc3a908bea4ece2f9494a22200018
-> (gro: Fix page ref count for skbs freed normally) on both sides?
-> That one is required to make igb or ixgbe work properly.
-Ah - doesn't seem like I have this fix. Jeff will have to pull this in our test tree.
+The whole set is structured into 3 main blocks - (1) basis, (2) core, (3)
+integration and cleanup.
 
- 
-> Another thing to try is to disable GSO/TSO on both sides as that
-> is complicating the interpretation of the dumps.
-Will do if the fix above doesn't help.
+This set is the final in block (3) and implements the initialization of
+feature-negotiation state. 
 
-Thanks,
-Emil
+There is further work going on in the test tree  to also dynamically update
+(non-negotiable) feature values such as Ack Ratio. Before this can be done,
+however, the CCIDs themselves need some more work.
+
+List of patches in this set:
+----------------------------
+Patch #1: Initialisation framework for the supported features.
+Patch #2: Adds full support for local/remote Sequence Window.
+Patch #3: Initialisation and type-checking of involved sysctls.
+Patch #4: A set of (useful) debugging/printing helper functions.
+
+The set is also available for viewing online, beginning at
+commit bde1e830e87f3a3e51a72fa5b35405c313b64b74 of
+http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=dccp_exp.git
+
+Patch stats:
+------------
+ Documentation/networking/dccp.txt |    3 
+ include/linux/dccp.h              |   51 --------
+ net/dccp/dccp.h                   |   21 +--
+ net/dccp/feat.c                   |  240 ++++++++++++++++++++++++++++----------
+ net/dccp/feat.h                   |   23 +--
+ net/dccp/minisocks.c              |   11 -
+ net/dccp/options.c                |    8 -
+ net/dccp/proto.c                  |    2 
+ net/dccp/sysctl.c                 |   43 ++++--
+ 9 files changed, 237 insertions(+), 165 deletions(-)
