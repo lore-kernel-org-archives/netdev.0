@@ -1,32 +1,37 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: cxgb3: Replace LRO with GRO
-Date: Sat, 17 Jan 2009 03:11:26 -0800
-Message-ID: <4971BCDE.50600@chelsio.com>
-References: <20090115235803.GA9000@gondor.apana.org.au> <49704015.6020503@chelsio.com> <20090116085645.GA14678@gondor.apana.org.au> <49706B87.7080806@chelsio.com> <20090117050839.GA24215@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: XFRM structures binary compability
+Date: Sat, 17 Jan 2009 22:27:07 +1100
+Message-ID: <20090117112707.GA7673@gondor.apana.org.au>
+References: <200901161440.3616@centrum.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
+To: Jiri Klimes <klimes@centrum.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:31708 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755887AbZAQLMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 06:12:40 -0500
-In-Reply-To: <20090117050839.GA24215@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:40281 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751560AbZAQL1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 06:27:17 -0500
+Content-Disposition: inline
+In-Reply-To: <200901161440.3616@centrum.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> Hi Divy:
-> 
-> On Fri, Jan 16, 2009 at 03:12:07AM -0800, Divy Le Ray wrote:
->>        1.112500  __alloc_skb                         vmlinux
-> 
-> Can you confirm that you were testing 1500 byte packets?
+Jiri Klimes <klimes@centrum.cz> wrote:
+>
+> I see no solution to obtain 32/64-bit compatibility without impacting anybody :-(
 
-Yes.
+We could create new requests, e.g. NEWSA2 that can then take
+a properly designed structure which is invariant.
+
+After that we can migrate the applications across.
+
+Of course for all new structures we should be doubly sure that
+they're all invariant to prevent this from happening again.
 
 Cheers,
-Divy
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
