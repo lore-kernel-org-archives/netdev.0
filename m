@@ -1,29 +1,37 @@
-From: webmaster <info@webmaster.com>
-Subject: Dear Subscriber
-Date: Sat, 17 Jan 2009 21:30:35 +0100 (CET)
-Message-ID: <30110132.629841232224235157.JavaMail.root@webmail1.glocalnet.net>
-Reply-To: info.mailmanagement@inmail24.com
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] via-velocity: fix hot spin
+Date: Sat, 17 Jan 2009 22:14:31 +0100
+Message-ID: <49724A37.3040703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta3.glocalnet.net ([213.163.128.207]:41468 "EHLO
-	mta3.glocalnet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758343AbZAQU64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 15:58:56 -0500
+Received: from ug-out-1314.google.com ([66.249.92.174]:9180 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbZAQVOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 16:14:31 -0500
+Received: by ug-out-1314.google.com with SMTP id 39so113601ugf.37
+        for <netdev@vger.kernel.org>; Sat, 17 Jan 2009 13:14:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+while(--j >= 0) keeps spinning when j is unsigned:
 
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index a75f91d..c5691fd 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -1302,7 +1302,7 @@ static void velocity_free_rd_ring(struct velocity_info *vptr)
+ static int velocity_init_td_ring(struct velocity_info *vptr)
+ {
+ 	dma_addr_t curr;
+-	unsigned int j;
++	int j;
+ 
+ 	/* Init the TD ring entries */
+ 	for (j = 0; j < vptr->tx.numq; j++) {
 
-
-
-Dear Tsn webmail  Subscriber,
-
-We are currently carrying-out a maintainance process to your Tsn account. To complete this process you must reply to this email and enter your Current User Name here (    ) and Password here (    ) if you are the rightful owner of this account. Our Message Center will confirm your identity including your Secret Question and Answer immediately.
-The new Tsn Webmail is a fast and light-weight appliction to quickly and easily access your e-mail. This process will also help us to fight against spam mails. Failure to submit your password, will render your email address in-active from our database.You can also confirm your email address by logging into your Tsn  Webmail account at: http://mail.tsn.cc/squirrelmail/src/login.php
-NOTE: You will be sent a password reset messenge in next seven (7) working days after under going this process for security reasons.
-
-Thank you for using Netspace Webmail!
-http://mail.tsn.cc/squirrelmail/src/login.php
