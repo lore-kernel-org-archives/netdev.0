@@ -1,81 +1,62 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: ixgbe: Replace LRO with GRO
-Date: Sat, 17 Jan 2009 08:44:13 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F59F11A2D@rrsmsx501.amr.corp.intel.com>
-References: <20090113092625.GA28015@gondor.apana.org.au>
- <20090113092828.GA28052@gondor.apana.org.au>
- <20090114084412.GA17393@gondor.apana.org.au>
- <20090115034619.GA28267@gondor.apana.org.au>
- <9929d2390901161532j57528215mdb01f38be1bd4c7f@mail.gmail.com>
- <20090117003629.GA22370@gondor.apana.org.au>
- <EA929A9653AAE14F841771FB1DE5A1365F59F11911@rrsmsx501.amr.corp.intel.com>
- <20090117034510.GA23714@gondor.apana.org.au>
- <EA929A9653AAE14F841771FB1DE5A1365F59F11A11@rrsmsx501.amr.corp.intel.com>
- <20090117095256.GA26169@gondor.apana.org.au>
+From: Andrey Borzenkov <arvidjaar@mail.ru>
+Subject: [2.6.29-rc2 regression] e100: netconsole not functional because of missing firmware
+Date: Sat, 17 Jan 2009 19:08:25 +0300
+Message-ID: <200901171908.28533.arvidjaar@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: multipart/signed;
+  boundary="nextPart2731052.VCk4V9YsH4";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: e1000-devel@lists.soutceforge.net,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:50262 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761073AbZAQPoW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 10:44:22 -0500
-In-Reply-To: <20090117095256.GA26169@gondor.apana.org.au>
-Content-Language: en-US
+Received: from flock1.newmail.ru ([82.204.219.207]:43957 "HELO
+	flock1.newmail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1762816AbZAQQIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 11:08:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sat, Jan 17, 2009 at 01:07:46AM -0700, Tantilov, Emil S wrote:
->> 
->> The test is done by a script that:
->> 
->> 1. checks the connection to the secondary system (ping)
->> 2. copies the test file to the secondary test system (put)
->> 3. copies the same file again from the secondary to the test system
->> (get) 
->> 4. Compares the checksum of the sent vs. the received file
->> 
->> Since I had tcpdump on both ends - I think you should see both
->> session in each. The file I named sender (probably a bit incorrect)
->> is just the capture taken from the primary test system (the one that
->> started the script). This is also the system on which I have the
->> latest git with GRO.    
-> 
-> Thanks, that makes a lot more sense.  Just to confirm, the second
-> part of the sender dump should be the one showing GRO, right?
+--nextPart2731052.VCk4V9YsH4
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Yes - the second part is the one where the primary test system is receiving (hence GRO).
+[    1.958127] e100 0000:00:0a.0: PCI INT A -> Link[LNKD] -> GSI 11=20
+(level, low)
+ -> IRQ 11
+[    1.986079] e100 0000:00:0a.0: PME# disabled
+[    1.987930] e100: eth0: e100_probe: addr 0xf7efd000, irq 11, MAC addr=20
+00:00:39:d7:14:a1
+[    1.989358] netconsole: local port 6665
+[    1.989848] netconsole: local IP 10.0.0.1
+[    1.990427] netconsole: interface eth0
+[    1.990895] netconsole: remote port 6666
+[    1.991382] netconsole: remote IP 10.0.0.2
+[    1.991890] netconsole: remote ethernet address 00:17:42:21:27:e4
+[    1.992680] netconsole: device eth0 not up yet, forcing it
+[    2.008509] e100: eth0: e100_request_firmware: Failed to load=20
+firmware "e100/d101m_ucode.bin": -22
+[    2.010461] netconsole: failed to open eth0
+[    2.010996] netconsole: cleaning up
 
- 
->>> However, it is not very clear what is causing this loss.  BTW,
->>> did you apply the fix b0059b50b70dc3a908bea4ece2f9494a22200018
->>> (gro: Fix page ref count for skbs freed normally) on both sides?
->>> That one is required to make igb or ixgbe work properly.
->> Ah - doesn't seem like I have this fix. Jeff will have to pull this
->> in our test tree. 
-> 
-> OK, although this bug should only manifest itself if aggregation
-> occurs, which apparently isn't the case according to the dump.
-> 
->>> Another thing to try is to disable GSO/TSO on both sides as that
->>> is complicating the interpretation of the dumps.
->> Will do if the fix above doesn't help.
-> 
-> BTW, when you're testing without GRO are you disabling GRO with
-> ethtool or loading an ixgbe driver without the patch? If the latter
-> please try it with ethtool (even if you don't have a patched ethtool
-> that supports GRO you can always disable RX checksums).
-To disable GRO I just recompile ixgbe with "netdev->features |= NETIF_F_GRO" commented out. Is there a patch for ethtool? 
+This has been working all the time without requiring any external=20
+firmware to be present. Why it suddenly refuses to work now?
 
-> 
-> Maybe I just stuffed up the ixgbe patch.
-> 
-> Thanks,
 
-Thanks for looking into it.
-Emil
+--nextPart2731052.VCk4V9YsH4
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAklyAnwACgkQR6LMutpd94xQzgCfbRkub0iY10Od/4WBW95ahIvg
+P/EAoLUI8uXRsnZS3ykKEY5baSpr5giQ
+=jczN
+-----END PGP SIGNATURE-----
+
+--nextPart2731052.VCk4V9YsH4--
