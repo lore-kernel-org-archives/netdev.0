@@ -1,48 +1,36 @@
-From: "WEBMASTER PANEL CONTROL BOARD" <info@desk.co.uk>
-Subject: Dear  e-mail user.
-Date: Sat, 17 Jan 2009 11:33:37 -0000 (GMT)
-Message-ID: <24035.41.220.75.3.1232192017.squirrel@www.paul-mccabe.co.uk>
-Reply-To: webmasterpanel@cooperation.net
+From: "Motorola Company" <info@motorola.com>
+Subject: MOTOROLA PROMOTION
+Date: Sat, 17 Jan 2009 06:25:48 -0600
+Message-ID: <0Qc8uWYt.1232195148.6456520.acpublic@cablenet.com.ni>
+Reply-To: "Motorola Company" <pt_moto@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: info@motorola.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vi-ads-1217.ads.vi.net ([212.78.77.16]:56944 "EHLO
-	vi-ads-1227.ads.vi.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753565AbZAQMIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 07:08:52 -0500
+Received: from mail.cablenet.com.ni ([165.98.148.3]:55033 "EHLO
+	mail.cablenet.com.ni" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756789AbZAQMjK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 07:39:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom the online email ballot promotions held by
+Motorola Company, your email have been
+approved to claim the
+sum of =A3400,000 (Four hundred thousand pounds) .
 
+To file for claim, you are required to
+provide us with the information below for verification:
 
+=46ull Name:
+Mailing address:
+Permanent house address:
+Country of resident:
+Phone Number:
+Age:
+Occupation:
 
-Dear  e-mail user,
-
-This message was sent automatically by Webmaster panel program which
-periodically checks the size of inbox, where new messages are received.The
-program is run weekly to ensure no one's inbox grows too large.
-
-If your inbox becomes too large, you will be unable to receive new email.
-Just before this message was sent, you had 18 Megabytes (MB) or more of
-messages stored in your inbox on  mail. To help us re-set your SPACE on
-our database prior to maintain our INBOX, you must reply to this e-mail
-and enter your Current
-User name (         ) and Password (       )
-
-You will continue to receive this warning message periodically if your
-inbox size continues to be between 18 and 20 MB. If your inbox size grows
-to 20 MB, then a program on mail will move your oldest email to a folder
-in your home directory to ensure that you will continue to be able to
-receive incoming email.
-
-You will be notified by email that this has taken place. If your inbox
-grows to 25 MB, you will be unable to receive new email as it will be
-returned to the sender.
-
-After you read a message,it is best to REPLY and SAVE it to another
-folder. Thank you for your cooperation. HELPDESK@WEBMASTERPANEL.ORG
-
-Send your detail to the desk control panel : webmasterpanel@cooperation.net
-
+Reply this email with the information
+for claim
+(pr_moto@yahoo.com.hk)
