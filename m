@@ -1,54 +1,44 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: cxgb3: Replace LRO with GRO
-Date: Sat, 17 Jan 2009 10:58:38 +1100
-Message-ID: <20090116235837.GA22005@gondor.apana.org.au>
-References: <20090115235803.GA9000@gondor.apana.org.au> <49704015.6020503@chelsio.com> <20090116085645.GA14678@gondor.apana.org.au> <49706B87.7080806@chelsio.com>
+Subject: Re: ixgbe: Replace LRO with GRO
+Date: Sat, 17 Jan 2009 11:36:29 +1100
+Message-ID: <20090117003629.GA22370@gondor.apana.org.au>
+References: <20090113092625.GA28015@gondor.apana.org.au> <20090113092828.GA28052@gondor.apana.org.au> <20090114084412.GA17393@gondor.apana.org.au> <20090115034619.GA28267@gondor.apana.org.au> <9929d2390901161532j57528215mdb01f38be1bd4c7f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Divy Le Ray <divy@chelsio.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Emil Tantilov <emil.s.tantilov@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49037 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:50158 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762248AbZAPX6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 18:58:47 -0500
+	with ESMTP id S1751560AbZAQAge (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2009 19:36:34 -0500
 Content-Disposition: inline
-In-Reply-To: <49706B87.7080806@chelsio.com>
+In-Reply-To: <9929d2390901161532j57528215mdb01f38be1bd4c7f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 16, 2009 at 03:12:07AM -0800, Divy Le Ray wrote:
->
-> >> without the patch, lro off: 3.8Gbs
-> >> without the patch, lro on: 6.1Gbs
-> >> with the patch, GRO on: 4.8Gbs.
-> > 
-> > What about the case of GRO off with the patch? Just checking to
-> > make sure that nothing else has changed.
+On Fri, Jan 16, 2009 at 03:32:56PM -0800, Jeff Kirsher wrote:
 > 
-> I'm getting about 3.4Gbs with the patch and GRO off.
+> Adding Emil to provide further testing details...
+> 
+> We are seeing data corruption with this patch applied.  When we
+> disable GRO the data corruption goes away.
+> 
+> We have this simple ftp test that does put/get and then compares
+> md5sum of the file. The file we get back is different then the one we
+> sent with GRO enabled.  The file is around 34MB. Note that we don't
+> always see the corruption with 30meg file, but it becomes more
+> apparent as we increase the size of the file.
+> 
+> If this helps - Emil did a diff off of a hexdump output between the
+> sent and received file. Looks like the receive was cut off at the end:
 
-I wonder where the 3.8 => 3.4 slow-down is coming from.
+Thanks for the info Jeff!
 
-> I did some profiling with GRO on and LRO on. Here are typical outputs:
-> GRO on:
-> CPU 1 :
->       26.445100  copy_user_generic_unrolled          vmlinux
->       10.050300  skb_copy_datagram_iovec             vmlinux
->        5.076900  memcpy                              vmlinux
->        4.636400  process_responses                  cxgb3.ko
->        4.625100  __pskb_pull_tail                    vmlinux
->        4.463300  eth_type_trans                      vmlinux
->        4.420600  inet_gro_receive                    vmlinux
->        4.310500  refill_fl                          cxgb3.ko
->        3.312700  skb_copy_bits                       vmlinux
-
-Thanks, this is very helpful.  The first obvious deficiency
-is that napi_fraginfo_skb is causing multiple pskb_may_pull
-calls on every fragment which is bad.
-
-I'll get a patch out for you test.
+As the file isn't too big, could you do two packet dumps, one
+at the sender and one at the receiver? Capturing just the headers
+should be sufficient for now.
 
 Cheers,
 -- 
