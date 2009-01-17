@@ -1,29 +1,51 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-01-16
-Date: Fri, 16 Jan 2009 22:18:19 -0800 (PST)
-Message-ID: <20090116.221819.38800947.davem@davemloft.net>
-References: <20090116223145.GA8233@tuxdriver.com>
+From: David Brownell <david-b@pacbell.net>
+Subject: [patch 2.6.29-rc] usbnet: allow type check of devdbg arguments in non-debug build
+Date: Fri, 16 Jan 2009 23:19:44 -0800
+Message-ID: <200901162319.44255.david-b@pacbell.net>
+References: <1221493664-544-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090116223145.GA8233-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Steve Glendinning <steve.glendinning@smsc.com>,
+	Ian Saturley <ian.saturley@smsc.com>,
+	Jeff Garzik <jeff@garzik.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp128.sbc.mail.sp1.yahoo.com ([69.147.65.187]:27218 "HELO
+	smtp128.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750903AbZAQHTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 02:19:51 -0500
+In-Reply-To: <1221493664-544-1-git-send-email-steve.glendinning@smsc.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 16 Jan 2009 17:31:46 -0500
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: usbnet: allow type check of devdbg arguments in non-debug build
 
-> Here is another batch of fixes intended for 2.6.29.  Most of them are
-> simple/obvious and/or their changelog cites the bug they are fixing.
-> The "cfg80211: make handle_band() and handle_channel() wiphy specific"
-> patch is a pre-requisite to the other patches from Luis.
+Improve usbnet's devdbg to always type-check diagnostic arguments,
+like dev_dbg (device.h).  This makes no change to the resulting size of
+usbnet modules.
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+---
+[ refreshed against 2.6.29-rc1 GIT ]
+
+ include/linux/usb/usbnet.h |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -197,7 +197,9 @@ extern int usbnet_nway_reset(struct net_
+ #define devdbg(usbnet, fmt, arg...) \
+ 	printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , ## arg)
+ #else
+-#define devdbg(usbnet, fmt, arg...) do {} while(0)
++#define devdbg(usbnet, fmt, arg...) \
++	({ if (0) printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , \
++		## arg); 0; })
+ #endif
+ 
+ #define deverr(usbnet, fmt, arg...) \
