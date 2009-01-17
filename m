@@ -1,61 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ixgbe: Replace LRO with GRO
-Date: Sat, 17 Jan 2009 20:52:56 +1100
-Message-ID: <20090117095256.GA26169@gondor.apana.org.au>
-References: <20090113092625.GA28015@gondor.apana.org.au> <20090113092828.GA28052@gondor.apana.org.au> <20090114084412.GA17393@gondor.apana.org.au> <20090115034619.GA28267@gondor.apana.org.au> <9929d2390901161532j57528215mdb01f38be1bd4c7f@mail.gmail.com> <20090117003629.GA22370@gondor.apana.org.au> <EA929A9653AAE14F841771FB1DE5A1365F59F11911@rrsmsx501.amr.corp.intel.com> <20090117034510.GA23714@gondor.apana.org.au> <EA929A9653AAE14F841771FB1DE5A1365F59F11A11@rrsmsx501.amr.corp.intel.com>
+From: Antoine Kaufmann <toni@famkaufmann.info>
+Subject: Re: [Bugme-new] [Bug 12303] New: e1000e 82567LM Tx Unit Hang
+Date: Sat, 17 Jan 2009 11:16:18 +0100
+Message-ID: <20090117101618.GB31715@thales.produktiv.lan>
+References: <20081226130200.1588c23f.akpm@linux-foundation.org>
+Reply-To: toni@famkaufmann.info
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Cc: akpm@linux-foundation.org, wangbj@lzu.edu.cn
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53174 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754247AbZAQJxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 04:53:05 -0500
+Received: from sv0.famkaufmann.info ([89.163.145.14]:45664 "EHLO
+	sv0.famkaufmann.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753660AbZAQKWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 05:22:37 -0500
 Content-Disposition: inline
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F59F11A11@rrsmsx501.amr.corp.intel.com>
+In-Reply-To: <20081226130200.1588c23f.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 17, 2009 at 01:07:46AM -0700, Tantilov, Emil S wrote:
+I ran into this problem too with my new thinkpad (not an T400 but a x200
+with the same network chip).
+
+> > Latest working kernel version: 2.6.27-git2
+> > Earliest failing kernel version: unknown
+> > Distribution: gentoo amd64 (~amd64), 2008.0
+> > Hardware Environment: Thinkpad T400 with GM45 (ICH9)
+> >
 >
-> The test is done by a script that:
-> 
-> 1. checks the connection to the secondary system (ping)
-> 2. copies the test file to the secondary test system (put)
-> 3. copies the same file again from the secondary to the test system (get)
-> 4. Compares the checksum of the sent vs. the received file
-> 
-> Since I had tcpdump on both ends - I think you should see both session in each. The file I named sender (probably a bit incorrect) is just the capture taken from the primary test system (the one that started the script). This is also the system on which I have the latest git with GRO.
+> An e1000e regression.
+Couldn't find a version which worked for me. But as Wang mentioned
+setting acpi=off works and after some research in the net i found, that
+disabling CONFIG_DMAR works too (the first line of the logs is a dma
+error too, iirc). Are you sure that you used the same value for
+CONFIG_DMAR in your tests, Wang?
 
-Thanks, that makes a lot more sense.  Just to confirm, the second
-part of the sender dump should be the one showing GRO, right?
+I'm willing to do some debugging, but I don't really know where to
+start if it's no regression (so bisecting won't work)...
 
-> > However, it is not very clear what is causing this loss.  BTW,
-> > did you apply the fix b0059b50b70dc3a908bea4ece2f9494a22200018
-> > (gro: Fix page ref count for skbs freed normally) on both sides?
-> > That one is required to make igb or ixgbe work properly.
-> Ah - doesn't seem like I have this fix. Jeff will have to pull this in our test tree.
-
-OK, although this bug should only manifest itself if aggregation
-occurs, which apparently isn't the case according to the dump.
-
-> > Another thing to try is to disable GSO/TSO on both sides as that
-> > is complicating the interpretation of the dumps.
-> Will do if the fix above doesn't help.
-
-BTW, when you're testing without GRO are you disabling GRO with
-ethtool or loading an ixgbe driver without the patch? If the latter
-please try it with ethtool (even if you don't have a patched ethtool
-that supports GRO you can always disable RX checksums).
-
-Maybe I just stuffed up the ixgbe patch.
-
-Thanks,
+Regards,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Antoine Kaufmann
+<toni@famkaufmann.info>
