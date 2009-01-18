@@ -1,10 +1,11 @@
 From: "Vegard Nossum" <vegard.nossum@gmail.com>
 Subject: Re: 2.6.27.9: splice_to_pipe() hung (blocked for more than 120 seconds)
-Date: Sun, 18 Jan 2009 14:44:17 +0100
-Message-ID: <19f34abd0901180544g617b29c1nc41c760f8803de0e@mail.gmail.com>
+Date: Sun, 18 Jan 2009 15:10:01 +0100
+Message-ID: <19f34abd0901180610k430a3e4bpe18af036357ca642@mail.gmail.com>
 References: <19f34abd0901161055l2edd9274n4b2d8c93e7760488@mail.gmail.com>
 	 <4970F2B6.1060508@cosmosbay.com>
 	 <19f34abd0901180412w39d70ccqd0c10698bc70e6e9@mail.gmail.com>
+	 <19f34abd0901180544g617b29c1nc41c760f8803de0e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -12,172 +13,125 @@ Cc: "Ingo Molnar" <mingo@elte.hu>, lkml <linux-kernel@vger.kernel.org>,
 	"Linux Netdev List" <netdev@vger.kernel.org>
 To: "Eric Dumazet" <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f21.google.com ([209.85.218.21]:47044 "EHLO
+Received: from mail-bw0-f21.google.com ([209.85.218.21]:35884 "EHLO
 	mail-bw0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758674AbZARNoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2009 08:44:20 -0500
-In-Reply-To: <19f34abd0901180412w39d70ccqd0c10698bc70e6e9@mail.gmail.com>
+	with ESMTP id S1760617AbZAROKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2009 09:10:03 -0500
+In-Reply-To: <19f34abd0901180544g617b29c1nc41c760f8803de0e@mail.gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 18, 2009 at 1:12 PM, Vegard Nossum <vegard.nossum@gmail.com> wrote:
-> On Fri, Jan 16, 2009 at 9:48 PM, Eric Dumazet <dada1@cosmosbay.com> wrote:
->>
->> I tried your program on latest git tree and could not reproduce any problem.
->>
->> (changed to 9 threads since I have 8 cpus)
+On Sun, Jan 18, 2009 at 2:44 PM, Vegard Nossum <vegard.nossum@gmail.com> wrote:
+> So in short: Is it possible that inode_double_lock() in
+> splice_from_pipe() first locks the pipe mutex, THEN locks the
+> file/socket mutex? In that case, there should be a lock imbalance,
+> because pipe_wait() would unlock the pipe while the file/socket mutex
+> is held.
 >
-> Hm. My machine has 2 CPUs. I just reproduced it on a more recent
-> kernel, this time from:
+> That would possibly explain the sporadicity of the lockup; it depends
+> on the actual order of the double lock.
 >
-> commit a6525042bfdfcab128bd91fad264de10fd24a55e
-> Date:   Tue Jan 13 14:53:16 2009 -0800
+> Why doesn't lockdep report that? Hm. I guess it is because these are
+> both inode mutexes and lockdep can't detect a locking imbalance within
+> the same lock class?
 >
-> with lockdep enabled, and no bad messages. So it seems that it is not
-> a deadlock at least...
->
->> Problem might be that your threads all fight on the same pipe, with
->> a mutex protecting its inode.
->>
->>
->> So mutex_lock() could possibly starve for more than 120 second ?
->
-> Much longer. Last time this happened, the zombies stayed for many
-> hours (until I rebooted the machine).
->
->> Maybe you can reproduce the problem using standard read()/write() syscalls...
->
-> I can try...
->
-> Tasks:   7 total,   0 running,   6 sleeping,   0 stopped,   1 zombie
-> Cpu(s):  0.4%us,  6.0%sy,  0.0%ni, 92.6%id,  1.0%wa,  0.0%hi,  0.0%si,  0.0%st
-> Mem:   1016180k total,    54596k used,   961584k free,     4084k buffers
-> Swap:   104380k total,        0k used,   104380k free,    20412k cached
->
->  PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
->  3808 500       20   0     0    0    0 Z    0  0.0   0:00.00 a.out <defunct>
->  3809 500       20   0     0    0    0 D    0  0.0   0:00.00 a.out
->  3810 500       20   0     0    0    0 D    0  0.0   0:00.00 a.out
->  3813 500       20   0     0    0    0 D    0  0.0   0:00.00 a.out
->  3815 500       20   0     0    0    0 D    0  0.0   0:00.00 a.out
->  3817 500       20   0     0    0    0 D    0  0.0   0:00.00 a.out
->  3821 500       20   0     0    0    0 D    0  0.0   0:00.00 a.out
->
-> root@ubuntu:/home/debian# strace -p 3808
-> attach: ptrace(PTRACE_ATTACH, ...): Operation not permitted
->
-> root@ubuntu:/home/debian# strace -p 3809
-> Process 3809 attached - interrupt to quit
-> <nothing>
-> ^C^C^C^C^C^C^C^C
-> <doesn't quit>
->
-> root@ubuntu:/home/debian# cat /proc/3808/syscall
-> 0 0xbfa1f5b4 0xbfa1f5b4 0xc8bff4 0xbfa1f5b4 0x0 0xbfa1f5c8 0xbfa1f3f8 0xb8020424
-> root@ubuntu:/home/debian# cat /proc/3809/syscall
-> 313 0x9 0x0 0x7 0x0 0x3 0x0 0xb80012cc 0xb8020424
-> root@ubuntu:/home/debian# cat /proc/3810/syscall
-> 313 0x6 0x0 0x5 0x0 0x17f 0x0 0xb780037c 0xb8020424
-> root@ubuntu:/home/debian# cat /proc/3813/syscall
-> 313 0xa 0x0 0x7 0x0 0x3 0x0 0xb67fe2cc 0xb8020424
-> root@ubuntu:/home/debian# cat /proc/3815/syscall
-> 313 0x6 0x0 0x5 0x0 0x17f 0x0 0xb5ffd37c 0xb8020424
-> root@ubuntu:/home/debian# cat /proc/3817/syscall
-> 313 0x8 0x0 0x7 0x0 0x3 0x0 0xb4ffb2cc 0xb8020424
-> root@ubuntu:/home/debian# cat /proc/3821/syscall
-> 313 0x6 0x0 0x5 0x0 0x17f 0x0 0xb47fa37c 0xb8020424
->
-> Also managed to grab this this time:
->
->  SysRq : Show Locks Held
->
->  Showing all locks held in the system:
->  1 lock held by getty/2130:
->  #0:  (&tty->atomic_read_lock){--..}, at: [<c1218973>] n_tty_read+0x533/0x780
->  1 lock held by getty/2131:
->  #0:  (&tty->atomic_read_lock){--..}, at: [<c1218973>] n_tty_read+0x533/0x780
->  1 lock held by getty/2134:
->  #0:  (&tty->atomic_read_lock){--..}, at: [<c1218973>] n_tty_read+0x533/0x780
->  1 lock held by getty/2138:
->  #0:  (&tty->atomic_read_lock){--..}, at: [<c1218973>] n_tty_read+0x533/0x780
->  1 lock held by getty/2142:
->  #0:  (&tty->atomic_read_lock){--..}, at: [<c1218973>] n_tty_read+0x533/0x780
->  1 lock held by getty/2143:
->  #0:  (&tty->atomic_read_lock){--..}, at: [<c1218973>] n_tty_read+0x533/0x780
->  1 lock held by a.out/3809:
->  #0:  (&sb->s_type->i_mutex_key#4){--..}, at: [<c10d5515>]
-> splice_to_pipe+0x25/0x260
->  2 locks held by a.out/3810:
->  #0:  (&sb->s_type->i_mutex_key#11/2){--..}, at: [<c10d548c>]
-> splice_from_pipe+0x5c/0x90
->  #1:  (&sb->s_type->i_mutex_key#4){--..}, at: [<c10be5ac>] pipe_wait+0x6c/0x80
->  1 lock held by a.out/3813:
->  #0:  (&sb->s_type->i_mutex_key#4){--..}, at: [<c10d5515>]
-> splice_to_pipe+0x25/0x260
->  2 locks held by a.out/3815:
->  #0:  (&sb->s_type->i_mutex_key#4/1){--..}, at: [<c10c97a2>]
-> inode_double_lock+0x32/0xb0
->  #1:  (&sb->s_type->i_mutex_key#11/2){--..}, at: [<c10d548c>]
-> splice_from_pipe+0x5c/0x90
->  1 lock held by a.out/3817:
->  #0:  (&sb->s_type->i_mutex_key#4){--..}, at: [<c10d5515>]
-> splice_to_pipe+0x25/0x260
->  1 lock held by a.out/3821:
->  #0:  (&sb->s_type->i_mutex_key#4/1){--..}, at: [<c10c97a2>]
-> inode_double_lock+0x32/0xb0
->  2 locks held by bash/3916:
->  #0:  (sysrq_key_table_lock){....}, at: [<c12297f7>] __handle_sysrq+0x17/0x140
->  #1:  (tasklist_lock){..--}, at: [<c1059354>] debug_show_all_locks+0x34/0x180
->
->  =============================================
->
+> Anyway, that's just a theory. :-) Will try to confirm by simplifying
+> the test-case.
 
-I have one theory. We have this skeleton:
+Hm, I do believe this _is_ evidence in favour of the theory:
 
-ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
-                         loff_t *ppos, size_t len, unsigned int flags,
-                         splice_actor *actor)
+top - 09:03:57 up  2:16,  2 users,  load average: 129.27, 49.28, 21.57
+Tasks: 161 total,   1 running,  95 sleeping,   1 stopped,  64 zombie
+
+:-)
+
+#define _GNU_SOURCE
+
+#include <sys/socket.h>
+#include <sys/types.h>
+
+#include <fcntl.h>
+#include <errno.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+static int sock_fd[2];
+static int pipe_fd[2];
+
+#define N 16384
+
+static void *do_write(void *unused)
 {
-...
-        inode_double_lock(inode, pipe->inode);
-        ret = __splice_from_pipe(pipe, &sd, actor);
-        inode_double_unlock(inode, pipe->inode);
-...
+	unsigned int i;
+
+	for (i = 0; i < N; ++i)
+		write(pipe_fd[1], "x", 1);
+
+	return NULL;
 }
 
-ssize_t __splice_from_pipe(struct pipe_inode_info *pipe, struct splice_desc *sd,
-                           splice_actor *actor)
+static void *do_read(void *unused)
 {
-...
-                pipe_wait(pipe);
-...
+	unsigned int i;
+	char c;
+
+	for (i = 0; i < N; ++i)
+		read(sock_fd[0], &c, 1);
+
+	return NULL;
 }
 
-void pipe_wait(struct pipe_inode_info *pipe)
+static void *do_splice(void *unused)
 {
-        if (pipe->inode)
-                mutex_unlock(&pipe->inode->i_mutex);
-...
-        if (pipe->inode)
-                mutex_lock(&pipe->inode->i_mutex);
+	unsigned int i;
+
+	for (i = 0; i < N; ++i)
+		splice(pipe_fd[0], NULL, sock_fd[1], NULL, 1, 0);
+
+	return NULL;
 }
 
-So in short: Is it possible that inode_double_lock() in
-splice_from_pipe() first locks the pipe mutex, THEN locks the
-file/socket mutex? In that case, there should be a lock imbalance,
-because pipe_wait() would unlock the pipe while the file/socket mutex
-is held.
+int main(int argc, char *argv[])
+{
+	pthread_t writer;
+	pthread_t reader;
+	pthread_t splicer[2];
 
-That would possibly explain the sporadicity of the lockup; it depends
-on the actual order of the double lock.
+	while (1) {
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, sock_fd) == -1)
+			exit(EXIT_FAILURE);
 
-Why doesn't lockdep report that? Hm. I guess it is because these are
-both inode mutexes and lockdep can't detect a locking imbalance within
-the same lock class?
+		if (pipe(pipe_fd) == -1)
+			exit(EXIT_FAILURE);
 
-Anyway, that's just a theory. :-) Will try to confirm by simplifying
-the test-case.
+		pthread_create(&writer, NULL, &do_write, NULL);
+		pthread_create(&reader, NULL, &do_read, NULL);
+		pthread_create(&splicer[0], NULL, &do_splice, NULL);
+		pthread_create(&splicer[1], NULL, &do_splice, NULL);
+
+		pthread_join(writer, NULL);
+		pthread_join(reader, NULL);
+		pthread_join(splicer[0], NULL);
+		pthread_join(splicer[1], NULL);
+
+		printf("failed to deadlock, retrying...\n");
+	}
+
+	return EXIT_SUCCESS;
+}
+
+$ gcc splice.c -lpthread
+$ ./a.out &
+$ ./a.out &
+$ ./a.out &
+(as many as you want; then wait for a bit -- ten seconds works for me)
+$ killall -9 a.out
+(not all will die -- those are now zombies)
 
 
 Vegard
