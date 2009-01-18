@@ -1,46 +1,51 @@
-From: Sitsofe Wheeler <sitsofe@yahoo.com>
-Subject: Re: [atl2] warn_slowpath in dev_watchdog
-Date: Sun, 18 Jan 2009 02:18:33 -0800 (PST)
-Message-ID: <767752.95325.qm@web110601.mail.gq1.yahoo.com>
-References: <gkt97e$ti0$1@ger.gmane.org> <20090117194045.649f55a0@osprey.hogchain.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: sendfile(), SO_LINGER, RST etc summary, please check
+Date: Sun, 18 Jan 2009 13:33:39 +0300
+Message-ID: <20090118103339.GA14823@ioremap.net>
+References: <20090117220229.GA30661@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, Chris Snook <csnook@redhat.com>,
-	jie.yang@atheros.com, atl1-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Jay Cliburn <jcliburn@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933296AbZARKSq@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: bert hubert <bert.hubert@netherlabs.nl>,
+	Bill Fink <billfink@mindspring.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	ilpo.jarvinen@helsinki.fi, h.willstrand@gmail.com,
+	netdev@vger
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cs-studio.ru ([195.178.208.66]:52311 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755293AbZARKdj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Jan 2009 05:33:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20090117220229.GA30661@outpost.ds9a.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Bert.
 
-
-> From: Jay Cliburn <jcliburn@gmail.com>
+On Sat, Jan 17, 2009 at 11:02:29PM +0100, bert hubert (bert.hubert@netherlabs.nl) wrote:
+> As promised, I've written a summary based on all your fine answers with
+> regards to my questions on why a close() delivered an immediate RST, even
+> though I had SO_LINGER enabled.
 > 
-> On Sat, 17 Jan 2009 18:49:18 +0000 (UTC)
-> Sitsofe Wheeler wrote:
+> The most up to date version can be found on
+> http://ds9a.nl/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable.txt
 > 
-> > On an ever so slightly modified 2.6.28. I think this only happens
-> > when the upstream router/switch goes out to lunch and packets are
-> > being sent. It is reproducible but only appears on a home network...
-> > 
-> > [  204.704065] ------------[ cut here ]------------
-> > [  204.704074] WARNING: at net/sched/sch_generic.c:226 dev_watchdog
-> > +0x22b/0x240()
-> > [  204.704080] NETDEV WATCHDOG: eth0 (atl2): transmit timed out
+> And I've also included it here. I hope you find the time to see if
+> everything I wrote is correct. Suggestions for additional material are also
+> very welcome!
+
+Looks very good, thanks for storing the docs!
+
+> But it does not wait until all the data has been acknowledged.
 > 
-> Please provide your complete dmesg output.
+> I don't yet known how the slice() function call behaves in this situation.
 
-Unfortunately I only saved that snippet of the log (I can provide you a full dmesg but it won't be
-from a run where this problem occured).
- 
-> Can you briefly describe the device immediately upstream of the system producing
-> the warning?
+splice() from the fd to socket behaves exactly the same, since right now
+sendfile() is implemented as a splice(). Other directions are not
+affected by this behaviour (like socket-pipe-socket). Userspace memory
+to socket (aka vmsplice()) iirc behaves exactly like splice(), i.e. it
+is not allowed to write to the area being transmitted until explicit ack
+was received.
 
-I believe it is a USRobotics ADSL modem (nmap reckons its a SureConnect 9105 but I have no means of checking as I don't have physical access to the box where it is contained). Every now and again this thing seems to buckle under network load and goes out to lunch. When this happens ethtool reports that the line has dropped and sometimes this warning appears...
-
-
-
-      
+-- 
+	Evgeniy Polyakov
