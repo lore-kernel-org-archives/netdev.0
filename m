@@ -1,58 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: cxgb3: Replace LRO with GRO
-Date: Mon, 19 Jan 2009 09:50:40 +1100
-Message-ID: <20090118225040.GA30418@gondor.apana.org.au>
-References: <20090115235803.GA9000@gondor.apana.org.au> <49704015.6020503@chelsio.com> <20090116085645.GA14678@gondor.apana.org.au> <49706B87.7080806@chelsio.com> <20090117050839.GA24215@gondor.apana.org.au> <4971BCDE.50600@chelsio.com> <20090117130827.GA17896@gondor.apana.org.au> <49739226.3020104@chelsio.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] phylib: unsigneds go unnoticed
+Date: Sun, 18 Jan 2009 23:57:43 +0100
+Message-ID: <4973B3E7.6080203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Divy Le Ray <divy@chelsio.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: paulius.zaleckas@teltonika.lt,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40914 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753089AbZARWut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2009 17:50:49 -0500
-Content-Disposition: inline
-In-Reply-To: <49739226.3020104@chelsio.com>
+Received: from nf-out-0910.google.com ([64.233.182.188]:28202 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753039AbZARXEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2009 18:04:10 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so378177nfc.21
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2009 15:04:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 18, 2009 at 12:33:42PM -0800, Divy Le Ray wrote:
-> 
-> Thanks for the patch. It does improve the performance.
-> I'm now getting about 5.3Gbs.
+both pdata->mdc and pdata->mdio are unsigned. Notice a negative
+return value.
 
-Thanks for testing Divy!
-
-> Here is a oprofile output:
->       33.929900  copy_user_generic_unrolled          vmlinux
->        7.150300  process_responses                  cxgb3.ko
->        6.261100  refill_fl                          cxgb3.ko
->        6.181700  memcpy                              vmlinux
-
-I wonder why this is still up there.
-
-Maybe this patch will help?
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3742397..3cc19fa 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2554,7 +2554,8 @@ struct sk_buff *napi_fraginfo_skb(struct napi_struct *napi,
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index a439ebe..9b1dcd6 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -200,13 +200,21 @@ static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
+ {
+ 	struct device_node *np = NULL;
+ 	struct mdio_gpio_platform_data *pdata;
++	int ret;
  
- 	BUG_ON(info->nr_frags > MAX_SKB_FRAGS);
- 	skb_shinfo(skb)->nr_frags = info->nr_frags;
--	memcpy(skb_shinfo(skb)->frags, info->frags, sizeof(info->frags));
-+	memcpy(skb_shinfo(skb)->frags, info->frags,
-+	       info->nr_frags * sizeof(*info->frags));
+ 	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+ 	if (!pdata)
+ 		return -ENOMEM;
  
- 	skb->data_len = info->len;
- 	skb->len += info->len;
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-	pdata->mdc = of_get_gpio(ofdev->node, 0);
+-	pdata->mdio = of_get_gpio(ofdev->node, 1);
++	ret = of_get_gpio(ofdev->node, 0);
++	if (ret < 0)
++		goto out_free;
++	pdata->mdc = ret;
++
++	ret = of_get_gpio(ofdev->node, 1);
++	if (ret < 0)
++                goto out_free;
++	pdata->mdio = ret;
+ 
+ 	if (pdata->mdc < 0 || pdata->mdio < 0)
+ 		goto out_free;
