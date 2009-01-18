@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: XFRM structures binary compability
-Date: Sat, 17 Jan 2009 23:13:34 -0800 (PST)
-Message-ID: <20090117.231334.141351829.davem@davemloft.net>
-References: <496B56B7.3080703@trash.net>
-	<20090114.145552.71463842.davem@davemloft.net>
-	<200901161440.3616@centrum.cz>
+Subject: Re: [PATCH 18/34]bnx2x: Reset HW before use
+Date: Sat, 17 Jan 2009 23:17:06 -0800 (PST)
+Message-ID: <20090117.231706.48278724.davem@davemloft.net>
+References: <1231951416.11301.139.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: klimes@centrum.cz
+Cc: netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45793
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45803
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756077AbZARHNd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2009 02:13:33 -0500
-In-Reply-To: <200901161440.3616@centrum.cz>
+	by vger.kernel.org with ESMTP id S1756077AbZARHRF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2009 02:17:05 -0500
+In-Reply-To: <1231951416.11301.139.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jiri Klimes" <klimes@centrum.cz>
-Date: Fri, 16 Jan 2009 14:40:02 +0100
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 14 Jan 2009 18:43:36 +0200
 
-> David, I'm afraid the fix is not correct.  xfrm_msg_min is not used
-> just for length check, but mainly to find start of the netlink
-> attributes.  Therefore the patch will work for the case with no
-> attributes. However it won't work properly in case attributes are
-> used (which is in most cases).  So, I suggest to revert the patch.
+> To avoid complications, make sure that the HW is in reset (as it should be)
+> before trying to take it out of reset. In normal flows, the HW is indeed in rest
+> so this should have no effect
+> 
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Thanks for catching this, I'll revert.
+Applied.
