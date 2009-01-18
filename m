@@ -1,40 +1,44 @@
-From: "H. Peter Anvin" <hpa@kernel.org>
-Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
-Date: Sat, 17 Jan 2009 14:26:38 -0800
-Message-ID: <49725B1E.604@kernel.org>
-References: <1232223441.3966.22.camel@localhost.localdomain> <1232228261.27094.0.camel@macbook.infradead.org> <20090117221932.GA4956@uranus.ravnborg.org>
+From: Jay Cliburn <jcliburn@gmail.com>
+Subject: Re: [atl2] warn_slowpath in dev_watchdog
+Date: Sat, 17 Jan 2009 19:40:45 -0600
+Message-ID: <20090117194045.649f55a0@osprey.hogchain.net>
+References: <gkt97e$ti0$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Jaswinder Singh Rajput <jaswinder@kernel.org>,
-	Ingo Molnar <mingo@elte.hu>, x86 maintainers <x86@kernel.org>,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	linux-media@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, bfields@fieldses.org, neilb@suse.de,
-	linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
-	dbrownell@users.sourceforge.net,
-	spi-devel-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	greg@kroah.com, linux-usb@vger.kernel.org,
-	linux-mtd@lists.infradead.org, tiwai@suse.de,
-	mchehab@infradead.org, LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Sam Ravnborg <sam@ravnborg.org>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <20090117221932.GA4956@uranus.ravnborg.org>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Chris Snook <csnook@redhat.com>,
+	jie.yang@atheros.com, atl1-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Sitsofe Wheeler <sitsofe@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yx-out-2324.google.com ([74.125.44.30]:29408 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754420AbZARBku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2009 20:40:50 -0500
+In-Reply-To: <gkt97e$ti0$1@ger.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sam Ravnborg wrote:
->>>  
->> That patch looks wrong, and unnecessary. It was fine before.
-> Nope - include/linux/dvb/audio.h failed to include linux/types.h
-> despite the fact that is uses __u32 etc.
+[Modifying subject line and cc'ing netdev]
+
+On Sat, 17 Jan 2009 18:49:18 +0000 (UTC)
+Sitsofe Wheeler <sitsofe@yahoo.com> wrote:
+
+> On an ever so slightly modified 2.6.28. I think this only happens
+> when the upstream router/switch goes out to lunch and packets are
+> being sent. It is reproducible but only appears on a home network...
 > 
-> But why the _kernel_ should include a userspace header is
-> much more questionable.
-> 
+> [  204.704065] ------------[ cut here ]------------
+> [  204.704074] WARNING: at net/sched/sch_generic.c:226 dev_watchdog
+> +0x22b/0x240()
+> [  204.704080] NETDEV WATCHDOG: eth0 (atl2): transmit timed out
 
-<stdint.h> is one of a handful of headers provided by gcc itself.
+Please provide your complete dmesg output.
 
-	-hpa
+What do you do to reproduce this?
+
+Can you briefly describe the device immediately upstream of the system producing
+the warning?
+
+Thanks,
+Jay
