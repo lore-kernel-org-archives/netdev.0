@@ -1,36 +1,255 @@
-From: "Wins>" <sheilamckee@cox.net>
-Subject: WINNING NOTIFICATION !
-Date: Mon, 19 Jan 2009 9:29:17 -0500
-Message-ID: <20090119092917.ZGGCV.479740.imail@eastrmwml29>
-Reply-To: stevebaker002@jmail.co.za
+From: Denis Joseph Barrow <D.Barow@option.com>
+Subject: [PATCH] hso set tty->low_latency to 0
+Date: Mon, 19 Jan 2009 16:46:59 +0100
+Message-ID: <4974A073.3060102@option.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: multipart/mixed;
+ boundary="------------080503000109070901020205"
+To: Linux Serial <linux-serial@vger.kernel.org>,
+	Linux USB kernel mailing list <linux-usb@vger.kernel.org>,
+	Linux netdev Mailing list <netdev@vger.kernel.org>
+Return-path: <linux-serial-owner@vger.kernel.org>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------080503000109070901020205
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eastrmmtai113.cox.net ([68.230.240.32]:41025 "EHLO
-	eastrmmtai113.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921AbZASOq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 09:46:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Your email address as indicated was drawn and attached to ticket
- number 001768432463 with serial numbers FTS/8070337201/06 and
- drew the lucky numbers 15-22-24-48-50-37(30) which subsequently
- won you 1,000,000.00 (One Million Great Britain Pounds).from the U.K
- The draws registered as Draw number one was conducted in
- Brockley,London United Kingdom on the  16th January 2009.
+Hi all,
+Alan Cox wanted low_latency set to 0,
+this I believe does the job & throttling & unthrottling.
+Let me know if there are any problems.
 
- Find below the details of the Claims dept and contact him with the 
- following
- details for verifications:
+Sets tty->low_latency to 0 gets rid of the unthrottle
+tasklet which is no longer neccessary with low_latency=0
+& infinite loops which would manifest themselves in
+put_rxbuf_data as a result of setting low_latency to 0.
+Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
+---
+Index: linux-2.6/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-19 16:30:59.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-19 16:31:20.000000000 +0100
+@@ -269,7 +269,6 @@
+ 	int  curr_rx_urb_idx;
+ 	u16  curr_rx_urb_offset;
+ 	u8   rx_urb_filled[MAX_RX_URBS];
+-	struct tasklet_struct unthrottle_tasklet;
+ };
+ 
+ struct hso_device {
+@@ -1240,27 +1239,17 @@
+ 	}
+ }
+ 
+-/*
+- * This needs to be a tasklet otherwise we will
+- * end up recursively calling this function.
+- */
+-void hso_unthrottle_tasklet(struct hso_serial *serial)
++
++static	void hso_unthrottle(struct tty_struct *tty)
+ {
+-	unsigned long flags;
++	struct hso_serial *serial = get_serial_by_tty(tty);
+ 
+-	spin_lock_irqsave(&serial->serial_lock, flags);
++	spin_lock_irq(&serial->serial_lock);
+ 	if ((serial->parent->port_spec & HSO_INTF_MUX))
+ 		put_rxbuf_data_and_resubmit_ctrl_urb(serial);
+ 	else
+ 		put_rxbuf_data_and_resubmit_bulk_urb(serial);
+-	spin_unlock_irqrestore(&serial->serial_lock, flags);
+-}
+-
+-static	void hso_unthrottle(struct tty_struct *tty)
+-{
+-	struct hso_serial *serial = get_serial_by_tty(tty);
+-
+-	tasklet_hi_schedule(&serial->unthrottle_tasklet);
++	spin_unlock_irq(&serial->serial_lock);
+ }
+ 
+ /* open the requested serial port */
+@@ -1295,13 +1284,9 @@
+ 	/* check for port already opened, if not set the termios */
+ 	serial->open_count++;
+ 	if (serial->open_count == 1) {
+-		tty->low_latency = 1;
+ 		serial->rx_state = RX_IDLE;
+ 		/* Force default termio settings */
+ 		_hso_serial_set_termios(tty, NULL);
+-		tasklet_init(&serial->unthrottle_tasklet,
+-			     (void (*)(unsigned long))hso_unthrottle_tasklet,
+-			     (unsigned long)serial);
+ 		result = hso_start_serial_device(serial->parent, GFP_KERNEL);
+ 		if (result) {
+ 			hso_stop_serial_device(serial->parent);
+@@ -1355,7 +1340,6 @@
+ 		spin_unlock_irq(&serial->serial_lock);
+ 		if (!usb_gone)
+ 			hso_stop_serial_device(serial->parent);
+-		tasklet_kill(&serial->unthrottle_tasklet);
+ 	}
+ 
+ 	if (!usb_gone)
+@@ -1885,12 +1869,11 @@
+ 				if (serial->rx_state == RX_IDLE) {
+ 					/* Setup and send a ctrl req read on
+ 					 * port i */
+-				if (!serial->rx_urb_filled[0]) {
++					if (!serial->rx_urb_filled[0]) {
+ 						serial->rx_state = RX_SENT;
+ 						hso_mux_serial_read(serial);
+ 					} else
+ 						serial->rx_state = RX_PENDING;
+-
+ 				} else {
+ 					D1("Already pending a read on "
+ 					   "port %d\n", i);
+@@ -2048,6 +2031,15 @@
+ 				(tty, urb->transfer_buffer +
+ 				 serial->curr_rx_urb_offset,
+ 				 write_length_remaining);
++			if (curr_write_len == 0) {
++				/* Setting TTY_THROTTLED is ugly but
++				   we need a the hso_unthrottle callback
++				   to say we can start resubmitting URBS.
++				*/
++				set_bit(TTY_THROTTLED, &tty->flags);
++				tty_kref_put(tty);
++				return -1;
++			}
+ 			serial->curr_rx_urb_offset += curr_write_len;
+ 			write_length_remaining -= curr_write_len;
+ 			tty_flip_buffer_push(tty);
 
+-- 
+best regards,
+D.J. Barrow
 
- FULL NAME    FULL ADDRESS  NATIONALITY      AGE OCCUPATION  MOBILE/TEL
- EPHONENUMBER  DATE OFWINNING AWARD  SEX
+Linux Kernel Developer
+Option NV, Gaston Geenslaan 14, 3001 Leuven, Belgium
+ 
+T: +32 16 311 621
+F: +32 16 207 164
+d.barow@option.com
+www.option.com
 
+Disclaimer:
+http://www.option.com/company/disclaimer.shtml
 
-AGENT NAME:    MR STEVE BAKER
+--------------080503000109070901020205
+Content-Type: text/x-diff;
+ name="hso_low_latency_fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hso_low_latency_fix.patch"
 
-AGENT E MAIL:         stevebaker002@jmail.co.za
+Sets tty->low_latency to 0 gets rid of the unthrottle
+tasklet which is no longer neccessary with low_latency=0
+& infinite loops which would manifest themselves in
+put_rxbuf_data as a result of setting low_latency to 0.
+Signed-off-by: Denis Joseph Barrow <D.Barow@option.com>
+---
+Index: linux-2.6/drivers/net/usb/hso.c
+===================================================================
+--- linux-2.6.orig/drivers/net/usb/hso.c	2009-01-19 16:30:59.000000000 +0100
++++ linux-2.6/drivers/net/usb/hso.c	2009-01-19 16:31:20.000000000 +0100
+@@ -269,7 +269,6 @@
+ 	int  curr_rx_urb_idx;
+ 	u16  curr_rx_urb_offset;
+ 	u8   rx_urb_filled[MAX_RX_URBS];
+-	struct tasklet_struct unthrottle_tasklet;
+ };
+ 
+ struct hso_device {
+@@ -1240,27 +1239,17 @@
+ 	}
+ }
+ 
+-/*
+- * This needs to be a tasklet otherwise we will
+- * end up recursively calling this function.
+- */
+-void hso_unthrottle_tasklet(struct hso_serial *serial)
++
++static	void hso_unthrottle(struct tty_struct *tty)
+ {
+-	unsigned long flags;
++	struct hso_serial *serial = get_serial_by_tty(tty);
+ 
+-	spin_lock_irqsave(&serial->serial_lock, flags);
++	spin_lock_irq(&serial->serial_lock);
+ 	if ((serial->parent->port_spec & HSO_INTF_MUX))
+ 		put_rxbuf_data_and_resubmit_ctrl_urb(serial);
+ 	else
+ 		put_rxbuf_data_and_resubmit_bulk_urb(serial);
+-	spin_unlock_irqrestore(&serial->serial_lock, flags);
+-}
+-
+-static	void hso_unthrottle(struct tty_struct *tty)
+-{
+-	struct hso_serial *serial = get_serial_by_tty(tty);
+-
+-	tasklet_hi_schedule(&serial->unthrottle_tasklet);
++	spin_unlock_irq(&serial->serial_lock);
+ }
+ 
+ /* open the requested serial port */
+@@ -1295,13 +1284,9 @@
+ 	/* check for port already opened, if not set the termios */
+ 	serial->open_count++;
+ 	if (serial->open_count == 1) {
+-		tty->low_latency = 1;
+ 		serial->rx_state = RX_IDLE;
+ 		/* Force default termio settings */
+ 		_hso_serial_set_termios(tty, NULL);
+-		tasklet_init(&serial->unthrottle_tasklet,
+-			     (void (*)(unsigned long))hso_unthrottle_tasklet,
+-			     (unsigned long)serial);
+ 		result = hso_start_serial_device(serial->parent, GFP_KERNEL);
+ 		if (result) {
+ 			hso_stop_serial_device(serial->parent);
+@@ -1355,7 +1340,6 @@
+ 		spin_unlock_irq(&serial->serial_lock);
+ 		if (!usb_gone)
+ 			hso_stop_serial_device(serial->parent);
+-		tasklet_kill(&serial->unthrottle_tasklet);
+ 	}
+ 
+ 	if (!usb_gone)
+@@ -1885,12 +1869,11 @@
+ 				if (serial->rx_state == RX_IDLE) {
+ 					/* Setup and send a ctrl req read on
+ 					 * port i */
+-				if (!serial->rx_urb_filled[0]) {
++					if (!serial->rx_urb_filled[0]) {
+ 						serial->rx_state = RX_SENT;
+ 						hso_mux_serial_read(serial);
+ 					} else
+ 						serial->rx_state = RX_PENDING;
+-
+ 				} else {
+ 					D1("Already pending a read on "
+ 					   "port %d\n", i);
+@@ -2048,6 +2031,15 @@
+ 				(tty, urb->transfer_buffer +
+ 				 serial->curr_rx_urb_offset,
+ 				 write_length_remaining);
++			if (curr_write_len == 0) {
++				/* Setting TTY_THROTTLED is ugly but
++				   we need a the hso_unthrottle callback
++				   to say we can start resubmitting URBS.
++				*/
++				set_bit(TTY_THROTTLED, &tty->flags);
++				tty_kref_put(tty);
++				return -1;
++			}
+ 			serial->curr_rx_urb_offset += curr_write_len;
+ 			write_length_remaining -= curr_write_len;
+ 			tty_flip_buffer_push(tty);
+
+--------------080503000109070901020205--
