@@ -1,43 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Mon, 19 Jan 2009 12:59:41 -0800 (PST)
-Message-ID: <20090119.125941.240930524.davem@davemloft.net>
-References: <20090119061420.GB12946@1wt.eu>
-	<20090118.221908.47032075.davem@davemloft.net>
-	<20090119101924.GA1881@gondor.apana.org.au>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] korina: fix loop back of receive descriptors
+Date: Mon, 19 Jan 2009 22:07:30 +0100
+Message-ID: <200901192207.32649.florian@openwrt.org>
+References: <20090115223005.D6F694043831@mail.nwl.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, jarkao2@gmail.com, zbr@ioremap.net, dada1@cosmosbay.com,
-	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org
+To: Phil Sutter <n0-1@freewrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47791
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753844AbZASU7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 15:59:40 -0500
-In-Reply-To: <20090119101924.GA1881@gondor.apana.org.au>
+Received: from nf-out-0910.google.com ([64.233.182.190]:57656 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753780AbZASVHk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 16:07:40 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so443107nfc.21
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2009 13:07:39 -0800 (PST)
+In-Reply-To: <20090115223005.D6F694043831@mail.nwl.cc>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 19 Jan 2009 21:19:24 +1100
+Le Thursday 15 January 2009 23:29:55 Phil Sutter, vous avez =E9crit=A0:
+> After the last loop iteration, i has the value RC32434_NUM_RDS and
+> therefore leads to an index overflow when used afterwards to address =
+the
+> last element. This is yet another another bug introduced when rewriti=
+ng
+> parts of the driver for upstream preparation, as the original driver
+> used 'RC32434_NUM_RDS - 1' instead.
+>
+> Signed-off-by: Phil Sutter <n0-1@freewrt.org>
 
-> On Sun, Jan 18, 2009 at 10:19:08PM -0800, David Miller wrote:
-> > 
-> > Actually, I see, the myri10ge driver does put up to
-> > 64 bytes of the initial packet into the linear area.
-> > If the IPV4 + TCP headers are less than this, you will
-> > hit the corruption case even with the myri10ge driver.
-> 
-> I thought splice only mapped the payload areas, no?
-
-And the difference between 64 and IPV4+TCP header len becomes the
-payload, don't you see? :-)
-
-myri10ge just pulls min(64, skb->len) bytes from the SKB frags into
-the linear area, unconditionally.  So a small number of payload bytes
-can in fact end up there.
-
-Otherwise Willy could never have triggered this bug.
+Acked-by: Florian Fainelli <florian@openwrt.org>
+--=20
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
