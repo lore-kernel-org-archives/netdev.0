@@ -1,57 +1,76 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
 Subject: Re: 802.1Q support?
-Date: Mon, 19 Jan 2009 10:07:13 +0100
-Message-ID: <20090119090713.GB17124@xi.wantstofly.org>
-References: <200901121148.26905.rgetz@blackfin.uclinux.org> <200901130731.20538.rgetz@blackfin.uclinux.org> <200901131429.41178.florian@openwrt.org> <200901131154.07729.rgetz@blackfin.uclinux.org>
+Date: Mon, 19 Jan 2009 10:14:46 +0100
+Message-ID: <20090119091446.GC17124@xi.wantstofly.org>
+References: <200901121148.26905.rgetz@blackfin.uclinux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: Robin Getz <rgetz@blackfin.uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:44977 "EHLO
+Received: from xi.wantstofly.org ([80.101.37.227]:38971 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754054AbZASJHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 04:07:15 -0500
+	with ESMTP id S1754556AbZASJOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 04:14:48 -0500
 Content-Disposition: inline
-In-Reply-To: <200901131154.07729.rgetz@blackfin.uclinux.org>
+In-Reply-To: <200901121148.26905.rgetz@blackfin.uclinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 13, 2009 at 11:54:07AM -0500, Robin Getz wrote:
+On Mon, Jan 12, 2009 at 11:48:26AM -0500, Robin Getz wrote:
 
-> > > Great - That looks like the way to go -- is there any plan in sending this
-> > > to mainline?
-> > 
-> > Yes we will definitively submit it for mainline inclusion, Felix, who wrote 
-> > the swconfig stuff will probably want to clean it up a bit and/or add 
-> > features.
-> > 
-> > Lennert Buytenhek also proposed a Distributed Switch Architecture which is 
-> > worth looking at, though it does not cover more "classical" switches 
-> > connection over GPIO, SPI or special PHY address.
+> I'm trying to understand the "standard" way to control a switch which supports 
+> VLAN.
 > 
-> Hmmm ... 
-> https://kerneltrap.org/mailarchive/linux-netdev/2008/9/25/3411164/thread
-> 
-> > The switch driver presents each port on the switch as a separate
-> > network interface to Linux, polls the switch to maintain software
-> > link state of those ports, forwards MII management interface
-> > accesses to those network interfaces (e.g. as done by ethtool) to
-> > the switch, and exposes the switch's hardware statistics counters
-> > via the appropriate Linux kernel interfaces.
-> 
-> This exposes eth[n] for every port - and these are managed by the standard 
-> userspace tools? 
+> Pick any one of:
+>  
+> Infineon XWAY ADM6999 (eight-port 10/100 plus one MII) 
+> http://www.infineon.com/cms/en/product/channel.html?channel=ff80808112ab681d0112ab68ce8d0043
+>  
+> Micrel MS8993M (2 port 10/100 plus one MII)
+> http://www.micrel.com/_PDF/Ethernet/ks8993m_pb.pdf 
+>  
+> Broadcom BCM5325E (five port 10/100 plus one MII)
+> http://www.broadcom.com/collateral/pb/5325E-PB00-R.pdf
+>  
+> Realtek (five port 10/100 plus one MII) 
+> http://www1.futureelectronics.com/doc/REALTEK%20SEMICONDUCTOR/Realtek%20Semiconductor%20RTL8306SD-GR.pdf
+>  
+> They all have multiple MAC/PHYs which are exposed to the wire, and a single 
+> MII interface - which normally connects directly to a SOC's MII/MAC.
 
-Yep.  And the idea is that the HW switch chip will just follow the Linux
-networking stack configuration, a la (ugly hack patch, but it shows the
-idea):
+The DSA subsystem in the mainline kernel (net/dsa) needs three things:
 
-	http://marc.info/?l=linux-netdev&m=123115178119072&w=2
+1. A way to initialise and configure the switch chip.
+
+2. A way to tell, for packets received from the switch, which
+   physical interface this packet came from.
+
+3. A way to tell the switch to transmit packets out a certain
+   physical interface.
+
+All switch chips currently supported use MDIO accesses for (1), but at
+least some of the chips also support configuration by sending the
+commands via specially crafted ethernet frames (which would be easy to
+add support for), or you can use SPI, or toggle GPIOs, or whatever you
+want.
+
+(2) and (3) are typically done by adding a couple of bytes to the
+ethernet packet.  Marvell switches support at least four different
+methods (three of them implemented), Micrel switches have their own
+method, Broadcom switches probably have their own method, etc.  Note
+that you're not limited to conveying this info in the packet payload
+-- as long as you provide a packet transmit function and have a way
+of delivering received packets to the right hook, you can use any
+method you want, including specifying the physical port number in
+the packet DMA descriptor, reading/writing the physical port number
+to a special register, etc.
 
 
-> That seems like it would be more intuitive for end users -- wouldn't it?
+> I would have thought that there would be separate drivers for these in the 
+> phylib, but I didn't find anything that looked like it would work. (or expose 
+> the right interface (all the vendor specific VLAN registers) so I can program 
+> them properly from userspace)...
 
-Requiring special config tools is backwards, IMHO -- there should be no
-difference for the end user between whether there is a hardware offload
-present or not.
+phylib isn't the right place, IMHO, since the switch isn't necessarily
+configured via MDIO (or even attached to MDIO).
