@@ -1,32 +1,35 @@
-From: jiksh <jigar.comp@gmail.com>
-Subject: how to calculate power requirement for ARM7
-Date: Mon, 19 Jan 2009 17:45:03 +0530
-Message-ID: <6ad2ef950901190415u5f4c3e48o9994bfd82e8dfca2@mail.gmail.com>
+From: Sarah <rachel.stpier@sympatico.ca>
+Subject: claims of =?iso-8859-1?B?ozUwMCwwMDA=?= pounds
+Date: Mon, 19 Jan 2009 7:29:16 -0500
+Message-ID: <20090119122916.USWD1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: jerry.smith400@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	linux@arm.linux.org.uk
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@lotto.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from simmts6-srv.bellnexxia.net ([206.47.199.164]:46506 "EHLO
+	simmts6-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754542AbZASM3S convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2009 07:29:18 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts6-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090119122916.USWD1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Mon, 19 Jan 2009 07:29:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-hi all
-i m doing research on embeded system.and for that i need to know how power
-consumption of JPEG2000 codec implemented in C on ARM platform has been
-done..
-need all ur help
-JIGAR SHAH
-099246 84034
--------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+E-MAIL ID Has won you the sum of =A3500,000 pounds in our MONTHLY compa=
+q PROMO BONANZA.get back to this office with your details.
+
+Names:
+Address:
+Country:
+
+Email:jerry.smith400@btinternet.com
+
+Regards
+Mrs Sarah Wood.
+
