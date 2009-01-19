@@ -1,98 +1,49 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Mon, 19 Jan 2009 18:43:31 +1100
-Message-ID: <200901191843.33490.nickpiggin@yahoo.com.au>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com> <200901161746.25205.nickpiggin@yahoo.com.au> <4970CDB6.6040705@hp.com>
+From: "stanley.miao" <stanley.miao@windriver.com>
+Subject: Re: [PATCH REPOST 0/5] convert arm platforms to smsc911x
+Date: Mon, 19 Jan 2009 16:04:34 +0800
+Message-ID: <1232352274.23192.25.camel@localhost>
+References: <1232010482-3744-1-git-send-email-steve.glendinning@smsc.com>
+	 <20090118.215321.59760406.davem@davemloft.net>
+Reply-To: stanley.miao@windriver.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au, matthew@wil.cx, matthew.r.wilcox@intel.com,
-	chinang.ma@intel.com, linux-kernel@vger.kernel.org,
-	sharad.c.tripathi@intel.com, arjan@linux.intel.com,
-	andi.kleen@intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <4970CDB6.6040705@hp.com>
-Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: steve.glendinning@smsc.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	linux@arm.linux.org.uk, ian.saturley@smsc.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:62840 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754308AbZASH4P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2009 02:56:15 -0500
+In-Reply-To: <20090118.215321.59760406.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 17 January 2009 05:11:02 Rick Jones wrote:
-> Nick Piggin wrote:
-> > OK, I have these numbers to show I'm not completely off my rocker to
-> > suggest we merge SLQB :) Given these results, how about I ask to merge
-> > SLQB as default in linux-next, then if nothing catastrophic happens,
-> > merge it upstream in the next merge window, then a couple of releases
-> > after that, given some time to test and tweak SLQB, then we plan to bite
-> > the bullet and emerge with just one main slab allocator (plus SLOB).
-> >
-> >
-> > System is a 2socket, 4 core AMD.
->
-> Not exactly a large system :)  Barely NUMA even with just two sockets.
+On Sun, 2009-01-18 at 21:53 -0800, David Miller wrote:
+> From: Steve Glendinning <steve.glendinning@smsc.com>
+> Date: Thu, 15 Jan 2009 09:07:57 +0000
+> 
+> > This patchset, intended for 2.6.30, converts all in-tree arm platforms 
+> > from smc911x to the actively maintained smsc911x driver.
+> > 
+> > I don't have any of these platforms available to me, so I've only been 
+> > able to compile-test the changes.
+> > 
+> > David Miller is planning to take the smsc911x patches via net-2.6, but 
+> > I've included them here to make testing easier as the other patches in 
+> > the set depend on them.
+> > 
+> > This patchset supercedes previous irq_flags patches from me and Stanley 
+> > Miao.
+> 
+> I've applied patches 1 and 2, the smsc911x driver changes.
+> 
+> I can pull the platform changes into net-next-2.6 as well
+> if people don't think there will enough conflicts to cause
+> problems.
 
-You're right ;)
+I think  the platform data had better stay in arm tree.
 
-But at least it is exercising the NUMA paths in the allocator, and
-represents a pretty common size of system...
-
-I can run some tests on bigger systems at SUSE, but it is not always
-easy to set up "real" meaningful workloads on them or configure
-significant IO for them.
-
-
-> > Netperf UDP unidirectional send test (10 runs, higher better):
-> >
-> > Server and client bound to same CPU
-> > SLAB AVG=60.111 STD=1.59382
-> > SLQB AVG=60.167 STD=0.685347
-> > SLUB AVG=58.277 STD=0.788328
-> >
-> > Server and client bound to same socket, different CPUs
-> > SLAB AVG=85.938 STD=0.875794
-> > SLQB AVG=93.662 STD=2.07434
-> > SLUB AVG=81.983 STD=0.864362
-> >
-> > Server and client bound to different sockets
-> > SLAB AVG=78.801 STD=1.44118
-> > SLQB AVG=78.269 STD=1.10457
-> > SLUB AVG=71.334 STD=1.16809
-> >
->  > ...
-> >
-> > I haven't done any non-local network tests. Networking is the one of the
-> > subsystems most heavily dependent on slab performance, so if anybody
-> > cares to run their favourite tests, that would be really helpful.
->
-> I'm guessing, but then are these Mbit/s figures? Would that be the sending
-> throughput or the receiving throughput?
-
-Yes, Mbit/s. They were... hmm, sending throughput I think, but each pair
-of numbers seemed to be identical IIRC?
-
-
-> I love to see netperf used, but why UDP and loopback?
-
-No really good reason. I guess I was hoping to keep other variables as
-small as possible. But I guess a real remote test would be a lot more
-realistic as a networking test. Hmm, but I could probably set up a test
-over a simple GbE link here.  I'll try that.
-
-
-> Also, how about the
-> service demands?
-
-Well, over loopback and using CPU binding, I was hoping it wouldn't
-change much... but I see netperf does some measurements for you. I
-will consider those in future too.
-
-BTW. is it possible to do parallel netperf tests?
-
-
+Stanley.
