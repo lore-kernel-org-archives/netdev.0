@@ -1,36 +1,33 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] korina: set dev field of allocated socketbufs
-Date: Mon, 19 Jan 2009 22:08:00 +0100
-Message-ID: <200901192208.01586.florian@openwrt.org>
-References: <1232058598-15811-1-git-send-email-n0-1@freewrt.org> <1232058598-15811-3-git-send-email-n0-1@freewrt.org> <20090115223035.AD41B4043839@mail.nwl.cc>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: e1000 fails to initialize in current -git
+Date: Mon, 19 Jan 2009 22:08:25 +0100
+Message-ID: <4974EBC9.40907@trash.net>
+References: <496AE0A5.903@trash.net> <F169D4F5E1F1974DBFAFABF47F60C10A1A07DD00@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org
-To: Phil Sutter <n0-1@freewrt.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:54132 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759243AbZASVIL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 16:08:11 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so1400786fgg.17
-        for <netdev@vger.kernel.org>; Mon, 19 Jan 2009 13:08:09 -0800 (PST)
-In-Reply-To: <20090115223035.AD41B4043839@mail.nwl.cc>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:47799 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754107AbZASVI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 16:08:27 -0500
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1A07DD00@orsmsx507.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Thursday 15 January 2009 23:29:58 Phil Sutter, vous avez =E9crit=A0:
-> I'm not sure if this is necessary, but the original driver did it and
-> apparently also many other drivers do it, so it should not be complet=
-ely
-> wrong to do it.
->
-> Signed-off-by: Phil Sutter <n0-1@freewrt.org>
+Brandeburg, Jesse wrote:
+> Patrick McHardy wrote:
+>> [    1.495882] e1000: EEPROM initialization failed
+>> [    1.516170] e1000 0000:00:0c.0: PCI INT A disabled
+>> [    1.516252] e1000: probe of 0000:00:0c.0 failed with error -5
+>>
+>> and the device is not registered. If someone wants me to test patches
+>> or do something else, just let me know.
+> 
+> are you still having this issue?  My guess is that it may be because
+> the pci_enable_device logic for devices in D3 got broken, but I think 
+> that is now fixed.
 
-Acked-by: Florian Fainelli <florian@openwrt.org>
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+It seems to be fixed, I tried -rc2 and the device is working again.
