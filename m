@@ -1,76 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: 2.6.27.9: splice_to_pipe() hung (blocked for more than 120
-	seconds)
-Date: Mon, 19 Jan 2009 13:58:51 +0000
-Message-ID: <20090119135851.GC4788@ff.dom.local>
-References: <19f34abd0901180544g617b29c1nc41c760f8803de0e@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, Ingo Molnar <mingo@elte.hu>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Vegard Nossum <vegard.nossum@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:41056 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750832AbZASN66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 08:58:58 -0500
-Content-Disposition: inline
-In-Reply-To: <19f34abd0901180544g617b29c1nc41c760f8803de0e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 00/03: netfilter -stable fixes
+Date: Mon, 19 Jan 2009 15:19:35 +0100 (MET)
+Message-ID: <20090119141934.3312.15532.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net
+To: stable@kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18-01-2009 14:44, Vegard Nossum wrote:
-...
-> 
-> I have one theory. We have this skeleton:
-> 
-> ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
->                          loff_t *ppos, size_t len, unsigned int flags,
->                          splice_actor *actor)
-> {
-> ...
->         inode_double_lock(inode, pipe->inode);
->         ret = __splice_from_pipe(pipe, &sd, actor);
->         inode_double_unlock(inode, pipe->inode);
-> ...
-> }
-> 
-> ssize_t __splice_from_pipe(struct pipe_inode_info *pipe, struct splice_desc *sd,
->                            splice_actor *actor)
-> {
-> ...
->                 pipe_wait(pipe);
-> ...
-> }
-> 
-> void pipe_wait(struct pipe_inode_info *pipe)
-> {
->         if (pipe->inode)
->                 mutex_unlock(&pipe->inode->i_mutex);
-> ...
->         if (pipe->inode)
->                 mutex_lock(&pipe->inode->i_mutex);
-> }
-> 
-> So in short: Is it possible that inode_double_lock() in
-> splice_from_pipe() first locks the pipe mutex, THEN locks the
-> file/socket mutex? In that case, there should be a lock imbalance,
-> because pipe_wait() would unlock the pipe while the file/socket mutex
-> is held.
+The following three patches for -stable fix a number of netfilter
+regressions:
 
-I guess you mean a lock inversion.
+- revision lookup for x_tables matches and targets registering with
+  the new NFPROTO_UNSPEC is broken, causing failures when using
+  features not offered by revision 0. New regression in 2.6.28.
 
-> 
-> That would possibly explain the sporadicity of the lockup; it depends
-> on the actual order of the double lock.
-> 
-> Why doesn't lockdep report that? Hm. I guess it is because these are
-> both inode mutexes and lockdep can't detect a locking imbalance within
-> the same lock class?
+- ebtables interprets return values from matches in the inverted
+  sense. New regression in 2.6.28.
 
-Looks like you are right. Since there is used mutex_lock_nested() for
-these locks in inode_double_lock(), lockdep could be mislead by this
-"common" mutex_lock() later (but I didn't check this too much).
+- the conntrack timeout sysctls for ICMP/ICMPv6 are broken on big
+  endian due to a mismatch between the data type size and the size
+  registered with the sysctls. Seems to be a regression from the
+  switch from ip_conntrack to nf_conntrack.
 
-Jarek P.
+Please apply, thanks.
+
+
+ net/bridge/netfilter/ebtables.c                |    2 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
+ net/netfilter/x_tables.c                       |    8 ++++++++
+ 4 files changed, 11 insertions(+), 3 deletions(-)
+
+Patrick McHardy (3):
+      netfilter: x_tables: fix match/target revision lookup
+      netfilter: ebtables: fix inversion in match code
+      netfilter: nf_conntrack: fix ICMP/ICMPv6 timeout sysctls on big-endian
