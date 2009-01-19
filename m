@@ -1,78 +1,62 @@
-From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
-Date: Mon, 19 Jan 2009 11:24:29 +1100
-Message-ID: <20090119112429.78f5dc33.sfr@canb.auug.org.au>
-References: <1232223441.3966.22.camel@localhost.localdomain>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Mon, 19 Jan 2009 01:42:06 +0100
+Message-ID: <20090119004206.GA10396@1wt.eu>
+References: <20090115.153449.204259387.davem@davemloft.net> <20090115234255.GE1123@1wt.eu> <20090115234408.GA1693@1wt.eu> <20090115.155434.206643894.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__19_Jan_2009_11_24_29_+1100_YrWGFK.9COO2jjcI"
-Cc: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, x86 maintainers <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, tiwai-l3A5Bk7waGM@public.gmane.org,
-	mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Jaswinder Singh Rajput <jaswinder-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1232223441.3966.22.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Mon__19_Jan_2009_11_24_29_+1100_YrWGFK.9COO2jjcI
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, jarkao2@gmail.com, zbr@ioremap.net,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:1579 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753794AbZASAme (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Jan 2009 19:42:34 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20090115.155434.206643894.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 18 Jan 2009 01:47:21 +0530 Jaswinder Singh Rajput <jaswinder@kernel=
-.org> wrote:
->
-> diff --git a/include/linux/nfsd/stats.h b/include/linux/nfsd/stats.h
-> index 7678cfb..0b53cfe 100644
-> --- a/include/linux/nfsd/stats.h
-> +++ b/include/linux/nfsd/stats.h
-> @@ -29,9 +29,11 @@ struct nfsd_stats {
->  	unsigned int	ra_size;	/* size of ra cache */
->  	unsigned int	ra_depth[11];	/* number of times ra entry was found that d=
-eep
->  					 * in the cache (10percentiles). [10] =3D not found */
-> +#ifdef __KERNEL__
->  #ifdef CONFIG_NFSD_V4
->  	unsigned int	nfs4_opcount[LAST_NFS4_OP + 1];	/* count of individual nfs=
-v4 operations */
->  #endif
-> +#endif /* __KERNEL__ */
-> =20
->  };
+Hi guys,
 
-The only variable in the kernel of type "struct nfsd_stats" is only
-exported to user mode via procfs, so this whole structure could probably
-go inside __KERNEL__.  Then looking harder, I wonder if this header
-should be exported to user mode at all.
+On Thu, Jan 15, 2009 at 03:54:34PM -0800, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Fri, 16 Jan 2009 00:44:08 +0100
+> 
+> > And BTW feel free to add my Tested-by if you want in case you merge
+> > this fix.
+> 
+> Done, thanks Willy.
 
---=20
+Just for the record, I've now re-integrated those changes in a test kernel
+that I booted on my 10gig machines. I have updated my user-space code in
+haproxy to run a new series of tests. Eventhough there is a memcpy(), the
+results are EXCELLENT (on a C2D 2.66 GHz using Myricom's Myri10GE NICs) :
+
+  - 4.8 Gbps at 100% CPU using MTU=1500 without LRO
+    (3.2 Gbps at 100% CPU without splice)
+
+  - 9.2 Gbps at 50% CPU using MTU=1500 with LRO
+
+  - 10 Gbps at 20% CPU using MTU=9000 without LRO (7 Gbps at 100% CPU without
+    splice)
+
+  - 10 Gbps at 15% CPU using MTU=9000 with LRO
+
+These last ones are really impressive. While I had already observed such
+performance on the Myri10GE with Tux, it's the first time I can reach that
+level with so little CPU usage in haproxy !
+
+So I think that the memcpy() workaround might be a non-issue for some time.
+I agree it's not beautiful but it works pretty well for now.
+
+The 3 patches I used on top of 2.6.27.10 were the fix to return 0 intead of
+-EAGAIN on end of read, the one to process multiple skbs at once, and Dave's
+last patch based on Jarek's workaround for the corruption issue.
+
 Cheers,
-Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
-http://www.canb.auug.org.au/~sfr/
+Willy
 
---Signature=_Mon__19_Jan_2009_11_24_29_+1100_YrWGFK.9COO2jjcI
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAklzyD0ACgkQjjKRsyhoI8yt9QCgmEHLhNSAB2fYNfqbvgl+WPEm
-rRoAnRBfynsNZYdMSfUK9yUqeTiWdV62
-=eQRT
------END PGP SIGNATURE-----
-
---Signature=_Mon__19_Jan_2009_11_24_29_+1100_YrWGFK.9COO2jjcI--
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
