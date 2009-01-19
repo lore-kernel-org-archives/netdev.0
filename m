@@ -1,58 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH REPOST 0/5] convert arm platforms to smsc911x
-Date: Mon, 19 Jan 2009 14:12:40 -0800 (PST)
-Message-ID: <20090119.141240.108087992.davem@davemloft.net>
-References: <OF8A57C3FE.48B3489D-ON80257543.0035BD44-80257543.003675E0@smsc.com>
-	<20090119.131517.149029812.davem@davemloft.net>
-	<20090119213159.GJ18301@n2100.arm.linux.org.uk>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: sfc: Replace LRO with GRO
+Date: Mon, 19 Jan 2009 14:12:47 -0800
+Message-ID: <1232403167.5539.1.camel@brick>
+References: <20090115042422.GB29658@gondor.apana.org.au>
+	 <20090118.215027.46669769.davem@davemloft.net>
+	 <1232376006.3004.19.camel@achroite>
+	 <20090119.132929.108799868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Steve.Glendinning@smsc.com, ian.saturley@smsc.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	stanley.miao@windriver.com
-To: linux@arm.linux.org.uk
+Cc: bhutchings@solarflare.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42591
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752623AbZASWMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 17:12:39 -0500
-In-Reply-To: <20090119213159.GJ18301@n2100.arm.linux.org.uk>
+Received: from wf-out-1314.google.com ([209.85.200.169]:32582 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753853AbZASWMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 17:12:49 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so3421403wfd.4
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2009 14:12:49 -0800 (PST)
+In-Reply-To: <20090119.132929.108799868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Mon, 19 Jan 2009 21:31:59 +0000
-
-> On Mon, Jan 19, 2009 at 01:15:17PM -0800, David Miller wrote:
-> > From: Steve.Glendinning@smsc.com
-> > Date: Mon, 19 Jan 2009 09:53:54 +0000
+On Mon, 2009-01-19 at 13:29 -0800, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
 > > 
-> > > Russell King - ARM Linux <linux@arm.linux.org.uk> wrote on 19/01/2009 
-> > > 09:22:57:
-> > > > On Mon, Jan 19, 2009 at 04:04:34PM +0800, stanley.miao wrote:
-> > > > > On Sun, 2009-01-18 at 21:53 -0800, David Miller wrote:
-> > > > > > I've applied patches 1 and 2, the smsc911x driver changes.
-> > > > > > 
-> > > > > > I can pull the platform changes into net-next-2.6 as well
-> > > > > > if people don't think there will enough conflicts to cause
-> > > > > > problems.
-> > > > > 
-> > > > > I think  the platform data had better stay in arm tree.
-> > > > 
-> > > > What would be the impact if patches 3 to 5 got merged before 1 and 2?
-> > > 
-> > > It would not break compilation, but it would probably break ethernet 
-> > > support
-> > > on those three platforms.
-> > 
-> > That's why I suggested they go where the dependency is for
-> > proper functionality.
+> > Please could you push this and other GRO changes for .30 to
+> > net-next-2.6?
 > 
-> Ok, as I see it, the files with the highest chance of conflicting
-> in this set are the defconfig files.
+> All of Herbert's bug fixes are going into net-2.6, and that's
+> where they will stay.
 > 
-> Therefore, may I suggest that the defconfig updates are split from 3-5
-> and sent via my tree, the remainder via davem's net-next-2.6 tree?
+> I haven't published my net-next-2.6 tree at all, because
+> Stephen Rothwell hasn't stated that such content is
+> OK yet for his -next tree.
 
-That works for me.
+I thought Stephen had stated that anytime _after_ -rc1 was released was
+OK for new material destined for the next release.
+
+If you're waiting for an explicit OK, I don't think it will forthcoming.
+
+Harvey
+
