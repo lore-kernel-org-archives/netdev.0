@@ -1,70 +1,55 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Sun, 18 Jan 2009 22:16:03 -0800 (PST)
-Message-ID: <20090118.221603.177818343.davem@davemloft.net>
-References: <20090115.152608.89323697.davem@davemloft.net>
-	<20090115233205.GA8474@gondor.apana.org.au>
-	<20090115.153449.204259387.davem@davemloft.net>
+Date: Sun, 18 Jan 2009 22:19:08 -0800 (PST)
+Message-ID: <20090118.221908.47032075.davem@davemloft.net>
+References: <20090119030844.GA31941@gondor.apana.org.au>
+	<20090118.192719.198405397.davem@davemloft.net>
+	<20090119061420.GB12946@1wt.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, jarkao2@gmail.com, zbr@ioremap.net, dada1@cosmosbay.com,
-	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: herbert@gondor.apana.org.au
+Cc: herbert@gondor.apana.org.au, jarkao2@gmail.com, zbr@ioremap.net,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41522
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37550
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756964AbZASGQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 01:16:02 -0500
-In-Reply-To: <20090115.153449.204259387.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1758426AbZASGTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 01:19:06 -0500
+In-Reply-To: <20090119061420.GB12946@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 15 Jan 2009 15:34:49 -0800 (PST)
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 19 Jan 2009 07:14:20 +0100
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Fri, 16 Jan 2009 10:32:05 +1100
-> 
-> > On Thu, Jan 15, 2009 at 03:26:08PM -0800, David Miller wrote:
-> > > +static inline struct page *linear_to_page(struct page *page, unsigned int len,
-> > > +					  unsigned int offset)
-> > > +{
-> > > +	struct page *p = alloc_pages(GFP_KERNEL, 0);
-> > > +
-> > > +	if (!p)
-> > > +		return NULL;
-> > > +	memcpy(page_address(p) + offset, page_address(page) + offset, len);
+> On Sun, Jan 18, 2009 at 07:27:19PM -0800, David Miller wrote:
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Mon, 19 Jan 2009 14:08:44 +1100
 > > 
-> > This won't work very well if skb->head is longer than a page.
-> > 
-> > We'll need to divide it up into individual pages.
+> > > One thing to note is that Myricom's driver probably uses page
+> > > frags which means that you're not actually triggering the copy.
 > 
-> Oh yes the same bug I pointed out the other day.
+> So does this mean that the corruption problem should still there for
+> such a driver ? I'm asking before testing, because at these speeds,
+> validity tests are not that easy ;-)
+
+It ought not to, but it seems that is the case where you
+saw the original corruptions, so hmmm...
+
+Actually, I see, the myri10ge driver does put up to
+64 bytes of the initial packet into the linear area.
+If the IPV4 + TCP headers are less than this, you will
+hit the corruption case even with the myri10ge driver.
+
+So everything checks out.
+
+> > And this is also the only reason why jumbo MTU worked :-)
 > 
-> But Willy can test this patch as-is, since he is not using
-> jumbo frames in linear SKBs.
+> What should we expect from other drivers with jumbo frames ? Hangs,
+> corruption, errors, packet loss ?
 
-Actually, Herbert, it turns out this case should be OK.
-
-Look a level or two higher, at __splice_segment(), it even has a
-comment :-)
-
---------------------
-	do {
-		unsigned int flen = min(*len, plen);
-
-		/* the linear region may spread across several pages  */
-		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
-
-		if (spd_fill_page(spd, page, flen, poff, skb, linear))
-			return 1;
-
-		__segment_seek(&page, &poff, &plen, flen);
-		*len -= flen;
-
-	} while (*len && plen);
---------------------
-
-That code should work and do what we need.
+Upon recent review I think jumbo frames in such drivers should
+actually be fine.
