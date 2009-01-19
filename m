@@ -1,56 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 01/03: x_tables: fix match/target revision lookup
-Date: Mon, 19 Jan 2009 15:19:36 +0100 (MET)
-Message-ID: <20090119141936.3312.11001.sendpatchset@x2.localnet>
+Subject: netfilter 02/03: ebtables: fix inversion in match code
+Date: Mon, 19 Jan 2009 15:19:37 +0100 (MET)
+Message-ID: <20090119141937.3312.73616.sendpatchset@x2.localnet>
 References: <20090119141934.3312.15532.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org, davem@davemloft.net
 To: stable@kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:40052 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756359AbZASOTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 09:19:40 -0500
 In-Reply-To: <20090119141934.3312.15532.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 2a95ec76ab10585ce54a64300b9bf9b76f10269d
+commit c4010504f06c2a6570599d26173e3917b0398410
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Jan 19 15:10:50 2009 +0100
+Date:   Mon Jan 19 15:11:44 2009 +0100
 
-    netfilter: x_tables: fix match/target revision lookup
+    netfilter: ebtables: fix inversion in match code
     
-    Upstream commit 656caff:
+    Upstream commit d61ba9f:
     
-    Commit 55b69e91 (netfilter: implement NFPROTO_UNSPEC as a wildcard
-    for extensions) broke revision probing for matches and targets that
-    are registered with NFPROTO_UNSPEC.
+    Commit 8cc784ee (netfilter: change return types of match functions
+    for ebtables extensions) broke ebtables matches by inverting the
+    sense of match/nomatch.
     
-    Fix by continuing the search on the NFPROTO_UNSPEC list if nothing
-    is found on the af-specific lists.
-    
+    Reported-by: Matt Cross <matthltc@us.ibm.com>
+    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 89837a4..bfbf521 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -273,6 +273,10 @@ static int match_revfn(u8 af, const char *name, u8 revision, int *bestp)
- 				have_rev = 1;
- 		}
- 	}
-+
-+	if (af != NFPROTO_UNSPEC && !have_rev)
-+		return match_revfn(NFPROTO_UNSPEC, name, revision, bestp);
-+
- 	return have_rev;
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 0fa208e..05f198d 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -80,7 +80,7 @@ static inline int ebt_do_match (struct ebt_entry_match *m,
+ {
+ 	par->match     = m->u.match;
+ 	par->matchinfo = m->data;
+-	return m->u.match->match(skb, par);
++	return m->u.match->match(skb, par) ? EBT_MATCH : EBT_NOMATCH;
  }
  
-@@ -289,6 +293,10 @@ static int target_revfn(u8 af, const char *name, u8 revision, int *bestp)
- 				have_rev = 1;
- 		}
- 	}
-+
-+	if (af != NFPROTO_UNSPEC && !have_rev)
-+		return target_revfn(NFPROTO_UNSPEC, name, revision, bestp);
-+
- 	return have_rev;
- }
- 
+ static inline int ebt_dev_check(char *entry, const struct net_device *device)
