@@ -1,43 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] typhoon: replace users of __constant_{endian}
-Date: Sun, 18 Jan 2009 22:23:13 -0800 (PST)
-Message-ID: <20090118.222313.135296911.davem@davemloft.net>
-References: <1232075884.1502.0.camel@obelisk.thedillows.org>
-	<20090118.220310.122867092.davem@davemloft.net>
-	<1232345958.5570.6.camel@brick>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Mon, 19 Jan 2009 07:45:20 +0100
+Message-ID: <20090119064520.GD12946@1wt.eu>
+References: <20090119030844.GA31941@gondor.apana.org.au> <20090118.192719.198405397.davem@davemloft.net> <20090119061420.GB12946@1wt.eu> <20090118.221908.47032075.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dave@thedillows.org, jeff@garzik.org, netdev@vger.kernel.org
-To: harvey.harrison@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, jarkao2@gmail.com, zbr@ioremap.net,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34999
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758210AbZASGXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 01:23:11 -0500
-In-Reply-To: <1232345958.5570.6.camel@brick>
+Received: from 1wt.eu ([62.212.114.60]:1615 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754170AbZASGpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2009 01:45:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20090118.221908.47032075.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Date: Sun, 18 Jan 2009 22:19:18 -0800
-
-> On Sun, 2009-01-18 at 22:03 -0800, David Miller wrote:
-> > From: David Dillow <dave@thedillows.org>
-> > Date: Thu, 15 Jan 2009 22:18:04 -0500
-> > 
-> > > On Thu, 2009-01-15 at 16:41 -0800, Harvey Harrison wrote:
-> > > > The base versions handle constant folding just fine, use them
-> > > > directly.
-> > > > 
-> > > > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > > Acked-by: David Dillow <dave@thedillows.org>
-> > 
-> > Applied for 2.6.30, thanks everyone.
+On Sun, Jan 18, 2009 at 10:19:08PM -0800, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Mon, 19 Jan 2009 07:14:20 +0100
 > 
-> Dave, I split out typhoon as it had the most uses of the __constant_
-> versions, the other net drivers have only a handful each, should I
-> bother splitting that one up, or would you be OK with an omnibus
-> patch?
+> > On Sun, Jan 18, 2009 at 07:27:19PM -0800, David Miller wrote:
+> > > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > > Date: Mon, 19 Jan 2009 14:08:44 +1100
+> > > 
+> > > > One thing to note is that Myricom's driver probably uses page
+> > > > frags which means that you're not actually triggering the copy.
+> > 
+> > So does this mean that the corruption problem should still there for
+> > such a driver ? I'm asking before testing, because at these speeds,
+> > validity tests are not that easy ;-)
+> 
+> It ought not to, but it seems that is the case where you
+> saw the original corruptions, so hmmm...
+> 
+> Actually, I see, the myri10ge driver does put up to
+> 64 bytes of the initial packet into the linear area.
+> If the IPV4 + TCP headers are less than this, you will
+> hit the corruption case even with the myri10ge driver.
+> 
+> So everything checks out.
 
-Omnibus is fine.
+OK, so I will modify my tools in order to perform a few checks.
+
+Thanks!
+Willy
+
