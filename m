@@ -1,119 +1,57 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Mon, 19 Jan 2009 14:19:39 -0800
-Message-ID: <4974FC7B.3080404@hp.com>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>	<200901161746.25205.nickpiggin@yahoo.com.au>	<4970CDB6.6040705@hp.com> <200901191843.33490.nickpiggin@yahoo.com.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [2/2] igb: Replace LRO with GRO
+Date: Mon, 19 Jan 2009 14:34:22 -0800
+Message-ID: <9929d2390901191434k3d5fa598kad5a797ca4928c70@mail.gmail.com>
+References: <20090113092625.GA28015@gondor.apana.org.au>
+	 <20090113092828.GA28052@gondor.apana.org.au>
+	 <20090118.214729.257523668.davem@davemloft.net>
+	 <20090119111656.GB2575@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au, matthew@wil.cx, matthew.r.wilcox@intel.com,
-	chinang.ma@intel.com, linux-kernel@vger.kernel.org,
-	sharad.c.tripathi@intel.com, arjan@linux.intel.com,
-	andi.kleen@intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <200901191843.33490.nickpiggin@yahoo.com.au>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f21.google.com ([209.85.217.21]:39085 "EHLO
+	mail-gx0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753853AbZASWeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 17:34:24 -0500
+Received: by gxk14 with SMTP id 14so2743995gxk.13
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2009 14:34:23 -0800 (PST)
+In-Reply-To: <20090119111656.GB2575@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>>System is a 2socket, 4 core AMD.
+On Mon, Jan 19, 2009 at 3:16 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Sun, Jan 18, 2009 at 09:47:29PM -0800, David Miller wrote:
+>> From: Herbert Xu <herbert@gondor.apana.org.au>
+>> Date: Tue, 13 Jan 2009 20:28:28 +1100
 >>
->>Not exactly a large system :)  Barely NUMA even with just two sockets.
-> 
-> 
-> You're right ;)
-> 
-> But at least it is exercising the NUMA paths in the allocator, and
-> represents a pretty common size of system...
-> 
-> I can run some tests on bigger systems at SUSE, but it is not always
-> easy to set up "real" meaningful workloads on them or configure
-> significant IO for them.
-
-Not sure if I know enough git to pull your trees, or if this cobbler's child will 
-have much in the way of bigger systems, but there is a chance I might - contact 
-me offline with some pointers on how to pull and build the bits and such.
-
->>>Netperf UDP unidirectional send test (10 runs, higher better):
->>>
->>>Server and client bound to same CPU
->>>SLAB AVG=60.111 STD=1.59382
->>>SLQB AVG=60.167 STD=0.685347
->>>SLUB AVG=58.277 STD=0.788328
->>>
->>>Server and client bound to same socket, different CPUs
->>>SLAB AVG=85.938 STD=0.875794
->>>SLQB AVG=93.662 STD=2.07434
->>>SLUB AVG=81.983 STD=0.864362
->>>
->>>Server and client bound to different sockets
->>>SLAB AVG=78.801 STD=1.44118
->>>SLQB AVG=78.269 STD=1.10457
->>>SLUB AVG=71.334 STD=1.16809
->>>
+>> > igb: Replace LRO with GRO
+>>  ...
+>> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 >>
->> > ...
+>> Have the crashes reported by Intel been sorted out yet?
+>> If so, I'll queue this up for 2.6.30
 >>
->>>I haven't done any non-local network tests. Networking is the one of the
->>>subsystems most heavily dependent on slab performance, so if anybody
->>>cares to run their favourite tests, that would be really helpful.
->>
->>I'm guessing, but then are these Mbit/s figures? Would that be the sending
->>throughput or the receiving throughput?
-> 
-> 
-> Yes, Mbit/s. They were... hmm, sending throughput I think, but each pair
-> of numbers seemed to be identical IIRC?
+>> Otherwise please resubmit once the problem is resolved.
+>
+> I believe it should be cured.  But it wouldn't hurt to wait for
+> them to reconfirm.
+>
+> Thanks,
+> --
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+>
 
-Mega *bits* per second?  And those were 4K sends right?  That seems rather low 
-for loopback - I would have expected nearly two orders of magnitude more.  I 
-wonder if the intra-stack flow control kicked-in?  You might try adding test 
-specific -S and -s options to set much larger socket buffers to try to avoid 
-that.  Or simply use TCP.
+Last word I have from test is that igb loads fine now, and no kernel
+panics have been reported.
+Go ahead and queue it up for 2.6.30.
 
-netperf -H <foo> ... -- -s 1M -S 1M -m 4K
-
->>I love to see netperf used, but why UDP and loopback?
-> 
-> 
-> No really good reason. I guess I was hoping to keep other variables as
-> small as possible. But I guess a real remote test would be a lot more
-> realistic as a networking test. Hmm, but I could probably set up a test
-> over a simple GbE link here.  I'll try that.
-
-If bandwidth is an issue, that is to say one saturates the link before much of 
-anything "interesting" happens in the host you can use something like aggregate 
-TCP_RR - ./configure with --enable_burst and then something like
-
-netperf -H <remote> -t TCP_RR -- -D -b 32
-
-and it will have as many as 33 discrete transactions in flight at one time on the 
-one connection.  The -D is there to set TCP_NODELAY to preclude TCP chunking the 
-single-byte (default, take your pick of a more reasonable size) transactions into 
-one segment.
-
->>Also, how about the service demands?
-> 
-> 
-> Well, over loopback and using CPU binding, I was hoping it wouldn't
-> change much... 
-
-Hope... but verify :)
-
-> but I see netperf does some measurements for you. I
-> will consider those in future too.
-> 
-> BTW. is it possible to do parallel netperf tests?
-
-Yes, by (ab)using the confidence intervals code.  Poke around in 
-http://www.netperf.org/svn/netperf2/doc/netperf.html in the "Aggregates" section, 
-and I can go into further details offline (or here if folks want to see the 
-discussion).
-
-rick jones
+-- 
+Cheers,
+Jeff
