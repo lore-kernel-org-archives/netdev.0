@@ -1,39 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Tue, 20 Jan 2009 08:24:43 +1100
-Message-ID: <20090119212443.GC6609@gondor.apana.org.au>
-References: <20090119061420.GB12946@1wt.eu> <20090118.221908.47032075.davem@davemloft.net> <20090119101924.GA1881@gondor.apana.org.au> <20090119.125941.240930524.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sfc: Replace LRO with GRO
+Date: Mon, 19 Jan 2009 13:29:29 -0800 (PST)
+Message-ID: <20090119.132929.108799868.davem@davemloft.net>
+References: <20090115042422.GB29658@gondor.apana.org.au>
+	<20090118.215027.46669769.davem@davemloft.net>
+	<1232376006.3004.19.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: w@1wt.eu, jarkao2@gmail.com, zbr@ioremap.net, dada1@cosmosbay.com,
-	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36930 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752433AbZASVZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 16:25:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20090119.125941.240930524.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39890
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752684AbZASV31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 16:29:27 -0500
+In-Reply-To: <1232376006.3004.19.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2009 at 12:59:41PM -0800, David Miller wrote:
-.
-> And the difference between 64 and IPV4+TCP header len becomes the
-> payload, don't you see? :-)
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 19 Jan 2009 14:40:06 +0000
+
+> On Sun, 2009-01-18 at 21:50 -0800, David Miller wrote:
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Thu, 15 Jan 2009 15:24:22 +1100
+> > 
+> > > sfc: Replace LRO with GRO
+> > > 
+> > > This patch makes sfc invoke the GRO hooks instead of LRO.  As
+> > > GRO has a compatible external interface to LRO this is a very
+> > > straightforward replacement.
+> > > 
+> > > Everything should appear identical to the user except that the
+> > > offload is now controlled by the GRO ethtool option instead of
+> > > LRO.  I've kept the lro module parameter as is since that's for
+> > > compatibility only.
+> > > 
+> > > I have eliminated efx_rx_mk_skb as the GRO layer can take care
+> > > of all packets regardless of whether GRO is enabled or not.
+> > > 
+> > > So the only case where we don't call GRO is if the packet checksum
+> > > is absent.  This is to keep the behaviour changes of the patch to
+> > > a minimum.
+> > > 
+> > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > 
+> > Applied for 2.6.30
 > 
-> myri10ge just pulls min(64, skb->len) bytes from the SKB frags into
-> the linear area, unconditionally.  So a small number of payload bytes
-> can in fact end up there.
+> Please could you push this and other GRO changes for .30 to
+> net-next-2.6?
 
-Ah, I thought they were doing a precise division.  Yes pulling
-a constant length will trigger it if it's big enough.
+All of Herbert's bug fixes are going into net-2.6, and that's
+where they will stay.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I haven't published my net-next-2.6 tree at all, because
+Stephen Rothwell hasn't stated that such content is
+OK yet for his -next tree.
