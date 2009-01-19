@@ -1,27 +1,22 @@
 From: Gabriel Paubert <paubert@iram.es>
 Subject: Re: mv643xx broken on pegasos
 Date: Mon, 19 Jan 2009 12:18:49 +0100
-Message-ID: <20090119111849.GA28927__15.5929862104998$1232364073$gmane$org@iram.es>
-References: <20090115012232.3852.qmail@kosh.dhis.org>
-	<20090119104225.GI17124@xi.wantstofly.org>
+Message-ID: <20090119111849.GA28927__0.873281578783747$1232365149$gmane$org@iram.es>
+References: <20090115012232.3852.qmail@kosh.dhis.org> <20090119104225.GI17124@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, pacman@kosh.dhis.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pacman@kosh.dhis.org, netdev@vger.kernel.org,
+	Matt Sealey <matt@genesi-usa.com>, linuxppc-dev@ozlabs.org
 To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gra-lx1.iram.es ([150.214.224.41]:42159 "EHLO gra-lx1.iram.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755777AbZASLhh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2009 06:37:37 -0500
 Content-Disposition: inline
 In-Reply-To: <20090119104225.GI17124@xi.wantstofly.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Mon, Jan 19, 2009 at 11:42:25AM +0100, Lennert Buytenhek wrote:
 > On Wed, Jan 14, 2009 at 08:22:32PM -0500, pacman@kosh.dhis.org wrote:
