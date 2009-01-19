@@ -1,40 +1,74 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Mon, 19 Jan 2009 07:32:35 +0000
-Message-ID: <20090119073235.GA4600@ff.dom.local>
-References: <20090106100112.GB9513@ff.dom.local> <20090106155715.GA28783@1wt.eu> <20090107093915.GA6899@ff.dom.local> <20090107122205.GA6051@1wt.eu> <20090107123153.GA9597@ff.dom.local> <20090107123504.GN32491@kernel.dk> <20090107124946.GA9677@ff.dom.local> <20090107125217.GA26235@gondor.apana.org.au> <20090112120257.GA5697@gondor.apana.org.au> <20090112131517.GD5901@ff.dom.local>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: [PATCH] Re: deadlocks if use htb
+Date: Mon, 19 Jan 2009 10:42:29 +0300
+Message-ID: <49742EE5.9090502@bigtelecom.ru>
+References: <1231937404.14825.4.camel@laptop> <Pine.LNX.4.64.0901141748300.17915@nacho.alt.net> <20090115065322.GA4190@ff.dom.local> <20090118.214604.221247372.davem@davemloft.net> <20090119065715.GA4197@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jens Axboe <jens.axboe@oracle.com>, Willy Tarreau <w@1wt.eu>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Evgeniy Polyakov <zbr@ioremap.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, a.p.zijlstra@chello.nl,
+	denys@visp.net.lb, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tglx@linutronix.de
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:23764 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbZASHcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 02:32:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20090112131517.GD5901@ff.dom.local>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:46088 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752852AbZASHmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 02:42:55 -0500
+In-Reply-To: <20090119065715.GA4197@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2009 at 01:15:17PM +0000, Jarek Poplawski wrote:
-...
-> I've wondered if something like this could work as a temporary hack?
-...
-> @@ -776,7 +777,8 @@ ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
->  	struct sock *sk = sock->sk;
->  
->  	if (!(sk->sk_route_caps & NETIF_F_SG) ||
-> -	    !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
-> +	    !(sk->sk_route_caps & NETIF_F_ALL_CSUM) ||
-> +	    PageSlab(page))
->  		return sock_no_sendpage(sock, page, offset, size, flags);
+Tested 2 days (weekend is stress days for this bug, because its have
+many traffic) at 3 servers. Fly normal. For completed test need up to 7
+days, but i think (imho) this patch not break any functional and may
+safely added to stable. 100% help for me patch # 2+3.
+> On Sun, Jan 18, 2009 at 09:46:04PM -0800, David Miller wrote:
+>   
+>> From: Jarek Poplawski <jarkao2@gmail.com>
+>> Date: Thu, 15 Jan 2009 06:53:22 +0000
+>>
+>>     
+>>> (resend testing patch #4 - for 2.6.27 or 2.6.28)
+>>>       
+>> Jarek, if you deem that this is in fact what we should
+>> submit for -stable please give me a submission with
+>> a suitable commit message and signoffs, and I will queue
+>> it up for -stable.
+>>     
+>
+> It looks like this should be needed, but I think it's better to wait
+> 2 or 3 days for "Tested-by" from Denys and/or maybe Vyacheslav yet.
+> (I hoped they would rather test some hrtimers patch, but it looks like
+> Peter was busy.)
+>
+> Thanks,
+> Jarek P.
+> -----------------> (needed only for -stables: 2.6.28 and older)
+>
+> pkt_sched: sch_htb: Fix deadlock in hrtimers triggered by HTB
+>
+> Most probably there is a (still unproven) race in hrtimers (before
+> 2.6.29 kernels), which causes a corruption of hrtimers rbtree. This
+> patch doesn't fix it, but should let HTB avoid triggering the bug.
+>
+> Reported-by: Denys Fedoryschenko <denys@visp.net.lb>
+> Reported-by: Badalian Vyacheslav <slavon@bigtelecom.ru>
+> Reported-by: Chris Caputo <ccaputo@alt.net>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> ---
+>
+> diff -Nurp a2.6.27.7/net/sched/sch_htb.c b2.6.27.7/net/sched/sch_htb.c
+> --- a2.6.27.7/net/sched/sch_htb.c	2008-12-11 08:16:16.000000000 +0000
+> +++ b2.6.27.7/net/sched/sch_htb.c	2008-12-15 10:44:32.000000000 +0000
+> @@ -924,6 +924,7 @@ static struct sk_buff *htb_dequeue(struc
+>  		}
+>  	}
+>  	sch->qstats.overlimits++;
+> +	qdisc_watchdog_cancel(&q->watchdog);
+>  	qdisc_watchdog_schedule(&q->watchdog, next_event);
+>  fin:
+>  	return skb;
+>
+>   
 
-Just for the record: this wouldn't work yet:-( It should be probably
-something like "PageCompound(compound_head(page))" test instead.
-
-Jarek P.
