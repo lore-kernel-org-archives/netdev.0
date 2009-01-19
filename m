@@ -1,193 +1,268 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 0/5] virtio_net: Add MAC and VLAN filtering
-Date: Mon, 19 Jan 2009 08:30:31 +0000
-Message-ID: <1232353831.5627.8.camel@blaa>
-References: <20090116211312.22836.34331.stgit@debian.lart>
-	 <20090118.220528.02874092.davem@davemloft.net>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Mon, 19 Jan 2009 09:39:21 +0100
+Message-ID: <20090119083921.GA17124@xi.wantstofly.org>
+References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106185012.GA30322@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: alex.williamson@hp.com, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, kvm@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090118.220528.02874092.davem@davemloft.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xi.wantstofly.org ([80.101.37.227]:46657 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752897AbZASIjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 03:39:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20090106185012.GA30322@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Tue, Jan 06, 2009 at 07:50:12PM +0100, Willy Tarreau wrote:
 
-On Sun, 2009-01-18 at 22:05 -0800, David Miller wrote:
-> From: Alex Williamson <alex.williamson@hp.com>
-> Date: Fri, 16 Jan 2009 14:13:12 -0700
+> > Thanks a lot for the test application, it will greatly help to resolve
+> > this issue.
 > 
-> > This series enables setting the virtio-net device MAC address, adds
-> > infrastructure for the new control virtqueue, and makes use of it
-> > to support set_rx_mode, unicast and multicast address lists, and
-> > supporting a hypervisor based VLAN filter.  The goal is to make the
-> > virtio-net device support more of the features of a physical NIC and
-> > allow the hypervisor to discard packets we're not interested in.
-> > 
-> > This version incorporates the review comments from Mark McLoughlin,
-> > specifically, much improved comments and commit logs, verifying the
-> > functionality of host not providing a MAC address, moving communication
-> > structs into virtio_net.h, adding warnings when things don't work, and
-> > making the strings grep'able.  I've left the class/cmd split in the
-> > control header rather than consolidating it into a single value, I'm
-> > hoping I've made sufficient arguments for that.  Also, I left the
-> > error return rather than a BUG_ON in send_command because I can't
-> > conditionally enable set_rx_mode as it's in a const struct.  Instead,
-> > I've changed the caller to avoid the issue.  Please comment and/or
-> > apply.  Thanks,
-> 
-> I've been watching these patches passively, and it seems that
-> there have been some comments that Rusty hasn't submitted
-> certain virtio_net patches to me as well.
-> 
-> Please sort this all out and let me know what to queue up for
-> 2.6.30
+> I figured it was an absolute necessity. The original code in my proxy is in
+> an experimental state and far too hard to debug for these purposes. It was
+> enough to detect the problem, but I could run a lot more tests with this
+> small test app ! An who know, maybe it will serve as an example for
+> non-blocking splice ;-)
 
-The missing patch is the link status one which I forwarded from Rusty's
-queue (at his request) just before as the merge window closed:
+:-)
 
-  http://patchwork.ozlabs.org/patch/17500/
+Just to throw some more (hacky) example code into the pool, below is
+an echo server that I hacked up to test nonblocking splice().  (You'll
+need sf.net/projects/libivykis to use it.)  I also have a splice()
+discard server and a patch to my intercept-connection-via-iptables-and-
+forward-it-to-a-remote-SOCKS5-server-to-deal-with-crappy-VPNs app to
+use splice() somewhere.
 
-Here it is again.
+My main annoyances with splice(2) are/were:
 
-Cheers,
-Mark.
+1. -EAGAIN return on splice from socket/pipe to socket/pipe doesn't
+   directly tell you whether the source ran out of data or the
+   destination can't accept more data, which means you can't e.g. use
+   epoll in edge triggered mode without jumping through some minor
+   number of extra hoops.  (For a pipe you can keep track of how many
+   bytes are in it by hand, but for a socket->pipe splice -EAGAIN return
+   you'll have to assume that the pipe is full if there are >0 bytes in
+   it.)
 
-From: Mark McLoughlin <markmc@redhat.com>
-Date: Tue, 9 Dec 2008 10:19:33 +0000
-Subject: [PATCH] virtio_net: add link status handling
+2. Because of (1), and because when splicing from a socket to a pipe
+   it returns after the first bit of data (you mentioned this as well),
+   you don't know at that point whether your pipe is full or not.
 
-Allow the host to inform us that the link is down by adding
-a VIRTIO_NET_F_STATUS which indicates that device status is
-available in virtio_net config.
+3. Always returns -EAGAIN even if there was a FIN or error on the
+   source socket.  (Now fixed.)
 
-This is currently useful for simulating link down conditions
-(e.g. using proposed qemu 'set_link' monitor command) but
-would also be needed if we were to support device assignment
-via virtio.
 
-Signed-off-by: Mark McLoughlin <markmc@redhat.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> (added future masking)
----
- drivers/net/virtio_net.c   |   43 ++++++++++++++++++++++++++++++++++++++++++-
- include/linux/virtio_net.h |    5 +++++
- 2 files changed, 47 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 43f6523..fb78368 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -42,6 +42,7 @@ struct virtnet_info
- 	struct virtqueue *rvq, *svq;
- 	struct net_device *dev;
- 	struct napi_struct napi;
-+	unsigned int status;
- 
- 	/* The skb we couldn't send because buffers were full. */
- 	struct sk_buff *last_xmit_skb;
-@@ -611,6 +612,7 @@ static struct ethtool_ops virtnet_ethtool_ops = {
- 	.set_tx_csum = virtnet_set_tx_csum,
- 	.set_sg = ethtool_op_set_sg,
- 	.set_tso = ethtool_op_set_tso,
-+	.get_link = ethtool_op_get_link,
- };
- 
- #define MIN_MTU 68
-@@ -636,6 +638,41 @@ static const struct net_device_ops virtnet_netdev = {
- #endif
- };
- 
-+static void virtnet_update_status(struct virtnet_info *vi)
-+{
-+	u16 v;
-+
-+	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS))
-+		return;
-+
-+	vi->vdev->config->get(vi->vdev,
-+			      offsetof(struct virtio_net_config, status),
-+			      &v, sizeof(v));
-+
-+	/* Ignore unknown (future) status bits */
-+	v &= VIRTIO_NET_S_LINK_UP;
-+
-+	if (vi->status == v)
-+		return;
-+
-+	vi->status = v;
-+
-+	if (vi->status & VIRTIO_NET_S_LINK_UP) {
-+		netif_carrier_on(vi->dev);
-+		netif_wake_queue(vi->dev);
-+	} else {
-+		netif_carrier_off(vi->dev);
-+		netif_stop_queue(vi->dev);
-+	}
-+}
-+
-+static void virtnet_config_changed(struct virtio_device *vdev)
-+{
-+	struct virtnet_info *vi = vdev->priv;
-+
-+	virtnet_update_status(vi);
-+}
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int err;
-@@ -738,6 +775,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		goto unregister;
- 	}
- 
-+	vi->status = VIRTIO_NET_S_LINK_UP;
-+	virtnet_update_status(vi);
-+
- 	pr_debug("virtnet: registered device %s\n", dev->name);
- 	return 0;
- 
-@@ -793,7 +833,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
- 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
- 	VIRTIO_NET_F_GUEST_ECN, /* We don't yet handle UFO input. */
--	VIRTIO_NET_F_MRG_RXBUF,
-+	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS,
- 	VIRTIO_F_NOTIFY_ON_EMPTY,
- };
- 
-@@ -805,6 +845,7 @@ static struct virtio_driver virtio_net = {
- 	.id_table =	id_table,
- 	.probe =	virtnet_probe,
- 	.remove =	__devexit_p(virtnet_remove),
-+	.config_changed = virtnet_config_changed,
- };
- 
- static int __init init(void)
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index cf335fe..7ffc754 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -23,11 +23,16 @@
- #define VIRTIO_NET_F_HOST_ECN	13	/* Host can handle TSO[6] w/ ECN in. */
- #define VIRTIO_NET_F_HOST_UFO	14	/* Host can handle UFO in. */
- #define VIRTIO_NET_F_MRG_RXBUF	15	/* Host can merge receive buffers. */
-+#define VIRTIO_NET_F_STATUS	16	/* virtio_net_config.status available */
-+
-+#define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
- 
- struct virtio_net_config
- {
- 	/* The config defining mac address (if VIRTIO_NET_F_MAC) */
- 	__u8 mac[6];
-+	/* See VIRTIO_NET_F_STATUS and VIRTIO_NET_S_* above */
-+	__u16 status;
- } __attribute__((packed));
- 
- /* This is the first element of the scatter-gather list.  If you don't
--- 
-1.6.0.6
+#define _GNU_SOURCE
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <iv.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+
+struct connection {
+	struct iv_fd sock;
+	int pfd[2];
+	int pipe_bytes;
+	int saw_fin;
+};
+
+
+static void conn_kill(struct connection *conn)
+{
+	iv_unregister_fd(&conn->sock);
+	close(conn->sock.fd);
+	close(conn->pfd[0]);
+	close(conn->pfd[1]);
+	free(conn);
+}
+
+static void conn_pollin(void *_conn);
+static void conn_pollout(void *_conn);
+static void conn_pollerr(void *_conn);
+
+static void conn_pollin(void *_conn)
+{
+	struct connection *conn = (struct connection *)_conn;
+	int ret;
+
+	while (1) {
+		ret = splice(conn->sock.fd, NULL, conn->pfd[1], NULL,
+			     1048576, SPLICE_F_NONBLOCK);
+		if (ret <= 0)
+			break;
+
+		if (conn->pipe_bytes == 0)
+			iv_fd_set_handler_out(&conn->sock, conn_pollout);
+		conn->pipe_bytes += ret;
+	}
+
+	if (ret == 0) {
+		conn->saw_fin = 1;
+		iv_fd_set_handler_in(&conn->sock, NULL);
+		if (conn->pipe_bytes == 0) {
+			shutdown(conn->sock.fd, SHUT_WR);
+			conn_kill(conn);
+		}
+		return;
+	}
+
+	if (errno == EAGAIN && conn->pipe_bytes > 0) {
+		int bytes_sock = 1;
+
+		ioctl(conn->sock.fd, FIONREAD, &bytes_sock);
+		if (bytes_sock > 0)
+			iv_fd_set_handler_in(&conn->sock, NULL);
+	} else if (errno != EAGAIN) {
+		conn_kill(conn);
+	}
+}
+
+static void conn_pollout(void *_conn)
+{
+	struct connection *conn = (struct connection *)_conn;
+	int ret;
+
+	if (!conn->pipe_bytes) {
+		fprintf(stderr, "conn_pollout: no pipe bytes!\n");
+		abort();
+	}
+
+	do {
+		ret = splice(conn->pfd[0], NULL, conn->sock.fd, NULL,
+			     conn->pipe_bytes, 0);
+		if (ret <= 0)
+			break;
+
+		conn->pipe_bytes -= ret;
+		if (!conn->saw_fin)
+			iv_fd_set_handler_in(&conn->sock, conn_pollin);
+	} while (conn->pipe_bytes);
+
+	if (ret == 0) {
+		fprintf(stderr, "pollout: splice returned zero!\n");
+		abort();
+	}
+
+	if (errno == EAGAIN && conn->pipe_bytes == 0) {
+		iv_fd_set_handler_out(&conn->sock, NULL);
+		if (conn->saw_fin) {
+			shutdown(conn->sock.fd, SHUT_WR);
+			conn_kill(conn);
+		}
+	} else if (errno != EAGAIN) {
+		conn_kill(conn);
+	}
+}
+
+static void conn_pollerr(void *_conn)
+{
+	struct connection *conn = (struct connection *)_conn;
+	socklen_t len;
+	int ret;
+
+	len = sizeof(ret);
+	if (getsockopt(conn->sock.fd, SOL_SOCKET, SO_ERROR, &ret, &len) < 0) {
+		fprintf(stderr, "pollerr: error %d while "
+				"getsockopt(SO_ERROR)\n", errno);
+		abort();
+	}
+
+	if (ret == 0) {
+		fprintf(stderr, "pollerr: no error?!\n");
+		abort();
+	}
+
+	conn_kill(conn);
+}
+
+
+static struct iv_fd listening_socket;
+
+static void got_connection(void *_dummy)
+{
+	struct sockaddr_in addr;
+	struct connection *conn;
+	socklen_t addrlen;
+	int ret;
+
+	addrlen = sizeof(addr);
+	ret = accept(listening_socket.fd, (struct sockaddr *)&addr, &addrlen);
+	if (ret < 0)
+		return;
+
+	conn = malloc(sizeof(*conn));
+	if (conn == NULL) {
+		fprintf(stderr, "memory squeeze\n");
+		abort();
+	}
+
+	if (pipe(conn->pfd) < 0) {
+		fprintf(stderr, "pipe squeeze\n");
+		abort();
+	}
+
+	INIT_IV_FD(&conn->sock);
+	conn->sock.fd = ret;
+	conn->sock.cookie = (void *)conn;
+	conn->sock.handler_in = conn_pollin;
+	conn->sock.handler_err = conn_pollerr;
+	iv_register_fd(&conn->sock);
+
+	conn->pipe_bytes = 0;
+	conn->saw_fin = 0;
+}
+
+static int open_listening_socket(void)
+{
+	struct sockaddr_in addr;
+	int sock;
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) {
+		perror("socket");
+		return 1;
+	}
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr.sin_port = htons(6969);
+	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("bind");
+		return 1;
+	}
+
+	listen(sock, 5);
+
+	INIT_IV_FD(&listening_socket);
+	listening_socket.fd = sock;
+	listening_socket.cookie = NULL;
+	listening_socket.handler_in = got_connection;
+	iv_register_fd(&listening_socket);
+
+	return 0;
+}
+
+int main()
+{
+	iv_init();
+	open_listening_socket();
+	iv_main();
+
+	return 0;
+}
