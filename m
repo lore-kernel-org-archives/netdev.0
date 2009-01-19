@@ -1,36 +1,36 @@
-From: "Mr Wong Chong" <info@wong.com>
-Subject: (unknown)
-Date: Mon, 19 Jan 2009 16:37:15 -0000 (GMT)
-Message-ID: <c52ee820d0d7d6a1b0ca821f23243593.squirrel@webmail.wow.lk>
-Reply-To: wong_chongprivate@yahoo.com.hk
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: [2.6.29-rc2 regression] e100: netconsole not functional because
+	of missing firmware
+Date: Mon, 19 Jan 2009 10:30:01 -0800
+Message-ID: <4807377b0901191030g27efac79rbd39501eb2eea4cb@mail.gmail.com>
+References: <200901171908.28533.arvidjaar@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxr1.wow.lk ([202.124.160.60]:56337 "EHLO mxr1.wow.lk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752018AbZASRVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jan 2009 12:21:30 -0500
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.soutceforge.net,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrey Borzenkov <arvidjaar@mail.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752636AbZASSaZ@vger.kernel.org>
+In-Reply-To: <200901171908.28533.arvidjaar@mail.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Complement of the Day
+On Sat, Jan 17, 2009 at 8:08 AM, Andrey Borzenkov <arvidjaar@mail.ru> wrote:
+> [    2.008509] e100: eth0: e100_request_firmware: Failed to load
+> firmware "e100/d101m_ucode.bin": -22
+> [    2.010461] netconsole: failed to open eth0
+> [    2.010996] netconsole: cleaning up
+>
+> This has been working all the time without requiring any external
+> firmware to be present. Why it suddenly refuses to work now?
 
-I am Mr. Wong Chong and I work with Hong Leong Bank here in My Country. I
-have a business transaction of $19,500.000.00 to share with you.  If you
-are interested get back to me with the listed information  
-Name:__________Address:________Phone No:______
-Country:________Occupation:________:age  Below via my personal E-Mail
-:wong_chongprivate@yahoo.com.hk  for more Details.
+to use netconsole you probably need to set config option
+CONFIG_FIRMWARE_IN_KERNEL=y
 
-Sincerely,
-Mr.Wong Chong
+Hm, I wonder if we couldn't have netconsole=y select
+CONFIG_FIRMWARE_IN_KERNEL in Kconfig
 
-
--- 
-This message has been scanned for viruses and
-dangerous content by MailScanner, and is
-believed to be clean.
-
+the arguments as to why the firmware was split out of the drivers have
+already been made on this list.  Not that I agree with them, but the
+decision has been made and we're (network devs) going along with it.
