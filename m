@@ -1,44 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: sfc: Replace LRO with GRO
-Date: Sun, 18 Jan 2009 21:50:27 -0800 (PST)
-Message-ID: <20090118.215027.46669769.davem@davemloft.net>
-References: <20090113092625.GA28015@gondor.apana.org.au>
-	<20090115042422.GB29658@gondor.apana.org.au>
+Subject: Re: [PATCH REPOST 0/5] convert arm platforms to smsc911x
+Date: Sun, 18 Jan 2009 21:53:21 -0800 (PST)
+Message-ID: <20090118.215321.59760406.davem@davemloft.net>
+References: <1232010482-3744-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	linux@arm.linux.org.uk, stanley.miao@windriver.com,
+	ian.saturley@smsc.com
+To: steve.glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42579
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41979
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755513AbZASFuZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 00:50:25 -0500
-In-Reply-To: <20090115042422.GB29658@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1752566AbZASFxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 00:53:20 -0500
+In-Reply-To: <1232010482-3744-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 15 Jan 2009 15:24:22 +1100
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Date: Thu, 15 Jan 2009 09:07:57 +0000
 
-> sfc: Replace LRO with GRO
+> This patchset, intended for 2.6.30, converts all in-tree arm platforms 
+> from smc911x to the actively maintained smsc911x driver.
 > 
-> This patch makes sfc invoke the GRO hooks instead of LRO.  As
-> GRO has a compatible external interface to LRO this is a very
-> straightforward replacement.
+> I don't have any of these platforms available to me, so I've only been 
+> able to compile-test the changes.
 > 
-> Everything should appear identical to the user except that the
-> offload is now controlled by the GRO ethtool option instead of
-> LRO.  I've kept the lro module parameter as is since that's for
-> compatibility only.
+> David Miller is planning to take the smsc911x patches via net-2.6, but 
+> I've included them here to make testing easier as the other patches in 
+> the set depend on them.
 > 
-> I have eliminated efx_rx_mk_skb as the GRO layer can take care
-> of all packets regardless of whether GRO is enabled or not.
-> 
-> So the only case where we don't call GRO is if the packet checksum
-> is absent.  This is to keep the behaviour changes of the patch to
-> a minimum.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This patchset supercedes previous irq_flags patches from me and Stanley 
+> Miao.
 
-Applied for 2.6.30
+I've applied patches 1 and 2, the smsc911x driver changes.
+
+I can pull the platform changes into net-next-2.6 as well
+if people don't think there will enough conflicts to cause
+problems.
