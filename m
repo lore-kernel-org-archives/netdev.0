@@ -1,173 +1,32 @@
 From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 5/5] virtio_net: Add support for VLAN filtering in the
- hypervisor
-Date: Mon, 19 Jan 2009 09:32:00 +0000
-Message-ID: <1232357520.5627.15.camel@blaa>
+Subject: Re: [PATCH 1/5] virtio_net: Allow setting the MAC address of the
+ NIC
+Date: Mon, 19 Jan 2009 09:32:30 +0000
+Message-ID: <1232357550.5627.16.camel@blaa>
 References: <20090116211312.22836.34331.stgit@debian.lart>
-	 <20090116211339.22836.51815.stgit@debian.lart>
+	 <20090116211318.22836.87192.stgit@debian.lart>
 Reply-To: Mark McLoughlin <markmc@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au, kvm@vger.kernel.org
 To: Alex Williamson <alex.williamson@hp.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090116211339.22836.51815.stgit@debian.lart>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi Alex,
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:39498 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755522AbZASJcg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2009 04:32:36 -0500
+In-Reply-To: <20090116211318.22836.87192.stgit@debian.lart>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Fri, 2009-01-16 at 14:13 -0700, Alex Williamson wrote:
-> VLAN filtering allows the hypervisor to drop packets from VLANs
-> that we're not a part of, further reducing the number of extraneous
-> packets recieved.  This makes use of the VLAN virtqueue command class.
-> The ENABLE command is used both to activate the filter and verify the
-> existence of the functionality on the backend.
+> Many physical NICs let the OS re-program the "hardware" MAC
+> address.  Virtual NICs should allow this too.
 > 
-> Also, this fixes a sizing issue for MAX_PACKET_LEN when using VLANs.
-> VLANS add 4 bytes of header, resulting in a maximum full packet size
-> of 1518 bytes (destination MAC + source MAC + VLAN + ethernet type +
-> MTU).  Withouth this, a VLAN over virtio_net is likely to get a
-> truncation error in the backend.
+> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 
-Looks good, but could you split the MAX_PACKET_LEN change out to a
-separate patch, send to davem for 2.6.29. We should also get this into
-stable.
-
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 9be0d6a..8d4bc83 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -24,6 +24,7 @@
->  #include <linux/virtio.h>
->  #include <linux/virtio_net.h>
->  #include <linux/scatterlist.h>
-> +#include <linux/if_vlan.h>
->  
->  static int napi_weight = 128;
->  module_param(napi_weight, int, 0444);
-> @@ -38,7 +39,7 @@ MODULE_PARM_DESC(mac_entries,
->  	"Number of entries in the MAC filter table.");
->  
->  /* FIXME: MTU in config. */
-> -#define MAX_PACKET_LEN (ETH_HLEN+ETH_DATA_LEN)
-> +#define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
->  #define GOOD_COPY_LEN	128
->  
->  struct virtnet_info
-> @@ -743,6 +744,28 @@ set_mode:
->  		       dev->name, allmulti ? "en" : "dis");
->  }
->  
-> +static void virnet_vlan_rx_add_vid(struct net_device *dev, u16 vid)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +        u16 id = vid;
-
-Indentation mixup.
-
-> +
-> +	if (virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> +				 VIRTIO_NET_CTRL_VLAN_ADD, &id, sizeof(id)))
-> +		printk(KERN_WARNING "%s: Failed to add VLAN ID %d.\n",
-> +		       dev->name, id);
-> +}
-> +
-> +static void virnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +        u16 id = vid;
-
-Ditto.
-
-> +
-> +	if (virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> +				 VIRTIO_NET_CTRL_VLAN_KILL, &id, sizeof(id)))
-> +		printk(KERN_WARNING "%s: Failed to kill VLAN ID %d.\n",
-> +		       dev->name, id);
-> +}
-> +
->  static struct ethtool_ops virtnet_ethtool_ops = {
->  	.set_tx_csum = virtnet_set_tx_csum,
->  	.set_sg = ethtool_op_set_sg,
-> @@ -761,15 +784,17 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->  }
->  
->  static const struct net_device_ops virtnet_netdev = {
-> -	.ndo_open            = virtnet_open,
-> -	.ndo_stop   	     = virtnet_close,
-> -	.ndo_start_xmit      = start_xmit,
-> -	.ndo_validate_addr   = eth_validate_addr,
-> -	.ndo_set_mac_address = virtnet_set_mac_address,
-> -	.ndo_set_rx_mode     = virtnet_set_rx_mode,
-> -	.ndo_change_mtu	     = virtnet_change_mtu,
-> +	.ndo_open             = virtnet_open,
-> +	.ndo_stop   	      = virtnet_close,
-> +	.ndo_start_xmit       = start_xmit,
-> +	.ndo_validate_addr    = eth_validate_addr,
-> +	.ndo_set_mac_address  = virtnet_set_mac_address,
-> +	.ndo_set_rx_mode      = virtnet_set_rx_mode,
-> +	.ndo_change_mtu	      = virtnet_change_mtu,
-> +	.ndo_vlan_rx_add_vid  = virnet_vlan_rx_add_vid,
-> +	.ndo_vlan_rx_kill_vid = virnet_vlan_rx_kill_vid,
->  #ifdef CONFIG_NET_POLL_CONTROLLER
-> -	.ndo_poll_controller = virtnet_netpoll,
-> +	.ndo_poll_controller  = virtnet_netpoll,
->  #endif
->  };
->  
-> @@ -863,6 +888,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  		vi->cvq = NULL;
->  	else {
->  		unsigned int entries;
-> +		u8 vlan_filter = 1;
->  
->  		/*
->  		 * We use a separate stack variable here because the
-> @@ -878,6 +904,14 @@ static int virtnet_probe(struct virtio_device *vdev)
->  			       "MAC filter table allocation failed.\n");
->  			mac_entries = 0;
->  		}
-> +
-> +		/* Enable VLAN filtering if supported by the backend */
-> +		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> +					  VIRTIO_NET_CTRL_VLAN_ENABLE,
-> +					  &vlan_filter, sizeof(vlan_filter))) {
-> +			printk(KERN_INFO "virtio_net: VLAN filter enabled\n");
-
-Do we need this KERN_INFO? KERN_DEBUG, maybe?
-
-> +			dev->features |= NETIF_F_HW_VLAN_FILTER;
-> +		}
->  	}
->  
->  	/* Initialize our empty receive and send queues. */
-> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> index 84086a6..a95028d 100644
-> --- a/include/linux/virtio_net.h
-> +++ b/include/linux/virtio_net.h
-> @@ -99,4 +99,19 @@ typedef __u8 virtio_net_ctrl_ack;
->   #define VIRTIO_NET_CTRL_MAC_TABLE_ALLOC      0
->   #define VIRTIO_NET_CTRL_MAC_TABLE_SET        1
->  
-> +/*
-> + * Control VLAN filtering
-> + *
-> + * The VLAN filter table is controlled via a simple ADD/KILL interface.
-> + * VLAN IDs not added will be dropped.  Kill is the opposite of add.
-> + * Both commands expect an out entry containing a 2 byte VLAN ID.
-> + * The ENABLE command expects an out entry containing a single byte,
-> + * zero to disable, non-zero to enable.  The default state is disabled
-> + * for compatibility.
-> + */
-> +#define VIRTIO_NET_CTRL_VLAN       2
-> + #define VIRTIO_NET_CTRL_VLAN_ENABLE          0
-> + #define VIRTIO_NET_CTRL_VLAN_ADD             1
-> + #define VIRTIO_NET_CTRL_VLAN_KILL            2
-
-Not too keen on "kill" - it matches the linux API, but "remove" or
-"delete" is probably more sensible.
+Acked-by: Mark McLoughlin <markmc@redhat.com>
 
 Cheers,
 Mark.
