@@ -1,59 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sfc: Replace LRO with GRO
-Date: Mon, 19 Jan 2009 13:29:29 -0800 (PST)
-Message-ID: <20090119.132929.108799868.davem@davemloft.net>
-References: <20090115042422.GB29658@gondor.apana.org.au>
-	<20090118.215027.46669769.davem@davemloft.net>
-	<1232376006.3004.19.camel@achroite>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH REPOST 0/5] convert arm platforms to smsc911x
+Date: Mon, 19 Jan 2009 21:31:59 +0000
+Message-ID: <20090119213159.GJ18301@n2100.arm.linux.org.uk>
+References: <20090119092257.GB13737@n2100.arm.linux.org.uk> <OF8A57C3FE.48B3489D-ON80257543.0035BD44-80257543.003675E0@smsc.com> <20090119.131517.149029812.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve.Glendinning@smsc.com, ian.saturley@smsc.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	stanley.miao@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39890
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752684AbZASV31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 16:29:27 -0500
-In-Reply-To: <1232376006.3004.19.camel@achroite>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:45999 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753339AbZASVcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 16:32:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20090119.131517.149029812.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 19 Jan 2009 14:40:06 +0000
-
-> On Sun, 2009-01-18 at 21:50 -0800, David Miller wrote:
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Thu, 15 Jan 2009 15:24:22 +1100
-> > 
-> > > sfc: Replace LRO with GRO
-> > > 
-> > > This patch makes sfc invoke the GRO hooks instead of LRO.  As
-> > > GRO has a compatible external interface to LRO this is a very
-> > > straightforward replacement.
-> > > 
-> > > Everything should appear identical to the user except that the
-> > > offload is now controlled by the GRO ethtool option instead of
-> > > LRO.  I've kept the lro module parameter as is since that's for
-> > > compatibility only.
-> > > 
-> > > I have eliminated efx_rx_mk_skb as the GRO layer can take care
-> > > of all packets regardless of whether GRO is enabled or not.
-> > > 
-> > > So the only case where we don't call GRO is if the packet checksum
-> > > is absent.  This is to keep the behaviour changes of the patch to
-> > > a minimum.
-> > > 
-> > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> > 
-> > Applied for 2.6.30
+On Mon, Jan 19, 2009 at 01:15:17PM -0800, David Miller wrote:
+> From: Steve.Glendinning@smsc.com
+> Date: Mon, 19 Jan 2009 09:53:54 +0000
 > 
-> Please could you push this and other GRO changes for .30 to
-> net-next-2.6?
+> > Russell King - ARM Linux <linux@arm.linux.org.uk> wrote on 19/01/2009 
+> > 09:22:57:
+> > > On Mon, Jan 19, 2009 at 04:04:34PM +0800, stanley.miao wrote:
+> > > > On Sun, 2009-01-18 at 21:53 -0800, David Miller wrote:
+> > > > > I've applied patches 1 and 2, the smsc911x driver changes.
+> > > > > 
+> > > > > I can pull the platform changes into net-next-2.6 as well
+> > > > > if people don't think there will enough conflicts to cause
+> > > > > problems.
+> > > > 
+> > > > I think  the platform data had better stay in arm tree.
+> > > 
+> > > What would be the impact if patches 3 to 5 got merged before 1 and 2?
+> > 
+> > It would not break compilation, but it would probably break ethernet 
+> > support
+> > on those three platforms.
+> 
+> That's why I suggested they go where the dependency is for
+> proper functionality.
 
-All of Herbert's bug fixes are going into net-2.6, and that's
-where they will stay.
+Ok, as I see it, the files with the highest chance of conflicting
+in this set are the defconfig files.
 
-I haven't published my net-next-2.6 tree at all, because
-Stephen Rothwell hasn't stated that such content is
-OK yet for his -next tree.
+Therefore, may I suggest that the defconfig updates are split from 3-5
+and sent via my tree, the remainder via davem's net-next-2.6 tree?
