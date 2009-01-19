@@ -1,106 +1,77 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: mv643xx broken on pegasos
-Date: Mon, 19 Jan 2009 10:45:23 +0100
-Message-ID: <20090119094523.GE17124@xi.wantstofly.org>
-References: <20090115012232.3852.qmail@kosh.dhis.org> <20090115203214.GB18393@deprecation.cyrius.com> <20090118.215911.110220539.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Data corruption issue with splice() on 2.6.27.10
+Date: Mon, 19 Jan 2009 10:53:21 +0100
+Message-ID: <20090119095320.GC14531@1wt.eu>
+References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106185012.GA30322@1wt.eu> <20090119083921.GA17124@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tbm@cyrius.com, pacman@kosh.dhis.org, netdev@vger.kernel.org,
-	Matt Sealey <matt@genesi-usa.com>,
-	Gabriel Paubert <paubert@iram.es>
-To: David Miller <davem@davemloft.net>
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xi.wantstofly.org ([80.101.37.227]:55980 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758739AbZASJpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 04:45:24 -0500
+Received: from 1wt.eu ([62.212.114.60]:1622 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753852AbZASJxd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2009 04:53:33 -0500
 Content-Disposition: inline
-In-Reply-To: <20090118.215911.110220539.davem@davemloft.net>
+In-Reply-To: <20090119083921.GA17124@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 18, 2009 at 09:59:11PM -0800, David Miller wrote:
-
-> > I just noticed that this bug has also been reported on the Pegasos
-> > forum: http://www.powerdeveloper.org/forums/viewtopic.php?p=11849
-> > The discussion doesn't contain a lot of information, except for this
-> > observation:
-> > 
-> > "I've been bisecting the problem today and the regression is indeed
-> > with one of Lennert's changes, but I would certainly not have bet on
-> > the innocent looking "mv643xx_eth: use longer DMA bursts" patch (git
-> > commit identifier cd4ccf76bfd2c36d351e68be7e6a597268f98a1a).
-> > 
-> > With this commit reverted, Gb ethernet is working again with kernel
-> > 2.6.27 on Pegasos."
+On Mon, Jan 19, 2009 at 09:39:21AM +0100, Lennert Buytenhek wrote:
+> On Tue, Jan 06, 2009 at 07:50:12PM +0100, Willy Tarreau wrote:
 > 
-> Lennert, please work to resolve this problem.  If you don't
-> have time, I'm just going to revert that DMA burst change.
+> > > Thanks a lot for the test application, it will greatly help to resolve
+> > > this issue.
+> > 
+> > I figured it was an absolute necessity. The original code in my proxy is in
+> > an experimental state and far too hard to debug for these purposes. It was
+> > enough to detect the problem, but I could run a lot more tests with this
+> > small test app ! An who know, maybe it will serve as an example for
+> > non-blocking splice ;-)
+> 
+> :-)
+> 
+> Just to throw some more (hacky) example code into the pool, below is
+> an echo server that I hacked up to test nonblocking splice().  (You'll
+> need sf.net/projects/libivykis to use it.)  I also have a splice()
+> discard server and a patch to my intercept-connection-via-iptables-and-
+> forward-it-to-a-remote-SOCKS5-server-to-deal-with-crappy-VPNs app to
+> use splice() somewhere.
+> 
+> My main annoyances with splice(2) are/were:
+> 
+> 1. -EAGAIN return on splice from socket/pipe to socket/pipe doesn't
+>    directly tell you whether the source ran out of data or the
+>    destination can't accept more data, which means you can't e.g. use
+>    epoll in edge triggered mode without jumping through some minor
+>    number of extra hoops.  (For a pipe you can keep track of how many
+>    bytes are in it by hand, but for a socket->pipe splice -EAGAIN return
+>    you'll have to assume that the pipe is full if there are >0 bytes in
+>    it.)
 
-Hi David,
+I proceeded the same way : if EAGAIN and data still in the pipe, then
+stop polling.
 
-Reverting indeed seems the right thing to do (commit below), but
-even with that patch it's apparently still broken in 2.6.28, I'm
-still looking into that.
+> 2. Because of (1), and because when splicing from a socket to a pipe
+>    it returns after the first bit of data (you mentioned this as well),
+>    you don't know at that point whether your pipe is full or not.
 
+In fact this is fixed now. tcp_splice_read() returns all available data,
+which somewhat hides problem #1. I'm running with 23 kB in a push/pull
+method all the time, so it remains optimal.
 
-thanks,
-Lennert
+> 3. Always returns -EAGAIN even if there was a FIN or error on the
+>    source socket.  (Now fixed.)
 
+Yes I saw your fix, it was indeed very annoying because the only workaround
+I found was to perform an recv(MSG_PEEK) on the socket after each EAGAIN
+to check whether the connection was closed or not.
 
+For these reasons, I'd really love to see the few recent fixes backported
+to -stable ASAP. It will boost splice() adoption among products.
 
->From a8907f45652a3a331b83d8b8b830750a5a82ed23 Mon Sep 17 00:00:00 2001
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Mon, 19 Jan 2009 10:33:21 +0100
-Subject: [PATCH] Revert "mv643xx_eth: use longer DMA bursts".
+Regards,
+Willy
 
-This reverts commit cd4ccf76bfd2c36d351e68be7e6a597268f98a1a.
-
-On the Pegasos board, we can't do DMA burst that are longer than
-one cache line.  For now, go back to using 32 byte DMA bursts for
-all mv643xx_eth platforms -- we can switch the ARM-based platforms
-back to doing long 128 byte bursts in the next development cycle.
-
-Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-Reported-by: Alan Curry <pacman@kosh.dhis.org>
-Reported-by: Gabriel Paubert <paubert@iram.es>
----
- drivers/net/mv643xx_eth.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 7253a49..e2aa468 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -136,21 +136,23 @@ static char mv643xx_eth_driver_version[] = "1.4";
- /*
-  * SDMA configuration register.
-  */
-+#define RX_BURST_SIZE_4_64BIT		(2 << 1)
- #define RX_BURST_SIZE_16_64BIT		(4 << 1)
- #define BLM_RX_NO_SWAP			(1 << 4)
- #define BLM_TX_NO_SWAP			(1 << 5)
-+#define TX_BURST_SIZE_4_64BIT		(2 << 22)
- #define TX_BURST_SIZE_16_64BIT		(4 << 22)
- 
- #if defined(__BIG_ENDIAN)
- #define PORT_SDMA_CONFIG_DEFAULT_VALUE		\
--		(RX_BURST_SIZE_16_64BIT	|	\
--		TX_BURST_SIZE_16_64BIT)
-+		(RX_BURST_SIZE_4_64BIT	|	\
-+		 TX_BURST_SIZE_4_64BIT)
- #elif defined(__LITTLE_ENDIAN)
- #define PORT_SDMA_CONFIG_DEFAULT_VALUE		\
--		(RX_BURST_SIZE_16_64BIT	|	\
--		BLM_RX_NO_SWAP		|	\
--		BLM_TX_NO_SWAP		|	\
--		TX_BURST_SIZE_16_64BIT)
-+		(RX_BURST_SIZE_4_64BIT	|	\
-+		 BLM_RX_NO_SWAP		|	\
-+		 BLM_TX_NO_SWAP		|	\
-+		 TX_BURST_SIZE_4_64BIT)
- #else
- #error One of __BIG_ENDIAN or __LITTLE_ENDIAN must be defined
- #endif
--- 
-1.5.6.4
