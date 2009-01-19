@@ -1,36 +1,34 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 2.6.29-rc2-git1: Reported regressions from 2.6.28
-Date: Mon, 19 Jan 2009 22:28:08 +0100 (CET)
-Message-ID: <0GOi9pntEoL.A.iGF.B9QdJB@chimera>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: 2.6.29-rc2-git1: Reported regressions 2.6.27 -> 2.6.28
+Date: Mon, 19 Jan 2009 22:41:39 +0100 (CET)
+Message-ID: <KTnguC9mFUC.A.VNB.TJRdJB@chimera>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This message contains a list of some regressions from 2.6.28, for which=
- there
-are no fixes in the mainline I know of.  If any of them have been fixed=
- already,
-please let me know.
+This message contains a list of some regressions introduced between 2.6=
+=2E27 and
+2.6.28, for which there are no fixes in the mainline I know of.  If any=
+ of them
+have been fixed already, please let me know.
 
-If you know of any other unresolved regressions from 2.6.28, please let=
- me know
-either and I'll add them to the list.  Also, please let me know if any =
-of the
-entries below are invalid.
+If you know of any other unresolved regressions introduced between 2.6.=
+27
+and 2.6.28, please let me know either and I'll add them to the list.
+Also, please let me know if any of the entries below are invalid.
 
 Each entry from the list will be sent additionally in an automatic repl=
 y to
@@ -43,336 +41,276 @@ Listed regressions statistics:
 
   Date          Total  Pending  Unresolved
   ----------------------------------------
-  2009-01-20       38       35          27
-  2009-01-11       13       13          10
+  2009-01-20      144       30          27
+  2009-01-11      139       33          30
+  2008-12-21      120       19          17
+  2008-12-13      111       14          13
+  2008-12-07      106       20          17
+  2008-12-04      106       29          21
+  2008-11-22       93       25          15
+  2008-11-16       89       32          18
+  2008-11-09       73       40          27
+  2008-11-02       55       41          29
+  2008-10-25       26       25          20
 
 
 Unresolved regressions
 ----------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12511
-Subject		: WARNING: at drivers/dma/dmaengine.c:352
-Submitter	: Ingo Molnar <mingo@elte.hu>
-Date		: 2009-01-19 21:31 (1 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123240070614443&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12500
+Subject		: r8169: NETDEV WATCHDOG: eth0 (r8169): transmit timed out
+Submitter	: Justin Piszcz <jpiszcz-BP4nVm5VUdNhbmWW9KSYcQ@public.gmane.org>
+Date		: 2009-01-13 21:19 (7 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123188160811322&w=3D=
 4
-Handled-By	: Dan Williams <dan.j.williams@intel.com>
+Handled-By	: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12510
-Subject		: 2.6.29-rc2 dies on startup
-Submitter	: Ferenc Wagner <wferi@niif.hu>
-Date		: 2009-01-19 12:53 (1 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123236969321703&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12483
+Subject		: Reference to inexistent struct dmi_device_id breaks the buil=
+d
+Submitter	: Jean Delvare <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>
+Date		: 2009-01-19 01:29 (1 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12465
+Subject		: KVM guests stalling on 2.6.28 (bisected)
+Submitter	: Kevin Shanahan <kmshanah-biM/RbsGxha6c6uEtOJ/EA@public.gmane.org>
+Date		: 2009-01-17 03:37 (3 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12426
+Subject		: TMDC Joystick no longer works in kernel 2.6.28
+Submitter	: Andrew S. Johnson <andy-9eXmkf4BiQ2aMJb+Lgu22Q@public.gmane.org>
+Date		: 2009-01-10 21:53 (10 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123162486415366&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12508
-Subject		: "powerpc/pci: Reserve legacy regions on PCI" broke my G3
-Submitter	: Mikael Pettersson <mikpe@it.uu.se>
-Date		: 2009-01-17 22:46 (3 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12421
+Subject		: GPF on 2.6.28 &amp; 2.6.28-rc9-git3 =C2=A0 =C2=A0e1000e / e1=
+000 issues
+Submitter	: Doug Bazarnic <doug-nOyj/A09A+/k1uMJSBkQmQ@public.gmane.org>
+Date		: 2009-01-09 21:26 (11 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123153653120204&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12411
+Subject		: 2.6.28: BUG in r8169
+Submitter	: Andrey Vul <andrey.vul-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2008-12-31 18:37 (20 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123074869611409&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12409
+Subject		: NULL pointer dereference at get_stats()
+Submitter	: Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>
+Date		: 2008-12-30 12:53 (21 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123064167008695&w=3D=
+4
+Handled-By	: Frederik Deweerdt <frederik.deweerdt-kjvbsxwSFqI@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12408
+Subject		: Funny problem with 2.6.28: Kernel stalls
+Submitter	: Michael Roth <mroth-+8Z3Oe2AQjqzQB+pC5nmwQ@public.gmane.org>
+Date		: 2008-12-25 15:14 (26 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123021931714282&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12407
+Subject		: Kernel 2.6.28 regression: Hang after hibernate
+Submitter	: Frank Groeneveld <frankgroeneveld-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2008-12-28 20:34 (23 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123049651906081&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12405
+Subject		: oops in __bounce_end_io_read under kvm
+Submitter	: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
+Date		: 2008-12-26 17:36 (25 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123031303400676&w=3D=
+4
+Handled-By	: Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12404
+Subject		: Oops in 2.6.28-rc9 and -rc8 -- mtrr issues / e1000e
+Submitter	: Kernel <kernel-nOyj/A09A+/k1uMJSBkQmQ@public.gmane.org>
+Date		: 2008-12-22 9:37 (29 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122993873320150&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12403
+Subject		: TTY problem on linux-2.6.28-rc7
+Submitter	: sasa sasa <sasak.1983-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2008-12-22 4:23 (29 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122991914600390&w=3D=
+4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12401
+Subject		: 2.6.28 regression: xbacklight broken on ThinkPad X61s
+Submitter	: Tino Keitel <tino.keitel-Mmb7MZpHnFY@public.gmane.org>
+Date		: 2009-01-05 8:39 (15 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3Dc1f343028d35ba4e88cd4a3c44e0d8b8a84264ee
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123223247325452&w=3D=
-4
-Handled-By	: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12507
-Subject		: e100: netconsole not functional because of missing firmware
-Submitter	: Andrey Borzenkov <arvidjaar@mail.ru>
-Date		: 2009-01-17 16:08 (3 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123220854426857&w=3D=
+s/linux-2.6.git;a=3Dcommit;h=3D22c13f9d8179f4c9caecfcb60a95214562b9addc
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123114479110314&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12506
-Subject		: Undefined symbols when CONFIG_MFD_PCF50633 is enabled
-Submitter	: Ozan =C3=87a=C4=9Flayan <ozan@pardus.org.tr>
-Date		: 2009-01-17 10:56 (3 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123218991104592&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12505
-Subject		: 2.6.29-rc1 Firefox crashing on page load
-Submitter	: Justin Madru <jdm64@gawab.com>
-Date		: 2009-01-16 20:56 (4 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123213941914274&w=3D=
-4
-Handled-By	: Justin P. Mattock <justinmattock@gmail.com>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12504
-Subject		: 2.6.29-rc1 vs selinux
-Submitter	: Gene Heskett <gene.heskett@gmail.com>
-Date		: 2009-01-16 8:21 (4 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123209412832287&w=3D=
-4
-Handled-By	: Stephen Smalley <sds@tycho.nsa.gov>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12503
-Subject		: [slab corruption] BUG key_jar: Poison overwritten
-Submitter	: Ingo Molnar <mingo@elte.hu>
-Date		: 2009-01-15 18:16 (5 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123204353425825&w=3D=
-4
-Handled-By	: David Howells <dhowells@redhat.com>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12502
-Subject		: pipe_read oops on sh
-Submitter	: Adrian McMenamin <lkmladrian@gmail.com>
-Date		: 2009-01-15 9:48 (5 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123201298005600&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12501
-Subject		: build bug in eeepc-laptop.c
-Submitter	: Ingo Molnar <mingo@elte.hu>
-Date		: 2009-01-14 17:25 (6 days old)
-References	: http://lkml.org/lkml/2009/1/14/315
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12499
-Subject		: Problem with using bluetooth adaper connected to usb port
-Submitter	: Maciej Rutecki <maciej.rutecki@gmail.com>
-Date		: 2009-01-13 18:34 (7 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123187185426236&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12498
-Subject		: OOPS and panic on 2.6.29-rc1 on xen-x86
-Submitter	: Bryan Donlan <bdonlan@gmail.com>
-Date		: 2009-01-12 17:26 (8 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12395
+Subject		: 2.6.28-rc9: oprofile regression
+Submitter	: Tim Blechmann <tim-xpEK/MU0Hawdnm+yROfE0A@public.gmane.org>
+Date		: 2008-12-21 14:23 (30 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3De97a630eb0f5b8b380fd67504de6cedebb489003
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123178178029065&w=3D=
+s/linux-2.6.git;a=3Dcommit;h=3Db99170288421c79f0c2efa8b33e26e65f4bb7fb8
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122986946614791&w=3D=
 4
-Handled-By	: Nick Piggin <npiggin@suse.de>
+Handled-By	: Andi Kleen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12497
-Subject		: new barrier warnings in 2.6.29-rc1
-Submitter	: Christoph Hellwig <hch@lst.de>
-Date		: 2009-01-12 15:46 (8 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123177528217154&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12393
+Subject		: debugging in dosemu causes lots of 'scheduling while atomic'
+Submitter	: Michal Suchanek <hramrach-aRb0bU7PRFPrBKCeMvbIDA@public.gmane.org>
+Date		: 2009-01-09 07:28 (11 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12391
+Subject		: Processor does not go below C2 state until usb.autosuspend i=
+s enabled
+Submitter	: Gergely Imreh <imrehg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-01-09 02:35 (11 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12337
+Subject		: ~100 extra wakeups reported by powertop
+Submitter	: Alberto Gonzalez <luis6674-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
+Date		: 2008-12-31 12:25 (20 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12265
+Subject		: FPU emulation broken in 2.6.28-rc8 ?
+Submitter	: Rogier Wolff <R.E.Wolff-bu/CaDbLbdHGjfRZg6uqBA@public.gmane.org>
+Date		: 2008-12-17 8:56 (34 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122950463030747&w=3D=
 4
-Handled-By	: Jens Axboe <jens.axboe@oracle.com>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12494
-Subject		: Sony backlight regression from 2.6.28 to 29-rc
-Submitter	: Norbert Preining <preining@logic.at>
-Date		: 2009-01-19 8:14 (1 days old)
-References	: http://marc.info/?l=3Dlinux-acpi&m=3D123235286829512&w=3D4
-Handled-By	: Mattia Dongili <malattia@linux.it>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12491
-Subject		: i915 lockdep warning
-Submitter	: Brandeburg, Jesse <jesse.brandeburg@intel.com>
-Date		: 2009-01-13 23:17 (7 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123188898423532&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12264
+Subject		: i915: switching from kwin in opengl mode to a VT then back t=
+o x11, x11 freezes
+Submitter	: Caleb Cushing <xenoterracide-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2008-12-16 11:40 (35 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122942777030666&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12490
-Subject		: ath5k related kernel panic in 2.6.29-rc1
-Submitter	: Sergey S. Kostyliov <rathamahata@gmail.com>
-Date		: 2009-01-12 7:38 (8 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123174591509586&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12263
+Subject		: Sata soft reset filling log
+Submitter	: Justin Madru <bevicm-QP1aEjBt37AFQeE35raUng@public.gmane.org>
+Date		: 2008-12-13 2:07 (38 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122913412608533&w=3D=
 4
-Handled-By	: Bob Copeland <me@bobcopeland.com>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12469
-Subject		: XFS : Corruption of in-memory data
-Submitter	: Haphaeu <phreytaz@gmail.com>
-Date		: 2009-01-17 10:57 (3 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12468
-Subject		: Crash in acpi_cpufreq_init
-Submitter	: Alex Riesen <fork0@users.sf.net>
-Date		: 2009-01-17 10:47 (3 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12224
+Subject		: journal activity on inactive partition causes inactive hardd=
+rive spinup
+Submitter	: C Sights <csights-97jfqw80gc6171pxa8y+qA@public.gmane.org>
+Date		: 2008-12-14 11:39 (37 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D50c668d678fd01284799a6e4f1b91829d83cb9ed
+s/linux-2.6.git;a=3Dcommit;h=3Dc87591b719737b4e91eb1a9fa8fd55a4ff1886d6
+Handled-By	: Eric Sandeen <sandeen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12444
-Subject		: X hangs following switch from radeonfb console - Bisected
-Submitter	: Graham Murray <graham@gmurray.org.uk>
-Date		: 2009-01-13 14:03 (7 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D7c1c2871a6a3a114853ec6836e9035ac1c0c7f7a
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12209
+Subject		: oldish top core dumps (in its meminfo() function)
+Submitter	: Andreas Mohr <andi-5+Cda9B46AM@public.gmane.org>
+Date		: 2008-12-12 18:49 (39 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122910784006472&w=3D=
+4
+		  http://marc.info/?l=3Dlinux-kernel&m=3D122907511319288&w=3D4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12441
-Subject		: Xorg can't use dri on radeon X1950 AGP
-Submitter	: Daniel Vetter <daniel@ffwll.ch>
-Date		: 2009-01-13 05:20 (7 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12419
-Subject		: possible circular locking dependency on i915 dma
-Submitter	: Wang Chen <wangchen@cn.fujitsu.com>
-Date		: 2009-01-08 14:11 (12 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123142399720125&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12208
+Subject		: uml is very slow on 2.6.28 host
+Submitter	: Miklos Szeredi <miklos-sUDqSbJrdHQHWmgEVkV9KA@public.gmane.org>
+Date		: 2008-12-12 9:35 (39 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122907463518593&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12418
-Subject		: Repeated ioctl(4, 0x40046445, ..) loop in glxgears
-Submitter	: Pallipadi, Venkatesh <venkatesh.pallipadi@intel.com>
-Date		: 2009-01-07 22:43 (13 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D7c1c2871a6a3a114853ec6836e9035ac1c0c7f7a
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123136836213319&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12160
+Subject		: networking oops after resume from s2ram (2.6.28-rc6)
+Submitter	: Marcin Slusarz <marcin.slusarz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2008-11-28 21:15 (53 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122790701615723&w=3D=
 4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12417
-Subject		: glx performance drop with: "x86: PAT: implement track/untrac=
-k of pfnmap regions for x86 - v3"
-Submitter	: Alexey Fisher <bug-track@fisher-privat.net>
-Date		: 2009-01-06 18:46 (14 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D5899329b19100c0b82dc78e9b21ed8b920c9ffb3
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123126782822696&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12159
+Subject		: 2.6.28-rc6-git1 -- No sound produced from Intel HDA ALSA dri=
+ver
+Submitter	: Miles Lane <miles.lane-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2008-11-27 20:33 (54 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122781805620212&w=3D=
 4
-Handled-By	: Pallipadi, Venkatesh <venkatesh.pallipadi@intel.com>
+Handled-By	: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12416
-Subject		: Recent change to kernel spikes out ccache/distcc
-Submitter	: Theodore Ts'o <tytso@mit.edu>
-Date		: 2009-01-06 15:15 (14 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123125495000603&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12061
+Subject		: snd_hda_intel: power_save: sound cracks on powerdown
+Submitter	: Jens Weibler <bugzilla-kernel-6hJTtV8wudIr9FUcG+3rRQ@public.gmane.org>
+Date		: 2008-11-18 12:07 (63 days old)
+Handled-By	: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D11849
+Subject		: default IRQ affinity change in v2.6.27 (breaking several SMP=
+ PPC based systems)
+Submitter	: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Date		: 2008-10-24 12:45 (88 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D122485245924125&w=3D=
 4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12415
-Subject		: WARNING: at drivers/net/wireless/iwlwifi/iwl-sta.c:689
-Submitter	: Christian Borntraeger <borntraeger@de.ibm.com>
-Date		: 2009-01-05 10:36 (15 days old)
-References	: http://marc.info/?l=3Dlinux-wireless&m=3D123115178019082&w=
-=3D4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12414
-Subject		: iwl4965 cannot use "ap auto" on latest 2.6.28/29?
-Submitter	: Jeff Chua <jeff.chua.linux@gmail.com>
-Date		: 2009-01-05 4:13 (15 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123112882127823&w=3D=
-4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12402
-Subject		: 2.6.29-rc: kernel BUG at fs/xfs/support/debug.c:108
-Submitter	: Alexander Beregalov <a.beregalov@gmail.com>
-Date		: 2009-01-09 04:41 (11 days old)
-References	: http://thread.gmane.org/gmane.comp.file-systems.xfs.genera=
-l/27548
-Handled-By	: Christoph Hellwig <hch@infradead.org>
 
 
 Regressions with patches
 ------------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12509
-Subject		: lockdep report. fb_mmap vs sys_mmap2
-Submitter	: Dave Jones <davej@redhat.com>
-Date		: 2009-01-17 18:19 (3 days old)
-References	: http://lkml.org/lkml/2009/1/17/176
-Handled-By	: Andrea Righi <righi.andrea@gmail.com>
-Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D123231032115956&w=3D4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12496
-Subject		: swsusp cannot find resume device (sometimes)
-Submitter	: Rafael J. Wysocki <rjw@sisk.pl>
-Date		: 2009-01-09 12:24 (11 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123150395731165&w=3D=
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12406
+Subject		: 2.6.28 thinks that my PS/2 mouse is a touchpad
+Submitter	: Alexander E. Patrakov <patrakov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2008-12-27 9:06 (24 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123036893817280&w=3D=
 4
-Handled-By	: Arjan van de Ven <arjan@infradead.org>
-Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D123156441218358&w=3D4
-		  http://marc.info/?t=3D123156453100002&r=3D1&w=3D4
+Handled-By	: Arjan Opmeer <arjan-OssVvNj1wBysTnJN9+BGXg@public.gmane.org>
+Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D123092147703236&w=3D4
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12495
-Subject		: thinkpad problems during resume
-Submitter	: Christian Borntraeger <borntraeger@de.ibm.com>
-Date		: 2009-01-17 15:48 (3 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12396
+Subject		: hwinfo problem since 2.6.28
+Submitter	: Beschorner Daniel <Daniel.Beschorner-cdG02ZADnvLQT0dZR+AlfA@public.gmane.org>
+Date		: 2009-01-06 8:53 (14 days old)
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D123123277800835&w=3D=
+4
+Handled-By	: Suresh Siddha <suresh.b.siddha-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D123154005127497&w=3D4
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12260
+Subject		: Regression due to commit 2b80848e3818fb1c (p54usb: support L=
+M87 firmwares)
+Submitter	: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Date		: 2008-12-20 10:45 (31 days old)
 =46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3De39ad415ac15116df213dfa2aa2a4f1b0857af9c
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123220746125479&w=3D=
-4
-		  http://marc.info/?l=3Dlinux-kernel&m=3D123170361827197&w=3D4
-Handled-By	: Mike Travis <travis@sgi.com>
-Patch		: http://lkml.org/lkml/2009/1/16/375
-		  http://lkml.org/lkml/2009/1/16/376
-		  http://lkml.org/lkml/2009/1/16/378
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12493
-Subject		: ACPI related kernel panic when booting 2.6.29-rc2
-Submitter	: Peter Klotz <peter.klotz@aon.at>
-Date		: 2009-01-17 20:47 (3 days old)
-References	: http://marc.info/?l=3Dlinux-acpi&m=3D123222565017047&w=3D4
-Handled-By	: Alexey Starikovskiy <aystarik@gmail.com>
-		  Tero Roponen <tero.roponen@gmail.com>
-Patch		: http://marc.info/?l=3Dlinux-acpi&m=3D123223261225680&w=3D4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12427
-Subject		: cpumask change causes sparc build bustage
-Submitter	: David Miller <davem@davemloft.net>
-Date		: 2009-01-11 8:31 (9 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D588235bb53f2c215f0d4b08fd30b461fedc3338e
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123166268013838&w=3D=
-4
-Handled-By	: David Miller <davem@davemloft.net>
-Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D123167571525706&w=3D4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12422
-Subject		: 2.6.28-git can't resume from str
-Submitter	: Jeff Chua <jeff.chua.linux@gmail.com>
-Date		: 2009-01-10 1:39 (10 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3Da0d4922da2e4ccb0973095d8d29f36f6b1b5f703
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123155157909282&w=3D=
-4
-		  http://marc.info/?l=3Dlinux-kernel&m=3D123167815028388&w=3D4
-Handled-By	: Rafael J. Wysocki <rjw@sisk.pl>
-Patch		: http://lkml.org/lkml/2009/1/13/144
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12400
-Subject		: git-latest: kernel oops in IOMMU setup
-Submitter	: Dirk Hohndel <hohndel@infradead.org>
-Date		: 2009-01-08 20:05 (12 days old)
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123144520124853&w=3D=
-4
-Handled-By	: Dirk Hohndel <hohndel@infradead.org>
-Patch		: http://marc.info/?l=3Dlinux-kernel&m=3D123152033725557&w=3D4
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12399
-Subject		: USB wakeup problem on multiple machines
-Submitter	: Rafael J. Wysocki <rjw@sisk.pl>
-Date		: 2009-01-08 7:35 (12 days old)
-=46irst-Bad-Commit: http://git.kernel.org/?p=3Dlinux/kernel/git/torvald=
-s/linux-2.6.git;a=3Dcommit;h=3D6fd9086a518d4f14213a32fe6c9ac17fabebbc1e
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D123140019117968&w=3D=
-4
-Handled-By	: Alan Stern <stern@rowland.harvard.edu>
-Patch		: http://marc.info/?l=3Dlinux-usb&m=3D123186456612410&w=3D4
+s/linux-2.6.git;a=3Dcommit;h=3D2b80848e3818fb1c8ccddc105b065a86c68afa9d
+Patch		: http://bugzilla.kernel.org/show_bug.cgi?id=3D12260
 
 
 =46or details, please visit the bug entries and follow the links given =
@@ -381,11 +319,11 @@ references.
 
 As you can see, there is a Bugzilla entry for each of the listed regres=
 sions.
-There also is a Bugzilla entry used for tracking the regressions from 2=
-=2E6.28,
-unresolved as well as resolved, at:
+There also is a Bugzilla entry used for tracking the regressions introd=
+uced
+between 2.6.27 and 2.6.28, unresolved as well as resolved, at:
 
-http://bugzilla.kernel.org/show_bug.cgi?id=3D12398
+http://bugzilla.kernel.org/show_bug.cgi?id=3D11808
 
 Please let me know if there are any Bugzilla entries that should be add=
 ed to
@@ -393,9 +331,3 @@ the list in there.
 
 Thanks,
 Rafael
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
