@@ -1,47 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] tg3: remove extra casting
-Date: Mon, 19 Jan 2009 22:00:54 +0100
-Message-ID: <20090119210054.GA6158@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: splice as many packets as possible at once
+Date: Mon, 19 Jan 2009 12:59:41 -0800 (PST)
+Message-ID: <20090119.125941.240930524.davem@davemloft.net>
+References: <20090119061420.GB12946@1wt.eu>
+	<20090118.221908.47032075.davem@davemloft.net>
+	<20090119101924.GA1881@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: w@1wt.eu, jarkao2@gmail.com, zbr@ioremap.net, dada1@cosmosbay.com,
+	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42941 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753403AbZASU71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 15:59:27 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47791
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753844AbZASU7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 15:59:40 -0500
+In-Reply-To: <20090119101924.GA1881@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/tg3.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 19 Jan 2009 21:19:24 +1100
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 5e2dbae..a925216 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -860,7 +860,7 @@ static int tg3_bmcr_reset(struct tg3 *tp)
- 
- static int tg3_mdio_read(struct mii_bus *bp, int mii_id, int reg)
- {
--	struct tg3 *tp = (struct tg3 *)bp->priv;
-+	struct tg3 *tp = bp->priv;
- 	u32 val;
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_MDIOBUS_PAUSED)
-@@ -874,7 +874,7 @@ static int tg3_mdio_read(struct mii_bus *bp, int mii_id, int reg)
- 
- static int tg3_mdio_write(struct mii_bus *bp, int mii_id, int reg, u16 val)
- {
--	struct tg3 *tp = (struct tg3 *)bp->priv;
-+	struct tg3 *tp = bp->priv;
- 
- 	if (tp->tg3_flags3 & TG3_FLG3_MDIOBUS_PAUSED)
- 		return -EAGAIN;
--- 
-1.6.0.6
+> On Sun, Jan 18, 2009 at 10:19:08PM -0800, David Miller wrote:
+> > 
+> > Actually, I see, the myri10ge driver does put up to
+> > 64 bytes of the initial packet into the linear area.
+> > If the IPV4 + TCP headers are less than this, you will
+> > hit the corruption case even with the myri10ge driver.
+> 
+> I thought splice only mapped the payload areas, no?
 
+And the difference between 64 and IPV4+TCP header len becomes the
+payload, don't you see? :-)
+
+myri10ge just pulls min(64, skb->len) bytes from the SKB frags into
+the linear area, unconditionally.  So a small number of payload bytes
+can in fact end up there.
+
+Otherwise Willy could never have triggered this bug.
