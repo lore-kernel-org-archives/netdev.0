@@ -1,48 +1,44 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [2.6.29-rc2 regression] e100: netconsole not functional because of missing firmware
-Date: Mon, 19 Jan 2009 20:20:34 +0100
-Message-ID: <200901192020.35116.rjw@sisk.pl>
-References: <200901171908.28533.arvidjaar@mail.ru> <4807377b0901191030g27efac79rbd39501eb2eea4cb@mail.gmail.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: e1000 fails to initialize in current -git
+Date: Mon, 19 Jan 2009 11:52:46 -0800
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A1A07DD00@orsmsx507.amr.corp.intel.com>
+References: <496AE0A5.903@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrey Borzenkov <arvidjaar@mail.ru>,
-	e1000-devel@lists.soutceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:39200 "EHLO ogre.sisk.pl"
+Received: from mga01.intel.com ([192.55.52.88]:39231 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752182AbZASTU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jan 2009 14:20:58 -0500
-In-Reply-To: <4807377b0901191030g27efac79rbd39501eb2eea4cb@mail.gmail.com>
-Content-Disposition: inline
+	id S1755314AbZASTwu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 14:52:50 -0500
+In-Reply-To: <496AE0A5.903@trash.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 19 January 2009, Jesse Brandeburg wrote:
-> On Sat, Jan 17, 2009 at 8:08 AM, Andrey Borzenkov <arvidjaar@mail.ru> wrote:
-> > [    2.008509] e100: eth0: e100_request_firmware: Failed to load
-> > firmware "e100/d101m_ucode.bin": -22
-> > [    2.010461] netconsole: failed to open eth0
-> > [    2.010996] netconsole: cleaning up
-> >
-> > This has been working all the time without requiring any external
-> > firmware to be present. Why it suddenly refuses to work now?
+Patrick McHardy wrote:
+> I get this with 2.6.29-rc1
 > 
-> to use netconsole you probably need to set config option
-> CONFIG_FIRMWARE_IN_KERNEL=y
+> [    1.415322] Intel(R) PRO/1000 Network Driver - version
+> 7.3.20-k3-NAPI [    1.415402] Copyright (c) 1999-2006 Intel
+> Corporation. [    1.426013] e1000 0000:00:0c.0: enabling device (0000
+> -> 0003) [    1.426101] e1000 0000:00:0c.0: PCI INT A -> GSI 17
+> (level, low) -> 
+> IRQ 17
+> [    1.426187] e1000 0000:00:0c.0: PCI: Disallowing DAC for device
+> [    1.426277] e1000 0000:00:0c.0: setting latency timer to 64
+> [    1.495882] e1000: EEPROM initialization failed
+> [    1.516170] e1000 0000:00:0c.0: PCI INT A disabled
+> [    1.516252] e1000: probe of 0000:00:0c.0 failed with error -5
 > 
-> Hm, I wonder if we couldn't have netconsole=y select
-> CONFIG_FIRMWARE_IN_KERNEL in Kconfig
-> 
-> the arguments as to why the firmware was split out of the drivers have
-> already been made on this list.  Not that I agree with them, but the
-> decision has been made and we're (network devs) going along with it.
+> and the device is not registered. If someone wants me to test patches
+> or do something else, just let me know.
 
-Still, if that leads to functional regressions, like this one, we need to do
-something about it IMO.  David?
 
-Thanks,
-Rafael
+are you still having this issue?  My guess is that it may be because
+the pci_enable_device logic for devices in D3 got broken, but I think 
+that is now fixed.
+
+Jesse
