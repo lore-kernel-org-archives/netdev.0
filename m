@@ -1,46 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 02/03: ebtables: fix inversion in match code
-Date: Mon, 19 Jan 2009 15:19:37 +0100 (MET)
-Message-ID: <20090119141937.3312.73616.sendpatchset@x2.localnet>
-References: <20090119141934.3312.15532.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net
-To: stable@kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: sfc: Replace LRO with GRO
+Date: Mon, 19 Jan 2009 14:40:06 +0000
+Message-ID: <1232376006.3004.19.camel@achroite>
+References: <20090113092625.GA28015@gondor.apana.org.au>
+	 <20090115042422.GB29658@gondor.apana.org.au>
+	 <20090118.215027.46669769.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40052 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756359AbZASOTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 09:19:40 -0500
-In-Reply-To: <20090119141934.3312.15532.sendpatchset@x2.localnet>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:57399 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1749667AbZASOkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 09:40:14 -0500
+In-Reply-To: <20090118.215027.46669769.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit c4010504f06c2a6570599d26173e3917b0398410
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Jan 19 15:11:44 2009 +0100
+On Sun, 2009-01-18 at 21:50 -0800, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 15 Jan 2009 15:24:22 +1100
+> 
+> > sfc: Replace LRO with GRO
+> > 
+> > This patch makes sfc invoke the GRO hooks instead of LRO.  As
+> > GRO has a compatible external interface to LRO this is a very
+> > straightforward replacement.
+> > 
+> > Everything should appear identical to the user except that the
+> > offload is now controlled by the GRO ethtool option instead of
+> > LRO.  I've kept the lro module parameter as is since that's for
+> > compatibility only.
+> > 
+> > I have eliminated efx_rx_mk_skb as the GRO layer can take care
+> > of all packets regardless of whether GRO is enabled or not.
+> > 
+> > So the only case where we don't call GRO is if the packet checksum
+> > is absent.  This is to keep the behaviour changes of the patch to
+> > a minimum.
+> > 
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Applied for 2.6.30
 
-    netfilter: ebtables: fix inversion in match code
-    
-    Upstream commit d61ba9f:
-    
-    Commit 8cc784ee (netfilter: change return types of match functions
-    for ebtables extensions) broke ebtables matches by inverting the
-    sense of match/nomatch.
-    
-    Reported-by: Matt Cross <matthltc@us.ibm.com>
-    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+Please could you push this and other GRO changes for .30 to
+net-next-2.6?
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 0fa208e..05f198d 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -80,7 +80,7 @@ static inline int ebt_do_match (struct ebt_entry_match *m,
- {
- 	par->match     = m->u.match;
- 	par->matchinfo = m->data;
--	return m->u.match->match(skb, par);
-+	return m->u.match->match(skb, par) ? EBT_MATCH : EBT_NOMATCH;
- }
- 
- static inline int ebt_dev_check(char *entry, const struct net_device *device)
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
