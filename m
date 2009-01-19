@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH REPOST 0/5] convert arm platforms to smsc911x
-Date: Sun, 18 Jan 2009 21:53:21 -0800 (PST)
-Message-ID: <20090118.215321.59760406.davem@davemloft.net>
-References: <1232010482-3744-1-git-send-email-steve.glendinning@smsc.com>
+Subject: Re: [PATCH] au1000_eth: reorder functions
+Date: Sun, 18 Jan 2009 21:56:38 -0800 (PST)
+Message-ID: <20090118.215638.63392411.davem@davemloft.net>
+References: <200901151647.38001.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	linux@arm.linux.org.uk, stanley.miao@windriver.com,
-	ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	mano@roarinelk.homelinux.net
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41979
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41984
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752566AbZASFxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 00:53:20 -0500
-In-Reply-To: <1232010482-3744-1-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1752566AbZASF4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 00:56:37 -0500
+In-Reply-To: <200901151647.38001.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Thu, 15 Jan 2009 09:07:57 +0000
+From: Florian Fainelli <florian@openwrt.org>
+Date: Thu, 15 Jan 2009 16:47:37 +0100
 
-> This patchset, intended for 2.6.30, converts all in-tree arm platforms 
-> from smc911x to the actively maintained smsc911x driver.
+> This patch reorders functions so that we can remove
+> the forward declarations.
 > 
-> I don't have any of these platforms available to me, so I've only been 
-> able to compile-test the changes.
-> 
-> David Miller is planning to take the smsc911x patches via net-2.6, but 
-> I've included them here to make testing easier as the other patches in 
-> the set depend on them.
-> 
-> This patchset supercedes previous irq_flags patches from me and Stanley 
-> Miao.
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-I've applied patches 1 and 2, the smsc911x driver changes.
+This does not apply properly to current sources.
 
-I can pull the platform changes into net-next-2.6 as well
-if people don't think there will enough conflicts to cause
-problems.
+Please respin this patch.
+
+Thank you.
