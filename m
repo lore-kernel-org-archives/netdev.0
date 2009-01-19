@@ -1,27 +1,45 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: 64k bind(0) bugfix.
-Date: Tue, 20 Jan 2009 02:26:56 +0300
-Message-ID: <20090119232656.GA13963@ioremap.net>
-References: <20090119232151.GA13659@ioremap.net> <20090119.152432.32346720.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sfc: Replace LRO with GRO
+Date: Mon, 19 Jan 2009 15:27:17 -0800 (PST)
+Message-ID: <20090119.152717.147996116.davem@davemloft.net>
+References: <1232376006.3004.19.camel@achroite>
+	<20090119.132929.108799868.davem@davemloft.net>
+	<1232403167.5539.1.camel@brick>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au
+To: harvey.harrison@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tservice.net.ru ([195.178.208.66]:59462 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752127AbZASX0w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jan 2009 18:26:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20090119.152432.32346720.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42504
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753247AbZASX1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 18:27:15 -0500
+In-Reply-To: <1232403167.5539.1.camel@brick>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2009 at 03:24:32PM -0800, David Miller (davem@davemloft.net) wrote:
-> If I end up rebasing the net-next tree before publishing, I'll
-> integrate this fix into the original commit.
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Date: Mon, 19 Jan 2009 14:12:47 -0800
 
-Great, thank you!
+> On Mon, 2009-01-19 at 13:29 -0800, David Miller wrote:
+> > From: Ben Hutchings <bhutchings@solarflare.com>
+> > > 
+> > > Please could you push this and other GRO changes for .30 to
+> > > net-next-2.6?
+> > 
+> > All of Herbert's bug fixes are going into net-2.6, and that's
+> > where they will stay.
+> > 
+> > I haven't published my net-next-2.6 tree at all, because
+> > Stephen Rothwell hasn't stated that such content is
+> > OK yet for his -next tree.
+> 
+> I thought Stephen had stated that anytime _after_ -rc1 was released was
+> OK for new material destined for the next release.
+> 
+> If you're waiting for an explicit OK, I don't think it will forthcoming.
 
--- 
-	Evgeniy Polyakov
+I, unlike some others, value Stephen Rothwell's sanity.  So I will ask
+explicitly before potentially spoiling his afternoon :-)
