@@ -1,77 +1,47 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: Data corruption issue with splice() on 2.6.27.10
-Date: Mon, 19 Jan 2009 10:53:21 +0100
-Message-ID: <20090119095320.GC14531@1wt.eu>
-References: <20081224152841.GB13113@1wt.eu> <20090106183223.GA11964@ioremap.net> <20090106185012.GA30322@1wt.eu> <20090119083921.GA17124@xi.wantstofly.org>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH REPOST 0/5] convert arm platforms to smsc911x
+Date: Mon, 19 Jan 2009 09:53:54 +0000
+Message-ID: <OF8A57C3FE.48B3489D-ON80257543.0035BD44-80257543.003675E0@smsc.com>
+References: <20090119092257.GB13737@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, ian.saturley@smsc.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	"stanley.miao" <stanley.miao@windriver.com>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1622 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753852AbZASJxd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jan 2009 04:53:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20090119083921.GA17124@xi.wantstofly.org>
+Received: from mail.smsc.com ([170.129.50.11]:4942 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759885AbZASJzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2009 04:55:41 -0500
+In-Reply-To: <20090119092257.GB13737@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2009 at 09:39:21AM +0100, Lennert Buytenhek wrote:
-> On Tue, Jan 06, 2009 at 07:50:12PM +0100, Willy Tarreau wrote:
-> 
-> > > Thanks a lot for the test application, it will greatly help to resolve
-> > > this issue.
+Russell King - ARM Linux <linux@arm.linux.org.uk> wrote on 19/01/2009 
+09:22:57:
+> On Mon, Jan 19, 2009 at 04:04:34PM +0800, stanley.miao wrote:
+> > On Sun, 2009-01-18 at 21:53 -0800, David Miller wrote:
+> > > I've applied patches 1 and 2, the smsc911x driver changes.
+> > > 
+> > > I can pull the platform changes into net-next-2.6 as well
+> > > if people don't think there will enough conflicts to cause
+> > > problems.
 > > 
-> > I figured it was an absolute necessity. The original code in my proxy is in
-> > an experimental state and far too hard to debug for these purposes. It was
-> > enough to detect the problem, but I could run a lot more tests with this
-> > small test app ! An who know, maybe it will serve as an example for
-> > non-blocking splice ;-)
+> > I think  the platform data had better stay in arm tree.
 > 
-> :-)
-> 
-> Just to throw some more (hacky) example code into the pool, below is
-> an echo server that I hacked up to test nonblocking splice().  (You'll
-> need sf.net/projects/libivykis to use it.)  I also have a splice()
-> discard server and a patch to my intercept-connection-via-iptables-and-
-> forward-it-to-a-remote-SOCKS5-server-to-deal-with-crappy-VPNs app to
-> use splice() somewhere.
-> 
-> My main annoyances with splice(2) are/were:
-> 
-> 1. -EAGAIN return on splice from socket/pipe to socket/pipe doesn't
->    directly tell you whether the source ran out of data or the
->    destination can't accept more data, which means you can't e.g. use
->    epoll in edge triggered mode without jumping through some minor
->    number of extra hoops.  (For a pipe you can keep track of how many
->    bytes are in it by hand, but for a socket->pipe splice -EAGAIN return
->    you'll have to assume that the pipe is full if there are >0 bytes in
->    it.)
+> What would be the impact if patches 3 to 5 got merged before 1 and 2?
 
-I proceeded the same way : if EAGAIN and data still in the pipe, then
-stop polling.
+It would not break compilation, but it would probably break ethernet 
+support
+on those three platforms.
 
-> 2. Because of (1), and because when splicing from a socket to a pipe
->    it returns after the first bit of data (you mentioned this as well),
->    you don't know at that point whether your pipe is full or not.
+All 3 platforms pass some combination of IRQF_TRIGGER_LOW | IRQF_SHARED 
+when
+registering these interrupts.  The trigger flag isn't passed through 
+without
+1 and IRQF_SHARED isn't specified without 2.
 
-In fact this is fixed now. tcp_splice_read() returns all available data,
-which somewhat hides problem #1. I'm running with 23 kB in a push/pull
-method all the time, so it remains optimal.
+I expect register_irq would fail on these platforms without these flags?
 
-> 3. Always returns -EAGAIN even if there was a FIN or error on the
->    source socket.  (Now fixed.)
-
-Yes I saw your fix, it was indeed very annoying because the only workaround
-I found was to perform an recv(MSG_PEEK) on the socket after each EAGAIN
-to check whether the connection was closed or not.
-
-For these reasons, I'd really love to see the few recent fixes backported
-to -stable ASAP. It will boost splice() adoption among products.
-
-Regards,
-Willy
-
+Steve
