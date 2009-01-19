@@ -1,35 +1,103 @@
-From: Sarah <rachel.stpier@sympatico.ca>
-Subject: claims of =?iso-8859-1?B?ozUwMCwwMDA=?= pounds
-Date: Mon, 19 Jan 2009 7:29:16 -0500
-Message-ID: <20090119122916.USWD1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: jerry.smith400@btinternet.com
+From: "Wins>" <sheilamckee@cox.net>
+Subject: WINNING NOTIFICATION !
+Date: Mon, 19 Jan 2009 8:38:32 -0500
+Message-ID: <20090119083833.0IYYZ.479092.imail@eastrmwml29>
+Reply-To: stevebaker002@jmail.co.za
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@lotto.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts6-srv.bellnexxia.net ([206.47.199.164]:46506 "EHLO
-	simmts6-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754542AbZASM3S convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jan 2009 07:29:18 -0500
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts6-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090119122916.USWD1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Mon, 19 Jan 2009 07:29:16 -0500
+Received: from eastrmmtao103.cox.net ([68.230.240.9]:47544 "EHLO
+	eastrmmtao103.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758198AbZASNie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 08:38:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-E-MAIL ID Has won you the sum of =A3500,000 pounds in our MONTHLY compa=
-q PROMO BONANZA.get back to this office with your details.
+We wish to inform you that your email address was indicated and was
 
-Names:
-Address:
-Country:
+drawn,also attached to a serial numbers FTS/8070337201/06 and drew
 
-Email:jerry.smith400@btinternet.com
+the lucky numbers 15-22-24-48-50-37(30) which subsequently won you
 
-Regards
-Mrs Sarah Wood.
+1,000,000.00 (One Million Great Britain Pounds) from the Free Online
 
+Promotion.The draws was registered as Draw number one was
+
+conducted in Brockley,on the 16th january  2009.Find below the details of
+
+
+
+the Claims dept and contact him with the following details for verifications:
+
+
+
+FULL NAME    FULL ADDRESS   NATIONALITY       AGE OCCUPATION
+
+
+
+MOBILE/TEL EPHONE NUMBER  DATE OFWINNING AWARD  SEX
+
+
+AGENT NAME:    MR STEVE BAKER
+
+AGENT E MAIL:         stevebaker002@jmail.co.za
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+We wish to inform you that your email address was indicated and was
+
+drawn,also attached to a serial numbers FTS/8070337201/06 and drew
+
+the lucky numbers 15-22-24-48-50-37(30) which subsequently won you
+
+1,000,000.00 (One Million Great Britain Pounds) from the Free Online
+
+Promotion.The draws was registered as Draw number one was
+
+conducted in Brockley,on the 16th january  2009.Find below the details of
+
+
+
+the Claims dept and contact him with the following details for verifications:
+
+
+
+FULL NAME    FULL ADDRESS   NATIONALITY       AGE OCCUPATION
+
+
+
+MOBILE/TEL EPHONE NUMBER  DATE OFWINNING AWARD  SEX
+
+
+AGENT NAME:    MR STEVE BAKER
+
+AGENT E MAIL:         stevebaker002@jmail.co.za
