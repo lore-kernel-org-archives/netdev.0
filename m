@@ -1,45 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macb: avoid lockup when TGO during underrun
-Date: Sun, 18 Jan 2009 21:57:49 -0800 (PST)
-Message-ID: <20090118.215749.215909519.davem@davemloft.net>
-References: <496F80B8.6020408@endian.se>
+Subject: Re: mv643xx broken on pegasos
+Date: Sun, 18 Jan 2009 21:59:11 -0800 (PST)
+Message-ID: <20090118.215911.110220539.davem@davemloft.net>
+References: <20090115012232.3852.qmail@kosh.dhis.org>
+	<20090115203214.GB18393@deprecation.cyrius.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: richard.rojfors@endian.se
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pacman@kosh.dhis.org, netdev@vger.kernel.org,
+	buytenh@wantstofly.org
+To: tbm@cyrius.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41989
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46739
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755774AbZASF5s convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jan 2009 00:57:48 -0500
-In-Reply-To: <496F80B8.6020408@endian.se>
+	by vger.kernel.org with ESMTP id S1755960AbZASF7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 00:59:10 -0500
+In-Reply-To: <20090115203214.GB18393@deprecation.cyrius.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Richard R=F6jfors <richard.rojfors@endian.se>
-Date: Thu, 15 Jan 2009 19:30:16 +0100
+From: Martin Michlmayr <tbm@cyrius.com>
+Date: Thu, 15 Jan 2009 21:32:14 +0100
 
-> This patch against linux-2.6.28 solves an issue where macb might run =
-out of TX buffers.
->=20
-> In rare cases when an underrun occur, all macb buffers where consumed=
- and the netif_queue was stopped infinitely. This
-> happens then the TGO (transfer ongoing) bit in the TSR is set (and UN=
-D). It seems like clening up after the underrun
-> makes the driver and the macb hardware end up in an inconsistent stat=
-e. The result of this is that in the following
-> calls to macb_tx no TX buffers are released -> the netif_queue was st=
-opped, and never woken up again.
->=20
-> The solution is to disable the transmitter, if TGO is set, before cle=
-ning up after the underrun, and re-enable the
-> transmitter when the cleaning up is done.
->=20
->=20
-> A patch to avoid lockup in the macb driver in some rare underrun case=
-s.
-> Signed-off-by: Richard R=F6jfors <richard.rojfors@endian.se>
+> I just noticed that this bug has also been reported on the Pegasos
+> forum: http://www.powerdeveloper.org/forums/viewtopic.php?p=11849
+> The discussion doesn't contain a lot of information, except for this
+> observation:
+> 
+> "I've been bisecting the problem today and the regression is indeed
+> with one of Lennert's changes, but I would certainly not have bet on
+> the innocent looking "mv643xx_eth: use longer DMA bursts" patch (git
+> commit identifier cd4ccf76bfd2c36d351e68be7e6a597268f98a1a).
+> 
+> With this commit reverted, Gb ethernet is working again with kernel
+> 2.6.27 on Pegasos."
 
-Patch applied, thanks Richard.
+Lennert, please work to resolve this problem.  If you don't
+have time, I'm just going to revert that DMA burst change.
+
+Thanks.
