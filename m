@@ -1,17 +1,17 @@
 From: "WEBMASTER PANEL CONTROL BOARD" <info@desk.co.uk>
 Subject: Dear  e-mail user.
-Date: Mon, 19 Jan 2009 07:44:20 -0000 (GMT)
-Message-ID: <35445.41.220.75.3.1232351060.squirrel@www.paul-mccabe.co.uk>
+Date: Mon, 19 Jan 2009 07:43:58 -0000 (GMT)
+Message-ID: <36019.41.220.75.3.1232351038.squirrel@www.paul-mccabe.co.uk>
 Reply-To: webmasterpanel@cooperation.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vi-ads-1217.ads.vi.net ([212.78.77.16]:60074 "EHLO
+Received: from vi-ads-1217.ads.vi.net ([212.78.77.16]:60088 "EHLO
 	vi-ads-1227.ads.vi.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753832AbZASH6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 02:58:38 -0500
+	with ESMTP id S1754556AbZASH6r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 02:58:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
