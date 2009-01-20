@@ -1,37 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] arm: convert omap ldp platform to use smsc911x
-Date: Mon, 19 Jan 2009 16:30:50 -0800 (PST)
-Message-ID: <20090119.163050.119999958.davem@davemloft.net>
-References: <1232010482-3744-5-git-send-email-steve.glendinning@smsc.com>
-	<1232010482-3744-6-git-send-email-steve.glendinning@smsc.com>
-	<20090119223541.GK18301@n2100.arm.linux.org.uk>
+Subject: Re: [PATCH] e1000e: drop lltx, remove unnecessary lock
+Date: Mon, 19 Jan 2009 16:52:20 -0800 (PST)
+Message-ID: <20090119.165220.120345185.davem@davemloft.net>
+References: <20090120001708.22703.8019.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
-	stanley.miao@windriver.com, ian.saturley@smsc.com
-To: linux@arm.linux.org.uk
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	donash4@gmail.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60507
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44884
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755642AbZATAas (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 19:30:48 -0500
-In-Reply-To: <20090119223541.GK18301@n2100.arm.linux.org.uk>
+	by vger.kernel.org with ESMTP id S1754045AbZATAwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 19:52:19 -0500
+In-Reply-To: <20090120001708.22703.8019.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Mon, 19 Jan 2009 22:35:41 +0000
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 19 Jan 2009 16:17:08 -0800
 
-> davem - I can see if I merge a fix for this (once I have confirmation
-> what the fix should be) and push it for -rc, that will make things a
-> little more complicated at your end.  Suggest we hold fire on these
-> patches for a few more days.
+> LLTX is deprecated and complicated, don't use it.  It was observed by Don Ash
+> <donash4@gmail.com> that e1000e was acquiring this lock in the NAPI cleanup
+> path.  This is obviously a bug, as this is a leftover from when e1000
+> supported multiple tx queues and fake netdevs.
+> 
+> another user reported this to us and tested routing with the 2.6.27 kernel and
+> this patch and reported a 3.5 % improvement in packets forwarded in a
+> multi-port test on 82571 parts.
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Ok, I'm going to toss the smsc911x patches from my tree as well.
+Nice, applied.
 
-Just resubmit to me and netdev@vger the relevant parts I should take
-in my tree once this is all sorted out.
+One down, 16 to go.  The following drivers are on notice :-)
 
-Thanks!
+drivers/net/atl1e/atl1e_main.c
+drivers/net/bonding/bond_main.c
+drivers/net/chelsio/cxgb2.c
+drivers/net/cris/eth_v10.c
+drivers/net/cxgb3/cxgb3_main.c
+drivers/net/e1000/e1000_main.c
+drivers/net/ehea/ehea_main.c
+drivers/net/ibmveth.c
+drivers/net/igb/igb_main.c
+drivers/net/loopback.c
+drivers/net/pasemi_mac.c
+drivers/net/rionet.c
+drivers/net/spider_net.c
+drivers/net/sungem.c
+drivers/net/tehuti.c
+drivers/net/veth.c
