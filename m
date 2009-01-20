@@ -1,108 +1,160 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
-Date: Tue, 20 Jan 2009 15:53:56 -0500
-Message-ID: <200901201553.57022.paul.moore@hp.com>
-References: <1232473719.24943.102.camel@sp-laptop3.sp-local> <m2prih3f9i.fsf@ssh.synack.fr> <alpine.LSU.2.00.0901202120240.24253@fbirervta.pbzchgretzou.qr>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Fwd: iproute2 wrong burst/cburst calculation?
+Date: Tue, 20 Jan 2009 22:57:11 +0200
+Message-ID: <200901202257.11773.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
+Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Samir Bellabes <sam@synack.fr>,
-	Stephan Peijnik <stephan@peijnik.at>,
-	"linux-security-module" <linux-security-module@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0901202120240.24253@fbirervta.pbzchgretzou.qr>
+To: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:52460 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754806AbZATU5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 15:57:24 -0500
 Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 January 2009 3:31:24 pm Jan Engelhardt wrote:
-> On Tuesday 2009-01-20 21:15, Samir Bellabes wrote this in IRC:
-> >be carefull, you are mixing 2 distincts questions in fact :
-> >
-> >1. how to have differents security models in the kernel, dealing
-> > with the LSM hooks ?
->
-> A possible idea would be to not do the traditional LSM chaining,
-> but a parallel approach.
->
-> The problem with LSM chaining is that it somewhat imposed an order
-> on LSMs. The checks in SELinux for example could have decided
-> "it's forbidden" and not call out to the secondary module that was
-> registered with it. Similarly if my own module was primary and
-> selinux was the secondary -- this would potentially lead to me
-> having forgotten something in the primary and not calling the
-> secondary so selinux would have an inconsistent state of itself.
-> Therefore, how about doing a parallel LSM approach:
->
-> int security_create_inode(...)
-> {
-> 	int ret == 0, x;
-> 	list_for_each_entry(lsm, ...) {
-> 		x = lsm->create_inode(...);
-> 		if (x < 0 && ret == 0)
-> 			ret = x;
-> 	}
-> 	return x;
-> }
->
-> That way, SElinux (which must serve as a beating sample now)
-> can update the security context associated with the inode as
-> required, but our own modules still has something to say in
-> whether the action is penultimately allowed.
->
-> There is still an order and would leave question open like
-> "if selinux does not like you at all, why bother showing
-> a window to the user asking for 'prog xyz tries to bind()'".
->
-> But I think it's the direction.
+Sorry for duplicate, i forgot to add netdev@, and i added few things more
 
-As you noted, the particular problem of resolving the different LSMs 
-still exists, including the issue of multiplexing per-object state 
-which is likely to be one of the larger roadblocks to such an approach.  
-However, in dealing with the issue of personal firewalls I think the 
-biggest issue will be the user interaction as you described ... how do 
-you explain to a user who clicked the "allow" button that the system 
-rejected their traffic?
+After reading http://luxik.cdi.cz/~devik/qos/htb/manual/userg.htm
 
-> >But what you are asking is to have multiple security models at the
-> > same time, with some kind of priority.
-> >I don't know if it's ok or not, but what I'm sure is that snet will
-> > use LSM hooks or your new framework without any problems in fact,
-> > as you are going to make some kind of wrapper on the members of the
-> > struct security_operations.
->
-> jan>>> My opinion up to here would be to split LSM into the LSM
-> category
->
-> >>> {selinux, apparmor, tomoyo} and the other, new LSM category
-> >>> {networking stuff}, just as a potential idea to get over the
-> >>> stacking / single LSM use  issue.
-> >
-> >Indeed I thought about that when writing snet.
->
-> For starters, the existing LSM interface and the LSM  modules
-> themselves could be split up so as to provide
->
->  selinux.ko
->   \_ selinux_net.ko
->   \_ selinux_fs.ko
->   ...
->
-> just a suggestion to ease the thinking process for now.
-> If a purely network-related LSM does not have to think about
-> "do I need to implement FS hooks that do chaining or not..."
-> it is a lot better off.
+<quote>
+When you set burst for parent class smaller than for some child then you 
+should expect the parent class to get stuck sometimes (because child will 
+drain more than parent can handle). HTB will remember these negative bursts 
+up to 1 minute. 
+</quote>
+I check my shaper, where is burst/cburst calculated automatically. And 
+noticed:
 
-Unfortunately I don't think this solves the problem, it just changes it 
-slightly.  It is no longer "How do I enable SELinux and XXX personal 
-firewall?" but instead "How do I enable SELinux's network access 
-controls and XXX personal firewall?"
+class htb 1:10 parent 1:2 rate 250000Kbit ceil 250000Kbit burst 1562b/8 mpu 0b 
+overhead 0b cburst 1562b/8 mpu 0b overhead 0b level 6
+ Sent 189473054 bytes 264641 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 70606Kbit 12304pps backlog 0b 0p requeues 0
+ lended: 22353 borrowed: 0 giants: 0
+ tokens: -32 ctokens: -32
 
--- 
-paul moore
-linux @ hp
+class htb 1:2 root rate 950000Kbit ceil 950000Kbit burst 1425b/8 mpu 0b 
+overhead 0b cburst 1425b/8 mpu 0b overhead 0b level 7
+ Sent 330006424 bytes 464968 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 122834Kbit 21594pps backlog 0b 0p requeues 0
+ lended: 607 borrowed: 0 giants: 0
+ tokens: 12 ctokens: 12
+
+class htb 1:20 parent 1:10 leaf 20: prio 0 quantum 200000 rate 200000Kbit ceil 
+250000Kbit burst 1575b/8 mpu 0b overhead 0b cburst 1562b/8 mpu 0b overhead 0b 
+level 0
+ Sent 143772902 bytes 120383 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 53968Kbit 5634pps backlog 0b 110p requeues 0
+ lended: 118274 borrowed: 1993 giants: 0
+ tokens: -54 ctokens: 3
+
+class htb 1:30 parent 1:10 leaf 30: prio 0 quantum 200000 rate 40000Kbit ceil 
+250000Kbit burst 1595b/8 mpu 0b overhead 0b cburst 1562b/8 mpu 0b overhead 0b 
+level 0
+ Sent 46819818 bytes 147786 pkt (dropped 15842, overlimits 0 requeues 0)
+ rate 17406Kbit 6862pps backlog 0b 3418p requeues 0
+ lended: 124008 borrowed: 20360 giants: 0
+ tokens: -75 ctokens: 37
+
+class htb 1:3 parent 1:2 leaf 3: prio 0 quantum 200000 rate 680000Kbit ceil 
+950000Kbit burst 1445b/8 mpu 0b overhead 0b cburst 1425b/8 mpu 0b overhead 0b 
+level 0
+ Sent 140533370 bytes 200327 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 52228Kbit 9289pps backlog 0b 0p requeues 0
+ lended: 199720 borrowed: 607 giants: 0
+ tokens: 17 ctokens: 12
+
+So just look: 1:3 have burst 1445 / 1425, and 1:2, his parent - burst 1425 and 
+cburst 1425. It is wrong? I am not so experienced in htb to judge, but i feel 
+like iproute2 calculating burst/cburst not right way. 
+
+
+-------------------------------------------------------
+
+Just few things more, let's review only rate.
+
+opt.rate.rate calculated by get_rate.
+
+if (get_rate(&opt.rate.rate, *argv)) {
+
+
+int get_rate(unsigned *rate, const char *str)
+{
+        const struct rate_suffix *s;
+
+        if (p == str)
+                return -1;
+
+        if (*p == '\0') {
+                *rate = bps / 8.;       /* assume bytes/sec */
+                return 0;
+        }
+
+        for (s = suffixes; s->name; ++s) {
+                if (strcasecmp(s->name, p) == 0) {
+                        *rate = (bps * s->scale) / 8.;
+                        return 0;
+                }
+        }
+
+
+
+
+get_rate calculate from my 950Mbit/s and 680Mbps
+118750000 and 85000000
+
+opt.rate.rate is speed in byte/s
+
+then burst calculated by
+
+        if (!buffer) buffer = opt.rate.rate / get_hz() + mtu;
+
+Here is most funny things. All variables is integer. I did simulation:
+
+                        
+fprintf(stderr,"950Mbps %u %u\n",118750000/get_hz(),get_hz());                      
+fprintf(stderr,"680Mbps %u %u\n",85000000/get_hz(),get_hz());
+
+950Mbps 0 1000000000
+680Mbps 0 1000000000
+
+and 
+                        fprintf(stderr,"950Mbps %u %u\n",118750000/get_hz() + 
+mtu,get_hz());
+                        fprintf(stderr,"680Mbps %u %u\n",85000000/get_hz() + 
+mtu,get_hz());
+
+950Mbps 1600 1000000000
+680Mbps 1600 1000000000
+
+So till this point it looks like correct, precision is enough high.
+
+then
+
+opt.buffer = tc_calc_xmittime(opt.rate.rate, buffer);
+
+unsigned tc_calc_xmittime(unsigned rate, unsigned size)
+{
+        return tc_core_time2tick(TIME_UNITS_PER_SEC*((double)size/rate));
+}
+13.47 and 18.82
+Seems here it is. Then there is 
+unsigned tc_core_time2tick(unsigned time)
+{
+        return time*tick_in_usec;
+}
+which seems not so important.
+
+
+I guess it was supposed in this formula, that size must vary, and higher rate 
+must have higher size. But because our timer resolution so high, and we add 
+also mtu value... things going wrong.
+I dont know yet, how to calculate this correctly. Even not sure if it is 
+wrong. But HTB author, stated clearly 
+
+"Note: The burst and cburst of a class should always be at least as high as 
+that of any of it children. "
