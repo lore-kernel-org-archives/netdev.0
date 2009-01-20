@@ -1,124 +1,426 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 05/10] tun: Grab the netns in open.
-Date: Tue, 20 Jan 2009 13:01:48 -0800
-Message-ID: <m17i4plmir.fsf_-_@fess.ebiederm.org>
+Subject: [PATCH 04/10] tun: Introduce tun_file
+Date: Tue, 20 Jan 2009 13:00:40 -0800
+Message-ID: <m1bpu1lmkn.fsf_-_@fess.ebiederm.org>
 References: <m1y6x5lmvy.fsf@fess.ebiederm.org>
 	<m1skndlmrv.fsf@fess.ebiederm.org>
 	<m1mydllmpf.fsf_-_@fess.ebiederm.org>
 	<m1hc3tlmna.fsf_-_@fess.ebiederm.org>
-	<m1bpu1lmkn.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>, Max Krasnyansky <maxk@qualcomm.com>,
 	Pavel Emelyanov <xemul@openvz.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:52473 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755088AbZAUCpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 21:45:16 -0500
+Received: from out02.mta.xmission.com ([166.70.13.232]:56268 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755185AbZAUCpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 21:45:17 -0500
 Received: from mx04.mta.xmission.com ([166.70.13.214])
-	by out01.mta.xmission.com with esmtp (Exim 4.62)
+	by out02.mta.xmission.com with esmtp (Exim 4.62)
 	(envelope-from <ebiederm@xmission.com>)
-	id 1LPT5q-0007YJ-Kx
-	for netdev@vger.kernel.org; Tue, 20 Jan 2009 19:45:26 -0700
+	id 1LPT5g-00015Q-DX
+	for netdev@vger.kernel.org; Tue, 20 Jan 2009 19:45:16 -0700
 Received: from c-24-130-11-59.hsd1.ca.comcast.net ([24.130.11.59] helo=fess.ebiederm.org)
 	by mx04.mta.xmission.com with esmtpsa (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
 	(Exim 4.63)
 	(envelope-from <ebiederm@xmission.com>)
-	id 1LPT5f-00054R-Pq
+	id 1LPT5f-00054I-DN
 	for netdev@vger.kernel.org; Tue, 20 Jan 2009 19:45:16 -0700
 Received: from fess.ebiederm.org (localhost [127.0.0.1])
-	by fess.ebiederm.org (8.14.3/8.14.3/Debian-4) with ESMTP id n0L2jHEa029113
+	by fess.ebiederm.org (8.14.3/8.14.3/Debian-4) with ESMTP id n0L2jH2U029109
 	for <netdev@vger.kernel.org>; Tue, 20 Jan 2009 18:45:17 -0800
 Received: (from eric@localhost)
-	by fess.ebiederm.org (8.14.3/8.14.3/Submit) id n0L2jHaU029112
+	by fess.ebiederm.org (8.14.3/8.14.3/Submit) id n0L2jHBF029108
 	for netdev@vger.kernel.org; Tue, 20 Jan 2009 18:45:17 -0800
-In-Reply-To: <m1bpu1lmkn.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's message of "Tue\, 20 Jan 2009 13\:00\:40 -0800")
+In-Reply-To: <m1hc3tlmna.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's message of "Tue\, 20 Jan 2009 12\:59\:05 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Grabbing namespaces in open, and putting them in close always seems to
-be the cleanest approach with the fewest surprises.
+Currently the tun code suffers from only having a single word of
+data that exists for the entire life of the tun file descriptor.
 
-So now that we have tun_file so we have somepleace to put the network
-namespace, let's grab the network namespace on file open and put on
-file close.
+This results in peculiar holding of references to the network namespace
+as well as races between free_netdevice and tun_chr_close.
+
+Fix this by introducing tun_file which will hold the per file state.
+For the moment it still holds just a single word so the differences
+are all logic changes with no changes in semantics.
 
 Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
 ---
- drivers/net/tun.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/tun.c |  156 +++++++++++++++++++++++++++++++++++------------------
+ 1 files changed, 104 insertions(+), 52 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index d3a665d..dfbf586 100644
+index 8743de9..d3a665d 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -89,6 +89,7 @@ struct tap_filter {
- 
- struct tun_file {
- 	struct tun_struct *tun;
-+	struct net *net;
+@@ -87,9 +87,13 @@ struct tap_filter {
+ 	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
  };
  
++struct tun_file {
++	struct tun_struct *tun;
++};
++
  struct tun_struct {
-@@ -131,7 +132,6 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
++	struct tun_file		*tfile;
+ 	unsigned int 		flags;
+-	int			attached;
+ 	uid_t			owner;
+ 	gid_t			group;
  
- 	tfile->tun = tun;
- 	tun->tfile = tfile;
--	get_net(dev_net(tun->dev));
+@@ -108,14 +112,15 @@ struct tun_struct {
+ 
+ static int tun_attach(struct tun_struct *tun, struct file *file)
+ {
++	struct tun_file *tfile = file->private_data;
+ 	const struct cred *cred = current_cred();
+ 
+ 	ASSERT_RTNL();
+ 
+-	if (file->private_data)
++	if (tfile->tun)
+ 		return -EINVAL;
+ 
+-	if (tun->attached)
++	if (tun->tfile)
+ 		return -EBUSY;
+ 
+ 	/* Check permissions */
+@@ -124,13 +129,41 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 		!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	file->private_data = tun;
+-	tun->attached = 1;
++	tfile->tun = tun;
++	tun->tfile = tfile;
+ 	get_net(dev_net(tun->dev));
  
  	return 0;
  }
-@@ -143,7 +143,6 @@ static void __tun_detach(struct tun_struct *tun)
- 	/* Detach from net device */
- 	tfile->tun = NULL;
- 	tun->tfile = NULL;
--	put_net(dev_net(tun->dev));
  
- 	/* Drop read queue */
- 	skb_queue_purge(&tun->readq);
-@@ -936,6 +935,7 @@ static int set_offload(struct net_device *dev, unsigned long arg)
++static void __tun_detach(struct tun_struct *tun)
++{
++	struct tun_file *tfile = tun->tfile;
++
++	/* Detach from net device */
++	tfile->tun = NULL;
++	tun->tfile = NULL;
++	put_net(dev_net(tun->dev));
++
++	/* Drop read queue */
++	skb_queue_purge(&tun->readq);
++}
++
++static struct tun_struct *__tun_get(struct tun_file *tfile)
++{
++	return tfile->tun;
++}
++
++static struct tun_struct *tun_get(struct file *file)
++{
++	return __tun_get(file->private_data);
++}
++
++static void tun_put(struct tun_struct *tun)
++{
++	/* Noop for now */
++}
++
+ /* TAP filterting */
+ static void addr_hash_set(u32 *mask, const u8 *addr)
+ {
+@@ -261,7 +294,7 @@ static int tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	DBG(KERN_INFO "%s: tun_net_xmit %d\n", tun->dev->name, skb->len);
+ 
+ 	/* Drop packet if interface is not attached */
+-	if (!tun->attached)
++	if (!tun->tfile)
+ 		goto drop;
+ 
+ 	/* Drop if the filter does not like it.
+@@ -378,7 +411,7 @@ static void tun_net_init(struct net_device *dev)
+ /* Poll */
+ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ {
+-	struct tun_struct *tun = file->private_data;
++	struct tun_struct *tun = tun_get(file);
+ 	unsigned int mask = POLLOUT | POLLWRNORM;
+ 
+ 	if (!tun)
+@@ -391,6 +424,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ 	if (!skb_queue_empty(&tun->readq))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
++	tun_put(tun);
+ 	return mask;
+ }
+ 
+@@ -575,14 +609,18 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 			      unsigned long count, loff_t pos)
+ {
+-	struct tun_struct *tun = iocb->ki_filp->private_data;
++	struct tun_struct *tun = tun_get(iocb->ki_filp);
++	ssize_t result;
+ 
+ 	if (!tun)
+ 		return -EBADFD;
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
+ 
+-	return tun_get_user(tun, (struct iovec *) iv, iov_length(iv, count));
++	result = tun_get_user(tun, (struct iovec *) iv, iov_length(iv, count));
++
++	tun_put(tun);
++	return result;
+ }
+ 
+ /* Put packet to the user space buffer */
+@@ -655,7 +693,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 			    unsigned long count, loff_t pos)
+ {
+ 	struct file *file = iocb->ki_filp;
+-	struct tun_struct *tun = file->private_data;
++	struct tun_struct *tun = tun_get(file);
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	struct sk_buff *skb;
+ 	ssize_t len, ret = 0;
+@@ -666,8 +704,10 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
+ 
+ 	len = iov_length(iv, count);
+-	if (len < 0)
+-		return -EINVAL;
++	if (len < 0) {
++		ret = -EINVAL;
++		goto out;
++	}
+ 
+ 	add_wait_queue(&tun->read_wait, &wait);
+ 	while (len) {
+@@ -698,6 +738,8 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 	current->state = TASK_RUNNING;
+ 	remove_wait_queue(&tun->read_wait, &wait);
+ 
++out:
++	tun_put(tun);
+ 	return ret;
+ }
+ 
+@@ -822,7 +864,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 
+ static int tun_get_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ {
+-	struct tun_struct *tun = file->private_data;
++	struct tun_struct *tun = tun_get(file);
+ 
+ 	if (!tun)
+ 		return -EBADFD;
+@@ -847,6 +889,7 @@ static int tun_get_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 	if (tun->flags & TUN_VNET_HDR)
+ 		ifr->ifr_flags |= IFF_VNET_HDR;
+ 
++	tun_put(tun);
+ 	return 0;
+ }
+ 
+@@ -893,7 +936,7 @@ static int set_offload(struct net_device *dev, unsigned long arg)
  static int tun_chr_ioctl(struct inode *inode, struct file *file,
  			 unsigned int cmd, unsigned long arg)
  {
-+	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun;
+-	struct tun_struct *tun = file->private_data;
++	struct tun_struct *tun;
  	void __user* argp = (void __user*)arg;
  	struct ifreq ifr;
-@@ -954,14 +954,14 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
- 				(unsigned int __user*)argp);
- 	}
+ 	int ret;
+@@ -902,6 +945,16 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 		if (copy_from_user(&ifr, argp, sizeof ifr))
+ 			return -EFAULT;
  
--	tun = tun_get(file);
-+	tun = __tun_get(tfile);
++	if (cmd == TUNGETFEATURES) {
++		/* Currently this just means: "what IFF flags are valid?".
++		 * This is needed because we never checked for invalid flags on
++		 * TUNSETIFF. */
++		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
++				IFF_VNET_HDR,
++				(unsigned int __user*)argp);
++	}
++
++	tun = tun_get(file);
  	if (cmd == TUNSETIFF && !tun) {
  		int err;
  
- 		ifr.ifr_name[IFNAMSIZ-1] = '\0';
- 
- 		rtnl_lock();
--		err = tun_set_iff(current->nsproxy->net_ns, file, &ifr);
-+		err = tun_set_iff(tfile->net, file, &ifr);
- 		rtnl_unlock();
- 
- 		if (err)
-@@ -1125,6 +1125,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- 	if (!tfile)
- 		return -ENOMEM;
- 	tfile->tun = NULL;
-+	tfile->net = get_net(current->nsproxy->net_ns);
- 	file->private_data = tfile;
- 	return 0;
- }
-@@ -1148,6 +1149,7 @@ static int tun_chr_close(struct inode *inode, struct file *file)
- 		rtnl_unlock();
+@@ -919,28 +972,21 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 		return 0;
  	}
  
-+	put_net(tfile->net);
- 	kfree(tfile);
+-	if (cmd == TUNGETFEATURES) {
+-		/* Currently this just means: "what IFF flags are valid?".
+-		 * This is needed because we never checked for invalid flags on
+-		 * TUNSETIFF. */
+-		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
+-				IFF_VNET_HDR,
+-				(unsigned int __user*)argp);
+-	}
+ 
+ 	if (!tun)
+ 		return -EBADFD;
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_ioctl cmd %d\n", tun->dev->name, cmd);
+ 
++	ret = 0;
+ 	switch (cmd) {
+ 	case TUNGETIFF:
+ 		ret = tun_get_iff(current->nsproxy->net_ns, file, &ifr);
+ 		if (ret)
+-			return ret;
++			break;
+ 
+ 		if (copy_to_user(argp, &ifr, sizeof(ifr)))
+-			return -EFAULT;
++			ret = -EFAULT;
+ 		break;
+ 
+ 	case TUNSETNOCSUM:
+@@ -992,7 +1038,7 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 			ret = 0;
+ 		}
+ 		rtnl_unlock();
+-		return ret;
++		break;
+ 
+ #ifdef TUN_DEBUG
+ 	case TUNSETDEBUG:
+@@ -1003,24 +1049,25 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 		rtnl_lock();
+ 		ret = set_offload(tun->dev, arg);
+ 		rtnl_unlock();
+-		return ret;
++		break;
+ 
+ 	case TUNSETTXFILTER:
+ 		/* Can be set only for TAPs */
++		ret = -EINVAL;
+ 		if ((tun->flags & TUN_TYPE_MASK) != TUN_TAP_DEV)
+-			return -EINVAL;
++			break;
+ 		rtnl_lock();
+ 		ret = update_filter(&tun->txflt, (void __user *)arg);
+ 		rtnl_unlock();
+-		return ret;
++		break;
+ 
+ 	case SIOCGIFHWADDR:
+ 		/* Get hw addres */
+ 		memcpy(ifr.ifr_hwaddr.sa_data, tun->dev->dev_addr, ETH_ALEN);
+ 		ifr.ifr_hwaddr.sa_family = tun->dev->type;
+ 		if (copy_to_user(argp, &ifr, sizeof ifr))
+-			return -EFAULT;
+-		return 0;
++			ret = -EFAULT;
++		break;
+ 
+ 	case SIOCSIFHWADDR:
+ 		/* Set hw address */
+@@ -1030,18 +1077,19 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 		rtnl_lock();
+ 		ret = dev_set_mac_address(tun->dev, &ifr.ifr_hwaddr);
+ 		rtnl_unlock();
+-		return ret;
+-
++		break;
+ 	default:
+-		return -EINVAL;
++		ret = -EINVAL;
++		break;
+ 	};
+ 
+-	return 0;
++	tun_put(tun);
++	return ret;
+ }
+ 
+ static int tun_chr_fasync(int fd, struct file *file, int on)
+ {
+-	struct tun_struct *tun = file->private_data;
++	struct tun_struct *tun = tun_get(file);
+ 	int ret;
+ 
+ 	if (!tun)
+@@ -1063,40 +1111,44 @@ static int tun_chr_fasync(int fd, struct file *file, int on)
+ 	ret = 0;
+ out:
+ 	unlock_kernel();
++	tun_put(tun);
+ 	return ret;
+ }
+ 
+ static int tun_chr_open(struct inode *inode, struct file * file)
+ {
++	struct tun_file *tfile;
+ 	cycle_kernel_lock();
+ 	DBG1(KERN_INFO "tunX: tun_chr_open\n");
+-	file->private_data = NULL;
++
++	tfile = kmalloc(sizeof(*tfile), GFP_KERNEL);
++	if (!tfile)
++		return -ENOMEM;
++	tfile->tun = NULL;
++	file->private_data = tfile;
+ 	return 0;
+ }
+ 
+ static int tun_chr_close(struct inode *inode, struct file *file)
+ {
+-	struct tun_struct *tun = file->private_data;
+-
+-	if (!tun)
+-		return 0;
++	struct tun_file *tfile = file->private_data;
++	struct tun_struct *tun = __tun_get(tfile);
+ 
+-	DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
+ 
+-	rtnl_lock();
++	if (tun) {
++		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
+ 
+-	/* Detach from net device */
+-	file->private_data = NULL;
+-	tun->attached = 0;
+-	put_net(dev_net(tun->dev));
++		rtnl_lock();
++		__tun_detach(tun);
+ 
+-	/* Drop read queue */
+-	skb_queue_purge(&tun->readq);
++		/* If desireable, unregister the netdevice. */
++		if (!(tun->flags & TUN_PERSIST))
++			unregister_netdevice(tun->dev);
+ 
+-	if (!(tun->flags & TUN_PERSIST))
+-		unregister_netdevice(tun->dev);
++		rtnl_unlock();
++	}
+ 
+-	rtnl_unlock();
++	kfree(tfile);
  
  	return 0;
+ }
+@@ -1177,7 +1229,7 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
+ static u32 tun_get_link(struct net_device *dev)
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
+-	return tun->attached;
++	return !!tun->tfile;
+ }
+ 
+ static u32 tun_get_rx_csum(struct net_device *dev)
 -- 
 1.5.6.3
