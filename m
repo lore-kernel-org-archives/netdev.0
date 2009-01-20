@@ -1,9 +1,12 @@
 From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 2/6] smsc911x: register isr as IRQF_SHARED
-Date: Tue, 20 Jan 2009 13:28:30 +0000
-Message-ID: <1232458114-10997-3-git-send-email-steve.glendinning@smsc.com>
+Subject: [PATCH 5/6] arm: update pcm037 defconfig to use smsc911x
+Date: Tue, 20 Jan 2009 13:28:33 +0000
+Message-ID: <1232458114-10997-6-git-send-email-steve.glendinning@smsc.com>
 References: <1232458114-10997-1-git-send-email-steve.glendinning@smsc.com>
  <1232458114-10997-2-git-send-email-steve.glendinning@smsc.com>
+ <1232458114-10997-3-git-send-email-steve.glendinning@smsc.com>
+ <1232458114-10997-4-git-send-email-steve.glendinning@smsc.com>
+ <1232458114-10997-5-git-send-email-steve.glendinning@smsc.com>
 Cc: David Miller <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Stanley Miao <stanley.miao@windriver.com>,
@@ -11,38 +14,58 @@ Cc: David Miller <davem@davemloft.net>,
 	Steve Glendinning <steve.glendinning@smsc.com>
 To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sandgatehouse.force9.co.uk ([84.92.144.20]:48206 "EHLO
+Received: from sandgatehouse.force9.co.uk ([84.92.144.20]:48221 "EHLO
 	kensington.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755132AbZATNbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 08:31:48 -0500
-In-Reply-To: <1232458114-10997-2-git-send-email-steve.glendinning@smsc.com>
+	with ESMTP id S1756061AbZATNbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 08:31:52 -0500
+In-Reply-To: <1232458114-10997-5-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The isr supports shared operation, so register it with the IRQF_SHARED
-flag to indicate this.
-
-This patch also removes the IRQF_DISABLED flag.  This driver doesn't
-need it, and IRQF_DISABLED isn't guaranteed when using shared interrupts.
-
 Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 ---
- drivers/net/smsc911x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/arm/configs/pcm037_defconfig |   23 ++++++++++++++++++++++-
+ 1 files changed, 22 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index 3565df1..f882fd5 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1978,7 +1978,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
- 
- 	retval = request_irq(dev->irq, smsc911x_irqhandler,
--			     irq_flags | IRQF_DISABLED, dev->name, dev);
-+			     irq_flags | IRQF_SHARED, dev->name, dev);
- 	if (retval) {
- 		SMSC_WARNING(PROBE,
- 			"Unable to claim requested irq: %d", dev->irq);
+diff --git a/arch/arm/configs/pcm037_defconfig b/arch/arm/configs/pcm037_defconfig
+index 6274745..6e37c77 100644
+--- a/arch/arm/configs/pcm037_defconfig
++++ b/arch/arm/configs/pcm037_defconfig
+@@ -465,12 +465,33 @@ CONFIG_NETDEVICES=y
+ # CONFIG_EQUALIZER is not set
+ # CONFIG_TUN is not set
+ # CONFIG_VETH is not set
+-# CONFIG_PHYLIB is not set
++CONFIG_PHYLIB=y
++
++#
++# MII PHY device drivers
++#
++# CONFIG_MARVELL_PHY is not set
++# CONFIG_DAVICOM_PHY is not set
++# CONFIG_QSEMI_PHY is not set
++# CONFIG_LXT_PHY is not set
++# CONFIG_CICADA_PHY is not set
++# CONFIG_VITESSE_PHY is not set
++CONFIG_SMSC_PHY=y
++# CONFIG_BROADCOM_PHY is not set
++# CONFIG_ICPLUS_PHY is not set
++# CONFIG_REALTEK_PHY is not set
++# CONFIG_NATIONAL_PHY is not set
++# CONFIG_STE10XP is not set
++# CONFIG_LSI_ET1011C_PHY is not set
++# CONFIG_FIXED_PHY is not set
++# CONFIG_MDIO_BITBANG is not set
+ CONFIG_NET_ETHERNET=y
+ CONFIG_MII=y
+ # CONFIG_AX88796 is not set
+ CONFIG_SMC91X=y
+ # CONFIG_DM9000 is not set
++# CONFIG_SMC911X is not set
++CONFIG_SMSC911X=y
+ # CONFIG_IBM_NEW_EMAC_ZMII is not set
+ # CONFIG_IBM_NEW_EMAC_RGMII is not set
+ # CONFIG_IBM_NEW_EMAC_TAH is not set
 -- 
 1.6.0.6
 
