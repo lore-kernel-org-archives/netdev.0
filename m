@@ -1,8 +1,8 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Tue, 20 Jan 2009 08:37:26 +0000
-Message-ID: <20090120083726.GA13806@ff.dom.local>
-References: <20090114.012919.117682429.davem@davemloft.net> <20090115230331.GB1123@1wt.eu> <20090115231934.GA8328@gondor.apana.org.au> <20090115.152608.89323697.davem@davemloft.net>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Tue, 20 Jan 2009 09:33:52 +0000
+Message-ID: <20090120093352.GB13806@ff.dom.local>
+References: <20090114.012919.117682429.davem@davemloft.net> <20090115230331.GB1123@1wt.eu> <20090115231934.GA8328@gondor.apana.org.au> <20090115.152608.89323697.davem@davemloft.net> <20090120083726.GA13806@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: herbert@gondor.apana.org.au, w@1wt.eu, zbr@ioremap.net,
@@ -11,41 +11,28 @@ Cc: herbert@gondor.apana.org.au, w@1wt.eu, zbr@ioremap.net,
 	jens.axboe@oracle.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f20.google.com ([209.85.219.20]:40795 "EHLO
-	mail-ew0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754516AbZATIhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 03:37:35 -0500
+Received: from ey-out-2122.google.com ([74.125.78.25]:48280 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbZATJeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 04:34:00 -0500
 Content-Disposition: inline
-In-Reply-To: <20090115.152608.89323697.davem@davemloft.net>
+In-Reply-To: <20090120083726.GA13806@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 15, 2009 at 03:26:08PM -0800, David Miller wrote:
+On Tue, Jan 20, 2009 at 08:37:26AM +0000, Jarek Poplawski wrote:
 ...
-> net: Fix data corruption when splicing from sockets.
-> 
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> 
-> The trick in socket splicing where we try to convert the skb->data
-> into a page based reference using virt_to_page() does not work so
-> well.
-...
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 65eac77..56272ac 100644
-...
+> Here is a tiny upgrade to save some memory by reusing a page for more
+> chunks if possible, which I think could be considered, after the
+> testing of the main patch is finished. (There could be also added an
+> additional freeing of this cached page before socket destruction,
+> maybe in tcp_splice_read(), if somebody finds good place.)
 
-Here is a tiny upgrade to save some memory by reusing a page for more
-chunks if possible, which I think could be considered, after the
-testing of the main patch is finished. (There could be also added an
-additional freeing of this cached page before socket destruction,
-maybe in tcp_splice_read(), if somebody finds good place.)
+OOPS! I did it again... Here is better refcounting.
 
-Thanks,
 Jarek P.
 
----
+--- (take 2)
 
  include/net/sock.h  |    4 ++++
  net/core/skbuff.c   |   32 ++++++++++++++++++++++++++------
@@ -76,7 +63,7 @@ index 5a3a151..4ded741 100644
  #ifdef CONFIG_SECURITY
  	void			*sk_security;
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 56272ac..74adc79 100644
+index 56272ac..02a1a6c 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
 @@ -1334,13 +1334,33 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
@@ -102,8 +89,7 @@ index 56272ac..74adc79 100644
 +			return NULL;
 +
 +		off = sk->sk_splice_off = 0;
-+		/* hold this page until it's full or unneeded */
-+		get_page(p);
++		/* we hold one ref to this page until it's full or unneeded */
 +	} else {
 +		off = sk->sk_splice_off;
 +		if (off + len > PAGE_SIZE) {
@@ -115,6 +101,7 @@ index 56272ac..74adc79 100644
 +	memcpy(page_address(p) + off, page_address(page) + *offset, len);
 +	sk->sk_splice_off += len;
 +	*offset = off;
++	get_page(p);
  
  	return p;
  }
