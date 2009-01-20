@@ -1,45 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6] tg3: Fix firmware loading
-Date: Mon, 19 Jan 2009 16:57:56 -0800 (PST)
-Message-ID: <20090119.165756.163650913.davem@davemloft.net>
-References: <1232397814.31530@xw6200>
+Subject: Re: cxgb3: Replace LRO with GRO
+Date: Mon, 19 Jan 2009 17:03:08 -0800 (PST)
+Message-ID: <20090119.170308.145804150.davem@davemloft.net>
+References: <20090115211403.3792.24995.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com, andy@greyhouse.net
-To: mcarlson@broadcom.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60021
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39818
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751884AbZATA5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 19:57:55 -0500
-In-Reply-To: <1232397814.31530@xw6200>
+	by vger.kernel.org with ESMTP id S1751812AbZATBDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 20:03:08 -0500
+In-Reply-To: <20090115211403.3792.24995.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Mon, 19 Jan 2009 05:17:32 -0800
+From: Divy Le Ray <divy@chelsio.com>
+Date: Thu, 15 Jan 2009 13:14:03 -0800
 
-> This patch modifies how the tg3 driver handles device firmware.
+> cxgb3: Replace LRO with GRO
 > 
-> The patch starts by consolidating David Woodhouse's earlier patch under
-> the same name.  Specifically, the patch moves the request_firmware call
-> into a separate tg3_request_firmware() function and calls that function
-> from tg3_open() rather than tg3_init_one().
+> This patch makes cxgb3 invoke the GRO hooks instead of LRO.  As
+> GRO has a compatible external interface to LRO this is a very
+> straightforward replacement.
 > 
-> The patch then goes on to limit the number of devices that will make
-> request_firmware calls.  The original firmware patch unnecessarily
-> requested TSO firmware for devices that did not need it.  This patch
-> reduces the set of devices making TSO firmware patches to approximately
-> the following device set : 5703, 5704, and 5705.
+> I've kept the ioctl controls for per-queue LRO switches.  However,
+> we should not encourage anyone to use these.
 > 
-> Finally, the patch reduces the effects of a request_firmware() failure.
-> For those devices that are requesting TSO firmware, the driver will turn
-> off the TSO capability.  If TSO firmware becomes available at a later
-> time, the device can be closed and then opened again to reacquire the
-> TSO capability.
+> Because of that, I've also kept the skb construction code in
+> cxgb3.  Hopefully we can phase out those per-queue switches
+> and then kill this too.
 > 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Acked-by: Divy Le Ray <divy@chelsio.com>
 
-Applied.
+I've added this to my net-next-2.6 tree.
+
+I'm confident that you will work out the performance issues
+with Herbert, else we'll simply revert this.
