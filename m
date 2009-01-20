@@ -1,31 +1,72 @@
-From: "Andy Fleming" <afleming@gmail.com>
-Subject: Re: [PATCH] phy: Add suspend/resume support to SMSC PHYs
-Date: Tue, 20 Jan 2009 16:05:43 -0600
-Message-ID: <2acbd3e40901201405o102573fwdfdfe05b40b9c206@mail.gmail.com>
-References: <1232459038-13156-1-git-send-email-steve.glendinning@smsc.com>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
+Date: Tue, 20 Jan 2009 22:42:45 +0100
+Message-ID: <m2ljt53b8q.fsf@ssh.synack.fr>
+References: <1232473719.24943.102.camel@sp-laptop3.sp-local>
+	<m2prih3f9i.fsf@ssh.synack.fr>
+	<alpine.LSU.2.00.0901202120240.24253@fbirervta.pbzchgretzou.qr>
+	<200901201553.57022.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David Miller" <davem@davemloft.net>,
-	"Ian Saturley" <ian.saturley@smsc.com>
-To: "Steve Glendinning" <steve.glendinning@smsc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:15018 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753263AbZATWFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 17:05:44 -0500
-Received: by wf-out-1314.google.com with SMTP id 27so4000044wfd.4
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2009 14:05:43 -0800 (PST)
-In-Reply-To: <1232459038-13156-1-git-send-email-steve.glendinning@smsc.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Stephan Peijnik <stephan@peijnik.at>,
+	"linux-security-module" <linux-security-module@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <200901201553.57022.paul.moore@hp.com> (Paul Moore's message of
+	"Tue, 20 Jan 2009 15:53:56 -0500")
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 20, 2009 at 7:43 AM, Steve Glendinning
-<steve.glendinning@smsc.com> wrote:
-> All supported SMSC PHYs implement the standard "power down" bit 11 of
-> BMCR, so this patch adds support using the generic genphy_{suspend,resume}
-> functions.
+Paul Moore <paul.moore@hp.com> writes:
+
+> However, in dealing with the issue of personal firewalls I think the 
+> biggest issue will be the user interaction as you described ... how do 
+> you explain to a user who clicked the "allow" button that the system 
+> rejected their traffic?
+
+maybe because the personnal firewall is the only one which deal with the
+LSM hook related to network (?)
+
+>> >But what you are asking is to have multiple security models at the
+>> > same time, with some kind of priority.
+>> >I don't know if it's ok or not, but what I'm sure is that snet will
+>> > use LSM hooks or your new framework without any problems in fact,
+>> > as you are going to make some kind of wrapper on the members of the
+>> > struct security_operations.
+>>
+>> jan>>> My opinion up to here would be to split LSM into the LSM
+>> category
+>>
+>> >>> {selinux, apparmor, tomoyo} and the other, new LSM category
+>> >>> {networking stuff}, just as a potential idea to get over the
+>> >>> stacking / single LSM use  issue.
+>> >
+>> >Indeed I thought about that when writing snet.
+>>
+>> For starters, the existing LSM interface and the LSM  modules
+>> themselves could be split up so as to provide
+>>
+>>  selinux.ko
+>>   \_ selinux_net.ko
+>>   \_ selinux_fs.ko
+>>   ...
+>>
+>> just a suggestion to ease the thinking process for now.
+>> If a purely network-related LSM does not have to think about
+>> "do I need to implement FS hooks that do chaining or not..."
+>> it is a lot better off.
 >
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
-Acked-by: Andy Fleming <afleming@freescale.com>
+> Unfortunately I don't think this solves the problem, it just changes it 
+> slightly.  It is no longer "How do I enable SELinux and XXX personal 
+> firewall?" but instead "How do I enable SELinux's network access 
+> controls and XXX personal firewall?"
+
+And introduce another one : "how do I make SElinux's network access
+controls and Apparmor filesystem access controls working together ?"
+this is the true deal in this kind of solution.
+
+sam
