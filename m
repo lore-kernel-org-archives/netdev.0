@@ -1,48 +1,40 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH 0/5] ppp,pppoe,pppol2tp -- introduce namespace
-	functionality v2
-Date: Tue, 20 Jan 2009 17:17:28 +0300
-Message-ID: <20090120141728.GA14560@localhost>
-References: <4975dc11.0c07560a.7a93.ffff9782@mx.google.com>
+From: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Subject: why usr/include/linux/if_frad.h is required
+Date: Tue, 20 Jan 2009 20:22:54 +0530
+Message-ID: <1232463174.3088.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, jchapman@katalix.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@openvz.org, xemul@openvz.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762900AbZATOSU@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4975dc11.0c07560a.7a93.ffff9782@mx.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: mike.mclagan@linux.org, Ingo Molnar <mingo@elte.hu>,
+	Sam Ravnborg <sam@ravnborg.org>, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:52127 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752902AbZATOx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2009 09:53:27 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Cyrill Gorcunov - Tue, Jan 20, 2009 at 05:05:10PM +0300]
-| Hi, here is a series of patches in hope to bring
-| net-namespace functionality for PPP, PPPoE, PPPoL2TP
-| protocols.
-| 
-| I've tested plain PPP virtualization and it worked
-| for me. Quite may thanks to James Chapman who
-| was testing PPPoL2TP for me, thanks a lot again
-| James!
-| 
-| Please review and test if possible. I do really
-| appreciate _any_ kind of feedback. Thanks!
-| 
-| I didn't put Ack I got on previous series since it's
-| a bit new (though PPPoE didn't changed but anyway)
-| 
-| The patches are on top of net-2.6 commit
-| 
-| commit f4895b8bc83a22a36446c4aee277e1750fcc6a18
-| Author: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-| Date:   Mon Jan 19 13:19:30 2009 +0000
-| 
-|     wimax/i2400m: error paths that need to free an skb should use kfree_skb()
-| 
-| 	Cyrill
-| -- 
-| 
+For if_frad.h I am getting two warnings with 'make headers_check':
+  usr/include/linux/if_frad.h:29: leaks CONFIG_DLCI to userspace where it is not valid
+  usr/include/linux/if_frad.h:129: leaks CONFIG_DLCI to userspace where it is not valid
 
-Ugh, sorry, quilt again screwed my post-date :(
-It seems I defenitely has to switch to git.
-		- Cyrill -
+Almost all if_frad.h is covered with #if defined(CONFIG_DLCI) || defined(CONFIG_DLCI_MODULE) 
+
+If I remove this portion so only this what we get in userspace:
+
+#ifndef _FRAD_H_
+#define _FRAD_H_
+
+#include <linux/if.h>
+
+#endif
+
+So I am surprising what is the point of this ? 
+
+Can I change its name to is_fraud ;-)
+
+--
+JSR
+
