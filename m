@@ -1,39 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: cxgb3: Replace LRO with GRO
-Date: Tue, 20 Jan 2009 16:24:51 +1100
-Message-ID: <20090120052451.GA19776@gondor.apana.org.au>
-References: <20090115211403.3792.24995.stgit@speedy5> <20090119.170308.145804150.davem@davemloft.net> <20090119.180330.255801668.davem@davemloft.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
+Date: Tue, 20 Jan 2009 15:25:50 +0900
+Message-ID: <49756E6E.2060409@kernel.org>
+References: <20090115183942.GA6325@elte.hu> <200901170827.33729.rusty@rustcorp.com.au> <20090116220832.GB20653@elte.hu> <200901201328.24605.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: divy@chelsio.com, netdev@vger.kernel.org,
-	swise@opengridcomputing.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
+	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
+	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45701 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750769AbZATFZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 00:25:02 -0500
-Content-Disposition: inline
-In-Reply-To: <20090119.180330.255801668.davem@davemloft.net>
+Received: from hera.kernel.org ([140.211.167.34]:59346 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752890AbZATG00 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2009 01:26:26 -0500
+In-Reply-To: <200901201328.24605.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2009 at 06:03:30PM -0800, David Miller wrote:
->
-> drivers/scsi/cxgb3i/cxgb3i_ddp.h was depending upon the implicit
-> inclusion of linux/vmalloc.h coming from the inet_lro.h include
-> which is removed by this change.
-> 
-> In file included from drivers/scsi/cxgb3i/cxgb3i_ddp.c:24:
-> drivers/scsi/cxgb3i/cxgb3i_ddp.h: In function 'cxgb3i_alloc_big_mem':
-> drivers/scsi/cxgb3i/cxgb3i_ddp.h:148: error: implicit declaration of function 'vmalloc'
-> drivers/scsi/cxgb3i/cxgb3i_ddp.h:148: warning: assignment makes pointer from integer without a cast
-> drivers/scsi/cxgb3i/cxgb3i_ddp.h: In function 'cxgb3i_free_big_mem':
-> drivers/scsi/cxgb3i/cxgb3i_ddp.h:157: error: implicit declaration of function 'vfree'
+Rusty Russell wrote:
+> The generic versions Tejun posted are not softirq safe, so not
+> suitable for network counters. To figure out what semantics we
+> really want we need to we must audit the users; I'm sorry I haven't
+> finished that task (and won't until after the conference).
 
-Thanks Dave!
+No, they're not.  They're preempt safe as mentioned in the comment and
+is basically just generalization of the original x86 versions used by
+x86_64 on SMP before pda and percpu areas were merged.  I agree that
+it's something very close to local_t and it would be nice to see those
+somehow unified (and I have patches which make use of local_t in my
+queue waiting for dynamic percpu allocation).
+
+Another question to ask is whether to keep using separate interfaces
+for static and dynamic percpu variables or migrate to something which
+can take both.
+
+Thanks.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+tejun
