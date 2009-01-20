@@ -1,48 +1,42 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Tue, 20 Jan 2009 10:20:53 +0000
-Message-ID: <20090120102053.GA17004@ff.dom.local>
-References: <20090114.012919.117682429.davem@davemloft.net> <20090115230331.GB1123@1wt.eu> <20090115231934.GA8328@gondor.apana.org.au> <20090115.152608.89323697.davem@davemloft.net> <20090120083726.GA13806@ff.dom.local> <20090120093352.GB13806@ff.dom.local> <20090120100043.GA9167@ioremap.net>
+Date: Tue, 20 Jan 2009 13:31:22 +0300
+Message-ID: <20090120103122.GC9167@ioremap.net>
+References: <20090114.012919.117682429.davem@davemloft.net> <20090115230331.GB1123@1wt.eu> <20090115231934.GA8328@gondor.apana.org.au> <20090115.152608.89323697.davem@davemloft.net> <20090120083726.GA13806@ff.dom.local> <20090120093352.GB13806@ff.dom.local> <20090120100043.GA9167@ioremap.net> <20090120102053.GA17004@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
 	w@1wt.eu, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jens.axboe@oracle.com
-To: Evgeniy Polyakov <zbr@ioremap.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:11471 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753241AbZATKVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 05:21:00 -0500
+Received: from broadrack.ru ([195.178.208.66]:44430 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760291AbZATKbT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2009 05:31:19 -0500
 Content-Disposition: inline
-In-Reply-To: <20090120100043.GA9167@ioremap.net>
+In-Reply-To: <20090120102053.GA17004@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2009 at 01:00:43PM +0300, Evgeniy Polyakov wrote:
-> Hi Jarek.
+On Tue, Jan 20, 2009 at 10:20:53AM +0000, Jarek Poplawski (jarkao2@gmail.com) wrote:
+> Good question! Alas I can't check this soon, but if it's really like
+> this, of course this needs some better idea and rework. (BTW, I'd like
+> to prevent here as much as possible some strange activities like 1
+> byte (payload) packets getting full pages without any accounting.)
 
-Hi Evgeniy.
-...
-> > diff --git a/include/net/sock.h b/include/net/sock.h
-> > index 5a3a151..4ded741 100644
-> > --- a/include/net/sock.h
-> > +++ b/include/net/sock.h
-> > @@ -190,6 +190,8 @@ struct sock_common {
-> >    *	@sk_user_data: RPC layer private data
-> >    *	@sk_sndmsg_page: cached page for sendmsg
-> >    *	@sk_sndmsg_off: cached offset for sendmsg
-> > +  *	@sk_splice_page: cached page for splice
-> > +  *	@sk_splice_off: cached offset for splice
-> 
-> Ugh, increase every socket by 16 bytes... Does TCP one still fit the
-> page?
+I believe approach to meet all our goals is to have own network memory
+allocator, so that each skb could have its payload in the fragments, we
+would not suffer from the heavy fragmentation and power-of-two overhead
+for the larger MTUs, have a reserve for the OOM condition and generally
+do not depend on the main system behaviour.
 
-Good question! Alas I can't check this soon, but if it's really like
-this, of course this needs some better idea and rework. (BTW, I'd like
-to prevent here as much as possible some strange activities like 1
-byte (payload) packets getting full pages without any accounting.)
+I will resurrect to some point my network allocator to check how things
+go in the modern environment, if no one will beat this idea first :)
 
-Thanks,
-Jarek P.
+1. Network (tree) allocator
+http://www.ioremap.net/projects/nta
+
+-- 
+	Evgeniy Polyakov
