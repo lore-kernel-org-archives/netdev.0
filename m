@@ -1,45 +1,43 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Tue, 20 Jan 2009 11:40:22 +0100
-Message-ID: <20090120104022.GB29346@elte.hu>
-References: <20090115183942.GA6325@elte.hu> <200901170827.33729.rusty@rustcorp.com.au> <20090116220832.GB20653@elte.hu> <200901201328.24605.rusty@rustcorp.com.au>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [patch 2.6.29-rc] usbnet: allow type check of devdbg arguments in
+ non-debug build
+Date: Tue, 20 Jan 2009 10:56:09 +0000
+Message-ID: <OF3908A70A.0C947A82-ON80257544.003AA7DB-80257544.003C295C@smsc.com>
+References: <200901192111.48432.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, tj@kernel.org, hpa@zytor.com,
-	brgerst@gmail.com, ebiederm@xmission.com, cl@linux-foundation.org,
-	travis@sgi.com, linux-kernel@vger.kernel.org, steiner@sgi.com,
-	hugh@veritas.com, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, ian.saturley@smsc.com,
+	jeff@garzik.org, jussi.kivilinna@mbnet.fi, netdev@vger.kernel.org
+To: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:51710 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752684AbZATKlC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2009 05:41:02 -0500
-Content-Disposition: inline
-In-Reply-To: <200901201328.24605.rusty@rustcorp.com.au>
+Received: from mail.smsc.com ([170.129.50.11]:3482 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756331AbZATK7I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2009 05:59:08 -0500
+In-Reply-To: <200901192111.48432.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Rusty Russell <rusty@rustcorp.com.au> wrote:
-
-> On Saturday 17 January 2009 08:38:32 Ingo Molnar wrote:
-> > How do difficulties of dynamic percpu-alloc make my above suggestion 
-> > unsuitable for SNMP stats in networking? Most of those stats are not 
-> > dynamically allocated - they are plain straightforward percpu variables.
+David Brownell <david-b@pacbell.net> wrote on 20/01/2009 05:11:48:
+> On Monday 19 January 2009, David Miller wrote:
+> > > Maybe, but that's after all part of why we want this kind
+> > > of patch merged ... after the first gremlines are fixed!
+> > 
+> > When you submit a change like this that can have
+> > potential warning and build failure effects across
+> > the entire tree, the onus is on you to do an
+> > allmodconfig sanity check build or similar and
+> > add any necessary fixes to your change.
 > 
-> No they're not. [...]
+> It's actually Steve's patch ... Steve?
+> 
 
-hm, i see this got changed recently - part of the networking stats went 
-over to the lib/percpu_counter API recently.
+Sorry, my bad - I tested compilation of usbnet drivers in
+drivers/net/usb but missed this wireless usbnet driver hiding
+in drivers/net/wireless.  allmodconfig was what i was looking
+for, thanks David!
 
-The larger point still remains: the kernel dominantly uses static percpu 
-variables by a margin of 10 to 1, so we cannot just brush away the static 
-percpu variables and must concentrate on optimizing that side with 
-priority. It's nice if the dynamic percpu-alloc side improves as well, of 
-course.
+I've fixed this compilation breakage now, updated patchset to
+follow.
 
-	Ingo
+Steve
