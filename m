@@ -1,76 +1,73 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: RFC: Latency reducing TCP modifications for thin-stream     
- interactive applications
-Date: Tue, 20 Jan 2009 17:45:52 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901201736370.1889@wrl-59.cs.helsinki.fi>
-References: <496B59B7.3010302@simula.no>    <Pine.LNX.4.64.0901121705010.1889@wrl-59.cs.helsinki.fi>
- <e5152d316be79cafaf55fcf7bff64d46.squirrel@webmail.uio.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Petlund <apetlund@simula.no>,
-	Netdev <netdev@vger.kernel.org>, griff@simula.no,
-	paalh@ifi.uio.no
-To: kristrev@simula.no
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Subject: [patch 1/2] lcs: fix compilation for !CONFIG_IP_MULTICAST
+Date: Tue, 20 Jan 2009 17:14:32 +0100
+Message-ID: <20090120161556.479681000@linux.vnet.ibm.com>
+References: <20090120161431.149552000@linux.vnet.ibm.com>
+Cc: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: jeff@garzik.org, netdev@vger.kernel.org, linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:44660 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756253AbZATPpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 10:45:55 -0500
-In-Reply-To: <e5152d316be79cafaf55fcf7bff64d46.squirrel@webmail.uio.no>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:59808 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755870AbZATQQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 11:16:02 -0500
+Content-Disposition: inline; filename=604-lcs-multicast.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Trimmed all but netdev (and .no addresses) from cc list.
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
 
-On Fri, 16 Jan 2009, kristrev@simula.no wrote:
+drivers/s390/net/lcs.c: In function 'lcs_new_device':
+drivers/s390/net/lcs.c:2179: error: implicit declaration of function 'lcs_set_multicast_list'
 
-> >> We have to admit we don't quite see the problem. Since a page can never
-> >> be removed before all owners have decleared that they no longer needs
-> >> it, all data will be correctly present. Also, since the packets are
-> >> placed linearly on the queue and we don't support when SACK is enabled,
-> >> no gaps will occur. But maybe we have misunderstood your comment, please
-> >> let us know if that is the case.
-> >
-> > Yes, the problems _may_ arise because you create afaict:
-> > skb->end_seq > next_skb->seq situations which is something that certainly
-> > needs an audit over every single seqno operation to see that they don't
-> > implicitly assume otherwise (ie., omit redundant compares)! There are
-> > certainly places I know of already which will break... I'm afraid
-> > that using the approach you've select you'll end up having very many
-> > places needing some extra tweaking, that's why I suggested the alternative
-> > approach to just construct the redundant things on-the-fly while keeping
-> > the write queue as is.
-> >
-> 
-> >> As far as we understand this comment, you want us to do it on the
-> >> application layer instead? Do you mean as a middleware,
-> >> application-specific solution or something similar? Also, we believe
-> >> doing it on the application layer will lead to the same delays that we
-> >> try to prevent, since sent data will be delayed on the transport layer
-> >> in case of loss.
-> >
-> > No but at the time we're supposed to actually send an skb to the lower
-> > layer and keeping the rest intact.
-> 
-> I have a small question regarding these two comments. Are you allowed to
-> modify the packet data stored in a clone? Based on my understanding of the
-> code and what a clone is, I thought the data was shared between the
-> original and the clone. Thus, any data appended/inserted into the clone
-> will also be appended to the original.
+Reported-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
 
-To avoid corruption you are not allowed to change data for cloned skbs.
-...I'm not fully sure how this is related though.
+ drivers/s390/net/lcs.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-> If I have understood the code correctly, what will then be the difference
-> between our current solution and the one you suggest (except we can remove
-> one of the bundling methods and when a packet is retransmitted)? If I have
-> not understood the code correctly, feel free to yell :) (if it is a
-> misunderstanding, it also explains all the checks for skb->cloned).
-
-It didn't mean clone an skb but copy the relevant data into new skb which 
-is then not put into write queue at all but given to lower layers only. 
-
+diff -urpN linux-2.6/drivers/s390/net/lcs.c linux-2.6-patched/drivers/s390/net/lcs.c
+--- linux-2.6/drivers/s390/net/lcs.c	2009-01-15 15:07:19.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/lcs.c	2009-01-15 15:07:28.000000000 +0100
+@@ -70,7 +70,9 @@ static char debug_buffer[255];
+ static void lcs_tasklet(unsigned long);
+ static void lcs_start_kernel_thread(struct work_struct *);
+ static void lcs_get_frames_cb(struct lcs_channel *, struct lcs_buffer *);
++#ifdef CONFIG_IP_MULTICAST
+ static int lcs_send_delipm(struct lcs_card *, struct lcs_ipm_list *);
++#endif /* CONFIG_IP_MULTICAST */
+ static int lcs_recovery(void *ptr);
+ 
+ /**
+@@ -1285,6 +1287,8 @@ out:
+ 	lcs_clear_thread_running_bit(card, LCS_SET_MC_THREAD);
+ 	return 0;
+ }
++#endif /* CONFIG_IP_MULTICAST */
++
+ /**
+  * function called by net device to
+  * handle multicast address relevant things
+@@ -1292,6 +1296,7 @@ out:
+ static void
+ lcs_set_multicast_list(struct net_device *dev)
+ {
++#ifdef CONFIG_IP_MULTICAST
+         struct lcs_card *card;
+ 
+         LCS_DBF_TEXT(4, trace, "setmulti");
+@@ -1299,9 +1304,8 @@ lcs_set_multicast_list(struct net_device
+ 
+         if (!lcs_set_thread_start_bit(card, LCS_SET_MC_THREAD))
+ 		schedule_work(&card->kernel_thread_starter);
+-}
+-
+ #endif /* CONFIG_IP_MULTICAST */
++}
+ 
+ static long
+ lcs_check_irb_error(struct ccw_device *cdev, struct irb *irb)
 
 -- 
- i.
