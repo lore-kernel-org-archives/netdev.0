@@ -1,73 +1,88 @@
-From: "Christian Eggers" <ceggers@gmx.de>
-Subject: [PATCH] usb/mcs7830: Don't use buffers from stack for USB transfers
-Date: Tue, 20 Jan 2009 21:29:21 +0100 (CET)
-Message-ID: <34115.192.168.0.40.1232483361.squirrel@server>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: RFC: Mandatory Access Control for sockets aka "personal
+ firewalls"
+Date: Tue, 20 Jan 2009 21:31:24 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0901202120240.24253@fbirervta.pbzchgretzou.qr>
+References: <1232473719.24943.102.camel@sp-laptop3.sp-local> <alpine.LSU.2.00.0901201916340.516@fbirervta.pbzchgretzou.qr> <1232477780.24943.116.camel@sp-laptop3.sp-local> <m2prih3f9i.fsf@ssh.synack.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout3.freenet.de ([195.4.92.93]:44937 "EHLO mout3.freenet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756090AbZATU31 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2009 15:29:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephan Peijnik <stephan@peijnik.at>,
+	linux-security-module <linux-security-module@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Samir Bellabes <sam@synack.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <m2prih3f9i.fsf@ssh.synack.fr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christian Eggers <christian.eggers@kathrein.de>
 
-mcs7830_set_reg() and mcs7830_get_reg() are called with buffers
-from stack which must not be used directly for USB transfers.
-This causes corruption of the stack particulary on non x86
-architectures because DMA may be used for these transfers.
+On Tuesday 2009-01-20 21:15, Samir Bellabes wrote this in IRC:
+>
+>be carefull, you are mixing 2 distincts questions in fact :
+>
+>1. how to have differents security models in the kernel, dealing with
+>   the LSM hooks ?
 
-Signed-off-by: Christian Eggers <christian.eggers@kathrein.de>
----
+A possible idea would be to not do the traditional LSM chaining,
+but a parallel approach.
 
-This is my first patch submission for Linux. I hope everything is fine.
+The problem with LSM chaining is that it somewhat imposed an order
+on LSMs. The checks in SELinux for example could have decided
+"it's forbidden" and not call out to the secondary module that was
+registered with it. Similarly if my own module was primary and
+selinux was the secondary -- this would potentially lead to me
+having forgotten something in the primary and not calling the
+secondary so selinux would have an inconsistent state of itself.
+Therefore, how about doing a parallel LSM approach:
 
-diff -uprN linux-2.6.28.1.orig/drivers/net/usb/mcs7830.c linux-2.6.28.1/drivers/net/usb/mcs7830.c
---- linux-2.6.28.1.orig/drivers/net/usb/mcs7830.c       2009-01-18 19:45:37.000000000 +0100
-+++ linux-2.6.28.1/drivers/net/usb/mcs7830.c    2009-01-20 20:53:59.000000000 +0100
-@@ -94,10 +94,18 @@ static int mcs7830_get_reg(struct usbnet
- {
-        struct usb_device *xdev = dev->udev;
-        int ret;
-+       void *buffer;
-+
-+       buffer = kmalloc(size, GFP_NOIO);
-+       if (buffer == NULL)
-+               return -ENOMEM;
+int security_create_inode(...)
+{
+	int ret == 0, x;
+	list_for_each_entry(lsm, ...) {
+		x = lsm->create_inode(...);
+		if (x < 0 && ret == 0)
+			ret = x;
+	}
+	return x;
+}
 
-        ret = usb_control_msg(xdev, usb_rcvctrlpipe(xdev, 0), MCS7830_RD_BREQ,
--                             MCS7830_RD_BMREQ, 0x0000, index, data,
-+                             MCS7830_RD_BMREQ, 0x0000, index, buffer,
-                              size, MCS7830_CTRL_TIMEOUT);
-+       memcpy(data, buffer, size);
-+       kfree(buffer);
-+
-        return ret;
- }
+That way, SElinux (which must serve as a beating sample now)
+can update the security context associated with the inode as
+required, but our own modules still has something to say in
+whether the action is penultimately allowed.
 
-@@ -105,10 +113,18 @@ static int mcs7830_set_reg(struct usbnet
- {
-        struct usb_device *xdev = dev->udev;
-        int ret;
-+       void *buffer;
-+
-+       buffer = kmalloc(size, GFP_NOIO);
-+       if (buffer == NULL)
-+               return -ENOMEM;
-+
-+       memcpy(buffer, data, size);
+There is still an order and would leave question open like
+"if selinux does not like you at all, why bother showing
+a window to the user asking for 'prog xyz tries to bind()'".
 
-        ret = usb_control_msg(xdev, usb_sndctrlpipe(xdev, 0), MCS7830_WR_BREQ,
--                             MCS7830_WR_BMREQ, 0x0000, index, data,
-+                             MCS7830_WR_BMREQ, 0x0000, index, buffer,
-                              size, MCS7830_CTRL_TIMEOUT);
-+       kfree(buffer);
-        return ret;
- }
+But I think it's the direction.
 
+>But what you are asking is to have multiple security models at the same
+>time, with some kind of priority.
+>I don't know if it's ok or not, but what I'm sure is that snet will use
+>LSM hooks or your new framework without any problems in fact, as you are
+>going to make some kind of wrapper on the members of the struct
+>security_operations.
+
+jan>>> My opinion up to here would be to split LSM into the LSM category
+>>> {selinux, apparmor, tomoyo} and the other, new LSM category
+>>> {networking stuff}, just as a potential idea to get over the
+>>> stacking / single LSM use  issue.
+>
+>Indeed I thought about that when writing snet.
+
+For starters, the existing LSM interface and the LSM  modules themselves
+could be split up so as to provide
+
+ selinux.ko
+  \_ selinux_net.ko
+  \_ selinux_fs.ko
+  ...
+
+just a suggestion to ease the thinking process for now.
+If a purely network-related LSM does not have to think about
+"do I need to implement FS hooks that do chaining or not..."
+it is a lot better off.
 
