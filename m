@@ -1,390 +1,630 @@
 From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [PATCH 3/5] net: pppol2tp - introduce net-namespace functionality
-Date: Tue, 20 Jan 2009 14:16:27 +0000 (UTC)
-Message-ID: <4975dc12.0c07560a.7d35.ffffcc78__20105.1074582667$1232461066$gmane$org__1154.42352123267$1232461066$gmane$org@mx.google.com>
+Subject: [PATCH 4/5] net: ppp_generic - introduce net-namespace functionality v2
+Date: Tue, 20 Jan 2009 14:17:36 +0000 (UTC)
+Message-ID: <4975dc12.1438560a.5c3c.403b__39099.5117406876$1232461135$gmane$org__43050.0845586479$1232461135$gmane$org@mx.google.com>
 References: <20090120140510.228815074@gmail.com>>
-Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+Cc: Paul Mackerras <paulus@samba.org>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
 To: davem@davemloft.net, jchapman@katalix.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	devel@openvz.org, xemul@openvz.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762126AbZATOPx@vger.kernel.org>
-Date: Thu, 01 Jan 1970 03:00:03 +0300
-Content-Disposition: inline; filename=net-pppol2tp-namespace
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762488AbZATOQt@vger.kernel.org>
+Date: Thu, 01 Jan 1970 03:00:04 +0300
+Content-Disposition: inline; filename=net-ppp-generic-namespace-v2
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Each tunnel and appropriate lock are inside own namespace now.
-- pppox code allows to create per-namespace sockets for
-  both PX_PROTO_OE and PX_PROTO_OL2TP protocols. Actually since
-  now pppox_create support net-namespaces new PPPo... protocols
-  (if they ever will be) should support net-namespace too otherwise
-  explicit check for &init_net would be needed.
+- Each namespace contains ppp channels and units separately
+  with appropriate locks
 
-CC: James Chapman <jchapman@katalix.com>
+CC: Paul Mackerras <paulus@samba.org>
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
- drivers/net/pppol2tp.c |  160 +++++++++++++++++++++++++++++++++++--------------
- drivers/net/pppox.c    |    4 -
- 2 files changed, 117 insertions(+), 47 deletions(-)
+ drivers/net/ppp_generic.c   |  275 +++++++++++++++++++++++++++++++-------------
+ include/linux/ppp_channel.h |    4 
+ 2 files changed, 202 insertions(+), 77 deletions(-)
 
-Index: linux-2.6.git/drivers/net/pppol2tp.c
+Index: linux-2.6.git/drivers/net/ppp_generic.c
 ===================================================================
---- linux-2.6.git.orig/drivers/net/pppol2tp.c
-+++ linux-2.6.git/drivers/net/pppol2tp.c
-@@ -90,7 +90,9 @@
- #include <linux/hash.h>
- #include <linux/sort.h>
- #include <linux/proc_fs.h>
-+#include <linux/nsproxy.h>
- #include <net/net_namespace.h>
-+#include <net/netns/generic.h>
- #include <net/dst.h>
- #include <net/ip.h>
- #include <net/udp.h>
-@@ -204,6 +206,7 @@ struct pppol2tp_tunnel
- 	struct sock		*sock;		/* Parent socket */
- 	struct list_head	list;		/* Keep a list of all open
- 						 * prepared sockets */
-+	struct net		*pppol2tp_net;	/* the net we belong to */
+--- linux-2.6.git.orig/drivers/net/ppp_generic.c
++++ linux-2.6.git/drivers/net/ppp_generic.c
+@@ -49,6 +49,10 @@
+ #include <net/slhc_vj.h>
+ #include <asm/atomic.h>
  
- 	atomic_t		ref_count;
- };
-@@ -227,8 +230,20 @@ static atomic_t pppol2tp_tunnel_count;
- static atomic_t pppol2tp_session_count;
- static struct ppp_channel_ops pppol2tp_chan_ops = { pppol2tp_xmit , NULL };
- static struct proto_ops pppol2tp_ops;
--static LIST_HEAD(pppol2tp_tunnel_list);
--static DEFINE_RWLOCK(pppol2tp_tunnel_list_lock);
++#include <linux/nsproxy.h>
++#include <net/net_namespace.h>
++#include <net/netns/generic.h>
 +
+ #define PPP_VERSION	"2.4.2"
+ 
+ /*
+@@ -131,6 +135,7 @@ struct ppp {
+ 	struct sock_filter *active_filter;/* filter for pkts to reset idle */
+ 	unsigned pass_len, active_len;
+ #endif /* CONFIG_PPP_FILTER */
++	struct net	*ppp_net;	/* the net we belong to */
+ };
+ 
+ /*
+@@ -155,6 +160,7 @@ struct channel {
+ 	struct rw_semaphore chan_sem;	/* protects `chan' during chan ioctl */
+ 	spinlock_t	downl;		/* protects `chan', file.xq dequeue */
+ 	struct ppp	*ppp;		/* ppp unit we're connected to */
++	struct net	*chan_net;	/* the net channel belongs to */
+ 	struct list_head clist;		/* link in list of channels per unit */
+ 	rwlock_t	upl;		/* protects `ppp' */
+ #ifdef CONFIG_PPP_MULTILINK
+@@ -173,26 +179,35 @@ struct channel {
+  * channel.downl.
+  */
+ 
+-/*
+- * all_ppp_mutex protects the all_ppp_units mapping.
+- * It also ensures that finding a ppp unit in the all_ppp_units map
+- * and updating its file.refcnt field is atomic.
+- */
+-static DEFINE_MUTEX(all_ppp_mutex);
+ static atomic_t ppp_unit_count = ATOMIC_INIT(0);
+-static DEFINE_IDR(ppp_units_idr);
+-
+-/*
+- * all_channels_lock protects all_channels and last_channel_index,
+- * and the atomicity of find a channel and updating its file.refcnt
+- * field.
+- */
+-static DEFINE_SPINLOCK(all_channels_lock);
+-static LIST_HEAD(all_channels);
+-static LIST_HEAD(new_channels);
+-static int last_channel_index;
+ static atomic_t channel_count = ATOMIC_INIT(0);
+ 
 +/* per-net private data for this module */
-+static unsigned int pppol2tp_net_id;
-+struct pppol2tp_net {
-+	struct list_head pppol2tp_tunnel_list;
-+	rwlock_t pppol2tp_tunnel_list_lock;
++static unsigned int ppp_net_id;
++struct ppp_net {
++	/* units to ppp mapping */
++	struct idr units_idr;
++
++	/*
++	 * all_ppp_mutex protects the units_idr mapping.
++	 * It also ensures that finding a ppp unit in the units_idr
++	 * map and updating its file.refcnt field is atomic.
++	 */
++	struct mutex all_ppp_mutex;
++
++	/* channels */
++	struct list_head all_channels;
++	struct list_head new_channels;
++	int last_channel_index;
++
++	/*
++	 * all_channels_lock protects all_channels and
++	 * last_channel_index, and the atomicity of find
++	 * a channel and updating its file.refcnt field.
++	 */
++	spinlock_t all_channels_lock;
 +};
 +
-+static inline struct pppol2tp_net *pppol2tp_pernet(struct net *net)
+ /* Get the PPP protocol number from a skb */
+ #define PPP_PROTO(skb)	(((skb)->data[0] << 8) + (skb)->data[1])
+ 
+@@ -216,8 +231,8 @@ static atomic_t channel_count = ATOMIC_I
+ #define seq_after(a, b)		((s32)((a) - (b)) > 0)
+ 
+ /* Prototypes. */
+-static int ppp_unattached_ioctl(struct ppp_file *pf, struct file *file,
+-				unsigned int cmd, unsigned long arg);
++static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
++			struct file *file, unsigned int cmd, unsigned long arg);
+ static void ppp_xmit_process(struct ppp *ppp);
+ static void ppp_send_frame(struct ppp *ppp, struct sk_buff *skb);
+ static void ppp_push(struct ppp *ppp);
+@@ -240,12 +255,12 @@ static void ppp_ccp_peek(struct ppp *ppp
+ static void ppp_ccp_closed(struct ppp *ppp);
+ static struct compressor *find_compressor(int type);
+ static void ppp_get_stats(struct ppp *ppp, struct ppp_stats *st);
+-static struct ppp *ppp_create_interface(int unit, int *retp);
++static struct ppp *ppp_create_interface(struct net *net, int unit, int *retp);
+ static void init_ppp_file(struct ppp_file *pf, int kind);
+ static void ppp_shutdown_interface(struct ppp *ppp);
+ static void ppp_destroy_interface(struct ppp *ppp);
+-static struct ppp *ppp_find_unit(int unit);
+-static struct channel *ppp_find_channel(int unit);
++static struct ppp *ppp_find_unit(struct ppp_net *pn, int unit);
++static struct channel *ppp_find_channel(struct ppp_net *pn, int unit);
+ static int ppp_connect_channel(struct channel *pch, int unit);
+ static int ppp_disconnect_channel(struct channel *pch);
+ static void ppp_destroy_channel(struct channel *pch);
+@@ -256,6 +271,14 @@ static void *unit_find(struct idr *p, in
+ 
+ static struct class *ppp_class;
+ 
++/* per net-namespace data */
++static inline struct ppp_net *ppp_pernet(struct net *net)
 +{
 +	BUG_ON(!net);
 +
-+	return net_generic(net, pppol2tp_net_id);
++	return net_generic(net, ppp_net_id);
 +}
- 
- /* Helpers to obtain tunnel/session contexts from sockets.
-  */
-@@ -321,18 +336,19 @@ pppol2tp_session_find(struct pppol2tp_tu
- 
- /* Lookup a tunnel by id
-  */
--static struct pppol2tp_tunnel *pppol2tp_tunnel_find(u16 tunnel_id)
-+static struct pppol2tp_tunnel *pppol2tp_tunnel_find(struct net *net, u16 tunnel_id)
++
+ /* Translates a PPP protocol number to a NP index (NP == network protocol) */
+ static inline int proto_to_npindex(int proto)
  {
--	struct pppol2tp_tunnel *tunnel = NULL;
-+	struct pppol2tp_tunnel *tunnel;
-+	struct pppol2tp_net *pn = pppol2tp_pernet(net);
+@@ -544,7 +567,8 @@ static long ppp_ioctl(struct file *file,
+ 	int __user *p = argp;
  
--	read_lock_bh(&pppol2tp_tunnel_list_lock);
--	list_for_each_entry(tunnel, &pppol2tp_tunnel_list, list) {
-+	read_lock_bh(&pn->pppol2tp_tunnel_list_lock);
-+	list_for_each_entry(tunnel, &pn->pppol2tp_tunnel_list, list) {
- 		if (tunnel->stats.tunnel_id == tunnel_id) {
--			read_unlock_bh(&pppol2tp_tunnel_list_lock);
-+			read_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 			return tunnel;
+ 	if (!pf)
+-		return ppp_unattached_ioctl(pf, file, cmd, arg);
++		return ppp_unattached_ioctl(current->nsproxy->net_ns,
++					pf, file, cmd, arg);
+ 
+ 	if (cmd == PPPIOCDETACH) {
+ 		/*
+@@ -763,12 +787,13 @@ static long ppp_ioctl(struct file *file,
+ 	return err;
+ }
+ 
+-static int ppp_unattached_ioctl(struct ppp_file *pf, struct file *file,
+-				unsigned int cmd, unsigned long arg)
++static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
++			struct file *file, unsigned int cmd, unsigned long arg)
+ {
+ 	int unit, err = -EFAULT;
+ 	struct ppp *ppp;
+ 	struct channel *chan;
++	struct ppp_net *pn;
+ 	int __user *p = (int __user *)arg;
+ 
+ 	lock_kernel();
+@@ -777,7 +802,7 @@ static int ppp_unattached_ioctl(struct p
+ 		/* Create a new ppp unit */
+ 		if (get_user(unit, p))
+ 			break;
+-		ppp = ppp_create_interface(unit, &err);
++		ppp = ppp_create_interface(net, unit, &err);
+ 		if (!ppp)
+ 			break;
+ 		file->private_data = &ppp->file;
+@@ -792,29 +817,31 @@ static int ppp_unattached_ioctl(struct p
+ 		/* Attach to an existing ppp unit */
+ 		if (get_user(unit, p))
+ 			break;
+-		mutex_lock(&all_ppp_mutex);
+ 		err = -ENXIO;
+-		ppp = ppp_find_unit(unit);
++		pn = ppp_pernet(net);
++		mutex_lock(&pn->all_ppp_mutex);
++		ppp = ppp_find_unit(pn, unit);
+ 		if (ppp) {
+ 			atomic_inc(&ppp->file.refcnt);
+ 			file->private_data = &ppp->file;
+ 			err = 0;
  		}
- 	}
--	read_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	read_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
+-		mutex_unlock(&all_ppp_mutex);
++		mutex_unlock(&pn->all_ppp_mutex);
+ 		break;
  
- 	return NULL;
- }
-@@ -1287,10 +1303,12 @@ again:
-  */
- static void pppol2tp_tunnel_free(struct pppol2tp_tunnel *tunnel)
- {
-+	struct pppol2tp_net *pn = pppol2tp_pernet(tunnel->pppol2tp_net);
-+
- 	/* Remove from socket list */
--	write_lock_bh(&pppol2tp_tunnel_list_lock);
-+	write_lock_bh(&pn->pppol2tp_tunnel_list_lock);
- 	list_del_init(&tunnel->list);
--	write_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	write_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 
- 	atomic_dec(&pppol2tp_tunnel_count);
- 	kfree(tunnel);
-@@ -1444,13 +1462,14 @@ error:
- /* Internal function to prepare a tunnel (UDP) socket to have PPPoX
-  * sockets attached to it.
-  */
--static struct sock *pppol2tp_prepare_tunnel_socket(int fd, u16 tunnel_id,
--						   int *error)
-+static struct sock *pppol2tp_prepare_tunnel_socket(struct net *net,
-+					int fd, u16 tunnel_id, int *error)
- {
- 	int err;
- 	struct socket *sock = NULL;
- 	struct sock *sk;
- 	struct pppol2tp_tunnel *tunnel;
-+	struct pppol2tp_net *pn;
- 	struct sock *ret = NULL;
- 
- 	/* Get the tunnel UDP socket from the fd, which was opened by
-@@ -1524,11 +1543,15 @@ static struct sock *pppol2tp_prepare_tun
- 	/* Misc init */
- 	rwlock_init(&tunnel->hlist_lock);
- 
-+	/* The net we belong to */
-+	tunnel->pppol2tp_net = net;
-+	pn = pppol2tp_pernet(net);
-+
- 	/* Add tunnel to our list */
- 	INIT_LIST_HEAD(&tunnel->list);
--	write_lock_bh(&pppol2tp_tunnel_list_lock);
--	list_add(&tunnel->list, &pppol2tp_tunnel_list);
--	write_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	write_lock_bh(&pn->pppol2tp_tunnel_list_lock);
-+	list_add(&tunnel->list, &pn->pppol2tp_tunnel_list);
-+	write_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 	atomic_inc(&pppol2tp_tunnel_count);
- 
- 	/* Bump the reference count. The tunnel context is deleted
-@@ -1629,7 +1652,8 @@ static int pppol2tp_connect(struct socke
- 	 * tunnel id.
- 	 */
- 	if ((sp->pppol2tp.s_session == 0) && (sp->pppol2tp.d_session == 0)) {
--		tunnel_sock = pppol2tp_prepare_tunnel_socket(sp->pppol2tp.fd,
-+		tunnel_sock = pppol2tp_prepare_tunnel_socket(sock_net(sk),
-+							     sp->pppol2tp.fd,
- 							     sp->pppol2tp.s_tunnel,
- 							     &error);
- 		if (tunnel_sock == NULL)
-@@ -1637,7 +1661,7 @@ static int pppol2tp_connect(struct socke
- 
- 		tunnel = tunnel_sock->sk_user_data;
- 	} else {
--		tunnel = pppol2tp_tunnel_find(sp->pppol2tp.s_tunnel);
-+		tunnel = pppol2tp_tunnel_find(sock_net(sk), sp->pppol2tp.s_tunnel);
- 
- 		/* Error if we can't find the tunnel */
- 		error = -ENOENT;
-@@ -2347,8 +2371,9 @@ end:
- #include <linux/seq_file.h>
- 
- struct pppol2tp_seq_data {
--	struct pppol2tp_tunnel *tunnel; /* current tunnel */
--	struct pppol2tp_session *session; /* NULL means get first session in tunnel */
-+	struct net *seq_net;			/* net of inode */
-+	struct pppol2tp_tunnel *tunnel;		/* current tunnel */
-+	struct pppol2tp_session *session;	/* NULL means get first session in tunnel */
- };
- 
- static struct pppol2tp_session *next_session(struct pppol2tp_tunnel *tunnel, struct pppol2tp_session *curr)
-@@ -2384,17 +2409,18 @@ out:
- 	return session;
- }
- 
--static struct pppol2tp_tunnel *next_tunnel(struct pppol2tp_tunnel *curr)
-+static struct pppol2tp_tunnel *next_tunnel(struct pppol2tp_net *pn,
-+					   struct pppol2tp_tunnel *curr)
- {
- 	struct pppol2tp_tunnel *tunnel = NULL;
- 
--	read_lock_bh(&pppol2tp_tunnel_list_lock);
--	if (list_is_last(&curr->list, &pppol2tp_tunnel_list)) {
-+	read_lock_bh(&pn->pppol2tp_tunnel_list_lock);
-+	if (list_is_last(&curr->list, &pn->pppol2tp_tunnel_list)) {
- 		goto out;
- 	}
- 	tunnel = list_entry(curr->list.next, struct pppol2tp_tunnel, list);
- out:
--	read_unlock_bh(&pppol2tp_tunnel_list_lock);
-+	read_unlock_bh(&pn->pppol2tp_tunnel_list_lock);
- 
- 	return tunnel;
- }
-@@ -2402,6 +2428,7 @@ out:
- static void *pppol2tp_seq_start(struct seq_file *m, loff_t *offs)
- {
- 	struct pppol2tp_seq_data *pd = SEQ_START_TOKEN;
-+	struct pppol2tp_net *pn;
- 	loff_t pos = *offs;
- 
- 	if (!pos)
-@@ -2409,14 +2436,15 @@ static void *pppol2tp_seq_start(struct s
- 
- 	BUG_ON(m->private == NULL);
- 	pd = m->private;
-+	pn = pppol2tp_pernet(pd->seq_net);
- 
- 	if (pd->tunnel == NULL) {
--		if (!list_empty(&pppol2tp_tunnel_list))
--			pd->tunnel = list_entry(pppol2tp_tunnel_list.next, struct pppol2tp_tunnel, list);
-+		if (!list_empty(&pn->pppol2tp_tunnel_list))
-+			pd->tunnel = list_entry(pn->pppol2tp_tunnel_list.next, struct pppol2tp_tunnel, list);
- 	} else {
- 		pd->session = next_session(pd->tunnel, pd->session);
- 		if (pd->session == NULL) {
--			pd->tunnel = next_tunnel(pd->tunnel);
-+			pd->tunnel = next_tunnel(pn, pd->tunnel);
+ 	case PPPIOCATTCHAN:
+ 		if (get_user(unit, p))
+ 			break;
+-		spin_lock_bh(&all_channels_lock);
+ 		err = -ENXIO;
+-		chan = ppp_find_channel(unit);
++		pn = ppp_pernet(net);
++		spin_lock_bh(&pn->all_channels_lock);
++		chan = ppp_find_channel(pn, unit);
+ 		if (chan) {
+ 			atomic_inc(&chan->file.refcnt);
+ 			file->private_data = &chan->file;
+ 			err = 0;
  		}
- 	}
+-		spin_unlock_bh(&all_channels_lock);
++		spin_unlock_bh(&pn->all_channels_lock);
+ 		break;
  
-@@ -2532,6 +2560,7 @@ static int pppol2tp_proc_open(struct ino
- {
- 	struct seq_file *m;
- 	struct pppol2tp_seq_data *pd;
-+	struct net *net;
- 	int ret = 0;
- 
- 	ret = seq_open(file, &pppol2tp_seq_ops);
-@@ -2542,12 +2571,15 @@ static int pppol2tp_proc_open(struct ino
- 
- 	/* Allocate and fill our proc_data for access later */
- 	ret = -ENOMEM;
--	m->private = kzalloc(sizeof(struct pppol2tp_seq_data), GFP_KERNEL);
-+	m->private = kzalloc(sizeof(*pd), GFP_KERNEL);
- 	if (m->private == NULL)
- 		goto out;
- 
- 	pd = m->private;
--	ret = 0;
-+	net = maybe_get_net(PDE_NET(PDE(inode)));
-+	BUG_ON(!net);
-+	pd->seq_net = net;
-+	return 0;
- 
- out:
- 	return ret;
-@@ -2558,6 +2590,9 @@ out:
- static int pppol2tp_proc_release(struct inode *inode, struct file *file)
- {
- 	struct seq_file *m = (struct seq_file *)file->private_data;
-+	struct pppol2tp_seq_data *pd = m->private;
-+
-+	put_net(pd->seq_net);
- 
- 	kfree(m->private);
- 	m->private = NULL;
-@@ -2573,8 +2608,6 @@ static struct file_operations pppol2tp_p
- 	.release	= pppol2tp_proc_release,
+ 	default:
+@@ -834,6 +861,51 @@ static const struct file_operations ppp_
+ 	.release	= ppp_release
  };
  
--static struct proc_dir_entry *pppol2tp_proc;
--
- #endif /* CONFIG_PROC_FS */
- 
- /*****************************************************************************
-@@ -2606,6 +2639,57 @@ static struct pppox_proto pppol2tp_proto
- 	.ioctl		= pppol2tp_ioctl
- };
- 
-+static __net_init int pppol2tp_init_net(struct net *net)
++static __net_init int ppp_init_net(struct net *net)
 +{
-+	struct pppol2tp_net *pn;
-+	struct proc_dir_entry *pde;
++	struct ppp_net *pn;
 +	int err;
 +
 +	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
 +	if (!pn)
 +		return -ENOMEM;
 +
-+	INIT_LIST_HEAD(&pn->pppol2tp_tunnel_list);
-+	rwlock_init(&pn->pppol2tp_tunnel_list_lock);
++	idr_init(&pn->units_idr);
++	mutex_init(&pn->all_ppp_mutex);
 +
-+	err = net_assign_generic(net, pppol2tp_net_id, pn);
-+	if (err)
-+		goto out;
++	INIT_LIST_HEAD(&pn->all_channels);
++	INIT_LIST_HEAD(&pn->new_channels);
 +
-+	pde = proc_net_fops_create(net, "pppol2tp", S_IRUGO, &pppol2tp_proc_fops);
-+#ifdef CONFIG_PROC_FS
-+	if (!pde) {
-+		err = -ENOMEM;
-+		goto out;
++	spin_lock_init(&pn->all_channels_lock);
++
++	err = net_assign_generic(net, ppp_net_id, pn);
++	if (err) {
++		kfree(pn);
++		return err;
 +	}
-+#endif
 +
 +	return 0;
-+
-+out:
-+	kfree(pn);
-+	return err;
 +}
 +
-+static __net_exit void pppol2tp_exit_net(struct net *net)
++static __net_exit void ppp_exit_net(struct net *net)
 +{
-+	struct pppoe_net *pn;
++	struct ppp_net *pn;
 +
-+	proc_net_remove(net, "pppol2tp");
-+	pn = net_generic(net, pppol2tp_net_id);
++	pn = net_generic(net, ppp_net_id);
++	idr_destroy(&pn->units_idr);
 +	/*
 +	 * if someone has cached our net then
 +	 * further net_generic call will return NULL
 +	 */
-+	net_assign_generic(net, pppol2tp_net_id, NULL);
++	net_assign_generic(net, ppp_net_id, NULL);
 +	kfree(pn);
 +}
 +
-+static __net_initdata struct pernet_operations pppol2tp_net_ops = {
-+	.init = pppol2tp_init_net,
-+	.exit = pppol2tp_exit_net,
++static __net_initdata struct pernet_operations ppp_net_ops = {
++	.init = ppp_init_net,
++	.exit = ppp_exit_net,
 +};
 +
- static int __init pppol2tp_init(void)
- {
+ #define PPP_MAJOR	108
+ 
+ /* Called at boot time if ppp is compiled into the kernel,
+@@ -843,25 +915,36 @@ static int __init ppp_init(void)
  	int err;
-@@ -2617,23 +2701,17 @@ static int __init pppol2tp_init(void)
- 	if (err)
- 		goto out_unregister_pppol2tp_proto;
  
--#ifdef CONFIG_PROC_FS
--	pppol2tp_proc = proc_net_fops_create(&init_net, "pppol2tp", 0,
--					     &pppol2tp_proc_fops);
--	if (!pppol2tp_proc) {
--		err = -ENOMEM;
-+	err = register_pernet_gen_device(&pppol2tp_net_id, &pppol2tp_net_ops);
-+	if (err)
- 		goto out_unregister_pppox_proto;
--	}
--#endif /* CONFIG_PROC_FS */
+ 	printk(KERN_INFO "PPP generic driver version " PPP_VERSION "\n");
+-	err = register_chrdev(PPP_MAJOR, "ppp", &ppp_device_fops);
+-	if (!err) {
+-		ppp_class = class_create(THIS_MODULE, "ppp");
+-		if (IS_ERR(ppp_class)) {
+-			err = PTR_ERR(ppp_class);
+-			goto out_chrdev;
+-		}
+-		device_create(ppp_class, NULL, MKDEV(PPP_MAJOR, 0), NULL,
+-			      "ppp");
 +
- 	printk(KERN_INFO "PPPoL2TP kernel driver, %s\n",
- 	       PPPOL2TP_DRV_VERSION);
++	err = register_pernet_gen_device(&ppp_net_id, &ppp_net_ops);
++	if (err) {
++		printk(KERN_ERR "failed to register PPP pernet device (%d)\n", err);
++		goto out;
+ 	}
  
- out:
- 	return err;
--#ifdef CONFIG_PROC_FS
- out_unregister_pppox_proto:
- 	unregister_pppox_proto(PX_PROTO_OL2TP);
--#endif
- out_unregister_pppol2tp_proto:
- 	proto_unregister(&pppol2tp_sk_proto);
- 	goto out;
-@@ -2642,10 +2720,6 @@ out_unregister_pppol2tp_proto:
- static void __exit pppol2tp_exit(void)
- {
- 	unregister_pppox_proto(PX_PROTO_OL2TP);
--
--#ifdef CONFIG_PROC_FS
--	remove_proc_entry("pppol2tp", init_net.proc_net);
--#endif
- 	proto_unregister(&pppol2tp_sk_proto);
+-out:
+-	if (err)
++	err = register_chrdev(PPP_MAJOR, "ppp", &ppp_device_fops);
++	if (err) {
+ 		printk(KERN_ERR "failed to register PPP device (%d)\n", err);
+-	return err;
++		goto out_net;
++	}
++
++	ppp_class = class_create(THIS_MODULE, "ppp");
++	if (IS_ERR(ppp_class)) {
++		err = PTR_ERR(ppp_class);
++		goto out_chrdev;
++	}
++
++	/* not a big deal if we fail here :-) */
++	device_create(ppp_class, NULL, MKDEV(PPP_MAJOR, 0), NULL, "ppp");
++
++	return 0;
+ 
+ out_chrdev:
+ 	unregister_chrdev(PPP_MAJOR, "ppp");
+-	goto out;
++out_net:
++	unregister_pernet_gen_device(ppp_net_id, &ppp_net_ops);
++out:
++	return err;
  }
  
-Index: linux-2.6.git/drivers/net/pppox.c
-===================================================================
---- linux-2.6.git.orig/drivers/net/pppox.c
-+++ linux-2.6.git/drivers/net/pppox.c
-@@ -111,10 +111,6 @@ static int pppox_create(struct net *net,
- 	if (protocol < 0 || protocol > PX_MAX_PROTO)
- 		goto out;
+ /*
+@@ -969,6 +1052,7 @@ static void ppp_setup(struct net_device 
+ 	dev->tx_queue_len = 3;
+ 	dev->type = ARPHRD_PPP;
+ 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
++	dev->features |= NETIF_F_NETNS_LOCAL;
+ }
  
--	/* we support net-namespaces for PPPoE only (yet) */
--	if (protocol != PX_PROTO_OE && net != &init_net)
--		return -EAFNOSUPPORT;
--
- 	rc = -EPROTONOSUPPORT;
- 	if (!pppox_protos[protocol])
- 		request_module("pppox-proto-%d", protocol);
+ /*
+@@ -1986,19 +2070,27 @@ ppp_mp_reconstruct(struct ppp *ppp)
+  * Channel interface.
+  */
+ 
+-/*
+- * Create a new, unattached ppp channel.
+- */
+-int
+-ppp_register_channel(struct ppp_channel *chan)
++/* Create a new, unattached ppp channel. */
++int ppp_register_channel(struct ppp_channel *chan)
++{
++	return ppp_register_net_channel(current->nsproxy->net_ns, chan);
++}
++
++/* Create a new, unattached ppp channel for specified net. */
++int ppp_register_net_channel(struct net *net, struct ppp_channel *chan)
+ {
+ 	struct channel *pch;
++	struct ppp_net *pn;
+ 
+ 	pch = kzalloc(sizeof(struct channel), GFP_KERNEL);
+ 	if (!pch)
+ 		return -ENOMEM;
++
++	pn = ppp_pernet(net);
++
+ 	pch->ppp = NULL;
+ 	pch->chan = chan;
++	pch->chan_net = net;
+ 	chan->ppp = pch;
+ 	init_ppp_file(&pch->file, CHANNEL);
+ 	pch->file.hdrlen = chan->hdrlen;
+@@ -2008,11 +2100,13 @@ ppp_register_channel(struct ppp_channel 
+ 	init_rwsem(&pch->chan_sem);
+ 	spin_lock_init(&pch->downl);
+ 	rwlock_init(&pch->upl);
+-	spin_lock_bh(&all_channels_lock);
+-	pch->file.index = ++last_channel_index;
+-	list_add(&pch->list, &new_channels);
++
++	spin_lock_bh(&pn->all_channels_lock);
++	pch->file.index = ++pn->last_channel_index;
++	list_add(&pch->list, &pn->new_channels);
+ 	atomic_inc(&channel_count);
+-	spin_unlock_bh(&all_channels_lock);
++	spin_unlock_bh(&pn->all_channels_lock);
++
+ 	return 0;
+ }
+ 
+@@ -2053,9 +2147,11 @@ void
+ ppp_unregister_channel(struct ppp_channel *chan)
+ {
+ 	struct channel *pch = chan->ppp;
++	struct ppp_net *pn;
+ 
+ 	if (!pch)
+ 		return;		/* should never happen */
++
+ 	chan->ppp = NULL;
+ 
+ 	/*
+@@ -2068,9 +2164,12 @@ ppp_unregister_channel(struct ppp_channe
+ 	spin_unlock_bh(&pch->downl);
+ 	up_write(&pch->chan_sem);
+ 	ppp_disconnect_channel(pch);
+-	spin_lock_bh(&all_channels_lock);
++
++	pn = ppp_pernet(pch->chan_net);
++	spin_lock_bh(&pn->all_channels_lock);
+ 	list_del(&pch->list);
+-	spin_unlock_bh(&all_channels_lock);
++	spin_unlock_bh(&pn->all_channels_lock);
++
+ 	pch->file.dead = 1;
+ 	wake_up_interruptible(&pch->file.rwait);
+ 	if (atomic_dec_and_test(&pch->file.refcnt))
+@@ -2395,9 +2494,10 @@ ppp_get_stats(struct ppp *ppp, struct pp
+  * unit == -1 means allocate a new number.
+  */
+ static struct ppp *
+-ppp_create_interface(int unit, int *retp)
++ppp_create_interface(struct net *net, int unit, int *retp)
+ {
+ 	struct ppp *ppp;
++	struct ppp_net *pn;
+ 	struct net_device *dev = NULL;
+ 	int ret = -ENOMEM;
+ 	int i;
+@@ -2406,6 +2506,8 @@ ppp_create_interface(int unit, int *retp
+ 	if (!dev)
+ 		goto out1;
+ 
++	pn = ppp_pernet(net);
++
+ 	ppp = netdev_priv(dev);
+ 	ppp->dev = dev;
+ 	ppp->mru = PPP_MRU;
+@@ -2421,17 +2523,23 @@ ppp_create_interface(int unit, int *retp
+ 	skb_queue_head_init(&ppp->mrq);
+ #endif /* CONFIG_PPP_MULTILINK */
+ 
++	/*
++	 * drum roll: don't forget to set
++	 * the net device is belong to
++	 */
++	dev_net_set(dev, net);
++
+ 	ret = -EEXIST;
+-	mutex_lock(&all_ppp_mutex);
++	mutex_lock(&pn->all_ppp_mutex);
+ 
+ 	if (unit < 0) {
+-		unit = unit_get(&ppp_units_idr, ppp);
++		unit = unit_get(&pn->units_idr, ppp);
+ 		if (unit < 0) {
+ 			*retp = unit;
+ 			goto out2;
+ 		}
+ 	} else {
+-		if (unit_find(&ppp_units_idr, unit))
++		if (unit_find(&pn->units_idr, unit))
+ 			goto out2; /* unit already exists */
+ 		/*
+ 		 * if caller need a specified unit number
+@@ -2442,7 +2550,7 @@ ppp_create_interface(int unit, int *retp
+ 		 * fair but at least pppd will ask us to allocate
+ 		 * new unit in this case so user is happy :)
+ 		 */
+-		unit = unit_set(&ppp_units_idr, ppp, unit);
++		unit = unit_set(&pn->units_idr, ppp, unit);
+ 		if (unit < 0)
+ 			goto out2;
+ 	}
+@@ -2453,20 +2561,22 @@ ppp_create_interface(int unit, int *retp
+ 
+ 	ret = register_netdev(dev);
+ 	if (ret != 0) {
+-		unit_put(&ppp_units_idr, unit);
++		unit_put(&pn->units_idr, unit);
+ 		printk(KERN_ERR "PPP: couldn't register device %s (%d)\n",
+ 		       dev->name, ret);
+ 		goto out2;
+ 	}
+ 
++	ppp->ppp_net = net;
++
+ 	atomic_inc(&ppp_unit_count);
+-	mutex_unlock(&all_ppp_mutex);
++	mutex_unlock(&pn->all_ppp_mutex);
+ 
+ 	*retp = 0;
+ 	return ppp;
+ 
+ out2:
+-	mutex_unlock(&all_ppp_mutex);
++	mutex_unlock(&pn->all_ppp_mutex);
+ 	free_netdev(dev);
+ out1:
+ 	*retp = ret;
+@@ -2492,7 +2602,11 @@ init_ppp_file(struct ppp_file *pf, int k
+  */
+ static void ppp_shutdown_interface(struct ppp *ppp)
+ {
+-	mutex_lock(&all_ppp_mutex);
++	struct ppp_net *pn;
++
++	pn = ppp_pernet(ppp->ppp_net);
++	mutex_lock(&pn->all_ppp_mutex);
++
+ 	/* This will call dev_close() for us. */
+ 	ppp_lock(ppp);
+ 	if (!ppp->closing) {
+@@ -2502,11 +2616,12 @@ static void ppp_shutdown_interface(struc
+ 	} else
+ 		ppp_unlock(ppp);
+ 
+-	unit_put(&ppp_units_idr, ppp->file.index);
++	unit_put(&pn->units_idr, ppp->file.index);
+ 	ppp->file.dead = 1;
+ 	ppp->owner = NULL;
+ 	wake_up_interruptible(&ppp->file.rwait);
+-	mutex_unlock(&all_ppp_mutex);
++
++	mutex_unlock(&pn->all_ppp_mutex);
+ }
+ 
+ /*
+@@ -2554,9 +2669,9 @@ static void ppp_destroy_interface(struct
+  * The caller should have locked the all_ppp_mutex.
+  */
+ static struct ppp *
+-ppp_find_unit(int unit)
++ppp_find_unit(struct ppp_net *pn, int unit)
+ {
+-	return unit_find(&ppp_units_idr, unit);
++	return unit_find(&pn->units_idr, unit);
+ }
+ 
+ /*
+@@ -2568,20 +2683,22 @@ ppp_find_unit(int unit)
+  * when we have a lot of channels in use.
+  */
+ static struct channel *
+-ppp_find_channel(int unit)
++ppp_find_channel(struct ppp_net *pn, int unit)
+ {
+ 	struct channel *pch;
+ 
+-	list_for_each_entry(pch, &new_channels, list) {
++	list_for_each_entry(pch, &pn->new_channels, list) {
+ 		if (pch->file.index == unit) {
+-			list_move(&pch->list, &all_channels);
++			list_move(&pch->list, &pn->all_channels);
+ 			return pch;
+ 		}
+ 	}
+-	list_for_each_entry(pch, &all_channels, list) {
++
++	list_for_each_entry(pch, &pn->all_channels, list) {
+ 		if (pch->file.index == unit)
+ 			return pch;
+ 	}
++
+ 	return NULL;
+ }
+ 
+@@ -2592,11 +2709,14 @@ static int
+ ppp_connect_channel(struct channel *pch, int unit)
+ {
+ 	struct ppp *ppp;
++	struct ppp_net *pn;
+ 	int ret = -ENXIO;
+ 	int hdrlen;
+ 
+-	mutex_lock(&all_ppp_mutex);
+-	ppp = ppp_find_unit(unit);
++	pn = ppp_pernet(pch->chan_net);
++
++	mutex_lock(&pn->all_ppp_mutex);
++	ppp = ppp_find_unit(pn, unit);
+ 	if (!ppp)
+ 		goto out;
+ 	write_lock_bh(&pch->upl);
+@@ -2620,7 +2740,7 @@ ppp_connect_channel(struct channel *pch,
+  outl:
+ 	write_unlock_bh(&pch->upl);
+  out:
+-	mutex_unlock(&all_ppp_mutex);
++	mutex_unlock(&pn->all_ppp_mutex);
+ 	return ret;
+ }
+ 
+@@ -2677,7 +2797,7 @@ static void __exit ppp_cleanup(void)
+ 	unregister_chrdev(PPP_MAJOR, "ppp");
+ 	device_destroy(ppp_class, MKDEV(PPP_MAJOR, 0));
+ 	class_destroy(ppp_class);
+-	idr_destroy(&ppp_units_idr);
++	unregister_pernet_gen_device(ppp_net_id, &ppp_net_ops);
+ }
+ 
+ /*
+@@ -2743,6 +2863,7 @@ static void *unit_find(struct idr *p, in
+ module_init(ppp_init);
+ module_exit(ppp_cleanup);
+ 
++EXPORT_SYMBOL(ppp_register_net_channel);
+ EXPORT_SYMBOL(ppp_register_channel);
+ EXPORT_SYMBOL(ppp_unregister_channel);
+ EXPORT_SYMBOL(ppp_channel_index);
+Index: linux-2.6.git/include/linux/ppp_channel.h
+===================================================================
+--- linux-2.6.git.orig/include/linux/ppp_channel.h
++++ linux-2.6.git/include/linux/ppp_channel.h
+@@ -22,6 +22,7 @@
+ #include <linux/list.h>
+ #include <linux/skbuff.h>
+ #include <linux/poll.h>
++#include <net/net_namespace.h>
+ 
+ struct ppp_channel;
+ 
+@@ -56,6 +57,9 @@ extern void ppp_input(struct ppp_channel
+    that we may have missed a packet. */
+ extern void ppp_input_error(struct ppp_channel *, int code);
+ 
++/* Attach a channel to a given PPP unit in specified net. */
++extern int ppp_register_net_channel(struct net *, struct ppp_channel *);
++
+ /* Attach a channel to a given PPP unit. */
+ extern int ppp_register_channel(struct ppp_channel *);
+ 
 
 -- 
