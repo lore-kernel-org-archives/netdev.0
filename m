@@ -1,33 +1,20 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gre: strict physical device binding
-Date: Mon, 19 Jan 2009 17:22:24 -0800 (PST)
-Message-ID: <20090119.172224.251874271.davem@davemloft.net>
-References: <1232362205-10572-1-git-send-email-timo.teras@iki.fi>
+Subject: Re: wimax/i2400m: error paths that need to free an skb should use
+ kfree_skb()
+Date: Mon, 19 Jan 2009 17:26:00 -0800 (PST)
+Message-ID: <20090119.172600.261205226.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: timo.teras@iki.fi
+Cc: netdev@vger.kernel.org
+To: inaky@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45714
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51027
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751080AbZATBWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 20:22:23 -0500
-In-Reply-To: <1232362205-10572-1-git-send-email-timo.teras@iki.fi>
+	by vger.kernel.org with ESMTP id S1755705AbZATBZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2009 20:25:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timo Teras <timo.teras@iki.fi>
-Date: Mon, 19 Jan 2009 12:50:05 +0200
 
-> Check the device on receive path and allow otherwise identical devices
-> as long as the physical device differs.
-> 
-> This is useful for NBMA tunnels, where you want to use different gre IP
-> for each public IP available via different physical devices.
-> 
-> Signed-off-by: Timo Teras <timo.teras@iki.fi>
-
-Seems reasonable, applied.
-
-Thanks Timo.
+Applied, thanks.
