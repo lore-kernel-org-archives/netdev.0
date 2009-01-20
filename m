@@ -1,85 +1,45 @@
 From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 1/6] smsc911x: add support for platform-specific irq flags
-Date: Tue, 20 Jan 2009 13:28:29 +0000
-Message-ID: <1232458114-10997-2-git-send-email-steve.glendinning@smsc.com>
-References: <1232458114-10997-1-git-send-email-steve.glendinning@smsc.com>
+Subject: [PATCH 1/2] rndis_wlan: allow devdbg arguments to be type-checked without DEBUG
+Date: Tue, 20 Jan 2009 13:07:17 +0000
+Message-ID: <1232456838-10025-1-git-send-email-steve.glendinning@smsc.com>
 Cc: David Miller <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Stanley Miao <stanley.miao@windriver.com>,
-	Ian Saturley <ian.saturley@smsc.com>,
+	David Brownell <david-b@pacbell.net>,
 	Steve Glendinning <steve.glendinning@smsc.com>
-To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sandgatehouse.force9.co.uk ([84.92.144.20]:48200 "EHLO
+Received: from sandgatehouse.force9.co.uk ([84.92.144.20]:48218 "EHLO
 	kensington.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755019AbZATNbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 08:31:48 -0500
-In-Reply-To: <1232458114-10997-1-git-send-email-steve.glendinning@smsc.com>
+	with ESMTP id S1756128AbZATNbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 08:31:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-this patch adds support for the platform_device's resources to indicate
-additional flags to use when registering the irq, for example
-IORESOURCE_IRQ_LOWLEVEL (which corresponds to IRQF_TRIGGER_LOW).  These
-should be set in the irq resource flags field.
+This patch removes an #ifdef DEBUG directive so devdbg statements can be
+type-checked at compile time.  Type checking itself is introduced by
+another patch in this series.
+
+This introduces an unused variable warning which disappears with the
+type-checking patch.
 
 Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 ---
- drivers/net/smsc911x.c |   19 ++++++++++++++-----
- 1 files changed, 14 insertions(+), 5 deletions(-)
+ drivers/net/wireless/rndis_wlan.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index f513bdf..3565df1 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1892,9 +1892,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	struct net_device *dev;
- 	struct smsc911x_data *pdata;
- 	struct smsc911x_platform_config *config = pdev->dev.platform_data;
--	struct resource *res;
-+	struct resource *res, *irq_res;
- 	unsigned int intcfg = 0;
--	int res_size;
-+	int res_size, irq_flags;
- 	int retval;
- 	DECLARE_MAC_BUF(mac);
- 
-@@ -1919,6 +1919,14 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	}
- 	res_size = res->end - res->start;
- 
-+	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-+	if (!irq_res) {
-+		pr_warning("%s: Could not allocate irq resource.\n",
-+			SMSC_CHIPNAME);
-+		retval = -ENODEV;
-+		goto out_0;
-+	}
-+
- 	if (!request_mem_region(res->start, res_size, SMSC_CHIPNAME)) {
- 		retval = -EBUSY;
- 		goto out_0;
-@@ -1935,7 +1943,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 
- 	pdata = netdev_priv(dev);
- 
--	dev->irq = platform_get_irq(pdev, 0);
-+	dev->irq = irq_res->start;
-+	irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
- 	pdata->ioaddr = ioremap_nocache(res->start, res_size);
- 
- 	/* copy config parameters across to pdata */
-@@ -1968,8 +1977,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	smsc911x_reg_write(pdata, INT_EN, 0);
- 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
- 
--	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
--			     dev->name, dev);
-+	retval = request_irq(dev->irq, smsc911x_irqhandler,
-+			     irq_flags | IRQF_DISABLED, dev->name, dev);
- 	if (retval) {
- 		SMSC_WARNING(PROBE,
- 			"Unable to claim requested irq: %d", dev->irq);
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index 607ce9f..ed93ac4 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -1649,9 +1649,7 @@ static char *rndis_translate_scan(struct net_device *dev,
+ 				  char *end_buf,
+ 				  struct ndis_80211_bssid_ex *bssid)
+ {
+-#ifdef DEBUG
+ 	struct usbnet *usbdev = netdev_priv(dev);
+-#endif
+ 	u8 *ie;
+ 	char *current_val;
+ 	int bssid_len, ie_len, i;
 -- 
 1.6.0.6
 
