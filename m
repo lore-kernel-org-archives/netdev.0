@@ -1,42 +1,52 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Tue, 20 Jan 2009 13:31:22 +0300
-Message-ID: <20090120103122.GC9167@ioremap.net>
-References: <20090114.012919.117682429.davem@davemloft.net> <20090115230331.GB1123@1wt.eu> <20090115231934.GA8328@gondor.apana.org.au> <20090115.152608.89323697.davem@davemloft.net> <20090120083726.GA13806@ff.dom.local> <20090120093352.GB13806@ff.dom.local> <20090120100043.GA9167@ioremap.net> <20090120102053.GA17004@ff.dom.local>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
+Date: Tue, 20 Jan 2009 11:36:06 +0100
+Message-ID: <20090120103606.GA29346@elte.hu>
+References: <20090115183942.GA6325@elte.hu> <200901170827.33729.rusty@rustcorp.com.au> <20090116220832.GB20653@elte.hu> <200901201328.24605.rusty@rustcorp.com.au> <49756E6E.2060409@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	w@1wt.eu, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
+	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
+	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from broadrack.ru ([195.178.208.66]:44430 "EHLO tservice.net.ru"
+Received: from mx3.mail.elte.hu ([157.181.1.138]:58244 "EHLO mx3.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760291AbZATKbT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2009 05:31:19 -0500
+	id S1755208AbZATKhO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2009 05:37:14 -0500
 Content-Disposition: inline
-In-Reply-To: <20090120102053.GA17004@ff.dom.local>
+In-Reply-To: <49756E6E.2060409@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2009 at 10:20:53AM +0000, Jarek Poplawski (jarkao2@gmail.com) wrote:
-> Good question! Alas I can't check this soon, but if it's really like
-> this, of course this needs some better idea and rework. (BTW, I'd like
-> to prevent here as much as possible some strange activities like 1
-> byte (payload) packets getting full pages without any accounting.)
 
-I believe approach to meet all our goals is to have own network memory
-allocator, so that each skb could have its payload in the fragments, we
-would not suffer from the heavy fragmentation and power-of-two overhead
-for the larger MTUs, have a reserve for the OOM condition and generally
-do not depend on the main system behaviour.
+* Tejun Heo <tj@kernel.org> wrote:
 
-I will resurrect to some point my network allocator to check how things
-go in the modern environment, if no one will beat this idea first :)
+> Rusty Russell wrote:
+> > The generic versions Tejun posted are not softirq safe, so not
+> > suitable for network counters. To figure out what semantics we
+> > really want we need to we must audit the users; I'm sorry I haven't
+> > finished that task (and won't until after the conference).
+> 
+> No, they're not.  They're preempt safe as mentioned in the comment and 
+> is basically just generalization of the original x86 versions used by 
+> x86_64 on SMP before pda and percpu areas were merged.  I agree that 
+> it's something very close to local_t and it would be nice to see those 
+> somehow unified (and I have patches which make use of local_t in my 
+> queue waiting for dynamic percpu allocation).
+> 
+> Another question to ask is whether to keep using separate interfaces for 
+> static and dynamic percpu variables or migrate to something which can 
+> take both.
 
-1. Network (tree) allocator
-http://www.ioremap.net/projects/nta
+Also, there's over 400 PER_CPU variable definitions in the kernel, while 
+only about 40 dynamic percpu allocation usage sites. (in that i included 
+the percpu_counter bits used by networking)
 
--- 
-	Evgeniy Polyakov
+So our percpu code usage is on the static side, by a large margin.
+
+	Ingo
