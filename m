@@ -1,72 +1,48 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
-Date: Tue, 20 Jan 2009 22:42:45 +0100
-Message-ID: <m2ljt53b8q.fsf@ssh.synack.fr>
-References: <1232473719.24943.102.camel@sp-laptop3.sp-local>
-	<m2prih3f9i.fsf@ssh.synack.fr>
-	<alpine.LSU.2.00.0901202120240.24253@fbirervta.pbzchgretzou.qr>
-	<200901201553.57022.paul.moore@hp.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] usb/mcs7830: Don't use buffers from stack for USB transfers
+Date: Tue, 20 Jan 2009 23:45:47 +0100
+Message-ID: <200901202345.47792.arnd@arndb.de>
+References: <34115.192.168.0.40.1232483361.squirrel@server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Stephan Peijnik <stephan@peijnik.at>,
-	"linux-security-module" <linux-security-module@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <200901201553.57022.paul.moore@hp.com> (Paul Moore's message of
-	"Tue, 20 Jan 2009 15:53:56 -0500")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: "Christian Eggers" <ceggers@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.177]:54356 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755551AbZATWpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 17:45:55 -0500
+In-Reply-To: <34115.192.168.0.40.1232483361.squirrel@server>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paul Moore <paul.moore@hp.com> writes:
+On Tuesday 20 January 2009, you wrote:
+> From: Christian Eggers <christian.eggers@kathrein.de>
+> 
+> mcs7830_set_reg() and mcs7830_get_reg() are called with buffers
+> from stack which must not be used directly for USB transfers.
+> This causes corruption of the stack particulary on non x86
+> architectures because DMA may be used for these transfers.
+> 
+> Signed-off-by: Christian Eggers <christian.eggers@kathrein.de>
 
-> However, in dealing with the issue of personal firewalls I think the 
-> biggest issue will be the user interaction as you described ... how do 
-> you explain to a user who clicked the "allow" button that the system 
-> rejected their traffic?
+Have you observed problems with this, or just suspected trouble?
 
-maybe because the personnal firewall is the only one which deal with the
-LSM hook related to network (?)
+When I wrote this code, I looked at other code doing the same
+and assumed it was ok, because usb_control_msg waits for the
+DMA to complete before returning.
 
->> >But what you are asking is to have multiple security models at the
->> > same time, with some kind of priority.
->> >I don't know if it's ok or not, but what I'm sure is that snet will
->> > use LSM hooks or your new framework without any problems in fact,
->> > as you are going to make some kind of wrapper on the members of the
->> > struct security_operations.
->>
->> jan>>> My opinion up to here would be to split LSM into the LSM
->> category
->>
->> >>> {selinux, apparmor, tomoyo} and the other, new LSM category
->> >>> {networking stuff}, just as a potential idea to get over the
->> >>> stacking / single LSM use  issue.
->> >
->> >Indeed I thought about that when writing snet.
->>
->> For starters, the existing LSM interface and the LSM  modules
->> themselves could be split up so as to provide
->>
->>  selinux.ko
->>   \_ selinux_net.ko
->>   \_ selinux_fs.ko
->>   ...
->>
->> just a suggestion to ease the thinking process for now.
->> If a purely network-related LSM does not have to think about
->> "do I need to implement FS hooks that do chaining or not..."
->> it is a lot better off.
->
-> Unfortunately I don't think this solves the problem, it just changes it 
-> slightly.  It is no longer "How do I enable SELinux and XXX personal 
-> firewall?" but instead "How do I enable SELinux's network access 
-> controls and XXX personal firewall?"
+Is the problem only on systems that have noncoherent DMA, or
+something else?
 
-And introduce another one : "how do I make SElinux's network access
-controls and Apparmor filesystem access controls working together ?"
-this is the true deal in this kind of solution.
+> This is my first patch submission for Linux. I hope everything is fine.
 
-sam
+I was about to say that you should have Cc:'d me, but then I noticed
+that I'm not listed in the driver as maintainer, nor in the MAINTAINERS
+file, so I can't really complain here ;-)
+
+	Arnd <><
