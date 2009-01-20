@@ -1,88 +1,32 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal
- firewalls"
-Date: Tue, 20 Jan 2009 21:31:24 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0901202120240.24253@fbirervta.pbzchgretzou.qr>
-References: <1232473719.24943.102.camel@sp-laptop3.sp-local> <alpine.LSU.2.00.0901201916340.516@fbirervta.pbzchgretzou.qr> <1232477780.24943.116.camel@sp-laptop3.sp-local> <m2prih3f9i.fsf@ssh.synack.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] usb/mcs7830: Don't use buffers from stack for USB
+ transfers
+Date: Tue, 20 Jan 2009 12:32:41 -0800 (PST)
+Message-ID: <20090120.123241.95161555.davem@davemloft.net>
+References: <34115.192.168.0.40.1232483361.squirrel@server>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephan Peijnik <stephan@peijnik.at>,
-	linux-security-module <linux-security-module@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m2prih3f9i.fsf@ssh.synack.fr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org
+To: ceggers@gmx.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762547AbZATUc7@vger.kernel.org>
+In-Reply-To: <34115.192.168.0.40.1232483361.squirrel@server>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: "Christian Eggers" <ceggers@gmx.de>
+Date: Tue, 20 Jan 2009 21:29:21 +0100 (CET)
 
-On Tuesday 2009-01-20 21:15, Samir Bellabes wrote this in IRC:
->
->be carefull, you are mixing 2 distincts questions in fact :
->
->1. how to have differents security models in the kernel, dealing with
->   the LSM hooks ?
+> This is my first patch submission for Linux. I hope everything is fine.
 
-A possible idea would be to not do the traditional LSM chaining,
-but a parallel approach.
+Unfortuntately not, your email client has corrupted the
+patch changing tab characters into spaces.
 
-The problem with LSM chaining is that it somewhat imposed an order
-on LSMs. The checks in SELinux for example could have decided
-"it's forbidden" and not call out to the secondary module that was
-registered with it. Similarly if my own module was primary and
-selinux was the secondary -- this would potentially lead to me
-having forgotten something in the primary and not calling the
-secondary so selinux would have an inconsistent state of itself.
-Therefore, how about doing a parallel LSM approach:
+Please resubmit this after correcting this problem.  See:
 
-int security_create_inode(...)
-{
-	int ret == 0, x;
-	list_for_each_entry(lsm, ...) {
-		x = lsm->create_inode(...);
-		if (x < 0 && ret == 0)
-			ret = x;
-	}
-	return x;
-}
+	Documentation/email-clients.txt
 
-That way, SElinux (which must serve as a beating sample now)
-can update the security context associated with the inode as
-required, but our own modules still has something to say in
-whether the action is penultimately allowed.
+in the kernel source for some help with this issue.
 
-There is still an order and would leave question open like
-"if selinux does not like you at all, why bother showing
-a window to the user asking for 'prog xyz tries to bind()'".
-
-But I think it's the direction.
-
->But what you are asking is to have multiple security models at the same
->time, with some kind of priority.
->I don't know if it's ok or not, but what I'm sure is that snet will use
->LSM hooks or your new framework without any problems in fact, as you are
->going to make some kind of wrapper on the members of the struct
->security_operations.
-
-jan>>> My opinion up to here would be to split LSM into the LSM category
->>> {selinux, apparmor, tomoyo} and the other, new LSM category
->>> {networking stuff}, just as a potential idea to get over the
->>> stacking / single LSM use  issue.
->
->Indeed I thought about that when writing snet.
-
-For starters, the existing LSM interface and the LSM  modules themselves
-could be split up so as to provide
-
- selinux.ko
-  \_ selinux_net.ko
-  \_ selinux_fs.ko
-  ...
-
-just a suggestion to ease the thinking process for now.
-If a purely network-related LSM does not have to think about
-"do I need to implement FS hooks that do chaining or not..."
-it is a lot better off.
-
+Thank you.
