@@ -1,115 +1,316 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
-Date: Wed, 21 Jan 2009 09:18:06 +0100
-Message-ID: <m2sknd139d.fsf@ssh.synack.fr>
-References: <1232473719.24943.102.camel@sp-laptop3.sp-local>
-	<200901201547.44981.paul.moore@hp.com>
-	<1232495321.24943.149.camel@sp-laptop3.sp-local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: cxgb3: Replace LRO with GRO
+Date: Wed, 21 Jan 2009 19:29:37 +1100
+Message-ID: <20090121082937.GA1116@gondor.apana.org.au>
+References: <20090120101418.13898.57172.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Paul Moore <paul.moore@hp.com>,
-	linux-security-module <linux-security-module@vger.kernel.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Stephan Peijnik <stephan@peijnik.at>
+Cc: netdev@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:46126 "EHLO
-	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbZAUISJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 03:18:09 -0500
-In-Reply-To: <1232495321.24943.149.camel@sp-laptop3.sp-local> (Stephan
-	Peijnik's message of "Wed, 21 Jan 2009 00:48:41 +0100")
+Received: from rhun.apana.org.au ([64.62.148.172]:34142 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757576AbZAUI3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 03:29:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20090120101418.13898.57172.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephan Peijnik <stephan@peijnik.at> writes:
+On Tue, Jan 20, 2009 at 02:14:19AM -0800, Divy Le Ray wrote:
+> 
+> Here is the patch:
 
-> On Tue, 2009-01-20 at 15:47 -0500, Paul Moore wrote:
->> Another option that was brought up (although perhaps not very clearly 
->> since it isn't listed here) was the embedding of the personal firewall 
->> hooks into the individual LSMs roughly similar to how capabilities are 
->> handled with SELinux today (a separate security mechanism that has 
->> explicit calls within SELinux).  This approach enables the use of 
->> current LSMs (although minor modifications will be needed) and avoids 
->> the need to add new hooks to the core network stack.
->
-> Sorry for not adding that one, I think you sent that email after I
-> finished writing the summary and that's why it wasn't included in the
-> first place.
-> This is another way of doing it, yes, but in the end we would probably
-> end up writing additional wrapper like code with the only purpose of
-> being called by <insert favorite LSM here> and then forwarding that call
-> to <insert favorite personal firewall here>.
-> To have multiple approaches working we would probably need
-> register/unregister functions for that wrapper and, to be honest, to me
-> this sounds like a more complicated version of doing the calls to the
-> wrapper directly from net/socket.c. The outcome is pretty much the same
-> though.
+Thanks, I'll add it to my series and push it later.
 
-Please, again, this as nothing to do with personal firewall.
-The same problem remain if I want to write the same tool related to
-filesystem.
-We should definitly stop using 'personal firewall' as a excuse.
-We just want a simple way to enable another security model. And you
-should known that we already have the "security=" boot param [1]
+> Here is the non detailed opreport output for the CPU managing the reception
+> of netperf traffic:
 
-So now the good question is what are we going to do when using a
-personal firewall based on LSM, for the others non-related network
-syscalls ? 
+This is very helpful! Now some of the extra cost of GRO is due
+to extra checks which are unavoidable.  However, there is a lot
+of microoptimisations that we can perform to minimise the cost
+and also reduce the cost of some existing checks.
 
->> > What has not been agreed on yet is whether only a way of hooking
->> > these calls should be made available to implementations or whether
->> > the whole in-kernel part should be developed together and allow
->> > implementations of personal firewalls in userspace only, for example
->> > using a netlink socket to communicate with the shared in-kernel code.
->> 
->> Since there will always be a significant userspace component to any 
->> personal firewall approach it seems reasonable to push the decision 
->> making into userspace and leave the kernel component relatively simple.  
->> The basic idea behind Samir's "snet" concept where the kernel simply 
->> passes messages to userspace and waits for a verdict seems like a 
->> reasonable approach in that it can be made to support different 
->> personal firewall implementations/designs without significant changes 
->> to the kernel.
->
-> I can only agree on that. However, providing a single solution that
-> cannot be extended dynamically (think of adding support for additional
-> protocols, implementing some sort of policy caching, etc.) might be the
-> wrong way to go.
+Please try the following patch (compile tested only since I'm
+at LCA) and let me know if it improves things.
 
-Providing dynamical support for next unknown protocols ?.. hum I'm
-losing myself, and I hope to misunderstand you thought.
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index 1cb0f0b..a1f17ab 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -184,4 +184,25 @@ static inline unsigned compare_ether_addr_64bits(const u8 addr1[6+2],
+ }
+ #endif	/* __KERNEL__ */
+ 
++/**
++ * compare_ether_header - Compare two Ethernet headers
++ * @a: Pointer to Ethernet header
++ * @b: Pointer to Ethernet header
++ *
++ * Compare two ethernet headers, returns 0 if equal.
++ * This assumes that the network header (i.e., IP header) is 4-byte
++ * aligned OR the platform can handle unaligned access.  This is the
++ * case for all packets coming into netif_receive_skb or similar
++ * entry points.
++ */
++
++static inline int compare_ether_header(const void *a, const void *b)
++{
++	u32 *a32 = (u32 *)((u8 *)a + 2);
++	u32 *b32 = (u32 *)((u8 *)b + 2);
++
++	return (*(u16 *)a ^ *(u16 *)b) | (a32[0] ^ b32[0]) |
++	       (a32[1] ^ b32[1]) | (a32[2] ^ b32[2]);
++}
++
+ #endif	/* _LINUX_ETHERDEVICE_H */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5472328..89e5753 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -314,6 +314,9 @@ struct napi_struct {
+ 	spinlock_t		poll_lock;
+ 	int			poll_owner;
+ #endif
++
++	unsigned int		gro_count;
++
+ 	struct net_device	*dev;
+ 	struct list_head	dev_list;
+ 	struct sk_buff		*gro_list;
+@@ -1111,6 +1114,13 @@ static inline void skb_gro_reset_offset(struct sk_buff *skb)
+ 	NAPI_GRO_CB(skb)->data_offset = 0;
+ }
+ 
++static inline void *skb_gro_mac_header(struct sk_buff *skb)
++{
++	return skb_headlen(skb) ? skb_mac_header(skb) :
++	       page_address(skb_shinfo(skb)->frags[0].page) +
++	       skb_shinfo(skb)->frags[0].page_offset;
++}
++
+ static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 				  unsigned short type,
+ 				  const void *daddr, const void *saddr,
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index fb0d16a..63f103b 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -85,7 +85,9 @@ static int vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+ 		goto drop;
+ 
+ 	for (p = napi->gro_list; p; p = p->next) {
+-		NAPI_GRO_CB(p)->same_flow = p->dev == skb->dev;
++		NAPI_GRO_CB(p)->same_flow =
++			p->dev == skb->dev && !compare_ether_header(
++				skb_mac_header(p), skb_gro_mac_header(skb));
+ 		NAPI_GRO_CB(p)->flush = 0;
+ 	}
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d55f725..fd5998a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -215,13 +215,6 @@ static inline struct hlist_head *dev_index_hash(struct net *net, int ifindex)
+ 	return &net->dev_index_head[ifindex & ((1 << NETDEV_HASHBITS) - 1)];
+ }
+ 
+-static inline void *skb_gro_mac_header(struct sk_buff *skb)
+-{
+-	return skb_headlen(skb) ? skb_mac_header(skb) :
+-	       page_address(skb_shinfo(skb)->frags[0].page) +
+-	       skb_shinfo(skb)->frags[0].page_offset;
+-}
+-
+ /* Device list insertion */
+ static int list_netdevice(struct net_device *dev)
+ {
+@@ -2378,6 +2371,7 @@ void napi_gro_flush(struct napi_struct *napi)
+ 		napi_gro_complete(skb);
+ 	}
+ 
++	napi->gro_count = 0;
+ 	napi->gro_list = NULL;
+ }
+ EXPORT_SYMBOL(napi_gro_flush);
+@@ -2407,7 +2401,6 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	struct packet_type *ptype;
+ 	__be16 type = skb->protocol;
+ 	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
+-	int count = 0;
+ 	int same_flow;
+ 	int mac_len;
+ 	int ret;
+@@ -2421,30 +2414,17 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(ptype, head, list) {
+ 		struct sk_buff *p;
+-		void *mac;
+ 
+ 		if (ptype->type != type || ptype->dev || !ptype->gro_receive)
+ 			continue;
+ 
+ 		skb_set_network_header(skb, skb_gro_offset(skb));
+-		mac = skb_gro_mac_header(skb);
+ 		mac_len = skb->network_header - skb->mac_header;
+ 		skb->mac_len = mac_len;
+ 		NAPI_GRO_CB(skb)->same_flow = 0;
+ 		NAPI_GRO_CB(skb)->flush = 0;
+ 		NAPI_GRO_CB(skb)->free = 0;
+ 
+-		for (p = napi->gro_list; p; p = p->next) {
+-			count++;
+-
+-			if (!NAPI_GRO_CB(p)->same_flow)
+-				continue;
+-
+-			if (p->mac_len != mac_len ||
+-			    memcmp(skb_mac_header(p), mac, mac_len))
+-				NAPI_GRO_CB(p)->same_flow = 0;
+-		}
+-
+ 		pp = ptype->gro_receive(&napi->gro_list, skb);
+ 		break;
+ 	}
+@@ -2462,15 +2442,16 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 		*pp = nskb->next;
+ 		nskb->next = NULL;
+ 		napi_gro_complete(nskb);
+-		count--;
++		napi->gro_count--;
+ 	}
+ 
+ 	if (same_flow)
+ 		goto ok;
+ 
+-	if (NAPI_GRO_CB(skb)->flush || count >= MAX_GRO_SKBS)
++	if (NAPI_GRO_CB(skb)->flush || napi->gro_count >= MAX_GRO_SKBS)
+ 		goto normal;
+ 
++	napi->gro_count++;
+ 	NAPI_GRO_CB(skb)->count = 1;
+ 	skb_shinfo(skb)->gso_size = skb_gro_len(skb);
+ 	skb->next = napi->gro_list;
+@@ -2490,7 +2471,8 @@ static int __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	struct sk_buff *p;
+ 
+ 	for (p = napi->gro_list; p; p = p->next) {
+-		NAPI_GRO_CB(p)->same_flow = 1;
++		NAPI_GRO_CB(p)->same_flow = !compare_ether_header(
++			skb_mac_header(p), skb_gro_mac_header(skb));
+ 		NAPI_GRO_CB(p)->flush = 0;
+ 	}
+ 
+@@ -2714,6 +2696,7 @@ void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
+ 		    int (*poll)(struct napi_struct *, int), int weight)
+ {
+ 	INIT_LIST_HEAD(&napi->poll_list);
++	napi->gro_count = 0;
+ 	napi->gro_list = NULL;
+ 	napi->skb = NULL;
+ 	napi->poll = poll;
+@@ -2742,6 +2725,7 @@ void netif_napi_del(struct napi_struct *napi)
+ 	}
+ 
+ 	napi->gro_list = NULL;
++	napi->gro_count = 0;
+ }
+ EXPORT_SYMBOL(netif_napi_del);
+ 
+@@ -5208,6 +5192,7 @@ static int __init net_dev_init(void)
+ 		queue->backlog.poll = process_backlog;
+ 		queue->backlog.weight = weight_p;
+ 		queue->backlog.gro_list = NULL;
++		queue->backlog.gro_count = 0;
+ 	}
+ 
+ 	dev_boot_phase = 0;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index d6770f2..f011ce6 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1264,7 +1264,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 	if (!ops || !ops->gro_receive)
+ 		goto out_unlock;
+ 
+-	if (iph->version != 4 || iph->ihl != 5)
++	if (*(u8 *)iph != 0x45)
+ 		goto out_unlock;
+ 
+ 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+@@ -1282,17 +1282,18 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 
+ 		iph2 = ip_hdr(p);
+ 
+-		if (iph->protocol != iph2->protocol ||
+-		    iph->tos != iph2->tos ||
+-		    memcmp(&iph->saddr, &iph2->saddr, 8)) {
++		if ((iph->protocol ^ iph2->protocol) |
++		    (iph->tos ^ iph2->tos) |
++		    (iph->saddr ^ iph2->saddr) |
++		    (iph->daddr ^ iph2->daddr)) {
+ 			NAPI_GRO_CB(p)->same_flow = 0;
+ 			continue;
+ 		}
+ 
+ 		/* All fields must match except length and checksum. */
+ 		NAPI_GRO_CB(p)->flush |=
+-			memcmp(&iph->frag_off, &iph2->frag_off, 4) ||
+-			(u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) != id;
++			(iph->ttl ^ iph2->ttl) |
++			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
+ 
+ 		NAPI_GRO_CB(p)->flush |= flush;
+ 	}
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 0191d39..a1d1f3b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2469,9 +2469,9 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	struct tcphdr *th2;
+ 	unsigned int thlen;
+ 	unsigned int flags;
+-	unsigned int total;
+ 	unsigned int mss = 1;
+ 	int flush = 1;
++	int i;
+ 
+ 	th = skb_gro_header(skb, sizeof(*th));
+ 	if (unlikely(!th))
+@@ -2495,7 +2495,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 
+ 		th2 = tcp_hdr(p);
+ 
+-		if (th->source != th2->source || th->dest != th2->dest) {
++		if ((th->source ^ th2->source) | (th->dest ^ th2->dest)) {
+ 			NAPI_GRO_CB(p)->same_flow = 0;
+ 			continue;
+ 		}
+@@ -2510,14 +2510,15 @@ found:
+ 	flush |= flags & TCP_FLAG_CWR;
+ 	flush |= (flags ^ tcp_flag_word(th2)) &
+ 		  ~(TCP_FLAG_CWR | TCP_FLAG_FIN | TCP_FLAG_PSH);
+-	flush |= th->ack_seq != th2->ack_seq || th->window != th2->window;
+-	flush |= memcmp(th + 1, th2 + 1, thlen - sizeof(*th));
++	flush |= (th->ack_seq ^ th2->ack_seq) | (th->window ^ th2->window);
++	for (i = sizeof(*th); !flush && i < thlen; i += 4)
++		flush |= *(u32 *)((u8 *)th + i) ^
++			 *(u32 *)((u8 *)th2 + i);
+ 
+-	total = skb_gro_len(p);
+ 	mss = skb_shinfo(p)->gso_size;
+ 
+-	flush |= skb_gro_len(skb) > mss || !skb_gro_len(skb);
+-	flush |= ntohl(th2->seq) + total != ntohl(th->seq);
++	flush |= (skb_gro_len(skb) > mss) | !skb_gro_len(skb);
++	flush |= (ntohl(th2->seq) + skb_gro_len(p)) ^ ntohl(th->seq);
+ 
+ 	if (flush || skb_gro_receive(head, skb)) {
+ 		mss = 1;
 
-anyway, you can propose patches on snet to do that.
-
-I already thought about a policy caching, even a 'verdict to rules'
-caching. But you can implement the policy caching from the userspace.
-And this won't work:
-
-1. syscall A on protocol Y
-2. look inside cache for verdict -> found nothing
-3. ask userspace
-4. kernel get a verdict, apply the verdict, put the verdict on cache.
-5. same syscall and protocol as in 1
-6. look inside cache -> apply cache verdict
-
-what if the user changes it's rules between 4 and 5 ?
-Yes, I known we won't change rules every seconds. we can clear the
-cache. 
-But this are implementation details, and we can easy move snet to have
-this feature.
-
-Also, how will you build a cache for a such informations ?
-We surely want to cache the rule we match.
-
-But anyway caching is regarding only some syscalls (as connect(),
-recvmsg(), sendmsg())
-
-And here we start speaking about how to build a personal firewall. And
-this is exactly what I don't want. snet is here to let you have all the
-freedom for this question. What if someone else don't want a policy
-cache ? we put some param to enable or disable it ? No, the best way is
-to let userspace do what he wants. 
-
-sam
-
-[1] http://lwn.net/Articles/271585/
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
