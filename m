@@ -1,36 +1,27 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 5/5] net: pppoe,pppol2tp - register channels with explicit
- net
-Date: Tue, 20 Jan 2009 16:09:00 -0800
-Message-ID: <4976679C.1040708@chelsio.com>
-References: <20090120140510.228815074@gmail.com>> <4975dc14.0637560a.7f8e.729c@mx.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/5] net: pppoe,pppol2tp - register channels with
+ explicit net
+Date: Tue, 20 Jan 2009 16:17:22 -0800 (PST)
+Message-ID: <20090120.161722.130054690.davem@davemloft.net>
+References: <20090120140510.228815074@gmail.com>
+	<4975dc14.0637560a.7f8e.729c@mx.google.com>
+	<4976679C.1040708@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jchapman@katalix.com,
+Cc: gorcunov@gmail.com, jchapman@katalix.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@openvz.org, xemul@openvz.org,
-	Michal Ostrowski <mostrows@earthlink.net>,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:28757 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756792AbZAUAJO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2009 19:09:14 -0500
-In-Reply-To: <4975dc14.0637560a.7f8e.729c@mx.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	devel@openvz.org, xemul@openvz.org, mostrows@earthlink.net,
+	gorcunov@openvz.org
+To: divy@chelsio.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762955AbZAUARk@vger.kernel.org>
+In-Reply-To: <4976679C.1040708@chelsio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cyrill Gorcunov wrote:
-> In PPPo[E|L2TP] we could explicitly point which net namespace
-> we're going to use for channels - make it so.
->
->   
+From: Divy Le Ray <divy@chelsio.com>
+Date: Tue, 20 Jan 2009 16:09:00 -0800
 
-Hi Cyrill,
+> For some reason, I see your your mail' date pointing to 12/31/1969.
 
-For some reason, I see your your mail' date pointing to 12/31/1969.
-
-Cheers,
-Divy
+Yes, he knows.  It's a quilt hiccup.
