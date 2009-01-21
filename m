@@ -1,86 +1,49 @@
-From: "Rob Meijer" <capibara@xs4all.nl>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal  
-     firewalls"
-Date: Wed, 21 Jan 2009 10:32:54 +0100 (CET)
-Message-ID: <39767.77.61.51.106.1232530374.squirrel@webmail.xs4all.nl>
-Reply-To: rmeijer@xs4all.nl
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Fwd: iproute2 wrong burst/cburst calculation?
+Date: Wed, 21 Jan 2009 09:48:43 +0000
+Message-ID: <20090121094843.GA5140@ff.dom.local>
+References: <200901202257.11773.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: rmeijer@xs4all.nl, "Casey Schaufler" <casey@schaufler-ca.com>,
-	"Samir Bellabes" <sam@synack.fr>, imipak@yahoo.com,
-	"linux-security-module" <linux-security-module@vger.kernel.org>,
-	"Stephan Peijnik" <stephan@peijnik.at>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: "Peter Dolding" <oiaohm@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-vbr10.xs4all.nl ([194.109.24.30]:1825 "EHLO
-	smtp-vbr10.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753392AbZAUJdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 04:33:04 -0500
+Received: from ey-out-2122.google.com ([74.125.78.27]:55077 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754265AbZAUJsv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 04:48:51 -0500
+Received: by ey-out-2122.google.com with SMTP id 22so658260eye.37
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2009 01:48:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <200901202257.11773.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, January 21, 2009 09:15, Peter Dolding wrote:
+On Tue, Jan 20, 2009 at 10:57:11PM +0200, Denys Fedoryschenko wrote:
+...
+> class htb 1:3 parent 1:2 leaf 3: prio 0 quantum 200000 rate 680000Kbit ceil 
+> 950000Kbit burst 1445b/8 mpu 0b overhead 0b cburst 1425b/8 mpu 0b overhead 0b 
+> level 0
+>  Sent 140533370 bytes 200327 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 52228Kbit 9289pps backlog 0b 0p requeues 0
+>  lended: 199720 borrowed: 607 giants: 0
+>  tokens: 17 ctokens: 12
+> 
+> So just look: 1:3 have burst 1445 / 1425, and 1:2, his parent - burst 1425 and 
+> cburst 1425. It is wrong? I am not so experienced in htb to judge, but i feel 
+> like iproute2 calculating burst/cburst not right way. 
+...
+> I guess it was supposed in this formula, that size must vary, and higher rate 
+> must have higher size. But because our timer resolution so high, and we add 
+> also mtu value... things going wrong.
+> I dont know yet, how to calculate this correctly. Even not sure if it is 
+> wrong. But HTB author, stated clearly 
 
-> Netfilter can already reject or approve out going packets from
-> applications on the base of user id process id and so on.  This is
-> before packets enter the Netfilter processing stack.   Cost of looking
-> up if applicaiton is approved or not appoved is out weight be the cost
-> of rejected packets going trough netfilter.
->
-> Sorry netfilter is already sorting out how sockets can be used.   What
-> you are basically talking about is two layors doing exactly the same
-> thing.   Half of what tuxguardian does can be done in a iptables
-> module.  Ie filtering out going traffic based on application.
->
-> Please explain why expanding netfilter is not a option.   Expanding
-> netfilter avoids conflicts with LSM's.
->
+Denys, I can't verify this all anytime soon, but most likely you are
+right. Lower burst/cburst for higher rates means there have to be some
+overflow, but since I think you know tc better than me, probably a
+patch is needed. (Then one of possible "fast" fixes could be probably
+to check for some max rate which doesn't overflow yet.)
 
-Agreed patches to Netfilter might get you a long way. Along the lines of
---owner-uid you may extend it with something like --owner-exe and possibly
---owner-callchainid. That could take care of:
-
-* connection-full-protocol like TCP
-* outgoing connection-less-protocol packets like UDP or ICMP
-
-The one thing that would remain would be incoming connection-less-protocol
-packets. If Netfilter could be patched in such a way that incoming packets
-could be filtered based on receiving process meta, that would be a great
-way to go. If not, maybe LSM would need to just mediate 'bind'.
-
-A second issue comes with user level administration. If Netfilter would be
-patched to allow a user to administrate her 'private' table, that could
-get called from the system wide Netfilter rules, some MAC framework would
-still be needed to make sure the user has a way to change the rules in her
-private table, but her browser, pdf reader, mail client etc have not.
-
-That is, you could define some system wide ruleset like:
-
-System wide:
-  * deny any packet from executables under '/home/*'
-  * deny any packet from user 'localuser'
-  * for any packet from an executable under /usr/bin/networkingtools/ jump
-    to the users USERPRIVATE table.
-  * deny all other trafic.
-
-User alice USERPRIVATE:
-  * allow all packets from /usr/bin/webbrowser to anything on tcp port 80.
-
-User bob USERPRIVATE:
-  * allow all packets from /usr/bin/webbrowser to the socks port of the
-    socks server.
-
-Would a solution like that be feasible?
-
-You would want alice or bob to be able to change their USERPRIVATE table,
-but you wouldn't want /usr/bin/webbrowser or any other program to do so
-independently. At least for that you would need close cooperation with
-for example SeLinux or AppArmor.
-
-Further it seems that 'bind' for connection less sockets will still be
-important a candidate for mediation by LSM IMHO.
-
-Rob.
-
+Thanks,
+Jarek P.
