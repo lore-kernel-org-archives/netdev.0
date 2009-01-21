@@ -1,63 +1,33 @@
-From: Samir Bellabes <sam@synack.fr>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
-Date: Wed, 21 Jan 2009 01:54:00 +0100
-Message-ID: <m28wp532dz.fsf@ssh.synack.fr>
-References: <317242.47729.qm@web31508.mail.mud.yahoo.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: why usr/include/linux/if_frad.h is required
+Date: Wed, 21 Jan 2009 02:06:18 +0100
+Message-ID: <m3bpu1xyb9.fsf@intrepid.localdomain>
+References: <1232463174.3088.15.camel@localhost.localdomain>
+	<1232463242.3088.16.camel@localhost.localdomain>
+	<200901201847.03030.arnd@arndb.de>
+	<m3zlhlycso.fsf@intrepid.localdomain>
+	<1232495335.3123.13.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module <linux-security-module@vger.kernel.org>,
-	Stephan Peijnik <stephan@peijnik.at>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: imipak@yahoo.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <317242.47729.qm@web31508.mail.mud.yahoo.com> (Jonathan Day's
-	message of "Tue, 20 Jan 2009 11:46:43 -0800 (PST)")
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, Ingo Molnar <mingo@elte.hu>,
+	Sam Ravnborg <sam@ravnborg.org>, netdev@vger.kernel.org,
+	davem@davemloft.net, LKML <linux-kernel@vger.kernel.org>
+To: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763400AbZAUBGc@vger.kernel.org>
+In-Reply-To: <1232495335.3123.13.camel@localhost.localdomain> (Jaswinder Singh Rajput's message of "Wed\, 21 Jan 2009 05\:18\:55 +0530")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jonathan Day <imipak@yahoo.com> writes:
+Jaswinder Singh Rajput <jaswinder@kernel.org> writes:
 
-> --- On Tue, 1/20/09, Stephan Peijnik <stephan@peijnik.at> wrote:
-
-[...]
-
->> This means personal firewalls should not enforce system
->> security policy,
->> but rather a per-user security policy.
->> The implementations can then add caching of decisions made
->> (ie.
->> "remember this decision") and thus not ask every
->> time a call is made.
->> Also, the only protocols to be supported are IPv4 and IPv6.
->> Adding
->> support for AF_UNIX and/or AF_NETLINK doesn't make much
->> sense, as this
->> is not network-related and would only increase the amount
->> of work a
->> personal firewall implementation has to do.
+> usr/include/linux/if_frad.h is covered with CONFIG_DLCI from many years
+> and no body is complaining about it so it means no body is using it.
 >
-> I agree that Unix and Netlink would not be useful, but there are other socket types that are LAN- or WAN-based, and I'd not be too quick to implement anything that precluded them being covered. (There's a difference between designing code in a way that makes extending it hard and actually implementing other network types, so only implementing IPv4 and IPv6 on a framework that could be extended by anyone deeply passionate about other protocls makes sense -- unless implementing it that way would be so much harder that it's pointless.)
+> So should we need to drop #if / #endif pair or the whole file from
+> userspace.
 
-Exactly, and the cost for the kernel subsystem and the userspace low
-level part should only be adding the new elements for sending usefull
-informations to the userspace and wait for verdict, but the cost for the
-'personnal firewall' developper is higher (how this protocol is
-interacting with others ? etc etc)
-
->> All proposed implementations of personal firewalls until
->> now have made
->> it rather clear that the decision-making logic should be
->> placed in
->> userspace, whilst only a small piece of code communicating
->> with a
->> userspace daemon should be placed in the kernel itself.
->
-> Well, it has probably not been a significant factor in anyone's decision, but it occurs to me that per-process firewalling within the kernel makes the "per-process" bit much more complicated and would not work at all using any of the zerocopy or kernel bypass networking mechanisms.
-
-we don't need this at all, as we are in process context, syscall can
-sleep.
-Trust me, it's strange to have it's web browser freezing waiting for a
-timeout if the userspace part doesn't reply, but if it's replying, it's
-transparent.
-
-sam
+I think the file. "Empty file exported to userspace", long unused. We
+can also have it back there, and it being not exported is an indicator
+that it's not used. I guess the #ifdef __KERNEL__ can be removed, too.
+-- 
+Krzysztof Halasa
