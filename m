@@ -1,41 +1,52 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Wed, 21 Jan 2009 14:52:46 +0900
-Message-ID: <4976B82E.1080002@kernel.org>
-References: <20090115183942.GA6325@elte.hu> <200901170827.33729.rusty@rustcorp.com.au> <20090116220832.GB20653@elte.hu> <200901201328.24605.rusty@rustcorp.com.au> <20090120104022.GB29346@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: why usr/include/linux/if_frad.h is required
+Date: Tue, 20 Jan 2009 22:15:04 -0800 (PST)
+Message-ID: <20090120.221504.264090722.davem@davemloft.net>
+References: <m3bpu1xyb9.fsf@intrepid.localdomain>
+	<3f9a31f40901202050u4b85fef2p8b9848b865c4fda0@mail.gmail.com>
+	<20090121053310.GA26395@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Ingo Molnar <mingo@elte.hu>
+Cc: jaswinderlinux@gmail.com, khc@pm.waw.pl, jaswinder@kernel.org,
+	arnd@arndb.de, mingo@elte.hu, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sam@ravnborg.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:37623 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755673AbZAUFxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2009 00:53:14 -0500
-In-Reply-To: <20090120104022.GB29346@elte.hu>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54120
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751055AbZAUGPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 01:15:03 -0500
+In-Reply-To: <20090121053310.GA26395@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> The larger point still remains: the kernel dominantly uses static percpu 
-> variables by a margin of 10 to 1, so we cannot just brush away the static 
-> percpu variables and must concentrate on optimizing that side with 
-> priority. It's nice if the dynamic percpu-alloc side improves as well, of 
-> course.
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Wed, 21 Jan 2009 06:33:10 +0100
 
-Well, the infrequent usage of dynamic percpu allocation is in some
-part due to the poor implementation, so it's sort of chicken and egg
-problem.  I got into this percpu thing because I wanted a percpu
-reference count which can be dynamically allocated and it sucked.
+> On Wed, Jan 21, 2009 at 10:20:17AM +0530, Jaswinder Singh Rajput wrote:
+> > On Wed, Jan 21, 2009 at 6:36 AM, Krzysztof Halasa <khc@pm.waw.pl> wrote:
+> > > Jaswinder Singh Rajput <jaswinder@kernel.org> writes:
+> > >
+> > >> usr/include/linux/if_frad.h is covered with CONFIG_DLCI from many years
+> > >> and no body is complaining about it so it means no body is using it.
+> > >>
+> > >> So should we need to drop #if / #endif pair or the whole file from
+> > >> userspace.
+> > >
+> > > I think the file. "Empty file exported to userspace", long unused. We
+> > > can also have it back there, and it being not exported is an indicator
+> > > that it's not used. I guess the #ifdef __KERNEL__ can be removed, too.
+> > 
+> > I will definately define #ifdef __KERNEL__ but I am also curious after
+> > defining it there is no point of making empty
+> > usr/include/linux/if_frad.h
+> 
+> Googling a bit did not turn up _any_ non-kernel hits that has relevance.
+> So based on the information given in this thread I strongly
+> suggest to drop the export of this header.
 
-Thanks.
+Sure, but on the other hand this makes all of the userland APIs
+essentially inaccessible and undefined.
 
--- 
-tejun
+I bet Sangoma's internal tools reference this stuff.
