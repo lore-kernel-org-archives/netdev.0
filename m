@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: why usr/include/linux/if_frad.h is required
-Date: Wed, 21 Jan 2009 15:37:12 -0800 (PST)
-Message-ID: <20090121.153712.84781438.davem@davemloft.net>
-References: <20090121053310.GA26395@uranus.ravnborg.org>
-	<20090120.221504.264090722.davem@davemloft.net>
-	<20090121173838.3390e5c9@s6510>
+Subject: Re: [PATCH 1/9] bnx2x: remove a few trivial macros
+Date: Wed, 21 Jan 2009 15:42:46 -0800 (PST)
+Message-ID: <20090121.154246.183468953.davem@davemloft.net>
+References: <1232517046.9701.19.camel@brick>
+	<1232522093.29087.9.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sam@ravnborg.org, jaswinderlinux@gmail.com, khc@pm.waw.pl,
-	jaswinder@kernel.org, arnd@arndb.de, mingo@elte.hu,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: harvey.harrison@gmail.com, netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46467
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51563
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752767AbZAUXhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 18:37:11 -0500
-In-Reply-To: <20090121173838.3390e5c9@s6510>
+	by vger.kernel.org with ESMTP id S1753859AbZAUXmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 18:42:44 -0500
+In-Reply-To: <1232522093.29087.9.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 21 Jan 2009 17:38:38 +1100
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 21 Jan 2009 09:14:53 +0200
 
-> There are no references if_frad.h in the version of Sangoma (out of
-> tree) code that we use in Vyatta.
+> On Tue, 2009-01-20 at 21:50 -0800, Harvey Harrison wrote:
+> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> > ---
+> > Eilon, after this series, sparse with endian-checking at least gets through a
+> > compile without hitting too many errors, patch 9 is a functional change
+> > and may have exposed an endian bug in the driver....but I had to get through
+> > the other 8 to see it ;-)
+> > 
+> Wooh!!! Harvey - thanks for all the hard work!
+> 
+> I will review it carefully and start regression tests on few different
+> platforms to verify this fix. Stay tuned.
 
-frad-0.20:src/dlcicfg.c
-
-It includes linux/if_frad.h and also performs the DLCI_SET_CONF
-ioctl.
-
-Enough evidence to show we need to keep this header in the
-export set.  Let's just kill the bogus CONFIG_* ifdef
-tests in there.
+Thanks Eilon, once you've validated these changes let me know
+so I can add them to net-next-2.6
