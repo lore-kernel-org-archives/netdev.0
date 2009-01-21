@@ -1,186 +1,116 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: igb regression (interface hang) with latest -git
-Date: Wed, 21 Jan 2009 14:51:07 -0800
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F24F15EAD@orsmsx501.amr.corp.intel.com>
-References: <20090121102840.GA24967@elte.hu>
-	<200901212234.42749.rjw@sisk.pl> <20090121214810.GB27665@elte.hu>
-	<200901212322.14875.rjw@sisk.pl>
+From: Peter Dolding <oiaohm@gmail.com>
+Subject: Re: RFC: Mandatory Access Control for sockets aka "personal
+	firewalls"
+Date: Thu, 22 Jan 2009 09:28:35 +1000
+Message-ID: <e7d8f83e0901211528ue344783qb66e481902274961@mail.gmail.com>
+References: <39767.77.61.51.106.1232530374.squirrel@webmail.xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>, "Allan, Bruce
-	W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@elte.hu>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <200901212322.14875.rjw@sisk.pl>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Casey Schaufler <casey@schaufler-ca.com>,
+	Samir Bellabes <sam@synack.fr>, imipak@yahoo.com,
+	linux-security-module <linux-security-module@vger.kernel.org>,
+	Stephan Peijnik <stephan@peijnik.at>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: rmeijer@xs4all.nl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from el-out-1112.google.com ([209.85.162.183]:11080 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752584AbZAUX2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 18:28:37 -0500
+In-Reply-To: <39767.77.61.51.106.1232530374.squirrel@webmail.xs4all.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafael J. Wysocki wrote:
-> On Wednesday 21 January 2009, Ingo Molnar wrote:
->> 
->> * Rafael J. Wysocki <rjw@sisk.pl> wrote:
->> 
->>> On Wednesday 21 January 2009, Ingo Molnar wrote:
->>>> 
->>>> * Ingo Molnar <mingo@elte.hu> wrote:
->>>> 
->>>>>> One other piece of info (in addition to what Bruce requested)
->>>>>> that would be useful is after you've done ifconfig eht0 up, cat
->>>>>> /proc/interrupts | grep eth0 and send that output (I want to see
->>>>>> your MSI-X configuration).
->>>>> 
->>>>> here it is:
->>>>> 
->>>>>  79:         35          0       9836       7451       1197      
->>>>>  1360        766          0       2196        995        770     
->>>>>  0       2051        863       4714       1879   PCI-MSI-edge    
->>>>>  eth0-tx-0 80:       2335          0       2718       3651      
->>>>>  5024       9850        533          0       1405       1095     
->>>>>  0          0       4421       1229          0       2002  
->>>>>  PCI-MSI-edge      eth0-tx-1 81:         33          0          0
->>>>>  5478       1125       6585       4865       6306          0     
->>>>>  0          0        714       3757          0       2662      
->>>>> 1020   PCI-MSI-edge      eth0-tx-2 82:         21       1428     
->>>>> 3136       3783       4249       6833          0          0      
->>>>> 4175          0          0       1465       1940       1780      
->>>>> 6286          0   PCI-MSI-edge      eth0-tx-3 83:         40     
->>>>> 0          0       4788          0       1486          0      
->>>>> 7185       3998       8637       1409       6785          0      
->>>>> 0          0      10060   PCI-MSI-edge      eth0-rx-0 84:        
->>>>> 70       1441       2606       1342          0       1678      
->>>>> 4301       1839          0       6507       6910      16470      
->>>>> 0       1484       1004          0   PCI-MSI-edge      eth0-rx-1
->>>>> 85:         40       1368          0       3560       5022      
->>>>> 2040          5       1719          0       2037        956      
->>>>> 40          0      17264       6456       2833   PCI-MSI-edge    
->>>>> eth0-rx-2 86:         44        414          5       1164        
->>>>> 30       4513       4595       1542          0      10033      
->>>>> 1151          0       4961       4203          0      10703  
->>>>> PCI-MSI-edge      eth0-rx-3 87:          1          0          0 
->>>>> 0          0          0          0          0          0         
->>>>> 0          0          0          0          0          0         
->>>>> 0   PCI-MSI-edge      eth0                    
->>>> 
->>>> btw., i turned off CONFIG_PCI_MSI and that worked around the
->>>> interface 
->>>> hang - the box has 40 minutes uptime now and still no hang. (it
->>>> would hang 
->>>> within 5 minutes previously)
->>>> 
->>>> can test the revert of any of these commits:
->>>> 
->>>> e42e4ba: igb: fix anoying type mismatch warning on rx/tx queue
->>>> sizing 8d25332: igb: Fix build warning when DCA is disabled.
->>>> 26bc19e: igb: re-order queues to support cleaner use of ivar on
->>>> 82576 0e014cb: igb: defeature tx head writeback
->>>> 678c610: drivers/net/igb: remove dead code (function
->>>> 'igb_read_pci_cfg') 908a7a1: net: Remove unused netdev arg from
->>>> some NAPI interfaces. 
->>>> ea943d4: igb: fixup AER with proper error handling
->>>> 5e8427e: igb: Correctly determine pci-e function number in virtual
->>>> environment 
->>>> b4557be: igb: update handling of RCTL for smaller buffer sizes
->>>> cb7b48f: igb/e1000e: Naming interrupt vectors
->>>> 40a914f: igb: Add support for pci-e Advanced Error Reporting
->>>> 527d47c: igb: link up/down messages must follow a specific format
->>>> 5b9ab2e: Merge branch 'master' of
->>>> master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6 69d728b:
->>>> igb: loopback bits not correctly cleared from RCTL register
->>>> 9b07f3d: igb: remove unneeded bit refrence when enabling jumbo
->>>> frames  
->>>> f5f4cf0: igb: do not use phy ops in ethtool test cleanup for
->>>> non-copper parts 0082982: netdev: add more functions to netdevice
->>>> ops 68fd991: igb: Fix tx/rx_ring_count parameters for igb on
->>>> suspend/resume/ring resize b2d5653: igb: simplify swap in
->>>> clean_rx_irq if using packet split 2e5c692: igb: convert to
->>>> net_device_ops 198d6ba: Merge branch 'master' of
->>>> master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6 4cf1653:
->>>> netdevice: safe convert to netdev_priv() #part-2 
->>>> babcda7: drivers/net: Kill now superfluous ->last_rx stores.
->>>> 7c510e4: net: convert more to %pM
->>>> 
->>>> i had a quick look at all of them but none seem to have a direct
->>>> connection to MSI-X interrupt generation.
->>>> 
->>>> There's a couple of ones that could have side effects:
->>>> 
->>>> Maybe this one:
->>>> 
->>>>   26bc19e: igb: re-order queues to support cleaner use of ivar on
->>>> 82576 
->>>> 
->>>> due to its sheer commit size and due to its impact on the hw
->>>> programming. 
->>>> 
->>>> or:
->>>> 
->>>>   0e014cb: igb: defeature tx head writeback
->>>> 
->>>> Might have some side-effect on tx-completion IRQs and might tickle
->>>> firmware bugs?
->>>> 
->>>> Or:
->>>> 
->>>>   5e8427e: igb: Correctly determine pci-e function number in
->>>> virtual environment 
->>>> 
->>>> while it should have no impact on a native kernel, it does change
->>>> the PCI 
->>>> config space access sequences.
->>>> 
->>>> Or maybe:
->>>> 
->>>>   69d728b: igb: loopback bits not correctly cleared from RCTL
->>>> register 
->>>> 
->>>> as this impacts the PCI programming too.
->>>> 
->>>> But ... i dont really know this code so i'm guessing around.
->>> 
->>> Well, AER (Advanced Error Reporting) is currently broken w/ MSI-X,
->>> so maybe this one: 
->>> 
->>> 40a914f: igb: Add support for pci-e Advanced Error Reporting
->> 
->> ah, yeah, that makes sense. I discarded that commit because i was
->> unsure whether this box has AER and the boot log said:
->> 
->>  calling  aer_service_init+0x0/0x20 @ 1
->>  initcall aer_service_init+0x0/0x20 returned 0 after 61 usecs
->> 
->> shouldnt it have printed something if AER was available?
-> 
-> The driver doesn't seem to print anything on success as far as I can
-> see. It only reports faliures, apparently.
-> 
-> Thanks,
-> Rafael
+On Wed, Jan 21, 2009 at 7:32 PM, Rob Meijer <capibara@xs4all.nl> wrote:
+> On Wed, January 21, 2009 09:15, Peter Dolding wrote:
+>
+>> Netfilter can already reject or approve out going packets from
+>> applications on the base of user id process id and so on.  This is
+>> before packets enter the Netfilter processing stack.   Cost of looking
+>> up if applicaiton is approved or not appoved is out weight be the cost
+>> of rejected packets going trough netfilter.
+>>
+>> Sorry netfilter is already sorting out how sockets can be used.   What
+>> you are basically talking about is two layors doing exactly the same
+>> thing.   Half of what tuxguardian does can be done in a iptables
+>> module.  Ie filtering out going traffic based on application.
+>>
+>> Please explain why expanding netfilter is not a option.   Expanding
+>> netfilter avoids conflicts with LSM's.
+>>
+>
+> Agreed patches to Netfilter might get you a long way. Along the lines of
+> --owner-uid you may extend it with something like --owner-exe and possibly
+> --owner-callchainid. That could take care of:
+>
+> * connection-full-protocol like TCP
+> * outgoing connection-less-protocol packets like UDP or ICMP
+>
+> The one thing that would remain would be incoming connection-less-protocol
+> packets. If Netfilter could be patched in such a way that incoming packets
+> could be filtered based on receiving process meta, that would be a great
+> way to go. If not, maybe LSM would need to just mediate 'bind'.
+>
+> A second issue comes with user level administration. If Netfilter would be
+> patched to allow a user to administrate her 'private' table, that could
+> get called from the system wide Netfilter rules, some MAC framework would
+> still be needed to make sure the user has a way to change the rules in her
+> private table, but her browser, pdf reader, mail client etc have not.
+>
+> That is, you could define some system wide ruleset like:
+>
+> System wide:
+>  * deny any packet from executables under '/home/*'
+>  * deny any packet from user 'localuser'
+>  * for any packet from an executable under /usr/bin/networkingtools/ jump
+>    to the users USERPRIVATE table.
+>  * deny all other trafic.
+>
+> User alice USERPRIVATE:
+>  * allow all packets from /usr/bin/webbrowser to anything on tcp port 80.
+>
+> User bob USERPRIVATE:
+>  * allow all packets from /usr/bin/webbrowser to the socks port of the
+>    socks server.
+>
+> Would a solution like that be feasible?
+>
+> You would want alice or bob to be able to change their USERPRIVATE table,
+> but you wouldn't want /usr/bin/webbrowser or any other program to do so
+> independently. At least for that you would need close cooperation with
+> for example SeLinux or AppArmor.
+>
+> Further it seems that 'bind' for connection less sockets will still be
+> important a candidate for mediation by LSM IMHO.
+>
+More than feasible.   Look at cgroup's network stack work.   Stick
+each user in there own Cgroup and they can even have there own IP
+number and table if they like.   Of course cannot effect the table
+outside the Cgroup.   Its the one of the major reasons why I said
+fixing up netfilter to provide what is required makes doing multi user
+simple.
 
-I have noticed that too after going through the logs on one of the Nahalem systems I have here.  It might just be best to disable AER in the kernel if it isn't functional on the system and see if that helps to clear up the issue.
+Rules there would only be a extension to what cgroup networking and
+netfilter.  Yes no LSM involvement required.
 
-I am leaning torward some external influence affecting the igb driver.  Of the changes I made the only one I could really think of that would have much affect on MSI-X interrupts would be queue reordering, but that should have little to no effect on 82575 parts as it was intended to only reorder queues on 82576, in addition I would expect an immediate issue since the configuration is pretty much static after the queues are allocated.  The only other patch that could even have a remote possiblity would be the TX head writeback defeature, but I would only expect that one to affect tx.
+There are many ways though the Linux kernel.  This is part of the
+reason why I am asking why they are wanting LSM so much.  LSM was
+decided to be only one thing.   Not something to make more of if it
+can be avoided.   First rule should be seeing if API and Internal
+structs of Linux need fixing.  This case yes there are quite a few
+weaknesses in netfilter that could do with fixing.   If after fixing
+netfilter up it still turns out you need LSM support then you do have
+a valid reason.
 
-Thanks,
+Bind not blocking is a defect in netfilter.   Bind call informs
+netfilter that the traffic to that location is wanted.   One problem
+netfilter cannot answer blocked.   Bind is not a LSM issue really.
+Its a API issue between bind and netfilter.   Currently netfilter just
+cuts the traffic off on the other side.  Ie you have binded to a port
+and will receive nothing because no traffic will get to you.  Its also
+not per application its global.    Yes netfilter rules store the
+information need for blocking bind just no way of informing
+application that it is.
 
-Alex
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by:
-SourcForge Community
-SourceForge wants to tell your story.
-http://p.sf.net/sfu/sf-spreadtheword
+Peter Dolding
