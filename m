@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/9] bnx2x: remove a few trivial macros
-Date: Wed, 21 Jan 2009 15:42:46 -0800 (PST)
-Message-ID: <20090121.154246.183468953.davem@davemloft.net>
-References: <1232517046.9701.19.camel@brick>
-	<1232522093.29087.9.camel@lb-tlvb-eliezer>
+Subject: Re: [PATCH 0/5] ppp,pppoe,pppol2tp -- introduce namespace
+ functionality v2
+Date: Wed, 21 Jan 2009 15:56:24 -0800 (PST)
+Message-ID: <20090121.155624.129797129.davem@davemloft.net>
+References: <4975dc11.0c07560a.7a93.ffff9782@mx.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harvey.harrison@gmail.com, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: jchapman@katalix.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devel@openvz.org, xemul@openvz.org
+To: gorcunov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51563
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45351
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753859AbZAUXmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 18:42:44 -0500
-In-Reply-To: <1232522093.29087.9.camel@lb-tlvb-eliezer>
+	by vger.kernel.org with ESMTP id S1754089AbZAUX4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 18:56:22 -0500
+In-Reply-To: <4975dc11.0c07560a.7a93.ffff9782@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 21 Jan 2009 09:14:53 +0200
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Tue, 20 Jan 2009 17:05:10 +0300
 
-> On Tue, 2009-01-20 at 21:50 -0800, Harvey Harrison wrote:
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > ---
-> > Eilon, after this series, sparse with endian-checking at least gets through a
-> > compile without hitting too many errors, patch 9 is a functional change
-> > and may have exposed an endian bug in the driver....but I had to get through
-> > the other 8 to see it ;-)
-> > 
-> Wooh!!! Harvey - thanks for all the hard work!
-> 
-> I will review it carefully and start regression tests on few different
-> platforms to verify this fix. Stay tuned.
+> Hi, here is a series of patches in hope to bring
+> net-namespace functionality for PPP, PPPoE, PPPoL2TP
+> protocols.
 
-Thanks Eilon, once you've validated these changes let me know
-so I can add them to net-next-2.6
+All applied, thanks Cyrill.
