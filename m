@@ -1,55 +1,71 @@
-From: "Rob Meijer" <capibara@xs4all.nl>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal
-     firewalls"
-Date: Wed, 21 Jan 2009 08:25:29 +0100 (CET)
-Message-ID: <57962.77.61.51.106.1232522729.squirrel@webmail.xs4all.nl>
-Reply-To: rmeijer@xs4all.nl
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Samir Bellabes" <sam@synack.fr>, imipak@yahoo.com,
-	"linux-security-module" <linux-security-module@vger.kernel.org>,
-	"Stephan Peijnik" <stephan@peijnik.at>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: "Casey Schaufler" <casey@schaufler-ca.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH] af_key: parse and send SADB_X_EXT_NAT_T_OA extension
+Date: Wed, 21 Jan 2009 09:34:07 +0200
+Message-ID: <1232523247-6893-1-git-send-email-timo.teras@iki.fi>
+Cc: Timo Teras <timo.teras@iki.fi>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f20.google.com ([209.85.219.20]:34948 "EHLO
+	mail-ew0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755373AbZAUHeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 02:34:13 -0500
+Received: by ewy13 with SMTP id 13so1333804ewy.13
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2009 23:34:11 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, January 21, 2009 02:18, Casey Schaufler wrote:
->
->> we don't need this at all, as we are in process context, syscall can
->> sleep.
->> Trust me, it's strange to have it's web browser freezing waiting for a
->> timeout if the userspace part doesn't reply, but if it's replying, it's
->> transparent.
->
-> I hate to be the one to say this, but it looks to me as if the
-> easiest way to solve the problems that you have outlined would
-> be to create a new LSM based on SELinux with two important
-> changes. The first would be to have a separate policy for each
-> user (or process tree) and the second would be to make the policy
-> specification discretionary. SELinux has all the mechanism you're
-> talking about, but you want the policy being enforced to reflect
-> a set of "personal firewall" rules rather than "domain type" rules.
->  From the lobby at LCA in Hobart these rule sets are pretty hard to
-> tell apart. And let's not have the "SELinux isn't designed to do
-> that" row. Of course it isn't. Nonetheless, the personal firewall
-> sure sounds a lot like SELinux if you ignore the MAC/DAC difference.
+Parse and send SADB_X_EXT_NAT_T_OA along with other NAT-T extensions.
 
-I think this is a perfect example of where using MAC 'and' DAC or rather
-centrally 'and' user managed profiles would be very fruitful. If you can
-create a purely permissive centrally managed per user profile, in fact
-delegating a permission set and allow each user to decompose and
-discretionary delegate parts of this profile to programs run by this same
-user, but with MAC restrictions when delegating to a process run by a
-different user, you would IMHO have a very powerful combination of MAC and
-DAC.
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
+---
+ net/key/af_key.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-I'm not sure however a label based MAC system would be best suited for
-combining MAC and DAC in such a way.
-
-
-
-Rob
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index f8bd8df..f3e9998 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -824,6 +824,7 @@ static struct sk_buff *__pfkey_xfrm_state2msg(struct xfrm_state *x,
+ 		size += sizeof(struct sadb_x_nat_t_type);
+ 		size += sizeof(struct sadb_x_nat_t_port);
+ 		size += sizeof(struct sadb_x_nat_t_port);
++		size += sizeof(struct sadb_address) + sockaddr_size;
+ 	}
+ 
+ 	skb =  alloc_skb(size + 16, GFP_ATOMIC);
+@@ -1031,6 +1032,20 @@ static struct sk_buff *__pfkey_xfrm_state2msg(struct xfrm_state *x,
+ 		n_port->sadb_x_nat_t_port_exttype = SADB_X_EXT_NAT_T_DPORT;
+ 		n_port->sadb_x_nat_t_port_port = natt->encap_dport;
+ 		n_port->sadb_x_nat_t_port_reserved = 0;
++
++		/* original address */
++		addr = (struct sadb_address*) skb_put(skb,
++					      sizeof(struct sadb_address)+sockaddr_size);
++		addr->sadb_address_len =
++			(sizeof(struct sadb_address)+sockaddr_size)/
++			sizeof(uint64_t);
++		addr->sadb_address_exttype = SADB_X_EXT_NAT_T_OA;
++		addr->sadb_address_proto = 0;
++		addr->sadb_address_reserved = 0;
++		addr->sadb_address_prefixlen =
++			pfkey_sockaddr_fill(&natt->encap_oa, 0,
++					    (struct sockaddr *) (addr + 1),
++					    x->props.family);
+ 	}
+ 
+ 	/* security context */
+@@ -1285,6 +1300,11 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+ 				ext_hdrs[SADB_X_EXT_NAT_T_DPORT-1];
+ 			natt->encap_dport = n_port->sadb_x_nat_t_port_port;
+ 		}
++		if (ext_hdrs[SADB_X_EXT_NAT_T_OA-1]) {
++			struct sadb_address* n_oa =
++				ext_hdrs[SADB_X_EXT_NAT_T_OA-1];
++			pfkey_sadb_addr2xfrm_addr(n_oa, &natt->encap_oa);
++		}
+ 	}
+ 
+ 	err = xfrm_init_state(x);
+-- 
+1.5.6.3
 
