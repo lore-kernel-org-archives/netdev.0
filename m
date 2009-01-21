@@ -1,37 +1,77 @@
-From: =?ISO-8859-1?Q?Ra=FAl_Hern=E1ndez?= <rauhersu@gmail.com>
-Subject: ip monitoring
-Date: Thu, 22 Jan 2009 01:18:35 +0100
-Message-ID: <3f847c820901211618p476f3b71kbc994680d4a0a2e8@mail.gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Wed, 21 Jan 2009 18:58:10 -0500 (EST)
+Message-ID: <alpine.DEB.1.10.0901211852060.18367@qirst.com>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>  <200901161503.13730.nickpiggin@yahoo.com.au>  <20090115201210.ca1a9542.akpm@linux-foundation.org>  <200901161746.25205.nickpiggin@yahoo.com.au>  <20090116065546.GJ31013@parisc-linux.org>
+  <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org> <1232428583.11429.83.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: MULTIPART/MIXED; BOUNDARY="-716562517-983847473-1232582290=:18367"
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753728AbZAVAbw@vger.kernel.org>
+In-Reply-To: <1232428583.11429.83.camel@ymzhang>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---716562517-983847473-1232582290=:18367
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:24453 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754569AbZAVASh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 19:18:37 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so1958543fgg.17
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2009 16:18:35 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hi there,
+On Tue, 20 Jan 2009, Zhang, Yanmin wrote:
 
-Just a quick question regarding ip monitoring: I am trying to develop
-a user space app which must be aware of changes related to ip
-management and link status (up, down, this-ip-has-been added,..). So
-far, I am trying to avoid polling the link/ip to notice these changes
-as I would like to be notified asynchronously.
+> kmem_cache =EF=BB=BFskbuff_head_cache's object size is just 256, so it sh=
+ares the kmem_cache
+> with =EF=BB=BF:0000256. Their order is 1 which means every slab consists =
+of 2 physical pages.
 
-Is there any API/quick fix for user space apps to get that (I am
-trying to avoid any kernel development as well) ?
+That order can be changed. Try specifying slub_max_order=3D0 on the kernel
+command line to force an order 0 alloc.
 
-Thx!
+The queues of the page allocator are of limited use due to their overhead.
+Order-1 allocations can actually be 5% faster than order-0. order-0 makes
+sense if pages are pushed rapidly to the page allocator and are then
+reissues elsewhere. If there is a linear consumption then the page
+allocator queues are just overhead.
 
-Best regards,
-Raul
+> Page allocator has an array at zone_pcp(zone, cpu)->pcp to keep a page bu=
+ffer for page order 0.
+> But here =EF=BB=BFskbuff_head_cache's order is 1, so UDP-U-4k couldn't be=
+nefit from the page buffer.
 
---
-Los viajes son en la juventud una parte de educaci=F3n y, en la vejez,
-una parte de experiencia -- Francis Bacon
+That usually does not matter because of partial list avoiding page
+allocator actions.
+
+> SLQB has no such issue, because:
+> 1) SLQB has a percpu freelist. Free objects are put to the list firstly a=
+nd can be picked up
+> later on quickly without lock. A batch parameter to control the free obje=
+ct recollection is mostly
+> 1024.
+> 2) SLQB slab order mostly is 0, so although sometimes it calls alloc_page=
+s/free_pages, it can
+> benefit from =EF=BB=BFzone_pcp(zone, cpu)->pcp page buffer.
+>
+> So SLUB need resolve such issues that one process allocates a batch of ob=
+jects and another process
+> frees them batchly.
+
+SLUB has a percpu freelist but its bounded by the basic allocation unit.
+You can increase that by modifying the allocation order. Writing a 3 or 5
+into the order value in /sys/kernel/slab/xxx/order would do the trick.
+---716562517-983847473-1232582290=:18367--
