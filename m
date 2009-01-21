@@ -1,124 +1,64 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: igb regression (interface hang) with latest -git
-Date: Wed, 21 Jan 2009 22:48:10 +0100
-Message-ID: <20090121214810.GB27665@elte.hu>
-References: <20090121102840.GA24967@elte.hu> <20090121182504.GA14259@elte.hu> <20090121212005.GA26992@elte.hu> <200901212234.42749.rjw@sisk.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gre: strict physical device binding
+Date: Wed, 21 Jan 2009 13:54:52 -0800 (PST)
+Message-ID: <20090121.135452.57299499.davem@davemloft.net>
+References: <1232362205-10572-1-git-send-email-timo.teras@iki.fi>
+	<20090119.172224.251874271.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754680AbZAUVsm@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200901212234.42749.rjw@sisk.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: timo.teras@iki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56925
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752736AbZAUVyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 16:54:51 -0500
+In-Reply-To: <20090119.172224.251874271.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: David Miller <davem@davemloft.net>
+Date: Mon, 19 Jan 2009 17:22:24 -0800 (PST)
 
-* Rafael J. Wysocki <rjw@sisk.pl> wrote:
-
-> On Wednesday 21 January 2009, Ingo Molnar wrote:
-> > 
-> > * Ingo Molnar <mingo@elte.hu> wrote:
-> > 
-> > > > One other piece of info (in addition to what Bruce requested) that 
-> > > > would be useful is after you've done ifconfig eht0 up, cat 
-> > > > /proc/interrupts | grep eth0 and send that output (I want to see your 
-> > > > MSI-X configuration).
-> > > 
-> > > here it is:
-> > > 
-> > >  79:         35          0       9836       7451       1197       1360        766          0       2196        995        770          0       2051        863       4714       1879   PCI-MSI-edge      eth0-tx-0
-> > >  80:       2335          0       2718       3651       5024       9850        533          0       1405       1095          0          0       4421       1229          0       2002   PCI-MSI-edge      eth0-tx-1
-> > >  81:         33          0          0       5478       1125       6585       4865       6306          0          0          0        714       3757          0       2662       1020   PCI-MSI-edge      eth0-tx-2
-> > >  82:         21       1428       3136       3783       4249       6833          0          0       4175          0          0       1465       1940       1780       6286          0   PCI-MSI-edge      eth0-tx-3
-> > >  83:         40          0          0       4788          0       1486          0       7185       3998       8637       1409       6785          0          0          0      10060   PCI-MSI-edge      eth0-rx-0
-> > >  84:         70       1441       2606       1342          0       1678       4301       1839          0       6507       6910      16470          0       1484       1004          0   PCI-MSI-edge      eth0-rx-1
-> > >  85:         40       1368          0       3560       5022       2040          5       1719          0       2037        956         40          0      17264       6456       2833   PCI-MSI-edge      eth0-rx-2
-> > >  86:         44        414          5       1164         30       4513       4595       1542          0      10033       1151          0       4961       4203          0      10703   PCI-MSI-edge      eth0-rx-3
-> > >  87:          1          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0   PCI-MSI-edge      eth0
-> > 
-> > btw., i turned off CONFIG_PCI_MSI and that worked around the interface 
-> > hang - the box has 40 minutes uptime now and still no hang. (it would hang 
-> > within 5 minutes previously)
-> > 
-> > can test the revert of any of these commits:
-> > 
-> > e42e4ba: igb: fix anoying type mismatch warning on rx/tx queue sizing
-> > 8d25332: igb: Fix build warning when DCA is disabled.
-> > 26bc19e: igb: re-order queues to support cleaner use of ivar on 82576
-> > 0e014cb: igb: defeature tx head writeback
-> > 678c610: drivers/net/igb: remove dead code (function 'igb_read_pci_cfg')
-> > 908a7a1: net: Remove unused netdev arg from some NAPI interfaces.
-> > ea943d4: igb: fixup AER with proper error handling
-> > 5e8427e: igb: Correctly determine pci-e function number in virtual environment
-> > b4557be: igb: update handling of RCTL for smaller buffer sizes
-> > cb7b48f: igb/e1000e: Naming interrupt vectors
-> > 40a914f: igb: Add support for pci-e Advanced Error Reporting
-> > 527d47c: igb: link up/down messages must follow a specific format
-> > 5b9ab2e: Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6
-> > 69d728b: igb: loopback bits not correctly cleared from RCTL register
-> > 9b07f3d: igb: remove unneeded bit refrence when enabling jumbo frames
-> > f5f4cf0: igb: do not use phy ops in ethtool test cleanup for non-copper parts
-> > 0082982: netdev: add more functions to netdevice ops
-> > 68fd991: igb: Fix tx/rx_ring_count parameters for igb on suspend/resume/ring resize
-> > b2d5653: igb: simplify swap in clean_rx_irq if using packet split
-> > 2e5c692: igb: convert to net_device_ops
-> > 198d6ba: Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6
-> > 4cf1653: netdevice: safe convert to netdev_priv() #part-2
-> > babcda7: drivers/net: Kill now superfluous ->last_rx stores.
-> > 7c510e4: net: convert more to %pM
-> > 
-> > i had a quick look at all of them but none seem to have a direct 
-> > connection to MSI-X interrupt generation.
-> > 
-> > There's a couple of ones that could have side effects:
-> > 
-> > Maybe this one:
-> > 
-> >   26bc19e: igb: re-order queues to support cleaner use of ivar on 82576
-> > 
-> > due to its sheer commit size and due to its impact on the hw programming.
-> > 
-> > or:
-> > 
-> >   0e014cb: igb: defeature tx head writeback
-> > 
-> > Might have some side-effect on tx-completion IRQs and might tickle 
-> > firmware bugs?
-> > 
-> > Or:
-> > 
-> >   5e8427e: igb: Correctly determine pci-e function number in virtual environment
-> > 
-> > while it should have no impact on a native kernel, it does change the PCI 
-> > config space access sequences.
-> > 
-> > Or maybe:
-> > 
-> >   69d728b: igb: loopback bits not correctly cleared from RCTL register
-> > 
-> > as this impacts the PCI programming too.
-> > 
-> > But ... i dont really know this code so i'm guessing around.
+> From: Timo Teras <timo.teras@iki.fi>
+> Date: Mon, 19 Jan 2009 12:50:05 +0200
 > 
-> Well, AER (Advanced Error Reporting) is currently broken w/ MSI-X, so maybe
-> this one:
+> > Check the device on receive path and allow otherwise identical devices
+> > as long as the physical device differs.
+> > 
+> > This is useful for NBMA tunnels, where you want to use different gre IP
+> > for each public IP available via different physical devices.
+> > 
+> > Signed-off-by: Timo Teras <timo.teras@iki.fi>
 > 
-> 40a914f: igb: Add support for pci-e Advanced Error Reporting
+> Seems reasonable, applied.
+> 
+> Thanks Timo.
 
-ah, yeah, that makes sense. I discarded that commit because i was unsure 
-whether this box has AER and the boot log said:
+BTW, isn't it much more efficient to implement this priority scoring
+using a simple integer instead of this big honking 4 entry array of
+pointers on the stack (one entry of which isn't even _used_)?
 
- calling  aer_service_init+0x0/0x20 @ 1
- initcall aer_service_init+0x0/0x20 returned 0 after 61 usecs
+Something like:
 
-shouldnt it have printed something if AER was available?
+	int score = 4;
 
-	Ingo
+	...
+	for_each_hash_chain() {
+		if (!match)
+			continue;
+		if (exact_match)
+			return this_entry;
+		this_score = 0;
+		if (condition1)
+			this_score |= 2;
+		if (condition2)
+			this_score |= 1;
+		if (this_score < score) {
+			score = this_score;
+			cand = this_entry;
+		}
+	}
+	...
+	return cand;
