@@ -1,51 +1,43 @@
-From: Jike Song <albcamus@gmail.com>
-Subject: [questions] why doesn't BCM5788 driver use MSI? What should I do to
-	enable it?
-Date: Wed, 21 Jan 2009 16:49:21 +0800
-Message-ID: <df9815e70901210049j75979a1cm702a4da15e54a3e@mail.gmail.com>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: NBMA GRE over IPsec behind NAT
+Date: Wed, 21 Jan 2009 11:14:04 +0200
+Message-ID: <4976E75C.8070804@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.190]:19198 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763594AbZAUItX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 03:49:23 -0500
-Received: by ti-out-0910.google.com with SMTP id b6so2809499tic.23
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2009 00:49:21 -0800 (PST)
+Received: from mail-ew0-f20.google.com ([209.85.219.20]:46841 "EHLO
+	mail-ew0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753242AbZAUJOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 04:14:09 -0500
+Received: by ewy13 with SMTP id 13so1363423ewy.13
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2009 01:14:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-Is there any method to get BCM5788 (tg3 driver) work with MSI enabled?
-lspci tells me MSI is supported by BCM5788 card:
+I sent a mail earlier about this subject, see:
+http://marc.info/?l=linux-netdev&m=122232910618099&w=4
 
-$ sudo lspci -vvv -d 0x14e4:0x169c
-02:01.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5788
-Gigabit Ethernet (rev 03)
-	Subsystem: Hewlett-Packard Company Device 30b0
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-Stepping- SERR- FastB2B- DisINTx-
-	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-	Latency: 64 (16000ns min), Cache Line Size: 64 bytes
-	Interrupt: pin A routed to IRQ 23
-	Region 0: Memory at d4000000 (32-bit, non-prefetchable) [size=64K]
-	Expansion ROM at <ignored> [disabled]
-	Capabilities: [48] Power Management version 2
-		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
-		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-	Capabilities: [50] Vital Product Data
-pcilib: sysfs_read_vpd: read failed: Connection timed out
-		Not readable
-	Capabilities: [58] MSI: Mask- 64bit+ Count=1/8 Enable-
-		Address: bfdfb567bfff7ff8  Data: ffff
-	Kernel driver in use: tg3
-	Kernel modules: tg3
+I've been thinking more about this and reading the code
+trying to figure out how to fix this.
 
--- 
-Thanks,
-Jike
+One idea for the fix would be:
+1. Include the NAT Original Address in NDA_LLADDR (this way
+   we don't have to modify struct neighbour)
+2. Add new Neighbor Cache Entry Flag (NTF_NATOA?) to specify
+   if the NAT-OA is present
+3. Modify neighbor cache to cope with the new flag and address
+4. Add NAT-OA field for ipv4 in struct flowi
+5. ipv4/xfrm4_policy.c: __xfrm4_find_bundle() to compare NAT-OA
+   if it is specified in struct flowi.
+6. Possibly ipv4/xfrm4_policy.c: _decode_session4() would
+   extract the NAT-OA to struct flowi from skb->dst->neighbour.
+
+Does this sound something that might work? Would it be an
+acceptable approach?
+
+- Timo
