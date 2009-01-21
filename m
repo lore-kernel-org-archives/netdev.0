@@ -1,159 +1,103 @@
-From: "Stanley.Miao" <stanley.miao@windriver.com>
-Subject: [PATCH 7/8] arm: convert omap ldp platform to use smsc911x
-Date: Wed, 21 Jan 2009 11:06:09 +0800
-Message-ID: <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
-References: <1232458114-10997-1-git-send-email-steve.glendinning@smsc.com>
-Cc: linux@arm.linux.org.uk, davem@davemloft.net,
-	netdev@vger.kernel.org, steve.glendinning@smsc.com
-To: linux-arm-kernel@lists.arm.linux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:58165 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754191AbZAUC5h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2009 21:57:37 -0500
-In-Reply-To: <1232458114-10997-1-git-send-email-steve.glendinning@smsc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
+Date: Wed, 21 Jan 2009 04:14:29 +0100
+Message-ID: <m2wscp1hbe.fsf@ssh.synack.fr>
+References: <317242.47729.qm@web31508.mail.mud.yahoo.com>
+	<m28wp532dz.fsf@ssh.synack.fr> <497677CC.105@schaufler-ca.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: imipak@yahoo.com,
+	linux-security-module <linux-security-module@vger.kernel.org>,
+	Stephan Peijnik <stephan@peijnik.at>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <497677CC.105@schaufler-ca.com> (Casey Schaufler's message of
+	"Tue, 20 Jan 2009 17:18:04 -0800")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-from 2.6.29, smc911x isn't maintained anymore. A new driver, smsc911x,
-will replace it. so convert omap_ldp to use smsc911x driver.
+Casey Schaufler <casey@schaufler-ca.com> writes:
 
-Signed-off-by: Stanley.Miao <stanley.miao@windriver.com>
----
- arch/arm/mach-omap2/board-ldp.c             |   49 ++++++++++++++++-----------
- arch/arm/plat-omap/include/mach/board-ldp.h |    6 +--
- 2 files changed, 31 insertions(+), 24 deletions(-)
+> I hate to be the one to say this, but it looks to me as if the
+> easiest way to solve the problems that you have outlined would
+> be to create a new LSM based on SELinux with two important
+> changes. 
 
-diff --git a/arch/arm/mach-omap2/board-ldp.c b/arch/arm/mach-omap2/board-ldp.c
-index 6592d58..ea00f1b 100644
---- a/arch/arm/mach-omap2/board-ldp.c
-+++ b/arch/arm/mach-omap2/board-ldp.c
-@@ -23,6 +23,7 @@
- #include <linux/spi/spi.h>
- #include <linux/spi/ads7846.h>
- #include <linux/i2c/twl4030.h>
-+#include <linux/smsc911x.h>
- 
- #include <mach/hardware.h>
- #include <asm/mach-types.h>
-@@ -44,8 +45,6 @@
- 
- #include "mmc-twl4030.h"
- 
--
--#define SDP3430_SMC91X_CS	3
- #define CONFIG_DISABLE_HFCLK 1
- 
- #define ENABLE_VAUX1_DEDICATED	0x03
-@@ -53,10 +52,10 @@
- 
- #define TWL4030_MSECURE_GPIO	22
- 
--static struct resource ldp_smc911x_resources[] = {
-+static struct resource ldp_smsc911x_resources[] = {
- 	[0] = {
--		.start	= OMAP34XX_ETHR_START,
--		.end	= OMAP34XX_ETHR_START + SZ_4K,
-+		.start	= 0,
-+		.end	= 0,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	[1] = {
-@@ -66,11 +65,21 @@ static struct resource ldp_smc911x_resources[] = {
- 	},
- };
- 
--static struct platform_device ldp_smc911x_device = {
--	.name		= "smc911x",
-+static struct smsc911x_platform_config ldp_smsc911x_config = {
-+	.irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
-+	.irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
-+	.flags          = SMSC911X_USE_32BIT,
-+	.phy_interface  = PHY_INTERFACE_MODE_MII,
-+};
-+
-+static struct platform_device ldp_smsc911x_device = {
-+	.name		= "smsc911x",
- 	.id		= -1,
--	.num_resources	= ARRAY_SIZE(ldp_smc911x_resources),
--	.resource	= ldp_smc911x_resources,
-+	.num_resources	= ARRAY_SIZE(ldp_smsc911x_resources),
-+	.resource	= ldp_smsc911x_resources,
-+	.dev            = {
-+		.platform_data = &ldp_smsc911x_config,
-+	},
- };
- 
- static int ldp_twl4030_keymap[] = {
-@@ -308,34 +317,34 @@ static struct platform_device ldp_lcd_device = {
- };
- 
- static struct platform_device *ldp_devices[] __initdata = {
--	&ldp_smc911x_device,
-+	&ldp_smsc911x_device,
- 	&ldp_lcd_device,
- 	&ldp_gpio_keys_device,
- };
- 
--static inline void __init ldp_init_smc911x(void)
-+static inline void __init ldp_init_smsc911x(void)
- {
- 	int eth_cs;
- 	unsigned long cs_mem_base;
- 	int eth_gpio = 0;
- 
--	eth_cs = LDP_SMC911X_CS;
-+	eth_cs = LDP_SMSC911X_CS;
- 
- 	if (gpmc_cs_request(eth_cs, SZ_16M, &cs_mem_base) < 0) {
--		printk(KERN_ERR "Failed to request GPMC mem for smc911x\n");
-+		printk(KERN_ERR "Failed to request GPMC mem for smsc911x\n");
- 		return;
- 	}
- 
--	ldp_smc911x_resources[0].start = cs_mem_base + 0x0;
--	ldp_smc911x_resources[0].end   = cs_mem_base + 0xf;
-+	ldp_smsc911x_resources[0].start = cs_mem_base + 0x0;
-+	ldp_smsc911x_resources[0].end   = cs_mem_base + 0x100;
- 	udelay(100);
- 
--	eth_gpio = LDP_SMC911X_GPIO;
-+	eth_gpio = LDP_SMSC911X_GPIO;
- 
--	ldp_smc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
-+	ldp_smsc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
- 
--	if (gpio_request(eth_gpio, "smc911x irq") < 0) {
--		printk(KERN_ERR "Failed to request GPIO%d for smc911x IRQ\n",
-+	if (gpio_request(eth_gpio, "smsc911x irq") < 0) {
-+		printk(KERN_ERR "Failed to request GPIO%d for smsc911x IRQ\n",
- 				eth_gpio);
- 		return;
- 	}
-@@ -348,7 +357,7 @@ static void __init omap_ldp_init_irq(void)
- 	omap2_init_common_hw(NULL);
- 	omap_init_irq();
- 	omap_gpio_init();
--	ldp_init_smc911x();
-+	ldp_init_smsc911x();
- }
- 
- static struct omap_uart_config ldp_uart_config __initdata = {
-diff --git a/arch/arm/plat-omap/include/mach/board-ldp.h b/arch/arm/plat-omap/include/mach/board-ldp.h
-index f233996..81ac2b8 100644
---- a/arch/arm/plat-omap/include/mach/board-ldp.h
-+++ b/arch/arm/plat-omap/include/mach/board-ldp.h
-@@ -32,8 +32,6 @@
- extern void twl4030_bci_battery_init(void);
- 
- #define TWL4030_IRQNUM		INT_34XX_SYS_NIRQ
--#define LDP_SMC911X_CS         1
--#define LDP_SMC911X_GPIO       152
--#define DEBUG_BASE             0x08000000
--#define OMAP34XX_ETHR_START    DEBUG_BASE
-+#define LDP_SMSC911X_CS		1
-+#define LDP_SMSC911X_GPIO	152
- #endif /* __ASM_ARCH_OMAP_LDP_H */
--- 
-1.5.6.3
+Hi Casey,
+I'm very interesting by this thought. because I don't have enough
+background on security models.
 
+> The first would be to have a separate policy for each
+> user (or process tree) and the second would be to make the policy
+> specification discretionary.
+
+I got this, but I don't see what it's implying exactly.
+
+> SELinux has all the mechanism you're
+> talking about, but you want the policy being enforced to reflect
+> a set of "personal firewall" rules rather than "domain type" rules.
+
+ok, I understand the link with the domain type, and I agree.
+
+> From the lobby at LCA in Hobart these rule sets are pretty hard to
+> tell apart. 
+
+By my experience on it, I fully agree.
+At first, I jumped on how to build this rule sets, I just totally
+failed. Specially for dropping rule, and worse: how to order rules.
+
+Then we also need to join sets : (fixing a specific user)
+
+     deny socket() for application X +
+   + deny accept() for application X +
+   + deny listen() for application X +
+   + deny bind() for application X + .. (all syscalls)
+
+ == deny all syscall for 'application X'
+
+So the case of having all the denying rules, minus one, and the user
+adding the missing rule, is not just adding the rule, but it's to 'add'
+all of them to get only one.
+and then we need to put priority/order on keys : filtering by uid first
+? application first ?
+
+I don't know how to do that. what I known for sure is that I don't want
+to spend the next 20 years trying to solve this problem. 
+that's why I focused on the better way to pass the informations to
+userspace, at let someone who actually may implements a way to managed
+this rules sets, with the simplest design to interact with the
+kernel/API mechanism.
+
+> And let's not have the "SELinux isn't designed to do
+> that" row. Of course it isn't. Nonetheless, the personal firewall
+> sure sounds a lot like SELinux if you ignore the MAC/DAC difference.
+
+maybe, but for sure what SELinux is not doing is this :
+
+1. I'm editing the sshd_config file to put the server to listen on the
+   port 2222.
+2. starting server
+3. SELinux is not aware of that, it's not working
+4. I have to put another conf inside SELinux to allow it (but actually
+   didn't I already do it in 1 ?)
+
+then it will work.
+
+with the idea of userspace interaction (asking user, check a database)
+1. I'm editing the sshd_config file to put the server to listen on the
+   port 2222.
+2. staring server -> listen() -> catch it in userspace, ask (X user,
+   remote admin, automatic mecanism/database
+
+only one config, tool is focusing on providing security : is this
+allowed or not ? that's all.
+
+And snet API can be used by others programs. As actually I'm developping
+a opengl tool that is representing network informations, in real
+time. This can't be done with SELinux.
+But the main goal to achieve, is to make all boxes running in a LAN
+aware of themselves and interact also with the main firewall, according
+to the admin decisions. 
+
+sam
