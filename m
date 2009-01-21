@@ -1,308 +1,62 @@
-From: Thomas Klein <tklein@de.ibm.com>
-Subject: [PATCH 2/3] ehea: Fix mem allocations which require page alignment
-Date: Wed, 21 Jan 2009 15:49:20 +0100
-Message-ID: <200901211549.21066.tklein@de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <ossthema@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Hannes Hering <hering2@de.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH] usbnet: allow type check of devdbg arguments in non-debug build
+Date: Wed, 21 Jan 2009 15:45:07 +0000
+Message-ID: <1232552707-4130-1-git-send-email-steve.glendinning@smsc.com>
+Cc: David Miller <davem@davemloft.net>,
+	David Brownell <david-b@pacbell.net>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:43672 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760556AbZAUOxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 09:53:06 -0500
-Content-Disposition: inline
+Received: from [86.54.240.114] ([86.54.240.114]:48914 "EHLO
+	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751808AbZAUPpK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 10:45:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PAGE_SIZE allocations via slab are not guaranteed to be page-aligned. Fixed
-all memory allocations where page alignment is required by firmware.
+Improve usbnet's devdbg to always type-check diagnostic arguments,
+like dev_dbg (device.h).  This makes no change to the resulting size of
+usbnet modules.
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+This patch also removes an #ifdef DEBUG directive from rndis_wlan so
+it's devdbg statements are always type-checked at compile time.
 
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
 ---
-Thanks to Nathan Lynch for this hint!
+ drivers/net/wireless/rndis_wlan.c |    2 --
+ include/linux/usb/usbnet.h        |    4 +++-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff -Nurp -X dontdiff linux-2.6.29-rc2/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
---- linux-2.6.29-rc2/drivers/net/ehea/ehea_main.c	2009-01-21 13:24:54.000000000 +0100
-+++ patched_kernel/drivers/net/ehea/ehea_main.c	2009-01-21 13:36:14.000000000 +0100
-@@ -308,7 +308,7 @@ static struct net_device_stats *ehea_get
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index 607ce9f..ed93ac4 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -1649,9 +1649,7 @@ static char *rndis_translate_scan(struct net_device *dev,
+ 				  char *end_buf,
+ 				  struct ndis_80211_bssid_ex *bssid)
+ {
+-#ifdef DEBUG
+ 	struct usbnet *usbdev = netdev_priv(dev);
+-#endif
+ 	u8 *ie;
+ 	char *current_val;
+ 	int bssid_len, ie_len, i;
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index ba09fe8..7d38222 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -197,7 +197,9 @@ extern int usbnet_nway_reset(struct net_device *net);
+ #define devdbg(usbnet, fmt, arg...) \
+ 	printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , ## arg)
+ #else
+-#define devdbg(usbnet, fmt, arg...) do {} while(0)
++#define devdbg(usbnet, fmt, arg...) \
++	({ if (0) printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , \
++		## arg); 0; })
+ #endif
  
- 	memset(stats, 0, sizeof(*stats));
- 
--	cb2 = kzalloc(PAGE_SIZE, GFP_ATOMIC);
-+	cb2 = (void *)get_zeroed_page(GFP_ATOMIC);
- 	if (!cb2) {
- 		ehea_error("no mem for cb2");
- 		goto out;
-@@ -341,7 +341,7 @@ static struct net_device_stats *ehea_get
- 	stats->rx_packets = rx_packets;
- 
- out_herr:
--	kfree(cb2);
-+	free_page((unsigned long)cb2);
- out:
- 	return stats;
- }
-@@ -915,7 +915,7 @@ int ehea_sense_port_attr(struct ehea_por
- 	struct hcp_ehea_port_cb0 *cb0;
- 
- 	/* may be called via ehea_neq_tasklet() */
--	cb0 = kzalloc(PAGE_SIZE, GFP_ATOMIC);
-+	cb0 = (void *)get_zeroed_page(GFP_ATOMIC);
- 	if (!cb0) {
- 		ehea_error("no mem for cb0");
- 		ret = -ENOMEM;
-@@ -996,7 +996,7 @@ int ehea_sense_port_attr(struct ehea_por
- out_free:
- 	if (ret || netif_msg_probe(port))
- 		ehea_dump(cb0, sizeof(*cb0), "ehea_sense_port_attr");
--	kfree(cb0);
-+	free_page((unsigned long)cb0);
- out:
- 	return ret;
- }
-@@ -1007,7 +1007,7 @@ int ehea_set_portspeed(struct ehea_port
- 	u64 hret;
- 	int ret = 0;
- 
--	cb4 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb4 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb4) {
- 		ehea_error("no mem for cb4");
- 		ret = -ENOMEM;
-@@ -1075,7 +1075,7 @@ int ehea_set_portspeed(struct ehea_port
- 	if (!prop_carrier_state || (port->phy_link == EHEA_PHY_LINK_UP))
- 		netif_carrier_on(port->netdev);
- 
--	kfree(cb4);
-+	free_page((unsigned long)cb4);
- out:
- 	return ret;
- }
-@@ -1302,7 +1302,7 @@ static int ehea_configure_port(struct eh
- 	struct hcp_ehea_port_cb0 *cb0;
- 
- 	ret = -ENOMEM;
--	cb0 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb0 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb0)
- 		goto out;
- 
-@@ -1338,7 +1338,7 @@ static int ehea_configure_port(struct eh
- 	ret = 0;
- 
- out_free:
--	kfree(cb0);
-+	free_page((unsigned long)cb0);
- out:
- 	return ret;
- }
-@@ -1748,7 +1748,7 @@ static int ehea_set_mac_addr(struct net_
- 		goto out;
- 	}
- 
--	cb0 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb0 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb0) {
- 		ehea_error("no mem for cb0");
- 		ret = -ENOMEM;
-@@ -1793,7 +1793,7 @@ out_upregs:
- 	ehea_update_bcmc_registrations();
- 	spin_unlock(&ehea_bcmc_regs.lock);
- out_free:
--	kfree(cb0);
-+	free_page((unsigned long)cb0);
- out:
- 	return ret;
- }
-@@ -1817,7 +1817,7 @@ static void ehea_promiscuous(struct net_
- 	if ((enable && port->promisc) || (!enable && !port->promisc))
- 		return;
- 
--	cb7 = kzalloc(PAGE_SIZE, GFP_ATOMIC);
-+	cb7 = (void *)get_zeroed_page(GFP_ATOMIC);
- 	if (!cb7) {
- 		ehea_error("no mem for cb7");
- 		goto out;
-@@ -1836,7 +1836,7 @@ static void ehea_promiscuous(struct net_
- 
- 	port->promisc = enable;
- out:
--	kfree(cb7);
-+	free_page((unsigned long)cb7);
- 	return;
- }
- 
-@@ -2217,7 +2217,7 @@ static void ehea_vlan_rx_register(struct
- 
- 	port->vgrp = grp;
- 
--	cb1 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb1 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb1) {
- 		ehea_error("no mem for cb1");
- 		goto out;
-@@ -2228,7 +2228,7 @@ static void ehea_vlan_rx_register(struct
- 	if (hret != H_SUCCESS)
- 		ehea_error("modify_ehea_port failed");
- 
--	kfree(cb1);
-+	free_page((unsigned long)cb1);
- out:
- 	return;
- }
-@@ -2241,7 +2241,7 @@ static void ehea_vlan_rx_add_vid(struct
- 	int index;
- 	u64 hret;
- 
--	cb1 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb1 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb1) {
- 		ehea_error("no mem for cb1");
- 		goto out;
-@@ -2262,7 +2262,7 @@ static void ehea_vlan_rx_add_vid(struct
- 	if (hret != H_SUCCESS)
- 		ehea_error("modify_ehea_port failed");
- out:
--	kfree(cb1);
-+	free_page((unsigned long)cb1);
- 	return;
- }
- 
-@@ -2276,7 +2276,7 @@ static void ehea_vlan_rx_kill_vid(struct
- 
- 	vlan_group_set_device(port->vgrp, vid, NULL);
- 
--	cb1 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb1 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb1) {
- 		ehea_error("no mem for cb1");
- 		goto out;
-@@ -2297,7 +2297,7 @@ static void ehea_vlan_rx_kill_vid(struct
- 	if (hret != H_SUCCESS)
- 		ehea_error("modify_ehea_port failed");
- out:
--	kfree(cb1);
-+	free_page((unsigned long)cb1);
- 	return;
- }
- 
-@@ -2309,7 +2309,7 @@ int ehea_activate_qp(struct ehea_adapter
- 	u64 dummy64 = 0;
- 	struct hcp_modify_qp_cb0 *cb0;
- 
--	cb0 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb0 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb0) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -2372,7 +2372,7 @@ int ehea_activate_qp(struct ehea_adapter
- 
- 	ret = 0;
- out:
--	kfree(cb0);
-+	free_page((unsigned long)cb0);
- 	return ret;
- }
- 
-@@ -2664,7 +2664,7 @@ int ehea_stop_qps(struct net_device *dev
- 	u64 dummy64 = 0;
- 	u16 dummy16 = 0;
- 
--	cb0 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb0 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb0) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -2716,7 +2716,7 @@ int ehea_stop_qps(struct net_device *dev
- 
- 	ret = 0;
- out:
--	kfree(cb0);
-+	free_page((unsigned long)cb0);
- 
- 	return ret;
- }
-@@ -2766,7 +2766,7 @@ int ehea_restart_qps(struct net_device *
- 	u64 dummy64 = 0;
- 	u16 dummy16 = 0;
- 
--	cb0 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb0 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb0) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -2819,7 +2819,7 @@ int ehea_restart_qps(struct net_device *
- 		ehea_refill_rq3(pr, 0);
- 	}
- out:
--	kfree(cb0);
-+	free_page((unsigned long)cb0);
- 
- 	return ret;
- }
-@@ -2950,7 +2950,7 @@ int ehea_sense_adapter_attr(struct ehea_
- 	u64 hret;
- 	int ret;
- 
--	cb = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -2967,7 +2967,7 @@ int ehea_sense_adapter_attr(struct ehea_
- 	ret = 0;
- 
- out_herr:
--	kfree(cb);
-+	free_page((unsigned long)cb);
- out:
- 	return ret;
- }
-@@ -2981,7 +2981,7 @@ int ehea_get_jumboframe_status(struct eh
- 	*jumbo = 0;
- 
- 	/* (Try to) enable *jumbo frames */
--	cb4 = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	cb4 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb4) {
- 		ehea_error("no mem for cb4");
- 		ret = -ENOMEM;
-@@ -3009,7 +3009,7 @@ int ehea_get_jumboframe_status(struct eh
- 		} else
- 			ret = -EINVAL;
- 
--		kfree(cb4);
-+		free_page((unsigned long)cb4);
- 	}
- out:
- 	return ret;
-diff -Nurp -X dontdiff linux-2.6.29-rc2/drivers/net/ehea/ehea_qmr.c patched_kernel/drivers/net/ehea/ehea_qmr.c
---- linux-2.6.29-rc2/drivers/net/ehea/ehea_qmr.c	2009-01-16 21:43:00.000000000 +0100
-+++ patched_kernel/drivers/net/ehea/ehea_qmr.c	2009-01-21 13:36:14.000000000 +0100
-@@ -1005,7 +1005,7 @@ void ehea_error_data(struct ehea_adapter
- 	unsigned long ret;
- 	u64 *rblock;
- 
--	rblock = kzalloc(PAGE_SIZE, GFP_KERNEL);
-+	rblock = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!rblock) {
- 		ehea_error("Cannot allocate rblock memory.");
- 		return;
-@@ -1022,5 +1022,5 @@ void ehea_error_data(struct ehea_adapter
- 	else
- 		ehea_error("Error data could not be fetched: %llX", res_handle);
- 
--	kfree(rblock);
-+	free_page((unsigned long)rblock);
- }
+ #define deverr(usbnet, fmt, arg...) \
+-- 
+1.6.0.6
+
