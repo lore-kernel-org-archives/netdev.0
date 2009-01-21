@@ -1,114 +1,115 @@
-From: Peter Dolding <oiaohm@gmail.com>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal
-	firewalls"
-Date: Wed, 21 Jan 2009 18:15:52 +1000
-Message-ID: <e7d8f83e0901210015h5f0f7489u282a50911bf7a988@mail.gmail.com>
-References: <57962.77.61.51.106.1232522729.squirrel@webmail.xs4all.nl>
+From: Samir Bellabes <sam@synack.fr>
+Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
+Date: Wed, 21 Jan 2009 09:18:06 +0100
+Message-ID: <m2sknd139d.fsf@ssh.synack.fr>
+References: <1232473719.24943.102.camel@sp-laptop3.sp-local>
+	<200901201547.44981.paul.moore@hp.com>
+	<1232495321.24943.149.camel@sp-laptop3.sp-local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Casey Schaufler <casey@schaufler-ca.com>,
-	Samir Bellabes <sam@synack.fr>, imipak@yahoo.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul.moore@hp.com>,
 	linux-security-module <linux-security-module@vger.kernel.org>,
-	Stephan Peijnik <stephan@peijnik.at>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: rmeijer@xs4all.nl
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Stephan Peijnik <stephan@peijnik.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.180]:2902 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754943AbZAUIPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 03:15:54 -0500
-In-Reply-To: <57962.77.61.51.106.1232522729.squirrel@webmail.xs4all.nl>
+Received: from bob75-7-88-160-5-175.fbx.proxad.net ([88.160.5.175]:46126 "EHLO
+	cerbere.dyndns.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751591AbZAUISJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 03:18:09 -0500
+In-Reply-To: <1232495321.24943.149.camel@sp-laptop3.sp-local> (Stephan
+	Peijnik's message of "Wed, 21 Jan 2009 00:48:41 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2009 at 5:25 PM, Rob Meijer <capibara@xs4all.nl> wrote:
-> On Wed, January 21, 2009 02:18, Casey Schaufler wrote:
->>
->>> we don't need this at all, as we are in process context, syscall can
->>> sleep.
->>> Trust me, it's strange to have it's web browser freezing waiting for a
->>> timeout if the userspace part doesn't reply, but if it's replying, it's
->>> transparent.
->>
->> I hate to be the one to say this, but it looks to me as if the
->> easiest way to solve the problems that you have outlined would
->> be to create a new LSM based on SELinux with two important
->> changes. The first would be to have a separate policy for each
->> user (or process tree) and the second would be to make the policy
->> specification discretionary. SELinux has all the mechanism you're
->> talking about, but you want the policy being enforced to reflect
->> a set of "personal firewall" rules rather than "domain type" rules.
->>  From the lobby at LCA in Hobart these rule sets are pretty hard to
->> tell apart. And let's not have the "SELinux isn't designed to do
->> that" row. Of course it isn't. Nonetheless, the personal firewall
->> sure sounds a lot like SELinux if you ignore the MAC/DAC difference.
+Stephan Peijnik <stephan@peijnik.at> writes:
+
+> On Tue, 2009-01-20 at 15:47 -0500, Paul Moore wrote:
+>> Another option that was brought up (although perhaps not very clearly 
+>> since it isn't listed here) was the embedding of the personal firewall 
+>> hooks into the individual LSMs roughly similar to how capabilities are 
+>> handled with SELinux today (a separate security mechanism that has 
+>> explicit calls within SELinux).  This approach enables the use of 
+>> current LSMs (although minor modifications will be needed) and avoids 
+>> the need to add new hooks to the core network stack.
 >
-> I think this is a perfect example of where using MAC 'and' DAC or rather
-> centrally 'and' user managed profiles would be very fruitful. If you can
-> create a purely permissive centrally managed per user profile, in fact
-> delegating a permission set and allow each user to decompose and
-> discretionary delegate parts of this profile to programs run by this same
-> user, but with MAC restrictions when delegating to a process run by a
-> different user, you would IMHO have a very powerful combination of MAC and
-> DAC.
+> Sorry for not adding that one, I think you sent that email after I
+> finished writing the summary and that's why it wasn't included in the
+> first place.
+> This is another way of doing it, yes, but in the end we would probably
+> end up writing additional wrapper like code with the only purpose of
+> being called by <insert favorite LSM here> and then forwarding that call
+> to <insert favorite personal firewall here>.
+> To have multiple approaches working we would probably need
+> register/unregister functions for that wrapper and, to be honest, to me
+> this sounds like a more complicated version of doing the calls to the
+> wrapper directly from net/socket.c. The outcome is pretty much the same
+> though.
+
+Please, again, this as nothing to do with personal firewall.
+The same problem remain if I want to write the same tool related to
+filesystem.
+We should definitly stop using 'personal firewall' as a excuse.
+We just want a simple way to enable another security model. And you
+should known that we already have the "security=" boot param [1]
+
+So now the good question is what are we going to do when using a
+personal firewall based on LSM, for the others non-related network
+syscalls ? 
+
+>> > What has not been agreed on yet is whether only a way of hooking
+>> > these calls should be made available to implementations or whether
+>> > the whole in-kernel part should be developed together and allow
+>> > implementations of personal firewalls in userspace only, for example
+>> > using a netlink socket to communicate with the shared in-kernel code.
+>> 
+>> Since there will always be a significant userspace component to any 
+>> personal firewall approach it seems reasonable to push the decision 
+>> making into userspace and leave the kernel component relatively simple.  
+>> The basic idea behind Samir's "snet" concept where the kernel simply 
+>> passes messages to userspace and waits for a verdict seems like a 
+>> reasonable approach in that it can be made to support different 
+>> personal firewall implementations/designs without significant changes 
+>> to the kernel.
 >
-> I'm not sure however a label based MAC system would be best suited for
-> combining MAC and DAC in such a way.
->
->
->
-I really don't see the need for special here other than improving iptables.
+> I can only agree on that. However, providing a single solution that
+> cannot be extended dynamically (think of adding support for additional
+> protocols, implementing some sort of policy caching, etc.) might be the
+> wrong way to go.
 
-LSM module is over kill.  This leads to double processing of packet requests.
+Providing dynamical support for next unknown protocols ?.. hum I'm
+losing myself, and I hope to misunderstand you thought.
 
-netfilter already can operate as either MAC or DAC all depending on
-the rules passed into it and the outside LSM applied.  selinux and
-other lsm's can stop applications from changing the netfilter.  So
-basic filtering of what can be changed in iptables basically turns
-iptables from a DAC to a MAC.  Advantage added no more layors for
-network packets to go though.
+anyway, you can propose patches on snet to do that.
 
-Only cost for outgoing really is changing the rules.  Once rules are
-set cost compare to normal disappears.
+I already thought about a policy caching, even a 'verdict to rules'
+caching. But you can implement the policy caching from the userspace.
+And this won't work:
 
-Yes there will be a cost on incoming since application level incoming
-filtering is not done at the moment.  There is a major problem here
-for tuxguardian idea of being at the application API interface how in
-heck are you going to block something before it has to travel all the
-way threw the net-filter stack.  [network
-card]-[netfilter]-[applicaiton]  Idea makes it [network
-card]-[netfilter]-[application filter]-[application]  Really a bad
-outcome.   If user say on X port they don't want traffic from X IP but
-they want to let other IP's tuxguardian still has to netfilter so its
-stoped soon enough.   No point processing items you are just dropping.
+1. syscall A on protocol Y
+2. look inside cache for verdict -> found nothing
+3. ask userspace
+4. kernel get a verdict, apply the verdict, put the verdict on cache.
+5. same syscall and protocol as in 1
+6. look inside cache -> apply cache verdict
 
-Netfilter can already reject or approve out going packets from
-applications on the base of user id process id and so on.  This is
-before packets enter the Netfilter processing stack.   Cost of looking
-up if applicaiton is approved or not appoved is out weight be the cost
-of rejected packets going trough netfilter.
+what if the user changes it's rules between 4 and 5 ?
+Yes, I known we won't change rules every seconds. we can clear the
+cache. 
+But this are implementation details, and we can easy move snet to have
+this feature.
 
-Sorry netfilter is already sorting out how sockets can be used.   What
-you are basically talking about is two layors doing exactly the same
-thing.   Half of what tuxguardian does can be done in a iptables
-module.  Ie filtering out going traffic based on application.
+Also, how will you build a cache for a such informations ?
+We surely want to cache the rule we match.
 
-Please explain why expanding netfilter is not a option.   Expanding
-netfilter avoids conflicts with LSM's.
+But anyway caching is regarding only some syscalls (as connect(),
+recvmsg(), sendmsg())
 
-Filtering traffic coming into applications is missing.  I am also
-sorry tuxguardian over looks something using i7filter would allow
-applications to share the same port number or block invalid type
-packets being sent to an application.
+And here we start speaking about how to build a personal firewall. And
+this is exactly what I don't want. snet is here to let you have all the
+freedom for this question. What if someone else don't want a policy
+cache ? we put some param to enable or disable it ? No, the best way is
+to let userspace do what he wants. 
 
-True solid home firewall solution really should be able to use
-i7filtering where needed.   Same with multi user-support.
+sam
 
-The idea that personal firewall does not need to filter packets is
-foolish.   Also the idea that machines that are always single user
-exist is also foolish.  More and more Linux distributions are
-supporting user switching.  Linux is completely designed as an multi
-user OS.   So design need to take that into account.
-
-Peter Dolding
+[1] http://lwn.net/Articles/271585/
