@@ -1,129 +1,92 @@
 From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: [PATCH 3/9] bnx2x: annotate addr_hi/addr_lo as le32
-Date: Tue, 20 Jan 2009 21:50:48 -0800
-Message-ID: <1232517048.9701.21.camel@brick>
+Subject: [PATCH 9/9] bnx2x: annotate nvram dword reading/writing
+Date: Tue, 20 Jan 2009 21:50:51 -0800
+Message-ID: <1232517051.9701.27.camel@brick>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: linux-netdev <netdev@vger.kernel.org>
 To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:49189 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752509AbZAUFuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 00:50:55 -0500
-Received: by rv-out-0506.google.com with SMTP id k40so3470392rvb.1
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2009 21:50:54 -0800 (PST)
+Received: from wf-out-1314.google.com ([209.85.200.173]:23543 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752750AbZAUFvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 00:51:02 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so4192305wfd.4
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2009 21:51:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove a completely unused structure definition as well.
+I believe this exposed an endian bug as the shifting of
+bytes from the data buffer was done in cpu-order, then
+masked into a be32 and the combined value was then converted
+to cpu-order, this does all the masking in be-byteorder and
+passes a cpu-ordered value to the write routine.
 
 Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
 ---
- drivers/net/bnx2x_hsi.h  |   27 ++++++++-------------------
- drivers/net/bnx2x_main.c |    8 ++++----
- 2 files changed, 12 insertions(+), 23 deletions(-)
+ drivers/net/bnx2x_main.c |   17 +++++++----------
+ 1 files changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bnx2x_hsi.h b/drivers/net/bnx2x_hsi.h
-index a3c1068..b62d45e 100644
---- a/drivers/net/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x_hsi.h
-@@ -1496,16 +1496,16 @@ struct ustorm_eth_st_context_config {
-  * The eth Rx Buffer Descriptor
-  */
- struct eth_rx_bd {
--	u32 addr_lo;
--	u32 addr_hi;
-+	__le32 addr_lo;
-+	__le32 addr_hi;
- };
- 
- /*
-  * The eth Rx SGE Descriptor
-  */
- struct eth_rx_sge {
--	u32 addr_lo;
--	u32 addr_hi;
-+	__le32 addr_lo;
-+	__le32 addr_hi;
- };
- 
- /*
-@@ -1908,8 +1908,8 @@ struct eth_tx_bd_flags {
-  * The eth Tx Buffer Descriptor
-  */
- struct eth_tx_bd {
--	u32 addr_lo;
--	u32 addr_hi;
-+	__le32 addr_lo;
-+	__le32 addr_hi;
- 	u16 nbd;
- 	u16 nbytes;
- 	u16 vlan;
-@@ -2262,17 +2262,6 @@ union eth_ramrod_data {
- 	struct ramrod_data general;
- };
- 
--
--/*
-- * Rx Last BD in page (in ETH)
-- */
--struct eth_rx_bd_next_page {
--	u32 addr_lo;
--	u32 addr_hi;
--	u8 reserved[8];
--};
--
--
- /*
-  * Eth Rx Cqe structure- general structure for ramrods
-  */
-@@ -2297,8 +2286,8 @@ struct common_ramrod_eth_rx_cqe {
-  * Rx Last CQE in page (in ETH)
-  */
- struct eth_rx_cqe_next_page {
--	u32 addr_lo;
--	u32 addr_hi;
-+	__le32 addr_lo;
-+	__le32 addr_hi;
- 	u32 reserved[6];
- };
- 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 2f8d64c..021c31c 100644
+index 5e5e008..d0b0f6e 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -987,8 +987,8 @@ static inline void bnx2x_free_rx_sge(struct bnx2x *bp,
- 	__free_pages(page, PAGES_PER_SGE_SHIFT);
- 
- 	sw_buf->page = NULL;
--	sge->addr_hi = 0;
--	sge->addr_lo = 0;
-+	sge->addr_hi = cpu_to_le32(0);
-+	sge->addr_lo = cpu_to_le32(0);
+@@ -8011,7 +8011,7 @@ static void bnx2x_disable_nvram_access(struct bnx2x *bp)
+ 			MCPR_NVM_ACCESS_ENABLE_WR_EN)));
  }
  
- static inline void bnx2x_free_rx_sge_range(struct bnx2x *bp,
-@@ -9419,7 +9419,7 @@ static inline u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
- 		rc = XMIT_PLAIN;
+-static int bnx2x_nvram_read_dword(struct bnx2x *bp, u32 offset, u32 *ret_val,
++static int bnx2x_nvram_read_dword(struct bnx2x *bp, u32 offset, __be32 *ret_val,
+ 				  u32 cmd_flags)
+ {
+ 	int count, i, rc;
+@@ -8047,8 +8047,7 @@ static int bnx2x_nvram_read_dword(struct bnx2x *bp, u32 offset, u32 *ret_val,
+ 			/* we read nvram data in cpu order
+ 			 * but ethtool sees it as an array of bytes
+ 			 * converting to big-endian will do the work */
+-			val = cpu_to_be32(val);
+-			*ret_val = val;
++			*ret_val = cpu_to_be32(val);
+ 			rc = 0;
+ 			break;
+ 		}
+@@ -8062,7 +8061,7 @@ static int bnx2x_nvram_read(struct bnx2x *bp, u32 offset, u8 *ret_buf,
+ {
+ 	int rc;
+ 	u32 cmd_flags;
+-	u32 val;
++	__be32 val;
  
- 	else {
--		if (skb->protocol == ntohs(ETH_P_IPV6)) {
-+		if (skb->protocol == htons(ETH_P_IPV6)) {
- 			rc = XMIT_CSUM_V6;
- 			if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
- 				rc |= XMIT_CSUM_TCP;
-@@ -9627,7 +9627,7 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if ((offset & 0x03) || (buf_size & 0x03) || (buf_size == 0)) {
+ 		DP(BNX2X_MSG_NVM,
+@@ -8181,7 +8180,7 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
+ 	int rc;
+ 	u32 cmd_flags;
+ 	u32 align_offset;
+-	u32 val;
++	__be32 val;
  
- 		/* for now NS flag is not used in Linux */
- 		pbd->global_data = (hlen |
--				    ((skb->protocol == ntohs(ETH_P_8021Q)) <<
-+				    ((skb->protocol == cpu_to_be16(ETH_P_8021Q)) <<
- 				     ETH_TX_PARSE_BD_LLC_SNAP_EN_SHIFT));
+ 	if (offset + buf_size > bp->common.flash_size) {
+ 		DP(BNX2X_MSG_NVM, "Invalid parameter: offset (0x%x) +"
+@@ -8203,14 +8202,12 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
+ 	rc = bnx2x_nvram_read_dword(bp, align_offset, &val, cmd_flags);
  
- 		pbd->ip_hlen = (skb_transport_header(skb) -
+ 	if (rc == 0) {
+-		val &= ~(0xff << BYTE_OFFSET(offset));
+-		val |= (*data_buf << BYTE_OFFSET(offset));
+-
+ 		/* nvram data is returned as an array of bytes
+ 		 * convert it back to cpu order */
+-		val = be32_to_cpu(val);
++		val &= ~cpu_to_be32(0xff << (8 * (offset & 0x03)));
++		val |= cpu_to_be32(*data_buf << (8 * (offset & 0x03)));
+ 
+-		rc = bnx2x_nvram_write_dword(bp, align_offset, val,
++		rc = bnx2x_nvram_write_dword(bp, align_offset, be32_to_cpu(val),
+ 					     cmd_flags);
+ 	}
+ 
 -- 
 1.6.1.249.g455e5
-
 
