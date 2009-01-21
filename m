@@ -1,62 +1,49 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] usbnet: allow type check of devdbg arguments in non-debug build
-Date: Wed, 21 Jan 2009 15:45:07 +0000
-Message-ID: <1232552707-4130-1-git-send-email-steve.glendinning@smsc.com>
-Cc: David Miller <davem@davemloft.net>,
-	David Brownell <david-b@pacbell.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 1/6] smsc911x: add support for platform-specific irq flags
+Date: Wed, 21 Jan 2009 15:54:04 +0000
+Message-ID: <OF316EA217.8804B96B-ON80257545.0056A474-80257545.00576FA1@smsc.com>
+References: <20090120145539.GD2425@trinity.fluff.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, ian.saturley@smsc.com,
+	Russell King <linux@arm.linux.org.uk>,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	Stanley Miao <stanley.miao@windriver.com>
+To: Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [86.54.240.114] ([86.54.240.114]:48914 "EHLO
-	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751808AbZAUPpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 10:45:10 -0500
+Received: from mail.smsc.com ([170.129.50.11]:4943 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754401AbZAUPz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jan 2009 10:55:56 -0500
+In-Reply-To: <20090120145539.GD2425@trinity.fluff.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Improve usbnet's devdbg to always type-check diagnostic arguments,
-like dev_dbg (device.h).  This makes no change to the resulting size of
-usbnet modules.
+Hi Ben,
 
-This patch also removes an #ifdef DEBUG directive from rndis_wlan so
-it's devdbg statements are always type-checked at compile time.
+Ben Dooks <ben-linux@fluff.org> wrote on 20/01/2009 14:55:39:
+> On Tue, Jan 20, 2009 at 01:28:29PM +0000, Steve Glendinning wrote:
+> > @@ -1919,6 +1919,14 @@ static int __devinit 
+> smsc911x_drv_probe(struct platform_device *pdev)
+> >     }
+> >     res_size = res->end - res->start;
+> > 
+> > +   irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+> > +   if (!irq_res) {
+> > +      pr_warning("%s: Could not allocate irq resource.\n",
+> > +         SMSC_CHIPNAME);
+> > +      retval = -ENODEV;
+> > +      goto out_0;
+> 
+> -ENODEV is certainly not the right code to be returning here, it is
+> likely to get lost in the driver porbe process.
+> 
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
----
- drivers/net/wireless/rndis_wlan.c |    2 --
- include/linux/usb/usbnet.h        |    4 +++-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Thanks for spotting this.
 
-diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index 607ce9f..ed93ac4 100644
---- a/drivers/net/wireless/rndis_wlan.c
-+++ b/drivers/net/wireless/rndis_wlan.c
-@@ -1649,9 +1649,7 @@ static char *rndis_translate_scan(struct net_device *dev,
- 				  char *end_buf,
- 				  struct ndis_80211_bssid_ex *bssid)
- {
--#ifdef DEBUG
- 	struct usbnet *usbdev = netdev_priv(dev);
--#endif
- 	u8 *ie;
- 	char *current_val;
- 	int bssid_len, ie_len, i;
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index ba09fe8..7d38222 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -197,7 +197,9 @@ extern int usbnet_nway_reset(struct net_device *net);
- #define devdbg(usbnet, fmt, arg...) \
- 	printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , ## arg)
- #else
--#define devdbg(usbnet, fmt, arg...) do {} while(0)
-+#define devdbg(usbnet, fmt, arg...) \
-+	({ if (0) printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net->name , \
-+		## arg); 0; })
- #endif
- 
- #define deverr(usbnet, fmt, arg...) \
--- 
-1.6.0.6
+This probe function also returns -ENODEV in two other places: if 
+platform_data is null or if it fails to get it's IORESOURCE_MEM.  I guess 
+these should all be fixed, which return code should the driver use to 
+indicate "my platform_data is missing or incomplete"?
 
+Steve
