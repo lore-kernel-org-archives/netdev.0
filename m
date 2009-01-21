@@ -1,33 +1,45 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Wed, 21 Jan 2009 09:54:01 +0000
-Message-ID: <20090121095401.GB5140@ff.dom.local>
-References: <20090120102053.GA17004@ff.dom.local> <20090120103122.GC9167@ioremap.net> <20090120110144.GB17004@ff.dom.local> <20090120.091616.224452074.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
+Date: Wed, 21 Jan 2009 11:05:07 +0100
+Message-ID: <20090121100507.GC18728@elte.hu>
+References: <20090115183942.GA6325@elte.hu> <200901170827.33729.rusty@rustcorp.com.au> <20090116220832.GB20653@elte.hu> <200901201328.24605.rusty@rustcorp.com.au> <20090120104022.GB29346@elte.hu> <4976B82E.1080002@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: zbr@ioremap.net, herbert@gondor.apana.org.au, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
+	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
+	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.170]:41428 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754768AbZAUJyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 04:54:09 -0500
+Received: from mx3.mail.elte.hu ([157.181.1.138]:60720 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758960AbZAUKGI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jan 2009 05:06:08 -0500
 Content-Disposition: inline
-In-Reply-To: <20090120.091616.224452074.davem@davemloft.net>
+In-Reply-To: <4976B82E.1080002@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2009 at 09:16:16AM -0800, David Miller wrote:
-...
-> Jarek, we already have a page and offset you can use.
+
+* Tejun Heo <tj@kernel.org> wrote:
+
+> Ingo Molnar wrote:
+> > The larger point still remains: the kernel dominantly uses static percpu 
+> > variables by a margin of 10 to 1, so we cannot just brush away the static 
+> > percpu variables and must concentrate on optimizing that side with 
+> > priority. It's nice if the dynamic percpu-alloc side improves as well, of 
+> > course.
 > 
-> It's called sk_sndmsg_page but that is just the (current) name.
-> Nothing prevents you from reusing it for your purposes here.
+> Well, the infrequent usage of dynamic percpu allocation is in some part 
+> due to the poor implementation, so it's sort of chicken and egg problem.  
+> I got into this percpu thing because I wanted a percpu reference count 
+> which can be dynamically allocated and it sucked.
 
-I'm trying to get some know-how about this field.
+Sure, but even static percpu sucked very much (it expanded to half a dozen 
+or more instructions), and dynamic is _more_ complex. Anyway, it's getting 
+fixed now :-)
 
-Thanks,
-Jarek P.
+	Ingo
