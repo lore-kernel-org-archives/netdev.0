@@ -1,45 +1,67 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Wed, 21 Jan 2009 11:05:07 +0100
-Message-ID: <20090121100507.GC18728@elte.hu>
-References: <20090115183942.GA6325@elte.hu> <200901170827.33729.rusty@rustcorp.com.au> <20090116220832.GB20653@elte.hu> <200901201328.24605.rusty@rustcorp.com.au> <20090120104022.GB29346@elte.hu> <4976B82E.1080002@kernel.org>
+From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: hardware time stamping with optional structs in data area
+Date: Wed, 21 Jan 2009 11:07:37 +0100
+Message-ID: <1232532457.7829.19.camel@ecld0pohly>
+References: <1229352899-31330-1-git-send-email-patrick.ohly@intel.com>
+	 <1232102164.18762.72.camel@pohly-MOBL>
+	 <20090116.110033.163815590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:60720 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758960AbZAUKGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2009 05:06:08 -0500
-Content-Disposition: inline
-In-Reply-To: <4976B82E.1080002@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090116.110033.163815590.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-* Tejun Heo <tj@kernel.org> wrote:
-
-> Ingo Molnar wrote:
-> > The larger point still remains: the kernel dominantly uses static percpu 
-> > variables by a margin of 10 to 1, so we cannot just brush away the static 
-> > percpu variables and must concentrate on optimizing that side with 
-> > priority. It's nice if the dynamic percpu-alloc side improves as well, of 
-> > course.
+On Fri, 2009-01-16 at 21:00 +0200, David Miller wrote: 
+> From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Date: Fri, 16 Jan 2009 11:36:04 +0100
 > 
-> Well, the infrequent usage of dynamic percpu allocation is in some part 
-> due to the poor implementation, so it's sort of chicken and egg problem.  
-> I got into this percpu thing because I wanted a percpu reference count 
-> which can be dynamically allocated and it sucked.
+> > David, do you think it is ready to get included?
+> 
+> Resubmit the patch set before asking such questions.
 
-Sure, but even static percpu sucked very much (it expanded to half a dozen 
-or more instructions), and dynamic is _more_ complex. Anyway, it's getting 
-fixed now :-)
+Okay. I didn't want to spam the lists with just rebased patches if there
+were more fundamental objections against the current approach. I hope
+that this is no longer the case, so I'll post the current, rebased patch
+set as follow-up to this mail (because the description in the orginal
+mail of this thread still applies).
 
-	Ingo
+I personally consider the core infrastructure patches ready. If there
+are further comments I'd be happy to work on those, of course. The igb
+driver patches are more experimental, please don't include them.
+
+I rebased the patches against net-next-2.6 as of today.
+
+I tested them with the modified PTPd with and without hardware support
+on x86. With 64 bit kernel and user space both works. With 32 bit user
+space on a 64 bit kernel software-only time stamping works (thanks to
+the socket's compatibility layer), hardware support doesn't: the ifreq
+is passed to the right device driver, but the data pointer from a 32 bit
+process is not interpreted correctly by a 64 bit driver. If there is a
+way to handle this then please let me know - I didn't see how a device
+driver could distinguish between a 32 and 64 bit user process.
+
+With a 32 bit kernel software time stamping works. I couldn't test
+hardware support because I couldn't get the igb driver to work. Even
+without any of the patches it failed to transmit packets (tested with
+net-next-2.6 sources and original Ubuntu 8.10 installation). I need to
+look into this problem further, but don't want to hold up the review of
+the patches.
+
+-- 
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-api" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
