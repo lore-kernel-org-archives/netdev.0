@@ -1,7 +1,7 @@
 From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH NET-NEXT 10/12] igb: access to NIC time
-Date: Wed, 21 Jan 2009 11:10:10 +0100
-Message-ID: <1232532612-10382-10-git-send-email-patrick.ohly@intel.com>
+Subject: [PATCH NET-NEXT 09/12] clocksource: allow usage independent of timekeeping.c
+Date: Wed, 21 Jan 2009 11:10:09 +0100
+Message-ID: <1232532612-10382-9-git-send-email-patrick.ohly@intel.com>
 References: <1232532457.7829.19.camel@ecld0pohly>
  <1232532612-10382-1-git-send-email-patrick.ohly@intel.com>
  <1232532612-10382-2-git-send-email-patrick.ohly@intel.com>
@@ -11,215 +11,242 @@ References: <1232532457.7829.19.camel@ecld0pohly>
  <1232532612-10382-6-git-send-email-patrick.ohly@intel.com>
  <1232532612-10382-7-git-send-email-patrick.ohly@intel.com>
  <1232532612-10382-8-git-send-email-patrick.ohly@intel.com>
- <1232532612-10382-9-git-send-email-patrick.ohly@intel.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1232532612-10382-9-git-send-email-patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1232532612-10382-8-git-send-email-patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Adds the register definitions and code to read the time
-register.
----
- drivers/net/igb/e1000_regs.h |   28 +++++++++++
- drivers/net/igb/igb.h        |    4 ++
- drivers/net/igb/igb_main.c   |  106 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 138 insertions(+), 0 deletions(-)
+So far struct clocksource acted as the interface between time/timekeeping.c
+and hardware. This patch generalizes the concept so that a similar
+interface can also be used in other contexts. For that it introduces
+new structures and related functions *without* touching the existing
+struct clocksource.
 
-diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
-index bdf5d83..d225601 100644
---- a/drivers/net/igb/e1000_regs.h
-+++ b/drivers/net/igb/e1000_regs.h
-@@ -75,6 +75,34 @@
- #define E1000_FCRTH    0x02168  /* Flow Control Receive Threshold High - RW */
- #define E1000_RDFPCQ(_n)  (0x02430 + (0x4 * (_n)))
- #define E1000_FCRTV    0x02460  /* Flow Control Refresh Timer Value - RW */
-+
-+/* IEEE 1588 TIMESYNCH */
-+#define E1000_TSYNCTXCTL 0x0B614
-+#define E1000_TSYNCRXCTL 0x0B620
-+#define E1000_TSYNCRXCFG 0x05F50
-+
-+#define E1000_SYSTIML 0x0B600
-+#define E1000_SYSTIMH 0x0B604
-+#define E1000_TIMINCA 0x0B608
-+
-+#define E1000_RXMTRL     0x0B634
-+#define E1000_RXSTMPL 0x0B624
-+#define E1000_RXSTMPH 0x0B628
-+#define E1000_RXSATRL 0x0B62C
-+#define E1000_RXSATRH 0x0B630
-+
-+#define E1000_TXSTMPL 0x0B618
-+#define E1000_TXSTMPH 0x0B61C
-+
-+#define E1000_ETQF0   0x05CB0
-+#define E1000_ETQF1   0x05CB4
-+#define E1000_ETQF2   0x05CB8
-+#define E1000_ETQF3   0x05CBC
-+#define E1000_ETQF4   0x05CC0
-+#define E1000_ETQF5   0x05CC4
-+#define E1000_ETQF6   0x05CC8
-+#define E1000_ETQF7   0x05CCC
-+
- /* Split and Replication RX Control - RW */
- /*
-  * Convenience macros
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index 5a27825..2cf2c1a 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -34,6 +34,8 @@
- #include "e1000_mac.h"
- #include "e1000_82575.h"
- 
-+#include <linux/clocksource.h>
-+
- struct igb_adapter;
- 
- #ifdef CONFIG_IGB_LRO
-@@ -262,6 +264,8 @@ struct igb_adapter {
- 	struct napi_struct napi;
- 	struct pci_dev *pdev;
- 	struct net_device_stats net_stats;
-+	struct cyclecounter cycles;
-+	struct timecounter clock;
- 
- 	/* structs defined in e1000_hw.h */
- 	struct e1000_hw hw;
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index d26dacb..7ab6faf 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -179,6 +179,54 @@ MODULE_DESCRIPTION("Intel(R) Gigabit Ethernet Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-+/**
-+ * Scale the NIC clock cycle by a large factor so that
-+ * relatively small clock corrections can be added or
-+ * substracted at each clock tick. The drawbacks of a
-+ * large factor are a) that the clock register overflows
-+ * more quickly (not such a big deal) and b) that the
-+ * increment per tick has to fit into 24 bits.
-+ *
-+ * Note that
-+ *   TIMINCA = IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS *
-+ *             IGB_TSYNC_SCALE
-+ *   TIMINCA += TIMINCA * adjustment [ppm] / 1e9
-+ *
-+ * The base scale factor is intentionally a power of two
-+ * so that the division in %struct timecounter can be done with
-+ * a shift.
-+ */
-+#define IGB_TSYNC_SHIFT (19)
-+#define IGB_TSYNC_SCALE (1<<IGB_TSYNC_SHIFT)
-+
-+/**
-+ * The duration of one clock cycle of the NIC.
-+ *
-+ * @todo This hard-coded value is part of the specification and might change
-+ * in future hardware revisions. Add revision check.
-+ */
-+#define IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS 16
-+
-+#if (IGB_TSYNC_SCALE * IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS) >= (1<<24)
-+# error IGB_TSYNC_SCALE and/or IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS are too large to fit into TIMINCA
-+#endif
-+
-+/**
-+ * igb_read_clock - read raw cycle counter (to be used by time counter)
-+ */
-+static cycle_t igb_read_clock(const struct cyclecounter *tc)
-+{
-+	struct igb_adapter *adapter =
-+		container_of(tc, struct igb_adapter, cycles);
-+	struct e1000_hw *hw = &adapter->hw;
-+	u64 stamp;
-+
-+	stamp =  rd32(E1000_SYSTIML);
-+	stamp |= (u64)rd32(E1000_SYSTIMH) << 32ULL;
-+
-+	return stamp;
-+}
-+
- #ifdef DEBUG
- /**
-  * igb_get_hw_dev_name - return device name string
-@@ -189,6 +237,28 @@ char *igb_get_hw_dev_name(struct e1000_hw *hw)
- 	struct igb_adapter *adapter = hw->back;
- 	return adapter->netdev->name;
- }
-+
-+/**
-+ * igb_get_time_str - format current NIC and system time as string
-+ */
-+static char *igb_get_time_str(struct igb_adapter *adapter,
-+			char buffer[160])
-+{
-+	cycle_t hw = adapter->cycles.read(&adapter->cycles);
-+	struct timespec nic = ns_to_timespec(timecounter_read(&adapter->clock));
-+	struct timespec sys;
-+	struct timespec delta;
-+	getnstimeofday(&sys);
-+
-+	delta = timespec_sub(nic, sys);
-+
-+	sprintf(buffer, "NIC %ld.%09lus, SYS %ld.%09lus, NIC-SYS %lds + %09luns",
-+		(long)nic.tv_sec, nic.tv_nsec,
-+		(long)sys.tv_sec, sys.tv_nsec,
-+		(long)delta.tv_sec, delta.tv_nsec);
-+
-+	return buffer;
-+}
- #endif
+The reasons for adding these new structures to clocksource.[ch] are
+* the APIs are clearly related
+* struct clocksource could be cleaned up to use the new structs
+* avoids proliferation of files with similar names (timesource.h?
+  timecounter.h?)
+
+As outlined in the discussion with John Stultz, this patch adds
+* struct cyclecounter: stateless API to hardware which counts clock cycles
+* struct timecounter: stateful utility code built on a cyclecounter which
+  provides a nanosecond counter
+* only the function to read the nanosecond counter; deltas are used internally
+  and not exposed to users of timecounter
+
+The code does no locking of the shared state. It must be called at least
+as often as the cycle counter wraps around to detect these wrap arounds.
+Both is the responsibility of the timecounter user.
+
+Acked-by: John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+---
+ include/linux/clocksource.h |   99 +++++++++++++++++++++++++++++++++++++++++++
+ kernel/time/clocksource.c   |   76 +++++++++++++++++++++++++++++++++
+ 2 files changed, 175 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
+index f88d32f..d379189 100644
+--- a/include/linux/clocksource.h
++++ b/include/linux/clocksource.h
+@@ -22,8 +22,107 @@ typedef u64 cycle_t;
+ struct clocksource;
  
  /**
-@@ -1322,6 +1392,42 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	}
- #endif
- 
-+	/*
-+	 * Initialize hardware timer: we keep it running just in case
-+	 * that some program needs it later on.
-+	 */
-+	memset(&adapter->cycles, 0, sizeof(adapter->cycles));
-+	adapter->cycles.read = igb_read_clock;
-+	adapter->cycles.mask = CLOCKSOURCE_MASK(64);
-+	adapter->cycles.mult = 1;
-+	adapter->cycles.shift = IGB_TSYNC_SHIFT;
-+	wr32(E1000_TIMINCA, (1<<24) | IGB_TSYNC_CYCLE_TIME_IN_NANOSECONDS * IGB_TSYNC_SCALE);
-+#if 0
-+	/*
-+	 * Avoid rollover while we initialize by resetting the time counter.
-+	 */
-+	wr32(E1000_SYSTIML, 0x00000000);
-+	wr32(E1000_SYSTIMH, 0x00000000);
-+#else
-+	/*
-+	 * Set registers so that rollover occurs soon to test this.
-+	 */
-+	wr32(E1000_SYSTIML, 0x00000000);
-+	wr32(E1000_SYSTIMH, 0xFF800000);
-+#endif
-+	wrfl();
-+	timecounter_init(&adapter->clock, &adapter->cycles, ktime_to_ns(ktime_get_real()));
++ * struct cyclecounter - hardware abstraction for a free running counter
++ *	Provides completely state-free accessors to the underlying hardware.
++ *	Depending on which hardware it reads, the cycle counter may wrap
++ *	around quickly. Locking rules (if necessary) have to be defined
++ *	by the implementor and user of specific instances of this API.
++ *
++ * @read:		returns the current cycle value
++ * @mask:		bitmask for two's complement
++ *			subtraction of non 64 bit counters,
++ *			see CLOCKSOURCE_MASK() helper macro
++ * @mult:		cycle to nanosecond multiplier
++ * @shift:		cycle to nanosecond divisor (power of two)
++ */
++struct cyclecounter {
++	cycle_t (*read)(const struct cyclecounter *cc);
++	cycle_t mask;
++	u32 mult;
++	u32 shift;
++};
 +
-+#ifdef DEBUG
-+	{
-+		char buffer[160];
-+		printk(KERN_DEBUG
-+			"igb: %s: hw %p initialized timer\n",
-+			igb_get_time_str(adapter, buffer),
-+			&adapter->hw);
++/**
++ * struct timecounter - layer above a %struct cyclecounter which counts nanoseconds
++ *	Contains the state needed by timecounter_read() to detect
++ *	cycle counter wrap around. Initialize with
++ *	timecounter_init(). Also used to convert cycle counts into the
++ *	corresponding nanosecond counts with timecounter_cyc2time(). Users
++ *	of this code are responsible for initializing the underlying
++ *	cycle counter hardware, locking issues and reading the time
++ *	more often than the cycle counter wraps around. The nanosecond
++ *	counter will only wrap around after ~585 years.
++ *
++ * @cc:			the cycle counter used by this instance
++ * @cycle_last:		most recent cycle counter value seen by timecounter_read()
++ * @nsec:		
++ */
++struct timecounter {
++	const struct cyclecounter *cc;
++	cycle_t cycle_last;
++	u64 nsec;
++};
++
++/**
++ * cyclecounter_cyc2ns - converts cycle counter cycles to nanoseconds
++ * @tc:		Pointer to cycle counter.
++ * @cycles:	Cycles
++ *
++ * XXX - This could use some mult_lxl_ll() asm optimization. Same code
++ * as in cyc2ns, but with unsigned result.
++ */
++static inline u64 cyclecounter_cyc2ns(const struct cyclecounter *cc, cycle_t cycles)
++{
++	u64 ret = (u64)cycles;
++	ret = (ret * cc->mult) >> cc->shift;
++	return ret;
++}
++
++/**
++ * timecounter_init - initialize a time counter
++ * @tc:			Pointer to time counter which is to be initialized/reset
++ * @cc:			A cycle counter, ready to be used.
++ * @start_tstamp:	Arbitrary initial time stamp.
++ *
++ * After this call the current cycle register (roughly) corresponds to
++ * the initial time stamp. Every call to timecounter_read() increments
++ * the time stamp counter by the number of elapsed nanoseconds.
++ */
++extern void timecounter_init(struct timecounter *tc,
++			const struct cyclecounter *cc,
++			u64 start_tstamp);
++
++/**
++ * timecounter_read - return nanoseconds elapsed since timecounter_init()
++ *                         plus the initial time stamp
++ * @tc:          Pointer to time counter.
++ *
++ * In other words, keeps track of time since the same epoch as
++ * the function which generated the initial time stamp.
++ */
++extern u64 timecounter_read(struct timecounter *tc);
++
++/**
++ * timecounter_cyc2time - convert a cycle counter to same
++ *                        time base as values returned by
++ *                        timecounter_read()
++ * @tc:		Pointer to time counter.
++ * @cycle:	a value returned by tc->cc->read()
++ *
++ * Cycle counts that are converted correctly as long as they
++ * fall into the interval [-1/2 max cycle count, +1/2 max cycle count],
++ * with "max cycle count" == cs->mask+1.
++ *
++ * This allows conversion of cycle counter values which were generated
++ * in the past.
++ */
++extern u64 timecounter_cyc2time(struct timecounter *tc,
++				cycle_t cycle_tstamp);
++
++/**
+  * struct clocksource - hardware abstraction for a free running counter
+  *	Provides mostly state-free accessors to the underlying hardware.
++ *	This is the structure used for system time.
+  *
+  * @name:		ptr to clocksource name
+  * @list:		list head for registration
+diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
+index 9ed2eec..0d7a2cb 100644
+--- a/kernel/time/clocksource.c
++++ b/kernel/time/clocksource.c
+@@ -31,6 +31,82 @@
+ #include <linux/sched.h> /* for spin_unlock_irq() using preempt_count() m68k */
+ #include <linux/tick.h>
+ 
++void timecounter_init(struct timecounter *tc,
++		const struct cyclecounter *cc,
++		u64 start_tstamp)
++{
++	tc->cc = cc;
++	tc->cycle_last = cc->read(cc);
++	tc->nsec = start_tstamp;
++}
++EXPORT_SYMBOL(timecounter_init);
++
++/**
++ * clocksource_read_ns - get nanoseconds since last call of this function
++ * @tc:         Pointer to time counter
++ *
++ * When the underlying cycle counter runs over, this will be handled
++ * correctly as long as it does not run over more than once between
++ * calls.
++ *
++ * The first call to this function for a new time counter initializes
++ * the time tracking and returns bogus results.
++ */
++static u64 timecounter_read_delta(struct timecounter *tc)
++{
++	cycle_t cycle_now, cycle_delta;
++	u64 ns_offset;
++
++	/* read cycle counter: */
++	cycle_now = tc->cc->read(tc->cc);
++
++	/* calculate the delta since the last timecounter_read_delta(): */
++	cycle_delta = (cycle_now - tc->cycle_last) & tc->cc->mask;
++
++	/* convert to nanoseconds: */
++	ns_offset = cyclecounter_cyc2ns(tc->cc, cycle_delta);
++
++	/* update time stamp of timecounter_read_delta() call: */
++	tc->cycle_last = cycle_now;
++
++	return ns_offset;
++}
++
++u64 timecounter_read(struct timecounter *tc)
++{
++	u64 nsec;
++
++	/* increment time by nanoseconds since last call */
++	nsec = timecounter_read_delta(tc);
++	nsec += tc->nsec;
++	tc->nsec = nsec;
++
++	return nsec;
++}
++EXPORT_SYMBOL(timecounter_read);
++
++u64 timecounter_cyc2time(struct timecounter *tc,
++			cycle_t cycle_tstamp)
++{
++	u64 cycle_delta = (cycle_tstamp - tc->cycle_last) & tc->cc->mask;
++	u64 nsec;
++
++	/*
++	 * Instead of always treating cycle_tstamp as more recent
++	 * than tc->cycle_last, detect when it is too far in the
++	 * future and treat it as old time stamp instead.
++	 */
++	if (cycle_delta > tc->cc->mask / 2) {
++		cycle_delta = (tc->cycle_last - cycle_tstamp) & tc->cc->mask;
++		nsec = tc->nsec - cyclecounter_cyc2ns(tc->cc, cycle_delta);
++	} else {
++		nsec = cyclecounter_cyc2ns(tc->cc, cycle_delta) + tc->nsec;
 +	}
-+#endif
 +
- 	dev_info(&pdev->dev, "Intel(R) Gigabit Ethernet Network Connection\n");
- 	/* print bus type/speed/width info */
- 	dev_info(&pdev->dev, "%s: (PCIe:%s:%s) %pM\n",
++	return nsec;
++}
++EXPORT_SYMBOL(timecounter_cyc2time);
++
+ /* XXX - Would like a better way for initializing curr_clocksource */
+ extern struct clocksource clocksource_jiffies;
+ 
 -- 
 1.5.5.3
 
