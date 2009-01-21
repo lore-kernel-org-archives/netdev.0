@@ -1,52 +1,63 @@
-From: kristrev@simula.no
-Subject: Re: RFC: Latency reducing TCP modifications for thin-stream      
-     interactive applications
-Date: Wed, 21 Jan 2009 14:50:15 +0100 (CET)
-Message-ID: <92d5db086b180f1241f7258fabae8f1b.squirrel@webmail.uio.no>
-References: <496B59B7.3010302@simula.no>
-    <Pine.LNX.4.64.0901121705010.1889@wrl-59.cs.helsinki.fi>
-    <e5152d316be79cafaf55fcf7bff64d46.squirrel@webmail.uio.no>
-    <Pine.LNX.4.64.0901201736370.1889@wrl-59.cs.helsinki.fi>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
+Date: Wed, 21 Jan 2009 06:13:41 -0800
+Message-ID: <m11vuwn3vu.fsf@fess.ebiederm.org>
+References: <20090115183942.GA6325@elte.hu>
+	<200901170827.33729.rusty@rustcorp.com.au>
+	<20090116220832.GB20653@elte.hu>
+	<200901201328.24605.rusty@rustcorp.com.au>
+	<20090120104022.GB29346@elte.hu> <4976B82E.1080002@kernel.org>
+	<m1fxjcucp8.fsf@fess.ebiederm.org> <20090121234502.66acbcf9@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: kristrev@simula.no, "Andreas Petlund" <apetlund@simula.no>,
-	"Netdev" <netdev@vger.kernel.org>, griff@simula.no,
-	paalh@ifi.uio.no
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
+	cl@linux-foundation.org, travis@sgi.com,
+	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out2.uio.no ([129.240.10.58]:33143 "EHLO mail-out2.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752814AbZAUNuR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2009 08:50:17 -0500
-In-Reply-To: <Pine.LNX.4.64.0901201736370.1889@wrl-59.cs.helsinki.fi>
+Received: from out01.mta.xmission.com ([166.70.13.231]:35698 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753584AbZAUONv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 09:13:51 -0500
+In-Reply-To: <20090121234502.66acbcf9@s6510> (Stephen Hemminger's message of "Wed\, 21 Jan 2009 23\:45\:01 +1100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-> Trimmed all but netdev (and .no addresses) from cc list.
+> This is crap. only a small fraction of these SNMP counters are
+> close enough to the hot path to deserve per-cpu treatment.
 
-Thank you.
+Interesting.  I was just reading af_inet.c:ipv4_mib_init_net()
+to get a feel for what a large consumer of percpu counters looks
+like.
 
->> If I have understood the code correctly, what will then be the
->> difference
->> between our current solution and the one you suggest (except we can
->> remove
->> one of the bundling methods and when a packet is retransmitted)? If I
->> have
->> not understood the code correctly, feel free to yell :) (if it is a
->> misunderstanding, it also explains all the checks for skb->cloned).
->
-> It didn't mean clone an skb but copy the relevant data into new skb which
-> is then not put into write queue at all but given to lower layers only.
+I expect the patterns I saw will hold even if the base size is much
+smaller.
 
-Thank you, now I understand what you meant and I agree that it is a better
-solution. However, when I think of it, copying might be too resource
-intensive and thus remove all gains from RDB. We have seen streams with 
-small packets and very low interarrival times, which would lead to a large
-number of copy-operations every second. I will implement it and compare
-performance.
 
--Kristian
+Your statement reinforces my point that our allocations in a per cpu
+area are small and our dynamic per cpu allocator is not really
+optimized for small allocations.
 
+In most places what we want are 1-5 counters, which is max 40 bytes.
+And our minimum allocation is a full cache line (64-128 bytes) per
+allocation.
+
+
+
+I'm wondering if dynamic per cpu allocations should work more like
+slab.  Have a set of percpu base pointers for an area, and return an
+area + offset in some convenient form.
+
+Ideally we would just have one area (allowing us to keep the base
+pointer in a register), but I'm not convinced that doesn't fall down
+in the face of dynamic allocation.
+
+Eric
+ 
