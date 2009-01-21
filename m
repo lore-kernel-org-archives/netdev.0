@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] e1000: drop lltx, remove unnecessary lock
-Date: Wed, 21 Jan 2009 14:43:08 -0800 (PST)
-Message-ID: <20090121.144308.67788152.davem@davemloft.net>
-References: <20090121083329.538.67223.stgit@lost.foo-projects.org>
-	<20090121083407.538.47112.stgit@lost.foo-projects.org>
+Subject: Re: [PATCH 1/3] ehea: Use net_device_ops structure
+Date: Wed, 21 Jan 2009 14:44:08 -0800 (PST)
+Message-ID: <20090121.144408.193919099.davem@davemloft.net>
+References: <200901211549.01120.tklein@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52435
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753638AbZAUWnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 17:43:06 -0500
-In-Reply-To: <20090121083407.538.47112.stgit@lost.foo-projects.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeff@garzik.org, themann@de.ibm.com, netdev@vger.kernel.org,
+	hering2@de.ibm.com, linux-kernel@vger.kernel.org,
+	raisch@de.ibm.com, linuxppc-dev@ozlabs.org, ossthema@de.ibm.com
+To: tklein@de.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755111AbZAUWoY@vger.kernel.org>
+In-Reply-To: <200901211549.01120.tklein@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 21 Jan 2009 00:34:07 -0800
+From: Thomas Klein <tklein@de.ibm.com>
+Date: Wed, 21 Jan 2009 15:49:00 +0100
 
-> LLTX is deprecated, don't use it.  This completes the removal of LLTX from
-> the Intel Network drivers.
+> Adapt to lately introduced net_device_ops structure.
 > 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 
 Applied.
