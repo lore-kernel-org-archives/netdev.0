@@ -1,37 +1,51 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal
- firewalls"
-Date: Wed, 21 Jan 2009 09:35:58 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0901210932520.19773@fbirervta.pbzchgretzou.qr>
-References: <57962.77.61.51.106.1232522729.squirrel@webmail.xs4all.nl> <e7d8f83e0901210015h5f0f7489u282a50911bf7a988@mail.gmail.com>
+From: Jike Song <albcamus@gmail.com>
+Subject: [questions] why doesn't BCM5788 driver use MSI? What should I do to
+	enable it?
+Date: Wed, 21 Jan 2009 16:49:21 +0800
+Message-ID: <df9815e70901210049j75979a1cm702a4da15e54a3e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rmeijer@xs4all.nl, Casey Schaufler <casey@schaufler-ca.com>,
-	Samir Bellabes <sam@synack.fr>, imipak@yahoo.com,
-	linux-security-module <linux-security-module@vger.kernel.org>,
-	Stephan Peijnik <stephan@peijnik.at>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Peter Dolding <oiaohm@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <e7d8f83e0901210015h5f0f7489u282a50911bf7a988@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ti-out-0910.google.com ([209.85.142.190]:19198 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763594AbZAUItX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 03:49:23 -0500
+Received: by ti-out-0910.google.com with SMTP id b6so2809499tic.23
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2009 00:49:21 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-On Wednesday 2009-01-21 09:15, Peter Dolding wrote:
->
->I really don't see the need for special here other than improving iptables.
->
->LSM module is over kill.  This leads to double processing of packet requests.
->
->netfilter already can operate as either MAC or DAC all depending on
->the rules passed into it and the outside LSM applied.
+Is there any method to get BCM5788 (tg3 driver) work with MSI enabled?
+lspci tells me MSI is supported by BCM5788 card:
 
-But it cannot be used for personal firewalls at this time.
-Incoming packets have no process context because they are
-processed before that is determined, and similarly,
-outgoing packets have already left most of the process
-context behind them. Additionally, Netfilter cannot reject
-bind() calls *at all*. That is the reason this is done
-as an LSM in the first place.
+$ sudo lspci -vvv -d 0x14e4:0x169c
+02:01.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5788
+Gigabit Ethernet (rev 03)
+	Subsystem: Hewlett-Packard Company Device 30b0
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 64 (16000ns min), Cache Line Size: 64 bytes
+	Interrupt: pin A routed to IRQ 23
+	Region 0: Memory at d4000000 (32-bit, non-prefetchable) [size=64K]
+	Expansion ROM at <ignored> [disabled]
+	Capabilities: [48] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+	Capabilities: [50] Vital Product Data
+pcilib: sysfs_read_vpd: read failed: Connection timed out
+		Not readable
+	Capabilities: [58] MSI: Mask- 64bit+ Count=1/8 Enable-
+		Address: bfdfb567bfff7ff8  Data: ffff
+	Kernel driver in use: tg3
+	Kernel modules: tg3
 
+-- 
+Thanks,
+Jike
