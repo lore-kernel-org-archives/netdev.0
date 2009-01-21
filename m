@@ -1,99 +1,106 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: RFC: Mandatory Access Control for sockets aka "personal firewalls"
-Date: Wed, 21 Jan 2009 09:49:41 -0500
-Message-ID: <200901210949.42056.paul.moore@hp.com>
-References: <1232473719.24943.102.camel@sp-laptop3.sp-local> <200901201547.44981.paul.moore@hp.com> <1232495321.24943.149.camel@sp-laptop3.sp-local>
+From: Thomas Klein <tklein@de.ibm.com>
+Subject: [PATCH 3/3] ehea: Improve driver behaviour in low mem conditions
+Date: Wed, 21 Jan 2009 15:49:41 +0100
+Message-ID: <200901211549.41352.tklein@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-security-module" <linux-security-module@vger.kernel.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Stephan Peijnik <stephan@peijnik.at>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1232495321.24943.149.camel@sp-laptop3.sp-local>
+Cc: Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <ossthema@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	netdev <netdev@vger.kernel.org>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Hannes Hering <hering2@de.ibm.com>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:46820 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755254AbZAUOwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 09:52:47 -0500
 Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 January 2009 6:48:41 pm Stephan Peijnik wrote:
-> On Tue, 2009-01-20 at 15:47 -0500, Paul Moore wrote:
-> > Another option that was brought up (although perhaps not very
-> > clearly since it isn't listed here) was the embedding of the
-> > personal firewall hooks into the individual LSMs roughly similar to
-> > how capabilities are handled with SELinux today (a separate
-> > security mechanism that has explicit calls within SELinux).  This
-> > approach enables the use of current LSMs (although minor
-> > modifications will be needed) and avoids the need to add new hooks
-> > to the core network stack.
->
-> Sorry for not adding that one, I think you sent that email after I
-> finished writing the summary and that's why it wasn't included in the
-> first place.
-> This is another way of doing it, yes, but in the end we would
-> probably end up writing additional wrapper like code with the only
-> purpose of being called by <insert favorite LSM here> and then
-> forwarding that call to <insert favorite personal firewall here>.
+Reworked receive queue fill policies to make the driver more tolerant
+in low memory conditions.
 
-That is pretty much my point.  Provide a personal firewall mechanism 
-with a well defined API that LSMs can call as necessary.  The personal 
-firewall code then notifies a userspace agent over another well defined 
-API (netfilter, etc.) and waits for a verdict response.
+Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 
-I've mentioned this approach several times now (perhaps poorly?), if 
-there is something you don't understand in my suggestion please let me 
-know.  I'm also getting sick of typing "personal firewall" all the 
-time, we need a shorter name and I'm going to start calling 
-it "pfwall" :)
-
-> To have multiple approaches working we would probably need
-> register/unregister functions ...
-
-Why?  You don't need to "register" with the LSM and you don't need 
-to "register" with userspace.
-
-> for that wrapper and, to be honest, to me this sounds like a more
-> complicated version of doing the calls to the wrapper directly from
-> net/socket.c ...
-
-Personal preference I suppose, although I am very confident that the 
-option described above (LSM calling the pfwall) has a much better 
-chance of acceptance that an option which involves hooking the core 
-network stack.
-
-> > > What has not been agreed on yet is whether only a way of hooking
-> > > these calls should be made available to implementations or
-> > > whether the whole in-kernel part should be developed together and
-> > > allow implementations of personal firewalls in userspace only,
-> > > for example using a netlink socket to communicate with the shared
-> > > in-kernel code.
-> >
-> > Since there will always be a significant userspace component to any
-> > personal firewall approach it seems reasonable to push the decision
-> > making into userspace and leave the kernel component relatively
-> > simple. The basic idea behind Samir's "snet" concept where the
-> > kernel simply passes messages to userspace and waits for a verdict
-> > seems like a reasonable approach in that it can be made to support
-> > different personal firewall implementations/designs without
-> > significant changes to the kernel.
->
-> I can only agree on that. However, providing a single solution that
-> cannot be extended dynamically (think of adding support for
-> additional protocols, implementing some sort of policy caching, etc.)
-> might be the wrong way to go.
-
-Explain what you mean by "dynamically" and give an example.
-
-> We would end up having a solution and whilst I really like the snet
-> approach we would lose some flexibility.
-
-As I mentioned before in the previous thread, please list and explain 
-all your requirements and we can work to arrive at a solution which 
-meets those needs.  When possible we should work to develop solutions 
-which are as flexible as possible, but flexibility for the sake of 
-flexibility often results in unnecessary complexity which is rarely a 
-good thing.
-
--- 
-paul moore
-linux @ hp
+---
+diff -Nurp -X dontdiff linux-2.6.29-rc2/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
+--- linux-2.6.29-rc2/drivers/net/ehea/ehea_main.c	2009-01-20 17:03:17.000000000 +0100
++++ patched_kernel/drivers/net/ehea/ehea_main.c	2009-01-20 17:03:57.000000000 +0100
+@@ -370,8 +370,6 @@ static void ehea_refill_rq1(struct ehea_
+ 							      EHEA_L_PKT_SIZE);
+ 			if (!skb_arr_rq1[index]) {
+ 				pr->rq1_skba.os_skbs = fill_wqes - i;
+-				ehea_error("%s: no mem for skb/%d wqes filled",
+-					   dev->name, i);
+ 				break;
+ 			}
+ 		}
+@@ -387,26 +385,19 @@ static void ehea_refill_rq1(struct ehea_
+ 	ehea_update_rq1a(pr->qp, adder);
+ }
+ 
+-static int ehea_init_fill_rq1(struct ehea_port_res *pr, int nr_rq1a)
++static void ehea_init_fill_rq1(struct ehea_port_res *pr, int nr_rq1a)
+ {
+-	int ret = 0;
+ 	struct sk_buff **skb_arr_rq1 = pr->rq1_skba.arr;
+ 	struct net_device *dev = pr->port->netdev;
+ 	int i;
+ 
+ 	for (i = 0; i < pr->rq1_skba.len; i++) {
+ 		skb_arr_rq1[i] = netdev_alloc_skb(dev, EHEA_L_PKT_SIZE);
+-		if (!skb_arr_rq1[i]) {
+-			ehea_error("%s: no mem for skb/%d wqes filled",
+-				   dev->name, i);
+-			ret = -ENOMEM;
+-			goto out;
+-		}
++		if (!skb_arr_rq1[i])
++			break;
+ 	}
+ 	/* Ring doorbell */
+ 	ehea_update_rq1a(pr->qp, nr_rq1a);
+-out:
+-	return ret;
+ }
+ 
+ static int ehea_refill_rq_def(struct ehea_port_res *pr,
+@@ -435,10 +426,12 @@ static int ehea_refill_rq_def(struct ehe
+ 		u64 tmp_addr;
+ 		struct sk_buff *skb = netdev_alloc_skb(dev, packet_size);
+ 		if (!skb) {
+-			ehea_error("%s: no mem for skb/%d wqes filled",
+-				   pr->port->netdev->name, i);
+ 			q_skba->os_skbs = fill_wqes - i;
+-			ret = -ENOMEM;
++			if (q_skba->os_skbs == q_skba->len - 2) {
++				ehea_info("%s: rq%i ran dry - no mem for skb",
++					  pr->port->netdev->name, rq_nr);
++				ret = -ENOMEM;
++			}
+ 			break;
+ 		}
+ 		skb_reserve(skb, NET_IP_ALIGN);
+@@ -1201,11 +1194,11 @@ static int ehea_fill_port_res(struct ehe
+ 	int ret;
+ 	struct ehea_qp_init_attr *init_attr = &pr->qp->init_attr;
+ 
+-	ret = ehea_init_fill_rq1(pr, init_attr->act_nr_rwqes_rq1
+-				     - init_attr->act_nr_rwqes_rq2
+-				     - init_attr->act_nr_rwqes_rq3 - 1);
++	ehea_init_fill_rq1(pr, init_attr->act_nr_rwqes_rq1
++			       - init_attr->act_nr_rwqes_rq2
++			       - init_attr->act_nr_rwqes_rq3 - 1);
+ 
+-	ret |= ehea_refill_rq2(pr, init_attr->act_nr_rwqes_rq2 - 1);
++	ret = ehea_refill_rq2(pr, init_attr->act_nr_rwqes_rq2 - 1);
+ 
+ 	ret |= ehea_refill_rq3(pr, init_attr->act_nr_rwqes_rq3 - 1);
+ 
