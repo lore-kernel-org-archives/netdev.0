@@ -1,77 +1,60 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Wed, 21 Jan 2009 18:58:10 -0500 (EST)
-Message-ID: <alpine.DEB.1.10.0901211852060.18367@qirst.com>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>  <200901161503.13730.nickpiggin@yahoo.com.au>  <20090115201210.ca1a9542.akpm@linux-foundation.org>  <200901161746.25205.nickpiggin@yahoo.com.au>  <20090116065546.GJ31013@parisc-linux.org>
-  <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org> <1232428583.11429.83.camel@ymzhang>
+From: Jonathan Day <imipak@yahoo.com>
+Subject: Re: RFC: Mandatory Access Control for sockets aka "personal  firewalls"
+Date: Wed, 21 Jan 2009 16:50:42 -0800 (PST)
+Message-ID: <504710.17436.qm@web31507.mail.mud.yahoo.com>
+References: <e7d8f83e0901211528ue344783qb66e481902274961@mail.gmail.com>
+Reply-To: imipak@yahoo.com
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-716562517-983847473-1232582290=:18367"
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
-	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
-	arjan@linux.intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753728AbZAVAbw@vger.kernel.org>
-In-Reply-To: <1232428583.11429.83.camel@ymzhang>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Casey Schaufler <casey@schaufler-ca.com>,
+	Samir Bellabes <sam@synack.fr>,
+	linux-security-module <linux-security-module@vger.kernel.org>,
+	Stephan Peijnik <stephan@peijnik.at>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: rmeijer@xs4all.nl
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <e7d8f83e0901211528ue344783qb66e481902274961@mail.gmail.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+--- On Wed, 1/21/09, Peter Dolding <oiaohm@gmail.com> wrote:
+(snip)
+> There are many ways though the Linux kernel.  This is part
+> of the
+> reason why I am asking why they are wanting LSM so much. 
+> LSM was
+> decided to be only one thing.   Not something to make more
+> of if it
+> can be avoided.   First rule should be seeing if API and
+> Internal
+> structs of Linux need fixing.  This case yes there are
+> quite a few
+> weaknesses in netfilter that could do with fixing.   If
+> after fixing
+> netfilter up it still turns out you need LSM support then
+> you do have
+> a valid reason.
+(snip)
 
----716562517-983847473-1232582290=:18367
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+I agree with most of your argument (both what is quoted and what is snipped) but would be wary of any kernel-based solution for the reason I outlined in an earlier post - there are IPv4/6 stacks that sit in hardware and feed direct to userspace, and others that sit in userspace and use the zerocopy patches to minimize kernel entanglement. True, these are not the most common methods in use, and equally true, they would be just as complex to serve via LSM as by netfilter.
 
-On Tue, 20 Jan 2009, Zhang, Yanmin wrote:
+One of the first questions I would want answered is whether Socket-level MAC should be a generic solution (ie: be present regardless of what socket method the user code is using and be easily extendible across any protocol sockets support), a lightly-focussed solution (ie: be present for most socket methods and be moderately extendible across a fairly broad range of protocols) or be tightly-focussed (ie: be present on very specific types of sockets and protocols, perhaps be very tightly optimized for those, but ultimately be a royal pain to extend to anything else).
 
-> kmem_cache =EF=BB=BFskbuff_head_cache's object size is just 256, so it sh=
-ares the kmem_cache
-> with =EF=BB=BF:0000256. Their order is 1 which means every slab consists =
-of 2 physical pages.
+Which type of solution you want will determine where would be the appropriate place to put the code. It's no use putting the code where it can't do what you want, but the only way to know that is to decide what it is you want the code to do in the first place.
 
-That order can be changed. Try specifying slub_max_order=3D0 on the kernel
-command line to force an order 0 alloc.
+At present, I've seen a lot of discussion that basically agrees implementing IPv[46] for the standard case is a sensible first-pass. What I have not seen is any agreement that that should be the only pass. Linux' network stack supports a whole lot of LAN/WAN protocols besides those two and again that only covers what is supplied in the kernel as standard.
 
-The queues of the page allocator are of limited use due to their overhead.
-Order-1 allocations can actually be 5% faster than order-0. order-0 makes
-sense if pages are pushed rapidly to the page allocator and are then
-reissues elsewhere. If there is a linear consumption then the page
-allocator queues are just overhead.
+This is not a trivial or academic question, because you have interdependencies in there. No matter what you pick as the right solution, there will be scenarios that solution cannot solve. Those scenarios differ between the different solutions. The danger is ignoring important cases by making assumptions that might not be valid about what the code will be used for.
 
-> Page allocator has an array at zone_pcp(zone, cpu)->pcp to keep a page bu=
-ffer for page order 0.
-> But here =EF=BB=BFskbuff_head_cache's order is 1, so UDP-U-4k couldn't be=
-nefit from the page buffer.
+For example, the argument that desktop users would be the primary users of personal firewalls clearly goes against the dictum of server administration which states that servers should offer the least rights possible to get the job done, for security reasons. If servers are going to use the code as much (or more) than general users, then you are working in a completely different space with a different set of problems.
 
-That usually does not matter because of partial list avoiding page
-allocator actions.
+Orthogonal to that, are the firewalled accounts more likely to be concerned with low latency or high bandwidth? Each type of implementation has its own overheads and its own limitations, which will dictate what sort of service it can best support.
 
-> SLQB has no such issue, because:
-> 1) SLQB has a percpu freelist. Free objects are put to the list firstly a=
-nd can be picked up
-> later on quickly without lock. A batch parameter to control the free obje=
-ct recollection is mostly
-> 1024.
-> 2) SLQB slab order mostly is 0, so although sometimes it calls alloc_page=
-s/free_pages, it can
-> benefit from =EF=BB=BFzone_pcp(zone, cpu)->pcp page buffer.
->
-> So SLUB need resolve such issues that one process allocates a batch of ob=
-jects and another process
-> frees them batchly.
+Then you have the corner-cases and peculiarities. These would definitely include patches like RTNet, but also weirdness like MobileIP, Anycasting (which is asymetric - multicast one way, unicast the other, thus a different set of filters applies), clustered environments (where the firewall rules on the machine the process is active on won't be guaranteed the same as the rules on the machine the process appears to be on), Infiniband (which is extending into WAN environments, acts a lot like IPv6 and is getting a fair bit of attention at the moment) and so on.
 
-SLUB has a percpu freelist but its bounded by the basic allocation unit.
-You can increase that by modifying the allocation order. Writing a 3 or 5
-into the order value in /sys/kernel/slab/xxx/order would do the trick.
----716562517-983847473-1232582290=:18367--
+Some of these we can ignore, some we will need to take into consideration, but if we don't know what Socket MAC is going to be used for, how do we know which is which?
+
+p.s. Which poster is going to be evil and start calling this Project MAC first?
+
+
+      
