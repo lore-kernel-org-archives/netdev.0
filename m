@@ -1,48 +1,46 @@
-From: "Goff, Thomas" <Thomas.Goff@boeing.com>
-Subject: RE: [PATCH] IPv6 multicast routing
-Date: Thu, 22 Jan 2009 15:30:38 -0800
-Message-ID: <21C34AA2609529459A85739E2952066904A9670D@XCH-NW-9V1.nw.nos.boeing.com>
-References: <20090120200248.GA13928@boeing.com> <20090121.100431.126366547.yoshfuji@linux-ipv6.org>
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [PATCH] am79c961a: fix spin_lock usage
+Date: Thu, 22 Jan 2009 23:40:36 +0000
+Message-ID: <20090122234036.GA23484@flint.arm.linux.org.uk>
+References: <1232663382-10503-1-git-send-email-u.kleine-koenig@pengutronix.de> <20090122.145615.235726630.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"Templin, Fred L" <Fred.L.Templin@boeing.com>
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: u.kleine-koenig@pengutronix.de, srostedt@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:52675 "EHLO
-	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755233AbZAVXaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 18:30:55 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20090121.100431.126366547.yoshfuji@linux-ipv6.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:46358 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755468AbZAVXlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 18:41:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20090122.145615.235726630.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2009 at 10:04:31AM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
+On Thu, Jan 22, 2009 at 02:56:15PM -0800, David Miller wrote:
+> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> Date: Thu, 22 Jan 2009 23:29:42 +0100
+>=20
+> > spin_lock functions take a pointer to the lock, not the lock itself=
+=2E
+> > This error was noticed by compiling ebsa110_defconfig for linux-rt =
+where
+> > the locking functions obviously are more picky about their argument=
+s.
+> >=20
+> > Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>=20
+> Russell, this fix is real.  Want me to take it or will you?
 
-> >   - Enable/disable IPv6 multicast forwarding on the corresponding
-> >     interface when a routing daemon adds/removes a multicast virtual
-> >     interface.
-:
-> However, I believe configuring forwarding is user's responsibility
-> and I'm not in favor of managing mc_forwarding automatically.
->
-> If we go your way, we need to make the proc interface read-only, but
-> you know, they will become non-"conf" interface. :-(
-> And, well, we will introduce another possible overflow/underflow here...
->
-> Another thought was to allow non-VIF routing settings (or manual settings).
->
-> So, I decided to drop that bits.
+I'll take it.
 
-Thanks for looking it over.
+> BTW, I took linux-arm-kernel out of the CC because all of my postings
+> there bounce simply because I lack reverse DNS :-/
 
-I think your approach to handling mc_forwarding makes sense, although
-it differs from the IPv4 behavior.  In any case, it looks like the
-current IPv4 and IPv6 multicast routing code does not consider an
-interface's mc_forwarding value at all.
+No need; in theory I've whitelisted your IP.  However, I've dropped
+12o3l@tiscali.nl from the CC because that address bounces.
 
-  Tom
+--=20
+Russell King
