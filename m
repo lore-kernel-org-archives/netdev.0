@@ -1,55 +1,107 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: cxgb3: Replace LRO with GRO
-Date: Thu, 22 Jan 2009 01:42:22 -0800
-Message-ID: <49783F7E.6000202@chelsio.com>
-References: <20090120101418.13898.57172.stgit@speedy5> <20090121082937.GA1116@gondor.apana.org.au>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: [PATCH] iproute2 : invalid burst/cburst calculation with hrtimers
+Date: Thu, 22 Jan 2009 11:45:57 +0200
+Message-ID: <200901221145.57856.denys@visp.net.lb>
+References: <20090122072540.GA11139@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_VBEeJJ+W9F8haww"
 Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:7016 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754636AbZAVJnj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 04:43:39 -0500
-In-Reply-To: <20090121082937.GA1116@gondor.apana.org.au>
+Received: from hosting.visp.net.lb ([194.146.153.11]:48290 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753015AbZAVJqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 04:46:00 -0500
+In-Reply-To: <20090122072540.GA11139@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
+--Boundary-00=_VBEeJJ+W9F8haww
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
+On Thursday 22 January 2009 09:25:41 Jarek Poplawski wrote:
+> On 21-01-2009 15:33, Denys Fedoryschenko wrote:
+> ...
+>
+> > It is some "tokens" that used to refill bucket each piece of time
+> > (related with get_hz and rate?)
+> > Is there any place i can read about this?
+>
+> http://en.wikipedia.org/wiki/Token_bucket
+>
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-> there is a lot
-> of microoptimisations that we can perform to minimise the cost
-> and also reduce the cost of some existing checks.
-> 
-> Please try the following patch (compile tested only since I'm
-> at LCA) and let me know if it improves things.
-> 
+Thanks a lot. Seems also Martin Devera pointed me, what can be issue.
+HZ=1000000000 is way too high.
+Real tests shows, that HZ=1000 more than enough with hrtimers on.
 
-I'm now getting about an average 5.7Gbs, oprofile typically showing:
+By the way possible it is triggered deadlock bug in htb, it is not a fix of this bug,
+but a fix of very wrong behaviour, because of this bug 
+HTB will use very extensively resources.
 
-      37.294500  copy_user_generic_unrolled          vmlinux
-       8.733800  process_responses                  cxgb3.ko
-       6.123700  refill_fl                          cxgb3.ko
-       5.006900  put_page                            vmlinux
-       3.400700  napi_fraginfo_skb                   vmlinux
-       2.484600  tcp_gro_receive                     vmlinux
-       2.308900  inet_gro_receive                    vmlinux
-       2.196000  free_hot_cold_page                  vmlinux
-       2.032900  skb_gro_header                      vmlinux
-       1.970100  get_page_from_freelist              vmlinux
-       1.869700  skb_copy_datagram_iovec             vmlinux
-       1.380300  dev_gro_receive                     vmlinux
-       1.242300  tcp_recvmsg                         vmlinux
-       1.079200  irq_entries_start                   vmlinux
-       1.003900  get_pageblock_flags_group           vmlinux
-       0.991300  skb_gro_receive                     vmlinux
-       0.878400  _raw_spin_lock                      vmlinux
-       0.878400  memcpy                              vmlinux
-       0.840800  kfree                               vmlinux
-       0.828200  list_del                            vmlinux
+If it's required, i can give more detailed explanation
 
-Cheers,
-Divy
+------------->
+iproute2 : invalid burst/cburst calculation with hrtimers
+
+If hrtimers on, /proc/net/psched shows 4th variable 
+as 1000000000
+Because burst calculated by division rate to this variable, 
+it will be almost always zero. As result, we will get higher system 
+load on low rates, and on high rates shaper will not able to process 
+data. It is checked and proved. Core 2 Quad was not able to 
+shape 200Mbps, and gave only 180-190. It is more safe to set it 
+to 1000HZ. If user wants, he can set custom "env" HZ variable.
+
+Signed-off-by: Denys Fedoryschenko <denys@visp.net.lb>
+---
+
+--Boundary-00=_VBEeJJ+W9F8haww
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="iproute2-htb-gethz-invalid.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="iproute2-htb-gethz-invalid.patch"
+
+diff -Naur iproute2/tc/q_htb.c iproute2-new/tc/q_htb.c
+--- iproute2/tc/q_htb.c	2009-01-22 11:10:36.000000000 +0200
++++ iproute2-new/tc/q_htb.c	2009-01-22 11:31:40.000000000 +0200
+@@ -110,6 +110,7 @@
+ 	unsigned mtu;
+ 	unsigned short mpu = 0;
+ 	unsigned short overhead = 0;
++	unsigned int bursthz;
+ 	unsigned int linklayer  = LINKLAYER_ETHERNET; /* Assume ethernet */
+ 	struct rtattr *tail;
+ 
+@@ -209,9 +210,16 @@
+ 	if (!opt.ceil.rate) opt.ceil = opt.rate;
+ 
+ 	/* compute minimal allowed burst from rate; mtu is added here to make
+-	   sute that buffer is larger than mtu and to have some safeguard space */
+-	if (!buffer) buffer = opt.rate.rate / get_hz() + mtu;
+-	if (!cbuffer) cbuffer = opt.ceil.rate / get_hz() + mtu;
++	   sure that buffer is larger than mtu and to have some safeguard space 
++	   With hrtimers enabled, hz variable gets too high resolution. If we
++	   use it for computing burst, burst will be too low. In worst case 
++	   we will not reach specified rate/ceil, in best - load will be too 
++	   high.
++	*/
++	bursthz = get_hz() == 1000000000 ? 1000 : get_hz();	
++
++	if (!buffer) buffer = opt.rate.rate / bursthz + mtu;
++	if (!cbuffer) cbuffer = opt.ceil.rate / bursthz + mtu;
+ 
+ 	opt.ceil.overhead = overhead;
+ 	opt.rate.overhead = overhead;
+
+--Boundary-00=_VBEeJJ+W9F8haww--
