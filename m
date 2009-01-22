@@ -1,85 +1,57 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] phylib: Fix oops in suspend/resume paths
-Date: Thu, 22 Jan 2009 21:09:30 +0300
-Message-ID: <20090122180930.GA27624@oksana.dev.rtsoft.ru>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH 3/9] bnx2x: annotate addr_hi/addr_lo as le32
+Date: Thu, 22 Jan 2009 10:13:34 -0800
+Message-ID: <1232648015.9701.50.camel@brick>
+References: <1232517048.9701.21.camel@brick>
+	 <1232646585.29087.87.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: David Miller <davem@davemloft.net>,
-	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:52140 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753389AbZAVSJh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 13:09:37 -0500
-Content-Disposition: inline
+Received: from wf-out-1314.google.com ([209.85.200.173]:63516 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753890AbZAVSNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 13:13:37 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so5076341wfd.4
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2009 10:13:36 -0800 (PST)
+In-Reply-To: <1232646585.29087.87.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Suspend/resume routines check for phydrv != NULL, but that is
-wrong because "phydrv" comes from container_of(drv). If drv is NULL,
-then container_of(drv) will return non-NULL result, and the checks
-won't work.
+On Thu, 2009-01-22 at 19:49 +0200, Eilon Greenstein wrote:
+> On Tue, 2009-01-20 at 21:50 -0800, Harvey Harrison wrote:
+> > Remove a completely unused structure definition as well.
+> > 
+> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+> 
+> [...]
+> >  
+> > diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> > index 2f8d64c..021c31c 100644
+> > --- a/drivers/net/bnx2x_main.c
+> > +++ b/drivers/net/bnx2x_main.c
+> > @@ -987,8 +987,8 @@ static inline void bnx2x_free_rx_sge(struct bnx2x *bp,
+> >  	__free_pages(page, PAGES_PER_SGE_SHIFT);
+> >  
+> >  	sw_buf->page = NULL;
+> > -	sge->addr_hi = 0;
+> > -	sge->addr_lo = 0;
+> > +	sge->addr_hi = cpu_to_le32(0);
+> > +	sge->addr_lo = cpu_to_le32(0);
+> >  }
+> 
+> I prefer to keep zeros as zeros. I find it less readable with the
+> cpu_to_le macro. I also noticed that it does not add a sparse warning,
+> so on the combined image I will keep the zeros as zeros.
+>  
+> Other than that, the patch looks fine
 
-The Freescale TBI PHYs are driver-less, so "drv" is NULL, and that
-leads to the following oops:
+Sparse will only warn if CHECK_ENDIAN is set as addr_hi/lo was just marked
+as a le32, how do you think I noticed this line needed changing ;-)
 
-Unable to handle kernel paging request for data at address 0xffffffe4
-Faulting instruction address: 0xc0215554
-Oops: Kernel access of bad area, sig: 11 [#1]
-[...]
-NIP [c0215554] mdio_bus_suspend+0x34/0x70
-LR [c01cc508] suspend_device+0x258/0x2bc
-Call Trace:
-[cfad3da0] [cfad3db8] 0xcfad3db8 (unreliable)
-[cfad3db0] [c01cc508] suspend_device+0x258/0x2bc
-[cfad3dd0] [c01cc62c] dpm_suspend+0xc0/0x140
-[cfad3e20] [c01cc6f4] device_suspend+0x48/0x5c
-[cfad3e40] [c0068dd8] suspend_devices_and_enter+0x8c/0x148
-[cfad3e60] [c00690f8] enter_state+0x100/0x118
-[cfad3e80] [c00691c0] state_store+0xb0/0xe4
-[cfad3ea0] [c018c938] kobj_attr_store+0x24/0x3c
-[cfad3eb0] [c00ea9a8] flush_write_buffer+0x58/0x7c
-[cfad3ed0] [c00eadf0] sysfs_write_file+0x58/0xa0
-[cfad3ef0] [c009e810] vfs_write+0xb4/0x16c
-[cfad3f10] [c009ed40] sys_write+0x4c/0x90
-[cfad3f40] [c0014954] ret_from_syscall+0x0/0x38
-[...]
+Harvey
 
-This patch fixes the issue, plus removes unneeded parentheses
-and fixes indentation level in mdio_bus_suspend().
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- drivers/net/phy/mdio_bus.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 11adf6e..811a637 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -296,9 +296,8 @@ static int mdio_bus_suspend(struct device * dev, pm_message_t state)
- 	struct phy_driver *phydrv = to_phy_driver(drv);
- 	struct phy_device *phydev = to_phy_device(dev);
- 
--	if ((!device_may_wakeup(phydev->dev.parent)) &&
--		(phydrv && phydrv->suspend))
--			ret = phydrv->suspend(phydev);
-+	if (drv && phydrv->suspend && !device_may_wakeup(phydev->dev.parent))
-+		ret = phydrv->suspend(phydev);
- 
- 	return ret;
- }
-@@ -310,8 +309,7 @@ static int mdio_bus_resume(struct device * dev)
- 	struct phy_driver *phydrv = to_phy_driver(drv);
- 	struct phy_device *phydev = to_phy_device(dev);
- 
--	if ((!device_may_wakeup(phydev->dev.parent)) &&
--		(phydrv && phydrv->resume))
-+	if (drv && phydrv->resume && !device_may_wakeup(phydev->dev.parent))
- 		ret = phydrv->resume(phydev);
- 
- 	return ret;
--- 
-1.5.6.5
