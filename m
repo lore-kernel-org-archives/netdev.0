@@ -1,81 +1,48 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Thu, 22 Jan 2009 17:28:37 +0800
-Message-ID: <1232616517.11429.129.camel@ymzhang>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
-	 <200901161503.13730.nickpiggin@yahoo.com.au>
-	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
-	 <200901161746.25205.nickpiggin@yahoo.com.au>
-	 <20090116065546.GJ31013@parisc-linux.org>
-	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
-	 <1232428583.11429.83.camel@ymzhang>
-	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
-	 <1232613395.11429.122.camel@ymzhang>
-	 <1232615707.14549.6.camel@penberg-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] af_key: parse and send SADB_X_EXT_NAT_T_OA extension
+Date: Thu, 22 Jan 2009 20:41:50 +1100
+Message-ID: <20090122094150.GB14491@gondor.apana.org.au>
+References: <49780EB5.60300@iki.fi> <20090121.222112.245293949.davem@davemloft.net> <20090122063206.GA11818@gondor.apana.org.au> <497814A7.3060302@iki.fi> <20090122064719.GA12043@gondor.apana.org.au> <4978180A.6080304@iki.fi> <20090122073946.GB12395@gondor.apana.org.au> <49782EE4.2070809@iki.fi> <20090122085053.GA12806@gondor.apana.org.au> <49783B59.90208@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
-	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
-	arjan@linux.intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:52737 "EHLO
-	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753534AbZAVJ2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 04:28:47 -0500
-In-Reply-To: <1232615707.14549.6.camel@penberg-laptop>
+Received: from rhun.apana.org.au ([64.62.148.172]:58930 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754555AbZAVJl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 04:41:56 -0500
+Content-Disposition: inline
+In-Reply-To: <49783B59.90208@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-01-22 at 11:15 +0200, Pekka Enberg wrote:
-> On Thu, 2009-01-22 at 16:36 +0800, Zhang, Yanmin wrote:
-> > On Wed, 2009-01-21 at 18:58 -0500, Christoph Lameter wrote:
-> > > On Tue, 20 Jan 2009, Zhang, Yanmin wrote:
-> > >=20
-> > > > kmem_cache =EF=BB=BFskbuff_head_cache's object size is just 256=
-, so it shares the kmem_cache
-> > > > with =EF=BB=BF:0000256. Their order is 1 which means every slab=
- consists of 2 physical pages.
-> > >=20
-> > > That order can be changed. Try specifying slub_max_order=3D0 on t=
-he kernel
-> > > command line to force an order 0 alloc.
-> > I tried =EF=BB=BFslub_max_order=3D0 and there is no improvement on =
-this UDP-U-4k issue.
-> > Both get_page_from_freelist and __free_pages_ok's cpu time are stil=
-l very high.
-> >=20
-> > I checked my instrumentation in kernel and found it's caused by lar=
-ge object allocation/free
-> > whose size is more than PAGE_SIZE. Here its order is 1.
-> >=20
-> > The right free callchain is __kfree_skb =3D> skb_release_all =3D> s=
-kb_release_data.
-> >=20
-> > So this case isn't the issue that batch of allocation/free might er=
-ase partial page
-> > functionality.
->=20
-> So is this the kfree(skb->head) in skb_release_data() or the put_page=
-()
-> calls in the same function in a loop?
-It's =EF=BB=BFkfree(skb->head).
+On Thu, Jan 22, 2009 at 11:24:41AM +0200, Timo Ter=E4s wrote:
+>
+> In DMVPN/GRE case, the NAT-OA from IPsec would not be used
+> unless the NAT-OA is set on neighbour cache. This would not
+> happen unless NHRP can authenticate it. In DMVPN case you need
+> a valid certificate to give the ranom NAT-OA in any case. So
+> if you lie about your NAT-OA I can just revoke you.
 
->=20
-> If it's the former, with big enough size passed to __alloc_skb(), the
-> networking code might be taking a hit from the SLUB page allocator
-> pass-through.
+I don't see how NHRP authentication would help if the attacker
+takes over someone else's address and causes packets for the
+third party to go to it.
 
+As to revoking the attacker's access, that's like saying "I'll
+run an open telnet port but if you try to sniff my psasword I'll
+revoke your access" :)
 
+> Or do you have, other recommendations how to distinguish peers
+> behind same public IP than NAT-OA? Maybe we add the certificate
+> subject to xfrm state and neighbour cache. And use that?
+
+Yes I think that is a much better solution for this.
+
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
