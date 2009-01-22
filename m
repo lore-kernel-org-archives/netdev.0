@@ -1,82 +1,81 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] af_key: parse and send SADB_X_EXT_NAT_T_OA extension
-Date: Thu, 22 Jan 2009 11:24:41 +0200
-Message-ID: <49783B59.90208@iki.fi>
-References: <49780AA9.9050508@iki.fi> <20090121.220304.211246256.davem@davemloft.net> <49780EB5.60300@iki.fi> <20090121.222112.245293949.davem@davemloft.net> <20090122063206.GA11818@gondor.apana.org.au> <497814A7.3060302@iki.fi> <20090122064719.GA12043@gondor.apana.org.au> <4978180A.6080304@iki.fi> <20090122073946.GB12395@gondor.apana.org.au> <49782EE4.2070809@iki.fi> <20090122085053.GA12806@gondor.apana.org.au>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Thu, 22 Jan 2009 17:28:37 +0800
+Message-ID: <1232616517.11429.129.camel@ymzhang>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
+	 <200901161503.13730.nickpiggin@yahoo.com.au>
+	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
+	 <200901161746.25205.nickpiggin@yahoo.com.au>
+	 <20090116065546.GJ31013@parisc-linux.org>
+	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
+	 <1232428583.11429.83.camel@ymzhang>
+	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
+	 <1232613395.11429.122.camel@ymzhang>
+	 <1232615707.14549.6.camel@penberg-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Christoph Lameter <cl@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:39325 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752817AbZAVJYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 04:24:47 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so2092385fgg.17
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2009 01:24:45 -0800 (PST)
-In-Reply-To: <20090122085053.GA12806@gondor.apana.org.au>
+Received: from mga07.intel.com ([143.182.124.22]:52737 "EHLO
+	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753534AbZAVJ2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 04:28:47 -0500
+In-Reply-To: <1232615707.14549.6.camel@penberg-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Thu, Jan 22, 2009 at 10:31:32AM +0200, Timo Ter=E4s wrote:
->> The (quickish) look on *swans would imply that for each
->> dynamic connection I would need to hand create a new connection
->> entity. Could be scriptable, but then I would somehow
->> need to make up connection names based on the IPs and always
->> inject full config by the admin tool.
+On Thu, 2009-01-22 at 11:15 +0200, Pekka Enberg wrote:
+> On Thu, 2009-01-22 at 16:36 +0800, Zhang, Yanmin wrote:
+> > On Wed, 2009-01-21 at 18:58 -0500, Christoph Lameter wrote:
+> > > On Tue, 20 Jan 2009, Zhang, Yanmin wrote:
+> > >=20
+> > > > kmem_cache =EF=BB=BFskbuff_head_cache's object size is just 256=
+, so it shares the kmem_cache
+> > > > with =EF=BB=BF:0000256. Their order is 1 which means every slab=
+ consists of 2 physical pages.
+> > >=20
+> > > That order can be changed. Try specifying slub_max_order=3D0 on t=
+he kernel
+> > > command line to force an order 0 alloc.
+> > I tried =EF=BB=BFslub_max_order=3D0 and there is no improvement on =
+this UDP-U-4k issue.
+> > Both get_page_from_freelist and __free_pages_ok's cpu time are stil=
+l very high.
+> >=20
+> > I checked my instrumentation in kernel and found it's caused by lar=
+ge object allocation/free
+> > whose size is more than PAGE_SIZE. Here its order is 1.
+> >=20
+> > The right free callchain is __kfree_skb =3D> skb_release_all =3D> s=
+kb_release_data.
+> >=20
+> > So this case isn't the issue that batch of allocation/free might er=
+ase partial page
+> > functionality.
 >=20
-> They have templates for inbound connections on servers and also
-> outbound connections which were used for Opportunistic Encryption.
-> So you can adapt these to generate connections on demand.
+> So is this the kfree(skb->head) in skb_release_data() or the put_page=
+()
+> calls in the same function in a loop?
+It's =EF=BB=BFkfree(skb->head).
+
 >=20
-> Also creating/destroying connections at run-time is really easy
-> without generating a full config at all by using ipsec whack.
+> If it's the former, with big enough size passed to __alloc_skb(), the
+> networking code might be taking a hit from the SLUB page allocator
+> pass-through.
 
-I think I looked into openswan int he beginning in detail
-and it had various problems. I think there wasn't netlink
-stuff there either when I looked into it.
 
-Looking at strongswan now, it does look a lot more usable.
-
-But I don't like how IKEv2 is complitely separate from
-IKEv1. Different daemons, different whack interface, etc.
-
-There was some other things too why I decided to go for
-ipsec-tools in the beginning. But it doesn't really matter
-as long as I get IPsec.
-
-So for the time being, I can have my patched kernel, fix
-some of the swans and switch to it, or even write my own
-IPsec keying manager if it comes to that. IPsec KM is not
-that relevant for me, as long as it works.
-
->> But if there's multiple nodes behind same public IP the xfrm
->> has two (or more) choices for which xfrm state to use. The
->> NAT-OA can be used as distinguishing factor. So when ip_gre
->> sends out packet, the xfrm can choose the correct xfrm state.
->=20
-> That's precisely what you don't want to do unless you trust all
-> your peers equally.  The reason is that NAT-OA is not authenticated,
-> i.e., I can choose any address to send over as NAT-OA and there
-> is nothing you can do to stop me.
->=20
-> It was only ever intended to be used for fixing up the checksum
-> so you can't safely use it for making policy/routing decisions.
-
-In DMVPN/GRE case, the NAT-OA from IPsec would not be used
-unless the NAT-OA is set on neighbour cache. This would not
-happen unless NHRP can authenticate it. In DMVPN case you need
-a valid certificate to give the ranom NAT-OA in any case. So
-if you lie about your NAT-OA I can just revoke you.
-
-Or do you have, other recommendations how to distinguish peers
-behind same public IP than NAT-OA? Maybe we add the certificate
-subject to xfrm state and neighbour cache. And use that?
-That would certainly be authenticated. Would that be a better
-approach? Or in general, allow a random token to be associated
-with an xfrm state, so that we can connect neighbor cache in
-gre interface to that specific state.
-
-- Timo
