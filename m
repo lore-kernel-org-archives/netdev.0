@@ -1,61 +1,77 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 1/4]bnx2x: Calling napi_del
-Date: Thu, 22 Jan 2009 18:01:25 +0200
-Message-ID: <1232640085.29087.51.camel@lb-tlvb-eliezer>
+Subject: [PATCH 3/4]bnx2x: loopback test failure
+Date: Thu, 22 Jan 2009 18:01:32 +0200
+Message-ID: <1232640092.29087.54.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "Harvey Harrison" <harvey.harrison@gmail.com>,
-	"Yitchak Gertner" <gertner@broadcom.com>, netdev@vger.kernel.org
+	netdev@vger.kernel.org
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4815 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752895AbZAVQCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2009 11:02:31 -0500
+	id S1753045AbZAVQCl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2009 11:02:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rmmod might hang without this patch since the reference counter is not going
-down
+A link change interrupt might be queued and activated after the loopback was set
+and it will cause the loopback to fail. The PHY lock should be kept until the
+loopback test is over.
 
-Signed-off-by: Yitchak Gertner <gertner@broadcom.com>
+That implies that the bnx2x_test_link should used within the loopback function
+and not bnx2x_wait_for_link since that function also takes the PHY link
+
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x_main.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index fbd7165..71fbf2d 100644
+index 8b0513b..4b84f6c 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -6547,6 +6547,8 @@ load_error2:
- 	bnx2x_free_irq(bp);
- load_error1:
- 	bnx2x_napi_disable(bp);
-+	for_each_queue(bp, i)
-+		netif_napi_del(&bnx2x_fp(bp, i, napi));
- 	bnx2x_free_mem(bp);
+@@ -8750,18 +8750,17 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode, u8 link_up)
  
- 	/* TBD we really need to reset the chip
-@@ -6855,6 +6857,8 @@ unload_error:
- 	bnx2x_free_skbs(bp);
- 	for_each_queue(bp, i)
- 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
-+	for_each_queue(bp, i)
-+		netif_napi_del(&bnx2x_fp(bp, i, napi));
- 	bnx2x_free_mem(bp);
+ 	if (loopback_mode == BNX2X_MAC_LOOPBACK) {
+ 		bp->link_params.loopback_mode = LOOPBACK_BMAC;
+-		bnx2x_acquire_phy_lock(bp);
+ 		bnx2x_phy_init(&bp->link_params, &bp->link_vars);
+-		bnx2x_release_phy_lock(bp);
  
- 	bp->state = BNX2X_STATE_CLOSED;
-@@ -10481,6 +10485,8 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
- 	bnx2x_free_skbs(bp);
- 	for_each_queue(bp, i)
- 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
-+	for_each_queue(bp, i)
-+		netif_napi_del(&bnx2x_fp(bp, i, napi));
- 	bnx2x_free_mem(bp);
+ 	} else if (loopback_mode == BNX2X_PHY_LOOPBACK) {
++		u16 cnt = 1000;
+ 		bp->link_params.loopback_mode = LOOPBACK_XGXS_10;
+-		bnx2x_acquire_phy_lock(bp);
+ 		bnx2x_phy_init(&bp->link_params, &bp->link_vars);
+-		bnx2x_release_phy_lock(bp);
+ 		/* wait until link state is restored */
+-		bnx2x_wait_for_link(bp, link_up);
+-
++		if (link_up)
++			while (cnt-- && bnx2x_test_link(&bp->link_params,
++							&bp->link_vars))
++				msleep(10);
+ 	} else
+ 		return -EINVAL;
  
- 	bp->state = BNX2X_STATE_CLOSED;
+@@ -8867,6 +8866,7 @@ static int bnx2x_test_loopback(struct bnx2x *bp, u8 link_up)
+ 		return BNX2X_LOOPBACK_FAILED;
+ 
+ 	bnx2x_netif_stop(bp, 1);
++	bnx2x_acquire_phy_lock(bp);
+ 
+ 	if (bnx2x_run_loopback(bp, BNX2X_MAC_LOOPBACK, link_up)) {
+ 		DP(NETIF_MSG_PROBE, "MAC loopback failed\n");
+@@ -8878,6 +8878,7 @@ static int bnx2x_test_loopback(struct bnx2x *bp, u8 link_up)
+ 		rc |= BNX2X_PHY_LOOPBACK_FAILED;
+ 	}
+ 
++	bnx2x_release_phy_lock(bp);
+ 	bnx2x_netif_start(bp);
+ 
+ 	return rc;
 -- 
 1.5.4.3
 
