@@ -1,28 +1,72 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 7/8] arm: convert omap ldp platform to use smsc911x
-Date: Thu, 22 Jan 2009 10:58:10 +0000
-Message-ID: <20090122105810.GD32153@n2100.arm.linux.org.uk>
-References: <1232458114-10997-1-git-send-email-steve.glendinning@smsc.com> <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.arm.linux.org.uk, davem@davemloft.net,
-	netdev@vger.kernel.org, steve.glendinning@smsc.com
-To: "Stanley.Miao" <stanley.miao@windriver.com>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCHv2] phy: Add suspend/resume support to SMSC PHYs
+Date: Thu, 22 Jan 2009 11:02:25 +0000
+Message-ID: <1232622145-4730-1-git-send-email-steve.glendinning@smsc.com>
+Cc: David Miller <davem@davemloft.net>,
+	Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:36397 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752503AbZAVK63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 05:58:29 -0500
-Content-Disposition: inline
-In-Reply-To: <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
+Received: from [86.54.240.114] ([86.54.240.114]:54483 "EHLO
+	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751215AbZAVLC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 06:02:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2009 at 11:06:09AM +0800, Stanley.Miao wrote:
-> -	ldp_smc911x_resources[0].start = cs_mem_base + 0x0;
-> -	ldp_smc911x_resources[0].end   = cs_mem_base + 0xf;
-> +	ldp_smsc911x_resources[0].start = cs_mem_base + 0x0;
-> +	ldp_smsc911x_resources[0].end   = cs_mem_base + 0x100;
+All supported SMSC PHYs implement the standard "power down" bit 11 of
+BMCR, so this patch adds support using the generic genphy_{suspend,resume}
+functions.
 
-This doesn't look right - 'end' is inclusive not exclusive.  So this
-reserves 257 bytes, not 256 bytes.
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/phy/smsc.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index c05d38d..1387187 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -81,6 +81,9 @@ static struct phy_driver lan83c185_driver = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++
+ 	.driver		= { .owner = THIS_MODULE, }
+ };
+ 
+@@ -102,6 +105,9 @@ static struct phy_driver lan8187_driver = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++
+ 	.driver		= { .owner = THIS_MODULE, }
+ };
+ 
+@@ -123,6 +129,9 @@ static struct phy_driver lan8700_driver = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++
+ 	.driver		= { .owner = THIS_MODULE, }
+ };
+ 
+@@ -144,6 +153,9 @@ static struct phy_driver lan911x_int_driver = {
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+ 	.config_intr	= smsc_phy_config_intr,
+ 
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
++
+ 	.driver		= { .owner = THIS_MODULE, }
+ };
+ 
+-- 
+1.6.0.6
+
