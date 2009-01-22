@@ -1,100 +1,111 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] af_key: parse and send SADB_X_EXT_NAT_T_OA extension
-Date: Thu, 22 Jan 2009 10:31:32 +0200
-Message-ID: <49782EE4.2070809@iki.fi>
-References: <49780AA9.9050508@iki.fi> <20090121.220304.211246256.davem@davemloft.net> <49780EB5.60300@iki.fi> <20090121.222112.245293949.davem@davemloft.net> <20090122063206.GA11818@gondor.apana.org.au> <497814A7.3060302@iki.fi> <20090122064719.GA12043@gondor.apana.org.au> <4978180A.6080304@iki.fi> <20090122073946.GB12395@gondor.apana.org.au>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Thu, 22 Jan 2009 16:36:34 +0800
+Message-ID: <1232613395.11429.122.camel@ymzhang>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
+	 <200901161503.13730.nickpiggin@yahoo.com.au>
+	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
+	 <200901161746.25205.nickpiggin@yahoo.com.au>
+	 <20090116065546.GJ31013@parisc-linux.org>
+	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
+	 <1232428583.11429.83.camel@ymzhang>
+	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:25109 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750788AbZAVIbh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 03:31:37 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so2076410fgg.17
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2009 00:31:35 -0800 (PST)
-In-Reply-To: <20090122073946.GB12395@gondor.apana.org.au>
+Received: from mga07.intel.com ([143.182.124.22]:47737 "EHLO
+	azsmga101.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750788AbZAVIgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 03:36:45 -0500
+In-Reply-To: <alpine.DEB.1.10.0901211852060.18367@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Thu, Jan 22, 2009 at 08:54:02AM +0200, Timo Ter=E4s wrote:
->> That ipsec-tools feature works on *BSD. Works on Linux too
->> as kernel does not (yet) use that for anything except reporting
->> it back. Other OSes might use it already to e.g. fix-up the
->> packet checksums in transport mode SAs; I believe Linux just
->> recalculates the checksum.
+On Wed, 2009-01-21 at 18:58 -0500, Christoph Lameter wrote:
+> On Tue, 20 Jan 2009, Zhang, Yanmin wrote:
 >=20
-> Right, the reason nobody has noticed is because transport mode
-> NAT-T is inherently insecure (and difficult to deploy if you have
-> multiple peers behind one gateway) so nobody uses it in the field.
-
-Yes, if you have TCP or UDP as upper protocol. DMVPN has GRE as
-upper protocol, so most of the problems are handled at GRE
-layer with NHRP, dynamic routing protocols, etc.
-
-> So I think there is even less reason to do this for af_key.
->
-> If you don't have the time to convert racoon, couldn't you look
-> at one of the *swans and use that as the basis of your work?
-
-I did look into them in the beginning. They have a bit different
-way of looking into ipsec connections than dmvpn. So I thought
-ipsec-tools would be easiest to modify. I did not tie opennhrp
-to ipsec-tools specifically (ipsec glue is a script) so it's
-changeable.
-
-Basically NHRP works as private IP to public IP mapping
-protocol. And wants to be in charge of establishing the IPsec
-SAs dynamically. Basically the option of having "unnamed"
-connections distinguished by IP:s was the criteria why I went
-with ipsec-tools.
-
-The (quickish) look on *swans would imply that for each
-dynamic connection I would need to hand create a new connection
-entity. Could be scriptable, but then I would somehow
-need to make up connection names based on the IPs and always
-inject full config by the admin tool.
-
->> The future patch I have in my mind I've been talking about,
->> does make use of NAT-OA. So that's why I noticed it only
->> just now. Btw, could someone comment on the idea of passing
->> NAT-OA to neighbour cache and make xfrm use it when choosing
->> which xfrm state to use?
+> > kmem_cache =EF=BB=BFskbuff_head_cache's object size is just 256, so=
+ it shares the kmem_cache
+> > with =EF=BB=BF:0000256. Their order is 1 which means every slab con=
+sists of 2 physical pages.
 >=20
-> I'm concerned about using NAT-OA for anything policy related
-> because it is impossible to authenticate or verify.
+> That order can be changed. Try specifying slub_max_order=3D0 on the k=
+ernel
+> command line to force an order 0 alloc.
+I tried =EF=BB=BFslub_max_order=3D0 and there is no improvement on this=
+ UDP-U-4k issue.
+Both get_page_from_freelist and __free_pages_ok's cpu time are still ve=
+ry high.
 
-I'm not sure if you are familiar how DMVPN works (=3D IPsec
-transport mode + NBMA GRE + NHRP), but I can explain it more
-detailed if you want to hear more about it.
+I checked my instrumentation in kernel and found it's caused by large o=
+bject allocation/free
+whose size is more than PAGE_SIZE. Here its order is 1.
 
-In any case the NAT-OA would be used as hint to choose which
-cached xfrm state the global xfrm policy "encrypt all GRE
-traffic" would return when kernel sends packets out from
-the GRE tunnel interface.
+The right free callchain is __kfree_skb =3D> skb_release_all =3D> skb_r=
+elease_data.
 
-Basically, OpenNHRP would:
-1. Make ipsec-tools (or some other keying manager) create
-   new SAs for the dynamic IPsec connection. The KM would
-   inject the NAT-OA for the negotiated xfrm state.
+So this case isn't the issue that batch of allocation/free might erase =
+partial page
+functionality.
 
-2. OpenNHRP after ensuring the IPsec SA is there, would
-   inject GRE interface neighbor entry saying:
-      "packets to this IP in GRE subnet, go to this public
-       IP. do use this NAT-OA as hint when choosing xfrm state."
-   This would be sent via Netlink.
+'#slaninfo -AD' couldn't show statistics of large object allocation/fre=
+e. Can we add
+such info? That will be more helpful.
 
-This all works already, if all DMVPN nodes have different
-public IP (xfrm chooses correct SA to use based on public IP).
+In addition, I didn't find such issue wih TCP stream testing.
 
-But if there's multiple nodes behind same public IP the xfrm
-has two (or more) choices for which xfrm state to use. The
-NAT-OA can be used as distinguishing factor. So when ip_gre
-sends out packet, the xfrm can choose the correct xfrm state.
+>=20
+> The queues of the page allocator are of limited use due to their over=
+head.
+> Order-1 allocations can actually be 5% faster than order-0. order-0 m=
+akes
+> sense if pages are pushed rapidly to the page allocator and are then
+> reissues elsewhere. If there is a linear consumption then the page
+> allocator queues are just overhead.
+>=20
+> > Page allocator has an array at zone_pcp(zone, cpu)->pcp to keep a p=
+age buffer for page order 0.
+> > But here =EF=BB=BFskbuff_head_cache's order is 1, so UDP-U-4k could=
+n't benefit from the page buffer.
+>=20
+> That usually does not matter because of partial list avoiding page
+> allocator actions.
 
-Would that sound acceptable?
+>=20
+> > SLQB has no such issue, because:
+> > 1) SLQB has a percpu freelist. Free objects are put to the list fir=
+stly and can be picked up
+> > later on quickly without lock. A batch parameter to control the fre=
+e object recollection is mostly
+> > 1024.
+> > 2) SLQB slab order mostly is 0, so although sometimes it calls allo=
+c_pages/free_pages, it can
+> > benefit from =EF=BB=BFzone_pcp(zone, cpu)->pcp page buffer.
+> >
+> > So SLUB need resolve such issues that one process allocates a batch=
+ of objects and another process
+> > frees them batchly.
+>=20
+> SLUB has a percpu freelist but its bounded by the basic allocation un=
+it.
+> You can increase that by modifying the allocation order. Writing a 3 =
+or 5
+> into the order value in /sys/kernel/slab/xxx/order would do the trick=
+=2E
 
-- Timo
