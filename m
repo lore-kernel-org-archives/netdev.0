@@ -1,33 +1,48 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PANIC] lro + iscsi or lro + skb text search causes panic
-Date: Thu, 22 Jan 2009 16:49:40 -0600
-Message-ID: <4978F804.3060502@cs.wisc.edu>
-References: <alpine.WNT.2.00.0901221234420.4188@jbrandeb-desk1.amr.corp.intel.com>
+From: "Goff, Thomas" <Thomas.Goff@boeing.com>
+Subject: RE: [PATCH] IPv6 multicast routing
+Date: Thu, 22 Jan 2009 15:30:38 -0800
+Message-ID: <21C34AA2609529459A85739E2952066904A9670D@XCH-NW-9V1.nw.nos.boeing.com>
+References: <20090120200248.GA13928@boeing.com> <20090121.100431.126366547.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, olaf.kirch@oracle.com, tgraf@suug.ch,
-	kkeil@suse.de, herbert@gondor.apana.org.au
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: <netdev@vger.kernel.org>,
+	"Templin, Fred L" <Fred.L.Templin@boeing.com>
+To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:39624 "EHLO sabe.cs.wisc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753502AbZAVXYp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2009 18:24:45 -0500
-In-Reply-To: <alpine.WNT.2.00.0901221234420.4188@jbrandeb-desk1.amr.corp.intel.com>
+Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:52675 "EHLO
+	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755233AbZAVXaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 18:30:55 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20090121.100431.126366547.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brandeburg, Jesse wrote:
-> 
-> skb_copy_bits is an example of the code flow that does work.
-> 
-> skb_seq_read appears to only be used by iSCSI and the skb text match 
-> support in tc/netfilter (aka skb_find_text)
-> 
+On Wed, Jan 21, 2009 at 10:04:31AM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
 
-There is no reason iscsi needs to use skb_seq_read. It used to use 
-skb_copy_bits. I can convert iscsi to use skb_copy_bits again.
+> >   - Enable/disable IPv6 multicast forwarding on the corresponding
+> >     interface when a routing daemon adds/removes a multicast virtual
+> >     interface.
+:
+> However, I believe configuring forwarding is user's responsibility
+> and I'm not in favor of managing mc_forwarding automatically.
+>
+> If we go your way, we need to make the proc interface read-only, but
+> you know, they will become non-"conf" interface. :-(
+> And, well, we will introduce another possible overflow/underflow here...
+>
+> Another thought was to allow non-VIF routing settings (or manual settings).
+>
+> So, I decided to drop that bits.
 
-Is it easier to just convert the text search to not use skb_seq_read, 
-and then just dump those functions?
+Thanks for looking it over.
+
+I think your approach to handling mc_forwarding makes sense, although
+it differs from the IPv4 behavior.  In any case, it looks like the
+current IPv4 and IPv6 multicast routing code does not consider an
+interface's mc_forwarding value at all.
+
+  Tom
