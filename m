@@ -1,42 +1,37 @@
-From: "Jorge Bastos" <mysql.jorge@decimal.pt>
-Subject: sky2 hang with 2.6.28 and 2.6.29-rc2
-Date: Thu, 22 Jan 2009 21:02:32 -0000 (WET)
-Message-ID: <3876.87.196.10.75.1232658152.squirrel@webmail.decimal.pt>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] sctp/ipv6.c: use ipv6_addr_copy
+Date: Thu, 22 Jan 2009 13:08:26 -0800
+Message-ID: <1232658506.15489.63.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Networking Team <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org
+To: Sridhar Samudrala <sri@us.ibm.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly07.isp.novis.pt ([195.23.133.217]:60215 "EHLO
-	mailrly07.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753160AbZAVVBD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 16:01:03 -0500
-Received: from webmail.decimal.pt (localhost [127.0.0.1])
-	by web.decimal.pt (Postfix) with ESMTP id 68084145BEE
-	for <netdev@vger.kernel.org>; Thu, 22 Jan 2009 21:02:32 +0000 (WET)
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2206 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753632AbZAVVHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 16:07:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I've noticed with the kernel's (two different machines) 2.6.28 and
-2.6.29-rc2, that the NIC's were hanging.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-In the kernel output i have:
----
-sky2 eth0: receiver hang detected
-sky2 eth0: disabling interface
-sky2 eth0: enabling interface
-sky2 eth0: Link is up at 1000 Mbps, full duplex, flow control rx
----
-
-the NIC is:
----
-03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053 PCI-E
-Gigabit Ethernet Controller (rev 15)
----
-
-i've searched the web a bit and i saw some info that this seems to have
-been fixed in arround 2.6.23 +/-, but still happening.
-
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index ceaa4aa..7862275 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -97,8 +97,7 @@ static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+ 		if (addr) {
+ 			addr->a.v6.sin6_family = AF_INET6;
+ 			addr->a.v6.sin6_port = 0;
+-			memcpy(&addr->a.v6.sin6_addr, &ifa->addr,
+-				 sizeof(struct in6_addr));
++			ipv6_addr_copy(&addr->a.v6.sin6_addr, &ifa->addr);
+ 			addr->a.v6.sin6_scope_id = ifa->idev->dev->ifindex;
+ 			addr->valid = 1;
+ 			spin_lock_bh(&sctp_local_addr_lock);
 
 
