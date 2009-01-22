@@ -1,36 +1,28 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] af_key: parse and send SADB_X_EXT_NAT_T_OA extension
-Date: Thu, 22 Jan 2009 21:10:05 +1100
-Message-ID: <20090122101005.GA15459@gondor.apana.org.au>
-References: <20090122063206.GA11818@gondor.apana.org.au> <497814A7.3060302@iki.fi> <20090122064719.GA12043@gondor.apana.org.au> <4978180A.6080304@iki.fi> <20090122073946.GB12395@gondor.apana.org.au> <49782EE4.2070809@iki.fi> <20090122085053.GA12806@gondor.apana.org.au> <49783B59.90208@iki.fi> <20090122094150.GB14491@gondor.apana.org.au> <497843B6.8090407@iki.fi>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 7/8] arm: convert omap ldp platform to use smsc911x
+Date: Thu, 22 Jan 2009 10:58:10 +0000
+Message-ID: <20090122105810.GD32153@n2100.arm.linux.org.uk>
+References: <1232458114-10997-1-git-send-email-steve.glendinning@smsc.com> <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.arm.linux.org.uk, davem@davemloft.net,
+	netdev@vger.kernel.org, steve.glendinning@smsc.com
+To: "Stanley.Miao" <stanley.miao@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50761 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754659AbZAVKKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 05:10:12 -0500
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:36397 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752503AbZAVK63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 05:58:29 -0500
 Content-Disposition: inline
-In-Reply-To: <497843B6.8090407@iki.fi>
+In-Reply-To: <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2009 at 12:00:22PM +0200, Timo Ter=E4s wrote:
->
-> Still, connecting it with variable amount length of data
-> (like cert subject) might be cumbersome (extending the
-> APIs, structs, especially neighbor cache).
+On Wed, Jan 21, 2009 at 11:06:09AM +0800, Stanley.Miao wrote:
+> -	ldp_smc911x_resources[0].start = cs_mem_base + 0x0;
+> -	ldp_smc911x_resources[0].end   = cs_mem_base + 0xf;
+> +	ldp_smsc911x_resources[0].start = cs_mem_base + 0x0;
+> +	ldp_smsc911x_resources[0].end   = cs_mem_base + 0x100;
 
-Well you can have a translation table in user-space that turns
-the cert into something more digestable, like a u32 or even an
-IP address.
-
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This doesn't look right - 'end' is inclusive not exclusive.  So this
+reserves 257 bytes, not 256 bytes.
