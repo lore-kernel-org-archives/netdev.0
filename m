@@ -1,35 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: Add suspend/resume support to SMSC PHYs
-Date: Wed, 21 Jan 2009 16:05:39 -0800 (PST)
-Message-ID: <20090121.160539.178546954.davem@davemloft.net>
-References: <1232459038-13156-1-git-send-email-steve.glendinning@smsc.com>
+From: =?ISO-8859-1?Q?Ra=FAl_Hern=E1ndez?= <rauhersu@gmail.com>
+Subject: ip monitoring
+Date: Thu, 22 Jan 2009 01:18:35 +0100
+Message-ID: <3f847c820901211618p476f3b71kbc994680d4a0a2e8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51068
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754323AbZAVAFh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 19:05:37 -0500
-In-Reply-To: <1232459038-13156-1-git-send-email-steve.glendinning@smsc.com>
+Received: from fg-out-1718.google.com ([72.14.220.159]:24453 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754569AbZAVASh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2009 19:18:37 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so1958543fgg.17
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2009 16:18:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Tue, 20 Jan 2009 13:43:58 +0000
+Hi there,
 
-> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-> index c05d38d..185dcd9 100644
-> --- a/drivers/net/phy/smsc.c
-> +++ b/drivers/net/phy/smsc.c
-> @@ -81,6 +81,9 @@ static struct phy_driver lan83c185_driver = {
->  	.ack_interrupt	= smsc_phy_ack_interrupt,
->  	.config_intr	= smsc_phy_config_intr,
->  
-> +        .suspend	= genphy_suspend,
-> +        .resume		= genphy_resume,
-> +
+Just a quick question regarding ip monitoring: I am trying to develop
+a user space app which must be aware of changes related to ip
+management and link status (up, down, this-ip-has-been added,..). So
+far, I am trying to avoid polling the link/ip to notice these changes
+as I would like to be notified asynchronously.
 
-Please use tabs, not spaces, here.
+Is there any API/quick fix for user space apps to get that (I am
+trying to avoid any kernel development as well) ?
+
+Thx!
+
+Best regards,
+Raul
+
+--
+Los viajes son en la juventud una parte de educaci=F3n y, en la vejez,
+una parte de experiencia -- Francis Bacon
