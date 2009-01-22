@@ -1,35 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] am79c961a: fix spin_lock usage
-Date: Thu, 22 Jan 2009 14:56:15 -0800 (PST)
-Message-ID: <20090122.145615.235726630.davem@davemloft.net>
-References: <1232663382-10503-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PANIC] lro + iscsi or lro + skb text search causes panic
+Date: Fri, 23 Jan 2009 10:21:32 +1100
+Message-ID: <20090122232131.GA22771@gondor.apana.org.au>
+References: <alpine.WNT.2.00.0901221234420.4188@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 12o3l@tiscali.nl, rmk+kernel@arm.linux.org.uk, srostedt@redhat.com,
-	netdev@vger.kernel.org
-To: u.kleine-koenig@pengutronix.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, olaf.kirch@oracle.com, tgraf@suug.ch,
+	kkeil@suse.de, michaelc@cs.wisc.edu,
+	"David S. Miller" <davem@davemloft.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60170
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758776AbZAVW4N convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2009 17:56:13 -0500
-In-Reply-To: <1232663382-10503-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from rhun.apana.org.au ([64.62.148.172]:47136 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754688AbZAVXVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 18:21:39 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.WNT.2.00.0901221234420.4188@jbrandeb-desk1.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Thu, 22 Jan 2009 23:29:42 +0100
+On Thu, Jan 22, 2009 at 12:55:21PM -0800, Brandeburg, Jesse wrote:
+> I've filed this bugzilla a while ago.
+> http://bugzilla.kernel.org/show_bug.cgi?id=11804
+> now other customers are becoming interested as well
 
-> spin_lock functions take a pointer to the lock, not the lock itself.
-> This error was noticed by compiling ebsa110_defconfig for linux-rt wh=
-ere
-> the locking functions obviously are more picky about their arguments.
->=20
-> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Does this patch help?
 
-Russell, this fix is real.  Want me to take it or will you?
+net: Fix frag_list handling in skb_seq_read
 
-BTW, I took linux-arm-kernel out of the CC because all of my postings
-there bounce simply because I lack reverse DNS :-/
+The frag_list handling was broken ini skb_seq_read:
+
+1) We didn't add the stepped offset when looking at the head
+are of fragments other than the first.
+
+2) The frag index wasn't reset.
+
+This patch fixes both issues.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d7efaf9..ae03c7f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2215,7 +2215,7 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
+ 		return 0;
+ 
+ next_skb:
+-	block_limit = skb_headlen(st->cur_skb);
++	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
+ 
+ 	if (abs_offset < block_limit) {
+ 		*data = st->cur_skb->data + abs_offset;
+@@ -2260,6 +2260,7 @@ next_skb:
+ 	} else if (st->root_skb == st->cur_skb &&
+ 		   skb_shinfo(st->root_skb)->frag_list) {
+ 		st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
++		st->frag_idx = 0;
+ 		goto next_skb;
+ 	}
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
