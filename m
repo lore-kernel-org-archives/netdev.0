@@ -1,158 +1,78 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v3] tcp: splice as many packets as possible at once
-Date: Thu, 22 Jan 2009 09:04:42 +0000
-Message-ID: <20090122090442.GB11139@ff.dom.local>
-References: <20090120102053.GA17004@ff.dom.local> <20090120103122.GC9167@ioremap.net> <20090120110144.GB17004@ff.dom.local> <20090120.091616.224452074.davem@davemloft.net>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Thu, 22 Jan 2009 11:15:07 +0200
+Message-ID: <1232615707.14549.6.camel@penberg-laptop>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
+	 <200901161503.13730.nickpiggin@yahoo.com.au>
+	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
+	 <200901161746.25205.nickpiggin@yahoo.com.au>
+	 <20090116065546.GJ31013@parisc-linux.org>
+	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
+	 <1232428583.11429.83.camel@ymzhang>
+	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
+	 <1232613395.11429.122.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: zbr@ioremap.net, herbert@gondor.apana.org.au, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:5264 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753650AbZAVJEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 04:04:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20090120.091616.224452074.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1232613395.11429.122.camel@ymzhang>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 20, 2009 at 09:16:16AM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Tue, 20 Jan 2009 11:01:44 +0000
-> 
-> > On Tue, Jan 20, 2009 at 01:31:22PM +0300, Evgeniy Polyakov wrote:
-> > > On Tue, Jan 20, 2009 at 10:20:53AM +0000, Jarek Poplawski (jarkao2@gmail.com) wrote:
-> > > > Good question! Alas I can't check this soon, but if it's really like
-> > > > this, of course this needs some better idea and rework. (BTW, I'd like
-> > > > to prevent here as much as possible some strange activities like 1
-> > > > byte (payload) packets getting full pages without any accounting.)
-> > > 
-> > > I believe approach to meet all our goals is to have own network memory
-> > > allocator, so that each skb could have its payload in the fragments, we
-> > > would not suffer from the heavy fragmentation and power-of-two overhead
-> > > for the larger MTUs, have a reserve for the OOM condition and generally
-> > > do not depend on the main system behaviour.
-> > 
-> > 100% right! But I guess we need this current fix for -stable, and I'm
-> > a bit worried about safety.
-> 
-> Jarek, we already have a page and offset you can use.
-> 
-> It's called sk_sndmsg_page but that is just the (current) name.
-> Nothing prevents you from reusing it for your purposes here.
+On Thu, 2009-01-22 at 16:36 +0800, Zhang, Yanmin wrote:
+> On Wed, 2009-01-21 at 18:58 -0500, Christoph Lameter wrote:
+> > On Tue, 20 Jan 2009, Zhang, Yanmin wrote:
+> >=20
+> > > kmem_cache =EF=BB=BFskbuff_head_cache's object size is just 256, =
+so it shares the kmem_cache
+> > > with =EF=BB=BF:0000256. Their order is 1 which means every slab c=
+onsists of 2 physical pages.
+> >=20
+> > That order can be changed. Try specifying slub_max_order=3D0 on the=
+ kernel
+> > command line to force an order 0 alloc.
+> I tried =EF=BB=BFslub_max_order=3D0 and there is no improvement on th=
+is UDP-U-4k issue.
+> Both get_page_from_freelist and __free_pages_ok's cpu time are still =
+very high.
+>=20
+> I checked my instrumentation in kernel and found it's caused by large=
+ object allocation/free
+> whose size is more than PAGE_SIZE. Here its order is 1.
+>=20
+> The right free callchain is __kfree_skb =3D> skb_release_all =3D> skb=
+_release_data.
+>=20
+> So this case isn't the issue that batch of allocation/free might eras=
+e partial page
+> functionality.
 
-It seems this sk_sndmsg_page usage (refcounting) isn't consistent.
-I used here tcp_sndmsg() way, but I think I'll go back to this question
-soon.
+So is this the kfree(skb->head) in skb_release_data() or the put_page()
+calls in the same function in a loop?
 
-Thanks,
-Jarek P.
+If it's the former, with big enough size passed to __alloc_skb(), the
+networking code might be taking a hit from the SLUB page allocator
+pass-through.
 
-------------> take 3
+		Pekka
 
-net: Optimize memory usage when splicing from sockets.
-
-The recent fix of data corruption when splicing from sockets uses
-memory very inefficiently allocating a new page to copy each chunk of
-linear part of skb. This patch uses the same page until it's full
-(almost) by caching the page in sk_sndmsg_page field.
-
-With changes from David S. Miller <davem@davemloft.net>
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-
-Tested-by: needed...
----
-
- net/core/skbuff.c |   45 +++++++++++++++++++++++++++++++++++----------
- 1 files changed, 35 insertions(+), 10 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 2e5f2ca..2e64c1b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1333,14 +1333,39 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
- 	put_page(spd->pages[i]);
- }
- 
--static inline struct page *linear_to_page(struct page *page, unsigned int len,
--					  unsigned int offset)
--{
--	struct page *p = alloc_pages(GFP_KERNEL, 0);
-+static inline struct page *linear_to_page(struct page *page, unsigned int *len,
-+					  unsigned int *offset,
-+					  struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
-+	struct page *p = sk->sk_sndmsg_page;
-+	unsigned int off;
-+
-+	if (!p) {
-+new_page:
-+		p = sk->sk_sndmsg_page = alloc_pages(sk->sk_allocation, 0);
-+		if (!p)
-+			return NULL;
- 
--	if (!p)
--		return NULL;
--	memcpy(page_address(p) + offset, page_address(page) + offset, len);
-+		off = sk->sk_sndmsg_off = 0;
-+		/* hold one ref to this page until it's full */
-+	} else {
-+		unsigned int mlen;
-+
-+		off = sk->sk_sndmsg_off;
-+		mlen = PAGE_SIZE - off;
-+		if (mlen < 64 && mlen < *len) {
-+			put_page(p);
-+			goto new_page;
-+		}
-+
-+		*len = min_t(unsigned int, *len, mlen);
-+	}
-+
-+	memcpy(page_address(p) + off, page_address(page) + *offset, *len);
-+	sk->sk_sndmsg_off += *len;
-+	*offset = off;
-+	get_page(p);
- 
- 	return p;
- }
-@@ -1349,21 +1374,21 @@ static inline struct page *linear_to_page(struct page *page, unsigned int len,
-  * Fill page/offset/length into spd, if it can hold more pages.
-  */
- static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
--				unsigned int len, unsigned int offset,
-+				unsigned int *len, unsigned int offset,
- 				struct sk_buff *skb, int linear)
- {
- 	if (unlikely(spd->nr_pages == PIPE_BUFFERS))
- 		return 1;
- 
- 	if (linear) {
--		page = linear_to_page(page, len, offset);
-+		page = linear_to_page(page, len, &offset, skb);
- 		if (!page)
- 			return 1;
- 	} else
- 		get_page(page);
- 
- 	spd->pages[spd->nr_pages] = page;
--	spd->partial[spd->nr_pages].len = len;
-+	spd->partial[spd->nr_pages].len = *len;
- 	spd->partial[spd->nr_pages].offset = offset;
- 	spd->nr_pages++;
- 
-@@ -1405,7 +1430,7 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
- 		/* the linear region may spread across several pages  */
- 		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
- 
--		if (spd_fill_page(spd, page, flen, poff, skb, linear))
-+		if (spd_fill_page(spd, page, &flen, poff, skb, linear))
- 			return 1;
- 
- 		__segment_seek(&page, &poff, &plen, flen);
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
