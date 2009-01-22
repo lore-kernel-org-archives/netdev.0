@@ -1,56 +1,85 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH 1/9] bnx2x: remove a few trivial macros
-Date: Thu, 22 Jan 2009 19:50:06 +0200
-Message-ID: <1232646606.29087.91.camel@lb-tlvb-eliezer>
-References: <1232517046.9701.19.camel@brick>
- <1232522093.29087.9.camel@lb-tlvb-eliezer>
- <20090121.154246.183468953.davem@davemloft.net>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] phylib: Fix oops in suspend/resume paths
+Date: Thu, 22 Jan 2009 21:09:30 +0300
+Message-ID: <20090122180930.GA27624@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "harvey.harrison@gmail.com" <harvey.harrison@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf8
+Cc: David Miller <davem@davemloft.net>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2820 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759447AbZAVRvK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2009 12:51:10 -0500
-In-Reply-To: <20090121.154246.183468953.davem@davemloft.net>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:52140 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753389AbZAVSJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 13:09:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-21 at 15:42 -0800, David Miller wrote:
-> From: "Eilon Greenstein" <eilong@broadcom.com>
-> Date: Wed, 21 Jan 2009 09:14:53 +0200
-> 
-> > On Tue, 2009-01-20 at 21:50 -0800, Harvey Harrison wrote:
-> > > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
-> > > ---
-> > > Eilon, after this series, sparse with endian-checking at least gets through a
-> > > compile without hitting too many errors, patch 9 is a functional change
-> > > and may have exposed an endian bug in the driver....but I had to get through
-> > > the other 8 to see it ;-)
-> > > 
-> > Wooh!!! Harvey - thanks for all the hard work!
-> > 
-> > I will review it carefully and start regression tests on few different
-> > platforms to verify this fix. Stay tuned.
-> 
-> Thanks Eilon, once you've validated these changes let me know
-> so I can add them to net-next-2.6
-> 
+Suspend/resume routines check for phydrv != NULL, but that is
+wrong because "phydrv" comes from container_of(drv). If drv is NULL,
+then container_of(drv) will return non-NULL result, and the checks
+won't work.
 
-Besides the eeprom changes that broke a utility that uses it, this patch
-is working just fine. I have few cosmetic issues with le_to_cpu for zero
-(which I plan to remove) and I'm not sure if replacing swab with
-cpu_to_le on top of be_to_cpu is the way to go - I hope to get some
-comments on this one.
+The Freescale TBI PHYs are driver-less, so "drv" is NULL, and that
+leads to the following oops:
 
-Harvey - I truly appreciate your work. I will pack it and resend it
-after receiving some comments.
+Unable to handle kernel paging request for data at address 0xffffffe4
+Faulting instruction address: 0xc0215554
+Oops: Kernel access of bad area, sig: 11 [#1]
+[...]
+NIP [c0215554] mdio_bus_suspend+0x34/0x70
+LR [c01cc508] suspend_device+0x258/0x2bc
+Call Trace:
+[cfad3da0] [cfad3db8] 0xcfad3db8 (unreliable)
+[cfad3db0] [c01cc508] suspend_device+0x258/0x2bc
+[cfad3dd0] [c01cc62c] dpm_suspend+0xc0/0x140
+[cfad3e20] [c01cc6f4] device_suspend+0x48/0x5c
+[cfad3e40] [c0068dd8] suspend_devices_and_enter+0x8c/0x148
+[cfad3e60] [c00690f8] enter_state+0x100/0x118
+[cfad3e80] [c00691c0] state_store+0xb0/0xe4
+[cfad3ea0] [c018c938] kobj_attr_store+0x24/0x3c
+[cfad3eb0] [c00ea9a8] flush_write_buffer+0x58/0x7c
+[cfad3ed0] [c00eadf0] sysfs_write_file+0x58/0xa0
+[cfad3ef0] [c009e810] vfs_write+0xb4/0x16c
+[cfad3f10] [c009ed40] sys_write+0x4c/0x90
+[cfad3f40] [c0014954] ret_from_syscall+0x0/0x38
+[...]
 
-Thanks again,
-Eilon
+This patch fixes the issue, plus removes unneeded parentheses
+and fixes indentation level in mdio_bus_suspend().
 
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/phy/mdio_bus.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 11adf6e..811a637 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -296,9 +296,8 @@ static int mdio_bus_suspend(struct device * dev, pm_message_t state)
+ 	struct phy_driver *phydrv = to_phy_driver(drv);
+ 	struct phy_device *phydev = to_phy_device(dev);
+ 
+-	if ((!device_may_wakeup(phydev->dev.parent)) &&
+-		(phydrv && phydrv->suspend))
+-			ret = phydrv->suspend(phydev);
++	if (drv && phydrv->suspend && !device_may_wakeup(phydev->dev.parent))
++		ret = phydrv->suspend(phydev);
+ 
+ 	return ret;
+ }
+@@ -310,8 +309,7 @@ static int mdio_bus_resume(struct device * dev)
+ 	struct phy_driver *phydrv = to_phy_driver(drv);
+ 	struct phy_device *phydev = to_phy_device(dev);
+ 
+-	if ((!device_may_wakeup(phydev->dev.parent)) &&
+-		(phydrv && phydrv->resume))
++	if (drv && phydrv->resume && !device_may_wakeup(phydev->dev.parent))
+ 		ret = phydrv->resume(phydev);
+ 
+ 	return ret;
+-- 
+1.5.6.5
