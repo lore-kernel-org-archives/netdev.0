@@ -1,123 +1,310 @@
 From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: [PATCH 7/9] netns: ipmr: declare reg_vif_num per-namespace
-Date: Thu, 22 Jan 2009 15:56:21 +0100
-Message-ID: <20090122145616.329204373@theryb.frec.bull.fr>
+Subject: [PATCH 8/9] netns: ipmr: declare ipmr /proc/net entries
+ per-namespace
+Date: Thu, 22 Jan 2009 15:56:22 +0100
+Message-ID: <20090122145616.527616793@theryb.frec.bull.fr>
 References: <20090122145614.925445566@theryb.frec.bull.fr>
 Cc: netdev <netdev@vger.kernel.org>,
 	Benjamin Thery <benjamin.thery@bull.net>
 To: Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:59363 "EHLO
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:59488 "EHLO
 	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753548AbZAVO6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 09:58:19 -0500
+	with ESMTP id S1753380AbZAVO63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 09:58:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Preliminary work to make IPv4 multicast routing netns-aware.
-
-Declare variable 'reg_vif_num' per-namespace, moves into struct netns_ipv4.
-
-At the moment, this variable is only referenced in init_net.
+Declare IPv4 multicast forwarding /proc/net entries per-namespace:
+/proc/net/ip_mr_vif
+/proc/net/ip_mr_cache
 
 Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- include/net/netns/ipv4.h |    3 +++
- net/ipv4/ipmr.c          |   22 ++++++++++++----------
- 2 files changed, 15 insertions(+), 10 deletions(-)
+ net/ipv4/ipmr.c |  101 ++++++++++++++++++++++++++++++++++----------------------
+ 1 file changed, 62 insertions(+), 39 deletions(-)
 
-Index: net-next-2.6/include/net/netns/ipv4.h
-===================================================================
---- net-next-2.6.orig/include/net/netns/ipv4.h
-+++ net-next-2.6/include/net/netns/ipv4.h
-@@ -63,6 +63,9 @@ struct netns_ipv4 {
- 	atomic_t		cache_resolve_queue_len;
- 	int			mroute_do_assert;
- 	int			mroute_do_pim;
-+#if defined(CONFIG_IP_PIMSM_V1) || defined(CONFIG_IP_PIMSM_V2)
-+	int			mroute_reg_vif_num;
-+#endif
- #endif
- };
- #endif
 Index: net-next-2.6/net/ipv4/ipmr.c
 ===================================================================
 --- net-next-2.6.orig/net/ipv4/ipmr.c
 +++ net-next-2.6/net/ipv4/ipmr.c
-@@ -197,14 +197,12 @@ failure:
+@@ -1671,17 +1671,19 @@ int ipmr_get_route(struct sk_buff *skb, 
+  *	The /proc interfaces to multicast routing /proc/ip_mr_cache /proc/ip_mr_vif
+  */
+ struct ipmr_vif_iter {
++	struct seq_net_private p;
+ 	int ct;
+ };
  
- #ifdef CONFIG_IP_PIMSM
- 
--static int reg_vif_num = -1;
--
- static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+-static struct vif_device *ipmr_vif_seq_idx(struct ipmr_vif_iter *iter,
++static struct vif_device *ipmr_vif_seq_idx(struct net *net,
++					   struct ipmr_vif_iter *iter,
+ 					   loff_t pos)
  {
- 	read_lock(&mrt_lock);
- 	dev->stats.tx_bytes += skb->len;
- 	dev->stats.tx_packets++;
--	ipmr_cache_report(skb, reg_vif_num, IGMPMSG_WHOLEPKT);
-+	ipmr_cache_report(skb, init_net.ipv4.mroute_reg_vif_num, IGMPMSG_WHOLEPKT);
- 	read_unlock(&mrt_lock);
- 	kfree_skb(skb);
- 	return 0;
-@@ -292,8 +290,8 @@ static int vif_delete(int vifi, int noti
+-	for (iter->ct = 0; iter->ct < init_net.ipv4.maxvif; ++iter->ct) {
+-		if (!VIF_EXISTS(&init_net, iter->ct))
++	for (iter->ct = 0; iter->ct < net->ipv4.maxvif; ++iter->ct) {
++		if (!VIF_EXISTS(net, iter->ct))
+ 			continue;
+ 		if (pos-- == 0)
+-			return &init_net.ipv4.vif_table[iter->ct];
++			return &net->ipv4.vif_table[iter->ct];
  	}
- 
- #ifdef CONFIG_IP_PIMSM
--	if (vifi == reg_vif_num)
--		reg_vif_num = -1;
-+	if (vifi == init_net.ipv4.mroute_reg_vif_num)
-+		init_net.ipv4.mroute_reg_vif_num = -1;
- #endif
- 
- 	if (vifi+1 == init_net.ipv4.maxvif) {
-@@ -439,7 +437,7 @@ static int vif_add(struct vifctl *vifc, 
- 		 * Special Purpose VIF in PIM
- 		 * All the packets will be sent to the daemon
- 		 */
--		if (reg_vif_num >= 0)
-+		if (init_net.ipv4.mroute_reg_vif_num >= 0)
- 			return -EADDRINUSE;
- 		dev = ipmr_reg_vif();
- 		if (!dev)
-@@ -505,7 +503,7 @@ static int vif_add(struct vifctl *vifc, 
- 	v->dev = dev;
- #ifdef CONFIG_IP_PIMSM
- 	if (v->flags&VIFF_REGISTER)
--		reg_vif_num = vifi;
-+		init_net.ipv4.mroute_reg_vif_num = vifi;
- #endif
- 	if (vifi+1 > init_net.ipv4.maxvif)
- 		init_net.ipv4.maxvif = vifi+1;
-@@ -623,7 +621,7 @@ static int ipmr_cache_report(struct sk_b
- 		memcpy(msg, skb_network_header(pkt), sizeof(struct iphdr));
- 		msg->im_msgtype = IGMPMSG_WHOLEPKT;
- 		msg->im_mbz = 0;
--		msg->im_vif = reg_vif_num;
-+		msg->im_vif = init_net.ipv4.mroute_reg_vif_num;
- 		ip_hdr(skb)->ihl = sizeof(struct iphdr) >> 2;
- 		ip_hdr(skb)->tot_len = htons(ntohs(ip_hdr(pkt)->tot_len) +
- 					     sizeof(struct iphdr));
-@@ -1506,8 +1504,8 @@ static int __pim_rcv(struct sk_buff *skb
- 		return 1;
- 
- 	read_lock(&mrt_lock);
--	if (reg_vif_num >= 0)
--		reg_dev = init_net.ipv4.vif_table[reg_vif_num].dev;
-+	if (init_net.ipv4.mroute_reg_vif_num >= 0)
-+		reg_dev = init_net.ipv4.vif_table[init_net.ipv4.mroute_reg_vif_num].dev;
- 	if (reg_dev)
- 		dev_hold(reg_dev);
- 	read_unlock(&mrt_lock);
-@@ -1940,6 +1938,10 @@ static int __net_init ipmr_net_init(stru
- 		err = -ENOMEM;
- 		goto fail_mfc_cache;
- 	}
+ 	return NULL;
+ }
+@@ -1689,23 +1691,26 @@ static struct vif_device *ipmr_vif_seq_i
+ static void *ipmr_vif_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(mrt_lock)
+ {
++	struct net *net = seq_file_net(seq);
 +
-+#ifdef CONFIG_IP_PIMSM
-+	net->ipv4.mroute_reg_vif_num = -1;
+ 	read_lock(&mrt_lock);
+-	return *pos ? ipmr_vif_seq_idx(seq->private, *pos - 1)
++	return *pos ? ipmr_vif_seq_idx(net, seq->private, *pos - 1)
+ 		: SEQ_START_TOKEN;
+ }
+ 
+ static void *ipmr_vif_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	struct ipmr_vif_iter *iter = seq->private;
++	struct net *net = seq_file_net(seq);
+ 
+ 	++*pos;
+ 	if (v == SEQ_START_TOKEN)
+-		return ipmr_vif_seq_idx(iter, 0);
++		return ipmr_vif_seq_idx(net, iter, 0);
+ 
+-	while (++iter->ct < init_net.ipv4.maxvif) {
+-		if (!VIF_EXISTS(&init_net, iter->ct))
++	while (++iter->ct < net->ipv4.maxvif) {
++		if (!VIF_EXISTS(net, iter->ct))
+ 			continue;
+-		return &init_net.ipv4.vif_table[iter->ct];
++		return &net->ipv4.vif_table[iter->ct];
+ 	}
+ 	return NULL;
+ }
+@@ -1718,6 +1723,8 @@ static void ipmr_vif_seq_stop(struct seq
+ 
+ static int ipmr_vif_seq_show(struct seq_file *seq, void *v)
+ {
++	struct net *net = seq_file_net(seq);
++
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_puts(seq,
+ 			 "Interface      BytesIn  PktsIn  BytesOut PktsOut Flags Local    Remote\n");
+@@ -1727,7 +1734,7 @@ static int ipmr_vif_seq_show(struct seq_
+ 
+ 		seq_printf(seq,
+ 			   "%2Zd %-10s %8ld %7ld  %8ld %7ld %05X %08X %08X\n",
+-			   vif - init_net.ipv4.vif_table,
++			   vif - net->ipv4.vif_table,
+ 			   name, vif->bytes_in, vif->pkt_in,
+ 			   vif->bytes_out, vif->pkt_out,
+ 			   vif->flags, vif->local, vif->remote);
+@@ -1744,8 +1751,8 @@ static const struct seq_operations ipmr_
+ 
+ static int ipmr_vif_open(struct inode *inode, struct file *file)
+ {
+-	return seq_open_private(file, &ipmr_vif_seq_ops,
+-			sizeof(struct ipmr_vif_iter));
++	return seq_open_net(inode, file, &ipmr_vif_seq_ops,
++			    sizeof(struct ipmr_vif_iter));
+ }
+ 
+ static const struct file_operations ipmr_vif_fops = {
+@@ -1753,23 +1760,25 @@ static const struct file_operations ipmr
+ 	.open    = ipmr_vif_open,
+ 	.read    = seq_read,
+ 	.llseek  = seq_lseek,
+-	.release = seq_release_private,
++	.release = seq_release_net,
+ };
+ 
+ struct ipmr_mfc_iter {
++	struct seq_net_private p;
+ 	struct mfc_cache **cache;
+ 	int ct;
+ };
+ 
+ 
+-static struct mfc_cache *ipmr_mfc_seq_idx(struct ipmr_mfc_iter *it, loff_t pos)
++static struct mfc_cache *ipmr_mfc_seq_idx(struct net *net,
++					  struct ipmr_mfc_iter *it, loff_t pos)
+ {
+ 	struct mfc_cache *mfc;
+ 
+-	it->cache = init_net.ipv4.mfc_cache_array;
++	it->cache = net->ipv4.mfc_cache_array;
+ 	read_lock(&mrt_lock);
+ 	for (it->ct = 0; it->ct < MFC_LINES; it->ct++)
+-		for (mfc = init_net.ipv4.mfc_cache_array[it->ct];
++		for (mfc = net->ipv4.mfc_cache_array[it->ct];
+ 		     mfc; mfc = mfc->next)
+ 			if (pos-- == 0)
+ 				return mfc;
+@@ -1778,7 +1787,8 @@ static struct mfc_cache *ipmr_mfc_seq_id
+ 	it->cache = &mfc_unres_queue;
+ 	spin_lock_bh(&mfc_unres_lock);
+ 	for (mfc = mfc_unres_queue; mfc; mfc = mfc->next)
+-		if (pos-- == 0)
++		if (net_eq(mfc_net(mfc), net) &&
++		    pos-- == 0)
+ 			return mfc;
+ 	spin_unlock_bh(&mfc_unres_lock);
+ 
+@@ -1790,9 +1800,11 @@ static struct mfc_cache *ipmr_mfc_seq_id
+ static void *ipmr_mfc_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	struct ipmr_mfc_iter *it = seq->private;
++	struct net *net = seq_file_net(seq);
++
+ 	it->cache = NULL;
+ 	it->ct = 0;
+-	return *pos ? ipmr_mfc_seq_idx(seq->private, *pos - 1)
++	return *pos ? ipmr_mfc_seq_idx(net, seq->private, *pos - 1)
+ 		: SEQ_START_TOKEN;
+ }
+ 
+@@ -1800,11 +1812,12 @@ static void *ipmr_mfc_seq_next(struct se
+ {
+ 	struct mfc_cache *mfc = v;
+ 	struct ipmr_mfc_iter *it = seq->private;
++	struct net *net = seq_file_net(seq);
+ 
+ 	++*pos;
+ 
+ 	if (v == SEQ_START_TOKEN)
+-		return ipmr_mfc_seq_idx(seq->private, 0);
++		return ipmr_mfc_seq_idx(net, seq->private, 0);
+ 
+ 	if (mfc->next)
+ 		return mfc->next;
+@@ -1812,10 +1825,10 @@ static void *ipmr_mfc_seq_next(struct se
+ 	if (it->cache == &mfc_unres_queue)
+ 		goto end_of_list;
+ 
+-	BUG_ON(it->cache != init_net.ipv4.mfc_cache_array);
++	BUG_ON(it->cache != net->ipv4.mfc_cache_array);
+ 
+ 	while (++it->ct < MFC_LINES) {
+-		mfc = init_net.ipv4.mfc_cache_array[it->ct];
++		mfc = net->ipv4.mfc_cache_array[it->ct];
+ 		if (mfc)
+ 			return mfc;
+ 	}
+@@ -1827,6 +1840,8 @@ static void *ipmr_mfc_seq_next(struct se
+ 
+ 	spin_lock_bh(&mfc_unres_lock);
+ 	mfc = mfc_unres_queue;
++	while (mfc && !net_eq(mfc_net(mfc), net))
++		mfc = mfc->next;
+ 	if (mfc)
+ 		return mfc;
+ 
+@@ -1840,16 +1855,18 @@ static void *ipmr_mfc_seq_next(struct se
+ static void ipmr_mfc_seq_stop(struct seq_file *seq, void *v)
+ {
+ 	struct ipmr_mfc_iter *it = seq->private;
++	struct net *net = seq_file_net(seq);
+ 
+ 	if (it->cache == &mfc_unres_queue)
+ 		spin_unlock_bh(&mfc_unres_lock);
+-	else if (it->cache == init_net.ipv4.mfc_cache_array)
++	else if (it->cache == net->ipv4.mfc_cache_array)
+ 		read_unlock(&mrt_lock);
+ }
+ 
+ static int ipmr_mfc_seq_show(struct seq_file *seq, void *v)
+ {
+ 	int n;
++	struct net *net = seq_file_net(seq);
+ 
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_puts(seq,
+@@ -1870,7 +1887,7 @@ static int ipmr_mfc_seq_show(struct seq_
+ 				   mfc->mfc_un.res.wrong_if);
+ 			for (n = mfc->mfc_un.res.minvif;
+ 			     n < mfc->mfc_un.res.maxvif; n++ ) {
+-				if (VIF_EXISTS(&init_net, n) &&
++				if (VIF_EXISTS(net, n) &&
+ 				    mfc->mfc_un.res.ttls[n] < 255)
+ 					seq_printf(seq,
+ 					   " %2d:%-3d",
+@@ -1896,8 +1913,8 @@ static const struct seq_operations ipmr_
+ 
+ static int ipmr_mfc_open(struct inode *inode, struct file *file)
+ {
+-	return seq_open_private(file, &ipmr_mfc_seq_ops,
+-			sizeof(struct ipmr_mfc_iter));
++	return seq_open_net(inode, file, &ipmr_mfc_seq_ops,
++			    sizeof(struct ipmr_mfc_iter));
+ }
+ 
+ static const struct file_operations ipmr_mfc_fops = {
+@@ -1905,7 +1922,7 @@ static const struct file_operations ipmr
+ 	.open    = ipmr_mfc_open,
+ 	.read    = seq_read,
+ 	.llseek  = seq_lseek,
+-	.release = seq_release_private,
++	.release = seq_release_net,
+ };
+ #endif
+ 
+@@ -1942,8 +1959,22 @@ static int __net_init ipmr_net_init(stru
+ #ifdef CONFIG_IP_PIMSM
+ 	net->ipv4.mroute_reg_vif_num = -1;
+ #endif
++
++#ifdef CONFIG_PROC_FS
++	err = -ENOMEM;
++	if (!proc_net_fops_create(net, "ip_mr_vif", 0, &ipmr_vif_fops))
++		goto proc_vif_fail;
++	if (!proc_net_fops_create(net, "ip_mr_cache", 0, &ipmr_mfc_fops))
++		goto proc_cache_fail;
 +#endif
  	return 0;
  
++#ifdef CONFIG_PROC_FS
++proc_cache_fail:
++	proc_net_remove(net, "ip_mr_vif");
++proc_vif_fail:
++	kfree(net->ipv4.mfc_cache_array);
++#endif
  fail_mfc_cache:
+ 	kfree(net->ipv4.vif_table);
+ fail:
+@@ -1952,6 +1983,10 @@ fail:
+ 
+ static void __net_exit ipmr_net_exit(struct net *net)
+ {
++#ifdef CONFIG_PROC_FS
++	proc_net_remove(net, "ip_mr_cache");
++	proc_net_remove(net, "ip_mr_vif");
++#endif
+ 	kfree(net->ipv4.mfc_cache_array);
+ 	kfree(net->ipv4.vif_table);
+ }
+@@ -1980,20 +2015,8 @@ int __init ip_mr_init(void)
+ 	err = register_netdevice_notifier(&ip_mr_notifier);
+ 	if (err)
+ 		goto reg_notif_fail;
+-#ifdef CONFIG_PROC_FS
+-	err = -ENOMEM;
+-	if (!proc_net_fops_create(&init_net, "ip_mr_vif", 0, &ipmr_vif_fops))
+-		goto proc_vif_fail;
+-	if (!proc_net_fops_create(&init_net, "ip_mr_cache", 0, &ipmr_mfc_fops))
+-		goto proc_cache_fail;
+-#endif
+ 	return 0;
+-#ifdef CONFIG_PROC_FS
+-proc_cache_fail:
+-	proc_net_remove(&init_net, "ip_mr_vif");
+-proc_vif_fail:
+-	unregister_netdevice_notifier(&ip_mr_notifier);
+-#endif
++
+ reg_notif_fail:
+ 	del_timer(&ipmr_expire_timer);
+ 	unregister_pernet_subsys(&ipmr_net_ops);
 
