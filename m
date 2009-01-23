@@ -1,40 +1,80 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Fri, 23 Jan 2009 10:55:23 -0500 (EST)
-Message-ID: <alpine.DEB.1.10.0901231054590.32253@qirst.com>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>  <200901161503.13730.nickpiggin@yahoo.com.au>  <20090115201210.ca1a9542.akpm@linux-foundation.org>  <200901161746.25205.nickpiggin@yahoo.com.au>  <20090116065546.GJ31013@parisc-linux.org>
-  <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>  <1232428583.11429.83.camel@ymzhang>  <alpine.DEB.1.10.0901211852060.18367@qirst.com>  <1232613395.11429.122.camel@ymzhang>  <1232615707.14549.6.camel@penberg-laptop>
- <1232616517.11429.129.camel@ymzhang>  <1232617672.14549.25.camel@penberg-laptop>  <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>  <1232697998.6094.17.camel@penberg-laptop>  <1232699401.11429.163.camel@ymzhang>
- <1232703989.6094.29.camel@penberg-laptop>  <alpine.DEB.1.10.0901231020030.21692@qirst.com> <1232724691.6094.86.camel@penberg-laptop>
+From: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
+Date: Fri, 23 Jan 2009 18:09:04 +0100
+Message-ID: <20090123170904.GA26083@uranus.ravnborg.org>
+References: <1232223441.3966.22.camel@localhost.localdomain> <1232228261.27094.0.camel@macbook.infradead.org> <20090117221932.GA4956@uranus.ravnborg.org> <49725B1E.604@kernel.org> <1232498319.3123.34.camel@localhost.localdomain> <1232726359.3504.18.camel@localhost.localdomain> <1232726658.3504.22.camel@localhost.localdomain> <alpine.LSU.2.00.0901231710350.15413@fbirervta.pbzchgretzou.qr> <20090123162153.GA25766@uranus.ravnborg.org> <1232728304.3504.28.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
-	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
-	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
-	arjan@linux.intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1232724691.6094.86.camel@penberg-laptop>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, x86 maintainers <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
+	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, tiwai-l3A5Bk7waGM@public.gmane.org,
+	mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Jaswinder Singh Rajput <jaswinder-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1232728304.3504.28.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jan 2009, Pekka Enberg wrote:
+On Fri, Jan 23, 2009 at 10:01:44PM +0530, Jaswinder Singh Rajput wrote:
+> On Fri, 2009-01-23 at 17:21 +0100, Sam Ravnborg wrote:
+> > On Fri, Jan 23, 2009 at 05:11:13PM +0100, Jan Engelhardt wrote:
+> > > 
+> > > On Friday 2009-01-23 17:04, Jaswinder Singh Rajput wrote:
+> > > >> > diff --git a/include/linux/dvb/audio.h b/include/linux/dvb/audio.h
+> > > >> > index 89412e1..758a48c 100644
+> > > >> > --- a/include/linux/dvb/audio.h
+> > > >> > +++ b/include/linux/dvb/audio.h
+> > > >> > @@ -24,9 +24,8 @@
+> > > >> >  #ifndef _DVBAUDIO_H_
+> > > >> >  #define _DVBAUDIO_H_
+> > > >> >  
+> > > >> > -#ifdef __KERNEL__
+> > > >> >  #include <linux/types.h>
+> > > >> > -#else
+> > > >> > +#ifndef __KERNEL__
+> > > >> >  #include <stdint.h>
+> > > >> >  #endif
+> > > >> > 
+> > > >> 
+> > > >> It seems one have objection for this. So I will again insert this in my
+> > > >> new patchset.
+> > > >> 
+> > > >
+> > > >oops, s/seems one/seems no one ;-)
+> > > 
+> > > I had an objection as previously stated -- namely that
+> > > <stdint.h> should be included to remain friendly to C++0x
+> > > programs which should use <cstdint> instead. Forcing
+> > > stdint.h is therefore not nice.
+> > 
+> > This is fully agreed.
+> > Jaswinder - can I ask you to do this change (remove of the stdint.h include)
+> > in a follow-up patch. It is two independent changes.
+> > You original patch is fine as is.
+> 
+> So is this OK:
+> 
+> -#ifdef __KERNEL__
+>  #include <linux/types.h>
+> -#else
+> -#include <stdint.h>
+> -#endif
 
-> I wonder why that doesn't happen already, actually. The slub_max_order
-> know is capped to PAGE_ALLOC_COSTLY_ORDER ("3") by default and obviously
-> order 3 should be as good fit as order 2 so 'fraction' can't be too high
-> either. Hmm.
+That was what I expected the final change to look like.
+If you want then combine it in one patch.
 
-The kmalloc-8192 is new. Look at slabinfo output to see what allocation
-orders are chosen.
-
+	Sam
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
