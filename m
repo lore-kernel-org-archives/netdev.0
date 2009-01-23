@@ -1,41 +1,44 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH] af_key: initialize xfrm encap_oa
-Date: Fri, 23 Jan 2009 14:30:28 +0200
-Message-ID: <1232713828-6725-1-git-send-email-timo.teras@iki.fi>
-Cc: Timo Teras <timo.teras@iki.fi>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH net-next 0/6] Phonet improvements
+Date: Fri, 23 Jan 2009 14:59:29 +0200
+Message-ID: <200901231459.29743.remi.denis-courmont@nokia.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.190]:38488 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753353AbZAWMae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 07:30:34 -0500
-Received: by fk-out-0910.google.com with SMTP id f33so1215622fkf.5
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2009 04:30:32 -0800 (PST)
+Received: from smtp.nokia.com ([192.100.105.134]:37462 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754837AbZAWM7Y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 07:59:24 -0500
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx09.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id n0NCxDh3017172
+	for <netdev@vger.kernel.org>; Fri, 23 Jan 2009 06:59:21 -0600
+Received: from leon.remlab.net (esdhcp041160.research.nokia.com [172.21.41.160])
+	by mgw-int02.ntc.nokia.com (Switch-3.2.5/Switch-3.2.5) with ESMTP id n0NCxF4L027805
+	for <netdev@vger.kernel.org>; Fri, 23 Jan 2009 14:59:15 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently encap_oa is left uninitialized, so it contains garbage data which
-is visible to userland via Netlink. Initialize it by zeroing it out.
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
----
- net/key/af_key.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+	Hello,
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index f8bd8df..7dcbde3 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1285,6 +1285,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
- 				ext_hdrs[SADB_X_EXT_NAT_T_DPORT-1];
- 			natt->encap_dport = n_port->sadb_x_nat_t_port_port;
- 		}
-+		memset(&natt->encap_oa, 0, sizeof(natt->encap_oa));
- 	}
- 
- 	err = xfrm_init_state(x);
--- 
-1.5.6.3
+There come a few fixes and cleanups of the Phonet stack.
+Comments welcome.
+
+Diff stat:
+ include/net/phonet/phonet.h |    1
+ include/net/phonet/pn_dev.h |    7 +-
+ net/Kconfig                 |    2
+ net/phonet/af_phonet.c      |   29 +++++-----
+ net/phonet/pn_dev.c         |  127 +++++++++++++++++++++++++++++------=
+---------
+ net/phonet/pn_netlink.c     |   24 ++++----
+ 6 files changed, 119 insertions(+), 71 deletions(-)
+
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
 
