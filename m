@@ -1,86 +1,40 @@
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
-Date: Fri, 23 Jan 2009 22:01:44 +0530
-Message-ID: <1232728304.3504.28.camel@localhost.localdomain>
-References: <1232223441.3966.22.camel@localhost.localdomain>
-	 <1232228261.27094.0.camel@macbook.infradead.org>
-	 <20090117221932.GA4956@uranus.ravnborg.org> <49725B1E.604@kernel.org>
-	 <1232498319.3123.34.camel@localhost.localdomain>
-	 <1232726359.3504.18.camel@localhost.localdomain>
-	 <1232726658.3504.22.camel@localhost.localdomain>
-	 <alpine.LSU.2.00.0901231710350.15413@fbirervta.pbzchgretzou.qr>
-	 <20090123162153.GA25766@uranus.ravnborg.org>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Fri, 23 Jan 2009 10:55:23 -0500 (EST)
+Message-ID: <alpine.DEB.1.10.0901231054590.32253@qirst.com>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>  <200901161503.13730.nickpiggin@yahoo.com.au>  <20090115201210.ca1a9542.akpm@linux-foundation.org>  <200901161746.25205.nickpiggin@yahoo.com.au>  <20090116065546.GJ31013@parisc-linux.org>
+  <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>  <1232428583.11429.83.camel@ymzhang>  <alpine.DEB.1.10.0901211852060.18367@qirst.com>  <1232613395.11429.122.camel@ymzhang>  <1232615707.14549.6.camel@penberg-laptop>
+ <1232616517.11429.129.camel@ymzhang>  <1232617672.14549.25.camel@penberg-laptop>  <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>  <1232697998.6094.17.camel@penberg-laptop>  <1232699401.11429.163.camel@ymzhang>
+ <1232703989.6094.29.camel@penberg-laptop>  <alpine.DEB.1.10.0901231020030.21692@qirst.com> <1232724691.6094.86.camel@penberg-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	"H. Peter Anvin" <hpa@kernel.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>, x86 maintainers <x86@kernel.org>,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	linux-media@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, bfields@fieldses.org, neilb@suse.de,
-	linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
-	dbrownell@users.sourceforge.net, netdev@vger.kernel.org,
-	greg@kroah.com, linux-usb@vger.kernel.org,
-	linux-mtd@lists.infradead.org, tiwai@suse.de,
-	mchehab@infradead.org, LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Sam Ravnborg <sam@ravnborg.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:53854 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751542AbZAWQc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jan 2009 11:32:57 -0500
-In-Reply-To: <20090123162153.GA25766@uranus.ravnborg.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1232724691.6094.86.camel@penberg-laptop>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-01-23 at 17:21 +0100, Sam Ravnborg wrote:
-> On Fri, Jan 23, 2009 at 05:11:13PM +0100, Jan Engelhardt wrote:
-> > 
-> > On Friday 2009-01-23 17:04, Jaswinder Singh Rajput wrote:
-> > >> > diff --git a/include/linux/dvb/audio.h b/include/linux/dvb/audio.h
-> > >> > index 89412e1..758a48c 100644
-> > >> > --- a/include/linux/dvb/audio.h
-> > >> > +++ b/include/linux/dvb/audio.h
-> > >> > @@ -24,9 +24,8 @@
-> > >> >  #ifndef _DVBAUDIO_H_
-> > >> >  #define _DVBAUDIO_H_
-> > >> >  
-> > >> > -#ifdef __KERNEL__
-> > >> >  #include <linux/types.h>
-> > >> > -#else
-> > >> > +#ifndef __KERNEL__
-> > >> >  #include <stdint.h>
-> > >> >  #endif
-> > >> > 
-> > >> 
-> > >> It seems one have objection for this. So I will again insert this in my
-> > >> new patchset.
-> > >> 
-> > >
-> > >oops, s/seems one/seems no one ;-)
-> > 
-> > I had an objection as previously stated -- namely that
-> > <stdint.h> should be included to remain friendly to C++0x
-> > programs which should use <cstdint> instead. Forcing
-> > stdint.h is therefore not nice.
-> 
-> This is fully agreed.
-> Jaswinder - can I ask you to do this change (remove of the stdint.h include)
-> in a follow-up patch. It is two independent changes.
-> You original patch is fine as is.
+On Fri, 23 Jan 2009, Pekka Enberg wrote:
 
-So is this OK:
+> I wonder why that doesn't happen already, actually. The slub_max_order
+> know is capped to PAGE_ALLOC_COSTLY_ORDER ("3") by default and obviously
+> order 3 should be as good fit as order 2 so 'fraction' can't be too high
+> either. Hmm.
 
--#ifdef __KERNEL__
- #include <linux/types.h>
--#else
--#include <stdint.h>
--#endif
--
-
---
-JSR
+The kmalloc-8192 is new. Look at slabinfo output to see what allocation
+orders are chosen.
 
