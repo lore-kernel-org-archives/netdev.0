@@ -1,56 +1,24 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: Re: [PATCH] Fix missing ifdef in isdn_ppp
-Date: Fri, 23 Jan 2009 10:44:11 +0100
-Message-ID: <154e089b0901230144o2b52c232kb93a71429fb258a9@mail.gmail.com>
-References: <20090122221827.GA28623@pingi.kke.suse.de>
+From: Dhl Express <kelbet.crossley@sympatico.ca>
+Subject: Please confirm (ownership)
+Date: Fri, 23 Jan 2009 4:45:01 -0500
+Message-ID: <20090123094501.ZQXQ1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: dhlexpressdesk@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Daniele Venzano <venza@brownhat.org>,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Karsten Keil <kkeil@suse.de>
+To: <info@mail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:10534 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752713AbZAWJoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 04:44:13 -0500
-In-Reply-To: <20090122221827.GA28623@pingi.kke.suse.de>
+Received: from simmts6-qfe0.srvr.bell.ca ([206.47.199.164]:36590 "EHLO
+	simmts6-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755992AbZAWJpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 04:45:03 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts6-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090123094501.ZQXQ1652.simmts6-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Fri, 23 Jan 2009 04:45:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add CC. I think this could go upstream via David Miller's net-2.6 tree.
+ase not that a parcel containing a drafted cheque of 650,000 us dollars is at our Uk office.please note that you are to follow the official directives
 
-Best,
-Hannes
-
-On Thu, Jan 22, 2009 at 11:18 PM, Karsten Keil <kkeil@suse.de> wrote:
-> The following patch fixes a warning caused by a missing ifdef in
-> isdn_ppp.c. A function was defined, but never used if CONFIG_IPPP_FILTER
-> was not defined.
->
-> The warning was: 'get_filter' defined but not used
-> Patch is against 2.6.28.1
->
-> Signed-off-by: Daniele Venzano <venza@brownhat.org>
-> Acked-by: Karsten Keil <kkeil@suse.de>
->
-> --- a/drivers/isdn/i4l/isdn_ppp.c       2009-01-22 15:01:27.000000000 +0100
-> +++ b/drivers/isdn/i4l/isdn_ppp.c       2009-01-22 15:01:59.000000000 +0100
-> @@ -431,6 +431,7 @@ set_arg(void __user *b, void *val,int le
->        return 0;
->  }
->
-> +#ifdef CONFIG_IPPP_FILTER
->  static int get_filter(void __user *arg, struct sock_filter **p)
->  {
->        struct sock_fprog uprog;
-> @@ -465,6 +466,7 @@ static int get_filter(void __user *arg,
->        *p = code;
->        return uprog.len;
->  }
-> +#endif /* CONFIG_IPPP_FILTER */
->
->  /*
->  * ippp device ioctl
->
