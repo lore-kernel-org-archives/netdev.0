@@ -1,7 +1,7 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [patch 29/46] netfilter: ebtables: fix inversion in match code
-Date: Thu, 22 Jan 2009 17:12:33 -0800
-Message-ID: <20090123011233.GD19756@kroah.com>
+Subject: [patch 28/46] netfilter: x_tables: fix match/target revision lookup
+Date: Thu, 22 Jan 2009 17:12:31 -0800
+Message-ID: <20090123011231.GC19756@kroah.com>
 References: <20090123010651.683741823@mini.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -20,17 +20,13 @@ Cc: Justin Forbes <jmforbes@linuxtx.org>,
 	torvalds@linux-foundation.org, akpm@linux-foundation.org,
 	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	davem@davemloft.net, Jan Engelhardt <jengelh@medozas.de>
+	davem@davemloft.net
 To: linux-kernel@vger.kernel.org, stable@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:50694 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756380AbZAWBPH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2009 20:15:07 -0500
-Content-Disposition: inline; filename="netfilter-ebtables-fix-inversion-in-match-code.patch"
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline; filename="netfilter-x_tables-fix-match-target-revision-lookup.patch"
 In-Reply-To: <20090123011110.GA19756@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 2.6.28-stable review patch.  If anyone has any objections, please let us know.
 
@@ -38,31 +34,45 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-Upstream commit d61ba9f:
+Upstream commit 656caff:
 
-Commit 8cc784ee (netfilter: change return types of match functions
-for ebtables extensions) broke ebtables matches by inverting the
-sense of match/nomatch.
+Commit 55b69e91 (netfilter: implement NFPROTO_UNSPEC as a wildcard
+for extensions) broke revision probing for matches and targets that
+are registered with NFPROTO_UNSPEC.
 
-Reported-by: Matt Cross <matthltc@us.ibm.com>
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Fix by continuing the search on the NFPROTO_UNSPEC list if nothing
+is found on the af-specific lists.
+
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- net/bridge/netfilter/ebtables.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/x_tables.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -80,7 +80,7 @@ static inline int ebt_do_match (struct e
- {
- 	par->match     = m->u.match;
- 	par->matchinfo = m->data;
--	return m->u.match->match(skb, par);
-+	return m->u.match->match(skb, par) ? EBT_MATCH : EBT_NOMATCH;
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -273,6 +273,10 @@ static int match_revfn(u8 af, const char
+ 				have_rev = 1;
+ 		}
+ 	}
++
++	if (af != NFPROTO_UNSPEC && !have_rev)
++		return match_revfn(NFPROTO_UNSPEC, name, revision, bestp);
++
+ 	return have_rev;
  }
  
- static inline int ebt_dev_check(char *entry, const struct net_device *device)
+@@ -289,6 +293,10 @@ static int target_revfn(u8 af, const cha
+ 				have_rev = 1;
+ 		}
+ 	}
++
++	if (af != NFPROTO_UNSPEC && !have_rev)
++		return target_revfn(NFPROTO_UNSPEC, name, revision, bestp);
++
+ 	return have_rev;
+ }
+ 
 
