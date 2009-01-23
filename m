@@ -1,54 +1,75 @@
-From: Jaswinder Singh Rajput <jaswinder-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+From: Jaswinder Singh Rajput <jaswinder@kernel.org>
 Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
-Date: Fri, 23 Jan 2009 21:26:07 +0530
-Message-ID: <1232726167.3504.16.camel@localhost.localdomain>
+Date: Fri, 23 Jan 2009 21:29:19 +0530
+Message-ID: <1232726359.3504.18.camel@localhost.localdomain>
 References: <1232223441.3966.22.camel@localhost.localdomain>
 	 <1232228261.27094.0.camel@macbook.infradead.org>
-	 <20090117221932.GA4956@uranus.ravnborg.org>
-	 <1232247901.3097.12.camel@localhost.localdomain>
-	 <20090118033339.GA671@bombadil.infradead.org>
-	 <1232249904.3097.15.camel@localhost.localdomain>
-	 <20090118041800.GB671@bombadil.infradead.org>
+	 <20090117221932.GA4956@uranus.ravnborg.org>  <49725B1E.604@kernel.org>
+	 <1232498319.3123.34.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>,
-	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, x86 maintainers <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, tiwai-l3A5Bk7waGM@public.gmane.org,
-	mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Kyle McMartin <kyle-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090118041800.GB671-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Sam Ravnborg <sam@ravnborg.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, x86 maintainers <x86@kernel.org>,
+	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	linux-media@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, bfields@fieldses.org, neilb@suse.de,
+	linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
+	dbrownell@users.sourceforge.net,
+	spi-devel-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	greg@kroah.com, linux-usb@vger.kernel.org,
+	linux-mtd@lists.infradead.org, tiwai@suse.de,
+	mchehab@infradead.org, LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "H. Peter Anvin" <hpa@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:34123 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756994AbZAWQA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jan 2009 11:00:56 -0500
+In-Reply-To: <1232498319.3123.34.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-01-17 at 23:18 -0500, Kyle McMartin wrote:
-> On Sun, Jan 18, 2009 at 09:08:24AM +0530, Jaswinder Singh Rajput wrote:
-> > If this file is _ONLY_ for userspace and kernel cannot use it then what
-> > is the point of keeping this file in kernel headers.
+
+On Wed, 2009-01-21 at 06:08 +0530, Jaswinder Singh Rajput wrote:
+> On Sat, 2009-01-17 at 14:26 -0800, H. Peter Anvin wrote:
+> > Sam Ravnborg wrote:
+> > >>>  
+> > >> That patch looks wrong, and unnecessary. It was fine before.
+> > > Nope - include/linux/dvb/audio.h failed to include linux/types.h
+> > > despite the fact that is uses __u32 etc.
+> > > 
+> > > But why the _kernel_ should include a userspace header is
+> > > much more questionable.
+> > > 
+> > 
+> > <stdint.h> is one of a handful of headers provided by gcc itself.
 > > 
 > 
-> There is effectively no point, especially when they reference a variable
-> that may or may not exist in the userspace code including it... It seems
-> entirely mtd-utils dependent.
+> Should I reintroduce my patch to solve this warning of 'make headers_check':
+>  usr/include/linux/dvb/audio.h:133: found __[us]{8,16,32,64} type without #include <linux/types.h>
 > 
-> Dave, will you queue Adrian's patch to nuke it?
+> diff --git a/include/linux/dvb/audio.h b/include/linux/dvb/audio.h
+> index 89412e1..758a48c 100644
+> --- a/include/linux/dvb/audio.h
+> +++ b/include/linux/dvb/audio.h
+> @@ -24,9 +24,8 @@
+>  #ifndef _DVBAUDIO_H_
+>  #define _DVBAUDIO_H_
+>  
+> -#ifdef __KERNEL__
+>  #include <linux/types.h>
+> -#else
+> +#ifndef __KERNEL__
+>  #include <stdint.h>
+>  #endif
+> 
 
-What is the status of include/mtd/jffs2-user.h
+It seems one have objection for this. So I will again insert this in my
+new patchset.
 
 --
 JSR
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
