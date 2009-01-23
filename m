@@ -1,46 +1,35 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
-Date: Fri, 23 Jan 2009 14:01:07 -0800
-Message-ID: <497A3E23.7040606@zytor.com>
-References: <1232223441.3966.22.camel@localhost.localdomain>  <1232228261.27094.0.camel@macbook.infradead.org>  <20090117221932.GA4956@uranus.ravnborg.org>  <49725B1E.604@kernel.org>  <1232498319.3123.34.camel@localhost.localdomain>  <1232726359.3504.18.camel@localhost.localdomain> <1232726658.3504.22.camel@localhost.localdomain> <alpine.LSU.2.00.0901231710350.15413@fbirervta.pbzchgretzou.qr> <497A3793.5090502@zytor.com> <alpine.LSU.2.00.0901232252510.25716@fbirervta.pbzchgretzou.qr>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] af_key: initialize xfrm encap_oa
+Date: Sat, 24 Jan 2009 09:11:38 +1100
+Message-ID: <20090123221137.GA806@gondor.apana.org.au>
+References: <1232713828-6725-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jaswinder Singh Rajput <jaswinder@kernel.org>,
-	"H. Peter Anvin" <hpa@kernel.org>, Sam Ravnborg <sam@ravnborg.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>, x86 maintainers <x86@kernel.org>,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	linux-media@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, bfields@fieldses.org, neilb@suse.de,
-	linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
-	dbrownell@users.sourceforge.net, netdev@vger.kernel.org,
-	greg@kroah.com, linux-usb@vger.kernel.org,
-	linux-mtd@lists.infradead.org, tiwai@suse.de,
-	mchehab@infradead.org, LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <linux-raid-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.00.0901232252510.25716@fbirervta.pbzchgretzou.qr>
-Sender: linux-raid-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:52460 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756598AbZAWWLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 17:11:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1232713828-6725-1-git-send-email-timo.teras@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jan Engelhardt wrote:
+On Fri, Jan 23, 2009 at 02:30:28PM +0200, Timo Teras wrote:
+> Currently encap_oa is left uninitialized, so it contains garbage data which
+> is visible to userland via Netlink. Initialize it by zeroing it out.
 > 
-> Hm, maybe g++ defaults to std? Because this works without me using
-> "using std;"
-> 
-> #include <cstdint>
-> int main(void)
-> {
-> 	uint32_t x;
-> }
-> 
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
 
-Sorry, this was a bit of a surprise... basically the g++ <cstdint> 
-functionally does #include <stdint.h> then exports the symbols into the 
-std namespace, so it puts them into both...
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-	-hpa
-
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
