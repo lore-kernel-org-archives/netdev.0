@@ -1,55 +1,62 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] am79c961a: fix spin_lock usage
-Date: Fri, 23 Jan 2009 22:15:25 +0100
-Message-ID: <20090123211525.GA31893@pengutronix.de>
-References: <1232663382-10503-1-git-send-email-u.kleine-koenig@pengutronix.de> <20090122223412.GB8137@n2100.arm.linux.org.uk> <20090123204318.GO29067@pengutronix.de>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
+Date: Fri, 23 Jan 2009 13:33:07 -0800
+Message-ID: <497A3793.5090502@zytor.com>
+References: <1232223441.3966.22.camel@localhost.localdomain>
+	<1232228261.27094.0.camel@macbook.infradead.org>
+	<20090117221932.GA4956@uranus.ravnborg.org>
+	<49725B1E.604@kernel.org>
+	<1232498319.3123.34.camel@localhost.localdomain>
+	<1232726359.3504.18.camel@localhost.localdomain>
+	<1232726658.3504.22.camel@localhost.localdomain>
+	<alpine.LSU.2.00.0901231710350.15413@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Roel Kluin <12o3l@tiscali.nl>,
-	Steven Rostedt <srostedt@redhat.com>, netdev@vger.kernel.org
-To: Robert Schwebel <r.schwebel@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:39585 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755429AbZAWVPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 16:15:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20090123204318.GO29067@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: urs.thuermann@volkswagen.de, neilb@suse.de, greg@kroah.com,
+	bfields@fieldses.org, linux-mtd@lists.infradead.org,
+	"H. Peter Anvin" <hpa@kernel.org>,
+	Sam Ravnborg <sam@ravnborg.org>, dbrownell@users.sourceforge.net,
+	x86 maintainers <x86@kernel.org>, tiwai@suse.de,
+	netfilter-devel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	linux-media@vger.kernel.org, mchehab@infradead.org,
+	linux-raid@vger.kernel.org, netfilter@vger.kernel.org,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Jaswinder Singh Rajput <jaswinder@kernel.org>,
+	oliver.hartkopp@volkswagen.de, Andrew Morton <akpm@linux-foundation.org>,
+	David Woodhouse <dwmw2@infradead.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
+In-Reply-To: <alpine.LSU.2.00.0901231710350.15413@fbirervta.pbzchgretzou.qr>
+List-Unsubscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
+	<mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mtd>
+List-Post: <mailto:linux-mtd@lists.infradead.org>
+List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
+	<mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
+Sender: linux-mtd-bounces@lists.infradead.org
+Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hello Robert,
+Jan Engelhardt wrote:
+> 
+> I had an objection as previously stated -- namely that
+> <stdint.h> should be included to remain friendly to C++0x
+> programs which should use <cstdint> instead. Forcing
+> stdint.h is therefore not nice.
+> 
 
-On Fri, Jan 23, 2009 at 09:43:18PM +0100, Robert Schwebel wrote:
-> On Thu, Jan 22, 2009 at 10:34:12PM +0000, Russell King - ARM Linux wr=
-ote:
-> > On Thu, Jan 22, 2009 at 11:29:42PM +0100, Uwe Kleine-K=F6nig wrote:
-> > > unrelated to that, with arm-linux-gnu-gcc 4.3.2 I get some warnin=
-gs when
-> > > compiling am79c961a.c:
-> >
-> > Don't care about gcc 4.3.2 - it's broken for the ARM architecture.
->=20
-> Any pointer?
-I recently saw:
+FWIW, it's kind of pointless in that case; <cstdint> exports it into the 
+std:: namespace rather than the root namespace, so using stdint types 
+still don't work.
 
-http://thread.gmane.org/gmane.linux.ports.arm.omap/15540/focus=3D15557
-http://thread.gmane.org/gmane.linux.ports.arm.kernel/47539/focus=3D5193=
-4
+It again comes down to: for headers exported to userspace we *have* to 
+use double-underscore types.
 
-Best regards
-Uwe
+	-hpa
 
---=20
-Pengutronix e.K.                              | Uwe Kleine-K=F6nig     =
-       |
-Industrial Linux Solutions                    | http://www.pengutronix.=
-de/  |
-Peiner Strasse 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-=
-0    |
-Amtsgericht Hildesheim, HRA 2686              | Fax:   +49-5121-206917-=
-5555 |
+______________________________________________________
+Linux MTD discussion mailing list
+http://lists.infradead.org/mailman/listinfo/linux-mtd/
