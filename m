@@ -1,45 +1,47 @@
-From: Grant Grundler <grundler@google.com>
-Subject: Re: care and feeding of netperf (Re: Mainline kernel OLTP performance
-	update)
-Date: Fri, 23 Jan 2009 10:51:18 -0800
-Message-ID: <da824cf30901231051m5d11678k5eb2086ac18457ff@mail.gmail.com>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
-	 <1232617672.14549.25.camel@penberg-laptop>
-	 <1232679773.11429.155.camel@ymzhang>
-	 <200901231933.10101.nickpiggin@yahoo.com.au>
-	 <1232701348.11429.170.camel@ymzhang> <497A0F27.3030801@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
-	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
-	arjan@linux.intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <497A0F27.3030801@hp.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ron Madrid <ron_madrid@sbcglobal.net>
+Subject: [PATCH] Marvell 88E1118 interrupt fix
+Date: Fri, 23 Jan 2009 12:04:10 -0800
+Message-ID: <1232741050-6960-1-git-send-email-ron_madrid@sbcglobal.net>
+Cc: Ron Madrid <ron_madrid@sbcglobal.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp125.sbc.mail.sp1.yahoo.com ([69.147.65.184]:22579 "HELO
+	smtp125.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753608AbZAWUDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 15:03:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 23, 2009 at 10:40 AM, Rick Jones <rick.jones2@hp.com> wrote:
-...
-> And I would probably add the -c and -C options to have netperf report
-> service demands.
+This patch adjusts the LED control so that interrupt lines are not reading LEDs
+and effectively causing indefinite interrupts to the controller.
 
-For performance analysis, the service demand is often more interesting
-than the absolute performance (which typically only varies a few Mb/s
-for gigE NICs). I strongly encourage adding -c and -C.
+Signed-off-by: Ron Madrid <ron_madrid@sbcglobal.net>
+---
+ drivers/net/tsec.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-grant
+diff --git a/drivers/net/tsec.c b/drivers/net/tsec.c
+index d7da081..c9aa29d 100644
+--- a/drivers/net/tsec.c
++++ b/drivers/net/tsec.c
+@@ -1141,6 +1141,9 @@ struct phy_info phy_info_M88E1118 = {
+ 		{MIIM_CONTROL, MIIM_CONTROL_RESET, NULL},
+ 		{0x16, 0x0002, NULL}, /* Change Page Number */
+ 		{0x15, 0x1070, NULL}, /* Delay RGMII TX and RX */
++		{0x16, 0x0003, NULL}, /* Change Page Number */
++		{0x10, 0x021e, NULL}, /* Adjust LED control */
++		{0x16, 0x0000, NULL}, /* Change Page Number */
+ 		{MIIM_GBIT_CONTROL, MIIM_GBIT_CONTROL_INIT, NULL},
+ 		{MIIM_ANAR, MIIM_ANAR_INIT, NULL},
+ 		{MIIM_CONTROL, MIIM_CONTROL_RESET, NULL},
+@@ -1152,6 +1155,7 @@ struct phy_info phy_info_M88E1118 = {
+ 		/* Status is read once to clear old link state */
+ 		{MIIM_STATUS, miim_read, NULL},
+ 		/* Auto-negotiate */
++		{MIIM_STATUS, miim_read, &mii_parse_sr},
+ 		/* Read the status */
+ 		{MIIM_88E1011_PHY_STATUS, miim_read,
+ 		 &mii_parse_88E1011_psr},
+-- 
+1.5.5.1
+
