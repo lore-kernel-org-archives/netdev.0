@@ -1,54 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] am79c961a: fix spin_lock usage
-Date: Thu, 22 Jan 2009 16:16:59 -0800 (PST)
-Message-ID: <20090122.161659.261404462.davem@davemloft.net>
-References: <1232663382-10503-1-git-send-email-u.kleine-koenig@pengutronix.de>
-	<20090122.145615.235726630.davem@davemloft.net>
-	<20090122234036.GA23484@flint.arm.linux.org.uk>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: speed regression in udp_lib_lport_inuse()
+Date: Fri, 23 Jan 2009 01:20:13 +0100
+Message-ID: <49790D3D.8060400@cosmosbay.com>
+References: <m3sknbuqf9.wl%vmayatsk@redhat.com> <4978EE03.9040207@cosmosbay.com> <20090122221434.GB1651@ioremap.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: u.kleine-koenig@pengutronix.de, srostedt@redhat.com,
-	netdev@vger.kernel.org
-To: rmk@arm.linux.org.uk
+Cc: Vitaly Mayatskikh <v.mayatskih@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51791
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755449AbZAWAQ5 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2009 19:16:57 -0500
-In-Reply-To: <20090122234036.GA23484@flint.arm.linux.org.uk>
+Received: from gw2.cosmosbay.com ([86.64.20.130]:36290 "EHLO gw2.cosmosbay.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753060AbZAWAUW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 19:20:22 -0500
+In-Reply-To: <20090122221434.GB1651@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Russell King <rmk@arm.linux.org.uk>
-Date: Thu, 22 Jan 2009 23:40:36 +0000
-
-> On Thu, Jan 22, 2009 at 02:56:15PM -0800, David Miller wrote:
-> > From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-> > Date: Thu, 22 Jan 2009 23:29:42 +0100
-> >=20
-> > > spin_lock functions take a pointer to the lock, not the lock itse=
-lf.
-> > > This error was noticed by compiling ebsa110_defconfig for linux-r=
-t where
-> > > the locking functions obviously are more picky about their argume=
-nts.
-> > >=20
-> > > Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de=
->
-> >=20
-> > Russell, this fix is real.  Want me to take it or will you?
+Evgeniy Polyakov a =E9crit :
+> Hi Eric.
 >=20
-> I'll take it.
-
-Great.
-
-> > BTW, I took linux-arm-kernel out of the CC because all of my postin=
-gs
-> > there bounce simply because I lack reverse DNS :-/
+> On Thu, Jan 22, 2009 at 11:06:59PM +0100, Eric Dumazet (dada1@cosmosb=
+ay.com) wrote:
+>> Hello Vitaly, thanks for this excellent report.
+>>
+>> Yes, current code is really not good when all ports are in use :
+>>
+>> We now have to scan 28232 [1] times long chains of 220 sockets.
+>> Thats very long (but at least thread is preemptable)
+>>
+>> In the past (before patches), only one thread was allowed to run in =
+kernel while scanning
+>> udp port table (we had only one global lock udp_hash_lock protecting=
+ the whole udp table).
+>> This thread was faster because it was not slowed down by other threa=
+ds.
+>> (But the rwlock we used was responsible for starvations of writers i=
+f many UDP frames
+>> were received)
+> =20
+> I believe problem is in the port searching algorithm, when we
+> have exponentially grow of the number of ports to check after random
+> selection of the first one. This allows to have small chains but setu=
+p
+> time will be very long. Not sure if bind chais should be that small
+> actually. In the 64k patch, which allows to have more than 64k bound
+> sockets per system I store rough amount of bound sockets and when it
+> becomes larger than sysctl limit I just randomly select a bundle.
+> This works for the bind(0) for the sockets with reuse option though.
+> I posted a picture of the bind(0) time for the .28 kernel iirc.
 >=20
-> No need; in theory I've whitelisted your IP.  However, I've dropped
-> 12o3l@tiscali.nl from the CC because that address bounces.
+> Or is this a different issue?
+>=20
 
-Thanks, I noticed him bounce too.
+Well, this is not exactly the same issue, udp bind() code is slightly d=
+ifferent
+than tcp. (Probably not so many machines use lot of udp sockets)
+
+Since UDP hash table is really small (128 slots), we can try to allocat=
+e UDP ports
+chains per chain, instead of port per port, to reduce number of chain l=
+ookups.
+In tcp, most machines have 64k slots for bind table so this wont help
+
