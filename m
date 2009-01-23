@@ -1,43 +1,54 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Fri, 23 Jan 2009 10:22:16 -0500 (EST)
-Message-ID: <alpine.DEB.1.10.0901231020030.21692@qirst.com>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>  <200901161503.13730.nickpiggin@yahoo.com.au>  <20090115201210.ca1a9542.akpm@linux-foundation.org>  <200901161746.25205.nickpiggin@yahoo.com.au>  <20090116065546.GJ31013@parisc-linux.org>
-  <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>  <1232428583.11429.83.camel@ymzhang>  <alpine.DEB.1.10.0901211852060.18367@qirst.com>  <1232613395.11429.122.camel@ymzhang>  <1232615707.14549.6.camel@penberg-laptop>
- <1232616517.11429.129.camel@ymzhang>  <1232617672.14549.25.camel@penberg-laptop>  <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>  <1232697998.6094.17.camel@penberg-laptop>  <1232699401.11429.163.camel@ymzhang>
- <1232703989.6094.29.camel@penberg-laptop>
+From: Jaswinder Singh Rajput <jaswinder-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
+Date: Fri, 23 Jan 2009 21:26:07 +0530
+Message-ID: <1232726167.3504.16.camel@localhost.localdomain>
+References: <1232223441.3966.22.camel@localhost.localdomain>
+	 <1232228261.27094.0.camel@macbook.infradead.org>
+	 <20090117221932.GA4956@uranus.ravnborg.org>
+	 <1232247901.3097.12.camel@localhost.localdomain>
+	 <20090118033339.GA671@bombadil.infradead.org>
+	 <1232249904.3097.15.camel@localhost.localdomain>
+	 <20090118041800.GB671@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
-	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
-	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
-	arjan@linux.intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1232703989.6094.29.camel@penberg-laptop>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, x86 maintainers <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
+	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, tiwai-l3A5Bk7waGM@public.gmane.org,
+	mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Kyle McMartin <kyle-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090118041800.GB671-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jan 2009, Pekka Enberg wrote:
+On Sat, 2009-01-17 at 23:18 -0500, Kyle McMartin wrote:
+> On Sun, Jan 18, 2009 at 09:08:24AM +0530, Jaswinder Singh Rajput wrote:
+> > If this file is _ONLY_ for userspace and kernel cannot use it then what
+> > is the point of keeping this file in kernel headers.
+> > 
+> 
+> There is effectively no point, especially when they reference a variable
+> that may or may not exist in the userspace code including it... It seems
+> entirely mtd-utils dependent.
+> 
+> Dave, will you queue Adrian's patch to nuke it?
 
-> Looking at __slab_free(), unless page->inuse is constantly zero and we
-> discard the slab, it really is just cache effects (10% sounds like a
-> lot, though!). AFAICT, the only way to optimize that is with Christoph's
-> unfinished pointer freelists patches or with a remote free list like in
-> SLQB.
+What is the status of include/mtd/jffs2-user.h
 
-No there is another way. Increase the allocator order to 3 for the
-kmalloc-8192 slab then multiple 8k blocks can be allocated from one of the
-larger chunks of data gotten from the page allocator. That will allow slub
-to do fast allocs.
+--
+JSR
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
