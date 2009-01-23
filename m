@@ -1,45 +1,37 @@
-From: Robert Schwebel <r.schwebel@pengutronix.de>
-Subject: Re: [PATCH] am79c961a: fix spin_lock usage
-Date: Fri, 23 Jan 2009 21:43:18 +0100
-Message-ID: <20090123204318.GO29067@pengutronix.de>
-References: <1232663382-10503-1-git-send-email-u.kleine-koenig@pengutronix.de> <20090122223412.GB8137@n2100.arm.linux.org.uk>
+From: <peter.banting@sympatico.ca>
+Subject: Powerball..Promo..Award..
+Date: Fri, 23 Jan 2009 15:53:55 -0500
+Message-ID: <20090123205355.IMLL1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: departmentlboard@ymail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Uwe =?iso-8859-15?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Roel Kluin <12o3l@tiscali.nl>,
-	Steven Rostedt <srostedt@redhat.com>, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+To: <info@winner.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49870 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752797AbZAWUnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 15:43:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20090122223412.GB8137@n2100.arm.linux.org.uk>
+Received: from simmts7-srv.bellnexxia.net ([206.47.199.165]:43170 "EHLO
+	simmts7-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754611AbZAWUx5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jan 2009 15:53:57 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts7-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090123205355.IMLL1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Fri, 23 Jan 2009 15:53:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2009 at 10:34:12PM +0000, Russell King - ARM Linux wrot=
-e:
-> On Thu, Jan 22, 2009 at 11:29:42PM +0100, Uwe Kleine-K=F6nig wrote:
-> > unrelated to that, with arm-linux-gnu-gcc 4.3.2 I get some warnings=
- when
-> > compiling am79c961a.c:
->
-> Don't care about gcc 4.3.2 - it's broken for the ARM architecture.
+=46or claims of =A31,000,000 pounds won by you in our UK SEASONAL AWARD=
+ 2009. get back to this office via
+Email: comfirmationofficein2009@ymail.com
+Tel:+44:7045731829=20
+Names:............
+Address:..............
+Country:................
+Phone No:...................
+Occupation:..................
+Age:..........
+=46ax:..............
+Regards
+Mr.Francis Scott
 
-Any pointer?
-
-rsc
---=20
-Pengutronix e.K.                           |                           =
-  |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
-  |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
-5 |
