@@ -1,32 +1,44 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH 7/8] arm: convert omap ldp platform to use smsc911x
-Date: Fri, 23 Jan 2009 17:07:12 +0000
-Message-ID: <OF02435E0A.D8B49E71-ON80257547.005DE614-80257547.005E2CBE@smsc.com>
-References: <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] networking: document "nc" in addition to "netcat" in
+ netconsole.txt
+Date: Fri, 23 Jan 2009 09:21:04 -0800
+Message-ID: <20090123092104.64098f66.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: "Stanley.Miao" <stanley.miao@windriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Matt Mackall <mpm@selenic.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:4679 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760348AbZAWRJI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jan 2009 12:09:08 -0500
-In-Reply-To: <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:40292 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753527AbZAWRV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 12:21:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Stanley.Miao" <stanley.miao@windriver.com> wrote on 21/01/2009 03:06:09:
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
 
-> from 2.6.29, smc911x isn't maintained anymore. A new driver, smsc911x,
-> will replace it. so convert omap_ldp to use smsc911x driver.
-> 
-> Signed-off-by: Stanley.Miao <stanley.miao@windriver.com>
+It always annoyed me that the netconsole documentation didn't give me the
+correct command for my distro.  Update it with a command line that actually
+works on my Fedora install.
 
-Hi Stanley,
+Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+cc: Matt Mackall <mpm@selenic.com>
+---
+ Documentation/networking/netconsole.txt |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This platform patch doesn't apply to linus's tree, what's it based on?
-
-Thanks,
-Steve
+--- linux-next-20090123.orig/Documentation/networking/netconsole.txt
++++ linux-next-20090123/Documentation/networking/netconsole.txt
+@@ -51,7 +51,8 @@ Built-in netconsole starts immediately a
+ initialized and attempts to bring up the supplied dev at the supplied
+ address.
+ 
+-The remote host can run either 'netcat -u -l -p <port>' or syslogd.
++The remote host can run either 'netcat -u -l -p <port>',
++'nc -l -u <port>' or syslogd.
+ 
+ Dynamic reconfiguration:
+ ========================
