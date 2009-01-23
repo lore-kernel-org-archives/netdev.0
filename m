@@ -1,64 +1,109 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH 10/34]bnx2x: Compilation issue on IA64
-Date: Fri, 23 Jan 2009 10:42:27 +0200
-Message-ID: <1232700147.31321.7.camel@lb-tlvb-eliezer>
-References: <1231951391.11301.131.camel@lb-tlvb-eliezer>
- <1231952824.3010.29.camel@achroite>
- <1231955073.11301.161.camel@lb-tlvb-eliezer>
- <20090114.131058.248785392.davem@davemloft.net>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Fri, 23 Jan 2009 17:02:28 +0800
+Message-ID: <1232701348.11429.170.camel@ymzhang>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
+	 <1232617672.14549.25.camel@penberg-laptop>
+	 <1232679773.11429.155.camel@ymzhang>
+	 <200901231933.10101.nickpiggin@yahoo.com.au>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=-iJ7pR5ZGKvuT2d2vXHGE"
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: Nick Piggin <nickpiggin@yahoo.com.au>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <200901231933.10101.nickpiggin@yahoo.com.au>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-iJ7pR5ZGKvuT2d2vXHGE
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4162 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752819AbZAWInd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jan 2009 03:43:33 -0500
-In-Reply-To: <20090114.131058.248785392.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-01-14 at 13:10 -0800, David Miller wrote:
-> From: "Eilon Greenstein" <eilong@broadcom.com>
-> Date: Wed, 14 Jan 2009 19:44:33 +0200
+On Fri, 2009-01-23 at 19:33 +1100, Nick Piggin wrote:
+> On Friday 23 January 2009 14:02:53 Zhang, Yanmin wrote:
 > 
-> > On Wed, 2009-01-14 at 09:07 -0800, Ben Hutchings wrote:
-> > > On Wed, 2009-01-14 at 18:43 +0200, Eilon Greenstein wrote:
-> > > > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > [...]  
-> > > >  #ifdef BNX2X_STOP_ON_ERROR
-> > > >  	fp->tpa_queue_used |= (1 << queue);
-> > > > -#ifdef __powerpc64__
-> > > > +#if (defined __powerpc64__) || (defined _ASM_IA64_TYPES_H)
-> > > >  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%lx\n",
-> > > >  #else
-> > > >  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%llx\n",
-> > > 
-> > > Or you could cast the value to unsigned long long and remove this
-> > > fragile #ifdef.
-> > > 
-> > You are right - it is a better solution. The issue is that this uglier
-> > solution is already in, and I hate to re-send this patch just for this.
-> > Can we have this one applied and I will re visit it in net-next?
+> > 1) If I start CPU_NUM clients and servers, SLUB's result is about 2% better
+> > than SLQB's;
 > 
-> There is no reason to crap up any driver with arch ifdefs, absolutely
-> none, for this typing issue.
+> I'll have to look into this too. Could be evidence of the possible
+> TLB improvement from using bigger pages and/or page-specific freelist,
+> I suppose.
 > 
-> The whole point is that we're trying to get all of the arch's to use
-> the same type for u64 in the kernel, so that these warnings can be
-> cleared away very easily.
-> 
-> Live with the warnings meanwhile until this is all sorted out.
+> Do you have a scripted used to start netperf in that configuration?
+See the attachment.
 
-I can live with that, but I was wondering if this change is something
-that you can consider:
--#ifdef __powerpc64__
-+#ifdef _ASM_GENERIC_INT_L64_H
+Steps to run testing:
+1) compile netperf;
+2) Change PROG_DIR to path/to/netperf/src;
+3) ./start_netperf_udp_v4.sh 8 #Assume your machine has 8 logical cpus.
 
-My problem is that in the mean time, the driver has this __powerpc64__
-ifdef in it.
 
+--=-iJ7pR5ZGKvuT2d2vXHGE
+Content-Disposition: attachment; filename=start_netperf_udp_v4.sh
+Content-Type: application/x-shellscript; name=start_netperf_udp_v4.sh
+Content-Transfer-Encoding: 7bit
+
+#!/bin/sh
+
+PROG_DIR=/home/ymzhang/test/netperf/src
+date=`date +%H%M%N`
+#PROG_DIR=/root/netperf/netperf/src
+client_num=$1
+pin_cpu=$2
+
+start_port_server=12384
+start_port_client=15888
+
+killall netserver
+${PROG_DIR}/netserver
+sleep 2
+
+if [ ! -d result ]; then
+	mkdir result
+fi
+
+all_result_files=""
+for i in `seq 1 ${client_num}`; do
+	if [ "${pin_cpu}" == "pin" ]; then
+		pin_param="-T ${i} ${i}"
+	fi
+	result_file=result/netperf_${start_port_client}.${date}
+	#./netperf -t UDP_STREAM -l 60 -H 127.0.0.1 -- -P 15895 12391 -s 32768 -S 32768 -m 4096
+	#./netperf -t UDP_STREAM -l 60 -H 127.0.0.1 -i 50 3 -I 99 5 -- -P 12384 12888 -s 32768 -S 32768 -m 4096
+	#${PROG_DIR}/netperf -p ${port_num} -t TCP_RR -l 60 -H 127.0.0.1 ${pin_param} -- -r 1,1 >${result_file} &
+	${PROG_DIR}/netperf -t UDP_STREAM -l 60 -H 127.0.0.1 ${pin_param} -- -P ${start_port_client} ${start_port_server} -s 32768 -S 32768 -m 4096 >${result_file}  &
+	sub_pid="${sub_pid} `echo $!`"
+	port_num=$((${port_num}+1))
+	all_result_files="${all_result_files} ${result_file}"
+	start_port_server=$((${start_port_server}+1))
+	start_port_client=$((${start_port_client}+1))
+done;
+
+wait ${sub_pid}
+killall netserver
+
+result="0"
+for i in `echo ${all_result_files}`; do
+	sub_result=`awk '/Throughput/ {getline; getline; getline; print " "$6}' ${i}`
+	result=`echo "${result}+${sub_result}"|bc`
+done;
+
+echo $result
+
+
+--=-iJ7pR5ZGKvuT2d2vXHGE--
 
