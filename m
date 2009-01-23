@@ -1,153 +1,64 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH net-next] gre: optimize hash lookup
-Date: Fri, 23 Jan 2009 08:02:33 +0200
-Message-ID: <1232690553-31865-1-git-send-email-timo.teras@iki.fi>
-Cc: Timo Teras <timo.teras@iki.fi>
-To: netdev@vger.kernel.org
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] af_key: parse and send SADB_X_EXT_NAT_T_OA extension
+Date: Fri, 23 Jan 2009 08:18:33 +0200
+Message-ID: <49796139.3090605@iki.fi>
+References: <49780AA9.9050508@iki.fi>	<20090121.220304.211246256.davem@davemloft.net>	<49780EB5.60300@iki.fi> <20090121.222112.245293949.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:10199 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026AbZAWGCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 01:02:39 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so2418788fgg.17
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2009 22:02:37 -0800 (PST)
+Received: from fk-out-0910.google.com ([209.85.128.191]:49300 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761921AbZAWGSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 01:18:38 -0500
+Received: by fk-out-0910.google.com with SMTP id f33so1070409fkf.5
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2009 22:18:36 -0800 (PST)
+In-Reply-To: <20090121.222112.245293949.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of keeping candidate tunnel device from all categories,
-keep only one candidate with best score. This optimizes stack
-usage and speeds up exit code.
+David Miller wrote:
+> From: Timo Ter=E4s <timo.teras@iki.fi>
+>> David Miller wrote:
+>>> From: Timo Ter=E4s <timo.teras@iki.fi>
+>>>> Is there any particular reason why setting NAT-OA info should/
+>>>> must be done using netlink? Or is this just a way to try to
+>>>> put more pressure for the change to happen?
+>>> Because it isn't deprecated if we keep adding features to it.
+>> I would not consider this a new feature. It just makes pfkey
+>> act consistently. If you don't want it supported, it'd make
+>> more sense to not #define SADB_X_EXT_NAT_T_OA and drop all of
+>> the verification code already present than to silently
+>> ignore it. Make kernel return an error if some tried using it.
+>=20
+> Fair enough, sounds like a reasonable argument.
+>=20
+> Herbert what do you think?  The proposal is that we just reflect the
+> value we get, rather than acting upon it.
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
----
- net/ipv4/ip_gre.c |   69 ++++++++++++++++++++++++++++++----------------------
- 1 files changed, 40 insertions(+), 29 deletions(-)
+Going back to the original patch. Knowing that it's bad idea to
+use it for my other purposes, I have no strong feelings to push
+for this.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 4a43739..07a188a 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -172,11 +172,11 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 	int link = dev->ifindex;
- 	unsigned h0 = HASH(remote);
- 	unsigned h1 = HASH(key);
--	struct ip_tunnel *t, *sel[4] = { NULL, NULL, NULL, NULL };
-+	struct ip_tunnel *t, *cand = NULL;
- 	struct ipgre_net *ign = net_generic(net, ipgre_net_id);
- 	int dev_type = (gre_proto == htons(ETH_P_TEB)) ?
- 		       ARPHRD_ETHER : ARPHRD_IPGRE;
--	int idx;
-+	int score, cand_score = 4;
- 
- 	for (t = ign->tunnels_r_l[h0^h1]; t; t = t->next) {
- 		if (local != t->parms.iph.saddr ||
-@@ -189,15 +189,18 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		    t->dev->type != dev_type)
- 			continue;
- 
--		idx = 0;
-+		score = 0;
- 		if (t->parms.link != link)
--			idx |= 1;
-+			score |= 1;
- 		if (t->dev->type != dev_type)
--			idx |= 2;
--		if (idx == 0)
-+			score |= 2;
-+		if (score == 0)
- 			return t;
--		if (sel[idx] == NULL)
--			sel[idx] = t;
-+
-+		if (score < cand_score) {
-+			cand = t;
-+			cand_score = score;
-+		}
- 	}
- 
- 	for (t = ign->tunnels_r[h0^h1]; t; t = t->next) {
-@@ -210,15 +213,18 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		    t->dev->type != dev_type)
- 			continue;
- 
--		idx = 0;
-+		score = 0;
- 		if (t->parms.link != link)
--			idx |= 1;
-+			score |= 1;
- 		if (t->dev->type != dev_type)
--			idx |= 2;
--		if (idx == 0)
-+			score |= 2;
-+		if (score == 0)
- 			return t;
--		if (sel[idx] == NULL)
--			sel[idx] = t;
-+
-+		if (score < cand_score) {
-+			cand = t;
-+			cand_score = score;
-+		}
- 	}
- 
- 	for (t = ign->tunnels_l[h1]; t; t = t->next) {
-@@ -233,15 +239,18 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		    t->dev->type != dev_type)
- 			continue;
- 
--		idx = 0;
-+		score = 0;
- 		if (t->parms.link != link)
--			idx |= 1;
-+			score |= 1;
- 		if (t->dev->type != dev_type)
--			idx |= 2;
--		if (idx == 0)
-+			score |= 2;
-+		if (score == 0)
- 			return t;
--		if (sel[idx] == NULL)
--			sel[idx] = t;
-+
-+		if (score < cand_score) {
-+			cand = t;
-+			cand_score = score;
-+		}
- 	}
- 
- 	for (t = ign->tunnels_wc[h1]; t; t = t->next) {
-@@ -253,20 +262,22 @@ static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
- 		    t->dev->type != dev_type)
- 			continue;
- 
--		idx = 0;
-+		score = 0;
- 		if (t->parms.link != link)
--			idx |= 1;
-+			score |= 1;
- 		if (t->dev->type != dev_type)
--			idx |= 2;
--		if (idx == 0)
-+			score |= 2;
-+		if (score == 0)
- 			return t;
--		if (sel[idx] == NULL)
--			sel[idx] = t;
-+
-+		if (score < cand_score) {
-+			cand = t;
-+			cand_score = score;
-+		}
- 	}
- 
--	for (idx = 1; idx < ARRAY_SIZE(sel); idx++)
--		if (sel[idx] != NULL)
--			return sel[idx];
-+	if (cand != NULL)
-+		return cand;
- 
- 	if (ign->fb_tunnel_dev->flags & IFF_UP)
- 		return netdev_priv(ign->fb_tunnel_dev);
--- 
-1.5.6.3
+Then again, since as discussed earlier, encap_oa is not used for
+anything (and never will be). It's just stored and given back if
+requested, so this patch adds nothing new; it just stores and
+gives the attribute back if the SA is dumped.
+
+Do note that currently pfkey_msg2xfrm_state() currently allocates
+xfrm_encap_tmpl with kmalloc() and leaves encap_oa uninitialized,
+thus all SAs with NAT-T created via pfkey currently show random
+crap in encap_oa when dumped via "ip xfrm state".
+
+Also the patch I sent first should memset() the encap_oa if
+SADB_X_EXT_NAT_T_OA is not present.
+
+If you still consider that the copying of that extension is
+inappropriate then maybe memset():ing the encap_oa to zero
+would be acceptable?
+
+Cheers,
+  Timo
 
