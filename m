@@ -1,74 +1,30 @@
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Subject: Re: [GIT PULL -tip] fix 33 make headers_check warnings
-Date: Fri, 23 Jan 2009 21:34:18 +0530
-Message-ID: <1232726658.3504.22.camel@localhost.localdomain>
-References: <1232223441.3966.22.camel@localhost.localdomain>
-	 <1232228261.27094.0.camel@macbook.infradead.org>
-	 <20090117221932.GA4956@uranus.ravnborg.org>  <49725B1E.604@kernel.org>
-	 <1232498319.3123.34.camel@localhost.localdomain>
-	 <1232726359.3504.18.camel@localhost.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: speed regression in udp_lib_lport_inuse()
+Date: Fri, 23 Jan 2009 17:05:15 +0100
+Message-ID: <4979EABB.4030201@cosmosbay.com>
+References: <m3sknbuqf9.wl%vmayatsk@redhat.com>	<4978EE03.9040207@cosmosbay.com>	<m3iqo7dkw4.wl%vmayatsk@redhat.com>	<49790C02.90800@cosmosbay.com>	<m3bpty1hq7.wl%vmayatsk@redhat.com>	<4979ADCA.2080106@cosmosbay.com>	<4979C9B6.3080302@cosmosbay.com> <m3zlhi6pg0.wl%vmayatsk@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Sam Ravnborg <sam@ravnborg.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>, x86 maintainers <x86@kernel.org>,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	linux-media@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, bfields@fieldses.org, neilb@suse.de,
-	linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
-	dbrownell@users.sourceforge.net, netdev@vger.kernel.org,
-	greg@kroah.com, linux-usb@vger.kernel.org,
-	linux-mtd@lists.infradead.org, tiwai@suse.de,
-	mchehab@infradead.org, LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "H. Peter Anvin" <hpa@kernel.org>
-Return-path: <linux-raid-owner@vger.kernel.org>
-In-Reply-To: <1232726359.3504.18.camel@localhost.localdomain>
-Sender: linux-raid-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vitaly Mayatskikh <v.mayatskih@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:37471 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756162AbZAWQFV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 11:05:21 -0500
+In-Reply-To: <m3zlhi6pg0.wl%vmayatsk@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-01-23 at 21:29 +0530, Jaswinder Singh Rajput wrote:
-> On Wed, 2009-01-21 at 06:08 +0530, Jaswinder Singh Rajput wrote:
-> > On Sat, 2009-01-17 at 14:26 -0800, H. Peter Anvin wrote:
-> > > Sam Ravnborg wrote:
-> > > >>>  
-> > > >> That patch looks wrong, and unnecessary. It was fine before.
-> > > > Nope - include/linux/dvb/audio.h failed to include linux/types.h
-> > > > despite the fact that is uses __u32 etc.
-> > > > 
-> > > > But why the _kernel_ should include a userspace header is
-> > > > much more questionable.
-> > > > 
-> > > 
-> > > <stdint.h> is one of a handful of headers provided by gcc itself.
-> > > 
-> > 
-> > Should I reintroduce my patch to solve this warning of 'make headers_check':
-> >  usr/include/linux/dvb/audio.h:133: found __[us]{8,16,32,64} type without #include <linux/types.h>
-> > 
-> > diff --git a/include/linux/dvb/audio.h b/include/linux/dvb/audio.h
-> > index 89412e1..758a48c 100644
-> > --- a/include/linux/dvb/audio.h
-> > +++ b/include/linux/dvb/audio.h
-> > @@ -24,9 +24,8 @@
-> >  #ifndef _DVBAUDIO_H_
-> >  #define _DVBAUDIO_H_
-> >  
-> > -#ifdef __KERNEL__
-> >  #include <linux/types.h>
-> > -#else
-> > +#ifndef __KERNEL__
-> >  #include <stdint.h>
-> >  #endif
-> > 
-> 
-> It seems one have objection for this. So I will again insert this in my
-> new patchset.
-> 
+Vitaly Mayatskikh a =E9crit :
 
-oops, s/seems one/seems no one ;-)
+> Both randomness and speed are good. There're several never bound port=
+s
+> in the test, but only few. Thank you for the patch.
 
---
-JSR
+I guess "never bound ports" were already in use by other applications o=
+n your machine :)
+
+
 
