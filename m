@@ -1,66 +1,68 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: speed regression in udp_lib_lport_inuse()
-Date: Fri, 23 Jan 2009 01:20:13 +0100
-Message-ID: <49790D3D.8060400@cosmosbay.com>
-References: <m3sknbuqf9.wl%vmayatsk@redhat.com> <4978EE03.9040207@cosmosbay.com> <20090122221434.GB1651@ioremap.net>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 29/46] netfilter: ebtables: fix inversion in match code
+Date: Thu, 22 Jan 2009 17:12:33 -0800
+Message-ID: <20090123011233.GD19756@kroah.com>
+References: <20090123010651.683741823@mini.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vitaly Mayatskikh <v.mayatskih@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Domenico Andreoli <cavokz@gmail.com>, Willy Tarreau <w@1wt.eu>,
+	Rodrigo Rubira Branco <rbranco@la.checkpoint.com>,
+	Jake Edge <jake@lwn.net>, Eugene Teo <eteo@redhat.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	davem@davemloft.net, Jan Engelhardt <jengelh@medozas.de>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw2.cosmosbay.com ([86.64.20.130]:36290 "EHLO gw2.cosmosbay.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753060AbZAWAUW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2009 19:20:22 -0500
-In-Reply-To: <20090122221434.GB1651@ioremap.net>
+Received: from kroah.org ([198.145.64.141]:50694 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756380AbZAWBPH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2009 20:15:07 -0500
+Content-Disposition: inline; filename="netfilter-ebtables-fix-inversion-in-match-code.patch"
+In-Reply-To: <20090123011110.GA19756@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov a =E9crit :
-> Hi Eric.
->=20
-> On Thu, Jan 22, 2009 at 11:06:59PM +0100, Eric Dumazet (dada1@cosmosb=
-ay.com) wrote:
->> Hello Vitaly, thanks for this excellent report.
->>
->> Yes, current code is really not good when all ports are in use :
->>
->> We now have to scan 28232 [1] times long chains of 220 sockets.
->> Thats very long (but at least thread is preemptable)
->>
->> In the past (before patches), only one thread was allowed to run in =
-kernel while scanning
->> udp port table (we had only one global lock udp_hash_lock protecting=
- the whole udp table).
->> This thread was faster because it was not slowed down by other threa=
-ds.
->> (But the rwlock we used was responsible for starvations of writers i=
-f many UDP frames
->> were received)
-> =20
-> I believe problem is in the port searching algorithm, when we
-> have exponentially grow of the number of ports to check after random
-> selection of the first one. This allows to have small chains but setu=
-p
-> time will be very long. Not sure if bind chais should be that small
-> actually. In the 64k patch, which allows to have more than 64k bound
-> sockets per system I store rough amount of bound sockets and when it
-> becomes larger than sysctl limit I just randomly select a bundle.
-> This works for the bind(0) for the sockets with reuse option though.
-> I posted a picture of the bind(0) time for the .28 kernel iirc.
->=20
-> Or is this a different issue?
->=20
+2.6.28-stable review patch.  If anyone has any objections, please let us know.
 
-Well, this is not exactly the same issue, udp bind() code is slightly d=
-ifferent
-than tcp. (Probably not so many machines use lot of udp sockets)
+------------------
 
-Since UDP hash table is really small (128 slots), we can try to allocat=
-e UDP ports
-chains per chain, instead of port per port, to reduce number of chain l=
-ookups.
-In tcp, most machines have 64k slots for bind table so this wont help
+From: Patrick McHardy <kaber@trash.net>
+
+Upstream commit d61ba9f:
+
+Commit 8cc784ee (netfilter: change return types of match functions
+for ebtables extensions) broke ebtables matches by inverting the
+sense of match/nomatch.
+
+Reported-by: Matt Cross <matthltc@us.ibm.com>
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ net/bridge/netfilter/ebtables.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -80,7 +80,7 @@ static inline int ebt_do_match (struct e
+ {
+ 	par->match     = m->u.match;
+ 	par->matchinfo = m->data;
+-	return m->u.match->match(skb, par);
++	return m->u.match->match(skb, par) ? EBT_MATCH : EBT_NOMATCH;
+ }
+ 
+ static inline int ebt_dev_check(char *entry, const struct net_device *device)
 
