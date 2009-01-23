@@ -1,211 +1,65 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 14/21] [next] qlge: Clean up MPI firware event handler.
-Date: Fri, 23 Jan 2009 07:16:32 -0800
-Message-ID: <1232723799-8620-14-git-send-email-ron.mercer@qlogic.com>
-References: <20090123151513.GA8526@linux-ox1b.qlogic.org>
-Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
-	ron.mercer@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:48587 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754401AbZAWPR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 10:17:59 -0500
-In-Reply-To: <20090123151513.GA8526@linux-ox1b.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Fri, 23 Jan 2009 17:31:31 +0200
+Message-ID: <1232724691.6094.86.camel@penberg-laptop>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
+	 <200901161503.13730.nickpiggin@yahoo.com.au>
+	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
+	 <200901161746.25205.nickpiggin@yahoo.com.au>
+	 <20090116065546.GJ31013@parisc-linux.org>
+	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
+	 <1232428583.11429.83.camel@ymzhang>
+	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
+	 <1232613395.11429.122.camel@ymzhang>
+	 <1232615707.14549.6.camel@penberg-laptop>
+	 <1232616517.11429.129.camel@ymzhang>
+	 <1232617672.14549.25.camel@penberg-laptop>
+	 <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>
+	 <1232697998.6094.17.camel@penberg-laptop>
+	 <1232699401.11429.163.camel@ymzhang>
+	 <1232703989.6094.29.camel@penberg-laptop>
+	 <alpine.DEB.1.10.0901231020030.21692@qirst.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0901231020030.21692@qirst.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 2009-01-23 at 10:22 -0500, Christoph Lameter wrote:
+> On Fri, 23 Jan 2009, Pekka Enberg wrote:
+> 
+> > Looking at __slab_free(), unless page->inuse is constantly zero and we
+> > discard the slab, it really is just cache effects (10% sounds like a
+> > lot, though!). AFAICT, the only way to optimize that is with Christoph's
+> > unfinished pointer freelists patches or with a remote free list like in
+> > SLQB.
+> 
+> No there is another way. Increase the allocator order to 3 for the
+> kmalloc-8192 slab then multiple 8k blocks can be allocated from one of the
+> larger chunks of data gotten from the page allocator. That will allow slub
+> to do fast allocs.
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge.h      |    1 +
- drivers/net/qlge/qlge_main.c |    2 +-
- drivers/net/qlge/qlge_mpi.c  |  101 ++++++++++++++++++++++++++----------------
- 3 files changed, 64 insertions(+), 40 deletions(-)
+I wonder why that doesn't happen already, actually. The slub_max_order
+know is capped to PAGE_ALLOC_COSTLY_ORDER ("3") by default and obviously
+order 3 should be as good fit as order 2 so 'fraction' can't be too high
+either. Hmm.
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 02c7812..0779f07 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -1512,6 +1512,7 @@ void ql_queue_asic_error(struct ql_adapter *qdev);
- u32 ql_enable_completion_interrupt(struct ql_adapter *qdev, u32 intr);
- void ql_set_ethtool_ops(struct net_device *ndev);
- int ql_read_xgmac_reg64(struct ql_adapter *qdev, u32 reg, u64 *data);
-+int ql_cam_route_initialize(struct ql_adapter *qdev);
- 
- #if 1
- #define QL_ALL_DUMP
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 023dfe9..ec01dbf 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -2937,7 +2937,7 @@ exit:
- 	return status;
- }
- 
--static int ql_cam_route_initialize(struct ql_adapter *qdev)
-+int ql_cam_route_initialize(struct ql_adapter *qdev)
- {
- 	int status;
- 
-diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
-index eda17b0..867baca 100644
---- a/drivers/net/qlge/qlge_mpi.c
-+++ b/drivers/net/qlge/qlge_mpi.c
-@@ -75,7 +75,7 @@ static void ql_link_up(struct ql_adapter *qdev, struct mbox_params *mbcp)
- 	mbcp->out_count = 2;
- 
- 	if (ql_get_mb_sts(qdev, mbcp))
--		goto exit;
-+		return;
- 
- 	qdev->link_status = mbcp->mbox_out[1];
- 	QPRINTK(qdev, DRV, ERR, "Link Up.\n");
-@@ -85,9 +85,6 @@ static void ql_link_up(struct ql_adapter *qdev, struct mbox_params *mbcp)
- 		netif_carrier_on(qdev->ndev);
- 		netif_wake_queue(qdev->ndev);
- 	}
--exit:
--	/* Clear the MPI firmware status. */
--	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
- }
- 
- static void ql_link_down(struct ql_adapter *qdev, struct mbox_params *mbcp)
-@@ -96,7 +93,7 @@ static void ql_link_down(struct ql_adapter *qdev, struct mbox_params *mbcp)
- 
- 	if (ql_get_mb_sts(qdev, mbcp)) {
- 		QPRINTK(qdev, DRV, ERR, "Firmware did not initialize!\n");
--		goto exit;
-+		return;
- 	}
- 
- 	if (netif_carrier_ok(qdev->ndev)) {
-@@ -106,27 +103,77 @@ static void ql_link_down(struct ql_adapter *qdev, struct mbox_params *mbcp)
- 	}
- 	QPRINTK(qdev, DRV, ERR, "Link Down.\n");
- 	QPRINTK(qdev, DRV, ERR, "Link Status = 0x%.08x.\n", mbcp->mbox_out[1]);
--exit:
--	/* Clear the MPI firmware status. */
--	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
- }
- 
- static void ql_init_fw_done(struct ql_adapter *qdev, struct mbox_params *mbcp)
- {
-+	int status;
-+
- 	mbcp->out_count = 2;
- 
- 	if (ql_get_mb_sts(qdev, mbcp)) {
- 		QPRINTK(qdev, DRV, ERR, "Firmware did not initialize!\n");
--		goto exit;
-+		return;
-+	}
-+	status = ql_cam_route_initialize(qdev);
-+	if (status) {
-+		QPRINTK(qdev, IFUP, ERR,
-+			"Failed to init CAM/Routing tables.\n");
-+		return;
- 	}
- 	QPRINTK(qdev, DRV, ERR, "Firmware initialized!\n");
- 	QPRINTK(qdev, DRV, ERR, "Firmware status = 0x%.08x.\n",
- 		mbcp->mbox_out[0]);
- 	QPRINTK(qdev, DRV, ERR, "Firmware Revision  = 0x%.08x.\n",
- 		mbcp->mbox_out[1]);
--exit:
--	/* Clear the MPI firmware status. */
-+}
-+
-+/* Process an async event and clear it unless it's an
-+ * error condition.
-+ *  This can get called iteratively from the mpi_work thread
-+ *  when events arrive via an interrupt.
-+ *  It also gets called when a mailbox command is polling for
-+ *  it's completion. */
-+static int ql_mpi_handler(struct ql_adapter *qdev, struct mbox_params *mbcp)
-+{
-+	int status;
-+
-+	/* Just get mailbox zero for now. */
-+	mbcp->out_count = 1;
-+	status = ql_get_mb_sts(qdev, mbcp);
-+	if (status) {
-+		QPRINTK(qdev, DRV, ERR,
-+			"Could not read MPI, resetting ASIC!\n");
-+		ql_queue_asic_error(qdev);
-+		goto end;
-+	}
-+
-+	switch (mbcp->mbox_out[0]) {
-+
-+	case AEN_LINK_UP:
-+		ql_link_up(qdev, mbcp);
-+		break;
-+
-+	case AEN_LINK_DOWN:
-+		ql_link_down(qdev, mbcp);
-+		break;
-+
-+	case AEN_FW_INIT_DONE:
-+		ql_init_fw_done(qdev, mbcp);
-+		break;
-+
-+	case AEN_FW_INIT_FAIL:
-+	case AEN_SYS_ERR:
-+	case MB_CMD_STS_ERR:
-+	default:
-+		ql_queue_fw_error(qdev);
-+		QPRINTK(qdev, DRV, ERR,
-+			"Unsupported AE %.08x.\n", mbcp->mbox_out[0]);
-+		/* Clear the MPI firmware status. */
-+	}
-+end:
- 	ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
-+	return status;
- }
- 
- void ql_mpi_work(struct work_struct *work)
-@@ -135,37 +182,13 @@ void ql_mpi_work(struct work_struct *work)
- 	    container_of(work, struct ql_adapter, mpi_work.work);
- 	struct mbox_params mbc;
- 	struct mbox_params *mbcp = &mbc;
--	mbcp->out_count = 1;
- 
- 	while (ql_read32(qdev, STS) & STS_PI) {
--		if (ql_get_mb_sts(qdev, mbcp)) {
--			QPRINTK(qdev, DRV, ERR,
--				"Could not read MPI, resetting ASIC!\n");
--			ql_queue_asic_error(qdev);
--		}
--
--		switch (mbcp->mbox_out[0]) {
--		case AEN_LINK_UP:
--			ql_link_up(qdev, mbcp);
--			break;
--		case AEN_LINK_DOWN:
--			ql_link_down(qdev, mbcp);
--			break;
--		case AEN_FW_INIT_DONE:
--			ql_init_fw_done(qdev, mbcp);
--			break;
--		case MB_CMD_STS_GOOD:
--			break;
--		case AEN_FW_INIT_FAIL:
--		case AEN_SYS_ERR:
--		case MB_CMD_STS_ERR:
--			ql_queue_fw_error(qdev);
--		default:
--			/* Clear the MPI firmware status. */
--			ql_write32(qdev, CSR, CSR_CMD_CLR_R2PCI_INT);
--			break;
--		}
-+		memset(mbcp, 0, sizeof(struct mbox_params));
-+		mbcp->out_count = 1;
-+		ql_mpi_handler(qdev, mbcp);
- 	}
-+
- 	ql_enable_completion_interrupt(qdev, 0);
- }
- 
--- 
-1.6.0.2
+		Pekka
 
