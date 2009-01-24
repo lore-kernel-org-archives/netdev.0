@@ -1,94 +1,66 @@
-From: Rolf Eike Beer <eike-kernel-F+mm6HnICJmzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: 2.6.29-rc2-git1: Reported regressions 2.6.27 -> 2.6.28
-Date: Sat, 24 Jan 2009 14:25:53 +0100
-Message-ID: <200901241426.01027.eike-kernel@sf-tec.de>
-References: <KTnguC9mFUC.A.VNB.TJRdJB@chimera>
+From: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Subject: Re: why usr/include/linux/if_frad.h is required
+Date: Sat, 24 Jan 2009 18:55:33 +0530
+Message-ID: <1232803533.17900.4.camel@localhost.localdomain>
+References: <20090121053310.GA26395@uranus.ravnborg.org>
+	 <20090120.221504.264090722.davem@davemloft.net>
+	 <20090121173838.3390e5c9@s6510>
+	 <20090121.153712.84781438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3317630.ngOX1hdzps";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <KTnguC9mFUC.A.VNB.TJRdJB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, sam@ravnborg.org, jaswinderlinux@gmail.com,
+	khc@pm.waw.pl, arnd@arndb.de, mingo@elte.hu,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:50832 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755246AbZAXN0O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Jan 2009 08:26:14 -0500
+In-Reply-To: <20090121.153712.84781438.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3317630.ngOX1hdzps
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 2009-01-21 at 15:37 -0800, David Miller wrote:
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 21 Jan 2009 17:38:38 +1100
+>=20
+> > There are no references if_frad.h in the version of Sangoma (out of
+> > tree) code that we use in Vyatta.
+>=20
+> frad-0.20:src/dlcicfg.c
+>=20
+> It includes linux/if_frad.h and also performs the DLCI_SET_CONF
+> ioctl.
+>=20
+> Enough evidence to show we need to keep this header in the
+> export set.  Let's just kill the bogus CONFIG_* ifdef
+> tests in there.
 
-Rafael J. Wysocki wrote:
-> This message contains a list of some regressions introduced between 2.6.27
-> and 2.6.28, for which there are no fixes in the mainline I know of.  If a=
-ny
-> of them have been fixed already, please let me know.
->
-> If you know of any other unresolved regressions introduced between 2.6.27
-> and 2.6.28, please let me know either and I'll add them to the list.
-> Also, please let me know if any of the entries below are invalid.
->
-> Each entry from the list will be sent additionally in an automatic reply =
-to
-> this message with CCs to the people involved in reporting and handling the
-> issue.
->
->
-> Listed regressions statistics:
->
->   Date          Total  Pending  Unresolved
->   ----------------------------------------
->   2009-01-20      144       30          27
->   2009-01-11      139       33          30
->   2008-12-21      120       19          17
->   2008-12-13      111       14          13
->   2008-12-07      106       20          17
->   2008-12-04      106       29          21
->   2008-11-22       93       25          15
->   2008-11-16       89       32          18
->   2008-11-09       73       40          27
->   2008-11-02       55       41          29
->   2008-10-25       26       25          20
->
->
-> Unresolved regressions
-> ----------------------
->
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D12500
-> Subject		: r8169: NETDEV WATCHDOG: eth0 (r8169): transmit timed out
-> Submitter	: Justin Piszcz <jpiszcz-BP4nVm5VUdNhbmWW9KSYcQ@public.gmane.org>
-> Date		: 2009-01-13 21:19 (7 days old)
-> References	: http://marc.info/?l=3Dlinux-kernel&m=3D123188160811322&w=3D4
-> Handled-By	: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+After killing CONFIG_DLCI and CONFIG_DLCI_MODULE, it is also killing th=
+e
+kernel:
 
-This one, as well as 12411, is likely just a dupe of 10109. r8169 has this=
-=20
-problem for more than a year.
+  CC      net/socket.o
+In file included from net/socket.c:75:
+include/linux/if_frad.h:170: error: =E2=80=98CONFIG_DLCI_MAX=E2=80=99 u=
+ndeclared here (not in a function)
+make[1]: *** [net/socket.o] Error 1
+make: *** [net] Error 2
 
-Greetings,
+because these things still depends on CONFIG_DLCI:
 
-Eike
+struct frad_local
+{
+   struct net_device_stats stats;
 
---nextPart3317630.ngOX1hdzps
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+   /* devices which this FRAD is slaved to */
+   struct net_device     *master[CONFIG_DLCI_MAX];
+   short             dlci[CONFIG_DLCI_MAX];
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
+Are you still sure we do not need CONFIG_DLCI.
 
-iEYEABECAAYFAkl7FugACgkQXKSJPmm5/E4hjACfbDek8Ge/oSd+rHzQIq3S6FYD
-8HMAn0r8RiUW2aow6FnzyFw11K10ZX+0
-=t6xd
------END PGP SIGNATURE-----
+--
+JSR
 
---nextPart3317630.ngOX1hdzps--
