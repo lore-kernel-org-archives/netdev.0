@@ -1,71 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000e: workaround hw errata
-Date: Fri, 23 Jan 2009 17:35:31 -0800
-Message-ID: <20090124013527.2832.92374.stgit@lost.foo-projects.org>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Sat, 24 Jan 2009 10:55:28 +0800
+Message-ID: <1232765728.11429.193.camel@ymzhang>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
+	 <200901161503.13730.nickpiggin@yahoo.com.au>
+	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
+	 <200901161746.25205.nickpiggin@yahoo.com.au>
+	 <20090116065546.GJ31013@parisc-linux.org>
+	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
+	 <1232428583.11429.83.camel@ymzhang>
+	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
+	 <1232613395.11429.122.camel@ymzhang>
+	 <1232615707.14549.6.camel@penberg-laptop>
+	 <1232616517.11429.129.camel@ymzhang>
+	 <1232617672.14549.25.camel@penberg-laptop>
+	 <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>
+	 <1232697998.6094.17.camel@penberg-laptop>
+	 <1232699401.11429.163.camel@ymzhang>
+	 <1232703989.6094.29.camel@penberg-laptop>
+	 <alpine.DEB.1.10.0901231020030.21692@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:41807
-	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753527AbZAXBfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 20:35:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0901231020030.21692@qirst.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Fri, 2009-01-23 at 10:22 -0500, Christoph Lameter wrote:
+> On Fri, 23 Jan 2009, Pekka Enberg wrote:
+> 
+> > Looking at __slab_free(), unless page->inuse is constantly zero and we
+> > discard the slab, it really is just cache effects (10% sounds like a
+> > lot, though!). AFAICT, the only way to optimize that is with Christoph's
+> > unfinished pointer freelists patches or with a remote free list like in
+> > SLQB.
+> 
+> No there is another way. Increase the allocator order to 3 for the
+> kmalloc-8192 slab then multiple 8k blocks can be allocated from one of the
+> larger chunks of data gotten from the page allocator. That will allow slub
+> to do fast allocs.
+After I change kmalloc-8192/order to 3, the result(pinned netperf UDP-U-4k)
+difference between SLUB and SLQB becomes 1% which can be considered as fluctuation.
 
-There is a hardware errata in some revisions of the 82574 that needs
-to be worked around in the driver by setting a register bit at init.
+But when trying to increased it to 4, I got:
+[root@lkp-st02-x8664 slab]# echo "3">kmalloc-8192/order
+[root@lkp-st02-x8664 slab]# echo "4">kmalloc-8192/order
+-bash: echo: write error: Invalid argument
 
-If this bit is not set A0 versions of the 82574 can generate
-tx hangs.
+Comparing with SLQB, it seems SLUB needs too many investigation/manual finer-tuning
+against specific benchmarks. One hard is to tune page order number. Although SLQB also
+has many tuning options, I almost doesn't tune it manually, just run benchmark and
+collect results to compare. Does that mean the scalability of SLQB is better?
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/e1000e/82571.c |    6 +++++-
- drivers/net/e1000e/hw.h    |    1 +
- 2 files changed, 6 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index cf43ee7..0890162 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -981,11 +981,15 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 		ew32(PBA_ECC, reg);
- 	}
- 
--	/* PCI-Ex Control Register */
-+	/* PCI-Ex Control Registers */
- 	if (hw->mac.type == e1000_82574) {
- 		reg = er32(GCR);
- 		reg |= (1 << 22);
- 		ew32(GCR, reg);
-+
-+		reg = er32(GCR2);
-+		reg |= 1;
-+		ew32(GCR2, reg);
- 	}
- 
- 	return;
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index f25e961..2d4ce04 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -206,6 +206,7 @@ enum e1e_registers {
- 	E1000_MANC2H    = 0x05860, /* Management Control To Host - RW */
- 	E1000_SW_FW_SYNC = 0x05B5C, /* Software-Firmware Synchronization - RW */
- 	E1000_GCR	= 0x05B00, /* PCI-Ex Control */
-+	E1000_GCR2      = 0x05B64, /* PCI-Ex Control #2 */
- 	E1000_FACTPS    = 0x05B30, /* Function Active and Power State to MNG */
- 	E1000_SWSM      = 0x05B50, /* SW Semaphore */
- 	E1000_FWSM      = 0x05B54, /* FW Semaphore */
 
