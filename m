@@ -1,90 +1,76 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: IP address: property of host or interface?
-Date: Sat, 24 Jan 2009 16:57:50 +0300
-Message-ID: <497B1E5E.9050309@msgid.tls.msk.ru>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: why usr/include/linux/if_frad.h is required
+Date: Sat, 24 Jan 2009 16:32:55 +0100
+Message-ID: <m3ljt0pvmg.fsf@intrepid.localdomain>
+References: <20090121053310.GA26395@uranus.ravnborg.org>
+	<20090120.221504.264090722.davem@davemloft.net>
+	<20090121173838.3390e5c9@s6510>
+	<20090121.153712.84781438.davem@davemloft.net>
+	<1232803533.17900.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	sam@ravnborg.org, jaswinderlinux@gmail.com, arnd@arndb.de,
+	mingo@elte.hu, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jaswinder Singh Rajput <jaswinder@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([81.13.33.159]:47341 "EHLO isrv.corpit.ru"
+Received: from khc.piap.pl ([195.187.100.11]:45287 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751445AbZAXODl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Jan 2009 09:03:41 -0500
+	id S1750859AbZAXPc7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2009 10:32:59 -0500
+In-Reply-To: <1232803533.17900.4.camel@localhost.localdomain> (Jaswinder Singh Rajput's message of "Sat\, 24 Jan 2009 18\:55\:33 +0530")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Jaswinder Singh Rajput <jaswinder@kernel.org> writes:
 
-Long time ago there was an ifconfig command and
-interface "aliases".  Now, thanks to new way of
-doing things and to famous `ip' utility, we learned
-that there's no such thing as INTERFACE alias and
-an IP address belongs to whole interface, not to
-some "alias" of it.  So far so good.
+> After killing CONFIG_DLCI and CONFIG_DLCI_MODULE, it is also killing =
+the
+> kernel:
+>
+>   CC      net/socket.o
+> In file included from net/socket.c:75:
+> include/linux/if_frad.h:170: error: =E2=80=98CONFIG_DLCI_MAX=E2=80=99=
+ undeclared here (not in a function)
 
-But now I'm asking if an IP really belongs to any
-particular interface, instead of the whole HOST
-in question.
+Perhaps this would do (untested).
+Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
 
-For example, suppose we have two interfaces, eth0
-and eth1, and two addresses/nets, A0/24 and A1/24,
-configured.
-
-Let's ping address A1 from segment 0: the host in
-question will answer those pings, provided we've
-routing on our "external" host set up to point to
-A0.  The same is true when pinging A0 from segment 1.
-So, it makes no difference which IP address to access,
-a host will happily answer to any of them assigned to
-it, *except* of 127/8 (which is a different story).
-Note that this works regardless of ip_forward, because
-it's not forwarding.
-
-Now, I'm setting up the host interfaces somewhat
-differently:
-
- ip addr add A0/32 dev lo
- ip route add A0/24 dev eth0 src A0
- ip addr add A1/32 dev lo
- ip route add A1/24 dev eth1 src A1
-
-I.e., I'm assigning both addresses to loopback interface
-and adding ROUTES to corresponding networks/interfaces.
-And guess what?  This thing will work exactly the same
-way as traditional setup.
-
-In other words, I can assign all addresses that belongs
-to the host to it's loopback interface, and only add
-routes (which gets added automatically behind the scenes
-when I configure ADDRESS with mask != 32 on a broadcast
-iface) to corresponding "remote" (not belonging to the
-host) addresses.
-
-There's even more: think of peer-to-peer (not broadcast)
-interfaces, such as tun or ppp.  Traditionally we used
-to have "local IP" and "remote IP" or "peer IP", and
-used to set up routes to that remote IP.  For example,
-
-  ip addr add A peer R dev ppp0
-  ip route add RS/M via R
-
-but the same works without assigning any address at all
-to ppp0 interface!
-
-  ip route add R dev ppp0
-  ip route add RS/M dev ppp0
-
-(if A is not listed locally, it's possible to add it to
-lo interface again).
-
-So.. am I right that an IP address is a HOST property,
-not an INTERFACE property, and that the traditional
-way is just more convenient to set up?
-And that all the tools that complains that "there's
-no IP address assigned to this interface" (tcpdump)
-are wrong? :)
-
-Thanks!
-
-/mjt
+diff --git a/include/linux/if_frad.h b/include/linux/if_frad.h
+index 5c34240..60e16a5 100644
+--- a/include/linux/if_frad.h
++++ b/include/linux/if_frad.h
+@@ -26,8 +26,6 @@
+=20
+ #include <linux/if.h>
+=20
+-#if defined(CONFIG_DLCI) || defined(CONFIG_DLCI_MODULE)
+-
+ /* Structures and constants associated with the DLCI device driver */
+=20
+ struct dlci_add
+@@ -127,6 +125,8 @@ struct frad_conf
+=20
+ #ifdef __KERNEL__
+=20
++#if defined(CONFIG_DLCI) || defined(CONFIG_DLCI_MODULE)
++
+ /* these are the fields of an RFC 1490 header */
+ struct frhdr
+ {
+@@ -190,12 +190,10 @@ struct frad_local
+    int               buffer;		/* current buffer for S508 firmware */
+ };
+=20
+-#endif /* __KERNEL__ */
+-
+ #endif /* CONFIG_DLCI || CONFIG_DLCI_MODULE */
+=20
+-#ifdef __KERNEL__
+ extern void dlci_ioctl_set(int (*hook)(unsigned int, void __user *));
+-#endif
++
++#endif /* __KERNEL__ */
+=20
+ #endif
