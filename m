@@ -1,163 +1,145 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: care and feeding of netperf (Re: Mainline kernel OLTP
-	performance update)
-Date: Sat, 24 Jan 2009 11:03:00 +0800
-Message-ID: <1232766180.11429.202.camel@ymzhang>
-References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
-	 <1232617672.14549.25.camel@penberg-laptop>
-	 <1232679773.11429.155.camel@ymzhang>
-	 <200901231933.10101.nickpiggin@yahoo.com.au>
-	 <1232701348.11429.170.camel@ymzhang>  <497A0F27.3030801@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	Christoph Lameter <cl@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
-	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
-	arjan@linux.intel.com, suresh.b.siddha@intel.com,
-	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
-	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
-	chris.mason@oracle.com, srostedt@redhat.com,
-	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: Rick Jones <rick.jones2@hp.com>
+From: "Stanley.Miao" <stanley.miao@windriver.com>
+Subject: [PATCHv2 7/8] arm: convert omap ldp platform to use smsc911x
+Date: Sat, 24 Jan 2009 11:38:37 +0800
+Message-ID: <1232768317-20483-1-git-send-email-stanley.miao@windriver.com>
+References: <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
+Cc: linux@arm.linux.org.uk, davem@davemloft.net,
+	netdev@vger.kernel.org, steve.glendinning@smsc.com
+To: linux-arm-kernel@lists.arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:39004 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752108AbZAXDDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 22:03:18 -0500
-In-Reply-To: <497A0F27.3030801@hp.com>
+Received: from mail.windriver.com ([147.11.1.11]:44449 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754216AbZAXDaB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jan 2009 22:30:01 -0500
+In-Reply-To: <1232507170-18401-1-git-send-email-stanley.miao@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-01-23 at 10:40 -0800, Rick Jones wrote:
-> > 3) ./start_netperf_udp_v4.sh 8 #Assume your machine has 8 logical cpus.
-> 
-> Some comments on the script:
-Thanks. I wanted to run the testing to get result quickly as long as
-the result has no big fluctuation.
+from 2.6.29, smc911x isn't maintained anymore. A new driver, smsc911x,
+will replace it. so convert omap_ldp to use smsc911x driver.
 
-> 
-> > #!/bin/sh
-> > 
-> > PROG_DIR=/home/ymzhang/test/netperf/src
-> > date=`date +%H%M%N`
-> > #PROG_DIR=/root/netperf/netperf/src
-> > client_num=$1
-> > pin_cpu=$2
-> > 
-> > start_port_server=12384
-> > start_port_client=15888
-> > 
-> > killall netserver
-> > ${PROG_DIR}/netserver
-> > sleep 2
-> 
-> Any particular reason for killing-off the netserver daemon?
-I'm not sure if prior running might leave any impact on later running, so
-just kill netserver.
+Signed-off-by: Stanley.Miao <stanley.miao@windriver.com>
+---
+ arch/arm/mach-omap2/board-ldp.c             |   47 +++++++++++++++------------
+ arch/arm/plat-omap/include/mach/board-ldp.h |    6 +--
+ 2 files changed, 28 insertions(+), 25 deletions(-)
 
-> 
-> > if [ ! -d result ]; then
-> >         mkdir result
-> > fi
-> > 
-> > all_result_files=""
-> > for i in `seq 1 ${client_num}`; do
-> >         if [ "${pin_cpu}" == "pin" ]; then
-> >                 pin_param="-T ${i} ${i}"
-> 
-> The -T option takes arguments of the form:
-> 
-> N   - bind both netperf and netserver to core N
-> N,  - bind only netperf to core N, float netserver
->   ,M - float netperf, bind only netserver to core M
-> N,M - bind netperf to core N and netserver to core M
-> 
-> Without a comma between N and M knuth only knows what the command line parser 
-> will do :)
-> 
-> >         fi
-> >         result_file=result/netperf_${start_port_client}.${date}
-> >         #./netperf -t UDP_STREAM -l 60 -H 127.0.0.1 -- -P 15895 12391 -s 32768 -S 32768 -m 4096
-> >         #./netperf -t UDP_STREAM -l 60 -H 127.0.0.1 -i 50 3 -I 99 5 -- -P 12384 12888 -s 32768 -S 32768 -m 4096
-> >         #${PROG_DIR}/netperf -p ${port_num} -t TCP_RR -l 60 -H 127.0.0.1 ${pin_param} -- -r 1,1 >${result_file} &
-> >         ${PROG_DIR}/netperf -t UDP_STREAM -l 60 -H 127.0.0.1 ${pin_param} -- -P ${start_port_client} ${start_port_server} -s 32768 -S 32768 -m 4096 >${result_file}  &
-> 
-> Same thing here for the -P option - there needs to be a comma between the two 
-> port numbers otherwise, the best case is that the second port number is ignored. 
->   Worst case is that netperf starts doing knuth only knows what.
-Thanks.
-
-> 
-> 
-> To get quick profiles, that form of aggregate netperf is OK - just the one 
-> iteration with background processes using a moderatly long run time.  However, 
-> for result reporting, it is best to (ab)use the confidence intervals 
-> functionality to try to avoid skew errors.
-Yes. My formal testing uses -i 50. I just wanted a quick testing. If I need
-finer-tuning or investigation, I would turn on more options.
-
->   I tend to add-in a global -i 30 
-> option to get each netperf to repeat its measurments 30 times.  That way one is 
-> reasonably confident that skew issues are minimized.
-> 
-> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance
-> 
-> And I would probably add the -c and -C options to have netperf report service 
-> demands.
-Yes. That's good. I'm used to start vmstat or mpstat to monitor cpu utilization
-in real time.
-
-> 
-> 
-> >         sub_pid="${sub_pid} `echo $!`"
-> >         port_num=$((${port_num}+1))
-> >         all_result_files="${all_result_files} ${result_file}"
-> >         start_port_server=$((${start_port_server}+1))
-> >         start_port_client=$((${start_port_client}+1))
-> > done;
-> > 
-> > wait ${sub_pid}
-> > killall netserver
-> > 
-> > result="0"
-> > for i in `echo ${all_result_files}`; do
-> >         sub_result=`awk '/Throughput/ {getline; getline; getline; print " "$6}' ${i}`
-> >         result=`echo "${result}+${sub_result}"|bc`
-> > done;
-> 
-> The documented-only-in-source :( "omni" tests in top-of-trunk netperf:
-> 
-> http://www.netperf.org/svn/netperf2/trunk
-> 
-> ./configure --enable-omni
-> 
-> allow one to specify which result values one wants, in which order, either as 
-> more or less traditional netperf output (test-specific -O), CSV (test-specific 
-> -o) or keyval (test-specific -k).  All three take an optional filename as an 
-> argument with the file containing a list of desired output values.  You can give 
-> a "filename" of '?' to get the list of output values known to that version of 
-> netperf.
-> 
-> Might help simplify parsing and whatnot.
-Yes, it does.
-
-> 
-> happy benchmarking,
-> 
-> rick jones
-Thanks again. I learned a lot.
-
-> 
-> > 
-> > echo $result
-> 
-> > 
+diff --git a/arch/arm/mach-omap2/board-ldp.c b/arch/arm/mach-omap2/board-ldp.c
+index aa69727..67c123a 100644
+--- a/arch/arm/mach-omap2/board-ldp.c
++++ b/arch/arm/mach-omap2/board-ldp.c
+@@ -22,6 +22,7 @@
+ #include <linux/spi/spi.h>
+ #include <linux/spi/ads7846.h>
+ #include <linux/i2c/twl4030.h>
++#include <linux/smsc911x.h>
+ 
+ #include <mach/hardware.h>
+ #include <asm/mach-types.h>
+@@ -41,55 +42,59 @@
+ 
+ #include "mmc-twl4030.h"
+ 
+-#define SDP3430_SMC91X_CS	3
+-
+-static struct resource ldp_smc911x_resources[] = {
++static struct resource ldp_smsc911x_resources[] = {
+ 	[0] = {
+-		.start	= OMAP34XX_ETHR_START,
+-		.end	= OMAP34XX_ETHR_START + SZ_4K,
+ 		.flags	= IORESOURCE_MEM,
+ 	},
+ 	[1] = {
+-		.start	= 0,
+-		.end	= 0,
+ 		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
+ 	},
+ };
+ 
+-static struct platform_device ldp_smc911x_device = {
+-	.name		= "smc911x",
++static struct smsc911x_platform_config ldp_smsc911x_config = {
++	.irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
++	.irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
++	.flags          = SMSC911X_USE_32BIT,
++	.phy_interface  = PHY_INTERFACE_MODE_MII,
++};
++
++static struct platform_device ldp_smsc911x_device = {
++	.name		= "smsc911x",
+ 	.id		= -1,
+-	.num_resources	= ARRAY_SIZE(ldp_smc911x_resources),
+-	.resource	= ldp_smc911x_resources,
++	.num_resources	= ARRAY_SIZE(ldp_smsc911x_resources),
++	.resource	= ldp_smsc911x_resources,
++	.dev            = {
++		.platform_data = &ldp_smsc911x_config,
++	},
+ };
+ 
+ static struct platform_device *ldp_devices[] __initdata = {
+-	&ldp_smc911x_device,
++	&ldp_smsc911x_device,
+ };
+ 
+-static inline void __init ldp_init_smc911x(void)
++static inline void __init ldp_init_smsc911x(void)
+ {
+ 	int eth_cs;
+ 	unsigned long cs_mem_base;
+ 	int eth_gpio = 0;
+ 
+-	eth_cs = LDP_SMC911X_CS;
++	eth_cs = LDP_SMSC911X_CS;
+ 
+ 	if (gpmc_cs_request(eth_cs, SZ_16M, &cs_mem_base) < 0) {
+-		printk(KERN_ERR "Failed to request GPMC mem for smc911x\n");
++		printk(KERN_ERR "Failed to request GPMC mem for smsc911x\n");
+ 		return;
+ 	}
+ 
+-	ldp_smc911x_resources[0].start = cs_mem_base + 0x0;
+-	ldp_smc911x_resources[0].end   = cs_mem_base + 0xf;
++	ldp_smsc911x_resources[0].start = cs_mem_base + 0x0;
++	ldp_smsc911x_resources[0].end   = cs_mem_base + 0xff;
+ 	udelay(100);
+ 
+-	eth_gpio = LDP_SMC911X_GPIO;
++	eth_gpio = LDP_SMSC911X_GPIO;
+ 
+-	ldp_smc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
++	ldp_smsc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
+ 
+ 	if (omap_request_gpio(eth_gpio) < 0) {
+-		printk(KERN_ERR "Failed to request GPIO%d for smc911x IRQ\n",
++		printk(KERN_ERR "Failed to request GPIO%d for smsc911x IRQ\n",
+ 				eth_gpio);
+ 		return;
+ 	}
+@@ -101,7 +106,7 @@ static void __init omap_ldp_init_irq(void)
+ 	omap2_init_common_hw();
+ 	omap_init_irq();
+ 	omap_gpio_init();
+-	ldp_init_smc911x();
++	ldp_init_smsc911x();
+ }
+ 
+ static struct omap_uart_config ldp_uart_config __initdata = {
+diff --git a/arch/arm/plat-omap/include/mach/board-ldp.h b/arch/arm/plat-omap/include/mach/board-ldp.h
+index f233996..81ac2b8 100644
+--- a/arch/arm/plat-omap/include/mach/board-ldp.h
++++ b/arch/arm/plat-omap/include/mach/board-ldp.h
+@@ -32,8 +32,6 @@
+ extern void twl4030_bci_battery_init(void);
+ 
+ #define TWL4030_IRQNUM		INT_34XX_SYS_NIRQ
+-#define LDP_SMC911X_CS         1
+-#define LDP_SMC911X_GPIO       152
+-#define DEBUG_BASE             0x08000000
+-#define OMAP34XX_ETHR_START    DEBUG_BASE
++#define LDP_SMSC911X_CS		1
++#define LDP_SMSC911X_GPIO	152
+ #endif /* __ASM_ARCH_OMAP_LDP_H */
+-- 
+1.5.6.3
 
