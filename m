@@ -1,145 +1,252 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] tcp: splice as many packets as possible at once
-Date: Sat, 24 Jan 2009 22:23:15 +0100
-Message-ID: <20090124212315.GA20177@1wt.eu>
-References: <20090115234408.GA1693@1wt.eu> <20090115.155434.206643894.davem@davemloft.net> <20090119004206.GA10396@1wt.eu> <20090118.192815.41774176.davem@davemloft.net>
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Subject: [PATCH] net: fix setsockopt() locking errors
+Date: Sat, 24 Jan 2009 23:49:30 +0100
+Message-ID: <20090124224930.GA4456@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, jarkao2@gmail.com, zbr@ioremap.net,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Martin =?utf-8?Q?MOKREJ=C5=A0?= <mmokrejs@ribosome.natur.cuni.cz>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1745 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754420AbZAXVXt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Jan 2009 16:23:49 -0500
+Received: from mail-ew0-f10.google.com ([209.85.219.10]:61183 "EHLO
+	mail-ew0-f10.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751606AbZAXWyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2009 17:54:19 -0500
+Received: by ewy3 with SMTP id 3so272713ewy.13
+        for <netdev@vger.kernel.org>; Sat, 24 Jan 2009 14:54:17 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20090118.192815.41774176.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hi,
 
-On Sun, Jan 18, 2009 at 07:28:15PM -0800, David Miller wrote:
-> From: Willy Tarreau <w@1wt.eu>
-> Date: Mon, 19 Jan 2009 01:42:06 +0100
-> 
-> > Hi guys,
-> > 
-> > On Thu, Jan 15, 2009 at 03:54:34PM -0800, David Miller wrote:
-> > > From: Willy Tarreau <w@1wt.eu>
-> > > Date: Fri, 16 Jan 2009 00:44:08 +0100
-> > > 
-> > > > And BTW feel free to add my Tested-by if you want in case you merge
-> > > > this fix.
-> > > 
-> > > Done, thanks Willy.
-> > 
-> > Just for the record, I've now re-integrated those changes in a test kernel
-> > that I booted on my 10gig machines. I have updated my user-space code in
-> > haproxy to run a new series of tests. Eventhough there is a memcpy(), the
-> > results are EXCELLENT (on a C2D 2.66 GHz using Myricom's Myri10GE NICs) :
-> > 
-> >   - 4.8 Gbps at 100% CPU using MTU=1500 without LRO
-> >     (3.2 Gbps at 100% CPU without splice)
-> > 
-> >   - 9.2 Gbps at 50% CPU using MTU=1500 with LRO
-> > 
-> >   - 10 Gbps at 20% CPU using MTU=9000 without LRO (7 Gbps at 100% CPU without
-> >     splice)
-> > 
-> >   - 10 Gbps at 15% CPU using MTU=9000 with LRO
-> 
-> Thanks for the numbers.
-> 
-> We can almost certainly do a lot better, so if you have the time and
-> can get some oprofile dumps for these various cases that would be
-> useful to us.
+This survives basic testing here, but I don't know what that counts for
+when I couldn't reproduce the lockdep report in the first place. Please
+review.
 
-Well, I tried to get oprofile to work on those machines, but I'm surely
-missing something, as "opreport" always complains :
-  opreport error: No sample file found: try running opcontrol --dump
-  or specify a session containing sample files
 
-I've straced opcontrol --dump, opcontrol --stop, and I see nothing
-creating any file in the samples directory. I thought it would be
-opjitconv which would do it, but it's hard to debug, and I haven't
-used oprofile for a 2/3 years now. I followed exactly the instructions
-in the kernel doc, as well as a howto found on the net, but I remain
-out of luck. I just see a "complete_dump" file created with only two
-bytes. It's not easy to debug on those machines are they're diskless
-and PXE-booted from squashfs root images.
+Vegard
 
-However, upon Ingo's suggestion I tried his perfcounters while
-running a test at 5 Gbps with haproxy running alone on one core,
-and IRQs on the other one. No LRO was used and MTU was 1500.
 
-For instance, kerneltop tells how many CPU cycles are spent in each
-function :
+=46rom cc8bcd1c4fd219a31d6d191aefa4b4b57dadb9b0 Mon Sep 17 00:00:00 200=
+1
+=46rom: Vegard Nossum <vegard.nossum@gmail.com>
+Date: Sat, 24 Jan 2009 22:44:16 +0100
+Subject: [PATCH] net: fix setsockopt() locking errors
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3Dutf-8
+Content-Transfer-Encoding: 8bit
 
-# kerneltop -e 0 -d 1 -c 1000000 -C 1
+Martin MOKREJ=C5=A0 <mmokrejs@ribosome.natur.cuni.cz> reported:
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D
+> [ INFO: possible circular locking dependency detected ]
+> 2.6.29-rc2-git1 #1
+> -------------------------------------------------------
+> tcpdump/3734 is trying to acquire lock:
+>  (&mm->mmap_sem){----}, at: [<c1053294>] might_fault+0x30/0x6b
+>
+> but task is already holding lock:
+>  (sk_lock-AF_PACKET){--..}, at: [<c12798c8>] sock_setsockopt+0x12b/0x=
+4a4
+>
+> which lock already depends on the new lock.
 
-             events         RIP          kernel function
-  ______     ______   ________________   _______________
+It turns out that sock_setsockopt() is calling copy_from_user() while
+holding the lock on the socket. We fix it by splitting the ioctl code
+so that one switch handles the ioctls that have their own code for
+reading from userspace, and one switch handles the cases that require
+no additional reading.
 
-            1864.00 - 00000000f87be000 : init_module    [myri10ge]
-            1078.00 - 00000000784a6580 : tcp_read_sock
-             901.00 - 00000000784a7840 : tcp_sendpage
-             857.00 - 0000000078470be0 : __skb_splice_bits
-             617.00 - 00000000784b2260 : tcp_transmit_skb
-             604.00 - 000000007849fdf0 : __ip_local_out
-             581.00 - 0000000078470460 : __copy_skb_header
-             569.00 - 000000007850cac0 : _spin_lock     [myri10ge]
-             472.00 - 0000000078185150 : __slab_free
-             443.00 - 000000007850cc10 : _spin_lock_bh  [sky2]
-             434.00 - 00000000781852e0 : __slab_alloc
-             408.00 - 0000000078488620 : __qdisc_run
-             355.00 - 0000000078185b20 : kmem_cache_free
-             352.00 - 0000000078472950 : __alloc_skb
-             348.00 - 00000000784705f0 : __skb_clone
-             337.00 - 0000000078185870 : kmem_cache_alloc       [myri10ge]
-             302.00 - 0000000078472150 : skb_release_data
-             297.00 - 000000007847bcf0 : dev_queue_xmit
-             285.00 - 00000000784a08f0 : ip_queue_xmit
+Reported-by: Martin MOKREJ=C5=A0 <mmokrejs@ribosome.natur.cuni.cz>
+Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
+---
+ net/core/sock.c |  134 +++++++++++++++++++++++++++++++++++------------=
+-------
+ 1 files changed, 87 insertions(+), 47 deletions(-)
 
-You should ignore the lines init_module, _spin_lock, etc, in fact all
-lines indicating a module, as there's something wrong there, they
-always report the name of the last module loaded, and the name changes
-when the module is unloaded.
-
-I also tried dumping the number of cache misses per function :
-
-------------------------------------------------------------------------------
- KernelTop:    1146 irqs/sec  [NMI, 1000 cache-misses],  (all, cpu: 1)
-------------------------------------------------------------------------------
-
-             events         RIP          kernel function
-  ______     ______   ________________   _______________
-
-            7512.00 - 00000000784a6580 : tcp_read_sock
-            2716.00 - 0000000078470be0 : __skb_splice_bits
-            2516.00 - 00000000784a08f0 : ip_queue_xmit
-             986.00 - 00000000784a7840 : tcp_sendpage
-             587.00 - 00000000781a40c0 : sys_splice
-             462.00 - 00000000781856b0 : kfree  [myri10ge]
-             451.00 - 000000007849fdf0 : __ip_local_out
-             242.00 - 0000000078185b20 : kmem_cache_free
-             205.00 - 00000000784b1b90 : __tcp_select_window
-             153.00 - 000000007850cac0 : _spin_lock     [myri10ge]
-             142.00 - 000000007849f6a0 : ip_fragment
-             119.00 - 0000000078188950 : rw_verify_area
-             117.00 - 00000000784a99e0 : tcp_rcv_space_adjust
-             107.00 - 000000007850cc10 : _spin_lock_bh  [sky2]
-             104.00 - 00000000781852e0 : __slab_alloc
-
-There are other options to combine events but I don't understand
-the output when I enable it.
-
-I think that when properly used, these tools can report useful
-information.
-
-Regards,
-Willy
+diff --git a/net/core/sock.c b/net/core/sock.c
+index f3a0d08..6bd618d 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -424,6 +424,80 @@ out:
+ 	return ret;
+ }
+=20
++static int sock_linger(struct sock *sk, char __user *optval, int optle=
+n)
++{
++	struct linger ling;
++
++	if (optlen < sizeof(ling))
++		return -EINVAL; /* 1003.1g */
++	if (copy_from_user(&ling, optval, sizeof(ling)))
++		return -EFAULT;
++
++	lock_sock(sk);
++
++	if (!ling.l_onoff)
++		sock_reset_flag(sk, SOCK_LINGER);
++	else {
++#if (BITS_PER_LONG =3D=3D 32)
++		if ((unsigned int) ling.l_linger >=3D MAX_SCHEDULE_TIMEOUT/HZ)
++			sk->sk_lingertime =3D MAX_SCHEDULE_TIMEOUT;
++		else
++#endif
++			sk->sk_lingertime =3D (unsigned int) ling.l_linger * HZ;
++		sock_set_flag(sk, SOCK_LINGER);
++	}
++
++	release_sock(sk);
++
++	return 0;
++}
++
++static int sock_set_rcvtimeo(struct sock *sk, char __user *optval, int=
+ optlen)
++{
++	int ret;
++	long rcvtimeo;
++
++	ret =3D sock_set_timeout(&rcvtimeo, optval, optlen);
++
++	lock_sock(sk);
++	sk->sk_rcvtimeo =3D rcvtimeo;
++	release_sock(sk);
++
++	return ret;
++}
++
++static int sock_set_sndtimeo(struct sock *sk, char __user *optval, int=
+ optlen)
++{
++	int ret;
++	long sndtimeo;
++
++	ret =3D sock_set_timeout(&sndtimeo, optval, optlen);
++
++	lock_sock(sk);
++	sk->sk_sndtimeo =3D sndtimeo;
++	release_sock(sk);
++
++	return ret;
++}
++
++static int sock_attach_filter(struct sock *sk, char __user *optval, in=
+t optlen)
++{
++	int ret;
++	struct sock_fprog fprog;
++
++	if (optlen !=3D sizeof(struct sock_fprog))
++		return -EINVAL;
++
++	if (copy_from_user(&fprog, optval, sizeof(fprog)))
++		return -EFAULT;
++
++	lock_sock(sk);
++	ret =3D sk_attach_filter(&fprog, sk);
++	release_sock(sk);
++
++	return ret;
++}
++
+ static inline void sock_valbool_flag(struct sock *sk, int bit, int val=
+bool)
+ {
+ 	if (valbool)
+@@ -440,18 +514,27 @@ static inline void sock_valbool_flag(struct sock =
+*sk, int bit, int valbool)
+ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 		    char __user *optval, int optlen)
+ {
+-	struct sock *sk=3Dsock->sk;
++	struct sock *sk =3D sock->sk;
+ 	int val;
+ 	int valbool;
+-	struct linger ling;
+ 	int ret =3D 0;
+=20
+ 	/*
+-	 *	Options without arguments
++	 * Options with special locking requirements
+ 	 */
+=20
+-	if (optname =3D=3D SO_BINDTODEVICE)
++	switch (optname) {
++	case SO_BINDTODEVICE:
+ 		return sock_bindtodevice(sk, optval, optlen);
++	case SO_LINGER:
++		return sock_linger(sk, optval, optlen);
++	case SO_RCVTIMEO:
++		return sock_set_rcvtimeo(sk, optval, optlen);
++	case SO_SNDTIMEO:
++		return sock_set_sndtimeo(sk, optval, optlen);
++	case SO_ATTACH_FILTER:
++		return sock_attach_filter(sk, optval, optlen);
++	}
+=20
+ 	if (optlen < sizeof(int))
+ 		return -EINVAL;
+@@ -573,28 +656,6 @@ set_rcvbuf:
+ 			ret =3D -EPERM;
+ 		break;
+=20
+-	case SO_LINGER:
+-		if (optlen < sizeof(ling)) {
+-			ret =3D -EINVAL;	/* 1003.1g */
+-			break;
+-		}
+-		if (copy_from_user(&ling,optval,sizeof(ling))) {
+-			ret =3D -EFAULT;
+-			break;
+-		}
+-		if (!ling.l_onoff)
+-			sock_reset_flag(sk, SOCK_LINGER);
+-		else {
+-#if (BITS_PER_LONG =3D=3D 32)
+-			if ((unsigned int)ling.l_linger >=3D MAX_SCHEDULE_TIMEOUT/HZ)
+-				sk->sk_lingertime =3D MAX_SCHEDULE_TIMEOUT;
+-			else
+-#endif
+-				sk->sk_lingertime =3D (unsigned int)ling.l_linger * HZ;
+-			sock_set_flag(sk, SOCK_LINGER);
+-		}
+-		break;
+-
+ 	case SO_BSDCOMPAT:
+ 		sock_warn_obsolete_bsdism("setsockopt");
+ 		break;
+@@ -627,27 +688,6 @@ set_rcvbuf:
+ 		sk->sk_rcvlowat =3D val ? : 1;
+ 		break;
+=20
+-	case SO_RCVTIMEO:
+-		ret =3D sock_set_timeout(&sk->sk_rcvtimeo, optval, optlen);
+-		break;
+-
+-	case SO_SNDTIMEO:
+-		ret =3D sock_set_timeout(&sk->sk_sndtimeo, optval, optlen);
+-		break;
+-
+-	case SO_ATTACH_FILTER:
+-		ret =3D -EINVAL;
+-		if (optlen =3D=3D sizeof(struct sock_fprog)) {
+-			struct sock_fprog fprog;
+-
+-			ret =3D -EFAULT;
+-			if (copy_from_user(&fprog, optval, sizeof(fprog)))
+-				break;
+-
+-			ret =3D sk_attach_filter(&fprog, sk);
+-		}
+-		break;
+-
+ 	case SO_DETACH_FILTER:
+ 		ret =3D sk_detach_filter(sk);
+ 		break;
+--=20
+1.5.6.6
 
