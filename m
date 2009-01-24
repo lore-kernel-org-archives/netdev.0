@@ -1,33 +1,23 @@
 From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: Mainline kernel OLTP performance update
-Date: Sat, 24 Jan 2009 10:55:28 +0800
-Message-ID: <1232765728.11429.193.camel@ymzhang>
+Subject: Re: care and feeding of netperf (Re: Mainline kernel OLTP
+	performance update)
+Date: Sat, 24 Jan 2009 11:03:00 +0800
+Message-ID: <1232766180.11429.202.camel@ymzhang>
 References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
-	 <200901161503.13730.nickpiggin@yahoo.com.au>
-	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
-	 <200901161746.25205.nickpiggin@yahoo.com.au>
-	 <20090116065546.GJ31013@parisc-linux.org>
-	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
-	 <1232428583.11429.83.camel@ymzhang>
-	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
-	 <1232613395.11429.122.camel@ymzhang>
-	 <1232615707.14549.6.camel@penberg-laptop>
-	 <1232616517.11429.129.camel@ymzhang>
 	 <1232617672.14549.25.camel@penberg-laptop>
-	 <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>
-	 <1232697998.6094.17.camel@penberg-laptop>
-	 <1232699401.11429.163.camel@ymzhang>
-	 <1232703989.6094.29.camel@penberg-laptop>
-	 <alpine.DEB.1.10.0901231020030.21692@qirst.com>
+	 <1232679773.11429.155.camel@ymzhang>
+	 <200901231933.10101.nickpiggin@yahoo.com.au>
+	 <1232701348.11429.170.camel@ymzhang>  <497A0F27.3030801@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Christoph Lameter <cl@linux-foundation.org>,
 	Andi Kleen <andi@firstfloor.org>,
 	Matthew Wilcox <matthew@wil.cx>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
 	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
 	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
 	arjan@linux.intel.com, suresh.b.siddha@intel.com,
@@ -35,37 +25,139 @@ Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
 	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
 	chris.mason@oracle.com, srostedt@redhat.com,
 	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
-	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
-To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.10.0901231020030.21692@qirst.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	anirban.chakraborty@qlogic.com
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga10.intel.com ([192.55.52.92]:39004 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752108AbZAXDDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 22:03:18 -0500
+In-Reply-To: <497A0F27.3030801@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-01-23 at 10:22 -0500, Christoph Lameter wrote:
-> On Fri, 23 Jan 2009, Pekka Enberg wrote:
+On Fri, 2009-01-23 at 10:40 -0800, Rick Jones wrote:
+> > 3) ./start_netperf_udp_v4.sh 8 #Assume your machine has 8 logical cpus.
 > 
-> > Looking at __slab_free(), unless page->inuse is constantly zero and we
-> > discard the slab, it really is just cache effects (10% sounds like a
-> > lot, though!). AFAICT, the only way to optimize that is with Christoph's
-> > unfinished pointer freelists patches or with a remote free list like in
-> > SLQB.
+> Some comments on the script:
+Thanks. I wanted to run the testing to get result quickly as long as
+the result has no big fluctuation.
+
 > 
-> No there is another way. Increase the allocator order to 3 for the
-> kmalloc-8192 slab then multiple 8k blocks can be allocated from one of the
-> larger chunks of data gotten from the page allocator. That will allow slub
-> to do fast allocs.
-After I change kmalloc-8192/order to 3, the result(pinned netperf UDP-U-4k)
-difference between SLUB and SLQB becomes 1% which can be considered as fluctuation.
+> > #!/bin/sh
+> > 
+> > PROG_DIR=/home/ymzhang/test/netperf/src
+> > date=`date +%H%M%N`
+> > #PROG_DIR=/root/netperf/netperf/src
+> > client_num=$1
+> > pin_cpu=$2
+> > 
+> > start_port_server=12384
+> > start_port_client=15888
+> > 
+> > killall netserver
+> > ${PROG_DIR}/netserver
+> > sleep 2
+> 
+> Any particular reason for killing-off the netserver daemon?
+I'm not sure if prior running might leave any impact on later running, so
+just kill netserver.
 
-But when trying to increased it to 4, I got:
-[root@lkp-st02-x8664 slab]# echo "3">kmalloc-8192/order
-[root@lkp-st02-x8664 slab]# echo "4">kmalloc-8192/order
--bash: echo: write error: Invalid argument
+> 
+> > if [ ! -d result ]; then
+> >         mkdir result
+> > fi
+> > 
+> > all_result_files=""
+> > for i in `seq 1 ${client_num}`; do
+> >         if [ "${pin_cpu}" == "pin" ]; then
+> >                 pin_param="-T ${i} ${i}"
+> 
+> The -T option takes arguments of the form:
+> 
+> N   - bind both netperf and netserver to core N
+> N,  - bind only netperf to core N, float netserver
+>   ,M - float netperf, bind only netserver to core M
+> N,M - bind netperf to core N and netserver to core M
+> 
+> Without a comma between N and M knuth only knows what the command line parser 
+> will do :)
+> 
+> >         fi
+> >         result_file=result/netperf_${start_port_client}.${date}
+> >         #./netperf -t UDP_STREAM -l 60 -H 127.0.0.1 -- -P 15895 12391 -s 32768 -S 32768 -m 4096
+> >         #./netperf -t UDP_STREAM -l 60 -H 127.0.0.1 -i 50 3 -I 99 5 -- -P 12384 12888 -s 32768 -S 32768 -m 4096
+> >         #${PROG_DIR}/netperf -p ${port_num} -t TCP_RR -l 60 -H 127.0.0.1 ${pin_param} -- -r 1,1 >${result_file} &
+> >         ${PROG_DIR}/netperf -t UDP_STREAM -l 60 -H 127.0.0.1 ${pin_param} -- -P ${start_port_client} ${start_port_server} -s 32768 -S 32768 -m 4096 >${result_file}  &
+> 
+> Same thing here for the -P option - there needs to be a comma between the two 
+> port numbers otherwise, the best case is that the second port number is ignored. 
+>   Worst case is that netperf starts doing knuth only knows what.
+Thanks.
 
-Comparing with SLQB, it seems SLUB needs too many investigation/manual finer-tuning
-against specific benchmarks. One hard is to tune page order number. Although SLQB also
-has many tuning options, I almost doesn't tune it manually, just run benchmark and
-collect results to compare. Does that mean the scalability of SLQB is better?
+> 
+> 
+> To get quick profiles, that form of aggregate netperf is OK - just the one 
+> iteration with background processes using a moderatly long run time.  However, 
+> for result reporting, it is best to (ab)use the confidence intervals 
+> functionality to try to avoid skew errors.
+Yes. My formal testing uses -i 50. I just wanted a quick testing. If I need
+finer-tuning or investigation, I would turn on more options.
 
+>   I tend to add-in a global -i 30 
+> option to get each netperf to repeat its measurments 30 times.  That way one is 
+> reasonably confident that skew issues are minimized.
+> 
+> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance
+> 
+> And I would probably add the -c and -C options to have netperf report service 
+> demands.
+Yes. That's good. I'm used to start vmstat or mpstat to monitor cpu utilization
+in real time.
+
+> 
+> 
+> >         sub_pid="${sub_pid} `echo $!`"
+> >         port_num=$((${port_num}+1))
+> >         all_result_files="${all_result_files} ${result_file}"
+> >         start_port_server=$((${start_port_server}+1))
+> >         start_port_client=$((${start_port_client}+1))
+> > done;
+> > 
+> > wait ${sub_pid}
+> > killall netserver
+> > 
+> > result="0"
+> > for i in `echo ${all_result_files}`; do
+> >         sub_result=`awk '/Throughput/ {getline; getline; getline; print " "$6}' ${i}`
+> >         result=`echo "${result}+${sub_result}"|bc`
+> > done;
+> 
+> The documented-only-in-source :( "omni" tests in top-of-trunk netperf:
+> 
+> http://www.netperf.org/svn/netperf2/trunk
+> 
+> ./configure --enable-omni
+> 
+> allow one to specify which result values one wants, in which order, either as 
+> more or less traditional netperf output (test-specific -O), CSV (test-specific 
+> -o) or keyval (test-specific -k).  All three take an optional filename as an 
+> argument with the file containing a list of desired output values.  You can give 
+> a "filename" of '?' to get the list of output values known to that version of 
+> netperf.
+> 
+> Might help simplify parsing and whatnot.
+Yes, it does.
+
+> 
+> happy benchmarking,
+> 
+> rick jones
+Thanks again. I learned a lot.
+
+> 
+> > 
+> > echo $result
+> 
+> > 
 
