@@ -1,76 +1,37 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: why usr/include/linux/if_frad.h is required
-Date: Sat, 24 Jan 2009 16:32:55 +0100
-Message-ID: <m3ljt0pvmg.fsf@intrepid.localdomain>
-References: <20090121053310.GA26395@uranus.ravnborg.org>
-	<20090120.221504.264090722.davem@davemloft.net>
-	<20090121173838.3390e5c9@s6510>
-	<20090121.153712.84781438.davem@davemloft.net>
-	<1232803533.17900.4.camel@localhost.localdomain>
+From: British Online Co-ordinators <nboezio@sympatico.ca>
+Subject: You are a proud winner of =?iso-8859-1?B?ow==?= 710, 000 .00
+Date: Sat, 24 Jan 2009 11:29:07 -0500
+Message-ID: <20090124162907.FNEJ1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: service_unitnluk@live.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	sam@ravnborg.org, jaswinderlinux@gmail.com, arnd@arndb.de,
-	mingo@elte.hu, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jaswinder Singh Rajput <jaswinder@kernel.org>
+To: mail@sympatico.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:45287 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750859AbZAXPc7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2009 10:32:59 -0500
-In-Reply-To: <1232803533.17900.4.camel@localhost.localdomain> (Jaswinder Singh Rajput's message of "Sat\, 24 Jan 2009 18\:55\:33 +0530")
+Received: from simmts8.bellnexxia.net ([206.47.199.166]:33915 "EHLO
+	simmts8-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752836AbZAXQ3I convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Jan 2009 11:29:08 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts8-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090124162907.FNEJ1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Sat, 24 Jan 2009 11:29:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jaswinder Singh Rajput <jaswinder@kernel.org> writes:
+You are a proud winner of =A3 710, 000 .00
 
-> After killing CONFIG_DLCI and CONFIG_DLCI_MODULE, it is also killing =
-the
-> kernel:
->
->   CC      net/socket.o
-> In file included from net/socket.c:75:
-> include/linux/if_frad.h:170: error: =E2=80=98CONFIG_DLCI_MAX=E2=80=99=
- undeclared here (not in a function)
+Please acknowledge the receipt of this mail with the details below to M=
+r Murphy Bruce,
 
-Perhaps this would do (untested).
-Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
+E-mail service_unitnluk@live.com
 
-diff --git a/include/linux/if_frad.h b/include/linux/if_frad.h
-index 5c34240..60e16a5 100644
---- a/include/linux/if_frad.h
-+++ b/include/linux/if_frad.h
-@@ -26,8 +26,6 @@
-=20
- #include <linux/if.h>
-=20
--#if defined(CONFIG_DLCI) || defined(CONFIG_DLCI_MODULE)
--
- /* Structures and constants associated with the DLCI device driver */
-=20
- struct dlci_add
-@@ -127,6 +125,8 @@ struct frad_conf
-=20
- #ifdef __KERNEL__
-=20
-+#if defined(CONFIG_DLCI) || defined(CONFIG_DLCI_MODULE)
-+
- /* these are the fields of an RFC 1490 header */
- struct frhdr
- {
-@@ -190,12 +190,10 @@ struct frad_local
-    int               buffer;		/* current buffer for S508 firmware */
- };
-=20
--#endif /* __KERNEL__ */
--
- #endif /* CONFIG_DLCI || CONFIG_DLCI_MODULE */
-=20
--#ifdef __KERNEL__
- extern void dlci_ioctl_set(int (*hook)(unsigned int, void __user *));
--#endif
-+
-+#endif /* __KERNEL__ */
-=20
- #endif
+Name
+Address
+Age
+Occupation
+Tel
+Country
+
