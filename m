@@ -1,17 +1,17 @@
 From: "2009 NEW YEAR PROMO" <info@inode.at>
 Subject: Lucky winner
-Date: Sat, 24 Jan 2009 05:15:03 +0100 (CET)
-Message-ID: <41.204.225.18.1232770503.wm@webmail.inode.at>
+Date: Sat, 24 Jan 2009 05:15:09 +0100 (CET)
+Message-ID: <41.204.225.18.1232770509.wm@webmail.inode.at>
 Reply-To: mrowenbrown79@yahoo.com.hk
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailbackup.inode.at ([213.229.60.24]:57254 "EHLO
+Received: from mailbackup.inode.at ([213.229.60.24]:57495 "EHLO
 	mailbackup.inode.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754489AbZAXESf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 23:18:35 -0500
+	with ESMTP id S1750971AbZAXETH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 23:19:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
