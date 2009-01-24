@@ -1,40 +1,30 @@
-From: "stanley.miao" <stanley.miao@windriver.com>
-Subject: Re: [PATCH 7/8] arm: convert omap ldp platform to use smsc911x
-Date: Sat, 24 Jan 2009 12:16:32 +0800
-Message-ID: <1232770592.18235.3.camel@localhost>
-References: <OF02435E0A.D8B49E71-ON80257547.005DE614-80257547.005E2CBE@smsc.com>
-Reply-To: stanley.miao@windriver.com
+From: "2009 NEW YEAR PROMO" <info@inode.at>
+Subject: Lucky winner
+Date: Sat, 24 Jan 2009 05:15:03 +0100 (CET)
+Message-ID: <41.204.225.18.1232770503.wm@webmail.inode.at>
+Reply-To: mrowenbrown79@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux@arm.linux.org.uk,
-	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:48795 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754321AbZAXEHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jan 2009 23:07:38 -0500
-In-Reply-To: <OF02435E0A.D8B49E71-ON80257547.005DE614-80257547.005E2CBE@smsc.com>
+Received: from mailbackup.inode.at ([213.229.60.24]:57254 "EHLO
+	mailbackup.inode.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754489AbZAXESf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2009 23:18:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-01-23 at 17:07 +0000, Steve.Glendinning@smsc.com wrote:
-> "Stanley.Miao" <stanley.miao@windriver.com> wrote on 21/01/2009 03:06:09:
-> 
-> > from 2.6.29, smc911x isn't maintained anymore. A new driver, smsc911x,
-> > will replace it. so convert omap_ldp to use smsc911x driver.
-> > 
-> > Signed-off-by: Stanley.Miao <stanley.miao@windriver.com>
-> 
-> Hi Stanley,
-> 
-> This platform patch doesn't apply to linus's tree, what's it based on?
+Lucky winner
 
-Sorry, I reworked it to base on linus's tree.
+The sum of =A31,000,000,00 GBP Pounds has be won by your E-MAIL ID in o=
+ur
+NEW YEAR PROMO. Do get back to this  office with your information via
+Email: mrowenbrown79@yahoo.com.hk
 
-Stanley.
+send the following: name,Age,Sex,Country
 
-> 
-> Thanks,
-> Steve
+Email: mrowenbrown79@yahoo.com.hk
+Mrs. Caroline Bryan.
+
+
