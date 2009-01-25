@@ -1,104 +1,104 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 1/2] netxen: fix vlan tso/checksum offload
-Date: Sat, 24 Jan 2009 20:02:58 -0800
-Message-ID: <1232856179-15153-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:52640 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756684AbZAYEDF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Jan 2009 23:03:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: [PATCH] net: pppoe - stop using proc internals
+Date: Sun, 25 Jan 2009 15:02:43 +0300
+Message-ID: <20090125120243.GA29167@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Michal Ostrowski <mostrows@earthlink.net>,
+	NKML <netdev@vger.kernel.org>
+To: Alexey Dobriyan <adobriyan@gmail.com>,
+	LiNext <linux-next@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-o set netdev->vlan_features appropriately.
-o fix tso descriptor initialization for vlan case.
+Alexey Dobriyan pointed that using PDE_NET outside the
+proc code is plain bogus (thanks Alexey!). Fix it.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+CC: Alexey Dobriyan <adobriyan@gmail.com>
+CC: Michal Ostrowski <mostrows@earthlink.net>
 ---
- drivers/net/netxen/netxen_nic_main.c |   31 ++++++++++++++++++++-----------
- 1 files changed, 20 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index d854f07..645d384 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -735,17 +735,18 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
- 
--	/* ScatterGather support */
--	netdev->features = NETIF_F_SG;
--	netdev->features |= NETIF_F_IP_CSUM;
--	netdev->features |= NETIF_F_TSO;
-+	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
-+	netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
-+
- 	if (NX_IS_REVISION_P3(revision_id)) {
--		netdev->features |= NETIF_F_IPV6_CSUM;
--		netdev->features |= NETIF_F_TSO6;
-+		netdev->features |= (NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
-+		netdev->vlan_features |= (NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
- 	}
- 
--	if (adapter->pci_using_dac)
-+	if (adapter->pci_using_dac) {
- 		netdev->features |= NETIF_F_HIGHDMA;
-+		netdev->vlan_features |= NETIF_F_HIGHDMA;
-+	}
- 
- 	/*
- 	 * Set the CRB window to invalid. If any register in window 0 is
-@@ -1166,6 +1167,14 @@ static bool netxen_tso_check(struct net_device *netdev,
+Hope I didn't miss anything. Compile tested.
+Please review.
+
+ drivers/net/pppoe.c |   34 ++++++----------------------------
+ 1 file changed, 6 insertions(+), 28 deletions(-)
+
+Index: linux-2.6.git/drivers/net/pppoe.c
+===================================================================
+--- linux-2.6.git.orig/drivers/net/pppoe.c
++++ linux-2.6.git/drivers/net/pppoe.c
+@@ -1041,7 +1041,7 @@ out:
+ static void *pppoe_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(pn->hash_lock)
  {
- 	bool tso = false;
- 	u8 opcode = TX_ETHER_PKT;
-+	__be16 protocol = skb->protocol;
-+	u16 flags = 0;
-+
-+	if (protocol == __constant_htons(ETH_P_8021Q)) {
-+		struct vlan_ethhdr *vh = (struct vlan_ethhdr *)skb->data;
-+		protocol = vh->h_vlan_encapsulated_proto;
-+		flags = FLAGS_VLAN_TAGGED;
-+	}
+-	struct pppoe_net *pn = pppoe_pernet(seq->private);
++	struct pppoe_net *pn = pppoe_pernet(seq_file_net(seq));
+ 	loff_t l = *pos;
  
- 	if ((netdev->features & (NETIF_F_TSO | NETIF_F_TSO6)) &&
- 			skb_shinfo(skb)->gso_size > 0) {
-@@ -1174,21 +1183,21 @@ static bool netxen_tso_check(struct net_device *netdev,
- 		desc->total_hdr_length =
- 			skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 	read_lock_bh(&pn->hash_lock);
+@@ -1050,7 +1050,7 @@ static void *pppoe_seq_start(struct seq_
  
--		opcode = (skb->protocol == htons(ETH_P_IPV6)) ?
-+		opcode = (protocol == __constant_htons(ETH_P_IPV6)) ?
- 				TX_TCP_LSO6 : TX_TCP_LSO;
- 		tso = true;
+ static void *pppoe_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct pppoe_net *pn = pppoe_pernet(seq->private);
++	struct pppoe_net *pn = pppoe_pernet(seq_file_net(seq));
+ 	struct pppox_sock *po;
  
- 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		u8 l4proto;
- 
--		if (skb->protocol == htons(ETH_P_IP)) {
-+		if (protocol == __constant_htons(ETH_P_IP)) {
- 			l4proto = ip_hdr(skb)->protocol;
- 
- 			if (l4proto == IPPROTO_TCP)
- 				opcode = TX_TCP_PKT;
- 			else if(l4proto == IPPROTO_UDP)
- 				opcode = TX_UDP_PKT;
--		} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		} else if (protocol == __constant_htons(ETH_P_IPV6)) {
- 			l4proto = ipv6_hdr(skb)->nexthdr;
- 
- 			if (l4proto == IPPROTO_TCP)
-@@ -1199,7 +1208,7 @@ static bool netxen_tso_check(struct net_device *netdev,
- 	}
- 	desc->tcp_hdr_offset = skb_transport_offset(skb);
- 	desc->ip_hdr_offset = skb_network_offset(skb);
--	netxen_set_tx_flags_opcode(desc, 0, opcode);
-+	netxen_set_tx_flags_opcode(desc, flags, opcode);
- 	return tso;
+ 	++*pos;
+@@ -1078,7 +1078,7 @@ out:
+ static void pppoe_seq_stop(struct seq_file *seq, void *v)
+ 	__releases(pn->hash_lock)
+ {
+-	struct pppoe_net *pn = pppoe_pernet(seq->private);
++	struct pppoe_net *pn = pppoe_pernet(seq_file_net(seq));
+ 	read_unlock_bh(&pn->hash_lock);
  }
  
--- 
-1.6.0.2
-
+@@ -1091,30 +1091,8 @@ static struct seq_operations pppoe_seq_o
+ 
+ static int pppoe_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *m;
+-	struct net *net;
+-	int err;
+-
+-	err = seq_open(file, &pppoe_seq_ops);
+-	if (err)
+-		return err;
+-
+-	m = file->private_data;
+-	net = maybe_get_net(PDE_NET(PDE(inode)));
+-	BUG_ON(!net);
+-	m->private = net;
+-
+-	return err;
+-}
+-
+-static int pppoe_seq_release(struct inode *inode, struct file *file)
+-{
+-	struct seq_file *m;
+-
+-	m = file->private_data;
+-	put_net((struct net*)m->private);
+-
+-	return seq_release(inode, file);
++	return seq_open_net(inode, file, &pppoe_seq_ops,
++			sizeof(struct seq_net_private));
+ }
+ 
+ static const struct file_operations pppoe_seq_fops = {
+@@ -1122,7 +1100,7 @@ static const struct file_operations pppo
+ 	.open		= pppoe_seq_open,
+ 	.read		= seq_read,
+ 	.llseek		= seq_lseek,
+-	.release	= pppoe_seq_release,
++	.release	= seq_release_net,
+ };
+ 
+ #endif /* CONFIG_PROC_FS */
