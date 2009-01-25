@@ -1,69 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 01/21] [next] qlge: Change to device ID 8000 and
-	corresponding flash access.
-Date: Sun, 25 Jan 2009 01:45:55 +0000
-Message-ID: <1232847955.2808.4.camel@hashbaz.i.decadent.org.uk>
-References: <20090123151513.GA8526@linux-ox1b.qlogic.org>
-	 <1232723799-8620-1-git-send-email-ron.mercer@qlogic.com>
-	 <1232753339.3005.6.camel@achroite>
-	 <20090124192954.GB18522@linux-ox1b.qlogic.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ron Mercer <ron.mercer@qlogic.com>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH 2/2] netxen: reduce memory footprint
+Date: Sat, 24 Jan 2009 20:02:59 -0800
+Message-ID: <1232856179-15153-2-git-send-email-dhananjay@netxen.com>
+References: <1232856179-15153-1-git-send-email-dhananjay@netxen.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:2442 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754239AbZAYBkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2009 20:40:31 -0500
-In-Reply-To: <20090124192954.GB18522@linux-ox1b.qlogic.org>
+Received: from nxgate.netxen.com ([38.99.60.130]:52637 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756541AbZAYEDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Jan 2009 23:03:04 -0500
+In-Reply-To: <1232856179-15153-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-01-24 at 11:29 -0800, Ron Mercer wrote:
-> On Fri, Jan 23, 2009 at 03:28:59PM -0800, Ben Hutchings wrote:
-> > On Fri, 2009-01-23 at 07:16 -0800, Ron Mercer wrote:
-> > [...]
-> > > diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-> > > index 16eb9dd..a530f5b 100644
-> > > --- a/drivers/net/qlge/qlge_main.c
-> > > +++ b/drivers/net/qlge/qlge_main.c
-> > [...]
-> > > @@ -657,28 +680,38 @@ static int ql_read_flash_word(struct ql_adapter *qdev, int offset, u32 *data)
-> > >  	if (status)
-> > >  		goto exit;
-> > >  	/* get the data */
-> > > -	*data = ql_read32(qdev, FLASH_DATA);
-> > > +	*data = cpu_to_le32(ql_read32(qdev, FLASH_DATA));
-> > [...]
-> > 
-> > Should be le32_to_cpu not cpu_to_le32.
-> > 
-> > Ben.
-> 
-> Ben,
-> The flash_param is stored in flash as an array of __le32 elements.  I tried this a number
-> of ways and what I came up with is the only combination (I could find)
-> that didn't generate compile or sparse warnings and that works on big
-> and little endian machines.
-> You'll note that I've defined the flash_param using little endian.
+o reduce rx ring size from 8192 to 4096.
+o cut down old huge lro buffers.
 
-But the type of *data is u32, not __le32.
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic.h         |   12 ++++++------
+ drivers/net/netxen/netxen_nic_ethtool.c |    5 ++++-
+ 2 files changed, 10 insertions(+), 7 deletions(-)
 
-> If I use cpu_to_le32 it would work fine but will produce sparse
-> warnings.
-> Would it be acceptable if I used a better comment about that I'm doing?
-
-OK, cpu_to_le32() is right but the parameter type should be __le32 *
-(and ql_get_flash_params() should be consistent with that).
-
-Ben.
-
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index c11c568..a75a310 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -146,7 +146,7 @@
+ 
+ #define MAX_RX_BUFFER_LENGTH		1760
+ #define MAX_RX_JUMBO_BUFFER_LENGTH 	8062
+-#define MAX_RX_LRO_BUFFER_LENGTH	((48*1024)-512)
++#define MAX_RX_LRO_BUFFER_LENGTH	(8062)
+ #define RX_DMA_MAP_LEN			(MAX_RX_BUFFER_LENGTH - 2)
+ #define RX_JUMBO_DMA_MAP_LEN	\
+ 	(MAX_RX_JUMBO_BUFFER_LENGTH - 2)
+@@ -207,11 +207,11 @@
+ 
+ #define MAX_CMD_DESCRIPTORS		4096
+ #define MAX_RCV_DESCRIPTORS		16384
+-#define MAX_CMD_DESCRIPTORS_HOST	(MAX_CMD_DESCRIPTORS / 4)
+-#define MAX_RCV_DESCRIPTORS_1G		(MAX_RCV_DESCRIPTORS / 4)
+-#define MAX_RCV_DESCRIPTORS_10G		8192
+-#define MAX_JUMBO_RCV_DESCRIPTORS	1024
+-#define MAX_LRO_RCV_DESCRIPTORS		64
++#define MAX_CMD_DESCRIPTORS_HOST	1024
++#define MAX_RCV_DESCRIPTORS_1G		2048
++#define MAX_RCV_DESCRIPTORS_10G		4096
++#define MAX_JUMBO_RCV_DESCRIPTORS	512
++#define MAX_LRO_RCV_DESCRIPTORS		8
+ #define MAX_RCVSTATUS_DESCRIPTORS	MAX_RCV_DESCRIPTORS
+ #define MAX_JUMBO_RCV_DESC	MAX_JUMBO_RCV_DESCRIPTORS
+ #define MAX_RCV_DESC		MAX_RCV_DESCRIPTORS
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index c0bd40f..0894a7b 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -561,7 +561,10 @@ netxen_nic_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
+ 	}
+ 	ring->tx_pending = adapter->max_tx_desc_count;
+ 
+-	ring->rx_max_pending = MAX_RCV_DESCRIPTORS;
++	if (adapter->ahw.board_type == NETXEN_NIC_GBE)
++		ring->rx_max_pending = MAX_RCV_DESCRIPTORS_1G;
++	else
++		ring->rx_max_pending = MAX_RCV_DESCRIPTORS_10G;
+ 	ring->tx_max_pending = MAX_CMD_DESCRIPTORS_HOST;
+ 	ring->rx_jumbo_max_pending = MAX_JUMBO_RCV_DESCRIPTORS;
+ 	ring->rx_mini_max_pending = 0;
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+1.6.0.2
 
