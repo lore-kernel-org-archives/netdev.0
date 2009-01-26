@@ -1,80 +1,47 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: [PATCH][RFC] Move config NET_NS to from net/Kconfig to
-	init/Kconfig
-Date: Mon, 26 Jan 2009 11:58:45 -0600
-Message-ID: <20090126175845.GA19953@hallyn.com>
-References: <1232755651.8282.6.camel@localhost>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Mon, 26 Jan 2009 12:36:05 -0500 (EST)
+Message-ID: <alpine.DEB.1.10.0901261235270.1908@qirst.com>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>  <200901161503.13730.nickpiggin@yahoo.com.au>  <20090115201210.ca1a9542.akpm@linux-foundation.org>  <200901161746.25205.nickpiggin@yahoo.com.au>  <20090116065546.GJ31013@parisc-linux.org>
+  <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>  <1232428583.11429.83.camel@ymzhang>  <alpine.DEB.1.10.0901211852060.18367@qirst.com>  <1232613395.11429.122.camel@ymzhang>  <1232615707.14549.6.camel@penberg-laptop>
+ <1232616517.11429.129.camel@ymzhang>  <1232617672.14549.25.camel@penberg-laptop>  <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>  <1232697998.6094.17.camel@penberg-laptop>  <1232699401.11429.163.camel@ymzhang>
+ <1232703989.6094.29.camel@penberg-laptop>  <alpine.DEB.1.10.0901231020030.21692@qirst.com> <1232765728.11429.193.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Matt Helsley <matthltc@us.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.124]:54749 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663AbZAZRzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 12:55:19 -0500
-Content-Disposition: inline
-In-Reply-To: <1232755651.8282.6.camel@localhost>
+Received: from smtp.ultrahosting.com ([74.213.174.254]:42023 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753459AbZAZR5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 12:57:34 -0500
+In-Reply-To: <1232765728.11429.193.camel@ymzhang>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Matt Helsley (matthltc@us.ibm.com):
-> Make NET_NS available underneath the generic Namespaces config option since all of
-> the other namespace options are there.
-> 
-> Signed-off-by: Matt Helsley <matthltc@us.ibm.com>
+On Sat, 24 Jan 2009, Zhang, Yanmin wrote:
 
-It would definately be nice to have all the namespace options in
-one place.
+> But when trying to increased it to 4, I got:
+> [root@lkp-st02-x8664 slab]# echo "3">kmalloc-8192/order
+> [root@lkp-st02-x8664 slab]# echo "4">kmalloc-8192/order
+> -bash: echo: write error: Invalid argument
 
-Acked-by: Serge Hallyn <serue@us.ibm.com>
+This is because 4 is more than the maximum allowed order. You can
+reconfigure that by setting
 
-> ---
->  init/Kconfig |    8 ++++++++
->  net/Kconfig  |    8 --------
->  2 files changed, 8 insertions(+), 8 deletions(-)
-> 
-> Index: linux-2.6.29-rc1/init/Kconfig
-> ===================================================================
-> --- linux-2.6.29-rc1.orig/init/Kconfig
-> +++ linux-2.6.29-rc1/init/Kconfig
-> @@ -541,6 +541,14 @@ config PID_NS
->  	  Unless you want to work with an experimental feature
->  	  say N here.
->  
-> +config NET_NS
-> +	bool "Network namespace"
-> +	default n
-> +	depends on NAMESPACES && EXPERIMENTAL && NET
-> +	help
-> +	  Allow user space to create what appear to be multiple instances
-> +	  of the network stack.
-> +
->  config BLK_DEV_INITRD
->  	bool "Initial RAM filesystem and RAM disk (initramfs/initrd) support"
->  	depends on BROKEN || !FRV
-> Index: linux-2.6.29-rc1/net/Kconfig
-> ===================================================================
-> --- linux-2.6.29-rc1.orig/net/Kconfig
-> +++ linux-2.6.29-rc1/net/Kconfig
-> @@ -24,14 +24,6 @@ if NET
->  
->  menu "Networking options"
->  
-> -config NET_NS
-> -	bool "Network namespace support"
-> -	default n
-> -	depends on EXPERIMENTAL && NAMESPACES
-> -	help
-> -	  Allow user space to create what appear to be multiple instances
-> -	  of the network stack.
-> -
->  config COMPAT_NET_DEV_OPS
->         def_bool y
->  
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+slub_max_order=5
+
+or so on boot.
