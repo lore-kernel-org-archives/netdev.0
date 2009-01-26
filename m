@@ -1,58 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IP address: property of host or interface?
-Date: Mon, 26 Jan 2009 10:06:58 -0800
-Message-ID: <497DFBC2.4030903@candelatech.com>
-References: <497B1E5E.9050309@msgid.tls.msk.ru> <497DF629.70602@hp.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [PATCH] Stop scaring users with "treason uncloaked!"
+Date: Mon, 26 Jan 2009 12:46:54 -0500
+Message-ID: <20090126174654.GA26064@csclub.uwaterloo.ca>
+References: <E1LDRbc-0000Ro-1j@gondolin.me.apana.org.au> <1229641573.3726.563.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Tokarev <mjt@tls.msk.ru>, netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:50830 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751621AbZAZSHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 13:07:19 -0500
-In-Reply-To: <497DF629.70602@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753776AbZAZSK6@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1229641573.3726.563.camel@calx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
->> So.. am I right that an IP address is a HOST property, not an INTERFACE
->> property, and that the traditional way is just more convenient to set 
->> up? And
->> that all the tools that complains that "there's no IP address 
->> assigned to this
->> interface" (tcpdump) are wrong? :)
->
-> There are two "schools" of thought - the Linux stack follows the "weak 
-> end system" model in which IP addresses are treated as a host 
-> property.  There is another school of thought called the "strong end 
-> system" model where IP addresses are an interface property.  There are 
-> some "other" stacks out there which can be configured to behave in a 
-> "strong end system" way but they tend to default to more of something 
-> in between the two.
->
-> Tcpdump may simply be caught in the middle :)
-With a bit of configuring (away from system defaults), Linux can behave 
-as a 'strong end system', and even
-in default behaviour, I don't believe it will process IP packets from an 
-interface that has NO IP address assigned
-to it.
+On Thu, Dec 18, 2008 at 05:06:13PM -0600, Matt Mackall wrote:
+> No one has printer ports any more so it hardly seems worth the trouble.
 
-Thanks,
-Ben
+USB printers go through the same code.
 
->
-> rick jones
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Most people won't actually think their printer is on fire. But most
+> people WILL think there is serious cause for concern when they see this
+> for the first time in dmesg. Many will search the net for explanations
+> and come away confused and not entirely reassured. And at least one
+> clueless guy will call the police because he still thinks he's under
+> attack.
 
+I dealt with an epson inkjet (USB based) a few years ago that would
+reliably trigger that message when it was out of ink.  I thought it was
+ammusing that they picked that signal to indicate out of ink.
+
+Not sure if current models do it too.
+
+> Now that certainly fits my definition of amusing and if my goal for
+> Linux was to amuse myself at the expense of users, I'd be all for
+> keeping it[1]. But perversely, I actually want users to enjoy their
+> Linux experience.
+> 
+> [1] Hell, I'd probably even get them to use git.
 
 -- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+Len Sorensen
