@@ -1,30 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-01-23
-Date: Sun, 25 Jan 2009 21:40:03 -0800 (PST)
-Message-ID: <20090125.214003.188420070.davem@davemloft.net>
-References: <20090123210348.GF30486@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/21][next] qlge: Clean up and add firmware support.
+Date: Sun, 25 Jan 2009 22:17:53 -0800 (PST)
+Message-ID: <20090125.221753.112625253.davem@davemloft.net>
+References: <20090123151513.GA8526@linux-ox1b.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090123210348.GF30486-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53739
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754174AbZAZGRv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 01:17:51 -0500
+In-Reply-To: <20090123151513.GA8526@linux-ox1b.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 23 Jan 2009 16:03:49 -0500
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Fri, 23 Jan 2009 07:15:13 -0800
 
-> Another quick round of fixes intended for 2.6.29...
-> 
-> The p54 and rtl8187 fixes are simple changes inspired by other fixes
-> already in 2.6.29.  The iwlwifi one fixes an annoying WARN_ON that
-> people are hitting quite a bit.
+> 1) Adds in device ID 8000.  Note that it replaces 8012. We don't want to
+> carry forward 8012 support unless forced to. If necessary we'll add it
+> in disto. It was an early device that didn't have firmware support and
+> different flash layout.
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You can't add a driver for a device and then say later:
+"Oh well, we don't feel like supporting that any longer"
+
+And yes that even applies for something added as recently as September
+2008 as this one was.
+
+This leaves a very bad taste in my mouth and that's just the first
+patch in the series :-/
+
+You had other changes in the feedback given to you so please undo this
+drop of 0x8000 support and respin the rest of the patches too.
+
+I'm completely dropping this series.
