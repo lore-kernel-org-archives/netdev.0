@@ -1,42 +1,68 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] iproute2 : fix to catchup with xtables/iptables >=
-	1.4.2
-Date: Mon, 26 Jan 2009 09:38:52 -0500
-Message-ID: <1232980732.13279.53.camel@dogo.mojatatu.com>
-References: <1232908352.13279.33.camel@dogo.mojatatu.com>
-	 <497DB9CF.6060408@trash.net> <1232977640.13279.41.camel@dogo.mojatatu.com>
-	 <497DC07C.2090900@trash.net> <1232979705.13279.50.camel@dogo.mojatatu.com>
-	 <alpine.LSU.2.00.0901261526560.18834@fbirervta.pbzchgretzou.qr>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, Andreas Henriksson <andreas@fatal.se>,
-	Yevgeny Kosarzhevsky <yevg@pisem.net>,
-	Denys Fedoryschenko <denys@visp.net.lb>
-To: Jan Engelhardt <jengelh@medozas.de>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH] smsc911x: leave RX_STOP interrupt permanently enabled
+Date: Mon, 26 Jan 2009 15:57:52 +0000
+Message-ID: <1232985472-16995-1-git-send-email-steve.glendinning@smsc.com>
+Cc: David Miller <davem@davemloft.net>,
+	Ian Saturley <ian.saturley@smsc.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:41474 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751328AbZAZOk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 09:40:29 -0500
-Received: by nf-out-0910.google.com with SMTP id d3so1031394nfc.21
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 06:40:27 -0800 (PST)
-In-Reply-To: <alpine.LSU.2.00.0901261526560.18834@fbirervta.pbzchgretzou.qr>
+Received: from [86.54.240.114] ([86.54.240.114]:37019 "EHLO
+	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751422AbZAZP5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 10:57:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-01-26 at 15:27 +0100, Jan Engelhardt wrote:
+smsc911x_set_multicast_list currently performs the only non-atomic
+read-modify-write of INT_EN.  This patch permanently enables the
+RXSTOP_INT interrupt, and changes the ISR to only conditionally run the
+multicast filter workaround code.
 
-> What I wanted to do beforehand is give those functions a proper
-> prefix as it is ideally Supposed To Be^TM for libraries..
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/smsc911x.c |   13 +++----------
+ 1 files changed, 3 insertions(+), 10 deletions(-)
 
-Sounds reasonable - do you want to do this first or after i send?
-I guess the order doesnt matter really - and i am working on/off on
-those few patches; so i am flexible.
-
-cheers,
-jamal
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index f513bdf..29ffb0e 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1246,7 +1246,7 @@ static int smsc911x_open(struct net_device *dev)
+ 	napi_enable(&pdata->napi);
+ 
+ 	temp = smsc911x_reg_read(pdata, INT_EN);
+-	temp |= (INT_EN_TDFA_EN_ | INT_EN_RSFL_EN_);
++	temp |= (INT_EN_TDFA_EN_ | INT_EN_RSFL_EN_ | INT_EN_RXSTOP_INT_EN_);
+ 	smsc911x_reg_write(pdata, INT_EN, temp);
+ 
+ 	spin_lock_irq(&pdata->mac_lock);
+@@ -1418,11 +1418,6 @@ static void smsc911x_set_multicast_list(struct net_device *dev)
+ 
+ 			/* Request the hardware to stop, then perform the
+ 			 * update when we get an RX_STOP interrupt */
+-			smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
+-			temp = smsc911x_reg_read(pdata, INT_EN);
+-			temp |= INT_EN_RXSTOP_INT_EN_;
+-			smsc911x_reg_write(pdata, INT_EN, temp);
+-
+ 			temp = smsc911x_mac_read(pdata, MAC_CR);
+ 			temp &= ~(MAC_CR_RXEN_);
+ 			smsc911x_mac_write(pdata, MAC_CR, temp);
+@@ -1461,11 +1456,9 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
+ 		/* Called when there is a multicast update scheduled and
+ 		 * it is now safe to complete the update */
+ 		SMSC_TRACE(INTR, "RX Stop interrupt");
+-		temp = smsc911x_reg_read(pdata, INT_EN);
+-		temp &= (~INT_EN_RXSTOP_INT_EN_);
+-		smsc911x_reg_write(pdata, INT_EN, temp);
+ 		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
+-		smsc911x_rx_multicast_update_workaround(pdata);
++		if (pdata->multicast_update_pending)
++			smsc911x_rx_multicast_update_workaround(pdata);
+ 		serviced = IRQ_HANDLED;
+ 	}
+ 
+-- 
+1.6.0.6
 
