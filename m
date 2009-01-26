@@ -1,66 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/34]bnx2x: Compilation issue on IA64
-Date: Sun, 25 Jan 2009 18:16:26 -0800 (PST)
-Message-ID: <20090125.181626.229897179.davem@davemloft.net>
-References: <1231955073.11301.161.camel@lb-tlvb-eliezer>
-	<20090114.131058.248785392.davem@davemloft.net>
-	<1232700147.31321.7.camel@lb-tlvb-eliezer>
+From: Jay Cliburn <jcliburn@gmail.com>
+Subject: Re: [atl2] warn_slowpath in dev_watchdog
+Date: Sun, 25 Jan 2009 21:00:17 -0600
+Message-ID: <20090125210017.04e38348@osprey.hogchain.net>
+References: <gkt97e$ti0$1@ger.gmane.org>
+	<20090117194045.649f55a0@osprey.hogchain.net>
+	<767752.95325.qm@web110601.mail.gq1.yahoo.com>
+	<20090118095231.2c73c448@osprey.hogchain.net>
+	<879024.62535.qm@web110609.mail.gq1.yahoo.com>
+	<20090118115858.1b636b2d@osprey.hogchain.net>
+	<884897.63360.qm@web110608.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: linux-kernel@vger.kernel.org, Chris Snook <csnook@redhat.com>,
+	jie.yang@atheros.com, atl1-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Sitsofe Wheeler <sitsofe@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45818
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751004AbZAZCQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2009 21:16:24 -0500
-In-Reply-To: <1232700147.31321.7.camel@lb-tlvb-eliezer>
+Received: from mail-gx0-f21.google.com ([209.85.217.21]:49815 "EHLO
+	mail-gx0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751068AbZAZDAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2009 22:00:22 -0500
+In-Reply-To: <884897.63360.qm@web110608.mail.gq1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Fri, 23 Jan 2009 10:42:27 +0200
+On Sun, 25 Jan 2009 08:17:25 -0800 (PST)
+Sitsofe Wheeler <sitsofe@yahoo.com> wrote:
 
-> On Wed, 2009-01-14 at 13:10 -0800, David Miller wrote:
-> > From: "Eilon Greenstein" <eilong@broadcom.com>
-> > Date: Wed, 14 Jan 2009 19:44:33 +0200
-> > 
-> > > On Wed, 2009-01-14 at 09:07 -0800, Ben Hutchings wrote:
-> > > > On Wed, 2009-01-14 at 18:43 +0200, Eilon Greenstein wrote:
-> > > > > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > > [...]  
-> > > > >  #ifdef BNX2X_STOP_ON_ERROR
-> > > > >  	fp->tpa_queue_used |= (1 << queue);
-> > > > > -#ifdef __powerpc64__
-> > > > > +#if (defined __powerpc64__) || (defined _ASM_IA64_TYPES_H)
-> > > > >  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%lx\n",
-> > > > >  #else
-> > > > >  	DP(NETIF_MSG_RX_STATUS, "fp->tpa_queue_used = 0x%llx\n",
-> > > > 
-> > > > Or you could cast the value to unsigned long long and remove this
-> > > > fragile #ifdef.
-> > > > 
-> > > You are right - it is a better solution. The issue is that this uglier
-> > > solution is already in, and I hate to re-send this patch just for this.
-> > > Can we have this one applied and I will re visit it in net-next?
-> > 
-> > There is no reason to crap up any driver with arch ifdefs, absolutely
-> > none, for this typing issue.
-> > 
-> > The whole point is that we're trying to get all of the arch's to use
-> > the same type for u64 in the kernel, so that these warnings can be
-> > cleared away very easily.
-> > 
-> > Live with the warnings meanwhile until this is all sorted out.
-> 
-> I can live with that, but I was wondering if this change is something
-> that you can consider:
-> -#ifdef __powerpc64__
-> +#ifdef _ASM_GENERIC_INT_L64_H
-> 
-> My problem is that in the mean time, the driver has this __powerpc64__
-> ifdef in it.
+> OK the circumstances took a lllllong time to occur again but the result is that
+> the patch does not prevent the warning. 
 
-Just use %ll unconditionally and cast the argument to
-long long.  Then you don't need any ifdefs at all.
+Can you trigger the warning by performing these steps while the interface is up?
+
+unplug cable
+ifdown eth0
+ifup eth0
+replug cable       
+wait about 5 seconds...
+
+If it doesn't happen the first time, try 3 or 4 more times.
+
+Let me know what happens.
+
+Thanks,
+Jay
