@@ -1,41 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Mon, 26 Jan 2009 08:20:36 +0000
-Message-ID: <20090126082036.GB4183@ff.dom.local>
-References: <20090120103122.GC9167@ioremap.net>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 1/6] smsc911x: add support for platform-specific irq flags
+Date: Mon, 26 Jan 2009 08:45:56 +0000
+Message-ID: <OFF11D92C1.37CFE5EA-ON8025754A.002FC604-8025754A.003046E9@smsc.com>
+References: <20090125.174548.21690315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	w@1wt.eu, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: ian.saturley@smsc.com, linux@arm.linux.org.uk,
+	linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org,
+	stanley.miao@windriver.com, Sascha Hauer <s.hauer@pengutronix.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:33061 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873AbZAZIUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 03:20:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20090120103122.GC9167@ioremap.net>
+Received: from mail.smsc.com ([170.129.50.11]:3525 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750778AbZAZIro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2009 03:47:44 -0500
+In-Reply-To: <20090125.174548.21690315.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20-01-2009 11:31, Evgeniy Polyakov wrote:
-...
-> I believe approach to meet all our goals is to have own network memory
-> allocator, so that each skb could have its payload in the fragments, we
-> would not suffer from the heavy fragmentation and power-of-two overhead
-> for the larger MTUs, have a reserve for the OOM condition and generally
-> do not depend on the main system behaviour.
+David Miller <davem@davemloft.net> wrote on 26/01/2009 01:45:48:
 > 
-> I will resurrect to some point my network allocator to check how things
-> go in the modern environment, if no one will beat this idea first :)
+> These platform conversion patches still seem to be in a state
+> of flux.
 > 
-> 1. Network (tree) allocator
-> http://www.ioremap.net/projects/nta
+> Steve could you resubmit this stuff and when doing so please clearly
+> indicate exactly which ones you think I should stick into the net-2.6
+> tree and which are to be added to the ARM tree.
+> 
+> Thanks.
+> 
 
-I looked at this a bit, but alas I didn't find much for this Herbert's
-idea of payload in fragments/pages. Maybe some kind of API RFC is
-needed before this resurrection?
+Thanks David,  I've also added two more minor initialisation workarounds
+for hardware problems on in-tree boards.  The platform maintainers are
+testing now.
 
-Jarek P.
+I'll re-post the set when we're all happy, hopefully later this week.
+
+Steve
