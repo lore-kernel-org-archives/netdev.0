@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] e1000e: workaround hw errata
-Date: Mon, 26 Jan 2009 12:16:47 -0800 (PST)
-Message-ID: <20090126.121647.41760330.davem@davemloft.net>
-References: <20090124013527.2832.92374.stgit@lost.foo-projects.org>
+Subject: Re: [PATCH] networking: document "nc" in addition to "netcat" in
+ netconsole.txt
+Date: Mon, 26 Jan 2009 12:19:36 -0800 (PST)
+Message-ID: <20090126.121936.236507594.davem@davemloft.net>
+References: <20090123092104.64098f66.randy.dunlap@oracle.com>
+	<1232732839.5202.449.camel@calx>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org,
+	jbarnes@virtuousgeek.org
+To: mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41943
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59282
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753354AbZAZUQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 15:16:44 -0500
-In-Reply-To: <20090124013527.2832.92374.stgit@lost.foo-projects.org>
+	by vger.kernel.org with ESMTP id S1751914AbZAZUTe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 15:19:34 -0500
+In-Reply-To: <1232732839.5202.449.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 23 Jan 2009 17:35:31 -0800
+From: Matt Mackall <mpm@selenic.com>
+Date: Fri, 23 Jan 2009 11:47:19 -0600
 
-> There is a hardware errata in some revisions of the 82574 that needs
-> to be worked around in the driver by setting a register bit at init.
+> On Fri, 2009-01-23 at 09:21 -0800, Randy Dunlap wrote:
+> > From: Jesse Barnes <jbarnes@virtuousgeek.org>
+> > 
+> > It always annoyed me that the netconsole documentation didn't give me the
+> > correct command for my distro.  Update it with a command line that actually
+> > works on my Fedora install.
 > 
-> If this bit is not set A0 versions of the 82574 can generate
-> tx hangs.
+> Yup, thanks.
 > 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Matt Mackall <mpm@selenic.com>
 
-Applied, thanks Jeff.
+Applied, thanks everyone.
