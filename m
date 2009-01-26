@@ -1,19 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: kmsg: convert claw printk messages
-Date: Sun, 25 Jan 2009 18:03:31 -0800 (PST)
-Message-ID: <20090125.180331.83169774.davem@davemloft.net>
+Subject: Re: [PATCH] virtio_net: Fix MAX_PACKET_LEN to support 802.1Q VLANs
+Date: Sun, 25 Jan 2009 18:06:43 -0800 (PST)
+Message-ID: <20090125.180643.147283270.davem@davemloft.net>
+References: <20090120164822.10112.89512.stgit@debian.lart>
+	<1232470766.5277.18.camel@blaa>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ursula.braun@de.ibm.com, netdev@vger.kernel.org
-To: richtera@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49386
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751186AbZAZCD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2009 21:03:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.williamson@hp.com, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, kvm@vger.kernel.org
+To: markmc@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1232470766.5277.18.camel@blaa>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Mark McLoughlin <markmc@redhat.com>
+Date: Tue, 20 Jan 2009 16:59:26 +0000
 
-Applied to net-next-2.6, thanks.
+> On Tue, 2009-01-20 at 09:48 -0700, Alex Williamson wrote:
+> 
+> > 802.1Q expanded the maximum ethernet frame size by 4 bytes for the
+> > VLAN tag.  We're not taking this into account in virtio_net, which
+> > means the buffers we provide to the backend in the virtqueue RX ring
+> > aren't big enough to hold a full MTU VLAN packet.  For QEMU/KVM,
+> > this results in the backend exiting with a packet truncation error.
+> > 
+> > Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+> 
+> Acked-by: Mark McLoughlin <markmc@redhat.com>
+> 
+> Note 1: this only matters if the guest isn't using mergeable receive
+> buffers or GSO
+> 
+> Note 2: IMHO, this should go in 2.6.29 and stable
+
+Applied and queued up for -stable, thanks everyone!
