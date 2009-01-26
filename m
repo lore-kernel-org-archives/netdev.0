@@ -1,31 +1,31 @@
-From: Florian Westphal <fw@strlen.de>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 1/1] Fix getsockname (ipv4/ipv6)
-Date: Mon, 26 Jan 2009 23:37:33 +0100
-Message-ID: <20090126223733.GB1922@Chamillionaire.breakpoint.cc>
+Date: Mon, 26 Jan 2009 14:42:07 -0800 (PST)
+Message-ID: <20090126.144207.210560647.davem@davemloft.net>
 References: <20090126220931.A8F0154A11@localhost>
+	<20090126223733.GB1922@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: John Reumann <reumann.linux@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: reumann.linux@gmail.com, netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42959 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751957AbZAZWhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 17:37:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20090126220931.A8F0154A11@localhost>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49484
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751811AbZAZWmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 17:42:04 -0500
+In-Reply-To: <20090126223733.GB1922@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Reumann <reumann.linux@gmail.com> wrote:
-> This change will return ENOSPC if the return address provided by the caller of getsockname
->  is not sufficiently large to hold the return value.
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 26 Jan 2009 23:37:33 +0100
 
-Those interfaces allow applications to query how large the sockaddr storage needs to
-be by checking *addrlen after a successful call.
+> John Reumann <reumann.linux@gmail.com> wrote:
+> > This change will return ENOSPC if the return address provided by the caller of getsockname
+> >  is not sufficiently large to hold the return value.
+> 
+> Those interfaces allow applications to query how large the sockaddr storage needs to
+> be by checking *addrlen after a successful call.
 
-> This is consistent with the rest of the
->  API. However, there are some implemenations that copy only as many bytes of sockaddr from the
->  kernel to user-space as specified in the *addrlen attribute.  (1) This wasn't the behavior now
-
-It is, and it has been for ages.
+Right.
