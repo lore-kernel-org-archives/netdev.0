@@ -1,65 +1,48 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: IP address: property of host or interface?
-Date: Mon, 26 Jan 2009 21:20:26 +0300
-Message-ID: <497DFEEA.20700@msgid.tls.msk.ru>
-References: <497B1E5E.9050309@msgid.tls.msk.ru> <497DF629.70602@hp.com> <497DFBC2.4030903@candelatech.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: care and feeding of netperf (Re: Mainline kernel OLTP	performance
+ update)
+Date: Mon, 26 Jan 2009 10:26:15 -0800
+Message-ID: <497E0047.5080307@hp.com>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>	<1232617672.14549.25.camel@penberg-laptop>	<1232679773.11429.155.camel@ymzhang>	<200901231933.10101.nickpiggin@yahoo.com.au>	<1232701348.11429.170.camel@ymzhang>  <497A0F27.3030801@hp.com> <1232766180.11429.202.camel@ymzhang>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>, netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([81.13.33.159]:47933 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751613AbZAZSUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2009 13:20:30 -0500
-In-Reply-To: <497DFBC2.4030903@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1232766180.11429.202.camel@ymzhang>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Rick Jones wrote:
->>> So.. am I right that an IP address is a HOST property, not an INTERFACE
->>> property, and that the traditional way is just more convenient to set
->>> up? And
->>> that all the tools that complains that "there's no IP address
->>> assigned to this
->>> interface" (tcpdump) are wrong? :)
->>
->> There are two "schools" of thought - the Linux stack follows the "weak
->> end system" model in which IP addresses are treated as a host
->> property.  There is another school of thought called the "strong end
->> system" model where IP addresses are an interface property.  There are
->> some "other" stacks out there which can be configured to behave in a
->> "strong end system" way but they tend to default to more of something
->> in between the two.
+>>To get quick profiles, that form of aggregate netperf is OK - just the one 
+>>iteration with background processes using a moderatly long run time.  However, 
+>>for result reporting, it is best to (ab)use the confidence intervals 
+>>functionality to try to avoid skew errors.
+> 
+> Yes. My formal testing uses -i 50. I just wanted a quick testing. If I need
+> finer-tuning or investigation, I would turn on more options.
 
-As someone else pointed out, it's all described in RFC1122 (1989!).
-It was quite.. interesting reading.
+Netperf will silently clip that to 30 as that is all the built-in tables know.
 
->> Tcpdump may simply be caught in the middle :)
+> Thanks again. I learned a lot.
 
-heh.
+Feel free to wander over to netperf-talk over at netperf.org if you want to talk 
+some more about the care and feeding of netperf.
 
-> With a bit of configuring (away from system defaults), Linux can behave
-> as a 'strong end system', and even
+happy benchmarking,
 
-Well, that's quite "a bit". Involves iptable filters.
-
-> in default behaviour, I don't believe it will process IP packets from an
-> interface that has NO IP address assigned
-> to it.
-
-Just try it.  Trivial to do.  Assume you've a "simple-workstation"
-config (no fancy stuff just lo and eth0 with single ip) with
-192.168.1.5/24 on your eth0:
-
-# ip addr add 192.168.1.5/32 dev lo  <== assigns that IP to lo interface
-# ifconfig eth0 0.0.0.0  <= clears it (and routes) from eth0 but
-                         <= keeps the interface up
-# ip route add 192.168.1.0/24 dev eth0 <= restores the route
-
-Now ping (or whatever) 192.168.1.5 from any host on eth0 segment.
-All IP/TCP/UDP/etc stuff will work as usual.
-
-/mjt
+rick jones
