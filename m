@@ -1,46 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] virtio_net: Add support for VLAN filtering in the
- hypervisor
-Date: Sun, 25 Jan 2009 18:08:12 -0800 (PST)
-Message-ID: <20090125.180812.31889647.davem@davemloft.net>
-References: <1232357520.5627.15.camel@blaa>
-	<20090120163636.10034.5080.stgit@debian.lart>
-	<1232469840.5277.10.camel@blaa>
+Subject: Re: [PATCH] IPv6 multicast routing
+Date: Sun, 25 Jan 2009 18:15:10 -0800 (PST)
+Message-ID: <20090125.181510.81366979.davem@davemloft.net>
+References: <20090120200248.GA13928@boeing.com>
+	<20090121.100431.126366547.yoshfuji@linux-ipv6.org>
+	<21C34AA2609529459A85739E2952066904A9670D@XCH-NW-9V1.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: alex.williamson@hp.com, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, kvm@vger.kernel.org
-To: markmc@redhat.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	Fred.L.Templin@boeing.com
+To: Thomas.Goff@boeing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42583
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45814
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753028AbZAZCIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2009 21:08:10 -0500
-In-Reply-To: <1232469840.5277.10.camel@blaa>
+	by vger.kernel.org with ESMTP id S1751107AbZAZCPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2009 21:15:08 -0500
+In-Reply-To: <21C34AA2609529459A85739E2952066904A9670D@XCH-NW-9V1.nw.nos.boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark McLoughlin <markmc@redhat.com>
-Date: Tue, 20 Jan 2009 16:44:00 +0000
+From: "Goff, Thomas" <Thomas.Goff@boeing.com>
+Date: Thu, 22 Jan 2009 15:30:38 -0800
 
-> On Tue, 2009-01-20 at 09:36 -0700, Alex Williamson wrote:
-> > VLAN filtering allows the hypervisor to drop packets from VLANs
-> > that we're not a part of, further reducing the number of extraneous
-> > packets recieved.  This makes use of the VLAN virtqueue command class.
-> > The ENABLE command is used both to activate the filter and verify the
-> > existence of the functionality on the backend.
-> > 
-> > Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+> On Wed, Jan 21, 2009 at 10:04:31AM +0900, YOSHIFUJI Hideaki / 吉藤英明 wrote:
 > 
-> Cool, looks good.
+> > >   - Enable/disable IPv6 multicast forwarding on the corresponding
+> > >     interface when a routing daemon adds/removes a multicast virtual
+> > >     interface.
+> :
+> > However, I believe configuring forwarding is user's responsibility
+> > and I'm not in favor of managing mc_forwarding automatically.
+> >
+> > If we go your way, we need to make the proc interface read-only, but
+> > you know, they will become non-"conf" interface. :-(
+> > And, well, we will introduce another possible overflow/underflow here...
+> >
+> > Another thought was to allow non-VIF routing settings (or manual settings).
+> >
+> > So, I decided to drop that bits.
 > 
-> Acked-by: Mark McLoughlin <markmc@redhat.com>
+> Thanks for looking it over.
+> 
+> I think your approach to handling mc_forwarding makes sense, although
+> it differs from the IPv4 behavior.  In any case, it looks like the
+> current IPv4 and IPv6 multicast routing code does not consider an
+> interface's mc_forwarding value at all.
 
-I'd like to make some forward progress on this patch set.
-Either apply something, or defer to Rusty.
+Thanks guys.
 
-If you think I should apply it to net-next-2.6, please just
-resubmit the serious with accumulated ACK'd etc.
+Hideaki-san, did you queue this patch up or do you want me to
+apply it with the mc_forwarding counter bumps removed?
 
-Else I'll let these flow Rusty's way.
+These are bug fixes so I'd like to see this in the tree soon.
