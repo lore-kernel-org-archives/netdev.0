@@ -1,32 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]bnx2x: tx_has_work should not wait for FW
-Date: Mon, 26 Jan 2009 12:36:50 -0800 (PST)
-Message-ID: <20090126.123650.35539851.davem@davemloft.net>
-References: <1232988956.18353.3.camel@lb-tlvb-eliezer>
+Subject: Re: VLAN patch: Export symbols as non GPL symbols.
+Date: Mon, 26 Jan 2009 12:37:59 -0800 (PST)
+Message-ID: <20090126.123759.25767520.davem@davemloft.net>
+References: <497DEC7A.1040405@candelatech.com>
+	<497DED71.50900@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vladz@broadcom.com
-To: eilong@broadcom.com
+Cc: greearb@candelatech.com, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35598
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59151
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752056AbZAZUgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 15:36:48 -0500
-In-Reply-To: <1232988956.18353.3.camel@lb-tlvb-eliezer>
+	by vger.kernel.org with ESMTP id S1751470AbZAZUh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 15:37:57 -0500
+In-Reply-To: <497DED71.50900@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Mon, 26 Jan 2009 18:55:56 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 26 Jan 2009 18:05:53 +0100
 
-> The current tx_has_work waited until all packets sent by the driver are marked
-> as completed by the FW. This is too greedy and it causes the bnx2x_poll to spin
-> in vain. The driver should only check that all packets FW already completed are
-> freed - only in unload flow the driver should make sure that transmit queue is
-> empty
+> Ben Greear wrote:
+> > In previous kernels, any kernel module could get access to the 'real-device' and the
+> > VLAN-ID for a particular VLAN.  In more recent kernels, the code was restructured
+> > such that this is hard to do without accessing private .h files for any module that cannot
+> > use GPL-only symbols.
+> > Attached is a patch to once again allow non-GPL modules the ability to access the
+> > real-device and VLAN id for VLANs.  This patch is against 2.6.29-rc2.
+> > Signed-Off-By:  Ben Greear<greearb@candelatech.com>
 > 
-> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> I added that export after moving the code from a header file, but
+> there's no reason from my side not to export this to non-GPLed
+> drivers, using _GPL was merely a habit.
+> 
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
 Applied, thanks.
