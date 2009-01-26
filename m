@@ -1,68 +1,65 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] smsc911x: leave RX_STOP interrupt permanently enabled
-Date: Mon, 26 Jan 2009 15:57:52 +0000
-Message-ID: <1232985472-16995-1-git-send-email-steve.glendinning@smsc.com>
-Cc: David Miller <davem@davemloft.net>,
-	Ian Saturley <ian.saturley@smsc.com>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: John Reumann <reumann.linux@gmail.com>
+Subject: [PATCH 1/1] Return EINVAL if the user provides a return data structure for getsockname that is too small
+ to hold the PF_ address.  This introduces a new error code but this should be OK as the error
+ is real and would otherwise corrupt the user-application's stack, i.e., it results in trouble
+ no matter what.  I do not do a partial copy of the sockaddr structure because it does not
+ make very much sense to retrieve only part of the socket address (e.g., ip + af_family).
+Date: Mon, 26 Jan 2009 11:21:40 -0500
+Message-ID: <20090126163452.85EAF54A11@localhost>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [86.54.240.114] ([86.54.240.114]:37019 "EHLO
-	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751422AbZAZP5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 10:57:49 -0500
+Received: from smtp-out.google.com ([216.239.33.17]:55318 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751656AbZAZQe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 11:34:59 -0500
+Received: from spaceape7.eur.corp.google.com (spaceape7.eur.corp.google.com [172.28.16.141])
+	by smtp-out.google.com with ESMTP id n0QGYvaq002275
+	for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 16:34:57 GMT
+Received: from localhost (reumann-warp.nyc.corp.google.com [172.26.76.182])
+	by spaceape7.eur.corp.google.com with ESMTP id n0QGYqtc017492
+	for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 08:34:53 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-smsc911x_set_multicast_list currently performs the only non-atomic
-read-modify-write of INT_EN.  This patch permanently enables the
-RXSTOP_INT interrupt, and changes the ISR to only conditionally run the
-multicast filter workaround code.
-
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 ---
- drivers/net/smsc911x.c |   13 +++----------
- 1 files changed, 3 insertions(+), 10 deletions(-)
+ net/ipv4/af_inet.c  |    7 +++++--
+ net/ipv6/af_inet6.c |    3 +++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index f513bdf..29ffb0e 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1246,7 +1246,7 @@ static int smsc911x_open(struct net_device *dev)
- 	napi_enable(&pdata->napi);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 743f554..52283ff 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -677,10 +677,13 @@ do_err:
+ int inet_getname(struct socket *sock, struct sockaddr *uaddr,
+ 			int *uaddr_len, int peer)
+ {
+-	struct sock *sk		= sock->sk;
+-	struct inet_sock *inet	= inet_sk(sk);
++	struct sock *sk = sock->sk;
++	struct inet_sock *inet = inet_sk(sk);
+ 	struct sockaddr_in *sin	= (struct sockaddr_in *)uaddr;
  
- 	temp = smsc911x_reg_read(pdata, INT_EN);
--	temp |= (INT_EN_TDFA_EN_ | INT_EN_RSFL_EN_);
-+	temp |= (INT_EN_TDFA_EN_ | INT_EN_RSFL_EN_ | INT_EN_RXSTOP_INT_EN_);
- 	smsc911x_reg_write(pdata, INT_EN, temp);
++	if (*uaddr_len < sizeof(struct sockaddr_in))
++		return -EINVAL;
++
+ 	sin->sin_family = AF_INET;
+ 	if (peer) {
+ 		if (!inet->dport ||
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index c802bc1..74b8407 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -401,6 +401,9 @@ int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
  
- 	spin_lock_irq(&pdata->mac_lock);
-@@ -1418,11 +1418,6 @@ static void smsc911x_set_multicast_list(struct net_device *dev)
- 
- 			/* Request the hardware to stop, then perform the
- 			 * update when we get an RX_STOP interrupt */
--			smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
--			temp = smsc911x_reg_read(pdata, INT_EN);
--			temp |= INT_EN_RXSTOP_INT_EN_;
--			smsc911x_reg_write(pdata, INT_EN, temp);
--
- 			temp = smsc911x_mac_read(pdata, MAC_CR);
- 			temp &= ~(MAC_CR_RXEN_);
- 			smsc911x_mac_write(pdata, MAC_CR, temp);
-@@ -1461,11 +1456,9 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
- 		/* Called when there is a multicast update scheduled and
- 		 * it is now safe to complete the update */
- 		SMSC_TRACE(INTR, "RX Stop interrupt");
--		temp = smsc911x_reg_read(pdata, INT_EN);
--		temp &= (~INT_EN_RXSTOP_INT_EN_);
--		smsc911x_reg_write(pdata, INT_EN, temp);
- 		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
--		smsc911x_rx_multicast_update_workaround(pdata);
-+		if (pdata->multicast_update_pending)
-+			smsc911x_rx_multicast_update_workaround(pdata);
- 		serviced = IRQ_HANDLED;
- 	}
- 
++	if (*uaddr_len < sizeof(struct sockaddr_in6))
++		return -EINVAL;
++
+ 	sin->sin6_family = AF_INET6;
+ 	sin->sin6_flowinfo = 0;
+ 	sin->sin6_scope_id = 0;
 -- 
-1.6.0.6
+1.5.4.5
 
