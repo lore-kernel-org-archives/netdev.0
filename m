@@ -1,154 +1,41 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] udp: optimize bind(0) if many ports are in use
-Date: Mon, 26 Jan 2009 09:20:31 +0100
-Message-ID: <497D724F.3070902@cosmosbay.com>
-References: <m3sknbuqf9.wl%vmayatsk@redhat.com>	<4978EE03.9040207@cosmosbay.com>	<m3iqo7dkw4.wl%vmayatsk@redhat.com>	<49790C02.90800@cosmosbay.com> <m3bpty1hq7.wl%vmayatsk@redhat.com> <4979ADCA.2080106@cosmosbay.com> <4979C9B6.3080302@cosmosbay.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Mon, 26 Jan 2009 08:20:36 +0000
+Message-ID: <20090126082036.GB4183@ff.dom.local>
+References: <20090120103122.GC9167@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Vitaly Mayatskikh <v.mayatskih@gmail.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	w@1wt.eu, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59296 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777AbZAZIUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 03:20:40 -0500
-In-Reply-To: <4979C9B6.3080302@cosmosbay.com>
+Received: from ey-out-2122.google.com ([74.125.78.25]:33061 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750873AbZAZIUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 03:20:44 -0500
+Content-Disposition: inline
+In-Reply-To: <20090120103122.GC9167@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David
+On 20-01-2009 11:31, Evgeniy Polyakov wrote:
+...
+> I believe approach to meet all our goals is to have own network memory
+> allocator, so that each skb could have its payload in the fragments, we
+> would not suffer from the heavy fragmentation and power-of-two overhead
+> for the larger MTUs, have a reserve for the OOM condition and generally
+> do not depend on the main system behaviour.
+> 
+> I will resurrect to some point my network allocator to check how things
+> go in the modern environment, if no one will beat this idea first :)
+> 
+> 1. Network (tree) allocator
+> http://www.ioremap.net/projects/nta
 
-Here is last patch about performance regression of UDP bind() to random port.
+I looked at this a bit, but alas I didn't find much for this Herbert's
+idea of payload in fragments/pages. Maybe some kind of API RFC is
+needed before this resurrection?
 
-Change against previous one is the divide, that can be replaced by a multiply,
-as already done in other parts of kernel.
-
-ie instead of doing : "first = rand % remaining + low;" we can use :
-
-first = (((u64)rand * remaining) >> 32) + low;
-
-Also some polishing about too long lines and comments before official submission.
-
-Thank you
-
-
-[PATCH] udp: optimize bind(0) if many ports are in use
-
-commit 9088c5609584684149f3fb5b065aa7f18dcb03ff
-(udp: Improve port randomization) introduced a regression for UDP bind() syscall
-to null port (getting a random port) in case lot of ports are already in use.
-
-This is because we do about 28000 scans of very long chains (220 sockets per chain),
-with many spin_lock_bh()/spin_unlock_bh() calls.
-
-Fix this using a bitmap (64 bytes for current value of UDP_HTABLE_SIZE)
-so that we scan chains at most once.
-
-Instead of 250 ms per bind() call, we get after patch a time of 2.9 ms 
-
-Based on a report from Vitaly Mayatskikh
-
-Reported-by: Vitaly Mayatskikh <v.mayatskih@gmail.com>
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-Tested-by: Vitaly Mayatskikh <v.mayatskih@gmail.com>
----
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index cf5ab05..b7faffe 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -120,8 +120,11 @@ EXPORT_SYMBOL(sysctl_udp_wmem_min);
- atomic_t udp_memory_allocated;
- EXPORT_SYMBOL(udp_memory_allocated);
- 
-+#define PORTS_PER_CHAIN (65536 / UDP_HTABLE_SIZE)
-+
- static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 			       const struct udp_hslot *hslot,
-+			       unsigned long *bitmap,
- 			       struct sock *sk,
- 			       int (*saddr_comp)(const struct sock *sk1,
- 						 const struct sock *sk2))
-@@ -132,12 +135,17 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 	sk_nulls_for_each(sk2, node, &hslot->head)
- 		if (net_eq(sock_net(sk2), net)			&&
- 		    sk2 != sk					&&
--		    sk2->sk_hash == num				&&
-+		    (bitmap || sk2->sk_hash == num)		&&
- 		    (!sk2->sk_reuse || !sk->sk_reuse)		&&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if
- 			|| sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
--		    (*saddr_comp)(sk, sk2))
--			return 1;
-+		    (*saddr_comp)(sk, sk2)) {
-+			if (bitmap)
-+				__set_bit(sk2->sk_hash / UDP_HTABLE_SIZE,
-+					  bitmap);
-+			else
-+				return 1;
-+		}
- 	return 0;
- }
- 
-@@ -160,32 +168,47 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 	if (!snum) {
- 		int low, high, remaining;
- 		unsigned rand;
--		unsigned short first;
-+		unsigned short first, last;
-+		DECLARE_BITMAP(bitmap, PORTS_PER_CHAIN);
- 
- 		inet_get_local_port_range(&low, &high);
- 		remaining = (high - low) + 1;
- 
- 		rand = net_random();
--		snum = first = rand % remaining + low;
--		rand |= 1;
--		for (;;) {
--			hslot = &udptable->hash[udp_hashfn(net, snum)];
-+		first = (((u64)rand * remaining) >> 32) + low;
-+		/*
-+		 * force rand to be an odd multiple of UDP_HTABLE_SIZE
-+		 */
-+		rand = (rand | 1) * UDP_HTABLE_SIZE;
-+		for (last = first + UDP_HTABLE_SIZE; first != last; first++) {
-+			hslot = &udptable->hash[udp_hashfn(net, first)];
-+			bitmap_zero(bitmap, PORTS_PER_CHAIN);
- 			spin_lock_bh(&hslot->lock);
--			if (!udp_lib_lport_inuse(net, snum, hslot, sk, saddr_comp))
--				break;
--			spin_unlock_bh(&hslot->lock);
-+			udp_lib_lport_inuse(net, snum, hslot, bitmap, sk,
-+					    saddr_comp);
-+
-+			snum = first;
-+			/*
-+			 * Iterate on all possible values of snum for this hash.
-+			 * Using steps of an odd multiple of UDP_HTABLE_SIZE
-+			 * give us randomization and full range coverage.
-+			 */
- 			do {
--				snum = snum + rand;
--			} while (snum < low || snum > high);
--			if (snum == first)
--				goto fail;
-+				if (low <= snum && snum <= high &&
-+				    !test_bit(snum / UDP_HTABLE_SIZE, bitmap))
-+					goto found;
-+				snum += rand;
-+			} while (snum != first);
-+			spin_unlock_bh(&hslot->lock);
- 		}
-+		goto fail;
- 	} else {
- 		hslot = &udptable->hash[udp_hashfn(net, snum)];
- 		spin_lock_bh(&hslot->lock);
--		if (udp_lib_lport_inuse(net, snum, hslot, sk, saddr_comp))
-+		if (udp_lib_lport_inuse(net, snum, hslot, NULL, sk, saddr_comp))
- 			goto fail_unlock;
- 	}
-+found:
- 	inet_sk(sk)->num = snum;
- 	sk->sk_hash = snum;
- 	if (sk_unhashed(sk)) {
+Jarek P.
