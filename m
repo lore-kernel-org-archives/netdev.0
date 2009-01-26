@@ -1,35 +1,34 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 0/2 2.6.30] cxgb3 - notify iWARP of chip resets
-Date: Mon, 26 Jan 2009 09:42:33 -0800
-Message-ID: <497DF609.9000600@chelsio.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: IP address: property of host or interface?
+Date: Mon, 26 Jan 2009 09:43:05 -0800
+Message-ID: <497DF629.70602@hp.com>
+References: <497B1E5E.9050309@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	Steve Wise <swise@opengridcomputing.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:5778 "EHLO
-	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752000AbZAZRm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 12:42:58 -0500
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:6582 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753584AbZAZRnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 12:43:08 -0500
+In-Reply-To: <497B1E5E.9050309@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, Roland,
+> So.. am I right that an IP address is a HOST property, not an INTERFACE
+> property, and that the traditional way is just more convenient to set up? And
+> that all the tools that complains that "there's no IP address assigned to this
+> interface" (tcpdump) are wrong? :)
 
-I'm submitting 2 patches against cxgb3 and iw_cxgb3 respectively.
-They are built against net-next-2.6.
-The first patch adds a notification mechanism to cxgb3 to alert
-the upper layer drivers (iWARP and iSCSI) of a chip reset.
+There are two "schools" of thought - the Linux stack follows the "weak end 
+system" model in which IP addresses are treated as a host property.  There is 
+another school of thought called the "strong end system" model where IP addresses 
+are an interface property.  There are some "other" stacks out there which can be 
+configured to behave in a "strong end system" way but they tend to default to 
+more of something in between the two.
 
-The second patch adds the handler for such an event in the iWARP driver.
+Tcpdump may simply be caught in the middle :)
 
-Since the second patch depends on the first one, I submit them together,
-even though the second patch should be submitted against Roland's tree.
-
-Cheers,
-Divy
-
+rick jones
