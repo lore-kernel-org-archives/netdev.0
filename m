@@ -1,44 +1,67 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 32 core net-next stack/netfilter "scaling"
-Date: Mon, 26 Jan 2009 15:19:18 -0800
-Message-ID: <497E44F6.2010703@hp.com>
-References: <497E361B.30909@hp.com> <497E42F4.7080201@cosmosbay.com>
+From: "Haruki Dai" <Dai.Haruki@freescale.com>
+Subject: RE: [PATCH] gianfar: Revive VLAN support
+Date: Mon, 26 Jan 2009 16:39:55 -0700
+Message-ID: <18AEF66AFDF06F4CAAA1D419D000FD33029D5F46@az33exm24.fsl.freescale.net>
+References: <20090126205043.GA15581@oksana.dev.rtsoft.ru> <324701F1-4A84-41A6-BC2D-4A61A8E135D9@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <497E42F4.7080201@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jeff Garzik" <jgarzik@pobox.com>,
+	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linuxppc-dev@ozlabs.org>
+To: "Fleming Andy-AFLEMING" <afleming@freescale.com>,
+	"Anton Vorontsov" <avorontsov@ru.mvista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:65505 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753056AbZAZXkG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 18:40:06 -0500
+Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n0QNdvNp017299
+	for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 16:39:57 -0700 (MST)
+Received: from az33exm24.fsl.freescale.net (az33exm24.am.freescale.net [10.64.32.14])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id n0QNduDI023037
+	for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 17:39:56 -0600 (CST)
+Content-class: urn:content-classes:message
+In-Reply-To: <324701F1-4A84-41A6-BC2D-4A61A8E135D9@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: Fleming Andy-AFLEMING
+> Sent: Monday, January 26, 2009 3:08 PM
+> To: Anton Vorontsov
+> Cc: Jeff Garzik; David Miller; Haruki Dai-R35557;
+netdev@vger.kernel.org;
+> linuxppc-dev@ozlabs.org
+> Subject: Re: [PATCH] gianfar: Revive VLAN support
 > 
-> Hi Rick, nice hardware you have :)
-
-Every once in a while the cobbler's children get some shoes to wear :)
-
 > 
-> Stephen had a patch to nuke read_lock() from iptables, using RCU and seqlocks.
-> I hit this contention point even with low cost hardware, and quite standard application.
+> On Jan 26, 2009, at 2:50 PM, Anton Vorontsov wrote:
 > 
-> I pinged him few days ago to try to finish the job with him, but it seems Stephen
-> is busy at the moment.
+> > commit 77ecaf2d5a8bfd548eed3f05c1c2e6573d5de4ba ("gianfar: Fix VLAN
+> > HW feature related frame/buffer size calculation") wrongly removed
+> > priv->vlgrp assignment, and now priv->vlgrp is always NULL.
+> >
+> > This patch fixes the issue, plus fixes following sparse warning
+> > introduced by the same commit:
+> > gianfar.c:1406:13: warning: context imbalance in
+> > 'gfar_vlan_rx_register' - wrong count at exit
+> >
+> > gfar_vlan_rx_register() checks for "if (old_grp == grp)" and tries
+> > to return w/o dropping the lock.
+> >
+> > According to net/8021q/vlan.c VLAN core issues rx_register()
+callback:
+> > 1. In register_vlan_dev() only on a newly created group;
+> > 2. In unregister_vlan_dev() only if the group becomes empty.
+> >
+> > Thus the check in the gianfar driver isn't needed.
+> >
+> > Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 > 
-> Then conntrack (tcp sessions) is awfull, since it uses a single rwlock_t tcp_lock
->  that must be write_locked() for basically every handled tcp frame...
-> 
-> How long is "not indefinitely" ? 
+> Acked-by: Andy Fleming <afleming@freescale.com>
 
-The system I am using is being borrowed under an open ended loan.  However, my 
-use of it can be thought of as being the "null process" in VMS - once anyone else 
-wants it I have to get off of it.
+Acked-by: Dai Haruki <dai.haruki@freescale.com>
 
-That said, I would guess that the chances of someone else trying to get that 
-system are pretty small for the next four+ weeks.  I had a similar system (PCIe 
-I/O rather than PCI-X) for quite a few weeks before it got pulled-out from under.
-
-rick
