@@ -1,77 +1,73 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH]bnx2x: tx_has_work should not wait for FW
-Date: Mon, 26 Jan 2009 18:55:56 +0200
-Message-ID: <1232988956.18353.3.camel@lb-tlvb-eliezer>
+From: Ben Greear <greearb@candelatech.com>
+Subject: VLAN patch:  Export symbols as non GPL symbols.
+Date: Mon, 26 Jan 2009 09:01:46 -0800
+Message-ID: <497DEC7A.1040405@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Vladislav Zolotarov" <vladz@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="------------090806080600010205030807"
+To: Patrick McHardy <kaber@trash.net>, NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2593 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751783AbZAZQ5K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2009 11:57:10 -0500
+Received: from mail.candelatech.com ([208.74.158.172]:34680 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584AbZAZRBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 12:01:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current tx_has_work waited until all packets sent by the driver are marked
-as completed by the FW. This is too greedy and it causes the bnx2x_poll to spin
-in vain. The driver should only check that all packets FW already completed are
-freed - only in unload flow the driver should make sure that transmit queue is
-empty
+This is a multi-part message in MIME format.
+--------------090806080600010205030807
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |   17 ++++++++++++-----
- 1 files changed, 12 insertions(+), 5 deletions(-)
+In previous kernels, any kernel module could get access to the 
+'real-device' and the
+VLAN-ID for a particular VLAN.  In more recent kernels, the code was 
+restructured
+such that this is hard to do without accessing private .h files for any 
+module that cannot
+use GPL-only symbols.
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 4b84f6c..d3e7775 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -57,8 +57,8 @@
- #include "bnx2x.h"
- #include "bnx2x_init.h"
+Attached is a patch to once again allow non-GPL modules the ability to 
+access the
+real-device and VLAN id for VLANs.  This patch is against 2.6.29-rc2.
 
--#define DRV_MODULE_VERSION	"1.45.25"
--#define DRV_MODULE_RELDATE	"2009/01/22"
-+#define DRV_MODULE_VERSION	"1.45.26"
-+#define DRV_MODULE_RELDATE	"2009/01/26"
- #define BNX2X_BC_VER		0x040200
+Signed-Off-By:  Ben Greear<greearb@candelatech.com>
 
- /* Time in jiffies before concluding the transmitter is hung */
-@@ -740,8 +740,15 @@ static inline int bnx2x_has_tx_work(struct bnx2x_fastpath *fp)
- 	/* Tell compiler that status block fields can change */
- 	barrier();
- 	tx_cons_sb = le16_to_cpu(*fp->tx_cons_sb);
--	return ((fp->tx_pkt_prod != tx_cons_sb) ||
--		(fp->tx_pkt_prod != fp->tx_pkt_cons));
-+	return (fp->tx_pkt_cons != tx_cons_sb);
-+}
-+
-+static inline int bnx2x_has_tx_work_unload(struct bnx2x_fastpath *fp)
-+{
-+	/* Tell compiler that consumer and producer can change */
-+	barrier();
-+	return (fp->tx_pkt_prod != fp->tx_pkt_cons);
-+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
+
+--------------090806080600010205030807
+Content-Type: text/x-patch;
+ name="vlan_export.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="vlan_export.patch"
+
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 6c13239..e9db889 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -62,13 +62,13 @@ struct net_device *vlan_dev_real_dev(const struct net_device *dev)
+ {
+ 	return vlan_dev_info(dev)->real_dev;
  }
+-EXPORT_SYMBOL_GPL(vlan_dev_real_dev);
++EXPORT_SYMBOL(vlan_dev_real_dev);
+ 
+ u16 vlan_dev_vlan_id(const struct net_device *dev)
+ {
+ 	return vlan_dev_info(dev)->vlan_id;
+ }
+-EXPORT_SYMBOL_GPL(vlan_dev_vlan_id);
++EXPORT_SYMBOL(vlan_dev_vlan_id);
+ 
+ static int vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+ 			   unsigned int vlan_tci, struct sk_buff *skb)
 
- /* free skb in the packet ring at pos idx
-@@ -6729,7 +6736,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
-
- 		cnt = 1000;
- 		smp_rmb();
--		while (bnx2x_has_tx_work(fp)) {
-+		while (bnx2x_has_tx_work_unload(fp)) {
-
- 			bnx2x_tx_int(fp, 1000);
- 			if (!cnt) {
---
-1.5.4.3
-
-
-
-
+--------------090806080600010205030807--
