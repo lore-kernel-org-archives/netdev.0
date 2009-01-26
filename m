@@ -1,85 +1,71 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Fwd: [Bug 10799] sky2 general protection fault
-Date: Sun, 25 Jan 2009 19:23:48 -0800
-Message-ID: <20090125192348.649d1414@extreme>
+From: Steve Sakoman <sakoman@gmail.com>
+Subject: Re: [RFC PATCH] smsc911x: protect INT_EN read-modify-write with
+	spinlock
+Date: Sun, 25 Jan 2009 20:43:29 -0800
+Message-ID: <5e088bd90901252043x4fd3b787n9cc72c9a48bce266@mail.gmail.com>
+References: <1232460114-13469-1-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: johnpaulmorrison@hotmail.com
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Ian Saturley <ian.saturley@smsc.com>
+To: Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33015 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751240AbZAZDY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2009 22:24:26 -0500
+Received: from fk-out-0910.google.com ([209.85.128.190]:31715 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751294AbZAZEnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2009 23:43:31 -0500
+Received: by fk-out-0910.google.com with SMTP id f33so2369049fkf.5
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2009 20:43:29 -0800 (PST)
+In-Reply-To: <1232460114-13469-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> It's a good cable and switch port - it was used on a different machine with no
-> issues. According to the switch it's negotiated to auto/100. The hardware is
-> also working OK with the sk98lin driver. There may also be some extra log
-> messages because of me trying to remotely recover the system by resetting the
-> switch port. 
-> 
-> What debugging is needed to help here? I need to keep this system up, and so
-> far sk98lin is working, but I could run sky2 again for a while and use another
-> nic to remotely reset the interface.
-> 
-> 
-> I've attached syslogs from the dates I was running sky2
-> 
-> Jan 16 08:41:22 kernel: [    0.000000] Linux version 2.6.28-4-server
-> (buildd@vernadsky) (gcc version 4.3.3 20090111 (prerelease) (Ubuntu
-> 4.3.2-2ubuntu11) ) #10-Ubuntu SMP Mon Jan 12 20:35:38 UTC 2009 (Ubuntu
-> 2.6.28-4.10-server)
-> Jan 16 08:41:34 kernel: [    6.398381] sky2 driver version 1.22
-> Jan 16 08:41:34 kernel: [    6.398407] sky2 0000:01:00.0: PCI INT A -> GSI 17
-> (level, low) -> IRQ 17
-> Jan 16 08:41:34 kernel: [    6.398443] sky2 0000:01:00.0: Yukon-2 EC Ultra chip
-> revision 3
-> Jan 16 08:41:34 kernel: [    6.430561] sky2 0000:01:00.0: Marvell Yukon 88E8056
-> Gigabit Ethernet Controller
-> Jan 16 08:41:34 kernel: [    6.431102] sky2 eth0: addr 00:1b:fc:a0:a6:cb
-> Jan 16 08:41:34 kernel: [   15.547168] sky2 eth0: enabling interface
-> Jan 16 08:41:34 kernel: [   15.550225] ADDRCONF(NETDEV_UP): eth0: link is not
-> ready
-> Jan 16 08:41:34 kernel: [   18.444818] sky2 eth0: Link is up at 100 Mbps, full
-> duplex, flow control rx
-> Jan 16 08:41:34 kernel: [   18.444952] ADDRCONF(NETDEV_CHANGE): eth0: link
-> becomes ready
-> Jan 16 08:41:34 kernel: [   18.510127] sky2 eth0: Link is down.
-> Jan 16 08:41:34 kernel: [   21.399482] sky2 eth0: Link is up at 100 Mbps, full
-> duplex, flow control rx
-> Jan 16 09:02:18 kernel: [    3.921621] sky2 0000:01:00.0: PCI INT A -> GSI 17
-> (level, low) -> IRQ 17
-> Jan 16 09:02:18 kernel: [    3.921657] sky2 0000:01:00.0: v1.22 addr 0xfeafc000
-> irq 17 Yukon-2 EC Ultra rev 3
-> Jan 16 09:02:18 kernel: [    3.922000] sky2 eth0: addr 00:1b:fc:a0:a6:cb
-> Jan 16 09:03:39 kernel: [    3.910116] sky2 0000:01:00.0: v1.13 addr 0xfeafc000
-> irq 16 Yukon-EC Ultra (0xb4) rev 3
-> Jan 16 09:03:39 kernel: [    3.910190] sky2 eth0: addr 00:1b:fc:a0:a6:cb
-> Jan 16 09:03:39 kernel: [   15.345272] sky2 eth0: enabling interface
-> Jan 16 09:03:39 kernel: [   15.394455] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.395482] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.396508] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.397534] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.398560] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.399582] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.400606] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.401630] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.402653] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.403676] sky2 eth0: phy write timeout
-> Jan 16 09:03:39 kernel: [   15.403778] sky2 eth0: ram buffer 1020K
-> Jan 16 09:03:39 kernel: [   15.405023] ADDRCONF(NETDEV_UP): eth0: link is not
-> ready
-> Jan 16 09:32:37 kernel: [    3.060427] sky2 0000:01:00.0: v1.21 addr 0xfeafc000
-> irq 17 Yukon-EC Ultra (0xb4) rev 3
+On Tue, Jan 20, 2009 at 6:01 AM, Steve Glendinning
+<steve.glendinning@smsc.com> wrote:
+> This patch adds a new spinlock to protect read-modify-writes to the
+> INT_EN register when enabling and disabling interrupt sources.
+>
+> I haven't actually seen any devices lock up, but I think there's a
+> possibility and I'd like to eliminate it.
 
-Taking this out of bugzilla and onto netdev where it belongs
+I'm attempting to use this driver on a new Gumstix Overo daughtercard
+that uses an SMCS9221 and have been having some interrupt issues that
+may or may not be related.
 
-Why is the link bouncing so much. Does your switch not support autoneg?
+I am using the version in linux-omap 2.6.29-rc2.  Here's what I see at boot:
 
-If you see phy write timeouts, there are lower level problems. Check that the
-firmware is up to date. You need to get that from the motherboard mfg, there isn't
-a generic version. The firmware does a bunch of register settings that are design
-dependent, so I wouldn't just take it from any other motherboard.
+smsc911x: Driver version 2008-10-21.
+eth%d: smsc911x_init: Driver Parameters:
+eth%d: smsc911x_init: LAN base: 0xD086E000
+eth%d: smsc911x_init: IRQ: 336
+eth%d: smsc911x_init: PHY will be autodetected.
+eth%d: smsc911x_init: BYTE_TEST: 0x87654321
+eth%d: smsc911x_init: LAN911x identified, idrev: 0x92210000, generation: 4
+eth0: smsc911x_drv_probe: Network interface: "eth0"
+eth0: smsc911x_mii_init: External PHY is not supported, using internal PHY
+smsc911x-mdio: probed
+eth0: smsc911x_mii_probe: PHY 1: addr 1, phy_id 0x0007C0C3
+eth0: attached PHY driver [SMSC LAN8700] (mii_bus:phy_addr=ffffffff:01, irq=-1)
+eth0: smsc911x_phy_check_loopbackpkt: Successfully verified loopback packet
+eth0: smsc911x_mii_probe: Passed Loop Back Test
+eth0: smsc911x_mii_probe: phy initialised succesfully
+eth0: smsc911x_drv_probe: MAC Address is set to random_ether_addr
+net eth0: MAC Address: ae:b1:a7:f7:89:c2
+<snip>
+Configuring network interfaces...
+eth0: smsc911x_open: irq polarity: active low
+eth0: smsc911x_open: irq type: open drain
+eth0: smsc911x_open: Testing irq handler using IRQ 336
+net eth0: ISR failed signaling test (IRQ 336)
+
+I have a scope probe hanging on the IRQ signal.  I can see that IRQ is
+high at power on, then I see a flurry of interrupts,  then at around
+the time the "testing irq" message comes out I see IRQ go low and
+remain low.  This behavior is 100% reproducible.
+
+I tried with and without this patch, same behavior.
+
+Any ideas what might be going wrong?
+
+Steve
