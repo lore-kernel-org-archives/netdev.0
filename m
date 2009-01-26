@@ -1,45 +1,47 @@
-From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: Re: hardware time stamping with optional structs in data area
-Date: Mon, 26 Jan 2009 21:39:52 +0100
-Message-ID: <1233002392.23161.6.camel@pohly-MOBL>
-References: <1232102164.18762.72.camel@pohly-MOBL>
-	 <20090116.110033.163815590.davem@davemloft.net>
-	 <1232532457.7829.19.camel@ecld0pohly>
-	 <20090125.210442.129666692.davem@davemloft.net>
+From: Ron Madrid <ron_madrid@sbcglobal.net>
+Subject: Re: [PATCH] Marvell 88E1118 interrupt fix
+Date: Mon, 26 Jan 2009 12:34:47 -0800 (PST)
+Message-ID: <634733.68526.qm@web83501.mail.sp1.yahoo.com>
+References: <20090126.122132.106851564.davem@davemloft.net>
+Reply-To: ron_madrid@sbcglobal.net
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:1510 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752950AbZAZUkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2009 15:40:00 -0500
-In-Reply-To: <20090125.210442.129666692.davem@davemloft.net>
+Received: from web83501.mail.sp1.yahoo.com ([216.252.120.157]:22483 "HELO
+	web83501.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755315AbZAZUl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 15:41:28 -0500
+In-Reply-To: <20090126.122132.106851564.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-01-26 at 07:04 +0200, David Miller wrote:
-> From: Patrick Ohly <patrick.ohly@intel.com>
-> Date: Wed, 21 Jan 2009 11:07:37 +0100
-> See fs/compat_ioctl.c:dev_ifsioc() for how to handle the
-> "32-bit process under 64-bit kernel" issue wrt. struct ifreq
+I'm sorry.  I sent this to the wrong mail list.  My apologies.
 
-Thanks, will do.
+Ron
 
-> Just consolidate the array into a direct conversion table.  You only
-> have 2 bits defined so you only need an array of 4 entries.  Pass the
-> optional flag bits directly in as the index of that table.
 
-How can I get some code executed during the initialization of the IP
-stack which initializes the table, before any sk_buff gets allocated?
+--- On Mon, 1/26/09, David Miller <davem@davemloft.net> wrote:
 
-The content is constant, but writing it down as static initializers
-using just preprocessor macros would be difficult and/or ugly - that's
-why I haven't done it already.
-
-Bye, Patrick
-
+> From: David Miller <davem@davemloft.net>
+> Subject: Re: [PATCH] Marvell 88E1118 interrupt fix
+> To: ron_madrid@sbcglobal.net
+> Cc: netdev@vger.kernel.org
+> Date: Monday, January 26, 2009, 12:21 PM
+> From: Ron Madrid <ron_madrid@sbcglobal.net>
+> Date: Fri, 23 Jan 2009 12:04:10 -0800
+> 
+> > This patch adjusts the LED control so that interrupt
+> lines are not reading LEDs
+> > and effectively causing indefinite interrupts to the
+> controller.
+> > 
+> > Signed-off-by: Ron Madrid
+> <ron_madrid@sbcglobal.net>
+> 
+> There is no drivers/net/tsec.c in the tree.  I can't
+> even find
+> 'phy_info_M88E1118' in any source file.
+> 
+> What are you generating this patch against?
