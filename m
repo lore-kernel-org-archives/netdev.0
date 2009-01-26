@@ -1,117 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: fix setsockopt() locking errors
-Date: Mon, 26 Jan 2009 11:50:12 +0000
-Message-ID: <20090126115012.GA5620@ff.dom.local>
-References: <20090124224930.GA4456@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] iproute2 : fix to catchup with xtables/iptables >= 1.4.2
+Date: Mon, 26 Jan 2009 14:25:35 +0100
+Message-ID: <497DB9CF.6060408@trash.net>
+References: <1232908352.13279.33.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?us-ascii?B?PT9JU08tODg1OS0yP1E/TWFydGluX01PS1I/PSA9P0lTTy04ODU5LTI/?=
-	 =?us-ascii?B?UT9FSj1BOT89?= <mmokrejs@ribosome.natur.cuni.cz>,
-	netdev@vger.kernel.org
-To: Vegard Nossum <vegard.nossum@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	Andreas Henriksson <andreas@fatal.se>,
+	Yevgeny Kosarzhevsky <yevg@pisem.net>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Denys Fedoryschenko <denys@visp.net.lb>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:25931 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512AbZAZLuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 06:50:23 -0500
-Received: by fg-out-1718.google.com with SMTP id 19so3485711fgg.17
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 03:50:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20090124224930.GA4456@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:43791 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751212AbZAZNZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 08:25:39 -0500
+In-Reply-To: <1232908352.13279.33.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24-01-2009 23:49, Vegard Nossum wrote:
-> Hi,
+jamal wrote:
+> Sorry for the long CC (copying all stakeholders)
 > 
-> This survives basic testing here, but I don't know what that counts for
-> when I couldn't reproduce the lockdep report in the first place. Please
-> review.
+> Against latest iproute2 git - fixes breakage found with debian and
+> certainly with any distro using iptables 1.4.2.
 > 
-> 
-> Vegard
-> 
-> 
-> From cc8bcd1c4fd219a31d6d191aefa4b4b57dadb9b0 Mon Sep 17 00:00:00 2001
-> From: Vegard Nossum <vegard.nossum@gmail.com>
-> Date: Sat, 24 Jan 2009 22:44:16 +0100
-> Subject: [PATCH] net: fix setsockopt() locking errors
-> MIME-Version: 1.0
-> Content-Type: text/plain; charset=utf-8
-> Content-Transfer-Encoding: 8bit
-> 
-> Martin MOKREJ.  <mmokrejs@ribosome.natur.cuni.cz> reported:
->> =======================================================
->> [ INFO: possible circular locking dependency detected ]
->> 2.6.29-rc2-git1 #1
->> -------------------------------------------------------
->> tcpdump/3734 is trying to acquire lock:
->>  (&mm->mmap_sem){----}, at: [<c1053294>] might_fault+0x30/0x6b
->>
->> but task is already holding lock:
->>  (sk_lock-AF_PACKET){--..}, at: [<c12798c8>] sock_setsockopt+0x12b/0x4a4
->>
->> which lock already depends on the new lock.
-> 
-> It turns out that sock_setsockopt() is calling copy_from_user() while
-> holding the lock on the socket.
-
-I guess it has been like this for some time, so it would be nice to
-mention what scenario happens here, or IOW what exactly needs to get
-these locks in reverse order.
-
-> We fix it by splitting the ioctl code
-> so that one switch handles the ioctls that have their own code for
-> reading from userspace, and one switch handles the cases that require
-> no additional reading.
-> 
-> Reported-by: Martin MOKREJ.  <mmokrejs@ribosome.natur.cuni.cz>
-> Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
-> ---
->  net/core/sock.c |  134 +++++++++++++++++++++++++++++++++++-------------------
->  1 files changed, 87 insertions(+), 47 deletions(-)
-> 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index f3a0d08..6bd618d 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -424,6 +424,80 @@ out:
->  	return ret;
->  }
+> A small depart from the old ipt - to keep in sync with iptable/xtables
+> changes. The old ipt should continue to work for iptables <1.4.1. And
+> with this change, no old scripts will break.
 >  
-> +static int sock_linger(struct sock *sk, char __user *optval, int optlen)
-...
-> +static int sock_set_rcvtimeo(struct sock *sk, char __user *optval, int optlen)
-> +{
-> +	int ret;
-> +	long rcvtimeo;
-> +
-> +	ret = sock_set_timeout(&rcvtimeo, optval, optlen);
+> [Breakage will happen again (probably by the time we hit iptables 1.4.3)
+> because xtables is still a moving target. There are quiet a few
+> functions which really should be part of xtables but are currently not -
+> I have labelled them in tc/m_xt.c].
 
-A check for error is needed here and below.
-
-> +
-> +	lock_sock(sk);
-> +	sk->sk_rcvtimeo = rcvtimeo;
-> +	release_sock(sk);
-> +
-> +	return ret;
-> +}
-> +
-> +static int sock_set_sndtimeo(struct sock *sk, char __user *optval, int optlen)
-> +{
-> +	int ret;
-> +	long sndtimeo;
-> +
-> +	ret = sock_set_timeout(&sndtimeo, optval, optlen);
-> +
-> +	lock_sock(sk);
-> +	sk->sk_sndtimeo = sndtimeo;
-> +	release_sock(sk);
-> +
-> +	return ret;
-> +}
-...
-
-Jarek P.
+libxtables.so is pretty incomplete, the best thing would be if you'd
+move everything you need there so we can avoid any breakage in the
+future.
