@@ -1,205 +1,250 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Mon, 26 Jan 2009 14:57:04 -0800 (PST)
-Message-ID: <20090126.145704.137971029.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: 32 core net-next stack/netfilter "scaling"
+Date: Tue, 27 Jan 2009 00:10:44 +0100
+Message-ID: <497E42F4.7080201@cosmosbay.com>
+References: <497E361B.30909@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754569AbZAZW53@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:51571 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751691AbZAZXKy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 18:10:54 -0500
+In-Reply-To: <497E361B.30909@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoxKSBFMTAwMEUgVFggbG9ja3VwIGZpeCBmcm9tIEplc3NlIEJyYW5kZWJ1cmcuDQoNCjIpIEdS
-TyBmaXhlcyBmcm9tIEhlcmJlcnQgWHUNCg0KMykgUmV2ZXJ0IGF0dGVtcHQgdG8gZml4IElQU0VD
-IDMyLzY0IGJpdCBjb21wYXQgaXNzdWUsIGl0IGJyZWFrcw0KICAgbW9yZSB0aGFuIGl0IGZpeGVz
-Lg0KDQo0KSBDVE5FVExJTksgJ3NjaGVkIHdoaWxlIGF0b21pYycgZml4IGZyb20gUGF0cmljayBN
-Y0hhcmR5Lg0KDQo1KSBrb3JpbmEgZHJpdmVyIGJ1ZyBmaXhlcyBmcm9tIFBoaWwgU3V0dGVyLg0K
-DQo2KSBFeHBsaWNpdGx5IGluaXRpYWxpemUgZW5jYXBfb2EgdG8gemVybyBpbiBBRl9QRktFWSBt
-ZXNzYWdlcywNCiAgIGZpeCBmcm9tIFRpbW8gVGVyYXMuICBTaW5jZSB3ZSBiYXNpY2FsbHkgaWdu
-b3JlIHRoaXMgYml0LCBsZWF2aW5nDQogICBpdCB1bml0aWFsaXplZCBpcyBwcm9ibGVtYXRpYy4N
-Cg0KNykgU0NUUCBidWcgZml4ZXMgZnJvbSBWbGFkIFlhc2V2aWNoDQoNCjgpIGJueDJ4IGJ1ZyBm
-aXhlcyBmcm9tIFZsYWRpc2xhdiBab2xvdGFyb3YgYW5kIEVpbG9uIEdyZWVuc3RlaW4uDQoNCjkp
-IFZhcmlvdXMgd2lyZWxlc3MgZml4ZXMgdmlhIEpvaG4gTGludmlsbGUuDQoNCjEwKSBwaHlsaWIg
-c3VzcGVuZC9yZXN1bWUgT09QUyBmaXggZnJvbSBBbnRvbiBWb3JvbnRzb3YuDQoNCjExKSBWTEFO
-IHN5bWJvbHMgdW5pbnRlbnRpb25hbGx5IGV4cG9ydGVkIEdQTCBvbmx5LCBmaXggZnJvbQ0KICAg
-IEJlbiBHcmVlYXIuDQoNClBsZWFzZSBwdWxsLCB0aGFua3MgYSBsb3QhDQoNClRoZSBmb2xsb3dp
-bmcgY2hhbmdlcyBzaW5jZSBjb21taXQgZjNiODQzNmFkOWE4YWQzNmIzYzlmYTFmZTAzMGM3ZjM4
-ZTVkM2QwYjoNCiAgTGludXMgVG9ydmFsZHMgKDEpOg0KICAgICAgICBNZXJnZSBicmFuY2ggJ2Zv
-ci1saW51cycgb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL3JvbGFuZC9pbmZpbmliYW5kDQoN
-CmFyZSBhdmFpbGFibGUgaW4gdGhlIGdpdCByZXBvc2l0b3J5IGF0Og0KDQogIG1hc3Rlci5rZXJu
-ZWwub3JnOi9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0LTIuNi5naXQgbWFzdGVy
-DQoNCkFiYmFzLCBNb2hhbWVkICgxKToNCiAgICAgIGl3bHdpZmk6IGZpeCByc19nZXRfcmF0ZSBX
-QVJOX09OKCkNCg0KQWxleCBXaWxsaWFtc29uICgxKToNCiAgICAgIHZpcnRpb19uZXQ6IEZpeCBN
-QVhfUEFDS0VUX0xFTiB0byBzdXBwb3J0IDgwMi4xUSBWTEFOcw0KDQpBbmRyZXkgQm9yemVua292
-ICgxKToNCiAgICAgIG9yaW5vY286IG1vdmUga21hbGxvYyguLi4sIEdGUF9LRVJORUwpIG91dHNp
-ZGUgc3BpbmxvY2sgaW4gb3Jpbm9jb19pb2N0bF9zZXRfZ2VuaWUNCg0KQW5kcmV5IFl1cm92c2t5
-ICgxKToNCiAgICAgIGxpYmVydGFzOiBGaXggYWxpZ25tZW50IGlzc3VlcyBpbiBsaWJlcnRhcyBj
-b3JlDQoNCkFudG9uIFZvcm9udHNvdiAoMik6DQogICAgICBwaHlsaWI6IEZpeCBvb3BzIGluIHN1
-c3BlbmQvcmVzdW1lIHBhdGhzDQogICAgICBnaWFuZmFyOiBSZXZpdmUgVkxBTiBzdXBwb3J0DQoN
-CkFydHVyIFNrYXdpbmEgKDEpOg0KICAgICAgcDU0OiBzZXRfdGltIG11c3QgYmUgYXRvbWljLg0K
-DQpCZW4gR3JlZWFyICgxKToNCiAgICAgIHZsYW46IEV4cG9ydCBzeW1ib2xzIGFzIG5vbiBHUEwg
-c3ltYm9scy4NCg0KQnJpYW4gQ2F2YWdub2xvICgxKToNCiAgICAgIG1hYzgwMjExOiBkZWNyZW1l
-bnQgcmVmIGNvdW50IHRvIG5ldGRldiBhZnRlciBsYXVuY2hpbmcgbWVzaCBkaXNjb3ZlcnkNCg0K
-QnJpY2UgR29nbGluICgxKToNCiAgICAgIG15cmkxMGdlOiBkb24ndCBmb3JnZXQgcGNpX2Rpc2Fi
-bGVfZGV2aWNlKCkNCg0KQ2hyICgxKToNCiAgICAgIHA1NDogYWRkIG1pc3NpbmcgYnJlYWsgaW4g
-ZWVwcm9tIHBhcnNlcg0KDQpDaHJpc3RpYW4gRWdnZXJzICgxKToNCiAgICAgIHVzYi9tY3M3ODMw
-OiBEb24ndCB1c2UgYnVmZmVycyBmcm9tIHN0YWNrIGZvciBVU0IgdHJhbnNmZXJzDQoNCkNocmlz
-dGlhbiBMYW1wYXJ0ZXIgKDYpOg0KICAgICAgcDU0OiBmaXggb29wcyBjYXVzZWQgYnkgYmFkIGVl
-cHJvbXMNCiAgICAgIHA1NDogZml4IHA1NF9zZXRfa2V5J3MgcmV0dXJuIGNvZGUNCiAgICAgIG1h
-YzgwMjExOiBmaXggc2xvdCB0aW1lIGRlYnVnIG1lc3NhZ2UNCiAgICAgIHA1NDogbW9yZSBjcnlw
-dG9ncmFwaGljIGFjY2VsZXJhdG9yIGZpeGVzDQogICAgICBwNTR1c2I6IGZpeCBuYXN0eSB1c2Ug
-YWZ0ZXIgZnJlZQ0KICAgICAgcDU0dXNiOiBmaXggcGFja2V0IGxvc3Mgd2l0aCBmaXJzdCBnZW5l
-cmF0aW9uIGRldmljZXMNCg0KRGFuaWVsZSBWZW56YW5vICgxKToNCiAgICAgIGlzZG46IEZpeCBt
-aXNzaW5nIGlmZGVmIGluIGlzZG5fcHBwDQoNCkRhdmlkIFMuIE1pbGxlciAoMyk6DQogICAgICBS
-ZXZlcnQgInhmcm06IEZvciAzMi82NCBjb21wYXRhYmlsaXR5IHdydC4geGZybV91c2Vyc2FfaW5m
-byINCiAgICAgIE1lcmdlIGJyYW5jaCAnbWFzdGVyJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9yZy8u
-Li4vbGludmlsbGUvd2lyZWxlc3MtMi42DQogICAgICBNZXJnZSBicmFuY2ggJ21hc3Rlcicgb2Yg
-Z2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL2xpbnZpbGxlL3dpcmVsZXNzLTIuNg0KDQpEaGFuYW5q
-YXkgUGhhZGtlICgyKToNCiAgICAgIG5ldHhlbjogZml4IHZsYW4gdHNvL2NoZWNrc3VtIG9mZmxv
-YWQNCiAgICAgIG5ldHhlbjogcmVkdWNlIG1lbW9yeSBmb290cHJpbnQNCg0KRGl2eSBMZSBSYXkg
-KDEpOg0KICAgICAgY3hnYjM6IEZpeCBMUk8gbWlzYWxpZ25tZW50DQoNCkRvbiBTa2lkbW9yZSAo
-Mik6DQogICAgICBpeGdiZTogZml4IGRjYSBpc3N1ZSB3aXRoIHJlbGF4ZWQgb3JkZXJpbmcgdHVy
-bmVkIG9uDQogICAgICBpeGdiZTogZml4IHRhZyBzdHJpcHBpbmcgZm9yIFZMQU4gSUQgMA0KDQpF
-aWxvbiBHcmVlbnN0ZWluICgyMik6DQogICAgICBibngyeDogRnJlZSBJUlENCiAgICAgIGJueDJ4
-OiBIYW5kbGluZyBwcm9iZSBmYWlsdXJlcw0KICAgICAgYm54Mng6IFBvdGVudGlhbCByYWNlIGFm
-dGVyIGlTQ1NJIGJvb3QNCiAgICAgIGJueDJ4OiBXcm9uZyBIRFIgb2Zmc2V0IGluIENBTQ0KICAg
-ICAgYm54Mng6IFJlYWQgY2hpcCBJRA0KICAgICAgYm54Mng6IEJsb2NrIG52cmFtIGFjY2VzcyB3
-aGVuIHRoZSBkZXZpY2UgaXMgaW5hY3RpdmUNCiAgICAgIGJueDJ4OiBPdmVyc3RlcHBpbmcgYXJy
-YXkgYm91bmRzDQogICAgICBibngyeDogMUctMTBHIHRvZ2dsaW5nIHJhY2UNCiAgICAgIGJueDJ4
-OiBQcmV2ZW50IHNlbGYgdGVzdCBsb29wYmFjayBmYWlsdXJlcw0KICAgICAgYm54Mng6IExlZ2Fj
-eSBzcGVlZHMgYXV0b25lZyBmYWlsdXJlcw0KICAgICAgYm54Mng6IEhhbmRsaW5nIFBIWSBGVyBs
-b2FkIGZhaWx1cmUNCiAgICAgIGJueDJ4OiBEcml2ZXIgZGVzY3JpcHRpb24gdXBkYXRlDQogICAg
-ICBibngyeDogQmFycmllcnMgZm9yIHRoZSBjb21waWxlcg0KICAgICAgYm54Mng6IFZlcnNpb24g
-dXBkYXRlDQogICAgICBibngyeDogUmVzZXQgSFcgYmVmb3JlIHVzZQ0KICAgICAgYm54Mng6IERp
-c2FibGUgbmFwaQ0KICAgICAgYm54Mng6IEhhbmRsaW5nIGxvYWQgZmFpbHVyZXMNCiAgICAgIGJu
-eDJ4OiBDYXJyaWVyIG9mZiBmaXJzdCBjYWxsDQogICAgICBibngyeDogQ2FsbGluZyBuYXBpX2Rl
-bA0KICAgICAgYm54Mng6IE1pc3Npbmcgcm1iIHdoZW4gd2FpdGluZyBmb3IgRlcgcmVzcG9uc2UN
-CiAgICAgIGJueDJ4OiBsb29wYmFjayB0ZXN0IGZhaWx1cmUNCiAgICAgIGJueDJ4OiBWZXJzaW9u
-DQoNCkdhYnJpZWwgUGF1YmVydCAoMSk6DQogICAgICBtdjY0M3h4X2V0aDogcHJldmVudCBpbnRl
-cnJ1cHQgc3Rvcm0gb24gaWZjb25maWcgZG93bg0KDQpIZWlrbyBDYXJzdGVucyAoMSk6DQogICAg
-ICBsY3M6IGZpeCBjb21waWxhdGlvbiBmb3IgIUNPTkZJR19JUF9NVUxUSUNBU1QNCg0KSGVyYmVy
-dCBYdSAoNCk6DQogICAgICBuZXQ6IEFkZCBkZWJ1ZyBpbmZvIHRvIHRyYWNrIGRvd24gR1NPIGNo
-ZWNrc3VtIGJ1Zw0KICAgICAgZ3JvOiBGaXggaGFuZGxpbmcgb2YgY29tcGxldGUgY2hlY2tzdW1z
-IGluIElQdjYNCiAgICAgIGdybzogRml4IGVycm9yIGhhbmRsaW5nIG9uIGV4dHJlbWVseSBzaG9y
-dCBmcmFncw0KICAgICAgZ3JvOiBGaXggbWVyZ2luZyBvZiBwYWdlZCBwYWNrZXRzDQoNCkhpbi1U
-YWsgTGV1bmcgKDEpOg0KICAgICAgemQxMjExcnc6IGFkZGluZyBTaXRlY29tIFdMLTYwMyAoMGRm
-NjowMDM2KSB0byB0aGUgVVNCIGlkIGxpc3QNCg0KSW5ha3kgUGVyZXotR29uemFsZXogKDEpOg0K
-ICAgICAgd2ltYXgvaTI0MDBtOiBlcnJvciBwYXRocyB0aGF0IG5lZWQgdG8gZnJlZSBhbiBza2Ig
-c2hvdWxkIHVzZSBrZnJlZV9za2IoKQ0KDQpJdm8gdmFuIERvb3JuICgxKToNCiAgICAgIHJ0Mngw
-MDogRml4IFRYIHJhdGUgc2hvcnQgcHJlYW1ibGUgZGV0ZWN0aW9uDQoNCkphcmVrIFBvcGxhd3Nr
-aSAoMSk6DQogICAgICBuZXQ6IEZpeCBkYXRhIGNvcnJ1cHRpb24gd2hlbiBzcGxpY2luZyBmcm9t
-IHNvY2tldHMuDQoNCkplc3NlIEJhcm5lcyAoMSk6DQogICAgICBuZXR3b3JraW5nOiBkb2N1bWVu
-dCAibmMiIGluIGFkZGl0aW9uIHRvICJuZXRjYXQiIGluIG5ldGNvbnNvbGUudHh0DQoNCkplc3Nl
-IEJyYW5kZWJ1cmcgKDEpOg0KICAgICAgZTEwMDBlOiB3b3JrYXJvdW5kIGh3IGVycmF0YQ0KDQpK
-aXJpIFNsYWJ5ICgxKToNCiAgICAgIE5FVDogbmV0X25hbWVzcGFjZSwgZml4IGxvY2sgaW1iYWxh
-bmNlDQoNCkpvdW5pIE1hbGluZW4gKDIpOg0KICAgICAgYXRoOWs6IEZpeCBhbiBvcGVyYXRvciB0
-eXBvIGluIHBoeSByYXRlIHZhbGlkYXRpb24NCiAgICAgIGF0aDlrOiBGaXggYW4gb3BlcmF0b3Ig
-dHlwbyBpbiBSRUdfRE9NQUlOXzJHSFpfTUFTSw0KDQpLcnp5c3p0b2YgSGHFgmFzYSAoMSk6DQog
-ICAgICBuZXQ6IEZpeCBsaW51eC9pZl9mcmFkLmgncyBzdWl0YWJpbGl0eSBmb3IgdXNlcnNwYWNl
-Lg0KDQpMYXJyeSBGaW5nZXIgKDEpOg0KICAgICAgcnRsODE4NzogQWRkIHRlcm1pbmF0aW9uIHBh
-Y2tldCB0byBwcmV2ZW50IHN0YWxsDQoNCkxlbm5lcnQgQnV5dGVuaGVrICgyKToNCiAgICAgIFJl
-dmVydCAibXY2NDN4eF9ldGg6IHVzZSBsb25nZXIgRE1BIGJ1cnN0cyIuDQogICAgICBtdjY0M3h4
-X2V0aDogZml4IG11bHRpY2FzdCBmaWx0ZXIgcHJvZ3JhbW1pbmcNCg0KTHVpcyBSLiBSb2RyaWd1
-ZXogKDMpOg0KICAgICAgY2ZnODAyMTE6IG1ha2UgaGFuZGxlX2JhbmQoKSBhbmQgaGFuZGxlX2No
-YW5uZWwoKSB3aXBoeSBzcGVjaWZpYw0KICAgICAgY2ZnODAyMTE6IEZpeCByZWdyZXNzaW9uIHdp
-dGggMTFkIG9uIGJhbmRzDQogICAgICBjZmc4MDIxMTogRml4IHBhcnNlZCBjb3VudHJ5IElFIGlu
-Zm8gZm9yIDUgR0h6DQoNCk1hdHQgQ2FybHNvbiAoMSk6DQogICAgICB0ZzM6IEZpeCBmaXJtd2Fy
-ZSBsb2FkaW5nDQoNCk1hdHQgSGVsc2xleSAoMSk6DQogICAgICBuZXQ6IE1vdmUgY29uZmlnIE5F
-VF9OUyB0byBmcm9tIG5ldC9LY29uZmlnIHRvIGluaXQvS2NvbmZpZw0KDQpQYXRyaWNrIE1jSGFy
-ZHkgKDEpOg0KICAgICAgbmV0ZmlsdGVyOiBjdG5ldGxpbms6IGZpeCBzY2hlZHVsaW5nIHdoaWxl
-IGF0b21pYw0KDQpQYXZlbCBSb3NraW4gKDEpOg0KICAgICAgb3Jpbm9jbzogdXNlIEtFUk5fREVC
-VUcgZm9yIGxpbmsgc3RhdHVzIG1lc3NhZ2VzDQoNClBldGVyIFAgV2Fza2lld2ljeiBKciAoMSk6
-DQogICAgICBpeGdiZTogRml4IHVzYWdlIG9mIG5ldGlmXypfYWxsX3F1ZXVlcygpIHdpdGggbmV0
-aWZfY2Fycmllcl97b2ZmfG9ufSgpDQoNClBoaWwgU3V0dGVyICgzKToNCiAgICAgIGtvcmluYTog
-Zml4IGxvb3AgYmFjayBvZiByZWNlaXZlIGRlc2NyaXB0b3JzDQogICAgICBrb3JpbmE6IGFkanVz
-dCBoZWFkcm9vbSBmb3IgbmV3IHNrYidzIGFsc28NCiAgICAgIGtvcmluYTogZHJvcCBsZWZ0b3Zl
-ciBhc3NpZ25tZW50DQoNClJhbWkgUm9zZW4gKDEpOg0KICAgICAgcnQyeDAwOiBmaXggYSB3cm9u
-ZyBwYXJhbWV0ZXIgZm9yIF9fdGVzdF9hbmRfY2xlYXJfYml0KCkgaW4gcnQyeDAwcmZraWxsX2Zy
-ZWUoKS4NCg0KUmFuZHkgRHVubGFwICgxKToNCiAgICAgIG1hYzgwMjExOiBtb3JlIGtlcm5lbC1k
-b2MgZml4ZXMNCg0KUmVpbmV0dGUgQ2hhdHJlICgxKToNCiAgICAgIGl3bHdpZmk6IHJldHVybiBO
-RVRERVZfVFhfT0sgZnJvbSBfdHggb3BzDQoNClJpY2hhcmQgUsO2amZvcnMgKDEpOg0KICAgICAg
-bWFjYjogYXZvaWQgbG9ja3VwIHdoZW4gVEdPIGR1cmluZyB1bmRlcnJ1bg0KDQpSb2VsIEtsdWlu
-ICgxKToNCiAgICAgIG5ldC85cDogZmlkLT5maWQgaXMgdXNlZCB1bmluaXRpYWxpemVkDQoNClN0
-ZXZlIEdsZW5kaW5uaW5nICgyKToNCiAgICAgIHVzYm5ldDogYWxsb3cgdHlwZSBjaGVjayBvZiBk
-ZXZkYmcgYXJndW1lbnRzIGluIG5vbi1kZWJ1ZyBidWlsZA0KICAgICAgcGh5OiBBZGQgc3VzcGVu
-ZC9yZXN1bWUgc3VwcG9ydCB0byBTTVNDIFBIWXMNCg0KVGltbyBUZXJhcyAoMSk6DQogICAgICBh
-Zl9rZXk6IGluaXRpYWxpemUgeGZybSBlbmNhcF9vYQ0KDQpWbGFkIFlhc2V2aWNoICg0KToNCiAg
-ICAgIHNjdHA6IEZpeCBjcmMzMmMgY2FsY3VsYXRpb25zIG9uIGJpZy1lbmRpYW4gYXJoZXMuDQog
-ICAgICBzY3RwOiBDb3JyZWN0bHkgc3RhcnQgcnR4IHRpbWVyIG9uIG5ldyBwYWNrZXQgdHJhbnNt
-aXNzaW9ucy4NCiAgICAgIHNjdHA6IFByb3Blcmx5IHRpbWVzdGFtcCBvdXRnb2luZyBkYXRhIGNo
-dW5rcyBmb3IgcnR4IHB1cnBvc2VzDQogICAgICBzY3RwOiBGaXggYW5vdGhlciBzb2NrZXQgcmFj
-ZSBkdXJpbmcgYWNjZXB0L3BlZWxvZmYNCg0KVmxhZGlzbGF2IFpvbG90YXJvdiAoMSk6DQogICAg
-ICBibngyeDogdHhfaGFzX3dvcmsgc2hvdWxkIG5vdCB3YWl0IGZvciBGVw0KDQpaaHUgWWkgKDEp
-Og0KICAgICAgaXdsd2lmaTogcmVtb3ZlIENNRF9XQU5UX1NLQiBmbGFnIGlmIHNlbmRfY21kX3N5
-bmMgZmFpbHVyZQ0KDQpyb2VsIGtsdWluICgxKToNCiAgICAgIHZpYS12ZWxvY2l0eTogZml4IGhv
-dCBzcGluDQoNCiBEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvbmV0Y29uc29sZS50eHQgICAgIHwg
-ICAgMyArLQ0KIGRyaXZlcnMvaXNkbi9pNGwvaXNkbl9wcHAuYyAgICAgICAgICAgICAgICAgfCAg
-ICAyICsNCiBkcml2ZXJzL25ldC9ibngyeC5oICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAx
-MSArLQ0KIGRyaXZlcnMvbmV0L2JueDJ4X2xpbmsuYyAgICAgICAgICAgICAgICAgICAgfCAgIDY0
-ICsrKystLQ0KIGRyaXZlcnMvbmV0L2JueDJ4X21haW4uYyAgICAgICAgICAgICAgICAgICAgfCAg
-MzAyICsrKysrKysrKysrKysrKystLS0tLS0tLS0tLQ0KIGRyaXZlcnMvbmV0L2JueDJ4X3JlZy5o
-ICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstDQogZHJpdmVycy9uZXQvY3hnYjMvc2dlLmMg
-ICAgICAgICAgICAgICAgICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L2UxMDAwZS84MjU3MS5j
-ICAgICAgICAgICAgICAgICAgfCAgICA2ICstDQogZHJpdmVycy9uZXQvZTEwMDBlL2h3LmggICAg
-ICAgICAgICAgICAgICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L2dpYW5mYXIuYyAgICAgICAg
-ICAgICAgICAgICAgICAgfCAgICA2ICstDQogZHJpdmVycy9uZXQvaXhnYmUvaXhnYmVfbWFpbi5j
-ICAgICAgICAgICAgICB8ICAgNjIgKysrLS0tDQogZHJpdmVycy9uZXQvaXhnYmUvaXhnYmVfdHlw
-ZS5oICAgICAgICAgICAgICB8ICAgIDMgKw0KIGRyaXZlcnMvbmV0L2tvcmluYS5jICAgICAgICAg
-ICAgICAgICAgICAgICAgfCAgIDE1ICstDQogZHJpdmVycy9uZXQvbWFjYi5jICAgICAgICAgICAg
-ICAgICAgICAgICAgICB8ICAgIDggKw0KIGRyaXZlcnMvbmV0L212NjQzeHhfZXRoLmMgICAgICAg
-ICAgICAgICAgICAgfCAgIDE3ICstDQogZHJpdmVycy9uZXQvbXlyaTEwZ2UvbXlyaTEwZ2UuYyAg
-ICAgICAgICAgICB8ICAgMTUgKy0NCiBkcml2ZXJzL25ldC9uZXR4ZW4vbmV0eGVuX25pYy5oICAg
-ICAgICAgICAgIHwgICAxMiArLQ0KIGRyaXZlcnMvbmV0L25ldHhlbi9uZXR4ZW5fbmljX2V0aHRv
-b2wuYyAgICAgfCAgICA1ICstDQogZHJpdmVycy9uZXQvbmV0eGVuL25ldHhlbl9uaWNfbWFpbi5j
-ICAgICAgICB8ICAgMzEgKystDQogZHJpdmVycy9uZXQvcGh5L21kaW9fYnVzLmMgICAgICAgICAg
-ICAgICAgICB8ICAgIDggKy0NCiBkcml2ZXJzL25ldC9waHkvc21zYy5jICAgICAgICAgICAgICAg
-ICAgICAgIHwgICAxMiArDQogZHJpdmVycy9uZXQvdGczLmMgICAgICAgICAgICAgICAgICAgICAg
-ICAgICB8ICAgODEgKysrKystLS0NCiBkcml2ZXJzL25ldC90ZzMuaCAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgICAgMSArDQogZHJpdmVycy9uZXQvdXNiL21jczc4MzAuYyAgICAgICAgICAg
-ICAgICAgICB8ICAgMjAgKystDQogZHJpdmVycy9uZXQvdmlhLXZlbG9jaXR5LmMgICAgICAgICAg
-ICAgICAgICB8ICAgIDIgKy0NCiBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgICAgICAgICAgICAg
-ICAgICAgIHwgICAgMyArLQ0KIGRyaXZlcnMvbmV0L3dpbWF4L2kyNDAwbS9jb250cm9sLmMgICAg
-ICAgICAgfCAgICAyICstDQogZHJpdmVycy9uZXQvd2ltYXgvaTI0MDBtL3VzYi1yeC5jICAgICAg
-ICAgICB8ICAgIDkgKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGg5ay9yYy5jICAgICAgICAg
-ICAgIHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aDlrL3JlZ2RfY29tbW9uLmgg
-ICAgfCAgICAyICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtMzk0NS1ycy5j
-ICB8ICAgMTQgKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2l3bC1hZ24tcnMuYyAg
-IHwgICAxNCArLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvaXdsLWFnbi5jICAgICAg
-fCAgICAyICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtaGNtZC5jICAgICB8
-ICAgIDIgKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2l3bDM5NDUtYmFzZS5jIHwg
-ICAgNCArLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2xpYmVydGFzL2hvc3RjbWQuaCAgICAgfCAg
-IDkxICsrKystLS0tDQogZHJpdmVycy9uZXQvd2lyZWxlc3Mvb3Jpbm9jby9vcmlub2NvLmMgICAg
-ICB8ICAgMzIgKystLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3A1NC9wNTRjb21tb24uYyAgICAg
-ICAgfCAgIDMwICsrLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3A1NC9wNTR1c2IuYyAgICAgICAg
-ICAgfCAgIDQxICsrLS0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9ybmRpc193bGFuLmMgICAgICAg
-ICAgIHwgICAgMiAtDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvcnQyeDAwL3J0MngwMHF1ZXVlLmMg
-ICB8ICAgIDMgKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9ydDJ4MDAvcnQyeDAwcmZraWxsLmMg
-IHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bDgxOHgvcnRsODE4N19kZXYuYyAg
-fCAgICAxICsNCiBkcml2ZXJzL25ldC93aXJlbGVzcy96ZDEyMTFydy96ZF91c2IuYyAgICAgIHwg
-ICAgMSArDQogZHJpdmVycy9zMzkwL25ldC9sY3MuYyAgICAgICAgICAgICAgICAgICAgICB8ICAg
-IDggKy0NCiBpbmNsdWRlL2xpbnV4L2lmX2ZyYWQuaCAgICAgICAgICAgICAgICAgICAgIHwgICAx
-MCArLQ0KIGluY2x1ZGUvbGludXgvdXNiL3VzYm5ldC5oICAgICAgICAgICAgICAgICAgfCAgICA0
-ICstDQogaW5jbHVkZS9uZXQvbWFjODAyMTEuaCAgICAgICAgICAgICAgICAgICAgICB8ICAgIDEg
-LQ0KIGluY2x1ZGUvbmV0L3NjdHAvY2hlY2tzdW0uaCAgICAgICAgICAgICAgICAgfCAgICAyICst
-DQogaW5pdC9LY29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDggKw0K
-IG5ldC84MDIxcS92bGFuX2NvcmUuYyAgICAgICAgICAgICAgICAgICAgICAgfCAgICA0ICstDQog
-bmV0LzlwL2NsaWVudC5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDIgKy0NCiBu
-ZXQvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgOCAtDQogbmV0
-L2NvcmUvZGV2LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgMTUgKystDQogbmV0
-L2NvcmUvbmV0X25hbWVzcGFjZS5jICAgICAgICAgICAgICAgICAgICB8ICAgIDIgKy0NCiBuZXQv
-Y29yZS9za2J1ZmYuYyAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICA3MCArKystLS0tDQog
-bmV0L2lwdjYvYWZfaW5ldDYuYyAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDcgKw0KIG5l
-dC9rZXkvYWZfa2V5LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICAxICsNCiBuZXQv
-bWFjODAyMTEvbWxtZS5jICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNCArLQ0KIG5ldC9t
-YWM4MDIxMS9zdGFfaW5mby5oICAgICAgICAgICAgICAgICAgICAgfCAgICAxIC0NCiBuZXQvbWFj
-ODAyMTEvdHguYyAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNiArLQ0KIG5ldC9uZXRm
-aWx0ZXIvbmZfY29ubnRyYWNrX25ldGxpbmsuYyAgICAgICAgfCAgICAzICsNCiBuZXQvc2N0cC9p
-bnB1dC5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAxMyArKw0KIG5ldC9zY3RwL291
-dHB1dC5jICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICA3ICstDQogbmV0L3NjdHAvb3V0
-cXVldWUuYyAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDMgKy0NCiBuZXQvd2lyZWxlc3Mv
-cmVnLmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDEyOCArKysrKysrKysrKy0NCiBuZXQv
-eGZybS94ZnJtX3VzZXIuYyAgICAgICAgICAgICAgICAgICAgICAgIHwgICAxMSArLQ0KIDY3IGZp
-bGVzIGNoYW5nZWQsIDgwMSBpbnNlcnRpb25zKCspLCA0NjQgZGVsZXRpb25zKC0pDQo=
+Rick Jones a =E9crit :
+> Folks -
+>=20
+> Under:
+>=20
+> ftp://ftp.netperf.org/iptable_scaling
+>=20
+> can be found netperf results and Caliper profiles for three scenarios=
+ on
+> a 32-core, 1.6 GHz 'Montecito' rx8640 system.  An rx8640 is what HP c=
+all
+> a "cell based" system in that it is comprised of "cell boards" on whi=
+ch
+> reside CPU and memory resources.  In this case there are four cell
+> boards, each with 4, dual-core Montecito processors and 1/4 of the
+> overall RAM.  The system was configured with a mix of cell-local and
+> global interleaved memory, where the global interleave is on a cachel=
+ine
+> (128 byte) boundary (IIRC).  Total RAM in the system is 256 GB.  The
+> cells are joined via cross-bar connections. (numactl --hardware outpu=
+t
+> is available under the URL above)
+>=20
+> There was an "I/O expander" connected to the system.  This meant ther=
+e
+> were as many distinct PCI-X domains as there were cells, and every ce=
+ll
+> had a "local" set of PCI-X slots.
+>=20
+> Into those slots I placed four HP AD385A PCI-X 10Gbit Ethernet NICs -
+> aka Neterion XFrame IIs.  These were then connected to an HP ProCurve
+> 5806 switch, which was in turn connected to three, 4P/16C, 2.3 GHz HP
+> DL585 G5s, each of which had a pair of HP AD386A PCIe 10Gbit Ethernet
+> NICs (Aka Chelsio T3C-based).  They were running RHEL 5.2 I think.  E=
+ach
+> NIC was in either a PCI-X 2.0 266 MHz slot (rx8640) or a PCIe 1.mumbl=
+e
+> x8 slot (DL585 G5)
+>=20
+> The kernel is from DaveM's net-next tree ca last week, multiq enabled=
+=2E=20
+> The s2io driver is Neterion's out-of-tree version 2.0.36.15914 to get
+> multiq support.  It was loaded into the kernel via:
+>=20
+> insmod ./s2io.ko tx_steering_type=3D3 tx_fifo_num=3D8
+>=20
+> There were then 8 tx queues and 8 rx queues per interface in the
+> rx8640.  The "setaffinity.txt" script was used to set the IRQ affinit=
+ies
+> to cores "closest" to the physical NIC. In all three tests all 32 cor=
+es
+> went to 100% utilization. At least for all incense and porpoises. (th=
+ere
+> was some occasional idle reported by top on the full_iptables run)
+>=20
+> A set of 64, concurrent "burst mode" netperf omni RR tests (tcp) with=
+ a
+> burst mode of 17 were run (ie 17 "transactions" outstanding on a
+> connection at one time,) with TCP_NODELAY set and the results gathere=
+d,
+> along with a set of Caliper profiles.  The script used to launch thes=
+e
+> can be found in "runemomniagg2.sh.txt under the URL above.
+>=20
+> I picked an "RR" test to maximize the trips up and down the stack whi=
+le
+> minimizing the bandwidth consumed.
+>=20
+> I picked a burst size of 16 because that was sufficient to saturate a
+> single core on the rx8640.
+>=20
+> I picked 64 concurrent netperfs because I wanted to make sure I had
+> enough concurrent connections to get spread across all the cores/queu=
+es
+> by the algorithms in place.
+>=20
+> I picked the combination of 64 and 16 rather than say 1024 and 0 (one
+> tran at a time) because I didn't want to run a context switching
+> benchmark :)
+>=20
+> The rx8640 was picked because it was available and I was confident it
+> was not going to have any hardware scaling issues getting in the way.=
+  I
+> wanted to see SW issues, not HW issues. I am ass-u-me-ing the rx8640 =
+is
+> a reasonable analog for any "decent or better scaling" 32 core hardwa=
+re
+> and that while there are ia64-specific routines present in the profil=
+es,
+> they are there for platform-independent reasons.
+>=20
+> The no_iptables/ data was run after a fresh boot, with no iptables
+> commands run and so no iptables related modules loaded into the kerne=
+l.
+>=20
+> The empty_iptables/ data was run after an "iptables --list" command
+> which loaded one or two modules into the kernel.
+>=20
+> The full_iptables/ data was run after an "iptables-restore" command
+> pointed at full_iptables/iptables.txt  which was created from what RH
+> creates by default when one enables firewall via their installer, wit=
+h a
+> port range added by me to allow pretty much anything netperf would as=
+k.=20
+> As such, while it does excercise netfilter functionality, I cannot ma=
+ke
+> any claims as to its "real world" applicability.  (while the firewall
+> settings came from an RH setup, FWIW, the base bits running on the
+> rx8640 are Debian Lenny, with the net-next kernel on top)
+>=20
+> The "cycles" profile is able to grab flat profile hits while interrup=
+ts
+> are disabled so it can see stuff happening while interrupts are
+> disabled.  The "scgprof" profile is an attempt to get some call graph=
+s -
+> it does not have visibility into code running with interrupts disable=
+d.=20
+> The "cache" profile is a profile that looks to get some cache miss
+> information.
+>=20
+> So, having said all that, details can be found under the previously
+> mentioned URL.  Some quick highlights:
+>=20
+> no_iptables - ~22000 transactions/s/netperf.  Top of the cycles profi=
+le
+> looks like:
+>=20
+> Function Summary
+> ---------------------------------------------------------------------=
+--
+> % Total
+>      IP  Cumulat             IP
+> Samples    % of         Samples
+>  (ETB)     Total         (ETB)   Function                          Fi=
+le
+> ---------------------------------------------------------------------=
+--
+>    5.70     5.70         37772   s2io.ko::tx_intr_handler
+>    5.14    10.84         34012   vmlinux::__ia64_readq
+>    4.88    15.72         32285   s2io.ko::s2io_msix_ring_handle
+>    4.63    20.34         30625   s2io.ko::rx_intr_handler
+>    4.60    24.94         30429   s2io.ko::s2io_xmit
+>    3.85    28.79         25488   s2io.ko::s2io_poll_msix
+>    2.87    31.65         18987   vmlinux::dev_queue_xmit
+>    2.51    34.16         16620   vmlinux::tcp_sendmsg
+>    2.51    36.67         16588   vmlinux::tcp_ack
+>    2.15    38.82         14221   vmlinux::__inet_lookup_established
+>    2.10    40.92         13937   vmlinux::ia64_spinlock_contention
+>=20
+> empty_iptables - ~12000 transactions/s/netperf.  Top of the cycles
+> profile looks like:
+>=20
+> Function Summary
+> ---------------------------------------------------------------------=
+--
+> % Total
+>      IP  Cumulat             IP
+> Samples    % of         Samples
+>  (ETB)     Total         (ETB)   Function                          Fi=
+le
+> ---------------------------------------------------------------------=
+--
+>   26.38    26.38        137458   vmlinux::_read_lock_bh
+>   10.63    37.01         55388   vmlinux::local_bh_enable_ip
+>    3.42    40.43         17812   s2io.ko::tx_intr_handler
+>    3.01    43.44         15691   ip_tables.ko::ipt_do_table
+>    2.90    46.34         15100   vmlinux::__ia64_readq
+>    2.72    49.06         14179   s2io.ko::rx_intr_handler
+>    2.55    51.61         13288   s2io.ko::s2io_xmit
+>    1.98    53.59         10329   s2io.ko::s2io_msix_ring_handle
+>    1.75    55.34          9104   vmlinux::dev_queue_xmit
+>    1.64    56.98          8546   s2io.ko::s2io_poll_msix
+>    1.52    58.50          7943   vmlinux::sock_wfree
+>    1.40    59.91          7302   vmlinux::tcp_ack
+>=20
+> full_iptables - some test instances didn't complete, I think they got
+> starved. Of those which did complete, their performance ranged all th=
+e
+> way from 330 to 3100 transactions/s/netperf.  Top of the cycles profi=
+le
+> looks like:
+>=20
+> Function Summary
+> ---------------------------------------------------------------------=
+--
+> % Total
+>      IP  Cumulat             IP
+> Samples    % of         Samples
+>  (ETB)     Total         (ETB)   Function                          Fi=
+le
+> ---------------------------------------------------------------------=
+--
+>   64.71    64.71        582171   vmlinux::_write_lock_bh
+>   18.43    83.14        165822   vmlinux::ia64_spinlock_contention
+>    2.86    85.99         25709   nf_conntrack.ko::init_module
+>    2.36    88.35         21194   nf_conntrack.ko::tcp_packet
+>    1.78    90.13         16009   vmlinux::_spin_lock_bh
+>    1.20    91.33         10810   nf_conntrack.ko::nf_conntrack_in
+>    1.20    92.52         10755   vmlinux::nf_iterate
+>    1.09    93.62          9833   vmlinux::default_idle
+>    0.26    93.88          2331   vmlinux::__ia64_readq
+>    0.25    94.12          2213   vmlinux::__interrupt
+>    0.24    94.37          2203   s2io.ko::tx_intr_handler
+>=20
+> Suggestions as to things to look at/with and/or patches to try are
+> welcome.  I should have the HW available to me for at least a little
+> while, but not indefinitely.
+>=20
+> rick jones
+
+Hi Rick, nice hardware you have :)
+
+Stephen had a patch to nuke read_lock() from iptables, using RCU and se=
+qlocks.
+I hit this contention point even with low cost hardware, and quite stan=
+dard application.
+
+I pinged him few days ago to try to finish the job with him, but it see=
+ms Stephen
+is busy at the moment.
+
+Then conntrack (tcp sessions) is awfull, since it uses a single rwlock_=
+t tcp_lock
+ that must be write_locked() for basically every handled tcp frame...
+
+How long is "not indefinitely" ?=20
+
+
