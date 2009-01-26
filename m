@@ -1,51 +1,117 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [RFC PATCH] smsc911x: protect INT_EN read-modify-write with spinlock
-Date: Mon, 26 Jan 2009 09:56:55 +0000
-Message-ID: <OF91A6D7F4.9B4360B2-ON8025754A.0035FFA5-8025754A.0036C687@smsc.com>
-References: <20090125.174736.268120930.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net: fix setsockopt() locking errors
+Date: Mon, 26 Jan 2009 11:50:12 +0000
+Message-ID: <20090126115012.GA5620@ff.dom.local>
+References: <20090124224930.GA4456@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: ian.saturley@smsc.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?us-ascii?B?PT9JU08tODg1OS0yP1E/TWFydGluX01PS1I/PSA9P0lTTy04ODU5LTI/?=
+	 =?us-ascii?B?UT9FSj1BOT89?= <mmokrejs@ribosome.natur.cuni.cz>,
+	netdev@vger.kernel.org
+To: Vegard Nossum <vegard.nossum@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:1524 "EHLO smsc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750944AbZAZJ6n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2009 04:58:43 -0500
-In-Reply-To: <20090125.174736.268120930.davem@davemloft.net>
+Received: from fg-out-1718.google.com ([72.14.220.152]:25931 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512AbZAZLuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 06:50:23 -0500
+Received: by fg-out-1718.google.com with SMTP id 19so3485711fgg.17
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 03:50:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20090124224930.GA4456@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote on 26/01/2009 01:47:36:
-
-> From: Steve Glendinning <steve.glendinning@smsc.com>
-> Date: Tue, 20 Jan 2009 14:01:54 +0000
+On 24-01-2009 23:49, Vegard Nossum wrote:
+> Hi,
 > 
-> > This patch adds a new spinlock to protect read-modify-writes to the
-> > INT_EN register when enabling and disabling interrupt sources.
-> > 
-> > I haven't actually seen any devices lock up, but I think there's a
-> > possibility and I'd like to eliminate it.
-> > 
-> > Should I add this new spinlock, or should I extend the mac_lock
-> > to also cover these sections (renaming it to simply "lock")?
-> > 
-> > Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+> This survives basic testing here, but I don't know what that counts for
+> when I couldn't reproduce the lockdep report in the first place. Please
+> review.
 > 
-> If you didn't have all of these RX multicast workaround
-> cases, things would be much easier.
 > 
-> The POLL and normal interrupt paths are already completely atomic for
-> you already.  And since POLL cannot happen until open() completes
-> that path would be safe too.
+> Vegard
 > 
+> 
+> From cc8bcd1c4fd219a31d6d191aefa4b4b57dadb9b0 Mon Sep 17 00:00:00 2001
+> From: Vegard Nossum <vegard.nossum@gmail.com>
+> Date: Sat, 24 Jan 2009 22:44:16 +0100
+> Subject: [PATCH] net: fix setsockopt() locking errors
+> MIME-Version: 1.0
+> Content-Type: text/plain; charset=utf-8
+> Content-Transfer-Encoding: 8bit
+> 
+> Martin MOKREJ.  <mmokrejs@ribosome.natur.cuni.cz> reported:
+>> =======================================================
+>> [ INFO: possible circular locking dependency detected ]
+>> 2.6.29-rc2-git1 #1
+>> -------------------------------------------------------
+>> tcpdump/3734 is trying to acquire lock:
+>>  (&mm->mmap_sem){----}, at: [<c1053294>] might_fault+0x30/0x6b
+>>
+>> but task is already holding lock:
+>>  (sk_lock-AF_PACKET){--..}, at: [<c12798c8>] sock_setsockopt+0x12b/0x4a4
+>>
+>> which lock already depends on the new lock.
+> 
+> It turns out that sock_setsockopt() is calling copy_from_user() while
+> holding the lock on the socket.
 
-Thanks for looking this over David.
+I guess it has been like this for some time, so it would be nice to
+mention what scenario happens here, or IOW what exactly needs to get
+these locks in reverse order.
 
-It looks like I can do away with the need for this if I leave RXSTOP_INT
-permanently enabled and use a flag in pdata to indicate whether the ISR
-should do a multicast filter update.  Does this sound reasonable?
+> We fix it by splitting the ioctl code
+> so that one switch handles the ioctls that have their own code for
+> reading from userspace, and one switch handles the cases that require
+> no additional reading.
+> 
+> Reported-by: Martin MOKREJ.  <mmokrejs@ribosome.natur.cuni.cz>
+> Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
+> ---
+>  net/core/sock.c |  134 +++++++++++++++++++++++++++++++++++-------------------
+>  1 files changed, 87 insertions(+), 47 deletions(-)
+> 
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index f3a0d08..6bd618d 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -424,6 +424,80 @@ out:
+>  	return ret;
+>  }
+>  
+> +static int sock_linger(struct sock *sk, char __user *optval, int optlen)
+...
+> +static int sock_set_rcvtimeo(struct sock *sk, char __user *optval, int optlen)
+> +{
+> +	int ret;
+> +	long rcvtimeo;
+> +
+> +	ret = sock_set_timeout(&rcvtimeo, optval, optlen);
 
-Please drop this patch.
+A check for error is needed here and below.
 
-Steve
+> +
+> +	lock_sock(sk);
+> +	sk->sk_rcvtimeo = rcvtimeo;
+> +	release_sock(sk);
+> +
+> +	return ret;
+> +}
+> +
+> +static int sock_set_sndtimeo(struct sock *sk, char __user *optval, int optlen)
+> +{
+> +	int ret;
+> +	long sndtimeo;
+> +
+> +	ret = sock_set_timeout(&sndtimeo, optval, optlen);
+> +
+> +	lock_sock(sk);
+> +	sk->sk_sndtimeo = sndtimeo;
+> +	release_sock(sk);
+> +
+> +	return ret;
+> +}
+...
+
+Jarek P.
