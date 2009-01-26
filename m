@@ -1,65 +1,77 @@
-From: John Reumann <reumann.linux@gmail.com>
-Subject: [PATCH 1/1] Return EINVAL if the user provides a return data structure for getsockname that is too small
- to hold the PF_ address.  This introduces a new error code but this should be OK as the error
- is real and would otherwise corrupt the user-application's stack, i.e., it results in trouble
- no matter what.  I do not do a partial copy of the sockaddr structure because it does not
- make very much sense to retrieve only part of the socket address (e.g., ip + af_family).
-Date: Mon, 26 Jan 2009 11:21:40 -0500
-Message-ID: <20090126163452.85EAF54A11@localhost>
-To: undisclosed-recipients:;
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [PATCH]bnx2x: tx_has_work should not wait for FW
+Date: Mon, 26 Jan 2009 18:55:56 +0200
+Message-ID: <1232988956.18353.3.camel@lb-tlvb-eliezer>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Vladislav Zolotarov" <vladz@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:55318 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656AbZAZQe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 11:34:59 -0500
-Received: from spaceape7.eur.corp.google.com (spaceape7.eur.corp.google.com [172.28.16.141])
-	by smtp-out.google.com with ESMTP id n0QGYvaq002275
-	for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 16:34:57 GMT
-Received: from localhost (reumann-warp.nyc.corp.google.com [172.26.76.182])
-	by spaceape7.eur.corp.google.com with ESMTP id n0QGYqtc017492
-	for <netdev@vger.kernel.org>; Mon, 26 Jan 2009 08:34:53 -0800
+Received: from mms2.broadcom.com ([216.31.210.18]:2593 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751783AbZAZQ5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2009 11:57:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- net/ipv4/af_inet.c  |    7 +++++--
- net/ipv6/af_inet6.c |    3 +++
- 2 files changed, 8 insertions(+), 2 deletions(-)
+The current tx_has_work waited until all packets sent by the driver are marked
+as completed by the FW. This is too greedy and it causes the bnx2x_poll to spin
+in vain. The driver should only check that all packets FW already completed are
+freed - only in unload flow the driver should make sure that transmit queue is
+empty
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 743f554..52283ff 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -677,10 +677,13 @@ do_err:
- int inet_getname(struct socket *sock, struct sockaddr *uaddr,
- 			int *uaddr_len, int peer)
- {
--	struct sock *sk		= sock->sk;
--	struct inet_sock *inet	= inet_sk(sk);
-+	struct sock *sk = sock->sk;
-+	struct inet_sock *inet = inet_sk(sk);
- 	struct sockaddr_in *sin	= (struct sockaddr_in *)uaddr;
- 
-+	if (*uaddr_len < sizeof(struct sockaddr_in))
-+		return -EINVAL;
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x_main.c |   17 ++++++++++++-----
+ 1 files changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 4b84f6c..d3e7775 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -57,8 +57,8 @@
+ #include "bnx2x.h"
+ #include "bnx2x_init.h"
+
+-#define DRV_MODULE_VERSION	"1.45.25"
+-#define DRV_MODULE_RELDATE	"2009/01/22"
++#define DRV_MODULE_VERSION	"1.45.26"
++#define DRV_MODULE_RELDATE	"2009/01/26"
+ #define BNX2X_BC_VER		0x040200
+
+ /* Time in jiffies before concluding the transmitter is hung */
+@@ -740,8 +740,15 @@ static inline int bnx2x_has_tx_work(struct bnx2x_fastpath *fp)
+ 	/* Tell compiler that status block fields can change */
+ 	barrier();
+ 	tx_cons_sb = le16_to_cpu(*fp->tx_cons_sb);
+-	return ((fp->tx_pkt_prod != tx_cons_sb) ||
+-		(fp->tx_pkt_prod != fp->tx_pkt_cons));
++	return (fp->tx_pkt_cons != tx_cons_sb);
++}
 +
- 	sin->sin_family = AF_INET;
- 	if (peer) {
- 		if (!inet->dport ||
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index c802bc1..74b8407 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -401,6 +401,9 @@ int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 
-+	if (*uaddr_len < sizeof(struct sockaddr_in6))
-+		return -EINVAL;
++static inline int bnx2x_has_tx_work_unload(struct bnx2x_fastpath *fp)
++{
++	/* Tell compiler that consumer and producer can change */
++	barrier();
++	return (fp->tx_pkt_prod != fp->tx_pkt_cons);
 +
- 	sin->sin6_family = AF_INET6;
- 	sin->sin6_flowinfo = 0;
- 	sin->sin6_scope_id = 0;
--- 
-1.5.4.5
+ }
+
+ /* free skb in the packet ring at pos idx
+@@ -6729,7 +6736,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+
+ 		cnt = 1000;
+ 		smp_rmb();
+-		while (bnx2x_has_tx_work(fp)) {
++		while (bnx2x_has_tx_work_unload(fp)) {
+
+ 			bnx2x_tx_int(fp, 1000);
+ 			if (!cnt) {
+--
+1.5.4.3
+
+
+
 
