@@ -1,51 +1,41 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 32 core net-next stack/netfilter "scaling"
-Date: Tue, 27 Jan 2009 10:02:23 -0800
-Message-ID: <497F4C2F.9000804@hp.com>
-References: <497E361B.30909@hp.com> <497E42F4.7080201@cosmosbay.com>	<497E44F6.2010703@hp.com> <497ECF84.1030308@cosmosbay.com>	<497ED0A2.6050707@trash.net> <497F350A.9020509@cosmosbay.com> <497F457F.2050802@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
+ up
+Date: Tue, 27 Jan 2009 10:19:03 -0800 (PST)
+Message-ID: <20090127.101903.144575010.davem@davemloft.net>
+References: <20090127132718.GA10001@x200.localdomain>
+	<20090127133504.GA10091@x200.localdomain>
+	<20090127094928.534ff6f6@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Patrick McHardy <kaber@trash.net>
+Cc: adobriyan@gmail.com, jgarzik@pobox.com, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:46071 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755912AbZA0SC1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 13:02:27 -0500
-In-Reply-To: <497F457F.2050802@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57273
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753133AbZA0STG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 13:19:06 -0500
+In-Reply-To: <20090127094928.534ff6f6@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Eric Dumazet wrote:
-> 
->>[PATCH] netfilter: Get rid of central rwlock in tcp conntracking
->>
->>TCP connection tracking suffers of huge contention on a global rwlock,
->>used to protect tcp conntracking state.
->>
->>As each tcp conntrack state have no relations between each others, we
->>can switch to fine grained lock. Using an array of spinlocks avoids
->>enlarging size of connection tracking structures, yet giving reasonable
->>fanout.
->>
->>tcp_print_conntrack() doesnt need to lock anything to read
->>ct->proto.tcp.state, so speedup /proc/net/ip_conntrack as well.
->>
->>nf_conntrack_hash_rnd_initted & nf_conntrack_hash_rnd declared read_mostly
->>  
-> 
-> 
-> This looks good to me. Rick, would you like to give it a try?
-> 
-> I'll convert the remaining conntrack protocols when applying it.
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 27 Jan 2009 09:49:28 -0800
 
-I will give it a try and let folks know the results - unless told otherwise, I 
-will ass-u-me I only need rerun the "full_iptables" test case.
+> Netconsole should be smart enough to not try and print to
+> a device that is not marked running.
 
-rick jones
+I think the hardware is marked running.
 
+This is at the beginning of the driver's ->open() method.
+
+The netpoll layer is in fact checking those states:
+
+static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+{
+ ...
+	if (!npinfo || !netif_running(dev) || !netif_device_present(dev)) {
+		__kfree_skb(skb);
+		return;
+	}
