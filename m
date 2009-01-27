@@ -1,94 +1,43 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Tue, 27 Jan 2009 11:24:27 +0900
-Message-ID: <497E705B.5000302@kernel.org>
-References: <20090115183942.GA6325@elte.hu> <200901201328.24605.rusty@rustcorp.com.au> <49756E6E.2060409@kernel.org> <200901271213.18605.rusty@rustcorp.com.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PANIC] lro + iscsi or lro + skb text search causes panic
+Date: Tue, 27 Jan 2009 14:01:56 +1100
+Message-ID: <20090127030156.GA26604@gondor.apana.org.au>
+References: <alpine.WNT.2.00.0901221234420.4188@jbrandeb-desk1.amr.corp.intel.com> <20090122232131.GA22771@gondor.apana.org.au> <4979097B.4040108@cs.wisc.edu> <20090125.213222.192571170.davem@davemloft.net> <20090126223022.GA24046@gondor.apana.org.au> <F169D4F5E1F1974DBFAFABF47F60C10A1C225135@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"michaelc@cs.wisc.edu" <michaelc@cs.wisc.edu>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tgraf@suug.ch" <tgraf@suug.ch>, "kkeil@suse.de" <kkeil@suse.de>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:47595 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751977AbZA0CZC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2009 21:25:02 -0500
-In-Reply-To: <200901271213.18605.rusty@rustcorp.com.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:44800 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752883AbZA0DCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 22:02:06 -0500
+Content-Disposition: inline
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1C225135@orsmsx507.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Rusty.
-
-Rusty Russell wrote:
-
->> No, they're not. They're preempt safe as mentioned in the comment
->> and is basically just generalization of the original x86 versions
->> used by x86_64 on SMP before pda and percpu areas were merged. I
->> agree that it's something very close to local_t and it would be
->> nice to see those somehow unified (and I have patches which make
->> use of local_t in my queue waiting for dynamic percpu allocation).
+On Mon, Jan 26, 2009 at 05:40:08PM -0800, Brandeburg, Jesse wrote:
+>
+> 1-3 (both, :-)) doesn't seem to work here, I applied this and still got a 
+> panic when doing a quick test before I went home today.
 > 
-> Yes, which is one reason I dislike Ingo's patch:
-> 1) Mine did just read because that covers the most common fast-path use
-> and is easily atomic for word-sizes on all archs,
-> 2) Didn't replace x86, just #defined generic one, so much less churn,
-> 3) read_percpu_var and read_percpu_ptr variants following the convention
-> reinforced by my other patches.
->
-> Linus' tree had read/write/add/or counts at 22/13/0/0. Yours has
-> more write usage, so I'm happy there, but still only one add and one
-> or. If we assume that generic code will look a bit like that when
-> converted, I'm not convinced that generic and/or/etc ops are worth
-> it.
+> I can get panic trace from netconsole tomorrow.
 
-There actually were quite some places where atomic add ops would be
-useful, especially the places where statistics are collected.  For
-logical bitops, I don't think we'll have too many of them.
+OK, looking at the original trace it looks like none of the bugs
+I've fixed actually explain it.  The crash looks more like a ref
+count bug, which means that the issue isn't so much about the
+skb_seq_read interface (which should be fixed in any case), but
+in the iSCSI code itself.
 
-> If they are worth doing generically, should the ops be atomic? To
-> extrapolate from x86 usages again, it seems to be happy with
-> non-atomic (tho of course it is atomic on x86).
+More digging is required.
 
-If atomic rw/add/sub are implementible on most archs (and judging from
-local_t, I suppose it is), I think it should.  So that it can replace
-local_t and we won't need something else again in the future.
-
->> Another question to ask is whether to keep using separate
->> interfaces for static and dynamic percpu variables or migrate to
->> something which can take both.
->
-> Well, IA64 can do stuff with static percpus that it can't do with
-> dynamic (assuming we get expanding dynamic percpu areas
-> later). That's because they use TLB tricks for a static 64k per-cpu
-> area, but this doesn't scale.  That might not be vital: abandoning
-> that trick will mean they can't optimise read_percpu/read_percpu_var
-> etc as much.
-
-Isn't something like the following possible?
-
-#define pcpu_read(ptr)						\
-({								\
-	if (__builtin_constant_p(ptr) &&			\
-	    ptr >= PCPU_STATIC_START && ptr < PCPU_STATIC_END)	\
-		do 64k TLB trick for static pcpu;		\
-	else							\
-		do generic stuff;				\
-})
-
-> Tejun, any chance of you updating the tj-percpu tree? My current
-> patches are against Linus's tree, and rebasing them on yours
-> involves some icky merging.
-
-If Ingo is okay with it, I'm fine with it too.  Unless Ingo objects,
-I'll do it tomorrow-ish (still big holiday here).
-
-Thanks.
-
+Cheers,
 -- 
-tejun
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
