@@ -1,161 +1,144 @@
-From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
-Subject: results with diff affinity settings using ixgbe
-Date: Tue, 27 Jan 2009 16:14:22 +0100
-Message-ID: <497F24CE.6060201@itcare.pl>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: hardware time stamping with optional structs in data area
+Date: Tue, 27 Jan 2009 16:23:57 +0100
+Message-ID: <1233069837.24438.54.camel@pohly-MOBL>
+References: <1232532457.7829.19.camel@ecld0pohly>
+	 <20090125.210442.129666692.davem@davemloft.net>
+	 <1233002392.23161.6.camel@pohly-MOBL>
+	 <20090126.172202.261408793.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:39007 "EHLO smtp.iq.pl"
+Received: from mga02.intel.com ([134.134.136.20]:56152 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754928AbZA0POZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 10:14:25 -0500
-Received: from unknown (HELO [192.168.1.10]) (itcare_pstaszewski@[83.7.203.157])
-          (envelope-sender <pstaszewski@itcare.pl>)
-          by smtp.iq.pl with AES256-SHA encrypted SMTP
-          for <netdev@vger.kernel.org>; 27 Jan 2009 15:14:22 -0000
+	id S1752271AbZA0PYE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2009 10:24:04 -0500
+In-Reply-To: <20090126.172202.261408793.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I make some tests with affinity on my machine with some traffic load.
-If someone want look:
+On Tue, 2009-01-27 at 03:22 +0200, David Miller wrote:
+> From: Patrick Ohly <patrick.ohly@intel.com>
+> Date: Mon, 26 Jan 2009 21:39:52 +0100
+> 
+> > On Mon, 2009-01-26 at 07:04 +0200, David Miller wrote:
+> > > Just consolidate the array into a direct conversion table.  You only
+> > > have 2 bits defined so you only need an array of 4 entries.  Pass the
+> > > optional flag bits directly in as the index of that table.
+> > 
+> > How can I get some code executed during the initialization of the IP
+> > stack which initializes the table, before any sk_buff gets allocated?
+> > 
+> > The content is constant, but writing it down as static initializers
+> > using just preprocessor macros would be difficult and/or ugly - that's
+> > why I haven't done it already.
+> 
+> It's 4 entries... really.
 
+True - at this time. But what if this extension mechanism turns out to
+be useful and we end up with more optional structures? I was hoping that
+this might be the case and thus tried to make it easy to add more
+structures.
 
+> You can initialize them simply, perhaps
+> with some fancy macro used by the initializers.
 
-Traffic in all test was 350Mbit/s TX and the same on RX
+Unfortunately recursion in macros is not possible. One needs duplicated
+macro definitions, one for each additional structure. But perhaps my
+preprocessor code fu is lacking today and there is a simpler
+solution :-/
 
-RX queues on cpu6 / TX queues on cpu7 / intel e1000e on cpu4
-Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft  
-%steal   %idle    intr/s
-Average:     all    0.05    0.00    0.00    0.00    1.89   10.03    
-0.00   88.03 221511.70
-Average:       0    0.40    0.00    0.00    0.00    0.00    0.00    
-0.00   99.60      0.70
-Average:       1    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      0.80
-Average:       2    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      0.70
-Average:       3    0.00    0.00    0.10    0.00    0.00    0.40    
-0.00   99.50      0.70
-Average:       4    0.00    0.00    0.00    0.00    2.06   18.74    
-0.00   79.20  12870.50
-Average:       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      1.30
-Average:       6    0.00    0.00    0.00    0.00    2.65   57.49    
-0.00   39.86  59410.60
-Average:       7    0.00    0.00    0.00    0.00   10.50    5.00    
-0.00   84.50  53977.90
+Anyway, below is example code with three structures which initializes a
+size array indexed by a bit mask. I find it truly ugly and hard to
+understand - and I wrote it. gcc -S shows that the size arrays contain
+the expected values.
 
+Please let me know what approach is preferred and I'll revise the patch
+accordingly:
+     1. array with four hard-coded values
+     2. init code (where?)
+     3. macro initialization of array
+     4. simpler initialization solution
 
-RX queues on cpu6 / TX queues on cpu7 / intel e1000e on cpu1
-Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft  
-%steal   %idle    intr/s
-Average:     all    0.08    0.00    0.09    0.00    0.75   14.24    
-0.00   84.84 215755.20
-Average:       0    0.50    0.00    0.00    0.00    0.00    0.00    
-0.00   99.50      1.30
-Average:       1    0.00    0.00    0.53    0.00    2.34   36.91    
-0.00   60.21   9771.90
-Average:       2    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      1.40
-Average:       3    0.00    0.00    0.00    0.00    0.00    0.20    
-0.00   99.80      1.30
-Average:       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      1.30
-Average:       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      1.80
-Average:       6    0.00    0.00    0.20    0.00    2.65   78.51    
-0.00   18.64  54691.70
-Average:       7    0.00    0.00    0.00    0.00    1.03    0.51    
-0.00   98.46  54060.60
+---------------------------------------------------------------
+struct A {
+    int a;
+};
 
+struct B {
+    char b;
+};
 
-All RX/TX queues from ixgbe on one cpu7 / intel e1000e on cpu1
-Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft  
-%steal   %idle    intr/s
-Average:     all    0.07    0.00    0.10    0.00    1.19    9.44    
-0.00   89.19 210155.50
-Average:       0    0.60    0.00    0.00    0.00    0.00    0.00    
-0.00   99.40      0.60
-Average:       1    0.00    0.00    0.41    0.00    2.87   16.27    
-0.00   80.45  13045.30
-Average:       2    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      0.70
-Average:       3    0.10    0.00    0.30    0.00    0.00    0.20    
-0.00   99.40      0.60
-Average:       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      0.70
-Average:       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      1.10
-Average:       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      0.60
-Average:       7    0.00    0.00    0.10    0.00    6.77   60.00    
-0.00   33.13 107242.50
+struct C {
+    long long c;
+};
 
+enum {
+    BIT_A,
+    BIT_B,
+    BIT_C
+};
 
-All RX/TX queues from ixgbe on one cpu7 / intel e1000e on cpu4
-Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft  
-%steal   %idle    intr/s
-Average:     all    0.05    0.00    0.04    0.00    1.24    9.55    
-0.00   89.12 212186.90
-Average:       0    0.40    0.00    0.00    0.00    0.00    0.00    
-0.00   99.60      2.20
-Average:       1    0.10    0.00    0.00    0.00    0.00    0.00    
-0.00   99.90      2.30
-Average:       2    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      2.20
-Average:       3    0.00    0.00    0.00    0.00    0.00    0.30    
-0.00   99.70      2.20
-Average:       4    0.00    0.00    0.00    0.00    1.03   14.68    
-0.00   84.28  11965.50
-Average:       5    0.00    0.00    0.10    0.00    0.00    0.00    
-0.00   99.90      2.80
-Average:       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00  100.00      2.30
-Average:       7    0.00    0.00    0.20    0.00    8.97   62.69    
-0.00   28.13 110943.50
+#define MIN(_a, _b) ((_a) < (_b) ? (_a) : (_b))
 
+/* round up _previous number of bytes so that a struct of_structsize
+   bytes is properly aligned at an 8 byte boundary or the structure size,
+   whatever is smaller */
+#define ALIGN(_previous, _structsize) \
+    (((_previous) + MIN(_structsize, 8) - 1) & ~(MIN(_structsize, 8) - 1))
 
-Affinity set to "ffffffff" / and intel e1000e is on cpu4
-Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft  
-%steal   %idle    intr/s
-Average:     all    0.10    0.00    0.14    0.01    1.16   15.07    
-0.00   83.52 185043.10
-Average:       0    0.00    0.00    0.00    0.10    2.90   36.90    
-0.00   60.10   9008.60
-Average:       1    0.00    0.00    0.10    0.00    2.30   28.36    
-0.00   69.24   9009.10
-Average:       2    0.80    0.00    0.40    0.00    0.50   13.76    
-0.00   84.54   9008.90
-Average:       3    0.00    0.00    0.20    0.00    0.20    4.61    
-0.00   94.98   9008.90
-Average:       4    0.00    0.00    0.10    0.00    2.35   19.55    
-0.00   77.99  14142.10
-Average:       5    0.00    0.00    0.10    0.00    0.20    3.85    
-0.00   95.84   9009.10
-Average:       6    0.00    0.00    0.10    0.00    0.40    4.22    
-0.00   95.28   9008.90
-Average:       7    0.00    0.00    0.10    0.00    0.51    8.69    
-0.00   90.70   9009.00
+/* number of bytes for struct X alone
+ * @_flags: bit mask of BIT_ values
+ * @_bitname: name of bit enum for X
+ * @_structname: structure name of X, without struct
+ */
+#define SIZE_X(_flags, _bitname, _structname) \
+    (((_flags) & (1<<_bitname)) ? sizeof(struct _structname) : 0)
 
-And if i split more RX/TX queues to different CPU-s i have more load 
-done by:
-CPU: Core 2, speed 2999.98 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a 
-unit mask of 0x00 (Unhalted core cycles) count 100000
-samples  %        image name               app name                 
-symbol name
-458001   29.5565  vmlinux                  vmlinux                  
-native_read_tsc
+/* number of bytes needed for B (if present) with or without A in
+ * front of it
+ * @_flags: bit mask of BIT_A and BIT_B
+ */
+#define SIZE_B(_flags) \
+    (((_flags) & (1<<BIT_B)) ? \
+     (ALIGN(SIZE_X(_flags, BIT_A, A), SIZE_X(_flags, BIT_B, B)) + sizeof(struct B)) : \
+     SIZE_X(_flags, BIT_A, A))
 
-If all interrupts are on one CPU i have the best results
-So for me the best is to put ixgbe work on one CPU or make affinity to 
-balance over all cpus
+/* number of bytes needed for C (if present) with combinations of
+ * struct A, B in front
+ * @_flags: bit mask of BIT_A, BIT_B, BIT_C
+ */
+#define SIZE_C(_flags) \
+    (((_flags) & (1<<BIT_C)) ? \
+     (ALIGN(SIZE_B(_flags), SIZE_X(_flags, BIT_C, C)) + sizeof(struct C)) : \
+     SIZE_B(_flags))
 
-But something is wrong with my intel e1000e
-because if i put intel e1000e with ixgbe on the same CPU system have 
-100% cpu load and all hangs.
+/* number of bytes needed to store combinations of A, B, C, in this
+   order */
+int size[] = { 0,
 
+               SIZE_X((1<<BIT_A), BIT_A, A),
 
+               SIZE_B((1<<BIT_B)),
+               SIZE_B((1<<BIT_B)|(1<<BIT_A)),
+
+               SIZE_C((1<<BIT_C)),
+               SIZE_C((1<<BIT_C)|(1<<BIT_A)),
+               SIZE_C((1<<BIT_C)|(1<<BIT_B)),
+               SIZE_C((1<<BIT_C)|(1<<BIT_B)|(1<<BIT_A)) };
+
+#define LIST_A(_flags) SIZE_C(_flags), SIZE_C((_flags)|(1<<BIT_A))
+#define LIST_B(_flags) LIST_A(_flags), LIST_A((_flags)|(1<<BIT_B))
+#define LIST_C(_flags) LIST_B(_flags), LIST_B((_flags)|(1<<BIT_C))
+
+/* same as size */
+int size2[] = { LIST_C(0) };
+---------------------------------------------------------------
+
+Bye, Patrick
 
