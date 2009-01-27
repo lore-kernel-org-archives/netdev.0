@@ -1,48 +1,54 @@
-From: "Paul Moore" <paul.moore@centrify.com>
-Subject: RE: port bound SAs
-Date: Tue, 27 Jan 2009 09:05:08 -0800
-Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02A77520@exch-one.centrify.com>
-References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com> <497F3DD0.5010502@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] tcp: splice as many packets as possible at once
+Date: Tue, 27 Jan 2009 09:06:51 -0800 (PST)
+Message-ID: <20090127.090651.237239521.davem@davemloft.net>
+References: <20090127114805.GA30982@gondor.apana.org.au>
+	<20090127121642.GA5866@ff.dom.local>
+	<20090127123111.GB5866@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, w@1wt.eu,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.centrify.com ([216.112.107.103]:45482 "EHLO
-	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753934AbZA0RFN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 12:05:13 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <497F3DD0.5010502@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33233
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754138AbZA0RGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 12:06:55 -0500
+In-Reply-To: <20090127123111.GB5866@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-i did exactly that (in the original message) and it makes this test case
-work but as I point out
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 27 Jan 2009 12:31:11 +0000
 
-a) it should not be necessary 
-b) i get more SAs than I need
-c) i can no longer say that a SA is optional (this is an error in the
-pfkey/xfrm/racoon interface to combine two orthogonal concepts)
-d) I am not convinced that I have resolved all cases. Needs more testing
-
------Original Message-----
-From: Patrick McHardy [mailto:kaber@trash.net] 
-Sent: Tuesday, January 27, 2009 9:01 AM
-To: Paul Moore
-Cc: David Miller; netdev@vger.kernel.org
-Subject: Re: port bound SAs
-
-Paul Moore wrote:
-> racoon
+> On Tue, Jan 27, 2009 at 12:16:42PM +0000, Jarek Poplawski wrote:
+> > On Tue, Jan 27, 2009 at 10:48:05PM +1100, Herbert Xu wrote:
+> > > On Tue, Jan 27, 2009 at 10:35:11AM +0000, Jarek Poplawski wrote:
+> > > >
+> > > > > > Yes, but ip_append_data() (and skb_append_datato_frags() for
+> > > > > > NETIF_F_UFO only, so currently not a problem), uses this differently,
+> > > > > > and these pages in sk->sk_sndmsg_page could leak or be used after
+> > > > > > kfree. (I didn't track locking in these other places).
+> > > > > 
+> > > > > It'll be freed when the socket is freed so that should be fine.
+> > > > 
+> > > > I don't think so: these places can overwrite sk->sk_sndmsg_page left
+> > > > after tcp_sendmsg(), or skb_splice_bits() now, with NULL or a new
+> > > > pointer without put_page() (they only reference copied chunks and
+> > > > expect auto freeing). On the other hand, if tcp_sendmsg() reads after
+> > > > them it could use a pointer after the page is freed, I guess.
+> > > 
+> > > I wasn't referring to the first part of your sentence.  That can't
+> > > happen because they're only used for UDP sockets, this is a TCP
+> > > socket.
+> > 
+> > Do you mean this part from ip_append_data() isn't used for TCP?:
 > 
-> if I look at the xfrm/pfkey code in the kernel it ignores any ports
-sent
-> down by the IKE daemon in transport mode. I actually changed the
-racoon
-> code to include the ports and it makes no difference
+> Actually, the beginning part of ip_append_data() should be enough too.
+> So I guess I missed your point...
 
-Assuming you're also using setkey, try adding "unique" to your policies.
-
+TCP doesn't use ip_append_data(), period.
