@@ -1,62 +1,194 @@
-From: "Paul Moore" <paul.moore@centrify.com>
-Subject: RE: port bound SAs
-Date: Tue, 27 Jan 2009 08:53:47 -0800
-Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02A77519@exch-one.centrify.com>
-References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com><BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net>
+From: Philippe De Muyter <phdm@macqel.be>
+Subject: [PATCH] tulip : fix 21142 with 10Mbps without negotiation
+Date: Tue, 27 Jan 2009 17:57:27 +0100
+Message-ID: <20090127165727.GA25748@frolo.macqel>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="gBBFr7Ir9EOA20Yy"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.centrify.com ([216.112.107.103]:44369 "EHLO
-	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756577AbZA0Qxu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:53:50 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20090126.222035.100955508.davem@davemloft.net>
+Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:56606 "EHLO
+	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753016AbZA0Q5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:57:34 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.macqel.be (Postfix) with ESMTP id C2448130E18
+	for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 17:57:29 +0100 (CET)
+Received: from mail.macqel.be ([127.0.0.1])
+	by localhost (mail.macqel.be [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id yu4FFPo8hO4i for <netdev@vger.kernel.org>;
+	Tue, 27 Jan 2009 17:57:27 +0100 (CET)
+Received: from frolo.macqel.be (frolo.macqel [10.1.40.73])
+	by mail.macqel.be (Postfix) with ESMTP id 80031130E09
+	for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 17:57:27 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-my inspection of the code shows that the port numbers in the SA do not
-get propagated into the right places
-in transport mode linux is never aware of the port numbers 
-racoon systematically zeros them out during SA setup, but even if i
-correct the racoon code to put the port number in it still fails becuase
-the port numbers get ignored by the kernel
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Monday, January 26, 2009 10:21 PM
-To: Paul Moore
-Cc: netdev@vger.kernel.org
-Subject: Re: port bound SAs
+--gBBFr7Ir9EOA20Yy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-From: "Paul Moore" <paul.moore@centrify.com>
-Date: Mon, 26 Jan 2009 11:21:33 -0800
+Hello list
 
-> A few weeks ago I posted a question to the IETF IPsec group on this
-> topic 
-> 
-> I have 2 SPDs declared saying (transport mode)
-> 10.0.0.0/24 port 23 esp
-> 10.0.0.0/24 port 80 esp
-> 
-> I then initiate a connection from that Linux machine to another system
-> that has the same logical rules
-> port 23 fires up and I get an SA pair. The question is - does that SA
-> pair belong to port 23 or not
-> If I now connect using port 80 from the same Linux box to the same
-peer
-> it tries to use the SA already set up for port 23
-> The remote system (windows in my test case) drops the packets because
-it
-> believes that the SA is for port 23 traffic only
+with current kernels, tulip 21142 ethernet controllers fail to connect
+to a 10Mbps only (i.e. without negotiation-partner) network.  It used
+to work in 2.4 kernels.  Fix that.  Tested on a 21142 Rev 0x11.
 
-Why does the Linux system do this?  The route lookup should, as it's
-final IPSEC route lookup action, do an xfrm policy lookup which should
-do a selector match and thus not match the port 23 rule.
+Signed-off-by: Philippe De Muyter <phdm@macqel.be>
 
-I can't find the code which would allow the sequence of events
-you describe, can you?
+diff -r 4e8869c1d518 drivers/net/tulip/21142.c
+--- a/drivers/net/tulip/21142.c	Sat Jan 17 23:00:27 2009 +0000
++++ b/drivers/net/tulip/21142.c	Tue Jan 27 16:44:04 2009 +0100
+@@ -9,6 +9,11 @@
+ 
+ 	Please refer to Documentation/DocBook/tulip-user.{pdf,ps,html}
+ 	for more information on this driver.
++
++	DC21143 manual "21143 PCI/CardBus 10/100Mb/s Ethernet LAN Controller
++	Hardware Reference Manual" is currently available at
++	http://developer.intel.com/design/network/manuals/278074.htm
++	
+ 	Please submit bugs to http://bugzilla.kernel.org/ .
+ */
+ 
+@@ -32,7 +37,11 @@ void t21142_media_task(struct work_struc
+ 	int csr12 = ioread32(ioaddr + CSR12);
+ 	int next_tick = 60*HZ;
+ 	int new_csr6 = 0;
+-
++	int csr14 = ioread32(ioaddr + CSR14);
++
++	/* CSR12[LS10,LS100] are not reliable during autonegotiation */
++	if ((csr14 & 0x80) && (csr12 & 0x7000) != 0x5000)
++		csr12 |= 6;
+ 	if (tulip_debug > 2)
+ 		printk(KERN_INFO"%s: 21143 negotiation status %8.8x, %s.\n",
+ 			   dev->name, csr12, medianame[dev->if_port]);
+@@ -76,7 +85,7 @@ void t21142_media_task(struct work_struc
+ 			new_csr6 = 0x83860000;
+ 			dev->if_port = 3;
+ 			iowrite32(0, ioaddr + CSR13);
+-			iowrite32(0x0003FF7F, ioaddr + CSR14);
++			iowrite32(0x0003FFFF, ioaddr + CSR14);
+ 			iowrite16(8, ioaddr + CSR15);
+ 			iowrite32(1, ioaddr + CSR13);
+ 		}
+@@ -132,10 +141,14 @@ void t21142_lnk_change(struct net_device
+ 	struct tulip_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->base_addr;
+ 	int csr12 = ioread32(ioaddr + CSR12);
+-
++	int csr14 = ioread32(ioaddr + CSR14);
++
++	/* CSR12[LS10,LS100] are not reliable during autonegotiation */
++	if ((csr14 & 0x80) && (csr12 & 0x7000) != 0x5000)
++		csr12 |= 6;
+ 	if (tulip_debug > 1)
+ 		printk(KERN_INFO"%s: 21143 link status interrupt %8.8x, CSR5 %x, "
+-			   "%8.8x.\n", dev->name, csr12, csr5, ioread32(ioaddr + CSR14));
++			   "%8.8x.\n", dev->name, csr12, csr5, csr14);
+ 
+ 	/* If NWay finished and we have a negotiated partner capability. */
+ 	if (tp->nway  &&  !tp->nwayset  &&  (csr12 & 0x7000) == 0x5000) {
+@@ -143,7 +156,9 @@ void t21142_lnk_change(struct net_device
+ 		int negotiated = tp->sym_advertise & (csr12 >> 16);
+ 		tp->lpar = csr12 >> 16;
+ 		tp->nwayset = 1;
+-		if (negotiated & 0x0100)		dev->if_port = 5;
++		/* If partner cannot negotiate, it is 10Mbps Half Duplex */
++		if (!(csr12 & 0x8000))		dev->if_port = 0;
++		else if (negotiated & 0x0100)	dev->if_port = 5;
+ 		else if (negotiated & 0x0080)	dev->if_port = 3;
+ 		else if (negotiated & 0x0040)	dev->if_port = 4;
+ 		else if (negotiated & 0x0020)	dev->if_port = 0;
+@@ -214,7 +229,7 @@ void t21142_lnk_change(struct net_device
+ 			tp->timer.expires = RUN_AT(3*HZ);
+ 			add_timer(&tp->timer);
+ 		} else if (dev->if_port == 5)
+-			iowrite32(ioread32(ioaddr + CSR14) & ~0x080, ioaddr + CSR14);
++			iowrite32(csr14 & ~0x080, ioaddr + CSR14);
+ 	} else if (dev->if_port == 0  ||  dev->if_port == 4) {
+ 		if ((csr12 & 4) == 0)
+ 			printk(KERN_INFO"%s: 21143 10baseT link beat good.\n",
+
+--gBBFr7Ir9EOA20Yy
+Content-Type: text/x-patch; charset=us-ascii
+Content-Disposition: attachment; filename="dc21143-nonegotiation.diff"
+
+diff -r 4e8869c1d518 drivers/net/tulip/21142.c
+--- a/drivers/net/tulip/21142.c	Sat Jan 17 23:00:27 2009 +0000
++++ b/drivers/net/tulip/21142.c	Tue Jan 27 16:44:04 2009 +0100
+@@ -9,6 +9,11 @@
+ 
+ 	Please refer to Documentation/DocBook/tulip-user.{pdf,ps,html}
+ 	for more information on this driver.
++
++	DC21143 manual "21143 PCI/CardBus 10/100Mb/s Ethernet LAN Controller
++	Hardware Reference Manual" is currently available at :
++	http://developer.intel.com/design/network/manuals/278074.htm
++	
+ 	Please submit bugs to http://bugzilla.kernel.org/ .
+ */
+ 
+@@ -32,7 +37,11 @@ void t21142_media_task(struct work_struc
+ 	int csr12 = ioread32(ioaddr + CSR12);
+ 	int next_tick = 60*HZ;
+ 	int new_csr6 = 0;
+-
++	int csr14 = ioread32(ioaddr + CSR14);
++
++	/* CSR12[LS10,LS100] are not reliable during autonegotiation */
++	if ((csr14 & 0x80) && (csr12 & 0x7000) != 0x5000)
++		csr12 |= 6;
+ 	if (tulip_debug > 2)
+ 		printk(KERN_INFO"%s: 21143 negotiation status %8.8x, %s.\n",
+ 			   dev->name, csr12, medianame[dev->if_port]);
+@@ -76,7 +85,7 @@ void t21142_media_task(struct work_struc
+ 			new_csr6 = 0x83860000;
+ 			dev->if_port = 3;
+ 			iowrite32(0, ioaddr + CSR13);
+-			iowrite32(0x0003FF7F, ioaddr + CSR14);
++			iowrite32(0x0003FFFF, ioaddr + CSR14);
+ 			iowrite16(8, ioaddr + CSR15);
+ 			iowrite32(1, ioaddr + CSR13);
+ 		}
+@@ -132,10 +141,14 @@ void t21142_lnk_change(struct net_device
+ 	struct tulip_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->base_addr;
+ 	int csr12 = ioread32(ioaddr + CSR12);
+-
++	int csr14 = ioread32(ioaddr + CSR14);
++
++	/* CSR12[LS10,LS100] are not reliable during autonegotiation */
++	if ((csr14 & 0x80) && (csr12 & 0x7000) != 0x5000)
++		csr12 |= 6;
+ 	if (tulip_debug > 1)
+ 		printk(KERN_INFO"%s: 21143 link status interrupt %8.8x, CSR5 %x, "
+-			   "%8.8x.\n", dev->name, csr12, csr5, ioread32(ioaddr + CSR14));
++			   "%8.8x.\n", dev->name, csr12, csr5, csr14);
+ 
+ 	/* If NWay finished and we have a negotiated partner capability. */
+ 	if (tp->nway  &&  !tp->nwayset  &&  (csr12 & 0x7000) == 0x5000) {
+@@ -143,7 +156,9 @@ void t21142_lnk_change(struct net_device
+ 		int negotiated = tp->sym_advertise & (csr12 >> 16);
+ 		tp->lpar = csr12 >> 16;
+ 		tp->nwayset = 1;
+-		if (negotiated & 0x0100)		dev->if_port = 5;
++		/* If partner cannot negotiate, it is 10Mbps Half Duplex */
++		if (!(csr12 & 0x8000))		dev->if_port = 0;
++		else if (negotiated & 0x0100)	dev->if_port = 5;
+ 		else if (negotiated & 0x0080)	dev->if_port = 3;
+ 		else if (negotiated & 0x0040)	dev->if_port = 4;
+ 		else if (negotiated & 0x0020)	dev->if_port = 0;
+@@ -214,7 +229,7 @@ void t21142_lnk_change(struct net_device
+ 			tp->timer.expires = RUN_AT(3*HZ);
+ 			add_timer(&tp->timer);
+ 		} else if (dev->if_port == 5)
+-			iowrite32(ioread32(ioaddr + CSR14) & ~0x080, ioaddr + CSR14);
++			iowrite32(csr14 & ~0x080, ioaddr + CSR14);
+ 	} else if (dev->if_port == 0  ||  dev->if_port == 4) {
+ 		if ((csr12 & 4) == 0)
+ 			printk(KERN_INFO"%s: 21143 10baseT link beat good.\n",
+
+--gBBFr7Ir9EOA20Yy--
