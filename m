@@ -1,53 +1,56 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: 32 core net-next stack/netfilter "scaling"
-Date: Tue, 27 Jan 2009 23:34:02 +0100
-Message-ID: <497F8BDA.6080908@cosmosbay.com>
-References: <497E361B.30909@hp.com>	<497E42F4.7080201@cosmosbay.com>	<497E44F6.2010703@hp.com>	<497ECF84.1030308@cosmosbay.com>	<497ED0A2.6050707@trash.net>	<497F350A.9020509@cosmosbay.com>	<497F457F.2050802@trash.net>	<497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com>	<497F5F86.9010101@hp.com> <497F87E7.2000304@cosmosbay.com> <497F8ACD.2050203@hp.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] e1000: fix bug with shared interrupt during reset
+Date: Tue, 27 Jan 2009 15:27:16 -0800
+Message-ID: <20090127232714.24458.66863.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:41512
-	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751433AbZA0XR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 18:17:28 -0500
-In-Reply-To: <497F8ACD.2050203@hp.com>
+Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:59469
+	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751020AbZA0X1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 18:27:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rick Jones a =E9crit :
->
->> Thanks for the report
->>
->> If you have so much contention on spinlocks, maybe hash function is=20
->> not good at all...
->>
->> hash =3D (unsigned long)ct;
->> hash ^=3D hash >> 16;
->> hash ^=3D hash >> 8;
->>
->> I ass-u-me you compiled your kernel with NR_CPUS=3D32 ?
->
-> I believe so - CONFIG_NR_CPUS in .config is 64 anyway.  If there is a=
-=20
-> more definitive place to check I'd be happy to look.
->
-> rick
->
->
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-By any chance, are you using SLAB instead of SLUB ?
+A nasty bug was found where an MTU change (or anything else that caused a
+reset) could race with the interrupt code.  The interrupt code was entered
+by a shared interrupt during the MTU change.
 
-While running your netperf session, issuing :
+This change prevents the interrupt code from running while the driver is in
+the middle of its reset path.
 
-grep conntrack /proc/slabinfo
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+---
 
-Would help to know hash dispertion on your machine.
+ drivers/net/e1000/e1000_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 26474c9..c986978 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -31,7 +31,7 @@
+ 
+ char e1000_driver_name[] = "e1000";
+ static char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
+-#define DRV_VERSION "7.3.20-k3-NAPI"
++#define DRV_VERSION "7.3.21-k3-NAPI"
+ const char e1000_driver_version[] = DRV_VERSION;
+ static const char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
+ 
+@@ -3712,7 +3712,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 rctl, icr = er32(ICR);
+ 
+-	if (unlikely(!icr))
++	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
+ 		return IRQ_NONE;  /* Not our interrupt */
+ 
+ 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
 
