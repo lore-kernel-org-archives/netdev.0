@@ -1,39 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: hardware time stamping with optional structs in data area
-Date: Mon, 26 Jan 2009 17:22:02 -0800 (PST)
-Message-ID: <20090126.172202.261408793.davem@davemloft.net>
-References: <1232532457.7829.19.camel@ecld0pohly>
-	<20090125.210442.129666692.davem@davemloft.net>
-	<1233002392.23161.6.camel@pohly-MOBL>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: add tracepoints to socket api
+Date: Mon, 26 Jan 2009 17:22:53 -0800 (PST)
+Message-ID: <20090126.172253.25010769.davem@davemloft.net>
+References: <20090126195930.GA28208@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1233002392.23161.6.camel@pohly-MOBL>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45477
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751688AbZA0BWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 20:22:55 -0500
+In-Reply-To: <20090126195930.GA28208@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Date: Mon, 26 Jan 2009 21:39:52 +0100
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 26 Jan 2009 14:59:30 -0500
 
-> On Mon, 2009-01-26 at 07:04 +0200, David Miller wrote:
-> > Just consolidate the array into a direct conversion table.  You only
-> > have 2 bits defined so you only need an array of 4 entries.  Pass the
-> > optional flag bits directly in as the index of that table.
-> 
-> How can I get some code executed during the initialization of the IP
-> stack which initializes the table, before any sk_buff gets allocated?
-> 
-> The content is constant, but writing it down as static initializers
-> using just preprocessor macros would be difficult and/or ugly - that's
-> why I haven't done it already.
+> @@ -95,6 +95,7 @@
+>  
+>  #include <net/sock.h>
+>  #include <linux/netfilter.h>
+> +#include <trace/socket.h>
 
-It's 4 entries... really.  You can initialize them simply, perhaps
-with some fancy macro used by the initializers.
---
-To unsubscribe from this list: send the line "unsubscribe linux-api" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Where is this mysterious include/trace/socket.h file?
+I can't seem to find it :-)
