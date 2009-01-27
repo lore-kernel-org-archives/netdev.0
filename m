@@ -1,56 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000: fix bug with shared interrupt during reset
-Date: Tue, 27 Jan 2009 15:27:16 -0800
-Message-ID: <20090127232714.24458.66863.stgit@lost.foo-projects.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ide/net: flip the order of SATA and network init
+Date: Tue, 27 Jan 2009 18:35:37 -0500
+Message-ID: <497F9A49.6060601@garzik.org>
+References: <20090127141952.51785b4f@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:59469
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751020AbZA0X1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 18:27:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-ide@vger.kernel.org, netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <20090127141952.51785b4f@infradead.org>
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Arjan van de Ven wrote:
+>>From e89d6840ad685a3c61f72367d4ac5bfed69ead0c Mon Sep 17 00:00:00 2001
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> Date: Mon, 26 Jan 2009 18:58:11 -0800
+> Subject: [PATCH] ide/net: flip the order of SATA and network init
+> 
+> this patch flips the order in which sata and network drivers are initialized.
+> 
+> SATA probing takes quite a bit of time, and with the asynchronous infrastructure
+> other drivers that run after it can execute in parallel. Network drivers do tend
+> to take some real time talking to the hardware, so running these later is
+> a good thing (the sata probe then runs concurrent)
+> 
+> This saves about 15% of my kernels boot time.
+> 
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> ---
+>  drivers/Makefile |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/Makefile b/drivers/Makefile
+> index c1bf417..2618a61 100644
+> --- a/drivers/Makefile
+> +++ b/drivers/Makefile
+> @@ -36,13 +36,14 @@ obj-$(CONFIG_FB_INTEL)          += video/intelfb/
+>  
+>  obj-y				+= serial/
+>  obj-$(CONFIG_PARPORT)		+= parport/
+> -obj-y				+= base/ block/ misc/ mfd/ net/ media/
+> +obj-y				+= base/ block/ misc/ mfd/ media/
+>  obj-$(CONFIG_NUBUS)		+= nubus/
+> -obj-$(CONFIG_ATM)		+= atm/
+>  obj-y				+= macintosh/
+>  obj-$(CONFIG_IDE)		+= ide/
+>  obj-$(CONFIG_SCSI)		+= scsi/
+>  obj-$(CONFIG_ATA)		+= ata/
+> +obj-y				+= net/
+> +obj-$(CONFIG_ATM)		+= atm/
+>  obj-$(CONFIG_FUSION)		+= message/
+>  obj-$(CONFIG_FIREWIRE)		+= firewire/
+>  obj-y				+= ieee1394/
 
-A nasty bug was found where an MTU change (or anything else that caused a
-reset) could race with the interrupt code.  The interrupt code was entered
-by a shared interrupt during the MTU change.
-
-This change prevents the interrupt code from running while the driver is in
-the middle of its reset path.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
----
-
- drivers/net/e1000/e1000_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 26474c9..c986978 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -31,7 +31,7 @@
- 
- char e1000_driver_name[] = "e1000";
- static char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
--#define DRV_VERSION "7.3.20-k3-NAPI"
-+#define DRV_VERSION "7.3.21-k3-NAPI"
- const char e1000_driver_version[] = DRV_VERSION;
- static const char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
- 
-@@ -3712,7 +3712,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rctl, icr = er32(ICR);
- 
--	if (unlikely(!icr))
-+	if (unlikely((!icr) || test_bit(__E1000_RESETTING, &adapter->flags)))
- 		return IRQ_NONE;  /* Not our interrupt */
- 
- 	/* IMS will not auto-mask if INT_ASSERTED is not set, and if it is
+ACK, ok with me too
 
