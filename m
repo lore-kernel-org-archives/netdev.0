@@ -1,673 +1,392 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 15/21] RDS/IB: Implement RDMA ops using FMRs
-Date: Mon, 26 Jan 2009 18:17:52 -0800
-Message-ID: <1233022678-9259-16-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 19/21] RDS: Documentation
+Date: Mon, 26 Jan 2009 18:17:56 -0800
+Message-ID: <1233022678-9259-20-git-send-email-andy.grover@oracle.com>
 References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
 Cc: rds-devel@oss.oracle.com, general@lists.openfabrics.org,
 	netdev@vger.kernel.org
 To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:43842 "EHLO
+Received: from acsinet11.oracle.com ([141.146.126.233]:43925 "EHLO
 	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754959AbZA0CSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 21:18:45 -0500
+	with ESMTP id S1755252AbZA0CSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 21:18:54 -0500
 In-Reply-To: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This file documents the specifics of the RDS sockets API,
+as well as covering some of the details of its internal
+implementation.
+
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- drivers/infiniband/ulp/rds/ib_rdma.c |  641 ++++++++++++++++++++++++++++++++++
- 1 files changed, 641 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/rds/ib_rdma.c
+ Documentation/networking/rds.txt |  356 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 356 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/rds.txt
 
-diff --git a/drivers/infiniband/ulp/rds/ib_rdma.c b/drivers/infiniband/ulp/rds/ib_rdma.c
+diff --git a/Documentation/networking/rds.txt b/Documentation/networking/rds.txt
 new file mode 100644
-index 0000000..69a6289
+index 0000000..c67077c
 --- /dev/null
-+++ b/drivers/infiniband/ulp/rds/ib_rdma.c
-@@ -0,0 +1,641 @@
-+/*
-+ * Copyright (c) 2006 Oracle.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+#include <linux/kernel.h>
-+
-+#include "rds.h"
-+#include "rdma.h"
-+#include "ib.h"
-+
-+
-+/*
-+ * This is stored as mr->r_trans_private.
-+ */
-+struct rds_ib_mr {
-+	struct rds_ib_device	*device;
-+	struct rds_ib_mr_pool	*pool;
-+	struct ib_fmr		*fmr;
-+	struct list_head	list;
-+	unsigned int		remap_count;
-+
-+	struct scatterlist	*sg;
-+	unsigned int		sg_len;
-+	u64			*dma;
-+	int			sg_dma_len;
-+};
-+
-+/*
-+ * Our own little FMR pool
-+ */
-+struct rds_ib_mr_pool {
-+	struct mutex		flush_lock;		/* serialize fmr invalidate */
-+	struct work_struct	flush_worker;		/* flush worker */
-+
-+	spinlock_t		list_lock;		/* protect variables below */
-+	atomic_t		item_count;		/* total # of MRs */
-+	atomic_t		dirty_count;		/* # dirty of MRs */
-+	struct list_head	drop_list;		/* MRs that have reached their max_maps limit */
-+	struct list_head	free_list;		/* unused MRs */
-+	struct list_head	clean_list;		/* unused & unamapped MRs */
-+	atomic_t		free_pinned;		/* memory pinned by free MRs */
-+	unsigned long		max_items;
-+	unsigned long		max_items_soft;
-+	unsigned long		max_free_pinned;
-+	struct ib_fmr_attr	fmr_attr;
-+};
-+
-+static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool, int free_all);
-+static void rds_ib_teardown_mr(struct rds_ib_mr *ibmr);
-+static void rds_ib_mr_pool_flush_worker(struct work_struct *work);
-+
-+static struct rds_ib_device *rds_ib_get_device(__be32 ipaddr)
-+{
-+	struct rds_ib_device *rds_ibdev;
-+	struct rds_ib_ipaddr *i_ipaddr;
-+
-+	list_for_each_entry(rds_ibdev, &rds_ib_devices, list) {
-+		spin_lock_irq(&rds_ibdev->spinlock);
-+		list_for_each_entry(i_ipaddr, &rds_ibdev->ipaddr_list, list) {
-+			if (i_ipaddr->ipaddr == ipaddr) {
-+				spin_unlock_irq(&rds_ibdev->spinlock);
-+				return rds_ibdev;
-+			}
-+		}
-+		spin_unlock_irq(&rds_ibdev->spinlock);
-+	}
-+
-+	return NULL;
-+}
-+
-+static int rds_ib_add_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
-+{
-+	struct rds_ib_ipaddr *i_ipaddr;
-+
-+	i_ipaddr = kmalloc(sizeof *i_ipaddr, GFP_KERNEL);
-+	if (!i_ipaddr)
-+		return -ENOMEM;
-+
-+	i_ipaddr->ipaddr = ipaddr;
-+
-+	spin_lock_irq(&rds_ibdev->spinlock);
-+	list_add_tail(&i_ipaddr->list, &rds_ibdev->ipaddr_list);
-+	spin_unlock_irq(&rds_ibdev->spinlock);
-+
-+	return 0;
-+}
-+
-+static void rds_ib_remove_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
-+{
-+	struct rds_ib_ipaddr *i_ipaddr, *next;
-+
-+	spin_lock_irq(&rds_ibdev->spinlock);
-+	list_for_each_entry_safe(i_ipaddr, next, &rds_ibdev->ipaddr_list, list) {
-+		if (i_ipaddr->ipaddr == ipaddr) {
-+			list_del(&i_ipaddr->list);
-+			kfree(i_ipaddr);
-+			break;
-+		}
-+	}
-+	spin_unlock_irq(&rds_ibdev->spinlock);
-+}
-+
-+int rds_ib_update_ipaddr(struct rds_ib_device *rds_ibdev, __be32 ipaddr)
-+{
-+	struct rds_ib_device *rds_ibdev_old;
-+
-+	rds_ibdev_old = rds_ib_get_device(ipaddr);
-+	if (rds_ibdev_old)
-+		rds_ib_remove_ipaddr(rds_ibdev_old, ipaddr);
-+
-+	return rds_ib_add_ipaddr(rds_ibdev, ipaddr);
-+}
-+
-+int rds_ib_add_conn(struct rds_ib_device *rds_ibdev, struct rds_connection *conn)
-+{
-+	struct rds_ib_connection *ic = conn->c_transport_data;
-+
-+	/* conn was previously on the nodev_conns_list */
-+	spin_lock_irq(&ib_nodev_conns_lock);
-+	BUG_ON(list_empty(&ib_nodev_conns));
-+	BUG_ON(list_empty(&ic->ib_node));
-+	list_del(&ic->ib_node);
-+	spin_unlock_irq(&ib_nodev_conns_lock);
-+
-+	spin_lock_irq(&rds_ibdev->spinlock);
-+	list_add_tail(&ic->ib_node, &rds_ibdev->conn_list);
-+	spin_unlock_irq(&rds_ibdev->spinlock);
-+
-+	ic->rds_ibdev = rds_ibdev;
-+
-+	return 0;
-+}
-+
-+void rds_ib_remove_nodev_conns(void)
-+{
-+	struct rds_ib_connection *ic, *_ic;
-+	LIST_HEAD(tmp_list);
-+
-+	/* avoid calling conn_destroy with irqs off */
-+	spin_lock_irq(&ib_nodev_conns_lock);
-+	list_splice(&ib_nodev_conns, &tmp_list);
-+	INIT_LIST_HEAD(&ib_nodev_conns);
-+	spin_unlock_irq(&ib_nodev_conns_lock);
-+
-+	list_for_each_entry_safe(ic, _ic, &tmp_list, ib_node) {
-+		if (ic->conn->c_passive)
-+			rds_conn_destroy(ic->conn->c_passive);
-+		rds_conn_destroy(ic->conn);
-+	}
-+}
-+
-+void rds_ib_remove_conns(struct rds_ib_device *rds_ibdev)
-+{
-+	struct rds_ib_connection *ic, *_ic;
-+	LIST_HEAD(tmp_list);
-+
-+	/* avoid calling conn_destroy with irqs off */
-+	spin_lock_irq(&rds_ibdev->spinlock);
-+	list_splice(&rds_ibdev->conn_list, &tmp_list);
-+	INIT_LIST_HEAD(&rds_ibdev->conn_list);
-+	spin_unlock_irq(&rds_ibdev->spinlock);
-+
-+	list_for_each_entry_safe(ic, _ic, &tmp_list, ib_node) {
-+		if (ic->conn->c_passive)
-+			rds_conn_destroy(ic->conn->c_passive);
-+		rds_conn_destroy(ic->conn);
-+	}
-+}
-+
-+struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_ibdev)
-+{
-+	struct rds_ib_mr_pool *pool;
-+
-+	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
-+	if (!pool)
-+		return ERR_PTR(-ENOMEM);
-+
-+	INIT_LIST_HEAD(&pool->free_list);
-+	INIT_LIST_HEAD(&pool->drop_list);
-+	INIT_LIST_HEAD(&pool->clean_list);
-+	mutex_init(&pool->flush_lock);
-+	spin_lock_init(&pool->list_lock);
-+	INIT_WORK(&pool->flush_worker, rds_ib_mr_pool_flush_worker);
-+
-+	pool->fmr_attr.max_pages = fmr_message_size;
-+	pool->fmr_attr.max_maps = rds_ibdev->fmr_max_remaps;
-+	pool->fmr_attr.page_shift = rds_ibdev->fmr_page_shift;
-+	pool->max_free_pinned = rds_ibdev->max_fmrs * fmr_message_size / 4;
-+
-+	/* We never allow more than max_items MRs to be allocated.
-+	 * When we exceed more than max_items_soft, we start freeing
-+	 * items more aggressively.
-+	 * Make sure that max_items > max_items_soft > max_items / 2
-+	 */
-+	pool->max_items_soft = rds_ibdev->max_fmrs * 3 / 4;
-+	pool->max_items = rds_ibdev->max_fmrs;
-+
-+	return pool;
-+}
-+
-+void rds_ib_get_mr_info(struct rds_ib_device *rds_ibdev, struct rds_info_rdma_connection *iinfo)
-+{
-+	struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
-+
-+	iinfo->rdma_mr_max = pool->max_items;
-+	iinfo->rdma_mr_size = pool->fmr_attr.max_pages;
-+}
-+
-+void rds_ib_destroy_mr_pool(struct rds_ib_mr_pool *pool)
-+{
-+	flush_workqueue(rds_wq);
-+	rds_ib_flush_mr_pool(pool, 1);
-+	BUG_ON(atomic_read(&pool->item_count));
-+	BUG_ON(atomic_read(&pool->free_pinned));
-+	kfree(pool);
-+}
-+
-+static inline struct rds_ib_mr *rds_ib_reuse_fmr(struct rds_ib_mr_pool *pool)
-+{
-+	struct rds_ib_mr *ibmr = NULL;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&pool->list_lock, flags);
-+	if (!list_empty(&pool->clean_list)) {
-+		ibmr = list_entry(pool->clean_list.next, struct rds_ib_mr, list);
-+		list_del_init(&ibmr->list);
-+	}
-+	spin_unlock_irqrestore(&pool->list_lock, flags);
-+
-+	return ibmr;
-+}
-+
-+static struct rds_ib_mr *rds_ib_alloc_fmr(struct rds_ib_device *rds_ibdev)
-+{
-+	struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
-+	struct rds_ib_mr *ibmr = NULL;
-+	int err = 0, iter = 0;
-+
-+	while (1) {
-+		ibmr = rds_ib_reuse_fmr(pool);
-+		if (ibmr)
-+			return ibmr;
-+
-+		/* No clean MRs - now we have the choice of either
-+		 * allocating a fresh MR up to the limit imposed by the
-+		 * driver, or flush any dirty unused MRs.
-+		 * We try to avoid stalling in the send path if possible,
-+		 * so we allocate as long as we're allowed to.
-+		 *
-+		 * We're fussy with enforcing the FMR limit, though. If the driver
-+		 * tells us we can't use more than N fmrs, we shouldn't start
-+		 * arguing with it */
-+		if (atomic_inc_return(&pool->item_count) <= pool->max_items)
-+			break;
-+
-+		atomic_dec(&pool->item_count);
-+
-+		if (++iter > 2) {
-+			rds_ib_stats_inc(s_ib_rdma_mr_pool_depleted);
-+			return ERR_PTR(-EAGAIN);
-+		}
-+
-+		/* We do have some empty MRs. Flush them out. */
-+		rds_ib_stats_inc(s_ib_rdma_mr_pool_wait);
-+		rds_ib_flush_mr_pool(pool, 0);
-+	}
-+
-+	ibmr = kzalloc(sizeof(*ibmr), GFP_KERNEL);
-+	if (!ibmr) {
-+		err = -ENOMEM;
-+		goto out_no_cigar;
-+	}
-+
-+	ibmr->fmr = ib_alloc_fmr(rds_ibdev->pd,
-+			(IB_ACCESS_LOCAL_WRITE |
-+			 IB_ACCESS_REMOTE_READ |
-+			 IB_ACCESS_REMOTE_WRITE),
-+			&pool->fmr_attr);
-+	if (IS_ERR(ibmr->fmr)) {
-+		err = PTR_ERR(ibmr->fmr);
-+		ibmr->fmr = NULL;
-+		printk(KERN_WARNING "RDS/IB: ib_alloc_fmr failed (err=%d)\n", err);
-+		goto out_no_cigar;
-+	}
-+
-+	rds_ib_stats_inc(s_ib_rdma_mr_alloc);
-+	return ibmr;
-+
-+out_no_cigar:
-+	if (ibmr) {
-+		if (ibmr->fmr)
-+			ib_dealloc_fmr(ibmr->fmr);
-+		kfree(ibmr);
-+	}
-+	atomic_dec(&pool->item_count);
-+	return ERR_PTR(err);
-+}
-+
-+static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibmr,
-+	       struct scatterlist *sg, unsigned int nents)
-+{
-+	struct ib_device *dev = rds_ibdev->dev;
-+	struct scatterlist *scat = sg;
-+	u64 io_addr = 0;
-+	u64 *dma_pages;
-+	u32 len;
-+	int page_cnt, sg_dma_len;
-+	int i, j;
-+	int ret;
-+
-+	sg_dma_len = ib_dma_map_sg(dev, sg, nents,
-+				 DMA_BIDIRECTIONAL);
-+	if (unlikely(!sg_dma_len)) {
-+		printk(KERN_WARNING "RDS/IB: dma_map_sg failed!\n");
-+		return -EBUSY;
-+	}
-+
-+	len = 0;
-+	page_cnt = 0;
-+
-+	for (i = 0; i < sg_dma_len; ++i) {
-+		unsigned int dma_len = ib_sg_dma_len(dev, &scat[i]);
-+		u64 dma_addr = ib_sg_dma_address(dev, &scat[i]);
-+
-+		if (dma_addr & ~rds_ibdev->fmr_page_mask) {
-+			if (i > 0)
-+				return -EINVAL;
-+			else
-+				++page_cnt;
-+		}
-+		if ((dma_addr + dma_len) & ~rds_ibdev->fmr_page_mask) {
-+			if (i < sg_dma_len - 1)
-+				return -EINVAL;
-+			else
-+				++page_cnt;
-+		}
-+
-+		len += dma_len;
-+	}
-+
-+	page_cnt += len >> rds_ibdev->fmr_page_shift;
-+	if (page_cnt > fmr_message_size)
-+		return -EINVAL;
-+
-+	dma_pages = kmalloc(sizeof(u64) * page_cnt, GFP_ATOMIC);
-+	if (!dma_pages)
-+		return -ENOMEM;
-+
-+	page_cnt = 0;
-+	for (i = 0; i < sg_dma_len; ++i) {
-+		unsigned int dma_len = ib_sg_dma_len(dev, &scat[i]);
-+		u64 dma_addr = ib_sg_dma_address(dev, &scat[i]);
-+
-+		for (j = 0; j < dma_len; j += rds_ibdev->fmr_page_size)
-+			dma_pages[page_cnt++] =
-+				(dma_addr & rds_ibdev->fmr_page_mask) + j;
-+	}
-+
-+	ret = ib_map_phys_fmr(ibmr->fmr,
-+				   dma_pages, page_cnt, io_addr);
-+	if (ret)
-+		goto out;
-+
-+	/* Success - we successfully remapped the MR, so we can
-+	 * safely tear down the old mapping. */
-+	rds_ib_teardown_mr(ibmr);
-+
-+	ibmr->sg = scat;
-+	ibmr->sg_len = nents;
-+	ibmr->sg_dma_len = sg_dma_len;
-+	ibmr->remap_count++;
-+
-+	rds_ib_stats_inc(s_ib_rdma_mr_used);
-+	ret = 0;
-+
-+out:
-+	kfree(dma_pages);
-+
-+	return ret;
-+}
-+
-+void rds_ib_sync_mr(void *trans_private, int direction)
-+{
-+	struct rds_ib_mr *ibmr = trans_private;
-+	struct rds_ib_device *rds_ibdev = ibmr->device;
-+
-+	switch (direction) {
-+	case DMA_FROM_DEVICE:
-+		ib_dma_sync_sg_for_cpu(rds_ibdev->dev, ibmr->sg,
-+			ibmr->sg_dma_len, DMA_BIDIRECTIONAL);
-+		break;
-+	case DMA_TO_DEVICE:
-+		ib_dma_sync_sg_for_device(rds_ibdev->dev, ibmr->sg,
-+			ibmr->sg_dma_len, DMA_BIDIRECTIONAL);
-+		break;
-+	}
-+}
-+
-+static void __rds_ib_teardown_mr(struct rds_ib_mr *ibmr)
-+{
-+	struct rds_ib_device *rds_ibdev = ibmr->device;
-+
-+	if (ibmr->sg_dma_len) {
-+		ib_dma_unmap_sg(rds_ibdev->dev,
-+				ibmr->sg, ibmr->sg_len,
-+				DMA_BIDIRECTIONAL);
-+		ibmr->sg_dma_len = 0;
-+	}
-+
-+	/* Release the s/g list */
-+	if (ibmr->sg_len) {
-+		unsigned int i;
-+
-+		for (i = 0; i < ibmr->sg_len; ++i) {
-+			struct page *page = sg_page(&ibmr->sg[i]);
-+
-+			/* FIXME we need a way to tell a r/w MR
-+			 * from a r/o MR */
-+			set_page_dirty(page);
-+			put_page(page);
-+		}
-+		kfree(ibmr->sg);
-+
-+		ibmr->sg = NULL;
-+		ibmr->sg_len = 0;
-+	}
-+}
-+
-+static void rds_ib_teardown_mr(struct rds_ib_mr *ibmr)
-+{
-+	unsigned int pinned = ibmr->sg_len;
-+
-+	__rds_ib_teardown_mr(ibmr);
-+	if (pinned) {
-+		struct rds_ib_device *rds_ibdev = ibmr->device;
-+		struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
-+
-+		atomic_sub(pinned, &pool->free_pinned);
-+	}
-+}
-+
-+static inline unsigned int rds_ib_flush_goal(struct rds_ib_mr_pool *pool, int free_all)
-+{
-+	unsigned int item_count;
-+
-+	item_count = atomic_read(&pool->item_count);
-+	if (free_all)
-+		return item_count;
-+
-+	return 0;
-+}
-+
-+/*
-+ * Flush our pool of MRs.
-+ * At a minimum, all currently unused MRs are unmapped.
-+ * If the number of MRs allocated exceeds the limit, we also try
-+ * to free as many MRs as needed to get back to this limit.
-+ */
-+static int rds_ib_flush_mr_pool(struct rds_ib_mr_pool *pool, int free_all)
-+{
-+	struct rds_ib_mr *ibmr, *next;
-+	LIST_HEAD(unmap_list);
-+	LIST_HEAD(fmr_list);
-+	unsigned long unpinned = 0;
-+	unsigned long flags;
-+	unsigned int nfreed = 0, ncleaned = 0, free_goal;
-+	int ret = 0;
-+
-+	rds_ib_stats_inc(s_ib_rdma_mr_pool_flush);
-+
-+	mutex_lock(&pool->flush_lock);
-+
-+	spin_lock_irqsave(&pool->list_lock, flags);
-+	/* Get the list of all MRs to be dropped. Ordering matters -
-+	 * we want to put drop_list ahead of free_list. */
-+	list_splice_init(&pool->free_list, &unmap_list);
-+	list_splice_init(&pool->drop_list, &unmap_list);
-+	if (free_all)
-+		list_splice_init(&pool->clean_list, &unmap_list);
-+	spin_unlock_irqrestore(&pool->list_lock, flags);
-+
-+	free_goal = rds_ib_flush_goal(pool, free_all);
-+
-+	if (list_empty(&unmap_list))
-+		goto out;
-+
-+	/* String all ib_mr's onto one list and hand them to ib_unmap_fmr */
-+	list_for_each_entry(ibmr, &unmap_list, list)
-+		list_add(&ibmr->fmr->list, &fmr_list);
-+	ret = ib_unmap_fmr(&fmr_list);
-+	if (ret)
-+		printk(KERN_WARNING "RDS/IB: ib_unmap_fmr failed (err=%d)\n", ret);
-+
-+	/* Now we can destroy the DMA mapping and unpin any pages */
-+	list_for_each_entry_safe(ibmr, next, &unmap_list, list) {
-+		unpinned += ibmr->sg_len;
-+		__rds_ib_teardown_mr(ibmr);
-+		if (nfreed < free_goal || ibmr->remap_count >= pool->fmr_attr.max_maps) {
-+			rds_ib_stats_inc(s_ib_rdma_mr_free);
-+			list_del(&ibmr->list);
-+			ib_dealloc_fmr(ibmr->fmr);
-+			kfree(ibmr);
-+			nfreed++;
-+		}
-+		ncleaned++;
-+	}
-+
-+	spin_lock_irqsave(&pool->list_lock, flags);
-+	list_splice(&unmap_list, &pool->clean_list);
-+	spin_unlock_irqrestore(&pool->list_lock, flags);
-+
-+	atomic_sub(unpinned, &pool->free_pinned);
-+	atomic_sub(ncleaned, &pool->dirty_count);
-+	atomic_sub(nfreed, &pool->item_count);
-+
-+out:
-+	mutex_unlock(&pool->flush_lock);
-+	return ret;
-+}
-+
-+static void rds_ib_mr_pool_flush_worker(struct work_struct *work)
-+{
-+	struct rds_ib_mr_pool *pool = container_of(work, struct rds_ib_mr_pool, flush_worker);
-+
-+	rds_ib_flush_mr_pool(pool, 0);
-+}
-+
-+void rds_ib_free_mr(void *trans_private, int invalidate)
-+{
-+	struct rds_ib_mr *ibmr = trans_private;
-+	struct rds_ib_device *rds_ibdev = ibmr->device;
-+	struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
-+	unsigned long flags;
-+
-+	rdsdebug("RDS/IB: free_mr nents %u\n", ibmr->sg_len);
-+
-+	/* Return it to the pool's free list */
-+	spin_lock_irqsave(&pool->list_lock, flags);
-+	if (ibmr->remap_count >= pool->fmr_attr.max_maps)
-+		list_add(&ibmr->list, &pool->drop_list);
-+	else
-+		list_add(&ibmr->list, &pool->free_list);
-+
-+	atomic_add(ibmr->sg_len, &pool->free_pinned);
-+	atomic_inc(&pool->dirty_count);
-+	spin_unlock_irqrestore(&pool->list_lock, flags);
-+
-+	/* If we've pinned too many pages, request a flush */
-+	if (atomic_read(&pool->free_pinned) >= pool->max_free_pinned
-+	 || atomic_read(&pool->dirty_count) >= pool->max_items / 10)
-+		queue_work(rds_wq, &pool->flush_worker);
-+
-+	if (invalidate) {
-+		if (likely(!in_interrupt())) {
-+			rds_ib_flush_mr_pool(pool, 0);
-+		} else {
-+			/* We get here if the user created a MR marked
-+			 * as use_once and invalidate at the same time. */
-+			queue_work(rds_wq, &pool->flush_worker);
-+		}
-+	}
-+}
-+
-+void rds_ib_flush_mrs(void)
-+{
-+	struct rds_ib_device *rds_ibdev;
-+
-+	list_for_each_entry(rds_ibdev, &rds_ib_devices, list) {
-+		struct rds_ib_mr_pool *pool = rds_ibdev->mr_pool;
-+
-+		if (pool)
-+			rds_ib_flush_mr_pool(pool, 0);
-+	}
-+}
-+
-+void *rds_ib_get_mr(struct scatterlist *sg, unsigned long nents,
-+		    struct rds_sock *rs, u32 *key_ret)
-+{
-+	struct rds_ib_device *rds_ibdev;
-+	struct rds_ib_mr *ibmr = NULL;
-+	int ret;
-+
-+	rds_ibdev = rds_ib_get_device(rs->rs_bound_addr);
-+	if (!rds_ibdev) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	if (!rds_ibdev->mr_pool) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	ibmr = rds_ib_alloc_fmr(rds_ibdev);
-+	if (IS_ERR(ibmr))
-+		return ibmr;
-+
-+	ret = rds_ib_map_fmr(rds_ibdev, ibmr, sg, nents);
-+	if (ret == 0)
-+		*key_ret = ibmr->fmr->rkey;
-+	else
-+		printk(KERN_WARNING "RDS/IB: map_fmr failed (errno=%d)\n", ret);
-+
-+	ibmr->device = rds_ibdev;
-+
-+ out:
-+	if (ret) {
-+		if (ibmr)
-+			rds_ib_free_mr(ibmr, 0);
-+		ibmr = ERR_PTR(ret);
-+	}
-+	return ibmr;
-+}
++++ b/Documentation/networking/rds.txt
+@@ -0,0 +1,356 @@
++
++Overview
++========
++
++This readme tries to provide some background on the hows and whys of RDS,
++and will hopefully help you find your way around the code.
++
++In addition, please see this email about RDS origins:
++http://oss.oracle.com/pipermail/rds-devel/2007-November/000228.html
++
++RDS Architecture
++================
++
++RDS provides reliable, ordered datagram delivery by using a single
++reliable connection between any two nodes in the cluster. This allows
++applications to use a single socket to talk to any other process in the
++cluster - so in a cluster with N processes you need N sockets, in contrast
++to N*N if you use a connection-oriented socket transport like TCP.
++
++RDS is not Infiniband-specific; it was designed to support different
++transports.  The current implementation used to support RDS over TCP as well
++as IB. Work is in progress to support RDS over iWARP, and using DCE to
++guarantee no dropped packets on Ethernet, it may be possible to use RDS over
++UDP in the future.
++
++The high-level semantics of RDS from the application's point of view are
++
++ *	Addressing
++        RDS uses IPv4 addresses and 16bit port numbers to identify
++        the end point of a connection. All socket operations that involve
++        passing addresses between kernel and user space generally
++        use a struct sockaddr_in.
++
++        The fact that IPv4 addresses are used does not mean the underlying
++        transport has to be IP-based. In fact, RDS over IB uses a
++        reliable IB connection; the IP address is used exclusively to
++        locate the remote node's GID (by ARPing for the given IP).
++
++        The port space is entirely independent of UDP, TCP or any other
++        protocol.
++
++ *	Socket interface
++        RDS sockets work *mostly* as you would expect from a BSD
++        socket. The next section will cover the details. At any rate,
++        all I/O is performed through the standard BSD socket API.
++        Some additions like zerocopy support are implemented through
++        control messages, while other extensions use the getsockopt/
++        setsockopt calls.
++
++        Sockets must be bound before you can send or receive data.
++        This is needed because binding also selects a transport and
++        attaches it to the socket. Once bound, the transport assignment
++        does not change. RDS will tolerate IPs moving around (eg in
++        a active-active HA scenario), but only as long as the address
++        doesn't move to a different transport.
++
++ *	sysctls
++        RDS supports a number of sysctls in /proc/sys/net/rds
++
++
++Socket Interface
++================
++
++  AF_RDS, PF_RDS, SOL_RDS
++        These constants haven't been assigned yet, because RDS isn't in
++        mainline yet. Currently, the kernel module assigns some constant
++        and publishes it to user space through two sysctl files
++                /proc/sys/net/rds/pf_rds
++                /proc/sys/net/rds/sol_rds
++
++  fd = socket(PF_RDS, SOCK_SEQPACKET, 0);
++        This creates a new, unbound RDS socket.
++
++  setsockopt(SOL_SOCKET): send and receive buffer size
++        RDS honors the send and receive buffer size socket options.
++        You are not allowed to queue more than SO_SNDSIZE bytes to
++        a socket. A message is queued when sendmsg is called, and
++        it leaves the queue when the remote system acknowledges
++        its arrival.
++
++        The SO_RCVSIZE option controls the maximum receive queue length.
++        This is a soft limit rather than a hard limit - RDS will
++        continue to accept and queue incoming messages, even if that
++        takes the queue length over the limit. However, it will also
++        mark the port as "congested" and send a congestion update to
++        the source node. The source node is supposed to throttle any
++        processes sending to this congested port.
++
++  bind(fd, &sockaddr_in, ...)
++        This binds the socket to a local IP address and port, and a
++        transport.
++
++  sendmsg(fd, ...)
++        Sends a message to the indicated recipient. The kernel will
++        transparently establish the underlying reliable connection
++        if it isn't up yet.
++
++        An attempt to send a message that exceeds SO_SNDSIZE will
++        return with -EMSGSIZE
++
++        An attempt to send a message that would take the total number
++        of queued bytes over the SO_SNDSIZE threshold will return
++        EAGAIN.
++
++        An attempt to send a message to a destination that is marked
++        as "congested" will return ENOBUFS.
++
++  recvmsg(fd, ...)
++        Receives a message that was queued to this socket. The sockets
++        recv queue accounting is adjusted, and if the queue length
++        drops below SO_SNDSIZE, the port is marked uncongested, and
++        a congestion update is sent to all peers.
++
++        Applications can ask the RDS kernel module to receive
++        notifications via control messages (for instance, there is a
++        notification when a congestion update arrived, or when a RDMA
++        operation completes). These notifications are received through
++        the msg.msg_control buffer of struct msghdr. The format of the
++        messages is described in manpages.
++
++  poll(fd)
++        RDS supports the poll interface to allow the application
++        to implement async I/O.
++
++        POLLIN handling is pretty straightforward. When there's an
++        incoming message queued to the socket, or a pending notification,
++        we signal POLLIN.
++
++        POLLOUT is a little harder. Since you can essentially send
++        to any destination, RDS will always signal POLLOUT as long as
++        there's room on the send queue (ie the number of bytes queued
++        is less than the sendbuf size).
++
++        However, the kernel will refuse to accept messages to
++        a destination marked congested - in this case you will loop
++        forever if you rely on poll to tell you what to do.
++        This isn't a trivial problem, but applications can deal with
++        this - by using congestion notifications, and by checking for
++        ENOBUFS errors returned by sendmsg.
++
++  setsockopt(SOL_RDS, RDS_CANCEL_SENT_TO, &sockaddr_in)
++        This allows the application to discard all messages queued to a
++        specific destination on this particular socket.
++
++        This allows the application to cancel outstanding messages if
++        it detects a timeout. For instance, if it tried to send a message,
++        and the remote host is unreachable, RDS will keep trying forever.
++        The application may decide it's not worth it, and cancel the
++        operation. In this case, it would use RDS_CANCEL_SENT_TO to
++        nuke any pending messages.
++
++
++RDMA for RDS
++============
++
++  see rds-rdma(7) manpage (available in rds-tools)
++
++
++Congestion Notifications
++========================
++
++  see rds(7) manpage
++
++
++RDS Protocol
++============
++
++  Message header
++
++    The message header is a 'struct rds_header' (see rds.h):
++    Fields:
++      h_sequence:
++          per-packet sequence number
++      h_ack:
++          piggybacked acknowledgment of last packet received
++      h_len:
++          length of data, not including header
++      h_sport:
++          source port
++      h_dport:
++          destination port
++      h_flags:
++          CONG_BITMAP - this is a congestion update bitmap
++          ACK_REQUIRED - receiver must ack this packet
++          RETRANSMITTED - packet has previously been sent
++      h_credit:
++          indicate to other end of connection that
++          it has more credits available (i.e. there is
++          more send room)
++      h_padding[4]:
++          unused, for future use
++      h_csum:
++          header checksum
++      h_exthdr:
++          optional data can be passed here. This is currently used for
++          passing RDMA-related information.
++
++  ACK and retransmit handling
++
++      One might think that with reliable IB connections you wouldn't need
++      to ack messages that have been received.  The problem is that IB
++      hardware generates an ack message before it has DMAed the message
++      into memory.  This creates a potential message loss if the HCA is
++      disabled for any reason between when it sends the ack and before
++      the message is DMAed and processed.  This is only a potential issue
++      if another HCA is available for fail-over.
++
++      Sending an ack immediately would allow the sender to free the sent
++      message from their send queue quickly, but could cause excessive
++      traffic to be used for acks. RDS piggybacks acks on sent data
++      packets.  Ack-only packets are reduced by only allowing one to be
++      in flight at a time, and by the sender only asking for acks when
++      its send buffers start to fill up. All retransmissions are also
++      acked.
++
++  Flow Control
++
++      RDS's IB transport uses a credit-based mechanism to verify that
++      there is space in the peer's receive buffers for more data. This
++      eliminates the need for hardware retries on the connection.
++
++  Congestion
++
++      Messages waiting in the receive queue on the receiving socket
++      are accounted against the sockets SO_RCVBUF option value.  Only
++      the payload bytes in the message are accounted for.  If the
++      number of bytes queued equals or exceeds rcvbuf then the socket
++      is congested.  All sends attempted to this socket's address
++      should return block or return -EWOULDBLOCK.
++
++      Applications are expected to be reasonably tuned such that this
++      situation very rarely occurs.  An application encountering this
++      "back-pressure" is considered a bug.
++
++      This is implemented by having each node maintain bitmaps which
++      indicate which ports on bound addresses are congested.  As the
++      bitmap changes it is sent through all the connections which
++      terminate in the local address of the bitmap which changed.
++
++      The bitmaps are allocated as connections are brought up.  This
++      avoids allocation in the interrupt handling path which queues
++      sages on sockets.  The dense bitmaps let transports send the
++      entire bitmap on any bitmap change reasonably efficiently.  This
++      is much easier to implement than some finer-grained
++      communication of per-port congestion.  The sender does a very
++      inexpensive bit test to test if the port it's about to send to
++      is congested or not.
++
++
++RDS Transport Layer
++==================
++
++  As mentioned above, RDS is not IB-specific. Its code is divided
++  into a general RDS layer and a transport layer.
++
++  The general layer handles the socket API, congestion handling,
++  loopback, stats, usermem pinning, and the connection state machine.
++
++  The transport layer handles the details of the transport. The IB
++  transport, for example, handles all the queue pairs, work requests,
++  CM event handlers, and other Infiniband details.
++
++
++RDS Kernel Structures
++=====================
++
++  struct rds_message
++    aka possibly "rds_outgoing", the generic RDS layer copies data to
++    be sent and sets header fields as needed, based on the socket API.
++    This is then queued for the individual connection and sent by the
++    connection's transport.
++  struct rds_incoming
++    a generic struct referring to incoming data that can be handed from
++    the transport to the general code and queued by the general code
++    while the socket is awoken. It is then passed back to the transport
++    code to handle the actual copy-to-user.
++  struct rds_socket
++    per-socket information
++  struct rds_connection
++    per-connection information
++  struct rds_transport
++    pointers to transport-specific functions
++  struct rds_statistics
++    non-transport-specific statistics
++  struct rds_cong_map
++    wraps the raw congestion bitmap, contains rbnode, waitq, etc.
++
++Connection management
++=====================
++
++  Connections may be in UP, DOWN, CONNECTING, DISCONNECTING, and
++  ERROR states.
++
++  The first time an attempt is made by an RDS socket to send data to
++  a node, a connection is allocated and connected. That connection is
++  then maintained forever -- if there are transport errors, the
++  connection will be dropped and re-established.
++
++  Dropping a connection while packets are queued will cause queued or
++  partially-sent datagrams to be retransmitted when the connection is
++  re-established.
++
++
++The send path
++=============
++
++  rds_sendmsg()
++    struct rds_message built from incoming data
++    CMSGs parsed (e.g. RDMA ops)
++    transport connection alloced and connected if not already
++    rds_message placed on send queue
++    send worker awoken
++  rds_send_worker()
++    calls rds_send_xmit() until queue is empty
++  rds_send_xmit()
++    transmits congestion map if one is pending
++    may set ACK_REQUIRED
++    calls transport to send either non-RDMA or RDMA message
++    (RDMA ops never retransmitted)
++  rds_ib_xmit()
++    allocs work requests from send ring
++    adds any new send credits available to peer (h_credits)
++    maps the rds_message's sg list
++    piggybacks ack
++    populates work requests
++    post send to connection's queue pair
++
++The recv path
++=============
++
++  rds_ib_recv_cq_comp_handler()
++    looks at write completions
++    unmaps recv buffer from device
++    no errors, call rds_ib_process_recv()
++    refill recv ring
++  rds_ib_process_recv()
++    validate header checksum
++    copy header to rds_ib_incoming struct if start of a new datagram
++    add to ibinc's fraglist
++    if competed datagram:
++      update cong map if datagram was cong update
++      call rds_recv_incoming() otherwise
++      note if ack is required
++  rds_recv_incoming()
++    drop duplicate packets
++    respond to pings
++    find the sock associated with this datagram
++    add to sock queue
++    wake up sock
++    do some congestion calculations
++  rds_recvmsg
++    copy data into user iovec
++    handle CMSGs
++    return to application
++
++
 -- 
 1.5.6.3
 
