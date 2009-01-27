@@ -1,46 +1,171 @@
-From: Tarkan Erimer <tarkan.erimer@turknet.net.tr>
-Subject: Re: [BUG] tg3 module problem on Linux-2.6.29-rc1-2
-Date: Tue, 27 Jan 2009 17:48:44 +0200
-Message-ID: <497F2CDC.6050106@turknet.net.tr>
-References: <49771D65.3090205@turknet.net.tr>	 <20090121152818.GA3438@x200.localdomain>	 <497870A3.4070200@turknet.net.tr> <3f9a31f40901262230s3efb9242jcd4a02ee84944daa@mail.gmail.com> <497EBBB1.5020609@turknet.net.tr>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: results with diff affinity settings using ixgbe
+Date: Tue, 27 Jan 2009 16:53:24 +0100
+Message-ID: <497F2DF4.4000507@cosmosbay.com>
+References: <497F24CE.6060201@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netone.net.tr ([193.192.98.182]:17034 "EHLO
-	mail.turknet.net.tr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752164AbZA0Pss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 10:48:48 -0500
-In-Reply-To: <497EBBB1.5020609@turknet.net.tr>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:42519 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753253AbZA0Px1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 10:53:27 -0500
+In-Reply-To: <497F24CE.6060201@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tarkan Erimer wrote:
-> Jaswinder Singh Rajput wrote:
->> Is this ubuntu's specific problem or you also getting these
->> warnings/errors on another releases.
->>
->>   
-> Yes,it's specific to Ubuntu's kernel build process (make-kpkg). I had 
-> no time to try with regular kernel build process. But; if it's 
-> necessary, I can try it out. BTW, my box is Kubuntu 8.10 with latest 
-> updates.
->
-Now, I tried with 2.6.29-rc2-git2 and the result is same. No difference. 
-When I have time, I'll try via regular kernel compile process to see 
-what will be happen.
+Pawe=B3 Staszewski a =E9crit :
+> I make some tests with affinity on my machine with some traffic load.
+> If someone want look:
+>=20
+>=20
+>=20
+> Traffic in all test was 350Mbit/s TX and the same on RX
+>=20
+> RX queues on cpu6 / TX queues on cpu7 / intel e1000e on cpu4
+> Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft=20
+> %steal   %idle    intr/s
+> Average:     all    0.05    0.00    0.00    0.00    1.89   10.03  =20
+> 0.00   88.03 221511.70
+> Average:       0    0.40    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00   99.60      0.70
+> Average:       1    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      0.80
+> Average:       2    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      0.70
+> Average:       3    0.00    0.00    0.10    0.00    0.00    0.40  =20
+> 0.00   99.50      0.70
+> Average:       4    0.00    0.00    0.00    0.00    2.06   18.74  =20
+> 0.00   79.20  12870.50
+> Average:       5    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      1.30
+> Average:       6    0.00    0.00    0.00    0.00    2.65   57.49  =20
+> 0.00   39.86  59410.60
+> Average:       7    0.00    0.00    0.00    0.00   10.50    5.00  =20
+> 0.00   84.50  53977.90
+>=20
+>=20
+> RX queues on cpu6 / TX queues on cpu7 / intel e1000e on cpu1
+> Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft=20
+> %steal   %idle    intr/s
+> Average:     all    0.08    0.00    0.09    0.00    0.75   14.24  =20
+> 0.00   84.84 215755.20
+> Average:       0    0.50    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00   99.50      1.30
+> Average:       1    0.00    0.00    0.53    0.00    2.34   36.91  =20
+> 0.00   60.21   9771.90
+> Average:       2    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      1.40
+> Average:       3    0.00    0.00    0.00    0.00    0.00    0.20  =20
+> 0.00   99.80      1.30
+> Average:       4    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      1.30
+> Average:       5    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      1.80
+> Average:       6    0.00    0.00    0.20    0.00    2.65   78.51  =20
+> 0.00   18.64  54691.70
+> Average:       7    0.00    0.00    0.00    0.00    1.03    0.51  =20
+> 0.00   98.46  54060.60
+>=20
+>=20
+> All RX/TX queues from ixgbe on one cpu7 / intel e1000e on cpu1
+> Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft=20
+> %steal   %idle    intr/s
+> Average:     all    0.07    0.00    0.10    0.00    1.19    9.44  =20
+> 0.00   89.19 210155.50
+> Average:       0    0.60    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00   99.40      0.60
+> Average:       1    0.00    0.00    0.41    0.00    2.87   16.27  =20
+> 0.00   80.45  13045.30
+> Average:       2    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      0.70
+> Average:       3    0.10    0.00    0.30    0.00    0.00    0.20  =20
+> 0.00   99.40      0.60
+> Average:       4    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      0.70
+> Average:       5    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      1.10
+> Average:       6    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      0.60
+> Average:       7    0.00    0.00    0.10    0.00    6.77   60.00  =20
+> 0.00   33.13 107242.50
+>=20
+>=20
+> All RX/TX queues from ixgbe on one cpu7 / intel e1000e on cpu4
+> Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft=20
+> %steal   %idle    intr/s
+> Average:     all    0.05    0.00    0.04    0.00    1.24    9.55  =20
+> 0.00   89.12 212186.90
+> Average:       0    0.40    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00   99.60      2.20
+> Average:       1    0.10    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00   99.90      2.30
+> Average:       2    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      2.20
+> Average:       3    0.00    0.00    0.00    0.00    0.00    0.30  =20
+> 0.00   99.70      2.20
+> Average:       4    0.00    0.00    0.00    0.00    1.03   14.68  =20
+> 0.00   84.28  11965.50
+> Average:       5    0.00    0.00    0.10    0.00    0.00    0.00  =20
+> 0.00   99.90      2.80
+> Average:       6    0.00    0.00    0.00    0.00    0.00    0.00  =20
+> 0.00  100.00      2.30
+> Average:       7    0.00    0.00    0.20    0.00    8.97   62.69  =20
+> 0.00   28.13 110943.50
+>=20
+>=20
+> Affinity set to "ffffffff" / and intel e1000e is on cpu4
+> Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft=20
+> %steal   %idle    intr/s
+> Average:     all    0.10    0.00    0.14    0.01    1.16   15.07  =20
+> 0.00   83.52 185043.10
+> Average:       0    0.00    0.00    0.00    0.10    2.90   36.90  =20
+> 0.00   60.10   9008.60
+> Average:       1    0.00    0.00    0.10    0.00    2.30   28.36  =20
+> 0.00   69.24   9009.10
+> Average:       2    0.80    0.00    0.40    0.00    0.50   13.76  =20
+> 0.00   84.54   9008.90
+> Average:       3    0.00    0.00    0.20    0.00    0.20    4.61  =20
+> 0.00   94.98   9008.90
+> Average:       4    0.00    0.00    0.10    0.00    2.35   19.55  =20
+> 0.00   77.99  14142.10
+> Average:       5    0.00    0.00    0.10    0.00    0.20    3.85  =20
+> 0.00   95.84   9009.10
+> Average:       6    0.00    0.00    0.10    0.00    0.40    4.22  =20
+> 0.00   95.28   9008.90
+> Average:       7    0.00    0.00    0.10    0.00    0.51    8.69  =20
+> 0.00   90.70   9009.00
+>=20
+> And if i split more RX/TX queues to different CPU-s i have more load
+> done by:
+> CPU: Core 2, speed 2999.98 MHz (estimated)
+> Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a
+> unit mask of 0x00 (Unhalted core cycles) count 100000
+> samples  %        image name               app name               =20
+> symbol name
+> 458001   29.5565  vmlinux                  vmlinux                =20
+> native_read_tsc
+>=20
+> If all interrupts are on one CPU i have the best results
+> So for me the best is to put ixgbe work on one CPU or make affinity t=
+o
+> balance over all cpus
+
+I am confused by all these numbers. What is your goal exactly ?
+
+If one CPU is able to do the whole workload, it will be faster too.
+
+All other cpus are idle and wont fight with cache lines.
 
 
-PS: If you write a reply to "netdev@vger.kernel.org", it will not reach 
-to me. Because, I'm not subscribed to this mailing-list. So, please CC 
-it to me.
+>=20
+> But something is wrong with my intel e1000e
+> because if i put intel e1000e with ixgbe on the same CPU system have
+> 100% cpu load and all hangs.
 
-Tarkan ERIMER
 
+Try to reproduce the bug and submit it ?
 
