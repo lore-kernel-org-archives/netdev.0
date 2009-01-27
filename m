@@ -1,70 +1,170 @@
-From: "Paul Moore" <paul.moore@centrify.com>
-Subject: RE: port bound SAs
-Date: Tue, 27 Jan 2009 08:46:02 -0800
-Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com>
-References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>,
-	"David Miller" <davem@davemloft.net>
+From: Steve Glendinning <steve.glendinning@smsc.com>
+Subject: [PATCH 03/10] smsc911x: add external phy detection overrides
+Date: Tue, 27 Jan 2009 16:51:11 +0000
+Message-ID: <1233075077-17205-4-git-send-email-steve.glendinning@smsc.com>
+References: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
+ <1233075077-17205-2-git-send-email-steve.glendinning@smsc.com>
+ <1233075077-17205-3-git-send-email-steve.glendinning@smsc.com>
+Cc: David Miller <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Stanley Miao <stanley.miao@windriver.com>,
+	Ian Saturley <ian.saturley@smsc.com>,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.centrify.com ([216.112.107.103]:43653 "EHLO
-	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752320AbZA0QqI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:46:08 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <497EE171.1030907@trash.net>
+Received: from [86.54.240.114] ([86.54.240.114]:53200 "EHLO
+	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755781AbZA0QvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:17 -0500
+In-Reply-To: <1233075077-17205-3-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-racoon
+On LAN9115/LAN9117/LAN9215/LAN9217, external phys are supported.  These
+are usually indicated by a hardware strap which sets an "external PHY
+detected" bit in the HW_CFG register.
 
-if I look at the xfrm/pfkey code in the kernel it ignores any ports sent
-down by the IKE daemon in transport mode. I actually changed the racoon
-code to include the ports and it makes no difference
+In some cases it is desirable to override this hardware strap and force
+use of either the internal phy or an external PHY.  This patch adds
+SMSC911X_FORCE_INTERNAL_PHY and SMSC911X_FORCE_EXTERNAL_PHY flags so a
+platform can indicate this preference via its platform_data.
 
------Original Message-----
-From: Patrick McHardy [mailto:kaber@trash.net] 
-Sent: Tuesday, January 27, 2009 2:27 AM
-To: David Miller
-Cc: Paul Moore; netdev@vger.kernel.org
-Subject: Re: port bound SAs
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+Tested-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/net/smsc911x.c   |   75 +++++++++++++++++++++++----------------------
+ include/linux/smsc911x.h |    2 +
+ 2 files changed, 40 insertions(+), 37 deletions(-)
 
-David Miller wrote:
-> From: "Paul Moore" <paul.moore@centrify.com>
-> Date: Mon, 26 Jan 2009 11:21:33 -0800
-> 
->> A few weeks ago I posted a question to the IETF IPsec group on this
->> topic 
->>
->> I have 2 SPDs declared saying (transport mode)
->> 10.0.0.0/24 port 23 esp
->> 10.0.0.0/24 port 80 esp
->>
->> I then initiate a connection from that Linux machine to another
-system
->> that has the same logical rules
->> port 23 fires up and I get an SA pair. The question is - does that SA
->> pair belong to port 23 or not
->> If I now connect using port 80 from the same Linux box to the same
-peer
->> it tries to use the SA already set up for port 23
->> The remote system (windows in my test case) drops the packets because
-it
->> believes that the SA is for port 23 traffic only
-> 
-> Why does the Linux system do this?  The route lookup should, as it's
-> final IPSEC route lookup action, do an xfrm policy lookup which should
-> do a selector match and thus not match the port 23 rule.
-> 
-> I can't find the code which would allow the sequence of events
-> you describe, can you?
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index f882fd5..c7379f5 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -368,48 +368,53 @@ out:
+ 	return reg;
+ }
+ 
+-/* Autodetects and initialises external phy for SMSC9115 and SMSC9117 flavors.
+- * If something goes wrong, returns -ENODEV to revert back to internal phy.
+- * Performed at initialisation only, so interrupts are enabled */
+-static int smsc911x_phy_initialise_external(struct smsc911x_data *pdata)
++/* Switch to external phy. Assumes tx and rx are stopped. */
++static void smsc911x_phy_enable_external(struct smsc911x_data *pdata)
+ {
+ 	unsigned int hwcfg = smsc911x_reg_read(pdata, HW_CFG);
+ 
+-	/* External phy is requested, supported, and detected */
+-	if (hwcfg & HW_CFG_EXT_PHY_DET_) {
++	/* Disable phy clocks to the MAC */
++	hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
++	hwcfg |= HW_CFG_PHY_CLK_SEL_CLK_DIS_;
++	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
++	udelay(10);	/* Enough time for clocks to stop */
+ 
+-		/* Switch to external phy. Assuming tx and rx are stopped
+-		 * because smsc911x_phy_initialise is called before
+-		 * smsc911x_rx_initialise and tx_initialise. */
++	/* Switch to external phy */
++	hwcfg |= HW_CFG_EXT_PHY_EN_;
++	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
+ 
+-		/* Disable phy clocks to the MAC */
+-		hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
+-		hwcfg |= HW_CFG_PHY_CLK_SEL_CLK_DIS_;
+-		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
+-		udelay(10);	/* Enough time for clocks to stop */
++	/* Enable phy clocks to the MAC */
++	hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
++	hwcfg |= HW_CFG_PHY_CLK_SEL_EXT_PHY_;
++	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
++	udelay(10);	/* Enough time for clocks to restart */
+ 
+-		/* Switch to external phy */
+-		hwcfg |= HW_CFG_EXT_PHY_EN_;
+-		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
+-
+-		/* Enable phy clocks to the MAC */
+-		hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
+-		hwcfg |= HW_CFG_PHY_CLK_SEL_EXT_PHY_;
+-		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
+-		udelay(10);	/* Enough time for clocks to restart */
++	hwcfg |= HW_CFG_SMI_SEL_;
++	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
++}
+ 
+-		hwcfg |= HW_CFG_SMI_SEL_;
+-		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
++/* Autodetects and enables external phy if present on supported chips.
++ * autodetection can be overridden by specifying SMSC911X_FORCE_INTERNAL_PHY
++ * or SMSC911X_FORCE_EXTERNAL_PHY in the platform_data flags. */
++static void smsc911x_phy_initialise_external(struct smsc911x_data *pdata)
++{
++	unsigned int hwcfg = smsc911x_reg_read(pdata, HW_CFG);
+ 
+-		SMSC_TRACE(HW, "Successfully switched to external PHY");
++	if (pdata->config.flags & SMSC911X_FORCE_INTERNAL_PHY) {
++		SMSC_TRACE(HW, "Forcing internal PHY");
++		pdata->using_extphy = 0;
++	} else if (pdata->config.flags & SMSC911X_FORCE_EXTERNAL_PHY) {
++		SMSC_TRACE(HW, "Forcing external PHY");
++		smsc911x_phy_enable_external(pdata);
++		pdata->using_extphy = 1;
++	} else if (hwcfg & HW_CFG_EXT_PHY_DET_) {
++		SMSC_TRACE(HW, "HW_CFG EXT_PHY_DET set, using external PHY");
++		smsc911x_phy_enable_external(pdata);
+ 		pdata->using_extphy = 1;
+ 	} else {
+-		SMSC_WARNING(HW, "No external PHY detected, "
+-			"Using internal PHY instead.");
+-		/* Use internal phy */
+-		return -ENODEV;
++		SMSC_TRACE(HW, "HW_CFG EXT_PHY_DET clear, using internal PHY");
++		pdata->using_extphy = 0;
+ 	}
+-	return 0;
+ }
+ 
+ /* Fetches a tx status out of the status fifo */
+@@ -824,22 +829,18 @@ static int __devinit smsc911x_mii_init(struct platform_device *pdev,
+ 
+ 	pdata->mii_bus->parent = &pdev->dev;
+ 
+-	pdata->using_extphy = 0;
+-
+ 	switch (pdata->idrev & 0xFFFF0000) {
+ 	case 0x01170000:
+ 	case 0x01150000:
+ 	case 0x117A0000:
+ 	case 0x115A0000:
+ 		/* External PHY supported, try to autodetect */
+-		if (smsc911x_phy_initialise_external(pdata) < 0) {
+-			SMSC_TRACE(HW, "No external PHY detected, "
+-				"using internal PHY");
+-		}
++		smsc911x_phy_initialise_external(pdata);
+ 		break;
+ 	default:
+ 		SMSC_TRACE(HW, "External PHY is not supported, "
+ 			"using internal PHY");
++		pdata->using_extphy = 0;
+ 		break;
+ 	}
+ 
+diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
+index 1cbf031..170c76b 100644
+--- a/include/linux/smsc911x.h
++++ b/include/linux/smsc911x.h
+@@ -43,5 +43,7 @@ struct smsc911x_platform_config {
+ /* Constants for flags */
+ #define SMSC911X_USE_16BIT 			(BIT(0))
+ #define SMSC911X_USE_32BIT 			(BIT(1))
++#define SMSC911X_FORCE_INTERNAL_PHY		(BIT(2))
++#define SMSC911X_FORCE_EXTERNAL_PHY 		(BIT(3))
+ 
+ #endif /* __LINUX_SMSC911X_H__ */
+-- 
+1.6.0.6
 
-I'm guessing that its just the policy that has the port selector set
-and the keying daemon does not set it for the installed SAs. So unless
-the policies specify seperate SPIs or reqids the SAs will be shared.
-
-Paul, which keying daemon are you using?
