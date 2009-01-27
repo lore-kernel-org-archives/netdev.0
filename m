@@ -1,137 +1,135 @@
-From: Tobias Klausmann <klausman@schwarzvogel.de>
-Subject: Possible race condition in conntracking
-Date: Tue, 27 Jan 2009 08:57:44 +0100
-Message-ID: <20090127075744.GA19875@eric.schwarzvogel.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net: fix setsockopt() locking errors
+Date: Tue, 27 Jan 2009 08:45:26 +0000
+Message-ID: <20090127084525.GC4197@ff.dom.local>
+References: <20090126115012.GA5620@ff.dom.local> <497E2B76.4030901@ribosome.natur.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vegard Nossum <vegard.nossum@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Martin =?iso-8859-2?Q?MOKREJ=A9?=
+	<mmokrejs@ribosome.natur.cuni.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eric.schwarzvogel.de ([194.97.4.250]:54320 "EHLO
-	eric.schwarzvogel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354AbZA0IZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 03:25:26 -0500
-Received: from klausman by eric.schwarzvogel.de with local (Exim 4.69)
-	(envelope-from <klausman@schwarzvogel.de>)
-	id 1LRipM-0005GQ-Mh
-	for netdev@vger.kernel.org; Tue, 27 Jan 2009 08:57:44 +0100
+Received: from fg-out-1718.google.com ([72.14.220.156]:4747 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755171AbZA0Ipd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 03:45:33 -0500
+Received: by fg-out-1718.google.com with SMTP id 13so45076fge.17
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 00:45:30 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <497E2B76.4030901@ribosome.natur.cuni.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Mon, Jan 26, 2009 at 10:30:30PM +0100, Martin MOKREJ=A9 wrote:
+> The patch really did not help:
+> http://bugzilla.kernel.org/show_bug.cgi?id=3D12515#c5
+> Martin
 
-I'm resending this to netdev (sent it to linux-net yesterday)
-because I was told all the cool and relevant kids hang out here
-rather than there.
+Actually, there is a little change: the warning triggerd in another
+place (sock_setsockopt() -> sk_attach_filter()). So we could go deeper
+with these changes, but I'm not sure this is the right way to fix.
 
-It seems I've stumbled across a bug in the way Netfilter handles
-packets. I have only been able to reproduce this with UDP, but it
-might also affect other IP protocols. This first bit me when
-updating from glibc 2.7 to 2.9.
+It looks like the scenario is very old, but probably wasn't reported
+(maybe there is some lockdep improvement):
 
-Suppose a program calls getaddrinfo() to find the address of a
-given hostname. Usually, the glibc resolver asks the name server
-for both the A and AAAA records, gets two answers (addresses or
-NXDOMAIN) and happily continues on. What is new with glibc 2.9 is
-that it doesn't serialize the two requests in the same way as 2.7
-did. The older version will ask for the A record, wait for the
-answer, ask for the AAAA record, then wait for that answer. The
-newer lib will fire off both requests in short time (usually 5-20
-microseconds apart on the systems I tested with). Not only that,
-it also uses the same socket fd (and thus source port) for both
-requests.
+A) sys_mmap2() -> mm->mmap_sem -> packet_mmap() -> sk_lock
+B) sock_setsockopt() -> sk_lock -> copy_from_user() -> mm->mmap_sem
 
-Now if those packets traverse a Netfilter firewall, in the
-glibc-2.7 case, they will create two conntrack entries, allowing
-the answers back[0] and everything is peachy. In the glibc-2.9
-case, sometimes, the second packet gets lost[1]. After
-eliminating other causes (buggy checksum offloading, packetloss,
-busy firewall and/or DNS server and a host of others), I'm sure
-it's lost inside the firewall's Netfilter code. 
+packet_mmap() (net/packet/af_packet.c) seems to be the only place in
+net to implement mmap method, and using this lock order btw. On the
+other hand copy_from_user() could be more popular under sk_lock, and
+I'm not sure these changes are necessary.
 
-Using counting-only rules and building a dedicated setup with a
-minimal Netfilter rule set, we could watch the counters, finding
-two interesting facts for the failing case:
+Since I don't know enough neither sock/packet nor sys_mmap, I guess
+some advice would be precious. It looks like Peter Zijlstra solved
+similar problems in nfs, so I CC him.
 
-- The count in the NAT pre/postrouting chains is higher than for
-  the case where the requests work. This points to the second
-  packet being counted although it's part of the same connection
-  as the first.
-  
-- All other counters increase, up to and including
-  mangle/POSTROUTING. 
+Thanks,
+Jarek P.
 
-In essence, if you have N tries and one of them fails, you have
-2N packets counted everywhere except the NAT chains, where it's
-N+1.
-
-Since neither QoS nor tunneling is involved, the second packet
-appears to be dropped by Netfilter or the NICs code. Since we see
-this behaviour on varying hardware, I'm rather sure it's the
-former.
-
-The working hypothesis of what happens is this:
-
-- The first packet enters Netfilter code, triggering a check if a
-  conntrack entry is relevant for it. Since there is no entry,
-  the packet creates a new conntrack that isn't yet in the global
-  hash of conntrack entries. Since the chains could modify the
-  packet's relevant info, the entry can not be added to the hash
-  then and there (aka unconfirmed conntrack).
-
-- The second packet enters Netfilter code. Again, no conntrack
-  entry is relevant since the first packet has not gotten to the
-  point where its conntrack would have been added to the global
-  hash, so the second packet gets an unconfirmed conntrack, too.
-
-- The first packet reaches the point where the conntrack entry is
-  added to the global hash.
-
-- The second packet reaches the same point but since it has the
-  same src/sport-dst/dport-proto tuple, its conntrack causes a
-  clash with the existing entry and both (packet and entry) are
-  discarded.
-
-Since the timing is very critical on this, it only happens if an
-application (such as the glibc resolver of 2.9) fires two packets
-rapidly *and* those have the same 5-tuple *and* they are
-processed in parallel (e.g. on a multicore machine). 
-
-Another observation is that this happens much less often with
-some kernels. While the on one it can be triggered about 50% of
-the cases, on another you can go for 20k rounds of two packets
-before the bug is triggered. Note, however, that the
-probabilities vary wildly: I've seen the program break on the
-first 100 packets a dozen times in a row and later not breaking
-for 50k tries in a row on the same kernel.
-
-Since glibc 2.7 is using different ports and waiting for answers,
-it doesn't trigger this race. I guess there are very few
-applications where normal operations allow for a quickfire of the
-first two UDP packets in this manner. As a result, this has gone
-unnoticed for quite a while - and even if it happens, it may look
-like a fluke.
-
-When looking at the conntrack stats, we also see that
-insert_failed in /proc/net/stat/nf_conntrack does indeed increase
-when the routing of the second packet fails.
-
-The kernels used on the firewall (all vanilla versions):
-2.6.25.16 
-2.4.19pre1
-2.6.28.1
-
-All of them show this behaviour. On the clients, we only have
-2.6-series kernels, but I doubt they influence this scenario
-(much).
-
-Regards,
-Tobias
-
-[0] In the usual setup 
-[1] Sometimes. Not always. Read on for probabilities.
-
-PS: I'm not subscribed to the list, so please CC me where
-appropriate. Thanks.
--- 
-Save a tree - disband an ISO working group today.
+>=20
+> Jarek Poplawski wrote:
+> > On 24-01-2009 23:49, Vegard Nossum wrote:
+> >> Hi,
+> >>
+> >> This survives basic testing here, but I don't know what that count=
+s for
+> >> when I couldn't reproduce the lockdep report in the first place. P=
+lease
+> >> review.
+> >>
+> >>
+> >> Vegard
+> >>
+> >>
+> >> From cc8bcd1c4fd219a31d6d191aefa4b4b57dadb9b0 Mon Sep 17 00:00:00 =
+2001
+> >> From: Vegard Nossum <vegard.nossum@gmail.com>
+> >> Date: Sat, 24 Jan 2009 22:44:16 +0100
+> >> Subject: [PATCH] net: fix setsockopt() locking errors
+> >> MIME-Version: 1.0
+> >> Content-Type: text/plain; charset=3Dutf-8
+> >> Content-Transfer-Encoding: 8bit
+> >>
+> >> Martin MOKREJ.  <mmokrejs@ribosome.natur.cuni.cz> reported:
+> >>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> >>> [ INFO: possible circular locking dependency detected ]
+> >>> 2.6.29-rc2-git1 #1
+> >>> -------------------------------------------------------
+> >>> tcpdump/3734 is trying to acquire lock:
+> >>>  (&mm->mmap_sem){----}, at: [<c1053294>] might_fault+0x30/0x6b
+> >>>
+> >>> but task is already holding lock:
+> >>>  (sk_lock-AF_PACKET){--..}, at: [<c12798c8>] sock_setsockopt+0x12=
+b/0x4a4
+> >>>
+> >>> which lock already depends on the new lock.
+> >> It turns out that sock_setsockopt() is calling copy_from_user() wh=
+ile
+> >> holding the lock on the socket.
+> >=20
+> > I guess it has been like this for some time, so it would be nice to
+> > mention what scenario happens here, or IOW what exactly needs to ge=
+t
+> > these locks in reverse order.
+> >=20
+> >> We fix it by splitting the ioctl code
+> >> so that one switch handles the ioctls that have their own code for
+> >> reading from userspace, and one switch handles the cases that requ=
+ire
+> >> no additional reading.
+> >>
+> >> Reported-by: Martin MOKREJ.  <mmokrejs@ribosome.natur.cuni.cz>
+> >> Signed-off-by: Vegard Nossum <vegard.nossum@gmail.com>
+> >> ---
+> >>  net/core/sock.c |  134 +++++++++++++++++++++++++++++++++++-------=
+------------
+> >>  1 files changed, 87 insertions(+), 47 deletions(-)
+> >>
+> >> diff --git a/net/core/sock.c b/net/core/sock.c
+> >> index f3a0d08..6bd618d 100644
+> >> --- a/net/core/sock.c
+> >> +++ b/net/core/sock.c
+> >> @@ -424,6 +424,80 @@ out:
+> >>  	return ret;
+> >>  }
+> >> =20
+> >> +static int sock_linger(struct sock *sk, char __user *optval, int =
+optlen)
+> > ...
+> >> +static int sock_set_rcvtimeo(struct sock *sk, char __user *optval=
+, int optlen)
+> >> +{
+> >> +	int ret;
+> >> +	long rcvtimeo;
+> >> +
+> >> +	ret =3D sock_set_timeout(&rcvtimeo, optval, optlen);
+> >=20
+> > A check for error is needed here and below.
+> >=20
+> [cut]
