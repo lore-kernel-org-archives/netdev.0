@@ -1,58 +1,57 @@
-From: Vegard Nossum <vegard.nossum@gmail.com>
-Subject: Re: [PATCH] net: fix setsockopt() locking errors
-Date: Tue, 27 Jan 2009 17:25:12 +0100
-Message-ID: <19f34abd0901270825j570037b8k3629764d3a09e661@mail.gmail.com>
-References: <20090124224930.GA4456@localhost.localdomain>
-	 <20090126115012.GA5620@ff.dom.local>
-	 <20090126.123351.201148059.davem@davemloft.net>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [ofa-general] Re: [PATCH 06/21] RDS: Connection handling
+Date: Tue, 27 Jan 2009 10:28:48 -0600
+Message-ID: <497F3640.6070600@opengridcomputing.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>	<1233022678-9259-7-git-send-email-andy.grover@oracle.com>	<20090127133418.GH2646@ioremap.net>
+	<200901271447.29377.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, mmokrejs@ribosome.natur.cuni.cz,
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, rdreier@cisco.com,
+	rds-devel@oss.oracle.com, general@lists.openfabrics.org,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:50635 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753255AbZA0QZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:25:14 -0500
-Received: by fg-out-1718.google.com with SMTP id 13so193548fge.17
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 08:25:12 -0800 (PST)
-In-Reply-To: <20090126.123351.201148059.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <200901271447.29377.oliver@neukum.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 26, 2009 at 9:33 PM, David Miller <davem@davemloft.net> wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Mon, 26 Jan 2009 11:50:12 +0000
+Oliver Neukum wrote:
+> Am Tuesday 27 January 2009 14:34:19 schrieb Evgeniy Polyakov:
+>   
+>> On Mon, Jan 26, 2009 at 06:17:43PM -0800, Andy Grover (andy.grover@oracle.com) wrote:
+>>     
+>>> +static inline int rds_conn_is_sending(struct rds_connection *conn)
+>>> +{
+>>> +	int ret = 0;
+>>> +
+>>> +	if (!mutex_trylock(&conn->c_send_lock))
+>>> +		ret = 1;
+>>> +	else
+>>> +		mutex_unlock(&conn->c_send_lock);
+>>> +
+>>> +	return ret;
+>>> +}
+>>> +
+>>>       
+>> This one is eventually invoked under the spin_lock with turned off irqs,
+>> which may freeze the machine:
+>> rds_for_each_conn_info() -> spin_lock_irqsave(global lock) ->
+>> rds_conn_info_visitor() -> rds_conn_info_set() -> rds_conn_is_sending()
+>> -> boom.
+>>     
 >
->> On 24-01-2009 23:49, Vegard Nossum wrote:
->> > +static int sock_linger(struct sock *sk, char __user *optval, int optlen)
->> ...
->> > +static int sock_set_rcvtimeo(struct sock *sk, char __user *optval, int optlen)
->> > +{
->> > +   int ret;
->> > +   long rcvtimeo;
->> > +
->> > +   ret = sock_set_timeout(&rcvtimeo, optval, optlen);
->>
->> A check for error is needed here and below.
+> Why? This is _trylock. It won't block.
 >
-> Right, you cannot continue and update the socket state if this
-> sock_set_timeout() call returns an error.
->
+>   
+mutex_trylock() uses spin_lock_mutex() which has this in the debug version:
 
-Argh, thanks both. What a stupid mistake. What is the point in fixing
-something if the fix introduces a different kind of error? :-(
-
-I will fix the patch and also check for other places (like that
-attach_filter) that need to be fixed.
-
-
-Vegard
-
--- 
-"The animistic metaphor of the bug that maliciously sneaked in while
-the programmer was not looking is intellectually dishonest as it
-disguises that the error is the programmer's own creation."
-	-- E. W. Dijkstra, EWD1036
+DEBUG_LOCKS_WARN_ON(in_interrupt());
