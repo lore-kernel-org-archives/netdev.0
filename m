@@ -1,34 +1,35 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 10/21] RDS: send.c
-Date: Mon, 26 Jan 2009 18:17:47 -0800
-Message-ID: <1233022678-9259-11-git-send-email-andy.grover@oracle.com>
+Subject: [PATCH 11/21] RDS: recv.c
+Date: Mon, 26 Jan 2009 18:17:48 -0800
+Message-ID: <1233022678-9259-12-git-send-email-andy.grover@oracle.com>
 References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
 Cc: rds-devel@oss.oracle.com, general@lists.openfabrics.org,
 	netdev@vger.kernel.org
 To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:43642 "EHLO
+Received: from acsinet11.oracle.com ([141.146.126.233]:43686 "EHLO
 	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753838AbZA0CSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 21:18:32 -0500
+	with ESMTP id S1753957AbZA0CSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 21:18:36 -0500
 In-Reply-To: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the code to send an RDS datagram.
+Upon receiving a datagram from the transport, RDS parses the
+headers and potentially queues an ACK.
 
 Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- drivers/infiniband/ulp/rds/send.c | 1006 +++++++++++++++++++++++++++++++++++++
- 1 files changed, 1006 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/ulp/rds/send.c
+ drivers/infiniband/ulp/rds/recv.c |  550 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 550 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/rds/recv.c
 
-diff --git a/drivers/infiniband/ulp/rds/send.c b/drivers/infiniband/ulp/rds/send.c
+diff --git a/drivers/infiniband/ulp/rds/recv.c b/drivers/infiniband/ulp/rds/recv.c
 new file mode 100644
-index 0000000..276f7ac
+index 0000000..691f8cb
 --- /dev/null
-+++ b/drivers/infiniband/ulp/rds/send.c
-@@ -0,0 +1,1006 @@
++++ b/drivers/infiniband/ulp/rds/recv.c
+@@ -0,0 +1,550 @@
 +/*
 + * Copyright (c) 2006 Oracle.  All rights reserved.
 + *
@@ -64,976 +65,520 @@ index 0000000..276f7ac
 +#include <linux/kernel.h>
 +#include <net/sock.h>
 +#include <linux/in.h>
-+#include <linux/list.h>
 +
 +#include "rds.h"
 +#include "rdma.h"
 +
-+/* When transmitting messages in rds_send_xmit, we need to emerge from
-+ * time to time and briefly release the CPU. Otherwise the softlock watchdog
-+ * will kick our shin.
-+ * Also, it seems fairer to not let one busy connection stall all the
-+ * others.
-+ *
-+ * send_batch_count is the number of times we'll loop in send_xmit. Setting
-+ * it to 0 will restore the old behavior (where we looped until we had
-+ * drained the queue).
-+ */
-+static int send_batch_count = 64;
-+module_param(send_batch_count, int, 0444);
-+MODULE_PARM_DESC(send_batch_count, " batch factor when working the send queue");
-+
-+/*
-+ * Reset the send state. Caller must hold c_send_lock when calling here.
-+ */
-+void rds_send_reset(struct rds_connection *conn)
++void rds_inc_init(struct rds_incoming *inc, struct rds_connection *conn,
++		  __be32 saddr)
 +{
-+	struct rds_message *rm, *tmp;
-+	unsigned long flags;
++	atomic_set(&inc->i_refcount, 1);
++	INIT_LIST_HEAD(&inc->i_item);
++	inc->i_conn = conn;
++	inc->i_saddr = saddr;
++	inc->i_rdma_cookie = 0;
++}
++EXPORT_SYMBOL_GPL(rds_inc_init);
 +
-+	if (conn->c_xmit_rm) {
-+		/* Tell the user the RDMA op is no longer mapped by the
-+		 * transport. This isn't entirely true (it's flushed out
-+		 * independently) but as the connection is down, there's
-+		 * no ongoing RDMA to/from that memory */
-+		rds_message_unmapped(conn->c_xmit_rm);
-+		rds_message_put(conn->c_xmit_rm);
-+		conn->c_xmit_rm = NULL;
++void rds_inc_addref(struct rds_incoming *inc)
++{
++	rdsdebug("addref inc %p ref %d\n", inc, atomic_read(&inc->i_refcount));
++	atomic_inc(&inc->i_refcount);
++}
++EXPORT_SYMBOL_GPL(rds_inc_addref);
++
++void rds_inc_put(struct rds_incoming *inc)
++{
++	rdsdebug("put inc %p ref %d\n", inc, atomic_read(&inc->i_refcount));
++	if (atomic_dec_and_test(&inc->i_refcount)) {
++		BUG_ON(!list_empty(&inc->i_item));
++
++		inc->i_conn->c_trans->inc_free(inc);
 +	}
-+	conn->c_xmit_sg = 0;
-+	conn->c_xmit_hdr_off = 0;
-+	conn->c_xmit_data_off = 0;
-+	conn->c_xmit_rdma_sent = 0;
++}
++EXPORT_SYMBOL_GPL(rds_inc_put);
 +
-+	conn->c_map_queued = 0;
++static void rds_recv_rcvbuf_delta(struct rds_sock *rs, struct sock *sk,
++				  struct rds_cong_map *map,
++				  int delta, __be16 port)
++{
++	int now_congested;
 +
-+	conn->c_unacked_packets = rds_sysctl_max_unacked_packets;
-+	conn->c_unacked_bytes = rds_sysctl_max_unacked_bytes;
++	if (delta == 0)
++		return;
 +
-+	/* Mark messages as retransmissions, and move them to the send q */
-+	spin_lock_irqsave(&conn->c_lock, flags);
-+	list_for_each_entry_safe(rm, tmp, &conn->c_retrans, m_conn_item) {
-+		set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
-+		set_bit(RDS_MSG_RETRANSMITTED, &rm->m_flags);
++	rs->rs_rcv_bytes += delta;
++	now_congested = rs->rs_rcv_bytes > rds_sk_rcvbuf(rs);
++
++	rdsdebug("rs %p recv bytes %d buf %d now_cong %d\n",
++		 rs, rs->rs_rcv_bytes, rds_sk_rcvbuf(rs), now_congested);
++
++	rdstrace(RDS_CONG, RDS_VERBOSE,
++	  "rs %p (%u.%u.%u.%u:%u) recv bytes %d buf %d "
++	  "now_cong %d delta %d\n",
++	  rs, NIPQUAD(rs->rs_bound_addr),
++	  (int)ntohs(rs->rs_bound_port), rs->rs_rcv_bytes,
++	  rds_sk_rcvbuf(rs), now_congested, delta);
++
++	/* wasn't -> am congested */
++	if (!rs->rs_congested && now_congested) {
++		rs->rs_congested = 1;
++		rds_cong_set_bit(map, port);
++		rds_cong_queue_updates(map);
 +	}
-+	list_splice_init(&conn->c_retrans, &conn->c_send_queue);
-+	spin_unlock_irqrestore(&conn->c_lock, flags);
++	/* was -> aren't congested */
++	/* Require more free space before reporting uncongested to prevent
++           bouncing cong/uncong state too often */
++	else if (rs->rs_congested && (rs->rs_rcv_bytes < (rds_sk_rcvbuf(rs)/2))) {
++		rs->rs_congested = 0;
++		rds_cong_clear_bit(map, port);
++		rds_cong_queue_updates(map);
++	}
++
++	/* do nothing if no change in cong state */
 +}
 +
 +/*
-+ * We're making the concious trade-off here to only send one message
-+ * down the connection at a time.
-+ *   Pro:
-+ *      - tx queueing is a simple fifo list
-+ *   	- reassembly is optional and easily done by transports per conn
-+ *      - no per flow rx lookup at all, straight to the socket
-+ *   	- less per-frag memory and wire overhead
-+ *   Con:
-+ *      - queued acks can be delayed behind large messages
-+ *   Depends:
-+ *      - small message latency is higher behind queued large messages
-+ *      - large message latency isn't starved by intervening small sends
++ * Process all extension headers that come with this message.
 + */
-+int rds_send_xmit(struct rds_connection *conn)
++static void rds_recv_incoming_exthdrs(struct rds_incoming *inc, struct rds_sock *rs)
 +{
-+	struct rds_message *rm;
++	struct rds_header *hdr = &inc->i_hdr;
++	unsigned int pos = 0, type, len;
++	union {
++		struct rds_ext_header_version version;
++		struct rds_ext_header_rdma rdma;
++		struct rds_ext_header_rdma_dest rdma_dest;
++	} buffer;
++
++	while (1) {
++		len = sizeof(buffer);
++		type = rds_message_next_extension(hdr, &pos, &buffer, &len);
++		if (type == RDS_EXTHDR_NONE)
++			break;
++		/* Process extension header here */
++		switch (type) {
++		case RDS_EXTHDR_RDMA:
++			rds_rdma_unuse(rs, be32_to_cpu(buffer.rdma.h_rdma_rkey), 0);
++			break;
++
++		case RDS_EXTHDR_RDMA_DEST:
++			/* We ignore the size for now. We could stash it
++			 * somewhere and use it for error checking. */
++			inc->i_rdma_cookie = rds_rdma_make_cookie(
++					be32_to_cpu(buffer.rdma_dest.h_rdma_rkey),
++					be32_to_cpu(buffer.rdma_dest.h_rdma_offset));
++
++			break;
++		}
++	}
++}
++
++/*
++ * The transport must make sure that this is serialized against other
++ * rx and conn reset on this specific conn.
++ *
++ * We currently assert that only one fragmented message will be sent
++ * down a connection at a time.  This lets us reassemble in the conn
++ * instead of per-flow which means that we don't have to go digging through
++ * flows to tear down partial reassembly progress on conn failure and
++ * we save flow lookup and locking for each frag arrival.  It does mean
++ * that small messages will wait behind large ones.  Fragmenting at all
++ * is only to reduce the memory consumption of pre-posted buffers.
++ *
++ * The caller passes in saddr and daddr instead of us getting it from the
++ * conn.  This lets loopback, who only has one conn for both directions,
++ * tell us which roles the addrs in the conn are playing for this message.
++ */
++void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
++		       struct rds_incoming *inc, gfp_t gfp, enum km_type km)
++{
++	struct rds_sock *rs = NULL;
++	struct sock *sk;
 +	unsigned long flags;
-+	unsigned int tmp;
-+	unsigned int send_quota = send_batch_count;
-+	struct scatterlist *sg;
-+	int ret = 0;
-+	int was_empty = 0;
-+	LIST_HEAD(to_be_dropped);
++
++	inc->i_conn = conn;
++	inc->i_rx_jiffies = jiffies;
++
++	rdsdebug("conn %p next %llu inc %p seq %llu len %u sport %u dport %u "
++		 "flags 0x%x rx_jiffies %lu\n", conn,
++		 (unsigned long long)conn->c_next_rx_seq,
++		 inc,
++		 (unsigned long long)be64_to_cpu(inc->i_hdr.h_sequence),
++		 be32_to_cpu(inc->i_hdr.h_len),
++		 be16_to_cpu(inc->i_hdr.h_sport),
++		 be16_to_cpu(inc->i_hdr.h_dport),
++		 inc->i_hdr.h_flags,
++		 inc->i_rx_jiffies);
 +
 +	/*
-+	 * sendmsg calls here after having queued its message on the send
-+	 * queue.  We only have one task feeding the connection at a time.  If
-+	 * another thread is already feeding the queue then we back off.  This
-+	 * avoids blocking the caller and trading per-connection data between
-+	 * caches per message.
++	 * Sequence numbers should only increase.  Messages get their
++	 * sequence number as they're queued in a sending conn.  They
++	 * can be dropped, though, if the sending socket is closed before
++	 * they hit the wire.  So sequence numbers can skip forward
++	 * under normal operation.  They can also drop back in the conn
++	 * failover case as previously sent messages are resent down the
++	 * new instance of a conn.  We drop those, otherwise we have
++	 * to assume that the next valid seq does not come after a
++	 * hole in the fragment stream.
 +	 *
-+	 * The sem holder will issue a retry if they notice that someone queued
-+	 * a message after they stopped walking the send queue but before they
-+	 * dropped the sem.
++	 * The headers don't give us a way to realize if fragments of
++	 * a message have been dropped.  We assume that frags that arrive
++	 * to a flow are part of the current message on the flow that is
++	 * being reassembled.  This means that senders can't drop messages
++	 * from the sending conn until all their frags are sent.
++	 *
++	 * XXX we could spend more on the wire to get more robust failure
++	 * detection, arguably worth it to avoid data corruption.
 +	 */
-+	if (!mutex_trylock(&conn->c_send_lock)) {
-+		rds_stats_inc(s_send_sem_contention);
-+		ret = -ENOMEM;
++	if (be64_to_cpu(inc->i_hdr.h_sequence) < conn->c_next_rx_seq
++	 && (inc->i_hdr.h_flags & RDS_FLAG_RETRANSMITTED)) {
++		rds_stats_inc(s_recv_drop_old_seq);
++		goto out;
++	}
++	conn->c_next_rx_seq = be64_to_cpu(inc->i_hdr.h_sequence) + 1;
++
++	if (rds_sysctl_ping_enable && inc->i_hdr.h_dport == 0) {
++		rds_stats_inc(s_recv_ping);
++		rds_send_pong(conn, inc->i_hdr.h_sport);
 +		goto out;
 +	}
 +
-+	if (conn->c_trans->xmit_prepare)
-+		conn->c_trans->xmit_prepare(conn);
-+
-+	/*
-+	 * spin trying to push headers and data down the connection until
-+	 * the connection doens't make forward progress.
-+	 */
-+	while (--send_quota) {
-+		/*
-+		 * See if need to send a congestion map update if we're
-+		 * between sending messages.  The send_sem protects our sole
-+		 * use of c_map_offset and _bytes.
-+		 * Note this is used only by transports that define a special
-+		 * xmit_cong_map function. For all others, we create allocate
-+		 * a cong_map message and treat it just like any other send.
-+		 */
-+		if (conn->c_map_bytes) {
-+			ret = conn->c_trans->xmit_cong_map(conn, conn->c_lcong,
-+						conn->c_map_offset);
-+			if (ret <= 0)
-+				break;
-+
-+			conn->c_map_offset += ret;
-+			conn->c_map_bytes -= ret;
-+			if (conn->c_map_bytes)
-+				continue;
-+		}
-+
-+		/* If we're done sending the current message, clear the
-+		 * offset and S/G temporaries.
-+		 */
-+		rm = conn->c_xmit_rm;
-+		if (rm != NULL &&
-+		    conn->c_xmit_hdr_off == sizeof(struct rds_header) &&
-+		    conn->c_xmit_sg == rm->m_nents) {
-+			conn->c_xmit_rm = NULL;
-+			conn->c_xmit_sg = 0;
-+			conn->c_xmit_hdr_off = 0;
-+			conn->c_xmit_data_off = 0;
-+			conn->c_xmit_rdma_sent = 0;
-+
-+			/* Release the reference to the previous message. */
-+			rds_message_put(rm);
-+			rm = NULL;
-+		}
-+
-+		/* If we're asked to send a cong map update, do so.
-+		 */
-+		if (rm == NULL && test_and_clear_bit(0, &conn->c_map_queued)) {
-+			if (conn->c_trans->xmit_cong_map != NULL) {
-+				conn->c_map_offset = 0;
-+				conn->c_map_bytes = sizeof(struct rds_header) +
-+					RDS_CONG_MAP_BYTES;
-+				continue;
-+			}
-+
-+			rm = rds_cong_update_alloc(conn);
-+			if (IS_ERR(rm)) {
-+				ret = PTR_ERR(rm);
-+				break;
-+			}
-+
-+			conn->c_xmit_rm = rm;
-+		}
-+
-+		/*
-+		 * Grab the next message from the send queue, if there is one.
-+		 *
-+		 * c_xmit_rm holds a ref while we're sending this message down
-+		 * the connction.  We can use this ref while holding the
-+		 * send_sem.. rds_send_reset() is serialized with it.
-+		 */
-+		if (rm == NULL) {
-+			unsigned int len;
-+
-+			spin_lock_irqsave(&conn->c_lock, flags);
-+
-+			if (!list_empty(&conn->c_send_queue)) {
-+				rm = list_entry(conn->c_send_queue.next,
-+						struct rds_message,
-+						m_conn_item);
-+				rds_message_addref(rm);
-+
-+				/*
-+				 * Move the message from the send queue to the retransmit
-+				 * list right away.
-+				 */
-+				list_move_tail(&rm->m_conn_item, &conn->c_retrans);
-+			}
-+
-+			spin_unlock_irqrestore(&conn->c_lock, flags);
-+
-+			if (rm == NULL) {
-+				was_empty = 1;
-+				break;
-+			}
-+
-+			/* Unfortunately, the way Infiniband deals with
-+			 * RDMA to a bad MR key is by moving the entire
-+			 * queue pair to error state. We cold possibly
-+			 * recover from that, but right now we drop the
-+			 * connection.
-+			 * Therefore, we never retransmit messages with RDMA ops.
-+			 */
-+			if (rm->m_rdma_op
-+			 && test_bit(RDS_MSG_RETRANSMITTED, &rm->m_flags)) {
-+				spin_lock_irqsave(&conn->c_lock, flags);
-+				if (test_and_clear_bit(RDS_MSG_ON_CONN, &rm->m_flags))
-+					list_move(&rm->m_conn_item, &to_be_dropped);
-+				spin_unlock_irqrestore(&conn->c_lock, flags);
-+				rds_message_put(rm);
-+				continue;
-+			}
-+
-+			/* Require an ACK every once in a while */
-+			len = ntohl(rm->m_inc.i_hdr.h_len);
-+			if (conn->c_unacked_packets == 0
-+			 || conn->c_unacked_bytes < len) {
-+				__set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
-+
-+				conn->c_unacked_packets = rds_sysctl_max_unacked_packets;
-+				conn->c_unacked_bytes = rds_sysctl_max_unacked_bytes;
-+				rds_stats_inc(s_send_ack_required);
-+			} else {
-+				conn->c_unacked_bytes -= len;
-+				conn->c_unacked_packets--;
-+			}
-+
-+			conn->c_xmit_rm = rm;
-+		}
-+
-+		/*
-+		 * Try and send an rdma message.  Let's see if we can
-+		 * keep this simple and require that the transport either
-+		 * send the whole rdma or none of it.
-+		 */
-+		if (rm->m_rdma_op && !conn->c_xmit_rdma_sent) {
-+			ret = conn->c_trans->xmit_rdma(conn, rm->m_rdma_op);
-+			if (ret)
-+				break;
-+			conn->c_xmit_rdma_sent = 1;
-+			/* The transport owns the mapped memory for now.
-+			 * You can't unmap it while it's on the send queue */
-+			set_bit(RDS_MSG_MAPPED, &rm->m_flags);
-+		}
-+
-+		if (conn->c_xmit_hdr_off < sizeof(struct rds_header) ||
-+		    conn->c_xmit_sg < rm->m_nents) {
-+			ret = conn->c_trans->xmit(conn, rm,
-+						  conn->c_xmit_hdr_off,
-+						  conn->c_xmit_sg,
-+						  conn->c_xmit_data_off);
-+			if (ret <= 0)
-+				break;
-+
-+			if (conn->c_xmit_hdr_off < sizeof(struct rds_header)) {
-+				tmp = min_t(int, ret,
-+					    sizeof(struct rds_header) -
-+					    conn->c_xmit_hdr_off);
-+				conn->c_xmit_hdr_off += tmp;
-+				ret -= tmp;
-+			}
-+
-+			sg = &rm->m_sg[conn->c_xmit_sg];
-+			while (ret) {
-+				tmp = min_t(int, ret, sg->length -
-+						      conn->c_xmit_data_off);
-+				conn->c_xmit_data_off += tmp;
-+				ret -= tmp;
-+				if (conn->c_xmit_data_off == sg->length) {
-+					conn->c_xmit_data_off = 0;
-+					sg++;
-+					conn->c_xmit_sg++;
-+					BUG_ON(ret != 0 &&
-+					       conn->c_xmit_sg == rm->m_nents);
-+				}
-+			}
-+		}
++	rs = rds_find_bound(daddr, inc->i_hdr.h_dport);
++	if (rs == NULL) {
++		rds_stats_inc(s_recv_drop_no_sock);
++		goto out;
 +	}
 +
-+	/* Nuke any messages we decided not to retransmit. */
-+	if (!list_empty(&to_be_dropped))
-+		rds_send_remove_from_sock(&to_be_dropped, RDS_RDMA_DROPPED);
++	/* Process extension headers */
++	rds_recv_incoming_exthdrs(inc, rs);
 +
-+	if (conn->c_trans->xmit_complete)
-+		conn->c_trans->xmit_complete(conn);
++	/* We can be racing with rds_release() which marks the socket dead. */
++	sk = rds_rs_to_sk(rs);
 +
-+	/*
-+	 * We might be racing with another sender who queued a message but
-+	 * backed off on noticing that we held the c_send_lock.  If we check
-+	 * for queued messages after dropping the sem then either we'll
-+	 * see the queued message or the queuer will get the sem.  If we
-+	 * notice the queued message then we trigger an immediate retry.
-+	 *
-+	 * We need to be careful only to do this when we stopped processing
-+	 * the send queue because it was empty.  It's the only way we
-+	 * stop processing the loop when the transport hasn't taken
-+	 * responsibility for forward progress.
-+	 */
-+	mutex_unlock(&conn->c_send_lock);
-+
-+	if (conn->c_map_bytes || (send_quota == 0 && !was_empty)) {
-+		/* We exhausted the send quota, but there's work left to
-+		 * do. Return and (re-)schedule the send worker.
-+		 */
-+		ret = -EAGAIN;
++	/* serialize with rds_release -> sock_orphan */
++	write_lock_irqsave(&rs->rs_recv_lock, flags);
++	if (!sock_flag(sk, SOCK_DEAD)) {
++		rdsdebug("adding inc %p to rs %p's recv queue\n", inc, rs);
++		rds_stats_inc(s_recv_queued);
++		rds_recv_rcvbuf_delta(rs, sk, inc->i_conn->c_lcong,
++				      be32_to_cpu(inc->i_hdr.h_len),
++				      inc->i_hdr.h_dport);
++		rds_inc_addref(inc);
++		list_add_tail(&inc->i_item, &rs->rs_recv_queue);
++		__rds_wake_sk_sleep(sk);
++	} else {
++		rds_stats_inc(s_recv_drop_dead_sock);
 +	}
++	write_unlock_irqrestore(&rs->rs_recv_lock, flags);
 +
-+	if (ret == 0 && was_empty) {
-+		/* A simple bit test would be way faster than taking the
-+		 * spin lock */
-+		spin_lock_irqsave(&conn->c_lock, flags);
-+		if (!list_empty(&conn->c_send_queue)) {
-+			rds_stats_inc(s_send_sem_queue_raced);
-+			ret = -EAGAIN;
-+		}
-+		spin_unlock_irqrestore(&conn->c_lock, flags);
-+	}
 +out:
++	if (rs)
++		rds_sock_put(rs);
++}
++EXPORT_SYMBOL_GPL(rds_recv_incoming);
++
++/*
++ * be very careful here.  This is being called as the condition in
++ * wait_event_*() needs to cope with being called many times.
++ */
++static int rds_next_incoming(struct rds_sock *rs, struct rds_incoming **inc)
++{
++	unsigned long flags;
++
++	if (*inc == NULL) {
++		read_lock_irqsave(&rs->rs_recv_lock, flags);
++		if (!list_empty(&rs->rs_recv_queue)) {
++			*inc = list_entry(rs->rs_recv_queue.next,
++					  struct rds_incoming,
++					  i_item);
++			rds_inc_addref(*inc);
++		}
++		read_unlock_irqrestore(&rs->rs_recv_lock, flags);
++	}
++
++	return *inc != NULL;
++}
++
++static int rds_still_queued(struct rds_sock *rs, struct rds_incoming *inc,
++			    int drop)
++{
++	struct sock *sk = rds_rs_to_sk(rs);
++	int ret = 0;
++	unsigned long flags;
++
++	write_lock_irqsave(&rs->rs_recv_lock, flags);
++	if (!list_empty(&inc->i_item)) {
++		ret = 1;
++		if (drop) {
++			/* XXX make sure this i_conn is reliable */
++			rds_recv_rcvbuf_delta(rs, sk, inc->i_conn->c_lcong,
++					      -be32_to_cpu(inc->i_hdr.h_len),
++					      inc->i_hdr.h_dport);
++			list_del_init(&inc->i_item);
++			rds_inc_put(inc);
++		}
++	}
++	write_unlock_irqrestore(&rs->rs_recv_lock, flags);
++
++	rdsdebug("inc %p rs %p still %d dropped %d\n", inc, rs, ret, drop);
 +	return ret;
 +}
 +
-+static void rds_send_sndbuf_remove(struct rds_sock *rs, struct rds_message *rm)
-+{
-+	u32 len = be32_to_cpu(rm->m_inc.i_hdr.h_len);
-+
-+	assert_spin_locked(&rs->rs_lock);
-+
-+	BUG_ON(rs->rs_snd_bytes < len);
-+	rs->rs_snd_bytes -= len;
-+
-+	if (rs->rs_snd_bytes == 0)
-+		rds_stats_inc(s_send_queue_empty);
-+}
-+
-+static inline int rds_send_is_acked(struct rds_message *rm, u64 ack,
-+				    is_acked_func is_acked)
-+{
-+	if (is_acked)
-+		return is_acked(rm, ack);
-+	return be64_to_cpu(rm->m_inc.i_hdr.h_sequence) <= ack;
-+}
-+
 +/*
-+ * Returns true if there are no messages on the send and retransmit queues
-+ * which have a sequence number greater than or equal to the given sequence
-+ * number.
++ * Pull errors off the error queue.
++ * If msghdr is NULL, we will just purge the error queue.
 + */
-+int rds_send_acked_before(struct rds_connection *conn, u64 seq)
++int rds_notify_queue_get(struct rds_sock *rs, struct msghdr *msghdr)
 +{
-+	struct rds_message *rm, *tmp;
-+	int ret = 1;
-+
-+	spin_lock(&conn->c_lock);
-+
-+	list_for_each_entry_safe(rm, tmp, &conn->c_retrans, m_conn_item) {
-+		if (be64_to_cpu(rm->m_inc.i_hdr.h_sequence) < seq)
-+			ret = 0;
-+		break;
-+	}
-+
-+	list_for_each_entry_safe(rm, tmp, &conn->c_send_queue, m_conn_item) {
-+		if (be64_to_cpu(rm->m_inc.i_hdr.h_sequence) < seq)
-+			ret = 0;
-+		break;
-+	}
-+
-+	spin_unlock(&conn->c_lock);
-+
-+	return ret;
-+}
-+
-+/*
-+ * This is pretty similar to what happens below in the ACK
-+ * handling code - except that we call here as soon as we get
-+ * the IB send completion on the RDMA op and the accompanying
-+ * message.
-+ */
-+void rds_rdma_send_complete(struct rds_message *rm, int status)
-+{
-+	struct rds_sock *rs = NULL;
-+	struct rds_rdma_op *ro;
 +	struct rds_notifier *notifier;
-+
-+	spin_lock(&rm->m_rs_lock);
-+
-+	ro = rm->m_rdma_op;
-+	if (test_bit(RDS_MSG_ON_SOCK, &rm->m_flags)
-+	 && ro && ro->r_notify
-+	 && (notifier = ro->r_notifier) != NULL) {
-+		rs = rm->m_rs;
-+		sock_hold(rds_rs_to_sk(rs));
-+
-+		notifier->n_status = status;
-+		spin_lock(&rs->rs_lock);
-+		list_add_tail(&notifier->n_list, &rs->rs_notify_queue);
-+		spin_unlock(&rs->rs_lock);
-+
-+		ro->r_notifier = NULL;
-+	}
-+
-+	spin_unlock(&rm->m_rs_lock);
-+
-+	if (rs) {
-+		rds_wake_sk_sleep(rs);
-+		sock_put(rds_rs_to_sk(rs));
-+	}
-+}
-+EXPORT_SYMBOL_GPL(rds_rdma_send_complete);
-+
-+/*
-+ * This is the same as rds_rdma_send_complete except we
-+ * don't do any locking - we have all the ingredients (message,
-+ * socket, socket lock) and can just move the notifier.
-+ */
-+static inline void
-+__rds_rdma_send_complete(struct rds_sock *rs, struct rds_message *rm, int status)
-+{
-+	struct rds_rdma_op *ro;
-+
-+	ro = rm->m_rdma_op;
-+	if (ro && ro->r_notify && ro->r_notifier) {
-+		ro->r_notifier->n_status = status;
-+		list_add_tail(&ro->r_notifier->n_list, &rs->rs_notify_queue);
-+		ro->r_notifier = NULL;
-+	}
-+
-+	/* No need to wake the app - caller does this */
-+}
-+
-+/*
-+ * This is called from the IB send completion when we detect
-+ * a RDMA operation that failed with remote access error.
-+ * So speed is not an issue here.
-+ */
-+struct rds_message *rds_send_get_message(struct rds_connection *conn,
-+					 struct rds_rdma_op *op)
-+{
-+	struct rds_message *rm, *tmp, *found = NULL;
++	struct rds_rdma_notify cmsg;
++	unsigned int count = 0, max_messages = ~0U;
 +	unsigned long flags;
++	LIST_HEAD(copy);
++	int err = 0;
 +
-+	spin_lock_irqsave(&conn->c_lock, flags);
 +
-+	list_for_each_entry_safe(rm, tmp, &conn->c_retrans, m_conn_item) {
-+		if (rm->m_rdma_op == op) {
-+			atomic_inc(&rm->m_refcount);
-+			found = rm;
-+			goto out;
-+		}
-+	}
-+
-+	list_for_each_entry_safe(rm, tmp, &conn->c_send_queue, m_conn_item) {
-+		if (rm->m_rdma_op == op) {
-+			atomic_inc(&rm->m_refcount);
-+			found = rm;
-+			break;
-+		}
-+	}
-+
-+out:
-+	spin_unlock_irqrestore(&conn->c_lock, flags);
-+
-+	return found;
-+}
-+EXPORT_SYMBOL_GPL(rds_send_get_message);
-+
-+/*
-+ * This removes messages from the socket's list if they're on it.  The list
-+ * argument must be private to the caller, we must be able to modify it
-+ * without locks.  The messages must have a reference held for their
-+ * position on the list.  This function will drop that reference after
-+ * removing the messages from the 'messages' list regardless of if it found
-+ * the messages on the socket list or not.
-+ */
-+void rds_send_remove_from_sock(struct list_head *messages, int status)
-+{
-+	unsigned long flags = 0; /* silence gcc :P */
-+	struct rds_sock *rs = NULL;
-+	struct rds_message *rm;
-+
-+	local_irq_save(flags);
-+	while (!list_empty(messages)) {
-+		rm = list_entry(messages->next, struct rds_message,
-+				m_conn_item);
-+		list_del_init(&rm->m_conn_item);
-+
-+		/*
-+		 * If we see this flag cleared then we're *sure* that someone
-+		 * else beat us to removing it from the sock.  If we race
-+		 * with their flag update we'll get the lock and then really
-+		 * see that the flag has been cleared.
-+		 *
-+		 * The message spinlock makes sure nobody clears rm->m_rs
-+		 * while we're messing with it. It does not prevent the
-+		 * message from being removed from the socket, though.
-+		 */
-+		spin_lock(&rm->m_rs_lock);
-+		if (!test_bit(RDS_MSG_ON_SOCK, &rm->m_flags))
-+			goto unlock_and_drop;
-+
-+		if (rs != rm->m_rs) {
-+			if (rs) {
-+				spin_unlock(&rs->rs_lock);
-+				rds_wake_sk_sleep(rs);
-+				sock_put(rds_rs_to_sk(rs));
-+			}
-+			rs = rm->m_rs;
-+			spin_lock(&rs->rs_lock);
-+			sock_hold(rds_rs_to_sk(rs));
-+		}
-+
-+		if (test_and_clear_bit(RDS_MSG_ON_SOCK, &rm->m_flags)) {
-+			struct rds_rdma_op *ro = rm->m_rdma_op;
-+			struct rds_notifier *notifier;
-+
-+			list_del_init(&rm->m_sock_item);
-+			rds_send_sndbuf_remove(rs, rm);
-+
-+			if (ro &&
-+			    (notifier = ro->r_notifier) != NULL &&
-+			    (status || ro->r_notify)) {
-+				list_add_tail(&notifier->n_list,
-+						&rs->rs_notify_queue);
-+				if (!notifier->n_status)
-+					notifier->n_status = status;
-+				rm->m_rdma_op->r_notifier = NULL;
-+			}
-+			rds_message_put(rm);
-+			rm->m_rs = NULL;
-+		}
-+
-+unlock_and_drop:
-+		spin_unlock(&rm->m_rs_lock);
-+		rds_message_put(rm);
-+	}
-+
-+	if (rs) {
-+		spin_unlock(&rs->rs_lock);
-+		rds_wake_sk_sleep(rs);
-+		sock_put(rds_rs_to_sk(rs));
-+	}
-+	local_irq_restore(flags);
-+}
-+
-+/*
-+ * Transports call here when they've determined that the receiver queued
-+ * messages up to, and including, the given sequence number.  Messages are
-+ * moved to the retrans queue when rds_send_xmit picks them off the send
-+ * queue. This means that in the TCP case, the message may not have been
-+ * assigned the m_ack_seq yet - but that's fine as long as tcp_is_acked
-+ * checks the RDS_MSG_HAS_ACK_SEQ bit.
-+ *
-+ * XXX It's not clear to me how this is safely serialized with socket
-+ * destruction.  Maybe it should bail if it sees SOCK_DEAD.
-+ */
-+void rds_send_drop_acked(struct rds_connection *conn, u64 ack,
-+			 is_acked_func is_acked)
-+{
-+	struct rds_message *rm, *tmp;
-+	unsigned long flags;
-+	LIST_HEAD(list);
-+
-+	spin_lock_irqsave(&conn->c_lock, flags);
-+
-+	list_for_each_entry_safe(rm, tmp, &conn->c_retrans, m_conn_item) {
-+		if (!rds_send_is_acked(rm, ack, is_acked))
-+			break;
-+
-+		list_move(&rm->m_conn_item, &list);
-+		clear_bit(RDS_MSG_ON_CONN, &rm->m_flags);
-+	}
-+
-+	/* order flag updates with spin locks */
-+	if (!list_empty(&list))
-+		smp_mb__after_clear_bit();
-+
-+	spin_unlock_irqrestore(&conn->c_lock, flags);
-+
-+	/* now remove the messages from the sock list as needed */
-+	rds_send_remove_from_sock(&list, RDS_RDMA_SUCCESS);
-+}
-+EXPORT_SYMBOL_GPL(rds_send_drop_acked);
-+
-+void rds_send_drop_to(struct rds_sock *rs, struct sockaddr_in *dest)
-+{
-+	struct rds_message *rm, *tmp;
-+	struct rds_connection *conn;
-+	unsigned long flags;
-+	LIST_HEAD(list);
-+	int wake = 0;
-+
-+	/* get all the messages we're dropping under the rs lock */
-+	spin_lock_irqsave(&rs->rs_lock, flags);
-+
-+	list_for_each_entry_safe(rm, tmp, &rs->rs_send_queue, m_sock_item) {
-+		if (dest && (dest->sin_addr.s_addr != rm->m_daddr ||
-+			     dest->sin_port != rm->m_inc.i_hdr.h_dport))
-+			continue;
-+
-+		wake = 1;
-+		list_move(&rm->m_sock_item, &list);
-+		rds_send_sndbuf_remove(rs, rm);
-+		clear_bit(RDS_MSG_ON_SOCK, &rm->m_flags);
-+
-+		/* If this is a RDMA operation, notify the app. */
-+		__rds_rdma_send_complete(rs, rm, RDS_RDMA_CANCELED);
-+	}
-+
-+	/* order flag updates with the rs lock */
-+	if (wake)
-+		smp_mb__after_clear_bit();
-+
-+	spin_unlock_irqrestore(&rs->rs_lock, flags);
-+
-+	if (wake)
-+		rds_wake_sk_sleep(rs);
-+
-+	conn = NULL;
-+
-+	/* now remove the messages from the conn list as needed */
-+	list_for_each_entry(rm, &list, m_sock_item) {
-+		/* We do this here rather than in the loop above, so that
-+		 * we don't have to nest m_rs_lock under rs->rs_lock */
-+		spin_lock(&rm->m_rs_lock);
-+		rm->m_rs = NULL;
-+		spin_unlock(&rm->m_rs_lock);
-+
-+		/*
-+		 * If we see this flag cleared then we're *sure* that someone
-+		 * else beat us to removing it from the conn.  If we race
-+		 * with their flag update we'll get the lock and then really
-+		 * see that the flag has been cleared.
-+		 */
-+		if (!test_bit(RDS_MSG_ON_CONN, &rm->m_flags))
-+			continue;
-+
-+		if (conn != rm->m_inc.i_conn) {
-+			if (conn)
-+				spin_unlock_irqrestore(&conn->c_lock, flags);
-+			conn = rm->m_inc.i_conn;
-+			spin_lock_irqsave(&conn->c_lock, flags);
-+		}
-+
-+		if (test_and_clear_bit(RDS_MSG_ON_CONN, &rm->m_flags)) {
-+			list_del_init(&rm->m_conn_item);
-+			rds_message_put(rm);
-+		}
-+	}
-+
-+	if (conn)
-+		spin_unlock_irqrestore(&conn->c_lock, flags);
-+
-+	while (!list_empty(&list)) {
-+		rm = list_entry(list.next, struct rds_message, m_sock_item);
-+		list_del_init(&rm->m_sock_item);
-+
-+		rds_message_wait(rm);
-+		rds_message_put(rm);
-+	}
-+}
-+
-+/*
-+ * we only want this to fire once so we use the callers 'queued'.  It's
-+ * possible that another thread can race with us and remove the
-+ * message from the flow with RDS_CANCEL_SENT_TO.
-+ */
-+static int rds_send_queue_rm(struct rds_sock *rs, struct rds_connection *conn,
-+			     struct rds_message *rm, __be16 sport,
-+			     __be16 dport, int *queued)
-+{
-+	unsigned long flags;
-+	u32 len;
-+
-+	if (*queued)
-+		goto out;
-+
-+	len = be32_to_cpu(rm->m_inc.i_hdr.h_len);
-+
-+	/* this is the only place which holds both the socket's rs_lock
-+	 * and the connection's c_lock */
-+	spin_lock_irqsave(&rs->rs_lock, flags);
-+
-+	/*
-+	 * If there is a little space in sndbuf, we don't queue anything,
-+	 * and userspace gets -EAGAIN. But poll() indicates there's send
-+	 * room. This can lead to bad behavior (spinning) if snd_bytes isn't
-+	 * freed up by incoming acks. So we check the *old* value of
-+	 * rs_snd_bytes here to allow the last msg to exceed the buffer,
-+	 * and poll() now knows no more data can be sent.
++	/* put_cmsg copies to user space and thus may sleep. We can't do this
++	 * with rs_lock held, so first grab as many notifications as we can stuff
++	 * in the user provided cmsg buffer. We don't try to copy more, to avoid
++	 * losing notifications - except when the buffer is so small that it wouldn't
++	 * even hold a single notification. Then we give him as much of this single
++	 * msg as we can squeeze in, and set MSG_CTRUNC.
 +	 */
-+	if (rs->rs_snd_bytes < rds_sk_sndbuf(rs)) {
-+		rs->rs_snd_bytes += len;
-+
-+		/* let recv side know we are close to send space exhaustion.
-+		 * This is probably not the optimal way to do it, as this
-+		 * means we set the flag on *all* messages as soon as our
-+		 * throughput hits a certain threshold.
-+		 */
-+		if (rs->rs_snd_bytes >= rds_sk_sndbuf(rs) / 2)
-+			__set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
-+
-+		list_add_tail(&rm->m_sock_item, &rs->rs_send_queue);
-+		set_bit(RDS_MSG_ON_SOCK, &rm->m_flags);
-+		rds_message_addref(rm);
-+		rm->m_rs = rs;
-+
-+		/* The code ordering is a little weird, but we're
-+		   trying to minimize the time we hold c_lock */
-+		rds_message_populate_header(&rm->m_inc.i_hdr, sport, dport, 0);
-+		rm->m_inc.i_conn = conn;
-+		rds_message_addref(rm);
-+
-+		spin_lock(&conn->c_lock);
-+		rm->m_inc.i_hdr.h_sequence = cpu_to_be64(conn->c_next_tx_seq++);
-+		list_add_tail(&rm->m_conn_item, &conn->c_send_queue);
-+		set_bit(RDS_MSG_ON_CONN, &rm->m_flags);
-+		spin_unlock(&conn->c_lock);
-+
-+		rdsdebug("queued msg %p len %d, rs %p bytes %d seq %llu\n",
-+			 rm, len, rs, rs->rs_snd_bytes,
-+			 (unsigned long long)be64_to_cpu(rm->m_inc.i_hdr.h_sequence));
-+
-+		*queued = 1;
++	if (msghdr) {
++		max_messages = msghdr->msg_controllen / CMSG_SPACE(sizeof(cmsg));
++		if (!max_messages)
++			max_messages = 1;
 +	}
 +
++	spin_lock_irqsave(&rs->rs_lock, flags);
++	while (!list_empty(&rs->rs_notify_queue) && count < max_messages) {
++		notifier = list_entry(rs->rs_notify_queue.next,
++				struct rds_notifier, n_list);
++		list_move(&notifier->n_list, &copy);
++		count++;
++	}
 +	spin_unlock_irqrestore(&rs->rs_lock, flags);
-+out:
-+	return *queued;
++
++	if (!count)
++		return 0;
++
++	while (!list_empty(&copy)) {
++		notifier = list_entry(copy.next, struct rds_notifier, n_list);
++
++		if (msghdr) {
++			cmsg.user_token = notifier->n_user_token;
++			cmsg.status  = notifier->n_status;
++
++			err = put_cmsg(msghdr, SOL_RDS, RDS_CMSG_RDMA_STATUS,
++					sizeof(cmsg), &cmsg);
++			if (err)
++				break;
++		}
++
++		list_del_init(&notifier->n_list);
++		kfree(notifier);
++	}
++
++	/* If we bailed out because of an error in put_cmsg,
++	 * we may be left with one or more notifications that we
++	 * didn't process. Return them to the head of the list. */
++	if (!list_empty(&copy)) {
++		spin_lock_irqsave(&rs->rs_lock, flags);
++		list_splice(&copy, &rs->rs_notify_queue);
++		spin_unlock_irqrestore(&rs->rs_lock, flags);
++	}
++
++	return err;
 +}
 +
-+static int rds_cmsg_send(struct rds_sock *rs, struct rds_message *rm,
-+			 struct msghdr *msg, int *allocated_mr)
++/*
++ * Queue a congestion notification
++ */
++static int rds_notify_cong(struct rds_sock *rs, struct msghdr *msghdr)
 +{
-+	struct cmsghdr *cmsg;
++	uint64_t notify = rs->rs_cong_notify;
++	unsigned long flags;
++	int err;
++
++	err = put_cmsg(msghdr, SOL_RDS, RDS_CMSG_CONG_UPDATE,
++			sizeof(notify), &notify);
++	if (err)
++		return err;
++
++	spin_lock_irqsave(&rs->rs_lock, flags);
++	rs->rs_cong_notify &= ~notify;
++	spin_unlock_irqrestore(&rs->rs_lock, flags);
++
++	return 0;
++}
++
++/*
++ * Receive any control messages.
++ */
++static int rds_cmsg_recv(struct rds_incoming *inc, struct msghdr *msg)
++{
 +	int ret = 0;
 +
-+	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-+		if (!CMSG_OK(msg, cmsg))
-+			return -EINVAL;
-+
-+		if (cmsg->cmsg_level != SOL_RDS)
-+			continue;
-+
-+		/* As a side effect, RDMA_DEST and RDMA_MAP will set
-+		 * rm->m_rdma_cookie and rm->m_rdma_mr.
-+		 */
-+		switch (cmsg->cmsg_type) {
-+		case RDS_CMSG_RDMA_ARGS:
-+			ret = rds_cmsg_rdma_args(rs, rm, cmsg);
-+			break;
-+
-+		case RDS_CMSG_RDMA_DEST:
-+			ret = rds_cmsg_rdma_dest(rs, rm, cmsg);
-+			break;
-+
-+		case RDS_CMSG_RDMA_MAP:
-+			ret = rds_cmsg_rdma_map(rs, rm, cmsg);
-+			if (!ret)
-+				*allocated_mr = 1;
-+			break;
-+
-+		default:
-+			return -EINVAL;
-+		}
-+
++	if (inc->i_rdma_cookie) {
++		ret = put_cmsg(msg, SOL_RDS, RDS_CMSG_RDMA_DEST,
++				sizeof(inc->i_rdma_cookie), &inc->i_rdma_cookie);
 +		if (ret)
-+			break;
++			return ret;
 +	}
 +
-+	return ret;
++	return 0;
 +}
 +
-+int rds_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
-+		size_t payload_len)
++int rds_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
++		size_t size, int msg_flags)
 +{
 +	struct sock *sk = sock->sk;
 +	struct rds_sock *rs = rds_sk_to_rs(sk);
-+	struct sockaddr_in *usin = (struct sockaddr_in *)msg->msg_name;
-+	__be32 daddr;
-+	__be16 dport;
-+	struct rds_message *rm = NULL;
-+	struct rds_connection *conn;
-+	int ret = 0;
-+	int queued = 0, allocated_mr = 0;
-+	int nonblock = msg->msg_flags & MSG_DONTWAIT;
-+	long timeo = sock_rcvtimeo(sk, nonblock);
++	long timeo;
++	int ret = 0, nonblock = msg_flags & MSG_DONTWAIT;
++	struct sockaddr_in *sin;
++	struct rds_incoming *inc = NULL;
 +
-+	/* Mirror Linux UDP mirror of BSD error message compatibility */
-+	/* XXX: Perhaps MSG_MORE someday */
-+	if (msg->msg_flags & ~(MSG_DONTWAIT | MSG_CMSG_COMPAT)) {
-+		printk(KERN_INFO "msg_flags 0x%08X\n", msg->msg_flags);
-+		ret = -EOPNOTSUPP;
++	/* udp_recvmsg()->sock_recvtimeo() gets away without locking too.. */
++	timeo = sock_rcvtimeo(sk, nonblock);
++
++	rdsdebug("size %zu flags 0x%x timeo %ld\n", size, msg_flags, timeo);
++
++	if (msg_flags & MSG_OOB)
++		goto out;
++
++	/* If there are pending notifications, do those - and nothing else */
++	if (!list_empty(&rs->rs_notify_queue)) {
++		ret = rds_notify_queue_get(rs, msg);
 +		goto out;
 +	}
 +
-+	if (msg->msg_namelen) {
-+		/* XXX fail non-unicast destination IPs? */
-+		if (msg->msg_namelen < sizeof(*usin) || usin->sin_family != AF_INET) {
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+		daddr = usin->sin_addr.s_addr;
-+		dport = usin->sin_port;
-+	} else {
-+		/* We only care about consistency with ->connect() */
-+		lock_sock(sk);
-+		daddr = rs->rs_conn_addr;
-+		dport = rs->rs_conn_port;
-+		release_sock(sk);
-+	}
-+
-+	/* racing with another thread binding seems ok here */
-+	if (daddr == 0 || rs->rs_bound_addr == 0) {
-+		ret = -ENOTCONN; /* XXX not a great errno */
++	if (rs->rs_cong_notify) {
++		ret = rds_notify_cong(rs, msg);
 +		goto out;
 +	}
 +
-+	rm = rds_message_copy_from_user(msg->msg_iov, payload_len);
-+	if (IS_ERR(rm)) {
-+		ret = PTR_ERR(rm);
-+		rm = NULL;
-+		goto out;
-+	}
++	while (1) {
++		if (!rds_next_incoming(rs, &inc)) {
++			if (nonblock) {
++				ret = -EAGAIN;
++				break;
++			}
 +
-+	rm->m_daddr = daddr;
++			timeo = wait_event_interruptible_timeout(*sk->sk_sleep,
++						rds_next_incoming(rs, &inc),
++						timeo);
++			rdsdebug("recvmsg woke inc %p timeo %ld\n", inc,
++				 timeo);
++			if (timeo > 0 || timeo == MAX_SCHEDULE_TIMEOUT)
++				continue;
 +
-+	/* Parse any control messages the user may have included. */
-+	ret = rds_cmsg_send(rs, rm, msg, &allocated_mr);
-+	if (ret)
-+		goto out;
-+
-+	/* rds_conn_create has a spinlock that runs with IRQ off.
-+	 * Caching the conn in the socket helps a lot. */
-+	if (rs->rs_conn && rs->rs_conn->c_faddr == daddr)
-+		conn = rs->rs_conn;
-+	else {
-+		conn = rds_conn_create_outgoing(rs->rs_bound_addr, daddr,
-+					rs->rs_transport,
-+					sock->sk->sk_allocation);
-+		if (IS_ERR(conn)) {
-+			ret = PTR_ERR(conn);
-+			goto out;
-+		}
-+		rs->rs_conn = conn;
-+	}
-+
-+	if ((rm->m_rdma_cookie || rm->m_rdma_op)
-+	 && conn->c_trans->xmit_rdma == NULL) {
-+		if (printk_ratelimit())
-+			printk(KERN_NOTICE "rdma_op %p conn xmit_rdma %p\n",
-+				rm->m_rdma_op, conn->c_trans->xmit_rdma);
-+		ret = -EOPNOTSUPP;
-+		goto out;
-+	}
-+
-+	/* If the connection is down, trigger a connect. We may
-+	 * have scheduled a delayed reconnect however - in this case
-+	 * we should not interfere.
-+	 */
-+	if (rds_conn_state(conn) == RDS_CONN_DOWN
-+	 && !test_and_set_bit(RDS_RECONNECT_PENDING, &conn->c_flags))
-+		queue_delayed_work(rds_wq, &conn->c_conn_w, 0);
-+
-+	ret = rds_cong_wait(conn->c_fcong, dport, nonblock, rs);
-+	if (ret)
-+		goto out;
-+
-+	while (!rds_send_queue_rm(rs, conn, rm, rs->rs_bound_port,
-+				  dport, &queued)) {
-+		rds_stats_inc(s_send_queue_full);
-+		/* XXX make sure this is reasonable */
-+		if (payload_len > rds_sk_sndbuf(rs)) {
-+			ret = -EMSGSIZE;
-+			goto out;
-+		}
-+		if (nonblock) {
-+			ret = -EAGAIN;
-+			goto out;
++			ret = timeo;
++			if (ret == 0)
++				ret = -ETIMEDOUT;
++			break;
 +		}
 +
-+		timeo = wait_event_interruptible_timeout(*sk->sk_sleep,
-+					rds_send_queue_rm(rs, conn, rm,
-+							  rs->rs_bound_port,
-+							  dport,
-+							  &queued),
-+					timeo);
-+		rdsdebug("sendmsg woke queued %d timeo %ld\n", queued, timeo);
-+		if (timeo > 0 || timeo == MAX_SCHEDULE_TIMEOUT)
++		rdsdebug("copying inc %p from %u.%u.%u.%u:%u to user\n", inc,
++			 NIPQUAD(inc->i_conn->c_faddr),
++			 ntohs(inc->i_hdr.h_sport));
++		ret = inc->i_conn->c_trans->inc_copy_to_user(inc, msg->msg_iov,
++							     size);
++		if (ret < 0)
++			break;
++
++		/*
++		 * if the message we just copied isn't at the head of the
++		 * recv queue then someone else raced us to return it, try
++		 * to get the next message.
++		 */
++		if (!rds_still_queued(rs, inc, !(msg_flags & MSG_PEEK))) {
++			rds_inc_put(inc);
++			inc = NULL;
++			rds_stats_inc(s_recv_deliver_raced);
 +			continue;
++		}
 +
-+		ret = timeo;
-+		if (ret == 0)
-+			ret = -ETIMEDOUT;
-+		goto out;
++		if (ret < be32_to_cpu(inc->i_hdr.h_len)) {
++			if (msg_flags & MSG_TRUNC)
++				ret = be32_to_cpu(inc->i_hdr.h_len);
++			msg->msg_flags |= MSG_TRUNC;
++		}
++
++		if (rds_cmsg_recv(inc, msg)) {
++			ret = -EFAULT;
++			goto out;
++		}
++
++		rds_stats_inc(s_recv_delivered);
++
++		sin = (struct sockaddr_in *)msg->msg_name;
++		if (sin) {
++			sin->sin_family = AF_INET;
++			sin->sin_port = inc->i_hdr.h_sport;
++			sin->sin_addr.s_addr = inc->i_saddr;
++			memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
++		}
++		break;
 +	}
 +
-+	/*
-+	 * By now we've committed to the send.  We reuse rds_send_worker()
-+	 * to retry sends in the rds thread if the transport asks us to.
-+	 */
-+	rds_stats_inc(s_send_queued);
-+
-+	if (!test_bit(RDS_LL_SEND_FULL, &conn->c_flags))
-+		rds_send_worker(&conn->c_send_w.work);
-+
-+	rds_message_put(rm);
-+	return payload_len;
++	if (inc)
++		rds_inc_put(inc);
 +
 +out:
-+	/* If the user included a RDMA_MAP cmsg, we allocated a MR on the fly.
-+	 * If the sendmsg goes through, we keep the MR. If it fails with EAGAIN
-+	 * or in any other way, we need to destroy the MR again */
-+	if (allocated_mr)
-+		rds_rdma_unuse(rs, rds_rdma_cookie_key(rm->m_rdma_cookie), 1);
-+
-+	if (rm)
-+		rds_message_put(rm);
 +	return ret;
 +}
 +
 +/*
-+ * Reply to a ping packet.
++ * The socket is being shut down and we're asked to drop messages that were
++ * queued for recvmsg.  The caller has unbound the socket so the receive path
++ * won't queue any more incoming fragments or messages on the socket.
 + */
-+int
-+rds_send_pong(struct rds_connection *conn, __be16 dport)
++void rds_clear_recv_queue(struct rds_sock *rs)
 +{
-+	struct rds_message *rm;
++	struct sock *sk = rds_rs_to_sk(rs);
++	struct rds_incoming *inc, *tmp;
 +	unsigned long flags;
-+	int ret = 0;
 +
-+	rm = rds_message_alloc(0, GFP_ATOMIC);
-+	if (rm == NULL) {
-+		ret = -ENOMEM;
-+		goto out;
++	write_lock_irqsave(&rs->rs_recv_lock, flags);
++	list_for_each_entry_safe(inc, tmp, &rs->rs_recv_queue, i_item) {
++		rds_recv_rcvbuf_delta(rs, sk, inc->i_conn->c_lcong,
++				      -be32_to_cpu(inc->i_hdr.h_len),
++				      inc->i_hdr.h_dport);
++		list_del_init(&inc->i_item);
++		rds_inc_put(inc);
++	}
++	write_unlock_irqrestore(&rs->rs_recv_lock, flags);
++}
++
++/*
++ * inc->i_saddr isn't used here because it is only set in the receive
++ * path.
++ */
++void rds_inc_info_copy(struct rds_incoming *inc,
++		       struct rds_info_iterator *iter,
++		       __be32 saddr, __be32 daddr, int flip)
++{
++	struct rds_info_message minfo;
++
++	minfo.seq = be64_to_cpu(inc->i_hdr.h_sequence);
++	minfo.len = be32_to_cpu(inc->i_hdr.h_len);
++
++	if (flip) {
++		minfo.laddr = daddr;
++		minfo.faddr = saddr;
++		minfo.lport = inc->i_hdr.h_dport;
++		minfo.fport = inc->i_hdr.h_sport;
++	} else {
++		minfo.laddr = saddr;
++		minfo.faddr = daddr;
++		minfo.lport = inc->i_hdr.h_sport;
++		minfo.fport = inc->i_hdr.h_dport;
 +	}
 +
-+	rm->m_daddr = conn->c_faddr;
-+
-+	/* If the connection is down, trigger a connect. We may
-+	 * have scheduled a delayed reconnect however - in this case
-+	 * we should not interfere.
-+	 */
-+	if (rds_conn_state(conn) == RDS_CONN_DOWN
-+	 && !test_and_set_bit(RDS_RECONNECT_PENDING, &conn->c_flags))
-+		queue_delayed_work(rds_wq, &conn->c_conn_w, 0);
-+
-+	ret = rds_cong_wait(conn->c_fcong, dport, 1, NULL);
-+	if (ret)
-+		goto out;
-+
-+	spin_lock_irqsave(&conn->c_lock, flags);
-+	list_add_tail(&rm->m_conn_item, &conn->c_send_queue);
-+	set_bit(RDS_MSG_ON_CONN, &rm->m_flags);
-+	rds_message_addref(rm);
-+	rm->m_inc.i_conn = conn;
-+
-+	rds_message_populate_header(&rm->m_inc.i_hdr, 0, dport,
-+				    conn->c_next_tx_seq);
-+	conn->c_next_tx_seq++;
-+	spin_unlock_irqrestore(&conn->c_lock, flags);
-+
-+	rds_stats_inc(s_send_queued);
-+	rds_stats_inc(s_send_pong);
-+
-+	queue_delayed_work(rds_wq, &conn->c_send_w, 0);
-+	rds_message_put(rm);
-+	return 0;
-+
-+out:
-+	if (rm)
-+		rds_message_put(rm);
-+	return ret;
++	rds_info_copy(iter, &minfo, sizeof(minfo));
 +}
 -- 
 1.5.6.3
