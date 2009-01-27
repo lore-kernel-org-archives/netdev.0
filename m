@@ -1,141 +1,60 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFT 2/4] netfilter: remove unneeded initializations
-Date: Tue, 27 Jan 2009 15:53:12 -0800
-Message-ID: <20090127235508.827819940@vyatta.com>
+Subject: [RFT 1/4] netfilter: change elements in x_tables
+Date: Tue, 27 Jan 2009 15:53:11 -0800
+Message-ID: <20090127235508.704420370@vyatta.com>
 References: <20090127235310.159946902@vyatta.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:40011 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:40009 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751281AbZA0X5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751212AbZA0X5t (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 27 Jan 2009 18:57:49 -0500
-Content-Disposition: inline; filename=iptables-lock-init.patch
+Content-Disposition: inline; filename=x_tables.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Later patches change the locking on xt_table and the initialization of
-the lock element is not needed since the lock is always initialized in
-xt_table_register anyway.
+Change to proper type on private pointer rather than anonymous void.
+Keep active elements on same cache line.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
 ---
- net/ipv4/netfilter/arptable_filter.c   |    2 --
- net/ipv4/netfilter/iptable_filter.c    |    1 -
- net/ipv4/netfilter/iptable_mangle.c    |    1 -
- net/ipv4/netfilter/iptable_raw.c       |    1 -
- net/ipv4/netfilter/iptable_security.c  |    1 -
- net/ipv4/netfilter/nf_nat_rule.c       |    1 -
- net/ipv6/netfilter/ip6table_filter.c   |    1 -
- net/ipv6/netfilter/ip6table_mangle.c   |    1 -
- net/ipv6/netfilter/ip6table_raw.c      |    1 -
- net/ipv6/netfilter/ip6table_security.c |    1 -
- 10 files changed, 11 deletions(-)
+ include/linux/netfilter/x_tables.h |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
---- a/net/ipv4/netfilter/arptable_filter.c	2009-01-26 17:24:43.687542005 -0800
-+++ b/net/ipv4/netfilter/arptable_filter.c	2009-01-26 19:50:37.891042244 -0800
-@@ -48,8 +48,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
--	.private	= NULL,
- 	.me		= THIS_MODULE,
- 	.af		= NFPROTO_ARP,
+--- a/include/linux/netfilter/x_tables.h	2009-01-26 17:24:43.251543415 -0800
++++ b/include/linux/netfilter/x_tables.h	2009-01-26 17:29:12.510649107 -0800
+@@ -349,9 +349,6 @@ struct xt_table
+ {
+ 	struct list_head list;
+ 
+-	/* A unique name... */
+-	const char name[XT_TABLE_MAXNAMELEN];
+-
+ 	/* What hooks you will enter on */
+ 	unsigned int valid_hooks;
+ 
+@@ -359,13 +356,15 @@ struct xt_table
+ 	rwlock_t lock;
+ 
+ 	/* Man behind the curtain... */
+-	//struct ip6t_table_info *private;
+-	void *private;
++	struct xt_table_info *private;
+ 
+ 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
+ 	struct module *me;
+ 
+ 	u_int8_t af;		/* address/protocol family */
++
++	/* A unique name... */
++	const char name[XT_TABLE_MAXNAMELEN];
  };
---- a/net/ipv4/netfilter/iptable_filter.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_filter.c	2009-01-26 19:50:37.891042244 -0800
-@@ -56,7 +56,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
---- a/net/ipv4/netfilter/iptable_raw.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_raw.c	2009-01-26 19:50:37.891042244 -0800
-@@ -39,7 +39,6 @@ static struct
- static struct xt_table packet_raw = {
- 	.name = "raw",
- 	.valid_hooks =  RAW_VALID_HOOKS,
--	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
- 	.me = THIS_MODULE,
- 	.af = AF_INET,
- };
---- a/net/ipv4/netfilter/iptable_security.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_security.c	2009-01-26 19:50:37.891042244 -0800
-@@ -60,7 +60,6 @@ static struct
- static struct xt_table security_table = {
- 	.name		= "security",
- 	.valid_hooks	= SECURITY_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
---- a/net/ipv4/netfilter/nf_nat_rule.c	2009-01-26 17:24:43.695541481 -0800
-+++ b/net/ipv4/netfilter/nf_nat_rule.c	2009-01-26 19:51:20.338030618 -0800
-@@ -61,7 +61,6 @@ static struct
- static struct xt_table nat_table = {
- 	.name		= "nat",
- 	.valid_hooks	= NAT_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(nat_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
---- a/net/ipv6/netfilter/ip6table_filter.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_filter.c	2009-01-26 19:50:37.895044361 -0800
-@@ -54,7 +54,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
---- a/net/ipv6/netfilter/ip6table_mangle.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_mangle.c	2009-01-26 19:50:37.895044361 -0800
-@@ -60,7 +60,6 @@ static struct
- static struct xt_table packet_mangler = {
- 	.name		= "mangle",
- 	.valid_hooks	= MANGLE_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
---- a/net/ipv6/netfilter/ip6table_raw.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_raw.c	2009-01-26 19:50:37.895044361 -0800
-@@ -38,7 +38,6 @@ static struct
- static struct xt_table packet_raw = {
- 	.name = "raw",
- 	.valid_hooks = RAW_VALID_HOOKS,
--	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
- 	.me = THIS_MODULE,
- 	.af = AF_INET6,
- };
---- a/net/ipv6/netfilter/ip6table_security.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_security.c	2009-01-26 19:50:37.895044361 -0800
-@@ -59,7 +59,6 @@ static struct
- static struct xt_table security_table = {
- 	.name		= "security",
- 	.valid_hooks	= SECURITY_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
---- a/net/ipv4/netfilter/iptable_mangle.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_mangle.c	2009-01-26 19:50:37.895044361 -0800
-@@ -67,7 +67,6 @@ static struct
- static struct xt_table packet_mangler = {
- 	.name		= "mangle",
- 	.valid_hooks	= MANGLE_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
+ 
+ #include <linux/netfilter_ipv4.h>
 
 -- 
 
