@@ -1,144 +1,158 @@
-From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: Re: hardware time stamping with optional structs in data area
-Date: Tue, 27 Jan 2009 16:23:57 +0100
-Message-ID: <1233069837.24438.54.camel@pohly-MOBL>
-References: <1232532457.7829.19.camel@ecld0pohly>
-	 <20090125.210442.129666692.davem@davemloft.net>
-	 <1233002392.23161.6.camel@pohly-MOBL>
-	 <20090126.172202.261408793.davem@davemloft.net>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [ofa-general] [PATCH 0/21] Reliable Datagram Sockets (RDS)
+Date: Tue, 27 Jan 2009 09:34:57 -0600
+Message-ID: <497F29A1.60003@opengridcomputing.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56152 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752271AbZA0PYE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 10:24:04 -0500
-In-Reply-To: <20090126.172202.261408793.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: Andy Grover <andy.grover@oracle.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-01-27 at 03:22 +0200, David Miller wrote:
-> From: Patrick Ohly <patrick.ohly@intel.com>
-> Date: Mon, 26 Jan 2009 21:39:52 +0100
-> 
-> > On Mon, 2009-01-26 at 07:04 +0200, David Miller wrote:
-> > > Just consolidate the array into a direct conversion table.  You only
-> > > have 2 bits defined so you only need an array of 4 entries.  Pass the
-> > > optional flag bits directly in as the index of that table.
-> > 
-> > How can I get some code executed during the initialization of the IP
-> > stack which initializes the table, before any sk_buff gets allocated?
-> > 
-> > The content is constant, but writing it down as static initializers
-> > using just preprocessor macros would be difficult and/or ugly - that's
-> > why I haven't done it already.
-> 
-> It's 4 entries... really.
+Hey Andy,
 
-True - at this time. But what if this extension mechanism turns out to
-be useful and we end up with more optional structures? I was hoping that
-this might be the case and thus tried to make it easy to add more
-structures.
+Why didn't you include the iWARP transport as well?
 
-> You can initialize them simply, perhaps
-> with some fancy macro used by the initializers.
 
-Unfortunately recursion in macros is not possible. One needs duplicated
-macro definitions, one for each additional structure. But perhaps my
-preprocessor code fu is lacking today and there is a simpler
-solution :-/
-
-Anyway, below is example code with three structures which initializes a
-size array indexed by a bit mask. I find it truly ugly and hard to
-understand - and I wrote it. gcc -S shows that the size arrays contain
-the expected values.
-
-Please let me know what approach is preferred and I'll revise the patch
-accordingly:
-     1. array with four hard-coded values
-     2. init code (where?)
-     3. macro initialization of array
-     4. simpler initialization solution
-
----------------------------------------------------------------
-struct A {
-    int a;
-};
-
-struct B {
-    char b;
-};
-
-struct C {
-    long long c;
-};
-
-enum {
-    BIT_A,
-    BIT_B,
-    BIT_C
-};
-
-#define MIN(_a, _b) ((_a) < (_b) ? (_a) : (_b))
-
-/* round up _previous number of bytes so that a struct of_structsize
-   bytes is properly aligned at an 8 byte boundary or the structure size,
-   whatever is smaller */
-#define ALIGN(_previous, _structsize) \
-    (((_previous) + MIN(_structsize, 8) - 1) & ~(MIN(_structsize, 8) - 1))
-
-/* number of bytes for struct X alone
- * @_flags: bit mask of BIT_ values
- * @_bitname: name of bit enum for X
- * @_structname: structure name of X, without struct
- */
-#define SIZE_X(_flags, _bitname, _structname) \
-    (((_flags) & (1<<_bitname)) ? sizeof(struct _structname) : 0)
-
-/* number of bytes needed for B (if present) with or without A in
- * front of it
- * @_flags: bit mask of BIT_A and BIT_B
- */
-#define SIZE_B(_flags) \
-    (((_flags) & (1<<BIT_B)) ? \
-     (ALIGN(SIZE_X(_flags, BIT_A, A), SIZE_X(_flags, BIT_B, B)) + sizeof(struct B)) : \
-     SIZE_X(_flags, BIT_A, A))
-
-/* number of bytes needed for C (if present) with combinations of
- * struct A, B in front
- * @_flags: bit mask of BIT_A, BIT_B, BIT_C
- */
-#define SIZE_C(_flags) \
-    (((_flags) & (1<<BIT_C)) ? \
-     (ALIGN(SIZE_B(_flags), SIZE_X(_flags, BIT_C, C)) + sizeof(struct C)) : \
-     SIZE_B(_flags))
-
-/* number of bytes needed to store combinations of A, B, C, in this
-   order */
-int size[] = { 0,
-
-               SIZE_X((1<<BIT_A), BIT_A, A),
-
-               SIZE_B((1<<BIT_B)),
-               SIZE_B((1<<BIT_B)|(1<<BIT_A)),
-
-               SIZE_C((1<<BIT_C)),
-               SIZE_C((1<<BIT_C)|(1<<BIT_A)),
-               SIZE_C((1<<BIT_C)|(1<<BIT_B)),
-               SIZE_C((1<<BIT_C)|(1<<BIT_B)|(1<<BIT_A)) };
-
-#define LIST_A(_flags) SIZE_C(_flags), SIZE_C((_flags)|(1<<BIT_A))
-#define LIST_B(_flags) LIST_A(_flags), LIST_A((_flags)|(1<<BIT_B))
-#define LIST_C(_flags) LIST_B(_flags), LIST_B((_flags)|(1<<BIT_C))
-
-/* same as size */
-int size2[] = { LIST_C(0) };
----------------------------------------------------------------
-
-Bye, Patrick
-
+Andy Grover wrote:
+> Hi Roland,
+>
+> This patchset adds support for RDS as an Infiniband ULP. RDS is an
+> Oracle-originated protocol used to send IPC datagrams (up to 1MB) reliably,
+> and is used currently in Oracle RAC and Exadata products. It's lived
+> in OFED for 2+ years and I think it's time to get it upstream -- most
+> likely into your -next tree for .30, but if it snuck into .29 via the
+> "new code merge-window exception" then even better.
+>
+> I've run checkpatch & sparse to clean up as many issues as possible so
+> what remains are really the design peculiarities (aka warts) that arise
+> from being a protocol designed by one company for a single critical
+> application. I think upstreaming this code is the first step towards
+> working out those issues, and making the end result available to a wider
+> audience.
+>
+> Also available for review at:
+> git://git.openfabrics.org/~agrover/ofed_1_4/linux-2.6 for-roland
+>
+> Thoughts? shortlog follows.
+>
+> Thanks -- Regards -- Andy
+>
+> Andy Grover (21):
+>       RDS: Socket interface
+>       RDS: Main header file
+>       RDS: Congestion-handling code
+>       RDS: Transport code
+>       RDS: Info and stats
+>       RDS: Connection handling
+>       RDS: loopback
+>       RDS: sysctls
+>       RDS: Message parsing
+>       RDS: send.c
+>       RDS: recv.c
+>       RDS: RDMA support
+>       RDS/IB: Infiniband transport
+>       RDS/IB: Ring-handling code.
+>       RDS/IB: Implement RDMA ops using FMRs
+>       RDS/IB: Implement IB-specific datagram send.
+>       RDS/IB: Receive datagrams via IB
+>       RDS/IB: Stats and sysctls
+>       RDS: Documentation
+>       RDS: Kconfig and Makefile
+>       RDS: Add AF and PF #defines for RDS sockets
+>
+>  Documentation/networking/rds.txt        |  356 +++++++++++
+>  drivers/infiniband/Kconfig              |    2 +
+>  drivers/infiniband/Makefile             |    1 +
+>  drivers/infiniband/ulp/rds/Kconfig      |   13 +
+>  drivers/infiniband/ulp/rds/Makefile     |   13 +
+>  drivers/infiniband/ulp/rds/af_rds.c     |  677 +++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/bind.c       |  202 +++++++
+>  drivers/infiniband/ulp/rds/cong.c       |  424 +++++++++++++
+>  drivers/infiniband/ulp/rds/connection.c |  501 +++++++++++++++
+>  drivers/infiniband/ulp/rds/ib.c         |  312 ++++++++++
+>  drivers/infiniband/ulp/rds/ib.h         |  358 +++++++++++
+>  drivers/infiniband/ulp/rds/ib_cm.c      |  882
+> +++++++++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/ib_rdma.c    |  641 ++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/ib_recv.c    |  894
+> +++++++++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/ib_ring.c    |  168 +++++
+>  drivers/infiniband/ulp/rds/ib_send.c    |  852
+> ++++++++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/ib_stats.c   |   95 +++
+>  drivers/infiniband/ulp/rds/ib_sysctl.c  |  137 +++++
+>  drivers/infiniband/ulp/rds/info.c       |  243 ++++++++
+>  drivers/infiniband/ulp/rds/info.h       |   43 ++
+>  drivers/infiniband/ulp/rds/loop.c       |  189 ++++++
+>  drivers/infiniband/ulp/rds/loop.h       |    9 +
+>  drivers/infiniband/ulp/rds/message.c    |  414 +++++++++++++
+>  drivers/infiniband/ulp/rds/page.c       |  222 +++++++
+>  drivers/infiniband/ulp/rds/rdma.c       |  682 +++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/rdma.h       |   84 +++
+>  drivers/infiniband/ulp/rds/rds.h        |  763 +++++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/rds_rdma.h   |  245 ++++++++
+>  drivers/infiniband/ulp/rds/recv.c       |  550 +++++++++++++++++
+>  drivers/infiniband/ulp/rds/send.c       | 1006
+> +++++++++++++++++++++++++++++++
+>  drivers/infiniband/ulp/rds/stats.c      |  150 +++++
+>  drivers/infiniband/ulp/rds/sysctl.c     |  164 +++++
+>  drivers/infiniband/ulp/rds/threads.c    |  273 +++++++++
+>  drivers/infiniband/ulp/rds/transport.c  |  134 ++++
+>  include/linux/socket.h                  |    4 +-
+>  35 files changed, 11702 insertions(+), 1 deletions(-)
+>  create mode 100644 Documentation/networking/rds.txt
+>  create mode 100644 drivers/infiniband/ulp/rds/Kconfig
+>  create mode 100644 drivers/infiniband/ulp/rds/Makefile
+>  create mode 100644 drivers/infiniband/ulp/rds/af_rds.c
+>  create mode 100644 drivers/infiniband/ulp/rds/bind.c
+>  create mode 100644 drivers/infiniband/ulp/rds/cong.c
+>  create mode 100644 drivers/infiniband/ulp/rds/connection.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib.h
+>  create mode 100644 drivers/infiniband/ulp/rds/ib_cm.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib_rdma.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib_recv.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib_ring.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib_send.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib_stats.c
+>  create mode 100644 drivers/infiniband/ulp/rds/ib_sysctl.c
+>  create mode 100644 drivers/infiniband/ulp/rds/info.c
+>  create mode 100644 drivers/infiniband/ulp/rds/info.h
+>  create mode 100644 drivers/infiniband/ulp/rds/loop.c
+>  create mode 100644 drivers/infiniband/ulp/rds/loop.h
+>  create mode 100644 drivers/infiniband/ulp/rds/message.c
+>  create mode 100644 drivers/infiniband/ulp/rds/page.c
+>  create mode 100644 drivers/infiniband/ulp/rds/rdma.c
+>  create mode 100644 drivers/infiniband/ulp/rds/rdma.h
+>  create mode 100644 drivers/infiniband/ulp/rds/rds.h
+>  create mode 100644 drivers/infiniband/ulp/rds/rds_rdma.h
+>  create mode 100644 drivers/infiniband/ulp/rds/recv.c
+>  create mode 100644 drivers/infiniband/ulp/rds/send.c
+>  create mode 100644 drivers/infiniband/ulp/rds/stats.c
+>  create mode 100644 drivers/infiniband/ulp/rds/sysctl.c
+>  create mode 100644 drivers/infiniband/ulp/rds/threads.c
+>  create mode 100644 drivers/infiniband/ulp/rds/transport.c
+>
+> end
+>
+> _______________________________________________
+> general mailing list
+> general@lists.openfabrics.org
+> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+>
+> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+>   
