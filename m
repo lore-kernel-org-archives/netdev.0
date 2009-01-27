@@ -1,58 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 32 core net-next stack/netfilter "scaling"
-Date: Tue, 27 Jan 2009 11:09:01 -0800
-Message-ID: <497F5BCD.9060807@hp.com>
-References: <497E361B.30909@hp.com>	<497E42F4.7080201@cosmosbay.com>	<497E44F6.2010703@hp.com>	<497ECF84.1030308@cosmosbay.com>	<497ED0A2.6050707@trash.net>	<497F350A.9020509@cosmosbay.com> <497F457F.2050802@trash.net> <497F4C2F.9000804@hp.com>
+From: Andrew Grover <andy.grover@gmail.com>
+Subject: Re: [PATCH 03/21] RDS: Congestion-handling code
+Date: Tue, 27 Jan 2009 11:10:49 -0800
+Message-ID: <c0a09e5c0901271110v196930f1i26bdd0d00403fd76@mail.gmail.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
+	 <1233022678-9259-4-git-send-email-andy.grover@oracle.com>
+	 <20090127131049.GE2646@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <497F4C2F.9000804@hp.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andy Grover <andy.grover@oracle.com>, rdreier@cisco.com,
+	rds-devel@oss.oracle.com, general@lists.openfabrics.org,
+	netdev@vger.kernel.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wf-out-1314.google.com ([209.85.200.169]:38977 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755303AbZA0TKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 14:10:49 -0500
+Received: by wf-out-1314.google.com with SMTP id 27so7629403wfd.4
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 11:10:49 -0800 (PST)
+In-Reply-To: <20090127131049.GE2646@ioremap.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rick Jones wrote:
-> Patrick McHardy wrote:
-> 
->> Eric Dumazet wrote:
->>
->>> [PATCH] netfilter: Get rid of central rwlock in tcp conntracking
->>>
->>> TCP connection tracking suffers of huge contention on a global rwlock,
->>> used to protect tcp conntracking state.
->>>
->>> As each tcp conntrack state have no relations between each others, we
->>> can switch to fine grained lock. Using an array of spinlocks avoids
->>> enlarging size of connection tracking structures, yet giving reasonable
->>> fanout.
->>>
->>> tcp_print_conntrack() doesnt need to lock anything to read
->>> ct->proto.tcp.state, so speedup /proc/net/ip_conntrack as well.
->>>
->>> nf_conntrack_hash_rnd_initted & nf_conntrack_hash_rnd declared 
->>> read_mostly
->>>  
->>
->>
->>
->> This looks good to me. Rick, would you like to give it a try?
->>
->> I'll convert the remaining conntrack protocols when applying it.
-> 
-> 
-> I will give it a try and let folks know the results - unless told 
-> otherwise, I will ass-u-me I only need rerun the "full_iptables" test case.
+On Tue, Jan 27, 2009 at 5:10 AM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
+> On Mon, Jan 26, 2009 at 06:17:40PM -0800, Andy Grover (andy.grover@oracle.com) wrote:
+>> +/*
+>> + * Yes, a global lock.  It's used so infrequently that it's worth keeping it
+>> + * global to simplify the locking.  It's only used in the following
+>> + * circumstances:
+>> + *
+>> + *  - on connection buildup to associate a conn with its maps
+>
+> Is this a rare condition? Is this protocol only intended for the
+> long-living connections and is not suitable for the cases when lots of
+> them are created and teared down quickly?
 
-The runemomniagg2.sh script is still running, but the initial cycles profile 
-suggests that the main change is converting the write_lock time into spinlock 
-contention time with 78.39% of the cycles spent in ia64_spinlock_contention. 
-When the script completes I'll upload the profiles and the netperf results to the 
-same base URL as in the basenote under "contrack01/"
+Connections are long-lived. Imagine a cluster. RDS multiplexes all
+sockets' datagrams between 2 hosts over a single transport-layer
+connection, so if a node sends ONE datagram to another, an IB
+connection is set up and sticks around indefinitely.
 
-rick jones
+Regards -- Andy
