@@ -1,51 +1,140 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: port bound SAs
-Date: Tue, 27 Jan 2009 11:26:57 +0100
-Message-ID: <497EE171.1030907@trash.net>
-References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: paul.moore@centrify.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: y@pengutronix.de
+Subject: [PATCH] fec: remove unused #else branches
+Date: Tue, 27 Jan 2009 11:24:00 +0100
+Message-ID: <1134.19976919449$1233052158@news.gmane.org>
+References: <1233051848-5994-1-git-send-email-y>
+Cc: Greg Ungerer <gerg@snapgear.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33820 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752526AbZA0K1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:27:04 -0500
-In-Reply-To: <20090126.222035.100955508.davem@davemloft.net>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57258 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754473AbZA0K1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:27:40 -0500
+In-Reply-To: <1233051848-5994-1-git-send-email-y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Paul Moore" <paul.moore@centrify.com>
-> Date: Mon, 26 Jan 2009 11:21:33 -0800
-> 
->> A few weeks ago I posted a question to the IETF IPsec group on this
->> topic 
->>
->> I have 2 SPDs declared saying (transport mode)
->> 10.0.0.0/24 port 23 esp
->> 10.0.0.0/24 port 80 esp
->>
->> I then initiate a connection from that Linux machine to another system
->> that has the same logical rules
->> port 23 fires up and I get an SA pair. The question is - does that SA
->> pair belong to port 23 or not
->> If I now connect using port 80 from the same Linux box to the same peer
->> it tries to use the SA already set up for port 23
->> The remote system (windows in my test case) drops the packets because it
->> believes that the SA is for port 23 traffic only
-> 
-> Why does the Linux system do this?  The route lookup should, as it's
-> final IPSEC route lookup action, do an xfrm policy lookup which should
-> do a selector match and thus not match the port 23 rule.
-> 
-> I can't find the code which would allow the sequence of events
-> you describe, can you?
+From: Sascha Hauer <s.hauer@pengutronix.de>
 
-I'm guessing that its just the policy that has the port selector set
-and the keying daemon does not set it for the installed SAs. So unless
-the policies specify seperate SPIs or reqids the SAs will be shared.
+The #else branches throughout this driver belong to a PowerPC 8xx for
+which this driver is not used.
 
-Paul, which keying daemon are you using?
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/net/fec.c |   92 -----------------------------------------------------
+ 1 files changed, 0 insertions(+), 92 deletions(-)
+
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 7e33c12..b754f60 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -72,8 +72,6 @@ static unsigned int fec_hw[] = {
+ 	(MCF_MBAR+0x30000),
+ #elif defined(CONFIG_M532x)
+ 	(MCF_MBAR+0xfc030000),
+-#else
+-	&(((immap_t *)IMAP_ADDR)->im_cpm.cp_fec),
+ #endif
+ };
+ 
+@@ -1760,96 +1758,6 @@ static void __inline__ fec_uncache(unsigned long addr)
+ {
+ }
+ 
+-/* ------------------------------------------------------------------------- */
+-
+-
+-#else
+-
+-/*
+- *	Code specific to the MPC860T setup.
+- */
+-static void __inline__ fec_request_intrs(struct net_device *dev)
+-{
+-	volatile immap_t *immap;
+-
+-	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+-
+-	if (request_8xxirq(FEC_INTERRUPT, fec_enet_interrupt, 0, "fec", dev) != 0)
+-		panic("Could not allocate FEC IRQ!");
+-}
+-
+-static void __inline__ fec_get_mac(struct net_device *dev)
+-{
+-	bd_t *bd;
+-
+-	bd = (bd_t *)__res;
+-	memcpy(dev->dev_addr, bd->bi_enetaddr, ETH_ALEN);
+-}
+-
+-static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
+-{
+-	extern uint _get_IMMR(void);
+-	volatile immap_t *immap;
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+-
+-	/* Configure all of port D for MII.
+-	*/
+-	immap->im_ioport.iop_pdpar = 0x1fff;
+-
+-	/* Bits moved from Rev. D onward.
+-	*/
+-	if ((_get_IMMR() & 0xffff) < 0x0501)
+-		immap->im_ioport.iop_pddir = 0x1c58;	/* Pre rev. D */
+-	else
+-		immap->im_ioport.iop_pddir = 0x1fff;	/* Rev. D and later */
+-
+-	/* Set MII speed to 2.5 MHz
+-	*/
+-	fecp->fec_mii_speed = fep->phy_speed =
+-		((bd->bi_busfreq * 1000000) / 2500000) & 0x7e;
+-}
+-
+-static void __inline__ fec_enable_phy_intr(void)
+-{
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-
+-	/* Enable MII command finished interrupt
+-	*/
+-	fecp->fec_ivec = (FEC_INTERRUPT/2) << 29;
+-}
+-
+-static void __inline__ fec_disable_phy_intr(void)
+-{
+-}
+-
+-static void __inline__ fec_phy_ack_intr(void)
+-{
+-}
+-
+-static void __inline__ fec_localhw_setup(void)
+-{
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-	fecp->fec_r_hash = PKT_MAXBUF_SIZE;
+-	/* Enable big endian and don't care about SDMA FC.
+-	*/
+-	fecp->fec_fun_code = 0x78000000;
+-}
+-
+-static void __inline__ fec_uncache(unsigned long addr)
+-{
+-	pte_t *pte;
+-	pte = va_to_pte(mem_addr);
+-	pte_val(*pte) |= _PAGE_NO_CACHE;
+-	flush_tlb_page(init_mm.mmap, mem_addr);
+-}
+-
+ #endif
+ 
+ /* ------------------------------------------------------------------------- */
+-- 
+1.5.6.5
+
