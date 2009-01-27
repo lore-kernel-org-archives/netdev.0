@@ -1,8 +1,9 @@
 From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 01/10] smsc911x: add support for platform-specific irq flags
-Date: Tue, 27 Jan 2009 16:51:09 +0000
-Message-ID: <1233075077-17205-2-git-send-email-steve.glendinning@smsc.com>
+Subject: [PATCH 02/10] smsc911x: register isr as IRQF_SHARED
+Date: Tue, 27 Jan 2009 16:51:10 +0000
+Message-ID: <1233075077-17205-3-git-send-email-steve.glendinning@smsc.com>
 References: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
+ <1233075077-17205-2-git-send-email-steve.glendinning@smsc.com>
 Cc: David Miller <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Stanley Miao <stanley.miao@windriver.com>,
@@ -14,71 +15,33 @@ To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from [86.54.240.114] ([86.54.240.114]:53200 "EHLO
 	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755658AbZA0QvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:13 -0500
-In-Reply-To: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1755760AbZA0QvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:15 -0500
+In-Reply-To: <1233075077-17205-2-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-this patch adds support for the platform_device's resources to indicate
-additional flags to use when registering the irq, for example
-IORESOURCE_IRQ_LOWLEVEL (which corresponds to IRQF_TRIGGER_LOW).  These
-should be set in the irq resource flags field.
+The isr supports shared operation, so register it with the IRQF_SHARED
+flag to indicate this.
+
+This patch also removes the IRQF_DISABLED flag.  This driver doesn't
+need it, and IRQF_DISABLED isn't guaranteed when using shared interrupts.
 
 Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 ---
- drivers/net/smsc911x.c |   19 ++++++++++++++-----
- 1 files changed, 14 insertions(+), 5 deletions(-)
+ drivers/net/smsc911x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index f513bdf..3565df1 100644
+index 3565df1..f882fd5 100644
 --- a/drivers/net/smsc911x.c
 +++ b/drivers/net/smsc911x.c
-@@ -1892,9 +1892,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	struct net_device *dev;
- 	struct smsc911x_data *pdata;
- 	struct smsc911x_platform_config *config = pdev->dev.platform_data;
--	struct resource *res;
-+	struct resource *res, *irq_res;
- 	unsigned int intcfg = 0;
--	int res_size;
-+	int res_size, irq_flags;
- 	int retval;
- 	DECLARE_MAC_BUF(mac);
- 
-@@ -1919,6 +1919,14 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	}
- 	res_size = res->end - res->start;
- 
-+	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-+	if (!irq_res) {
-+		pr_warning("%s: Could not allocate irq resource.\n",
-+			SMSC_CHIPNAME);
-+		retval = -ENODEV;
-+		goto out_0;
-+	}
-+
- 	if (!request_mem_region(res->start, res_size, SMSC_CHIPNAME)) {
- 		retval = -EBUSY;
- 		goto out_0;
-@@ -1935,7 +1943,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 
- 	pdata = netdev_priv(dev);
- 
--	dev->irq = platform_get_irq(pdev, 0);
-+	dev->irq = irq_res->start;
-+	irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
- 	pdata->ioaddr = ioremap_nocache(res->start, res_size);
- 
- 	/* copy config parameters across to pdata */
-@@ -1968,8 +1977,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 	smsc911x_reg_write(pdata, INT_EN, 0);
+@@ -1978,7 +1978,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
  	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
  
--	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
--			     dev->name, dev);
-+	retval = request_irq(dev->irq, smsc911x_irqhandler,
-+			     irq_flags | IRQF_DISABLED, dev->name, dev);
+ 	retval = request_irq(dev->irq, smsc911x_irqhandler,
+-			     irq_flags | IRQF_DISABLED, dev->name, dev);
++			     irq_flags | IRQF_SHARED, dev->name, dev);
  	if (retval) {
  		SMSC_WARNING(PROBE,
  			"Unable to claim requested irq: %d", dev->irq);
