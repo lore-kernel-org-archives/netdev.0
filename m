@@ -1,46 +1,78 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v3] tcp: splice as many packets as possible at once
-Date: Tue, 27 Jan 2009 10:57:39 +0000
-Message-ID: <20090127105739.GA5778@ff.dom.local>
-References: <20090125.212203.15909648.davem@davemloft.net> <20090127071130.GA29125@gondor.apana.org.au> <20090127075418.GB4197@ff.dom.local> <20090127100958.GA30239@gondor.apana.org.au> <20090127103511.GE4197@ff.dom.local>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: 32 core net-next stack/netfilter "scaling"
+Date: Tue, 27 Jan 2009 12:29:52 +0100
+Message-ID: <497EF030.10504@cosmosbay.com>
+References: <497E361B.30909@hp.com> <497E42F4.7080201@cosmosbay.com> <497E44F6.2010703@hp.com> <497ECF84.1030308@cosmosbay.com> <497ED0A2.6050707@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.179]:25392 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182AbZA0K5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:57:49 -0500
-Content-Disposition: inline
-In-Reply-To: <20090127103511.GE4197@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <497ED0A2.6050707@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 27, 2009 at 10:35:11AM +0000, Jarek Poplawski wrote:
-> On Tue, Jan 27, 2009 at 09:09:58PM +1100, Herbert Xu wrote:
-> > On Tue, Jan 27, 2009 at 07:54:18AM +0000, Jarek Poplawski wrote:
-> > > 
-> > > Yes, but ip_append_data() (and skb_append_datato_frags() for
-> > > NETIF_F_UFO only, so currently not a problem), uses this differently,
-> > > and these pages in sk->sk_sndmsg_page could leak or be used after
-> > > kfree. (I didn't track locking in these other places).
-> > 
-> > It'll be freed when the socket is freed so that should be fine.
-> > 
-> 
-> I don't think so: these places can overwrite sk->sk_sndmsg_page left
-> after tcp_sendmsg(), or skb_splice_bits() now, with NULL or a new
-> pointer without put_page() (they only reference copied chunks and
-> expect auto freeing). On the other hand, if tcp_sendmsg() reads after
-> them it could use a pointer after the page is freed, I guess.
+Patrick McHardy a =E9crit :
+> Eric Dumazet wrote:
+>> [PATCH] netfilter: Get rid of central rwlock in tcp conntracking
+>>
+>> TCP connection tracking suffers of huge contention on a global rwloc=
+k,
+>> used to protect tcp conntracking state.
+>> As each tcp conntrack state have no relations between each others, w=
+e
+>> can switch to fine grained lock, using a spinlock per "struct ip_ct_=
+tcp"
+>>
+>> tcp_print_conntrack() dont need to lock anything to read
+>> ct->proto.tcp.state,
+>> so speedup /proc/net/ip_conntrack as well.
+>=20
+> Thats an interesting test-case, but one lock per conntrack just for
+> TCP tracking seems like overkill. We're trying to keep the conntrack
+> stuctures as small as possible, so I'd prefer an array of spinlocks
+> or something like that.
 
-tcp_v4_destroy_sock() looks like vulnerable too.
+Yes, this is wise. Current sizeof(struct nf_conn) is 220 (0xdc) on 32 b=
+its,
+probably rounded to 0xE0 by SLAB/SLUB. I will provide a new patch using
+an array of say 512 spinlocks. (512 spinlocks use 2048 bytes if non
+debuging spinlocks, that spread to 32 x 64bytes cache lines)
 
-BTW, skb_append_datato_frags() currently doesn't need to use this
-sk->sk_sndmsg_page at all - it doesn't use caching between calls.
+However I wonder if for very large number of cpus we should at least as=
+k conntrack=20
+to use hardware aligned "struct nf_conn" to avoid false sharing
 
-Jarek P.
+We might also use a generic SLAB_HWCACHE_ALIGN_IFMANYCPUS flag if same =
+tactic
+could help other kmem_cache_create() users
+
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_connt=
+rack_core.c
+index 90ce9dd..82332ce 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1167,8 +1167,10 @@ static int nf_conntrack_init_init_net(void)
+ 	       nf_conntrack_max);
+=20
+ 	nf_conntrack_cachep =3D kmem_cache_create("nf_conntrack",
+-						sizeof(struct nf_conn),
+-						0, 0, NULL);
++						sizeof(struct nf_conn), 0,
++						num_possible_cpus() >=3D 32 ?
++							SLAB_HWCACHE_ALIGN : 0,
++						NULL);
+ 	if (!nf_conntrack_cachep) {
+ 		printk(KERN_ERR "Unable to create nf_conn slab cache\n");
+ 		ret =3D -ENOMEM;
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
