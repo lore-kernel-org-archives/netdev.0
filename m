@@ -1,54 +1,44 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: [ SPAM ] Re: Is this normal?
-Date: Tue, 27 Jan 2009 15:26:08 +0100
-Message-ID: <497F1980.1070008@itcare.pl>
-References: <497F14B1.7070306@itcare.pl> <497F16F7.6020504@trash.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] net: wrong test  in inet_ehash_locks_alloc()
+Date: Tue, 27 Jan 2009 15:42:14 +0100
+Message-ID: <497F1D46.70103@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:57914 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753291AbZA0O0L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 09:26:11 -0500
-In-Reply-To: <497F16F7.6020504@trash.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60236 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751443AbZA0OmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 09:42:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy pisze:
-> Pawe=C5=82 Staszewski wrote:
->> I have Linux that works as Router + traffic management with=20
->> connection tracking enabled but without making NAT
->>
->> About 600Mbit/s TX and 600Mbit/s RX forwarded traffic
->>
->> iptables -L -n -v -t raw
->> Chain PREROUTING (policy ACCEPT 3340M packets, 2623G bytes)
->> pkts bytes target     prot opt in     out     source              =20
->> destination
->> 3339M 2621G NOTRACK    all  --  *      *       0.0.0.0/0           =20
->> 0.0.0.0/0
->>
->>
->> kernel 2.6.28.2
->> CPU: Core 2, speed 2999.98 MHz (estimated)
->> Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with =
-a=20
->> unit mask of 0x00 (Unhalted core cycles) count 100000
->> samples  %        image name               app name                =20
->> symbol name
->> 14544205 15.8604  vmlinux                  vmlinux                 =20
->> ctnetlink_del_expect
->
-> This doesn't seem to be accurate, I'm guessing its really
-> ctnetlink_conntrack_event().
->
-> Does this patch make any difference?
+In commit 9db66bdcc83749affe61c61eb8ff3cf08f42afec
+(net: convert TCP/DCCP ehash rwlocks to spinlocks), I forgot to change
+ one occurrence of rwlock_t to spinlock_t
 
-I will check this patch today at night.
+I believe sizeof(raw_spinlock_t) might be > 0 on !CONFIG_SMP if CONFIG_DEBUG_SPINLOCK
+while sizeof(raw_rwlock_t) should be 0 in this case.
 
+Fortunatly, CONFIG_DEBUG_SPINLOCK adds fields to both spinlock_t and rwlock_t,
+but at this might change in the future (being able to debug spinlocks but not rwlocks for
+example), better to be safe.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index f44bb5c..d0a0431 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -182,7 +182,7 @@ static inline int inet_ehash_locks_alloc(struct inet_hashinfo *hashinfo)
+ 		size = 2048;
+ 	if (nr_pcpus >= 32)
+ 		size = 4096;
+-	if (sizeof(rwlock_t) != 0) {
++	if (sizeof(spinlock_t) != 0) {
+ #ifdef CONFIG_NUMA
+ 		if (size * sizeof(spinlock_t) > PAGE_SIZE)
+ 			hashinfo->ehash_locks = vmalloc(size * sizeof(spinlock_t));
