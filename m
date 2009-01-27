@@ -1,1042 +1,924 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: DCA/IOAT problem
-Date: Tue, 27 Jan 2009 02:50:42 +0100
-Message-ID: <497E6872.4030706@itcare.pl>
-References: <497DF609.9000600@chelsio.com> <497E13B8.9040803@itcare.pl> <F169D4F5E1F1974DBFAFABF47F60C10A1C225006@orsmsx507.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:59176 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751959AbZA0Bur (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2009 20:50:47 -0500
-In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1C225006@orsmsx507.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: [ofa-general] [PATCH 01/21] RDS: Socket interface
+Date: Mon, 26 Jan 2009 18:17:38 -0800
+Message-ID: <1233022678-9259-2-git-send-email-andy.grover@oracle.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: rdreier@cisco.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse pisze:
-> Forwarding entire message to include e1000-devel
->
-> Pawel Staszewski wrote:
->   
->> Hello
->>
->> Some lspci:
->> lspci
->> 00:00.0 Host bridge: Intel Corporation Memory Controller Hub (rev 90)
->> 00:02.0 PCI bridge: Intel Corporation PCI Express x8 Port 2-3 (rev 90)
->> 00:04.0 PCI bridge: Intel Corporation PCI Express x16 Port 4-7 (rev
->> 90) 00:08.0 System peripheral: Intel Corporation DMA Engine (rev 90)
->> 00:10.0 Host bridge: Intel Corporation FSB Registers (rev 90)
->> 00:10.1 Host bridge: Intel Corporation FSB Registers (rev 90)
->> 00:10.2 Host bridge: Intel Corporation FSB Registers (rev 90)
->> 00:11.0 Host bridge: Intel Corporation Reserved Registers (rev 90)
->> 00:13.0 Host bridge: Intel Corporation Reserved Registers (rev 90)
->> 00:15.0 Host bridge: Intel Corporation DDR Channel 0 Registers (rev
->> 90) 00:16.0 Host bridge: Intel Corporation DDR Channel 1 Registers
->> (rev 90) 00:1a.0 USB Controller: Intel Corporation USB UHCI
->> Controller #4 (rev 02) 00:1a.7 USB Controller: Intel Corporation USB2
->> EHCI Controller #2 (rev 02) 00:1c.0 PCI bridge: Intel Corporation PCI
->> Express Port 1 (rev 02) 00:1c.4 PCI bridge: Intel Corporation PCI
->> Express Port 5 (rev 02) 00:1c.5 PCI bridge: Intel Corporation PCI
->> Express Port 6 (rev 02) 00:1d.0 USB Controller: Intel Corporation USB
->> UHCI Controller #1 (rev 02) 00:1d.1 USB Controller: Intel Corporation
->> USB UHCI Controller #2 (rev 02) 00:1d.2 USB Controller: Intel
->> Corporation USB UHCI Controller #3 (rev 02) 00:1d.7 USB Controller:
->> Intel Corporation USB2 EHCI Controller #1 (rev 02) 00:1e.0 PCI
->> bridge: Intel Corporation 82801 PCI Bridge (rev 92) 00:1f.0 ISA
->> bridge: Intel Corporation LPC Interface Controller (rev 02) 00:1f.2
->> IDE interface: Intel Corporation 4 port SATA IDE Controller (rev 02)
->> 00:1f.3 SMBus: Intel Corporation SMBus Controller (rev 02) 00:1f.5
->> IDE interface: Intel Corporation 2 port SATA IDE Controller (rev 02)
->> 01:00.0 Ethernet controller: Intel Corporation Device 10dd (rev 01)
->> 04:00.0 Ethernet controller: Intel Corporation 82573E Gigabit
->> Ethernet Controller (Copper) (rev 03) 05:00.0 Ethernet controller:
->> Intel Corporation 82573L Gigabit Ethernet Controller
->> 06:01.0 VGA compatible controller: ATI Technologies Inc ES1000 (rev
->> 02)
->> and then:
->> modprobe ioatdma
->>
->> dmesg:
->> ...
->> ...
->> IPv4 FIB: Using LC-trie version 0.408
->> e1000e 0000:04:00.0: irq 1274 for MSI/MSI-X
->> e1000e 0000:04:00.0: irq 1274 for MSI/MSI-X
->> e1000e 0000:05:00.0: irq 1273 for MSI/MSI-X
->> e1000e 0000:05:00.0: irq 1273 for MSI/MSI-X
->> 0000:05:00.0: eth1: Link is Up 1000 Mbps Full Duplex, Flow Control:
->> RX/TX dca service started, version 1.4
->> ioatdma 0000:00:08.0: can't find IRQ for PCI INT A; probably buggy MP
->> table ioatdma 0000:00:08.0: setting latency timer to 64
->> ioatdma 0000:00:08.0: Intel(R) I/OAT DMA Engine found, 4 channels,
->> device version 0x12, driver version 3.30
->> ioatdma 0000:00:08.0: irq 1255 for MSI/MSI-X
->> ioatdma 0000:00:08.0: DCA is disabled in BIOS
->> ixgbe: eth2: ixgbe_watchdog_task: NIC Link is Up 10 Gbps, Flow
->> Control: None e1000e 0000:04:00.0: irq 1274 for MSI/MSI-X
->> e1000e 0000:04:00.0: irq 1274 for MSI/MSI-X
->>
->> ...
->> ...
->>
->>
->> lspvi -vvv (for dma engine)
->> 00:08.0 System peripheral: Intel Corporation DMA Engine (rev 90)
->>         Subsystem: Super Micro Computer Inc Device de80
->>         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
->> ParErr- Stepping- SERR- FastB2B- DisINTx+
->>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
->> <TAbort- <MAbort- >SERR- <PERR- INTx-
->>         Latency: 0
->>         Interrupt: pin A routed to IRQ 1255
->>         Region 0: Memory at fe700000 (64-bit, non-prefetchable)
->>         [size=1K] Capabilities: [50] Power Management version 2
->>                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
->> PME(D0+,D1-,D2-,D3hot+,D3cold+)
->>                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
->>         Capabilities: [58] Message Signalled Interrupts: Mask- 64bit-
->> Queue=0/0 Enable+
->>                 Address: feeff00c  Data: 41b2
->>         Capabilities: [6c] Express (v1) Root Complex Integrated
->> Endpoint, MSI 00
->>                 DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s
->> <64ns, L1 <1us
->>                         ExtTag- RBE- FLReset-
->>                 DevCtl: Report errors: Correctable- Non-Fatal- Fatal+
->> Unsupported-
->>                         RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop+
->>                         MaxPayload 128 bytes, MaxReadReq 128 bytes
->>                 DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq-
->> AuxPwr- TransPend-
->>                 LnkCap: Port #0, Speed unknown, Width x0, ASPM
->> unknown, Latency L0 <64ns, L1 <1us
->>                         ClockPM- Suprise- LLActRep- BwNot-
->>                 LnkCtl: ASPM Disabled; Disabled- Retrain- CommClk-
->>                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
->>                 LnkSta: Speed unknown, Width x0, TrErr- Train-
->> SlotClk- DLActive- BWMgmt- ABWMgmt-
->>         Kernel driver in use: ioatdma
->>
->>
->> cat /proc/interrupts
->>            CPU0       CPU1       CPU2       CPU3       CPU4
->> CPU5       CPU6       CPU7
->>   0:         81          6          9          7          5
->> 3          9          5   IO-APIC-edge      timer
->>   1:          1          0          0          0          1
->> 0          0          0   IO-APIC-edge      i8042
->>   2:          0          0          0          0          0
->> 0          0          0    XT-PIC-XT        cascade
->>  14:        901        857        867        864        708
->> 674        693        692   IO-APIC-edge      ata_piix
->>  15:        686        728        691        703        826
->> 897        876        872   IO-APIC-edge      ata_piix
->>  18:          0          0          0          0          0
->> 0          0          0   IO-APIC-fasteoi   ata_piix
->> 1255:          1          0          1          0          1
->> 0          1          1   PCI-MSI-edge      ioat-msi
->> 1256:          0          0          0          0          0
->> 0          0          0   PCI-MSI-edge      eth2:lsc
->> 1257:        857        720       1176        802        960
->> 751        706        841   PCI-MSI-edge      eth2:v15-Tx
->> 1258:        958        751        706        841       1176
->> 802        720        859   PCI-MSI-edge      eth2:v14-Tx
->> 1259:       1176        802        720        859        706
->> 841        751        958   PCI-MSI-edge      eth2:v13-Tx
->> 1260:        706        842        751        959        720
->> 858        802       1175   PCI-MSI-edge      eth2:v12-Tx
->> 1261:        720        858        802       1174        751
->> 960        842        706   PCI-MSI-edge      eth2:v11-Tx
->> 1262:        751        960        842        706        802
->> 1174        858        720   PCI-MSI-edge      eth2:v10-Tx
->> 1263:        802       1174        858        720        842
->> 706        960        751   PCI-MSI-edge      eth2:v9-Tx
->> 1264:        842        707        960        751        859
->> 719       1173        802   PCI-MSI-edge      eth2:v8-Tx
->> 1265:     814186     813591     813713     814872     814537
->> 816002     812892     814292   PCI-MSI-edge      eth2:v7-Rx
->> 1266:     626856     626688     627886     627507     628067
->> 625730     626561     626521   PCI-MSI-edge      eth2:v6-Rx
->> 1267:     592474     591312     591741     592107     592214
->> 593218     591271     591386   PCI-MSI-edge      eth2:v5-Rx
->> 1268:     558076     559008     557856     558677     557894
->> 556703     557997     558879   PCI-MSI-edge      eth2:v4-Rx
->> 1269:     723457     725019     723746     724688     723165
->> 724716     724037     725136   PCI-MSI-edge      eth2:v3-Rx
->> 1270:     553387     554096     553204     552603     553078
->> 553587     553838     553769   PCI-MSI-edge      eth2:v2-Rx
->> 1271:     603820     605323     605368     602989     604948
->> 604887     606911     604745   PCI-MSI-edge      eth2:v1-Rx
->> 1272:     800828     798049     799471     799703     799183
->> 798322     799220     798254   PCI-MSI-edge      eth2:v0-Rx
->> 1273:       2868       2894       2970       2808       2863
->> 2803       3167       2860   PCI-MSI-edge      eth1
->> 1274:        873        856        882        924        933
->> 904        864        943   PCI-MSI-edge      eth0
->> NMI:          0          0          0          0          0
->> 0          0          0   Non-maskable interrupts
->> LOC:      40527      41783      40049      40903      42180
->> 39477      49021      47628   Local timer interrupts
->> RES:        858         58        232        283         89
->> 97        284        435   Rescheduling interrupts
->> CAL:         52        101         99         88         96
->> 93         92         58   Function call interrupts
->> TLB:        143        133        486        452        141
->> 159        396        429   TLB shootdowns
->> SPU:          0          0          0          0          0
->> 0          0          0   Spurious interrupts
->> ERR:          0
->> MIS:          0
->>
->>
->> cat /proc/cpuinfo
->>  cat /proc/cpuinfo
->> processor       : 0
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 0
->> siblings        : 4
->> core id         : 0
->> cpu cores       : 4
->> apicid          : 0
->> initial apicid  : 0
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 5999.79
->> clflush size    : 64
->> power management:
->>
->> processor       : 1
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 1
->> siblings        : 4
->> core id         : 0
->> cpu cores       : 4
->> apicid          : 4
->> initial apicid  : 4
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 6065.40
->> clflush size    : 64
->> power management:
->>
->> processor       : 2
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 0
->> siblings        : 4
->> core id         : 1
->> cpu cores       : 4
->> apicid          : 1
->> initial apicid  : 1
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 6000.46
->> clflush size    : 64
->> power management:
->>
->> processor       : 3
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 1
->> siblings        : 4
->> core id         : 1
->> cpu cores       : 4
->> apicid          : 5
->> initial apicid  : 5
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 6000.47
->> clflush size    : 64
->> power management:
->>
->> processor       : 4
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 0
->> siblings        : 4
->> core id         : 2
->> cpu cores       : 4
->> apicid          : 2
->> initial apicid  : 2
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 6000.43
->> clflush size    : 64
->> power management:
->>
->> processor       : 5
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 1
->> siblings        : 4
->> core id         : 2
->> cpu cores       : 4
->> apicid          : 6
->> initial apicid  : 6
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 6000.50
->> clflush size    : 64
->> power management:
->>
->> processor       : 6
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 0
->> siblings        : 4
->> core id         : 3
->> cpu cores       : 4
->> apicid          : 3
->> initial apicid  : 3
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 6000.43
->> clflush size    : 64
->> power management:
->>
->> processor       : 7
->> vendor_id       : GenuineIntel
->> cpu family      : 6
->> model           : 23
->> model name      : Intel(R) Xeon(R) CPU           X5450  @ 3.00GHz
->> stepping        : 6
->> cpu MHz         : 2999.898
->> cache size      : 6144 KB
->> physical id     : 1
->> siblings        : 4
->> core id         : 3
->> cpu cores       : 4
->> apicid          : 7
->> initial apicid  : 7
->> fdiv_bug        : no
->> hlt_bug         : no
->> f00f_bug        : no
->> coma_bug        : no
->> fpu             : yes
->> fpu_exception   : yes
->> cpuid level     : 10
->> wp              : yes
->> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
->> mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe nx
->> lm constant_tsc arch_perfmon pebs bts pni dtes64 monitor ds_cpl vmx
->> est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 lahf_lm tpr_shadow vnmi
->> flexpriority bogomips        : 6000.47
->> clflush size    : 64
->> power management:
->>
->>
->>
->>
->> I have enabled DCA in my Bios.
->> So why i have info:
->> ioatdma 0000:00:08.0: DCA is disabled in BIOS
->>     
->
-> Probably because the BIOS is not working correctly or there is a bug in 
-> dca. Is that a supermicro machine?  Can you include the output of 
-> dmidecode?  Are you running the latest BIOS?  What are you trying to 
-> achieve?  DCA or IOAT DMA copy offload (two separate features)
->
->   
-Yes this is an supermicro board X7DCT-10G
-http://www.supermicro.com/products/motherboard/Xeon1333/5100/X7DCT-10G.cfm
-Bios is no latest but in new bios is no info in changelog about ioat/dca 
-so i don't update
-i want to test / compare DCA over IOAT with my env that is Traffic 
-management Linux sever
-with more than 3Gbit/s traffic and 10k users.
+Implement the RDS (Reliable Datagram Sockets) interface.
 
+Signed-off-by: Andy Grover <andy.grover@oracle.com>
+---
+ drivers/infiniband/ulp/rds/af_rds.c |  677 +++++++++++++++++++++++++++++++++++
+ drivers/infiniband/ulp/rds/bind.c   |  202 +++++++++++
+ 2 files changed, 879 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/ulp/rds/af_rds.c
+ create mode 100644 drivers/infiniband/ulp/rds/bind.c
 
-dmidecode:
-# dmidecode 2.9
-SMBIOS 2.5 present.
-39 structures occupying 1950 bytes.
-Table at 0xDFF5F000.
-
-Handle 0x0000, DMI type 0, 24 bytes
-BIOS Information
-        Vendor: Phoenix Technologies LTD
-        Version: 1.0c
-        Release Date: 07/10/2008
-        Address: 0xE5100
-        Runtime Size: 110336 bytes
-        ROM Size: 2048 kB
-        Characteristics:
-                ISA is supported
-                PCI is supported
-                PNP is supported
-                BIOS is upgradeable
-                BIOS shadowing is allowed
-                ESCD support is available
-                Boot from CD is supported
-                Selectable boot is supported
-                BIOS ROM is socketed
-                EDD is supported
-                5.25"/1.2 MB floppy services are supported (int 13h)
-                3.5"/720 KB floppy services are supported (int 13h)
-                3.5"/2.88 MB floppy services are supported (int 13h)
-                Print screen service is supported (int 5h)
-                8042 keyboard services are supported (int 9h)
-                Serial services are supported (int 14h)
-                Printer services are supported (int 17h)
-                CGA/mono video services are supported (int 10h)
-                ACPI is supported
-                USB legacy is supported
-                BIOS boot specification is supported
-                Targeted content distribution is supported
-
-Handle 0x0001, DMI type 1, 27 bytes
-System Information
-        Manufacturer: Supermicro
-        Product Name: X7DCT
-        Version: 0123456789
-        Serial Number: 0123456789
-        UUID: E3D0A497-4663-90E7-895F-003048D333D7
-        Wake-up Type: Power Switch
-        SKU Number: Not Specified
-        Family: Not Specified
-
-Handle 0x0002, DMI type 2, 10 bytes
-Base Board Information
-        Manufacturer: Supermicro
-        Product Name: X7DCT
-        Version: PCB Version
-        Serial Number: 0123456789
-
-Handle 0x0003, DMI type 3, 17 bytes
-Chassis Information
-        Manufacturer: Supermicro
-        Type: Other
-        Lock: Not Present
-        Version: 0123456789
-        Serial Number: 0123456789
-        Asset Tag:
-        Boot-up State: Safe
-        Power Supply State: Safe
-        Thermal State: Safe
-        Security Status: None
-        OEM Information: 0x00001234
-
-Handle 0x0004, DMI type 4, 35 bytes
-Processor Information
-        Socket Designation: LGA771
-        Type: Central Processor
-        Family: Xeon
-        Manufacturer: GenuineIntel
-        ID: 76 06 01 00 FF FB EB BF
-        Signature: Type 0, Family 6, Model 23, Stepping 6
-        Flags:
-                FPU (Floating-point unit on-chip)
-                VME (Virtual mode extension)
-                DE (Debugging extension)
-                PSE (Page size extension)
-                TSC (Time stamp counter)
-                MSR (Model specific registers)
-                PAE (Physical address extension)
-                MCE (Machine check exception)
-                CX8 (CMPXCHG8 instruction supported)
-                APIC (On-chip APIC hardware supported)
-                SEP (Fast system call)
-                MTRR (Memory type range registers)
-                PGE (Page global enable)
-                MCA (Machine check architecture)
-                CMOV (Conditional move instruction supported)
-                PAT (Page attribute table)
-                PSE-36 (36-bit page size extension)
-                CLFSH (CLFLUSH instruction supported)
-                DS (Debug store)
-                ACPI (ACPI supported)
-                MMX (MMX technology supported)
-                FXSR (Fast floating-point save and restore)
-                SSE (Streaming SIMD extensions)
-                SSE2 (Streaming SIMD extensions 2)
-                SS (Self-snoop)
-                HTT (Hyper-threading technology)
-                TM (Thermal monitor supported)
-                PBE (Pending break enabled)
-        Version: Intel(R) Xeon(R) CPU           X
-        Voltage: 1.4 V
-        External Clock: Unknown
-        Max Speed: 3200 MHz
-        Current Speed: 3000 MHz
-        Status: Populated, Enabled
-        Upgrade: Socket LGA771
-        L1 Cache Handle: 0x0006
-        L2 Cache Handle: 0x0007
-        L3 Cache Handle: Not Provided
-        Serial Number: Not Specified
-        Asset Tag: Not Specified
-        Part Number: Not Specified
-
-Handle 0x0005, DMI type 4, 35 bytes
-Processor Information
-        Socket Designation: LGA771
-        Type: Central Processor
-        Family: Xeon
-        Manufacturer: GenuineIntel
-        ID: 76 06 01 00 FF FB EB BF
-        Signature: Type 0, Family 6, Model 23, Stepping 6
-        Flags:
-                FPU (Floating-point unit on-chip)
-                VME (Virtual mode extension)
-                DE (Debugging extension)
-                PSE (Page size extension)
-                TSC (Time stamp counter)
-                MSR (Model specific registers)
-                PAE (Physical address extension)
-                MCE (Machine check exception)
-                CX8 (CMPXCHG8 instruction supported)
-                APIC (On-chip APIC hardware supported)
-                SEP (Fast system call)
-                MTRR (Memory type range registers)
-                PGE (Page global enable)
-                MCA (Machine check architecture)
-                CMOV (Conditional move instruction supported)
-                PAT (Page attribute table)
-                PSE-36 (36-bit page size extension)
-                CLFSH (CLFLUSH instruction supported)
-                DS (Debug store)
-                ACPI (ACPI supported)
-                MMX (MMX technology supported)
-                FXSR (Fast floating-point save and restore)
-                SSE (Streaming SIMD extensions)
-                SSE2 (Streaming SIMD extensions 2)
-                SS (Self-snoop)
-                HTT (Hyper-threading technology)
-                TM (Thermal monitor supported)
-                PBE (Pending break enabled)
-        Version: Intel(R) Xeon(R) CPU           X5
-        Voltage: 1.4 V
-        External Clock: Unknown
-        Max Speed: 3200 MHz
-        Current Speed: 3000 MHz
-        Status: Populated, Enabled
-        Upgrade: Socket LGA771
-        L1 Cache Handle: 0x0008
-        L2 Cache Handle: 0x0009
-        L3 Cache Handle: Not Provided
-        Serial Number: Not Specified
-        Asset Tag: Not Specified
-        Part Number: Not Specified
-
-Handle 0x0006, DMI type 7, 19 bytes
-Cache Information
-        Socket Designation: L1 Cache
-        Configuration: Enabled, Socketed, Level 1
-        Operational Mode: Write Back
-        Location: Internal
-        Installed Size: 16 KB
-        Maximum Size: 16 KB
-        Supported SRAM Types:
-                Burst
-                Pipeline Burst
-                Asynchronous
-        Installed SRAM Type: Asynchronous
-        Speed: Unknown
-        Error Correction Type: Unknown
-        System Type: Unknown
-        Associativity: Unknown
-
-Handle 0x0007, DMI type 7, 19 bytes
-Cache Information
-        Socket Designation: L2 Cache
-        Configuration: Enabled, Socketed, Level 2
-        Operational Mode: Write Back
-        Location: Internal
-        Installed Size: 12288 KB
-        Maximum Size: 8192 KB
-        Supported SRAM Types:
-                Burst
-                Pipeline Burst
-                Asynchronous
-        Installed SRAM Type: Burst
-        Speed: Unknown
-        Error Correction Type: Unknown
-        System Type: Unknown
-        Associativity: Unknown
-
-Handle 0x0008, DMI type 7, 19 bytes
-Cache Information
-        Socket Designation: L1 Cache
-        Configuration: Enabled, Socketed, Level 1
-        Operational Mode: Write Back
-        Location: Internal
-        Installed Size: 16 KB
-        Maximum Size: 16 KB
-        Supported SRAM Types:
-                Burst
-                Pipeline Burst
-                Asynchronous
-        Installed SRAM Type: Asynchronous
-        Speed: Unknown
-        Error Correction Type: Unknown
-        System Type: Unknown
-        Associativity: Unknown
-
-Handle 0x0009, DMI type 7, 19 bytes
-Cache Information
-        Socket Designation: L2 Cache
-        Configuration: Enabled, Socketed, Level 2
-        Operational Mode: Write Back
-        Location: Internal
-        Installed Size: 12288 KB
-        Maximum Size: 8192 KB
-        Supported SRAM Types:
-                Burst
-                Pipeline Burst
-                Asynchronous
-        Installed SRAM Type: Burst
-        Speed: Unknown
-        Error Correction Type: Unknown
-        System Type: Unknown
-        Associativity: Unknown
-
-Handle 0x000A, DMI type 8, 9 bytes
-Port Connector Information
-        Internal Reference Designator: JCOM1
-        Internal Connector Type: 9 Pin Dual Inline (pin 10 cut)
-        External Reference Designator: COM1
-        External Connector Type: DB-9 male
-        Port Type: Serial Port 16550A Compatible
-
-Handle 0x000B, DMI type 8, 9 bytes
-Port Connector Information
-        Internal Reference Designator: JCOM2
-        Internal Connector Type: 9 Pin Dual Inline (pin 10 cut)
-        External Reference Designator: COM2
-        External Connector Type: DB-9 male
-        Port Type: Serial Port 16550A Compatible
-
-Handle 0x000C, DMI type 9, 13 bytes
-System Slot Information
-        Designation: PCIE#1-x16
-        Type: PCI Express
-        Current Usage: Available
-        Length: Other
-        ID: 1
-        Characteristics:
-                3.3 V is provided
-
-Handle 0x000D, DMI type 11, 5 bytes
-OEM Strings
-        String 1: Intel Dempsey/San Clemente/ICH9
-        String 2: Supermicro motherboard X7DCT
-
-Handle 0x000E, DMI type 12, 5 bytes
-System Configuration Options
-        Option 1: Jumper settings can be described here.
-
-Handle 0x000F, DMI type 15, 29 bytes
-System Event Log
-        Area Length: 192 bytes
-        Header Start Offset: 0x0000
-        Header Length: 16 bytes
-        Data Start Offset: 0x0010
-        Access Method: General-purpose non-volatile data functions
-        Access Address: 0x0000
-        Status: Valid, Not Full
-        Change Token: 0x0000008D
-        Header Format: Type 1
-        Supported Log Type Descriptors: 3
-        Descriptor 1: POST error
-        Data Format 1: POST results bitmap
-        Descriptor 2: Single-bit ECC memory error
-        Data Format 2: Multiple-event
-        Descriptor 3: Multi-bit ECC memory error
-        Data Format 3: Multiple-event
-
-Handle 0x0010, DMI type 16, 15 bytes
-Physical Memory Array
-        Location: System Board Or Motherboard
-        Use: System Memory
-        Error Correction Type: None
-        Maximum Capacity: 64 GB
-        Error Information Handle: Not Provided
-        Number Of Devices: 6
-
-Handle 0x0011, DMI type 17, 27 bytes
-Memory Device
-        Array Handle: 0x0010
-        Error Information Handle: No Error
-        Total Width: 72 bits
-        Data Width: 64 bits
-        Size: 2048 MB
-        Form Factor: DIMM
-        Set: 1
-        Locator: CH0_DIMM0
-        Bank Locator: DIMM 0-1
-        Type: DDR2
-        Type Detail: Synchronous
-        Speed: 667 MHz (1.5 ns)
-        Manufacturer: 7F98000000000000
-        Serial Number: B8CC1345
-        Asset Tag:
-        Part Number:
-
-Handle 0x0012, DMI type 17, 27 bytes
-Memory Device
-        Array Handle: 0x0010
-        Error Information Handle: No Error
-        Total Width: 72 bits
-        Data Width: 64 bits
-        Size: 2048 MB
-        Form Factor: DIMM
-        Set: 1
-        Locator: CH1_DIMM0
-        Bank Locator: DIMM 1-1
-        Type: DDR2
-        Type Detail: Synchronous
-        Speed: 667 MHz (1.5 ns)
-        Manufacturer: 7F98000000000000
-        Serial Number: B8CC0545
-        Asset Tag:
-        Part Number:
-
-Handle 0x0013, DMI type 17, 27 bytes
-Memory Device
-        Array Handle: 0x0010
-        Error Information Handle: No Error
-        Total Width: 72 bits
-        Data Width: 64 bits
-        Size: 2048 MB
-        Form Factor: DIMM
-        Set: 1
-        Locator: CH0_DIMM1
-        Bank Locator: DIMM 0-2
-        Type: DDR2
-        Type Detail: Synchronous
-        Speed: 667 MHz (1.5 ns)
-        Manufacturer: 7F98000000000000
-        Serial Number: BACCFD44
-        Asset Tag:
-        Part Number:
-
-Handle 0x0014, DMI type 17, 27 bytes
-Memory Device
-        Array Handle: 0x0010
-        Error Information Handle: No Error
-        Total Width: 72 bits
-        Data Width: 64 bits
-        Size: 2048 MB
-        Form Factor: DIMM
-        Set: 1
-        Locator: CH1_DIMM1
-        Bank Locator: DIMM 1-2
-        Type: DDR2
-        Type Detail: Synchronous
-        Speed: 667 MHz (1.5 ns)
-        Manufacturer: 7F98000000000000
-        Serial Number: B8CC0845
-        Asset Tag:
-        Part Number:
-
-Handle 0x0015, DMI type 17, 27 bytes
-Memory Device
-        Array Handle: 0x0010
-        Error Information Handle: No Error
-        Total Width: 72 bits
-        Data Width: 64 bits
-        Size: 2048 MB
-        Form Factor: DIMM
-        Set: 1
-        Locator: CH0_DIMM2
-        Bank Locator: DIMM 0-3
-        Type: DDR2
-        Type Detail: Synchronous
-        Speed: 667 MHz (1.5 ns)
-        Manufacturer: 7F98000000000000
-        Serial Number: BACCF444
-        Asset Tag:
-        Part Number:
-
-Handle 0x0016, DMI type 17, 27 bytes
-Memory Device
-        Array Handle: 0x0010
-        Error Information Handle: No Error
-        Total Width: 72 bits
-        Data Width: 64 bits
-        Size: 2048 MB
-        Form Factor: DIMM
-        Set: 1
-        Locator: CH1_DIMM2
-        Bank Locator: DIMM 1-3
-        Type: DDR2
-        Type Detail: Synchronous
-        Speed: 667 MHz (1.5 ns)
-        Manufacturer: 7F98000000000000
-        Serial Number: B8CC1045
-        Asset Tag:
-        Part Number:
-
-Handle 0x0017, DMI type 19, 15 bytes
-Memory Array Mapped Address
-        Starting Address: 0x00000000000
-        Ending Address: 0x002FFFFFFFF
-        Range Size: 12 GB
-        Physical Array Handle: 0x0010
-        Partition Width: 0
-
-Handle 0x0018, DMI type 20, 19 bytes
-Memory Device Mapped Address
-        Starting Address: 0x00000000000
-        Ending Address: 0x0007FFFFFFF
-        Range Size: 2 GB
-        Physical Device Handle: 0x0011
-        Memory Array Mapped Address Handle: 0x0017
-        Partition Row Position: Unknown
-        Interleave Position: Unknown
-        Interleaved Data Depth: Unknown
-
-Handle 0x0019, DMI type 20, 19 bytes
-Memory Device Mapped Address
-        Starting Address: 0x00080000000
-        Ending Address: 0x000FFFFFFFF
-        Range Size: 2 GB
-        Physical Device Handle: 0x0012
-        Memory Array Mapped Address Handle: 0x0017
-        Partition Row Position: Unknown
-        Interleave Position: Unknown
-        Interleaved Data Depth: Unknown
-
-Handle 0x001A, DMI type 20, 19 bytes
-Memory Device Mapped Address
-        Starting Address: 0x00100000000
-        Ending Address: 0x0017FFFFFFF
-        Range Size: 2 GB
-        Physical Device Handle: 0x0013
-        Memory Array Mapped Address Handle: 0x0017
-        Partition Row Position: Unknown
-        Interleave Position: Unknown
-        Interleaved Data Depth: Unknown
-
-Handle 0x001B, DMI type 23, 13 bytes
-System Reset
-        Status: Enabled
-        Watchdog Timer: Present
-        Boot Option: Do Not Reboot
-        Boot Option On Limit: Do Not Reboot
-        Reset Count: Unknown
-        Reset Limit: Unknown
-        Timer Interval: Unknown
-        Timeout: Unknown
-
-Handle 0x001C, DMI type 24, 5 bytes
-Hardware Security
-        Power-On Password Status: Disabled
-        Keyboard Password Status: Unknown
-        Administrator Password Status: Disabled
-        Front Panel Reset Status: Unknown
-
-Handle 0x001D, DMI type 25, 9 bytes
-        System Power Controls
-        Next Scheduled Power-on: 12-31 23:59:59
-
-Handle 0x001E, DMI type 26, 20 bytes
-Voltage Probe
-        Description: Voltage Probe
-        Location: Processor
-        Status: OK
-        Maximum Value: Unknown
-        Minimum Value: Unknown
-        Resolution: Unknown
-        Tolerance: Unknown
-        Accuracy: Unknown
-        OEM-specific Information: 0x00000000
-
-Handle 0x001F, DMI type 27, 12 bytes
-Cooling Device
-        Temperature Probe Handle: 0x0020
-        Type: Fan
-        Status: OK
-        OEM-specific Information: 0x00000000
-
-Handle 0x0020, DMI type 28, 20 bytes
-Temperature Probe
-        Description: Temperature Probe
-        Location: Processor
-        Status: OK
-        Maximum Value: Unknown
-        Minimum Value Unknown
-        Resolution: Unknown
-        Tolerance: Unknown
-        Accuracy: Unknown
-        OEM-specific Information: 0x00000000
-
-Handle 0x0021, DMI type 29, 20 bytes
-Electrical Current Probe
-        Description: Electrical Current Probe
-        Location: Processor
-        Status: OK
-        Maximum Value: Unknown
-        Minimum Value: Unknown
-        Resolution: Unknown
-        Tolerance: Unknown
-        Accuracy: Unknown
-        OEM-specific Information: 0x00000000
-
-Handle 0x0022, DMI type 30, 6 bytes
-Out-of-band Remote Access
-        Manufacturer Name: Intel
-        Inbound Connection: Disabled
-        Outbound Connection: Enabled
-
-Handle 0x0023, DMI type 32, 19 bytes
-System Boot Information
-        Status: No errors detected
-
-Handle 0x0024, DMI type 38, 18 bytes
-IPMI Device Information
-        Interface Type: Unknown
-        Specification Version: 1.0
-        I2C Slave Address: 0x00
-        NV Storage Device: Not Present
-        Base Address: 0x0000000000000000 (Memory-mapped)
-        Register Spacing: Successive Byte Boundaries
-
-Handle 0x0025, DMI type 126, 4 bytes
-Inactive
-
-Handle 0x0026, DMI type 127, 4 bytes
-End Of Table
-
->> and:
->> ls -la /sys/class/dca/
->> total 0
->> drwxr-xr-x  2 root root 0 Jan 26 16:21 .
->> drwxr-xr-x 33 root root 0 Jan 26 16:14 ..
->>
->> cat /sys/class/dma/dma0chan0/in_use
->> 0
->> cat /sys/class/dma/dma0chan1/in_use
->> 1
->> cat /sys/class/dma/dma0chan2/in_use
->> 0
->> cat /sys/class/dma/dma0chan3/in_use
->> 0
->>
->>
->> Why DCA is not working (or working but no info about in ioat)
->>     
->
-> The DMA channels (copy offload) are different than the DCA feature.  DCA 
-> involves front side bus hints sent from the adapter to the CPU handling 
-> the interrupt, where DMA channels are for copy offload from the processor 
-> to the independent data movers (DMA channels)
->
->   
-
+diff --git a/drivers/infiniband/ulp/rds/af_rds.c b/drivers/infiniband/ulp/rds/af_rds.c
+new file mode 100644
+index 0000000..7158438
+--- /dev/null
++++ b/drivers/infiniband/ulp/rds/af_rds.c
+@@ -0,0 +1,677 @@
++/*
++ * Copyright (c) 2006 Oracle.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++#include <linux/module.h>
++#include <linux/errno.h>
++#include <linux/kernel.h>
++#include <linux/in.h>
++#include <linux/poll.h>
++#include <linux/version.h>
++#include <net/sock.h>
++
++#include "rds.h"
++#include "rdma.h"
++
++static int enable_rdma = 1;
++
++module_param(enable_rdma, int, 0444);
++MODULE_PARM_DESC(enable_rdma, " Enable RDMA operations support");
++
++/* this is just used for stats gathering :/ */
++static DEFINE_SPINLOCK(rds_sock_lock);
++static unsigned long rds_sock_count;
++static LIST_HEAD(rds_sock_list);
++DECLARE_WAIT_QUEUE_HEAD(rds_poll_waitq);
++
++/*
++ * This is called as the final descriptor referencing this socket is closed.
++ * We have to unbind the socket so that another socket can be bound to the
++ * address it was using.
++ *
++ * We have to be careful about racing with the incoming path.  sock_orphan()
++ * sets SOCK_DEAD and we use that as an indicator to the rx path that new
++ * messages shouldn't be queued.
++ */
++static int rds_release(struct socket *sock)
++{
++	struct sock *sk = sock->sk;
++	struct rds_sock *rs;
++	unsigned long flags;
++
++	if (sk == NULL)
++		goto out;
++
++	rs = rds_sk_to_rs(sk);
++
++	sock_orphan(sk);
++	/* Note - rds_clear_recv_queue grabs rs_recv_lock, so
++	 * that ensures the recv path has completed messing
++	 * with the socket. */
++	rds_clear_recv_queue(rs);
++	rds_cong_remove_socket(rs);
++	rds_remove_bound(rs);
++	rds_send_drop_to(rs, NULL);
++	rds_rdma_drop_keys(rs);
++	rds_notify_queue_get(rs, NULL);
++
++	spin_lock_irqsave(&rds_sock_lock, flags);
++	list_del_init(&rs->rs_item);
++	rds_sock_count--;
++	spin_unlock_irqrestore(&rds_sock_lock, flags);
++
++	sock->sk = NULL;
++	sock_put(sk);
++out:
++	return 0;
++}
++
++/*
++ * Careful not to race with rds_release -> sock_orphan which clears sk_sleep.
++ * _bh() isn't OK here, we're called from interrupt handlers.  It's probably OK
++ * to wake the waitqueue after sk_sleep is clear as we hold a sock ref, but
++ * this seems more conservative.
++ * NB - normally, one would use sk_callback_lock for this, but we can
++ * get here from interrupts, whereas the network code grabs sk_callback_lock
++ * with _lock_bh only - so relying on sk_callback_lock introduces livelocks.
++ */
++void rds_wake_sk_sleep(struct rds_sock *rs)
++{
++	unsigned long flags;
++
++	read_lock_irqsave(&rs->rs_recv_lock, flags);
++	__rds_wake_sk_sleep(rds_rs_to_sk(rs));
++	read_unlock_irqrestore(&rs->rs_recv_lock, flags);
++}
++
++static int rds_getname(struct socket *sock, struct sockaddr *uaddr,
++		       int *uaddr_len, int peer)
++{
++	struct sockaddr_in *sin = (struct sockaddr_in *)uaddr;
++	struct rds_sock *rs = rds_sk_to_rs(sock->sk);
++
++	memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
++
++	/* racey, don't care */
++	if (peer) {
++		if (!rs->rs_conn_addr)
++			return -ENOTCONN;
++
++		sin->sin_port = rs->rs_conn_port;
++		sin->sin_addr.s_addr = rs->rs_conn_addr;
++	} else {
++		sin->sin_port = rs->rs_bound_port;
++		sin->sin_addr.s_addr = rs->rs_bound_addr;
++	}
++
++	sin->sin_family = AF_INET;
++
++	*uaddr_len = sizeof(*sin);
++	return 0;
++}
++
++/*
++ * RDS' poll is without a doubt the least intuitive part of the interface,
++ * as POLLIN and POLLOUT do not behave entirely as you would expect from
++ * a network protocol.
++ *
++ * POLLIN is asserted if
++ *  -	there is data on the receive queue.
++ *  -	to signal that a previously congested destination may have become
++ *	uncongested
++ *  -	A notification has been queued to the socket (this can be a congestion
++ *	update, or a RDMA completion).
++ *
++ * POLLOUT is asserted if there is room on the send queue. This does not mean
++ * however, that the next sendmsg() call will succeed. If the application tries
++ * to send to a congested destination, the system call may still fail (and
++ * return ENOBUFS).
++ */
++static unsigned int rds_poll(struct file *file, struct socket *sock,
++			     poll_table *wait)
++{
++	struct sock *sk = sock->sk;
++	struct rds_sock *rs = rds_sk_to_rs(sk);
++	unsigned int mask = 0;
++	unsigned long flags;
++
++	poll_wait(file, sk->sk_sleep, wait);
++
++	poll_wait(file, &rds_poll_waitq, wait);
++
++	read_lock_irqsave(&rs->rs_recv_lock, flags);
++	if (!rs->rs_cong_monitor) {
++		/* When a congestion map was updated, we signal POLLIN for
++		 * "historical" reasons. Applications can also poll for
++		 * WRBAND instead. */
++		if (rds_cong_updated_since(&rs->rs_cong_track))
++			mask |= (POLLIN | POLLRDNORM | POLLWRBAND);
++	} else {
++		spin_lock(&rs->rs_lock);
++		if (rs->rs_cong_notify)
++			mask |= (POLLIN | POLLRDNORM);
++		spin_unlock(&rs->rs_lock);
++	}
++	if (!list_empty(&rs->rs_recv_queue)
++	 || !list_empty(&rs->rs_notify_queue))
++		mask |= (POLLIN | POLLRDNORM);
++	if (rs->rs_snd_bytes < rds_sk_sndbuf(rs))
++		mask |= (POLLOUT | POLLWRNORM);
++	read_unlock_irqrestore(&rs->rs_recv_lock, flags);
++
++	return mask;
++}
++
++static int rds_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
++{
++#ifdef KERNEL_HAS_CORE_CALLING_DEV_IOCTL
++	return -ENOIOCTLCMD;
++#endif /* KERNEL_HAS_CORE_CALLING_DEV_IOCTL */
++#ifndef KERNEL_HAS_CORE_CALLING_DEV_IOCTL
++	return dev_ioctl(cmd, (void __user *)arg);
++#endif /* KERNEL_HAS_CORE_CALLING_DEV_IOCTL */
++}
++
++static int rds_cancel_sent_to(struct rds_sock *rs, char __user *optval,
++			      int len)
++{
++	struct sockaddr_in sin;
++	int ret = 0;
++
++	/* racing with another thread binding seems ok here */
++	if (rs->rs_bound_addr == 0) {
++		ret = -ENOTCONN; /* XXX not a great errno */
++		goto out;
++	}
++
++	if (len < sizeof(struct sockaddr_in)) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	if (copy_from_user(&sin, optval, sizeof(sin))) {
++		ret = -EFAULT;
++		goto out;
++	}
++
++	rds_send_drop_to(rs, &sin);
++out:
++	return ret;
++}
++
++static int rds_set_bool_option(unsigned char *optvar, char __user *optval,
++			       int optlen)
++{
++	int value;
++
++	if (optlen < sizeof(int))
++		return -EINVAL;
++	if (get_user(value, (int __user *) optval))
++		return -EFAULT;
++	*optvar = !!value;
++	return 0;
++}
++
++static int rds_cong_monitor(struct rds_sock *rs, char __user *optval,
++			    int optlen)
++{
++	int ret;
++
++	ret = rds_set_bool_option(&rs->rs_cong_monitor, optval, optlen);
++	if (ret == 0) {
++		if (rs->rs_cong_monitor) {
++			rds_cong_add_socket(rs);
++		} else {
++			rds_cong_remove_socket(rs);
++			rs->rs_cong_mask = 0;
++			rs->rs_cong_notify = 0;
++		}
++	}
++	return ret;
++}
++
++static int rds_setsockopt(struct socket *sock, int level, int optname,
++			  char __user *optval, int optlen)
++{
++	struct rds_sock *rs = rds_sk_to_rs(sock->sk);
++	int ret;
++
++	if (level != SOL_RDS) {
++		ret = -ENOPROTOOPT;
++		goto out;
++	}
++
++	switch (optname) {
++	case RDS_CANCEL_SENT_TO:
++		ret = rds_cancel_sent_to(rs, optval, optlen);
++		break;
++	case RDS_GET_MR:
++		if (enable_rdma)
++			ret = rds_get_mr(rs, optval, optlen);
++		else
++			ret = -EOPNOTSUPP;
++			break;
++	case RDS_FREE_MR:
++		if (enable_rdma)
++			ret = rds_free_mr(rs, optval, optlen);
++		else
++			ret = -EOPNOTSUPP;
++		break;
++	case RDS_RECVERR:
++		ret = rds_set_bool_option(&rs->rs_recverr, optval, optlen);
++		break;
++	case RDS_CONG_MONITOR:
++		ret = rds_cong_monitor(rs, optval, optlen);
++		break;
++	default:
++		ret = -ENOPROTOOPT;
++	}
++out:
++	return ret;
++}
++
++static int rds_getsockopt(struct socket *sock, int level, int optname,
++			  char __user *optval, int __user *optlen)
++{
++	struct rds_sock *rs = rds_sk_to_rs(sock->sk);
++	int ret = -ENOPROTOOPT, len;
++
++	if (level != SOL_RDS)
++		goto out;
++
++	if (get_user(len, optlen)) {
++		ret = -EFAULT;
++		goto out;
++	}
++
++	switch (optname) {
++	case RDS_INFO_FIRST ... RDS_INFO_LAST:
++		ret = rds_info_getsockopt(sock, optname, optval,
++					  optlen);
++		break;
++
++	case RDS_RECVERR:
++		if (len < sizeof(int))
++			ret = -EINVAL;
++		else
++		if (put_user(rs->rs_recverr, (int __user *) optval)
++		 || put_user(sizeof(int), optlen))
++			ret = -EFAULT;
++		else
++			ret = 0;
++		break;
++	default:
++		break;
++	}
++
++out:
++	return ret;
++
++}
++
++static int rds_connect(struct socket *sock, struct sockaddr *uaddr,
++		       int addr_len, int flags)
++{
++	struct sock *sk = sock->sk;
++	struct sockaddr_in *sin = (struct sockaddr_in *)uaddr;
++	struct rds_sock *rs = rds_sk_to_rs(sk);
++	int ret = 0;
++
++	lock_sock(sk);
++
++	if (addr_len != sizeof(struct sockaddr_in)) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	if (sin->sin_family != AF_INET) {
++		ret = -EAFNOSUPPORT;
++		goto out;
++	}
++
++	if (sin->sin_addr.s_addr == htonl(INADDR_ANY)) {
++		ret = -EDESTADDRREQ;
++		goto out;
++	}
++
++	rs->rs_conn_addr = sin->sin_addr.s_addr;
++	rs->rs_conn_port = sin->sin_port;
++
++out:
++	release_sock(sk);
++	return ret;
++}
++
++#ifdef KERNEL_HAS_PROTO_REGISTER
++static struct proto rds_proto = {
++	.name	  = "RDS",
++	.owner	  = THIS_MODULE,
++	.obj_size = sizeof(struct rds_sock),
++};
++#endif /* KERNEL_HAS_PROTO_REGISTER */
++
++static struct proto_ops rds_proto_ops = {
++	.family =	AF_RDS,
++	.owner =	THIS_MODULE,
++	.release =	rds_release,
++	.bind =		rds_bind,
++	.connect =	rds_connect,
++	.socketpair =	sock_no_socketpair,
++	.accept =	sock_no_accept,
++	.getname =	rds_getname,
++	.poll =		rds_poll,
++	.ioctl =	rds_ioctl,
++	.listen =	sock_no_listen,
++	.shutdown =	sock_no_shutdown,
++	.setsockopt =	rds_setsockopt,
++	.getsockopt =	rds_getsockopt,
++	.sendmsg =	rds_sendmsg,
++	.recvmsg =	rds_recvmsg,
++	.mmap =		sock_no_mmap,
++	.sendpage =	sock_no_sendpage,
++};
++
++#ifndef KERNEL_HAS_PROTO_REGISTER
++static struct sock *sk_alloc_compat(int pf, gfp_t gfp, struct proto *prot,
++				    int zero_it)
++{
++	struct rds_sock *rs;
++
++	sk = sk_alloc(pf, gfp, prot, zero_it);
++	if (sk == NULL)
++		return NULL;
++
++	rs = kcalloc(1, sizeof(struct rds_sock), GFP_ATOMIC);
++	if (rs == NULL) {
++		sk_free(sk);
++		return NULL;
++	}
++
++	/* sock_def_destruct frees this for us */
++	sk->sk_protinfo = rs;
++	rs->rs_sk = sk;
++
++	return sk;
++}
++
++#undef sk_alloc
++#define sk_alloc sk_alloc_compat
++#endif /* KERNEL_HAS_PROTO_REGISTER */
++
++static int __rds_create(struct socket *sock, struct sock *sk, int protocol)
++{
++	unsigned long flags;
++	struct rds_sock *rs;
++
++	sock_init_data(sock, sk);
++#ifndef KERNEL_HAS_PROTO_REGISTER
++	/* Can this be moved to sk_alloc_compat? */
++	sk_set_owner(sk, THIS_MODULE);
++#endif /* KERNEL_HAS_PROTO_REGISTER */
++	sock->ops		= &rds_proto_ops;
++	sk->sk_protocol		= protocol;
++
++	rs = rds_sk_to_rs(sk);
++	spin_lock_init(&rs->rs_lock);
++	rwlock_init(&rs->rs_recv_lock);
++	INIT_LIST_HEAD(&rs->rs_send_queue);
++	INIT_LIST_HEAD(&rs->rs_recv_queue);
++	INIT_LIST_HEAD(&rs->rs_notify_queue);
++	INIT_LIST_HEAD(&rs->rs_cong_list);
++	spin_lock_init(&rs->rs_rdma_lock);
++	rs->rs_rdma_keys = RB_ROOT;
++
++	spin_lock_irqsave(&rds_sock_lock, flags);
++	list_add_tail(&rs->rs_item, &rds_sock_list);
++	rds_sock_count++;
++	spin_unlock_irqrestore(&rds_sock_lock, flags);
++
++	return 0;
++}
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24)
++static int rds_create(struct socket *sock, int protocol)
++{
++	struct sock *sk;
++
++	if (sock->type != SOCK_SEQPACKET || protocol)
++		return -ESOCKTNOSUPPORT;
++
++	sk = sk_alloc(AF_RDS, GFP_ATOMIC, &rds_proto, 1);
++	if (sk == NULL)
++		return -ENOMEM;
++
++	return __rds_create(sock, sk, protocol);
++}
++#else
++static int rds_create(struct net *net, struct socket *sock, int protocol)
++{
++	struct sock *sk;
++
++	if (sock->type != SOCK_SEQPACKET || protocol)
++		return -ESOCKTNOSUPPORT;
++
++	sk = sk_alloc(net, AF_RDS, GFP_ATOMIC, &rds_proto);
++	if (!sk)
++		return -ENOMEM;
++
++	return __rds_create(sock, sk, protocol);
++}
++#endif
++
++void rds_sock_addref(struct rds_sock *rs)
++{
++	sock_hold(rds_rs_to_sk(rs));
++}
++
++void rds_sock_put(struct rds_sock *rs)
++{
++	sock_put(rds_rs_to_sk(rs));
++}
++
++static struct net_proto_family rds_family_ops = {
++	.family =	AF_RDS,
++	.create =	rds_create,
++	.owner	=	THIS_MODULE,
++};
++
++static void rds_sock_inc_info(struct socket *sock, unsigned int len,
++			      struct rds_info_iterator *iter,
++			      struct rds_info_lengths *lens)
++{
++	struct rds_sock *rs;
++	struct sock *sk;
++	struct rds_incoming *inc;
++	unsigned long flags;
++	unsigned int total = 0;
++
++	len /= sizeof(struct rds_info_message);
++
++	spin_lock_irqsave(&rds_sock_lock, flags);
++
++	list_for_each_entry(rs, &rds_sock_list, rs_item) {
++		sk = rds_rs_to_sk(rs);
++		read_lock(&rs->rs_recv_lock);
++
++		/* XXX too lazy to maintain counts.. */
++		list_for_each_entry(inc, &rs->rs_recv_queue, i_item) {
++			total++;
++			if (total <= len)
++				rds_inc_info_copy(inc, iter, inc->i_saddr,
++						  rs->rs_bound_addr, 1);
++		}
++
++		read_unlock(&rs->rs_recv_lock);
++	}
++
++	spin_unlock_irqrestore(&rds_sock_lock, flags);
++
++	lens->nr = total;
++	lens->each = sizeof(struct rds_info_message);
++}
++
++static void rds_sock_info(struct socket *sock, unsigned int len,
++			  struct rds_info_iterator *iter,
++			  struct rds_info_lengths *lens)
++{
++	struct rds_info_socket sinfo;
++	struct rds_sock *rs;
++	unsigned long flags;
++
++	len /= sizeof(struct rds_info_socket);
++
++	spin_lock_irqsave(&rds_sock_lock, flags);
++
++	if (len < rds_sock_count)
++		goto out;
++
++	list_for_each_entry(rs, &rds_sock_list, rs_item) {
++		sinfo.sndbuf = rds_sk_sndbuf(rs);
++		sinfo.rcvbuf = rds_sk_rcvbuf(rs);
++		sinfo.bound_addr = rs->rs_bound_addr;
++		sinfo.connected_addr = rs->rs_conn_addr;
++		sinfo.bound_port = rs->rs_bound_port;
++		sinfo.connected_port = rs->rs_conn_port;
++		sinfo.inum = sock_i_ino(rds_rs_to_sk(rs));
++
++		rds_info_copy(iter, &sinfo, sizeof(sinfo));
++	}
++
++out:
++	lens->nr = rds_sock_count;
++	lens->each = sizeof(struct rds_info_socket);
++
++	spin_unlock_irqrestore(&rds_sock_lock, flags);
++}
++
++/*
++ * The order is important here.
++ *
++ * rds_trans_stop_listening() is called before conn_exit so new connections
++ * don't hit while existing ones are being torn down.
++ *
++ * rds_conn_exit() is before rds_trans_exit() as rds_conn_exit() calls into the
++ * transports to free connections and incoming fragments as they're torn down.
++ */
++static void __exit rds_exit(void)
++{
++	rds_ib_exit();
++	sock_unregister(rds_family_ops.family);
++#ifdef KERNEL_HAS_PROTO_REGISTER
++	proto_unregister(&rds_proto);
++#endif /* KERNEL_HAS_PROTO_REGISTER */
++	rds_trans_stop_listening();
++	rds_conn_exit();
++	rds_cong_exit();
++	rds_sysctl_exit();
++	rds_threads_exit();
++	rds_stats_exit();
++	rds_page_exit();
++	rds_info_deregister_func(RDS_INFO_SOCKETS, rds_sock_info);
++	rds_info_deregister_func(RDS_INFO_RECV_MESSAGES, rds_sock_inc_info);
++}
++module_exit(rds_exit);
++
++static int __init rds_init(void)
++{
++	int ret;
++
++#ifndef KERNEL_HAS_NOT_DEFINED
++	/* the strange ifdef above has scripts/makepatch.sh strip this out */
++#if PF_RDS == 21
++	printk(KERN_ERR "!!! This build of RDS is using PF 21 which is not "
++	       "reserved\n");
++	printk(KERN_ERR "!!! This is only suitable for testing, DO NOT "
++	       "RELEASE THIS.\n");
++	printk(KERN_ERR "!!! No, seriously.\n");
++#endif
++#endif /* KERNEL_HAS_NOT_DEFINED */
++
++	ret = rds_conn_init();
++	if (ret)
++		goto out;
++	ret = rds_threads_init();
++	if (ret)
++		goto out_conn;
++	ret = rds_sysctl_init();
++	if (ret)
++		goto out_threads;
++	ret = rds_stats_init();
++	if (ret)
++		goto out_sysctl;
++#ifdef KERNEL_HAS_PROTO_REGISTER
++	ret = proto_register(&rds_proto, 1);
++	if (ret)
++		goto out_stats;
++#endif /* KERNEL_HAS_PROTO_REGISTER */
++	ret = sock_register(&rds_family_ops);
++	if (ret)
++		goto out_proto;
++
++	rds_info_register_func(RDS_INFO_SOCKETS, rds_sock_info);
++	rds_info_register_func(RDS_INFO_RECV_MESSAGES, rds_sock_inc_info);
++
++	ret = rds_ib_init();
++	if (ret)
++		goto out_sock;
++	goto out;
++
++out_sock:
++	sock_unregister(rds_family_ops.family);
++out_proto:
++#ifdef KERNEL_HAS_PROTO_REGISTER
++	proto_unregister(&rds_proto);
++out_stats:
++#endif /* KERNEL_HAS_PROTO_REGISTER */
++	rds_stats_exit();
++out_sysctl:
++	rds_sysctl_exit();
++out_threads:
++	rds_threads_exit();
++out_conn:
++	rds_conn_exit();
++	rds_cong_exit();
++	rds_page_exit();
++out:
++	return ret;
++}
++module_init(rds_init);
++
++#define DRV_VERSION     "4.0"
++#define DRV_RELDATE     "July 28, 2008"
++
++MODULE_AUTHOR("Zach Brown");
++MODULE_AUTHOR("Olaf Kirch");
++MODULE_DESCRIPTION("RDS: Reliable Datagram Sockets"
++		   " v" DRV_VERSION " (" DRV_RELDATE ")");
++MODULE_VERSION(DRV_VERSION);
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_ALIAS_NETPROTO(PF_RDS);
+diff --git a/drivers/infiniband/ulp/rds/bind.c b/drivers/infiniband/ulp/rds/bind.c
+new file mode 100644
+index 0000000..0f625d0
+--- /dev/null
++++ b/drivers/infiniband/ulp/rds/bind.c
+@@ -0,0 +1,202 @@
++/*
++ * Copyright (c) 2006 Oracle.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++#include <linux/kernel.h>
++#include <net/sock.h>
++#include <linux/in.h>
++#include <linux/if_arp.h>
++#include "rds.h"
++
++/*
++ * XXX this probably still needs more work.. no INADDR_ANY, and rbtrees aren't
++ * particularly zippy.
++ *
++ * This is now called for every incoming frame so we arguably care much more
++ * about it than we used to.
++ */
++static DEFINE_SPINLOCK(rds_bind_lock);
++static struct rb_root rds_bind_tree = RB_ROOT;
++
++static struct rds_sock *rds_bind_tree_walk(__be32 addr, __be16 port,
++					   struct rds_sock *insert)
++{
++	struct rb_node **p = &rds_bind_tree.rb_node;
++	struct rb_node *parent = NULL;
++	struct rds_sock *rs;
++	u64 cmp;
++	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
++
++	while (*p) {
++		parent = *p;
++		rs = rb_entry(parent, struct rds_sock, rs_bound_node);
++
++		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
++		      be16_to_cpu(rs->rs_bound_port);
++
++		if (needle < cmp)
++			p = &(*p)->rb_left;
++		else if (needle > cmp)
++			p = &(*p)->rb_right;
++		else
++			return rs;
++	}
++
++	if (insert) {
++		rb_link_node(&insert->rs_bound_node, parent, p);
++		rb_insert_color(&insert->rs_bound_node, &rds_bind_tree);
++	}
++	return NULL;
++}
++
++/*
++ * Return the rds_sock bound at the given local address.
++ *
++ * The rx path can race with rds_release.  We notice if rds_release() has
++ * marked this socket and don't return a rs ref to the rx path.
++ */
++struct rds_sock *rds_find_bound(__be32 addr, __be16 port)
++{
++	struct rds_sock *rs;
++	unsigned long flags;
++
++	spin_lock_irqsave(&rds_bind_lock, flags);
++	rs = rds_bind_tree_walk(addr, port, NULL);
++	if (rs && !sock_flag(rds_rs_to_sk(rs), SOCK_DEAD))
++		rds_sock_addref(rs);
++	else
++		rs = NULL;
++	spin_unlock_irqrestore(&rds_bind_lock, flags);
++
++	rdsdebug("returning rs %p for %u.%u.%u.%u:%u\n", rs, NIPQUAD(addr),
++		ntohs(port));
++	return rs;
++}
++
++/* returns -ve errno or +ve port */
++static int rds_add_bound(struct rds_sock *rs, __be32 addr, __be16 *port)
++{
++	unsigned long flags;
++	int ret = -EADDRINUSE;
++	u16 rover, last;
++
++	if (*port != 0) {
++		rover = be16_to_cpu(*port);
++		last = rover;
++	} else {
++		rover = max_t(u16, net_random(), 2);
++		last = rover - 1;
++	}
++
++	spin_lock_irqsave(&rds_bind_lock, flags);
++
++	do {
++		if (rover == 0)
++			rover++;
++		if (rds_bind_tree_walk(addr, cpu_to_be16(rover), rs) == NULL) {
++			*port = cpu_to_be16(rover);
++			ret = 0;
++			break;
++		}
++	} while (rover++ != last);
++
++	if (ret == 0)  {
++		rs->rs_bound_addr = addr;
++		rs->rs_bound_port = *port;
++		rds_sock_addref(rs);
++
++		rdstrace(RDS_BIND, RDS_LOW,
++		  "rs %p binding to %u.%u.%u.%u:%d\n",
++		  rs, NIPQUAD(addr), (int)ntohs(*port));
++
++	}
++
++	spin_unlock_irqrestore(&rds_bind_lock, flags);
++
++	return ret;
++}
++
++void rds_remove_bound(struct rds_sock *rs)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&rds_bind_lock, flags);
++
++	if (rs->rs_bound_addr) {
++		rdstrace(RDS_BIND, RDS_LOW,
++		  "rs %p unbinding from %u.%u.%u.%u:%d\n",
++		  rs, NIPQUAD(rs->rs_bound_addr),
++		  (int)ntohs(rs->rs_bound_port));
++
++		rb_erase(&rs->rs_bound_node, &rds_bind_tree);
++		rds_sock_put(rs);
++		rs->rs_bound_addr = 0;
++	}
++
++	spin_unlock_irqrestore(&rds_bind_lock, flags);
++}
++
++int rds_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
++{
++	struct sock *sk = sock->sk;
++	struct sockaddr_in *sin = (struct sockaddr_in *)uaddr;
++	struct rds_sock *rs = rds_sk_to_rs(sk);
++	struct rds_transport *trans;
++	int ret = 0;
++
++	lock_sock(sk);
++
++	if (addr_len != sizeof(struct sockaddr_in) ||
++	    sin->sin_family != AF_INET ||
++	    rs->rs_bound_addr ||
++	    sin->sin_addr.s_addr == htonl(INADDR_ANY)) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	ret = rds_add_bound(rs, sin->sin_addr.s_addr, &sin->sin_port);
++	if (ret)
++		goto out;
++
++	trans = rds_trans_get_preferred(sin->sin_addr.s_addr);
++	if (trans == NULL) {
++		ret = -EADDRNOTAVAIL;
++		rds_remove_bound(rs);
++		goto out;
++	}
++
++	rs->rs_transport = trans;
++	ret = 0;
++
++out:
++	release_sock(sk);
++	return ret;
++}
+-- 
+1.5.6.3
