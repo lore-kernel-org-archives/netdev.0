@@ -1,87 +1,45 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 12552] New: held lock freed in tcp
-Date: Tue, 27 Jan 2009 10:19:07 -0800
-Message-ID: <20090127101907.89833157.akpm@linux-foundation.org>
-References: <bug-12552-10286@http.bugzilla.kernel.org/>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: add tracepoints to socket api
+Date: Tue, 27 Jan 2009 10:21:41 -0800 (PST)
+Message-ID: <20090127.102141.99756103.davem@davemloft.net>
+References: <20090127171857.GB14429@infradead.org>
+	<20090127.092017.40699485.davem@davemloft.net>
+	<20090127172323.GA7635@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, johannes@sipsolutions.net
-To: netdev@vger.kernel.org
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55770 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754201AbZA0SUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 13:20:21 -0500
-In-Reply-To: <bug-12552-10286@http.bugzilla.kernel.org/>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57277
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752474AbZA0SVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 13:21:44 -0500
+In-Reply-To: <20090127172323.GA7635@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Christoph Hellwig <hch@infradead.org>
+Date: Tue, 27 Jan 2009 12:23:23 -0500
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+> On Tue, Jan 27, 2009 at 09:20:17AM -0800, David Miller wrote:
+> > We're merging this stuff to solve the chicken and egg
+> > problem wherein the lttng tree merge is basically
+> > stalled.
+> > 
+> > If the individual subsystem annotations go in, the hope
+> > is that they'll have less to merge and thus it's more likely
+> > to actually happen.
+> 
+> I'm rather concerned as I haven't seen any progress on the lttng core
+> lately.  I'd really prefer to have a version in close to mergeable shape
+> first, that's actively beeing pushed.  Adding the instrumentation is
+> trivial as seen by this small patch, but getting the core right (and who
+> knows if that involves changing the way actual instrumentation works, it's
+> not like that hasn't changed n million times yet) is essential.
 
-On Tue, 27 Jan 2009 09:59:06 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+The block layer already merged trace annotations.  I therefore see no
+harm in merging the net bits.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=12552
-> 
->            Summary: held lock freed in tcp
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.29-rc2-wl-11979-gc32422d-dirty
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: johannes@sipsolutions.net
-> 
-> 
-> Latest working kernel version: ?
-> Earliest failing kernel version: ?
-> Distribution: debian/unstable
-> Hardware Environment: macbook5,1
-> Software Environment:
-> Problem Description:
-> 
-> Steps to reproduce:
-> 
-> Not always reproducible, I was running iperf against a peer that suddenly lost
-> its link due to another bug...
-> 
-> [  598.850133] 
-> [  598.850136] =========================
-> [  598.850141] [ BUG: held lock freed! ]
-> [  598.850143] -------------------------
-> [  598.850147] swapper/0 is freeing memory ffff88007a389300-ffff88007a389c07,
-> with a lock still held there!
-> [  598.850151]  (&icsk->icsk_retransmit_timer){-+..}, at: [<ffffffff80252080>]
-> run_timer_softirq+0x110/0x290
-> [  598.850163] 1 lock held by swapper/0:
-> [  598.850165]  #0:  (&icsk->icsk_retransmit_timer){-+..}, at:
-> [<ffffffff80252080>] run_timer_softirq+0x110/0x290
-> [  598.850173] 
-> [  598.850174] stack backtrace:
-> [  598.850178] Pid: 0, comm: swapper Not tainted
-> 2.6.29-rc2-wl-11979-gc32422d-dirty #24
-> [  598.850180] Call Trace:
-> [  598.850183]  <IRQ>  [<ffffffff8027111f>] print_freed_lock_bug+0xbf/0xd0
-> [  598.850193]  [<ffffffff80272d34>] debug_check_no_locks_freed+0x74/0xc0
-> [  598.850199]  [<ffffffff802d78aa>] kmem_cache_free+0x7a/0xf0
-> [  598.850206]  [<ffffffff8053a4a0>] ? tcp_write_timer+0x0/0x220
-> [  598.850211]  [<ffffffff804e7206>] sk_free+0x86/0x100
-> [  598.850215]  [<ffffffff8053a550>] tcp_write_timer+0xb0/0x220
-> [  598.850219]  [<ffffffff8025210a>] run_timer_softirq+0x19a/0x290
-> [  598.850223]  [<ffffffff80252080>] ? run_timer_softirq+0x110/0x290
-> [  598.850228]  [<ffffffff8024d51d>] __do_softirq+0x9d/0x190
-> [  598.850234]  [<ffffffff8020cebc>] call_softirq+0x1c/0x40
-> [  598.850238]  [<ffffffff8020e1a5>] do_softirq+0x75/0xc0
-> [  598.850242]  [<ffffffff8024d025>] irq_exit+0x85/0xb0
-> [  598.850246]  [<ffffffff8020e441>] do_IRQ+0xa1/0x150
-> [  598.850250]  [<ffffffff8020c6d3>] ret_from_intr+0x0/0xf
-> 
-> 
-
+If you disagree, either submit a revert of the block layer
+annotations, or content yourself in being a hypocrite :-)
