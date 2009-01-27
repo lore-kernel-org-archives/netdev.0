@@ -1,57 +1,79 @@
-From: Manish Katiyar <mkatiyar@gmail.com>
-Subject: Re: [PATCH] : Remove unused variable pdev from drivers/net/r6040.c
-Date: Tue, 27 Jan 2009 09:58:11 +0530
-Message-ID: <ea11fea30901262028r3a8f694fgd03b9bf7538719b3@mail.gmail.com>
-References: <ea11fea30901190529k6f12f4c1xed7295ccbf0dcefa@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: use correct accessors for scatterlists
+Date: Tue, 27 Jan 2009 15:21:19 +1030
+Message-ID: <200901271521.19616.rusty@rustcorp.com.au>
+References: <20090124001053.GA20156@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: mkatiyar@gmail.com, David Miller <davem@davemloft.net>,
-	stable@vger.kernel.org
-To: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	sten.wang@rdc.com.tw, daniel@gimpelevich.san-francisco.ca.us,
-	florian@openwrt.org
+Cc: linux-kernel@vger.kernel.org, Mark McLoughlin <markmc@redhat.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Ira Snyder <iws@ovro.caltech.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ti-out-0910.google.com ([209.85.142.186]:28163 "EHLO
-	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbZA0E2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 23:28:13 -0500
-In-Reply-To: <ea11fea30901190529k6f12f4c1xed7295ccbf0dcefa@mail.gmail.com>
+Received: from ozlabs.org ([203.10.76.45]:59281 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751372AbZA0Ev1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2009 23:51:27 -0500
+In-Reply-To: <20090124001053.GA20156@ovro.caltech.edu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Adding david miller and stable@kernel.org in cc ]
+On Saturday 24 January 2009 10:40:53 Ira Snyder wrote:
+> Without this fix, virtio_net makes incorrect usage of scatterlists. It sets
+> the end of the scatterlist chain after the first element, despite the fact
+> that more entries come after it.
+> 
+> If you try to run dma_map_sg() on one of the scatterlists given to you by
+> add_buf(), you will get a null pointer oops.
+> 
+> Signed-off-by: Ira W. Snyder <iws@ovro.caltech.edu>
 
-Thanks -
-Manish
+Thanks, this should go in 2.6.29.  Dave?
 
-On Mon, Jan 19, 2009 at 6:59 PM, Manish Katiyar <mkatiyar@gmail.com> wrote:
-> Below patch removes the following compilation warning.
->
-> drivers/net/r6040.c:441: warning: unused variable 'pdev'
->
->
-> Signed-off-by : Manish Katiyar <mkatiyar@gmail.com>
-> ---
->  drivers/net/r6040.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-> index 72fd9e9..b2dcdb5 100644
-> --- a/drivers/net/r6040.c
-> +++ b/drivers/net/r6040.c
-> @@ -438,7 +438,6 @@ static void r6040_down(struct net_device *dev)
->  {
->        struct r6040_private *lp = netdev_priv(dev);
->        void __iomem *ioaddr = lp->base;
-> -       struct pci_dev *pdev = lp->pdev;
->        int limit = 2048;
->        u16 *adrp;
->        u16 cmd;
-> --
-> 1.5.4.3
->
->
-> Thanks -
-> Manish
->
+Cheers,
+Rusty.
+
+Subject: virtio_net: use correct accessors for scatterlists
+Date: Fri, 23 Jan 2009 16:10:53 -0800
+From: Ira Snyder <iws@ovro.caltech.edu>
+
+Without this fix, virtio_net makes incorrect usage of scatterlists. It sets
+the end of the scatterlist chain after the first element, despite the fact
+that more entries come after it.
+
+If you try to run dma_map_sg() on one of the scatterlists given to you by
+add_buf(), you will get a null pointer oops.
+
+Signed-off-by: Ira W. Snyder <iws@ovro.caltech.edu>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+---
+ drivers/net/virtio_net.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 43f6523..67ea2cf 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -286,7 +286,7 @@ static void try_fill_recv_maxbufs(struct virtnet_info *vi)
+ 		skb_put(skb, MAX_PACKET_LEN);
+ 
+ 		hdr = skb_vnet_hdr(skb);
+-		sg_init_one(sg, hdr, sizeof(*hdr));
++		sg_set_buf(sg, hdr, sizeof(*hdr));
+ 
+ 		if (vi->big_packets) {
+ 			for (i = 0; i < MAX_SKB_FRAGS; i++) {
+@@ -487,9 +487,9 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+ 
+ 	/* Encode metadata header at front. */
+ 	if (vi->mergeable_rx_bufs)
+-		sg_init_one(sg, mhdr, sizeof(*mhdr));
++		sg_set_buf(sg, mhdr, sizeof(*mhdr));
+ 	else
+-		sg_init_one(sg, hdr, sizeof(*hdr));
++		sg_set_buf(sg, hdr, sizeof(*hdr));
+ 
+ 	num = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
+ 
