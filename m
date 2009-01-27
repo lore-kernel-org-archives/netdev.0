@@ -1,49 +1,37 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v3] tcp: splice as many packets as possible at once
-Date: Tue, 27 Jan 2009 12:31:11 +0000
-Message-ID: <20090127123111.GB5866@ff.dom.local>
-References: <20090125.212203.15909648.davem@davemloft.net> <20090127071130.GA29125@gondor.apana.org.au> <20090127075418.GB4197@ff.dom.local> <20090127100958.GA30239@gondor.apana.org.au> <20090127103511.GE4197@ff.dom.local> <20090127114805.GA30982@gondor.apana.org.au> <20090127121642.GA5866@ff.dom.local>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 02/21] RDS: Main header file
+Date: Tue, 27 Jan 2009 16:05:43 +0300
+Message-ID: <20090127130543.GD2646@ioremap.net>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com> <1233022678-9259-3-git-send-email-andy.grover@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: rdreier@cisco.com, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org, netdev@vger.kernel.org
+To: Andy Grover <andy.grover@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f21.google.com ([209.85.219.21]:42348 "EHLO
-	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874AbZA0MbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 07:31:25 -0500
+Received: from genesysrack.ru ([195.178.208.66]:34274 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753232AbZA0NF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2009 08:05:56 -0500
 Content-Disposition: inline
-In-Reply-To: <20090127121642.GA5866@ff.dom.local>
+In-Reply-To: <1233022678-9259-3-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2009 at 12:16:42PM +0000, Jarek Poplawski wrote:
-> On Tue, Jan 27, 2009 at 10:48:05PM +1100, Herbert Xu wrote:
-> > On Tue, Jan 27, 2009 at 10:35:11AM +0000, Jarek Poplawski wrote:
-> > >
-> > > > > Yes, but ip_append_data() (and skb_append_datato_frags() for
-> > > > > NETIF_F_UFO only, so currently not a problem), uses this differently,
-> > > > > and these pages in sk->sk_sndmsg_page could leak or be used after
-> > > > > kfree. (I didn't track locking in these other places).
-> > > > 
-> > > > It'll be freed when the socket is freed so that should be fine.
-> > > 
-> > > I don't think so: these places can overwrite sk->sk_sndmsg_page left
-> > > after tcp_sendmsg(), or skb_splice_bits() now, with NULL or a new
-> > > pointer without put_page() (they only reference copied chunks and
-> > > expect auto freeing). On the other hand, if tcp_sendmsg() reads after
-> > > them it could use a pointer after the page is freed, I guess.
-> > 
-> > I wasn't referring to the first part of your sentence.  That can't
-> > happen because they're only used for UDP sockets, this is a TCP
-> > socket.
-> 
-> Do you mean this part from ip_append_data() isn't used for TCP?:
+Hi.
 
-Actually, the beginning part of ip_append_data() should be enough too.
-So I guess I missed your point...
+On Mon, Jan 26, 2009 at 06:17:39PM -0800, Andy Grover (andy.grover@oracle.com) wrote:
+> +/*
+> + * XXX randomly chosen, but at least seems to be unused:
+> + * #               18464-18768 Unassigned
+> + * We should do better.  We want a reserved port to discourage unpriv'ed
+> + * userspace from listening.
+> + */
+> +#define RDS_PORT	18634
+> +
 
-Jarek P.
+What will happen if some application already uses that port?
+
+> +#ifndef AF_RDS
+> +#define AF_RDS          28      /* Reliable Datagram Socket     */
+> +#endif
