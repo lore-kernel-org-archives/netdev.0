@@ -1,56 +1,58 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: HCI crash after tearing down ppp connection
-Date: Tue, 27 Jan 2009 20:01:21 +0100
-Message-ID: <1233082881.4455.14.camel@johannes.local>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: 32 core net-next stack/netfilter "scaling"
+Date: Tue, 27 Jan 2009 11:09:01 -0800
+Message-ID: <497F5BCD.9060807@hp.com>
+References: <497E361B.30909@hp.com>	<497E42F4.7080201@cosmosbay.com>	<497E44F6.2010703@hp.com>	<497ECF84.1030308@cosmosbay.com>	<497ED0A2.6050707@trash.net>	<497F350A.9020509@cosmosbay.com> <497F457F.2050802@trash.net> <497F4C2F.9000804@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-N4tNqJu3+dzck88YidBU"
-Cc: netdev <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:47909 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753246AbZA0TBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 14:01:55 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <497F4C2F.9000804@hp.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Rick Jones wrote:
+> Patrick McHardy wrote:
+> 
+>> Eric Dumazet wrote:
+>>
+>>> [PATCH] netfilter: Get rid of central rwlock in tcp conntracking
+>>>
+>>> TCP connection tracking suffers of huge contention on a global rwlock,
+>>> used to protect tcp conntracking state.
+>>>
+>>> As each tcp conntrack state have no relations between each others, we
+>>> can switch to fine grained lock. Using an array of spinlocks avoids
+>>> enlarging size of connection tracking structures, yet giving reasonable
+>>> fanout.
+>>>
+>>> tcp_print_conntrack() doesnt need to lock anything to read
+>>> ct->proto.tcp.state, so speedup /proc/net/ip_conntrack as well.
+>>>
+>>> nf_conntrack_hash_rnd_initted & nf_conntrack_hash_rnd declared 
+>>> read_mostly
+>>>  
+>>
+>>
+>>
+>> This looks good to me. Rick, would you like to give it a try?
+>>
+>> I'll convert the remaining conntrack protocols when applying it.
+> 
+> 
+> I will give it a try and let folks know the results - unless told 
+> otherwise, I will ass-u-me I only need rerun the "full_iptables" test case.
 
---=-N4tNqJu3+dzck88YidBU
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+The runemomniagg2.sh script is still running, but the initial cycles profile 
+suggests that the main change is converting the write_lock time into spinlock 
+contention time with 78.39% of the cycles spent in ia64_spinlock_contention. 
+When the script completes I'll upload the profiles and the netperf results to the 
+same base URL as in the basenote under "contrack01/"
 
-I use /dev/rfcomm0 to connect to my cell phone, and then to the internet
-with ppp. Occasionally (two out of the three times I used it today)
-after I poff the connection the machine locks up. The second time I got
-a log, but because my display resolution is bad it mostly scrolled off,
-so I only got to see that hci was involved somehow :/
-
-Anyone aware of any such issue? This is on
-2.6.29-rc2-wl-11979-gc32422d-dirty (-rc2 + wireless bits).
-
-johannes
-
---=-N4tNqJu3+dzck88YidBU
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJf1n+AAoJEKVg1VMiehFYoOsP/3F7jhNlaVvQOIn7U5gnHYgl
-EbzvG3PX2jYYkYzmZ5ZB3RCIQZxFMNvNDVCDALK3VX89AbD5SgGHVNSW3UWy1ltu
-T8Alx4QtlkbJ2RcPKoAuj354KnOAW4W5d1+zQba9sQL+VSCTSvb5IEXxodtsDB8k
-rfH4ZRiK2zifMTj1d79MnZ2rxHlm61fD67atSt1/G3htz+rfIkb4DbOI1/UzPLf3
-Aa5Aa8j4OTpg5K3yBhoAb6kBJsSm/SpxsZMooCepgxFliyOuZ8wsqkHD+wNQcV0G
-adxUnkrZLu121Lu5uuFWBUa27JU8cc0VlpNjAvwQrywcG9+pQd782SNRZ7pmYo44
-MwcQeVRWihK2WBd+iCHj/FF336Dp0wpFnRY0xax688rXB+vmPb/vT23Z3DR+RSj0
-8NVOxWsI4Rc2I/ZTN2RDD2xdVtC3vVNB+si5Fbu6/BJfyCBODFpwousy0XJgwae4
-54v9oL0PCrO4B3GowNMg5s1YjK12s5xogbEZN0QHmV7amuPvqWq+4RCl+LQ/SQvo
-GQRPNpgkxD1KMciCH125xmcsz/zWxEebUnGDQz3LmRXzkaKP9bNwySmUdBZoqlZT
-9+7gYtFBps7TyO/jDlkXvT57YzxJc+xPJRyh6qi2rjWCmikqKpoJD2bTmXrmX2Ci
-Lu3TM0kRholgh9ETS3MO
-=a3Ln
------END PGP SIGNATURE-----
-
---=-N4tNqJu3+dzck88YidBU--
-
+rick jones
