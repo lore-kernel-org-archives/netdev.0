@@ -1,33 +1,37 @@
 From: Andrew Grover <andy.grover@gmail.com>
-Subject: Re: [PATCH 03/21] RDS: Congestion-handling code
-Date: Tue, 27 Jan 2009 11:15:05 -0800
-Message-ID: <c0a09e5c0901271115ucde234eldd243f3786a4b011@mail.gmail.com>
+Subject: [ofa-general] ***SPAM*** Re: [PATCH 02/21] RDS: Main header file
+Date: Tue, 27 Jan 2009 11:23:04 -0800
+Message-ID: <c0a09e5c0901271123k54010bew9efb6845c1d26bb@mail.gmail.com>
 References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
-	 <1233022678-9259-4-git-send-email-andy.grover@oracle.com>
-	 <20090126194820.41cdb7f5@extreme>
+	<1233022678-9259-3-git-send-email-andy.grover@oracle.com>
+	<20090127130543.GD2646@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andy Grover <andy.grover@oracle.com>, rdreier@cisco.com,
-	rds-devel@oss.oracle.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.191]:42651 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754316AbZA0TPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 14:15:07 -0500
-Received: by rn-out-0910.google.com with SMTP id k40so2258248rnd.17
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 11:15:05 -0800 (PST)
-In-Reply-To: <20090126194820.41cdb7f5@extreme>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20090127130543.GD2646@ioremap.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 26, 2009 at 7:48 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> So this is starting to look like another "Oracle special" like AIO
-> and HugeTLB. That has lots of caveat restrictions on the application.
+On Tue, Jan 27, 2009 at 5:05 AM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
+>> +#define RDS_PORT     18634
+>> +
+>
+> What will happen if some application already uses that port?
 
-Yep it's a datacenter-centric protocol.
+RDS errors out.
+
+Yeah we're going to want to get an assigned port at some point, I guess.
 
 Regards -- Andy
