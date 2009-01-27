@@ -1,7 +1,8 @@
 From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCHv3 00/10] convert arm platforms to smsc911x
-Date: Tue, 27 Jan 2009 16:51:08 +0000
-Message-ID: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
+Subject: [PATCH 01/10] smsc911x: add support for platform-specific irq flags
+Date: Tue, 27 Jan 2009 16:51:09 +0000
+Message-ID: <1233075077-17205-2-git-send-email-steve.glendinning@smsc.com>
+References: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
 Cc: David Miller <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Stanley Miao <stanley.miao@windriver.com>,
@@ -11,44 +12,76 @@ Cc: David Miller <davem@davemloft.net>,
 	Steve Glendinning <steve.glendinning@smsc.com>
 To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [86.54.240.114] ([86.54.240.114]:53189 "EHLO
+Received: from [86.54.240.114] ([86.54.240.114]:53200 "EHLO
 	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755413AbZA0QvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:11 -0500
+	by vger.kernel.org with ESMTP id S1755658AbZA0QvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:13 -0500
+In-Reply-To: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset, intended for 2.6.30, converts in-tree arm platforms from
-smc911x to the actively maintained smsc911x driver.
+this patch adds support for the platform_device's resources to indicate
+additional flags to use when registering the irq, for example
+IORESOURCE_IRQ_LOWLEVEL (which corresponds to IRQF_TRIGGER_LOW).  These
+should be set in the irq resource flags field.
 
-The platform updates (5-7) depend on the driver updates (1-4) for 
-correct operation, so David Miller is planning to take these via the 
-net-2.6 tree.  Defconfig updates have been split out (8-10) for merging 
-via the arm tree.
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+---
+ drivers/net/smsc911x.c |   19 ++++++++++++++-----
+ 1 files changed, 14 insertions(+), 5 deletions(-)
 
-Stanley.Miao (1):
-  arm: update omap_ldp defconfig to use smsc911x
-
-Steve Glendinning (9):
-  smsc911x: add support for platform-specific irq flags
-  smsc911x: register isr as IRQF_SHARED
-  smsc911x: add external phy detection overrides
-  smsc911x: allow mac address to be saved before device reset
-  arm: convert pcm037 platform to use smsc911x
-  arm: convert realview platform to use smsc911x
-  arm: convert omap ldp platform to use smsc911x
-  arm: update pcm037 defconfig to use smsc911x
-  arm: update realview defconfigs to use smsc911x
-
- arch/arm/configs/omap_ldp_defconfig         |   24 +++++-
- arch/arm/configs/pcm037_defconfig           |   23 +++++-
- arch/arm/configs/realview-smp_defconfig     |   24 +++++-
- arch/arm/configs/realview_defconfig         |   24 +++++-
- arch/arm/mach-mx3/pcm037.c                  |   23 +++--
- arch/arm/mach-omap2/board-ldp.c             |   49 ++++++-----
- arch/arm/mach-realview/core.c               |   17 ++--
- arch/arm/plat-omap/include/mach/board-ldp.h |    6 +-
- drivers/net/smsc911x.c                      |  124 ++++++++++++++++-----------
- include/linux/smsc911x.h                    |    3 +
- 10 files changed, 218 insertions(+), 99 deletions(-)
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index f513bdf..3565df1 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1892,9 +1892,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	struct net_device *dev;
+ 	struct smsc911x_data *pdata;
+ 	struct smsc911x_platform_config *config = pdev->dev.platform_data;
+-	struct resource *res;
++	struct resource *res, *irq_res;
+ 	unsigned int intcfg = 0;
+-	int res_size;
++	int res_size, irq_flags;
+ 	int retval;
+ 	DECLARE_MAC_BUF(mac);
+ 
+@@ -1919,6 +1919,14 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	}
+ 	res_size = res->end - res->start;
+ 
++	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!irq_res) {
++		pr_warning("%s: Could not allocate irq resource.\n",
++			SMSC_CHIPNAME);
++		retval = -ENODEV;
++		goto out_0;
++	}
++
+ 	if (!request_mem_region(res->start, res_size, SMSC_CHIPNAME)) {
+ 		retval = -EBUSY;
+ 		goto out_0;
+@@ -1935,7 +1943,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 
+ 	pdata = netdev_priv(dev);
+ 
+-	dev->irq = platform_get_irq(pdev, 0);
++	dev->irq = irq_res->start;
++	irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
+ 	pdata->ioaddr = ioremap_nocache(res->start, res_size);
+ 
+ 	/* copy config parameters across to pdata */
+@@ -1968,8 +1977,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	smsc911x_reg_write(pdata, INT_EN, 0);
+ 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
+ 
+-	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
+-			     dev->name, dev);
++	retval = request_irq(dev->irq, smsc911x_irqhandler,
++			     irq_flags | IRQF_DISABLED, dev->name, dev);
+ 	if (retval) {
+ 		SMSC_WARNING(PROBE,
+ 			"Unable to claim requested irq: %d", dev->irq);
+-- 
+1.6.0.6
 
