@@ -1,73 +1,65 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] sky2: fix hard hang with netconsoling and iface going up
-Date: Tue, 27 Jan 2009 16:27:18 +0300
-Message-ID: <20090127132718.GA10001@x200.localdomain>
-References: <20090127120129.GA9696@x200.localdomain>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH 05/21] RDS: Info and stats
+Date: Tue, 27 Jan 2009 16:28:00 +0300
+Message-ID: <20090127132759.GG2646@ioremap.net>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com> <1233022678-9259-6-git-send-email-andy.grover@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org, jgarzik@pobox.com
+Cc: rdreier@cisco.com, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org, netdev@vger.kernel.org
+To: Andy Grover <andy.grover@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:7177 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754288AbZA0NVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 08:21:41 -0500
-Received: by fg-out-1718.google.com with SMTP id 13so136167fge.17
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 05:21:38 -0800 (PST)
+Received: from cet.com.ru ([195.178.208.66]:34337 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753061AbZA0N2B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2009 08:28:01 -0500
 Content-Disposition: inline
-In-Reply-To: <20090127120129.GA9696@x200.localdomain>
+In-Reply-To: <1233022678-9259-6-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2009 at 03:01:29PM +0300, Alexey Dobriyan wrote:
-> If sky2 interface is netconsoling, then
-> 
-> 	ifconfig down; ifconfig up
-> 
-> leads to hard hang after printing
-> 
-> 	sky2 eth0: enabling interface
-> 
-> SysRq+b reboots the box, nothing else works (or prints something).
-> 
-> This is with 2.6.28.2 and 2.6.29-rc2-5ee810072175042775e39bdd3eaaa68884c27805.
-> Most certainly was there since day one.
-> 
-> Haven't investigated further.
+On Mon, Jan 26, 2009 at 06:17:42PM -0800, Andy Grover (andy.grover@oracle.com) wrote:
+> +void rds_info_register_func(int optname, rds_info_func func)
+> +{
+> +	int offset = optname - RDS_INFO_FIRST;
+> +
+> +	BUG_ON(optname < RDS_INFO_FIRST || optname > RDS_INFO_LAST);
+> +
+> +	spin_lock(&rds_info_lock);
+> +	BUG_ON(rds_info_funcs[offset] != NULL);
+> +	rds_info_funcs[offset] = func;
+> +	spin_unlock(&rds_info_lock);
+> +}
+> +EXPORT_SYMBOL_GPL(rds_info_register_func);
+> +
+> +void rds_info_deregister_func(int optname, rds_info_func func)
+> +{
+> +	int offset = optname - RDS_INFO_FIRST;
+> +
+> +	BUG_ON(optname < RDS_INFO_FIRST || optname > RDS_INFO_LAST);
+> +
 
-Well, duh...
+Those bug_ons look quite scary, is there a way to actually have a wrong
+optname? Plus, those _INFO definitions are declared twice in the code,
+which makes it harder to update.
 
+> +/*
+> + * Typically we hold an atomic kmap across multiple rds_info_copy() calls
+> + * because the kmap is so expensive.  This must be called before using blocking
+> + * operations while holding the mapping and as the iterator is torn down.
+> + */
+> +void rds_info_iter_unmap(struct rds_info_iterator *iter)
+> +{
+> +	if (iter->addr != NULL) {
+> +		kunmap_atomic(iter->addr, KM_USER0);
+> +		iter->addr = NULL;
+> +	}
+> +}
+> +
 
-[PATCH] sky2: fix hard hang with netconsoling and iface going up
+This one is used to temporarily map some address, but functions called
+between map and unmap functions (like rds_info_getsockopt()) may sleep,
+which is wrong.
 
-Printing anything over netconsole before hw is up and running is,
-of course, not going to work.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- drivers/net/sky2.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1403,9 +1403,6 @@ static int sky2_up(struct net_device *dev)
- 
-  	}
- 
--	if (netif_msg_ifup(sky2))
--		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
--
- 	netif_carrier_off(dev);
- 
- 	/* must be power of 2 */
-@@ -1484,6 +1481,9 @@ static int sky2_up(struct net_device *dev)
- 	sky2_write32(hw, B0_IMSK, imask);
- 
- 	sky2_set_multicast(dev);
-+
-+	if (netif_msg_ifup(sky2))
-+		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
- 	return 0;
- 
- err_out:
+-- 
+	Evgeniy Polyakov
