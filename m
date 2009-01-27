@@ -1,68 +1,39 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PANIC] lro + iscsi or lro + skb text search causes panic
-Date: Tue, 27 Jan 2009 00:12:05 -0600
-Message-ID: <497EA5B5.5090806@cs.wisc.edu>
-References: <alpine.WNT.2.00.0901221234420.4188@jbrandeb-desk1.amr.corp.intel.com> <20090122232131.GA22771@gondor.apana.org.au> <4979097B.4040108@cs.wisc.edu> <20090125.213222.192571170.davem@davemloft.net> <20090126223022.GA24046@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix tcp splice length
+Date: Mon, 26 Jan 2009 22:14:52 -0800 (PST)
+Message-ID: <20090126.221452.157337515.davem@davemloft.net>
+References: <200901270512.n0R5CLXB019113@darkside.asicdesigners.com>
+	<497EA55A.2050905@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, olaf.kirch@oracle.com, tgraf@suug.ch,
-	kkeil@suse.de
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: dm@chelsio.com, netdev@vger.kernel.org, w@1wt.eu
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:56747 "EHLO sabe.cs.wisc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899AbZA0GM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 01:12:59 -0500
-In-Reply-To: <20090126223022.GA24046@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52987
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477AbZA0GOz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 01:14:55 -0500
+In-Reply-To: <497EA55A.2050905@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sun, Jan 25, 2009 at 09:32:22PM -0800, David Miller wrote:
->> From: Mike Christie <michaelc@cs.wisc.edu>
->> Date: Thu, 22 Jan 2009 18:04:11 -0600
->>
->>> With the patch running against linus's git tree, my box locks
->>> up. You cannot ping it. I do not get a oops or anything in the logs,
->>> and the keyboard does not respond. I will try to get some oops
->>> output and more info.
->> Herbert, any idea offhand?
-> 
-> Yeah, I missed an offset update in there :) Here's a better version.
-> 
-> net: Fix frag_list handling in skb_seq_read
-> 
-> The frag_list handling was broken in skb_seq_read:
-> 
-> 1) We didn't add the stepped offset when looking at the head
-> are of fragments other than the first.
-> 
-> 2) We didn't take the stepped offset away when setting the data
-> pointer in the head area.
-> 
-> 3) The frag index wasn't reset.
-> 
-> This patch fixes both issues.
-> 
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 27 Jan 2009 07:10:34 +0100
 
-It oopsd for me in skb_seq_read. addr2line said it was 
-linux-2.6/net/core/skbuff.c:2228, which is this line:
+> Nice spot Dimitris !
+> 
+> Acked-by: Eric Dumazet <dada1@cosmosbay.com>
 
+Ok, I'll apply this.
 
-while (st->frag_idx < skb_shinfo(st->cur_skb)->nr_frags) {
+> This fixes a bug present in previous linux versions (before commit 
+> 33966dd0e2f68f26943cd9ee93ec6abbc6547a8e tcp: splice as many packets
+>  as possible at once)
+>  
+> It should be backported as well, changing tss->len by min(tss->len, len) ?
 
+Indeed, I'll queue this up for -stable to remind myself about
+this.
 
-I added some printks in there and it looks like we hit this:
-
-         } else if (st->root_skb == st->cur_skb &&
-                    skb_shinfo(st->root_skb)->frag_list) {
-                 st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
-                 st->frag_idx = 0;
-                 goto next_skb;
-         }
-
-
-Then when we hit the goto and start again, and we oops when we hit that 
-"while (st->frag_idx < skb_shinfo(st->cur_skb)->nr_frags)" line.
+Thanks Eric.
