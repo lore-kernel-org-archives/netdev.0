@@ -1,140 +1,51 @@
-From: y@pengutronix.de
-Subject: [PATCH] fec: Add support for Freescale MX27
-Date: Tue, 27 Jan 2009 11:24:07 +0100
-Message-ID: <19501.7152037055$1233052071@news.gmane.org>
-References: <1233051848-5994-1-git-send-email-y>
- <1233051848-5994-2-git-send-email-y>
- <1233051848-5994-3-git-send-email-y>
- <1233051848-5994-4-git-send-email-y>
- <1233051848-5994-5-git-send-email-y>
- <1233051848-5994-6-git-send-email-y>
- <1233051848-5994-7-git-send-email-y>
- <1233051848-5994-8-git-send-email-y>
-Cc: Greg Ungerer <gerg@snapgear.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: port bound SAs
+Date: Tue, 27 Jan 2009 11:26:57 +0100
+Message-ID: <497EE171.1030907@trash.net>
+References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: paul.moore@centrify.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:57185 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152AbZA0K0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:26:21 -0500
-In-Reply-To: <1233051848-5994-8-git-send-email-y>
+Received: from stinky.trash.net ([213.144.137.162]:33820 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752526AbZA0K1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:27:04 -0500
+In-Reply-To: <20090126.222035.100955508.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Hauer <s.hauer@pengutronix.de>
+David Miller wrote:
+> From: "Paul Moore" <paul.moore@centrify.com>
+> Date: Mon, 26 Jan 2009 11:21:33 -0800
+> 
+>> A few weeks ago I posted a question to the IETF IPsec group on this
+>> topic 
+>>
+>> I have 2 SPDs declared saying (transport mode)
+>> 10.0.0.0/24 port 23 esp
+>> 10.0.0.0/24 port 80 esp
+>>
+>> I then initiate a connection from that Linux machine to another system
+>> that has the same logical rules
+>> port 23 fires up and I get an SA pair. The question is - does that SA
+>> pair belong to port 23 or not
+>> If I now connect using port 80 from the same Linux box to the same peer
+>> it tries to use the SA already set up for port 23
+>> The remote system (windows in my test case) drops the packets because it
+>> believes that the SA is for port 23 traffic only
+> 
+> Why does the Linux system do this?  The route lookup should, as it's
+> final IPSEC route lookup action, do an xfrm policy lookup which should
+> do a selector match and thus not match the port 23 rule.
+> 
+> I can't find the code which would allow the sequence of events
+> you describe, can you?
 
-Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
----
- drivers/net/Kconfig |    6 +++---
- drivers/net/fec.c   |   15 +++++++++++++--
- drivers/net/fec.h   |   11 +++++++++--
- 3 files changed, 25 insertions(+), 7 deletions(-)
+I'm guessing that its just the policy that has the port selector set
+and the keying daemon does not set it for the installed SAs. So unless
+the policies specify seperate SPIs or reqids the SAs will be shared.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 9fe8cb7..fcdab51 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1828,11 +1828,11 @@ config 68360_ENET
- 	  the Motorola 68360 processor.
- 
- config FEC
--	bool "FEC ethernet controller (of ColdFire CPUs)"
--	depends on M523x || M527x || M5272 || M528x || M520x
-+	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
-+	depends on M523x || M527x || M5272 || M528x || M520x || ARCH_MXC
- 	help
- 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
--	  controller on some Motorola ColdFire processors.
-+	  controller on some Motorola ColdFire and Freescale i.MX processors.
- 
- config FEC2
- 	bool "Second FEC ethernet controller (on some ColdFire CPUs)"
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 6a54d1f..2c8783a 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -38,10 +38,14 @@
- #include <linux/bitops.h>
- #include <linux/io.h>
- #include <linux/irq.h>
-+#include <linux/clk.h>
- 
- #include <asm/cacheflush.h>
-+
-+#ifndef CONFIG_ARCH_MXC
- #include <asm/coldfire.h>
- #include <asm/mcfsim.h>
-+#endif
- 
- #include "fec.h"
- 
-@@ -51,6 +55,13 @@
- #define	FEC_MAX_PORTS	1
- #endif
- 
-+#ifdef CONFIG_ARCH_MXC
-+#include <mach/hardware.h>
-+#define FEC_ALIGNMENT	0xf
-+#else
-+#define FEC_ALIGNMENT	0x3
-+#endif
-+
- #if defined(CONFIG_M5272)
- #define HAVE_mii_link_interrupt
- #endif
-@@ -158,7 +169,7 @@ typedef struct {
-  * account when setting it.
-  */
- #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
--    defined(CONFIG_M520x) || defined(CONFIG_M532x)
-+    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARCH_MXC)
- #define	OPT_FRAME_SIZE	(PKT_MAXBUF_SIZE << 16)
- #else
- #define	OPT_FRAME_SIZE	0
-@@ -339,7 +350,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 *	4-byte boundaries. Use bounce buffers to copy data
- 	 *	and get it aligned. Ugh.
- 	 */
--	if (bdp->cbd_bufaddr & 0x3) {
-+	if (bdp->cbd_bufaddr & FEC_ALIGNMENT) {
- 		unsigned int index;
- 		index = bdp - fep->tx_bd_base;
- 		memcpy(fep->tx_bounce[index], (void *)skb->data, skb->len);
-diff --git a/drivers/net/fec.h b/drivers/net/fec.h
-index 292719d..76c64c9 100644
---- a/drivers/net/fec.h
-+++ b/drivers/net/fec.h
-@@ -14,7 +14,7 @@
- /****************************************************************************/
- 
- #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
--    defined(CONFIG_M520x) || defined(CONFIG_M532x)
-+    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARCH_MXC)
- /*
-  *	Just figures, Motorola would have to change the offsets for
-  *	registers in the same peripheral device on different models
-@@ -103,12 +103,19 @@ typedef struct fec {
- /*
-  *	Define the buffer descriptor structure.
-  */
-+#ifdef CONFIG_ARCH_MXC
-+typedef struct bufdesc {
-+	unsigned short cbd_datlen;	/* Data length */
-+	unsigned short cbd_sc;	/* Control and status info */
-+	unsigned long cbd_bufaddr;	/* Buffer address */
-+} cbd_t;
-+#else
- typedef struct bufdesc {
- 	unsigned short	cbd_sc;			/* Control and status info */
- 	unsigned short	cbd_datlen;		/* Data length */
- 	unsigned long	cbd_bufaddr;		/* Buffer address */
- } cbd_t;
--
-+#endif
- 
- /*
-  *	The following definitions courtesy of commproc.h, which where
--- 
-1.5.6.5
-
+Paul, which keying daemon are you using?
