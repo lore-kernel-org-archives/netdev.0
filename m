@@ -1,10 +1,12 @@
 From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 03/10] smsc911x: add external phy detection overrides
-Date: Tue, 27 Jan 2009 16:51:11 +0000
-Message-ID: <1233075077-17205-4-git-send-email-steve.glendinning@smsc.com>
+Subject: [PATCH 05/10] arm: convert pcm037 platform to use smsc911x
+Date: Tue, 27 Jan 2009 16:51:13 +0000
+Message-ID: <1233075077-17205-6-git-send-email-steve.glendinning@smsc.com>
 References: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
  <1233075077-17205-2-git-send-email-steve.glendinning@smsc.com>
  <1233075077-17205-3-git-send-email-steve.glendinning@smsc.com>
+ <1233075077-17205-4-git-send-email-steve.glendinning@smsc.com>
+ <1233075077-17205-5-git-send-email-steve.glendinning@smsc.com>
 Cc: David Miller <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Stanley Miao <stanley.miao@windriver.com>,
@@ -16,155 +18,78 @@ To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from [86.54.240.114] ([86.54.240.114]:53200 "EHLO
 	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755781AbZA0QvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:17 -0500
-In-Reply-To: <1233075077-17205-3-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1755781AbZA0QvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:21 -0500
+In-Reply-To: <1233075077-17205-5-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On LAN9115/LAN9117/LAN9215/LAN9217, external phys are supported.  These
-are usually indicated by a hardware strap which sets an "external PHY
-detected" bit in the HW_CFG register.
-
-In some cases it is desirable to override this hardware strap and force
-use of either the internal phy or an external PHY.  This patch adds
-SMSC911X_FORCE_INTERNAL_PHY and SMSC911X_FORCE_EXTERNAL_PHY flags so a
-platform can indicate this preference via its platform_data.
+Updated to also specify SMSC911X_FORCE_INTERNAL_PHY, as the external phy
+detection hardware strap is incorrectly pulled high on this platform.
 
 Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
 Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
 Tested-by: Sascha Hauer <s.hauer@pengutronix.de>
 ---
- drivers/net/smsc911x.c   |   75 +++++++++++++++++++++++----------------------
- include/linux/smsc911x.h |    2 +
- 2 files changed, 40 insertions(+), 37 deletions(-)
+ arch/arm/mach-mx3/pcm037.c |   23 +++++++++++++----------
+ 1 files changed, 13 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index f882fd5..c7379f5 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -368,48 +368,53 @@ out:
- 	return reg;
- }
+diff --git a/arch/arm/mach-mx3/pcm037.c b/arch/arm/mach-mx3/pcm037.c
+index 8cea825..c6fe26a 100644
+--- a/arch/arm/mach-mx3/pcm037.c
++++ b/arch/arm/mach-mx3/pcm037.c
+@@ -24,7 +24,7 @@
+ #include <linux/mtd/plat-ram.h>
+ #include <linux/memory.h>
+ #include <linux/gpio.h>
+-#include <linux/smc911x.h>
++#include <linux/smsc911x.h>
+ #include <linux/interrupt.h>
  
--/* Autodetects and initialises external phy for SMSC9115 and SMSC9117 flavors.
-- * If something goes wrong, returns -ENODEV to revert back to internal phy.
-- * Performed at initialisation only, so interrupts are enabled */
--static int smsc911x_phy_initialise_external(struct smsc911x_data *pdata)
-+/* Switch to external phy. Assumes tx and rx are stopped. */
-+static void smsc911x_phy_enable_external(struct smsc911x_data *pdata)
- {
- 	unsigned int hwcfg = smsc911x_reg_read(pdata, HW_CFG);
+ #include <mach/hardware.h>
+@@ -64,7 +64,7 @@ static struct imxuart_platform_data uart_pdata = {
+ 	.flags = IMXUART_HAVE_RTSCTS,
+ };
  
--	/* External phy is requested, supported, and detected */
--	if (hwcfg & HW_CFG_EXT_PHY_DET_) {
-+	/* Disable phy clocks to the MAC */
-+	hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
-+	hwcfg |= HW_CFG_PHY_CLK_SEL_CLK_DIS_;
-+	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
-+	udelay(10);	/* Enough time for clocks to stop */
+-static struct resource smc911x_resources[] = {
++static struct resource smsc911x_resources[] = {
+ 	[0] = {
+ 		.start		= CS1_BASE_ADDR + 0x300,
+ 		.end		= CS1_BASE_ADDR + 0x300 + SZ_64K - 1,
+@@ -73,22 +73,25 @@ static struct resource smc911x_resources[] = {
+ 	[1] = {
+ 		.start		= IOMUX_TO_IRQ(MX31_PIN_GPIO3_1),
+ 		.end		= IOMUX_TO_IRQ(MX31_PIN_GPIO3_1),
+-		.flags		= IORESOURCE_IRQ,
++		.flags		= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
+ 	},
+ };
  
--		/* Switch to external phy. Assuming tx and rx are stopped
--		 * because smsc911x_phy_initialise is called before
--		 * smsc911x_rx_initialise and tx_initialise. */
-+	/* Switch to external phy */
-+	hwcfg |= HW_CFG_EXT_PHY_EN_;
-+	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
+-static struct smc911x_platdata smc911x_info = {
+-	.flags		= SMC911X_USE_32BIT,
+-	.irq_flags	= IRQF_SHARED | IRQF_TRIGGER_LOW,
++static struct smsc911x_platform_config smsc911x_info = {
++	.flags		= SMSC911X_USE_32BIT | SMSC911X_FORCE_INTERNAL_PHY |
++			  SMSC911X_SAVE_MAC_ADDRESS,
++	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
++	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
++	.phy_interface	= PHY_INTERFACE_MODE_MII,
+ };
  
--		/* Disable phy clocks to the MAC */
--		hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
--		hwcfg |= HW_CFG_PHY_CLK_SEL_CLK_DIS_;
--		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
--		udelay(10);	/* Enough time for clocks to stop */
-+	/* Enable phy clocks to the MAC */
-+	hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
-+	hwcfg |= HW_CFG_PHY_CLK_SEL_EXT_PHY_;
-+	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
-+	udelay(10);	/* Enough time for clocks to restart */
+ static struct platform_device pcm037_eth = {
+-	.name		= "smc911x",
++	.name		= "smsc911x",
+ 	.id		= -1,
+-	.num_resources	= ARRAY_SIZE(smc911x_resources),
+-	.resource	= smc911x_resources,
++	.num_resources	= ARRAY_SIZE(smsc911x_resources),
++	.resource	= smsc911x_resources,
+ 	.dev		= {
+-		.platform_data = &smc911x_info,
++		.platform_data = &smsc911x_info,
+ 	},
+ };
  
--		/* Switch to external phy */
--		hwcfg |= HW_CFG_EXT_PHY_EN_;
--		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
--
--		/* Enable phy clocks to the MAC */
--		hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
--		hwcfg |= HW_CFG_PHY_CLK_SEL_EXT_PHY_;
--		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
--		udelay(10);	/* Enough time for clocks to restart */
-+	hwcfg |= HW_CFG_SMI_SEL_;
-+	smsc911x_reg_write(pdata, HW_CFG, hwcfg);
-+}
- 
--		hwcfg |= HW_CFG_SMI_SEL_;
--		smsc911x_reg_write(pdata, HW_CFG, hwcfg);
-+/* Autodetects and enables external phy if present on supported chips.
-+ * autodetection can be overridden by specifying SMSC911X_FORCE_INTERNAL_PHY
-+ * or SMSC911X_FORCE_EXTERNAL_PHY in the platform_data flags. */
-+static void smsc911x_phy_initialise_external(struct smsc911x_data *pdata)
-+{
-+	unsigned int hwcfg = smsc911x_reg_read(pdata, HW_CFG);
- 
--		SMSC_TRACE(HW, "Successfully switched to external PHY");
-+	if (pdata->config.flags & SMSC911X_FORCE_INTERNAL_PHY) {
-+		SMSC_TRACE(HW, "Forcing internal PHY");
-+		pdata->using_extphy = 0;
-+	} else if (pdata->config.flags & SMSC911X_FORCE_EXTERNAL_PHY) {
-+		SMSC_TRACE(HW, "Forcing external PHY");
-+		smsc911x_phy_enable_external(pdata);
-+		pdata->using_extphy = 1;
-+	} else if (hwcfg & HW_CFG_EXT_PHY_DET_) {
-+		SMSC_TRACE(HW, "HW_CFG EXT_PHY_DET set, using external PHY");
-+		smsc911x_phy_enable_external(pdata);
- 		pdata->using_extphy = 1;
- 	} else {
--		SMSC_WARNING(HW, "No external PHY detected, "
--			"Using internal PHY instead.");
--		/* Use internal phy */
--		return -ENODEV;
-+		SMSC_TRACE(HW, "HW_CFG EXT_PHY_DET clear, using internal PHY");
-+		pdata->using_extphy = 0;
- 	}
--	return 0;
- }
- 
- /* Fetches a tx status out of the status fifo */
-@@ -824,22 +829,18 @@ static int __devinit smsc911x_mii_init(struct platform_device *pdev,
- 
- 	pdata->mii_bus->parent = &pdev->dev;
- 
--	pdata->using_extphy = 0;
--
- 	switch (pdata->idrev & 0xFFFF0000) {
- 	case 0x01170000:
- 	case 0x01150000:
- 	case 0x117A0000:
- 	case 0x115A0000:
- 		/* External PHY supported, try to autodetect */
--		if (smsc911x_phy_initialise_external(pdata) < 0) {
--			SMSC_TRACE(HW, "No external PHY detected, "
--				"using internal PHY");
--		}
-+		smsc911x_phy_initialise_external(pdata);
- 		break;
- 	default:
- 		SMSC_TRACE(HW, "External PHY is not supported, "
- 			"using internal PHY");
-+		pdata->using_extphy = 0;
- 		break;
- 	}
- 
-diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
-index 1cbf031..170c76b 100644
---- a/include/linux/smsc911x.h
-+++ b/include/linux/smsc911x.h
-@@ -43,5 +43,7 @@ struct smsc911x_platform_config {
- /* Constants for flags */
- #define SMSC911X_USE_16BIT 			(BIT(0))
- #define SMSC911X_USE_32BIT 			(BIT(1))
-+#define SMSC911X_FORCE_INTERNAL_PHY		(BIT(2))
-+#define SMSC911X_FORCE_EXTERNAL_PHY 		(BIT(3))
- 
- #endif /* __LINUX_SMSC911X_H__ */
 -- 
 1.6.0.6
 
