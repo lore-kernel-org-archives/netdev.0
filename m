@@ -1,143 +1,92 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: [patch 2.6.28-rc8-davinci-git] dm355: dm9000
-Date: Mon, 26 Jan 2009 23:58:34 +0000
-Message-ID: <20090126235834.GA24162@fluff.org.uk>
-References: <7A436F7769CA33409C6B44B358BFFF0CFC0384D1@dlee02.ent.ti.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: Linux 2.6.27.13
+Date: Mon, 26 Jan 2009 16:37:29 -0800
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A1C2250D0@orsmsx507.amr.corp.intel.com>
+References: <20090125004823.GA6711@kroah.com> <497E16A0.50607@krogh.cc>
+ <20090126210730.GB24164@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Narnakaje, Snehaprabha" <nsnehaprabha@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Greg KH <gregkh@suse.de>, Jesper Krogh <jesper@krogh.cc>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:47705 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751854AbZAZX6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 18:58:40 -0500
-Content-Disposition: inline
-In-Reply-To: <7A436F7769CA33409C6B44B358BFFF0CFC0384D1@dlee02.ent.ti.com>
+Received: from mga02.intel.com ([134.134.136.20]:10513 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752526AbZA0Ahb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 19:37:31 -0500
+In-Reply-To: <20090126210730.GB24164@suse.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 26, 2009 at 04:36:50PM -0600, Narnakaje, Snehaprabha wrote:
-> Hi,
+Greg KH wrote:
+> On Mon, Jan 26, 2009 at 09:01:36PM +0100, Jesper Krogh wrote:
+>> Greg KH wrote:
+>>> We (the -stable team) are announcing the release of the 2.6.27.13
+>>> kernel. It contains a wide range of bugfixes, and all users of the
+>>> 2.6.27 kernel series are strongly encouraged to upgrade.
+>>> I'll also be replying to this message with a copy of the patch
+>>> between 
+>>> 2.6.27.12 and 2.6.27.13
+>> 
+>> Hi.
+>> 
+>> I'm getting some e1000 noise on a 2.6.27.6, I search the log up to
+>> .13 but couldn't find any log messsage that looked like it fixed it.
+>> 
+>> 
+>> [862734.501786] ------------[ cut here ]------------
+>> [862734.501793] WARNING: at net/sched/sch_generic.c:219
+>> dev_watchdog+0x1f8/0x210() [862734.501795] NETDEV WATCHDOG: eth0
+>> (e1000): transmit timed out 
 > 
-> I am having an issue with the dm9000 driver on a DaVinci DM355 based platform.
+> I've been getting a lot of reports about this as well.  Did it show up
+> in 2.6.27.6?
 > 
-> I configure dm9000 to get an IP address through dhcp and then mount via NFS. I get the following dump, just after getting an IP Address and trying to connect to the NFS server.
-> 
-> ------------[ cut here ]------------
-> WARNING: at net/sched/sch_generic.c:226 dev_watchdog+0x188/0x2a0()
-> NETDEV WATCHDOG: eth0 (dm9000): transmit timed out
-> Modules linked in:
-> [<c002c890>] (dump_stack+0x0/0x14) from [<c003b81c>] (warn_slowpath+0x64/0x80)
-> [<c003b7b8>] (warn_slowpath+0x0/0x80) from [<c01bf934>] (dev_watchdog+0x188/0x2a0)
->  r3:c6c81800 r2:c02af9a4
->  r6:c02ce000 r5:c6c81800 r4:c030d710
-> [<c01bf7ac>] (dev_watchdog+0x0/0x2a0) from [<c00459b4>] (run_timer_softirq+0x1bc/0x278)
-> [<c00457f8>] (run_timer_softirq+0x0/0x278) from [<c0040a44>] (__do_softirq+0x74/0x110)
-> [<c00409d0>] (__do_softirq+0x0/0x110) from [<c0040e74>] (irq_exit+0x50/0xa0)
-> [<c0040e24>] (irq_exit+0x0/0xa0) from [<c0028068>] (__exception_text_start+0x68/0x84)
->  r4:00000020
-> [<c0028000>] (__exception_text_start+0x0/0x84) from [<c0028a28>] (__irq_svc+0x48/0x88)
-> Exception stack(0xc02cff40 to 0xc02cff88)
-> ff40: 00000000 0005317f 0005217f 60000013 c0029e80 c02ce000 c02d1e44 c0029e80
-> ff60: c02e82a4 41069265 80020e54 c02cff94 600000d3 c02cff88 c0029ec4 c0029ed0
-> ff80: 60000013 ffffffff
->  r5:fec48000 r4:ffffffff
-> [<c0029e80>] (default_idle+0x0/0x58) from [<c0029d4c>] (cpu_idle+0x58/0x98)
-> [<c0029cf4>] (cpu_idle+0x0/0x98) from [<c022cb9c>] (rest_init+0x68/0x7c)
->  r8:80020ef0 r7:c02d1cd8 r6:c0022f0c r5:c02e7e4c r4:c02fd180
-> [<c022cb34>] (rest_init+0x0/0x7c) from [<c00089f0>] (start_kernel+0x260/0x2c0)
-> [<c0008790>] (start_kernel+0x0/0x2c0) from [<80008034>] (0x80008034)
->  r5:c02e8354 r4:00053175
-> ---[ end trace a0edb9581ce81991 ]---
-> 
-> 
-> As per the details below, this happens only if I use spinlock/spinunlock sequence in dm9000_start_xmit(). If I change this to dm9000 specific disable/enable interrupts, I do see the above dump and platform comes up fine with NFS.
-> 
-> Any ideas?
+> Netdev developers, any ideas of what would be causing this?
 
-The spin lock sequence already disables the IRQs over the transmit. We
-cannot allow the code to be re-entered either by another interrupt
-such as a watchdog timeout or receive interrupt.
- 
-> Thanks a lot,
-> Sneha
-> 
-> 
-> -----Original Message-----
-> From: davinci-linux-open-source-bounces+nsnehaprabha=ti.com@linux.davincidsp.com [mailto:davinci-linux-open-source-bounces+nsnehaprabha=ti.com@linux.davincidsp.com] On Behalf Of Narnakaje, Snehaprabha
-> Sent: Tuesday, January 20, 2009 7:38 PM
-> To: Kevin Hilman; David Brownell
-> Cc: davinci-linux-open-source@linux.davincidsp.com
-> Subject: RE: [patch 2.6.28-rc8-davinci-git] dm355: mmc0 works for pio
-> 
-> David, Kevin,
-> 
-> Here is an update on the DM9000 issue.
-> 
-> I spent some time on debugging DM9000 issue - "tx timeout and a kernel crash".
-> 
-> In the current version of dm9000 driver (1.3), the hard_start_xmit API for DM9000 - dm9000_start_xmiit() uses spin_lock_irqsave(&db->lock, flags); to disable the interrupts, before accessing/setting DM9000 TX registers. It also calls spin_unlock_irqrestore(&db->lock, flags); after initiating a tx. 
-> 
-> In an older version of the dm9000.c (1.2 from kernel 2.6.18 to 2.6.22) we just disabled dm9000 rx/tx interrupts by writing to the dm9000 register and enabled them after initiating the tx.
-> 
-> It does look like, dm9000 stopped receiving the tx interrupts (at least dm9000_interrupt is not getting called for tx completion) and thus we starting seeing tx timeout from the netdev.
-> 
-> I can get NFS working, if I change the spin_lock/spin_unlock function calls to dm9000 specific rx/tx interrupt disable/enable functions.
-> 
-> I believe, dm9000 specific rx/tx interrupt functions were replaced by the spin_lock/spin_unlock functions to a fix a hang problem under heavy load.
-> 
-> I will continue to debug this further, wanted to see, if you have any inputs in this area.
-> 
-> I did not see this issue being reported on the netdev kernel.org mailing list, so not sure, if there is a DM355 specific irq initialization we have missed.
-> 
-> Thanks
-> Sneha
-> 
-> > -----Original Message-----
-> > From: davinci-linux-open-source-bounces@linux.davincidsp.com
-> > [mailto:davinci-linux-open-source-bounces@linux.davincidsp.com] On Behalf
-> > Of Kevin Hilman
-> > Sent: Friday, December 19, 2008 11:01 AM
-> > To: David Brownell
-> > Cc: davinci-linux-open-source@linux.davincidsp.com
-> > Subject: Re: [patch 2.6.28-rc8-davinci-git] dm355: mmc0 works for pio
-> > 
-> > David Brownell <david-b@pacbell.net> writes:
-> > 
-> > > On Thursday 18 December 2008, Kevin Hilman wrote:
-> > >> Strange. ?I get NETDEV WATCHDOG timeouts whether I try to mount over
-> > >> NFS, or whether I simply ssh from a MMC rootfs to linux box. ?This is
-> > >> with current davinci git head. ?Have I missed any of your patches?
-> > >
-> > > Nothing related to the dm9000 or AEMIF, it seems.  Does using
-> > >
-> > >   CONFIG_DM9000_FORCE_SIMPLE_PHY_POLL=y
-> > >
-> > > change things?
-> > >
-> > 
-> > Nope.
-> > 
-> > Kevin
-> > 
-> > 
-> > 
-> > 
-> > _______________________________________________
-> > Davinci-linux-open-source mailing list
-> > Davinci-linux-open-source@linux.davincidsp.com
-> > http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source
-> _______________________________________________
-> Davinci-linux-open-source mailing list
-> Davinci-linux-open-source@linux.davincidsp.com
-> http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+no immediate idea, but a quick test to help isolate which functionality
+could be causing problems is to disable TSO on all four interfaces using
+ethtool.
 
--- 
-Ben (ben@fluff.org, http://www.fluff.org/)
+It could be that GSO is somehow playing into this as well, but I don't
+know why (you could disable it with ethtool too).
 
-  'a smiley only costs 4 bytes'
+It could be unrelated but I've noticed that TCP window size can grow much
+larger now than it used to (especially talking to LRO enabled clients) 
+and this might cause some kind of an overflow in the TCP transmit
+offloading hardware in the e1000 parts.
+
+
+>> 
+>> Complete dmesg here:
+>> http://krogh.cc/~jesper/dmesg-2.6.27.6.txt
+>> 
+>> The system is running with bonded interfaces with  (lspci output)
+>> 06:01.0 Ethernet controller: Intel Corporation 82546EB Gigabit
+>> Ethernet Controller (Copper) (rev 03) 06:01.1 Ethernet controller:
+>> Intel Corporation 82546EB Gigabit Ethernet Controller (Copper) (rev
+>> 03) 06:02.0 Ethernet controller: Intel Corporation 82546EB Gigabit
+>> Ethernet Controller (Copper) (rev 03) 06:02.1 Ethernet controller:
+>> Intel Corporation 82546EB Gigabit Ethernet Controller (Copper) (rev
+>> 03)   
+>> 
+>> The system is still "fully functional", and I havent notiched
+>> anything wrong, but there sure is a lot of link ups and downs on
+>> that bond. 
+
+in your log I saw one tx timeout for each interface, one first one by itself
+and then several more all within a few minutes, but then no more for
+a really long time.
+
+My first reaction is to ask you what test you're running, and ask you to
+run the e1000_dump code (see google) to dump the tx descriptor rings at 
+the time of failure.
+
+I can get you that code with updates if you're willing to test, but 
+it might take a couple of days.
+
+Jesse
