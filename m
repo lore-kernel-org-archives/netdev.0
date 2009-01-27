@@ -1,29 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: port bound SAs
-Date: Tue, 27 Jan 2009 18:21:32 +0100
-Message-ID: <497F429C.6010006@trash.net>
-References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com> <497F3DD0.5010502@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77520@exch-one.centrify.com> <497F4071.2040302@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77522@exch-one.centrify.com>
+From: "Paul Moore" <paul.moore@centrify.com>
+Subject: RE: port bound SAs
+Date: Tue, 27 Jan 2009 09:21:56 -0800
+Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02A77525@exch-one.centrify.com>
+References: <BB7E16A14DE689469A181EC770AFBF4D02A77520@exch-one.centrify.com><497F4071.2040302@trash.net><BB7E16A14DE689469A181EC770AFBF4D02A77522@exch-one.centrify.com> <20090127.092114.153681069.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@centrify.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <kaber@trash.net>, <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42626 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752786AbZA0RVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 12:21:33 -0500
-In-Reply-To: <BB7E16A14DE689469A181EC770AFBF4D02A77522@exch-one.centrify.com>
+Received: from mail.centrify.com ([216.112.107.103]:46991 "EHLO
+	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755147AbZA0RWA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 12:22:00 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20090127.092114.153681069.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Moore wrote:
+I dont know what ip xfrm means - excuse my ignorance please
+I will try it 
+
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Tuesday, January 27, 2009 9:21 AM
+To: Paul Moore
+Cc: kaber@trash.net; netdev@vger.kernel.org
+Subject: Re: port bound SAs
+
+From: "Paul Moore" <paul.moore@centrify.com>
+Date: Tue, 27 Jan 2009 09:13:46 -0800
+
 > the pfkey / xfrm interface throws them away
-
-I misparsed that statement, I thought you meant both. Yes, you
-seem to be right, pfkey ignores them.
-
+> 
 > i fixed racoon to send the port numbers and they were ignored
 
-I believe thats intentional, RFC2367 specifies to ignore port
-numbers except for larval states.
+Did you actually try "ip xfrm" as Patrick suggested?
+
+Where exactly are the ports "thrown away" for both pfkey and xfrm
+cases?
