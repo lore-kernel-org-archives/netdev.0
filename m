@@ -1,26 +1,30 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] net: add tracepoints to socket api
-Date: Tue, 27 Jan 2009 13:47:04 -0500
-Message-ID: <20090127184704.GA26403@infradead.org>
-References: <20090127171857.GB14429@infradead.org> <20090127.092017.40699485.davem@davemloft.net> <20090127172323.GA7635@infradead.org> <20090127.102141.99756103.davem@davemloft.net>
+From: Mr TONY HILL <mrtonyhill01@googlemail.com>
+Subject: (unknown)
+Date: Tue, 27 Jan 2009 12:55:49 -0600
+Message-ID: <20090127125549.iivy12bg18gc8ck8@webmail.opentransfer.com>
+Reply-To: zhang01tie@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hch@infradead.org, nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:46747 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755187AbZA0SrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 13:47:06 -0500
+Received: from smh01.opentransfer.com ([71.18.216.112]:55093 "EHLO
+	smh01.opentransfer.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152AbZA0Szw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 13:55:52 -0500
+Subject: 
 Content-Disposition: inline
-In-Reply-To: <20090127.102141.99756103.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2009 at 10:21:41AM -0800, David Miller wrote:
-> The block layer already merged trace annotations.  I therefore see no
-> harm in merging the net bits.
 
-The block layer also has a consumer for them (blktrace) and soon a
-second one (the ftrace plugin)
+-- 
+I am Mr. Zhang Tiejun operations manager of the Bank of China. i have a
+business for you. please get back to me if interested
+
+
+
 
