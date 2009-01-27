@@ -1,72 +1,57 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH 5/5] virtio_net: Add support for VLAN filtering in the
- hypervisor
-Date: Mon, 26 Jan 2009 21:19:52 -0700
-Message-ID: <1233029992.7148.82.camel@2710p.home>
-References: <1232357520.5627.15.camel@blaa>
-	 <20090120163636.10034.5080.stgit@debian.lart>
-	 <200901271422.33369.rusty@rustcorp.com.au>
+From: Manish Katiyar <mkatiyar@gmail.com>
+Subject: Re: [PATCH] : Remove unused variable pdev from drivers/net/r6040.c
+Date: Tue, 27 Jan 2009 09:58:11 +0530
+Message-ID: <ea11fea30901262028r3a8f694fgd03b9bf7538719b3@mail.gmail.com>
+References: <ea11fea30901190529k6f12f4c1xed7295ccbf0dcefa@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, markmc@redhat.com, kvm@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <200901271422.33369.rusty@rustcorp.com.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mkatiyar@gmail.com, David Miller <davem@davemloft.net>,
+	stable@vger.kernel.org
+To: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	sten.wang@rdc.com.tw, daniel@gimpelevich.san-francisco.ca.us,
+	florian@openwrt.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ti-out-0910.google.com ([209.85.142.186]:28163 "EHLO
+	ti-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307AbZA0E2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 23:28:13 -0500
+In-Reply-To: <ea11fea30901190529k6f12f4c1xed7295ccbf0dcefa@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rusty,
+[Adding david miller and stable@kernel.org in cc ]
 
-On Tue, 2009-01-27 at 14:22 +1030, Rusty Russell wrote:
-> > + struct virtnet_info *vi = netdev_priv(dev);
-> > + u16 id = vid;
-> > +
-> > + if (virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> > + VIRTIO_NET_CTRL_VLAN_ADD, &id, sizeof(id)))
-> > + printk(KERN_WARNING "%s: Failed to add VLAN ID %d.\n",
-> > + dev->name, id);
-> > +}
-> 
-> The temporary var seems strange here, and in kill_vid.
+Thanks -
+Manish
 
-It does stand out a bit.  I can't think of a valid reason for why I had
-this, so I'll drop it.
-
-> > - .ndo_poll_controller = virtnet_netpoll,
-> > + .ndo_poll_controller = virtnet_netpoll,
-> 
-> Pretty lining up is a pet peeve of mine. Just indent them one more and
-> be happy :)
-
-Noted ;^)
-
-> 
-> > + /* Enable VLAN filtering if supported by the backend */
-> > + if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> > + VIRTIO_NET_CTRL_VLAN_ENABLE,
-> > + &vlan_filter, sizeof(vlan_filter))) {
-> > + printk(KERN_DEBUG "virtio_net: VLAN filter enabled\n");
-> > + dev->features |= NETIF_F_HW_VLAN_FILTER;
-> > + }
-> 
-> OK, several things here. Should probably be a feature bit. What is the
-> vlan_filter arg for? Finally, using ! for the "success" case is YA API
-> nastiness for me; if we were leaving virtnet_send_command as is I'd
-> make it return bool, if it really returned a sensible -errno I'd
-> compare against 0 here. 
-
-The VLAN_ENABLE command can either enable or disable the VLAN filter, so
-the vlan_filter arg is setting enable to "on".  A feature bit might be
-more efficient, but since this happens at device init and the enable
-will fail if it's not supported by the backend, it seemed redundant.
-
-I agree the success/failure logic would be more clear w/o the !, I'll
-switch this to a == 0, or something better depending on what we decide
-to do with send_command.  Thanks for the comments,
-
-Alex
-
--- 
-Alex Williamson                             HP Open Source & Linux Org.
-
+On Mon, Jan 19, 2009 at 6:59 PM, Manish Katiyar <mkatiyar@gmail.com> wrote:
+> Below patch removes the following compilation warning.
+>
+> drivers/net/r6040.c:441: warning: unused variable 'pdev'
+>
+>
+> Signed-off-by : Manish Katiyar <mkatiyar@gmail.com>
+> ---
+>  drivers/net/r6040.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+> index 72fd9e9..b2dcdb5 100644
+> --- a/drivers/net/r6040.c
+> +++ b/drivers/net/r6040.c
+> @@ -438,7 +438,6 @@ static void r6040_down(struct net_device *dev)
+>  {
+>        struct r6040_private *lp = netdev_priv(dev);
+>        void __iomem *ioaddr = lp->base;
+> -       struct pci_dev *pdev = lp->pdev;
+>        int limit = 2048;
+>        u16 *adrp;
+>        u16 cmd;
+> --
+> 1.5.4.3
+>
+>
+> Thanks -
+> Manish
+>
