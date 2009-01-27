@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6 multicast routing
-Date: Mon, 26 Jan 2009 21:31:53 -0800 (PST)
-Message-ID: <20090126.213153.216697144.davem@davemloft.net>
-References: <20090121.100431.126366547.yoshfuji@linux-ipv6.org>
-	<21C34AA2609529459A85739E2952066904A9670D@XCH-NW-9V1.nw.nos.boeing.com>
-	<20090125.181510.81366979.davem@davemloft.net>
+Subject: Re: [PATCH] smc91x: struct net_device_ops
+Date: Mon, 26 Jan 2009 21:32:33 -0800 (PST)
+Message-ID: <20090126.213233.126877613.davem@davemloft.net>
+References: <20090126065518.16879.7531.sendpatchset@rx1.opensource.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	Fred.L.Templin@boeing.com
-To: Thomas.Goff@boeing.com
+Cc: netdev@vger.kernel.org, nico@cam.org
+To: magnus.damm@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57658
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57662
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751170AbZA0Fbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 00:31:55 -0500
-In-Reply-To: <20090125.181510.81366979.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1751423AbZA0Fcg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 00:32:36 -0500
+In-Reply-To: <20090126065518.16879.7531.sendpatchset@rx1.opensource.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 25 Jan 2009 18:15:10 -0800 (PST)
+From: Magnus Damm <magnus.damm@gmail.com>
+Date: Mon, 26 Jan 2009 15:55:18 +0900
 
-> Hideaki-san, did you queue this patch up or do you want me to
-> apply it with the mc_forwarding counter bumps removed?
+> Convert the smc91x driver to use struct net_device_ops.
 > 
-> These are bug fixes so I'd like to see this in the tree soon.
+> Signed-off-by: Magnus Damm <damm@igel.co.jp>
 
-Ping?
+Applied, thanks Magnus.
