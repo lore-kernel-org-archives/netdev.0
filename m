@@ -1,16 +1,11 @@
 From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH 09/10] arm: update realview defconfigs to use smsc911x
-Date: Tue, 27 Jan 2009 16:51:17 +0000
-Message-ID: <1233075077-17205-10-git-send-email-steve.glendinning@smsc.com>
+Subject: [PATCH 04/10] smsc911x: allow mac address to be saved before device reset
+Date: Tue, 27 Jan 2009 16:51:12 +0000
+Message-ID: <1233075077-17205-5-git-send-email-steve.glendinning@smsc.com>
 References: <1233075077-17205-1-git-send-email-steve.glendinning@smsc.com>
  <1233075077-17205-2-git-send-email-steve.glendinning@smsc.com>
  <1233075077-17205-3-git-send-email-steve.glendinning@smsc.com>
  <1233075077-17205-4-git-send-email-steve.glendinning@smsc.com>
- <1233075077-17205-5-git-send-email-steve.glendinning@smsc.com>
- <1233075077-17205-6-git-send-email-steve.glendinning@smsc.com>
- <1233075077-17205-7-git-send-email-steve.glendinning@smsc.com>
- <1233075077-17205-8-git-send-email-steve.glendinning@smsc.com>
- <1233075077-17205-9-git-send-email-steve.glendinning@smsc.com>
 Cc: David Miller <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Stanley Miao <stanley.miao@windriver.com>,
@@ -22,98 +17,96 @@ To: linux-arm-kernel@lists.arm.linux.org.uk, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from [86.54.240.114] ([86.54.240.114]:53200 "EHLO
 	kensington.shawell.net" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756195AbZA0Qv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:29 -0500
-In-Reply-To: <1233075077-17205-9-git-send-email-steve.glendinning@smsc.com>
+	by vger.kernel.org with ESMTP id S1756090AbZA0QvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:51:19 -0500
+In-Reply-To: <1233075077-17205-4-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- arch/arm/configs/realview-smp_defconfig |   24 ++++++++++++++++++++++--
- arch/arm/configs/realview_defconfig     |   24 ++++++++++++++++++++++--
- 2 files changed, 44 insertions(+), 4 deletions(-)
+Some platforms (for example pcm037) do not have an EEPROM fitted,
+instead storing their mac address somewhere else.  The bootloader
+fetches this and configures the ethernet adapter before the kernel is
+started.
 
-diff --git a/arch/arm/configs/realview-smp_defconfig b/arch/arm/configs/realview-smp_defconfig
-index cd29824..21db4b3 100644
---- a/arch/arm/configs/realview-smp_defconfig
-+++ b/arch/arm/configs/realview-smp_defconfig
-@@ -496,13 +496,33 @@ CONFIG_NETDEVICES=y
- # CONFIG_EQUALIZER is not set
- # CONFIG_TUN is not set
- # CONFIG_VETH is not set
--# CONFIG_PHYLIB is not set
-+CONFIG_PHYLIB=y
+This patch allows a platform to indicate to the driver via the
+SMSC911X_SAVE_MAC_ADDRESS flag that the mac address has already been
+configured via such a mechanism, and should be saved before resetting
+the chip.
+
+Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+Tested-by: Sascha Hauer <s.hauer@pengutronix.de>
+---
+ drivers/net/smsc911x.c   |   30 ++++++++++++++++++++++--------
+ include/linux/smsc911x.h |    1 +
+ 2 files changed, 23 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index c7379f5..2f7399e 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -1748,6 +1748,21 @@ static const struct net_device_ops smsc911x_netdev_ops = {
+ #endif
+ };
+ 
++/* copies the current mac address from hardware to dev->dev_addr */
++static void __devinit smsc911x_read_mac_address(struct net_device *dev)
++{
++	struct smsc911x_data *pdata = netdev_priv(dev);
++	u32 mac_high16 = smsc911x_mac_read(pdata, ADDRH);
++	u32 mac_low32 = smsc911x_mac_read(pdata, ADDRL);
 +
-+#
-+# MII PHY device drivers
-+#
-+# CONFIG_MARVELL_PHY is not set
-+# CONFIG_DAVICOM_PHY is not set
-+# CONFIG_QSEMI_PHY is not set
-+# CONFIG_LXT_PHY is not set
-+# CONFIG_CICADA_PHY is not set
-+# CONFIG_VITESSE_PHY is not set
-+CONFIG_SMSC_PHY=y
-+# CONFIG_BROADCOM_PHY is not set
-+# CONFIG_ICPLUS_PHY is not set
-+# CONFIG_REALTEK_PHY is not set
-+# CONFIG_NATIONAL_PHY is not set
-+# CONFIG_STE10XP is not set
-+# CONFIG_LSI_ET1011C_PHY is not set
-+# CONFIG_FIXED_PHY is not set
-+# CONFIG_MDIO_BITBANG is not set
- CONFIG_NET_ETHERNET=y
- CONFIG_MII=y
- # CONFIG_AX88796 is not set
- CONFIG_SMC91X=y
- # CONFIG_DM9000 is not set
--CONFIG_SMC911X=y
-+# CONFIG_SMC911X is not set
-+CONFIG_SMSC911X=y
- # CONFIG_IBM_NEW_EMAC_ZMII is not set
- # CONFIG_IBM_NEW_EMAC_RGMII is not set
- # CONFIG_IBM_NEW_EMAC_TAH is not set
-diff --git a/arch/arm/configs/realview_defconfig b/arch/arm/configs/realview_defconfig
-index 7e253f5..9a75c30 100644
---- a/arch/arm/configs/realview_defconfig
-+++ b/arch/arm/configs/realview_defconfig
-@@ -490,13 +490,33 @@ CONFIG_NETDEVICES=y
- # CONFIG_EQUALIZER is not set
- # CONFIG_TUN is not set
- # CONFIG_VETH is not set
--# CONFIG_PHYLIB is not set
-+CONFIG_PHYLIB=y
++	dev->dev_addr[0] = (u8)(mac_low32);
++	dev->dev_addr[1] = (u8)(mac_low32 >> 8);
++	dev->dev_addr[2] = (u8)(mac_low32 >> 16);
++	dev->dev_addr[3] = (u8)(mac_low32 >> 24);
++	dev->dev_addr[4] = (u8)(mac_high16);
++	dev->dev_addr[5] = (u8)(mac_high16 >> 8);
++}
 +
-+#
-+# MII PHY device drivers
-+#
-+# CONFIG_MARVELL_PHY is not set
-+# CONFIG_DAVICOM_PHY is not set
-+# CONFIG_QSEMI_PHY is not set
-+# CONFIG_LXT_PHY is not set
-+# CONFIG_CICADA_PHY is not set
-+# CONFIG_VITESSE_PHY is not set
-+CONFIG_SMSC_PHY=y
-+# CONFIG_BROADCOM_PHY is not set
-+# CONFIG_ICPLUS_PHY is not set
-+# CONFIG_REALTEK_PHY is not set
-+# CONFIG_NATIONAL_PHY is not set
-+# CONFIG_STE10XP is not set
-+# CONFIG_LSI_ET1011C_PHY is not set
-+# CONFIG_FIXED_PHY is not set
-+# CONFIG_MDIO_BITBANG is not set
- CONFIG_NET_ETHERNET=y
- CONFIG_MII=y
- # CONFIG_AX88796 is not set
- CONFIG_SMC91X=y
- # CONFIG_DM9000 is not set
--CONFIG_SMC911X=y
-+# CONFIG_SMC911X is not set
-+CONFIG_SMSC911X=y
- # CONFIG_IBM_NEW_EMAC_ZMII is not set
- # CONFIG_IBM_NEW_EMAC_RGMII is not set
- # CONFIG_IBM_NEW_EMAC_TAH is not set
+ /* Initializing private device structures, only called from probe */
+ static int __devinit smsc911x_init(struct net_device *dev)
+ {
+@@ -1835,6 +1850,12 @@ static int __devinit smsc911x_init(struct net_device *dev)
+ 		SMSC_WARNING(PROBE,
+ 			"This driver is not intended for this chip revision");
+ 
++	/* workaround for platforms without an eeprom, where the mac address
++	 * is stored elsewhere and set by the bootloader.  This saves the
++	 * mac address before resetting the device */
++	if (pdata->config.flags & SMSC911X_SAVE_MAC_ADDRESS)
++		smsc911x_read_mac_address(dev);
++
+ 	/* Reset the LAN911x */
+ 	if (smsc911x_soft_reset(pdata))
+ 		return -ENODEV;
+@@ -2015,14 +2036,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	} else {
+ 		/* Try reading mac address from device. if EEPROM is present
+ 		 * it will already have been set */
+-		u32 mac_high16 = smsc911x_mac_read(pdata, ADDRH);
+-		u32 mac_low32 = smsc911x_mac_read(pdata, ADDRL);
+-		dev->dev_addr[0] = (u8)(mac_low32);
+-		dev->dev_addr[1] = (u8)(mac_low32 >> 8);
+-		dev->dev_addr[2] = (u8)(mac_low32 >> 16);
+-		dev->dev_addr[3] = (u8)(mac_low32 >> 24);
+-		dev->dev_addr[4] = (u8)(mac_high16);
+-		dev->dev_addr[5] = (u8)(mac_high16 >> 8);
++		smsc911x_read_mac_address(dev);
+ 
+ 		if (is_valid_ether_addr(dev->dev_addr)) {
+ 			/* eeprom values are valid  so use them */
+diff --git a/include/linux/smsc911x.h b/include/linux/smsc911x.h
+index 170c76b..b327250 100644
+--- a/include/linux/smsc911x.h
++++ b/include/linux/smsc911x.h
+@@ -45,5 +45,6 @@ struct smsc911x_platform_config {
+ #define SMSC911X_USE_32BIT 			(BIT(1))
+ #define SMSC911X_FORCE_INTERNAL_PHY		(BIT(2))
+ #define SMSC911X_FORCE_EXTERNAL_PHY 		(BIT(3))
++#define SMSC911X_SAVE_MAC_ADDRESS		(BIT(4))
+ 
+ #endif /* __LINUX_SMSC911X_H__ */
 -- 
 1.6.0.6
 
