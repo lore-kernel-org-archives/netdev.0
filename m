@@ -1,43 +1,53 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Wed, 28 Jan 2009 08:07:14 +0900
-Message-ID: <497F93A2.404@kernel.org>
-References: <20090115183942.GA6325@elte.hu> <200901201328.24605.rusty@rustcorp.com.au> <49756E6E.2060409@kernel.org> <200901271213.18605.rusty@rustcorp.com.au> <497E705B.5000302@kernel.org> <20090127131317.GF23121@elte.hu>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: 32 core net-next stack/netfilter "scaling"
+Date: Tue, 27 Jan 2009 23:34:02 +0100
+Message-ID: <497F8BDA.6080908@cosmosbay.com>
+References: <497E361B.30909@hp.com>	<497E42F4.7080201@cosmosbay.com>	<497E44F6.2010703@hp.com>	<497ECF84.1030308@cosmosbay.com>	<497ED0A2.6050707@trash.net>	<497F350A.9020509@cosmosbay.com>	<497F457F.2050802@trash.net>	<497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com>	<497F5F86.9010101@hp.com> <497F87E7.2000304@cosmosbay.com> <497F8ACD.2050203@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:39671 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751346AbZA0XHn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 18:07:43 -0500
-In-Reply-To: <20090127131317.GF23121@elte.hu>
+Received: from neuf-infra-smtp-out-sp604007av.neufgp.fr ([84.96.92.120]:41512
+	"EHLO neuf-infra-smtp-out-sp604007av.neufgp.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751433AbZA0XR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 18:17:28 -0500
+In-Reply-To: <497F8ACD.2050203@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Tejun Heo <tj@kernel.org> wrote:
-> 
->>> Tejun, any chance of you updating the tj-percpu tree? My current 
->>> patches are against Linus's tree, and rebasing them on yours involves 
->>> some icky merging.
->> If Ingo is okay with it, I'm fine with it too.  Unless Ingo objects, 
->> I'll do it tomorrow-ish (still big holiday here).
-> 
-> Sure - but please do it as a clean rebase ontop of latest, not as a 
-> conflict-merge, as i'd expect there to be quite many clashes.
+Rick Jones a =E9crit :
+>
+>> Thanks for the report
+>>
+>> If you have so much contention on spinlocks, maybe hash function is=20
+>> not good at all...
+>>
+>> hash =3D (unsigned long)ct;
+>> hash ^=3D hash >> 16;
+>> hash ^=3D hash >> 8;
+>>
+>> I ass-u-me you compiled your kernel with NR_CPUS=3D32 ?
+>
+> I believe so - CONFIG_NR_CPUS in .config is 64 anyway.  If there is a=
+=20
+> more definitive place to check I'd be happy to look.
+>
+> rick
+>
+>
 
-Alrighty, re-basing.
+By any chance, are you using SLAB instead of SLUB ?
 
-Thanks.
+While running your netperf session, issuing :
 
--- 
-tejun
+grep conntrack /proc/slabinfo
+
+Would help to know hash dispertion on your machine.
+
+
