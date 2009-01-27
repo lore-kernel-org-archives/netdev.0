@@ -1,34 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: port bound SAs
-Date: Tue, 27 Jan 2009 18:42:22 +0100
-Message-ID: <497F477E.6020209@trash.net>
-References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com> <497F3DD0.5010502@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77520@exch-one.centrify.com> <497F4071.2040302@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77522@exch-one.centrify.com> <497F429C.6010006@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77527@exch-one.centrify.com> <497F4460.4080901@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77531@exch-one.centrify.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
+ up
+Date: Tue, 27 Jan 2009 09:49:28 -0800
+Message-ID: <20090127094928.534ff6f6@extreme>
+References: <20090127120129.GA9696@x200.localdomain>
+	<20090127132718.GA10001@x200.localdomain>
+	<20090127133504.GA10091@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Paul Moore <paul.moore@centrify.com>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43007 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753370AbZA0Rm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 12:42:26 -0500
-In-Reply-To: <BB7E16A14DE689469A181EC770AFBF4D02A77531@exch-one.centrify.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48644 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755853AbZA0Rt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 12:49:56 -0500
+In-Reply-To: <20090127133504.GA10091@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Moore wrote:
-> OK I misunderstood. Sorry
+On Tue, 27 Jan 2009 16:35:04 +0300
+Alexey Dobriyan <adobriyan@gmail.com> wrote:
+
+> On Tue, Jan 27, 2009 at 04:27:18PM +0300, Alexey Dobriyan wrote:
+> > On Tue, Jan 27, 2009 at 03:01:29PM +0300, Alexey Dobriyan wrote:
+> > > If sky2 interface is netconsoling, then
+> > > 
+> > > 	ifconfig down; ifconfig up
+> > > 
+> > > leads to hard hang after printing
+> > > 
+> > > 	sky2 eth0: enabling interface
+> > > 
+> > > SysRq+b reboots the box, nothing else works (or prints something).
+> > > 
+> > > This is with 2.6.28.2 and 2.6.29-rc2-5ee810072175042775e39bdd3eaaa68884c27805.
+> > > Most certainly was there since day one.
+> > > 
+> > > Haven't investigated further.
+> > 
+> > Well, duh...
+> > 
+> > 
+> > [PATCH] sky2: fix hard hang with netconsoling and iface going up
+> > 
+> > Printing anything over netconsole before hw is up and running is,
+> > of course, not going to work.
+> > 
+> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 >
-> You are saying that the port number should be dropped by the pfkey /
-> xfrm interface - OK
->   
 
-Yes. I think thats also why it includes the unique" option.
-
-> This is actually what happens. (BTW this is fortunate - in a few cases
-> racoon accidentally passes down 500)
->
-> I meant that the consensus was that the wire behavior is wrong. 
-
-Yes, if the selectors would actually differ, it would be wrong.
+Netconsole should be smart enough to not try and print to
+a device that is not marked running.
