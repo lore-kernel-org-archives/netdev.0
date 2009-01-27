@@ -1,139 +1,139 @@
 From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH] fec: Add support for Freescale MX27
-Date: Tue, 27 Jan 2009 11:40:03 +0100
-Message-ID: <1233052804-31228-9-git-send-email-s.hauer@pengutronix.de>
+Subject: [PATCH] fec: remove unused #else branches
+Date: Tue, 27 Jan 2009 11:39:56 +0100
+Message-ID: <1233052804-31228-2-git-send-email-s.hauer@pengutronix.de>
 References: <1233052804-31228-1-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-2-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-3-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-4-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-5-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-6-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-7-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-8-git-send-email-s.hauer@pengutronix.de>
 Cc: Greg Ungerer <gerg@snapgear.com>,
 	frederic rodo <fred.rodo@gmail.com>,
 	Sascha Hauer <s.hauer@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:47091 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47120 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754692AbZA0KlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:41:22 -0500
-In-Reply-To: <1233052804-31228-8-git-send-email-s.hauer@pengutronix.de>
+	with ESMTP id S1753022AbZA0Kls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:41:48 -0500
+In-Reply-To: <1233052804-31228-1-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The #else branches throughout this driver belong to a PowerPC 8xx for
+which this driver is not used.
+
 Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
 ---
- drivers/net/Kconfig |    6 +++---
- drivers/net/fec.c   |   15 +++++++++++++--
- drivers/net/fec.h   |   11 +++++++++--
- 3 files changed, 25 insertions(+), 7 deletions(-)
+ drivers/net/fec.c |   92 -----------------------------------------------------
+ 1 files changed, 0 insertions(+), 92 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 9fe8cb7..fcdab51 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1828,11 +1828,11 @@ config 68360_ENET
- 	  the Motorola 68360 processor.
- 
- config FEC
--	bool "FEC ethernet controller (of ColdFire CPUs)"
--	depends on M523x || M527x || M5272 || M528x || M520x
-+	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
-+	depends on M523x || M527x || M5272 || M528x || M520x || ARCH_MXC
- 	help
- 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
--	  controller on some Motorola ColdFire processors.
-+	  controller on some Motorola ColdFire and Freescale i.MX processors.
- 
- config FEC2
- 	bool "Second FEC ethernet controller (on some ColdFire CPUs)"
 diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 6a54d1f..2c8783a 100644
+index 7e33c12..b754f60 100644
 --- a/drivers/net/fec.c
 +++ b/drivers/net/fec.c
-@@ -38,10 +38,14 @@
- #include <linux/bitops.h>
- #include <linux/io.h>
- #include <linux/irq.h>
-+#include <linux/clk.h>
- 
- #include <asm/cacheflush.h>
-+
-+#ifndef CONFIG_ARCH_MXC
- #include <asm/coldfire.h>
- #include <asm/mcfsim.h>
-+#endif
- 
- #include "fec.h"
- 
-@@ -51,6 +55,13 @@
- #define	FEC_MAX_PORTS	1
+@@ -72,8 +72,6 @@ static unsigned int fec_hw[] = {
+ 	(MCF_MBAR+0x30000),
+ #elif defined(CONFIG_M532x)
+ 	(MCF_MBAR+0xfc030000),
+-#else
+-	&(((immap_t *)IMAP_ADDR)->im_cpm.cp_fec),
  #endif
+ };
  
-+#ifdef CONFIG_ARCH_MXC
-+#include <mach/hardware.h>
-+#define FEC_ALIGNMENT	0xf
-+#else
-+#define FEC_ALIGNMENT	0x3
-+#endif
-+
- #if defined(CONFIG_M5272)
- #define HAVE_mii_link_interrupt
- #endif
-@@ -158,7 +169,7 @@ typedef struct {
-  * account when setting it.
-  */
- #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
--    defined(CONFIG_M520x) || defined(CONFIG_M532x)
-+    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARCH_MXC)
- #define	OPT_FRAME_SIZE	(PKT_MAXBUF_SIZE << 16)
- #else
- #define	OPT_FRAME_SIZE	0
-@@ -339,7 +350,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 *	4-byte boundaries. Use bounce buffers to copy data
- 	 *	and get it aligned. Ugh.
- 	 */
--	if (bdp->cbd_bufaddr & 0x3) {
-+	if (bdp->cbd_bufaddr & FEC_ALIGNMENT) {
- 		unsigned int index;
- 		index = bdp - fep->tx_bd_base;
- 		memcpy(fep->tx_bounce[index], (void *)skb->data, skb->len);
-diff --git a/drivers/net/fec.h b/drivers/net/fec.h
-index 292719d..76c64c9 100644
---- a/drivers/net/fec.h
-+++ b/drivers/net/fec.h
-@@ -14,7 +14,7 @@
- /****************************************************************************/
+@@ -1760,96 +1758,6 @@ static void __inline__ fec_uncache(unsigned long addr)
+ {
+ }
  
- #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
--    defined(CONFIG_M520x) || defined(CONFIG_M532x)
-+    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARCH_MXC)
- /*
-  *	Just figures, Motorola would have to change the offsets for
-  *	registers in the same peripheral device on different models
-@@ -103,12 +103,19 @@ typedef struct fec {
- /*
-  *	Define the buffer descriptor structure.
-  */
-+#ifdef CONFIG_ARCH_MXC
-+typedef struct bufdesc {
-+	unsigned short cbd_datlen;	/* Data length */
-+	unsigned short cbd_sc;	/* Control and status info */
-+	unsigned long cbd_bufaddr;	/* Buffer address */
-+} cbd_t;
-+#else
- typedef struct bufdesc {
- 	unsigned short	cbd_sc;			/* Control and status info */
- 	unsigned short	cbd_datlen;		/* Data length */
- 	unsigned long	cbd_bufaddr;		/* Buffer address */
- } cbd_t;
+-/* ------------------------------------------------------------------------- */
 -
-+#endif
+-
+-#else
+-
+-/*
+- *	Code specific to the MPC860T setup.
+- */
+-static void __inline__ fec_request_intrs(struct net_device *dev)
+-{
+-	volatile immap_t *immap;
+-
+-	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+-
+-	if (request_8xxirq(FEC_INTERRUPT, fec_enet_interrupt, 0, "fec", dev) != 0)
+-		panic("Could not allocate FEC IRQ!");
+-}
+-
+-static void __inline__ fec_get_mac(struct net_device *dev)
+-{
+-	bd_t *bd;
+-
+-	bd = (bd_t *)__res;
+-	memcpy(dev->dev_addr, bd->bi_enetaddr, ETH_ALEN);
+-}
+-
+-static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
+-{
+-	extern uint _get_IMMR(void);
+-	volatile immap_t *immap;
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+-
+-	/* Configure all of port D for MII.
+-	*/
+-	immap->im_ioport.iop_pdpar = 0x1fff;
+-
+-	/* Bits moved from Rev. D onward.
+-	*/
+-	if ((_get_IMMR() & 0xffff) < 0x0501)
+-		immap->im_ioport.iop_pddir = 0x1c58;	/* Pre rev. D */
+-	else
+-		immap->im_ioport.iop_pddir = 0x1fff;	/* Rev. D and later */
+-
+-	/* Set MII speed to 2.5 MHz
+-	*/
+-	fecp->fec_mii_speed = fep->phy_speed =
+-		((bd->bi_busfreq * 1000000) / 2500000) & 0x7e;
+-}
+-
+-static void __inline__ fec_enable_phy_intr(void)
+-{
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-
+-	/* Enable MII command finished interrupt
+-	*/
+-	fecp->fec_ivec = (FEC_INTERRUPT/2) << 29;
+-}
+-
+-static void __inline__ fec_disable_phy_intr(void)
+-{
+-}
+-
+-static void __inline__ fec_phy_ack_intr(void)
+-{
+-}
+-
+-static void __inline__ fec_localhw_setup(void)
+-{
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-	fecp->fec_r_hash = PKT_MAXBUF_SIZE;
+-	/* Enable big endian and don't care about SDMA FC.
+-	*/
+-	fecp->fec_fun_code = 0x78000000;
+-}
+-
+-static void __inline__ fec_uncache(unsigned long addr)
+-{
+-	pte_t *pte;
+-	pte = va_to_pte(mem_addr);
+-	pte_val(*pte) |= _PAGE_NO_CACHE;
+-	flush_tlb_page(init_mm.mmap, mem_addr);
+-}
+-
+ #endif
  
- /*
-  *	The following definitions courtesy of commproc.h, which where
+ /* ------------------------------------------------------------------------- */
 -- 
 1.5.6.5
 
