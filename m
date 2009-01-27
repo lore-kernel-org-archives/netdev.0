@@ -1,52 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 32 core net-next stack/netfilter "scaling"
-Date: Tue, 27 Jan 2009 12:37:18 +0100
-Message-ID: <497EF1EE.7000304@trash.net>
-References: <497E361B.30909@hp.com> <497E42F4.7080201@cosmosbay.com> <497E44F6.2010703@hp.com> <497ECF84.1030308@cosmosbay.com> <497ED0A2.6050707@trash.net> <497EF030.10504@cosmosbay.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v3] tcp: splice as many packets as possible at once
+Date: Tue, 27 Jan 2009 22:48:05 +1100
+Message-ID: <20090127114805.GA30982@gondor.apana.org.au>
+References: <20090125.212203.15909648.davem@davemloft.net> <20090127071130.GA29125@gondor.apana.org.au> <20090127075418.GB4197@ff.dom.local> <20090127100958.GA30239@gondor.apana.org.au> <20090127103511.GE4197@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net, w@1wt.eu,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35463 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752331AbZA0LhZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 06:37:25 -0500
-In-Reply-To: <497EF030.10504@cosmosbay.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:52839 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752703AbZA0Lsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 06:48:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20090127103511.GE4197@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Patrick McHardy a =E9crit :
->  =20
->> Thats an interesting test-case, but one lock per conntrack just for
->> TCP tracking seems like overkill. We're trying to keep the conntrack
->> stuctures as small as possible, so I'd prefer an array of spinlocks
->> or something like that.
->>    =20
+On Tue, Jan 27, 2009 at 10:35:11AM +0000, Jarek Poplawski wrote:
 >
-> Yes, this is wise. Current sizeof(struct nf_conn) is 220 (0xdc) on 32=
- bits,
-> probably rounded to 0xE0 by SLAB/SLUB. I will provide a new patch usi=
-ng
-> an array of say 512 spinlocks. (512 spinlocks use 2048 bytes if non
-> debuging spinlocks, that spread to 32 x 64bytes cache lines)
->  =20
+> > > Yes, but ip_append_data() (and skb_append_datato_frags() for
+> > > NETIF_F_UFO only, so currently not a problem), uses this differently,
+> > > and these pages in sk->sk_sndmsg_page could leak or be used after
+> > > kfree. (I didn't track locking in these other places).
+> > 
+> > It'll be freed when the socket is freed so that should be fine.
+> 
+> I don't think so: these places can overwrite sk->sk_sndmsg_page left
+> after tcp_sendmsg(), or skb_splice_bits() now, with NULL or a new
+> pointer without put_page() (they only reference copied chunks and
+> expect auto freeing). On the other hand, if tcp_sendmsg() reads after
+> them it could use a pointer after the page is freed, I guess.
 
-Sounds good, but it should be limited to NR_CPUS I guess.
-> However I wonder if for very large number of cpus we should at least =
-ask conntrack=20
-> to use hardware aligned "struct nf_conn" to avoid false sharing
->  =20
+I wasn't referring to the first part of your sentence.  That can't
+happen because they're only used for UDP sockets, this is a TCP
+socket.
 
-I'm not sure that is really a problem in practice, you usually have qui=
-te a
-few inactive conntrack entries and false sharing would only happen when=
- two
-consequitive entries are active.
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
