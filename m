@@ -1,73 +1,61 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: [PATCH] fec: use dma_alloc_coherent for descriptor ring
-Date: Tue, 27 Jan 2009 11:40:00 +0100
-Message-ID: <1233052804-31228-6-git-send-email-s.hauer@pengutronix.de>
-References: <1233052804-31228-1-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-2-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-3-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-4-git-send-email-s.hauer@pengutronix.de>
- <1233052804-31228-5-git-send-email-s.hauer@pengutronix.de>
-Cc: Greg Ungerer <gerg@snapgear.com>,
-	frederic rodo <fred.rodo@gmail.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: 2.6.28 headers break kbd and net-tools userspace builds
+Date: Tue, 27 Jan 2009 11:44:51 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0901271143490.3147@fbirervta.pbzchgretzou.qr>
+References: <20090122175645.GA14178@uranus.ravnborg.org> <4978C301.1040705@walrond.org> <20090122191239.GA16347@uranus.ravnborg.org> <20090126.210835.181389836.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: sam@ravnborg.org, andrew@walrond.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:47199 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753175AbZA0Kn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:43:29 -0500
-In-Reply-To: <1233052804-31228-5-git-send-email-s.hauer@pengutronix.de>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:49435 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752145AbZA0Kox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 05:44:53 -0500
+In-Reply-To: <20090126.210835.181389836.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
----
- drivers/net/fec.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 1087c4d..d7ba07c 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -186,6 +186,7 @@ struct fec_enet_private {
- 
- 	/* CPM dual port RAM relative addresses.
- 	*/
-+	dma_addr_t	bd_dma;
- 	cbd_t	*rx_bd_base;		/* Address of Rx and Tx buffers. */
- 	cbd_t	*tx_bd_base;
- 	cbd_t	*cur_rx, *cur_tx;		/* The next free ring entry */
-@@ -2107,7 +2108,7 @@ int __init fec_enet_init(struct net_device *dev)
- 
- 	/* Allocate memory for buffer descriptors.
- 	*/
--	mem_addr = __get_free_page(GFP_KERNEL);
-+	mem_addr = (unsigned long)dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma, GFP_KERNEL);
- 	if (mem_addr == 0) {
- 		printk("FEC: allocate descriptor memory failed?\n");
- 		return -ENOMEM;
-@@ -2202,8 +2203,8 @@ int __init fec_enet_init(struct net_device *dev)
- 
- 	/* Set receive and transmit descriptor base.
- 	*/
--	fecp->fec_r_des_start = __pa((uint)(fep->rx_bd_base));
--	fecp->fec_x_des_start = __pa((uint)(fep->tx_bd_base));
-+	fecp->fec_r_des_start = fep->bd_dma;
-+	fecp->fec_x_des_start = (unsigned long)fep->bd_dma + sizeof(cbd_t) * RX_RING_SIZE;
- 
- 	/* Install our interrupt handlers. This varies depending on
- 	 * the architecture.
-@@ -2291,8 +2292,8 @@ fec_restart(struct net_device *dev, int duplex)
- 
- 	/* Set receive and transmit descriptor base.
- 	*/
--	fecp->fec_r_des_start = __pa((uint)(fep->rx_bd_base));
--	fecp->fec_x_des_start = __pa((uint)(fep->tx_bd_base));
-+	fecp->fec_r_des_start = fep->bd_dma;
-+	fecp->fec_x_des_start = (unsigned long)fep->bd_dma + sizeof(cbd_t) * RX_RING_SIZE;
- 
- 	fep->dirty_tx = fep->cur_tx = fep->tx_bd_base;
- 	fep->cur_rx = fep->rx_bd_base;
--- 
-1.5.6.5
+On Tuesday 2009-01-27 06:08, David Miller wrote:
+>> On Thu, Jan 22, 2009 at 07:03:29PM +0000, Andrew Walrond wrote:
+>> > $ grep -r iphdr /usr/include/
+>> > 
+>> > /usr/include/netinet/ip.h:struct iphdr
+>> > /usr/include/netinet/tcp.h: * This should be defined as MIN(512, IP_MSS 
+>> > - sizeof (struct tcpiphdr)).
+>> > /usr/include/linux/if_tunnel.h:    struct iphdr        iph;
+>> > /usr/include/linux/ip.h:struct iphdr {
+>> > 
+>> > $ grep netinet/ip.h iptunnel.c
+>> > 
+>> > #include <netinet/ip.h>
+>> > 
+>> > So linux/ip.h is clashing with glibc(2.8)'s netinet/ip.h
+>> 
+>> I took a look at my netinet/ip.h and this is obviously
+>> the same structure.
+>> But I do not know what the right answer is here.
+>> 
+>> This may be a general thing. Because iphdr is
+>> no a kernel thing, it is an IP thing. So one could argue
+>> that the kernel should not export it in the first place.
+>
+>The fly in the ointment is linux/if_tunnel.h
+>
+>We export a structure there for a userland interface which
+>uses "struct iphdr".
+>
+>Because of that, we are faced with the difficult choice between
+>defining the structure (as we do) in linux/ip.h or using some ugly
+>__KERNEL__ ifdefs in linux/if_tunnel.h to conditionally include
+>netinet/ip.h instead. :-/
+>
+>Really, I have no idea what to do about this as the problem has
+>existed for so long.
+
+I think in the long term, exported structs should probably
+have a "kernel_" prefix, much like userspace libraries use
+such prefixes to (try to) guard against simple name clashes.
 
