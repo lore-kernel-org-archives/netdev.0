@@ -1,47 +1,67 @@
-From: Jaswinder Singh Rajput <jaswinderlinux@gmail.com>
-Subject: Re: [BUG] tg3 module problem on Linux-2.6.29-rc1-2
-Date: Tue, 27 Jan 2009 12:00:43 +0530
-Message-ID: <3f9a31f40901262230s3efb9242jcd4a02ee84944daa@mail.gmail.com>
-References: <49771D65.3090205@turknet.net.tr>
-	 <20090121152818.GA3438@x200.localdomain>
-	 <497870A3.4070200@turknet.net.tr>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 12484] New: Kernel panic 1gb lan connection
+Date: Mon, 26 Jan 2009 23:09:02 -0800
+Message-ID: <20090126230902.85af7ea9.akpm@linux-foundation.org>
+References: <bug-12484-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Tarkan Erimer <tarkan.erimer@turknet.net.tr>
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: nice10150@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.230]:41988 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbZA0Gao (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 01:30:44 -0500
-In-Reply-To: <497870A3.4070200@turknet.net.tr>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:34539 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751750AbZA0HJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 02:09:23 -0500
+In-Reply-To: <bug-12484-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2009 at 6:42 PM, Tarkan Erimer
-<tarkan.erimer@turknet.net.tr> wrote:
-> Alexey Dobriyan wrote:
->>
->> # CONFIG_FIRMWARE_IN_KERNEL is not set
->>
->> Try setting this option to =y.
->>
->
-> Thanks for the reply. I tried with "CONFIG_FIRMWARE_IN_KERNEL=y" as you
-> suggested. But, still I get the same warning.
-> It looks like ubuntu's make-kpkg utility or kernel compile process do not
-> care about "CONFIG_FIRMWARE_IN_KERNEL=y" and still building modules without
-> firmware built-in.
->
->
 
-Is this ubuntu's specific problem or you also getting these
-warnings/errors on another releases.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
---
-JSR
+On Mon, 19 Jan 2009 02:10:36 -0800 (PST) bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=12484
+> 
+>            Summary: Kernel panic 1gb lan connection
+>            Product: Other
+>            Version: 2.5
+>      KernelVersion: 2.6.27
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Modules
+>         AssignedTo: other_modules@kernel-bugs.osdl.org
+>         ReportedBy: nice10150@gmail.com
+> 
+> 
+> Latest working kernel version:?
+> Earliest failing kernel version:2.6.27
+> Distribution: Fedora 10, Ubuntu, etc...
+> Hardware Environment: Asus P4S800D-E Delux mother board with Marvell Yukon
+> giga-lan chipset.
+> Software Environment:
+> Problem Description: The combination of Marvel 1gb Lan connection and kernel
+> 2.6.27 generates a kernel panic at boot. The identical setup connected to a
+> 10/100 network boots regular.
+> 
+> Steps to reproduce: Boot system equipped with (Asus motherboard) Marvell Yukon
+> network chipset connected to a 1gb Lan enabled network.
+> 
+
+We'd like a bit more information about the panic please.
+
+Ideally, set up a serial console and capture the entire kernel output. 
+If that is not practical, perhaps a digital photograph of the screen? 
+Setting the screen into 50-row mode beforehand is often useful.
+
+Worst-case, just type it all in again :(  Usually all the hexadecimal
+numbers can just be omitted when doing this.
+
+Thanks.
+
