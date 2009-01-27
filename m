@@ -1,49 +1,73 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 04/21] RDS: Transport code
-Date: Tue, 27 Jan 2009 16:18:08 +0300
-Message-ID: <20090127131808.GF2646@ioremap.net>
-References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com> <1233022678-9259-5-git-send-email-andy.grover@oracle.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] sky2: fix hard hang with netconsoling and iface going up
+Date: Tue, 27 Jan 2009 16:27:18 +0300
+Message-ID: <20090127132718.GA10001@x200.localdomain>
+References: <20090127120129.GA9696@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rdreier@cisco.com, rds-devel@oss.oracle.com,
-	general@lists.openfabrics.org, netdev@vger.kernel.org
-To: Andy Grover <andy.grover@oracle.com>
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cs-studio.ru ([195.178.208.66]:50004 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753061AbZA0NS0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 08:18:26 -0500
+Received: from fg-out-1718.google.com ([72.14.220.157]:7177 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754288AbZA0NVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 08:21:41 -0500
+Received: by fg-out-1718.google.com with SMTP id 13so136167fge.17
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 05:21:38 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1233022678-9259-5-git-send-email-andy.grover@oracle.com>
+In-Reply-To: <20090127120129.GA9696@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 26, 2009 at 06:17:41PM -0800, Andy Grover (andy.grover@oracle.com) wrote:
-> +static LIST_HEAD(transports);
-> +static DECLARE_RWSEM(trans_sem);
-> +
+On Tue, Jan 27, 2009 at 03:01:29PM +0300, Alexey Dobriyan wrote:
+> If sky2 interface is netconsoling, then
+> 
+> 	ifconfig down; ifconfig up
+> 
+> leads to hard hang after printing
+> 
+> 	sky2 eth0: enabling interface
+> 
+> SysRq+b reboots the box, nothing else works (or prints something).
+> 
+> This is with 2.6.28.2 and 2.6.29-rc2-5ee810072175042775e39bdd3eaaa68884c27805.
+> Most certainly was there since day one.
+> 
+> Haven't investigated further.
 
-RDS_ prefix?
+Well, duh...
 
-> +int rds_trans_register(struct rds_transport *trans)
-> +{
-> +	BUG_ON(strlen(trans->t_name) + 1 >
-> +	       sizeof(((struct rds_info_connection *)0)->transport));
-> +
 
-Wow. Why not declare 15 as some constant and put it into rds_transport
-structure definition?
+[PATCH] sky2: fix hard hang with netconsoling and iface going up
 
-> +struct rds_transport *rds_trans_get_preferred(__be32 addr)
-> +{
-> +	struct rds_transport *trans;
-> +	struct rds_transport *ret = NULL;
-> +
-> +        if (IN_LOOPBACK(ntohl(addr)))
-> +                return &rds_loop_transport;
-> +
+Printing anything over netconsole before hw is up and running is,
+of course, not going to work.
 
-Tabs have run away.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
--- 
-	Evgeniy Polyakov
+ drivers/net/sky2.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1403,9 +1403,6 @@ static int sky2_up(struct net_device *dev)
+ 
+  	}
+ 
+-	if (netif_msg_ifup(sky2))
+-		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
+-
+ 	netif_carrier_off(dev);
+ 
+ 	/* must be power of 2 */
+@@ -1484,6 +1481,9 @@ static int sky2_up(struct net_device *dev)
+ 	sky2_write32(hw, B0_IMSK, imask);
+ 
+ 	sky2_set_multicast(dev);
++
++	if (netif_msg_ifup(sky2))
++		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
+ 	return 0;
+ 
+ err_out:
