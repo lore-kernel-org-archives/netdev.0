@@ -1,55 +1,106 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: Re: [PATCH 04/21] RDS: Transport code
-Date: Tue, 27 Jan 2009 11:36:37 -0800
-Message-ID: <c0a09e5c0901271136h4ac81f28g143d1b084cc1076@mail.gmail.com>
-References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
-	 <1233022678-9259-5-git-send-email-andy.grover@oracle.com>
-	 <20090127131808.GF2646@ioremap.net>
+From: Jesper Krogh <jesper@krogh.cc>
+Subject: Re: Linux 2.6.27.13
+Date: Tue, 27 Jan 2009 20:36:55 +0100
+Message-ID: <497F6257.4070101@krogh.cc>
+References: <20090125004823.GA6711@kroah.com> <497E16A0.50607@krogh.cc>
+	<20090126210730.GB24164@suse.de>
+	<F169D4F5E1F1974DBFAFABF47F60C10A1C2250D0@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andy Grover <andy.grover@oracle.com>, rdreier@cisco.com,
-	rds-devel@oss.oracle.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.246]:64590 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756341AbZA0Tgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 14:36:40 -0500
-Received: by an-out-0708.google.com with SMTP id c2so1508717anc.1
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 11:36:38 -0800 (PST)
-In-Reply-To: <20090127131808.GF2646@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Greg KH <gregkh@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1C2250D0@orsmsx507.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 27, 2009 at 5:18 AM, Evgeniy Polyakov <zbr@ioremap.net> wrote:
-> On Mon, Jan 26, 2009 at 06:17:41PM -0800, Andy Grover (andy.grover@oracle.com) wrote:
->> +static LIST_HEAD(transports);
->> +static DECLARE_RWSEM(trans_sem);
->> +
->
-> RDS_ prefix?
+Brandeburg, Jesse wrote:
+> Greg KH wrote:
+>> On Mon, Jan 26, 2009 at 09:01:36PM +0100, Jesper Krogh wrote:
+>>> Greg KH wrote:
+>>>> We (the -stable team) are announcing the release of the 2.6.27.13
+>>>> kernel. It contains a wide range of bugfixes, and all users of the
+>>>> 2.6.27 kernel series are strongly encouraged to upgrade.
+>>>> I'll also be replying to this message with a copy of the patch
+>>>> between 
+>>>> 2.6.27.12 and 2.6.27.13
+>>> Hi.
+>>>
+>>> I'm getting some e1000 noise on a 2.6.27.6, I search the log up to
+>>> .13 but couldn't find any log messsage that looked like it fixed it.
+>>>
+>>>
+>>> [862734.501786] ------------[ cut here ]------------
+>>> [862734.501793] WARNING: at net/sched/sch_generic.c:219
+>>> dev_watchdog+0x1f8/0x210() [862734.501795] NETDEV WATCHDOG: eth0
+>>> (e1000): transmit timed out 
+>> I've been getting a lot of reports about this as well.  Did it show up
+>> in 2.6.27.6?
+>>
+>> Netdev developers, any ideas of what would be causing this?
+> 
+> no immediate idea, but a quick test to help isolate which functionality
+> could be causing problems is to disable TSO on all four interfaces using
+> ethtool.
+> 
+> It could be that GSO is somehow playing into this as well, but I don't
+> know why (you could disable it with ethtool too).
+> 
+> It could be unrelated but I've noticed that TCP window size can grow much
+> larger now than it used to (especially talking to LRO enabled clients) 
+> and this might cause some kind of an overflow in the TCP transmit
+> offloading hardware in the e1000 parts.
+> 
+> 
+>>> Complete dmesg here:
+>>> http://krogh.cc/~jesper/dmesg-2.6.27.6.txt
+>>>
+>>> The system is running with bonded interfaces with  (lspci output)
+>>> 06:01.0 Ethernet controller: Intel Corporation 82546EB Gigabit
+>>> Ethernet Controller (Copper) (rev 03) 06:01.1 Ethernet controller:
+>>> Intel Corporation 82546EB Gigabit Ethernet Controller (Copper) (rev
+>>> 03) 06:02.0 Ethernet controller: Intel Corporation 82546EB Gigabit
+>>> Ethernet Controller (Copper) (rev 03) 06:02.1 Ethernet controller:
+>>> Intel Corporation 82546EB Gigabit Ethernet Controller (Copper) (rev
+>>> 03)   
+>>>
+>>> The system is still "fully functional", and I havent notiched
+>>> anything wrong, but there sure is a lot of link ups and downs on
+>>> that bond. 
+> 
+> in your log I saw one tx timeout for each interface, one first one by itself
+> and then several more all within a few minutes, but then no more for
+> a really long time.
+> 
+> My first reaction is to ask you what test you're running, and ask you to
+> run the e1000_dump code (see google) to dump the tx descriptor rings at 
+> the time of failure.
+> 
+> I can get you that code with updates if you're willing to test, but 
+> it might take a couple of days.
 
-Even needed for statics?
+I would love to have it at hand, but it is a production system, so it'll 
+be upgraded to 2.6.27.latest at next reboot. So It should be working 
+with that one.
 
->> +int rds_trans_register(struct rds_transport *trans)
->> +{
->> +     BUG_ON(strlen(trans->t_name) + 1 >
->> +            sizeof(((struct rds_info_connection *)0)->transport));
->> +
->
-> Wow. Why not declare 15 as some constant and put it into rds_transport
-> structure definition?
+Jesper
 
-Makes sense.
+-- 
+Jesper
 
->> +        if (IN_LOOPBACK(ntohl(addr)))
->> +                return &rds_loop_transport;
->> +
->
-> Tabs have run away.
-
-Will fix. Thanks.
-
-Regards -- Andy
+------------------------------------------------------------------------------
+This SF.net email is sponsored by:
+SourcForge Community
+SourceForge wants to tell your story.
+http://p.sf.net/sfu/sf-spreadtheword
