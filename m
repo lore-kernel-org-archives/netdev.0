@@ -1,65 +1,57 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 05/21] RDS: Info and stats
-Date: Tue, 27 Jan 2009 16:28:00 +0300
-Message-ID: <20090127132759.GG2646@ioremap.net>
-References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com> <1233022678-9259-6-git-send-email-andy.grover@oracle.com>
+From: Tobias Klausmann <klausman@schwarzvogel.de>
+Subject: Re: Possible race condition in conntracking
+Date: Tue, 27 Jan 2009 14:28:10 +0100
+Message-ID: <20090127132810.GA21498@eric.schwarzvogel.de>
+References: <20090127075744.GA19875@eric.schwarzvogel.de> <497ED1E1.40304@trash.net> <20090127130604.GA19883@eric.schwarzvogel.de> <497F08C4.90705@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rdreier@cisco.com, rds-devel@oss.oracle.com,
-	general@lists.openfabrics.org, netdev@vger.kernel.org
-To: Andy Grover <andy.grover@oracle.com>
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cet.com.ru ([195.178.208.66]:34337 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753061AbZA0N2B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 08:28:01 -0500
+Received: from eric.schwarzvogel.de ([194.97.4.250]:39064 "EHLO
+	eric.schwarzvogel.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754073AbZA0N2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 08:28:12 -0500
 Content-Disposition: inline
-In-Reply-To: <1233022678-9259-6-git-send-email-andy.grover@oracle.com>
+In-Reply-To: <497F08C4.90705@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 26, 2009 at 06:17:42PM -0800, Andy Grover (andy.grover@oracle.com) wrote:
-> +void rds_info_register_func(int optname, rds_info_func func)
-> +{
-> +	int offset = optname - RDS_INFO_FIRST;
-> +
-> +	BUG_ON(optname < RDS_INFO_FIRST || optname > RDS_INFO_LAST);
-> +
-> +	spin_lock(&rds_info_lock);
-> +	BUG_ON(rds_info_funcs[offset] != NULL);
-> +	rds_info_funcs[offset] = func;
-> +	spin_unlock(&rds_info_lock);
-> +}
-> +EXPORT_SYMBOL_GPL(rds_info_register_func);
-> +
-> +void rds_info_deregister_func(int optname, rds_info_func func)
-> +{
-> +	int offset = optname - RDS_INFO_FIRST;
-> +
-> +	BUG_ON(optname < RDS_INFO_FIRST || optname > RDS_INFO_LAST);
-> +
+Hi! 
 
-Those bug_ons look quite scary, is there a way to actually have a wrong
-optname? Plus, those _INFO definitions are declared twice in the code,
-which makes it harder to update.
+On Tue, 27 Jan 2009, Patrick McHardy wrote:
+> Tobias Klausmann wrote:
+>> So, as far as rule-matching is concerned, the two packets are
+>> handled identically. Whatever happens after this:
+>> Jan 27 11:00:39 fw2 kernel: TRACE: nat:POSTROUTING:policy:3 IN=
+>> OUT=eth2.188 SRC=194.97.7.116 DST=194.97.3.83 LEN=66 TOS=0x00
+>> PREC=0x00 TTL=63 ID=46964 DF PROTO=UDP SPT=53452 DPT=53 LEN=46 is making 
+>> this very packet go away. The policy of nat/PR is
+>> ACCEPT.
+>
+> This just means it passed through the last table/chain. The
+> only one following is conntrack confirmation.
+>
+> Damn it :) I just noticed, we do indeed drop packets from
+> duplicate new connections in conntrack confirmation.
 
-> +/*
-> + * Typically we hold an atomic kmap across multiple rds_info_copy() calls
-> + * because the kmap is so expensive.  This must be called before using blocking
-> + * operations while holding the mapping and as the iterator is torn down.
-> + */
-> +void rds_info_iter_unmap(struct rds_info_iterator *iter)
-> +{
-> +	if (iter->addr != NULL) {
-> +		kunmap_atomic(iter->addr, KM_USER0);
-> +		iter->addr = NULL;
-> +	}
-> +}
-> +
+So the question remains what to do instead and how to do it. That
+probably is deep Netfilter mojo, so I could only speculate wildly.
 
-This one is used to temporarily map some address, but functions called
-between map and unmap functions (like rds_info_getsockopt()) may sleep,
-which is wrong.
+> You should see the insert_failed conntrack counter show this
+> (/proc/net/stat/nf_conntrack).
+
+We do, as I said in my first mail. Near as I can tell,
+nf_conntrack_confirm() is the only function that ever increases
+that counter, so it's definitely dropped there. As to how one
+could handle it differently, I have to defer to people with more
+Netfilter expertise. No point in "fixing" this by breaking other
+stuff.
+
+Regards,
+Tobias
 
 -- 
-	Evgeniy Polyakov
+printk("Cool stuff's happening!\n")
+        linux-2.4.3/fs/jffs/intrep.c
