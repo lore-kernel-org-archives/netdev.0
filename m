@@ -1,46 +1,70 @@
-From: Vitaliy Gusev <vgusev@openvz.org>
-Subject: Re: [PATCH 3/4] forcedeth: napi schedule lock fix
-Date: Tue, 27 Jan 2009 19:28:16 +0300
-Message-ID: <200901271928.16783.vgusev@openvz.org>
-References: <4967BBB5.9080803@nvidia.com>
+From: "Paul Moore" <paul.moore@centrify.com>
+Subject: RE: port bound SAs
+Date: Tue, 27 Jan 2009 08:46:02 -0800
+Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com>
+References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	nedev <netdev@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:16218 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755156AbZA0Qh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2009 11:37:57 -0500
-In-Reply-To: <4967BBB5.9080803@nvidia.com>
-Content-Disposition: inline
+Received: from mail.centrify.com ([216.112.107.103]:43653 "EHLO
+	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752320AbZA0QqI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 11:46:08 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <497EE171.1030907@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10 January 2009 00:03:49 Ayaz Abdulla wrote:
-> This patch fixes a potential race condition between scheduling napi and 
-> completing napi poll. The call to netif_rx_schedule should be under 
-> protection of the lock (as is the completion), otherwise, interrupts 
-> could be masked off.
+racoon
 
-Can you explain how this issue or race can occur (interrupts can be masked off) ?
+if I look at the xfrm/pfkey code in the kernel it ignores any ports sent
+down by the IKE daemon in transport mode. I actually changed the racoon
+code to include the ports and it makes no difference
 
-netif_rx_schedule() merely mark soft irq as waked on current CPU. So dev->poll
-will not be called until irq_exit() or local_bh_enable. As nv_nic_irq() is run
-under interrupt context, so napi poll will be called only during irq_exit.
+-----Original Message-----
+From: Patrick McHardy [mailto:kaber@trash.net] 
+Sent: Tuesday, January 27, 2009 2:27 AM
+To: David Miller
+Cc: Paul Moore; netdev@vger.kernel.org
+Subject: Re: port bound SAs
 
-
+David Miller wrote:
+> From: "Paul Moore" <paul.moore@centrify.com>
+> Date: Mon, 26 Jan 2009 11:21:33 -0800
 > 
-> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+>> A few weeks ago I posted a question to the IETF IPsec group on this
+>> topic 
+>>
+>> I have 2 SPDs declared saying (transport mode)
+>> 10.0.0.0/24 port 23 esp
+>> 10.0.0.0/24 port 80 esp
+>>
+>> I then initiate a connection from that Linux machine to another
+system
+>> that has the same logical rules
+>> port 23 fires up and I get an SA pair. The question is - does that SA
+>> pair belong to port 23 or not
+>> If I now connect using port 80 from the same Linux box to the same
+peer
+>> it tries to use the SA already set up for port 23
+>> The remote system (windows in my test case) drops the packets because
+it
+>> believes that the SA is for port 23 traffic only
 > 
+> Why does the Linux system do this?  The route lookup should, as it's
+> final IPSEC route lookup action, do an xfrm policy lookup which should
+> do a selector match and thus not match the port 23 rule.
 > 
+> I can't find the code which would allow the sequence of events
+> you describe, can you?
 
+I'm guessing that its just the policy that has the port selector set
+and the keying daemon does not set it for the installed SAs. So unless
+the policies specify seperate SPIs or reqids the SAs will be shared.
 
-
--- 
-Thank,
-Vitaliy Gusev
+Paul, which keying daemon are you using?
