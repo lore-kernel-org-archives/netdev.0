@@ -1,47 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] iproute2: 0 out memory for tc_skbedit struct prior to using
-	it.
-Date: Mon, 26 Jan 2009 19:20:28 -0800
-Message-ID: <20090127032028.26631.27015.stgit@lost.foo-projects.org>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: Re: [PATCH 4/5] virtio_net: Add a MAC filter table
+Date: Mon, 26 Jan 2009 20:38:02 -0700
+Message-ID: <1233027482.7148.42.camel@2710p.home>
+References: <20090116211312.22836.34331.stgit@debian.lart>
+	 <20090116211334.22836.72681.stgit@debian.lart>
+	 <200901271300.30330.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:56480 "EHLO
-	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752044AbZA0DUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2009 22:20:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, markmc@redhat.com, kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <200901271300.30330.rusty@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Hi Rusty,
 
-A bug was found in which the memory for the tc_skbedit struct was being
-used uninitialized to 0.  This patch corrects the issue by using a memset
-to 0 out the memory of the structure.
+On Tue, 2009-01-27 at 13:00 +1030, Rusty Russell wrote:
+> On Saturday 17 January 2009 07:43:34 Alex Williamson wrote:
+> > As with most real hardware, unicast addresses have priority in
+> 
+> > the filter table so we can avoid enabling full promiscuous
+> 
+> > until both unicast and multicast address overflow.
+> 
+> Why not pretend to have infinite, and have the host turn promisc on
+> when *it*
+> 
+> decides? Skip the alloc call, and just use a feature bit like
+> everything else?
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+I suppose it's just a matter of where do you want to add the smarts and
+the tune-ability.  Since we can't actually have an infinite table and an
+array implementation seems to make sense from an efficiency standpoint,
+it needs to be defined by someone to be a fixed size before we start
+using it.  I was hoping the guest driver might have a better idea how it
+plans to use the filter table and that there'd be some benefit to having
+that handshake happen between the driver and the backend.  The module
+parameter fell out of this and seems rather convenient.
 
- tc/m_skbedit.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+I could pursue this is you like, but I'm not sure of the benefit,
+particularly if we want to give the user some control of the size of the
+actual table.  Thoughts?  Thanks for the comments,
 
-diff --git a/tc/m_skbedit.c b/tc/m_skbedit.c
-index 55e3f89..0e50fbc 100644
---- a/tc/m_skbedit.c
-+++ b/tc/m_skbedit.c
-@@ -57,6 +57,8 @@ parse_skbedit(struct action_util *a, int *argc_p, char ***argv_p, int tca_id,
- 	__u16 queue_mapping;
- 	__u32 flags = 0, priority;
- 
-+	memset(&sel, 0, sizeof(struct tc_skbedit));
-+
- 	if (matches(*argv, "skbedit") != 0)
- 		return -1;
- 
+Alex 
+
+-- 
+Alex Williamson                             HP Open Source & Linux Org.
 
