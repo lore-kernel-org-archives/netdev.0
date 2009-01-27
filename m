@@ -1,28 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] : Remove unused variable pdev from drivers/net/r6040.c
-Date: Mon, 26 Jan 2009 21:54:33 -0800 (PST)
-Message-ID: <20090126.215433.35004321.davem@davemloft.net>
-References: <ea11fea30901190529k6f12f4c1xed7295ccbf0dcefa@mail.gmail.com>
-	<ea11fea30901262028r3a8f694fgd03b9bf7538719b3@mail.gmail.com>
+Subject: Re: [PATCH] net: add tracepoints to socket api
+Date: Mon, 26 Jan 2009 21:57:03 -0800 (PST)
+Message-ID: <20090126.215703.115893965.davem@davemloft.net>
+References: <20090126195930.GA28208@hmsreliant.think-freely.org>
+	<20090126.172253.25010769.davem@davemloft.net>
+	<20090127013127.GB25660@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	sten.wang@rdc.com.tw, daniel@gimpelevich.san-francisco.ca.us,
-	florian@openwrt.org, stable@vger.kernel.org
-To: mkatiyar@gmail.com
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56439
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56445
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750940AbZA0Fyg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 00:54:36 -0500
-In-Reply-To: <ea11fea30901262028r3a8f694fgd03b9bf7538719b3@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751688AbZA0F5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 00:57:05 -0500
+In-Reply-To: <20090127013127.GB25660@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Katiyar <mkatiyar@gmail.com>
-Date: Tue, 27 Jan 2009 09:58:11 +0530
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Mon, 26 Jan 2009 23:31:27 -0200
 
-> [Adding david miller and stable@kernel.org in cc ]
+> Em Mon, Jan 26, 2009 at 05:22:53PM -0800, David Miller escreveu:
+> > From: Neil Horman <nhorman@tuxdriver.com>
+> > Date: Mon, 26 Jan 2009 14:59:30 -0500
+> > 
+> > > @@ -95,6 +95,7 @@
+> > >  
+> > >  #include <net/sock.h>
+> > >  #include <linux/netfilter.h>
+> > > +#include <trace/socket.h>
+> > 
+> > Where is this mysterious include/trace/socket.h file?
+> > I can't seem to find it :-)
+> 
+> Its something along the lines of include/trace/block.h, with the
+> DECLARE_TRACE that match the DEFINE_TRACE entries he added, probably he
+> forgot to git-add this new file :-)
 
-Applied, thanks Manish.
+I kind of figured as much, so now Neil just needs to respin his
+patch with the relevant bits of that header file included.
