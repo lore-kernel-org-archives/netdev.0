@@ -1,45 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add tracepoints to socket api
-Date: Tue, 27 Jan 2009 10:21:41 -0800 (PST)
-Message-ID: <20090127.102141.99756103.davem@davemloft.net>
-References: <20090127171857.GB14429@infradead.org>
-	<20090127.092017.40699485.davem@davemloft.net>
-	<20090127172323.GA7635@infradead.org>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [BUG] tg3 module problem on Linux-2.6.29-rc1-2
+Date: Tue, 27 Jan 2009 10:35:33 -0800
+Message-ID: <20090127183533.GA10466@xw6200.broadcom.net>
+References: <49771D65.3090205@turknet.net.tr>
+ <20090121152818.GA3438@x200.localdomain>
+ <497870A3.4070200@turknet.net.tr>
+ <3f9a31f40901262230s3efb9242jcd4a02ee84944daa@mail.gmail.com>
+ <497EBBB1.5020609@turknet.net.tr> <497F2CDC.6050106@turknet.net.tr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: hch@infradead.org
+Cc: "Jaswinder Singh Rajput" <jaswinderlinux@gmail.com>,
+	"Alexey Dobriyan" <adobriyan@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David Woodhouse" <dwmw2@infradead.org>,
+	"David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Tarkan Erimer" <tarkan.erimer@turknet.net.tr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57277
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752474AbZA0SVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 13:21:44 -0500
-In-Reply-To: <20090127172323.GA7635@infradead.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2271 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754237AbZA0Sfx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2009 13:35:53 -0500
+In-Reply-To: <497F2CDC.6050106@turknet.net.tr>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Hellwig <hch@infradead.org>
-Date: Tue, 27 Jan 2009 12:23:23 -0500
+On Tue, Jan 27, 2009 at 07:48:44AM -0800, Tarkan Erimer wrote:
+> Tarkan Erimer wrote:
+> > Jaswinder Singh Rajput wrote:
+> >> Is this ubuntu's specific problem or you also getting these
+> >> warnings/errors on another releases.
+> >>
+> >>   
+> > Yes,it's specific to Ubuntu's kernel build process (make-kpkg). I had 
+> > no time to try with regular kernel build process. But; if it's 
+> > necessary, I can try it out. BTW, my box is Kubuntu 8.10 with latest 
+> > updates.
+> >
+> Now, I tried with 2.6.29-rc2-git2 and the result is same. No difference. 
+> When I have time, I'll try via regular kernel compile process to see 
+> what will be happen.
 
-> On Tue, Jan 27, 2009 at 09:20:17AM -0800, David Miller wrote:
-> > We're merging this stuff to solve the chicken and egg
-> > problem wherein the lttng tree merge is basically
-> > stalled.
-> > 
-> > If the individual subsystem annotations go in, the hope
-> > is that they'll have less to merge and thus it's more likely
-> > to actually happen.
+Like I outlined in my previous email, this is a scripting / tools problem.
+Updating your kernel will not help.  Either the script or modinfo needs to
+be modified to somehow recognize that while the driver does make
+request_firmware() calls, the firmware resides in the kernel itself.
+
+> PS: If you write a reply to "netdev@vger.kernel.org", it will not reach 
+> to me. Because, I'm not subscribed to this mailing-list. So, please CC 
+> it to me.
 > 
-> I'm rather concerned as I haven't seen any progress on the lttng core
-> lately.  I'd really prefer to have a version in close to mergeable shape
-> first, that's actively beeing pushed.  Adding the instrumentation is
-> trivial as seen by this small patch, but getting the core right (and who
-> knows if that involves changing the way actual instrumentation works, it's
-> not like that hasn't changed n million times yet) is essential.
+> Tarkan ERIMER
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-The block layer already merged trace annotations.  I therefore see no
-harm in merging the net bits.
-
-If you disagree, either submit a revert of the block layer
-annotations, or content yourself in being a hypocrite :-)
