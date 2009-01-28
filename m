@@ -1,75 +1,39 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: HCI crash after tearing down ppp connection
-Date: Wed, 28 Jan 2009 10:53:32 +0100
-Message-ID: <1233136412.4151.3.camel@johannes.local>
-References: <1233082881.4455.14.camel@johannes.local>
-	 <1233124538.18259.30.camel@violet>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: hardware time stamping with optional structs in data area
+Date: Wed, 28 Jan 2009 20:54:27 +1100
+Message-ID: <20090128095427.GA16215@gondor.apana.org.au>
+References: <20090128090821.GA15770@gondor.apana.org.au> <1233136333.26507.38.camel@pohly-MOBL>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-xsUP4ecx5WB6ljjsK7Oi"
-Cc: netdev <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:44375 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752514AbZA1JyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 04:54:10 -0500
-In-Reply-To: <1233124538.18259.30.camel@violet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1233136333.26507.38.camel@pohly-MOBL>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jan 28, 2009 at 10:52:13AM +0100, Patrick Ohly wrote:
+>
+> Putting that into shinfo should work fine. I thought extending that
+> structure with information that isn't needed for all packets was as bad
+> as extending sk_buff itself. If that isn't the case, then extending
+> shinfo definitely is the simplest solution.
 
---=-xsUP4ecx5WB6ljjsK7Oi
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Not at all, the sk_buff has its own slab while skb->head uses
+kmalloc.  The latter has loads of free space due to padding for
+common MTUs such as 1500 or header-only.
 
-Hi Marcel,
-
-> > I use /dev/rfcomm0 to connect to my cell phone, and then to the interne=
-t
-> > with ppp. Occasionally (two out of the three times I used it today)
-> > after I poff the connection the machine locks up. The second time I got
-> > a log, but because my display resolution is bad it mostly scrolled off,
-> > so I only got to see that hci was involved somehow :/
-> >=20
-> > Anyone aware of any such issue? This is on
-> > 2.6.29-rc2-wl-11979-gc32422d-dirty (-rc2 + wireless bits).
->=20
-> I was assuming we fixed these, but we might ended with a new one since
-> the TTY is changing a little bit and the Bluetooth TTYs are special
-> since they are pure virtual TTYs. Can you reproduce this crash every
-> time or is it happening only now and then?
-
-Well, it's not happening every time, but fairly often.
-
-> During the last weeks, I am chasing an USB issue with the USB anchors
-> and how we use it. You might be hitting the one.
-
-Yeah, I wish I could capture more information here. Can't seem to figure
-out how to get more VT resolution. I'll try again. :/
-
-johannes
-
---=-xsUP4ecx5WB6ljjsK7Oi
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIcBAABAgAGBQJJgCsZAAoJEKVg1VMiehFYjAsP/0y+ZrSENriKfVpQOJn5B/Dn
-DZjv0zbw8Dv1ANuwiNETjqluP8qBt54j5qFAB9teZ4kuPPMiae0PRaoERjh930TI
-VPbKS5m4QfXxctsDaeoa9ETolyGKEtBa9CRac7m5JPw1ZAIk+PFPYPH6BzjVVjl2
-SVt8M8fcfcQrWyoIKtqfgbwGsyfD9ml660hz6D6hJcnKdih1ko1Jv43F4gtetMdL
-jF8e78uSOEUWJx5pSqHRSZ7L/yWA2PPwSqhPPkDs1p4A0e6DGzquvYDLKd0ZeVFL
-uhvWHPBxnDbCKtTX3izTJxRuEWPMq0x+14bF1FEnoS7e6kbqZ9+g0VzRqR4EDKAv
-r34OeN2sLhZHhXx1fQbbBB0OmGY9lNpbZrPOAgZfHT6zDfYQUYRjhAS/lNKApwDi
-w+uq8nugQvJjHmi9zT3XPzUvblyDAdSdF9V2/gOY1pnq+f/rW1Vb4jQH/Wx1IURW
-77M+6tlHJzefy3p9ZTzcHg7N2Y50736NmzoEB392E8ua7c+Kzjxlov2WkwpyNqeM
-JKhjq+4GxUsH3nV8LXptSNH/rMxvpHCtdbB7ZTRF7eyJ2CBrB9oXxoTWM/qs9joh
-1wcppF66bwqlkT2pvTmNHAa4PMgsJC38gfY5fIJSg8ct9OyPWthKtHnJrKICLB9X
-qCafvqHC9kdQaGGxDnLT
-=DYP4
------END PGP SIGNATURE-----
-
---=-xsUP4ecx5WB6ljjsK7Oi--
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-api" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
