@@ -1,65 +1,65 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Subject: RE: [PATCH] percpu: add optimized generic percpu accessors
-Date: Tue, 27 Jan 2009 16:17:56 -0800
-Message-ID: <57C9024A16AD2D4C97DC78E552063EA35F317617@orsmsx505.amr.corp.intel.com>
-References: <200901271213.18605.rusty@rustcorp.com.au>
-	<497E705B.5000302@kernel.org>	<alpine.DEB.1.10.0901271506580.3114@qirst.com>
- <20090127.134747.153565246.davem@davemloft.net> <497F8F02.9000603@hp.com>
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: Re: [PATCH] ide/net: flip the order of SATA and network init
+Date: Wed, 28 Jan 2009 01:22:20 +0100
+Message-ID: <200901280122.24499.bzolnier@gmail.com>
+References: <20090127141952.51785b4f@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "cl@linux-foundation.org" <cl@linux-foundation.org>,
-	"tj@kernel.org" <tj@kernel.org>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"brgerst@gmail.com" <brgerst@gmail.com>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>,
-	"travis@sgi.com" <travis@sgi.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"steiner@sgi.com" <steiner@sgi.com>,
-	"hugh@veritas.com" <hugh@veritas.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:62530 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752128AbZA1AR6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 19:17:58 -0500
-In-Reply-To: <497F8F02.9000603@hp.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-ide@vger.kernel.org, netdev@vger.kernel.org
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <20090127141952.51785b4f@infradead.org>
+Content-Disposition: inline
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I was asking around, and was told that on IA64 *harware* at least, in addition to
-> supporting multiple page sizes (up to a GB IIRC), one can pin up to 8 or perhaps
-> 1/2 the TLB entries.
+On Tuesday 27 January 2009, Arjan van de Ven wrote:
+> From e89d6840ad685a3c61f72367d4ac5bfed69ead0c Mon Sep 17 00:00:00 2001
+> From: Arjan van de Ven <arjan@linux.intel.com>
+> Date: Mon, 26 Jan 2009 18:58:11 -0800
+> Subject: [PATCH] ide/net: flip the order of SATA and network init
+> 
+> this patch flips the order in which sata and network drivers are initialized.
 
-The number of TLB entries that can be pinned is model specific (but the
-minimum allowed is 8 each for code & data).  Page sizes supported also
-vary by model, recent models go up to 4GB.
+it seems to affect much more than that, please see below
 
-BUT ... we stopped pinning this entry in the TLB when benchmarks showed
-that it was better to just insert this as a regular TLB entry which might
-can be dropped to map something else.  So now there is code in the Alt-DTLB
-miss handler (ivt.S) to insert the per-cpu mapping on an as needed basis.
+> SATA probing takes quite a bit of time, and with the asynchronous infrastructure
+> other drivers that run after it can execute in parallel. Network drivers do tend
+> to take some real time talking to the hardware, so running these later is
+> a good thing (the sata probe then runs concurrent)
+> 
+> This saves about 15% of my kernels boot time.
+> 
+> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> ---
+>  drivers/Makefile |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/Makefile b/drivers/Makefile
+> index c1bf417..2618a61 100644
+> --- a/drivers/Makefile
+> +++ b/drivers/Makefile
+> @@ -36,13 +36,14 @@ obj-$(CONFIG_FB_INTEL)          += video/intelfb/
+>  
+>  obj-y				+= serial/
+>  obj-$(CONFIG_PARPORT)		+= parport/
+> -obj-y				+= base/ block/ misc/ mfd/ net/ media/
+> +obj-y				+= base/ block/ misc/ mfd/ media/
+>  obj-$(CONFIG_NUBUS)		+= nubus/
+> -obj-$(CONFIG_ATM)		+= atm/
+>  obj-y				+= macintosh/
+>  obj-$(CONFIG_IDE)		+= ide/
+>  obj-$(CONFIG_SCSI)		+= scsi/
 
-> So, in theory if one were so inclined the special pinned per-CPU entry could
-> either be more than one 64K entry, or a single, rather larger entry.
+scsi, ide, macintosh and nubus will be now init-ed after network.
 
-Managing a larger space could be done ... but at the expense of making
-the Alt-DTLB miss handler do a memory lookup to find the physical address
-of the per-cpu page needed (assuming that we allocate a bunch of random
-physical pages for use as per-cpu space rather than a single contiguous
-block of physical memory).
+No problem for ide but I'm not really sure about scsi...
 
-When do we know the total amount of per-cpu memory needed?
-1) CONFIG time?
-2) Boot time?
-3) Arbitrary run time?
-
--Tony
+>  obj-$(CONFIG_ATA)		+= ata/
+> +obj-y				+= net/
+> +obj-$(CONFIG_ATM)		+= atm/
+>  obj-$(CONFIG_FUSION)		+= message/
+>  obj-$(CONFIG_FIREWIRE)		+= firewire/
+>  obj-y				+= ieee1394/
