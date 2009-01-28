@@ -1,49 +1,75 @@
-From: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: hardware time stamping with optional structs in data area
-Date: Wed, 28 Jan 2009 10:52:13 +0100
-Message-ID: <1233136333.26507.38.camel@pohly-MOBL>
-References: <20090128090821.GA15770@gondor.apana.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: HCI crash after tearing down ppp connection
+Date: Wed, 28 Jan 2009 10:53:32 +0100
+Message-ID: <1233136412.4151.3.camel@johannes.local>
+References: <1233082881.4455.14.camel@johannes.local>
+	 <1233124538.18259.30.camel@violet>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-xsUP4ecx5WB6ljjsK7Oi"
+Cc: netdev <netdev@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:44375 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752514AbZA1JyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 04:54:10 -0500
+In-Reply-To: <1233124538.18259.30.camel@violet>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-xsUP4ecx5WB6ljjsK7Oi
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090128090821.GA15770-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2009-01-28 at 11:08 +0200, Herbert Xu wrote:
-> Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
-> >
-> > True - at this time. But what if this extension mechanism turns out to
-> > be useful and we end up with more optional structures? I was hoping that
-> > this might be the case and thus tried to make it easy to add more
-> > structures.
-> 
-> You're putting the extension in the skb->end area, right?
+Hi Marcel,
 
-Right.
+> > I use /dev/rfcomm0 to connect to my cell phone, and then to the interne=
+t
+> > with ppp. Occasionally (two out of the three times I used it today)
+> > after I poff the connection the machine locks up. The second time I got
+> > a log, but because my display resolution is bad it mostly scrolled off,
+> > so I only got to see that hci was involved somehow :/
+> >=20
+> > Anyone aware of any such issue? This is on
+> > 2.6.29-rc2-wl-11979-gc32422d-dirty (-rc2 + wireless bits).
+>=20
+> I was assuming we fixed these, but we might ended with a new one since
+> the TTY is changing a little bit and the Bluetooth TTYs are special
+> since they are pure virtual TTYs. Can you reproduce this crash every
+> time or is it happening only now and then?
 
-> How big are the time stamps? If they're not that big, why don't
-> we put it into the shinfo structure itself? For the common case,
-> we have plenty of space due to kmalloc padding anyway.
+Well, it's not happening every time, but fairly often.
 
-Two 64 bit fields have to be added for time stamps plus 3 bits for flags
-(for time stamping instructions, currently in skb_shared_tx).
+> During the last weeks, I am chasing an USB issue with the USB anchors
+> and how we use it. You might be hitting the one.
 
-Putting that into shinfo should work fine. I thought extending that
-structure with information that isn't needed for all packets was as bad
-as extending sk_buff itself. If that isn't the case, then extending
-shinfo definitely is the simplest solution.
+Yeah, I wish I could capture more information here. Can't seem to figure
+out how to get more VT resolution. I'll try again. :/
 
-Bye, Patrick
+johannes
 
+--=-xsUP4ecx5WB6ljjsK7Oi
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-api" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iQIcBAABAgAGBQJJgCsZAAoJEKVg1VMiehFYjAsP/0y+ZrSENriKfVpQOJn5B/Dn
+DZjv0zbw8Dv1ANuwiNETjqluP8qBt54j5qFAB9teZ4kuPPMiae0PRaoERjh930TI
+VPbKS5m4QfXxctsDaeoa9ETolyGKEtBa9CRac7m5JPw1ZAIk+PFPYPH6BzjVVjl2
+SVt8M8fcfcQrWyoIKtqfgbwGsyfD9ml660hz6D6hJcnKdih1ko1Jv43F4gtetMdL
+jF8e78uSOEUWJx5pSqHRSZ7L/yWA2PPwSqhPPkDs1p4A0e6DGzquvYDLKd0ZeVFL
+uhvWHPBxnDbCKtTX3izTJxRuEWPMq0x+14bF1FEnoS7e6kbqZ9+g0VzRqR4EDKAv
+r34OeN2sLhZHhXx1fQbbBB0OmGY9lNpbZrPOAgZfHT6zDfYQUYRjhAS/lNKApwDi
+w+uq8nugQvJjHmi9zT3XPzUvblyDAdSdF9V2/gOY1pnq+f/rW1Vb4jQH/Wx1IURW
+77M+6tlHJzefy3p9ZTzcHg7N2Y50736NmzoEB392E8ua7c+Kzjxlov2WkwpyNqeM
+JKhjq+4GxUsH3nV8LXptSNH/rMxvpHCtdbB7ZTRF7eyJ2CBrB9oXxoTWM/qs9joh
+1wcppF66bwqlkT2pvTmNHAa4PMgsJC38gfY5fIJSg8ct9OyPWthKtHnJrKICLB9X
+qCafvqHC9kdQaGGxDnLT
+=DYP4
+-----END PGP SIGNATURE-----
+
+--=-xsUP4ecx5WB6ljjsK7Oi--
+
