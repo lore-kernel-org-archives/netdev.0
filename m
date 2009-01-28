@@ -1,59 +1,28 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: RE: [PATCH] percpu: add optimized generic percpu accessors
-Date: Wed, 28 Jan 2009 11:48:27 -0500 (EST)
-Message-ID: <alpine.DEB.1.10.0901281146260.13825@qirst.com>
-References: <200901271213.18605.rusty@rustcorp.com.au> <497E705B.5000302@kernel.org> <alpine.DEB.1.10.0901271506580.3114@qirst.com> <20090127.134747.153565246.davem@davemloft.net> <497F8F02.9000603@hp.com>
- <57C9024A16AD2D4C97DC78E552063EA35F317617@orsmsx505.amr.corp.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: port bound SAs
+Date: Wed, 28 Jan 2009 19:03:01 +0100
+Message-ID: <49809DD5.6080104@trash.net>
+References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com> <497F3DD0.5010502@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77722@exch-one.centrify.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>,
-	"tj@kernel.org" <tj@kernel.org>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"brgerst@gmail.com" <brgerst@gmail.com>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>,
-	"travis@sgi.com" <travis@sgi.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"steiner@sgi.com" <steiner@sgi.com>,
-	"hugh@veritas.com" <hugh@veritas.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-To: "Luck, Tony" <tony.luck@intel.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Paul Moore <paul.moore@centrify.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:46640 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752335AbZA1R5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 12:57:52 -0500
-In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA35F317617@orsmsx505.amr.corp.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:36831 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751769AbZA1SDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 13:03:04 -0500
+In-Reply-To: <BB7E16A14DE689469A181EC770AFBF4D02A77722@exch-one.centrify.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Jan 2009, Luck, Tony wrote:
+Paul Moore wrote:
+> So where did we get to on this?
+> 
+> My main question is - do you agree this is incorrect behavior of the
+> overall system (racoon, pfkey, xfrm, ip) without trying to say which bit
+> is to blame?
 
-> Managing a larger space could be done ... but at the expense of making
-> the Alt-DTLB miss handler do a memory lookup to find the physical address
-> of the per-cpu page needed (assuming that we allocate a bunch of random
-> physical pages for use as per-cpu space rather than a single contiguous
-> block of physical memory).
-
-We cannot resize the area by using a single larger TLB entry?
-
-> When do we know the total amount of per-cpu memory needed?
-> 1) CONFIG time?
-
-Would be easiest.
-
-> 2) Boot time?
-
-We could make the TLB entry size configurable with a kernel parameter
-
-> 3) Arbitrary run time?
-
-We could reserve a larger virtual space and switch TLB entries as needed?
-We would need do get larger order pages to do this.
-
+No, so far everything seems fine. The SAs don't have a port selector,
+no reqid is specified => Linux is allowed to reuse them.
