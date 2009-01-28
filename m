@@ -1,59 +1,56 @@
-From: "Paul Moore" <paul.moore@centrify.com>
-Subject: RE: port bound SAs
-Date: Wed, 28 Jan 2009 10:27:09 -0800
-Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02A7775E@exch-one.centrify.com>
-References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com> <497F3DD0.5010502@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77722@exch-one.centrify.com> <49809DD5.6080104@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A7774E@exch-one.centrify.com> <49809FE8.2040801@trash.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH 1/4]: net: Allow RX queue selection to seed TX queue
+ hashing.
+Date: Wed, 28 Jan 2009 10:50:58 -0800
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A1C225B4C@orsmsx507.amr.corp.intel.com>
+References: <20090127.164027.245779962.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Patrick McHardy" <kaber@trash.net>
+To: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.centrify.com ([216.112.107.103]:42270 "EHLO
-	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751981AbZA1S1J convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 13:27:09 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <49809FE8.2040801@trash.net>
+Received: from mga01.intel.com ([192.55.52.88]:55999 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751328AbZA1SvA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 13:51:00 -0500
+In-Reply-To: <20090127.164027.245779962.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-aha - so with racoon (which uses pfkey) I cannot make this work
+David Miller wrote:
+> The idea is that drivers which implement multiqueue RX
+> pre-seed the SKB by recording the RX queue selected by
+> the hardware.
+> 
+> If such a seed is found on TX, we'll use that to select
+> the outgoing TX queue.
+> 
+> This helps get more consistent load balancing on router
+> and firewall loads.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/linux/skbuff.h |   15 +++++++++++++++
+>  net/core/dev.c         |    8 ++++++++
+>  2 files changed, 23 insertions(+), 0 deletions(-)
 
-This kind of seems broken - doesnt it? racoon is a very common IKE
-daemon
+Hi Dave, thanks for doing this work, it looks very interesting, I'm curious 
+what you think should happen with the tx / rx interrupts when every queue has 
+a unique interrupt number.
 
-So what IKE daemon should I be using on linux?
+I don't think the irqbalance daemon is smart enough to know that a given
+tx queue should always end up either cache coherent (different core) or
+core-coherent (same core) to the rx queue.
 
-FYI
+So, is it still expected that users running routing setups will always
+have to hand-tune /proc/irq/NNN/smp_affinity for each of the tx and rx
+queues?
 
-On solaris they do 2367 it differently (I know this because I am in the
-middle of porting racoon to solaris)
+Ideally the routing case would somehow end up working like the socket case
+where the scheduler would notice the wakeups cross cpu and move the interrupt
+for the routing case in the same way (I assume from your previous comments) it
+would move the interrupt for a socket based application.
 
-the ACQUIRE message to user land has port selectors in it (linux does
-not, and racoon accidentaly barfs if they are there)
-the ADD and UPDATE messages from user land contain selectors and the
-kernel expects them (racoon leaves them set randomly, fortunately Linux
-pfkey throws them away)
-
-This is why solaris does the right thing in terms of wire behavior. Its
-selector code know about ports (using its own IKE daemon)
-
-The simple solution is to stop the pfkey interface throwing the port
-numbers away and then I can change racoon to send them (which I had to
-do for solaris port)
-
-
-
------Original Message-----
-From: Patrick McHardy [mailto:kaber@trash.net] 
-Sent: Wednesday, January 28, 2009 10:12 AM
-To: Paul Moore
-Cc: David Miller; netdev@vger.kernel.org
-Subject: Re: port bound SAs
-
-Paul Moore wrote:
-> So how do I get an SA with a port set on it
-
-You don't, using pfkey. Use reqid or ip xfrm.
+I hope to be able to test this today or tomorrow.
