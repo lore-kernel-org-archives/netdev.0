@@ -1,44 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/4]: Revamp TX hashing.
-Date: Wed, 28 Jan 2009 20:02:03 +1100
-Message-ID: <20090128090203.GA15674@gondor.apana.org.au>
-References: <20090127.164024.141230513.davem@davemloft.net>
+Subject: Re: hardware time stamping with optional structs in data area
+Date: Wed, 28 Jan 2009 20:08:21 +1100
+Message-ID: <20090128090821.GA15770@gondor.apana.org.au>
+References: <1233069837.24438.54.camel@pohly-MOBL>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-api@vger.kernel.org
+To: Patrick Ohly <patrick.ohly@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46720 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:53020 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751217AbZA1JCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 04:02:07 -0500
+	with ESMTP id S1751217AbZA1JI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 04:08:28 -0500
 Content-Disposition: inline
-In-Reply-To: <20090127.164024.141230513.davem@davemloft.net>
+In-Reply-To: <1233069837.24438.54.camel@pohly-MOBL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> 
-> The simple_tx_hash() function we currently have in
-> net/core/dev.c is very rudimental and doesn't handle
-> routing and firewall scenerios very well.
+Patrick Ohly <patrick.ohly@intel.com> wrote:
+>
+> True - at this time. But what if this extension mechanism turns out to
+> be useful and we end up with more optional structures? I was hoping that
+> this might be the case and thus tried to make it easy to add more
+> structures.
 
-This is really cool! Thanks Dave!
+You're putting the extension in the skb->end area, right?
 
-> The next 4 patches attempt to cure that.  The end result
-> is:
-> 
-> 1) The RX queue selection of the input device seeds the
->   TX queue selection for that SKB.
-> 
-> 2) Locally generated packets seed the TX queue using
->   skb->sk->sk_hash
-
-One thing that I've been thinking about is that it would be
-really useful if we guaranteed that every inbound packet carried
-a hash with it.  This could be used to help subsequent processing
-such as routing, netfilter, etc. since they all need to make
-decisions based on flows.
+How big are the time stamps? If they're not that big, why don't
+we put it into the shinfo structure itself? For the common case,
+we have plenty of space due to kmalloc padding anyway.
 
 Cheers,
 -- 
