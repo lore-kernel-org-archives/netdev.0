@@ -1,51 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] Fix infinite retry loop in IP-Config
-Date: Wed, 28 Jan 2009 10:52:21 +0000
-Message-ID: <20090128105220.GB4190@ff.dom.local>
-References: <49802060.5040709@alcatel-lucent.fr>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: use correct accessors for scatterlists
+Date: Wed, 28 Jan 2009 21:29:18 +1030
+Message-ID: <200901282129.19364.rusty@rustcorp.com.au>
+References: <20090124001053.GA20156@ovro.caltech.edu> <200901271521.19616.rusty@rustcorp.com.au> <20090126.210055.104964648.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Benjamin ZORES <benjamin.zores@alcatel-lucent.fr>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: iws@ovro.caltech.edu, linux-kernel@vger.kernel.org,
+	markmc@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f21.google.com ([209.85.219.21]:62790 "EHLO
-	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751910AbZA1K6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 05:58:30 -0500
-Received: by ewy14 with SMTP id 14so2713459ewy.13
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2009 02:58:28 -0800 (PST)
+Received: from ozlabs.org ([203.10.76.45]:52089 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751296AbZA1K70 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jan 2009 05:59:26 -0500
+In-Reply-To: <20090126.210055.104964648.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <49802060.5040709@alcatel-lucent.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28-01-2009 10:07, Benjamin ZORES wrote:
-> Hi,
+On Tuesday 27 January 2009 15:30:55 David Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Tue, 27 Jan 2009 15:21:19 +1030
 > 
-> The attached patch fixes some bug with ip-config max retry number.
-> In ip_auto_config(), kernel tries to retrieve IP configuration forever
-> in case of NFS root and some specific amount of time otherwise.
+> > On Saturday 24 January 2009 10:40:53 Ira Snyder wrote:
+> > > Without this fix, virtio_net makes incorrect usage of scatterlists. It sets
+> > > the end of the scatterlist chain after the first element, despite the fact
+> > > that more entries come after it.
+> > > 
+> > > If you try to run dma_map_sg() on one of the scatterlists given to you by
+> > > add_buf(), you will get a null pointer oops.
+> > > 
+> > > Signed-off-by: Ira W. Snyder <iws@ovro.caltech.edu>
+> > 
+> > Thanks, this should go in 2.6.29.  Dave?
 > 
-> The problem is that, in case of error, the code jump to the try_try_again
-> goto statement, that reassigns the retry number counter, which obviously
-> leads to an infinite loop if IP config fails.
-> 
-> The attached patch corrects this behavior.
-> Hope one can push it to mainstream kernel tree.
-> 
-> Ben
-> 
-> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-> index 42a0f3d..4911b81 100644
-> --- a/net/ipv4/ipconfig.c
-> +++ b/net/ipv4/ipconfig.c
-> @@ -1268,6 +1268,7 @@ __be32 __init root_nfs_parse_addr(char *name)
->  static int __init ip_auto_config(void)
->  {
->  	__be32 addr;
-> +	 int retries = CONF_OPEN_RETRIES;
- 
-Doesn't it need "#ifdef IPCONFIG_DYNAMIC" to prevent a compiler
-warning? I guess you could add a "Signed-off-by:" line BTW.
+> Applied, should I queue it up for -stable too Rusty?
 
-Jarek P.
+I don't think so.  It really is defined as an sg array, not an sg chain.  I'm happy to apply a little patch to make Ira's ongoing development easier, but no reason to panic about it.
+
+Thanks,
+Rusty.
