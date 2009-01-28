@@ -1,43 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: add tracepoints to socket api
-Date: Wed, 28 Jan 2009 16:28:09 -0500
-Message-ID: <20090128212809.GA19228@hmsreliant.think-freely.org>
-References: <20090127171857.GB14429@infradead.org> <20090127.092017.40699485.davem@davemloft.net> <20090127172323.GA7635@infradead.org> <20090127.102141.99756103.davem@davemloft.net> <20090127184704.GA26403@infradead.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4]: net: Allow RX queue selection to seed TX queue
+	hashing.
+Date: Thu, 29 Jan 2009 08:31:41 +1100
+Message-ID: <20090128213141.GD22141@gondor.apana.org.au>
+References: <20090127.164027.245779962.davem@davemloft.net> <20090128085358.GA15593@gondor.apana.org.au> <20090128.122231.208600152.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56176 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318AbZA1V2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 16:28:21 -0500
+Received: from rhun.apana.org.au ([64.62.148.172]:44762 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751121AbZA1Vbo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 16:31:44 -0500
 Content-Disposition: inline
-In-Reply-To: <20090127184704.GA26403@infradead.org>
+In-Reply-To: <20090128.122231.208600152.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2009 at 01:47:04PM -0500, Christoph Hellwig wrote:
-> On Tue, Jan 27, 2009 at 10:21:41AM -0800, David Miller wrote:
-> > The block layer already merged trace annotations.  I therefore see no
-> > harm in merging the net bits.
+On Wed, Jan 28, 2009 at 12:22:31PM -0800, David Miller wrote:
+>
+> No matter what you think about the randomness aspect, our
+> divide avoidance technique being used here will still
+> get in the way of the situations you seem to be concerned
+> about.
 > 
-> The block layer also has a consumer for them (blktrace) and soon a
-> second one (the ftrace plugin)
-> 
-> 
+> We do the jhash et al. magic in order to be able to use a
+> multiply to get the modulus.  So the function computing from
+> RX to TX queue numbers will never be straightforward.
 
-FWIW, ftrace will also work well on these syscalls (which I think is rather
-usefull).  Another use case came across my path the other day too.  I've had
-several requests from various people to find a way to provide unifying frame
-drop indicators.  Basically people hate to have to dig through various stat
-files and tools to look at all the places a frame can be dropped within our
-network stack.  I think a nice solution to this problem might be some
-tracepoints that people could use to gather comprehensive tx/rx frame drop
-information using one tool.  Of course, these provided tracepoints don't do
-that, but I think it would be good to get the existing tracepoint set in before
-I go poking at an implementation of that, just to ensure I avoid duplicate work
+Right, if the number of queues weren't equal then clearly it's
+not an issue to tack on more randomness.  But I was thinking of
+scenarios where you have two identical NICs, performing routing
+where the number of queues is likely to be identical.
 
-Neil
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
