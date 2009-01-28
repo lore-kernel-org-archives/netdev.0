@@ -1,33 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] e1000: fix bug with shared interrupt during
- reset
-Date: Tue, 27 Jan 2009 16:42:08 -0800 (PST)
-Message-ID: <20090127.164208.04700459.davem@davemloft.net>
-References: <20090127232714.24458.66863.stgit@lost.foo-projects.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] ide/net: flip the order of SATA and network init
+Date: Tue, 27 Jan 2009 16:48:42 -0800
+Message-ID: <20090127164842.0b73cc46@infradead.org>
+References: <20090127141952.51785b4f@infradead.org>
+	<497F9A49.6060601@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43830
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751586AbZA1AmK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 19:42:10 -0500
-In-Reply-To: <20090127232714.24458.66863.stgit@lost.foo-projects.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-ide@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <497F9A49.6060601@garzik.org>
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 27 Jan 2009 15:27:16 -0800
+On Tue, 27 Jan 2009 18:35:37 -0500
+Jeff Garzik <jeff@garzik.org> wrote:
 
-> A nasty bug was found where an MTU change (or anything else that caused a
-> reset) could race with the interrupt code.  The interrupt code was entered
-> by a shared interrupt during the MTU change.
+> ACK, ok with me too
 > 
-> This change prevents the interrupt code from running while the driver is in
-> the middle of its reset path.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Applied, thanks everyone.
+ok so... which tree should this go via?
+
+I would guess jgarzik's because he deals with both sata and net ;)
+
+Jeff... how do you want to handle this?
+
+-- 
+Arjan van de Ven 	Intel Open Source Technology Centre
+For development, discussion and tips for power savings, 
+visit http://www.lesswatts.org
