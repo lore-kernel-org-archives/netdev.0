@@ -1,57 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PANIC] lro + iscsi or lro + skb text search causes panic
-Date: Thu, 29 Jan 2009 08:25:26 +1100
-Message-ID: <20090128212526.GA22141@gondor.apana.org.au>
-References: <alpine.WNT.2.00.0901221234420.4188@jbrandeb-desk1.amr.corp.intel.com> <20090122232131.GA22771@gondor.apana.org.au> <4979097B.4040108@cs.wisc.edu> <20090125.213222.192571170.davem@davemloft.net> <20090126223022.GA24046@gondor.apana.org.au> <497EA5B5.5090806@cs.wisc.edu> <46A00B48CC54E4468EF6911F877AC4CA01EF2BC9@blrx3m10.blr.amer.dell.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: add tracepoints to socket api
+Date: Wed, 28 Jan 2009 16:28:09 -0500
+Message-ID: <20090128212809.GA19228@hmsreliant.think-freely.org>
+References: <20090127171857.GB14429@infradead.org> <20090127.092017.40699485.davem@davemloft.net> <20090127172323.GA7635@infradead.org> <20090127.102141.99756103.davem@davemloft.net> <20090127184704.GA26403@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: michaelc@cs.wisc.edu, davem@davemloft.net,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	olaf.kirch@oracle.com, tgraf@suug.ch, kkeil@suse.de
-To: Shyam_Iyer@Dell.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45058 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751051AbZA1VZm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 16:25:42 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56176 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751318AbZA1V2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 16:28:21 -0500
 Content-Disposition: inline
-In-Reply-To: <46A00B48CC54E4468EF6911F877AC4CA01EF2BC9@blrx3m10.blr.amer.dell.com>
+In-Reply-To: <20090127184704.GA26403@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 28, 2009 at 05:47:57PM +0530, Shyam_Iyer@Dell.com wrote:
+On Tue, Jan 27, 2009 at 01:47:04PM -0500, Christoph Hellwig wrote:
+> On Tue, Jan 27, 2009 at 10:21:41AM -0800, David Miller wrote:
+> > The block layer already merged trace annotations.  I therefore see no
+> > harm in merging the net bits.
 > 
-> --- skbuff.c.orig	2009-01-29 01:12:03.000000000 +0530
-> +++ skbuff.c	2009-01-29 01:34:57.000000000 +0530
-> @@ -2039,15 +2039,15 @@
->  		st->frag_data = NULL;
->  	}
->  
-> -	if (st->cur_skb->next) {
-> -		st->cur_skb = st->cur_skb->next;
-> -		st->frag_idx = 0;
-> -		goto next_skb;
-> -	} else if (st->root_skb == st->cur_skb &&
-> +	if (st->root_skb == st->cur_skb &&
->  		   skb_shinfo(st->root_skb)->frag_list) {
->  		st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
->  		st->frag_idx=0;
->  		goto next_skb;
-> +	} else if (st->cur_skb->next) {
-> +		st->cur_skb = st->cur_skb->next;
-> +		st->frag_idx = 0;
-> +		goto next_skb;
->  	}
->  
->  	return 0;
+> The block layer also has a consumer for them (blktrace) and soon a
+> second one (the ftrace plugin)
+> 
+> 
 
-Good catch!
+FWIW, ftrace will also work well on these syscalls (which I think is rather
+usefull).  Another use case came across my path the other day too.  I've had
+several requests from various people to find a way to provide unifying frame
+drop indicators.  Basically people hate to have to dig through various stat
+files and tools to look at all the places a frame can be dropped within our
+network stack.  I think a nice solution to this problem might be some
+tracepoints that people could use to gather comprehensive tx/rx frame drop
+information using one tool.  Of course, these provided tracepoints don't do
+that, but I think it would be good to get the existing tracepoint set in before
+I go poking at an implementation of that, just to ensure I avoid duplicate work
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Neil
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
