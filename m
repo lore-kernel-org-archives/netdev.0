@@ -1,75 +1,55 @@
-From: Benjamin ZORES <benjamin.zores@alcatel-lucent.fr>
-Subject: [PATCH] Fix infinite retry loop in IP-Config
-Date: Wed, 28 Jan 2009 10:07:44 +0100
-Message-ID: <49802060.5040709@alcatel-lucent.fr>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 1/4]: net: Allow RX queue selection to seed TX queue	hashing.
+Date: Wed, 28 Jan 2009 10:29:14 +0100
+Message-ID: <4980256A.7050908@cosmosbay.com>
+References: <20090128085358.GA15593@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070509030106070209030203"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smail4.alcatel.fr ([62.23.212.167]:48164 "EHLO
-	smail4.alcatel.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453AbZA1J27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 04:28:59 -0500
-Received: from bsf.alcatel.fr (mail205.sxb.bsf.alcatel.fr [155.132.205.115])
-	by smail4.alcatel.fr (ALCANET/NETFR) with ESMTP id n0S99NE9011607
-	for <netdev@vger.kernel.org>; Wed, 28 Jan 2009 10:09:23 +0100
-Received: from mail (mail-bsf-alcatel-fr.sxb.bsf.alcatel.fr [155.132.205.91])
-	by bsf.alcatel.fr (8.8.8p2+Sun/8.9.3) with ESMTP id KAA20300
-	for <netdev@vger.kernel.org>; Wed, 28 Jan 2009 10:09:23 +0100 (MET)
-Received: from [172.25.51.190] (frilld0f09516 [172.25.51.190])
-	by mail (8.8.8p2+Sun/) with ESMTP id KAA20295
-	for <netdev@vger.kernel.org>; Wed, 28 Jan 2009 10:09:23 +0100 (MET)
+Received: from gw1.cosmosbay.com ([212.99.114.194]:55708 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753018AbZA1J30 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 04:29:26 -0500
+In-Reply-To: <20090128085358.GA15593@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070509030106070209030203
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Herbert Xu a =E9crit :
+> David Miller <davem@davemloft.net> wrote:
+>> +       if (skb_rx_queue_recorded(skb)) {
+>> +               u32 val =3D skb_get_rx_queue(skb);
+>> +
+>> +               hash =3D jhash_1word(val, simple_tx_hashrnd);
+>=20
+> I'm not so sure about this added randomness.  On the one hand
+> I can see the benefit in being defensive about hashing, but this
+> does pose a problem for admins who're trying to optimse the system
+> by tying RX interrupts together with TX interrupts for the most
+> common traffic path.
+>=20
+> For example, if you're forwarding traffic between multiqueue NICs
+> A and B, one would like to make it so that each queue on A goes
+> to a fixed queue on B where the CPU of the RX queue IRQ handler on
+> A is the same as the CPU of the TX queue IRQ handler on B.
+>=20
+> This can still be done with the randomness, but it is much more
+> difficult.  Also if the randomness changes, we'd have to rejig
+> the IRQ assignment.
+>=20
+> So can you think of a scenario where we really need this added
+> protection?
+>=20
+jhash_1word(val, some_32bits_value) has a shuffle property we want to k=
+eep.
 
-Hi,
+Maybe we can add a boot parameter so that admins who're trying to
+optimize their system can fix a given value (yet not known to outsiders=
+)
+for simple_tx_hashrnd. This way, they know next reboots will keep
+same hash function.
 
-The attached patch fixes some bug with ip-config max retry number.
-In ip_auto_config(), kernel tries to retrieve IP configuration forever
-in case of NFS root and some specific amount of time otherwise.
 
-The problem is that, in case of error, the code jump to the try_try_again
-goto statement, that reassigns the retry number counter, which obviously
-leads to an infinite loop if IP config fails.
 
-The attached patch corrects this behavior.
-Hope one can push it to mainstream kernel tree.
-
-Ben
-
---------------070509030106070209030203
-Content-Type: text/x-diff;
- name="netdev-ipconfig-retry-fix.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="netdev-ipconfig-retry-fix.diff"
-
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 42a0f3d..4911b81 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -1268,6 +1268,7 @@ __be32 __init root_nfs_parse_addr(char *name)
- static int __init ip_auto_config(void)
- {
- 	__be32 addr;
-+	 int retries = CONF_OPEN_RETRIES;
- 
- #ifdef CONFIG_PROC_FS
- 	proc_net_fops_create(&init_net, "pnp", S_IRUGO, &pnp_seq_fops);
-@@ -1305,8 +1306,6 @@ static int __init ip_auto_config(void)
- 	    ic_first_dev->next) {
- #ifdef IPCONFIG_DYNAMIC
- 
--		int retries = CONF_OPEN_RETRIES;
--
- 		if (ic_dynamic() < 0) {
- 			ic_close_devs();
- 
-
---------------070509030106070209030203--
