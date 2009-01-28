@@ -1,65 +1,39 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: Re: [PATCH] ide/net: flip the order of SATA and network init
-Date: Wed, 28 Jan 2009 01:22:20 +0100
-Message-ID: <200901280122.24499.bzolnier@gmail.com>
-References: <20090127141952.51785b4f@infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/4]: Revamp TX hashing.
+Date: Tue, 27 Jan 2009 16:40:24 -0800 (PST)
+Message-ID: <20090127.164024.141230513.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-ide@vger.kernel.org, netdev@vger.kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20090127141952.51785b4f@infradead.org>
-Content-Disposition: inline
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43815
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750988AbZA1Ak1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 19:40:27 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id ADAA435C003
+	for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 16:40:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 27 January 2009, Arjan van de Ven wrote:
-> From e89d6840ad685a3c61f72367d4ac5bfed69ead0c Mon Sep 17 00:00:00 2001
-> From: Arjan van de Ven <arjan@linux.intel.com>
-> Date: Mon, 26 Jan 2009 18:58:11 -0800
-> Subject: [PATCH] ide/net: flip the order of SATA and network init
-> 
-> this patch flips the order in which sata and network drivers are initialized.
 
-it seems to affect much more than that, please see below
+The simple_tx_hash() function we currently have in
+net/core/dev.c is very rudimental and doesn't handle
+routing and firewall scenerios very well.
 
-> SATA probing takes quite a bit of time, and with the asynchronous infrastructure
-> other drivers that run after it can execute in parallel. Network drivers do tend
-> to take some real time talking to the hardware, so running these later is
-> a good thing (the sata probe then runs concurrent)
-> 
-> This saves about 15% of my kernels boot time.
-> 
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-> ---
->  drivers/Makefile |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/Makefile b/drivers/Makefile
-> index c1bf417..2618a61 100644
-> --- a/drivers/Makefile
-> +++ b/drivers/Makefile
-> @@ -36,13 +36,14 @@ obj-$(CONFIG_FB_INTEL)          += video/intelfb/
->  
->  obj-y				+= serial/
->  obj-$(CONFIG_PARPORT)		+= parport/
-> -obj-y				+= base/ block/ misc/ mfd/ net/ media/
-> +obj-y				+= base/ block/ misc/ mfd/ media/
->  obj-$(CONFIG_NUBUS)		+= nubus/
-> -obj-$(CONFIG_ATM)		+= atm/
->  obj-y				+= macintosh/
->  obj-$(CONFIG_IDE)		+= ide/
->  obj-$(CONFIG_SCSI)		+= scsi/
+The next 4 patches attempt to cure that.  The end result
+is:
 
-scsi, ide, macintosh and nubus will be now init-ed after network.
+1) The RX queue selection of the input device seeds the
+   TX queue selection for that SKB.
 
-No problem for ide but I'm not really sure about scsi...
+2) Locally generated packets seed the TX queue using
+   skb->sk->sk_hash
 
->  obj-$(CONFIG_ATA)		+= ata/
-> +obj-y				+= net/
-> +obj-$(CONFIG_ATM)		+= atm/
->  obj-$(CONFIG_FUSION)		+= message/
->  obj-$(CONFIG_FIREWIRE)		+= firewire/
->  obj-y				+= ieee1394/
+Then we kill off the by-hand hashing code since in all cases
+that matter it is no longer necessary.
+
+Protocols that fail to store a proper sk->sk_hash value will
+need to be fixed up to do so.  I encourage anyone so motivated
+to do that audit :-)
