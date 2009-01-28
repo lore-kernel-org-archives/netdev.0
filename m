@@ -1,62 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] net: update documentation ip aliases
-Date: Wed, 28 Jan 2009 08:20:30 -0800
-Message-ID: <20090128082030.1b166262@extreme>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 7/6] Re: [PATCH 2/6] pkt_sched: sch_htb: Consider used
+ jiffies in htb_dequeue()
+Date: Wed, 28 Jan 2009 17:20:36 +0100
+Message-ID: <498085D4.1010406@trash.net>
+References: <20090128132353.GA6443@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, devik@cdi.cz,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46438 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751074AbZA1QUc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jan 2009 11:20:32 -0500
+Received: from stinky.trash.net ([213.144.137.162]:34788 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584AbZA1QUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 11:20:38 -0500
+In-Reply-To: <20090128132353.GA6443@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This documentation is old.  Add a short note to describe why aliases
-are no long necessary, and remove the old contact/edit info.
+Jarek Poplawski wrote:
+> On 12-01-2009 11:22, Patrick McHardy wrote:
+>> It you don't mind adding the workqueue, I certainly would prefer
+>> it, but I'm also fine with this patch. I don't have a HTB setup
+>> or a testcase for this specific case, otherwise I'd simply do it
+>> myself.
+> 
+> Here is an example of this workqueue. I hope I didn't miss your point,
+> but since I didn't find much difference in testing, I'd prefer not to
+> sign-off/merge this yet, at least until there are many reports on
+> "too many events" problem, and somebody finds it useful.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-
---- a/Documentation/networking/alias.txt	2009-01-28 08:13:26.103682808 -0800
-+++ b/Documentation/networking/alias.txt	2009-01-28 08:18:03.624759404 -0800
-@@ -2,13 +2,13 @@
- IP-Aliasing:
- ============
- 
--IP-aliases are additional IP-addresses/masks hooked up to a base 
--interface by adding a colon and a string when running ifconfig. 
--This string is usually numeric, but this is not a must.
--
--IP-Aliases are avail if CONFIG_INET (`standard' IPv4 networking) 
--is configured in the kernel.
-+IP-aliases are an obsolete way to manage multiple IP-addresses/masks
-+per interface. Newer tools such as iproute2 support multiple
-+address/prefixes per interface, but aliases are still supported
-+for backwards compatibility.
- 
-+An alias is formed by adding a colon and a string when running ifconfig.
-+This string is usually numeric, but this is not a must.
- 
- o Alias creation.
-   Alias creation is done by 'magic' interface naming: eg. to create a
-@@ -38,16 +38,3 @@ o Relationship with main device
- 
-   If the base device is shut down the added aliases will be deleted 
-   too.
--
--
--Contact
---------
--Please finger or e-mail me:
--   Juan Jose Ciarlante <jjciarla@raiz.uncu.edu.ar>
--
--Updated by Erik Schoenfelder <schoenfr@gaertner.DE>
--
--; local variables:
--; mode: indented-text
--; mode: auto-fill
--; end:
+No, this seems to be exactly what I meant. The differnce - yeah, it
+shouldn't make much, mainly wake up the qdisc earlier (but not too
+early) after "too many events" occured _and_ no further enqueue
+events wake up the qdisc anyways.
