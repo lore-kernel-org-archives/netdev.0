@@ -1,59 +1,54 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: 32 core net-next stack/netfilter "scaling"
-Date: Wed, 28 Jan 2009 18:07:13 +0100
-Message-ID: <498090C1.5020400@cosmosbay.com>
-References: <497E361B.30909@hp.com>	<497E42F4.7080201@cosmosbay.com>	<497E44F6.2010703@hp.com>	<497ECF84.1030308@cosmosbay.com>	<497ED0A2.6050707@trash.net>	<497F350A.9020509@cosmosbay.com>	<497F457F.2050802@trash.net> <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Subject: RE: [PATCH] percpu: add optimized generic percpu accessors
+Date: Wed, 28 Jan 2009 09:15:08 -0800
+Message-ID: <57C9024A16AD2D4C97DC78E552063EA35F317910@orsmsx505.amr.corp.intel.com>
+References: <200901271213.18605.rusty@rustcorp.com.au>
+ <497E705B.5000302@kernel.org> <alpine.DEB.1.10.0901271506580.3114@qirst.com>
+ <20090127.134747.153565246.davem@davemloft.net> <497F8F02.9000603@hp.com>
+ <57C9024A16AD2D4C97DC78E552063EA35F317617@orsmsx505.amr.corp.intel.com>
+ <alpine.DEB.1.10.0901281146260.13825@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: Rick Jones <rick.jones2@hp.com>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37050 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752486AbZA1RHW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 12:07:22 -0500
-In-Reply-To: <49808708.3050502@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	David Miller <davem@davemloft.net>,
+	"tj@kernel.org" <tj@kernel.org>,
+	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"brgerst@gmail.com" <brgerst@gmail.com>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>,
+	"travis@sgi.com" <travis@sgi.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"steiner@sgi.com" <steiner@sgi.com>,
+	"hugh@veritas.com" <hugh@veritas.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
+	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.0901281146260.13825@qirst.com>
+Content-Language: en-US
+Sender: linux-ia64-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patrick McHardy a =E9crit :
-> Eric Dumazet wrote:
->> Rick Jones a =E9crit :
->>> Anyhow, the spread on trans/s/netperf is now 600 to 500 or 6000, wh=
-ich
->>> does represent an improvement.
->>>
->>
->> Yes indeed you have a speedup, tcp conntracking is OK.
->>
->> You now hit the nf_conntrack_lock spinlock we have in generic
->> conntrack code (net/netfilter/nf_conntrack_core.c)
->>
->> nf_ct_refresh_acct() for instance has to lock it.
->>
->> We really want some finer locking here.
->=20
-> That looks more complicated since it requires to take multiple locks
-> occasionally (f.i. hash insertion, potentially helper-related and
-> expectation-related stuff), and there is the unconfirmed_list, where
-> fine-grained locking can't really be used without changing it to
-> a hash.
+> > Managing a larger space could be done ... but at the expense of making
+> > the Alt-DTLB miss handler do a memory lookup to find the physical address
+> > of the per-cpu page needed (assuming that we allocate a bunch of random
+> > physical pages for use as per-cpu space rather than a single contiguous
+> > block of physical memory).
 >
+> We cannot resize the area by using a single larger TLB entry?
 
-Yes its more complicated, but look what we did in 2.6.29 for tcp/udp
- sockets, using RCU to have lockless lookups.
-Yes, we still take a lock when doing an insert or delete at socket
-bind/unbind time.
+Yes we could ... the catch is that the supported TLB page sizes go
+up by multiples of 4.  So if 64K is not enough the next stop is
+at 256K, then 1M, then 4M, and so on.
 
-We could keep a central nf_conntrack_lock to guard insertions/deletes
-from hash and unconfirmed_list.
+That's why I asked when we know what total amount of per-cpu memory
+is needed.  CONFIG time or boot time is good, because allocating higher
+order pages is easy at boot time.  Arbitrary run time is bad because
+we might have difficulty allocating a high order page for every cpu.
 
-But *normal* packets that only need to change state of one particular
-connection could use RCU (without spinlock) to locate the conntrack,
-then lock the found conntrack to perform all state changes.
-
-
+-Tony
