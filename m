@@ -1,161 +1,59 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PANIC] lro + iscsi or lro + skb text search causes panic
-Date: Wed, 28 Jan 2009 12:22:51 -0600
-Message-ID: <4980A27B.8050908@cs.wisc.edu>
-References: <46A00B48CC54E4468EF6911F877AC4CA01EF2BDB@blrx3m10.blr.amer.dell.com>
+From: "Paul Moore" <paul.moore@centrify.com>
+Subject: RE: port bound SAs
+Date: Wed, 28 Jan 2009 10:27:09 -0800
+Message-ID: <BB7E16A14DE689469A181EC770AFBF4D02A7775E@exch-one.centrify.com>
+References: <F82446300569AC408EF6BC9E358737947EC12368@exch-one.centrify.com>	<BB7E16A14DE689469A181EC770AFBF4D02A773C1@exch-one.centrify.com> <20090126.222035.100955508.davem@davemloft.net> <497EE171.1030907@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77515@exch-one.centrify.com> <497F3DD0.5010502@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A77722@exch-one.centrify.com> <49809DD5.6080104@trash.net> <BB7E16A14DE689469A181EC770AFBF4D02A7774E@exch-one.centrify.com> <49809FE8.2040801@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	olaf.kirch@oracle.com, tgraf@suug.ch, kkeil@suse.de
-To: Shyam_Iyer@Dell.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Patrick McHardy" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:46402 "EHLO sabe.cs.wisc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751524AbZA1SXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jan 2009 13:23:46 -0500
-In-Reply-To: <46A00B48CC54E4468EF6911F877AC4CA01EF2BDB@blrx3m10.blr.amer.dell.com>
+Received: from mail.centrify.com ([216.112.107.103]:42270 "EHLO
+	exch-one.centrify.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751981AbZA1S1J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 13:27:09 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <49809FE8.2040801@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shyam_Iyer@Dell.com wrote:
-> 
-> Mike Christie wrote:
->> Herbert Xu wrote:
->>> On Sun, Jan 25, 2009 at 09:32:22PM -0800, David Miller wrote:
->>>> From: Mike Christie <michaelc@cs.wisc.edu>
->>>> Date: Thu, 22 Jan 2009 18:04:11 -0600
->>>>
->>>>> With the patch running against linus's git tree, my box locks up. 
->>>>> You cannot ping it. I do not get a oops or anything in the logs,
-> and 
->>>>> the keyboard does not respond. I will try to get some oops output 
->>>>> and more info.
->>>> Herbert, any idea offhand?
->>> Yeah, I missed an offset update in there :) Here's a better version.
->>>
->>> net: Fix frag_list handling in skb_seq_read
->>>
->>> The frag_list handling was broken in skb_seq_read:
->>>
->>> 1) We didn't add the stepped offset when looking at the head are of 
->>> fragments other than the first.
->>>
->>> 2) We didn't take the stepped offset away when setting the data 
->>> pointer in the head area.
->>>
->>> 3) The frag index wasn't reset.
->>>
->>> This patch fixes both issues.
->>>
-> 
->> It oopsd for me in skb_seq_read. addr2line said it was
-> linux-2.6/net/core/skbuff.c:2228, which is this line:
-> 
-> 
->> while (st->frag_idx < skb_shinfo(st->cur_skb)->nr_frags) {
-> 
-> 
->> I added some printks in there and it looks like we hit this:
-> 
->>         } else if (st->root_skb == st->cur_skb &&
->>                   skb_shinfo(st->root_skb)->frag_list) {
->>                 st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
->>                 st->frag_idx = 0;
->>                 goto next_skb;
->>        }
-> 
-> 
-> 
-> Actually I did some testing and added a few printks and found that the
-> st->cur_skb->data was 0 and hence the ptr used by iscsi_tcp was null.
-> This caused the kernel panic.
+aha - so with racoon (which uses pfkey) I cannot make this work
+
+This kind of seems broken - doesnt it? racoon is a very common IKE
+daemon
+
+So what IKE daemon should I be using on linux?
+
+FYI
+
+On solaris they do 2367 it differently (I know this because I am in the
+middle of porting racoon to solaris)
+
+the ACQUIRE message to user land has port selectors in it (linux does
+not, and racoon accidentaly barfs if they are there)
+the ADD and UPDATE messages from user land contain selectors and the
+kernel expects them (racoon leaves them set randomly, fortunately Linux
+pfkey throws them away)
+
+This is why solaris does the right thing in terms of wire behavior. Its
+selector code know about ports (using its own IKE daemon)
+
+The simple solution is to stop the pfkey interface throwing the port
+numbers away and then I can change racoon to send them (which I had to
+do for solaris port)
 
 
 
+-----Original Message-----
+From: Patrick McHardy [mailto:kaber@trash.net] 
+Sent: Wednesday, January 28, 2009 10:12 AM
+To: Paul Moore
+Cc: David Miller; netdev@vger.kernel.org
+Subject: Re: port bound SAs
 
-Yeah, that is what Jesse saw too. I never got a null ptr though. That is 
-probably why he oopsed, but I could login but would get what looked like 
-corrupted packets instead of oopsing.
+Paul Moore wrote:
+> So how do I get an SA with a port set on it
 
-
-
-
-> 
->  	if (abs_offset < block_limit) {
-> -		*data = st->cur_skb->data + abs_offset;
-> +		*data = st->cur_skb->data + (abs_offset -
-> st->stepped_offset);
-> 
->  I enabled the debug_tcp and with a few printks found that the code in
-> my scenario did not go to the next_skb label as described by Mike and
-> could find that the sequence being followed was this -
-> 
-> It hit this if condition -
->  if (st->cur_skb->next) {
->                 st->cur_skb = st->cur_skb->next;
->                 st->frag_idx = 0;
->                 goto next_skb;
-
-
-
-Yeah, I must have been cross eyed that night. I was hitting this too, 
-and that caused me to hit the loop again.
-
-
-> 
-> And so, now the st pointer is shifted to the next skb whereas actually
-> it should have hit the second else if first since the data is in the
-> frag_list.
-> 
-> else if (st->root_skb == st->cur_skb &&
->                    skb_shinfo(st->root_skb)->frag_list) {
->                 st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
->                 goto next_skb;
->         }
-> 
-> 
-> Reversing the two conditions the attached patch fixes the issue for me
-> on top of Herbert's patches.  I have done the testing on the ixgbe
-> adapter itself and verified the fix using some amount of data transfer
-> as well.
-> 
-> Signed-off-by: Shyam Iyer <shyam_iyer@dell.com>
-> 
-> --- skbuff.c.orig	2009-01-29 01:12:03.000000000 +0530
-> +++ skbuff.c	2009-01-29 01:34:57.000000000 +0530
-> @@ -2039,15 +2039,15 @@
->  		st->frag_data = NULL;
->  	
->  
-> -	if (st->cur_skb->next) {
-> -		st->cur_skb = st->cur_skb->next;
-> -		st->frag_idx = 0;
-> -		goto next_skb;
-> -	} else if (st->root_skb == st->cur_skb &&
-> +	if (st->root_skb == st->cur_skb &&
->  		   skb_shinfo(st->root_skb)->frag_list) {
->  		st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
->  		st->frag_idx=0;
-
-
-I think you diffed this against the wrong source. In the upstream code 
-this is
-st->frag_idx = 0;
-
-so the patch does not apply.
-
-
->  		goto next_skb;
-> +	} else if (st->cur_skb->next) {
-> +		st->cur_skb = st->cur_skb->next;
-> +		st->frag_idx = 0;
-> +		goto next_skb;
->  	}
->  
->  	return 0;
-> 
-
-Nice catch. Patch works for me. Thanks!
-
+You don't, using pfkey. Use reqid or ip xfrm.
