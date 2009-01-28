@@ -1,38 +1,33 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Question on netif_tx_queue_stopped
-Date: Tue, 27 Jan 2009 22:05:01 -0800
-Message-ID: <497FF58D.50601@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Question on netif_tx_queue_stopped
+Date: Tue, 27 Jan 2009 22:10:43 -0800 (PST)
+Message-ID: <20090127.221043.244908230.davem@davemloft.net>
+References: <497FF58D.50601@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:57474 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751878AbZA1GFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 01:05:04 -0500
-Received: from [71.112.51.220] (pool-71-112-51-220.sttlwa.dsl-w.verizon.net [71.112.51.220])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n0S652hP007431
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 22:05:02 -0800
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47976
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751717AbZA1GKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 01:10:46 -0500
+In-Reply-To: <497FF58D.50601@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm doing some tests with pktgen and the 8139too (realtek) driver
-in kernel 2.6.29-rc2.
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 27 Jan 2009 22:05:01 -0800
 
-It seems that netif_tx_queue_stopped will return false fairly often even 
-if the
-cable is pulled from the NIC.
+> I'm doing some tests with pktgen and the 8139too (realtek) driver
+> in kernel 2.6.29-rc2.
+> 
+> It seems that netif_tx_queue_stopped will return false fairly often even if the
+> cable is pulled from the NIC.
+> 
+> Is that expected?
 
-Is that expected?
+Yep.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+Pulling the cable out only effects netif_carrier_ok().
