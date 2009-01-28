@@ -1,64 +1,110 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: 32 core net-next stack/netfilter "scaling"
-Date: Wed, 28 Jan 2009 18:34:14 +0100
-Message-ID: <49809716.3020204@cosmosbay.com>
-References: <497E361B.30909@hp.com>	<497E42F4.7080201@cosmosbay.com>	<497E44F6.2010703@hp.com>	<497ECF84.1030308@cosmosbay.com>	<497ED0A2.6050707@trash.net>	<497F350A.9020509@cosmosbay.com>	<497F457F.2050802@trash.net> <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: Re: [PATCH 4/5] virtio_net: Add a MAC filter table
+Date: Wed, 28 Jan 2009 10:48:28 -0700
+Message-ID: <1233164908.7026.195.camel@lappy>
+References: <20090116211312.22836.34331.stgit@debian.lart>
+	 <200901271300.30330.rusty@rustcorp.com.au>
+	 <1233027482.7148.42.camel@2710p.home>
+	 <200901282115.14083.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <498090C1.5020400@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, markmc@redhat.com, kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:29582 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750979AbZA1Rrx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 12:47:53 -0500
+In-Reply-To: <200901282115.14083.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet a =E9crit :
-> Patrick McHardy a =E9crit :
->> Eric Dumazet wrote:
->>> Rick Jones a =E9crit :
->>>> Anyhow, the spread on trans/s/netperf is now 600 to 500 or 6000, w=
-hich
->>>> does represent an improvement.
->>>>
->>> Yes indeed you have a speedup, tcp conntracking is OK.
->>>
->>> You now hit the nf_conntrack_lock spinlock we have in generic
->>> conntrack code (net/netfilter/nf_conntrack_core.c)
->>>
->>> nf_ct_refresh_acct() for instance has to lock it.
->>>
->>> We really want some finer locking here.
->> That looks more complicated since it requires to take multiple locks
->> occasionally (f.i. hash insertion, potentially helper-related and
->> expectation-related stuff), and there is the unconfirmed_list, where
->> fine-grained locking can't really be used without changing it to
->> a hash.
->>
->=20
-> Yes its more complicated, but look what we did in 2.6.29 for tcp/udp
->  sockets, using RCU to have lockless lookups.
-> Yes, we still take a lock when doing an insert or delete at socket
-> bind/unbind time.
->=20
-> We could keep a central nf_conntrack_lock to guard insertions/deletes
-> from hash and unconfirmed_list.
->=20
-> But *normal* packets that only need to change state of one particular
-> connection could use RCU (without spinlock) to locate the conntrack,
-> then lock the found conntrack to perform all state changes.
+Hi Rusty,
 
-Well... RCU is already used by conntrack :)
+On Wed, 2009-01-28 at 21:15 +1030, Rusty Russell wrote:
+> On Tuesday 27 January 2009 14:08:02 Alex Williamson wrote:
+> > Hi Rusty,
+> > 
+> > On Tue, 2009-01-27 at 13:00 +1030, Rusty Russell wrote:
+> > > On Saturday 17 January 2009 07:43:34 Alex Williamson wrote:
+> > > > As with most real hardware, unicast addresses have priority in
+> > > 
+> > > > the filter table so we can avoid enabling full promiscuous
+> > > 
+> > > > until both unicast and multicast address overflow.
+> > > 
+> > > Why not pretend to have infinite, and have the host turn promisc on
+> > > when *it*
+> > > 
+> > > decides? Skip the alloc call, and just use a feature bit like
+> > > everything else?
+> > 
+> > I suppose it's just a matter of where do you want to add the smarts and
+> > the tune-ability.  Since we can't actually have an infinite table and an
+> > array implementation seems to make sense from an efficiency standpoint,
+> > it needs to be defined by someone to be a fixed size before we start
+> > using it.  I was hoping the guest driver might have a better idea how it
+> > plans to use the filter table and that there'd be some benefit to having
+> > that handshake happen between the driver and the backend.  The module
+> > parameter fell out of this and seems rather convenient.
+> > 
+> > I could pursue this is you like, but I'm not sure of the benefit,
+> > particularly if we want to give the user some control of the size of the
+> > actual table.  Thoughts?  Thanks for the comments,
+> 
+> I don't think the either-or case is real.  Say the user decides they
+> want a table of 1000000 entries.  And the backend says "no way, I have
+> a 16 array"?  Currently you get nothing.
 
-Maybe only __nf_ct_refresh_acct() needs not taking nf_conntrack_lock
+Ok, I think I see what you're getting at.  Linux can handle that, but
+other OSes may not...
 
+> I guess your qemu code does dynamic allocation.  But I'm sure you put
+> a limit in there, right? :)
 
+Right, it allocates the table only when the alloc call is made.  The
+limit is currently what will fit in a host page size, which is perhaps a
+little arbitrary, but I had some FUD about multi-page sg lists.  The
+resulting 682 entry (on 4k) limit seemed sufficiently large.
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> We don't want some complex negotiation, and I don't think the guest
+> has any more clue than the host, nor can do much about it.
+
+For a typical Linux guest, I agree, and I would guess that most users
+won't know or care about the module option to specify the size, nor
+should qemu ever balk at allocating the default size Linux requests.
+However, I also know of a more embedded, proprietary OS that lives in a
+fairly rigid network environment and does have a specific number of
+entries they're looking for.  Other OSes might have different numbers.
+
+Here's what I believe to be the parameters around which I've designed
+the current interface:
+
+     A. Receiving unwanted packets is a waste of resources.
+     B. Proprietary OSes may have dependencies on hardware filtering and
+        may not be able to handle unwanted packets.
+     C. Different guests may want different filter table sizes.
+     D. The guest can make better decisions than the host about what
+        packets are unwanted.
+
+>From this, I derive that the guest needs to know the size of the filter
+table, needs to be able to specify the size of the filter table, and is
+in the best position to program the filter table.  A pseudo-infinite
+table violates the condition of not sending the guest unwanted packets.
+We could also go down the path of deciding what a "big enough" table is,
+and making it part of the ABI to avoid the alloc, but then we may have
+to revise the ABI if we underestimate (whereas the current limit is an
+implementation detail).
+
+Weaving in your comments from other parts of this series, would it help
+at all to distinguish EINVAL from ENOMEM for the alloc call?  Maybe the
+caller could make some kind of intelligent decision based on that (ex.
+unimplemented feature vs try something smaller).  Thanks for the
+comments,
+
+Alex
+
+-- 
+Alex Williamson                             HP Open Source & Linux Org.
+
