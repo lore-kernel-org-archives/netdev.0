@@ -1,173 +1,139 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/4]: net: Add skb_record_rx_queue() calls to multiqueue
- capable drivers.
-Date: Tue, 27 Jan 2009 16:40:29 -0800 (PST)
-Message-ID: <20090127.164029.199987043.davem@davemloft.net>
+Subject: [PATCH 4/4]: net: Get rid of by-hand TX queue hashing.
+Date: Tue, 27 Jan 2009 16:40:36 -0800 (PST)
+Message-ID: <20090127.164036.174928428.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43819
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43823
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751891AbZA1Akb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 19:40:31 -0500
+	by vger.kernel.org with ESMTP id S1751761AbZA1Aki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2009 19:40:38 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 6596E35C003
-	for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 16:40:29 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id 2FF9135C003
+	for <netdev@vger.kernel.org>; Tue, 27 Jan 2009 16:40:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+We now only TX hash on pre-computed SKB properties.
+
+The thinking is:
+
+1) High performance routing and firewalling setups will
+   have a multiqueue capable card used for receive, and
+   therefore would have RX queue recordings made into
+   the SKB which can be used for the TX side hash.
+
+2) Locally generated packets will have an attached socket
+   and thus a valid sk->sk_hash to make use of.
+
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/bnx2.c              |    2 ++
- drivers/net/bnx2x_main.c        |    1 +
- drivers/net/cxgb3/sge.c         |    1 +
- drivers/net/igb/igb_main.c      |    1 +
- drivers/net/ixgbe/ixgbe_main.c  |    1 +
- drivers/net/mlx4/en_rx.c        |    1 +
- drivers/net/myri10ge/myri10ge.c |    1 +
- drivers/net/niu.c               |    1 +
- drivers/net/qlge/qlge_main.c    |    1 +
- drivers/net/s2io.c              |    1 +
- drivers/net/sfc/rx.c            |    2 ++
- 11 files changed, 13 insertions(+), 0 deletions(-)
+ net/core/dev.c |   73 ++++++++++---------------------------------------------
+ 1 files changed, 14 insertions(+), 59 deletions(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index fe575b9..49e0e51 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -3007,6 +3007,8 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		}
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cb8caa9..e61b95c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1708,72 +1708,27 @@ out_kfree_skb:
+ 	return 0;
+ }
  
-+		skb_record_rx_queue(skb, bnapi - &bp->bnx2_napi[0]);
-+
- #ifdef BCM_VLAN
- 		if (hw_vlan)
- 			vlan_hwaccel_receive_skb(skb, bp->vlgrp, vtag);
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 71f81c7..88da14c 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -1325,6 +1325,7 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+-static u32 simple_tx_hashrnd;
+-static int simple_tx_hashrnd_initialized = 0;
++static u32 skb_tx_hashrnd;
++static int skb_tx_hashrnd_initialized = 0;
  
- 		skb->protocol = eth_type_trans(skb, bp->dev);
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		skb_record_rx_queue(skb, queue);
+-static u16 simple_tx_hash(struct net_device *dev, struct sk_buff *skb)
++static u16 skb_tx_hash(struct net_device *dev, struct sk_buff *skb)
+ {
+-	u32 addr1, addr2, ports;
+-	u32 hash, ihl;
+-	u8 ip_proto = 0;
++	u32 hash;
  
- 		{
- 			struct iphdr *iph;
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 8299fb5..272a016 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -1937,6 +1937,7 @@ static void rx_eth(struct adapter *adap, struct sge_rspq *rq,
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	} else
- 		skb->ip_summed = CHECKSUM_NONE;
-+	skb_record_rx_queue(skb, qs - &adap->sge.qs[0]);
- 
- 	if (unlikely(p->vlan_valid)) {
- 		struct vlan_group *grp = pi->vlan_grp;
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index e11043d..bd16680 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -3751,6 +3751,7 @@ static void igb_receive_skb(struct igb_ring *ring, u8 status,
- 	struct igb_adapter * adapter = ring->adapter;
- 	bool vlan_extracted = (adapter->vlgrp && (status & E1000_RXD_STAT_VP));
- 
-+	skb_record_rx_queue(skb, ring->queue_index);
- 	if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 		if (vlan_extracted)
- 			vlan_gro_receive(&ring->napi, adapter->vlgrp,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 43980dc..fe4a4d1 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -414,6 +414,7 @@ static void ixgbe_receive_skb(struct ixgbe_q_vector *q_vector,
- 	bool is_vlan = (status & IXGBE_RXD_STAT_VP);
- 	u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
- 
-+	skb_record_rx_queue(skb, q_vector - &adapter->q_vector[0]);
- 	if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
- 		if (adapter->vlgrp && is_vlan && (tag != 0))
- 			vlan_gro_receive(napi, adapter->vlgrp, tag, skb);
-diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
-index ac55ebd..a4130e7 100644
---- a/drivers/net/mlx4/en_rx.c
-+++ b/drivers/net/mlx4/en_rx.c
-@@ -768,6 +768,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- 		skb->ip_summed = ip_summed;
- 		skb->protocol = eth_type_trans(skb, dev);
-+		skb_record_rx_queue(skb, cq->ring);
- 
- 		/* Push it up the stack */
- 		if (priv->vlgrp && (be32_to_cpu(cqe->vlan_my_qpn) &
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index 2dacb88..aea9fda 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -1324,6 +1324,7 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss, struct myri10ge_rx_buf *rx,
- 		skb_shinfo(skb)->nr_frags = 0;
+-	if (unlikely(!simple_tx_hashrnd_initialized)) {
+-		get_random_bytes(&simple_tx_hashrnd, 4);
+-		simple_tx_hashrnd_initialized = 1;
++	if (unlikely(!skb_tx_hashrnd_initialized)) {
++		get_random_bytes(&skb_tx_hashrnd, 4);
++		skb_tx_hashrnd_initialized = 1;
  	}
- 	skb->protocol = eth_type_trans(skb, dev);
-+	skb_record_rx_queue(skb, ss - &mgp->ss[0]);
  
- 	if (mgp->csum_flag) {
- 		if ((skb->protocol == htons(ETH_P_IP)) ||
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 4a5a089..2346ca6 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -3390,6 +3390,7 @@ static int niu_process_rx_pkt(struct niu *np, struct rx_ring_info *rp)
- 	rp->rx_bytes += skb->len;
+ 	if (skb_rx_queue_recorded(skb)) {
+-		u32 val = skb_get_rx_queue(skb);
+-
+-		hash = jhash_1word(val, simple_tx_hashrnd);
+-		goto out;
+-	}
+-
+-	if (skb->sk && skb->sk->sk_hash) {
+-		u32 val = skb->sk->sk_hash;
+-
+-		hash = jhash_1word(val, simple_tx_hashrnd);
+-		goto out;
+-	}
+-
+-	switch (skb->protocol) {
+-	case htons(ETH_P_IP):
+-		if (!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)))
+-			ip_proto = ip_hdr(skb)->protocol;
+-		addr1 = ip_hdr(skb)->saddr;
+-		addr2 = ip_hdr(skb)->daddr;
+-		ihl = ip_hdr(skb)->ihl;
+-		break;
+-	case htons(ETH_P_IPV6):
+-		ip_proto = ipv6_hdr(skb)->nexthdr;
+-		addr1 = ipv6_hdr(skb)->saddr.s6_addr32[3];
+-		addr2 = ipv6_hdr(skb)->daddr.s6_addr32[3];
+-		ihl = (40 >> 2);
+-		break;
+-	default:
+-		return 0;
+-	}
+-
+-
+-	switch (ip_proto) {
+-	case IPPROTO_TCP:
+-	case IPPROTO_UDP:
+-	case IPPROTO_DCCP:
+-	case IPPROTO_ESP:
+-	case IPPROTO_AH:
+-	case IPPROTO_SCTP:
+-	case IPPROTO_UDPLITE:
+-		ports = *((u32 *) (skb_network_header(skb) + (ihl * 4)));
+-		break;
+-
+-	default:
+-		ports = 0;
+-		break;
+-	}
++		hash = skb_get_rx_queue(skb);
++	} else if (skb->sk && skb->sk->sk_hash) {
++		hash = skb->sk->sk_hash;
++	} else
++		hash = skb->protocol;
  
- 	skb->protocol = eth_type_trans(skb, np->dev);
-+	skb_record_rx_queue(skb, rp->rx_channel);
- 	netif_receive_skb(skb);
+-	hash = jhash_3words(addr1, addr2, ports, simple_tx_hashrnd);
++	hash = jhash_1word(hash, skb_tx_hashrnd);
  
- 	return num_rcr;
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 16eb9dd..4ab6e72 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -1436,6 +1436,7 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
- 	qdev->stats.rx_packets++;
- 	qdev->stats.rx_bytes += skb->len;
- 	skb->protocol = eth_type_trans(skb, ndev);
-+	skb_record_rx_queue(skb, rx_ring - &qdev->rx_ring[0]);
- 	if (qdev->vlgrp && (ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_V)) {
- 		QPRINTK(qdev, RX_STATUS, DEBUG,
- 			"Passing a VLAN packet upstream.\n");
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 2a96a10..e0a353f 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -7542,6 +7542,7 @@ static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
+-out:
+ 	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
+ }
  
- 	sp->mac_control.stats_info->sw_stat.mem_freed += skb->truesize;
- send_up:
-+	skb_record_rx_queue(skb, ring_no);
- 	queue_rx_frame(skb, RXD_GET_VLAN_TAG(rxdp->Control_2));
- aggregate:
- 	sp->mac_control.rings[ring_no].rx_bufs_left -= 1;
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index a0345b3..66d7fe3 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -575,6 +575,8 @@ void __efx_rx_packet(struct efx_channel *channel,
- 	/* Set the SKB flags */
- 	skb->ip_summed = CHECKSUM_NONE;
+@@ -1786,7 +1741,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 	if (ops->ndo_select_queue)
+ 		queue_index = ops->ndo_select_queue(dev, skb);
+ 	else if (dev->real_num_tx_queues > 1)
+-		queue_index = simple_tx_hash(dev, skb);
++		queue_index = skb_tx_hash(dev, skb);
  
-+	skb_record_rx_queue(skb, channel->channel);
-+
- 	/* Pass the packet up */
- 	netif_receive_skb(skb);
- 
+ 	skb_set_queue_mapping(skb, queue_index);
+ 	return netdev_get_tx_queue(dev, queue_index);
 -- 
 1.6.1.15.g159c88
 
