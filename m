@@ -1,22 +1,26 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
 Subject: [PATCH] gianfar: Fix Wake-on-LAN support
 Date: Wed, 28 Jan 2009 23:35:45 +0300
-Message-ID: <20090128203545.GA13928__10147.0398404219$1233175083$gmane$org@oksana.dev.rtsoft.ru>
+Message-ID: <20090128203545.GA13928__10230.2408348352$1233175084$gmane$org@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	Andy Fleming <afleming@freescale.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:29362 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754661AbZA1Ufs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 15:35:48 -0500
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
 commit 0f0ca340e57bd7446855fefd07a64249acf81223 ("phy: power
 management support") caused a regression in the gianfar driver.
