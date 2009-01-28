@@ -1,46 +1,51 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Wed, 28 Jan 2009 17:12:40 +0900
-Message-ID: <49801378.6060407@gmail.com>
-References: <20090115183942.GA6325@elte.hu> <200901201328.24605.rusty@rustcorp.com.au> <49756E6E.2060409@kernel.org> <200901271213.18605.rusty@rustcorp.com.au> <497E705B.5000302@kernel.org> <20090127131317.GF23121@elte.hu> <497F93A2.404@kernel.org> <497FD2AF.6020801@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4]: net: Allow RX queue selection to seed TX queue
+	hashing.
+Date: Wed, 28 Jan 2009 19:53:58 +1100
+Message-ID: <20090128085358.GA15593@gondor.apana.org.au>
+References: <20090127.164027.245779962.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.229]:46893 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752621AbZA1IM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 03:12:57 -0500
-In-Reply-To: <497FD2AF.6020801@gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:40805 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751930AbZA1IyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 03:54:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20090127.164027.245779962.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tejun Heo wrote:
-> Okay, rebased on top of the current master[1].
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/tj/misc.git tj-percpu
-> 
-> The rebased commit ID is e7f538f3d2a6b3a0a632190a7d736730ee10909c.
-> 
-> There were several changes which didn't fit the rebased tree as they
-> really belong to other branches in the x86 tree.  I'll re-submit them
-> as patches against the appropriate branch.
+David Miller <davem@davemloft.net> wrote:
+>
+> +       if (skb_rx_queue_recorded(skb)) {
+> +               u32 val = skb_get_rx_queue(skb);
+> +
+> +               hash = jhash_1word(val, simple_tx_hashrnd);
 
-Two patches against #stackprotector and one against #cpus4096 sent
-out.  With these three patches, most of stuff has been preserved but
-there are still few missing pieces which only make sense after trees
-are merged.  Will be happy to drive it if the current branch looks
-fine.
+I'm not so sure about this added randomness.  On the one hand
+I can see the benefit in being defensive about hashing, but this
+does pose a problem for admins who're trying to optimse the system
+by tying RX interrupts together with TX interrupts for the most
+common traffic path.
 
-Thanks.
+For example, if you're forwarding traffic between multiqueue NICs
+A and B, one would like to make it so that each queue on A goes
+to a fixed queue on B where the CPU of the RX queue IRQ handler on
+A is the same as the CPU of the TX queue IRQ handler on B.
 
+This can still be done with the randomness, but it is much more
+difficult.  Also if the randomness changes, we'd have to rejig
+the IRQ assignment.
+
+So can you think of a scenario where we really need this added
+protection?
+
+Cheers,
 -- 
-tejun
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
