@@ -1,41 +1,438 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6 multicast routing
-Date: Tue, 27 Jan 2009 22:39:02 -0800 (PST)
-Message-ID: <20090127.223902.45013943.davem@davemloft.net>
-References: <20090120200248.GA13928@boeing.com>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH] FEC: Turn FEC driver into platform device driver
+Date: Wed, 28 Jan 2009 17:36:17 +1000
+Message-ID: <49800AF1.7020909@snapgear.com>
+References: <1233052804-31228-1-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-2-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-3-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-4-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-5-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-6-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-7-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-8-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-9-git-send-email-s.hauer@pengutronix.de> <1233052804-31228-10-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fred.l.templin@boeing.com
-To: thomas.goff@boeing.com
+Cc: netdev@vger.kernel.org, frederic rodo <fred.rodo@gmail.com>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54233
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751866AbZA1GjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 01:39:04 -0500
-In-Reply-To: <20090120200248.GA13928@boeing.com>
+Received: from rex.securecomputing.com ([203.24.151.4]:40622 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751930AbZA1HgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 02:36:22 -0500
+In-Reply-To: <1233052804-31228-10-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Goff <thomas.goff@boeing.com>
-Date: Tue, 20 Jan 2009 12:02:48 -0800
+Hi Sascha,
 
->   - Enable/disable IPv6 multicast forwarding on the corresponding
->     interface when a routing daemon adds/removes a multicast virtual
->     interface.
+Sascha Hauer wrote:
+> This turns the fec driver into a platform device driver for new
+> platforms. Old platforms are still supported through a FEC_LEGACY define
+> till they are also ported.
+> 
+> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> ---
+>  drivers/net/fec.c |  249 ++++++++++++++++++++++++++++++++++++++++++++++------
+>  1 files changed, 220 insertions(+), 29 deletions(-)
+> 
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 2c8783a..ed4825b 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -39,6 +39,7 @@
+>  #include <linux/io.h>
+>  #include <linux/irq.h>
+>  #include <linux/clk.h>
+> +#include <linux/platform_device.h>
+>  
+>  #include <asm/cacheflush.h>
+>  
+> @@ -49,12 +50,6 @@
+>  
+>  #include "fec.h"
+>  
+> -#if defined(CONFIG_FEC2)
+> -#define	FEC_MAX_PORTS	2
+> -#else
+> -#define	FEC_MAX_PORTS	1
+> -#endif
+> -
+>  #ifdef CONFIG_ARCH_MXC
+>  #include <mach/hardware.h>
+>  #define FEC_ALIGNMENT	0xf
+> @@ -62,13 +57,22 @@
+>  #define FEC_ALIGNMENT	0x3
+>  #endif
+>  
+> +#if defined CONFIG_M5272 || defined CONFIG_M527x || defined CONFIG_M523x \
+> +	|| defined CONFIG_M528x || defined CONFIG_M532
 
-Since Hideaki-san is being unresponsive I looked at this patch again
-so I can apply it, or at least part of it, to get the bugs fixed.
+This list needs to include a "defined CONFIG_M520x" as well.
 
-I disagree with his objection to the mc_forwarding changes here, they
-are correct and in fact desirable.  They are desirable since without
-this we have yet another disconnect between ipv4 and ipv6 behavior.
+Aside from this it builds and runs fine on the ColdFire parts
+I tried it on.
 
-We already have way too many of those.
+Regards
+Greg
 
-Every time I notice a behavior difference between our ipv4 and ipv6
-stack I almost believe there is an active conspiracy to make the
-transition to ipv6 as difficult as possible :-)
 
-So I'm going to apply this patch as-is, with the addition of making
-the mc_forwarding sysctl read-only (perms 0444) as it is in ipv4.
+
+
+> +#define FEC_LEGACY
+> +/*
+> + * Define the fixed address of the FEC hardware.
+> + */
+>  #if defined(CONFIG_M5272)
+>  #define HAVE_mii_link_interrupt
+>  #endif
+>  
+> -/*
+> - * Define the fixed address of the FEC hardware.
+> - */
+> +#if defined(CONFIG_FEC2)
+> +#define	FEC_MAX_PORTS	2
+> +#else
+> +#define	FEC_MAX_PORTS	1
+> +#endif
+> +
+>  static unsigned int fec_hw[] = {
+>  #if defined(CONFIG_M5272)
+>  	(MCF_MBAR + 0x840),
+> @@ -106,6 +110,8 @@ static unsigned char	fec_mac_default[] = {
+>  #define	FEC_FLASHMAC	0
+>  #endif
+>  
+> +#endif /* FEC_LEGACY */
+> +
+>  /* Forward declarations of some structures to support different PHYs
+>  */
+>  
+> @@ -189,6 +195,8 @@ struct fec_enet_private {
+>  
+>  	struct net_device *netdev;
+>  
+> +	struct clk *clk;
+> +
+>  	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+>  	unsigned char *tx_bounce[TX_RING_SIZE];
+>  	struct	sk_buff* tx_skbuff[TX_RING_SIZE];
+> @@ -1919,7 +1927,9 @@ mii_discover_phy(uint mii_reg, struct net_device *dev)
+>  		printk("FEC: No PHY device found.\n");
+>  		/* Disable external MII interface */
+>  		fecp->fec_mii_speed = fep->phy_speed = 0;
+> +#ifdef FREC_LEGACY
+>  		fec_disable_phy_intr();
+> +#endif
+>  	}
+>  }
+>  
+> @@ -2101,12 +2111,12 @@ fec_set_mac_address(struct net_device *dev)
+>  
+>  }
+>  
+> -/* Initialize the FEC Ethernet on 860T (or ColdFire 5272).
+> - */
+>   /*
+>    * XXX:  We need to clean up on failure exits here.
+> +  *
+> +  * index is only used in legacy code
+>    */
+> -int __init fec_enet_init(struct net_device *dev)
+> +int __init fec_enet_init(struct net_device *dev, int index)
+>  {
+>  	struct fec_enet_private *fep = netdev_priv(dev);
+>  	unsigned long	mem_addr;
+> @@ -2114,11 +2124,6 @@ int __init fec_enet_init(struct net_device *dev)
+>  	cbd_t		*cbd_base;
+>  	volatile fec_t	*fecp;
+>  	int 		i, j;
+> -	static int	index = 0;
+> -
+> -	/* Only allow us to be probed once. */
+> -	if (index >= FEC_MAX_PORTS)
+> -		return -ENXIO;
+>  
+>  	/* Allocate memory for buffer descriptors.
+>  	*/
+> @@ -2133,7 +2138,7 @@ int __init fec_enet_init(struct net_device *dev)
+>  
+>  	/* Create an Ethernet device instance.
+>  	*/
+> -	fecp = (volatile fec_t *) fec_hw[index];
+> +	fecp = (volatile fec_t *)dev->base_addr;
+>  
+>  	fep->index = index;
+>  	fep->hwp = fecp;
+> @@ -2144,16 +2149,24 @@ int __init fec_enet_init(struct net_device *dev)
+>  	fecp->fec_ecntrl = 1;
+>  	udelay(10);
+>  
+> -	/* Set the Ethernet address.  If using multiple Enets on the 8xx,
+> -	 * this needs some work to get unique addresses.
+> -	 *
+> -	 * This is our default MAC address unless the user changes
+> -	 * it via eth_mac_addr (our dev->set_mac_addr handler).
+> -	 */
+> +	/* Set the Ethernet address */
+> +#ifdef FEC_LEGACY
+>  	fec_get_mac(dev);
+> +#else
+> +	{
+> +		unsigned long l;
+> +		l = fecp->fec_addr_low;
+> +		dev->dev_addr[0] = (unsigned char)((l & 0xFF000000) >> 24);
+> +		dev->dev_addr[1] = (unsigned char)((l & 0x00FF0000) >> 16);
+> +		dev->dev_addr[2] = (unsigned char)((l & 0x0000FF00) >> 8);
+> +		dev->dev_addr[3] = (unsigned char)((l & 0x000000FF) >> 0);
+> +		l = fecp->fec_addr_high;
+> +		dev->dev_addr[4] = (unsigned char)((l & 0xFF000000) >> 24);
+> +		dev->dev_addr[5] = (unsigned char)((l & 0x00FF0000) >> 16);
+> +	}
+> +#endif
+>  
+>  	cbd_base = (cbd_t *)mem_addr;
+> -	/* XXX: missing check for allocation failure */
+>  
+>  	/* Set receive and transmit descriptor base.
+>  	*/
+> @@ -2220,10 +2233,12 @@ int __init fec_enet_init(struct net_device *dev)
+>  	fecp->fec_r_des_start = fep->bd_dma;
+>  	fecp->fec_x_des_start = (unsigned long)fep->bd_dma + sizeof(cbd_t) * RX_RING_SIZE;
+>  
+> +#ifdef FEC_LEGACY
+>  	/* Install our interrupt handlers. This varies depending on
+>  	 * the architecture.
+>  	*/
+>  	fec_request_intrs(dev);
+> +#endif
+>  
+>  	fecp->fec_grp_hash_table_high = 0;
+>  	fecp->fec_grp_hash_table_low = 0;
+> @@ -2235,8 +2250,6 @@ int __init fec_enet_init(struct net_device *dev)
+>  	fecp->fec_hash_table_low = 0;
+>  #endif
+>  
+> -	dev->base_addr = (unsigned long)fecp;
+> -
+>  	/* The FEC Ethernet specific entries in the device structure. */
+>  	dev->open = fec_enet_open;
+>  	dev->hard_start_xmit = fec_enet_start_xmit;
+> @@ -2250,7 +2263,20 @@ int __init fec_enet_init(struct net_device *dev)
+>  	mii_free = mii_cmds;
+>  
+>  	/* setup MII interface */
+> +#ifdef FEC_LEGACY
+>  	fec_set_mii(dev, fep);
+> +#else
+> +	fecp->fec_r_cntrl = OPT_FRAME_SIZE | 0x04;
+> +	fecp->fec_x_cntrl = 0x00;
+> +
+> +	/*
+> +	 * Set MII speed to 2.5 MHz
+> +	 */
+> +	fep->phy_speed = ((((clk_get_rate(fep->clk) / 2 + 4999999)
+> +					/ 2500000) / 2) & 0x3F) << 1;
+> +	fecp->fec_mii_speed = fep->phy_speed;
+> +	fec_restart(dev, 0);
+> +#endif
+>  
+>  	/* Clear and enable interrupts */
+>  	fecp->fec_ievent = 0xffc00000;
+> @@ -2263,7 +2289,6 @@ int __init fec_enet_init(struct net_device *dev)
+>  	fep->phy_addr = 0;
+>  	mii_queue(dev, mk_mii_read(MII_REG_PHYIR1), mii_discover_phy);
+>  
+> -	index++;
+>  	return 0;
+>  }
+>  
+> @@ -2414,6 +2439,7 @@ fec_stop(struct net_device *dev)
+>  	fecp->fec_mii_speed = fep->phy_speed;
+>  }
+>  
+> +#ifdef FEC_LEGACY
+>  static int __init fec_enet_module_init(void)
+>  {
+>  	struct net_device *dev;
+> @@ -2425,7 +2451,8 @@ static int __init fec_enet_module_init(void)
+>  		dev = alloc_etherdev(sizeof(struct fec_enet_private));
+>  		if (!dev)
+>  			return -ENOMEM;
+> -		err = fec_enet_init(dev);
+> +		dev->base_addr = (unsigned long)fec_hw[i];
+> +		err = fec_enet_init(dev, i);
+>  		if (err) {
+>  			free_netdev(dev);
+>  			continue;
+> @@ -2440,6 +2467,170 @@ static int __init fec_enet_module_init(void)
+>  	}
+>  	return 0;
+>  }
+> +#else
+> +
+> +static int __devinit
+> +fec_probe(struct platform_device *pdev)
+> +{
+> +	struct fec_enet_private *fep;
+> +	struct net_device *ndev;
+> +	int i, irq, ret = 0;
+> +	struct resource *r;
+> +
+> +	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +	if (!r)
+> +		return -ENXIO;
+> +
+> +	r = request_mem_region(r->start, resource_size(r), pdev->name);
+> +	if (!r)
+> +		return -EBUSY;
+> +
+> +	/* Init network device */
+> +	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
+> +	if (!ndev)
+> +		return -ENOMEM;
+> +
+> +	SET_NETDEV_DEV(ndev, &pdev->dev);
+> +
+> +	/* setup board info structure */
+> +	fep = netdev_priv(ndev);
+> +	memset(fep, 0, sizeof(*fep));
+> +
+> +	ndev->base_addr = (unsigned long)ioremap(r->start, resource_size(r));
+> +
+> +	if (!ndev->base_addr) {
+> +		ret = -ENOMEM;
+> +		goto failed_ioremap;
+> +	}
+> +
+> +	platform_set_drvdata(pdev, ndev);
+> +
+> +	/* This device has up to three irqs on some platforms */
+> +	for (i = 0; i < 3; i++) {
+> +		irq = platform_get_irq(pdev, i);
+> +		if (i && irq < 0)
+> +			break;
+> +		ret = request_irq(irq, fec_enet_interrupt, IRQF_DISABLED, pdev->name, ndev);
+> +		if (ret) {
+> +			while (i >= 0) {
+> +				irq = platform_get_irq(pdev, i);
+> +				free_irq(irq, ndev);
+> +				i--;
+> +			}
+> +			goto failed_irq;
+> +		}
+> +	}
+> +
+> +	fep->clk = clk_get(&pdev->dev, "fec_clk");
+> +	if (IS_ERR(fep->clk)) {
+> +		ret = PTR_ERR(fep->clk);
+> +		goto failed_clk;
+> +	}
+> +	clk_enable(fep->clk);
+> +
+> +	ret = fec_enet_init(ndev, 0);
+> +	if (ret)
+> +		goto failed_init;
+> +
+> +	ret = register_netdev(ndev);
+> +	if (ret)
+> +		goto failed_register;
+> +
+> +	return 0;
+> +
+> +failed_register:
+> +failed_init:
+> +	clk_disable(fep->clk);
+> +	clk_put(fep->clk);
+> +failed_clk:
+> +	for (i = 0; i < 3; i++) {
+> +		irq = platform_get_irq(pdev, i);
+> +		if (irq > 0)
+> +			free_irq(irq, ndev);
+> +	}
+> +failed_irq:
+> +	iounmap((void __iomem *)ndev->base_addr);
+> +failed_ioremap:
+> +	free_netdev(ndev);
+> +
+> +	return ret;
+> +}
+> +
+> +static int __devexit
+> +fec_drv_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev = platform_get_drvdata(pdev);
+> +	struct fec_enet_private *fep = netdev_priv(ndev);
+> +
+> +	platform_set_drvdata(pdev, NULL);
+> +
+> +	fec_stop(ndev);
+> +	clk_disable(fep->clk);
+> +	clk_put(fep->clk);
+> +	iounmap((void __iomem *)ndev->base_addr);
+> +	unregister_netdev(ndev);
+> +	free_netdev(ndev);
+> +	return 0;
+> +}
+> +
+> +static int
+> +fec_suspend(struct platform_device *dev, pm_message_t state)
+> +{
+> +	struct net_device *ndev = platform_get_drvdata(dev);
+> +	struct fec_enet_private *fep;
+> +
+> +	if (ndev) {
+> +		fep = netdev_priv(ndev);
+> +		if (netif_running(ndev)) {
+> +			netif_device_detach(ndev);
+> +			fec_stop(ndev);
+> +		}
+> +	}
+> +	return 0;
+> +}
+> +
+> +static int
+> +fec_resume(struct platform_device *dev)
+> +{
+> +	struct net_device *ndev = platform_get_drvdata(dev);
+> +
+> +	if (ndev) {
+> +		if (netif_running(ndev)) {
+> +			fec_enet_init(ndev, 0);
+> +			netif_device_attach(ndev);
+> +		}
+> +	}
+> +	return 0;
+> +}
+> +
+> +static struct platform_driver fec_driver = {
+> +	.driver	= {
+> +		.name    = "fec",
+> +		.owner	 = THIS_MODULE,
+> +	},
+> +	.probe   = fec_probe,
+> +	.remove  = __devexit_p(fec_drv_remove),
+> +	.suspend = fec_suspend,
+> +	.resume  = fec_resume,
+> +};
+> +
+> +static int __init
+> +fec_enet_module_init(void)
+> +{
+> +	printk(KERN_INFO "FEC Ethernet Driver\n");
+> +
+> +	return platform_driver_register(&fec_driver);
+> +}
+> +
+> +static void __exit
+> +fec_enet_cleanup(void)
+> +{
+> +	platform_driver_unregister(&fec_driver);
+> +}
+> +
+> +module_exit(fec_enet_cleanup);
+> +
+> +#endif /* FEC_LEGACY */
+>  
+>  module_init(fec_enet_module_init);
+>  
+
+-- 
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear, a McAfee Company                  PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
