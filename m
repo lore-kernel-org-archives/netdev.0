@@ -1,47 +1,61 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 20/21] RDS: Kconfig and Makefile
-Date: Wed, 28 Jan 2009 14:59:45 -0800
-Message-ID: <adazlhbt4ta.fsf@cisco.com>
-References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
-	<1233022678-9259-21-git-send-email-andy.grover@oracle.com>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: FEC Patches
+Date: Thu, 29 Jan 2009 09:46:22 +1000
+Message-ID: <4980EE4E.5050203@snapgear.com>
+References: <1233052804-31228-1-git-send-email-s.hauer@pengutronix.de> <49800B31.9020608@snapgear.com> <20090128185339.GD8446@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rds-devel@oss.oracle.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org
-To: Andy Grover <andy.grover@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, frederic rodo <fred.rodo@gmail.com>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:11152 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751240AbZA1W7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 17:59:47 -0500
-In-Reply-To: <1233022678-9259-21-git-send-email-andy.grover@oracle.com> (Andy
-	Grover's message of "Mon, 26 Jan 2009 18:17:57 -0800")
+Received: from rex.securecomputing.com ([203.24.151.4]:45548 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758233AbZA1XqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 18:46:24 -0500
+In-Reply-To: <20090128185339.GD8446@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > +obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/rds/
+Hi Sascha,
 
-Typo for ..._RDS
+Sascha Hauer wrote:
+> Hi Greg,
+> 
+> On Wed, Jan 28, 2009 at 05:37:21PM +1000, Greg Ungerer wrote:
+>> Hi Sascha,
+>>
+>> Sascha Hauer wrote:
+>>> Sorry guys, sending this again. Of course I'm not 'y', just playing
+>>> git-send-email:
+>>>
+>>> Who should the emails appear to be from? [Sascha Hauer <s.hauer@pengutronix.de>] y[es]
+>>> Emails will be sent from: y
+>>>
+>>>
+>>> These patches are an updated version from the ones I posted some time ago.
+>>> They give the FEC ethernet driver a facelift and turn it into a
+>>> platform_device driver. The Coldfire cores are still supported through
+>>> legacy ifdefs. The platform driver support has been tested on a
+>>> Freescale i.MX27 SoC.
+>> Outside of the one patch I commented on the series applies, runs and
+>> seems to work OK on the ColdFire parts I tried it on.
+> 
+> Thanks for testing the patches. I'll add the change you mentioned.
+> So this means I can add your Acked-by and send a pull request, well to
+> whom? David Miller, Jeff Garzik?
 
- > +config INFINIBAND_RDS_DEBUG
- > +        bool "Debugging messages"
- > +	depends on INFINIBAND_RDS
- > +        default n
+Sure,
 
-No way to enable this?  Disabled by default?
+Acked-by: Greg Ungerer <gerg@uclinux.org>
 
-You really want debugging messages to be built by default and controlled
-at runtime ... otherwise debugging end-user installations is a pain
-(they just install what the distro gives them, and it's very hard for
-them to rebuild just to enable debugging).
+Regards
+Greg
 
- > +ib_rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
- > +			recv.o send.o stats.o sysctl.o threads.o transport.o \
- > +			loop.o page.o rdma.o
- > +
- > +ib_rds-y += ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
- > +			ib_sysctl.o ib_rdma.o
 
-a very strange way to write an assignment statement...
 
- - R.
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear, a McAfee Company                  PHONE:       +61 7 3435 2888
+825 Stanley St,                             FAX:         +61 7 3891 3630
+Woolloongabba, QLD, 4102, Australia         WEB: http://www.SnapGear.com
