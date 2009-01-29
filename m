@@ -1,67 +1,37 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Thu, 29 Jan 2009 18:03:43 +0300
-Message-ID: <20090129150343.GB28669@ioremap.net>
-References: <20090127225545.GA16143@ioremap.net> <20090129033613.GB6462@linux.vnet.ibm.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] smsc911x: timeout reaches -1
+Date: Thu, 29 Jan 2009 16:12:03 +0100
+Message-ID: <4981C743.90202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from matrixpower.ru ([195.178.208.66]:34123 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754726AbZA2PEH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 10:04:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20090129033613.GB6462@linux.vnet.ibm.com>
+Received: from ey-out-2122.google.com ([74.125.78.24]:17228 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751863AbZA2PMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 10:12:05 -0500
+Received: by ey-out-2122.google.com with SMTP id 25so209686eya.37
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2009 07:12:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Paul.
+With a postfix decrement the timeout will reach -1 rather than 0,
+so the warning will not be issued.
 
-On Wed, Jan 28, 2009 at 07:36:13PM -0800, Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> > Passive OS fingerprint homepage (archives, examples):
-> > http://www.ioremap.net/projects/osf
-> 
-> Cool stuff!!!
-
-Thank you :)
-
-> However, I believe you need an rcu_barrier() in the module-exit function
-> as noted below.
-
-> > +static void __devexit ipt_osf_fini(void)
-> > +{
-> > +	struct ipt_osf_finger *f;
-> > +	int i;
-> > +
-> > +	cn_del_callback(&cn_osf_id);
-> > +	xt_unregister_match(&ipt_osf_match);
-> > +
-> > +	rcu_read_lock();
-> > +	for (i=0; i<ARRAY_SIZE(ipt_osf_fingers); ++i) {
-> > +		struct ipt_osf_finger_storage *st = &ipt_osf_fingers[i];
-> > +
-> > +		list_for_each_entry_rcu(f, &st->finger_list, finger_entry) {
-> > +			list_del_rcu(&f->finger_entry);
-> > +			call_rcu(&f->rcu_head, ipt_osf_finger_free_rcu);
-> > +		}
-> > +	}
-> > +	rcu_read_unlock();
-> 
-> Don't we need an rcu_barrier() here so that the preceding RCU callbacks
-> are guaranteed to complete before the module text/data/bss vanish?
-> 
-> Whatever does the rmmod is responsible for making sure that there are no
-> additional callers into the various entry points once the rmmod starts,
-> I take it?  I don't see anything here that prevents something like that
-> from happening (though I easily could be missing something).
-
-All objects freed there were dynamically allocated, so we just
-kfree()'ing some data not accessing static data potentially destroyed by
-the rmmod and not accessing statically created, so there should be no
-problems as far as I can see.
-
--- 
-	Evgeniy Polyakov
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index f513bdf..783c1a7 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -953,7 +953,7 @@ smsc911x_rx_fastforward(struct smsc911x_data *pdata, unsigned int pktbytes)
+ 		do {
+ 			udelay(1);
+ 			val = smsc911x_reg_read(pdata, RX_DP_CTRL);
+-		} while (timeout-- && (val & RX_DP_CTRL_RX_FFWD_));
++		} while (--timeout && (val & RX_DP_CTRL_RX_FFWD_));
+ 
+ 		if (unlikely(timeout == 0))
+ 			SMSC_WARNING(HW, "Timed out waiting for "
