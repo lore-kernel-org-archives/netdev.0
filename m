@@ -1,9 +1,9 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [ofa-general] Re: [PATCH 20/21] RDS: Kconfig and Makefile
-Date: Wed, 28 Jan 2009 18:19:42 -0800
-Message-ID: <4981123E.2060406@oracle.com>
-References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>	<1233022678-9259-21-git-send-email-andy.grover@oracle.com>
-	<adazlhbt4ta.fsf@cisco.com>
+Subject: [ofa-general] Re: [PATCH 17/21] RDS/IB: Receive datagrams via IB
+Date: Wed, 28 Jan 2009 18:20:40 -0800
+Message-ID: <49811278.3050806@oracle.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>	<1233022678-9259-18-git-send-email-andy.grover@oracle.com>
+	<ada1vunt1sg.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -11,7 +11,7 @@ Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
 	general@lists.openfabrics.org
 To: Roland Dreier <rdreier@cisco.com>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adazlhbt4ta.fsf@cisco.com>
+In-Reply-To: <ada1vunt1sg.fsf@cisco.com>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -24,42 +24,32 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 Roland Dreier wrote:
->  > +obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/rds/
-> 
-> Typo for ..._RDS
-
-Whups. :)
-
->  > +config INFINIBAND_RDS_DEBUG
->  > +        bool "Debugging messages"
->  > +	depends on INFINIBAND_RDS
->  > +        default n
-> 
-> No way to enable this?  Disabled by default?
-> 
-> You really want debugging messages to be built by default and controlled
-> at runtime ... otherwise debugging end-user installations is a pain
-> (they just install what the distro gives them, and it's very hard for
-> them to rebuild just to enable debugging).
-
-So the solution is just to base debug message output on a variable,
-instead of a config option? RDS actually does do this a little already,
-so converting totally isn't hard. I hadn't seen mention this was
-preferable -- indeed, tons of drivers and subsystems have options for
-compile-time debug statements, should these be converted?
-
->  > +ib_rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
->  > +			recv.o send.o stats.o sysctl.o threads.o transport.o \
->  > +			loop.o page.o rdma.o
+>  > +static int rds_ib_recv_refill_one(struct rds_connection *conn,
+>  > +				  struct rds_ib_recv_work *recv,
+>  > +				  gfp_t kptr_gfp, gfp_t page_gfp)
+>  > +{
+>  > +	struct rds_ib_connection *ic = conn->c_transport_data;
+>  > +	dma_addr_t dma_addr;
+>  > +	struct ib_sge *sge;
+>  > +	int ret = -ENOMEM;
 >  > +
->  > +ib_rds-y += ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
->  > +			ib_sysctl.o ib_rdma.o
+>  > +	if (recv->r_ibinc == NULL) {
+>  > +		if (atomic_read(&rds_ib_allocation) >= rds_ib_sysctl_max_recv_allocation) {
+>  > +			rds_ib_stats_inc(s_ib_rx_alloc_limit);
+>  > +			goto out;
+>  > +		}
+>  > +		recv->r_ibinc = kmem_cache_alloc(rds_ib_incoming_slab,
+>  > +						 kptr_gfp);
+>  > +		if (recv->r_ibinc == NULL)
+>  > +			goto out;
+>  > +		atomic_inc(&rds_ib_allocation);
 > 
-> a very strange way to write an assignment statement...
+> This is racy.  You check if you're at the limit, do the allocation, and
+> then increment the atomic rds_ib_allocation count.  So many threads can
+> pass the atomic_read() test and then take you over the limit.  If you
+> want to make it safe then you could do atomic_inc_return() and check if
+> that took you over the limit.
 
-RDS is implemented as a core sockets layer and then a transport layer.
-IB is currently the only transport so I thought it made sense to just
-compile them together, but once there are >1 then RDS's IB support could
-be broken out into its own module.
+Woah, yup, thanks.
 
-Regards -- Andy
+-- Andy
