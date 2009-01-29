@@ -1,39 +1,46 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH 20/21] RDS: Kconfig and Makefile
-Date: Wed, 28 Jan 2009 21:14:27 -0800
-Message-ID: <adaocxqsngs.fsf@cisco.com>
-References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
-	<1233022678-9259-21-git-send-email-andy.grover@oracle.com>
-	<adazlhbt4ta.fsf@cisco.com> <4981123E.2060406@oracle.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH 4/5] virtio_net: Add a MAC filter table
+Date: Wed, 28 Jan 2009 22:17:55 -0800
+Message-ID: <OF025C8F2F.2E8FFF17-ON8825754D.0020EE83-8825754D.002299DE@us.ibm.com>
+References: <20090129003429.GA23582@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	general@lists.openfabrics.org
-To: Andy Grover <andy.grover@oracle.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <4981123E.2060406@oracle.com> (Andy Grover's message of "Wed, 28
-	Jan 2009 18:19:42 -0800")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Alex Williamson <alex.williamson@hp.com>, kvm@vger.kernel.org,
+	markmc@redhat.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090129003429.GA23582@gondor.apana.org.au>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > So the solution is just to base debug message output on a variable,
- > instead of a config option? RDS actually does do this a little already,
- > so converting totally isn't hard. I hadn't seen mention this was
- > preferable -- indeed, tons of drivers and subsystems have options for
- > compile-time debug statements, should these be converted?
+I haven't been following this closely, so apologies if the point's been 
+made, or
+if you're talking about unicast addresses here too, but just to be clear:
 
-My experience is definitely that compile-time switches are a big pain
-when you actually have to debug something that can only be reproduced on
-someone else's setup (which will happen once users start using your
-stuff).  You probably can use the dynamic_printk stuff that went in
-recently to make this all very clean and standard.
+For multicasting, false positives are ok, false negatives are not 
+(non-functional),
+and if the fixed-size address filter is exceeded, _multicast_promiscuous_
+(but not all unicasts, so not promiscuous mode) is the "good" thing to do.
+So "best effort" still shouldn't lead to an address you previously joined 
+not
+being passed because a new one is added.
 
- - R.
+Also, if you can't keep all the MAC multicast addresses (ie,
+the limit is memory and not look-up speed), then getting
+out of multicast-promiscuous mode correctly isn't easy
+since you don't know what groups you "forgot". You could
+rebuild from the protocol memberships, if you know when
+you've left enough groups to fit, but otherwise the MAC
+multicast addresses you didn't keep of course won't work if you
+leave multicast-promiscuous mode and the filter doesn't
+have them.
+
+So, if you're talking about not being able to fit all
+the address (vs. not wanting to search that many), then
+I'd suggest either staying in MP mode until ifdown, or
+making the join a hard failure at the limit in the first
+place.
+
+                                                        +-DLS
+
