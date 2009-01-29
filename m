@@ -1,9 +1,9 @@
 From: Andy Grover <andy.grover@oracle.com>
-Subject: [ofa-general] Re: [PATCH 17/21] RDS/IB: Receive datagrams via IB
-Date: Wed, 28 Jan 2009 18:20:40 -0800
-Message-ID: <49811278.3050806@oracle.com>
-References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>	<1233022678-9259-18-git-send-email-andy.grover@oracle.com>
-	<ada1vunt1sg.fsf@cisco.com>
+Subject: [ofa-general] Re: [PATCH 03/21] RDS: Congestion-handling code
+Date: Wed, 28 Jan 2009 18:39:31 -0800
+Message-ID: <498116E3.3060506@oracle.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>	<1233022678-9259-4-git-send-email-andy.grover@oracle.com>
+	<ada7i4fujia.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -11,7 +11,7 @@ Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
 	general@lists.openfabrics.org
 To: Roland Dreier <rdreier@cisco.com>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <ada1vunt1sg.fsf@cisco.com>
+In-Reply-To: <ada7i4fujia.fsf@cisco.com>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -24,32 +24,20 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 Roland Dreier wrote:
->  > +static int rds_ib_recv_refill_one(struct rds_connection *conn,
->  > +				  struct rds_ib_recv_work *recv,
->  > +				  gfp_t kptr_gfp, gfp_t page_gfp)
->  > +{
->  > +	struct rds_ib_connection *ic = conn->c_transport_data;
->  > +	dma_addr_t dma_addr;
->  > +	struct ib_sge *sge;
->  > +	int ret = -ENOMEM;
->  > +
->  > +	if (recv->r_ibinc == NULL) {
->  > +		if (atomic_read(&rds_ib_allocation) >= rds_ib_sysctl_max_recv_allocation) {
->  > +			rds_ib_stats_inc(s_ib_rx_alloc_limit);
->  > +			goto out;
->  > +		}
->  > +		recv->r_ibinc = kmem_cache_alloc(rds_ib_incoming_slab,
->  > +						 kptr_gfp);
->  > +		if (recv->r_ibinc == NULL)
->  > +			goto out;
->  > +		atomic_inc(&rds_ib_allocation);
+>  > +EXPORT_SYMBOL_GPL(rds_cong_map_updated);
 > 
-> This is racy.  You check if you're at the limit, do the allocation, and
-> then increment the atomic rds_ib_allocation count.  So many threads can
-> pass the atomic_read() test and then take you over the limit.  If you
-> want to make it safe then you could do atomic_inc_return() and check if
-> that took you over the limit.
+> What is this being exported to?  AFAICT you are only building a single
+> RDS module, right?
 
-Woah, yup, thanks.
+In the current RDS development repo, transports are modularizable. For
+the initial upstream submission I just wanted to include the IB
+transport so I changed the build to compile rds-core and rds-ib
+together, but didn't pull out the exports.
 
--- Andy
+Steve Wise is working on having the iwarp transport debugged in the near
+future. Once that is added and we make transports modularizable then
+those exports are needed.
+
+Take them out for now, then?
+
+Thanks -- Regards -- Andy
