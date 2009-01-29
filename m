@@ -1,67 +1,70 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Thu, 29 Jan 2009 12:36:46 +1030
-Message-ID: <200901291236.48189.rusty@rustcorp.com.au>
-References: <20090115183942.GA6325@elte.hu> <200901282108.51864.rusty@rustcorp.com.au> <498039E2.7090107@kernel.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Wed, 28 Jan 2009 18:10:37 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0901281757240.3123@localhost.localdomain>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain> <alpine.DEB.2.00.0901282049040.5026@parag-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Parag Warudkar <parag.lkml@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43521 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756912AbZA2CG4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jan 2009 21:06:56 -0500
-In-Reply-To: <498039E2.7090107@kernel.org>
-Content-Disposition: inline
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52331 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751302AbZA2CLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 21:11:00 -0500
+In-Reply-To: <alpine.DEB.2.00.0901282049040.5026@parag-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 28 January 2009 21:26:34 Tejun Heo wrote:
-> Hello,
 
-Hi Tejun,
 
-> Rusty Russell wrote:
-> > If the stats are only manipulated in one context, than an atomic
-> > requirement is overkill (and expensive on non-x86).
+On Wed, 28 Jan 2009, Parag Warudkar wrote:
 > 
-> Yes, it is.  I was hoping it to be not more expensive on most archs.
-> It isn't on x86 at the very least but I don't know much about other
-> archs.
+> Sure, diff -u below. There are differences but not sure if they are 
+> abnormal or expected.
 
-Hmm, you can garner this from the local_t stats which were flying around.
-(see Re: local_add_return from me), or look in the preamble to
-http://ozlabs.org/~rusty/kernel/rr-latest/misc:test-local_t.patch ).
+Well, they're all in the "extended set", ie not the basic registers that 
+the PCI layer saves. The PCI layer normally just saves the low 16 dwords, 
+along with the PCI[EX] capability thing.
 
-Of course, if you want to be my hero, you could implement "soft" irq
-disable for all archs, which would make this cheaper.
+None of the PCI save/restore routines have ever saved the extended state 
+(well, "ever" is a strong word - I think we long ago used to pass in how 
+many bytes we wanted saved, but got rid of it), and it certainly didn't 
+change with the recent PCI suspend/resume changes.
 
-> > Other than the shouting, I liked Christoph's system:
-> > - CPU_INC = always safe (eg. local_irq_save/per_cpu(i)++/local_irq_restore)
-> > - _CPU_INC = not safe against interrupts (eg. get_cpu/per_cpu(i)++/put_cpu)
-> > - __CPU_INC = not safe against anything (eg. per_cpu(i)++)
-> > 
-> > I prefer the name 'local' to the name 'cpu', but I'm not hugely fussed.
-> 
-> I like local better too but no biggies one way or the other.
+I get the feeling that it's some odd tg3 issue. That tg3 driver does have 
+that special
 
-Maybe kill local_t and take the name back.  I'll leave it to you...
+        /* Make sure register accesses (indirect or otherwise)
+         * will function correctly.
+         */
+        pci_write_config_dword(tp->pdev,
+                               TG3PCI_MISC_HOST_CTRL,
+                               tp->misc_host_ctrl);
 
-> > Ah, I did not realize that you celebrated Australia day :)
-> 
-> Hey, didn't know Australia was founded on lunar New Year's day.
-> Nice. :-)
+in its own version of setting the power state, and maybe that really 
+_must_ happen before we actually set the state back to PCI_D0. That sounds 
+very odd, but hey..
 
-That would have been cool, but no; first time in 76 years they matched tho.
+I added Matt Carlson to the cc, since he seems to be the main tg3 
+authority here.
 
-Thanks,
-Rusty.
+Matt: the whole discussion is on netdev and the kernel mailing list, but 
+the short version is that -rc3 suspends and resumes for Parag again 
+(unlike -rc2), but tg3 doesn't appear to resume properly. The generic PCI 
+layer now does more at resume time (very early, when interrupts are still 
+off), see
+
+ - pci_pm_resume_noirq ->
+     pci_pm_default_resume_noirq() ->
+       pci_restore_standard_config()
+
+for more of the details (basically it always does that 
+"pci_restore_state()" and tries to bring the device back to PCI_D0).
+
+			Linus
