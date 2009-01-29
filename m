@@ -1,113 +1,49 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: [PATCH] net: add ARP notify option for devices
-Date: Thu, 29 Jan 2009 10:49:26 -0800
-Message-ID: <4981FA36.2000301@goop.org>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
+Date: Thu, 29 Jan 2009 10:48:43 -0800
+Message-ID: <4981FA0B.5010101@zytor.com>
+References: <20090115183942.GA6325@elte.hu> <200901271213.18605.rusty@rustcorp.com.au> <497E705B.5000302@kernel.org> <200901282108.51864.rusty@rustcorp.com.au> <alpine.DEB.1.10.0901281148540.13825@qirst.com> <20090128180757.GA9908@Krystal> <alpine.DEB.1.10.0901291315320.9622@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Xen-devel <xen-devel@lists.xensource.com>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	akpm@linux-foundation.org, brgerst@gmail.com,
+	ebiederm@xmission.com, travis@sgi.com,
+	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:53996 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751100AbZA2St3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 13:49:29 -0500
+Received: from terminus.zytor.com ([198.137.202.10]:35124 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753135AbZA2Ste (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 13:49:34 -0500
+In-Reply-To: <alpine.DEB.1.10.0901291315320.9622@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+Christoph Lameter wrote:
+> 
+> gcc/glibc support a __thread attribute to variables. As far as I can tell
+> this automatically makes gcc perform the relocation to the current
+> context using a segment register.
+> 
+> But its a weird ABI http://people.redhat.com/drepper/tls.pdf. After
+> reading that I agree that we should stay with the cpu ops and forget about
+> the local and thread stuff in gcc/glibc.
+> 
 
-This adds another inet device option to enable gratuitous ARP
-when device is brought up or address change. This is handy for
-clusters or virtualization.
+We have discussed this a number of times.  There are several issues with
+it; one being that per-cpu != per-thread (we can switch CPU whereever
+we're preempted), and another that many versions of gcc uses hardcoded
+registers, in particular %fs on 64 bits, but the kernel *has* to use %gs
+since there is no swapfs instruction.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-Signed-off-by: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
----
- Documentation/networking/ip-sysctl.txt |    6 ++++++
- include/linux/inetdevice.h             |    1 +
- include/linux/sysctl.h                 |    1 +
- kernel/sysctl_check.c                  |    1 +
- net/ipv4/devinet.c                     |    9 +++++++++
- 5 files changed, 18 insertions(+)
+	-hpa
 
-===================================================================
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -782,6 +782,12 @@
- 	The max value from conf/{all,interface}/arp_ignore is used
- 	when ARP request is received on the {interface}
- 
-+arp_notify - BOOLEAN
-+	Define mode for notification of address and device changes.
-+	0 - (default): do nothing
-+	1 - Generate gratuitous arp replies when device is brought up
-+	    or hardware address changes.
-+
- arp_accept - BOOLEAN
- 	Define behavior when gratuitous arp replies are received:
- 	0 - drop gratuitous arp frames
-===================================================================
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -108,6 +108,7 @@
- #define IN_DEV_ARPFILTER(in_dev)	IN_DEV_ORCONF((in_dev), ARPFILTER)
- #define IN_DEV_ARP_ANNOUNCE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
- #define IN_DEV_ARP_IGNORE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
-+#define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
- 
- struct in_ifaddr
- {
-===================================================================
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -490,6 +490,7 @@
- 	NET_IPV4_CONF_ARP_IGNORE=19,
- 	NET_IPV4_CONF_PROMOTE_SECONDARIES=20,
- 	NET_IPV4_CONF_ARP_ACCEPT=21,
-+	NET_IPV4_CONF_ARP_NOTIFY=22,
- 	__NET_IPV4_CONF_MAX
- };
- 
-===================================================================
---- a/kernel/sysctl_check.c
-+++ b/kernel/sysctl_check.c
-@@ -219,6 +219,7 @@
- 	{ NET_IPV4_CONF_ARP_IGNORE,		"arp_ignore" },
- 	{ NET_IPV4_CONF_PROMOTE_SECONDARIES,	"promote_secondaries" },
- 	{ NET_IPV4_CONF_ARP_ACCEPT,		"arp_accept" },
-+	{ NET_IPV4_CONF_ARP_NOTIFY,		"arp_notify" },
- 	{}
- };
- 
-===================================================================
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1075,6 +1075,14 @@
- 			}
- 		}
- 		ip_mc_up(in_dev);
-+		/* fall through */
-+	case NETDEV_CHANGEADDR:
-+		if (IN_DEV_ARP_NOTIFY(in_dev))
-+			arp_send(ARPOP_REQUEST, ETH_P_ARP,
-+				 in_dev->ifa_list->ifa_address,
-+				 dev,
-+				 in_dev->ifa_list->ifa_address,
-+				 NULL, dev->dev_addr, NULL);
- 		break;
- 	case NETDEV_DOWN:
- 		ip_mc_down(in_dev);
-@@ -1439,6 +1447,7 @@
- 		DEVINET_SYSCTL_RW_ENTRY(ARP_ANNOUNCE, "arp_announce"),
- 		DEVINET_SYSCTL_RW_ENTRY(ARP_IGNORE, "arp_ignore"),
- 		DEVINET_SYSCTL_RW_ENTRY(ARP_ACCEPT, "arp_accept"),
-+		DEVINET_SYSCTL_RW_ENTRY(ARP_NOTIFY, "arp_notify"),
- 
- 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOXFRM, "disable_xfrm"),
- 		DEVINET_SYSCTL_FLUSHING_ENTRY(NOPOLICY, "disable_policy"),
-
+-- 
+H. Peter Anvin, Intel Open Source Technology Center
+I work for Intel.  I don't speak on their behalf.
 
