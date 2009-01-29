@@ -1,81 +1,53 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Oops / Warning report for the week of January 28th, 2009: The
-	200.000th trace.
-Date: Thu, 29 Jan 2009 11:49:10 +0100
-Message-ID: <20090129104910.GA10987@elte.hu>
-References: <4980A0D8.80209@linux.intel.com>
+From: ivaylo@bglans.net
+Subject: problem with r8101 driver
+Date: Thu, 29 Jan 2009 12:30:08 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0901291203430.18427@mail.bglans.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
-	Dave Airlie <airlied@redhat.com>
-To: Arjan van de Ven <arjan@linux.intel.com>,
-	"H. Peter Anvin" <hpa@zytor.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:60564 "EHLO mx2.mail.elte.hu"
+Received: from mail.bglans.net ([217.79.67.244]:57620 "EHLO mail.bglans.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751768AbZA2KtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 05:49:24 -0500
-Content-Disposition: inline
-In-Reply-To: <4980A0D8.80209@linux.intel.com>
+	id S1751302AbZA2K7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2009 05:59:53 -0500
+Received: from mail.bglans.net (mail.bglans.net [217.79.67.244])
+	by mail.bglans.net (8.14.2/8.14.2) with ESMTP id n0TAU8qi008392
+	for <netdev@vger.kernel.org>; Thu, 29 Jan 2009 12:30:13 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello
 
-* Arjan van de Ven <arjan@linux.intel.com> wrote:
+I've play with r8101 driver and have strange problem.
+My envourment is:
+Motherboard Intel D945GCLF ( 945GC chipset with integrated CPU Atom 130, 
+and Realtek 8102EL, I think it is supported by r8101 driver?)
+Linux kernel 2.4.37
+gcc 2.95.3
+r8101 (all versions, downloaded from www.realtek.com.tw and intel.com)
 
-> Rank 3: mtrr_trim_uncached_memory (warning)
-> 	Reported 709 times (14696 total reports)
-> 	BIOS bug (often in VMWare) where the MTRR's are set up incorrectly or not at all
-> 	This warning was last seen in version 2.6.29-rc2-git1, and first seen in 2.6.24.
-> 	More info: http://www.kerneloops.org/searchweek.php?search=mtrr_trim_uncached_memory
+First of my problems is with compile the driver it seems that there are 4 
+structures predefined in r8101_n.c:
+netdev_priv - predefined from 
+linux-2.4.37/include/linux/netdevice.h
+netif_msg_init - predefined from
+linux-2.4.37/build/include/linux/netdevice.h
+jiffies_to_msecs - predefined from
+linux-2.4.36.6/build/include/linux/delay.h
+msecs_to_jiffies - predefined from
+linux-2.4.36.6/build/include/linux/delay.h
 
-This bug is not finding any real issues for us anymore and this rate of 
-false positives is a distraction - so i've queued up the patch below in 
-tip/x86/urgent.
+Anyway I try and compile the driver with the original structures from 
+kernel and from driver, but the result is the same - I hit the second 
+problem.
 
-	Ingo
+Second problem is stop transmiting packets after number of tx packets 
+reach NUM_TX_DESC defined in r8101.h (1024 is the default value). I play 
+with various NUM_TX_DESC the result is the same. If tx packets < 
+NUM_TX_DESC lan card work, it transmiting and reciving packets well.
 
---------------------->
->From bf3647c44bc76c43c4b2ebb4c37a559e899ac70e Mon Sep 17 00:00:00 2001
-From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 29 Jan 2009 11:45:35 +0100
-Subject: [PATCH] x86: tone down mtrr_trim_uncached_memory() warning
+If some body have any ideas or know something about the second problem let 
+me know.
 
-kerneloops.org is reporting a lot of these warnings that come due to
-vmware not setting up any MTRRs for emulated CPUs:
-
-| Reported 709 times (14696 total reports)
-| BIOS bug (often in VMWare) where the MTRR's are set up incorrectly
-| or not at all
-|
-| This warning was last seen in version 2.6.29-rc2-git1, and first
-| seen in 2.6.24.
-|
-| More info:
-|   http://www.kerneloops.org/searchweek.php?search=mtrr_trim_uncached_memory
-
-Keep a one-liner KERN_INFO about it - so that we have so notice if empty
-MTRRs are caused by native hardware/BIOS weirdness.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- arch/x86/kernel/cpu/mtrr/main.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/arch/x86/kernel/cpu/mtrr/main.c b/arch/x86/kernel/cpu/mtrr/main.c
-index d259e5d..236a401 100644
---- a/arch/x86/kernel/cpu/mtrr/main.c
-+++ b/arch/x86/kernel/cpu/mtrr/main.c
-@@ -1594,8 +1594,7 @@ int __init mtrr_trim_uncached_memory(unsigned long end_pfn)
- 
- 	/* kvm/qemu doesn't have mtrr set right, don't trim them all */
- 	if (!highest_pfn) {
--		WARN(!kvm_para_available(), KERN_WARNING
--				"WARNING: strange, CPU MTRRs all blank?\n");
-+		printk(KERN_INFO "CPU MTRRs all blank - virtualized system.\n");
- 		return 0;
- 	}
- 
+Best regards,
+Ivaylo Josifov
