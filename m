@@ -1,45 +1,73 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Thu, 29 Jan 2009 13:33:13 -0500 (EST)
-Message-ID: <alpine.DEB.1.10.0901291315320.9622@qirst.com>
-References: <20090115183942.GA6325@elte.hu> <200901271213.18605.rusty@rustcorp.com.au> <497E705B.5000302@kernel.org> <200901282108.51864.rusty@rustcorp.com.au> <alpine.DEB.1.10.0901281148540.13825@qirst.com> <20090128180757.GA9908@Krystal>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 02/20] sfc: Fix test for MDIO read failure
+Date: Thu, 29 Jan 2009 19:16:43 +0000
+Message-ID: <1233256603.3656.15.camel@achroite>
+References: <1233256358.3656.9.camel@achroite>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Tejun Heo <tj@kernel.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Roel Kluin <roel.kluin@gmail.com>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:51145 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751785AbZA2TQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 14:16:09 -0500
-In-Reply-To: <20090128180757.GA9908@Krystal>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:51467 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752007AbZA2TQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 14:16:45 -0500
+In-Reply-To: <1233256358.3656.9.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Jan 2009, Mathieu Desnoyers wrote:
+Commit 27dd2caca4eabe7c13a052b7456495ba75535e6a changed
+mdio_clause45_check_mmds() to read both DEVS0 and DEVS1 registers and
+to combine their values into an unsigned 32-bit mask.  This made the
+following test for a negative (failure) value useless.  Fix it to
+check whether either read failed.
 
-> > The term cpu is meaning multiple things at this point. So yes it may be
-> > better to go with glibc naming of thread local space.
-> >
->
-> However using "local" for "per-cpu" could be confusing with the glibc
-> naming of thread local space, because "per-thread" and "per-cpu"
-> variables are different from a synchronization POV and we can end up
-> needing both (e.g. a thread local variable can never be accessed by
-> another thread, but a cpu local variable could be accessed by a
-> different CPU due to scheduling).
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/mdio_10g.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
-gcc/glibc support a __thread attribute to variables. As far as I can tell
-this automatically makes gcc perform the relocation to the current
-context using a segment register.
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
+index f6a1642..4d54010 100644
+--- a/drivers/net/sfc/mdio_10g.c
++++ b/drivers/net/sfc/mdio_10g.c
+@@ -124,24 +124,25 @@ int mdio_clause45_wait_reset_mmds(struct efx_nic *efx,
+ int mdio_clause45_check_mmds(struct efx_nic *efx,
+ 			     unsigned int mmd_mask, unsigned int fatal_mask)
+ {
++	int mmd = 0, probe_mmd, devs0, devs1;
+ 	u32 devices;
+-	int mmd = 0, probe_mmd;
+ 
+ 	/* Historically we have probed the PHYXS to find out what devices are
+ 	 * present,but that doesn't work so well if the PHYXS isn't expected
+ 	 * to exist, if so just find the first item in the list supplied. */
+ 	probe_mmd = (mmd_mask & MDIO_MMDREG_DEVS_PHYXS) ? MDIO_MMD_PHYXS :
+ 	    __ffs(mmd_mask);
+-	devices = (mdio_clause45_read(efx, efx->mii.phy_id,
+-				      probe_mmd, MDIO_MMDREG_DEVS0) |
+-		   mdio_clause45_read(efx, efx->mii.phy_id,
+-				      probe_mmd, MDIO_MMDREG_DEVS1) << 16);
+ 
+ 	/* Check all the expected MMDs are present */
+-	if (devices < 0) {
++	devs0 = mdio_clause45_read(efx, efx->mii.phy_id,
++				   probe_mmd, MDIO_MMDREG_DEVS0);
++	devs1 = mdio_clause45_read(efx, efx->mii.phy_id,
++				   probe_mmd, MDIO_MMDREG_DEVS1);
++	if (devs0 < 0 || devs1 < 0) {
+ 		EFX_ERR(efx, "failed to read devices present\n");
+ 		return -EIO;
+ 	}
++	devices = devs0 | (devs1 << 16);
+ 	if ((devices & mmd_mask) != mmd_mask) {
+ 		EFX_ERR(efx, "required MMDs not present: got %x, "
+ 			"wanted %x\n", devices, mmd_mask);
 
-But its a weird ABI http://people.redhat.com/drepper/tls.pdf. After
-reading that I agree that we should stay with the cpu ops and forget about
-the local and thread stuff in gcc/glibc.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
