@@ -1,203 +1,292 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: [BUG BISECTED] boot hangs while bringing up gianfar ethernet
-Date: Thu, 29 Jan 2009 11:41:45 -0800
-Message-ID: <20090129194145.GA4647@ovro.caltech.edu>
+From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Subject: affinity with ixgbe and e1000 performance problem
+Date: Thu, 29 Jan 2009 20:49:45 +0100
+Message-ID: <49820859.5070304@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Dai Haruki <dai.haruki@freescale.com>,
-	Andy Fleming <afleming@freescale.com>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Network Development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:33502 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752178AbZA2Tls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 14:41:48 -0500
-Content-Disposition: inline
+Received: from smtp.iq.pl ([86.111.241.19]:59868 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753023AbZA2Ttu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2009 14:49:50 -0500
+Received: from unknown (HELO [192.168.1.10]) (itcare_pstaszewski@[83.7.238.38])
+          (envelope-sender <pstaszewski@itcare.pl>)
+          by smtp.iq.pl with AES256-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 29 Jan 2009 19:49:46 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+My configuration is:
 
-I'm working on a Freescale MPC8349EMDS board. I have been booting it
-over NFS for a long time now. I try to run the latest git kernels to
-find possible problems.
+Packets per sec stats for eth2:             eth2:        98180.64 
+P/s         92751.50 P/s        190932.14 P/s
 
-Recently, I haven't been able to boot over NFS anymore. When the machine
-tries to bring up the ethernet interface, it just hangs forever. There
-are no softlockup warnings, the machine has locked up completely.
-
-Here is the commit I bisected it down to. I tried running git revert,
-but there have been other changes which prevent an easy revert.
-
-After building each kernel, I compiled and used the dts file from that
-kernel. There shouldn't be any conflicts there.
-
-I'm happy to test patches to fix the problem.
-
-Thanks,
-Ira
-
-8c7396aebb68994c0519e438eecdf4d5fa9c7844 is first bad commit
-commit 8c7396aebb68994c0519e438eecdf4d5fa9c7844
-Author: Dai Haruki <dai.haruki@freescale.com>
-Date:   Wed Dec 17 16:52:00 2008 -0800
-
-    gianfar: Merge Tx and Rx interrupt for scheduling clean up ring
-    
-    No clean up function is executed in the interrupt context by this patch.
-    
-    Signed-off-by: Dai Haruki <dai.haruki@freescale.com>
-    Acked-by: Andy Fleming <afleming@freescale.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-:040000 040000 723044a20168b125c2ad8f2cb6c826651de681d6 27fc12f4b0aa42c86f481e8d7e0d9979de607294 M	drivers
+5k users (600TX/600RX Mbit/s traffic) -> ixbge (eth2) - (Routing with 
+some TC rules binded on eth2) - e1000e (eth0) -> BGP internet connection
 
 
-iws@desk1 ~/devel/linux-2.6 $ git bisect log
-git-bisect start
-# good: [4a6908a3a050aacc9c3a2f36b276b46c0629ad91] Linux 2.6.28
-git-bisect good 4a6908a3a050aacc9c3a2f36b276b46c0629ad91
-# bad: [18e352e4a73465349711a9324767e1b2453383e2] Linux 2.6.29-rc3
-git-bisect bad 18e352e4a73465349711a9324767e1b2453383e2
-# bad: [b67ff8ce122f3353bd741db48ce1756c12fb5f2d] kbuild: ignore a few files in headers_check
-git-bisect bad b67ff8ce122f3353bd741db48ce1756c12fb5f2d
-# bad: [0191b625ca5a46206d2fb862bb08f36f2fcb3b31] Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6
-git-bisect bad 0191b625ca5a46206d2fb862bb08f36f2fcb3b31
-# good: [54a696bd07c14d3b1192d03ce7269bc59b45209a] Merge git://git.kernel.org/pub/scm/linux/kernel/git/sfrench/cifs-2.6
-git-bisect good 54a696bd07c14d3b1192d03ce7269bc59b45209a
-# good: [07fb0f1799dcb6b3df527909811fd6704278842e] netns PF_KEY: part 2
-git-bisect good 07fb0f1799dcb6b3df527909811fd6704278842e
-# good: [82a9928db560c429807f02467d22394f944a8916] tc35815: Enable StripCRC feature
-git-bisect good 82a9928db560c429807f02467d22394f944a8916
-# good: [82a9928db560c429807f02467d22394f944a8916] tc35815: Enable StripCRC feature
-git-bisect good 82a9928db560c429807f02467d22394f944a8916
-# bad: [3b5b35d02264580950d1e1565431b99d97c20ded] bonding: use port_params in __update_lacpdu_from_port
-git-bisect bad 3b5b35d02264580950d1e1565431b99d97c20ded
-# good: [56bde885903bdb9d9531fd569096ec8c7a2d60ee] Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6
-git-bisect good 56bde885903bdb9d9531fd569096ec8c7a2d60ee
-# good: [f250dcdac111a8369220b8e192eae6c56dc1098a] ipv6: fix the return interface index when get it while no message is received
-git-bisect good f250dcdac111a8369220b8e192eae6c56dc1098a
-# good: [fc10af8e658936f7b2bddd077f7ddcbe1eddc066] vcan: whitespace fixes
-git-bisect good fc10af8e658936f7b2bddd077f7ddcbe1eddc066
-# bad: [8c7396aebb68994c0519e438eecdf4d5fa9c7844] gianfar: Merge Tx and Rx interrupt for scheduling clean up ring
-git-bisect bad 8c7396aebb68994c0519e438eecdf4d5fa9c7844
-# good: [9732d523212060c44a4723332bdc5ee429eeabc3] Phonet: USB CDC Phonet function for gadget framework
-git-bisect good 9732d523212060c44a4723332bdc5ee429eeabc3
-# good: [8882d9a60028a9937e9c5652cfb80d4399ce5242] gianfar: Fix packet drop when out of memory
-git-bisect good 8882d9a60028a9937e9c5652cfb80d4399ce5242
-# good: [c50a5d9aedef5b0b289d07f6d73934d394e50b3f] gianfar: Use interface name in interrupt name to distinguish the source.
-git-bisect good c50a5d9aedef5b0b289d07f6d73934d394e50b3f
+The best configuration for my config is to bind all TX queues provided 
+by ixgbe to one CPU and all RX queues bind to the same cpu but different 
+core:
+#RX Queues
+#CPU6
+echo "00000040" > /proc/irq/760/smp_affinity
+#CPU6
+echo "00000040" > /proc/irq/759/smp_affinity
+#CPU6
+echo "00000040" > /proc/irq/758/smp_affinity
+#CPU6
+echo "00000040" > /proc/irq/757/smp_affinity
+#CPU6
+echo "00000040" > /proc/irq/756/smp_affinity
+#CPU6
+echo "00000040" > /proc/irq/755/smp_affinity
+#CPU6
+echo "00000040" > /proc/irq/754/smp_affinity
+#CPU6
+echo "00000040" > /proc/irq/753/smp_affinity
+
+#TX Queues
+#CPU7
+echo "00000080" > /proc/irq/752/smp_affinity
+#CPU7
+echo "00000080" > /proc/irq/751/smp_affinity
+#CPU7
+echo "00000080" > /proc/irq/750/smp_affinity
+#CPU7
+echo "00000080" > /proc/irq/749/smp_affinity
+#CPU7
+echo "00000080" > /proc/irq/748/smp_affinity
+#CPU7
+echo "00000080" > /proc/irq/747/smp_affinity
+#CPU7
+echo "00000080" > /proc/irq/746/smp_affinity
+#CPU7
+echo "00000080" > /proc/irq/745/smp_affinity
+
+ cat /proc/interrupts
+           CPU0       CPU1       CPU2       CPU3       CPU4       
+CPU5       CPU6       CPU7
+  0:        591          0          1          1          1          
+0          0          0   IO-APIC-edge      timer
+  1:          0          0          0          1          1          
+0          0          0   IO-APIC-edge      i8042
+  2:          0          0          0          0          0          
+0          0          0    XT-PIC-XT        cascade
+ 14:     298406      51463       7792      27548      29476      
+12089      26505       6341   IO-APIC-edge      ata_piix
+ 15:     287429      51187       9248      30188      31580      
+13463      29119       7235   IO-APIC-edge      ata_piix
+ 18:          0          0          0          0          0          
+0          0          0   IO-APIC-fasteoi   ata_piix
+743:          1          1          1          0          0          
+1          1          0   PCI-MSI-edge      ioat-msi
+744:          0          0          0          0          0          
+0          0          0   PCI-MSI-edge      eth2:lsc
+745:     318172     317655     317562     317142     316876     
+316799     317974  739013828   PCI-MSI-edge      eth2:v15-Tx
+746:     298137     298211     296740     296939     296282  
+739759610     297614    7438163   PCI-MSI-edge      eth2:v14-Tx
+747:    1559123  644402799   99789617     287701     288215     
+287857     288616    7154951   PCI-MSI-edge      eth2:v13-Tx
+748:     373710     374356     372706     372433     372002     375131  
+733662933    8555427   PCI-MSI-edge      eth2:v12-Tx
+749:     221412     219233     218593  705892020     219134     
+218514     219799    6793416   PCI-MSI-edge      eth2:v11-Tx
+750:     262658     263363  748062639     261498     261082     
+261410     262243    7321505   PCI-MSI-edge      eth2:v10-Tx
+751:     240273    1480823     236860     237611     237130     
+237598     238502  728687718   PCI-MSI-edge      eth2:v9-Tx
+752:     294598     295005     291885     292774     293686  
+727173598    2115060    6725300   PCI-MSI-edge      eth2:v8-Tx
+753:     258014     257817     742505     259197     259043    
+1342576    6479474  856607531   PCI-MSI-edge      eth2:v7-Rx
+754:     334267     335255     835205     336807     336132  
+868562084    6543966    1158909   PCI-MSI-edge      eth2:v6-Rx
+755:    3690754     390454  852176660     393161     392236     
+391953    6662034    1213866   PCI-MSI-edge      eth2:v5-Rx
+756:     379899     379343    1952782     381682     382621     
+381935    6740919  851518995   PCI-MSI-edge      eth2:v4-Rx
+757:     373727     821494     376012  872120928     376909    
+2522737    5248042    1171367   PCI-MSI-edge      eth2:v3-Rx
+758:     223936     664130  859120583     225014     225297    
+2405058    5048689     992416   PCI-MSI-edge      eth2:v2-Rx
+759:     266000  867871307     268377     268467     267702    
+2436081    3993157    1036480   PCI-MSI-edge      eth2:v1-Rx
+760:     223649    1674767     224738     223864     223143    2437023  
+873857572    1004736   PCI-MSI-edge      eth2:v0-Rx
+761:         44         38         29         42         31      
+91396         33         34   PCI-MSI-edge      eth1
+762:     648754     647796     648500     647914 1945303547     
+647749     648492     711525   PCI-MSI-edge      eth0
+NMI:   26666124  252632331  481690098  271053301 1186861381  286981764  
+268209667  474805931   Non-maskable interrupts
+LOC:   39356847   18286535   20866132    5677806 2611924653    3781095   
+13778136    5061266   Local timer interrupts
+RES:       2885       1810       1957       1444       1435        
+713       1984       1927   Rescheduling interrupts
+CAL:        399       1164       1136       1142       1179       
+1179       1122       1149   Function call interrupts
+TLB:       9175       2609      14009      11160       3887       
+2385      11260      14634   TLB shootdowns
+SPU:          0          0          0          0          0          
+0          0          0   Spurious interrupts
+ERR:          0
+MIS:          0
 
 
-Here is the output of a bad boot. A good one starts init immediately
-after this point.
+On all different configurations i have problem with CPU load
+because if i put all interrupts from ixgbe driver to one CPU i have 
+60-70% of CPU load
+But if i put Only TX on one cpu i have 1% to 2%  CPU load that TX make
+And RX only on CPU6 make about 37% cpu load
 
-debug: ignoring loglevel setting.
-Using MPC834x MDS machine description
-Linux version 2.6.28-rc8-01311-g8c7396a (iws@desk1) (gcc version 4.2.2) #37 Thu Jan 29 11:11:23 PST 2009
-Found legacy serial port 0 for /soc8349@e0000000/serial@4500
-  mem=e0004500, taddr=e0004500, irq=0, clk=266000000, speed=0
-Found legacy serial port 1 for /soc8349@e0000000/serial@4600 
-  mem=e0004600, taddr=e0004600, irq=0, clk=266000000, speed=0
-console [udbg0] enabled                                      
-setup_arch: bootmem    
-mpc834x_mds_setup_arch()
-arch: exit              
-Top of RAM: 0x10000000, Total RAM: 0x10000000
-Memory hole size: 0MB                        
-Zone PFN ranges:     
-  DMA      0x00000000 -> 0x00010000
-  Normal   0x00010000 -> 0x00010000
-Movable zone start PFN for each node
-early_node_map[1] active PFN ranges 
-    0: 0x00000000 -> 0x00010000    
-On node 0 totalpages: 65536    
-free_area_init_node: node 0, pgdat c029c178, node_mem_map c0402000
-  DMA zone: 512 pages used for memmap                             
-  DMA zone: 0 pages reserved         
-  DMA zone: 65024 pages, LIFO batch:15
-  Normal zone: 0 pages used for memmap
-  Movable zone: 0 pages used for memmap
-Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 65024
-Kernel command line: root=/dev/nfs rw nfsroot=192.168.17.59:/exports/stage3-ppc-2008.0 ip=192.168.17.55:192.168.17.59:192.168.17.1:255.255.255.0:mpc8349emds:eth0:off console=ttyS0,115200 ignore_loglevel
-RCU-based detection of stalled CPUs is enabled.
-IPIC (128 IRQ sources) at fdff4700             
-PID hash table entries: 1024 (order: 10, 4096 bytes)
-time_init: decrementer frequency = 66.500000 MHz    
-time_init: processor frequency   = 532.000000 MHz
-clocksource: timebase mult[3c267f1] shift[22] registered
-clockevent: decrementer mult[1106] shift[16] cpu[0]     
-Console: colour dummy device 80x25                 
-Dentry cache hash table entries: 32768 (order: 5, 131072 bytes)
-Inode-cache hash table entries: 16384 (order: 4, 65536 bytes)  
-Memory: 256768k/262144k available (2536k kernel code, 5192k reserved, 140k data, 208k bss, 148k init)
-SLUB: Genslabs=12, HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
-Calibrating delay loop... 132.60 BogoMIPS (lpj=265216)                 
-Mount-cache hash table entries: 512                   
-net_namespace: 520 bytes           
-NET: Registered protocol family 16
-                                  
-Registering ipic with sysfs...
-Freescale Elo / Elo Plus DMA driver
-NET: Registered protocol family 2  
-Switched to high resolution mode on CPU 0
-IP route cache hash table entries: 2048 (order: 1, 8192 bytes)
-TCP established hash table entries: 8192 (order: 4, 65536 bytes)
-TCP bind hash table entries: 8192 (order: 3, 32768 bytes)       
-TCP: Hash tables configured (established 8192 bind 8192) 
-TCP reno registered                                     
-NET: Registered protocol family 1
-fsl-elo-dma e00082a8.dma: Probe the Freescale DMA driver for fsl,elo-dma controller at e00082a8...
-fsl-elo-dma e00082a8.dma: #0 (fsl,elo-dma-channel), irq 71
-fsl-elo-dma e00082a8.dma: #1 (fsl,elo-dma-channel), irq 71
-fsl-elo-dma e00082a8.dma: #2 (fsl,elo-dma-channel), irq 71
-fsl-elo-dma e00082a8.dma: #3 (fsl,elo-dma-channel), irq 71
-msgmni has been set to 501                                
-alg: No test for stdrng (krng)
-Block layer SCSI generic (bsg) driver version 0.4 loaded (major 254)
-io scheduler noop registered                                        
-io scheduler deadline registered (default)
-Serial: 8250/16550 driver4 ports, IRQ sharing disabled
-serial8250.0: ttyS0 at MMIO 0xe0004500 (irq = 16) is a 16550A
-                                                             console handover: boot [udbg0] -> real [ttyS0]
-serial8250.0: ttyS1 at MMIO 0xe0004600 (irq = 17) is a 16550A
-brd: module loaded
-loop: module loaded
-Gianfar MII Bus: probed
-Gianfar MII Bus: probed
-eth0 (fsl-gianfar): not using net_device_ops yet
-eth0: Gianfar Ethernet Controller Version 1.2, 00:04:9f:ef:23:33
-eth0: Running with NAPI enabled
-eth0: 256/256 RX/TX BD ring size
-eth1 (fsl-gianfar): not using net_device_ops yet
-eth1: Gianfar Ethernet Controller Version 1.2, 00:e0:0c:00:7e:21
-eth1: Running with NAPI enabled
-eth1: 256/256 RX/TX BD ring size
-Fixed MDIO Bus: probed
-mice: PS/2 mouse device common for all mice
-i2c /dev entries driver
-talitos e0030000.crypto: hwrng
-alg: No test for authenc(hmac(sha1),cbc(aes)) (authenc-hmac-sha1-cbc-aes-talitos)
-talitos e0030000.crypto: authenc-hmac-sha1-cbc-aes-talitos
-alg: No test for authenc(hmac(sha1),cbc(des3_ede)) (authenc-hmac-sha1-cbc-3des-talitos)
-talitos e0030000.crypto: authenc-hmac-sha1-cbc-3des-talitos
-alg: No test for authenc(hmac(sha256),cbc(aes)) (authenc-hmac-sha256-cbc-aes-talitos)
-talitos e0030000.crypto: authenc-hmac-sha256-cbc-aes-talitos
-alg: No test for authenc(hmac(sha256),cbc(des3_ede)) (authenc-hmac-sha256-cbc-3des-talitos)
-talitos e0030000.crypto: authenc-hmac-sha256-cbc-3des-talitos
-alg: No test for authenc(hmac(md5),cbc(aes)) (authenc-hmac-md5-cbc-aes-talitos)
-talitos e0030000.crypto: authenc-hmac-md5-cbc-aes-talitos
-alg: No test for authenc(hmac(md5),cbc(des3_ede)) (authenc-hmac-md5-cbc-3des-talitos)
-talitos e0030000.crypto: authenc-hmac-md5-cbc-3des-talitos
-TCP cubic registered
-NET: Registered protocol family 17
-RPC: Registered udp transport module.
-RPC: Registered tcp transport module.
-IP-Config: Complete:
-     device=eth0, addr=192.168.17.55, mask=255.255.255.0, gw=192.168.17.1,
-     host=mpc8349emds, domain=, nis-domain=(none),
-     bootserver=192.168.17.59, rootserver=192.168.17.59, rootpath=
-Looking up port of RPC 100003/2 on 192.168.17.59
-PHY: mdio@24520:00 - Link is Up - 1000/Full
+mpstat -P ALL 1 30
+Average:     CPU   %user   %nice    %sys %iowait    %irq   %soft  
+%steal   %idle    intr/s
+Average:     all    0.01    0.00    0.01    0.00    0.49    7.13    
+0.00   92.36 193371.81
+Average:       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00  100.00      0.00
+Average:       1    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00  100.00      0.00
+Average:       2    0.00    0.00    0.10    0.00    0.00    0.00    
+0.00   99.90      0.00
+Average:       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00  100.00      0.00
+Average:       4    0.07    0.00    0.03    0.00    1.00   22.18    
+0.00   76.72   9576.51
+Average:       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00  100.00      0.53
+Average:       6    0.00    0.00    0.00    0.00    2.64   37.04    
+0.00   60.31  79676.44
+Average:       7    0.00    0.00    0.00    0.00    0.41    0.14    
+0.00   99.45  61901.23
+
+
+And another thing is that my e1000e driver is make the same volume of 
+traffic that ixgbe but e1000e make only 22% CPU load (is binded to cpu 4 
+by affinity)
+And why ixgbe driver is make x10 more interrupst per sec compared to 
+e1000e driver
+
+only difference is that on eth2 i have 200vlans and traffic is on this 
+vlans with 5000 tc rules (with hashing filters)
+
+opreport -l
+CPU: Core 2, speed 3000 MHz (estimated)
+Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a 
+unit mask of 0x00 (Unhalted core cycles) count 100000
+samples  %        image name               app name                 
+symbol name
+76985     8.0647  vmlinux                  vmlinux                  
+do_ipt_get_ctl
+63374     6.6389  vmlinux                  vmlinux                  
+u32_delete
+34018     3.5636  vmlinux                  vmlinux                  
+_raw_spin_trylock
+24586     2.5755  vmlinux                  vmlinux                  
+__ip_route_output_key
+24534     2.5701  vmlinux                  vmlinux                  
+update_persistent_clock
+22736     2.3817  vmlinux                  vmlinux                  
+e1000_get_eeprom
+21037     2.2038  vmlinux                  vmlinux                  
+irq_entries_start
+19653     2.0588  vmlinux                  vmlinux                  
+__pskb_pull_tail
+19329     2.0248  vmlinux                  vmlinux                  
+ixgbe_update_rx_dca
+18826     1.9721  vmlinux                  vmlinux                  
+devm_ioport_unmap
+16959     1.7766  vmlinux                  vmlinux                  
+ixgbe_alloc_rx_buffers
+16188     1.6958  vmlinux                  vmlinux                  
+e1000_open
+15642     1.6386  vmlinux                  vmlinux                  
+htb_dequeue
+13627     1.4275  vmlinux                  vmlinux                  
+ctrl_dumpfamily
+13511     1.4154  vmlinux                  vmlinux                  
+native_calibrate_tsc
+11485     1.2031  vmlinux                  vmlinux                  
+dev_ethtool
+11449     1.1994  vmlinux                  vmlinux                  
+mach_set_rtc_mmss
+11405     1.1948  vmlinux                  vmlinux                  
+update_wall_time
+11221     1.1755  vmlinux                  vmlinux                  
+dev_seq_show
+10932     1.1452  vmlinux                  vmlinux                  
+ip_route_input
+10816     1.1330  vmlinux                  vmlinux                  
+ixgbe_clean_rx_irq
+10498     1.0997  vmlinux                  vmlinux                  
+e1000_clean_rx_irq_ps
+10439     1.0936  vmlinux                  vmlinux                  
+skb_copy_and_csum_bits
+10299     1.0789  vmlinux                  vmlinux                  
+devm_ioport_map
+10290     1.0779  vmlinux                  vmlinux                  
+e1000_xmit_frame
+10198     1.0683  vmlinux                  vmlinux                  
+text_poke
+10105     1.0586  vmlinux                  vmlinux                  
+ixgbe_setup_dca
+9967      1.0441  vmlinux                  vmlinux                  
+ixgbe_vlan_rx_kill_vid
+9755      1.0219  vmlinux                  vmlinux                  
+xt_check_match
+9379      0.9825  vmlinux                  vmlinux                  sfq_init
+9159      0.9595  vmlinux                  vmlinux                  
+ixgbe_clean_tx_irq
+9091      0.9523  vmlinux                  vmlinux                  
+hfsc_reset_qdisc
+8879      0.9301  vmlinux                  vmlinux                  udp_mt
+8874      0.9296  vmlinux                  vmlinux                  
+devm_ioremap
+8347      0.8744  vmlinux                  vmlinux                  
+rwlock_bug
+8181      0.8570  vmlinux                  vmlinux                  
+ixgbe_xmit_frame
+7502      0.7859  vmlinux                  vmlinux                  
+htb_delete
+7199      0.7541  vmlinux                  vmlinux                  
+ip_defrag
+6532      0.6843  vmlinux                  vmlinux                  htb_init
+6279      0.6578  vmlinux                  vmlinux                  
+dev_queue_xmit
+6264      0.6562  vmlinux                  vmlinux                  
+apply_alternatives
+6252      0.6549  vmlinux                  vmlinux                  
+ixgbe_configure
+6190      0.6484  vmlinux                  vmlinux                  
+posix_cpu_timer_del
+6110      0.6401  vmlinux                  vmlinux                  
+radix_tree_delete
+5875      0.6154  vmlinux                  vmlinux                  s_stop
+5496      0.5757  vmlinux                  vmlinux                  
+ip_push_pending_frames
+5398      0.5655  vmlinux                  vmlinux                  
+fib_rules_register
+5007      0.5245  vmlinux                  vmlinux                  
+ixgbe_init_interrupt_scheme
+4908      0.5141  vmlinux                  vmlinux                  
+do_sysinfo
+4821      0.5050  vmlinux                  vmlinux                  
+e1000e_update_stats
+4722      0.4947  vmlinux                  vmlinux                  
+_format_mac_addr
+4219      0.4420  vmlinux                  vmlinux                  
+__local_trigger
+4141      0.4338  vmlinux                  vmlinux                  
+genl_register_mc_group
+3805      0.3986  vmlinux                  vmlinux                  
+cache_alloc_refill
+3678      0.3853  vmlinux                  vmlinux                  
+packet_rcv
+3548      0.3717  vmlinux                  vmlinux                  
+tc_ctl_action
 
