@@ -1,78 +1,81 @@
-From: steve@chygwyn.com
-Subject: Re: [PATCH] decnet: incorrect optlen size
-Date: Thu, 29 Jan 2009 08:58:58 +0000
-Message-ID: <20090129085858.GA14198@fogou.chygwyn.com>
-References: <498166FB.5030104@gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Oops / Warning report for the week of January 28th, 2009: The
+	200.000th trace.
+Date: Thu, 29 Jan 2009 11:49:10 +0100
+Message-ID: <20090129104910.GA10987@elte.hu>
+References: <4980A0D8.80209@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: christine.caulfield@googlemail.com,
-	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
-To: Roel Kluin <roel.kluin@gmail.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	NetDev <netdev@vger.kernel.org>, x86@kernel.org,
+	Dave Airlie <airlied@redhat.com>
+To: Arjan van de Ven <arjan@linux.intel.com>,
+	"H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fogou.chygwyn.com ([195.171.2.24]:56628 "EHLO fogou.chygwyn.com"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:60564 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753397AbZA2KWc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 05:22:32 -0500
+	id S1751768AbZA2KtY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2009 05:49:24 -0500
 Content-Disposition: inline
-In-Reply-To: <498166FB.5030104@gmail.com>
+In-Reply-To: <4980A0D8.80209@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Thu, Jan 29, 2009 at 09:21:15AM +0100, Roel Kluin wrote:
-> Several functions with something like this occur:
-> 
-> int sock_set_foo(int optlen, ...)
-> {
-> 	struct food foo;
-> 
-> 	if (optlen < sizeof(foo))
-> 		return -EINVAL;
-> 
-> 	if (copy_from_user(&foo, optval, sizeof(foo)))
-> 		return -EFAULT;
-> 	...
-> }
-> 
-> see for instance:
-> grep -C5 -E -R -n "copy_from_user\(&([a-zA-Z0-9]*), optval, sizeof\(\1\)\)" net
-> 
-> but in __dn_setsockopt, below, the checks are slightly different.
-> Should maybe the changes below be apllied?
-> 
-> -------------->8----------------8<-----------------------
-> fix size checks before copy_from_user
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-> index cf0e184..45b9199 100644
-> --- a/net/decnet/af_decnet.c
-> +++ b/net/decnet/af_decnet.c
-> @@ -1359,10 +1359,10 @@ static int __dn_setsockopt(struct socket *sock, int level,int optname, char __us
->  	if (optlen && !optval)
->  		return -EINVAL;
->  
-> -	if (optlen > sizeof(u))
-> +	if (optlen < sizeof(u))
->  		return -EINVAL;
->
-I don't see that this makes sense... we want to ensure that the passed
-length is less than the size of the union which we are going to use
-as a buffer.
-  
-> -	if (copy_from_user(&u, optval, optlen))
-> +	if (copy_from_user(&u, optval, sizeof(u)))
->  		return -EFAULT;
->
- ... and here we only want to copy the amount of data that has actually
-been supplied, not the whole buffer size since in many cases the
-amount of data is less than the total buffer size.
+* Arjan van de Ven <arjan@linux.intel.com> wrote:
 
-The only sensible addition that I can see, would be to zero out the
-buffer before the copy to ensure that we don't land up using data
-from the stack in the case that the supplied data is less than that
-required for a particular command.
+> Rank 3: mtrr_trim_uncached_memory (warning)
+> 	Reported 709 times (14696 total reports)
+> 	BIOS bug (often in VMWare) where the MTRR's are set up incorrectly or not at all
+> 	This warning was last seen in version 2.6.29-rc2-git1, and first seen in 2.6.24.
+> 	More info: http://www.kerneloops.org/searchweek.php?search=mtrr_trim_uncached_memory
 
-Steve.
+This bug is not finding any real issues for us anymore and this rate of 
+false positives is a distraction - so i've queued up the patch below in 
+tip/x86/urgent.
+
+	Ingo
+
+--------------------->
+>From bf3647c44bc76c43c4b2ebb4c37a559e899ac70e Mon Sep 17 00:00:00 2001
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 29 Jan 2009 11:45:35 +0100
+Subject: [PATCH] x86: tone down mtrr_trim_uncached_memory() warning
+
+kerneloops.org is reporting a lot of these warnings that come due to
+vmware not setting up any MTRRs for emulated CPUs:
+
+| Reported 709 times (14696 total reports)
+| BIOS bug (often in VMWare) where the MTRR's are set up incorrectly
+| or not at all
+|
+| This warning was last seen in version 2.6.29-rc2-git1, and first
+| seen in 2.6.24.
+|
+| More info:
+|   http://www.kerneloops.org/searchweek.php?search=mtrr_trim_uncached_memory
+
+Keep a one-liner KERN_INFO about it - so that we have so notice if empty
+MTRRs are caused by native hardware/BIOS weirdness.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ arch/x86/kernel/cpu/mtrr/main.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kernel/cpu/mtrr/main.c b/arch/x86/kernel/cpu/mtrr/main.c
+index d259e5d..236a401 100644
+--- a/arch/x86/kernel/cpu/mtrr/main.c
++++ b/arch/x86/kernel/cpu/mtrr/main.c
+@@ -1594,8 +1594,7 @@ int __init mtrr_trim_uncached_memory(unsigned long end_pfn)
+ 
+ 	/* kvm/qemu doesn't have mtrr set right, don't trim them all */
+ 	if (!highest_pfn) {
+-		WARN(!kvm_para_available(), KERN_WARNING
+-				"WARNING: strange, CPU MTRRs all blank?\n");
++		printk(KERN_INFO "CPU MTRRs all blank - virtualized system.\n");
+ 		return 0;
+ 	}
+ 
