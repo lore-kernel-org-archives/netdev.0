@@ -1,68 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4]: net: Allow RX queue selection to seed TX queue
- hashing.
-Date: Wed, 28 Jan 2009 16:40:58 -0800 (PST)
-Message-ID: <20090128.164058.248259991.davem@davemloft.net>
-References: <20090128085358.GA15593@gondor.apana.org.au>
-	<20090128.122231.208600152.davem@davemloft.net>
-	<20090128213141.GD22141@gondor.apana.org.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Wed, 28 Jan 2009 17:09:14 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Parag Warudkar <parag.lkml@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36187
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751508AbZA2AlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 19:41:01 -0500
-In-Reply-To: <20090128213141.GD22141@gondor.apana.org.au>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50311 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753351AbZA2BJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 20:09:48 -0500
+In-Reply-To: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 29 Jan 2009 08:31:41 +1100
 
-> On Wed, Jan 28, 2009 at 12:22:31PM -0800, David Miller wrote:
-> >
-> > No matter what you think about the randomness aspect, our
-> > divide avoidance technique being used here will still
-> > get in the way of the situations you seem to be concerned
-> > about.
-> > 
-> > We do the jhash et al. magic in order to be able to use a
-> > multiply to get the modulus.  So the function computing from
-> > RX to TX queue numbers will never be straightforward.
-> 
-> Right, if the number of queues weren't equal then clearly it's
-> not an issue to tack on more randomness.  But I was thinking of
-> scenarios where you have two identical NICs, performing routing
-> where the number of queues is likely to be identical.
 
-It is even the same for "identical" NICs.  Robert Olsson knows this
-quite well :-)
+On Wed, 28 Jan 2009, Parag Warudkar wrote:
+>
+> This is similar to the issue reported back in Jul 2007 - 
+> http://kerneltrap.org/mailarchive/linux-kernel/2007/8/1/154073/thread 
+> which was fixed with a patch to unconditionally save/restore pci config 
+> space - that one is still in tg3.c.
 
-For example, with the NIU chips the number of TX queues is larger
-than the number of RX queues.
+In fact, the new PCI suspend/restore code should have made that 
+unnecessary, since the PCI layer now makes sure that a save/restore is 
+done even if the driver hadn't done it.
 
-Robert has been proposing some ideas wherein some mapping is
-implemented such that we iterate over a group of TX queues
-per RX queue.
+But at the same time, still having the driver do it certainly shouldn't 
+have _hurt_ anything either. But it's quite possible that the tg3 thing is 
+very sensitive to the exact order things happen in - there's a lot of 
+comments about bugs in there ;)
 
-Otherwise in a routing workload some of the TX queues become
-unused.
+> After resume tg3 complains that no firmware is running and eth0 is 
+> non-existent. Rmmoding and modprobing tg3 again causes some timeouts and 
+> errors from tg3 and the link still doesn't work.
 
-That's a fun hack for testing when you know the characteristics of
-all of the devices in your system, but doesn't generalize well.
+That seems to imply that even the reset failed, which is interesting. 
 
-It's a tricky thing because we don't know where we're sending to of
-course.  It shows that the "RX queue number" is not a sufficient
-seed.
+But it also possibly means that the problem is not necessarily the driver 
+itself, but some cached state that we keep around in "struct pci_dev" even 
+across a module load/unload. 
 
-One way to deal with this is to grab the hash the chip computed.
-I'm reluctant to advocate this because it's expensive with NIU
-because I have to start using the larger RX descriptor layout
-to get at that cookie.  (see "rx_pkt_hdr0" vs. "rx_pkt_hdr1" in
-drivers/net/niu.h)
+For example, if we get the "dev->current_state" cache wrong, then we may 
+not actually end up changing it when we should, because we think we 
+already match the target state. I don't _think_ that is it, but that's the 
+kind of thing that could happen.
 
-And I suspect other cards will require similar tradeoffs.
+Can you do a
+
+	lspci -vvxxx -s [tg3-device]
+
+before-and-after suspend? Is there some state that looks like it got 
+corrupted?
+
+			Linus
