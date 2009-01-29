@@ -1,165 +1,51 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 5/5] netfilter: convert x_tables to use RCU
-Date: Fri, 30 Jan 2009 00:04:16 +0100
-Message-ID: <498235F0.3010806@cosmosbay.com>
-References: <20090129062521.092861272@vyatta.com> <20090129062549.364601936@vyatta.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: [PATCH v2 0/4] virtio_net: Add MAC and VLAN filtering
+Date: Thu, 29 Jan 2009 16:05:02 -0700
+Message-ID: <20090129230502.2672.87669.stgit@debian.lart>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38368 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755736AbZA2XEY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 18:04:24 -0500
-In-Reply-To: <20090129062549.364601936@vyatta.com>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:36575 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751601AbZA2XHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 18:07:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =E9crit :
-> Replace existing reader/writer lock with Read-Copy-Update to
-> elminate the overhead of a read lock on each incoming packet.
-> This should reduce the overhead of iptables especially on SMP
-> systems.
->=20
-> The previous code used a reader-writer lock for two purposes.
-> The first was to ensure that the xt_table_info reference was not in
-> process of being changed. Since xt_table_info is only freed via one
-> routine, it was a direct conversion to RCU.
->=20
-> The other use of the reader-writer lock was to to block changes
-> to counters while they were being read. This synchronization was
-> fixed by the previous patch.  But still need to make sure table info
-> isn't going away.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
->=20
-> ---
->  include/linux/netfilter/x_tables.h |   10 ++++++-
->  net/ipv4/netfilter/arp_tables.c    |   12 ++++-----
->  net/ipv4/netfilter/ip_tables.c     |   12 ++++-----
->  net/ipv6/netfilter/ip6_tables.c    |   12 ++++-----
->  net/netfilter/x_tables.c           |   48 ++++++++++++++++++++++++++=
------------
->  5 files changed, 60 insertions(+), 34 deletions(-)
->=20
-> --- a/include/linux/netfilter/x_tables.h	2009-01-28 22:04:39.31651791=
-3 -0800
-> +++ b/include/linux/netfilter/x_tables.h	2009-01-28 22:14:54.64849049=
-1 -0800
-> @@ -352,8 +352,8 @@ struct xt_table
->  	/* What hooks you will enter on */
->  	unsigned int valid_hooks;
-> =20
-> -	/* Lock for the curtain */
-> -	rwlock_t lock;
-> +	/* Lock for curtain */
-> +	spinlock_t lock;
-> =20
->  	/* Man behind the curtain... */
->  	struct xt_table_info *private;
-> @@ -386,6 +386,12 @@ struct xt_table_info
->  	/* Secret compartment */
->  	seqcount_t *seq;
-> =20
-> +	/* For the dustman... */
-> +	union {
-> +		struct rcu_head rcu;
-> +		struct work_struct work;
-> +	};
-> +
->  	/* ipt_entry tables: one per CPU */
->  	/* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
->  	char *entries[1];
-> --- a/net/ipv4/netfilter/arp_tables.c	2009-01-28 22:13:16.423490077 -=
-0800
-> +++ b/net/ipv4/netfilter/arp_tables.c	2009-01-28 22:14:54.648490491 -=
-0800
-> @@ -238,8 +238,8 @@ unsigned int arpt_do_table(struct sk_buf
->  	indev =3D in ? in->name : nulldevname;
->  	outdev =3D out ? out->name : nulldevname;
-> =20
-> -	read_lock_bh(&table->lock);
-> -	private =3D table->private;
-> +	rcu_read_lock_bh();
-> +	private =3D rcu_dereference(table->private);
->  	table_base =3D (void *)private->entries[smp_processor_id()];
->  	seq =3D per_cpu_ptr(private->seq, smp_processor_id());
->  	e =3D get_entry(table_base, private->hook_entry[hook]);
-> @@ -315,7 +315,7 @@ unsigned int arpt_do_table(struct sk_buf
->  			e =3D (void *)e + e->next_offset;
->  		}
->  	} while (!hotdrop);
-> -	read_unlock_bh(&table->lock);
-> +	rcu_read_unlock_bh();
-> =20
->  	if (hotdrop)
->  		return NF_DROP;
-> @@ -1163,8 +1163,8 @@ static int do_add_counters(struct net *n
->  		goto free;
->  	}
-> =20
-> -	write_lock_bh(&t->lock);
-> -	private =3D t->private;
-> +	rcu_read_lock_bh();
-> +	private =3D rcu_dereference(t->private);
->  	if (private->number !=3D num_counters) {
->  		ret =3D -EINVAL;
->  		goto unlock_up_free;
-> @@ -1179,7 +1179,7 @@ static int do_add_counters(struct net *n
->  			   paddc,
->  			   &i);
->   unlock_up_free:
-> -	write_unlock_bh(&t->lock);
-> +	rcu_read_unlock_bh();
->  	xt_table_unlock(t);
->  	module_put(t->me);
->   free:
-> --- a/net/ipv4/netfilter/ip_tables.c	2009-01-28 22:06:10.596739805 -0=
-800
-> +++ b/net/ipv4/netfilter/ip_tables.c	2009-01-28 22:14:54.648490491 -0=
-800
-> @@ -348,9 +348,9 @@ ipt_do_table(struct sk_buff *skb,
->  	mtpar.family  =3D tgpar.family =3D NFPROTO_IPV4;
->  	tgpar.hooknum =3D hook;
-> =20
-> -	read_lock_bh(&table->lock);
-> +	rcu_read_lock_bh();
->  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
-> -	private =3D table->private;
-> +	private =3D rcu_dereference(table->private);
->  	table_base =3D (void *)private->entries[smp_processor_id()];
->  	seq =3D per_cpu_ptr(private->seq, smp_processor_id());
->  	e =3D get_entry(table_base, private->hook_entry[hook]);
-> @@ -449,7 +449,7 @@ ipt_do_table(struct sk_buff *skb,
->  		}
->  	} while (!hotdrop);
-> =20
-> -	read_unlock_bh(&table->lock);
-> +	rcu_read_unlock_bh();
-> =20
->  #ifdef DEBUG_ALLOW_ALL
->  	return NF_ACCEPT;
-> @@ -1408,8 +1408,8 @@ do_add_counters(struct net *net, void __
->  		goto free;
->  	}
-> =20
-> -	write_lock_bh(&t->lock);
-> -	private =3D t->private;
-> +	rcu_read_lock_bh();
-> +	private =3D rcu_dereference(t->private);
+This series adds infrastructure for a new control virtqueue and
+makes use of it to support set_rx_mode, unicast and multicast address
+lists, and supporting a hypervisor based VLAN filter.  The goal is to
+make the virtio-net device support more of the features of a physical
+NIC and allow the hypervisor to discard packets we don't want.
 
-I feel litle bit nervous seeing a write_lock_bh() changed to a rcu_read=
-_lock()
+This version incorporates suggestions from Rusty.  The MAC filter table
+size is now managed by the hypervisor.  We treat it as inifinite and
+rely on the hypervisor to fall back to promiscuous or all-multi mode
+as their resources allow.  The point that made this finally sink in
+as the right way to go was the idea of bonding directly to a NIC and
+using this interface to manipulate a hardware filter (I hope someone
+is working on that in QEMU/KVM).  I've also changed the send_command()
+function to return bool.  I'm not completely sure it's everything
+you're looking for Rusty, but it does seem cleaner.  Let me know if
+this is closer to what you're thinking.  Thanks,
 
-Also, add_counter_to_entry() is not using seqcount protection, so anoth=
-er thread
-doing an iptables -L in parallel with this thread will possibly get cor=
-rupted counters.
+Alex
+
+---
+
+Alex Williamson (4):
+      virtio_net: Add support for VLAN filtering in the hypervisor
+      virtio_net: Add a MAC filter table
+      virtio_net: Add a set_rx_mode interface
+      virtio_net: Add a virtqueue for outbound control commands
 
 
-(With write_lock_bh(), this corruption could not occur)
+ drivers/net/virtio_net.c   |  198 +++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/virtio_net.h |   61 ++++++++++++++
+ 2 files changed, 256 insertions(+), 3 deletions(-)
 
-
+-- 
+Alex Williamson
