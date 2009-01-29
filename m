@@ -1,62 +1,43 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Wed, 28 Jan 2009 17:09:14 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: [ofa-general] Re: [PATCH 0/21] Reliable Datagram Sockets (RDS)
+Date: Wed, 28 Jan 2009 17:29:40 -0800
+Message-ID: <49810684.3010305@oracle.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>
+	<adaskn3ukey.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Parag Warudkar <parag.lkml@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:50311 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753351AbZA2BJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 20:09:48 -0500
-In-Reply-To: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adaskn3ukey.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
+Roland Dreier wrote:
+>  > This patchset adds support for RDS as an Infiniband ULP. RDS is an
+>  > Oracle-originated protocol used to send IPC datagrams (up to 1MB) reliably,
+>  > and is used currently in Oracle RAC and Exadata products. It's lived
+>  > in OFED for 2+ years and I think it's time to get it upstream -- most
+>  > likely into your -next tree for .30, but if it snuck into .29 via the
+>  > "new code merge-window exception" then even better.
+> 
+> I'll read this over and comment, but to be honest I agree with Dave:
+> this is a new socket family, and as such it belongs under net/ and
+> probably should go through Dave's tree (just as the NFS/RDMA changes
+> went through the NFS trees and the 9p/RDMA changes went through the 9p
+> tree); even though it heavily uses RDMA I think the upper layer
+> interface to sockets/networking is more relevant.
 
+OK no prob. I'll probably be ready early next week with an updated patchset.
 
-On Wed, 28 Jan 2009, Parag Warudkar wrote:
->
-> This is similar to the issue reported back in Jul 2007 - 
-> http://kerneltrap.org/mailarchive/linux-kernel/2007/8/1/154073/thread 
-> which was fixed with a patch to unconditionally save/restore pci config 
-> space - that one is still in tg3.c.
-
-In fact, the new PCI suspend/restore code should have made that 
-unnecessary, since the PCI layer now makes sure that a save/restore is 
-done even if the driver hadn't done it.
-
-But at the same time, still having the driver do it certainly shouldn't 
-have _hurt_ anything either. But it's quite possible that the tg3 thing is 
-very sensitive to the exact order things happen in - there's a lot of 
-comments about bugs in there ;)
-
-> After resume tg3 complains that no firmware is running and eth0 is 
-> non-existent. Rmmoding and modprobing tg3 again causes some timeouts and 
-> errors from tg3 and the link still doesn't work.
-
-That seems to imply that even the reset failed, which is interesting. 
-
-But it also possibly means that the problem is not necessarily the driver 
-itself, but some cached state that we keep around in "struct pci_dev" even 
-across a module load/unload. 
-
-For example, if we get the "dev->current_state" cache wrong, then we may 
-not actually end up changing it when we should, because we think we 
-already match the target state. I don't _think_ that is it, but that's the 
-kind of thing that could happen.
-
-Can you do a
-
-	lspci -vvxxx -s [tg3-device]
-
-before-and-after suspend? Is there some state that looks like it got 
-corrupted?
-
-			Linus
+Thanks -- Regards -- Andy
