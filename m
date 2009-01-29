@@ -1,104 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/4]: net: Allow RX queue selection to seed TX queue
-	hashing.
-Date: Thu, 29 Jan 2009 12:34:03 +1100
-Message-ID: <20090129013403.GA24043@gondor.apana.org.au>
-References: <20090128085358.GA15593@gondor.apana.org.au> <20090128.122231.208600152.davem@davemloft.net> <20090128213141.GD22141@gondor.apana.org.au> <20090128.164058.248259991.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/5] virtio_net: Add a virtqueue for outbound control commands
+Date: Thu, 29 Jan 2009 12:05:10 +1030
+Message-ID: <200901291205.11023.rusty@rustcorp.com.au>
+References: <20090116211312.22836.34331.stgit@debian.lart> <200901282335.13739.rusty@rustcorp.com.au> <1233169341.7026.244.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42759 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752224AbZA2BeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 20:34:08 -0500
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, markmc@redhat.com, kvm@vger.kernel.org
+To: Alex Williamson <alex.williamson@hp.com>,
+	Anthony Liguori <aliguori@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1233169341.7026.244.camel@lappy>
 Content-Disposition: inline
-In-Reply-To: <20090128.164058.248259991.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 28, 2009 at 04:40:58PM -0800, David Miller wrote:
+On Thursday 29 January 2009 05:32:21 Alex Williamson wrote:
+> On Wed, 2009-01-28 at 23:35 +1030, Rusty Russell wrote:
+> > On Tuesday 27 January 2009 14:30:06 Alex Williamson wrote:
+> > > On Tue, 2009-01-27 at 13:52 +1030, Rusty Russell wrote:
+> > > > If we're sure they never want to see the value, then we don't need to
+> > > > be synchronous at all: just spin if add_buf() fails.
+...
+> The only one of these that stands out is if the qemu_mallocz() for the
+> MAC filter table fails for a size we think is reasonable.
+
+Yes, that seems fair.  Of course it's quite probable that the malloc will "succeed" then we'll segv later on if we're really low on mem.
+
+> > > , or the command is unrecognized.
+> > 
+> > If we go for feature bits, this is also a guest bug.  And I think we
+> > should, since that's what feature bits are for.
 > 
-> It is even the same for "identical" NICs.  Robert Olsson knows this
-> quite well :-)
-> 
-> For example, with the NIU chips the number of TX queues is larger
-> than the number of RX queues.
+> One of the reasons I had avoided using a feature bit is that it's only a
+> 32bit field, and we've already used up to bit 16 (though I'm not sure
+> what to do about the sparse-ness of it).  The virtqueue interface I've
+> designed supports up to 255 command classes, each with 255 commands.  We
+> can't add a feature bit for every one, or even much of a subset.
 
-I see that as a temporary issue while the NIC manufacturers are
-catching up with the CPU development.  From the CPU's point of
-view, the ideal situation is where you reduce the amount of cross-
-cache communication to a minimum.  So having more TX queues than
-you have cores (or rather caches) isn't all that useful since a
-single core can only do so much (and a single piece of wire can
-only carry so much data, no matter how many queues you place in
-front of it).
+We will need to figure out how to figure out how to expand the feature bits for virtio_pci anyway.  I think the plan is to use feature bit 31 to mean "look here for more feature bits".  Anthony would know more...
 
-Of course having less queues than cores may be the order of the
-day for a while and we should certainly deal with that as well
-as we can, but we should at least ensure the optimal case where
-you have exactly one queue per core/cache is not penalised.
+s390 and lguest didn't fall into this trap; we have infinite feature bits.
 
-Having said that, it would seem that the randomness isn't too
-big a deal since we could always create an interface where the
-admin sets it to a fixed value so that we get predictable IRQ
-affinity.  So I'm happy :)
+> I'd be
+> happy to add a feature bit indicating the virtqueue command channel is
+> supported
 
-> Robert has been proposing some ideas wherein some mapping is
-> implemented such that we iterate over a group of TX queues
-> per RX queue.
-> 
-> Otherwise in a routing workload some of the TX queues become
-> unused.
+We probably should, for good measure.  If someone added another virtqueue for some other purpose in future and didn't want to support the command channel it would get icky.
 
-If the number of RX queues is less than the number of caches or
-cores, then I think this is a great idea and we could use the
-stuff that you played with at the Kernel Summit to in effect
-boost the number of queues so that all cores are utilised while
-incurring the minimum amount of interprocessor communication.
+If we have 255 features, the problem is that we have 255 features, not that it's a lot of bits :)
 
-> It's a tricky thing because we don't know where we're sending to of
-> course.  It shows that the "RX queue number" is not a sufficient
-> seed.
-
-I don't think it really matters where we're sending to.  Ideally
-every outbound interface should have a sufficient number of TX
-queues so that each core can just deposit its output into a queue
-that does not incur cross-CPU overheads.
-
-So from the RX queue's point of view, we want to have the packet
-stay on the core it arrived at for as long as possible, with the
-best case being the entire duration from the RX queue to the TX
-queue.
-
-Now of course if the number of RX queues is too small such that
-we can't utilise all the cores, then something has to give.  My
-suggestion (as above) would be to multiplex it as early as possible,
-i.e., simulat the hardware multiplexer in software if the number
-of hardware RX queues is too small.
-
-In fact, while doing the GRO stuff it occured me that this is
-the perfect spot to do the multiplexing since it's the first
-moment (or at least close to it) when we touch the data.
-
-> One way to deal with this is to grab the hash the chip computed.
-> I'm reluctant to advocate this because it's expensive with NIU
-> because I have to start using the larger RX descriptor layout
-> to get at that cookie.  (see "rx_pkt_hdr0" vs. "rx_pkt_hdr1" in
-> drivers/net/niu.h)
-
-That's a separate discussion.  The hash would be useful for the
-software multiplexer discussed above, and further processing in
-our stack.  But it isn't all that important with regards to keeping
-the traffic on the core where it arrived.
-
-So if we can get it then great, but if it's more expensive than
-computing one in software then forget it :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+Rusty.
