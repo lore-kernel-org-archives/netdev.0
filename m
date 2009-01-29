@@ -1,53 +1,88 @@
-From: ivaylo@bglans.net
-Subject: problem with r8101 driver
-Date: Thu, 29 Jan 2009 12:30:08 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0901291203430.18427@mail.bglans.net>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: iproute2, meta, flex parser bug?
+Date: Thu, 29 Jan 2009 13:04:24 +0200
+Message-ID: <200901291304.24257.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bglans.net ([217.79.67.244]:57620 "EHLO mail.bglans.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751302AbZA2K7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 05:59:53 -0500
-Received: from mail.bglans.net (mail.bglans.net [217.79.67.244])
-	by mail.bglans.net (8.14.2/8.14.2) with ESMTP id n0TAU8qi008392
-	for <netdev@vger.kernel.org>; Thu, 29 Jan 2009 12:30:13 +0200
+Received: from hosting.visp.net.lb ([194.146.153.11]:49177 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635AbZA2LEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 06:04:21 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+I'm trying to make meta work, without success. Seems parser done in flex 
+failing. My knowledge is not enough to fix or understand how flex is working
+Here is what i got:
 
-I've play with r8101 driver and have strange problem.
-My envourment is:
-Motherboard Intel D945GCLF ( 945GC chipset with integrated CPU Atom 130, 
-and Realtek 8102EL, I think it is supported by r8101 driver?)
-Linux kernel 2.4.37
-gcc 2.95.3
-r8101 (all versions, downloaded from www.realtek.com.tw and intel.com)
+home iproute2 # home iproute2 # tc/tc filter add dev eth0 protocol ip pref 11 
+basic match meta\(rt_iif eq \"eth0\"\)
+meta: unknown meta id
 
-First of my problems is with compile the driver it seems that there are 4 
-structures predefined in r8101_n.c:
-netdev_priv - predefined from 
-linux-2.4.37/include/linux/netdevice.h
-netif_msg_init - predefined from
-linux-2.4.37/build/include/linux/netdevice.h
-jiffies_to_msecs - predefined from
-linux-2.4.36.6/build/include/linux/delay.h
-msecs_to_jiffies - predefined from
-linux-2.4.36.6/build/include/linux/delay.h
+... meta(rt_iif >>eq<< ...
+... meta(rt_iif eq >>"eth0"<<)...
+Usage: meta(OBJECT { eq | lt | gt } OBJECT)
+where: OBJECT  := { META_ID | VALUE }
+       META_ID := id [ shift SHIFT ] [ mask MASK ]
 
-Anyway I try and compile the driver with the original structures from 
-kernel and from driver, but the result is the same - I hit the second 
-problem.
+Example: meta(nfmark gt 24)
+         meta(indev shift 1 eq "ppp")
+         meta(tcindex mask 0xf0 eq 0xf0)
 
-Second problem is stop transmiting packets after number of tx packets 
-reach NUM_TX_DESC defined in r8101.h (1024 is the default value). I play 
-with various NUM_TX_DESC the result is the same. If tx packets < 
-NUM_TX_DESC lan card work, it transmiting and reciving packets well.
+For a list of meta identifiers, use meta(list).
+Illegal "ematch"
 
-If some body have any ideas or know something about the second problem let 
-me know.
+I try with debug, and how flex is working - strange for me
+--(end of buffer or a NUL)
+--accepting rule at line 139 ("meta")
+--accepting rule at line 135 ("(")
+--accepting rule at line 139 ("rt_iif")
+--(end of buffer or a NUL)
+--accepting rule at line 70 (" ")
+--accepting rule at line 139 ("eq")
+--(end of buffer or a NUL)
+--accepting rule at line 70 (" ")
+--accepting rule at line 139 (""eth0"")
+--accepting rule at line 136 (")")
+--(end of buffer or a NUL)
+--accepting rule at line 70 (" ")
+--(end of buffer or a NUL)
+--EOF (start condition 0)
 
-Best regards,
-Ivaylo Josifov
+Even with numbers
+tc/tc filter add dev eth0 protocol ip pref 11 basic match meta\(rt_iif eq 
+123\)
+--(end of buffer or a NUL)
+--accepting rule at line 139 ("meta")
+--accepting rule at line 135 ("(")
+--accepting rule at line 139 ("rt_iif")
+--(end of buffer or a NUL)
+--accepting rule at line 70 (" ")
+--accepting rule at line 139 ("eq")
+--(end of buffer or a NUL)
+--accepting rule at line 70 (" ")
+--accepting rule at line 139 ("123")
+--accepting rule at line 136 (")")
+--(end of buffer or a NUL)
+--accepting rule at line 70 (" ")
+--(end of buffer or a NUL)
+--EOF (start condition 0)
+
+It seems it is not matching any rules except 
+
+70 [ \t\r\n]+
+136 ")"                                   
+139 [^ \t\r\n()]+                        
+
+In flex rules all looks correct, but maybe i miss something.
+My software versions
+bison (GNU Bison) 2.3
+flex 2.5.35
+gcc version 4.3.2 (Gentoo 4.3.2 p1.2)
+iproute2 is latest git
