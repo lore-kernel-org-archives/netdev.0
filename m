@@ -1,192 +1,165 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Fri, 30 Jan 2009 00:03:37 +0100
-Message-ID: <200901300003.38550.rjw@sisk.pl>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <20090129184215.GA13459@xw6200.broadcom.net> <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 5/5] netfilter: convert x_tables to use RCU
+Date: Fri, 30 Jan 2009 00:04:16 +0100
+Message-ID: <498235F0.3010806@cosmosbay.com>
+References: <20090129062521.092861272@vyatta.com> <20090129062549.364601936@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Parag Warudkar <parag.lkml@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:45181 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753445AbZA2XEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 18:04:20 -0500
-In-Reply-To: <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38368 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755736AbZA2XEY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 18:04:24 -0500
+In-Reply-To: <20090129062549.364601936@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 29 January 2009, Parag Warudkar wrote:
-> 
-> On Thu, 29 Jan 2009, Matt Carlson wrote:
-> 
-> > Can you apply the following test patch and see if it helps?  The patch
-> > does two things.  First, it enables a bit which should restore firmware
-> > communication.  If that fixes the problem, then let me know and I'll
-> > spin a proper patch.
-> > 
-> > In the event that it doesn't work, the patch goes on to test the memory
-> > mapping by simply printing the register value at offset 0x0.  The value
-> > should be the device's vendor ID and device ID.  Please post the
-> > results so that I can verify it.
-> > 
-> > 
-> > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> > index 8b3f846..39fce42 100644
-> > --- a/drivers/net/tg3.c
-> > +++ b/drivers/net/tg3.c
-> > @@ -7227,6 +7227,11 @@ static int tg3_init_hw(struct tg3 *tp, int reset_phy)
-> >  {
-> >  	tg3_switch_clocks(tp);
-> >  
-> > +	printk( KERN_NOTICE "%s: Reg value at offset 0x0 is 0x%x\n",
-> > +		tp->dev->name, tr32(0x0) );
-> > +
-> > +	tw32(MEMARB_MODE, tr32(MEMARB_MODE) | MEMARB_MODE_ENABLE);
-> > +
-> >  	tw32(TG3PCI_MEM_WIN_BASE_ADDR, 0);
-> >  
-> >  	return tg3_reset_hw(tp, reset_phy);
-> > 
-> 
-> Hi Matt,
-> 
-> Thanks for the patch. It didn't help with resume - but below is the 
-> output after patching, let me know if you need more details.
+Stephen Hemminger a =E9crit :
+> Replace existing reader/writer lock with Read-Copy-Update to
+> elminate the overhead of a read lock on each incoming packet.
+> This should reduce the overhead of iptables especially on SMP
+> systems.
+>=20
+> The previous code used a reader-writer lock for two purposes.
+> The first was to ensure that the xt_table_info reference was not in
+> process of being changed. Since xt_table_info is only freed via one
+> routine, it was a direct conversion to RCU.
+>=20
+> The other use of the reader-writer lock was to to block changes
+> to counters while they were being read. This synchronization was
+> fixed by the previous patch.  But still need to make sure table info
+> isn't going away.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+>=20
+> ---
+>  include/linux/netfilter/x_tables.h |   10 ++++++-
+>  net/ipv4/netfilter/arp_tables.c    |   12 ++++-----
+>  net/ipv4/netfilter/ip_tables.c     |   12 ++++-----
+>  net/ipv6/netfilter/ip6_tables.c    |   12 ++++-----
+>  net/netfilter/x_tables.c           |   48 ++++++++++++++++++++++++++=
+-----------
+>  5 files changed, 60 insertions(+), 34 deletions(-)
+>=20
+> --- a/include/linux/netfilter/x_tables.h	2009-01-28 22:04:39.31651791=
+3 -0800
+> +++ b/include/linux/netfilter/x_tables.h	2009-01-28 22:14:54.64849049=
+1 -0800
+> @@ -352,8 +352,8 @@ struct xt_table
+>  	/* What hooks you will enter on */
+>  	unsigned int valid_hooks;
+> =20
+> -	/* Lock for the curtain */
+> -	rwlock_t lock;
+> +	/* Lock for curtain */
+> +	spinlock_t lock;
+> =20
+>  	/* Man behind the curtain... */
+>  	struct xt_table_info *private;
+> @@ -386,6 +386,12 @@ struct xt_table_info
+>  	/* Secret compartment */
+>  	seqcount_t *seq;
+> =20
+> +	/* For the dustman... */
+> +	union {
+> +		struct rcu_head rcu;
+> +		struct work_struct work;
+> +	};
+> +
+>  	/* ipt_entry tables: one per CPU */
+>  	/* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
+>  	char *entries[1];
+> --- a/net/ipv4/netfilter/arp_tables.c	2009-01-28 22:13:16.423490077 -=
+0800
+> +++ b/net/ipv4/netfilter/arp_tables.c	2009-01-28 22:14:54.648490491 -=
+0800
+> @@ -238,8 +238,8 @@ unsigned int arpt_do_table(struct sk_buf
+>  	indev =3D in ? in->name : nulldevname;
+>  	outdev =3D out ? out->name : nulldevname;
+> =20
+> -	read_lock_bh(&table->lock);
+> -	private =3D table->private;
+> +	rcu_read_lock_bh();
+> +	private =3D rcu_dereference(table->private);
+>  	table_base =3D (void *)private->entries[smp_processor_id()];
+>  	seq =3D per_cpu_ptr(private->seq, smp_processor_id());
+>  	e =3D get_entry(table_base, private->hook_entry[hook]);
+> @@ -315,7 +315,7 @@ unsigned int arpt_do_table(struct sk_buf
+>  			e =3D (void *)e + e->next_offset;
+>  		}
+>  	} while (!hotdrop);
+> -	read_unlock_bh(&table->lock);
+> +	rcu_read_unlock_bh();
+> =20
+>  	if (hotdrop)
+>  		return NF_DROP;
+> @@ -1163,8 +1163,8 @@ static int do_add_counters(struct net *n
+>  		goto free;
+>  	}
+> =20
+> -	write_lock_bh(&t->lock);
+> -	private =3D t->private;
+> +	rcu_read_lock_bh();
+> +	private =3D rcu_dereference(t->private);
+>  	if (private->number !=3D num_counters) {
+>  		ret =3D -EINVAL;
+>  		goto unlock_up_free;
+> @@ -1179,7 +1179,7 @@ static int do_add_counters(struct net *n
+>  			   paddc,
+>  			   &i);
+>   unlock_up_free:
+> -	write_unlock_bh(&t->lock);
+> +	rcu_read_unlock_bh();
+>  	xt_table_unlock(t);
+>  	module_put(t->me);
+>   free:
+> --- a/net/ipv4/netfilter/ip_tables.c	2009-01-28 22:06:10.596739805 -0=
+800
+> +++ b/net/ipv4/netfilter/ip_tables.c	2009-01-28 22:14:54.648490491 -0=
+800
+> @@ -348,9 +348,9 @@ ipt_do_table(struct sk_buff *skb,
+>  	mtpar.family  =3D tgpar.family =3D NFPROTO_IPV4;
+>  	tgpar.hooknum =3D hook;
+> =20
+> -	read_lock_bh(&table->lock);
+> +	rcu_read_lock_bh();
+>  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+> -	private =3D table->private;
+> +	private =3D rcu_dereference(table->private);
+>  	table_base =3D (void *)private->entries[smp_processor_id()];
+>  	seq =3D per_cpu_ptr(private->seq, smp_processor_id());
+>  	e =3D get_entry(table_base, private->hook_entry[hook]);
+> @@ -449,7 +449,7 @@ ipt_do_table(struct sk_buff *skb,
+>  		}
+>  	} while (!hotdrop);
+> =20
+> -	read_unlock_bh(&table->lock);
+> +	rcu_read_unlock_bh();
+> =20
+>  #ifdef DEBUG_ALLOW_ALL
+>  	return NF_ACCEPT;
+> @@ -1408,8 +1408,8 @@ do_add_counters(struct net *net, void __
+>  		goto free;
+>  	}
+> =20
+> -	write_lock_bh(&t->lock);
+> -	private =3D t->private;
+> +	rcu_read_lock_bh();
+> +	private =3D rcu_dereference(t->private);
 
-[--snip--]
+I feel litle bit nervous seeing a write_lock_bh() changed to a rcu_read=
+_lock()
 
-In the meantime I tried to rework tg3 suspend/resume so that it uses the new
-PCI core capability of handling the PCI-specific parts of both operations.
+Also, add_counter_to_entry() is not using seqcount protection, so anoth=
+er thread
+doing an iptables -L in parallel with this thread will possibly get cor=
+rupted counters.
 
-The patch is appended, please see if it makes any difference.
 
-Thanks,
-Rafael
+(With write_lock_bh(), this corruption could not occur)
 
----
- drivers/net/tg3.c |   70 +++++++++++++++++++-----------------------------------
- 1 file changed, 25 insertions(+), 45 deletions(-)
-
-Index: linux-2.6/drivers/net/tg3.c
-===================================================================
---- linux-2.6.orig/drivers/net/tg3.c
-+++ linux-2.6/drivers/net/tg3.c
-@@ -13330,18 +13330,13 @@ static void __devexit tg3_remove_one(str
- 	}
- }
- 
--static int tg3_suspend(struct pci_dev *pdev, pm_message_t state)
-+#ifdef CONFIG_PM
-+
-+static int tg3_suspend(struct device *device)
- {
-+	struct pci_dev *pdev = to_pci_dev(device);
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct tg3 *tp = netdev_priv(dev);
--	pci_power_t target_state;
--	int err;
--
--	/* PCI register 4 needs to be saved whether netif_running() or not.
--	 * MSI address and data need to be saved if using MSI and
--	 * netif_running().
--	 */
--	pci_save_state(pdev);
- 
- 	if (!netif_running(dev))
- 		return 0;
-@@ -13363,50 +13358,19 @@ static int tg3_suspend(struct pci_dev *p
- 	tp->tg3_flags &= ~TG3_FLAG_INIT_COMPLETE;
- 	tg3_full_unlock(tp);
- 
--	target_state = pdev->pm_cap ? pci_target_state(pdev) : PCI_D3hot;
--
--	err = tg3_set_power_state(tp, target_state);
--	if (err) {
--		int err2;
--
--		tg3_full_lock(tp, 0);
--
--		tp->tg3_flags |= TG3_FLAG_INIT_COMPLETE;
--		err2 = tg3_restart_hw(tp, 1);
--		if (err2)
--			goto out;
--
--		tp->timer.expires = jiffies + tp->timer_offset;
--		add_timer(&tp->timer);
--
--		netif_device_attach(dev);
--		tg3_netif_start(tp);
--
--out:
--		tg3_full_unlock(tp);
--
--		if (!err2)
--			tg3_phy_start(tp);
--	}
--
--	return err;
-+	return 0;
- }
- 
--static int tg3_resume(struct pci_dev *pdev)
-+static int tg3_resume(struct device *device)
- {
-+	struct pci_dev *pdev = to_pci_dev(device);
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct tg3 *tp = netdev_priv(dev);
- 	int err;
- 
--	pci_restore_state(tp->pdev);
--
- 	if (!netif_running(dev))
- 		return 0;
- 
--	err = tg3_set_power_state(tp, PCI_D0);
--	if (err)
--		return err;
--
- 	netif_device_attach(dev);
- 
- 	tg3_full_lock(tp, 0);
-@@ -13430,13 +13394,29 @@ out:
- 	return err;
- }
- 
-+struct dev_pm_ops tg3_pm_ops = {
-+	.suspend = tg3_suspend,
-+	.resume = tg3_resume,
-+	.freeze = tg3_suspend,
-+	.thaw = tg3_resume,
-+	.poweroff = tg3_suspend,
-+	.restore = tg3_resume,
-+};
-+
-+#define TG3_PM_OPS	(&tg3_pm_ops)
-+
-+#else /* !CONFIG_PM */
-+
-+#define TG3_PM_OPS	NULL
-+
-+#endif /* !CONFIG_PM */
-+
- static struct pci_driver tg3_driver = {
- 	.name		= DRV_MODULE_NAME,
- 	.id_table	= tg3_pci_tbl,
- 	.probe		= tg3_init_one,
- 	.remove		= __devexit_p(tg3_remove_one),
--	.suspend	= tg3_suspend,
--	.resume		= tg3_resume
-+	.driver.pm	= TG3_PM_OPS,
- };
- 
- static int __init tg3_init(void)
 
