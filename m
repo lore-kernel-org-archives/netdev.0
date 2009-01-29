@@ -1,81 +1,65 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Wed, 28 Jan 2009 18:19:44 -0800
-Message-ID: <20090129021944.GA12879@xw6200.broadcom.net>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
- <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain>
- <alpine.DEB.2.00.0901282049040.5026@parag-desktop>
- <alpine.LFD.2.00.0901281757240.3123@localhost.localdomain>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: [ofa-general] Re: [PATCH 20/21] RDS: Kconfig and Makefile
+Date: Wed, 28 Jan 2009 18:19:42 -0800
+Message-ID: <4981123E.2060406@oracle.com>
+References: <1233022678-9259-1-git-send-email-andy.grover@oracle.com>	<1233022678-9259-21-git-send-email-andy.grover@oracle.com>
+	<adazlhbt4ta.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Parag Warudkar" <parag.lkml@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Matthew Carlson" <mcarlson@broadcom.com>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4772 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752008AbZA2CUE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jan 2009 21:20:04 -0500
-In-Reply-To: <alpine.LFD.2.00.0901281757240.3123@localhost.localdomain>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adazlhbt4ta.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 28, 2009 at 06:10:37PM -0800, Linus Torvalds wrote:
+Roland Dreier wrote:
+>  > +obj-$(CONFIG_INFINIBAND_ISER)		+= ulp/rds/
 > 
-> 
-> On Wed, 28 Jan 2009, Parag Warudkar wrote:
-> > 
-> > Sure, diff -u below. There are differences but not sure if they are 
-> > abnormal or expected.
-> 
-> Well, they're all in the "extended set", ie not the basic registers that 
-> the PCI layer saves. The PCI layer normally just saves the low 16 dwords, 
-> along with the PCI[EX] capability thing.
-> 
-> None of the PCI save/restore routines have ever saved the extended state 
-> (well, "ever" is a strong word - I think we long ago used to pass in how 
-> many bytes we wanted saved, but got rid of it), and it certainly didn't 
-> change with the recent PCI suspend/resume changes.
-> 
-> I get the feeling that it's some odd tg3 issue. That tg3 driver does have 
-> that special
-> 
->         /* Make sure register accesses (indirect or otherwise)
->          * will function correctly.
->          */
->         pci_write_config_dword(tp->pdev,
->                                TG3PCI_MISC_HOST_CTRL,
->                                tp->misc_host_ctrl);
-> 
-> in its own version of setting the power state, and maybe that really 
-> _must_ happen before we actually set the state back to PCI_D0. That sounds 
-> very odd, but hey..
-> 
-> I added Matt Carlson to the cc, since he seems to be the main tg3 
-> authority here.
-> 
-> Matt: the whole discussion is on netdev and the kernel mailing list, but 
-> the short version is that -rc3 suspends and resumes for Parag again 
-> (unlike -rc2), but tg3 doesn't appear to resume properly. The generic PCI 
-> layer now does more at resume time (very early, when interrupts are still 
-> off), see
-> 
->  - pci_pm_resume_noirq ->
->      pci_pm_default_resume_noirq() ->
->        pci_restore_standard_config()
-> 
-> for more of the details (basically it always does that 
-> "pci_restore_state()" and tries to bring the device back to PCI_D0).
+> Typo for ..._RDS
 
-Thanks Linus.  I'm looking over the diffs Parag sent and I already see
-some suspicious register settings.  Let me think about this some more
-and then I'll jump into the discussion.
+Whups. :)
 
+>  > +config INFINIBAND_RDS_DEBUG
+>  > +        bool "Debugging messages"
+>  > +	depends on INFINIBAND_RDS
+>  > +        default n
+> 
+> No way to enable this?  Disabled by default?
+> 
+> You really want debugging messages to be built by default and controlled
+> at runtime ... otherwise debugging end-user installations is a pain
+> (they just install what the distro gives them, and it's very hard for
+> them to rebuild just to enable debugging).
+
+So the solution is just to base debug message output on a variable,
+instead of a config option? RDS actually does do this a little already,
+so converting totally isn't hard. I hadn't seen mention this was
+preferable -- indeed, tons of drivers and subsystems have options for
+compile-time debug statements, should these be converted?
+
+>  > +ib_rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
+>  > +			recv.o send.o stats.o sysctl.o threads.o transport.o \
+>  > +			loop.o page.o rdma.o
+>  > +
+>  > +ib_rds-y += ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
+>  > +			ib_sysctl.o ib_rdma.o
+> 
+> a very strange way to write an assignment statement...
+
+RDS is implemented as a core sockets layer and then a transport layer.
+IB is currently the only transport so I thought it made sense to just
+compile them together, but once there are >1 then RDS's IB support could
+be broken out into its own module.
+
+Regards -- Andy
