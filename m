@@ -1,61 +1,66 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] decnet: incorrect optlen size
-Date: Thu, 29 Jan 2009 09:21:15 +0100
-Message-ID: <498166FB.5030104@gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 4/5] netfilter: use sequence number synchronization for
+ counters
+Date: Thu, 29 Jan 2009 09:47:53 +0100
+Message-ID: <49816D39.9030705@cosmosbay.com>
+References: <20090129062521.092861272@vyatta.com> <20090129062549.234454895@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
-To: christine.caulfield@googlemail.com
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f21.google.com ([209.85.219.21]:47998 "EHLO
-	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752241AbZA2IVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 03:21:17 -0500
-Received: by ewy14 with SMTP id 14so3841382ewy.13
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2009 00:21:16 -0800 (PST)
+Received: from gw1.cosmosbay.com ([212.99.114.194]:33126 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752431AbZA2Ir6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 03:47:58 -0500
+In-Reply-To: <20090129062549.234454895@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several functions with something like this occur:
+Stephen Hemminger a =E9crit :
+> Change how synchronization is done on the iptables counters. Use seqc=
+ount
+> wrapper instead of depending on reader/writer lock.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+>=20
+> ---
+>  include/linux/netfilter/x_tables.h |    3 +++
+>  net/ipv4/netfilter/arp_tables.c    |   24 +++++++++++++++++++-----
+>  net/ipv4/netfilter/ip_tables.c     |   24 +++++++++++++++++++-----
+>  net/ipv6/netfilter/ip6_tables.c    |   32 +++++++++++++++++++++++---=
+------
+>  net/netfilter/x_tables.c           |   11 +++++++++++
+>  5 files changed, 75 insertions(+), 19 deletions(-)
+> 4
+> --- a/net/ipv4/netfilter/arp_tables.c	2009-01-28 21:24:39.223991934 -=
+0800
+> +++ b/net/ipv4/netfilter/arp_tables.c	2009-01-28 22:13:16.423490077 -=
+0800
+> @@ -230,6 +230,7 @@ unsigned int arpt_do_table(struct sk_buf
+>  	void *table_base;
+>  	const struct xt_table_info *private;
+>  	struct xt_target_param tgpar;
+> +	seqcount_t *seq;
+> =20
+>  	if (!pskb_may_pull(skb, arp_hdr_len(skb->dev)))
+>  		return NF_DROP;
+> @@ -240,6 +241,7 @@ unsigned int arpt_do_table(struct sk_buf
+>  	read_lock_bh(&table->lock);
+>  	private =3D table->private;
+>  	table_base =3D (void *)private->entries[smp_processor_id()];
+> +	seq =3D per_cpu_ptr(private->seq, smp_processor_id());
 
-int sock_set_foo(int optlen, ...)
-{
-	struct food foo;
+But, why not using a global seqcount_t, shared by all tables, no matter=
+ they
+are arp_tables, ip_tables, ip6_tables ?
 
-	if (optlen < sizeof(foo))
-		return -EINVAL;
+A global PER_CPU variable, not dynamically allocated, so that its
+access can be faster (no indirection), and uses exactly 4 bytes per
+possible cpu.
 
-	if (copy_from_user(&foo, optval, sizeof(foo)))
-		return -EFAULT;
-	...
-}
+DEFINE_PER_CPU(seqcount_t,  nf_seqcount);
 
-see for instance:
-grep -C5 -E -R -n "copy_from_user\(&([a-zA-Z0-9]*), optval, sizeof\(\1\)\)" net
 
-but in __dn_setsockopt, below, the checks are slightly different.
-Should maybe the changes below be apllied?
-
--------------->8----------------8<-----------------------
-fix size checks before copy_from_user
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index cf0e184..45b9199 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -1359,10 +1359,10 @@ static int __dn_setsockopt(struct socket *sock, int level,int optname, char __us
- 	if (optlen && !optval)
- 		return -EINVAL;
- 
--	if (optlen > sizeof(u))
-+	if (optlen < sizeof(u))
- 		return -EINVAL;
- 
--	if (copy_from_user(&u, optval, optlen))
-+	if (copy_from_user(&u, optval, sizeof(u)))
- 		return -EFAULT;
- 
- 	switch(optname) {
