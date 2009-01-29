@@ -1,61 +1,140 @@
 From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: FEC Patches
-Date: Thu, 29 Jan 2009 10:03:45 +0100
-Message-ID: <20090129090345.GG8446@pengutronix.de>
-References: <1233052804-31228-1-git-send-email-s.hauer@pengutronix.de> <49800B31.9020608@snapgear.com> <20090128185339.GD8446@pengutronix.de> <20090128.123110.120011613.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gerg@snapgear.com, netdev@vger.kernel.org, fred.rodo@gmail.com
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH] fec: remove unused #else branches
+Date: Thu, 29 Jan 2009 10:03:03 +0100
+Message-ID: <1233219791-18691-2-git-send-email-s.hauer@pengutronix.de>
+References: <1233219791-18691-1-git-send-email-s.hauer@pengutronix.de>
+Cc: David Miller <davem@davemloft.net>,
+	Greg Ungerer <gerg@snapgear.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:48065 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48083 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752419AbZA2JDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 04:03:49 -0500
-Content-Disposition: inline
-In-Reply-To: <20090128.123110.120011613.davem@davemloft.net>
+	with ESMTP id S1752860AbZA2JEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 04:04:12 -0500
+In-Reply-To: <1233219791-18691-1-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 28, 2009 at 12:31:10PM -0800, David Miller wrote:
-> From: Sascha Hauer <s.hauer@pengutronix.de>
-> Date: Wed, 28 Jan 2009 19:53:39 +0100
-> 
-> > Hi Greg,
-> > 
-> > On Wed, Jan 28, 2009 at 05:37:21PM +1000, Greg Ungerer wrote:
-> > > Hi Sascha,
-> > >
-> > > Sascha Hauer wrote:
-> > >> Sorry guys, sending this again. Of course I'm not 'y', just playing
-> > >> git-send-email:
-> > >>
-> > >> Who should the emails appear to be from? [Sascha Hauer <s.hauer@pengutronix.de>] y[es]
-> > >> Emails will be sent from: y
-> > >>
-> > >>
-> > >> These patches are an updated version from the ones I posted some time ago.
-> > >> They give the FEC ethernet driver a facelift and turn it into a
-> > >> platform_device driver. The Coldfire cores are still supported through
-> > >> legacy ifdefs. The platform driver support has been tested on a
-> > >> Freescale i.MX27 SoC.
-> > >
-> > > Outside of the one patch I commented on the series applies, runs and
-> > > seems to work OK on the ColdFire parts I tried it on.
-> > 
-> > Thanks for testing the patches. I'll add the change you mentioned.
-> > So this means I can add your Acked-by and send a pull request, well to
-> > whom? David Miller, Jeff Garzik?
-> 
-> Just send it to netdev and CC: me.
+The #else branches throughout this driver belong to a PowerPC 8xx for
+which this driver is not used.
 
-Done, thanks
+Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+Acked-by: Greg Ungerer <gerg@uclinux.org>
+---
+ drivers/net/fec.c |   92 -----------------------------------------------------
+ 1 files changed, 0 insertions(+), 92 deletions(-)
 
-  Sascha
-
-
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 7e33c12..b754f60 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -72,8 +72,6 @@ static unsigned int fec_hw[] = {
+ 	(MCF_MBAR+0x30000),
+ #elif defined(CONFIG_M532x)
+ 	(MCF_MBAR+0xfc030000),
+-#else
+-	&(((immap_t *)IMAP_ADDR)->im_cpm.cp_fec),
+ #endif
+ };
+ 
+@@ -1760,96 +1758,6 @@ static void __inline__ fec_uncache(unsigned long addr)
+ {
+ }
+ 
+-/* ------------------------------------------------------------------------- */
+-
+-
+-#else
+-
+-/*
+- *	Code specific to the MPC860T setup.
+- */
+-static void __inline__ fec_request_intrs(struct net_device *dev)
+-{
+-	volatile immap_t *immap;
+-
+-	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+-
+-	if (request_8xxirq(FEC_INTERRUPT, fec_enet_interrupt, 0, "fec", dev) != 0)
+-		panic("Could not allocate FEC IRQ!");
+-}
+-
+-static void __inline__ fec_get_mac(struct net_device *dev)
+-{
+-	bd_t *bd;
+-
+-	bd = (bd_t *)__res;
+-	memcpy(dev->dev_addr, bd->bi_enetaddr, ETH_ALEN);
+-}
+-
+-static void __inline__ fec_set_mii(struct net_device *dev, struct fec_enet_private *fep)
+-{
+-	extern uint _get_IMMR(void);
+-	volatile immap_t *immap;
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-	immap = (immap_t *)IMAP_ADDR;	/* pointer to internal registers */
+-
+-	/* Configure all of port D for MII.
+-	*/
+-	immap->im_ioport.iop_pdpar = 0x1fff;
+-
+-	/* Bits moved from Rev. D onward.
+-	*/
+-	if ((_get_IMMR() & 0xffff) < 0x0501)
+-		immap->im_ioport.iop_pddir = 0x1c58;	/* Pre rev. D */
+-	else
+-		immap->im_ioport.iop_pddir = 0x1fff;	/* Rev. D and later */
+-
+-	/* Set MII speed to 2.5 MHz
+-	*/
+-	fecp->fec_mii_speed = fep->phy_speed =
+-		((bd->bi_busfreq * 1000000) / 2500000) & 0x7e;
+-}
+-
+-static void __inline__ fec_enable_phy_intr(void)
+-{
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-
+-	/* Enable MII command finished interrupt
+-	*/
+-	fecp->fec_ivec = (FEC_INTERRUPT/2) << 29;
+-}
+-
+-static void __inline__ fec_disable_phy_intr(void)
+-{
+-}
+-
+-static void __inline__ fec_phy_ack_intr(void)
+-{
+-}
+-
+-static void __inline__ fec_localhw_setup(void)
+-{
+-	volatile fec_t *fecp;
+-
+-	fecp = fep->hwp;
+-	fecp->fec_r_hash = PKT_MAXBUF_SIZE;
+-	/* Enable big endian and don't care about SDMA FC.
+-	*/
+-	fecp->fec_fun_code = 0x78000000;
+-}
+-
+-static void __inline__ fec_uncache(unsigned long addr)
+-{
+-	pte_t *pte;
+-	pte = va_to_pte(mem_addr);
+-	pte_val(*pte) |= _PAGE_NO_CACHE;
+-	flush_tlb_page(init_mm.mmap, mem_addr);
+-}
+-
+ #endif
+ 
+ /* ------------------------------------------------------------------------- */
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+1.5.6.5
+
