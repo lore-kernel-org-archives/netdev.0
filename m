@@ -1,44 +1,61 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: revert jumbo ringsize
-Date: Thu, 29 Jan 2009 12:30:28 -0800
-Message-ID: <1233261028-27584-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 3/6] ebtables: remove unneeded initializations
+Date: Thu, 29 Jan 2009 11:12:42 -0800
+Message-ID: <20090129191520.256257159@vyatta.com>
+References: <20090129191239.483204605@vyatta.com>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:58750 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752269AbZA2Uaa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 15:30:30 -0500
+Received: from suva.vyatta.com ([76.74.103.44]:51498 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751754AbZA2UeO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2009 15:34:14 -0500
+Content-Disposition: inline; filename=ebtables-lock-init.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reducing jumbo ring size below 1024 reduces throughput for old
-firmwares (3.4.216 and older) running on older (NX2031) chip,
-so restore it back to 1024.
+The initialization of the lock element is not needed
+since the lock is always initialized in ebt_register_table.
 
-This was reduced in commit 32ec803348b4d5f1353e1d7feae30880b8b3e342.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Raising jumbo ring size from 512 to 1024, adds ~4MB per port, but
-there's still big saving because of original patch (~20MB per port).
-
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/bridge/netfilter/ebtable_broute.c |    1 -
+ net/bridge/netfilter/ebtable_filter.c |    1 -
+ net/bridge/netfilter/ebtable_nat.c    |    1 -
+ 3 files changed, 3 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index a75a310..9c78c96 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -210,7 +210,7 @@
- #define MAX_CMD_DESCRIPTORS_HOST	1024
- #define MAX_RCV_DESCRIPTORS_1G		2048
- #define MAX_RCV_DESCRIPTORS_10G		4096
--#define MAX_JUMBO_RCV_DESCRIPTORS	512
-+#define MAX_JUMBO_RCV_DESCRIPTORS	1024
- #define MAX_LRO_RCV_DESCRIPTORS		8
- #define MAX_RCVSTATUS_DESCRIPTORS	MAX_RCV_DESCRIPTORS
- #define MAX_JUMBO_RCV_DESC	MAX_JUMBO_RCV_DESCRIPTORS
+--- a/net/bridge/netfilter/ebtable_broute.c	2009-01-27 17:09:10.313100854 -0800
++++ b/net/bridge/netfilter/ebtable_broute.c	2009-01-27 17:09:15.862142852 -0800
+@@ -46,7 +46,6 @@ static struct ebt_table broute_table =
+ 	.name		= "broute",
+ 	.table		= &initial_table,
+ 	.valid_hooks	= 1 << NF_BR_BROUTING,
+-	.lock		= __RW_LOCK_UNLOCKED(broute_table.lock),
+ 	.check		= check,
+ 	.me		= THIS_MODULE,
+ };
+--- a/net/bridge/netfilter/ebtable_filter.c	2009-01-27 17:08:50.725100955 -0800
++++ b/net/bridge/netfilter/ebtable_filter.c	2009-01-27 17:08:53.828611768 -0800
+@@ -55,7 +55,6 @@ static struct ebt_table frame_filter =
+ 	.name		= "filter",
+ 	.table		= &initial_table,
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(frame_filter.lock),
+ 	.check		= check,
+ 	.me		= THIS_MODULE,
+ };
+--- a/net/bridge/netfilter/ebtable_nat.c	2009-01-27 17:09:22.896602465 -0800
++++ b/net/bridge/netfilter/ebtable_nat.c	2009-01-27 17:09:31.589085328 -0800
+@@ -55,7 +55,6 @@ static struct ebt_table frame_nat =
+ 	.name		= "nat",
+ 	.table		= &initial_table,
+ 	.valid_hooks	= NAT_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(frame_nat.lock),
+ 	.check		= check,
+ 	.me		= THIS_MODULE,
+ };
+
 -- 
-1.6.0.2
 
