@@ -1,147 +1,127 @@
-From: Alexander Kolesnik <Alexander.Kolesnik@awanti.com>
-Subject: [PATCH] iputils: ping
-Date: Thu, 29 Jan 2009 20:41:02 +0300
-Message-ID: <389891790.20090129204102@awanti.com>
-Reply-To: Alexander Kolesnik <Alexander.Kolesnik@awanti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Haiying Wang <Haiying.Wang@freescale.com>
+Subject: [PATCH] ucc_geth: Change uec phy id to the same format as gianfar's
+Date: Thu, 29 Jan 2009 13:39:02 -0500
+Message-ID: <1233254342-8435-1-git-send-email-Haiying.Wang@freescale.com>
+Cc: Haiying Wang <Haiying.Wang@freescale.com>
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.awanti.com ([91.190.112.18]:57176 "EHLO mx0.awanti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752653AbZA2SFV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 13:05:21 -0500
-Received: from alexkol.abisoft.spb.ru (abi165.abisoft.spb.ru [91.190.120.165])
-	by mx0.awanti.com (Postfix) with ESMTP id C38E84C07D
-	for <netdev@vger.kernel.org>; Thu, 29 Jan 2009 20:41:02 +0300 (MSK)
+Received: from az33egw02.freescale.net ([192.88.158.103]:36992 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbZA2SjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 13:39:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+The commit b31a1d8b41513b96e9c7ec2f68c5734cef0b26a4 changes the gianfar's phy id to
+the format like "mdio@xxxx:xx", but uec still uses the old format like "xxxxxxxx:xx".
+For the board whose UEC uses gianfar-mdio like MPC8568MDS, the phy can not be attached
+because of the incompatible phy id format. This patch changes uec's phy id to the same
+format as gianfar's.
 
-We used to use mrtg-ping-probe perl script (http://pwo.de/projects/mrtg/)
-for  packetloss statistics generation in MRTG. Last time the number of
-monitoring  hosts  became  high,  so  mrtg-ping-probe  overhead became
-inadmissible.
+Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
+---
+ drivers/net/ucc_geth.c           |   20 ++++++++++++++++++--
+ drivers/net/ucc_geth.h           |    2 ++
+ drivers/net/ucc_geth_mii.c       |   12 +++++++++++-
+ drivers/net/ucc_geth_mii.h       |    1 +
+ 4 files changed, 32 insertions(+), 3 deletions(-)
 
-Here  is  a  patch  to  iputils-ss020927  that  adds -m option to ping
-utility, which allows ping to behave like mrtg-ping-probe: print average
-RTT and packet loss only.
-
-Hope, this will be useful for someone.
-
-PS Sorry, if I chose wrong place to publish this patch.
-
---
-Best regards,
-Alexander
-
-[---cut here---]
---- iputils/ping.c.org  2002-09-20 19:08:11.000000000 +0400
-+++ iputils/ping.c      2009-01-29 14:10:40.000000000 +0300
-@@ -486,10 +486,12 @@
-                exit(2);
-        }
-
--       printf("PING %s (%s) ", hostname, inet_ntoa(whereto.sin_addr));
--       if (device || (options&F_STRICTSOURCE))
-+       if ( !(options & F_MRTGPROBE) ) {
-+           printf("PING %s (%s) ", hostname, inet_ntoa(whereto.sin_addr));
-+           if (device || (options&F_STRICTSOURCE))
-                printf("from %s %s: ", inet_ntoa(source.sin_addr), device ?: "");
--       printf("%d(%d) bytes of data.\n", datalen, datalen+8+optlen+20);
-+           printf("%d(%d) bytes of data.\n", datalen, datalen+8+optlen+20);
-+       }
-
-        setup(icmp_sock);
-
-@@ -1197,7 +1199,7 @@
- void usage(void)
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 1144122..6ffeffa 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -1536,6 +1536,11 @@ static void adjust_link(struct net_device *dev)
+ static int init_phy(struct net_device *dev)
  {
-        fprintf(stderr,
--"Usage: ping [-LRUbdfnqrvVaA] [-c count] [-i interval] [-w deadline]\n"
-+"Usage: ping [-LRUbdfnqrvVaAm] [-c count] [-i interval] [-w deadline]\n"
- "            [-p pattern] [-s packetsize] [-t ttl] [-I interface or address]\n"
- "            [-M mtu discovery hint] [-S sndbuf]\n"
- "            [ -T timestamp option ] [ -Q tos ] [hop1 ...] destination\n");
---- iputils/ping_common.c.org   2002-09-20 20:02:32.000000000 +0400
-+++ iputils/ping_common.c       2009-01-29 14:15:24.000000000 +0300
-@@ -216,6 +216,9 @@
-                }
-                lingertime *= 1000;
-                break;
-+       case 'm':
-+               options |= F_MRTGPROBE;
-+               break;
-        case 'V':
-                printf("ping utility, iputils-ss%s\n", SNAPSHOT);
-                exit(0);
-@@ -782,8 +785,16 @@
-
-        tvsub(&tv, &start_time);
-
-+       if (options & F_MRTGPROBE) {
-+           fflush(stdout);
-+           printf("%d\n%d\n", (unsigned long)(tsum/1000),
-+               (int) ((((long long)(ntransmitted - nreceived)) * 100) / ntransmitted) );
-+           exit(!nreceived || (deadline && nreceived < npackets));
-+       }
+ 	struct ucc_geth_private *priv = netdev_priv(dev);
++	struct device_node *np = priv->node;
++	struct device_node *phy, *mdio;
++	const phandle *ph;
++	char bus_name[MII_BUS_ID_SIZE];
++	const unsigned int *id;
+ 	struct phy_device *phydev;
+ 	char phy_id[BUS_ID_SIZE];
+ 
+@@ -1543,9 +1548,19 @@ static int init_phy(struct net_device *dev)
+ 	priv->oldspeed = 0;
+ 	priv->oldduplex = -1;
+ 
+-	snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, priv->ug_info->mdio_bus,
+-		 priv->ug_info->phy_address);
++	ph = of_get_property(np, "phy-handle", NULL);
++	phy = of_find_node_by_phandle(*ph);
++	mdio = of_get_parent(phy);
 +
-        putchar('\n');
-        fflush(stdout);
++	id = of_get_property(phy, "reg", NULL);
 +
-        printf("--- %s ping statistics ---\n", hostname);
-        printf("%ld packets transmitted, ", ntransmitted);
-        printf("%ld received", nreceived);
---- iputils/ping_common.h.org   2002-09-20 19:08:11.000000000 +0400
-+++ iputils/ping_common.h       2009-01-29 14:06:40.000000000 +0300
-@@ -59,6 +59,7 @@
- #define        F_STRICTSOURCE  0x8000
- #define F_NOLOOP       0x10000
- #define F_TTL          0x20000
-+#define F_MRTGPROBE    0x40000
-
- /*
-  * MAX_DUP_CHK is the number of bits in received table, i.e. the maximum
-@@ -117,9 +118,9 @@
- case 'f': case 'i': case 'w': case 'l': \
- case 'S': case 'n': case 'p': case 'q': \
- case 'r': case 's': case 'v': case 'L': \
--case 't': case 'A': case 'W': case 'B':
-+case 't': case 'A': case 'W': case 'B': case 'm':
-
--#define COMMON_OPTSTR "h?VQ:I:M:aUc:dfi:w:l:S:np:qrs:vLt:AW:B"
-+#define COMMON_OPTSTR "h?VQ:I:M:aUc:dfi:w:l:S:np:qrs:vLt:AW:B:m"
-
-
- /*
---- iputils/doc/ping.sgml.org   2002-09-20 16:55:50.000000000 +0400
-+++ iputils/doc/ping.sgml       2009-01-29 13:14:38.000000000 +0300
-@@ -14,7 +14,7 @@
- <refsynopsisdiv>
- <cmdsynopsis>
- <command>ping</command>
--<arg choice="opt"><option>-LRUbdfnqrvVaAB</option></arg>
-+<arg choice="opt"><option>-LRUbdfnqrvVaABm</option></arg>
- <arg choice="opt">-c <replaceable/count/</arg>
- <arg choice="opt">-i <replaceable/interval/</arg>
- <arg choice="opt">-l <replaceable/preload/</arg>
-@@ -144,6 +144,14 @@
-   </para></listitem>
-  </varlistentry>
-  <varlistentry>
-+  <term><option/-m/</term>
-+  <listitem><para>
-+Behave like mrtg-ping-probe (<ulink url="http://pwo.de/projects/mrtg/">http://pwo.de/projects/mrtg/</ulink>):
-+print average RTT and packet loss only. Combine with <option>-q</option> to strip
-+header and footer.
-+  </para></listitem>
-+ </varlistentry>
-+ <varlistentry>
-   <term><option/-n/</term>
-   <listitem><para>
- Numeric output only.
-[---cut here---]
-
++	of_node_put(phy);
++	of_node_put(mdio);
+ 
++	uec_mdio_bus_name(bus_name, mdio);
++	snprintf(phy_id, sizeof(phy_id), "%s:%02x",
++                                bus_name, *id);
++
+ 	phydev = phy_connect(dev, phy_id, &adjust_link, 0, priv->phy_interface);
+ 
+ 	if (IS_ERR(phydev)) {
+@@ -3748,6 +3763,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 
+ 	ugeth->ug_info = ug_info;
+ 	ugeth->dev = dev;
++	ugeth->node = np;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index 8f699cb..16cbe42 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -1186,6 +1186,8 @@ struct ucc_geth_private {
+ 	int oldspeed;
+ 	int oldduplex;
+ 	int oldlink;
++
++	struct device_node *node;
+ };
+ 
+ void uec_set_ethtool_ops(struct net_device *netdev);
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index c001d26..5463591 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -156,7 +156,7 @@ static int uec_mdio_probe(struct of_device *ofdev, const struct of_device_id *ma
+ 	if (err)
+ 		goto reg_map_fail;
+ 
+-	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%x", res.start);
++	uec_mdio_bus_name(new_bus->id, np);
+ 
+ 	new_bus->irq = kmalloc(32 * sizeof(int), GFP_KERNEL);
+ 
+@@ -283,3 +283,13 @@ void uec_mdio_exit(void)
+ {
+ 	of_unregister_platform_driver(&uec_mdio_driver);
+ }
++
++void uec_mdio_bus_name(char *name, struct device_node *np)
++{
++        const u32 *reg;
++
++        reg = of_get_property(np, "reg", NULL);
++
++        snprintf(name, MII_BUS_ID_SIZE, "%s@%x", np->name, reg ? *reg : 0);
++}
++
+diff --git a/drivers/net/ucc_geth_mii.h b/drivers/net/ucc_geth_mii.h
+index 1e45b20..840cf80 100644
+--- a/drivers/net/ucc_geth_mii.h
++++ b/drivers/net/ucc_geth_mii.h
+@@ -97,4 +97,5 @@ int uec_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
+ int uec_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
+ int __init uec_mdio_init(void);
+ void uec_mdio_exit(void);
++void uec_mdio_bus_name(char *name, struct device_node *np);
+ #endif				/* __UEC_MII_H */
+-- 
+1.6.0.2
 
