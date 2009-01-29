@@ -1,58 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4]: net: Allow RX queue selection to seed TX queue
- hashing.
-Date: Wed, 28 Jan 2009 17:45:22 -0800 (PST)
-Message-ID: <20090128.174522.208349319.davem@davemloft.net>
-References: <20090128213141.GD22141@gondor.apana.org.au>
-	<20090128.164058.248259991.davem@davemloft.net>
-	<20090129013403.GA24043@gondor.apana.org.au>
+From: Parag Warudkar <parag.lkml@gmail.com>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Wed, 28 Jan 2009 20:49:18 -0500 (EST)
+Message-ID: <alpine.DEB.2.00.0901282049040.5026@parag-desktop>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Parag Warudkar <parag.lkml@gmail.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40137
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752621AbZA2BpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 20:45:24 -0500
-In-Reply-To: <20090129013403.GA24043@gondor.apana.org.au>
+Received: from yw-out-2324.google.com ([74.125.46.28]:9948 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753104AbZA2Bta (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2009 20:49:30 -0500
+In-Reply-To: <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 29 Jan 2009 12:34:03 +1100
 
-> So having more TX queues than you have cores (or rather caches)
-> isn't all that useful since a single core can only do so much (and a
-> single piece of wire can only carry so much data, no matter how many
-> queues you place in front of it).
 
-This is already proven to be false :-)
-
-Having more TX queues helps a lot.  Robert's testing confirms
-this even when the number of TX queues exceeds the number of
-cores.
-
-When Robert directly maps RX queues to a single TX queue on NIU, we
-get drops at the qdisc level during his routing tests.  With the TX
-queue iterator which causes all of the TX queues to be utilizied there
-are no drops.
-
-It would not be one bit surprising to me to see more hardware coming
-out with more TX queues than RX queues, for similar reasons.  It's a
-real situation and we have more proof that it's likely to continue
-than not.
-
-> > One way to deal with this is to grab the hash the chip computed.
-> > I'm reluctant to advocate this because it's expensive with NIU
-> > because I have to start using the larger RX descriptor layout
-> > to get at that cookie.  (see "rx_pkt_hdr0" vs. "rx_pkt_hdr1" in
-> > drivers/net/niu.h)
+On Wed, 28 Jan 2009, Linus Torvalds wrote:
+ 
+> For example, if we get the "dev->current_state" cache wrong, then we may 
+> not actually end up changing it when we should, because we think we 
+> already match the target state. I don't _think_ that is it, but that's the 
+> kind of thing that could happen.
 > 
-> That's a separate discussion.  The hash would be useful for the
-> software multiplexer discussed above, and further processing in
-> our stack.  But it isn't all that important with regards to keeping
-> the traffic on the core where it arrived.
+> Can you do a
+> 
+> 	lspci -vvxxx -s [tg3-device]
+> 
+> before-and-after suspend? Is there some state that looks like it got 
+> corrupted?
 
-I see your point.
+Sure, diff -u below. There are differences but not sure if they are 
+abnormal or expected.
+
+Also, BTW, reverting the only tg3 specific commit - 
+commit 9e9fd12dc0679643c191fc9795a3021807e77de4
+Author: Matt Carlson <mcarlson@broadcom.com>
+Date:   Mon Jan 19 16:57:45 2009 -0800
+
+    tg3: Fix firmware loading
+
+did not help.
+
+parag@parag-desktop:~$ diff -u lspci-pre-suspend lspci-post-suspend
+--- lspci-pre-suspend   2009-01-28 20:35:37.070584068 -0500
++++ lspci-post-suspend  2009-01-28 20:36:56.922471408 -0500
+@@ -12,7 +12,7 @@
+        Capabilities: [50] Vital Product Data <?>
+        Capabilities: [58] Vendor Specific Information <?>
+        Capabilities: [e8] Message Signalled Interrupts: Mask- 64bit+ 
+Queue=0/0 Enable+
+-               Address: 00000000fee0f00c  Data: 41c9
++               Address: 00000000fee0f00c  Data: 41d1
+        Capabilities: [d0] Express (v1) Endpoint, MSI 00
+                DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s 
+<4us, L1 unlimited
+                        ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+@@ -36,15 +36,15 @@
+ 20: 00 00 00 00 00 00 00 00 00 00 00 00 3c 10 07 13
+ 30: 00 00 04 20 48 00 00 00 00 00 00 00 03 01 00 00
+ 40: 00 00 00 00 00 00 00 00 01 50 03 c0 08 20 00 64
+-50: 03 58 fc 00 00 00 00 78 09 e8 78 00 7d c9 08 78
+-60: 00 00 00 00 00 00 00 00 98 02 02 a0 00 00 18 76
+-70: f2 10 00 00 c0 00 00 00 2c 00 00 00 00 00 00 00
+-80: 3c 10 07 13 00 00 00 00 34 00 13 04 82 70 08 fc
+-90: 19 be 00 01 00 00 00 b7 00 00 00 00 14 00 00 00
+-a0: 00 00 00 00 4c 01 00 00 00 00 00 00 3e 01 00 00
+-b0: 00 00 00 00 00 00 00 36 00 00 00 00 00 00 00 00
++50: 03 58 fc 00 00 00 00 78 09 e8 78 00 7e cb 08 a8
++60: 00 00 00 00 00 00 00 00 9a 02 02 a0 00 00 00 10
++70: 72 10 00 00 c0 00 00 00 2c 00 00 00 00 00 00 00
++80: 3c 10 07 13 00 00 00 00 00 00 00 00 fe 70 08 fc
++90: 11 be 00 00 00 00 00 00 00 00 00 00 00 00 00 00
++a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
++b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ c0: 00 00 00 00 00 80 00 00 0e 00 00 00 00 00 00 00
+ d0: 10 00 01 00 a0 8f 00 00 00 50 10 00 11 64 03 00
+ e0: 40 00 11 10 00 00 00 00 05 d0 81 00 0c f0 e0 fe
+-f0: 00 00 00 00 c9 41 00 00 00 00 00 00 00 00 00 00
++f0: 00 00 00 00 d1 41 00 00 00 00 00 00 00 00 00 00
+
+
+Parag
