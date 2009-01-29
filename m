@@ -1,49 +1,56 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Thu, 29 Jan 2009 10:48:43 -0800
-Message-ID: <4981FA0B.5010101@zytor.com>
-References: <20090115183942.GA6325@elte.hu> <200901271213.18605.rusty@rustcorp.com.au> <497E705B.5000302@kernel.org> <200901282108.51864.rusty@rustcorp.com.au> <alpine.DEB.1.10.0901281148540.13825@qirst.com> <20090128180757.GA9908@Krystal> <alpine.DEB.1.10.0901291315320.9622@qirst.com>
+From: Daniel =?iso-8859-1?q?Marjam=E4ki?= <danielm77@spray.se>
+Subject: [PATCH] fix memory leak in drivers/net/netxen_nic_init.c
+Date: Thu, 29 Jan 2009 19:55:56 +0100
+Message-ID: <200901291955.56832.danielm77@spray.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, brgerst@gmail.com,
-	ebiederm@xmission.com, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:35124 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753135AbZA2Ste (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 13:49:34 -0500
-In-Reply-To: <alpine.DEB.1.10.0901291315320.9622@qirst.com>
+Received: from ch-smtp01.sth.basefarm.net ([80.76.149.212]:45800 "EHLO
+	ch-smtp01.sth.basefarm.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751500AbZA2S4O convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2009 13:56:14 -0500
+Received: from c83-255-10-24.bredband.comhem.se ([83.255.10.24]:12165 helo=sholahas.localnet)
+	by ch-smtp01.sth.basefarm.net with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.68)
+	(envelope-from <danielm77@spray.se>)
+	id 1LSc3f-00076w-5T
+	for netdev@vger.kernel.org; Thu, 29 Jan 2009 19:56:12 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter wrote:
-> 
-> gcc/glibc support a __thread attribute to variables. As far as I can tell
-> this automatically makes gcc perform the relocation to the current
-> context using a segment register.
-> 
-> But its a weird ABI http://people.redhat.com/drepper/tls.pdf. After
-> reading that I agree that we should stay with the cpu ops and forget about
-> the local and thread stuff in gcc/glibc.
-> 
+=46rom: Daniel Marjam=E4ki <danielm77@spray.se>
 
-We have discussed this a number of times.  There are several issues with
-it; one being that per-cpu != per-thread (we can switch CPU whereever
-we're preempted), and another that many versions of gcc uses hardcoded
-registers, in particular %fs on 64 bits, but the kernel *has* to use %gs
-since there is no swapfs instruction.
+=46or kernel bugzilla #12537:
+http://bugzilla.kernel.org/show_bug.cgi?id=3D12537
 
-	-hpa
+=46ree memory.
 
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
+Signed-off-by: Daniel Marjam=E4ki <danielm77@spray.se>
+Reported-by: Daniel Marjam=E4ki <danielm77@spray.se>
+---
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/=
+netxen_nic_init.c
+index ca7c8d8..ffd37be 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -947,8 +947,10 @@ int netxen_pinit_from_rom(struct netxen_adapter *a=
+dapter, int verbose)
+ 	}
+ 	for (i =3D 0; i < n; i++) {
+ 		if (netxen_rom_fast_read(adapter, 8*i + 4*offset, &val) !=3D 0 ||
+-		netxen_rom_fast_read(adapter, 8*i + 4*offset + 4, &addr) !=3D 0)
++		netxen_rom_fast_read(adapter, 8*i + 4*offset + 4, &addr) !=3D 0) {
++			kfree(buf);
+ 			return -EIO;
++		}
+
+ 		buf[i].addr =3D addr;
+ 		buf[i].data =3D val;
+
+
+
 
