@@ -1,46 +1,140 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH 4/5] virtio_net: Add a MAC filter table
-Date: Wed, 28 Jan 2009 22:17:55 -0800
-Message-ID: <OF025C8F2F.2E8FFF17-ON8825754D.0020EE83-8825754D.002299DE@us.ibm.com>
-References: <20090129003429.GA23582@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Alex Williamson <alex.williamson@hp.com>, kvm@vger.kernel.org,
-	markmc@redhat.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090129003429.GA23582@gondor.apana.org.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/5] netfilter: remove unneeded initializations
+Date: Wed, 28 Jan 2009 22:25:23 -0800
+Message-ID: <20090129062549.007009468@vyatta.com>
+References: <20090129062521.092861272@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from suva.vyatta.com ([76.74.103.44]:59980 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751795AbZA2G1U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2009 01:27:20 -0500
+Content-Disposition: inline; filename=iptables-lock-init.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I haven't been following this closely, so apologies if the point's been 
-made, or
-if you're talking about unicast addresses here too, but just to be clear:
+Later patches change the locking on xt_table and the initialization of
+the lock element is not needed since the lock is always initialized in
+xt_table_register anyway.
 
-For multicasting, false positives are ok, false negatives are not 
-(non-functional),
-and if the fixed-size address filter is exceeded, _multicast_promiscuous_
-(but not all unicasts, so not promiscuous mode) is the "good" thing to do.
-So "best effort" still shouldn't lead to an address you previously joined 
-not
-being passed because a new one is added.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Also, if you can't keep all the MAC multicast addresses (ie,
-the limit is memory and not look-up speed), then getting
-out of multicast-promiscuous mode correctly isn't easy
-since you don't know what groups you "forgot". You could
-rebuild from the protocol memberships, if you know when
-you've left enough groups to fit, but otherwise the MAC
-multicast addresses you didn't keep of course won't work if you
-leave multicast-promiscuous mode and the filter doesn't
-have them.
 
-So, if you're talking about not being able to fit all
-the address (vs. not wanting to search that many), then
-I'd suggest either staying in MP mode until ifdown, or
-making the join a hard failure at the limit in the first
-place.
+---
+ net/ipv4/netfilter/arptable_filter.c   |    2 --
+ net/ipv4/netfilter/iptable_filter.c    |    1 -
+ net/ipv4/netfilter/iptable_mangle.c    |    1 -
+ net/ipv4/netfilter/iptable_raw.c       |    1 -
+ net/ipv4/netfilter/iptable_security.c  |    1 -
+ net/ipv4/netfilter/nf_nat_rule.c       |    1 -
+ net/ipv6/netfilter/ip6table_filter.c   |    1 -
+ net/ipv6/netfilter/ip6table_mangle.c   |    1 -
+ net/ipv6/netfilter/ip6table_raw.c      |    1 -
+ net/ipv6/netfilter/ip6table_security.c |    1 -
+ 10 files changed, 11 deletions(-)
 
-                                                        +-DLS
+--- a/net/ipv4/netfilter/arptable_filter.c	2009-01-26 17:24:43.687542005 -0800
++++ b/net/ipv4/netfilter/arptable_filter.c	2009-01-26 19:50:37.891042244 -0800
+@@ -48,8 +48,6 @@ static struct
+ static struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
+-	.private	= NULL,
+ 	.me		= THIS_MODULE,
+ 	.af		= NFPROTO_ARP,
+ };
+--- a/net/ipv4/netfilter/iptable_filter.c	2009-01-26 17:24:43.691541994 -0800
++++ b/net/ipv4/netfilter/iptable_filter.c	2009-01-26 19:50:37.891042244 -0800
+@@ -56,7 +56,6 @@ static struct
+ static struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET,
+ };
+--- a/net/ipv4/netfilter/iptable_raw.c	2009-01-26 17:24:43.691541994 -0800
++++ b/net/ipv4/netfilter/iptable_raw.c	2009-01-26 19:50:37.891042244 -0800
+@@ -39,7 +39,6 @@ static struct
+ static struct xt_table packet_raw = {
+ 	.name = "raw",
+ 	.valid_hooks =  RAW_VALID_HOOKS,
+-	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
+ 	.me = THIS_MODULE,
+ 	.af = AF_INET,
+ };
+--- a/net/ipv4/netfilter/iptable_security.c	2009-01-26 17:24:43.691541994 -0800
++++ b/net/ipv4/netfilter/iptable_security.c	2009-01-26 19:50:37.891042244 -0800
+@@ -60,7 +60,6 @@ static struct
+ static struct xt_table security_table = {
+ 	.name		= "security",
+ 	.valid_hooks	= SECURITY_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET,
+ };
+--- a/net/ipv4/netfilter/nf_nat_rule.c	2009-01-26 17:24:43.695541481 -0800
++++ b/net/ipv4/netfilter/nf_nat_rule.c	2009-01-26 19:51:20.338030618 -0800
+@@ -61,7 +61,6 @@ static struct
+ static struct xt_table nat_table = {
+ 	.name		= "nat",
+ 	.valid_hooks	= NAT_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(nat_table.lock),
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET,
+ };
+--- a/net/ipv6/netfilter/ip6table_filter.c	2009-01-26 17:24:43.735541493 -0800
++++ b/net/ipv6/netfilter/ip6table_filter.c	2009-01-26 19:50:37.895044361 -0800
+@@ -54,7 +54,6 @@ static struct
+ static struct xt_table packet_filter = {
+ 	.name		= "filter",
+ 	.valid_hooks	= FILTER_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET6,
+ };
+--- a/net/ipv6/netfilter/ip6table_mangle.c	2009-01-26 17:24:43.735541493 -0800
++++ b/net/ipv6/netfilter/ip6table_mangle.c	2009-01-26 19:50:37.895044361 -0800
+@@ -60,7 +60,6 @@ static struct
+ static struct xt_table packet_mangler = {
+ 	.name		= "mangle",
+ 	.valid_hooks	= MANGLE_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET6,
+ };
+--- a/net/ipv6/netfilter/ip6table_raw.c	2009-01-26 17:24:43.735541493 -0800
++++ b/net/ipv6/netfilter/ip6table_raw.c	2009-01-26 19:50:37.895044361 -0800
+@@ -38,7 +38,6 @@ static struct
+ static struct xt_table packet_raw = {
+ 	.name = "raw",
+ 	.valid_hooks = RAW_VALID_HOOKS,
+-	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
+ 	.me = THIS_MODULE,
+ 	.af = AF_INET6,
+ };
+--- a/net/ipv6/netfilter/ip6table_security.c	2009-01-26 17:24:43.735541493 -0800
++++ b/net/ipv6/netfilter/ip6table_security.c	2009-01-26 19:50:37.895044361 -0800
+@@ -59,7 +59,6 @@ static struct
+ static struct xt_table security_table = {
+ 	.name		= "security",
+ 	.valid_hooks	= SECURITY_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET6,
+ };
+--- a/net/ipv4/netfilter/iptable_mangle.c	2009-01-26 17:24:43.691541994 -0800
++++ b/net/ipv4/netfilter/iptable_mangle.c	2009-01-26 19:50:37.895044361 -0800
+@@ -67,7 +67,6 @@ static struct
+ static struct xt_table packet_mangler = {
+ 	.name		= "mangle",
+ 	.valid_hooks	= MANGLE_VALID_HOOKS,
+-	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
+ 	.me		= THIS_MODULE,
+ 	.af		= AF_INET,
+ };
+
+-- 
 
