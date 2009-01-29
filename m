@@ -1,88 +1,83 @@
-From: Parag Warudkar <parag.lkml@gmail.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
 Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Thu, 29 Jan 2009 17:06:35 -0500 (EST)
-Message-ID: <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain> <alpine.DEB.2.00.0901282049040.5026@parag-desktop> <20090129184215.GA13459@xw6200.broadcom.net>
+Date: Thu, 29 Jan 2009 23:22:05 +0100
+Message-ID: <200901292322.06339.rjw@sisk.pl>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901281757240.3123@localhost.localdomain> <20090129021944.GA12879@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Parag Warudkar" <parag.lkml@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "Matt Carlson" <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.243]:3289 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754192AbZA2WGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 17:06:46 -0500
-In-Reply-To: <20090129184215.GA13459@xw6200.broadcom.net>
+Received: from ogre.sisk.pl ([217.79.144.158]:44940 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753445AbZA2WW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2009 17:22:26 -0500
+In-Reply-To: <20090129021944.GA12879@xw6200.broadcom.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Thu, 29 Jan 2009, Matt Carlson wrote:
-
-> Can you apply the following test patch and see if it helps?  The patch
-> does two things.  First, it enables a bit which should restore firmware
-> communication.  If that fixes the problem, then let me know and I'll
-> spin a proper patch.
+On Thursday 29 January 2009, Matt Carlson wrote:
+> On Wed, Jan 28, 2009 at 06:10:37PM -0800, Linus Torvalds wrote:
+> > 
+> > 
+> > On Wed, 28 Jan 2009, Parag Warudkar wrote:
+> > > 
+> > > Sure, diff -u below. There are differences but not sure if they are 
+> > > abnormal or expected.
+> > 
+> > Well, they're all in the "extended set", ie not the basic registers that 
+> > the PCI layer saves. The PCI layer normally just saves the low 16 dwords, 
+> > along with the PCI[EX] capability thing.
+> > 
+> > None of the PCI save/restore routines have ever saved the extended state 
+> > (well, "ever" is a strong word - I think we long ago used to pass in how 
+> > many bytes we wanted saved, but got rid of it), and it certainly didn't 
+> > change with the recent PCI suspend/resume changes.
+> > 
+> > I get the feeling that it's some odd tg3 issue. That tg3 driver does have 
+> > that special
+> > 
+> >         /* Make sure register accesses (indirect or otherwise)
+> >          * will function correctly.
+> >          */
+> >         pci_write_config_dword(tp->pdev,
+> >                                TG3PCI_MISC_HOST_CTRL,
+> >                                tp->misc_host_ctrl);
+> > 
+> > in its own version of setting the power state, and maybe that really 
+> > _must_ happen before we actually set the state back to PCI_D0. That sounds 
+> > very odd, but hey..
+> > 
+> > I added Matt Carlson to the cc, since he seems to be the main tg3 
+> > authority here.
+> > 
+> > Matt: the whole discussion is on netdev and the kernel mailing list, but 
+> > the short version is that -rc3 suspends and resumes for Parag again 
+> > (unlike -rc2), but tg3 doesn't appear to resume properly. The generic PCI 
+> > layer now does more at resume time (very early, when interrupts are still 
+> > off), see
+> > 
+> >  - pci_pm_resume_noirq ->
+> >      pci_pm_default_resume_noirq() ->
+> >        pci_restore_standard_config()
+> > 
+> > for more of the details (basically it always does that 
+> > "pci_restore_state()" and tries to bring the device back to PCI_D0).
 > 
-> In the event that it doesn't work, the patch goes on to test the memory
-> mapping by simply printing the register value at offset 0x0.  The value
-> should be the device's vendor ID and device ID.  Please post the
-> results so that I can verify it.
-> 
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 8b3f846..39fce42 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -7227,6 +7227,11 @@ static int tg3_init_hw(struct tg3 *tp, int reset_phy)
->  {
->  	tg3_switch_clocks(tp);
->  
-> +	printk( KERN_NOTICE "%s: Reg value at offset 0x0 is 0x%x\n",
-> +		tp->dev->name, tr32(0x0) );
-> +
-> +	tw32(MEMARB_MODE, tr32(MEMARB_MODE) | MEMARB_MODE_ENABLE);
-> +
->  	tw32(TG3PCI_MEM_WIN_BASE_ADDR, 0);
->  
->  	return tg3_reset_hw(tp, reset_phy);
-> 
+> Thanks Linus.  I'm looking over the diffs Parag sent and I already see
+> some suspicious register settings.  Let me think about this some more
+> and then I'll jump into the discussion.
 
-Hi Matt,
+FWIW, I can't reproduce the problem with tg3 on my testbox.  Suspend to RAM
+and resume seem to work correctly on it.
 
-Thanks for the patch. It didn't help with resume - but below is the 
-output after patching, let me know if you need more details.
-
-( Looks like 0xffffffff is invalid/corrupted device id /vendor id? )
-
-[  163.856001] tg3 0000:0e:00.0: restoring config space at offset 0xc (was 0x0, writing 0x20040000)                                                                                                            
-[  163.856001] tg3 0000:0e:00.0: restoring config space at offset 0x3 (was 0x0, writing 0x10)                                                                                                                  
-[  163.856001] tg3 0000:0e:00.0: restoring config space at offset 0x1 (was 0x100000, writing 0x100006)                                                                                                         
-
-[snip]
-
-[  164.450277] pcieport-driver 0000:1e:00.0: setting latency timer to 64
-[  164.450415] pcieport-driver 0000:1e:01.0: setting latency timer to 64
-[  164.450493] tg3 0000:0e:00.0: restoring config space at offset 0xc (was 0x0, writing 0x20040000)
-[  164.451110] serial 00:08: activated
-
-[snip]
-
-[  168.913863] Restarting tasks ... done.
-[  170.332953] tg3 0000:0e:00.0: wake-up capability disabled by ACPI
-[  170.332960] tg3 0000:0e:00.0: PME# disabled
-[  170.333047] tg3 0000:0e:00.0: irq 54 for MSI/MSI-X
-[  170.333250] eth0: Reg value at offset 0x0 is 0xffffffff
-[  170.394281] [drm] Loading R500 Microcode
-[  170.394330] [drm] Num pipes: 1
-[  171.726650] tg3: eth0: No firmware running.
-[  183.119745] ADDRCONF(NETDEV_UP): eth0: link is not ready
-
-
-Parag
+Thanks,
+Rafael
