@@ -1,59 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 12515] New: possible circular locking #0:
- (sk_lock-AF_PACKET){--..}, at: [<c1279838>] sock_setsockopt+0x12b/0x4a4
-Date: Fri, 30 Jan 2009 14:13:00 -0800 (PST)
-Message-ID: <20090130.141300.120552244.davem@davemloft.net>
-References: <497FB1C4.3000602@ribosome.natur.cuni.cz>
-	<20090130124947.GA6886@gondor.apana.org.au>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Fri, 30 Jan 2009 23:13:46 +0100
+Message-ID: <20090130221346.GE31355@1wt.eu>
+References: <20090127074048.GA4197@ff.dom.local> <20090130.134227.123379239.davem@davemloft.net> <20090130215920.GC31355@1wt.eu> <20090130.140346.159984249.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mmokrejs@ribosome.natur.cuni.cz, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	vegard.nossum@gmail.com, a.p.zijlstra@chello.nl, jarkao2@gmail.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, zbr@ioremap.net, herbert@gondor.apana.org.au,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44436
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754597AbZA3WNC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:13:02 -0500
-In-Reply-To: <20090130124947.GA6886@gondor.apana.org.au>
+Received: from 1wt.eu ([62.212.114.60]:1932 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753852AbZA3WOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2009 17:14:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20090130.140346.159984249.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 30 Jan 2009 23:49:47 +1100
-
-> packet: Avoid lock_sock in mmap handler
+On Fri, Jan 30, 2009 at 02:03:46PM -0800, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Fri, 30 Jan 2009 22:59:20 +0100
 > 
-> As the mmap handler gets called under mmap_sem, and we may grab
-> mmap_sem elsewhere under the socket lock to access user data, we
-> should avoid grabbing the socket lock in the mmap handler.
+> > On Fri, Jan 30, 2009 at 01:42:27PM -0800, David Miller wrote:
+> > > It's cheesy and the SLAB developers will likely barf at the
+> > > idea, but it would certainly work.
+> > 
+> > Maybe that would be enough as a definitive fix for a stable
+> > release, so that we can go on with deeper changes in newer
+> > versions ?
 > 
-> Since the only thing we care about in the mmap handler is for
-> pg_vec* to be invariant, i.e., to exclude packet_set_ring, we
-> can achieve this by simply using sk_receive_queue.lock.
+> Such a check could have performance ramifications, I wouldn't
+> risk it and already I intend to push Jarek's page allocator
+> splice fix back to -stable eventually.
+
+OK.
+
+> > > Back to real life, I think long term the thing to do is to just do the
+> > > cached page allocator thing we'll be doing after Jarek's socket page
+> > > patch is integrated, and for best performance the driver has to
+> > > receive it's data into pages, only explicitly pulling the ethernet
+> > > header into the linear area, like NIU does.
+> > 
+> > Are there NICs out there able to do that themselves or does the
+> > driver need to rely on complex hacks in order to achieve this ?
 > 
-> I resisted the temptation to create a new spin lock because the
-> mmap path isn't exactly common.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Any NIC, even the dumbest ones, can be made to receive into pages.
 
-Looks good, applied.
+OK I thought that it was not always easy to split between headers
+and payload. I know that myri10ge can be configured to receive into
+either skbs or pages, but I was not sure about the real implications
+behind that.
 
-I rewrote the commit message as follows so that it actually
-matches what happens in the fix ;-)
+Thanks
+Willy
 
---------------------
-packet: Avoid lock_sock in mmap handler
-
-As the mmap handler gets called under mmap_sem, and we may grab
-mmap_sem elsewhere under the socket lock to access user data, we
-should avoid grabbing the socket lock in the mmap handler.
-
-Since the only thing we care about in the mmap handler is for
-pg_vec* to be invariant, i.e., to exclude packet_set_ring, we
-can achieve this by simply using a new mutex.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
