@@ -1,89 +1,45 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 4/5] forcedeth: recover error support
-Date: Fri, 30 Jan 2009 13:56:38 -0500
-Message-ID: <49834D66.4070406@nvidia.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Fri, 30 Jan 2009 14:03:46 -0800 (PST)
+Message-ID: <20090130.140346.159984249.davem@davemloft.net>
+References: <20090127074048.GA4197@ff.dom.local>
+	<20090130.134227.123379239.davem@davemloft.net>
+	<20090130215920.GC31355@1wt.eu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040307090005050407040601"
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:15752 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757105AbZA3WC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:02:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------040307090005050407040601
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: jarkao2@gmail.com, zbr@ioremap.net, herbert@gondor.apana.org.au,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: w@1wt.eu
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757172AbZA3WEF@vger.kernel.org>
+In-Reply-To: <20090130215920.GC31355@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds another type of recoverable error to the driver. It also 
-modifies the sequence for recovery to include a mac reset and clearing 
-of interrupts.
+From: Willy Tarreau <w@1wt.eu>
+Date: Fri, 30 Jan 2009 22:59:20 +0100
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> On Fri, Jan 30, 2009 at 01:42:27PM -0800, David Miller wrote:
+> > It's cheesy and the SLAB developers will likely barf at the
+> > idea, but it would certainly work.
+> 
+> Maybe that would be enough as a definitive fix for a stable
+> release, so that we can go on with deeper changes in newer
+> versions ?
 
+Such a check could have performance ramifications, I wouldn't
+risk it and already I intend to push Jarek's page allocator
+splice fix back to -stable eventually.
 
---------------040307090005050407040601
-Content-Type: text/plain;
- name="patch-forcedeth-recover-error"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-recover-error"
+> > Back to real life, I think long term the thing to do is to just do the
+> > cached page allocator thing we'll be doing after Jarek's socket page
+> > patch is integrated, and for best performance the driver has to
+> > receive it's data into pages, only explicitly pulling the ethernet
+> > header into the linear area, like NIU does.
+> 
+> Are there NICs out there able to do that themselves or does the
+> driver need to rely on complex hacks in order to achieve this ?
 
---- old/drivers/net/forcedeth.c	2009-01-28 12:42:58.000000000 -0800
-+++ new/drivers/net/forcedeth.c	2009-01-28 12:44:18.000000000 -0800
-@@ -102,7 +102,7 @@
- enum {
- 	NvRegIrqStatus = 0x000,
- #define NVREG_IRQSTAT_MIIEVENT	0x040
--#define NVREG_IRQSTAT_MASK		0x81ff
-+#define NVREG_IRQSTAT_MASK		0x83ff
- 	NvRegIrqMask = 0x004,
- #define NVREG_IRQ_RX_ERROR		0x0001
- #define NVREG_IRQ_RX			0x0002
-@@ -113,7 +113,7 @@
- #define NVREG_IRQ_LINK			0x0040
- #define NVREG_IRQ_RX_FORCED		0x0080
- #define NVREG_IRQ_TX_FORCED		0x0100
--#define NVREG_IRQ_RECOVER_ERROR		0x8000
-+#define NVREG_IRQ_RECOVER_ERROR		0x8200
- #define NVREG_IRQMASK_THROUGHPUT	0x00df
- #define NVREG_IRQMASK_CPU		0x0060
- #define NVREG_IRQ_TX_ALL		(NVREG_IRQ_TX_ERR|NVREG_IRQ_TX_OK|NVREG_IRQ_TX_FORCED)
-@@ -4064,13 +4064,15 @@
- 
- 	if (np->recover_error) {
- 		np->recover_error = 0;
--		printk(KERN_INFO "forcedeth: MAC in recoverable error state\n");
-+		printk(KERN_INFO "%s: MAC in recoverable error state\n", dev->name);
- 		if (netif_running(dev)) {
- 			netif_tx_lock_bh(dev);
- 			netif_addr_lock(dev);
- 			spin_lock(&np->lock);
- 			/* stop engines */
- 			nv_stop_rxtx(dev);
-+			if (np->driver_data & DEV_HAS_POWER_CNTRL)
-+				nv_mac_reset(dev);
- 			nv_txrx_reset(dev);
- 			/* drain rx queue */
- 			nv_drain_rxtx(dev);
-@@ -4088,6 +4090,11 @@
- 			pci_push(base);
- 			writel(NVREG_TXRXCTL_KICK|np->txrxctl_bits, get_hwbase(dev) + NvRegTxRxControl);
- 			pci_push(base);
-+			/* clear interrupts */
-+			if (!(np->msi_flags & NV_MSI_X_ENABLED))
-+				writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
-+			else
-+				writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
- 
- 			/* restart rx engine */
- 			nv_start_rxtx(dev);
-
---------------040307090005050407040601--
+Any NIC, even the dumbest ones, can be made to receive into pages.
