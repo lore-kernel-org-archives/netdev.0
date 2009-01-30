@@ -1,28 +1,40 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] netfilter: unfold two critical loops in ip_packet_match()
-Date: Fri, 30 Jan 2009 18:50:21 +0100
-Message-ID: <20090130175021.GC18453@one.firstfloor.org>
-References: <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org> <49833889.4000201@cosmosbay.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] NetEffect, iw_nes and kernel warning
+Date: Fri, 30 Jan 2009 09:35:52 -0800
+Message-ID: <adaiqnwr91j.fsf@cisco.com>
+References: <20090130065721.GA4886@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49833889.4000201@cosmosbay.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, aluno3@poczta.onet.pl, davem@davemloft.net,
+	general@lists.openfabrics.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20090130065721.GA4886@gondor.apana.org.au> (Herbert Xu's message
+	of "Fri, 30 Jan 2009 17:57:21 +1100")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-> So... you suggest me to split file, and use a "-funroll-loops",
-> that might doing strange things on some arches / compilers...
+ > > OK, thanks... what confused me is that several other drivers also do
+ > > skb_linearize() in their hard_start_xmit method... eg bnx2x,
+ > > via-velocity, mv643xx_eth.  So there are several other lurking bugs to
+ > > deal with here I guess.
+ > 
+ > I don't know about the rest but bnx2x is certainly OK since it
+ > only does so with IRQ enabled.  It is legal to call skb_linearize
+ > as long as you're sure that IRQs are enabled, which is always the
+ > case for hard_start_xmit upon entry.
 
-I don't think it will. -funroll-loops is pretty clear defined.
+I don't believe this is accurate.  Calling skb_linearize() (on a kernel
+with CONFIG_HIGHMEM set) can end up calling local_bh_enable() in
+kunmap_skb_frag(), which can obviously cause problems if the initial
+context relies on having BHs disabled (as hard_start_xmit does).
 
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+ - R.
