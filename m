@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/skfp: if !capable(CAP_NET_ADMIN): inverted
- logic
-Date: Thu, 29 Jan 2009 17:32:35 -0800 (PST)
-Message-ID: <20090129.173235.119705296.davem@davemloft.net>
-References: <4980B135.8040209@gmail.com>
+Subject: Re: [PATCH v2 0/4] virtio_net: Add MAC and VLAN filtering
+Date: Thu, 29 Jan 2009 17:49:13 -0800 (PST)
+Message-ID: <20090129.174913.91913239.davem@davemloft.net>
+References: <20090129230502.2672.87669.stgit@debian.lart>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roel.kluin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55253
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756000AbZA3Bch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:32:37 -0500
-In-Reply-To: <4980B135.8040209@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rusty@rustcorp.com.au, markmc@redhat.com, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: alex.williamson@hp.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090129230502.2672.87669.stgit@debian.lart>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Wed, 28 Jan 2009 20:25:41 +0100
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Thu, 29 Jan 2009 16:05:02 -0700
 
-> untested, but It seems this is likely what it should be.
-> --------------------->8---------8<----------------
-> fix inverted logic
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> I'm not completely sure it's everything you're looking for Rusty,
+> but it does seem cleaner.  Let me know if this is closer to what
+> you're thinking.
 
-Good catch Roel, patch applied.
+Rusty, are these good?  If so, would you like you or I to take them?
+
+Thanks.
