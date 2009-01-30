@@ -1,42 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] sfc: SFT9001: Enable robust link training
-Date: Fri, 30 Jan 2009 14:09:04 -0800 (PST)
-Message-ID: <20090130.140904.37637243.davem@davemloft.net>
-References: <20090129.170811.135213740.davem@davemloft.net>
-	<20090130034810.GC15266@solarflare.com>
+Subject: Re: [Bugme-new] [Bug 12515] New: possible circular locking #0:
+ (sk_lock-AF_PACKET){--..}, at: [<c1279838>] sock_setsockopt+0x12b/0x4a4
+Date: Fri, 30 Jan 2009 14:13:00 -0800 (PST)
+Message-ID: <20090130.141300.120552244.davem@davemloft.net>
+References: <497FB1C4.3000602@ribosome.natur.cuni.cz>
+	<20090130124947.GA6886@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: mmokrejs@ribosome.natur.cuni.cz, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	vegard.nossum@gmail.com, a.p.zijlstra@chello.nl, jarkao2@gmail.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46542
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44436
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753343AbZA3WJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:09:06 -0500
-In-Reply-To: <20090130034810.GC15266@solarflare.com>
+	by vger.kernel.org with ESMTP id S1754597AbZA3WNC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:13:02 -0500
+In-Reply-To: <20090130124947.GA6886@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 30 Jan 2009 03:48:10 +0000
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 30 Jan 2009 23:49:47 +1100
 
-> From: Steve Hodgson <shodgson@solarflare.com>
+> packet: Avoid lock_sock in mmap handler
 > 
-> Enable a firmware option that appears to be necessary for reliable
-> operation.
+> As the mmap handler gets called under mmap_sem, and we may grab
+> mmap_sem elsewhere under the socket lock to access user data, we
+> should avoid grabbing the socket lock in the mmap handler.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Since the only thing we care about in the mmap handler is for
+> pg_vec* to be invariant, i.e., to exclude packet_set_ring, we
+> can achieve this by simply using sk_receive_queue.lock.
+> 
+> I resisted the temptation to create a new spin lock because the
+> mmap path isn't exactly common.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I applied all of these patches but:
+Looks good, applied.
 
-1) When you get changes written by other people, such as
-   Steve Hodgson here and in the next few patches, you need
-   to get Signed-off-by lines from them too.
+I rewrote the commit message as follows so that it actually
+matches what happens in the fix ;-)
 
-2) Outside of the merge window I do not want to see totally
-   irrelevant stuff like PHY loopback fixes.
+--------------------
+packet: Avoid lock_sock in mmap handler
 
-   Those kinds of fixes are totally inappropriate at this time.
+As the mmap handler gets called under mmap_sem, and we may grab
+mmap_sem elsewhere under the socket lock to access user data, we
+should avoid grabbing the socket lock in the mmap handler.
 
-You have been warned :-)
+Since the only thing we care about in the mmap handler is for
+pg_vec* to be invariant, i.e., to exclude packet_set_ring, we
+can achieve this by simply using a new mutex.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
