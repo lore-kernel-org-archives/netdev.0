@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netxen: revert jumbo ringsize
-Date: Thu, 29 Jan 2009 16:05:27 -0800 (PST)
-Message-ID: <20090129.160527.32239609.davem@davemloft.net>
-References: <1233261028-27584-1-git-send-email-dhananjay@netxen.com>
+Subject: Re: tun new missing ioctl32
+Date: Thu, 29 Jan 2009 16:06:00 -0800 (PST)
+Message-ID: <20090129.160600.73249925.davem@davemloft.net>
+References: <49823F39.8080204@msgid.tls.msk.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dhananjay@netxen.com
+To: mjt@tls.msk.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40442
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40446
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753728AbZA3AF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 19:05:29 -0500
-In-Reply-To: <1233261028-27584-1-git-send-email-dhananjay@netxen.com>
+	by vger.kernel.org with ESMTP id S1754201AbZA3AGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 19:06:02 -0500
+In-Reply-To: <49823F39.8080204@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Date: Thu, 29 Jan 2009 12:30:28 -0800
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Fri, 30 Jan 2009 02:43:53 +0300
 
-> Reducing jumbo ring size below 1024 reduces throughput for old
-> firmwares (3.4.216 and older) running on older (NX2031) chip,
-> so restore it back to 1024.
+> Just saw in dmesg:
 > 
-> This was reduced in commit 32ec803348b4d5f1353e1d7feae30880b8b3e342.
+> ioctl32(kvm:4408): Unknown cmd fd(9) cmd(800454cf){t:'T';sz:4} arg(ffc668e4) on /dev/net/tun
 > 
-> Raising jumbo ring size from 512 to 1024, adds ~4MB per port, but
-> there's still big saving because of original patch (~20MB per port).
-> 
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> I guess it's the recent stuff, TUNSETOFFLOAD perhaps, which is
+> missing compat_ioctl entry...  Who knows this area, care to fix
+> it please? :)
 
-Applied, thanks.
+I'll take a look at this, thanks for the report.
