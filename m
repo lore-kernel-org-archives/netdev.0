@@ -1,46 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
- up
-Date: Thu, 29 Jan 2009 17:09:20 -0800 (PST)
-Message-ID: <20090129.170920.43131414.davem@davemloft.net>
-References: <20090127120129.GA9696@x200.localdomain>
-	<20090127132718.GA10001@x200.localdomain>
-	<20090129.170043.180340152.davem@davemloft.net>
+Subject: Re: [PATCH] decnet: incorrect optlen size
+Date: Thu, 29 Jan 2009 17:15:24 -0800 (PST)
+Message-ID: <20090129.171524.41361209.davem@davemloft.net>
+References: <498166FB.5030104@gmail.com>
+	<20090129085858.GA14198@fogou.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Cc: roel.kluin@gmail.com, christine.caulfield@googlemail.com,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
+To: steve@chygwyn.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59886
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50721
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753279AbZA3BJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:09:22 -0500
-In-Reply-To: <20090129.170043.180340152.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1750701AbZA3BP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:15:26 -0500
+In-Reply-To: <20090129085858.GA14198@fogou.chygwyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 29 Jan 2009 17:00:43 -0800 (PST)
+From: steve@chygwyn.com
+Date: Thu, 29 Jan 2009 08:58:58 +0000
 
-> From: Alexey Dobriyan <adobriyan@gmail.com>
-> Date: Tue, 27 Jan 2009 16:27:18 +0300
-> 
-> > [PATCH] sky2: fix hard hang with netconsoling and iface going up
-> > 
-> > Printing anything over netconsole before hw is up and running is,
-> > of course, not going to work.
-> > 
-> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> 
-> Alexey, can you get this tested by the reporter to make sure
-> it really fixes the hang?
-> 
-> Once it's been tested, I'll apply it.
+> On Thu, Jan 29, 2009 at 09:21:15AM +0100, Roel Kluin wrote:
+> > @@ -1359,10 +1359,10 @@ static int __dn_setsockopt(struct socket *sock, int level,int optname, char __us
+> >  	if (optlen && !optval)
+> >  		return -EINVAL;
+> >  
+> > -	if (optlen > sizeof(u))
+> > +	if (optlen < sizeof(u))
+> >  		return -EINVAL;
+> >
+> I don't see that this makes sense... we want to ensure that the passed
+> length is less than the size of the union which we are going to use
+> as a buffer.
+>   
+> > -	if (copy_from_user(&u, optval, optlen))
+> > +	if (copy_from_user(&u, optval, sizeof(u)))
+> >  		return -EFAULT;
+> >
+>  ... and here we only want to copy the amount of data that has actually
+> been supplied, not the whole buffer size since in many cases the
+> amount of data is less than the total buffer size.
 
-Actually, I just read the followup where you indicated that
-other debugging printk's in this driver might also have the
-same problem.
+This code is fine as-is, every single case statement below
+this code makes an explicit optlen equality check before
+deferencing any member of the union object we copy into.
 
-I'm dropping this until everything is resolved, thanks.
+I'm therefore dropping this patch.
