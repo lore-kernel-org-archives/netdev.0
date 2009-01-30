@@ -1,39 +1,42 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Fri, 30 Jan 2009 14:21:25 +0300
-Message-ID: <20090130112125.GA9908@ioremap.net>
-References: <20090128212114.38be3e8c@extreme> <20090129103544.GC22110@redhat.com> <20090129213549.7fadfa2e@extreme> <20090130081600.GA2717@ioremap.net> <20090130102749.GC1052@redhat.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
+	up
+Date: Fri, 30 Jan 2009 14:59:07 +0300
+Message-ID: <20090130115907.GA22534@x200.localdomain>
+References: <20090127120129.GA9696@x200.localdomain> <20090127132718.GA10001@x200.localdomain> <20090129.170043.180340152.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Fedora/Linux Management Tools <et-mgmt-tools@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Daniel P. Berrange" <berrange@redhat.com>
+Cc: shemminger@linux-foundation.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:41772 "EHLO
-	tservice.net.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751368AbZA3LVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 06:21:38 -0500
+Received: from mail-ew0-f21.google.com ([209.85.219.21]:42808 "EHLO
+	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805AbZA3LxX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 06:53:23 -0500
+Received: by ewy14 with SMTP id 14so706842ewy.13
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2009 03:53:22 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20090130102749.GC1052@redhat.com>
+In-Reply-To: <20090129.170043.180340152.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 30, 2009 at 10:27:49AM +0000, Daniel P. Berrange (berrange@redhat.com) wrote:
-> The virt-manager console is basically just a plain old boring VNC client.
-> It uses GTK-VNC to establish its VNC network connection, and that doesn't
-> do anything unusual AFAIK. We use getaddrinfo() to resolve the hostname,
-> and then try each of its results in turn, until we succesfully connect
-> to the VNC server. We don't explicitly bind() to the client port, just
-> let the kernel pick it for us. The code in question, is the "gvnc_open_host"
-> method from gvnc.c,  which starts at about line 2910
+On Thu, Jan 29, 2009 at 05:00:43PM -0800, David Miller wrote:
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Date: Tue, 27 Jan 2009 16:27:18 +0300
 > 
-> http://freehg.org/u/aliguori/gtk-vnc.hg/file/d68935d582f0/src/gvnc.c
+> > [PATCH] sky2: fix hard hang with netconsoling and iface going up
+> > 
+> > Printing anything over netconsole before hw is up and running is,
+> > of course, not going to work.
+> > 
+> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> 
+> Alexey, can you get this tested by the reporter to make sure
+> it really fixes the hang?
 
-So it is not explicit bind call, but port autoselection in the
-connect(). Can you check what errno is returned?
-Did I understand it right, that connect fails, you try different
-address, but then suddenly all those sockets become 'alive'?
+I'm the reporter and tester and using this patch successfully. :-)
 
--- 
-	Evgeniy Polyakov
+> Once it's been tested, I'll apply it.
+
+As for other printks, someone with 8139cp should experience the same bug.
