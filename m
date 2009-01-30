@@ -1,56 +1,164 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] netfilter: unfold two critical loops in ip_packet_match()
-Date: Fri, 30 Jan 2009 16:47:33 +0100
-Message-ID: <87ocxox0bu.fsf@basil.nowhere.org>
-References: <497E361B.30909@hp.com> <497E42F4.7080201@cosmosbay.com>
-	<497E44F6.2010703@hp.com> <497ECF84.1030308@cosmosbay.com>
-	<497ED0A2.6050707@trash.net> <497F350A.9020509@cosmosbay.com>
-	<497F457F.2050802@trash.net> <497F4C2F.9000804@hp.com>
-	<497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com>
-	<498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net>
-	<498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com>
-	<4981CBE2.5020306@cosmosbay.com>
+From: Olivier MATZ <olivier.matz@6wind.com>
+Subject: [PATCH] sctp: chunkmap size is too large
+Date: Fri, 30 Jan 2009 16:43:07 +0100
+Message-ID: <4983200B.2080707@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: multipart/mixed;
+ boundary="------------020706030404030103070902"
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Patrick McHardy <kaber@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:57259 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbZA3PsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 10:48:04 -0500
-In-Reply-To: <4981CBE2.5020306@cosmosbay.com> (Eric Dumazet's message of "Thu, 29 Jan 2009 16:31:46 +0100")
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:1211 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754717AbZA3QFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 11:05:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <dada1@cosmosbay.com> writes:
+This is a multi-part message in MIME format.
+--------------020706030404030103070902
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> While doing oprofile tests I noticed two loops are not properly unrolled by gcc
+Hi all,
 
-That's because nobody passed -funroll-loops. Did you try that for
-that file? Likely will need -O2 too
+I think that the chunkmap field in struct xt_sctp_info is
+too large: we have 256 chunk types and it's a bitfield,
+so the table should be 256 bits (8 uint32_t) instead
+of 64 uint32_t.
 
-> +static unsigned long ifname_compare(const void *_a, const void *_b, const void *_mask)
-> +{
-> +	const unsigned long *a = (const unsigned long *)_a;
-> +	const unsigned long *b = (const unsigned long *)_b;
-> +	const unsigned long *mask = (const unsigned long *)_mask;
-> +	unsigned long ret;
-> +
-> +	ret = (a[0] ^ b[0]) & mask[0];
-> +	ret |= (a[1] ^ b[1]) & mask[1];
-> +	if (IFNAMSIZ > 2 * sizeof(unsigned long))
-> +		ret |= (a[2] ^ b[2]) & mask[2];
-> +	if (IFNAMSIZ > 3 * sizeof(unsigned long))
-> +		ret |= (a[3] ^ b[3]) & mask[3];
+I updated the size of the table, and I did some cosmetic
+changes in SCTP_CHUNKMAP_* macros (use a mask instead of
+a modulo).
 
-That will silently break for IFNAMSIZ >= 4*sizeof(unsigned long)
-You should add a dummy loop for that or at least a BUILD_BUG_ON
+  netfilter/xt_sctp.h       |   30 ++++++++++++++++--------------
+  netfilter_ipv4/ipt_sctp.h |   30 ++++++++++++++++--------------
+  2 files changed, 32 insertions(+), 28 deletions(-)
 
--Andi
+Can someone have a look at it ? Please CC me for any replies
+as I'm not on the list.
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Thanks,
+Olivier
+
+--------------020706030404030103070902
+Content-Type: text/x-patch;
+ name="linux_sctp_chunkmap_too_large.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="linux_sctp_chunkmap_too_large.diff"
+
+diff -r ce4087e26684 include/linux/netfilter/xt_sctp.h
+--- a/include/linux/netfilter/xt_sctp.h	Wed Jan 28 20:01:08 2009 +0000
++++ b/include/linux/netfilter/xt_sctp.h	Fri Jan 30 16:25:55 2009 +0100
+@@ -15,11 +15,13 @@
+ 
+ #define XT_NUM_SCTP_FLAGS	4
+ 
++#define sizeof_bits(type) (sizeof(type) * 8)
++
+ struct xt_sctp_info {
+ 	u_int16_t dpts[2];  /* Min, Max */
+ 	u_int16_t spts[2];  /* Min, Max */
+ 
+-	u_int32_t chunkmap[256 / sizeof (u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
++	u_int32_t chunkmap[256 / sizeof_bits(u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
+ 
+ #define SCTP_CHUNK_MATCH_ANY   0x01  /* Match if any of the chunk types are present */
+ #define SCTP_CHUNK_MATCH_ALL   0x02  /* Match if all of the chunk types are present */
+@@ -33,24 +35,24 @@
+ 	u_int32_t invflags;
+ };
+ 
+-#define bytes(type) (sizeof(type) * 8)
++#define SCTP_MODULO(chunktype, type) (chunktype & (sizeof_bits(type)-1))
+ 
+-#define SCTP_CHUNKMAP_SET(chunkmap, type) 		\
+-	do { 						\
+-		(chunkmap)[type / bytes(u_int32_t)] |= 	\
+-			1 << (type % bytes(u_int32_t));	\
++#define SCTP_CHUNKMAP_SET(chunkmap, chunktype)				\
++	do {								\
++		chunkmap[chunktype / sizeof_bits(u_int32_t)] |=		\
++			1 << SCTP_MODULO(chunktype, u_int32_t);		\
+ 	} while (0)
+ 
+-#define SCTP_CHUNKMAP_CLEAR(chunkmap, type)		 	\
+-	do {							\
+-		(chunkmap)[type / bytes(u_int32_t)] &= 		\
+-			~(1 << (type % bytes(u_int32_t)));	\
++#define SCTP_CHUNKMAP_CLEAR(chunkmap, chunktype)		 	\
++	do {								\
++		chunkmap[chunktype / sizeof_bits(u_int32_t)] &=		\
++			~(1 << SCTP_MODULO(chunktype, u_int32_t));	\
+ 	} while (0)
+ 
+-#define SCTP_CHUNKMAP_IS_SET(chunkmap, type) 			\
+-({								\
+-	((chunkmap)[type / bytes (u_int32_t)] & 		\
+-		(1 << (type % bytes (u_int32_t)))) ? 1: 0;	\
++#define SCTP_CHUNKMAP_IS_SET(chunkmap, chunktype) 			\
++({									\
++	(chunkmap[chunktype / sizeof_bits(u_int32_t)] &			\
++	 (1 << SCTP_MODULO(chunktype, u_int32_t))) ? 1 : 0;		\
+ })
+ 
+ #define SCTP_CHUNKMAP_RESET(chunkmap) \
+diff -r ce4087e26684 include/linux/netfilter_ipv4/ipt_sctp.h
+--- a/include/linux/netfilter_ipv4/ipt_sctp.h	Wed Jan 28 20:01:08 2009 +0000
++++ b/include/linux/netfilter_ipv4/ipt_sctp.h	Fri Jan 30 16:25:55 2009 +0100
+@@ -16,11 +16,13 @@
+ 
+ #define IPT_NUM_SCTP_FLAGS	4
+ 
++#define sizeof_bits(type) (sizeof(type) * 8)
++
+ struct ipt_sctp_info {
+ 	u_int16_t dpts[2];  /* Min, Max */
+ 	u_int16_t spts[2];  /* Min, Max */
+ 
+-	u_int32_t chunkmap[256 / sizeof (u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
++	u_int32_t chunkmap[256 / sizeof_bits(u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
+ 
+ #define SCTP_CHUNK_MATCH_ANY   0x01  /* Match if any of the chunk types are present */
+ #define SCTP_CHUNK_MATCH_ALL   0x02  /* Match if all of the chunk types are present */
+@@ -34,24 +36,24 @@
+ 	u_int32_t invflags;
+ };
+ 
+-#define bytes(type) (sizeof(type) * 8)
++#define SCTP_MODULO(chunktype, type) (chunktype & (sizeof_bits(type)-1))
+ 
+-#define SCTP_CHUNKMAP_SET(chunkmap, type) 		\
+-	do { 						\
+-		chunkmap[type / bytes(u_int32_t)] |= 	\
+-			1 << (type % bytes(u_int32_t));	\
++#define SCTP_CHUNKMAP_SET(chunkmap, chunktype)				\
++	do {								\
++		chunkmap[chunktype / sizeof_bits(u_int32_t)] |=		\
++			1 << SCTP_MODULO(chunktype, u_int32_t);		\
+ 	} while (0)
+ 
+-#define SCTP_CHUNKMAP_CLEAR(chunkmap, type)		 	\
+-	do {							\
+-		chunkmap[type / bytes(u_int32_t)] &= 		\
+-			~(1 << (type % bytes(u_int32_t)));	\
++#define SCTP_CHUNKMAP_CLEAR(chunkmap, chunktype)		 	\
++	do {								\
++		chunkmap[chunktype / sizeof_bits(u_int32_t)] &=		\
++			~(1 << SCTP_MODULO(chunktype, u_int32_t));	\
+ 	} while (0)
+ 
+-#define SCTP_CHUNKMAP_IS_SET(chunkmap, type) 			\
+-({								\
+-	(chunkmap[type / bytes (u_int32_t)] & 			\
+-		(1 << (type % bytes (u_int32_t)))) ? 1: 0;	\
++#define SCTP_CHUNKMAP_IS_SET(chunkmap, chunktype) 			\
++({									\
++	(chunkmap[chunktype / sizeof_bits(u_int32_t)] &			\
++	 (1 << SCTP_MODULO(chunktype, u_int32_t))) ? 1 : 0;		\
+ })
+ 
+ #define SCTP_CHUNKMAP_RESET(chunkmap) 				\
+
+--------------020706030404030103070902--
