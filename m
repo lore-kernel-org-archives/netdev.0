@@ -1,53 +1,62 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [ofa-general] NetEffect, iw_nes and kernel warning
-Date: Fri, 30 Jan 2009 10:22:42 +0200
-Message-ID: <1233303762.26509.15.camel@lb-tlvb-eliezer>
-References: <20090130065721.GA4886@gondor.apana.org.au>
+From: Benjamin ZORES <benjamin.zores@alcatel-lucent.fr>
+Subject: Re: [PATCH] Fix infinite retry loop in IP-Config
+Date: Fri, 30 Jan 2009 09:25:39 +0100
+Message-ID: <4982B983.6020704@alcatel-lucent.fr>
+References: <20090128105220.GB4190@ff.dom.local>	<49804AAF.7020702@alcatel-lucent.fr> <20090129.161929.241520668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Roland Dreier" <rdreier@cisco.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"aluno3@poczta.onet.pl" <aluno3@poczta.onet.pl>,
-	"general@lists.openfabrics.org" <general@lists.openfabrics.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2530 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751618AbZA3IYA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jan 2009 03:24:00 -0500
-In-Reply-To: <20090130065721.GA4886@gondor.apana.org.au>
+Received: from smail4.alcatel.fr ([62.23.212.167]:60428 "EHLO
+	smail4.alcatel.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328AbZA3I1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 03:27:30 -0500
+Received: from bsf.alcatel.fr (mail205.sxb.bsf.alcatel.fr [155.132.205.115])
+	by smail4.alcatel.fr (ALCANET/NETFR) with ESMTP id n0U8RRi5012916
+	for <netdev@vger.kernel.org>; Fri, 30 Jan 2009 09:27:28 +0100
+Received: from mail (mail-bsf-alcatel-fr.sxb.bsf.alcatel.fr [155.132.205.91])
+	by bsf.alcatel.fr (8.8.8p2+Sun/8.9.3) with ESMTP id JAA28978
+	for <netdev@vger.kernel.org>; Fri, 30 Jan 2009 09:27:27 +0100 (MET)
+Received: from [172.25.51.190] (frilld0f09516 [172.25.51.190])
+	by mail (8.8.8p2+Sun/) with ESMTP id JAA28972
+	for <netdev@vger.kernel.org>; Fri, 30 Jan 2009 09:27:26 +0100 (MET)
+In-Reply-To: <20090129.161929.241520668.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-01-29 at 22:57 -0800, Herbert Xu wrote:
-> Roland Dreier <rdreier@cisco.com> wrote:
-> > 
-> > OK, thanks... what confused me is that several other drivers also do
-> > skb_linearize() in their hard_start_xmit method... eg bnx2x,
-> > via-velocity, mv643xx_eth.  So there are several other lurking bugs to
-> > deal with here I guess.
-> 
-> I don't know about the rest but bnx2x is certainly OK since it
-> only does so with IRQ enabled.  It is legal to call skb_linearize
-> as long as you're sure that IRQs are enabled, which is always the
-> case for hard_start_xmit upon entry.
-> 
-> So the only time you can't call it in hard_start_xmit is if you've
-> just disabled IRQs yourself.
-> 
-Thanks Herbert,
+David Miller a =E9crit :
+> From: Benjamin ZORES <benjamin.zores@alcatel-lucent.fr>
+> Date: Wed, 28 Jan 2009 13:08:15 +0100
+>
+>  =20
+>> Jarek Poplawski a =E9crit :
+>>    =20
+>>> On 28-01-2009 10:07, Benjamin ZORES wrote:
+>>>  =20
+>>>      =20
+>>>> diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+>>>> index 42a0f3d..4911b81 100644
+>>>> --- a/net/ipv4/ipconfig.c
+>>>> +++ b/net/ipv4/ipconfig.c
+>>>> @@ -1268,6 +1268,7 @@ __be32 __init root_nfs_parse_addr(char *name=
+)
+>>>>  static int __init ip_auto_config(void)
+>>>>  {
+>>>>  	__be32 addr;
+>>>> +	 int retries =3D CONF_OPEN_RETRIES;
+>>>>    =20
+>>>>        =20
+>>>  Doesn't it need "#ifdef IPCONFIG_DYNAMIC" to prevent a compiler
+>>> warning? I guess you could add a "Signed-off-by:" line BTW.
+>>>  =20
+>>>      =20
+>> You're perfectly right about this.
+>> Attached an updated version of the patch.
+>>    =20
+>
+> Patch applied, thank you.
+Be my guest. Thanks to you.
 
-That was my conclusion too and even though I was still looking at it
-since this report yesterday - it still looks OK to me. The bnx2x is
-getting into this flow when using SAMBA and it was tested on few systems
-for days under traffic - this does not mean that the code is right and
-it is not a prove that there is no bug - but it makes me feel better...
-
-I would appreciate some comments if someone still thinks this is a bug.
-
-Thanks,
-Eilon
-
-
+Ben
