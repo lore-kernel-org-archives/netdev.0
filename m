@@ -1,40 +1,49 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 30 Jan 2009 14:15:31 -0800 (PST)
-Message-ID: <20090130.141531.56578757.davem@davemloft.net>
-References: <20090130215920.GC31355@1wt.eu>
-	<20090130.140346.159984249.davem@davemloft.net>
-	<20090130221346.GE31355@1wt.eu>
+Date: Sat, 31 Jan 2009 09:16:04 +1100
+Message-ID: <20090130221604.GD11381@gondor.apana.org.au>
+References: <20090126212130.GA4338@ioremap.net> <20090126.221056.174077798.davem@davemloft.net> <20090127074048.GA4197@ff.dom.local> <20090130.134227.123379239.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, zbr@ioremap.net, herbert@gondor.apana.org.au,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: w@1wt.eu
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, zbr@ioremap.net, w@1wt.eu, dada1@cosmosbay.com,
+	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49363
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754069AbZA3WPd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:15:33 -0500
-In-Reply-To: <20090130221346.GE31355@1wt.eu>
+Received: from rhun.apana.org.au ([64.62.148.172]:60191 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754522AbZA3WQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:16:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20090130.134227.123379239.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Fri, 30 Jan 2009 23:13:46 +0100
-
-> On Fri, Jan 30, 2009 at 02:03:46PM -0800, David Miller wrote:
-> > Any NIC, even the dumbest ones, can be made to receive into pages.
+On Fri, Jan 30, 2009 at 01:42:27PM -0800, David Miller wrote:
 > 
-> OK I thought that it was not always easy to split between headers
-> and payload. I know that myri10ge can be configured to receive into
-> either skbs or pages, but I was not sure about the real implications
-> behind that.
+> Hmmm, Jarek's comments here made me realize that we might be
+> able to do some hack with cooperation with SLAB.
+> 
+> Basically the idea is that if the page count of a SLAB page
+> is greater than one, SLAB will not use that page for new
+> allocations.
+> 
+> It's cheesy and the SLAB developers will likely barf at the
+> idea, but it would certainly work.
 
-For a dumb NIC you wouldn't split, you'd receive directly, the
-entire packet, into part of a page.
+I'm not going anywhere near that discussion :)
 
-Then right befire you give it to the stack, you pull the ethernet
-header from the page into the linear area.
+> Back to real life, I think long term the thing to do is to just do the
+> cached page allocator thing we'll be doing after Jarek's socket page
+> patch is integrated, and for best performance the driver has to
+> receive it's data into pages, only explicitly pulling the ethernet
+> header into the linear area, like NIU does.
+
+Yes that sounds like the way to go.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
