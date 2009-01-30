@@ -1,29 +1,29 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: tun new missing ioctl32
-Date: Fri, 30 Jan 2009 02:43:53 +0300
-Message-ID: <49823F39.8080204@msgid.tls.msk.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: FEC patches
+Date: Thu, 29 Jan 2009 16:04:17 -0800 (PST)
+Message-ID: <20090129.160417.98050673.davem@davemloft.net>
+References: <1233219791-18691-1-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, gerg@snapgear.com
+To: s.hauer@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([81.13.33.159]:51954 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752149AbZA2Xnz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2009 18:43:55 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40438
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752419AbZA3AEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 19:04:22 -0500
+In-Reply-To: <1233219791-18691-1-git-send-email-s.hauer@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just saw in dmesg:
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Date: Thu, 29 Jan 2009 10:03:02 +0100
 
-ioctl32(kvm:4408): Unknown cmd fd(9) cmd(800454cf){t:'T';sz:4} arg(ffc668e4) on /dev/net/tun
+> Please merge the following patches. The only change since I last sent
+> them is that I added CONFIG_M520x to the list of supported architectures
+> as Greg requested.
 
-I guess it's the recent stuff, TUNSETOFFLOAD perhaps, which is
-missing compat_ioctl entry...  Who knows this area, care to fix
-it please? :)
-
-(Yes, 32bit userspace on 64bit kernel)
+I'll look these over and then queue them up for 2.6.30
 
 Thanks!
-
-/mjt
