@@ -1,37 +1,28 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Fri, 30 Jan 2009 23:53:37 +1100
-Message-ID: <20090130125337.GA7155@gondor.apana.org.au>
-References: <20090130112125.GA9908@ioremap.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: iproute2, meta, flex parser bug?
+Date: Fri, 30 Jan 2009 14:20:05 +0100
+Message-ID: <20090130132005.GK20815@postel.suug.ch>
+References: <200901291304.24257.denys@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: berrange@redhat.com, shemminger@vyatta.com,
-	et-mgmt-tools@redhat.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50836 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752572AbZA3M7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 07:59:07 -0500
+Received: from postel.suug.ch ([194.88.212.233]:45856 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752530AbZA3NTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2009 08:19:47 -0500
 Content-Disposition: inline
-In-Reply-To: <20090130112125.GA9908@ioremap.net>
+In-Reply-To: <200901291304.24257.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov <zbr@ioremap.net> wrote:
->
-> So it is not explicit bind call, but port autoselection in the
-> connect(). Can you check what errno is returned?
-> Did I understand it right, that connect fails, you try different
-> address, but then suddenly all those sockets become 'alive'?
+* Denys Fedoryschenko <denys@visp.net.lb> 2009-01-29 13:04
+> I'm trying to make meta work, without success. Seems parser done in flex 
+> failing. My knowledge is not enough to fix or understand how flex is working
+> Here is what i got:
+> 
+> home iproute2 # home iproute2 # tc/tc filter add dev eth0 protocol ip pref 11 
+> basic match meta\(rt_iif eq \"eth0\"\)
 
-Yes, I think a good strace vs. a bad strace would be really helpful
-in these cases.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Try: tc filter ... basic match 'meta(rt_iif eq <NUM>)' classid XX:YY
