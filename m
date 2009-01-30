@@ -1,50 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc911x: timeout reaches -1
-Date: Thu, 29 Jan 2009 17:30:09 -0800 (PST)
-Message-ID: <20090129.173009.230013997.davem@davemloft.net>
-References: <4981C743.90202@gmail.com>
-	<OF3A0B52EF.AB017C24-ON8025754D.00547404-8025754D.00548C02@smsc.com>
+Subject: Re: [PATCH] gianfar: Fix Wake-on-LAN support
+Date: Thu, 29 Jan 2009 17:31:33 -0800 (PST)
+Message-ID: <20090129.173133.268065861.davem@davemloft.net>
+References: <20090128203545.GA13928@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org, Ian.Saturley@smsc.com
-To: Steve.Glendinning@smsc.com
+Cc: jgarzik@pobox.com, afleming@freescale.com, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55242
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55247
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755717AbZA3BaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:30:11 -0500
-In-Reply-To: <OF3A0B52EF.AB017C24-ON8025754D.00547404-8025754D.00548C02@smsc.com>
+	by vger.kernel.org with ESMTP id S1754752AbZA3Bbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:31:36 -0500
+In-Reply-To: <20090128203545.GA13928@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve.Glendinning@smsc.com
-Date: Thu, 29 Jan 2009 15:22:03 +0000
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Wed, 28 Jan 2009 23:35:45 +0300
 
-> Roel Kluin <roel.kluin@gmail.com> wrote on 29/01/2009 15:12:03:
+> commit 0f0ca340e57bd7446855fefd07a64249acf81223 ("phy: power
+> management support") caused a regression in the gianfar driver.
 > 
-> > With a postfix decrement the timeout will reach -1 rather than 0,
-> > so the warning will not be issued.
-> > 
-> > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> > ---
-> > diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-> > index f513bdf..783c1a7 100644
-> > --- a/drivers/net/smsc911x.c
-> > +++ b/drivers/net/smsc911x.c
-> > @@ -953,7 +953,7 @@ smsc911x_rx_fastforward(struct smsc911x_data 
-> > *pdata, unsigned int pktbytes)
-> >        do {
-> >           udelay(1);
-> >           val = smsc911x_reg_read(pdata, RX_DP_CTRL);
-> > -      } while (timeout-- && (val & RX_DP_CTRL_RX_FFWD_));
-> > +      } while (--timeout && (val & RX_DP_CTRL_RX_FFWD_));
-> > 
-> >        if (unlikely(timeout == 0))
-> >           SMSC_WARNING(HW, "Timed out waiting for "
+> Now phylib turns off PHY power during suspend, and thus WOL
+> doesn't work anymore.
 > 
-> Thanks for spotting this Roel.
+> This patch workarounds the issue by enabling wakeup in the MDIO
+> device, i.e. just restores the old behaviour for the gianfar
+> driver. Note that this way all PHYs on a given MDIO bus won't
+> be turned off during suspend, which isn't good from the power
+> saving point of view.
 > 
-> Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
+> A proper, per netdevice wakeup management support will need
+> a bit reworked phylib suspend/resume logic.
+> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
-Applied, thanks everyone.
+Applied, thanks Anton.
