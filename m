@@ -1,59 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 1/5] forcedeth: mgmt unit interface
-Date: Fri, 30 Jan 2009 14:35:41 -0800
-Message-ID: <20090130143541.4b85f22a.akpm@linux-foundation.org>
-References: <49834D5A.9000005@nvidia.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Fri, 30 Jan 2009 14:36:33 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0901301436050.3150@localhost.localdomain>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901300003.38550.rjw@sisk.pl> <20090129234127.GA14023@xw6200.broadcom.net> <200901300110.56533.rjw@sisk.pl> <alpine.DEB.2.00.0901301730230.6574@parag-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, manfred@colorfullife.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Parag Warudkar <parag.lkml@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35450 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:56407 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752645AbZA3WgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:36:24 -0500
-In-Reply-To: <49834D5A.9000005@nvidia.com>
+	by vger.kernel.org with ESMTP id S1752503AbZA3WhJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:37:09 -0500
+In-Reply-To: <alpine.DEB.2.00.0901301730230.6574@parag-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Jan 2009 13:56:26 -0500
-Ayaz Abdulla <aabdulla@nvidia.com> wrote:
 
-> +static int nv_mgmt_get_version(struct net_device *dev)
-> +{
-> +	struct fe_priv *np = netdev_priv(dev);
-> +	u8 __iomem *base = get_hwbase(dev);
-> +	u32 data_ready = readl(base + NvRegTransmitterControl);
-> +	u32 data_ready2;
-> +	int i;
-> +
-> +	writel(NVREG_MGMTUNITGETVERSION, base + NvRegMgmtUnitGetVersion);
-> +	writel(data_ready ^ NVREG_XMITCTL_DATA_START, base + NvRegTransmitterControl);
-> +	for (i = 0; i < 100000; i++) {
-> +		data_ready2 = readl(base + NvRegTransmitterControl);
-> +		if ((data_ready & NVREG_XMITCTL_DATA_READY) != (data_ready2 & NVREG_XMITCTL_DATA_READY))
-> +			break;
-> +		udelay(50);
-> +	}
-> +
-> +	if (i == 100000 || (data_ready2 & NVREG_XMITCTL_DATA_ERROR))
-> +		return 0;
-> +
-> +	np->mgmt_version = readl(base + NvRegMgmtUnitVersion) & NVREG_MGMTUNITVERSION;
-> +
-> +	return 1;
-> +}
 
-A five second busy-wait still sucks :(
+On Fri, 30 Jan 2009, Parag Warudkar wrote:
+> 
+> BTW, I applied the patch on top of the one Matt gave earlier.
+> Machine booted with original tg3 which I rmmod'ed and then insmod'ed the 
+> new one (with Matt's and Rafael's patch) and then attempted a 
+> suspend-resume.
+> 
+> Is there a reason to try fresh boot with patched tg3 and without 
+> loading old module - I guess I will try that one later as well.
 
-Why not do
+As long as you didn't suspend/resume with the old module loaded, it really 
+shouldn't matter.
 
-	start = jiffies;
-	while (time_before(jiffies, start + 5*HZ)) {
-		...
-		schedule_timeout_uninterruptible(1);
-	}
-
-?
+			Linus
