@@ -1,28 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/20] sfc: Fixes and new PHY support for 2.6.29
-Date: Thu, 29 Jan 2009 17:08:11 -0800 (PST)
-Message-ID: <20090129.170811.135213740.davem@davemloft.net>
-References: <1233256358.3656.9.camel@achroite>
-	<20090129.152608.218445220.davem@davemloft.net>
-	<20090130010542.GB15266@solarflare.com>
+Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
+ up
+Date: Thu, 29 Jan 2009 17:09:20 -0800 (PST)
+Message-ID: <20090129.170920.43131414.davem@davemloft.net>
+References: <20090127120129.GA9696@x200.localdomain>
+	<20090127132718.GA10001@x200.localdomain>
+	<20090129.170043.180340152.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: shemminger@linux-foundation.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50917
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59886
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752149AbZA3BIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:08:13 -0500
-In-Reply-To: <20090130010542.GB15266@solarflare.com>
+	by vger.kernel.org with ESMTP id S1753279AbZA3BJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:09:22 -0500
+In-Reply-To: <20090129.170043.180340152.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 30 Jan 2009 01:05:43 +0000
+From: David Miller <davem@davemloft.net>
+Date: Thu, 29 Jan 2009 17:00:43 -0800 (PST)
 
-> Please take at least the patches in group 1.  I will re-send if you
-> wish.
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Date: Tue, 27 Jan 2009 16:27:18 +0300
+> 
+> > [PATCH] sky2: fix hard hang with netconsoling and iface going up
+> > 
+> > Printing anything over netconsole before hw is up and running is,
+> > of course, not going to work.
+> > 
+> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> 
+> Alexey, can you get this tested by the reporter to make sure
+> it really fixes the hang?
+> 
+> Once it's been tested, I'll apply it.
 
-Please resend the pure bug fixes.  Thank you.
+Actually, I just read the followup where you indicated that
+other debugging printk's in this driver might also have the
+same problem.
+
+I'm dropping this until everything is resolved, thanks.
