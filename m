@@ -1,73 +1,65 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Fri, 30 Jan 2009 15:51:17 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0901301541290.3150@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901302354.27497.rjw@sisk.pl> <alpine.DEB.2.00.0901301811530.4994@parag-desktop> <200901310031.37660.rjw@sisk.pl>
+Date: Fri, 30 Jan 2009 15:57:06 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0901301551460.3150@localhost.localdomain>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain> <alpine.DEB.2.00.0901282049040.5026@parag-desktop> <20090129184215.GA13459@xw6200.broadcom.net> <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
+ <20090129222247.GA13861@xw6200.broadcom.net> <alpine.DEB.2.00.0901291730030.5149@parag-desktop> <20090130184030.GA14933@xw6200.broadcom.net> <alpine.DEB.2.00.0901301743410.4989@parag-desktop> <alpine.LFD.2.00.0901301506120.3150@localhost.localdomain>
+ <alpine.DEB.2.00.0901301826490.5027@parag-desktop>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
+Cc: Matt Carlson <mcarlson@broadcom.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+To: Parag Warudkar <parag.lkml@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55009 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47043 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753175AbZA3Xvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 18:51:50 -0500
-In-Reply-To: <200901310031.37660.rjw@sisk.pl>
+	by vger.kernel.org with ESMTP id S1753173AbZA3X5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 18:57:54 -0500
+In-Reply-To: <alpine.DEB.2.00.0901301826490.5027@parag-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On Sat, 31 Jan 2009, Rafael J. Wysocki wrote:
+On Fri, 30 Jan 2009, Parag Warudkar wrote:
 > 
-> I wonder if this change makes any difference:
+> Totally worth having this problem from a "getting an opportunity to 
+> understand" standpoint. This confirms my long standing suspicion that bugs 
+> in Linux kernel are merely a handiwork of few clever people to get more 
+> people to understand and contribute :)
+
+Heh. I wish. But if that's the end result, we've done something good.
+
+> Any how  here is the pre-suspend lspci -vvxxx output followed by diff -u -
+
+Bingo.
+
+> diff -u lspci-pre-suspend lspci-post-suspend
 > 
-> --- linux-2.6.orig/drivers/pci/pci-driver.c
-> +++ linux-2.6/drivers/pci/pci-driver.c
-> @@ -501,6 +501,9 @@ static int pci_pm_suspend(struct device
->  	if (pci_has_legacy_pm_support(pci_dev))
->  		return pci_legacy_suspend(dev, PMSG_SUSPEND);
+> --- lspci-pre-suspend	2009-01-30 18:19:50.752275695 -0500
+> +++ lspci-post-suspend	2009-01-30 18:20:52.629779008 -0500
 >  
-> +	if (!drv || !drv->pm)
-> +		return 0;
-> +
->  	if (drv && drv->pm && drv->pm->suspend) {
->  		error = drv->pm->suspend(dev);
->  		suspend_report_result(drv->pm->suspend, error);
+>  00:1c.0 PCI bridge: Intel Corporation 631xESB/632xESB/3100 Chipset PCI Express Root Port 1 (rev 09)
+> -	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B- DisINTx+
+> +	Control: I/O- Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B- DisINTx+
+>  	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+>  	Latency: 0, Cache Line Size: 64 bytes
+>  	Bus: primary=00, secondary=0e, subordinate=0e, sec-latency=0
 
-I don't think that's right. Now you don't end up calling 
-pci_pm_default_suspend_generic() at all, and this no pci_save_state().
+We've disabled IO and MEM behind this bridge - the one that bridges to 
+secondary bus 0x0e.
 
-But I think it could easily be the call to pci_disable_enabled_device(). 
-It does that
+And your tg3 device? It's at 0000:0e:00.0. Yeah. Exactly the bus that 
+we've disabled IO and MEM for.
 
-	if (atomic_read(&dev->enable_cnt))
-		do_pci_disable_device(dev);
+In other words, it was never your tg3 suspend/resume that was buggy. It 
+was the suspend/resume for the PCI-E port driver. In fact, I think it's 
+_exactly_ the issue I just emailed out about.
 
-and that ends up disabling PCI_COMMAND_MASTER and then calling 
-pcibios_disable_device().
+I bet Rafael can whip up a patch in a minute. I have too much of a 
+headache right now to look at my screen for a while, so I'll take a break.
 
-Any device we have ever done pci_enable_device() on would trigger this, 
-which includes PCIE bridges, for example. And while the pcie driver does 
-that
-
-	pcie_portdrv_restore_config ->
-		pci_enable_device(dev);
-
-thing to re-enable it, that's a no-op since the enable_count is already 
-non-zero.
-
-And we do try to restore it (pci_restore_standard_config() will call 
-pci_restore_state()), but since we've done the 
-pci_disable_enabled_device() _before_ we did the pci_save_state(), we now 
-restore a non-working setup. 
-
-I think. The rules are too damn subtle there.  Rafael, can you look around 
-a bit?
-
-		Linus
+			Linus
