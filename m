@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] smsc9420: fix interrupt signalling test failures
-Date: Thu, 29 Jan 2009 17:29:23 -0800 (PST)
-Message-ID: <20090129.172923.24519684.davem@davemloft.net>
-References: <1233247163-4317-1-git-send-email-steve.glendinning@smsc.com>
-	<1233247163-4317-2-git-send-email-steve.glendinning@smsc.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [0/4] GRO optimisations
+Date: Fri, 30 Jan 2009 12:29:42 +1100
+Message-ID: <20090130012942.GA1968@gondor.apana.org.au>
+References: <20090130001849.GA1272@gondor.apana.org.au> <498249C9.3050708@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ian.saturley@smsc.com
-To: steve.glendinning@smsc.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55239
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752335AbZA3B3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:29:25 -0500
-In-Reply-To: <1233247163-4317-2-git-send-email-steve.glendinning@smsc.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:54739 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755624AbZA3B3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 20:29:49 -0500
+Content-Disposition: inline
+In-Reply-To: <498249C9.3050708@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Date: Thu, 29 Jan 2009 16:39:23 +0000
+On Thu, Jan 29, 2009 at 04:28:57PM -0800, Divy Le Ray wrote:
+>
+> I'll give these patches a try within a day or two.
 
-> smsc9420 performs an interrupt signalling test when the interface is
-> brought up.  The current code mistakenly sets its test flag to false
-> AFTER enabling the software interrupt source, making failure quite
-> likely.
-> 
-> This patch changes the code to set the test flag BEFORE enabling
-> interrupts. I've also removed an smp_wmb because the following spinlock
-> provides an implicit memory barrier.
-> 
-> Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
+It should be the same as the kernel that you did the last test
+on, i.e., the one that was giving 5.7Gb/s but please reconfirm
+that I haven't screwed it up in merging.
 
-Applied, thanks Steve.
+> Please note that the 6Gb/s rate is achieved on a low perf server.
+> Using this server makes it easy to witness the impact of optimizations.
+> Faster boxes reach line rate.
+> Just want to make clear that cxgb3 HW is not limited to 6Gb/s ;)
+
+Of course, any inferences that it was limited wasn't intentional :)
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
