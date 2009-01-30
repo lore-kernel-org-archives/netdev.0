@@ -1,193 +1,129 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Multicast packet loss
-Date: Fri, 30 Jan 2009 20:04:15 +0100
-Message-ID: <49834F2F.9070500@cosmosbay.com>
-References: <49833DBC.7040607@athenacr.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: skge finds PCI error cmd=0x117 status=0x22b0 in 2.6.27.7
+Date: Fri, 30 Jan 2009 11:15:41 -0800
+Message-ID: <20090130111541.4b570b83@extreme>
+References: <1227676694.16069.78.camel@corfu>
+	<20081126084805.7c0ab417@extreme>
+	<1227747405.31791.17.camel@corfu>
+	<1233279948.27909.33.camel@corfu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Kenny Chang <kchang@athenacr.com>
+To: Guenther Thomsen <guenthert@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52113 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030AbZA3TEW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 14:04:22 -0500
-In-Reply-To: <49833DBC.7040607@athenacr.com>
+Received: from mail.vyatta.com ([76.74.103.46]:36287 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752279AbZA3TPn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2009 14:15:43 -0500
+In-Reply-To: <1233279948.27909.33.camel@corfu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kenny Chang a =E9crit :
-> Hi all,
->=20
-> We've been having some issues with multicast packet loss, we were won=
-dering
-> if anyone knows anything about the behavior we're seeing.
->=20
-> Background: we use multicast messaging with lots of messages per sec =
-for
-> our
-> work. We recently transitioned many of our systems from an Ubuntu Dap=
-per
-> Drake
-> ia32 distribution to Ubuntu Hardy Heron x86_64. Since the transition,=
- we've
-> noticed much more multicast packet loss, and we think it's related to=
- the
-> transition. Our particular theory is that it's specifically a 32 vs 6=
-4-bit
-> issue.
->=20
-> We narrowed the problem down to the attached program (mcasttest.cc). =
- Run
-> "mcasttest server" on one machine -- it'll send 500,000 messages smal=
-l
-> message
-> to a multicast group, 50,000 messages per second.  If we run "mcastte=
-st
-> client"
-> on another machine, it'll receive all those messages and print a coun=
-t
-> at the
-> end of how many messages it sees. It almost never loses any messages.
-> However,
-> if we run 4 copies of the client on the same machine, receiving the s=
-ame
-> data,
-> then the programs usually sees fewer than 500,000 messages. We're
-> running with:
->=20
-> for i in $(seq 1 4); do (./mcasttest client &); done
->=20
-> We know this because the program prints a count, but dropped packets =
-also
-> show up in ifconfig's "RX packets" section.
->=20
-> Things we're curious about: do other people see similar problems?  Th=
-e
-> tests
-> we've done: we've tried this program on a bunch of different machines=
-,
-> all of
-> which are running either dapper ia32 or hardy x86_64. Uniformly, the =
-dapper
-> machines have no problems but on certain machines, Hardy shows
-> significant loss. We did some experiments on a troubled machine, vary=
-ing
-> the OS install, including mixed installations where the kernel was
-> 64-bit and the userspace was
-> 32-bit. This is what we found:
->=20
-> On machines that exhibit this problem, the ksoftirqd process seems to=
- be
-> pegged to 100% CPU when receiving packets.
->=20
-> Note: while we're on Ubuntu, we've tried this with other distros and
-> have seen
-> similar results, we just haven't tabulated them.
->=20
->> --------------------------------------------------------------------=
---------
->>
->> userland | userland arch | kernel           | kernel arch |
->> mode         =20
->> --------------------------------------------------------------------=
---------
->>
->> Dapper   |            32 | 2.6.15-28-server |          32 | no packe=
-t
->> loss
->> Dapper   |            32 | 2.6.22-generic   |          32 | no packe=
-t
->> loss Dapper   |            32 | 2.6.22-server    |          32 | no
->> packet loss Hardy    |            32 | 2.6.24-rt        |          3=
-2
->> | no packet loss
->> Hardy    |            32 | 2.6.24-generic   |          32 | ~5% pack=
-et
->> loss
->> Hardy    |            32 | 2.6.24-server    |          32 | ~10%
->> packet loss
->=20
->> Hardy    |            32 | 2.6.22-server    |          64 | no packe=
-t
->> loss
->> Hardy    |            32 | 2.6.24-rt        |          64 | no packe=
-t
->> loss
->> Hardy    |            32 | 2.6.24-generic   |          64 | 14% pack=
-et
->> loss
->> Hardy    |            32 | 2.6.24-server    |          64 | 12% pack=
-et
->> loss
->=20
->> Hardy    |            64 | 2.6.22-vanilla   |          64 | packet l=
-oss
->> Hardy    |            64 | 2.6.24-rt        |          64 | ~5% pack=
-et
->> loss
->> Hardy    |            64 | 2.6.24-server    |          64 | ~30%
->> packet loss
->> Hardy    |            64 | 2.6.24-generic   |          64 | ~5% pack=
-et
->> loss
->> --------------------------------------------------------------------=
---------
->>
->=20
-> It's not exactly clear what exactly the problem is but dapper shows n=
-o
-> issues regardless of what we try. For hardy, userspace seem to matter=
-:
-> 2.6.24-rt kernel shows no packet loss for 32&64bit kernels, as long a=
-s
-> the userspace is 32-bit.
->=20
-> Kernel comments:
-> 2.6.15-28-server: This is Ubuntu Dapper's stock kernel build.
-> 2.6.24-*: This is Ubuntu Hardy's stock kernel.
-> 2.6.22-{generic,server}: This is a custom, in-house kernel build, bui=
-lt
-> for ia32.
-> 2.6.22-vanilla: This is our custom, in-house kernel build, built for
-> x86_64.
->=20
-> We don't think it's related to our custom kernels, because the same
-> phenomena
-> show up with the Ubuntu stock kernels.
->=20
-> Hardware:
->=20
-> The benchmark machine We've been using is an Intel Xeon E5440 @2.83GH=
-z
-> dual-cpu quad-core with Broadcom NetXtreme II BCM5708 bnx2 networking=
-=2E
->=20
-> We've also tried AMD machines, as well as machines with Tigon3
-> partno(BCM95704A6) tg3 network cards, they all show consistent behavi=
-or.
->=20
-> Our hardy x86_64 server machines all appear to have this problem, new
-> and old.
->=20
-> On the other hand, a desktop with Intel Q6600 quad core 2.4GHz and In=
-tel
-> 82566DC GigE
-> seem to work fine.
->=20
-> All of the dapper ia32 machines have no trouble, even our older hardw=
-are.
->=20
+On Thu, 29 Jan 2009 17:45:48 -0800
+Guenther Thomsen <guenthert@gmail.com> wrote:
+
+> On Wed, 2008-11-26 at 16:56 -0800, Guenther Thomsen wrote:
+> 
+> > On Wed, 2008-11-26 at 08:48 -0800, Stephen Hemminger wrote: 
+> > 
+> > > On Tue, 25 Nov 2008 21:18:14 -0800
+> > > Guenther Thomsen <guenthert@gmail.com> wrote:
+> > > 
+> > > > Just about an hour or so after upgrading my desktop at work from 4 to
+> > > > 8GiB RAM, I lost network connectivity and found following in the
+> > > > kernel's message buffer:
+> > > > --8<--
+
+
+The driver supports >4G of memory (64 bit DMA), but sometimes the motherboard
+does not. This seems to be especially true for on-motherboard devices.
+
+> > > > Nov 24 17:06:32 corfu kernel: [  116.841025] skge 0000:03:04.0: PCI error cmd=0x117 status=0x22b0
+> > > > Nov 24 17:06:32 corfu kernel: [  116.841054] skge 0000:03:04.0: unable to clear error (so ignoring them)
 >
+> > > > 
+> > > > If there is more information I could provide, then please let me know.
+> > > 
+> > > The problem is your ethernet hardware is unable to access that memory above 4G.
+> > > I suspect you have a motherboard which won't work with 4G or more. The skge driver
+> > > will, but some of the consumer hardware is crap. There seems to be no good way to
+> > > test if the hardware is 
+> > > 
+> > > What motherboard?
+> > > 
+> > > Are you running 32bit or 64bit kernel? You need to have 64bit kernel or
+> > > compile with HIGHMEM64G option on 32bit.
+> > > 
+> > > Full lspci output would help as well. Then maybe a PCI quirk could be setup
+> > > to force bounce buffer.
+> > > 
+> > > 
+> > 
+> > It's a beige box with 
+> > > Hardware: Asus M2R32-MVP motherboard (ATI CrossFire Xpress 3200 / ATI
+> > 
+> > > > SB600 chipset) with Athlon 64 X2 4600+ CPU and Marvell 88E8001 LAN
+> > > > controller on MB (autoneg. to 1000Mbps).
+> > 
+> > 
+> > The kernel is configured/compiled to use the CPU in 64bit mode:
+> > --8<--
+> > CONFIG_64BIT=y
+> > # CONFIG_X86_32 is not set
+> > CONFIG_X86_64=y
+> > CONFIG_X86=y
+> > CONFIG_ARCH_DEFCONFIG="arch/x86/configs/x86_64_defconfig"
+> > -->8--
 
-Hi Kenny
+This looks like an on the motherboard controler.
 
-Interesting... You forgot the mcasttest.cc program
+> > 03:04.0 Ethernet controller: Marvell Technology Group Ltd. 88E8001 Gigabit Ethernet Controller (rev 13)
+> > 	Subsystem: ASUSTeK Computer Inc. Marvell 88E8001 Gigabit Ethernet Controller (Asus)
+> > 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+> > 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> > 	Latency: 64 (5750ns min, 7750ns max), Cache Line Size: 64 bytes
+> > 	Interrupt: pin A routed to IRQ 23
+> > 	Region 0: Memory at fbffc000 (32-bit, non-prefetchable) [size=16K]
+> > 	Region 1: I/O ports at e800 [size=256]
+> > 	Expansion ROM at f0000000 [disabled] [size=128K]
+> > 	Capabilities: <access denied>
+> > 00: ab 11 20 43 17 01 b0 02 13 00 00 02 10 40 00 00
+> > 10: 00 c0 ff fb 01 e8 00 00 00 00 00 00 00 00 00 00
+> > 20: 00 00 00 00 00 00 00 00 00 00 00 00 43 10 1a 81
+> > 30: 00 00 fc fb 48 00 00 00 00 00 00 00 03 01 17 1f
+> > 
+> > gthomsen@corfu:~$ lspci -vvxxx
+> > -->8--
+> > 
+> > Is this
+> > --8<--
+> > 
+> > 	Region 0: Memory at fbffc000 (32-bit, non-prefetchable) [size=16K]
+> > -->8--
+> > the bad part?
+> > 
+> > I guess I have to try the "iommu=soft" kernel option. I will try that after the long weekend.
+> > 
+> > 
+> > Thanks for looking into this and happy Turkey Day!
+> > 	Guenther
+> 
+> 
+> Only a few days ago, I revisited this issue (if I'm careful, the system
+> remains stable ;-}
+> I tried then iommu=soft option and didn't have much luck with that. I
+> even added an Intel 1000baseT NIC, with its "known good" driver, which
+> yielded similar results, see below. I tried 2.6.28.1 and now 2.6.28.2
+> and still get the same results.
+> 
+> I must admit that i couldn't find iommu=soft documented (other than the
+> very brief description in Documentation/kernel-parameters.txt) and would
+> have expected that it creates a bounce buffer below the magical 4GiB
+> limit and that then all PCI problems in combination with addresses
+> greater than 2^32 would be solved. So it appears to me, that the
+> soft-iommu isn't doing it's job. Or is it? So far I noticed only
+> problems with network devices.
+> 
 
-Any chance you try a recent kernel (2.6.29-rcX) ?
-
-Could you post "cat /proc/interrupts" results (one for working
- setup, another for non working/droping setup)
-
-
+That would imply that a pci quirk should be created.
