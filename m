@@ -1,37 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 4/5] virtio_net: Add a MAC filter table
-Date: Fri, 30 Jan 2009 17:33:24 +1030
-Message-ID: <200901301733.25136.rusty@rustcorp.com.au>
-References: <OF025C8F2F.2E8FFF17-ON8825754D.0020EE83-8825754D.002299DE@us.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 5/5] netfilter: convert x_tables to use RCU
+Date: Fri, 30 Jan 2009 08:05:07 +0100
+Message-ID: <4982A6A3.2090304@cosmosbay.com>
+References: <20090129062521.092861272@vyatta.com>	<20090129062549.364601936@vyatta.com>	<498235F0.3010806@cosmosbay.com> <20090129151624.37dce05e@extreme> <4982A3D5.3030701@cosmosbay.com> <4982A60F.8020005@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Alex Williamson <alex.williamson@hp.com>, kvm@vger.kernel.org,
-	markmc@redhat.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <OF025C8F2F.2E8FFF17-ON8825754D.0020EE83-8825754D.002299DE@us.ibm.com>
-Content-Disposition: inline
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57562 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907AbZA3HFP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 02:05:15 -0500
+In-Reply-To: <4982A60F.8020005@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 29 January 2009 16:47:55 David Stevens wrote:
-> Also, if you can't keep all the MAC multicast addresses (ie,
-> the limit is memory and not look-up speed), then getting
-> out of multicast-promiscuous mode correctly isn't easy
-> since you don't know what groups you "forgot". You could
-> rebuild from the protocol memberships, if you know when
-> you've left enough groups to fit, but otherwise the MAC
-> multicast addresses you didn't keep of course won't work if you
-> leave multicast-promiscuous mode and the filter doesn't
-> have them.
+Eric Dumazet a =C3=A9crit :
+>=20
+> Hum, I just checked and indeed there is a problem...
+>=20
+> #define SUM_COUNTER(s,c)  do { (s).bcnt +=3D (c).bcnt; (s).pcnt +=3D =
+(c).pcnt; } while(0)
+>=20
+> need to be changed to use=20
+>=20
+> #define SUM_COUNTER(s, c)  do { xt_incr_counter(s, (c).cnt, (c).pcnt)=
+;} while (0)
+>=20
 
-The command is simply "set the filter", not "add" and "delete", so the host doesn't have this problem.
+Oops
 
-VLAN has more of an issue: that has add and del.  So the host can do a counting hash, or say remember 16 and then a count of overflows, but both will be suboptimal over time.
+#define SUM_COUNTER(s, c)  xt_incr_counter(s, (c).bcnt, (c).pcnt)
 
-Cheers,
-Rusty.
