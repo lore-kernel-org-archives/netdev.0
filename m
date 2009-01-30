@@ -1,39 +1,40 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Fri, 30 Jan 2009 14:36:33 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0901301436050.3150@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901300003.38550.rjw@sisk.pl> <20090129234127.GA14023@xw6200.broadcom.net> <200901300110.56533.rjw@sisk.pl> <alpine.DEB.2.00.0901301730230.6574@parag-desktop>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Multicast packet loss
+Date: Fri, 30 Jan 2009 23:41:23 +0100
+Message-ID: <49838213.90700@cosmosbay.com>
+References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Parag Warudkar <parag.lkml@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Kenny Chang <kchang@athenacr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:56407 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752503AbZA3WhJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:37:09 -0500
-In-Reply-To: <alpine.DEB.2.00.0901301730230.6574@parag-desktop>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38504 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752898AbZA3Woh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:44:37 -0500
+In-Reply-To: <49837F56.2020502@athenacr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Kenny Chang a =E9crit :
+> Ah, sorry, here's the test program attached.
+>=20
+> We've tried 2.6.28.1, but no, we haven't tried the 2.6.28.2 or the
+> 2.6.29.-rcX.
+>=20
+> Right now, we are trying to step through the kernel versions until we
+> see where the performance drops significantly.  We'll try 2.6.29-rc s=
+oon
+> and post the result.
+
+2.6.29-rc contains UDP receive improvements (lockless)
+
+Problem is multicast handling was not yet updated, but could be :)
 
 
-On Fri, 30 Jan 2009, Parag Warudkar wrote:
-> 
-> BTW, I applied the patch on top of the one Matt gave earlier.
-> Machine booted with original tg3 which I rmmod'ed and then insmod'ed the 
-> new one (with Matt's and Rafael's patch) and then attempted a 
-> suspend-resume.
-> 
-> Is there a reason to try fresh boot with patched tg3 and without 
-> loading old module - I guess I will try that one later as well.
+I was asking you "cat /proc/interrupts" because I believe you might
+have a problem NIC interrupts being handled by one CPU only (when havin=
+g problems)
 
-As long as you didn't suspend/resume with the old module loaded, it really 
-shouldn't matter.
 
-			Linus
