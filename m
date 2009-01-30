@@ -1,140 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/6] netfilter: remove unneeded initializations
-Date: Fri, 30 Jan 2009 13:57:02 -0800
-Message-ID: <20090130215729.160828979@vyatta.com>
-References: <20090130215700.965611970@vyatta.com>
-Cc: netdev@vger.kernel.org
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Fri, 30 Jan 2009 22:59:20 +0100
+Message-ID: <20090130215920.GC31355@1wt.eu>
+References: <20090126212130.GA4338@ioremap.net> <20090126.221056.174077798.davem@davemloft.net> <20090127074048.GA4197@ff.dom.local> <20090130.134227.123379239.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, zbr@ioremap.net, herbert@gondor.apana.org.au,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:49655 "EHLO suva.vyatta.com"
+Received: from 1wt.eu ([62.212.114.60]:1921 "EHLO 1wt.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756935AbZA3V57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jan 2009 16:57:59 -0500
-Content-Disposition: inline; filename=iptables-lock-init.patch
+	id S1755273AbZA3V76 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2009 16:59:58 -0500
+Content-Disposition: inline
+In-Reply-To: <20090130.134227.123379239.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Later patches change the locking on xt_table and the initialization of
-the lock element is not needed since the lock is always initialized in
-xt_table_register anyway.
+On Fri, Jan 30, 2009 at 01:42:27PM -0800, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Tue, 27 Jan 2009 07:40:48 +0000
+> 
+> > I think the main problem is to respect put_page() more, and maybe you
+> > mean to add this to your allocator too, but using slab pages for this
+> > looks a bit complex to me, but I can miss something.
+> 
+> Hmmm, Jarek's comments here made me realize that we might be
+> able to do some hack with cooperation with SLAB.
+> 
+> Basically the idea is that if the page count of a SLAB page
+> is greater than one, SLAB will not use that page for new
+> allocations.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I thought it was the standard behaviour. That may explain why I
+did not understand much of previous discussion then :-/
 
+> It's cheesy and the SLAB developers will likely barf at the
+> idea, but it would certainly work.
 
----
- net/ipv4/netfilter/arptable_filter.c   |    2 --
- net/ipv4/netfilter/iptable_filter.c    |    1 -
- net/ipv4/netfilter/iptable_mangle.c    |    1 -
- net/ipv4/netfilter/iptable_raw.c       |    1 -
- net/ipv4/netfilter/iptable_security.c  |    1 -
- net/ipv4/netfilter/nf_nat_rule.c       |    1 -
- net/ipv6/netfilter/ip6table_filter.c   |    1 -
- net/ipv6/netfilter/ip6table_mangle.c   |    1 -
- net/ipv6/netfilter/ip6table_raw.c      |    1 -
- net/ipv6/netfilter/ip6table_security.c |    1 -
- 10 files changed, 11 deletions(-)
+Maybe that would be enough as a definitive fix for a stable
+release, so that we can go on with deeper changes in newer
+versions ?
 
---- a/net/ipv4/netfilter/arptable_filter.c	2009-01-26 17:24:43.687542005 -0800
-+++ b/net/ipv4/netfilter/arptable_filter.c	2009-01-26 19:50:37.891042244 -0800
-@@ -48,8 +48,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
--	.private	= NULL,
- 	.me		= THIS_MODULE,
- 	.af		= NFPROTO_ARP,
- };
---- a/net/ipv4/netfilter/iptable_filter.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_filter.c	2009-01-26 19:50:37.891042244 -0800
-@@ -56,7 +56,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
---- a/net/ipv4/netfilter/iptable_raw.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_raw.c	2009-01-26 19:50:37.891042244 -0800
-@@ -39,7 +39,6 @@ static struct
- static struct xt_table packet_raw = {
- 	.name = "raw",
- 	.valid_hooks =  RAW_VALID_HOOKS,
--	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
- 	.me = THIS_MODULE,
- 	.af = AF_INET,
- };
---- a/net/ipv4/netfilter/iptable_security.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_security.c	2009-01-26 19:50:37.891042244 -0800
-@@ -60,7 +60,6 @@ static struct
- static struct xt_table security_table = {
- 	.name		= "security",
- 	.valid_hooks	= SECURITY_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
---- a/net/ipv4/netfilter/nf_nat_rule.c	2009-01-26 17:24:43.695541481 -0800
-+++ b/net/ipv4/netfilter/nf_nat_rule.c	2009-01-26 19:51:20.338030618 -0800
-@@ -61,7 +61,6 @@ static struct
- static struct xt_table nat_table = {
- 	.name		= "nat",
- 	.valid_hooks	= NAT_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(nat_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
---- a/net/ipv6/netfilter/ip6table_filter.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_filter.c	2009-01-26 19:50:37.895044361 -0800
-@@ -54,7 +54,6 @@ static struct
- static struct xt_table packet_filter = {
- 	.name		= "filter",
- 	.valid_hooks	= FILTER_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_filter.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
---- a/net/ipv6/netfilter/ip6table_mangle.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_mangle.c	2009-01-26 19:50:37.895044361 -0800
-@@ -60,7 +60,6 @@ static struct
- static struct xt_table packet_mangler = {
- 	.name		= "mangle",
- 	.valid_hooks	= MANGLE_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
---- a/net/ipv6/netfilter/ip6table_raw.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_raw.c	2009-01-26 19:50:37.895044361 -0800
-@@ -38,7 +38,6 @@ static struct
- static struct xt_table packet_raw = {
- 	.name = "raw",
- 	.valid_hooks = RAW_VALID_HOOKS,
--	.lock = __RW_LOCK_UNLOCKED(packet_raw.lock),
- 	.me = THIS_MODULE,
- 	.af = AF_INET6,
- };
---- a/net/ipv6/netfilter/ip6table_security.c	2009-01-26 17:24:43.735541493 -0800
-+++ b/net/ipv6/netfilter/ip6table_security.c	2009-01-26 19:50:37.895044361 -0800
-@@ -59,7 +59,6 @@ static struct
- static struct xt_table security_table = {
- 	.name		= "security",
- 	.valid_hooks	= SECURITY_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(security_table.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET6,
- };
---- a/net/ipv4/netfilter/iptable_mangle.c	2009-01-26 17:24:43.691541994 -0800
-+++ b/net/ipv4/netfilter/iptable_mangle.c	2009-01-26 19:50:37.895044361 -0800
-@@ -67,7 +67,6 @@ static struct
- static struct xt_table packet_mangler = {
- 	.name		= "mangle",
- 	.valid_hooks	= MANGLE_VALID_HOOKS,
--	.lock		= __RW_LOCK_UNLOCKED(packet_mangler.lock),
- 	.me		= THIS_MODULE,
- 	.af		= AF_INET,
- };
+> Back to real life, I think long term the thing to do is to just do the
+> cached page allocator thing we'll be doing after Jarek's socket page
+> patch is integrated, and for best performance the driver has to
+> receive it's data into pages, only explicitly pulling the ethernet
+> header into the linear area, like NIU does.
 
--- 
+Are there NICs out there able to do that themselves or does the
+driver need to rely on complex hacks in order to achieve this ?
+
+Willy
 
