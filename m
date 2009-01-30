@@ -1,52 +1,55 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/4] gro: Do not merge paged packets into frag_list
-Date: Fri, 30 Jan 2009 11:19:51 +1100
-Message-ID: <E1LSh6t-0000OM-8D@gondolin.me.apana.org.au>
+Subject: [PATCH 4/4] gro: Open-code memcpy in napi_fraginfo_skb
+Date: Fri, 30 Jan 2009 11:19:52 +1100
+Message-ID: <E1LSh6u-0000Od-Bv@gondolin.me.apana.org.au>
 References: <20090130001849.GA1272@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37716 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:37718 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755750AbZA3ATy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 19:19:54 -0500
+	with ESMTP id S1756078AbZA3AT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 19:19:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gro: Do not merge paged packets into frag_list
+gro: Open-code memcpy in napi_fraginfo_skb
 
-Bigger is not always better :)
-
-It was easy to continue to merged packets into frag_list after the
-page array is full.  However, this turns out to be worse than LRO
-because frag_list is a much less efficient form of storage than the
-page array.  So we're better off stopping the merge and starting
-a new entry with an empty page array.
-
-In future we can optimise this further by doing frag_list merging
-but making sure that we continue to fill in the page array.
+This patch optimises napi_fraginfo_skb to only copy the bits
+necessary.  We also open-code the memcpy so that the alignment
+information is always available to gcc.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/core/skbuff.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/core/dev.c |   10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 6ecb8d7..d7efaf9 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2594,9 +2594,11 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3742397..d55f725 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2541,6 +2541,8 @@ struct sk_buff *napi_fraginfo_skb(struct napi_struct *napi,
+ 	struct net_device *dev = napi->dev;
+ 	struct sk_buff *skb = napi->skb;
+ 	struct ethhdr *eth;
++	skb_frag_t *frag;
++	int i;
  
- 	if (skb_shinfo(p)->frag_list)
- 		goto merge;
--	else if (skb_headlen(skb) <= skb_gro_offset(skb) &&
--		 skb_shinfo(p)->nr_frags + skb_shinfo(skb)->nr_frags <=
--		 MAX_SKB_FRAGS) {
-+	else if (skb_headlen(skb) <= skb_gro_offset(skb)) {
-+		if (skb_shinfo(p)->nr_frags + skb_shinfo(skb)->nr_frags >
-+		    MAX_SKB_FRAGS)
-+			return -E2BIG;
+ 	napi->skb = NULL;
+ 
+@@ -2553,8 +2555,14 @@ struct sk_buff *napi_fraginfo_skb(struct napi_struct *napi,
+ 	}
+ 
+ 	BUG_ON(info->nr_frags > MAX_SKB_FRAGS);
++	frag = &info->frags[info->nr_frags - 1];
 +
- 		skb_shinfo(skb)->frags[0].page_offset +=
- 			skb_gro_offset(skb) - skb_headlen(skb);
- 		skb_shinfo(skb)->frags[0].size -=
++	for (i = skb_shinfo(skb)->nr_frags; i < info->nr_frags; i++) {
++		skb_fill_page_desc(skb, i, frag->page, frag->page_offset,
++				   frag->size);
++		frag++;
++	}
+ 	skb_shinfo(skb)->nr_frags = info->nr_frags;
+-	memcpy(skb_shinfo(skb)->frags, info->frags, sizeof(info->frags));
+ 
+ 	skb->data_len = info->len;
+ 	skb->len += info->len;
