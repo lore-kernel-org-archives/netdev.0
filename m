@@ -1,58 +1,51 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 30 Jan 2009 22:59:20 +0100
-Message-ID: <20090130215920.GC31355@1wt.eu>
-References: <20090126212130.GA4338@ioremap.net> <20090126.221056.174077798.davem@davemloft.net> <20090127074048.GA4197@ff.dom.local> <20090130.134227.123379239.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
+ up
+Date: Fri, 30 Jan 2009 14:01:04 -0800
+Message-ID: <20090130140104.2d0fa89a@extreme>
+References: <20090127132718.GA10001@x200.localdomain>
+	<20090129.170043.180340152.davem@davemloft.net>
+	<20090130115907.GA22534@x200.localdomain>
+	<20090130.134550.81676804.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jarkao2@gmail.com, zbr@ioremap.net, herbert@gondor.apana.org.au,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: adobriyan@gmail.com, jgarzik@pobox.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:1921 "EHLO 1wt.eu"
+Received: from mail.vyatta.com ([76.74.103.46]:44381 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755273AbZA3V76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jan 2009 16:59:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20090130.134227.123379239.davem@davemloft.net>
+	id S1754736AbZA3WBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2009 17:01:07 -0500
+In-Reply-To: <20090130.134550.81676804.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 30, 2009 at 01:42:27PM -0800, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Tue, 27 Jan 2009 07:40:48 +0000
+On Fri, 30 Jan 2009 13:45:50 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> Date: Fri, 30 Jan 2009 14:59:07 +0300
 > 
-> > I think the main problem is to respect put_page() more, and maybe you
-> > mean to add this to your allocator too, but using slab pages for this
-> > looks a bit complex to me, but I can miss something.
+> > On Thu, Jan 29, 2009 at 05:00:43PM -0800, David Miller wrote:
+> > > From: Alexey Dobriyan <adobriyan@gmail.com>
+> > > Date: Tue, 27 Jan 2009 16:27:18 +0300
+> > > 
+> > > > [PATCH] sky2: fix hard hang with netconsoling and iface going up
+> > > > 
+> > > > Printing anything over netconsole before hw is up and running is,
+> > > > of course, not going to work.
+> > > > 
+> > > > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> > > 
+> > > Alexey, can you get this tested by the reporter to make sure
+> > > it really fixes the hang?
+> > 
+> > I'm the reporter and tester and using this patch successfully. :-)
 > 
-> Hmmm, Jarek's comments here made me realize that we might be
-> able to do some hack with cooperation with SLAB.
+> Then you give me no choice, I have to apply this patch :-)
 > 
-> Basically the idea is that if the page count of a SLAB page
-> is greater than one, SLAB will not use that page for new
-> allocations.
+> Thanks!
 
-I thought it was the standard behaviour. That may explain why I
-did not understand much of previous discussion then :-/
-
-> It's cheesy and the SLAB developers will likely barf at the
-> idea, but it would certainly work.
-
-Maybe that would be enough as a definitive fix for a stable
-release, so that we can go on with deeper changes in newer
-versions ?
-
-> Back to real life, I think long term the thing to do is to just do the
-> cached page allocator thing we'll be doing after Jarek's socket page
-> patch is integrated, and for best performance the driver has to
-> receive it's data into pages, only explicitly pulling the ethernet
-> header into the linear area, like NIU does.
-
-Are there NICs out there able to do that themselves or does the
-driver need to rely on complex hacks in order to achieve this ?
-
-Willy
-
+Yes, this is a nice harmless change
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
