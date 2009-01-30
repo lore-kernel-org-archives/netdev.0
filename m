@@ -1,36 +1,37 @@
-From: <mcpc100@bellnet.ca>
-Subject: Powerball..Promo..Award
-Date: Fri, 30 Jan 2009 9:36:43 -0500
-Message-ID: <20090130143656.JSXE1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: consultationaboard27@ymail.com
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [BUG BISECTED] boot hangs while bringing up gianfar ethernet
+Date: Fri, 30 Jan 2009 15:57:15 +0100
+Message-ID: <87bpton8ok.fsf@macbook.be.48ers.dk>
+References: <20090129194145.GA4647@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@winner.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Dai Haruki <dai.haruki@freescale.com>,
+	Andy Fleming <afleming@freescale.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts8-srv.bellnexxia.net ([206.47.199.166]:61065 "EHLO
-	simmts8-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753171AbZA3Og6 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jan 2009 09:36:58 -0500
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts8-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090130143656.JSXE1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Fri, 30 Jan 2009 09:36:56 -0500
+Received: from mail-ew0-f21.google.com ([209.85.219.21]:60323 "EHLO
+	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048AbZA3O5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 09:57:20 -0500
+In-Reply-To: <20090129194145.GA4647@ovro.caltech.edu> (Ira Snyder's message of "Thu\, 29 Jan 2009 11\:41\:45 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Contact Mr Francis Scott for the sum of =A3800,000 pounds GBP.
-Email: directiveboard24@ymail.com
-Tel:+44:7045731829=20
-Names:............
-Address:..............
-Country:................
-Phone No:...................
-Occupation:..................
-Age:..........
-=46ax:..............
-Regards
-Mrs.Caroline Jude
+>>>>> "Ira" == Ira Snyder <iws@ovro.caltech.edu> writes:
 
+ Ira> Hello,
+
+ Ira> I'm working on a Freescale MPC8349EMDS board. I have been
+ Ira> booting it over NFS for a long time now. I try to run the latest
+ Ira> git kernels to find possible problems.
+
+ Ira> Recently, I haven't been able to boot over NFS anymore. When the machine
+ Ira> tries to bring up the ethernet interface, it just hangs forever. There
+ Ira> are no softlockup warnings, the machine has locked up completely.
+
+FYI, I'm seeing the same here (with a mpc8347) with all 2.6.29-rcX,
+but I didn't have time to track it down yet.
+
+-- 
+Bye, Peter Korsgaard
