@@ -1,185 +1,41 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 5/5] netfilter: convert x_tables to use RCU
-Date: Fri, 30 Jan 2009 07:53:09 +0100
-Message-ID: <4982A3D5.3030701@cosmosbay.com>
-References: <20090129062521.092861272@vyatta.com>	<20090129062549.364601936@vyatta.com>	<498235F0.3010806@cosmosbay.com> <20090129151624.37dce05e@extreme>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [ofa-general] NetEffect, iw_nes and kernel warning
+Date: Fri, 30 Jan 2009 17:57:21 +1100
+Message-ID: <20090130065721.GA4886@gondor.apana.org.au>
+References: <adaljsvwbkm.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, aluno3@poczta.onet.pl,
+	general@lists.openfabrics.org, netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39768 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378AbZA3GxR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 01:53:17 -0500
-In-Reply-To: <20090129151624.37dce05e@extreme>
+Received: from rhun.apana.org.au ([64.62.148.172]:55711 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751069AbZA3G5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 01:57:44 -0500
+Content-Disposition: inline
+In-Reply-To: <adaljsvwbkm.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger a =C3=A9crit :
-> On Fri, 30 Jan 2009 00:04:16 +0100
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
->=20
->> Stephen Hemminger a =C3=A9crit :
->>> Replace existing reader/writer lock with Read-Copy-Update to
->>> elminate the overhead of a read lock on each incoming packet.
->>> This should reduce the overhead of iptables especially on SMP
->>> systems.
->>>
->>> The previous code used a reader-writer lock for two purposes.
->>> The first was to ensure that the xt_table_info reference was not in
->>> process of being changed. Since xt_table_info is only freed via one
->>> routine, it was a direct conversion to RCU.
->>>
->>> The other use of the reader-writer lock was to to block changes
->>> to counters while they were being read. This synchronization was
->>> fixed by the previous patch.  But still need to make sure table inf=
-o
->>> isn't going away.
->>>
->>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>>
->>>
->>> ---
->>>  include/linux/netfilter/x_tables.h |   10 ++++++-
->>>  net/ipv4/netfilter/arp_tables.c    |   12 ++++-----
->>>  net/ipv4/netfilter/ip_tables.c     |   12 ++++-----
->>>  net/ipv6/netfilter/ip6_tables.c    |   12 ++++-----
->>>  net/netfilter/x_tables.c           |   48 ++++++++++++++++++++++++=
-++-----------
->>>  5 files changed, 60 insertions(+), 34 deletions(-)
->>>
->>> --- a/include/linux/netfilter/x_tables.h	2009-01-28 22:04:39.316517=
-913 -0800
->>> +++ b/include/linux/netfilter/x_tables.h	2009-01-28 22:14:54.648490=
-491 -0800
->>> @@ -352,8 +352,8 @@ struct xt_table
->>>  	/* What hooks you will enter on */
->>>  	unsigned int valid_hooks;
->>> =20
->>> -	/* Lock for the curtain */
->>> -	rwlock_t lock;
->>> +	/* Lock for curtain */
->>> +	spinlock_t lock;
->>> =20
->>>  	/* Man behind the curtain... */
->>>  	struct xt_table_info *private;
->>> @@ -386,6 +386,12 @@ struct xt_table_info
->>>  	/* Secret compartment */
->>>  	seqcount_t *seq;
->>> =20
->>> +	/* For the dustman... */
->>> +	union {
->>> +		struct rcu_head rcu;
->>> +		struct work_struct work;
->>> +	};
->>> +
->>>  	/* ipt_entry tables: one per CPU */
->>>  	/* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ *=
-/
->>>  	char *entries[1];
->>> --- a/net/ipv4/netfilter/arp_tables.c	2009-01-28 22:13:16.423490077=
- -0800
->>> +++ b/net/ipv4/netfilter/arp_tables.c	2009-01-28 22:14:54.648490491=
- -0800
->>> @@ -238,8 +238,8 @@ unsigned int arpt_do_table(struct sk_buf
->>>  	indev =3D in ? in->name : nulldevname;
->>>  	outdev =3D out ? out->name : nulldevname;
->>> =20
->>> -	read_lock_bh(&table->lock);
->>> -	private =3D table->private;
->>> +	rcu_read_lock_bh();
->>> +	private =3D rcu_dereference(table->private);
->>>  	table_base =3D (void *)private->entries[smp_processor_id()];
->>>  	seq =3D per_cpu_ptr(private->seq, smp_processor_id());
->>>  	e =3D get_entry(table_base, private->hook_entry[hook]);
->>> @@ -315,7 +315,7 @@ unsigned int arpt_do_table(struct sk_buf
->>>  			e =3D (void *)e + e->next_offset;
->>>  		}
->>>  	} while (!hotdrop);
->>> -	read_unlock_bh(&table->lock);
->>> +	rcu_read_unlock_bh();
->>> =20
->>>  	if (hotdrop)
->>>  		return NF_DROP;
->>> @@ -1163,8 +1163,8 @@ static int do_add_counters(struct net *n
->>>  		goto free;
->>>  	}
->>> =20
->>> -	write_lock_bh(&t->lock);
->>> -	private =3D t->private;
->>> +	rcu_read_lock_bh();
->>> +	private =3D rcu_dereference(t->private);
->>>  	if (private->number !=3D num_counters) {
->>>  		ret =3D -EINVAL;
->>>  		goto unlock_up_free;
->>> @@ -1179,7 +1179,7 @@ static int do_add_counters(struct net *n
->>>  			   paddc,
->>>  			   &i);
->>>   unlock_up_free:
->>> -	write_unlock_bh(&t->lock);
->>> +	rcu_read_unlock_bh();
->>>  	xt_table_unlock(t);
->>>  	module_put(t->me);
->>>   free:
->>> --- a/net/ipv4/netfilter/ip_tables.c	2009-01-28 22:06:10.596739805 =
--0800
->>> +++ b/net/ipv4/netfilter/ip_tables.c	2009-01-28 22:14:54.648490491 =
--0800
->>> @@ -348,9 +348,9 @@ ipt_do_table(struct sk_buff *skb,
->>>  	mtpar.family  =3D tgpar.family =3D NFPROTO_IPV4;
->>>  	tgpar.hooknum =3D hook;
->>> =20
->>> -	read_lock_bh(&table->lock);
->>> +	rcu_read_lock_bh();
->>>  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
->>> -	private =3D table->private;
->>> +	private =3D rcu_dereference(table->private);
->>>  	table_base =3D (void *)private->entries[smp_processor_id()];
->>>  	seq =3D per_cpu_ptr(private->seq, smp_processor_id());
->>>  	e =3D get_entry(table_base, private->hook_entry[hook]);
->>> @@ -449,7 +449,7 @@ ipt_do_table(struct sk_buff *skb,
->>>  		}
->>>  	} while (!hotdrop);
->>> =20
->>> -	read_unlock_bh(&table->lock);
->>> +	rcu_read_unlock_bh();
->>> =20
->>>  #ifdef DEBUG_ALLOW_ALL
->>>  	return NF_ACCEPT;
->>> @@ -1408,8 +1408,8 @@ do_add_counters(struct net *net, void __
->>>  		goto free;
->>>  	}
->>> =20
->>> -	write_lock_bh(&t->lock);
->>> -	private =3D t->private;
->>> +	rcu_read_lock_bh();
->>> +	private =3D rcu_dereference(t->private);
->> I feel litle bit nervous seeing a write_lock_bh() changed to a rcu_r=
-ead_lock()
->=20
-> Facts, it is only updating entries on current cpu
+Roland Dreier <rdreier@cisco.com> wrote:
+> 
+> OK, thanks... what confused me is that several other drivers also do
+> skb_linearize() in their hard_start_xmit method... eg bnx2x,
+> via-velocity, mv643xx_eth.  So there are several other lurking bugs to
+> deal with here I guess.
 
-Yes, like done in ipt_do_table() ;)
+I don't know about the rest but bnx2x is certainly OK since it
+only does so with IRQ enabled.  It is legal to call skb_linearize
+as long as you're sure that IRQs are enabled, which is always the
+case for hard_start_xmit upon entry.
 
-=46act is we need to tell other threads, running on other cpus, that an=
- update
- of our entries is running.
+So the only time you can't call it in hard_start_xmit is if you've
+just disabled IRQs yourself.
 
-Let me check if your v4 and xt_counters abstraction already solved this=
- problem.
-
->=20
->> Also, add_counter_to_entry() is not using seqcount protection, so an=
-other thread
->> doing an iptables -L in parallel with this thread will possibly get =
-corrupted counters.
-> add_counter_to_entry is local to current CPU.
->=20
->=20
->> (With write_lock_bh(), this corruption could not occur)
->>
->>
-> --
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
