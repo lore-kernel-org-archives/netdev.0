@@ -1,108 +1,98 @@
-From: Parag Warudkar <parag.lkml@gmail.com>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Fri, 30 Jan 2009 17:50:36 -0500 (EST)
-Message-ID: <alpine.DEB.2.00.0901301743410.4989@parag-desktop>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain> <alpine.DEB.2.00.0901282049040.5026@parag-desktop> <20090129184215.GA13459@xw6200.broadcom.net> <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
- <20090129222247.GA13861@xw6200.broadcom.net> <alpine.DEB.2.00.0901291730030.5149@parag-desktop> <20090130184030.GA14933@xw6200.broadcom.net>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: virt-manager broken by bind(0) in net-next.
+Date: Sat, 31 Jan 2009 01:51:14 +0300
+Message-ID: <20090130225113.GA13977@ioremap.net>
+References: <20090130112125.GA9908@ioremap.net> <20090130125337.GA7155@gondor.apana.org.au> <20090130095737.103edbff@extreme> <498349F7.4050300@cosmosbay.com> <20090130215008.GB12210@ioremap.net> <49837F7E.90306@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, berrange@redhat.com,
+	et-mgmt-tools@redhat.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.189]:35732 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752325AbZA3Wuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:50:46 -0500
-In-Reply-To: <20090130184030.GA14933@xw6200.broadcom.net>
+Received: from corega.com.ru ([195.178.208.66]:56670 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754031AbZA3WvR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2009 17:51:17 -0500
+Content-Disposition: inline
+In-Reply-To: <49837F7E.90306@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, 30 Jan 2009, Matt Carlson wrote:
-
+On Fri, Jan 30, 2009 at 11:30:22PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> > It should contain rough number of sockets, there is no need to be very
+> > precise because of this hueristic.
 > 
-> If the PCI_COMMAND message doesn't match, then it means that the
-> PCI_COMMAND register isn't getting restored for some reason.  If they do
-> On Thu, Jan 29, 2009 at 02:35:44PM -0800, Parag Warudkar wrote:
-> > 
-> > 
-> > On Thu, 29 Jan 2009, Matt Carlson wrote:
-> > 
-> > > FWIW, I can suspend and resume using the latest linux-2.6 kernel
-> > > on a machine with a similar chip here.  The problem doesn't seem to
-> > > affect all Broadcom devices.
-> > 
-> > It is failing for me on HP xw6600 workstation, if that helps in any way.
-> > 
-> > Parag
+> Denying there is a bug is... well... I dont know what to say.
 > 
-> O.K.  Let's test some more assumptions.  Can you apply the following
-> patch and observe the system logs when the device is first loaded and
-> again after resume.  The patch looks at the pci command register to
-> verify that memory space IO is indeed enabled.  (It should be.)  This is
-> all that should be needed for MMIO to work.
-> On Thu, Jan 29, 2009 at 02:35:44PM -0800, Parag Warudkar wrote:
-> > 
-> > 
-> > On Thu, 29 Jan 2009, Matt Carlson wrote:
+> I wonder why we still use atomic_t all over the kernel.
 
-> O.K.  Let's test some more assumptions.  Can you apply the following
-> patch and observe the system logs when the device is first loaded and
-> again after resume.  The patch looks at the pci command register to
-> verify that memory space IO is indeed enabled.  (It should be.)  This is
-> all that should be needed for MMIO to work.
-> match, then something else in the system is not getting restored
-> correctly.
+It is not a bug. It is not supposed to be precise. At all.
+I implemented a simple heuristic on when diferent bind port selection
+algorithm should start: roughly when number of opened sockets equals to
+some predefined value (sysctl at the moment, but it could be 64k or
+anything else), so if that number is loosely maintained and does not
+precisely corresponds to the number of sockets, it is not a problem.
+
+You also saw 'again' lavel which has magic 5 number - it is another
+heuristic - since lock is dropped atfer the bind bucket check, and we
+selected it, it is possible that non-reuse socket will be added into the
+bucket, so we will have to rerun the process again. I limited this to
+the 5 attempts only, since it is better than what we have right now (I
+never saw more than 2 attempts needed in the tests), when number of
+bound sockets does not exceed 64k.
+
+> > I used free alignment slot so that socket structure would not be
+> > icreased.
 > 
-Here is the output after applying the patch (fresh boot btw) -
-
-[   29.698877] eth0: PCI_COMMAND reg = 0x406 (bit 1 is on)
-[   29.698880] eth0: Reg value at offset 0x0 is 0x167b14e4
-[   29.758169] ADDRCONF(NETDEV_UP): eth0: link is not ready
-[   31.295087] tg3: eth0: Link is up at 100 Mbps, full duplex.
-[   31.295090] tg3: eth0: Flow control is off for TX and off for RX.
-[   31.297574] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-[   41.872007] eth0: no IPv6 routers present
-^^^ Pre-Suspend
-
-[  245.924484] eth0: PCI_COMMAND reg = 0x406 (bit 1 is on)
-[  245.924487] eth0: Reg value at offset 0x0 is 0xffffffff
-[  247.317971] tg3: eth0: No firmware running.
-[  258.710634] ADDRCONF(NETDEV_UP): eth0: link is not ready
-^^^ Post-Suspend
-
-So it looks like the memory space IO is enabled before and after suspend.
-The device/vendor id goes 0xffffffff after resume - just like before.
-Does that one matter? (Firmware may be looking at it?) 
-
+> Are you kidding ?
 > 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 8b3f846..67bb29f 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -7225,8 +7225,17 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
->   */
->  static int tg3_init_hw(struct tg3 *tp, int reset_phy)
->  {
-> +	u16 cmd;
-> +
->  	tg3_switch_clocks(tp);
->  
-> +	pci_read_config_word(tp->pdev, PCI_COMMAND, &cmd);
-> +
-> +	printk(KERN_NOTICE "%s: PCI_COMMAND reg = 0x%x (bit 1 is %s)\n",
-> +	       tp->dev->name, cmd, (cmd & PCI_COMMAND_MEMORY) ? "on" : "off");
-> +	printk(KERN_NOTICE "%s: Reg value at offset 0x0 is 0x%x\n",
-> +	       tp->dev->name, tr32(0x0));
-> +
->  	tw32(TG3PCI_MEM_WIN_BASE_ADDR, 0);
->  
->  	return tg3_reset_hw(tp, reset_phy);
+> bsockets is not part of socket structure, but part of "struct inet_hashinfo",
+
+Yes, I mistyped.
+
+> shared by all cpus and accessed several thousand times per second on many
+> machines.
 > 
-> 
+> Please read the comment three lines after 'the free alignemnt slot'
+> you chose.... You just introduced one write on a cache line
+> that is supposed to *not* be written.
+
+I have no objection on moving this anywhere at the end of the structure
+like after bind_bucket_cachep.
+
+--- ./include/net/inet_hashtables.h~	2009-01-19 22:19:11.000000000 +0300
++++ ./include/net/inet_hashtables.h	2009-01-31 01:48:21.000000000 +0300
+@@ -134,7 +134,6 @@
+ 	struct inet_bind_hashbucket	*bhash;
+ 
+ 	unsigned int			bhash_size;
+-	int				bsockets;
+ 
+ 	struct kmem_cache		*bind_bucket_cachep;
+ 
+@@ -148,6 +147,7 @@
+ 	 * table where wildcard'd TCP sockets can exist.  Hash function here
+ 	 * is just local port number.
+ 	 */
++	int				bsockets;
+ 	struct inet_listen_hashbucket	listening_hash[INET_LHTABLE_SIZE]
+ 					____cacheline_aligned_in_smp;
+ 
+--- ./net/ipv4/inet_connection_sock.c~	2009-01-19 22:21:08.000000000 +0300
++++ ./net/ipv4/inet_connection_sock.c	2009-01-31 01:50:20.000000000 +0300
+@@ -172,7 +172,8 @@
+ 		} else {
+ 			ret = 1;
+ 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
+-				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN && --attempts >= 0) {
++				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
++					smallest_size != -1 && --attempts >= 0) {
+ 					spin_unlock(&head->lock);
+ 					goto again;
+ 				}
+
+
+-- 
+	Evgeniy Polyakov
