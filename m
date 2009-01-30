@@ -1,114 +1,75 @@
-From: Kenny Chang <kchang@athenacr.com>
-Subject: Multicast packet loss
-Date: Fri, 30 Jan 2009 12:49:48 -0500
-Message-ID: <49833DBC.7040607@athenacr.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Fri, 30 Jan 2009 10:40:30 -0800
+Message-ID: <20090130184030.GA14933@xw6200.broadcom.net>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
+ <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain>
+ <alpine.DEB.2.00.0901282049040.5026@parag-desktop>
+ <20090129184215.GA13459@xw6200.broadcom.net>
+ <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
+ <20090129222247.GA13861@xw6200.broadcom.net>
+ <alpine.DEB.2.00.0901291730030.5149@parag-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.95.46.209] ([64.95.46.209]:1491 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752255AbZA3SJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 13:09:24 -0500
-Received: from [192.168.14.21] (fiji.em.in.athenacr.com [192.168.14.21])
-	by sprinkles.inp.in.athenacr.com (Postfix) with ESMTP id ADAE24D5CB
-	for <netdev@vger.kernel.org>; Fri, 30 Jan 2009 12:49:48 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "Parag Warudkar" <parag.lkml@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755501AbZA3SlH@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.0901291730030.5149@parag-desktop>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Thu, Jan 29, 2009 at 02:35:44PM -0800, Parag Warudkar wrote:
+> 
+> 
+> On Thu, 29 Jan 2009, Matt Carlson wrote:
+> 
+> > FWIW, I can suspend and resume using the latest linux-2.6 kernel
+> > on a machine with a similar chip here.  The problem doesn't seem to
+> > affect all Broadcom devices.
+> 
+> It is failing for me on HP xw6600 workstation, if that helps in any way.
+> 
+> Parag
 
-We've been having some issues with multicast packet loss, we were wondering
-if anyone knows anything about the behavior we're seeing.
+O.K.  Let's test some more assumptions.  Can you apply the following
+patch and observe the system logs when the device is first loaded and
+again after resume.  The patch looks at the pci command register to
+verify that memory space IO is indeed enabled.  (It should be.)  This is
+all that should be needed for MMIO to work.
 
-Background: we use multicast messaging with lots of messages per sec for our
-work. We recently transitioned many of our systems from an Ubuntu Dapper Drake
-ia32 distribution to Ubuntu Hardy Heron x86_64. Since the transition, we've
-noticed much more multicast packet loss, and we think it's related to the
-transition. Our particular theory is that it's specifically a 32 vs 64-bit
-issue.
-
-We narrowed the problem down to the attached program (mcasttest.cc).  Run
-"mcasttest server" on one machine -- it'll send 500,000 messages small message
-to a multicast group, 50,000 messages per second.  If we run "mcasttest client"
-on another machine, it'll receive all those messages and print a count at the
-end of how many messages it sees. It almost never loses any messages. However,
-if we run 4 copies of the client on the same machine, receiving the same data,
-then the programs usually sees fewer than 500,000 messages. We're running with:
-
-for i in $(seq 1 4); do (./mcasttest client &); done
-
-We know this because the program prints a count, but dropped packets also
-show up in ifconfig's "RX packets" section.
-
-Things we're curious about: do other people see similar problems?  The tests
-we've done: we've tried this program on a bunch of different machines, all of
-which are running either dapper ia32 or hardy x86_64. Uniformly, the dapper
-machines have no problems but on certain machines, Hardy shows significant loss. 
-We did some experiments on a troubled machine, varying the OS install, 
-including mixed installations where the kernel was 64-bit and the userspace was
-32-bit. This is what we found:
-
-On machines that exhibit this problem, the ksoftirqd process seems to be 
-pegged to 100% CPU when receiving packets.
-
-Note: while we're on Ubuntu, we've tried this with other distros and have seen
-similar results, we just haven't tabulated them.
-
-> ----------------------------------------------------------------------------
-> userland | userland arch | kernel           | kernel arch | mode           
-> ----------------------------------------------------------------------------
-> Dapper   |            32 | 2.6.15-28-server |          32 | no packet loss
-> Dapper   |            32 | 2.6.22-generic   |          32 | no packet loss 
-> Dapper   |            32 | 2.6.22-server    |          32 | no packet loss 
-> Hardy    |            32 | 2.6.24-rt        |          32 | no packet loss
-> Hardy    |            32 | 2.6.24-generic   |          32 | ~5% packet loss
-> Hardy    |            32 | 2.6.24-server    |          32 | ~10% packet loss
-
-> Hardy    |            32 | 2.6.22-server    |          64 | no packet loss
-> Hardy    |            32 | 2.6.24-rt        |          64 | no packet loss
-> Hardy    |            32 | 2.6.24-generic   |          64 | 14% packet loss
-> Hardy    |            32 | 2.6.24-server    |          64 | 12% packet loss
-
-> Hardy    |            64 | 2.6.22-vanilla   |          64 | packet loss
-> Hardy    |            64 | 2.6.24-rt        |          64 | ~5% packet loss
-> Hardy    |            64 | 2.6.24-server    |          64 | ~30% packet loss
-> Hardy    |            64 | 2.6.24-generic   |          64 | ~5% packet loss
-> ----------------------------------------------------------------------------
-
-It's not exactly clear what exactly the problem is but dapper shows no issues 
-regardless of what we try. For hardy, userspace seem to matter: 
-2.6.24-rt kernel shows no packet loss for 32&64bit kernels, as long as the userspace 
-is 32-bit.
-
-Kernel comments:
-2.6.15-28-server: This is Ubuntu Dapper's stock kernel build.
-2.6.24-*: This is Ubuntu Hardy's stock kernel.
-2.6.22-{generic,server}: This is a custom, in-house kernel build, built for ia32.
-2.6.22-vanilla: This is our custom, in-house kernel build, built for x86_64.
-
-We don't think it's related to our custom kernels, because the same phenomena
-show up with the Ubuntu stock kernels.
-
-Hardware:
-
-The benchmark machine We've been using is an Intel Xeon E5440 @2.83GHz
-dual-cpu quad-core with Broadcom NetXtreme II BCM5708 bnx2 networking.
-
-We've also tried AMD machines, as well as machines with Tigon3
-partno(BCM95704A6) tg3 network cards, they all show consistent behavior.
-
-Our hardy x86_64 server machines all appear to have this problem, new and old.
-
-On the other hand, a desktop with Intel Q6600 quad core 2.4GHz and Intel 82566DC GigE
-seem to work fine.
-
-All of the dapper ia32 machines have no trouble, even our older hardware.
+If the PCI_COMMAND message doesn't match, then it means that the
+PCI_COMMAND register isn't getting restored for some reason.  If they do
+match, then something else in the system is not getting restored
+correctly.
 
 
-Thanks,
-Kenny Chang
-Athena Capital Research
-
-
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 8b3f846..67bb29f 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -7225,8 +7225,17 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+  */
+ static int tg3_init_hw(struct tg3 *tp, int reset_phy)
+ {
++	u16 cmd;
++
+ 	tg3_switch_clocks(tp);
+ 
++	pci_read_config_word(tp->pdev, PCI_COMMAND, &cmd);
++
++	printk(KERN_NOTICE "%s: PCI_COMMAND reg = 0x%x (bit 1 is %s)\n",
++	       tp->dev->name, cmd, (cmd & PCI_COMMAND_MEMORY) ? "on" : "off");
++	printk(KERN_NOTICE "%s: Reg value at offset 0x0 is 0x%x\n",
++	       tp->dev->name, tr32(0x0));
++
+ 	tw32(TG3PCI_MEM_WIN_BASE_ADDR, 0);
+ 
+ 	return tg3_reset_hw(tp, reset_phy);
