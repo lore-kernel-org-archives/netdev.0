@@ -1,75 +1,92 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Fri, 30 Jan 2009 10:40:30 -0800
-Message-ID: <20090130184030.GA14933@xw6200.broadcom.net>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
- <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain>
- <alpine.DEB.2.00.0901282049040.5026@parag-desktop>
- <20090129184215.GA13459@xw6200.broadcom.net>
- <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
- <20090129222247.GA13861@xw6200.broadcom.net>
- <alpine.DEB.2.00.0901291730030.5149@parag-desktop>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: virt-manager broken by bind(0) in net-next.
+Date: Fri, 30 Jan 2009 19:41:59 +0100
+Message-ID: <498349F7.4050300@cosmosbay.com>
+References: <20090130112125.GA9908@ioremap.net>	<20090130125337.GA7155@gondor.apana.org.au> <20090130095737.103edbff@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Parag Warudkar" <parag.lkml@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755501AbZA3SlH@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0901291730030.5149@parag-desktop>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Evgeniy Polyakov <zbr@ioremap.net>, berrange@redhat.com,
+	et-mgmt-tools@redhat.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38708 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751716AbZA3Sn3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 13:43:29 -0500
+In-Reply-To: <20090130095737.103edbff@extreme>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 29, 2009 at 02:35:44PM -0800, Parag Warudkar wrote:
-> 
-> 
-> On Thu, 29 Jan 2009, Matt Carlson wrote:
-> 
-> > FWIW, I can suspend and resume using the latest linux-2.6 kernel
-> > on a machine with a similar chip here.  The problem doesn't seem to
-> > affect all Broadcom devices.
-> 
-> It is failing for me on HP xw6600 workstation, if that helps in any way.
-> 
-> Parag
+Stephen Hemminger a =E9crit :
+> On Fri, 30 Jan 2009 23:53:37 +1100
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>=20
+>> Evgeniy Polyakov <zbr@ioremap.net> wrote:
+>>> So it is not explicit bind call, but port autoselection in the
+>>> connect(). Can you check what errno is returned?
+>>> Did I understand it right, that connect fails, you try different
+>>> address, but then suddenly all those sockets become 'alive'?
+>> Yes, I think a good strace vs. a bad strace would be really helpful
+>> in these cases.
+>>
+>> Thanks,
+>=20
+> I have the strace but it comes up no different.
+> What is different is that in the broken case (net-next), I see
+> IPV6 being used:
+>=20
+> State      Recv-Q Send-Q      Local Address:Port          Peer Addres=
+s:Port  =20
+> ESTAB      23769  0        ::ffff:127.0.0.1:5900      ::ffff:127.0.0.=
+1:55987  =20
+> ESTAB      0      0               127.0.0.1:55987            127.0.0.=
+1:5900
+>=20
+> and in the working case (2.6.29-rc3), IPV4 is being used
+> State      Recv-Q Send-Q      Local Address:Port          Peer Addres=
+s:Port  =20
+> ESTAB      0      0               127.0.0.1:58894            127.0.0.=
+1:5901   =20
+> ESTAB      0      0               127.0.0.1:5901             127.0.0.=
+1:58894=20
+>=20
 
-O.K.  Let's test some more assumptions.  Can you apply the following
-patch and observe the system logs when the device is first loaded and
-again after resume.  The patch looks at the pci command register to
-verify that memory space IO is indeed enabled.  (It should be.)  This is
-all that should be needed for MMIO to work.
+Reviewing commit a9d8f9110d7e953c2f2b521087a4179677843c2a
 
-If the PCI_COMMAND message doesn't match, then it means that the
-PCI_COMMAND register isn't getting restored for some reason.  If they do
-match, then something else in the system is not getting restored
-correctly.
+I see use of a hashinfo->bsockets field that :
+
+- lacks proper lock/synchronization
+- suffers from cache line ping pongs on SMP
+
+Also there might be a problem at line 175
+
+if (sk->sk_reuse && sk->sk_state !=3D TCP_LISTEN && --attempts >=3D 0) =
+{=20
+	spin_unlock(&head->lock);
+	goto again;
+
+If we entered inet_csk_get_port() with a non null snum, we can "goto ag=
+ain"
+while it was not expected.
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection=
+_sock.c
+index df8e72f..752c6b2 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -172,7 +172,8 @@ tb_found:
+ 		} else {
+ 			ret =3D 1;
+ 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
+-				if (sk->sk_reuse && sk->sk_state !=3D TCP_LISTEN && --attempts >=3D=
+ 0) {
++				if (sk->sk_reuse && sk->sk_state !=3D TCP_LISTEN &&
++					smallest_size =3D=3D -1 &&  --attempts >=3D 0) {
+ 					spin_unlock(&head->lock);
+ 					goto again;
+ 				}
 
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 8b3f846..67bb29f 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -7225,8 +7225,17 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
-  */
- static int tg3_init_hw(struct tg3 *tp, int reset_phy)
- {
-+	u16 cmd;
-+
- 	tg3_switch_clocks(tp);
- 
-+	pci_read_config_word(tp->pdev, PCI_COMMAND, &cmd);
-+
-+	printk(KERN_NOTICE "%s: PCI_COMMAND reg = 0x%x (bit 1 is %s)\n",
-+	       tp->dev->name, cmd, (cmd & PCI_COMMAND_MEMORY) ? "on" : "off");
-+	printk(KERN_NOTICE "%s: Reg value at offset 0x0 is 0x%x\n",
-+	       tp->dev->name, tr32(0x0));
-+
- 	tw32(TG3PCI_MEM_WIN_BASE_ADDR, 0);
- 
- 	return tg3_reset_hw(tp, reset_phy);
