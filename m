@@ -1,43 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [ofa-general] NetEffect, iw_nes and kernel warning
-Date: Fri, 30 Jan 2009 08:25:23 -0800
-Message-ID: <20090130082523.0fb8fb60@extreme>
-References: <adaljsvwbkm.fsf@cisco.com>
-	<20090130065721.GA4886@gondor.apana.org.au>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH 09/13] atmel-mci: convert to dma_request_channel and
+ down-level dma_slave
+Date: Sat, 31 Jan 2009 01:40:50 +0900 (JST)
+Message-ID: <20090131.014050.126762132.anemo@mba.ocn.ne.jp>
+References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
+	<20081114213503.32354.21080.stgit@dwillia2-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>, davem@davemloft.net,
-	aluno3@poczta.onet.pl, general@lists.openfabrics.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
+	g.liakhovetski@gmx.de, nicolas.ferre@atmel.com
+To: dan.j.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56256 "EHLO mail.vyatta.com"
+Received: from mba.ocn.ne.jp ([122.1.235.107]:63353 "EHLO smtp.mba.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750824AbZA3QZZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jan 2009 11:25:25 -0500
-In-Reply-To: <20090130065721.GA4886@gondor.apana.org.au>
+	id S1752464AbZA3Qkv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2009 11:40:51 -0500
+In-Reply-To: <20081114213503.32354.21080.stgit@dwillia2-linux.ch.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Jan 2009 17:57:21 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> Roland Dreier <rdreier@cisco.com> wrote:
-> > 
-> > OK, thanks... what confused me is that several other drivers also do
-> > skb_linearize() in their hard_start_xmit method... eg bnx2x,
-> > via-velocity, mv643xx_eth.  So there are several other lurking bugs to
-> > deal with here I guess.
+On Fri, 14 Nov 2008 14:35:03 -0700, Dan Williams <dan.j.williams@intel.com> wrote:
+> dma_request_channel provides an exclusive channel, so we no longer need to
+> pass slave data through dmaengine.
 > 
-> I don't know about the rest but bnx2x is certainly OK since it
-> only does so with IRQ enabled.  It is legal to call skb_linearize
-> as long as you're sure that IRQs are enabled, which is always the
-> case for hard_start_xmit upon entry.
-> 
-> So the only time you can't call it in hard_start_xmit is if you've
-> just disabled IRQs yourself.
+> Cc: Haavard Skinnemoen <haavard.skinnemoen@atmel.com>
+> Signed-off-by: Dan Williams <dan.j.williams@intel.com>
 
-Or netconsole.
-netconsole calls start_xmit from IRQ 
-but it is safe since netconsole doesn't send fragmented skb's
+Sorry for late review... I hope not too late.
+
+> @@ -789,23 +782,17 @@ static int dwc_alloc_chan_resources(struct dma_chan *chan,
+>  	cfghi = DWC_CFGH_FIFO_MODE;
+>  	cfglo = 0;
+>  
+> -	slave = client->slave;
+> -	if (slave) {
+> +	dws = dwc->dws;
+> +	if (dws) {
+>  		/*
+>  		 * We need controller-specific data to set up slave
+>  		 * transfers.
+>  		 */
+> -		BUG_ON(!slave->dma_dev || slave->dma_dev != dw->dma.dev);
+> -
+> -		dws = container_of(slave, struct dw_dma_slave, slave);
+> +		BUG_ON(!dws->dma_dev || dws->dma_dev != dw->dma.dev);
+>  
+> -		dwc->dws = dws;
+
+How dw_dma_slave passed to the dw_dmac driver?  I cannot see where
+dwc->dws is initialized now.  Or am I missing something?
+
+---
+Atsushi Nemoto
