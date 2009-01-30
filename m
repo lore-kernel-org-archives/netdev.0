@@ -1,139 +1,68 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 03/11] sfc: SFT9001: Fix speed reporting in 1G PHY loopback
-Date: Fri, 30 Jan 2009 03:49:09 +0000
-Message-ID: <20090130034908.GE15266@solarflare.com>
+Subject: [PATCH 04/11] sfc: SFN4111T: Fix GPIO sharing between I2C and FLASH_CFG_1
+Date: Fri, 30 Jan 2009 03:49:29 +0000
+Message-ID: <20090130034928.GF15266@solarflare.com>
 References: <20090129.170811.135213740.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:56051 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753490AbZA3DtQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 22:49:16 -0500
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:33690 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754122AbZA3Dtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2009 22:49:31 -0500
 Content-Disposition: inline
 In-Reply-To: <20090129.170811.135213740.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
+Change sfn4111t_reset() to change only GPIO output enables so that it
+doesn't break subsequent I2C operations.
 
-Instead of disabling AN in loopback, just prevent restarting AN and
-override the speed in sft9001_get_settings().
+Update comments to explain exactly what we're doing.
+
+Add a short sleep to make sure the FLASH_CFG_1 value is latched before
+any subsequent I2C operations.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/mdio_10g.c    |    4 ++++
- drivers/net/sfc/tenxpress.c   |   27 +++++++++------------------
- drivers/net/sfc/workarounds.h |    5 +++++
- 3 files changed, 18 insertions(+), 18 deletions(-)
+ drivers/net/sfc/sfe4001.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/sfc/mdio_10g.c
-index f6a1642..7f09ab5 100644
---- a/drivers/net/sfc/mdio_10g.c
-+++ b/drivers/net/sfc/mdio_10g.c
-@@ -15,6 +15,7 @@
- #include "net_driver.h"
- #include "mdio_10g.h"
- #include "boards.h"
-+#include "workarounds.h"
- 
- int mdio_clause45_reset_mmd(struct efx_nic *port, int mmd,
- 			    int spins, int spintime)
-@@ -517,6 +518,9 @@ int mdio_clause45_set_settings(struct efx_nic *efx,
- 			reg |= BMCR_ANENABLE | BMCR_ANRESTART;
- 		else
- 			reg &= ~BMCR_ANENABLE;
-+		if (EFX_WORKAROUND_15195(efx)
-+		    && LOOPBACK_MASK(efx) & efx->phy_op->loopbacks)
-+			reg &= ~BMCR_ANRESTART;
- 		if (xnp)
- 			reg |= 1 << MDIO_AN_CTRL_XNP_LBN;
- 		else
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index 80c8d6e..bc2833f 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -511,7 +511,7 @@ static void tenxpress_phy_reconfigure(struct efx_nic *efx)
+diff --git a/drivers/net/sfc/sfe4001.c b/drivers/net/sfc/sfe4001.c
+index 16b80ac..c7c95db 100644
+--- a/drivers/net/sfc/sfe4001.c
++++ b/drivers/net/sfc/sfe4001.c
+@@ -186,19 +186,22 @@ static int sfn4111t_reset(struct efx_nic *efx)
  {
- 	struct tenxpress_phy_data *phy_data = efx->phy_data;
- 	struct ethtool_cmd ecmd;
--	bool phy_mode_change, loop_reset, loop_toggle, loopback;
-+	bool phy_mode_change, loop_reset;
+ 	efx_oword_t reg;
  
- 	if (efx->phy_mode & (PHY_MODE_OFF | PHY_MODE_SPECIAL)) {
- 		phy_data->phy_mode = efx->phy_mode;
-@@ -522,12 +522,10 @@ static void tenxpress_phy_reconfigure(struct efx_nic *efx)
+-	/* GPIO pins are also used for I2C, so block that temporarily */
++	/* GPIO 3 and the GPIO register are shared with I2C, so block that */
+ 	mutex_lock(&efx->i2c_adap.bus_lock);
  
- 	phy_mode_change = (efx->phy_mode == PHY_MODE_NORMAL &&
- 			   phy_data->phy_mode != PHY_MODE_NORMAL);
--	loopback = LOOPBACK_MASK(efx) & efx->phy_op->loopbacks;
--	loop_toggle = LOOPBACK_CHANGED(phy_data, efx, efx->phy_op->loopbacks);
- 	loop_reset = (LOOPBACK_OUT_OF(phy_data, efx, efx->phy_op->loopbacks) ||
- 		      LOOPBACK_CHANGED(phy_data, efx, 1 << LOOPBACK_GPHY));
++	/* Pull RST_N (GPIO 2) low then let it up again, setting the
++	 * FLASH_CFG_1 strap (GPIO 3) appropriately.  Only change the
++	 * output enables; the output levels should always be 0 (low)
++	 * and we rely on external pull-ups. */
+ 	falcon_read(efx, &reg, GPIO_CTL_REG_KER);
+ 	EFX_SET_OWORD_FIELD(reg, GPIO2_OEN, true);
+-	EFX_SET_OWORD_FIELD(reg, GPIO2_OUT, false);
+ 	falcon_write(efx, &reg, GPIO_CTL_REG_KER);
+ 	msleep(1000);
+-	EFX_SET_OWORD_FIELD(reg, GPIO2_OUT, true);
+-	EFX_SET_OWORD_FIELD(reg, GPIO3_OEN, true);
+-	EFX_SET_OWORD_FIELD(reg, GPIO3_OUT,
+-			    !(efx->phy_mode & PHY_MODE_SPECIAL));
++	EFX_SET_OWORD_FIELD(reg, GPIO2_OEN, false);
++	EFX_SET_OWORD_FIELD(reg, GPIO3_OEN,
++			    !!(efx->phy_mode & PHY_MODE_SPECIAL));
+ 	falcon_write(efx, &reg, GPIO_CTL_REG_KER);
++	msleep(1);
  
--	if (loop_reset || loop_toggle || loopback || phy_mode_change) {
-+	if (loop_reset || phy_mode_change) {
- 		int rc;
+ 	mutex_unlock(&efx->i2c_adap.bus_lock);
  
- 		efx->phy_op->get_settings(efx, &ecmd);
-@@ -542,20 +540,6 @@ static void tenxpress_phy_reconfigure(struct efx_nic *efx)
- 				falcon_reset_xaui(efx);
- 		}
- 
--		if (efx->phy_type != PHY_TYPE_SFX7101) {
--			/* Only change autoneg once, on coming out or
--			 * going into loopback */
--			if (loop_toggle)
--				ecmd.autoneg = !loopback;
--			if (loopback) {
--				ecmd.duplex = DUPLEX_FULL;
--				if (efx->loopback_mode == LOOPBACK_GPHY)
--					ecmd.speed = SPEED_1000;
--				else
--					ecmd.speed = SPEED_10000;
--			}
--		}
--
- 		rc = efx->phy_op->set_settings(efx, &ecmd);
- 		WARN_ON(rc);
- 	}
-@@ -813,6 +797,13 @@ static void sft9001_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 		ecmd->duplex = (reg & (1 << GPHY_DUPLEX_LBN) ?
- 				DUPLEX_FULL : DUPLEX_HALF);
- 	}
-+
-+	/* In loopback, the PHY automatically brings up the correct interface,
-+	 * but doesn't advertise the correct speed. So override it */
-+	if (efx->loopback_mode == LOOPBACK_GPHY)
-+		ecmd->speed = SPEED_1000;
-+	else if (LOOPBACK_MASK(efx) & SFT9001_LOOPBACKS)
-+		ecmd->speed = SPEED_10000;
- }
- 
- static int sft9001_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
-diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/sfc/workarounds.h
-index 797a0cf..420fe15 100644
---- a/drivers/net/sfc/workarounds.h
-+++ b/drivers/net/sfc/workarounds.h
-@@ -19,6 +19,8 @@
- #define EFX_WORKAROUND_FALCON_A(efx) (falcon_rev(efx) <= FALCON_REV_A1)
- #define EFX_WORKAROUND_10G(efx) EFX_IS10G(efx)
- #define EFX_WORKAROUND_SFT9001A(efx) ((efx)->phy_type == PHY_TYPE_SFT9001A)
-+#define EFX_WORKAROUND_SFT9001(efx) ((efx)->phy_type == PHY_TYPE_SFT9001A || \
-+				     (efx)->phy_type == PHY_TYPE_SFT9001B)
- 
- /* XAUI resets if link not detected */
- #define EFX_WORKAROUND_5147 EFX_WORKAROUND_ALWAYS
-@@ -56,4 +58,7 @@
- /* Need to keep AN enabled */
- #define EFX_WORKAROUND_13963 EFX_WORKAROUND_SFT9001A
- 
-+/* Don't restart AN in near-side loopback */
-+#define EFX_WORKAROUND_15195 EFX_WORKAROUND_SFT9001
-+
- #endif /* EFX_WORKAROUNDS_H */
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
