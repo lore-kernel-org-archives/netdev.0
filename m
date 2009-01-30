@@ -1,149 +1,128 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Multicast packet loss
-Date: Fri, 30 Jan 2009 15:03:30 -0500
-Message-ID: <20090130200330.GA12659@hmsreliant.think-freely.org>
-References: <49833DBC.7040607@athenacr.com>
+From: Steve Sakoman <sakoman@gmail.com>
+Subject: [RFC] ARM: Add SMSC911X support to Overo platform
+Date: Fri, 30 Jan 2009 12:28:38 -0800
+Message-ID: <5e088bd90901301228l3a0ab25m35a7341ac972e9de@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Kenny Chang <kchang@athenacr.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38967 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752811AbZA3UDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 15:03:44 -0500
-Content-Disposition: inline
-In-Reply-To: <49833DBC.7040607@athenacr.com>
+Received: from mail-fx0-f20.google.com ([209.85.220.20]:47016 "EHLO
+	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753760AbZA3UgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 15:36:24 -0500
+Received: by fxm13 with SMTP id 13so427135fxm.13
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2009 12:36:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 30, 2009 at 12:49:48PM -0500, Kenny Chang wrote:
-> Hi all,
->
-> We've been having some issues with multicast packet loss, we were wondering
-> if anyone knows anything about the behavior we're seeing.
->
-> Background: we use multicast messaging with lots of messages per sec for our
-> work. We recently transitioned many of our systems from an Ubuntu Dapper Drake
-> ia32 distribution to Ubuntu Hardy Heron x86_64. Since the transition, we've
-> noticed much more multicast packet loss, and we think it's related to the
-> transition. Our particular theory is that it's specifically a 32 vs 64-bit
-> issue.
->
-> We narrowed the problem down to the attached program (mcasttest.cc).  Run
-> "mcasttest server" on one machine -- it'll send 500,000 messages small message
-> to a multicast group, 50,000 messages per second.  If we run "mcasttest client"
-> on another machine, it'll receive all those messages and print a count at the
-> end of how many messages it sees. It almost never loses any messages. However,
-> if we run 4 copies of the client on the same machine, receiving the same data,
-> then the programs usually sees fewer than 500,000 messages. We're running with:
->
-> for i in $(seq 1 4); do (./mcasttest client &); done
->
-> We know this because the program prints a count, but dropped packets also
-> show up in ifconfig's "RX packets" section.
->
-> Things we're curious about: do other people see similar problems?  The tests
-> we've done: we've tried this program on a bunch of different machines, all of
-> which are running either dapper ia32 or hardy x86_64. Uniformly, the dapper
-> machines have no problems but on certain machines, Hardy shows 
-> significant loss. We did some experiments on a troubled machine, varying 
-> the OS install, including mixed installations where the kernel was 64-bit 
-> and the userspace was
-> 32-bit. This is what we found:
->
-> On machines that exhibit this problem, the ksoftirqd process seems to be  
-> pegged to 100% CPU when receiving packets.
->
-> Note: while we're on Ubuntu, we've tried this with other distros and have seen
-> similar results, we just haven't tabulated them.
->
->> ----------------------------------------------------------------------------
->> userland | userland arch | kernel           | kernel arch | mode        
->>     
->> ----------------------------------------------------------------------------
->> Dapper   |            32 | 2.6.15-28-server |          32 | no packet loss
->> Dapper   |            32 | 2.6.22-generic   |          32 | no packet 
->> loss Dapper   |            32 | 2.6.22-server    |          32 | no 
->> packet loss Hardy    |            32 | 2.6.24-rt        |          32 | 
->> no packet loss
->> Hardy    |            32 | 2.6.24-generic   |          32 | ~5% packet loss
->> Hardy    |            32 | 2.6.24-server    |          32 | ~10% packet loss
->
->> Hardy    |            32 | 2.6.22-server    |          64 | no packet loss
->> Hardy    |            32 | 2.6.24-rt        |          64 | no packet loss
->> Hardy    |            32 | 2.6.24-generic   |          64 | 14% packet loss
->> Hardy    |            32 | 2.6.24-server    |          64 | 12% packet loss
->
->> Hardy    |            64 | 2.6.22-vanilla   |          64 | packet loss
->> Hardy    |            64 | 2.6.24-rt        |          64 | ~5% packet loss
->> Hardy    |            64 | 2.6.24-server    |          64 | ~30% packet loss
->> Hardy    |            64 | 2.6.24-generic   |          64 | ~5% packet loss
->> ----------------------------------------------------------------------------
->
-> It's not exactly clear what exactly the problem is but dapper shows no 
-> issues regardless of what we try. For hardy, userspace seem to matter:  
-> 2.6.24-rt kernel shows no packet loss for 32&64bit kernels, as long as 
-> the userspace is 32-bit.
->
-> Kernel comments:
-> 2.6.15-28-server: This is Ubuntu Dapper's stock kernel build.
-> 2.6.24-*: This is Ubuntu Hardy's stock kernel.
-> 2.6.22-{generic,server}: This is a custom, in-house kernel build, built for ia32.
-> 2.6.22-vanilla: This is our custom, in-house kernel build, built for x86_64.
->
-> We don't think it's related to our custom kernels, because the same phenomena
-> show up with the Ubuntu stock kernels.
->
-> Hardware:
->
-> The benchmark machine We've been using is an Intel Xeon E5440 @2.83GHz
-> dual-cpu quad-core with Broadcom NetXtreme II BCM5708 bnx2 networking.
->
-> We've also tried AMD machines, as well as machines with Tigon3
-> partno(BCM95704A6) tg3 network cards, they all show consistent behavior.
->
-> Our hardy x86_64 server machines all appear to have this problem, new and old.
->
-> On the other hand, a desktop with Intel Q6600 quad core 2.4GHz and Intel 82566DC GigE
-> seem to work fine.
->
-> All of the dapper ia32 machines have no trouble, even our older hardware.
->
+Gumstix will soon be shipping a variant of their Summit board that
+includes an SMSC9221 ethernet interface.  This patch is intended to
+provide support via the smsc911x driver when enabled in defconfig.
+The final submission of course will also include an updated defconfig.
 
-Like Eric mentioned, I'd start with a latest kernel if at all possible.  If it
-doesn't happen there, you're work is half over, you just need to figure out what
-changed, and tell Canonical to backport it.
+Signed-off-by: Steve Sakoman <steve@sakoman.com>
+---
+diff --git a/arch/arm/mach-omap2/board-overo.c
+b/arch/arm/mach-omap2/board-overo.c
+index 9995ac2..97d95a4 100644
+--- a/arch/arm/mach-omap2/board-overo.c
++++ b/arch/arm/mach-omap2/board-overo.c
+@@ -55,6 +55,63 @@
+ #define GPMC_CS0_BASE  0x60
+ #define GPMC_CS_SIZE   0x30
 
->From there, you can solve this like most packet loss issues are solved:
++#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
++
++#include <linux/smsc911x.h>
++
++static struct resource overo_smsc911x_resources[] = {
++	{
++		.name	= "smsc911x-memory",
++		.flags	= IORESOURCE_MEM,
++	},
++	{
++		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
++	},
++};
++
++static struct smsc911x_platform_config overo_smsc911x_config = {
++	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
++	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
++	.flags		= SMSC911X_USE_32BIT ,
++	.phy_interface	= PHY_INTERFACE_MODE_MII,
++};
++
++static struct platform_device overo_smsc911x_device = {
++	.name		= "smsc911x",
++	.id		= -1,
++	.num_resources	= ARRAY_SIZE(overo_smsc911x_resources),
++	.resource	= &overo_smsc911x_resources,
++	.dev		= {
++		.platform_data = &overo_smsc911x_config,
++	},
++};
++
++static inline void __init overo_init_smsc911x(void)
++{
++	unsigned long cs_mem_base;
++
++	if (gpmc_cs_request(OVERO_SMSC911X_CS, SZ_16M, &cs_mem_base) < 0) {
++		printk(KERN_ERR "Failed request for GPMC mem for smsc911x\n");
++		return;
++	}
++
++	overo_smsc911x_resources[0].start = cs_mem_base + 0x0;
++	overo_smsc911x_resources[0].end   = cs_mem_base + 0xff;
++
++	if ((gpio_request(OVERO_SMSC911X_GPIO, "SMSC911X IRQ") == 0) &&
++	    (gpio_direction_input(OVERO_SMSC911X_GPIO) == 0)) {
++		gpio_export(OVERO_SMSC911X_GPIO, 0);
++	} else {
++		printk(KERN_ERR "could not obtain gpio for SMSC911X IRQ\n");
++		return;
++	}
++
++	overo_smsc911x_resources[1].start = OMAP_GPIO_IRQ(OVERO_SMSC911X_GPIO),
++	overo_smsc911x_resources[1].end	  = OMAP_GPIO_IRQ(OVERO_SMSC911X_GPIO),
++}
++
++#endif
++
+ static struct mtd_partition overo_nand_partitions[] = {
+ 	{
+ 		.name           = "xloader",
+@@ -187,6 +244,9 @@ static void __init overo_init_irq(void)
+ 	omap2_init_common_hw(mt46h32m32lf6_sdrc_params);
+ 	omap_init_irq();
+ 	omap_gpio_init();
++#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
++	overo_init_smsc911x();
++#endif
+ }
 
-1) Determine if its a rx or tx packet loss.  From your comments above it sounds
-like this is an rx side issue
+ static struct platform_device overo_lcd_device = {
+@@ -204,6 +264,9 @@ static struct omap_board_config_kernel
+overo_config[] __initdata = {
+ };
 
-2) Look at statistics from the hardware to the application.  Use ethtool &
-/proc/net/dev to get hardware packet loss stats, /proc/net/snmp netstat -s to
-get core network loss stats
+ static struct platform_device *overo_devices[] __initdata = {
++#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
++	&overo_smsc911x_device,
++#endif
+ 	&overo_lcd_device,
+ };
 
-3) Use those stats to identify where and why packets are getting dropped.
-Posting some summary of that data here is something we can help with if need be
+diff --git a/arch/arm/plat-omap/include/mach/board-overo.h
+b/arch/arm/plat-omap/include/mach/board-overo.h
+index 7ecae66..8635171 100644
+--- a/arch/arm/plat-omap/include/mach/board-overo.h
++++ b/arch/arm/plat-omap/include/mach/board-overo.h
+@@ -22,5 +22,8 @@
+ #define OVERO_GPIO_USBH_CPEN	168
+ #define OVERO_GPIO_USBH_NRESET	183
 
-4) Determine how to reduce the loss (i.e. code change vs. tuning)
-
-5) Lather, rinse repeat (given that eliminating a drop cause in one location
-will likely increase througput, potentially putting strain on another location
-in the code path, possibly leading to more drops elsewhere. 
-
-
-You had mentioned that ifconfig was showing rx drops, which indicates that your
-hardware rx buffer is likely overflowing.  Usually the best way to fix that is
-to:
-
-1) modify any available interrupt coalescing parameters on the driver such that
-interrupts have less latency between packet arrival and assertion
-
-2) increase (if possible) the napi weight (I think thats still the right term)
-so that each napi poll interation receives more frames on the interface,
-draining that queue more quickly.
-
-Neil
-
++#define OVERO_SMSC911X_CS	5
++#define OVERO_SMSC911X_GPIO	176
++
+ #endif /* ____ASM_ARCH_OVERO_H */
