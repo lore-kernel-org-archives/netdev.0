@@ -1,49 +1,150 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Sat, 31 Jan 2009 09:16:04 +1100
-Message-ID: <20090130221604.GD11381@gondor.apana.org.au>
-References: <20090126212130.GA4338@ioremap.net> <20090126.221056.174077798.davem@davemloft.net> <20090127074048.GA4197@ff.dom.local> <20090130.134227.123379239.davem@davemloft.net>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [RFC] ARM: Add SMSC911X support to Overo platform
+Date: Fri, 30 Jan 2009 14:18:10 -0800
+Message-ID: <87d4e4igkd.fsf@deeprootsystems.com>
+References: <5e088bd90901301228l3a0ab25m35a7341ac972e9de@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jarkao2@gmail.com, zbr@ioremap.net, w@1wt.eu, dada1@cosmosbay.com,
-	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Cc: linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org
+To: Steve Sakoman <sakoman@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60191 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754522AbZA3WQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:16:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20090130.134227.123379239.davem@davemloft.net>
+Received: from rv-out-0506.google.com ([209.85.198.235]:32896 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756227AbZA3WSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 17:18:15 -0500
+In-Reply-To: <5e088bd90901301228l3a0ab25m35a7341ac972e9de@mail.gmail.com> (Steve Sakoman's message of "Fri\, 30 Jan 2009 12\:28\:38 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 30, 2009 at 01:42:27PM -0800, David Miller wrote:
-> 
-> Hmmm, Jarek's comments here made me realize that we might be
-> able to do some hack with cooperation with SLAB.
-> 
-> Basically the idea is that if the page count of a SLAB page
-> is greater than one, SLAB will not use that page for new
-> allocations.
-> 
-> It's cheesy and the SLAB developers will likely barf at the
-> idea, but it would certainly work.
+Steve Sakoman <sakoman@gmail.com> writes:
 
-I'm not going anywhere near that discussion :)
+> Gumstix will soon be shipping a variant of their Summit board that
+> includes an SMSC9221 ethernet interface.  This patch is intended to
+> provide support via the smsc911x driver when enabled in defconfig.
+> The final submission of course will also include an updated defconfig.
+>
+> Signed-off-by: Steve Sakoman <steve@sakoman.com>
+> ---
+> diff --git a/arch/arm/mach-omap2/board-overo.c
+> b/arch/arm/mach-omap2/board-overo.c
+> index 9995ac2..97d95a4 100644
+> --- a/arch/arm/mach-omap2/board-overo.c
+> +++ b/arch/arm/mach-omap2/board-overo.c
+> @@ -55,6 +55,63 @@
+>  #define GPMC_CS0_BASE  0x60
+>  #define GPMC_CS_SIZE   0x30
+>
+> +#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
+> +
+> +#include <linux/smsc911x.h>
+> +
+> +static struct resource overo_smsc911x_resources[] = {
+> +	{
+> +		.name	= "smsc911x-memory",
+> +		.flags	= IORESOURCE_MEM,
+> +	},
+> +	{
+> +		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
+> +	},
+> +};
+> +
+> +static struct smsc911x_platform_config overo_smsc911x_config = {
+> +	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+> +	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
+> +	.flags		= SMSC911X_USE_32BIT ,
+> +	.phy_interface	= PHY_INTERFACE_MODE_MII,
+> +};
+> +
+> +static struct platform_device overo_smsc911x_device = {
+> +	.name		= "smsc911x",
+> +	.id		= -1,
+> +	.num_resources	= ARRAY_SIZE(overo_smsc911x_resources),
+> +	.resource	= &overo_smsc911x_resources,
+> +	.dev		= {
+> +		.platform_data = &overo_smsc911x_config,
+> +	},
+> +};
+> +
+> +static inline void __init overo_init_smsc911x(void)
+> +{
+> +	unsigned long cs_mem_base;
+> +
+> +	if (gpmc_cs_request(OVERO_SMSC911X_CS, SZ_16M, &cs_mem_base) < 0) {
+> +		printk(KERN_ERR "Failed request for GPMC mem for smsc911x\n");
+> +		return;
+> +	}
+> +
+> +	overo_smsc911x_resources[0].start = cs_mem_base + 0x0;
+> +	overo_smsc911x_resources[0].end   = cs_mem_base + 0xff;
+> +
+> +	if ((gpio_request(OVERO_SMSC911X_GPIO, "SMSC911X IRQ") == 0) &&
+> +	    (gpio_direction_input(OVERO_SMSC911X_GPIO) == 0)) {
+> +		gpio_export(OVERO_SMSC911X_GPIO, 0);
+> +	} else {
+> +		printk(KERN_ERR "could not obtain gpio for SMSC911X IRQ\n");
+> +		return;
+> +	}
+> +
+> +	overo_smsc911x_resources[1].start = OMAP_GPIO_IRQ(OVERO_SMSC911X_GPIO),
+> +	overo_smsc911x_resources[1].end	  = OMAP_GPIO_IRQ(OVERO_SMSC911X_GPIO),
 
-> Back to real life, I think long term the thing to do is to just do the
-> cached page allocator thing we'll be doing after Jarek's socket page
-> patch is integrated, and for best performance the driver has to
-> receive it's data into pages, only explicitly pulling the ethernet
-> header into the linear area, like NIU does.
+I would put the 'platform_device_register(&overo_smsc911x_device)' here.
 
-Yes that sounds like the way to go.
+> +}
+> +
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Then here, add:
+
+#else
+static inline void __init overo_init_smsc911x(void) { return; }
+
+This allows you to drop the #ifdefs below and have it look a little
+cleaner.
+
+Other than that, looks OK to me.
+
+Kevin
+
+> +#endif
+> +
+>  static struct mtd_partition overo_nand_partitions[] = {
+>  	{
+>  		.name           = "xloader",
+> @@ -187,6 +244,9 @@ static void __init overo_init_irq(void)
+>  	omap2_init_common_hw(mt46h32m32lf6_sdrc_params);
+>  	omap_init_irq();
+>  	omap_gpio_init();
+> +#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
+> +	overo_init_smsc911x();
+> +#endif
+>  }
+>
+>  static struct platform_device overo_lcd_device = {
+> @@ -204,6 +264,9 @@ static struct omap_board_config_kernel
+> overo_config[] __initdata = {
+>  };
+>
+>  static struct platform_device *overo_devices[] __initdata = {
+> +#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
+> +	&overo_smsc911x_device,
+> +#endif
+>  	&overo_lcd_device,
+>  };
+>
+> diff --git a/arch/arm/plat-omap/include/mach/board-overo.h
+> b/arch/arm/plat-omap/include/mach/board-overo.h
+> index 7ecae66..8635171 100644
+> --- a/arch/arm/plat-omap/include/mach/board-overo.h
+> +++ b/arch/arm/plat-omap/include/mach/board-overo.h
+> @@ -22,5 +22,8 @@
+>  #define OVERO_GPIO_USBH_CPEN	168
+>  #define OVERO_GPIO_USBH_NRESET	183
+>
+> +#define OVERO_SMSC911X_CS	5
+> +#define OVERO_SMSC911X_GPIO	176
+> +
+>  #endif /* ____ASM_ARCH_OVERO_H */
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-omap" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
