@@ -1,56 +1,96 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v2 4/4] virtio_net: Add support for VLAN filtering in the hypervisor
-Date: Fri, 30 Jan 2009 16:31:32 +1030
-Message-ID: <200901301631.32862.rusty@rustcorp.com.au>
-References: <20090129230502.2672.87669.stgit@debian.lart> <20090129230523.2672.55464.stgit@debian.lart>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: fix setsockopt() locking errors
+Date: Fri, 30 Jan 2009 17:12:50 +1100
+Message-ID: <20090130061250.GA4031@gondor.apana.org.au>
+References: <1233046369.4984.5.camel@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Alex Williamson <alex.williamson@hp.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090129230523.2672.55464.stgit@debian.lart>
+Content-Type: text/plain; charset=us-ascii
+Cc: jarkao2@gmail.com, mmokrejs@ribosome.natur.cuni.cz,
+	vegard.nossum@gmail.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:42106 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751618AbZA3GNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 01:13:08 -0500
 Content-Disposition: inline
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1233046369.4984.5.camel@laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 30 January 2009 09:35:23 Alex Williamson wrote:
-> +	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> +				  VIRTIO_NET_CTRL_VLAN_ADD, &vid, sizeof(vid)))
-> +		printk(KERN_WARNING "%s: Failed to add VLAN ID %d.\n",
-> +		       dev->name, vid);
-> +}
+Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+>
+> Can't you simply do the copy_from_user() before you take the sk_lock?
 
-Hmm, I should have mentioned dev_warn() in previous patches.
+Well, doing the copy under sk_lock is pretty common through all
+protocols.  So I think it'd be safer to change the other path,
+which is doing the odd thing here, i.e., ->mmap() grabbing the
+socket lock while holding mmap_sem.
 
-And possibly (since we never expect it to happen), we should move it into virtnet_send_command to save all the callers sweating on it.  It'd be
-less informative tho.
+In fact, it would appear that we don't really need the socket lock
+in ->mmap() since it only needs to ensure that pg_vec* doesn't
+get yanked or changed.  So this patch should work:
 
-> +		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN)) {
-> +			u8 enable = 1;
-> +
-> +			/* Enable VLAN filtering */
-> +			if (virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> +						 VIRTIO_NET_CTRL_VLAN_ENABLE,
-> +						 &enable, sizeof(enable)))
-> +				dev->features |= NETIF_F_HW_VLAN_FILTER;
-> +			else
-> +				printk(KERN_WARNING "virtio_net: "
-> +				       "Failed to enable VLAN filter\n");
-> +		}
+packet: Avoid lock_sock in mmap handler
 
-We can kill VLAN_ENABLE.  We activate it by acking the feature bit.
+As the mmap handler gets called under mmap_sem, and we may grab
+mmap_sem elsewhere under the socket lock to access user data, we
+should avoid grabbing the socket lock in the mmap handler.
 
-So this becomes:
-	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
-		dev->features |= NETIF_F_HW_VLAN_FILTER;
+Since the only thing we care about in the mmap handler is for
+pg_vec* to be invariant, i.e., to exclude packet_set_ring, we
+can achieve this by simply using sk_receive_queue.lock.
 
-> + * The VLAN filter table is controlled via a simple ADD/DEL interface.
-> + * VLAN IDs not added will be dropped.  Del is the opposite of add.
-> + * Both commands expect an out entry containing a 2 byte VLAN ID.
+I resisted the temptation to create a new spin lock because the
+mmap path isn't exactly common.
 
-s/will be dropped/may be filtered out by the host/ ?
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 5f94db2..cac0a2b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1874,13 +1874,14 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
+ 		po->frame_max = (req->tp_frame_nr - 1);
+ 		po->head = 0;
+ 		po->frame_size = req->tp_frame_size;
+-		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 
+-		order = XC(po->pg_vec_order, order);
+ 		req->tp_block_nr = XC(po->pg_vec_len, req->tp_block_nr);
+-
+ 		po->pg_vec_pages = req->tp_block_size/PAGE_SIZE;
++		spin_unlock_bh(&sk->sk_receive_queue.lock);
++
++		order = XC(po->pg_vec_order, order);
+ 		po->prot_hook.func = po->pg_vec ? tpacket_rcv : packet_rcv;
++
+ 		skb_queue_purge(&sk->sk_receive_queue);
+ #undef XC
+ 		if (atomic_read(&po->mapped))
+@@ -1918,7 +1919,7 @@ static int packet_mmap(struct file *file, struct socket *sock, struct vm_area_st
+ 
+ 	size = vma->vm_end - vma->vm_start;
+ 
+-	lock_sock(sk);
++	spin_lock_bh(&sk->sk_receive_queue.lock);
+ 	if (po->pg_vec == NULL)
+ 		goto out;
+ 	if (size != po->pg_vec_len*po->pg_vec_pages*PAGE_SIZE)
+@@ -1941,7 +1942,7 @@ static int packet_mmap(struct file *file, struct socket *sock, struct vm_area_st
+ 	err = 0;
+ 
+ out:
+-	release_sock(sk);
++	spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 	return err;
+ }
+ #endif
 
 Cheers,
-Rusty.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
