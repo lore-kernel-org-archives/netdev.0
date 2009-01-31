@@ -1,63 +1,46 @@
-From: Sebastiano Di Paola <sebastiano.dipaola@gmail.com>
-Subject: Subject: [PATCH 2.6.28-git] net: packet socket packet_lookup_frame
-	fix
-Date: Sat, 31 Jan 2009 10:37:17 +0100
-Message-ID: <1cd3d67c0901310137m3b15af09rf1db91ad28c8fdb6@mail.gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: virt-manager broken by bind(0) in net-next.
+Date: Sat, 31 Jan 2009 12:56:40 +0300
+Message-ID: <20090131095640.GA29099@ioremap.net>
+References: <20090130095737.103edbff@extreme> <498349F7.4050300@cosmosbay.com> <20090130215008.GB12210@ioremap.net> <49837F7E.90306@cosmosbay.com> <20090130225113.GA13977@ioremap.net> <20090130185224.214b3a59@extreme> <20090131083724.GB26897@ioremap.net> <49841738.7050605@cosmosbay.com> <20090131093123.GA28151@ioremap.net> <49841E8C.60401@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, trivial@kernel.org,
-	"Fred N. van Kempen" <waltje@uWalt.NL.Mugnet.ORG>,
-	Alan Cox <gw4pts@gw4pts.ampr.org>, paolo.abeni@gmail.com,
-	sebastiano.dipaola@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, berrange@redhat.com,
+	et-mgmt-tools@redhat.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:18311 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750953AbZAaJhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 04:37:20 -0500
+Received: from kandzendo.ru ([195.178.208.66]:40721 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750842AbZAaJ4m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 04:56:42 -0500
+Content-Disposition: inline
+In-Reply-To: <49841E8C.60401@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastiano Di Paola and Paolo Abeni
+On Sat, Jan 31, 2009 at 10:49:00AM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> It appears you are always right, I have nothing to say then.
+> 
+> Stupid I am.
+> 
+> I vote for plain revert of your initial patch, since you are anaware
+> of performance problems it introduces. Then, probably nobody cares
+> of my complaints, so dont worry.
 
-packet_lookup_frames() fails to get user frame if current frame header
-status contains extra flags.
-This is due to the wrong assumption on the operators precedence during
-frame status tests.
-Fixed by forcing the right operators precedence order with explicit brackets.
+Eric, do not get it soo personally :) After all it is only a matter of
+how we enjoy the process and have fun with the development.
 
-Signed-off-by: Paolo Abeni <paolo.abeni@gmail.com>
-Signed-off-by: Sebastiano Di Paola <sebastiano.dipaola@gmail.com>
----
+Really, I appreciate your work and help, and likely this
+misunderstanding happened because of a bad mix of the original bug and
+this performance implication. Original bug has really nothing with what
+we discuss here. And while the performance problem with bound sockets
+creation may be visible, I did not observe it, while the idea
+implemented with this approach shows up clearly in the graph I posted.
+So I vote by both hands to further improve it by moving things around so
+that there would be no unneded cache flushes during update of this
+field.
 
-The issue arises when packet_lookup_frame() is called with status ==
-TP_STATUS_USER, that is when the packet socket is memory mapped and a
-select() or a poll() syscall is performed on the socket.
-If h.h1->tp_status is set to TP_STATUS_USER | TP_STATUS_LOSING (or any
-other value with multiple bits set), the tested expression evaluate to
-TP_STATUS_USER (!= 0) and a null pointer is returned, even if the
-current frame is ready to be read by the user. In such scenario the
-poll() and the select() system call stop working.
-N.B. This problem is present from version >= 2.6.27
-
---- linux-2.6.28/net/packet/af_packet.c.orig	2009-01-30 16:29:56.000000000 +0100
-+++ linux-2.6.28/net/packet/af_packet.c	2009-01-30 16:27:58.000000000 +0100
-@@ -220,13 +220,13 @@ static void *packet_lookup_frame(struct
- 	h.raw = po->pg_vec[pg_vec_pos] + (frame_offset * po->frame_size);
- 	switch (po->tp_version) {
- 	case TPACKET_V1:
--		if (status != h.h1->tp_status ? TP_STATUS_USER :
--						TP_STATUS_KERNEL)
-+		if (status != (h.h1->tp_status ? TP_STATUS_USER :
-+						TP_STATUS_KERNEL))
- 			return NULL;
- 		break;
- 	case TPACKET_V2:
--		if (status != h.h2->tp_status ? TP_STATUS_USER :
--						TP_STATUS_KERNEL)
-+		if (status != (h.h2->tp_status ? TP_STATUS_USER :
-+						TP_STATUS_KERNEL))
- 			return NULL;
- 		break;
- 	}
+-- 
+	Evgeniy Polyakov
