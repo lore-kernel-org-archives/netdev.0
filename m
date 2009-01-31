@@ -1,57 +1,92 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: PROBLEM: in_atomic() misuse all over the place
-Date: Sat, 31 Jan 2009 00:58:15 -0800
-Message-ID: <20090131005815.5b662a50.akpm@linux-foundation.org>
-References: <20090130160316.7e53ef99.akpm@linux-foundation.org>
-	<20090131055508.GD18453@one.firstfloor.org>
-	<20090130214933.1b91ea3e.akpm@linux-foundation.org>
-	<20090131.004843.127193545.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Sat, 31 Jan 2009 01:06:32 -0800 (PST)
+Message-ID: <20090131.010632.79644071.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, roger.larsson@e-gatan.se,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, rml@tech9.net,
-	pavel@ucw.cz, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49730 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751033AbZAaI7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 03:59:13 -0500
-In-Reply-To: <20090131.004843.127193545.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59957
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751149AbZAaJGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 04:06:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 31 Jan 2009 00:48:43 -0800 (PST) David Miller <davem@davemloft.net> wrote:
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Fri, 30 Jan 2009 21:49:33 -0800
-> 
-> > Hang on.  You said
-> > 
-> >   That's typically for softirq vs non softirq, which is important for
-> >   the network stack.
-> > 
-> > that's what in_softirq() does.
-> > 
-> > Now, if networking is indeed using in_atomic() to detect
-> > are-we-inside-a-spinlock then networking is buggy.
-> > 
-> > If networking is _not_ doing that then we can safely switch it to
-> > in_sortirq() or in_interrupt().  And this would reenable the bug
-> > detection which networking's use of in_atomic() accidentally
-> > suppressed.
-> 
-> I think this is a reasonable conclusion, looking at the
-> gfp_any() users.
-> 
-> Feel free to change it to use in_softirq() and see what
-> explodes in -mm.  Report to me your findings :-)
+I would have waited another day on this one but I wanted to get the
+IPV6 allmodconfig build fix from Dave Jones to you as fast as
+possible.
 
-I don't get much network coverage in my testing...
+I mean, having the allmodconfig build failing on superbowl sunday,
+isn't that against the law or something?
 
-I went for in_interrupt(), which is in_softirq()||in_hardirq().  I
-guess that was a bit of a cop-out if the design decision is that this
-is purely for are-we-in-softirq decision making.
+1) AF_PACKET deadlock fix from Herbert Xu.
 
-I'll set it to in_softirq() and shall see what happens..
+2) IPV6 build fix from Dave Jones.
+
+3) SFC driver bug fixes from Ben Hutchings and Steve Hodgson.
+
+4) Intel IGB bug fixes from Alexander Duyck.
+
+Please pull, thanks a lot!
+
+The following changes since commit f99ec0649accb581cf3e8fcfeea796e82d05f4ea:
+  Philippe De Muyter (1):
+        tulip: fix 21142 with 10Mbps without negotiation
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Alexander Duyck (3):
+      igb: Fix DCA errors and do not use context index for 82576
+      igb: prevent skb_over panic w/ mtu smaller than 1K
+      igb: fix link reporting when using sgmii
+
+Alexey Dobriyan (1):
+      sky2: fix hard hang with netconsoling and iface going up
+
+Ben Hutchings (5):
+      sfc: SFN4111T: Fix GPIO sharing between I2C and FLASH_CFG_1
+      sfc: Update board info for hardware monitor on SFN4111T-R5 and later
+      sfc: SFT9001: Always enable XNP exchange on SFT9001 rev B
+      sfc: SFX7101/SFT9001: Fix AN advertisements
+      sfc: Replace stats_enabled flag with a disable count
+
+Dave Jones (1):
+      ipv6: compile fix for ip6mr.c
+
+Herbert Xu (1):
+      packet: Avoid lock_sock in mmap handler
+
+Steve Hodgson (6):
+      sfc: SFT9001: Enable robust link training
+      sfc: SFX7101: Remove workaround for bad link training
+      sfc: SFT9001: Fix speed reporting in 1G PHY loopback
+      sfc: Fix post-reset MAC selection
+      sfc: Reinitialise the PHY completely in case of a PHY or NIC reset
+      sfc: Test for PHYXS faults whenever we cannot test link state bits
+
+ drivers/net/igb/e1000_82575.c |   11 ++-
+ drivers/net/igb/igb.h         |    9 +-
+ drivers/net/igb/igb_main.c    |   24 ++---
+ drivers/net/sfc/efx.c         |   59 ++++++++----
+ drivers/net/sfc/efx.h         |    9 +-
+ drivers/net/sfc/ethtool.c     |    3 -
+ drivers/net/sfc/falcon.c      |   32 ++++---
+ drivers/net/sfc/mdio_10g.c    |  191 +++++++++++++++++--------------------
+ drivers/net/sfc/mdio_10g.h    |    3 +-
+ drivers/net/sfc/net_driver.h  |    9 +-
+ drivers/net/sfc/phy.h         |    1 -
+ drivers/net/sfc/selftest.c    |    7 +-
+ drivers/net/sfc/sfe4001.c     |   42 +++++++--
+ drivers/net/sfc/tenxpress.c   |  213 +++++++++++++++--------------------------
+ drivers/net/sfc/workarounds.h |   12 +--
+ drivers/net/sky2.c            |    6 +-
+ net/ipv6/ip6mr.c              |    1 +
+ net/packet/af_packet.c        |    9 ++-
+ 18 files changed, 313 insertions(+), 328 deletions(-)
