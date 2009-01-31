@@ -1,8 +1,9 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Sat, 31 Jan 2009 13:47:22 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0901311318570.4064@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901310138.51214.rjw@sisk.pl> <alpine.LFD.2.00.0901301714080.3150@localhost.localdomain> <200901312208.20850.rjw@sisk.pl>
+Subject: Re: What should PCI core do during suspend-resume? (was: Re:
+ 2.6.29-rc3: tg3 dead after resume)
+Date: Sat, 31 Jan 2009 13:59:53 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0901311348000.4064@localhost.localdomain>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901301714080.3150@localhost.localdomain> <200901312208.20850.rjw@sisk.pl> <200901312242.17273.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Parag Warudkar <parag.lkml@gmail.com>,
@@ -13,113 +14,86 @@ Cc: Parag Warudkar <parag.lkml@gmail.com>,
 	Andrew Morton <akpm@linux-foundation.org>
 To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48966 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59110 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751502AbZAaVri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 16:47:38 -0500
-In-Reply-To: <200901312208.20850.rjw@sisk.pl>
+	by vger.kernel.org with ESMTP id S1750856AbZAaWAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 17:00:07 -0500
+In-Reply-To: <200901312242.17273.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
 On Sat, 31 Jan 2009, Rafael J. Wysocki wrote:
-> > 
-> > Don't make it use the new PM infrastructure, because that one is certainly 
-> > broken: pci_pm_default_suspend_generic() is total crap.
 > 
-> Oh my.  I beg to differ.
+> Anyway, from what I can tell reading your messages in this thread so far,
+> you seem to want the PCI core to:
+> (1) save the state of devices during suspend (avoid doing that if the driver has
+>     already saved the state),
 
-Imagine that you're a bridge. Imagine what this does to any device 
-_behind_ you. Any device that plans to still do something at suspend_late 
-time, to be specific.
+Yes, but I'd at least want the device drivers to have the _option_ to 
+do it themselves.
 
-> > It's saving the disabled state. No WAY is that correct.
-> 
-> So why does it work, actually?
+I would expect that by default any normal PCI driver would just rely on 
+the PCI layer doing it all for them. But I suspect we may have cases where 
+the chip driver will simply want to override things, for one reason or 
+another.
 
-And I suspect it simply doesn't. And since almost nobody uses the new PM 
-state, you just don't see it.
+We do know that some devices seem to be very picky and get unhappy about 
+being put to sleep (we don't put devices into D3 by default in the legacy 
+PM case for a reason!), and we do know that some existing drivers do extra 
+things _after_ they've put the device to D3.
 
-But as to why it fixes Parag's case - I think that's because the new PM 
-resume does more than the legacy resume does, so it ends up re-enabling 
-things anyway. It does it too late, but it doesn't matter in this case (no 
-shared irq issues with the only device behind the pci-e bridge).
+So there very much are arguments for drivers wanting to do their own "save 
+state and power off" if they have special needs.
 
-> > But all of that is only called if you use the new PM infrastructure. So 
-> > the thing is, when you're trying to move the PCI-E drive to the new pm 
-> > infrastructure, you're making things _worse_.
-> 
-> I don't really think so (see below).
+(Side note: it's entirely possible that one of the reasons we don't put 
+devices into D3 in the legacy code-path is purely historical: maybe not 
+because the devices were unhappy, but simply because it triggered the 
+whole "interrupt at an unlucky place" thing. So I'm hoping that we'll 
+actually not have this as a real issue, but..)
 
-See above. I think you really haven't thought the new PM code through.
+> (2) put devices into D0 during resume (early),
+> (3) restore the state of devices during resume (early).
 
-> pci_disable_device() does really only one thing: it clears the bus master bit.
-> Yes, it also calls pcibios_disable_device(), but on x86 this is a NOP.
-> 
-> I don't think it is SO bad, is it?
+Yes.
 
-It's bad. It means that DMA won't work across such a bridge. Yes, it is 
-probably bridge-dependent, and I know for a fact that at least some Intel 
-bridges just hard-code the busmaster bit to 1 (at a minimum the host 
-bridges do, I'm not sure about others), but I also know for a fact that 
-some other bridges _will_ stop DMA to devices behind them if the BM bit is 
-clear.
+> Still, you don't want the core to disable devices during suspend and to enable
+> (or reenable) them during resume.
 
-But more importantly: Why do you do it? What's the upside? I don't see it. 
-There's a known downside - you're saving state that is something else than 
-what the driver really expects. 
+At an absolute _minimum_, bridges are special. 
 
-So I think clearing bus-master is a huge bug on a bridge, but I think that 
-on normal devices it's just pointless.
+We already know bridges are special: we do things like
 
-> The driver using the new model is not supposed to save the state and power
-> off the device.  Still, it's probably a good idea not to trust the drivers. :-)
+	if (!pci_is_bridge(pci_dev))
+		pci_prepare_to_sleep(pci_dev);
 
-How about devices that have magic power-down sequences? For example, a 
-quick grep shows that USB on a PPC PMAC has a special "disable ASIC clocks 
-for USB" thing after it puts the USB controller to sleep.
 
-That was literally the _first_ driver I looked at. Admittedly because I 
-knew that USB host controllers tend to be more aware of all the issues 
-than most random drivers, but still...
+ie we don't actually put the bridges into D3 sleep, because the devices 
+behind the bridge still need to be available until at LEAST the 
+"suspend_late()" stage.
 
-I agree that the new model should turn off devices by default, but the 
-thing is, it should also allow drivers that really know better to do magic 
-things.
+But then pci_pm_default_suspend_generic() does that 
+pci_disable_enabled_device() unconditionally - even for bridges. That's 
+just wrong, wrong, wrong.
 
-Of course, we can say that such devices should just continue to use the 
-legacy model, but I thought that the long-term plan was to just replace 
-it. And if you do, you need to allow for drivers that do special things 
-due to known motherboard- or chip-specific "issues" (aka "PCI extensions" 
-aka "hardware bugs").
+> What about putting devices into low power states?  [Note that ACPI may be
+> necessary for this purpose.]
 
-And yes, I suspect that the magic PPC USB clock thing could maybe be 
-rewritten as a system device, so there are other alternatives here, but I 
-do suspect that it will be very painful if the new PM layer _forces_ a 
-very specific model on drivers that they can't modify at all.
+I do think we should do it, although I'd at least personally prefer 
+delaying it to the suspend_late (noirq) phase.
 
-> > I don't see why we don't resume with IO/MEM on, though. The legacy suspend 
-> > sequence shouldn't disable them, afaik.
-> 
-> No, it shouldn't.
-> 
-> However, the patch below actually may help and it really is not too different
-> from my "new infrastructure" patch.  It leaves the pcie_portdrv_restore_config()
-> in the PCIe port driver's ->resume(), but that shouldn't change things,
-> pci_enable_device() in there shouldn't do anything and the bus master bit
-> should already be set.
+Why? Think about a shared interrupt again - but now coming in at just the 
+wrong time during _suspend_. The PCI layer has turned off the device. 
+Oops. Lockup. The same lock-up we worked so hard to avoid during resume.
 
-I absolutely agree with this patch. I'd just not expect it to make a 
-difference (except for the "cleanup factor"). I think it's worth applying, 
-and _if_ it makes a difference for Parag it's very interesting indeed.
+> What about devices with no drivers and/or without suspend/resume support?
 
-> The "new infrastracture" patch makes pci_disable_enabled_device() be called in
-> the suspend code path, but that only disables the bus master bit, and
-> pci_reenable_device() be called in the resume code path, but that only sets the
-> bus master bit back again.  So, they are almost the same and I'd be surprised
-> if your patch didn't help.
+Oh, suspending those early and aggressively may be the right thing. But 
+again, at least bridges are special.
 
-Hmm. We'll see. I'm a bit doubtful. But we'll see..
+Some bridges have drivers (pci-e and cardbus bridges at least), others 
+don't (regular pci bridges). So bridges hit both the "has drivers" and 
+"don't have drivers" case, and are special in both cases.
 
-		Linus
+				Linus
