@@ -1,30 +1,51 @@
-From: Compaq Promo <carmenalie@sympatico.ca>
-Subject: Claims =?iso-8859-1?B?ozk1MCwwMDAuMDA=?= pounds.
-Date: Sat, 31 Jan 2009 5:49:40 -0500
-Message-ID: <20090131104941.SUZE1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: jerry.smith500@btinternet.com
+From: Andreas Schwab <schwab@suse.de>
+Subject: [PATCH] ip6mr: fix missing include
+Date: Sat, 31 Jan 2009 12:03:16 +0100
+Message-ID: <jey6wrvitn.fsf@sykes.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@lotto.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts7-srv.bellnexxia.net ([206.47.199.165]:34593 "EHLO
-	simmts7-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751979AbZAaKtm convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2009 05:49:42 -0500
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts7-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090131104941.SUZE1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Sat, 31 Jan 2009 05:49:41 -0500
+Received: from ns1.suse.de ([195.135.220.2]:33065 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751850AbZAaLDS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 06:03:18 -0500
+Received: from Relay1.suse.de (relay-ext.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx1.suse.de (Postfix) with ESMTP id C7767446B5
+	for <netdev@vger.kernel.org>; Sat, 31 Jan 2009 12:03:16 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-send the following: Name,Age,Sex,Country  for the claims of =A3950,000.=
-00 pounds which was won by YOUR ID in our Recent Compaq Bonanza for the=
- use of internet service
+This fixes:
 
-Regards
-Mrs Sarah Wood
+net/ipv6/ip6mr.c:368: error: implicit declaration of function =E2=80=98=
+csum_ipv6_magic=E2=80=99
 
+Signed-off-by: Andreas Schwab <schwab@suse.de>
+---
+ net/ipv6/ip6mr.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git i/net/ipv6/ip6mr.c w/net/ipv6/ip6mr.c
+index d19a84b..e5ba15d 100644
+--- i/net/ipv6/ip6mr.c
++++ w/net/ipv6/ip6mr.c
+@@ -44,6 +44,7 @@
+=20
+ #include <net/ipv6.h>
+ #include <net/ip6_route.h>
++#include <net/ip6_checksum.h>
+ #include <linux/mroute6.h>
+ #include <linux/pim.h>
+ #include <net/addrconf.h>
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=C3=9Fe 5, 90409 N=C3=BCrnberg, Ge=
+rmany
+PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4=
+ED5
+"And now for something completely different."
