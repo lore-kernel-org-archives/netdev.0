@@ -1,38 +1,34 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
- private channels
-Date: Sat, 31 Jan 2009 21:18:02 +0900 (JST)
-Message-ID: <20090131.211802.75185523.anemo@mba.ocn.ne.jp>
-References: <20090131.020300.82352947.anemo@mba.ocn.ne.jp>
-	<e9c3a7c20901301513v74953d7aj8533d05cddfa510@mail.gmail.com>
-	<Pine.LNX.4.64.0901310026200.4617@axis700.grange>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] sungem: limit reaches -1, but 0 tested
+Date: Sat, 31 Jan 2009 13:42:36 +0100
+Message-ID: <4984473C.1040508@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dan.j.williams@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, maciej.sosnowski@intel.com,
-	hskinnemoen@atmel.com, nicolas.ferre@atmel.com
-To: g.liakhovetski@gmx.de
+To: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.1.235.107]:55173 "EHLO smtp.mba.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751216AbZAaMSB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2009 07:18:01 -0500
-In-Reply-To: <Pine.LNX.4.64.0901310026200.4617@axis700.grange>
+Received: from mail-ew0-f21.google.com ([209.85.219.21]:61520 "EHLO
+	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbZAaMmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 07:42:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 31 Jan 2009 00:27:48 +0100 (CET), Guennadi Liakhovetski <g.liakhovetski@gmx.de> wrote:
-> > Register multiple dma_devices, the public one with a DMA_MEMCPY, and
-> > the fixed role devices with DMA_PRIVATE, DMA_MEMCPY, and DMA_SLAVE
-> > capabilities.
-> > 
-> > DMA_PRIVATE ensures that a channel is never considered for public consumption.
-> 
-> Maybe just two dma-devices would suffice: one with the public memcpy 
-> channel, and one with the rest private slave channels?
+With a postfix decrement these reach -1 rather than 0,
+but after the loop it is tested to have become 0.
 
-Thank you, I will try this.
-
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
-Atsushi Nemoto
+diff --git a/drivers/net/sungem_phy.c b/drivers/net/sungem_phy.c
+index 61843fd..78f8cee 100644
+--- a/drivers/net/sungem_phy.c
++++ b/drivers/net/sungem_phy.c
+@@ -79,7 +79,7 @@ static int reset_one_mii_phy(struct mii_phy* phy, int phy_id)
+ 
+ 	udelay(100);
+ 
+-	while (limit--) {
++	while (--limit) {
+ 		val = __phy_read(phy, phy_id, MII_BMCR);
+ 		if ((val & BMCR_RESET) == 0)
+ 			break;
