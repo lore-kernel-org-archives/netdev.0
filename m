@@ -1,64 +1,44 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Sat, 31 Jan 2009 19:51:28 +0100
-Message-ID: <200901311951.29677.rjw@sisk.pl>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901301820080.3150@localhost.localdomain> <alpine.DEB.2.00.0901302136470.5643@parag-desktop>
+From: Daniel Walker <dwalker@fifo99.com>
+Subject: Re: [PATCH] net: variables reach -1, but 0 tested
+Date: Sat, 31 Jan 2009 12:35:12 -0800
+Message-ID: <1233434112.5903.28.camel@desktop>
+References: <498429AE.1080404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Parag Warudkar <parag.lkml@gmail.com>
+Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
+To: Roel Kluin <roel.kluin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:54113 "EHLO ogre.sisk.pl"
+Received: from fifo99.com ([67.223.236.141]:33344 "EHLO fifo99.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751508AbZAaSwM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2009 13:52:12 -0500
-In-Reply-To: <alpine.DEB.2.00.0901302136470.5643@parag-desktop>
-Content-Disposition: inline
+	id S1752189AbZAaUpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 15:45:25 -0500
+In-Reply-To: <498429AE.1080404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 31 January 2009, Parag Warudkar wrote:
-> 
-> On Fri, 30 Jan 2009, Linus Torvalds wrote:
-> 
-> > If you can try the patch I just sent out, and use that as a base for 
-> > trying to track down why the heck the legacy code doesn't work, that would 
-> > be great. It might fix it (assuming my guess about "restore_state while in 
-> > PCI_D3 doesn't work" was correct), but quite frankly, it's equally 
-> > possible that it just makes things worse. But it would be really 
-> > interesting to hear..
-> 
-> Sure - will do.
-> 
-> > 
-> > Your machine does seem to be interesting, in that not only does it have a 
-> > PCI-E bridge in it (the eeepc I was playing around with at LCA does not), 
-> > but judging by the lost config state I also suspect that it actually loses 
-> > power during STR.
-> 
-> Not sure what the significance of eeepc is in this case - mine being a 
-> standard Intel 5400 chipset I would have thought that's the last 
-> place to look for interesting things!
+On Sat, 2009-01-31 at 11:36 +0100, Roel Kluin wrote:
+
 >  
-> > Which is not at all necessarily a given - I suspect it depends on just how 
-> > the power rails are set up on the motherboard. The fact that PCI-E bridges 
-> > have apparently worked for others implies that your problems don't happen 
-> > for everybody, and may relate to that issue.
-> 
-> Do we know this for sure that PCI-E bridges + Suspend have worked for 
-> others - In this thread at least I think people reported tg3 worked but not 
-> necessarily with a PCI-E bridge.
+> -	while (limit--) {
+> +	while (--limit) {
+>  		val = phy_read(phy, MII_BMCR);
+>  		if (val >= 0 && (val & BMCR_RESET) == 0)
+>  			break;
 
-Technically, they are PCIe root ports and many systems have network adapters
-connected through them (I have two such systems here, but none of them with
-tg3-compatible hardware - my tg3 is a PCI device).
+It looks like these are checked for <= to 0 , are these changes strictly
+nessesary?
 
-Thanks,
-Rafael
+>  
+>  	/* make sure EEPROM has finished loading before setting GPIO_CFG */
+>  	timeout=1000;
+> -	while ( timeout-- && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_)) {
+> +	while ( --timeout && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_)) {
+>  		udelay(10);
+
+If your doing "timeOut" to "timeout" below may as well drop the space
+above after the "(" ..
+
+
+Daniel
+
