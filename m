@@ -1,51 +1,75 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: What should PCI core do during suspend-resume? (was: Re:
- 2.6.29-rc3: tg3 dead after resume)
-Date: Sat, 31 Jan 2009 15:39:18 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0901311534340.3067@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901312242.17273.rjw@sisk.pl> <alpine.LFD.2.00.0901311348000.4064@localhost.localdomain> <200902010008.32126.rjw@sisk.pl> <alpine.LFD.2.00.0901311516360.2978@localhost.localdomain>
+From: Cord Walter <cord.walter@gmx.de>
+Subject: pcnet_cs: fix misuse of the equality operator.
+Date: Sun, 01 Feb 2009 00:18:40 +0100
+Message-ID: <4984DC50.6060204@gmx.de>
+References: <4925F6F1.9010305@gmx.de>	<20081121214812.b03d7166.komurojun-mbn@nifty.com>	<4926C153.3090104@gmx.de>	<20081124160959.b02ff889.komurojun-mbn@nifty.com>	<492BE6DE.9020903@gmx.de> <20090131071342.2b45cbe8.komurojun-mbn@nifty.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51128 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751380AbZAaXjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 18:39:52 -0500
-In-Reply-To: <alpine.LFD.2.00.0901311516360.2978@localhost.localdomain>
+Received: from waikiki.ops.eusc.inter.net ([84.23.254.155]:64666 "EHLO
+	waikiki.ops.eusc.inter.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751380AbZAaXni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 18:43:38 -0500
+Received: from myip-n72-220.de.inter.net ([213.73.72.220] helo=rei.cwalter.net)
+	by waikiki.ops.eusc.inter.net with esmtp (Exim 4.69)
+	id 1LTP6m-000Iml-Gq
+	for netdev@vger.kernel.org; Sun, 01 Feb 2009 00:18:40 +0100
+Received: from [10.42.42.2] (nene.cwalter.net [10.42.42.2])
+	by rei.cwalter.net (Postfix) with ESMTP id 69F3B1BE5F
+	for <netdev@vger.kernel.org>; Sun,  1 Feb 2009 00:18:39 +0100 (CET)
+In-Reply-To: <20090131071342.2b45cbe8.komurojun-mbn@nifty.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi!
+
+I just noticed that I still had a patch lying around by Komuro
+<komurojun-mbn@nifty.com> from back when I was troubleshooting my
+problems with the pcnet_cs/axnet_cs driver and my Netgear PCMCIA-NIC.
+
+Looks like a simple typo to me - I tested the patch with 2.6.28 kernel
+and it worked...
+
+bye,
+
+cord
+
+Komuro schrieb:
+ > [PATCH] pcnet_cs:fix misuse of the equality operator.
+>=20
+>=20
+> pcnet_cs:
+> 	fix misuse of the equality operator.
+>=20
+> =20
+> Signed-off-by: Cord Walter <qord@cwalter.net>
+> Signed-off-by: Komuro <komurojun-mbn@nifty.com>
+>=20
+> ---
+>=20
+> --- linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c.orig	2009-01-31 06=
+:44:03.000000000 +0900
+> +++ linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c	2009-01-31 06:44:2=
+1.000000000 +0900
+> @@ -586,7 +586,7 @@ static int pcnet_config(struct pcmcia_de
+>      }
+> =20
+>      if ((link->conf.ConfigBase =3D=3D 0x03c0)
+> -	&& (link->manf_id =3D=3D 0x149) && (link->card_id =3D 0xc1ab)) {
+> +	&& (link->manf_id =3D=3D 0x149) && (link->card_id =3D=3D 0xc1ab)) {
+>  	printk(KERN_INFO "pcnet_cs: this is an AX88190 card!\n");
+>  	printk(KERN_INFO "pcnet_cs: use axnet_cs instead.\n");
+>  	goto failed;
+>=20
 
 
-On Sat, 31 Jan 2009, Linus Torvalds wrote:
-> 
-> But how many people test STR while doing a "ping -f" from another machine?
-> 
-> It _should_ work. Do you guarantee that it does?
+--=20
+Cord Walter
+email: cord.walter@gmx.de
 
-Btw, this really only is interesting if there's a shared interrupt. 
-
-I'm sure that there are network drivers that will crash even on their own 
-with _just_ the right timing (imagine having a delayed interrupt pending, 
-then doing the "pci_set_power_state(PCI_D3hot)" thing, and then get the 
-interrupt handler invoked on another CPU _just_ afterwards), but it's 
-probably really hard to trigger, and a bug in that specific driver anyway.
-
-But what's much more interesting (and not necessarily a driver bug, but a 
-general PM infrastructure problem) is if we have that shared interrupt 
-case, and the network driver gets lots of interrupts just as "driver X" is 
-shutting down with that interrupt shared. Then, "driver X" will get 
-interrupts after the PM layer has put its device to sleep, and now "driver 
-X" is quite understandably confused - it didn't even do the "put to sleep" 
-itself, but now its device is no longer responding.
-
-And now it's not a really unlikely race condition any more. 
-
-			Linus
+Weil es niemanden etwas angeht, dass ich nichts zu verbergen habe:
+http://www.gnupg.org/
+http://www.truecrypt.org/
+=2E..und =FCberhaupt: http://www.FreiheitstattAngst.de
