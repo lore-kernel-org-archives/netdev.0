@@ -1,65 +1,60 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Fri, 30 Jan 2009 15:57:06 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0901301551460.3150@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901281636270.3123@localhost.localdomain> <alpine.DEB.2.00.0901282049040.5026@parag-desktop> <20090129184215.GA13459@xw6200.broadcom.net> <alpine.DEB.2.00.0901291700130.5149@parag-desktop>
- <20090129222247.GA13861@xw6200.broadcom.net> <alpine.DEB.2.00.0901291730030.5149@parag-desktop> <20090130184030.GA14933@xw6200.broadcom.net> <alpine.DEB.2.00.0901301743410.4989@parag-desktop> <alpine.LFD.2.00.0901301506120.3150@localhost.localdomain>
- <alpine.DEB.2.00.0901301826490.5027@parag-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 01/11] sfc: SFT9001: Enable robust link training
+Date: Sat, 31 Jan 2009 00:04:15 +0000
+Message-ID: <1233360255.2799.17.camel@hashbaz.i.decadent.org.uk>
+References: <20090129.170811.135213740.davem@davemloft.net>
+	 <20090130034810.GC15266@solarflare.com>
+	 <20090130.140904.37637243.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Parag Warudkar <parag.lkml@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47043 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753173AbZA3X5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 18:57:54 -0500
-In-Reply-To: <alpine.DEB.2.00.0901301826490.5027@parag-desktop>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:3450 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754153AbZA3X6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 18:58:40 -0500
+In-Reply-To: <20090130.140904.37637243.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, 30 Jan 2009, Parag Warudkar wrote:
+On Fri, 2009-01-30 at 14:09 -0800, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Fri, 30 Jan 2009 03:48:10 +0000
 > 
-> Totally worth having this problem from a "getting an opportunity to 
-> understand" standpoint. This confirms my long standing suspicion that bugs 
-> in Linux kernel are merely a handiwork of few clever people to get more 
-> people to understand and contribute :)
-
-Heh. I wish. But if that's the end result, we've done something good.
-
-> Any how  here is the pre-suspend lspci -vvxxx output followed by diff -u -
-
-Bingo.
-
-> diff -u lspci-pre-suspend lspci-post-suspend
+> > From: Steve Hodgson <shodgson@solarflare.com>
+> > 
+> > Enable a firmware option that appears to be necessary for reliable
+> > operation.
+> > 
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 > 
-> --- lspci-pre-suspend	2009-01-30 18:19:50.752275695 -0500
-> +++ lspci-post-suspend	2009-01-30 18:20:52.629779008 -0500
->  
->  00:1c.0 PCI bridge: Intel Corporation 631xESB/632xESB/3100 Chipset PCI Express Root Port 1 (rev 09)
-> -	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B- DisINTx+
-> +	Control: I/O- Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B- DisINTx+
->  	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
->  	Latency: 0, Cache Line Size: 64 bytes
->  	Bus: primary=00, secondary=0e, subordinate=0e, sec-latency=0
+> I applied all of these patches but:
+> 
+> 1) When you get changes written by other people, such as
+>    Steve Hodgson here and in the next few patches, you need
+>    to get Signed-off-by lines from them too.
 
-We've disabled IO and MEM behind this bridge - the one that bridges to 
-secondary bus 0x0e.
+I have been attributing changes to my colleagues for some time and never
+heard this.  In any case the copyright lies with my employer and I am
+authorised to release these changes; isn't that what my initial sign-
+off means?
 
-And your tg3 device? It's at 0000:0e:00.0. Yeah. Exactly the bus that 
-we've disabled IO and MEM for.
+> 2) Outside of the merge window I do not want to see totally
+>    irrelevant stuff like PHY loopback fixes.
+> 
+>    Those kinds of fixes are totally inappropriate at this time.
 
-In other words, it was never your tg3 suspend/resume that was buggy. It 
-was the suspend/resume for the PCI-E port driver. In fact, I think it's 
-_exactly_ the issue I just emailed out about.
+Are you saying that a spurious self-test failure is not a serious bug?
 
-I bet Rafael can whip up a patch in a minute. I have too much of a 
-headache right now to look at my screen for a while, so I'll take a break.
+> You have been warned :-)
 
-			Linus
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+
