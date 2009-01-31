@@ -1,51 +1,38 @@
-From: Andreas Schwab <schwab@suse.de>
-Subject: [PATCH] ip6mr: fix missing include
-Date: Sat, 31 Jan 2009 12:03:16 +0100
-Message-ID: <jey6wrvitn.fsf@sykes.suse.de>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
+ private channels
+Date: Sat, 31 Jan 2009 21:18:02 +0900 (JST)
+Message-ID: <20090131.211802.75185523.anemo@mba.ocn.ne.jp>
+References: <20090131.020300.82352947.anemo@mba.ocn.ne.jp>
+	<e9c3a7c20901301513v74953d7aj8533d05cddfa510@mail.gmail.com>
+	<Pine.LNX.4.64.0901310026200.4617@axis700.grange>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dan.j.williams@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, maciej.sosnowski@intel.com,
+	hskinnemoen@atmel.com, nicolas.ferre@atmel.com
+To: g.liakhovetski@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:33065 "EHLO mx1.suse.de"
+Received: from mba.ocn.ne.jp ([122.1.235.107]:55173 "EHLO smtp.mba.ocn.ne.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751850AbZAaLDS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 06:03:18 -0500
-Received: from Relay1.suse.de (relay-ext.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx1.suse.de (Postfix) with ESMTP id C7767446B5
-	for <netdev@vger.kernel.org>; Sat, 31 Jan 2009 12:03:16 +0100 (CET)
+	id S1751216AbZAaMSB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 07:18:01 -0500
+In-Reply-To: <Pine.LNX.4.64.0901310026200.4617@axis700.grange>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes:
+On Sat, 31 Jan 2009 00:27:48 +0100 (CET), Guennadi Liakhovetski <g.liakhovetski@gmx.de> wrote:
+> > Register multiple dma_devices, the public one with a DMA_MEMCPY, and
+> > the fixed role devices with DMA_PRIVATE, DMA_MEMCPY, and DMA_SLAVE
+> > capabilities.
+> > 
+> > DMA_PRIVATE ensures that a channel is never considered for public consumption.
+> 
+> Maybe just two dma-devices would suffice: one with the public memcpy 
+> channel, and one with the rest private slave channels?
 
-net/ipv6/ip6mr.c:368: error: implicit declaration of function =E2=80=98=
-csum_ipv6_magic=E2=80=99
+Thank you, I will try this.
 
-Signed-off-by: Andreas Schwab <schwab@suse.de>
 ---
- net/ipv6/ip6mr.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git i/net/ipv6/ip6mr.c w/net/ipv6/ip6mr.c
-index d19a84b..e5ba15d 100644
---- i/net/ipv6/ip6mr.c
-+++ w/net/ipv6/ip6mr.c
-@@ -44,6 +44,7 @@
-=20
- #include <net/ipv6.h>
- #include <net/ip6_route.h>
-+#include <net/ip6_checksum.h>
- #include <linux/mroute6.h>
- #include <linux/pim.h>
- #include <net/addrconf.h>
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=C3=9Fe 5, 90409 N=C3=BCrnberg, Ge=
-rmany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4=
-ED5
-"And now for something completely different."
+Atsushi Nemoto
