@@ -1,72 +1,172 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Sat, 31 Jan 2009 11:17:15 +0100
-Message-ID: <4984252B.8080508@cosmosbay.com>
-References: <20090130095737.103edbff@extreme> <498349F7.4050300@cosmosbay.com> <20090130215008.GB12210@ioremap.net> <49837F7E.90306@cosmosbay.com> <20090130225113.GA13977@ioremap.net> <20090130185224.214b3a59@extreme> <20090131083724.GB26897@ioremap.net> <49841738.7050605@cosmosbay.com> <20090131093123.GA28151@ioremap.net> <49841E8C.60401@cosmosbay.com> <20090131095640.GA29099@ioremap.net>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] net: variables reach -1, but 0 tested
+Date: Sat, 31 Jan 2009 11:36:30 +0100
+Message-ID: <498429AE.1080404@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, berrange@redhat.com,
-	et-mgmt-tools@redhat.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52295 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751643AbZAaKRo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 05:17:44 -0500
-In-Reply-To: <20090131095640.GA29099@ioremap.net>
+Received: from mail-ew0-f21.google.com ([209.85.219.21]:36503 "EHLO
+	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752767AbZAaKgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 05:36:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov a =E9crit :
-> On Sat, Jan 31, 2009 at 10:49:00AM +0100, Eric Dumazet (dada1@cosmosb=
-ay.com) wrote:
->> It appears you are always right, I have nothing to say then.
->>
->> Stupid I am.
->>
->> I vote for plain revert of your initial patch, since you are anaware
->> of performance problems it introduces. Then, probably nobody cares
->> of my complaints, so dont worry.
->=20
-> Eric, do not get it soo personally :) After all it is only a matter o=
-f
-> how we enjoy the process and have fun with the development.
->=20
-> Really, I appreciate your work and help, and likely this
-> misunderstanding happened because of a bad mix of the original bug an=
-d
-> this performance implication. Original bug has really nothing with wh=
-at
-> we discuss here. And while the performance problem with bound sockets
-> creation may be visible, I did not observe it, while the idea
-> implemented with this approach shows up clearly in the graph I posted=
-=2E
-> So I vote by both hands to further improve it by moving things around=
- so
-> that there would be no unneded cache flushes during update of this
-> field.
->=20
+With a postfix decrement these reach -1 rather than 0,
+but after the loop it is tested whether they have become 0.
 
-OK OK, as I said, dont worry, it was not a strong feeling from me, only
-a litle bit upset, thats all.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+ drivers/net/ibm_newemac/phy.c |    4 ++--
+ drivers/net/smc911x.c         |    2 +-
+ drivers/net/smsc9420.c        |   12 ++++++------
+ drivers/net/sungem.c          |    2 +-
+ drivers/net/sunqe.c           |    2 +-
+ drivers/net/tsi108_eth.c      |    2 +-
+ drivers/net/tulip/de2104x.c   |    2 +-
+ 7 files changed, 13 insertions(+), 13 deletions(-)
 
-We only need to know if the *fix* is solving Stephen problem
-
-About performance effects of careful variable placement and percpu coun=
-ter
-strategy you might consult as an example :
-
-http://lkml.indiana.edu/hypermail/linux/kernel/0812.1/01624.html
-
-Now, with these patches applied, try to see effect of your new bsockets=
- field
-on a network workload doing lot of socket bind()/unbind() calls...
-
-With current kernels, you probably wont notice because of inode/dcache =
-hot
-cache lines, but it might change eventually...
-
-
+diff --git a/drivers/net/ibm_newemac/phy.c b/drivers/net/ibm_newemac/phy.c
+index c40cd8d..ac9d964 100644
+--- a/drivers/net/ibm_newemac/phy.c
++++ b/drivers/net/ibm_newemac/phy.c
+@@ -60,7 +60,7 @@ int emac_mii_reset_phy(struct mii_phy *phy)
+ 
+ 	udelay(300);
+ 
+-	while (limit--) {
++	while (--limit) {
+ 		val = phy_read(phy, MII_BMCR);
+ 		if (val >= 0 && (val & BMCR_RESET) == 0)
+ 			break;
+@@ -84,7 +84,7 @@ int emac_mii_reset_gpcs(struct mii_phy *phy)
+ 
+ 	udelay(300);
+ 
+-	while (limit--) {
++	while (--limit) {
+ 		val = gpcs_phy_read(phy, MII_BMCR);
+ 		if (val >= 0 && (val & BMCR_RESET) == 0)
+ 			break;
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index bf3aa2a..527c336 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -220,7 +220,7 @@ static void smc911x_reset(struct net_device *dev)
+ 
+ 	/* make sure EEPROM has finished loading before setting GPIO_CFG */
+ 	timeout=1000;
+-	while ( timeout-- && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_)) {
++	while ( --timeout && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_)) {
+ 		udelay(10);
+ 	}
+ 	if (timeout == 0){
+diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
+index c14a4c6..41f5303 100644
+--- a/drivers/net/smsc9420.c
++++ b/drivers/net/smsc9420.c
+@@ -498,7 +498,7 @@ static void smsc9420_check_mac_address(struct net_device *dev)
+ static void smsc9420_stop_tx(struct smsc9420_pdata *pd)
+ {
+ 	u32 dmac_control, mac_cr, dma_intr_ena;
+-	int timeOut = 1000;
++	int timeout = 1000;
+ 
+ 	/* disable TX DMAC */
+ 	dmac_control = smsc9420_reg_read(pd, DMAC_CONTROL);
+@@ -506,13 +506,13 @@ static void smsc9420_stop_tx(struct smsc9420_pdata *pd)
+ 	smsc9420_reg_write(pd, DMAC_CONTROL, dmac_control);
+ 
+ 	/* Wait max 10ms for transmit process to stop */
+-	while (timeOut--) {
++	while (--timeout) {
+ 		if (smsc9420_reg_read(pd, DMAC_STATUS) & DMAC_STS_TS_)
+ 			break;
+ 		udelay(10);
+ 	}
+ 
+-	if (!timeOut)
++	if (!timeout)
+ 		smsc_warn(IFDOWN, "TX DMAC failed to stop");
+ 
+ 	/* ACK Tx DMAC stop bit */
+@@ -596,7 +596,7 @@ static void smsc9420_free_rx_ring(struct smsc9420_pdata *pd)
+ 
+ static void smsc9420_stop_rx(struct smsc9420_pdata *pd)
+ {
+-	int timeOut = 1000;
++	int timeout = 1000;
+ 	u32 mac_cr, dmac_control, dma_intr_ena;
+ 
+ 	/* mask RX DMAC interrupts */
+@@ -617,13 +617,13 @@ static void smsc9420_stop_rx(struct smsc9420_pdata *pd)
+ 	smsc9420_pci_flush_write(pd);
+ 
+ 	/* wait up to 10ms for receive to stop */
+-	while (timeOut--) {
++	while (--timeout) {
+ 		if (smsc9420_reg_read(pd, DMAC_STATUS) & DMAC_STS_RS_)
+ 			break;
+ 		udelay(10);
+ 	}
+ 
+-	if (!timeOut)
++	if (!timeout)
+ 		smsc_warn(IFDOWN, "RX DMAC did not stop! timeout.");
+ 
+ 	/* ACK the Rx DMAC stop bit */
+diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
+index 86c765d..b17efa9 100644
+--- a/drivers/net/sungem.c
++++ b/drivers/net/sungem.c
+@@ -148,7 +148,7 @@ static u16 __phy_read(struct gem *gp, int phy_addr, int reg)
+ 	cmd |= (MIF_FRAME_TAMSB);
+ 	writel(cmd, gp->regs + MIF_FRAME);
+ 
+-	while (limit--) {
++	while (--limit) {
+ 		cmd = readl(gp->regs + MIF_FRAME);
+ 		if (cmd & MIF_FRAME_TALSB)
+ 			break;
+diff --git a/drivers/net/sunqe.c b/drivers/net/sunqe.c
+index 6e8f377..fe0c3f2 100644
+--- a/drivers/net/sunqe.c
++++ b/drivers/net/sunqe.c
+@@ -227,7 +227,7 @@ static int qe_init(struct sunqe *qep, int from_irq)
+ 	if (!(sbus_readb(mregs + MREGS_PHYCONFIG) & MREGS_PHYCONFIG_LTESTDIS)) {
+ 		int tries = 50;
+ 
+-		while (tries--) {
++		while (--tries) {
+ 			u8 tmp;
+ 
+ 			mdelay(5);
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
+index 75461db..a9fd2b2 100644
+--- a/drivers/net/tsi108_eth.c
++++ b/drivers/net/tsi108_eth.c
+@@ -1237,7 +1237,7 @@ static void tsi108_init_phy(struct net_device *dev)
+ 	spin_lock_irqsave(&phy_lock, flags);
+ 
+ 	tsi108_write_mii(data, MII_BMCR, BMCR_RESET);
+-	while (i--){
++	while (--i) {
+ 		if(!(tsi108_read_mii(data, MII_BMCR) & BMCR_RESET))
+ 			break;
+ 		udelay(10);
+diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
+index d5d53b6..0bf2114 100644
+--- a/drivers/net/tulip/de2104x.c
++++ b/drivers/net/tulip/de2104x.c
+@@ -392,7 +392,7 @@ static void de_rx (struct de_private *de)
+ 	unsigned drop = 0;
+ 	int rc;
+ 
+-	while (rx_work--) {
++	while (--rx_work) {
+ 		u32 status, len;
+ 		dma_addr_t mapping;
+ 		struct sk_buff *skb, *copy_skb;
