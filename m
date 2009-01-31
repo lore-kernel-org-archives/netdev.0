@@ -1,58 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] sfc: SFT9001: Enable robust link training
-Date: Fri, 30 Jan 2009 16:02:27 -0800 (PST)
-Message-ID: <20090130.160227.02430869.davem@davemloft.net>
-References: <20090130034810.GC15266@solarflare.com>
-	<20090130.140904.37637243.davem@davemloft.net>
-	<1233360255.2799.17.camel@hashbaz.i.decadent.org.uk>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: PROBLEM: in_atomic() misuse all over the place
+Date: Fri, 30 Jan 2009 16:03:16 -0800
+Message-ID: <20090130160316.7e53ef99.akpm@linux-foundation.org>
+References: <200901280010.37633.roger.larsson@e-gatan.se>
+	<87pri7k4id.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49311
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751601AbZAaAC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 19:02:29 -0500
-In-Reply-To: <1233360255.2799.17.camel@hashbaz.i.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roger.larsson@e-gatan.se, linux-kernel@vger.kernel.org,
+	mingo@elte.hu, rml@tech9.net, pavel@ucw.cz, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757290AbZAaAEK@vger.kernel.org>
+In-Reply-To: <87pri7k4id.fsf@basil.nowhere.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 31 Jan 2009 00:04:15 +0000
+On Wed, 28 Jan 2009 13:18:50 +0100
+Andi Kleen <andi@firstfloor.org> wrote:
 
-> On Fri, 2009-01-30 at 14:09 -0800, David Miller wrote:
-> > From: Ben Hutchings <bhutchings@solarflare.com>
-> > Date: Fri, 30 Jan 2009 03:48:10 +0000
-> > 
-> > > From: Steve Hodgson <shodgson@solarflare.com>
-> > > 
-> > > Enable a firmware option that appears to be necessary for reliable
-> > > operation.
-> > > 
-> > > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > 
-> > I applied all of these patches but:
-> > 
-> > 1) When you get changes written by other people, such as
-> >    Steve Hodgson here and in the next few patches, you need
-> >    to get Signed-off-by lines from them too.
+> > file:  include/net/sock.h
+> >
+> >    static inline gfp_t gfp_any(void)
+> >    {
+> >      return in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
+> >    }
 > 
-> I have been attributing changes to my colleagues for some time and never
-> heard this.  In any case the copyright lies with my employer and I am
-> authorised to release these changes; isn't that what my initial sign-
-> off means?
-
-Sure, but it is even more meaningful if the person who actually
-wrote the changes signs off on it too.
-
-> > 2) Outside of the merge window I do not want to see totally
-> >    irrelevant stuff like PHY loopback fixes.
-> > 
-> >    Those kinds of fixes are totally inappropriate at this time.
+> That's typically for softirq vs non softirq, which is important
+> for the network stack.
 > 
-> Are you saying that a spurious self-test failure is not a serious bug?
 
-Normal users will not run the self-test giblet, and it has
-not been reported as a 2.6.29 regression on lkml.
+There's a bit of a problem here.  If someone accidentally uses
+gfp_any() inside a spinlock, it will do a sleeping allocation on
+non-preempt kernels and will do an atomic allocation on preemptible
+kernels, so we won't get to see the warning which would allow us to fix
+the bug.
+
+Would using irq_count() work?  If so, that would fix this up.
