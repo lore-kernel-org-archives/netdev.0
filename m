@@ -1,69 +1,38 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] percpu: add optimized generic percpu accessors
-Date: Sat, 31 Jan 2009 15:11:14 +0900
-Message-ID: <4983EB82.7060508@kernel.org>
-References: <20090115183942.GA6325@elte.hu> <200901282108.51864.rusty@rustcorp.com.au> <498039E2.7090107@kernel.org> <200901291236.48189.rusty@rustcorp.com.au>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: virt-manager broken by bind(0) in net-next.
+Date: Sat, 31 Jan 2009 11:37:24 +0300
+Message-ID: <20090131083724.GB26897@ioremap.net>
+References: <20090130112125.GA9908@ioremap.net> <20090130125337.GA7155@gondor.apana.org.au> <20090130095737.103edbff@extreme> <498349F7.4050300@cosmosbay.com> <20090130215008.GB12210@ioremap.net> <49837F7E.90306@cosmosbay.com> <20090130225113.GA13977@ioremap.net> <20090130185224.214b3a59@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	akpm@linux-foundation.org, hpa@zytor.com, brgerst@gmail.com,
-	ebiederm@xmission.com, cl@linux-foundation.org, travis@sgi.com,
-	linux-kernel@vger.kernel.org, steiner@sgi.com, hugh@veritas.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, berrange@redhat.com,
+	et-mgmt-tools@redhat.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:32871 "EHLO hera.kernel.org"
+Received: from corega.com.ru ([195.178.208.66]:54844 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751066AbZAaGMA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2009 01:12:00 -0500
-In-Reply-To: <200901291236.48189.rusty@rustcorp.com.au>
+	id S1751146AbZAaIhZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 03:37:25 -0500
+Content-Disposition: inline
+In-Reply-To: <20090130185224.214b3a59@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Rusty.
-
-Rusty Russell wrote:
->> Rusty Russell wrote:
->>> If the stats are only manipulated in one context, than an atomic
->>> requirement is overkill (and expensive on non-x86).
->> Yes, it is.  I was hoping it to be not more expensive on most archs.
->> It isn't on x86 at the very least but I don't know much about other
->> archs.
+On Fri, Jan 30, 2009 at 06:52:24PM -0800, Stephen Hemminger (shemminger@vyatta.com) wrote:
+> My working hypothesis is:
+>   1. Something about Evgeniy's patch makes IPV6 (actually IPV4 in IPV6) be
+>      preferred over plain IPV4.
+>   2. Vino server (VNC) doesn't think ::ffff::127.0.0.1 is really the localhost
+>   3. protocol gets screwed up after that.
 > 
-> Hmm, you can garner this from the local_t stats which were flying around.
-> (see Re: local_add_return from me), or look in the preamble to
-> http://ozlabs.org/~rusty/kernel/rr-latest/misc:test-local_t.patch ).
+> It is probably reproducible with other services that support IPV6.
 
-Ah... Great.
-
-> Of course, if you want to be my hero, you could implement "soft" irq
-> disable for all archs, which would make this cheaper.
-
-I suppose you mean deferred execution of interrupt handlers for quick
-atomicities.  Yeah, that would be nice for things like this.
-
->>> Other than the shouting, I liked Christoph's system:
->>> - CPU_INC = always safe (eg. local_irq_save/per_cpu(i)++/local_irq_restore)
->>> - _CPU_INC = not safe against interrupts (eg. get_cpu/per_cpu(i)++/put_cpu)
->>> - __CPU_INC = not safe against anything (eg. per_cpu(i)++)
->>>
->>> I prefer the name 'local' to the name 'cpu', but I'm not hugely fussed.
->> I like local better too but no biggies one way or the other.
-> 
-> Maybe kill local_t and take the name back.  I'll leave it to you...
-> 
->>> Ah, I did not realize that you celebrated Australia day :)
->> Hey, didn't know Australia was founded on lunar New Year's day.
->> Nice. :-)
-> 
-> That would have been cool, but no; first time in 76 years they matched tho.
-
-It was a joke.  :-)
-
-Thanks.
+getaddrinfo() returns list of addresses and IPv6 was the first one iirc.
+Previously it bailed out, but with my change it will try again without
+reason for doing this. With the patch I sent based on Eric's observation
+things should be fine.
 
 -- 
-tejun
+	Evgeniy Polyakov
