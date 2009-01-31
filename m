@@ -1,256 +1,235 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 3/3] ixgbe: Update copyright dates,
-	bump the driver version number
-Date: Fri, 30 Jan 2009 17:06:17 -0800
-Message-ID: <20090131010616.1820.93633.stgit@lost.foo-projects.org>
-References: <20090131010530.1820.5846.stgit@lost.foo-projects.org>
+From: Parag Warudkar <parag.lkml@gmail.com>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Fri, 30 Jan 2009 20:21:28 -0500 (EST)
+Message-ID: <alpine.DEB.2.00.0901302016170.5643@parag-desktop>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901310059.17746.rjw@sisk.pl> <alpine.DEB.2.00.0901301924550.5056@parag-desktop> <200901310138.51214.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Parag Warudkar <parag.lkml@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:47431
-	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753293AbZAaBGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 20:06:37 -0500
-In-Reply-To: <20090131010530.1820.5846.stgit@lost.foo-projects.org>
+Received: from yx-out-2324.google.com ([74.125.44.28]:61580 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992AbZAaBVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2009 20:21:39 -0500
+In-Reply-To: <200901310138.51214.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-New year, new copyright date ranges.  Also bump the driver version
-number to reflect many of the recent changes.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+On Sat, 31 Jan 2009, Rafael J. Wysocki wrote:
 
- drivers/net/ixgbe/Makefile          |    2 +-
- drivers/net/ixgbe/ixgbe.h           |    2 +-
- drivers/net/ixgbe/ixgbe_82598.c     |    2 +-
- drivers/net/ixgbe/ixgbe_common.c    |    2 +-
- drivers/net/ixgbe/ixgbe_common.h    |    2 +-
- drivers/net/ixgbe/ixgbe_dcb.c       |    2 +-
- drivers/net/ixgbe/ixgbe_dcb.h       |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_82598.c |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_82598.h |    2 +-
- drivers/net/ixgbe/ixgbe_dcb_nl.c    |    2 +-
- drivers/net/ixgbe/ixgbe_ethtool.c   |    2 +-
- drivers/net/ixgbe/ixgbe_main.c      |    6 +++---
- drivers/net/ixgbe/ixgbe_phy.c       |    2 +-
- drivers/net/ixgbe/ixgbe_phy.h       |    2 +-
- drivers/net/ixgbe/ixgbe_type.h      |    2 +-
- 15 files changed, 17 insertions(+), 17 deletions(-)
+> This gets more and more interesting.
+> 
+> Can you test the patch below, please?
+> 
+> Rafael
+> 
+> ---
+> Subject: PCI PCIe portdrv: Implement pm object
+> From: Rafael J. Wysocki <rjw@sisk.pl>
+> 
+> Implement pm object for the PCI Express port driver in order to use
+> the new power management framework.
+> 
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> ---
 
-diff --git a/drivers/net/ixgbe/Makefile b/drivers/net/ixgbe/Makefile
-index 6e7ef76..f606195 100644
---- a/drivers/net/ixgbe/Makefile
-+++ b/drivers/net/ixgbe/Makefile
-@@ -1,7 +1,7 @@
- ################################################################################
- #
- # Intel 10 Gigabit PCI Express Linux driver
--# Copyright(c) 1999 - 2007 Intel Corporation.
-+# Copyright(c) 1999 - 2009 Intel Corporation.
- #
- # This program is free software; you can redistribute it and/or modify it
- # under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 341d8b5..0ea791a 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index 7fb4b86..8e7315e 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index f67c684..05f0e87 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 192f8d0..0b5ba57 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb.c b/drivers/net/ixgbe/ixgbe_dcb.c
-index e2e28ac..2a60c89 100644
---- a/drivers/net/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2007 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb.h b/drivers/net/ixgbe/ixgbe_dcb.h
-index 75f6efe..0da5c6d 100644
---- a/drivers/net/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2007 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-index 2c046b0..5603211 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2007 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.h b/drivers/net/ixgbe/ixgbe_dcb_82598.h
-index 1e6a313..ebbe53c 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82598.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82598.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2007 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index 4129976..dd9d1d6 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 69eda89..14e661e 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 7171399..ec98e26 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -47,9 +47,9 @@ char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
-                               "Intel(R) 10 Gigabit PCI Express Network Driver";
- 
--#define DRV_VERSION "1.3.30-k2"
-+#define DRV_VERSION "1.3.56-k2"
- const char ixgbe_driver_version[] = DRV_VERSION;
--static char ixgbe_copyright[] = "Copyright (c) 1999-2007 Intel Corporation.";
-+static char ixgbe_copyright[] = "Copyright (c) 1999-2009 Intel Corporation.";
- 
- static const struct ixgbe_info *ixgbe_info_tbl[] = {
- 	[board_82598] = &ixgbe_82598_info,
-diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
-index 5a8669a..77ec26f 100644
---- a/drivers/net/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ixgbe/ixgbe_phy.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
-index 43a97bc..539a306 100644
---- a/drivers/net/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ixgbe/ixgbe_phy.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 0d1d1d2..c49ba8a 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2008 Intel Corporation.
-+  Copyright(c) 1999 - 2009 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
+Excellent! This patch works - tg3 comes back and gets link after resume.
+
+Thank you!
+
+Are the below differences worth worrying about - especially since post 
+suspend some DevID/VendorID and some capabilities seem to be changed?
+
+parag@parag-desktop:~$ diff -u lspci-pre-suspend lspci-post-fix 
+--- lspci-pre-suspend   2009-01-30 18:19:50.752275695 -0500     
++++ lspci-post-fix      2009-01-30 20:14:22.605607870 -0500     
+@@ -286,9 +286,9 @@                                             
+ 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ 20: 00 00 00 00 00 00 00 00 00 00 00 00 86 80 86 80            
+ 30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+-40: 00 00 00 00 00 00 0d 00 00 00 00 00 00 00 00 00            
++40: 00 00 00 00 00 00 0f 00 00 00 00 00 00 00 00 00            
+ 50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+-60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
++60: 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00            
+ 70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ 80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ 90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+@@ -353,7 +353,7 @@                                             
+ 40: 00 00 00 80 14 14 b0 b0 ff 01 00 30 ff 01 00 30            
+ 50: 00 00 00 07 00 00 00 00 ff 3f ff 3f 00 40 00 40            
+ 60: 00 40 00 40 01 80 01 80 00 00 00 00 00 00 00 00            
+-70: 00 00 00 00 6b e0 6b e0 00 00 0b a9 00 00 0b a9            
++70: 00 00 00 00 00 c0 00 c0 01 1b 4c b8 01 1b 4c b8            
+ 80: 24 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ 90: 01 01 08 00 01 01 08 00 01 01 08 00 01 01 08 00            
+ a0: 01 01 08 00 00 00 00 00 00 00 00 00 00 00 00 00            
+@@ -395,7 +395,7 @@                                             
+ 40: 00 00 00 80 14 14 b0 b0 ff 01 00 30 ff 01 00 30            
+ 50: 00 00 00 07 00 00 00 00 ff 3f ff 3f 00 40 00 40            
+ 60: 00 40 00 40 01 80 01 80 00 00 00 00 00 00 00 00            
+-70: 00 00 00 00 69 e0 69 e0 00 00 0b a9 00 00 0b a9            
++70: 00 00 00 00 00 40 00 40 01 1b 4c b8 01 1b 4c b8            
+ 80: 65 06 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ 90: 01 01 20 00 01 01 20 00 01 01 20 00 01 01 20 00            
+ a0: 01 01 20 00 00 00 00 00 00 00 00 00 00 00 00 00            
+@@ -645,8 +645,8 @@                                             
+ 30: 00 00 00 00 50 00 00 00 00 00 00 00 03 01 00 00            
+ 40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ 50: 01 58 c2 c9 00 00 00 00 0a 00 a0 20 00 00 00 00            
+-60: 20 20 ff 01 00 00 00 00 01 00 00 00 00 00 08 80            
+-70: 00 00 df 3f 00 00 00 00 00 00 00 00 00 00 00 00            
++60: 20 20 ff 01 00 00 00 00 01 00 00 00 00 00 08 c0            
++70: 00 00 dd 3f 00 00 00 00 00 00 00 00 00 00 00 00            
+ 80: 00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00            
+ 90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+@@ -698,7 +698,7 @@                                             
+ 70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ 80: 10 00 09 14 01 04 00 00 81 04 00 00 00 00 00 00            
+ 90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+-a0: 10 06 00 00 01 00 00 00 00 00 00 00 00 13 00 00            
++a0: 10 06 00 00 00 00 00 00 00 00 00 00 00 13 00 00            
+ b0: 00 00 00 00 00 00 00 00 00 10 00 04 00 00 00 00            
+ c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00            
+ d0: 33 22 11 00 67 45 00 00 c0 c0 00 00 02 00 00 00            
+@@ -754,7 +754,7 @@                                             
+        Capabilities: [50] Vital Product Data <?>               
+        Capabilities: [58] Vendor Specific Information <?>      
+        Capabilities: [e8] Message Signalled Interrupts: Mask- 64bit+ 
+Queue=0/0 Enable+
+-               Address: 00000000fee0f00c  Data: 41c1                                  
++               Address: 00000000fee0f00c  Data: 41c9                                  
+        Capabilities: [d0] Express (v1) Endpoint, MSI 00                               
+                DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s 
+<4us, L1 unlimited
+                        ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset-                  
+@@ -778,24 +778,24 @@                                                                    
+ 20: 00 00 00 00 00 00 00 00 00 00 00 00 3c 10 07 13                                     
+ 30: 00 00 04 20 48 00 00 00 00 00 00 00 03 01 00 00                                     
+ 40: 00 00 00 00 00 00 00 00 01 50 03 c0 08 20 00 64                                     
+-50: 03 58 fc 00 00 00 00 78 09 e8 78 00 95 ef 08 88                                     
++50: 03 58 fc 00 00 00 00 78 09 e8 78 00 9a f7 08 58                                     
+ 60: 00 00 00 00 00 00 00 00 98 02 02 a0 00 00 18 76                                     
+ 70: f2 10 00 00 c0 00 00 00 20 70 00 00 00 00 00 00                                     
+ 80: 00 00 00 00 00 00 00 00 34 00 13 04 82 70 08 fc                                     
+-90: 19 be 00 01 00 00 00 00 00 00 00 00 94 01 00 00                                     
+-a0: 00 00 00 00 cc 00 00 00 00 00 00 00 29 01 00 00                                     
+-b0: 00 00 00 00 00 00 00 8e 00 00 00 00 00 00 00 00                                     
++90: 19 be 00 01 00 00 00 44 00 00 00 00 e7 00 00 00                                     
++a0: 00 00 00 00 1f 00 00 00 00 00 00 00 24 00 00 00                                     
++b0: 00 00 00 00 00 00 00 44 00 00 00 00 00 00 00 00                                     
+ c0: 00 00 00 00 00 00 00 00 0e 00 00 00 00 00 00 00                                     
+ d0: 10 00 01 00 a0 8f 00 00 00 50 10 00 11 64 03 00                                     
+ e0: 40 00 11 10 00 00 00 00 05 d0 81 00 0c f0 e0 fe                                     
+-f0: 00 00 00 00 c1 41 00 00 00 00 00 00 00 00 00 00                                     
++f0: 00 00 00 00 c9 41 00 00 00 00 00 00 00 00 00 00                                     
+                                                                                         
+ 10:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express 
+Upstream Port (rev 01)
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx- 
+        Latency: 0, Cache Line Size: 64 bytes                                                                
+        Bus: primary=10, secondary=1e, subordinate=40, sec-latency=0                                         
+-       Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort+ <SERR- <PERR-       
++       Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- <SERR- <PERR-       
+        BridgeCtl: Parity- SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-                                        
+                PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-                                          
+        Capabilities: [44] Express (v1) Upstream Port, MSI 00                                                
+@@ -818,7 +818,7 @@                                                                                          
+        Kernel driver in use: pcieport-driver                                                                
+        Kernel modules: shpchp                                                                               
+ 00: 86 80 00 35 07 01 10 00 01 00 04 06 10 00 81 00                                                         
+-10: 00 00 00 00 00 00 00 00 10 1e 40 00 f0 00 00 20                                                         
++10: 00 00 00 00 00 00 00 00 10 1e 40 00 f0 00 00 00                                                         
+ 20: f0 ff 00 00 f1 ff 01 00 00 00 00 00 00 00 00 00                                                         
+ 30: 00 00 00 00 44 00 00 00 00 00 00 00 ff 01 06 00                                                         
+ 40: 00 28 02 10 10 70 51 00 01 00 00 00 0f 50 0a 00                                                         
+@@ -839,7 +839,7 @@                                                                                          
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx- 
+        Latency: 0, Cache Line Size: 64 bytes                                                                
+        Bus: primary=10, secondary=11, subordinate=1d, sec-latency=32                                        
+-       Secondary status: 66MHz+ FastB2B+ ParErr- DEVSEL=medium >TAbort- 
+<TAbort- <MAbort+ <SERR- <PERR-     
++       Secondary status: 66MHz+ FastB2B+ ParErr- DEVSEL=medium >TAbort- 
+<TAbort- <MAbort- <SERR- <PERR-     
+        BridgeCtl: Parity- SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-                                        
+                PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-                                          
+        Capabilities: [44] Express (v1) PCI/PCI-X Bridge, MSI 00                                             
+@@ -848,7 +848,7 @@                                                                                          
+                DevCtl: Report errors: Correctable- Non-Fatal- Fatal- 
+Unsupported-                           
+                        RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop- 
+BrConfRtry-                             
+                        MaxPayload 128 bytes, MaxReadReq 512 bytes                                           
+-               DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr- 
+TransPend-                          
++               DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr- 
+TransPend-                          
+                LnkCap: Port #0, Speed 2.5GT/s, Width x8, ASPM L0s, 
+Latency L0 unlimited, L1 unlimited       
+                        ClockPM- Suprise- LLActRep- BwNot-
+                LnkCtl: ASPM Disabled; Disabled- Retrain- CommClk-
+@@ -857,7 +857,7 @@
+        Capabilities: [6c] Power Management version 2
+                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA 
+PME(D0+,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+-       Capabilities: [80] Subsystem: Hewlett-Packard Company Device 1307
++       Capabilities: [80] Subsystem: Gammagraphx, Inc. Device 0000
+        Capabilities: [d8] PCI-X bridge device
+                Secondary Status: 64bit+ 133MHz+ SCD- USC- SCO- SRD- 
+Freq=133MHz
+                Status: Dev=00:00.3 64bit- 133MHz- SCD- USC- SCO- SRD-
+@@ -866,14 +866,14 @@
+        Capabilities: [100] Advanced Error Reporting <?>
+        Kernel modules: shpchp
+ 00: 86 80 0c 35 07 01 10 00 01 00 04 06 10 00 81 00
+-10: 00 00 00 00 00 00 00 00 10 11 1d 20 f0 00 a0 22
++10: 00 00 00 00 00 00 00 00 10 11 1d 20 f0 00 a0 02
+ 20: f0 ff 00 00 f1 ff 01 00 00 00 00 00 00 00 00 00
+ 30: 00 00 00 00 44 00 00 00 00 00 00 00 00 00 06 00
+-40: 80 6e 00 ff 10 6c 71 00 01 00 00 00 00 20 0a 00
++40: 80 6e 00 ff 10 6c 71 00 01 00 00 00 00 20 00 00
+ 50: 81 f4 03 00 00 00 41 00 00 00 00 00 05 6c 80 00
+ 60: 00 00 00 00 00 00 00 00 00 00 00 00 01 80 02 c8
+ 70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+-80: 0d d8 00 00 3c 10 07 13 00 00 00 00 00 00 00 00
++80: 0d d8 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ 90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+@@ -916,7 +916,7 @@
+ 20: f0 ff 00 00 f1 ff 01 00 00 00 00 00 00 00 00 00
+ 30: 00 00 00 00 44 00 00 00 00 00 00 00 00 01 06 00
+ 40: 00 00 c0 00 10 60 61 00 01 00 00 00 0f 50 00 00
+-50: 41 f4 03 00 20 00 01 10 80 0c 00 00 c0 03 48 00
++50: 41 f4 03 00 20 00 01 10 80 0c 00 00 c0 03 58 00
+ 60: 05 70 81 00 0c f0 e0 fe 00 00 00 00 91 41 00 00
+ 70: 01 80 02 c8 00 00 00 00 00 00 00 00 00 00 00 00
+ 80: 0d 00 00 00 3c 10 07 13 00 00 00 00 00 00 00 00
+@@ -962,7 +962,7 @@
+ 20: f0 ff 00 00 f1 ff 01 00 00 00 00 00 00 00 00 00
+ 30: 00 00 00 00 44 00 00 00 00 00 00 00 00 01 06 00
+ 40: 00 00 c0 00 10 60 61 00 01 00 00 00 0f 50 00 00
+-50: 41 f4 03 00 20 00 01 10 80 0c 00 00 c0 03 48 00
++50: 41 f4 03 00 20 00 01 10 80 0c 00 00 c0 03 58 00
+ 60: 05 70 81 00 0c f0 e0 fe 00 00 00 00 99 41 00 00
+ 70: 01 80 02 c8 00 00 00 00 00 00 00 00 00 00 00 00
+ 80: 0d 00 00 00 3c 10 07 13 00 00 00 00 00 00 00 00
+parag@parag-desktop:~$
 
