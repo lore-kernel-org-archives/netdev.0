@@ -1,8 +1,8 @@
 From: "Rafael J. Wysocki" <rjw@sisk.pl>
 Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Sat, 31 Jan 2009 21:45:11 +0100
-Message-ID: <200901312145.12073.rjw@sisk.pl>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901301741380.3150@localhost.localdomain> <alpine.LFD.2.00.0901301756360.3150@localhost.localdomain>
+Date: Sat, 31 Jan 2009 22:08:19 +0100
+Message-ID: <200901312208.20850.rjw@sisk.pl>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901310138.51214.rjw@sisk.pl> <alpine.LFD.2.00.0901301714080.3150@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -12,241 +12,109 @@ Cc: Parag Warudkar <parag.lkml@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>
+	Andrew Morton <akpm@linux-foundation.org>
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:54418 "EHLO ogre.sisk.pl"
+Received: from ogre.sisk.pl ([217.79.144.158]:54481 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752279AbZAaUp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2009 15:45:57 -0500
-In-Reply-To: <alpine.LFD.2.00.0901301756360.3150@localhost.localdomain>
+	id S1752443AbZAaVJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 16:09:03 -0500
+In-Reply-To: <alpine.LFD.2.00.0901301714080.3150@localhost.localdomain>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Saturday 31 January 2009, Linus Torvalds wrote:
 > 
-> On Fri, 30 Jan 2009, Linus Torvalds wrote:
+> On Sat, 31 Jan 2009, Rafael J. Wysocki wrote:
 > > 
-> > I still think the patch isn't very good. See my previous email. 
-> > 
-> > The fact that your machine works again is good, though. But before we let 
-> > this lie, I'd _really_ like to know what was broken in the legacy PM path, 
-> > rather than "let's leave it behind". Because a broken legacy path will end 
-> > up biting us for other drivers, and I think the new PM path will need more 
-> > work before it's ready for prime-time.
+> > Can you test the patch below, please?
 > 
-> Ho humm. I have a feeling..
+> Rafael, you're making this _way_ too difficult.
 > 
-> The legacy resume basically ends up doing just
+> Don't make it use the new PM infrastructure, because that one is certainly 
+> broken: pci_pm_default_suspend_generic() is total crap.
+
+Oh my.  I beg to differ.
+
+> It's saving the disabled state. No WAY is that correct.
+
+So why does it work, actually?
+
+> That "pci_disable_enabled_device()" should be removed, but even then 
+> that's wrong, because if the driver suspend disabled it, you're now 
+> (again) saving the disabled state.
 > 
-> 	pci_restore_standard_config(dev)
+> But all of that is only called if you use the new PM infrastructure. So 
+> the thing is, when you're trying to move the PCI-E drive to the new pm 
+> infrastructure, you're making things _worse_.
+
+I don't really think so (see below).
+
+> The legacy PM infrastructure at least does the whole
 > 
-> in the resume_early path (in pci_pm_default_resume_noirq, which is shared 
-> with both the legacy and the new PM model).
-
-Well, please remember that the PCIe port driver has ->resume() too, which is
-pcie_portdrv_resume(), which calls pcie_portdrv_restore_config() and that
-calls pci_enable_device() (not reenable, just plain enable).
-
-However, that sees the device has been already enabled and doesn't enable
-it, although it is supposed to do that.
-
-> The _new_ PM layer does that too (it's shared), but then in the regular 
-> resume sequence it _also_ does the pci_pm_reenable_device(), and I think 
-> this is key.
-
-It well may be, but I'm not too sure.
-
-> Why?
+> 	pci_dev->state_saved = false;
+> 	i = drv->suspend(pci_dev, state);
+> 	..
+> 	if (pci_dev->state_saved)
+> 		goto Fixup;
 > 
-> Look at pci_restore_standard_config(): it restores the PCI config space, 
-> but it does so _before_ actually turning the device into PCI_D0. And 
-> that's not actually guaranteed to work at all - if a device is in D3, you 
-> can still read from config space, but writing to it may or may not 
-> actually work.
-
-Yes, I sent a patch for it to Jesse, but he hasn't pushed it yet:
-http://git.kernel.org/?p=linux/kernel/git/jbarnes/pci-2.6.git;a=commit;h=48f67f54a53bb68619a63c3f38cf7f502ed74b1d
-
-Parag, would it be possible to test this patch on top of 2.6.29-rc3?
-
-> This may explain why your PCIE bridge works when moving over to the new 
-> PM: because of the whole pci_pm_reenable_device() thing, we end up 
-> doing the pci_enable_resources() thing later, and now it's in PCI_D0, so 
-> now the device actually reacts to it.
+> thing, which will avoid overwriting the state if it was already saved.
 > 
-> This also explains why we don't care if we save the wrong state or not: 
-> even if we save state with IO/MEM disabled, we'll re-enable it at 
-> ->resume() time.
-
-Nice theory, but please also look at the original 2.6.28 code in
-drivers/pci/pcie/portdrv_pci.c .  It does:
-(suspend):
-- suspend port services
-- pci_save_state
-
-(resume):
-- pci_restore_state()
-- pci_enable_device() -> this doesn't enable the device, because it sees the
-  non-zero refrence count end doesn't do anything.
-
-So, according to your theory, the 2.6.28 code shouldn't work for Parag, but it
-does.
-
-Moreover, why oh why the state we save would contain IO/MEM disabled?
-
-We _never_ _ever_ disable them, so WHY? 
-
-> HOWEVER, that's still buggy, since it's potentially too late, since any 
-> interrupts that come in before that will see the device without the IO/MEM 
-> set, leading to the whole "hung interrupt" issue again even if the device 
-> is now on.
+> HOWEVER. The problem here (I think) is that PCI-E actually does the state 
+> save late, so it won't ever see the "state_saved" in the early ->suspend. 
+> I think a patch like the one below at least simplifies this all, and lets 
+> the PCI layer itself do all the core restore stuff.
 > 
-> So we really do want to restore the state to whatever saves state in the 
-> _early_ resume phase, both for legacy and new PM rules, I think.
+> The new PM infrastructure gets this totally wrong, and
+>  (a) disables the device before saving state
 
-We do that, no?
+pci_disable_device() does really only one thing: it clears the bus master bit.
+Yes, it also calls pcibios_disable_device(), but on x86 this is a NOP.
 
-> And we want to make sure that we restore state while the device is in D0,
-> because otherwise I really think that it possibly could lose our writes.
+I don't think it is SO bad, is it?
 
-That's what the above-mentioned patch fixes.
+> and
+>  (b) overwrites the (now corrupted) saved state that the driver perhaps 
+>      already saved, after the driver may even have put it to sleep.
 
-> (Somebody should check me on that - maybe I remember wrong, and config 
-> space writes are guaranteed to take effect even when something is in 
-> D3cold).
+The driver using the new model is not supposed to save the state and power
+off the device.  Still, it's probably a good idea not to trust the drivers. :-)
 
-Only in D3hot, but MSI-X tables reside in memory space and we need to restore
-them too.  So, we need to put the device into D0 before restoring the state, if
-possible, anyway.
-
-Still, we can't bring any device from D3cold into D0 without ACPI and we can't
-use ACPI for that with interrupts off.
-
-> So I think we should:
+> So let's not use the new PM infrastructure - I don't think it's ready yet.
+>
+> Let's start simplifying first. Start off by getting rid of the 
+> suspend_early/resume_late, since the PCI layer now does it for us.
 > 
->  - make sure that the generic PCI layer saves the right state, for the new 
->    PM model too.
+> I don't see why we don't resume with IO/MEM on, though. The legacy suspend 
+> sequence shouldn't disable them, afaik.
 
-I thought we did that.
+No, it shouldn't.
 
->    Don't save it if the driver already did (because the 
->    driver may have turned off the device after saving the state)
+However, the patch below actually may help and it really is not too different
+from my "new infrastructure" patch.  It leaves the pcie_portdrv_restore_config()
+in the PCIe port driver's ->resume(), but that shouldn't change things,
+pci_enable_device() in there shouldn't do anything and the bus master bit
+should already be set.
 
-In the new PM model the idea is that drivers won't do that.  The core is
-supposed to both save the state and turn the device off.
+The "new infrastracture" patch makes pci_disable_enabled_device() be called in
+the suspend code path, but that only disables the bus master bit, and
+pci_reenable_device() be called in the resume code path, but that only sets the
+bus master bit back again.  So, they are almost the same and I'd be surprised
+if your patch didn't help.
 
->  - make sure that the legacy PM layer turns the device on before it 
->    restores the state, to make sure that it "takes".
-
-With the above-mentioned patch from the Jesse's tree, it should work this way.
-
-Still, as I said before, I don't think this is relevant in this particular
-case, because the original 2.6.28 code evidently works for Parag.
-
-> I dunno. I haven't really walked through all the states, but _something_ 
-> like this might do it. Note the change to pci_pm_default_suspend_generic: 
-> we save the state only if the driver didn't do it already (which is also 
-> why I ended up having to move all the "dev->state_saved = false" things 
-> around), and we do not disable the device (because for all we know, the 
-> low-level drivers will still need access to the IO/MEM space even at the 
-> suspend_late stage!).
-> 
-> Rafael? 
-
-I think something different from what you told is happening here.  I'm not sure
-what it is, I need more information.
-
-I'm very much interested in whether your patch below makes any difference for
-Parag.
+I had that "new infrastracture" patch ready yesterday and I thought it might
+help, so I sent it.  I was too tired to prepare a new patch and that would
+probably look like the one below (I'd remove the pcie_portdrv_restore_config()
+from ->resume too, but that's only a detail).
 
 Thanks,
 Rafael
 
-
 > ---
->  drivers/pci/pci-driver.c       |   20 +++++++++++++-------
->  drivers/pci/pci.c              |    3 +++
 >  drivers/pci/pcie/portdrv_pci.c |   14 --------------
->  3 files changed, 16 insertions(+), 21 deletions(-)
+>  1 files changed, 0 insertions(+), 14 deletions(-)
 > 
-> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
-> index 9de07b7..5611f22 100644
-> --- a/drivers/pci/pci-driver.c
-> +++ b/drivers/pci/pci-driver.c
-> @@ -355,8 +355,6 @@ static int pci_legacy_suspend(struct device *dev, pm_message_t state)
->  	int i = 0;
->  
->  	if (drv && drv->suspend) {
-> -		pci_dev->state_saved = false;
-> -
->  		i = drv->suspend(pci_dev, state);
->  		suspend_report_result(drv->suspend, i);
->  		if (i)
-> @@ -434,13 +432,18 @@ static int pci_pm_default_resume(struct pci_dev *pci_dev)
->  
->  static void pci_pm_default_suspend_generic(struct pci_dev *pci_dev)
->  {
-> -	/* If device is enabled at this point, disable it */
-> -	pci_disable_enabled_device(pci_dev);
->  	/*
-> -	 * Save state with interrupts enabled, because in principle the bus the
-> -	 * device is on may be put into a low power state after this code runs.
-> +	 * If the driver didn't save state, do it here with interrupts enabled,
-> +	 * because in principle the bus the device is on may be put into a
-> +	 * low power state after this code runs.
->  	 */
-> -	pci_save_state(pci_dev);
-> +	if (!pci_dev->state_saved)
-> +		pci_save_state(pci_dev);
-> +
-> +#if 0 /* Why? */
-> +	/* If device is enabled at this point, disable it */
-> +	pci_disable_enabled_device(pci_dev);
-> +#endif
->  }
->  
->  static void pci_pm_default_suspend(struct pci_dev *pci_dev)
-> @@ -498,6 +501,7 @@ static int pci_pm_suspend(struct device *dev)
->  	struct device_driver *drv = dev->driver;
->  	int error = 0;
->  
-> +	dev->state_saved = false;
->  	if (pci_has_legacy_pm_support(pci_dev))
->  		return pci_legacy_suspend(dev, PMSG_SUSPEND);
->  
-> @@ -583,6 +587,7 @@ static int pci_pm_freeze(struct device *dev)
->  	struct device_driver *drv = dev->driver;
->  	int error = 0;
->  
-> +	pci_dev->state_saved = false;
->  	if (pci_has_legacy_pm_support(pci_dev))
->  		return pci_legacy_suspend(dev, PMSG_FREEZE);
->  
-> @@ -657,6 +662,7 @@ static int pci_pm_poweroff(struct device *dev)
->  	struct device_driver *drv = dev->driver;
->  	int error = 0;
->  
-> +	pci_dev->state_saved = false;	/* Do we care? */
->  	if (pci_has_legacy_pm_support(pci_dev))
->  		return pci_legacy_suspend(dev, PMSG_HIBERNATE);
->  
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index 17bd932..d16af49 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -1421,6 +1421,9 @@ int pci_restore_standard_config(struct pci_dev *dev)
->  
->  	dev->current_state = PCI_D0;
->  
-> +	/* Restore state _again_, now that the device is actually on */
-> +	pci_restore_state(dev);
-> +
->  	return 0;
->  }
->  
 > diff --git a/drivers/pci/pcie/portdrv_pci.c b/drivers/pci/pcie/portdrv_pci.c
 > index 99a914a..08a8e3c 100644
 > --- a/drivers/pci/pcie/portdrv_pci.c
