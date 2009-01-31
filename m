@@ -1,79 +1,59 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Sat, 31 Jan 2009 01:34:46 +0100
-Message-ID: <200901310134.47657.rjw@sisk.pl>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901310031.37660.rjw@sisk.pl> <alpine.LFD.2.00.0901301541290.3150@localhost.localdomain>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: virt-manager broken by bind(0) in net-next.
+Date: Fri, 30 Jan 2009 16:36:00 -0800
+Message-ID: <20090130163600.0be8c137@extreme>
+References: <20090130112125.GA9908@ioremap.net>
+	<20090130125337.GA7155@gondor.apana.org.au>
+	<20090130095737.103edbff@extreme> <498349F7.4050300@cosmosbay.com>
+	<20090130215008.GB12210@ioremap.net> <49837F7E.90306@cosmosbay.com>
+	<20090130225113.GA13977@ioremap.net>
+Reply-To: Fedora/Linux Management Tools <et-mgmt-tools-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:51020 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751347AbZAaAfc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jan 2009 19:35:32 -0500
-In-Reply-To: <alpine.LFD.2.00.0901301541290.3150@localhost.localdomain>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, et-mgmt-tools-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
+Return-path: <et-mgmt-tools-bounces-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <20090130225113.GA13977-i6C2adt8DTjR7s880joybQ@public.gmane.org>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/et-mgmt-tools>,
+	<mailto:et-mgmt-tools-request-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/et-mgmt-tools>
+List-Post: <mailto:et-mgmt-tools-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Help: <mailto:et-mgmt-tools-request-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/et-mgmt-tools>,
+	<mailto:et-mgmt-tools-request-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org?subject=subscribe>
+Sender: et-mgmt-tools-bounces-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Errors-To: et-mgmt-tools-bounces-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 31 January 2009, Linus Torvalds wrote:
-> 
-> On Sat, 31 Jan 2009, Rafael J. Wysocki wrote:
+On Sat, 31 Jan 2009 01:51:14 +0300
+Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org> wrote:
+
+> On Fri, Jan 30, 2009 at 11:30:22PM +0100, Eric Dumazet (dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org) wrote:
+> > > It should contain rough number of sockets, there is no need to be very
+> > > precise because of this hueristic.
 > > 
-> > I wonder if this change makes any difference:
+> > Denying there is a bug is... well... I dont know what to say.
 > > 
-> > --- linux-2.6.orig/drivers/pci/pci-driver.c
-> > +++ linux-2.6/drivers/pci/pci-driver.c
-> > @@ -501,6 +501,9 @@ static int pci_pm_suspend(struct device
-> >  	if (pci_has_legacy_pm_support(pci_dev))
-> >  		return pci_legacy_suspend(dev, PMSG_SUSPEND);
-> >  
-> > +	if (!drv || !drv->pm)
-> > +		return 0;
-> > +
-> >  	if (drv && drv->pm && drv->pm->suspend) {
-> >  		error = drv->pm->suspend(dev);
-> >  		suspend_report_result(drv->pm->suspend, error);
+> > I wonder why we still use atomic_t all over the kernel.
 > 
-> I don't think that's right. Now you don't end up calling 
-> pci_pm_default_suspend_generic() at all, and this no pci_save_state().
+> It is not a bug. It is not supposed to be precise. At all.
+> I implemented a simple heuristic on when diferent bind port selection
+> algorithm should start: roughly when number of opened sockets equals to
+> some predefined value (sysctl at the moment, but it could be 64k or
+> anything else), so if that number is loosely maintained and does not
+> precisely corresponds to the number of sockets, it is not a problem.
 > 
-> But I think it could easily be the call to pci_disable_enabled_device(). 
-> It does that
+> You also saw 'again' lavel which has magic 5 number - it is another
+> heuristic - since lock is dropped atfer the bind bucket check, and we
+> selected it, it is possible that non-reuse socket will be added into the
+> bucket, so we will have to rerun the process again. I limited this to
+> the 5 attempts only, since it is better than what we have right now (I
+> never saw more than 2 attempts needed in the tests), when number of
+> bound sockets does not exceed 64k.
 > 
-> 	if (atomic_read(&dev->enable_cnt))
-> 		do_pci_disable_device(dev);
-> 
-> and that ends up disabling PCI_COMMAND_MASTER and then calling 
-> pcibios_disable_device().
+>
 
-pci_disable_enabled_device() is not called for the PCIe port driver, because
-it has the legacy PM support.
-
-What happens is
-
-pci_pm_suspend(port) ->
- 		pci_legacy_suspend(port) ->
- 		 		pcie_portdrv_suspend(port) [this doesn't save the state]
- 		 		pci_save_state(port)
-
-and then, with interrupts off
-
-pci_pm_suspend_noirq(port) ->
- 		pci_legacy_suspend_late(port) ->
- 		 		pcie_portdrv_suspend_late(port) ->
- 		 		 		pci_save_state(port)
-
-and I suspect this last pci_save_state() breaks things.  I'm not sure why,
-though.
-
-Thanks,
-Rafael
+How is any of this supposed to fix the bug?
