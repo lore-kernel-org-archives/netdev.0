@@ -1,63 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Multicast packet loss
-Date: Sat, 31 Jan 2009 11:03:33 -0500
-Message-ID: <20090131160333.GC23100@localhost.localdomain>
-References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com>
+From: Andrey Borzenkov <arvidjaar@mail.ru>
+Subject: Some macro like dev_{info,...} for net devices?
+Date: Sat, 31 Jan 2009 19:35:23 +0300
+Message-ID: <200901311935.24628.arvidjaar@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kenny Chang <kchang@athenacr.com>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41432 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752187AbZAaQDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 11:03:37 -0500
+Content-Type: multipart/signed;
+  boundary="nextPart2890119.1EcVWAaz8V";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754839AbZAaQfm@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--nextPart2890119.1EcVWAaz8V
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
-In-Reply-To: <49838213.90700@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 30, 2009 at 11:41:23PM +0100, Eric Dumazet wrote:
-> Kenny Chang a =E9crit :
-> > Ah, sorry, here's the test program attached.
-> >=20
-> > We've tried 2.6.28.1, but no, we haven't tried the 2.6.28.2 or the
-> > 2.6.29.-rcX.
-> >=20
-> > Right now, we are trying to step through the kernel versions until =
-we
-> > see where the performance drops significantly.  We'll try 2.6.29-rc=
- soon
-> > and post the result.
->=20
-> 2.6.29-rc contains UDP receive improvements (lockless)
->=20
-> Problem is multicast handling was not yet updated, but could be :)
->=20
->=20
-> I was asking you "cat /proc/interrupts" because I believe you might
-> have a problem NIC interrupts being handled by one CPU only (when hav=
-ing problems)
->=20
-That would be expected (if irqbalance is running), and desireable, sinc=
-e
-spreading high volume interrupts like NICS accross multiple cores (or m=
-ore
-specifically multiple L2 caches), is going increase your cache line mis=
-s rate
-significantly and decrease rx throughput.
+Is there some printk macros like dev_info etc for standard log=20
+formatting of bet devices?
 
-Although you do have a point here, if the system isn't running irqbalan=
-ce, and
-the NICS irq affinity is spread accross multiple L2 caches, that would =
-be a
-point of improvement performance-wise. =20
+TIA
 
-Kenny, if you could provide the /proc/interrupts info along with /proc/=
-cpuinfo
-and your stats that I asked about earlier, that would be a big help.
+=2Dandrey
 
-Regards
-Neil
+--nextPart2890119.1EcVWAaz8V
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAkmEfcwACgkQR6LMutpd94wM5QCeI/6ahtOXrlu1xXvYnq2PGeyq
+nr8An1/A6J4D9gO6h6p9A4kmJ4nR8vCx
+=e6t+
+-----END PGP SIGNATURE-----
+
+--nextPart2890119.1EcVWAaz8V--
