@@ -1,137 +1,128 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: What should PCI core do during suspend-resume? (was: Re: 2.6.29-rc3: tg3 dead after resume)
-Date: Sun, 1 Feb 2009 00:08:31 +0100
-Message-ID: <200902010008.32126.rjw@sisk.pl>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901312242.17273.rjw@sisk.pl> <alpine.LFD.2.00.0901311348000.4064@localhost.localdomain>
+From: Todd Hayton <todd.hayton@gmail.com>
+Subject: Re: Various strange things with ipv6 local multicast forwarding
+Date: Sat, 31 Jan 2009 18:20:12 -0500
+Message-ID: <50a66e370901311520h739ecc9bh5e14595d1ebb227e@mail.gmail.com>
+References: <498303B5.6090609@slagter.name>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Erik Slagter <erik@slagter.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:54701 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751211AbZAaXJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2009 18:09:12 -0500
-In-Reply-To: <alpine.LFD.2.00.0901311348000.4064@localhost.localdomain>
-Content-Disposition: inline
+Received: from mail-qy0-f11.google.com ([209.85.221.11]:63805 "EHLO
+	mail-qy0-f11.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848AbZAaXUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 18:20:14 -0500
+Received: by qyk4 with SMTP id 4so1314698qyk.13
+        for <netdev@vger.kernel.org>; Sat, 31 Jan 2009 15:20:12 -0800 (PST)
+In-Reply-To: <498303B5.6090609@slagter.name>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 31 January 2009, Linus Torvalds wrote:
-> 
-> On Sat, 31 Jan 2009, Rafael J. Wysocki wrote:
-> > 
-> > Anyway, from what I can tell reading your messages in this thread so far,
-> > you seem to want the PCI core to:
-> > (1) save the state of devices during suspend (avoid doing that if the driver has
-> >     already saved the state),
-> 
-> Yes, but I'd at least want the device drivers to have the _option_ to 
-> do it themselves.
-
-(As I wrote in the other message just sent) I wonder if it's a good idea to
-introduce an "override default PCI suspend/resume" flag for this purpose.
-
-The drivers that want to handle the PCI stuff themselves would be able to use
-this flag to tell the core not to try to power manage the device etc.
-
-Alternatively, the core may check the state_saved bit and look at current_state
-to see if the device need not be put into a low power state.  Still, putting
-the device into a low power state need not be desirable anyway.
-
-> I would expect that by default any normal PCI driver would just rely on 
-> the PCI layer doing it all for them. But I suspect we may have cases where 
-> the chip driver will simply want to override things, for one reason or 
-> another.
-> 
-> We do know that some devices seem to be very picky and get unhappy about 
-> being put to sleep (we don't put devices into D3 by default in the legacy 
-> PM case for a reason!), and we do know that some existing drivers do extra 
-> things _after_ they've put the device to D3.
-> 
-> So there very much are arguments for drivers wanting to do their own "save 
-> state and power off" if they have special needs.
-> 
-> (Side note: it's entirely possible that one of the reasons we don't put 
-> devices into D3 in the legacy code-path is purely historical: maybe not 
-> because the devices were unhappy, but simply because it triggered the 
-> whole "interrupt at an unlucky place" thing. So I'm hoping that we'll 
-> actually not have this as a real issue, but..)
-
-It actually has been confirmed recently that this is a real issue.  Sadly.
-
-> > (2) put devices into D0 during resume (early),
-> > (3) restore the state of devices during resume (early).
-> 
-> Yes.
-> 
-> > Still, you don't want the core to disable devices during suspend and to enable
-> > (or reenable) them during resume.
-> 
-> At an absolute _minimum_, bridges are special. 
+On Fri, Jan 30, 2009 at 8:42 AM, Erik Slagter <erik@slagter.name> wrote:
+> Hi All,
 >
-> We already know bridges are special: we do things like
-> 
-> 	if (!pci_is_bridge(pci_dev))
-> 		pci_prepare_to_sleep(pci_dev);
-> 
-> 
-> ie we don't actually put the bridges into D3 sleep, because the devices 
-> behind the bridge still need to be available until at LEAST the 
-> "suspend_late()" stage.
-> 
-> But then pci_pm_default_suspend_generic() does that 
-> pci_disable_enabled_device() unconditionally - even for bridges. That's 
-> just wrong, wrong, wrong.
+> I am using a very simple setup: a linux server (linux 2.6.28.2, amd64) with
+> 12 nics, almost each connected host has a nic uniquely to itself. On the
+> server a program is running (poc-2250 to be precise) that streams data to
+> multicast address ff05::4242. This data should be forwarded by the kernel to
+> all interfaces that have hosts that are joined to ff05::4242. As it is such
+> a simple setup, I do not want to use PIM nor a router application featuring
+> PIM, I am using MLD messages only. I've written a very simple "MRT6_INIT"
+> app that catches MLD messages and kernel upcalls, and joins interfaces on
+> demand. This works :-)
+>
+> I have had a very hard time with the kernel upcalls, but that problem has
+> been solved with the recent "unnecessary skb_pull" patch I found here,
+> THANKS! (Hi Todd ;-))
+>
+> I now have still a few things that do not completely go like I want to or
+> like I expect to. Can please someone clarify for me?
+>
+> 1: Next scenario:
+>   - Start streaming application (poc-2250)
+>        Now all packets go to a random interface, I cannot understand the
+> logic, but most of the time it appears to be dummy0, which actually is a
+> good thing. I guess it has something to do with the ff00:/8 routes in the
+> "normal" routing table, from which the kernel selects one using some
+> criterium. Tshark reveals the packets sent on dummy0 indeed.
+>   - Start "MRT6_INIT" app
+>   - This gets an upcall message from the kernel (which I can understand) for
+> the above mc group.
+>   - App installs a "MFC_ADD" mcast route with the parameters from the
+> upcall, with NO interfaces. My goal is to silence the streaming application
+> until the stream is requested.
+>   - mc route gets installed OK
+>   - YET packets still appear on dummy0 (tshark and counters) and the "Wrong"
+> (interface) counter in /proc/net/ipv6_mr_cache starts to increment.
+>
+> This is not what I want and not what I expect. I expect the packets to be
+> discarded if nobody is listening. I now have to run a "dummy" interface to
+> drain unused packets.
+>
+>   - Most of the time this more or less works, but when for a few hours only
+> one interface has been joined to the mc route, a "ghost" route appears,
+> which routes the packets for the multicast group directly to this interface,
+> so the multicast routing system is not consulted anymore (counters remain
+> steady). The route cannot be seen using "ip -6 route" BUT it can be deleted
+> using "ip -6 route ff05::4242" but only when the multicast streaming app has
+> been stopped. Also, the command must be given several times before the route
+> is "not found".
+>
+> I cannot see the logic behind this and also this is very annoying, as this
+> way the mc packets always appear on this interface from this point,
+> regardless whether the client on this interface has joined the group.
+>
+> I already once removed all mc routes from the route table, but that makes
+> the complete box fail miserably :-/
+>
+> 2: When a client wants to join, it sends a MLDv2 message (in my case, it's
+> all linux). I catch the message and incoming interface info using
+> IPV6_PKTINFO. This yields not enough information to add the client to the mr
+> cache though, MFC_ADD needs a "source" interface index and address (and
+> cannot use a wildcard, according to the kernel source :-(). At this stage I
+> retrieve these by requesting the kernel for the route to multicast address
+> (ff05::4242) which until now has been working well, but still I believe it's
+> a dirty hack. There must be a more elegant/appropriate way to achieve this?
+>
+> Somehow I get the impression the ip6 multicast routing code in the kernel is
+> more targeted at multicast forwarding packets from outside the box than
+> packets locally generated :-/
+>
 
-OK, I see your point.
+This was my impression as well. From your setup your machine is not
+really acting as a multicast router per-se where you forward traffic
+received on interface A onto interfaces B, C, D...My impression is
+that when you are sourcing the traffic you can only send it out of one
+interface (assuming you're doing only one call to sendto()). In fact,
+options like IP_MULTICAST_IF and IPV6_MULTICAST_IF let you specify an
+outgoing interface, but they only let you specify one outgoing
+interface. My understanding was that when you are sending traffic the
+normal IP routing table is used to determine the outgoing interface.
+In fact, on FreeBSD systems I've worked on you have to explicitly add
+a route to be able to send multicast traffic out of an interface (eg
+"route add -inet6 -net ff15:: -prefixlen 16 -interface le0") otherwise
+sendto() fails with "network is unreachable".
 
-> > What about putting devices into low power states?  [Note that ACPI may be
-> > necessary for this purpose.]
-> 
-> I do think we should do it, although I'd at least personally prefer 
-> delaying it to the suspend_late (noirq) phase.
-> 
-> Why? Think about a shared interrupt again - but now coming in at just the 
-> wrong time during _suspend_. The PCI layer has turned off the device. 
-> Oops. Lockup. The same lock-up we worked so hard to avoid during resume.
+As you've seen, the multicast route downloaded (via MFC_ADD) needs the
+incoming interface that the traffic is received on. Generally a
+multicast route doesn't get downloaded to the kernel *until* traffic
+starts showing up on some interface. The traffic then generates an
+upcall which is sent to the user space process which can then look at
+the traffic being sent and decide whether or not to download a route
+into the kernel (using MRT6_ADD_MFC). The decision on whether or not
+to download would be based on whether there were any interested
+receivers - which your application would know because it's monitoring
+the MLD reports.
 
-I know.  Still, all of the drivers that implement suspend-resume put the
-devices into low power states in ->suspend and it's never been observed to
-be a source of problems.
+Since you're not receiving the traffic from some other host, maybe you
+could make it look like you are to the kernel by connecting two of
+your interfaces back to back (say eth1 connects to eth2) using a
+crossover cable and then enabling multicasting on one of them (using
+MRT6_ADD_MIF) and then actually sending traffic out of the other one.
+This traffic then gets looped back onto the MIF, generates an upcall
+which your userland application gets and can then decide whether or
+not it wants to add a route for the traffic...Dunno if this setup
+would work but it's one idea...
 
-Unfortunately, on many systems we are supposed to use ACPI for putting PCI
-devices into low power states and right now we can't do that with interrupts
-off due to the limitations of our AML interpreter.
-
-The same applies to resume, BTW, but resume is easier, because devices tend
-to already be in D0 from the start.  Admittedly, though, we may have a problem
-with devices that are not in D0 at that point and _require_ ACPI to power them
-up (ie. don't support the native PCI PM).  Not that I know of any, but still.
-
-ISTR that some devices will not wake up the system if they are not put into
-the low power state by ACPI during suspend.
-
-So, I wonder.  Do we need to make the AML interpreter allow us to run code
-with interrupts off?
-
-> > What about devices with no drivers and/or without suspend/resume support?
-> 
-> Oh, suspending those early and aggressively may be the right thing. But 
-> again, at least bridges are special.
-> 
-> Some bridges have drivers (pci-e and cardbus bridges at least), others 
-> don't (regular pci bridges). So bridges hit both the "has drivers" and 
-> "don't have drivers" case, and are special in both cases.
-
-Yes, the bridges with drivers are somewhat special.
-
-Thanks,
-Rafael
+Todd H
