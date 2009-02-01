@@ -1,48 +1,50 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Sun, 1 Feb 2009 20:40:25 +0300
-Message-ID: <20090201174025.GA9562@ioremap.net>
-References: <20090130225113.GA13977@ioremap.net> <20090130185224.214b3a59@extreme> <20090131083724.GB26897@ioremap.net> <49841738.7050605@cosmosbay.com> <20090131093123.GA28151@ioremap.net> <49841E8C.60401@cosmosbay.com> <20090131095640.GA29099@ioremap.net> <4984252B.8080508@cosmosbay.com> <20090201124220.GA2319@ioremap.net> <4985C9F9.1020103@cosmosbay.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: add tracepoints to socket api
+Date: Sun, 1 Feb 2009 13:53:24 -0500
+Message-ID: <20090201185324.GA10023@localhost.localdomain>
+References: <20090127.102141.99756103.davem@davemloft.net> <20090127184704.GA26403@infradead.org> <20090128212809.GA19228@hmsreliant.think-freely.org> <20090201.020247.247498390.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, berrange@redhat.com,
-	et-mgmt-tools@redhat.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: hch@infradead.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netgear.net.ru ([195.178.208.66]:40737 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752323AbZBARka (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Feb 2009 12:40:30 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44553 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752925AbZBASxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 13:53:33 -0500
 Content-Disposition: inline
-In-Reply-To: <4985C9F9.1020103@cosmosbay.com>
+In-Reply-To: <20090201.020247.247498390.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 01, 2009 at 05:12:41PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > David applied the patch which fixed the problem, so we can return to the
-> > cache line issues. What do you think about the last version where
-> > bsockets field was placed at the very end of the structure and with
-> > cacheline_aligned_on_smp attribute?
-> > 
+On Sun, Feb 01, 2009 at 02:02:47AM -0800, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Wed, 28 Jan 2009 16:28:09 -0500
 > 
-> Yes, at a minimum, move it away from first cache line.
+> > Of course, these provided tracepoints don't do that, but I think it
+> > would be good to get the existing tracepoint set in before I go
+> > poking at an implementation of that, just to ensure I avoid
+> > duplicate work
 > 
-> And using atomic_t so that we dont have to discuss about accumulated
-> errors on SMP on this variable. We will see later if percpu counter
-> is wanted or not.
+> Christoph's point is that it doesn't make any sense to merge
+> this stuff in without any upstream users.
 > 
-> Thank you
+> The block stuff has such users, this net syscall trace stuff doesn't.
 > 
-> [PATCH] net: move bsockets outside of read only beginning of struct inet_hashinfo
-> 
-> And switch bsockets to atomic_t since it might be changed in parallel.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Not sure thats entirely true.  Frysk can use the net syscall trace points just
+as well as it can monitor the block syscalls (Unless I'm missing somethig here).
+Granted thats not applicable for the deeper tracepoints, but for the top level
+stuff...
 
-Ok, let's do it this way. Ack.
-Thank you Eric.
+> Now your "where is the packet dropped" trace thing, that would
+> something we could merge once that patch and a suitable tool exists.
+> Just like the block layer cases.
+> 
+> So I have to toss this patch for now, sorry.
+> 
+Thats ok, thats why I started small. :).  I'll take a more serious look at
+implementing a consise drop monitoring utilty and come back to this.
 
--- 
-	Evgeniy Polyakov
+Thanks for the eyes all!
+Neil
+
