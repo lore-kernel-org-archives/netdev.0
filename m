@@ -1,59 +1,60 @@
-From: Andrey Borzenkov <arvidjaar@mail.ru>
-Subject: Re: 2.6.29-rc: unable to compile e100 firmware into kernel
-Date: Sun, 1 Feb 2009 22:18:16 +0300
-Message-ID: <200902012218.20481.arvidjaar@mail.ru>
-References: <200901311900.00851.arvidjaar@mail.ru> <4807377b0902011105l29e846c3r140212ac654efb93@mail.gmail.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: [PATCH v3 0/4] virtio_net: Add MAC and VLAN filtering
+Date: Sun, 01 Feb 2009 13:05:04 -0700
+Message-ID: <20090201200504.8183.58421.stgit@debian.lart>
+References: <200901301533.52115.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4379491.qMzcQLHoWd";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kbuild@vger.kernel.org, netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <4807377b0902011105l29e846c3r140212ac654efb93@mail.gmail.com>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: rusty@rustcorp.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:10250 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752837AbZBAUHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 15:07:50 -0500
+In-Reply-To: <200901301533.52115.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart4379491.qMzcQLHoWd
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+This series adds infrastructure for a new control virtqueue and
+makes use of it to support set_rx_mode, unicast and multicast address
+lists, and supporting a hypervisor based VLAN filter.  The goal is to
+make the virtio-net device support more of the features of a physical
+NIC and allow the hypervisor to discard packets we don't want.
 
-On 1 of February 2009 22:05:43 Jesse Brandeburg wrote:
-> On Sat, Jan 31, 2009 at 7:59 AM, Andrey Borzenkov <arvidjaar@mail.ru>=20
-wrote:
-> > {pts/2}% LC_ALL=3DC make -C ~/src/linux-git
-> > O=3D$HOME/build/linux-2.6.29 make: Entering directory
-> > `/home/bor/src/linux-git'
-> >  Using /home/bor/src/linux-git as source for kernel
-> > ln -fsn /home/bor/src/linux-git source
->
-> I think (seem to recall something on the list) there have been
-> multiple people reporting the make O=3D option doesn't work with
-> CONFIG_FIRMWARE_IN_KERNEL, but what does the
-> CONFIG_PREVENT_FIRMWARE_BUILD=3Dy option do?  If it does what it
-> appears to by its title, looks like you might need to set that to =3Dn
+This version incorporates further suggestions from Rusty.  The
+send_command() helper function now takes a scatterlist pointer so
+that we're not limited to using it in for commands that take only
+take one or no data args.  The caller now needs to specify how
+many entries are out/in, and the helper function adds the header
+and status.  We'll now BUG if send_command is called without the vq
+available, but set_rx_mode needs a graceful exit since we can't
+dynamically tell the upper netdev layers not to call in.  I left the
+MAC_SET_TABLE call using two scatter entries even though it could
+now be done with one, and are allocated as one.  The F_CTRL_MAC
+feature is now folded into F_CTRL_RX, but I left the separate class
+for it.  VLAN_ENABLE is now gone.  I was concerned that we needed
+some way to disable VLAN filtering, but after looking at e1000, I
+think it's probably sufficient for the backend to prioritize promisc
+over VLAN as a way to disable it.  I switched errors to dev_warn, but
+left them as the caller's responsibility so we can get useful error
+messages.  Thanks for the comments, please provide more ;^)  Thanks,
 
-Does not work. Besides, even with CONFIG_PREVENT_FIRMWARE_BUILD=3Dy=20
-firmware is built and installed under /lib/firmware when=20
-CONFIG_FIRMWARE_IN_KERNEL is not set. It is just that it does not help=20
-with netconsole :(
+Alex
+
+---
+
+Alex Williamson (4):
+      virtio_net: Add support for VLAN filtering in the hypervisor
+      virtio_net: Add a MAC filter table
+      virtio_net: Add a set_rx_mode interface
+      virtio_net: Add a virtqueue for outbound control commands
 
 
---nextPart4379491.qMzcQLHoWd
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+ drivers/net/virtio_net.c   |  166 +++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/virtio_net.h |   67 ++++++++++++++++++
+ 2 files changed, 230 insertions(+), 3 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkmF9XwACgkQR6LMutpd94yMZwCeKme3vq7+0UnO7wfx6Jr0A9fP
-4NEAnA4VR1bcIWGNEun2MfU/NytZbU8D
-=oWC+
------END PGP SIGNATURE-----
-
---nextPart4379491.qMzcQLHoWd--
+-- 
+Alex Williamson
