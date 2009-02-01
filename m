@@ -1,91 +1,97 @@
-From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Sat, 31 Jan 2009 21:58:50 -0800
-Message-ID: <20090131215850.3dfc29fb@extreme>
-References: <20090130112125.GA9908@ioremap.net>
-	<20090130125337.GA7155@gondor.apana.org.au>
-	<20090130095737.103edbff@extreme> <498349F7.4050300@cosmosbay.com>
-	<20090130215008.GB12210@ioremap.net>
-Reply-To: Fedora/Linux Management Tools <et-mgmt-tools-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gro: Fix handling of imprecisely split packets
+Date: Sun, 1 Feb 2009 18:01:17 +1100
+Message-ID: <20090201070117.GA2200@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, et-mgmt-tools-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
-Return-path: <et-mgmt-tools-bounces-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-In-Reply-To: <20090130215008.GB12210-i6C2adt8DTjR7s880joybQ@public.gmane.org>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/et-mgmt-tools>,
-	<mailto:et-mgmt-tools-request-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/et-mgmt-tools>
-List-Post: <mailto:et-mgmt-tools-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Help: <mailto:et-mgmt-tools-request-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/et-mgmt-tools>,
-	<mailto:et-mgmt-tools-request-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org?subject=subscribe>
-Sender: et-mgmt-tools-bounces-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Errors-To: et-mgmt-tools-bounces-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:35638 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750993AbZBAHBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 02:01:25 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 31 Jan 2009 00:50:08 +0300
-Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org> wrote:
+Hi Jeff:
 
-> On Fri, Jan 30, 2009 at 07:41:59PM +0100, Eric Dumazet (dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org) wrote:
-> > Reviewing commit a9d8f9110d7e953c2f2b521087a4179677843c2a
-> > 
-> > I see use of a hashinfo->bsockets field that :
-> > 
-> > - lacks proper lock/synchronization
-> 
-> It should contain rough number of sockets, there is no need to be very
-> precise because of this hueristic.
-> 
-> > - suffers from cache line ping pongs on SMP
-> 
-> I used free alignment slot so that socket structure would not be
-> icreased.
-> 
-> > Also there might be a problem at line 175
-> > 
-> > if (sk->sk_reuse && sk->sk_state != TCP_LISTEN && --attempts >= 0) { 
-> > 	spin_unlock(&head->lock);
-> > 	goto again;
-> > 
-> > If we entered inet_csk_get_port() with a non null snum, we can "goto again"
-> > while it was not expected.
-> > 
-> > diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> > index df8e72f..752c6b2 100644
-> > --- a/net/ipv4/inet_connection_sock.c
-> > +++ b/net/ipv4/inet_connection_sock.c
-> > @@ -172,7 +172,8 @@ tb_found:
-> >  		} else {
-> >  			ret = 1;
-> >  			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
-> > -				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN && --attempts >= 0) {
-> > +				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
-> > +					smallest_size == -1 &&  --attempts >= 0) {
-> 
-> I think it should be smallest_size != -1, since we really want to goto
-> to the again label when hueristic is used, which in turn changes
-> smallest_size.
-> 
+Please let me know if the ixgbe problems persist with this patch
+against net-next.
 
-Yes, this fixes the problem, not sure who wants the honors for sending a signed off
-version.
+gro: Fix handling of imprecisely split packets
 
+The commit 89a1b249edcf9be884e71f92df84d48355c576aa (gro: Avoid
+copying headers of unmerged packets) only worked for packets
+which are either completely linear, completely non-linear, or
+packets which exactly split at the boundary between headers and
+payload.
 
+Anything else would cause bits in the header to go missing if
+the packet is held by GRO.
 
+This may have broken drivers such as ixgbe.
 
---- a/net/ipv4/inet_connection_sock.c	2009-01-31 21:18:45.433239861 -0800
-+++ b/net/ipv4/inet_connection_sock.c	2009-01-31 21:30:14.720825414 -0800
-@@ -172,7 +172,8 @@ tb_found:
- 		} else {
- 			ret = 1;
- 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
--				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN && --attempts >= 0) {
-+				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
-+				    smallest_size != -1 && --attempts >= 0) {
- 					spin_unlock(&head->lock);
- 					goto again;
- 				}
+This patch fixes the places that assumed or only worked with
+the above cases.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index dd56c32..089c7c9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -217,7 +217,7 @@ static inline struct hlist_head *dev_index_hash(struct net *net, int ifindex)
+ 
+ static inline void *skb_gro_mac_header(struct sk_buff *skb)
+ {
+-	return skb_headlen(skb) ? skb_mac_header(skb) :
++	return skb_mac_header(skb) < skb->data ? skb_mac_header(skb) :
+ 	       page_address(skb_shinfo(skb)->frags[0].page) +
+ 	       skb_shinfo(skb)->frags[0].page_offset;
+ }
+@@ -2479,11 +2479,19 @@ int dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	napi->gro_list = skb;
+ 	ret = GRO_HELD;
+ 
++pull:
++	if (unlikely(!pskb_may_pull(skb, skb_gro_offset(skb)))) {
++		if (napi->gro_list == skb)
++			napi->gro_list = skb->next;
++		ret = GRO_DROP;
++	}
++
+ ok:
+ 	return ret;
+ 
+ normal:
+-	return GRO_NORMAL;
++	ret = GRO_NORMAL;
++	goto pull;
+ }
+ EXPORT_SYMBOL(dev_gro_receive);
+ 
+@@ -2599,14 +2607,10 @@ EXPORT_SYMBOL(napi_fraginfo_skb);
+ int napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb, int ret)
+ {
+ 	int err = NET_RX_SUCCESS;
+-	int may;
+ 
+ 	switch (ret) {
+ 	case GRO_NORMAL:
+ 	case GRO_HELD:
+-		may = pskb_may_pull(skb, skb_gro_offset(skb));
+-		BUG_ON(!may);
+-
+ 		skb->protocol = eth_type_trans(skb, napi->dev);
+ 
+ 		if (ret == GRO_NORMAL)
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
