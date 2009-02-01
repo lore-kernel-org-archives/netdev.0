@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Sun, 01 Feb 2009 01:07:42 -0800 (PST)
-Message-ID: <20090201.010742.175751729.davem@davemloft.net>
-References: <498349F7.4050300@cosmosbay.com>
-	<20090130215008.GB12210@ioremap.net>
-	<20090131215850.3dfc29fb@extreme>
+Subject: Re: [PATCH 1/3 v2 net-next] pkt_sched: sch_htb: Warn on too many
+ events.
+Date: Sun, 01 Feb 2009 01:13:34 -0800 (PST)
+Message-ID: <20090201.011334.86122260.davem@davemloft.net>
+References: <20090128125230.GA6282@ff.dom.local>
+	<49808544.5010304@trash.net>
+	<20090130101701.GA8882@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, dada1@cosmosbay.com, herbert@gondor.apana.org.au,
-	berrange@redhat.com, et-mgmt-tools@redhat.com,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: kaber@trash.net, devik@cdi.cz, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39829
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40651
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751797AbZBAJHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 04:07:45 -0500
-In-Reply-To: <20090131215850.3dfc29fb@extreme>
+	by vger.kernel.org with ESMTP id S1751673AbZBAJNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 04:13:37 -0500
+In-Reply-To: <20090130101701.GA8882@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sat, 31 Jan 2009 21:58:50 -0800
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Fri, 30 Jan 2009 10:17:01 +0000
 
-> Yes, this fixes the problem, not sure who wants the honors for
-> sending a signed off version.
+> pkt_sched: sch_hfsc: sch_htb: Add non-work-conserving warning handler.
+> 
+> Patrick McHardy <kaber@trash.net> suggested:
+> > How about making this flag and the warning message (in a out-of-line
+> > function) globally available? Other qdiscs (f.i. HFSC) can't deal with
+> > inner non-work-conserving qdiscs as well.
+> 
+> This patch uses qdisc->flags field of "suspected" child qdisc.
+> 
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-I'll sort it out.
+Applied.
