@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Sun, 01 Feb 2009 12:31:47 -0800 (PST)
-Message-ID: <20090201.123147.07028289.davem@davemloft.net>
-References: <20090201124220.GA2319@ioremap.net>
-	<4985C9F9.1020103@cosmosbay.com>
-	<20090201174025.GA9562@ioremap.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
+	up
+Date: Mon, 2 Feb 2009 01:38:53 +0300
+Message-ID: <20090201223853.GB6567@x200.localdomain>
+References: <20090127120129.GA9696@x200.localdomain> <20090127132718.GA10001@x200.localdomain> <20090129.170043.180340152.davem@davemloft.net> <20090130115907.GA22534@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, shemminger@vyatta.com,
-	herbert@gondor.apana.org.au, berrange@redhat.com,
-	et-mgmt-tools@redhat.com, netdev@vger.kernel.org
-To: zbr@ioremap.net
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45278
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750930AbZBAUbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 15:31:50 -0500
-In-Reply-To: <20090201174025.GA9562@ioremap.net>
+Received: from fg-out-1718.google.com ([72.14.220.159]:32775 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbZBAWdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 17:33:04 -0500
+Received: by fg-out-1718.google.com with SMTP id 16so453324fgg.17
+        for <netdev@vger.kernel.org>; Sun, 01 Feb 2009 14:33:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20090130115907.GA22534@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Date: Sun, 1 Feb 2009 20:40:25 +0300
-
-> On Sun, Feb 01, 2009 at 05:12:41PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > [PATCH] net: move bsockets outside of read only beginning of struct inet_hashinfo
+On Fri, Jan 30, 2009 at 02:59:07PM +0300, Alexey Dobriyan wrote:
+> On Thu, Jan 29, 2009 at 05:00:43PM -0800, David Miller wrote:
+> > From: Alexey Dobriyan <adobriyan@gmail.com>
+> > Date: Tue, 27 Jan 2009 16:27:18 +0300
 > > 
-> > And switch bsockets to atomic_t since it might be changed in parallel.
+> > > [PATCH] sky2: fix hard hang with netconsoling and iface going up
+> > > 
+> > > Printing anything over netconsole before hw is up and running is,
+> > > of course, not going to work.
+> > > 
+> > > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 > > 
-> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> > Alexey, can you get this tested by the reporter to make sure
+> > it really fixes the hang?
 > 
-> Ok, let's do it this way. Ack.
-> Thank you Eric.
+> I'm the reporter and tester and using this patch successfully. :-)
+> 
+> > Once it's been tested, I'll apply it.
+> 
+> As for other printks, someone with 8139cp should experience the same bug.
 
-Applied, thanks everyone.
+Strangely enough, 8139cp survives with no message printed and no hang or
+anything. But this is with qemu/kvm.
+
+	static int cp_open (struct net_device *dev)
+	{
+	        struct cp_private *cp = netdev_priv(dev);
+	        int rc;
+
+	        if (netif_msg_ifup(cp))
+	                printk(KERN_DEBUG "%s: enabling interface\n", dev->name);
+
+	        rc = cp_alloc_rings(cp);
+			...
