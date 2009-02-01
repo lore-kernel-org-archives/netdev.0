@@ -1,75 +1,176 @@
-From: Cord Walter <cord.walter@gmx.de>
-Subject: pcnet_cs: fix misuse of the equality operator.
-Date: Sun, 01 Feb 2009 00:18:40 +0100
-Message-ID: <4984DC50.6060204@gmx.de>
-References: <4925F6F1.9010305@gmx.de>	<20081121214812.b03d7166.komurojun-mbn@nifty.com>	<4926C153.3090104@gmx.de>	<20081124160959.b02ff889.komurojun-mbn@nifty.com>	<492BE6DE.9020903@gmx.de> <20090131071342.2b45cbe8.komurojun-mbn@nifty.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Sun, 1 Feb 2009 01:11:07 +0100
+Message-ID: <200902010111.08433.rjw@sisk.pl>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901312346.35265.rjw@sisk.pl> <alpine.LFD.2.00.0901311450550.2978@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Parag Warudkar <parag.lkml@gmail.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waikiki.ops.eusc.inter.net ([84.23.254.155]:64666 "EHLO
-	waikiki.ops.eusc.inter.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751380AbZAaXni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 18:43:38 -0500
-Received: from myip-n72-220.de.inter.net ([213.73.72.220] helo=rei.cwalter.net)
-	by waikiki.ops.eusc.inter.net with esmtp (Exim 4.69)
-	id 1LTP6m-000Iml-Gq
-	for netdev@vger.kernel.org; Sun, 01 Feb 2009 00:18:40 +0100
-Received: from [10.42.42.2] (nene.cwalter.net [10.42.42.2])
-	by rei.cwalter.net (Postfix) with ESMTP id 69F3B1BE5F
-	for <netdev@vger.kernel.org>; Sun,  1 Feb 2009 00:18:39 +0100 (CET)
-In-Reply-To: <20090131071342.2b45cbe8.komurojun-mbn@nifty.com>
+Received: from ogre.sisk.pl ([217.79.144.158]:54829 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752203AbZBAAMD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 19:12:03 -0500
+In-Reply-To: <alpine.LFD.2.00.0901311450550.2978@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Sunday 01 February 2009, Linus Torvalds wrote:
+> 
+> On Sat, 31 Jan 2009, Rafael J. Wysocki wrote:
+> > 
+> > But many drivers have an analogous code sequence in their PM callbacks and
+> > I've tested it with several drivers on my test boxes.  It's never failed for me.
+> 
+> Rafael!
+> 
+> Read what I write. Twice.
 
-I just noticed that I still had a patch lying around by Komuro
-<komurojun-mbn@nifty.com> from back when I was troubleshooting my
-problems with the pcnet_cs/axnet_cs driver and my Netgear PCMCIA-NIC.
+You didn't give me a chance by removing it. ;-)
 
-Looks like a simple typo to me - I tested the patch with 2.6.28 kernel
-and it worked...
+> Here it is again: "Imagine that you're a bridge."
+> 
+> Stop the idiocy of just ignoring what I write, and talking about something 
+> else.
+> 
+> Bridges are special.
 
-bye,
+[Confused] Yes, they are.
 
-cord
+And yes, I agreed that the bus master bit shouldn't be cleared for them.  Which
+does not necessarily imply that clearing that bit will always lead to problems
+in practice.
 
-Komuro schrieb:
- > [PATCH] pcnet_cs:fix misuse of the equality operator.
->=20
->=20
-> pcnet_cs:
-> 	fix misuse of the equality operator.
->=20
-> =20
-> Signed-off-by: Cord Walter <qord@cwalter.net>
-> Signed-off-by: Komuro <komurojun-mbn@nifty.com>
->=20
-> ---
->=20
-> --- linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c.orig	2009-01-31 06=
-:44:03.000000000 +0900
-> +++ linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c	2009-01-31 06:44:2=
-1.000000000 +0900
-> @@ -586,7 +586,7 @@ static int pcnet_config(struct pcmcia_de
->      }
-> =20
->      if ((link->conf.ConfigBase =3D=3D 0x03c0)
-> -	&& (link->manf_id =3D=3D 0x149) && (link->card_id =3D 0xc1ab)) {
-> +	&& (link->manf_id =3D=3D 0x149) && (link->card_id =3D=3D 0xc1ab)) {
->  	printk(KERN_INFO "pcnet_cs: this is an AX88190 card!\n");
->  	printk(KERN_INFO "pcnet_cs: use axnet_cs instead.\n");
->  	goto failed;
->=20
+> > > But as to why it fixes Parag's case - I think that's because the new PM 
+> > > resume does more than the legacy resume does, so it ends up re-enabling 
+> > > things anyway. It does it too late, but it doesn't matter in this case (no 
+> > > shared irq issues with the only device behind the pci-e bridge).
+> > 
+> > Still, the 2.6.28 resume didn't do the "reenable device" thing and it worked.
+> > 
+> > I think in the Parag's case the problem is the "double restore".
+> 
+> It's possible. Still, it really shouldn't matter.
+> 
+> Or at least, it shouldn't matter, as long as what you restore is sane. 
+> You're just going to rewrite the same data, after all.
 
+Yes, but I suspect the device is misbehaving due to some timing issues.
 
---=20
-Cord Walter
-email: cord.walter@gmx.de
+With devices that behave totally correctly the current code doesn't appear to
+cause problems.
 
-Weil es niemanden etwas angeht, dass ich nichts zu verbergen habe:
-http://www.gnupg.org/
-http://www.truecrypt.org/
-=2E..und =FCberhaupt: http://www.FreiheitstattAngst.de
+> That's why I was trying to see if the IO/MEM bits got cleared in the save 
+> image for some reason.
+
+Well, we never clear them.
+
+> > > See above. I think you really haven't thought the new PM code through.
+> > 
+> > Yes, I have, but my experience apparently doesn't match yours.
+> 
+> The problem is that you're looking at some individual devices, and saying 
+> "it works for them, so it must work for everybody".
+
+Look.  I have only a limited set of data from devices that have been tested.
+On the other hand I have some pieces of documentation that are sometimes not
+very clear.  I try to use the data and the docs I have to figure out how things
+actually work.
+
+That's why the cases like the Parag's one are so important.  They allow me to
+verify assumptions.
+
+So no, I don't say "it must work for everybody", but I have to assume
+_something_ if I don't know that _for_ _sure_.  I sometimes make wrong
+assumptions, which is a consequence of the fact that I can only use a limited
+set of data to verify my observations.
+
+And please note, we still don't know for sure why the Parag's box actually
+fails.  We have some theories that may or may not be correct, but that's it.
+
+> Add to that the fact that you apparently _still_ haven't figured out the
+> difference between bridges and regular devices, and that most most
+> motherboards probably keep the PCI bridges powered anyway, and...
+
+[Confused again] Why are you talking about keeping bridges powered?
+ 
+> And yes, I realize that this is how PM under Linux has worked for a long 
+> time. But it's what I think we should get away from. It's why I pushed so 
+> hard to get the whole interrupt handling sane and stable. 
+> 
+> The argument that "it works for a lot of machines" IS NOT AN ARGUMENT, 
+> Rafael! Stop using it as such.
+>
+> We know that 2.6.28 suspend/resume works for a lot of laptops. Even 
+> possibly _most_ laptops. But it was still broken. We want to get _away_ 
+> from that.
+
+Working on many (different) systems is a good indication of what is and what
+is not going to work in general.  It obviously doesn't imply correctness,
+though.
+
+> > DMA will only not work until the ->resume sets the bus master bit, which
+> > happes before the ->resume of any device behind the bridge runs.
+> 
+> Read my emails. THIS ISN'T EVEN A RESUME-TIME PROBLEM!
+> 
+> The problems happen on purely the suspend path. How the f*ck do you know 
+> that the drivers behind the bridge don't do everything at 'suspend_late' 
+> time, and expect to be working up until that time?
+
+DMA from suspend_late?  Come on.
+
+> Here's a big hint: YOU DO NOT KNOW. YOU MUST NOT TURN OFF THE BRIDGE AT 
+> SUSPEND TIME!
+> 
+> I'm getting really fed up with you here. You're not even listening. And 
+> you are _definitely_ not doing any "deep thinking" here.
+
+Why are you shouting at me?  Did you read my reply to your other message?
+How many times do I have to tell you I AGREE THAT I SHOULD NOT TURN OFF THE
+BUS MASTER BIT FOR BRIDGES so that you actually get it?
+
+> > > How about devices that have magic power-down sequences? For example, a 
+> > > quick grep shows that USB on a PPC PMAC has a special "disable ASIC clocks 
+> > > for USB" thing after it puts the USB controller to sleep.
+> > 
+> > This is exceptional, from what I can tell.
+> 
+> So?
+> 
+> Irrelevant. We want to handle the exceptional case too. And we generally 
+> want to handle them _automatically, rather than by:
+> 
+> > We may need an "override default resume" flag for such drivers.
+> 
+> .. why? Wouldn't it be a hell of a lot nicer if the PCI layer just did 
+> things right automatically. 
+> 
+> Which the legacy layer already does. It sees "ok, the driver did it's own 
+> pci_save_state(), I'm not going to do it for it".
+> 
+> THAT is robust. And simple. Wouldn't you agree?
+> 
+> So why not do the same in the new one? Why do you want to make the new 
+> interfaces _inferior_ to the old ones?
+
+On suspend we have two things to do:
+- save the state
+- put the device into a low power state
+
+The state_saved flag can be used to see if the driver has saved the state.
+
+What about powering off?  Are we going to assume that if the driver has saved
+the state of the device, the core should not put the device into a low power
+state?
+
+Rafael
