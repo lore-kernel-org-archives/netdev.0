@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: variables reach -1, but 0 tested
-Date: Sun, 01 Feb 2009 01:58:05 -0800 (PST)
-Message-ID: <20090201.015805.28182673.davem@davemloft.net>
-References: <498429AE.1080404@gmail.com>
-	<1233434112.5903.28.camel@desktop>
+Subject: Re: [PATCH] sungem: limit reaches -1, but 0 tested
+Date: Sun, 01 Feb 2009 01:59:31 -0800 (PST)
+Message-ID: <20090201.015931.127677783.davem@davemloft.net>
+References: <4984473C.1040508@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: dwalker@fifo99.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47425
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47429
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752691AbZBAJ6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 04:58:09 -0500
-In-Reply-To: <1233434112.5903.28.camel@desktop>
+	by vger.kernel.org with ESMTP id S1752430AbZBAJ7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 04:59:34 -0500
+In-Reply-To: <4984473C.1040508@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Walker <dwalker@fifo99.com>
-Date: Sat, 31 Jan 2009 12:35:12 -0800
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Sat, 31 Jan 2009 13:42:36 +0100
 
-> On Sat, 2009-01-31 at 11:36 +0100, Roel Kluin wrote:
+> With a postfix decrement these reach -1 rather than 0,
+> but after the loop it is tested to have become 0.
 > 
-> >  
-> > -	while (limit--) {
-> > +	while (--limit) {
-> >  		val = phy_read(phy, MII_BMCR);
-> >  		if (val >= 0 && (val & BMCR_RESET) == 0)
-> >  			break;
-> 
-> It looks like these are checked for <= to 0 , are these changes strictly
-> nessesary?
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-Agreed.
+Just like the case just pointed out in your 'net' version
+of this patch, it is being tested "<= 0" so this fix
+is not necessary at all.
 
-I'd like to apply these fixes to net-2.6 but I can't if there
-are spurious cases in here.
+Please carefully review all of your changes of this kind
+to make sure the test is strictly equality to zero rather
+than <= 0.
 
-I'm dropping this patch for now.
+I'm dropping all of these postfix decrement patches.
