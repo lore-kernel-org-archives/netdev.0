@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sungem: limit reaches -1, but 0 tested
-Date: Sun, 01 Feb 2009 01:59:31 -0800 (PST)
-Message-ID: <20090201.015931.127677783.davem@davemloft.net>
-References: <4984473C.1040508@gmail.com>
+Subject: Re: [PATCH] net: add tracepoints to socket api
+Date: Sun, 01 Feb 2009 02:02:47 -0800 (PST)
+Message-ID: <20090201.020247.247498390.davem@davemloft.net>
+References: <20090127.102141.99756103.davem@davemloft.net>
+	<20090127184704.GA26403@infradead.org>
+	<20090128212809.GA19228@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: roel.kluin@gmail.com
+Cc: hch@infradead.org, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47429
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44828
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752430AbZBAJ7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 04:59:34 -0500
-In-Reply-To: <4984473C.1040508@gmail.com>
+	by vger.kernel.org with ESMTP id S1751395AbZBAKCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 05:02:50 -0500
+In-Reply-To: <20090128212809.GA19228@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Sat, 31 Jan 2009 13:42:36 +0100
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 28 Jan 2009 16:28:09 -0500
 
-> With a postfix decrement these reach -1 rather than 0,
-> but after the loop it is tested to have become 0.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> Of course, these provided tracepoints don't do that, but I think it
+> would be good to get the existing tracepoint set in before I go
+> poking at an implementation of that, just to ensure I avoid
+> duplicate work
 
-Just like the case just pointed out in your 'net' version
-of this patch, it is being tested "<= 0" so this fix
-is not necessary at all.
+Christoph's point is that it doesn't make any sense to merge
+this stuff in without any upstream users.
 
-Please carefully review all of your changes of this kind
-to make sure the test is strictly equality to zero rather
-than <= 0.
+The block stuff has such users, this net syscall trace stuff doesn't.
 
-I'm dropping all of these postfix decrement patches.
+Now your "where is the packet dropped" trace thing, that would
+something we could merge once that patch and a suitable tool exists.
+Just like the block layer cases.
+
+So I have to toss this patch for now, sorry.
