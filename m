@@ -1,39 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add tracepoints to socket api
-Date: Sun, 01 Feb 2009 02:02:47 -0800 (PST)
-Message-ID: <20090201.020247.247498390.davem@davemloft.net>
-References: <20090127.102141.99756103.davem@davemloft.net>
-	<20090127184704.GA26403@infradead.org>
-	<20090128212809.GA19228@hmsreliant.think-freely.org>
+From: Cord Walter <cord.walter@gmx.de>
+Subject: Re: pcnet_cs: fix misuse of the equality operator. - 3rd try...
+Date: Sun, 01 Feb 2009 11:38:07 +0100
+Message-ID: <49857B8F.9000406@gmx.de>
+References: <20090131071342.2b45cbe8.komurojun-mbn@nifty.com>	<4984DC50.6060204@gmx.de>	<49856D35.7020702@gmx.de> <20090201.014352.138067875.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: hch@infradead.org, netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44828
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751395AbZBAKCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 05:02:50 -0500
-In-Reply-To: <20090128212809.GA19228@hmsreliant.think-freely.org>
+Received: from waikiki.ops.eusc.inter.net ([84.23.254.155]:61635 "EHLO
+	waikiki.ops.eusc.inter.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752618AbZBAKiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 05:38:16 -0500
+Received: from myip-n72-220.de.inter.net ([213.73.72.220] helo=rei.cwalter.net)
+	by waikiki.ops.eusc.inter.net with esmtp (Exim 4.69)
+	id 1LTZiO-0008UT-Mo
+	for netdev@vger.kernel.org; Sun, 01 Feb 2009 11:38:12 +0100
+Received: from [10.42.42.2] (nene.cwalter.net [10.42.42.2])
+	by rei.cwalter.net (Postfix) with ESMTP id 48C201BE5F
+	for <netdev@vger.kernel.org>; Sun,  1 Feb 2009 11:38:12 +0100 (CET)
+In-Reply-To: <20090201.014352.138067875.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 28 Jan 2009 16:28:09 -0500
+[PATCH] pcnet_cs:fix misuse of the equality operator.
 
-> Of course, these provided tracepoints don't do that, but I think it
-> would be good to get the existing tracepoint set in before I go
-> poking at an implementation of that, just to ensure I avoid
-> duplicate work
 
-Christoph's point is that it doesn't make any sense to merge
-this stuff in without any upstream users.
+pcnet_cs:
+	fix misuse of the equality operator.
 
-The block stuff has such users, this net syscall trace stuff doesn't.
 
-Now your "where is the packet dropped" trace thing, that would
-something we could merge once that patch and a suitable tool exists.
-Just like the block layer cases.
+Signed-off-by: Cord Walter <qord@cwalter.net>
+Signed-off-by: Komuro <komurojun-mbn@nifty.com>
 
-So I have to toss this patch for now, sorry.
+---
+
+--- linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c.orig	2009-01-31
+06:44:03.000000000 +0900
++++ linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c	2009-01-31
+06:44:21.000000000 +0900
+@@ -586,7 +586,7 @@ static int pcnet_config(struct pcmcia_de
+     }
+
+     if ((link->conf.ConfigBase == 0x03c0)
+-	&& (link->manf_id == 0x149) && (link->card_id = 0xc1ab)) {
++	&& (link->manf_id == 0x149) && (link->card_id == 0xc1ab)) {
+ 	printk(KERN_INFO "pcnet_cs: this is an AX88190 card!\n");
+ 	printk(KERN_INFO "pcnet_cs: use axnet_cs instead.\n");
+ 	goto failed;
+
