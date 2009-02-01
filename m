@@ -1,68 +1,71 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Sat, 31 Jan 2009 16:32:31 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0901311623520.3067@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901312346.35265.rjw@sisk.pl> <alpine.LFD.2.00.0901311450550.2978@localhost.localdomain> <200902010111.08433.rjw@sisk.pl>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: What should PCI core do during suspend-resume? (was: Re: 2.6.29-rc3: tg3 dead after resume)
+Date: Sun, 1 Feb 2009 01:36:54 +0100
+Message-ID: <200902010136.55375.rjw@sisk.pl>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901311516360.2978@localhost.localdomain> <alpine.LFD.2.00.0901311534340.3067@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: Parag Warudkar <parag.lkml@gmail.com>,
 	Matt Carlson <mcarlson@broadcom.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:53370 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751517AbZBAAch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2009 19:32:37 -0500
-In-Reply-To: <200902010111.08433.rjw@sisk.pl>
+Received: from ogre.sisk.pl ([217.79.144.158]:54875 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751517AbZBAAhc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 19:37:32 -0500
+In-Reply-To: <alpine.LFD.2.00.0901311534340.3067@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Sun, 1 Feb 2009, Rafael J. Wysocki wrote:
-> > The problems happen on purely the suspend path. How the f*ck do you know 
-> > that the drivers behind the bridge don't do everything at 'suspend_late' 
-> > time, and expect to be working up until that time?
+On Sunday 01 February 2009, Linus Torvalds wrote:
 > 
-> DMA from suspend_late?  Come on.
+> On Sat, 31 Jan 2009, Linus Torvalds wrote:
+> > 
+> > But how many people test STR while doing a "ping -f" from another machine?
+> > 
+> > It _should_ work. Do you guarantee that it does?
+> 
+> Btw, this really only is interesting if there's a shared interrupt. 
+> 
+> I'm sure that there are network drivers that will crash even on their own 
+> with _just_ the right timing (imagine having a delayed interrupt pending, 
+> then doing the "pci_set_power_state(PCI_D3hot)" thing, and then get the 
+> interrupt handler invoked on another CPU _just_ afterwards), but it's 
+> probably really hard to trigger, and a bug in that specific driver anyway.
+> 
+> But what's much more interesting (and not necessarily a driver bug, but a 
+> general PM infrastructure problem) is if we have that shared interrupt 
+> case, and the network driver gets lots of interrupts just as "driver X" is 
+> shutting down with that interrupt shared. Then, "driver X" will get 
+> interrupts after the PM layer has put its device to sleep, and now "driver 
+> X" is quite understandably confused - it didn't even do the "put to sleep" 
+> itself, but now its device is no longer responding.
+> 
+> And now it's not a really unlikely race condition any more. 
 
-Rafael. Stop being a total idiot.
+All this leads to the conclusion that we should put devices into low power
+states with interrupts off and this seems to imply that we'll need to make the
+AML interpreter allow us to run AML with interrupts off.
 
-Read what I wrote.
+Still, what about the following rule:
+- If the device is supposed to wake up the system, the driver should prepare it
+  and put it into a low power state using the existing PCI callbacks, in
+  ->suspend().  In that case, the driver is also required to save the state of
+  the device before putting it into the low power state.  It is also required
+  to make sure that its interrupt handler will not get confused in case of
+  shared interrupts.
+- If the state of the device hasn't been saved by the driver, the core is
+  required to save its state (with interrupts off, I suppose?).
+- If the state of the device hasn't been saved by the driver, the core will
+  attempt to put the device into a low power state, using the native PCI PM and
+  with interrupts off, unless PCI_DEV_FLAGS_NO_D3 is set in dev->flags.
 
-I'm saying that the driver may not do anything at all at suspend() time, 
-and leaves everything until suspend_late. Then, at suspend_late(), it 
-finally really shuts down.
-
-That's actually a very reasonable thing to do in some circumstances. It 
-simplifies everything, in particular all interrupt handling, since the 
-device is now fully live all the way while interrupts can happen.
-
-For a USB host controller, for example, it really could make sense to do 
-that - just leave all the core host controller stuff running, and the only 
-thing the "suspend()" callback does is to send the commands to the actual 
-devices, it doesn't necessarily touch the host controller itself at all.
-
-Then, at suspend_late time, you just clear the "running" bit in the 
-controller (and perhaps not even that - because you want to still push 
-things out for debugging). End result: you never actually had to shut 
-anything down at all, and you could (for example) still run a USB serial 
-port console all the way to shutdown.
-
-And yes, I wanted to do basically exactly that when I was debugging some 
-issues a year or two ago.
-
-See? The device and driver may be totally alive over a ->suspend() call. 
-And that means that the bridge CANNOT KNOW that it's ok to shut down DMA. 
-Because DMA may be the only way the device communicates (again: USB 
-actually works that way).
-
-So dammit, just admit that you were wrong, instead of continually sending 
-these _idiotic_ replies. That "turn off bus mastering" was bogus and 
-idiotic, and had no real cause. Ok to just admit it already?
-
-		Linus
+Thanks,
+Rafael
