@@ -1,8 +1,7 @@
 From: Alex Williamson <alex.williamson@hp.com>
-Subject: [PATCH v3 1/4] virtio_net: Add a virtqueue for outbound control
-	commands
-Date: Sun, 01 Feb 2009 13:05:10 -0700
-Message-ID: <20090201200509.8183.4996.stgit@debian.lart>
+Subject: [PATCH v3 2/4] virtio_net: Add a set_rx_mode interface
+Date: Sun, 01 Feb 2009 13:05:15 -0700
+Message-ID: <20090201200515.8183.81496.stgit@debian.lart>
 References: <20090201200504.8183.58421.stgit@debian.lart>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,180 +13,105 @@ In-Reply-To: <20090201200504.8183.58421.stgit@debian.lart>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This will be used for RX mode, MAC filter table, VLAN filtering, etc...
-
-The control transaction consists of one or more "out" sg entries and
-one or more "in" sg entries.  The first out entry contains a header
-defining the class and command.  Additional out entries may provide
-data for the command.  The last in entry provides a status response
-back from the command.
-
-Virtqueues typically run asynchronous, running a callback function
-when there's data in the channel.  We can't readily make use of this
-in the command paths where we need to use this.  Instead, we kick
-the virtqueue and spin.  The kick causes an I/O write, triggering an
-immediate trap into the hypervisor.
+Make use of the RX_MODE control virtqueue class to enable the
+set_rx_mode netdev interface.  This allows us to selectively
+enable/disable promiscuous and allmulti mode so we don't see
+packets we don't want.  For now, we automatically enable these
+as needed if additional unicast or multicast addresses are
+requested.
 
 Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 ---
 
- drivers/net/virtio_net.c   |   66 ++++++++++++++++++++++++++++++++++++++++++--
- include/linux/virtio_net.h |   20 +++++++++++++
- 2 files changed, 83 insertions(+), 3 deletions(-)
+ drivers/net/virtio_net.c   |   32 ++++++++++++++++++++++++++++++++
+ include/linux/virtio_net.h |   13 ++++++++++++-
+ 2 files changed, 44 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index bf65978..d84e176 100644
+index d84e176..f43b9d3 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -40,7 +40,7 @@ module_param(gso, bool, 0444);
- struct virtnet_info
- {
- 	struct virtio_device *vdev;
--	struct virtqueue *rvq, *svq;
-+	struct virtqueue *rvq, *svq, *cvq;
- 	struct net_device *dev;
- 	struct napi_struct napi;
- 	unsigned int status;
-@@ -605,6 +605,53 @@ static int virtnet_open(struct net_device *dev)
- 	return 0;
+@@ -672,6 +672,36 @@ static int virtnet_set_tx_csum(struct net_device *dev, u32 data)
+ 	return ethtool_op_set_tx_hw_csum(dev, data);
  }
  
-+/*
-+ * Send command via the control virtqueue and check status.  Commands
-+ * supported by the hypervisor, as indicated by feature bits, should
-+ * never fail unless improperly formated.
-+ */
-+static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
-+				 struct scatterlist data[], int out, int in)
++static void virtnet_set_rx_mode(struct net_device *dev)
 +{
-+	struct scatterlist sg[VIRTIO_NET_MAX_CTRL_ARGS];
-+	struct virtio_net_ctrl_hdr ctrl;
-+	virtio_net_ctrl_ack status = ~0;
-+	unsigned int tmp;
++	struct virtnet_info *vi = netdev_priv(dev);
++	struct scatterlist sg;
++	u8 promisc, allmulti;
 +
-+	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
-+		BUG();  /* Caller should know better */
-+		return false;
-+	}
++	/* We can't dynamicaly set ndo_set_rx_mode, so return gracefully */
++	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_RX))
++		return;
 +
-+	out++; /* Add header */
-+	in++; /* Add return status */
++	promisc = ((dev->flags & IFF_PROMISC) != 0 || dev->uc_count > 0);
++	allmulti = ((dev->flags & IFF_ALLMULTI) != 0 || dev->mc_count > 0);
 +
-+	BUG_ON(out + in > VIRTIO_NET_MAX_CTRL_ARGS);
++	sg_set_buf(&sg, &promisc, sizeof(promisc));
 +
-+	ctrl.class = class;
-+	ctrl.cmd = cmd;
++	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
++				  VIRTIO_NET_CTRL_RX_PROMISC,
++				  &sg, 1, 0))
++		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
++			 promisc ? "en" : "dis");
 +
-+	sg_init_table(sg, out + in);
++	sg_set_buf(&sg, &allmulti, sizeof(allmulti));
 +
-+	sg_set_buf(&sg[0], &ctrl, sizeof(ctrl));
-+	memcpy(&sg[1], data, sizeof(struct scatterlist) * (out + in - 2));
-+	sg_set_buf(&sg[out + in - 1], &status, sizeof(status));
-+
-+	if (vi->cvq->vq_ops->add_buf(vi->cvq, sg, out, in, vi) != 0)
-+		BUG();
-+
-+	vi->cvq->vq_ops->kick(vi->cvq);
-+
-+	/*
-+	 * Spin for a response, the kick causes an ioport write, trapping
-+	 * into the hypervisor, so the request should be handled immediately.
-+	 */
-+	while (!vi->cvq->vq_ops->get_buf(vi->cvq, &tmp))
-+		cpu_relax();
-+
-+	return status == VIRTIO_NET_OK;
++	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
++				  VIRTIO_NET_CTRL_RX_ALLMULTI,
++				  &sg, 1, 0))
++		dev_warn(&dev->dev, "Failed to %sable allmulti mode.\n",
++			 allmulti ? "en" : "dis");
 +}
 +
- static int virtnet_close(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
-@@ -771,6 +818,14 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		goto free_recv;
- 	}
- 
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
-+		vi->cvq = vdev->config->find_vq(vdev, 2, NULL);
-+		if (IS_ERR(vi->cvq)) {
-+			err = PTR_ERR(vi->svq);
-+			goto free_send;
-+		}
-+	}
-+
- 	/* Initialize our empty receive and send queues. */
- 	skb_queue_head_init(&vi->recv);
- 	skb_queue_head_init(&vi->send);
-@@ -783,7 +838,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	err = register_netdev(dev);
- 	if (err) {
- 		pr_debug("virtio_net: registering device failed\n");
--		goto free_send;
-+		goto free_ctrl;
- 	}
- 
- 	/* Last of all, set up some receive buffers. */
-@@ -803,6 +858,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 
- unregister:
- 	unregister_netdev(dev);
-+free_ctrl:
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
-+		vdev->config->del_vq(vi->cvq);
- free_send:
- 	vdev->config->del_vq(vi->svq);
- free_recv:
-@@ -834,6 +892,8 @@ static void virtnet_remove(struct virtio_device *vdev)
- 
- 	vdev->config->del_vq(vi->svq);
- 	vdev->config->del_vq(vi->rvq);
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
-+		vdev->config->del_vq(vi->cvq);
- 	unregister_netdev(vi->dev);
- 
- 	while (vi->pages)
-@@ -853,7 +913,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
+ static struct ethtool_ops virtnet_ethtool_ops = {
+ 	.set_tx_csum = virtnet_set_tx_csum,
+ 	.set_sg = ethtool_op_set_sg,
+@@ -696,6 +726,7 @@ static const struct net_device_ops virtnet_netdev = {
+ 	.ndo_start_xmit      = start_xmit,
+ 	.ndo_validate_addr   = eth_validate_addr,
+ 	.ndo_set_mac_address = virtnet_set_mac_address,
++	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+ 	.ndo_change_mtu	     = virtnet_change_mtu,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = virtnet_netpoll,
+@@ -914,6 +945,7 @@ static unsigned int features[] = {
  	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
  	VIRTIO_NET_F_GUEST_ECN, /* We don't yet handle UFO input. */
--	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS,
-+	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+ 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
++	VIRTIO_NET_F_CTRL_RX,
  	VIRTIO_F_NOTIFY_ON_EMPTY,
  };
  
 diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index f76bd4a..f28a72a 100644
+index f28a72a..69569e1 100644
 --- a/include/linux/virtio_net.h
 +++ b/include/linux/virtio_net.h
-@@ -22,6 +22,7 @@
- #define VIRTIO_NET_F_HOST_UFO	14	/* Host can handle UFO in. */
+@@ -23,6 +23,7 @@
  #define VIRTIO_NET_F_MRG_RXBUF	15	/* Host can merge receive buffers. */
  #define VIRTIO_NET_F_STATUS	16	/* virtio_net_config.status available */
-+#define VIRTIO_NET_F_CTRL_VQ	17	/* Control channel available */
+ #define VIRTIO_NET_F_CTRL_VQ	17	/* Control channel available */
++#define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
  
  #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
  
-@@ -58,4 +59,23 @@ struct virtio_net_hdr_mrg_rxbuf {
- 	__u16 num_buffers;	/* Number of merged rx buffers */
- };
+@@ -76,6 +77,16 @@ typedef __u8 virtio_net_ctrl_ack;
+ #define VIRTIO_NET_OK     0
+ #define VIRTIO_NET_ERR    1
  
+-#define VIRTIO_NET_MAX_CTRL_ARGS   2
++#define VIRTIO_NET_MAX_CTRL_ARGS   3
++
 +/*
-+ * Control virtqueue data structures
-+ *
-+ * The control virtqueue expects a header in the first sg entry
-+ * and an ack/status response in the last entry.  Data for the
-+ * command goes in between.
++ * Control the RX mode, ie. promisucous and allmulti.  PROMISC and
++ * ALLMULTI commands require an "out" sg entry containing a 1 byte
++ * state value, zero = disable, non-zero = enable.  These commands
++ * are supported with the VIRTIO_NET_F_CTRL_RX feature.
 + */
-+struct virtio_net_ctrl_hdr {
-+	__u8 class;
-+	__u8 cmd;
-+} __attribute__((packed));
-+
-+typedef __u8 virtio_net_ctrl_ack;
-+
-+#define VIRTIO_NET_OK     0
-+#define VIRTIO_NET_ERR    1
-+
-+#define VIRTIO_NET_MAX_CTRL_ARGS   2
-+
++#define VIRTIO_NET_CTRL_RX    0
++ #define VIRTIO_NET_CTRL_RX_PROMISC      0
++ #define VIRTIO_NET_CTRL_RX_ALLMULTI     1
+ 
  #endif /* _LINUX_VIRTIO_NET_H */
 
