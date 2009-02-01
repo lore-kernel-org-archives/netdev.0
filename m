@@ -1,65 +1,70 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: What should PCI core do during suspend-resume? (was: Re: 2.6.29-rc3: tg3 dead after resume)
-Date: Sun, 1 Feb 2009 02:24:18 +0100
-Message-ID: <200902010224.19755.rjw@sisk.pl>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200902010136.55375.rjw@sisk.pl> <alpine.LFD.2.00.0901311652500.3067@localhost.localdomain>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Subject: Re: Mainline kernel OLTP performance update
+Date: Sun, 01 Feb 2009 10:52:56 +0800
+Message-ID: <1233456777.2604.2.camel@ymzhang>
+References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
+	 <200901161503.13730.nickpiggin@yahoo.com.au>
+	 <20090115201210.ca1a9542.akpm@linux-foundation.org>
+	 <200901161746.25205.nickpiggin@yahoo.com.au>
+	 <20090116065546.GJ31013@parisc-linux.org>
+	 <1232092430.11429.52.camel@ymzhang>  <87sknjeemn.fsf@basil.nowhere.org>
+	 <1232428583.11429.83.camel@ymzhang>
+	 <alpine.DEB.1.10.0901211852060.18367@qirst.com>
+	 <1232613395.11429.122.camel@ymzhang>
+	 <1232615707.14549.6.camel@penberg-laptop>
+	 <1232616517.11429.129.camel@ymzhang>
+	 <1232617672.14549.25.camel@penberg-laptop>
+	 <1232679773.11429.155.camel@ymzhang>  <4979692B.3050703@cs.helsinki.fi>
+	 <1232697998.6094.17.camel@penberg-laptop>
+	 <1232699401.11429.163.camel@ymzhang>
+	 <1232703989.6094.29.camel@penberg-laptop>
+	 <alpine.DEB.1.10.0901231020030.21692@qirst.com>
+	 <1232765728.11429.193.camel@ymzhang>
+	 <alpine.DEB.1.10.0901261235270.1908@qirst.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	matthew.r.wilcox@intel.com, chinang.ma@intel.com,
+	linux-kernel@vger.kernel.org, sharad.c.tripathi@intel.com,
+	arjan@linux.intel.com, suresh.b.siddha@intel.com,
+	harita.chilukuri@intel.com, douglas.w.styner@intel.com,
+	peter.xihong.wang@intel.com, hubert.nueckel@intel.com,
+	chris.mason@oracle.com, srostedt@redhat.com,
+	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
+	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:55009 "EHLO ogre.sisk.pl"
+Received: from mga09.intel.com ([134.134.136.24]:18857 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751644AbZBABY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2009 20:24:56 -0500
-In-Reply-To: <alpine.LFD.2.00.0901311652500.3067@localhost.localdomain>
-Content-Disposition: inline
+	id S1752068AbZBACxK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2009 21:53:10 -0500
+In-Reply-To: <alpine.DEB.1.10.0901261235270.1908@qirst.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 01 February 2009, Linus Torvalds wrote:
-> 
-> On Sun, 1 Feb 2009, Rafael J. Wysocki wrote:
-> > 
-> > All this leads to the conclusion that we should put devices into low power
-> > states with interrupts off and this seems to imply that we'll need to make the
-> > AML interpreter allow us to run AML with interrupts off.
-> 
-> How many devices actually have the _PS3 method (or whatever it is that we 
-> end up executing)? We might be able to simply flag it, and say "ok, if we 
-> have a _PS3 method, we'll have to suspend early, otherwise we can leave it 
-> for a late suspend".
+On Mon, 2009-01-26 at 12:36 -0500, Christoph Lameter wrote:
+> On Sat, 24 Jan 2009, Zhang, Yanmin wrote:
+>=20
+> > But when trying to increased it to 4, I got:
+> > [root@lkp-st02-x8664 slab]# echo "3">kmalloc-8192/order
+> > [root@lkp-st02-x8664 slab]# echo "4">kmalloc-8192/order
+> > -bash: echo: write error: Invalid argument
+>=20
+> This is because 4 is more than the maximum allowed order. You can
+> reconfigure that by setting
+>=20
+> slub_max_order=3D5
+>=20
+> or so on boot.
+With =EF=BB=BFslub_max_order=3D5, the default order of=EF=BB=BF kmalloc=
+-8192 becomes
+5. I tested it with netperf UDP-U-4k and the result difference from
+SLAB/SLQB is less than 1% which is really fluctuation.
 
-That seems doable at first sight, although I think we should take D1 and D2
-into account too (the ACPI rules may be that for S3, ie. suspend to RAM, given
-device should be put into D2, for example).  We have a function for checking
-if device is power-manageable by ACPI.
 
-Still, in that case, should the rule be that if the device is power-manageable
-by ACPI, the PCI core is supposed to put it into a low power state (using ACPI)
-with interrupts on and if the device is not power-manageable by ACPI, the
-PCI core is supposed to put it into a low power state using the native PM?
-
-> Definitely not perfect, but perhaps a way to get the safe thing on 99% of 
-> all cases, and have to live with the horrid ACPI rules on some things.
-
-They are not that uncommon AFAICS.  On all of my boxes there are devices
-power-manageable by ACPI.  Usually they are USB controllers and network
-adapters, but sometimes it happens to sound cards too.
-
-> I thought the _DSW thing is common for setting up wakeup, but _PSx is not. 
-> But I have not looked at many ACPI tables in my life. I try to active 
-> avoid it if I at all humanly can.
-
-Usually, we need to use ACPI to set up wake-up and then use ACPI to put the
-device into a low power state.  Otherwise, the wake-up may not work.
-
-Thanks,
-Rafael
