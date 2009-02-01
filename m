@@ -1,143 +1,221 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: virt-manager broken by bind(0) in net-next.
-Date: Sun, 01 Feb 2009 17:12:41 +0100
-Message-ID: <4985C9F9.1020103@cosmosbay.com>
-References: <20090130215008.GB12210@ioremap.net> <49837F7E.90306@cosmosbay.com> <20090130225113.GA13977@ioremap.net> <20090130185224.214b3a59@extreme> <20090131083724.GB26897@ioremap.net> <49841738.7050605@cosmosbay.com> <20090131093123.GA28151@ioremap.net> <49841E8C.60401@cosmosbay.com> <20090131095640.GA29099@ioremap.net> <4984252B.8080508@cosmosbay.com> <20090201124220.GA2319@ioremap.net>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] net: variables reach -1, but 0 tested
+Date: Sun, 01 Feb 2009 17:23:29 +0100
+Message-ID: <4985CC81.1040801@gmail.com>
+References: <498429AE.1080404@gmail.com> <1233434112.5903.28.camel@desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, berrange@redhat.com,
-	et-mgmt-tools@redhat.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
+To: Daniel Walker <dwalker@fifo99.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39284 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787AbZBAQNW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 11:13:22 -0500
-In-Reply-To: <20090201124220.GA2319@ioremap.net>
+Received: from ik-out-1112.google.com ([66.249.90.183]:14099 "EHLO
+	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899AbZBAQXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 11:23:33 -0500
+In-Reply-To: <1233434112.5903.28.camel@desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov a =E9crit :
-> Hi Eric.
->=20
-> On Sat, Jan 31, 2009 at 11:17:15AM +0100, Eric Dumazet (dada1@cosmosb=
-ay.com) wrote:
->> We only need to know if the *fix* is solving Stephen problem
->>
->> About performance effects of careful variable placement and percpu c=
-ounter
->> strategy you might consult as an example :
->>
->> http://lkml.indiana.edu/hypermail/linux/kernel/0812.1/01624.html
->=20
-> Impressive, but to be 100% fair it is not only because of the cache l=
-ine
-> issues :)
->=20
->> Now, with these patches applied, try to see effect of your new bsock=
-ets field
->> on a network workload doing lot of socket bind()/unbind() calls...
->>
->> With current kernels, you probably wont notice because of inode/dcac=
-he hot
->> cache lines, but it might change eventually...
->=20
-> David applied the patch which fixed the problem, so we can return to =
-the
-> cache line issues. What do you think about the last version where
-> bsockets field was placed at the very end of the structure and with
-> cacheline_aligned_on_smp attribute?
->=20
+Daniel Walker wrote:
+> On Sat, 2009-01-31 at 11:36 +0100, Roel Kluin wrote:
+> 
+>>  
+>> -	while (limit--) {
+>> +	while (--limit) {
+>>  		val = phy_read(phy, MII_BMCR);
+>>  		if (val >= 0 && (val & BMCR_RESET) == 0)
+>>  			break;
+> 
+> It looks like these are checked for <= to 0 , are these changes strictly
+> nessesary?
 
-Yes, at a minimum, move it away from first cache line.
+Although the chance that this goes wrong in practice is small, my change
+was correct:
 
-And using atomic_t so that we dont have to discuss about accumulated
-errors on SMP on this variable. We will see later if percpu counter
-is wanted or not.
+In the last iteration, limit is 1 when the test occurs, before the
+decrement causes limit to become 0. If just then the break occurs,
+we continue after the loop with:
 
-Thank you
+        if ((val & BMCR_ISOLATE) && limit > 0)
+                phy_write(phy, MII_BMCR, val & ~BMCR_ISOLATE);
 
-[PATCH] net: move bsockets outside of read only beginning of struct ine=
-t_hashinfo
+        return limit <= 0;
 
-And switch bsockets to atomic_t since it might be changed in parallel.
+Since limit is 0, the phy_write won't occur and the return is 1, this is
+not desired, I assume.
 
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+With the prefix decrement limit is always greater than 0 when the break
+occurs. I do agree that the chance that this goes wrong in practice could
+be small.
+
+>>  	/* make sure EEPROM has finished loading before setting GPIO_CFG */
+>>  	timeout=1000;
+>> -	while ( timeout-- && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_)) {
+>> +	while ( --timeout && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_)) {
+>>  		udelay(10);
+> 
+> If your doing "timeOut" to "timeout" below may as well drop the space
+> above after the "(" ..
+
+Ok, here it is again:
+
+while (timeout--) { ... }
+
+timeout becomes -1 if the loop isn't ended otherwise, not 0.
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
- include/net/inet_hashtables.h   |    3 ++-
- net/ipv4/inet_connection_sock.c |    2 +-
- net/ipv4/inet_hashtables.c      |    5 +++--
- 3 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ibm_newemac/phy.c |    4 ++--
+ drivers/net/smc911x.c         |    4 ++--
+ drivers/net/smsc9420.c        |   12 ++++++------
+ drivers/net/sungem.c          |    2 +-
+ drivers/net/sunqe.c           |    2 +-
+ drivers/net/tsi108_eth.c      |    2 +-
+ drivers/net/tulip/de2104x.c   |    2 +-
+ 7 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtable=
-s.h
-index 8d98dc7..a44e224 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -134,7 +134,7 @@ struct inet_hashinfo {
- 	struct inet_bind_hashbucket	*bhash;
-=20
- 	unsigned int			bhash_size;
--	int				bsockets;
-+	/* 4 bytes hole on 64 bit */
-=20
- 	struct kmem_cache		*bind_bucket_cachep;
-=20
-@@ -151,6 +151,7 @@ struct inet_hashinfo {
- 	struct inet_listen_hashbucket	listening_hash[INET_LHTABLE_SIZE]
- 					____cacheline_aligned_in_smp;
-=20
-+	atomic_t			bsockets;
- };
-=20
- static inline struct inet_ehash_bucket *inet_ehash_bucket(
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection=
-_sock.c
-index 9bc6a18..22cd19e 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -119,7 +119,7 @@ again:
- 					    (tb->num_owners < smallest_size || smallest_size =3D=3D -1)) =
-{
- 						smallest_size =3D tb->num_owners;
- 						smallest_rover =3D rover;
--						if (hashinfo->bsockets > (high - low) + 1) {
-+						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
- 							spin_unlock(&head->lock);
- 							snum =3D smallest_rover;
- 							goto have_snum;
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index d7b6178..625cc5f 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -62,7 +62,7 @@ void inet_bind_hash(struct sock *sk, struct inet_bind=
-_bucket *tb,
+diff --git a/drivers/net/ibm_newemac/phy.c b/drivers/net/ibm_newemac/phy.c
+index c40cd8d..ac9d964 100644
+--- a/drivers/net/ibm_newemac/phy.c
++++ b/drivers/net/ibm_newemac/phy.c
+@@ -60,7 +60,7 @@ int emac_mii_reset_phy(struct mii_phy *phy)
+ 
+ 	udelay(300);
+ 
+-	while (limit--) {
++	while (--limit) {
+ 		val = phy_read(phy, MII_BMCR);
+ 		if (val >= 0 && (val & BMCR_RESET) == 0)
+ 			break;
+@@ -84,7 +84,7 @@ int emac_mii_reset_gpcs(struct mii_phy *phy)
+ 
+ 	udelay(300);
+ 
+-	while (limit--) {
++	while (--limit) {
+ 		val = gpcs_phy_read(phy, MII_BMCR);
+ 		if (val >= 0 && (val & BMCR_RESET) == 0)
+ 			break;
+diff --git a/drivers/net/smc911x.c b/drivers/net/smc911x.c
+index bf3aa2a..223cde0 100644
+--- a/drivers/net/smc911x.c
++++ b/drivers/net/smc911x.c
+@@ -220,9 +220,9 @@ static void smc911x_reset(struct net_device *dev)
+ 
+ 	/* make sure EEPROM has finished loading before setting GPIO_CFG */
+ 	timeout=1000;
+-	while ( timeout-- && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_)) {
++	while (--timeout && (SMC_GET_E2P_CMD(lp) & E2P_CMD_EPC_BUSY_))
+ 		udelay(10);
+-	}
++
+ 	if (timeout == 0){
+ 		PRINTK("%s: smc911x_reset timeout waiting for EEPROM busy\n", dev->name);
+ 		return;
+diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
+index c14a4c6..41f5303 100644
+--- a/drivers/net/smsc9420.c
++++ b/drivers/net/smsc9420.c
+@@ -498,7 +498,7 @@ static void smsc9420_check_mac_address(struct net_device *dev)
+ static void smsc9420_stop_tx(struct smsc9420_pdata *pd)
  {
- 	struct inet_hashinfo *hashinfo =3D sk->sk_prot->h.hashinfo;
-=20
--	hashinfo->bsockets++;
-+	atomic_inc(&hashinfo->bsockets);
-=20
- 	inet_sk(sk)->num =3D snum;
- 	sk_add_bind_node(sk, &tb->owners);
-@@ -81,7 +81,7 @@ static void __inet_put_port(struct sock *sk)
- 	struct inet_bind_hashbucket *head =3D &hashinfo->bhash[bhash];
- 	struct inet_bind_bucket *tb;
-=20
--	hashinfo->bsockets--;
-+	atomic_dec(&hashinfo->bsockets);
-=20
- 	spin_lock(&head->lock);
- 	tb =3D inet_csk(sk)->icsk_bind_hash;
-@@ -532,6 +532,7 @@ void inet_hashinfo_init(struct inet_hashinfo *h)
+ 	u32 dmac_control, mac_cr, dma_intr_ena;
+-	int timeOut = 1000;
++	int timeout = 1000;
+ 
+ 	/* disable TX DMAC */
+ 	dmac_control = smsc9420_reg_read(pd, DMAC_CONTROL);
+@@ -506,13 +506,13 @@ static void smsc9420_stop_tx(struct smsc9420_pdata *pd)
+ 	smsc9420_reg_write(pd, DMAC_CONTROL, dmac_control);
+ 
+ 	/* Wait max 10ms for transmit process to stop */
+-	while (timeOut--) {
++	while (--timeout) {
+ 		if (smsc9420_reg_read(pd, DMAC_STATUS) & DMAC_STS_TS_)
+ 			break;
+ 		udelay(10);
+ 	}
+ 
+-	if (!timeOut)
++	if (!timeout)
+ 		smsc_warn(IFDOWN, "TX DMAC failed to stop");
+ 
+ 	/* ACK Tx DMAC stop bit */
+@@ -596,7 +596,7 @@ static void smsc9420_free_rx_ring(struct smsc9420_pdata *pd)
+ 
+ static void smsc9420_stop_rx(struct smsc9420_pdata *pd)
  {
- 	int i;
-=20
-+	atomic_set(&h->bsockets, 0);
- 	for (i =3D 0; i < INET_LHTABLE_SIZE; i++) {
- 		spin_lock_init(&h->listening_hash[i].lock);
- 		INIT_HLIST_NULLS_HEAD(&h->listening_hash[i].head,
-
+-	int timeOut = 1000;
++	int timeout = 1000;
+ 	u32 mac_cr, dmac_control, dma_intr_ena;
+ 
+ 	/* mask RX DMAC interrupts */
+@@ -617,13 +617,13 @@ static void smsc9420_stop_rx(struct smsc9420_pdata *pd)
+ 	smsc9420_pci_flush_write(pd);
+ 
+ 	/* wait up to 10ms for receive to stop */
+-	while (timeOut--) {
++	while (--timeout) {
+ 		if (smsc9420_reg_read(pd, DMAC_STATUS) & DMAC_STS_RS_)
+ 			break;
+ 		udelay(10);
+ 	}
+ 
+-	if (!timeOut)
++	if (!timeout)
+ 		smsc_warn(IFDOWN, "RX DMAC did not stop! timeout.");
+ 
+ 	/* ACK the Rx DMAC stop bit */
+diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
+index 86c765d..b17efa9 100644
+--- a/drivers/net/sungem.c
++++ b/drivers/net/sungem.c
+@@ -148,7 +148,7 @@ static u16 __phy_read(struct gem *gp, int phy_addr, int reg)
+ 	cmd |= (MIF_FRAME_TAMSB);
+ 	writel(cmd, gp->regs + MIF_FRAME);
+ 
+-	while (limit--) {
++	while (--limit) {
+ 		cmd = readl(gp->regs + MIF_FRAME);
+ 		if (cmd & MIF_FRAME_TALSB)
+ 			break;
+diff --git a/drivers/net/sunqe.c b/drivers/net/sunqe.c
+index 6e8f377..fe0c3f2 100644
+--- a/drivers/net/sunqe.c
++++ b/drivers/net/sunqe.c
+@@ -227,7 +227,7 @@ static int qe_init(struct sunqe *qep, int from_irq)
+ 	if (!(sbus_readb(mregs + MREGS_PHYCONFIG) & MREGS_PHYCONFIG_LTESTDIS)) {
+ 		int tries = 50;
+ 
+-		while (tries--) {
++		while (--tries) {
+ 			u8 tmp;
+ 
+ 			mdelay(5);
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/tsi108_eth.c
+index 75461db..a9fd2b2 100644
+--- a/drivers/net/tsi108_eth.c
++++ b/drivers/net/tsi108_eth.c
+@@ -1237,7 +1237,7 @@ static void tsi108_init_phy(struct net_device *dev)
+ 	spin_lock_irqsave(&phy_lock, flags);
+ 
+ 	tsi108_write_mii(data, MII_BMCR, BMCR_RESET);
+-	while (i--){
++	while (--i) {
+ 		if(!(tsi108_read_mii(data, MII_BMCR) & BMCR_RESET))
+ 			break;
+ 		udelay(10);
+diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
+index d5d53b6..0bf2114 100644
+--- a/drivers/net/tulip/de2104x.c
++++ b/drivers/net/tulip/de2104x.c
+@@ -392,7 +392,7 @@ static void de_rx (struct de_private *de)
+ 	unsigned drop = 0;
+ 	int rc;
+ 
+-	while (rx_work--) {
++	while (--rx_work) {
+ 		u32 status, len;
+ 		dma_addr_t mapping;
+ 		struct sk_buff *skb, *copy_skb;
