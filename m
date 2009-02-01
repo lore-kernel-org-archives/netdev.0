@@ -1,126 +1,37 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: [PATCH v3 4/4] virtio_net: Add support for VLAN filtering in the
-	hypervisor
-Date: Sun, 01 Feb 2009 13:05:25 -0700
-Message-ID: <20090201200525.8183.36352.stgit@debian.lart>
-References: <20090201200504.8183.58421.stgit@debian.lart>
+From: David Miller <davem@davemloft.net>
+Subject: Re: virt-manager broken by bind(0) in net-next.
+Date: Sun, 01 Feb 2009 12:31:47 -0800 (PST)
+Message-ID: <20090201.123147.07028289.davem@davemloft.net>
+References: <20090201124220.GA2319@ioremap.net>
+	<4985C9F9.1020103@cosmosbay.com>
+	<20090201174025.GA9562@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: rusty@rustcorp.com.au
+Cc: dada1@cosmosbay.com, shemminger@vyatta.com,
+	herbert@gondor.apana.org.au, berrange@redhat.com,
+	et-mgmt-tools@redhat.com, netdev@vger.kernel.org
+To: zbr@ioremap.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:40303 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753178AbZBAUIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 15:08:11 -0500
-In-Reply-To: <20090201200504.8183.58421.stgit@debian.lart>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45278
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750930AbZBAUbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2009 15:31:50 -0500
+In-Reply-To: <20090201174025.GA9562@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VLAN filtering allows the hypervisor to drop packets from VLANs
-that we're not a part of, further reducing the number of extraneous
-packets recieved.  This makes use of the VLAN virtqueue command class.
-The CTRL_VLAN feature bit tells us whether the backend supports VLAN
-filtering.
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Date: Sun, 1 Feb 2009 20:40:25 +0300
 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
----
+> On Sun, Feb 01, 2009 at 05:12:41PM +0100, Eric Dumazet (dada1@cosmosbay.com) wrote:
+> > [PATCH] net: move bsockets outside of read only beginning of struct inet_hashinfo
+> > 
+> > And switch bsockets to atomic_t since it might be changed in parallel.
+> > 
+> > Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> 
+> Ok, let's do it this way. Ack.
+> Thank you Eric.
 
- drivers/net/virtio_net.c   |   31 ++++++++++++++++++++++++++++++-
- include/linux/virtio_net.h |   13 +++++++++++++
- 2 files changed, 43 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e03eebf..d16107b 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -741,6 +741,30 @@ static void virtnet_set_rx_mode(struct net_device *dev)
- 	kfree(buf);
- }
- 
-+static void virnet_vlan_rx_add_vid(struct net_device *dev, u16 vid)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct scatterlist sg;
-+
-+	sg_set_buf(&sg, &vid, sizeof(vid));
-+
-+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-+				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1, 0))
-+		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
-+}
-+
-+static void virnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct scatterlist sg;
-+
-+	sg_set_buf(&sg, &vid, sizeof(vid));
-+
-+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-+				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1, 0))
-+		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
-+}
-+
- static struct ethtool_ops virtnet_ethtool_ops = {
- 	.set_tx_csum = virtnet_set_tx_csum,
- 	.set_sg = ethtool_op_set_sg,
-@@ -767,6 +791,8 @@ static const struct net_device_ops virtnet_netdev = {
- 	.ndo_set_mac_address = virtnet_set_mac_address,
- 	.ndo_set_rx_mode     = virtnet_set_rx_mode,
- 	.ndo_change_mtu	     = virtnet_change_mtu,
-+	.ndo_vlan_rx_add_vid = virnet_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid = virnet_vlan_rx_kill_vid,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = virtnet_netpoll,
- #endif
-@@ -894,6 +920,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			err = PTR_ERR(vi->svq);
- 			goto free_send;
- 		}
-+
-+		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
-+			dev->features |= NETIF_F_HW_VLAN_FILTER;
- 	}
- 
- 	/* Initialize our empty receive and send queues. */
-@@ -984,7 +1013,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
- 	VIRTIO_NET_F_GUEST_ECN, /* We don't yet handle UFO input. */
- 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
--	VIRTIO_NET_F_CTRL_RX,
-+	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
- 	VIRTIO_F_NOTIFY_ON_EMPTY,
- };
- 
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 06d9dd6..f22bb39 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -24,6 +24,7 @@
- #define VIRTIO_NET_F_STATUS	16	/* virtio_net_config.status available */
- #define VIRTIO_NET_F_CTRL_VQ	17	/* Control channel available */
- #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
-+#define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
- 
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
- 
-@@ -112,4 +113,16 @@ struct virtio_net_ctrl_mac {
- #define VIRTIO_NET_CTRL_MAC    1
-  #define VIRTIO_NET_CTRL_MAC_TABLE_SET        0
- 
-+/*
-+ * Control VLAN filtering
-+ *
-+ * The VLAN filter table is controlled via a simple ADD/DEL interface.
-+ * VLAN IDs not added may be filterd by the hypervisor.  Del is the
-+ * opposite of add.  Both commands expect an out entry containing a 2
-+ * byte VLAN ID.
-+ */
-+#define VIRTIO_NET_CTRL_VLAN       2
-+ #define VIRTIO_NET_CTRL_VLAN_ADD             0
-+ #define VIRTIO_NET_CTRL_VLAN_DEL             1
-+
- #endif /* _LINUX_VIRTIO_NET_H */
-
+Applied, thanks everyone.
