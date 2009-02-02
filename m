@@ -1,29 +1,52 @@
-From: Siemens New Year Promo Draw <info@lely.co.uk>
-Subject: Confirm Reciept
-Date: Mon,  2 Feb 2009 17:32:32 +0200 (IST)
-Message-ID: <20090202173232.FOW29267@mas26.bezeqint.net>
-Reply-To: agt_bwilliams01@live.com
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] udp : increments sk_drops in __udp_queue_rcv_skb()
+Date: Mon, 02 Feb 2009 16:32:51 +0100
+Message-ID: <49871223.2000701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr2.bezeqint.net ([192.115.104.10]:57271 "EHLO
-	omr2.bezeqint.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752393AbZBBPcy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 10:32:54 -0500
+Received: from gw1.cosmosbay.com ([212.99.114.194]:33528 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752673AbZBBPdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 10:33:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your Email ID Has been awarded the sum of =A3750,000.00 GBP in=20
-our Recent Siemens BONANZA for this year.get back to this=20
-office with your details via (agt_bwilliams01@live.com)=20
+Hi David
 
-Name:
-Country:
-Sex:
-Age:
-Address:
+While investigating with Kenny Chang multicast drops problems, I found sk_drops
+field was not anymore updated in current kernels for UDP IPV4 sockets.
 
-Mrs Mercy Bill
-(Information Officer)
+Thank you
+
+[PATCH] udp: increments sk_drops in __udp_queue_rcv_skb()
+
+Commit 93821778def10ec1e69aa3ac10adee975dad4ff3
+(udp: Fix rcv socket locking) accidentally removed sk_drops increments for
+UDP IPV4 sockets.
+
+This field can be used to detect incorrect sizing of socket receive buffers.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index b7faffe..997c418 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1015,9 +1015,11 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if ((rc = sock_queue_rcv_skb(sk, skb)) < 0) {
+ 		/* Note that an ENOMEM error is charged twice */
+-		if (rc == -ENOMEM)
++		if (rc == -ENOMEM) {
+ 			UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
+ 					 is_udplite);
++			atomic_inc(&sk->sk_drops);
++		}
+ 		goto drop;
+ 	}
+ 
