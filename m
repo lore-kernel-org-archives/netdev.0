@@ -1,35 +1,35 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Remaining bits for basic support of LDP
-Date: Mon, 2 Feb 2009 21:39:53 +0000
-Message-ID: <20090202213953.GB16069@n2100.arm.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] udp : increments sk_drops in __udp_queue_rcv_skb()
+Date: Mon, 02 Feb 2009 13:42:26 -0800 (PST)
+Message-ID: <20090202.134226.256784433.davem@davemloft.net>
+References: <49871223.2000701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tony Lindgren <tony@atomide.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:48714 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759275AbZBBVkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 16:40:12 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43070
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760065AbZBBVm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 16:42:29 -0500
+In-Reply-To: <49871223.2000701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tony,
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Mon, 02 Feb 2009 16:32:51 +0100
 
-Thye LDP platform network interface still doesn't seem to work.  There
-seems to be several reasons for this:
+> udp: increments sk_drops in __udp_queue_rcv_skb()
+> 
+> Commit 93821778def10ec1e69aa3ac10adee975dad4ff3
+> (udp: Fix rcv socket locking) accidentally removed sk_drops increments for
+> UDP IPV4 sockets.
+> 
+> This field can be used to detect incorrect sizing of socket receive buffers.
+> 
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-1. wrong resource size in arch/arm/mach-omap2/board-ldp.c
-2. missing OMAPx4xx configuration from drivers/net/smc911x.h
-3. missing SMC9211 chip IDs from drivers/net/smc911x.c
+Yikes, good catch Eric.
 
-The patch to fix these issues would seem to be relatively small (12
-lines in the smc911x and one line change in board-ldp.c) - is it
-something we want done for -rc4 or do we scrap the ethernet support 
-on the LDP until the SMSC driver has been merged ?
-
-Obviously, having working ethernet would be helpful, and since it was
-half heartedly merged when the initial OMAP3 stuff went upstream we
-should do something with it one way or another.
+Applied and queued up for -stable.
