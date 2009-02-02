@@ -1,30 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] hso: add new device id's
-Date: Mon, 02 Feb 2009 14:02:40 -0800 (PST)
-Message-ID: <20090202.140240.230022378.davem@davemloft.net>
-References: <49870A39.8000806@option.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] netlink broadcast return value
+Date: Mon, 02 Feb 2009 14:05:33 -0800 (PST)
+Message-ID: <20090202.140533.121159038.davem@davemloft.net>
+References: <4985A4C5.4050908@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <49870A39.8000806-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44229
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758014AbZBBWFh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 17:05:37 -0500
+In-Reply-To: <4985A4C5.4050908@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 02 Feb 2009 15:59:05 +0100
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sun, 01 Feb 2009 14:33:57 +0100
 
-> This patch adds a few device id's and removes one which will never be used.
-> 
-> Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+> In short, I think that the change that I'm proposing would also require
+> to fix some netlink_broadcast() clients to skip ENOBUFS errors: they are
+> not meaningful for them since they assume that Netlink is unreliable and
+> so the return value does not provide any useful information.
 
-Why won't 0xaf0/0xd051 ever be used?
+I think this analysis is accurate.
 
-You should explain such things in your commit message,
-that way I don't have to ask.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please proceed to do the netlink_broadcast() client changes
+and then submit those with this patch and I'll queue it all
+up for net-next-2.6
+
+Thanks!
