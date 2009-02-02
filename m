@@ -1,51 +1,62 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Multicast packet loss
-Date: Mon, 02 Feb 2009 14:53:06 +0100
-Message-ID: <4986FAC2.9030009@cosmosbay.com>
-References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH v3 1/4] virtio_net: Add a virtqueue for outbound control
+ commands
+Date: Mon, 02 Feb 2009 08:10:04 -0600
+Message-ID: <4986FEBC.6000404@codemonkey.ws>
+References: <20090201200504.8183.58421.stgit@debian.lart> <20090201200509.8183.4996.stgit@debian.lart> <200902022010.54829.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Kenny Chang <kchang@athenacr.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:45666 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751188AbZBBNxP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 08:53:15 -0500
-In-Reply-To: <49837F56.2020502@athenacr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alex Williamson <alex.williamson@hp.com>, markmc@redhat.com,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <200902022010.54829.rusty@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kenny Chang a =E9crit :
-> Ah, sorry, here's the test program attached.
->=20
-> We've tried 2.6.28.1, but no, we haven't tried the 2.6.28.2 or the
-> 2.6.29.-rcX.
->=20
-> Right now, we are trying to step through the kernel versions until we
-> see where the performance drops significantly.  We'll try 2.6.29-rc s=
-oon
-> and post the result.
->=20
-> Neil Norman wrote:
+Hi Alex,
 
-On latest kernels, we have a "timer_slack_ns" default of 50.000 ns, aka=
- 50us
+Can you post the userspace side of this to qemu-devel (against QEMU SVN) 
+and I'll review/apply.  I've already looked through the series a couple 
+times and I don't think there are any major issues.
 
-So usleep(20) sleeps much more than expected.
+Regards,
 
-You might add in your program a call to prcrl() to setup a smaller time=
-r_slack :
+Anthony Liguori
 
-#ifndef PR_SET_TIMERSLACK
-#define PR_SET_TIMERSLACK 29
-#endif
-/*
- * Setup a timer resolution of 1000 ns : 1 us
- */
-prctl(PR_SET_TIMERSLACK, 1000);=20
-
-
-
+Rusty Russell wrote:
+> On Monday 02 February 2009 06:35:10 Alex Williamson wrote:
+>
+>   
+>> +static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+>> +				 struct scatterlist data[], int out, int in)
+>> +{
+>> +	struct scatterlist sg[VIRTIO_NET_MAX_CTRL_ARGS];
+>>     
+> ...
+>   
+>> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+>> index f76bd4a..f28a72a 100644
+>> --- a/include/linux/virtio_net.h
+>> +++ b/include/linux/virtio_net.h
+>>     
+> ...
+>   
+>> +#define VIRTIO_NET_MAX_CTRL_ARGS   2
+>>     
+>
+> I think this definition belongs at the top of virtio_net.c; the others
+> are userspace-exposed, this is really an internal issue, no?
+>
+> Other than that, you can add Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> and send to netdev for DaveM's tree.
+>
+> Thanks!
+> Rusty.
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
