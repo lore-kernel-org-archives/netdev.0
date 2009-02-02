@@ -1,82 +1,65 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: [PATCH] [RESEND] iproute2 : invalid burst/cburst calculation with hrtimers
-Date: Mon, 2 Feb 2009 19:26:17 +0200
-Message-ID: <200902021926.17768.denys@visp.net.lb>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: fix hard hang with netconsoling and iface going
+ up
+Date: Mon, 2 Feb 2009 10:01:42 -0800
+Message-ID: <20090202100142.47fad247@extreme>
+References: <20090127120129.GA9696@x200.localdomain>
+	<20090127132718.GA10001@x200.localdomain>
+	<20090129.170043.180340152.davem@davemloft.net>
+	<20090130115907.GA22534@x200.localdomain>
+	<20090201223853.GB6567@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_5yyhJmimxGvK0BS"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:59902 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752552AbZBBR0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 12:26:25 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45718 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752775AbZBBSCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 13:02:54 -0500
+In-Reply-To: <20090201223853.GB6567@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_5yyhJmimxGvK0BS
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Mon, 2 Feb 2009 01:38:53 +0300
+Alexey Dobriyan <adobriyan@gmail.com> wrote:
 
-------------->
-iproute2 : invalid burst/cburst calculation with hrtimers
+> On Fri, Jan 30, 2009 at 02:59:07PM +0300, Alexey Dobriyan wrote:
+> > On Thu, Jan 29, 2009 at 05:00:43PM -0800, David Miller wrote:
+> > > From: Alexey Dobriyan <adobriyan@gmail.com>
+> > > Date: Tue, 27 Jan 2009 16:27:18 +0300
+> > > 
+> > > > [PATCH] sky2: fix hard hang with netconsoling and iface going up
+> > > > 
+> > > > Printing anything over netconsole before hw is up and running is,
+> > > > of course, not going to work.
+> > > > 
+> > > > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> > > 
+> > > Alexey, can you get this tested by the reporter to make sure
+> > > it really fixes the hang?
+> > 
+> > I'm the reporter and tester and using this patch successfully. :-)
+> > 
+> > > Once it's been tested, I'll apply it.
+> > 
+> > As for other printks, someone with 8139cp should experience the same bug.
+> 
+> Strangely enough, 8139cp survives with no message printed and no hang or
+> anything. But this is with qemu/kvm.
+> 
+> 	static int cp_open (struct net_device *dev)
+> 	{
+> 	        struct cp_private *cp = netdev_priv(dev);
+> 	        int rc;
+> 
+> 	        if (netif_msg_ifup(cp))
+> 	                printk(KERN_DEBUG "%s: enabling interface\n", dev->name);
+> 
+> 	        rc = cp_alloc_rings(cp);
+> 			...
 
-If hrtimers on, /proc/net/psched shows 4th variable 
-as 1000000000
-Because burst calculated by division rate to this variable, 
-it will be almost always zero. As result, we will get higher system 
-load on low rates, and on high rates shaper will not able to process 
-data. So it is kind of critical bugfix for systems with hrtimers.
-It is checked and proved. Core 2 Quad was not able to 
-shape 200Mbps, and gave only 180-190. It is more safe to set it 
-to 1000HZ. If user wants, he can set custom "env" HZ variable.
-
-Signed-off-by: Denys Fedoryschenko <denys@visp.net.lb>
----
-
--------------------------------------------------------
-
---Boundary-00=_5yyhJmimxGvK0BS
-Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="iproute2-htb-gethz-invalid.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="iproute2-htb-gethz-invalid.patch"
-
-diff -Naur iproute2/tc/q_htb.c iproute2-new/tc/q_htb.c
---- iproute2/tc/q_htb.c	2009-01-22 11:10:36.000000000 +0200
-+++ iproute2-new/tc/q_htb.c	2009-01-22 11:31:40.000000000 +0200
-@@ -110,6 +110,7 @@
- 	unsigned mtu;
- 	unsigned short mpu = 0;
- 	unsigned short overhead = 0;
-+	unsigned int bursthz;
- 	unsigned int linklayer  = LINKLAYER_ETHERNET; /* Assume ethernet */
- 	struct rtattr *tail;
- 
-@@ -209,9 +210,16 @@
- 	if (!opt.ceil.rate) opt.ceil = opt.rate;
- 
- 	/* compute minimal allowed burst from rate; mtu is added here to make
--	   sute that buffer is larger than mtu and to have some safeguard space */
--	if (!buffer) buffer = opt.rate.rate / get_hz() + mtu;
--	if (!cbuffer) cbuffer = opt.ceil.rate / get_hz() + mtu;
-+	   sure that buffer is larger than mtu and to have some safeguard space 
-+	   With hrtimers enabled, hz variable gets too high resolution. If we
-+	   use it for computing burst, burst will be too low. In worst case 
-+	   we will not reach specified rate/ceil, in best - load will be too 
-+	   high.
-+	*/
-+	bursthz = get_hz() == 1000000000 ? 1000 : get_hz();	
-+
-+	if (!buffer) buffer = opt.rate.rate / bursthz + mtu;
-+	if (!cbuffer) cbuffer = opt.ceil.rate / bursthz + mtu;
- 
- 	opt.ceil.overhead = overhead;
- 	opt.rate.overhead = overhead;
-
---Boundary-00=_5yyhJmimxGvK0BS--
+Unlike other drivers, sky2 calls its own up routine on resume.
+In this case, the netif_running flag is already set.
