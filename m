@@ -1,48 +1,46 @@
-From: Steve Sakoman <sakoman@gmail.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Subject: Re: Remaining bits for basic support of LDP
-Date: Mon, 2 Feb 2009 14:16:54 -0800
-Message-ID: <5e088bd90902021416p3f0a29e8r4e4c4edb2adb1409@mail.gmail.com>
-References: <20090202213953.GB16069@n2100.arm.linux.org.uk>
-	 <20090202.134530.63616213.davem@davemloft.net>
+Date: Mon, 2 Feb 2009 22:29:09 +0000
+Message-ID: <20090202222909.GC16069@n2100.arm.linux.org.uk>
+References: <20090202213953.GB16069@n2100.arm.linux.org.uk> <20090202.134530.63616213.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tony@atomide.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:16505 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752751AbZBBWQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 17:16:56 -0500
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:56764 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758118AbZBBW3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 17:29:35 -0500
+Content-Disposition: inline
 In-Reply-To: <20090202.134530.63616213.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 2, 2009 at 1:45 PM, David Miller <davem@davemloft.net> wrote:
+On Mon, Feb 02, 2009 at 01:45:30PM -0800, David Miller wrote:
 > From: Russell King - ARM Linux <linux@arm.linux.org.uk>
 > Date: Mon, 2 Feb 2009 21:39:53 +0000
->
->> The patch to fix these issues would seem to be relatively small (12
->> lines in the smc911x and one line change in board-ldp.c) - is it
->> something we want done for -rc4 or do we scrap the ethernet support
->> on the LDP until the SMSC driver has been merged ?
->>
->> Obviously, having working ethernet would be helpful, and since it was
->> half heartedly merged when the initial OMAP3 stuff went upstream we
->> should do something with it one way or another.
->
+> 
+> > The patch to fix these issues would seem to be relatively small (12
+> > lines in the smc911x and one line change in board-ldp.c) - is it
+> > something we want done for -rc4 or do we scrap the ethernet support 
+> > on the LDP until the SMSC driver has been merged ?
+> > 
+> > Obviously, having working ethernet would be helpful, and since it was
+> > half heartedly merged when the initial OMAP3 stuff went upstream we
+> > should do something with it one way or another.
+> 
 > Well, the SMSC driver is there already in the tree.
 >
 > The only thing not currently being scheduled to hit
 > 2.6.29-rcX are the recent changes to support platform
 > specified interrupt flags and all of that stuff.
->
+> 
 > If you want, we can look into pushing that work into
 > 2.6.29-rcX
 
-That would be great!  The patch I recently submitted for Overo's SMSC
-support really does need the platform specified interrupt flag patch
-to function properly.  So accelerating those patches into 2.6.29-rcX
-gets my vote :-)
-
-Steve
+Hmm.  Since we should assume that the other smc911x using platforms work
+as-is, merging Steve's first four and the LDP patch seems to be a sane
+idea.  We can queue the remainder for when bugs are reported or the
+next merge window, whichever comes earlier.
