@@ -1,71 +1,64 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: Allow group ownership of TUN/TAP devices.
-Date: Mon, 02 Feb 2009 17:44:34 +0300
-Message-ID: <498706D2.5070003@msgid.tls.msk.ru>
-References: <498700CD.2030403@msgid.tls.msk.ru>
+From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] hso: add new device id's
+Date: Mon, 02 Feb 2009 15:59:05 +0100
+Message-ID: <49870A39.8000806@option.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010009060800090606030100"
-Cc: Guido Guenther <agx@sigxcpu.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.33.150]:24439 "EHLO hobbit.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751106AbZBBOoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2009 09:44:37 -0500
-In-Reply-To: <498700CD.2030403@msgid.tls.msk.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ boundary="------------050709090004030109090804"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------010009060800090606030100
-Content-Type: text/plain; charset=ISO-8859-1
+--------------050709090004030109090804
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Michael Tokarev wrote:
-[]
-> 2, and this is the main one: How about supplementary groups?
-> 
-> Here I have a valid usage case: a group of testers running various
-> versions of windows using KVM (kernel virtual machine), 1 at a time,
-> to test some software.  kvm is set up to use bridge with a tap device
-> (there should be a way to connect to the machine).  Anyone on that group
-> has to be able to start/stop the virtual machines.
-> 
-> My first attempt - pretty obvious when I saw -g option of tunctl - is
-> to add group ownership for the tun device and add a supplementary group
-> to each user (their primary group should be different).  But that fails,
-> since kernel only checks for egid, not any other group ids.
-> 
-> What's the reasoning to not allow supplementary groups and to only check
-> for egid?
+This patch adds a few device id's and removes one which will never be used.
 
-Like this.
-
-Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
-
-Thanks!
-
-/mjt
+Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
 
 
---------------010009060800090606030100
+
+--------------050709090004030109090804
 Content-Type: text/x-patch;
- name="tun-allow-supplementary-groups.diff"
+ name="hso_add_device_ids.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="tun-allow-supplementary-groups.diff"
+ filename="hso_add_device_ids.patch"
 
---- linux-2.6.28/drivers/net/tun.c.orig	2008-12-25 02:26:37.000000000 +0300
-+++ linux-2.6.28/drivers/net/tun.c	2009-02-02 17:33:02.000000000 +0300
-@@ -714,7 +714,7 @@ static int tun_set_iff(struct net *net, 
- 		if (((tun->owner != -1 &&
- 		      current->euid != tun->owner) ||
- 		     (tun->group != -1 &&
--		      current->egid != tun->group)) &&
-+		      !in_egroup_p(tun->group))) &&
- 		     !capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 	}
+This patch adds a few device id's and removes one which will never be used.
 
---------------010009060800090606030100--
+Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 0d0fa91..fe98aca 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -455,6 +455,7 @@ static const struct usb_device_id hso_ids[] = {
+ 	{icon321_port_device(0x0af0, 0xd033)},	/* Icon-322 */
+ 	{USB_DEVICE(0x0af0, 0x7301)},		/* GE40x */
+ 	{USB_DEVICE(0x0af0, 0x7361)},		/* GE40x */
++	{USB_DEVICE(0x0af0, 0x7381)},		/* GE40x */
+ 	{USB_DEVICE(0x0af0, 0x7401)},		/* GI 0401 */
+ 	{USB_DEVICE(0x0af0, 0x7501)},		/* GTM 382 */
+ 	{USB_DEVICE(0x0af0, 0x7601)},		/* GE40x */
+@@ -462,7 +463,8 @@ static const struct usb_device_id hso_ids[] = {
+ 	{USB_DEVICE(0x0af0, 0x7801)},
+ 	{USB_DEVICE(0x0af0, 0x7901)},
+ 	{USB_DEVICE(0x0af0, 0x7361)},
+-	{icon321_port_device(0x0af0, 0xd051)},
++	{USB_DEVICE(0x0af0, 0xd057)},
++	{USB_DEVICE(0x0af0, 0xd055)},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(usb, hso_ids);
+
+--------------050709090004030109090804--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
