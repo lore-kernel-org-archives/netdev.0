@@ -1,49 +1,36 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 3/3] qlge: bugfix: Add missing netif_napi_del call.
-Date: Mon,  2 Feb 2009 13:41:54 -0800
-Message-ID: <1233610914-7448-3-git-send-email-ron.mercer@qlogic.com>
-References: <1233610914-7448-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
-	ron.mercer@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:12624 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756739AbZBBVnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 16:43:51 -0500
-In-Reply-To: <1233610914-7448-1-git-send-email-ron.mercer@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Remaining bits for basic support of LDP
+Date: Mon, 02 Feb 2009 13:45:30 -0800 (PST)
+Message-ID: <20090202.134530.63616213.davem@davemloft.net>
+References: <20090202213953.GB16069@n2100.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tony@atomide.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20090202213953.GB16069@n2100.arm.linux.org.uk>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Mon, 2 Feb 2009 21:39:53 +0000
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge_main.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+> The patch to fix these issues would seem to be relatively small (12
+> lines in the smc911x and one line change in board-ldp.c) - is it
+> something we want done for -rc4 or do we scrap the ethernet support 
+> on the LDP until the SMSC driver has been merged ?
+> 
+> Obviously, having working ethernet would be helpful, and since it was
+> half heartedly merged when the initial OMAP3 stuff went upstream we
+> should do something with it one way or another.
 
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index c6c0704..3d1d7b6 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -3836,7 +3836,7 @@ static int qlge_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct net_device *ndev = pci_get_drvdata(pdev);
- 	struct ql_adapter *qdev = netdev_priv(ndev);
--	int err;
-+	int err, i;
- 
- 	netif_device_detach(ndev);
- 
-@@ -3846,6 +3846,9 @@ static int qlge_suspend(struct pci_dev *pdev, pm_message_t state)
- 			return err;
- 	}
- 
-+	for (i = qdev->rss_ring_first_cq_id; i < qdev->rx_ring_count; i++)
-+		netif_napi_del(&qdev->rx_ring[i].napi);
-+
- 	err = pci_save_state(pdev);
- 	if (err)
- 		return err;
--- 
-1.6.0.2
+Well, the SMSC driver is there already in the tree.
 
+The only thing not currently being scheduled to hit
+2.6.29-rcX are the recent changes to support platform
+specified interrupt flags and all of that stuff.
+
+If you want, we can look into pushing that work into
+2.6.29-rcX
