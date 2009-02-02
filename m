@@ -1,31 +1,126 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipv4: Delete redundant sk_family assignment
-Date: Sun, 01 Feb 2009 22:24:57 -0800 (PST)
-Message-ID: <20090201.222457.138957378.davem@davemloft.net>
-References: <20090202061918.GA23990@gondor.apana.org.au>
+From: Steve Sakoman <sakoman@gmail.com>
+Subject: [PATCH] ARM: Add SMSC911X support to Overo platform (V2)
+Date: Sun, 1 Feb 2009 22:27:49 -0800
+Message-ID: <5e088bd90902012227o6e82ca64gbbe0bbc63ca03a69@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54810
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751437AbZBBGZB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 01:25:01 -0500
-In-Reply-To: <20090202061918.GA23990@gondor.apana.org.au>
+Received: from mail-bw0-f12.google.com ([209.85.218.12]:41918 "EHLO
+	mail-bw0-f12.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752242AbZBBG1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 01:27:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 2 Feb 2009 17:19:18 +1100
+Gumstix will soon be shipping a variant of their Summit board that
+includes an SMSC LAN9221 ethernet interface.  This patch provides
+support via the smsc911x driver when enabled in kernel config.
 
-> ipv4: Delete redundant sk_family assignment
-> 
-> sk_alloc now sets sk_family so this is redundant.  In fact it caught
-> my eye because sock_init_data already uses sk_family so this is too
-> late anyway.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+The Overo defconfig is not updated since the LAN9221 is an option
+not present on all systems.
 
-Applied, thanks Herbert.
+Signed-off-by: Steve Sakoman <steve@sakoman.com>
+---
+ arch/arm/mach-omap2/board-overo.c             |   62 +++++++++++++++++++++++++
+ arch/arm/plat-omap/include/mach/board-overo.h |    3 +
+ 2 files changed, 65 insertions(+), 0 deletions(-)
+
+diff --git a/arch/arm/mach-omap2/board-overo.c
+b/arch/arm/mach-omap2/board-overo.c
+index 9995ac2..032a2c9 100644
+--- a/arch/arm/mach-omap2/board-overo.c
++++ b/arch/arm/mach-omap2/board-overo.c
+@@ -55,6 +55,67 @@
+ #define GPMC_CS0_BASE  0x60
+ #define GPMC_CS_SIZE   0x30
+
++#if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
++
++#include <linux/smsc911x.h>
++
++static struct resource overo_smsc911x_resources[] = {
++	{
++		.name	= "smsc911x-memory",
++		.flags	= IORESOURCE_MEM,
++	},
++	{
++		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
++	},
++};
++
++static struct smsc911x_platform_config overo_smsc911x_config = {
++	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
++	.irq_type	= SMSC911X_IRQ_TYPE_OPEN_DRAIN,
++	.flags		= SMSC911X_USE_32BIT ,
++	.phy_interface	= PHY_INTERFACE_MODE_MII,
++};
++
++static struct platform_device overo_smsc911x_device = {
++	.name		= "smsc911x",
++	.id		= -1,
++	.num_resources	= ARRAY_SIZE(overo_smsc911x_resources),
++	.resource	= &overo_smsc911x_resources,
++	.dev		= {
++		.platform_data = &overo_smsc911x_config,
++	},
++};
++
++static inline void __init overo_init_smsc911x(void)
++{
++	unsigned long cs_mem_base;
++
++	if (gpmc_cs_request(OVERO_SMSC911X_CS, SZ_16M, &cs_mem_base) < 0) {
++		printk(KERN_ERR "Failed request for GPMC mem for smsc911x\n");
++		return;
++	}
++
++	overo_smsc911x_resources[0].start = cs_mem_base + 0x0;
++	overo_smsc911x_resources[0].end   = cs_mem_base + 0xff;
++
++	if ((gpio_request(OVERO_SMSC911X_GPIO, "SMSC911X IRQ") == 0) &&
++	    (gpio_direction_input(OVERO_SMSC911X_GPIO) == 0)) {
++		gpio_export(OVERO_SMSC911X_GPIO, 0);
++	} else {
++		printk(KERN_ERR "could not obtain gpio for SMSC911X IRQ\n");
++		return;
++	}
++
++	overo_smsc911x_resources[1].start = OMAP_GPIO_IRQ(OVERO_SMSC911X_GPIO);
++	overo_smsc911x_resources[1].end	  = 0;
++
++	platform_device_register(&overo_smsc911x_device);
++}
++
++#else
++static inline void __init overo_init_smsc911x(void) { return; }
++#endif
++
+ static struct mtd_partition overo_nand_partitions[] = {
+ 	{
+ 		.name           = "xloader",
+@@ -234,6 +295,7 @@ static void __init overo_init(void)
+ 	usb_musb_init();
+ 	usb_ehci_init();
+ 	overo_flash_init();
++	overo_init_smsc911x();
+
+ 	if ((gpio_request(OVERO_GPIO_W2W_NRESET,
+ 			  "OVERO_GPIO_W2W_NRESET") == 0) &&
+diff --git a/arch/arm/plat-omap/include/mach/board-overo.h
+b/arch/arm/plat-omap/include/mach/board-overo.h
+index 7ecae66..8635171 100644
+--- a/arch/arm/plat-omap/include/mach/board-overo.h
++++ b/arch/arm/plat-omap/include/mach/board-overo.h
+@@ -22,5 +22,8 @@
+ #define OVERO_GPIO_USBH_CPEN	168
+ #define OVERO_GPIO_USBH_NRESET	183
+
++#define OVERO_SMSC911X_CS	5
++#define OVERO_SMSC911X_GPIO	176
++
+ #endif /* ____ASM_ARCH_OVERO_H */
+
+-- 
+1.5.6.3
