@@ -1,174 +1,43 @@
-From: Olivier MATZ <olivier.matz@6wind.com>
-Subject: Re: [PATCH] sctp: chunkmap size is too large
-Date: Mon, 02 Feb 2009 10:23:24 +0100
-Message-ID: <4986BB8C.5080503@6wind.com>
-References: <4983200B.2080707@6wind.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH v3 1/4] virtio_net: Add a virtqueue for outbound control commands
+Date: Mon, 2 Feb 2009 20:10:54 +1030
+Message-ID: <200902022010.54829.rusty@rustcorp.com.au>
+References: <20090201200504.8183.58421.stgit@debian.lart> <20090201200509.8183.4996.stgit@debian.lart>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060500040804020500040107"
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4983200B.2080707@6wind.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------060500040804020500040107
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
+Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Alex Williamson <alex.williamson@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:58177 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751007AbZBBJk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2009 04:40:58 -0500
+In-Reply-To: <20090201200509.8183.4996.stgit@debian.lart>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Monday 02 February 2009 06:35:10 Alex Williamson wrote:
 
-A file was missing in the previous patch. I think that
-the size of chunkmapcopy in xt_sctp.c should also be
-fixed.
+> +static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+> +				 struct scatterlist data[], int out, int in)
+> +{
+> +	struct scatterlist sg[VIRTIO_NET_MAX_CTRL_ARGS];
+...
+> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+> index f76bd4a..f28a72a 100644
+> --- a/include/linux/virtio_net.h
+> +++ b/include/linux/virtio_net.h
+...
+> +#define VIRTIO_NET_MAX_CTRL_ARGS   2
 
-I attached the new patch.
+I think this definition belongs at the top of virtio_net.c; the others
+are userspace-exposed, this is really an internal issue, no?
 
-  include/linux/netfilter/xt_sctp.h       |   30 
-++++++++++++++++--------------
-  include/linux/netfilter_ipv4/ipt_sctp.h |   30 
-++++++++++++++++--------------
-  net/netfilter/xt_sctp.c                 |    2 +-
-  3 files changed, 33 insertions(+), 29 deletions(-)
+Other than that, you can add Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+and send to netdev for DaveM's tree.
 
-Signed-off-by: Olivier Matz <olivier.matz@6wind.com>
-
-Thanks,
-Olivier
-
-
---------------060500040804020500040107
-Content-Type: text/x-patch;
- name="linux_sctp_chunkmap_too_large_b.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="linux_sctp_chunkmap_too_large_b.diff"
-
-diff -r 94166a3a38bd include/linux/netfilter/xt_sctp.h
---- a/include/linux/netfilter/xt_sctp.h	Sat Jan 31 15:56:23 2009 -0800
-+++ b/include/linux/netfilter/xt_sctp.h	Mon Feb 02 10:18:51 2009 +0100
-@@ -15,11 +15,13 @@
- 
- #define XT_NUM_SCTP_FLAGS	4
- 
-+#define sizeof_bits(type) (sizeof(type) * 8)
-+
- struct xt_sctp_info {
- 	u_int16_t dpts[2];  /* Min, Max */
- 	u_int16_t spts[2];  /* Min, Max */
- 
--	u_int32_t chunkmap[256 / sizeof (u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
-+	u_int32_t chunkmap[256 / sizeof_bits(u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
- 
- #define SCTP_CHUNK_MATCH_ANY   0x01  /* Match if any of the chunk types are present */
- #define SCTP_CHUNK_MATCH_ALL   0x02  /* Match if all of the chunk types are present */
-@@ -33,24 +35,24 @@
- 	u_int32_t invflags;
- };
- 
--#define bytes(type) (sizeof(type) * 8)
-+#define SCTP_MODULO(chunktype, type) (chunktype & (sizeof_bits(type)-1))
- 
--#define SCTP_CHUNKMAP_SET(chunkmap, type) 		\
--	do { 						\
--		(chunkmap)[type / bytes(u_int32_t)] |= 	\
--			1 << (type % bytes(u_int32_t));	\
-+#define SCTP_CHUNKMAP_SET(chunkmap, chunktype)				\
-+	do {								\
-+		chunkmap[chunktype / sizeof_bits(u_int32_t)] |=		\
-+			1 << SCTP_MODULO(chunktype, u_int32_t);		\
- 	} while (0)
- 
--#define SCTP_CHUNKMAP_CLEAR(chunkmap, type)		 	\
--	do {							\
--		(chunkmap)[type / bytes(u_int32_t)] &= 		\
--			~(1 << (type % bytes(u_int32_t)));	\
-+#define SCTP_CHUNKMAP_CLEAR(chunkmap, chunktype)		 	\
-+	do {								\
-+		chunkmap[chunktype / sizeof_bits(u_int32_t)] &=		\
-+			~(1 << SCTP_MODULO(chunktype, u_int32_t));	\
- 	} while (0)
- 
--#define SCTP_CHUNKMAP_IS_SET(chunkmap, type) 			\
--({								\
--	((chunkmap)[type / bytes (u_int32_t)] & 		\
--		(1 << (type % bytes (u_int32_t)))) ? 1: 0;	\
-+#define SCTP_CHUNKMAP_IS_SET(chunkmap, chunktype) 			\
-+({									\
-+	(chunkmap[chunktype / sizeof_bits(u_int32_t)] &			\
-+	 (1 << SCTP_MODULO(chunktype, u_int32_t))) ? 1 : 0;		\
- })
- 
- #define SCTP_CHUNKMAP_RESET(chunkmap) \
-diff -r 94166a3a38bd include/linux/netfilter_ipv4/ipt_sctp.h
---- a/include/linux/netfilter_ipv4/ipt_sctp.h	Sat Jan 31 15:56:23 2009 -0800
-+++ b/include/linux/netfilter_ipv4/ipt_sctp.h	Mon Feb 02 10:18:51 2009 +0100
-@@ -16,11 +16,13 @@
- 
- #define IPT_NUM_SCTP_FLAGS	4
- 
-+#define sizeof_bits(type) (sizeof(type) * 8)
-+
- struct ipt_sctp_info {
- 	u_int16_t dpts[2];  /* Min, Max */
- 	u_int16_t spts[2];  /* Min, Max */
- 
--	u_int32_t chunkmap[256 / sizeof (u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
-+	u_int32_t chunkmap[256 / sizeof_bits(u_int32_t)];  /* Bit mask of chunks to be matched according to RFC 2960 */
- 
- #define SCTP_CHUNK_MATCH_ANY   0x01  /* Match if any of the chunk types are present */
- #define SCTP_CHUNK_MATCH_ALL   0x02  /* Match if all of the chunk types are present */
-@@ -34,24 +36,24 @@
- 	u_int32_t invflags;
- };
- 
--#define bytes(type) (sizeof(type) * 8)
-+#define SCTP_MODULO(chunktype, type) (chunktype & (sizeof_bits(type)-1))
- 
--#define SCTP_CHUNKMAP_SET(chunkmap, type) 		\
--	do { 						\
--		chunkmap[type / bytes(u_int32_t)] |= 	\
--			1 << (type % bytes(u_int32_t));	\
-+#define SCTP_CHUNKMAP_SET(chunkmap, chunktype)				\
-+	do {								\
-+		chunkmap[chunktype / sizeof_bits(u_int32_t)] |=		\
-+			1 << SCTP_MODULO(chunktype, u_int32_t);		\
- 	} while (0)
- 
--#define SCTP_CHUNKMAP_CLEAR(chunkmap, type)		 	\
--	do {							\
--		chunkmap[type / bytes(u_int32_t)] &= 		\
--			~(1 << (type % bytes(u_int32_t)));	\
-+#define SCTP_CHUNKMAP_CLEAR(chunkmap, chunktype)		 	\
-+	do {								\
-+		chunkmap[chunktype / sizeof_bits(u_int32_t)] &=		\
-+			~(1 << SCTP_MODULO(chunktype, u_int32_t));	\
- 	} while (0)
- 
--#define SCTP_CHUNKMAP_IS_SET(chunkmap, type) 			\
--({								\
--	(chunkmap[type / bytes (u_int32_t)] & 			\
--		(1 << (type % bytes (u_int32_t)))) ? 1: 0;	\
-+#define SCTP_CHUNKMAP_IS_SET(chunkmap, chunktype) 			\
-+({									\
-+	(chunkmap[chunktype / sizeof_bits(u_int32_t)] &			\
-+	 (1 << SCTP_MODULO(chunktype, u_int32_t))) ? 1 : 0;		\
- })
- 
- #define SCTP_CHUNKMAP_RESET(chunkmap) 				\
-diff -r 94166a3a38bd net/netfilter/xt_sctp.c
---- a/net/netfilter/xt_sctp.c	Sat Jan 31 15:56:23 2009 -0800
-+++ b/net/netfilter/xt_sctp.c	Mon Feb 02 10:18:51 2009 +0100
-@@ -45,7 +45,7 @@
- 	     const struct xt_sctp_info *info,
- 	     bool *hotdrop)
- {
--	u_int32_t chunkmapcopy[256 / sizeof (u_int32_t)];
-+	u_int32_t chunkmapcopy[256 / sizeof_bits(u_int32_t)];
- 	const sctp_chunkhdr_t *sch;
- 	sctp_chunkhdr_t _sch;
- 	int chunk_match_type = info->chunk_match_type;
-
---------------060500040804020500040107--
+Thanks!
+Rusty.
