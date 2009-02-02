@@ -1,64 +1,29 @@
-From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] hso: add new device id's
-Date: Mon, 02 Feb 2009 15:59:05 +0100
-Message-ID: <49870A39.8000806@option.com>
+From: Siemens New Year Promo Draw <info@lely.co.uk>
+Subject: Confirm Reciept
+Date: Mon,  2 Feb 2009 17:32:32 +0200 (IST)
+Message-ID: <20090202173232.FOW29267@mas26.bezeqint.net>
+Reply-To: agt_bwilliams01@live.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050709090004030109090804"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from omr2.bezeqint.net ([192.115.104.10]:57271 "EHLO
+	omr2.bezeqint.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752393AbZBBPcy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 10:32:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050709090004030109090804
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Your Email ID Has been awarded the sum of =A3750,000.00 GBP in=20
+our Recent Siemens BONANZA for this year.get back to this=20
+office with your details via (agt_bwilliams01@live.com)=20
 
-This patch adds a few device id's and removes one which will never be used.
+Name:
+Country:
+Sex:
+Age:
+Address:
 
-Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
-
-
-
---------------050709090004030109090804
-Content-Type: text/x-patch;
- name="hso_add_device_ids.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="hso_add_device_ids.patch"
-
-This patch adds a few device id's and removes one which will never be used.
-
-Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 0d0fa91..fe98aca 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -455,6 +455,7 @@ static const struct usb_device_id hso_ids[] = {
- 	{icon321_port_device(0x0af0, 0xd033)},	/* Icon-322 */
- 	{USB_DEVICE(0x0af0, 0x7301)},		/* GE40x */
- 	{USB_DEVICE(0x0af0, 0x7361)},		/* GE40x */
-+	{USB_DEVICE(0x0af0, 0x7381)},		/* GE40x */
- 	{USB_DEVICE(0x0af0, 0x7401)},		/* GI 0401 */
- 	{USB_DEVICE(0x0af0, 0x7501)},		/* GTM 382 */
- 	{USB_DEVICE(0x0af0, 0x7601)},		/* GE40x */
-@@ -462,7 +463,8 @@ static const struct usb_device_id hso_ids[] = {
- 	{USB_DEVICE(0x0af0, 0x7801)},
- 	{USB_DEVICE(0x0af0, 0x7901)},
- 	{USB_DEVICE(0x0af0, 0x7361)},
--	{icon321_port_device(0x0af0, 0xd051)},
-+	{USB_DEVICE(0x0af0, 0xd057)},
-+	{USB_DEVICE(0x0af0, 0xd055)},
- 	{}
- };
- MODULE_DEVICE_TABLE(usb, hso_ids);
-
---------------050709090004030109090804--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Mrs Mercy Bill
+(Information Officer)
