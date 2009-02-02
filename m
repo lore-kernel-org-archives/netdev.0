@@ -1,76 +1,34 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Multicast packet loss
-Date: Mon, 02 Feb 2009 21:29:30 +0100
-Message-ID: <498757AA.8010101@cosmosbay.com>
-References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <49859847.9010206@cosmosbay.com> <20090202134523.GA13369@hmsreliant.think-freely.org> <498725F4.2010205@cosmosbay.com> <20090202182212.GA17950@hmsreliant.think-freely.org> <loom.20090202T194942-55@post.gmane.org>
+From: Andrew Walrond <andrew@walrond.org>
+Subject: Re: 2.6.28 headers break kbd and net-tools userspace builds
+Date: Mon, 02 Feb 2009 21:13:11 +0000
+Message-ID: <498761E7.3080006@walrond.org>
+References: <20090128.122924.106238702.davem@davemloft.net>	<alpine.LSU.2.00.0901300510310.22910@fbirervta.pbzchgretzou.qr>	<4986CC6D.4090904@walrond.org> <20090202.120507.152093960.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Wes Chow <wchow@athenacr.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jengelh@medozas.de, sam@ravnborg.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49266 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752884AbZBBU3j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 15:29:39 -0500
-In-Reply-To: <loom.20090202T194942-55@post.gmane.org>
+Received: from marvin.heresymail.org ([87.106.62.5]:57523 "EHLO
+	marvin.heresymail.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753579AbZBBVNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 16:13:17 -0500
+In-Reply-To: <20090202.120507.152093960.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wes Chow a =E9crit :
->=20
-> (I'm Kenny's colleague, and I've been doing the kernel builds)
->=20
-> First I'd like to note that there were a lot of bnx2 NAPI changes bet=
-ween=20
-> 2.6.21 and 2.6.22. As a reminder, 2.6.21 shows tiny amounts of packet=
- loss,
-> whereas loss in 2.6.22 is significant.
->=20
-> Second, some CPU affinity info: if I do like Eric and pin all of the
-> apps onto a single CPU, I see no packet loss. Also, I do *not* see
-> ksoftirqd show up on top at all!
->=20
-> If I pin half the processes on one CPU and the other half on another =
-CPU, one=20
-> ksoftirqd processes shows up in top and completely pegs one CPU. My p=
-acket loss
-> in that case is significant (25%).
->=20
-> Now, the strange case: if I pin 3 processes to one CPU and 1 process =
-to=20
-> another, I get about 25% packet loss and ksoftirqd pins one CPU. Howe=
-ver, one
-> of the apps takes significantly less CPU than the others, and all app=
-s lose the
-> *exact same number of packets*. In all other situations where we see =
-packet
-> loss, the actual number lost per application instance appears random.
+David Miller wrote:
+>
+> There isn't anything we can really do about these cases.
+>
+> No matter what we do, we break the userland build in one way or
+> another.
+>   
+What exactly is the purpose of the kernel headers? Are there some 
+definitions in the kernel headers that will never be available from 
+glibc? Is it perhaps possible to work towards exporting kernel headers 
+for the sole purpose of building glibc, and all other packages should be 
+able to build against glibc's headers?
 
-You see same number of packet lost because they are lost at NIC level
-
-(check ifconfig eth0 for droped packets)
-
-if softirq is too busy to process packets, we are not able to get them
-from hardware in time.
-
->=20
-> We're about to plug in an Intel ethernet card into this machine to co=
-llect more=20
-> rigorous testing data. Please note, though, that we have seen packet =
-loss with
-> a tg3 chipset as well. For now, though, I'm assuming that this is pur=
-ely a bnx2
-> problem.
->=20
-> If I understand correctly, when the nic signals a hardware interrupt,=
- the=20
-> kernel grabs it and defers the meaty work to the softirq handler -- h=
-ow does it
-> decide which ksoftirqd gets the interrupts? Is this something determi=
-ned by how
-> the driver implements the NAPI?
-
-
-Normaly, softirq runs on same cpu (the one handling hard irq)
-
+Andrew Walrond
