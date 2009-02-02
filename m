@@ -1,43 +1,32 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v3 1/4] virtio_net: Add a virtqueue for outbound control commands
-Date: Mon, 2 Feb 2009 20:10:54 +1030
-Message-ID: <200902022010.54829.rusty@rustcorp.com.au>
-References: <20090201200504.8183.58421.stgit@debian.lart> <20090201200509.8183.4996.stgit@debian.lart>
+From: Paolo Abeni <paolo.abeni@gmail.com>
+Subject: Re: net: packet socket packet_lookup_frame fix
+Date: Mon, 2 Feb 2009 10:50:06 +0100
+Message-ID: <999b9b030902020150s5438f756w90729970190c41e9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Alex Williamson <alex.williamson@hp.com>
+Cc: netdev@vger.kernel.org, sebastiano.dipaola@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:58177 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751007AbZBBJk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2009 04:40:58 -0500
-In-Reply-To: <20090201200509.8183.4996.stgit@debian.lart>
-Content-Disposition: inline
+Received: from mail-fx0-f20.google.com ([209.85.220.20]:36955 "EHLO
+	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752784AbZBBJuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 04:50:09 -0500
+Received: by fxm13 with SMTP id 13so1346724fxm.13
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2009 01:50:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 02 February 2009 06:35:10 Alex Williamson wrote:
+Hello,
 
-> +static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
-> +				 struct scatterlist data[], int out, int in)
-> +{
-> +	struct scatterlist sg[VIRTIO_NET_MAX_CTRL_ARGS];
-...
-> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> index f76bd4a..f28a72a 100644
-> --- a/include/linux/virtio_net.h
-> +++ b/include/linux/virtio_net.h
-...
-> +#define VIRTIO_NET_MAX_CTRL_ARGS   2
+on Sun, Feb 1, 2009 at 10:54 AM Dave Miller wrote:
+> Patch applied, thanks a lot for this bug fix!
 
-I think this definition belongs at the top of virtio_net.c; the others
-are userspace-exposed, this is really an internal issue, no?
+I'm sorry to bother you any longer, but perhaps we did it a little bit
+confusing: such tiny patch was a four hands work, by both Sebastiano
+and Me. I's a small thing, but both of us will be very happy even for
+such a small contribution.
 
-Other than that, you can add Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-and send to netdev for DaveM's tree.
+Thanks for your kind reply,
 
-Thanks!
-Rusty.
+Paolo Abeni
