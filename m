@@ -1,41 +1,80 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v3 3/4] virtio_net: Add a MAC filter table
-Date: Mon, 2 Feb 2009 20:27:14 +1030
-Message-ID: <200902022027.14581.rusty@rustcorp.com.au>
-References: <20090201200504.8183.58421.stgit@debian.lart> <20090201200520.8183.3168.stgit@debian.lart>
+From: Andrew Walrond <andrew@walrond.org>
+Subject: Re: 2.6.28 headers break kbd and net-tools userspace builds
+Date: Mon, 02 Feb 2009 10:35:25 +0000
+Message-ID: <4986CC6D.4090904@walrond.org>
+References: <20090122191239.GA16347@uranus.ravnborg.org> <20090126.210835.181389836.davem@davemloft.net> <alpine.LSU.2.00.0901271143490.3147@fbirervta.pbzchgretzou.qr> <20090128.122924.106238702.davem@davemloft.net> <alpine.LSU.2.00.0901300510310.22910@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Alex Williamson <alex.williamson@hp.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090201200520.8183.3168.stgit@debian.lart>
-Content-Disposition: inline
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, sam@ravnborg.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755363AbZBBKfo@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0901300510310.22910@fbirervta.pbzchgretzou.qr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 02 February 2009 06:35:20 Alex Williamson wrote:
-> + * In addition to the class/cmd header, the TABLE_SET command requires
-> + * two out scatterlists.  Each contains a 4 byte count of entries followed
-> + * by a concatenated byte stream of the ETH_ALEN MAC addresses.  The
-> + * first sg list contains unicast addresses, the second is for multicast.
-> + * This functionality is present if the VIRTIO_NET_F_CTRL_RX feature
-> + * is available.
-> + */
-> +struct virtio_net_ctrl_mac {
-> +	__u32 entries;
-> +	__u8 macs[];
-> +} __attribute__((packed));
+Hey guys. A gentle nudge...
 
-Hmm, can we make this more explicit?  eg.
+My distro scripts build the
 
-struct virtio_net_ctrl_mac {
-	__u32 unicast_entries, multicast_entriues;
-	__u8 macs[ETH_ALEN][];
-} __attribute__((packed));
+    glibc
+    iproute2
+    iputils
+    kbd
+    lm_sensors
+    net-tools
+    strace
 
-Might simplify the code a tiny bit, too...
+packages and others against every new release of linux and linux-stable=
+,=20
+(hence my initial report).
+Right now I'm stalled at the 2.6.27.? headers so can't do any more=20
+testing until this is resolved.
 
-Thanks,
-Rusty.
+Andrew Walrond
+
+Jan Engelhardt wrote:
+> On Wednesday 2009-01-28 21:29, David Miller wrote:
+>  =20
+>>> On Tuesday 2009-01-27 06:08, David Miller wrote:
+>>>      =20
+>>>> The fly in the ointment is linux/if_tunnel.h
+>>>>
+>>>> We export a structure there for a userland interface which
+>>>> uses "struct iphdr".
+>>>>
+>>>> Because of that, we are faced with the difficult choice between
+>>>> defining the structure (as we do) in linux/ip.h or using some ugly
+>>>> __KERNEL__ ifdefs in linux/if_tunnel.h to conditionally include
+>>>> netinet/ip.h instead. :-/
+>>>>
+>>>> Really, I have no idea what to do about this as the problem has
+>>>> existed for so long.
+>>>>        =20
+>>> I think in the long term, exported structs should probably
+>>> have a "kernel_" prefix, much like userspace libraries use
+>>> such prefixes to (try to) guard against simple name clashes.
+>>>      =20
+>> This is a reasonable rule for future interfaces, but won't
+>> help us here on this one.[...]
+>> Really, we page a huge price these days because the relationship
+>> between glibc's and the kernel's userland header exports in the
+>> past has been anti-social at best.
+>>
+>>    =20
+> Yeah I just had to notice >:-(
+>
+> IPPROTO_MH is only defined in linux/in6.h, but inclusion of it:
+>
+> /usr/include/linux/in6.h:31: error: redefinition of =E2=96=A0struct i=
+n6_addr=E2=96=A0
+> /usr/include/linux/in6.h:52: error: redefinition of =E2=96=A0struct s=
+ockaddr_in6=E2=96=A0
+> /usr/include/linux/in6.h:60: error: redefinition of =E2=96=A0struct i=
+pv6_mreq=E2=96=A0
+>
+> Ick. That's even worse than tunnels.
+>
+>  =20
