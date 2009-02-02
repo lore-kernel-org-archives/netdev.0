@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: 2.6.28 headers break kbd and net-tools userspace builds
-Date: Mon, 02 Feb 2009 13:24:50 -0800 (PST)
-Message-ID: <20090202.132450.21504465.davem@davemloft.net>
-References: <4986CC6D.4090904@walrond.org>
-	<20090202.120507.152093960.davem@davemloft.net>
+Date: Mon, 02 Feb 2009 13:27:23 -0800 (PST)
+Message-ID: <20090202.132723.38842373.davem@davemloft.net>
+References: <20090202.120507.152093960.davem@davemloft.net>
 	<498761E7.3080006@walrond.org>
+	<20090202.132450.21504465.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,32 +12,44 @@ Cc: jengelh@medozas.de, sam@ravnborg.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 To: andrew@walrond.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39397
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39402
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753502AbZBBVYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 16:24:53 -0500
-In-Reply-To: <498761E7.3080006@walrond.org>
+	by vger.kernel.org with ESMTP id S1753011AbZBBV10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2009 16:27:26 -0500
+In-Reply-To: <20090202.132450.21504465.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Walrond <andrew@walrond.org>
-Date: Mon, 02 Feb 2009 21:13:11 +0000
+From: David Miller <davem@davemloft.net>
+Date: Mon, 02 Feb 2009 13:24:50 -0800 (PST)
 
-> What exactly is the purpose of the kernel headers? Are there some
-> definitions in the kernel headers that will never be available from
-> glibc? Is it perhaps possible to work towards exporting kernel
-> headers for the sole purpose of building glibc, and all other
-> packages should be able to build against glibc's headers?
+> I guess I'll put in the following hack for now:
+> 
+> diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
+> index aeab2cb..82c4362 100644
 
-To a certain extent they are supposed to be able to
-co-exist.
+Need to also update linux/Kbuild, here is an updated patch:
 
-We weren't careful in the past in some cases, to the point
-where the conflicts often very difficult to resolve.  That's
-the kind of situation we have here.
-
-I guess I'll put in the following hack for now:
-
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index 12e9a29..6a9bb97 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -89,7 +89,6 @@ header-y += if_ppp.h
+ header-y += if_slip.h
+ header-y += if_strip.h
+ header-y += if_tun.h
+-header-y += if_tunnel.h
+ header-y += in_route.h
+ header-y += ioctl.h
+ header-y += ip6_tunnel.h
+@@ -235,6 +234,7 @@ unifdef-y += if_phonet.h
+ unifdef-y += if_pppol2tp.h
+ unifdef-y += if_pppox.h
+ unifdef-y += if_tr.h
++unifdef-y += if_tunnel.h
+ unifdef-y += if_vlan.h
+ unifdef-y += igmp.h
+ unifdef-y += inet_diag.h
 diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
 index aeab2cb..82c4362 100644
 --- a/include/linux/if_tunnel.h
@@ -53,4 +65,3 @@ index aeab2cb..82c4362 100644
  
  #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
  #define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
-
