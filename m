@@ -1,42 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Tue, 3 Feb 2009 22:53:13 +1100
-Message-ID: <20090203115313.GA9018@gondor.apana.org.au>
-References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net> <20090203112431.GA8746@gondor.apana.org.au> <20090203114944.GA21957@ioremap.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 3 Feb 2009 06:55:02 -0500
+Message-ID: <20090203115502.GB28117@hmsreliant.think-freely.org>
+References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <20090131160333.GC23100@localhost.localdomain> <498723D9.5020509@athenacr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Kenny Chang <kchang@athenacr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36847 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751655AbZBCLyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 06:54:32 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50197 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751655AbZBCLzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 06:55:12 -0500
 Content-Disposition: inline
-In-Reply-To: <20090203114944.GA21957@ioremap.net>
+In-Reply-To: <498723D9.5020509@athenacr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 03, 2009 at 02:49:44PM +0300, Evgeniy Polyakov wrote:
-> How many such preallocated frames is enough? Does it enough to have all
-> sockets recv buffer sizes divided by the MTU size? Or just some of them,
-> or... That will work but there are way too many corner cases.
+On Mon, Feb 02, 2009 at 11:48:25AM -0500, Kenny Chang wrote:
+> Neil Horman wrote:
+>> On Fri, Jan 30, 2009 at 11:41:23PM +0100, Eric Dumazet wrote:
+>>  =20
+>>> Kenny Chang a =E9crit :
+>>>    =20
+>>>> Ah, sorry, here's the test program attached.
+>>>>
+>>>> We've tried 2.6.28.1, but no, we haven't tried the 2.6.28.2 or the
+>>>> 2.6.29.-rcX.
+>>>>
+>>>> Right now, we are trying to step through the kernel versions until=
+ we
+>>>> see where the performance drops significantly.  We'll try 2.6.29-r=
+c soon
+>>>> and post the result.
+>>>>      =20
+>>> 2.6.29-rc contains UDP receive improvements (lockless)
+>>>
+>>> Problem is multicast handling was not yet updated, but could be :)
+>>>
+>>>
+>>> I was asking you "cat /proc/interrupts" because I believe you might
+>>> have a problem NIC interrupts being handled by one CPU only (when h=
+aving problems)
+>>>
+>>>    =20
+>> That would be expected (if irqbalance is running), and desireable, s=
+ince
+>> spreading high volume interrupts like NICS accross multiple cores (o=
+r more
+>> specifically multiple L2 caches), is going increase your cache line =
+miss rate
+>> significantly and decrease rx throughput.
+>>
+>> Although you do have a point here, if the system isn't running irqba=
+lance, and
+>> the NICS irq affinity is spread accross multiple L2 caches, that wou=
+ld be a
+>> point of improvement performance-wise. =20
+>>
+>> Kenny, if you could provide the /proc/interrupts info along with /pr=
+oc/cpuinfo
+>> and your stats that I asked about earlier, that would be a big help.
+>>
+>> Regards
+>> Neil
+>>
+>>  =20
+> This is for a working setup.
+>
 
-Easy, the driver is already allocating them right now so we don't
-have to change a thing :)
+Are these quad core systems?  Or dual core w/ hyperthreading?  I ask be=
+cause in
+your working setup you have 1/2 the number of cpus' and was not sure if=
+ you
+removed an entire package of if you just disabled hyperthreading.
 
-All we have to do is change the refill mechanism to always allocate
-a replacement skb in the rx path, and if that fails, allocate a
-fragmented skb instead and copy the received data into it so that
-the contiguous skb can be reused.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Neil
+
