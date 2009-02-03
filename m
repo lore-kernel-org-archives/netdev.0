@@ -1,41 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.28 headers break kbd and net-tools userspace builds
-Date: Mon, 02 Feb 2009 21:26:33 -0800 (PST)
-Message-ID: <20090202.212633.224141775.davem@davemloft.net>
-References: <20090202.132450.21504465.davem@davemloft.net>
-	<20090202.132723.38842373.davem@davemloft.net>
-	<20090203045833.GA11639@uranus.ravnborg.org>
+Subject: Re: net.ipv6.conf.INT.accept_ra_rt_info_max_plen defaults to 0
+Date: Mon, 02 Feb 2009 21:36:16 -0800 (PST)
+Message-ID: <20090202.213616.258001767.davem@davemloft.net>
+References: <alpine.LRH.2.00.0902030632240.7583@netcore.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@walrond.org, jengelh@medozas.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: sam@ravnborg.org
+Cc: netdev@vger.kernel.org, sega01@gmail.com
+To: pekkas@netcore.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34447
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45707
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750845AbZBCF0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 00:26:36 -0500
-In-Reply-To: <20090203045833.GA11639@uranus.ravnborg.org>
+	by vger.kernel.org with ESMTP id S1751907AbZBCFgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 00:36:20 -0500
+In-Reply-To: <alpine.LRH.2.00.0902030632240.7583@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Tue, 3 Feb 2009 05:58:33 +0100
+From: Pekka Savola <pekkas@netcore.fi>
+Date: Tue, 3 Feb 2009 06:38:49 +0200 (EET)
 
-> On Mon, Feb 02, 2009 at 01:27:23PM -0800, David Miller wrote:
-> > From: David Miller <davem@davemloft.net>
-> > Date: Mon, 02 Feb 2009 13:24:50 -0800 (PST)
-> > 
-> > > I guess I'll put in the following hack for now:
-> > > 
-> > > diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-> > > index aeab2cb..82c4362 100644
-> > 
-> > Need to also update linux/Kbuild, here is an updated patch:
+> As reported and discussed below and in
+> <http://www.mail-archive.com/debian-ipv6@lists.debian.org/msg03753.html>,
+> to accept "route information option" on Linux, you have to manually
+> change accept_ra_rt_info_max_plen sysctl value.  Other
+> implementations that I know of accept this by default.
+>
+> Is it intentional that Route Information options are ignored by default?
+>
+> I suspect not -- if so, the default value should be (IMHO) 64 or if
+> that's disagreeable, 48.
 > 
-> All headers are unifdeffed - so the Kbuild patch
-> is not needed.
+> Even if this is intentional, I think the intentions should be revisited.
 
-Thanks for the info but that's how I commited and pushed out
-the fix already, and it doesn't hurt either :-)
+It looks very intentional, both via the code and it's documentation
+in ip-sysctl.txt
+
+It seems that it is disabled like this by default when
+accept_ra_rtr_pref is enabled, and that seems pretty reasonable to me.
+
+I'm sure whoever made that decision didn't do so on a whim and had
+a very good reason for it.
