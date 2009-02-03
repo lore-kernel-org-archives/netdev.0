@@ -1,41 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dca: redesign locks
-Date: Mon, 02 Feb 2009 23:27:04 -0800 (PST)
-Message-ID: <20090202.232704.05806886.davem@davemloft.net>
-References: <20090202171312.1559.65827.stgit@linux.site>
-	<9929d2390902022158v47bdc745h7267c9c6ad6020e7@mail.gmail.com>
+Subject: Re: Allow group ownership of TUN/TAP devices.
+Date: Mon, 02 Feb 2009 23:35:21 -0800 (PST)
+Message-ID: <20090202.233521.87347951.davem@davemloft.net>
+References: <498700CD.2030403@msgid.tls.msk.ru>
+	<498706D2.5070003@msgid.tls.msk.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maciej.sosnowski@intel.com, dan.j.williams@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, agx@sigxcpu.org
+To: mjt@tls.msk.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43865
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49630
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750852AbZBCH1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 02:27:07 -0500
-In-Reply-To: <9929d2390902022158v47bdc745h7267c9c6ad6020e7@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751981AbZBCHfY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 02:35:24 -0500
+In-Reply-To: <498706D2.5070003@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 2 Feb 2009 21:58:01 -0800
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Mon, 02 Feb 2009 17:44:34 +0300
 
-> On Mon, Feb 2, 2009 at 9:14 AM, Maciej Sosnowski
-> <maciej.sosnowski@intel.com> wrote:
-> > Change spin_locks to irqsave to prevent dead-locks.
-> > Protect adding and deleting to/from dca_providers list.
-> > Drop the lock during dca_sysfs_add_req() and dca_sysfs_remove_req() calls
-> > as they might sleep (use GFP_KERNEL allocation).
-> >
-> > Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
-> > ---
-> >
-> >  drivers/dca/dca-core.c |   51 +++++++++++++++++++++++++++++++-----------------
-> >  1 files changed, 33 insertions(+), 18 deletions(-)
-> >
+> Michael Tokarev wrote:
+> []
+> > 2, and this is the main one: How about supplementary groups?
+> > 
+> > Here I have a valid usage case: a group of testers running various
+> > versions of windows using KVM (kernel virtual machine), 1 at a time,
+> > to test some software.  kvm is set up to use bridge with a tap device
+> > (there should be a way to connect to the machine).  Anyone on that group
+> > has to be able to start/stop the virtual machines.
+> > 
+> > My first attempt - pretty obvious when I saw -g option of tunctl - is
+> > to add group ownership for the tun device and add a supplementary group
+> > to each user (their primary group should be different).  But that fails,
+> > since kernel only checks for egid, not any other group ids.
+> > 
+> > What's the reasoning to not allow supplementary groups and to only check
+> > for egid?
 > 
-> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Like this.
+> 
+> Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
 
-Applied.
+Seems reasonable, applied, thanks.
