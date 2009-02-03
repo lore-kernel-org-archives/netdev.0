@@ -1,45 +1,51 @@
-From: Cord Walter <cord.walter@gmx.de>
-Subject: [PATCH] pcnet_cs:fix misuse of the equality operator.
-Date: Tue, 03 Feb 2009 11:59:47 +0100
-Message-ID: <498823A3.2070506@gmx.de>
-References: <20090131071342.2b45cbe8.komurojun-mbn@nifty.com>	<4984DC50.6060204@gmx.de>	<49856D35.7020702@gmx.de> <20090201.014352.138067875.davem@davemloft.net>
+From: Steve.Glendinning@smsc.com
+Subject: Re: Remaining bits for basic support of LDP
+Date: Tue, 3 Feb 2009 11:02:31 +0000
+Message-ID: <OF4F840E52.4A9545A8-ON80257552.003BBA78-80257552.003CC882@smsc.com>
+References: <20090203081042.GA4220@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, Tony Lindgren <tony@atomide.com>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waikiki.ops.eusc.inter.net ([84.23.254.155]:65467 "EHLO
-	waikiki.ops.eusc.inter.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751655AbZBCK4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 05:56:49 -0500
-Received: from waikiki.ops.eusc.inter.net ([10.155.10.19] helo=localhost)
-	by waikiki.ops.eusc.inter.net with esmtpsa (Exim 4.69)
-	id 1LUIxL-0002PT-L7
-	for netdev@vger.kernel.org; Tue, 03 Feb 2009 11:56:39 +0100
-In-Reply-To: <20090201.014352.138067875.davem@davemloft.net>
+Received: from mail.smsc.com ([170.129.50.11]:1501 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752023AbZBCLEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2009 06:04:08 -0500
+In-Reply-To: <20090203081042.GA4220@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Russell King - ARM Linux <linux@arm.linux.org.uk> wrote on 03/02/2009 
+08:10:42:
+> On Mon, Feb 02, 2009 at 03:57:45PM -0800, Tony Lindgren wrote:
+> > * David Miller <davem@davemloft.net> [090202 13:45]:
+> > > Well, the SMSC driver is there already in the tree.
+> > > 
+> > > The only thing not currently being scheduled to hit
+> > > 2.6.29-rcX are the recent changes to support platform
+> > > specified interrupt flags and all of that stuff.
+> > > 
+> > > If you want, we can look into pushing that work into
+> > > 2.6.29-rcX
+> > 
+> > That would be great, more platforms to test it on.
+> 
+> Mainline during the -rc series is not for pushing stuff to get 
+additional
+> testing.  It's for resolving regressions and fixing bugs, not 
+introducing
+> changes which could cause regressions and bugs.
 
-pcnet_cs:
-	fix misuse of the equality operator.
+Does it help that the smsc911x driver is new this cycle?
 
+Without these patches the driver fails to register its interrupt on many 
+arm platforms, so it could be said that these patches do fix regressions 
+against the smc911x driver it's intended to replace.
 
-Signed-off-by: Cord Walter <qord@cwalter.net>
-Signed-off-by: Komuro <komurojun-mbn@nifty.com>
+On a related note, if these go in during the next merge window, is there a 
+mechanism for ensuring the platform support patches in the set are merged 
+after these?
 
----
-
---- linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c.orig	2009-01-31 06:44:03.000000000 +0900
-+++ linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c	2009-01-31 06:44:21.000000000 +0900
-@@ -586,7 +586,7 @@ static int pcnet_config(struct pcmcia_de
-     }
-
-     if ((link->conf.ConfigBase == 0x03c0)
--	&& (link->manf_id == 0x149) && (link->card_id = 0xc1ab)) {
-+	&& (link->manf_id == 0x149) && (link->card_id == 0xc1ab)) {
- 	printk(KERN_INFO "pcnet_cs: this is an AX88190 card!\n");
- 	printk(KERN_INFO "pcnet_cs: use axnet_cs instead.\n");
- 	goto failed;
-
-
+Steve
