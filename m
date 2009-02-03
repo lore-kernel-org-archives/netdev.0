@@ -1,56 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v3 2/4] virtio_net: Add a set_rx_mode interface
-Date: Tue, 3 Feb 2009 13:24:00 +1030
-Message-ID: <200902031324.00542.rusty@rustcorp.com.au>
-References: <20090201200504.8183.58421.stgit@debian.lart> <200902022022.20781.rusty@rustcorp.com.au> <1233610447.7026.970.camel@lappy>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH 2.6.27.y] stable request for vlan fix
+Date: Mon, 2 Feb 2009 19:43:51 -0800
+Message-ID: <20090203034351.GA1867@kroah.com>
+References: <F169D4F5E1F1974DBFAFABF47F60C10A1C341494@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	Jens Axboe <jens.axboe@oracle.com>
-To: Alex Williamson <alex.williamson@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "stable@kernel.org" <stable@kernel.org>,
+	"ccaputo@alt.net" <ccaputo@alt.net>, Karsten Keil <kkeil@suse.de>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41750 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751044AbZBCCyG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2009 21:54:06 -0500
-In-Reply-To: <1233610447.7026.970.camel@lappy>
+Received: from kroah.org ([198.145.64.141]:40179 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751358AbZBCDwF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2009 22:52:05 -0500
 Content-Disposition: inline
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A1C341494@orsmsx507.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 03 February 2009 08:04:07 Alex Williamson wrote:
-> Hi Rusty,
+On Mon, Feb 02, 2009 at 04:53:32PM -0800, Brandeburg, Jesse wrote:
+> I had a customer report that e1000/e1000e was hitting a vlan bug when 
+> compiled without NAPI support.  Turns out it had been solved already 
+> in a newer kernel.  Please consider for stable.
 > 
-> On Mon, 2009-02-02 at 20:22 +1030, Rusty Russell wrote:
-> > 	static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
-> >                                 struct scatterlist *out, struct scatterlist *in);
-... 
-> I think the caller still ends up passing the counts of out and in
-> entries here or else we have to walk the lists in send_command().
-> Doable, but doesn't seem to be common practice that I can find.
+> this commit was pushed in the 2.6.28-rc4 timeframe
+> 
+> git-cherry-pick 9b22ea560957de1484e6b3e8538f7eef202e3596
 
-Yes, I've frequently expressed unhappiness with the API.  I lost that debate
-and it doesn't seem fruitful to return to it.
+Thanks, I'll queue that one up tomorrow.
 
-It's not speed-critical, so just iterate.  I refuse to make *my* APIs suck.
-
-> We
-> should also then clear the termination once we copy the sg[] into our
-> own, but functions to do that don't seem to exist (need an
-> sg_unmark_end()).
-
-Ideally we would chain them, but the caller would have to allocate an extra
-sg element.
-
-Implement sg_unmark_end() in a separate patch; be sure to CC Jens.
-
-> I had avoided anything that would call
-> sg_init_table() on the caller provided sg[] to avoid that problem, does
-> it need to be addressed?
-
-I don't think so: those args should in fact be const struct scatterlist *.
-
-Thanks,
-Rusty.
+greg k-h
