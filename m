@@ -1,79 +1,61 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Tue, 3 Feb 2009 12:36:28 +0000
-Message-ID: <20090203123628.GB4639@ff.dom.local>
-References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: [PATCH 1/1 net-next] s2io: Formatting log message
+Date: Tue, 03 Feb 2009 10:39:35 -0200
+Message-ID: <49883B07.9030009@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	w@1wt.eu, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: sreenivasa.honnur@neterion.com, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f21.google.com ([209.85.219.21]:65350 "EHLO
-	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726AbZBCMgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 07:36:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20090203111012.GA16878@ioremap.net>
+Received: from e24smtp03.br.ibm.com ([32.104.18.24]:55503 "EHLO
+	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752321AbZBCMjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 07:39:43 -0500
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp03.br.ibm.com (8.13.1/8.13.1) with ESMTP id n13CcQv6026256
+	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 10:38:26 -0200
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n13Dd46D3682476
+	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 10:39:05 -0300
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n13CdaHW030848
+	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 10:39:36 -0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 03, 2009 at 02:10:12PM +0300, Evgeniy Polyakov wrote:
-> On Tue, Feb 03, 2009 at 09:41:08AM +0000, Jarek Poplawski (jarkao2@gmail.com) wrote:
-> > > 1) Just like any other allocator we'll need to find a way to
-> > >    handle > PAGE_SIZE allocations, and thus add handling for
-> > >    compound pages etc.
-> > >  
-> > >    And exactly the drivers that want such huge SKB data areas
-> > >    on receive should be converted to use scatter gather page
-> > >    vectors in order to avoid multi-order pages and thus strains
-> > >    on the page allocator.
-> > 
-> > I guess compound pages are handled by put_page() enough, but I don't
-> > think they should be main argument here, and I agree: scatter gather
-> > should be used where possible.
-> 
-> Problem is to allocate them, since with the time memory will be
-> quite fragmented, which will not allow to find a big enough page.
+S2IO driver is printing dev->name before the name being allocated, which
+display eth%d instead of eth0, eth1, etc. Example: 
 
-Yes, it's a problem, but I don't think the main one. Since we're
-currently concerned with zero-copy for splice I think we could
-concentrate on most common cases, and treat jumbo frames with best
-effort only: if there are free compound pages - fine, otherwise we
-fallback to slab and copy in splice.
+eth%d: Enabling MSIX failed
+eth%d: MSI-X requested but failed to enable
 
-> 
-> NTA tried to solve this by not allowing to free the data allocated on
-> the different CPU, contrary to what SLAB does. Modulo cache coherency
-> improvements, it allows to combine freed chunks back into the pages and
-> combine them in turn to get bigger contiguous areas suitable for the
-> drivers which were not converted to use the scatter gather approach.
-> I even believe that for some hardware it is the only way to deal
-> with the jumbo frames.
-> 
-> > > 2) Space wastage and poor packing can be an issue.
-> > > 
-> > >    Even with SLAB/SLUB we get poor packing, look at Evegeniy's
-> > >    graphs that he made when writing his NTA patches.
-> > 
-> > I'm a bit lost here: could you "remind" the way page space would be
-> > used/saved in your paged variant e.g. for ~1500B skbs?
-> 
-> At least in NTA I used cache line alignment for smaller chunks, while
-> SLAB uses power of two. Thus for 1500 MTU SLAB wastes about 500 bytes
-> per packet (modulo size of the shared info structure).
-> 
-> > Yes, this looks reasonable. On the other hand, I think it would be
-> > nice to get some opinions of slab folks (incl. Evgeniy) on the expected
-> > efficiency of such a solution. (It seems releasing with put_page() will
-> > always have some cost with delayed reusing and/or waste of space.)
-> 
-> Well, my opinion is rather biased here :)
+This patch just change eth%d to s2io.
 
-I understand NTA could be better than slabs in above-mentioned cases,
-but I'm not sure you explaind enough your point on solving this
-zero-copy problem vs. NTA?
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 
-Jarek P.
+---
+
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index f5c57c0..a63a496 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -3862,7 +3862,7 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
+ 	ret = pci_enable_msix(nic->pdev, nic->entries, nic->num_entries);
+ 	/* We fail init if error or we get less vectors than min required */
+ 	if (ret) {
+-		DBG_PRINT(ERR_DBG, "%s: Enabling MSIX failed\n", nic->dev->name);
++		DBG_PRINT(ERR_DBG, "s2io: Enabling MSI-X failed\n");
+ 		kfree(nic->entries);
+ 		nic->mac_control.stats_info->sw_stat.mem_freed
+ 			+= (nic->num_entries * sizeof(struct msix_entry));
+@@ -8009,8 +8009,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 		if (ret) {
+ 
+ 			DBG_PRINT(ERR_DBG,
+-			  "%s: MSI-X requested but failed to enable\n",
+-			  dev->name);
++			  "s2io: MSI-X requested but failed to enable\n");
+ 			sp->config.intr_type = INTA;
+ 		}
+ 	}
