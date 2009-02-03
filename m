@@ -1,66 +1,45 @@
-From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2] hso: add new device id's
-Date: Tue, 03 Feb 2009 11:39:43 +0100
-Message-ID: <49881EEF.4060705@option.com>
+From: Cord Walter <cord.walter@gmx.de>
+Subject: [PATCH] pcnet_cs:fix misuse of the equality operator.
+Date: Tue, 03 Feb 2009 11:59:47 +0100
+Message-ID: <498823A3.2070506@gmx.de>
+References: <20090131071342.2b45cbe8.komurojun-mbn@nifty.com>	<4984DC50.6060204@gmx.de>	<49856D35.7020702@gmx.de> <20090201.014352.138067875.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000000020103040006060402"
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------000000020103040006060402
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from waikiki.ops.eusc.inter.net ([84.23.254.155]:65467 "EHLO
+	waikiki.ops.eusc.inter.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751655AbZBCK4t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 05:56:49 -0500
+Received: from waikiki.ops.eusc.inter.net ([10.155.10.19] helo=localhost)
+	by waikiki.ops.eusc.inter.net with esmtpsa (Exim 4.69)
+	id 1LUIxL-0002PT-L7
+	for netdev@vger.kernel.org; Tue, 03 Feb 2009 11:56:39 +0100
+In-Reply-To: <20090201.014352.138067875.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a few device ID's. It also removes an ID that was used 
-in an internal engineering version of a device and will never see 
-commercial light. Even if this ID will be 'recycled' in the future, 
-which is very unlikely, we don't know what kind of device will be behind 
-it. Therefore it's safer to remove it.
 
-Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+pcnet_cs:
+	fix misuse of the equality operator.
+
+
+Signed-off-by: Cord Walter <qord@cwalter.net>
+Signed-off-by: Komuro <komurojun-mbn@nifty.com>
+
 ---
 
---------------000000020103040006060402
-Content-Type: text/x-patch;
- name="hso_add_device_ids.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="hso_add_device_ids.patch"
+--- linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c.orig	2009-01-31 06:44:03.000000000 +0900
++++ linux-2.6.29-rc3/drivers/net/pcmcia/pcnet_cs.c	2009-01-31 06:44:21.000000000 +0900
+@@ -586,7 +586,7 @@ static int pcnet_config(struct pcmcia_de
+     }
 
-This patch adds a few device id's. It also removes an ID that was used in an internal engineering version of a device and will never see commercial light. Even if this ID will be 'recycled' in the future, which is very unlikely, I don't know what kind of device will be behind it. Therefore it's safer to remove it.
+     if ((link->conf.ConfigBase == 0x03c0)
+-	&& (link->manf_id == 0x149) && (link->card_id = 0xc1ab)) {
++	&& (link->manf_id == 0x149) && (link->card_id == 0xc1ab)) {
+ 	printk(KERN_INFO "pcnet_cs: this is an AX88190 card!\n");
+ 	printk(KERN_INFO "pcnet_cs: use axnet_cs instead.\n");
+ 	goto failed;
 
-Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
----
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 0d0fa91..fe98aca 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -455,6 +455,7 @@ static const struct usb_device_id hso_ids[] = {
- 	{icon321_port_device(0x0af0, 0xd033)},	/* Icon-322 */
- 	{USB_DEVICE(0x0af0, 0x7301)},		/* GE40x */
- 	{USB_DEVICE(0x0af0, 0x7361)},		/* GE40x */
-+	{USB_DEVICE(0x0af0, 0x7381)},		/* GE40x */
- 	{USB_DEVICE(0x0af0, 0x7401)},		/* GI 0401 */
- 	{USB_DEVICE(0x0af0, 0x7501)},		/* GTM 382 */
- 	{USB_DEVICE(0x0af0, 0x7601)},		/* GE40x */
-@@ -462,7 +463,8 @@ static const struct usb_device_id hso_ids[] = {
- 	{USB_DEVICE(0x0af0, 0x7801)},
- 	{USB_DEVICE(0x0af0, 0x7901)},
- 	{USB_DEVICE(0x0af0, 0x7361)},
--	{icon321_port_device(0x0af0, 0xd051)},
-+	{USB_DEVICE(0x0af0, 0xd057)},
-+	{USB_DEVICE(0x0af0, 0xd055)},
- 	{}
- };
- MODULE_DEVICE_TABLE(usb, hso_ids);
 
---------------000000020103040006060402--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
