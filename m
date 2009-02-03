@@ -1,183 +1,291 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH] r8169: Don't update statistics counters when interface is down
-Date: Tue,  3 Feb 2009 17:14:46 +0100
-Message-ID: <1233677686-11591-1-git-send-email-ivecera@redhat.com>
-Cc: romieu@fr.zoreil.com, Ivan Vecera <ivecera@redhat.com>
+From: Kenny Chang <kchang@athenacr.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 03 Feb 2009 12:34:54 -0500
+Message-ID: <4988803E.2020009@athenacr.com>
+References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <49859847.9010206@cosmosbay.com> <20090202134523.GA13369@hmsreliant.think-freely.org> <498725F4.2010205@cosmosbay.com> <20090202182212.GA17950@hmsreliant.think-freely.org> <loom.20090202T194942-55@post.gmane.org> <498757AA.8010101@cosmosbay.com> <4987610D.6040902@athenacr.com> <4987663D.6080802@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------020409020405010405070609"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:43763 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752679AbZBCQOx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2009 11:14:53 -0500
+Received: from [64.95.46.209] ([64.95.46.209]:1278 "EHLO
+	sprinkles.inp.in.athenacr.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751134AbZBCRe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 12:34:59 -0500
+Received: from [192.168.14.21] (fiji.em.in.athenacr.com [192.168.14.21])
+	by sprinkles.inp.in.athenacr.com (Postfix) with ESMTP id F0A6B4D542
+	for <netdev@vger.kernel.org>; Tue,  3 Feb 2009 12:34:54 -0500 (EST)
+In-Reply-To: <4987663D.6080802@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some Realtek chips (RTL8169sb/8110sb in my case) are unable to retrieve
-ethtool statistics when the interface is down. The process stays in
-endless loop in rtl8169_get_ethtool_stats. This is because these chips
-need to have receiver enabled (CmdRxEnb bit in ChipCmd register) that is
-cleared when the interface is going down. It's better to update statistics
-only when the interface is up and otherwise return copy of statistics
-grabbed when the interface was up (in rtl8169_close).
+This is a multi-part message in MIME format.
+--------------020409020405010405070609
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
 
-It is interesting that PCI-E NICs (like 8168b/8111b...) are not affected.
+Eric Dumazet wrote:
+> Wes Chow a écrit :
+>   
+>> Eric Dumazet wrote:
+>>     
+>>> Wes Chow a écrit :
+>>>       
+>>>> (I'm Kenny's colleague, and I've been doing the kernel builds)
+>>>>
+>>>> First I'd like to note that there were a lot of bnx2 NAPI changes
+>>>> between 2.6.21 and 2.6.22. As a reminder, 2.6.21 shows tiny amounts
+>>>> of packet loss,
+>>>> whereas loss in 2.6.22 is significant.
+>>>>
+>>>> Second, some CPU affinity info: if I do like Eric and pin all of the
+>>>> apps onto a single CPU, I see no packet loss. Also, I do *not* see
+>>>> ksoftirqd show up on top at all!
+>>>>
+>>>> If I pin half the processes on one CPU and the other half on another
+>>>> CPU, one ksoftirqd processes shows up in top and completely pegs one
+>>>> CPU. My packet loss
+>>>> in that case is significant (25%).
+>>>>
+>>>> Now, the strange case: if I pin 3 processes to one CPU and 1 process
+>>>> to another, I get about 25% packet loss and ksoftirqd pins one CPU.
+>>>> However, one
+>>>> of the apps takes significantly less CPU than the others, and all
+>>>> apps lose the
+>>>> *exact same number of packets*. In all other situations where we see
+>>>> packet
+>>>> loss, the actual number lost per application instance appears random.
+>>>>         
+>>> You see same number of packet lost because they are lost at NIC level
+>>>       
+>> Understood.
+>>
+>> I have a new observation: if I pin processes to just CPUs 0 and 1, I see
+>> no packet loss. Pinning to 0 and 2, I do see packet loss. Pinning 2 and
+>> 3, no packet loss. 4 & 5 - no packet loss, 6 & 7 - no packet loss. Any
+>> other combination appears to produce loss (though I have not tried all
+>> 28 combinations, this seems to be the case).
+>>
+>> At first I thought maybe it had to do with processes pinned to the same
+>> CPU, but different cores. The machine is a dual quad core, which means
+>> that CPUs 0-3 should be a physical CPU, correct? Pinning to 0/2 and 0/3
+>> produce packet loss.
+>>     
+>
+> a quad core is really a 2 x 2 core
+>
+> L2 cache is splited on two blocks, one block used by CPU0/1, other by CPU2/3 
+>
+> You are at the limit of the machine with such workload, so as soon as your
+> CPUs have to transfert 64 bytes lines between those two L2 blocks, you loose.
+>
+>
+>   
+>> I've also noticed that it does not matter which of the working pairs I
+>> pin to. For example, pinning 5 processes in any combination on either
+>> 0/1 produce no packet loss, pinning all 5 to just CPU 0 also produces no
+>> packet loss.
+>>
+>> The failures are also sudden. In all of the working cases mentioned
+>> above, I don't see ksoftirqd on top at all. But when I run 6 processes
+>> on a single CPU, ksoftirqd shoots up to 100% and I lose a huge number of
+>> packets.
+>>
+>>     
+>>> Normaly, softirq runs on same cpu (the one handling hard irq)
+>>>       
+>> What determines which CPU the hard irq occurs on?
+>>
+>>     
+>
+> Check /proc/irq/{irqnumber}/smp_affinity
+>
+> If you want IRQ16 only served by CPU0 :
+>
+> echo 1 >/proc/irq/16/smp_affinity
+>
+>   
+Hi everyone,
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/r8169.c |   89 +++++++++++++++++++++++++++++++--------------------
- 1 files changed, 54 insertions(+), 35 deletions(-)
+First, thanks for all the effort so far, I think we've learned so much 
+more about the problem in the last couple of days than we had previously 
+in a month.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 2c73ca6..2ab8b99 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -437,6 +437,22 @@ enum features {
- 	RTL_FEATURE_GMII	= (1 << 2),
- };
- 
-+struct rtl8169_counters {
-+	__le64	tx_packets;
-+	__le64	rx_packets;
-+	__le64	tx_errors;
-+	__le32	rx_errors;
-+	__le16	rx_missed;
-+	__le16	align_errors;
-+	__le32	tx_one_collision;
-+	__le32	tx_multi_collision;
-+	__le64	rx_unicast;
-+	__le64	rx_broadcast;
-+	__le32	rx_multicast;
-+	__le16	tx_aborted;
-+	__le16	tx_underun;
-+};
-+
- struct rtl8169_private {
- 	void __iomem *mmio_addr;	/* memory map physical address */
- 	struct pci_dev *pci_dev;	/* Index of PCI device */
-@@ -480,6 +496,7 @@ struct rtl8169_private {
- 	unsigned features;
- 
- 	struct mii_if_info mii;
-+	struct rtl8169_counters counters;
- };
- 
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
-@@ -1100,22 +1117,6 @@ static const char rtl8169_gstrings[][ETH_GSTRING_LEN] = {
- 	"tx_underrun",
- };
- 
--struct rtl8169_counters {
--	__le64	tx_packets;
--	__le64	rx_packets;
--	__le64	tx_errors;
--	__le32	rx_errors;
--	__le16	rx_missed;
--	__le16	align_errors;
--	__le32	tx_one_collision;
--	__le32	tx_multi_collision;
--	__le64	rx_unicast;
--	__le64	rx_broadcast;
--	__le32	rx_multicast;
--	__le16	tx_aborted;
--	__le16	tx_underun;
--};
--
- static int rtl8169_get_sset_count(struct net_device *dev, int sset)
- {
- 	switch (sset) {
-@@ -1126,16 +1127,17 @@ static int rtl8169_get_sset_count(struct net_device *dev, int sset)
- 	}
- }
- 
--static void rtl8169_get_ethtool_stats(struct net_device *dev,
--				      struct ethtool_stats *stats, u64 *data)
-+static void rtl8169_update_counters(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	struct rtl8169_counters *counters;
- 	dma_addr_t paddr;
- 	u32 cmd;
-+	int wait = 1000;
- 
--	ASSERT_RTNL();
-+	if (!netif_running(dev))
-+		return;
- 
- 	counters = pci_alloc_consistent(tp->pci_dev, sizeof(*counters), &paddr);
- 	if (!counters)
-@@ -1146,31 +1148,45 @@ static void rtl8169_get_ethtool_stats(struct net_device *dev,
- 	RTL_W32(CounterAddrLow, cmd);
- 	RTL_W32(CounterAddrLow, cmd | CounterDump);
- 
--	while (RTL_R32(CounterAddrLow) & CounterDump) {
--		if (msleep_interruptible(1))
-+	while (wait--) {
-+		if ((RTL_R32(CounterAddrLow) & CounterDump) == 0) {
-+			/* copy updated counters */
-+			memcpy(&tp->counters, counters, sizeof(*counters));
- 			break;
-+		}
-+		udelay(10);
- 	}
- 
- 	RTL_W32(CounterAddrLow, 0);
- 	RTL_W32(CounterAddrHigh, 0);
- 
--	data[0] = le64_to_cpu(counters->tx_packets);
--	data[1] = le64_to_cpu(counters->rx_packets);
--	data[2] = le64_to_cpu(counters->tx_errors);
--	data[3] = le32_to_cpu(counters->rx_errors);
--	data[4] = le16_to_cpu(counters->rx_missed);
--	data[5] = le16_to_cpu(counters->align_errors);
--	data[6] = le32_to_cpu(counters->tx_one_collision);
--	data[7] = le32_to_cpu(counters->tx_multi_collision);
--	data[8] = le64_to_cpu(counters->rx_unicast);
--	data[9] = le64_to_cpu(counters->rx_broadcast);
--	data[10] = le32_to_cpu(counters->rx_multicast);
--	data[11] = le16_to_cpu(counters->tx_aborted);
--	data[12] = le16_to_cpu(counters->tx_underun);
--
- 	pci_free_consistent(tp->pci_dev, sizeof(*counters), counters, paddr);
- }
- 
-+static void rtl8169_get_ethtool_stats(struct net_device *dev,
-+				      struct ethtool_stats *stats, u64 *data)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+
-+	ASSERT_RTNL();
-+
-+	rtl8169_update_counters(dev);
-+
-+	data[0] = le64_to_cpu(tp->counters.tx_packets);
-+	data[1] = le64_to_cpu(tp->counters.rx_packets);
-+	data[2] = le64_to_cpu(tp->counters.tx_errors);
-+	data[3] = le32_to_cpu(tp->counters.rx_errors);
-+	data[4] = le16_to_cpu(tp->counters.rx_missed);
-+	data[5] = le16_to_cpu(tp->counters.align_errors);
-+	data[6] = le32_to_cpu(tp->counters.tx_one_collision);
-+	data[7] = le32_to_cpu(tp->counters.tx_multi_collision);
-+	data[8] = le64_to_cpu(tp->counters.rx_unicast);
-+	data[9] = le64_to_cpu(tp->counters.rx_broadcast);
-+	data[10] = le32_to_cpu(tp->counters.rx_multicast);
-+	data[11] = le16_to_cpu(tp->counters.tx_aborted);
-+	data[12] = le16_to_cpu(tp->counters.tx_underun);
-+}
-+
- static void rtl8169_get_strings(struct net_device *dev, u32 stringset, u8 *data)
- {
- 	switch(stringset) {
-@@ -3682,6 +3698,9 @@ static int rtl8169_close(struct net_device *dev)
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	struct pci_dev *pdev = tp->pci_dev;
- 
-+	/* update counters before going down */
-+	rtl8169_update_counters(dev);
-+
- 	rtl8169_down(dev);
- 
- 	free_irq(dev->irq, dev);
--- 
-1.5.6.3
+Just to summarize where we are:
 
+* pinning processes to specific cores/CPUs alleviate the problem
+* issues exist from 2.6.22 up to 2.6.29-rc3
+* issue does not appear to be isolated to 64-bit, 32-bits have problems 
+too.
+* I'm attaching an updated test program with the PR_SET_TIMERSTACK call 
+added.
+* on troubled machines, we are seeing high number of context switches 
+and interrupts.
+* we've ordered an Intel card to try in our machine to see if we can 
+circumvent the issue with a different driver.
+
+Kernel Version         Has Problem?     Notes
+----------             ----------       ----------
+2.6.15.x                N    
+2.6.16.x                -
+2.6.17.x                -               Doesn't build on Hardy
+2.6.18.x                -               Doesn't boot (kernel panic)
+2.6.19.7                N               ksoftirqd is up there, but not 
+pegging a CPU.
+                                        Takes roughly same amount of CPU 
+as the other
+                                        processes, all of which are from 
+20-40%
+2.6.20.21               N
+2.6.21.7                N               sort of lopsided load, but no 
+load from
+                                        ksoftirqd -- strange
+2.6.22.19               Y               First broken kernel
+2.6.23.x                -
+2.6.24-19               Y               (from Hardy)
+2.6.25.x                -
+2.6.26.x                -
+2.6.27.x                Y               (from Intrepid)
+2.6.28.1                Y
+2.6.29-rc               Y
+
+
+Correct me if I'm wrong, from what we've seen, it looks like its 
+pointing to some inefficiency in the softirq handling.  The question is 
+whether it's something in the driver or the kernel.  If we can isolate 
+that, maybe we can take some action to have it fixed.
+
+Kenny
+
+--------------020409020405010405070609
+Content-Type: text/x-csrc;
+ name="mcasttest.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mcasttest.c"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include <sys/epoll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <unistd.h>
+
+#ifndef PR_SET_TIMERSLACK
+#define PR_SET_TIMERSLACK 29
+#endif
+
+const char *g_mcastaddr = "239.100.0.99";
+int g_port = 10100;
+
+void error(const char *s)
+{
+    fprintf(stderr, "%s\n", s);
+    exit(1);
+}
+
+void check(int v)
+{
+    int myerr = errno;
+    char *myerrstr = strerror(myerr);
+    if(!v)
+        error("bad return code");
+}
+
+int main(int argc, char **argv)
+{
+    if(argc != 2)
+        error("usage: mcasttest (server|client)");
+    if(strcmp(argv[1], "client") == 0)
+    {
+        /*
+         * Client program: subscribes to a multicast group, receives messages
+         * and prints a count of messages received once it's done.
+         */
+        int s = socket(AF_INET, SOCK_DGRAM, 0);
+        check(s > 0);
+        int val = 1;
+        check(setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) == 0);
+
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(g_port);
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        check(bind(s, (struct sockaddr *) &addr, sizeof(addr)) == 0);
+
+        struct ip_mreqn mreq;
+        memset(&mreq, 0, sizeof(mreq));
+        check(inet_pton(AF_INET, g_mcastaddr, &mreq.imr_multiaddr));
+        mreq.imr_address.s_addr = htonl(INADDR_ANY);
+        mreq.imr_ifindex = 0;
+        check(setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == 0);
+
+        int bufSz;
+        socklen_t len = sizeof(bufSz);
+        getsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)(&bufSz), &len);
+        printf("bufsz: %d\n", bufSz);
+
+        int npackets = 0;
+        char buf[1000];
+        memset(buf, 0, sizeof(buf));
+        while(1)
+        {
+            struct sockaddr_in from;
+            socklen_t fromlen = sizeof(from);
+            check(recvfrom(s, buf, 1000, 0, (struct sockaddr*)&from, &fromlen) == 100);
+            ++npackets;
+            if(buf[0] == 1) // exit message
+                break;
+        }
+        printf("received %d packets\n", npackets);
+    }
+    else if(strcmp(argv[1], "server") == 0)
+    {
+        /*
+         * Setup a timer resolution of 1000 ns : 1 us
+         */
+        prctl(PR_SET_TIMERSLACK, 1000); 
+
+        /*
+         * Server program: sends 50,000 packets per second to a multicast address,
+         * for 10 seconds.
+         */
+        int s = socket(AF_INET, SOCK_DGRAM, 0);
+        int val = 1;
+        int i = 1;
+        check(s > 0);
+
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(g_port);
+        check(inet_pton(AF_INET, g_mcastaddr, &addr.sin_addr.s_addr));
+        check(connect(s, (struct sockaddr *) &addr, sizeof(addr)) == 0);
+
+        int npackets = 500000;
+        char buf[100];
+        memset(buf, 0, sizeof(buf));
+        for(i = 1; i < npackets; ++i)
+        {
+            check(send(s, buf, sizeof(buf), 0) > 0);
+            usleep(20); // 50,000 messages per second
+        }
+
+        buf[0] = 1;
+        for(i = 1; i < 5; ++i)
+        {
+            check(send(s, buf, sizeof(buf), 0) > 0);
+            sleep(1);
+        }
+    }
+    else
+        error("unknown mode");
+    return 0;
+}
+
+--------------020409020405010405070609--
