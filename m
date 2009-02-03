@@ -1,81 +1,71 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Multicast packet loss
-Date: Tue, 3 Feb 2009 06:55:02 -0500
-Message-ID: <20090203115502.GB28117@hmsreliant.think-freely.org>
-References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <20090131160333.GC23100@localhost.localdomain> <498723D9.5020509@athenacr.com>
+From: david@lang.hm
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Tue, 3 Feb 2009 05:05:14 -0800 (PST)
+Message-ID: <alpine.DEB.1.10.0902030458390.28633@asgard.lang.hm>
+References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net>
+ <20090203112431.GA8746@gondor.apana.org.au> <20090203114944.GA21957@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Kenny Chang <kchang@athenacr.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, w@1wt.eu,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50197 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655AbZBCLzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 06:55:12 -0500
-Content-Disposition: inline
-In-Reply-To: <498723D9.5020509@athenacr.com>
+Received: from mail.lang.hm ([64.81.33.126]:34690 "EHLO bifrost.lang.hm"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752281AbZBCMCd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2009 07:02:33 -0500
+In-Reply-To: <20090203114944.GA21957@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 02, 2009 at 11:48:25AM -0500, Kenny Chang wrote:
-> Neil Horman wrote:
->> On Fri, Jan 30, 2009 at 11:41:23PM +0100, Eric Dumazet wrote:
->>  =20
->>> Kenny Chang a =E9crit :
->>>    =20
->>>> Ah, sorry, here's the test program attached.
->>>>
->>>> We've tried 2.6.28.1, but no, we haven't tried the 2.6.28.2 or the
->>>> 2.6.29.-rcX.
->>>>
->>>> Right now, we are trying to step through the kernel versions until=
- we
->>>> see where the performance drops significantly.  We'll try 2.6.29-r=
-c soon
->>>> and post the result.
->>>>      =20
->>> 2.6.29-rc contains UDP receive improvements (lockless)
->>>
->>> Problem is multicast handling was not yet updated, but could be :)
->>>
->>>
->>> I was asking you "cat /proc/interrupts" because I believe you might
->>> have a problem NIC interrupts being handled by one CPU only (when h=
-aving problems)
->>>
->>>    =20
->> That would be expected (if irqbalance is running), and desireable, s=
-ince
->> spreading high volume interrupts like NICS accross multiple cores (o=
-r more
->> specifically multiple L2 caches), is going increase your cache line =
-miss rate
->> significantly and decrease rx throughput.
+On Tue, 3 Feb 2009, Evgeniy Polyakov wrote:
+
+> On Tue, Feb 03, 2009 at 10:24:31PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+>>> I even believe that for some hardware it is the only way to deal
+>>> with the jumbo frames.
 >>
->> Although you do have a point here, if the system isn't running irqba=
-lance, and
->> the NICS irq affinity is spread accross multiple L2 caches, that wou=
-ld be a
->> point of improvement performance-wise. =20
->>
->> Kenny, if you could provide the /proc/interrupts info along with /pr=
-oc/cpuinfo
->> and your stats that I asked about earlier, that would be a big help.
->>
->> Regards
->> Neil
->>
->>  =20
-> This is for a working setup.
+>> Not necessarily.  Even if the hardware can only DMA into contiguous
+>> memory, we can always allocate a sufficient number of contiguous
+>> buffers initially, and then always copy them into fragmented skbs
+>> at receive time.  This way the contiguous buffers are never
+>> depleted.
 >
+> How many such preallocated frames is enough? Does it enough to have all
+> sockets recv buffer sizes divided by the MTU size? Or just some of them,
+> or... That will work but there are way too many corner cases.
+>
+>> Granted copying sucks, but this is really because the underlying
+>> hardware is badly designed.  Also copying is way better than
+>> not receiving at all due to memory fragmentation.
+>
+> Maybe just do not allow jumbo frames when memory is fragmented enough
+> and fallback to the smaller MTU in this case? With LRO/GRO stuff there
+> should be not that much of the overhead compared to multiple-page
+> copies.
 
-Are these quad core systems?  Or dual core w/ hyperthreading?  I ask be=
-cause in
-your working setup you have 1/2 the number of cpus' and was not sure if=
- you
-removed an entire package of if you just disabled hyperthreading.
 
+1. define 'fragmented enough'
 
-Neil
+2. the packet size was already negotiated on your existing connections, 
+how are you going to change all those on the fly?
 
+3. what do you do when a remote system sends you a large packet? drop it 
+on the floor?
+
+having some pool of large buffers to receive into (and copy out of those 
+buffers as quickly as possible) would cause a performance hit when things 
+get bad, but isn't that better than dropping packets?
+
+as for the number of buffers to use. make a reasonable guess. if you only 
+have a small number of packets around, use the buffers directly, as you 
+use more of them start copying, as useage climbs attempt to allocate more. 
+if you can't allocate more (and you have all of your existing ones in use) 
+you will have to drop the packet, but at that point are you really in any 
+worse shape than if you didn't have some mechanism to copy out of the 
+large buffers?
+
+David Lang
