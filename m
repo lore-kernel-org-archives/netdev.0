@@ -1,59 +1,44 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
+From: Evgeniy Polyakov <zbr@ioremap.net>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Tue, 3 Feb 2009 22:38:06 +1100
-Message-ID: <200902032238.08497.nickpiggin@yahoo.com.au>
-References: <20090126212130.GA4338@ioremap.net> <20090127074048.GA4197@ff.dom.local> <20090130.134227.123379239.davem@davemloft.net>
+Date: Tue, 3 Feb 2009 14:49:44 +0300
+Message-ID: <20090203114944.GA21957@ioremap.net>
+References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net> <20090203112431.GA8746@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, zbr@ioremap.net, herbert@gondor.apana.org.au,
-	w@1wt.eu, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>, w@1wt.eu,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp120.mail.mud.yahoo.com ([209.191.84.77]:46818 "HELO
-	smtp120.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751859AbZBCLig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 06:38:36 -0500
-In-Reply-To: <20090130.134227.123379239.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754010AbZBCLuN@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090203112431.GA8746@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 31 January 2009 08:42:27 David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Tue, 27 Jan 2009 07:40:48 +0000
->
-> > I think the main problem is to respect put_page() more, and maybe you
-> > mean to add this to your allocator too, but using slab pages for this
-> > looks a bit complex to me, but I can miss something.
->
-> Hmmm, Jarek's comments here made me realize that we might be
-> able to do some hack with cooperation with SLAB.
->
-> Basically the idea is that if the page count of a SLAB page
-> is greater than one, SLAB will not use that page for new
-> allocations.
+On Tue, Feb 03, 2009 at 10:24:31PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > I even believe that for some hardware it is the only way to deal
+> > with the jumbo frames.
+> 
+> Not necessarily.  Even if the hardware can only DMA into contiguous
+> memory, we can always allocate a sufficient number of contiguous
+> buffers initially, and then always copy them into fragmented skbs
+> at receive time.  This way the contiguous buffers are never
+> depleted.
 
-Wouldn't your caller need to know what objects are already
-allocated in that page too?
+How many such preallocated frames is enough? Does it enough to have all
+sockets recv buffer sizes divided by the MTU size? Or just some of them,
+or... That will work but there are way too many corner cases.
 
+> Granted copying sucks, but this is really because the underlying
+> hardware is badly designed.  Also copying is way better than
+> not receiving at all due to memory fragmentation.
 
-> It's cheesy and the SLAB developers will likely barf at the
-> idea, but it would certainly work.
+Maybe just do not allow jumbo frames when memory is fragmented enough
+and fallback to the smaller MTU in this case? With LRO/GRO stuff there
+should be not that much of the overhead compared to multiple-page
+copies.
 
-It is nasty, yes. Using the page allocator directly seeems
-like a better approach.
-
-And btw. be careful of using page->_count for anything, due
-to speculative page references... basically it is useful only
-to test zero or non-zero refcount. If designing a new scheme
-for the network layer, it would be nicer to begin by using
-say _mapcount or private or some other field in there for a
-refcount (and I have a patch to avoid the atomic
-put_page_testzero in page freeing for a caller that does their
-own refcounting, so don't fear that extra overhead too much :)).
-
-
+-- 
+	Evgeniy Polyakov
