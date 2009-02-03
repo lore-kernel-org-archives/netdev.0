@@ -1,65 +1,70 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Don't update statistics counters when interface
-	is down
-Date: Tue, 3 Feb 2009 22:46:41 +0100
-Message-ID: <20090203214641.GA354@electric-eye.fr.zoreil.com>
-References: <1233677686-11591-1-git-send-email-ivecera@redhat.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] sunrpc: fix rdma dependencies
+Date: Tue, 03 Feb 2009 14:13:15 -0800
+Message-ID: <4988C17B.1030902@oracle.com>
+References: <200902030112.n131CNiq010549@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ivan Vecera <ivecera@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>, Roland Dreier <rolandd@cisco.com>,
+	Dave Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48707 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751007AbZBCVo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 16:44:57 -0500
-Content-Disposition: inline
-In-Reply-To: <1233677686-11591-1-git-send-email-ivecera@redhat.com>
+Received: from rcsinet13.oracle.com ([148.87.113.125]:59389 "EHLO
+	rgminet13.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbZBCWNi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 17:13:38 -0500
+In-Reply-To: <200902030112.n131CNiq010549@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ivan Vecera <ivecera@redhat.com> :
-> Some Realtek chips (RTL8169sb/8110sb in my case) are unable to retrieve
-> ethtool statistics when the interface is down. The process stays in
-> endless loop in rtl8169_get_ethtool_stats. This is because these chips
-> need to have receiver enabled (CmdRxEnb bit in ChipCmd register) that is
-> cleared when the interface is going down. It's better to update statistics
-> only when the interface is up and otherwise return copy of statistics
-> grabbed when the interface was up (in rtl8169_close).
+Andrew Morton wrote:
+> This patch was dropped because other changes were merged, which wrecked this patch.
 
-It makes sense.
+The kconfig just moved from one file to another one.  The problem is still there.
 
-[...]
-> +static void rtl8169_update_counters(struct net_device *dev)
->  {
->  	struct rtl8169_private *tp = netdev_priv(dev);
->  	void __iomem *ioaddr = tp->mmio_addr;
->  	struct rtl8169_counters *counters;
->  	dma_addr_t paddr;
->  	u32 cmd;
-> +	int wait = 1000;
->  
-> -	ASSERT_RTNL();
-> +	if (!netif_running(dev))
-> +		return;
+---
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
+Fix sunrpc/rdma build dependencies.
+Survives 12 build combinations of INET, IPV6, SUNRPC,
+INFINIBAND, and INFINIBAND_ADDR_TRANS.
 
-int dev_close(struct net_device *dev)
-{
-[...]
-	clear_bit(__LINK_STATE_START, &dev->state);
-        -> netif_running is not true anymore
-[...]
-	if (ops->ndo_stop)
-		ops->ndo_stop(dev);
+ERROR: "rdma_destroy_id" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_connect" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_destroy_qp" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_create_id" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_create_qp" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_resolve_route" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_disconnect" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_resolve_addr" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
+ERROR: "rdma_accept" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
+ERROR: "rdma_destroy_id" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
+ERROR: "rdma_listen" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
+ERROR: "rdma_create_id" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
+ERROR: "rdma_create_qp" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
+ERROR: "rdma_bind_addr" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
+ERROR: "rdma_disconnect" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
 
--> Calling rtl8169_update_counters in rtl8169_close looks like a no-op.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+cc:	J. Bruce Fields <bfields@fieldses.org>
+cc:	Neil Brown <neilb@suse.de>
+cc:	Roland Dreier <rolandd@cisco.com>
+cc:	Dave Miller <davem@davemloft.net>
+---
+ net/sunrpc/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Aside from that, I do not understand from the description the need for
-the "while (wait--)" loop.
-
-Aside from the aside, the diff can probably be shorter if a local "counters"
-variable is kept in the ethtool function (nit).
-
--- 
-Ueimor
+--- mmotm-2009-0202-1712.orig/net/sunrpc/Kconfig
++++ mmotm-2009-0202-1712/net/sunrpc/Kconfig
+@@ -6,7 +6,7 @@ config SUNRPC_GSS
+ 
+ config SUNRPC_XPRT_RDMA
+ 	tristate
+-	depends on SUNRPC && INFINIBAND && EXPERIMENTAL
++	depends on SUNRPC && INFINIBAND && INFINIBAND_ADDR_TRANS && EXPERIMENTAL
+ 	default SUNRPC && INFINIBAND
+ 	help
+ 	  This option allows the NFS client and server to support
