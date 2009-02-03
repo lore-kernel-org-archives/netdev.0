@@ -1,33 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fwd: Re: Ethernet over GRE ?
-Date: Wed, 4 Feb 2009 07:47:34 +1100
-Message-ID: <20090203204734.GA13337@gondor.apana.org.au>
-References: <20090203131512.GA4722@libertysurf.fr>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 3/3] iptables: lock free counters (alternate version)
+Date: Tue, 03 Feb 2009 22:05:20 +0100
+Message-ID: <4988B190.2060300@cosmosbay.com>
+References: <20090130215700.965611970@vyatta.com>	<20090130215729.416851870@vyatta.com>	<498594B6.6000905@cosmosbay.com>	<20090202153357.3ac6edfa@extreme>	<49889440.60702@cosmosbay.com>	<20090203193214.GH6607@linux.vnet.ibm.com>	<4988A6F4.6000902@cosmosbay.com> <20090203124442.44598d63@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Lefevre <david.lefevre7@libertysurf.fr>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44130 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751891AbZBCUrl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 15:47:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20090203131512.GA4722@libertysurf.fr>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:41531 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751535AbZBCVId convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 16:08:33 -0500
+In-Reply-To: <20090203124442.44598d63@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 03, 2009 at 02:15:12PM +0100, David Lefevre wrote:
->
-> > thanks for the new release of iproute2 (corresponding to 2.6.28).
-> > I'm still confused : I can create a "gretap" interface and add it to a bridge (with brtcl addif) but, in that case, I don't know how to use this interface as a tunnel (GRE). And if I set up a tunnel, I cannot add it as an interface in the bridge.
+Stephen Hemminger a =E9crit :
+>>
+>> General/intuitive idea would be :
+>>
+>> switch pointers to a newly allocated table (and zeroed counters)
+>> wait one RCU grace period
+>> collect/sum all counters of "old" table + (all cpus) into user provi=
+ded table
+>> restore previous table
+>> wait one RCU grace period
+>> disable_bh()
+>> collect/sum all counters of "new and temporary" table (all cpus) and
+>> reinject them into local cpu table (this cpu should not be interrupt=
+ed)
+>> enable_bh()
+>>
+>> This way, "iptables -L" is not too expensive and doesnt block packet=
+ processing at all.
+>=20
+> Pretty much what I said.
 
-Using gretap is the correct way to go.  What do you mean that
-you don't know how to use it as a tunnel?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cool then, sorry for misunderstanding your patch.
+
