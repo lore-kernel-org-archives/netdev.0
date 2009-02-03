@@ -1,46 +1,79 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Remaining bits for basic support of LDP
-Date: Tue, 3 Feb 2009 08:10:42 +0000
-Message-ID: <20090203081042.GA4220@n2100.arm.linux.org.uk>
-References: <20090202213953.GB16069@n2100.arm.linux.org.uk> <20090202.134530.63616213.davem@davemloft.net> <20090202235741.GX7215@atomide.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Tue, 3 Feb 2009 10:29:29 +0100
+Message-ID: <200902031029.30739.rjw@sisk.pl>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901310237.06067.rjw@sisk.pl> <alpine.DEB.2.00.0901302039530.5643@parag-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Parag Warudkar <parag.lkml@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:37608 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750893AbZBCJ3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2009 04:29:48 -0500
+In-Reply-To: <alpine.DEB.2.00.0901302039530.5643@parag-desktop>
 Content-Disposition: inline
-In-Reply-To: <20090202235741.GX7215@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 02, 2009 at 03:57:45PM -0800, Tony Lindgren wrote:
-> * David Miller <davem@davemloft.net> [090202 13:45]:
-> > From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-> > Date: Mon, 2 Feb 2009 21:39:53 +0000
-> > 
-> > > The patch to fix these issues would seem to be relatively small (12
-> > > lines in the smc911x and one line change in board-ldp.c) - is it
-> > > something we want done for -rc4 or do we scrap the ethernet support 
-> > > on the LDP until the SMSC driver has been merged ?
-> 
-> Would be nice to have it of course!
-> 
-> > > Obviously, having working ethernet would be helpful, and since it was
-> > > half heartedly merged when the initial OMAP3 stuff went upstream we
-> > > should do something with it one way or another.
-> > 
-> > Well, the SMSC driver is there already in the tree.
-> > 
-> > The only thing not currently being scheduled to hit
-> > 2.6.29-rcX are the recent changes to support platform
-> > specified interrupt flags and all of that stuff.
-> > 
-> > If you want, we can look into pushing that work into
-> > 2.6.29-rcX
-> 
-> That would be great, more platforms to test it on.
+Hi Parag,
 
-Mainline during the -rc series is not for pushing stuff to get additional
-testing.  It's for resolving regressions and fixing bugs, not introducing
-changes which could cause regressions and bugs.
+Did you have a chance to check if the patch from Linus (reproduced
+below) on top of current -git fixed the problem for you too?
+
+Thanks,
+Rafael
+
+---
+ drivers/pci/pcie/portdrv_pci.c |   14 --------------
+ 1 files changed, 0 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/pci/pcie/portdrv_pci.c b/drivers/pci/pcie/portdrv_pci.c
+index 99a914a..08a8e3c 100644
+--- a/drivers/pci/pcie/portdrv_pci.c
++++ b/drivers/pci/pcie/portdrv_pci.c
+@@ -55,16 +55,6 @@ static int pcie_portdrv_suspend(struct pci_dev *dev, pm_message_t state)
+ 
+ }
+ 
+-static int pcie_portdrv_suspend_late(struct pci_dev *dev, pm_message_t state)
+-{
+-	return pci_save_state(dev);
+-}
+-
+-static int pcie_portdrv_resume_early(struct pci_dev *dev)
+-{
+-	return pci_restore_state(dev);
+-}
+-
+ static int pcie_portdrv_resume(struct pci_dev *dev)
+ {
+ 	pcie_portdrv_restore_config(dev);
+@@ -72,8 +62,6 @@ static int pcie_portdrv_resume(struct pci_dev *dev)
+ }
+ #else
+ #define pcie_portdrv_suspend NULL
+-#define pcie_portdrv_suspend_late NULL
+-#define pcie_portdrv_resume_early NULL
+ #define pcie_portdrv_resume NULL
+ #endif
+ 
+@@ -292,8 +280,6 @@ static struct pci_driver pcie_portdriver = {
+ 	.remove		= pcie_portdrv_remove,
+ 
+ 	.suspend	= pcie_portdrv_suspend,
+-	.suspend_late	= pcie_portdrv_suspend_late,
+-	.resume_early	= pcie_portdrv_resume_early,
+ 	.resume		= pcie_portdrv_resume,
+ 
+ 	.err_handler 	= &pcie_portdrv_err_handler,
+
