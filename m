@@ -1,123 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/3] iptables: lock free counters (alternate version)
-Date: Tue, 3 Feb 2009 12:44:42 -0800
-Message-ID: <20090203124442.44598d63@extreme>
-References: <20090130215700.965611970@vyatta.com>
-	<20090130215729.416851870@vyatta.com>
-	<498594B6.6000905@cosmosbay.com>
-	<20090202153357.3ac6edfa@extreme>
-	<49889440.60702@cosmosbay.com>
-	<20090203193214.GH6607@linux.vnet.ibm.com>
-	<4988A6F4.6000902@cosmosbay.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fwd: Re: Ethernet over GRE ?
+Date: Wed, 4 Feb 2009 07:47:34 +1100
+Message-ID: <20090203204734.GA13337@gondor.apana.org.au>
+References: <20090203131512.GA4722@libertysurf.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Lefevre <david.lefevre7@libertysurf.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42775 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751244AbZBCUon (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2009 15:44:43 -0500
-In-Reply-To: <4988A6F4.6000902@cosmosbay.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:44130 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751891AbZBCUrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 15:47:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20090203131512.GA4722@libertysurf.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Feb 03, 2009 at 02:15:12PM +0100, David Lefevre wrote:
+>
+> > thanks for the new release of iproute2 (corresponding to 2.6.28).
+> > I'm still confused : I can create a "gretap" interface and add it to a bridge (with brtcl addif) but, in that case, I don't know how to use this interface as a tunnel (GRE). And if I set up a tunnel, I cannot add it as an interface in the bridge.
 
-> >>> +	e = t->entries[curcpu];
-> >>>  	i = 0;
-> >>> -	IPT_ENTRY_ITERATE(t->entries[curcpu],
-> >>> +	IPT_ENTRY_ITERATE(e,
-> >>>  			  t->size,
-> >>>  			  set_entry_to_counter,
-> >> Hum, current cpu might be interrupted by NIC, since you only disabled preemption.
-> >> set_entry_to_counter() might get garbage.
-> >> I suppose I already mentioned it :)
+Using gretap is the correct way to go.  What do you mean that
+you don't know how to use it as a tunnel?
 
-
-Need to change preempt_disable to local_bh_disable.
-
-> >>>  			  counters,
-> >>>  			  &i);
-> >>>  
-> >>>  	for_each_possible_cpu(cpu) {
-> >>> +		void *p;
-> >>> +
-> >>>  		if (cpu == curcpu)
-> >>>  			continue;
-> >>> +
-> >>> +		/* Swizzle the values and wait */
-> >>> +		e->counters = ((struct xt_counters) { 0, 0 });
-> >> I dont see what you want to do here...
-> >>
-> >> e->counters is the counter associated with rule #0
-> >>
-> >>> +		p = t->entries[cpu];
-> >>> +		rcu_assign_pointer(t->entries[cpu], e);
-> >>> +		synchronize_net();
-> >>
-> >> Oh well, not this synchronize_net() :)
-> >>
-> >> This wont provide atomic sampling of counters for whole CPUS, and introduce large delays
-> >> on big machines (NR_CPUS >= 64)
-
-For large number of CPU's it  would be possible to allocate
-a full set of ncpu-1 new counters, then swap them in and then do one synchronize net.
-Or instead of synchronize_net, maybe a "wait for CPU #n" to go through
-grace period.
-
-> > Why would this not provide the moral equivalent of atomic sampling?
-> > The code above switches to another counter set, and waits for a grace
-> > period.  Shouldn't this mean that all CPUs that were incrementing the
-> > old set of counters have finished doing so, so that the aggregate count
-> > covers all CPUs that started their increments before the pointer switch?
-> > Same as acquiring a write lock, which would wait for all CPUs that
-> > started their increments before starting the write-lock acquisition.
-> > CPUs that started their increments after starting the write acquisition
-> > would not be accounted for in the total, same as the RCU approach.
-> > 
-> > Steve's approach does delay reading out the counters, but it avoids
-> > delaying any CPU trying to increment the counters.
-> 
-> I see your point, but this is not what Stephen implemented.
-> 
-> So.. CPU will increments which counters, if not delayed ?
-
-The concept is that only the sum of all the counters matters, not
-which CPU has the count.
-
-> How counters will be synced again after our 'iptables -L' finished ?
-> 
-> "iptable -L" is not supposed to miss some counters updates (only some packets
->  might be droped at NIC level because we spend time in the collection).
-> If packets matches some rules, we really want up2date counters.
-> 
-> Maybe we need for this collection an extra "cpu", to collect 
-> all increments that were done when CPUs where directed to a 
-> "secondary table/counters"
-> 
-> > 
-> > So what am I missing here?
-> > 
-> 
-> Well, I saw one synchronize_net() inside the for_each_possible_cpu(cpu) loop.
-> Say we have NR_CPUS=4096, how long will it takes to perform "iptables -L" ?
-> 
-> 
-> 
-> General/intuitive idea would be :
-> 
-> switch pointers to a newly allocated table (and zeroed counters)
-> wait one RCU grace period
-> collect/sum all counters of "old" table + (all cpus) into user provided table
-> restore previous table
-> wait one RCU grace period
-> disable_bh()
-> collect/sum all counters of "new and temporary" table (all cpus) and
-> reinject them into local cpu table (this cpu should not be interrupted)
-> enable_bh()
-> 
-> This way, "iptables -L" is not too expensive and doesnt block packet processing at all.
-
-Pretty much what I said.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
