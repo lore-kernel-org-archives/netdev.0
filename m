@@ -1,61 +1,29 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: [PATCH 1/1 net-next] s2io: Formatting log message
-Date: Tue, 03 Feb 2009 10:39:35 -0200
-Message-ID: <49883B07.9030009@linux.vnet.ibm.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Tue, 3 Feb 2009 16:06:06 +0300
+Message-ID: <20090203130606.GA25471@ioremap.net>
+References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net> <20090203123628.GB4639@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: sreenivasa.honnur@neterion.com, jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp03.br.ibm.com ([32.104.18.24]:55503 "EHLO
-	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752321AbZBCMjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 07:39:43 -0500
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp03.br.ibm.com (8.13.1/8.13.1) with ESMTP id n13CcQv6026256
-	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 10:38:26 -0200
-Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n13Dd46D3682476
-	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 10:39:05 -0300
-Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
-	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n13CdaHW030848
-	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 10:39:36 -0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	w@1wt.eu, dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754922AbZBCNGb@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090203123628.GB4639@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-S2IO driver is printing dev->name before the name being allocated, which
-display eth%d instead of eth0, eth1, etc. Example: 
+On Tue, Feb 03, 2009 at 12:36:28PM +0000, Jarek Poplawski (jarkao2@gmail.com) wrote:
+> I understand NTA could be better than slabs in above-mentioned cases,
+> but I'm not sure you explaind enough your point on solving this
+> zero-copy problem vs. NTA?
 
-eth%d: Enabling MSIX failed
-eth%d: MSI-X requested but failed to enable
+NTA steals pages from the SLAB so we can maintain any reference counter
+logic in them, so linear part of the skb may be not really freed/reused
+until reference counter hits zero.
 
-This patch just change eth%d to s2io.
-
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-
----
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index f5c57c0..a63a496 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -3862,7 +3862,7 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
- 	ret = pci_enable_msix(nic->pdev, nic->entries, nic->num_entries);
- 	/* We fail init if error or we get less vectors than min required */
- 	if (ret) {
--		DBG_PRINT(ERR_DBG, "%s: Enabling MSIX failed\n", nic->dev->name);
-+		DBG_PRINT(ERR_DBG, "s2io: Enabling MSI-X failed\n");
- 		kfree(nic->entries);
- 		nic->mac_control.stats_info->sw_stat.mem_freed
- 			+= (nic->num_entries * sizeof(struct msix_entry));
-@@ -8009,8 +8009,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 		if (ret) {
- 
- 			DBG_PRINT(ERR_DBG,
--			  "%s: MSI-X requested but failed to enable\n",
--			  dev->name);
-+			  "s2io: MSI-X requested but failed to enable\n");
- 			sp->config.intr_type = INTA;
- 		}
- 	}
+-- 
+	Evgeniy Polyakov
