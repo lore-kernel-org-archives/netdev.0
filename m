@@ -1,43 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net.ipv6.conf.INT.accept_ra_rt_info_max_plen defaults to 0
-Date: Mon, 02 Feb 2009 21:36:16 -0800 (PST)
-Message-ID: <20090202.213616.258001767.davem@davemloft.net>
-References: <alpine.LRH.2.00.0902030632240.7583@netcore.fi>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] dca: redesign locks
+Date: Mon, 2 Feb 2009 21:58:01 -0800
+Message-ID: <9929d2390902022158v47bdc745h7267c9c6ad6020e7@mail.gmail.com>
+References: <20090202171312.1559.65827.stgit@linux.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sega01@gmail.com
-To: pekkas@netcore.fi
+Cc: dan.j.williams@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Maciej Sosnowski <maciej.sosnowski@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45707
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751907AbZBCFgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 00:36:20 -0500
-In-Reply-To: <alpine.LRH.2.00.0902030632240.7583@netcore.fi>
+Received: from yw-out-2324.google.com ([74.125.46.28]:41194 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751485AbZBCF6D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 00:58:03 -0500
+In-Reply-To: <20090202171312.1559.65827.stgit@linux.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pekka Savola <pekkas@netcore.fi>
-Date: Tue, 3 Feb 2009 06:38:49 +0200 (EET)
-
-> As reported and discussed below and in
-> <http://www.mail-archive.com/debian-ipv6@lists.debian.org/msg03753.html>,
-> to accept "route information option" on Linux, you have to manually
-> change accept_ra_rt_info_max_plen sysctl value.  Other
-> implementations that I know of accept this by default.
+On Mon, Feb 2, 2009 at 9:14 AM, Maciej Sosnowski
+<maciej.sosnowski@intel.com> wrote:
+> Change spin_locks to irqsave to prevent dead-locks.
+> Protect adding and deleting to/from dca_providers list.
+> Drop the lock during dca_sysfs_add_req() and dca_sysfs_remove_req() calls
+> as they might sleep (use GFP_KERNEL allocation).
 >
-> Is it intentional that Route Information options are ignored by default?
+> Signed-off-by: Maciej Sosnowski <maciej.sosnowski@intel.com>
+> ---
 >
-> I suspect not -- if so, the default value should be (IMHO) 64 or if
-> that's disagreeable, 48.
-> 
-> Even if this is intentional, I think the intentions should be revisited.
+>  drivers/dca/dca-core.c |   51 +++++++++++++++++++++++++++++++-----------------
+>  1 files changed, 33 insertions(+), 18 deletions(-)
+>
 
-It looks very intentional, both via the code and it's documentation
-in ip-sysctl.txt
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-It seems that it is disabled like this by default when
-accept_ra_rtr_pref is enabled, and that seems pretty reasonable to me.
-
-I'm sure whoever made that decision didn't do so on a whim and had
-a very good reason for it.
+-- 
+Cheers,
+Jeff
