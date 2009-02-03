@@ -1,89 +1,65 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 4/4] sky2: set VPD size
-Date: Tue, 03 Feb 2009 13:27:30 -0800
-Message-ID: <20090203212756.372645048@vyatta.com>
-References: <20090203212726.983207890@vyatta.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Don't update statistics counters when interface
+	is down
+Date: Tue, 3 Feb 2009 22:46:41 +0100
+Message-ID: <20090203214641.GA354@electric-eye.fr.zoreil.com>
+References: <1233677686-11591-1-git-send-email-ivecera@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Ivan Vecera <ivecera@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:48593 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751637AbZBCV3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2009 16:29:25 -0500
-Content-Disposition: inline; filename=sky2-vpd-size.patch
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48707 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751007AbZBCVo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 16:44:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1233677686-11591-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Read configuration register during probe and use it to size the
-available VPD. Move existing code using same register slightly
-earlier in probe handling.
+Ivan Vecera <ivecera@redhat.com> :
+> Some Realtek chips (RTL8169sb/8110sb in my case) are unable to retrieve
+> ethtool statistics when the interface is down. The process stays in
+> endless loop in rtl8169_get_ethtool_stats. This is because these chips
+> need to have receiver enabled (CmdRxEnb bit in ChipCmd register) that is
+> cleared when the interface is going down. It's better to update statistics
+> only when the interface is up and otherwise return copy of statistics
+> grabbed when the interface was up (in rtl8169_close).
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+It makes sense.
 
---- a/drivers/net/sky2.c	2009-01-26 12:48:31.399586277 -0800
-+++ b/drivers/net/sky2.c	2009-01-26 12:48:34.947586089 -0800
-@@ -4335,6 +4335,7 @@ static int __devinit sky2_probe(struct p
- 	struct net_device *dev;
- 	struct sky2_hw *hw;
- 	int err, using_dac = 0, wol_default;
-+	u32 reg;
- 	char buf1[16];
- 
- 	err = pci_enable_device(pdev);
-@@ -4368,6 +4369,34 @@ static int __devinit sky2_probe(struct p
- 		}
- 	}
- 
-+	/* Get configuration information
-+	 * Note: only regular PCI config access once to test for HW issues
-+	 *       other PCI access through shared memory for speed and to
-+	 *	 avoid MMCONFIG problems.
-+	 */
-+	err = pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
-+	if (err) {
-+		dev_err(&pdev->dev, "PCI read config failed\n");
-+		goto err_out_free_regions;
-+	}
-+
-+	/* size of available VPD, only impact sysfs */
-+	err = pci_vpd_truncate(pdev, 1ul << (((reg & PCI_VPD_ROM_SZ) >> 14) + 8));
-+	if (err)
-+		dev_warn(&pdev->dev, "Can't set VPD size\n");
-+
-+#ifdef __BIG_ENDIAN
-+	/* The sk98lin vendor driver uses hardware byte swapping but
-+	 * this driver uses software swapping.
-+	 */
-+	reg &= ~PCI_REV_DESC;
-+	err = pci_write_config_dword(pdev,PCI_DEV_REG2, reg);
-+	if (err) {
-+		dev_err(&pdev->dev, "PCI write config failed\n");
-+		goto err_out_free_regions;
-+	}
-+#endif
-+
- 	wol_default = device_may_wakeup(&pdev->dev) ? WAKE_MAGIC : 0;
- 
- 	err = -ENOMEM;
-@@ -4385,18 +4414,6 @@ static int __devinit sky2_probe(struct p
- 		goto err_out_free_hw;
- 	}
- 
--#ifdef __BIG_ENDIAN
--	/* The sk98lin vendor driver uses hardware byte swapping but
--	 * this driver uses software swapping.
--	 */
--	{
--		u32 reg;
--		reg = sky2_pci_read32(hw, PCI_DEV_REG2);
--		reg &= ~PCI_REV_DESC;
--		sky2_pci_write32(hw, PCI_DEV_REG2, reg);
--	}
--#endif
--
- 	/* ring for status responses */
- 	hw->st_le = pci_alloc_consistent(pdev, STATUS_LE_BYTES, &hw->st_dma);
- 	if (!hw->st_le)
+[...]
+> +static void rtl8169_update_counters(struct net_device *dev)
+>  {
+>  	struct rtl8169_private *tp = netdev_priv(dev);
+>  	void __iomem *ioaddr = tp->mmio_addr;
+>  	struct rtl8169_counters *counters;
+>  	dma_addr_t paddr;
+>  	u32 cmd;
+> +	int wait = 1000;
+>  
+> -	ASSERT_RTNL();
+> +	if (!netif_running(dev))
+> +		return;
+
+
+int dev_close(struct net_device *dev)
+{
+[...]
+	clear_bit(__LINK_STATE_START, &dev->state);
+        -> netif_running is not true anymore
+[...]
+	if (ops->ndo_stop)
+		ops->ndo_stop(dev);
+
+-> Calling rtl8169_update_counters in rtl8169_close looks like a no-op.
+
+Aside from that, I do not understand from the description the need for
+the "while (wait--)" loop.
+
+Aside from the aside, the diff can probably be shorter if a local "counters"
+variable is kept in the ethtool function (nit).
 
 -- 
-
+Ueimor
