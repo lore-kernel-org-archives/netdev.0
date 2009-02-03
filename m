@@ -1,70 +1,89 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] sunrpc: fix rdma dependencies
-Date: Tue, 03 Feb 2009 14:13:15 -0800
-Message-ID: <4988C17B.1030902@oracle.com>
-References: <200902030112.n131CNiq010549@imap1.linux-foundation.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Tue, 3 Feb 2009 23:15:26 +0100
+Message-ID: <200902032315.27113.rjw@sisk.pl>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200902031029.30739.rjw@sisk.pl> <alpine.DEB.2.00.0902031622070.5481@parag-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>, Roland Dreier <rolandd@cisco.com>,
-	Dave Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Parag Warudkar <parag.lkml@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet13.oracle.com ([148.87.113.125]:59389 "EHLO
-	rgminet13.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050AbZBCWNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 17:13:38 -0500
-In-Reply-To: <200902030112.n131CNiq010549@imap1.linux-foundation.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:41561 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751541AbZBCWPo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2009 17:15:44 -0500
+In-Reply-To: <alpine.DEB.2.00.0902031622070.5481@parag-desktop>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
-> This patch was dropped because other changes were merged, which wrecked this patch.
+On Tuesday 03 February 2009, Parag Warudkar wrote:
+> 
+> On Tue, 3 Feb 2009, Rafael J. Wysocki wrote:
+> 
+> > Did you have a chance to check if the patch from Linus (reproduced
+> > below) on top of current -git fixed the problem for you too?
+> > 
+> Hi Rafael,
+> 
+> Yes, the patch below (atop today's git) does work for me.
 
-The kconfig just moved from one file to another one.  The problem is still there.
+Good.
+
+Can you also test this one instead and tell me if it still works?
+
+Rafael
 
 ---
-From: Randy Dunlap <randy.dunlap@oracle.com>
+ drivers/pci/pcie/portdrv_pci.c |   16 +---------------
+ 1 file changed, 1 insertion(+), 15 deletions(-)
 
-Fix sunrpc/rdma build dependencies.
-Survives 12 build combinations of INET, IPV6, SUNRPC,
-INFINIBAND, and INFINIBAND_ADDR_TRANS.
-
-ERROR: "rdma_destroy_id" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_connect" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_destroy_qp" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_create_id" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_create_qp" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_resolve_route" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_disconnect" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_resolve_addr" [net/sunrpc/xprtrdma/xprtrdma.ko] undefined!
-ERROR: "rdma_accept" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
-ERROR: "rdma_destroy_id" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
-ERROR: "rdma_listen" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
-ERROR: "rdma_create_id" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
-ERROR: "rdma_create_qp" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
-ERROR: "rdma_bind_addr" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
-ERROR: "rdma_disconnect" [net/sunrpc/xprtrdma/svcrdma.ko] undefined!
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-cc:	J. Bruce Fields <bfields@fieldses.org>
-cc:	Neil Brown <neilb@suse.de>
-cc:	Roland Dreier <rolandd@cisco.com>
-cc:	Dave Miller <davem@davemloft.net>
----
- net/sunrpc/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- mmotm-2009-0202-1712.orig/net/sunrpc/Kconfig
-+++ mmotm-2009-0202-1712/net/sunrpc/Kconfig
-@@ -6,7 +6,7 @@ config SUNRPC_GSS
+Index: linux-2.6/drivers/pci/pcie/portdrv_pci.c
+===================================================================
+--- linux-2.6.orig/drivers/pci/pcie/portdrv_pci.c
++++ linux-2.6/drivers/pci/pcie/portdrv_pci.c
+@@ -55,25 +55,13 @@ static int pcie_portdrv_suspend(struct p
  
- config SUNRPC_XPRT_RDMA
- 	tristate
--	depends on SUNRPC && INFINIBAND && EXPERIMENTAL
-+	depends on SUNRPC && INFINIBAND && INFINIBAND_ADDR_TRANS && EXPERIMENTAL
- 	default SUNRPC && INFINIBAND
- 	help
- 	  This option allows the NFS client and server to support
+ }
+ 
+-static int pcie_portdrv_suspend_late(struct pci_dev *dev, pm_message_t state)
+-{
+-	return pci_save_state(dev);
+-}
+-
+-static int pcie_portdrv_resume_early(struct pci_dev *dev)
+-{
+-	return pci_restore_state(dev);
+-}
+-
+ static int pcie_portdrv_resume(struct pci_dev *dev)
+ {
+-	pcie_portdrv_restore_config(dev);
++	pci_set_master(dev);
+ 	return pcie_port_device_resume(dev);
+ }
+ #else
+ #define pcie_portdrv_suspend NULL
+-#define pcie_portdrv_suspend_late NULL
+-#define pcie_portdrv_resume_early NULL
+ #define pcie_portdrv_resume NULL
+ #endif
+ 
+@@ -292,8 +280,6 @@ static struct pci_driver pcie_portdriver
+ 	.remove		= pcie_portdrv_remove,
+ 
+ 	.suspend	= pcie_portdrv_suspend,
+-	.suspend_late	= pcie_portdrv_suspend_late,
+-	.resume_early	= pcie_portdrv_resume_early,
+ 	.resume		= pcie_portdrv_resume,
+ 
+ 	.err_handler 	= &pcie_portdrv_err_handler,
+
