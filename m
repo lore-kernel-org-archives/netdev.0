@@ -1,8 +1,8 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Tue, 3 Feb 2009 14:49:44 +0300
-Message-ID: <20090203114944.GA21957@ioremap.net>
-References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net> <20090203112431.GA8746@gondor.apana.org.au>
+Date: Tue, 3 Feb 2009 22:53:13 +1100
+Message-ID: <20090203115313.GA9018@gondor.apana.org.au>
+References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net> <20090203112431.GA8746@gondor.apana.org.au> <20090203114944.GA21957@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jarek Poplawski <jarkao2@gmail.com>,
@@ -10,35 +10,33 @@ Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jens.axboe@oracle.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754010AbZBCLuN@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:36847 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751655AbZBCLyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 06:54:32 -0500
 Content-Disposition: inline
-In-Reply-To: <20090203112431.GA8746@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090203114944.GA21957@ioremap.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 03, 2009 at 10:24:31PM +1100, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > I even believe that for some hardware it is the only way to deal
-> > with the jumbo frames.
-> 
-> Not necessarily.  Even if the hardware can only DMA into contiguous
-> memory, we can always allocate a sufficient number of contiguous
-> buffers initially, and then always copy them into fragmented skbs
-> at receive time.  This way the contiguous buffers are never
-> depleted.
+On Tue, Feb 03, 2009 at 02:49:44PM +0300, Evgeniy Polyakov wrote:
+> How many such preallocated frames is enough? Does it enough to have all
+> sockets recv buffer sizes divided by the MTU size? Or just some of them,
+> or... That will work but there are way too many corner cases.
 
-How many such preallocated frames is enough? Does it enough to have all
-sockets recv buffer sizes divided by the MTU size? Or just some of them,
-or... That will work but there are way too many corner cases.
+Easy, the driver is already allocating them right now so we don't
+have to change a thing :)
 
-> Granted copying sucks, but this is really because the underlying
-> hardware is badly designed.  Also copying is way better than
-> not receiving at all due to memory fragmentation.
+All we have to do is change the refill mechanism to always allocate
+a replacement skb in the rx path, and if that fails, allocate a
+fragmented skb instead and copy the received data into it so that
+the contiguous skb can be reused.
 
-Maybe just do not allow jumbo frames when memory is fragmented enough
-and fallback to the smaller MTU in this case? With LRO/GRO stuff there
-should be not that much of the overhead compared to multiple-page
-copies.
-
+Cheers,
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
