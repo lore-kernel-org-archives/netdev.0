@@ -1,25 +1,83 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 3/3] iptables: lock free counters (alternate version)
-Date: Tue, 03 Feb 2009 13:27:24 -0800
-Message-ID: <4988B6BC.70006@hp.com>
-References: <20090130215700.965611970@vyatta.com>	<20090130215729.416851870@vyatta.com>	<498594B6.6000905@cosmosbay.com> <20090202153357.3ac6edfa@extreme>	<49889440.60702@cosmosbay.com>	<20090203193214.GH6607@linux.vnet.ibm.com>	<4988A6F4.6000902@cosmosbay.com>	<20090203211000.GI6607@linux.vnet.ibm.com> <20090203132220.21a16ea1@extreme>
+From: Parag Warudkar <parag.lkml@gmail.com>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Tue, 3 Feb 2009 16:27:18 -0500 (EST)
+Message-ID: <alpine.DEB.2.00.0902031622070.5481@parag-desktop>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200901310237.06067.rjw@sisk.pl> <alpine.DEB.2.00.0901302039530.5643@parag-desktop> <200902031029.30739.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, Eric Dumazet <dada1@cosmosbay.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Parag Warudkar <parag.lkml@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:19375 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500AbZBCV1a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 16:27:30 -0500
-In-Reply-To: <20090203132220.21a16ea1@extreme>
+Received: from yx-out-2324.google.com ([74.125.44.28]:7935 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751311AbZBCV1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 16:27:32 -0500
+In-Reply-To: <200902031029.30739.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So, is this patch stream at a point where I should try running the 32-core 
-netperf tests against it?  And if so, against which tree should I try applying 
-patches?
 
-rick jones
+
+On Tue, 3 Feb 2009, Rafael J. Wysocki wrote:
+
+> Did you have a chance to check if the patch from Linus (reproduced
+> below) on top of current -git fixed the problem for you too?
+> 
+Hi Rafael,
+
+Yes, the patch below (atop today's git) does work for me.
+
+Parag
+
+> ---
+>  drivers/pci/pcie/portdrv_pci.c |   14 --------------
+>  1 files changed, 0 insertions(+), 14 deletions(-)
+> 
+> diff --git a/drivers/pci/pcie/portdrv_pci.c b/drivers/pci/pcie/portdrv_pci.c
+> index 99a914a..08a8e3c 100644
+> --- a/drivers/pci/pcie/portdrv_pci.c
+> +++ b/drivers/pci/pcie/portdrv_pci.c
+> @@ -55,16 +55,6 @@ static int pcie_portdrv_suspend(struct pci_dev *dev, pm_message_t state)
+>  
+>  }
+>  
+> -static int pcie_portdrv_suspend_late(struct pci_dev *dev, pm_message_t state)
+> -{
+> -	return pci_save_state(dev);
+> -}
+> -
+> -static int pcie_portdrv_resume_early(struct pci_dev *dev)
+> -{
+> -	return pci_restore_state(dev);
+> -}
+> -
+>  static int pcie_portdrv_resume(struct pci_dev *dev)
+>  {
+>  	pcie_portdrv_restore_config(dev);
+> @@ -72,8 +62,6 @@ static int pcie_portdrv_resume(struct pci_dev *dev)
+>  }
+>  #else
+>  #define pcie_portdrv_suspend NULL
+> -#define pcie_portdrv_suspend_late NULL
+> -#define pcie_portdrv_resume_early NULL
+>  #define pcie_portdrv_resume NULL
+>  #endif
+>  
+> @@ -292,8 +280,6 @@ static struct pci_driver pcie_portdriver = {
+>  	.remove		= pcie_portdrv_remove,
+>  
+>  	.suspend	= pcie_portdrv_suspend,
+> -	.suspend_late	= pcie_portdrv_suspend_late,
+> -	.resume_early	= pcie_portdrv_resume_early,
+>  	.resume		= pcie_portdrv_resume,
+>  
+>  	.err_handler 	= &pcie_portdrv_err_handler,
+> 
+> 
