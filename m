@@ -1,52 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Tue, 3 Feb 2009 23:18:08 +1100
-Message-ID: <20090203121808.GA9218@gondor.apana.org.au>
-References: <20090202080855.GA4129@ff.dom.local> <20090202.001854.261399333.davem@davemloft.net> <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090203111012.GA16878@ioremap.net> <20090203112431.GA8746@gondor.apana.org.au> <20090203114944.GA21957@ioremap.net> <alpine.DEB.1.10.0902030458390.28633@asgard.lang.hm> <20090203121219.GB22427@ioremap.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Remaining bits for basic support of LDP
+Date: Tue, 3 Feb 2009 12:21:38 +0000
+Message-ID: <20090203122138.GA9148@n2100.arm.linux.org.uk>
+References: <20090203081042.GA4220@n2100.arm.linux.org.uk> <OF4F840E52.4A9545A8-ON80257552.003BBA78-80257552.003CC882@smsc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: david@lang.hm, Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53273 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752131AbZBCMTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 07:19:10 -0500
+Cc: David Miller <davem@davemloft.net>, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, Tony Lindgren <tony@atomide.com>
+To: Steve.Glendinning@smsc.com
+Return-path: <linux-omap-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090203121219.GB22427@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <OF4F840E52.4A9545A8-ON80257552.003BBA78-80257552.003CC882@smsc.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 03, 2009 at 03:12:19PM +0300, Evgeniy Polyakov wrote:
+On Tue, Feb 03, 2009 at 11:02:31AM +0000, Steve.Glendinning@smsc.com wrote:
+> Russell King - ARM Linux <linux@arm.linux.org.uk> wrote on 03/02/2009 
+> 08:10:42:
+> > On Mon, Feb 02, 2009 at 03:57:45PM -0800, Tony Lindgren wrote:
+> > > * David Miller <davem@davemloft.net> [090202 13:45]:
+> > > > Well, the SMSC driver is there already in the tree.
+> > > > 
+> > > > The only thing not currently being scheduled to hit
+> > > > 2.6.29-rcX are the recent changes to support platform
+> > > > specified interrupt flags and all of that stuff.
+> > > > 
+> > > > If you want, we can look into pushing that work into
+> > > > 2.6.29-rcX
+> > > 
+> > > That would be great, more platforms to test it on.
+> > 
+> > Mainline during the -rc series is not for pushing stuff to get 
+> additional
+> > testing.  It's for resolving regressions and fixing bugs, not 
+> introducing
+> > changes which could cause regressions and bugs.
 > 
-> It is a solution, but I think it will behave noticebly worse than
-> with decresed MTU.
+> Does it help that the smsc911x driver is new this cycle?
 
-Not necessarily.  Remember GSO/GRO in essence are just hacks to
-get around the fact that we can't increase the MTU to where we
-want it to be.  MTU reduces the cost over the entire path while
-GRO/GSO only do so for the sender and the receiver.
+No.
 
-In other words when given the choice between a larger MTU with
-copying or GRO, the larger MTU will probably win anyway as it's
-optimising the entire path rather than just the receiver.
- 
-> That's the main point: how to deal with broken hardware? I think (but
-> have no strong numbers though) that having 6 packets with 1500 MTU
-> combined into GRO/LRO frame will be processed way faster than copying 9k
-> MTU into 3 pages and process single skb.
+> Without these patches the driver fails to register its interrupt on many 
+> arm platforms, so it could be said that these patches do fix regressions 
+> against the smc911x driver it's intended to replace.
 
-Please note that with my scheme, you'd only start copying if you
-can't allocate a linear skb.  So if memory fragmentation doesn't
-happen then there is no copying at all.
+As far as I'm aware, the smc911x driver works as is on the majority of
+ARM platforms.  The fact that it works is enough justification to leave
+well alone during the -rc series.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Changing it involves risk that something will break, which will cause
+a regression.  This is not a risk that we want, and we certainly don't
+want any new regressions in the -rc series.  The proper time to take
+that risk is during the merge window.
+
+> On a related note, if these go in during the next merge window, is there a 
+> mechanism for ensuring the platform support patches in the set are merged 
+> after these?
+
+No, and that's the problem with splitting it across two separate trees,
+which is a point I was trying to make when these patches first came to
+my attention.
