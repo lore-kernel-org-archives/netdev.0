@@ -1,118 +1,305 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFT 0/3] netfilter: lock free tables
-Date: Tue, 03 Feb 2009 17:40:11 -0800
-Message-ID: <4988F1FB.5020303@hp.com>
-References: <20090204001202.724266235@vyatta.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFT 3/3] iptables: lock free counters
+Date: Wed, 04 Feb 2009 04:10:22 +0100
+Message-ID: <4989071E.5000803@cosmosbay.com>
+References: <20090204001202.724266235@vyatta.com> <20090204001755.808036408@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>,
+	Rick Jones <rick.jones2@hp.com>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090204001202.724266235@vyatta.com>
+In-Reply-To: <20090204001755.808036408@vyatta.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> This is the "swap" version of lock less iptables counter update.
-> It gets rid of the expensive reader/writer lock and uses RCU
-> and swapping to accomplish the same thing.
-> 
-> Patches are against current net-next tree.
-> It is not ready for inclusion until it is tested by others who
-> actually use iptables heavily.
+Stephen Hemminger a =E9crit :
+> Make netfilter tables that use x_tables (iptables, ip6tables, arptabl=
+es)
+> operatate without locking on the receive path.
+> Replace existing reader/writer lock with Read-Copy-Update to
+> elminate the overhead of a read lock on each incoming packet.
+> This should reduce the overhead of iptables especially on SMP
+> systems.
+>=20
+> The previous code used a reader-writer lock for two purposes.
+> The first was to ensure that the xt_table_info reference was not in
+> process of being changed. Since xt_table_info is only freed via one
+> routine, it was a direct conversion to RCU.
+>=20
+> The other use of the reader-writer lock was to to block changes
+> to counters while they were being read. This is handled by swapping i=
+n
+> a new set of counter values and then summing the old ones. The sum
+> is then restored back on a single cpu.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
+> ---
+>  include/linux/netfilter/x_tables.h |   13 ++++
+>  net/ipv4/netfilter/arp_tables.c    |   92 ++++++++++++++++++++++++--=
+---------
+>  net/ipv4/netfilter/ip_tables.c     |   97 ++++++++++++++++++++++++--=
+-----------
+>  net/ipv6/netfilter/ip6_tables.c    |   97 +++++++++++++++++++++++---=
+-----------
+>  net/netfilter/x_tables.c           |   67 +++++++++++++++++++++----
+>  5 files changed, 258 insertions(+), 108 deletions(-)
+>=20
+> --- a/include/linux/netfilter/x_tables.h	2009-02-02 15:06:39.89375184=
+5 -0800
+> +++ b/include/linux/netfilter/x_tables.h	2009-02-03 15:44:21.74366321=
+6 -0800
+> @@ -353,7 +353,7 @@ struct xt_table
+>  	unsigned int valid_hooks;
+> =20
+>  	/* Lock for the curtain */
+> -	rwlock_t lock;
+> +	struct mutex lock;
+> =20
+>  	/* Man behind the curtain... */
+>  	struct xt_table_info *private;
+> @@ -383,9 +383,15 @@ struct xt_table_info
+>  	unsigned int hook_entry[NF_INET_NUMHOOKS];
+>  	unsigned int underflow[NF_INET_NUMHOOKS];
+> =20
+> +	/* For the dustman... */
+> +	union {
+> +		struct rcu_head rcu;
+> +		struct work_struct work;
+> +	};
+> +
+>  	/* ipt_entry tables: one per CPU */
+>  	/* Note : this field MUST be the last one, see XT_TABLE_INFO_SZ */
+> -	char *entries[1];
+> +	void *entries[1];
+>  };
+> =20
+>  #define XT_TABLE_INFO_SZ (offsetof(struct xt_table_info, entries) \
+> @@ -432,6 +438,9 @@ extern void xt_proto_fini(struct net *ne
+> =20
+>  extern struct xt_table_info *xt_alloc_table_info(unsigned int size);
+>  extern void xt_free_table_info(struct xt_table_info *info);
+> +extern void xt_zero_table_entries(struct xt_table_info *info);
+> +extern void xt_swap_table_entries(struct xt_table_info *old,
+> +				  struct xt_table_info *new);
+> =20
+>  #ifdef CONFIG_COMPAT
+>  #include <net/compat.h>
+> --- a/net/ipv4/netfilter/ip_tables.c	2009-02-02 15:06:29.684249364 -0=
+800
+> +++ b/net/ipv4/netfilter/ip_tables.c	2009-02-03 15:52:32.047583686 -0=
+800
+> @@ -347,10 +347,12 @@ ipt_do_table(struct sk_buff *skb,
+>  	mtpar.family  =3D tgpar.family =3D NFPROTO_IPV4;
+>  	tgpar.hooknum =3D hook;
+> =20
+> -	read_lock_bh(&table->lock);
+>  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+> -	private =3D table->private;
+> -	table_base =3D (void *)private->entries[smp_processor_id()];
+> +
+> +	rcu_read_lock_bh();
+> +	private =3D rcu_dereference(table->private);
+> +	table_base =3D rcu_dereference(private->entries[smp_processor_id()]=
+);
+> +
+>  	e =3D get_entry(table_base, private->hook_entry[hook]);
+> =20
+>  	/* For return from builtin chain */
+> @@ -445,7 +447,7 @@ ipt_do_table(struct sk_buff *skb,
+>  		}
+>  	} while (!hotdrop);
+> =20
+> -	read_unlock_bh(&table->lock);
+> +	rcu_read_unlock_bh();
+> =20
+>  #ifdef DEBUG_ALLOW_ALL
+>  	return NF_ACCEPT;
+> @@ -924,13 +926,45 @@ get_counters(const struct xt_table_info=20
+>  				  counters,
+>  				  &i);
+>  	}
+> +
+> +}
+> +
+> +/* We're lazy, and add to the first CPU; overflow works its fey magi=
+c
+> + * and everything is OK. */
+> +static int
+> +add_counter_to_entry(struct ipt_entry *e,
+> +		     const struct xt_counters addme[],
+> +		     unsigned int *i)
+> +{
+> +	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
+> +
+> +	(*i)++;
+> +	return 0;
+> +}
+> +
+> +/* Take values from counters and add them back onto the current cpu =
+*/
+> +static void put_counters(struct xt_table_info *t,
+> +			 const struct xt_counters counters[])
+> +{
+> +	unsigned int i, cpu;
+> +
+> +	local_bh_disable();
+> +	cpu =3D smp_processor_id();
+> +	i =3D 0;
+> +	IPT_ENTRY_ITERATE(t->entries[cpu],
+> +			  t->size,
+> +			  add_counter_to_entry,
+> +			  counters,
+> +			  &i);
+> +	local_bh_enable();
+>  }
+> =20
+>  static struct xt_counters * alloc_counters(struct xt_table *table)
+>  {
+>  	unsigned int countersize;
+>  	struct xt_counters *counters;
+> -	const struct xt_table_info *private =3D table->private;
+> +	struct xt_table_info *private =3D table->private;
+> +	struct xt_table_info *tmp;
+> =20
+>  	/* We need atomic snapshot of counters: rest doesn't change
+>  	   (other than comefrom, which userspace doesn't care
+> @@ -939,14 +973,30 @@ static struct xt_counters * alloc_counte
+>  	counters =3D vmalloc_node(countersize, numa_node_id());
+> =20
+>  	if (counters =3D=3D NULL)
+> -		return ERR_PTR(-ENOMEM);
+> +		goto nomem;
+> +
+> +	tmp =3D xt_alloc_table_info(private->size);
+> +	if (!tmp)
+> +		goto free_counters;
+> +
 
-Patches applied with minimal fuzz on a net-next I snapped this afternoon. 
-Resulting kernel booted on my 32-core IA64 system.  I was able to run the "none" 
-case - no iptables --list command.
+> +	xt_zero_table_entries(tmp);
+This is not correct. We must copy rules and zero counters on the copied=
+ stuff.
 
-When I executed an iptables --list command to setup the "empty" test case, the 
-following appeared on the console:
+> +
+> +	mutex_lock(&table->lock);
+> +	xt_swap_table_entries(private, tmp);
+> +	synchronize_net();	/* Wait until smoke has cleared */
+> =20
+> -	/* First, sum counters... */
+> -	write_lock_bh(&table->lock);
+> -	get_counters(private, counters);
+> -	write_unlock_bh(&table->lock);
+> +	get_counters(tmp, counters);
 
-sut42:~# [ 1670.161689] ip_tables: (C) 2000-2006 Netfilter Core Team
-[ 1670.235690] Unable to handle kernel paging request at virtual address 
-a00000021e468000
-[ 1670.235917] iptables[5723]: Oops 8813272891392 [1]
-[ 1670.236060] Modules linked in: iptable_filter ip_tables x_tables s2io ipv6 
-loop evdev ext3 jbd mbcache sg st sr_mod osst cdrom sd_mod mptspi mptscsih 
-mptbase scsi_transport_spi scsi_mod tg3 libphy [last unloaded: s2io]
-[ 1670.236716]
-[ 1670.236717] Pid: 5723, CPU 7, comm:             iptables
-[ 1670.236922] psr : 00001010085a6010 ifs : 8000000000000389 ip  : 
-[<a00000021e421cb0>]    Not tainted (2.6.29-rc3-nexthemminger3)
-[ 1670.237263] ip is at alloc_counters+0x170/0x280 [ip_tables]
-[ 1670.237425] unat: 0000000000000000 pfs : 0000000000000389 rsc : 0000000000000003
-[ 1670.237635] rnat: 0000000000000000 bsps: 0000000000000000 pr  : 00000000a695a599
-[ 1670.237846] ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c0270033f
-[ 1670.238057] csd : 0000000000000000 ssd : 0000000000000000
-[ 1670.238213] b0  : a00000021e421c60 b6  : a000000100074800 b7  : a00000010000b700
-[ 1670.238628] f6  : 0fffbfffffffff0000000 f7  : 0ffebfc62000000000000
-[ 1670.238807] f8  : 1003e00000000a0000000 f9  : 1003e0000009bf42aa33e
-[ 1670.238987] f10 : 1003e789aa606c0000000 f11 : 1003e0000000000000061
-[ 1670.239166] r1  : a00000021e424cd0 r2  : 0000000000000000 r3  : 0000000000000000
-[ 1670.239378] r8  : 0000000000000040 r9  : 0000000000000278 r10 : 0000000000000011
-[ 1670.239589] r11 : e000070f85837308 r12 : e000070f8dc47de0 r13 : e000070f8dc40000
-[ 1670.239628] r14 : 0000000000000278 r15 : 0000000000000400 r16 : 0000000000000000
-[ 1670.239628] r17 : e000070f8dc40cc4 r18 : a00000021e468000 r19 : e000070f87e119e8
-[ 1670.239628] r20 : e000070f87e119e0 r21 : 0000000000000000 r22 : 0000000000000401
-[ 1670.239628] r23 : e000070f85837390 r24 : 0000000000000000 r25 : bea7a9a2c2b9b978
-[ 1670.239628] r26 : e000070f87e119da r27 : 6e6e6e6e6e6e6e6e r28 : c1d5909426a6ead0
-[ 1670.239628] r29 : 6e6e6e6e6e6e6e6e r30 : 50393b34544b4b0a r31 : e000070f87e11980
-[ 1670.239628]
-[ 1670.239628] Call Trace:
-[ 1670.239628]  [<a000000100014cb0>] show_stack+0x50/0xa0
-[ 1670.239628]                                 sp=e000070f8dc479b0 
-bsp=e000070f8dc411e0
-[ 1670.239628]  [<a000000100015520>] show_regs+0x820/0x860
-[ 1670.239628]                                 sp=e000070f8dc47b80 
-bsp=e000070f8dc41188
-[ 1670.239628]  [<a000000100039f60>] die+0x1a0/0x2c0
-[ 1670.239628]                                 sp=e000070f8dc47b80 
-bsp=e000070f8dc41148
-[ 1670.239628]  [<a000000100059370>] ia64_do_page_fault+0x8b0/0x9e0
-[ 1670.239628]                                 sp=e000070f8dc47b80 
-bsp=e000070f8dc410f8
-[ 1670.239628]  [<a00000010000bf20>] ia64_native_leave_kernel+0x0/0x270
-[ 1670.239628]                                 sp=e000070f8dc47c10 
-bsp=e000070f8dc410f8
-[ 1670.239628]  [<a00000021e421cb0>] alloc_counters+0x170/0x280 [ip_tables]
-[ 1670.239628]                                 sp=e000070f8dc47de0 
-bsp=e000070f8dc410b0
-[ 1670.239628]  [<a00000021e422040>] do_ipt_get_ctl+0x280/0x8e0 [ip_tables]
-[ 1670.239628]                                 sp=e000070f8dc47de0 
-bsp=e000070f8dc41018
-[ 1670.239628]  [<a00000010055c080>] nf_sockopt+0xc0/0x160
-[ 1670.239628]                                 sp=e000070f8dc47e10 
-bsp=e000070f8dc40fc0
-[ 1670.239628]  [<a00000010055c160>] nf_getsockopt+0x40/0x60
-[ 1670.239628]                                 sp=e000070f8dc47e10 
-bsp=e000070f8dc40f80
-[ 1670.239628]  [<a000000100578fd0>] ip_getsockopt+0x170/0x280
-[ 1670.239628]                                 sp=e000070f8dc47e10 
-bsp=e000070f8dc40f40
-[ 1670.239628]  [<a0000001005c1700>] raw_getsockopt+0x40/0xa0
-[ 1670.239628]                                 sp=e000070f8dc47e20 
-bsp=e000070f8dc40f00
-[ 1670.239628]  [<a0000001004ebeb0>] sock_common_getsockopt+0x70/0xa0
-[ 1670.239628]                                 sp=e000070f8dc47e20 
-bsp=e000070f8dc40ec0
-[ 1670.239628]  [<a0000001004e77f0>] sys_getsockopt+0x110/0x1c0
-[ 1670.239628]                                 sp=e000070f8dc47e20 
-bsp=e000070f8dc40e40
-[ 1670.239628]  [<a00000010000bd80>] ia64_ret_from_syscall+0x0/0x20
-[ 1670.239628]                                 sp=e000070f8dc47e30 
-bsp=e000070f8dc40e40
-[ 1670.239628]  [<a000000000010720>] __start_ivt_text+0xffffffff00010720/0x400
-[ 1670.239628]                                 sp=e000070f8dc48000 
-bsp=e000070f8dc40e40
-[ 1670.367369] Kernel panic - not syncing: Aiee, killing interrupt handler!
+Yes, tmp now hold previous pointers
 
+> +	put_counters(private, counters);
+> +	mutex_unlock(&table->lock);
+> +
+> +	xt_free_table_info(tmp);
+> =20
+>  	return counters;
+> +
+> + free_counters:
+> +	vfree(counters);
+> + nomem:
+> +	return ERR_PTR(-ENOMEM);
+>  }
+> =20
+>  static int
+> @@ -1312,27 +1362,6 @@ do_replace(struct net *net, void __user=20
+>  	return ret;
+>  }
+> =20
+> -/* We're lazy, and add to the first CPU; overflow works its fey magi=
+c
+> - * and everything is OK. */
+> -static int
+> -add_counter_to_entry(struct ipt_entry *e,
+> -		     const struct xt_counters addme[],
+> -		     unsigned int *i)
+> -{
+> -#if 0
+> -	duprintf("add_counter: Entry %u %lu/%lu + %lu/%lu\n",
+> -		 *i,
+> -		 (long unsigned int)e->counters.pcnt,
+> -		 (long unsigned int)e->counters.bcnt,
+> -		 (long unsigned int)addme[*i].pcnt,
+> -		 (long unsigned int)addme[*i].bcnt);
+> -#endif
+> -
+> -	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
+> -
+> -	(*i)++;
+> -	return 0;
+> -}
+> =20
+>  static int
+>  do_add_counters(struct net *net, void __user *user, unsigned int len=
+, int compat)
+> @@ -1393,13 +1422,14 @@ do_add_counters(struct net *net, void __
+>  		goto free;
+>  	}
+> =20
+> -	write_lock_bh(&t->lock);
+> +	mutex_lock(&t->lock);
+>  	private =3D t->private;
+>  	if (private->number !=3D num_counters) {
+>  		ret =3D -EINVAL;
+>  		goto unlock_up_free;
+>  	}
+> =20
+> +	preempt_disable();
+>  	i =3D 0;
+>  	/* Choose the copy that is on our node */
+>  	loc_cpu_entry =3D private->entries[raw_smp_processor_id()];
+> @@ -1408,8 +1438,9 @@ do_add_counters(struct net *net, void __
+>  			  add_counter_to_entry,
+>  			  paddc,
+>  			  &i);
+> +	preempt_enable();
+>   unlock_up_free:
+> -	write_unlock_bh(&t->lock);
+> +	mutex_unlock(&t->lock);
+>  	xt_table_unlock(t);
+>  	module_put(t->me);
+>   free:
+> --- a/net/netfilter/x_tables.c	2009-02-02 15:06:29.708249745 -0800
+> +++ b/net/netfilter/x_tables.c	2009-02-03 15:44:21.743663216 -0800
+> @@ -611,18 +611,61 @@ struct xt_table_info *xt_alloc_table_inf
+>  }
+>  EXPORT_SYMBOL(xt_alloc_table_info);
+> =20
+> -void xt_free_table_info(struct xt_table_info *info)
+> +/* Zero out entries */
+> +void xt_zero_table_entries(struct xt_table_info *info)
+>  {
+> -	int cpu;
+> +	unsigned int cpu;
+> +
+> +	for_each_possible_cpu(cpu)
+> +		memset(info->entries[cpu], 0, info->size);
+> +}
+> +EXPORT_SYMBOL_GPL(xt_zero_table_entries);
 
-I'm in the midst of rebooting the system to try to pull the typescript from the 
-compilation.
+Hum, you forgot entries[cpu] points to quite complex data set,
+with iptables rules, countaining counters...
 
-rick jones
+Only counters must be zeroed, one by one.
+
+You thus need an ITERATE invocation...
+
+I wont be able to make the incremental patch (too busy @work at this mo=
+ment),
+I am sorry :(
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
