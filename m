@@ -1,66 +1,39 @@
-From: Alex Chiang <achiang@hp.com>
-Subject: [net-next PATCH] e1000e: normalize usage of serdes_has_link
-Date: Wed, 4 Feb 2009 15:04:34 -0700
-Message-ID: <20090204220434.GD20091@ldl.fc.hp.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [PATCH] [RESEND] iproute2 : invalid burst/cburst calculation with hrtimers
+Date: Thu, 5 Feb 2009 00:26:46 +0200
+Message-ID: <200902050026.46603.denys@visp.net.lb>
+References: <200902021926.17768.denys@visp.net.lb> <498A0699.6020103@gmail.com> <498A0E4A.8050807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, jeff@garzik.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:34842 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756869AbZBDWEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 17:04:36 -0500
+Received: from hosting.visp.net.lb ([194.146.153.11]:36274 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757539AbZBDW04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 17:26:56 -0500
+In-Reply-To: <498A0E4A.8050807@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cosmetic change to use struct e1000_mac_info.serdes_has_link
-consistently as the 'bool' that it's declared as.
-
-No functional change.
-
-Signed-off-by: Alex Chiang <achiang@hp.com>
----
-
- ethtool.c |    2 +-
- lib.c     |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index e48956d..2557aee 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1589,7 +1589,7 @@ static int e1000_link_test(struct e1000_adapter *adapter, u64 *data)
- 	*data = 0;
- 	if (hw->phy.media_type == e1000_media_type_internal_serdes) {
- 		int i = 0;
--		hw->mac.serdes_has_link = 0;
-+		hw->mac.serdes_has_link = false;
- 
- 		/*
- 		 * On some blade server designs, link establishment
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 6674110..ac2f34e 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -501,7 +501,7 @@ s32 e1000e_check_for_fiber_link(struct e1000_hw *hw)
- 		ew32(TXCW, mac->txcw);
- 		ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
- 
--		mac->serdes_has_link = 1;
-+		mac->serdes_has_link = true;
- 	}
- 
- 	return 0;
-@@ -566,7 +566,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 		ew32(TXCW, mac->txcw);
- 		ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
- 
--		mac->serdes_has_link = 1;
-+		mac->serdes_has_link = true;
- 	} else if (!(E1000_TXCW_ANE & er32(TXCW))) {
- 		/*
- 		 * If we force link for non-auto-negotiation switch, check
+On Wednesday 04 February 2009 23:53:14 Jarek Poplawski wrote:
+> Jarek Poplawski wrote, On 02/04/2009 10:20 PM:
+> > Denys Fedoryschenko wrote, On 02/02/2009 07:21 PM:
+> >> Why floating point?
+> >
+> > Yes, floating point is not enough. get_hz() == 1000000000 could be
+> > a theoretical resolution, but I guess we don't expect to use this,
+> > even if it were possible. Since high resolution can schedule more
+> > often than 1000HZ, it seems these buffers could be set lower (10x,
+> > 100x?), but there should be some reasonable limit.
+>
+> Anyway, it's rather a matter of tweaking. IMHO 1000HZ limit for setting
+> these defaults looks safe, so I think this patch is OK.
+>
+> Jarek P.
+Maybe we can put note in documentation or even htb help output, that user can 
+increase precision with hrtimers enabled, by setting HZ variable?
