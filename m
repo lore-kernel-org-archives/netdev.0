@@ -1,42 +1,69 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: GSO checksum warning debug info
-Date: Wed, 4 Feb 2009 08:11:55 -0800
-Message-ID: <20090204161155.GG5220@sequoia.sous-sol.org>
-References: <20090204002345.GF5220@sequoia.sous-sol.org> <20090204124011.GA22288@gondor.apana.org.au>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [RFC] Suspicious bug in module refcounting
+Date: Wed, 4 Feb 2009 09:33:07 -0700
+Message-ID: <e9c3a7c20902040833o760bf450g658e7c7ff456b023@mail.gmail.com>
+References: <20090203134721.GA11069@pingi.kke.suse.de>
+	 <200902041418.09630.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <kkeil@suse.de>, linux-kernel@vger.kernel.org,
+	Michal Hocko <mhocko@suse.cz>,
+	richard kennedy <richard@rsk.demon.co.uk>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	dwmw2@infradead.org, Scott Wood <scottwood@freescale.com>,
+	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:52925 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753194AbZBDQMa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2009 11:12:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20090204124011.GA22288@gondor.apana.org.au>
+Received: from wf-out-1314.google.com ([209.85.200.172]:20257 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756641AbZBDQdI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 11:33:08 -0500
+In-Reply-To: <200902041418.09630.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> On Tue, Feb 03, 2009 at 04:23:45PM -0800, Chris Wright wrote:
-> > I'm able to trigger the GSO checksum warning, and after 67fd1a73 "net: Add
-> > debug info to track down GSO checksum bug" here's the more verbose output:
-> > 
-> > e1000e: caps=(0x1119a9, 0x0) len=2960 data_len=0 ip_summed=0
-> > 
-> > What info would be helpful for you (couple full backtraces below)?
-> 
-> Interesting.  Is this a Linux guest or a Window guest?
+On Tue, Feb 3, 2009 at 8:48 PM, Rusty Russell <rusty@rustcorp.com.au> wrote:
+> On Wednesday 04 February 2009 00:17:21 Karsten Keil wrote:
+>> The refcount is a per CPU atomic variable, module_refcount() simple add
+>> in a fully unprotected loop (not disabled irqs, not protected against
+>> scheduling) all per cpu values.
+>
+> Hi Karsten,
+>
+>   Yes, the BUG_ON() is overly aggressive.  And I really hate __module_get,
+> and it looks like most of the callers are completely bogus.  The watchdog
+> drivers use it to nail themselves in place in their open routines: this is
+> OK, if a bit weird.
+>
+>   We should only use __module_get() when you *can't handle* failure;
+> otherwise you should accept that the admin did rmmod --wait and don't use the
+> module any further.
+>
+>  dmaengine.c seems to be taking liberties like this.  AFAICT it can error
+> out, so why not just try_module_get() always?
 
-Windows guest.
+Currently there is no feedback loop for clients calling
+dmaengine_get().  It simply means "I want to do offload, pin any
+offload resources you may see, and don't let the resource leave until
+dmaengine_ref_count == 0".  Even if we always called try_module_get()
+we would still need to wait until dmaengine_ref_count reached zero to
+be sure no transactions are in flight, effectively ignoring module_get
+failures.
 
-> If it's a Linux guest, it means that somewhere along the line
-> the partial checksum got lost.  But I can't see anything obvious.
-> Since you can reproduce this, could you add some printks along
-> the path shown in the back trace to see where ip_summed gets
-> zapped? So that would be tun and bridge basically.
+However, dma-driver module removal is still in the central control of
+the administrator as downing all network interfaces and unloading the
+async_tx api (i.e. raid456) will kill all dmaengine references.  We
+just have the caveat highlighted below:
 
-Sure.
+modprobe raid456
+ifup eth0
+rmmod --wait ioat_dma &
+ifup eth1
+modprobe -r raid456
+ifdown eth0  <-- module removal succeeds here in a perfect world
+ifdown eth1 <-- module removal currently succeeds here
 
-thanks,
--chris
+Regards,
+Dan
