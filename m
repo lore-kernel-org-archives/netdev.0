@@ -1,57 +1,87 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: ixgbe in kernel driver question
-Date: Wed, 4 Feb 2009 11:28:50 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0902041121030.4348@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <49832695.7020802@itcare.pl>
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: [PATCH] virtio_net: Allow setting the MAC address of the NIC
+Date: Wed, 04 Feb 2009 12:26:06 -0700
+Message-ID: <20090204191826.2481.17875.stgit@debian.lart>
+References: <200901271305.16832.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: =?iso-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47957 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751677AbZBDT27 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2009 14:28:59 -0500
-In-Reply-To: <49832695.7020802@itcare.pl>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:16471 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751188AbZBDT3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 14:29:10 -0500
+In-Reply-To: <200901271305.16832.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I have question about ixgbe in kernel driver compared to ixgbe driver 
-> that is on sourceforge
-> http://sourceforge.net/project/showfiles.php?group_id=42302&package_id=247088
-> 
-> What is difference between this drivers ?
-> and does driver in kernel 2.6.28.2
+Many physical NICs let the OS re-program the "hardware" MAC
+address.  Virtual NICs should allow this too.
 
-These drivers should be relatively kept in sync.  We release our new 
-software to SourceForge first, since that is an on-demand push from Intel.  
-The upstream driver usually has the necessary patches in the queue for the 
-next kernel, but due to hardware release schedules and kernel release 
-schedules not aligning most of the time, there will be differences.
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+Acked-by: Mark McLoughlin <markmc@redhat.com>
+---
 
-Now these drivers are not intended to be identical.  One main difference, 
-for example, is the upstream driver has no module option support.  The 
-SourceForge driver does support some module options.
+Rusty, you've already applied this to your patch queue, but that version
+won't apply cleanly after the MAC and VLAN filtering patches I just sent
+for net-next-2.6 (just diff context changes).  This version should apply
+cleanly, so either drop the original and apply this after rebase, or
+maybe it should just go directly into net-next-2.6?  Thanks,
 
-> Or this driver have different versions releases ? with different changes 
-> that are made in kernel tree network drivers
-> 
-> because i have problems with in kernel ixgbe drivers that i can compare 
-> to some fixes that are made in:
-> 1.3.31.5 driver on e1000 site
-> http://sourceforge.net/project/shownotes.php?release_id=611160&group_id=42302
-> 
-> i think about this fix:
-> 
-> cpu utilization fix for MSI and legacy interrupts in kernels with CONFIG_NETDEVICES_MULTIQUEUE enabled but default (non multiqueue) aware qdisc loaded
+Alex
 
-Yes.  These fixes are already queued or accepted for the next version of 
-the kernel driver.  The bottom line is we, Intel, own the SourceForge 
-driver and its release schedules.  The Linux community ultimately owns the 
-in-kernel driver and those release schedules, so there will almost always 
-be differences.
+ drivers/net/virtio_net.c |   23 +++++++++++++++++++++--
+ 1 files changed, 21 insertions(+), 2 deletions(-)
 
-I hope this helps,
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index e68813a..3d00339 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -565,6 +565,22 @@ stop_queue:
+ 	goto done;
+ }
+ 
++static int virtnet_set_mac_address(struct net_device *dev, void *p)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	struct virtio_device *vdev = vi->vdev;
++	int ret;
++
++	ret = eth_mac_addr(dev, p);
++	if (ret)
++		return ret;
++
++	vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
++			  dev->dev_addr, dev->addr_len);
++
++	return 0;
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void virtnet_netpoll(struct net_device *dev)
+ {
+@@ -774,7 +790,7 @@ static const struct net_device_ops virtnet_netdev = {
+ 	.ndo_stop   	     = virtnet_close,
+ 	.ndo_start_xmit      = start_xmit,
+ 	.ndo_validate_addr   = eth_validate_addr,
+-	.ndo_set_mac_address = eth_mac_addr,
++	.ndo_set_mac_address = virtnet_set_mac_address,
+ 	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+ 	.ndo_change_mtu	     = virtnet_change_mtu,
+ 	.ndo_vlan_rx_add_vid = virnet_vlan_rx_add_vid,
+@@ -860,8 +876,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		vdev->config->get(vdev,
+ 				  offsetof(struct virtio_net_config, mac),
+ 				  dev->dev_addr, dev->addr_len);
+-	} else
++	} else {
+ 		random_ether_addr(dev->dev_addr);
++		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
++				  dev->dev_addr, dev->addr_len);
++	}
+ 
+ 	/* Set up our device-specific information */
+ 	vi = netdev_priv(dev);
 
--PJ Waskiewicz
-peter.p.waskiewicz.jr@intel.com
