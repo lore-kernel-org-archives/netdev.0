@@ -1,39 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: NIU driver: strange issues with multicast "UDP: short
- packet"
-Date: Wed, 04 Feb 2009 01:34:31 -0800 (PST)
-Message-ID: <20090204.013431.170274717.davem@davemloft.net>
-References: <1233737704.20497.70.camel@localhost.localdomain>
-	<20090204.010029.12969718.davem@davemloft.net>
-	<1233739926.20497.78.camel@localhost.localdomain>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [RFC] Suspicious bug in module refcounting
+Date: Wed, 4 Feb 2009 10:11:30 +0000
+Message-ID: <20090204101130.GB19498@flint.arm.linux.org.uk>
+References: <20090203134721.GA11069@pingi.kke.suse.de> <200902041418.09630.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jdb@comx.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54400
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752132AbZBDJef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 04:34:35 -0500
-In-Reply-To: <1233739926.20497.78.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Karsten Keil <kkeil@suse.de>, linux-kernel@vger.kernel.org,
+	Michal Hocko <mhocko@suse.cz>,
+	richard kennedy <richard@rsk.demon.co.uk>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	dwmw2@infradead.org, Scott Wood <scottwood@freescale.com>,
+	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752305AbZBDKMX@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200902041418.09630.rusty@rustcorp.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Date: Wed, 04 Feb 2009 10:32:06 +0100
+On Wed, Feb 04, 2009 at 02:18:08PM +1030, Rusty Russell wrote:
+>   gameport.c, serio.c and input.c increment their own refcount, but to get
+> into those init functions someone must be holding a refcount already (ie. a
+> module depends on this module).  Ditto cyber2000fb.c, and MTD.
 
-> On Wed, 2009-02-04 at 01:00 -0800, David Miller wrote:
-> > At the point when IPMR is dealing with potentially forwarding
-> > the frame, the UDP headers aren't yet pulled into the linear
-> > area.  UDP input will do that with it's pskb_may_pull() call.
-> 
-> Can I get a little code hint, where IPMR is dealing with potentially
-> forwarding the frame?
+Err, wrong.  cyber2000fb.c does it in its module initialization function
+to prevent the module (when built for Shark) from being unloaded.  It
+does this because it's from the days of 2.2 kernels and no one bothered
+writing the module unload support for Shark.  I'm certainly not in a
+position to do that.
 
-ip_mr_forward().
+Since you can't unload a module while its initialization function is
+running, so someone else must be holding a refcount (the insmod process).
 
-> Is there an easy way to test if the packet is corrupted?
-> Can you recomment a way to test it?
+I'm not saying that it's the right solution, I'm saying that this is how
+it's evolved.
 
-If UDP header length field is > 2000, you've got a problem.
+If someone has an idea on what to do about it then patches will be given
+due consideration.
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
