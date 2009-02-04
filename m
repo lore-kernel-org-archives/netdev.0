@@ -1,32 +1,50 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] [RESEND] iproute2 : invalid burst/cburst calculation
-	with hrtimers
-Date: Wed, 4 Feb 2009 23:49:29 +0100
-Message-ID: <20090204224929.GB2828@ami.dom.local>
-References: <200902021926.17768.denys@visp.net.lb> <498A0699.6020103@gmail.com> <498A0E4A.8050807@gmail.com> <200902050026.46603.denys@visp.net.lb>
+From: Andy Fleming <afleming@gmail.com>
+Subject: Re: IXP4xx networking and phylib
+Date: Wed, 4 Feb 2009 17:15:43 -0600
+Message-ID: <2acbd3e40902041515p2624765bx5019c59c2b028780@mail.gmail.com>
+References: <200901121705.07966.post@hendrik-sattler.de>
+	 <m3wsd0a0k3.fsf@maximus.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Hendrik Sattler <post@hendrik-sattler.de>, netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.187]:15045 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756821AbZBDWr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 17:47:26 -0500
-Received: by fk-out-0910.google.com with SMTP id f33so2269515fkf.5
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2009 14:47:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <200902050026.46603.denys@visp.net.lb>
+Received: from mail-qy0-f11.google.com ([209.85.221.11]:54143 "EHLO
+	mail-qy0-f11.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755625AbZBDXPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 18:15:51 -0500
+Received: by qyk4 with SMTP id 4so3822836qyk.13
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2009 15:15:44 -0800 (PST)
+In-Reply-To: <m3wsd0a0k3.fsf@maximus.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 05, 2009 at 12:26:46AM +0200, Denys Fedoryschenko wrote:
-...
-> Maybe we can put note in documentation or even htb help output, that user can 
-> increase precision with hrtimers enabled, by setting HZ variable?
+On Mon, Jan 12, 2009 at 11:36 AM, Krzysztof Halasa <khc@pm.waw.pl> wrote:
+> Hi,
+>
+> Added CC: netdev.
+>
+> Hendrik Sattler <post@hendrik-sattler.de> writes:
+>
+>> My IXP465 MII port is connected to a Marvell switch (port 5). This port
+>> is "always on" and has no PHY registers. It is configured in hardware. The
+>> switch ports 1-4 have phy registers but that's not the matter.
+>> The problem is that there is no standard way in the platform info to tell the
+>> driver (now phylib) that there are _no_ PHY registers.
+>>
+>> Is there a standard way to say: enable the ethernet interface and be done with
+>> it?
+>> I currently do this by patching the driver. The PHYLIB patch makes that even
+>> easier but it would be better to not need patching at all (at least one
+>> driver less to patch).
 
-Hmm... I rather meant using burst and cburst params. But hrtimers are
-very hardware dependent, so it's hard to advise anything.
+There is a "fixed-phy" driver.  It allows you to configure things such
+that phylib will treat a PHY at a given address like it is a PHY with
+whatever attributes you choose.  The other option is to look at the
+DSA code from Lennert, and make the Marvell switch work with that (I
+haven't looked closely enough to see if that's feasible, but the end
+goal should be that all such integrated switches are covered by some
+framework).
 
-Jarek P.
+Andy
