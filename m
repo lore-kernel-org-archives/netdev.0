@@ -1,65 +1,65 @@
-From: David Miller <davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Wed, 04 Feb 2009 01:12:28 -0800 (PST)
-Message-ID: <20090204.011228.88323558.davem@davemloft.net>
-References: <20090203122535.GB8633@1wt.eu>
-	<20090203.164734.76871204.davem@davemloft.net>
-	<20090204061947.GD20673@1wt.eu>
+Date: Wed, 4 Feb 2009 10:12:17 +0100
+Message-ID: <20090204091217.GA21385@1wt.eu>
+References: <20090204081201.GB10445@ioremap.net> <20090204085432.GA21638@1wt.eu> <20090204085907.GA19388@gondor.apana.org.au> <20090204.010146.18100191.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, herbert@gondor.apana.org.au, jarkao2@gmail.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, jarkao2@gmail.com,
 	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jens.axboe@oracle.com
-To: w@1wt.eu
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51459
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752244AbZBDJMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 04:12:31 -0500
-In-Reply-To: <20090204061947.GD20673@1wt.eu>
+Received: from 1wt.eu ([62.212.114.60]:2017 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754075AbZBDJMr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2009 04:12:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20090204.010146.18100191.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Wed, 4 Feb 2009 07:19:47 +0100
-
-> On Tue, Feb 03, 2009 at 04:47:34PM -0800, David Miller wrote:
-> > From: Willy Tarreau <w@1wt.eu>
-> > Date: Tue, 3 Feb 2009 13:25:35 +0100
-> > 
-> > > Well, FWIW, I've always observed better performance with 4k MTU (4080 to
-> > > be precise) than with 9K, and I think that the overhead of allocating 3
-> > > contiguous pages is a major reason for this.
-> > 
-> > With what hardware?  If it's with myri10ge, that driver uses page
-> > frags so would not be using 3 contiguous pages even for jumbo frames.
+On Wed, Feb 04, 2009 at 01:01:46AM -0800, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 4 Feb 2009 19:59:07 +1100
 > 
-> Yes myri10ge for the optimal 4080, but with e1000 too (though I don't
-> remember the exact optimal value, I think it was slightly lower).
+> > On Wed, Feb 04, 2009 at 09:54:32AM +0100, Willy Tarreau wrote:
+> > >
+> > > My server is running 2.4 :-), but I observed the same issues with older
+> > > 2.6 as well. I can certainly imagine that things have changed a lot since,
+> > > but the initial point remains : jumbo frames are expensive to deal with,
+> > > and with recent NICs and drivers, we might get close performance for
+> > > little additional cost. After all, initial justification for jumbo frames
+> > > was the devastating interrupt rate and all NICs coalesce interrupts now.
+> > 
+> > This is total crap! Jumbo frames are way better than any of the
+> > hacks (such as GSO) that people have come up with to get around it.
+> > The only reason we are not using it as much is because of this
+> > nasty thing called the Internet.
 > 
-> For the myri10ge, could this be caused by the cache footprint then ?
-> I can also retry with various values between 4 and 9k, including
-> values close to 8k. Maybe the fact that 4k is better than 9 is
-> because we get better filling of all pages ?
+> Completely agreed.
+> 
+> If Jumbo frames are slower, it is NOT some fundamental issue.  It is
+> rather due to some misdesign of the hardware or it's driver.
 
-Looking quickly, myri10ge's buffer manager is incredibly simplistic so
-it wastes a lot of memory and gives terrible cache behavior.
+Agreed we can't use them *because* of the internet, but this
+limitation has forced hardware designers to find valid alternatives.
+For instance, having the ability to reach 10 Gbps with 1500 bytes
+frames on myri10ge with a low CPU usage is a real achievement. This
+is "only" 800 kpps after all.
 
-When using JUMBO MTU it just gives whole pages to the chip.
+And the arbitrary choice of 9k for jumbo frames was total crap too.
+It's clear that no hardware designer was involved in the process.
+They have to stuff 16kB of RAM on a NIC to use only 9. And we need
+to allocate 3 pages for slightly more than 2. 7.5 kB would have been
+better in this regard.
 
-So it looks like, assuming 4096 byte PAGE_SIZE and 9000 byte
-jumbo MTU, the chip will allocate for a full size frame:
+I still find it nice to lower CPU usage with frames larger than 1500,
+but given the fact that this is rarely used (even in datacenters), I
+think our efforts should concentrate on where the real users are, ie
+<1500.
 
-	FULL PAGE
-	FULL PAGE
-	FULL PAGE
+Regards,
+Willy
 
-and only ~1K of that last full page will be utilized.
-
-The headers will therefore always land on the same cache lines,
-and PAGE_SIZE-~1K will be wasted.
-
-Whereas for < PAGE_SIZE mtu selections, it will give MTU sized
-blocks to the chip for packet data allocation.
