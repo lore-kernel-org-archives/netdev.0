@@ -1,57 +1,57 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH NET-NEXT 01/10] clocksource: allow usage independent of
-	timekeeping.c
-Date: Wed, 04 Feb 2009 11:25:42 -0800
-Message-ID: <1233775542.6994.13.camel@localhost.localdomain>
-References: <1233752517-30010-1-git-send-email-patrick.ohly@intel.com>
-	 <1233752517-30010-2-git-send-email-patrick.ohly@intel.com>
-	 <1233756235.15119.54.camel@desktop> <1233758796.15940.198.camel@ecld0pohly>
-	 <1233760170.15119.76.camel@desktop>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: ixgbe in kernel driver question
+Date: Wed, 4 Feb 2009 11:28:50 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0902041121030.4348@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <49832695.7020802@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick Ohly <patrick.ohly@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Daniel Walker <dwalker@fifo99.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: =?iso-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:60422 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752497AbZBDTZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 14:25:56 -0500
-In-Reply-To: <1233760170.15119.76.camel@desktop>
+Received: from mga02.intel.com ([134.134.136.20]:47957 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751677AbZBDT27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2009 14:28:59 -0500
+In-Reply-To: <49832695.7020802@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-02-04 at 07:09 -0800, Daniel Walker wrote:
-> On Wed, 2009-02-04 at 15:46 +0100, Patrick Ohly wrote:
-> > In an earlier revision of the patch I had adapted clocksource itself so
-> > that it could be used outside of the time keeping code; John wanted me
-> > to use these smaller structs instead that you now find in the current
-> > patch.
+> I have question about ixgbe in kernel driver compared to ixgbe driver 
+> that is on sourceforge
+> http://sourceforge.net/project/showfiles.php?group_id=42302&package_id=247088
 > 
-> Well, I think your original idea was better.. I don't think we need the
-> duplication of underlying clocksource mechanics.
+> What is difference between this drivers ?
+> and does driver in kernel 2.6.28.2
+
+These drivers should be relatively kept in sync.  We release our new 
+software to SourceForge first, since that is an on-demand push from Intel.  
+The upstream driver usually has the necessary patches in the queue for the 
+next kernel, but due to hardware release schedules and kernel release 
+schedules not aligning most of the time, there will be differences.
+
+Now these drivers are not intended to be identical.  One main difference, 
+for example, is the upstream driver has no module option support.  The 
+SourceForge driver does support some module options.
+
+> Or this driver have different versions releases ? with different changes 
+> that are made in kernel tree network drivers
 > 
-> > Eventually John wants to refactor clocksource so that it uses them and
-> > just adds additional elements in clocksource. Right now clocksource is a
-> > mixture of different concepts. Breaking out cyclecounter and timecounter
-> > is a first step towards that cleanup.
+> because i have problems with in kernel ixgbe drivers that i can compare 
+> to some fixes that are made in:
+> 1.3.31.5 driver on e1000 site
+> http://sourceforge.net/project/shownotes.php?release_id=611160&group_id=42302
 > 
-> The problem I see is that your putting off the cleanup of struct
-> clocksource with duplication.. It should go in reverse , you should use
-> clocksources for your patch set. Which will motivate John to clean up
-> the clocksource structure.
+> i think about this fix:
+> 
+> cpu utilization fix for MSI and legacy interrupts in kernels with CONFIG_NETDEVICES_MULTIQUEUE enabled but default (non multiqueue) aware qdisc loaded
 
-I strongly disagree. Misusing a established structure for unintended use
-is just bad. What Patrick wants to use the counters for has very
-different semantics then how clocksources are used.
+Yes.  These fixes are already queued or accepted for the next version of 
+the kernel driver.  The bottom line is we, Intel, own the SourceForge 
+driver and its release schedules.  The Linux community ultimately owns the 
+in-kernel driver and those release schedules, so there will almost always 
+be differences.
 
-I think having a bit of redundancy in two structures is good motivation
-for me to clean up the clocksources to use cyclecounters.
+I hope this helps,
 
-thanks
--john
-
+-PJ Waskiewicz
+peter.p.waskiewicz.jr@intel.com
