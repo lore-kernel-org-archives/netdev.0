@@ -1,79 +1,60 @@
-From: Andrey Borzenkov <arvidjaar@mail.ru>
-Subject: Re: 2.6.29-rc: unable to compile e100 firmware into kernel
-Date: Wed, 4 Feb 2009 19:45:29 +0300
-Message-ID: <200902041945.36632.arvidjaar@mail.ru>
-References: <200901311900.00851.arvidjaar@mail.ru> <4807377b0902011105l29e846c3r140212ac654efb93@mail.gmail.com> <1233754384.19223.183.camel@macbook.infradead.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart7914482.lB7CaGVr5o";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+From: Wesley Chow <wchow@athenacr.com>
+Subject: Re: Multicast packet loss
+Date: Wed, 4 Feb 2009 11:46:35 -0500
+Message-ID: <EA667848-C7EA-4409-B64D-9752C8ACECB6@athenacr.com>
+References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <20090131160333.GC23100@localhost.localdomain> <498723D9.5020509@athenacr.com> <20090203115502.GB28117@hmsreliant.think-freely.org> <498860AD.5010702@athenacr.com> <20090204011541.GB3650@localhost.localdomain> <4989BD31.306@athenacr.com>
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	linux-kbuild@vger.kernel.org, netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <1233754384.19223.183.camel@macbook.infradead.org>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Kenny Chang <kchang@athenacr.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from li36-253.members.linode.com ([207.192.72.253]:38599 "EHLO
+	shablam.senortoad.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757200AbZBDQqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 11:46:39 -0500
+In-Reply-To: <4989BD31.306@athenacr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart7914482.lB7CaGVr5o
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+>>>>>
+>>>>>
+>>>> Are these quad core systems?  Or dual core w/ hyperthreading?  I  
+>>>> ask because in
+>>>> your working setup you have 1/2 the number of cpus' and was not  
+>>>> sure if you
+>>>> removed an entire package of if you just disabled hyperthreading.
+>>>>
+>>>>
+>>>> Neil
+>>>>
+>>>>
+>>> Yeah, these are quad core systems.  The 8 cpu system is a dual- 
+>>> processor  quad-core.  The other is my desktop, single cpu quad  
+>>> core.
+>>>
+>>>
 
-On 4 of February 2009 16:33:04 David Woodhouse wrote:
-> On Sun, 2009-02-01 at 11:05 -0800, Jesse Brandeburg wrote:
-> > On Sat, Jan 31, 2009 at 7:59 AM, Andrey Borzenkov=20
-<arvidjaar@mail.ru> wrote:
-> > > {pts/2}% LC_ALL=3DC make -C ~/src/linux-git
-> > > O=3D$HOME/build/linux-2.6.29 make: Entering directory
-> > > `/home/bor/src/linux-git'
-> > >  Using /home/bor/src/linux-git as source for kernel
-> > > ln -fsn /home/bor/src/linux-git source
-> >
-> > I think (seem to recall something on the list) there have been
-> > multiple people reporting the make O=3D option doesn't work with
-> > CONFIG_FIRMWARE_IN_KERNEL,
->
-> That shouldn't be the case -- it works fine here.
->
-> Andrey, what version of make are you using?
 
-OK, build error was likely result of something I did before (I suspect=20
-what, but after I cleaned up build firmware/e100 it rebuilds OK now).=20
-But even after I verified that firmware *was* built in kernel loading=20
-still failed. This is genuine bug caused by config option mismatch.
+Just to be clear: on the 2 x quad core system, we can run with a  
+2.6.15 kernel and see no packet drops. In fact, we can run with  
+2.6.19, 2.6.20, and 2.6.21 just fine. 2.6.22 is the first kernel that  
+shows problems.
 
-I had CONFIG_FW_LOADER=3Dm. I do not remember ever setting it explicitly,=20
-so I suspect it was selected by some other driver in the past (I do make=20
-oldconfig for at least ten past releases if not more). This cannot work=20
-with CONFIG_FIRMWARE_IN_KERNEL=3Dy because of this code in=20
-drivers/base/firmware_class.c:
+Kenny posted results from a working setup on a different machine.
 
-#ifdef CONFIG_FW_LOADER
-extern struct builtin_fw __start_builtin_fw[];
-extern struct builtin_fw __end_builtin_fw[];
-#else /* Module case. Avoid ifdefs later; it'll all optimise out */
-static struct builtin_fw *__start_builtin_fw;
-static struct builtin_fw *__end_builtin_fw;
-#endif
+What I would really like to know is if whatever changed between 2.6.21  
+and 2.6.22 that broke things is confined just to bnx2. To make this a  
+rigorous test, we would need to use the same machine with a different  
+nic, which we don't have quite yet. An Intel Pro 1000 ethernet card is  
+in the mail as I type this.
 
-IOW CONFIG_FIRMWARE_IN_KERNEL must force CONFIG_FW_LOADER=3Dy. I do not=20
-understand Kconfig enough to offer a patch.
+I also tried forward porting the bnx2 driver in 2.6.21 to 2.6.22  
+(unsuccessfully), and building the most recent driver from the  
+Broadcom site to Ubuntu Hardy's 2.6.24. The most recent driver with  
+hardy 2.6.24 showed similar packet dropping problems. Hm, perhaps I'll  
+try to build the most recent broadcom driver against 2.6.21.
 
---nextPart7914482.lB7CaGVr5o
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+Wes
 
-iEYEABECAAYFAkmJxiwACgkQR6LMutpd94zT8ACguCB4BNMcm2EpgbfqthRcxBjU
-B2QAn2XTi2/yJieX5xJS87CoUGtUO7b/
-=4wIb
------END PGP SIGNATURE-----
-
---nextPart7914482.lB7CaGVr5o--
