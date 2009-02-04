@@ -1,45 +1,38 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: [RFC] Suspicious bug in module refcounting
-Date: Wed, 4 Feb 2009 10:11:30 +0000
-Message-ID: <20090204101130.GB19498@flint.arm.linux.org.uk>
-References: <20090203134721.GA11069@pingi.kke.suse.de> <200902041418.09630.rusty@rustcorp.com.au>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] sctp: chunkmap size is too large
+Date: Wed, 4 Feb 2009 11:12:47 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0902041112030.17765@fbirervta.pbzchgretzou.qr>
+References: <4983200B.2080707@6wind.com> <20090201.011427.38305360.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karsten Keil <kkeil@suse.de>, linux-kernel@vger.kernel.org,
-	Michal Hocko <mhocko@suse.cz>,
-	richard kennedy <richard@rsk.demon.co.uk>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	dwmw2@infradead.org, Scott Wood <scottwood@freescale.com>,
-	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752305AbZBDKMX@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200902041418.09630.rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: olivier.matz@6wind.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, kaber@netfilter.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090201.011427.38305360.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 04, 2009 at 02:18:08PM +1030, Rusty Russell wrote:
->   gameport.c, serio.c and input.c increment their own refcount, but to get
-> into those init functions someone must be holding a refcount already (ie. a
-> module depends on this module).  Ditto cyber2000fb.c, and MTD.
 
-Err, wrong.  cyber2000fb.c does it in its module initialization function
-to prevent the module (when built for Shark) from being unloaded.  It
-does this because it's from the days of 2.2 kernels and no one bothered
-writing the module unload support for Shark.  I'm certainly not in a
-position to do that.
+On Sunday 2009-02-01 10:14, David Miller wrote:
+>> I think that the chunkmap field in struct xt_sctp_info is
+>> too large: we have 256 chunk types and it's a bitfield,
+>> so the table should be 256 bits (8 uint32_t) instead
+>> of 64 uint32_t.
+>> 
+>> I updated the size of the table, and I did some cosmetic
+>> changes in SCTP_CHUNKMAP_* macros (use a mask instead of
+>> a modulo).
+>> 
+>>   netfilter/xt_sctp.h       |   30 ++++++++++++++++--------------
+>>   netfilter_ipv4/ipt_sctp.h |   30 ++++++++++++++++--------------
+>>   2 files changed, 32 insertions(+), 28 deletions(-)
+>> 
+>> Can someone have a look at it ? Please CC me for any replies
+>> as I'm not on the list.
+>
+>Patrick, I assume you got this?
 
-Since you can't unload a module while its initialization function is
-running, so someone else must be holding a refcount (the insmod process).
-
-I'm not saying that it's the right solution, I'm saying that this is how
-it's evolved.
-
-If someone has an idea on what to do about it then patches will be given
-due consideration.
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:
+At least I got this - and the change would have to be nak'ed because
+it changes the userspace<->kernel binary stream. If you do such a
+change, a new match revision is required.
