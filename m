@@ -1,121 +1,126 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: GSO checksum warning debug info
-Date: Tue, 3 Feb 2009 16:23:45 -0800
-Message-ID: <20090204002345.GF5220@sequoia.sous-sol.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 3 Feb 2009 20:15:41 -0500
+Message-ID: <20090204011541.GB3650@localhost.localdomain>
+References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <20090131160333.GC23100@localhost.localdomain> <498723D9.5020509@athenacr.com> <20090203115502.GB28117@hmsreliant.think-freely.org> <498860AD.5010702@athenacr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Kenny Chang <kchang@athenacr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:55511 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751088AbZBDAyn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2009 19:54:43 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47696 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751046AbZBDBPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 20:15:44 -0500
 Content-Disposition: inline
+In-Reply-To: <498860AD.5010702@athenacr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm able to trigger the GSO checksum warning, and after 67fd1a73 "net: Add
-debug info to track down GSO checksum bug" here's the more verbose output:
+On Tue, Feb 03, 2009 at 10:20:13AM -0500, Kenny Chang wrote:
+> Neil Horman wrote:
+>> On Mon, Feb 02, 2009 at 11:48:25AM -0500, Kenny Chang wrote:
+>>  =20
+>>> Neil Horman wrote:
+>>>    =20
+>>>> On Fri, Jan 30, 2009 at 11:41:23PM +0100, Eric Dumazet wrote:
+>>>>        =20
+>>>>> Kenny Chang a =E9crit :
+>>>>>            =20
+>>>>>> Ah, sorry, here's the test program attached.
+>>>>>>
+>>>>>> We've tried 2.6.28.1, but no, we haven't tried the 2.6.28.2 or t=
+he
+>>>>>> 2.6.29.-rcX.
+>>>>>>
+>>>>>> Right now, we are trying to step through the kernel versions unt=
+il we
+>>>>>> see where the performance drops significantly.  We'll try 2.6.29=
+-rc soon
+>>>>>> and post the result.
+>>>>>>                =20
+>>>>> 2.6.29-rc contains UDP receive improvements (lockless)
+>>>>>
+>>>>> Problem is multicast handling was not yet updated, but could be :=
+)
+>>>>>
+>>>>>
+>>>>> I was asking you "cat /proc/interrupts" because I believe you mig=
+ht
+>>>>> have a problem NIC interrupts being handled by one CPU only (when=
+ having problems)
+>>>>>
+>>>>>            =20
+>>>> That would be expected (if irqbalance is running), and desireable,=
+ since
+>>>> spreading high volume interrupts like NICS accross multiple cores =
+(or more
+>>>> specifically multiple L2 caches), is going increase your cache lin=
+e miss rate
+>>>> significantly and decrease rx throughput.
+>>>>
+>>>> Although you do have a point here, if the system isn't running irq=
+balance, and
+>>>> the NICS irq affinity is spread accross multiple L2 caches, that w=
+ould be a
+>>>> point of improvement performance-wise. =20
+>>>>
+>>>> Kenny, if you could provide the /proc/interrupts info along with /=
+proc/cpuinfo
+>>>> and your stats that I asked about earlier, that would be a big hel=
+p.
+>>>>
+>>>> Regards
+>>>> Neil
+>>>>
+>>>>        =20
+>>> This is for a working setup.
+>>>
+>>>    =20
+>>
+>> Are these quad core systems?  Or dual core w/ hyperthreading?  I ask=
+ because in
+>> your working setup you have 1/2 the number of cpus' and was not sure=
+ if you
+>> removed an entire package of if you just disabled hyperthreading.
+>>
+>>
+>> Neil
+>>
+>>  =20
+> Yeah, these are quad core systems.  The 8 cpu system is a dual-proces=
+sor =20
+> quad-core.  The other is my desktop, single cpu quad core.
+>
+Ok, so their separate systms then.  Did you actually experience drops o=
+n the
+8-core system since the last reboot?  I ask because even when its distr=
+ibuted
+across all 8 cores, you only have about 500 total interrupts from the N=
+IC, and
+if you did get drops, something more than just affinity is wrong.
 
-e1000e: caps=(0x1119a9, 0x0) len=2960 data_len=0 ip_summed=0
+Regardless, spreading interrupts across cores is definately a problem. =
+ As eric
+says, quad core chips are actually 2x2 cores, so you'll want to either =
+just run
+irqbalance to assign an apropriate affinity to the NIC, or manually loo=
+k at each
+cores physical id and sibling id, to assign affininty to a core or core=
+s that
+share an L2 cache.  If you need to, as you've found, you may need to di=
+sable msi
+interrupt mode on your bnx2 driver.  That kinda stinks, but bnx2 IIRC i=
+sn't
+multiqueue, so its not like msi provides you any real performance gain.
 
-What info would be helpful for you (couple full backtraces below)?
+Neil
 
-thanks,
--chris
-
-
-[ 2172.557466] WARNING: at /home/chrisw/git/linux/linus-2.6/net/core/dev.c:1548 skb_gso_segment+0x103/0x23a()
-[ 2172.557468] Hardware name: To Be Filled By O.E.M.
-[ 2172.557470] e1000e: caps=(0x1119a9, 0x0) len=2960 data_len=0 ip_summed=0Modules linked in: kvm_intel kvm [last unloaded: scsi_wait_scan]
-[ 2172.557476] Pid: 4750, comm: qemu-kvm Not tainted 2.6.29-rc3 #13
-[ 2172.557478] Call Trace:
-[ 2172.557480]  <IRQ>  [<ffffffff8103acbd>] warn_slowpath+0xb1/0xed
-[ 2172.557489]  [<ffffffff811b75ba>] ? alloc_iova+0x1e6/0x218
-[ 2172.557492]  [<ffffffff811a29bd>] ? sprintf+0x40/0x42
-[ 2172.557496]  [<ffffffff81290217>] ? tun_chr_aio_write+0x0/0x44d
-[ 2172.557501]  [<ffffffff81267aa5>] ? e1000_get_drvinfo+0xa6/0xcd
-[ 2172.557503]  [<ffffffff813a38aa>] skb_gso_segment+0x103/0x23a
-[ 2172.557505]  [<ffffffff813a3b8d>] dev_hard_start_xmit+0x1ac/0x26d
-[ 2172.557510]  [<ffffffff813b5759>] __qdisc_run+0xe7/0x1ea
-[ 2172.557513]  [<ffffffff8102e81b>] ? enqueue_task+0x50/0x5b
-[ 2172.557516]  [<ffffffff813a40b0>] dev_queue_xmit+0x350/0x44d
-[ 2172.557520]  [<ffffffff8144fe98>] br_dev_queue_push_xmit+0x5c/0x62
-[ 2172.557522]  [<ffffffff81035264>] ? default_wake_function+0xd/0xf
-[ 2172.557524]  [<ffffffff8144feed>] br_forward_finish+0x4f/0x53
-[ 2172.557526]  [<ffffffff8144ff5b>] __br_forward+0x6a/0x6e
-[ 2172.557529]  [<ffffffff8144ffa8>] br_forward+0x49/0x57
-[ 2172.557531]  [<ffffffff81450a97>] br_handle_frame_finish+0x12b/0x14f
-[ 2172.557534]  [<ffffffff81450c73>] br_handle_frame+0x1b8/0x1d5
-[ 2172.557536]  [<ffffffff813a3195>] netif_receive_skb+0x2ea/0x3bb
-[ 2172.557538]  [<ffffffff813a3682>] napi_gro_receive+0x47/0x57
-[ 2172.557541]  [<ffffffff8101bd8f>] ? lapic_next_event+0x15/0x19
-[ 2172.557543]  [<ffffffff813a370f>] process_backlog+0x7d/0xb2
-[ 2172.557545]  [<ffffffff813a17e9>] net_rx_action+0xa7/0x17a
-[ 2172.557548]  [<ffffffff8103fcc3>] __do_softirq+0x83/0x144
-[ 2172.557551]  [<ffffffff8100d33c>] call_softirq+0x1c/0x28
-[ 2172.557552]  <EOI>  [<ffffffff8100e258>] do_softirq+0x34/0x76
-[ 2172.557556]  [<ffffffff813a3765>] netif_rx_ni+0x21/0x28
-[ 2172.557558]  [<ffffffff8129060d>] tun_chr_aio_write+0x3f6/0x44d
-[ 2172.557561]  [<ffffffff810a0000>] ? sys_swapon+0x2bb/0xa58
-[ 2172.557563]  [<ffffffff81290217>] ? tun_chr_aio_write+0x0/0x44d
-[ 2172.557566]  [<ffffffff810b0153>] do_sync_readv_writev+0xe3/0x12b
-[ 2172.557569]  [<ffffffff8104db04>] ? autoremove_wake_function+0x0/0x38
-[ 2172.557574]  [<ffffffff8116e3ba>] ? selinux_file_permission+0xbd/0xc6
-[ 2172.557578]  [<ffffffff811673b0>] ? security_file_permission+0x11/0x13
-[ 2172.557580]  [<ffffffff810b089d>] do_readv_writev+0xba/0x121
-[ 2172.557583]  [<ffffffff8116e3ba>] ? selinux_file_permission+0xbd/0xc6
-[ 2172.557585]  [<ffffffff81035257>] ? default_wake_function+0x0/0xf
-[ 2172.557587]  [<ffffffff811673b0>] ? security_file_permission+0x11/0x13
-[ 2172.557589]  [<ffffffff810b0942>] vfs_writev+0x3e/0x49
-[ 2172.557591]  [<ffffffff810b0994>] sys_writev+0x47/0x94
-[ 2172.557593]  [<ffffffff8100c25b>] system_call_fastpath+0x16/0x1b
-[ 2172.557595] ---[ end trace bbdce316762c5c8a ]---
-[ 2172.558366] ------------[ cut here ]------------
-[ 2172.558368] WARNING: at /home/chrisw/git/linux/linus-2.6/net/core/dev.c:1548 skb_gso_segment+0x103/0x23a()
-[ 2172.558370] Hardware name: To Be Filled By O.E.M.
-[ 2172.558371] e1000e: caps=(0x1119a9, 0x0) len=5880 data_len=0 ip_summed=0Modules linked in: kvm_intel kvm [last unloaded: scsi_wait_scan]
-[ 2172.558375] Pid: 4750, comm: qemu-kvm Tainted: G        W  2.6.29-rc3 #13
-[ 2172.558376] Call Trace:
-[ 2172.558377]  <IRQ>  [<ffffffff8103acbd>] warn_slowpath+0xb1/0xed
-[ 2172.558382]  [<ffffffff810be05c>] ? pollwake+0x47/0x4f
-[ 2172.558384]  [<ffffffff81035257>] ? default_wake_function+0x0/0xf
-[ 2172.558386]  [<ffffffff811a29bd>] ? sprintf+0x40/0x42
-[ 2172.558389]  [<ffffffff81267aa5>] ? e1000_get_drvinfo+0xa6/0xcd
-[ 2172.558391]  [<ffffffff813a38aa>] skb_gso_segment+0x103/0x23a
-[ 2172.558393]  [<ffffffff813a3b8d>] dev_hard_start_xmit+0x1ac/0x26d
-[ 2172.558396]  [<ffffffff813b5759>] __qdisc_run+0xe7/0x1ea
-[ 2172.558398]  [<ffffffff81030158>] ? check_preempt_wakeup+0x13d/0x18e
-[ 2172.558400]  [<ffffffff813a40b0>] dev_queue_xmit+0x350/0x44d
-[ 2172.558402]  [<ffffffff81031850>] ? enqueue_task_fair+0x25/0x92
-[ 2172.558405]  [<ffffffff8144fe98>] br_dev_queue_push_xmit+0x5c/0x62
-[ 2172.558407]  [<ffffffff81035264>] ? default_wake_function+0xd/0xf
-[ 2172.558409]  [<ffffffff8144feed>] br_forward_finish+0x4f/0x53
-[ 2172.558411]  [<ffffffff8144ff5b>] __br_forward+0x6a/0x6e
-[ 2172.558413]  [<ffffffff8144ffa8>] br_forward+0x49/0x57
-[ 2172.558415]  [<ffffffff81450a97>] br_handle_frame_finish+0x12b/0x14f
-[ 2172.558418]  [<ffffffff81450c73>] br_handle_frame+0x1b8/0x1d5
-[ 2172.558420]  [<ffffffff813a3195>] netif_receive_skb+0x2ea/0x3bb
-[ 2172.558422]  [<ffffffff813a3682>] napi_gro_receive+0x47/0x57
-[ 2172.558424]  [<ffffffff8101bd8f>] ? lapic_next_event+0x15/0x19
-[ 2172.558426]  [<ffffffff813a370f>] process_backlog+0x7d/0xb2
-[ 2172.558427]  [<ffffffff813a17e9>] net_rx_action+0xa7/0x17a
-[ 2172.558430]  [<ffffffff8103fcc3>] __do_softirq+0x83/0x144
-[ 2172.558432]  [<ffffffff8100d33c>] call_softirq+0x1c/0x28
-[ 2172.558433]  <EOI>  [<ffffffff8100e258>] do_softirq+0x34/0x76
-[ 2172.558436]  [<ffffffff813a3765>] netif_rx_ni+0x21/0x28
-[ 2172.558438]  [<ffffffff8129060d>] tun_chr_aio_write+0x3f6/0x44d
-[ 2172.558440]  [<ffffffff810a0000>] ? sys_swapon+0x2bb/0xa58
-[ 2172.558442]  [<ffffffff81290217>] ? tun_chr_aio_write+0x0/0x44d
-[ 2172.558444]  [<ffffffff810b0153>] do_sync_readv_writev+0xe3/0x12b
-[ 2172.558447]  [<ffffffff8104db04>] ? autoremove_wake_function+0x0/0x38
-[ 2172.558449]  [<ffffffff8116e3ba>] ? selinux_file_permission+0xbd/0xc6
-[ 2172.558451]  [<ffffffff811673b0>] ? security_file_permission+0x11/0x13
-[ 2172.558454]  [<ffffffff810b089d>] do_readv_writev+0xba/0x121
-[ 2172.558457]  [<ffffffff810bc2fc>] ? do_vfs_ioctl+0x462/0x4a2
-[ 2172.558459]  [<ffffffff810b0942>] vfs_writev+0x3e/0x49
-[ 2172.558461]  [<ffffffff810b0994>] sys_writev+0x47/0x94
-[ 2172.558463]  [<ffffffff8100c25b>] system_call_fastpath+0x16/0x1b
-[ 2172.558464] ---[ end trace bbdce316762c5c8b ]---
-[ 2172.559059] ------------[ cut here ]------------
+> Kenny
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
