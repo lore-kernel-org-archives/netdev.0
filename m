@@ -1,111 +1,56 @@
 From: Daniel Walker <dwalker@fifo99.com>
-Subject: Re: [PATCH NET-NEXT 01/10] clocksource: allow usage independent of
+Subject: Re: [RFC PATCH 09/12] clocksource: allow usage independent of
 	timekeeping.c
-Date: Wed, 04 Feb 2009 06:03:55 -0800
-Message-ID: <1233756235.15119.54.camel@desktop>
-References: <1233752517-30010-1-git-send-email-patrick.ohly@intel.com>
-	 <1233752517-30010-2-git-send-email-patrick.ohly@intel.com>
+Date: Wed, 04 Feb 2009 06:29:52 -0800
+Message-ID: <1233757792.15119.58.camel@desktop>
+References: <1229352899-31330-1-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-2-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-3-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-4-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-5-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-6-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-7-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-8-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-9-git-send-email-patrick.ohly@intel.com>
+	 <1229352899-31330-10-git-send-email-patrick.ohly@intel.com>
+	 <1229358410.8699.13.camel@jstultz-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Patrick Ohly <patrick.ohly@intel.com>
+Cc: Patrick Ohly <patrick.ohly@intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, linux-api@vger.kernel.org
+To: John Stultz <johnstul@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fifo99.com ([67.223.236.141]:38756 "EHLO fifo99.com"
+Received: from fifo99.com ([67.223.236.141]:35198 "EHLO fifo99.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572AbZBDOD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2009 09:03:57 -0500
-In-Reply-To: <1233752517-30010-2-git-send-email-patrick.ohly@intel.com>
+	id S1752126AbZBDO3y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2009 09:29:54 -0500
+In-Reply-To: <1229358410.8699.13.camel@jstultz-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-02-04 at 14:01 +0100, Patrick Ohly wrote:
+On Mon, 2008-12-15 at 08:26 -0800, John Stultz wrote:
 
->  /**
-> + * struct cyclecounter - hardware abstraction for a free running counter
-> + *	Provides completely state-free accessors to the underlying hardware.
-> + *	Depending on which hardware it reads, the cycle counter may wrap
-> + *	around quickly. Locking rules (if necessary) have to be defined
-> + *	by the implementor and user of specific instances of this API.
-> + *
-> + * @read:		returns the current cycle value
-> + * @mask:		bitmask for two's complement
-> + *			subtraction of non 64 bit counters,
-> + *			see CLOCKSOURCE_MASK() helper macro
-> + * @mult:		cycle to nanosecond multiplier
-> + * @shift:		cycle to nanosecond divisor (power of two)
-> + */
-> +struct cyclecounter {
-> +	cycle_t (*read)(const struct cyclecounter *cc);
-> +	cycle_t mask;
-> +	u32 mult;
-> +	u32 shift;
-> +};
+> Nice. The cyclecounter struct can work as a good base that I can shift
+> the clocksource bits over to as I clean that up.
+> 
+> We will probably want to split this out down the road, but for now its
+> small enough and related enough that I think its fine in the
+> clocksource.h/c.
+> 
+> Also since Magnus has been working on it, does enable/disable accessors
+> in the cyclecounter struct make sense for your hardware as well?
+> 
+> Also the corner cases on overflows (how we manage the state, should
+> reads be deferred for too long) will need to be addressed, but I guess
+> we can solve that when it becomes an issue. Just to be clear: none of
+> the hardware you're submitting this round has wrapping issues? Or is
+> that not the case?
 
-Where are these defined? I don't see any in created in your code.
-
-> +/**
-> + * struct timecounter - layer above a %struct cyclecounter which counts nanoseconds
-> + *	Contains the state needed by timecounter_read() to detect
-> + *	cycle counter wrap around. Initialize with
-> + *	timecounter_init(). Also used to convert cycle counts into the
-> + *	corresponding nanosecond counts with timecounter_cyc2time(). Users
-> + *	of this code are responsible for initializing the underlying
-> + *	cycle counter hardware, locking issues and reading the time
-> + *	more often than the cycle counter wraps around. The nanosecond
-> + *	counter will only wrap around after ~585 years.
-> + *
-> + * @cc:			the cycle counter used by this instance
-> + * @cycle_last:		most recent cycle counter value seen by
-> + *			timecounter_read()
-> + * @nsec:		continuously increasing count
-> + */
-> +struct timecounter {
-> +	const struct cyclecounter *cc;
-> +	cycle_t cycle_last;
-> +	u64 nsec;
-> +};
-
-If your mixing generic and non-generic code, it seems a little
-presumptuous to assume the code would get called more often than the
-counter wraps. If this cyclecounter is what I think it is (a
-clocksource) they wrap at varied times.
-
-> +/**
-> + * cyclecounter_cyc2ns - converts cycle counter cycles to nanoseconds
-> + * @tc:		Pointer to cycle counter.
-> + * @cycles:	Cycles
-> + *
-> + * XXX - This could use some mult_lxl_ll() asm optimization. Same code
-> + * as in cyc2ns, but with unsigned result.
-> + */
-> +static inline u64 cyclecounter_cyc2ns(const struct cyclecounter *cc,
-> +				      cycle_t cycles)
-> +{
-> +	u64 ret = (u64)cycles;
-> +	ret = (ret * cc->mult) >> cc->shift;
-> +	return ret;
-> +}
-
-This is just outright duplication.. Why wouldn't you use the function
-that already exists for this?
-
-> +/**
-> + * clocksource_read_ns - get nanoseconds since last call of this function
-> + * @tc:         Pointer to time counter
-> + *
-> + * When the underlying cycle counter runs over, this will be handled
-> + * correctly as long as it does not run over more than once between
-> + * calls.
-> + *
-> + * The first call to this function for a new time counter initializes
-> + * the time tracking and returns bogus results.
-> + */
-
-"bogus results" doesn't sound very pretty..
+Why wouldn't this just use a clocksource directly and not register it
+with the timekeeping? The cyclecounter is just a subset of the
+clocksource ..
 
 Daniel
 
