@@ -1,50 +1,74 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Wed, 4 Feb 2009 20:28:20 +0100
-Message-ID: <20090204192820.GA27867@1wt.eu>
-References: <20090204081201.GB10445@ioremap.net> <20090204085432.GA21638@1wt.eu> <20090204085907.GA19388@gondor.apana.org.au> <20090204.010146.18100191.davem@davemloft.net> <20090204091217.GA21385@1wt.eu> <ada63jqm2mt.fsf@cisco.com>
+From: Daniel Walker <dwalker@fifo99.com>
+Subject: Re: [PATCH NET-NEXT 01/10] clocksource: allow usage independent of
+	timekeeping.c
+Date: Wed, 04 Feb 2009 11:40:21 -0800
+Message-ID: <1233776421.15119.125.camel@desktop>
+References: <1233752517-30010-1-git-send-email-patrick.ohly@intel.com>
+	 <1233752517-30010-2-git-send-email-patrick.ohly@intel.com>
+	 <1233756235.15119.54.camel@desktop> <1233758796.15940.198.camel@ecld0pohly>
+	 <1233760170.15119.76.camel@desktop>
+	 <1233775542.6994.13.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	zbr@ioremap.net, jarkao2@gmail.com, dada1@cosmosbay.com,
-	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick Ohly <patrick.ohly@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: john stultz <johnstul@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2038 "EHLO 1wt.eu"
+Received: from fifo99.com ([67.223.236.141]:35379 "EHLO fifo99.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752277AbZBDT3h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2009 14:29:37 -0500
-Content-Disposition: inline
-In-Reply-To: <ada63jqm2mt.fsf@cisco.com>
+	id S1755656AbZBDTk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2009 14:40:27 -0500
+In-Reply-To: <1233775542.6994.13.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 04, 2009 at 11:19:06AM -0800, Roland Dreier wrote:
->  > And the arbitrary choice of 9k for jumbo frames was total crap too.
->  > It's clear that no hardware designer was involved in the process.
->  > They have to stuff 16kB of RAM on a NIC to use only 9. And we need
->  > to allocate 3 pages for slightly more than 2. 7.5 kB would have been
->  > better in this regard.
+On Wed, 2009-02-04 at 11:25 -0800, john stultz wrote:
+> On Wed, 2009-02-04 at 07:09 -0800, Daniel Walker wrote:
+> > On Wed, 2009-02-04 at 15:46 +0100, Patrick Ohly wrote:
+> > > In an earlier revision of the patch I had adapted clocksource itself so
+> > > that it could be used outside of the time keeping code; John wanted me
+> > > to use these smaller structs instead that you now find in the current
+> > > patch.
+> > 
+> > Well, I think your original idea was better.. I don't think we need the
+> > duplication of underlying clocksource mechanics.
+> > 
+> > > Eventually John wants to refactor clocksource so that it uses them and
+> > > just adds additional elements in clocksource. Right now clocksource is a
+> > > mixture of different concepts. Breaking out cyclecounter and timecounter
+> > > is a first step towards that cleanup.
+> > 
+> > The problem I see is that your putting off the cleanup of struct
+> > clocksource with duplication.. It should go in reverse , you should use
+> > clocksources for your patch set. Which will motivate John to clean up
+> > the clocksource structure.
 > 
-> 9K was not totally arbitrary.  The CRC used for checksumming ethernet
-> packets has a probability of undetected errors that goes up about
-> 11-thousand something bytes.  So the real limit is ~11000 bytes, and I
-> believe ~9000 was chosen to be able to carry 8K NFS payloads + all XDR
-> and transport headers without fragmentation.
+> I strongly disagree. Misusing a established structure for unintended use
+> is just bad. What Patrick wants to use the counters for has very
+> different semantics then how clocksources are used.
 
-Yes I know that initial motivation. But IMHO it was a purely functional
-motivation without real considerations of the implications. When you
-read Alteon's initial proposal, there is even a biased analysis (they
-compare the fill ratio obtained with one 8k frame with that of 6 1.5k
-frames). Their own argument does not stand with their final proposal!
-I think that there might already have been people pushing for 8k and
-not 9 by then, but in order to get wide acceptance in datacenters,
-they had to please the NFS admins.
+I don't think it's at all bad to reuse an established system like that,
+especially when the purposed one is largely duplication of the other..
+The issue is more that struct clocksource has been loaded up with too
+many timekeeping specific ornaments .. I would think a good clean up
+would be just to remove those from the structure.
 
-Now it's useless to speculate on history and I agree with Davem that
-we're wasting our time with this discussion, let's go back to the
-keyboard ;-)
+> I think having a bit of redundancy in two structures is good motivation
+> for me to clean up the clocksources to use cyclecounters.
 
-Willy
+I'm not sure what kind of clean up you have in mind. Given that
+clocksources are used across many architectures, do you really want to
+do a mass name change for all of them? Not to mention most people see
+clocksources as cycle counters , so you would just add confusion in
+addition to code flux.
+
+If your going to end up merging this new cycle counter structure with
+clocksources anyway, why wouldn't we do it now instead of doing
+temporary duplication ..
+
+Daniel
 
