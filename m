@@ -1,44 +1,38 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [PATCH] [RESEND] iproute2 : invalid burst/cburst calculation with hrtimers
-Date: Thu, 5 Feb 2009 01:24:05 +0200
-Message-ID: <200902050124.05969.denys@visp.net.lb>
-References: <200902021926.17768.denys@visp.net.lb> <200902050026.46603.denys@visp.net.lb> <20090204224929.GB2828@ami.dom.local>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: Allow setting the MAC address of the NIC
+Date: Thu, 5 Feb 2009 10:07:12 +1030
+Message-ID: <200902051007.13042.rusty@rustcorp.com.au>
+References: <200901271305.16832.rusty@rustcorp.com.au> <20090204191826.2481.17875.stgit@debian.lart>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:47063 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbZBDXZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 18:25:13 -0500
-In-Reply-To: <20090204224929.GB2828@ami.dom.local>
+Cc: markmc@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Alex Williamson <alex.williamson@hp.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090204191826.2481.17875.stgit@debian.lart>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 05 February 2009 00:49:29 Jarek Poplawski wrote:
-> On Thu, Feb 05, 2009 at 12:26:46AM +0200, Denys Fedoryschenko wrote:
-> ...
->
-> > Maybe we can put note in documentation or even htb help output, that user
-> > can increase precision with hrtimers enabled, by setting HZ variable?
->
-> Hmm... I rather meant using burst and cburst params. But hrtimers are
-> very hardware dependent, so it's hard to advise anything.
->
-> Jarek P.
+On Thursday 05 February 2009 05:56:06 Alex Williamson wrote:
+> Many physical NICs let the OS re-program the "hardware" MAC
+> address.  Virtual NICs should allow this too.
+> 
+> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+> Acked-by: Mark McLoughlin <markmc@redhat.com>
+> ---
+> 
+> Rusty, you've already applied this to your patch queue, but that version
+> won't apply cleanly after the MAC and VLAN filtering patches I just sent
+> for net-next-2.6 (just diff context changes).  This version should apply
+> cleanly, so either drop the original and apply this after rebase, or
+> maybe it should just go directly into net-next-2.6?  Thanks,
 
-By default burst/cburst calculated depends on timer resolution, as i 
-understood, by taking 4th parameter of /proc/net/psched, which as i 
-understood - precision of hrtimer .
+Yes, it should go directly into net-next-2.6.
 
-With hrtimers it is nanosecond resolution, precision is very high, but 
-overhead too high too. And as i understand, maybe it can be problem, that htb 
-still uses HZ variable in some cases like:
-	return q->now + 2 * PSCHED_TICKS_PER_SEC / HZ;
+I like to keep some variant in my tree so I can see when they go upstream
+(and ideally notice if they haven't for some reason).
 
-
+Thanks,
+Rusty.
