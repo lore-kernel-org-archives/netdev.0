@@ -1,39 +1,57 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Wed, 04 Feb 2009 11:19:06 -0800
-Message-ID: <ada63jqm2mt.fsf@cisco.com>
-References: <20090204081201.GB10445@ioremap.net>
-	<20090204085432.GA21638@1wt.eu>
-	<20090204085907.GA19388@gondor.apana.org.au>
-	<20090204.010146.18100191.davem@davemloft.net>
-	<20090204091217.GA21385@1wt.eu>
+From: john stultz <johnstul@us.ibm.com>
+Subject: Re: [PATCH NET-NEXT 01/10] clocksource: allow usage independent of
+	timekeeping.c
+Date: Wed, 04 Feb 2009 11:25:42 -0800
+Message-ID: <1233775542.6994.13.camel@localhost.localdomain>
+References: <1233752517-30010-1-git-send-email-patrick.ohly@intel.com>
+	 <1233752517-30010-2-git-send-email-patrick.ohly@intel.com>
+	 <1233756235.15119.54.camel@desktop> <1233758796.15940.198.camel@ecld0pohly>
+	 <1233760170.15119.76.camel@desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	zbr@ioremap.net, jarkao2@gmail.com, dada1@cosmosbay.com,
-	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick Ohly <patrick.ohly@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Daniel Walker <dwalker@fifo99.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:36193 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755620AbZBDTTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 14:19:10 -0500
-In-Reply-To: <20090204091217.GA21385@1wt.eu> (Willy Tarreau's message of "Wed,
-	4 Feb 2009 10:12:17 +0100")
+Received: from e35.co.us.ibm.com ([32.97.110.153]:60422 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752497AbZBDTZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 14:25:56 -0500
+In-Reply-To: <1233760170.15119.76.camel@desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > And the arbitrary choice of 9k for jumbo frames was total crap too.
- > It's clear that no hardware designer was involved in the process.
- > They have to stuff 16kB of RAM on a NIC to use only 9. And we need
- > to allocate 3 pages for slightly more than 2. 7.5 kB would have been
- > better in this regard.
+On Wed, 2009-02-04 at 07:09 -0800, Daniel Walker wrote:
+> On Wed, 2009-02-04 at 15:46 +0100, Patrick Ohly wrote:
+> > In an earlier revision of the patch I had adapted clocksource itself so
+> > that it could be used outside of the time keeping code; John wanted me
+> > to use these smaller structs instead that you now find in the current
+> > patch.
+> 
+> Well, I think your original idea was better.. I don't think we need the
+> duplication of underlying clocksource mechanics.
+> 
+> > Eventually John wants to refactor clocksource so that it uses them and
+> > just adds additional elements in clocksource. Right now clocksource is a
+> > mixture of different concepts. Breaking out cyclecounter and timecounter
+> > is a first step towards that cleanup.
+> 
+> The problem I see is that your putting off the cleanup of struct
+> clocksource with duplication.. It should go in reverse , you should use
+> clocksources for your patch set. Which will motivate John to clean up
+> the clocksource structure.
 
-9K was not totally arbitrary.  The CRC used for checksumming ethernet
-packets has a probability of undetected errors that goes up about
-11-thousand something bytes.  So the real limit is ~11000 bytes, and I
-believe ~9000 was chosen to be able to carry 8K NFS payloads + all XDR
-and transport headers without fragmentation.
+I strongly disagree. Misusing a established structure for unintended use
+is just bad. What Patrick wants to use the counters for has very
+different semantics then how clocksources are used.
 
- - R.
+I think having a bit of redundancy in two structures is good motivation
+for me to clean up the clocksources to use cyclecounters.
+
+thanks
+-john
+
