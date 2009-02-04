@@ -1,252 +1,142 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [PATCH NET-NEXT 01/10] clocksource: allow usage independent of timekeeping.c
-Date: Wed,  4 Feb 2009 14:01:56 +0100
-Message-ID: <1233752517-30010-2-git-send-email-patrick.ohly@intel.com>
-References: <1233752517-30010-1-git-send-email-patrick.ohly@intel.com>
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Patrick Ohly <patrick.ohly@intel.com>
-To: linux-kernel@vger.kernel.org
+Subject: Re: hardware time stamping with optional structs in data area
+Date: Wed, 04 Feb 2009 14:02:31 +0100
+Message-ID: <1233752551.15940.159.camel@ecld0pohly>
+References: <1233069837.24438.54.camel@pohly-MOBL>
+	 <20090128090821.GA15770@gondor.apana.org.au>
+	 <20090201.001415.201448053.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:19357 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:8089 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756702AbZBDNCD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2009 08:02:03 -0500
-In-Reply-To: <1233752517-30010-1-git-send-email-patrick.ohly@intel.com>
+	id S1759514AbZBDNCf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2009 08:02:35 -0500
+In-Reply-To: <20090201.001415.201448053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So far struct clocksource acted as the interface between time/timekeeping.c
-and hardware. This patch generalizes the concept so that a similar
-interface can also be used in other contexts. For that it introduces
-new structures and related functions *without* touching the existing
-struct clocksource.
+On Sun, 2009-02-01 at 08:14 +0000, David Miller wrote: 
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 28 Jan 2009 20:08:21 +1100
+> > How big are the time stamps? If they're not that big, why don't
+> > we put it into the shinfo structure itself? For the common case,
+> > we have plenty of space due to kmalloc padding anyway.
+> 
+> I did some thinking about this, and for the time being
+> I think we should stick all of these new pieces of
+> timestamp information in the skb shared info structure
+> and unconditionally.
 
-The reasons for adding these new structures to clocksource.[ch] are
-* the APIs are clearly related
-* struct clocksource could be cleaned up to use the new structs
-* avoids proliferation of files with similar names (timesource.h?
-  timecounter.h?)
+Agreed. I have changed the code accordingly. As expected it became
+considerably simpler.
 
-As outlined in the discussion with John Stultz, this patch adds
-* struct cyclecounter: stateless API to hardware which counts clock cycles
-* struct timecounter: stateful utility code built on a cyclecounter which
-  provides a nanosecond counter
-* only the function to read the nanosecond counter; deltas are used internally
-  and not exposed to users of timecounter
+I also fixed the 32 bit on 64 bit kernel issue with the SIOCSHWTSTAMP
+ioctl.
 
-The code does no locking of the shared state. It must be called at least
-as often as the cycle counter wraps around to detect these wrap arounds.
-Both is the responsibility of the timecounter user.
+> So you can therefore get rid of all of this conditional sizing and
+> other complexity, which is distracting from what the patch is actually
+> doing.  As a result I expect patch #2 to shrink to basically nothing :)
 
-Acked-by: John Stultz <johnstul@us.ibm.com>
----
- include/linux/clocksource.h |  101 +++++++++++++++++++++++++++++++++++++++++++
- kernel/time/clocksource.c   |   76 ++++++++++++++++++++++++++++++++
- 2 files changed, 177 insertions(+), 0 deletions(-)
+I kept the struct/union definition around because in some places the
+information needs to be stored detached from skb_shared_info. I also
+kept the accessor functions because that way the code using the
+information is better separated from how the information is stored.
 
-diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
-index f88d32f..0729ce2 100644
---- a/include/linux/clocksource.h
-+++ b/include/linux/clocksource.h
-@@ -22,8 +22,109 @@ typedef u64 cycle_t;
- struct clocksource;
- 
- /**
-+ * struct cyclecounter - hardware abstraction for a free running counter
-+ *	Provides completely state-free accessors to the underlying hardware.
-+ *	Depending on which hardware it reads, the cycle counter may wrap
-+ *	around quickly. Locking rules (if necessary) have to be defined
-+ *	by the implementor and user of specific instances of this API.
-+ *
-+ * @read:		returns the current cycle value
-+ * @mask:		bitmask for two's complement
-+ *			subtraction of non 64 bit counters,
-+ *			see CLOCKSOURCE_MASK() helper macro
-+ * @mult:		cycle to nanosecond multiplier
-+ * @shift:		cycle to nanosecond divisor (power of two)
-+ */
-+struct cyclecounter {
-+	cycle_t (*read)(const struct cyclecounter *cc);
-+	cycle_t mask;
-+	u32 mult;
-+	u32 shift;
-+};
-+
-+/**
-+ * struct timecounter - layer above a %struct cyclecounter which counts nanoseconds
-+ *	Contains the state needed by timecounter_read() to detect
-+ *	cycle counter wrap around. Initialize with
-+ *	timecounter_init(). Also used to convert cycle counts into the
-+ *	corresponding nanosecond counts with timecounter_cyc2time(). Users
-+ *	of this code are responsible for initializing the underlying
-+ *	cycle counter hardware, locking issues and reading the time
-+ *	more often than the cycle counter wraps around. The nanosecond
-+ *	counter will only wrap around after ~585 years.
-+ *
-+ * @cc:			the cycle counter used by this instance
-+ * @cycle_last:		most recent cycle counter value seen by
-+ *			timecounter_read()
-+ * @nsec:		continuously increasing count
-+ */
-+struct timecounter {
-+	const struct cyclecounter *cc;
-+	cycle_t cycle_last;
-+	u64 nsec;
-+};
-+
-+/**
-+ * cyclecounter_cyc2ns - converts cycle counter cycles to nanoseconds
-+ * @tc:		Pointer to cycle counter.
-+ * @cycles:	Cycles
-+ *
-+ * XXX - This could use some mult_lxl_ll() asm optimization. Same code
-+ * as in cyc2ns, but with unsigned result.
-+ */
-+static inline u64 cyclecounter_cyc2ns(const struct cyclecounter *cc,
-+				      cycle_t cycles)
-+{
-+	u64 ret = (u64)cycles;
-+	ret = (ret * cc->mult) >> cc->shift;
-+	return ret;
-+}
-+
-+/**
-+ * timecounter_init - initialize a time counter
-+ * @tc:			Pointer to time counter which is to be initialized/reset
-+ * @cc:			A cycle counter, ready to be used.
-+ * @start_tstamp:	Arbitrary initial time stamp.
-+ *
-+ * After this call the current cycle register (roughly) corresponds to
-+ * the initial time stamp. Every call to timecounter_read() increments
-+ * the time stamp counter by the number of elapsed nanoseconds.
-+ */
-+extern void timecounter_init(struct timecounter *tc,
-+			const struct cyclecounter *cc,
-+			u64 start_tstamp);
-+
-+/**
-+ * timecounter_read - return nanoseconds elapsed since timecounter_init()
-+ *                         plus the initial time stamp
-+ * @tc:          Pointer to time counter.
-+ *
-+ * In other words, keeps track of time since the same epoch as
-+ * the function which generated the initial time stamp.
-+ */
-+extern u64 timecounter_read(struct timecounter *tc);
-+
-+/**
-+ * timecounter_cyc2time - convert a cycle counter to same
-+ *                        time base as values returned by
-+ *                        timecounter_read()
-+ * @tc:		Pointer to time counter.
-+ * @cycle:	a value returned by tc->cc->read()
-+ *
-+ * Cycle counts that are converted correctly as long as they
-+ * fall into the interval [-1/2 max cycle count, +1/2 max cycle count],
-+ * with "max cycle count" == cs->mask+1.
-+ *
-+ * This allows conversion of cycle counter values which were generated
-+ * in the past.
-+ */
-+extern u64 timecounter_cyc2time(struct timecounter *tc,
-+				cycle_t cycle_tstamp);
-+
-+/**
-  * struct clocksource - hardware abstraction for a free running counter
-  *	Provides mostly state-free accessors to the underlying hardware.
-+ *	This is the structure used for system time.
-  *
-  * @name:		ptr to clocksource name
-  * @list:		list head for registration
-diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
-index ca89e15..6d4a267 100644
---- a/kernel/time/clocksource.c
-+++ b/kernel/time/clocksource.c
-@@ -31,6 +31,82 @@
- #include <linux/sched.h> /* for spin_unlock_irq() using preempt_count() m68k */
- #include <linux/tick.h>
- 
-+void timecounter_init(struct timecounter *tc,
-+		      const struct cyclecounter *cc,
-+		      u64 start_tstamp)
-+{
-+	tc->cc = cc;
-+	tc->cycle_last = cc->read(cc);
-+	tc->nsec = start_tstamp;
-+}
-+EXPORT_SYMBOL(timecounter_init);
-+
-+/**
-+ * clocksource_read_ns - get nanoseconds since last call of this function
-+ * @tc:         Pointer to time counter
-+ *
-+ * When the underlying cycle counter runs over, this will be handled
-+ * correctly as long as it does not run over more than once between
-+ * calls.
-+ *
-+ * The first call to this function for a new time counter initializes
-+ * the time tracking and returns bogus results.
-+ */
-+static u64 timecounter_read_delta(struct timecounter *tc)
-+{
-+	cycle_t cycle_now, cycle_delta;
-+	u64 ns_offset;
-+
-+	/* read cycle counter: */
-+	cycle_now = tc->cc->read(tc->cc);
-+
-+	/* calculate the delta since the last timecounter_read_delta(): */
-+	cycle_delta = (cycle_now - tc->cycle_last) & tc->cc->mask;
-+
-+	/* convert to nanoseconds: */
-+	ns_offset = cyclecounter_cyc2ns(tc->cc, cycle_delta);
-+
-+	/* update time stamp of timecounter_read_delta() call: */
-+	tc->cycle_last = cycle_now;
-+
-+	return ns_offset;
-+}
-+
-+u64 timecounter_read(struct timecounter *tc)
-+{
-+	u64 nsec;
-+
-+	/* increment time by nanoseconds since last call */
-+	nsec = timecounter_read_delta(tc);
-+	nsec += tc->nsec;
-+	tc->nsec = nsec;
-+
-+	return nsec;
-+}
-+EXPORT_SYMBOL(timecounter_read);
-+
-+u64 timecounter_cyc2time(struct timecounter *tc,
-+			 cycle_t cycle_tstamp)
-+{
-+	u64 cycle_delta = (cycle_tstamp - tc->cycle_last) & tc->cc->mask;
-+	u64 nsec;
-+
-+	/*
-+	 * Instead of always treating cycle_tstamp as more recent
-+	 * than tc->cycle_last, detect when it is too far in the
-+	 * future and treat it as old time stamp instead.
-+	 */
-+	if (cycle_delta > tc->cc->mask / 2) {
-+		cycle_delta = (tc->cycle_last - cycle_tstamp) & tc->cc->mask;
-+		nsec = tc->nsec - cyclecounter_cyc2ns(tc->cc, cycle_delta);
-+	} else {
-+		nsec = cyclecounter_cyc2ns(tc->cc, cycle_delta) + tc->nsec;
-+	}
-+
-+	return nsec;
-+}
-+EXPORT_SYMBOL(timecounter_cyc2time);
-+
- /* XXX - Would like a better way for initializing curr_clocksource */
- extern struct clocksource clocksource_jiffies;
- 
+The only change in these accessors is that they are now guaranteed to
+never return NULL; code using them was simplified accordingly.
+
+> Other than that, I went over the patches again, and here is some other
+> feedback:
+> 
+> 1) Please kill the SO_TIMESTAMPING/SCM_TIMESTAMPING/SIOCHWTSTAMP
+>    fallback definition in linux/net_tstamp.h
+> 
+>    We don't do things like that.  The SIOCHWTSTAMP one was using
+>    __kernel__ (lowercase) instead of __KERNEL__ so it wouldn't
+>    work anyways :-)
+
+Okay. I moved that into the timestamping.c example. Such a fallback is
+needed in user space programs because the latest kernel's header files
+might not be installed yet: net_tstamp.h is found, platform specific
+asm-* files are not. Instead files from /usr/include are picked up.
+
+> 2) Please fix up some coding style issues.  For example, when you have
+>    a multiline conditional as you do in sock_recv_timestamp(), format
+>    it like this:
+> 
+>         if (a ||
+>             b ||
+>             c)
+> 
+>    instead of the two tab thing you're doing on the lines after the
+>    first one in the conditional.  There are many cases of this, so
+>    please go over all of your patches and review for this.
+> 
+>    The sock_tx_timestamp() declaration has similar issues.  Make the
+>    arguments on the subsequent lines start right after the openning
+>    parenthesis on the first line.
+
+I didn't find anything about this aspect of line continuation in the
+CodingStyle, so I used the emacs configuration given there and relied on
+it to do the formatting correctly. That's no excuse of course, just an
+explanation. It looked wrong, but so does much of the other Linux kernel
+code to my unaccustomed eyes ;-)
+
+Does anyone have an improved version of the emacs macros or is this
+something that has to be formatted manually? For now I'm fixing it
+manually.
+
+I hope I'm catching all of it; checkpatch.pl doesn't warn about it.
+
+> Please don't use braces for a basic block composed of only one
+>    line, it's just wasted space, for example:
+> 
+>         if (sock_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE)) {
+>                 shtx->hardware = 1;
+>         }
+
+Right. I fixed some of those already, but missed that one.
+
+I went through all patches and fixed all the checkstack.pl reports,
+except for some warnings about long lines that I preferred not to split
+(usually string constants).
+
+> 4) Please get patches #9 and #11 on a fresh review on linux-kernel
+>    with the timer maintainers CC:'d.  Once they ACK, get a figure on
+>    how we can arrange the merge of these changes.
+> 
+>    Just like you I think we have to merge this in via the net tree
+>    since the only user we have is this hwtstamp networking stuff.  So
+>    please express that and try to get the timer folk's blessing on
+>    that.
+
+Okay.
+
+> 5) Finally, try to put the driver patches at the end so that they
+>    finish the patch series and the driver maintainer ACK'ing can
+>    be handled seperately and won't hold up the infrastructure patches.
+
+Okay. John Ronciak already expressed an interest in reviewing them. I'll
+discuss with him and other Intel igb maintainers before posting the
+patch series again.
+
+> Otherwise this stuff looks good, please keep working on this stuff!
+
+Glad to hear there. I'll do my best to finish this. It's quite an
+experience ;-)
+
 -- 
-1.6.0.4
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
 
