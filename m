@@ -1,145 +1,205 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2.6.30 3/3] gianfar: Fix stashing support
-Date: Tue,  3 Feb 2009 19:17:03 -0600
-Message-ID: <1233710223-17808-5-git-send-email-afleming@freescale.com>
-References: <1233710223-17808-1-git-send-email-afleming@freescale.com>
- <1233710223-17808-2-git-send-email-afleming@freescale.com>
- <1233710223-17808-3-git-send-email-afleming@freescale.com>
- <1233710223-17808-4-git-send-email-afleming@freescale.com>
-Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>
-To: davem@davemloft.net, jeff@garzik.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Multicast packet loss
+Date: Tue, 3 Feb 2009 20:21:44 -0500
+Message-ID: <20090204012144.GC3650@localhost.localdomain>
+References: <49838213.90700@cosmosbay.com> <49859847.9010206@cosmosbay.com> <20090202134523.GA13369@hmsreliant.think-freely.org> <498725F4.2010205@cosmosbay.com> <20090202182212.GA17950@hmsreliant.think-freely.org> <loom.20090202T194942-55@post.gmane.org> <498757AA.8010101@cosmosbay.com> <4987610D.6040902@athenacr.com> <4987663D.6080802@cosmosbay.com> <4988803E.2020009@athenacr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Kenny Chang <kchang@athenacr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:57450 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbZBDBRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 20:17:22 -0500
-Received: from az33smr02.freescale.net (az33smr02.freescale.net [10.64.34.200])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n141H5re004712
-	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 18:17:05 -0700 (MST)
-Received: from ld0175-tx32.am.freescale.net (ld0175-tx32.am.freescale.net [10.82.19.125])
-	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id n141H4VH021699
-	for <netdev@vger.kernel.org>; Tue, 3 Feb 2009 19:17:04 -0600 (CST)
-In-Reply-To: <1233710223-17808-4-git-send-email-afleming@freescale.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40967 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756110AbZBDBVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 20:21:47 -0500
+Content-Disposition: inline
+In-Reply-To: <4988803E.2020009@athenacr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stashing is only supported on the 85xx (e500-based) SoCs.  The 83xx and 86xx
-chips don't have a proper cache for this.  U-Boot has been updated to add
-stashing properties to the device tree nodes of gianfar devices on 85xx.  So
-now we modify Linux to keep stashing off unless those properties are there.
+On Tue, Feb 03, 2009 at 12:34:54PM -0500, Kenny Chang wrote:
+> Eric Dumazet wrote:
+>> Wes Chow a =E9crit :
+>>  =20
+>>> Eric Dumazet wrote:
+>>>    =20
+>>>> Wes Chow a =E9crit :
+>>>>      =20
+>>>>> (I'm Kenny's colleague, and I've been doing the kernel builds)
+>>>>>
+>>>>> First I'd like to note that there were a lot of bnx2 NAPI changes
+>>>>> between 2.6.21 and 2.6.22. As a reminder, 2.6.21 shows tiny amoun=
+ts
+>>>>> of packet loss,
+>>>>> whereas loss in 2.6.22 is significant.
+>>>>>
+>>>>> Second, some CPU affinity info: if I do like Eric and pin all of =
+the
+>>>>> apps onto a single CPU, I see no packet loss. Also, I do *not* se=
+e
+>>>>> ksoftirqd show up on top at all!
+>>>>>
+>>>>> If I pin half the processes on one CPU and the other half on anot=
+her
+>>>>> CPU, one ksoftirqd processes shows up in top and completely pegs =
+one
+>>>>> CPU. My packet loss
+>>>>> in that case is significant (25%).
+>>>>>
+>>>>> Now, the strange case: if I pin 3 processes to one CPU and 1 proc=
+ess
+>>>>> to another, I get about 25% packet loss and ksoftirqd pins one CP=
+U.
+>>>>> However, one
+>>>>> of the apps takes significantly less CPU than the others, and all
+>>>>> apps lose the
+>>>>> *exact same number of packets*. In all other situations where we =
+see
+>>>>> packet
+>>>>> loss, the actual number lost per application instance appears ran=
+dom.
+>>>>>        =20
+>>>> You see same number of packet lost because they are lost at NIC le=
+vel
+>>>>      =20
+>>> Understood.
+>>>
+>>> I have a new observation: if I pin processes to just CPUs 0 and 1, =
+I see
+>>> no packet loss. Pinning to 0 and 2, I do see packet loss. Pinning 2=
+ and
+>>> 3, no packet loss. 4 & 5 - no packet loss, 6 & 7 - no packet loss. =
+Any
+>>> other combination appears to produce loss (though I have not tried =
+all
+>>> 28 combinations, this seems to be the case).
+>>>
+>>> At first I thought maybe it had to do with processes pinned to the =
+same
+>>> CPU, but different cores. The machine is a dual quad core, which me=
+ans
+>>> that CPUs 0-3 should be a physical CPU, correct? Pinning to 0/2 and=
+ 0/3
+>>> produce packet loss.
+>>>    =20
+>>
+>> a quad core is really a 2 x 2 core
+>>
+>> L2 cache is splited on two blocks, one block used by CPU0/1, other b=
+y=20
+>> CPU2/3=20
+>>
+>> You are at the limit of the machine with such workload, so as soon a=
+s your
+>> CPUs have to transfert 64 bytes lines between those two L2 blocks, y=
+ou loose.
+>>
+>>
+>>  =20
+>>> I've also noticed that it does not matter which of the working pair=
+s I
+>>> pin to. For example, pinning 5 processes in any combination on eith=
+er
+>>> 0/1 produce no packet loss, pinning all 5 to just CPU 0 also produc=
+es no
+>>> packet loss.
+>>>
+>>> The failures are also sudden. In all of the working cases mentioned
+>>> above, I don't see ksoftirqd on top at all. But when I run 6 proces=
+ses
+>>> on a single CPU, ksoftirqd shoots up to 100% and I lose a huge numb=
+er of
+>>> packets.
+>>>
+>>>    =20
+>>>> Normaly, softirq runs on same cpu (the one handling hard irq)
+>>>>      =20
+>>> What determines which CPU the hard irq occurs on?
+>>>
+>>>    =20
+>>
+>> Check /proc/irq/{irqnumber}/smp_affinity
+>>
+>> If you want IRQ16 only served by CPU0 :
+>>
+>> echo 1 >/proc/irq/16/smp_affinity
+>>
+>>  =20
+> Hi everyone,
+>
+> First, thanks for all the effort so far, I think we've learned so muc=
+h =20
+> more about the problem in the last couple of days than we had previou=
+sly =20
+> in a month.
+>
+> Just to summarize where we are:
+>
+> * pinning processes to specific cores/CPUs alleviate the problem
+> * issues exist from 2.6.22 up to 2.6.29-rc3
+> * issue does not appear to be isolated to 64-bit, 32-bits have proble=
+ms =20
+> too.
+> * I'm attaching an updated test program with the PR_SET_TIMERSTACK ca=
+ll =20
+> added.
+> * on troubled machines, we are seeing high number of context switches=
+ =20
+> and interrupts.
+> * we've ordered an Intel card to try in our machine to see if we can =
+=20
+> circumvent the issue with a different driver.
+>
+> Kernel Version         Has Problem?     Notes
+> ----------             ----------       ----------
+> 2.6.15.x                N    2.6.16.x                -
+> 2.6.17.x                -               Doesn't build on Hardy
+> 2.6.18.x                -               Doesn't boot (kernel panic)
+> 2.6.19.7                N               ksoftirqd is up there, but no=
+t =20
+> pegging a CPU.
+>                                        Takes roughly same amount of C=
+PU =20
+> as the other
+>                                        processes, all of which are fr=
+om =20
+> 20-40%
+> 2.6.20.21               N
+> 2.6.21.7                N               sort of lopsided load, but no=
+ =20
+> load from
+>                                        ksoftirqd -- strange
+> 2.6.22.19               Y               First broken kernel
+> 2.6.23.x                -
+> 2.6.24-19               Y               (from Hardy)
+> 2.6.25.x                -
+> 2.6.26.x                -
+> 2.6.27.x                Y               (from Intrepid)
+> 2.6.28.1                Y
+> 2.6.29-rc               Y
+>
+>
+> Correct me if I'm wrong, from what we've seen, it looks like its =20
+> pointing to some inefficiency in the softirq handling.  The question =
+is =20
+> whether it's something in the driver or the kernel.  If we can isolat=
+e =20
+> that, maybe we can take some action to have it fixed.
+>
+I don't think its sofirq ineffeciencies (oprofile would have shown that=
+).  I
+know I keep harping on this, but I still think irq affininty is your pr=
+oblem.
+I'd be interested in knowning what your /proc/interrupts file looked li=
+ke on
+each of the above kenrels.  Perhaps its not that the bnx2 card you have=
+ can't
+handle the setting of MSI interrupt affinities, but rather that somethi=
+ng
+changeed to break irq affinity on this card.
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
----
- Documentation/powerpc/dts-bindings/fsl/tsec.txt |    6 ++++++
- drivers/net/gianfar.c                           |   23 +++++++++++++++++++++++
- drivers/net/gianfar_sysfs.c                     |   12 +++++++++---
- 3 files changed, 38 insertions(+), 3 deletions(-)
+Neil
 
-diff --git a/Documentation/powerpc/dts-bindings/fsl/tsec.txt b/Documentation/powerpc/dts-bindings/fsl/tsec.txt
-index 7fa4b27..edb7ae1 100644
---- a/Documentation/powerpc/dts-bindings/fsl/tsec.txt
-+++ b/Documentation/powerpc/dts-bindings/fsl/tsec.txt
-@@ -56,6 +56,12 @@ Properties:
-     hardware.
-   - fsl,magic-packet : If present, indicates that the hardware supports
-     waking up via magic packet.
-+  - bd-stash : If present, indicates that the hardware supports stashing
-+    buffer descriptors in the L2.
-+  - rx-stash-len : Denotes the number of bytes of a received buffer to stash
-+    in the L2.
-+  - rx-stash-idx : Denotes the index of the first byte from the received
-+    buffer to stash in the L2.
- 
- Example:
- 	ethernet@24000 {
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index e822701..08843b4 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -166,6 +166,9 @@ static int gfar_of_init(struct net_device *dev)
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct device_node *np = priv->node;
- 	char bus_name[MII_BUS_ID_SIZE];
-+	const u32 *stash;
-+	const u32 *stash_len;
-+	const u32 *stash_idx;
- 
- 	if (!np || !of_device_is_available(np))
- 		return -ENODEV;
-@@ -195,6 +198,26 @@ static int gfar_of_init(struct net_device *dev)
- 		}
- 	}
- 
-+	stash = of_get_property(np, "bd-stash", NULL);
-+
-+	if(stash) {
-+		priv->device_flags |= FSL_GIANFAR_DEV_HAS_BD_STASHING;
-+		priv->bd_stash_en = 1;
-+	}
-+
-+	stash_len = of_get_property(np, "rx-stash-len", NULL);
-+
-+	if (stash_len)
-+		priv->rx_stash_size = *stash_len;
-+
-+	stash_idx = of_get_property(np, "rx-stash-idx", NULL);
-+
-+	if (stash_idx)
-+		priv->rx_stash_index = *stash_idx;
-+
-+	if (stash_len || stash_idx)
-+		priv->device_flags |= FSL_GIANFAR_DEV_HAS_BUF_STASHING;
-+
- 	mac_addr = of_get_mac_address(np);
- 	if (mac_addr)
- 		memcpy(dev->dev_addr, mac_addr, MAC_ADDR_LEN);
-diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/gianfar_sysfs.c
-index 782c201..248ecc5 100644
---- a/drivers/net/gianfar_sysfs.c
-+++ b/drivers/net/gianfar_sysfs.c
-@@ -53,6 +53,9 @@ static ssize_t gfar_set_bd_stash(struct device *dev,
- 	u32 temp;
- 	unsigned long flags;
- 
-+	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BD_STASHING))
-+		return count;
-+
- 	/* Find out the new setting */
- 	if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
- 		new_setting = 1;
-@@ -100,6 +103,9 @@ static ssize_t gfar_set_rx_stash_size(struct device *dev,
- 	u32 temp;
- 	unsigned long flags;
- 
-+	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
-+		return count;
-+
- 	spin_lock_irqsave(&priv->rxlock, flags);
- 	if (length > priv->rx_buffer_size)
- 		goto out;
-@@ -152,6 +158,9 @@ static ssize_t gfar_set_rx_stash_index(struct device *dev,
- 	u32 temp;
- 	unsigned long flags;
- 
-+	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_BUF_STASHING))
-+		return count;
-+
- 	spin_lock_irqsave(&priv->rxlock, flags);
- 	if (index > priv->rx_stash_size)
- 		goto out;
-@@ -293,12 +302,9 @@ void gfar_init_sysfs(struct net_device *dev)
- 	int rc;
- 
- 	/* Initialize the default values */
--	priv->rx_stash_size = DEFAULT_STASH_LENGTH;
--	priv->rx_stash_index = DEFAULT_STASH_INDEX;
- 	priv->fifo_threshold = DEFAULT_FIFO_TX_THR;
- 	priv->fifo_starve = DEFAULT_FIFO_TX_STARVE;
- 	priv->fifo_starve_off = DEFAULT_FIFO_TX_STARVE_OFF;
--	priv->bd_stash_en = DEFAULT_BD_STASH;
- 
- 	/* Create our sysfs files */
- 	rc = device_create_file(&dev->dev, &dev_attr_bd_stash);
--- 
-1.5.4.GIT
+>
 
