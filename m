@@ -1,63 +1,86 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH NET-NEXT 01/10] clocksource: allow usage independent of
-	timekeeping.c
-Date: Wed, 04 Feb 2009 13:15:00 -0800
-Message-ID: <1233782100.6994.82.camel@localhost.localdomain>
-References: <1233752517-30010-1-git-send-email-patrick.ohly@intel.com>
-	 <1233752517-30010-2-git-send-email-patrick.ohly@intel.com>
-	 <1233756235.15119.54.camel@desktop> <1233758796.15940.198.camel@ecld0pohly>
-	 <1233760170.15119.76.camel@desktop>
-	 <1233775542.6994.13.camel@localhost.localdomain>
-	 <1233776421.15119.125.camel@desktop>
-	 <1233777982.6994.51.camel@localhost.localdomain>
-	 <1233781499.15119.135.camel@desktop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] [RESEND] iproute2 : invalid burst/cburst calculation
+ with hrtimers
+Date: Wed, 04 Feb 2009 22:20:25 +0100
+Message-ID: <498A0699.6020103@gmail.com>
+References: <200902021926.17768.denys@visp.net.lb> <20090202100742.690e0c8d@extreme> <200902022021.55849.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick Ohly <patrick.ohly@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Daniel Walker <dwalker@fifo99.com>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:57104 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756129AbZBDVPP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2009 16:15:15 -0500
-In-Reply-To: <1233781499.15119.135.camel@desktop>
+Received: from fk-out-0910.google.com ([209.85.128.187]:3649 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755150AbZBDVTA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 16:19:00 -0500
+Received: by fk-out-0910.google.com with SMTP id f33so2245873fkf.5
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2009 13:18:58 -0800 (PST)
+In-Reply-To: <200902022021.55849.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-02-04 at 13:04 -0800, Daniel Walker wrote:
-> On Wed, 2009-02-04 at 12:06 -0800, john stultz wrote:
+Denys Fedoryschenko wrote, On 02/02/2009 07:21 PM:
+
+> Why floating point?
+
+
+Yes, floating point is not enough. get_hz() == 1000000000 could be
+a theoretical resolution, but I guess we don't expect to use this,
+even if it were possible. Since high resolution can schedule more
+often than 1000HZ, it seems these buffers could be set lower (10x,
+100x?), but there should be some reasonable limit.
+
+Jarek P.
+
+> It seems get_hz (and burst in result) just cannot be too low.
+> Still seems some code in HTB rely on jiffies, so get_hz() probably just wrong.
 > 
-> > The duplication is only at a very low level. He could not reuse the
-> > established clocksource system without really breaking its semantics.
+> Already i'm tried to increase burst/cburst calculation precision, but it will 
+> fail still with such high get_hz variable.
 > 
-> He gave a link to the first version,
+> Ii dont know way to get real HZ variable from userspace.
 > 
-> http://kerneltrap.org/mailarchive/linux-netdev/2008/11/19/4164204
+> Here is Martin Devera answer
+>> but it really
+>> seems as if get_hz() is too high.
+>> For 1000Mbps - it is 1MB per 1 ms and assuming HZ=1000, then burst
+>> should be about 1MB.
+>> But I must admit, I'm not familiar with latest state of HZ in kernel.
+>> There was "NO_NZ" effort IIRC, where the HZ granularity can be
+>> considerably finer - but still not infinite.
 > 
-> What specific semantics is he breaking there? 
+> 
+> 
+> On Monday 02 February 2009 20:07:42 Stephen Hemminger wrote:
+>> On Mon, 2 Feb 2009 19:26:17 +0200
+>>
+>> Denys Fedoryschenko <denys@visp.net.lb> wrote:
+>>> ------------->
+>>> iproute2 : invalid burst/cburst calculation with hrtimers
+>>>
+>>> If hrtimers on, /proc/net/psched shows 4th variable
+>>> as 1000000000
+>>> Because burst calculated by division rate to this variable,
+>>> it will be almost always zero. As result, we will get higher system
+>>> load on low rates, and on high rates shaper will not able to process
+>>> data. So it is kind of critical bugfix for systems with hrtimers.
+>>> It is checked and proved. Core 2 Quad was not able to
+>>> shape 200Mbps, and gave only 180-190. It is more safe to set it
+>>> to 1000HZ. If user wants, he can set custom "env" HZ variable.
+>>>
+>>> Signed-off-by: Denys Fedoryschenko <denys@visp.net.lb>
+>>> ---
+>>>
+>>> -------------------------------------------------------
+>> I would rather this be converted to floating point.
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-His re-usage of cycle_last and xtime_nsec for other means then how
-they're defined.
-
-In that case his use of xtime_nsec doesn't even store the same unit.
-
-Plus he adds other accessors to the clocksource structure that are not
-compatible with the clocksources registered for timekeeping.
-
-He's really doing something different here, and while it does access a
-counter, and it does translate that into nanoseconds, its not the same
-as whats done in the timekeeping core which the clocksource was designed
-around.
-
-So by creating his own infrastructure in a shared manner, splitting out
-a chunk of it to be reused in the clocksource/timekeeping core I think
-is really a good thing and the right approach.
-
-thanks
--john
 
