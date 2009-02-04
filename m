@@ -1,8 +1,7 @@
 From: Alex Williamson <alex.williamson@hp.com>
-Subject: [PATCH v5 4/4] virtio_net: Add support for VLAN filtering in the
-	hypervisor
-Date: Wed, 04 Feb 2009 12:02:50 -0700
-Message-ID: <20090204190250.2512.65526.stgit@debian.lart>
+Subject: [PATCH v5 3/4] virtio_net: Add a MAC filter table
+Date: Wed, 04 Feb 2009 12:02:45 -0700
+Message-ID: <20090204190245.2512.8728.stgit@debian.lart>
 References: <20090204190229.2512.93552.stgit@debian.lart>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,111 +14,142 @@ In-Reply-To: <20090204190229.2512.93552.stgit@debian.lart>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VLAN filtering allows the hypervisor to drop packets from VLANs
-that we're not a part of, further reducing the number of extraneous
-packets recieved.  This makes use of the VLAN virtqueue command class.
-The CTRL_VLAN feature bit tells us whether the backend supports VLAN
-filtering.
+Make use of the MAC control virtqueue class to support a MAC
+filter table.  The filter table is managed by the hypervisor.
+We consider the table to be available if the CTRL_RX feature
+bit is set.  We leave it to the hypervisor to manage the table
+and enable promiscuous or all-multi mode as necessary depending
+on the resources available to it.
 
 Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
 
- drivers/net/virtio_net.c   |   31 ++++++++++++++++++++++++++++++-
- include/linux/virtio_net.h |   14 ++++++++++++++
- 2 files changed, 44 insertions(+), 1 deletions(-)
+ drivers/net/virtio_net.c   |   55 ++++++++++++++++++++++++++++++++++++++------
+ include/linux/virtio_net.h |   23 ++++++++++++++++++
+ 2 files changed, 70 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index daab9c9..e68813a 100644
+index 1abea9d..daab9c9 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -727,6 +727,30 @@ static void virtnet_set_rx_mode(struct net_device *dev)
- 	kfree(buf);
+@@ -37,7 +37,7 @@ module_param(gso, bool, 0444);
+ #define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
+ #define GOOD_COPY_LEN	128
+ 
+-#define VIRTNET_SEND_COMMAND_SG_MAX    1
++#define VIRTNET_SEND_COMMAND_SG_MAX    2
+ 
+ struct virtnet_info
+ {
+@@ -661,31 +661,70 @@ static int virtnet_set_tx_csum(struct net_device *dev, u32 data)
+ static void virtnet_set_rx_mode(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-	struct scatterlist sg;
++	struct scatterlist sg[2];
+ 	u8 promisc, allmulti;
++	struct virtio_net_ctrl_mac *mac_data;
++	struct dev_addr_list *addr;
++	void *buf;
++	int i;
+ 
+ 	/* We can't dynamicaly set ndo_set_rx_mode, so return gracefully */
+ 	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_RX))
+ 		return;
+ 
+-	promisc = ((dev->flags & IFF_PROMISC) != 0 || dev->uc_count > 0);
+-	allmulti = ((dev->flags & IFF_ALLMULTI) != 0 || dev->mc_count > 0);
++	promisc = ((dev->flags & IFF_PROMISC) != 0);
++	allmulti = ((dev->flags & IFF_ALLMULTI) != 0);
+ 
+-	sg_set_buf(&sg, &promisc, sizeof(promisc));
++	sg_set_buf(sg, &promisc, sizeof(promisc));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+ 				  VIRTIO_NET_CTRL_RX_PROMISC,
+-				  &sg, 1, 0))
++				  sg, 1, 0))
+ 		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
+ 			 promisc ? "en" : "dis");
+ 
+-	sg_set_buf(&sg, &allmulti, sizeof(allmulti));
++	sg_set_buf(sg, &allmulti, sizeof(allmulti));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+ 				  VIRTIO_NET_CTRL_RX_ALLMULTI,
+-				  &sg, 1, 0))
++				  sg, 1, 0))
+ 		dev_warn(&dev->dev, "Failed to %sable allmulti mode.\n",
+ 			 allmulti ? "en" : "dis");
++
++	/* MAC filter - use one buffer for both lists */
++	mac_data = buf = kzalloc(((dev->uc_count + dev->mc_count) * ETH_ALEN) +
++				 (2 * sizeof(mac_data->entries)), GFP_ATOMIC);
++	if (!buf) {
++		dev_warn(&dev->dev, "No memory for MAC address buffer\n");
++		return;
++	}
++
++	/* Store the unicast list and count in the front of the buffer */
++	mac_data->entries = dev->uc_count;
++	addr = dev->uc_list;
++	for (i = 0; i < dev->uc_count; i++, addr = addr->next)
++		memcpy(&mac_data->macs[i][0], addr->da_addr, ETH_ALEN);
++
++	sg_set_buf(&sg[0], mac_data,
++		   sizeof(mac_data->entries) + (dev->uc_count * ETH_ALEN));
++
++	/* multicast list and count fill the end */
++	mac_data = (void *)&mac_data->macs[dev->uc_count][0];
++
++	mac_data->entries = dev->mc_count;
++	addr = dev->mc_list;
++	for (i = 0; i < dev->mc_count; i++, addr = addr->next)
++		memcpy(&mac_data->macs[i][0], addr->da_addr, ETH_ALEN);
++
++	sg_set_buf(&sg[1], mac_data,
++		   sizeof(mac_data->entries) + (dev->mc_count * ETH_ALEN));
++
++	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
++				  VIRTIO_NET_CTRL_MAC_TABLE_SET,
++				  sg, 2, 0))
++		dev_warn(&dev->dev, "Failed to set MAC fitler table.\n");
++
++	kfree(buf);
  }
  
-+static void virnet_vlan_rx_add_vid(struct net_device *dev, u16 vid)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct scatterlist sg;
-+
-+	sg_set_buf(&sg, &vid, sizeof(vid));
-+
-+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-+				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1, 0))
-+		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
-+}
-+
-+static void virnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct scatterlist sg;
-+
-+	sg_set_buf(&sg, &vid, sizeof(vid));
-+
-+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-+				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1, 0))
-+		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
-+}
-+
  static struct ethtool_ops virtnet_ethtool_ops = {
- 	.set_tx_csum = virtnet_set_tx_csum,
- 	.set_sg = ethtool_op_set_sg,
-@@ -753,6 +777,8 @@ static const struct net_device_ops virtnet_netdev = {
- 	.ndo_set_mac_address = eth_mac_addr,
- 	.ndo_set_rx_mode     = virtnet_set_rx_mode,
- 	.ndo_change_mtu	     = virtnet_change_mtu,
-+	.ndo_vlan_rx_add_vid = virnet_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid = virnet_vlan_rx_kill_vid,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = virtnet_netpoll,
- #endif
-@@ -877,6 +903,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			err = PTR_ERR(vi->svq);
- 			goto free_send;
- 		}
-+
-+		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
-+			dev->features |= NETIF_F_HW_VLAN_FILTER;
- 	}
- 
- 	/* Initialize our empty receive and send queues. */
-@@ -967,7 +996,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
- 	VIRTIO_NET_F_GUEST_ECN, /* We don't yet handle UFO input. */
- 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
--	VIRTIO_NET_F_CTRL_RX,
-+	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
- 	VIRTIO_F_NOTIFY_ON_EMPTY,
- };
- 
 diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index ba82b65..242348b 100644
+index 63b2461..ba82b65 100644
 --- a/include/linux/virtio_net.h
 +++ b/include/linux/virtio_net.h
-@@ -25,6 +25,7 @@
- #define VIRTIO_NET_F_STATUS	16	/* virtio_net_config.status available */
- #define VIRTIO_NET_F_CTRL_VQ	17	/* Control channel available */
- #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
-+#define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
- 
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
- 
-@@ -111,4 +112,17 @@ struct virtio_net_ctrl_mac {
- #define VIRTIO_NET_CTRL_MAC    1
-  #define VIRTIO_NET_CTRL_MAC_TABLE_SET        0
+@@ -88,4 +88,27 @@ typedef __u8 virtio_net_ctrl_ack;
+  #define VIRTIO_NET_CTRL_RX_PROMISC      0
+  #define VIRTIO_NET_CTRL_RX_ALLMULTI     1
  
 +/*
-+ * Control VLAN filtering
++ * Control the MAC filter table.
 + *
-+ * The VLAN filter table is controlled via a simple ADD/DEL interface.
-+ * VLAN IDs not added may be filterd by the hypervisor.  Del is the
-+ * opposite of add.  Both commands expect an out entry containing a 2
-+ * byte VLAN ID.  VLAN filterting is available with the
-+ * VIRTIO_NET_F_CTRL_VLAN feature bit.
++ * The MAC filter table is managed by the hypervisor, the guest should
++ * assume the size is infinite.  Filtering should be considered
++ * non-perfect, ie. based on hypervisor resources, the guest may
++ * received packets from sources not specified in the filter list.
++ *
++ * In addition to the class/cmd header, the TABLE_SET command requires
++ * two out scatterlists.  Each contains a 4 byte count of entries followed
++ * by a concatenated byte stream of the ETH_ALEN MAC addresses.  The
++ * first sg list contains unicast addresses, the second is for multicast.
++ * This functionality is present if the VIRTIO_NET_F_CTRL_RX feature
++ * is available.
 + */
-+#define VIRTIO_NET_CTRL_VLAN       2
-+ #define VIRTIO_NET_CTRL_VLAN_ADD             0
-+ #define VIRTIO_NET_CTRL_VLAN_DEL             1
++struct virtio_net_ctrl_mac {
++	__u32 entries;
++	__u8 macs[][ETH_ALEN];
++} __attribute__((packed));
++
++#define VIRTIO_NET_CTRL_MAC    1
++ #define VIRTIO_NET_CTRL_MAC_TABLE_SET        0
 +
  #endif /* _LINUX_VIRTIO_NET_H */
 
