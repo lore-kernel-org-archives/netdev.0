@@ -1,59 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: NIU driver: strange issues with multicast "UDP: short
- packet"
-Date: Wed, 04 Feb 2009 01:00:29 -0800 (PST)
-Message-ID: <20090204.010029.12969718.davem@davemloft.net>
-References: <1233668300.20497.49.camel@localhost.localdomain>
-	<20090203.153853.163818774.davem@davemloft.net>
-	<1233737704.20497.70.camel@localhost.localdomain>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Wed, 04 Feb 2009 01:01:46 -0800 (PST)
+Message-ID: <20090204.010146.18100191.davem@davemloft.net>
+References: <20090204081201.GB10445@ioremap.net>
+	<20090204085432.GA21638@1wt.eu>
+	<20090204085907.GA19388@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jdb@comx.dk
+Cc: w@1wt.eu, zbr@ioremap.net, jarkao2@gmail.com, dada1@cosmosbay.com,
+	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57987
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57991
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751920AbZBDJAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 04:00:32 -0500
-In-Reply-To: <1233737704.20497.70.camel@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751128AbZBDJBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 04:01:49 -0500
+In-Reply-To: <20090204085907.GA19388@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Date: Wed, 04 Feb 2009 09:55:04 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 4 Feb 2009 19:59:07 +1100
 
-> On Tue, 2009-02-03 at 15:38 -0800, David Miller wrote:
-> > From: Jesper Dangaard Brouer <jdb@comx.dk>
-> > Date: Tue, 03 Feb 2009 14:38:20 +0100
-> > 
-> > >   UDP: short packet: From 81.161.2.106:0 44063/1324 to 233.123.173.7:0
-> > >   UDP: short packet: From 81.161.2.106:0 44063/1324 to 233.123.173.7:0
-> > >   UDP: short packet: From 81.161.2.106:8304 27493/1324 to 233.123.173.7:24931
-> > >   UDP: short packet: From 81.161.2.106:8304 27493/1324 to 233.123.173.7:24931
-> > >   UDP: short packet: From 81.161.2.106:8304 27493/1324 to 233.123.173.7:24931
-> > >   UDP: short packet: From 81.161.2.106:8304 27493/1324 to 233.123.173.7:24931
-> > 
-> > The UDP header length field is garbage in all of these packets.
+> On Wed, Feb 04, 2009 at 09:54:32AM +0100, Willy Tarreau wrote:
+> >
+> > My server is running 2.4 :-), but I observed the same issues with older
+> > 2.6 as well. I can certainly imagine that things have changed a lot since,
+> > but the initial point remains : jumbo frames are expensive to deal with,
+> > and with recent NICs and drivers, we might get close performance for
+> > little additional cost. After all, initial justification for jumbo frames
+> > was the devastating interrupt rate and all NICs coalesce interrupts now.
 > 
-> Yes, but this only happens on the NIU/netpune NIC.  I works with the igb
-> driver, I have both a 82575 and a 82576 NIC.
+> This is total crap! Jumbo frames are way better than any of the
+> hacks (such as GSO) that people have come up with to get around it.
+> The only reason we are not using it as much is because of this
+> nasty thing called the Internet.
 
-Right, and what's unique about NIU is that NIU won't prepull
-the protocol headers into the linear area on receive.
+Completely agreed.
 
-At the point when IPMR is dealing with potentially forwarding
-the frame, the UDP headers aren't yet pulled into the linear
-area.  UDP input will do that with it's pskb_may_pull() call.
-
-I think this is the critical bit, and some part of the IPMR
-code makes assumptions about all of the protocol headers being
-pulled into the linear SKB area when it executes.
-
-I really don't have time to track this down, so what I suggest
-you do is add logging to UDP multicast packets at various
-locations looking for the UDP header length in the paged SKB
-area to go illegal.  Move your probe points around to narrow
-down the culprit.
-
-Good luck.
+If Jumbo frames are slower, it is NOT some fundamental issue.  It is
+rather due to some misdesign of the hardware or it's driver.
