@@ -1,47 +1,83 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH v4 0/4] virtio_net: Add MAC and VLAN filtering
-Date: Tue, 03 Feb 2009 16:42:57 -0700
-Message-ID: <1233704577.25178.55.camel@bling>
-References: <20090203192550.2678.14498.stgit@debian.lart>
-	 <20090203.150636.175381174.davem@davemloft.net>
+From: Parag Warudkar <parag.lkml@gmail.com>
+Subject: Re: 2.6.29-rc3: tg3 dead after resume
+Date: Tue, 3 Feb 2009 19:38:59 -0500 (EST)
+Message-ID: <alpine.DEB.2.00.0902031937070.7758@parag-laptop>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200902031029.30739.rjw@sisk.pl> <alpine.DEB.2.00.0902031622070.5481@parag-desktop> <200902032315.27113.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, markmc@redhat.com, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090203.150636.175381174.davem@davemloft.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Parag Warudkar <parag.lkml@gmail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yx-out-2324.google.com ([74.125.44.29]:62135 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299AbZBDAjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2009 19:39:09 -0500
+In-Reply-To: <200902032315.27113.rjw@sisk.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-02-03 at 15:06 -0800, David Miller wrote:
-> From: Alex Williamson <alex.williamson@hp.com>
-> Date: Tue, 03 Feb 2009 12:25:50 -0700
+
+
+On Tue, 3 Feb 2009, Rafael J. Wysocki wrote:
+
 > 
-> > This series adds infrastructure for a new control virtqueue and
-> > makes use of it to support set_rx_mode, unicast and multicast address
-> > lists, and supporting a hypervisor based VLAN filter.  The goal is to
-> > make the virtio-net device support more of the features of a physical
-> > NIC and allow the hypervisor to discard packets we don't want.  These
-> > patches are intended for 2.6.30.
-> > 
-> > This is the 4th and hopefully final revision, incorporating a few
-> > more tweaks from Rusty.
+> Can you also test this one instead and tell me if it still works?
 > 
-> The second patch doesn't apply to the net-next-2.6 tree.
+
+Removing Linus' patch and applying the below one works as well.
+
+Parag
+ 
+> ---
+>  drivers/pci/pcie/portdrv_pci.c |   16 +---------------
+>  1 file changed, 1 insertion(+), 15 deletions(-)
 > 
-> Please regenerate these against net-next-2.6 or -next and
-> I'll apply them, thanks.
-
-Ack, sorry.  I had dropped the original first patch that allows setting
-the virtio_net MAC address since Rusty already accepted it into his
-patch queue.  I can easily munge these to not rely on that (context-only
-changes), but that'll just leave Rusty with the merge conflict.  Rusty,
-which way do you want these to hit the tree?  Thanks,
-
-Alex
-
--- 
-Alex Williamson                             HP Open Source & Linux Org.
-
+> Index: linux-2.6/drivers/pci/pcie/portdrv_pci.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/pci/pcie/portdrv_pci.c
+> +++ linux-2.6/drivers/pci/pcie/portdrv_pci.c
+> @@ -55,25 +55,13 @@ static int pcie_portdrv_suspend(struct p
+>  
+>  }
+>  
+> -static int pcie_portdrv_suspend_late(struct pci_dev *dev, pm_message_t state)
+> -{
+> -	return pci_save_state(dev);
+> -}
+> -
+> -static int pcie_portdrv_resume_early(struct pci_dev *dev)
+> -{
+> -	return pci_restore_state(dev);
+> -}
+> -
+>  static int pcie_portdrv_resume(struct pci_dev *dev)
+>  {
+> -	pcie_portdrv_restore_config(dev);
+> +	pci_set_master(dev);
+>  	return pcie_port_device_resume(dev);
+>  }
+>  #else
+>  #define pcie_portdrv_suspend NULL
+> -#define pcie_portdrv_suspend_late NULL
+> -#define pcie_portdrv_resume_early NULL
+>  #define pcie_portdrv_resume NULL
+>  #endif
+>  
+> @@ -292,8 +280,6 @@ static struct pci_driver pcie_portdriver
+>  	.remove		= pcie_portdrv_remove,
+>  
+>  	.suspend	= pcie_portdrv_suspend,
+> -	.suspend_late	= pcie_portdrv_suspend_late,
+> -	.resume_early	= pcie_portdrv_resume_early,
+>  	.resume		= pcie_portdrv_resume,
+>  
+>  	.err_handler 	= &pcie_portdrv_err_handler,
+> 
+> 
