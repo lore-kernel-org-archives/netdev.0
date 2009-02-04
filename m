@@ -1,39 +1,57 @@
-From: David Miller <davem@davemloft.net>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Wed, 04 Feb 2009 01:15:35 -0800 (PST)
-Message-ID: <20090204.011535.183331841.davem@davemloft.net>
-References: <20090204085907.GA19388@gondor.apana.org.au>
-	<20090204.010146.18100191.davem@davemloft.net>
-	<20090204091217.GA21385@1wt.eu>
+Date: Wed, 4 Feb 2009 20:23:46 +1100
+Message-ID: <200902042023.47916.nickpiggin@yahoo.com.au>
+References: <20090202.235017.253437221.davem@davemloft.net> <20090203.164609.160183741.davem@davemloft.net> <20090204080851.GA10445@ioremap.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, jarkao2@gmail.com,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: w@1wt.eu
+Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
+	herbert@gondor.apana.org.au, w@1wt.eu, dada1@cosmosbay.com,
+	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36305
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751234AbZBDJPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 04:15:39 -0500
-In-Reply-To: <20090204091217.GA21385@1wt.eu>
+Received: from smtp113.mail.mud.yahoo.com ([209.191.84.66]:47942 "HELO
+	smtp113.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751972AbZBDJYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 04:24:17 -0500
+In-Reply-To: <20090204080851.GA10445@ioremap.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Wed, 4 Feb 2009 10:12:17 +0100
+On Wednesday 04 February 2009 19:08:51 Evgeniy Polyakov wrote:
+> On Tue, Feb 03, 2009 at 04:46:09PM -0800, David Miller (davem@davemloft.net) 
+wrote:
+> > > NTA tried to solve this by not allowing to free the data allocated on
+> > > the different CPU, contrary to what SLAB does. Modulo cache coherency
+> > > improvements,
+> >
+> > This could kill performance on NUMA systems if we are not careful.
+> >
+> > If we ever consider NTA seriously, these issues would need to
+> > be performance tested.
+>
+> Quite contrary I think. Memory is allocated and freed on the same CPU,
+> which means on the same memory domain, closest to the CPU in question.
+>
+> I did not test NUMA though, but NTA performance on the usual CPU (it is
+> 2.5 years old already :) was noticebly good.
 
-> And the arbitrary choice of 9k for jumbo frames was total crap too.
-> It's clear that no hardware designer was involved in the process.
+I had a quick look at NTA... I didn't understand much of it yet, but
+the remote freeing scheme is kind of like what I did for slqb. The
+freeing CPU queues objects back to the CPU that allocated them, which
+eventually checks the queue and frees them itself.
 
-Willy, do some reasearch, this also completely wrong.
+I don't know how much cache coherency gains you get from this -- in
+most slab allocations, I think the object tends to be cache on on the
+CPU that frees it. I'm doing it mainly to try avoid locking... I guess
+that makes for cache coherency benefit itself.
 
-Alteon effectively created jumbo MTUs in their Acenic chips since that
-was the first chip to ever do it.  Those were hardware engineers only
-making those design decisions.
+If NTA does significantly better than slab allocator, I would be quite
+interested. It might be something that we can learn from and use in
+the general slab allocator (or maybe something more network specific
+that NTA does).
 
-I think this is will I will stop taking part in this part of the
-discussion.  Every posting is full of misinformation and I've got
-better things to do than to refute them every 5 minutes.  :-/
