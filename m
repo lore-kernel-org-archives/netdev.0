@@ -1,287 +1,413 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 2/3] ixgbe: Update link setup code to better support
-	autonegotiation of speed
-Date: Wed, 04 Feb 2009 17:39:23 -0800
-Message-ID: <20090205013923.29241.30152.stgit@lost.foo-projects.org>
-References: <20090205013900.29241.77746.stgit@lost.foo-projects.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] tun: Limit amount of queued packets per device
+Date: Thu, 5 Feb 2009 14:23:48 +1100
+Message-ID: <20090205032348.GA19181@gondor.apana.org.au>
+References: <E1LUfJt-0005ZQ-4D@gondolin.me.apana.org.au> <20090204.165630.95274793.davem@davemloft.net> <20090205010649.GA28046@gondor.apana.org.au> <20090204.171319.20089712.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:59823 "EHLO
-	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762288AbZBEBjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 20:39:43 -0500
-In-Reply-To: <20090205013900.29241.77746.stgit@lost.foo-projects.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:57089 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752275AbZBEDXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 22:23:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20090204.171319.20089712.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+On Wed, Feb 04, 2009 at 05:13:19PM -0800, David Miller wrote:
+> 
+> I get tons of rejects in net-next-2.6, there were lots of
+> changes in this driver.
+> 
+> Don't even tell me you generate this against upstream of
+> net-2.6?  Tsk tsk :-)
 
-The current code has some flaws in it when performing autonegotiation,
-especially on KX/KX4 links.  This patch updates the code to better handle
-the autonegotiation states on link setup.  The patch also removes a redundant
-link configuration call on driver load, and moves link configuration to
-the ->open() path.
+How did you guess :)
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Here is the rebased version.
 
- drivers/net/ixgbe/ixgbe_82598.c  |  114 +++++++++++++++-----------------------
- drivers/net/ixgbe/ixgbe_common.c |    3 -
- drivers/net/ixgbe/ixgbe_main.c   |    3 -
- drivers/net/ixgbe/ixgbe_type.h   |    9 ++-
- 4 files changed, 49 insertions(+), 80 deletions(-)
+tun: Limit amount of queued packets per device
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index 8e7315e..f726a14 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -146,18 +146,12 @@ static s32 ixgbe_get_link_capabilities_82598(struct ixgbe_hw *hw,
-                                              bool *autoneg)
- {
- 	s32 status = 0;
--	s32 autoc_reg;
+Unlike a normal socket path, the tuntap device send path does
+not have any accounting.  This means that the user-space sender
+may be able to pin down arbitrary amounts of kernel memory by
+continuing to send data to an end-point that is congested.
+
+Even when this isn't an issue because of limited queueing at
+most end points, this can also be a problem because its only
+response to congestion is packet loss.  That is, when those
+local queues at the end-point fills up, the tuntap device will
+start wasting system time because it will continue to send
+data there which simply gets dropped straight away.
+
+Of course one could argue that everybody should do congestion
+control end-to-end, unfortunately there are people in this world
+still hooked on UDP, and they don't appear to be going away
+anywhere fast.  In fact, we've always helped them by performing
+accounting in our UDP code, the sole purpose of which is to
+provide congestion feedback other than through packet loss.
+
+This patch attempts to apply the same bandaid to the tuntap device.
+It creates a pseudo-socket object which is used to account our
+packets just as a normal socket does for UDP.  Of course things
+are a little complex because we're actually reinjecting traffic
+back into the stack rather than out of the stack.
+
+The stack complexities however should have been resolved by preceding
+patches.  So this one can simply start using skb_set_owner_w.
+
+For now the accounting is essentially disabled by default for
+backwards compatibility.  In particular, we set the cap to INT_MAX.
+This is so that existing applications don't get confused by the
+sudden arrival EAGAIN errors.
+
+In future we may wish (or be forced to) do this by default.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 15d6763..0476549 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -64,6 +64,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
++#include <net/sock.h>
  
--	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
--
--	if (hw->mac.link_settings_loaded) {
--		autoc_reg &= ~IXGBE_AUTOC_LMS_ATTACH_TYPE;
--		autoc_reg &= ~IXGBE_AUTOC_LMS_MASK;
--		autoc_reg |= hw->mac.link_attach_type;
--		autoc_reg |= hw->mac.link_mode_select;
--	}
--
--	switch (autoc_reg & IXGBE_AUTOC_LMS_MASK) {
-+	/*
-+	 * Determine link capabilities based on the stored value of AUTOC,
-+	 * which represents EEPROM defaults.
-+	 */
-+	switch (hw->mac.orig_autoc & IXGBE_AUTOC_LMS_MASK) {
- 	case IXGBE_AUTOC_LMS_1G_LINK_NO_AN:
- 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
- 		*autoneg = false;
-@@ -176,9 +170,9 @@ static s32 ixgbe_get_link_capabilities_82598(struct ixgbe_hw *hw,
- 	case IXGBE_AUTOC_LMS_KX4_AN:
- 	case IXGBE_AUTOC_LMS_KX4_AN_1G_AN:
- 		*speed = IXGBE_LINK_SPEED_UNKNOWN;
--		if (autoc_reg & IXGBE_AUTOC_KX4_SUPP)
-+		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX4_SUPP)
- 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
--		if (autoc_reg & IXGBE_AUTOC_KX_SUPP)
-+		if (hw->mac.orig_autoc & IXGBE_AUTOC_KX_SUPP)
- 			*speed |= IXGBE_LINK_SPEED_1GB_FULL;
- 		*autoneg = true;
- 		break;
-@@ -390,27 +384,17 @@ static s32 ixgbe_setup_mac_link_82598(struct ixgbe_hw *hw)
- 	u32 i;
- 	s32 status = 0;
- 
--	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
--
--	if (hw->mac.link_settings_loaded) {
--		autoc_reg &= ~IXGBE_AUTOC_LMS_ATTACH_TYPE;
--		autoc_reg &= ~IXGBE_AUTOC_LMS_MASK;
--		autoc_reg |= hw->mac.link_attach_type;
--		autoc_reg |= hw->mac.link_mode_select;
--
--		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
--		IXGBE_WRITE_FLUSH(hw);
--		msleep(50);
--	}
--
- 	/* Restart link */
-+	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
- 	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
- 	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
- 
- 	/* Only poll for autoneg to complete if specified to do so */
- 	if (hw->phy.autoneg_wait_to_complete) {
--		if (hw->mac.link_mode_select == IXGBE_AUTOC_LMS_KX4_AN ||
--		    hw->mac.link_mode_select == IXGBE_AUTOC_LMS_KX4_AN_1G_AN) {
-+		if ((autoc_reg & IXGBE_AUTOC_LMS_MASK) ==
-+		     IXGBE_AUTOC_LMS_KX4_AN ||
-+		    (autoc_reg & IXGBE_AUTOC_LMS_MASK) ==
-+		     IXGBE_AUTOC_LMS_KX4_AN_1G_AN) {
- 			links_reg = 0; /* Just in case Autoneg time = 0 */
- 			for (i = 0; i < IXGBE_AUTO_NEG_TIME; i++) {
- 				links_reg = IXGBE_READ_REG(hw, IXGBE_LINKS);
-@@ -534,37 +518,43 @@ out:
-  *  Set the link speed in the AUTOC register and restarts link.
-  **/
- static s32 ixgbe_setup_mac_link_speed_82598(struct ixgbe_hw *hw,
--                                            ixgbe_link_speed speed, bool autoneg,
--                                            bool autoneg_wait_to_complete)
-+                                           ixgbe_link_speed speed, bool autoneg,
-+                                           bool autoneg_wait_to_complete)
- {
--	s32 status = 0;
-+	s32              status            = 0;
-+	ixgbe_link_speed link_capabilities = IXGBE_LINK_SPEED_UNKNOWN;
-+	u32              curr_autoc        = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+	u32              autoc             = curr_autoc;
-+	u32              link_mode         = autoc & IXGBE_AUTOC_LMS_MASK;
- 
--	/* If speed is 10G, then check for CX4 or XAUI. */
--	if ((speed == IXGBE_LINK_SPEED_10GB_FULL) &&
--	    (!(hw->mac.link_attach_type & IXGBE_AUTOC_10G_KX4))) {
--		hw->mac.link_mode_select = IXGBE_AUTOC_LMS_10G_LINK_NO_AN;
--	} else if ((speed == IXGBE_LINK_SPEED_1GB_FULL) && (!autoneg)) {
--		hw->mac.link_mode_select = IXGBE_AUTOC_LMS_1G_LINK_NO_AN;
--	} else if (autoneg) {
--		/* BX mode - Autonegotiate 1G */
--		if (!(hw->mac.link_attach_type & IXGBE_AUTOC_1G_PMA_PMD))
--			hw->mac.link_mode_select = IXGBE_AUTOC_LMS_1G_AN;
--		else /* KX/KX4 mode */
--			hw->mac.link_mode_select = IXGBE_AUTOC_LMS_KX4_AN_1G_AN;
--	} else {
-+	/* Check to see if speed passed in is supported. */
-+	ixgbe_get_link_capabilities_82598(hw, &link_capabilities, &autoneg);
-+	speed &= link_capabilities;
-+
-+	if (speed == IXGBE_LINK_SPEED_UNKNOWN)
- 		status = IXGBE_ERR_LINK_SETUP;
-+
-+	/* Set KX4/KX support according to speed requested */
-+	else if (link_mode == IXGBE_AUTOC_LMS_KX4_AN ||
-+	         link_mode == IXGBE_AUTOC_LMS_KX4_AN_1G_AN) {
-+		autoc &= ~IXGBE_AUTOC_KX4_KX_SUPP_MASK;
-+		if (speed & IXGBE_LINK_SPEED_10GB_FULL)
-+			autoc |= IXGBE_AUTOC_KX4_SUPP;
-+		if (speed & IXGBE_LINK_SPEED_1GB_FULL)
-+			autoc |= IXGBE_AUTOC_KX_SUPP;
-+		if (autoc != curr_autoc)
-+			IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc);
- 	}
- 
- 	if (status == 0) {
- 		hw->phy.autoneg_wait_to_complete = autoneg_wait_to_complete;
- 
--		hw->mac.link_settings_loaded = true;
- 		/*
- 		 * Setup and restart the link based on the new values in
- 		 * ixgbe_hw This will write the AUTOC register based on the new
- 		 * stored values
- 		 */
--		ixgbe_setup_mac_link_82598(hw);
-+		status = ixgbe_setup_mac_link_82598(hw);
- 	}
- 
- 	return status;
-@@ -587,10 +577,6 @@ static s32 ixgbe_setup_copper_link_82598(struct ixgbe_hw *hw)
- 	/* Restart autonegotiation on PHY */
- 	status = hw->phy.ops.setup_link(hw);
- 
--	/* Set MAC to KX/KX4 autoneg, which defaults to Parallel detection */
--	hw->mac.link_attach_type = (IXGBE_AUTOC_10G_KX4 | IXGBE_AUTOC_1G_KX);
--	hw->mac.link_mode_select = IXGBE_AUTOC_LMS_KX4_AN;
--
- 	/* Set up MAC */
- 	ixgbe_setup_mac_link_82598(hw);
- 
-@@ -617,10 +603,6 @@ static s32 ixgbe_setup_copper_link_speed_82598(struct ixgbe_hw *hw,
- 	status = hw->phy.ops.setup_link_speed(hw, speed, autoneg,
- 	                                      autoneg_wait_to_complete);
- 
--	/* Set MAC to KX/KX4 autoneg, which defaults to Parallel detection */
--	hw->mac.link_attach_type = (IXGBE_AUTOC_10G_KX4 | IXGBE_AUTOC_1G_KX);
--	hw->mac.link_mode_select = IXGBE_AUTOC_LMS_KX4_AN;
--
- 	/* Set up MAC */
- 	ixgbe_setup_mac_link_82598(hw);
- 
-@@ -720,24 +702,16 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_REG(hw, IXGBE_GHECCR, gheccr);
- 
- 	/*
--	 * AUTOC register which stores link settings gets cleared
--	 * and reloaded from EEPROM after reset. We need to restore
--	 * our stored value from init in case SW changed the attach
--	 * type or speed.  If this is the first time and link settings
--	 * have not been stored, store default settings from AUTOC.
-+	 * Store the original AUTOC value if it has not been
-+	 * stored off yet.  Otherwise restore the stored original
-+	 * AUTOC value since the reset operation sets back to deaults.
- 	 */
- 	autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
--	if (hw->mac.link_settings_loaded) {
--		autoc &= ~(IXGBE_AUTOC_LMS_ATTACH_TYPE);
--		autoc &= ~(IXGBE_AUTOC_LMS_MASK);
--		autoc |= hw->mac.link_attach_type;
--		autoc |= hw->mac.link_mode_select;
--		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc);
--	} else {
--		hw->mac.link_attach_type =
--		                         (autoc & IXGBE_AUTOC_LMS_ATTACH_TYPE);
--		hw->mac.link_mode_select = (autoc & IXGBE_AUTOC_LMS_MASK);
--		hw->mac.link_settings_loaded = true;
-+	if (hw->mac.orig_link_settings_stored == false) {
-+		hw->mac.orig_autoc = autoc;
-+		hw->mac.orig_link_settings_stored = true;
-+	} else if (autoc != hw->mac.orig_autoc) {
-+		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, hw->mac.orig_autoc);
- 	}
- 
- 	/* Store the permanent mac address */
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 05f0e87..13ad5ba 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -80,9 +80,6 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- 	/* Clear the VLAN filter table */
- 	hw->mac.ops.clear_vfta(hw);
- 
--	/* Set up link */
--	hw->mac.ops.setup_link(hw);
--
- 	/* Clear statistics registers */
- 	hw->mac.ops.clear_hw_cntrs(hw);
- 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index d396c6e..5db82b5 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2799,9 +2799,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
- 	hw->fc.send_xon = true;
- 
--	/* select 10G link by default */
--	hw->mac.link_mode_select = IXGBE_AUTOC_LMS_10G_LINK_NO_AN;
--
- 	/* enable itr by default in dynamic mode */
- 	adapter->itr_setting = 1;
- 	adapter->eitr_param = 20000;
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index c49ba8a..984b4ed 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -721,6 +721,7 @@
- #define IXGBE_LED_OFF           0xF
- 
- /* AUTOC Bit Masks */
-+#define IXGBE_AUTOC_KX4_KX_SUPP_MASK 0xC0000000
- #define IXGBE_AUTOC_KX4_SUPP    0x80000000
- #define IXGBE_AUTOC_KX_SUPP     0x40000000
- #define IXGBE_AUTOC_PAUSE       0x30000000
-@@ -1456,11 +1457,11 @@ struct ixgbe_mac_info {
- 	u32                             max_tx_queues;
- 	u32                             max_rx_queues;
- 	u32                             max_msix_vectors;
--	u32                             link_attach_type;
--	u32                             link_mode_select;
--	bool                            link_settings_loaded;
-+	u32                             orig_autoc;
-+	u32                             orig_autoc2;
-+	bool                            orig_link_settings_stored;
- 	bool                            autoneg;
--	bool                            autoneg_failed;
-+	bool                            autoneg_succeeded;
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -95,6 +96,8 @@ struct tun_file {
+ 	wait_queue_head_t	read_wait;
  };
  
- struct ixgbe_phy_info {
++struct tun_sock;
++
+ struct tun_struct {
+ 	struct tun_file		*tfile;
+ 	unsigned int 		flags;
+@@ -107,12 +110,24 @@ struct tun_struct {
+ 	struct fasync_struct	*fasync;
+ 
+ 	struct tap_filter       txflt;
++	struct sock		*sk;
++	struct socket		socket;
+ 
+ #ifdef TUN_DEBUG
+ 	int debug;
+ #endif
+ };
+ 
++struct tun_sock {
++	struct sock		sk;
++	struct tun_struct	*tun;
++};
++
++static inline struct tun_sock *tun_sk(struct sock *sk)
++{
++	return container_of(sk, struct tun_sock, sk);
++}
++
+ static int tun_attach(struct tun_struct *tun, struct file *file)
+ {
+ 	struct tun_file *tfile = file->private_data;
+@@ -461,7 +476,8 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ {
+ 	struct tun_file *tfile = file->private_data;
+ 	struct tun_struct *tun = __tun_get(tfile);
+-	unsigned int mask = POLLOUT | POLLWRNORM;
++	struct sock *sk = tun->sk;
++	unsigned int mask = 0;
+ 
+ 	if (!tun)
+ 		return POLLERR;
+@@ -473,6 +489,11 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ 	if (!skb_queue_empty(&tun->readq))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
++	if (sock_writeable(sk) ||
++	    (!test_and_set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags) &&
++	     sock_writeable(sk)))
++		mask |= POLLOUT | POLLWRNORM;
++
+ 	if (tun->dev->reg_state != NETREG_REGISTERED)
+ 		mask = POLLERR;
+ 
+@@ -482,66 +503,35 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ 
+ /* prepad is the amount to reserve at front.  len is length after that.
+  * linear is a hint as to how much to copy (usually headers). */
+-static struct sk_buff *tun_alloc_skb(size_t prepad, size_t len, size_t linear,
+-				     gfp_t gfp)
++static inline struct sk_buff *tun_alloc_skb(struct tun_struct *tun,
++					    size_t prepad, size_t len,
++					    size_t linear, int noblock)
+ {
++	struct sock *sk = tun->sk;
+ 	struct sk_buff *skb;
+-	unsigned int i;
+-
+-	skb = alloc_skb(prepad + len, gfp|__GFP_NOWARN);
+-	if (skb) {
+-		skb_reserve(skb, prepad);
+-		skb_put(skb, len);
+-		return skb;
+-	}
++	int err;
+ 
+ 	/* Under a page?  Don't bother with paged skb. */
+ 	if (prepad + len < PAGE_SIZE)
+-		return NULL;
++		linear = len;
+ 
+-	/* Start with a normal skb, and add pages. */
+-	skb = alloc_skb(prepad + linear, gfp);
++	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
++				   &err);
+ 	if (!skb)
+-		return NULL;
++		return ERR_PTR(err);
+ 
+ 	skb_reserve(skb, prepad);
+ 	skb_put(skb, linear);
+-
+-	len -= linear;
+-
+-	for (i = 0; i < MAX_SKB_FRAGS; i++) {
+-		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
+-
+-		f->page = alloc_page(gfp|__GFP_ZERO);
+-		if (!f->page)
+-			break;
+-
+-		f->page_offset = 0;
+-		f->size = PAGE_SIZE;
+-
+-		skb->data_len += PAGE_SIZE;
+-		skb->len += PAGE_SIZE;
+-		skb->truesize += PAGE_SIZE;
+-		skb_shinfo(skb)->nr_frags++;
+-
+-		if (len < PAGE_SIZE) {
+-			len = 0;
+-			break;
+-		}
+-		len -= PAGE_SIZE;
+-	}
+-
+-	/* Too large, or alloc fail? */
+-	if (unlikely(len)) {
+-		kfree_skb(skb);
+-		skb = NULL;
+-	}
++	skb->data_len = len - linear;
++	skb->len += len - linear;
+ 
+ 	return skb;
+ }
+ 
+ /* Get packet from user space buffer */
+-static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv, size_t count)
++static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
++				       struct iovec *iv, size_t count,
++				       int noblock)
+ {
+ 	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
+ 	struct sk_buff *skb;
+@@ -573,9 +563,11 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+ 			return -EINVAL;
+ 	}
+ 
+-	if (!(skb = tun_alloc_skb(align, len, gso.hdr_len, GFP_KERNEL))) {
+-		tun->dev->stats.rx_dropped++;
+-		return -ENOMEM;
++	skb = tun_alloc_skb(tun, align, len, gso.hdr_len, noblock);
++	if (IS_ERR(skb)) {
++		if (PTR_ERR(skb) != -EAGAIN)
++			tun->dev->stats.rx_dropped++;
++		return PTR_ERR(skb);
+ 	}
+ 
+ 	if (skb_copy_datagram_from_iovec(skb, 0, iv, len)) {
+@@ -661,7 +653,8 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 			      unsigned long count, loff_t pos)
+ {
+-	struct tun_struct *tun = tun_get(iocb->ki_filp);
++	struct file *file = iocb->ki_filp;
++	struct tun_struct *tun = file->private_data;
+ 	ssize_t result;
+ 
+ 	if (!tun)
+@@ -669,7 +662,8 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
+ 
+-	result = tun_get_user(tun, (struct iovec *) iv, iov_length(iv, count));
++	result = tun_get_user(tun, (struct iovec *)iv, iov_length(iv, count),
++			      file->f_flags & O_NONBLOCK);
+ 
+ 	tun_put(tun);
+ 	return result;
+@@ -828,11 +822,40 @@ static struct rtnl_link_ops tun_link_ops __read_mostly = {
+ 	.validate	= tun_validate,
+ };
+ 
++static void tun_sock_write_space(struct sock *sk)
++{
++	struct tun_struct *tun;
++
++	if (!sock_writeable(sk))
++		return;
++
++	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		wake_up_interruptible_sync(sk->sk_sleep);
++
++	if (!test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags))
++		return;
++
++	tun = container_of(sk, struct tun_sock, sk)->tun;
++	kill_fasync(&tun->fasync, SIGIO, POLL_OUT);
++}
++
++static void tun_sock_destruct(struct sock *sk)
++{
++	dev_put(container_of(sk, struct tun_sock, sk)->tun->dev);
++}
++
++static struct proto tun_proto = {
++	.name		= "tun",
++	.owner		= THIS_MODULE,
++	.obj_size	= sizeof(struct tun_sock),
++};
+ 
+ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ {
++	struct sock *sk;
+ 	struct tun_struct *tun;
+ 	struct net_device *dev;
++	struct tun_file *tfile = file->private_data;
+ 	int err;
+ 
+ 	dev = __dev_get_by_name(net, ifr->ifr_name);
+@@ -885,14 +908,31 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		tun->flags = flags;
+ 		tun->txflt.count = 0;
+ 
++		err = -ENOMEM;
++		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
++		if (!sk)
++			goto err_free_dev;
++
++		/* This ref count is for tun->sk. */
++		dev_hold(dev);
++		sock_init_data(&tun->socket, sk);
++		sk->sk_write_space = tun_sock_write_space;
++		sk->sk_destruct = tun_sock_destruct;
++		sk->sk_sndbuf = INT_MAX;
++		sk->sk_sleep = &tfile->read_wait;
++
++		tun->sk = sk;
++		container_of(sk, struct tun_sock, sk)->tun = tun;
++
+ 		tun_net_init(dev);
+ 
+ 		if (strchr(dev->name, '%')) {
+ 			err = dev_alloc_name(dev, dev->name);
+ 			if (err < 0)
+-				goto err_free_dev;
++				goto err_free_sk;
+ 		}
+ 
++		err = -EINVAL;
+ 		err = register_netdevice(tun->dev);
+ 		if (err < 0)
+ 			goto err_free_dev;
+@@ -928,6 +968,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 	strcpy(ifr->ifr_name, tun->dev->name);
+ 	return 0;
+ 
++ err_free_sk:
++	sock_put(sk);
+  err_free_dev:
+ 	free_netdev(dev);
+  failed:
+@@ -1012,6 +1054,7 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 	struct tun_struct *tun;
+ 	void __user* argp = (void __user*)arg;
+ 	struct ifreq ifr;
++	int sndbuf;
+ 	int ret;
+ 
+ 	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
+@@ -1151,6 +1194,22 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 		ret = dev_set_mac_address(tun->dev, &ifr.ifr_hwaddr);
+ 		rtnl_unlock();
+ 		break;
++
++	case TUNGETSNDBUF:
++		sndbuf = tun->sk->sk_sndbuf;
++		if (copy_to_user(argp, &sndbuf, sizeof(sndbuf)))
++			ret = -EFAULT;
++		break;
++
++	case TUNSETSNDBUF:
++		if (copy_from_user(&sndbuf, argp, sizeof(sndbuf))) {
++			ret = -EFAULT;
++			break;
++		}
++
++		tun->sk->sk_sndbuf = sndbuf;
++		break;
++
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+@@ -1218,8 +1277,10 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+ 		__tun_detach(tun);
+ 
+ 		/* If desireable, unregister the netdevice. */
+-		if (!(tun->flags & TUN_PERSIST))
++		if (!(tun->flags & TUN_PERSIST)) {
++			sock_put(tun->sk);
+ 			unregister_netdevice(tun->dev);
++		}
+ 
+ 		rtnl_unlock();
+ 	}
+diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
+index c8f8d59..c03c10d 100644
+--- a/fs/compat_ioctl.c
++++ b/fs/compat_ioctl.c
+@@ -1988,6 +1988,8 @@ COMPATIBLE_IOCTL(TUNSETGROUP)
+ COMPATIBLE_IOCTL(TUNGETFEATURES)
+ COMPATIBLE_IOCTL(TUNSETOFFLOAD)
+ COMPATIBLE_IOCTL(TUNSETTXFILTER)
++COMPATIBLE_IOCTL(TUNGETSNDBUF)
++COMPATIBLE_IOCTL(TUNSETSNDBUF)
+ /* Big V */
+ COMPATIBLE_IOCTL(VT_SETMODE)
+ COMPATIBLE_IOCTL(VT_GETMODE)
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index 8529f57..049d6c9 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -46,6 +46,8 @@
+ #define TUNSETOFFLOAD  _IOW('T', 208, unsigned int)
+ #define TUNSETTXFILTER _IOW('T', 209, unsigned int)
+ #define TUNGETIFF      _IOR('T', 210, unsigned int)
++#define TUNGETSNDBUF   _IOR('T', 211, int)
++#define TUNSETSNDBUF   _IOW('T', 212, int)
+ 
+ /* TUNSETIFF ifr flags */
+ #define IFF_TUN		0x0001
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
