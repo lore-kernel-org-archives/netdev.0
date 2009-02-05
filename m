@@ -1,187 +1,152 @@
 From: Neil Horman <nhorman@tuxdriver.com>
 Subject: Re: Multicast packet loss
-Date: Thu, 5 Feb 2009 08:29:56 -0500
-Message-ID: <20090205132956.GB15621@hmsreliant.think-freely.org>
-References: <49833DBC.7040607@athenacr.com> <20090130200330.GA12659@hmsreliant.think-freely.org> <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <20090131160333.GC23100@localhost.localdomain> <498723D9.5020509@athenacr.com> <20090203115502.GB28117@hmsreliant.think-freely.org> <498860AD.5010702@athenacr.com> <20090204011541.GB3650@localhost.localdomain> <4989BD31.306@athenacr.com>
+Date: Thu, 5 Feb 2009 08:33:41 -0500
+Message-ID: <20090205133341.GC15621@hmsreliant.think-freely.org>
+References: <49837F56.2020502@athenacr.com> <49838213.90700@cosmosbay.com> <20090131160333.GC23100@localhost.localdomain> <498723D9.5020509@athenacr.com> <20090203115502.GB28117@hmsreliant.think-freely.org> <498860AD.5010702@athenacr.com> <20090204011541.GB3650@localhost.localdomain> <4989BD31.306@athenacr.com> <EA667848-C7EA-4409-B64D-9752C8ACECB6@athenacr.com> <4989DA58.3060203@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Kenny Chang <kchang@athenacr.com>
+Cc: Wesley Chow <wchow@athenacr.com>, netdev@vger.kernel.org,
+	Kenny Chang <kchang@athenacr.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50623 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50628 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755751AbZBENaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 08:30:06 -0500
+	with ESMTP id S1754996AbZBENdw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 08:33:52 -0500
 Content-Disposition: inline
-In-Reply-To: <4989BD31.306@athenacr.com>
+In-Reply-To: <4989DA58.3060203@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 04, 2009 at 11:07:13AM -0500, Kenny Chang wrote:
-> Neil Horman wrote:
->> On Tue, Feb 03, 2009 at 10:20:13AM -0500, Kenny Chang wrote:
->>  =20
->>> Neil Horman wrote:
->>>    =20
->>>> On Mon, Feb 02, 2009 at 11:48:25AM -0500, Kenny Chang wrote:
->>>>        =20
->>>>> Neil Horman wrote:
->>>>>            =20
->>>>>> On Fri, Jan 30, 2009 at 11:41:23PM +0100, Eric Dumazet wrote:
->>>>>>                  =20
->>>>>>> Kenny Chang a =E9crit :
->>>>>>>                        =20
->>>>>>>> Ah, sorry, here's the test program attached.
->>>>>>>>
->>>>>>>> We've tried 2.6.28.1, but no, we haven't tried the 2.6.28.2 or=
- the
->>>>>>>> 2.6.29.-rcX.
->>>>>>>>
->>>>>>>> Right now, we are trying to step through the kernel versions u=
-ntil we
->>>>>>>> see where the performance drops significantly.  We'll try 2.6.=
-29-rc soon
->>>>>>>> and post the result.
->>>>>>>>                              =20
->>>>>>> 2.6.29-rc contains UDP receive improvements (lockless)
->>>>>>>
->>>>>>> Problem is multicast handling was not yet updated, but could be=
- :)
->>>>>>>
->>>>>>>
->>>>>>> I was asking you "cat /proc/interrupts" because I believe you m=
-ight
->>>>>>> have a problem NIC interrupts being handled by one CPU only (wh=
-en having problems)
->>>>>>>
->>>>>>>                        =20
->>>>>> That would be expected (if irqbalance is running), and desireabl=
-e, since
->>>>>> spreading high volume interrupts like NICS accross multiple core=
-s (or more
->>>>>> specifically multiple L2 caches), is going increase your cache l=
-ine miss rate
->>>>>> significantly and decrease rx throughput.
->>>>>>
->>>>>> Although you do have a point here, if the system isn't running i=
-rqbalance, and
->>>>>> the NICS irq affinity is spread accross multiple L2 caches, that=
- would be a
->>>>>> point of improvement performance-wise. =20
->>>>>>
->>>>>> Kenny, if you could provide the /proc/interrupts info along with=
- /proc/cpuinfo
->>>>>> and your stats that I asked about earlier, that would be a big h=
-elp.
->>>>>>
->>>>>> Regards
->>>>>> Neil
->>>>>>
->>>>>>                  =20
->>>>> This is for a working setup.
->>>>>
->>>>>            =20
->>>> Are these quad core systems?  Or dual core w/ hyperthreading?  I a=
-sk because in
->>>> your working setup you have 1/2 the number of cpus' and was not su=
-re if you
->>>> removed an entire package of if you just disabled hyperthreading.
->>>>
->>>>
->>>> Neil
->>>>
->>>>        =20
->>> Yeah, these are quad core systems.  The 8 cpu system is a=20
->>> dual-processor  quad-core.  The other is my desktop, single cpu qua=
-d=20
->>> core.
->>>
->>>    =20
->> Ok, so their separate systms then.  Did you actually experience drop=
-s on the
->> 8-core system since the last reboot?  I ask because even when its di=
-stributed
->> across all 8 cores, you only have about 500 total interrupts from th=
-e NIC, and
->> if you did get drops, something more than just affinity is wrong.
->>
->> Regardless, spreading interrupts across cores is definately a proble=
-m.  As eric
->> says, quad core chips are actually 2x2 cores, so you'll want to eith=
-er just run
->> irqbalance to assign an apropriate affinity to the NIC, or manually =
-look at each
->> cores physical id and sibling id, to assign affininty to a core or c=
-ores that
->> share an L2 cache.  If you need to, as you've found, you may need to=
- disable msi
->> interrupt mode on your bnx2 driver.  That kinda stinks, but bnx2 IIR=
-C isn't
->> multiqueue, so its not like msi provides you any real performance ga=
-in.
->>
->> Neil
->>
->>  =20
-> Hi Neil,
->
-> Yeah, we've been rebooting this system left and right switch kernels.=
-  =20
-> The results are fairly consistent.  We were able to set the irq =20
-> affinities, and as Wes had mentioned, what we see is that if we pin t=
-he =20
-> softirq to 1 core, and pin the app to its sibling, we see really good=
- =20
-> performance, but as we load up other cores, the machine reaches a =20
-> breaking point where all hell breaks loose and we drop a bunch.  (we =
-=20
-> hadn't turned off msi btw..)
->
-> While we were able to tune and adjust performance like that, in the e=
-nd, =20
-> it doesn't really explain the difference between earlier and recent =20
-> kernels, also it doesn't quite explain the difference between machine=
+On Wed, Feb 04, 2009 at 07:11:36PM +0100, Eric Dumazet wrote:
+> Wesley Chow a =E9crit :
+> >>>>>>
+> >>>>>>
+> >>>>> Are these quad core systems?  Or dual core w/ hyperthreading?  =
+I
+> >>>>> ask because in
+> >>>>> your working setup you have 1/2 the number of cpus' and was not
+> >>>>> sure if you
+> >>>>> removed an entire package of if you just disabled hyperthreadin=
+g.
+> >>>>>
+> >>>>>
+> >>>>> Neil
+> >>>>>
+> >>>>>
+> >>>> Yeah, these are quad core systems.  The 8 cpu system is a
+> >>>> dual-processor  quad-core.  The other is my desktop, single cpu =
+quad
+> >>>> core.
+> >>>>
+> >>>>
+> >=20
+> >=20
+> > Just to be clear: on the 2 x quad core system, we can run with a 2.=
+6.15
+> > kernel and see no packet drops. In fact, we can run with 2.6.19, 2.=
+6.20,
+> > and 2.6.21 just fine. 2.6.22 is the first kernel that shows problem=
 s.
->
-> You mentioned it would be good to see the interrupts for each kernel,=
- in =20
-> light of the above information, would it still be useful for me to =20
-> provide that?
->
-In light of what you said, I probably don't need to see it no, although=
- if you
-go through testing on all these kernels again, I would suggest you take=
- a look
-at the /proc/interrupt numbers yourself.  Like you said, its odd that t=
-his
-behavior changed, since the fast receive path is fairly consistent.  It=
- may be
-that te nic driver your using (bnx2 I think?), had a change that either=
- broke
-the ability to set affinity for msi interrupts, forcing an irq spread a=
-nd
-killing performance, or perhaps some large inefficiency was introduced =
-either in
-the interrupt handler itself, or in the napi poll method of the driver.=
-  Another
-good analysis technique would be to grab the latest kernel (which is 'b=
-roken' I
-think your chart indicated), and the nic driver from the last working k=
-ernel.
-Merge the driver into the latest kernel and see if the problem persists=
-=2E  If
-not, thats a pretty good indicator that a change in the driver has at l=
-east some
-culpability.
+> >=20
+> > Kenny posted results from a working setup on a different machine.
+> >=20
+> > What I would really like to know is if whatever changed between 2.6=
+=2E21
+> > and 2.6.22 that broke things is confined just to bnx2. To make this=
+ a
+> > rigorous test, we would need to use the same machine with a differe=
+nt
+> > nic, which we don't have quite yet. An Intel Pro 1000 ethernet card=
+ is
+> > in the mail as I type this.
+> >=20
+> > I also tried forward porting the bnx2 driver in 2.6.21 to 2.6.22
+> > (unsuccessfully), and building the most recent driver from the Broa=
+dcom
+> > site to Ubuntu Hardy's 2.6.24. The most recent driver with hardy 2.=
+6.24
+> > showed similar packet dropping problems. Hm, perhaps I'll try to bu=
+ild
+> > the most recent broadcom driver against 2.6.21.
+> >=20
+>=20
+> Try oprofile session, you shall see a scheduler effect (dont want to =
+call
+> this a regression, no need for another flame war).
+>=20
+> also give us "vmstat 1" results  (number of context switches per seco=
+nd)
+>=20
+> On recent kernels, scheduler might be faster than before: You get mor=
+e wakeups per
+> second and more work to do by softirq handler (it does more calls to =
+scheduler,
+> thus less cpu cycles available for draining NIC RX queue in time)
+>=20
+> opcontrol --vmlinux=3D/path/vmlinux --start
+> <run benchmark>
+> opreport -l /path/vmlinux | head -n 50
+>=20
+> Recent schedulers tend to be optimum for lower latencies (and thus, o=
+n
+> a high level of wakeups, you get less bandwidth because of sofirq usi=
+ng
+> a whole CPU)
+>=20
+> For example, if you have one tread receiving data on 4 or 8 sockets, =
+you'll
+> probably notice better throughput (because it will sleep less often)
+>=20
+> Multicast receiving on N sockets, with one thread waiting on each soc=
+ket
+> is basically a way to trigger a scheduler storm. (N wakeups per packe=
+t).
+> So its more a benchmark to stress scheduler than stressing network st=
+ack...
+>=20
+>=20
+> Maybe its time to change user side, and not try to find an appropriat=
+e kernel :)
+>=20
+> If you know you have to receive N frames per 20us units, then its bet=
+ter to :
+> Use non blocking sockets, and doing such loop :
+>=20
+> {
+> usleep(20); // or try to compensate if this thread is slowed too much=
+ by following code
+> for (i =3D 0 ; i < N ; i++) {
+> 	while (revfrom(socket[N], ....) !=3D -1)
+> 		receive_frame(...);
+> 	}
+> }
+>=20
+> That way, you are pretty sure network softirq handler wont have to sp=
+end time trying
+> to wakeup 400.000 time per second one thread. All cpu cycles can be s=
+pent in NIC driver
+> and network stack.
+>=20
+> Your thread will do 50.000 calls to nanosleep() per second, that is n=
+ot really expensive,
+> then N recvfrom() per iteration. It should work on all past , current=
+ and future kernels.
+>=20
++1 to this idea.  Since the last oprofile traces showed significant var=
+iance in
+the time spent in schedule(), it might be worthwhile to investigate the=
+ affects
+of the application behavior on this.  I might also be worth adding a sy=
+stemtap
+probe to sys_recvmsg, to count how many times we receive frames on a wo=
+rking and
+non-working system.  If the app is behaving differently on different ke=
+rnels,
+and its affecting the number of times you go to get a frame out of the =
+stack,
+that would affect your drop rates, and it would show up in sys_recvmsg
 
-Best
 Neil
 
-> Kenny
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
