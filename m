@@ -1,117 +1,71 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Thu, 5 Feb 2009 03:32:41 -0500
-Message-ID: <20090205033241.a99121fe.billfink@mindspring.com>
-References: <20090204081201.GB10445@ioremap.net>
-	<20090204085432.GA21638@1wt.eu>
-	<20090204085907.GA19388@gondor.apana.org.au>
-	<20090204.010146.18100191.davem@davemloft.net>
-	<20090204091217.GA21385@1wt.eu>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [PATCH] [RESEND] iproute2 : invalid burst/cburst calculation with hrtimers
+Date: Thu, 5 Feb 2009 11:01:35 +0200
+Message-ID: <200902051101.35327.denys@visp.net.lb>
+References: <200902021926.17768.denys@visp.net.lb> <200902050124.05969.denys@visp.net.lb> <20090205073832.GA4305@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	zbr@ioremap.net, jarkao2@gmail.com, dada1@cosmosbay.com,
-	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jens.axboe@oracle.com
-To: Willy Tarreau <w@1wt.eu>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:47216 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756612AbZBEId3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 03:33:29 -0500
-In-Reply-To: <20090204091217.GA21385@1wt.eu>
+Received: from hosting.visp.net.lb ([194.146.153.11]:36594 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751707AbZBEJBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 04:01:30 -0500
+In-Reply-To: <20090205073832.GA4305@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Feb 2009, Willy Tarreau wrote:
+Well, i don't know well what's wrong, but:
 
-> On Wed, Feb 04, 2009 at 01:01:46AM -0800, David Miller wrote:
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Wed, 4 Feb 2009 19:59:07 +1100
-> > 
-> > > On Wed, Feb 04, 2009 at 09:54:32AM +0100, Willy Tarreau wrote:
-> > > >
-> > > > My server is running 2.4 :-), but I observed the same issues with older
-> > > > 2.6 as well. I can certainly imagine that things have changed a lot since,
-> > > > but the initial point remains : jumbo frames are expensive to deal with,
-> > > > and with recent NICs and drivers, we might get close performance for
-> > > > little additional cost. After all, initial justification for jumbo frames
-> > > > was the devastating interrupt rate and all NICs coalesce interrupts now.
-> > > 
-> > > This is total crap! Jumbo frames are way better than any of the
-> > > hacks (such as GSO) that people have come up with to get around it.
-> > > The only reason we are not using it as much is because of this
-> > > nasty thing called the Internet.
-> > 
-> > Completely agreed.
-> > 
-> > If Jumbo frames are slower, it is NOT some fundamental issue.  It is
-> > rather due to some misdesign of the hardware or it's driver.
-> 
-> Agreed we can't use them *because* of the internet, but this
-> limitation has forced hardware designers to find valid alternatives.
-> For instance, having the ability to reach 10 Gbps with 1500 bytes
-> frames on myri10ge with a low CPU usage is a real achievement. This
-> is "only" 800 kpps after all.
-> 
-> And the arbitrary choice of 9k for jumbo frames was total crap too.
-> It's clear that no hardware designer was involved in the process.
-> They have to stuff 16kB of RAM on a NIC to use only 9. And we need
-> to allocate 3 pages for slightly more than 2. 7.5 kB would have been
-> better in this regard.
-> 
-> I still find it nice to lower CPU usage with frames larger than 1500,
-> but given the fact that this is rarely used (even in datacenters), I
-> think our efforts should concentrate on where the real users are, ie
-> <1500.
+I have enough powerful router, 2x Quad Core 2 - 2.8 Ghz
+4 x e1000e
 
-Those in the HPC realm use 9000 byte jumbo frames because it makes
-a major performance difference, especially across large RTT paths,
-and the Internet2 backbone fully supports 9000 byte jumbo frames
-(with some wishing we could support much larger frame sizes).
+And if i just try to shape interface for 200 Mbps with default iproute2 from 
+git (and latest stable release same situation), i am getting too low 
+burst/cburst. Sometimes it is even miscalculated (it can become 1500 byte, 
+sometimes, while 1600 is minimum) , because yes, Stephen right, it needs 
+float.
+BUT.
+Even i set manually twice more burst/cburst, it is just not enough for 200 
+Mbps. I am checking on Cisco, rate is reaching max 180-185Mbps, and even on 
+this rate buffering in qdiscs and as result jittering hard.
+So this 100 bytes, which probably missing, really doesn't matter.
 
-Local environment:
+With 1000 HZ i have
+class htb 1:10 parent 1:2 rate 220000Kbit ceil 220000Kbit burst 29067b cburst 
+29067b
+ Sent 14027734219153 bytes 590886842 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 122452Kbit 17131pps backlog 0b 0p requeues 0
+ lended: 171333348 borrowed: 0 giants: 0
+ tokens: 980 ctokens: 980
 
-9000 byte jumbo frames:
+And it works quite well and precise.
 
-[root@lang2 ~]# nuttcp -w10m 192.168.88.16
-11818.1875 MB /  10.01 sec = 9905.9707 Mbps 100 %TX 76 %RX 0 retrans 0.15 msRTT
+P.S. Maybe a case, when some guy was not able to reach his gigabit with HTB 
+shaper, i remember there was flowing some discussing, was somehow similar as 
+my case.
 
-4080 byte MTU:
+On Thursday 05 February 2009 09:38:32 Jarek Poplawski wrote:
+>
+> I think HZ doesn't matter much in this place, because if it's ever
+> triggered there is something really wrong and precision is lost.
+> Anyway, this place was changed a bit in net-next.
+>
+> I guess I could misunderstand your previous question. If you mean this
+> previous thread, then yes, IMHO CONFIG_HZ should matter for precision
+> (especially places where similar loops use all such jiffies in "normal"
+> situations). On the other hand, maybe I'm wrong, but using HZ 1000
+> with HIGH_RES_TIMERS looks quite obvious to me...
+>
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-[root@lang2 ~]# nuttcp -w10m 192.168.88.16
- 9171.6875 MB /  10.02 sec = 7680.7663 Mbps 100 %TX 99 %RX 0 retrans 0.19 msRTT
 
-The performance impact is even more pronounced on a large RTT path
-such as the following netem emulated 80 ms RTT path:
-
-9000 byte jumbo frames:
-
-[root@lang2 ~]# nuttcp -T30 -w80m 192.168.89.15
-25904.2500 MB /  30.16 sec = 7205.8755 Mbps 96 %TX 55 %RX 0 retrans 82.73 msRTT
-
-4080 byte MTU:
-
-[root@lang2 ~]# nuttcp -T30 -w80m 192.168.89.15
- 8650.0129 MB /  30.25 sec = 2398.8862 Mbps 33 %TX 19 %RX 2371 retrans 81.98 msRTT
-
-And if there's any loss in the path, the performance difference is also
-dramatic, such as here across a real MAN environment with about a 1 ms RTT:
-
-9000 byte jumbo frames:
-
-[root@chance9 ~]# nuttcp -w20m 192.168.88.8
- 7711.8750 MB /  10.05 sec = 6436.2406 Mbps 82 %TX 96 %RX 261 retrans 0.92 msRTT
-
-4080 byte MTU:
-
-[root@chance9 ~]# nuttcp -w20m 192.168.88.8
- 4551.0625 MB /  10.08 sec = 3786.2108 Mbps 50 %TX 95 %RX 42 retrans 0.95 msRTT
-
-All testing was with myri10ge on the transmitter side (2.6.20.7 kernel).
-
-So my experience has definitely been that 9000 byte jumbo frames are a
-major performance win for high throughput applications.
-
-						-Bill
