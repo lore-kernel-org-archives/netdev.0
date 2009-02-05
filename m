@@ -1,293 +1,104 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 0/10] DMA-API debugging facility
-Date: Thu, 05 Feb 2009 22:44:02 +0000
-Message-ID: <1233873842.8135.6.camel@macbook.infradead.org>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com>
-	 <1227286492.4901.208.camel@macbook.infradead.org>
-	 <20081121165722.GD1386@amd.com>
-	 <1227287215.4901.213.camel@macbook.infradead.org>
-	 <20081121171802.GK733@elte.hu> <20081121172046.GF1386@amd.com>
-	 <1227288269.4901.222.camel@macbook.infradead.org>
-	 <20081121172722.GG1386@amd.com>
+Subject: Re: [PATCH 0/16] DMA-API debugging facility v2
+Date: Thu, 05 Feb 2009 22:52:32 +0000
+Message-ID: <1233874352.8135.12.camel@macbook.infradead.org>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Ingo Molnar <mingo@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
+	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org
 To: Joerg Roedel <joerg.roedel@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35893 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:45725 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752805AbZBEWoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 17:44:18 -0500
-In-Reply-To: <20081121172722.GG1386@amd.com>
+	with ESMTP id S1755983AbZBEWwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 17:52:36 -0500
+In-Reply-To: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2008-11-21 at 18:27 +0100, Joerg Roedel wrote:
-> On Fri, Nov 21, 2008 at 05:24:29PM +0000, David Woodhouse wrote:
-> > On Fri, 2008-11-21 at 18:20 +0100, Joerg Roedel wrote:
-> > > Ok, I will move the generic bits to lib/ and include/linux and let
-> > > architectures decide if they want to use it.
-> > 
-> > Once you've done that, I'll try to hook it up on PowerPC to make sure it
-> > works there.
-> 
-> Ok, cool. Thanks
+This adds a function to dump the DMA mappings that the debugging code is
+aware of -- either for a single device, or for _all_ devices.
 
-This builds; I haven't actually tried booting it yet. Will do that in
-the morning.
+This can be useful for debugging -- sticking a call to it in the DMA
+page fault handler, for example, to see if the faulting address _should_
+be mapped or not, and hence work out whether it's IOMMU bugs we're
+seeing, or driver bugs.
 
-I'm not so fond of the way each architecture gets to define
-PREALLOC_DMA_DEBUG_ENTRIES for itself... and also call dma_debug_init(),
-for that matter. Couldn't we do that in lib/dma-debug.c directly?
+I'd also like to make it answer the question 'should address X be mapped
+for device Y', but I'll get to that next.
+
+Do we have a %pX format for printing dma_addr_t yet? 
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 74cc312..11db356 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -124,6 +124,7 @@ config PPC
- 	select USE_GENERIC_SMP_HELPERS if SMP
- 	select HAVE_OPROFILE
- 	select HAVE_SYSCALL_WRAPPERS if PPC64
-+	select HAVE_DMA_API_DEBUG
+diff --git a/include/linux/dma-debug.h b/include/linux/dma-debug.h
+index 8a8aae4..5f4fc9f 100644
+--- a/include/linux/dma-debug.h
++++ b/include/linux/dma-debug.h
+@@ -75,6 +75,8 @@ extern void debug_dma_sync_sg_for_device(struct device *dev,
+ 					 struct scatterlist *sg,
+ 					 int nelems, int direction);
  
- config EARLY_PRINTK
- 	bool
-diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
-index 86cef7d..b49107a 100644
---- a/arch/powerpc/include/asm/dma-mapping.h
-+++ b/arch/powerpc/include/asm/dma-mapping.h
-@@ -13,6 +13,7 @@
- /* need struct page definitions */
- #include <linux/mm.h>
- #include <linux/scatterlist.h>
-+#include <linux/dma-debug.h>
- #include <linux/dma-attrs.h>
- #include <asm/io.h>
- 
-@@ -170,12 +171,17 @@ static inline dma_addr_t dma_map_single_attrs(struct device *dev,
- 					      struct dma_attrs *attrs)
- {
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
-+	dma_addr_t addr;
- 
- 	BUG_ON(!dma_ops);
- 
--	return dma_ops->map_page(dev, virt_to_page(cpu_addr),
-+	addr = dma_ops->map_page(dev, virt_to_page(cpu_addr),
- 				 (unsigned long)cpu_addr % PAGE_SIZE, size,
- 				 direction, attrs);
-+	debug_dma_map_page(dev, virt_to_page(cpu_addr),
-+			   (unsigned long)cpu_addr & PAGE_SIZE, size,
-+			   direction, addr, true);
-+	return addr;
- }
- 
- static inline void dma_unmap_single_attrs(struct device *dev,
-@@ -189,6 +195,7 @@ static inline void dma_unmap_single_attrs(struct device *dev,
- 	BUG_ON(!dma_ops);
- 
- 	dma_ops->unmap_page(dev, dma_addr, size, direction, attrs);
-+	debug_dma_unmap_page(dev, dma_addr, size, direction, true);
- }
- 
- static inline dma_addr_t dma_map_page_attrs(struct device *dev,
-@@ -198,10 +205,13 @@ static inline dma_addr_t dma_map_page_attrs(struct device *dev,
- 					    struct dma_attrs *attrs)
- {
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
-+	dma_addr_t addr;
- 
- 	BUG_ON(!dma_ops);
- 
--	return dma_ops->map_page(dev, page, offset, size, direction, attrs);
-+	addr = dma_ops->map_page(dev, page, offset, size, direction, attrs);
-+	debug_dma_map_page(dev, page, offset, size, direction, addr, false);
-+	return addr;
- }
- 
- static inline void dma_unmap_page_attrs(struct device *dev,
-@@ -215,6 +225,7 @@ static inline void dma_unmap_page_attrs(struct device *dev,
- 	BUG_ON(!dma_ops);
- 
- 	dma_ops->unmap_page(dev, dma_address, size, direction, attrs);
-+	debug_dma_unmap_page(dev, dma_address, size, direction, false);
- }
- 
- static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
-@@ -222,9 +233,12 @@ static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
- 				   struct dma_attrs *attrs)
- {
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
-+	int ents;
- 
- 	BUG_ON(!dma_ops);
--	return dma_ops->map_sg(dev, sg, nents, direction, attrs);
-+	ents = dma_ops->map_sg(dev, sg, nents, direction, attrs);
-+	debug_dma_map_sg(dev, sg, ents, direction);
-+	return ents;
- }
- 
- static inline void dma_unmap_sg_attrs(struct device *dev,
-@@ -237,15 +251,19 @@ static inline void dma_unmap_sg_attrs(struct device *dev,
- 
- 	BUG_ON(!dma_ops);
- 	dma_ops->unmap_sg(dev, sg, nhwentries, direction, attrs);
-+	debug_dma_unmap_sg(dev, sg, nhwentries, direction);
- }
- 
- static inline void *dma_alloc_coherent(struct device *dev, size_t size,
- 				       dma_addr_t *dma_handle, gfp_t flag)
- {
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
-+	void *mem;
- 
- 	BUG_ON(!dma_ops);
--	return dma_ops->alloc_coherent(dev, size, dma_handle, flag);
-+	mem = dma_ops->alloc_coherent(dev, size, dma_handle, flag);
-+	debug_dma_alloc_coherent(dev, size, *dma_handle, mem);
-+	return mem;
- }
- 
- static inline void dma_free_coherent(struct device *dev, size_t size,
-@@ -254,6 +272,7 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
-+	debug_dma_free_coherent(dev, size, cpu_addr, dma_handle);
- 	dma_ops->free_coherent(dev, size, cpu_addr, dma_handle);
- }
- 
-@@ -306,6 +325,8 @@ static inline void dma_sync_single_for_cpu(struct device *dev,
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
-+	debug_dma_sync_single_range_for_cpu(dev, dma_handle, 0,
-+					    size, direction);
- 	dma_ops->sync_single_range_for_cpu(dev, dma_handle, 0,
- 					   size, direction);
- }
-@@ -317,6 +338,8 @@ static inline void dma_sync_single_for_device(struct device *dev,
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
-+	debug_dma_sync_single_range_for_device(dev, dma_handle,
-+					       0, size, direction);
- 	dma_ops->sync_single_range_for_device(dev, dma_handle,
- 					      0, size, direction);
- }
-@@ -328,6 +351,7 @@ static inline void dma_sync_sg_for_cpu(struct device *dev,
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
-+	debug_dma_sync_sg_for_cpu(dev, sgl, nents, direction);
- 	dma_ops->sync_sg_for_cpu(dev, sgl, nents, direction);
- }
- 
-@@ -338,6 +362,7 @@ static inline void dma_sync_sg_for_device(struct device *dev,
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
-+	debug_dma_sync_sg_for_device(dev, sgl, nents, direction);
- 	dma_ops->sync_sg_for_device(dev, sgl, nents, direction);
- }
- 
-@@ -348,6 +373,8 @@ static inline void dma_sync_single_range_for_cpu(struct device *dev,
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
-+	debug_dma_sync_single_range_for_cpu(dev, dma_handle,
-+					    offset, size, direction);
- 	dma_ops->sync_single_range_for_cpu(dev, dma_handle,
- 					   offset, size, direction);
- }
-@@ -359,6 +386,8 @@ static inline void dma_sync_single_range_for_device(struct device *dev,
- 	struct dma_mapping_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
-+	debug_dma_sync_single_range_for_device(dev, dma_handle, offset,
-+					       size, direction);
- 	dma_ops->sync_single_range_for_device(dev, dma_handle, offset,
- 					      size, direction);
- }
-@@ -367,36 +396,46 @@ static inline void dma_sync_single_for_cpu(struct device *dev,
- 		dma_addr_t dma_handle, size_t size,
- 		enum dma_data_direction direction)
- {
-+	debug_dma_sync_single_range_for_cpu(dev, dma_handle, 0,
-+					    size, direction);
- }
- 
- static inline void dma_sync_single_for_device(struct device *dev,
- 		dma_addr_t dma_handle, size_t size,
- 		enum dma_data_direction direction)
- {
-+	debug_dma_sync_single_range_for_device(dev, dma_handle,
-+					       0, size, direction);
- }
- 
- static inline void dma_sync_sg_for_cpu(struct device *dev,
- 		struct scatterlist *sgl, int nents,
- 		enum dma_data_direction direction)
- {
-+	debug_dma_sync_sg_for_cpu(dev, sgl, nents, direction);
- }
- 
- static inline void dma_sync_sg_for_device(struct device *dev,
- 		struct scatterlist *sgl, int nents,
- 		enum dma_data_direction direction)
- {
-+	debug_dma_sync_sg_for_device(dev, sgl, nents, direction);
- }
- 
- static inline void dma_sync_single_range_for_cpu(struct device *dev,
- 		dma_addr_t dma_handle, unsigned long offset, size_t size,
- 		enum dma_data_direction direction)
- {
-+	debug_dma_sync_single_range_for_cpu(dev, dma_handle,
-+					    offset, size, direction);
- }
- 
- static inline void dma_sync_single_range_for_device(struct device *dev,
- 		dma_addr_t dma_handle, unsigned long offset, size_t size,
- 		enum dma_data_direction direction)
- {
-+	debug_dma_sync_single_range_for_device(dev, dma_handle, offset,
-+					       size, direction);
- }
- #endif
- 
-diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
-index 1c5c8a6..90bb016 100644
---- a/arch/powerpc/kernel/dma.c
-+++ b/arch/powerpc/kernel/dma.c
-@@ -6,7 +6,9 @@
-  */
- 
- #include <linux/device.h>
-+#include <linux/dma-debug.h>
- #include <linux/dma-mapping.h>
-+#include <linux/init.h>
- #include <asm/bug.h>
- #include <asm/abs_addr.h>
- 
-@@ -156,3 +158,12 @@ struct dma_mapping_ops dma_direct_ops = {
- #endif
- };
- EXPORT_SYMBOL(dma_direct_ops);
++extern void debug_dma_dump_mappings(struct device *dev);
 +
-+#define PREALLOC_DMA_DEBUG_ENTRIES		8192
-+
-+static int __init dma_debug_init_ppc(void)
+ #else /* CONFIG_DMA_API_DEBUG */
+ 
+ static inline void dma_debug_init(u32 num_entries)
+@@ -155,6 +157,10 @@ static inline void debug_dma_sync_sg_for_device(struct device *dev,
+ {
+ }
+ 
++static inline void debug_dma_dump_mappings(struct device *dev)
 +{
-+	dma_debug_init(PREALLOC_DMA_DEBUG_ENTRIES);
-+	return 0;
 +}
-+fs_initcall(dma_debug_init_ppc);
++
+ #endif /* CONFIG_DMA_API_DEBUG */
+ 
+ #endif /* __DMA_DEBUG_H */
+diff --git a/lib/dma-debug.c b/lib/dma-debug.c
+index 469e5b9..127d108 100644
+--- a/lib/dma-debug.c
++++ b/lib/dma-debug.c
+@@ -191,6 +191,36 @@ static void hash_bucket_del(struct dma_debug_entry *entry)
+ }
+ 
+ /*
++ * Dump mapping entries for debugging purposes
++ */
++void debug_dma_dump_mappings(struct device *dev)
++{
++	int idx;
++
++	for (idx = 0; idx < HASH_SIZE; idx++) {
++		struct hash_bucket *bucket = &dma_entry_hash[idx];
++		struct dma_debug_entry *entry;
++		unsigned long flags;
++
++		spin_lock_irqsave(&bucket->lock, flags);
++
++		list_for_each_entry(entry, &bucket->list, list) {
++			if (!dev || dev == entry->dev) {
++				dev_info(entry->dev,
++					 "%s idx %d P=%Lx D=%Lx L=%Lx %s\n",
++					 type2name[entry->type], idx,
++					 (unsigned long long)entry->paddr,
++					 entry->dev_addr, entry->size,
++					 dir2name[entry->direction]);
++			}
++		}
++
++			spin_unlock_irqrestore(&bucket->lock, flags);
++	}
++}
++EXPORT_SYMBOL(debug_dma_dump_mappings);
++
++/*
+  * Wrapper function for adding an entry to the hash.
+  * This function takes care of locking itself.
+  */
 
 
 -- 
