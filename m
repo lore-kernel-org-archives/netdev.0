@@ -1,110 +1,117 @@
-From: Bryan Wu <cooloney@kernel.org>
-Subject: [PATCH] net: fix some trailing whitespaces
-Date: Thu,  5 Feb 2009 16:05:44 +0800
-Message-ID: <1233821144-8764-1-git-send-email-cooloney@kernel.org>
-Cc: Graf Yang <graf.yang@analog.com>, Bryan Wu <cooloney@kernel.org>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757619AbZBEIEP@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Thu, 5 Feb 2009 03:32:41 -0500
+Message-ID: <20090205033241.a99121fe.billfink@mindspring.com>
+References: <20090204081201.GB10445@ioremap.net>
+	<20090204085432.GA21638@1wt.eu>
+	<20090204085907.GA19388@gondor.apana.org.au>
+	<20090204.010146.18100191.davem@davemloft.net>
+	<20090204091217.GA21385@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	zbr@ioremap.net, jarkao2@gmail.com, dada1@cosmosbay.com,
+	ben@zeus.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jens.axboe@oracle.com
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:47216 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756612AbZBEId3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 03:33:29 -0500
+In-Reply-To: <20090204091217.GA21385@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Graf Yang <graf.yang@analog.com>
+On Wed, 4 Feb 2009, Willy Tarreau wrote:
 
-Signed-off-by: Graf Yang <graf.yang@analog.com>
-Signed-off-by: Bryan Wu <cooloney@kernel.org>
----
- include/linux/if_ether.h  |    8 ++++----
- include/linux/netdevice.h |   10 +++++-----
- 2 files changed, 9 insertions(+), 9 deletions(-)
+> On Wed, Feb 04, 2009 at 01:01:46AM -0800, David Miller wrote:
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Wed, 4 Feb 2009 19:59:07 +1100
+> > 
+> > > On Wed, Feb 04, 2009 at 09:54:32AM +0100, Willy Tarreau wrote:
+> > > >
+> > > > My server is running 2.4 :-), but I observed the same issues with older
+> > > > 2.6 as well. I can certainly imagine that things have changed a lot since,
+> > > > but the initial point remains : jumbo frames are expensive to deal with,
+> > > > and with recent NICs and drivers, we might get close performance for
+> > > > little additional cost. After all, initial justification for jumbo frames
+> > > > was the devastating interrupt rate and all NICs coalesce interrupts now.
+> > > 
+> > > This is total crap! Jumbo frames are way better than any of the
+> > > hacks (such as GSO) that people have come up with to get around it.
+> > > The only reason we are not using it as much is because of this
+> > > nasty thing called the Internet.
+> > 
+> > Completely agreed.
+> > 
+> > If Jumbo frames are slower, it is NOT some fundamental issue.  It is
+> > rather due to some misdesign of the hardware or it's driver.
+> 
+> Agreed we can't use them *because* of the internet, but this
+> limitation has forced hardware designers to find valid alternatives.
+> For instance, having the ability to reach 10 Gbps with 1500 bytes
+> frames on myri10ge with a low CPU usage is a real achievement. This
+> is "only" 800 kpps after all.
+> 
+> And the arbitrary choice of 9k for jumbo frames was total crap too.
+> It's clear that no hardware designer was involved in the process.
+> They have to stuff 16kB of RAM on a NIC to use only 9. And we need
+> to allocate 3 pages for slightly more than 2. 7.5 kB would have been
+> better in this regard.
+> 
+> I still find it nice to lower CPU usage with frames larger than 1500,
+> but given the fact that this is rarely used (even in datacenters), I
+> think our efforts should concentrate on where the real users are, ie
+> <1500.
 
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 7f3c735..0216e1b 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -17,7 +17,7 @@
-  *		as published by the Free Software Foundation; either version
-  *		2 of the License, or (at your option) any later version.
-  */
-- 
-+
- #ifndef _LINUX_IF_ETHER_H
- #define _LINUX_IF_ETHER_H
- 
-@@ -25,7 +25,7 @@
- 
- /*
-  *	IEEE 802.3 Ethernet magic constants.  The frame sizes omit the preamble
-- *	and FCS/CRC (frame check sequence). 
-+ *	and FCS/CRC (frame check sequence).
-  */
- 
- #define ETH_ALEN	6		/* Octets in one ethernet addr	 */
-@@ -83,7 +83,7 @@
- /*
-  *	Non DIX types. Won't clash for 1500 types.
-  */
-- 
-+
- #define ETH_P_802_3	0x0001		/* Dummy type for 802.3 frames  */
- #define ETH_P_AX25	0x0002		/* Dummy protocol id for AX.25  */
- #define ETH_P_ALL	0x0003		/* Every packet (be careful!!!) */
-@@ -109,7 +109,7 @@
- /*
-  *	This is an Ethernet frame header.
-  */
-- 
-+
- struct ethhdr {
- 	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
- 	unsigned char	h_source[ETH_ALEN];	/* source ether addr	*/
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ec54785..2ddd625 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -96,7 +96,7 @@ struct wireless_dev;
-  *	Compute the worst case header length according to the protocols
-  *	used.
-  */
-- 
-+
- #if defined(CONFIG_WLAN_80211) || defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- # if defined(CONFIG_MAC80211_MESH)
- #  define LL_MAX_HEADER 128
-@@ -124,7 +124,7 @@ struct wireless_dev;
-  *	Network device statistics. Akin to the 2.0 ether stats but
-  *	with byte counters.
-  */
-- 
-+
- struct net_device_stats
- {
- 	unsigned long	rx_packets;		/* total packets received	*/
-@@ -285,7 +285,7 @@ enum netdev_state_t
- 
- /*
-  * This structure holds at boot time configured netdevice settings. They
-- * are then used in the device probing. 
-+ * are then used in the device probing.
-  */
- struct netdev_boot_setup {
- 	char name[IFNAMSIZ];
-@@ -740,7 +740,7 @@ struct net_device
- 	void			*dsa_ptr;	/* dsa specific data */
- #endif
- 	void 			*atalk_ptr;	/* AppleTalk link 	*/
--	void			*ip_ptr;	/* IPv4 specific data	*/  
-+	void			*ip_ptr;	/* IPv4 specific data	*/
- 	void                    *dn_ptr;        /* DECnet specific data */
- 	void                    *ip6_ptr;       /* IPv6 specific data */
- 	void			*ec_ptr;	/* Econet specific data	*/
-@@ -753,7 +753,7 @@ struct net_device
-  */
- 	unsigned long		last_rx;	/* Time of last Rx	*/
- 	/* Interface address info used in eth_type_trans() */
--	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast 
-+	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast
- 							   because most packets are unicast) */
- 
- 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
--- 
-1.5.6.3
+Those in the HPC realm use 9000 byte jumbo frames because it makes
+a major performance difference, especially across large RTT paths,
+and the Internet2 backbone fully supports 9000 byte jumbo frames
+(with some wishing we could support much larger frame sizes).
+
+Local environment:
+
+9000 byte jumbo frames:
+
+[root@lang2 ~]# nuttcp -w10m 192.168.88.16
+11818.1875 MB /  10.01 sec = 9905.9707 Mbps 100 %TX 76 %RX 0 retrans 0.15 msRTT
+
+4080 byte MTU:
+
+[root@lang2 ~]# nuttcp -w10m 192.168.88.16
+ 9171.6875 MB /  10.02 sec = 7680.7663 Mbps 100 %TX 99 %RX 0 retrans 0.19 msRTT
+
+The performance impact is even more pronounced on a large RTT path
+such as the following netem emulated 80 ms RTT path:
+
+9000 byte jumbo frames:
+
+[root@lang2 ~]# nuttcp -T30 -w80m 192.168.89.15
+25904.2500 MB /  30.16 sec = 7205.8755 Mbps 96 %TX 55 %RX 0 retrans 82.73 msRTT
+
+4080 byte MTU:
+
+[root@lang2 ~]# nuttcp -T30 -w80m 192.168.89.15
+ 8650.0129 MB /  30.25 sec = 2398.8862 Mbps 33 %TX 19 %RX 2371 retrans 81.98 msRTT
+
+And if there's any loss in the path, the performance difference is also
+dramatic, such as here across a real MAN environment with about a 1 ms RTT:
+
+9000 byte jumbo frames:
+
+[root@chance9 ~]# nuttcp -w20m 192.168.88.8
+ 7711.8750 MB /  10.05 sec = 6436.2406 Mbps 82 %TX 96 %RX 261 retrans 0.92 msRTT
+
+4080 byte MTU:
+
+[root@chance9 ~]# nuttcp -w20m 192.168.88.8
+ 4551.0625 MB /  10.08 sec = 3786.2108 Mbps 50 %TX 95 %RX 42 retrans 0.95 msRTT
+
+All testing was with myri10ge on the transmitter side (2.6.20.7 kernel).
+
+So my experience has definitely been that 9000 byte jumbo frames are a
+major performance win for high throughput applications.
+
+						-Bill
