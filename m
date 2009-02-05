@@ -1,69 +1,64 @@
-From: Hendrik Sattler <post@hendrik-sattler.de>
-Subject: Re: IXP4xx networking and phylib
-Date: Thu, 05 Feb 2009 10:11:04 +0100
-Message-ID: <498AAD28.9080903@hendrik-sattler.de>
-References: <200901121705.07966.post@hendrik-sattler.de>	 <m3wsd0a0k3.fsf@maximus.localdomain> <2acbd3e40902041515p2624765bx5019c59c2b028780@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] [RESEND] iproute2 : invalid burst/cburst calculation
+	with hrtimers
+Date: Thu, 5 Feb 2009 10:08:53 +0000
+Message-ID: <20090205100853.GB4305@ff.dom.local>
+References: <200902021926.17768.denys@visp.net.lb> <200902050124.05969.denys@visp.net.lb> <20090205073832.GA4305@ff.dom.local> <200902051101.35327.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org
-To: Andy Fleming <afleming@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from v1539.ncsrv.de ([89.110.150.23]:56663 "EHLO v1539.ncsrv.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753229AbZBEJmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2009 04:42:25 -0500
-In-Reply-To: <2acbd3e40902041515p2624765bx5019c59c2b028780@mail.gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.191]:39745 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755085AbZBEKJA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 05:09:00 -0500
+Received: by nf-out-0910.google.com with SMTP id d3so19439nfc.21
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2009 02:08:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <200902051101.35327.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Fleming schrieb:
-> On Mon, Jan 12, 2009 at 11:36 AM, Krzysztof Halasa <khc@pm.waw.pl> wrote:
->> Hi,
->>
->> Added CC: netdev.
->>
->> Hendrik Sattler <post@hendrik-sattler.de> writes:
->>
->>> My IXP465 MII port is connected to a Marvell switch (port 5). This port
->>> is "always on" and has no PHY registers. It is configured in hardware. The
->>> switch ports 1-4 have phy registers but that's not the matter.
->>> The problem is that there is no standard way in the platform info to tell the
->>> driver (now phylib) that there are _no_ PHY registers.
->>>
->>> Is there a standard way to say: enable the ethernet interface and be done with
->>> it?
->>> I currently do this by patching the driver. The PHYLIB patch makes that even
->>> easier but it would be better to not need patching at all (at least one
->>> driver less to patch).
+On Thu, Feb 05, 2009 at 11:01:35AM +0200, Denys Fedoryschenko wrote:
+> Well, i don't know well what's wrong, but:
 > 
-> There is a "fixed-phy" driver.  It allows you to configure things such
-> that phylib will treat a PHY at a given address like it is a PHY with
-> whatever attributes you choose.
+> I have enough powerful router, 2x Quad Core 2 - 2.8 Ghz
+> 4 x e1000e
+> 
+> And if i just try to shape interface for 200 Mbps with default iproute2 from 
+> git (and latest stable release same situation), i am getting too low 
+> burst/cburst. Sometimes it is even miscalculated (it can become 1500 byte, 
+> sometimes, while 1600 is minimum) , because yes, Stephen right, it needs 
+> float.
+> BUT.
+> Even i set manually twice more burst/cburst, it is just not enough for 200 
+> Mbps. I am checking on Cisco, rate is reaching max 180-185Mbps, and even on 
+> this rate buffering in qdiscs and as result jittering hard.
+> So this 100 bytes, which probably missing, really doesn't matter.
+> 
+> With 1000 HZ i have
+> class htb 1:10 parent 1:2 rate 220000Kbit ceil 220000Kbit burst 29067b cburst 
+> 29067b
+>  Sent 14027734219153 bytes 590886842 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 122452Kbit 17131pps backlog 0b 0p requeues 0
+>  lended: 171333348 borrowed: 0 giants: 0
+>  tokens: 980 ctokens: 980
+> 
+> And it works quite well and precise.
 
-Looks like a possible solution. I just cannot think about a possible
-place when to call fixed_phy_add() to set the right registers for the
-fixed port mode (100Mbit FD). It cannot be done before the driver init
-code was run but that is after usual platform code stuff.
-Additionally, ixp4xx_eth _and_ fixed set the mii_bus->id to 0, that
-could be a problem! And ixp4xx_eth wants e.g. PHY 5 on its own MII bus
-0, there is no way for fixed to actually deliver that. Fixed would have
-to be a simple phy_driver without its own MII bus. Or ixp4xx_eth would
-need to be more flexible on where the phy can live (so not only on its
-own MII bus).
+I lost your point... I think it's just like in your (and Martin's)
+description to your patch. Plus you wrote it was tested OK?!
 
-Or maybe I'm puzzled how that works together :-/
+BTW, did you try to set the same (29kb) burst/cburst manually? Did
+you try with half of it (15kb)?
 
-> The other option is to look at the
-> DSA code from Lennert, and make the Marvell switch work with that (I
-> haven't looked closely enough to see if that's feasible, but the end
-> goal should be that all such integrated switches are covered by some
-> framework).
+> P.S. Maybe a case, when some guy was not able to reach his gigabit with HTB 
+> shaper, i remember there was flowing some discussing, was somehow similar as 
+> my case.
 
-DSA allows you to address each port separately by using a special packet
-header. That's not wanted here, although I thought about it before (the
- 88E6031/61 does support that but also VLAN header so special support is
-not needed).
+I don't remember this, but with current defaults it's really a problem
+for higher rates.
 
-HS
-
+Jarek P.
