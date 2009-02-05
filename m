@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2009-02-05
-Date: Thu, 05 Feb 2009 15:11:34 -0800 (PST)
-Message-ID: <20090205.151134.161990223.davem@davemloft.net>
-References: <20090205165837.GB4638@tuxdriver.com>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Thu, 05 Feb 2009 15:16:10 -0800 (PST)
+Message-ID: <20090205.151610.185227531.davem@davemloft.net>
+References: <20090128093507.GA15956@gondor.apana.org.au>
+	<20090129.174954.263448549.davem@davemloft.net>
+	<20090205130149.GA28152@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: snakebyte@gmx.de, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55724
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43606
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751067AbZBEXLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 18:11:38 -0500
-In-Reply-To: <20090205165837.GB4638@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1750915AbZBEXQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 18:16:14 -0500
+In-Reply-To: <20090205130149.GA28152@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 5 Feb 2009 11:58:38 -0500
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 6 Feb 2009 00:01:49 +1100
 
-> A couple of small fixes for iwlwifi intended for 2.6.29.  One of them
-> will conflict when it is pulled into net-next-2.6 -- just take all the
-> hunks.
+> ipv6: Copy cork options in ip6_append_data
+> 
+> As the options passed to ip6_append_data may be ephemeral, we need
+> to duplicate it for corking.  This patch applies the simplest fix
+> which is to memdup all the relevant bits.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Pulled, thanks a lot John.
+Great work, applied.
