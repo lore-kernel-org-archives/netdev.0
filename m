@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.29] cxgb3 - Fix lro switch
-Date: Wed, 04 Feb 2009 16:32:50 -0800 (PST)
-Message-ID: <20090204.163250.127196315.davem@davemloft.net>
-References: <20090205002547.26126.47373.stgit@speedy5>
+Subject: Re: [PATCH v5 0/4] virtio_net: Add MAC and VLAN filtering
+Date: Wed, 04 Feb 2009 16:35:45 -0800 (PST)
+Message-ID: <20090204.163545.31569169.davem@davemloft.net>
+References: <20090203.150636.175381174.davem@davemloft.net>
+	<20090204190229.2512.93552.stgit@debian.lart>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com, kxie@chelsio.com
-To: divy@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33986
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754383AbZBEAcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2009 19:32:54 -0500
-In-Reply-To: <20090205002547.26126.47373.stgit@speedy5>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rusty@rustcorp.com.au, markmc@redhat.com, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: alex.williamson@hp.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090204190229.2512.93552.stgit@debian.lart>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Wed, 04 Feb 2009 16:25:47 -0800
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Wed, 04 Feb 2009 12:02:29 -0700
 
-> The LRO switch is always set to 1 in the rx processing loop.
-> It breaks the accelerated iSCSI receive traffic.
-> Fix its computation.
+> This series adds infrastructure for a new control virtqueue and
+> makes use of it to support set_rx_mode, unicast and multicast address
+> lists, and supporting a hypervisor based VLAN filter.  The goal is to
+> make the virtio-net device support more of the features of a physical
+> NIC and allow the hypervisor to discard packets we don't want.  These
+> patches are intended for 2.6.30.
 > 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> This version is just a rebase to current net-next-2.6.git.  I'll send
+> Rusty an update to the patch in his queue that led to the patch
+> conflict, this series doesn't depend on it.
 
-Applied, thank you.
-
-Could you slightly reformat your Subject lines for patches?  Please
-use something like "cxgb3: $(description)" instead of the "cxgb3 -
-$(description)" you're using now.
-
-It'll be one less thing I need to edit when applying your
-patches :-)
-
-Thanks!
+All applied to net-next-2.6, thanks everyone!
