@@ -1,46 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Thu, 05 Feb 2009 15:38:01 -0800 (PST)
-Message-ID: <20090205.153801.131216873.davem@davemloft.net>
-References: <b6a2187b0902050641h7943816ds26275a320e724440@mail.gmail.com>
-	<20090205.152906.221253085.davem@davemloft.net>
-	<alpine.LFD.2.00.0902051530520.3048@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Fri, 6 Feb 2009 10:43:18 +1100
+Message-ID: <20090205234318.GA1929@gondor.apana.org.au>
+References: <20090126.213112.197185044.davem@davemloft.net> <20090127075356.GA6255@alice> <20090128093507.GA15956@gondor.apana.org.au> <20090129.174954.263448549.davem@davemloft.net> <20090205130149.GA28152@gondor.apana.org.au> <20090205143143.GA18734@alice> <adafxisjzel.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff.chua.linux@gmail.com, herbert@gondor.apana.org.au,
-	rjw@sisk.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Sesterhenn <snakebyte@gmx.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42196
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752998AbZBEXiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 18:38:05 -0500
-In-Reply-To: <alpine.LFD.2.00.0902051530520.3048@localhost.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:54297 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756438AbZBEXnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 18:43:31 -0500
+Content-Disposition: inline
+In-Reply-To: <adafxisjzel.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 5 Feb 2009 15:32:20 -0800 (PST)
+On Thu, Feb 05, 2009 at 02:24:02PM -0800, Roland Dreier wrote:
+>
+> >From a quick scan of the code, it looks as if optlen is never sanity
+> checked in the case of setsockopt(IPV6_FLOWLABEL_MGR), and
+> ipv6_flowlabel_opt() calls into fl_create() with whatever value
+> userspace passes in, which then pretty much does kmalloc(optlen).
+> So if icmpv6fuzz passes some big random value, it can cause this failure.
+> 
+> I don't know what the appropriate limit should be, so no patch, sorry.
 
-> On Thu, 5 Feb 2009, David Miller wrote:
-> > 
-> > Herbert, please help Jeff try to track down the cause of this.
-> > If we can't figure it out soon I'll have to revert.
-> 
-> Why is there even any discussion?
-> 
-> URG is broken as a concept, no sane/modern use case exists. It's totally 
-> uninteresting _except_ as a "legacy binary" issue, so
-> 
->  - there's no point in trying to "improve" it.
-> 
->  - even just a whiff of "breaks legacy app" just says "revert it".
-> 
-> No?
+Well it is legal (though unlikely) to pass very long options.
+So the real fix would be to avoid copying the control message
+at all and modify all the code involved to read user pointers
+directly.  Someone with a lot of patience is required for this :)
 
-Sure, and we can put the change back in if we ever figure out what the
-problem was.
-
-This change is in 2.6.28 too, so I'll revert and queue the revert up
-for -stable as well.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
