@@ -1,110 +1,45 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2009-02-05
-Date: Thu, 5 Feb 2009 11:58:38 -0500
-Message-ID: <20090205165837.GB4638@tuxdriver.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Thu, 05 Feb 2009 14:24:02 -0800
+Message-ID: <adafxisjzel.fsf@cisco.com>
+References: <20090126.213112.197185044.davem@davemloft.net>
+	<20090127075356.GA6255@alice>
+	<20090128093507.GA15956@gondor.apana.org.au>
+	<20090129.174954.263448549.davem@davemloft.net>
+	<20090205130149.GA28152@gondor.apana.org.au>
+	<20090205143143.GA18734@alice>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Eric Sesterhenn <snakebyte@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:52513 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752782AbZBEWYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 17:24:05 -0500
+In-Reply-To: <20090205143143.GA18734@alice> (Eric Sesterhenn's message of
+	"Thu, 5 Feb 2009 15:31:43 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+ > [ 2880.044328] icmpv6fuzz: page allocation failure. order:9, mode:0x40d0
+ > [ 2880.044495] Pid: 10968, comm: icmpv6fuzz Not tainted
+ > 2.6.29-rc3-00580-ga2fe994-dirty #239
+ > [ 2880.044694] Call Trace:
+ > [ 2880.044802]  [<c016886a>] __alloc_pages_internal+0x38e/0x3aa
+ > [ 2880.044954]  [<c016889a>] __get_free_pages+0x14/0x24
+ > [ 2880.071336]  [<c018412c>] __kmalloc+0x2e/0x122
+ > [ 2880.071589]  [<c06fa227>] ipv6_flowlabel_opt+0x1e0/0x7b1
+ > [ 2880.092922]  [<c06e8c9e>] ipv6_setsockopt+0xa0f/0xb89
 
-A couple of small fixes for iwlwifi intended for 2.6.29.  One of them
-will conflict when it is pulled into net-next-2.6 -- just take all the
-hunks.
+>From a quick scan of the code, it looks as if optlen is never sanity
+checked in the case of setsockopt(IPV6_FLOWLABEL_MGR), and
+ipv6_flowlabel_opt() calls into fl_create() with whatever value
+userspace passes in, which then pretty much does kmalloc(optlen).
+So if icmpv6fuzz passes some big random value, it can cause this failure.
 
-Please let me know if there are problems!
+I don't know what the appropriate limit should be, so no patch, sorry.
 
-John
-
----
-
-Individual patches are available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit 55128bc23e9ab44e97f81f6cd349035230ee59a6:
-  Randy Dunlap (1):
-        sunrpc: fix rdma dependencies
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Reinette Chatre (2):
-      iwlwifi: clean key table in iwl_clear_stations_table
-      iwlwifi: save PCI state before suspend, restore after resume
-
- drivers/net/wireless/iwlwifi/iwl-agn.c      |    2 ++
- drivers/net/wireless/iwlwifi/iwl-sta.c      |    3 +++
- drivers/net/wireless/iwlwifi/iwl3945-base.c |    2 ++
- 3 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index b35c881..c01ea48 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -4042,6 +4042,7 @@ static int iwl_pci_suspend(struct pci_dev *pdev, pm_message_t state)
- 		priv->is_open = 1;
- 	}
- 
-+	pci_save_state(pdev);
- 	pci_set_power_state(pdev, PCI_D3hot);
- 
- 	return 0;
-@@ -4052,6 +4053,7 @@ static int iwl_pci_resume(struct pci_dev *pdev)
- 	struct iwl_priv *priv = pci_get_drvdata(pdev);
- 
- 	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
- 
- 	if (priv->is_open)
- 		iwl_mac_start(priv->hw);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-sta.c b/drivers/net/wireless/iwlwifi/iwl-sta.c
-index 412f66b..70a8b21 100644
---- a/drivers/net/wireless/iwlwifi/iwl-sta.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-sta.c
-@@ -480,6 +480,9 @@ void iwl_clear_stations_table(struct iwl_priv *priv)
- 	priv->num_stations = 0;
- 	memset(priv->stations, 0, sizeof(priv->stations));
- 
-+	/* clean ucode key table bit map */
-+	priv->ucode_key_table = 0;
-+
- 	spin_unlock_irqrestore(&priv->sta_lock, flags);
- }
- EXPORT_SYMBOL(iwl_clear_stations_table);
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 95d0198..5b44d32 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -8143,6 +8143,7 @@ static int iwl3945_pci_suspend(struct pci_dev *pdev, pm_message_t state)
- 		priv->is_open = 1;
- 	}
- 
-+	pci_save_state(pdev);
- 	pci_set_power_state(pdev, PCI_D3hot);
- 
- 	return 0;
-@@ -8153,6 +8154,7 @@ static int iwl3945_pci_resume(struct pci_dev *pdev)
- 	struct iwl3945_priv *priv = pci_get_drvdata(pdev);
- 
- 	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
- 
- 	if (priv->is_open)
- 		iwl3945_mac_start(priv->hw);
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ - R.
