@@ -1,43 +1,87 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Fri, 6 Feb 2009 16:45:41 +1100
-Message-ID: <20090206054541.GA4954@gondor.apana.org.au>
-References: <b6a2187b0902050641h7943816ds26275a320e724440@mail.gmail.com> <20090206031025.GA3281@gondor.apana.org.au> <b6a2187b0902052139p3be2f321ucd900cc5346bff8c@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Regression on VIA C3 motherboard, commit: 66f2173e2
+Date: Thu, 05 Feb 2009 22:10:16 -0800
+Message-ID: <498BD448.80102@candelatech.com>
+References: <498A93E5.2080509@candelatech.com> <498B8547.1010803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Jeff Chua <jeff.chua.linux@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Robert Hancock <hancockrwd@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38368 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751183AbZBFFpy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 00:45:54 -0500
-Content-Disposition: inline
-In-Reply-To: <b6a2187b0902052139p3be2f321ucd900cc5346bff8c@mail.gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:58699 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751915AbZBFGKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 01:10:21 -0500
+In-Reply-To: <498B8547.1010803@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 06, 2009 at 01:39:19PM +0800, Jeff Chua wrote:
-> 
-> Attached are two strace. t1.good is a good rlogin run. t4.bad is bad
-> rlogin run where nothing is displayed but typing "~-." gets back to
-> the host.
+Robert Hancock wrote:
+> Ben Greear wrote:
+>> I have a via motherboard with C3 processor and some real-tek NICs.  I 
+>> noticed
+>> when using the top-of-tree that performance on it sucked (30Mbps v/s 
+>> 54Mbps
+>> network throughput in one pertinent test).
+>>
+>> After several hours of bisecting, I see this as the culprit:
+>>
+>> 7b37b5fd9ba32c0c5afc3537eed7e7466f2173e2 is first bad commit
+>> commit 7b37b5fd9ba32c0c5afc3537eed7e7466f2173e2
+>> Author: Len Brown <len.brown@intel.com>
+>> Date:   Tue Dec 23 01:47:42 2008 -0500
+>>
+>>    ACPI: disable MPS when NO APIC-table found
+>>      When ACPI is asked to find an MADT (APIC table)
+>>    and fails, then ACPI expects to run in PIC mode.
+>>      However, if an MP Table is was found, IRQs will be
+>>    registered as if an IOAPIC is being used, even
+>>    though ACPI is configuring interrupt links links for PIC mode.
+>>      In this scenario, disable MPS so that IRQs
+>>    are registered in PIC mode, consistent with ACPI.
+>>      http://bugzilla.kernel.org/show_bug.cgi?id=12257
+>>      Signed-off-by: Len Brown <len.brown@intel.com>
+>>
+>> :040000 040000 86ce74daee3a9fe6ff21ef7f8fb364af23ec0c1e 
+>> 364933dfec0df34e63b1aeff6aff4092d421886b M      arch
+>>
+>>
+>> In addition, I see this warning in my logs, which is likely the symptom:
+>>
+>> ACPI Exception (tbxface-0627): AE_NO_ACPI_TABLES, While loading 
+>> namespace from ACPI tables ]
+>> ACPI: Unable to load the System Description Tables
+>
+> You're getting this on boot:
+>
+> ACPI Error (tbxfroot-0218): A valid RSDP was not found [20080926]
+>
+> That essentially means ACPI isn't working at all, I think. Did 
+> previous kernels produce this error? Do you have ACPI disabled in the 
+> BIOS or something?
+>
+Er, yes...I have ACPI disabled in the BIOS.  I seem to recall now that 
+it worked around
+some instability, but it's been a few years since we set that up.   
+Still, it was working
+fine before, and fine again when I comment out the change in this commit 
+(and another
+change to force the 'tsc' to be considered stable).
 
-You traced the side receiving the urgent pointer.  This has
-nothing to do with the patch since it only changes sending
-behaviour.
-
-Did you change the kernel on the other side during these tests?
-
-If reverting the patch on the other side does fix the problem
-for you, please do the two straces there.
+The same error message happens as far back as 2.6.25 at least.
 
 Thanks,
+Ben
+
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
+
+
