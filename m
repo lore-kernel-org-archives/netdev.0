@@ -1,71 +1,57 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: copyless virtio net thoughts?
-Date: Fri, 06 Feb 2009 16:55:40 +0200
-Message-ID: <498C4F6C.4070402@redhat.com>
-References: <20090205020732.GA27684@sequoia.sous-sol.org> <498ADD73.3060906@redhat.com> <20090206054054.GA4824@gondor.apana.org.au> <498BF8ED.8090208@redhat.com> <20090206091904.GA6645@gondor.apana.org.au>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [PATCH 0/16] DMA-API debugging facility v2
+Date: Fri, 6 Feb 2009 08:08:12 -0800
+Message-ID: <20090206160812.GH27684@sequoia.sous-sol.org>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1233874352.8135.12.camel@macbook.infradead.org> <20090206020535.GE27684@sequoia.sous-sol.org> <1233907006.17724.83.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@sous-sol.org>, Arnd Bergmann <arnd@arndb.de>,
-	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090206091904.GA6645@gondor.apana.org.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chris Wright <chrisw@sous-sol.org>,
+	Joerg Roedel <joerg.roedel@amd.com>,
+	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
+	iommu@lists.linux-foundation.org, mingo@redhat.com,
+	linux-kernel@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sous-sol.org ([216.99.217.87]:48995 "EHLO sequoia.sous-sol.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751646AbZBFQJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 11:09:54 -0500
+Content-Disposition: inline
+In-Reply-To: <1233907006.17724.83.camel@macbook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Fri, Feb 06, 2009 at 10:46:37AM +0200, Avi Kivity wrote:
->   
->> The guest's block layer is copyless.  The host block layer is -><- this  
->> far from being copyless -- all we need is preadv()/pwritev() or to  
->> replace our thread pool implementation in qemu with linux-aio.   
->> Everything else is copyless.
->>
->> Since we are actively working on this, expect this limitation to  
->> disappear soon.
->>     
->
-> Great, when that happens I'll promise to revisit zero-copy transmit :)
->
->   
+* David Woodhouse (dwmw2@infradead.org) wrote:
+> What machine did you get that on?
 
-I was hoping to get some concurrency here, but okay.
+That's a T400 (I'd expect it's same issue as X200).
 
->> I support this, but it should be in addition to copylessness, not on its  
->> own.
->>     
->
-> I was talking about it in the context of zero-copy receive, where
-> you mentioned that the virtio/kvm copy may not occur on the CPU of
-> the guest's copy.
->
-> My point is that using multiqueue you can avoid this change of CPU.
->
-> But yeah I think zero-copy receive is much more useful than zero-
-> copy transmit at the moment.  Although I'd prefer to wait for
-> you guys to finish the block layer work before contemplating
-> pushing the copy on receive into the guest :)
->
->   
+> Yeah, I saw one of those. If could be a driver bug, of course -- it
+> could be unmapping a range before it's actually finished with it. But
+> that's unlikely.
 
-We'll get the block layer done soon, so it won't be a barrier.
+One thing I noticed is many of the faults are the page prior to a
+coherent range 0x8000 in length, which seems to correspond to tfd buffe=
+r.
+No obvious off-by-one error anywhere, and not all faults fit that patte=
+rn,
+so w/out more iwlagn driver knowledge hard to say if that's meaningful
+or just mapping coincidence.
 
->> - many guests will not support multiqueue
->>     
->
-> Well, these guests will suck both on baremetal and in virtualisation,
-> big deal :) Multiqueue at 10GbE speeds and above is simply not an
-> optional feature.
->   
+> An alternative explanation... The DMA is aborted=B9, and the device
+> interrupts us to tell us about it at the _same_ time that the IOMMU
+> interrupts us to tell us about the fault. We process the device
+> interrupt first, unmap that buffer. And then we process the IOMMU
+> interrupt... and the buffer is already gone from the list.
 
-Each guest may only use a part of the 10Gb/s bandwidth, if you have 10 
-guests each using 1Gb/s, then we should be able to support this without 
-multiqueue in the guests.
+I'd have expected the iommu fault to be delivered first, but hey...
 
+> It might be interesting to make this code also remember and print the
+> last range that was unmapped, as well as the currently-mapped ranges.
 
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+That's what I was thinking too.  Almost need a flight recorder mode to
+see if the range was ever mapped/unmapped.
 
+thanks,
+-chris
