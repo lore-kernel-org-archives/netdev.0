@@ -1,58 +1,103 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 6 Feb 2009 11:47:53 +0000
-Message-ID: <20090206114753.GE4879@ff.dom.local>
-References: <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090205.235258.257422341.davem@davemloft.net> <20090206091034.GA4879@ff.dom.local> <20090206092326.GC6645@gondor.apana.org.au> <20090206095119.GC4879@ff.dom.local> <20090206102822.GB7175@gondor.apana.org.au> <20090206105807.GD4879@ff.dom.local> <20090206111015.GD15159@1wt.eu>
+From: Ilkka Virta <itvirta@iki.fi>
+Subject: Soft lockup in sungem on Netra AC200 when switching interface up
+Date: Fri, 6 Feb 2009 13:29:02 +0200
+Message-ID: <20090206112902.GS4362@tango.lnet.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, zbr@ioremap.net,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Willy Tarreau <w@1wt.eu>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f20.google.com ([209.85.220.20]:43555 "EHLO
-	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753230AbZBFLsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 06:48:01 -0500
+Received: from tango.lnet.fi ([86.50.38.234]:50225 "EHLO tango.lnet.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752150AbZBFL42 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 06:56:28 -0500
 Content-Disposition: inline
-In-Reply-To: <20090206111015.GD15159@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 06, 2009 at 12:10:15PM +0100, Willy Tarreau wrote:
-> On Fri, Feb 06, 2009 at 10:58:07AM +0000, Jarek Poplawski wrote:
-> > On Fri, Feb 06, 2009 at 09:28:22PM +1100, Herbert Xu wrote:
-> > > On Fri, Feb 06, 2009 at 09:51:20AM +0000, Jarek Poplawski wrote:
-> > > >
-> > > > OK, but since there is not so much difference, and we need to waste
-> > > > it in some cases anyway, plus handle it later some special way, I'm
-> > > > a bit in doubt.
-> > > 
-> > > Well the thing is cards that don't support SG on tx probably
-> > > don't support jumbo frames either.
-> > 
-> > ?? I mean this 128 byte chunk would be hard to reuse after copying
-> > to skb->data, and if reused, we could miss this for some NICs on TX,
-> > so the whole packed would need a copy.
-> 
-> couldn't we stuff up to 32 128-byte chunks in a page and use a 32-bit
-> map to indicate which slot is used and which one is free ? This would
-> just be a matter of calling ffz() to find one spare place in a page.
-> Also, that bitmap might serve as a refcount, because if it drops to
-> zero, it means all slots are unused. And -1 means all slots are used.
-> 
-> This would reduce wastage if wee need to allocate 128 bytes often.
+What ho, chaps
 
-Something like this would be useful for SG NICs for the paged
-skb->data area. But I'm concerned with non-SG ones: if I got it right,
-for 1500 byte packets we need to allocate such a chunk, copy 128+
-bytes to skb->data, and we have 128+ unused. If there are later such
-short packets, we don't need this space: why copy?
+The sungem network driver seems to be broken with the integrated
+Ethernet ports of a Sun Netra T1 AC200. On that machine, switching the
+interface up when link is up leads to a soft lockup. However,
+switching the interface up with no link, and only then connecting the
+cable works; as does the same driver on seemingly same hardware on a
+Sun Blade 1000.
 
-But even if we find the way to use this, or don't reserve such space
-while receiving from SG NIC, than we will need to copy both chunks
-to another page for TX on non-SG NICs.
+lspci doesn't show any real differences between the gems on the Netra
+and on the Blade, both are these: 
+0000:00:05.1 Ethernet controller [0200]: Sun Microsystems Computer
+             Corp. RIO 10/100 Ethernet [eri] [108e:1101] (rev 01)
 
-Jarek P.
+Earlier reports of the same problem indicate that the driver was
+broken by commit bea3348eef27e6044b6161fd04c3152215f96411 in around
+2.6.24, but the problem still exists in 2.6.28.
+
+http://kerneltrap.org/mailarchive/linux-kernel/2008/8/7/2856094
+http://bugzilla.kernel.org/show_bug.cgi?id=10309
+http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=508151
+
+Now, I didn't find any ready-made cure for this, so I poked around the
+driver a bit to see what happens. What follows is very much only
+guesswork, since I don't really know anything about Linux network
+drivers.
+
+In the lockup situation the driver seems to go off in an eternal storm
+of interrupts right after calling request_irq(). It doesn't actually
+do anything interesting in the interrupt handler. Since connecting the link
+afterwards works, something later in initialization must fix this.
+
+Looking at gem_do_start() and gem_open(), it seems that the only thing
+done while opening the device after the request_irq(), is a call to
+napi_enable().
+
+I don't know what the ordering requirements are for the
+initialization, but I boldly tried to move the napi_enable() call
+inside gem_do_start() before the link state is checked and interrupts
+subsequently enabled, and it seems to work for me. Doesn't even break
+anything too obvious...
+
+Any ideas on how this really should be fixed?
+
+--- linux-2.6.28.2/drivers/net/sungem.c.orig	2009-01-25 02:42:07.000000000 +0200
++++ linux-2.6.28.2/drivers/net/sungem.c	2009-02-05 20:46:23.000000000 +0200
+@@ -2222,6 +2222,8 @@ static int gem_do_start(struct net_devic
+ 
+ 	gp->running = 1;
+ 
++	napi_enable(&gp->napi);
++
+ 	if (gp->lstate == link_up) {
+ 		netif_carrier_on(gp->dev);
+ 		gem_set_link_modes(gp);
+@@ -2239,6 +2241,8 @@ static int gem_do_start(struct net_devic
+ 		spin_lock_irqsave(&gp->lock, flags);
+ 		spin_lock(&gp->tx_lock);
+ 
++		napi_disable(&gp->napi);
++
+ 		gp->running =  0;
+ 		gem_reset(gp);
+ 		gem_clean_rings(gp);
+@@ -2339,8 +2343,6 @@ static int gem_open(struct net_device *d
+ 	if (!gp->asleep)
+ 		rc = gem_do_start(dev);
+ 	gp->opened = (rc == 0);
+-	if (gp->opened)
+-		napi_enable(&gp->napi);
+ 
+ 	mutex_unlock(&gp->pm_mutex);
+ 
+@@ -2477,8 +2479,6 @@ static int gem_resume(struct pci_dev *pd
+ 
+ 		/* Re-attach net device */
+ 		netif_device_attach(dev);
+-
+-		napi_enable(&gp->napi);
+ 	}
+ 
+ 	spin_lock_irqsave(&gp->lock, flags);
+
+-- 
+Ilkka Virta / itvirta at iki dot fi / ilkkachu@IRCNet
+ ()  ascii ribbon campaign - against HTML mail and attachments in 
+ /\                          closed file formats
