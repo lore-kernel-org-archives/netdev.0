@@ -1,26 +1,57 @@
-From: Siemens New Year Promo Draw <info@lely.co.uk>
-Subject: Final Notification!!
-Date: Fri,  6 Feb 2009 19:14:24 +0200 (IST)
-Message-ID: <20090206191424.FPH96003@mas26.bezeqint.net>
-Reply-To: agt_bwilliams05@live.com
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH] forcedeth: make msi-x different name for rx-tx
+Date: Fri, 06 Feb 2009 09:54:32 -0800
+Message-ID: <498C7958.4010109@kernel.org>
+References: <498BC3A8.9040203@kernel.org> <20090206144948.GD18368@elte.hu> <498C6C15.3050807@kernel.org> <20090206171544.GA16190@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr2.bezeqint.net ([192.115.104.10]:43877 "EHLO
-	omr2.bezeqint.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbZBFRSV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 12:18:21 -0500
+Received: from hera.kernel.org ([140.211.167.34]:40732 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757557AbZBFRz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 12:55:28 -0500
+In-Reply-To: <20090206171544.GA16190@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your Email ID Has been awarded the sum of =A3750,000.00 GBP in=20
-our Recent Siemens BONANZA for this year.get back to this=20
-office with your details via (agt_bwilliams05@live.com)=20
+Ingo Molnar wrote:
+> * Yinghai Lu <yinghai@kernel.org> wrote:
+> 
+>> Ingo Molnar wrote:
+>>> Cool cleanups!
+>>>
+>>> Would you mind to also fix the following - on all my systems that have 
+>>> forcedeth gigabit ethernet i've been getting these bogus warnings for 
+>>> _years_, under moderate load:
+>>>
+>>>   eth2: too many iterations (16) in nv_nic_irq.
+>>>
+>>> I think a 64 iterations limit will work much better. (i tried a limit of 50 
+>>> a year ago for a while and it worked fine and had no side effects - and the 
+>>> bogus warnings were done.)
+>> you may enable CONFIG_FORCEDETH_NAPI.
+>>
+>> we should enable NAPI for forcedeth by default, and try to squash more bugs out.
+> 
+> i do have that:
+> 
+>  CONFIG_FORCEDETH=y
+>  CONFIG_FORCEDETH_NAPI=y
+> 
+> and the messages still come.
 
-Name:
-Country:
-Sex:
-Age:
-Address:
+so you systems are using ioapic routing, or msi.
+
+and those messages are from 
+nv_nic_irq_optimized or nv_nic_irq
+for TX or OTHER (timerirq).
+
+YH
