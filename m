@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 1/2] ixgbe: Update flow control state machine in link
-	setup
-Date: Fri, 06 Feb 2009 14:44:26 -0800
-Message-ID: <20090206224424.28541.494.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 2/2] ixgbe: Defeature Tx Head writeback
+Date: Fri, 06 Feb 2009 14:44:47 -0800
+Message-ID: <20090206224447.28541.40271.stgit@lost.foo-projects.org>
+References: <20090206224424.28541.494.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,684 +11,151 @@ Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:51004
-	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751067AbZBFWos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 17:44:48 -0500
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:33700
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756278AbZBFWu5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 17:50:57 -0500
+In-Reply-To: <20090206224424.28541.494.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 
-The flow control handling is overly complicated and difficult to maintain.
-This patch cleans up the flow control handling and makes it much more
-explicit.  It also adds 1G flow control autonegotiation, for 1G copper
-links, 1G KX links, and 1G fiber links.
+Tx Head writeback is causing multi-microsecond stalls on PCIe chipsets, due
+to partial cacheline writebacks.  Removing this feature removes these
+issues.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82598.c     |  177 ++++++++++++++++++++++-------------
- drivers/net/ixgbe/ixgbe_common.c    |  138 +++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_common.h    |    3 +
- drivers/net/ixgbe/ixgbe_dcb_82598.c |    2 
- drivers/net/ixgbe/ixgbe_ethtool.c   |   23 ++---
- drivers/net/ixgbe/ixgbe_main.c      |   77 +++++++--------
- drivers/net/ixgbe/ixgbe_type.h      |   29 +++++-
- 7 files changed, 327 insertions(+), 122 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   60 +++++++++++++++-------------------------
+ 1 files changed, 23 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index f726a14..525bd87 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -255,104 +255,75 @@ static enum ixgbe_media_type ixgbe_get_media_type_82598(struct ixgbe_hw *hw)
- }
- 
- /**
-- *  ixgbe_setup_fc_82598 - Configure flow control settings
-+ *  ixgbe_fc_enable_82598 - Enable flow control
-  *  @hw: pointer to hardware structure
-  *  @packetbuf_num: packet buffer number (0-7)
-  *
-- *  Configures the flow control settings based on SW configuration.  This
-- *  function is used for 802.3x flow control configuration only.
-+ *  Enable flow control according to the current settings.
-  **/
--static s32 ixgbe_setup_fc_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
-+static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
- {
--	u32 frctl_reg;
-+	s32 ret_val = 0;
-+	u32 fctrl_reg;
- 	u32 rmcs_reg;
-+	u32 reg;
- 
--	if (packetbuf_num < 0 || packetbuf_num > 7) {
--		hw_dbg(hw, "Invalid packet buffer number [%d], expected range is"
--		          " 0-7\n", packetbuf_num);
--	}
--
--	frctl_reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
--	frctl_reg &= ~(IXGBE_FCTRL_RFCE | IXGBE_FCTRL_RPFCE);
-+	fctrl_reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
-+	fctrl_reg &= ~(IXGBE_FCTRL_RFCE | IXGBE_FCTRL_RPFCE);
- 
- 	rmcs_reg = IXGBE_READ_REG(hw, IXGBE_RMCS);
- 	rmcs_reg &= ~(IXGBE_RMCS_TFCE_PRIORITY | IXGBE_RMCS_TFCE_802_3X);
- 
- 	/*
--	 * 10 gig parts do not have a word in the EEPROM to determine the
--	 * default flow control setting, so we explicitly set it to full.
--	 */
--	if (hw->fc.type == ixgbe_fc_default)
--		hw->fc.type = ixgbe_fc_full;
--
--	/*
--	 * We want to save off the original Flow Control configuration just in
--	 * case we get disconnected and then reconnected into a different hub
--	 * or switch with different Flow Control capabilities.
--	 */
--	hw->fc.original_type = hw->fc.type;
--
--	/*
--	 * The possible values of the "flow_control" parameter are:
-+	 * The possible values of fc.current_mode are:
- 	 * 0: Flow control is completely disabled
--	 * 1: Rx flow control is enabled (we can receive pause frames but not
--	 *    send pause frames).
--	 * 2: Tx flow control is enabled (we can send pause frames but we do not
--	 *    support receiving pause frames)
-+	 * 1: Rx flow control is enabled (we can receive pause frames,
-+	 *    but not send pause frames).
-+	 * 2:  Tx flow control is enabled (we can send pause frames but
-+	 *     we do not support receiving pause frames).
- 	 * 3: Both Rx and Tx flow control (symmetric) are enabled.
- 	 * other: Invalid.
- 	 */
--	switch (hw->fc.type) {
-+	switch (hw->fc.current_mode) {
- 	case ixgbe_fc_none:
-+		/* Flow control completely disabled by software override. */
- 		break;
- 	case ixgbe_fc_rx_pause:
- 		/*
--		 * Rx Flow control is enabled,
--		 * and Tx Flow control is disabled.
-+		 * Rx Flow control is enabled and Tx Flow control is
-+		 * disabled by software override. Since there really
-+		 * isn't a way to advertise that we are capable of RX
-+		 * Pause ONLY, we will advertise that we support both
-+		 * symmetric and asymmetric Rx PAUSE.  Later, we will
-+		 * disable the adapter's ability to send PAUSE frames.
- 		 */
--		frctl_reg |= IXGBE_FCTRL_RFCE;
-+		fctrl_reg |= IXGBE_FCTRL_RFCE;
- 		break;
- 	case ixgbe_fc_tx_pause:
- 		/*
--		 * Tx Flow control is enabled, and Rx Flow control is disabled,
--		 * by a software over-ride.
-+		 * Tx Flow control is enabled, and Rx Flow control is
-+		 * disabled by software override.
- 		 */
- 		rmcs_reg |= IXGBE_RMCS_TFCE_802_3X;
- 		break;
- 	case ixgbe_fc_full:
--		/*
--		 * Flow control (both Rx and Tx) is enabled by a software
--		 * over-ride.
--		 */
--		frctl_reg |= IXGBE_FCTRL_RFCE;
-+		/* Flow control (both Rx and Tx) is enabled by SW override. */
-+		fctrl_reg |= IXGBE_FCTRL_RFCE;
- 		rmcs_reg |= IXGBE_RMCS_TFCE_802_3X;
- 		break;
- 	default:
--		/* We should never get here.  The value should be 0-3. */
- 		hw_dbg(hw, "Flow control param set incorrectly\n");
-+		ret_val = -IXGBE_ERR_CONFIG;
-+		goto out;
- 		break;
- 	}
- 
- 	/* Enable 802.3x based flow control settings. */
--	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, frctl_reg);
-+	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl_reg);
- 	IXGBE_WRITE_REG(hw, IXGBE_RMCS, rmcs_reg);
- 
--	/*
--	 * Check for invalid software configuration, zeros are completely
--	 * invalid for all parameters used past this point, and if we enable
--	 * flow control with zero water marks, we blast flow control packets.
--	 */
--	if (!hw->fc.low_water || !hw->fc.high_water || !hw->fc.pause_time) {
--		hw_dbg(hw, "Flow control structure initialized incorrectly\n");
--		return IXGBE_ERR_INVALID_LINK_SETTINGS;
--	}
--
--	/*
--	 * We need to set up the Receive Threshold high and low water
--	 * marks as well as (optionally) enabling the transmission of
--	 * XON frames.
--	 */
--	if (hw->fc.type & ixgbe_fc_tx_pause) {
-+	/* Set up and enable Rx high/low water mark thresholds, enable XON. */
-+	if (hw->fc.current_mode & ixgbe_fc_tx_pause) {
- 		if (hw->fc.send_xon) {
- 			IXGBE_WRITE_REG(hw, IXGBE_FCRTL(packetbuf_num),
- 			                (hw->fc.low_water | IXGBE_FCRTL_XONE));
-@@ -360,14 +331,93 @@ static s32 ixgbe_setup_fc_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
- 			IXGBE_WRITE_REG(hw, IXGBE_FCRTL(packetbuf_num),
- 			                hw->fc.low_water);
- 		}
-+
- 		IXGBE_WRITE_REG(hw, IXGBE_FCRTH(packetbuf_num),
--		                (hw->fc.high_water)|IXGBE_FCRTH_FCEN);
-+		                (hw->fc.high_water | IXGBE_FCRTH_FCEN));
- 	}
- 
--	IXGBE_WRITE_REG(hw, IXGBE_FCTTV(0), hw->fc.pause_time);
-+	/* Configure pause time (2 TCs per register) */
-+	reg = IXGBE_READ_REG(hw, IXGBE_FCTTV(packetbuf_num));
-+	if ((packetbuf_num & 1) == 0)
-+		reg = (reg & 0xFFFF0000) | hw->fc.pause_time;
-+	else
-+		reg = (reg & 0x0000FFFF) | (hw->fc.pause_time << 16);
-+	IXGBE_WRITE_REG(hw, IXGBE_FCTTV(packetbuf_num / 2), reg);
-+
- 	IXGBE_WRITE_REG(hw, IXGBE_FCRTV, (hw->fc.pause_time >> 1));
- 
--	return 0;
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_setup_fc_82598 - Configure flow control settings
-+ *  @hw: pointer to hardware structure
-+ *  @packetbuf_num: packet buffer number (0-7)
-+ *
-+ *  Configures the flow control settings based on SW configuration.  This
-+ *  function is used for 802.3x flow control configuration only.
-+ **/
-+static s32 ixgbe_setup_fc_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
-+{
-+	s32 ret_val = 0;
-+	ixgbe_link_speed speed;
-+	bool link_up;
-+
-+	/* Validate the packetbuf configuration */
-+	if (packetbuf_num < 0 || packetbuf_num > 7) {
-+		hw_dbg(hw, "Invalid packet buffer number [%d], expected range is"
-+		          " 0-7\n", packetbuf_num);
-+		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
-+		goto out;
-+	}
-+
-+	/*
-+	 * Validate the water mark configuration.  Zero water marks are invalid
-+	 * because it causes the controller to just blast out fc packets.
-+	 */
-+	if (!hw->fc.low_water || !hw->fc.high_water || !hw->fc.pause_time) {
-+		hw_dbg(hw, "Invalid water mark configuration\n");
-+		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
-+		goto out;
-+	}
-+
-+	/*
-+	 * Validate the requested mode.  Strict IEEE mode does not allow
-+	 * ixgbe_fc_rx_pause because it will cause testing anomalies.
-+	 */
-+	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
-+		hw_dbg(hw, "ixgbe_fc_rx_pause not valid in strict IEEE mode\n");
-+		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
-+		goto out;
-+	}
-+
-+	/*
-+	 * 10gig parts do not have a word in the EEPROM to determine the
-+	 * default flow control setting, so we explicitly set it to full.
-+	 */
-+	if (hw->fc.requested_mode == ixgbe_fc_default)
-+		hw->fc.requested_mode = ixgbe_fc_full;
-+
-+	/*
-+	 * Save off the requested flow control mode for use later.  Depending
-+	 * on the link partner's capabilities, we may or may not use this mode.
-+	 */
-+
-+	hw->fc.current_mode = hw->fc.requested_mode;
-+
-+	/* Decide whether to use autoneg or not. */
-+	hw->mac.ops.check_link(hw, &speed, &link_up, false);
-+	if (hw->phy.multispeed_fiber && (speed == IXGBE_LINK_SPEED_1GB_FULL))
-+		ret_val = ixgbe_fc_autoneg(hw);
-+
-+	if (ret_val)
-+		goto out;
-+
-+	ret_val = ixgbe_fc_enable_82598(hw, packetbuf_num);
-+
-+out:
-+	return ret_val;
- }
- 
- /**
-@@ -414,7 +464,6 @@ static s32 ixgbe_setup_mac_link_82598(struct ixgbe_hw *hw)
- 	 * case we get disconnected and then reconnected into a different hub
- 	 * or switch with different Flow Control capabilities.
- 	 */
--	hw->fc.original_type = hw->fc.type;
- 	ixgbe_setup_fc_82598(hw, 0);
- 
- 	/* Add delay to filter out noises during initial link setup */
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 13ad5ba..5ae9398 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1487,6 +1487,144 @@ s32 ixgbe_disable_mc_generic(struct ixgbe_hw *hw)
- }
- 
- /**
-+ *  ixgbe_fc_autoneg - Configure flow control
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Negotiates flow control capabilities with link partner using autoneg and
-+ *  applies the results.
-+ **/
-+s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw)
-+{
-+	s32 ret_val = 0;
-+	u32 i, reg, pcs_anadv_reg, pcs_lpab_reg;
-+
-+	reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
-+
-+	/*
-+	 * The possible values of fc.current_mode are:
-+	 * 0:  Flow control is completely disabled
-+	 * 1:  Rx flow control is enabled (we can receive pause frames,
-+	 *     but not send pause frames).
-+	 * 2:  Tx flow control is enabled (we can send pause frames but
-+	 *     we do not support receiving pause frames).
-+	 * 3:  Both Rx and Tx flow control (symmetric) are enabled.
-+	 * other: Invalid.
-+	 */
-+	switch (hw->fc.current_mode) {
-+	case ixgbe_fc_none:
-+		/* Flow control completely disabled by software override. */
-+		reg &= ~(IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
-+		break;
-+	case ixgbe_fc_rx_pause:
-+		/*
-+		 * Rx Flow control is enabled and Tx Flow control is
-+		 * disabled by software override. Since there really
-+		 * isn't a way to advertise that we are capable of RX
-+		 * Pause ONLY, we will advertise that we support both
-+		 * symmetric and asymmetric Rx PAUSE.  Later, we will
-+		 * disable the adapter's ability to send PAUSE frames.
-+		 */
-+		reg |= (IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
-+		break;
-+	case ixgbe_fc_tx_pause:
-+		/*
-+		 * Tx Flow control is enabled, and Rx Flow control is
-+		 * disabled by software override.
-+		 */
-+		reg |= (IXGBE_PCS1GANA_ASM_PAUSE);
-+		reg &= ~(IXGBE_PCS1GANA_SYM_PAUSE);
-+		break;
-+	case ixgbe_fc_full:
-+		/* Flow control (both Rx and Tx) is enabled by SW override. */
-+		reg |= (IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
-+		break;
-+	default:
-+		hw_dbg(hw, "Flow control param set incorrectly\n");
-+		ret_val = -IXGBE_ERR_CONFIG;
-+		goto out;
-+		break;
-+	}
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_PCS1GANA, reg);
-+	reg = IXGBE_READ_REG(hw, IXGBE_PCS1GLCTL);
-+
-+	/* Set PCS register for autoneg */
-+	/* Enable and restart autoneg */
-+	reg |= IXGBE_PCS1GLCTL_AN_ENABLE | IXGBE_PCS1GLCTL_AN_RESTART;
-+
-+	/* Disable AN timeout */
-+	if (hw->fc.strict_ieee)
-+		reg &= ~IXGBE_PCS1GLCTL_AN_1G_TIMEOUT_EN;
-+
-+	hw_dbg(hw, "Configuring Autoneg; PCS_LCTL = 0x%08X\n", reg);
-+	IXGBE_WRITE_REG(hw, IXGBE_PCS1GLCTL, reg);
-+
-+	/* See if autonegotiation has succeeded */
-+	hw->mac.autoneg_succeeded = 0;
-+	for (i = 0; i < FIBER_LINK_UP_LIMIT; i++) {
-+		msleep(10);
-+		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GLSTA);
-+		if ((reg & (IXGBE_PCS1GLSTA_LINK_OK |
-+		     IXGBE_PCS1GLSTA_AN_COMPLETE)) ==
-+		    (IXGBE_PCS1GLSTA_LINK_OK |
-+		     IXGBE_PCS1GLSTA_AN_COMPLETE)) {
-+			if (!(reg & IXGBE_PCS1GLSTA_AN_TIMED_OUT))
-+				hw->mac.autoneg_succeeded = 1;
-+			break;
-+		}
-+	}
-+
-+	if (!hw->mac.autoneg_succeeded) {
-+		/* Autoneg failed to achieve a link, so we turn fc off */
-+		hw->fc.current_mode = ixgbe_fc_none;
-+		hw_dbg(hw, "Flow Control = NONE.\n");
-+		goto out;
-+	}
-+
-+	/*
-+	 * Read the AN advertisement and LP ability registers and resolve
-+	 * local flow control settings accordingly
-+	 */
-+	pcs_anadv_reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
-+	pcs_lpab_reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANLP);
-+	if ((pcs_anadv_reg & IXGBE_PCS1GANA_SYM_PAUSE) &&
-+		(pcs_lpab_reg & IXGBE_PCS1GANA_SYM_PAUSE)) {
-+		/*
-+		 * Now we need to check if the user selected Rx ONLY
-+		 * of pause frames.  In this case, we had to advertise
-+		 * FULL flow control because we could not advertise RX
-+		 * ONLY. Hence, we must now check to see if we need to
-+		 * turn OFF the TRANSMISSION of PAUSE frames.
-+		 */
-+		if (hw->fc.requested_mode == ixgbe_fc_full) {
-+			hw->fc.current_mode = ixgbe_fc_full;
-+			hw_dbg(hw, "Flow Control = FULL.\n");
-+		} else {
-+			hw->fc.current_mode = ixgbe_fc_rx_pause;
-+			hw_dbg(hw, "Flow Control = RX PAUSE frames only.\n");
-+		}
-+	} else if (!(pcs_anadv_reg & IXGBE_PCS1GANA_SYM_PAUSE) &&
-+		   (pcs_anadv_reg & IXGBE_PCS1GANA_ASM_PAUSE) &&
-+		   (pcs_lpab_reg & IXGBE_PCS1GANA_SYM_PAUSE) &&
-+		   (pcs_lpab_reg & IXGBE_PCS1GANA_ASM_PAUSE)) {
-+		hw->fc.current_mode = ixgbe_fc_tx_pause;
-+		hw_dbg(hw, "Flow Control = TX PAUSE frames only.\n");
-+	} else if ((pcs_anadv_reg & IXGBE_PCS1GANA_SYM_PAUSE) &&
-+		   (pcs_anadv_reg & IXGBE_PCS1GANA_ASM_PAUSE) &&
-+		   !(pcs_lpab_reg & IXGBE_PCS1GANA_SYM_PAUSE) &&
-+		   (pcs_lpab_reg & IXGBE_PCS1GANA_ASM_PAUSE)) {
-+		hw->fc.current_mode = ixgbe_fc_rx_pause;
-+		hw_dbg(hw, "Flow Control = RX PAUSE frames only.\n");
-+	} else {
-+		hw->fc.current_mode = ixgbe_fc_none;
-+		hw_dbg(hw, "Flow Control = NONE.\n");
-+	}
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-  *  ixgbe_disable_pcie_master - Disable PCI-express master access
-  *  @hw: pointer to hardware structure
-  *
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 0b5ba57..c630212 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -61,6 +61,9 @@ s32 ixgbe_update_uc_addr_list_generic(struct ixgbe_hw *hw, u8 *addr_list,
-                                       u32 addr_count, ixgbe_mc_addr_itr func);
- s32 ixgbe_enable_mc_generic(struct ixgbe_hw *hw);
- s32 ixgbe_disable_mc_generic(struct ixgbe_hw *hw);
-+s32 ixgbe_setup_fc_generic(struct ixgbe_hw *hw, s32 packetbuf_num);
-+s32 ixgbe_fc_enable(struct ixgbe_hw *hw, s32 packtetbuf_num);
-+s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw);
- 
- s32 ixgbe_validate_mac_addr(u8 *mac_addr);
- s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask);
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-index 5603211..df35955 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-@@ -298,7 +298,7 @@ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw,
- 	reg = IXGBE_READ_REG(hw, IXGBE_RMCS);
- 	reg &= ~IXGBE_RMCS_TFCE_802_3X;
- 	/* correct the reporting of our flow control status */
--	hw->fc.type = ixgbe_fc_none;
-+	hw->fc.current_mode = ixgbe_fc_none;
- 	reg |= IXGBE_RMCS_TFCE_PRIORITY;
- 	IXGBE_WRITE_REG(hw, IXGBE_RMCS, reg);
- 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 54d96cb..cec2f4e 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -224,13 +224,13 @@ static void ixgbe_get_pauseparam(struct net_device *netdev,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
--	pause->autoneg = (hw->fc.type == ixgbe_fc_full ? 1 : 0);
-+	pause->autoneg = (hw->fc.current_mode == ixgbe_fc_full ? 1 : 0);
- 
--	if (hw->fc.type == ixgbe_fc_rx_pause) {
-+	if (hw->fc.current_mode == ixgbe_fc_rx_pause) {
- 		pause->rx_pause = 1;
--	} else if (hw->fc.type == ixgbe_fc_tx_pause) {
-+	} else if (hw->fc.current_mode == ixgbe_fc_tx_pause) {
- 		pause->tx_pause = 1;
--	} else if (hw->fc.type == ixgbe_fc_full) {
-+	} else if (hw->fc.current_mode == ixgbe_fc_full) {
- 		pause->rx_pause = 1;
- 		pause->tx_pause = 1;
- 	}
-@@ -244,22 +244,17 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
- 
- 	if ((pause->autoneg == AUTONEG_ENABLE) ||
- 	    (pause->rx_pause && pause->tx_pause))
--		hw->fc.type = ixgbe_fc_full;
-+		hw->fc.requested_mode = ixgbe_fc_full;
- 	else if (pause->rx_pause && !pause->tx_pause)
--		hw->fc.type = ixgbe_fc_rx_pause;
-+		hw->fc.requested_mode = ixgbe_fc_rx_pause;
- 	else if (!pause->rx_pause && pause->tx_pause)
--		hw->fc.type = ixgbe_fc_tx_pause;
-+		hw->fc.requested_mode = ixgbe_fc_tx_pause;
- 	else if (!pause->rx_pause && !pause->tx_pause)
--		hw->fc.type = ixgbe_fc_none;
-+		hw->fc.requested_mode = ixgbe_fc_none;
- 	else
- 		return -EINVAL;
- 
--	hw->fc.original_type = hw->fc.type;
--
--	if (netif_running(netdev))
--		ixgbe_reinit_locked(adapter);
--	else
--		ixgbe_reset(adapter);
-+	hw->mac.ops.setup_fc(hw, 0);
- 
- 	return 0;
- }
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index dceae37..850361a 100644
+index 850361a..8e270b6 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1954,11 +1954,43 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
- 		                       (adapter->rx_ring[i].count - 1));
- }
+@@ -204,9 +204,6 @@ static inline bool ixgbe_check_tx_hang(struct ixgbe_adapter *adapter,
+ #define DESC_NEEDED (TXD_USE_COUNT(IXGBE_MAX_DATA_PER_TXD) /* skb->data */ + \
+ 	MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE) + 1) /* for context */
  
-+/**
-+ * ixgbe_link_config - set up initial link with default speed and duplex
-+ * @hw: pointer to private hardware struct
-+ *
-+ * Returns 0 on success, negative on failure
-+ **/
-+static int ixgbe_link_config(struct ixgbe_hw *hw)
-+{
-+	u32 autoneg;
-+	bool link_up = false;
-+	u32 ret = IXGBE_ERR_LINK_SETUP;
-+
-+	if (hw->mac.ops.check_link)
-+		ret = hw->mac.ops.check_link(hw, &autoneg, &link_up, false);
-+
-+	if (ret)
-+		goto link_cfg_out;
-+
-+	if (hw->mac.ops.get_link_capabilities)
-+		ret = hw->mac.ops.get_link_capabilities(hw, &autoneg,
-+		                                        &hw->mac.autoneg);
-+	if (ret)
-+		goto link_cfg_out;
-+
-+	if (hw->mac.ops.setup_link_speed)
-+		ret = hw->mac.ops.setup_link_speed(hw, autoneg, true, link_up);
-+
-+link_cfg_out:
-+	return ret;
-+}
-+
- static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+-#define GET_TX_HEAD_FROM_RING(ring) (\
+-	*(volatile u32 *) \
+-	((union ixgbe_adv_tx_desc *)(ring)->desc + (ring)->count))
+ static void ixgbe_tx_timeout(struct net_device *netdev);
+ 
+ /**
+@@ -217,26 +214,27 @@ static void ixgbe_tx_timeout(struct net_device *netdev);
+ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
+                                struct ixgbe_ring *tx_ring)
  {
+-	union ixgbe_adv_tx_desc *tx_desc;
+-	struct ixgbe_tx_buffer *tx_buffer_info;
  	struct net_device *netdev = adapter->netdev;
+-	struct sk_buff *skb;
+-	unsigned int i;
+-	u32 head, oldhead;
+-	unsigned int count = 0;
++	union ixgbe_adv_tx_desc *tx_desc, *eop_desc;
++	struct ixgbe_tx_buffer *tx_buffer_info;
++	unsigned int i, eop, count = 0;
+ 	unsigned int total_bytes = 0, total_packets = 0;
+ 
+-	rmb();
+-	head = GET_TX_HEAD_FROM_RING(tx_ring);
+-	head = le32_to_cpu(head);
+ 	i = tx_ring->next_to_clean;
+-	while (1) {
+-		while (i != head) {
++	eop = tx_ring->tx_buffer_info[i].next_to_watch;
++	eop_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
++
++	while ((eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)) &&
++	       (count < tx_ring->count)) {
++		bool cleaned = false;
++		for ( ; !cleaned; count++) {
++			struct sk_buff *skb;
+ 			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
+ 			tx_buffer_info = &tx_ring->tx_buffer_info[i];
++			cleaned = (i == eop);
+ 			skb = tx_buffer_info->skb;
+ 
+-			if (skb) {
++			if (cleaned && skb) {
+ 				unsigned int segs, bytecount;
+ 
+ 				/* gso_segs is currently only valid for tcp */
+@@ -251,23 +249,17 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_adapter *adapter,
+ 			ixgbe_unmap_and_free_tx_resource(adapter,
+ 			                                 tx_buffer_info);
+ 
++			tx_desc->wb.status = 0;
++
+ 			i++;
+ 			if (i == tx_ring->count)
+ 				i = 0;
+-
+-			count++;
+-			if (count == tx_ring->count)
+-				goto done_cleaning;
+ 		}
+-		oldhead = head;
+-		rmb();
+-		head = GET_TX_HEAD_FROM_RING(tx_ring);
+-		head = le32_to_cpu(head);
+-		if (head == oldhead)
+-			goto done_cleaning;
+-	} /* while (1) */
+-
+-done_cleaning:
++
++		eop = tx_ring->tx_buffer_info[i].next_to_watch;
++		eop_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
++	}
++
+ 	tx_ring->next_to_clean = i;
+ 
+ #define TX_WAKE_THRESHOLD (DESC_NEEDED * 2)
+@@ -301,8 +293,8 @@ done_cleaning:
+ 
+ 	tx_ring->total_bytes += total_bytes;
+ 	tx_ring->total_packets += total_packets;
+-	tx_ring->stats.bytes += total_bytes;
+ 	tx_ring->stats.packets += total_packets;
++	tx_ring->stats.bytes += total_bytes;
+ 	adapter->net_stats.tx_bytes += total_bytes;
+ 	adapter->net_stats.tx_packets += total_packets;
+ 	return (total_packets ? true : false);
+@@ -1484,7 +1476,7 @@ static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
+  **/
+ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
+ {
+-	u64 tdba, tdwba;
++	u64 tdba;
  	struct ixgbe_hw *hw = &adapter->hw;
- 	int i, j = 0;
-+	int err;
- 	int max_frame = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	u32 txdctl, rxdctl, mhadd;
- 	u32 gpie;
-@@ -2039,6 +2071,10 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 	u32 i, j, tdlen, txctrl;
  
- 	ixgbe_irq_enable(adapter);
+@@ -1497,11 +1489,6 @@ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_TDBAL(j),
+ 		                (tdba & DMA_32BIT_MASK));
+ 		IXGBE_WRITE_REG(hw, IXGBE_TDBAH(j), (tdba >> 32));
+-		tdwba = ring->dma +
+-		        (ring->count * sizeof(union ixgbe_adv_tx_desc));
+-		tdwba |= IXGBE_TDWBAL_HEAD_WB_ENABLE;
+-		IXGBE_WRITE_REG(hw, IXGBE_TDWBAL(j), tdwba & DMA_32BIT_MASK);
+-		IXGBE_WRITE_REG(hw, IXGBE_TDWBAH(j), (tdwba >> 32));
+ 		IXGBE_WRITE_REG(hw, IXGBE_TDLEN(j), tdlen);
+ 		IXGBE_WRITE_REG(hw, IXGBE_TDH(j), 0);
+ 		IXGBE_WRITE_REG(hw, IXGBE_TDT(j), 0);
+@@ -2880,8 +2867,7 @@ int ixgbe_setup_tx_resources(struct ixgbe_adapter *adapter,
+ 	memset(tx_ring->tx_buffer_info, 0, size);
  
-+	err = ixgbe_link_config(hw);
-+	if (err)
-+		dev_err(&adapter->pdev->dev, "link_config FAILED %d\n", err);
-+
- 	/* enable transmits */
- 	netif_tx_start_all_queues(netdev);
+ 	/* round up to nearest 4K */
+-	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc) +
+-	                sizeof(u32);
++	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
  
-@@ -2792,8 +2828,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		adapter->flags |= IXGBE_FLAG_FAN_FAIL_CAPABLE;
- 
- 	/* default flow control settings */
--	hw->fc.original_type = ixgbe_fc_none;
--	hw->fc.type = ixgbe_fc_none;
-+	hw->fc.requested_mode = ixgbe_fc_none;
- 	hw->fc.high_water = IXGBE_DEFAULT_FCRTH;
- 	hw->fc.low_water = IXGBE_DEFAULT_FCRTL;
- 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
-@@ -3916,37 +3951,6 @@ static void ixgbe_netpoll(struct net_device *netdev)
- }
- #endif
- 
--/**
-- * ixgbe_link_config - set up initial link with default speed and duplex
-- * @hw: pointer to private hardware struct
-- *
-- * Returns 0 on success, negative on failure
-- **/
--static int ixgbe_link_config(struct ixgbe_hw *hw)
--{
--	u32 autoneg;
--	bool link_up = false;
--	u32 ret = IXGBE_ERR_LINK_SETUP;
--
--	if (hw->mac.ops.check_link)
--		ret = hw->mac.ops.check_link(hw, &autoneg, &link_up, false);
--
--	if (ret || !link_up)
--		goto link_cfg_out;
--
--	if (hw->mac.ops.get_link_capabilities)
--		ret = hw->mac.ops.get_link_capabilities(hw, &autoneg,
--		                                        &hw->mac.autoneg);
--	if (ret)
--		goto link_cfg_out;
--
--	if (hw->mac.ops.setup_link_speed)
--		ret = hw->mac.ops.setup_link_speed(hw, autoneg, true, true);
--
--link_cfg_out:
--	return ret;
--}
--
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open 		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -4197,13 +4201,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	/* reset the hardware with the new settings */
- 	hw->mac.ops.start_hw(hw);
- 
--	/* link_config depends on start_hw being called at least once */
--	err = ixgbe_link_config(hw);
--	if (err) {
--		dev_err(&pdev->dev, "setup_link_speed FAILED %d\n", err);
--		goto err_register;
--	}
--
- 	netif_carrier_off(netdev);
- 
- 	strcpy(netdev->name, "eth%d");
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 984b4ed..237c688 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -771,6 +771,28 @@
- #define IXGBE_LINK_UP_TIME      90 /* 9.0 Seconds */
- #define IXGBE_AUTO_NEG_TIME     45 /* 4.5 Seconds */
- 
-+#define FIBER_LINK_UP_LIMIT     50
-+
-+/* PCS1GLSTA Bit Masks */
-+#define IXGBE_PCS1GLSTA_LINK_OK         1
-+#define IXGBE_PCS1GLSTA_SYNK_OK         0x10
-+#define IXGBE_PCS1GLSTA_AN_COMPLETE     0x10000
-+#define IXGBE_PCS1GLSTA_AN_PAGE_RX      0x20000
-+#define IXGBE_PCS1GLSTA_AN_TIMED_OUT    0x40000
-+#define IXGBE_PCS1GLSTA_AN_REMOTE_FAULT 0x80000
-+#define IXGBE_PCS1GLSTA_AN_ERROR_RWS    0x100000
-+
-+#define IXGBE_PCS1GANA_SYM_PAUSE        0x80
-+#define IXGBE_PCS1GANA_ASM_PAUSE        0x100
-+
-+/* PCS1GLCTL Bit Masks */
-+#define IXGBE_PCS1GLCTL_AN_1G_TIMEOUT_EN  0x00040000 /* PCS 1G autoneg to en */
-+#define IXGBE_PCS1GLCTL_FLV_LINK_UP     1
-+#define IXGBE_PCS1GLCTL_FORCE_LINK      0x20
-+#define IXGBE_PCS1GLCTL_LOW_LINK_LATCH  0x40
-+#define IXGBE_PCS1GLCTL_AN_ENABLE       0x10000
-+#define IXGBE_PCS1GLCTL_AN_RESTART      0x20000
-+
- /* SW Semaphore Register bitmasks */
- #define IXGBE_SWSM_SMBI 0x00000001 /* Driver Semaphore bit */
- #define IXGBE_SWSM_SWESMBI 0x00000002 /* FW Semaphore bit */
-@@ -1270,7 +1292,7 @@ enum ixgbe_media_type {
- };
- 
- /* Flow Control Settings */
--enum ixgbe_fc_type {
-+enum ixgbe_fc_mode {
- 	ixgbe_fc_none = 0,
- 	ixgbe_fc_rx_pause,
- 	ixgbe_fc_tx_pause,
-@@ -1294,8 +1316,8 @@ struct ixgbe_fc_info {
- 	u16 pause_time; /* Flow Control Pause timer */
- 	bool send_xon; /* Flow control send XON */
- 	bool strict_ieee; /* Strict IEEE mode */
--	enum ixgbe_fc_type type; /* Type of flow control */
--	enum ixgbe_fc_type original_type;
-+	enum ixgbe_fc_mode current_mode; /* FC mode in effect */
-+	enum ixgbe_fc_mode requested_mode; /* FC mode requested by caller */
- };
- 
- /* Statistics counters collected by the MAC */
-@@ -1475,6 +1497,7 @@ struct ixgbe_phy_info {
- 	bool                            reset_disable;
- 	ixgbe_autoneg_advertised        autoneg_advertised;
- 	bool                            autoneg_wait_to_complete;
-+	bool                            multispeed_fiber;
- };
- 
- struct ixgbe_hw {
+ 	tx_ring->desc = pci_alloc_consistent(pdev, tx_ring->size,
 
