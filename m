@@ -1,7 +1,8 @@
 From: Yinghai Lu <yinghai@kernel.org>
-Subject: [PATCH] forcedeth: make msi-x different name for rx-tx
-Date: Thu, 05 Feb 2009 20:59:20 -0800
-Message-ID: <498BC3A8.9040203@kernel.org>
+Subject: [PATCH] forcedeth: disable irq at first before schedule rx
+Date: Thu, 05 Feb 2009 21:01:06 -0800
+Message-ID: <498BC412.3090900@kernel.org>
+References: <498BC3A8.9040203@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -12,68 +13,42 @@ To: Jeff Garzik <jeff@garzik.org>, Ingo Molnar <mingo@elte.hu>,
 	Ayaz Abdulla <aabdulla@nvidia.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:60937 "EHLO hera.kernel.org"
+Received: from hera.kernel.org ([140.211.167.34]:32780 "EHLO hera.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818AbZBFFBB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2009 00:01:01 -0500
+	id S1756137AbZBFFCS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 00:02:18 -0500
+In-Reply-To: <498BC3A8.9040203@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Impact: make /proc/interrupts could show more info which irq is rx or other for msi-x
+Impact: clean up
 
-add three name fields for rx, tx, other
+schedule it later after disable it.
 
 Signed-off-by: Yinghai Lu <yinghai@kernel.org>
 
 ---
- drivers/net/forcedeth.c |   17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/forcedeth.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 Index: linux-2.6/drivers/net/forcedeth.c
 ===================================================================
 --- linux-2.6.orig/drivers/net/forcedeth.c
 +++ linux-2.6/drivers/net/forcedeth.c
-@@ -812,6 +812,11 @@ struct fe_priv {
+@@ -3708,13 +3708,13 @@ static irqreturn_t nv_nic_irq_rx(int foo
+ 	u32 events;
  
- 	/* power saved state */
- 	u32 saved_config_space[NV_PCI_REGSZ_MAX/4];
-+
-+	/* for different msi-x irq type */
-+	char name_rx[IFNAMSIZ + 3];       /* -rx    */
-+	char name_tx[IFNAMSIZ + 3];       /* -tx    */
-+	char name_other[IFNAMSIZ + 6];    /* -other */
- };
+ 	events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_RX_ALL;
+-	writel(NVREG_IRQ_RX_ALL, base + NvRegMSIXIrqStatus);
  
- /*
-@@ -3918,21 +3923,27 @@ static int nv_request_irq(struct net_dev
- 			np->msi_flags |= NV_MSI_X_ENABLED;
- 			if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT && !intr_test) {
- 				/* Request irq for rx handling */
--				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector, &nv_nic_irq_rx, IRQF_SHARED, dev->name, dev) != 0) {
-+				sprintf(np->name_rx, "%s-rx", dev->name);
-+				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector,
-+						&nv_nic_irq_rx, IRQF_SHARED, np->name_rx, dev) != 0) {
- 					printk(KERN_INFO "forcedeth: request_irq failed for rx %d\n", ret);
- 					pci_disable_msix(np->pci_dev);
- 					np->msi_flags &= ~NV_MSI_X_ENABLED;
- 					goto out_err;
- 				}
- 				/* Request irq for tx handling */
--				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector, &nv_nic_irq_tx, IRQF_SHARED, dev->name, dev) != 0) {
-+				sprintf(np->name_tx, "%s-tx", dev->name);
-+				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector,
-+						&nv_nic_irq_tx, IRQF_SHARED, np->name_tx, dev) != 0) {
- 					printk(KERN_INFO "forcedeth: request_irq failed for tx %d\n", ret);
- 					pci_disable_msix(np->pci_dev);
- 					np->msi_flags &= ~NV_MSI_X_ENABLED;
- 					goto out_free_rx;
- 				}
- 				/* Request irq for link and timer handling */
--				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector, &nv_nic_irq_other, IRQF_SHARED, dev->name, dev) != 0) {
-+				sprintf(np->name_other, "%s-other", dev->name);
-+				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector,
-+						&nv_nic_irq_other, IRQF_SHARED, np->name_other, dev) != 0) {
- 					printk(KERN_INFO "forcedeth: request_irq failed for link %d\n", ret);
- 					pci_disable_msix(np->pci_dev);
- 					np->msi_flags &= ~NV_MSI_X_ENABLED;
+ 	if (events) {
+-		netif_rx_schedule(&np->napi);
+ 		/* disable receive interrupts on the nic */
+ 		writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
+ 		pci_push(base);
++		writel(NVREG_IRQ_RX_ALL, base + NvRegMSIXIrqStatus);
++		netif_rx_schedule(&np->napi);
+ 	}
+ 	return IRQ_HANDLED;
+ }
