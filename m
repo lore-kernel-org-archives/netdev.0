@@ -1,90 +1,206 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 4/5] forcedeth: recover error support
-Date: Fri, 06 Feb 2009 14:27:27 -0500
-Message-ID: <498C8F1F.2060005@nvidia.com>
+Subject: [PATCH 1/5] forcedeth: mgmt unit interface
+Date: Fri, 06 Feb 2009 14:27:21 -0500
+Message-ID: <498C8F19.3030309@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------070108050803080308020909"
+ boundary="------------090506070506030606030407"
 To: Jeff Garzik <jgarzik@pobox.com>,
 	Manfred Spraul <manfred@colorfullife.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:19161 "EHLO
+Received: from hqemgate03.nvidia.com ([216.228.112.145]:19180 "EHLO
 	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753323AbZBFW2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 17:28:45 -0500
+	with ESMTP id S1752523AbZBFW2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 17:28:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------070108050803080308020909
+--------------090506070506030606030407
 Content-Type: text/plain; charset=iso-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch adds another type of recoverable error to the driver. It also
-modifies the sequence for recovery to include a mac reset and clearing
-of interrupts.
+This patch updates the logic used to communicate with the mgmt unit. It
+also adds a version check for a newer mgmt unit firmware.
+
+* Fixed udelay to schedule_timeout_uninterruptible
 
 Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
 
---------------070108050803080308020909
+--------------090506070506030606030407
 Content-Type: text/plain;
- name="patch-forcedeth-recover-error"
+ name="patch-forcedeth-mgmt-unit-interface"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forcedeth-recover-error"
+ filename="patch-forcedeth-mgmt-unit-interface"
 
---- old/drivers/net/forcedeth.c	2009-02-06 14:16:30.000000000 -0500
-+++ new/drivers/net/forcedeth.c	2009-02-06 14:16:47.000000000 -0500
-@@ -102,7 +102,7 @@
- enum {
- 	NvRegIrqStatus = 0x000,
- #define NVREG_IRQSTAT_MIIEVENT	0x040
--#define NVREG_IRQSTAT_MASK		0x81ff
-+#define NVREG_IRQSTAT_MASK		0x83ff
- 	NvRegIrqMask = 0x004,
- #define NVREG_IRQ_RX_ERROR		0x0001
- #define NVREG_IRQ_RX			0x0002
-@@ -113,7 +113,7 @@
- #define NVREG_IRQ_LINK			0x0040
- #define NVREG_IRQ_RX_FORCED		0x0080
- #define NVREG_IRQ_TX_FORCED		0x0100
--#define NVREG_IRQ_RECOVER_ERROR		0x8000
-+#define NVREG_IRQ_RECOVER_ERROR		0x8200
- #define NVREG_IRQMASK_THROUGHPUT	0x00df
- #define NVREG_IRQMASK_CPU		0x0060
- #define NVREG_IRQ_TX_ALL		(NVREG_IRQ_TX_ERR|NVREG_IRQ_TX_OK|NVREG_IRQ_TX_FORCED)
-@@ -4073,13 +4073,15 @@
+--- old/drivers/net/forcedeth.c	2009-02-06 14:06:54.000000000 -0500
++++ new/drivers/net/forcedeth.c	2009-02-06 14:13:18.000000000 -0500
+@@ -157,6 +157,9 @@
+ #define NVREG_XMITCTL_HOST_SEMA_ACQ	0x0000f000
+ #define NVREG_XMITCTL_HOST_LOADED	0x00004000
+ #define NVREG_XMITCTL_TX_PATH_EN	0x01000000
++#define NVREG_XMITCTL_DATA_START	0x00100000
++#define NVREG_XMITCTL_DATA_READY	0x00010000
++#define NVREG_XMITCTL_DATA_ERROR	0x00020000
+ 	NvRegTransmitterStatus = 0x088,
+ #define NVREG_XMITSTAT_BUSY	0x01
  
- 	if (np->recover_error) {
- 		np->recover_error = 0;
--		printk(KERN_INFO "forcedeth: MAC in recoverable error state\n");
-+		printk(KERN_INFO "%s: MAC in recoverable error state\n", dev->name);
- 		if (netif_running(dev)) {
- 			netif_tx_lock_bh(dev);
- 			netif_addr_lock(dev);
- 			spin_lock(&np->lock);
- 			/* stop engines */
- 			nv_stop_rxtx(dev);
-+			if (np->driver_data & DEV_HAS_POWER_CNTRL)
-+				nv_mac_reset(dev);
- 			nv_txrx_reset(dev);
- 			/* drain rx queue */
- 			nv_drain_rxtx(dev);
-@@ -4097,6 +4099,11 @@
- 			pci_push(base);
- 			writel(NVREG_TXRXCTL_KICK|np->txrxctl_bits, get_hwbase(dev) + NvRegTxRxControl);
- 			pci_push(base);
-+			/* clear interrupts */
-+			if (!(np->msi_flags & NV_MSI_X_ENABLED))
-+				writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
-+			else
-+				writel(NVREG_IRQSTAT_MASK, base + NvRegMSIXIrqStatus);
+@@ -289,8 +292,10 @@
+ #define NVREG_WAKEUPFLAGS_ACCEPT_LINKCHANGE	0x04
+ #define NVREG_WAKEUPFLAGS_ENABLE	0x1111
  
- 			/* restart rx engine */
- 			nv_start_rxtx(dev);
+-	NvRegPatternCRC = 0x204,
+-	NvRegPatternMask = 0x208,
++	NvRegMgmtUnitGetVersion = 0x204,
++#define NVREG_MGMTUNITGETVERSION     	0x01
++	NvRegMgmtUnitVersion = 0x208,
++#define NVREG_MGMTUNITVERSION		0x08
+ 	NvRegPowerCap = 0x268,
+ #define NVREG_POWERCAP_D3SUPP	(1<<30)
+ #define NVREG_POWERCAP_D2SUPP	(1<<26)
+@@ -303,6 +308,8 @@
+ #define NVREG_POWERSTATE_D1		0x0001
+ #define NVREG_POWERSTATE_D2		0x0002
+ #define NVREG_POWERSTATE_D3		0x0003
++	NvRegMgmtUnitControl = 0x278,
++#define NVREG_MGMTUNITCONTROL_INUSE	0x20000
+ 	NvRegTxCnt = 0x280,
+ 	NvRegTxZeroReXmt = 0x284,
+ 	NvRegTxOneReXmt = 0x288,
+@@ -758,6 +765,8 @@
+ 	u32 register_size;
+ 	int rx_csum;
+ 	u32 mac_in_use;
++	int mgmt_version;
++	int mgmt_sema;
+ 
+ 	void __iomem *base;
+ 
+@@ -5182,6 +5191,7 @@
+ /* The mgmt unit and driver use a semaphore to access the phy during init */
+ static int nv_mgmt_acquire_sema(struct net_device *dev)
+ {
++	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+ 	int i;
+ 	u32 tx_ctrl, mgmt_sema;
+@@ -5204,8 +5214,10 @@
+ 		/* verify that semaphore was acquired */
+ 		tx_ctrl = readl(base + NvRegTransmitterControl);
+ 		if (((tx_ctrl & NVREG_XMITCTL_HOST_SEMA_MASK) == NVREG_XMITCTL_HOST_SEMA_ACQ) &&
+-		    ((tx_ctrl & NVREG_XMITCTL_MGMT_SEMA_MASK) == NVREG_XMITCTL_MGMT_SEMA_FREE))
++		    ((tx_ctrl & NVREG_XMITCTL_MGMT_SEMA_MASK) == NVREG_XMITCTL_MGMT_SEMA_FREE)) {
++			np->mgmt_sema = 1;
+ 			return 1;
++		}
+ 		else
+ 			udelay(50);
+ 	}
+@@ -5213,6 +5225,51 @@
+ 	return 0;
+ }
+ 
++static void nv_mgmt_release_sema(struct net_device *dev)
++{
++	struct fe_priv *np = netdev_priv(dev);
++	u8 __iomem *base = get_hwbase(dev);
++	u32 tx_ctrl;
++
++	if (np->driver_data & DEV_HAS_MGMT_UNIT) {
++		if (np->mgmt_sema) {
++			tx_ctrl = readl(base + NvRegTransmitterControl);
++			tx_ctrl &= ~NVREG_XMITCTL_HOST_SEMA_ACQ;
++			writel(tx_ctrl, base + NvRegTransmitterControl);
++		}
++	}
++}
++
++
++static int nv_mgmt_get_version(struct net_device *dev)
++{
++	struct fe_priv *np = netdev_priv(dev);
++	u8 __iomem *base = get_hwbase(dev);
++	u32 data_ready = readl(base + NvRegTransmitterControl);
++	u32 data_ready2 = 0;
++	unsigned long start;
++	int ready = 0;
++
++	writel(NVREG_MGMTUNITGETVERSION, base + NvRegMgmtUnitGetVersion);
++	writel(data_ready ^ NVREG_XMITCTL_DATA_START, base + NvRegTransmitterControl);
++	start = jiffies;
++	while (time_before(jiffies, start + 5*HZ)) {
++		data_ready2 = readl(base + NvRegTransmitterControl);
++		if ((data_ready & NVREG_XMITCTL_DATA_READY) != (data_ready2 & NVREG_XMITCTL_DATA_READY)) {
++			ready = 1;
++			break;
++		}
++		schedule_timeout_uninterruptible(1);
++	}
++
++	if (!ready || (data_ready2 & NVREG_XMITCTL_DATA_ERROR))
++		return 0;
++
++	np->mgmt_version = readl(base + NvRegMgmtUnitVersion) & NVREG_MGMTUNITVERSION;
++
++	return 1;
++}
++
+ static int nv_open(struct net_device *dev)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+@@ -5784,19 +5841,26 @@
+ 
+ 	if (id->driver_data & DEV_HAS_MGMT_UNIT) {
+ 		/* management unit running on the mac? */
+-		if (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) {
+-			np->mac_in_use = readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST;
+-			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n", pci_name(pci_dev), np->mac_in_use);
+-			if (nv_mgmt_acquire_sema(dev)) {
+-				/* management unit setup the phy already? */
+-				if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
+-				    NVREG_XMITCTL_SYNC_PHY_INIT) {
+-					/* phy is inited by mgmt unit */
+-					phyinitialized = 1;
+-					dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n", pci_name(pci_dev));
+-				} else {
+-					/* we need to init the phy */
+-				}
++		if ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_MGMT_ST) &&
++		    (readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_PHY_INIT) &&
++		    nv_mgmt_acquire_sema(dev) &&
++		    nv_mgmt_get_version(dev)) {
++			np->mac_in_use = 1;
++			if (np->mgmt_version > 0) {
++				np->mac_in_use = readl(base + NvRegMgmtUnitControl) & NVREG_MGMTUNITCONTROL_INUSE;
++			}
++			dprintk(KERN_INFO "%s: mgmt unit is running. mac in use %x.\n",
++				pci_name(pci_dev), np->mac_in_use);
++			/* management unit setup the phy already? */
++			if (np->mac_in_use &&
++			    ((readl(base + NvRegTransmitterControl) & NVREG_XMITCTL_SYNC_MASK) ==
++			     NVREG_XMITCTL_SYNC_PHY_INIT)) {
++				/* phy is inited by mgmt unit */
++				phyinitialized = 1;
++				dprintk(KERN_INFO "%s: Phy already initialized by mgmt unit.\n",
++					pci_name(pci_dev));
++			} else {
++				/* we need to init the phy */
+ 			}
+ 		}
+ 	}
+@@ -5958,6 +6022,8 @@
+ 	/* restore any phy related changes */
+ 	nv_restore_phy(dev);
+ 
++	nv_mgmt_release_sema(dev);
++
+ 	/* free all structures */
+ 	free_rings(dev);
+ 	iounmap(get_hwbase(dev));
 
---------------070108050803080308020909--
+--------------090506070506030606030407--
