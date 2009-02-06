@@ -1,60 +1,75 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] RxRPC: Fix a potential NULL dereference
-Date: Fri, 06 Feb 2009 11:59:43 +0000
-Message-ID: <20090206115943.6126.95330.stgit@warthog.procyon.org.uk>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: Re: TX pre-headers...
+Date: Fri, 06 Feb 2009 13:02:13 +0100
+Message-ID: <498C26C5.7010003@linux.vnet.ibm.com>
+References: <20090206.014107.231141422.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org
-To: netdev@vger.kernel.org, error27@gmail.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:52424 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752553AbZBFMAw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2009 07:00:52 -0500
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:55045 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752675AbZBFMDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 07:03:06 -0500
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id n16C2Fg4568106
+	for <netdev@vger.kernel.org>; Fri, 6 Feb 2009 12:02:15 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id n16C2ETq1130634
+	for <netdev@vger.kernel.org>; Fri, 6 Feb 2009 12:02:14 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n16C2EIh031170
+	for <netdev@vger.kernel.org>; Fri, 6 Feb 2009 12:02:14 GMT
+In-Reply-To: <20090206.014107.231141422.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a potential NULL dereference bug during error handling in
-rxrpc_kernel_begin_call(), whereby rxrpc_put_transport() may be handed a NULL
-pointer.
+David Miller schrieb:
+> Some NIC hardware wants a pre-header pushed in front of the packet
+> data on transmit.
+> 
+> When routing or bridging this will cause a reallocation of skb->data
+> on every packet forwarded because there will only be NET_IP_ALIGN
+> space reserved at the head by the device receive path.
+> 
+> NIU is one such NIC and I only noticed this because of some things I
+> saw in some of Robert Olsson's routing stress test oprofile dumps.
+> 
+> Putting a hack into NIU is the wrong way to do this and would only fix
+> cases where NIU is the receiver and transmitting device. e1000 to
+> NIU would still be broken, for example.
+> 
+> I think the way to solve this is to have each device indicate how
+> much TX slack space it neads for it's preheaders.  On device
+> registration we have some global "netdev_max_tx_hdr_space" that
+> records the maximum value seen.
+> 
+> We could decrease it on unregister (by walking the device list)
+> but I don't think that is worth it.
+> 
+> We also round netdev_max_tx_hdr_space up to be a multiple of 4
+> or something reasonable like that.
+> 
+> Then we get drivers to use a new interface:
+> 
+> 	struct sk_buff *netdev_alloc_rx_skb(struct net_device *dev, int size);
+> 
+> which is nearly identical to netdev_alloc_skb() except that it does:
+> 
+> 	size += NET_IP_ALIGN + netdev_max_tx_hdr_space;
+> 	skb = netdev_alloc_skb(dev, size);
+> 	if (skb)
+> 		skb_reserve(skb, NET_IP_ALIGN + netdev_max_tx_hdr_space);
+> 	return skb;
+> 
+> Seems reasonable?
+Absolutely yes, this would help the s/390 qeth drivers too
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-This was found with a code checker (http://repo.or.cz/w/smatch.git/).
-
-Reported-by: Dan Carpenter <error27@gmail.com>
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- net/rxrpc/af_rxrpc.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index d7d2bed..eac5e7b 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -284,13 +284,13 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
- 		if (IS_ERR(trans)) {
- 			call = ERR_CAST(trans);
- 			trans = NULL;
--			goto out;
-+			goto out_notrans;
- 		}
- 	} else {
- 		trans = rx->trans;
- 		if (!trans) {
- 			call = ERR_PTR(-ENOTCONN);
--			goto out;
-+			goto out_notrans;
- 		}
- 		atomic_inc(&trans->usage);
- 	}
-@@ -315,6 +315,7 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
- 	rxrpc_put_bundle(trans, bundle);
- out:
- 	rxrpc_put_transport(trans);
-+out_notrans:
- 	release_sock(&rx->sk);
- 	_leave(" = %p", call);
- 	return call;
 
