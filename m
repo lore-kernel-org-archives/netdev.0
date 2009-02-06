@@ -1,87 +1,32 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Regression on VIA C3 motherboard, commit: 66f2173e2
-Date: Thu, 05 Feb 2009 22:10:16 -0800
-Message-ID: <498BD448.80102@candelatech.com>
-References: <498A93E5.2080509@candelatech.com> <498B8547.1010803@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netns: remove useless synchronize_net()
+Date: Thu, 05 Feb 2009 23:45:20 -0800 (PST)
+Message-ID: <20090205.234520.149982266.davem@davemloft.net>
+References: <498ABDA2.5040603@dev.6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Robert Hancock <hancockrwd@gmail.com>
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@dev.6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:58699 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915AbZBFGKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 01:10:21 -0500
-In-Reply-To: <498B8547.1010803@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39946
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751943AbZBFHpZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 02:45:25 -0500
+In-Reply-To: <498ABDA2.5040603@dev.6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Hancock wrote:
-> Ben Greear wrote:
->> I have a via motherboard with C3 processor and some real-tek NICs.  I 
->> noticed
->> when using the top-of-tree that performance on it sucked (30Mbps v/s 
->> 54Mbps
->> network throughput in one pertinent test).
->>
->> After several hours of bisecting, I see this as the culprit:
->>
->> 7b37b5fd9ba32c0c5afc3537eed7e7466f2173e2 is first bad commit
->> commit 7b37b5fd9ba32c0c5afc3537eed7e7466f2173e2
->> Author: Len Brown <len.brown@intel.com>
->> Date:   Tue Dec 23 01:47:42 2008 -0500
->>
->>    ACPI: disable MPS when NO APIC-table found
->>      When ACPI is asked to find an MADT (APIC table)
->>    and fails, then ACPI expects to run in PIC mode.
->>      However, if an MP Table is was found, IRQs will be
->>    registered as if an IOAPIC is being used, even
->>    though ACPI is configuring interrupt links links for PIC mode.
->>      In this scenario, disable MPS so that IRQs
->>    are registered in PIC mode, consistent with ACPI.
->>      http://bugzilla.kernel.org/show_bug.cgi?id=12257
->>      Signed-off-by: Len Brown <len.brown@intel.com>
->>
->> :040000 040000 86ce74daee3a9fe6ff21ef7f8fb364af23ec0c1e 
->> 364933dfec0df34e63b1aeff6aff4092d421886b M      arch
->>
->>
->> In addition, I see this warning in my logs, which is likely the symptom:
->>
->> ACPI Exception (tbxface-0627): AE_NO_ACPI_TABLES, While loading 
->> namespace from ACPI tables ]
->> ACPI: Unable to load the System Description Tables
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Date: Thu, 05 Feb 2009 11:21:22 +0100
+
+> In dev_change_net_namespace(), synchronize_net() is called at the
+> end of the function, but there is no reason (no deletion occurs).
 >
-> You're getting this on boot:
->
-> ACPI Error (tbxfroot-0218): A valid RSDP was not found [20080926]
->
-> That essentially means ACPI isn't working at all, I think. Did 
-> previous kernels produce this error? Do you have ACPI disabled in the 
-> BIOS or something?
->
-Er, yes...I have ACPI disabled in the BIOS.  I seem to recall now that 
-it worked around
-some instability, but it's been a few years since we set that up.   
-Still, it was working
-fine before, and fine again when I comment out the change in this commit 
-(and another
-change to force the 'tsc' to be considered stable).
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-The same error message happens as far back as 2.6.25 at least.
+It is necessary to make sure all cpus stop looking at the
+previous namespace the device was attached to, and only
+see the new mapping.
 
-Thanks,
-Ben
-
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
--- 
-Ben Greear <greearb@candelatech.com> 
-Candela Technologies Inc  http://www.candelatech.com
-
-
+That's why this function has two synchronize_net() calls.
