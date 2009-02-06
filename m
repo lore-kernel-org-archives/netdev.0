@@ -1,71 +1,63 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 6 Feb 2009 19:59:01 +0100
-Message-ID: <20090206185901.GA2542@ami.dom.local>
-References: <20090205.235258.257422341.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Regression on VIA C3 motherboard, commit: 66f2173e2
+Date: Fri, 06 Feb 2009 11:20:08 -0800
+Message-ID: <498C8D68.3040504@candelatech.com>
+References: <498A93E5.2080509@candelatech.com> <alpine.LFD.2.00.0902061350470.26256@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>, linux-acpi@vger.kernel.org
+To: Len Brown <lenb@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f20.google.com ([209.85.220.20]:58580 "EHLO
-	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751206AbZBFS6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 13:58:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20090205.235258.257422341.davem@davemloft.net>
+Received: from mail.candelatech.com ([208.74.158.172]:55937 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753489AbZBFTUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 14:20:12 -0500
+In-Reply-To: <alpine.LFD.2.00.0902061350470.26256@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote, On 02/06/2009 08:52 AM:
+Len Brown wrote:
+> Thanks for the bisect, Ben.
+> 
+> Please test the patch below.
+> 
+> I assume even without the patch, booting with "acpi=off" on your
+> BIOS-ACPI-disabled box works?  (if no, this patch will not solve
+> all your problems, for you have additional trouble elsewhere)
+> 
+> I am curious why you're running a CONFIG_ACPI=y kernel
+> for a box with ACPI disabled. (though yes, it is supposed to work)
+> 
+> I'm even more curious what bad things happen when
+> you enable ACPI in the BIOS -- can you let me know
+> and we can try to fix them so the machine can run as shipped?
 
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Tue, 3 Feb 2009 09:41:08 +0000
-> 
->> Yes, this looks reasonable. On the other hand, I think it would be
->> nice to get some opinions of slab folks (incl. Evgeniy) on the expected
->> efficiency of such a solution. (It seems releasing with put_page() will
->> always have some cost with delayed reusing and/or waste of space.)
-> 
-> I think we can't avoid using carved up pages for skb->data in the end.
-> The whole kernel wants to speak in pages and be able to grab and
-> release them in one way and one way only (get_page() and put_page()).
-> 
-> What do you think is more likely?  Us teaching the whole entire kernel
-> how to hold onto SKB linear data buffers, or the networking fixing
-> itself to operate on pages for it's header metadata? :-)
-> 
-> What we'll end up with is likely a hybrid scheme.  High speed devices
-> will receive into pages.  And also the skb->data area will be page
-> backed and held using get_page()/put_page() references.
+At one time, these boxes would actually burn out their power
+supply if you did an 'init 0' with the BIOS configured to
+shut down the system.  It would just suck more and more power
+(we measured) until the brick smoked, and the motherboard components
+got very hot as well.  I think we were just lucky that the PS died
+before the MB did.
 
-So, after a full awakening I think I got your point at last! I thought
-all the time we're trying to do something more general, and you're
-seemingly focused on SG capable NICs, with myri10ge or niu as model
-to follow. I'm OK with this. Very nice idea and much less work! (It's
-only enough to CC all the maintainers !)
+This was a while back, but I believe part of the fix was to disable
+ACPI so the system couldn't possibly try to power itself down
+in this manner.
 
-> It is not even worth optimizing for skb->data holding the entire
-> packet, that's not the case that matters.
-> 
-> These skb->data areas will thus be 128 bytes plus the skb_shinfo
-> structure blob.  They also will be recycled often, rather than held
-> onto for long periods of time.
-> 
-> In fact we can optimize that even further in many ways, for example by
-> dropping the skb->data backed memory once the skb is queued to the
-> socket receive buffer.  That will make skb->data buffer lifetimes
-> miniscule even under heavy receive load.
-> 
-> In that kind of situation, doing even the most stupidest page slicing
-> algorithm, similar to what we do now with sk->sk_sndmsg_page, is
-> more than adequate and things like NTA (purely to solve this problem)
-> is overengineering.
+I will try your patch, but I'm about to go off for a ~2week vacation,
+so I probably won't have time to test enabling ACPI and/or compiling
+a kernel w/out it to see what shakes out.
 
-This is 100% right, except if we try to do something with non-SG and/or
-jumbos - IMHO this requires some overengineering.
+I re-worked my previous patch per Ingo's suggestion and am
+about to send it off..but please feel free to NAK it if you
+think it's wrong.  I don't really know enough about this area
+to argue one way or another.
 
-Jarek P.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
