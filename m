@@ -1,96 +1,92 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: copyless virtio net thoughts?
-Date: Fri, 06 Feb 2009 10:46:37 +0200
-Message-ID: <498BF8ED.8090208@redhat.com>
-References: <20090205020732.GA27684@sequoia.sous-sol.org> <498ADD73.3060906@redhat.com> <20090206054054.GA4824@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Fri, 06 Feb 2009 00:50:34 -0800 (PST)
+Message-ID: <20090206.005034.193709323.davem@davemloft.net>
+References: <20090205143143.GA18734@alice>
+	<adafxisjzel.fsf@cisco.com>
+	<20090205234318.GA1929@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@sous-sol.org>, Arnd Bergmann <arnd@arndb.de>,
-	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:40178 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751878AbZBFIqc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2009 03:46:32 -0500
-In-Reply-To: <20090206054054.GA4824@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47663
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752138AbZBFIui (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 03:50:38 -0500
+In-Reply-To: <20090205234318.GA1929@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Thu, Feb 05, 2009 at 02:37:07PM +0200, Avi Kivity wrote:
->   
->> I believe that copyless networking is absolutely essential.
->>     
->
-> I used to think it was important, but I'm now of the opinion
-> that it's quite useless for virtualisation as it stands.
->
->   
->> For transmit, copyless is needed to properly support sendfile() type  
->> workloads - http/ftp/nfs serving.  These are usually high-bandwidth,  
->> cache-cold workloads where a copy is most expensive.
->>     
->
-> This is totally true for baremetal, but useless for virtualisation
-> right now because the block layer is not zero-copy.  That is, the
-> data is going to be cache hot anyway so zero-copy networking doesn't
-> buy you much at all.
->   
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 6 Feb 2009 10:43:18 +1100
 
-The guest's block layer is copyless.  The host block layer is -><- this 
-far from being copyless -- all we need is preadv()/pwritev() or to 
-replace our thread pool implementation in qemu with linux-aio.  
-Everything else is copyless.
+> On Thu, Feb 05, 2009 at 02:24:02PM -0800, Roland Dreier wrote:
+> >
+> > >From a quick scan of the code, it looks as if optlen is never sanity
+> > checked in the case of setsockopt(IPV6_FLOWLABEL_MGR), and
+> > ipv6_flowlabel_opt() calls into fl_create() with whatever value
+> > userspace passes in, which then pretty much does kmalloc(optlen).
+> > So if icmpv6fuzz passes some big random value, it can cause this failure.
+> > 
+> > I don't know what the appropriate limit should be, so no patch, sorry.
+> 
+> Well it is legal (though unlikely) to pass very long options.
+> So the real fix would be to avoid copying the control message
+> at all and modify all the code involved to read user pointers
+> directly.  Someone with a lot of patience is required for this :)
 
-Since we are actively working on this, expect this limitation to 
-disappear soon.
+That's a little bit overboard I think.
 
-(even if it doesn't, the effect of block layer copies is multiplied by 
-the cache miss percentage which can be quite low for many workloads; but 
-again, we're not bulding on that)
-> Please also recall that for the time being, block speeds are
-> way slower than network speeds.  So the really interesting case
-> is actually network-to-network transfers.  Again due to the
-> RX copy this is going to be cache hot.
->   
+We already impose limits for pktoptions specified by the user
+directly, so we should impose the same limit for this pktoption
+blob sitting after the flowlabel entry.
 
-Block speeds are not way slower.  We're at 4Gb/sec for Fibre and 10Gb/s 
-for networking.  With dual channels or a decent cache hit rate they're 
-evenly matched.
+I'll add the following to net-2.6
 
->> For receive, the guest will almost always do an additional copy, but it  
->> will most likely do the copy from another cpu.  Xen netchannel2  
->>     
->
-> That's what we should strive to avoid.  The best scenario with
-> modern 10GbE NICs is to stay on one CPU if at all possible.  The
-> NIC will pick a CPU when it delivers the packet into one of the
-> RX queues and we should stick with it for as long as possible.
->
-> So what I'd like to see next in virtualised networking is virtual
-> multiqueue support in guest drivers.  No I'm not talking about
-> making one or more of the physical RX/TX queues available to the
-> guest (aka passthrough), but actually turning something like the
-> virtio-net interface into a multiqueue interface.
->   
+--------------------
+ipv6: Disallow rediculious flowlabel option sizes.
 
-I support this, but it should be in addition to copylessness, not on its 
-own.
+Just like PKTINFO, limit the options area to 64K.
 
-- many guests will not support multiqueue
-- for some threaded workloads, you cannot predict where the final read() 
-will come from; this renders multiqueue ineffective for keeping cache 
-locality
-- usually you want virtio to transfer large amounts of data; but if you 
-want your copies to be cache-hot, you need to limit transfers to half 
-the cache size (a quarter if hyperthreading); this limits virtio 
-effectiveness
+Based upon report by Eric Sesterhenn and analysis by
+Roland Dreier.
 
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/ip6_flowlabel.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index c62dd24..7712578 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -323,17 +323,21 @@ static struct ip6_flowlabel *
+ fl_create(struct net *net, struct in6_flowlabel_req *freq, char __user *optval,
+ 	  int optlen, int *err_p)
+ {
+-	struct ip6_flowlabel *fl;
++	struct ip6_flowlabel *fl = NULL;
+ 	int olen;
+ 	int addr_type;
+ 	int err;
+ 
++	olen = optlen - CMSG_ALIGN(sizeof(*freq));
++	err = -EINVAL;
++	if (olen > 64 * 1024)
++		goto done;
++
+ 	err = -ENOMEM;
+ 	fl = kzalloc(sizeof(*fl), GFP_KERNEL);
+ 	if (fl == NULL)
+ 		goto done;
+ 
+-	olen = optlen - CMSG_ALIGN(sizeof(*freq));
+ 	if (olen > 0) {
+ 		struct msghdr msg;
+ 		struct flowi flowi;
 -- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+1.6.1.2.253.ga34a
 
