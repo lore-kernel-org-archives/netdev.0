@@ -1,42 +1,39 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: [PATCH] forcedeth: enable msix to default
-Date: Thu, 05 Feb 2009 21:02:37 -0800
-Message-ID: <498BC46D.5080505@kernel.org>
-References: <498BC3A8.9040203@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] tun: Limit amount of queued packets per device
+Date: Thu, 05 Feb 2009 21:25:46 -0800 (PST)
+Message-ID: <20090205.212546.195335800.davem@davemloft.net>
+References: <20090205010649.GA28046@gondor.apana.org.au>
+	<20090204.171319.20089712.davem@davemloft.net>
+	<20090205032348.GA19181@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>, Ingo Molnar <mingo@elte.hu>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757358AbZBFFDs@vger.kernel.org>
-In-Reply-To: <498BC3A8.9040203@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59299
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750818AbZBFFZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 00:25:52 -0500
+In-Reply-To: <20090205032348.GA19181@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 5 Feb 2009 14:23:48 +1100
 
-Impact: change default
+> On Wed, Feb 04, 2009 at 05:13:19PM -0800, David Miller wrote:
+> > 
+> > I get tons of rejects in net-next-2.6, there were lots of
+> > changes in this driver.
+> > 
+> > Don't even tell me you generate this against upstream of
+> > net-2.6?  Tsk tsk :-)
+> 
+> How did you guess :)
+> 
+> Here is the rebased version.
+> 
+> tun: Limit amount of queued packets per device
 
-msix and napic can work again
-
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
----
- drivers/net/forcedeth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6/drivers/net/forcedeth.c
-===================================================================
---- linux-2.6.orig/drivers/net/forcedeth.c
-+++ linux-2.6/drivers/net/forcedeth.c
-@@ -862,7 +862,7 @@ enum {
- 	NV_MSIX_INT_DISABLED,
- 	NV_MSIX_INT_ENABLED
- };
--static int msix = NV_MSIX_INT_DISABLED;
-+static int msix = NV_MSIX_INT_ENABLED;
- 
- /*
-  * DMA 64bit
+Applied, thanks Herbert.
