@@ -1,80 +1,79 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: gro: Fix frag_list merging on imprecisely split packets
-Date: Fri, 6 Feb 2009 14:57:28 +1100
-Message-ID: <20090206035728.GA4227@gondor.apana.org.au>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: [PATCH] forcedeth: make msi-x different name for rx-tx
+Date: Thu, 05 Feb 2009 20:59:20 -0800
+Message-ID: <498BC3A8.9040203@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>, Ingo Molnar <mingo@elte.hu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46380 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752573AbZBFD5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2009 22:57:34 -0500
-Content-Disposition: inline
+Received: from hera.kernel.org ([140.211.167.34]:60937 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750818AbZBFFBB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 00:01:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gro: Fix frag_list merging on imprecisely split packets
 
-The previous fix ad0f9904444de1309dedd2b9e365cae8af77d9b1 (gro:
-Fix handling of imprecisely split packets) only fixed the case
-of frags merging, frag_list merging in the same circumstances
-were still broken.
+Impact: make /proc/interrupts could show more info which irq is rx or other for msi-x
 
-In particular, the packet headers end up in the data stream.
+add three name fields for rx, tx, other
 
-This patch fixes this plus another issue where an imprecisely
-split packet header may be read incorrectly (this is mostly
-harmless since it'll simply cause the packet to not match and
-be rejected for GRO).
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
 
-Thanks to Emil Tantilov and Jeff Kirsher for helping to track
-this down.
+---
+ drivers/net/forcedeth.c |   17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3337cf9..247f161 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2391,7 +2391,8 @@ void *skb_gro_header(struct sk_buff *skb, unsigned int hlen)
- 		return pskb_may_pull(skb, hlen) ? skb->data + offset : NULL;
+Index: linux-2.6/drivers/net/forcedeth.c
+===================================================================
+--- linux-2.6.orig/drivers/net/forcedeth.c
++++ linux-2.6/drivers/net/forcedeth.c
+@@ -812,6 +812,11 @@ struct fe_priv {
  
- 	return page_address(skb_shinfo(skb)->frags[0].page) +
--	       skb_shinfo(skb)->frags[0].page_offset + offset;
-+	       skb_shinfo(skb)->frags[0].page_offset +
-+	       offset - skb_headlen(skb);
- }
- EXPORT_SYMBOL(skb_gro_header);
- 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e55d1ef..67f2a2f 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2678,6 +2678,17 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	p = nskb;
- 
- merge:
-+	if (skb_gro_offset(skb) > skb_headlen(skb)) {
-+		skb_shinfo(skb)->frags[0].page_offset +=
-+			skb_gro_offset(skb) - skb_headlen(skb);
-+		skb_shinfo(skb)->frags[0].size -=
-+			skb_gro_offset(skb) - skb_headlen(skb);
-+		skb_gro_reset_offset(skb);
-+		skb_gro_pull(skb, skb_headlen(skb));
-+	}
+ 	/* power saved state */
+ 	u32 saved_config_space[NV_PCI_REGSZ_MAX/4];
 +
-+	__skb_pull(skb, skb_gro_offset(skb));
-+
- 	p->prev->next = skb;
- 	p->prev = skb;
- 	skb_header_release(skb);
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
++	/* for different msi-x irq type */
++	char name_rx[IFNAMSIZ + 3];       /* -rx    */
++	char name_tx[IFNAMSIZ + 3];       /* -tx    */
++	char name_other[IFNAMSIZ + 6];    /* -other */
+ };
+ 
+ /*
+@@ -3918,21 +3923,27 @@ static int nv_request_irq(struct net_dev
+ 			np->msi_flags |= NV_MSI_X_ENABLED;
+ 			if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT && !intr_test) {
+ 				/* Request irq for rx handling */
+-				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector, &nv_nic_irq_rx, IRQF_SHARED, dev->name, dev) != 0) {
++				sprintf(np->name_rx, "%s-rx", dev->name);
++				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector,
++						&nv_nic_irq_rx, IRQF_SHARED, np->name_rx, dev) != 0) {
+ 					printk(KERN_INFO "forcedeth: request_irq failed for rx %d\n", ret);
+ 					pci_disable_msix(np->pci_dev);
+ 					np->msi_flags &= ~NV_MSI_X_ENABLED;
+ 					goto out_err;
+ 				}
+ 				/* Request irq for tx handling */
+-				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector, &nv_nic_irq_tx, IRQF_SHARED, dev->name, dev) != 0) {
++				sprintf(np->name_tx, "%s-tx", dev->name);
++				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_TX].vector,
++						&nv_nic_irq_tx, IRQF_SHARED, np->name_tx, dev) != 0) {
+ 					printk(KERN_INFO "forcedeth: request_irq failed for tx %d\n", ret);
+ 					pci_disable_msix(np->pci_dev);
+ 					np->msi_flags &= ~NV_MSI_X_ENABLED;
+ 					goto out_free_rx;
+ 				}
+ 				/* Request irq for link and timer handling */
+-				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector, &nv_nic_irq_other, IRQF_SHARED, dev->name, dev) != 0) {
++				sprintf(np->name_other, "%s-other", dev->name);
++				if (request_irq(np->msi_x_entry[NV_MSI_X_VECTOR_OTHER].vector,
++						&nv_nic_irq_other, IRQF_SHARED, np->name_other, dev) != 0) {
+ 					printk(KERN_INFO "forcedeth: request_irq failed for link %d\n", ret);
+ 					pci_disable_msix(np->pci_dev);
+ 					np->msi_flags &= ~NV_MSI_X_ENABLED;
