@@ -1,160 +1,41 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
-Date: Fri, 6 Feb 2009 22:53:32 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0902062251501.31842@wrl-59.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0902062247500.31842@wrl-59.cs.helsinki.fi>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH] net_dma: call dmaengine_get only if NET_DMA enabled
+Date: Fri, 6 Feb 2009 14:15:02 -0700
+Message-ID: <e9c3a7c20902061315n7184c55ck7fcaa2c519a035d4@mail.gmail.com>
+References: <1233936169-5243-1-git-send-email-anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; boundary="-696208474-1185510479-1233953477=:31842"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: bfields@fieldses.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Maciej Sosnowski <maciej.sosnowski@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:35337 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbZBFUxd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 15:53:33 -0500
-In-Reply-To: <Pine.LNX.4.64.0902062247500.31842@wrl-59.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0902062251502.31842@wrl-59.cs.helsinki.fi>
+Received: from wa-out-1112.google.com ([209.85.146.181]:50840 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753308AbZBFVPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 16:15:03 -0500
+In-Reply-To: <1233936169-5243-1-git-send-email-anemo@mba.ocn.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+[ please cc netdev on net_dma patches ]
 
----696208474-1185510479-1233953477=:31842
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0902062251503.31842@wrl-59.cs.helsinki.fi>
+On Fri, Feb 6, 2009 at 9:02 AM, Atsushi Nemoto <anemo@mba.ocn.ne.jp> wrote:
+> The commit 649274d993212e7c23c0cb734572c2311c200872 ("net_dma:
+> acquire/release dma channels on ifup/ifdown") added unconditional call
+> of dmaengine_get() to net_dma.  The API should be called only if
+> NET_DMA was enabled.
+>
+> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
 
-Grr, forgot to cc sunrpc maintainer... Added. Just ask if somebody wants 
-a complete resend.
+Acked-by: Dan Williams <dan.j.williams@intel.com>
 
-On Fri, 6 Feb 2009, Ilpo Järvinen wrote:
+I was looking to avoid ifdefs in this path by making
+dmaengine_{get,put} a nop in the DMAENGINE=n case.  However, the
+current code with DMAENGINE=y NET_DMA=n will pin channels even though
+the network stack is not using them.
 
-> 
-> $ diff-funcs xs_udp_write_space net/sunrpc/xprtsock.c
-> net/sunrpc/xprtsock.c xs_tcp_write_space
->  --- net/sunrpc/xprtsock.c:xs_udp_write_space()
->  +++ net/sunrpc/xprtsock.c:xs_tcp_write_space()
-> @@ -1,4 +1,4 @@
-> - * xs_udp_write_space - callback invoked when socket buffer space
-> + * xs_tcp_write_space - callback invoked when socket buffer space
->   *                             becomes available
->   * @sk: socket whose state has changed
->   *
-> @@ -7,12 +7,12 @@
->   * progress, otherwise we'll waste resources thrashing kernel_sendmsg
->   * with a bunch of small requests.
->   */
-> -static void xs_udp_write_space(struct sock *sk)
-> +static void xs_tcp_write_space(struct sock *sk)
->  {
->  	read_lock(&sk->sk_callback_lock);
-> 
-> -	/* from net/core/sock.c:sock_def_write_space */
-> -	if (sock_writeable(sk)) {
-> +	/* from net/core/stream.c:sk_stream_write_space */
-> +	if (sk_stream_wspace(sk) >= sk_stream_min_wspace(sk)) {
->  		struct socket *sock;
->  		struct rpc_xprt *xprt;
-> 
-> 
-> $ codiff net/sunrpc/xprtsock.o net/sunrpc/xprtsock.o.new
-> net/sunrpc/xprtsock.c:
->   xs_tcp_write_space | -163
->   xs_udp_write_space | -163
->  2 functions changed, 326 bytes removed
-> 
-> net/sunrpc/xprtsock.c:
->   xs_write_space | +179
->  1 function changed, 179 bytes added
-> 
-> net/sunrpc/xprtsock.o.new:
->  3 functions changed, 179 bytes added, 326 bytes removed, diff: -147
-> 
-> Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> ---
->  net/sunrpc/xprtsock.c |   53 +++++++++++++++++++-----------------------------
->  1 files changed, 21 insertions(+), 32 deletions(-)
-> 
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index 5cbb404..b49e434 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -1215,6 +1215,23 @@ out:
->  	read_unlock(&sk->sk_callback_lock);
->  }
->  
-> +static void xs_write_space(struct sock *sk)
-> +{
-> +	struct socket *sock;
-> +	struct rpc_xprt *xprt;
-> +
-> +	if (unlikely(!(sock = sk->sk_socket)))
-> +		return;
-> +	clear_bit(SOCK_NOSPACE, &sock->flags);
-> +
-> +	if (unlikely(!(xprt = xprt_from_sock(sk))))
-> +		return;
-> +	if (test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags) == 0)
-> +		return;
-> +
-> +	xprt_write_space(xprt);
-> +}
-> +
->  /**
->   * xs_udp_write_space - callback invoked when socket buffer space
->   *                             becomes available
-> @@ -1230,23 +1247,9 @@ static void xs_udp_write_space(struct sock *sk)
->  	read_lock(&sk->sk_callback_lock);
->  
->  	/* from net/core/sock.c:sock_def_write_space */
-> -	if (sock_writeable(sk)) {
-> -		struct socket *sock;
-> -		struct rpc_xprt *xprt;
-> -
-> -		if (unlikely(!(sock = sk->sk_socket)))
-> -			goto out;
-> -		clear_bit(SOCK_NOSPACE, &sock->flags);
-> -
-> -		if (unlikely(!(xprt = xprt_from_sock(sk))))
-> -			goto out;
-> -		if (test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags) == 0)
-> -			goto out;
-> -
-> -		xprt_write_space(xprt);
-> -	}
-> +	if (sock_writeable(sk))
-> +		xs_write_space(sk);
->  
-> - out:
->  	read_unlock(&sk->sk_callback_lock);
->  }
->  
-> @@ -1265,23 +1268,9 @@ static void xs_tcp_write_space(struct sock *sk)
->  	read_lock(&sk->sk_callback_lock);
->  
->  	/* from net/core/stream.c:sk_stream_write_space */
-> -	if (sk_stream_wspace(sk) >= sk_stream_min_wspace(sk)) {
-> -		struct socket *sock;
-> -		struct rpc_xprt *xprt;
-> -
-> -		if (unlikely(!(sock = sk->sk_socket)))
-> -			goto out;
-> -		clear_bit(SOCK_NOSPACE, &sock->flags);
-> +	if (sk_stream_wspace(sk) >= sk_stream_min_wspace(sk))
-> +		xs_write_space(sk);
->  
-> -		if (unlikely(!(xprt = xprt_from_sock(sk))))
-> -			goto out;
-> -		if (test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags) == 0)
-> -			goto out;
-> -
-> -		xprt_write_space(xprt);
-> -	}
-> -
-> - out:
->  	read_unlock(&sk->sk_callback_lock);
->  }
->  
-> 
----696208474-1185510479-1233953477=:31842--
+Thanks,
+Dan
