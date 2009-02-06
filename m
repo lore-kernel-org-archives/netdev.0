@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neighbour information dumping: some entries can be
- skipped
-Date: Fri, 06 Feb 2009 00:52:13 -0800 (PST)
-Message-ID: <20090206.005213.113322453.davem@davemloft.net>
-References: <4e0db5bc0902051837o75eeb554h592a03f9506fd9b1@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Fri, 6 Feb 2009 19:54:06 +1100
+Message-ID: <20090206085406.GA6540@gondor.apana.org.au>
+References: <20090205143143.GA18734@alice> <adafxisjzel.fsf@cisco.com> <20090205234318.GA1929@gondor.apana.org.au> <20090206.005034.193709323.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: gk@aristanetworks.com
+Content-Type: text/plain; charset=us-ascii
+Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47669
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752090AbZBFIwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 03:52:17 -0500
-In-Reply-To: <4e0db5bc0902051837o75eeb554h592a03f9506fd9b1@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:55990 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752211AbZBFIyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 03:54:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20090206.005034.193709323.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gautam Kachroo <gk@aristanetworks.com>
-Date: Thu, 5 Feb 2009 18:37:38 -0800
-
-> neightbl_dump_info and neigh_dump_table  can skip entries if the
-> *fill*info functions return an error. This results in an incomplete
-> dump ((invoked by netlink requests for RTM_GETNEIGHTBL or
-> RTM_GETNEIGH)
+On Fri, Feb 06, 2009 at 12:50:34AM -0800, David Miller wrote:
+>
+> ipv6: Disallow rediculious flowlabel option sizes.
 > 
-> nidx and idx should not be incremented if the current entry was not
-> placed in the output buffer
+> Just like PKTINFO, limit the options area to 64K.
 > 
-> Signed-off-by: Gautam Kachroo <gk@aristanetworks.com>
+> Based upon report by Eric Sesterhenn and analysis by
+> Roland Dreier.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Patch applied, thank you.
+This should eliminate the backtrace as reported, but it'll just
+show up somewhere else.  In particular, the control message (see
+sys_sendmsg) itself is copied to kernel memory via kmalloc and
+it's limited to INT_MAX :)
+
+(The option we're discussing here is stored in the control message).
+
+We either need to vmalloc it or have everyone read the user
+memory directly.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
