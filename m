@@ -1,66 +1,41 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: copyless virtio net thoughts?
-Date: Fri, 6 Feb 2009 16:40:54 +1100
-Message-ID: <20090206054054.GA4824@gondor.apana.org.au>
-References: <20090205020732.GA27684@sequoia.sous-sol.org> <498ADD73.3060906@redhat.com>
+Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
+Date: Fri, 6 Feb 2009 16:45:41 +1100
+Message-ID: <20090206054541.GA4954@gondor.apana.org.au>
+References: <b6a2187b0902050641h7943816ds26275a320e724440@mail.gmail.com> <20090206031025.GA3281@gondor.apana.org.au> <b6a2187b0902052139p3be2f321ucd900cc5346bff8c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>, Arnd Bergmann <arnd@arndb.de>,
-	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
+Cc: David Miller <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Jeff Chua <jeff.chua.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42898 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:38368 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754851AbZBFFlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 00:41:18 -0500
+	with ESMTP id S1751183AbZBFFpy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 00:45:54 -0500
 Content-Disposition: inline
-In-Reply-To: <498ADD73.3060906@redhat.com>
+In-Reply-To: <b6a2187b0902052139p3be2f321ucd900cc5346bff8c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 05, 2009 at 02:37:07PM +0200, Avi Kivity wrote:
->
-> I believe that copyless networking is absolutely essential.
+On Fri, Feb 06, 2009 at 01:39:19PM +0800, Jeff Chua wrote:
+> 
+> Attached are two strace. t1.good is a good rlogin run. t4.bad is bad
+> rlogin run where nothing is displayed but typing "~-." gets back to
+> the host.
 
-I used to think it was important, but I'm now of the opinion
-that it's quite useless for virtualisation as it stands.
+You traced the side receiving the urgent pointer.  This has
+nothing to do with the patch since it only changes sending
+behaviour.
 
-> For transmit, copyless is needed to properly support sendfile() type  
-> workloads - http/ftp/nfs serving.  These are usually high-bandwidth,  
-> cache-cold workloads where a copy is most expensive.
+Did you change the kernel on the other side during these tests?
 
-This is totally true for baremetal, but useless for virtualisation
-right now because the block layer is not zero-copy.  That is, the
-data is going to be cache hot anyway so zero-copy networking doesn't
-buy you much at all.
+If reverting the patch on the other side does fix the problem
+for you, please do the two straces there.
 
-Please also recall that for the time being, block speeds are
-way slower than network speeds.  So the really interesting case
-is actually network-to-network transfers.  Again due to the
-RX copy this is going to be cache hot.
-
-> For receive, the guest will almost always do an additional copy, but it  
-> will most likely do the copy from another cpu.  Xen netchannel2  
-
-That's what we should strive to avoid.  The best scenario with
-modern 10GbE NICs is to stay on one CPU if at all possible.  The
-NIC will pick a CPU when it delivers the packet into one of the
-RX queues and we should stick with it for as long as possible.
-
-So what I'd like to see next in virtualised networking is virtual
-multiqueue support in guest drivers.  No I'm not talking about
-making one or more of the physical RX/TX queues available to the
-guest (aka passthrough), but actually turning something like the
-virtio-net interface into a multiqueue interface.
-
-This is the best way to get cache locality and minimise CPU waste.
-
-So I'm certainly not rushing out to do any zero-copy virtual
-networking.  However, I would like to start working on a virtual
-multiqueue NIC interface.
-
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
