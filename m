@@ -1,36 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 6 Feb 2009 20:23:26 +1100
-Message-ID: <20090206092326.GC6645@gondor.apana.org.au>
-References: <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090205.235258.257422341.davem@davemloft.net> <20090206091034.GA4879@ff.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Fri, 06 Feb 2009 01:27:33 -0800 (PST)
+Message-ID: <20090206.012733.06998050.davem@davemloft.net>
+References: <20090206085406.GA6540@gondor.apana.org.au>
+	<20090206.010559.157790037.davem@davemloft.net>
+	<20090206092218.GB6645@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41056 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753937AbZBFJYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:24:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20090206091034.GA4879@ff.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53773
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751116AbZBFJ1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:27:37 -0500
+In-Reply-To: <20090206092218.GB6645@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 06, 2009 at 09:10:34AM +0000, Jarek Poplawski wrote:
-> 
-> Looks fine, except: you mentioned dumb NICs, which would need this
-> page space on receive, anyway. BTW, don't they need this on transmit
-> again?
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 6 Feb 2009 20:22:18 +1100
 
-A lot more NICs support SG on tx than rx.
+> Well the data that led to the back trace came from a cmsg, I was
+> merely pointing out that the cmsg itself is kmalloced and copied
+> by sys_sendmsg and it's only limited to INT_MAX.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Actually, it's limited to sysctl_optmem_max :-)
