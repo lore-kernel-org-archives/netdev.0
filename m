@@ -1,34 +1,35 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 6 Feb 2009 09:42:53 +0000
-Message-ID: <20090206094253.GB4879@ff.dom.local>
-References: <20090203094108.GA4639@ff.dom.local> <20090205.235258.257422341.davem@davemloft.net> <20090206091034.GA4879@ff.dom.local> <20090206.011722.41272682.davem@davemloft.net>
+Date: Fri, 06 Feb 2009 01:49:31 -0800 (PST)
+Message-ID: <20090206.014931.135139791.davem@davemloft.net>
+References: <20090206091034.GA4879@ff.dom.local>
+	<20090206.011722.41272682.davem@davemloft.net>
+	<20090206094253.GB4879@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, w@1wt.eu,
 	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jens.axboe@oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:45213 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278AbZBFJnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:43:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20090206.011722.41272682.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: jarkao2@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757452AbZBFJtq@vger.kernel.org>
+In-Reply-To: <20090206094253.GB4879@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 06, 2009 at 01:17:22AM -0800, David Miller wrote:
-...
-> And all I'm saying is that since the page allocator provides that
-> facility, and using pages solves all of the splice() et al.  problems,
-> building something extremely simple on top of the page allocator seems
-> to be a good way to go.
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Fri, 6 Feb 2009 09:42:53 +0000
 
-This all is absolutely right if we can afford it: more simple - more
-memory wasted. I hope you're right, but on the other hand, people
-don't use slob by default.
+> I hope you're right, but on the other hand, people don't use slob by
+> default.
 
-Jarek P.
+The use is different, so it's a bad comparison, really.
+
+SLAB has to satisfy all kinds of object lifetimes, all kinds
+of sizes and use cases, and perform generally well in all
+situations with zero knowledge about usage patterns.
+
+Networking is strictly the opposite of that set of requirements.  We
+know all of these parameters (or their ranges) and can on top of that
+control them if necessary.
