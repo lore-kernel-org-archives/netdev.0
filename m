@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 06 Feb 2009 01:49:31 -0800 (PST)
-Message-ID: <20090206.014931.135139791.davem@davemloft.net>
-References: <20090206091034.GA4879@ff.dom.local>
-	<20090206.011722.41272682.davem@davemloft.net>
-	<20090206094253.GB4879@ff.dom.local>
+Date: Fri, 6 Feb 2009 09:51:20 +0000
+Message-ID: <20090206095119.GC4879@ff.dom.local>
+References: <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090205.235258.257422341.davem@davemloft.net> <20090206091034.GA4879@ff.dom.local> <20090206092326.GC6645@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, w@1wt.eu,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, zbr@ioremap.net, w@1wt.eu,
 	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jens.axboe@oracle.com
-To: jarkao2@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757452AbZBFJtq@vger.kernel.org>
-In-Reply-To: <20090206094253.GB4879@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.154]:39906 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752936AbZBFJv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:51:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20090206092326.GC6645@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 6 Feb 2009 09:42:53 +0000
+On Fri, Feb 06, 2009 at 08:23:26PM +1100, Herbert Xu wrote:
+> On Fri, Feb 06, 2009 at 09:10:34AM +0000, Jarek Poplawski wrote:
+> > 
+> > Looks fine, except: you mentioned dumb NICs, which would need this
+> > page space on receive, anyway. BTW, don't they need this on transmit
+> > again?
+> 
+> A lot more NICs support SG on tx than rx.
 
-> I hope you're right, but on the other hand, people don't use slob by
-> default.
+OK, but since there is not so much difference, and we need to waste
+it in some cases anyway, plus handle it later some special way, I'm
+a bit in doubt.
 
-The use is different, so it's a bad comparison, really.
-
-SLAB has to satisfy all kinds of object lifetimes, all kinds
-of sizes and use cases, and perform generally well in all
-situations with zero knowledge about usage patterns.
-
-Networking is strictly the opposite of that set of requirements.  We
-know all of these parameters (or their ranges) and can on top of that
-control them if necessary.
+Jarek P.
