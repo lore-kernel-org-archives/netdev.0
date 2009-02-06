@@ -1,58 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TX pre-headers...
-Date: Fri, 06 Feb 2009 03:11:00 -0800 (PST)
-Message-ID: <20090206.031100.230934214.davem@davemloft.net>
-References: <20090206.014107.231141422.davem@davemloft.net>
-	<OF39F6FFF6.453811EF-ON80257555.003A4714-80257555.003B50C2@smsc.com>
+Subject: Re: [PATCH] udp: Fix potential wrong ip_hdr(skb) pointers
+Date: Fri, 06 Feb 2009 03:11:42 -0800 (PST)
+Message-ID: <20090206.031142.42099131.davem@davemloft.net>
+References: <1233914158.21135.11.camel@localhost.localdomain>
+	<498C0B42.7080309@cosmosbay.com>
+	<1233917362.21135.16.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51945
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51948
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755534AbZBFLLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 06:11:04 -0500
-In-Reply-To: <OF39F6FFF6.453811EF-ON80257555.003A4714-80257555.003B50C2@smsc.com>
+	by vger.kernel.org with ESMTP id S1754615AbZBFLLq convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 06:11:46 -0500
+In-Reply-To: <1233917362.21135.16.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve.Glendinning@smsc.com
-Date: Fri, 6 Feb 2009 10:46:24 +0000
+=46rom: Jesper Dangaard Brouer <jdb@comx.dk>
+Date: Fri, 06 Feb 2009 11:49:22 +0100
 
-> Many of the usbnet drivers do this as well - for example smsc95xx needs
-> either 8 or 12 bytes for its pre-header (depending whether tx checksum
-> offload is enabled) and does this in its tx_fixup:
-> 
->         if (skb_headroom(skb) < overhead) {
->                 struct sk_buff *skb2 = skb_copy_expand(skb,
->                         overhead, 0, flags);
->                 dev_kfree_skb_any(skb);
->                 skb = skb2;
->                 if (!skb)
->                         return NULL;
->         }
-> 
-> It would be really good to get rid of these copies.
+> On Fri, 2009-02-06 at 11:04 +0100, Eric Dumazet wrote:
+> > Jesper Dangaard Brouer a =E9crit :
+> > > On Fri, 2009-02-06 at 01:08 -0800, David Miller wrote:
+> > >> Please respin this patch of your's with proper commit message
+> > >> and signoffs, thanks!
+> > >=20
+> > > Like the UDP header fix, pskb_may_pull() can potentially
+> > > alter the SKB buffer.  Thus the saddr and daddr, pointers
+> > > may point to the old skb->data buffer.
+> > >=20
+> >=20
+> > I dont know... daddr and saddr are not pointers but integers.
+>=20
+> Yes, you are right... its only in the ipv6 code these are pointers
+> (which as DaveM mentioned handels it correctly).
+>=20
+> > Patch makes sense as a cleanup, but ChangeLog seems wrong ?
+>=20
+> Okay, lets view it as a cleanup... Its upto DaveM if he wants to fix =
+the
+> commit message (or ask me the correct it, revert and reapply...)
 
-This is exactly the kind of code that the NIU transmit handler
-has.
-
-> Interestingly, this device can change the amount of pre-header space it
-> needs if tx checksums are enabled/disabled at runtime.  I guess the
-> device would just indicate its worst case requirement at registration.
-
-Right.
-
-> Does this just apply to the routing/bridging case, or can packets
-> originating from the host also allocate this extra pre-header?
-
-ARP packets, as one specific case, are still going to trigger that
-conditional above and need the copy.
-
-TCP, UDP and others don't trigger this usually only because
-they add MAX_TCP_HEADER et al. to all of their allocations
-which essentially gives 128 bytes of slack space at the front
-of every TX frame from transport protocols.
-
+I already pushed the commit out, rebasing the tree is not an
+option and a revert is super ugly so it's staying as-is.
