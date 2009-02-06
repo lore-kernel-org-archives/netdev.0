@@ -1,103 +1,60 @@
-From: Ilkka Virta <itvirta@iki.fi>
-Subject: Soft lockup in sungem on Netra AC200 when switching interface up
-Date: Fri, 6 Feb 2009 13:29:02 +0200
-Message-ID: <20090206112902.GS4362@tango.lnet.fi>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] RxRPC: Fix a potential NULL dereference
+Date: Fri, 06 Feb 2009 11:59:43 +0000
+Message-ID: <20090206115943.6126.95330.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org
+To: netdev@vger.kernel.org, error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.lnet.fi ([86.50.38.234]:50225 "EHLO tango.lnet.fi"
+Received: from mx2.redhat.com ([66.187.237.31]:52424 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752150AbZBFL42 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2009 06:56:28 -0500
-Content-Disposition: inline
+	id S1752553AbZBFMAw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 07:00:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-What ho, chaps
+Fix a potential NULL dereference bug during error handling in
+rxrpc_kernel_begin_call(), whereby rxrpc_put_transport() may be handed a NULL
+pointer.
 
-The sungem network driver seems to be broken with the integrated
-Ethernet ports of a Sun Netra T1 AC200. On that machine, switching the
-interface up when link is up leads to a soft lockup. However,
-switching the interface up with no link, and only then connecting the
-cable works; as does the same driver on seemingly same hardware on a
-Sun Blade 1000.
+This was found with a code checker (http://repo.or.cz/w/smatch.git/).
 
-lspci doesn't show any real differences between the gems on the Netra
-and on the Blade, both are these: 
-0000:00:05.1 Ethernet controller [0200]: Sun Microsystems Computer
-             Corp. RIO 10/100 Ethernet [eri] [108e:1101] (rev 01)
+Reported-by: Dan Carpenter <error27@gmail.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-Earlier reports of the same problem indicate that the driver was
-broken by commit bea3348eef27e6044b6161fd04c3152215f96411 in around
-2.6.24, but the problem still exists in 2.6.28.
+ net/rxrpc/af_rxrpc.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-http://kerneltrap.org/mailarchive/linux-kernel/2008/8/7/2856094
-http://bugzilla.kernel.org/show_bug.cgi?id=10309
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=508151
 
-Now, I didn't find any ready-made cure for this, so I poked around the
-driver a bit to see what happens. What follows is very much only
-guesswork, since I don't really know anything about Linux network
-drivers.
-
-In the lockup situation the driver seems to go off in an eternal storm
-of interrupts right after calling request_irq(). It doesn't actually
-do anything interesting in the interrupt handler. Since connecting the link
-afterwards works, something later in initialization must fix this.
-
-Looking at gem_do_start() and gem_open(), it seems that the only thing
-done while opening the device after the request_irq(), is a call to
-napi_enable().
-
-I don't know what the ordering requirements are for the
-initialization, but I boldly tried to move the napi_enable() call
-inside gem_do_start() before the link state is checked and interrupts
-subsequently enabled, and it seems to work for me. Doesn't even break
-anything too obvious...
-
-Any ideas on how this really should be fixed?
-
---- linux-2.6.28.2/drivers/net/sungem.c.orig	2009-01-25 02:42:07.000000000 +0200
-+++ linux-2.6.28.2/drivers/net/sungem.c	2009-02-05 20:46:23.000000000 +0200
-@@ -2222,6 +2222,8 @@ static int gem_do_start(struct net_devic
- 
- 	gp->running = 1;
- 
-+	napi_enable(&gp->napi);
-+
- 	if (gp->lstate == link_up) {
- 		netif_carrier_on(gp->dev);
- 		gem_set_link_modes(gp);
-@@ -2239,6 +2241,8 @@ static int gem_do_start(struct net_devic
- 		spin_lock_irqsave(&gp->lock, flags);
- 		spin_lock(&gp->tx_lock);
- 
-+		napi_disable(&gp->napi);
-+
- 		gp->running =  0;
- 		gem_reset(gp);
- 		gem_clean_rings(gp);
-@@ -2339,8 +2343,6 @@ static int gem_open(struct net_device *d
- 	if (!gp->asleep)
- 		rc = gem_do_start(dev);
- 	gp->opened = (rc == 0);
--	if (gp->opened)
--		napi_enable(&gp->napi);
- 
- 	mutex_unlock(&gp->pm_mutex);
- 
-@@ -2477,8 +2479,6 @@ static int gem_resume(struct pci_dev *pd
- 
- 		/* Re-attach net device */
- 		netif_device_attach(dev);
--
--		napi_enable(&gp->napi);
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index d7d2bed..eac5e7b 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -284,13 +284,13 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
+ 		if (IS_ERR(trans)) {
+ 			call = ERR_CAST(trans);
+ 			trans = NULL;
+-			goto out;
++			goto out_notrans;
+ 		}
+ 	} else {
+ 		trans = rx->trans;
+ 		if (!trans) {
+ 			call = ERR_PTR(-ENOTCONN);
+-			goto out;
++			goto out_notrans;
+ 		}
+ 		atomic_inc(&trans->usage);
  	}
- 
- 	spin_lock_irqsave(&gp->lock, flags);
+@@ -315,6 +315,7 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
+ 	rxrpc_put_bundle(trans, bundle);
+ out:
+ 	rxrpc_put_transport(trans);
++out_notrans:
+ 	release_sock(&rx->sk);
+ 	_leave(" = %p", call);
+ 	return call;
 
--- 
-Ilkka Virta / itvirta at iki dot fi / ilkkachu@IRCNet
- ()  ascii ribbon campaign - against HTML mail and attachments in 
- /\                          closed file formats
