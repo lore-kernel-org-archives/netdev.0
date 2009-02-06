@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Deadlock with icmpv6fuzz
-Date: Fri, 06 Feb 2009 01:27:33 -0800 (PST)
-Message-ID: <20090206.012733.06998050.davem@davemloft.net>
-References: <20090206085406.GA6540@gondor.apana.org.au>
-	<20090206.010559.157790037.davem@davemloft.net>
-	<20090206092218.GB6645@gondor.apana.org.au>
+Subject: Re: [PATCH] forcedeth: don't clear nic_poll_irq too early
+Date: Fri, 06 Feb 2009 01:31:28 -0800 (PST)
+Message-ID: <20090206.013128.109083992.davem@davemloft.net>
+References: <498BC3A8.9040203@kernel.org>
+	<498BC3EE.3070209@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: herbert@gondor.apana.org.au
+Cc: jeff@garzik.org, mingo@elte.hu, akpm@linux-foundation.org,
+	aabdulla@nvidia.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: yinghai@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53773
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59559
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751116AbZBFJ1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:27:37 -0500
-In-Reply-To: <20090206092218.GB6645@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1754583AbZBFJbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:31:32 -0500
+In-Reply-To: <498BC3EE.3070209@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 6 Feb 2009 20:22:18 +1100
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Thu, 05 Feb 2009 21:00:30 -0800
 
-> Well the data that led to the back trace came from a cmsg, I was
-> merely pointing out that the cmsg itself is kmalloced and copied
-> by sys_sendmsg and it's only limited to INT_MAX.
+> 
+> Impact: fix bug
+> 
+> for msix, we still need that flag to enable irq respectively
+> 
+> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
 
-Actually, it's limited to sysctl_optmem_max :-)
+Applied to net-next-2.6
