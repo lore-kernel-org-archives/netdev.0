@@ -1,44 +1,45 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: 3c509 resume from hibernation broken somewhere between 2.6.25 and 2.6.28
-Date: Fri, 6 Feb 2009 14:22:13 +0100
-Message-ID: <200902061422.14746.linux@rainbow-software.org>
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Subject: Re: [PATCH] netns: remove useless synchronize_net()
+Date: Fri, 06 Feb 2009 14:50:53 +0100
+Message-ID: <498C403D.9040500@dev.6wind.com>
+References: <498ABDA2.5040603@dev.6wind.com> <20090205.234520.149982266.davem@davemloft.net>
+Reply-To: nicolas.dichtel@dev.6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755622AbZBFNWc@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:33888 "EHLO smtp5-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753180AbZBFNvG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 08:51:06 -0500
+In-Reply-To: <20090205.234520.149982266.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-last year, I posted a patch which fixed hibernation on 3c509 cards. That was 
-back in 2.6.24. It worked fine in 2.6.25. But then I stopped using 
-hibernation (as it did not work with my new IT8212 RAID controller).
+Le 06.02.2009 08:45, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+> Date: Thu, 05 Feb 2009 11:21:22 +0100
+>=20
+>> In dev_change_net_namespace(), synchronize_net() is called at the
+>> end of the function, but there is no reason (no deletion occurs).
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>=20
+> It is necessary to make sure all cpus stop looking at the
+> previous namespace the device was attached to, and only
+> see the new mapping.
+I didn't really understand why it is 'necessary'.
+If namespace is destroyed after this function, then cleanup_net() will =
+ensure=20
+that nobody is looking at it
+There is only two callers, rtnetlink and default_device_exit().
 
-Now I fixed it and noticed that 3c509 does not wake up properly anymore (in 
-2.6.28) - neither in PnP nor in ISA modes. ifconfig down/up makes the card 
-work again in PnP mode. However, in ISA mode, ifconfig up ends with "No such 
-device" error.
 
-Comparing the 3c509 driver between 2.6.25 and 2.6.28, there's only some 
-statistics-related change. So the cause of the problem must be somewhere 
-else.
+Thank you for your answer,
+Nicolas
 
-This patch makes the resume work in PnP mode, but it's still not enough for 
-ISA mode.
-
---- linux-2.6.28-orig/drivers/net/3c509.c	2009-01-02 17:19:07.000000000 +0100
-+++ linux/drivers/net/3c509.c	2009-02-05 22:36:20.000000000 +0100
-@@ -1477,6 +1477,7 @@
- 	spin_lock_irqsave(&lp->lock, flags);
- 
- 	outw(PowerUp, ioaddr + EL3_CMD);
-+	EL3WINDOW(0);
- 	el3_up(dev);
- 
- 	if (netif_running(dev))
-
--- 
-Ondrej Zary
+>=20
+> That's why this function has two synchronize_net() calls.
