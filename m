@@ -1,38 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Deadlock with icmpv6fuzz
-Date: Fri, 06 Feb 2009 03:07:16 -0800 (PST)
-Message-ID: <20090206.030716.136181382.davem@davemloft.net>
-References: <20090206.012733.06998050.davem@davemloft.net>
-	<20090206102710.GA7175@gondor.apana.org.au>
-	<20090206103443.GA7303@gondor.apana.org.au>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
+Date: Fri, 6 Feb 2009 12:10:15 +0100
+Message-ID: <20090206111015.GD15159@1wt.eu>
+References: <20090202084358.GB4129@ff.dom.local> <20090202.235017.253437221.davem@davemloft.net> <20090203094108.GA4639@ff.dom.local> <20090205.235258.257422341.davem@davemloft.net> <20090206091034.GA4879@ff.dom.local> <20090206092326.GC6645@gondor.apana.org.au> <20090206095119.GC4879@ff.dom.local> <20090206102822.GB7175@gondor.apana.org.au> <20090206105807.GD4879@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, zbr@ioremap.net,
+	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jens.axboe@oracle.com
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56978
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754360AbZBFLHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 06:07:20 -0500
-In-Reply-To: <20090206103443.GA7303@gondor.apana.org.au>
+Received: from 1wt.eu ([62.212.114.60]:2070 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754437AbZBFLK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 06:10:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20090206105807.GD4879@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 6 Feb 2009 21:34:43 +1100
-
-> On Fri, Feb 06, 2009 at 09:27:10PM +1100, Herbert Xu wrote:
-> >
-> > But we should probably bring the check down to sysctl_optmem_max
-> > in ip6_flowlabel.c too since allocating 64K is still quite likely
-> > to fail and warn.
+On Fri, Feb 06, 2009 at 10:58:07AM +0000, Jarek Poplawski wrote:
+> On Fri, Feb 06, 2009 at 09:28:22PM +1100, Herbert Xu wrote:
+> > On Fri, Feb 06, 2009 at 09:51:20AM +0000, Jarek Poplawski wrote:
+> > >
+> > > OK, but since there is not so much difference, and we need to waste
+> > > it in some cases anyway, plus handle it later some special way, I'm
+> > > a bit in doubt.
+> > 
+> > Well the thing is cards that don't support SG on tx probably
+> > don't support jumbo frames either.
 > 
-> In fact, we should probably just use sock_kmalloc in these places.
+> ?? I mean this 128 byte chunk would be hard to reuse after copying
+> to skb->data, and if reused, we could miss this for some NICs on TX,
+> so the whole packed would need a copy.
 
-Very likely we could get away with that.
+couldn't we stuff up to 32 128-byte chunks in a page and use a 32-bit
+map to indicate which slot is used and which one is free ? This would
+just be a matter of calling ffz() to find one spare place in a page.
+Also, that bitmap might serve as a refcount, because if it drops to
+zero, it means all slots are unused. And -1 means all slots are used.
 
-But some apps might start breaking since this would now
-charge the socket and we could hit the limits whereas
-before we wouldn't.
+This would reduce wastage if wee need to allocate 128 bytes often.
+
+Willy
+
