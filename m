@@ -1,46 +1,42 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: Re: [PATCH 07/13] dmaengine: introduce dma_request_channel and
- private channels
-Date: Sat, 07 Feb 2009 01:58:25 +0900 (JST)
-Message-ID: <20090207.015825.95063161.anemo@mba.ocn.ne.jp>
-References: <20081114213300.32354.1154.stgit@dwillia2-linux.ch.intel.com>
-	<20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH] forcedeth: make msi-x different name for rx-tx
+Date: Fri, 06 Feb 2009 08:57:57 -0800
+Message-ID: <498C6C15.3050807@kernel.org>
+References: <498BC3A8.9040203@kernel.org> <20090206144948.GD18368@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	maciej.sosnowski@intel.com, hskinnemoen@atmel.com,
-	g.liakhovetski@gmx.de, nicolas.ferre@atmel.com
-To: dan.j.williams@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754031AbZBFQ6m@vger.kernel.org>
-In-Reply-To: <20081114213453.32354.53002.stgit@dwillia2-linux.ch.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:40215 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751878AbZBFQ6y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 11:58:54 -0500
+In-Reply-To: <20090206144948.GD18368@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Nov 2008 14:34:53 -0700, Dan Williams <dan.j.williams@intel.com> wrote:
-> To ensure that all channels are not consumed by the general-purpose
-> allocator the DMA_PRIVATE capability is provided to exclude a dma_device
-> from general-purpose (memory-to-memory) consideration.
-...
-> +			/* Found a suitable channel, try to grab, prep, and
-> +			 * return it.  We first set DMA_PRIVATE to disable
-> +			 * balance_ref_count as this channel will not be
-> +			 * published in the general-purpose allocator
-> +			 */
-> +			dma_cap_set(DMA_PRIVATE, device->cap_mask);
-> +			err = dma_chan_get(chan);
+Ingo Molnar wrote:
+> Cool cleanups!
+> 
+> Would you mind to also fix the following - on all my systems that have 
+> forcedeth gigabit ethernet i've been getting these bogus warnings for 
+> _years_, under moderate load:
+> 
+>   eth2: too many iterations (16) in nv_nic_irq.
+> 
+> I think a 64 iterations limit will work much better. (i tried a limit of 50 
+> a year ago for a while and it worked fine and had no side effects - and the 
+> bogus warnings were done.)
 
-The dma_request_channel() set DMA_PRIVATE but dma_release_channel()
-does not clear it.
+you may enable CONFIG_FORCEDETH_NAPI.
 
-If a client (such as dmatest) grabbed a public channel by
-dma_request_channel(), the channel will stay private forever.
+we should enable NAPI for forcedeth by default, and try to squash more bugs out.
 
-While a dma driver might set DMA_PRIVATE initially for private-only
-channels, dma_release_channel() cannot clear it unconditionally.
-
-How can this solved?  DMA_ALWAYS_PRIVATE or device->is_private or
-something will needed?
-
----
-Atsushi Nemoto
+YH
