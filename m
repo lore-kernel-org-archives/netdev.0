@@ -1,54 +1,56 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [PATCH 0/16] DMA-API debugging facility v2
-Date: Fri, 6 Feb 2009 10:20:52 -0800
-Message-ID: <20090206182052.GI27684@sequoia.sous-sol.org>
-References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1233874352.8135.12.camel@macbook.infradead.org> <20090206020535.GE27684@sequoia.sous-sol.org> <1233907006.17724.83.camel@macbook.infradead.org>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: TX pre-headers...
+Date: Fri, 6 Feb 2009 10:53:46 -0800
+Message-ID: <200902061053.47722.inaky@linux.intel.com>
+References: <OF39F6FFF6.453811EF-ON80257555.003A4714-80257555.003B50C2@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Wright <chrisw@sous-sol.org>,
-	Joerg Roedel <joerg.roedel@amd.com>,
-	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org,
-	iommu@lists.linux-foundation.org, mingo@redhat.com,
-	linux-kernel@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steve.Glendinning@smsc.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:59348 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752730AbZBFSVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2009 13:21:30 -0500
+Received: from mga09.intel.com ([134.134.136.24]:8102 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752664AbZBFSyE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 13:54:04 -0500
+In-Reply-To: <OF39F6FFF6.453811EF-ON80257555.003A4714-80257555.003B50C2@smsc.com>
 Content-Disposition: inline
-In-Reply-To: <1233907006.17724.83.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Woodhouse (dwmw2@infradead.org) wrote:
-> An alternative explanation... The DMA is aborted=B9, and the device
-> interrupts us to tell us about it at the _same_ time that the IOMMU
-> interrupts us to tell us about the fault. We process the device
-> interrupt first, unmap that buffer. And then we process the IOMMU
-> interrupt... and the buffer is already gone from the list.
+On Friday 06 February 2009, Steve.Glendinning@smsc.com wrote:
+> David Miller <davem@davemloft.net> wrote on 06/02/2009 09:41:07:
+> > Some NIC hardware wants a pre-header pushed in front of the packet
+> > data on transmit.
+> >
+> > When routing or bridging this will cause a reallocation of skb->data
+> > on every packet forwarded because there will only be NET_IP_ALIGN
+> > space reserved at the head by the device receive path.
+> >
+> > NIU is one such NIC and I only noticed this because of some things I
+> > saw in some of Robert Olsson's routing stress test oprofile dumps.
+>
+> Many of the usbnet drivers do this as well - for example smsc95xx needs
+> either 8 or 12 bytes for its pre-header (depending whether tx checksum
+> offload is enabled) and does this in its tx_fixup:
 
-[  362.283661] Device 0000:03:00.0 mapping: 1000@fff1b000
-[  362.283727] DMAR:[DMA Write] Request device [03:00.0] fault addr fff=
-1b000=20
-[  362.284719] Device 0000:03:00.0 unmapping: 1000@fff1b000
+The wimax i2400m has a similar thing, but on top, it requires packets to
+be coalesced and then yet another header with packet descriptors 
+has to be added to them.
 
-[  362.426974] Device 0000:03:00.0 mapping: 1000@fff1b000
-[  362.427040] DMAR:[DMA Write] Request device [03:00.0] fault addr fff=
-1b000=20
-[  362.429092] Device 0000:03:00.0 unmapping: 1000@fff1b000
+(header  pld0 pld1 pld2...padding pl0 pl1 pl2....)
 
-[  447.644332] Device 0000:03:00.0 mapping: 1000@fff03000
-[  447.644373] DMAR:[DMA Write] Request device [03:00.0] fault addr fff=
-03000=20
-[  447.646008] Device 0000:03:00.0 unmapping: 1000@fff03000
+pld - payload descriptor
+pl - payload
 
-[  483.037641] Device 0000:03:00.0 mapping: 1000@ffc9f000
-[  483.037707] DMAR:[DMA Write] Request device [03:00.0] fault addr ffc=
-9f000=20
-[  483.038699] Device 0000:03:00.0 unmapping: 1000@ffc9f000
+Each IP packet payload has a prefix header too in the payload.
 
-=2E..
+So it would not be able to take advantage of this (using a FIFO right now).
+I wanted to explore doing all that coalescing using a sg vector, but 
+until the USB and SDIO stacks support it without too much overhead, is 
+not worth the effort.
 
-Looks like driver is doing the right thing.
+
+-- 
+Inaky
