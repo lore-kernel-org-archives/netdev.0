@@ -1,47 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Deadlock with icmpv6fuzz
-Date: Fri, 6 Feb 2009 19:54:06 +1100
-Message-ID: <20090206085406.GA6540@gondor.apana.org.au>
-References: <20090205143143.GA18734@alice> <adafxisjzel.fsf@cisco.com> <20090205234318.GA1929@gondor.apana.org.au> <20090206.005034.193709323.davem@davemloft.net>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: [RFC] [PATCH] Fix UDP short packet false positive
+Date: Fri, 06 Feb 2009 10:00:24 +0100
+Message-ID: <1233910824.21135.6.camel@localhost.localdomain>
+References: <20090204.010029.12969718.davem@davemloft.net>
+	 <1233837840.20497.129.camel@localhost.localdomain>
+	 <1233838027.20497.132.camel@localhost.localdomain>
+	 <20090205.150612.208352009.davem@davemloft.net>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55990 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752211AbZBFIyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 03:54:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20090206.005034.193709323.davem@davemloft.net>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:50605 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751869AbZBFJAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:00:30 -0500
+In-Reply-To: <20090205.150612.208352009.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 06, 2009 at 12:50:34AM -0800, David Miller wrote:
+On Thu, 2009-02-05 at 15:06 -0800, David Miller wrote:
+> From: Jesper Dangaard Brouer <jdb@comx.dk>
+> Date: Thu, 05 Feb 2009 13:47:07 +0100
 >
-> ipv6: Disallow rediculious flowlabel option sizes.
-> 
-> Just like PKTINFO, limit the options area to 64K.
-> 
-> Based upon report by Eric Sesterhenn and analysis by
-> Roland Dreier.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> > The UDP header pointer assignment must happen after calling
+> > pskb_may_pull().  As pskb_may_pull() can potentially alter the SKB
+> > buffer.
+>
+> Excellent work!
 
-This should eliminate the backtrace as reported, but it'll just
-show up somewhere else.  In particular, the control message (see
-sys_sendmsg) itself is copied to kernel memory via kmalloc and
-it's limited to INT_MAX :)
+Thanks :-)
 
-(The option we're discussing here is stored in the control message).
+I'm wondering if the ip_hdr() pointer can be changed by the
+pskb_may_pull(), but I assume it cannot as it should already be in the
+linear area... right?
 
-We either need to vmalloc it or have everyone read the user
-memory directly.
+Well the patch below, shows what I mean...
 
-Cheers,
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index cc3a0a0..7390af6 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1232,20 +1232,23 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ {
+ 	struct sock *sk;
+ 	struct udphdr *uh;
+ 	unsigned short ulen;
+ 	struct rtable *rt = (struct rtable*)skb->dst;
+-	__be32 saddr = ip_hdr(skb)->saddr;
+-	__be32 daddr = ip_hdr(skb)->daddr;
++	__be32 saddr;
++	__be32 daddr;
+ 	struct net *net = dev_net(skb->dev);
+ 
+ 	/*
+ 	 *  Validate the packet.
+ 	 */
+ 	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
+ 		goto drop;		/* No space for header. */
+ 
++	saddr = ip_hdr(skb)->saddr;
++	daddr = ip_hdr(skb)->daddr;
++
+ 	uh   = udp_hdr(skb);
+ 	ulen = ntohs(uh->len);
+ 	if (ulen > skb->len)
+ 		goto short_packet;
+ 
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
