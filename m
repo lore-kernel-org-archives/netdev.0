@@ -1,50 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net_dma: call dmaengine_get only if NET_DMA enabled
-Date: Fri, 06 Feb 2009 14:09:12 -0800 (PST)
-Message-ID: <20090206.140912.40800913.davem@davemloft.net>
-References: <1233936169-5243-1-git-send-email-anemo@mba.ocn.ne.jp>
-	<e9c3a7c20902061315n7184c55ck7fcaa2c519a035d4@mail.gmail.com>
+Subject: Re: [PATCH] netns: remove useless synchronize_net()
+Date: Fri, 06 Feb 2009 14:10:26 -0800 (PST)
+Message-ID: <20090206.141026.85510254.davem@davemloft.net>
+References: <498ABDA2.5040603@dev.6wind.com>
+	<20090205.234520.149982266.davem@davemloft.net>
+	<498C403D.9040500@dev.6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: anemo@mba.ocn.ne.jp, maciej.sosnowski@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dan.j.williams@intel.com
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@dev.6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33422
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33426
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754691AbZBFWJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 17:09:16 -0500
-In-Reply-To: <e9c3a7c20902061315n7184c55ck7fcaa2c519a035d4@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752280AbZBFWKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 17:10:30 -0500
+In-Reply-To: <498C403D.9040500@dev.6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dan.j.williams@intel.com>
-Date: Fri, 6 Feb 2009 14:15:02 -0700
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Date: Fri, 06 Feb 2009 14:50:53 +0100
 
-> [ please cc netdev on net_dma patches ]
-> 
-> On Fri, Feb 6, 2009 at 9:02 AM, Atsushi Nemoto <anemo@mba.ocn.ne.jp> wrote:
-> > The commit 649274d993212e7c23c0cb734572c2311c200872 ("net_dma:
-> > acquire/release dma channels on ifup/ifdown") added unconditional call
-> > of dmaengine_get() to net_dma.  The API should be called only if
-> > NET_DMA was enabled.
-> >
-> > Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-> 
-> Acked-by: Dan Williams <dan.j.williams@intel.com>
-> 
-> I was looking to avoid ifdefs in this path by making
-> dmaengine_{get,put} a nop in the DMAENGINE=n case.  However, the
-> current code with DMAENGINE=y NET_DMA=n will pin channels even though
-> the network stack is not using them.
+> If namespace is destroyed after this function, then cleanup_net()
+> will ensure that nobody is looking at it
 
-I don't want to apply this patch at all.
+Maybe, but you better get some opinions from the people who wrote
+and maintain the network namespace code before I can consider
+your change seriously.
 
-What is the purpose of keeping the ugly ifdefs in dmaengine.h if we're
-just going to pollute the networking code with the ifdefs anyways?
-
-Make the NOP versions in linux/dmaengine.h actually work.
-
-The NET_DMA stuff is the one thing which is polluting up the networking
-stack with ugly ifdefs, I'm not adding new ones.
+None of them responded to your patch posting, probably because
+you failed to CC: any of them.
