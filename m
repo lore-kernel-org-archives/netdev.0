@@ -1,49 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: splice as many packets as possible at once
-Date: Fri, 06 Feb 2009 01:17:22 -0800 (PST)
-Message-ID: <20090206.011722.41272682.davem@davemloft.net>
-References: <20090203094108.GA4639@ff.dom.local>
-	<20090205.235258.257422341.davem@davemloft.net>
-	<20090206091034.GA4879@ff.dom.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: copyless virtio net thoughts?
+Date: Fri, 6 Feb 2009 20:19:04 +1100
+Message-ID: <20090206091904.GA6645@gondor.apana.org.au>
+References: <20090205020732.GA27684@sequoia.sous-sol.org> <498ADD73.3060906@redhat.com> <20090206054054.GA4824@gondor.apana.org.au> <498BF8ED.8090208@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, zbr@ioremap.net, w@1wt.eu,
-	dada1@cosmosbay.com, ben@zeus.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jens.axboe@oracle.com
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47499
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752889AbZBFJR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 04:17:26 -0500
-In-Reply-To: <20090206091034.GA4879@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@sous-sol.org>, Arnd Bergmann <arnd@arndb.de>,
+	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <498BF8ED.8090208@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 6 Feb 2009 09:10:34 +0000
+On Fri, Feb 06, 2009 at 10:46:37AM +0200, Avi Kivity wrote:
+>
+> The guest's block layer is copyless.  The host block layer is -><- this  
+> far from being copyless -- all we need is preadv()/pwritev() or to  
+> replace our thread pool implementation in qemu with linux-aio.   
+> Everything else is copyless.
+>
+> Since we are actively working on this, expect this limitation to  
+> disappear soon.
 
-> Hmm... I don't get it. It seems these slabs do a lot of advanced work,
-> and still some people like Evgeniy or Nick thought it's not enough,
-> and even found it worth of their time to rework this.
+Great, when that happens I'll promise to revisit zero-copy transmit :)
 
-Note that, at least to some extent, the memory allocators are
-duplicating some of the locality and NUMA logic that's already present
-in the page allocator itself.
+> I support this, but it should be in addition to copylessness, not on its  
+> own.
 
-Except that they are handling the fact that objects are moving around
-instead of pages.
+I was talking about it in the context of zero-copy receive, where
+you mentioned that the virtio/kvm copy may not occur on the CPU of
+the guest's copy.
 
-Also keep in mind that we might also want to encourage drivers to make
-use of the SKB recycling mechanisms we have.  So this will decrease
-lifetimes, and thus the wastage and locality issues immensely.
+My point is that using multiqueue you can avoid this change of CPU.
 
-We truly want something different from what the general purpose
-allocator provides.  Namely, a reference countable buffer.
+But yeah I think zero-copy receive is much more useful than zero-
+copy transmit at the moment.  Although I'd prefer to wait for
+you guys to finish the block layer work before contemplating
+pushing the copy on receive into the guest :)
 
-And all I'm saying is that since the page allocator provides that
-facility, and using pages solves all of the splice() et al.  problems,
-building something extremely simple on top of the page allocator seems
-to be a good way to go.
+> - many guests will not support multiqueue
+
+Well, these guests will suck both on baremetal and in virtualisation,
+big deal :) Multiqueue at 10GbE speeds and above is simply not an
+optional feature.
+
+> - for some threaded workloads, you cannot predict where the final read()  
+> will come from; this renders multiqueue ineffective for keeping cache  
+> locality
+>
+> - usually you want virtio to transfer large amounts of data; but if you  
+> want your copies to be cache-hot, you need to limit transfers to half  
+> the cache size (a quarter if hyperthreading); this limits virtio  
+> effectiveness
+
+Agreed on both counts.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
