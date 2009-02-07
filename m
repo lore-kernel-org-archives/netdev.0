@@ -1,103 +1,109 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 16/26] igb: rename igb_update_mc_addr_list_82575 to
-	not include the 82575
-Date: Sat, 07 Feb 2009 01:20:10 -0800
-Message-ID: <20090207092010.15697.29840.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 17/26] igb: remove unnecessary adapter->hw calls when
+	just hw-> will do.
+Date: Sat, 07 Feb 2009 01:20:31 -0800
+Message-ID: <20090207092031.15697.88279.stgit@lost.foo-projects.org>
 References: <20090207091504.15697.26667.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:44136
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754219AbZBGJUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 04:20:31 -0500
+Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:55536
+	"EHLO QMTA06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755239AbZBGJUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 04:20:49 -0500
 In-Reply-To: <20090207091504.15697.26667.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-There isn't much point in having the _82575 hanging off the end of this
-function since there aren't any other version of this function running
-around within this driver.  This also allows for a bit of whitespace
-cleanup due to a shorter function name.
+There were several spots in the code making calls to adapter->hw when they
+could have just been accessing hw-> directly.  I cleaned up the spots where
+this was visibly apparent.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_82575.c |    8 ++++----
- drivers/net/igb/e1000_82575.h |    2 +-
- drivers/net/igb/igb_main.c    |    7 +++----
- 3 files changed, 8 insertions(+), 9 deletions(-)
+ drivers/net/igb/igb_main.c |   21 ++++++++++-----------
+ 1 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 527d4c8..68a9822 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -787,7 +787,7 @@ static void igb_init_rx_addrs_82575(struct e1000_hw *hw, u16 rar_count)
- }
- 
- /**
-- *  igb_update_mc_addr_list_82575 - Update Multicast addresses
-+ *  igb_update_mc_addr_list - Update Multicast addresses
-  *  @hw: pointer to the HW structure
-  *  @mc_addr_list: array of multicast addresses to program
-  *  @mc_addr_count: number of multicast addresses to program
-@@ -799,9 +799,9 @@ static void igb_init_rx_addrs_82575(struct e1000_hw *hw, u16 rar_count)
-  *  The parameter rar_count will usually be hw->mac.rar_entry_count
-  *  unless there are workarounds that change this.
-  **/
--void igb_update_mc_addr_list_82575(struct e1000_hw *hw,
--                                   u8 *mc_addr_list, u32 mc_addr_count,
--                                   u32 rar_used_count, u32 rar_count)
-+void igb_update_mc_addr_list(struct e1000_hw *hw,
-+                             u8 *mc_addr_list, u32 mc_addr_count,
-+                             u32 rar_used_count, u32 rar_count)
- {
- 	u32 hash_value;
- 	u32 i;
-diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
-index c1928b5..e0a376f 100644
---- a/drivers/net/igb/e1000_82575.h
-+++ b/drivers/net/igb/e1000_82575.h
-@@ -28,7 +28,7 @@
- #ifndef _E1000_82575_H_
- #define _E1000_82575_H_
- 
--void igb_update_mc_addr_list_82575(struct e1000_hw*, u8*, u32, u32, u32);
-+void igb_update_mc_addr_list(struct e1000_hw*, u8*, u32, u32, u32);
- extern void igb_shutdown_fiber_serdes_link_82575(struct e1000_hw *hw);
- extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
- 
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index cbb3858..2d169a4 100644
+index 2d169a4..e3f521c 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -2227,8 +2227,8 @@ static void igb_set_multi(struct net_device *netdev)
+@@ -1096,8 +1096,8 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	mmio_len = pci_resource_len(pdev, 0);
  
- 	if (!netdev->mc_count) {
- 		/* nothing to program, so clear mc list */
--		igb_update_mc_addr_list_82575(hw, NULL, 0, 1,
--					  mac->rar_entry_count);
-+		igb_update_mc_addr_list(hw, NULL, 0, 1,
-+					mac->rar_entry_count);
- 		return;
- 	}
+ 	err = -EIO;
+-	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
+-	if (!adapter->hw.hw_addr)
++	hw->hw_addr = ioremap(mmio_start, mmio_len);
++	if (!hw->hw_addr)
+ 		goto err_ioremap;
  
-@@ -2245,8 +2245,7 @@ static void igb_set_multi(struct net_device *netdev)
- 		memcpy(mta_list + (i*ETH_ALEN), mc_ptr->dmi_addr, ETH_ALEN);
- 		mc_ptr = mc_ptr->next;
- 	}
--	igb_update_mc_addr_list_82575(hw, mta_list, i, 1,
--	                              mac->rar_entry_count);
-+	igb_update_mc_addr_list(hw, mta_list, i, 1, mac->rar_entry_count);
- 	kfree(mta_list);
+ 	netdev->netdev_ops = &igb_netdev_ops;
+@@ -1357,9 +1357,7 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+-#ifdef CONFIG_IGB_DCA
+ 	struct e1000_hw *hw = &adapter->hw;
+-#endif
+ 	int err;
+ 
+ 	/* flush_scheduled work may reschedule our watchdog task, so
+@@ -1392,9 +1390,9 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ 
+ 	igb_free_queues(adapter);
+ 
+-	iounmap(adapter->hw.hw_addr);
+-	if (adapter->hw.flash_address)
+-		iounmap(adapter->hw.flash_address);
++	iounmap(hw->hw_addr);
++	if (hw->flash_address)
++		iounmap(hw->flash_address);
+ 	pci_release_selected_regions(pdev, pci_select_bars(pdev,
+ 	                             IORESOURCE_MEM));
+ 
+@@ -1784,7 +1782,7 @@ static void igb_setup_rctl(struct igb_adapter *adapter)
+ 	rctl &= ~(E1000_RCTL_LBM_TCVR | E1000_RCTL_LBM_MAC);
+ 
+ 	rctl |= E1000_RCTL_EN | E1000_RCTL_BAM | E1000_RCTL_RDMTS_HALF |
+-		(adapter->hw.mac.mc_filter_type << E1000_RCTL_MO_SHIFT);
++		(hw->mac.mc_filter_type << E1000_RCTL_MO_SHIFT);
+ 
+ 	/*
+ 	 * enable stripping of CRC. It's unlikely this will break BMC
+@@ -2176,15 +2174,16 @@ static void igb_clean_all_rx_rings(struct igb_adapter *adapter)
+ static int igb_set_mac(struct net_device *netdev, void *p)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
++	struct e1000_hw *hw = &adapter->hw;
+ 	struct sockaddr *addr = p;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+-	memcpy(adapter->hw.mac.addr, addr->sa_data, netdev->addr_len);
++	memcpy(hw->mac.addr, addr->sa_data, netdev->addr_len);
+ 
+-	adapter->hw.mac.ops.rar_set(&adapter->hw, adapter->hw.mac.addr, 0);
++	hw->mac.ops.rar_set(hw, hw->mac.addr, 0);
+ 
+ 	return 0;
  }
+@@ -4140,7 +4139,7 @@ static void igb_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 vfta, index;
  
+-	if ((adapter->hw.mng_cookie.status &
++	if ((hw->mng_cookie.status &
+ 	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN) &&
+ 	    (vid == adapter->mng_vlan_id))
+ 		return;
 
