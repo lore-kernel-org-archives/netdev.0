@@ -1,37 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 01/26] igb: optomize/refactor receive path
-Date: Sat, 07 Feb 2009 02:46:19 -0800 (PST)
-Message-ID: <20090207.024619.235083759.davem@davemloft.net>
-References: <20090207091504.15697.26667.stgit@lost.foo-projects.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: copyless virtio net thoughts?
+Date: Sat, 7 Feb 2009 12:56:06 +0100
+Message-ID: <200902071256.07513.arnd@arndb.de>
+References: <20090205020732.GA27684@sequoia.sous-sol.org> <20090206091904.GA6645@gondor.apana.org.au> <498C4F6C.4070402@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42677
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752484AbZBGKqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 05:46:23 -0500
-In-Reply-To: <20090207091504.15697.26667.stgit@lost.foo-projects.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:57137 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250AbZBGL5W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 06:57:22 -0500
+In-Reply-To: <498C4F6C.4070402@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 07 Feb 2009 01:15:04 -0800
+On Friday 06 February 2009, Avi Kivity wrote:
+> > Well, these guests will suck both on baremetal and in virtualisatio=
+n,
+> > big deal :) Multiqueue at 10GbE speeds and above is simply not an
+> > optional feature.
+> > =A0=20
+>=20
+> Each guest may only use a part of the 10Gb/s bandwidth, if you have 1=
+0=20
+> guests each using 1Gb/s, then we should be able to support this witho=
+ut=20
+> multiqueue in the guests.
 
-> While cleaning up the skb_over panic with small frames I found there was
-> room for improvement in the ordering of operations within the rx receive
-> flow.  These changes will place the prefetch for the next descriptor to a
-> point earlier in the rx path.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I would expect that there are people that even people with 10 simultane=
+ous
+guests would like to be able to saturate the link when only one or two =
+of
+them are doing much traffic on the interface.
 
-"Optomize"?  Is that something like labotomize? :-)
+Having the load spread evenly over all guests sounds like a much rarer
+use case.
 
-Anyways, I fixed up that typo and applied all 26 patches
-to net-next-2.6
-
-Thanks!
+	Arnd <><
