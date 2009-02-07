@@ -1,62 +1,40 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 19/26] igb: move get_hw_control within igb_resume.
-Date: Sat, 07 Feb 2009 01:21:10 -0800
-Message-ID: <20090207092110.15697.6428.stgit@lost.foo-projects.org>
-References: <20090207091504.15697.26667.stgit@lost.foo-projects.org>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: What should PCI core do during suspend-resume? (was: Re:
+	2.6.29-rc3: tg3 dead after resume)
+Date: Sat, 7 Feb 2009 10:21:31 +0100
+Message-ID: <20090207092131.GG1411@ucw.cz>
+References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <alpine.LFD.2.00.0901301714080.3150@localhost.localdomain> <200901312208.20850.rjw@sisk.pl> <200901312242.17273.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Parag Warudkar <parag.lkml@gmail.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:44136
-	"EHLO QMTA05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755987AbZBGJVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 04:21:30 -0500
-In-Reply-To: <20090207091504.15697.26667.stgit@lost.foo-projects.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:43837 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751978AbZBGJVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 04:21:48 -0500
+Content-Disposition: inline
+In-Reply-To: <200901312242.17273.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Hi!
 
-Move igb_get_hw_control up so that it is called just after the reset in
-igb_resume.  This notifies the HW sooner that the driver is reassuming
-control of the device.
+> What about devices with no drivers and/or without suspend/resume support?
+> Do you want them to be disabled during suspend and enabled during resume by
+> the core?  [I guess you do, they have no interrupt handlers that may break
+> after all.]
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Device with driver but with no suspend/resume support can still use
+interrupts. But I don't think there's much we can do in that
+case... except perhaps failing the suspend.
 
- drivers/net/igb/igb_main.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 56c1455..accab3f 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -4341,6 +4341,11 @@ static int igb_resume(struct pci_dev *pdev)
- 	/* e1000_power_up_phy(adapter); */
- 
- 	igb_reset(adapter);
-+
-+	/* let the f/w know that the h/w is now under the control of the
-+	 * driver. */
-+	igb_get_hw_control(adapter);
-+
- 	wr32(E1000_WUS, ~0);
- 
- 	if (netif_running(netdev)) {
-@@ -4351,10 +4356,6 @@ static int igb_resume(struct pci_dev *pdev)
- 
- 	netif_device_attach(netdev);
- 
--	/* let the f/w know that the h/w is now under the control of the
--	 * driver. */
--	igb_get_hw_control(adapter);
--
- 	return 0;
- }
- #endif
-
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
