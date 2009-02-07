@@ -1,51 +1,34 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Sat, 07 Feb 2009 14:27:26 +1100
-Message-ID: <1233977246.31963.64.camel@pasglop>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
-	 <200901312346.35265.rjw@sisk.pl>
-	 <alpine.LFD.2.00.0901311450550.2978@localhost.localdomain>
-	 <200902010111.08433.rjw@sisk.pl>
-	 <alpine.LFD.2.00.0901311623520.3067@localhost.localdomain>
-	 <alpine.LFD.2.00.0901311639530.3067@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net_dma: call dmaengine_get only if NET_DMA enabled
+Date: Fri, 06 Feb 2009 19:29:10 -0800 (PST)
+Message-ID: <20090206.192910.42610645.davem@davemloft.net>
+References: <e9c3a7c20902061315n7184c55ck7fcaa2c519a035d4@mail.gmail.com>
+	<20090206.140912.40800913.davem@davemloft.net>
+	<e9c3a7c20902061452r40a97fa2p1fccfa78e3905458@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Parag Warudkar <parag.lkml@gmail.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: anemo@mba.ocn.ne.jp, maciej.sosnowski@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dan.j.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:54798 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751661AbZBGD1l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2009 22:27:41 -0500
-In-Reply-To: <alpine.LFD.2.00.0901311639530.3067@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52089
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751661AbZBGD3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 22:29:14 -0500
+In-Reply-To: <e9c3a7c20902061452r40a97fa2p1fccfa78e3905458@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-01-31 at 16:51 -0800, Linus Torvalds wrote:
-> 
-> On Sat, 31 Jan 2009, Linus Torvalds wrote:
-> > 
-> > For a USB host controller, for example, it really could make sense to do 
-> > that - just leave all the core host controller stuff running, and the only 
-> > thing the "suspend()" callback does is to send the commands to the actual 
-> > devices, it doesn't necessarily touch the host controller itself at all.
-> 
-> Same is quite likely true of things like video graphics adapters. Again, 
-> for all the same reasons. Think about all those fbcon drivers. They will 
-> use DMA for things. And again, there are very compelling debugging reasons 
-> to not suspend them for real until suspend_late (if even then).
+From: Dan Williams <dan.j.williams@intel.com>
+Date: Fri, 6 Feb 2009 15:52:35 -0700
 
-Actually, there are things like service processors etc... that only know
-to communicate via DMA and little else via a little mailbox in some
-reserved area of system memory...
+> Yes, it has been on the todo list for a while, but I eventually want
+> the net case to look more like the raid case.  I.e. have one code path
+> that picks async versus sync at runtime, with the option to compile
+> out async support with header file ifdefs only.
 
-Ben.
+And how does any of that get us any closer to a fix right now
+for this problem that doesn't require an ifdef?
 
-
+Someone please work on this.
