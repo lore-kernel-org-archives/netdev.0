@@ -1,35 +1,43 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] iproute2 : fix to catchup with xtables/iptables >=
- 1.4.2
-Date: Sat, 7 Feb 2009 15:43:21 +0100 (CET)
-Message-ID: <alpine.LSU.2.00.0902071543010.4534@fbirervta.pbzchgretzou.qr>
-References: <1234015013.4441.4.camel@dogo.mojatatu.com>
+From: Webmail Help Desk <webmail_s@rocketmail.com>
+Subject: Confirm Your
+Date: Sat, 07 Feb 2009 10:22:38 -0500
+Message-ID: <web-22855858@backend1.cwpanama.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	Andreas Henriksson <andreas@fatal.se>,
-	Yevgeny Kosarzhevsky <yevg@pisem.net>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	Patrick McHardy <kaber@trash.net>
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:40595 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751986AbZBGOnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 09:43:24 -0500
-In-Reply-To: <1234015013.4441.4.camel@dogo.mojatatu.com>
+Received: from backend1.cwpanama.net ([201.225.225.170]:49641 "EHLO
+	cwpanama.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752199AbZBGPYE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Feb 2009 10:24:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Saturday 2009-02-07 14:56, jamal wrote:
->
->Against this morning's git tree (small compile fix in some
->environments).
-
-What about the proposed symbol rename in libxtables,
-would not it invalidate the patch?
-
->Please apply this one instead of previous one i posted last week.
->This is needed for users of tc ipt using iptables >= 1.4.2 such
->as current debian releases.
+Dear Webmail User,
+This message was sent automatically by a program on 
+Webmail which periodically checks the size of inboxes, 
+where new messages are received. The program is run weekly 
+to ensure no one's inbox grows too large. If your inbox 
+becomes too large, you will be unable to receive new 
+email. Just before this message was sent, you had 18 
+Megabytes (MB) or more of messages stored in your inbox on 
+your Webmail. To help us re-set your SPACE on our database 
+prior to maintain your INBOX, you must reply to this 
+e-mail and enter your:
+Current User name: { }
+and Password: { }
+You will continue to receive this warning message 
+periodically if your inbox size continues to be between 18 
+and 20 MB. If your inbox size grows to 20 MB, then a 
+program on Bates Webmail will move your oldest email to a 
+folder in your home directory to ensure that you will 
+continue to be able to receive incoming email. You will be 
+notified by email that this has taken place. If your inbox 
+grows to 25 MB, you will be unable to receive new email as 
+it will be returned to the sender.
+After you read a message, it is best to REPLY and SAVE a 
+copy.
+Thank you for your cooperation.
+Webmail Help Desk.
