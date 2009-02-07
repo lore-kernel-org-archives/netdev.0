@@ -1,78 +1,61 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: fix msi-x interrupt handling
-Date: Sat,  7 Feb 2009 09:23:30 -0800
-Message-ID: <1234027410-658-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Alex Williamson <alex.williamson@hp.com>
+Subject: [PATCH] tun: Fix unicast filter overflow
+Date: Sat, 07 Feb 2009 10:45:13 -0700
+Message-ID: <20090207174404.16716.20574.stgit@kvm.aw>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	alex.williamson@hp.com
+To: maxk@qualcomm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:43019 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756377AbZBGRXe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Feb 2009 12:23:34 -0500
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:6866 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752948AbZBGRrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 12:47:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Cut down msi-x vectors from 8 to 1 since only one is used for now.
-o Use separate handler for msi-x, that doesn't unnecessarily scrub
-  msi status register.
+Tap devices can make use of a small MAC filter set via the
+TUNSETTXFILTER ioctl.  The filter has a set of exact matches
+plus a hash for imperfect filtering of additional multicast
+addresses.  The current code is unbalanced, adding unicast
+addresses to the multicast hash, but only checking the hash
+against multicast addresses.  This results in the filter
+dropping unicast addresses that overflow the exact filter.
+The fix is simply to disable the filter by leaving count set
+to zero if we find non-multicast addresses after the exact
+match table is filled.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 ---
- drivers/net/netxen/netxen_nic.h      |    2 +-
- drivers/net/netxen/netxen_nic_main.c |   13 ++++++++++++-
- 2 files changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 9c78c96..f4dd9ac 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -1203,7 +1203,7 @@ typedef struct {
- #define NETXEN_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (NETXEN_NIC_MSI_ENABLED | NETXEN_NIC_MSIX_ENABLED))
+Proposed for 2.6.29 and stable.
+
+ drivers/net/tun.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index d7b81e4..09fea31 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -157,10 +157,16 @@ static int update_filter(struct tap_filter *filter, void __user *arg)
  
--#define MSIX_ENTRIES_PER_ADAPTER	8
-+#define MSIX_ENTRIES_PER_ADAPTER	1
- #define NETXEN_MSIX_TBL_SPACE		8192
- #define NETXEN_PCI_REG_MSIX_TBL		0x44
+ 	nexact = n;
  
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 645d384..3b17a79 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -76,6 +76,7 @@ static void netxen_nic_poll_controller(struct net_device *netdev);
- #endif
- static irqreturn_t netxen_intr(int irq, void *data);
- static irqreturn_t netxen_msi_intr(int irq, void *data);
-+static irqreturn_t netxen_msix_intr(int irq, void *data);
+-	/* The rest is hashed */
++	/* Remaining multicast addresses are hashed,
++	 * unicast will leave the filter disabled. */
+ 	memset(filter->mask, 0, sizeof(filter->mask));
+-	for (; n < uf.count; n++)
++	for (; n < uf.count; n++) {
++		if (!is_multicast_ether_addr(addr[n].u)) {
++			err = 0; /* no filter */
++			goto done;
++		}
+ 		addr_hash_set(filter->mask, addr[n].u);
++	}
  
- /*  PCI Device ID Table  */
- #define ENTRY(device) \
-@@ -1084,7 +1085,9 @@ static int netxen_nic_open(struct net_device *netdev)
- 			for (ring = 0; ring < adapter->max_rds_rings; ring++)
- 				netxen_post_rx_buffers(adapter, ctx, ring);
- 		}
--		if (NETXEN_IS_MSI_FAMILY(adapter))
-+		if (adapter->flags & NETXEN_NIC_MSIX_ENABLED)
-+			handler = netxen_msix_intr;
-+		else if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
- 			handler = netxen_msi_intr;
- 		else {
- 			flags |= IRQF_SHARED;
-@@ -1612,6 +1615,14 @@ static irqreturn_t netxen_msi_intr(int irq, void *data)
- 	return IRQ_HANDLED;
- }
- 
-+static irqreturn_t netxen_msix_intr(int irq, void *data)
-+{
-+	struct netxen_adapter *adapter = data;
-+
-+	napi_schedule(&adapter->napi);
-+	return IRQ_HANDLED;
-+}
-+
- static int netxen_nic_poll(struct napi_struct *napi, int budget)
- {
- 	struct netxen_adapter *adapter = container_of(napi, struct netxen_adapter, napi);
--- 
-1.6.0.2
+ 	/* For ALLMULTI just set the mask to all ones.
+ 	 * This overrides the mask populated above. */
 
