@@ -1,66 +1,78 @@
-From: Trond Myklebust <Trond.Myklebust@netapp.com>
-Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
-Date: Sat, 07 Feb 2009 12:22:01 -0500
-Message-ID: <1234027321.17241.25.camel@heimdal.trondhjem.org>
-References: <20090206.140714.201930500.davem@davemloft.net>
-	 <CAF18546-B024-40C9-8276-8FCD89C98E72@oracle.com>
-	 <Pine.LNX.4.64.0902070040530.31875@wrl-59.cs.helsinki.fi>
-	 <20090206.192243.47948705.davem@davemloft.net>
-	 <1234023804.17241.14.camel@heimdal.trondhjem.org>
-	 <Pine.LNX.4.64.0902071831210.2805@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	chuck.lever@oracle.com, bfields@fieldses.org, trond@netapp.com,
-	linux-nfs@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH] netxen: fix msi-x interrupt handling
+Date: Sat,  7 Feb 2009 09:23:30 -0800
+Message-ID: <1234027410-658-1-git-send-email-dhananjay@netxen.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.netapp.com ([216.240.18.37]:49948 "EHLO mx2.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752979AbZBGRWE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 12:22:04 -0500
-In-Reply-To: <Pine.LNX.4.64.0902071831210.2805@wrl-59.cs.helsinki.fi>
+Received: from nxgate.netxen.com ([38.99.60.130]:43019 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756377AbZBGRXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Feb 2009 12:23:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-02-07 at 18:56 +0200, Ilpo J=C3=A4rvinen wrote:
-> Can you please tell if you're still under impression that there wasn'=
-t
-> any changelog? What about those other guys who raised their concerns?
-> (I can certainly understand why this impression might develop but it'=
-s a=20
-> problem in the canonial patch format, not in my actual changelog, I e=
-ven=20
-> need to circumvent ^--- by adding a space the to prevent tools for ma=
-king=20
-> a mistake). It will make a lot more sense after getting applied.
-> ...Because there certainly was a changelog, and I didn't have any=20
-> diffstat output there in the changelog?!? The output that *is* in the=
-=20
-> changelog is supposed to *help* the reviewer to see what will be stil=
-l=20
-> necessary to keep in the separate functions, but I guess people misse=
-d=20
-> that because the changelog looks too similar to what you will categor=
-ize=20
-> as patch (diff-funcs uses output which is familiar to all who who dea=
-l=20
-> with patches, and that's for purpose!).
+o Cut down msi-x vectors from 8 to 1 since only one is used for now.
+o Use separate handler for msi-x, that doesn't unnecessarily scrub
+  msi status register.
 
-If Chuck and Bruce are happy with it, then there is no problem, however
-I have yet to see an acked-by from either one of them. My point is that
-the process for accepting patches into the kernel involves ensuring tha=
-t
-there is consensus. It does not allow for one group to ride roughshod
-over the objections of another.
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic.h      |    2 +-
+ drivers/net/netxen/netxen_nic_main.c |   13 ++++++++++++-
+ 2 files changed, 13 insertions(+), 2 deletions(-)
 
-   Trond
---=20
-Trond Myklebust
-Linux NFS client maintainer
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index 9c78c96..f4dd9ac 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -1203,7 +1203,7 @@ typedef struct {
+ #define NETXEN_IS_MSI_FAMILY(adapter) \
+ 	((adapter)->flags & (NETXEN_NIC_MSI_ENABLED | NETXEN_NIC_MSIX_ENABLED))
+ 
+-#define MSIX_ENTRIES_PER_ADAPTER	8
++#define MSIX_ENTRIES_PER_ADAPTER	1
+ #define NETXEN_MSIX_TBL_SPACE		8192
+ #define NETXEN_PCI_REG_MSIX_TBL		0x44
+ 
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 645d384..3b17a79 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -76,6 +76,7 @@ static void netxen_nic_poll_controller(struct net_device *netdev);
+ #endif
+ static irqreturn_t netxen_intr(int irq, void *data);
+ static irqreturn_t netxen_msi_intr(int irq, void *data);
++static irqreturn_t netxen_msix_intr(int irq, void *data);
+ 
+ /*  PCI Device ID Table  */
+ #define ENTRY(device) \
+@@ -1084,7 +1085,9 @@ static int netxen_nic_open(struct net_device *netdev)
+ 			for (ring = 0; ring < adapter->max_rds_rings; ring++)
+ 				netxen_post_rx_buffers(adapter, ctx, ring);
+ 		}
+-		if (NETXEN_IS_MSI_FAMILY(adapter))
++		if (adapter->flags & NETXEN_NIC_MSIX_ENABLED)
++			handler = netxen_msix_intr;
++		else if (adapter->flags & NETXEN_NIC_MSI_ENABLED)
+ 			handler = netxen_msi_intr;
+ 		else {
+ 			flags |= IRQF_SHARED;
+@@ -1612,6 +1615,14 @@ static irqreturn_t netxen_msi_intr(int irq, void *data)
+ 	return IRQ_HANDLED;
+ }
+ 
++static irqreturn_t netxen_msix_intr(int irq, void *data)
++{
++	struct netxen_adapter *adapter = data;
++
++	napi_schedule(&adapter->napi);
++	return IRQ_HANDLED;
++}
++
+ static int netxen_nic_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct netxen_adapter *adapter = container_of(napi, struct netxen_adapter, napi);
+-- 
+1.6.0.2
 
-NetApp
-Trond.Myklebust@netapp.com
-www.netapp.com
