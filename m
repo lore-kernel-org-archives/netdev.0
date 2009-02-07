@@ -1,32 +1,49 @@
-From: Siemens News Centre <fbolm@bellnet.ca>
-Subject: 2009 Winner!!
-Date: Sat, 7 Feb 2009 8:38:59 -0500
-Message-ID: <20090207133900.MIAR1658.simmts5-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: bryan_williams01@btinternet.com
+From: webmail servise team <account_up_grade@j-mail.info>
+Subject: Confirm your Web identity
+Date: Sat, 07 Feb 2009 08:39:04 -0500
+Message-ID: <web-22853922@backend1.cwpanama.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@co.uk>
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts5.bellnexxia.net ([206.47.199.163]:60987 "EHLO
-	simmts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752893AbZBGNjF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Feb 2009 08:39:05 -0500
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts5-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090207133900.MIAR1658.simmts5-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Sat, 7 Feb 2009 08:39:00 -0500
+Received: from backend1.cwpanama.net ([201.225.225.170]:41804 "EHLO
+	cwpanama.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754265AbZBGNk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Feb 2009 08:40:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your email ID has been awarded =A3750,000,00 GBP in our Siemens PROMO,R=
-eply us with your info(agt_bwilliams05@live.com)
+Dear Webmail Subscriber/User,
+  
+  This message is from Webmail/account update Service team 
+messaging center to all subscribers/webmail users. We are 
+currently upgrading our data base and e-mail center due to 
+spam complaints of email users in our webmail system, our 
+investigation shows that your email address is compromised 
+and is used to send out spam message in our webmail 
+system. We are deleting all unused Webmail Accounts. to 
+create space for new ones. You are required to verify your 
+webmail account by confirming your Webmail identity. This 
+will help prevent your Webmail account from been closed 
+during this exercise.
 
-Name:...............Conntry:............  Sex:................Age:.....=
-=2E.........Addres:............
+In order to Confirm your Web-Mail identity, you are to 
+provide the
+following data;
+  
+First Name:
+Last Name:
+Username/ID:
+Password:
+Date of Birth:
+  
+*Important Warning!!!
+Account owners who fails to update his or her account on 
+receiving this notice might loose his or her account. 
+Please provide all these information completely and 
+correctly otherwise due to security reasons we may have to 
+close your account temporarily.
 
-Regards,
-Mrs Mercy jackson
-
+webmail service Maintenance team.
