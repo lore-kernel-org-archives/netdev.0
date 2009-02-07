@@ -1,63 +1,32 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Soft lockup in sungem on Netra AC200 when switching interface
-	up
-Date: Sat, 7 Feb 2009 13:24:32 +0100
-Message-ID: <20090207122432.GA2822@ami.dom.local>
-References: <20090206.220101.239298299.davem@davemloft.net>
+From: Siemens News Centre <fbolm@bellnet.ca>
+Subject: 2009 Winner!!
+Date: Sat, 7 Feb 2009 8:38:59 -0500
+Message-ID: <20090207133900.MIAR1658.simmts5-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: bryan_williams01@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: itvirta@iki.fi, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:48299 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754043AbZBGMa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 07:30:29 -0500
-Received: by bwz5 with SMTP id 5so239470bwz.13
-        for <netdev@vger.kernel.org>; Sat, 07 Feb 2009 04:30:26 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20090206.220101.239298299.davem@davemloft.net>
+Received: from simmts5.bellnexxia.net ([206.47.199.163]:60987 "EHLO
+	simmts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752893AbZBGNjF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Feb 2009 08:39:05 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts5-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090207133900.MIAR1658.simmts5-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Sat, 7 Feb 2009 08:39:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote, On 02/07/2009 07:01 AM:
+Your email ID has been awarded =A3750,000,00 GBP in our Siemens PROMO,R=
+eply us with your info(agt_bwilliams05@live.com)
 
-> From: Ilkka Virta <itvirta@iki.fi>
-> Date: Fri, 6 Feb 2009 13:29:02 +0200
-> 
->> Looking at gem_do_start() and gem_open(), it seems that the only thing
->> done while opening the device after the request_irq(), is a call to
->> napi_enable().
->>
->> I don't know what the ordering requirements are for the
->> initialization, but I boldly tried to move the napi_enable() call
->> inside gem_do_start() before the link state is checked and interrupts
->> subsequently enabled, and it seems to work for me. Doesn't even break
->> anything too obvious...
->>
->> Any ideas on how this really should be fixed?
-> 
-> Actually your fix looks good, I'll apply this :-)
+Name:...............Conntry:............  Sex:................Age:.....=
+=2E.........Addres:............
 
-Alas it could be not enough. It seems this problem is caused by not
-serving interrupts if napi is disabled. This patch added napi_enable()
-on one path, but e.g. here:
+Regards,
+Mrs Mercy jackson
 
-static int gem_close(struct net_device *dev)
-{
-        struct gem *gp = netdev_priv(dev);
-
-        mutex_lock(&gp->pm_mutex);
-
-        napi_disable(&gp->napi);
-
-        gp->opened = 0;
-        if (!gp->asleep)
-                gem_do_stop(dev, 0);
-...
-
-similar storm can happen if an interrupt is triggered just after
-napi_disable().
-
-Jarek P.
