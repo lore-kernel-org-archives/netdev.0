@@ -1,68 +1,32 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH] iproute2 :  ipt - free local opts
-Date: Sat, 07 Feb 2009 08:59:53 -0500
-Message-ID: <1234015193.4441.8.camel@dogo.mojatatu.com>
-Reply-To: hadi@cyberus.ca
+From: Siemens News Centre <fbolm@bellnet.ca>
+Subject: **Lucky Winner**
+Date: Sat, 7 Feb 2009 9:40:19 -0500
+Message-ID: <20090207144021.OFHF1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: siemens5@btinternet.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-gOi8gt2tzQ9zGRlhLFWm"
-Cc: netdev@vger.kernel.org, Denys Fedoryschenko <denys@visp.net.lb>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f21.google.com ([209.85.219.21]:58130 "EHLO
-	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752089AbZBGOBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 09:01:44 -0500
-Received: by ewy14 with SMTP id 14so1825855ewy.13
-        for <netdev@vger.kernel.org>; Sat, 07 Feb 2009 06:01:42 -0800 (PST)
+Received: from simmts8-srv.bellnexxia.net ([206.47.199.166]:36316 "EHLO
+	simmts8-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752023AbZBGOkX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Feb 2009 09:40:23 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts8-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090207144021.OFHF1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Sat, 7 Feb 2009 09:40:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Your email ID has been awarded =A3750,000,00 GBP in the Siemens PROMO,R=
+eply us with your info: (agt_bwilliams02@live.com)
 
---=-gOi8gt2tzQ9zGRlhLFWm
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-
->From Denys Fedoryschenko <denys@visp.net.lb>
-This was left out in the last release. It is a bug fix for when
-batch files are used.
-
-cheers,
-jamal
-
---=-gOi8gt2tzQ9zGRlhLFWm
-Content-Disposition: attachment; filename=fixmipt-feb7
-Content-Type: text/plain; name=fixmipt-feb7; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-commit eb3c0ea70d7fd47c8a132f2e7a7dfce734c2394b
-Author: Denys Fedoryschenko <denys@visp.net.lb>
-Date:   Sat Feb 7 08:49:32 2009 -0500
-
-    This change was forgotten by Stephen in the last release
-    
-    Signed-off-by: Denys Fedoryschenko <denys@visp.net.lb>
-    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-diff --git a/tc/m_ipt.c b/tc/m_ipt.c
-index f5b7b3c..5b98428 100644
---- a/tc/m_ipt.c
-+++ b/tc/m_ipt.c
-@@ -162,10 +162,10 @@ int string_to_number(const char *s, unsigned int min, unsigned int max,
- 	return result;
- }
- 
--static void free_opts(struct option *opts)
-+static void free_opts(struct option *local_opts)
- {
--	if (opts != original_opts) {
--		free(opts);
-+	if (local_opts != original_opts) {
-+		free(local_opts);
- 		opts = original_opts;
- 		global_option_offset = 0;
- 	}
-
-
---=-gOi8gt2tzQ9zGRlhLFWm--
+Name:....................
+Conntry:.................  =20
+Sex:.....................
+Age: .....................  =20
+Addres:...................
 
