@@ -1,12 +1,13 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Sat, 07 Feb 2009 14:26:06 +1100
-Message-ID: <1233977166.31963.63.camel@pasglop>
+Date: Sat, 07 Feb 2009 14:27:26 +1100
+Message-ID: <1233977246.31963.64.camel@pasglop>
 References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop>
-	 <200901312208.20850.rjw@sisk.pl>
-	 <alpine.LFD.2.00.0901311318570.4064@localhost.localdomain>
 	 <200901312346.35265.rjw@sisk.pl>
 	 <alpine.LFD.2.00.0901311450550.2978@localhost.localdomain>
+	 <200902010111.08433.rjw@sisk.pl>
+	 <alpine.LFD.2.00.0901311623520.3067@localhost.localdomain>
+	 <alpine.LFD.2.00.0901311639530.3067@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -19,42 +20,31 @@ Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Andrew Morton <akpm@linux-foundation.org>
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:54779 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:54798 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751661AbZBGD0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2009 22:26:53 -0500
-In-Reply-To: <alpine.LFD.2.00.0901311450550.2978@localhost.localdomain>
+	id S1751661AbZBGD1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2009 22:27:41 -0500
+In-Reply-To: <alpine.LFD.2.00.0901311639530.3067@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
+On Sat, 2009-01-31 at 16:51 -0800, Linus Torvalds wrote:
 > 
-> Here's a big hint: YOU DO NOT KNOW. YOU MUST NOT TURN OFF THE BRIDGE AT 
-> SUSPEND TIME!
+> On Sat, 31 Jan 2009, Linus Torvalds wrote:
+> > 
+> > For a USB host controller, for example, it really could make sense to do 
+> > that - just leave all the core host controller stuff running, and the only 
+> > thing the "suspend()" callback does is to send the commands to the actual 
+> > devices, it doesn't necessarily touch the host controller itself at all.
+> 
+> Same is quite likely true of things like video graphics adapters. Again, 
+> for all the same reasons. Think about all those fbcon drivers. They will 
+> use DMA for things. And again, there are very compelling debugging reasons 
+> to not suspend them for real until suspend_late (if even then).
 
-A quick catch up on old emails ....
-
-A good reason not to turn bridges off is that behind bridges, you'll
-find more than your "normal" PCI devices. You'll find system devices,
-things like your motherboard GPIO & clock control, i2c controllers,
-service processors, your PIC, etc... 
-
-And your BIOS will need them. Your ACPI stuff will indirectly access
-these things, for example to get the machine into actual suspend state
-etc...
-
-Disabling bridges is bad :-)
-
-If they have to be disabled for power management purposes, then it's
-likely that ACPI/BIOS itself will do it at the very last minute when
-going into S3, and bring them back itself on the way back.
-
-For embedded platforms who want to override that, they can always stick
-a driver there or do it manually from a sysdev or platform code.
-
-IE. I very very much doubt windows does anything to bridges, appart
--maybe- saving/restoring the standard window settings -just-in-case-
-they got wiped out and the BIOS didn't restore them.
+Actually, there are things like service processors etc... that only know
+to communicate via DMA and little else via a little mailbox in some
+reserved area of system memory...
 
 Ben.
 
