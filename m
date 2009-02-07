@@ -1,50 +1,36 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.29-rc3: tg3 dead after resume
-Date: Fri, 6 Feb 2009 19:00:07 -0800 (PST)
-Message-ID: <alpine.LFD.2.00.0902061858120.3048@localhost.localdomain>
-References: <alpine.DEB.2.00.0901281858380.5048@parag-desktop> <200902032315.27113.rjw@sisk.pl> <alpine.DEB.2.00.0902031937070.7758@parag-laptop> <200902040141.15920.rjw@sisk.pl>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
+Date: Fri, 06 Feb 2009 19:22:43 -0800 (PST)
+Message-ID: <20090206.192243.47948705.davem@davemloft.net>
+References: <20090206.140714.201930500.davem@davemloft.net>
+	<CAF18546-B024-40C9-8276-8FCD89C98E72@oracle.com>
+	<Pine.LNX.4.64.0902070040530.31875@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Parag Warudkar <parag.lkml@gmail.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40809 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752943AbZBGDAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2009 22:00:43 -0500
-In-Reply-To: <200902040141.15920.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, trond-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.64.0902070040530.31875-x/A8LOkYjdVsRR2hCrRKtT03IgOmwywn@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>
+Date: Sat, 7 Feb 2009 00:58:44 +0200 (EET)
 
+> I think your "English" is too strict requirement.
 
-On Wed, 4 Feb 2009, Rafael J. Wysocki wrote:
+I absolutely and whole-heartedly agree.  This set of
+requirements is beyond rediculious and will do nothing
+but deter people from contributing.
 
-> On Wednesday 04 February 2009, Parag Warudkar wrote:
-> > 
-> > On Tue, 3 Feb 2009, Rafael J. Wysocki wrote:
-> > 
-> > > 
-> > > Can you also test this one instead and tell me if it still works?
-> > 
-> > Removing Linus' patch and applying the below one works as well.
-> 
-> Great, thanks for testing.
-> 
-> I'm going to push this one to Jesse.
+So unless that's what the goal is...
 
-Jesse, should I take this directly (and presumably the related series by 
-Rafael)?
-
-I was going to release -rc4 this weekend (it's already more than a week - 
-I'm bad), and I'd hate for pci-e bridges to not resume correctly. So I'd 
-either like a pull request from you with the pending suspend fixes, or 
-I'll just apply the patch(es) directly.
-
-		Linus
+Anyways, I'll be applying Ilpo's great changes to the
+net-next-2.6 GIT tree, without putting him through the
+ringer like this.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
