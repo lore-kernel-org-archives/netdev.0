@@ -1,45 +1,44 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH] net_dma: call dmaengine_get only if NET_DMA enabled
-Date: Fri, 06 Feb 2009 23:03:11 -0700
-Message-ID: <498D241F.4080005@intel.com>
-References: <20090206.140912.40800913.davem@davemloft.net>	<e9c3a7c20902061452r40a97fa2p1fccfa78e3905458@mail.gmail.com>	<20090206.192910.42610645.davem@davemloft.net> <20090206.215533.166740686.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 3c509 resume from hibernation broken somewhere between 2.6.25
+ and 2.6.28
+Date: Fri, 06 Feb 2009 22:04:26 -0800 (PST)
+Message-ID: <20090206.220426.21894163.davem@davemloft.net>
+References: <200902061422.14746.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "anemo@mba.ocn.ne.jp" <anemo@mba.ocn.ne.jp>,
-	"Sosnowski, Maciej" <maciej.sosnowski@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754559AbZBGGD0@vger.kernel.org>
-In-Reply-To: <20090206.215533.166740686.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux@rainbow-software.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35947
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750869AbZBGGE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 01:04:29 -0500
+In-Reply-To: <200902061422.14746.linux@rainbow-software.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 06 Feb 2009 19:29:10 -0800 (PST)
+From: Ondrej Zary <linux@rainbow-software.org>
+Date: Fri, 6 Feb 2009 14:22:13 +0100
+
+> Hello,
+> last year, I posted a patch which fixed hibernation on 3c509 cards. That was 
+> back in 2.6.24. It worked fine in 2.6.25. But then I stopped using 
+> hibernation (as it did not work with my new IT8212 RAID controller).
 > 
->> From: Dan Williams <dan.j.williams@intel.com>
->> Date: Fri, 6 Feb 2009 15:52:35 -0700
->>
->>> Yes, it has been on the todo list for a while, but I eventually want
->>> the net case to look more like the raid case.  I.e. have one code path
->>> that picks async versus sync at runtime, with the option to compile
->>> out async support with header file ifdefs only.
->> And how does any of that get us any closer to a fix right now
->> for this problem that doesn't require an ifdef?
->>
->> Someone please work on this.
+> Now I fixed it and noticed that 3c509 does not wake up properly anymore (in 
+> 2.6.28) - neither in PnP nor in ISA modes. ifconfig down/up makes the card 
+> work again in PnP mode. However, in ISA mode, ifconfig up ends with "No such 
+> device" error.
 > 
-> I guess that'd end up being me....
-
-Not necessarily, you did snap me back into reality with that comment.
-
+> Comparing the 3c509 driver between 2.6.25 and 2.6.28, there's only some 
+> statistics-related change. So the cause of the problem must be somewhere 
+> else.
 > 
-> How about something like this?
+> This patch makes the resume work in PnP mode, but it's still not enough for 
+> ISA mode.
 
-Looks good.
+Patch applied, thank you.
 
-Thanks,
-Dan
+Let us know if you figure out how to get the ISA case working
+too :-)
