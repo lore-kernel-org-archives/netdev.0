@@ -1,29 +1,37 @@
-From: Compaq NEW YEAR PROMOTION <22222@bezeqint.net>
-Subject: ***YOUR EMAIL ADDRESS  WAS SELECTED***
-Date: Sun,  8 Feb 2009 03:50:13 +0200 (IST)
-Message-ID: <20090208035013.FPK74288@mas26.bezeqint.net>
-Reply-To: jerry.smith200@btinternet.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
+Date: Sat, 07 Feb 2009 19:00:53 -0800 (PST)
+Message-ID: <20090207.190053.127196059.davem@davemloft.net>
+References: <1234023804.17241.14.camel@heimdal.trondhjem.org>
+	<Pine.LNX.4.64.0902071831210.2805@wrl-59.cs.helsinki.fi>
+	<1234027321.17241.25.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr1.bezeqint.net ([192.115.104.8]:58037 "EHLO
-	omr1.bezeqint.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbZBHBu3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2009 20:50:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, trond-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1234027321.17241.25.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Your email ID has been awarded =A3950,000,00 GBP in the=20
-Compaq  PROMO,Reply us with your info:=20
-(jerry.smith200@btinternet.com)
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Date: Sat, 07 Feb 2009 12:22:01 -0500
 
-Name:....................
-Conntry:.................  =20
-Sex:.....................
-Age: .....................  =20
-Addres:...................
+> My point is that the process for accepting patches into the kernel
+> involves ensuring that there is consensus.
 
- Regards
-Mrs Sarah Wood
+You haven't been hacking the kernel very long if you actually
+believe this.
+
+When people are being rediculious or unreasonable, subsystem
+or higher maintainers make exective decisions all the time.
+
+"revert based upon principle" ?!?!  If you think Linus will do that
+for a correct change, you're kidding yourself.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
