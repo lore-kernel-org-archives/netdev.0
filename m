@@ -1,45 +1,62 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: 2.6.29-rc4: Reported regressions from 2.6.28
-Date: Sun, 8 Feb 2009 23:04:52 +0100
-Message-ID: <200902082304.53585.rjw@sisk.pl>
-References: <AIghyjFgMFP.A.uZD._10jJB@chimera> <alpine.LFD.2.00.0902081354150.3048@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: accelerated vlan gives pcap tagged packets untagged
+Date: Mon, 9 Feb 2009 00:26:55 +0100
+Message-ID: <20090208232655.GA12756@electric-eye.fr.zoreil.com>
+References: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.00.0902081354150.3048-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Pierre Ossman <drzeus-list@drzeus.cx>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40949 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751819AbZBHXYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2009 18:24:48 -0500
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 08 February 2009, Linus Torvalds wrote:
+Pierre Ossman <drzeus-list@drzeus.cx> :
+[...]
+> I assume this is because the hardware supports vlans and handles all
+> the tag stripping.
+
+Partly.
+
+> (I've confirmed with tcpdump that the packets lack tags when they are
+> presented to userspace)
 > 
-> On Sun, 8 Feb 2009, Rafael J. Wysocki wrote:
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12669
-> > Subject		: 2.6.28.4 regression: mmap fails if mlockall used
-> > Submitter	: Sami Farin <safari-kernel-nmB1AuG+Lnw9NyIDpsMsJw@public.gmane.org>
-> > Date		: 2009-02-08 10:52 (1 days old)
-> > References	: http://marc.info/?l=linux-kernel&m=123409037423068&w=4
-> 
-> Oh, Hugh just sent a patch, and it's now commit 
-> d5b562330ec766292a3ac54ae5e0673610bd5b3d. Sadly this just missed -rc4 by 
-> something like 20 minutes..
+> From what I can tell, I cannot fix this without rebuilding the kernel
+> and removing the acceleration support from the r8169 driver. Is there
+> some method I've overlooked?
+>
+> Preferably, I'd like the kernel to expose to pcap what's on the wire
+> (i.e. accelerated vs non-accelerated looks the same from userspace). If
+> that means too much processing to be desirable, the next best thing
+> would be to simply not show tagged packets on the raw interface.
 
-Yes, I saw the Hugh's message right after sending the report.
+Your issue seems to be related to the commit below:
 
-Bug closed.
+commit bc1d0411b804ad190cdadabac48a10067f17b9e6
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon Jul 14 22:49:30 2008 -0700
 
-Thanks,
-Rafael
+    vlan: deliver packets received with VLAN acceleration to network taps
+    
+    When VLAN header stripping is used, packets currently bypass packet
+    sockets (and other network taps) completely. For locally existing
+    VLANs, they appear directly on the VLAN device, for unknown VLANs
+    they are silently dropped.
+    
+    Add a new function netif_nit_deliver() to deliver incoming packets
+    to all network interface taps and use it in __vlan_hwaccel_rx() to
+    make VLAN packets visible on the underlying device.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+I have no idea what could be the right solution. Patrick ?
+
+-- 
+Ueimor
