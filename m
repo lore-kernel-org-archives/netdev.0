@@ -1,60 +1,92 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
-Date: Sun, 8 Feb 2009 00:25:43 -0500
-Message-ID: <20090208052543.GA20689@fieldses.org>
-References: <20090206.140714.201930500.davem@davemloft.net> <CAF18546-B024-40C9-8276-8FCD89C98E72@oracle.com> <Pine.LNX.4.64.0902070040530.31875@wrl-59.cs.helsinki.fi> <20090206.192243.47948705.davem@davemloft.net> <1234023804.17241.14.camel@heimdal.trondhjem.org> <Pine.LNX.4.64.0902071831210.2805@wrl-59.cs.helsinki.fi>
+From: Pierre Ossman <drzeus-list@drzeus.cx>
+Subject: accelerated vlan gives pcap tagged packets untagged
+Date: Sun, 8 Feb 2009 12:37:35 +0100
+Message-ID: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, trond-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0902071831210.2805-x/A8LOkYjdVsRR2hCrRKtT03IgOmwywn@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_freyr.drzeus.cx-31755-1234093061-0001-2"
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 82-117-125-11.tcdsl.calypso.net ([82.117.125.11]:46737 "EHLO
+	smtp.drzeus.cx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751341AbZBHLhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Feb 2009 06:37:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 07, 2009 at 06:56:03PM +0200, Ilpo J=C3=A4rvinen wrote:
-> I personally think that people were honestly just mislead to think th=
-at
-> diff-funcs output is part of the patch
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-Yes, exactly, in my case, that's all it was--the "diff" I thought I saw
-in my 2-second skim looked odd, and I figured a comment might have
-gotten dropped off in the process of replying and adding cc's--hence th=
-e
-original question.
+--=_freyr.drzeus.cx-31755-1234093061-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Anyway, the patch looks obviously fine to me, and the diff-func and
-codiff output are helpful.  (Where's diff-func from?)
+Hi,
 
-In similar cases in the future, if you want to cater to the more tired
-and/or mentally challenged among us (which may just be me), some clue
-that visually distinguishes the quoted diff output in the comment might
-help; e.g., maybe indent it like the below.
+I'm having some problems with r8169 and vlans. The basic problem is
+that pcap on eth1 gives me tagged packets, but in a form where it is
+impossible to tell it is tagged. This is causing problems for dhcpd:
 
-(But that's intended as a suggestion, not a requirement.)
+Feb  6 20:04:22 asgard dhcpd: DHCPDISCOVER from 00:15:00:08:98:1f via eth1.2
+Feb  6 20:04:22 asgard dhcpd: DHCPDISCOVER from 00:15:00:08:98:1f via eth1
+Feb  6 20:04:23 asgard dhcpd: DHCPOFFER on 10.8.2.230 to 00:15:00:08:98:1f =
+via eth1.2
+Feb  6 20:04:23 asgard dhcpd: DHCPOFFER on 10.8.0.128 to 00:15:00:08:98:1f =
+via eth1
+Feb  6 20:04:23 asgard dhcpd: DHCPREQUEST for 10.8.2.230 (10.8.2.254) from =
+00:15:00:08:98:1f via eth1.2
+Feb  6 20:04:23 asgard dhcpd: DHCPACK on 10.8.2.230 to 00:15:00:08:98:1f vi=
+a eth1.2
+Feb  6 20:04:23 asgard dhcpd: DHCPREQUEST for 10.8.2.230 (10.8.2.254) from =
+00:15:00:08:98:1f via eth1: wrong network.
+Feb  6 20:04:23 asgard dhcpd: DHCPNAK on 10.8.2.230 to 00:15:00:08:98:1f vi=
+a eth1
 
---b.
+I assume this is because the hardware supports vlans and handles all
+the tag stripping.
 
-Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
+(I've confirmed with tcpdump that the packets lack tags when they are
+presented to userspace)
 
-diff-func output suggests these functions are very similar:
+=46rom what I can tell, I cannot fix this without rebuilding the kernel
+and removing the acceleration support from the r8169 driver. Is there
+some method I've overlooked?
 
-	$ diff-funcs xs_udp_write_space net/sunrpc/xprtsock.c
-	 ...(etc)
+Preferably, I'd like the kernel to expose to pcap what's on the wire
+(i.e. accelerated vs non-accelerated looks the same from userspace). If
+that means too much processing to be desirable, the next best thing
+would be to simply not show tagged packets on the raw interface. The
+ability to turn vlan acceleration on and off in the latter case would
+also be desirable for network debugging.
 
-and codiff shows the space savings:
 
-	$ codiff net/sunrpc/xprtsock.o net/sunrpc/xprtsock.o.new
-	...(etc)
+Possibly related, all docs state that header reordering is disabled by
+default. But it is on by default here. This might be because of the
+acceleration, but the docs need some type of update either way. :)
 
-Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+--=20
+     -- Pierre Ossman
+
+  Linux kernel, MMC maintainer        http://www.kernel.org
+  rdesktop, core developer          http://www.rdesktop.org
+
+  WARNING: This correspondence is being monitored by the
+  Swedish government. Make sure your server uses encryption
+  for SMTP traffic and consider using PGP for end-to-end
+  encryption.
+
+--=_freyr.drzeus.cx-31755-1234093061-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+
+iEYEARECAAYFAkmOxAMACgkQ7b8eESbyJLhOkACgxWfjGbQI1coBaIhEz1kvTeZM
+Y2EAoMqbKNcMPzLwMeNMH5sMrWxsDW1k
+=Czcv
+-----END PGP SIGNATURE-----
+
+--=_freyr.drzeus.cx-31755-1234093061-0001-2--
