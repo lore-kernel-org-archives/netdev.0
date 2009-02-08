@@ -1,75 +1,41 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/6] drivers/atm: introduce missing kfree
-Date: Sun, 8 Feb 2009 22:44:16 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.0902082243200.25891@ask.diku.dk>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.29-rc4: Reported regressions from 2.6.28
+Date: Sun, 8 Feb 2009 13:55:44 -0800 (PST)
+Message-ID: <alpine.LFD.2.00.0902081354150.3048@localhost.localdomain>
+References: <AIghyjFgMFP.A.uZD._10jJB@chimera>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:55153 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753044AbZBHVoT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Feb 2009 16:44:19 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46813 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756117AbZBHV4B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2009 16:56:01 -0500
+In-Reply-To: <AIghyjFgMFP.A.uZD._10jJB@chimera>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
 
-Error handling code following a kmalloc should free the allocated data.
 
-The semantic match that finds the problem is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
+On Sun, 8 Feb 2009, Rafael J. Wysocki wrote:
+> 
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12669
+> Subject		: 2.6.28.4 regression: mmap fails if mlockall used
+> Submitter	: Sami Farin <safari-kernel@safari.iki.fi>
+> Date		: 2009-02-08 10:52 (1 days old)
+> References	: http://marc.info/?l=linux-kernel&m=123409037423068&w=4
 
-// <smpl>
-@r exists@
-local idexpression x;
-statement S;
-expression E;
-identifier f,l;
-position p1,p2;
-expression *ptr != NULL;
-@@
+Oh, Hugh just sent a patch, and it's now commit 
+d5b562330ec766292a3ac54ae5e0673610bd5b3d. Sadly this just missed -rc4 by 
+something like 20 minutes..
 
-(
-if ((x@p1 = \(kmalloc\|kzalloc\|kcalloc\)(...)) == NULL) S
-|
-x@p1 = \(kmalloc\|kzalloc\|kcalloc\)(...);
-...
-if (x == NULL) S
-)
-<... when != x
-     when != if (...) { <+...x...+> }
-x->f = E
-...>
-(
- return \(0\|<+...x...+>\|ptr\);
-|
- return@p2 ...;
-)
-
-@script:python@
-p1 << r.p1;
-p2 << r.p2;
-@@
-
-print "* file: %s kmalloc %s return %s" % (p1[0].file,p1[0].line,p2[0].line)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
----
- drivers/atm/solos-pci.c             |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 72fc0f7..89d7a6e 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -685,6 +685,7 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
-  out_release_regions:
- 	pci_release_regions(dev);
-  out:
-+	kfree(card);
- 	return err;
- }
- 
+		Linus
