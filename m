@@ -1,69 +1,51 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH] forcedeth: make msi-x different name for rx-tx
-Date: Mon, 09 Feb 2009 11:13:57 -0800
-Message-ID: <49908075.2010902@kernel.org>
-References: <498BC3A8.9040203@kernel.org> <20090206144948.GD18368@elte.hu> <498C6C15.3050807@kernel.org> <20090206171544.GA16190@elte.hu> <498C7958.4010109@kernel.org> <20090209120057.GB17782@elte.hu>
+From: Risto Suominen <risto.suominen@gmail.com>
+Subject: Re: [PATCH 002/002] de2104x: support for systems lacking cache
+	coherence
+Date: Mon, 9 Feb 2009 21:22:03 +0200
+Message-ID: <46e1c7760902091122m6ec7fbb5nefd9cc9789880c0f@mail.gmail.com>
+References: <46e1c7760902071330i5362fe4fvd99fc7075fc666d3@mail.gmail.com>
+	 <46e1c7760902082327s1c498ac3w56939960ac306426@mail.gmail.com>
+	 <20090208.234502.197065045.davem@davemloft.net>
+	 <46e1c7760902090022g1d903ca0nf314f0c1cc6b07c8@mail.gmail.com>
+	 <m3vdrja6oe.fsf@intrepid.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:36796 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752491AbZBITPE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2009 14:15:04 -0500
-In-Reply-To: <20090209120057.GB17782@elte.hu>
+Received: from mail-bw0-f161.google.com ([209.85.218.161]:41788 "EHLO
+	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754127AbZBITWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 14:22:05 -0500
+Received: by bwz5 with SMTP id 5so1747375bwz.13
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2009 11:22:03 -0800 (PST)
+In-Reply-To: <m3vdrja6oe.fsf@intrepid.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * Yinghai Lu <yinghai@kernel.org> wrote:
-> 
->> Ingo Molnar wrote:
->>> * Yinghai Lu <yinghai@kernel.org> wrote:
->>>
->>>> Ingo Molnar wrote:
->>>>> Cool cleanups!
->>>>>
->>>>> Would you mind to also fix the following - on all my systems that have 
->>>>> forcedeth gigabit ethernet i've been getting these bogus warnings for 
->>>>> _years_, under moderate load:
->>>>>
->>>>>   eth2: too many iterations (16) in nv_nic_irq.
->>>>>
->>>>> I think a 64 iterations limit will work much better. (i tried a limit of 50 
->>>>> a year ago for a while and it worked fine and had no side effects - and the 
->>>>> bogus warnings were done.)
->>>> you may enable CONFIG_FORCEDETH_NAPI.
->>>>
->>>> we should enable NAPI for forcedeth by default, and try to squash more bugs out.
->>> i do have that:
->>>
->>>  CONFIG_FORCEDETH=y
->>>  CONFIG_FORCEDETH_NAPI=y
->>>
->>> and the messages still come.
->> so you systems are using ioapic routing, or msi.
->>
->> and those messages are from 
->> nv_nic_irq_optimized or nv_nic_irq
->> for TX or OTHER (timerirq).
-> 
-> yes, IO-APIC:
-> 
->  18:      81386  306713817          0          0 1413724087          0          0          
-> 0          0          0          0          0          0          0          0          
-> 0   IO-APIC-fasteoi   eth2
-> 
-> Those messages do come and are annoying.
+2009/2/9 Krzysztof Halasa <khc@pm.waw.pl>:
+>
+> That means the consistent/coherent mapping isn't really
+> consistent/coherent (uncached), right? Perhaps there is some way to fix
+> this instead of changing the drivers to avoid the problematic area?
+>
+Yes.
 
-it seems timerirq by nic cause extra irq...
-need to figure out why all devices need that workaround..., checked ck804 and mcp55 doesn't need it.
+The other way could be to add a config parameter that allows to
+explicitly set CONFIG_NOT_COHERENT_CACHE. I have not tried this,
+probably because the necessary code wasn't in arch/powerpc until
+2.6.21.
 
-YH
+Anyway, now I have tested with 2.6.24, and the problem still exists.
+
+Apropos changing the driver, I would like to point out, that leaving
+my proposed config parameter to its default value means not changing
+the driver.
+
+> Potentially any driver is affected by such coherency problem, this can't
+> be specific to 21040.
+>
+I agree. That talks for the config solution.
+
+Risto
