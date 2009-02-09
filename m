@@ -1,23 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFT 2/3] netfilter: remove unneeded initializations
-Date: Mon, 09 Feb 2009 16:37:23 +0100
-Message-ID: <49904DB3.60004@trash.net>
-References: <20090204001202.724266235@vyatta.com> <20090204001755.685385465@vyatta.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: TX pre-headers...
+Date: Mon, 09 Feb 2009 16:39:48 +0100
+Message-ID: <m3zlgvaabf.fsf@intrepid.localdomain>
+References: <20090206.014107.231141422.davem@davemloft.net>
+	<20090209100713.GA8299@gondor.apana.org.au>
+	<20090209.021403.56830306.davem@davemloft.net>
+	<20090209101912.GA8338@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090204001755.685385465@vyatta.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:35506 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754765AbZBIPjx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 10:39:53 -0500
+In-Reply-To: <20090209101912.GA8338@gondor.apana.org.au> (Herbert Xu's message of "Mon\, 9 Feb 2009 21\:19\:12 +1100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
+Herbert Xu <herbert@gondor.apana.org.au> writes:
 
-These first two patches look fine obviously. Do you want me to
-already apply them?
+> Yes tunneling (especially when it's hidden by netfilter) is the
+> hard part.
+>
+> Here's a thought, what if we had your global maximum, and every
+> time we have to reallocate a packet because of a failed head
+> room check, we increase the maximum by the needed amount (we should
+> add a ceiling in case some buggy path ignores this maximum when
+> allocating a new packet).
+>
+> This way even tunnels could benefit from not having to copy all
+> the time.
+>
+> As a failed check should be rare (given that we're continuously
+> increasing it) the overhead in updating the maximum should be
+> reasonable.
+
+I agree.
+
+OTOH and FWIW my stuff (= WAN) alone without stacking fits in 32 bytes,
+the typical max case is 10 bytes for Frame-Relay header + 14 bytes for
+Ethernet header + 4 bytes for 802.1Q tag = 28 bytes.
+
+OTOH I wonder if these changes make the dev->hard_header_len no longer
+needed.
+-- 
+Krzysztof Halasa
