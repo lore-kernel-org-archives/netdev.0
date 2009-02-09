@@ -1,58 +1,72 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] netlink broadcast return value
-Date: Tue, 10 Feb 2009 00:23:06 +0100
-Message-ID: <4990BADA.7040309@trash.net>
-References: <4985A4C5.4050908@netfilter.org> <20090202.140533.121159038.davem@davemloft.net> <49903B03.2040302@trash.net> <4990B38A.3020207@netfilter.org>
+Subject: Re: netfilter 00/05: netfilter fixes
+Date: Tue, 10 Feb 2009 00:36:06 +0100
+Message-ID: <4990BDE6.80102@trash.net>
+References: <20090209163926.13918.96177.sendpatchset@x2.localnet>	<20090209.143238.25276576.davem@davemloft.net>	<4990B26B.3020705@trash.net> <20090209.151806.02424601.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34359 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:34588 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929AbZBIXXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 18:23:09 -0500
-In-Reply-To: <4990B38A.3020207@netfilter.org>
+	with ESMTP id S1751266AbZBIXgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 18:36:10 -0500
+In-Reply-To: <20090209.151806.02424601.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso wrote:
-> Patrick McHardy wrote:
->> David Miller wrote:
->>> From: Pablo Neira Ayuso <pablo@netfilter.org>
->>> Date: Sun, 01 Feb 2009 14:33:57 +0100
->>>
->>>> In short, I think that the change that I'm proposing would also require
->>>> to fix some netlink_broadcast() clients to skip ENOBUFS errors: they are
->>>> not meaningful for them since they assume that Netlink is unreliable and
->>>> so the return value does not provide any useful information.
->>> I think this analysis is accurate.
->> We have at least one case where the caller wants to know of
->> any successful delivery. Keymanager queries done by xfrm_state
->> want to know whether an acquire was delivered to any keymanager.
->> So we need to continue to indicate this, maybe using a different
->> errno code than -ENOBUFS. I don't have a suggestion which one to
->> use though.
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 09 Feb 2009 23:47:07 +0100
 > 
-> Indeed, I have missed that spot. I'm not very familiar with that code,
-> however, I see that the creation of a state depends on the netlink
-> broadcast return value, but how useful is that? I think that the state
-> should be created even if the broadcast fails, the userspace daemon
-> should request a resync to the kernel as soon as it hits ENOBUFS, then
-> it would be in sync again with that state.
+>> David Miller wrote:
+>>> From: Patrick McHardy <kaber@trash.net>
+>>> Date: Mon,  9 Feb 2009 17:39:27 +0100 (MET)
+>>>
+>>>> Please apply or pull from:
+>>>>
+>>>> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+>>> I was going to pull from your tree and take it like that, but when I
+>>> pulled I got 5 real changes and 50 merges with net-2.6, yikes! :-)
+>> Ugh sorry, thats happening automatically, but it usually doesn't show
+>> up since it should be fast forwards. I'll have a look at what went
+>> wrong.
+> 
+> I think you got a change into your tree locally, this went via net-2.6
+> and thereafterwards it started using merges.  But that's just a guess.
 
-The idea is that the kernel is performing an active query. I agree
-that there's nothing wrong with installing the SA and indicating the
-error to userspace. Userspace could dump the SADB and look for new
-larval states, however thats unlikely to be very useful since once
-an overflow occurs, you probably have a lot of states.
+Yes, probably, although I really never commit to my mirrored trees.
+It might have something to do with my disk dying last week and the
+restore I did :)
 
-But unless I'm missing something, there's nothing wrong with this
-as long as the error is ignored. The fact that something was received
-by some listener doesn't have any meaning anyways, it might have
-been "ip monitor". Which somehow raises doubt about your proposed
-interface change though, I think anything that wants a reliable
-answer whether a packet was delivered to a process handling it
-appropriately should use unicast.
+> Want some suggestions for work flow? :-)
+> 
+> 1) For net-2.6 just clone Linus's tree, pull net-2.6 once as it is
+>    right now, then leave it alone.
+> 
+>    Periodically sync your origin (which is Linus's tree) via
+>    "git fetch origin".  This just grabs the objects.
+> 
+>    Then you can just go "git request-pull origin $(GIT_URL)" and
+>    it'll just work.
+> 
+>    Since the likelyhood for conflicts in the net-2.6 tree with
+>    your netfilter work is incredibly unlikely, doing a merge
+>    should never be necessary.  But if it is just go
+>    "git pull origin".
+> 
+> 2) For net-next-2.6 use net-next-2.6 as your "origin" (you can change
+>    this in .git/config), conflicts are more likely so every once in
+>    a while a "git pull origin" will be necessary.
+> 
+> If that doesn't work out or feel comfortable for you, that's
+> fine.
+
+I'll try that, maybe starting with net-2.6 since that tree is
+easier to maintain for me. My workflow is quite out of sync
+with modern git commands, some of my scripts are still adapted
+from bitkeeper times :)
+
+
