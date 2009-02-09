@@ -1,8 +1,8 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH net] gianfar: Fix boot hangs while bringing up gianfar
+Subject: [PATCH v2 net] gianfar: Fix boot hangs while bringing up gianfar
 	ethernet
-Date: Mon, 9 Feb 2009 20:34:40 +0100
-Message-ID: <20090209193440.GA2537@ami.dom.local>
+Date: Mon, 9 Feb 2009 20:40:27 +0100
+Message-ID: <20090209194027.GB2537@ami.dom.local>
 References: <20090129194145.GA4647@ovro.caltech.edu> <20090207225555.GA2680@ami.dom.local> <20090209172216.GA11312@ovro.caltech.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,33 +13,21 @@ Cc: Ira Snyder <iws@ovro.caltech.edu>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.188]:38620 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757166AbZBITeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 14:34:05 -0500
+Received: from mail-bw0-f161.google.com ([209.85.218.161]:55700 "EHLO
+	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756221AbZBITjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 14:39:52 -0500
 Content-Disposition: inline
 In-Reply-To: <20090209172216.GA11312@ovro.caltech.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 09, 2009 at 09:22:17AM -0800, Ira Snyder wrote:
-...
-> It works fine for me, the board now boots up normally.
-> 
-> Thanks for the patch,
-> Ira
+> PS#2: Andy, this changelog is really a lot harder than the patch...
 
-Very nice! Here is the same plus a comment. 
+Hmm...
 
-Many thanks,
-Jarek P.
+-------------------> (take 2 - signed-off fix only)
 
-PS: Ira, your mta config is a bit unusual here wrt. reply; I hope you
-will forgive me adding you to CC anyway.
-
-PS#2: Andy, this changelog is really a lot harder than the patch...
-
-------------------->
 gianfar: Fix boot hangs while bringing up gianfar ethernet
 
 Ira Snyder found that commit 8c7396aebb68994c0519e438eecdf4d5fa9c7844
@@ -54,7 +42,7 @@ Reported-by: Peter Korsgaard <jacmet@sunsite.dk>
 Bisected-by: Ira Snyder <iws@ovro.caltech.edu>
 Tested-by: Peter Korsgaard <jacmet@sunsite.dk>
 Tested-by: Ira Snyder <iws@ovro.caltech.edu>
-Signed-by: Jarek Poplawski <jarkao2@gmail.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
 ---
 
