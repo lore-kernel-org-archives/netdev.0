@@ -1,419 +1,909 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: [1/9] pohmelfs: documentation.
-Date: Mon,  9 Feb 2009 17:02:34 +0300
-Message-ID: <1234188162-14727-2-git-send-email-zbr@ioremap.net>
+Subject: [3/9] pohmelfs: crypto processing.
+Date: Mon,  9 Feb 2009 17:02:36 +0300
+Message-ID: <1234188162-14727-4-git-send-email-zbr@ioremap.net>
 References: <1234188162-14727-1-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-2-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-3-git-send-email-zbr@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, Eveniy Polyakov <zbr@ioremap.net>
+	netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
 To: GregKH <greg@kroah.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1234188162-14727-1-git-send-email-zbr@ioremap.net>
+In-Reply-To: <1234188162-14727-3-git-send-email-zbr@ioremap.net>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch includes POHMELFS design and implementation description.
-Separate file includes mount options, default parameters and usage examples.
+POHMELFS is able to encrypt the whole network channel or
+attach the strong checksum to own packets to catch faulty media.
 
-Signed-off-by: Eveniy Polyakov <zbr@ioremap.net>
+This patch implements crypto initialization, its autoconfiguration
+and sync with the server.
 
-diff --git a/Documentation/filesystems/pohmelfs/design_notes.txt b/Documentation/filesystems/pohmelfs/design_notes.txt
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
+
+diff --git a/drivers/staging/pohmelfs/crypto.c b/drivers/staging/pohmelfs/crypto.c
 new file mode 100644
-index 0000000..6d6db60
+index 0000000..a3abd61
 --- /dev/null
-+++ b/Documentation/filesystems/pohmelfs/design_notes.txt
-@@ -0,0 +1,70 @@
-+POHMELFS: Parallel Optimized Host Message Exchange Layered File System.
++++ b/drivers/staging/pohmelfs/crypto.c
+@@ -0,0 +1,880 @@
++/*
++ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
-+		Evgeniy Polyakov <zbr@ioremap.net>
++#include <linux/crypto.h>
++#include <linux/highmem.h>
++#include <linux/kthread.h>
++#include <linux/pagemap.h>
++#include <linux/slab.h>
 +
-+Homepage: http://www.ioremap.net/projects/pohmelfs
++#include "netfs.h"
 +
-+POHMELFS first began as a network filesystem with coherent local data and
-+metadata caches but is now evolving into a parallel distributed filesystem.
-+
-+Main features of this FS include:
-+ * Locally coherent cache for data and metadata with (potentially) byte-range locks.
-+	Since all Linux filesystems lock the whole inode during writing, algorithm
-+	is very simple and does not use byte-ranges, although they are sent in
-+	locking messages.
-+ * Completely async processing of all events except creation of hard and symbolic
-+	links, and rename events.
-+	Object creation and data reading and writing are processed asynchronously.
-+ * Flexible object architecture optimized for network processing.
-+	Ability to create long paths to objects and remove arbitrarily huge
-+	directories with a single network command.
-+	(like removing the whole kernel tree via a single network command).
-+ * Very high performance.
-+ * Fast and scalable multithreaded userspace server. Being in userspace it works
-+	with any underlying filesystem and still is much faster than async in-kernel NFS one.
-+ * Client is able to switch between different servers (if one goes down, client
-+	automatically reconnects to second and so on).
-+ * Transactions support. Full failover for all operations.
-+	Resending transactions to different servers on timeout or error.
-+ * Read request (data read, directory listing, lookup requests) balancing between multiple servers.
-+ * Write requests are replicated to multiple servers and completed only when all of them are acked.
-+ * Ability to add and/or remove servers from the working set at run-time.
-+ * Strong authentification and possible data encryption in network channel.
-+ * Extended attributes support.
-+
-+POHMELFS is based on transactions, which are potentially long-standing objects that live
-+in the client's memory. Each transaction contains all the information needed to process a given
-+command (or set of commands, which is frequently used during data writing: single transactions
-+can contain creation and data writing commands). Transactions are committed by all the servers
-+to which they are sent and, in case of failures, are eventually resent or dropped with an error.
-+For example, reading will return an error if no servers are available.
-+
-+POHMELFS uses a asynchronous approach to data processing. Courtesy of transactions, it is
-+possible to detach replies from requests and, if the command requires data to be received, the
-+caller sleeps waiting for it. Thus, it is possible to issue multiple read commands to different
-+servers and async threads will pick up replies in parallel, find appropriate transactions in the
-+system and put the data where it belongs (like the page or inode cache).
-+
-+The main feature of POHMELFS is writeback data and the metadata cache.
-+Only a few non-performance critical operations use the write-through cache and
-+are synchronous: hard and symbolic link creation, and object rename. Creation,
-+removal of objects and data writing are asynchronous and are sent to
-+the server during system writeback. Only one writer at a time is allowed for any
-+given inode, which is guarded by an appropriate locking protocol.
-+Because of this feature, POHMELFS is extremely fast at metadata intensive
-+workloads and can fully utilize the bandwidth to the servers when doing bulk
-+data transfers.
-+
-+POHMELFS clients operate with a working set of servers and are capable of balancing read-only
-+operations (like lookups or directory listings) between them.
-+Administrators can add or remove servers from the set at run-time via special commands (described
-+in Documentation/pohmelfs/info.txt file). Writes are replicated to all servers.
-+
-+POHMELFS is capable of full data channel encryption and/or strong crypto hashing.
-+One can select any kernel supported cipher, encryption mode, hash type and operation mode
-+(hmac or digest). It is also possible to use both or neither (default). Crypto configuration
-+is checked during mount time and, if the server does not support it, appropriate capabilities
-+will be disabled or mount will fail (if 'crypto_fail_unsupported' mount option is specified).
-+Crypto performance heavily depends on the number of crypto threads, which asynchronously perform
-+crypto operations and send the resulting data to server or submit it up the stack. This number
-+can be controlled via a mount option.
-diff --git a/Documentation/filesystems/pohmelfs/info.txt b/Documentation/filesystems/pohmelfs/info.txt
-new file mode 100644
-index 0000000..4e3d501
---- /dev/null
-+++ b/Documentation/filesystems/pohmelfs/info.txt
-@@ -0,0 +1,86 @@
-+POHMELFS usage information.
-+
-+Mount options:
-+idx=%u
-+ Each mountpoint is associated with a special index via this option.
-+ Administrator can add or remove servers from the given index, so all mounts,
-+ which were attached to it, are updated.
-+ Default it is 0.
-+
-+trans_scan_timeout=%u
-+ This timeout, expressed in milliseconds, specifies time to scan transaction
-+ trees looking for stale requests, which have to be resent, or if number of
-+ retries exceed specified limit, dropped with error.
-+ Default is 5 seconds.
-+
-+drop_scan_timeout=%u
-+ Internal timeout, expressed in milliseconds, which specifies how frequently
-+ inodes marked to be dropped are freed. It also specifies how frequently
-+ the system checks that servers have to be added or removed from current working set.
-+ Default is 1 second.
-+
-+wait_on_page_timeout=%u
-+ Number of milliseconds to wait for reply from remote server for data reading command.
-+ If this timeout is exceeded, reading returns an error.
-+ Default is 5 seconds.
-+
-+trans_retries=%u
-+ This is the number of times that a transaction will be resent to a server that did
-+ not answer for the last @trans_scan_timeout milliseconds.
-+ When the number of resends exceeds this limit, the transaction is completed with error.
-+ Default is 5 resends.
-+
-+crypto_thread_num=%u
-+ Number of crypto processing threads. Threads are used both for RX and TX traffic.
-+ Default is 2, or no threads if crypto operations are not supported.
-+
-+trans_max_pages=%u
-+ Maximum number of pages in a single transaction. This parameter also controls
-+ the number of pages,  allocated for crypto processing (each crypto thread has
-+ pool of pages, the number of which is equal to 'trans_max_pages'.
-+ Default is 100 pages.
-+
-+crypto_fail_unsupported
-+ If specified, mount will fail if the server does not support requested crypto operations.
-+ By default mount will disable non-matching crypto operations.
-+
-+mcache_timeout=%u
-+ Maximum number of milliseconds to wait for the mcache objects to be processed.
-+ Mcache includes locks (given lock should be granted by server), attributes (they should be
-+ fully received in the given timeframe).
-+ Default is 5 seconds.
-+
-+Usage examples.
-+
-+Add (or remove if it already exists) server server1.net:1025 into the working set with index $idx
-+with appropriate hash algorithm and key file and cipher algorithm, mode and key file:
-+$cfg -a server1.net -p 1025 -i $idx -K $hash_key -k $cipher_key
-+
-+Mount filesystem with given index $idx to /mnt mountpoint.
-+Client will connect to all servers specified in the working set via previous command:
-+mount -t pohmel -o idx=$idx q /mnt
-+
-+One can add or remove servers from working set after mounting too.
-+
-+
-+Server installation.
-+
-+Creating a server, which listens at port 1025 and 0.0.0.0 address.
-+Working root directory (note, that server chroots there, so you have to have appropriate permissions)
-+is set to /mnt, server will negotiate hash/cipher with client, in case client requested it, there
-+are appropriate key files.
-+Number of working threads is set to 10.
-+
-+# ./fserver -a 0.0.0.0 -p 1025 -r /mnt -w 10 -K hash_key -k cipher_key
-+
-+ -A 6			 - listen on ipv6 address. Default: Disabled.
-+ -r root                 - path to root directory. Default: /tmp.
-+ -a addr                 - listen address. Default: 0.0.0.0.
-+ -p port                 - listen port. Default: 1025.
-+ -w workers              - number of workers per connected client. Default: 1.
-+ -K file		 - hash key size. Default: none.
-+ -k file		 - cipher key size. Default: none.
-+ -h                      - this help.
-+
-+Number of worker threads specifies how many workers will be created for each client.
-+Bulk single-client transafers usually are better handled with smaller number (like 1-3).
-diff --git a/Documentation/filesystems/pohmelfs/network_protocol.txt b/Documentation/filesystems/pohmelfs/network_protocol.txt
-new file mode 100644
-index 0000000..40ea6c2
---- /dev/null
-+++ b/Documentation/filesystems/pohmelfs/network_protocol.txt
-@@ -0,0 +1,227 @@
-+POHMELFS network protocol.
-+
-+Basic structure used in network communication is following command:
-+
-+struct netfs_cmd
++static struct crypto_hash *pohmelfs_init_hash(struct pohmelfs_sb *psb)
 +{
-+	__u16			cmd;	/* Command number */
-+	__u16			csize;	/* Attached crypto information size */
-+	__u16			cpad;	/* Attached padding size */
-+	__u16			ext;	/* External flags */
-+	__u32			size;	/* Size of the attached data */
-+	__u32			trans;	/* Transaction id */
-+	__u64			id;	/* Object ID to operate on. Used for feedback.*/
-+	__u64			start;	/* Start of the object. */
-+	__u64			iv;	/* IV sequence */
-+	__u8			data[0];
++	int err;
++	struct crypto_hash *hash;
++
++	hash = crypto_alloc_hash(psb->hash_string, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(hash)) {
++		err = PTR_ERR(hash);
++		dprintk("%s: idx: %u: failed to allocate hash '%s', err: %d.\n",
++				__func__, psb->idx, psb->hash_string, err);
++		goto err_out_exit;
++	}
++
++	psb->crypto_attached_size = crypto_hash_digestsize(hash);
++
++	if (!psb->hash_keysize)
++		return hash;
++
++	err = crypto_hash_setkey(hash, psb->hash_key, psb->hash_keysize);
++	if (err) {
++		dprintk("%s: idx: %u: failed to set key for hash '%s', err: %d.\n",
++				__func__, psb->idx, psb->hash_string, err);
++		goto err_out_free;
++	}
++
++	return hash;
++
++err_out_free:
++	crypto_free_hash(hash);
++err_out_exit:
++	return ERR_PTR(err);
++}
++
++static struct crypto_ablkcipher *pohmelfs_init_cipher(struct pohmelfs_sb *psb)
++{
++	int err = -EINVAL;
++	struct crypto_ablkcipher *cipher;
++
++	if (!psb->cipher_keysize)
++		goto err_out_exit;
++
++	cipher = crypto_alloc_ablkcipher(psb->cipher_string, 0, 0);
++	if (IS_ERR(cipher)) {
++		err = PTR_ERR(cipher);
++		dprintk("%s: idx: %u: failed to allocate cipher '%s', err: %d.\n",
++				__func__, psb->idx, psb->cipher_string, err);
++		goto err_out_exit;
++	}
++
++	crypto_ablkcipher_clear_flags(cipher, ~0);
++
++	err = crypto_ablkcipher_setkey(cipher, psb->cipher_key, psb->cipher_keysize);
++	if (err) {
++		dprintk("%s: idx: %u: failed to set key for cipher '%s', err: %d.\n",
++				__func__, psb->idx, psb->cipher_string, err);
++		goto err_out_free;
++	}
++
++	return cipher;
++
++err_out_free:
++	crypto_free_ablkcipher(cipher);
++err_out_exit:
++	return ERR_PTR(err);
++}
++
++int pohmelfs_crypto_engine_init(struct pohmelfs_crypto_engine *e, struct pohmelfs_sb *psb)
++{
++	int err;
++
++	e->page_num = 0;
++
++	e->size = PAGE_SIZE;
++	e->data = kmalloc(e->size, GFP_KERNEL);
++	if (!e->data) {
++		err = -ENOMEM;
++		goto err_out_exit;
++	}
++
++	if (psb->hash_string) {
++		e->hash = pohmelfs_init_hash(psb);
++		if (IS_ERR(e->hash)) {
++			err = PTR_ERR(e->hash);
++			e->hash = NULL;
++			goto err_out_free;
++		}
++	}
++	
++	if (psb->cipher_string) {
++		e->cipher = pohmelfs_init_cipher(psb);
++		if (IS_ERR(e->cipher)) {
++			err = PTR_ERR(e->cipher);
++			e->cipher = NULL;
++			goto err_out_free_hash;
++		}
++	}
++
++	return 0;
++
++err_out_free_hash:
++	crypto_free_hash(e->hash);
++err_out_free:
++	kfree(e->data);
++err_out_exit:
++	return err;
++}
++
++void pohmelfs_crypto_engine_exit(struct pohmelfs_crypto_engine *e)
++{
++	if (e->hash)
++		crypto_free_hash(e->hash);
++	if (e->cipher)
++		crypto_free_ablkcipher(e->cipher);
++	kfree(e->data);
++}
++
++static void pohmelfs_crypto_complete(struct crypto_async_request *req, int err)
++{
++	struct pohmelfs_crypto_completion *c = req->data;
++
++	if (err == -EINPROGRESS)
++		return;
++
++	dprintk("%s: req: %p, err: %d.\n", __func__, req, err);
++	c->error = err;
++	complete(&c->complete);
++}
++
++static int pohmelfs_crypto_process(struct ablkcipher_request *req,
++		struct scatterlist *sg_dst, struct scatterlist *sg_src,
++		void *iv, int enc, unsigned long timeout)
++{
++	struct pohmelfs_crypto_completion complete;
++	int err;
++
++	init_completion(&complete.complete);
++	complete.error = -EINPROGRESS;
++
++	ablkcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
++					pohmelfs_crypto_complete, &complete);
++
++	ablkcipher_request_set_crypt(req, sg_src, sg_dst, sg_src->length, iv);
++
++	if (enc)
++		err = crypto_ablkcipher_encrypt(req);
++	else
++		err = crypto_ablkcipher_decrypt(req);
++
++	switch (err) {
++		case -EINPROGRESS:
++		case -EBUSY:
++			err = wait_for_completion_interruptible_timeout(&complete.complete,
++					timeout);
++			if (!err)
++				err = -ETIMEDOUT;
++			else
++				err = complete.error;
++			break;
++		default:
++			break;
++	}
++
++	return err;
++}
++
++int pohmelfs_crypto_process_input_data(struct pohmelfs_crypto_engine *e, u64 cmd_iv,
++		void *data, struct page *page, unsigned int size)
++{
++	int err;
++	struct scatterlist sg;
++	
++	if (!e->cipher && !e->hash)
++		return 0;
++
++	dprintk("%s: eng: %p, iv: %llx, data: %p, page: %p/%lu, size: %u.\n",
++		__func__, e, cmd_iv, data, page, (page)?page->index:0, size);
++
++	if (data) {
++		sg_init_one(&sg, data, size);
++	} else {
++		sg_init_table(&sg, 1);
++		sg_set_page(&sg, page, size, 0);
++	}
++
++	if (e->cipher) {
++		struct ablkcipher_request *req = e->data + crypto_hash_digestsize(e->hash);
++		u8 iv[32];
++
++		memset(iv, 0, sizeof(iv));
++		memcpy(iv, &cmd_iv, sizeof(cmd_iv));
++
++		ablkcipher_request_set_tfm(req, e->cipher);
++
++		err = pohmelfs_crypto_process(req, &sg, &sg, iv, 0, e->timeout);
++		if (err)
++			goto err_out_exit;
++	}
++
++	if (e->hash) {
++		struct hash_desc desc;
++		void *dst = e->data + e->size/2;
++
++		desc.tfm = e->hash;
++		desc.flags = 0;
++		
++		err = crypto_hash_init(&desc);
++		if (err)
++			goto err_out_exit;
++
++		err = crypto_hash_update(&desc, &sg, size);
++		if (err)
++			goto err_out_exit;
++		
++		err = crypto_hash_final(&desc, dst);
++		if (err)
++			goto err_out_exit;
++
++		err = !!memcmp(dst, e->data, crypto_hash_digestsize(e->hash));
++
++		if (err) {
++#ifdef CONFIG_POHMELFS_DEBUG
++			unsigned int i;
++			unsigned char *recv = e->data, *calc = dst;
++
++			dprintk("%s: eng: %p, hash: %p, cipher: %p: iv : %llx, hash mismatch (recv/calc): ",
++					__func__, e, e->hash, e->cipher, cmd_iv);
++			for (i=0; i<crypto_hash_digestsize(e->hash); ++i) {
++#if 0
++				dprintka("%02x ", recv[i]);
++				if (recv[i] != calc[i]) {
++					dprintka("| calc byte: %02x.\n", calc[i]);
++					break;
++				}
++#else
++				dprintka("%02x/%02x ", recv[i], calc[i]);
++#endif
++			}
++			dprintk("\n");
++#endif
++			goto err_out_exit;
++		} else {
++			dprintk("%s: eng: %p, hash: %p, cipher: %p: hashes matched.\n",
++					__func__, e, e->hash, e->cipher);
++		}
++	}
++	
++	dprintk("%s: eng: %p, size: %u, hash: %p, cipher: %p: completed.\n",
++			__func__, e, e->size, e->hash, e->cipher);
++
++	return 0;
++
++err_out_exit:
++	dprintk("%s: eng: %p, hash: %p, cipher: %p: err: %d.\n",
++			__func__, e, e->hash, e->cipher, err);
++	return err;
++}
++
++static int pohmelfs_trans_iter(struct netfs_trans *t, struct pohmelfs_crypto_engine *e,
++		int (* iterator) (struct pohmelfs_crypto_engine *e,
++				  struct scatterlist *dst,
++				  struct scatterlist *src))
++{
++	void *data = t->iovec.iov_base + sizeof(struct netfs_cmd) + t->psb->crypto_attached_size;
++	unsigned int size = t->iovec.iov_len - sizeof(struct netfs_cmd) - t->psb->crypto_attached_size;
++	struct netfs_cmd *cmd = data;
++	unsigned int sz, pages = t->attached_pages, i, csize, cmd_cmd, dpage_idx;
++	struct scatterlist sg_src, sg_dst;
++	int err;
++
++	while (size) {
++		cmd = data;
++		cmd_cmd = __be16_to_cpu(cmd->cmd);
++		csize = __be32_to_cpu(cmd->size);
++		cmd->iv = __cpu_to_be64(e->iv);
++
++		if (cmd_cmd == NETFS_READ_PAGES || cmd_cmd == NETFS_READ_PAGE)
++			csize = __be16_to_cpu(cmd->ext);
++
++		sz = csize + __be16_to_cpu(cmd->cpad) + sizeof(struct netfs_cmd);
++		
++		dprintk("%s: size: %u, sz: %u, cmd_size: %u, cmd_cpad: %u.\n",
++				__func__, size, sz, __be32_to_cpu(cmd->size), __be16_to_cpu(cmd->cpad));
++
++		data += sz;
++		size -= sz;
++		
++		sg_init_one(&sg_src, cmd->data, sz - sizeof(struct netfs_cmd));
++		sg_init_one(&sg_dst, cmd->data, sz - sizeof(struct netfs_cmd));
++
++		err = iterator(e, &sg_dst, &sg_src);
++		if (err)
++			return err;
++	}
++	
++	if (!pages)
++		return 0;
++
++	dpage_idx = 0;
++	for (i=0; i<t->page_num; ++i) {
++		struct page *page = t->pages[i];
++		struct page *dpage = e->pages[dpage_idx];
++
++		if (!page)
++			continue;
++
++		sg_init_table(&sg_src, 1);
++		sg_init_table(&sg_dst, 1);
++		sg_set_page(&sg_src, page, page_private(page), 0);
++		sg_set_page(&sg_dst, dpage, page_private(page), 0);
++
++		err = iterator(e, &sg_dst, &sg_src);
++		if (err)
++			return err;
++
++		pages--;
++		if (!pages)
++			break;
++		dpage_idx++;
++	}
++
++	return 0;
++}
++
++static int pohmelfs_encrypt_iterator(struct pohmelfs_crypto_engine *e,
++		struct scatterlist *sg_dst, struct scatterlist *sg_src)
++{
++	struct ablkcipher_request *req = e->data;
++	u8 iv[32];
++
++	memset(iv, 0, sizeof(iv));
++
++	memcpy(iv, &e->iv, sizeof(e->iv));
++
++	return pohmelfs_crypto_process(req, sg_dst, sg_src, iv, 1, e->timeout);
++}
++
++static int pohmelfs_encrypt(struct pohmelfs_crypto_thread *tc)
++{
++	struct netfs_trans *t = tc->trans;
++	struct pohmelfs_crypto_engine *e = &tc->eng;
++	struct ablkcipher_request *req = e->data;
++
++	memset(req, 0, sizeof(struct ablkcipher_request));
++	ablkcipher_request_set_tfm(req, e->cipher);
++
++	e->iv = pohmelfs_gen_iv(t);
++
++	return pohmelfs_trans_iter(t, e, pohmelfs_encrypt_iterator);
++}
++
++static int pohmelfs_hash_iterator(struct pohmelfs_crypto_engine *e,
++		struct scatterlist *sg_dst, struct scatterlist *sg_src)
++{
++	return crypto_hash_update(e->data, sg_src, sg_src->length);
++}
++
++static int pohmelfs_hash(struct pohmelfs_crypto_thread *tc)
++{
++	struct pohmelfs_crypto_engine *e = &tc->eng;
++	struct hash_desc *desc = e->data;
++	unsigned char *dst = tc->trans->iovec.iov_base + sizeof(struct netfs_cmd);
++	int err;
++
++	desc->tfm = e->hash;
++	desc->flags = 0;
++
++	err = crypto_hash_init(desc);
++	if (err)
++		return err;
++
++	err = pohmelfs_trans_iter(tc->trans, e, pohmelfs_hash_iterator);
++	if (err)
++		return err;
++
++	err = crypto_hash_final(desc, dst);
++	if (err)
++		return err;
++
++	{
++		unsigned int i;
++		dprintk("%s: ", __func__);
++		for (i=0; i<tc->psb->crypto_attached_size; ++i)
++			dprintka("%02x ", dst[i]);
++		dprintka("\n");
++	}
++
++	return 0;
++}
++
++static void pohmelfs_crypto_pages_free(struct pohmelfs_crypto_engine *e)
++{
++	unsigned int i;
++
++	for (i=0; i<e->page_num; ++i)
++		__free_page(e->pages[i]);
++	kfree(e->pages);
++}
++
++static int pohmelfs_crypto_pages_alloc(struct pohmelfs_crypto_engine *e, struct pohmelfs_sb *psb)
++{
++	unsigned int i;
++
++	e->pages = kmalloc(psb->trans_max_pages * sizeof(struct page *), GFP_KERNEL);
++	if (!e->pages)
++		return -ENOMEM;
++
++	for (i=0; i<psb->trans_max_pages; ++i) {
++		e->pages[i] = alloc_page(GFP_KERNEL);
++		if (!e->pages[i])
++			break;
++	}
++
++	e->page_num = i;
++	if (!e->page_num)
++		goto err_out_free;
++
++	return 0;
++
++err_out_free:
++	kfree(e->pages);
++	return -ENOMEM;
++}
++
++static void pohmelfs_sys_crypto_exit_one(struct pohmelfs_crypto_thread *t)
++{
++	struct pohmelfs_sb *psb = t->psb;
++
++	if (t->thread)
++		kthread_stop(t->thread);
++
++	mutex_lock(&psb->crypto_thread_lock);
++	list_del(&t->thread_entry);
++	psb->crypto_thread_num--;
++	mutex_unlock(&psb->crypto_thread_lock);
++
++	pohmelfs_crypto_engine_exit(&t->eng);
++	pohmelfs_crypto_pages_free(&t->eng);
++	kfree(t);
++}
++
++static int pohmelfs_crypto_finish(struct netfs_trans *t, struct pohmelfs_sb *psb, int err)
++{
++	struct netfs_cmd *cmd = t->iovec.iov_base;
++	netfs_convert_cmd(cmd);
++
++	if (likely(!err))
++		err = netfs_trans_finish_send(t, psb);
++
++	t->result = err;
++	netfs_trans_put(t);
++
++	return err;
++}
++
++void pohmelfs_crypto_thread_make_ready(struct pohmelfs_crypto_thread *th)
++{
++	struct pohmelfs_sb *psb = th->psb;
++
++	th->page = NULL;
++	th->trans = NULL;
++
++	mutex_lock(&psb->crypto_thread_lock);
++	list_move_tail(&th->thread_entry, &psb->crypto_ready_list);
++	mutex_unlock(&psb->crypto_thread_lock);
++	wake_up(&psb->wait);
++}
++
++static int pohmelfs_crypto_thread_trans(struct pohmelfs_crypto_thread *t)
++{
++	struct netfs_trans *trans;
++	int err = 0;
++
++	trans = t->trans;
++	trans->eng = NULL;
++
++	if (t->eng.hash) {
++		err = pohmelfs_hash(t);
++		if (err)
++			goto out_complete;
++	}
++
++	if (t->eng.cipher) {
++		err = pohmelfs_encrypt(t);
++		if (err)
++			goto out_complete;
++		trans->eng = &t->eng;
++	}
++
++out_complete:
++	t->page = NULL;
++	t->trans = NULL;
++
++	if (!trans->eng)
++		pohmelfs_crypto_thread_make_ready(t);
++
++	pohmelfs_crypto_finish(trans, t->psb, err);
++	return err;
++}
++
++static int pohmelfs_crypto_thread_page(struct pohmelfs_crypto_thread *t)
++{
++	struct pohmelfs_crypto_engine *e = &t->eng;
++	struct page *page = t->page;
++	int err;
++
++	WARN_ON(!PageChecked(page));
++
++	err = pohmelfs_crypto_process_input_data(e, e->iv, NULL, page, t->size);
++	if (!err)
++		SetPageUptodate(page);
++	else
++		SetPageError(page);
++	unlock_page(page);
++	page_cache_release(page);
++
++	pohmelfs_crypto_thread_make_ready(t);
++
++	return err;
++}
++
++static int pohmelfs_crypto_thread_func(void *data)
++{
++	struct pohmelfs_crypto_thread *t = data;
++
++	while (!kthread_should_stop()) {
++		wait_event_interruptible(t->wait, kthread_should_stop() ||
++				t->trans || t->page);
++
++		if (kthread_should_stop())
++			break;
++
++		if (!t->trans && !t->page)
++			continue;
++
++		dprintk("%s: thread: %p, trans: %p, page: %p.\n",
++				__func__, t, t->trans, t->page);
++
++		if (t->trans)
++			pohmelfs_crypto_thread_trans(t);
++		else if (t->page)
++			pohmelfs_crypto_thread_page(t);
++	}
++
++	return 0;
++}
++
++static void pohmelfs_crypto_flush(struct pohmelfs_sb *psb, struct list_head *head)
++{
++	while (!list_empty(head)) {
++		struct pohmelfs_crypto_thread *t = NULL;
++
++		mutex_lock(&psb->crypto_thread_lock);
++		if (!list_empty(head)) {
++			t = list_first_entry(head, struct pohmelfs_crypto_thread, thread_entry);
++			list_del_init(&t->thread_entry);
++		}
++		mutex_unlock(&psb->crypto_thread_lock);
++
++		if (t)
++			pohmelfs_sys_crypto_exit_one(t);
++	}
++}
++
++static void pohmelfs_sys_crypto_exit(struct pohmelfs_sb *psb)
++{
++	while (!list_empty(&psb->crypto_active_list) || !list_empty(&psb->crypto_ready_list)) {
++		dprintk("%s: crypto_thread_num: %u.\n", __func__, psb->crypto_thread_num);
++		pohmelfs_crypto_flush(psb, &psb->crypto_active_list);
++		pohmelfs_crypto_flush(psb, &psb->crypto_ready_list);
++	}
++}
++
++static int pohmelfs_sys_crypto_init(struct pohmelfs_sb *psb)
++{
++	unsigned int i;
++	struct pohmelfs_crypto_thread *t;
++	struct pohmelfs_config *c;
++	struct netfs_state *st;
++	int err;
++
++	list_for_each_entry(c, &psb->state_list, config_entry) {
++		st = &c->state;
++
++		err = pohmelfs_crypto_engine_init(&st->eng, psb);
++		if (err)
++			goto err_out_exit;
++
++		dprintk("%s: st: %p, eng: %p, hash: %p, cipher: %p.\n",
++				__func__, st, &st->eng, &st->eng.hash, &st->eng.cipher);
++	}
++
++	for (i=0; i<psb->crypto_thread_num; ++i) {
++		err = -ENOMEM;
++		t = kzalloc(sizeof(struct pohmelfs_crypto_thread), GFP_KERNEL);
++		if (!t)
++			goto err_out_free_state_engines;
++
++		init_waitqueue_head(&t->wait);
++
++		t->psb = psb;
++		t->trans = NULL;
++		t->eng.thread = t;
++
++		err = pohmelfs_crypto_engine_init(&t->eng, psb);
++		if (err)
++			goto err_out_free_state_engines;
++
++		err = pohmelfs_crypto_pages_alloc(&t->eng, psb);
++		if (err)
++			goto err_out_free;
++
++		t->thread = kthread_run(pohmelfs_crypto_thread_func, t,
++				"pohmelfs-crypto-%d-%d", psb->idx, i);
++		if (IS_ERR(t->thread)) {
++			err = PTR_ERR(t->thread);
++			t->thread = NULL;
++			goto err_out_free;
++		}
++
++		if (t->eng.cipher)
++			psb->crypto_align_size = crypto_ablkcipher_blocksize(t->eng.cipher);
++
++		mutex_lock(&psb->crypto_thread_lock);
++		list_add_tail(&t->thread_entry, &psb->crypto_ready_list);
++		mutex_unlock(&psb->crypto_thread_lock);
++	}
++	
++	psb->crypto_thread_num = i;
++	return 0;
++
++err_out_free:
++	pohmelfs_sys_crypto_exit_one(t);
++err_out_free_state_engines:
++	list_for_each_entry(c, &psb->state_list, config_entry) {
++		st = &c->state;
++		pohmelfs_crypto_engine_exit(&st->eng);
++	}
++err_out_exit:
++	pohmelfs_sys_crypto_exit(psb);
++	return err;
++}
++
++void pohmelfs_crypto_exit(struct pohmelfs_sb *psb)
++{
++	pohmelfs_sys_crypto_exit(psb);
++
++	kfree(psb->hash_string);
++	kfree(psb->cipher_string);
++}
++
++static int pohmelfs_crypt_init_complete(struct page **pages, unsigned int page_num,
++		void *private, int err)
++{
++	struct pohmelfs_sb *psb = private;
++
++	psb->flags = -err;
++	dprintk("%s: err: %d.\n", __func__, err);
++
++	wake_up(&psb->wait);
++
++	return err;
++}
++
++static int pohmelfs_crypto_init_handshake(struct pohmelfs_sb *psb)
++{
++	struct netfs_trans *t;
++	struct netfs_crypto_capabilities *cap;
++	struct netfs_cmd *cmd;
++	char *str;
++	int err = -ENOMEM, size;
++
++	size = sizeof(struct netfs_crypto_capabilities) +
++		psb->cipher_strlen + psb->hash_strlen + 2; /* 0 bytes */
++
++	t = netfs_trans_alloc(psb, size, 0, 0);
++	if (!t)
++		goto err_out_exit;
++
++	t->complete = pohmelfs_crypt_init_complete;
++	t->private = psb;
++
++	cmd = netfs_trans_current(t);
++	cap = (struct netfs_crypto_capabilities *)(cmd + 1);
++	str = (char *)(cap + 1);
++
++	cmd->cmd = NETFS_CAPABILITIES;
++	cmd->id = POHMELFS_CRYPTO_CAPABILITIES;
++	cmd->size = size;
++	cmd->start = 0;
++	cmd->ext = 0;
++	cmd->csize = 0;
++
++	netfs_convert_cmd(cmd);
++	netfs_trans_update(cmd, t, size);
++
++	cap->hash_strlen = psb->hash_strlen;
++	if (cap->hash_strlen) {
++		sprintf(str, "%s", psb->hash_string);
++		str += cap->hash_strlen;
++	}
++
++	cap->cipher_strlen = psb->cipher_strlen;
++	cap->cipher_keysize = psb->cipher_keysize;
++	if (cap->cipher_strlen)
++		sprintf(str, "%s", psb->cipher_string);
++
++	netfs_convert_crypto_capabilities(cap);
++
++	psb->flags = ~0;
++	err = netfs_trans_finish(t, psb);
++	if (err)
++		goto err_out_exit;
++
++	err = wait_event_interruptible_timeout(psb->wait, (psb->flags != ~0),
++			psb->wait_on_page_timeout);
++	if (!err)
++		err = -ETIMEDOUT;
++	else
++		err = -psb->flags;
++
++	if (!err)
++		psb->perform_crypto = 1;
++	psb->flags = 0;
++
++	/*
++	 * At this point NETFS_CAPABILITIES response command
++	 * should setup superblock in a way, which is acceptible
++	 * for both client and server, so if server refuses connection,
++	 * it will send error in transaction response.
++	 */
++
++	if (err)
++		goto err_out_exit;
++
++	return 0;
++
++err_out_exit:
++	return err;
++}
++
++int pohmelfs_crypto_init(struct pohmelfs_sb *psb)
++{
++	int err;
++
++	if (!psb->cipher_string && !psb->hash_string)
++		return 0;
++
++	err = pohmelfs_crypto_init_handshake(psb);
++	if (err)
++		return err;
++
++	err = pohmelfs_sys_crypto_init(psb);
++	if (err)
++		return err;
++
++	return 0;
++}
++
++static int pohmelfs_crypto_thread_get(struct pohmelfs_sb *psb,
++		int (* action)(struct pohmelfs_crypto_thread *t, void *data), void *data)
++{
++	struct pohmelfs_crypto_thread *t = NULL;
++	int err;
++
++	while (!t) {
++		err = wait_event_interruptible_timeout(psb->wait,
++				!list_empty(&psb->crypto_ready_list),
++				psb->wait_on_page_timeout);
++
++		t = NULL;
++		err = 0;
++		mutex_lock(&psb->crypto_thread_lock);
++		if (!list_empty(&psb->crypto_ready_list)) {
++			t = list_entry(psb->crypto_ready_list.prev,
++					struct pohmelfs_crypto_thread,
++					thread_entry);
++
++			list_move_tail(&t->thread_entry,
++					&psb->crypto_active_list);
++
++			action(t, data);
++			wake_up(&t->wait);
++
++		}
++		mutex_unlock(&psb->crypto_thread_lock);
++	}
++
++	return err;
++}
++
++static int pohmelfs_trans_crypt_action(struct pohmelfs_crypto_thread *t, void *data)
++{
++	struct netfs_trans *trans = data;
++
++	netfs_trans_get(trans);
++	t->trans = trans;
++
++	dprintk("%s: t: %p, gen: %u, thread: %p.\n", __func__, trans, trans->gen, t);
++	return 0;
++}
++
++int pohmelfs_trans_crypt(struct netfs_trans *trans, struct pohmelfs_sb *psb)
++{
++	if ((!psb->hash_string && !psb->cipher_string) || !psb->perform_crypto) {
++		netfs_trans_get(trans);
++		return pohmelfs_crypto_finish(trans, psb, 0);
++	}
++
++	return pohmelfs_crypto_thread_get(psb, pohmelfs_trans_crypt_action, trans);
++}
++
++struct pohmelfs_crypto_input_action_data
++{
++	struct page			*page;
++	struct pohmelfs_crypto_engine	*e;
++	u64				iv;
++	unsigned int			size;
 +};
 +
-+Commands can be embedded into transaction command (which in turn has own command),
-+so one can extend protocol as needed without breaking backward compatibility as long
-+as old commands are supported. All string lengths include tail 0 byte.
-+
-+All commans are transfered over the network in big-endian. CPU endianess is used at the end peers.
-+
-+@cmd - command number, which specifies command to be processed. Following
-+	commands are used currently:
-+
-+	NETFS_READDIR	= 1,	/* Read directory for given inode number */
-+	NETFS_READ_PAGE,	/* Read data page from the server */
-+	NETFS_WRITE_PAGE,	/* Write data page to the server */
-+	NETFS_CREATE,		/* Create directory entry */
-+	NETFS_REMOVE,		/* Remove directory entry */
-+	NETFS_LOOKUP,		/* Lookup single object */
-+	NETFS_LINK,		/* Create a link */
-+	NETFS_TRANS,		/* Transaction */
-+	NETFS_OPEN,		/* Open intent */
-+	NETFS_INODE_INFO,	/* Metadata cache coherency synchronization message */
-+	NETFS_PAGE_CACHE,	/* Page cache invalidation message */
-+	NETFS_READ_PAGES,	/* Read multiple contiguous pages in one go */
-+	NETFS_RENAME,		/* Rename object */
-+	NETFS_CAPABILITIES,	/* Capabilities of the client, for example supported crypto */
-+	NETFS_LOCK,		/* Distributed lock message */
-+	NETFS_XATTR_SET,	/* Set extended attribute */
-+	NETFS_XATTR_GET,	/* Get extended attribute */
-+
-+@ext - external flags. Used by different commands to specify some extra arguments
-+	like partial size of the embedded objects or creation flags.
-+
-+@size - size of the attached data. For NETFS_READ_PAGE and NETFS_READ_PAGES no data is attached,
-+	but size of the requested data is incorporated here. It does not include size of the command
-+	header (struct netfs_cmd) itself.
-+
-+@id - id of the object this command operates on. Each command can use it for own purpose.
-+
-+@start - start of the object this command operates on. Each command can use it for own purpose.
-+
-+@csize, @cpad - size and padding size of the (attached if needed) crypto information.
-+
-+Command specifications.
-+
-+@NETFS_READDIR
-+This command is used to sync content of the remote dir to the client.
-+
-+@ext - length of the path to object.
-+@size - the same.
-+@id - local inode number of the directory to read.
-+@start - zero.
-+
-+
-+@NETFS_READ_PAGE
-+This command is used to read data from remote server.
-+Data size does not exceed local page cache size.
-+
-+@id - inode number.
-+@start - first byte offset.
-+@size - number of bytes to read plus length of the path to object.
-+@ext - object path length.
-+
-+
-+@NETFS_CREATE
-+Used to create object.
-+It does not require that all directories on top of the object were
-+already created, it will create them automatically. Each object has
-+associated @netfs_path_entry data structure, which contains creation
-+mode (permissions and type) and length of the name as long as name itself.
-+
-+@start - 0
-+@size - size of the all data structures needed to create a path
-+@id - local inode number
-+@ext - 0
-+
-+
-+@NETFS_REMOVE
-+Used to remove object.
-+
-+@ext - length of the path to object.
-+@size - the same.
-+@id - local inode number.
-+@start - zero.
-+
-+
-+@NETFS_LOOKUP
-+Lookup information about object on server.
-+
-+@ext - length of the path to object.
-+@size - the same.
-+@id - local inode number of the directory to look object in.
-+@start - local inode number of the object to look at.
-+
-+
-+@NETFS_LINK
-+Create hard of symlink.
-+Command is sent as "object_path|target_path".
-+
-+@size - size of the above string.
-+@id - parent local inode number.
-+@start - 1 for symlink, 0 for hardlink.
-+@ext - size of the "object_path" above.
-+
-+
-+@NETFS_TRANS
-+Transaction header.
-+
-+@size - incorporates all embedded command sizes including theirs header sizes.
-+@start - transaction generation number - unique id used to find transaction.
-+@ext - transaction flags. Unused at the moment.
-+@id - 0.
-+
-+
-+@NETFS_OPEN
-+Open intent for given transaction.
-+
-+@id - local inode number.
-+@start - 0.
-+@size - path length to the object.
-+@ext - open flags (O_RDWR and so on).
-+
-+
-+@NETFS_INODE_INFO
-+Metadata update command.
-+It is sent to servers when attributes of the object are changed and received
-+when data or metadata were updated. It operates with the following structure:
-+
-+struct netfs_inode_info
++static int pohmelfs_crypt_input_page_action(struct pohmelfs_crypto_thread *t, void *data)
 +{
-+	unsigned int		mode;
-+	unsigned int		nlink;
-+	unsigned int		uid;
-+	unsigned int		gid;
-+	unsigned int		blocksize;
-+	unsigned int		padding;
-+	__u64			ino;
-+	__u64			blocks;
-+	__u64			rdev;
-+	__u64			size;
-+	__u64			version;
-+};
++	struct pohmelfs_crypto_input_action_data *act = data;
 +
-+It effectively mirrors stat(2) returned data.
++	memcpy(t->eng.data, act->e->data, t->psb->crypto_attached_size);
 +
++	t->size = act->size;
++	t->eng.iv = act->iv;
 +
-+@ext - path length to the object.
-+@size - the same plus size of the netfs_inode_info structure.
-+@id - local inode number.
-+@start - 0.
++	t->page = act->page;
++	return 0;
++}
 +
++int pohmelfs_crypto_process_input_page(struct pohmelfs_crypto_engine *e,
++		struct page *page, unsigned int size, u64 iv)
++{
++	struct inode *inode = page->mapping->host;
++	struct pohmelfs_crypto_input_action_data act;
++	int err = -ENOENT;
 +
-+@NETFS_PAGE_CACHE
-+Command is only received by clients. It contains information about
-+page to be marked as not up-to-date.
++	act.page = page;
++	act.e = e;
++	act.size = size;
++	act.iv = iv;
 +
-+@id - client's inode number.
-+@start - last byte of the page to be invalidated. If it is not equal to
-+	current inode size, it will be vmtruncated().
-+@size - 0
-+@ext - 0
++	err = pohmelfs_crypto_thread_get(POHMELFS_SB(inode->i_sb),
++			pohmelfs_crypt_input_page_action, &act);
++	if (err)
++		goto err_out_exit;
 +
++	return 0;
 +
-+@NETFS_READ_PAGES
-+Used to read multiple contiguous pages in one go.
++err_out_exit:
++	SetPageUptodate(page);
++	page_cache_release(page);
 +
-+@start - first byte of the contiguous region to read.
-+@size - contains of two fields: lower 8 bits are used to represent page cache shift
-+	used by client, another 3 bytes are used to get number of pages.
-+@id - local inode number.
-+@ext - path length to the object.
-+
-+
-+@NETFS_RENAME
-+Used to rename object.
-+Attached data is formed into following string: "old_path|new_path".
-+
-+@id - local inode number.
-+@start - parent inode number.
-+@size - length of the above string.
-+@ext - length of the old path part.
-+
-+
-+@NETFS_CAPABILITIES
-+Used to exchange crypto capabilities with server.
-+If crypto capabilities are not supported by server, then client will disable it
-+or fail (if 'crypto_fail_unsupported' mount options was specified).
-+
-+@id - superblock index. Used to specify crypto information for group of servers.
-+@size - size of the attached capabilities structure.
-+@start - 0.
-+@size - 0.
-+@scsize - 0.
-+
-+@NETFS_LOCK
-+Used to send lock request/release messages. Although it sends byte range request
-+and is capable of flushing pages based on that, it is not used, since all Linux
-+filesystems lock the whole inode.
-+
-+@id - lock generation number.
-+@start - start of the locked range.
-+@size - size of the locked range.
-+@ext - lock type: read/write. Not used actually. 15'th bit is used to determine,
-+	if it is lock request (1) or release (0).
-+
-+@NETFS_XATTR_SET
-+@NETFS_XATTR_GET
-+Used to set/get extended attributes for given inode.
-+@id - attribute generation number or xattr setting type
-+@start - size of the attribute (request or attached)
-+@size - name length, path len and data size for given attribute
-+@ext - path length for given object
++	return err;
++}
