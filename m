@@ -1,39 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter 00/05: netfilter fixes
-Date: Mon, 09 Feb 2009 23:47:07 +0100
-Message-ID: <4990B26B.3020705@trash.net>
-References: <20090209163926.13918.96177.sendpatchset@x2.localnet> <20090209.143238.25276576.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 002/002] de2104x: support for systems lacking cache
+ coherence
+Date: Mon, 09 Feb 2009 14:51:56 -0800 (PST)
+Message-ID: <20090209.145156.172588416.davem@davemloft.net>
+References: <46e1c7760902090022g1d903ca0nf314f0c1cc6b07c8@mail.gmail.com>
+	<m3vdrja6oe.fsf@intrepid.localdomain>
+	<46e1c7760902091122m6ec7fbb5nefd9cc9789880c0f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090209.143238.25276576.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org
+To: risto.suominen@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38512
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752160AbZBIWwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 17:52:02 -0500
+In-Reply-To: <46e1c7760902091122m6ec7fbb5nefd9cc9789880c0f@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon,  9 Feb 2009 17:39:27 +0100 (MET)
+From: Risto Suominen <risto.suominen@gmail.com>
+Date: Mon, 9 Feb 2009 21:22:03 +0200
+
+> 2009/2/9 Krzysztof Halasa <khc@pm.waw.pl>:
+> >
+> > That means the consistent/coherent mapping isn't really
+> > consistent/coherent (uncached), right? Perhaps there is some way to fix
+> > this instead of changing the drivers to avoid the problematic area?
+> >
+> Yes.
 > 
->> Please apply or pull from:
->>
->> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+> The other way could be to add a config parameter that allows to
+> explicitly set CONFIG_NOT_COHERENT_CACHE. I have not tried this,
+> probably because the necessary code wasn't in arch/powerpc until
+> 2.6.21.
 > 
-> I was going to pull from your tree and take it like that, but when I
-> pulled I got 5 real changes and 50 merges with net-2.6, yikes! :-)
+> Anyway, now I have tested with 2.6.24, and the problem still exists.
 
-Ugh sorry, thats happening automatically, but it usually doesn't show
-up since it should be fast forwards. I'll have a look at what went
-wrong.
+Ok.
 
-> If there was one or two merge changesets in there, I would have
-> taken it.  But anything more than that for a tree containing
-> 5 bug fixes is excessive.
-> 
-> I'll apply these as patches, but I really do want to be able to
-> pull from your trees so please try to provide a cleaner tree
-> next time.
+The issue are descriptors that are _written_ by both the cpu
+and the device.  That is the problematic case here.
 
-I'll make sure of it, sorry.
+e100 had a similar problem and changes were made there too to
+accomodate such system types.
+
+If only the cpu or only the device writes to the descriptor
+(which is the most common design these days) there are no
+problems.
+
+So as promised I'll have to relook at this patch :-)
