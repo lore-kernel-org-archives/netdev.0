@@ -1,398 +1,158 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: [6/9] pohmelfs: distributed locking and cache coherency protocol.
-Date: Mon,  9 Feb 2009 17:02:39 +0300
-Message-ID: <1234188162-14727-7-git-send-email-zbr@ioremap.net>
-References: <1234188162-14727-1-git-send-email-zbr@ioremap.net>
- <1234188162-14727-2-git-send-email-zbr@ioremap.net>
- <1234188162-14727-3-git-send-email-zbr@ioremap.net>
- <1234188162-14727-4-git-send-email-zbr@ioremap.net>
- <1234188162-14727-5-git-send-email-zbr@ioremap.net>
- <1234188162-14727-6-git-send-email-zbr@ioremap.net>
+Subject: [0/9] pohmelfs for drivers/staging
+Date: Mon,  9 Feb 2009 17:02:33 +0300
+Message-ID: <1234188162-14727-1-git-send-email-zbr@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
 To: GregKH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cavolo.yandex.ru ([87.250.244.45]:19472 "EHLO cavolo.yandex.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754784AbZBIONW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2009 09:13:22 -0500
-In-Reply-To: <1234188162-14727-6-git-send-email-zbr@ioremap.net>
+	id S1754253AbZBIONS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 09:13:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-POHMELFS utilizes writeback cache, which is built on top of MO(E)SI-like
-coherency protocol. This patch includes its implementation and cache
-object processing helpers (like allocation and completion callbacks).
+POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
 
-POHMELFS uses scalable cached read/write locking. No additional requests
-are performed if lock is granted to the filesystem. The same protocol
-is used by the server to on-demand flushing of the client's cache (for
-example when server wants to update local data).
+This is a high performance network filesystem with local coherent cache of
+data and metadata. Its main goal is distributed parallel processing of data.
+
+POHMELFS is a kernel client for the developed distributed parallel internet
+filesystem. As it exists today, it is a high-performance parallel network
+filesystem with the ability to balance reading among multiple hosts and
+simultaneously write data to multiple servers for redundancy.
+
+The main design goal of this filesystem is to implement a very fast and
+scalable network filesystem with local writeback cache of data and metadata,
+which greatly speeds up every IO operation compared to traditional writethrough
+based network filesystems. One can check recent POHMELFS, NFS and DST benchmarks
+for comparison [5].
+
+Read balancing and writing to the multiple hosts features can be used to
+improve parallel multithreaded read-mostly data processing workload and
+organize fault-tolerant systems. POHMELFS as a network client does not
+support data synchrnonization between the nodes (after they were brought
+up after the shutdown), so this task should be implemented in servers.
+POHMELFS and multiple-server-write can be used as backup solution for
+the physically distributed network servers.
+
+Currently development is concentrated on the distributed object-based
+server development implemeneted with distributed hash table design approach
+in mind, which main goals it completely transparent from client point of
+view node management, full absence of any controlling central servers
+(points of failure), transaction/history based object storage [6]
+
+POHMELFS utilizes writeback cache, which is built on top of MO(E)SI-like
+coherency protocol. It uses scalable cached read/write locking. No additional
+requests are performed if lock is granted to the filesystem. The same protocol
+is used by the server for the on-demand flushing of the client's cache (for
+example when server wants to update local data or send some new content
+into the clients caches).
+
+POHMELFS is able to encrypt data channel or perform strong data checksumming.
+Algorithms used by the filesystems are autoconfigured during the startup and
+mount may fail (depending on options) if server does not support requested
+algorithms.
+
+Autoconfiguration also involves sending information about size of the exported
+directory specified by the server, permission, statistics about amount of inodes,
+used space and so on.
+
+POHMELFS utilizes transaction model for all its operations.
+Each transction is an object, which may embed multiple commands completed
+atomically. When server fails the whole transaction will be replied against it
+(or different server) later. This approach allows to maintain high data integrity
+and do not desynchronize filesystem state in case of network or server failures.
+
+Basic POHMELFS features:
+
+    * Local coherent cache for data and metadata. (Byte-range) locking. Locks were
+    	prepared to be byte-range, but since all Linux filesystems lock the whole
+	inode, it was decided to lock the whole object during writing. Actual
+	messages being sent for locking/cache coherency protocol are byte-range,
+	but because the whole inode is locked, lock is cached, so range actually
+	is equal to the inode size. One can simultaneously write into the same page
+	via different offsets from different client, and every time file will be
+	coherent on all clients which do it and on the server itself.
+    * Completely async processing of all events (hard and symlinks are the only
+    	exceptions) including object creation and data reading and writing.
+    * Flexible object architecture optimized for network processing. Ability to
+    	create long pathes to object and remove arbitrary huge directories in
+	single network command.
+    * High performance is one of the main design goals.
+    * Very fast and scalable multithreaded userspace server. Being in userspace it
+    	works with any underlying filesystem and still is much faster than async
+	in-kernel NFS one.
+    * Transactions support. Full failover for all operations. Resending
+    	transactions to different servers on timeout or error.
+    * Client is able to switch between different servers (if one goes down, client
+    	automatically reconnects to second and so on).
+    * Client parallel extensions: ability to write to multiple servers and balance
+    	reading between them.
+    * Client dynamic server reconfiguration: ability to add/remove servers from
+    	working set in run-time.
+    * Strong authentification and possible data encryption in network channel.
+    * Extended attributes support.
+    * Read-only mounts, ability to limit maximum size of the exported directory.
+
+This release fixes fair number of bugs introduced in the recent switch from own path
+cache to dentry one. Also several long-standing coherency issues were successfully
+resolved.
+
+Since POHMELFS and its merge requests do not attract core kernel developers comments,
+I ask for the drivers/staging merge and pushing it upstream in the next releases.
+Current TODO entry is effectively empty (modulo bug fixes if any), but may include some
+additional features requested by the users.
+
+Development is concentrated on the distributed hash table server, which is
+implemented as a userspace library suitable for the POHMELFS server usage and
+external applications [6].
+
+Patch is against vanilla tree.
+
+One can grab sources from archive or GIT tree (web interface).
+
+1. POHMELFS homepage.
+http://www.ioremap.net/projects/pohmelfs
+
+2. POHMELFS archive.
+http://www.ioremap.net/archive/pohmelfs/
+
+3. POHMELFS git tree.
+http://www.ioremap.net/cgi-bin/gitweb.cgi
+
+4. POHMELFS maillist.
+pohmelfs@ioremap.net
+
+5. Recent POHMELFS, NFS and DST benchmarks.
+http://www.ioremap.net/node/156
+http://www.ioremap.net/node/134
+(the fun one which shows the power of the local metadata cache, but please note
+that it was mostly done in RAM):
+http://www.ioremap.net/node/153
+
+6. The elliptics network - distributed hash table cloud
+http://www.ioremap.net/taxonomy/term/17
 
 Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-diff --git a/drivers/staging/pohmelfs/lock.c b/drivers/staging/pohmelfs/lock.c
-new file mode 100644
-index 0000000..1fb9e15
---- /dev/null
-+++ b/drivers/staging/pohmelfs/lock.c
-@@ -0,0 +1,182 @@
-+/*
-+ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/backing-dev.h>
-+#include <linux/fs.h>
-+#include <linux/fsnotify.h>
-+#include <linux/slab.h>
-+#include <linux/mempool.h>
-+
-+#include "netfs.h"
-+
-+static int pohmelfs_send_lock_trans(struct pohmelfs_inode *pi,
-+		u64 id, u64 start, u32 size, int type)
-+{
-+	struct inode *inode = &pi->vfs_inode;
-+	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
-+	struct netfs_trans *t;
-+	struct netfs_cmd *cmd;
-+	int path_len, err;
-+	void *data;
-+	struct netfs_lock *l;
-+	int isize = (type & POHMELFS_LOCK_GRAB) ? 0 : sizeof(struct netfs_inode_info);
-+
-+	err = pohmelfs_path_length(pi);
-+	if (err < 0)
-+		goto err_out_exit;
-+
-+	path_len = err;
-+
-+	err = -ENOMEM;
-+	t = netfs_trans_alloc(psb, path_len + sizeof(struct netfs_lock) + isize, 0, 0);
-+	if (!t)
-+		goto err_out_exit;
-+
-+	cmd = netfs_trans_current(t);
-+	data = cmd + 1;
-+
-+	err = pohmelfs_construct_path_string(pi, data, path_len);
-+	if (err < 0)
-+		goto err_out_free;
-+	path_len = err;
-+
-+	l = data + path_len;
-+
-+	l->start = start;
-+	l->size = size;
-+	l->type = type;
-+	l->ino = pi->ino;
-+
-+	cmd->cmd = NETFS_LOCK;
-+	cmd->start = 0;
-+	cmd->id = id;
-+	cmd->size = sizeof(struct netfs_lock) + path_len + isize;
-+	cmd->ext = path_len;
-+	cmd->csize = 0;
-+
-+	netfs_convert_cmd(cmd);
-+	netfs_convert_lock(l);
-+
-+	if (isize) {
-+		struct netfs_inode_info *info = (struct netfs_inode_info *)(l + 1);
-+
-+		info->mode = inode->i_mode;
-+		info->nlink = inode->i_nlink;
-+		info->uid = inode->i_uid;
-+		info->gid = inode->i_gid;
-+		info->blocks = inode->i_blocks;
-+		info->rdev = inode->i_rdev;
-+		info->size = inode->i_size;
-+		info->version = inode->i_version;
-+
-+		netfs_convert_inode_info(info);
-+	}
-+
-+	netfs_trans_update(cmd, t, path_len + sizeof(struct netfs_lock) + isize);
-+
-+	return netfs_trans_finish(t, psb);
-+
-+err_out_free:
-+	netfs_trans_free(t);
-+err_out_exit:
-+	printk("%s: err: %d.\n", __func__, err);
-+	return err;
-+}
-+
-+int pohmelfs_data_lock(struct pohmelfs_inode *pi, u64 start, u32 size, int type)
-+{
-+	struct pohmelfs_sb *psb = POHMELFS_SB(pi->vfs_inode.i_sb);
-+	struct pohmelfs_mcache *m;
-+	int err = -ENOMEM;
-+	struct iattr iattr;
-+	struct inode *inode = &pi->vfs_inode;
-+
-+	dprintk("%s: %p: ino: %llu, start: %llu, size: %u, "
-+			"type: %d, locked as: %d, owned: %d.\n",
-+			__func__, &pi->vfs_inode, pi->ino,
-+			start, size, type, pi->lock_type,
-+			!!test_bit(NETFS_INODE_OWNED, &pi->state));
-+
-+	if (!pohmelfs_need_lock(pi, type))
-+		return 0;
-+
-+	m = pohmelfs_mcache_alloc(psb, start, size, NULL);
-+	if (IS_ERR(m))
-+		return PTR_ERR(m);
-+
-+	err = pohmelfs_send_lock_trans(pi, m->gen, start, size,
-+			type | POHMELFS_LOCK_GRAB);
-+	if (err)
-+		goto err_out_put;
-+
-+	err = wait_for_completion_timeout(&m->complete, psb->mcache_timeout);
-+	if (err)
-+		err = m->err;
-+	else
-+		err = -ETIMEDOUT;
-+
-+	if (err) {
-+		printk("%s: %p: ino: %llu, mgen: %llu, start: %llu, size: %u, err: %d.\n",
-+			__func__, &pi->vfs_inode, pi->ino, m->gen, start, size, err);
-+	}
-+
-+	if (err && (err != -ENOENT))
-+		goto err_out_put;
-+
-+	if (!err) {
-+		netfs_convert_inode_info(&m->info);
-+
-+		iattr.ia_valid = ATTR_MODE | ATTR_UID | ATTR_GID | ATTR_SIZE | ATTR_ATIME;
-+		iattr.ia_mode = m->info.mode;
-+		iattr.ia_uid = m->info.uid;
-+		iattr.ia_gid = m->info.gid;
-+		iattr.ia_size = m->info.size;
-+		iattr.ia_atime = CURRENT_TIME;
-+
-+		dprintk("%s: %p: ino: %llu, mgen: %llu, start: %llu, isize: %llu -> %llu.\n",
-+			__func__, &pi->vfs_inode, pi->ino, m->gen, start, inode->i_size, m->info.size);
-+
-+		err = pohmelfs_setattr_raw(inode, &iattr);
-+		if (!err) {
-+			struct dentry *dentry = d_find_alias(inode);
-+			if (dentry) {
-+				fsnotify_change(dentry, iattr.ia_valid);
-+				dput(dentry);
-+			}
-+		}
-+	}
-+
-+	pi->lock_type = type;
-+	set_bit(NETFS_INODE_OWNED, &pi->state);
-+
-+	pohmelfs_mcache_put(psb, m);
-+
-+	return 0;
-+
-+err_out_put:
-+	pohmelfs_mcache_put(psb, m);
-+	return err;
-+}
-+
-+int pohmelfs_data_unlock(struct pohmelfs_inode *pi, u64 start, u32 size, int type)
-+{
-+	dprintk("%s: %p: ino: %llu, start: %llu, size: %u, type: %d.\n",
-+			__func__, &pi->vfs_inode, pi->ino, start, size, type);
-+	pi->lock_type = 0;
-+	clear_bit(NETFS_INODE_REMOTE_DIR_SYNCED, &pi->state);
-+	clear_bit(NETFS_INODE_OWNED, &pi->state);
-+	return pohmelfs_send_lock_trans(pi, pi->ino, start, size, type);
-+}
-diff --git a/drivers/staging/pohmelfs/mcache.c b/drivers/staging/pohmelfs/mcache.c
-new file mode 100644
-index 0000000..2e2d36e
---- /dev/null
-+++ b/drivers/staging/pohmelfs/mcache.c
-@@ -0,0 +1,171 @@
-+/*
-+ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+#include <linux/mempool.h>
-+
-+#include "netfs.h"
-+
-+static struct kmem_cache *pohmelfs_mcache_cache;
-+static mempool_t *pohmelfs_mcache_pool;
-+
-+static inline int pohmelfs_mcache_cmp(u64 gen, u64 new)
-+{
-+	if (gen < new)
-+		return 1;
-+	if (gen > new)
-+		return -1;
-+	return 0;
-+}
-+
-+struct pohmelfs_mcache *pohmelfs_mcache_search(struct pohmelfs_sb *psb, u64 gen)
-+{
-+	struct rb_root *root = &psb->mcache_root;
-+	struct rb_node *n = root->rb_node;
-+	struct pohmelfs_mcache *tmp, *ret = NULL;
-+	int cmp;
-+
-+	while (n) {
-+		tmp = rb_entry(n, struct pohmelfs_mcache, mcache_entry);
-+
-+		cmp = pohmelfs_mcache_cmp(tmp->gen, gen);
-+		if (cmp < 0)
-+			n = n->rb_left;
-+		else if (cmp > 0)
-+			n = n->rb_right;
-+		else {
-+			ret = tmp;
-+			pohmelfs_mcache_get(ret);
-+			break;
-+		}
-+	}
-+
-+	return ret;
-+}
-+
-+static int pohmelfs_mcache_insert(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
-+{
-+	struct rb_root *root = &psb->mcache_root;
-+	struct rb_node **n = &root->rb_node, *parent = NULL;
-+	struct pohmelfs_mcache *ret = NULL, *tmp;
-+	int cmp;
-+
-+	while (*n) {
-+		parent = *n;
-+
-+		tmp = rb_entry(parent, struct pohmelfs_mcache, mcache_entry);
-+
-+		cmp = pohmelfs_mcache_cmp(tmp->gen, m->gen);
-+		if (cmp < 0)
-+			n = &parent->rb_left;
-+		else if (cmp > 0)
-+			n = &parent->rb_right;
-+		else {
-+			ret = tmp;
-+			break;
-+		}
-+	}
-+
-+	if (ret)
-+		return -EEXIST;
-+
-+	rb_link_node(&m->mcache_entry, parent, n);
-+	rb_insert_color(&m->mcache_entry, root);
-+
-+	return 0;
-+}
-+
-+static int pohmelfs_mcache_remove(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
-+{
-+	if (m && m->mcache_entry.rb_parent_color) {
-+		rb_erase(&m->mcache_entry, &psb->mcache_root);
-+		m->mcache_entry.rb_parent_color = 0;
-+		return 1;
-+	}
-+	return 0;
-+}
-+
-+void pohmelfs_mcache_remove_locked(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
-+{
-+	mutex_lock(&psb->mcache_lock);
-+	pohmelfs_mcache_remove(psb, m);
-+	mutex_unlock(&psb->mcache_lock);
-+}
-+
-+struct pohmelfs_mcache *pohmelfs_mcache_alloc(struct pohmelfs_sb *psb, u64 start,
-+		unsigned int size, void *data)
-+{
-+	struct pohmelfs_mcache *m;
-+	int err = -ENOMEM;
-+
-+	m = mempool_alloc(pohmelfs_mcache_pool, GFP_KERNEL);
-+	if (!m)
-+		goto err_out_exit;
-+
-+	init_completion(&m->complete);
-+	m->err = 0;
-+	atomic_set(&m->refcnt, 1);
-+	m->data = data;
-+	m->start = start;
-+	m->size = size;
-+	m->gen = atomic_long_inc_return(&psb->mcache_gen);
-+
-+	mutex_lock(&psb->mcache_lock);
-+	err = pohmelfs_mcache_insert(psb, m);
-+	mutex_unlock(&psb->mcache_lock);
-+	if (err)
-+		goto err_out_free;
-+
-+	return m;
-+
-+err_out_free:
-+	mempool_free(m, pohmelfs_mcache_pool);
-+err_out_exit:
-+	return ERR_PTR(err);
-+}
-+
-+void pohmelfs_mcache_free(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
-+{
-+	pohmelfs_mcache_remove_locked(psb, m);
-+
-+	mempool_free(m, pohmelfs_mcache_pool);
-+}
-+
-+int __init pohmelfs_mcache_init(void)
-+{
-+	pohmelfs_mcache_cache = kmem_cache_create("pohmelfs_mcache_cache",
-+				sizeof(struct pohmelfs_mcache),
-+				0, (SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD), NULL);
-+	if (!pohmelfs_mcache_cache)
-+		goto err_out_exit;
-+
-+	pohmelfs_mcache_pool = mempool_create_slab_pool(256, pohmelfs_mcache_cache);
-+	if (!pohmelfs_mcache_pool)
-+		goto err_out_free;
-+
-+	return 0;
-+
-+err_out_free:
-+	kmem_cache_destroy(pohmelfs_mcache_cache);
-+err_out_exit:
-+	return -ENOMEM;
-+}
-+
-+void pohmelfs_mcache_exit(void)
-+{
-+	mempool_destroy(pohmelfs_mcache_pool);
-+	kmem_cache_destroy(pohmelfs_mcache_cache);
-+}
+ .../filesystems/pohmelfs/design_notes.txt          |   70 +
+ Documentation/filesystems/pohmelfs/info.txt        |   86 +
+ .../filesystems/pohmelfs/network_protocol.txt      |  227 +++
+ drivers/staging/Kconfig                                         |    2 +
+ drivers/staging/Makefile                                        |    1 +
+ drivers/staging/pohmelfs/Kconfig                                |   23 +
+ drivers/staging/pohmelfs/Makefile                               |    3 +
+ drivers/staging/pohmelfs/config.c                               |  478 +++++
+ drivers/staging/pohmelfs/crypto.c                               |  880 +++++++++
+ drivers/staging/pohmelfs/dir.c                                  | 1093 +++++++++++
+ drivers/staging/pohmelfs/inode.c                                | 1976 ++++++++++++++++++++
+ drivers/staging/pohmelfs/lock.c                                 |  182 ++
+ drivers/staging/pohmelfs/mcache.c                               |  171 ++
+ drivers/staging/pohmelfs/net.c                                  | 1246 ++++++++++++
+ drivers/staging/pohmelfs/netfs.h                                |  932 +++++++++
+ drivers/staging/pohmelfs/path_entry.c                           |  114 ++
+ drivers/staging/pohmelfs/trans.c                                |  715 +++++++
+ mm/filemap.c                                       |    2 +
+ 18 files changed, 8201 insertions(+), 0 deletions(-)
