@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [0/4] gro: Optimise GRO receive functions
-Date: Sun, 08 Feb 2009 22:04:34 -0800 (PST)
-Message-ID: <20090208.220434.120106670.davem@davemloft.net>
-References: <20090209035930.GA2988@gondor.apana.org.au>
+Subject: Re: Deadlock with icmpv6fuzz
+Date: Sun, 08 Feb 2009 22:04:55 -0800 (PST)
+Message-ID: <20090208.220455.146957669.davem@davemloft.net>
+References: <20090206.030716.136181382.davem@davemloft.net>
+	<20090209050354.GA3548@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55583
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55586
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753015AbZBIGEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 01:04:40 -0500
-In-Reply-To: <20090209035930.GA2988@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1753040AbZBIGFC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 01:05:02 -0500
+In-Reply-To: <20090209050354.GA3548@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 9 Feb 2009 14:59:30 +1100
+Date: Mon, 9 Feb 2009 16:03:54 +1100
 
-> Hi Dave:
-> 
-> This is a split up version of a patch that Divy tested earlier.
-> I was going to do this earlier but I wanted to track down the
-> igb/ixgbe regressions first.
-> 
-> After this I'm going to look at moving the skb construction calls
-> into cxgb3 itself in order to avoid copying the meta data twice.
+> In fact, a number of spots in IPv6 already use sock_kmalloc
+> for these objects anyway (e.g., ipv6_dup_options in exthdrs.c)
+> so there is no fundamental reason why this limit can't be imposed.
 
-All applied, thanks Herbert.
+Indeed, we are consistently inconsistent here.
