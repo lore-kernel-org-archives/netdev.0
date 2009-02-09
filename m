@@ -1,32 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6: fix to set device name when new IPv6 over IPv6
- tunnel device is created.
-Date: Mon, 09 Feb 2009 15:01:37 -0800 (PST)
-Message-ID: <20090209.150137.90952382.davem@davemloft.net>
-References: <20090210.034642.74753917.takamiya@linux-ipv6.org>
+From: Webmail Maintainace <accountupgrade@j-mail.info>
+Subject: webmail service Maintenance team.
+Date: Mon, 09 Feb 2009 18:05:10 -0500
+Message-ID: <web-22895221@backend1.cwpanama.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, takamiya@po.ntts.co.jp,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	usagi-core@ml.linux-ipv6.org
-To: takamiya@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43520
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753287AbZBIXBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 18:01:43 -0500
-In-Reply-To: <20090210.034642.74753917.takamiya@linux-ipv6.org>
+Received: from backend1.cwpanama.net ([201.225.225.170]:23572 "EHLO
+	cwpanama.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754725AbZBIXGi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 18:06:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Noriaki TAKAMIYA <takamiya@linux-ipv6.org>
-Date: Tue, 10 Feb 2009 03:46:42 +0900 (JST)
+Dear Webmail Subscriber/User,
+  
+  This message is from Webmail/account update Service team
+messaging center to all subscribers/webmail users. We are 
+currently
+upgrading our data base and e-mail center due to spam 
+complaints of
+email users in our webmail system,We are deleting all 
+unused Webmail
+Accounts. to create space for new ones.
+  
+You are required to verify your webmail account by 
+confirming your
+Webmail identity. This will help prevent your Webmail 
+account from been
+closed during this exercise.
 
->   When the user creates IPv6 over IPv6 tunnel, the device name created
->   by the kernel isn't set to t->parm.name, which is referred as the
->   result of ioctl().
-> 
->   Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-
-Patch applied, thank you.
+In order to Confirm your Web-Mail identity, you are to 
+provide the
+following data;
+  
+First Name:
+Last Name:
+Username/ID:
+Password:
+Date of Birth:
+  
+*Important Warning!!!
+Account owners who fails to update his or her account on 
+receiving
+this notice might loose his or her account. Please provide 
+all these
+information completely and correctly otherwise due to 
+security reasons
+we may have to close your account temporarily.
