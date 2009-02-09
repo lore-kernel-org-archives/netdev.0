@@ -1,28 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6] drivers/atm: introduce missing kfree
-Date: Sun, 08 Feb 2009 17:00:20 -0800 (PST)
-Message-ID: <20090208.170020.93114261.davem@davemloft.net>
-References: <Pine.LNX.4.64.0902082243200.25891@ask.diku.dk>
+Subject: Re: [PATCH] tun: Fix unicast filter overflow
+Date: Sun, 08 Feb 2009 17:06:05 -0800 (PST)
+Message-ID: <20090208.170605.01154488.davem@davemloft.net>
+References: <20090207174404.16716.20574.stgit@kvm.aw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: julia@diku.dk
+Cc: maxk@qualcomm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: alex.williamson@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55574
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36145
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752038AbZBIBA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2009 20:00:26 -0500
-In-Reply-To: <Pine.LNX.4.64.0902082243200.25891@ask.diku.dk>
+	by vger.kernel.org with ESMTP id S1751623AbZBIBGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2009 20:06:12 -0500
+In-Reply-To: <20090207174404.16716.20574.stgit@kvm.aw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Sun, 8 Feb 2009 22:44:16 +0100 (CET)
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Sat, 07 Feb 2009 10:45:13 -0700
 
-> Error handling code following a kmalloc should free the allocated data.
-...
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Tap devices can make use of a small MAC filter set via the
+> TUNSETTXFILTER ioctl.  The filter has a set of exact matches
+> plus a hash for imperfect filtering of additional multicast
+> addresses.  The current code is unbalanced, adding unicast
+> addresses to the multicast hash, but only checking the hash
+> against multicast addresses.  This results in the filter
+> dropping unicast addresses that overflow the exact filter.
+> The fix is simply to disable the filter by leaving count set
+> to zero if we find non-multicast addresses after the exact
+> match table is filled.
+> 
+> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 
-Applied, thanks Julia.
+Doesn't it make more sense to remove the multicast check
+in the filter check function?
+
+With your change, the user gets absolutely no indication
+that filtering has been completely disabled simply because
+they put too many unicast addresses into the filter.  We
+just return zero, that's crazy.
