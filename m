@@ -1,118 +1,244 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Mon, 9 Feb 2009 09:13:00 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0902090853360.20576@wrl-59.cs.helsinki.fi>
-References: <20090206054541.GA4954@gondor.apana.org.au>
- <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com>
- <20090209055848.GA3889@gondor.apana.org.au> <20090208.220357.261414983.davem@davemloft.net>
- <20090209061151.GA3982@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] atl1c:Atheros L1C Gigabit Ethernet driver
+Date: Sun, 08 Feb 2009 23:18:14 -0800 (PST)
+Message-ID: <20090208.231814.18575012.davem@davemloft.net>
+References: <1234161271580-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-1817757509-1234163580=:20576"
-Cc: David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
-	rjw@sisk.pl, torvalds@linux-foundation.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:57437 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753689AbZBIHNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 02:13:04 -0500
-In-Reply-To: <20090209061151.GA3982@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58489
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753826AbZBIHSV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 02:18:21 -0500
+In-Reply-To: <1234161271580-git-send-email-jie.yang@atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-1817757509-1234163580=:20576
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Mon, 9 Feb 2009, Herbert Xu wrote:
-
-> On Sun, Feb 08, 2009 at 10:03:57PM -0800, David Miller wrote:
-> > 
-> > I would expect to see the URG packets from rlogin not rlogind, from
-> > things like hitting Ctrl-C etc.
-> 
-> That's what I thought too, however, the strace says otherwise:
-> 
-> connect(3, {sa_family=AF_INET, sin_port=htons(513), sin_addr=inet_addr("192.168.243.118")}, 16) = 0
-> write(3, "\0", 1)                       = 1
-> writev(3, [{"root\0", 5}, {"root\0", 5}, {"xterm/38400\0", 12}], 3) = 22
-> read(3, "\0", 1)                        = 1
-> rt_sigprocmask(SIG_SETMASK, [USR1 URG], [USR1 URG], 8) = 0
-> setsockopt(3, SOL_IP, IP_TOS, [16], 4)  = 0
-> setuid32(0)                             = 0
-> ioctl(0, SNDCTL_TMR_TIMEBASE or TCGETS, {B38400 opost isig icanon echo ...}) = 0
-> rt_sigaction(SIGINT, {SIG_IGN}, {SIG_DFL}, 8) = 0
-> rt_sigprocmask(SIG_BLOCK, [HUP], [USR1 URG], 8) = 0
-> rt_sigaction(SIGHUP, {0x8048bdc, [HUP], SA_RESTART}, {SIG_IGN}, 8) = 0
-> rt_sigaction(SIGHUP, {SIG_IGN}, {0x8048bdc, [HUP], SA_RESTART}, 8) = 0
-> rt_sigprocmask(SIG_SETMASK, [USR1 URG], [HUP USR1 URG], 8) = 0
-> rt_sigprocmask(SIG_BLOCK, [QUIT], [USR1 URG], 8) = 0
-> rt_sigaction(SIGQUIT, {0x8048bdc, [QUIT], SA_RESTART}, {SIG_DFL}, 8) = 0
-> rt_sigprocmask(SIG_SETMASK, [USR1 URG], [QUIT USR1 URG], 8) = 0
-> rt_sigaction(SIGCHLD, {0x8049f20, [CHLD], SA_RESTART}, {SIG_DFL}, 8) = 0
-> clone(child_stack=0, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0xb7d81918) = 6433
-> rt_sigaction(SIGURG, {0x80491d0, [URG], SA_RESTART}, {SIG_DFL}, 8) = 0
-> rt_sigaction(SIGUSR1, {0x8048de0, [USR1], SA_RESTART}, {SIG_DFL}, 8) = 0
-> rt_sigprocmask(SIG_SETMASK, [], [USR1 URG], 8) = 0
-> --- SIGURG (Urgent I/O condition) @ 0 (0) ---
-> kill(6433, SIGURG)                      = 0
-> 
-> FD 3 is the TCP socket.  As you can see, the only operations done
-> were write/writev/read/setsockopt.  None of these can enter urgent
-> mode for sending, so that's how I concluded that my patch should
-> have zero effect on this side.
-> 
-> Note also that we got an SIGURG, which indicates that we received
-> urgent data.
-
-Hmm, what happens if a opposite dir ACK gets sent (it's zero sized seqno 
-range will be above urgent sequence when urg is not yet acknowledged)? So 
-we'll take the later branch after your change and send bogus 0xffff urg?
-I think you're change might have actually broken bidir tcp completely (and 
-probably window probing as well under some conditions). Congraz, two flies 
-with a single stroke :-). You would have needed an additional check that 
-the tcb->seq is below urg...
-
-...Below is a patch but Jeff might need to revert the revert first if
-he tests with the latest Linus' tree.
+From: <jie.yang@atheros.com>
+Date: Mon, 9 Feb 2009 14:34:31 +0800
 
 
--- 
- i.
+> +#define PCI_REG_COMMAND	 0x04    /* PCI Command Register */
+> +#define CMD_IO_SPACE	 0x0001
+> +#define CMD_MEMORY_SPACE 0x0002
+> +#define CMD_BUS_MASTER   0x0004
 
-[PATCH] tcp: check that we're still < urg instead of sending a bogus one
+Use definitions in linux/pci_regs.h, instead of inventing
+your own.
 
-Opposite dir ACK with zero sized seqno range can go into the
-later condition once urg is in the outstanding window not
-yet acknowledge (we're still in urg mode but seqno we sent in
-the ack won't be below snd_up). Need to check that we never
-advertize bogus urg for a segment which is after the snd_up.
+> +
+> +#define BAR_0   0
+> +#define BAR_1   1
+> +#define BAR_5   5
 
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_output.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Likewise.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 557fe16..c808d73 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -667,7 +667,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 		if (between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFFF)) {
- 			th->urg_ptr = htons(tp->snd_up - tcb->seq);
- 			th->urg = 1;
--		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
-+		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt) &&
-+			   before(tcb->seq, tcp->snd_up)) {
- 			th->urg_ptr = 0xFFFF;
- 			th->urg = 1;
- 		}
--- 
-1.5.6.5
+> +/* Error Codes */
+> +#define AT_ERR_EEPROM      1
+> +#define AT_ERR_PHY         2
+> +#define AT_ERR_CONFIG      3
+> +#define AT_ERR_PARAM       4
+> +#define AT_ERR_MAC_TYPE    5
+> +#define AT_ERR_PHY_TYPE    6
+> +#define AT_ERR_PHY_SPEED   7
+> +#define AT_ERR_PHY_RES     8
+> +#define AT_ERR_TIMEOUT     9
 
----696208474-1817757509-1234163580=:20576--
+Please do not invent your own error code system, use existing ones.
+Otherwise your code is hard for others to understand and review.
+
+> +#define AT_RX_BUF_SIZE		1536
+
+How is this number derived?  Is it ETH_DATA_LEN or ETH_FRAME_LEN
+plus some constant or other importnat value?  If so, please
+define it as a sum of those descriptive macro values.
+
+> +#define AT_REGS_LEN	75
+
+This definition is really confusing.  It's not the length
+of the chip register area, it's the number of registers
+the chip has.
+
+Every use in the driver multiplies this value by
+"sizeof(u32)".  Just define this macro to "75 * sizeof(u32)"
+and update the macro users accordingly.
+
+> +struct atl1c_tpd_desc {
+> +	__le16	buffer_len; /* include 4-byte CRC */
+> +	u16	vlan_tag;
+> +	__le32	word1;
+> +	__le64	buffer_addr;
+> +};
+
+Is the vlan_tag stored in little or big endian?  I find it
+unlikely that it is stored in cpu-endianness, so an
+endian typed vlan_tag should be specified here.
+
+The AT_TAG_TO_VLAN() macro will need to be updated to match
+whatever endianness this value is stored in.
+
+> +struct atl1c_recv_ret_status {
+> +	__le32  word0;
+> +	u32	rss_hash;
+> +	u16	vlan_tag;
+> +	u16	flag;
+> +	__le32	word3;
+> +};
+
+Well, what endianness are these values stored in?  Cpu endianness?
+If not, endian specific types and accessors need to be used here.
+
+> +	u16 autoneg_advertised;
+> +#define ADVERTISE_10_HALF               0x0001
+> +#define ADVERTISE_10_FULL               0x0002
+> +#define ADVERTISE_100_HALF              0x0004
+> +#define ADVERTISE_100_FULL              0x0008
+> +#define ADVERTISE_1000_HALF             0x0010 /* Not used, just FYI */
+> +#define ADVERTISE_1000_FULL             0x0020
+> +#define ADVERTISE_DEFAULT (ADVERTISE_10_HALF  |\
+> +			   ADVERTISE_10_FULL  |\
+> +			   ADVERTISE_100_HALF |\
+> +			   ADVERTISE_100_FULL |\
+> +			   ADVERTISE_1000_FULL)
+
+Having these self-defined local macros with similar names
+as the defines found in linux/mii.h (which also form a bitmask
+that fits in 16-bits) is confusing.
+
+Please use the linux/mii.h values here.
+
+> +	if (control & EEPROM_CTRL_RW) {
+> +		AT_READ_REG(hw, REG_EEPROM_CTRL, &data);
+> +		AT_READ_REG(hw, REG_EEPROM_DATA_LO, p_value);
+> +		data = data & 0xFFFF;
+> +		*p_value = swab32((data << 16) | (*p_value >> 16));
+> +		ret = true;
+> +	}
+
+Please make sure the endianness works out properly here,
+even on big-endian systems.
+
+I think it's right, but it's worth double checking.
+
+> +#if 0
+> +int atl1c_phy_commit(struct atl1c_hw *hw)
+
+Please just elide this code from the driver, you can add
+it in when a use is created.
+
+> +static void atl1c_phy_magic_data(struct atl1c_hw *hw)
+> +{
+> +	u16 data;
+> +
+> +	atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x12);
+> +	atl1c_write_phy_reg(hw, MII_DBG_DATA, 0x4C04);
+> +
+> +	atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x05);
+> +	atl1c_write_phy_reg(hw, MII_DBG_DATA, 0x2C46);
+> +
+> +	atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x36);
+> +	atl1c_write_phy_reg(hw, MII_DBG_DATA, 0xE12C);
+> +
+> +	atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x04);
+> +	atl1c_write_phy_reg(hw, MII_DBG_DATA, 0x88BB);
+> +
+> +	atl1c_write_phy_reg(hw, MII_DBG_ADDR, 0x00);
+> +	atl1c_write_phy_reg(hw, MII_DBG_DATA, 0x02EF);
+
+No magic constants please, document these MII PHY registers and what
+bits and values you are setting into them, using appropriate register
+offset and value macros.
+
+I am pretty sure you can find out what these register writes are
+doing, and thus be able to document them properly :-)
+
+> +/* register definition */
+> +#define REG_PM_CTRLSTAT             	0x44
+> +#define PM_CTRLSTAT_PME_EN		0x100
+
+All of these PCI config space registers should either use
+the definitions in linux/pci_reg.h or the appropriate
+extended PCI config space register probing mechanisms such
+as pci_find_capability().
+
+pci_find_capability() is the correct way to find the PM,
+VPD, PCI-E etc. extended register areas.
+
+
+> +			netif_carrier_on(netdev);
+> +			netif_wake_queue(netdev);
+ ...
+> +			netif_carrier_off(netdev);
+> +			netif_stop_queue(netdev);
+
+Doing a carrier state change as well as a queue wake/stop is
+redundant.  Setting the carrier off is enough to stop packet
+flow on transmit to the device.  And likewise setting the
+carrier on is enough to (re-)start packet flow for transmit.
+
+> +static int atl1c_clean(struct napi_struct *napi, int budget)
+> +{
+> +	struct atl1c_adapter *adapter =
+> +			container_of(napi, struct atl1c_adapter, napi);
+> +	int work_done = 0;
+> +	int i;
+> +
+> +	/* Keep link state information with original netdev */
+> +	if (!netif_carrier_ok(adapter->netdev))
+> +		goto quit_polling;
+> +
+> +	for (i = 0; i < adapter->num_rx_queues; i++)
+> +		atl1c_clean_rx_irq(adapter, i, &work_done, budget);
+
+This is going to perform very poorly.  You should instantiate
+a seperate NAPI instance for each RX queue, and only schedule NAPI
+for those specific RX queues which indicate RX packets are available
+at interrupt time.
+
+Otherwise having seperate RX queues is pointless, as all of the SMP
+locking gains from RX seperation will not be realized.
+
+If it is not possible to implement things this way, either because
+it is very difficult or impossible due to the interrupt architecture
+of the chip, then please just use one RX queue at this time.  You
+can add the RX multi-queue support back later once it is implemented
+properly.
+
+> +	netdev->open = &atl1c_open;
+> +	netdev->stop = &atl1c_close;
+> +	netdev->hard_start_xmit = &atl1c_xmit_frame;
+> +	netdev->get_stats = &atl1c_get_stats;
+> +	netdev->set_multicast_list = &atl1c_set_multi;
+> +	netdev->set_mac_address = &atl1c_set_mac_addr;
+> +	netdev->change_mtu = &atl1c_change_mtu;
+> +	netdev->do_ioctl = &atl1c_ioctl;
+> +	netdev->tx_timeout = &atl1c_tx_timeout;
+
+Please use net_device_ops, the function pointer initialization method
+you are using here is deprecated and will be eliminated at some point
+in the future.
+
+> +	/* enable device (incl. PCI PM wakeup and hotplug setup) */
+> +	err = pci_enable_device(pdev);
+> +	if (err) {
+> +		dev_err(&pdev->dev, "cannot enable PCI device\n");
+> +		return err;
+> +	}
+
+Please use pci_enable_device_mem() if only MEM space register
+accesses will be used.
+
+
+> +	/* get user settings */
+> +	atl1c_check_options(adapter);
+
+Please do not use module parameters for network device
+configuration knobs.
+
+Many of the controls you have specified are supported by
+ethtool, and that is the consistent interface we have for
+users to make these setting changes.
