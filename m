@@ -1,48 +1,69 @@
-From: Noriaki TAKAMIYA <takamiya@linux-ipv6.org>
-Subject: [PATCH] IPv6: fix to set device name when new IPv6 over IPv6
- tunnel device is created.
-Date: Tue, 10 Feb 2009 03:46:42 +0900 (JST)
-Message-ID: <20090210.034642.74753917.takamiya@linux-ipv6.org>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH] forcedeth: make msi-x different name for rx-tx
+Date: Mon, 09 Feb 2009 11:13:57 -0800
+Message-ID: <49908075.2010902@kernel.org>
+References: <498BC3A8.9040203@kernel.org> <20090206144948.GD18368@elte.hu> <498C6C15.3050807@kernel.org> <20090206171544.GA16190@elte.hu> <498C7958.4010109@kernel.org> <20090209120057.GB17782@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: takamiya@po.ntts.co.jp, davem@davemloft.net,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	usagi-core@ml.linux-ipv6.org
-To: shemminger@vyatta.com
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nezu.linux-ipv6.org ([203.178.142.218]:47384 "EHLO
-	nezu.linux-ipv6.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549AbZBITKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 14:10:44 -0500
+Received: from hera.kernel.org ([140.211.167.34]:36796 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752491AbZBITPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 14:15:04 -0500
+In-Reply-To: <20090209120057.GB17782@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Ingo Molnar wrote:
+> * Yinghai Lu <yinghai@kernel.org> wrote:
+> 
+>> Ingo Molnar wrote:
+>>> * Yinghai Lu <yinghai@kernel.org> wrote:
+>>>
+>>>> Ingo Molnar wrote:
+>>>>> Cool cleanups!
+>>>>>
+>>>>> Would you mind to also fix the following - on all my systems that have 
+>>>>> forcedeth gigabit ethernet i've been getting these bogus warnings for 
+>>>>> _years_, under moderate load:
+>>>>>
+>>>>>   eth2: too many iterations (16) in nv_nic_irq.
+>>>>>
+>>>>> I think a 64 iterations limit will work much better. (i tried a limit of 50 
+>>>>> a year ago for a while and it worked fine and had no side effects - and the 
+>>>>> bogus warnings were done.)
+>>>> you may enable CONFIG_FORCEDETH_NAPI.
+>>>>
+>>>> we should enable NAPI for forcedeth by default, and try to squash more bugs out.
+>>> i do have that:
+>>>
+>>>  CONFIG_FORCEDETH=y
+>>>  CONFIG_FORCEDETH_NAPI=y
+>>>
+>>> and the messages still come.
+>> so you systems are using ioapic routing, or msi.
+>>
+>> and those messages are from 
+>> nv_nic_irq_optimized or nv_nic_irq
+>> for TX or OTHER (timerirq).
+> 
+> yes, IO-APIC:
+> 
+>  18:      81386  306713817          0          0 1413724087          0          0          
+> 0          0          0          0          0          0          0          0          
+> 0   IO-APIC-fasteoi   eth2
+> 
+> Those messages do come and are annoying.
 
-  When the user creates IPv6 over IPv6 tunnel, the device name created
-  by the kernel isn't set to t->parm.name, which is referred as the
-  result of ioctl().
+it seems timerirq by nic cause extra irq...
+need to figure out why all devices need that workaround..., checked ck804 and mcp55 doesn't need it.
 
-  Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
----
- net/ipv6/ip6_tunnel.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 58e2b0d..d994c55 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -249,8 +249,8 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct ip6_tnl_parm *p)
- 	}
- 
- 	t = netdev_priv(dev);
--	ip6_tnl_dev_init(dev);
- 	t->parms = *p;
-+	ip6_tnl_dev_init(dev);
- 
- 	if ((err = register_netdevice(dev)) < 0)
- 		goto failed_free;
--- 
-Noriaki TAKAMIYA
-
+YH
