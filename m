@@ -1,111 +1,398 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: [9/9] pohmelfs: kconfig/makefile and vfs changes.
-Date: Mon,  9 Feb 2009 17:02:42 +0300
-Message-ID: <1234188162-14727-10-git-send-email-zbr@ioremap.net>
+Subject: [6/9] pohmelfs: distributed locking and cache coherency protocol.
+Date: Mon,  9 Feb 2009 17:02:39 +0300
+Message-ID: <1234188162-14727-7-git-send-email-zbr@ioremap.net>
 References: <1234188162-14727-1-git-send-email-zbr@ioremap.net>
  <1234188162-14727-2-git-send-email-zbr@ioremap.net>
  <1234188162-14727-3-git-send-email-zbr@ioremap.net>
  <1234188162-14727-4-git-send-email-zbr@ioremap.net>
  <1234188162-14727-5-git-send-email-zbr@ioremap.net>
  <1234188162-14727-6-git-send-email-zbr@ioremap.net>
- <1234188162-14727-7-git-send-email-zbr@ioremap.net>
- <1234188162-14727-8-git-send-email-zbr@ioremap.net>
- <1234188162-14727-9-git-send-email-zbr@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
 To: GregKH <greg@kroah.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1234188162-14727-9-git-send-email-zbr@ioremap.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cavolo.yandex.ru ([87.250.244.45]:19472 "EHLO cavolo.yandex.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754784AbZBIONW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 09:13:22 -0500
+In-Reply-To: <1234188162-14727-6-git-send-email-zbr@ioremap.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds Kconfig and Makefile entries and exports to
-VFS functions to be used by POHMELFS.
+POHMELFS utilizes writeback cache, which is built on top of MO(E)SI-like
+coherency protocol. This patch includes its implementation and cache
+object processing helpers (like allocation and completion callbacks).
+
+POHMELFS uses scalable cached read/write locking. No additional requests
+are performed if lock is granted to the filesystem. The same protocol
+is used by the server to on-demand flushing of the client's cache (for
+example when server wants to update local data).
 
 Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-diff --git a/mm/filemap.c b/mm/filemap.c
-index f3e5f89..3f77548 100644
---- a/mm/filemap.c
-+++ b/mm/filemap.c
-@@ -513,6 +513,7 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
- 	}
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(add_to_page_cache_lru);
- 
- #ifdef CONFIG_NUMA
- struct page *__page_cache_alloc(gfp_t gfp)
-@@ -627,6 +628,7 @@ int __lock_page_killable(struct page *page)
- 	return __wait_on_bit_lock(page_waitqueue(page), &wait,
- 					sync_page_killable, TASK_KILLABLE);
- }
-+EXPORT_SYMBOL_GPL(__lock_page_killable);
- 
- /**
-  * __lock_page_nosync - get a lock on the page, without calling sync_page()
-
-
-diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
-index 5d457c9..a089649 100644
---- a/drivers/staging/Kconfig
-+++ b/drivers/staging/Kconfig
-@@ -41,6 +41,8 @@ config STAGING_EXCLUDE_BUILD
- 
- if !STAGING_EXCLUDE_BUILD
- 
-+source "drivers/staging/pohmelfs/Kconfig"
-+
- source "drivers/staging/et131x/Kconfig"
- 
- source "drivers/staging/slicoss/Kconfig"
-diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
-index 71c4d53..631ce75 100644
---- a/drivers/staging/Makefile
-+++ b/drivers/staging/Makefile
-@@ -3,6 +3,7 @@
- # fix for build system bug...
- obj-$(CONFIG_STAGING)		+= staging.o
- 
-+obj-$(CONFIG_POHMELFS)		+= pohmelfs/
- obj-$(CONFIG_ET131X)		+= et131x/
- obj-$(CONFIG_SLICOSS)		+= slicoss/
- obj-$(CONFIG_SXG)		+= sxg/
-diff --git a/drivers/staging/pohmelfs/Makefile b/drivers/staging/pohmelfs/Makefile
+diff --git a/drivers/staging/pohmelfs/lock.c b/drivers/staging/pohmelfs/lock.c
 new file mode 100644
-index 0000000..196561c
+index 0000000..1fb9e15
 --- /dev/null
-+++ b/drivers/staging/pohmelfs/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_POHMELFS)	+= pohmelfs.o
++++ b/drivers/staging/pohmelfs/lock.c
+@@ -0,0 +1,182 @@
++/*
++ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
-+pohmelfs-y := inode.o config.o dir.o net.o path_entry.o trans.o crypto.o lock.o mcache.o
-diff --git a/drivers/staging/pohmelfs/Kconfig b/drivers/staging/pohmelfs/Kconfig
++#include <linux/module.h>
++#include <linux/backing-dev.h>
++#include <linux/fs.h>
++#include <linux/fsnotify.h>
++#include <linux/slab.h>
++#include <linux/mempool.h>
++
++#include "netfs.h"
++
++static int pohmelfs_send_lock_trans(struct pohmelfs_inode *pi,
++		u64 id, u64 start, u32 size, int type)
++{
++	struct inode *inode = &pi->vfs_inode;
++	struct pohmelfs_sb *psb = POHMELFS_SB(inode->i_sb);
++	struct netfs_trans *t;
++	struct netfs_cmd *cmd;
++	int path_len, err;
++	void *data;
++	struct netfs_lock *l;
++	int isize = (type & POHMELFS_LOCK_GRAB) ? 0 : sizeof(struct netfs_inode_info);
++
++	err = pohmelfs_path_length(pi);
++	if (err < 0)
++		goto err_out_exit;
++
++	path_len = err;
++
++	err = -ENOMEM;
++	t = netfs_trans_alloc(psb, path_len + sizeof(struct netfs_lock) + isize, 0, 0);
++	if (!t)
++		goto err_out_exit;
++
++	cmd = netfs_trans_current(t);
++	data = cmd + 1;
++
++	err = pohmelfs_construct_path_string(pi, data, path_len);
++	if (err < 0)
++		goto err_out_free;
++	path_len = err;
++
++	l = data + path_len;
++
++	l->start = start;
++	l->size = size;
++	l->type = type;
++	l->ino = pi->ino;
++
++	cmd->cmd = NETFS_LOCK;
++	cmd->start = 0;
++	cmd->id = id;
++	cmd->size = sizeof(struct netfs_lock) + path_len + isize;
++	cmd->ext = path_len;
++	cmd->csize = 0;
++
++	netfs_convert_cmd(cmd);
++	netfs_convert_lock(l);
++
++	if (isize) {
++		struct netfs_inode_info *info = (struct netfs_inode_info *)(l + 1);
++
++		info->mode = inode->i_mode;
++		info->nlink = inode->i_nlink;
++		info->uid = inode->i_uid;
++		info->gid = inode->i_gid;
++		info->blocks = inode->i_blocks;
++		info->rdev = inode->i_rdev;
++		info->size = inode->i_size;
++		info->version = inode->i_version;
++
++		netfs_convert_inode_info(info);
++	}
++
++	netfs_trans_update(cmd, t, path_len + sizeof(struct netfs_lock) + isize);
++
++	return netfs_trans_finish(t, psb);
++
++err_out_free:
++	netfs_trans_free(t);
++err_out_exit:
++	printk("%s: err: %d.\n", __func__, err);
++	return err;
++}
++
++int pohmelfs_data_lock(struct pohmelfs_inode *pi, u64 start, u32 size, int type)
++{
++	struct pohmelfs_sb *psb = POHMELFS_SB(pi->vfs_inode.i_sb);
++	struct pohmelfs_mcache *m;
++	int err = -ENOMEM;
++	struct iattr iattr;
++	struct inode *inode = &pi->vfs_inode;
++
++	dprintk("%s: %p: ino: %llu, start: %llu, size: %u, "
++			"type: %d, locked as: %d, owned: %d.\n",
++			__func__, &pi->vfs_inode, pi->ino,
++			start, size, type, pi->lock_type,
++			!!test_bit(NETFS_INODE_OWNED, &pi->state));
++
++	if (!pohmelfs_need_lock(pi, type))
++		return 0;
++
++	m = pohmelfs_mcache_alloc(psb, start, size, NULL);
++	if (IS_ERR(m))
++		return PTR_ERR(m);
++
++	err = pohmelfs_send_lock_trans(pi, m->gen, start, size,
++			type | POHMELFS_LOCK_GRAB);
++	if (err)
++		goto err_out_put;
++
++	err = wait_for_completion_timeout(&m->complete, psb->mcache_timeout);
++	if (err)
++		err = m->err;
++	else
++		err = -ETIMEDOUT;
++
++	if (err) {
++		printk("%s: %p: ino: %llu, mgen: %llu, start: %llu, size: %u, err: %d.\n",
++			__func__, &pi->vfs_inode, pi->ino, m->gen, start, size, err);
++	}
++
++	if (err && (err != -ENOENT))
++		goto err_out_put;
++
++	if (!err) {
++		netfs_convert_inode_info(&m->info);
++
++		iattr.ia_valid = ATTR_MODE | ATTR_UID | ATTR_GID | ATTR_SIZE | ATTR_ATIME;
++		iattr.ia_mode = m->info.mode;
++		iattr.ia_uid = m->info.uid;
++		iattr.ia_gid = m->info.gid;
++		iattr.ia_size = m->info.size;
++		iattr.ia_atime = CURRENT_TIME;
++
++		dprintk("%s: %p: ino: %llu, mgen: %llu, start: %llu, isize: %llu -> %llu.\n",
++			__func__, &pi->vfs_inode, pi->ino, m->gen, start, inode->i_size, m->info.size);
++
++		err = pohmelfs_setattr_raw(inode, &iattr);
++		if (!err) {
++			struct dentry *dentry = d_find_alias(inode);
++			if (dentry) {
++				fsnotify_change(dentry, iattr.ia_valid);
++				dput(dentry);
++			}
++		}
++	}
++
++	pi->lock_type = type;
++	set_bit(NETFS_INODE_OWNED, &pi->state);
++
++	pohmelfs_mcache_put(psb, m);
++
++	return 0;
++
++err_out_put:
++	pohmelfs_mcache_put(psb, m);
++	return err;
++}
++
++int pohmelfs_data_unlock(struct pohmelfs_inode *pi, u64 start, u32 size, int type)
++{
++	dprintk("%s: %p: ino: %llu, start: %llu, size: %u, type: %d.\n",
++			__func__, &pi->vfs_inode, pi->ino, start, size, type);
++	pi->lock_type = 0;
++	clear_bit(NETFS_INODE_REMOTE_DIR_SYNCED, &pi->state);
++	clear_bit(NETFS_INODE_OWNED, &pi->state);
++	return pohmelfs_send_lock_trans(pi, pi->ino, start, size, type);
++}
+diff --git a/drivers/staging/pohmelfs/mcache.c b/drivers/staging/pohmelfs/mcache.c
 new file mode 100644
-index 0000000..82d13ad
+index 0000000..2e2d36e
 --- /dev/null
-+++ b/drivers/staging/pohmelfs/Kconfig
-@@ -0,0 +1,23 @@
-+config POHMELFS
-+	tristate "POHMELFS filesystem support"
-+	select CONNECTOR
-+	help
-+	  POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
-+	  This is a network filesystem which supports coherent caching of data and metadata
-+	  on clients.
++++ b/drivers/staging/pohmelfs/mcache.c
+@@ -0,0 +1,171 @@
++/*
++ * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
++ * All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
-+config POHMELFS_DEBUG
-+	bool "POHMELFS debugging"
-+	depends on POHMELFS
-+	default n
-+	help
-+	  Turns on excessive POHMELFS debugging facilities.
-+	  You usually do not want to slow things down noticebly and get really lots of kernel
-+	  messages in syslog.
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/mempool.h>
 +
-+config POHMELFS_CRYPTO
-+	bool "POHMELFS crypto support"
-+	depends on CONFIG_CRYPTO_BLKCIPHER && CONFIG_CRYPTO_HASH
-+	help
-+	  This option allows to encrypt and/or protect with strong cryptographic hash all dataflow
-+	  between server and clients. Each config group can have own keys.
++#include "netfs.h"
++
++static struct kmem_cache *pohmelfs_mcache_cache;
++static mempool_t *pohmelfs_mcache_pool;
++
++static inline int pohmelfs_mcache_cmp(u64 gen, u64 new)
++{
++	if (gen < new)
++		return 1;
++	if (gen > new)
++		return -1;
++	return 0;
++}
++
++struct pohmelfs_mcache *pohmelfs_mcache_search(struct pohmelfs_sb *psb, u64 gen)
++{
++	struct rb_root *root = &psb->mcache_root;
++	struct rb_node *n = root->rb_node;
++	struct pohmelfs_mcache *tmp, *ret = NULL;
++	int cmp;
++
++	while (n) {
++		tmp = rb_entry(n, struct pohmelfs_mcache, mcache_entry);
++
++		cmp = pohmelfs_mcache_cmp(tmp->gen, gen);
++		if (cmp < 0)
++			n = n->rb_left;
++		else if (cmp > 0)
++			n = n->rb_right;
++		else {
++			ret = tmp;
++			pohmelfs_mcache_get(ret);
++			break;
++		}
++	}
++
++	return ret;
++}
++
++static int pohmelfs_mcache_insert(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
++{
++	struct rb_root *root = &psb->mcache_root;
++	struct rb_node **n = &root->rb_node, *parent = NULL;
++	struct pohmelfs_mcache *ret = NULL, *tmp;
++	int cmp;
++
++	while (*n) {
++		parent = *n;
++
++		tmp = rb_entry(parent, struct pohmelfs_mcache, mcache_entry);
++
++		cmp = pohmelfs_mcache_cmp(tmp->gen, m->gen);
++		if (cmp < 0)
++			n = &parent->rb_left;
++		else if (cmp > 0)
++			n = &parent->rb_right;
++		else {
++			ret = tmp;
++			break;
++		}
++	}
++
++	if (ret)
++		return -EEXIST;
++
++	rb_link_node(&m->mcache_entry, parent, n);
++	rb_insert_color(&m->mcache_entry, root);
++
++	return 0;
++}
++
++static int pohmelfs_mcache_remove(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
++{
++	if (m && m->mcache_entry.rb_parent_color) {
++		rb_erase(&m->mcache_entry, &psb->mcache_root);
++		m->mcache_entry.rb_parent_color = 0;
++		return 1;
++	}
++	return 0;
++}
++
++void pohmelfs_mcache_remove_locked(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
++{
++	mutex_lock(&psb->mcache_lock);
++	pohmelfs_mcache_remove(psb, m);
++	mutex_unlock(&psb->mcache_lock);
++}
++
++struct pohmelfs_mcache *pohmelfs_mcache_alloc(struct pohmelfs_sb *psb, u64 start,
++		unsigned int size, void *data)
++{
++	struct pohmelfs_mcache *m;
++	int err = -ENOMEM;
++
++	m = mempool_alloc(pohmelfs_mcache_pool, GFP_KERNEL);
++	if (!m)
++		goto err_out_exit;
++
++	init_completion(&m->complete);
++	m->err = 0;
++	atomic_set(&m->refcnt, 1);
++	m->data = data;
++	m->start = start;
++	m->size = size;
++	m->gen = atomic_long_inc_return(&psb->mcache_gen);
++
++	mutex_lock(&psb->mcache_lock);
++	err = pohmelfs_mcache_insert(psb, m);
++	mutex_unlock(&psb->mcache_lock);
++	if (err)
++		goto err_out_free;
++
++	return m;
++
++err_out_free:
++	mempool_free(m, pohmelfs_mcache_pool);
++err_out_exit:
++	return ERR_PTR(err);
++}
++
++void pohmelfs_mcache_free(struct pohmelfs_sb *psb, struct pohmelfs_mcache *m)
++{
++	pohmelfs_mcache_remove_locked(psb, m);
++
++	mempool_free(m, pohmelfs_mcache_pool);
++}
++
++int __init pohmelfs_mcache_init(void)
++{
++	pohmelfs_mcache_cache = kmem_cache_create("pohmelfs_mcache_cache",
++				sizeof(struct pohmelfs_mcache),
++				0, (SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD), NULL);
++	if (!pohmelfs_mcache_cache)
++		goto err_out_exit;
++
++	pohmelfs_mcache_pool = mempool_create_slab_pool(256, pohmelfs_mcache_cache);
++	if (!pohmelfs_mcache_pool)
++		goto err_out_free;
++
++	return 0;
++
++err_out_free:
++	kmem_cache_destroy(pohmelfs_mcache_cache);
++err_out_exit:
++	return -ENOMEM;
++}
++
++void pohmelfs_mcache_exit(void)
++{
++	mempool_destroy(pohmelfs_mcache_pool);
++	kmem_cache_destroy(pohmelfs_mcache_cache);
++}
