@@ -1,60 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: accelerated vlan gives pcap tagged packets untagged
-Date: Mon, 09 Feb 2009 14:23:01 +0100
-Message-ID: <49902E35.6060506@trash.net>
-References: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
+Date: Mon, 9 Feb 2009 15:28:09 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0902091513190.31742@wrl-59.cs.helsinki.fi>
+References: <20090206054541.GA4954@gondor.apana.org.au>
+ <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com>
+ <20090209055848.GA3889@gondor.apana.org.au> <20090208.220357.261414983.davem@davemloft.net>
+ <20090209061151.GA3982@gondor.apana.org.au> <Pine.LNX.4.64.0902090853360.20576@wrl-59.cs.helsinki.fi>
+ <20090209072806.GB4380@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Pierre Ossman <drzeus-list@drzeus.cx>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-721455914-1234186089=:31742"
+Cc: David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
+	rjw@sisk.pl, torvalds@linux-foundation.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54558 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754813AbZBINXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:23:03 -0500
-In-Reply-To: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:48965 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753778AbZBIN2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:28:12 -0500
+In-Reply-To: <20090209072806.GB4380@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pierre Ossman wrote:
-> I'm having some problems with r8169 and vlans. The basic problem is
-> that pcap on eth1 gives me tagged packets, but in a form where it is
-> impossible to tell it is tagged. This is causing problems for dhcpd:
-> 
-> Feb  6 20:04:22 asgard dhcpd: DHCPDISCOVER from 00:15:00:08:98:1f via eth1.2
-> Feb  6 20:04:22 asgard dhcpd: DHCPDISCOVER from 00:15:00:08:98:1f via eth1
-> Feb  6 20:04:23 asgard dhcpd: DHCPOFFER on 10.8.2.230 to 00:15:00:08:98:1f via eth1.2
-> Feb  6 20:04:23 asgard dhcpd: DHCPOFFER on 10.8.0.128 to 00:15:00:08:98:1f via eth1
-> Feb  6 20:04:23 asgard dhcpd: DHCPREQUEST for 10.8.2.230 (10.8.2.254) from 00:15:00:08:98:1f via eth1.2
-> Feb  6 20:04:23 asgard dhcpd: DHCPACK on 10.8.2.230 to 00:15:00:08:98:1f via eth1.2
-> Feb  6 20:04:23 asgard dhcpd: DHCPREQUEST for 10.8.2.230 (10.8.2.254) from 00:15:00:08:98:1f via eth1: wrong network.
-> Feb  6 20:04:23 asgard dhcpd: DHCPNAK on 10.8.2.230 to 00:15:00:08:98:1f via eth1
-> 
-> I assume this is because the hardware supports vlans and handles all
-> the tag stripping.
-> 
-> (I've confirmed with tcpdump that the packets lack tags when they are
-> presented to userspace)
-> 
-> From what I can tell, I cannot fix this without rebuilding the kernel
-> and removing the acceleration support from the r8169 driver. Is there
-> some method I've overlooked?
-> 
-> Preferably, I'd like the kernel to expose to pcap what's on the wire
-> (i.e. accelerated vs non-accelerated looks the same from userspace). If
-> that means too much processing to be desirable, the next best thing
-> would be to simply not show tagged packets on the raw interface. The
-> ability to turn vlan acceleration on and off in the latter case would
-> also be desirable for network debugging.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Current kernel version (I think starting with 2.6.28) relay the
-VLAN tag information to userspace through packet sockets. The
-current libpcap release from tcpdump.org (or the one Dave keeps
-in a git tree on kernel.org) supports reconstructing the tags.
+---696208474-721455914-1234186089=:31742
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-> Possibly related, all docs state that header reordering is disabled by
-> default. But it is on by default here. This might be because of the
-> acceleration, but the docs need some type of update either way. :)
+On Mon, 9 Feb 2009, Herbert Xu wrote:
 
-I've been wondering about that myself :)
+> On Mon, Feb 09, 2009 at 09:13:00AM +0200, Ilpo Järvinen wrote:
+> > 
+> > Hmm, what happens if a opposite dir ACK gets sent (it's zero sized seqno
+> > range will be above urgent sequence when urg is not yet acknowledged)? So
+> > we'll take the later branch after your change and send bogus 0xffff urg?
+> > I think you're change might have actually broken bidir tcp completely (and
+> > probably window probing as well under some conditions). Congraz, two flies
+> > with a single stroke :-). You would have needed an additional check that
+> > the tcb->seq is below urg...
+> > 
+> > ...Below is a patch but Jeff might need to revert the revert first if
+> > he tests with the latest Linus' tree.
+> 
+> Good point! That would definitely explain this.
+>  
+> > [PATCH] tcp: check that we're still < urg instead of sending a bogus one
+> > 
+> > Opposite dir ACK with zero sized seqno range can go into the
+> > later condition once urg is in the outstanding window not
+> > yet acknowledge (we're still in urg mode but seqno we sent in
+> > the ack won't be below snd_up). Need to check that we never
+> > advertize bogus urg for a segment which is after the snd_up.
+> > 
+> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> > ---
+> >  net/ipv4/tcp_output.c |    3 ++-
+> >  1 files changed, 2 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> > index 557fe16..c808d73 100644
+> > --- a/net/ipv4/tcp_output.c
+> > +++ b/net/ipv4/tcp_output.c
+> > @@ -667,7 +667,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+> >  		if (between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFFF)) {
+> >  			th->urg_ptr = htons(tp->snd_up - tcb->seq);
+> >  			th->urg = 1;
+> > -		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
+> > +		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt) &&
+> > +			   before(tcb->seq, tcp->snd_up)) {
+> >  			th->urg_ptr = 0xFFFF;
+> >  			th->urg = 1;
+> >  		}
+> 
+> We could rewrite this as
+> 
+> 	if (unlikely(tcp_urg_mode(tp) && before(tcb->seq, tcp->snd_up))) {
+> 		if (before(tp->sndup, tcb->seq + 0x10000)) {
+> 			th->urg_ptr = htons(tp->snd_up - tcb->seq);
+> 			th->urg = 1;
+> 		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
+> 			th->urg_ptr = 0xFFFF;
+> 			th->urg = 1;
+> 		}
+> 	}
+
+Yes, that should work too except the gcc catchable typo.
+
+
+-- 
+ i.
+---696208474-721455914-1234186089=:31742--
