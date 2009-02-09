@@ -1,57 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Mon, 09 Feb 2009 17:09:21 +0100
-Message-ID: <49905531.3030503@trash.net>
-References: <20090129172030.GA2189@ioremap.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: can't add tc multiq
+Date: Mon, 9 Feb 2009 08:15:53 -0800
+Message-ID: <20090209081553.4a874433@extreme>
+References: <498FECAE.3020805@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58302 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754652AbZBIQJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 11:09:24 -0500
-In-Reply-To: <20090129172030.GA2189@ioremap.net>
+Received: from mail.vyatta.com ([76.74.103.46]:53908 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751549AbZBIQPz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 11:15:55 -0500
+In-Reply-To: <498FECAE.3020805@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> Hi.
+On Mon, 09 Feb 2009 11:43:26 +0300
+Badalian Vyacheslav <slavon@bigtelecom.ru> wrote:
+
+> Hello all!
+> kernel 2.6.28.4
+> iproute2 - last git
+> Can't use multiq qdisc. How to fix this?
+> Thanks!
 > 
-> Passive OS fingerprinting netfilter module allows to passively detect
-> remote OS and perform various netfilter actions based on that knowledge.
-> This module compares some data (WS, MSS, options and it's order, ttl, df
-> and others) from packets with SYN bit set with dynamically loaded OS
-> fingerprints.
+> slavon ~ # tc qdisc add dev eth0 root handle 1: multiq
+> RTNETLINK answers: Invalid argument
+> slavon ~ # tc qdisc add dev eth1 root handle 1: multiq
+> RTNETLINK answers: Invalid argument
 > 
-> Fingerprint matching rules can be downloaded from OpenBSD source tree
-> and loaded via netlink connector into the kernel via special util found
-> in archive. It will also listen for events about matching packets.
 > 
-> Archive also contains library file (also attached), which was shipped
-> with iptables extensions some time ago (at least when ipt_osf existed
-> in patch-o-matic).
-> 
-> This release moves all rules initialization to be handled over the
-> netlink and introduces lookup tables to speed-up RCU finger matching
-> a bit. Also fixed module unloading RCU completion race noticed by
-> Paul McKenney.
+> # lsmod
+> Module                  Size  Used by
+> sch_multiq              9472  0
+> 8021q                  23200  0
+> xt_tcpudp               7040  0
+> iptable_filter          6784  0
+> ip_tables              15120  1 iptable_filter
+> x_tables               17028  2 xt_tcpudp,ip_tables
+> usbmouse                8064  0
+> usbhid                 37728  2
+> ehci_hcd               38284  0
+> snd_hda_intel         409776  6
+> uhci_hcd               26380  0
+> snd_pcm                72196  2 snd_hda_intel
+> usbcore               133136  7 usbmouse,usbhid,ehci_hcd,uhci_hcd
+> snd_timer              23304  2 snd_pcm
+> snd_page_alloc         12296  2 snd_hda_intel,snd_pcm
+> thermal                19356  0
+> snd_hwdep              11140  1 snd_hda_intel
+> processor              37024  1 thermal
+> i2c_i801               12944  0
+> snd                    52516  14 snd_hda_intel,snd_pcm,snd_timer,snd_hwdep
+> r8169                  36100  0
+> i2c_core               24724  1 i2c_i801
+> fglrx                1905884  3
+> e1000                 123076  0
+> rng_core                8196  0
+> mii                     8704  1 r8169
+> thermal_sys            15144  2 thermal,processor
+> button                 10128  0
 
-Sorry for ignoring this for so long. I really don't have much of an
-opinion on this except for what I said before:
-
-- I would prefer a mechanism built on u32 if possible
-
-- I want to hear at least one person speaking in favour of inclusion
-   since I don't have much of an opinion of my own, but am somewhat
-   doubtful how useful this is
-
-I guess you could call Paul's "cool stuff" that, but please resend
-once more to netfilter-devel :) Anyone who thinks this is useful
-please speak up.
-
+You need hardware with multiple transmit queues. Neither e1000 or r8169
+has this.
