@@ -1,46 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] sctp: chunkmap size is too large
-Date: Mon, 09 Feb 2009 14:50:19 +0100
-Message-ID: <4990349B.30700@trash.net>
-References: <4983200B.2080707@6wind.com> <20090201.011427.38305360.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG BISECTED] boot hangs while bringing up gianfar ethernet
+Date: Mon, 9 Feb 2009 13:54:56 +0000
+Message-ID: <20090209135456.GA6313@ff.dom.local>
+References: <20090207225555.GA2680@ami.dom.local> <87prhr7mwg.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: olivier.matz@6wind.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, kaber@netfilter.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ira Snyder <iws@ovro.caltech.edu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Dai Haruki <dai.haruki@freescale.com>,
+	Andy Fleming <afleming@freescale.com>
+To: Peter Korsgaard <jacmet@sunsite.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55210 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755727AbZBINuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:50:22 -0500
-In-Reply-To: <20090201.011427.38305360.davem@davemloft.net>
+Received: from mail-ew0-f21.google.com ([209.85.219.21]:50380 "EHLO
+	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630AbZBINzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:55:04 -0500
+Content-Disposition: inline
+In-Reply-To: <87prhr7mwg.fsf@macbook.be.48ers.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Olivier MATZ <olivier.matz@6wind.com>
-> Date: Fri, 30 Jan 2009 16:43:07 +0100
+On Mon, Feb 09, 2009 at 02:36:15PM +0100, Peter Korsgaard wrote:
+> >>>>> "Jarek" == Jarek Poplawski <jarkao2@gmail.com> writes:
 > 
->> I think that the chunkmap field in struct xt_sctp_info is
->> too large: we have 256 chunk types and it's a bitfield,
->> so the table should be 256 bits (8 uint32_t) instead
->> of 64 uint32_t.
->>
->> I updated the size of the table, and I did some cosmetic
->> changes in SCTP_CHUNKMAP_* macros (use a mask instead of
->> a modulo).
->>
->>   netfilter/xt_sctp.h       |   30 ++++++++++++++++--------------
->>   netfilter_ipv4/ipt_sctp.h |   30 ++++++++++++++++--------------
->>   2 files changed, 32 insertions(+), 28 deletions(-)
->>
->> Can someone have a look at it ? Please CC me for any replies
->> as I'm not on the list.
+>  Jarek> Ira Snyder wrote, On 01/29/2009 08:41 PM:
+>  >> Hello,
+>  >> 
+>  >> I'm working on a Freescale MPC8349EMDS board. I have been booting it
+>  >> over NFS for a long time now. I try to run the latest git kernels to
+>  >> find possible problems.
+>  >> 
+>  >> Recently, I haven't been able to boot over NFS anymore. When the machine
+>  >> tries to bring up the ethernet interface, it just hangs forever. There
+>  >> are no softlockup warnings, the machine has locked up completely.
+>  >> 
+>  >> Here is the commit I bisected it down to. I tried running git revert,
+>  >> but there have been other changes which prevent an easy revert.
+>  >> 
+>  >> After building each kernel, I compiled and used the dts file from that
+>  >> kernel. There shouldn't be any conflicts there.
 > 
-> Patrick, I assume you got this?
+>  Jarek> Hi,
+> 
+>  Jarek> Could you try this patch?
+> 
+> Solves the problem for me - Thanks. I'm not familar enough with the hw
+> to know if's the right fix, but it certainly fixes the nfsboot issue
+> for me.
 
-Sorry for the delay. As Jan already noticed, it changes the ABI,
-so we change it without adding a new revision. And I don't think
-a few bytes of memory savings justify that.
+I guess a few more familiar eyes will have a look at it yet, but let's
+wait for Ira first.
 
+Thanks very much for testing,
+Jarek P.
