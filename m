@@ -1,68 +1,60 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] forcedeth: make msi-x different name for rx-tx
-Date: Mon, 9 Feb 2009 13:00:57 +0100
-Message-ID: <20090209120057.GB17782@elte.hu>
-References: <498BC3A8.9040203@kernel.org> <20090206144948.GD18368@elte.hu> <498C6C15.3050807@kernel.org> <20090206171544.GA16190@elte.hu> <498C7958.4010109@kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: accelerated vlan gives pcap tagged packets untagged
+Date: Mon, 09 Feb 2009 14:23:01 +0100
+Message-ID: <49902E35.6060506@trash.net>
+References: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Yinghai Lu <yinghai@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Pierre Ossman <drzeus-list@drzeus.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:52986 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754557AbZBIMBU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2009 07:01:20 -0500
-Content-Disposition: inline
-In-Reply-To: <498C7958.4010109@kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:54558 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754813AbZBINXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:23:03 -0500
+In-Reply-To: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Yinghai Lu <yinghai@kernel.org> wrote:
-
-> Ingo Molnar wrote:
-> > * Yinghai Lu <yinghai@kernel.org> wrote:
-> > 
-> >> Ingo Molnar wrote:
-> >>> Cool cleanups!
-> >>>
-> >>> Would you mind to also fix the following - on all my systems that have 
-> >>> forcedeth gigabit ethernet i've been getting these bogus warnings for 
-> >>> _years_, under moderate load:
-> >>>
-> >>>   eth2: too many iterations (16) in nv_nic_irq.
-> >>>
-> >>> I think a 64 iterations limit will work much better. (i tried a limit of 50 
-> >>> a year ago for a while and it worked fine and had no side effects - and the 
-> >>> bogus warnings were done.)
-> >> you may enable CONFIG_FORCEDETH_NAPI.
-> >>
-> >> we should enable NAPI for forcedeth by default, and try to squash more bugs out.
-> > 
-> > i do have that:
-> > 
-> >  CONFIG_FORCEDETH=y
-> >  CONFIG_FORCEDETH_NAPI=y
-> > 
-> > and the messages still come.
+Pierre Ossman wrote:
+> I'm having some problems with r8169 and vlans. The basic problem is
+> that pcap on eth1 gives me tagged packets, but in a form where it is
+> impossible to tell it is tagged. This is causing problems for dhcpd:
 > 
-> so you systems are using ioapic routing, or msi.
+> Feb  6 20:04:22 asgard dhcpd: DHCPDISCOVER from 00:15:00:08:98:1f via eth1.2
+> Feb  6 20:04:22 asgard dhcpd: DHCPDISCOVER from 00:15:00:08:98:1f via eth1
+> Feb  6 20:04:23 asgard dhcpd: DHCPOFFER on 10.8.2.230 to 00:15:00:08:98:1f via eth1.2
+> Feb  6 20:04:23 asgard dhcpd: DHCPOFFER on 10.8.0.128 to 00:15:00:08:98:1f via eth1
+> Feb  6 20:04:23 asgard dhcpd: DHCPREQUEST for 10.8.2.230 (10.8.2.254) from 00:15:00:08:98:1f via eth1.2
+> Feb  6 20:04:23 asgard dhcpd: DHCPACK on 10.8.2.230 to 00:15:00:08:98:1f via eth1.2
+> Feb  6 20:04:23 asgard dhcpd: DHCPREQUEST for 10.8.2.230 (10.8.2.254) from 00:15:00:08:98:1f via eth1: wrong network.
+> Feb  6 20:04:23 asgard dhcpd: DHCPNAK on 10.8.2.230 to 00:15:00:08:98:1f via eth1
 > 
-> and those messages are from 
-> nv_nic_irq_optimized or nv_nic_irq
-> for TX or OTHER (timerirq).
+> I assume this is because the hardware supports vlans and handles all
+> the tag stripping.
+> 
+> (I've confirmed with tcpdump that the packets lack tags when they are
+> presented to userspace)
+> 
+> From what I can tell, I cannot fix this without rebuilding the kernel
+> and removing the acceleration support from the r8169 driver. Is there
+> some method I've overlooked?
+> 
+> Preferably, I'd like the kernel to expose to pcap what's on the wire
+> (i.e. accelerated vs non-accelerated looks the same from userspace). If
+> that means too much processing to be desirable, the next best thing
+> would be to simply not show tagged packets on the raw interface. The
+> ability to turn vlan acceleration on and off in the latter case would
+> also be desirable for network debugging.
 
-yes, IO-APIC:
+Current kernel version (I think starting with 2.6.28) relay the
+VLAN tag information to userspace through packet sockets. The
+current libpcap release from tcpdump.org (or the one Dave keeps
+in a git tree on kernel.org) supports reconstructing the tags.
 
- 18:      81386  306713817          0          0 1413724087          0          0          
-0          0          0          0          0          0          0          0          
-0   IO-APIC-fasteoi   eth2
+> Possibly related, all docs state that header reordering is disabled by
+> default. But it is on by default here. This might be because of the
+> acceleration, but the docs need some type of update either way. :)
 
-Those messages do come and are annoying.
-
-	Ingo
+I've been wondering about that myself :)
