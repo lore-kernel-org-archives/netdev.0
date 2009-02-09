@@ -1,51 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: unfold two critical loops in ip_packet_match()
-Date: Mon, 09 Feb 2009 14:41:56 +0100
-Message-ID: <499032A4.9090301@trash.net>
-References: <497F4C2F.9000804@hp.com> <497F5BCD.9060807@hp.com> <497F5F86.9010101@hp.com> <498063E7.5030106@cosmosbay.com> <49808708.3050502@trash.net> <498090C1.5020400@cosmosbay.com> <49809716.3020204@cosmosbay.com> <4981CBE2.5020306@cosmosbay.com> <87ocxox0bu.fsf@basil.nowhere.org> <498330B2.4060004@cosmosbay.com> <20090130172705.GB18453@one.firstfloor.org>
+Subject: Re: [PATCH] sctp: chunkmap size is too large
+Date: Mon, 09 Feb 2009 14:50:19 +0100
+Message-ID: <4990349B.30700@trash.net>
+References: <4983200B.2080707@6wind.com> <20090201.011427.38305360.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090130172705.GB18453@one.firstfloor.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: olivier.matz@6wind.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, kaber@netfilter.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:55210 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755727AbZBINuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:50:22 -0500
+In-Reply-To: <20090201.011427.38305360.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
-> On Fri, Jan 30, 2009 at 05:54:10PM +0100, Eric Dumazet wrote:
->> Andi Kleen a =E9crit :
->>> Eric Dumazet <dada1@cosmosbay.com> writes:
->>>
->>>> While doing oprofile tests I noticed two loops are not properly un=
-rolled by gcc
->>> That's because nobody passed -funroll-loops. Did you try that for
->>> that file? Likely will need -O2 too
->> I dont want to unroll all loops, only those two :)
->=20
-> gcc 4.4 will have a way to do that per function, but earlier
-> you would need to move it to a separate file and specify
-> the option only for that.
->=20
-> Doing so would be still a good idea compared to your
-> patch because the code will be cleaner and might
-> be more adaptable to future architectures
-> (such manual tunings tend to outdate)
+David Miller wrote:
+> From: Olivier MATZ <olivier.matz@6wind.com>
+> Date: Fri, 30 Jan 2009 16:43:07 +0100
+> 
+>> I think that the chunkmap field in struct xt_sctp_info is
+>> too large: we have 256 chunk types and it's a bitfield,
+>> so the table should be 256 bits (8 uint32_t) instead
+>> of 64 uint32_t.
+>>
+>> I updated the size of the table, and I did some cosmetic
+>> changes in SCTP_CHUNKMAP_* macros (use a mask instead of
+>> a modulo).
+>>
+>>   netfilter/xt_sctp.h       |   30 ++++++++++++++++--------------
+>>   netfilter_ipv4/ipt_sctp.h |   30 ++++++++++++++++--------------
+>>   2 files changed, 32 insertions(+), 28 deletions(-)
+>>
+>> Can someone have a look at it ? Please CC me for any replies
+>> as I'm not on the list.
+> 
+> Patrick, I assume you got this?
 
+Sorry for the delay. As Jan already noticed, it changes the ABI,
+so we change it without adding a new revision. And I don't think
+a few bytes of memory savings justify that.
 
-The interface name matching has shown up in profiles forever
-though and we've actually already tried to optimize it IIRC.
-
-Eric, I'm trying to keep all the *tables files synchronized,
-could you send me a patch updating the other ones as well
-please?
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
