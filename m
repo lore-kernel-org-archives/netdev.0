@@ -1,33 +1,22 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] netlink broadcast return value
-Date: Mon, 09 Feb 2009 15:17:39 +0100
-Message-ID: <49903B03.2040302@trash.net>
-References: <4985A4C5.4050908@netfilter.org> <20090202.140533.121159038.davem@davemloft.net>
+Subject: Re: [PATCH] netfilter: sctp chunk mapping doesn't work
+Date: Mon, 09 Feb 2009 15:36:00 +0100
+Message-ID: <49903F50.6010803@trash.net>
+References: <498AB0E2.50507@dev.6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: nicolas.dichtel@dev.6wind.com
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090202.140533.121159038.davem@davemloft.net>
+In-Reply-To: <498AB0E2.50507@dev.6wind.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date: Sun, 01 Feb 2009 14:33:57 +0100
-> 
->> In short, I think that the change that I'm proposing would also require
->> to fix some netlink_broadcast() clients to skip ENOBUFS errors: they are
->> not meaningful for them since they assume that Netlink is unreliable and
->> so the return value does not provide any useful information.
-> 
-> I think this analysis is accurate.
+Nicolas Dichtel wrote:
+> When user tries to map all chunks given in argument, kernel works on a 
+> copy of the chunkmap, but at the end it doesn't check the copy, but the 
+> orginal one.
 
-We have at least one case where the caller wants to know of
-any successful delivery. Keymanager queries done by xfrm_state
-want to know whether an acquire was delivered to any keymanager.
-So we need to continue to indicate this, maybe using a different
-errno code than -ENOBUFS. I don't have a suggestion which one to
-use though.
+Applied, thanks Nicolas.
