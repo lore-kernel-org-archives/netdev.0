@@ -1,43 +1,52 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: TX pre-headers...
-Date: Mon, 09 Feb 2009 02:14:03 -0800 (PST)
-Message-ID: <20090209.021403.56830306.davem@davemloft.net>
-References: <20090206.014107.231141422.davem@davemloft.net>
-	<20090209100713.GA8299@gondor.apana.org.au>
+Date: Mon, 9 Feb 2009 21:19:12 +1100
+Message-ID: <20090209101912.GA8338@gondor.apana.org.au>
+References: <20090206.014107.231141422.davem@davemloft.net> <20090209100713.GA8299@gondor.apana.org.au> <20090209.021403.56830306.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54750
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750741AbZBIKOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 05:14:10 -0500
-In-Reply-To: <20090209100713.GA8299@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:58536 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752776AbZBIKTP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 05:19:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20090209.021403.56830306.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 9 Feb 2009 21:07:13 +1100
-
-> David Miller <davem@davemloft.net> wrote:
-> >
-> > I think the way to solve this is to have each device indicate how
-> > much TX slack space it neads for it's preheaders.  On device
-> > registration we have some global "netdev_max_tx_hdr_space" that
-> > records the maximum value seen.
+On Mon, Feb 09, 2009 at 02:14:03AM -0800, David Miller wrote:
 > 
-> We can already solve it right now with dev->needed_headroom.
+> Indeed, I noticed needed_headroom when I set out to start coding
+> things up. :)
 > 
-> Of course it's not optimal because it involves a copy so we
-> might still need your solution.
+> There are all sorts of cases that won't work well, as you implicitly
+> suggest.  For example, forwarding to a path that encapsulates to a GRE
+> or other type of tunnel.
+> 
+> For IPSEC we're predominantly COW'ing the data anyways, so...
 
-Indeed, I noticed needed_headroom when I set out to start coding
-things up. :)
+Yes tunneling (especially when it's hidden by netfilter) is the
+hard part.
 
-There are all sorts of cases that won't work well, as you implicitly
-suggest.  For example, forwarding to a path that encapsulates to a GRE
-or other type of tunnel.
+Here's a thought, what if we had your global maximum, and every
+time we have to reallocate a packet because of a failed head
+room check, we increase the maximum by the needed amount (we should
+add a ceiling in case some buggy path ignores this maximum when
+allocating a new packet).
 
-For IPSEC we're predominantly COW'ing the data anyways, so...
+This way even tunnels could benefit from not having to copy all
+the time.
+
+As a failed check should be rare (given that we're continuously
+increasing it) the overhead in updating the maximum should be
+reasonable.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
