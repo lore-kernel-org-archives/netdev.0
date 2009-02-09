@@ -1,40 +1,48 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Deadlock with icmpv6fuzz
-Date: Mon, 9 Feb 2009 16:03:54 +1100
-Message-ID: <20090209050354.GA3548@gondor.apana.org.au>
-References: <20090206.030716.136181382.davem@davemloft.net>
+Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
+Date: Mon, 9 Feb 2009 16:58:48 +1100
+Message-ID: <20090209055848.GA3889@gondor.apana.org.au>
+References: <b6a2187b0902050641h7943816ds26275a320e724440@mail.gmail.com> <20090206031025.GA3281@gondor.apana.org.au> <b6a2187b0902052139p3be2f321ucd900cc5346bff8c@mail.gmail.com> <20090206054541.GA4954@gondor.apana.org.au> <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rdreier@cisco.com, snakebyte@gmx.de, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Jeff Chua <jeff.chua.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43199 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:34899 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750696AbZBIFEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 00:04:09 -0500
+	with ESMTP id S1751862AbZBIF7J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 00:59:09 -0500
 Content-Disposition: inline
-In-Reply-To: <20090206.030716.136181382.davem@davemloft.net>
+In-Reply-To: <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+On Fri, Feb 06, 2009 at 07:35:50PM +0800, Jeff Chua wrote:
 >
-> But some apps might start breaking since this would now
-> charge the socket and we could hit the limits whereas
-> before we wouldn't.
+> > Did you change the kernel on the other side during these tests?
+> 
+> No. Was hoping that the traces would show where it hang for the good
+> and bad trace.
 
-Yes we should definitely test this carefully.
+Then the problem isn't my patch at all.  My patch only affects
+the side sending the urgent data, according to your straces, rlogin
+is only receiving urgent data, not sending it.  So the patch cannot
+have an affect.
 
-However, I think it is the right thing to do since we shouldn't
-leave holes where the user can allocate kernel memory that is
-uncapped.
+> > If reverting the patch on the other side does fix the problem
+> > for you, please do the two straces there.
+> 
+> Sorry, forgot to send the good trace run for the patched remote side.
+> Here's attached. t5.good.
 
-In fact, a number of spots in IPv6 already use sock_kmalloc
-for these objects anyway (e.g., ipv6_dup_options in exthdrs.c)
-so there is no fundamental reason why this limit can't be imposed.
+No you're still stracing rlogin, which in this case is the receiver
+of the urgent data.  Please strace the sending side, which would be
+presumably be rlogind in this case.
 
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
