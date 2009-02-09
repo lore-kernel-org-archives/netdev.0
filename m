@@ -1,53 +1,68 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC] addition of a dropped packet notification service
-Date: Mon, 9 Feb 2009 08:28:19 -0500
-Message-ID: <20090209132819.GA17405@hmsreliant.think-freely.org>
-References: <20090206182020.GA24399@hmsreliant.think-freely.org> <20090206165736.295ec007@extreme> <20090207174931.GA10247@localhost.localdomain> <20090209102134.GA8492@gondor.apana.org.au>
+From: Pierre Ossman <drzeus-list@drzeus.cx>
+Subject: Re: accelerated vlan gives pcap tagged packets untagged
+Date: Mon, 9 Feb 2009 14:34:05 +0100
+Message-ID: <20090209143405.76ac6387@mjolnir.drzeus.cx>
+References: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
+	<49902E35.6060506@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_freyr.drzeus.cx-17045-1234186455-0001-2"
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42547 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755936AbZBIN2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:28:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20090209102134.GA8492@gondor.apana.org.au>
+Received: from 82-117-125-11.tcdsl.calypso.net ([82.117.125.11]:33346 "EHLO
+	smtp.drzeus.cx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755223AbZBINeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 08:34:19 -0500
+In-Reply-To: <49902E35.6060506@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 09, 2009 at 09:21:34PM +1100, Herbert Xu wrote:
-> On Sat, Feb 07, 2009 at 12:49:32PM -0500, Neil Horman wrote:
-> >
-> > Well, as I mentioned, its totally incomplete.  I only posted it, so that you
-> > could see an exemplar of how I wanted to use tracepoints to dynamically
-> > intercept various in kernel events so that I could gather drop notifications. Of
-> > course several other tracepoints will be needed to capture other classes of drop
-> > (IPv6 stats, arp queue overflows, qdisc drops, etc).
-> 
-> FWIW it sounds pretty reasonable to me.  Although I'm still unsure
-> on what impact all these trace points will have on the maintainence
-> of our source code.
-> 
-I think thats a fair question, and I don't honestly know the answer.  In my
-projections I expect the tracepoint to only need to be placed in the
-snmpv6/6/linux macros and perhaps 3 other points.  I'll know more when I
-complete the work, and the it can get a through review.
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-To address the performance questions, I'll certainly run some tests to compare
-the number of jiffies a trace takes on baseline (CONFIG_TRACEPOINTS not set),
-with tracepoints configured but not enabled, and with them enabled.
+--=_freyr.drzeus.cx-17045-1234186455-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for the feedback.
-Neil
+On Mon, 09 Feb 2009 14:23:01 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> 
+>=20
+> Current kernel version (I think starting with 2.6.28) relay the
+> VLAN tag information to userspace through packet sockets. The
+> current libpcap release from tcpdump.org (or the one Dave keeps
+> in a git tree on kernel.org) supports reconstructing the tags.
+>=20
+
+Ah. This is a Fedora 10 machine so it's running a 2.6.27 kernel. I'll
+see if I can do a test with an updated kernel.
+
+Do you know if dhcpd also uses libpcap so that it will stop seeing
+packets it shouldn't?
+
+Rgds
+--=20
+     -- Pierre Ossman
+
+  Linux kernel, MMC maintainer        http://www.kernel.org
+  rdesktop, core developer          http://www.rdesktop.org
+
+  WARNING: This correspondence is being monitored by the
+  Swedish government. Make sure your server uses encryption
+  for SMTP traffic and consider using PGP for end-to-end
+  encryption.
+
+--=_freyr.drzeus.cx-17045-1234186455-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+
+iEUEARECAAYFAkmQMNQACgkQ7b8eESbyJLhHcwCgutMKZtsd0dX+lULo5Ka6U7Fz
+GW4AmNfYAFpXTT+kKXaUIoHbydEAyS0=
+=r8j8
+-----END PGP SIGNATURE-----
+
+--=_freyr.drzeus.cx-17045-1234186455-0001-2--
