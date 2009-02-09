@@ -1,68 +1,50 @@
-From: Pierre Ossman <drzeus-list@drzeus.cx>
-Subject: Re: accelerated vlan gives pcap tagged packets untagged
-Date: Mon, 9 Feb 2009 14:34:05 +0100
-Message-ID: <20090209143405.76ac6387@mjolnir.drzeus.cx>
-References: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
-	<49902E35.6060506@trash.net>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [BUG BISECTED] boot hangs while bringing up gianfar ethernet
+Date: Mon, 09 Feb 2009 14:36:15 +0100
+Message-ID: <87prhr7mwg.fsf@macbook.be.48ers.dk>
+References: <20090207225555.GA2680@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=PGP-SHA1; boundary="=_freyr.drzeus.cx-17045-1234186455-0001-2"
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ira Snyder <iws@ovro.caltech.edu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Dai Haruki <dai.haruki@freescale.com>,
+	Andy Fleming <afleming@freescale.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-117-125-11.tcdsl.calypso.net ([82.117.125.11]:33346 "EHLO
-	smtp.drzeus.cx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755223AbZBINeT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2009 08:34:19 -0500
-In-Reply-To: <49902E35.6060506@trash.net>
+Received: from mail-ew0-f21.google.com ([209.85.219.21]:50541 "EHLO
+	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754378AbZBINgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:36:48 -0500
+In-Reply-To: <20090207225555.GA2680@ami.dom.local> (Jarek Poplawski's message of "Sat\, 7 Feb 2009 23\:55\:56 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+>>>>> "Jarek" == Jarek Poplawski <jarkao2@gmail.com> writes:
 
---=_freyr.drzeus.cx-17045-1234186455-0001-2
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+ Jarek> Ira Snyder wrote, On 01/29/2009 08:41 PM:
+ >> Hello,
+ >> 
+ >> I'm working on a Freescale MPC8349EMDS board. I have been booting it
+ >> over NFS for a long time now. I try to run the latest git kernels to
+ >> find possible problems.
+ >> 
+ >> Recently, I haven't been able to boot over NFS anymore. When the machine
+ >> tries to bring up the ethernet interface, it just hangs forever. There
+ >> are no softlockup warnings, the machine has locked up completely.
+ >> 
+ >> Here is the commit I bisected it down to. I tried running git revert,
+ >> but there have been other changes which prevent an easy revert.
+ >> 
+ >> After building each kernel, I compiled and used the dts file from that
+ >> kernel. There shouldn't be any conflicts there.
 
-On Mon, 09 Feb 2009 14:23:01 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+ Jarek> Hi,
 
->=20
-> Current kernel version (I think starting with 2.6.28) relay the
-> VLAN tag information to userspace through packet sockets. The
-> current libpcap release from tcpdump.org (or the one Dave keeps
-> in a git tree on kernel.org) supports reconstructing the tags.
->=20
+ Jarek> Could you try this patch?
 
-Ah. This is a Fedora 10 machine so it's running a 2.6.27 kernel. I'll
-see if I can do a test with an updated kernel.
+Solves the problem for me - Thanks. I'm not familar enough with the hw
+to know if's the right fix, but it certainly fixes the nfsboot issue
+for me.
 
-Do you know if dhcpd also uses libpcap so that it will stop seeing
-packets it shouldn't?
-
-Rgds
---=20
-     -- Pierre Ossman
-
-  Linux kernel, MMC maintainer        http://www.kernel.org
-  rdesktop, core developer          http://www.rdesktop.org
-
-  WARNING: This correspondence is being monitored by the
-  Swedish government. Make sure your server uses encryption
-  for SMTP traffic and consider using PGP for end-to-end
-  encryption.
-
---=_freyr.drzeus.cx-17045-1234186455-0001-2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-
-iEUEARECAAYFAkmQMNQACgkQ7b8eESbyJLhHcwCgutMKZtsd0dX+lULo5Ka6U7Fz
-GW4AmNfYAFpXTT+kKXaUIoHbydEAyS0=
-=r8j8
------END PGP SIGNATURE-----
-
---=_freyr.drzeus.cx-17045-1234186455-0001-2--
+-- 
+Bye, Peter Korsgaard
