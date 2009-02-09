@@ -1,95 +1,53 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Mon, 9 Feb 2009 15:28:09 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0902091513190.31742@wrl-59.cs.helsinki.fi>
-References: <20090206054541.GA4954@gondor.apana.org.au>
- <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com>
- <20090209055848.GA3889@gondor.apana.org.au> <20090208.220357.261414983.davem@davemloft.net>
- <20090209061151.GA3982@gondor.apana.org.au> <Pine.LNX.4.64.0902090853360.20576@wrl-59.cs.helsinki.fi>
- <20090209072806.GB4380@gondor.apana.org.au>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC] addition of a dropped packet notification service
+Date: Mon, 9 Feb 2009 08:28:19 -0500
+Message-ID: <20090209132819.GA17405@hmsreliant.think-freely.org>
+References: <20090206182020.GA24399@hmsreliant.think-freely.org> <20090206165736.295ec007@extreme> <20090207174931.GA10247@localhost.localdomain> <20090209102134.GA8492@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-721455914-1234186089=:31742"
-Cc: David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
-	rjw@sisk.pl, torvalds@linux-foundation.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48965 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753778AbZBIN2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:28:12 -0500
-In-Reply-To: <20090209072806.GB4380@gondor.apana.org.au>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42547 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755936AbZBIN2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 08:28:37 -0500
+Content-Disposition: inline
+In-Reply-To: <20090209102134.GA8492@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696208474-721455914-1234186089=:31742
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Mon, 9 Feb 2009, Herbert Xu wrote:
-
-> On Mon, Feb 09, 2009 at 09:13:00AM +0200, Ilpo Järvinen wrote:
-> > 
-> > Hmm, what happens if a opposite dir ACK gets sent (it's zero sized seqno
-> > range will be above urgent sequence when urg is not yet acknowledged)? So
-> > we'll take the later branch after your change and send bogus 0xffff urg?
-> > I think you're change might have actually broken bidir tcp completely (and
-> > probably window probing as well under some conditions). Congraz, two flies
-> > with a single stroke :-). You would have needed an additional check that
-> > the tcb->seq is below urg...
-> > 
-> > ...Below is a patch but Jeff might need to revert the revert first if
-> > he tests with the latest Linus' tree.
+On Mon, Feb 09, 2009 at 09:21:34PM +1100, Herbert Xu wrote:
+> On Sat, Feb 07, 2009 at 12:49:32PM -0500, Neil Horman wrote:
+> >
+> > Well, as I mentioned, its totally incomplete.  I only posted it, so that you
+> > could see an exemplar of how I wanted to use tracepoints to dynamically
+> > intercept various in kernel events so that I could gather drop notifications. Of
+> > course several other tracepoints will be needed to capture other classes of drop
+> > (IPv6 stats, arp queue overflows, qdisc drops, etc).
 > 
-> Good point! That would definitely explain this.
->  
-> > [PATCH] tcp: check that we're still < urg instead of sending a bogus one
-> > 
-> > Opposite dir ACK with zero sized seqno range can go into the
-> > later condition once urg is in the outstanding window not
-> > yet acknowledge (we're still in urg mode but seqno we sent in
-> > the ack won't be below snd_up). Need to check that we never
-> > advertize bogus urg for a segment which is after the snd_up.
-> > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> > ---
-> >  net/ipv4/tcp_output.c |    3 ++-
-> >  1 files changed, 2 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index 557fe16..c808d73 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -667,7 +667,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
-> >  		if (between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFFF)) {
-> >  			th->urg_ptr = htons(tp->snd_up - tcb->seq);
-> >  			th->urg = 1;
-> > -		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
-> > +		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt) &&
-> > +			   before(tcb->seq, tcp->snd_up)) {
-> >  			th->urg_ptr = 0xFFFF;
-> >  			th->urg = 1;
-> >  		}
+> FWIW it sounds pretty reasonable to me.  Although I'm still unsure
+> on what impact all these trace points will have on the maintainence
+> of our source code.
 > 
-> We could rewrite this as
+I think thats a fair question, and I don't honestly know the answer.  In my
+projections I expect the tracepoint to only need to be placed in the
+snmpv6/6/linux macros and perhaps 3 other points.  I'll know more when I
+complete the work, and the it can get a through review.
+
+To address the performance questions, I'll certainly run some tests to compare
+the number of jiffies a trace takes on baseline (CONFIG_TRACEPOINTS not set),
+with tracepoints configured but not enabled, and with them enabled.
+
+Thanks for the feedback.
+Neil
+
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 > 
-> 	if (unlikely(tcp_urg_mode(tp) && before(tcb->seq, tcp->snd_up))) {
-> 		if (before(tp->sndup, tcb->seq + 0x10000)) {
-> 			th->urg_ptr = htons(tp->snd_up - tcb->seq);
-> 			th->urg = 1;
-> 		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
-> 			th->urg_ptr = 0xFFFF;
-> 			th->urg = 1;
-> 		}
-> 	}
-
-Yes, that should work too except the gcc catchable typo.
-
-
--- 
- i.
----696208474-721455914-1234186089=:31742--
