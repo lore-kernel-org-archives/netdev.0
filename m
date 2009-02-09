@@ -1,32 +1,42 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: [3/9] pohmelfs: crypto processing.
-Date: Mon,  9 Feb 2009 17:02:36 +0300
-Message-ID: <1234188162-14727-4-git-send-email-zbr@ioremap.net>
+Subject: [8/9] pohmelfs: transaction layer.
+Date: Mon,  9 Feb 2009 17:02:41 +0300
+Message-ID: <1234188162-14727-9-git-send-email-zbr@ioremap.net>
 References: <1234188162-14727-1-git-send-email-zbr@ioremap.net>
  <1234188162-14727-2-git-send-email-zbr@ioremap.net>
  <1234188162-14727-3-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-4-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-5-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-6-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-7-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-8-git-send-email-zbr@ioremap.net>
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
 To: GregKH <greg@kroah.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1234188162-14727-3-git-send-email-zbr@ioremap.net>
+In-Reply-To: <1234188162-14727-8-git-send-email-zbr@ioremap.net>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-POHMELFS is able to encrypt the whole network channel or
-attach the strong checksum to own packets to catch faulty media.
+This patch implements transaction processing helpers
+used to allocate/free/insert/remove and other operations
+with the transctions.
 
-This patch implements crypto initialization, its autoconfiguration
-and sync with the server.
+Each transction is an object, which may embed multiple commands
+completed atomically. When server fails the whole transaction
+will be replied against it (or different server) later. This
+approach allows to maintain high data integrity and do not
+desynchronize filesystem state in case of network 
+or server failures.
 
 Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-diff --git a/drivers/staging/pohmelfs/crypto.c b/drivers/staging/pohmelfs/crypto.c
+diff --git a/drivers/staging/pohmelfs/trans.c b/drivers/staging/pohmelfs/trans.c
 new file mode 100644
-index 0000000..a3abd61
+index 0000000..3f9225e
 --- /dev/null
-+++ b/drivers/staging/pohmelfs/crypto.c
-@@ -0,0 +1,880 @@
++++ b/drivers/staging/pohmelfs/trans.c
+@@ -0,0 +1,715 @@
 +/*
 + * 2007+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
 + * All rights reserved.
@@ -42,868 +52,703 @@ index 0000000..a3abd61
 + * GNU General Public License for more details.
 + */
 +
++#include <linux/module.h>
 +#include <linux/crypto.h>
-+#include <linux/highmem.h>
-+#include <linux/kthread.h>
++#include <linux/fs.h>
++#include <linux/jhash.h>
++#include <linux/hash.h>
++#include <linux/ktime.h>
++#include <linux/mempool.h>
++#include <linux/mm.h>
++#include <linux/mount.h>
 +#include <linux/pagemap.h>
++#include <linux/parser.h>
++#include <linux/poll.h>
++#include <linux/swap.h>
 +#include <linux/slab.h>
++#include <linux/statfs.h>
++#include <linux/writeback.h>
 +
 +#include "netfs.h"
 +
-+static struct crypto_hash *pohmelfs_init_hash(struct pohmelfs_sb *psb)
++static struct kmem_cache *netfs_trans_dst;
++static mempool_t *netfs_trans_dst_pool;
++
++static void netfs_trans_init_static(struct netfs_trans *t, int num, int size)
 +{
-+	int err;
-+	struct crypto_hash *hash;
++	t->page_num = num;
++	t->total_size = size;
++	atomic_set(&t->refcnt, 1);
 +
-+	hash = crypto_alloc_hash(psb->hash_string, 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(hash)) {
-+		err = PTR_ERR(hash);
-+		dprintk("%s: idx: %u: failed to allocate hash '%s', err: %d.\n",
-+				__func__, psb->idx, psb->hash_string, err);
-+		goto err_out_exit;
-+	}
-+
-+	psb->crypto_attached_size = crypto_hash_digestsize(hash);
-+
-+	if (!psb->hash_keysize)
-+		return hash;
-+
-+	err = crypto_hash_setkey(hash, psb->hash_key, psb->hash_keysize);
-+	if (err) {
-+		dprintk("%s: idx: %u: failed to set key for hash '%s', err: %d.\n",
-+				__func__, psb->idx, psb->hash_string, err);
-+		goto err_out_free;
-+	}
-+
-+	return hash;
-+
-+err_out_free:
-+	crypto_free_hash(hash);
-+err_out_exit:
-+	return ERR_PTR(err);
++	spin_lock_init(&t->dst_lock);
++	INIT_LIST_HEAD(&t->dst_list);
 +}
 +
-+static struct crypto_ablkcipher *pohmelfs_init_cipher(struct pohmelfs_sb *psb)
++static int netfs_trans_send_pages(struct netfs_trans *t, struct netfs_state *st)
 +{
-+	int err = -EINVAL;
-+	struct crypto_ablkcipher *cipher;
++	int err = 0;
++	unsigned int i, attached_pages = t->attached_pages, ci;
++	struct msghdr msg;
++	struct page **pages = (t->eng)?t->eng->pages:t->pages;
++	struct page *p;
++	unsigned int size;
 +
-+	if (!psb->cipher_keysize)
-+		goto err_out_exit;
++	msg.msg_name = NULL;
++	msg.msg_namelen = 0;
++	msg.msg_control = NULL;
++	msg.msg_controllen = 0;
++	msg.msg_flags = MSG_WAITALL | MSG_MORE;
 +
-+	cipher = crypto_alloc_ablkcipher(psb->cipher_string, 0, 0);
-+	if (IS_ERR(cipher)) {
-+		err = PTR_ERR(cipher);
-+		dprintk("%s: idx: %u: failed to allocate cipher '%s', err: %d.\n",
-+				__func__, psb->idx, psb->cipher_string, err);
-+		goto err_out_exit;
-+	}
-+
-+	crypto_ablkcipher_clear_flags(cipher, ~0);
-+
-+	err = crypto_ablkcipher_setkey(cipher, psb->cipher_key, psb->cipher_keysize);
-+	if (err) {
-+		dprintk("%s: idx: %u: failed to set key for cipher '%s', err: %d.\n",
-+				__func__, psb->idx, psb->cipher_string, err);
-+		goto err_out_free;
-+	}
-+
-+	return cipher;
-+
-+err_out_free:
-+	crypto_free_ablkcipher(cipher);
-+err_out_exit:
-+	return ERR_PTR(err);
-+}
-+
-+int pohmelfs_crypto_engine_init(struct pohmelfs_crypto_engine *e, struct pohmelfs_sb *psb)
-+{
-+	int err;
-+
-+	e->page_num = 0;
-+
-+	e->size = PAGE_SIZE;
-+	e->data = kmalloc(e->size, GFP_KERNEL);
-+	if (!e->data) {
-+		err = -ENOMEM;
-+		goto err_out_exit;
-+	}
-+
-+	if (psb->hash_string) {
-+		e->hash = pohmelfs_init_hash(psb);
-+		if (IS_ERR(e->hash)) {
-+			err = PTR_ERR(e->hash);
-+			e->hash = NULL;
-+			goto err_out_free;
-+		}
-+	}
-+	
-+	if (psb->cipher_string) {
-+		e->cipher = pohmelfs_init_cipher(psb);
-+		if (IS_ERR(e->cipher)) {
-+			err = PTR_ERR(e->cipher);
-+			e->cipher = NULL;
-+			goto err_out_free_hash;
-+		}
-+	}
-+
-+	return 0;
-+
-+err_out_free_hash:
-+	crypto_free_hash(e->hash);
-+err_out_free:
-+	kfree(e->data);
-+err_out_exit:
-+	return err;
-+}
-+
-+void pohmelfs_crypto_engine_exit(struct pohmelfs_crypto_engine *e)
-+{
-+	if (e->hash)
-+		crypto_free_hash(e->hash);
-+	if (e->cipher)
-+		crypto_free_ablkcipher(e->cipher);
-+	kfree(e->data);
-+}
-+
-+static void pohmelfs_crypto_complete(struct crypto_async_request *req, int err)
-+{
-+	struct pohmelfs_crypto_completion *c = req->data;
-+
-+	if (err == -EINPROGRESS)
-+		return;
-+
-+	dprintk("%s: req: %p, err: %d.\n", __func__, req, err);
-+	c->error = err;
-+	complete(&c->complete);
-+}
-+
-+static int pohmelfs_crypto_process(struct ablkcipher_request *req,
-+		struct scatterlist *sg_dst, struct scatterlist *sg_src,
-+		void *iv, int enc, unsigned long timeout)
-+{
-+	struct pohmelfs_crypto_completion complete;
-+	int err;
-+
-+	init_completion(&complete.complete);
-+	complete.error = -EINPROGRESS;
-+
-+	ablkcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
-+					pohmelfs_crypto_complete, &complete);
-+
-+	ablkcipher_request_set_crypt(req, sg_src, sg_dst, sg_src->length, iv);
-+
-+	if (enc)
-+		err = crypto_ablkcipher_encrypt(req);
-+	else
-+		err = crypto_ablkcipher_decrypt(req);
-+
-+	switch (err) {
-+		case -EINPROGRESS:
-+		case -EBUSY:
-+			err = wait_for_completion_interruptible_timeout(&complete.complete,
-+					timeout);
-+			if (!err)
-+				err = -ETIMEDOUT;
-+			else
-+				err = complete.error;
-+			break;
-+		default:
-+			break;
-+	}
-+
-+	return err;
-+}
-+
-+int pohmelfs_crypto_process_input_data(struct pohmelfs_crypto_engine *e, u64 cmd_iv,
-+		void *data, struct page *page, unsigned int size)
-+{
-+	int err;
-+	struct scatterlist sg;
-+	
-+	if (!e->cipher && !e->hash)
-+		return 0;
-+
-+	dprintk("%s: eng: %p, iv: %llx, data: %p, page: %p/%lu, size: %u.\n",
-+		__func__, e, cmd_iv, data, page, (page)?page->index:0, size);
-+
-+	if (data) {
-+		sg_init_one(&sg, data, size);
-+	} else {
-+		sg_init_table(&sg, 1);
-+		sg_set_page(&sg, page, size, 0);
-+	}
-+
-+	if (e->cipher) {
-+		struct ablkcipher_request *req = e->data + crypto_hash_digestsize(e->hash);
-+		u8 iv[32];
-+
-+		memset(iv, 0, sizeof(iv));
-+		memcpy(iv, &cmd_iv, sizeof(cmd_iv));
-+
-+		ablkcipher_request_set_tfm(req, e->cipher);
-+
-+		err = pohmelfs_crypto_process(req, &sg, &sg, iv, 0, e->timeout);
-+		if (err)
-+			goto err_out_exit;
-+	}
-+
-+	if (e->hash) {
-+		struct hash_desc desc;
-+		void *dst = e->data + e->size/2;
-+
-+		desc.tfm = e->hash;
-+		desc.flags = 0;
-+		
-+		err = crypto_hash_init(&desc);
-+		if (err)
-+			goto err_out_exit;
-+
-+		err = crypto_hash_update(&desc, &sg, size);
-+		if (err)
-+			goto err_out_exit;
-+		
-+		err = crypto_hash_final(&desc, dst);
-+		if (err)
-+			goto err_out_exit;
-+
-+		err = !!memcmp(dst, e->data, crypto_hash_digestsize(e->hash));
-+
-+		if (err) {
-+#ifdef CONFIG_POHMELFS_DEBUG
-+			unsigned int i;
-+			unsigned char *recv = e->data, *calc = dst;
-+
-+			dprintk("%s: eng: %p, hash: %p, cipher: %p: iv : %llx, hash mismatch (recv/calc): ",
-+					__func__, e, e->hash, e->cipher, cmd_iv);
-+			for (i=0; i<crypto_hash_digestsize(e->hash); ++i) {
-+#if 0
-+				dprintka("%02x ", recv[i]);
-+				if (recv[i] != calc[i]) {
-+					dprintka("| calc byte: %02x.\n", calc[i]);
-+					break;
-+				}
-+#else
-+				dprintka("%02x/%02x ", recv[i], calc[i]);
-+#endif
-+			}
-+			dprintk("\n");
-+#endif
-+			goto err_out_exit;
-+		} else {
-+			dprintk("%s: eng: %p, hash: %p, cipher: %p: hashes matched.\n",
-+					__func__, e, e->hash, e->cipher);
-+		}
-+	}
-+	
-+	dprintk("%s: eng: %p, size: %u, hash: %p, cipher: %p: completed.\n",
-+			__func__, e, e->size, e->hash, e->cipher);
-+
-+	return 0;
-+
-+err_out_exit:
-+	dprintk("%s: eng: %p, hash: %p, cipher: %p: err: %d.\n",
-+			__func__, e, e->hash, e->cipher, err);
-+	return err;
-+}
-+
-+static int pohmelfs_trans_iter(struct netfs_trans *t, struct pohmelfs_crypto_engine *e,
-+		int (* iterator) (struct pohmelfs_crypto_engine *e,
-+				  struct scatterlist *dst,
-+				  struct scatterlist *src))
-+{
-+	void *data = t->iovec.iov_base + sizeof(struct netfs_cmd) + t->psb->crypto_attached_size;
-+	unsigned int size = t->iovec.iov_len - sizeof(struct netfs_cmd) - t->psb->crypto_attached_size;
-+	struct netfs_cmd *cmd = data;
-+	unsigned int sz, pages = t->attached_pages, i, csize, cmd_cmd, dpage_idx;
-+	struct scatterlist sg_src, sg_dst;
-+	int err;
-+
-+	while (size) {
-+		cmd = data;
-+		cmd_cmd = __be16_to_cpu(cmd->cmd);
-+		csize = __be32_to_cpu(cmd->size);
-+		cmd->iv = __cpu_to_be64(e->iv);
-+
-+		if (cmd_cmd == NETFS_READ_PAGES || cmd_cmd == NETFS_READ_PAGE)
-+			csize = __be16_to_cpu(cmd->ext);
-+
-+		sz = csize + __be16_to_cpu(cmd->cpad) + sizeof(struct netfs_cmd);
-+		
-+		dprintk("%s: size: %u, sz: %u, cmd_size: %u, cmd_cpad: %u.\n",
-+				__func__, size, sz, __be32_to_cpu(cmd->size), __be16_to_cpu(cmd->cpad));
-+
-+		data += sz;
-+		size -= sz;
-+		
-+		sg_init_one(&sg_src, cmd->data, sz - sizeof(struct netfs_cmd));
-+		sg_init_one(&sg_dst, cmd->data, sz - sizeof(struct netfs_cmd));
-+
-+		err = iterator(e, &sg_dst, &sg_src);
-+		if (err)
-+			return err;
-+	}
-+	
-+	if (!pages)
-+		return 0;
-+
-+	dpage_idx = 0;
++	ci = 0;
 +	for (i=0; i<t->page_num; ++i) {
-+		struct page *page = t->pages[i];
-+		struct page *dpage = e->pages[dpage_idx];
++		struct page *page = pages[ci];
++		struct netfs_cmd cmd;
++		struct iovec io;
 +
-+		if (!page)
++		p = t->pages[i];
++
++		if (!p)
 +			continue;
 +
-+		sg_init_table(&sg_src, 1);
-+		sg_init_table(&sg_dst, 1);
-+		sg_set_page(&sg_src, page, page_private(page), 0);
-+		sg_set_page(&sg_dst, dpage, page_private(page), 0);
++		size = page_private(p);
 +
-+		err = iterator(e, &sg_dst, &sg_src);
-+		if (err)
-+			return err;
++		io.iov_base = &cmd;
++		io.iov_len = sizeof(struct netfs_cmd);
 +
-+		pages--;
-+		if (!pages)
++		cmd.cmd = NETFS_WRITE_PAGE;
++		cmd.ext = 0;
++		cmd.id = 0;
++		cmd.size = size;
++		cmd.start = p->index;
++		cmd.start <<= PAGE_CACHE_SHIFT;
++		cmd.csize = 0;
++		cmd.cpad = 0;
++		cmd.iv = pohmelfs_gen_iv(t);
++
++		netfs_convert_cmd(&cmd);
++
++		msg.msg_iov = &io;
++		msg.msg_iovlen = 1;
++		msg.msg_flags = MSG_WAITALL | MSG_MORE;
++
++		err = kernel_sendmsg(st->socket, &msg, (struct kvec *)msg.msg_iov, 1, sizeof(struct netfs_cmd));
++		if (err <= 0) {
++			printk("%s: %d/%d failed to send transaction header: t: %p, gen: %u, err: %d.\n",
++					__func__, i, t->page_num, t, t->gen, err);
++			if (err == 0)
++				err = -ECONNRESET;
++			goto err_out;
++		}
++
++		msg.msg_flags = MSG_WAITALL|(attached_pages == 1)?0:MSG_MORE;
++
++		err = kernel_sendpage(st->socket, page, 0, size, msg.msg_flags);
++		if (err <= 0) {
++			printk("%s: %d/%d failed to send transaction page: t: %p, gen: %u, size: %u, err: %d.\n",
++					__func__, i, t->page_num, t, t->gen, size, err);
++			if (err == 0)
++				err = -ECONNRESET;
++			goto err_out;
++		}
++
++		dprintk("%s: %d/%d sent t: %p, gen: %u, page: %p/%p, size: %u.\n",
++			__func__, i, t->page_num, t, t->gen, page, p, size);
++
++		err = 0;
++		attached_pages--;
++		if (!attached_pages)
 +			break;
-+		dpage_idx++;
++		ci++;
++
++		continue;
++
++err_out:
++		printk("%s: t: %p, gen: %u, err: %d.\n", __func__, t, t->gen, err);
++		netfs_state_exit(st);
++		break;
 +	}
++
++	return err;
++}
++
++int netfs_trans_send(struct netfs_trans *t, struct netfs_state *st)
++{
++	int err;
++	struct msghdr msg;
++
++	BUG_ON(!t->iovec.iov_len);
++	BUG_ON(t->iovec.iov_len > 1024*1024*1024);
++
++	netfs_state_lock_send(st);
++	if (!st->socket) {
++		err = netfs_state_init(st);
++		if (err)
++			goto err_out_unlock_return;
++	}
++
++	msg.msg_iov = &t->iovec;
++	msg.msg_iovlen = 1;
++	msg.msg_name = NULL;
++	msg.msg_namelen = 0;
++	msg.msg_control = NULL;
++	msg.msg_controllen = 0;
++	msg.msg_flags = MSG_WAITALL;
++
++	if (t->attached_pages)
++		msg.msg_flags |= MSG_MORE;
++
++	err = kernel_sendmsg(st->socket, &msg, (struct kvec *)msg.msg_iov, 1, t->iovec.iov_len);
++	if (err <= 0) {
++		printk("%s: failed to send contig transaction: t: %p, gen: %u, size: %u, err: %d.\n",
++				__func__, t, t->gen, t->iovec.iov_len, err);
++		if (err == 0)
++			err = -ECONNRESET;
++		goto err_out_unlock_return;
++	}
++
++	dprintk("%s: sent %s transaction: t: %p, gen: %u, size: %u, page_num: %u.\n",
++			__func__, (t->page_num)?"partial":"full",
++			t, t->gen, t->iovec.iov_len, t->page_num);
++
++	err = 0;
++	if (t->attached_pages)
++		err = netfs_trans_send_pages(t, st);
++
++err_out_unlock_return:
++
++	if (st->need_reset) {
++		netfs_state_exit(st);
++	}
++	netfs_state_unlock_send(st);
++
++	dprintk("%s: t: %p, gen: %u, err: %d.\n",
++		__func__, t, t->gen, err);
++
++	t->result = err;
++	return err;
++}
++
++static inline int netfs_trans_cmp(unsigned int gen, unsigned int new)
++{
++	if (gen < new)
++		return 1;
++	if (gen > new)
++		return -1;
++	return 0;
++}
++
++struct netfs_trans_dst *netfs_trans_search(struct netfs_state *st, unsigned int gen)
++{
++	struct rb_root *root = &st->trans_root;
++	struct rb_node *n = root->rb_node;
++	struct netfs_trans_dst *tmp, *ret = NULL;
++	struct netfs_trans *t;
++	int cmp;
++
++	while (n) {
++		tmp = rb_entry(n, struct netfs_trans_dst, state_entry);
++		t = tmp->trans;
++
++		cmp = netfs_trans_cmp(t->gen, gen);
++		if (cmp < 0)
++			n = n->rb_left;
++		else if (cmp > 0)
++			n = n->rb_right;
++		else {
++			ret = tmp;
++			break;
++		}
++	}
++
++	return ret;
++}
++
++static int netfs_trans_insert(struct netfs_trans_dst *ndst, struct netfs_state *st)
++{
++	struct rb_root *root = &st->trans_root;
++	struct rb_node **n = &root->rb_node, *parent = NULL;
++	struct netfs_trans_dst *ret = NULL, *tmp;
++	struct netfs_trans *t = NULL, *new = ndst->trans;
++	int cmp;
++
++	while (*n) {
++		parent = *n;
++
++		tmp = rb_entry(parent, struct netfs_trans_dst, state_entry);
++		t = tmp->trans;
++
++		cmp = netfs_trans_cmp(t->gen, new->gen);
++		if (cmp < 0)
++			n = &parent->rb_left;
++		else if (cmp > 0)
++			n = &parent->rb_right;
++		else {
++			ret = tmp;
++			break;
++		}
++	}
++
++	if (ret) {
++		printk("%s: exist: old: gen: %u, flags: %x, send_time: %lu, "
++				"new: gen: %u, flags: %x, send_time: %lu.\n",
++			__func__, t->gen, t->flags, ret->send_time,
++			new->gen, new->flags, ndst->send_time);
++		return -EEXIST;
++	}
++
++	rb_link_node(&ndst->state_entry, parent, n);
++	rb_insert_color(&ndst->state_entry, root);
++	ndst->send_time = jiffies;
 +
 +	return 0;
 +}
 +
-+static int pohmelfs_encrypt_iterator(struct pohmelfs_crypto_engine *e,
-+		struct scatterlist *sg_dst, struct scatterlist *sg_src)
++int netfs_trans_remove_nolock(struct netfs_trans_dst *dst, struct netfs_state *st)
 +{
-+	struct ablkcipher_request *req = e->data;
-+	u8 iv[32];
-+
-+	memset(iv, 0, sizeof(iv));
-+
-+	memcpy(iv, &e->iv, sizeof(e->iv));
-+
-+	return pohmelfs_crypto_process(req, sg_dst, sg_src, iv, 1, e->timeout);
++	if (dst && dst->state_entry.rb_parent_color) {
++		rb_erase(&dst->state_entry, &st->trans_root);
++		dst->state_entry.rb_parent_color = 0;
++		return 1;
++	}
++	return 0;
 +}
 +
-+static int pohmelfs_encrypt(struct pohmelfs_crypto_thread *tc)
++static int netfs_trans_remove_state(struct netfs_trans_dst *dst)
 +{
-+	struct netfs_trans *t = tc->trans;
-+	struct pohmelfs_crypto_engine *e = &tc->eng;
-+	struct ablkcipher_request *req = e->data;
++	int ret;
++	struct netfs_state *st = dst->state;
 +
-+	memset(req, 0, sizeof(struct ablkcipher_request));
-+	ablkcipher_request_set_tfm(req, e->cipher);
++	mutex_lock(&st->trans_lock);
++	ret = netfs_trans_remove_nolock(dst, st);
++	mutex_unlock(&st->trans_lock);
 +
-+	e->iv = pohmelfs_gen_iv(t);
-+
-+	return pohmelfs_trans_iter(t, e, pohmelfs_encrypt_iterator);
++	return ret;
 +}
 +
-+static int pohmelfs_hash_iterator(struct pohmelfs_crypto_engine *e,
-+		struct scatterlist *sg_dst, struct scatterlist *sg_src)
++/*
++ * Create new destination for given transaction associated with given network state.
++ * Transaction's reference counter is bumped and will be dropped when either
++ * reply is received or when async timeout detection task will fail resending
++ * and drop transaction.
++ */
++static int netfs_trans_push_dst(struct netfs_trans *t, struct netfs_state *st)
 +{
-+	return crypto_hash_update(e->data, sg_src, sg_src->length);
-+}
-+
-+static int pohmelfs_hash(struct pohmelfs_crypto_thread *tc)
-+{
-+	struct pohmelfs_crypto_engine *e = &tc->eng;
-+	struct hash_desc *desc = e->data;
-+	unsigned char *dst = tc->trans->iovec.iov_base + sizeof(struct netfs_cmd);
++	struct netfs_trans_dst *dst;
 +	int err;
 +
-+	desc->tfm = e->hash;
-+	desc->flags = 0;
-+
-+	err = crypto_hash_init(desc);
-+	if (err)
-+		return err;
-+
-+	err = pohmelfs_trans_iter(tc->trans, e, pohmelfs_hash_iterator);
-+	if (err)
-+		return err;
-+
-+	err = crypto_hash_final(desc, dst);
-+	if (err)
-+		return err;
-+
-+	{
-+		unsigned int i;
-+		dprintk("%s: ", __func__);
-+		for (i=0; i<tc->psb->crypto_attached_size; ++i)
-+			dprintka("%02x ", dst[i]);
-+		dprintka("\n");
-+	}
-+
-+	return 0;
-+}
-+
-+static void pohmelfs_crypto_pages_free(struct pohmelfs_crypto_engine *e)
-+{
-+	unsigned int i;
-+
-+	for (i=0; i<e->page_num; ++i)
-+		__free_page(e->pages[i]);
-+	kfree(e->pages);
-+}
-+
-+static int pohmelfs_crypto_pages_alloc(struct pohmelfs_crypto_engine *e, struct pohmelfs_sb *psb)
-+{
-+	unsigned int i;
-+
-+	e->pages = kmalloc(psb->trans_max_pages * sizeof(struct page *), GFP_KERNEL);
-+	if (!e->pages)
++	dst = mempool_alloc(netfs_trans_dst_pool, GFP_KERNEL);
++	if (!dst)
 +		return -ENOMEM;
 +
-+	for (i=0; i<psb->trans_max_pages; ++i) {
-+		e->pages[i] = alloc_page(GFP_KERNEL);
-+		if (!e->pages[i])
-+			break;
-+	}
++	dst->retries = 0;
++	dst->send_time = 0;
++	dst->state = st;
++	dst->trans = t;
++	netfs_trans_get(t);
 +
-+	e->page_num = i;
-+	if (!e->page_num)
++	mutex_lock(&st->trans_lock);
++	err = netfs_trans_insert(dst, st);
++	mutex_unlock(&st->trans_lock);
++
++	if (err)
 +		goto err_out_free;
++
++	spin_lock(&t->dst_lock);
++	list_add_tail(&dst->trans_entry, &t->dst_list);
++	spin_unlock(&t->dst_lock);
 +
 +	return 0;
 +
 +err_out_free:
-+	kfree(e->pages);
-+	return -ENOMEM;
++	t->result = err;
++	netfs_trans_put(t);
++	mempool_free(dst, netfs_trans_dst_pool);
++	return err;
 +}
 +
-+static void pohmelfs_sys_crypto_exit_one(struct pohmelfs_crypto_thread *t)
++static void netfs_trans_free_dst(struct netfs_trans_dst *dst)
 +{
-+	struct pohmelfs_sb *psb = t->psb;
++	netfs_trans_put(dst->trans);
++	mempool_free(dst, netfs_trans_dst_pool);
++}
 +
-+	if (t->thread)
-+		kthread_stop(t->thread);
++static void netfs_trans_remove_dst(struct netfs_trans_dst *dst)
++{
++	if (netfs_trans_remove_state(dst))
++		netfs_trans_free_dst(dst);
++}
 +
-+	mutex_lock(&psb->crypto_thread_lock);
-+	list_del(&t->thread_entry);
-+	psb->crypto_thread_num--;
-+	mutex_unlock(&psb->crypto_thread_lock);
++/*
++ * Drop destination transaction entry when we know it.
++ */
++void netfs_trans_drop_dst(struct netfs_trans_dst *dst)
++{
++	struct netfs_trans *t = dst->trans;
 +
-+	pohmelfs_crypto_engine_exit(&t->eng);
-+	pohmelfs_crypto_pages_free(&t->eng);
++	spin_lock(&t->dst_lock);
++	list_del_init(&dst->trans_entry);
++	spin_unlock(&t->dst_lock);
++
++	netfs_trans_remove_dst(dst);
++}
++
++/*
++ * Drop destination transaction entry when we know it and when we
++ * already removed dst from state tree.
++ */
++void netfs_trans_drop_dst_nostate(struct netfs_trans_dst *dst)
++{
++	struct netfs_trans *t = dst->trans;
++
++	spin_lock(&t->dst_lock);
++	list_del_init(&dst->trans_entry);
++	spin_unlock(&t->dst_lock);
++	
++	netfs_trans_free_dst(dst);
++}
++
++/*
++ * This drops destination transaction entry from appropriate network state
++ * tree and drops related reference counter. It is possible that transaction
++ * will be freed here if its reference counter hits zero.
++ * Destination transaction entry will be freed.
++ */
++void netfs_trans_drop_trans(struct netfs_trans *t, struct netfs_state *st)
++{
++	struct netfs_trans_dst *dst, *tmp, *ret = NULL;
++
++	spin_lock(&t->dst_lock);
++	list_for_each_entry_safe(dst, tmp, &t->dst_list, trans_entry) {
++		if (dst->state == st) {
++			ret = dst;
++			list_del(&dst->trans_entry);
++			break;
++		}
++	}
++	spin_unlock(&t->dst_lock);
++
++	if (ret)
++		netfs_trans_remove_dst(ret);
++}
++
++/*
++ * This drops destination transaction entry from appropriate network state
++ * tree and drops related reference counter. It is possible that transaction
++ * will be freed here if its reference counter hits zero.
++ * Destination transaction entry will be freed.
++ */
++void netfs_trans_drop_last(struct netfs_trans *t, struct netfs_state *st)
++{
++	struct netfs_trans_dst *dst, *tmp, *ret;
++
++	spin_lock(&t->dst_lock);
++	ret = list_entry(t->dst_list.prev, struct netfs_trans_dst, trans_entry);
++	if (ret->state != st) {
++		ret = NULL;
++		list_for_each_entry_safe(dst, tmp, &t->dst_list, trans_entry) {
++			if (dst->state == st) {
++				ret = dst;
++				list_del_init(&dst->trans_entry);
++				break;
++			}
++		}
++	} else {
++		list_del(&ret->trans_entry);
++	}
++	spin_unlock(&t->dst_lock);
++
++	if (ret)
++		netfs_trans_remove_dst(ret);
++}
++
++static int netfs_trans_push(struct netfs_trans *t, struct netfs_state *st)
++{
++	int err;
++
++	err = netfs_trans_push_dst(t, st);
++	if (err)
++		return err;
++
++	err = netfs_trans_send(t, st);
++	if (err)
++		goto err_out_free;
++
++	if (t->flags & NETFS_TRANS_SINGLE_DST)
++		pohmelfs_switch_active(st->psb);
++
++	return 0;
++
++err_out_free:
++	t->result = err;
++	netfs_trans_drop_last(t, st);
++
++	return err;
++}
++
++int netfs_trans_finish_send(struct netfs_trans *t, struct pohmelfs_sb *psb)
++{
++	struct pohmelfs_config *c;
++	int err = -ENODEV;
++	struct netfs_state *st;
++#if 0
++	dprintk("%s: t: %p, gen: %u, size: %u, page_num: %u, active: %p.\n",
++		__func__, t, t->gen, t->iovec.iov_len, t->page_num, psb->active_state);
++#endif
++	mutex_lock(&psb->state_lock);
++
++	if ((t->flags & NETFS_TRANS_SINGLE_DST) && psb->active_state) {
++		st = &psb->active_state->state;
++
++		err = -EPIPE;
++		if (netfs_state_poll(st) & POLLOUT) {
++			err = netfs_trans_push_dst(t, st);
++			if (!err) {
++				err = netfs_trans_send(t, st);
++				if (err) {
++					netfs_trans_drop_last(t, st);
++				} else {
++					pohmelfs_switch_active(psb);
++					goto out;
++				}
++			}
++		}
++		pohmelfs_switch_active(psb);
++	}
++
++	list_for_each_entry(c, &psb->state_list, config_entry) {
++		st = &c->state;
++
++		err = netfs_trans_push(t, st);
++		if (!err && (t->flags & NETFS_TRANS_SINGLE_DST))
++			break;
++	}
++out:
++	mutex_unlock(&psb->state_lock);
++#if 0
++	dprintk("%s: fully sent t: %p, gen: %u, size: %u, page_num: %u, err: %d.\n",
++		__func__, t, t->gen, t->iovec.iov_len, t->page_num, err);
++#endif
++	if (err)
++		t->result = err;
++	return err;
++}
++
++int netfs_trans_finish(struct netfs_trans *t, struct pohmelfs_sb *psb)
++{
++	int err;
++	struct netfs_cmd *cmd = t->iovec.iov_base;
++
++	t->gen = atomic_inc_return(&psb->trans_gen);
++
++	pohmelfs_ftrans_clean(t->gen);
++
++	cmd->size = t->iovec.iov_len - sizeof(struct netfs_cmd) +
++		t->attached_size + t->attached_pages * sizeof(struct netfs_cmd);
++	cmd->cmd = NETFS_TRANS;
++	cmd->start = t->gen;
++	cmd->id = 0;
++
++	if (psb->perform_crypto) {
++		cmd->ext = psb->crypto_attached_size;
++		cmd->csize = psb->crypto_attached_size;
++	}
++
++	dprintk("%s: t: %u, size: %u, iov_len: %u, attached_size: %u, attached_pages: %u.\n",
++			__func__, t->gen, cmd->size, t->iovec.iov_len, t->attached_size, t->attached_pages);
++	err = pohmelfs_trans_crypt(t, psb);
++	if (err) {
++		t->result = err;
++		netfs_convert_cmd(cmd);
++		dprintk("%s: trans: %llu, crypto_attached_size: %u, attached_size: %u, attached_pages: %d, trans_size: %u, err: %d.\n",
++			__func__, cmd->start, psb->crypto_attached_size, t->attached_size, t->attached_pages, cmd->size, err);
++	}
++	netfs_trans_put(t);
++	return err;
++}
++
++/*
++ * Resend transaction to remote server(s).
++ * If new servers were added into superblock, we can try to send data
++ * to them too.
++ *
++ * It is called under superblock's state_lock, so we can safely
++ * dereference psb->state_list. Also, transaction's reference counter is
++ * bumped, so it can not go away under us, thus we can safely access all
++ * its members. State is locked.
++ *
++ * This function returns 0 if transaction was successfully sent to at
++ * least one destination target. 
++ */
++int netfs_trans_resend(struct netfs_trans *t, struct pohmelfs_sb *psb)
++{
++	struct netfs_trans_dst *dst;
++	struct netfs_state *st;
++	struct pohmelfs_config *c;
++	int err, exist, error = -ENODEV;
++
++	list_for_each_entry(c, &psb->state_list, config_entry) {
++		st = &c->state;
++
++		exist = 0;
++		spin_lock(&t->dst_lock);
++		list_for_each_entry(dst, &t->dst_list, trans_entry) {
++			if (st == dst->state) {
++				exist = 1;
++				break;
++			}
++		}
++		spin_unlock(&t->dst_lock);
++
++		if (exist) {
++			if (!(t->flags & NETFS_TRANS_SINGLE_DST) ||
++					(c->config_entry.next == &psb->state_list)) {
++				dprintk("%s: resending st: %p, t: %p, gen: %u.\n",
++						__func__, st, t, t->gen);
++				err = netfs_trans_send(t, st);
++				if (!err)
++					error = 0;
++			}
++			continue;
++		}
++
++		dprintk("%s: pushing/resending st: %p, t: %p, gen: %u.\n",
++				__func__, st, t, t->gen);
++		err = netfs_trans_push(t, st);
++		if (err)
++			continue;
++		error = 0;
++		if (t->flags & NETFS_TRANS_SINGLE_DST)
++			break;
++	}
++
++	t->result = error;
++	return error;
++}
++
++void *netfs_trans_add(struct netfs_trans *t, unsigned int size)
++{
++	struct iovec *io = &t->iovec;
++	void *ptr;
++
++	if (size > t->total_size) {
++		ptr = ERR_PTR(-EINVAL);
++		goto out;
++	}
++
++	if (io->iov_len + size > t->total_size) {
++		dprintk("%s: too big size t: %p, gen: %u, iov_len: %u, size: %u, total: %u.\n",
++				__func__, t, t->gen, io->iov_len, size, t->total_size);
++		ptr = ERR_PTR(-E2BIG);
++		goto out;
++	}
++
++	ptr = io->iov_base + io->iov_len;
++	io->iov_len += size;
++
++out:
++	dprintk("%s: t: %p, gen: %u, size: %u, total: %u.\n",
++		__func__, t, t->gen, size, io->iov_len);
++	return ptr;
++}
++
++void netfs_trans_free(struct netfs_trans *t)
++{
++	if (t->eng)
++		pohmelfs_crypto_thread_make_ready(t->eng->thread);
 +	kfree(t);
 +}
 +
-+static int pohmelfs_crypto_finish(struct netfs_trans *t, struct pohmelfs_sb *psb, int err)
-+{
-+	struct netfs_cmd *cmd = t->iovec.iov_base;
-+	netfs_convert_cmd(cmd);
-+
-+	if (likely(!err))
-+		err = netfs_trans_finish_send(t, psb);
-+
-+	t->result = err;
-+	netfs_trans_put(t);
-+
-+	return err;
-+}
-+
-+void pohmelfs_crypto_thread_make_ready(struct pohmelfs_crypto_thread *th)
-+{
-+	struct pohmelfs_sb *psb = th->psb;
-+
-+	th->page = NULL;
-+	th->trans = NULL;
-+
-+	mutex_lock(&psb->crypto_thread_lock);
-+	list_move_tail(&th->thread_entry, &psb->crypto_ready_list);
-+	mutex_unlock(&psb->crypto_thread_lock);
-+	wake_up(&psb->wait);
-+}
-+
-+static int pohmelfs_crypto_thread_trans(struct pohmelfs_crypto_thread *t)
-+{
-+	struct netfs_trans *trans;
-+	int err = 0;
-+
-+	trans = t->trans;
-+	trans->eng = NULL;
-+
-+	if (t->eng.hash) {
-+		err = pohmelfs_hash(t);
-+		if (err)
-+			goto out_complete;
-+	}
-+
-+	if (t->eng.cipher) {
-+		err = pohmelfs_encrypt(t);
-+		if (err)
-+			goto out_complete;
-+		trans->eng = &t->eng;
-+	}
-+
-+out_complete:
-+	t->page = NULL;
-+	t->trans = NULL;
-+
-+	if (!trans->eng)
-+		pohmelfs_crypto_thread_make_ready(t);
-+
-+	pohmelfs_crypto_finish(trans, t->psb, err);
-+	return err;
-+}
-+
-+static int pohmelfs_crypto_thread_page(struct pohmelfs_crypto_thread *t)
-+{
-+	struct pohmelfs_crypto_engine *e = &t->eng;
-+	struct page *page = t->page;
-+	int err;
-+
-+	WARN_ON(!PageChecked(page));
-+
-+	err = pohmelfs_crypto_process_input_data(e, e->iv, NULL, page, t->size);
-+	if (!err)
-+		SetPageUptodate(page);
-+	else
-+		SetPageError(page);
-+	unlock_page(page);
-+	page_cache_release(page);
-+
-+	pohmelfs_crypto_thread_make_ready(t);
-+
-+	return err;
-+}
-+
-+static int pohmelfs_crypto_thread_func(void *data)
-+{
-+	struct pohmelfs_crypto_thread *t = data;
-+
-+	while (!kthread_should_stop()) {
-+		wait_event_interruptible(t->wait, kthread_should_stop() ||
-+				t->trans || t->page);
-+
-+		if (kthread_should_stop())
-+			break;
-+
-+		if (!t->trans && !t->page)
-+			continue;
-+
-+		dprintk("%s: thread: %p, trans: %p, page: %p.\n",
-+				__func__, t, t->trans, t->page);
-+
-+		if (t->trans)
-+			pohmelfs_crypto_thread_trans(t);
-+		else if (t->page)
-+			pohmelfs_crypto_thread_page(t);
-+	}
-+
-+	return 0;
-+}
-+
-+static void pohmelfs_crypto_flush(struct pohmelfs_sb *psb, struct list_head *head)
-+{
-+	while (!list_empty(head)) {
-+		struct pohmelfs_crypto_thread *t = NULL;
-+
-+		mutex_lock(&psb->crypto_thread_lock);
-+		if (!list_empty(head)) {
-+			t = list_first_entry(head, struct pohmelfs_crypto_thread, thread_entry);
-+			list_del_init(&t->thread_entry);
-+		}
-+		mutex_unlock(&psb->crypto_thread_lock);
-+
-+		if (t)
-+			pohmelfs_sys_crypto_exit_one(t);
-+	}
-+}
-+
-+static void pohmelfs_sys_crypto_exit(struct pohmelfs_sb *psb)
-+{
-+	while (!list_empty(&psb->crypto_active_list) || !list_empty(&psb->crypto_ready_list)) {
-+		dprintk("%s: crypto_thread_num: %u.\n", __func__, psb->crypto_thread_num);
-+		pohmelfs_crypto_flush(psb, &psb->crypto_active_list);
-+		pohmelfs_crypto_flush(psb, &psb->crypto_ready_list);
-+	}
-+}
-+
-+static int pohmelfs_sys_crypto_init(struct pohmelfs_sb *psb)
-+{
-+	unsigned int i;
-+	struct pohmelfs_crypto_thread *t;
-+	struct pohmelfs_config *c;
-+	struct netfs_state *st;
-+	int err;
-+
-+	list_for_each_entry(c, &psb->state_list, config_entry) {
-+		st = &c->state;
-+
-+		err = pohmelfs_crypto_engine_init(&st->eng, psb);
-+		if (err)
-+			goto err_out_exit;
-+
-+		dprintk("%s: st: %p, eng: %p, hash: %p, cipher: %p.\n",
-+				__func__, st, &st->eng, &st->eng.hash, &st->eng.cipher);
-+	}
-+
-+	for (i=0; i<psb->crypto_thread_num; ++i) {
-+		err = -ENOMEM;
-+		t = kzalloc(sizeof(struct pohmelfs_crypto_thread), GFP_KERNEL);
-+		if (!t)
-+			goto err_out_free_state_engines;
-+
-+		init_waitqueue_head(&t->wait);
-+
-+		t->psb = psb;
-+		t->trans = NULL;
-+		t->eng.thread = t;
-+
-+		err = pohmelfs_crypto_engine_init(&t->eng, psb);
-+		if (err)
-+			goto err_out_free_state_engines;
-+
-+		err = pohmelfs_crypto_pages_alloc(&t->eng, psb);
-+		if (err)
-+			goto err_out_free;
-+
-+		t->thread = kthread_run(pohmelfs_crypto_thread_func, t,
-+				"pohmelfs-crypto-%d-%d", psb->idx, i);
-+		if (IS_ERR(t->thread)) {
-+			err = PTR_ERR(t->thread);
-+			t->thread = NULL;
-+			goto err_out_free;
-+		}
-+
-+		if (t->eng.cipher)
-+			psb->crypto_align_size = crypto_ablkcipher_blocksize(t->eng.cipher);
-+
-+		mutex_lock(&psb->crypto_thread_lock);
-+		list_add_tail(&t->thread_entry, &psb->crypto_ready_list);
-+		mutex_unlock(&psb->crypto_thread_lock);
-+	}
-+	
-+	psb->crypto_thread_num = i;
-+	return 0;
-+
-+err_out_free:
-+	pohmelfs_sys_crypto_exit_one(t);
-+err_out_free_state_engines:
-+	list_for_each_entry(c, &psb->state_list, config_entry) {
-+		st = &c->state;
-+		pohmelfs_crypto_engine_exit(&st->eng);
-+	}
-+err_out_exit:
-+	pohmelfs_sys_crypto_exit(psb);
-+	return err;
-+}
-+
-+void pohmelfs_crypto_exit(struct pohmelfs_sb *psb)
-+{
-+	pohmelfs_sys_crypto_exit(psb);
-+
-+	kfree(psb->hash_string);
-+	kfree(psb->cipher_string);
-+}
-+
-+static int pohmelfs_crypt_init_complete(struct page **pages, unsigned int page_num,
-+		void *private, int err)
-+{
-+	struct pohmelfs_sb *psb = private;
-+
-+	psb->flags = -err;
-+	dprintk("%s: err: %d.\n", __func__, err);
-+
-+	wake_up(&psb->wait);
-+
-+	return err;
-+}
-+
-+static int pohmelfs_crypto_init_handshake(struct pohmelfs_sb *psb)
++struct netfs_trans *netfs_trans_alloc(struct pohmelfs_sb *psb, unsigned int size,
++		unsigned int flags, unsigned int nr)
 +{
 +	struct netfs_trans *t;
-+	struct netfs_crypto_capabilities *cap;
++	unsigned int num, cont, pad, size_no_trans;
++	unsigned int crypto_added = 0;
 +	struct netfs_cmd *cmd;
-+	char *str;
-+	int err = -ENOMEM, size;
 +
-+	size = sizeof(struct netfs_crypto_capabilities) +
-+		psb->cipher_strlen + psb->hash_strlen + 2; /* 0 bytes */
++	if (psb->perform_crypto)
++		crypto_added = psb->crypto_attached_size;
 +
-+	t = netfs_trans_alloc(psb, size, 0, 0);
++	/*
++	 * |sizeof(struct netfs_trans)|
++	 * |sizeof(struct netfs_cmd)| - transaction header
++	 * |size| - buffer with requested size
++	 * |padding| - crypto padding, zero bytes
++	 * |nr * sizeof(struct page *)| - array of page pointers
++	 *
++	 * Overall size should be less than PAGE_SIZE for guaranteed allocation.
++	 */
++
++	cont = size;
++	size = ALIGN(size, psb->crypto_align_size);
++	pad = size - cont;
++
++	size_no_trans = size + sizeof(struct netfs_cmd) * 2 + crypto_added;
++
++	cont = sizeof(struct netfs_trans) + size_no_trans;
++
++	num = (PAGE_SIZE - cont)/sizeof(struct page *);
++
++	if (nr > num)
++		nr = num;
++
++	t = kzalloc(cont + nr*sizeof(struct page *), GFP_NOIO);
 +	if (!t)
 +		goto err_out_exit;
 +
-+	t->complete = pohmelfs_crypt_init_complete;
-+	t->private = psb;
-+
-+	cmd = netfs_trans_current(t);
-+	cap = (struct netfs_crypto_capabilities *)(cmd + 1);
-+	str = (char *)(cap + 1);
-+
-+	cmd->cmd = NETFS_CAPABILITIES;
-+	cmd->id = POHMELFS_CRYPTO_CAPABILITIES;
-+	cmd->size = size;
-+	cmd->start = 0;
-+	cmd->ext = 0;
-+	cmd->csize = 0;
-+
-+	netfs_convert_cmd(cmd);
-+	netfs_trans_update(cmd, t, size);
-+
-+	cap->hash_strlen = psb->hash_strlen;
-+	if (cap->hash_strlen) {
-+		sprintf(str, "%s", psb->hash_string);
-+		str += cap->hash_strlen;
-+	}
-+
-+	cap->cipher_strlen = psb->cipher_strlen;
-+	cap->cipher_keysize = psb->cipher_keysize;
-+	if (cap->cipher_strlen)
-+		sprintf(str, "%s", psb->cipher_string);
-+
-+	netfs_convert_crypto_capabilities(cap);
-+
-+	psb->flags = ~0;
-+	err = netfs_trans_finish(t, psb);
-+	if (err)
-+		goto err_out_exit;
-+
-+	err = wait_event_interruptible_timeout(psb->wait, (psb->flags != ~0),
-+			psb->wait_on_page_timeout);
-+	if (!err)
-+		err = -ETIMEDOUT;
-+	else
-+		err = -psb->flags;
-+
-+	if (!err)
-+		psb->perform_crypto = 1;
-+	psb->flags = 0;
++	t->iovec.iov_base = (void *)(t + 1);
++	t->pages = (struct page **)(t->iovec.iov_base + size_no_trans);
 +
 +	/*
-+	 * At this point NETFS_CAPABILITIES response command
-+	 * should setup superblock in a way, which is acceptible
-+	 * for both client and server, so if server refuses connection,
-+	 * it will send error in transaction response.
++	 * Reserving space for transaction header.
 +	 */
++	t->iovec.iov_len = sizeof(struct netfs_cmd) + crypto_added;
 +
-+	if (err)
++	netfs_trans_init_static(t, nr, size_no_trans);
++
++	t->flags = flags;
++	t->psb = psb;
++
++	cmd = (struct netfs_cmd *)t->iovec.iov_base;
++
++	cmd->size = size;
++	cmd->cpad = pad;
++	cmd->csize = crypto_added;
++
++	dprintk("%s: t: %p, gen: %u, size: %u, padding: %u, align_size: %u, flags: %x, "
++			"page_num: %u, base: %p, pages: %p.\n",
++			__func__, t, t->gen, size, pad, psb->crypto_align_size, flags, nr,
++			t->iovec.iov_base, t->pages);
++
++	return t;
++
++err_out_exit:
++	return NULL;
++}
++
++int netfs_trans_init(void)
++{
++	int err = -ENOMEM;
++
++	netfs_trans_dst = kmem_cache_create("netfs_trans_dst", sizeof(struct netfs_trans_dst),
++			0, 0, NULL);
++	if (!netfs_trans_dst)
 +		goto err_out_exit;
++
++	netfs_trans_dst_pool = mempool_create_slab_pool(256, netfs_trans_dst);
++	if (!netfs_trans_dst_pool)
++		goto err_out_free;
 +
 +	return 0;
 +
++err_out_free:
++	kmem_cache_destroy(netfs_trans_dst);
 +err_out_exit:
 +	return err;
 +}
 +
-+int pohmelfs_crypto_init(struct pohmelfs_sb *psb)
++void netfs_trans_exit(void)
 +{
-+	int err;
-+
-+	if (!psb->cipher_string && !psb->hash_string)
-+		return 0;
-+
-+	err = pohmelfs_crypto_init_handshake(psb);
-+	if (err)
-+		return err;
-+
-+	err = pohmelfs_sys_crypto_init(psb);
-+	if (err)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int pohmelfs_crypto_thread_get(struct pohmelfs_sb *psb,
-+		int (* action)(struct pohmelfs_crypto_thread *t, void *data), void *data)
-+{
-+	struct pohmelfs_crypto_thread *t = NULL;
-+	int err;
-+
-+	while (!t) {
-+		err = wait_event_interruptible_timeout(psb->wait,
-+				!list_empty(&psb->crypto_ready_list),
-+				psb->wait_on_page_timeout);
-+
-+		t = NULL;
-+		err = 0;
-+		mutex_lock(&psb->crypto_thread_lock);
-+		if (!list_empty(&psb->crypto_ready_list)) {
-+			t = list_entry(psb->crypto_ready_list.prev,
-+					struct pohmelfs_crypto_thread,
-+					thread_entry);
-+
-+			list_move_tail(&t->thread_entry,
-+					&psb->crypto_active_list);
-+
-+			action(t, data);
-+			wake_up(&t->wait);
-+
-+		}
-+		mutex_unlock(&psb->crypto_thread_lock);
-+	}
-+
-+	return err;
-+}
-+
-+static int pohmelfs_trans_crypt_action(struct pohmelfs_crypto_thread *t, void *data)
-+{
-+	struct netfs_trans *trans = data;
-+
-+	netfs_trans_get(trans);
-+	t->trans = trans;
-+
-+	dprintk("%s: t: %p, gen: %u, thread: %p.\n", __func__, trans, trans->gen, t);
-+	return 0;
-+}
-+
-+int pohmelfs_trans_crypt(struct netfs_trans *trans, struct pohmelfs_sb *psb)
-+{
-+	if ((!psb->hash_string && !psb->cipher_string) || !psb->perform_crypto) {
-+		netfs_trans_get(trans);
-+		return pohmelfs_crypto_finish(trans, psb, 0);
-+	}
-+
-+	return pohmelfs_crypto_thread_get(psb, pohmelfs_trans_crypt_action, trans);
-+}
-+
-+struct pohmelfs_crypto_input_action_data
-+{
-+	struct page			*page;
-+	struct pohmelfs_crypto_engine	*e;
-+	u64				iv;
-+	unsigned int			size;
-+};
-+
-+static int pohmelfs_crypt_input_page_action(struct pohmelfs_crypto_thread *t, void *data)
-+{
-+	struct pohmelfs_crypto_input_action_data *act = data;
-+
-+	memcpy(t->eng.data, act->e->data, t->psb->crypto_attached_size);
-+
-+	t->size = act->size;
-+	t->eng.iv = act->iv;
-+
-+	t->page = act->page;
-+	return 0;
-+}
-+
-+int pohmelfs_crypto_process_input_page(struct pohmelfs_crypto_engine *e,
-+		struct page *page, unsigned int size, u64 iv)
-+{
-+	struct inode *inode = page->mapping->host;
-+	struct pohmelfs_crypto_input_action_data act;
-+	int err = -ENOENT;
-+
-+	act.page = page;
-+	act.e = e;
-+	act.size = size;
-+	act.iv = iv;
-+
-+	err = pohmelfs_crypto_thread_get(POHMELFS_SB(inode->i_sb),
-+			pohmelfs_crypt_input_page_action, &act);
-+	if (err)
-+		goto err_out_exit;
-+
-+	return 0;
-+
-+err_out_exit:
-+	SetPageUptodate(page);
-+	page_cache_release(page);
-+
-+	return err;
++	mempool_destroy(netfs_trans_dst_pool);
++	kmem_cache_destroy(netfs_trans_dst);
 +}
