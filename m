@@ -1,52 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Tue, 10 Feb 2009 08:17:37 +1100
-Message-ID: <20090209211737.GA13831@gondor.apana.org.au>
-References: <b6a2187b0902050641h7943816ds26275a320e724440@mail.gmail.com> <20090206031025.GA3281@gondor.apana.org.au> <b6a2187b0902052139p3be2f321ucd900cc5346bff8c@mail.gmail.com> <20090206054541.GA4954@gondor.apana.org.au> <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com> <20090209055848.GA3889@gondor.apana.org.au> <alpine.LFD.2.00.0902090740100.3048@localhost.localdomain>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: [10/9] pohmelfs: select crypto modules from the config.
+Date: Tue, 10 Feb 2009 00:30:15 +0300
+Message-ID: <20090209213015.GA14562@ioremap.net>
+References: <1234188162-14727-1-git-send-email-zbr@ioremap.net> <1234188162-14727-2-git-send-email-zbr@ioremap.net> <1234188162-14727-3-git-send-email-zbr@ioremap.net> <1234188162-14727-4-git-send-email-zbr@ioremap.net> <1234188162-14727-5-git-send-email-zbr@ioremap.net> <1234188162-14727-6-git-send-email-zbr@ioremap.net> <1234188162-14727-7-git-send-email-zbr@ioremap.net> <1234188162-14727-8-git-send-email-zbr@ioremap.net> <1234188162-14727-9-git-send-email-zbr@ioremap.net> <1234188162-14727-10-git-send-email-zbr@ioremap.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Chua <jeff.chua.linux@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33151 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755621AbZBIVSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 16:18:03 -0500
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: GregKH <greg@kroah.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.0902090740100.3048@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1234188162-14727-10-git-send-email-zbr@ioremap.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 09, 2009 at 07:44:56AM -0800, Linus Torvalds wrote:
->
-> The trace is incolclusive about that - just look at it. It's not following 
-> threads/children etc, so it's missing all the relevant pieces.
-> 
-> Which you should have realized, Herbert, since you had the knowledge that 
-> your patch _DOES_ make a difference, enough to bisect to it, and enough 
-> to see that reverting it changes behaviour.
-> 
-> Why are you arguing against facts?
-> 
-> >From the trace:
-> 
-> 	clone(child_stack=0, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0xb7d81918) = 6433
-> 	rt_sigaction(SIGURG, {0x80491d0, [URG], SA_RESTART}, {SIG_DFL}, 8) = 0
-> 	rt_sigaction(SIGUSR1, {0x8048de0, [USR1], SA_RESTART}, {SIG_DFL}, 8) = 0
-> 	rt_sigprocmask(SIG_SETMASK, [], [USR1 URG], 8) = 0
-> 	--- SIGURG (Urgent I/O condition) @ 0 (0) ---
-> 	kill(6433, SIGURG)                      = 0
-> 
-> IOW, the trace isn't saying anything at all, because all the real work 
-> probably got done in that child process.
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-Ah yes, I knew the strace didn't tally with the reported behaviour,
-but I'd been focusing on the SIGURG and missed the clone.  Thanks!
+diff --git a/drivers/staging/pohmelfs/Kconfig b/drivers/staging/pohmelfs/Kconfig
+index 82d13ad..d4cbc15 100644
+--- a/drivers/staging/pohmelfs/Kconfig
++++ b/drivers/staging/pohmelfs/Kconfig
+@@ -1,6 +1,8 @@
+ config POHMELFS
+ 	tristate "POHMELFS filesystem support"
+ 	select CONNECTOR
++	select CRYPTO_BLKCIPHER
++	select CRYPTO_HMAC
+ 	help
+ 	  POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
+ 	  This is a network filesystem which supports coherent caching of data and metadata
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Evgeniy Polyakov
