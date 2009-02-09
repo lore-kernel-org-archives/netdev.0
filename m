@@ -1,72 +1,111 @@
-From: Jeff Chua <jeff.chua.linux@gmail.com>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Mon, 9 Feb 2009 22:10:32 +0800
-Message-ID: <b6a2187b0902090610v56cc0789m1bbb144994078474@mail.gmail.com>
-References: <20090206054541.GA4954@gondor.apana.org.au>
-	 <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com>
-	 <20090209055848.GA3889@gondor.apana.org.au>
-	 <20090208.220357.261414983.davem@davemloft.net>
-	 <20090209061151.GA3982@gondor.apana.org.au>
-	 <Pine.LNX.4.64.0902090853360.20576@wrl-59.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, rjw@sisk.pl,
-	torvalds@linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:65346 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754082AbZBIOKe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 09:10:34 -0500
-In-Reply-To: <Pine.LNX.4.64.0902090853360.20576@wrl-59.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: [9/9] pohmelfs: kconfig/makefile and vfs changes.
+Date: Mon,  9 Feb 2009 17:02:42 +0300
+Message-ID: <1234188162-14727-10-git-send-email-zbr@ioremap.net>
+References: <1234188162-14727-1-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-2-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-3-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-4-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-5-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-6-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-7-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-8-git-send-email-zbr@ioremap.net>
+ <1234188162-14727-9-git-send-email-zbr@ioremap.net>
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>
+To: GregKH <greg@kroah.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1234188162-14727-9-git-send-email-zbr@ioremap.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 9, 2009 at 3:13 PM, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki=
-=2Efi> wrote:
->  net/ipv4/tcp_output.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 557fe16..c808d73 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -667,7 +667,8 @@ static int tcp_transmit_skb(struct sock *sk, stru=
-ct sk_buff *skb, int clone_it,
->                if (between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFF=
-=46)) {
->                        th->urg_ptr =3D htons(tp->snd_up - tcb->seq);
->                        th->urg =3D 1;
-> -               } else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
-> +               } else if (after(tcb->seq + 0xFFFF, tp->snd_nxt) &&
-> +                          before(tcb->seq, tcp->snd_up)) {
->                        th->urg_ptr =3D 0xFFFF;
->                        th->urg =3D 1;
->                }
-> --
-> 1.5.6.5
->
+This patch adds Kconfig and Makefile entries and exports to
+VFS functions to be used by POHMELFS.
 
-Ilpo,
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-Got this error ...
+diff --git a/mm/filemap.c b/mm/filemap.c
+index f3e5f89..3f77548 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -513,6 +513,7 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
+ 	}
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(add_to_page_cache_lru);
+ 
+ #ifdef CONFIG_NUMA
+ struct page *__page_cache_alloc(gfp_t gfp)
+@@ -627,6 +628,7 @@ int __lock_page_killable(struct page *page)
+ 	return __wait_on_bit_lock(page_waitqueue(page), &wait,
+ 					sync_page_killable, TASK_KILLABLE);
+ }
++EXPORT_SYMBOL_GPL(__lock_page_killable);
+ 
+ /**
+  * __lock_page_nosync - get a lock on the page, without calling sync_page()
 
-  CC      net/ipv4/tcp_output.o
-net/ipv4/tcp_output.c: In function 'tcp_transmit_skb':
-net/ipv4/tcp_output.c:671: error: 'tcp' undeclared (first use in this f=
-unction)
-net/ipv4/tcp_output.c:671: error: (Each undeclared identifier is
-reported only once
-net/ipv4/tcp_output.c:671: error: for each function it appears in.)
 
-> +                          before(tcb->seq, tcp->snd_up)) {
-
-That should be "tp->snd_up" instead of "tcp->snd_up". Other than that,
-the good news is I've tested your patch on top of Herbert's patch, and
-it works! No more rlogin hangs!
-
-Thanks,
-Jeff.
+diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
+index 5d457c9..a089649 100644
+--- a/drivers/staging/Kconfig
++++ b/drivers/staging/Kconfig
+@@ -41,6 +41,8 @@ config STAGING_EXCLUDE_BUILD
+ 
+ if !STAGING_EXCLUDE_BUILD
+ 
++source "drivers/staging/pohmelfs/Kconfig"
++
+ source "drivers/staging/et131x/Kconfig"
+ 
+ source "drivers/staging/slicoss/Kconfig"
+diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
+index 71c4d53..631ce75 100644
+--- a/drivers/staging/Makefile
++++ b/drivers/staging/Makefile
+@@ -3,6 +3,7 @@
+ # fix for build system bug...
+ obj-$(CONFIG_STAGING)		+= staging.o
+ 
++obj-$(CONFIG_POHMELFS)		+= pohmelfs/
+ obj-$(CONFIG_ET131X)		+= et131x/
+ obj-$(CONFIG_SLICOSS)		+= slicoss/
+ obj-$(CONFIG_SXG)		+= sxg/
+diff --git a/drivers/staging/pohmelfs/Makefile b/drivers/staging/pohmelfs/Makefile
+new file mode 100644
+index 0000000..196561c
+--- /dev/null
++++ b/drivers/staging/pohmelfs/Makefile
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_POHMELFS)	+= pohmelfs.o
++
++pohmelfs-y := inode.o config.o dir.o net.o path_entry.o trans.o crypto.o lock.o mcache.o
+diff --git a/drivers/staging/pohmelfs/Kconfig b/drivers/staging/pohmelfs/Kconfig
+new file mode 100644
+index 0000000..82d13ad
+--- /dev/null
++++ b/drivers/staging/pohmelfs/Kconfig
+@@ -0,0 +1,23 @@
++config POHMELFS
++	tristate "POHMELFS filesystem support"
++	select CONNECTOR
++	help
++	  POHMELFS stands for Parallel Optimized Host Message Exchange Layered File System.
++	  This is a network filesystem which supports coherent caching of data and metadata
++	  on clients.
++
++config POHMELFS_DEBUG
++	bool "POHMELFS debugging"
++	depends on POHMELFS
++	default n
++	help
++	  Turns on excessive POHMELFS debugging facilities.
++	  You usually do not want to slow things down noticebly and get really lots of kernel
++	  messages in syslog.
++
++config POHMELFS_CRYPTO
++	bool "POHMELFS crypto support"
++	depends on CONFIG_CRYPTO_BLKCIPHER && CONFIG_CRYPTO_HASH
++	help
++	  This option allows to encrypt and/or protect with strong cryptographic hash all dataflow
++	  between server and clients. Each config group can have own keys.
