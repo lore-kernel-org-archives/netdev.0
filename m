@@ -1,62 +1,28 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: accelerated vlan gives pcap tagged packets untagged
-Date: Mon, 9 Feb 2009 00:26:55 +0100
-Message-ID: <20090208232655.GA12756@electric-eye.fr.zoreil.com>
-References: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/6] drivers/atm: introduce missing kfree
+Date: Sun, 08 Feb 2009 17:00:20 -0800 (PST)
+Message-ID: <20090208.170020.93114261.davem@davemloft.net>
+References: <Pine.LNX.4.64.0902082243200.25891@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Pierre Ossman <drzeus-list@drzeus.cx>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: julia@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40949 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751819AbZBHXYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2009 18:24:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55574
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752038AbZBIBA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2009 20:00:26 -0500
+In-Reply-To: <Pine.LNX.4.64.0902082243200.25891@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pierre Ossman <drzeus-list@drzeus.cx> :
-[...]
-> I assume this is because the hardware supports vlans and handles all
-> the tag stripping.
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 8 Feb 2009 22:44:16 +0100 (CET)
 
-Partly.
+> Error handling code following a kmalloc should free the allocated data.
+...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-> (I've confirmed with tcpdump that the packets lack tags when they are
-> presented to userspace)
-> 
-> From what I can tell, I cannot fix this without rebuilding the kernel
-> and removing the acceleration support from the r8169 driver. Is there
-> some method I've overlooked?
->
-> Preferably, I'd like the kernel to expose to pcap what's on the wire
-> (i.e. accelerated vs non-accelerated looks the same from userspace). If
-> that means too much processing to be desirable, the next best thing
-> would be to simply not show tagged packets on the raw interface.
-
-Your issue seems to be related to the commit below:
-
-commit bc1d0411b804ad190cdadabac48a10067f17b9e6
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Jul 14 22:49:30 2008 -0700
-
-    vlan: deliver packets received with VLAN acceleration to network taps
-    
-    When VLAN header stripping is used, packets currently bypass packet
-    sockets (and other network taps) completely. For locally existing
-    VLANs, they appear directly on the VLAN device, for unknown VLANs
-    they are silently dropped.
-    
-    Add a new function netif_nit_deliver() to deliver incoming packets
-    to all network interface taps and use it in __vlan_hwaccel_rx() to
-    make VLAN packets visible on the underlying device.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-I have no idea what could be the right solution. Patrick ?
-
--- 
-Ueimor
+Applied, thanks Julia.
