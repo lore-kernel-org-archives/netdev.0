@@ -1,42 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFT 3/3] iptables: lock free counters
-Date: Mon, 09 Feb 2009 16:58:16 +0100
-Message-ID: <49905298.80601@trash.net>
-References: <20090204001202.724266235@vyatta.com> <20090204001755.808036408@vyatta.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: high rate injection and fragmentation
+Date: Mon, 9 Feb 2009 18:09:01 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0902091806510.31742@wrl-59.cs.helsinki.fi>
+References: <3f847c820902090720w98e2ca8pc66f55716c030194@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696208474-277559276-1234195741=:31742"
+Cc: netdev@vger.kernel.org
+To: "=?ISO-8859-1?Q?Ra=FAl_Hern=E1ndez?=" <rauhersu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58070 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbZBIP6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 10:58:19 -0500
-In-Reply-To: <20090204001755.808036408@vyatta.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60189 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754620AbZBIQJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 11:09:03 -0500
+In-Reply-To: <3f847c820902090720w98e2ca8pc66f55716c030194@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> --- a/net/ipv4/netfilter/ip_tables.c	2009-01-29 11:09:20.720069979 -0800
-> +++ b/net/ipv4/netfilter/ip_tables.c	2009-01-29 11:10:49.827070289 -0800
-> @@ -347,9 +347,9 @@ ipt_do_table(struct sk_buff *skb,
->  	mtpar.family  = tgpar.family = NFPROTO_IPV4;
->  	tgpar.hooknum = hook;
->  
-> -	read_lock_bh(&table->lock);
-> +	rcu_read_lock_bh();
->  	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
-> -	private = table->private;
-> +	private = rcu_dereference(table->private);
->  	table_base = (void *)private->entries[smp_processor_id()];
->  	e = get_entry(table_base, private->hook_entry[hook]);
+---696208474-277559276-1234195741=:31742
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-I think this doesn't actually need the _bh rcu_read_lock() variant
-since updates are never done in softirq context.
+On Mon, 9 Feb 2009, Raúl Hernández wrote:
 
+> I am trying to understand the behavior of the IP stack regarding
+> fragmentation when injecting at high speed ratio : so far I am seeing
+> that TCP starts multiplexing the application level protocol (in my
+> case, diameter: previously 1 diameter message = 1 TCP message, when
+> the rate increases, multiple diameter messages are coalesced in one
+> TCP messages - similar to a Nagle control -).
+> 
+> At that very moment is when we start finding issues regarding packet
+> length checking with ethereal: frames start growing due the multiplex
+> above and ethereal shows captured packets >3000 bytes ! (IP total
+> lenght makes sense as well according to that figure). The thing is
+> that I am working under ethernet law (1500 bytes) and I have checked
+> through iproute this is the MTU set for the link (neither
+> DONT_FRAGMENT ip options for the socket regarding nor MTU
+> modifications have been introduced) so my understanding is that no
+> packet > 1500 bytes should be allowed with my configuration (would
+> need fragmentation).
+> 
+> Checking the IP header with ethereal, "dont fragment" is set and
+> "fragment offset"=0. IOW, It seems that IP is not fragmenting the
+> packet although > MTU which I am not able to understand.
+> 
+> Any idea why Linux tries to work with MTU > 1500 bytes when not
+> configured explicitly to do so (may I have missed more
+> options/checkings) ? Hope not to be cheated by Ethereal ...
+
+I suppose you refer here to what GSO is doing though the explanation
+is so fuzzy that I lost track of it in the middle. ...You needs
+ethtool to configure it.
+
+-- 
+ i.
+---696208474-277559276-1234195741=:31742--
