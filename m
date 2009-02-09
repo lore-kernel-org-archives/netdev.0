@@ -1,58 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: commit 64ff3b938ec6782e6585a83d5459b98b0c3f6eb8 breaks rlogin
-Date: Mon, 9 Feb 2009 18:33:39 +1100
-Message-ID: <20090209073339.GA4796@gondor.apana.org.au>
-References: <20090206054541.GA4954@gondor.apana.org.au> <b6a2187b0902060335h646e8d86pf00773035f577665@mail.gmail.com> <20090209055848.GA3889@gondor.apana.org.au> <20090208.220357.261414983.davem@davemloft.net> <20090209061151.GA3982@gondor.apana.org.au> <Pine.LNX.4.64.0902090853360.20576@wrl-59.cs.helsinki.fi> <20090209072806.GB4380@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 002/002] de2104x: support for systems lacking cache
+ coherence
+Date: Sun, 08 Feb 2009 23:45:02 -0800 (PST)
+Message-ID: <20090208.234502.197065045.davem@davemloft.net>
+References: <46e1c7760902071330i5362fe4fvd99fc7075fc666d3@mail.gmail.com>
+	<46e1c7760902082327s1c498ac3w56939960ac306426@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jeff.chua.linux@gmail.com,
-	rjw@sisk.pl, torvalds@linux-foundation.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: risto.suominen@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60288 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753809AbZBIHeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 02:34:01 -0500
-Content-Disposition: inline
-In-Reply-To: <20090209072806.GB4380@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53856
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753939AbZBIHpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 02:45:08 -0500
+In-Reply-To: <46e1c7760902082327s1c498ac3w56939960ac306426@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 09, 2009 at 06:28:06PM +1100, Herbert Xu wrote:
-> On Mon, Feb 09, 2009 at 09:13:00AM +0200, Ilpo J=E4rvinen wrote:
-> >=20
-> > Hmm, what happens if a opposite dir ACK gets sent (it's zero sized =
-seqno
-> > range will be above urgent sequence when urg is not yet acknowledge=
-d)? So
-> > we'll take the later branch after your change and send bogus 0xffff=
- urg?
-> > I think you're change might have actually broken bidir tcp complete=
-ly (and
-> > probably window probing as well under some conditions). Congraz, tw=
-o flies
-> > with a single stroke :-). You would have needed an additional check=
- that
-> > the tcb->seq is below urg...
-> >=20
-> > ...Below is a patch but Jeff might need to revert the revert first =
-if
-> > he tests with the latest Linus' tree.
->=20
-> Good point! That would definitely explain this.
+From: Risto Suominen <risto.suominen@gmail.com>
+Date: Mon, 9 Feb 2009 09:27:49 +0200
 
-Actually, I don't see how we can have tcp_urg_mode being true
-when his strace shows no OOB data at all (it only did write
-and writev).
+> Add a configurable Descriptor Skip Length for systems that lack cache coherence.
+> 
+> Signed-off-by: Risto Suominen <Risto.Suominen@gmail.com>
 
-So I'm not sure if this bug is the one causing this.
+I really don't see why this patch could possibly be necessary.
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On systems that lack cache coherence:
+
+1) {pci,dma}_alloc_{consistent,coherent}() give kernel mappings of
+   the buffer with the cache disabled.  Therefore the device and
+   and cpu see the correct data.
+
+2) {pci,dma}_{map,unmap}_{single,sg}() do the appropriate cache
+   flushing.
+
+   Explicit syncing between cpu and device can be performed
+   using {pci,dma}_sync_{single,sg}() as needed.
+
+Therefore, this patch is superfluous.
