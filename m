@@ -1,56 +1,58 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC] Suspicious bug in module refcounting
-Date: Wed, 11 Feb 2009 00:06:31 +1030
-Message-ID: <200902110006.33132.rusty@rustcorp.com.au>
-References: <20090203134721.GA11069@pingi.kke.suse.de> <200902101345.08580.rusty@rustcorp.com.au> <20090210103136.GB7096@dhcp35.suse.cz>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] netlink broadcast return value
+Date: Tue, 10 Feb 2009 14:50:55 +0100
+Message-ID: <4991863F.3030800@trash.net>
+References: <4985A4C5.4050908@netfilter.org> <20090202.140533.121159038.davem@davemloft.net> <49903B03.2040302@trash.net> <4990B38A.3020207@netfilter.org> <4990BADA.7040309@trash.net> <4990C337.3040704@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Karsten Keil <kkeil@suse.de>, linux-kernel@vger.kernel.org,
-	richard kennedy <richard@rsk.demon.co.uk>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	dwmw2@infradead.org, Scott Wood <scottwood@freescale.com>,
-	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
-To: Michal Hocko <mhocko@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41845 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751920AbZBJNgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Feb 2009 08:36:38 -0500
-In-Reply-To: <20090210103136.GB7096@dhcp35.suse.cz>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4990C337.3040704@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 10 February 2009 21:01:37 Michal Hocko wrote:
-> On Tue 10-02-09 13:45:07, Rusty Russell wrote:
-> > On Tuesday 10 February 2009 01:48:31 Michal Hocko wrote:
-> > > Based on this change, would it make sense to update sys_accept to change
-> > > __module_get to try_module_get like in the following patch?
-> > 
-> > I don't think so:
-> > 
-> > >  	/*
-> > > -	 * We don't need try_module_get here, as the listening socket (sock)
-> > > -	 * has the protocol module (sock->ops->owner) held.
-> > > +	 * Socket's owner cannot be in unloading path because there
-> > > +	 * must be at least one listening reference
-> > >  	 */
-> > > -	__module_get(newsock->ops->owner);
-> > > +	if (unlikely(!try_module_get(newsock->ops->owner)))
-> > > +		BUG();
-> > 
-> > rmmod --wait can make try_module_get fail even if the reference count isn't
-> > zero.  
+Pablo Neira Ayuso wrote:
+> Patrick McHardy wrote:
+>> Pablo Neira Ayuso wrote:
 > 
-> OK, I though that rmmod --wait waits for refcount==0 and then changes
-> the state.
+>> But unless I'm missing something, there's nothing wrong with this
+>> as long as the error is ignored. The fact that something was received
+>> by some listener doesn't have any meaning anyways, it might have
+>> been "ip monitor". Which somehow raises doubt about your proposed
+>> interface change though, I think anything that wants a reliable
+>> answer whether a packet was delivered to a process handling it
+>> appropriately should use unicast.
+> 
+> Don't get me wrong, I agree with you that all netlink_broadcast callers
+> in the kernel should ignore the return value...
+> 
+> ... unless they have "some way" (like in Netfilter) to make event
+> delivery reliable: I have attached a patch that I didn't send you yet,
+> I'm still reviewing and testing it. It adds an entry to /proc to enable
+> reliable event delivery over netlink by dropping packets whose events
+> were not delivered, you mentioned that possibility once during one of
+> our conversations ;).
 
-No, it has to stop all future use, otherwise it's useless under load.
+I know, but in the mean time I think its wrong :) The delivery
+isn't reliable and what the admin is effectively expressing by
+setting your sysctl is "I don't have any listeners besides the
+synchronization daemon running". So it might as well use unicast.
 
-Cheers,
-Rusty.
+> I'm aware of that this option may be dangerous if used by a buggy
+> process that trigger frequent overflows but it the cost of having
+> realible logging for ctnetlink (still, this behaviour is not the one by
+> default!).
+> 
+> And I need this option to make conntrackd synchronize state-changes
+> appropriately under very heavy load: I've testing the daemon with these
+> patches and it reliably synchronizes state-changes (my system were 100%
+> busy filtering traffic and fully synchronizing all TCP state-changes in
+> near real-time effort, with a noticeable performance drop of 30% in
+> terms of filtered connections).
+
+So you're dropping the packet if you can't manage to synchronize.
+Doesn't that defeat the entire purpose of synchronizing, which is
+*increasing* reliability? :)
