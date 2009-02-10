@@ -1,121 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 1/4] e1000e: add aer support
-Date: Tue, 10 Feb 2009 14:51:20 -0800
-Message-ID: <20090210225116.32208.78338.stgit@lost.foo-projects.org>
+Subject: [net-next PATCH 2/4] e1000e: Disable dynamic clock gating for 82571
+	per si errata.
+Date: Tue, 10 Feb 2009 14:51:41 -0800
+Message-ID: <20090210225141.32208.12725.stgit@lost.foo-projects.org>
+References: <20090210225116.32208.78338.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	dave graham <david.graham@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:49695 "EHLO
 	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757469AbZBJWvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:51:41 -0500
+	by vger.kernel.org with ESMTP id S1754749AbZBJWwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:52:07 -0500
+In-Reply-To: <20090210225116.32208.78338.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: dave graham <david.graham@intel.com>
 
-most if not all of the devices supported by e1000e support
-AER (Advanced Error Reporting) so we attempt to register
-with the OS that we know how to reset ourselves after
-a fatal error.
+82571 and 82572 Errata #13 documents that the Si feature DMA Dynamic
+Clock Gating should be disabled, and identifies the workaround of
+disabling the feature by EEPROM setting. EEPROM versions that do not
+include the recommended workaround have been found in the field, and so
+some customers remain at risk. Because the feature DMA Dynamic clock
+Gating can be disabled by directly setting the appropriate bit in the
+E1000_CTRL_EXT register, this patch overrides the EEPROM setting, and
+force-disables the feature.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: dave graham <david.graham@intel.com>
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/netdev.c |   39 ++++++++++++++++++++++++++++++---------
- 1 files changed, 30 insertions(+), 9 deletions(-)
+ drivers/net/e1000e/82571.c   |   12 ++++++++++++
+ drivers/net/e1000e/defines.h |    1 +
+ 2 files changed, 13 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c425b19..00e19e9 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -44,6 +44,7 @@
- #include <linux/cpu.h>
- #include <linux/smp.h>
- #include <linux/pm_qos_params.h>
-+#include <linux/aer.h>
- 
- #include "e1000.h"
- 
-@@ -4521,6 +4522,14 @@ static int e1000_resume(struct pci_dev *pdev)
- 		return err;
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 0890162..25f6bc9 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -980,6 +980,18 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
+ 		reg |= E1000_PBA_ECC_CORR_EN;
+ 		ew32(PBA_ECC, reg);
  	}
- 
-+	/* AER (Advanced Error Reporting) hooks */
-+	err = pci_enable_pcie_error_reporting(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "pci_enable_pcie_error_reporting failed "
-+		                    "0x%x\n", err);
-+		/* non-fatal, continue */
-+	}
++	/*
++	 * Workaround for hardware errata.
++	 * Ensure that DMA Dynamic Clock gating is disabled on 82571 and 82572
++	 */
 +
- 	pci_set_master(pdev);
- 
- 	pci_enable_wake(pdev, PCI_D3hot, 0);
-@@ -4615,24 +4624,29 @@ static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 	int err;
-+	pci_ers_result_t result;
- 
- 	e1000e_disable_l1aspm(pdev);
- 	err = pci_enable_device_mem(pdev);
- 	if (err) {
- 		dev_err(&pdev->dev,
- 			"Cannot re-enable PCI device after reset.\n");
--		return PCI_ERS_RESULT_DISCONNECT;
--	}
--	pci_set_master(pdev);
--	pci_restore_state(pdev);
-+		result = PCI_ERS_RESULT_DISCONNECT;
-+	} else {
-+		pci_set_master(pdev);
-+		pci_restore_state(pdev);
- 
--	pci_enable_wake(pdev, PCI_D3hot, 0);
--	pci_enable_wake(pdev, PCI_D3cold, 0);
-+		pci_enable_wake(pdev, PCI_D3hot, 0);
-+		pci_enable_wake(pdev, PCI_D3cold, 0);
- 
--	e1000e_reset(adapter);
--	ew32(WUS, ~0);
-+		e1000e_reset(adapter);
-+		ew32(WUS, ~0);
-+		result = PCI_ERS_RESULT_RECOVERED;
-+	}
- 
--	return PCI_ERS_RESULT_RECOVERED;
-+	pci_cleanup_aer_uncorrect_error_status(pdev);
++        if ((hw->mac.type == e1000_82571) ||
++           (hw->mac.type == e1000_82572)) {
++                reg = er32(CTRL_EXT);
++                reg &= ~E1000_CTRL_EXT_DMA_DYN_CLK_EN;
++                ew32(CTRL_EXT, reg);
++        }
 +
-+	return result;
- }
  
- /**
-@@ -5063,6 +5077,7 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	int err;
- 
- 	/*
- 	 * flush_scheduled work may reschedule our watchdog task, so
-@@ -5097,6 +5112,12 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
- 
- 	free_netdev(netdev);
- 
-+	/* AER disable */
-+	err = pci_disable_pcie_error_reporting(pdev);
-+	if (err)
-+		dev_err(&pdev->dev,
-+		        "pci_disable_pcie_error_reporting failed 0x%x\n", err);
-+
- 	pci_disable_device(pdev);
- }
- 
+ 	/* PCI-Ex Control Registers */
+ 	if (hw->mac.type == e1000_82574) {
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index e6caf29..243aa49 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -69,6 +69,7 @@
+ #define E1000_CTRL_EXT_SDP7_DATA 0x00000080 /* Value of SW Definable Pin 7 */
+ #define E1000_CTRL_EXT_EE_RST    0x00002000 /* Reinitialize from EEPROM */
+ #define E1000_CTRL_EXT_RO_DIS    0x00020000 /* Relaxed Ordering disable */
++#define E1000_CTRL_EXT_DMA_DYN_CLK_EN 0x00080000 /* DMA Dynamic Clock Gating */
+ #define E1000_CTRL_EXT_LINK_MODE_MASK 0x00C00000
+ #define E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES  0x00C00000
+ #define E1000_CTRL_EXT_EIAME          0x01000000
 
