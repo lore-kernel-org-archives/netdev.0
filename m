@@ -1,51 +1,28 @@
-From: Account Up Grade <123@bezeqint.net>
-Subject: Dear E-mail Account User,
-Date: Wed, 11 Feb 2009 01:08:17 +0200 (IST)
-Message-ID: <20090211010817.EXP27240@mas22.bezeqint.net>
-Reply-To: accountupgrade99@live.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: Where is Thomas Graf (libnl maintainer)?
+Date: Tue, 10 Feb 2009 15:16:48 -0800 (PST)
+Message-ID: <20090210.151648.251628270.davem@davemloft.net>
+References: <1234304666.14153.8.camel@mj>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: proski@gnu.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr2.bezeqint.net ([192.115.104.10]:43230 "EHLO
-	omr2.bezeqint.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756148AbZBJXNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 18:13:35 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42049
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756404AbZBJXQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 18:16:54 -0500
+In-Reply-To: <1234304666.14153.8.camel@mj>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear E-mail Account User,
+From: Pavel Roskin <proski@gnu.org>
+Date: Tue, 10 Feb 2009 17:24:26 -0500
 
-We have temporarily limited all access to sensitive account 
-features, To restore your account access, you must reply to 
-this email immediately and enter your E-mail account 
-Username here:(.......................)and password here:
-(........)Enter your Email Account login website here: 
-(...........................................)
+> I've made 5 patches for libnl, but I don't know where to send them.  My
+> messages to Thomas Graf bounce, and there is no other contact
+> information in libnl sources or on the libnl site (the later is down).
 
-Due to the junk/spam emails you receive daily, we are 
-currently upgrading all email accounts spam filter to limit 
-all unsolicited emails for security reasons and to upgrade 
-our new and improved E-mail account features and 
-enhancements, to ensure you do not experience service 
-interruption.
-
-Please you must reply to this email immediately and enter 
-both your user name and password in the space provided to 
-enable us upgrade your Account.
-
-A confirmtion link will be send to you for the Re-Activation 
-of your e-mail Account, as soon as we received your response 
-and you are to Click on the "Confirm E-mail" link on your 
-mail Account box and then enter this confirmation number: 
-1265-6778-8250-8393-5727
-
-Your failure to provide your e-mail account login details 
-will lead to a temporarly disabled of your e-mail account or 
-we will immediately deactivate your e-mail account from our 
-database.
-
-Thanks For Your Understanding.
-
-Timer Warner Business Support Team.
+The site Thomas's email is on is having severe problems, which started
+a few days ago.  Once that is fixed you should be able to reach him.
