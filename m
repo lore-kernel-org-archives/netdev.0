@@ -1,29 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2009-02-09
-Date: Mon, 09 Feb 2009 23:44:09 -0800 (PST)
-Message-ID: <20090209.234409.91352825.davem@davemloft.net>
-References: <20090209202314.GF6069@tuxdriver.com>
+Subject: [PATCH]: net: Kill skbuff macros from the stone ages.
+Date: Tue, 10 Feb 2009 00:06:30 -0800 (PST)
+Message-ID: <20090210.000630.194774286.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40468
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59357
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751075AbZBJHoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 02:44:15 -0500
-In-Reply-To: <20090209202314.GF6069@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1751387AbZBJIGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:06:36 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id DEBDFC8D94E
+	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 00:06:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 9 Feb 2009 15:23:14 -0500
 
-> Another round of update intended for 2.6.30.  Along with a few mac80211
-> updates, there is the usual ton of driver updates with no real unifying
-> theme.  FWIW, this has spent a little time in linux-next already.
-> 
-> Please let me know if there are problems!
+I've commited the following to net-next-2.6
 
-Pulled, thanks a lot John.
+net: Kill skbuff macros from the stone ages.
+
+This kills of HAVE_ALLOC_SKB and HAVE_ALIGNABLE_SKB.
+
+Nothing in-tree uses them and nothing in-tree has used them
+since 2.0.x times.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/skbuff.h |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5eba400..9247008 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -29,9 +29,6 @@
+ #include <linux/dmaengine.h>
+ #include <linux/hrtimer.h>
+ 
+-#define HAVE_ALLOC_SKB		/* For the drivers to know */
+-#define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
+-
+ /* Don't change this without changing skb_csum_unnecessary! */
+ #define CHECKSUM_NONE 0
+ #define CHECKSUM_UNNECESSARY 1
+-- 
+1.6.1.2.253.ga34a
+
