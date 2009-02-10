@@ -1,49 +1,56 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>
-Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
-Date: Tue, 10 Feb 2009 15:20:36 +0200 (EET)
-Message-ID: <Pine.LNX.4.64.0902101514540.31742@wrl-59.cs.helsinki.fi>
-References: <20090206.140714.201930500.davem@davemloft.net>
- <CAF18546-B024-40C9-8276-8FCD89C98E72@oracle.com>
- <Pine.LNX.4.64.0902070040530.31875@wrl-59.cs.helsinki.fi>
- <20090206.192243.47948705.davem@davemloft.net> <1234023804.17241.14.camel@heimdal.trondhjem.org>
- <Pine.LNX.4.64.0902071831210.2805@wrl-59.cs.helsinki.fi>
- <20090208052543.GA20689@fieldses.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC] Suspicious bug in module refcounting
+Date: Wed, 11 Feb 2009 00:06:31 +1030
+Message-ID: <200902110006.33132.rusty@rustcorp.com.au>
+References: <20090203134721.GA11069@pingi.kke.suse.de> <200902101345.08580.rusty@rustcorp.com.au> <20090210103136.GB7096@dhcp35.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, trond-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090208052543.GA20689-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Karsten Keil <kkeil@suse.de>, linux-kernel@vger.kernel.org,
+	richard kennedy <richard@rsk.demon.co.uk>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	dwmw2@infradead.org, Scott Wood <scottwood@freescale.com>,
+	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+To: Michal Hocko <mhocko@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:41845 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751920AbZBJNgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Feb 2009 08:36:38 -0500
+In-Reply-To: <20090210103136.GB7096@dhcp35.suse.cz>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 8 Feb 2009, J. Bruce Fields wrote:
-
-> (Where's diff-func from?)
-
-My own tool collection. I can make it available if you want to.
-
-> In similar cases in the future, if you want to cater to the more tired
-> and/or mentally challenged among us (which may just be me), some clue
-> that visually distinguishes the quoted diff output in the comment might
-> help; e.g., maybe indent it like the below.
+On Tuesday 10 February 2009 21:01:37 Michal Hocko wrote:
+> On Tue 10-02-09 13:45:07, Rusty Russell wrote:
+> > On Tuesday 10 February 2009 01:48:31 Michal Hocko wrote:
+> > > Based on this change, would it make sense to update sys_accept to change
+> > > __module_get to try_module_get like in the following patch?
+> > 
+> > I don't think so:
+> > 
+> > >  	/*
+> > > -	 * We don't need try_module_get here, as the listening socket (sock)
+> > > -	 * has the protocol module (sock->ops->owner) held.
+> > > +	 * Socket's owner cannot be in unloading path because there
+> > > +	 * must be at least one listening reference
+> > >  	 */
+> > > -	__module_get(newsock->ops->owner);
+> > > +	if (unlikely(!try_module_get(newsock->ops->owner)))
+> > > +		BUG();
+> > 
+> > rmmod --wait can make try_module_get fail even if the reference count isn't
+> > zero.  
 > 
-> (But that's intended as a suggestion, not a requirement.)
+> OK, I though that rmmod --wait waits for refcount==0 and then changes
+> the state.
 
-Yeah, a good idea... I'll sed some spaces in front of them in the future 
-to make the difference more obvious. The expected outcome though is that 
-somebody probably then hits reply button too soon claiming that the patch 
-is broken :-).
+No, it has to stop all future use, otherwise it's useless under load.
 
-
--- 
- i.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Rusty.
