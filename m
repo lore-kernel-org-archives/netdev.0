@@ -1,170 +1,268 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Subject: Re: [PATCH 3/3] tun: Limit amount of queued packets per device
-Date: Tue, 10 Feb 2009 11:33:45 -0700
-Message-ID: <1234290825.25178.100.camel@bling>
-References: <20090204104825.GA21257@gondor.apana.org.au>
-	 <E1LUfJt-0005ZQ-4D@gondolin.me.apana.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: 32 core net-next stack/netfilter "scaling"
+Date: Tue, 10 Feb 2009 10:44:22 -0800
+Message-ID: <20090210104422.50010727@extreme>
+References: <497E361B.30909@hp.com>
+	<497E42F4.7080201@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:45005 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754364AbZBJSgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 13:36:07 -0500
-In-Reply-To: <E1LUfJt-0005ZQ-4D@gondolin.me.apana.org.au>
+Received: from mail.vyatta.com ([76.74.103.46]:35928 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754527AbZBJSoZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 13:44:25 -0500
+In-Reply-To: <497E42F4.7080201@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-02-04 at 21:49 +1100, Herbert Xu wrote:
-> tun: Limit amount of queued packets per device
+On Tue, 27 Jan 2009 00:10:44 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-Hi Herbert,
+> Rick Jones a =C3=A9crit :
+> > Folks -
+> >=20
+> > Under:
+> >=20
+> > ftp://ftp.netperf.org/iptable_scaling
+> >=20
+> > can be found netperf results and Caliper profiles for three scenari=
+os on
+> > a 32-core, 1.6 GHz 'Montecito' rx8640 system.  An rx8640 is what HP=
+ call
+> > a "cell based" system in that it is comprised of "cell boards" on w=
+hich
+> > reside CPU and memory resources.  In this case there are four cell
+> > boards, each with 4, dual-core Montecito processors and 1/4 of the
+> > overall RAM.  The system was configured with a mix of cell-local an=
+d
+> > global interleaved memory, where the global interleave is on a cach=
+eline
+> > (128 byte) boundary (IIRC).  Total RAM in the system is 256 GB.  Th=
+e
+> > cells are joined via cross-bar connections. (numactl --hardware out=
+put
+> > is available under the URL above)
+> >=20
+> > There was an "I/O expander" connected to the system.  This meant th=
+ere
+> > were as many distinct PCI-X domains as there were cells, and every =
+cell
+> > had a "local" set of PCI-X slots.
+> >=20
+> > Into those slots I placed four HP AD385A PCI-X 10Gbit Ethernet NICs=
+ -
+> > aka Neterion XFrame IIs.  These were then connected to an HP ProCur=
+ve
+> > 5806 switch, which was in turn connected to three, 4P/16C, 2.3 GHz =
+HP
+> > DL585 G5s, each of which had a pair of HP AD386A PCIe 10Gbit Ethern=
+et
+> > NICs (Aka Chelsio T3C-based).  They were running RHEL 5.2 I think. =
+ Each
+> > NIC was in either a PCI-X 2.0 266 MHz slot (rx8640) or a PCIe 1.mum=
+ble
+> > x8 slot (DL585 G5)
+> >=20
+> > The kernel is from DaveM's net-next tree ca last week, multiq enabl=
+ed.=20
+> > The s2io driver is Neterion's out-of-tree version 2.0.36.15914 to g=
+et
+> > multiq support.  It was loaded into the kernel via:
+> >=20
+> > insmod ./s2io.ko tx_steering_type=3D3 tx_fifo_num=3D8
+> >=20
+> > There were then 8 tx queues and 8 rx queues per interface in the
+> > rx8640.  The "setaffinity.txt" script was used to set the IRQ affin=
+ities
+> > to cores "closest" to the physical NIC. In all three tests all 32 c=
+ores
+> > went to 100% utilization. At least for all incense and porpoises. (=
+there
+> > was some occasional idle reported by top on the full_iptables run)
+> >=20
+> > A set of 64, concurrent "burst mode" netperf omni RR tests (tcp) wi=
+th a
+> > burst mode of 17 were run (ie 17 "transactions" outstanding on a
+> > connection at one time,) with TCP_NODELAY set and the results gathe=
+red,
+> > along with a set of Caliper profiles.  The script used to launch th=
+ese
+> > can be found in "runemomniagg2.sh.txt under the URL above.
+> >=20
+> > I picked an "RR" test to maximize the trips up and down the stack w=
+hile
+> > minimizing the bandwidth consumed.
+> >=20
+> > I picked a burst size of 16 because that was sufficient to saturate=
+ a
+> > single core on the rx8640.
+> >=20
+> > I picked 64 concurrent netperfs because I wanted to make sure I had
+> > enough concurrent connections to get spread across all the cores/qu=
+eues
+> > by the algorithms in place.
+> >=20
+> > I picked the combination of 64 and 16 rather than say 1024 and 0 (o=
+ne
+> > tran at a time) because I didn't want to run a context switching
+> > benchmark :)
+> >=20
+> > The rx8640 was picked because it was available and I was confident =
+it
+> > was not going to have any hardware scaling issues getting in the wa=
+y.  I
+> > wanted to see SW issues, not HW issues. I am ass-u-me-ing the rx864=
+0 is
+> > a reasonable analog for any "decent or better scaling" 32 core hard=
+ware
+> > and that while there are ia64-specific routines present in the prof=
+iles,
+> > they are there for platform-independent reasons.
+> >=20
+> > The no_iptables/ data was run after a fresh boot, with no iptables
+> > commands run and so no iptables related modules loaded into the ker=
+nel.
+> >=20
+> > The empty_iptables/ data was run after an "iptables --list" command
+> > which loaded one or two modules into the kernel.
+> >=20
+> > The full_iptables/ data was run after an "iptables-restore" command
+> > pointed at full_iptables/iptables.txt  which was created from what =
+RH
+> > creates by default when one enables firewall via their installer, w=
+ith a
+> > port range added by me to allow pretty much anything netperf would =
+ask.=20
+> > As such, while it does excercise netfilter functionality, I cannot =
+make
+> > any claims as to its "real world" applicability.  (while the firewa=
+ll
+> > settings came from an RH setup, FWIW, the base bits running on the
+> > rx8640 are Debian Lenny, with the net-next kernel on top)
+> >=20
+> > The "cycles" profile is able to grab flat profile hits while interr=
+upts
+> > are disabled so it can see stuff happening while interrupts are
+> > disabled.  The "scgprof" profile is an attempt to get some call gra=
+phs -
+> > it does not have visibility into code running with interrupts disab=
+led.=20
+> > The "cache" profile is a profile that looks to get some cache miss
+> > information.
+> >=20
+> > So, having said all that, details can be found under the previously
+> > mentioned URL.  Some quick highlights:
+> >=20
+> > no_iptables - ~22000 transactions/s/netperf.  Top of the cycles pro=
+file
+> > looks like:
+> >=20
+> > Function Summary
+> > -------------------------------------------------------------------=
+----
+> > % Total
+> >      IP  Cumulat             IP
+> > Samples    % of         Samples
+> >  (ETB)     Total         (ETB)   Function                          =
+=46ile
+> > -------------------------------------------------------------------=
+----
+> >    5.70     5.70         37772   s2io.ko::tx_intr_handler
+> >    5.14    10.84         34012   vmlinux::__ia64_readq
+> >    4.88    15.72         32285   s2io.ko::s2io_msix_ring_handle
+> >    4.63    20.34         30625   s2io.ko::rx_intr_handler
+> >    4.60    24.94         30429   s2io.ko::s2io_xmit
+> >    3.85    28.79         25488   s2io.ko::s2io_poll_msix
+> >    2.87    31.65         18987   vmlinux::dev_queue_xmit
+> >    2.51    34.16         16620   vmlinux::tcp_sendmsg
+> >    2.51    36.67         16588   vmlinux::tcp_ack
+> >    2.15    38.82         14221   vmlinux::__inet_lookup_established
+> >    2.10    40.92         13937   vmlinux::ia64_spinlock_contention
+> >=20
+> > empty_iptables - ~12000 transactions/s/netperf.  Top of the cycles
+> > profile looks like:
+> >=20
+> > Function Summary
+> > -------------------------------------------------------------------=
+----
+> > % Total
+> >      IP  Cumulat             IP
+> > Samples    % of         Samples
+> >  (ETB)     Total         (ETB)   Function                          =
+=46ile
+> > -------------------------------------------------------------------=
+----
+> >   26.38    26.38        137458   vmlinux::_read_lock_bh
+> >   10.63    37.01         55388   vmlinux::local_bh_enable_ip
+> >    3.42    40.43         17812   s2io.ko::tx_intr_handler
+> >    3.01    43.44         15691   ip_tables.ko::ipt_do_table
+> >    2.90    46.34         15100   vmlinux::__ia64_readq
+> >    2.72    49.06         14179   s2io.ko::rx_intr_handler
+> >    2.55    51.61         13288   s2io.ko::s2io_xmit
+> >    1.98    53.59         10329   s2io.ko::s2io_msix_ring_handle
+> >    1.75    55.34          9104   vmlinux::dev_queue_xmit
+> >    1.64    56.98          8546   s2io.ko::s2io_poll_msix
+> >    1.52    58.50          7943   vmlinux::sock_wfree
+> >    1.40    59.91          7302   vmlinux::tcp_ack
+> >=20
+> > full_iptables - some test instances didn't complete, I think they g=
+ot
+> > starved. Of those which did complete, their performance ranged all =
+the
+> > way from 330 to 3100 transactions/s/netperf.  Top of the cycles pro=
+file
+> > looks like:
+> >=20
+> > Function Summary
+> > -------------------------------------------------------------------=
+----
+> > % Total
+> >      IP  Cumulat             IP
+> > Samples    % of         Samples
+> >  (ETB)     Total         (ETB)   Function                          =
+=46ile
+> > -------------------------------------------------------------------=
+----
+> >   64.71    64.71        582171   vmlinux::_write_lock_bh
+> >   18.43    83.14        165822   vmlinux::ia64_spinlock_contention
+> >    2.86    85.99         25709   nf_conntrack.ko::init_module
+> >    2.36    88.35         21194   nf_conntrack.ko::tcp_packet
+> >    1.78    90.13         16009   vmlinux::_spin_lock_bh
+> >    1.20    91.33         10810   nf_conntrack.ko::nf_conntrack_in
+> >    1.20    92.52         10755   vmlinux::nf_iterate
+> >    1.09    93.62          9833   vmlinux::default_idle
+> >    0.26    93.88          2331   vmlinux::__ia64_readq
+> >    0.25    94.12          2213   vmlinux::__interrupt
+> >    0.24    94.37          2203   s2io.ko::tx_intr_handler
+> >=20
+> > Suggestions as to things to look at/with and/or patches to try are
+> > welcome.  I should have the HW available to me for at least a littl=
+e
+> > while, but not indefinitely.
+> >=20
+> > rick jones
+>=20
+> Hi Rick, nice hardware you have :)
+>=20
+> Stephen had a patch to nuke read_lock() from iptables, using RCU and =
+seqlocks.
+> I hit this contention point even with low cost hardware, and quite st=
+andard application.
+>=20
+> I pinged him few days ago to try to finish the job with him, but it s=
+eems Stephen
+> is busy at the moment.
+>=20
+> Then conntrack (tcp sessions) is awfull, since it uses a single rwloc=
+k_t tcp_lock
+>  that must be write_locked() for basically every handled tcp frame...
+>=20
+> How long is "not indefinitely" ?=20
 
-I'm getting a variety of Oopses, null pointer derefs, etc... from this
-patch when trying to run a qemu guest on net-next-2.6 using a standard
-tap/bridge config.  I've included a sample below.  Thanks,
-
-Alex
-
-
-[  173.231609] BUG: unable to handle kernel paging request at ffffffffffff8871
-[  173.233252] IP: [<ffffffff8044875e>] skb_copy_datagram_from_iovec+0x1e/0x260
-[  173.233252] PGD 203067 PUD 204067 PMD 0 
-[  173.233252] Oops: 0000 [#1] SMP 
-[  173.233252] last sysfs file: /sys/kernel/uevent_seqnum
-[  173.233252] CPU 5 
-[  173.233252] Modules linked in: tun nfs lockd nfs_acl auth_rpcgss sunrpc iptable_filter ip_tables ebtable_broute bridge stp ebtable_nat ebtable_filter ebtables x_tables ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr ipv6 iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi parport_pc lp parport loop af_packet ipmi_devintf hpilo ipmi_si ipmi_msghandler iTCO_wdt iTCO_vendor_support hpwdt i5000_edac serio_raw edac_core psmouse pcspkr shpchp button container i5k_amb pci_hotplug joydev evdev ext3 jbd mbcache usbhid hid sg sd_mod ehci_hcd uhci_hcd lpfc scsi_transport_fc usbcore cciss scsi_tgt scsi_mod bnx2 dm_mirror dm_region_hash dm_log dm_snapshot dm_mod thermal processor fan thermal_sys fuse
-[  173.233252] Pid: 6770, comm: qemu-system-x86 Not tainted 2.6.29-rc3 #4
-[  173.233252] RIP: 0010:[<ffffffff8044875e>]  [<ffffffff8044875e>] skb_copy_datagram_from_iovec+0x1e/0x260
-[  173.233252] RSP: 0018:ffff880827cbfc68  EFLAGS: 00010292
-[  173.233252] RAX: 0000000000000000 RBX: ffffffffffff8809 RCX: 0000000000000148
-[  173.233252] RDX: ffff880827cbfe78 RSI: 0000000000000000 RDI: ffffffffffff8809
-[  173.233252] RBP: ffffffffffff8809 R08: ffff880827cbfcf4 R09: 0000000000000000
-[  173.233252] R10: 0000000000000000 R11: ffffffff80350440 R12: 0000000000000148
-[  173.233252] R13: ffff88082b414840 R14: 0000000000000000 R15: 0000000000000148
-[  173.233252] FS:  00007f184f8756e0(0000) GS:ffff88082bfe1100(0000) knlGS:0000000000000000
-[  173.233252] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  173.233252] CR2: ffffffffffff8871 CR3: 000000081d963000 CR4: 00000000000006e0
-[  173.233252] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  173.233252] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[  173.233252] Process qemu-system-x86 (pid: 6770, threadinfo ffff880827cbe000, task ffff88082bb7cbc0)
-[  173.233252] Stack:
-[  173.233252]  000000000000001e 000000000000001e ffff880827cbfe78 ffffffffffff8809
-[  173.233252]  000000004991c50c ffffffffffff8809 ffffffffffff8809 0000000000000148
-[  173.233252]  ffff88082b414840 0000000000000156 0000000000000148 ffffffffa047f5ac
-[  173.233252] Call Trace:
-[  173.233252]  [<ffffffffa047f5ac>] ? tun_chr_aio_write+0x19c/0x440 [tun]
-[  173.233252]  [<ffffffff802b68ad>] ? zone_statistics+0x7d/0x80
-[  173.233252]  [<ffffffffa047f410>] ? tun_chr_aio_write+0x0/0x440 [tun]
-[  173.233252]  [<ffffffff802df90b>] ? do_sync_readv_writev+0xcb/0x110
-[  173.233252]  [<ffffffff80261f90>] ? autoremove_wake_function+0x0/0x30
-[  173.233252]  [<ffffffff802dcf25>] ? mem_cgroup_charge_common+0x75/0xa0
-[  173.233252]  [<ffffffff802df74d>] ? rw_copy_check_uvector+0x9d/0x150
-[  173.233252]  [<ffffffff802e0062>] ? do_readv_writev+0xe2/0x220
-[  173.233252]  [<ffffffff8022cc35>] ? default_spin_lock_flags+0x5/0x10
-[  173.233252]  [<ffffffff804de09e>] ? _spin_lock_irqsave+0x2e/0x40
-[  173.233252]  [<ffffffff804e0ae3>] ? do_page_fault+0x523/0xaa0
-[  173.233252]  [<ffffffff804de09e>] ? _spin_lock_irqsave+0x2e/0x40
-[  173.233252]  [<ffffffff802e0693>] ? sys_writev+0x53/0xc0
-[  173.233252]  [<ffffffff8021252a>] ? system_call_fastpath+0x16/0x1b
-[  173.233252] Code: c3 66 66 66 2e 0f 1f 84 00 00 00 00 00 41 57 41 56 41 89 f6 41 55 41 54 41 89 cc 55 53 48 83 ec 28 48 89 7c 24 18 48 89 54 24 10 <8b> 6f 68 2b 6f 6c 89 e8 29 f0 85 c0 0f 8f 6f 01 00 00 48 8b 4c 
-[  173.233252] RIP  [<ffffffff8044875e>] skb_copy_datagram_from_iovec+0x1e/0x260
-[  173.233252]  RSP <ffff880827cbfc68>
-[  173.233252] CR2: ffffffffffff8871
-[  173.233252] ---[ end trace efbfb68cafc813b4 ]---
-
-[  298.181441] general protection fault: 0000 [#2] SMP 
-[  298.184002] last sysfs file: /sys/kernel/uevent_seqnum
-[  298.184002] CPU 0 
-[  298.184002] Modules linked in: tun nfs lockd nfs_acl auth_rpcgss sunrpc iptable_filter ip_tables ebtable_broute bridge stp ebtable_nat ebtable_filter ebtables x_tables ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr ipv6 iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi parport_pc lp parport loop af_packet ipmi_devintf hpilo ipmi_si ipmi_msghandler iTCO_wdt iTCO_vendor_support hpwdt i5000_edac serio_raw edac_core psmouse pcspkr shpchp button container i5k_amb pci_hotplug joydev evdev ext3 jbd mbcache usbhid hid sg sd_mod ehci_hcd uhci_hcd lpfc scsi_transport_fc usbcore cciss scsi_tgt scsi_mod bnx2 dm_mirror dm_region_hash dm_log dm_snapshot dm_mod thermal processor fan thermal_sys fuse
-[  298.184002] Pid: 6822, comm: qemu-system-x86 Tainted: G      D    2.6.29-rc3 #4
-[  298.184002] RIP: 0010:[<ffffffff8044144a>]  [<ffffffff8044144a>] sock_alloc_send_pskb+0x7a/0x2c0
-[  298.184002] RSP: 0018:ffff880828dc5c48  EFLAGS: 00010217
-[  298.184002] RAX: 1f00ffffffffffff RBX: ffff88082036fd80 RCX: 0000000000000800
-[  298.184002] RDX: 0000000000000000 RSI: 0000000000000148 RDI: ffff88082036fd80
-[  298.184002] RBP: 0000000000000000 R08: ffff880828dc5cf4 R09: 0000000000000000
-[  298.184002] R10: 0000000000000000 R11: ffffffff80350440 R12: ffff880828dc5c58
-[  298.184002] R13: ffff880828dc5c70 R14: 00000000e9291f00 R15: 0000000000000000
-[  298.184002] FS:  00007f5e2e9c46e0(0000) GS:ffffffff80797000(0000) knlGS:0000000000000000
-[  298.184002] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  298.184002] CR2: 00007fff369c6f90 CR3: 00000007df827000 CR4: 00000000000006e0
-[  298.184002] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  298.184002] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[  298.184002] Process qemu-system-x86 (pid: 6822, threadinfo ffff880828dc4000, task ffff88081f7d0650)
-[  298.184002] Stack:
-[  298.184002]  ffff880828dc5cf4 0000000000000148 ffff880828915c78 ffffe2001bdc76c8
-[  298.184002]  000000000000001e 000000000000001e ffff880000001d90 0000000000000002
-[  298.184002]  000000004991c589 0000000000000800 ffffffffa047f410 0000000000000148
-[  298.184002] Call Trace:
-[  298.184002]  [<ffffffffa047f410>] tun_chr_aio_write+0x0/0x440 [tun]
-[  298.184002]  [<ffffffffa047f554>] tun_chr_aio_write+0x144/0x440 [tun]
-[  298.184002]  [<ffffffff802b68ad>] zone_statistics+0x7d/0x80
-[  298.184002]  [<ffffffffa047f410>] tun_chr_aio_write+0x0/0x440 [tun]
-[  298.184002]  [<ffffffff802df90b>] do_sync_readv_writev+0xcb/0x110
-[  298.184002]  [<ffffffff80261f90>] autoremove_wake_function+0x0/0x30
-[  298.184002]  [<ffffffff802dcf25>] mem_cgroup_charge_common+0x75/0xa0
-[  298.184002]  [<ffffffff802df74d>] rw_copy_check_uvector+0x9d/0x150
-[  298.184002]  [<ffffffff802e0062>] do_readv_writev+0xe2/0x220
-[  298.184002]  [<ffffffff8022cc35>] default_spin_lock_flags+0x5/0x10
-[  298.184002]  [<ffffffff804de09e>] _spin_lock_irqsave+0x2e/0x40
-[  298.184002]  [<ffffffff804e0ae3>] do_page_fault+0x523/0xaa0
-[  298.184002]  [<ffffffff804de09e>] _spin_lock_irqsave+0x2e/0x40
-[  298.184002]  [<ffffffff802e0693>] sys_writev+0x53/0xc0
-[  298.184002]  [<ffffffff8021252a>] system_call_fastpath+0x16/0x1b
-[  298.184002] Code: 85 c0 0f 85 fb 00 00 00 f6 43 38 02 0f 85 09 01 00 00 8b 83 98 00 00 00 3b 83 a0 00 00 00 0f 8c 16 01 00 00 48 8b 83 e0 01 00 00 <f0> 80 48 08 01 48 8b 83 e0 01 00 00 f0 80 48 08 04 48 85 ed 0f 
-[  298.184002] RIP  [<ffffffff8044144a>] sock_alloc_send_pskb+0x7a/0x2c0
-[  298.184002]  RSP <ffff880828dc5c48>
-[  298.314428] ---[ end trace efbfb68cafc813b5 ]---
-
-[  490.120309] BUG: unable to handle kernel NULL pointer dereference at 00000000000000f8
-[  490.121002] IP: [<ffffffff804413ed>] sock_alloc_send_pskb+0x1d/0x2c0
-[  490.121002] PGD 7df826067 PUD 8234fd067 PMD 0 
-[  490.121002] Oops: 0000 [#3] SMP 
-[  490.121002] last sysfs file: /sys/kernel/uevent_seqnum
-[  490.121002] CPU 4 
-[  490.121002] Modules linked in: tun nfs lockd nfs_acl auth_rpcgss sunrpc iptable_filter ip_tables ebtable_broute bridge stp ebtable_nat ebtable_filter ebtables x_tables ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr ipv6 iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi parport_pc lp parport loop af_packet ipmi_devintf hpilo ipmi_si ipmi_msghandler iTCO_wdt iTCO_vendor_support hpwdt i5000_edac serio_raw edac_core psmouse pcspkr shpchp button container i5k_amb pci_hotplug joydev evdev ext3 jbd mbcache usbhid hid sg sd_mod ehci_hcd uhci_hcd lpfc scsi_transport_fc usbcore cciss scsi_tgt scsi_mod bnx2 dm_mirror dm_region_hash dm_log dm_snapshot dm_mod thermal processor fan thermal_sys fuse
-[  490.121002] Pid: 6864, comm: qemu-system-x86 Tainted: G      D    2.6.29-rc3 #4
-[  490.121002] RIP: 0010:[<ffffffff804413ed>]  [<ffffffff804413ed>] sock_alloc_send_pskb+0x1d/0x2c0
-[  490.121002] RSP: 0018:ffff88081f4f1c48  EFLAGS: 00010296
-[  490.121002] RAX: 0000000000000002 RBX: 0000000000000000 RCX: 0000000000000800
-[  490.121002] RDX: 0000000000000000 RSI: 0000000000000148 RDI: 0000000000000000
-[  490.121002] RBP: ffffffffa047f410 R08: ffff88081f4f1cf4 R09: 0000000000000000
-[  490.121002] R10: 0000000000000000 R11: ffffffff80350440 R12: 0000000000000148
-[  490.121002] R13: ffff880823575240 R14: 0000000000000156 R15: 0000000000000000
-[  490.121002] FS:  00007f9436fce6e0(0000) GS:ffff88082bfe0d80(0000) knlGS:0000000000000000
-[  490.121002] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  490.121002] CR2: 00000000000000f8 CR3: 000000081f4a8000 CR4: 00000000000006e0
-[  490.121002] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  490.121002] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[  490.121002] Process qemu-system-x86 (pid: 6864, threadinfo ffff88081f4f0000, task ffff88081dc7e500)
-[  490.121002] Stack:
-[  490.121002]  ffff88081f4f1cf4 0000000000000148 00000000012f53da ffffe2001b9c05f8
-[  490.121002]  000000000000001e 000000000000001e ffff880000001d90 0000000000000002
-[  490.121002]  000000004991c649 0000000000000800 ffffffffa047f410 0000000000000148
-[  490.121002] Call Trace:
-[  490.121002]  [<ffffffffa047f410>] ? tun_chr_aio_write+0x0/0x440 [tun]
-[  490.121002]  [<ffffffffa047f554>] ? tun_chr_aio_write+0x144/0x440 [tun]
-[  490.121002]  [<ffffffff804ddf75>] ? _spin_lock+0x5/0x10
-[  490.121002]  [<ffffffff802f0008>] ? sys_ppoll+0xe8/0x170
-[  490.121002]  [<ffffffff804ddf75>] ? _spin_lock+0x5/0x10
-[  490.121002]  [<ffffffffa047f410>] ? tun_chr_aio_write+0x0/0x440 [tun]
-[  490.121002]  [<ffffffff802df90b>] ? do_sync_readv_writev+0xcb/0x110
-[  490.121002]  [<ffffffff80261f90>] ? autoremove_wake_function+0x0/0x30
-[  490.121002]  [<ffffffff80265380>] ? ktime_get_ts+0x20/0x60
-[  490.121002]  [<ffffffff802653cc>] ? ktime_get+0xc/0x50
-[  490.121002]  [<ffffffff802df74d>] ? rw_copy_check_uvector+0x9d/0x150
-[  490.121002]  [<ffffffff802e0062>] ? do_readv_writev+0xe2/0x220
-[  490.121002]  [<ffffffff802615fe>] ? sys_timer_settime+0x14e/0x340
-[  490.121002]  [<ffffffff804de09e>] ? _spin_lock_irqsave+0x2e/0x40
-[  490.121002]  [<ffffffff802e0693>] ? sys_writev+0x53/0xc0
-[  490.121002]  [<ffffffff8021252a>] ? system_call_fastpath+0x16/0x1b
-[  490.121002] Code: 00 00 5b 48 89 d0 c3 0f 1f 80 00 00 00 00 41 57 49 89 d7 41 56 41 55 41 54 55 53 48 89 fb 48 83 ec 48 48 89 74 24 08 4c 89 04 24 <44> 8b b7 f8 00 00 00 44 89 f0 80 cc 04 41 f6 c6 10 44 0f 45 f0 
-[  490.121002] RIP  [<ffffffff804413ed>] sock_alloc_send_pskb+0x1d/0x2c0
-[  490.121002]  RSP <ffff88081f4f1c48>
-[  490.121002] CR2: 00000000000000f8
-[  490.259999] ---[ end trace efbfb68cafc813b6 ]---
-
-
+Does anyone have a fix for this bottleneck.
