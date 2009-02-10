@@ -1,37 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] enic: misc
-Date: Mon, 09 Feb 2009 23:27:41 -0800 (PST)
-Message-ID: <20090209.232741.215068384.davem@davemloft.net>
-References: <20090210005505.24315.66810.stgit@palito_client100.nuovasystems.com>
-	<20090210005727.24315.46206.stgit@palito_client100.nuovasystems.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH v2 net-next] Re: can't add tc multiq
+Date: Tue, 10 Feb 2009 07:41:54 +0000
+Message-ID: <20090210074154.GA4190@ff.dom.local>
+References: <20090209081553.4a874433@extreme> <20090209214446.GA2542@ami.dom.local> <20090209144052.6636f069@extreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: scofeldm@cisco.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Badalian Vyacheslav <slavon@bigtelecom.ru>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52867
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750790AbZBJH1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 02:27:47 -0500
-In-Reply-To: <20090210005727.24315.46206.stgit@palito_client100.nuovasystems.com>
+Received: from fg-out-1718.google.com ([72.14.220.154]:49137 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbZBJHmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 02:42:00 -0500
+Received: by fg-out-1718.google.com with SMTP id 16so1234097fgg.17
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2009 23:41:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20090209144052.6636f069@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <scofeldm@cisco.com>
-Date: Mon, 09 Feb 2009 16:57:28 -0800
+On Mon, Feb 09, 2009 at 02:40:52PM -0800, Stephen Hemminger wrote:
+...
+> Rather than warning which will buried off on some console that user will never
+> see (and can cause DoS overload). A better errno should be chosen.
 
-> enic: misc
-> 
-> Misc change to add api for link down count and to get firmware notification status.
-> 
-> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+I think admins are used to reading console messages, but we can try
+with a better errno too.
 
-"misc" is not an appropriate commit header line text, what can anyone
-discern about a top-level idea of what the change is with just
-"misc"?
+Thanks,
+Jarek P.
+-------------------> take 2
 
-Thus I moved your commit message content up to be the header line
-text.
+pkt_sched: sch_multiq: Change errno on non-multiqueue devices use.
 
-Applied.
+Current "RTNETLINK answers: Invalid argument" warning, while trying to
+add multiq qdisc to non-multiqueue device, isn't very helpful and some
+of these devs can be changed btw., so let's use a better errno.
+
+With feedback from Stephen Hemminger <shemminger@vyatta.com>
+
+Reported-by: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ net/sched/sch_multiq.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index 7e15186..9127312 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -202,7 +202,7 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
+ 	int i;
+ 
+ 	if (!netif_is_multiqueue(qdisc_dev(sch)))
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 	if (nla_len(opt) < sizeof(*qopt))
+ 		return -EINVAL;
+ 
