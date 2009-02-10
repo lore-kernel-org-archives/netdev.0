@@ -1,70 +1,63 @@
-From: Phillip Michael Jordan <phil@philjordan.eu>
-Subject: Re: [PATCH] skge: Fix/workaround for DMA mask quirk on ASUS
-	P5NSLI/Marvell Yukon-Lite
-Date: Tue, 10 Feb 2009 23:15:43 +0100
-Message-ID: <f1a0791a0902101415n47a825d9gf83d6908d6a8646a@mail.gmail.com>
-References: <f1a0791a0902101056i6fd47886gc3cee4b5aff2a23e@mail.gmail.com>
-	 <20090210111408.2225e90b@extreme>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] iptables: lock free counters (v0.6)
+Date: Tue, 10 Feb 2009 14:20:30 -0800
+Message-ID: <4991FDAE.9060006@hp.com>
+References: <20090204001202.724266235@vyatta.com>	<20090204001755.808036408@vyatta.com>	<4989071E.5000803@cosmosbay.com> <4990515B.3070409@trash.net>	<20090209091437.5d5cbf48@extreme> <20090210095220.3e1350a1@extreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:49845 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755477AbZBJWPq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:15:46 -0500
-Received: by fg-out-1718.google.com with SMTP id 16so53425fgg.17
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 14:15:44 -0800 (PST)
-In-Reply-To: <20090210111408.2225e90b@extreme>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:13933 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755017AbZBJWUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:20:35 -0500
+In-Reply-To: <20090210095220.3e1350a1@extreme>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Stephen Hemminger wrote:
-> This looks like a good start to a workable workaround.
+> The reader/writer lock in ip_tables is acquired in the critical path of
+> processing packets and is one of the reasons just loading iptables can cause
+> a 20% performance loss. The rwlock serves two functions:
+> 
+> 1) it prevents changes to table state (xt_replace) while table is in use.
+>    This is now handled by doing rcu on the xt_table. When table is
+>    replaced, the new table(s) are put in and the old one table(s) are freed
+>    after RCU period.
+> 
+> 2) it provides synchronization when accesing the counter values.
+>    This is now handled by swapping in new table_info entries for each cpu
+>    then summing the old values, and putting the result back onto one
+>    cpu.  On a busy system it may cause sampling to occur at different
+>    times on each cpu, but no packet/byte counts are lost in the process.
 
-Thanks,
+I've taken this round for a spin on the 32-core setup.  I'd not previously 
+applied Patrick's patches to remove the initialization, so my kludges to compile 
+may have altered things, but assuming it was OK (convert the inits to 
+__MUTEX_INITIALIZER to make the compiler happy) it appears that this change does 
+very good things indeed for the "empty" case.  Where the 
+2.6.29-rc2/unpatchednet-next showed a 50% drop (handwaving math) in the "empty" 
+case compared to the "none" case (aka none is no iptables modules loaded, empty 
+being what one gets after iptables --list) this patch shows what appears to be a 
+much much smaller drop of less than 6%.
 
-> I wonder if other PCI devices in same system have the same problem?
-> If so, it should be move to PCI quirk.
+The original data can be seen at:
 
-This is the odd part: everything else works, and has done so with
-rock-solid stability for months of fairly heavy use, during which time I
-used a replacement PCI network card while the Marvell chip wasn't working.
+ftp://ftp.netperf.org/iptable_scaling/  in no_iptables and empty_iptables
 
-The other devices include: 2 soundcards (onboard:
-snd_hda_intel/snd_ac97_codec and PCI: snd_ca0106), graphics (PCIe:
-nvidia or nv), PATA (pata_amd), SATA (sata_nv), USB and the
-aforementioned network card (r8169).
+and the data after this patch can be seen at:
 
-However, looking deeper I've been grepping through the kernel source for
-DMA_64BIT_MASK. The only drivers that can even handle 64-bit DMA and
-also happen to be used in this system are r8169: only if the module
-parameter use_dac is set. (described as "Unsafe on 32 bit PCI slot."
-which doesn't sound good - my 8169 card has
-a 32-bit PCI connector and is therefore probably unsuitable for
-testing in this case) and hda_intel: if the capability bit is set by
-the hardware, which it is on mine, I printk'd it.
+ftp://ftp.netperf.org/hemminger/hemminger6/  in none and empty
 
-The sound chip in question resides on a different bus though (00 vs
-06) as it's integrated into the chipset, so that might it useless for
-comparison?
+while I have none of Eric's patches in this tree, just for grins I went ahead and 
+ran "full" as well.
 
-So the skge module is the only one for devices on the external bus
-that currently even attempts to use 64-bit DMA addresses, and
-unfortunately, I don't happen to own any other
-pluggable hardware on that 64-bit list.
+happy benchmarking,
 
-> Also, since the problem is almost certainly in the PCI bridge to
-> skge connection, the quirk should identify based on the upstream bridge,
-> rather than the Marvell chip and DMI.
-
-After all that, I now agree that it's probably purely a motherboard
-issue, even if I can't verify it with another device.
-
-Sorry to waste your (and the rest of linux-netdev's) time on this. I'll
-try and cook up a patch against pci-dma.c and try my luck on linux-pci
-instead.
-
-phil
+rick jones
