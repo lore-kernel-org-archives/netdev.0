@@ -1,37 +1,49 @@
-From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: pseudo interface with different hwaddr
-Date: Tue, 10 Feb 2009 13:43:49 +0200
-Message-ID: <200902101343.49743.remi.denis-courmont@nokia.com>
-References: <20090210112508.GA16497@piper.oerlikon.madduck.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Remaining bits for basic support of LDP
+Date: Tue, 10 Feb 2009 11:48:55 +0000
+Message-ID: <20090210114855.GA9746@n2100.arm.linux.org.uk>
+References: <20090202213953.GB16069@n2100.arm.linux.org.uk> <20090202.134530.63616213.davem@davemloft.net> <20090202222909.GC16069@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev discussion list <netdev@vger.kernel.org>
-To: ext martin f krafft <madduck@madduck.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: tony@atomide.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:26129 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443AbZBJLoZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 06:44:25 -0500
-In-Reply-To: <20090210112508.GA16497@piper.oerlikon.madduck.net>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:43856 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753493AbZBJLtO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 06:49:14 -0500
 Content-Disposition: inline
+In-Reply-To: <20090202222909.GC16069@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 10 February 2009 13:25:08 ext martin f krafft, you wrote:
-> I have not yet come up with a way to solve this, but I was thinking
-> that the most elegant would probably be some sort of pseudo
-> interface that I could atach to eth0, such that pseudo0 would behave
-> just like a real network interface to the kernel and software, while
-> using eth0 to transmit frames from a different MAC. With eth0
-> configured promisc, it would receive all frames, but let only those
-> to its hwaddr through (unless it were itself configured promisc).
+On Mon, Feb 02, 2009 at 10:29:09PM +0000, Russell King - ARM Linux wrote:
+> On Mon, Feb 02, 2009 at 01:45:30PM -0800, David Miller wrote:
+> > From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> > Date: Mon, 2 Feb 2009 21:39:53 +0000
+> > 
+> > > The patch to fix these issues would seem to be relatively small (12
+> > > lines in the smc911x and one line change in board-ldp.c) - is it
+> > > something we want done for -rc4 or do we scrap the ethernet support 
+> > > on the LDP until the SMSC driver has been merged ?
+> > > 
+> > > Obviously, having working ethernet would be helpful, and since it was
+> > > half heartedly merged when the initial OMAP3 stuff went upstream we
+> > > should do something with it one way or another.
+> > 
+> > Well, the SMSC driver is there already in the tree.
+> >
+> > The only thing not currently being scheduled to hit
+> > 2.6.29-rcX are the recent changes to support platform
+> > specified interrupt flags and all of that stuff.
+> > 
+> > If you want, we can look into pushing that work into
+> > 2.6.29-rcX
+> 
+> Hmm.  Since we should assume that the other smc911x using platforms work
+> as-is, merging Steve's first four and the LDP patch seems to be a sane
+> idea.  We can queue the remainder for when bugs are reported or the
+> next merge window, whichever comes earlier.
 
-Wouldn't macvlan solve this?
-
-
---=20
-R=E9mi Denis-Courmont
-Maemo Software, Nokia Devices R&D
-
+So, what's happening on this?
