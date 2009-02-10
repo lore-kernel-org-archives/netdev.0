@@ -1,106 +1,159 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [RFC] netlink broadcast return value
-Date: Tue, 10 Feb 2009 19:51:45 +0100
-Message-ID: <4991CCC1.7080308@netfilter.org>
-References: <4985A4C5.4050908@netfilter.org> <20090202.140533.121159038.davem@davemloft.net> <49903B03.2040302@trash.net> <4990B38A.3020207@netfilter.org> <4990BADA.7040309@trash.net> <4990C337.3040704@netfilter.org> <4991863F.3030800@trash.net>
+From: Phillip Michael Jordan <phil@philjordan.eu>
+Subject: [PATCH] skge: Fix/workaround for DMA mask quirk on ASUS
+	P5NSLI/Marvell Yukon-Lite
+Date: Tue, 10 Feb 2009 19:56:53 +0100
+Message-ID: <f1a0791a0902101056i6fd47886gc3cee4b5aff2a23e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57278 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754219AbZBJSv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Feb 2009 13:51:59 -0500
-In-Reply-To: <4991863F.3030800@trash.net>
+Received: from fg-out-1718.google.com ([72.14.220.158]:8727 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbZBJS44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 13:56:56 -0500
+Received: by fg-out-1718.google.com with SMTP id 16so18485fgg.17
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 10:56:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Pablo Neira Ayuso wrote:
->> Patrick McHardy wrote:
->>> Pablo Neira Ayuso wrote:
->>
->>> But unless I'm missing something, there's nothing wrong with this
->>> as long as the error is ignored. The fact that something was received
->>> by some listener doesn't have any meaning anyways, it might have
->>> been "ip monitor". Which somehow raises doubt about your proposed
->>> interface change though, I think anything that wants a reliable
->>> answer whether a packet was delivered to a process handling it
->>> appropriately should use unicast.
->>
->> Don't get me wrong, I agree with you that all netlink_broadcast callers
->> in the kernel should ignore the return value...
->>
->> ... unless they have "some way" (like in Netfilter) to make event
->> delivery reliable: I have attached a patch that I didn't send you yet,
->> I'm still reviewing and testing it. It adds an entry to /proc to enable
->> reliable event delivery over netlink by dropping packets whose events
->> were not delivered, you mentioned that possibility once during one of
->> our conversations ;).
-> 
-> I know, but in the mean time I think its wrong :) The delivery
-> isn't reliable and what the admin is effectively expressing by
-> setting your sysctl is "I don't have any listeners besides the
-> synchronization daemon running". So it might as well use unicast.
+From: Phillip Michael Jordan <phil@philjordan.eu>
 
-No :), this setting means "state-changes over ctnetlink will be reliable
-at the cost of dropping packets (if needed)", it's an optional
-trade-off. You may also have more listeners like a logging daemon
-(ulogd), similarly this will be useful to ensure that ulogd doesn't leak
-logging information which may happen under very heavy load. This option
-is *not* only oriented to state-synchronization.
+The onboard Marvell Yukon-Lite gigabit ethernet chip on my ASUS P5NSLI
+motherboard with the nForce570 SLI/Intel chipset (any BIOS version,
+including latest), using the skge module, stopped working after
+upgrading the system to more than 3GB of physical RAM. The problem has
+been around for a while, at least since 2.6.22. Symptoms on earlier
+kernels (at least up to 2.6.27) are severely corrupted ethernet
+packets (observed via wireshark) and associated IP packet loss and
+eventual failure of any packets being delivered at all. As of
+2.6.29-rc4, the kernel panics about 1-2 seconds after insmod with 8GB
+memory installed, as far as I can tell this is due to memory
+corruption.
 
-Using unicast would not do any different from broadcast as you may have
-two listeners receiving state-changes from ctnetlink via unicast, so the
-problem would be basically the same as above if you want reliable
-state-change information at the cost of dropping packets.
+I have now traced this problem to DMA to/from memory above the 32-bit
+boundary, which despite the pci_set_dma_mask() and
+pci_set_consistent_dma_mask() calls in skge_probe() apparently
+succeeding with a DMA_64BIT_MASK. Switching to a DMA_32BIT_MASK makes
+the problem disappear entirely, so this patch against 2.6.29-rc4 does
+just that for the affected system by identifying the board via DMI
+data and ethernet chip via vendor/product ID. I've tried to make it as
+unintrusive as possible, and attempted to make it easy to add other
+devices that behave similarly in the future. Nothing changes for
+devices not on the blacklist. (admittedly unable to verify due to lack
+of other skge hardware)
 
-BTW, the netlink_broadcast return value looked to me inconsistent before
-the patch. It returned ENOBUFS if it could not clone the skb, but zero
-when at least one message was delivered. How useful can be this return
-value for the callers? I would expect to have a similar behaviour to the
-one of netlink_unicast (reporting EAGAIN error when it could not deliver
-the message), even if the return value for most callers should be
-ignored as it is not of any help.
+Searching the web, others have had similar problems, though not on the
+same specific motherboard. Passing iommu=force to the kernel seems to
+work in some of these previous cases. In my case, this just breaks a
+number of other PCI(e) devices, including all of USB, video, etc. -
+and skge still doesn't work. I can therefore only conclude that there
+is a bug in either the chipset or the BIOS.
 
->> I'm aware of that this option may be dangerous if used by a buggy
->> process that trigger frequent overflows but it the cost of having
->> realible logging for ctnetlink (still, this behaviour is not the one by
->> default!).
->>
->> And I need this option to make conntrackd synchronize state-changes
->> appropriately under very heavy load: I've testing the daemon with these
->> patches and it reliably synchronizes state-changes (my system were 100%
->> busy filtering traffic and fully synchronizing all TCP state-changes in
->> near real-time effort, with a noticeable performance drop of 30% in
->> terms of filtered connections).
-> 
-> So you're dropping the packet if you can't manage to synchronize.
-> Doesn't that defeat the entire purpose of synchronizing, which is
-> *increasing* reliability? :)
+Signed-off-by: Phillip Michael Jordan <phil@philjordan.eu>
 
-This reduces communications reliability a bit under very heavy load,
-yes, because it may drop some packets but it adds reliable flow-based
-logging accounting / state-synchronization in return. Both refers to
-reliability in different contexts. In the end, it's a trade-off world.
-There's some point at which you may want to choose which one you prefer,
-reliable communications if the system is under heavy load or reliable
-logging (no leaks in the logging) / state-synchronization (the backup
-firewall is able to follow state-changes of the master under heavy load).
+---
 
-In my experiments, reaching 100% of CPU consumption, the number of
-packets drop where in fact very few indeed, but the harm in logging and
-state-synchronization reliability is considerable in the long run, as
-the backup starts getting unsynchronized (thus, becoming useless to
-increase cluster reliability but consuming resources) and you also have
-to interpret log information without forgetting the margin of error in
-the case of logging.
+I don't have documentation for the hardware, I'm fighting the symptoms
+here. Oddly enough, no other device in my system seems to suffer from
+the problem, so I struggled to pin the fix somewhere other than in
+skge. I'm not sure if the method of querying DMI data is the canonical
+way of detecting quirks like this - if there's a better way, I'd
+appreciate some information on that.
 
-BTW, I did not tell you, I can give you access to my testbed platform at
-any time, of course ;).
+Patch applies cleanly to earlier kernel versions.
 
--- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
+Comments & suggestions welcome!
+
+phil
+
+
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index c9dbb06..8d4127a 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -39,6 +39,7 @@
+ #include <linux/debugfs.h>
+ #include <linux/seq_file.h>
+ #include <linux/mii.h>
++#include <linux/dmi.h>
+ #include <asm/irq.h>
+
+ #include "skge.h"
+@@ -3891,12 +3892,48 @@ static void __devinit skge_show_addr(struct
+net_device *dev)
+ 		       dev->name, dev->dev_addr);
+ }
+
++/* nonzero if the device has troubles with 64-bit DMA address mask on
++ * this system. */
++static int __devinit skge_use_32bit_dma_quirk(struct pci_dev *pdev)
++{
++	/* Blacklist of Motherboard(s) & onboard chips that incorrectly report
++	 * 64-bit DMA mask capability and require forcing 32-bit mask to work. */
++	static struct pci_device_id marvell_4320[] =
++	{
++		{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4320) },
++		{ }
++	};
++	static struct dmi_system_id quirk_devices[] = {
++		{
++			.ident = "Marvell 88E8001 on ASUS P5NSLI",
++			.matches = {
++				DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
++				DMI_MATCH(DMI_BOARD_NAME, "P5NSLI")
++			},
++			.driver_data = marvell_4320
++		},
++		{ }	/* terminate list */
++	};
++	
++	/* see if we can find our system on the blacklist */
++	const struct dmi_system_id* remaining = quirk_devices;
++	while ((remaining = dmi_first_match(remaining)) != NULL)
++	{
++		/* found the motherboard, check whether the current net device is quirky */
++		if (pci_match_id((const struct pci_device_id*)remaining->driver_data, pdev))
++			return 1;
++		++remaining;
++	}
++	
++	return 0;
++}
++
+ static int __devinit skge_probe(struct pci_dev *pdev,
+ 				const struct pci_device_id *ent)
+ {
+ 	struct net_device *dev, *dev1;
+ 	struct skge_hw *hw;
+-	int err, using_dac = 0;
++	int err, using_dac = 0, dma_32bit_quirk = 0;
+
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -3912,7 +3949,10 @@ static int __devinit skge_probe(struct pci_dev *pdev,
+
+ 	pci_set_master(pdev);
+
+-	if (!pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
++	/* check if we're on a system which falsely claims to allow 64-bit DMA mask */
++	dma_32bit_quirk = skge_use_32bit_dma_quirk(pdev);
++	
++	if (!dma_32bit_quirk && !pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
+ 		using_dac = 1;
+ 		err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK);
+ 	} else if (!(err = pci_set_dma_mask(pdev, DMA_32BIT_MASK))) {
+@@ -3958,9 +3998,10 @@ static int __devinit skge_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_out_iounmap;
+
+-	printk(KERN_INFO PFX DRV_VERSION " addr 0x%llx irq %d chip %s rev %d\n",
++	printk(KERN_INFO PFX DRV_VERSION " addr 0x%llx irq %d chip %s rev %d %s\n",
+ 	       (unsigned long long)pci_resource_start(pdev, 0), pdev->irq,
+-	       skge_board_name(hw), hw->chip_rev);
++	       skge_board_name(hw), hw->chip_rev,
++	       dma_32bit_quirk ? "32-bit DMA mask quirk on" : "");
+
+ 	dev = skge_devinit(hw, 0, using_dac);
+ 	if (!dev)
