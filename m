@@ -1,75 +1,121 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] skge: Fix/workaround for DMA mask quirk on ASUS
- P5NSLI/Marvell Yukon-Lite
-Date: Tue, 10 Feb 2009 14:45:23 -0800
-Message-ID: <20090210144523.6f1e98e1@extreme>
-References: <f1a0791a0902101056i6fd47886gc3cee4b5aff2a23e@mail.gmail.com>
-	<20090210111408.2225e90b@extreme>
-	<f1a0791a0902101415n47a825d9gf83d6908d6a8646a@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/4] e1000e: add aer support
+Date: Tue, 10 Feb 2009 14:51:20 -0800
+Message-ID: <20090210225116.32208.78338.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phillip Michael Jordan <phil@philjordan.eu>
+Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54450 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755457AbZBJWqD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:46:03 -0500
-In-Reply-To: <f1a0791a0902101415n47a825d9gf83d6908d6a8646a@mail.gmail.com>
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:49695 "EHLO
+	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757469AbZBJWvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:51:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Feb 2009 23:15:43 +0100
-Phillip Michael Jordan <phil@philjordan.eu> wrote:
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-> Stephen Hemminger wrote:
-> > This looks like a good start to a workable workaround.
-> 
-> Thanks,
-> 
-> > I wonder if other PCI devices in same system have the same problem?
-> > If so, it should be move to PCI quirk.
-> 
-> This is the odd part: everything else works, and has done so with
-> rock-solid stability for months of fairly heavy use, during which time I
-> used a replacement PCI network card while the Marvell chip wasn't working.
-> 
-> The other devices include: 2 soundcards (onboard:
-> snd_hda_intel/snd_ac97_codec and PCI: snd_ca0106), graphics (PCIe:
-> nvidia or nv), PATA (pata_amd), SATA (sata_nv), USB and the
-> aforementioned network card (r8169).
-> 
-> However, looking deeper I've been grepping through the kernel source for
-> DMA_64BIT_MASK. The only drivers that can even handle 64-bit DMA and
-> also happen to be used in this system are r8169: only if the module
-> parameter use_dac is set. (described as "Unsafe on 32 bit PCI slot."
-> which doesn't sound good - my 8169 card has
-> a 32-bit PCI connector and is therefore probably unsuitable for
-> testing in this case) and hda_intel: if the capability bit is set by
-> the hardware, which it is on mine, I printk'd it.
-> 
-> The sound chip in question resides on a different bus though (00 vs
-> 06) as it's integrated into the chipset, so that might it useless for
-> comparison?
-> 
-> So the skge module is the only one for devices on the external bus
-> that currently even attempts to use 64-bit DMA addresses, and
-> unfortunately, I don't happen to own any other
-> pluggable hardware on that 64-bit list.
-> 
-> > Also, since the problem is almost certainly in the PCI bridge to
-> > skge connection, the quirk should identify based on the upstream bridge,
-> > rather than the Marvell chip and DMI.
-> 
-> After all that, I now agree that it's probably purely a motherboard
-> issue, even if I can't verify it with another device.
-> 
-> Sorry to waste your (and the rest of linux-netdev's) time on this. I'll
-> try and cook up a patch against pci-dma.c and try my luck on linux-pci
-> instead.
-> 
-> phil
+most if not all of the devices supported by e1000e support
+AER (Advanced Error Reporting) so we attempt to register
+with the OS that we know how to reset ourselves after
+a fatal error.
 
-I also want to know if it is a skge driver bug or Marvell only hardware
-problem. Unfortunately, you are kind of far away for me to lend you hardware...
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/netdev.c |   39 ++++++++++++++++++++++++++++++---------
+ 1 files changed, 30 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index c425b19..00e19e9 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -44,6 +44,7 @@
+ #include <linux/cpu.h>
+ #include <linux/smp.h>
+ #include <linux/pm_qos_params.h>
++#include <linux/aer.h>
+ 
+ #include "e1000.h"
+ 
+@@ -4521,6 +4522,14 @@ static int e1000_resume(struct pci_dev *pdev)
+ 		return err;
+ 	}
+ 
++	/* AER (Advanced Error Reporting) hooks */
++	err = pci_enable_pcie_error_reporting(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "pci_enable_pcie_error_reporting failed "
++		                    "0x%x\n", err);
++		/* non-fatal, continue */
++	}
++
+ 	pci_set_master(pdev);
+ 
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
+@@ -4615,24 +4624,29 @@ static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int err;
++	pci_ers_result_t result;
+ 
+ 	e1000e_disable_l1aspm(pdev);
+ 	err = pci_enable_device_mem(pdev);
+ 	if (err) {
+ 		dev_err(&pdev->dev,
+ 			"Cannot re-enable PCI device after reset.\n");
+-		return PCI_ERS_RESULT_DISCONNECT;
+-	}
+-	pci_set_master(pdev);
+-	pci_restore_state(pdev);
++		result = PCI_ERS_RESULT_DISCONNECT;
++	} else {
++		pci_set_master(pdev);
++		pci_restore_state(pdev);
+ 
+-	pci_enable_wake(pdev, PCI_D3hot, 0);
+-	pci_enable_wake(pdev, PCI_D3cold, 0);
++		pci_enable_wake(pdev, PCI_D3hot, 0);
++		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+-	e1000e_reset(adapter);
+-	ew32(WUS, ~0);
++		e1000e_reset(adapter);
++		ew32(WUS, ~0);
++		result = PCI_ERS_RESULT_RECOVERED;
++	}
+ 
+-	return PCI_ERS_RESULT_RECOVERED;
++	pci_cleanup_aer_uncorrect_error_status(pdev);
++
++	return result;
+ }
+ 
+ /**
+@@ -5063,6 +5077,7 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++	int err;
+ 
+ 	/*
+ 	 * flush_scheduled work may reschedule our watchdog task, so
+@@ -5097,6 +5112,12 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+ 
+ 	free_netdev(netdev);
+ 
++	/* AER disable */
++	err = pci_disable_pcie_error_reporting(pdev);
++	if (err)
++		dev_err(&pdev->dev,
++		        "pci_disable_pcie_error_reporting failed 0x%x\n", err);
++
+ 	pci_disable_device(pdev);
+ }
+ 
+
