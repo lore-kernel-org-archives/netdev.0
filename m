@@ -1,50 +1,50 @@
-From: Santwona.Behera@Sun.COM
-Subject: Re: [gkernel-commit] [PATCH 1/3] [ethtool] Add support for RX packet
- classification in a network device
-Date: Mon, 09 Feb 2009 19:05:26 -0800
-Message-ID: <4990EEF6.80602@Sun.COM>
-References: <4990B855.30905@Sun.COM> <4990C5C3.7080800@garzik.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC] Suspicious bug in module refcounting
+Date: Tue, 10 Feb 2009 13:45:07 +1030
+Message-ID: <200902101345.08580.rusty@rustcorp.com.au>
+References: <20090203134721.GA11069@pingi.kke.suse.de> <200902041418.09630.rusty@rustcorp.com.au> <20090209151830.GC6018@dhcp35.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, gkernel-commit@lists.sourceforge.net,
-	davem@davemloft.net, Matheos Worku <Matheos.Worku@Sun.COM>,
-	Mehdi Bonyadi <Mehdi.Bonyadi@Sun.COM>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Karsten Keil <kkeil@suse.de>, linux-kernel@vger.kernel.org,
+	richard kennedy <richard@rsk.demon.co.uk>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	dwmw2@infradead.org, Scott Wood <scottwood@freescale.com>,
+	netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+To: Michal Hocko <mhocko@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:37177 "EHLO
-	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357AbZBJDF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 22:05:29 -0500
-Received: from fe-sfbay-10.sun.com ([192.18.43.129])
-	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id n1A35Scn027794
-	for <netdev@vger.kernel.org>; Mon, 9 Feb 2009 19:05:28 -0800 (PST)
-Received: from conversion-daemon.fe-sfbay-10.sun.com by fe-sfbay-10.sun.com
- (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec 23 2008))
- id <0KET00100XR8A900@fe-sfbay-10.sun.com> for netdev@vger.kernel.org; Mon,
- 09 Feb 2009 19:05:28 -0800 (PST)
-In-reply-to: <4990C5C3.7080800@garzik.org>
+Received: from ozlabs.org ([203.10.76.45]:47193 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752433AbZBJDPN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2009 22:15:13 -0500
+In-Reply-To: <20090209151830.GC6018@dhcp35.suse.cz>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tuesday 10 February 2009 01:48:31 Michal Hocko wrote:
+> Based on this change, would it make sense to update sys_accept to change
+> __module_get to try_module_get like in the following patch?
 
+I don't think so:
 
-On 02/ 9/09 04:09 PM, Jeff Garzik wrote:
-> Once the ethtool interface change is accepted in the upstream kernel, I 
-> will be happy to add ethtool(8) support.
-> 
-> I would say, though, adding 1000 lines of code, you might as well put 
-> that into a new file rxclass.c, to keep all that together in a nice tidy 
-> unit.
+>  	/*
+> -	 * We don't need try_module_get here, as the listening socket (sock)
+> -	 * has the protocol module (sock->ops->owner) held.
+> +	 * Socket's owner cannot be in unloading path because there
+> +	 * must be at least one listening reference
+>  	 */
+> -	__module_get(newsock->ops->owner);
+> +	if (unlikely(!try_module_get(newsock->ops->owner)))
+> +		BUG();
 
-I agree. I will redo the ethtool(8) patch as recommended.
+rmmod --wait can make try_module_get fail even if the reference count isn't
+zero.  But in this case, we should return an error from the accept call;
+presumably the admin really doesn't want us to keep using the module...
 
-thanks,
---santwona
-
-> 
->     Jeff
-> 
-> 
-> 
-> 
+Thanks,
+Rusty.
