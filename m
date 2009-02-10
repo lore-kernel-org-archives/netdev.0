@@ -1,34 +1,37 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net] gianfar: Fix boot hangs while bringing up gianfar
-	ethernet
-Date: Tue, 10 Feb 2009 11:39:35 +0000
-Message-ID: <20090210113935.GA14808@ff.dom.local>
-References: <20090209193440.GA2537@ami.dom.local>
+From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: pseudo interface with different hwaddr
+Date: Tue, 10 Feb 2009 13:43:49 +0200
+Message-ID: <200902101343.49743.remi.denis-courmont@nokia.com>
+References: <20090210112508.GA16497@piper.oerlikon.madduck.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Korsgaard <jacmet@sunsite.dk>,
-	Dai Haruki <dai.haruki@freescale.com>,
-	Andy Fleming <afleming@freescale.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ira Snyder <iws@ovro.caltech.edu>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev discussion list <netdev@vger.kernel.org>
+To: ext martin f krafft <madduck@madduck.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.189]:40170 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbZBJLjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 06:39:43 -0500
+Received: from smtp.nokia.com ([192.100.122.233]:26129 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752443AbZBJLoZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 06:44:25 -0500
+In-Reply-To: <20090210112508.GA16497@piper.oerlikon.madduck.net>
 Content-Disposition: inline
-In-Reply-To: <20090209193440.GA2537@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09-02-2009 20:34, Jarek Poplawski wrote:
-...
-> PS: Ira, your mta config is a bit unusual here wrt. reply; I hope you
-> will forgive me adding you to CC anyway.
+On Tuesday 10 February 2009 13:25:08 ext martin f krafft, you wrote:
+> I have not yet come up with a way to solve this, but I was thinking
+> that the most elegant would probably be some sort of pseudo
+> interface that I could atach to eth0, such that pseudo0 would behave
+> just like a real network interface to the kernel and software, while
+> using eth0 to transmit frames from a different MAC. With eth0
+> configured promisc, it would receive all frames, but let only those
+> to its hwaddr through (unless it were itself configured promisc).
 
-FYI, AFAIR long time ago Ingo Molnar asked me to turn off this nice
-feature called in mutt "followup_to". But, of course, if you find it
-useful for you, then forget it.
+Wouldn't macvlan solve this?
 
-Cheers,
-Jarek P. 
+
+--=20
+R=E9mi Denis-Courmont
+Maemo Software, Nokia Devices R&D
+
