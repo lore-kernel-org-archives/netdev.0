@@ -1,91 +1,67 @@
-From: martin f krafft <madduck@madduck.net>
-Subject: pseudo interface with different hwaddr
-Date: Tue, 10 Feb 2009 12:25:08 +0100
-Message-ID: <20090210112508.GA16497@piper.oerlikon.madduck.net>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: [PATCH v2 net-next] Re: can't add tc multiq
+Date: Tue, 10 Feb 2009 14:30:28 +0300
+Message-ID: <49916554.3040201@bigtelecom.ru>
+References: <20090209081553.4a874433@extreme> <20090209214446.GA2542@ami.dom.local> <20090209144052.6636f069@extreme> <20090210074154.GA4190@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="9jxsPFA5p3P2qPhR"
-To: netdev discussion list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from clegg.madduck.net ([193.242.105.96]:54669 "EHLO
-	clegg.madduck.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750841AbZBJLZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 06:25:16 -0500
-Received: from wall.oerlikon.madduck.net (wall.oerlikon.madduck.net [IPv6:2001:41e0:ff12::1])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(Client CN "wall.oerlikon.madduck.net", Issuer "CAcert Class 3 Root" (verified OK))
-	by clegg.madduck.net (postfix) with ESMTPS id 81D8E1D409C
-	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 12:25:10 +0100 (CET)
-Received: from piper.oerlikon.madduck.net (piper.oerlikon.madduck.net [IPv6:2001:41e0:ff12:0:211:2fff:fe6b:c869])
-	by wall.oerlikon.madduck.net (Postfix) with ESMTPS id 41CAD9F13D
-	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 12:25:09 +0100 (CET)
-Content-Disposition: inline
+Received: from mail.bigtelecom.ru ([87.255.0.61]:42203 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754165AbZBJLad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 06:30:33 -0500
+In-Reply-To: <20090210074154.GA4190@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Thanks all! i will go to buy e1000e.
+> On Mon, Feb 09, 2009 at 02:40:52PM -0800, Stephen Hemminger wrote:
+> ...
+>   
+>> Rather than warning which will buried off on some console that user will never
+>> see (and can cause DoS overload). A better errno should be chosen.
+>>     
+>
+> I think admins are used to reading console messages, but we can try
+> with a better errno too.
+>
+> Thanks,
+> Jarek P.
+> -------------------> take 2
+>
+> pkt_sched: sch_multiq: Change errno on non-multiqueue devices use.
+>
+> Current "RTNETLINK answers: Invalid argument" warning, while trying to
+> add multiq qdisc to non-multiqueue device, isn't very helpful and some
+> of these devs can be changed btw., so let's use a better errno.
+>
+> With feedback from Stephen Hemminger <shemminger@vyatta.com>
+>
+> Reported-by: Badalian Vyacheslav <slavon@bigtelecom.ru>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> ---
+>
+>  net/sched/sch_multiq.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+> index 7e15186..9127312 100644
+> --- a/net/sched/sch_multiq.c
+> +++ b/net/sched/sch_multiq.c
+> @@ -202,7 +202,7 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
+>  	int i;
+>  
+>  	if (!netif_is_multiqueue(qdisc_dev(sch)))
+> -		return -EINVAL;
+> +		return -EOPNOTSUPP;
+>  	if (nla_len(opt) < sizeof(*qopt))
+>  		return -EINVAL;
+>  
+>
+>   
 
---9jxsPFA5p3P2qPhR
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Dear netdevs,
-
-I don't know where else to turn to with the following question. If
-you know a better mailinglist for users like myself to turn to,
-please let me know.
-
-In the meantime, maybe you can help me with the following quest:
-
-I am trying to obtain two DHCP leases on a single physical
-interface, because my provider is stupid[0]. I can engineer DHCP
-requests in such a way that I get the second lease, but the provider
-requires the ethernet frame's source address and the BOOTP's chaddr
-field to match and otherwise ignores the DHCP request.
-
-  0. they are two static IPs, but the static IPs only work when they
-     are regularly renewed with DHCP. Since I only have one host to
-     connect, and I want both IPs on that host anyway, I need to
-     pretend to be two hosts.
-
-I'd like to avoid writing my own scapy-based DHCP client for the
-second lease and instead use dhclient3, which supports pseudo
-interfaces and now sends out two requests, but does not give me
-a way to change the chaddr field or the frame's source address and
-instead enforces those of the interface for which is was invoked.
-
-I have not yet come up with a way to solve this, but I was thinking
-that the most elegant would probably be some sort of pseudo
-interface that I could atach to eth0, such that pseudo0 would behave
-just like a real network interface to the kernel and software, while
-using eth0 to transmit frames from a different MAC. With eth0
-configured promisc, it would receive all frames, but let only those
-to its hwaddr through (unless it were itself configured promisc).
-
-Does something like this already exist?
-
-Do you know of another way to achieve what I want?
-
-Thanks for your time and attention,
-
---=20
-martin | http://madduck.net/ | http://two.sentenc.es/
-=20
-drink canada dry! you might not succeed, but it *is* fun trying.
-=20
-spamtraps: madduck.bogus@madduck.net
-
---9jxsPFA5p3P2qPhR
-Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
-Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkmRZA4ACgkQIgvIgzMMSnUClwCeI3H2iz0FTXpmuyw+Fs6eRZV1
-hKQAoI9/YO8sdTBNN3hWT/D+NDK3gaMq
-=KXoK
------END PGP SIGNATURE-----
-
---9jxsPFA5p3P2qPhR--
