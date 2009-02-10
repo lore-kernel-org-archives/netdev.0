@@ -1,183 +1,124 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: [PATCH net-next 4/4] enic: misc
-Date: Mon, 09 Feb 2009 16:57:28 -0800
-Message-ID: <20090210005727.24315.46206.stgit@palito_client100.nuovasystems.com>
-References: <20090210005505.24315.66810.stgit@palito_client100.nuovasystems.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 002/002] de2104x: support for systems lacking cache
+ coherence
+Date: Mon, 9 Feb 2009 17:01:20 -0800
+Message-ID: <20090209170120.85e192be.akpm@linux-foundation.org>
+References: <46e1c7760902071330i5362fe4fvd99fc7075fc666d3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Grant Grundler <grundler@parisc-linux.org>
+To: Risto Suominen <risto.suominen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:61391 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635AbZBJA52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 19:57:28 -0500
-Received: from sj-core-2.cisco.com (sj-core-2.cisco.com [171.71.177.254])
-	by sj-dkim-2.cisco.com (8.12.11/8.12.11) with ESMTP id n1A0vS1T013073
-	for <netdev@vger.kernel.org>; Mon, 9 Feb 2009 16:57:28 -0800
-Received: from palito_client100.nuovasystems.com (savbu-palito-client100.cisco.com [10.193.70.13])
-	by sj-core-2.cisco.com (8.13.8/8.13.8) with ESMTP id n1A0vS5d000993
-	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 00:57:28 GMT
-In-Reply-To: <20090210005505.24315.66810.stgit@palito_client100.nuovasystems.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40472 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751166AbZBJBCX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 20:02:23 -0500
+In-Reply-To: <46e1c7760902071330i5362fe4fvd99fc7075fc666d3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-enic: misc
 
-Misc change to add api for link down count and to get firmware notification status.
+(cc netdev, and maintainer)
 
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
----
- drivers/net/enic/enic_main.c   |    2 --
- drivers/net/enic/vnic_dev.c    |   33 +++++++++++++++++++++++++++++----
- drivers/net/enic/vnic_dev.h    |    2 ++
- drivers/net/enic/vnic_devcmd.h |    8 +++++++-
- 4 files changed, 38 insertions(+), 7 deletions(-)
+On Sat, 7 Feb 2009 23:30:40 +0200
+Risto Suominen <risto.suominen@gmail.com> wrote:
 
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 4da1e35..6c59d76 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1866,7 +1866,6 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 	if (using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
- 
--
- 	enic->csum_rx_enabled = ENIC_SETTING(enic, RXCSUM);
- 
- 	enic->lro_mgr.max_aggr = ENIC_LRO_MAX_AGGR;
-@@ -1878,7 +1877,6 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 	enic->lro_mgr.ip_summed = CHECKSUM_COMPLETE;
- 	enic->lro_mgr.ip_summed_aggr = CHECKSUM_UNNECESSARY;
- 
--
- 	err = register_netdev(netdev);
- 	if (err) {
- 		printk(KERN_ERR PFX
-diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
-index 1170857..e21b9d6 100644
---- a/drivers/net/enic/vnic_dev.c
-+++ b/drivers/net/enic/vnic_dev.c
-@@ -34,6 +34,9 @@ struct vnic_res {
- 	unsigned int count;
- };
- 
-+#define VNIC_DEV_CAP_INIT	0x0001
-+#define VNIC_DEV_CAP_PERBI	0x0002
-+
- struct vnic_dev {
- 	void *priv;
- 	struct pci_dev *pdev;
-@@ -50,6 +53,7 @@ struct vnic_dev {
- 	dma_addr_t stats_pa;
- 	struct vnic_devcmd_fw_info *fw_info;
- 	dma_addr_t fw_info_pa;
-+	u32 cap_flags;
- };
- 
- #define VNIC_MAX_RES_HDR_SIZE \
-@@ -575,9 +579,9 @@ int vnic_dev_init(struct vnic_dev *vdev, int arg)
- {
- 	u64 a0 = (u32)arg, a1 = 0;
- 	int wait = 1000;
--        int r = 0;
-+	int r = 0;
- 
--	if (vnic_dev_capable(vdev, CMD_INIT))
-+	if (vdev->cap_flags & VNIC_DEV_CAP_INIT)
- 		r = vnic_dev_cmd(vdev, CMD_INIT, &a0, &a1, wait);
- 	else {
- 		vnic_dev_cmd(vdev, CMD_INIT_v1, &a0, &a1, wait);
-@@ -587,8 +591,8 @@ int vnic_dev_init(struct vnic_dev *vdev, int arg)
- 			vnic_dev_cmd(vdev, CMD_MAC_ADDR, &a0, &a1, wait);
- 			vnic_dev_cmd(vdev, CMD_ADDR_ADD, &a0, &a1, wait);
- 		}
--        }
--        return r;
-+	}
-+	return r;
- }
- 
- int vnic_dev_link_status(struct vnic_dev *vdev)
-@@ -626,6 +630,22 @@ u32 vnic_dev_mtu(struct vnic_dev *vdev)
- 	return vdev->notify_copy.mtu;
- }
- 
-+u32 vnic_dev_link_down_cnt(struct vnic_dev *vdev)
-+{
-+	if (!vnic_dev_notify_ready(vdev))
-+		return 0;
-+
-+	return vdev->notify_copy.link_down_cnt;
-+}
-+
-+u32 vnic_dev_notify_status(struct vnic_dev *vdev)
-+{
-+	if (!vnic_dev_notify_ready(vdev))
-+		return 0;
-+
-+	return vdev->notify_copy.status;
-+}
-+
- void vnic_dev_set_intr_mode(struct vnic_dev *vdev,
- 	enum vnic_dev_intr_mode intr_mode)
- {
-@@ -682,6 +702,11 @@ struct vnic_dev *vnic_dev_register(struct vnic_dev *vdev,
- 	if (!vdev->devcmd)
- 		goto err_out;
- 
-+	vdev->cap_flags = 0;
-+
-+	if (vnic_dev_capable(vdev, CMD_INIT))
-+		vdev->cap_flags |= VNIC_DEV_CAP_INIT;
-+
- 	return vdev;
- 
- err_out:
-diff --git a/drivers/net/enic/vnic_dev.h b/drivers/net/enic/vnic_dev.h
-index b9dc182..8aa8db2 100644
---- a/drivers/net/enic/vnic_dev.h
-+++ b/drivers/net/enic/vnic_dev.h
-@@ -102,6 +102,8 @@ int vnic_dev_link_status(struct vnic_dev *vdev);
- u32 vnic_dev_port_speed(struct vnic_dev *vdev);
- u32 vnic_dev_msg_lvl(struct vnic_dev *vdev);
- u32 vnic_dev_mtu(struct vnic_dev *vdev);
-+u32 vnic_dev_link_down_cnt(struct vnic_dev *vdev);
-+u32 vnic_dev_notify_status(struct vnic_dev *vdev);
- int vnic_dev_close(struct vnic_dev *vdev);
- int vnic_dev_enable(struct vnic_dev *vdev);
- int vnic_dev_disable(struct vnic_dev *vdev);
-diff --git a/drivers/net/enic/vnic_devcmd.h b/drivers/net/enic/vnic_devcmd.h
-index 8062c75..2587f34 100644
---- a/drivers/net/enic/vnic_devcmd.h
-+++ b/drivers/net/enic/vnic_devcmd.h
-@@ -191,7 +191,7 @@ enum vnic_devcmd_cmd {
- 	CMD_INIT_STATUS		= _CMDC(_CMD_DIR_READ, _CMD_VTYPE_ALL, 31),
- 
- 	/* INT13 API: (u64)a0=paddr to vnic_int13_params struct
--	 *            (u8)a1=INT13_CMD_xxx */
-+	 *            (u32)a1=INT13_CMD_xxx */
- 	CMD_INT13               = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_FC, 32),
- 
- 	/* logical uplink enable/disable: (u64)a0: 0/1=disable/enable */
-@@ -207,6 +207,11 @@ enum vnic_devcmd_cmd {
- 	 * in:  (u32)a0=cmd
- 	 * out: (u32)a0=errno, 0:valid cmd, a1=supported VNIC_STF_* bits */
- 	CMD_CAPABILITY		= _CMDC(_CMD_DIR_RW, _CMD_VTYPE_ALL, 36),
-+
-+	/* persistent binding info
-+	 * in:  (u64)a0=paddr of arg
-+	 *      (u32)a1=CMD_PERBI_XXX */
-+	CMD_PERBI               = _CMDC(_CMD_DIR_RW, _CMD_VTYPE_FC, 37),
- };
- 
- /* flags for CMD_OPEN */
-@@ -259,6 +264,7 @@ struct vnic_devcmd_notify {
- 	u32 status;		/* status bits (see VNIC_STF_*) */
- 	u32 error;		/* error code (see ERR_*) for first ERR */
- 	u32 link_down_cnt;	/* running count of link down transitions */
-+	u32 perbi_rebuild_cnt;	/* running count of perbi rebuilds */
- };
- #define VNIC_STF_FATAL_ERR	0x0001	/* fatal fw error */
- #define VNIC_STF_STD_PAUSE	0x0002	/* standard link-level pause on */
+> Add a configurable Descriptor Skip Length for systems that lack cache coherence.
+> 
+> Signed-off-by: Risto Suominen <Risto.Suominen@gmail.com>
+> ---
+> The testing is done on kernel version 2.6.18.
+> 
+> --- drivers/net/tulip/Kconfig.org	2006-09-20 06:42:06.000000000 +0300
+> +++ drivers/net/tulip/Kconfig	2009-02-07 20:48:17.000000000 +0200
+
+Please prefer to prepare patches in `patch -p1' form:
+
+--- a/drivers/net/tulip/Kconfig
++++ a/drivers/net/tulip/Kconfig
+
+> @@ -27,6 +27,18 @@ config DE2104X
+>  	  To compile this driver as a module, choose M here. The module will
+>  	  be called de2104x.
+> 
+> +config DE2104X_DSL
+> +	int "Descriptor Skip Length in 32 bit longwords"
+> +	depends on DE2104X
+> +	range 0 31
+> +	default 0
+> +	help
+> +	  Setting this value allows to align ring buffer descriptors into their
+> +	  own cache lines. Value of 4 corresponds to the typical 32 byte line
+> +	  (the descriptor is 16 bytes). This is necessary on systems that lack
+> +	  cache coherence, an example is PowerMac 5500. Otherwise 0 is safe.
+> +	  Default is 0, and range is 0 to 31.
+> +
+>  config TULIP
+>  	tristate "DECchip Tulip (dc2114x) PCI support"
+>  	depends on PCI
+> --- drivers/net/tulip/de2104x.c.org	2006-09-20 06:42:06.000000000 +0300
+> +++ drivers/net/tulip/de2104x.c	2009-02-07 15:04:04.000000000 +0200
+> @@ -82,6 +82,13 @@ MODULE_PARM_DESC (rx_copybreak, "de2104x
+>  				 NETIF_MSG_RX_ERR	| \
+>  				 NETIF_MSG_TX_ERR)
+> 
+> +/* Descriptor skip length in 32 bit longwords. */
+> +#ifndef CONFIG_DE2104X_DSL
+> +#define DSL			0
+> +#else
+> +#define DSL			CONFIG_DE2104X_DSL
+> +#endif
+
+I think CONFIG_DE2104X_DSL is always defined if this driver is being
+compiled.  So the Kconfig `default' should suffice here?  In which case
+we can do
+
+#define DSL CONFIG_DE2104X_DSL
+
+and leave it at that.
+
+>  #define DE_RX_RING_SIZE		64
+>  #define DE_TX_RING_SIZE		64
+>  #define DE_RING_BYTES		\
+> @@ -153,6 +160,7 @@ enum {
+>  	CmdReset		= (1 << 0),
+>  	CacheAlign16		= 0x00008000,
+>  	BurstLen4		= 0x00000400,
+> +	DescSkipLen		= (DSL << 2),
+
+In which case we can do away with DSL everywhere and just use
+CONFIG_DE2104X_DSL here.
+
+
+But really, we shouldn't do this at configuration time at all.  It
+would be much better to do it at runtime, via a module parameter.
+
+And it would be much^2 better to do it automatically, based upon the
+chip probing information or whatever.  That's probably hard.
+
+
+>  	/* Rx/TxPoll bits */
+>  	NormalTxPoll		= (1 << 0),
+> @@ -246,7 +254,7 @@ static const u32 de_intr_mask =
+>   * Set the programmable burst length to 4 longwords for all:
+>   * DMA errors result without these values. Cache align 16 long.
+>   */
+> -static const u32 de_bus_mode = CacheAlign16 | BurstLen4;
+> +static const u32 de_bus_mode = CacheAlign16 | BurstLen4 | DescSkipLen;
+> 
+>  struct de_srom_media_block {
+>  	u8			opts;
+> @@ -266,6 +274,9 @@ struct de_desc {
+>  	__le32			opts2;
+>  	__le32			addr1;
+>  	__le32			addr2;
+> +#if DSL
+> +	__le32			skip[DSL];
+> +#endif
+>  };
+
+Can remove the ifdefs here.  A zero-length array is OK, and will
+consume zero space.
 
