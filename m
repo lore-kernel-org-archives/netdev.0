@@ -1,28 +1,43 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] netdevice: ticks reaches 25, not 26.
-Date: Tue, 10 Feb 2009 10:19:04 +0100
-Message-ID: <49914688.3090509@gmail.com>
-References: <4990AC93.3080906@gmail.com> <20090209.175714.70463534.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: irda: Use __netdev_alloc_skb() instead of
+ __dev_alloc_skb().
+Date: Tue, 10 Feb 2009 01:58:43 -0800 (PST)
+Message-ID: <20090210.015843.175449556.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:9354 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212AbZBJJTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 04:19:09 -0500
-In-Reply-To: <20090209.175714.70463534.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40232
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752317AbZBJJ6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 04:58:49 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 5A76DC8D94F
+	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 01:58:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Roel Kluin <roel.kluin@gmail.com>
-> Date: Mon, 09 Feb 2009 23:22:11 +0100
-> 
->> With while (tick++ < 25) { ... } ticks reaches 25, not 26.
-> 
-> Does it?
 
-Again, you're right, sorry, please ignore :-/
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/irda/sir_dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/irda/sir_dev.c b/drivers/net/irda/sir_dev.c
+index 5b58624..c23d211 100644
+--- a/drivers/net/irda/sir_dev.c
++++ b/drivers/net/irda/sir_dev.c
+@@ -753,7 +753,8 @@ static int sirdev_alloc_buffers(struct sir_dev *dev)
+ 	dev->rx_buff.truesize = IRDA_SKB_MAX_MTU; 
+ 
+ 	/* Bootstrap ZeroCopy Rx */
+-	dev->rx_buff.skb = __dev_alloc_skb(dev->rx_buff.truesize, GFP_KERNEL);
++	dev->rx_buff.skb = __netdev_alloc_skb(dev->netdev, dev->rx_buff.truesize,
++					      GFP_KERNEL);
+ 	if (dev->rx_buff.skb == NULL)
+ 		return -ENOMEM;
+ 	skb_reserve(dev->rx_buff.skb, 1);
+-- 
+1.6.1.2.253.ga34a
+
