@@ -1,57 +1,75 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
-Date: Tue, 10 Feb 2009 17:28:02 -0500
-Message-ID: <20090210222802.GN32393@fieldses.org>
-References: <20090206.140714.201930500.davem@davemloft.net> <CAF18546-B024-40C9-8276-8FCD89C98E72@oracle.com> <Pine.LNX.4.64.0902070040530.31875@wrl-59.cs.helsinki.fi> <20090206.192243.47948705.davem@davemloft.net> <1234023804.17241.14.camel@heimdal.trondhjem.org> <Pine.LNX.4.64.0902071831210.2805@wrl-59.cs.helsinki.fi> <20090208052543.GA20689@fieldses.org> <Pine.LNX.4.64.0902101514540.31742@wrl-59.cs.helsinki.fi>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] skge: Fix/workaround for DMA mask quirk on ASUS
+ P5NSLI/Marvell Yukon-Lite
+Date: Tue, 10 Feb 2009 14:45:23 -0800
+Message-ID: <20090210144523.6f1e98e1@extreme>
+References: <f1a0791a0902101056i6fd47886gc3cee4b5aff2a23e@mail.gmail.com>
+	<20090210111408.2225e90b@extreme>
+	<f1a0791a0902101415n47a825d9gf83d6908d6a8646a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	chuck.lever@oracle.com, trond@netapp.com,
-	linux-nfs@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phillip Michael Jordan <phil@philjordan.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fieldses.org ([141.211.133.115]:41826 "EHLO
-	pickle.fieldses.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755881AbZBJW2H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:28:07 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0902101514540.31742@wrl-59.cs.helsinki.fi>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54450 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755457AbZBJWqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:46:03 -0500
+In-Reply-To: <f1a0791a0902101415n47a825d9gf83d6908d6a8646a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 10, 2009 at 03:20:36PM +0200, Ilpo J=C3=A4rvinen wrote:
-> On Sun, 8 Feb 2009, J. Bruce Fields wrote:
->=20
-> > (Where's diff-func from?)
->=20
-> My own tool collection. I can make it available if you want to.
+On Tue, 10 Feb 2009 23:15:43 +0100
+Phillip Michael Jordan <phil@philjordan.eu> wrote:
 
-Sure, I'd be curious.
+> Stephen Hemminger wrote:
+> > This looks like a good start to a workable workaround.
+> 
+> Thanks,
+> 
+> > I wonder if other PCI devices in same system have the same problem?
+> > If so, it should be move to PCI quirk.
+> 
+> This is the odd part: everything else works, and has done so with
+> rock-solid stability for months of fairly heavy use, during which time I
+> used a replacement PCI network card while the Marvell chip wasn't working.
+> 
+> The other devices include: 2 soundcards (onboard:
+> snd_hda_intel/snd_ac97_codec and PCI: snd_ca0106), graphics (PCIe:
+> nvidia or nv), PATA (pata_amd), SATA (sata_nv), USB and the
+> aforementioned network card (r8169).
+> 
+> However, looking deeper I've been grepping through the kernel source for
+> DMA_64BIT_MASK. The only drivers that can even handle 64-bit DMA and
+> also happen to be used in this system are r8169: only if the module
+> parameter use_dac is set. (described as "Unsafe on 32 bit PCI slot."
+> which doesn't sound good - my 8169 card has
+> a 32-bit PCI connector and is therefore probably unsuitable for
+> testing in this case) and hda_intel: if the capability bit is set by
+> the hardware, which it is on mine, I printk'd it.
+> 
+> The sound chip in question resides on a different bus though (00 vs
+> 06) as it's integrated into the chipset, so that might it useless for
+> comparison?
+> 
+> So the skge module is the only one for devices on the external bus
+> that currently even attempts to use 64-bit DMA addresses, and
+> unfortunately, I don't happen to own any other
+> pluggable hardware on that 64-bit list.
+> 
+> > Also, since the problem is almost certainly in the PCI bridge to
+> > skge connection, the quirk should identify based on the upstream bridge,
+> > rather than the Marvell chip and DMI.
+> 
+> After all that, I now agree that it's probably purely a motherboard
+> issue, even if I can't verify it with another device.
+> 
+> Sorry to waste your (and the rest of linux-netdev's) time on this. I'll
+> try and cook up a patch against pci-dma.c and try my luck on linux-pci
+> instead.
+> 
+> phil
 
---b.
-
->=20
-> > In similar cases in the future, if you want to cater to the more ti=
-red
-> > and/or mentally challenged among us (which may just be me), some cl=
-ue
-> > that visually distinguishes the quoted diff output in the comment m=
-ight
-> > help; e.g., maybe indent it like the below.
-> >=20
-> > (But that's intended as a suggestion, not a requirement.)
->=20
-> Yeah, a good idea... I'll sed some spaces in front of them in the fut=
-ure=20
-> to make the difference more obvious. The expected outcome though is t=
-hat=20
-> somebody probably then hits reply button too soon claiming that the p=
-atch=20
-> is broken :-).
->=20
->=20
-> --=20
->  i.
+I also want to know if it is a skge driver bug or Marvell only hardware
+problem. Unfortunately, you are kind of far away for me to lend you hardware...
