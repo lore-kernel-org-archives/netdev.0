@@ -1,40 +1,57 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Where is Thomas Graf (libnl maintainer)?
-Date: Tue, 10 Feb 2009 17:24:26 -0500
-Message-ID: <1234304666.14153.8.camel@mj>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] net/sunrpc/xprtsock.c: some common code found
+Date: Tue, 10 Feb 2009 17:28:02 -0500
+Message-ID: <20090210222802.GN32393@fieldses.org>
+References: <20090206.140714.201930500.davem@davemloft.net> <CAF18546-B024-40C9-8276-8FCD89C98E72@oracle.com> <Pine.LNX.4.64.0902070040530.31875@wrl-59.cs.helsinki.fi> <20090206.192243.47948705.davem@davemloft.net> <1234023804.17241.14.camel@heimdal.trondhjem.org> <Pine.LNX.4.64.0902071831210.2805@wrl-59.cs.helsinki.fi> <20090208052543.GA20689@fieldses.org> <Pine.LNX.4.64.0902101514540.31742@wrl-59.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	chuck.lever@oracle.com, trond@netapp.com,
+	linux-nfs@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: Ilpo =?utf-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c60.cesmail.net ([216.154.195.49]:44323 "EHLO c60.cesmail.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752782AbZBJWYh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Feb 2009 17:24:37 -0500
+Received: from mail.fieldses.org ([141.211.133.115]:41826 "EHLO
+	pickle.fieldses.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755881AbZBJW2H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 17:28:07 -0500
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0902101514540.31742@wrl-59.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Tue, Feb 10, 2009 at 03:20:36PM +0200, Ilpo J=C3=A4rvinen wrote:
+> On Sun, 8 Feb 2009, J. Bruce Fields wrote:
+>=20
+> > (Where's diff-func from?)
+>=20
+> My own tool collection. I can make it available if you want to.
 
-I've made 5 patches for libnl, but I don't know where to send them.  My
-messages to Thomas Graf bounce, and there is no other contact
-information in libnl sources or on the libnl site (the later is down).
+Sure, I'd be curious.
 
-The reason I'm asking here is because libnl is hosted on the kernel
-site: http://git.kernel.org/?p=libs/netlink/libnl.git
+--b.
 
-Among the fixes:
-
-$ stg series -d
-+ compile-fix-limits # Include limits.h to fix undefined ULONG_MAX in src/utils.c
-+ make-parallel      # Fix parallel build
-+ make-clean-solibs  # Remove all versioned libraries on "make clean"
-+ real-inline        # nl_object_priv() is inline, so define it in the header
-> separate-link      # Separate compiling from linking
-
-Maybe someone else could apply my patches if I post them here?
-
--- 
-Regards,
-Pavel Roskin
+>=20
+> > In similar cases in the future, if you want to cater to the more ti=
+red
+> > and/or mentally challenged among us (which may just be me), some cl=
+ue
+> > that visually distinguishes the quoted diff output in the comment m=
+ight
+> > help; e.g., maybe indent it like the below.
+> >=20
+> > (But that's intended as a suggestion, not a requirement.)
+>=20
+> Yeah, a good idea... I'll sed some spaces in front of them in the fut=
+ure=20
+> to make the difference more obvious. The expected outcome though is t=
+hat=20
+> somebody probably then hits reply button too soon claiming that the p=
+atch=20
+> is broken :-).
+>=20
+>=20
+> --=20
+>  i.
