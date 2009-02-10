@@ -1,51 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: net: Kill skbuff macros from the stone ages.
-Date: Tue, 10 Feb 2009 00:06:30 -0800 (PST)
-Message-ID: <20090210.000630.194774286.davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] Re: can't add tc multiq
+Date: Tue, 10 Feb 2009 00:11:33 -0800 (PST)
+Message-ID: <20090210.001133.151317531.davem@davemloft.net>
+References: <20090209214446.GA2542@ami.dom.local>
+	<20090209144052.6636f069@extreme>
+	<20090210074154.GA4190@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: shemminger@vyatta.com, slavon@bigtelecom.ru, netdev@vger.kernel.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59357
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36744
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751387AbZBJIGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:06:36 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id DEBDFC8D94E
-	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 00:06:30 -0800 (PST)
+	by vger.kernel.org with ESMTP id S1750735AbZBJILj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:11:39 -0500
+In-Reply-To: <20090210074154.GA4190@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 10 Feb 2009 07:41:54 +0000
 
-I've commited the following to net-next-2.6
+> pkt_sched: sch_multiq: Change errno on non-multiqueue devices use.
+> 
+> Current "RTNETLINK answers: Invalid argument" warning, while trying to
+> add multiq qdisc to non-multiqueue device, isn't very helpful and some
+> of these devs can be changed btw., so let's use a better errno.
+> 
+> With feedback from Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Reported-by: Badalian Vyacheslav <slavon@bigtelecom.ru>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-net: Kill skbuff macros from the stone ages.
-
-This kills of HAVE_ALLOC_SKB and HAVE_ALIGNABLE_SKB.
-
-Nothing in-tree uses them and nothing in-tree has used them
-since 2.0.x times.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/linux/skbuff.h |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5eba400..9247008 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -29,9 +29,6 @@
- #include <linux/dmaengine.h>
- #include <linux/hrtimer.h>
- 
--#define HAVE_ALLOC_SKB		/* For the drivers to know */
--#define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
--
- /* Don't change this without changing skb_csum_unnecessary! */
- #define CHECKSUM_NONE 0
- #define CHECKSUM_UNNECESSARY 1
--- 
-1.6.1.2.253.ga34a
-
+Applied, thanks everyone.
