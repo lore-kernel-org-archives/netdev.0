@@ -1,31 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TX pre-headers...
-Date: Tue, 10 Feb 2009 00:15:33 -0800 (PST)
-Message-ID: <20090210.001533.255492103.davem@davemloft.net>
-References: <20090209.021403.56830306.davem@davemloft.net>
-	<20090209101912.GA8338@gondor.apana.org.au>
-	<m3zlgvaabf.fsf@intrepid.localdomain>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH]: net: Kill skbuff macros from the stone ages.
+Date: Tue, 10 Feb 2009 11:50:24 +0300
+Message-ID: <20090210085024.GA10512@x200.localdomain>
+References: <20090210.000630.194774286.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52417
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750933AbZBJIPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:15:39 -0500
-In-Reply-To: <m3zlgvaabf.fsf@intrepid.localdomain>
+Received: from fg-out-1718.google.com ([72.14.220.155]:2148 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624AbZBJIoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:44:16 -0500
+Received: by fg-out-1718.google.com with SMTP id 16so1245439fgg.17
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 00:44:14 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20090210.000630.194774286.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Mon, 09 Feb 2009 16:39:48 +0100
+On Tue, Feb 10, 2009 at 12:06:30AM -0800, David Miller wrote:
+> -#define HAVE_ALLOC_SKB		/* For the drivers to know */
+> -#define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
 
-> OTOH I wonder if these changes make the dev->hard_header_len no longer
-> needed.
-
-Not really, this value tells the kernel how large the cached
-link-level headers are that get copied directly under the
-network header.
-
+BTW, after net_device_ops conversion will be finished, netdev HAVE_*
+macros should be deleted as well.
