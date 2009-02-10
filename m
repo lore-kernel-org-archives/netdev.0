@@ -1,44 +1,65 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: [PATCH v2 net-next] Re: can't add tc multiq
-Date: Tue, 10 Feb 2009 15:22:18 +0300
-Message-ID: <4991717A.30604@bigtelecom.ru>
-References: <20090209081553.4a874433@extreme> <20090209214446.GA2542@ami.dom.local> <20090209144052.6636f069@extreme> <20090210074154.GA4190@ff.dom.local> <49916554.3040201@bigtelecom.ru> <20090210115743.GB14808@ff.dom.local> <49916DFB.7060900@bigtelecom.ru> <20090210121852.GC14808@ff.dom.local>
+From: ext martin f krafft <madduck@madduck.net>
+Subject: Re: pseudo interface with different hwaddr
+Date: Tue, 10 Feb 2009 13:51:10 +0100
+Message-ID: <20090210125110.GA16955@piper.oerlikon.madduck.net>
+References: <20090210112508.GA16497@piper.oerlikon.madduck.net> <200902101343.49743.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="bp/iNruPH9dso1Pn"
+To: netdev discussion list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:35911 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017AbZBJMWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 07:22:23 -0500
-In-Reply-To: <20090210121852.GC14808@ff.dom.local>
+Received: from clegg.madduck.net ([193.242.105.96]:55769 "EHLO
+	clegg.madduck.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751920AbZBJMvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 07:51:22 -0500
+Received: from wall.oerlikon.madduck.net (wall.oerlikon.madduck.net [IPv6:2001:41e0:ff12::1])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "wall.oerlikon.madduck.net", Issuer "CAcert Class 3 Root" (verified OK))
+	by clegg.madduck.net (postfix) with ESMTPS id CF6951D409B
+	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 13:51:11 +0100 (CET)
+Received: from piper.oerlikon.madduck.net (piper.oerlikon.madduck.net [IPv6:2001:41e0:ff12:0:211:2fff:fe6b:c869])
+	by wall.oerlikon.madduck.net (Postfix) with ESMTPS id B18C39F13D
+	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 13:51:10 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <200902101343.49743.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Tue, Feb 10, 2009 at 03:07:23PM +0300, Badalian Vyacheslav wrote:
->  =20
->> Ohh... so small.
->>    =20
->
-> Yes. (I hope you didn't forget -R with grep.)
->  =20
-yep
->  =20
->> e1000 and e1000e not have hw queues in life or its
->> simple not have implementation in driver?
->>    =20
->
-> I don't know.
->  =20
 
-Thanks for all!
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Jarek P.
->
->  =20
+also sprach R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com> [2009.02.=
+10.1243 +0100]:
+> Wouldn't macvlan solve this?
 
+Thanks for the pointer. I will have to compile a kernel to test this
+though, Debian has it disabled (#504611)... :(
+
+I will report back.
+
+Thanks!
+
+--=20
+martin | http://madduck.net/ | http://two.sentenc.es/
+=20
+drink canada dry! you might not succeed, but it *is* fun trying.
+=20
+spamtraps: madduck.bogus@madduck.net
+
+--bp/iNruPH9dso1Pn
+Content-Type: application/pgp-signature; name="digital_signature_gpg.asc"
+Content-Description: Digital signature (see http://martin-krafft.net/gpg/)
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkmReD0ACgkQIgvIgzMMSnXG4gCgzyTcMOv7vbnTIzEJacImOe1J
+ywAAoOe1J/2/TAH111dwSagfWRWAclFk
+=8NW6
+-----END PGP SIGNATURE-----
+
+--bp/iNruPH9dso1Pn--
