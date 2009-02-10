@@ -1,32 +1,33 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
-Date: Tue, 10 Feb 2009 13:19:55 -0800
-Message-ID: <4991EF7B.90004@cisco.com>
-References: <alpine.DEB.2.00.0902102026060.10299@blackhole.kfki.hu>
-Reply-To: scofeldm@cisco.com
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Remaining bits for basic support of LDP
+Date: Tue, 10 Feb 2009 21:37:12 +0000
+Message-ID: <20090210213712.GB19041@n2100.arm.linux.org.uk>
+References: <20090202213953.GB16069@n2100.arm.linux.org.uk> <20090202.134530.63616213.davem@davemloft.net> <20090202222909.GC16069@n2100.arm.linux.org.uk> <20090210114855.GA9746@n2100.arm.linux.org.uk> <20090210115615.GA9869@n2100.arm.linux.org.uk> <20090210210159.GK14200@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0902102026060.10299@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090210210159.GK14200@atomide.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jozsef Kadlecsik wrote:
-> The patch replaces the lookup2() implementation of the 'jhash*' 
-> functions with that of lookup3().
+On Tue, Feb 10, 2009 at 01:02:02PM -0800, Tony Lindgren wrote:
+> Yeah, the smsc updates for omap might take a while longer to get going.
+> So here's my ack for this smc911x patch:
+> 
+> Acked-by: Tony Lindgren <tony@atomide.com>
 
-Should the lookup3() be added to rather than replacing lookup2()?  In 
-case some hardware vendor used the lookup2() version for weird things 
-like flow classification.
+Thanks.
 
->  /* The golden ration: an arbitrary value */
-> -#define JHASH_GOLDEN_RATIO	0x9e3779b9
-> +#define JHASH_GOLDEN_RATIO	0xdeadbeef
+> For the smsc changes, I don't have an LDP to test with. But I'll try
+> to get another board to work with smsc now that I have some MMC voltage
+> weirdness out of the way and have a proper root on MMC :) That is after
+> I have musb working on it so I can scp the module over g_ether..
 
-The #define seems mis-named now.
+I've tested them both on the LDP, both work fine.
 
--scott
+That talk of MMC voltage weirdness sounds like bug fixes - do they
+need to get into mainline?
