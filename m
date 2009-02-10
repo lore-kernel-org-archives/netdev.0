@@ -1,55 +1,30 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter 00/05: netfilter fixes
-Date: Tue, 10 Feb 2009 01:31:07 +0100
-Message-ID: <4990CACB.1010707@trash.net>
-References: <4990B26B.3020705@trash.net>	<20090209.151806.02424601.davem@davemloft.net>	<4990BDE6.80102@trash.net> <20090209.162829.143182391.davem@davemloft.net>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [PATCH net-next 0/4] enic: updates
+Date: Mon, 09 Feb 2009 16:57:01 -0800
+Message-ID: <20090210005505.24315.66810.stgit@palito_client100.nuovasystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090209.162829.143182391.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:61325 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166AbZBJA5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 19:57:08 -0500
+Received: from sj-core-2.cisco.com (sj-core-2.cisco.com [171.71.177.254])
+	by sj-dkim-2.cisco.com (8.12.11/8.12.11) with ESMTP id n1A0v6ET012686
+	for <netdev@vger.kernel.org>; Mon, 9 Feb 2009 16:57:06 -0800
+Received: from palito_client100.nuovasystems.com (savbu-palito-client100.cisco.com [10.193.70.13])
+	by sj-core-2.cisco.com (8.13.8/8.13.8) with ESMTP id n1A0v6QO000866
+	for <netdev@vger.kernel.org>; Tue, 10 Feb 2009 00:57:06 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Tue, 10 Feb 2009 00:36:06 +0100
-> 
->> My workflow is quite out of sync with modern git commands, some of
->> my scripts are still adapted from bitkeeper times :)
-> 
-> You poor thing, I should buy you some beer :-)
-> 
-> But to be honest I had a caveman like mentality about
-> using GIT and it took me a long time to get to the
-> current way I do things:
-> 
-> 1) Dark ages:
-> 
-> 	Fresh git clone, add patches, push to Linus.
-> 	Repeat, rebasing every time.
-> 
-> 2) Brain enabled:
-> 
-> 	Stable git clone, used over and over again.
-> 
-> 	After Linus pulls, remember HEAD and use that as
-> 	base for next pull request.
-> 
-> 	Pull in Linus's tree occaisionally when conflicts
-> 	might be possible.
-> 
-> 3) Full enlightenment:
-> 
-> 	Stable git clone, used over and over again.
-> 
-> 	Track Linus's tree using "git fetch origin"
-> 
-> 	When conflicts are possible "git pull origin"
-> 
-> 	All pull requests are sent using "origin" as
-> 	the base.
+Some updates to enic driver:
 
-I'll skip step 2 and will send a perfect pull request soon :)
+1: bug fix: return notify intr credits
+2: record all bad FCS errs as frame errors
+3: bug fix: tx_timeout reset path fix-ups
+4: misc stuff
+
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
