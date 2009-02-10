@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] Re: can't add tc multiq
-Date: Tue, 10 Feb 2009 00:11:33 -0800 (PST)
-Message-ID: <20090210.001133.151317531.davem@davemloft.net>
-References: <20090209214446.GA2542@ami.dom.local>
-	<20090209144052.6636f069@extreme>
-	<20090210074154.GA4190@ff.dom.local>
+Subject: Re: TX pre-headers...
+Date: Tue, 10 Feb 2009 00:15:33 -0800 (PST)
+Message-ID: <20090210.001533.255492103.davem@davemloft.net>
+References: <20090209.021403.56830306.davem@davemloft.net>
+	<20090209101912.GA8338@gondor.apana.org.au>
+	<m3zlgvaabf.fsf@intrepid.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, slavon@bigtelecom.ru, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: khc@pm.waw.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36744
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52417
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750735AbZBJILj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:11:39 -0500
-In-Reply-To: <20090210074154.GA4190@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1750933AbZBJIPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:15:39 -0500
+In-Reply-To: <m3zlgvaabf.fsf@intrepid.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 10 Feb 2009 07:41:54 +0000
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Date: Mon, 09 Feb 2009 16:39:48 +0100
 
-> pkt_sched: sch_multiq: Change errno on non-multiqueue devices use.
-> 
-> Current "RTNETLINK answers: Invalid argument" warning, while trying to
-> add multiq qdisc to non-multiqueue device, isn't very helpful and some
-> of these devs can be changed btw., so let's use a better errno.
-> 
-> With feedback from Stephen Hemminger <shemminger@vyatta.com>
-> 
-> Reported-by: Badalian Vyacheslav <slavon@bigtelecom.ru>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> OTOH I wonder if these changes make the dev->hard_header_len no longer
+> needed.
 
-Applied, thanks everyone.
+Not really, this value tells the kernel how large the cached
+link-level headers are that get copied directly under the
+network header.
+
