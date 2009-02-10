@@ -1,62 +1,34 @@
-From: Risto Suominen <risto.suominen@gmail.com>
-Subject: Re: [PATCH 002/002] de2104x: support for systems lacking cache
-	coherence
-Date: Tue, 10 Feb 2009 09:16:06 +0200
-Message-ID: <46e1c7760902092316g432a432dy10398030a5838ba9@mail.gmail.com>
-References: <46e1c7760902071330i5362fe4fvd99fc7075fc666d3@mail.gmail.com>
-	 <20090209170120.85e192be.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/4] enic: record all bad FCS errs as frame
+ errors
+Date: Mon, 09 Feb 2009 23:26:38 -0800 (PST)
+Message-ID: <20090209.232638.41763353.davem@davemloft.net>
+References: <20090210005505.24315.66810.stgit@palito_client100.nuovasystems.com>
+	<20090210005717.24315.53750.stgit@palito_client100.nuovasystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Grant Grundler <grundler@parisc-linux.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: scofeldm@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:41559 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1749667AbZBJHQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 02:16:09 -0500
-In-Reply-To: <20090209170120.85e192be.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54067
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750887AbZBJH0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 02:26:44 -0500
+In-Reply-To: <20090210005717.24315.53750.stgit@palito_client100.nuovasystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/2/10 Andrew Morton <akpm@linux-foundation.org>:
->
-> Please prefer to prepare patches in `patch -p1' form:
->
-> --- a/drivers/net/tulip/Kconfig
-> +++ a/drivers/net/tulip/Kconfig
->
-I'll try to remember that.
+From: Scott Feldman <scofeldm@cisco.com>
+Date: Mon, 09 Feb 2009 16:57:17 -0800
 
-> I think CONFIG_DE2104X_DSL is always defined if this driver is being
-> compiled.  So the Kconfig `default' should suffice here?  In which case
-> we can do
+> enic: record all bad FCS errs as frame errors
 >
-> #define DSL CONFIG_DE2104X_DSL
+> Report all bad FCS errs as frames errs.  This includes frames with
+> bad FCS on wire detected by MAC and frames which may be truncated
+> due to ingress FIFO overruns.  No longer print a driver msg on bad
+> FCS err.
 >
-> and leave it at that.
->
-> In which case we can do away with DSL everywhere and just use
-> CONFIG_DE2104X_DSL here.
->
-I was thinking of the case where someone just compiles without reconfiguring.
+> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
 
-> But really, we shouldn't do this at configuration time at all.  It
-> would be much better to do it at runtime, via a module parameter.
->
-Well, yeah, but that would probably cost cpu cycles. At least it would
-mean lots of changes.
-
-> And it would be much^2 better to do it automatically, based upon the
-> chip probing information or whatever.  That's probably hard.
->
-I agree.
-
-> Can remove the ifdefs here.  A zero-length array is OK, and will
-> consume zero space.
->
-I was uncertain whether this applies to all compilers. I kind of
-remember opposite cases in the past.
-
-Risto
+Applied.
