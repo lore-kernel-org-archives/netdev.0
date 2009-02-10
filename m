@@ -1,34 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [gkernel-commit] [PATCH 1/3] [ethtool] Add support for RX packet
- classification in a network device
-Date: Mon, 09 Feb 2009 19:09:39 -0500
-Message-ID: <4990C5C3.7080800@garzik.org>
-References: <4990B855.30905@Sun.COM>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netfilter 00/05: netfilter fixes
+Date: Mon, 09 Feb 2009 16:28:29 -0800 (PST)
+Message-ID: <20090209.162829.143182391.davem@davemloft.net>
+References: <4990B26B.3020705@trash.net>
+	<20090209.151806.02424601.davem@davemloft.net>
+	<4990BDE6.80102@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gkernel-commit@lists.sourceforge.net,
-	davem@davemloft.net, Matheos Worku <Matheos.Worku@Sun.COM>,
-	Mehdi Bonyadi <Mehdi.Bonyadi@Sun.COM>
-To: Santwona.Behera@Sun.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50627 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752301AbZBJAJn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2009 19:09:43 -0500
-In-Reply-To: <4990B855.30905@Sun.COM>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4990BDE6.80102@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Once the ethtool interface change is accepted in the upstream kernel, I 
-will be happy to add ethtool(8) support.
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 10 Feb 2009 00:36:06 +0100
 
-I would say, though, adding 1000 lines of code, you might as well put 
-that into a new file rxclass.c, to keep all that together in a nice tidy 
-unit.
+> My workflow is quite out of sync with modern git commands, some of
+> my scripts are still adapted from bitkeeper times :)
 
-	Jeff
+You poor thing, I should buy you some beer :-)
 
+But to be honest I had a caveman like mentality about
+using GIT and it took me a long time to get to the
+current way I do things:
 
+1) Dark ages:
 
+	Fresh git clone, add patches, push to Linus.
+	Repeat, rebasing every time.
 
+2) Brain enabled:
+
+	Stable git clone, used over and over again.
+
+	After Linus pulls, remember HEAD and use that as
+	base for next pull request.
+
+	Pull in Linus's tree occaisionally when conflicts
+	might be possible.
+
+3) Full enlightenment:
+
+	Stable git clone, used over and over again.
+
+	Track Linus's tree using "git fetch origin"
+
+	When conflicts are possible "git pull origin"
+
+	All pull requests are sent using "origin" as
+	the base.
