@@ -1,35 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: net: Kill skbuff macros from the stone ages.
-Date: Tue, 10 Feb 2009 00:48:42 -0800 (PST)
-Message-ID: <20090210.004842.253830302.davem@davemloft.net>
-References: <20090210.000630.194774286.davem@davemloft.net>
-	<20090210085024.GA10512@x200.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] netdevice: ticks reaches 25, not 26.
+Date: Tue, 10 Feb 2009 08:50:21 +0000
+Message-ID: <20090210085021.GB4190@ff.dom.local>
+References: <20090209.175714.70463534.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: adobriyan@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38488
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751624AbZBJIss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:48:48 -0500
-In-Reply-To: <20090210085024.GA10512@x200.localdomain>
+Received: from fg-out-1718.google.com ([72.14.220.153]:64433 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752140AbZBJIu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:50:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20090209.175714.70463534.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 10 Feb 2009 11:50:24 +0300
-
-> On Tue, Feb 10, 2009 at 12:06:30AM -0800, David Miller wrote:
-> > -#define HAVE_ALLOC_SKB		/* For the drivers to know */
-> > -#define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
+On 10-02-2009 02:57, David Miller wrote:
+> From: Roel Kluin <roel.kluin@gmail.com>
+> Date: Mon, 09 Feb 2009 23:22:11 +0100
 > 
-> BTW, after net_device_ops conversion will be finished, netdev HAVE_*
-> macros should be deleted as well.
+>> With while (tick++ < 25) { ... } ticks reaches 25, not 26.
+> 
+> Does it?
+> 
+> --------------------
+> #include <stdio.h>
+> int main(void)
+> {
+> 	int i = 0;
+> 	while (i++ < 25)
+> 		;
+> 	printf("%d\n", i);
+> 
+> 	return 0;
+> }
+> --------------------
+> davem@sunset:~/src/GIT/linux-2.6$ gcc -O2 -o x x.c
+> davem@sunset:~/src/GIT/linux-2.6$ ./x
+> 26
+> davem@sunset:~/src/GIT/linux-2.6$ 
+> 
+> I'm getting extremely tired of these "off by one" patches, to be
+> honest with you.
 
-I agree.
+So, what other C feature do you find a better source of joy now?
 
-To be honest the whole HAVE_* was a really dumb idea.  Althought I
-suppose at the time it might have made some kind of sense.
-
+Jarek P.
