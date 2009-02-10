@@ -1,49 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 002/002] de2104x: support for systems lacking cache
- coherence
-Date: Mon, 09 Feb 2009 17:50:04 -0800 (PST)
-Message-ID: <20090209.175004.122797043.davem@davemloft.net>
-References: <46e1c7760902091122m6ec7fbb5nefd9cc9789880c0f@mail.gmail.com>
-	<20090209.145156.172588416.davem@davemloft.net>
-	<m3ab8v3vzp.fsf@intrepid.localdomain>
+Subject: Re: [PATCH] cassini: i reaches 0, not -1.
+Date: Mon, 09 Feb 2009 17:56:00 -0800 (PST)
+Message-ID: <20090209.175600.191087624.davem@davemloft.net>
+References: <4990AA32.1010004@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: risto.suominen@gmail.com, netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47571
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40356
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752208AbZBJBuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 20:50:10 -0500
-In-Reply-To: <m3ab8v3vzp.fsf@intrepid.localdomain>
+	by vger.kernel.org with ESMTP id S1751682AbZBJB4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2009 20:56:07 -0500
+In-Reply-To: <4990AA32.1010004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Tue, 10 Feb 2009 02:45:46 +0100
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Mon, 09 Feb 2009 23:12:02 +0100
 
-> David Miller <davem@davemloft.net> writes:
+> With while (i-- > 0) { ... } i reaches 0, not -1.
 > 
-> > The issue are descriptors that are _written_ by both the cpu
-> > and the device.  That is the problematic case here.
-> 
-> Do you mean both CPU and 21040 write to the same descriptor at (nearly)
-> the same time? Is it TX, RX or both?
-> 
-> I wonder, how would the patch help it?
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-The problem is when the chip is writing to one neighbouring descriptor
-of one which the cpu is writing to at the same time.
+Does it?
 
-> The patch seems to align the descriptors on cache line boundary. That
-> IMHO means the corruption is caused by the 21040 writing to e.g. desc
-> #0, CPU writing to desc #1, which causes the cache line write bringing
-> the old desc #0 back.
+--------------------
+#include <stdio.h>
+int main(void)
+{
+	int i = 20;
+	while (i-- > 0)
+		;
+	printf("%d\n", i);
 
-Right.
-
-> Is it possible to use uncached memory for coherent allocations (with no
-> write side effects) on this machine?
-
-Good question.
+	return 0;
+}
+--------------------
+davem@sunset:~/src/GIT/linux-2.6$ gcc -O2 -o x x.c
+davem@sunset:~/src/GIT/linux-2.6$ ./x
+-1
+davem@sunset:~/src/GIT/linux-2.6$ 
