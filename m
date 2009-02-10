@@ -1,28 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdevice: ticks reaches 25, not 26.
-Date: Tue, 10 Feb 2009 00:59:22 -0800 (PST)
-Message-ID: <20090210.005922.117696811.davem@davemloft.net>
-References: <20090209.175714.70463534.davem@davemloft.net>
-	<20090210085021.GB4190@ff.dom.local>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] cassini: i reaches 0, not -1.
+Date: Tue, 10 Feb 2009 10:18:04 +0100
+Message-ID: <4991464C.2050500@gmail.com>
+References: <4990AA32.1010004@gmail.com> <20090209.175600.191087624.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40380
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751593AbZBJI72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 03:59:28 -0500
-In-Reply-To: <20090210085021.GB4190@ff.dom.local>
+Received: from mu-out-0910.google.com ([209.85.134.186]:34341 "EHLO
+	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221AbZBJJSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 04:18:08 -0500
+In-Reply-To: <20090209.175600.191087624.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 10 Feb 2009 08:50:21 +0000
+David Miller wrote:
+> From: Roel Kluin <roel.kluin@gmail.com>
+> Date: Mon, 09 Feb 2009 23:12:02 +0100
+> 
+>> With while (i-- > 0) { ... } i reaches 0, not -1.
+>>
+>> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> 
+> Does it?
 
-> So, what other C feature do you find a better source of joy now?
-
-None really, that's why most of my own patches lately have been
-doing nothing but remove code :-)
+No, you're right, sorry, please ignore :-/
