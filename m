@@ -1,35 +1,63 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-02-11
-Date: Wed, 11 Feb 2009 13:58:01 -0800 (PST)
-Message-ID: <20090211.135801.242440425.davem@davemloft.net>
-References: <20090211191212.GA7033@tuxdriver.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH net] net: Fix page seeking for skb_splice_bits().
+Date: Wed, 11 Feb 2009 22:58:06 +0100
+Message-ID: <20090211215806.GA2676@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090211191212.GA7033-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f20.google.com ([209.85.220.20]:55733 "EHLO
+	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756874AbZBKV6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 16:58:13 -0500
+Received: by fxm13 with SMTP id 13so1271152fxm.13
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 13:58:10 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 11 Feb 2009 14:12:12 -0500
+Hi,
 
-> Here are a few more intended for 2.6.29.  The ath5k one is already in
-> -next, but it turns-out to affect 2.6.29 as well.  The two zd1211rw ones
-> are one-liners that enable new hardware for that driver.
-> 
-> The iwlwifi patch corrects a problem (introduced by the previous iwlwifi
-> fix) that disables the iwlwifi devices after suspend/resume.  It will
-> conflict with what is already in -next -- just take the hunks that are
-> already in -next and ignore the hunks introduced here.
-> 
-> Please let me know if there are problems!
+So, you both were right there is something wrong with splice for
+multipage linear regions, at least theoretically. Since I don't know
+if this can really matter in practice (could NUMA slab allocate these
+pages from different tables?), I've done it against -net, but maybe
+-net-next is enough?
 
-Pulled, thanks a lot John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Jarek P.
+------------->
+net: Fix page seeking for skb_splice_bits().
+
+struct page walking should be done with proper accessor functions, not
+directly.
+
+With doubts from David S. Miller and Herbert Xu.
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+
+ net/core/skbuff.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index da74b84..7aacd95 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1373,8 +1373,13 @@ static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
+ static inline void __segment_seek(struct page **page, unsigned int *poff,
+ 				  unsigned int *plen, unsigned int off)
+ {
++	unsigned long n;
++
+ 	*poff += off;
+-	*page += *poff / PAGE_SIZE;
++	n = *poff / PAGE_SIZE;
++	if (n)
++		*page = nth_page(*page, n);
++
+ 	*poff = *poff % PAGE_SIZE;
+ 	*plen -= off;
+ }
+
