@@ -1,79 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [RFC] netlink broadcast return value
-Date: Wed, 11 Feb 2009 22:01:50 +0100
-Message-ID: <49933CBE.8010108@netfilter.org>
-References: <4985A4C5.4050908@netfilter.org> <20090202.140533.121159038.davem@davemloft.net> <49903B03.2040302@trash.net> <4990B38A.3020207@netfilter.org> <4990BADA.7040309@trash.net> <4990C337.3040704@netfilter.org> <4991863F.3030800@trash.net> <4991CCC1.7080308@netfilter.org> <4992C827.20302@trash.net> <4992FF51.9010507@netfilter.org> <499302E0.4070406@trash.net>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] IRDA: cnt is off by 1
+Date: Wed, 11 Feb 2009 22:22:21 +0100
+Message-ID: <4993418D.5020700@gmail.com>
+References: <20090211133341.GB12362@ff.dom.local> <4992DF3C.7070802@gmail.com> <20090211171403.GA2539@ami.dom.local> <49932805.7050309@gmail.com> <20090211202755.GA2550@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, samuel@sortiz.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45582 "EHLO us.es"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755794AbZBKVCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2009 16:02:04 -0500
-In-Reply-To: <499302E0.4070406@trash.net>
+Received: from nf-out-0910.google.com ([64.233.182.185]:22338 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756798AbZBKVWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 16:22:17 -0500
+Received: by nf-out-0910.google.com with SMTP id d21so37782nfb.21
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 13:22:14 -0800 (PST)
+In-Reply-To: <20090211202755.GA2550@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm also trimming ;)
+Jarek Poplawski wrote:
 
-Patrick McHardy wrote:
-> Pablo Neira Ayuso wrote:
->> Can you think of one example where one ctnetlink listener may not find
->> useful reliable state-change reports? Still, this setting is optional
->> (it will be disabled by default) and, if turned on, you can disable it
->> for debugging purposes.
-> 
-> As I already said, "conntrack -E" used for debugging. Nobody cares
-> whether it misses a few events instead of causing dropped packets.
-> Whether its on or not by default is secondary to being the right
-> thing at all.
+> Roel, please resend once more, but separated: something could go to
+> stable, but not necessarily together. 
 
-In particular, conntrack -E returns an error message when it hits
-ENOBUFS, so it's a bad example. Indeed, I think that other programs in
-userspace should do this if they don't know what to do with ENOBUFS,
-otherwise increase the buffer up to a reasonable limit (set by the
-user), and then report that this limit has been reached telling that
-they have become unreliable (or depending on the sysctl value that I'm
-proposing, tell that they may drop packets).
+Ok, Here's for irda:
 
-And I think that there are tons of interfaces that userspace programs
-can abuse to do the wrong thing.
+------------------------------>8----------------8<------------------------------
+If no prior break occurs, cnt reaches 101 after the loop, so we are still able
+to change speed when cnt has become 100.
 
->>>> Using unicast would not do any different from broadcast as you may have
->>>> two listeners receiving state-changes from ctnetlink via unicast, so
->>>> the
->>>> problem would be basically the same as above if you want reliable
->>>> state-change information at the cost of dropping packets.
-> 
-> No, its not the same. ctsync sets big receive buffers and requests
-> "reliable" delivery, "conntrack -E" does nothing special and doesn't
-> care whether messages are dropped because its receive queue is too
-> small.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-conntrack -E is a bad example but I get the point. This sysctl has to be
-for all ctnetlink listeners.
-
->> I would have to tell sysadmins that conntrackd becomes unreliable under
->> heavy load in full near real-time mode, that would be horrible!.
->> Instead, with this option, I can tell them that, if they have selected
->> full near real-time event-driven synchronization, that reduces
->> performance.
-> 
-> Again, I'm not arguing about the option but about making it a
-> sysctl or something that affects all (ctnetlink) sockets whether
-> they care or not. You could even make it a per-broadcast listener
-> option, but the sysctl is effectively converting broadcast
-> operation to reliable unicast semantics and that seems wrong.
-
-And again, you point that this should be per-socket, but how can you
-make this option per-socket? The only way that I see to make
-state-change reporting reliable is to drop the packet to force the peer
-to retransmit the packet and trigger the same state-change, and that
-affect all ctnetlink listeners.
-
--- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
+diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
+index 7eafdca..85e88da 100644
+--- a/drivers/net/irda/mcs7780.c
++++ b/drivers/net/irda/mcs7780.c
+@@ -585,7 +585,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
+ 		mcs_get_reg(mcs, MCS_RESV_REG, &rval);
+ 	} while(cnt++ < 100 && (rval & MCS_IRINTX));
+ 
+-	if(cnt >= 100) {
++	if (cnt > 100) {
+ 		IRDA_ERROR("unable to change speed\n");
+ 		ret = -EIO;
+ 		goto error;
