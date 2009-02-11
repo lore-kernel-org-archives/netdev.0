@@ -1,103 +1,50 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH] netns: remove useless synchronize_net()
-Date: Wed, 11 Feb 2009 16:49:06 +0100
-Message-ID: <4992F372.4020206@free.fr>
-References: <498ABDA2.5040603@dev.6wind.com>	<20090205.234520.149982266.davem@davemloft.net>	<498C403D.9040500@dev.6wind.com>	<20090206.141026.85510254.davem@davemloft.net>	<49919FD4.3000008@dev.6wind.com> <4991AE04.7020307@free.fr>	<4991AFDA.8020704@dev.6wind.com> <4991B5C9.9040005@free.fr> <m1zlgtjtrf.fsf@fess.ebiederm.org>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: Re: WARNING: at net/core/skbuff.c:154 with tcpdump and ipsec
+Date: Wed, 11 Feb 2009 16:55:46 +0100 (CET)
+Message-ID: <alpine.LNX.1.10.0902111641280.13501@bizon.gios.gov.pl>
+References: <BAY103-DAV55D390C73C4EC5373A371B2BA0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@dev.6wind.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, containers@lists.osdl.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1421884678-1234367747=:13501"
+Cc: netdev@vger.kernel.org
+To: Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:50705 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757207AbZBKPtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 10:49:18 -0500
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate1.uk.ibm.com (8.13.1/8.13.1) with ESMTP id n1BFnG84001374
-	for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 15:49:16 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n1BFnGZc1249510
-	for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 15:49:16 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n1BFnGmI008012
-	for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 15:49:16 GMT
-In-Reply-To: <m1zlgtjtrf.fsf@fess.ebiederm.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:57926 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753254AbZBKQQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 11:16:19 -0500
+In-Reply-To: <BAY103-DAV55D390C73C4EC5373A371B2BA0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman wrote:
-> Daniel Lezcano <daniel.lezcano@free.fr> writes:
->   
->> Hmm, at the first glance I would say it is useless but perhaps there is a trick
->> here I do not understand.
->> Eric, is there any particular reason to call synchronize_net before exiting the
->> dev_change_net_namespace function ?
->>     
->
-> I haven't thought about that part of the code path in detail in a long
-> time.  dev_change_net_namespace() is a condensed version of
-> register_netdevice() unregister_netdevice().  With the calls down into
-> the driver removed.
->
-> On a side note.  It looks like we now cope with:
-> call_netdevice_notifiers(NETDEV_REGISTER, dev); failing in
-> register_netdev, but no one updated dev_change_net_namespace to handle
-> the change, looks like a real pain to cope with.
->
-> As for the synchronize_net, and in response to the original
-> comment as best as I can tell we do have things being being
-> deleted that are at least candidates for synchronize_net.
->
-> dev_addr_discard(dev);
-> dev_net_set(dev, net);
-> netdev_unregister_kobject(dev);
->
-> We very much do access dev->net with only rcu protection.
->
-> Hmm.
->
-> It looks like I originally took the second synchronize_net from what
-> became rollback_registered, which happens just before we start freeing
-> the netdevice.
->
-> The nastiest case that I can envision is if we happen to receive a
-> packet (on another cpu) for the network device that we are moving,
-> just after it has registered in the new network namespace.  If we read
-> the old network namespace and forward it up the network stack in that
-> context I can imagine it being a recipe for all kinds of strange
-> non-deterministic behavior.
->   
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-The code does:
+---1144830174-1421884678-1234367747=:13501
+Content-Type: TEXT/PLAIN; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-    dev_close
-       dev_deactive
-          synchronize_rcu
-    synchronize_net
-    ...
-    dev_shutdown
-    ...
-    synchronize_net
 
-The network device can no longer receive packets after dev_deactive, no ?
-The first synchronize_net will wait for the outstanding packets to be 
-delivered to the upper layer and we change the nd_net field after.
-Your scenario makes sense for the first synchronize_net but I am not 
-sure that can happen if we remove the second synchronize_net.
 
-> So unless there is a reason for this change beyond general cleanup I
-> would prefer not to think about it potential weirdness, and keep the
-> code the way it is.
->
-> I seem to remember a conversation about this synchronize_net when the
-> code was merged as well so if we are going to change it, let's look
-> up those arguments if we can and see if there was something useful
-> said.
->
-> Eric
->
->
->   
+On Wed, 11 Feb 2009, Marco Berizzi wrote:
 
+> Hi Folks,
+>
+> I'm getting this error on 2.6.28.4 when I run tcpdump on
+> the interface where ipsec packets are enc/decrypted.
+>
+> TIA
+>
+>> Feb 11 10:53:55 Pleiadi kernel: ------------[ cut here ]------------
+>> Feb 11 10:53:55 Pleiadi kernel: WARNING: at net/core/skbuff.c:154 skb_truesize_bug+0x2e/0x33()
+>> Feb 11 10:53:55 Pleiadi kernel: SKB BUG: Invalid truesize (268) len=134, sizeof(sk_buff)=172
+<CUT>
+
+This annoying problem is quite old (appeared in 2.6.25) and already known:
+  http://bugzilla.kernel.org/show_bug.cgi?id=10996
+
+Sadly, no one is interested in fixing it. :(
+
+Best regards,
+
+ 				Krzysztof Olêdzki
+---1144830174-1421884678-1234367747=:13501--
