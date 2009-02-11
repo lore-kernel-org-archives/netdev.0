@@ -1,31 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ehea: Fix: Remove adapter from adapter list in error
- path
-Date: Wed, 11 Feb 2009 13:48:07 -0800 (PST)
-Message-ID: <20090211.134807.77169123.davem@davemloft.net>
-References: <200902111329.02954.hannes.hering@linux.vnet.ibm.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 1/2] net: don't use in_atomic() in gfp_any()
+Date: Wed, 11 Feb 2009 13:48:42 -0800
+Message-ID: <20090211134842.7fa73b6d.akpm@linux-foundation.org>
+References: <200902112127.n1BLRJeJ031575@imap1.linux-foundation.org>
+	<200902120638.BFG12928.FFMOHJOVtOQLFS@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	ossrosch@linux.vnet.ibm.com, ossthema@de.ibm.com,
-	raisch@de.ibm.com, themann@de.ibm.com, osstklei@de.ibm.com
-To: hannes.hering@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56071
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755677AbZBKVsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 16:48:13 -0500
-In-Reply-To: <200902111329.02954.hannes.hering@linux.vnet.ibm.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48838 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755711AbZBKVtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 16:49:05 -0500
+In-Reply-To: <200902120638.BFG12928.FFMOHJOVtOQLFS@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Date: Wed, 11 Feb 2009 13:29:02 +0100
+On Thu, 12 Feb 2009 06:38:55 +0900
+Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> wrote:
 
-> Remove adapter from adapter list before freeing data structure in error path.
+> Andrew Morton wrote:
+> > Solve both these problems by switching to in_interrupt().  Now, if someone
+> > runs a gfp_any() allocation from inside spinlock we will get the warning
+> > if CONFIG_PREEMPT=y.
 > 
-> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
+> >  static inline gfp_t gfp_any(void)
+> >  {
+> > -	return in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
+> > +	return in_softirq() ? GFP_ATOMIC : GFP_KERNEL;
+> >  }
+> sed -i -e 's/in_softirq/in_interrupt/' ?
 
-Applied to net-next-2.6, thanks!
+heh, good question.
+
+I did all my testing with in_softirq() - the changelog didn't catch up.
+
+
+
+Is gfp_any() supposed to be usable from hardirq context?
+
+If so, we should use in_interrupt().
+
+If not, we should use in_softirq(), and we'll then get might_sleep()
+warnings if anyone uses gfp_any() from hard irq context.
+
+
+
+
