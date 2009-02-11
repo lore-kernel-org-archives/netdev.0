@@ -1,85 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] netlink broadcast return value
-Date: Wed, 11 Feb 2009 17:54:56 +0100
-Message-ID: <499302E0.4070406@trash.net>
-References: <4985A4C5.4050908@netfilter.org> <20090202.140533.121159038.davem@davemloft.net> <49903B03.2040302@trash.net> <4990B38A.3020207@netfilter.org> <4990BADA.7040309@trash.net> <4990C337.3040704@netfilter.org> <4991863F.3030800@trash.net> <4991CCC1.7080308@netfilter.org> <4992C827.20302@trash.net> <4992FF51.9010507@netfilter.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] net: off by one, try #2
+Date: Wed, 11 Feb 2009 18:14:03 +0100
+Message-ID: <20090211171403.GA2539@ami.dom.local>
+References: <20090211133341.GB12362@ff.dom.local> <4992DF3C.7070802@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4992FF51.9010507@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Roel Kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f20.google.com ([209.85.220.20]:61349 "EHLO
+	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756707AbZBKROT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 12:14:19 -0500
+Received: by fxm13 with SMTP id 13so867821fxm.13
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 09:14:16 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4992DF3C.7070802@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso wrote:
-> First of all, sorry, this email is probably too long.
-
-Indeed, I'm doing some trimminng :)
-
-> Patrick McHardy wrote:
->> I'm aware of that. But you're adding a policy knob to control the
->> behaviour of a one-to-many interface based on what a single listener
->> (or maybe even two) want. Its not possible anymore to just listen to
->> events for debugging, since that might even lock you out.
+On Wed, Feb 11, 2009 at 03:22:52PM +0100, Roel Kluin wrote:
+> >> With while (x++ < n) { ... } x can reach n+1.
+> > 
+> > Yes, but it looks like here is even more...
+> > i is also misused here and array can be overriden, so additional
+> > break/return is needed.
 > 
-> Can you think of one example where one ctnetlink listener may not find
-> useful reliable state-change reports? Still, this setting is optional
-> (it will be disabled by default) and, if turned on, you can disable it
-> for debugging purposes.
+> Thanks, is this how it should be?
 
-As I already said, "conntrack -E" used for debugging. Nobody cares
-whether it misses a few events instead of causing dropped packets.
-Whether its on or not by default is secondary to being the right
-thing at all.
+It looks (almost) OK to me. :-) Except this > 80 line.
 
-> Thinking more about it, reliable logging and monitoring would be even
-> something interesting in terms of security.
+On the other hand, I wonder if it's not a good time to make it more
+readable; I mean the first while (): length, ";", and maybe ++j
+similarly to i now?
 
-I don't doubt that, I question the mechanism.
+BTW, I hope you remember about irda.
 
->> This seems very wrong to me. And I don't even see a reason to do
->> this since its easy to use unicast and per-listener state.
+Jarek P.
+
+> -------------------->8----------------8<-----------------------
 > 
-> Netlink unicast would not be of any help either if you want reliable
-> state-change reporting via ctnetlink. If one process receives the event
-> and the other does not, you would also need to drop the packet to
-> perform reliable logging.
-
-Yes, and you don't need to if you don't want "reliable" logging.
-The point is that you can choose per socket. Only if a socket that
-really wants this doesn't get a copy you drop.
-
->>> Using unicast would not do any different from broadcast as you may have
->>> two listeners receiving state-changes from ctnetlink via unicast, so the
->>> problem would be basically the same as above if you want reliable
->>> state-change information at the cost of dropping packets.
-
-No, its not the same. ctsync sets big receive buffers and requests
-"reliable" delivery, "conntrack -E" does nothing special and doesn't
-care whether messages are dropped because its receive queue is too
-small.
-
->> Only the processes that actually care can specify this behaviour.
+> With while (x++ < n) { ... } x can reach n+1. As Jarek Poplawski pointed out, array
+> pcb->data.raw was not correctly used.
 > 
-> No, because this behaviour implies that the packet would be drop if the
-> state-change is not delivered correctly to all. It has to be an on/off
-> behaviour for all listeners.
-
-You keep saying that, but its only the case because the way you
-implemented it requires this. Why would ctsync care whether
-conntrack -E missed a packet?
-
->> [...]
-> I would have to tell sysadmins that conntrackd becomes unreliable under
-> heavy load in full near real-time mode, that would be horrible!.
-> Instead, with this option, I can tell them that, if they have selected
-> full near real-time event-driven synchronization, that reduces performance.
-
-Again, I'm not arguing about the option but about making it a
-sysctl or something that affects all (ctnetlink) sockets whether
-they care or not. You could even make it a per-broadcast listener
-option, but the sysctl is effectively converting broadcast
-operation to reliable unicast semantics and that seems wrong.
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+> diff --git a/drivers/net/3c505.c b/drivers/net/3c505.c
+> index 6124605..4cf3050 100644
+> --- a/drivers/net/3c505.c
+> +++ b/drivers/net/3c505.c
+> @@ -497,12 +497,15 @@ static bool receive_pcb(struct net_device *dev, pcb_struct * pcb)
+>  	do {
+>  		j = 0;
+>  		while (((stat = get_status(dev->base_addr)) & ACRF) == 0 && j++ < 20000);
+> -		pcb->data.raw[i++] = inb_command(dev->base_addr);
+> -		if (i > MAX_PCB_DATA)
+> -			INVALID_PCB_MSG(i);
+> -	} while ((stat & ASF_PCB_MASK) != ASF_PCB_END && j < 20000);
+> +		pcb->data.raw[i] = inb_command(dev->base_addr);
+> +	} while (++i < MAX_PCB_DATA && (stat & ASF_PCB_MASK) != ASF_PCB_END && j <= 20000);
+> +
+>  	spin_unlock_irqrestore(&adapter->lock, flags);
+> -	if (j >= 20000) {
+> +	if (i >= MAX_PCB_DATA) {
+> +		INVALID_PCB_MSG(i);
+> +		return false;
+> +	}
+> +	if (j > 20000) {
+>  		TIMEOUT_MSG(__LINE__);
+>  		return false;
+>  	}
