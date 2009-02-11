@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Remaining bits for basic support of LDP
-Date: Tue, 10 Feb 2009 17:13:48 -0800 (PST)
-Message-ID: <20090210.171348.175525204.davem@davemloft.net>
-References: <20090210115615.GA9869@n2100.arm.linux.org.uk>
-	<20090210210159.GK14200@atomide.com>
-	<20090210213712.GB19041@n2100.arm.linux.org.uk>
+Subject: Re: [PATCH net] Phonet: do not compute unused value
+Date: Tue, 10 Feb 2009 17:15:05 -0800 (PST)
+Message-ID: <20090210.171505.143550119.davem@davemloft.net>
+References: <1234275835-14402-1-git-send-email-remi.denis-courmont@nokia.com>
+	<1234275835-14402-2-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tony@atomide.com, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linux@arm.linux.org.uk
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20090210213712.GB19041@n2100.arm.linux.org.uk>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48746
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754698AbZBKBPM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Feb 2009 20:15:12 -0500
+In-Reply-To: <1234275835-14402-2-git-send-email-remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Tue, 10 Feb 2009 21:37:12 +0000
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Tue, 10 Feb 2009 16:23:55 +0200
 
-> On Tue, Feb 10, 2009 at 01:02:02PM -0800, Tony Lindgren wrote:
-> > Yeah, the smsc updates for omap might take a while longer to get going.
-> > So here's my ack for this smc911x patch:
-> > 
-> > Acked-by: Tony Lindgren <tony@atomide.com>
-> 
-> Thanks.
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Russell if you formally resubmit this with proper changelog, signoffs,
-and acks I can merge it in quickly via the net-2.6 if you like.
-
-Thanks.
+Applied.
