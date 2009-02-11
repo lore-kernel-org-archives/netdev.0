@@ -1,56 +1,35 @@
-From: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Subject: [patch 2/2] bluetooth: CONFIG_DEBUG_LOCK_ALLOC ifdefs remove
-Date: Wed, 11 Feb 2009 13:28:12 -0800
-Message-ID: <200902112128.n1BLSCdw000376@imap1.linux-foundation.org>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/2] net: don't use in_atomic() in gfp_any()
+Date: Wed, 11 Feb 2009 14:02:59 -0800 (PST)
+Message-ID: <20090211.140259.206413808.davem@davemloft.net>
+References: <200902112127.n1BLRJeJ031575@imap1.linux-foundation.org>
+	<200902120638.BFG12928.FFMOHJOVtOQLFS@I-love.SAKURA.ne.jp>
+	<20090211134842.7fa73b6d.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52938
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751013AbZBKWDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 17:03:05 -0500
+In-Reply-To: <20090211134842.7fa73b6d.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 11 Feb 2009 13:48:42 -0800
 
-Due to lockdep changes the CONFIG_DEBUG_LOCK_ALLOC ifdef is not needed
-now, just remove it here.
+> Is gfp_any() supposed to be usable from hardirq context?
+> 
+> If so, we should use in_interrupt().
+> 
+> If not, we should use in_softirq(), and we'll then get might_sleep()
+> warnings if anyone uses gfp_any() from hard irq context.
 
-The following commit fixed the !lockdep build warnings:
+It never will be used in hardware IRQ context, at least
+in the networking.
 
-commit e8f6fbf62de37cbc2e179176ac7010d5f4396b67
-Author: Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>
-Date:   Wed Nov 12 01:38:36 2008 +0000
-
-    lockdep: include/linux/lockdep.h - fix warning in net/bluetooth/af_bluetooth.c
-
-Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
----
-
- net/bluetooth/af_bluetooth.c |    6 ------
- 1 file changed, 6 deletions(-)
-
-diff -puN net/bluetooth/af_bluetooth.c~bluetooth-config_debug_lock_alloc-ifdefs-remove net/bluetooth/af_bluetooth.c
---- a/net/bluetooth/af_bluetooth.c~bluetooth-config_debug_lock_alloc-ifdefs-remove
-+++ a/net/bluetooth/af_bluetooth.c
-@@ -48,7 +48,6 @@
- static struct net_proto_family *bt_proto[BT_MAX_PROTO];
- static DEFINE_RWLOCK(bt_proto_lock);
- 
--#ifdef CONFIG_DEBUG_LOCK_ALLOC
- static struct lock_class_key bt_lock_key[BT_MAX_PROTO];
- static const char *bt_key_strings[BT_MAX_PROTO] = {
- 	"sk_lock-AF_BLUETOOTH-BTPROTO_L2CAP",
-@@ -86,11 +85,6 @@ static inline void bt_sock_reclassify_lo
- 			bt_slock_key_strings[proto], &bt_slock_key[proto],
- 				bt_key_strings[proto], &bt_lock_key[proto]);
- }
--#else
--static inline void bt_sock_reclassify_lock(struct socket *sock, int proto)
--{
--}
--#endif
- 
- int bt_sock_register(int proto, struct net_proto_family *ops)
- {
-_
+And all uses in the tree are.. networking :-)
