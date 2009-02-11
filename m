@@ -1,110 +1,96 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: remove pcie workaround
-Date: Wed, 11 Feb 2009 11:29:33 -0800
-Message-ID: <1234380573-16903-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] net: off by one, try #2
+Date: Wed, 11 Feb 2009 20:33:25 +0100
+Message-ID: <49932805.7050309@gmail.com>
+References: <20090211133341.GB12362@ff.dom.local> <4992DF3C.7070802@gmail.com> <20090211171403.GA2539@ami.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:53192 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757036AbZBKT3h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2009 14:29:37 -0500
+Received: from mail-bw0-f161.google.com ([209.85.218.161]:41768 "EHLO
+	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756145AbZBKTdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 14:33:24 -0500
+Received: by bwz5 with SMTP id 5so523361bwz.13
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 11:33:22 -0800 (PST)
+In-Reply-To: <20090211171403.GA2539@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove workaround for pcie bug in early revisions of NX3031
-(rev 41 or earlier). This is taken care of during firmware init.
+Jarek Poplawski wrote:
+> On Wed, Feb 11, 2009 at 03:22:52PM +0100, Roel Kluin wrote:
+>>>> With while (x++ < n) { ... } x can reach n+1.
+>>> Yes, but it looks like here is even more...
+>>> i is also misused here and array can be overriden, so additional
+>>> break/return is needed.
+>> Thanks, is this how it should be?
+> 
+> It looks (almost) OK to me. :-) Except this > 80 line.
+> 
+> On the other hand, I wonder if it's not a good time to make it more
+> readable; I mean the first while (): length, ";", and maybe ++j
+> similarly to i now?
+> 
+> BTW, I hope you remember about irda.
+> 
+> Jarek P.
 
-The workaround required writing pcie config reg of every
-pcie function on a card, not all of which are enabled.
+Thanks again for reviewing, how's this? with irda this time.
+-------------------->8----------------8<-----------------------
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+With while (x++ < n) { ... } x can reach n+1. As Jarek Poplawski pointed out, array
+pcb->data.raw was not correctly used.
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
- drivers/net/netxen/netxen_nic_main.c |   64 ----------------------------------
- 1 files changed, 0 insertions(+), 64 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 3b17a79..e02fe5a 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -372,67 +372,6 @@ static void netxen_set_port_mode(struct netxen_adapter *adapter)
+diff --git a/drivers/net/3c505.c b/drivers/net/3c505.c
+index 6124605..4ade64a 100644
+--- a/drivers/net/3c505.c
++++ b/drivers/net/3c505.c
+@@ -493,15 +493,21 @@ static bool receive_pcb(struct net_device *dev, pcb_struct * pcb)
  	}
- }
+ 	/* read the data */
+ 	spin_lock_irqsave(&adapter->lock, flags);
+-	i = 0;
+-	do {
+-		j = 0;
+-		while (((stat = get_status(dev->base_addr)) & ACRF) == 0 && j++ < 20000);
+-		pcb->data.raw[i++] = inb_command(dev->base_addr);
+-		if (i > MAX_PCB_DATA)
+-			INVALID_PCB_MSG(i);
+-	} while ((stat & ASF_PCB_MASK) != ASF_PCB_END && j < 20000);
++	for (i = 0; i < MAX_PCB_DATA; i++) {
++		for (j = 0; j < 20000; j++) {
++			stat = get_status(dev->base_addr);
++			if (stat & ACRF)
++				break;
++		}
++		pcb->data.raw[i] = inb_command(dev->base_addr);
++		if (stat & ASF_PCB_MASK == ASF_PCB_END || j >= 20000)
++			break;
++	}
+ 	spin_unlock_irqrestore(&adapter->lock, flags);
++	if (i >= MAX_PCB_DATA) {
++		INVALID_PCB_MSG(i);
++		return false;
++	}
+ 	if (j >= 20000) {
+ 		TIMEOUT_MSG(__LINE__);
+ 		return false;
+diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
+index 7eafdca..85e88da 100644
+--- a/drivers/net/irda/mcs7780.c
++++ b/drivers/net/irda/mcs7780.c
+@@ -585,7 +585,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
+ 		mcs_get_reg(mcs, MCS_RESV_REG, &rval);
+ 	} while(cnt++ < 100 && (rval & MCS_IRINTX));
  
--#define PCI_CAP_ID_GEN  0x10
--
--static void netxen_pcie_strap_init(struct netxen_adapter *adapter)
--{
--	u32 pdevfuncsave;
--	u32 c8c9value = 0;
--	u32 chicken = 0;
--	u32 control = 0;
--	int i, pos;
--	struct pci_dev *pdev;
--
--	pdev = adapter->pdev;
--
--	adapter->hw_read_wx(adapter,
--		NETXEN_PCIE_REG(PCIE_CHICKEN3), &chicken, 4);
--	/* clear chicken3.25:24 */
--	chicken &= 0xFCFFFFFF;
--	/*
--	 * if gen1 and B0, set F1020 - if gen 2, do nothing
--	 * if gen2 set to F1000
--	 */
--	pos = pci_find_capability(pdev, PCI_CAP_ID_GEN);
--	if (pos == 0xC0) {
--		pci_read_config_dword(pdev, pos + 0x10, &control);
--		if ((control & 0x000F0000) != 0x00020000) {
--			/*  set chicken3.24 if gen1 */
--			chicken |= 0x01000000;
--		}
--		printk(KERN_INFO "%s Gen2 strapping detected\n",
--				netxen_nic_driver_name);
--		c8c9value = 0xF1000;
--	} else {
--		/* set chicken3.24 if gen1 */
--		chicken |= 0x01000000;
--		printk(KERN_INFO "%s Gen1 strapping detected\n",
--				netxen_nic_driver_name);
--		if (adapter->ahw.revision_id == NX_P3_B0)
--			c8c9value = 0xF1020;
--		else
--			c8c9value = 0;
--
--	}
--	adapter->hw_write_wx(adapter,
--		NETXEN_PCIE_REG(PCIE_CHICKEN3), &chicken, 4);
--
--	if (!c8c9value)
--		return;
--
--	pdevfuncsave = pdev->devfn;
--	if (pdevfuncsave & 0x07)
--		return;
--
--	for (i = 0; i < 8; i++) {
--		pci_read_config_dword(pdev, pos + 8, &control);
--		pci_read_config_dword(pdev, pos + 8, &control);
--		pci_write_config_dword(pdev, pos + 8, c8c9value);
--		pdev->devfn++;
--	}
--	pdev->devfn = pdevfuncsave;
--}
--
- static void netxen_set_msix_bit(struct pci_dev *pdev, int enable)
- {
- 	u32 control;
-@@ -812,9 +751,6 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		}
- 		netxen_load_firmware(adapter);
- 
--		if (NX_IS_REVISION_P3(revision_id))
--			netxen_pcie_strap_init(adapter);
--
- 		if (NX_IS_REVISION_P2(revision_id)) {
- 
- 			/* Initialize multicast addr pool owners */
--- 
-1.6.0.2
+-	if(cnt >= 100) {
++	if (cnt > 100) {
+ 		IRDA_ERROR("unable to change speed\n");
+ 		ret = -EIO;
+ 		goto error;
 
