@@ -1,54 +1,35 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 1/2] net: don't use in_atomic() in gfp_any()
-Date: Wed, 11 Feb 2009 13:49:42 -0800
-Message-ID: <20090211134942.a800067e.akpm@linux-foundation.org>
-References: <200902112127.n1BLRJeJ031575@imap1.linux-foundation.org>
-	<200902120638.BFG12928.FFMOHJOVtOQLFS@I-love.SAKURA.ne.jp>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2009-02-11
+Date: Wed, 11 Feb 2009 13:58:01 -0800 (PST)
+Message-ID: <20090211.135801.242440425.davem@davemloft.net>
+References: <20090211191212.GA7033@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Andi Kleen <andi@firstfloor.org>
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:46099 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754466AbZBKV6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 16:58:00 -0500
-In-Reply-To: <200902120638.BFG12928.FFMOHJOVtOQLFS@I-love.SAKURA.ne.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090211191212.GA7033-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Resend with cc's restored.  Please DO NOT edit the Cc: line :(
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 11 Feb 2009 14:12:12 -0500
 
-On Thu, 12 Feb 2009 06:38:55 +0900
-Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp> wrote:
-
-> Andrew Morton wrote:
-> > Solve both these problems by switching to in_interrupt().  Now, if someone
-> > runs a gfp_any() allocation from inside spinlock we will get the warning
-> > if CONFIG_PREEMPT=y.
+> Here are a few more intended for 2.6.29.  The ath5k one is already in
+> -next, but it turns-out to affect 2.6.29 as well.  The two zd1211rw ones
+> are one-liners that enable new hardware for that driver.
 > 
-> >  static inline gfp_t gfp_any(void)
-> >  {
-> > -	return in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
-> > +	return in_softirq() ? GFP_ATOMIC : GFP_KERNEL;
-> >  }
-> sed -i -e 's/in_softirq/in_interrupt/' ?
+> The iwlwifi patch corrects a problem (introduced by the previous iwlwifi
+> fix) that disables the iwlwifi devices after suspend/resume.  It will
+> conflict with what is already in -next -- just take the hunks that are
+> already in -next and ignore the hunks introduced here.
+> 
+> Please let me know if there are problems!
 
-heh, good question.
-
-I did all my testing with in_softirq() - the changelog didn't catch up.
-
-
-
-Is gfp_any() supposed to be usable from hardirq context?
-
-If so, we should use in_interrupt().
-
-If not, we should use in_softirq(), and we'll then get might_sleep()
-warnings if anyone uses gfp_any() from hard irq context.
-
-
-
-
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
