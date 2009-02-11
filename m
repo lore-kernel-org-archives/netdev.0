@@ -1,44 +1,38 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] rndis: remove private wrapper of __constant_cpu_to_le32
-Date: Wed, 11 Feb 2009 14:16:13 -0800
-Message-ID: <1234390573.5566.13.camel@brick>
-References: <1234389410.5566.5.camel@brick>
-	 <200902111412.18233.david-b@pacbell.net>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
+Date: Wed, 11 Feb 2009 23:50:38 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.0902112334570.17583@blackhole.kfki.hu>
+References: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu> <20090211201908.GA25398@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, John Linville <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rn-out-0910.google.com ([64.233.170.186]:15953 "EHLO
-	rn-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754589AbZBKWRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 17:17:52 -0500
-Received: by rn-out-0910.google.com with SMTP id k40so467343rnd.17
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 14:17:51 -0800 (PST)
-In-Reply-To: <200902111412.18233.david-b@pacbell.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090211201908.GA25398@rere.qmqm.pl>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-02-11 at 14:12 -0800, David Brownell wrote:
-> On Wednesday 11 February 2009, Harvey Harrison wrote:
-> > Use cpu_to_le32 directly as it handles constant folding now, replace direct
-> > uses of __constant_cpu_to_{endian} as well.
-> > 
-> > Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+On Wed, 11 Feb 2009, Micha? Miros?aw wrote:
+
+> On Wed, Feb 11, 2009 at 11:19:20AM +0100, Jozsef Kadlecsik wrote:
+> >  /* The golden ration: an arbitrary value */
+> > -#define JHASH_GOLDEN_RATIO	0x9e3779b9
+> > +#define JHASH_GOLDEN_RATIO	0xdeadbeef
 > 
-> Acked-by: David Brownell <dbrownell@users.sourceforge.net>
-> 
-> ... though I'm trusting you that constant folding really *does* work
-> now, as it didn't when all this code was first written.  Easily enough
-> seen if it doesn't:  build on big-endian HW will break on all the
-> "case cpu_to_le32(constant):" branches.  ;)
+> I have a stupid question: if this is arbitrary value, then why not
+> just get rid of it (IOW use zero as it's used in addition)?
 
-Yes, and large parts of the kernel are already moved to using the base versions
-already.  I fixed the constant-folding bits during the creation/consolidation
-of linux/swab.h
+lookup3() is a quite generic hash function and it supports 0-byte strings 
+as input keys too. If the input key is a 0-byte string and the arbitrary 
+value is zero, then the hash value simply equal to the initval. In order 
+to avoid that case, the arbitrary value must be nonzero.
 
-Harvey
-
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : KFKI Research Institute for Particle and Nuclear Physics
+          H-1525 Budapest 114, POB. 49, Hungary
