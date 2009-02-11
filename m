@@ -1,38 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Removing the unused PAGE_USE_COUNT() macro on
- ixgbe driver
-Date: Tue, 10 Feb 2009 17:25:00 -0800 (PST)
-Message-ID: <20090210.172500.254793935.davem@davemloft.net>
-References: <4991C46D.3030705@linux.vnet.ibm.com>
-	<Pine.WNT.4.64.0902101720340.18672@ppwaskie-MOBL2.amr.corp.intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] netns: remove useless synchronize_net()
+Date: Tue, 10 Feb 2009 23:51:48 -0800
+Message-ID: <m1zlgtjtrf.fsf@fess.ebiederm.org>
+References: <498ABDA2.5040603@dev.6wind.com>
+	<20090205.234520.149982266.davem@davemloft.net>
+	<498C403D.9040500@dev.6wind.com>
+	<20090206.141026.85510254.davem@davemloft.net>
+	<49919FD4.3000008@dev.6wind.com> <4991AE04.7020307@free.fr>
+	<4991AFDA.8020704@dev.6wind.com> <4991B5C9.9040005@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, fubar@us.ibm.com
-To: peter.p.waskiewicz.jr@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: nicolas.dichtel@dev.6wind.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, containers@lists.osdl.org
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44615
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753337AbZBKBZG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Feb 2009 20:25:06 -0500
-In-Reply-To: <Pine.WNT.4.64.0902101720340.18672@ppwaskie-MOBL2.amr.corp.intel.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:44370 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920AbZBKHvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 02:51:46 -0500
+In-Reply-To: <4991B5C9.9040005@free.fr> (Daniel Lezcano's message of "Tue\, 10 Feb 2009 18\:13\:45 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Tue, 10 Feb 2009 17:21:12 -0800 (Pacific Standard Time)
+Daniel Lezcano <daniel.lezcano@free.fr> writes:
+>
+> Hmm, at the first glance I would say it is useless but perhaps there is a trick
+> here I do not understand.
+> Eric, is there any particular reason to call synchronize_net before exiting the
+> dev_change_net_namespace function ?
 
-> On Tue, 10 Feb 2009, Breno Leitao wrote:
->=20
-> > Removing the unused PAGE_USE_COUNT() macro. Also removing the unuse=
-d pages=20
-> > variable at ixgbe_configure_rx() function.
-> >=20
-> > Signed-off-by: Breno Leit=E3o <leitao@linux.vnet.ibm.com>
-> > Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
->=20
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+I haven't thought about that part of the code path in detail in a long
+time.  dev_change_net_namespace() is a condensed version of
+register_netdevice() unregister_netdevice().  With the calls down into
+the driver removed.
 
-Applied, thanks everyone.
+On a side note.  It looks like we now cope with:
+call_netdevice_notifiers(NETDEV_REGISTER, dev); failing in
+register_netdev, but no one updated dev_change_net_namespace to handle
+the change, looks like a real pain to cope with.
+
+As for the synchronize_net, and in response to the original
+comment as best as I can tell we do have things being being
+deleted that are at least candidates for synchronize_net.
+
+dev_addr_discard(dev);
+dev_net_set(dev, net);
+netdev_unregister_kobject(dev);
+
+We very much do access dev->net with only rcu protection.
+
+Hmm.
+
+It looks like I originally took the second synchronize_net from what
+became rollback_registered, which happens just before we start freeing
+the netdevice.
+
+The nastiest case that I can envision is if we happen to receive a
+packet (on another cpu) for the network device that we are moving,
+just after it has registered in the new network namespace.  If we read
+the old network namespace and forward it up the network stack in that
+context I can imagine it being a recipe for all kinds of strange
+non-deterministic behavior.
+
+So unless there is a reason for this change beyond general cleanup I
+would prefer not to think about it potential weirdness, and keep the
+code the way it is.
+
+I seem to remember a conversation about this synchronize_net when the
+code was merged as well so if we are going to change it, let's look
+up those arguments if we can and see if there was something useful
+said.
+
+Eric
