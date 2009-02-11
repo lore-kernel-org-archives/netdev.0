@@ -1,36 +1,31 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] sun3: print when lance_open() fails
-Date: Wed, 11 Feb 2009 16:14:09 +0100
-Message-ID: <4992EB41.1030405@gmail.com>
+From: Sarah <edge@nb.sympatico.ca>
+Subject: claims of =?iso-8859-1?B?ozEsMzUwLjAwMA==?=
+Date: Wed, 11 Feb 2009 10:30:20 -0500
+Message-ID: <20090211153020.NZQA1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+Reply-To: edward.brown44@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: sammy@sammy.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@result.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f11.google.com ([209.85.221.11]:43912 "EHLO
-	mail-qy0-f11.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754895AbZBKPVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 10:21:51 -0500
-Received: by qyk4 with SMTP id 4so242233qyk.13
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 07:21:50 -0800 (PST)
+Received: from simmts12-qfe0.srvr.bell.ca ([206.47.199.141]:53736 "EHLO
+	simmts12-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752595AbZBKPaV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Feb 2009 10:30:21 -0500
+Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
+          by simmts12-srv.bellnexxia.net
+          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
+          id <20090211153020.NZQA1599.simmts12-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+          for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 10:30:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With while (--i > 0) { ... } i reaches 0; print when lance_open() fails
+=A31,350,000.00 Pounds  has been won by you in our Irish Promo .get bac=
+k to this office with your details =20
+Names
+Address=20
+Contry
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/net/sun3lance.c b/drivers/net/sun3lance.c
-index 4bb8f72..e5beb29 100644
---- a/drivers/net/sun3lance.c
-+++ b/drivers/net/sun3lance.c
-@@ -428,7 +428,7 @@ static int lance_open( struct net_device *dev )
- 	while (--i > 0)
- 		if (DREG & CSR0_IDON)
- 			break;
--	if (i < 0 || (DREG & CSR0_ERR)) {
-+	if (i <= 0 || (DREG & CSR0_ERR)) {
- 		DPRINTK( 2, ( "lance_open(): opening %s failed, i=%d, csr0=%04x\n",
- 					  dev->name, i, DREG ));
- 		DREG = CSR0_STOP;
+Email:edward.brown44@btinternet.com
+
