@@ -1,44 +1,64 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
-Date: Thu, 12 Feb 2009 00:23:35 +0100
-Message-ID: <20090211232335.GA16996@rere.qmqm.pl>
-References: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu> <20090211201908.GA25398@rere.qmqm.pl> <alpine.DEB.2.00.0902112334570.17583@blackhole.kfki.hu>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 4/4] bnx2: Update version to 1.9.2 and copyright.
+Date: Wed, 11 Feb 2009 15:52:18 -0800
+Message-ID: <1234396338-14859-4-git-send-email-mchan@broadcom.com>
+References: <1234396338-14859-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:48423 "EHLO rere.qmqm.pl"
+Received: from mms2.broadcom.com ([216.31.210.18]:1109 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755501AbZBKXXi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2009 18:23:38 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0902112334570.17583@blackhole.kfki.hu>
+	id S1753036AbZBKXoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Feb 2009 18:44:25 -0500
+In-Reply-To: <1234396338-14859-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 11, 2009 at 11:50:38PM +0100, Jozsef Kadlecsik wrote:
-> On Wed, 11 Feb 2009, Micha? Miros?aw wrote:
-> > On Wed, Feb 11, 2009 at 11:19:20AM +0100, Jozsef Kadlecsik wrote:
-> > >  /* The golden ration: an arbitrary value */
-> > > -#define JHASH_GOLDEN_RATIO	0x9e3779b9
-> > > +#define JHASH_GOLDEN_RATIO	0xdeadbeef
-> > I have a stupid question: if this is arbitrary value, then why not
-> > just get rid of it (IOW use zero as it's used in addition)?
-> lookup3() is a quite generic hash function and it supports 0-byte str=
-ings=20
-> as input keys too. If the input key is a 0-byte string and the arbitr=
-ary=20
-> value is zero, then the hash value simply equal to the initval. In or=
-der=20
-> to avoid that case, the arbitrary value must be nonzero.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |    6 +++---
+ drivers/net/bnx2.h |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Double-hashing, of course! I really need more sleep. Sorry for the nois=
-e. :>
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 903d13b..8466d35 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1,6 +1,6 @@
+ /* bnx2.c: Broadcom NX2 network driver.
+  *
+- * Copyright (c) 2004-2008 Broadcom Corporation
++ * Copyright (c) 2004-2009 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -57,8 +57,8 @@
+ 
+ #define DRV_MODULE_NAME		"bnx2"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"1.9.0"
+-#define DRV_MODULE_RELDATE	"Dec 16, 2008"
++#define DRV_MODULE_VERSION	"1.9.2"
++#define DRV_MODULE_RELDATE	"Feb 11, 2009"
+ 
+ #define RUN_AT(x) (jiffies + (x))
+ 
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 900641a..704cbbc 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -1,6 +1,6 @@
+ /* bnx2.h: Broadcom NX2 network driver.
+  *
+- * Copyright (c) 2004-2007 Broadcom Corporation
++ * Copyright (c) 2004-2009 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+-- 
+1.5.6.GIT
 
-Best Regards,
-Micha=B3 Miros=B3aw
 
