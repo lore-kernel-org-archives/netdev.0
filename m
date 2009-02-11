@@ -1,42 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MX27 FEC add mii bus
-Date: Tue, 10 Feb 2009 17:09:34 -0800 (PST)
-Message-ID: <20090210.170934.156314697.davem@davemloft.net>
-References: <d99e615c0902090957k117f5f48q8af0af7279318c7a@mail.gmail.com>
+Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
+Date: Tue, 10 Feb 2009 17:17:38 -0800 (PST)
+Message-ID: <20090210.171738.65421666.davem@davemloft.net>
+References: <alpine.DEB.2.00.0902102026060.10299@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: s.hauer@pengutronix.de, linux-arm-kernel@lists.arm.linux.org.uk,
-	netdev@vger.kernel.org, gerg@snapgear.com
-To: fred.rodo@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-In-Reply-To: <d99e615c0902090957k117f5f48q8af0af7279318c7a@mail.gmail.com>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/lurker/list/linux-arm-kernel.html>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kadlec@blackhole.kfki.hu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55115
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755516AbZBKBRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2009 20:17:44 -0500
+In-Reply-To: <alpine.DEB.2.00.0902102026060.10299@blackhole.kfki.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: frederic rodo <fred.rodo@gmail.com>
-Date: Mon, 9 Feb 2009 18:57:42 +0100
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Date: Tue, 10 Feb 2009 20:40:47 +0100 (CET)
 
-> Hi,
+> Please consider applying the following patch:
 > 
-> I have made the corrections you have asked, and I test it successfully
-> with my custom board and a pcm038
+> The current jhash.h implements the lookup2() hash function by Bob Jenkins. 
+> However, lookup2() is outdated as Bob wrote a new hash function called 
+> lookup3(). The new hash function
+> 
+> - mixes better than lookup2(): it passes the check that every input bit 
+>   changes every output bit 50% of the time, while lookup2() failed it.
+> - performs better: compiled with -O2 on Core2 Duo, lookup3() 20-40% faster
+>   than lookup2() depending on the key length.
+> 
+> The patch replaces the lookup2() implementation of the 'jhash*' 
+> functions with that of lookup3().
+> 
+> You can read a longer comparison of the two and other hash functions at 
+> http://burtleburtle.net/bob/hash/doobs.html.
+> 
+> Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-This doesn't apply to net-next-2.6 nor net-2.6 nor even Linus's tree,
-please respin your patch so that it applies cleanly to something close
-to what I'm going to apply this patch to.
+I support this change and I also don't think it makes sense
+to have a jhash3.h new header file, that's just a waste of
+time.  Either the new stuff is better or it isn't, and that
+whole "matching hashes" argument is pure garbage.
 
-Thank you.
+But this kind of change isn't for me to decide, changing jhash
+impacts the entire tree not just networking, and also I know
+that Rusty Russell was investigating making this change and
+he even did his own timings on various platforms.
 
--------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+Therefore this needs to be proposed on linux-kernel with appropriate
+parties CC:'d.
+
+Thanks.
