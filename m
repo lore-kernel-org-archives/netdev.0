@@ -1,63 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH net] net: Fix page seeking for skb_splice_bits().
-Date: Wed, 11 Feb 2009 22:58:06 +0100
-Message-ID: <20090211215806.GA2676@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f20.google.com ([209.85.220.20]:55733 "EHLO
-	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756874AbZBKV6N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 16:58:13 -0500
-Received: by fxm13 with SMTP id 13so1271152fxm.13
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 13:58:10 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Subject: [patch 1/2] bluetooth/bt3c: eliminate a sparse warning
+Date: Wed, 11 Feb 2009 13:28:11 -0800
+Message-ID: <200902112128.n1BLSBnP000351@imap1.linux-foundation.org>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, andre-uV3PkZocewMvJ4zyQN8m6A@public.gmane.org,
+	hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Andre Haupt <andre-uV3PkZocewMvJ4zyQN8m6A@public.gmane.org>
 
-So, you both were right there is something wrong with splice for
-multipage linear regions, at least theoretically. Since I don't know
-if this can really matter in practice (could NUMA slab allocate these
-pages from different tables?), I've done it against -net, but maybe
--net-next is enough?
+This eliminates a sparse warning that symbol 'stat' shadows an earlier one.
 
-Thanks,
-Jarek P.
-------------->
-net: Fix page seeking for skb_splice_bits().
-
-struct page walking should be done with proper accessor functions, not
-directly.
-
-With doubts from David S. Miller and Herbert Xu.
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Signed-off-by: Andre Haupt <andre-uV3PkZocewMvJ4zyQN8m6A@public.gmane.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Cc: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 ---
 
- net/core/skbuff.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ drivers/bluetooth/bt3c_cs.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index da74b84..7aacd95 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1373,8 +1373,13 @@ static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
- static inline void __segment_seek(struct page **page, unsigned int *poff,
- 				  unsigned int *plen, unsigned int off)
- {
-+	unsigned long n;
-+
- 	*poff += off;
--	*page += *poff / PAGE_SIZE;
-+	n = *poff / PAGE_SIZE;
-+	if (n)
-+		*page = nth_page(*page, n);
-+
- 	*poff = *poff % PAGE_SIZE;
- 	*plen -= off;
- }
-
+diff -puN drivers/bluetooth/bt3c_cs.c~bluetooth-bt3c-eliminate-a-sparse-warning drivers/bluetooth/bt3c_cs.c
+--- a/drivers/bluetooth/bt3c_cs.c~bluetooth-bt3c-eliminate-a-sparse-warning
++++ a/drivers/bluetooth/bt3c_cs.c
+@@ -359,9 +359,9 @@ static irqreturn_t bt3c_interrupt(int ir
+ 			BT_ERR("Very strange (stat=0x%04x)", stat);
+ 		} else if ((stat & 0xff) != 0xff) {
+ 			if (stat & 0x0020) {
+-				int stat = bt3c_read(iobase, 0x7002) & 0x10;
++				int status = bt3c_read(iobase, 0x7002) & 0x10;
+ 				BT_INFO("%s: Antenna %s", info->hdev->name,
+-							stat ? "out" : "in");
++							status ? "out" : "in");
+ 			}
+ 			if (stat & 0x0001)
+ 				bt3c_receive(info);
+_
