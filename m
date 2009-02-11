@@ -1,306 +1,208 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2009-02-11
-Date: Wed, 11 Feb 2009 14:12:12 -0500
-Message-ID: <20090211191212.GA7033@tuxdriver.com>
+From: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Subject: [git-pull -tip V2] fix compilation warnings
+Date: Thu, 12 Feb 2009 00:46:20 +0530
+Message-ID: <1234379780.3910.8.camel@localhost.localdomain>
+References: <1234377797.3910.6.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: x86 maintainers <x86@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	airlied@linux.ie, netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:49019 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751013AbZBKTRE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Feb 2009 14:17:04 -0500
+In-Reply-To: <1234377797.3910.6.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
-
-Here are a few more intended for 2.6.29.  The ath5k one is already in
--next, but it turns-out to affect 2.6.29 as well.  The two zd1211rw ones
-are one-liners that enable new hardware for that driver.
-
-The iwlwifi patch corrects a problem (introduced by the previous iwlwifi
-fix) that disables the iwlwifi devices after suspend/resume.  It will
-conflict with what is already in -next -- just take the hunks that are
-already in -next and ignore the hunks introduced here.
-
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
----
-
-Individual patches are available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit 7b7a799d664a46eec6cb7de200c90f40730497a7:
-  Meelis Roos (1):
-        sunhme: Fix Quattro HME irq registration on proble failures
+The following changes since commit 5765fcf36081bafa06b9553376bd99ceb629beb8:
+  Ingo Molnar (1):
+        Merge branch 'linus'
 
 are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+  git://git.kernel.org/pub/scm/linux/kernel/git/jaswinder/linux-2.6-tipclean.git master
 
-Bob Copeland (1):
-      ath5k: fix bf->skb==NULL panic in ath5k_tasklet_rx
+Jaswinder Singh Rajput (7):
+      x86: mm/init_32.c fix compilation warning
+      x86: kernel/mpparse.c fix compilation warnings
+      drm_proc.c fix compilation warning
+      falcon fix compilation warnings
+      iscsi_ibft.c fix compilation warning
+      ne3210.c fix compilation warning for phys_addr_t
+      arlan-main.c fix compilation warnings for phys_addr_t
 
-Hin-Tak Leung (2):
-      zd1211rw: adding 0ace:0xa211 as a ZD1211 device
-      zd1211rw: treat MAXIM_NEW_RF(0x08) as UW2453_RF(0x09) for TP-Link WN322/422G
+ arch/x86/kernel/mpparse.c         |    6 +++---
+ arch/x86/mm/init_32.c             |    2 +-
+ drivers/firmware/iscsi_ibft.c     |    4 ++--
+ drivers/gpu/drm/drm_proc.c        |    4 ++--
+ drivers/net/ne3210.c              |    3 ++-
+ drivers/net/sfc/falcon.c          |   24 ++++++++++++------------
+ drivers/net/wireless/arlan-main.c |    4 ++--
+ 7 files changed, 24 insertions(+), 23 deletions(-)
 
-Johannes Berg (1):
-      mac80211: restrict to AP in outgoing interface heuristic
-
-Reinette Chatre (1):
-      iwlwifi: fix suspend/resume and its usage of pci saved state
-
- drivers/net/wireless/ath5k/base.c           |   85 +++++++++++++++++----------
- drivers/net/wireless/iwlwifi/iwl-agn.c      |   15 ++++-
- drivers/net/wireless/iwlwifi/iwl3945-base.c |   15 ++++-
- drivers/net/wireless/zd1211rw/zd_rf.c       |    1 +
- drivers/net/wireless/zd1211rw/zd_usb.c      |    1 +
- net/mac80211/tx.c                           |    2 +
- 6 files changed, 83 insertions(+), 36 deletions(-)
-
-diff --git a/drivers/net/wireless/ath5k/base.c b/drivers/net/wireless/ath5k/base.c
-index a533ed6..1d77ee9 100644
---- a/drivers/net/wireless/ath5k/base.c
-+++ b/drivers/net/wireless/ath5k/base.c
-@@ -1098,6 +1098,42 @@ ath5k_hw_to_driver_rix(struct ath5k_softc *sc, int hw_rix)
- * Buffers setup *
- \***************/
+Complete Diff:
+diff --git a/arch/x86/kernel/mpparse.c b/arch/x86/kernel/mpparse.c
+index 66ebb82..2007644 100644
+--- a/arch/x86/kernel/mpparse.c
++++ b/arch/x86/kernel/mpparse.c
+@@ -692,8 +692,8 @@ static int __init smp_scan_config(unsigned long base, unsigned long length,
+ #endif
+ 			mpf_found = mpf;
  
-+static
-+struct sk_buff *ath5k_rx_skb_alloc(struct ath5k_softc *sc, dma_addr_t *skb_addr)
-+{
-+	struct sk_buff *skb;
-+	unsigned int off;
-+
-+	/*
-+	 * Allocate buffer with headroom_needed space for the
-+	 * fake physical layer header at the start.
-+	 */
-+	skb = dev_alloc_skb(sc->rxbufsize + sc->cachelsz - 1);
-+
-+	if (!skb) {
-+		ATH5K_ERR(sc, "can't alloc skbuff of size %u\n",
-+				sc->rxbufsize + sc->cachelsz - 1);
-+		return NULL;
-+	}
-+	/*
-+	 * Cache-line-align.  This is important (for the
-+	 * 5210 at least) as not doing so causes bogus data
-+	 * in rx'd frames.
-+	 */
-+	off = ((unsigned long)skb->data) % sc->cachelsz;
-+	if (off != 0)
-+		skb_reserve(skb, sc->cachelsz - off);
-+
-+	*skb_addr = pci_map_single(sc->pdev,
-+		skb->data, sc->rxbufsize, PCI_DMA_FROMDEVICE);
-+	if (unlikely(pci_dma_mapping_error(sc->pdev, *skb_addr))) {
-+		ATH5K_ERR(sc, "%s: DMA mapping failed\n", __func__);
-+		dev_kfree_skb(skb);
-+		return NULL;
-+	}
-+	return skb;
-+}
-+
- static int
- ath5k_rxbuf_setup(struct ath5k_softc *sc, struct ath5k_buf *bf)
- {
-@@ -1105,37 +1141,11 @@ ath5k_rxbuf_setup(struct ath5k_softc *sc, struct ath5k_buf *bf)
- 	struct sk_buff *skb = bf->skb;
- 	struct ath5k_desc *ds;
+-			printk(KERN_INFO "found SMP MP-table at [%p] %08lx\n",
+-			       mpf, virt_to_phys(mpf));
++			printk(KERN_INFO "found SMP MP-table at [%p] %llx\n",
++			       mpf, (u64)virt_to_phys(mpf));
  
--	if (likely(skb == NULL)) {
--		unsigned int off;
--
--		/*
--		 * Allocate buffer with headroom_needed space for the
--		 * fake physical layer header at the start.
--		 */
--		skb = dev_alloc_skb(sc->rxbufsize + sc->cachelsz - 1);
--		if (unlikely(skb == NULL)) {
--			ATH5K_ERR(sc, "can't alloc skbuff of size %u\n",
--					sc->rxbufsize + sc->cachelsz - 1);
-+	if (!skb) {
-+		skb = ath5k_rx_skb_alloc(sc, &bf->skbaddr);
-+		if (!skb)
- 			return -ENOMEM;
--		}
--		/*
--		 * Cache-line-align.  This is important (for the
--		 * 5210 at least) as not doing so causes bogus data
--		 * in rx'd frames.
--		 */
--		off = ((unsigned long)skb->data) % sc->cachelsz;
--		if (off != 0)
--			skb_reserve(skb, sc->cachelsz - off);
--
- 		bf->skb = skb;
--		bf->skbaddr = pci_map_single(sc->pdev,
--			skb->data, sc->rxbufsize, PCI_DMA_FROMDEVICE);
--		if (unlikely(pci_dma_mapping_error(sc->pdev, bf->skbaddr))) {
--			ATH5K_ERR(sc, "%s: DMA mapping failed\n", __func__);
--			dev_kfree_skb(skb);
--			bf->skb = NULL;
--			return -ENOMEM;
--		}
- 	}
+ 			if (!reserve)
+ 				return 1;
+@@ -1011,7 +1011,7 @@ static int __init update_mp_table(void)
+ 	if (!smp_check_mpc(mpc, oem, str))
+ 		return 0;
  
- 	/*
-@@ -1664,7 +1674,8 @@ ath5k_tasklet_rx(unsigned long data)
- {
- 	struct ieee80211_rx_status rxs = {};
- 	struct ath5k_rx_status rs = {};
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *next_skb;
-+	dma_addr_t next_skb_addr;
- 	struct ath5k_softc *sc = (void *)data;
- 	struct ath5k_buf *bf, *bf_last;
- 	struct ath5k_desc *ds;
-@@ -1749,10 +1760,17 @@ ath5k_tasklet_rx(unsigned long data)
- 				goto next;
- 		}
- accept:
-+		next_skb = ath5k_rx_skb_alloc(sc, &next_skb_addr);
-+
-+		/*
-+		 * If we can't replace bf->skb with a new skb under memory
-+		 * pressure, just skip this packet
-+		 */
-+		if (!next_skb)
-+			goto next;
-+
- 		pci_unmap_single(sc->pdev, bf->skbaddr, sc->rxbufsize,
- 				PCI_DMA_FROMDEVICE);
--		bf->skb = NULL;
--
- 		skb_put(skb, rs.rs_datalen);
+-	printk(KERN_INFO "mpf: %lx\n", virt_to_phys(mpf));
++	printk(KERN_INFO "mpf: %llx\n", (u64)virt_to_phys(mpf));
+ 	printk(KERN_INFO "physptr: %x\n", mpf->physptr);
  
- 		/* The MAC header is padded to have 32-bit boundary if the
-@@ -1825,6 +1843,9 @@ accept:
- 			ath5k_check_ibss_tsf(sc, skb, &rxs);
+ 	if (mpc_new_phys && mpc->length > mpc_new_length) {
+diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
+index 41b3545..21d34b3 100644
+--- a/arch/x86/mm/init_32.c
++++ b/arch/x86/mm/init_32.c
+@@ -691,7 +691,7 @@ void __init find_low_pfn_range(void)
+ 			max_pfn = MAXMEM_PFN + highmem_pages;
+ 		if (highmem_pages + MAXMEM_PFN > max_pfn) {
+ 			printk(KERN_WARNING "only %luMB highmem pages "
+-				"available, ignoring highmem size of %uMB.\n",
++				"available, ignoring highmem size of %luMB.\n",
+ 				pages_to_mb(max_pfn - MAXMEM_PFN),
+ 				pages_to_mb(highmem_pages));
+ 			highmem_pages = 0;
+diff --git a/drivers/firmware/iscsi_ibft.c b/drivers/firmware/iscsi_ibft.c
+index 3ab3e4a..7b7ddc2 100644
+--- a/drivers/firmware/iscsi_ibft.c
++++ b/drivers/firmware/iscsi_ibft.c
+@@ -938,8 +938,8 @@ static int __init ibft_init(void)
+ 		return -ENOMEM;
  
- 		__ieee80211_rx(sc->hw, skb, &rxs);
-+
-+		bf->skb = next_skb;
-+		bf->skbaddr = next_skb_addr;
- next:
- 		list_move_tail(&bf->list, &sc->rxbuf);
- 	} while (ath5k_rxbuf_setup(sc, bf) == 0);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index c01ea48..36bafeb 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -4042,7 +4042,19 @@ static int iwl_pci_suspend(struct pci_dev *pdev, pm_message_t state)
- 		priv->is_open = 1;
- 	}
+ 	if (ibft_addr) {
+-		printk(KERN_INFO "iBFT detected at 0x%lx.\n",
+-		       virt_to_phys((void *)ibft_addr));
++		printk(KERN_INFO "iBFT detected at 0x%llx.\n",
++		       (u64)virt_to_phys((void *)ibft_addr));
  
--	pci_save_state(pdev);
-+	/* pci driver assumes state will be saved in this function.
-+	 * pci state is saved and device disabled when interface is
-+	 * stopped, so at this time pci device will always be disabled -
-+	 * whether interface was started or not. saving pci state now will
-+	 * cause saved state be that of a disabled device, which will cause
-+	 * problems during resume in that we will end up with a disabled device.
-+	 *
-+	 * indicate that the current saved state (from when interface was
-+	 * stopped) is valid. if interface was never up at time of suspend
-+	 * then the saved state will still be valid as it was saved during
-+	 * .probe. */
-+	pdev->state_saved = true;
-+
- 	pci_set_power_state(pdev, PCI_D3hot);
+ 		rc = ibft_check_device();
+ 		if (rc)
+diff --git a/drivers/gpu/drm/drm_proc.c b/drivers/gpu/drm/drm_proc.c
+index 8df849f..b756f04 100644
+--- a/drivers/gpu/drm/drm_proc.c
++++ b/drivers/gpu/drm/drm_proc.c
+@@ -678,9 +678,9 @@ static int drm__vma_info(char *buf, char **start, off_t offset, int request,
+ 	*start = &buf[offset];
+ 	*eof = 0;
+ 
+-	DRM_PROC_PRINT("vma use count: %d, high_memory = %p, 0x%08lx\n",
++	DRM_PROC_PRINT("vma use count: %d, high_memory = %p, 0x%llx\n",
+ 		       atomic_read(&dev->vma_count),
+-		       high_memory, virt_to_phys(high_memory));
++		       high_memory, (u64)virt_to_phys(high_memory));
+ 	list_for_each_entry(pt, &dev->vmalist, head) {
+ 		if (!(vma = pt->vma))
+ 			continue;
+diff --git a/drivers/net/ne3210.c b/drivers/net/ne3210.c
+index fac43fd..6a843f7 100644
+--- a/drivers/net/ne3210.c
++++ b/drivers/net/ne3210.c
+@@ -150,7 +150,8 @@ static int __init ne3210_eisa_probe (struct device *device)
+ 		if (phys_mem < virt_to_phys(high_memory)) {
+ 			printk(KERN_CRIT "ne3210.c: Card RAM overlaps with normal memory!!!\n");
+ 			printk(KERN_CRIT "ne3210.c: Use EISA SCU to set card memory below 1MB,\n");
+-			printk(KERN_CRIT "ne3210.c: or to an address above 0x%lx.\n", virt_to_phys(high_memory));
++			printk(KERN_CRIT "ne3210.c: or to an address above 0x%llx.\n",
++				(u64)virt_to_phys(high_memory));
+ 			printk(KERN_CRIT "ne3210.c: Driver NOT installed.\n");
+ 			retval = -EINVAL;
+ 			goto out3;
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index d5378e6..064307c 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -338,10 +338,10 @@ static int falcon_alloc_special_buffer(struct efx_nic *efx,
+ 	nic_data->next_buffer_table += buffer->entries;
+ 
+ 	EFX_LOG(efx, "allocating special buffers %d-%d at %llx+%x "
+-		"(virt %p phys %lx)\n", buffer->index,
++		"(virt %p phys %llx)\n", buffer->index,
+ 		buffer->index + buffer->entries - 1,
+-		(unsigned long long)buffer->dma_addr, len,
+-		buffer->addr, virt_to_phys(buffer->addr));
++		(u64)buffer->dma_addr, len,
++		buffer->addr, (u64)virt_to_phys(buffer->addr));
  
  	return 0;
-@@ -4053,7 +4065,6 @@ static int iwl_pci_resume(struct pci_dev *pdev)
- 	struct iwl_priv *priv = pci_get_drvdata(pdev);
+ }
+@@ -353,10 +353,10 @@ static void falcon_free_special_buffer(struct efx_nic *efx,
+ 		return;
  
- 	pci_set_power_state(pdev, PCI_D0);
--	pci_restore_state(pdev);
+ 	EFX_LOG(efx, "deallocating special buffers %d-%d at %llx+%x "
+-		"(virt %p phys %lx)\n", buffer->index,
++		"(virt %p phys %llx)\n", buffer->index,
+ 		buffer->index + buffer->entries - 1,
+-		(unsigned long long)buffer->dma_addr, buffer->len,
+-		buffer->addr, virt_to_phys(buffer->addr));
++		(u64)buffer->dma_addr, buffer->len,
++		buffer->addr, (u64)virt_to_phys(buffer->addr));
  
- 	if (priv->is_open)
- 		iwl_mac_start(priv->hw);
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 5b44d32..93be74a 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -8143,7 +8143,19 @@ static int iwl3945_pci_suspend(struct pci_dev *pdev, pm_message_t state)
- 		priv->is_open = 1;
- 	}
- 
--	pci_save_state(pdev);
-+	/* pci driver assumes state will be saved in this function.
-+	 * pci state is saved and device disabled when interface is
-+	 * stopped, so at this time pci device will always be disabled -
-+	 * whether interface was started or not. saving pci state now will
-+	 * cause saved state be that of a disabled device, which will cause
-+	 * problems during resume in that we will end up with a disabled device.
-+	 *
-+	 * indicate that the current saved state (from when interface was
-+	 * stopped) is valid. if interface was never up at time of suspend
-+	 * then the saved state will still be valid as it was saved during
-+	 * .probe. */
-+	pdev->state_saved = true;
-+
- 	pci_set_power_state(pdev, PCI_D3hot);
+ 	pci_free_consistent(efx->pci_dev, buffer->len, buffer->addr,
+ 			    buffer->dma_addr);
+@@ -2343,10 +2343,10 @@ int falcon_probe_port(struct efx_nic *efx)
+ 				 FALCON_MAC_STATS_SIZE);
+ 	if (rc)
+ 		return rc;
+-	EFX_LOG(efx, "stats buffer at %llx (virt %p phys %lx)\n",
+-		(unsigned long long)efx->stats_buffer.dma_addr,
++	EFX_LOG(efx, "stats buffer at %llx (virt %p phys %llx)\n",
++		(u64)efx->stats_buffer.dma_addr,
+ 		efx->stats_buffer.addr,
+-		virt_to_phys(efx->stats_buffer.addr));
++		(u64)virt_to_phys(efx->stats_buffer.addr));
  
  	return 0;
-@@ -8154,7 +8166,6 @@ static int iwl3945_pci_resume(struct pci_dev *pdev)
- 	struct iwl3945_priv *priv = pci_get_drvdata(pdev);
+ }
+@@ -2921,9 +2921,9 @@ int falcon_probe_nic(struct efx_nic *efx)
+ 		goto fail4;
+ 	BUG_ON(efx->irq_status.dma_addr & 0x0f);
  
- 	pci_set_power_state(pdev, PCI_D0);
--	pci_restore_state(pdev);
+-	EFX_LOG(efx, "INT_KER at %llx (virt %p phys %lx)\n",
+-		(unsigned long long)efx->irq_status.dma_addr,
+-		efx->irq_status.addr, virt_to_phys(efx->irq_status.addr));
++	EFX_LOG(efx, "INT_KER at %llx (virt %p phys %llx)\n",
++		(u64)efx->irq_status.dma_addr,
++		efx->irq_status.addr, (u64)virt_to_phys(efx->irq_status.addr));
  
- 	if (priv->is_open)
- 		iwl3945_mac_start(priv->hw);
-diff --git a/drivers/net/wireless/zd1211rw/zd_rf.c b/drivers/net/wireless/zd1211rw/zd_rf.c
-index 7207bfd..c875ee0 100644
---- a/drivers/net/wireless/zd1211rw/zd_rf.c
-+++ b/drivers/net/wireless/zd1211rw/zd_rf.c
-@@ -86,6 +86,7 @@ int zd_rf_init_hw(struct zd_rf *rf, u8 type)
- 	case AL7230B_RF:
- 		r = zd_rf_init_al7230b(rf);
- 		break;
-+	case MAXIM_NEW_RF:
- 	case UW2453_RF:
- 		r = zd_rf_init_uw2453(rf);
- 		break;
-diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index 17527f7..f0e5e94 100644
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -37,6 +37,7 @@
- static struct usb_device_id usb_ids[] = {
- 	/* ZD1211 */
- 	{ USB_DEVICE(0x0ace, 0x1211), .driver_info = DEVICE_ZD1211 },
-+	{ USB_DEVICE(0x0ace, 0xa211), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x07b8, 0x6001), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x126f, 0xa006), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x6891, 0xa727), .driver_info = DEVICE_ZD1211 },
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index 4278e54..94de503 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -1343,6 +1343,8 @@ int ieee80211_master_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 						list) {
- 				if (!netif_running(sdata->dev))
- 					continue;
-+				if (sdata->vif.type != NL80211_IFTYPE_AP)
-+					continue;
- 				if (compare_ether_addr(sdata->dev->dev_addr,
- 						       hdr->addr2)) {
- 					dev_hold(sdata->dev);
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	falcon_probe_spi_devices(efx);
+ 
+diff --git a/drivers/net/wireless/arlan-main.c b/drivers/net/wireless/arlan-main.c
+index bfca15d..14c1165 100644
+--- a/drivers/net/wireless/arlan-main.c
++++ b/drivers/net/wireless/arlan-main.c
+@@ -1082,8 +1082,8 @@ static int __init arlan_probe_here(struct net_device *dev,
+ 	if (arlan_check_fingerprint(memaddr))
+ 		return -ENODEV;
+ 
+-	printk(KERN_NOTICE "%s: Arlan found at %x, \n ", dev->name, 
+-	       (int) virt_to_phys((void*)memaddr));
++	printk(KERN_NOTICE "%s: Arlan found at %llx, \n ", dev->name, 
++	       (u64) virt_to_phys((void*)memaddr));
+ 
+ 	ap->card = (void *) memaddr;
+ 	dev->mem_start = memaddr;
+
+
