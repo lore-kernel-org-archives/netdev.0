@@ -1,41 +1,43 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 4/7] qlge: bugfix: Add missing dev_kfree_skb_any() call.
-Date: Wed, 11 Feb 2009 05:58:34 -0800
-Message-ID: <1234360717-32194-4-git-send-email-ron.mercer@qlogic.com>
-References: <1234360717-32194-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
-	ron.mercer@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:50248 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378AbZBKOBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 09:01:16 -0500
-In-Reply-To: <1234360717-32194-1-git-send-email-ron.mercer@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH] ehea: Fix: Remove adapter from adapter list in error
+ path
+Date: Wed, 11 Feb 2009 15:15:34 +0100
+Message-ID: <4992DD86.1030607@s5r6.in-berlin.de>
+References: <200902111329.02954.hannes.hering@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	ossrosch@linux.vnet.ibm.com, ossthema@de.ibm.com,
+	raisch@de.ibm.com, themann@de.ibm.com, osstklei@de.ibm.com
+To: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756452AbZBKOP7@vger.kernel.org>
+In-Reply-To: <200902111329.02954.hannes.hering@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We put the skb back if we can't get mapping for it.  We don't
-want unmapped buffers on our receive buffer queue.
+Hannes Hering wrote:
+> Remove adapter from adapter list before freeing data structure in error path.
+...
+> --- linux-2.6.29-rc4/drivers/net/ehea/ehea_main.c	2009-02-11 13:13:47.812542928 +0100
+> +++ patched_kernel/drivers/net/ehea/ehea_main.c	2009-02-11 13:14:04.197540184 +0100
+> @@ -3448,6 +3448,7 @@ out_kill_eq:
+>  	ehea_destroy_eq(adapter->neq);
+>  
+>  out_free_ad:
+> +	list_del(&adapter->list);
+>  	kfree(adapter);
+>  
+>  out:
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+On a related note, ehea_set_mac_addr()/ehea_update_bcmc_registrations()
+accesses adapter_list without serialization by ehea_fw_handles.lock and
+thus apparently unsafely.
 
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 5b75fc9..fc7d210 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -970,6 +970,8 @@ static void ql_update_sbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
- 				if (pci_dma_mapping_error(qdev->pdev, map)) {
- 					QPRINTK(qdev, IFUP, ERR, "PCI mapping failed.\n");
- 					rx_ring->sbq_clean_idx = clean_idx;
-+					dev_kfree_skb_any(sbq_desc->p.skb);
-+					sbq_desc->p.skb = NULL;
- 					return;
- 				}
- 				pci_unmap_addr_set(sbq_desc, mapaddr, map);
+There may be other unsafe accesses of adapter_list; that's just the
+first one which I spotted.
 -- 
-1.6.0.2
-
+Stefan Richter
+-=====-==--= --=- -=-==
+http://arcgraph.de/sr/
