@@ -1,273 +1,45 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: [PATCH] Update jhash.h with the new version of Jenkins' hash
-Date: Wed, 11 Feb 2009 11:19:20 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] TG3: limit reaches -1
+Date: Wed, 11 Feb 2009 11:49:30 +0100
+Message-ID: <4992AD3A.7000301@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.kfki.hu ([148.6.0.26]:44759 "EHLO smtp1.kfki.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754727AbZBKKTY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2009 05:19:24 -0500
+Received: from fk-out-0910.google.com ([209.85.128.191]:11118 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754943AbZBKKt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 05:49:28 -0500
+Received: by fk-out-0910.google.com with SMTP id f33so52958fkf.5
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 02:49:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+With while (limit--) { ... } limit reaches -1, so 0 means success.
 
-The current jhash.h implements the lookup2() hash function by Bob Jenkins. 
-However, lookup2() is outdated as Bob wrote a new hash function called 
-lookup3(). The new hash function
-
-- mixes better than lookup2(): it passes the check that every input bit 
-  changes every output bit 50% of the time, while lookup2() failed it.
-- performs better: compiled with -O2 on Core2 Duo, lookup3() is 20-40% 
-  faster than lookup2() depending on the key length.
-
-The patch replaces the lookup2() implementation of the 'jhash*' 
-functions with that of lookup3() in linux/jhash.h.
-
-You can read a longer comparison of the Jenkins and other hash functions 
-at http://burtleburtle.net/bob/hash/doobs.html.
-
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-
-diff --git a/include/linux/jhash.h b/include/linux/jhash.h
-index 2a2f99f..2000b9f 100644
---- a/include/linux/jhash.h
-+++ b/include/linux/jhash.h
-@@ -3,80 +3,95 @@
- 
- /* jhash.h: Jenkins hash support.
-  *
-- * Copyright (C) 1996 Bob Jenkins (bob_jenkins@burtleburtle.net)
-+ * Copyright (C) 2006. Bob Jenkins (bob_jenkins@burtleburtle.net)
-  *
-  * http://burtleburtle.net/bob/hash/
-  *
-  * These are the credits from Bob's sources:
-  *
-- * lookup2.c, by Bob Jenkins, December 1996, Public Domain.
-- * hash(), hash2(), hash3, and mix() are externally useful functions.
-- * Routines to test the hash are included if SELF_TEST is defined.
-- * You can use this free for any purpose.  It has no warranty.
-+ * lookup3.c, by Bob Jenkins, May 2006, Public Domain.
-  *
-- * Copyright (C) 2003 David S. Miller (davem@redhat.com)
-+ * These are functions for producing 32-bit hashes for hash table lookup.
-+ * hashword(), hashlittle(), hashlittle2(), hashbig(), mix(), and final() 
-+ * are externally useful functions.  Routines to test the hash are included 
-+ * if SELF_TEST is defined.  You can use this free for any purpose.  It's in
-+ * the public domain.  It has no warranty.
-+ *
-+ * Copyright (C) 2009 Jozsef Kadlecsik (kadlec@blackhole.kfki.hu)
-  *
-  * I've modified Bob's hash to be useful in the Linux kernel, and
-- * any bugs present are surely my fault.  -DaveM
-+ * any bugs present are my fault.  Jozsef
-  */
- 
--/* NOTE: Arguments are modified. */
--#define __jhash_mix(a, b, c) \
-+#define __rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
-+
-+/* __jhash_mix - mix 3 32-bit values reversibly. */
-+#define __jhash_mix(a,b,c) \
-+{ \
-+  a -= c;  a ^= __rot(c, 4);  c += b; \
-+  b -= a;  b ^= __rot(a, 6);  a += c; \
-+  c -= b;  c ^= __rot(b, 8);  b += a; \
-+  a -= c;  a ^= __rot(c,16);  c += b; \
-+  b -= a;  b ^= __rot(a,19);  a += c; \
-+  c -= b;  c ^= __rot(b, 4);  b += a; \
-+}
-+
-+/* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
-+#define __jhash_final(a,b,c) \
- { \
--  a -= b; a -= c; a ^= (c>>13); \
--  b -= c; b -= a; b ^= (a<<8); \
--  c -= a; c -= b; c ^= (b>>13); \
--  a -= b; a -= c; a ^= (c>>12);  \
--  b -= c; b -= a; b ^= (a<<16); \
--  c -= a; c -= b; c ^= (b>>5); \
--  a -= b; a -= c; a ^= (c>>3);  \
--  b -= c; b -= a; b ^= (a<<10); \
--  c -= a; c -= b; c ^= (b>>15); \
-+  c ^= b; c -= __rot(b,14); \
-+  a ^= c; a -= __rot(c,11); \
-+  b ^= a; b -= __rot(a,25); \
-+  c ^= b; c -= __rot(b,16); \
-+  a ^= c; a -= __rot(c,4);  \
-+  b ^= a; b -= __rot(a,14); \
-+  c ^= b; c -= __rot(b,24); \
- }
- 
- /* The golden ration: an arbitrary value */
--#define JHASH_GOLDEN_RATIO	0x9e3779b9
-+#define JHASH_GOLDEN_RATIO	0xdeadbeef
- 
- /* The most generic version, hashes an arbitrary sequence
-  * of bytes.  No alignment or length assumptions are made about
-- * the input key.
-+ * the input key. The result depends on endianness.
-  */
- static inline u32 jhash(const void *key, u32 length, u32 initval)
- {
--	u32 a, b, c, len;
-+	u32 a,b,c;
- 	const u8 *k = key;
- 
--	len = length;
--	a = b = JHASH_GOLDEN_RATIO;
--	c = initval;
--
--	while (len >= 12) {
--		a += (k[0] +((u32)k[1]<<8) +((u32)k[2]<<16) +((u32)k[3]<<24));
--		b += (k[4] +((u32)k[5]<<8) +((u32)k[6]<<16) +((u32)k[7]<<24));
--		c += (k[8] +((u32)k[9]<<8) +((u32)k[10]<<16)+((u32)k[11]<<24));
--
--		__jhash_mix(a,b,c);
-+	/* Set up the internal state */
-+	a = b = c = JHASH_GOLDEN_RATIO + length + initval;
- 
-+	/* all but the last block: affect some 32 bits of (a,b,c) */
-+	while (length > 12) {
-+    		a += (k[0] + ((u32)k[1]<<8) + ((u32)k[2]<<16) + ((u32)k[3]<<24));
-+		b += (k[4] + ((u32)k[5]<<8) + ((u32)k[6]<<16) + ((u32)k[7]<<24));
-+		c += (k[8] + ((u32)k[9]<<8) + ((u32)k[10]<<16) + ((u32)k[11]<<24));
-+		__jhash_mix(a, b, c);
-+		length -= 12;
- 		k += 12;
--		len -= 12;
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 8b3f846..4595962 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -852,7 +852,7 @@ static int tg3_bmcr_reset(struct tg3 *tp)
+ 		}
+ 		udelay(10);
  	}
+-	if (limit <= 0)
++	if (limit < 0)
+ 		return -EBUSY;
  
--	c += length;
--	switch (len) {
--	case 11: c += ((u32)k[10]<<24);
--	case 10: c += ((u32)k[9]<<16);
--	case 9 : c += ((u32)k[8]<<8);
--	case 8 : b += ((u32)k[7]<<24);
--	case 7 : b += ((u32)k[6]<<16);
--	case 6 : b += ((u32)k[5]<<8);
-+	/* last block: affect all 32 bits of (c) */
-+	/* all the case statements fall through */
-+	switch (length) {
-+	case 12: c += (u32)k[11]<<24;
-+	case 11: c += (u32)k[10]<<16;
-+	case 10: c += (u32)k[9]<<8;
-+	case 9 : c += k[8];
-+	case 8 : b += (u32)k[7]<<24;
-+	case 7 : b += (u32)k[6]<<16;
-+	case 6 : b += (u32)k[5]<<8;
- 	case 5 : b += k[4];
--	case 4 : a += ((u32)k[3]<<24);
--	case 3 : a += ((u32)k[2]<<16);
--	case 2 : a += ((u32)k[1]<<8);
-+	case 4 : a += (u32)k[3]<<24;
-+	case 3 : a += (u32)k[2]<<16;
-+	case 2 : a += (u32)k[1]<<8;
- 	case 1 : a += k[0];
--	};
--
--	__jhash_mix(a,b,c);
-+		__jhash_final(a, b, c);
-+	case 0 :
-+		break;
-+	}
- 
- 	return c;
- }
-@@ -86,58 +101,57 @@ static inline u32 jhash(const void *key, u32 length, u32 initval)
-  */
- static inline u32 jhash2(const u32 *k, u32 length, u32 initval)
- {
--	u32 a, b, c, len;
-+	u32 a, b, c;
- 
--	a = b = JHASH_GOLDEN_RATIO;
--	c = initval;
--	len = length;
-+	/* Set up the internal state */
-+	a = b = c = JHASH_GOLDEN_RATIO + (length<<2) + initval;
- 
--	while (len >= 3) {
-+	/* handle most of the key */
-+	while (length > 3) {
- 		a += k[0];
- 		b += k[1];
- 		c += k[2];
- 		__jhash_mix(a, b, c);
--		k += 3; len -= 3;
-+		length -= 3;
-+		k += 3;
+ 	return 0;
+@@ -1603,7 +1603,7 @@ static int tg3_wait_macro_done(struct tg3 *tp)
+ 				break;
+ 		}
  	}
+-	if (limit <= 0)
++	if (limit < 0)
+ 		return -EBUSY;
  
--	c += length * 4;
--
--	switch (len) {
--	case 2 : b += k[1];
--	case 1 : a += k[0];
--	};
--
--	__jhash_mix(a,b,c);
-+	/* handle the last 3 u32's */
-+	/* all the case statements fall through */ 
-+	switch (length) {
-+	case 3: c += k[2];
-+	case 2: b += k[1];
-+	case 1: a += k[0];
-+		__jhash_final(a, b, c);
-+	case 0:     /* case 0: nothing left to add */
-+		break;
-+	}
- 
- 	return c;
- }
- 
--
- /* A special ultra-optimized versions that knows they are hashing exactly
-  * 3, 2 or 1 word(s).
-- *
-- * NOTE: In partilar the "c += length; __jhash_mix(a,b,c);" normally
-- *       done at the end is not done here.
-  */
- static inline u32 jhash_3words(u32 a, u32 b, u32 c, u32 initval)
- {
--	a += JHASH_GOLDEN_RATIO;
--	b += JHASH_GOLDEN_RATIO;
--	c += initval;
-+	a += JHASH_GOLDEN_RATIO + initval;
-+	b += JHASH_GOLDEN_RATIO + initval;
-+	c += JHASH_GOLDEN_RATIO + initval;
- 
--	__jhash_mix(a, b, c);
-+	__jhash_final(a, b, c);
- 
- 	return c;
- }
- 
- static inline u32 jhash_2words(u32 a, u32 b, u32 initval)
- {
--	return jhash_3words(a, b, 0, initval);
-+	return jhash_3words(0, a, b, initval);
- }
- 
- static inline u32 jhash_1word(u32 a, u32 initval)
- {
--	return jhash_3words(a, 0, 0, initval);
-+	return jhash_3words(0, 0, a, initval);
- }
- 
- #endif /* _LINUX_JHASH_H */
-
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+ 	return 0;
