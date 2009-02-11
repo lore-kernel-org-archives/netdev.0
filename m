@@ -1,73 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: off by one, try #2
-Date: Wed, 11 Feb 2009 13:33:41 +0000
-Message-ID: <20090211133341.GB12362@ff.dom.local>
-References: <4992A214.2040300@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Roel Kluin <roel.kluin@gmail.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 5/7] qlge: bugfix: Fix TSO breakage.
+Date: Wed, 11 Feb 2009 05:58:35 -0800
+Message-ID: <1234360717-32194-5-git-send-email-ron.mercer@qlogic.com>
+References: <1234360717-32194-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	ron.mercer@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f21.google.com ([209.85.219.21]:33698 "EHLO
-	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751215AbZBKNds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 08:33:48 -0500
-Received: by ewy14 with SMTP id 14so163192ewy.13
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 05:33:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4992A214.2040300@gmail.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:50248 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752903AbZBKOBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 09:01:17 -0500
+In-Reply-To: <1234360717-32194-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-02-2009 11:01, Roel Kluin wrote:
-> Better?
+Moved the buffer mapping to a point after TSO logic has modified the
+iph->check field. We were seeing stale data on the PCIe bus.
 
-Yes, but it looks like here is even more...
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_main.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-> 
-> -------------------->8----------------8<-----------------------
-> With while (x++ < n) { ... } x can reach n+1.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
->  drivers/net/3c505.c        |    4 ++--
->  drivers/net/irda/mcs7780.c |    2 +-
->  2 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/3c505.c b/drivers/net/3c505.c
-> index 6124605..fb74846 100644
-> --- a/drivers/net/3c505.c
-> +++ b/drivers/net/3c505.c
-> @@ -500,9 +500,9 @@ static bool receive_pcb(struct net_device *dev, pcb_struct * pcb)
->  		pcb->data.raw[i++] = inb_command(dev->base_addr);
->  		if (i > MAX_PCB_DATA)
->  			INVALID_PCB_MSG(i);
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index fc7d210..54b0a9e 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -1936,10 +1936,6 @@ static int qlge_send(struct sk_buff *skb, struct net_device *ndev)
+ 	tx_ring_desc = &tx_ring->q[tx_ring->prod_idx];
+ 	mac_iocb_ptr = tx_ring_desc->queue_entry;
+ 	memset((void *)mac_iocb_ptr, 0, sizeof(mac_iocb_ptr));
+-	if (ql_map_send(qdev, mac_iocb_ptr, skb, tx_ring_desc) != NETDEV_TX_OK) {
+-		QPRINTK(qdev, TX_QUEUED, ERR, "Could not map the segments.\n");
+-		return NETDEV_TX_BUSY;
+-	}
+ 
+ 	mac_iocb_ptr->opcode = OPCODE_OB_MAC_IOCB;
+ 	mac_iocb_ptr->tid = tx_ring_desc->index;
+@@ -1965,6 +1961,12 @@ static int qlge_send(struct sk_buff *skb, struct net_device *ndev)
+ 		ql_hw_csum_setup(skb,
+ 				 (struct ob_mac_tso_iocb_req *)mac_iocb_ptr);
+ 	}
++	if (ql_map_send(qdev, mac_iocb_ptr, skb, tx_ring_desc) !=
++			NETDEV_TX_OK) {
++		QPRINTK(qdev, TX_QUEUED, ERR,
++				"Could not map the segments.\n");
++		return NETDEV_TX_BUSY;
++	}
+ 	QL_DUMP_OB_MAC_IOCB(mac_iocb_ptr);
+ 	tx_ring->prod_idx++;
+ 	if (tx_ring->prod_idx == tx_ring->wq_len)
+-- 
+1.6.0.2
 
-i is also misused here and array can be overriden, so additional
-break/return is needed.
-
-Thanks,
-Jarek P.
-
-> -	} while ((stat & ASF_PCB_MASK) != ASF_PCB_END && j < 20000);
-> +	} while ((stat & ASF_PCB_MASK) != ASF_PCB_END && j <= 20000);
->  	spin_unlock_irqrestore(&adapter->lock, flags);
-> -	if (j >= 20000) {
-> +	if (j > 20000) {
->  		TIMEOUT_MSG(__LINE__);
->  		return false;
->  	}
-> diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-> index 7eafdca..b4f4f19 100644
-> --- a/drivers/net/irda/mcs7780.c
-> +++ b/drivers/net/irda/mcs7780.c
-> @@ -585,7 +585,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
->  		mcs_get_reg(mcs, MCS_RESV_REG, &rval);
->  	} while(cnt++ < 100 && (rval & MCS_IRINTX));
->  
-> -	if(cnt >= 100) {
-> +	if(cnt > 100) {
->  		IRDA_ERROR("unable to change speed\n");
->  		ret = -EIO;
->  		goto error;
