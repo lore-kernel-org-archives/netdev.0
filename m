@@ -1,51 +1,30 @@
-From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Subject: [PATCH] ehea: Fix: Remove adapter from adapter list in error path
-Date: Wed, 11 Feb 2009 13:29:02 +0100
-Message-ID: <200902111329.02954.hannes.hering@linux.vnet.ibm.com>
+From: Risto Suominen <risto.suominen@gmail.com>
+Subject: Re: [PATCH 002/002] de2104x: support for systems lacking cache
+	coherence
+Date: Wed, 11 Feb 2009 14:31:43 +0200
+Message-ID: <46e1c7760902110431p54c0b5f7oa1a07726f4db5021@mail.gmail.com>
+References: <46e1c7760902090022g1d903ca0nf314f0c1cc6b07c8@mail.gmail.com>
+	 <m3vdrja6oe.fsf@intrepid.localdomain>
+	 <46e1c7760902091122m6ec7fbb5nefd9cc9789880c0f@mail.gmail.com>
+	 <20090210.152143.176850113.davem@davemloft.net>
+	 <46e1c7760902110418n276de9b2xa2169839b9e25dc0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, ossrosch@linux.vnet.ibm.com,
-	ossthema@de.ibm.com, raisch@de.ibm.com, themann@de.ibm.com,
-	osstklei@de.ibm.com
-To: jeff@garzik.org
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:45628 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754498AbZBKM3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 07:29:06 -0500
-Content-Disposition: inline
+Received: from mail-bw0-f161.google.com ([209.85.218.161]:48229 "EHLO
+	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751873AbZBKMbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2009 07:31:46 -0500
+Received: by bwz5 with SMTP id 5so237070bwz.13
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2009 04:31:43 -0800 (PST)
+In-Reply-To: <46e1c7760902110418n276de9b2xa2169839b9e25dc0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove adapter from adapter list before freeing data structure in error path.
+As an interesting side effect, the patch caused my mesh module to stop
+working. It crashes.
 
-Signed-off-by: Hannes Hering <hering2@de.ibm.com>
-
----
-
-diff -Nurp -X dontdiff linux-2.6.29-rc4/drivers/net/ehea/ehea.h patched_kernel/drivers/net/ehea/ehea.h
---- linux-2.6.29-rc4/drivers/net/ehea/ehea.h	2009-02-11 13:13:42.036506588 +0100
-+++ patched_kernel/drivers/net/ehea/ehea.h	2009-02-11 13:14:04.197540184 +0100
-@@ -40,7 +40,7 @@
- #include <asm/io.h>
- 
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0097"
-+#define DRV_VERSION	"EHEA_0098"
- 
- /* eHEA capability flags */
- #define DLPAR_PORT_ADD_REM 1
-diff -Nurp -X dontdiff linux-2.6.29-rc4/drivers/net/ehea/ehea_main.c patched_kernel/drivers/net/ehea/ehea_main.c
---- linux-2.6.29-rc4/drivers/net/ehea/ehea_main.c	2009-02-11 13:13:47.812542928 +0100
-+++ patched_kernel/drivers/net/ehea/ehea_main.c	2009-02-11 13:14:04.197540184 +0100
-@@ -3448,6 +3448,7 @@ out_kill_eq:
- 	ehea_destroy_eq(adapter->neq);
- 
- out_free_ad:
-+	list_del(&adapter->list);
- 	kfree(adapter);
- 
- out:
+Risto
