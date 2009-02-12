@@ -1,8 +1,9 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [PATCH NET-NEXT 01/10] clocksource: allow usage independent of timekeeping.c
-Date: Thu, 12 Feb 2009 16:00:03 +0100
-Message-ID: <1234450812-6246-1-git-send-email-patrick.ohly@intel.com>
+Subject: [PATCH NET-NEXT 02/10] timecompare: generic infrastructure to map between two time bases
+Date: Thu, 12 Feb 2009 16:00:04 +0100
+Message-ID: <1234450812-6246-2-git-send-email-patrick.ohly@intel.com>
 References: <1234450670.5914.9.camel@ecld0pohly>
+ <1234450812-6246-1-git-send-email-patrick.ohly@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	John Stultz <johnstul@us.ibm.com>,
 	John Ronciak <john.ronciak@intel.com>,
@@ -11,242 +12,372 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:27418 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755870AbZBLPAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 10:00:18 -0500
-In-Reply-To: <1234450670.5914.9.camel@ecld0pohly>
+	id S1755870AbZBLPAU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 10:00:20 -0500
+In-Reply-To: <1234450812-6246-1-git-send-email-patrick.ohly@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So far struct clocksource acted as the interface between time/timekeeping.c
-and hardware. This patch generalizes the concept so that a similar
-interface can also be used in other contexts. For that it introduces
-new structures and related functions *without* touching the existing
-struct clocksource.
+Mapping from a struct timecounter to a time returned by functions like
+ktime_get_real() is implemented. This is sufficient to use this code
+in a network device driver which wants to support hardware time
+stamping and transformation of hardware time stamps to system time.
 
-The reasons for adding these new structures to clocksource.[ch] are
-* the APIs are clearly related
-* struct clocksource could be cleaned up to use the new structs
-* avoids proliferation of files with similar names (timesource.h?
-  timecounter.h?)
+The interface could have been made more versatile by not depending on
+a time counter, but this wasn't done to avoid writing glue code
+elsewhere.
 
-As outlined in the discussion with John Stultz, this patch adds
-* struct cyclecounter: stateless API to hardware which counts clock cycles
-* struct timecounter: stateful utility code built on a cyclecounter which
-  provides a nanosecond counter
-* only the function to read the nanosecond counter; deltas are used internally
-  and not exposed to users of timecounter
-
-The code does no locking of the shared state. It must be called at least
-as often as the cycle counter wraps around to detect these wrap arounds.
-Both is the responsibility of the timecounter user.
+The method implemented here is the one used and analyzed under the name
+"assisted PTP" in the LCI PTP paper:
+http://www.linuxclustersinstitute.org/conferences/archive/2008/PDF/Ohly_92221.pdf
 
 Acked-by: John Stultz <johnstul@us.ibm.com>
 ---
- include/linux/clocksource.h |  101 +++++++++++++++++++++++++++++++++++++++++++
- kernel/time/clocksource.c   |   76 ++++++++++++++++++++++++++++++++
- 2 files changed, 177 insertions(+), 0 deletions(-)
+ include/linux/timecompare.h |  125 ++++++++++++++++++++++++++++
+ kernel/time/Makefile        |    2 +-
+ kernel/time/timecompare.c   |  191 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 317 insertions(+), 1 deletions(-)
+ create mode 100644 include/linux/timecompare.h
+ create mode 100644 kernel/time/timecompare.c
 
-diff --git a/include/linux/clocksource.h b/include/linux/clocksource.h
-index f88d32f..573819e 100644
---- a/include/linux/clocksource.h
-+++ b/include/linux/clocksource.h
-@@ -22,8 +22,109 @@ typedef u64 cycle_t;
- struct clocksource;
- 
- /**
-+ * struct cyclecounter - hardware abstraction for a free running counter
-+ *	Provides completely state-free accessors to the underlying hardware.
-+ *	Depending on which hardware it reads, the cycle counter may wrap
-+ *	around quickly. Locking rules (if necessary) have to be defined
-+ *	by the implementor and user of specific instances of this API.
+diff --git a/include/linux/timecompare.h b/include/linux/timecompare.h
+new file mode 100644
+index 0000000..546e223
+--- /dev/null
++++ b/include/linux/timecompare.h
+@@ -0,0 +1,125 @@
++/*
++ * Utility code which helps transforming between two different time
++ * bases, called "source" and "target" time in this code.
 + *
-+ * @read:		returns the current cycle value
-+ * @mask:		bitmask for two's complement
-+ *			subtraction of non 64 bit counters,
-+ *			see CLOCKSOURCE_MASK() helper macro
-+ * @mult:		cycle to nanosecond multiplier
-+ * @shift:		cycle to nanosecond divisor (power of two)
++ * Source time has to be provided via the timecounter API while target
++ * time is accessed via a function callback whose prototype
++ * intentionally matches ktime_get() and ktime_get_real(). These
++ * interfaces where chosen like this so that the code serves its
++ * initial purpose without additional glue code.
++ *
++ * This purpose is synchronizing a hardware clock in a NIC with system
++ * time, in order to implement the Precision Time Protocol (PTP,
++ * IEEE1588) with more accurate hardware assisted time stamping.  In
++ * that context only synchronization against system time (=
++ * ktime_get_real()) is currently needed. But this utility code might
++ * become useful in other situations, which is why it was written as
++ * general purpose utility code.
++ *
++ * The source timecounter is assumed to return monotonically
++ * increasing time (but this code does its best to compensate if that
++ * is not the case) whereas target time may jump.
++ *
++ * The target time corresponding to a source time is determined by
++ * reading target time, reading source time, reading target time
++ * again, then assuming that average target time corresponds to source
++ * time. In other words, the assumption is that reading the source
++ * time is slow and involves equal time for sending the request and
++ * receiving the reply, whereas reading target time is assumed to be
++ * fast.
++ *
++ * Copyright (C) 2009 Intel Corporation.
++ * Author: Patrick Ohly <patrick.ohly@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
 + */
-+struct cyclecounter {
-+	cycle_t (*read)(const struct cyclecounter *cc);
-+	cycle_t mask;
-+	u32 mult;
-+	u32 shift;
++#ifndef _LINUX_TIMECOMPARE_H
++#define _LINUX_TIMECOMPARE_H
++
++#include <linux/clocksource.h>
++#include <linux/ktime.h>
++
++/**
++ * struct timecompare - stores state and configuration for the two clocks
++ *
++ * Initialize to zero, then set source/target/num_samples.
++ *
++ * Transformation between source time and target time is done with:
++ * target_time = source_time + offset +
++ *               (source_time - last_update) * skew /
++ *               TIMECOMPARE_SKEW_RESOLUTION
++ *
++ * @source:          used to get source time stamps via timecounter_read()
++ * @target:          function returning target time (for example, ktime_get
++ *                   for monotonic time, or ktime_get_real for wall clock)
++ * @num_samples:     number of times that source time and target time are to
++ *                   be compared when determining their offset
++ * @offset:          (target time - source time) at the time of the last update
++ * @skew:            average (target time - source time) / delta source time *
++ *                   TIMECOMPARE_SKEW_RESOLUTION
++ * @last_update:     last source time stamp when time offset was measured
++ */
++struct timecompare {
++	struct timecounter *source;
++	ktime_t (*target)(void);
++	int num_samples;
++
++	s64 offset;
++	s64 skew;
++	u64 last_update;
 +};
 +
 +/**
-+ * struct timecounter - layer above a %struct cyclecounter which counts nanoseconds
-+ *	Contains the state needed by timecounter_read() to detect
-+ *	cycle counter wrap around. Initialize with
-+ *	timecounter_init(). Also used to convert cycle counts into the
-+ *	corresponding nanosecond counts with timecounter_cyc2time(). Users
-+ *	of this code are responsible for initializing the underlying
-+ *	cycle counter hardware, locking issues and reading the time
-+ *	more often than the cycle counter wraps around. The nanosecond
-+ *	counter will only wrap around after ~585 years.
-+ *
-+ * @cc:			the cycle counter used by this instance
-+ * @cycle_last:		most recent cycle counter value seen by
-+ *			timecounter_read()
-+ * @nsec:		continuously increasing count
++ * timecompare_transform - transform source time stamp into target time base
++ * @sync:            context for time sync
++ * @source_tstamp:   the result of timecounter_read() or
++ *                   timecounter_cyc2time()
 + */
-+struct timecounter {
-+	const struct cyclecounter *cc;
-+	cycle_t cycle_last;
-+	u64 nsec;
-+};
++extern ktime_t timecompare_transform(struct timecompare *sync,
++				     u64 source_tstamp);
 +
 +/**
-+ * cyclecounter_cyc2ns - converts cycle counter cycles to nanoseconds
-+ * @tc:		Pointer to cycle counter.
-+ * @cycles:	Cycles
++ * timecompare_offset - measure current (target time - source time) offset
++ * @sync:            context for time sync
++ * @offset:          average offset during sample period returned here
++ * @source_tstamp:   average source time during sample period returned here
 + *
-+ * XXX - This could use some mult_lxl_ll() asm optimization. Same code
-+ * as in cyc2ns, but with unsigned result.
++ * Returns number of samples used. Might be zero (= no result) in the
++ * unlikely case that target time was monotonically decreasing for all
++ * samples (= broken).
 + */
-+static inline u64 cyclecounter_cyc2ns(const struct cyclecounter *cc,
-+				      cycle_t cycles)
++extern int timecompare_offset(struct timecompare *sync,
++			      s64 *offset,
++			      u64 *source_tstamp);
++
++extern void __timecompare_update(struct timecompare *sync,
++				 u64 source_tstamp);
++
++/**
++ * timecompare_update - update offset and skew by measuring current offset
++ * @sync:            context for time sync
++ * @source_tstamp:   the result of timecounter_read() or
++ *                   timecounter_cyc2time(), pass zero to force update
++ *
++ * Updates are only done at most once per second.
++ */
++static inline void timecompare_update(struct timecompare *sync,
++				      u64 source_tstamp)
 +{
-+	u64 ret = (u64)cycles;
-+	ret = (ret * cc->mult) >> cc->shift;
-+	return ret;
++	if (!source_tstamp ||
++	    (s64)(source_tstamp - sync->last_update) >= NSEC_PER_SEC)
++		__timecompare_update(sync, source_tstamp);
 +}
 +
-+/**
-+ * timecounter_init - initialize a time counter
-+ * @tc:			Pointer to time counter which is to be initialized/reset
-+ * @cc:			A cycle counter, ready to be used.
-+ * @start_tstamp:	Arbitrary initial time stamp.
-+ *
-+ * After this call the current cycle register (roughly) corresponds to
-+ * the initial time stamp. Every call to timecounter_read() increments
-+ * the time stamp counter by the number of elapsed nanoseconds.
-+ */
-+extern void timecounter_init(struct timecounter *tc,
-+			     const struct cyclecounter *cc,
-+			     u64 start_tstamp);
-+
-+/**
-+ * timecounter_read - return nanoseconds elapsed since timecounter_init()
-+ *                    plus the initial time stamp
-+ * @tc:          Pointer to time counter.
-+ *
-+ * In other words, keeps track of time since the same epoch as
-+ * the function which generated the initial time stamp.
-+ */
-+extern u64 timecounter_read(struct timecounter *tc);
-+
-+/**
-+ * timecounter_cyc2time - convert a cycle counter to same
-+ *                        time base as values returned by
-+ *                        timecounter_read()
-+ * @tc:		Pointer to time counter.
-+ * @cycle:	a value returned by tc->cc->read()
-+ *
-+ * Cycle counts that are converted correctly as long as they
-+ * fall into the interval [-1/2 max cycle count, +1/2 max cycle count],
-+ * with "max cycle count" == cs->mask+1.
-+ *
-+ * This allows conversion of cycle counter values which were generated
-+ * in the past.
-+ */
-+extern u64 timecounter_cyc2time(struct timecounter *tc,
-+				cycle_t cycle_tstamp);
-+
-+/**
-  * struct clocksource - hardware abstraction for a free running counter
-  *	Provides mostly state-free accessors to the underlying hardware.
-+ *	This is the structure used for system time.
-  *
-  * @name:		ptr to clocksource name
-  * @list:		list head for registration
-diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
-index ca89e15..c46c931 100644
---- a/kernel/time/clocksource.c
-+++ b/kernel/time/clocksource.c
-@@ -31,6 +31,82 @@
- #include <linux/sched.h> /* for spin_unlock_irq() using preempt_count() m68k */
- #include <linux/tick.h>
++#endif /* _LINUX_TIMECOMPARE_H */
+diff --git a/kernel/time/Makefile b/kernel/time/Makefile
+index 905b0b5..0b0a636 100644
+--- a/kernel/time/Makefile
++++ b/kernel/time/Makefile
+@@ -1,4 +1,4 @@
+-obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o
++obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o timecompare.o
  
-+void timecounter_init(struct timecounter *tc,
-+		      const struct cyclecounter *cc,
-+		      u64 start_tstamp)
-+{
-+	tc->cc = cc;
-+	tc->cycle_last = cc->read(cc);
-+	tc->nsec = start_tstamp;
-+}
-+EXPORT_SYMBOL(timecounter_init);
-+
-+/**
-+ * timecounter_read_delta - get nanoseconds since last call of this function
-+ * @tc:         Pointer to time counter
+ obj-$(CONFIG_GENERIC_CLOCKEVENTS_BUILD)		+= clockevents.o
+ obj-$(CONFIG_GENERIC_CLOCKEVENTS)		+= tick-common.o
+diff --git a/kernel/time/timecompare.c b/kernel/time/timecompare.c
+new file mode 100644
+index 0000000..71e7f1a
+--- /dev/null
++++ b/kernel/time/timecompare.c
+@@ -0,0 +1,191 @@
++/*
++ * Copyright (C) 2009 Intel Corporation.
++ * Author: Patrick Ohly <patrick.ohly@intel.com>
 + *
-+ * When the underlying cycle counter runs over, this will be handled
-+ * correctly as long as it does not run over more than once between
-+ * calls.
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
 + *
-+ * The first call to this function for a new time counter initializes
-+ * the time tracking and returns an undefined result.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 + */
-+static u64 timecounter_read_delta(struct timecounter *tc)
-+{
-+	cycle_t cycle_now, cycle_delta;
-+	u64 ns_offset;
 +
-+	/* read cycle counter: */
-+	cycle_now = tc->cc->read(tc->cc);
++#include <linux/timecompare.h>
++#include <linux/module.h>
++#include <linux/math64.h>
 +
-+	/* calculate the delta since the last timecounter_read_delta(): */
-+	cycle_delta = (cycle_now - tc->cycle_last) & tc->cc->mask;
++/*
++ * fixed point arithmetic scale factor for skew
++ *
++ * Usually one would measure skew in ppb (parts per billion, 1e9), but
++ * using a factor of 2 simplifies the math.
++ */
++#define TIMECOMPARE_SKEW_RESOLUTION (((s64)1)<<30)
 +
-+	/* convert to nanoseconds: */
-+	ns_offset = cyclecounter_cyc2ns(tc->cc, cycle_delta);
-+
-+	/* update time stamp of timecounter_read_delta() call: */
-+	tc->cycle_last = cycle_now;
-+
-+	return ns_offset;
-+}
-+
-+u64 timecounter_read(struct timecounter *tc)
++ktime_t timecompare_transform(struct timecompare *sync,
++			      u64 source_tstamp)
 +{
 +	u64 nsec;
 +
-+	/* increment time by nanoseconds since last call */
-+	nsec = timecounter_read_delta(tc);
-+	nsec += tc->nsec;
-+	tc->nsec = nsec;
++	nsec = source_tstamp + sync->offset;
++	nsec += (s64)(source_tstamp - sync->last_update) * sync->skew /
++		TIMECOMPARE_SKEW_RESOLUTION;
 +
-+	return nsec;
++	return ns_to_ktime(nsec);
 +}
-+EXPORT_SYMBOL(timecounter_read);
++EXPORT_SYMBOL(timecompare_transform);
 +
-+u64 timecounter_cyc2time(struct timecounter *tc,
-+			 cycle_t cycle_tstamp)
++int timecompare_offset(struct timecompare *sync,
++		       s64 *offset,
++		       u64 *source_tstamp)
 +{
-+	u64 cycle_delta = (cycle_tstamp - tc->cycle_last) & tc->cc->mask;
-+	u64 nsec;
++	u64 start_source = 0, end_source = 0;
++	struct {
++		s64 offset;
++		s64 duration_target;
++	} buffer[10], sample, *samples;
++	int counter = 0, i;
++	int used;
++	int index;
++	int num_samples = sync->num_samples;
 +
-+	/*
-+	 * Instead of always treating cycle_tstamp as more recent
-+	 * than tc->cycle_last, detect when it is too far in the
-+	 * future and treat it as old time stamp instead.
-+	 */
-+	if (cycle_delta > tc->cc->mask / 2) {
-+		cycle_delta = (tc->cycle_last - cycle_tstamp) & tc->cc->mask;
-+		nsec = tc->nsec - cyclecounter_cyc2ns(tc->cc, cycle_delta);
++	if (num_samples > sizeof(buffer)/sizeof(buffer[0])) {
++		samples = kmalloc(sizeof(*samples) * num_samples, GFP_ATOMIC);
++		if (!samples) {
++			samples = buffer;
++			num_samples = sizeof(buffer)/sizeof(buffer[0]);
++		}
 +	} else {
-+		nsec = cyclecounter_cyc2ns(tc->cc, cycle_delta) + tc->nsec;
++		samples = buffer;
 +	}
 +
-+	return nsec;
-+}
-+EXPORT_SYMBOL(timecounter_cyc2time);
++	/* run until we have enough valid samples, but do not try forever */
++	i = 0;
++	counter = 0;
++	while (1) {
++		u64 ts;
++		ktime_t start, end;
 +
- /* XXX - Would like a better way for initializing curr_clocksource */
- extern struct clocksource clocksource_jiffies;
- 
++		start = sync->target();
++		ts = timecounter_read(sync->source);
++		end = sync->target();
++
++		if (!i)
++			start_source = ts;
++
++		/* ignore negative durations */
++		sample.duration_target = ktime_to_ns(ktime_sub(end, start));
++		if (sample.duration_target >= 0) {
++			/*
++			 * assume symetric delay to and from source:
++			 * average target time corresponds to measured
++			 * source time
++			 */
++			sample.offset =
++				ktime_to_ns(ktime_add(end, start)) / 2 -
++				ts;
++
++			/* simple insertion sort based on duration */
++			index = counter - 1;
++			while (index >= 0) {
++				if (samples[index].duration_target <
++				    sample.duration_target)
++					break;
++				samples[index + 1] = samples[index];
++				index--;
++			}
++			samples[index + 1] = sample;
++			counter++;
++		}
++
++		i++;
++		if (counter >= num_samples || i >= 100000) {
++			end_source = ts;
++			break;
++		}
++	}
++
++	*source_tstamp = (end_source + start_source) / 2;
++
++	/* remove outliers by only using 75% of the samples */
++	used = counter * 3 / 4;
++	if (!used)
++		used = counter;
++	if (used) {
++		/* calculate average */
++		s64 off = 0;
++		for (index = 0; index < used; index++)
++			off += samples[index].offset;
++		*offset = div_s64(off, used);
++	}
++
++	if (samples && samples != buffer)
++		kfree(samples);
++
++	return used;
++}
++EXPORT_SYMBOL(timecompare_offset);
++
++void __timecompare_update(struct timecompare *sync,
++			  u64 source_tstamp)
++{
++	s64 offset;
++	u64 average_time;
++
++	if (!timecompare_offset(sync, &offset, &average_time))
++		return;
++
++	if (!sync->last_update) {
++		sync->last_update = average_time;
++		sync->offset = offset;
++		sync->skew = 0;
++	} else {
++		s64 delta_nsec = average_time - sync->last_update;
++
++		/* avoid division by negative or small deltas */
++		if (delta_nsec >= 10000) {
++			s64 delta_offset_nsec = offset - sync->offset;
++			s64 skew; /* delta_offset_nsec *
++				     TIMECOMPARE_SKEW_RESOLUTION /
++				     delta_nsec */
++			u64 divisor;
++
++			/* div_s64() is limited to 32 bit divisor */
++			skew = delta_offset_nsec * TIMECOMPARE_SKEW_RESOLUTION;
++			divisor = delta_nsec;
++			while (unlikely(divisor >= ((s64)1) << 32)) {
++				/* divide both by 2; beware, right shift
++				   of negative value has undefined
++				   behavior and can only be used for
++				   the positive divisor */
++				skew = div_s64(skew, 2);
++				divisor >>= 1;
++			}
++			skew = div_s64(skew, divisor);
++
++			/*
++			 * Calculate new overall skew as 4/16 the
++			 * old value and 12/16 the new one. This is
++			 * a rather arbitrary tradeoff between
++			 * only using the latest measurement (0/16 and
++			 * 16/16) and even more weight on past measurements.
++			 */
++#define TIMECOMPARE_NEW_SKEW_PER_16 12
++			sync->skew =
++				div_s64((16 - TIMECOMPARE_NEW_SKEW_PER_16) *
++					sync->skew +
++					TIMECOMPARE_NEW_SKEW_PER_16 * skew,
++					16);
++			sync->last_update = average_time;
++			sync->offset = offset;
++		}
++	}
++}
++EXPORT_SYMBOL(__timecompare_update);
 -- 
 1.6.1.2
 
