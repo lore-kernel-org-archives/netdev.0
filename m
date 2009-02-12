@@ -1,86 +1,33 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/4] bnx2: Fix jumbo frames error handling.
-Date: Wed, 11 Feb 2009 15:52:17 -0800
-Message-ID: <1234396338-14859-3-git-send-email-mchan@broadcom.com>
-References: <1234396338-14859-1-git-send-email-mchan@broadcom.com>
+From: wli@movementarian.org
+Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
+Date: Wed, 11 Feb 2009 19:12:23 -0500
+Message-ID: <20090212001223.GA5757@movementarian.org>
+References: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	"Matt Carlson" <mcarlson@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1145 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755066AbZBKXoa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2009 18:44:30 -0500
-In-Reply-To: <1234396338-14859-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757330AbZBLAMj@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If errors are reported on a frame descriptor, we need to
-account for the buffer pages that may have been used for this
-error packet and recycle them.  Otherwise, we may get the wrong
-pages for the next packet.
+On Wed, Feb 11, 2009 at 11:19:20AM +0100, Jozsef Kadlecsik wrote:
+>  /* The golden ration: an arbitrary value */
+> -#define JHASH_GOLDEN_RATIO	0x9e3779b9
+> +#define JHASH_GOLDEN_RATIO	0xdeadbeef
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
----
- drivers/net/bnx2.c |   30 +++++++++++++++++++-----------
- 1 files changed, 19 insertions(+), 11 deletions(-)
+The golden ratio is not an arbitrary value, nor is it a food ration.
+It is (sqrt(5)+1)/2. and the original value of JHASH_GOLDEN_RATIO
+approximated its reciprocal and/or fractional part in fixed point.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 49e0e51..903d13b 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -2920,18 +2920,8 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 
- 		rx_hdr = (struct l2_fhdr *) skb->data;
- 		len = rx_hdr->l2_fhdr_pkt_len;
-+		status = rx_hdr->l2_fhdr_status;
- 
--		if ((status = rx_hdr->l2_fhdr_status) &
--			(L2_FHDR_ERRORS_BAD_CRC |
--			L2_FHDR_ERRORS_PHY_DECODE |
--			L2_FHDR_ERRORS_ALIGNMENT |
--			L2_FHDR_ERRORS_TOO_SHORT |
--			L2_FHDR_ERRORS_GIANT_FRAME)) {
--
--			bnx2_reuse_rx_skb(bp, rxr, skb, sw_ring_cons,
--					  sw_ring_prod);
--			goto next_rx;
--		}
- 		hdr_len = 0;
- 		if (status & L2_FHDR_STATUS_SPLIT) {
- 			hdr_len = rx_hdr->l2_fhdr_ip_xsum;
-@@ -2941,6 +2931,24 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 			pg_ring_used = 1;
- 		}
- 
-+		if (unlikely(status & (L2_FHDR_ERRORS_BAD_CRC |
-+				       L2_FHDR_ERRORS_PHY_DECODE |
-+				       L2_FHDR_ERRORS_ALIGNMENT |
-+				       L2_FHDR_ERRORS_TOO_SHORT |
-+				       L2_FHDR_ERRORS_GIANT_FRAME))) {
-+
-+			bnx2_reuse_rx_skb(bp, rxr, skb, sw_ring_cons,
-+					  sw_ring_prod);
-+			if (pg_ring_used) {
-+				int pages;
-+
-+				pages = PAGE_ALIGN(len - hdr_len) >> PAGE_SHIFT;
-+
-+				bnx2_reuse_rx_skb_pages(bp, rxr, NULL, pages);
-+			}
-+			goto next_rx;
-+		}
-+
- 		len -= 4;
- 
- 		if (len <= bp->rx_copy_thresh) {
--- 
-1.5.6.GIT
+(double)0xdeadbeef/((unsigned long long)1 << 32) is a rather poor
+approximation of (sqrt(5)-1)/2. If this value which is not the
+golden ratio is arbitrary, calling it something different from
+JHASH_GOLDEN_RATIO would surprise the code's readers much less.
 
 
+-- wli
