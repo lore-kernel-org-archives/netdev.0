@@ -1,90 +1,73 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Thu, 12 Feb 2009 12:41:15 -0800
-Message-ID: <20090212204115.GL6759@linux.vnet.ibm.com>
-References: <20090212171245.GA15025@ioremap.net> <20090212174253.GF6759@linux.vnet.ibm.com> <20090212175130.GA16318@ioremap.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH 27/41]bnx2x: smp_mb and not just smp_rmb
+Date: Thu, 12 Feb 2009 22:45:27 +0200
+Message-ID: <1234471527.4798.12.camel@lb-tlvb-eliezer>
+References: <1234463845.1863.159.camel@lb-tlvb-eliezer>
+ <1234466509.3583.22.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:54710 "EHLO e7.ny.us.ibm.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1565 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757913AbZBLUlR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 15:41:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20090212175130.GA16318@ioremap.net>
+	id S1759113AbZBLUpl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 15:45:41 -0500
+In-Reply-To: <1234466509.3583.22.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 12, 2009 at 08:51:30PM +0300, Evgeniy Polyakov wrote:
-> Hi.
+On Thu, 2009-02-12 at 11:21 -0800, Ben Hutchings wrote:
+> On Thu, 2009-02-12 at 20:37 +0200, Eilon Greenstein wrote:
+> > Subject: [PATCH 27/41]bnx2x: smp_mb and not just smp_rmb
 > 
-> On Thu, Feb 12, 2009 at 09:42:53AM -0800, Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> > > Passive OS fingerprint homepage (archives, examples):
-> > > http://www.ioremap.net/projects/osf
-> > 
-> > I advocate using this to get more accurate censuses of machines
-> > accessing given web servers, given the tendency of browsers to lie
-> > about themselves in order to avoid being shut out of certain web sites.
-> > 
-> > One question about the module-unload sequence below.
-> > 
-> > Given a reasonable answer to that question, I am OK with this from
-> > an RCU viewpoint.
-> 
-> Thanks a lot Paul, but are they actually questions? You answered all of them :)
+> This could do with some more explanation (and comments in the code).
+Sorry about that, I got lazy at this part.
+Since bnx2x_tx_int is also writing, the smb_rmb should be replaced with
+smp_mb.
 
-The last one was.  Your answer was that you prevented any concurrent
-access, but I frankly don't understand the netfilter/connector code
-well enough to do more than simply believe you.
-
-							Thanx, Paul
-
-> > > +static void __devexit ipt_osf_fini(void)
-> > > +{
-> > > +	struct ipt_osf_finger *f;
-> > > +	int i;
-> > > +
-> > > +	cn_del_callback(&cn_osf_id);
-> > > +	xt_unregister_match(&ipt_osf_match);
-> > > +
-> > > +	rcu_read_lock();
-> > > +	for (i=0; i<ARRAY_SIZE(ipt_osf_fingers); ++i) {
-> > > +		struct ipt_osf_finger_storage *st = &ipt_osf_fingers[i];
-> > > +
-> > > +		list_for_each_entry_rcu(f, &st->finger_list, finger_entry) {
-> > > +			list_del_rcu(&f->finger_entry);
+> 
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> > ---
+> >  drivers/net/bnx2x_main.c |    4 ++--
+> >  1 files changed, 2 insertions(+), 2 deletions(-)
 > > 
-> > For the above to be safe:
-> > 
-> > o	Any remaining RCU callbacks cannot reference the list
-> > 	(and your callbacks do in fact meet this constraint).
+> > diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> > index 6bd9219..2e95799 100644
+> > --- a/drivers/net/bnx2x_main.c
+> > +++ b/drivers/net/bnx2x_main.c
+> > @@ -7173,7 +7173,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+> >  		struct bnx2x_fastpath *fp = &bp->fp[i];
+> >  
+> >  		cnt = 1000;
+> > -		smp_rmb();
+> > +		smp_mb();
+> >  		while (bnx2x_has_tx_work_unload(fp)) {
+> >  
+> >  			bnx2x_tx_int(fp, 1000);
+> > @@ -7189,7 +7189,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+> >  			}
+> >  			cnt--;
+> >  			msleep(1);
+> > -			smp_rmb();
+> > +			smp_mb();
 > 
-> They do not access that list.
+> I suspect that smp_*mb() is redundant after a schedule().
+Hmmm... It seems so... I will have to run it on few different systems in
+the lab to make sure - if I won't run into any problems I will send a
+new patch on top of this one with the removal of this alleged redundant
+smb_mb.
+
+Thanks Ben!
+
 > 
-> > o	Any timers have to have fired or been cancelled (but you
-> > 	don't seem to have any timers, so not a problem).
+> >  		}
+> >  	}
+> >  	/* Give HW time to discard old tx messages */
 > 
-> No timers, tasklets, work queues or whatever else postponing the work.
+> Ben.
 > 
-> > o	All pathways to the data structure have to have been
-> > 	shut down.  This is the tough one -- or is it simply
-> > 	a requirement that the guy removing the module has shut
-> > 	down all requests?
-> 
-> They can be accessed via connector configuration, but it is stopped
-> above (and it waits for currently active users to run away);
-> and netfilter path, which should be prevented after match was also
-> unregistered above.
-> 
-> -- 
-> 	Evgeniy Polyakov
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
