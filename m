@@ -1,7 +1,7 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 26/41]bnx2x: Increasing FW timeout
-Date: Thu, 12 Feb 2009 20:37:23 +0200
-Message-ID: <1234463843.1863.158.camel@lb-tlvb-eliezer>
+Subject: [PATCH 28/41]bnx2x: Using nvram default WoL config
+Date: Thu, 12 Feb 2009 20:37:52 +0200
+Message-ID: <1234463872.1863.160.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -10,47 +10,36 @@ To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:2663 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758583AbZBLShv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 13:37:51 -0500
+	id S1758229AbZBLSiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 13:38:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 26/41]bnx2x: Increasing FW timeout
-When enabling many debug prints, it can take a while before processing an event.
-To ease the debug process, allow bigger timeout before giving up
+Subject: [PATCH 28/41]bnx2x: Using nvram default WoL config
+The driver default WoL setting is set to the nvram default value
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/bnx2x_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 6c04539..6bd9219 100644
+index 2e95799..a14fe75 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -6671,7 +6671,7 @@ static int bnx2x_wait_ramrod(struct bnx2x *bp, int state, int idx,
- 			     int *state_p, int poll)
- {
- 	/* can take a while if any port is running */
--	int cnt = 500;
-+	int cnt = 5000;
+@@ -8027,6 +8027,12 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
+ 		bp->link_params.feature_config_flags &=
+ 				~FEATURE_CONFIG_MODULE_ENFORCMENT_ENABLED;
  
- 	DP(NETIF_MSG_IFUP, "%s for state to become %x on IDX [%d]\n",
- 	   poll ? "polling" : "waiting", state, idx);
-@@ -6689,8 +6689,12 @@ static int bnx2x_wait_ramrod(struct bnx2x *bp, int state, int idx,
- 		}
- 
- 		mb(); /* state is changed by bnx2x_sp_event() */
--		if (*state_p == state)
-+		if (*state_p == state) {
-+#ifdef BNX2X_STOP_ON_ERROR
-+			DP(NETIF_MSG_IFUP, "exit  (cnt %d)\n", 5000 - cnt);
-+#endif
- 			return 0;
-+		}
- 
- 		msleep(1);
- 	}
++	/* If the device is capable of WoL, set the default state according
++	 * to the HW
++	 */
++	bp->wol = (!(bp->flags & NO_WOL_FLAG) &&
++		   (config & PORT_FEATURE_WOL_ENABLED));
++
+ 	BNX2X_DEV_INFO("lane_config 0x%08x  ext_phy_config 0x%08x"
+ 		       "  speed_cap_mask 0x%08x  link_config 0x%08x\n",
+ 		       bp->link_params.lane_config,
 -- 
 1.5.4.3
 
