@@ -1,84 +1,67 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 04/41]bnx2x: System-page alignment
-Date: Thu, 12 Feb 2009 20:36:18 +0200
-Message-ID: <1234463778.1863.135.camel@lb-tlvb-eliezer>
+Subject: [PATCH 06/41]bnx2x: Removing microcode assertion check
+Date: Thu, 12 Feb 2009 20:36:27 +0200
+Message-ID: <1234463787.1863.137.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2685 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2663 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757835AbZBLSgu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 13:36:50 -0500
+	id S1758080AbZBLSg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 13:36:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 04/41]bnx2x: System-page alignment
+Subject: [PATCH 06/41]bnx2x: Removing microcode assertion check
+This check is unreliable since latest MC can issue warnings on rare occasions
+which are not fatal errors
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h      |    7 +++++--
- drivers/net/bnx2x_main.c |   11 ++++-------
- 2 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/bnx2x.h      |    2 +-
+ drivers/net/bnx2x_main.c |    6 +-----
+ 2 files changed, 2 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 153cc95..89a72c8 100644
+index 89a72c8..cfbeabb 100644
 --- a/drivers/net/bnx2x.h
 +++ b/drivers/net/bnx2x.h
-@@ -158,8 +158,6 @@ struct sw_rx_page {
- #define SGE_PAGE_SHIFT			PAGE_SHIFT
- #define SGE_PAGE_ALIGN(addr)		PAGE_ALIGN(addr)
+@@ -1009,7 +1009,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
  
--#define BCM_RX_ETH_PAYLOAD_ALIGN	64
--
- /* SGE ring related macros */
- #define NUM_RX_SGE_PAGES		2
- #define RX_SGE_CNT		(BCM_PAGE_SIZE / sizeof(struct eth_rx_sge))
-@@ -758,6 +756,11 @@ struct bnx2x {
- #define ETH_MAX_PACKET_SIZE		1500
- #define ETH_MAX_JUMBO_PACKET_SIZE	9600
  
-+	/* Max supported alignment is 256 (8 shift) */
-+#define BNX2X_RX_ALIGN_SHIFT		((L1_CACHE_SHIFT < 8) ? \
-+					 L1_CACHE_SHIFT : 8)
-+#define BNX2X_RX_ALIGN			(1 << BNX2X_RX_ALIGN_SHIFT)
-+
- 	struct host_def_status_block *def_status_blk;
- #define DEF_SB_ID			16
- 	u16			def_c_idx;
+ #define BNX2X_NUM_STATS			42
+-#define BNX2X_NUM_TESTS			8
++#define BNX2X_NUM_TESTS			7
+ 
+ #define BNX2X_MAC_LOOPBACK		0
+ #define BNX2X_PHY_LOOPBACK		1
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index db8506d..312f652 100644
+index ea7d86d..c27be17 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -4296,14 +4296,11 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
- 	u16 ring_prod, cqe_ring_prod;
- 	int i, j;
+@@ -8732,8 +8732,7 @@ static const struct {
+ 	{ "nvram_test (online)" },
+ 	{ "interrupt_test (online)" },
+ 	{ "link_test (online)" },
+-	{ "idle check (online)" },
+-	{ "MC errors (online)" }
++	{ "idle check (online)" }
+ };
  
--	bp->rx_buf_size = bp->dev->mtu;
--	bp->rx_buf_size += bp->rx_offset + ETH_OVREHEAD +
--		BCM_RX_ETH_PAYLOAD_ALIGN;
-+	bp->rx_buf_size += bp->rx_offset + ETH_OVREHEAD + BNX2X_RX_ALIGN;
-+	DP(NETIF_MSG_IFUP,
-+	   "mtu %d  rx_buf_size %d\n", bp->dev->mtu, bp->rx_buf_size);
+ static int bnx2x_self_test_count(struct net_device *dev)
+@@ -9202,9 +9201,6 @@ static void bnx2x_self_test(struct net_device *dev,
+ 			buf[5] = 1;
+ 			etest->flags |= ETH_TEST_FL_FAILED;
+ 		}
+-	buf[7] = bnx2x_mc_assert(bp);
+-	if (buf[7] != 0)
+-		etest->flags |= ETH_TEST_FL_FAILED;
  
- 	if (bp->flags & TPA_ENABLE_FLAG) {
--		DP(NETIF_MSG_IFUP,
--		   "rx_buf_size %d  effective_mtu %d\n",
--		   bp->rx_buf_size, bp->dev->mtu + ETH_OVREHEAD);
- 
- 		for_each_rx_queue(bp, j) {
- 			struct bnx2x_fastpath *fp = &bp->fp[j];
-@@ -4502,7 +4499,7 @@ static void bnx2x_init_context(struct bnx2x *bp)
- 		context->ustorm_st_context.common.flags =
- 			USTORM_ETH_ST_CONTEXT_CONFIG_ENABLE_MC_ALIGNMENT;
- 		context->ustorm_st_context.common.mc_alignment_log_size =
--			6 /*BCM_RX_ETH_PAYLOAD_ALIGN*/;
-+						BNX2X_RX_ALIGN_SHIFT;
- 		context->ustorm_st_context.common.bd_buff_size =
- 						bp->rx_buf_size;
- 		context->ustorm_st_context.common.bd_page_base_hi =
+ #ifdef BNX2X_EXTRA_DEBUG
+ 	bnx2x_panic_dump(bp);
 -- 
 1.5.4.3
 
