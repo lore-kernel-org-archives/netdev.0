@@ -1,22 +1,21 @@
 From: Pekka Enberg <penberg@cs.helsinki.fi>
 Subject: Re: Mainline kernel OLTP performance update
-Date: Thu, 12 Feb 2009 18:03:32 +0200
-Message-ID: <1234454612.28812.181.camel@penberg-laptop>
+Date: Thu, 12 Feb 2009 18:07:51 +0200
+Message-ID: <84144f020902120807v25f52301s2713d143b38f3d8c@mail.gmail.com>
 References: <BC02C49EEB98354DBA7F5DD76F2A9E800317003CB0@azsmsx501.amr.corp.intel.com>
-	 <1232616517.11429.129.camel@ymzhang>
-	 <1232617672.14549.25.camel@penberg-laptop>
-	 <1232679773.11429.155.camel@ymzhang> <4979692B.3050703@cs.helsinki.fi>
 	 <1232697998.6094.17.camel@penberg-laptop>
 	 <1232699401.11429.163.camel@ymzhang>
 	 <1232703989.6094.29.camel@penberg-laptop>
 	 <alpine.DEB.1.10.0901231020030.21692@qirst.com>
 	 <1232765728.11429.193.camel@ymzhang>
 	 <84144f020901232336v71687223y2fb21ee081c7517f@mail.gmail.com>
-	 <1234416153.2604.387.camel@ymzhang>  <1234417660.2604.391.camel@ymzhang>
+	 <1234416153.2604.387.camel@ymzhang>
+	 <1234417660.2604.391.camel@ymzhang>
+	 <alpine.DEB.1.10.0902121022450.3559@qirst.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
 	Andi Kleen <andi@firstfloor.org>,
 	Matthew Wilcox <matthew@wil.cx>,
 	Nick Piggin <nickpiggin@yahoo.com.au>,
@@ -30,48 +29,42 @@ Cc: Christoph Lameter <cl@linux-foundation.org>,
 	chris.mason@oracle.com, srostedt@redhat.com,
 	linux-scsi@vger.kernel.org, andrew.vasquez@qlogic.com,
 	anirban.chakraborty@qlogic.com, Ingo Molnar <mingo@elte.hu>
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752010AbZBLQDv@vger.kernel.org>
-In-Reply-To: <1234417660.2604.391.camel@ymzhang>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:8368 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751681AbZBLQHy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 11:07:54 -0500
+In-Reply-To: <alpine.DEB.1.10.0902121022450.3559@qirst.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-01-24 at 09:36 +0200, Pekka Enberg wrote:
-> > > On Fri, 2009-01-23 at 10:22 -0500, Christoph Lameter wrote:
-> > > >> No there is another way. Increase the allocator order to 3 for=
- the
-> > > >> kmalloc-8192 slab then multiple 8k blocks can be allocated fro=
-m one of the
-> > > >> larger chunks of data gotten from the page allocator. That wil=
-l allow slub
-> > > >> to do fast allocs.
-> > >=20
-> > > On Sat, Jan 24, 2009 at 4:55 AM, Zhang, Yanmin
-> > > <yanmin_zhang@linux.intel.com> wrote:
-> > > > After I change kmalloc-8192/order to 3, the result(pinned netpe=
-rf UDP-U-4k)
-> > > > difference between SLUB and SLQB becomes 1% which can be consid=
-ered as fluctuation.
-> > >=20
-> > > Great. We should fix calculate_order() to be order 3 for kmalloc-=
-8192.
-> > > Are you interested in doing that?
+Hi Christoph,
 
-On Thu, 2009-02-12 at 13:22 +0800, Zhang, Yanmin wrote:
-> > Pekka,
-> >=20
-> > Sorry for the late update.
-> > The default order of =EF=BB=BFkmalloc-8192 on 2*4 stoakley is reall=
-y an issue of calculate_order.
+On Thu, 12 Feb 2009, Zhang, Yanmin wrote:
+>> =EF=BB=BFThe default order of =EF=BB=BFkmalloc-8192 on 2*4 stoakley =
+is an issue of calculate_order.
+>>
+>>
+>> slab_size =C2=A0 =C2=A0 =C2=A0 order =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 name
+>> -------------------------------------------------
+>> 4096 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A03 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 sgpool-128
+>> 8192 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A02 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 kmalloc-8192
+>> 16384 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 3 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 kmalloc-16384
+>>
+>> =EF=BB=BFkmalloc-8192's default order is smaller than =EF=BB=BFsgpoo=
+l-128's.
 
-On Thu, 2009-02-12 at 13:47 +0800, Zhang, Yanmin wrote:
-> Oh, previous patch has a compiling warning. Pls. use below patch.
->=20
-> From: =EF=BB=BFZhang Yanmin <yanmin.zhang@linux.intel.com>
->=20
-> =EF=BB=BFThe default order of =EF=BB=BFkmalloc-8192 on 2*4 stoakley i=
-s an issue of calculate_order.
+On Thu, Feb 12, 2009 at 5:25 PM, Christoph Lameter
+<cl@linux-foundation.org> wrote:
+> You reverted the page allocator passthrough patch before this right?
+> Otherwise kmalloc-8192 should not exist and allocation calls for 8192
+> bytes would be converted inline to request of an order 1 page from th=
+e
+> page allocator.
 
-Applied to the 'topic/slub/perf' branch. Thanks!
-
-			Pekka
+Yup, I assume that's the case here.
