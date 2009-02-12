@@ -1,171 +1,199 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 36/41]bnx2x: Driver dump
-Date: Thu, 12 Feb 2009 20:38:22 +0200
-Message-ID: <1234463902.1863.168.camel@lb-tlvb-eliezer>
+Subject: [PATCH 16/41]bnx2x: Supporting BCM8481 PHY
+Date: Thu, 12 Feb 2009 20:37:00 +0200
+Message-ID: <1234463820.1863.148.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1658 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1665 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758877AbZBLSpL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759041AbZBLSpL (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 12 Feb 2009 13:45:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 36/41]bnx2x: Driver dump
-Re-arrange the driver debug print to support the Tx multi-queue and add support
-for debug prints at the end of the ring (when start<end)
+Subject: [PATCH 16/41]bnx2x: Supporting BCM8481 PHY
 
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   97 ++++++++++++++++++++++++++++------------------
- 1 files changed, 59 insertions(+), 38 deletions(-)
+ drivers/net/bnx2x_link.c |   95 +++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/net/bnx2x_main.c |   17 ++++++++
+ 2 files changed, 110 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+index 55f50c7..bed11b9 100644
+--- a/drivers/net/bnx2x_link.c
++++ b/drivers/net/bnx2x_link.c
+@@ -1755,7 +1755,9 @@ static u8 bnx2x_link_settings_status(struct link_params *params,
+ 		    (XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
+ 		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705) ||
+ 		    (XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
+-		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726))) {
++		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726) ||
++		     (XGXS_EXT_PHY_TYPE(params->ext_phy_config) ==
++		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8481))) {
+ 			vars->autoneg = AUTO_NEG_ENABLED;
+ 
+ 			if (gp_status & MDIO_AN_CL73_OR_37_COMPLETE) {
+@@ -1997,6 +1999,23 @@ static void bnx2x_ext_phy_reset(struct link_params *params,
+ 
+ 			break;
+ 
++		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8481:
++
++			/* Restore normal power mode*/
++			bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_2,
++				      MISC_REGISTERS_GPIO_OUTPUT_HIGH,
++					  params->port);
++
++			/* HW reset */
++			bnx2x_hw_reset(bp, params->port);
++
++			bnx2x_cl45_write(bp, params->port,
++				       ext_phy_type,
++				       ext_phy_addr,
++				       MDIO_PMA_DEVAD,
++				       MDIO_PMA_REG_CTRL,
++				       1<<15);
++			break;
+ 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE:
+ 			DP(NETIF_MSG_LINK, "XGXS PHY Failure detected\n");
+ 			break;
+@@ -3414,6 +3433,31 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
+ 				       ext_phy_addr,
+ 				       MDIO_AN_DEVAD,
+ 				       MDIO_AN_REG_CTRL, val);
++
++			break;
++		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8481:
++			DP(NETIF_MSG_LINK,
++				"Setting the BCM8481 LASI control\n");
++
++			bnx2x_cl45_write(bp, params->port,
++				       ext_phy_type,
++				       ext_phy_addr,
++				       MDIO_PMA_DEVAD,
++				       MDIO_PMA_REG_LASI_CTRL, 0x1);
++
++			/* Restart autoneg */
++			bnx2x_cl45_read(bp, params->port,
++				      ext_phy_type,
++				      ext_phy_addr,
++				      MDIO_AN_DEVAD,
++				      MDIO_AN_REG_CTRL, &val);
++			val |= 0x200;
++			bnx2x_cl45_write(bp, params->port,
++				       ext_phy_type,
++				       ext_phy_addr,
++				       MDIO_AN_DEVAD,
++				       MDIO_AN_REG_CTRL, val);
++
+ 			break;
+ 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE:
+ 			DP(NETIF_MSG_LINK,
+@@ -3830,7 +3874,53 @@ static u8 bnx2x_ext_phy_is_link_up(struct link_params *params,
+ 					 (val2 & (1<<14)));
+ 			}
+ 			break;
++		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8481:
++			/* Clear LASI interrupt */
++			bnx2x_cl45_read(bp, params->port,
++				      ext_phy_type,
++				      ext_phy_addr,
++				      MDIO_PMA_DEVAD,
++				      MDIO_PMA_REG_LASI_STATUS, &val1);
++			DP(NETIF_MSG_LINK, "8481 LASI status reg = 0x%x\n",
++				 val1);
++
++			/* Check 10G-BaseT link status */
++			/* Check Global PMD signal ok */
++			bnx2x_cl45_read(bp, params->port, ext_phy_type,
++				      ext_phy_addr,
++				      MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_SD,
++				      &rx_sd);
++			/* Check PCS block lock */
++			bnx2x_cl45_read(bp, params->port, ext_phy_type,
++				      ext_phy_addr,
++				      MDIO_PCS_DEVAD, MDIO_PCS_REG_STATUS,
++				      &pcs_status);
++			DP(NETIF_MSG_LINK, "8481 1.a = 0x%x, 1.20 = 0x%x\n",
++				 rx_sd, pcs_status);
++			if (rx_sd & pcs_status & 0x1) {
++				vars->line_speed = SPEED_10000;
++				ext_phy_link_up = 1;
++			} else {
++
++				/* Check 1000-BaseT link status */
++				bnx2x_cl45_read(bp, params->port, ext_phy_type,
++					      ext_phy_addr,
++					      MDIO_AN_DEVAD, 0xFFE1,
++					      &val1);
+ 
++				bnx2x_cl45_read(bp, params->port, ext_phy_type,
++					      ext_phy_addr,
++					      MDIO_AN_DEVAD, 0xFFE1,
++					      &val2);
++				DP(NETIF_MSG_LINK, "8481 7.FFE1 ="
++					     "0x%x-->0x%x\n", val1, val2);
++				if (val2 & (1<<2)) {
++					vars->line_speed = SPEED_1000;
++					ext_phy_link_up = 1;
++				}
++			}
++
++			break;
+ 		default:
+ 			DP(NETIF_MSG_LINK, "BAD XGXS ext_phy_config 0x%x\n",
+ 			   params->ext_phy_config);
+@@ -4523,7 +4613,8 @@ static u8 bnx2x_link_initialize(struct link_params *params,
+ 
+ 	if (non_ext_phy ||
+ 	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705) ||
+-	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726)) {
++	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726) ||
++	    (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8481)) {
+ 		if (params->req_line_speed == SPEED_AUTO_NEG)
+ 			bnx2x_set_parallel_detection(params, vars->phy_flags);
+ 		bnx2x_init_internal_phy(params, vars);
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 26451f6..78f628a 100644
+index 2ee480b..0d2d556 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -507,50 +507,54 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
+@@ -7730,6 +7730,22 @@ static void __devinit bnx2x_link_settings_supported(struct bnx2x *bp,
+ 					       SUPPORTED_Asym_Pause);
+ 			break;
  
- 	BNX2X_ERR("begin crash dump -----------------\n");
- 
--	for_each_queue(bp, i) {
-+	/* Indices */
-+	/* Common */
-+	BNX2X_ERR("def_c_idx(%u)  def_u_idx(%u)  def_x_idx(%u)"
-+		  "  def_t_idx(%u)  def_att_idx(%u)  attn_state(%u)"
-+		  "  spq_prod_idx(%u)\n",
-+		  bp->def_c_idx, bp->def_u_idx, bp->def_x_idx, bp->def_t_idx,
-+		  bp->def_att_idx, bp->attn_state, bp->spq_prod_idx);
++		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8481:
++			BNX2X_DEV_INFO("ext_phy_type 0x%x (BCM8481)\n",
++				       ext_phy_type);
 +
-+	/* Rx */
-+	for_each_rx_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
--		struct eth_tx_db_data *hw_prods = fp->hw_tx_prods;
- 
--		BNX2X_ERR("queue[%d]: tx_pkt_prod(%x)  tx_pkt_cons(%x)"
--			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)\n",
--			  i, fp->tx_pkt_prod, fp->tx_pkt_cons, fp->tx_bd_prod,
--			  fp->tx_bd_cons, le16_to_cpu(*fp->tx_cons_sb));
--		BNX2X_ERR("          rx_bd_prod(%x)  rx_bd_cons(%x)"
-+		BNX2X_ERR("queue[%d]: rx_bd_prod(%x)  rx_bd_cons(%x)"
- 			  "  *rx_bd_cons_sb(%x)  rx_comp_prod(%x)"
- 			  "  rx_comp_cons(%x)  *rx_cons_sb(%x)\n",
--			  fp->rx_bd_prod, fp->rx_bd_cons,
-+			  i, fp->rx_bd_prod, fp->rx_bd_cons,
- 			  le16_to_cpu(*fp->rx_bd_cons_sb), fp->rx_comp_prod,
- 			  fp->rx_comp_cons, le16_to_cpu(*fp->rx_cons_sb));
- 		BNX2X_ERR("          rx_sge_prod(%x)  last_max_sge(%x)"
--			  "  fp_c_idx(%x)  *sb_c_idx(%x)  fp_u_idx(%x)"
--			  "  *sb_u_idx(%x)  bd data(%x,%x)\n",
--			  fp->rx_sge_prod, fp->last_max_sge, fp->fp_c_idx,
--			  fp->status_blk->c_status_block.status_block_index,
--			  fp->fp_u_idx,
--			  fp->status_blk->u_status_block.status_block_index,
--			  hw_prods->packets_prod, hw_prods->bds_prod);
--
--		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
--		end = TX_BD(le16_to_cpu(*fp->tx_cons_sb) + 245);
--		for (j = start; j < end; j++) {
--			struct sw_tx_bd *sw_bd = &fp->tx_buf_ring[j];
-+			  "  fp_u_idx(%x) *sb_u_idx(%x)\n",
-+			  fp->rx_sge_prod, fp->last_max_sge,
-+			  le16_to_cpu(fp->fp_u_idx),
-+			  fp->status_blk->u_status_block.status_block_index);
-+	}
- 
--			BNX2X_ERR("packet[%x]=[%p,%x]\n", j,
--				  sw_bd->skb, sw_bd->first_bd);
--		}
-+	/* Tx */
-+	for_each_tx_queue(bp, i) {
-+		struct bnx2x_fastpath *fp = &bp->fp[i];
-+		struct eth_tx_db_data *hw_prods = fp->hw_tx_prods;
- 
--		start = TX_BD(fp->tx_bd_cons - 10);
--		end = TX_BD(fp->tx_bd_cons + 254);
--		for (j = start; j < end; j++) {
--			u32 *tx_bd = (u32 *)&fp->tx_desc_ring[j];
-+		BNX2X_ERR("queue[%d]: tx_pkt_prod(%x)  tx_pkt_cons(%x)"
-+			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)\n",
-+			  i, fp->tx_pkt_prod, fp->tx_pkt_cons, fp->tx_bd_prod,
-+			  fp->tx_bd_cons, le16_to_cpu(*fp->tx_cons_sb));
-+		BNX2X_ERR("          fp_c_idx(%x)  *sb_c_idx(%x)"
-+			  "  bd data(%x,%x)\n", le16_to_cpu(fp->fp_c_idx),
-+			  fp->status_blk->c_status_block.status_block_index,
-+			  hw_prods->packets_prod, hw_prods->bds_prod);
-+	}
- 
--			BNX2X_ERR("tx_bd[%x]=[%x:%x:%x:%x]\n",
--				  j, tx_bd[0], tx_bd[1], tx_bd[2], tx_bd[3]);
--		}
-+	/* Rings */
-+	/* Rx */
-+	for_each_rx_queue(bp, i) {
-+		struct bnx2x_fastpath *fp = &bp->fp[i];
- 
- 		start = RX_BD(le16_to_cpu(*fp->rx_cons_sb) - 10);
- 		end = RX_BD(le16_to_cpu(*fp->rx_cons_sb) + 503);
--		for (j = start; j < end; j++) {
-+		for (j = start; j != end; j = RX_BD(j + 1)) {
- 			u32 *rx_bd = (u32 *)&fp->rx_desc_ring[j];
- 			struct sw_rx_bd *sw_bd = &fp->rx_buf_ring[j];
- 
-@@ -560,7 +564,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 
- 		start = RX_SGE(fp->rx_sge_prod);
- 		end = RX_SGE(fp->last_max_sge);
--		for (j = start; j < end; j++) {
-+		for (j = start; j != end; j = RX_SGE(j + 1)) {
- 			u32 *rx_sge = (u32 *)&fp->rx_sge_ring[j];
- 			struct sw_rx_page *sw_page = &fp->rx_page_ring[j];
- 
-@@ -570,7 +574,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 
- 		start = RCQ_BD(fp->rx_comp_cons - 10);
- 		end = RCQ_BD(fp->rx_comp_cons + 503);
--		for (j = start; j < end; j++) {
-+		for (j = start; j != end; j = RCQ_BD(j + 1)) {
- 			u32 *cqe = (u32 *)&fp->rx_comp_ring[j];
- 
- 			BNX2X_ERR("cqe[%x]=[%x:%x:%x:%x]\n",
-@@ -578,11 +582,28 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
- 		}
- 	}
- 
--	BNX2X_ERR("def_c_idx(%u)  def_u_idx(%u)  def_x_idx(%u)"
--		  "  def_t_idx(%u)  def_att_idx(%u)  attn_state(%u)"
--		  "  spq_prod_idx(%u)\n",
--		  bp->def_c_idx, bp->def_u_idx, bp->def_x_idx, bp->def_t_idx,
--		  bp->def_att_idx, bp->attn_state, bp->spq_prod_idx);
-+	/* Tx */
-+	for_each_tx_queue(bp, i) {
-+		struct bnx2x_fastpath *fp = &bp->fp[i];
++			bp->port.supported |= (SUPPORTED_10baseT_Half |
++					       SUPPORTED_10baseT_Full |
++					       SUPPORTED_100baseT_Half |
++					       SUPPORTED_100baseT_Full |
++					       SUPPORTED_1000baseT_Full |
++					       SUPPORTED_10000baseT_Full |
++					       SUPPORTED_TP |
++					       SUPPORTED_Autoneg |
++					       SUPPORTED_Pause |
++					       SUPPORTED_Asym_Pause);
++			break;
 +
-+		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
-+		end = TX_BD(le16_to_cpu(*fp->tx_cons_sb) + 245);
-+		for (j = start; j != end; j = TX_BD(j + 1)) {
-+			struct sw_tx_bd *sw_bd = &fp->tx_buf_ring[j];
-+
-+			BNX2X_ERR("packet[%x]=[%p,%x]\n", j,
-+				  sw_bd->skb, sw_bd->first_bd);
-+		}
-+
-+		start = TX_BD(fp->tx_bd_cons - 10);
-+		end = TX_BD(fp->tx_bd_cons + 254);
-+		for (j = start; j != end; j = TX_BD(j + 1)) {
-+			u32 *tx_bd = (u32 *)&fp->tx_desc_ring[j];
-+
-+			BNX2X_ERR("tx_bd[%x]=[%x:%x:%x:%x]\n",
-+				  j, tx_bd[0], tx_bd[1], tx_bd[2], tx_bd[3]);
-+		}
-+	}
+ 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE:
+ 			BNX2X_ERR("XGXS PHY Failure detected 0x%x\n",
+ 				  bp->link_params.ext_phy_config);
+@@ -8189,6 +8205,7 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 			break;
  
- 	bnx2x_fw_dump(bp);
- 	bnx2x_mc_assert(bp);
+ 		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
++		case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8481:
+ 			cmd->port = PORT_TP;
+ 			break;
+ 
 -- 
 1.5.4.3
 
