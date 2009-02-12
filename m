@@ -1,421 +1,171 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 39/41]bnx2x: Comments and prints
-Date: Thu, 12 Feb 2009 20:38:30 +0200
-Message-ID: <1234463910.1863.171.camel@lb-tlvb-eliezer>
+Subject: [PATCH 36/41]bnx2x: Driver dump
+Date: Thu, 12 Feb 2009 20:38:22 +0200
+Message-ID: <1234463902.1863.168.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1656 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1658 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758867AbZBLSpL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758877AbZBLSpL (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 12 Feb 2009 13:45:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 39/41]bnx2x: Comments and prints
+Subject: [PATCH 36/41]bnx2x: Driver dump
+Re-arrange the driver debug print to support the Tx multi-queue and add support
+for debug prints at the end of the ring (when start<end)
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_fw_defs.h |    9 ++--
- drivers/net/bnx2x_hsi.h     |    2 +-
- drivers/net/bnx2x_init.h    |   94 +++++++++++++++++++++---------------------
- drivers/net/bnx2x_link.c    |    5 +-
- drivers/net/bnx2x_main.c    |   43 ++++++++++----------
- 5 files changed, 78 insertions(+), 75 deletions(-)
+ drivers/net/bnx2x_main.c |   97 ++++++++++++++++++++++++++++------------------
+ 1 files changed, 59 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/bnx2x_fw_defs.h b/drivers/net/bnx2x_fw_defs.h
-index f6dacb0..0683e54 100644
---- a/drivers/net/bnx2x_fw_defs.h
-+++ b/drivers/net/bnx2x_fw_defs.h
-@@ -194,7 +194,7 @@
- #define COMMON_ASM_INVALID_ASSERT_OPCODE 0x0
- 
- /**
--* This file defines HSI constatnts for the ETH flow
-+* This file defines HSI constants for the ETH flow
- */
- #ifdef _EVEREST_MICROCODE
- #include "microcode_constants.h"
-@@ -212,7 +212,8 @@
- #define IPV6_HASH_TYPE 3
- #define TCP_IPV6_HASH_TYPE 4
- 
--/* Ethernet Ring parmaters */
-+
-+/* Ethernet Ring parameters */
- #define X_ETH_LOCAL_RING_SIZE 13
- #define FIRST_BD_IN_PKT 0
- #define PARSE_BD_INDEX 1
-@@ -279,7 +280,7 @@
- 
- 
- /**
--* This file defines HSI constatnts common to all microcode flows
-+* This file defines HSI constants common to all microcode flows
- */
- 
- /* Connection types */
-@@ -313,7 +314,7 @@
- #define HC_USTORM_SB_NUM_INDICES 4
- #define HC_CSTORM_SB_NUM_INDICES 4
- 
--/* index values - which counterto update */
-+/* index values - which counter to update */
- 
- #define HC_INDEX_U_TOE_RX_CQ_CONS 0
- #define HC_INDEX_U_ETH_RX_CQ_CONS 1
-diff --git a/drivers/net/bnx2x_hsi.h b/drivers/net/bnx2x_hsi.h
-index 51c5fe1..966b4a2 100644
---- a/drivers/net/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x_hsi.h
-@@ -1671,7 +1671,7 @@ struct xstorm_eth_ag_context {
- };
- 
- /*
-- * The eth aggregative context section of Tstorm
-+ * The eth extra aggregative context section of Tstorm
-  */
- struct tstorm_eth_extra_ag_context_section {
- 	u32 __agg_val1;
-diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
-index 6fcd1dc..ba370f7 100644
---- a/drivers/net/bnx2x_init.h
-+++ b/drivers/net/bnx2x_init.h
-@@ -429,57 +429,57 @@ struct arb_line {
- 
- /* derived configuration for each read queue for each max request size */
- static const struct arb_line read_arb_data[NUM_RD_Q][MAX_RD_ORD + 1] = {
--	{{8 , 64 , 25}, {16 , 64 , 25}, {32 , 64 , 25}, {64 , 64 , 41} },
--	{{4 , 8 , 4},   {4 , 8 , 4},    {4 , 8 , 4},    {4 , 8 , 4} },
--	{{4 , 3 , 3},   {4 , 3 , 3},    {4 , 3 , 3},    {4 , 3 , 3} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {16 , 3 , 11},  {16 , 3 , 11} },
--	{{8 , 64 , 25}, {16 , 64 , 25}, {32 , 64 , 25}, {64 , 64 , 41} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {64 , 3 , 41} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {64 , 3 , 41} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {64 , 3 , 41} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {64 , 3 , 41} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 3 , 6},   {16 , 3 , 11},  {32 , 3 , 21},  {32 , 3 , 21} },
--	{{8 , 64 , 25}, {16 , 64 , 41}, {32 , 64 , 81}, {64 , 64 , 120} }
-+/* 1 */	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25}, {64, 64, 41} },
-+	{ {4, 8,  4},  {4,  8,  4},  {4,  8,  4},  {4,  8,  4}  },
-+	{ {4, 3,  3},  {4,  3,  3},  {4,  3,  3},  {4,  3,  3}  },
-+	{ {8, 3,  6},  {16, 3,  11}, {16, 3,  11}, {16, 3,  11} },
-+	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25}, {64, 64, 41} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
-+/* 10 */{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+/* 20 */{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
-+	{ {8, 64, 25}, {16, 64, 41}, {32, 64, 81}, {64, 64, 120} }
- };
- 
- /* derived configuration for each write queue for each max request size */
- static const struct arb_line write_arb_data[NUM_WR_Q][MAX_WR_ORD + 1] = {
--	{{4 , 6 , 3},   {4 , 6 , 3},    {4 , 6 , 3} },
--	{{4 , 2 , 3},   {4 , 2 , 3},    {4 , 2 , 3} },
--	{{8 , 2 , 6},   {16 , 2 , 11},  {16 , 2 , 11} },
--	{{8 , 2 , 6},   {16 , 2 , 11},  {32 , 2 , 21} },
--	{{8 , 2 , 6},   {16 , 2 , 11},  {32 , 2 , 21} },
--	{{8 , 2 , 6},   {16 , 2 , 11},  {32 , 2 , 21} },
--	{{8 , 64 , 25}, {16 , 64 , 25}, {32 , 64 , 25} },
--	{{8 , 2 , 6},   {16 , 2 , 11},  {16 , 2 , 11} },
--	{{8 , 2 , 6},   {16 , 2 , 11},  {16 , 2 , 11} },
--	{{8 , 9 , 6},   {16 , 9 , 11},  {32 , 9 , 21} },
--	{{8 , 47 , 19}, {16 , 47 , 19}, {32 , 47 , 21} },
--	{{8 , 9 , 6},   {16 , 9 , 11},  {16 , 9 , 11} },
--	{{8 , 64 , 25}, {16 , 64 , 41}, {32 , 64 , 81} }
-+/* 1 */	{ {4, 6,  3},  {4,  6,  3},  {4,  6,  3} },
-+	{ {4, 2,  3},  {4,  2,  3},  {4,  2,  3} },
-+	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
-+	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
-+	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
-+	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
-+	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25} },
-+	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
-+	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
-+/* 10 */{ {8, 9,  6},  {16, 9,  11}, {32, 9,  21} },
-+	{ {8, 47, 19}, {16, 47, 19}, {32, 47, 21} },
-+	{ {8, 9,  6},  {16, 9,  11}, {16, 9,  11} },
-+	{ {8, 64, 25}, {16, 64, 41}, {32, 64, 81} }
- };
- 
- /* register addresses for read queues */
- static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
--	{PXP2_REG_RQ_BW_RD_L0, PXP2_REG_RQ_BW_RD_ADD0,
-+/* 1 */	{PXP2_REG_RQ_BW_RD_L0, PXP2_REG_RQ_BW_RD_ADD0,
- 		PXP2_REG_RQ_BW_RD_UBOUND0},
- 	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
- 		PXP2_REG_PSWRQ_BW_UB1},
-@@ -497,7 +497,7 @@ static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
- 		PXP2_REG_PSWRQ_BW_UB7},
- 	{PXP2_REG_PSWRQ_BW_L8, PXP2_REG_PSWRQ_BW_ADD8,
- 		PXP2_REG_PSWRQ_BW_UB8},
--	{PXP2_REG_PSWRQ_BW_L9, PXP2_REG_PSWRQ_BW_ADD9,
-+/* 10 */{PXP2_REG_PSWRQ_BW_L9, PXP2_REG_PSWRQ_BW_ADD9,
- 		PXP2_REG_PSWRQ_BW_UB9},
- 	{PXP2_REG_PSWRQ_BW_L10, PXP2_REG_PSWRQ_BW_ADD10,
- 		PXP2_REG_PSWRQ_BW_UB10},
-@@ -517,7 +517,7 @@ static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
- 		PXP2_REG_RQ_BW_RD_UBOUND17},
- 	{PXP2_REG_RQ_BW_RD_L18, PXP2_REG_RQ_BW_RD_ADD18,
- 		PXP2_REG_RQ_BW_RD_UBOUND18},
--	{PXP2_REG_RQ_BW_RD_L19, PXP2_REG_RQ_BW_RD_ADD19,
-+/* 20 */{PXP2_REG_RQ_BW_RD_L19, PXP2_REG_RQ_BW_RD_ADD19,
- 		PXP2_REG_RQ_BW_RD_UBOUND19},
- 	{PXP2_REG_RQ_BW_RD_L20, PXP2_REG_RQ_BW_RD_ADD20,
- 		PXP2_REG_RQ_BW_RD_UBOUND20},
-@@ -539,7 +539,7 @@ static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
- 
- /* register addresses for write queues */
- static const struct arb_line write_arb_addr[NUM_WR_Q-1] = {
--	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
-+/* 1 */	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
- 		PXP2_REG_PSWRQ_BW_UB1},
- 	{PXP2_REG_PSWRQ_BW_L2, PXP2_REG_PSWRQ_BW_ADD2,
- 		PXP2_REG_PSWRQ_BW_UB2},
-@@ -557,7 +557,7 @@ static const struct arb_line write_arb_addr[NUM_WR_Q-1] = {
- 		PXP2_REG_PSWRQ_BW_UB10},
- 	{PXP2_REG_PSWRQ_BW_L11, PXP2_REG_PSWRQ_BW_ADD11,
- 		PXP2_REG_PSWRQ_BW_UB11},
--	{PXP2_REG_PSWRQ_BW_L28, PXP2_REG_PSWRQ_BW_ADD28,
-+/* 10 */{PXP2_REG_PSWRQ_BW_L28, PXP2_REG_PSWRQ_BW_ADD28,
- 		PXP2_REG_PSWRQ_BW_UB28},
- 	{PXP2_REG_RQ_BW_WR_L29, PXP2_REG_RQ_BW_WR_ADD29,
- 		PXP2_REG_RQ_BW_WR_UBOUND29},
-diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index 5a17c7c..e1a4e39 100644
---- a/drivers/net/bnx2x_link.c
-+++ b/drivers/net/bnx2x_link.c
-@@ -4823,6 +4823,7 @@ u8 bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
- 			return -EINVAL;
- 			break;
- 		}
-+		DP(NETIF_MSG_LINK, "Phy address = 0x%x\n", params->phy_addr);
- 
- 		bnx2x_link_initialize(params, vars);
- 		msleep(30);
-@@ -5179,7 +5180,7 @@ static u8 bnx2x_8073_common_init_phy(struct bnx2x *bp, u32 shmem_base)
- 
- 	/* PART3 - complete TX_POWER_DOWN process, and set GPIO2 back to low */
- 	for (port = PORT_MAX - 1; port >= PORT_0; port--) {
--		/* Phase2 of POWER_DOWN_RESET*/
-+		/* Phase2 of POWER_DOWN_RESET */
- 		/* Release bit 10 (Release Tx power down) */
- 		bnx2x_cl45_read(bp, port,
- 			      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073,
-@@ -5258,7 +5259,7 @@ u8 bnx2x_common_init_phy(struct bnx2x *bp, u32 shmem_base)
- 	u8 rc = 0;
- 	u32 ext_phy_type;
- 
--	DP(NETIF_MSG_LINK, "bnx2x_common_init_phy\n");
-+	DP(NETIF_MSG_LINK, "Begin common phy init\n");
- 
- 	/* Read the ext_phy_type for arbitrary port(0) */
- 	ext_phy_type = XGXS_EXT_PHY_TYPE(
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 0d6015f..ae36bc7 100644
+index 26451f6..78f628a 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -1704,7 +1704,7 @@ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
- 		DP(NETIF_MSG_INTR, "not our interrupt!\n");
- 		return IRQ_NONE;
- 	}
--	DP(NETIF_MSG_INTR, "got an interrupt  status %u\n", status);
-+	DP(NETIF_MSG_INTR, "got an interrupt  status 0x%x\n", status);
+@@ -507,50 +507,54 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
  
- 	/* Return here if interrupt is disabled */
- 	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
-@@ -2115,7 +2115,7 @@ static u8 bnx2x_initial_phy_init(struct bnx2x *bp, int load_mode)
+ 	BNX2X_ERR("begin crash dump -----------------\n");
  
- 		return rc;
- 	}
--	BNX2X_ERR("Bootcode is missing -not initializing link\n");
-+	BNX2X_ERR("Bootcode is missing - can not initialize link\n");
- 	return -EINVAL;
- }
+-	for_each_queue(bp, i) {
++	/* Indices */
++	/* Common */
++	BNX2X_ERR("def_c_idx(%u)  def_u_idx(%u)  def_x_idx(%u)"
++		  "  def_t_idx(%u)  def_att_idx(%u)  attn_state(%u)"
++		  "  spq_prod_idx(%u)\n",
++		  bp->def_c_idx, bp->def_u_idx, bp->def_x_idx, bp->def_t_idx,
++		  bp->def_att_idx, bp->attn_state, bp->spq_prod_idx);
++
++	/* Rx */
++	for_each_rx_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+-		struct eth_tx_db_data *hw_prods = fp->hw_tx_prods;
  
-@@ -2128,7 +2128,7 @@ static void bnx2x_link_set(struct bnx2x *bp)
+-		BNX2X_ERR("queue[%d]: tx_pkt_prod(%x)  tx_pkt_cons(%x)"
+-			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)\n",
+-			  i, fp->tx_pkt_prod, fp->tx_pkt_cons, fp->tx_bd_prod,
+-			  fp->tx_bd_cons, le16_to_cpu(*fp->tx_cons_sb));
+-		BNX2X_ERR("          rx_bd_prod(%x)  rx_bd_cons(%x)"
++		BNX2X_ERR("queue[%d]: rx_bd_prod(%x)  rx_bd_cons(%x)"
+ 			  "  *rx_bd_cons_sb(%x)  rx_comp_prod(%x)"
+ 			  "  rx_comp_cons(%x)  *rx_cons_sb(%x)\n",
+-			  fp->rx_bd_prod, fp->rx_bd_cons,
++			  i, fp->rx_bd_prod, fp->rx_bd_cons,
+ 			  le16_to_cpu(*fp->rx_bd_cons_sb), fp->rx_comp_prod,
+ 			  fp->rx_comp_cons, le16_to_cpu(*fp->rx_cons_sb));
+ 		BNX2X_ERR("          rx_sge_prod(%x)  last_max_sge(%x)"
+-			  "  fp_c_idx(%x)  *sb_c_idx(%x)  fp_u_idx(%x)"
+-			  "  *sb_u_idx(%x)  bd data(%x,%x)\n",
+-			  fp->rx_sge_prod, fp->last_max_sge, fp->fp_c_idx,
+-			  fp->status_blk->c_status_block.status_block_index,
+-			  fp->fp_u_idx,
+-			  fp->status_blk->u_status_block.status_block_index,
+-			  hw_prods->packets_prod, hw_prods->bds_prod);
+-
+-		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
+-		end = TX_BD(le16_to_cpu(*fp->tx_cons_sb) + 245);
+-		for (j = start; j < end; j++) {
+-			struct sw_tx_bd *sw_bd = &fp->tx_buf_ring[j];
++			  "  fp_u_idx(%x) *sb_u_idx(%x)\n",
++			  fp->rx_sge_prod, fp->last_max_sge,
++			  le16_to_cpu(fp->fp_u_idx),
++			  fp->status_blk->u_status_block.status_block_index);
++	}
  
- 		bnx2x_calc_fc_adv(bp);
- 	} else
--		BNX2X_ERR("Bootcode is missing -not setting link\n");
-+		BNX2X_ERR("Bootcode is missing - can not set link\n");
- }
+-			BNX2X_ERR("packet[%x]=[%p,%x]\n", j,
+-				  sw_bd->skb, sw_bd->first_bd);
+-		}
++	/* Tx */
++	for_each_tx_queue(bp, i) {
++		struct bnx2x_fastpath *fp = &bp->fp[i];
++		struct eth_tx_db_data *hw_prods = fp->hw_tx_prods;
  
- static void bnx2x__link_reset(struct bnx2x *bp)
-@@ -2138,7 +2138,7 @@ static void bnx2x__link_reset(struct bnx2x *bp)
- 		bnx2x_link_reset(&bp->link_params, &bp->link_vars, 1);
- 		bnx2x_release_phy_lock(bp);
- 	} else
--		BNX2X_ERR("Bootcode is missing -not resetting link\n");
-+		BNX2X_ERR("Bootcode is missing - can not reset link\n");
- }
+-		start = TX_BD(fp->tx_bd_cons - 10);
+-		end = TX_BD(fp->tx_bd_cons + 254);
+-		for (j = start; j < end; j++) {
+-			u32 *tx_bd = (u32 *)&fp->tx_desc_ring[j];
++		BNX2X_ERR("queue[%d]: tx_pkt_prod(%x)  tx_pkt_cons(%x)"
++			  "  tx_bd_prod(%x)  tx_bd_cons(%x)  *tx_cons_sb(%x)\n",
++			  i, fp->tx_pkt_prod, fp->tx_pkt_cons, fp->tx_bd_prod,
++			  fp->tx_bd_cons, le16_to_cpu(*fp->tx_cons_sb));
++		BNX2X_ERR("          fp_c_idx(%x)  *sb_c_idx(%x)"
++			  "  bd data(%x,%x)\n", le16_to_cpu(fp->fp_c_idx),
++			  fp->status_blk->c_status_block.status_block_index,
++			  hw_prods->packets_prod, hw_prods->bds_prod);
++	}
  
- static u8 bnx2x_link_test(struct bnx2x *bp)
-@@ -5139,8 +5139,8 @@ static void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
- 		fp->cl_id = BP_L_ID(bp) + i;
- 		fp->sb_id = fp->cl_id;
- 		DP(NETIF_MSG_IFUP,
--		   "bnx2x_init_sb(%p,%p) index %d  cl_id %d  sb %d\n",
--		   bp, fp->status_blk, i, fp->cl_id, fp->sb_id);
-+		   "queue[%d]:  bnx2x_init_sb(%p,%p)  cl_id %d  sb %d\n",
-+		   i, bp, fp->status_blk, fp->cl_id, fp->sb_id);
- 		bnx2x_init_sb(bp, fp->status_blk, fp->status_blk_mapping,
- 			      fp->sb_id);
- 		bnx2x_update_fpsb_idx(fp);
-@@ -6904,11 +6904,11 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 	} else {
- 		int port = BP_PORT(bp);
+-			BNX2X_ERR("tx_bd[%x]=[%x:%x:%x:%x]\n",
+-				  j, tx_bd[0], tx_bd[1], tx_bd[2], tx_bd[3]);
+-		}
++	/* Rings */
++	/* Rx */
++	for_each_rx_queue(bp, i) {
++		struct bnx2x_fastpath *fp = &bp->fp[i];
  
--		DP(NETIF_MSG_IFUP, "NO MCP load counts before us %d, %d, %d\n",
-+		DP(NETIF_MSG_IFUP, "NO MCP - load counts      %d, %d, %d\n",
- 		   load_count[0], load_count[1], load_count[2]);
- 		load_count[0]++;
- 		load_count[1 + port]++;
--		DP(NETIF_MSG_IFUP, "NO MCP new load counts       %d, %d, %d\n",
-+		DP(NETIF_MSG_IFUP, "NO MCP - new load counts  %d, %d, %d\n",
- 		   load_count[0], load_count[1], load_count[2]);
- 		if (load_count[0] == 1)
- 			load_code = FW_MSG_CODE_DRV_LOAD_COMMON;
-@@ -6955,7 +6955,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		start = RX_BD(le16_to_cpu(*fp->rx_cons_sb) - 10);
+ 		end = RX_BD(le16_to_cpu(*fp->rx_cons_sb) + 503);
+-		for (j = start; j < end; j++) {
++		for (j = start; j != end; j = RX_BD(j + 1)) {
+ 			u32 *rx_bd = (u32 *)&fp->rx_desc_ring[j];
+ 			struct sw_rx_bd *sw_bd = &fp->rx_buf_ring[j];
  
- 	if (CHIP_IS_E1H(bp))
- 		if (bp->mf_config & FUNC_MF_CFG_FUNC_DISABLED) {
--			BNX2X_ERR("!!!  mf_cfg function disabled\n");
-+			DP(NETIF_MSG_IFUP, "mf_cfg function disabled\n");
- 			bp->state = BNX2X_STATE_DISABLED;
+@@ -560,7 +564,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
+ 
+ 		start = RX_SGE(fp->rx_sge_prod);
+ 		end = RX_SGE(fp->last_max_sge);
+-		for (j = start; j < end; j++) {
++		for (j = start; j != end; j = RX_SGE(j + 1)) {
+ 			u32 *rx_sge = (u32 *)&fp->rx_sge_ring[j];
+ 			struct sw_rx_page *sw_page = &fp->rx_page_ring[j];
+ 
+@@ -570,7 +574,7 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
+ 
+ 		start = RCQ_BD(fp->rx_comp_cons - 10);
+ 		end = RCQ_BD(fp->rx_comp_cons + 503);
+-		for (j = start; j < end; j++) {
++		for (j = start; j != end; j = RCQ_BD(j + 1)) {
+ 			u32 *cqe = (u32 *)&fp->rx_comp_ring[j];
+ 
+ 			BNX2X_ERR("cqe[%x]=[%x:%x:%x:%x]\n",
+@@ -578,11 +582,28 @@ static void bnx2x_panic_dump(struct bnx2x *bp)
  		}
- 
-@@ -7028,8 +7028,6 @@ load_error1:
- 		netif_napi_del(&bnx2x_fp(bp, i, napi));
- 	bnx2x_free_mem(bp);
- 
--	/* TBD we really need to reset the chip
--	   if we want to recover from this */
- 	return rc;
- }
- 
-@@ -7303,11 +7301,11 @@ unload_error:
- 	if (!BP_NOMCP(bp))
- 		reset_code = bnx2x_fw_command(bp, reset_code);
- 	else {
--		DP(NETIF_MSG_IFDOWN, "NO MCP load counts      %d, %d, %d\n",
-+		DP(NETIF_MSG_IFDOWN, "NO MCP - load counts      %d, %d, %d\n",
- 		   load_count[0], load_count[1], load_count[2]);
- 		load_count[0]--;
- 		load_count[1 + port]--;
--		DP(NETIF_MSG_IFDOWN, "NO MCP new load counts  %d, %d, %d\n",
-+		DP(NETIF_MSG_IFDOWN, "NO MCP - new load counts  %d, %d, %d\n",
- 		   load_count[0], load_count[1], load_count[2]);
- 		if (load_count[0] == 0)
- 			reset_code = FW_MSG_CODE_DRV_UNLOAD_COMMON;
-@@ -7615,7 +7613,7 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
- 		bp->flags |= NO_WOL_FLAG;
- 	}
- 	BNX2X_DEV_INFO("%sWoL capable\n",
--		       (bp->flags & NO_WOL_FLAG) ? "Not " : "");
-+		       (bp->flags & NO_WOL_FLAG) ? "not " : "");
- 
- 	val = SHMEM_RD(bp, dev_info.shared_hw_config.part_num);
- 	val2 = SHMEM_RD(bp, dev_info.shared_hw_config.part_num[4]);
-@@ -8111,7 +8109,7 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
- 				       "(0x%04x)\n",
- 				       func, bp->e1hov, bp->e1hov);
- 		} else {
--			BNX2X_DEV_INFO("Single function mode\n");
-+			BNX2X_DEV_INFO("single function mode\n");
- 			if (BP_E1HVN(bp)) {
- 				BNX2X_ERR("!!!  No valid E1HOV for func %d,"
- 					  "  aborting\n", func);
-@@ -9519,7 +9517,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
- 
- 	rc = bnx2x_nvram_read(bp, 0, data, 4);
- 	if (rc) {
--		DP(NETIF_MSG_PROBE, "magic value read (rc -%d)\n", -rc);
-+		DP(NETIF_MSG_PROBE, "magic value read (rc %d)\n", rc);
- 		goto test_nvram_exit;
  	}
  
-@@ -9536,7 +9534,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
- 				      nvram_tbl[i].size);
- 		if (rc) {
- 			DP(NETIF_MSG_PROBE,
--			   "nvram_tbl[%d] read data (rc -%d)\n", i, -rc);
-+			   "nvram_tbl[%d] read data (rc %d)\n", i, rc);
- 			goto test_nvram_exit;
- 		}
+-	BNX2X_ERR("def_c_idx(%u)  def_u_idx(%u)  def_x_idx(%u)"
+-		  "  def_t_idx(%u)  def_att_idx(%u)  attn_state(%u)"
+-		  "  spq_prod_idx(%u)\n",
+-		  bp->def_c_idx, bp->def_u_idx, bp->def_x_idx, bp->def_t_idx,
+-		  bp->def_att_idx, bp->attn_state, bp->spq_prod_idx);
++	/* Tx */
++	for_each_tx_queue(bp, i) {
++		struct bnx2x_fastpath *fp = &bp->fp[i];
++
++		start = TX_BD(le16_to_cpu(*fp->tx_cons_sb) - 10);
++		end = TX_BD(le16_to_cpu(*fp->tx_cons_sb) + 245);
++		for (j = start; j != end; j = TX_BD(j + 1)) {
++			struct sw_tx_bd *sw_bd = &fp->tx_buf_ring[j];
++
++			BNX2X_ERR("packet[%x]=[%p,%x]\n", j,
++				  sw_bd->skb, sw_bd->first_bd);
++		}
++
++		start = TX_BD(fp->tx_bd_cons - 10);
++		end = TX_BD(fp->tx_bd_cons + 254);
++		for (j = start; j != end; j = TX_BD(j + 1)) {
++			u32 *tx_bd = (u32 *)&fp->tx_desc_ring[j];
++
++			BNX2X_ERR("tx_bd[%x]=[%x:%x:%x:%x]\n",
++				  j, tx_bd[0], tx_bd[1], tx_bd[2], tx_bd[3]);
++		}
++	}
  
-@@ -10173,7 +10171,9 @@ static inline u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
- }
- 
- #if (MAX_SKB_FRAGS >= MAX_FETCH_BD - 3)
--/* check if packet requires linearization (packet is too fragmented) */
-+/* check if packet requires linearization (packet is too fragmented)
-+   no need to check fragmentation if page size > 8K (there will be no
-+   violation to FW restrictions) */
- static int bnx2x_pkt_req_lin(struct bnx2x *bp, struct sk_buff *skb,
- 			     u32 xmit_type)
- {
-@@ -10295,8 +10295,9 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	   ip_hdr(skb)->protocol, skb_shinfo(skb)->gso_type, xmit_type);
- 
- #if (MAX_SKB_FRAGS >= MAX_FETCH_BD - 3)
--	/* First, check if we need to linearize the skb
--	   (due to FW restrictions) */
-+	/* First, check if we need to linearize the skb (due to FW
-+	   restrictions). No need to check fragmentation if page size > 8K
-+	   (there will be no violation to FW restrictions) */
- 	if (bnx2x_pkt_req_lin(bp, skb, xmit_type)) {
- 		/* Statistics of linearization */
- 		bp->lin_cnt++;
-@@ -10557,7 +10558,7 @@ static int bnx2x_close(struct net_device *dev)
- 	return 0;
- }
- 
--/* called with netif_tx_lock from set_multicast */
-+/* called with netif_tx_lock from dev_mcast.c */
- static void bnx2x_set_rx_mode(struct net_device *dev)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
+ 	bnx2x_fw_dump(bp);
+ 	bnx2x_mc_assert(bp);
 -- 
 1.5.4.3
 
