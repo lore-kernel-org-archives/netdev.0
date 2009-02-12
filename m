@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 01/02: fix tuple inversion for Node information request
-Date: Thu, 12 Feb 2009 08:07:37 +0100 (MET)
-Message-ID: <20090212070734.4876.53101.sendpatchset@x2.localnet>
+Subject: netfilter 02/02: xt_sctp: sctp chunk mapping doesn't work
+Date: Thu, 12 Feb 2009 08:07:38 +0100 (MET)
+Message-ID: <20090212070735.4876.81436.sendpatchset@x2.localnet>
 References: <20090212070732.4876.43180.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org, davem@davemloft.net
@@ -11,34 +11,32 @@ In-Reply-To: <20090212070732.4876.43180.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 796b5d184b4df1aae55894bf476959da83e25324
-Author: Eric Leblond <eric@inl.fr>
-Date:   Thu Feb 12 08:00:35 2009 +0100
+commit f3568e644ddf628aab11ce2fc8341e4b12654e0f
+Author: Qu Haoran <haoran.qu@6wind.com>
+Date:   Thu Feb 12 08:03:46 2009 +0100
 
-    netfilter: fix tuple inversion for Node information request
+    netfilter: xt_sctp: sctp chunk mapping doesn't work
     
-    Upstream commit: a51f42f3c
+    Upstream commit: d4e2675a
     
-    The patch fixes a typo in the inverse mapping of Node Information
-    request. Following draft-ietf-ipngwg-icmp-name-lookups-09, "Querier"
-    sends a type 139 (ICMPV6_NI_QUERY) packet to "Responder" which answer
-    with a type 140 (ICMPV6_NI_REPLY) packet.
+    When user tries to map all chunks given in argument, kernel
+    works on a copy of the chunkmap, but at the end it doesn't
+    check the copy, but the orginal one.
     
-    Signed-off-by: Eric Leblond <eric@inl.fr>
+    Signed-off-by: Qu Haoran <haoran.qu@6wind.com>
+    Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-index 7cd13e5..15caac6 100644
---- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -49,8 +49,8 @@ static bool icmpv6_pkt_to_tuple(const struct sk_buff *skb,
- static const u_int8_t invmap[] = {
- 	[ICMPV6_ECHO_REQUEST - 128]	= ICMPV6_ECHO_REPLY + 1,
- 	[ICMPV6_ECHO_REPLY - 128]	= ICMPV6_ECHO_REQUEST + 1,
--	[ICMPV6_NI_QUERY - 128]		= ICMPV6_NI_QUERY + 1,
--	[ICMPV6_NI_REPLY - 128]		= ICMPV6_NI_REPLY +1
-+	[ICMPV6_NI_QUERY - 128]		= ICMPV6_NI_REPLY + 1,
-+	[ICMPV6_NI_REPLY - 128]		= ICMPV6_NI_QUERY +1
- };
+diff --git a/net/netfilter/xt_sctp.c b/net/netfilter/xt_sctp.c
+index e223cb4..a189ada 100644
+--- a/net/netfilter/xt_sctp.c
++++ b/net/netfilter/xt_sctp.c
+@@ -105,7 +105,7 @@ match_packet(const struct sk_buff *skb,
  
- static bool icmpv6_invert_tuple(struct nf_conntrack_tuple *tuple,
+ 	switch (chunk_match_type) {
+ 	case SCTP_CHUNK_MATCH_ALL:
+-		return SCTP_CHUNKMAP_IS_CLEAR(info->chunkmap);
++		return SCTP_CHUNKMAP_IS_CLEAR(chunkmapcopy);
+ 	case SCTP_CHUNK_MATCH_ANY:
+ 		return false;
+ 	case SCTP_CHUNK_MATCH_ONLY:
