@@ -1,58 +1,35 @@
-From: Yang Hongyang <yanghy@cn.fujitsu.com>
-Subject: =?windows-1252?Q?=5BPATCH=5Dnetxen=3Afix_compile_waring_=22?=
- =?windows-1252?Q?label_=91set=5F32=5Fbit=5Fmask=92_defined_but_n?=
- =?windows-1252?Q?ot_used=22_on_IA64_platform?=
-Date: Thu, 12 Feb 2009 16:03:51 +0800
-Message-ID: <4993D7E7.5060300@cn.fujitsu.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [GIT] pull request for v1.4 of the WiMAX linux-firmware tree
+Date: Thu, 12 Feb 2009 00:29:54 -0800
+Message-ID: <200902120029.54944.inaky@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	dhananjay@netxen.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: wimax@linuxwimax.org, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50146 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711AbZBLICl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 03:02:41 -0500
+Received: from mga12.intel.com ([143.182.124.36]:57395 "EHLO
+	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757398AbZBLIaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 03:30:05 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When compile the latest kernel on IA64 platform,I got a warning:
-drivers/net/netxen/netxen_nic_main.c:203: warning: label =91set_32_bit_=
-mask=92=20
-defined but not used
 
-We do not need label =91set_32_bit_mask=92  on IA64 platform,So move it=
- to #else.
+Hi David
 
-Signed-off-by: Yang Hongyang<yanghy@cn.fujitsu.com>
+Please pull
 
----
- drivers/net/netxen/netxen_nic_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+git://git.kernel.org/pub/scm/linux/kernel/git/inaky/linux-firmware-wimax.git
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/=
-netxen_nic_main.c
-index 3b17a79..b0ac5d6 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -201,9 +201,9 @@ static int nx_set_dma_mask(struct netxen_adapter *a=
-dapter, uint8_t revision_id)
- 		adapter->pci_using_dac =3D 1;
- 		return 0;
- 	}
-+set_32_bit_mask:
- #endif /* CONFIG_IA64 */
-=20
--set_32_bit_mask:
- 	err =3D pci_set_dma_mask(pdev, DMA_32BIT_MASK);
- 	if (!err)
- 		err =3D pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK);
---=20
-1.6.0.3
+This adds v1.4 of the i2400m WiMAX firmware, which matches the user space code
+release available in http://linuxwimax.org/Download.
 
+The driver code slated for 2.6.29 works with both the v1.3 and v1.4 versions.
 
---=20
-Regards
-Yang Hongyang
+Thank you,
+
+-- 
+Inaky
