@@ -1,63 +1,90 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH 03/41]bnx2x: MSI support
-Date: Thu, 12 Feb 2009 22:37:38 +0200
-Message-ID: <1234471059.4798.7.camel@lb-tlvb-eliezer>
-References: <1234463775.1863.134.camel@lb-tlvb-eliezer>
- <1234464759.3583.8.camel@achroite>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: Passive OS fingerprint xtables match.
+Date: Thu, 12 Feb 2009 12:41:15 -0800
+Message-ID: <20090212204115.GL6759@linux.vnet.ibm.com>
+References: <20090212171245.GA15025@ioremap.net> <20090212174253.GF6759@linux.vnet.ibm.com> <20090212175130.GA16318@ioremap.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4355 "EHLO mms2.broadcom.com"
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:54710 "EHLO e7.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759113AbZBLUh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 15:37:59 -0500
-In-Reply-To: <1234464759.3583.8.camel@achroite>
+	id S1757913AbZBLUlR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 15:41:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20090212175130.GA16318@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-02-12 at 10:52 -0800, Ben Hutchings wrote:
-Hi Ben!
-
-It's always a pleasure to see how fast you respond. I really appreciate
-the fact that you take the time to review my patches. Thanks!
-
-> On Thu, 2009-02-12 at 20:36 +0200, Eilon Greenstein wrote:
-> [...]
-> > @@ -5359,9 +5360,28 @@
-> >  #define PCICFG_PM_CSR_STATE			(0x3<<0)
-> >  #define PCICFG_PM_CSR_PME_ENABLE		(1<<8)
-> >  #define PCICFG_PM_CSR_PME_STATUS		(1<<15)
-> > +#define PCICFG_MSI_CAP_ID				0x58
+On Thu, Feb 12, 2009 at 08:51:30PM +0300, Evgeniy Polyakov wrote:
+> Hi.
 > 
-> This appears to be a capability offset, not a capability id!  You might
-> also consider not hard-coding it.
-
-You are right - those are the offset for this device. I find it easier to
-debug when I have the offsets at hand without the need to parse the
-capabilities linked list. Since the offsets will not change for this
-generation of chips, I don't see the harm in providing the explicit
-offsets. I assume that the driver will require major changes for a new
-generation even if I will use the capabilities ID... In any case, those
-new values are listed just to help - they are not really used (though I
-do use some of the other values in that area)
-
-> > +#define PCICFG_MSI_CONTROL_ENABLE		(0x1<<16)
-> > +#define PCICFG_MSI_CONTROL_MCAP 		(0x7<<17)
-> > +#define PCICFG_MSI_CONTROL_MENA 		(0x7<<20)
-> > +#define PCICFG_MSI_CONTROL_64_BIT_ADDR_CAP	(0x1<<23)
-> > +#define PCICFG_MSI_CONTROL_MSI_PVMASK_CAPABLE	(0x1<<24)
-> >  #define PCICFG_GRC_ADDRESS				0x78
-> >  #define PCICFG_GRC_DATA 				0x80
-> > +#define PCICFG_MSIX_CAP_ID				0xa0
-> [...]
+> On Thu, Feb 12, 2009 at 09:42:53AM -0800, Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
+> > > Passive OS fingerprint homepage (archives, examples):
+> > > http://www.ioremap.net/projects/osf
+> > 
+> > I advocate using this to get more accurate censuses of machines
+> > accessing given web servers, given the tendency of browsers to lie
+> > about themselves in order to avoid being shut out of certain web sites.
+> > 
+> > One question about the module-unload sequence below.
+> > 
+> > Given a reasonable answer to that question, I am OK with this from
+> > an RCU viewpoint.
 > 
-> Similarly for this.
-> 
-> Ben.
-> 
+> Thanks a lot Paul, but are they actually questions? You answered all of them :)
 
+The last one was.  Your answer was that you prevented any concurrent
+access, but I frankly don't understand the netfilter/connector code
+well enough to do more than simply believe you.
 
+							Thanx, Paul
+
+> > > +static void __devexit ipt_osf_fini(void)
+> > > +{
+> > > +	struct ipt_osf_finger *f;
+> > > +	int i;
+> > > +
+> > > +	cn_del_callback(&cn_osf_id);
+> > > +	xt_unregister_match(&ipt_osf_match);
+> > > +
+> > > +	rcu_read_lock();
+> > > +	for (i=0; i<ARRAY_SIZE(ipt_osf_fingers); ++i) {
+> > > +		struct ipt_osf_finger_storage *st = &ipt_osf_fingers[i];
+> > > +
+> > > +		list_for_each_entry_rcu(f, &st->finger_list, finger_entry) {
+> > > +			list_del_rcu(&f->finger_entry);
+> > 
+> > For the above to be safe:
+> > 
+> > o	Any remaining RCU callbacks cannot reference the list
+> > 	(and your callbacks do in fact meet this constraint).
+> 
+> They do not access that list.
+> 
+> > o	Any timers have to have fired or been cancelled (but you
+> > 	don't seem to have any timers, so not a problem).
+> 
+> No timers, tasklets, work queues or whatever else postponing the work.
+> 
+> > o	All pathways to the data structure have to have been
+> > 	shut down.  This is the tough one -- or is it simply
+> > 	a requirement that the guy removing the module has shut
+> > 	down all requests?
+> 
+> They can be accessed via connector configuration, but it is stopped
+> above (and it waits for currently active users to run away);
+> and netfilter path, which should be prevented after match was also
+> unregistered above.
+> 
+> -- 
+> 	Evgeniy Polyakov
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
