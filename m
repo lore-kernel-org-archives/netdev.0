@@ -1,41 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
-Date: Thu, 12 Feb 2009 13:28:42 +1030
-Message-ID: <200902121328.43749.rusty@rustcorp.com.au>
-References: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [PATCH] wimax: fix oops in wimax_dev_get_by_genl_info() when looking up non-wimax iface
+Date: Thu, 12 Feb 2009 15:04:52 -0800
+Message-ID: <1234479892-23695-1-git-send-email-inaky@linux.intel.com>
+Cc: netdev@vger.kernel.org
+To: wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43519 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751899AbZBLVkI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 16:40:08 -0500
-In-Reply-To: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu>
-Content-Disposition: inline
+Received: from mga10.intel.com ([192.55.52.92]:11613 "EHLO
+	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759261AbZBLXEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 18:04:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 11 February 2009 20:49:20 Jozsef Kadlecsik wrote:
-> Hi,
-> 
-> The current jhash.h implements the lookup2() hash function by Bob Jenkins. 
-> However, lookup2() is outdated as Bob wrote a new hash function called 
-> lookup3(). The new hash function
-> 
-> - mixes better than lookup2(): it passes the check that every input bit 
->   changes every output bit 50% of the time, while lookup2() failed it.
-> - performs better: compiled with -O2 on Core2 Duo, lookup3() is 20-40% 
->   faster than lookup2() depending on the key length.
+When a non-wimax interface is looked up by the stack, a bad pointer is
+returned when the looked-up interface is not found in the list (of
+registered WiMAX interfaces). This causes an oops in the caller when
+trying to use the pointer.
 
-Hi Joszef,
+Fix by properly setting the pointer to NULL if we don't exit from the
+list_for_each() with a found entry.
 
-My concern was that it's also bigger (and we inline it).  Performance is
-pretty much a wash since we so rarely hash more than a few words.
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ net/wimax/id-table.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-Any stats on code size changes?
-Rusty.
+diff --git a/net/wimax/id-table.c b/net/wimax/id-table.c
+index 5e685f7..72273ab 100644
+--- a/net/wimax/id-table.c
++++ b/net/wimax/id-table.c
+@@ -94,12 +94,13 @@ struct wimax_dev *wimax_dev_get_by_genl_info(
+ 	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
+ 		if (wimax_dev->net_dev->ifindex == ifindex) {
+ 			dev_hold(wimax_dev->net_dev);
+-			break;
++			goto found;
+ 		}
+ 	}
+-	if (wimax_dev == NULL)
+-		d_printf(1, NULL, "wimax: no devices found with ifindex %d\n",
+-			 ifindex);
++	wimax_dev = NULL;
++	d_printf(1, NULL, "wimax: no devices found with ifindex %d\n",
++		 ifindex);
++found:
+ 	spin_unlock(&wimax_id_table_lock);
+ 	d_fnend(3, NULL, "(info %p ifindex %d) = %p\n",
+ 		info, ifindex, wimax_dev);
+-- 
+1.5.6.5
+
