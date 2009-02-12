@@ -1,34 +1,55 @@
-From: Sarah <edge@nb.sympatico.ca>
-Subject: Final Notification
-Date: Thu, 12 Feb 2009 7:03:31 -0500
-Message-ID: <20090212120331.VAA1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: jerry.smith44@btinternet.com
+From: Clement LECIGNE <clement.lecigne@netasq.com>
+Subject: [PATCH] 4 bytes kernel memory disclosure in SO_BSDCOMPAT gsopt try
+	#2
+Date: Thu, 12 Feb 2009 13:35:45 +0100
+Message-ID: <20090212123545.GA46788@clem1.netasq.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@lotto.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts7.bellnexxia.net ([206.47.199.165]:42656 "EHLO
-	simmts7-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751060AbZBLMDe convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 07:03:34 -0500
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts7-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090212120331.VAA1679.simmts7-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Thu, 12 Feb 2009 07:03:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758732AbZBLMgT@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Your email ID has been awarded =A3950,000,00 GBP in the Compaq  PROMO,R=
-eply us with your info: (jerry.smith11@btinternet.com)
+Hi,
 
-Name:.............
-Country:..........
-Sex:..............
-Addres:...........
+In function sock_getsockopt() located in net/core/sock.c, optval v.val
+is not correctly initialized and directly returned in userland in case
+we have SO_BSDCOMPAT option set.
 
-Regards
-Mrs Sarah Wood
+This dummy code should trigger the bug:
 
+int main(void)
+{
+	unsigned char buf[4] =3D { 0, 0, 0, 0 };
+	int len;
+	int sock;
+	sock =3D socket(33, 2, 2);
+	getsockopt(sock, 1, SO_BSDCOMPAT, &buf, &len);
+	printf("%x%x%x%x\n", buf[0], buf[1], buf[2], buf[3]);
+	close(sock);
+}
+
+Here is a patch that fix this bug by initalizing v.val just after its d=
+eclaration.
+
+--- linux/net/core/sock.c.orig	2008-12-12 12:27:46.000000000 -0800
++++ linux/net/core/sock.c	2008-12-12 12:27:50.000000000 -0800
+@@ -695,6 +695,8 @@ int sock_getsockopt(struct socket *sock,
+ 	if (len < 0)
+ 		return -EINVAL;
+=20
++	v.val =3D 0;
++
+ 	switch(optname) {
+ 	case SO_DEBUG:
+ 		v.val =3D sock_flag(sk, SOCK_DBG);
+
+Signed-off-by: Cl=E9ment Lecigne <clement.lecigne@netasq.com>
+
+--=20
+Cl=E9ment LECIGNE,
+"In Python, how do you create a string of random characters?" -- "Read =
+a Perl file!"
