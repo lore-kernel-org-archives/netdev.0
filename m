@@ -1,383 +1,336 @@
 From: Patrick Ohly <patrick.ohly@intel.com>
-Subject: [PATCH NET-NEXT 02/10] timecompare: generic infrastructure to map between two time bases
-Date: Thu, 12 Feb 2009 16:00:04 +0100
-Message-ID: <1234450812-6246-2-git-send-email-patrick.ohly@intel.com>
+Subject: [PATCH NET-NEXT 04/10] net: infrastructure for hardware time stamping
+Date: Thu, 12 Feb 2009 16:00:06 +0100
+Message-ID: <1234450812-6246-4-git-send-email-patrick.ohly@intel.com>
 References: <1234450670.5914.9.camel@ecld0pohly>
  <1234450812-6246-1-git-send-email-patrick.ohly@intel.com>
+ <1234450812-6246-2-git-send-email-patrick.ohly@intel.com>
+ <1234450812-6246-3-git-send-email-patrick.ohly@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	John Stultz <johnstul@us.ibm.com>,
 	John Ronciak <john.ronciak@intel.com>,
 	Patrick Ohly <patrick.ohly@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27418 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27439 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755870AbZBLPAU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 10:00:20 -0500
-In-Reply-To: <1234450812-6246-1-git-send-email-patrick.ohly@intel.com>
+	id S1758487AbZBLPA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 10:00:26 -0500
+In-Reply-To: <1234450812-6246-3-git-send-email-patrick.ohly@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mapping from a struct timecounter to a time returned by functions like
-ktime_get_real() is implemented. This is sufficient to use this code
-in a network device driver which wants to support hardware time
-stamping and transformation of hardware time stamps to system time.
+The additional per-packet information (16 bytes for time stamps, 1
+byte for flags) is stored for all packets in the skb_shared_info
+struct. This implementation detail is hidden from users of that
+information via skb_* accessor functions. A separate struct resp.
+union is used for the additional information so that it can be
+stored/copied easily outside of skb_shared_info.
 
-The interface could have been made more versatile by not depending on
-a time counter, but this wasn't done to avoid writing glue code
-elsewhere.
+Compared to previous implementations (reusing the tstamp field
+depending on the context, optional additional structures) this
+is the simplest solution. It does not extend sk_buff itself.
 
-The method implemented here is the one used and analyzed under the name
-"assisted PTP" in the LCI PTP paper:
-http://www.linuxclustersinstitute.org/conferences/archive/2008/PDF/Ohly_92221.pdf
+TX time stamping is implemented in software if the device driver
+doesn't support hardware time stamping.
 
-Acked-by: John Stultz <johnstul@us.ibm.com>
+The new semantic for hardware/software time stamping around
+ndo_start_xmit() is based on two assumptions about existing
+network device drivers which don't support hardware time
+stamping and know nothing about it:
+ - they leave the new skb_shared_tx unmodified
+ - the keep the connection to the originating socket in skb->sk
+   alive, i.e., don't call skb_orphan()
+
+Given that skb_shared_tx is new, the first assumption is safe.
+The second is only true for some drivers. As a result, software
+TX time stamping currently works with the bnx2 driver, but not
+with the unmodified igb driver (the two drivers this patch series
+was tested with).
 ---
- include/linux/timecompare.h |  125 ++++++++++++++++++++++++++++
- kernel/time/Makefile        |    2 +-
- kernel/time/timecompare.c   |  191 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 317 insertions(+), 1 deletions(-)
- create mode 100644 include/linux/timecompare.h
- create mode 100644 kernel/time/timecompare.c
+ include/linux/skbuff.h |   91 +++++++++++++++++++++++++++++++++++++++++++++++-
+ net/core/dev.c         |   32 ++++++++++++++++-
+ net/core/skbuff.c      |   41 +++++++++++++++++++++
+ 3 files changed, 161 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/timecompare.h b/include/linux/timecompare.h
-new file mode 100644
-index 0000000..546e223
---- /dev/null
-+++ b/include/linux/timecompare.h
-@@ -0,0 +1,125 @@
-+/*
-+ * Utility code which helps transforming between two different time
-+ * bases, called "source" and "target" time in this code.
-+ *
-+ * Source time has to be provided via the timecounter API while target
-+ * time is accessed via a function callback whose prototype
-+ * intentionally matches ktime_get() and ktime_get_real(). These
-+ * interfaces where chosen like this so that the code serves its
-+ * initial purpose without additional glue code.
-+ *
-+ * This purpose is synchronizing a hardware clock in a NIC with system
-+ * time, in order to implement the Precision Time Protocol (PTP,
-+ * IEEE1588) with more accurate hardware assisted time stamping.  In
-+ * that context only synchronization against system time (=
-+ * ktime_get_real()) is currently needed. But this utility code might
-+ * become useful in other situations, which is why it was written as
-+ * general purpose utility code.
-+ *
-+ * The source timecounter is assumed to return monotonically
-+ * increasing time (but this code does its best to compensate if that
-+ * is not the case) whereas target time may jump.
-+ *
-+ * The target time corresponding to a source time is determined by
-+ * reading target time, reading source time, reading target time
-+ * again, then assuming that average target time corresponds to source
-+ * time. In other words, the assumption is that reading the source
-+ * time is slow and involves equal time for sending the request and
-+ * receiving the reply, whereas reading target time is assumed to be
-+ * fast.
-+ *
-+ * Copyright (C) 2009 Intel Corporation.
-+ * Author: Patrick Ohly <patrick.ohly@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+ */
-+#ifndef _LINUX_TIMECOMPARE_H
-+#define _LINUX_TIMECOMPARE_H
-+
-+#include <linux/clocksource.h>
-+#include <linux/ktime.h>
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 9247008..f96bc91 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -132,6 +132,57 @@ struct skb_frag_struct {
+ 	__u32 size;
+ };
+ 
++#define HAVE_HW_TIME_STAMP
 +
 +/**
-+ * struct timecompare - stores state and configuration for the two clocks
++ * skb_shared_hwtstamps - hardware time stamps
 + *
-+ * Initialize to zero, then set source/target/num_samples.
++ * @hwtstamp:	hardware time stamp transformed into duration
++ *		since arbitrary point in time
++ * @syststamp:	hwtstamp transformed to system time base
 + *
-+ * Transformation between source time and target time is done with:
-+ * target_time = source_time + offset +
-+ *               (source_time - last_update) * skew /
-+ *               TIMECOMPARE_SKEW_RESOLUTION
++ * Software time stamps generated by ktime_get_real() are stored in
++ * skb->tstamp. The relation between the different kinds of time
++ * stamps is as follows:
 + *
-+ * @source:          used to get source time stamps via timecounter_read()
-+ * @target:          function returning target time (for example, ktime_get
-+ *                   for monotonic time, or ktime_get_real for wall clock)
-+ * @num_samples:     number of times that source time and target time are to
-+ *                   be compared when determining their offset
-+ * @offset:          (target time - source time) at the time of the last update
-+ * @skew:            average (target time - source time) / delta source time *
-+ *                   TIMECOMPARE_SKEW_RESOLUTION
-+ * @last_update:     last source time stamp when time offset was measured
++ * syststamp and tstamp can be compared against each other in
++ * arbitrary combinations.  The accuracy of a
++ * syststamp/tstamp/"syststamp from other device" comparison is
++ * limited by the accuracy of the transformation into system time
++ * base. This depends on the device driver and its underlying
++ * hardware.
++ *
++ * hwtstamps can only be compared against other hwtstamps from
++ * the same device.
++ *
++ * This structure is attached to packets as part of the
++ * &skb_shared_info. Use skb_hwtstamps() to get a pointer.
 + */
-+struct timecompare {
-+	struct timecounter *source;
-+	ktime_t (*target)(void);
-+	int num_samples;
-+
-+	s64 offset;
-+	s64 skew;
-+	u64 last_update;
++struct skb_shared_hwtstamps {
++	ktime_t	hwtstamp;
++	ktime_t	syststamp;
 +};
 +
 +/**
-+ * timecompare_transform - transform source time stamp into target time base
-+ * @sync:            context for time sync
-+ * @source_tstamp:   the result of timecounter_read() or
-+ *                   timecounter_cyc2time()
++ * skb_shared_tx - instructions for time stamping of outgoing packets
++ *
++ * @hardware:		generate hardware time stamp
++ * @software:		generate software time stamp
++ * @in_progress:	device driver is going to provide
++ *			hardware time stamp
++ *
++ * These flags are attached to packets as part of the
++ * &skb_shared_info. Use skb_tx() to get a pointer.
 + */
-+extern ktime_t timecompare_transform(struct timecompare *sync,
-+				     u64 source_tstamp);
-+
-+/**
-+ * timecompare_offset - measure current (target time - source time) offset
-+ * @sync:            context for time sync
-+ * @offset:          average offset during sample period returned here
-+ * @source_tstamp:   average source time during sample period returned here
-+ *
-+ * Returns number of samples used. Might be zero (= no result) in the
-+ * unlikely case that target time was monotonically decreasing for all
-+ * samples (= broken).
-+ */
-+extern int timecompare_offset(struct timecompare *sync,
-+			      s64 *offset,
-+			      u64 *source_tstamp);
-+
-+extern void __timecompare_update(struct timecompare *sync,
-+				 u64 source_tstamp);
-+
-+/**
-+ * timecompare_update - update offset and skew by measuring current offset
-+ * @sync:            context for time sync
-+ * @source_tstamp:   the result of timecounter_read() or
-+ *                   timecounter_cyc2time(), pass zero to force update
-+ *
-+ * Updates are only done at most once per second.
-+ */
-+static inline void timecompare_update(struct timecompare *sync,
-+				      u64 source_tstamp)
-+{
-+	if (!source_tstamp ||
-+	    (s64)(source_tstamp - sync->last_update) >= NSEC_PER_SEC)
-+		__timecompare_update(sync, source_tstamp);
-+}
-+
-+#endif /* _LINUX_TIMECOMPARE_H */
-diff --git a/kernel/time/Makefile b/kernel/time/Makefile
-index 905b0b5..0b0a636 100644
---- a/kernel/time/Makefile
-+++ b/kernel/time/Makefile
-@@ -1,4 +1,4 @@
--obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o
-+obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o timecompare.o
- 
- obj-$(CONFIG_GENERIC_CLOCKEVENTS_BUILD)		+= clockevents.o
- obj-$(CONFIG_GENERIC_CLOCKEVENTS)		+= tick-common.o
-diff --git a/kernel/time/timecompare.c b/kernel/time/timecompare.c
-new file mode 100644
-index 0000000..71e7f1a
---- /dev/null
-+++ b/kernel/time/timecompare.c
-@@ -0,0 +1,191 @@
-+/*
-+ * Copyright (C) 2009 Intel Corporation.
-+ * Author: Patrick Ohly <patrick.ohly@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+
-+#include <linux/timecompare.h>
-+#include <linux/module.h>
-+#include <linux/math64.h>
-+
-+/*
-+ * fixed point arithmetic scale factor for skew
-+ *
-+ * Usually one would measure skew in ppb (parts per billion, 1e9), but
-+ * using a factor of 2 simplifies the math.
-+ */
-+#define TIMECOMPARE_SKEW_RESOLUTION (((s64)1)<<30)
-+
-+ktime_t timecompare_transform(struct timecompare *sync,
-+			      u64 source_tstamp)
-+{
-+	u64 nsec;
-+
-+	nsec = source_tstamp + sync->offset;
-+	nsec += (s64)(source_tstamp - sync->last_update) * sync->skew /
-+		TIMECOMPARE_SKEW_RESOLUTION;
-+
-+	return ns_to_ktime(nsec);
-+}
-+EXPORT_SYMBOL(timecompare_transform);
-+
-+int timecompare_offset(struct timecompare *sync,
-+		       s64 *offset,
-+		       u64 *source_tstamp)
-+{
-+	u64 start_source = 0, end_source = 0;
++union skb_shared_tx {
 +	struct {
-+		s64 offset;
-+		s64 duration_target;
-+	} buffer[10], sample, *samples;
-+	int counter = 0, i;
-+	int used;
-+	int index;
-+	int num_samples = sync->num_samples;
++		__u8	hardware:1,
++			software:1,
++			in_progress:1;
++	};
++	__u8 flags;
++};
 +
-+	if (num_samples > sizeof(buffer)/sizeof(buffer[0])) {
-+		samples = kmalloc(sizeof(*samples) * num_samples, GFP_ATOMIC);
-+		if (!samples) {
-+			samples = buffer;
-+			num_samples = sizeof(buffer)/sizeof(buffer[0]);
-+		}
-+	} else {
-+		samples = buffer;
-+	}
-+
-+	/* run until we have enough valid samples, but do not try forever */
-+	i = 0;
-+	counter = 0;
-+	while (1) {
-+		u64 ts;
-+		ktime_t start, end;
-+
-+		start = sync->target();
-+		ts = timecounter_read(sync->source);
-+		end = sync->target();
-+
-+		if (!i)
-+			start_source = ts;
-+
-+		/* ignore negative durations */
-+		sample.duration_target = ktime_to_ns(ktime_sub(end, start));
-+		if (sample.duration_target >= 0) {
-+			/*
-+			 * assume symetric delay to and from source:
-+			 * average target time corresponds to measured
-+			 * source time
-+			 */
-+			sample.offset =
-+				ktime_to_ns(ktime_add(end, start)) / 2 -
-+				ts;
-+
-+			/* simple insertion sort based on duration */
-+			index = counter - 1;
-+			while (index >= 0) {
-+				if (samples[index].duration_target <
-+				    sample.duration_target)
-+					break;
-+				samples[index + 1] = samples[index];
-+				index--;
-+			}
-+			samples[index + 1] = sample;
-+			counter++;
-+		}
-+
-+		i++;
-+		if (counter >= num_samples || i >= 100000) {
-+			end_source = ts;
-+			break;
-+		}
-+	}
-+
-+	*source_tstamp = (end_source + start_source) / 2;
-+
-+	/* remove outliers by only using 75% of the samples */
-+	used = counter * 3 / 4;
-+	if (!used)
-+		used = counter;
-+	if (used) {
-+		/* calculate average */
-+		s64 off = 0;
-+		for (index = 0; index < used; index++)
-+			off += samples[index].offset;
-+		*offset = div_s64(off, used);
-+	}
-+
-+	if (samples && samples != buffer)
-+		kfree(samples);
-+
-+	return used;
-+}
-+EXPORT_SYMBOL(timecompare_offset);
-+
-+void __timecompare_update(struct timecompare *sync,
-+			  u64 source_tstamp)
+ /* This data is invariant across clones and lives at
+  * the end of the header data, ie. at skb->end.
+  */
+@@ -143,10 +194,12 @@ struct skb_shared_info {
+ 	unsigned short	gso_segs;
+ 	unsigned short  gso_type;
+ 	__be32          ip6_frag_id;
++	union skb_shared_tx tx_flags;
+ #ifdef CONFIG_HAS_DMA
+ 	unsigned int	num_dma_maps;
+ #endif
+ 	struct sk_buff	*frag_list;
++	struct skb_shared_hwtstamps hwtstamps;
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ #ifdef CONFIG_HAS_DMA
+ 	dma_addr_t	dma_maps[MAX_SKB_FRAGS + 1];
+@@ -465,6 +518,16 @@ static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
+ /* Internal */
+ #define skb_shinfo(SKB)	((struct skb_shared_info *)(skb_end_pointer(SKB)))
+ 
++static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
 +{
-+	s64 offset;
-+	u64 average_time;
++	return &skb_shinfo(skb)->hwtstamps;
++}
 +
-+	if (!timecompare_offset(sync, &offset, &average_time))
++static inline union skb_shared_tx *skb_tx(struct sk_buff *skb)
++{
++	return &skb_shinfo(skb)->tx_flags;
++}
++
+ /**
+  *	skb_queue_empty - check if a queue is empty
+  *	@list: queue head
+@@ -1730,6 +1793,11 @@ static inline void skb_copy_to_linear_data_offset(struct sk_buff *skb,
+ 
+ extern void skb_init(void);
+ 
++static inline ktime_t skb_get_ktime(const struct sk_buff *skb)
++{
++	return skb->tstamp;
++}
++
+ /**
+  *	skb_get_timestamp - get timestamp from a skb
+  *	@skb: skb to get stamp from
+@@ -1739,11 +1807,18 @@ extern void skb_init(void);
+  *	This function converts the offset back to a struct timeval and stores
+  *	it in stamp.
+  */
+-static inline void skb_get_timestamp(const struct sk_buff *skb, struct timeval *stamp)
++static inline void skb_get_timestamp(const struct sk_buff *skb,
++				     struct timeval *stamp)
+ {
+ 	*stamp = ktime_to_timeval(skb->tstamp);
+ }
+ 
++static inline void skb_get_timestampns(const struct sk_buff *skb,
++				       struct timespec *stamp)
++{
++	*stamp = ktime_to_timespec(skb->tstamp);
++}
++
+ static inline void __net_timestamp(struct sk_buff *skb)
+ {
+ 	skb->tstamp = ktime_get_real();
+@@ -1759,6 +1834,20 @@ static inline ktime_t net_invalid_timestamp(void)
+ 	return ktime_set(0, 0);
+ }
+ 
++/**
++ * skb_tstamp_tx - queue clone of skb with send time stamps
++ * @orig_skb:	the original outgoing packet
++ * @hwtstamps:	hardware time stamps, may be NULL if not available
++ *
++ * If the skb has a socket associated, then this function clones the
++ * skb (thus sharing the actual data and optional structures), stores
++ * the optional hardware time stamping information (if non NULL) or
++ * generates a software time stamp (otherwise), then queues the clone
++ * to the error queue of the socket.  Errors are silently ignored.
++ */
++extern void skb_tstamp_tx(struct sk_buff *orig_skb,
++			struct skb_shared_hwtstamps *hwtstamps);
++
+ extern __sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len);
+ extern __sum16 __skb_checksum_complete(struct sk_buff *skb);
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1e27a67..d20c28e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1672,10 +1672,21 @@ static int dev_gso_segment(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
++static void tstamp_tx(struct sk_buff *skb)
++{
++	union skb_shared_tx *shtx =
++		skb_tx(skb);
++	if (unlikely(shtx->software &&
++			!shtx->in_progress)) {
++		skb_tstamp_tx(skb, NULL);
++	}
++}
++
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			struct netdev_queue *txq)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
++	int rc;
+ 
+ 	prefetch(&dev->netdev_ops->ndo_start_xmit);
+ 	if (likely(!skb->next)) {
+@@ -1689,13 +1700,29 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				goto gso;
+ 		}
+ 
+-		return ops->ndo_start_xmit(skb, dev);
++		rc = ops->ndo_start_xmit(skb, dev);
++		/*
++		 * TODO: if skb_orphan() was called by
++		 * dev->hard_start_xmit() (for example, the unmodified
++		 * igb driver does that; bnx2 doesn't), then
++		 * skb_tx_software_timestamp() will be unable to send
++		 * back the time stamp.
++		 *
++		 * How can this be prevented? Always create another
++		 * reference to the socket before calling
++		 * dev->hard_start_xmit()? Prevent that skb_orphan()
++		 * does anything in dev->hard_start_xmit() by clearing
++		 * the skb destructor before the call and restoring it
++		 * afterwards, then doing the skb_orphan() ourselves?
++		 */
++		if (likely(!rc))
++			tstamp_tx(skb);
++		return rc;
+ 	}
+ 
+ gso:
+ 	do {
+ 		struct sk_buff *nskb = skb->next;
+-		int rc;
+ 
+ 		skb->next = nskb->next;
+ 		nskb->next = NULL;
+@@ -1705,6 +1732,7 @@ gso:
+ 			skb->next = nskb;
+ 			return rc;
+ 		}
++		tstamp_tx(skb);
+ 		if (unlikely(netif_tx_queue_stopped(txq) && skb->next))
+ 			return NETDEV_TX_BUSY;
+ 	} while (skb->next);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7657cec..7b831a7 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -55,6 +55,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/init.h>
+ #include <linux/scatterlist.h>
++#include <linux/errqueue.h>
+ 
+ #include <net/protocol.h>
+ #include <net/dst.h>
+@@ -215,7 +216,9 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	shinfo->gso_segs = 0;
+ 	shinfo->gso_type = 0;
+ 	shinfo->ip6_frag_id = 0;
++	shinfo->tx_flags.flags = 0;
+ 	shinfo->frag_list = NULL;
++	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
+ 
+ 	if (fclone) {
+ 		struct sk_buff *child = skb + 1;
+@@ -2940,6 +2943,44 @@ int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer)
+ }
+ EXPORT_SYMBOL_GPL(skb_cow_data);
+ 
++void skb_tstamp_tx(struct sk_buff *orig_skb,
++		struct skb_shared_hwtstamps *hwtstamps)
++{
++	struct sock *sk = orig_skb->sk;
++	struct sock_exterr_skb *serr;
++	struct sk_buff *skb;
++	int err;
++
++	if (!sk)
 +		return;
 +
-+	if (!sync->last_update) {
-+		sync->last_update = average_time;
-+		sync->offset = offset;
-+		sync->skew = 0;
++	skb = skb_clone(orig_skb, GFP_ATOMIC);
++	if (!skb)
++		return;
++
++	if (hwtstamps) {
++		*skb_hwtstamps(skb) =
++			*hwtstamps;
 +	} else {
-+		s64 delta_nsec = average_time - sync->last_update;
-+
-+		/* avoid division by negative or small deltas */
-+		if (delta_nsec >= 10000) {
-+			s64 delta_offset_nsec = offset - sync->offset;
-+			s64 skew; /* delta_offset_nsec *
-+				     TIMECOMPARE_SKEW_RESOLUTION /
-+				     delta_nsec */
-+			u64 divisor;
-+
-+			/* div_s64() is limited to 32 bit divisor */
-+			skew = delta_offset_nsec * TIMECOMPARE_SKEW_RESOLUTION;
-+			divisor = delta_nsec;
-+			while (unlikely(divisor >= ((s64)1) << 32)) {
-+				/* divide both by 2; beware, right shift
-+				   of negative value has undefined
-+				   behavior and can only be used for
-+				   the positive divisor */
-+				skew = div_s64(skew, 2);
-+				divisor >>= 1;
-+			}
-+			skew = div_s64(skew, divisor);
-+
-+			/*
-+			 * Calculate new overall skew as 4/16 the
-+			 * old value and 12/16 the new one. This is
-+			 * a rather arbitrary tradeoff between
-+			 * only using the latest measurement (0/16 and
-+			 * 16/16) and even more weight on past measurements.
-+			 */
-+#define TIMECOMPARE_NEW_SKEW_PER_16 12
-+			sync->skew =
-+				div_s64((16 - TIMECOMPARE_NEW_SKEW_PER_16) *
-+					sync->skew +
-+					TIMECOMPARE_NEW_SKEW_PER_16 * skew,
-+					16);
-+			sync->last_update = average_time;
-+			sync->offset = offset;
-+		}
++		/*
++		 * no hardware time stamps available,
++		 * so keep the skb_shared_tx and only
++		 * store software time stamp
++		 */
++		skb->tstamp = ktime_get_real();
 +	}
++
++	serr = SKB_EXT_ERR(skb);
++	memset(serr, 0, sizeof(*serr));
++	serr->ee.ee_errno = ENOMSG;
++	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
++	err = sock_queue_err_skb(sk, skb);
++	if (err)
++		kfree_skb(skb);
 +}
-+EXPORT_SYMBOL(__timecompare_update);
++EXPORT_SYMBOL_GPL(skb_tstamp_tx);
++
++
+ /**
+  * skb_partial_csum_set - set up and verify partial csum values for packet
+  * @skb: the skb to set
 -- 
 1.6.1.2
 
