@@ -1,40 +1,31 @@
-From: Kyle Moffett <kyle@moffetthome.net>
-Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
-Date: Thu, 12 Feb 2009 08:46:49 -0500
-Message-ID: <f73f7ab80902120546w2ac30501v10fc55b9c8270be9@mail.gmail.com>
-References: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu>
-	 <20090212001223.GA5757@movementarian.org>
-	 <alpine.DEB.2.00.0902121006440.18739@blackhole.kfki.hu>
+From: Joerg Roedel <joro@8bytes.org>
+Subject: Re: [PATCH 0/16] DMA-API debugging facility v2
+Date: Thu, 12 Feb 2009 15:48:13 +0100
+Message-ID: <20090212144813.GA2125@8bytes.org>
+References: <1231517970-20288-1-git-send-email-joerg.roedel@amd.com> <1233874352.8135.12.camel@macbook.infradead.org> <20090206020535.GE27684@sequoia.sous-sol.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: wli@movementarian.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0902121006440.18739@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	linux-kernel@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp,
+	iommu@lists.linux-foundation.org, mingo@redhat.com,
+	netdev@vger.kernel.org
+To: Chris Wright <chrisw@sous-sol.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 8bytes.org ([88.198.83.132]:37018 "EHLO 8bytes.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753084AbZBLOsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 09:48:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20090206020535.GE27684@sequoia.sous-sol.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 12, 2009 at 4:11 AM, Jozsef Kadlecsik
-<kadlec@blackhole.kfki.hu> wrote:
-> The current jhash.h implements the lookup2() hash function by Bob Jenkins.
-> However, lookup2() is outdated as Bob wrote a new hash function called
-> lookup3(). The new hash function
->
-> - mixes better than lookup2(): it passes the check that every input bit
->  changes every output bit 50% of the time, while lookup2() failed it.
-> - performs better: compiled with -O2 on Core2 Duo, lookup3() 20-40% faster
->  than lookup2() depending on the key length.
+On Thu, Feb 05, 2009 at 06:05:35PM -0800, Chris Wright wrote:
 
-Well, there's another question which is not addressed by Bob Jenkins'
-design docs:
+> (interesting hash_fn spread ;-)
 
-Kernel code usually runs cache-cold, whereas Bob Jenkins did most of
-his testing cache-hot in tight loops.  If you compile both lookup2 and
-lookup3 with -Os and run them in a loop with a cache flush, how well
-do they compare then?
+Hmm, thats because all device addresses are 16kb aligned. The hashfn
+uses bits 13 to 21 as the index for the hash. I can move this window up
+to bits 18-26 if it improves the hash spread.
 
-Cheers,
-Kyle Moffett
+Joerg
