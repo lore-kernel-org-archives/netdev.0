@@ -1,45 +1,41 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 28/41]bnx2x: Using nvram default WoL config
-Date: Thu, 12 Feb 2009 20:37:52 +0200
-Message-ID: <1234463872.1863.160.camel@lb-tlvb-eliezer>
+Subject: [PATCH 29/41]bnx2x: Memory clean up on failure
+Date: Thu, 12 Feb 2009 20:37:57 +0200
+Message-ID: <1234463877.1863.161.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2663 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1442 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758229AbZBLSiN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 13:38:13 -0500
+	id S1758567AbZBLSiO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 13:38:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 28/41]bnx2x: Using nvram default WoL config
-The driver default WoL setting is set to the nvram default value
+Subject: [PATCH 29/41]bnx2x: Memory clean up on failure
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x_init.h |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 2e95799..a14fe75 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -8027,6 +8027,12 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
- 		bp->link_params.feature_config_flags &=
- 				~FEATURE_CONFIG_MODULE_ENFORCMENT_ENABLED;
- 
-+	/* If the device is capable of WoL, set the default state according
-+	 * to the HW
-+	 */
-+	bp->wol = (!(bp->flags & NO_WOL_FLAG) &&
-+		   (config & PORT_FEATURE_WOL_ENABLED));
-+
- 	BNX2X_DEV_INFO("lane_config 0x%08x  ext_phy_config 0x%08x"
- 		       "  speed_cap_mask 0x%08x  link_config 0x%08x\n",
- 		       bp->link_params.lane_config,
+diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
+index 961db49..021438f 100644
+--- a/drivers/net/bnx2x_init.h
++++ b/drivers/net/bnx2x_init.h
+@@ -274,6 +274,9 @@ static void bnx2x_init_wr_wb(struct bnx2x *bp, u32 addr, const u32 *data,
+ 		rc = bnx2x_gunzip(bp, (u8 *)data, len);
+ 		if (rc) {
+ 			BNX2X_ERR("gunzip failed ! rc %d\n", rc);
++#ifdef __BIG_ENDIAN
++			kfree(temp);
++#endif
+ 			return;
+ 		}
+ 		len = bp->gunzip_outlen;
 -- 
 1.5.4.3
 
