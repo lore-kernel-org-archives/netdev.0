@@ -1,35 +1,26 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [GIT] pull request for v1.4 of the WiMAX linux-firmware tree
-Date: Thu, 12 Feb 2009 00:29:54 -0800
-Message-ID: <200902120029.54944.inaky@linux.intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
+Date: Thu, 12 Feb 2009 09:05:13 +0000
+Message-ID: <20090212090512.GB4283@ff.dom.local>
+References: <alpine.LSU.2.00.0902120141040.23714@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: wimax@linuxwimax.org, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:57395 "EHLO
-	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757398AbZBLIaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 03:30:05 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, wli@movementarian.org,
+	kadlec@blackhole.kfki.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0902120141040.23714@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 12-02-2009 01:41, Jan Engelhardt wrote:
+...
+> And I'd take the gold over beef anytime ;-)
 
-Hi David
+Better be careful! History, like Greek myths, or even quite recent,
+could be surprising...
 
-Please pull
-
-git://git.kernel.org/pub/scm/linux/kernel/git/inaky/linux-firmware-wimax.git
-
-This adds v1.4 of the i2400m WiMAX firmware, which matches the user space code
-release available in http://linuxwimax.org/Download.
-
-The driver code slated for 2.6.29 works with both the v1.3 and v1.4 versions.
-
-Thank you,
-
--- 
-Inaky
+Jarek P.
