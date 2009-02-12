@@ -1,463 +1,760 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 03/41]bnx2x: MSI support
-Date: Thu, 12 Feb 2009 20:36:15 +0200
-Message-ID: <1234463775.1863.134.camel@lb-tlvb-eliezer>
+Subject: [PATCH 02/41]bnx2x: Multi-queue
+Date: Thu, 12 Feb 2009 20:36:11 +0200
+Message-ID: <1234463771.1863.133.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2676 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2663 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757800AbZBLSgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757247AbZBLSgu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 12 Feb 2009 13:36:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 03/41]bnx2x: MSI support
-Enabling MSI on top of MSI-X and INTA. Also changing the module parameter to
-allow choosing INTA or MSI even when MSI-X is available. The default status
-block should not be reversed for endianity. Since MSI can issue
-re-configuration, the interrupt disable function now requires mmiowb
+Subject: [PATCH 02/41]bnx2x: Multi-queue
+Adding Tx multi-queue and enabling multi-queue by default
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h      |    5 +-
- drivers/net/bnx2x_hsi.h  |    6 --
- drivers/net/bnx2x_main.c |  155 ++++++++++++++++++++++++++++++++--------------
- drivers/net/bnx2x_reg.h  |   20 ++++++
- 4 files changed, 132 insertions(+), 54 deletions(-)
+ drivers/net/bnx2x.h         |   33 ++++--
+ drivers/net/bnx2x_fw_defs.h |    4 +
+ drivers/net/bnx2x_main.c    |  254 ++++++++++++++++++++++++++-----------------
+ 3 files changed, 178 insertions(+), 113 deletions(-)
 
 diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 7edad1f..153cc95 100644
+index de094d4..7edad1f 100644
 --- a/drivers/net/bnx2x.h
 +++ b/drivers/net/bnx2x.h
-@@ -740,6 +740,9 @@ struct bnx2x {
+@@ -25,6 +25,10 @@
+ #endif
  
- 	atomic_t		intr_sem;
- 	struct msix_entry	msix_table[MAX_CONTEXT+1];
-+#define INT_MODE_INTx			1
-+#define INT_MODE_MSI			2
-+#define INT_MODE_MSIX			3
  
- 	int			tx_ring_size;
++#define BNX2X_MULTI_QUEUE
++
++#define BNX2X_NEW_NAPI
++
+ /* error/debug prints */
  
-@@ -794,7 +797,7 @@ struct bnx2x {
- #define NO_WOL_FLAG			8
- #define USING_DAC_FLAG			0x10
- #define USING_MSIX_FLAG			0x20
--#define ASF_ENABLE_FLAG			0x40
-+#define USING_MSI_FLAG			0x40
- #define TPA_ENABLE_FLAG			0x80
- #define NO_MCP_FLAG			0x100
- #define BP_NOMCP(bp)			(bp->flags & NO_MCP_FLAG)
-diff --git a/drivers/net/bnx2x_hsi.h b/drivers/net/bnx2x_hsi.h
-index c416823..25751a2 100644
---- a/drivers/net/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x_hsi.h
-@@ -1224,15 +1224,9 @@ struct host_func_stats {
- struct atten_def_status_block {
- 	u32 attn_bits;
- 	u32 attn_bits_ack;
--#if defined(__BIG_ENDIAN)
--	u16 attn_bits_index;
--	u8 reserved0;
--	u8 status_block_id;
--#elif defined(__LITTLE_ENDIAN)
- 	u8 status_block_id;
- 	u8 reserved0;
- 	u16 attn_bits_index;
--#endif
- 	u32 reserved1;
+ #define DRV_MODULE_NAME		"bnx2x"
+@@ -266,6 +270,7 @@ struct bnx2x_fastpath {
+ 	u64			tpa_queue_used;
+ #endif
+ 
++	char			name[IFNAMSIZ];
+ 	struct bnx2x		*bp; /* parent */
  };
  
+@@ -680,11 +685,7 @@ struct bnx2x_eth_stats {
+ 			(offsetof(struct bnx2x_eth_stats, stat_name) / 4)
+ 
+ 
+-#ifdef BNX2X_MULTI
+ #define MAX_CONTEXT			16
+-#else
+-#define MAX_CONTEXT			1
+-#endif
+ 
+ union cdu_context {
+ 	struct eth_context eth;
+@@ -859,8 +860,9 @@ struct bnx2x {
+ #define BNX2X_STATE_DIAG		0xe000
+ #define BNX2X_STATE_ERROR		0xf000
+ 
+-	int			num_queues;
+-#define BP_MAX_QUEUES(bp)		(IS_E1HMF(bp) ? 4 : 16)
++	int			multi_mode;
++	int			num_rx_queues;
++	int			num_tx_queues;
+ 
+ 	u32			rx_mode;
+ #define BNX2X_RX_MODE_NONE		0
+@@ -911,11 +913,19 @@ struct bnx2x {
+ };
+ 
+ 
+-#define for_each_queue(bp, var)	for (var = 0; var < bp->num_queues; var++)
++#define BNX2X_MAX_QUEUES(bp)	(IS_E1HMF(bp) ? (MAX_CONTEXT / E1HVN_MAX) : \
++						 MAX_CONTEXT)
++#define BNX2X_NUM_QUEUES(bp)	max(bp->num_rx_queues, bp->num_tx_queues)
++#define is_multi(bp)		(BNX2X_NUM_QUEUES(bp) > 1)
+ 
++#define for_each_rx_queue(bp, var) \
++			for (var = 0; var < bp->num_rx_queues; var++)
++#define for_each_tx_queue(bp, var) \
++			for (var = 0; var < bp->num_tx_queues; var++)
++#define for_each_queue(bp, var) \
++			for (var = 0; var < BNX2X_NUM_QUEUES(bp); var++)
+ #define for_each_nondefault_queue(bp, var) \
+-				for (var = 1; var < bp->num_queues; var++)
+-#define is_multi(bp)		(bp->num_queues > 1)
++			for (var = 1; var < BNX2X_NUM_QUEUES(bp); var++)
+ 
+ 
+ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32);
+@@ -1120,12 +1130,13 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ 				 AEU_INPUTS_ATTN_BITS_MISC_PARITY_ERROR)
+ 
+ 
+-#define MULTI_FLAGS \
++#define MULTI_FLAGS(bp) \
+ 		(TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY | \
+ 		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY | \
+ 		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY | \
+ 		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_TCP_CAPABILITY | \
+-		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_DEFAULT_ENABLE)
++		 (bp->multi_mode << \
++		  TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_MODE_SHIFT))
+ 
+ #define MULTI_MASK			0x7f
+ 
+diff --git a/drivers/net/bnx2x_fw_defs.h b/drivers/net/bnx2x_fw_defs.h
+index 2fe14a2..9eb1d13 100644
+--- a/drivers/net/bnx2x_fw_defs.h
++++ b/drivers/net/bnx2x_fw_defs.h
+@@ -259,6 +259,10 @@
+ #define ETH_MAX_AGGREGATION_QUEUES_E1 (32)
+ #define ETH_MAX_AGGREGATION_QUEUES_E1H (64)
+ 
++/* ETH RSS modes */
++#define ETH_RSS_MODE_DISABLED 0
++#define ETH_RSS_MODE_REGULAR 1
++
+ 
+ /**
+ * This file defines HSI constatnts common to all microcode flows
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 60762f7..db8506d 100644
+index 3ca9c96..60762f7 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -77,17 +77,19 @@ static int multi_mode = 1;
- module_param(multi_mode, int, 0);
+@@ -73,12 +73,14 @@ MODULE_DESCRIPTION("Broadcom NetXtreme II BCM57710/57711/57711E Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_MODULE_VERSION);
  
++static int multi_mode = 1;
++module_param(multi_mode, int, 0);
++
  static int disable_tpa;
--static int use_inta;
+ static int use_inta;
  static int poll;
  static int debug;
  static int load_count[3]; /* 0-common, 1-port0, 2-port1 */
+-static int use_multi;
  
  module_param(disable_tpa, int, 0);
--module_param(use_inta, int, 0);
-+
-+static int int_mode;
-+module_param(int_mode, int, 0);
-+MODULE_PARM_DESC(int_mode, " Force interrupt mode (1 INT#x; 2 MSI)");
-+
- module_param(poll, int, 0);
- module_param(debug, int, 0);
- MODULE_PARM_DESC(disable_tpa, "disable the TPA (LRO) feature");
--MODULE_PARM_DESC(use_inta, "use INT#A instead of MSI-X");
+ module_param(use_inta, int, 0);
+@@ -89,10 +91,6 @@ MODULE_PARM_DESC(use_inta, "use INT#A instead of MSI-X");
  MODULE_PARM_DESC(poll, "use polling (for debug)");
  MODULE_PARM_DESC(debug, "default debug msglevel");
  
-@@ -588,34 +590,41 @@ static void bnx2x_int_enable(struct bnx2x *bp)
- 	u32 addr = port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0;
- 	u32 val = REG_RD(bp, addr);
- 	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
-+	int msi = (bp->flags & USING_MSI_FLAG) ? 1 : 0;
+-#ifdef BNX2X_MULTI
+-module_param(use_multi, int, 0);
+-MODULE_PARM_DESC(use_multi, "use per-CPU queues");
+-#endif
+ static struct workqueue_struct *bnx2x_wq;
  
- 	if (msix) {
--		val &= ~HC_CONFIG_0_REG_SINGLE_ISR_EN_0;
-+		val &= ~(HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
-+			 HC_CONFIG_0_REG_INT_LINE_EN_0);
- 		val |= (HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0 |
- 			HC_CONFIG_0_REG_ATTN_BIT_EN_0);
-+	} else if (msi) {
-+		val &= ~HC_CONFIG_0_REG_INT_LINE_EN_0;
-+		val |= (HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
-+			HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0 |
-+			HC_CONFIG_0_REG_ATTN_BIT_EN_0);
- 	} else {
- 		val |= (HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
- 			HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0 |
- 			HC_CONFIG_0_REG_INT_LINE_EN_0 |
- 			HC_CONFIG_0_REG_ATTN_BIT_EN_0);
+ enum bnx2x_board_type {
+@@ -845,6 +843,7 @@ static inline u16 bnx2x_tx_avail(struct bnx2x_fastpath *fp)
+ static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
+ {
+ 	struct bnx2x *bp = fp->bp;
++	struct netdev_queue *txq;
+ 	u16 hw_cons, sw_cons, bd_cons = fp->tx_bd_cons;
+ 	int done = 0;
  
--		DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)  MSI-X %d\n",
--		   val, port, addr, msix);
-+		DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)\n",
-+		   val, port, addr);
+@@ -853,6 +852,7 @@ static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
+ 		return;
+ #endif
  
- 		REG_WR(bp, addr, val);
++	txq = netdev_get_tx_queue(bp->dev, fp->index);
+ 	hw_cons = le16_to_cpu(*fp->tx_cons_sb);
+ 	sw_cons = fp->tx_pkt_cons;
  
- 		val &= ~HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0;
+@@ -882,24 +882,24 @@ static void bnx2x_tx_int(struct bnx2x_fastpath *fp, int work)
+ 	fp->tx_pkt_cons = sw_cons;
+ 	fp->tx_bd_cons = bd_cons;
+ 
+-	/* Need to make the tx_cons update visible to start_xmit()
+-	 * before checking for netif_queue_stopped().  Without the
++	/* Need to make the tx_bd_cons update visible to start_xmit()
++	 * before checking for netif_tx_queue_stopped().  Without the
+ 	 * memory barrier, there is a small possibility that start_xmit()
+ 	 * will miss it and cause the queue to be stopped forever.
+ 	 */
+ 	smp_mb();
+ 
+ 	/* TBD need a thresh? */
+-	if (unlikely(netif_queue_stopped(bp->dev))) {
++	if (unlikely(netif_tx_queue_stopped(txq))) {
+ 
+-		netif_tx_lock(bp->dev);
++		__netif_tx_lock(txq, smp_processor_id());
+ 
+-		if (netif_queue_stopped(bp->dev) &&
++		if ((netif_tx_queue_stopped(txq)) &&
+ 		    (bp->state == BNX2X_STATE_OPEN) &&
+ 		    (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3))
+-			netif_wake_queue(bp->dev);
++			netif_tx_wake_queue(txq);
+ 
+-		netif_tx_unlock(bp->dev);
++		__netif_tx_unlock(txq);
+ 	}
+ }
+ 
+@@ -1403,8 +1403,8 @@ static inline void bnx2x_update_rx_prod(struct bnx2x *bp,
+ 	mmiowb(); /* keep prod updates ordered */
+ 
+ 	DP(NETIF_MSG_RX_STATUS,
+-	   "Wrote: bd_prod %u  cqe_prod %u  sge_prod %u\n",
+-	   bd_prod, rx_comp_prod, rx_sge_prod);
++	   "queue[%d]:  wrote  bd_prod %u  cqe_prod %u  sge_prod %u\n",
++	   fp->index, bd_prod, rx_comp_prod, rx_sge_prod);
+ }
+ 
+ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+@@ -1662,8 +1662,7 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
+ 
+ static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
+ {
+-	struct net_device *dev = dev_instance;
+-	struct bnx2x *bp = netdev_priv(dev);
++	struct bnx2x *bp = netdev_priv(dev_instance);
+ 	u16 status = bnx2x_ack_int(bp);
+ 	u16 mask;
+ 
+@@ -4295,7 +4294,7 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
+ 		   "rx_buf_size %d  effective_mtu %d\n",
+ 		   bp->rx_buf_size, bp->dev->mtu + ETH_OVREHEAD);
+ 
+-		for_each_queue(bp, j) {
++		for_each_rx_queue(bp, j) {
+ 			struct bnx2x_fastpath *fp = &bp->fp[j];
+ 
+ 			for (i = 0; i < max_agg_queues; i++) {
+@@ -4318,7 +4317,7 @@ static void bnx2x_init_rx_rings(struct bnx2x *bp)
+ 		}
  	}
  
--	DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)  MSI-X %d\n",
--	   val, port, addr, msix);
-+	DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)  mode %s\n",
-+	   val, port, addr, (msix ? "MSI-X" : (msi ? "MSI" : "INTx")));
+-	for_each_queue(bp, j) {
++	for_each_rx_queue(bp, j) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[j];
  
- 	REG_WR(bp, addr, val);
- 
- 	if (CHIP_IS_E1H(bp)) {
- 		/* init leading/trailing edge */
- 		if (IS_E1HMF(bp)) {
--			val = (0xfe0f | (1 << (BP_E1HVN(bp) + 4)));
-+			val = (0xee0f | (1 << (BP_E1HVN(bp) + 4)));
- 			if (bp->port.pmf)
- 				/* enable nig attention */
- 				val |= 0x0100;
-@@ -641,6 +650,9 @@ static void bnx2x_int_disable(struct bnx2x *bp)
- 	DP(NETIF_MSG_INTR, "write %x to HC %d (addr 0x%x)\n",
- 	   val, port, addr);
- 
-+	/* flush all outstanding writes */
-+	mmiowb();
-+
- 	REG_WR(bp, addr, val);
- 	if (REG_RD(bp, addr) != val)
- 		BNX2X_ERR("BUG! proper val not read from IGU!\n");
-@@ -649,7 +661,7 @@ static void bnx2x_int_disable(struct bnx2x *bp)
- static void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw)
+ 		fp->rx_bd_cons = 0;
+@@ -4430,7 +4429,7 @@ static void bnx2x_init_tx_ring(struct bnx2x *bp)
  {
- 	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
--	int i;
-+	int i, offset;
+ 	int i, j;
  
- 	/* disable interrupt handling */
- 	atomic_inc(&bp->intr_sem);
-@@ -659,11 +671,10 @@ static void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw)
+-	for_each_queue(bp, j) {
++	for_each_tx_queue(bp, j) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[j];
  
- 	/* make sure all ISRs are done */
- 	if (msix) {
-+		synchronize_irq(bp->msix_table[0].vector);
-+		offset = 1;
- 		for_each_queue(bp, i)
--			synchronize_irq(bp->msix_table[i].vector);
--
--		/* one more for the Slow Path IRQ */
--		synchronize_irq(bp->msix_table[i].vector);
-+			synchronize_irq(bp->msix_table[i + offset].vector);
- 	} else
- 		synchronize_irq(bp->pdev->irq);
- 
-@@ -5198,6 +5209,8 @@ static int bnx2x_init_common(struct bnx2x *bp)
- 	REG_WR(bp, PXP2_REG_RQ_SRC_ENDIAN_M, 1);
- 	REG_WR(bp, PXP2_REG_RQ_CDU_ENDIAN_M, 1);
- 	REG_WR(bp, PXP2_REG_RQ_DBG_ENDIAN_M, 1);
-+	/* make sure this value is 0 */
-+	REG_WR(bp, PXP2_REG_RQ_HC_ENDIAN_M, 0);
- 
- /*	REG_WR(bp, PXP2_REG_RD_PBF_SWAP_MODE, 1); */
- 	REG_WR(bp, PXP2_REG_RD_QM_SWAP_MODE, 1);
-@@ -5648,10 +5661,17 @@ static int bnx2x_init_func(struct bnx2x *bp)
- {
- 	int port = BP_PORT(bp);
+ 		for (i = 1; i <= NUM_TX_RINGS; i++) {
+@@ -4543,14 +4542,15 @@ static void bnx2x_init_ind_table(struct bnx2x *bp)
  	int func = BP_FUNC(bp);
-+	u32 addr, val;
  	int i;
  
- 	DP(BNX2X_MSG_MCP, "starting func init  func %x\n", func);
+-	if (!is_multi(bp))
++	if (bp->multi_mode == ETH_RSS_MODE_DISABLED)
+ 		return;
  
-+	/* set MSI reconfigure capability */
-+	addr = (port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0);
-+	val = REG_RD(bp, addr);
-+	val |= HC_CONFIG_0_REG_MSI_ATTN_EN_0;
-+	REG_WR(bp, addr, val);
-+
- 	i = FUNC_ILT_BASE(func);
+-	DP(NETIF_MSG_IFUP, "Initializing indirection table\n");
++	DP(NETIF_MSG_IFUP,
++	   "Initializing indirection table  multi_mode %d\n", bp->multi_mode);
+ 	for (i = 0; i < TSTORM_INDIRECTION_TABLE_SIZE; i++)
+ 		REG_WR8(bp, BAR_TSTRORM_INTMEM +
+ 			TSTORM_INDIRECTION_TABLE_OFFSET(func) + i,
+-			BP_CL_ID(bp) + (i % bp->num_queues));
++			BP_CL_ID(bp) + (i % bp->num_rx_queues));
+ }
  
- 	bnx2x_ilt_wr(bp, i, bnx2x_sp_mapping(bp, context));
-@@ -6053,10 +6073,6 @@ static void bnx2x_free_msix_irqs(struct bnx2x *bp)
- 		   "state %x\n", i, bp->msix_table[i + offset].vector,
- 		   bnx2x_fp(bp, i, state));
+ static void bnx2x_set_client_config(struct bnx2x *bp)
+@@ -4684,7 +4684,7 @@ static void bnx2x_init_internal_func(struct bnx2x *bp)
+ 	u16 max_agg_size;
  
--		if (bnx2x_fp(bp, i, state) != BNX2X_FP_STATE_CLOSED)
--			BNX2X_ERR("IRQ of fp #%d being freed while "
--				  "state != closed\n", i);
--
- 		free_irq(bp->msix_table[i + offset].vector, &bp->fp[i]);
+ 	if (is_multi(bp)) {
+-		tstorm_config.config_flags = MULTI_FLAGS;
++		tstorm_config.config_flags = MULTI_FLAGS(bp);
+ 		tstorm_config.rss_result_mask = MULTI_MASK;
  	}
- }
-@@ -6068,21 +6084,25 @@ static void bnx2x_free_irq(struct bnx2x *bp)
- 		pci_disable_msix(bp->pdev);
- 		bp->flags &= ~USING_MSIX_FLAG;
+ 	if (IS_E1HMF(bp))
+@@ -4764,7 +4764,7 @@ static void bnx2x_init_internal_func(struct bnx2x *bp)
+ 		min((u32)(min((u32)8, (u32)MAX_SKB_FRAGS) *
+ 			  SGE_PAGE_SIZE * PAGES_PER_SGE),
+ 		    (u32)0xffff);
+-	for_each_queue(bp, i) {
++	for_each_rx_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
  
-+	} else if (bp->flags & USING_MSI_FLAG) {
-+		free_irq(bp->pdev->irq, bp->dev);
-+		pci_disable_msi(bp->pdev);
-+		bp->flags &= ~USING_MSI_FLAG;
+ 		REG_WR(bp, BAR_USTRORM_INTMEM +
+@@ -5809,20 +5809,19 @@ static void bnx2x_free_mem(struct bnx2x *bp)
+ 	int i;
+ 
+ 	/* fastpath */
++	/* Common */
+ 	for_each_queue(bp, i) {
+ 
+-		/* Status blocks */
++		/* status blocks */
+ 		BNX2X_PCI_FREE(bnx2x_fp(bp, i, status_blk),
+ 			       bnx2x_fp(bp, i, status_blk_mapping),
+ 			       sizeof(struct host_status_block) +
+ 			       sizeof(struct eth_tx_db_data));
++	}
++	/* Rx */
++	for_each_rx_queue(bp, i) {
+ 
+-		/* fast path rings: tx_buf tx_desc rx_buf rx_desc rx_comp */
+-		BNX2X_FREE(bnx2x_fp(bp, i, tx_buf_ring));
+-		BNX2X_PCI_FREE(bnx2x_fp(bp, i, tx_desc_ring),
+-			       bnx2x_fp(bp, i, tx_desc_mapping),
+-			       sizeof(struct eth_tx_bd) * NUM_TX_BD);
+-
++		/* fastpath rx rings: rx_buf rx_desc rx_comp */
+ 		BNX2X_FREE(bnx2x_fp(bp, i, rx_buf_ring));
+ 		BNX2X_PCI_FREE(bnx2x_fp(bp, i, rx_desc_ring),
+ 			       bnx2x_fp(bp, i, rx_desc_mapping),
+@@ -5839,6 +5838,15 @@ static void bnx2x_free_mem(struct bnx2x *bp)
+ 			       bnx2x_fp(bp, i, rx_sge_mapping),
+ 			       BCM_PAGE_SIZE * NUM_RX_SGE_PAGES);
+ 	}
++	/* Tx */
++	for_each_tx_queue(bp, i) {
 +
- 	} else
- 		free_irq(bp->pdev->irq, bp->dev);
- }
++		/* fastpath tx rings: tx_buf tx_desc */
++		BNX2X_FREE(bnx2x_fp(bp, i, tx_buf_ring));
++		BNX2X_PCI_FREE(bnx2x_fp(bp, i, tx_desc_ring),
++			       bnx2x_fp(bp, i, tx_desc_mapping),
++			       sizeof(struct eth_tx_bd) * NUM_TX_BD);
++	}
+ 	/* end of fastpath */
  
- static int bnx2x_enable_msix(struct bnx2x *bp)
+ 	BNX2X_PCI_FREE(bp->def_status_blk, bp->def_status_blk_mapping,
+@@ -5881,29 +5889,20 @@ static int bnx2x_alloc_mem(struct bnx2x *bp)
+ 	int i;
+ 
+ 	/* fastpath */
++	/* Common */
+ 	for_each_queue(bp, i) {
+ 		bnx2x_fp(bp, i, bp) = bp;
+ 
+-		/* Status blocks */
++		/* status blocks */
+ 		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, status_blk),
+ 				&bnx2x_fp(bp, i, status_blk_mapping),
+ 				sizeof(struct host_status_block) +
+ 				sizeof(struct eth_tx_db_data));
++	}
++	/* Rx */
++	for_each_rx_queue(bp, i) {
+ 
+-		bnx2x_fp(bp, i, hw_tx_prods) =
+-				(void *)(bnx2x_fp(bp, i, status_blk) + 1);
+-
+-		bnx2x_fp(bp, i, tx_prods_mapping) =
+-				bnx2x_fp(bp, i, status_blk_mapping) +
+-				sizeof(struct host_status_block);
+-
+-		/* fast path rings: tx_buf tx_desc rx_buf rx_desc rx_comp */
+-		BNX2X_ALLOC(bnx2x_fp(bp, i, tx_buf_ring),
+-				sizeof(struct sw_tx_bd) * NUM_TX_BD);
+-		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, tx_desc_ring),
+-				&bnx2x_fp(bp, i, tx_desc_mapping),
+-				sizeof(struct eth_tx_bd) * NUM_TX_BD);
+-
++		/* fastpath rx rings: rx_buf rx_desc rx_comp */
+ 		BNX2X_ALLOC(bnx2x_fp(bp, i, rx_buf_ring),
+ 				sizeof(struct sw_rx_bd) * NUM_RX_BD);
+ 		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, rx_desc_ring),
+@@ -5922,6 +5921,23 @@ static int bnx2x_alloc_mem(struct bnx2x *bp)
+ 				&bnx2x_fp(bp, i, rx_sge_mapping),
+ 				BCM_PAGE_SIZE * NUM_RX_SGE_PAGES);
+ 	}
++	/* Tx */
++	for_each_tx_queue(bp, i) {
++
++		bnx2x_fp(bp, i, hw_tx_prods) =
++				(void *)(bnx2x_fp(bp, i, status_blk) + 1);
++
++		bnx2x_fp(bp, i, tx_prods_mapping) =
++				bnx2x_fp(bp, i, status_blk_mapping) +
++				sizeof(struct host_status_block);
++
++		/* fastpath tx rings: tx_buf tx_desc */
++		BNX2X_ALLOC(bnx2x_fp(bp, i, tx_buf_ring),
++				sizeof(struct sw_tx_bd) * NUM_TX_BD);
++		BNX2X_PCI_ALLOC(bnx2x_fp(bp, i, tx_desc_ring),
++				&bnx2x_fp(bp, i, tx_desc_mapping),
++				sizeof(struct eth_tx_bd) * NUM_TX_BD);
++	}
+ 	/* end of fastpath */
+ 
+ 	BNX2X_PCI_ALLOC(bp->def_status_blk, &bp->def_status_blk_mapping,
+@@ -5975,7 +5991,7 @@ static void bnx2x_free_tx_skbs(struct bnx2x *bp)
  {
--	int i, rc, offset;
-+	int i, rc, offset = 1;
-+	int igu_vec = 0;
+ 	int i;
  
--	bp->msix_table[0].entry = 0;
--	offset = 1;
--	DP(NETIF_MSG_IFUP, "msix_table[0].entry = 0 (slowpath)\n");
-+	bp->msix_table[0].entry = igu_vec;
-+	DP(NETIF_MSG_IFUP, "msix_table[0].entry = %d (slowpath)\n", igu_vec);
+-	for_each_queue(bp, i) {
++	for_each_tx_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+ 
+ 		u16 bd_cons = fp->tx_bd_cons;
+@@ -5993,7 +6009,7 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
+ {
+ 	int i, j;
+ 
+-	for_each_queue(bp, j) {
++	for_each_rx_queue(bp, j) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[j];
+ 
+ 		for (i = 0; i < NUM_RX_BD; i++) {
+@@ -6073,7 +6089,7 @@ static int bnx2x_enable_msix(struct bnx2x *bp)
+ 	}
+ 
+ 	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0],
+-			     bp->num_queues + offset);
++			     BNX2X_NUM_QUEUES(bp) + offset);
+ 	if (rc) {
+ 		DP(NETIF_MSG_IFUP, "MSI-X is not attainable\n");
+ 		return -1;
+@@ -6095,19 +6111,32 @@ static int bnx2x_req_msix_irqs(struct bnx2x *bp)
+ 	}
  
  	for_each_queue(bp, i) {
--		int igu_vec = offset + i + BP_L_ID(bp);
--
-+		igu_vec = BP_L_ID(bp) + offset + i;
- 		bp->msix_table[i + offset].entry = igu_vec;
- 		DP(NETIF_MSG_IFUP, "msix_table[%d].entry = %d "
- 		   "(fastpath #%u)\n", i + offset, igu_vec, i);
-@@ -6091,9 +6111,10 @@ static int bnx2x_enable_msix(struct bnx2x *bp)
- 	rc = pci_enable_msix(bp->pdev, &bp->msix_table[0],
- 			     BNX2X_NUM_QUEUES(bp) + offset);
- 	if (rc) {
--		DP(NETIF_MSG_IFUP, "MSI-X is not attainable\n");
--		return -1;
-+		DP(NETIF_MSG_IFUP, "MSI-X is not attainable  rc %d\n", rc);
-+		return rc;
- 	}
++		struct bnx2x_fastpath *fp = &bp->fp[i];
 +
- 	bp->flags |= USING_MSIX_FLAG;
++		sprintf(fp->name, "%s.fp%d", bp->dev->name, i);
+ 		rc = request_irq(bp->msix_table[i + offset].vector,
+-				 bnx2x_msix_fp_int, 0,
+-				 bp->dev->name, &bp->fp[i]);
++				 bnx2x_msix_fp_int, 0, fp->name, fp);
+ 		if (rc) {
+-			BNX2X_ERR("request fp #%d irq failed  rc -%d\n",
+-				  i + offset, -rc);
++			BNX2X_ERR("request fp #%d irq failed  rc %d\n", i, rc);
+ 			bnx2x_free_msix_irqs(bp);
+ 			return -EBUSY;
+ 		}
  
- 	return 0;
-@@ -6140,11 +6161,31 @@ static int bnx2x_req_msix_irqs(struct bnx2x *bp)
+-		bnx2x_fp(bp, i, state) = BNX2X_FP_STATE_IRQ;
++		fp->state = BNX2X_FP_STATE_IRQ;
+ 	}
+ 
++	i = BNX2X_NUM_QUEUES(bp);
++	if (is_multi(bp))
++		printk(KERN_INFO PFX
++		       "%s: using MSI-X  IRQs: sp %d  fp %d - %d\n",
++		       bp->dev->name, bp->msix_table[0].vector,
++		       bp->msix_table[offset].vector,
++		       bp->msix_table[offset + i - 1].vector);
++	else
++		printk(KERN_INFO PFX "%s: using MSI-X  IRQs: sp %d  fp %d\n",
++		       bp->dev->name, bp->msix_table[0].vector,
++		       bp->msix_table[offset + i - 1].vector);
++
  	return 0;
  }
  
-+static int bnx2x_enable_msi(struct bnx2x *bp)
-+{
-+	int rc;
-+
-+	rc = pci_enable_msi(bp->pdev);
-+	if (rc) {
-+		DP(NETIF_MSG_IFUP, "MSI is not attainable\n");
-+		return -1;
-+	}
-+	bp->flags |= USING_MSI_FLAG;
-+
-+	return 0;
-+}
-+
- static int bnx2x_req_irq(struct bnx2x *bp)
+@@ -6127,7 +6156,7 @@ static void bnx2x_napi_enable(struct bnx2x *bp)
  {
-+	unsigned long flags;
- 	int rc;
+ 	int i;
  
--	rc = request_irq(bp->pdev->irq, bnx2x_interrupt, IRQF_SHARED,
-+	if (bp->flags & USING_MSI_FLAG)
-+		flags = 0;
-+	else
-+		flags = IRQF_SHARED;
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		napi_enable(&bnx2x_fp(bp, i, napi));
+ }
+ 
+@@ -6135,7 +6164,7 @@ static void bnx2x_napi_disable(struct bnx2x *bp)
+ {
+ 	int i;
+ 
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		napi_disable(&bnx2x_fp(bp, i, napi));
+ }
+ 
+@@ -6143,10 +6172,10 @@ static void bnx2x_netif_start(struct bnx2x *bp)
+ {
+ 	if (atomic_dec_and_test(&bp->intr_sem)) {
+ 		if (netif_running(bp->dev)) {
+-			if (bp->state == BNX2X_STATE_OPEN)
+-				netif_wake_queue(bp->dev);
+ 			bnx2x_napi_enable(bp);
+ 			bnx2x_int_enable(bp);
++			if (bp->state == BNX2X_STATE_OPEN)
++				netif_tx_wake_all_queues(bp->dev);
+ 		}
+ 	}
+ }
+@@ -6320,16 +6349,19 @@ static int bnx2x_setup_leading(struct bnx2x *bp)
+ 
+ static int bnx2x_setup_multi(struct bnx2x *bp, int index)
+ {
++	struct bnx2x_fastpath *fp = &bp->fp[index];
 +
-+	rc = request_irq(bp->pdev->irq, bnx2x_interrupt, flags,
- 			 bp->dev->name, bp->dev);
- 	if (!rc)
- 		bnx2x_fp(bp, 0, state) = BNX2X_FP_STATE_IRQ;
-@@ -6365,28 +6406,23 @@ static int bnx2x_setup_multi(struct bnx2x *bp, int index)
+ 	/* reset IGU state */
+-	bnx2x_ack_sb(bp, bp->fp[index].sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
++	bnx2x_ack_sb(bp, fp->sb_id, CSTORM_ID, 0, IGU_INT_ENABLE, 0);
+ 
+ 	/* SETUP ramrod */
+-	bp->fp[index].state = BNX2X_FP_STATE_OPENING;
+-	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_CLIENT_SETUP, index, 0, index, 0);
++	fp->state = BNX2X_FP_STATE_OPENING;
++	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_CLIENT_SETUP, index, 0,
++		      fp->cl_id, 0);
+ 
+ 	/* Wait for completion */
+ 	return bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_OPEN, index,
+-				 &(bp->fp[index].state), 0);
++				 &(fp->state), 0);
  }
  
  static int bnx2x_poll(struct napi_struct *napi, int budget);
--static void bnx2x_set_rx_mode(struct net_device *dev);
- 
--/* must be called with rtnl_lock */
--static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
-+static void bnx2x_set_int_mode(struct bnx2x *bp)
+@@ -6340,6 +6372,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
  {
--	u32 load_code;
--	int i, rc = 0;
- 	int num_queues;
--#ifdef BNX2X_STOP_ON_ERROR
--	if (unlikely(bp->panic))
--		return -EPERM;
--#endif
--
--	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
+ 	u32 load_code;
+ 	int i, rc = 0;
++	int num_queues;
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+ 		return -EPERM;
+@@ -6348,22 +6381,22 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
  
--	if (use_inta) {
-+	switch (int_mode) {
-+	case INT_MODE_INTx:
-+	case INT_MODE_MSI:
- 		num_queues = 1;
- 		bp->num_rx_queues = num_queues;
- 		bp->num_tx_queues = num_queues;
- 		DP(NETIF_MSG_IFUP,
- 		   "set number of queues to %d\n", num_queues);
--	} else {
-+		break;
-+
-+	case INT_MODE_MSIX:
-+	default:
- 		if (bp->multi_mode == ETH_RSS_MODE_REGULAR)
- 			num_queues = min_t(u32, num_online_cpus(),
- 					   BNX2X_MAX_QUEUES(bp));
-@@ -6401,8 +6437,7 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	if (use_inta) {
+-		bp->num_queues = 1;
+-
++		num_queues = 1;
++		bp->num_rx_queues = num_queues;
++		bp->num_tx_queues = num_queues;
++		DP(NETIF_MSG_IFUP,
++		   "set number of queues to %d\n", num_queues);
+ 	} else {
+-		if ((use_multi > 1) && (use_multi <= BP_MAX_QUEUES(bp)))
+-			/* user requested number */
+-			bp->num_queues = use_multi;
+-
+-		else if (use_multi)
+-			bp->num_queues = min_t(u32, num_online_cpus(),
+-					       BP_MAX_QUEUES(bp));
++		if (bp->multi_mode == ETH_RSS_MODE_REGULAR)
++			num_queues = min_t(u32, num_online_cpus(),
++					   BNX2X_MAX_QUEUES(bp));
+ 		else
+-			bp->num_queues = 1;
+-
+-		DP(NETIF_MSG_IFUP,
+-		   "set number of queues to %d\n", bp->num_queues);
+-
++			num_queues = 1;
++		bp->num_rx_queues = num_queues;
++		bp->num_tx_queues = num_queues;
++		DP(NETIF_MSG_IFUP, "set number of rx queues to %d"
++		   "  number of tx queues to %d\n",
++		   bp->num_rx_queues, bp->num_tx_queues);
+ 		/* if we can't use MSI-X we only need one fp,
  		 * so try to enable MSI-X with the requested number of fp's
  		 * and fallback to MSI or legacy INTx with one fp
- 		 */
--		rc = bnx2x_enable_msix(bp);
--		if (rc) {
-+		if (bnx2x_enable_msix(bp)) {
+@@ -6371,26 +6404,30 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		rc = bnx2x_enable_msix(bp);
+ 		if (rc) {
  			/* failed to enable MSI-X */
- 			num_queues = 1;
- 			bp->num_rx_queues = num_queues;
-@@ -6412,8 +6447,27 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 					  "enable MSI-X  set number of "
- 					  "queues to %d\n", num_queues);
+-			bp->num_queues = 1;
+-			if (use_multi)
+-				BNX2X_ERR("Multi requested but failed"
+-					  " to enable MSI-X\n");
++			num_queues = 1;
++			bp->num_rx_queues = num_queues;
++			bp->num_tx_queues = num_queues;
++			if (bp->multi_mode)
++				BNX2X_ERR("Multi requested but failed to "
++					  "enable MSI-X  set number of "
++					  "queues to %d\n", num_queues);
  		}
-+		break;
  	}
- 	bp->dev->real_num_tx_queues = bp->num_tx_queues;
-+}
-+
-+static void bnx2x_set_rx_mode(struct net_device *dev);
-+
-+/* must be called with rtnl_lock */
-+static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
-+{
-+	u32 load_code;
-+	int i, rc = 0;
-+#ifdef BNX2X_STOP_ON_ERROR
-+	DP(NETIF_MSG_IFUP, "enter  load_mode %d\n", load_mode);
-+	if (unlikely(bp->panic))
-+		return -EPERM;
-+#endif
-+
-+	bp->state = BNX2X_STATE_OPENING_WAIT4_LOAD;
-+
-+	bnx2x_set_int_mode(bp);
++	bp->dev->real_num_tx_queues = bp->num_tx_queues;
  
  	if (bnx2x_alloc_mem(bp))
  		return -ENOMEM;
-@@ -6445,14 +6499,22 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 			pci_disable_msix(bp->pdev);
- 			goto load_error1;
- 		}
--		printk(KERN_INFO PFX "%s: using MSI-X\n", bp->dev->name);
- 	} else {
-+		if ((rc != -ENOMEM) && (int_mode != INT_MODE_INTx))
-+			bnx2x_enable_msi(bp);
- 		bnx2x_ack_int(bp);
- 		rc = bnx2x_req_irq(bp);
- 		if (rc) {
- 			BNX2X_ERR("IRQ request failed  rc %d, aborting\n", rc);
-+			if (bp->flags & USING_MSI_FLAG)
-+				pci_disable_msi(bp->pdev);
- 			goto load_error1;
- 		}
-+		if (bp->flags & USING_MSI_FLAG) {
-+			bp->dev->irq = bp->pdev->irq;
-+			printk(KERN_INFO PFX "%s: using MSI  IRQ %d\n",
-+			       bp->dev->name, bp->pdev->irq);
-+		}
- 	}
  
- 	/* Send LOAD_REQUEST command to MCP
-@@ -6689,8 +6751,6 @@ static void bnx2x_reset_func(struct bnx2x *bp)
- 	REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, 0);
- 	REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, 0);
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		bnx2x_fp(bp, i, disable_tpa) =
+ 					((bp->flags & TPA_ENABLE_FLAG) == 0);
  
--	REG_WR(bp, HC_REG_CONFIG_0 + port*4, 0x1000);
--
- 	/* Clear ILT */
- 	base = FUNC_ILT_BASE(func);
- 	for (i = base; i < base + ILT_PER_FUNC; i++)
-@@ -7636,9 +7696,10 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+ 			       bnx2x_poll, 128);
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+-	for_each_queue(bp, i) {
++	for_each_rx_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+ 
+ 		fp->poll_no_work = 0;
+@@ -6512,13 +6549,13 @@ static int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	switch (load_mode) {
+ 	case LOAD_NORMAL:
+ 		/* Tx queue should be only reenabled */
+-		netif_wake_queue(bp->dev);
++		netif_tx_wake_all_queues(bp->dev);
+ 		/* Initialize the receive filter. */
+ 		bnx2x_set_rx_mode(bp->dev);
+ 		break;
+ 
+ 	case LOAD_OPEN:
+-		netif_start_queue(bp->dev);
++		netif_tx_start_all_queues(bp->dev);
+ 		/* Initialize the receive filter. */
+ 		bnx2x_set_rx_mode(bp->dev);
+ 		break;
+@@ -6551,14 +6588,14 @@ load_error3:
+ 	bp->port.pmf = 0;
+ 	/* Free SKBs, SGEs, TPA pool and driver internals */
+ 	bnx2x_free_skbs(bp);
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
+ load_error2:
+ 	/* Release IRQs */
+ 	bnx2x_free_irq(bp);
+ load_error1:
+ 	bnx2x_napi_disable(bp);
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		netif_napi_del(&bnx2x_fp(bp, i, napi));
+ 	bnx2x_free_mem(bp);
+ 
+@@ -6569,15 +6606,16 @@ load_error1:
+ 
+ static int bnx2x_stop_multi(struct bnx2x *bp, int index)
+ {
++	struct bnx2x_fastpath *fp = &bp->fp[index];
+ 	int rc;
+ 
+ 	/* halt the connection */
+-	bp->fp[index].state = BNX2X_FP_STATE_HALTING;
+-	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_HALT, index, 0, index, 0);
++	fp->state = BNX2X_FP_STATE_HALTING;
++	bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_HALT, index, 0, fp->cl_id, 0);
+ 
+ 	/* Wait for completion */
+ 	rc = bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_HALTED, index,
+-			       &(bp->fp[index].state), 1);
++			       &(fp->state), 1);
+ 	if (rc) /* timeout */
+ 		return rc;
+ 
+@@ -6586,7 +6624,7 @@ static int bnx2x_stop_multi(struct bnx2x *bp, int index)
+ 
+ 	/* Wait for completion */
+ 	rc = bnx2x_wait_ramrod(bp, BNX2X_FP_STATE_CLOSED, index,
+-			       &(bp->fp[index].state), 1);
++			       &(fp->state), 1);
+ 	return rc;
+ }
+ 
+@@ -6734,8 +6772,8 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 	/* Release IRQs */
+ 	bnx2x_free_irq(bp);
+ 
+-	/* Wait until tx fast path tasks complete */
+-	for_each_queue(bp, i) {
++	/* Wait until tx fastpath tasks complete */
++	for_each_tx_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+ 
+ 		cnt = 1000;
+@@ -6867,9 +6905,9 @@ unload_error:
+ 
+ 	/* Free SKBs, SGEs, TPA pool and driver internals */
+ 	bnx2x_free_skbs(bp);
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		netif_napi_del(&bnx2x_fp(bp, i, napi));
+ 	bnx2x_free_mem(bp);
+ 
+@@ -7597,6 +7635,15 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 		printk(KERN_ERR PFX
  		       "MCP disabled, must load devices in order!\n");
  
- 	/* Set multi queue mode */
--	if ((multi_mode != ETH_RSS_MODE_DISABLED) && (!use_inta)) {
-+	if ((multi_mode != ETH_RSS_MODE_DISABLED) &&
-+	    ((int_mode == INT_MODE_INTx) || (int_mode == INT_MODE_MSI))) {
- 		printk(KERN_ERR PFX
--		      "Multi disabled since INTA is requested\n");
-+		      "Multi disabled since int_mode requested is not MSI-X\n");
- 		multi_mode = ETH_RSS_MODE_DISABLED;
- 	}
- 	bp->multi_mode = multi_mode;
-diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
-index fc957fa..0be77c5 100644
---- a/drivers/net/bnx2x_reg.h
-+++ b/drivers/net/bnx2x_reg.h
-@@ -745,6 +745,7 @@
- #define DORQ_REG_SHRT_CMHEAD					 0x170054
- #define HC_CONFIG_0_REG_ATTN_BIT_EN_0				 (0x1<<4)
- #define HC_CONFIG_0_REG_INT_LINE_EN_0				 (0x1<<3)
-+#define HC_CONFIG_0_REG_MSI_ATTN_EN_0				 (0x1<<7)
- #define HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0			 (0x1<<2)
- #define HC_CONFIG_0_REG_SINGLE_ISR_EN_0 			 (0x1<<1)
- #define HC_REG_AGG_INT_0					 0x108050
-@@ -5359,9 +5360,28 @@
- #define PCICFG_PM_CSR_STATE			(0x3<<0)
- #define PCICFG_PM_CSR_PME_ENABLE		(1<<8)
- #define PCICFG_PM_CSR_PME_STATUS		(1<<15)
-+#define PCICFG_MSI_CAP_ID				0x58
-+#define PCICFG_MSI_CONTROL_ENABLE		(0x1<<16)
-+#define PCICFG_MSI_CONTROL_MCAP 		(0x7<<17)
-+#define PCICFG_MSI_CONTROL_MENA 		(0x7<<20)
-+#define PCICFG_MSI_CONTROL_64_BIT_ADDR_CAP	(0x1<<23)
-+#define PCICFG_MSI_CONTROL_MSI_PVMASK_CAPABLE	(0x1<<24)
- #define PCICFG_GRC_ADDRESS				0x78
- #define PCICFG_GRC_DATA 				0x80
-+#define PCICFG_MSIX_CAP_ID				0xa0
-+#define PCICFG_MSIX_CONTROL_TABLE_SIZE		(0x7ff<<16)
-+#define PCICFG_MSIX_CONTROL_RESERVED		(0x7<<27)
-+#define PCICFG_MSIX_CONTROL_FUNC_MASK		(0x1<<30)
-+#define PCICFG_MSIX_CONTROL_MSIX_ENABLE 	(0x1<<31)
++	/* Set multi queue mode */
++	if ((multi_mode != ETH_RSS_MODE_DISABLED) && (!use_inta)) {
++		printk(KERN_ERR PFX
++		      "Multi disabled since INTA is requested\n");
++		multi_mode = ETH_RSS_MODE_DISABLED;
++	}
++	bp->multi_mode = multi_mode;
 +
- #define PCICFG_DEVICE_CONTROL				0xb4
-+#define PCICFG_DEVICE_STATUS				0xb6
-+#define PCICFG_DEVICE_STATUS_CORR_ERR_DET	(1<<0)
-+#define PCICFG_DEVICE_STATUS_NON_FATAL_ERR_DET	(1<<1)
-+#define PCICFG_DEVICE_STATUS_FATAL_ERR_DET	(1<<2)
-+#define PCICFG_DEVICE_STATUS_UNSUP_REQ_DET	(1<<3)
-+#define PCICFG_DEVICE_STATUS_AUX_PWR_DET	(1<<4)
-+#define PCICFG_DEVICE_STATUS_NO_PEND		(1<<5)
- #define PCICFG_LINK_CONTROL				0xbc
++
+ 	/* Set TPA flags */
+ 	if (disable_tpa) {
+ 		bp->flags &= ~TPA_ENABLE_FLAG;
+@@ -9569,6 +9616,7 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 	struct bnx2x_fastpath *fp;
++	struct netdev_queue *txq;
+ 	struct sw_tx_bd *tx_buf;
+ 	struct eth_tx_bd *tx_bd;
+ 	struct eth_tx_parse_bd *pbd = NULL;
+@@ -9585,12 +9633,14 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_BUSY;
+ #endif
  
+-	fp_index = (smp_processor_id() % bp->num_queues);
++	fp_index = skb_get_queue_mapping(skb);
++	txq = netdev_get_tx_queue(dev, fp_index);
++
+ 	fp = &bp->fp[fp_index];
+ 
+ 	if (unlikely(bnx2x_tx_avail(fp) < (skb_shinfo(skb)->nr_frags + 3))) {
+ 		bp->eth_stats.driver_xoff++,
+-		netif_stop_queue(dev);
++		netif_tx_stop_queue(txq);
+ 		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
+ 		return NETDEV_TX_BUSY;
+ 	}
+@@ -9829,10 +9879,10 @@ static int bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* We want bnx2x_tx_int to "see" the updated tx_bd_prod
+ 		   if we put Tx into XOFF state. */
+ 		smp_mb();
+-		netif_stop_queue(dev);
++		netif_tx_stop_queue(txq);
+ 		bp->eth_stats.driver_xoff++;
+ 		if (bnx2x_tx_avail(fp) >= MAX_SKB_FRAGS + 3)
+-			netif_wake_queue(dev);
++			netif_tx_wake_queue(txq);
+ 	}
+ 	fp->tx_pkt++;
+ 
+@@ -10324,7 +10374,7 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 		printk(KERN_INFO "%s", version);
+ 
+ 	/* dev zeroed in init_etherdev */
+-	dev = alloc_etherdev(sizeof(*bp));
++	dev = alloc_etherdev_mq(sizeof(*bp), MAX_CONTEXT);
+ 	if (!dev) {
+ 		printk(KERN_ERR PFX "Cannot allocate net device\n");
+ 		return -ENOMEM;
+@@ -10496,9 +10546,9 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
+ 
+ 	/* Free SKBs, SGEs, TPA pool and driver internals */
+ 	bnx2x_free_skbs(bp);
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		bnx2x_free_rx_sge_range(bp, bp->fp + i, NUM_RX_SGE);
+-	for_each_queue(bp, i)
++	for_each_rx_queue(bp, i)
+ 		netif_napi_del(&bnx2x_fp(bp, i, napi));
+ 	bnx2x_free_mem(bp);
  
 -- 
 1.5.4.3
