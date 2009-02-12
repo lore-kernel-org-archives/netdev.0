@@ -1,73 +1,57 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH 27/41]bnx2x: smp_mb and not just smp_rmb
-Date: Thu, 12 Feb 2009 22:45:27 +0200
-Message-ID: <1234471527.4798.12.camel@lb-tlvb-eliezer>
-References: <1234463845.1863.159.camel@lb-tlvb-eliezer>
- <1234466509.3583.22.camel@achroite>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 03/41]bnx2x: MSI support
+Date: Thu, 12 Feb 2009 20:47:48 +0000
+Message-ID: <1234471668.3583.26.camel@achroite>
+References: <1234463775.1863.134.camel@lb-tlvb-eliezer>
+	 <1234464759.3583.8.camel@achroite>
+	 <1234471059.4798.7.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1565 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759113AbZBLUpl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 15:45:41 -0500
-In-Reply-To: <1234466509.3583.22.camel@achroite>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:54526 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758877AbZBLUr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 15:47:56 -0500
+In-Reply-To: <1234471059.4798.7.camel@lb-tlvb-eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-02-12 at 11:21 -0800, Ben Hutchings wrote:
-> On Thu, 2009-02-12 at 20:37 +0200, Eilon Greenstein wrote:
-> > Subject: [PATCH 27/41]bnx2x: smp_mb and not just smp_rmb
+On Thu, 2009-02-12 at 22:37 +0200, Eilon Greenstein wrote:
+> On Thu, 2009-02-12 at 10:52 -0800, Ben Hutchings wrote:
+> Hi Ben!
 > 
-> This could do with some more explanation (and comments in the code).
-Sorry about that, I got lazy at this part.
-Since bnx2x_tx_int is also writing, the smb_rmb should be replaced with
-smp_mb.
-
+> It's always a pleasure to see how fast you respond. I really appreciate
+> the fact that you take the time to review my patches. Thanks!
 > 
-> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > ---
-> >  drivers/net/bnx2x_main.c |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
+> > On Thu, 2009-02-12 at 20:36 +0200, Eilon Greenstein wrote:
+> > [...]
+> > > @@ -5359,9 +5360,28 @@
+> > >  #define PCICFG_PM_CSR_STATE			(0x3<<0)
+> > >  #define PCICFG_PM_CSR_PME_ENABLE		(1<<8)
+> > >  #define PCICFG_PM_CSR_PME_STATUS		(1<<15)
+> > > +#define PCICFG_MSI_CAP_ID				0x58
 > > 
-> > diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> > index 6bd9219..2e95799 100644
-> > --- a/drivers/net/bnx2x_main.c
-> > +++ b/drivers/net/bnx2x_main.c
-> > @@ -7173,7 +7173,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
-> >  		struct bnx2x_fastpath *fp = &bp->fp[i];
-> >  
-> >  		cnt = 1000;
-> > -		smp_rmb();
-> > +		smp_mb();
-> >  		while (bnx2x_has_tx_work_unload(fp)) {
-> >  
-> >  			bnx2x_tx_int(fp, 1000);
-> > @@ -7189,7 +7189,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
-> >  			}
-> >  			cnt--;
-> >  			msleep(1);
-> > -			smp_rmb();
-> > +			smp_mb();
+> > This appears to be a capability offset, not a capability id!  You might
+> > also consider not hard-coding it.
 > 
-> I suspect that smp_*mb() is redundant after a schedule().
-Hmmm... It seems so... I will have to run it on few different systems in
-the lab to make sure - if I won't run into any problems I will send a
-new patch on top of this one with the removal of this alleged redundant
-smb_mb.
+> You are right - those are the offset for this device. I find it easier to
+> debug when I have the offsets at hand without the need to parse the
+> capabilities linked list. Since the offsets will not change for this
+> generation of chips, I don't see the harm in providing the explicit
+> offsets. I assume that the driver will require major changes for a new
+> generation even if I will use the capabilities ID...
 
-Thanks Ben!
+I agree, the run-time lookup is not really necessary.  But please fix
+the name.
 
-> 
-> >  		}
-> >  	}
-> >  	/* Give HW time to discard old tx messages */
-> 
-> Ben.
-> 
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
