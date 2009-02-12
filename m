@@ -1,134 +1,168 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 05/41]bnx2x: Disabling interrupts after iSCSI-boot
-Date: Thu, 12 Feb 2009 20:36:23 +0200
-Message-ID: <1234463783.1863.136.camel@lb-tlvb-eliezer>
+Subject: [PATCH 20/41]bnx2x: Removing CL73 code
+Date: Thu, 12 Feb 2009 20:37:09 +0200
+Message-ID: <1234463829.1863.152.camel@lb-tlvb-eliezer>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4954 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2663 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758246AbZBLShX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 13:37:23 -0500
+	id S1758305AbZBLShe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2009 13:37:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH 05/41]bnx2x: Disabling interrupts after iSCSI-boot
-Before initializing the chip after iSCSI boot, the interrupts of the function
-that was used to boot must be disabled. That means that the driver needs to set
-the chip as if it is the iSCSI PCI function - this bug is exposed only with MSI
+Subject: [PATCH 20/41]bnx2x: Removing CL73 code
+This code is disabled, so removing it to avoid confusion
 
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   61 ++++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/bnx2x_reg.h  |   13 ++++++++++
- 2 files changed, 72 insertions(+), 2 deletions(-)
+ drivers/net/bnx2x_link.c |  111 ++++++++--------------------------------------
+ 1 files changed, 19 insertions(+), 92 deletions(-)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 312f652..ea7d86d 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -7006,6 +7006,64 @@ reset_task_exit:
-  * Init service functions
-  */
+diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+index 2463de8..526072b 100644
+--- a/drivers/net/bnx2x_link.c
++++ b/drivers/net/bnx2x_link.c
+@@ -29,7 +29,6 @@
+ #include "bnx2x.h"
  
-+static inline u32 bnx2x_get_pretend_reg(struct bnx2x *bp, int func)
-+{
-+	switch (func) {
-+	case 0: return PXP2_REG_PGL_PRETEND_FUNC_F0;
-+	case 1:	return PXP2_REG_PGL_PRETEND_FUNC_F1;
-+	case 2:	return PXP2_REG_PGL_PRETEND_FUNC_F2;
-+	case 3:	return PXP2_REG_PGL_PRETEND_FUNC_F3;
-+	case 4:	return PXP2_REG_PGL_PRETEND_FUNC_F4;
-+	case 5:	return PXP2_REG_PGL_PRETEND_FUNC_F5;
-+	case 6:	return PXP2_REG_PGL_PRETEND_FUNC_F6;
-+	case 7:	return PXP2_REG_PGL_PRETEND_FUNC_F7;
-+	default:
-+		BNX2X_ERR("Unsupported function index: %d\n", func);
-+		return (u32)(-1);
-+	}
-+}
-+
-+static void bnx2x_undi_int_disable_e1h(struct bnx2x *bp, int orig_func)
-+{
-+	u32 reg = bnx2x_get_pretend_reg(bp, orig_func), new_val;
-+
-+	/* Flush all outstanding writes */
-+	mmiowb();
-+
-+	/* Pretend to be function 0 */
-+	REG_WR(bp, reg, 0);
-+	/* Flush the GRC transaction (in the chip) */
-+	new_val = REG_RD(bp, reg);
-+	if (new_val != 0) {
-+		BNX2X_ERR("Hmmm... Pretend register wasn't updated: (0,%d)!\n",
-+			  new_val);
-+		BUG();
-+	}
-+
-+	/* From now we are in the "like-E1" mode */
-+	bnx2x_int_disable(bp);
-+
-+	/* Flush all outstanding writes */
-+	mmiowb();
-+
-+	/* Restore the original funtion settings */
-+	REG_WR(bp, reg, orig_func);
-+	new_val = REG_RD(bp, reg);
-+	if (new_val != orig_func) {
-+		BNX2X_ERR("Hmmm... Pretend register wasn't updated: (%d,%d)!\n",
-+			  orig_func, new_val);
-+		BUG();
-+	}
-+}
-+
-+static inline void bnx2x_undi_int_disable(struct bnx2x *bp, int func)
-+{
-+	if (CHIP_IS_E1H(bp))
-+		bnx2x_undi_int_disable_e1h(bp, func);
-+	else
-+		bnx2x_int_disable(bp);
-+}
-+
- static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ /********************************************************/
+-#define SUPPORT_CL73 0 /* Currently no */
+ #define ETH_HLEN			14
+ #define ETH_OVREHEAD		(ETH_HLEN + 8)/* 8 for CRC + VLAN*/
+ #define ETH_MIN_PACKET_SIZE		60
+@@ -1208,62 +1207,9 @@ static void bnx2x_set_autoneg(struct link_params *params,
+ 			      MDIO_BAM_NEXT_PAGE_MP5_NEXT_PAGE_CTRL,
+ 			      reg_val);
+ 
+-	/* Enable Clause 73 Aneg */
+-	if ((vars->line_speed == SPEED_AUTO_NEG) &&
+-	    (SUPPORT_CL73)) {
+-		/* Enable BAM Station Manager */
++	/* CL73 Autoneg Disabled */
++	reg_val = 0;
+ 
+-		CL45_WR_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				      MDIO_REG_BANK_CL73_USERB0,
+-				      MDIO_CL73_USERB0_CL73_BAM_CTRL1,
+-				   (MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_EN |
+-			MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_STATION_MNGR_EN |
+-			MDIO_CL73_USERB0_CL73_BAM_CTRL1_BAM_NP_AFTER_BP_EN));
+-
+-		/* Merge CL73 and CL37 aneg resolution */
+-		CL45_RD_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				      MDIO_REG_BANK_CL73_USERB0,
+-				      MDIO_CL73_USERB0_CL73_BAM_CTRL3,
+-				      &reg_val);
+-
+-		CL45_WR_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-			MDIO_REG_BANK_CL73_USERB0,
+-			MDIO_CL73_USERB0_CL73_BAM_CTRL3,
+-			(reg_val |
+-			MDIO_CL73_USERB0_CL73_BAM_CTRL3_USE_CL73_HCD_MR));
+-
+-		/* Set the CL73 AN speed */
+-
+-		CL45_RD_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				      MDIO_REG_BANK_CL73_IEEEB1,
+-				      MDIO_CL73_IEEEB1_AN_ADV2, &reg_val);
+-		/* In the SerDes we support only the 1G.
+-		   In the XGXS we support the 10G KX4
+-		   but we currently do not support the KR */
+-		if (vars->phy_flags & PHY_XGXS_FLAG) {
+-			DP(NETIF_MSG_LINK, "XGXS\n");
+-			/* 10G KX4 */
+-			reg_val |= MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KX4;
+-		} else {
+-			DP(NETIF_MSG_LINK, "SerDes\n");
+-			/* 1000M KX */
+-			reg_val |= MDIO_CL73_IEEEB1_AN_ADV2_ADVR_1000M_KX;
+-		}
+-		CL45_WR_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				      MDIO_REG_BANK_CL73_IEEEB1,
+-				      MDIO_CL73_IEEEB1_AN_ADV2, reg_val);
+-
+-		/* CL73 Autoneg Enabled */
+-		reg_val = MDIO_CL73_IEEEB0_CL73_AN_CONTROL_AN_EN;
+-	} else {
+-		/* CL73 Autoneg Disabled */
+-		reg_val = 0;
+-	}
+ 	CL45_WR_OVER_CL22(bp, params->port,
+ 			      params->phy_addr,
+ 			      MDIO_REG_BANK_CL73_IEEEB0,
+@@ -1396,44 +1342,25 @@ static void bnx2x_set_ieee_aneg_advertisment(struct link_params *params,
+ static void bnx2x_restart_autoneg(struct link_params *params)
  {
- 	u32 val;
-@@ -7056,8 +7114,7 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
- 			/* now it's safe to release the lock */
- 			bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
+ 	struct bnx2x *bp = params->bp;
++	u16 mii_control;
+ 	DP(NETIF_MSG_LINK, "bnx2x_restart_autoneg\n");
+-	if (SUPPORT_CL73) {
+-		/* enable and restart clause 73 aneg */
+-		u16 an_ctrl;
+-
+-		CL45_RD_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				      MDIO_REG_BANK_CL73_IEEEB0,
+-				      MDIO_CL73_IEEEB0_CL73_AN_CONTROL,
+-				  &an_ctrl);
+-		CL45_WR_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				MDIO_REG_BANK_CL73_IEEEB0,
+-				MDIO_CL73_IEEEB0_CL73_AN_CONTROL,
+-				(an_ctrl |
+-				MDIO_CL73_IEEEB0_CL73_AN_CONTROL_AN_EN |
+-				MDIO_CL73_IEEEB0_CL73_AN_CONTROL_RESTART_AN));
++	/* Enable and restart BAM/CL37 aneg */
  
--			REG_WR(bp, (BP_PORT(bp) ? HC_REG_CONFIG_1 :
--				    HC_REG_CONFIG_0), 0x1000);
-+			bnx2x_undi_int_disable(bp, func);
+-	} else {
+-		/* Enable and restart BAM/CL37 aneg */
+-		u16 mii_control;
+-
+-		CL45_RD_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				      MDIO_REG_BANK_COMBO_IEEE0,
+-				      MDIO_COMBO_IEEE0_MII_CONTROL,
+-				      &mii_control);
+-		DP(NETIF_MSG_LINK,
+-			 "bnx2x_restart_autoneg mii_control before = 0x%x\n",
+-			 mii_control);
+-		CL45_WR_OVER_CL22(bp, params->port,
+-				      params->phy_addr,
+-				      MDIO_REG_BANK_COMBO_IEEE0,
+-				      MDIO_COMBO_IEEE0_MII_CONTROL,
+-				      (mii_control |
+-				MDIO_COMBO_IEEO_MII_CONTROL_AN_EN |
+-				MDIO_COMBO_IEEO_MII_CONTROL_RESTART_AN));
+-	}
++	CL45_RD_OVER_CL22(bp, params->port,
++			      params->phy_addr,
++			      MDIO_REG_BANK_COMBO_IEEE0,
++			      MDIO_COMBO_IEEE0_MII_CONTROL,
++			      &mii_control);
++	DP(NETIF_MSG_LINK,
++		 "bnx2x_restart_autoneg mii_control before = 0x%x\n",
++		 mii_control);
++	CL45_WR_OVER_CL22(bp, params->port,
++			      params->phy_addr,
++			      MDIO_REG_BANK_COMBO_IEEE0,
++			      MDIO_COMBO_IEEE0_MII_CONTROL,
++			      (mii_control |
++			       MDIO_COMBO_IEEO_MII_CONTROL_AN_EN |
++			       MDIO_COMBO_IEEO_MII_CONTROL_RESTART_AN));
+ }
  
- 			/* close input traffic and wait for it */
- 			/* Do not rcv packets to BRB */
-diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
-index 0be77c5..b654d5d 100644
---- a/drivers/net/bnx2x_reg.h
-+++ b/drivers/net/bnx2x_reg.h
-@@ -2061,6 +2061,19 @@
- #define PXP2_REG_PGL_INT_XSDM_5 				 0x1204e8
- #define PXP2_REG_PGL_INT_XSDM_6 				 0x1204ec
- #define PXP2_REG_PGL_INT_XSDM_7 				 0x1204f0
-+/* [RW 3] this field allows one function to pretend being another function
-+   when accessing any BAR mapped resource within the device. the value of
-+   the field is the number of the function that will be accessed
-+   effectively. after software write to this bit it must read it in order to
-+   know that the new value is updated */
-+#define PXP2_REG_PGL_PRETEND_FUNC_F0				 0x120674
-+#define PXP2_REG_PGL_PRETEND_FUNC_F1				 0x120678
-+#define PXP2_REG_PGL_PRETEND_FUNC_F2				 0x12067c
-+#define PXP2_REG_PGL_PRETEND_FUNC_F3				 0x120680
-+#define PXP2_REG_PGL_PRETEND_FUNC_F4				 0x120684
-+#define PXP2_REG_PGL_PRETEND_FUNC_F5				 0x120688
-+#define PXP2_REG_PGL_PRETEND_FUNC_F6				 0x12068c
-+#define PXP2_REG_PGL_PRETEND_FUNC_F7				 0x120690
- /* [R 1] this bit indicates that a read request was blocked because of
-    bus_master_en was deasserted */
- #define PXP2_REG_PGL_READ_BLOCKED				 0x120568
+ static void bnx2x_initialize_sgmii_process(struct link_params *params,
 -- 
 1.5.4.3
 
