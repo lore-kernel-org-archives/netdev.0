@@ -1,38 +1,131 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] Update jhash.h with the new version of Jenkins' hash
-Date: Thu, 12 Feb 2009 11:58:04 -0800
-Message-ID: <m1wsbvctrn.fsf@fess.ebiederm.org>
-References: <alpine.DEB.2.00.0902111107480.15665@blackhole.kfki.hu>
-	<20090212001223.GA5757@movementarian.org>
-	<alpine.DEB.2.00.0902121006440.18739@blackhole.kfki.hu>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: Passive OS fingerprint xtables match.
+Date: Thu, 12 Feb 2009 21:12:05 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0902122045080.670@fbirervta.pbzchgretzou.qr>
+References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121900520.20367@fbirervta.pbzchgretzou.qr> <20090212185729.GA17896@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wli@movementarian.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.0902121006440.18739@blackhole.kfki.hu> (Jozsef Kadlecsik's message of "Thu\, 12 Feb 2009 10\:11\:43 +0100 \(CET\)")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:36742 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751110AbZBLUMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 15:12:07 -0500
+In-Reply-To: <20090212185729.GA17896@ioremap.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jozsef Kadlecsik <kadlec@blackhole.kfki.hu> writes:
 
-> On Wed, 11 Feb 2009, wli@movementarian.org wrote:
->
->> On Wed, Feb 11, 2009 at 11:19:20AM +0100, Jozsef Kadlecsik wrote:
->> >  /* The golden ration: an arbitrary value */
->> > -#define JHASH_GOLDEN_RATIO	0x9e3779b9
->> > +#define JHASH_GOLDEN_RATIO	0xdeadbeef
+On Thursday 2009-02-12 19:57, Evgeniy Polyakov wrote:
+>>  +/**
+>> >+ * Wildcard MSS (kind of).
+>>    * @wc:	wild card what(?)
+>>    * @val:	some value?
+>> >+ */
+>> >+struct ipt_osf_wc {
+>> >+	__u32			wc;
+>> >+	__u32			val;
+>> >+};
 >> 
+>
+>This is a weird wildcards implementation for the MSS value.
+>They can be pure wildcards and several subtypes which form the window
+>size and MSS state machine.
 
-0xdeadbeef is a really bad choice of an arbitrary value.  It is
-already used in multiple places.  Only a few of which are currently
-listed in linux/poison.h and if I happened to see that number in a
-debug trace having to sort through all of the possible sources looks
-like a major pain.
+Good to know. Please add this explanation as a comment
+in the next iteration.
 
-I don't really care what we call it but somehow 0xdeadbeef strikes me
-as wrong and something that will make debugging harder.
+>> >+	int opt_num;
+>> >+
+>> >+	char genre[MAXGENRELEN];
+>> >+	char version[MAXGENRELEN];
+>> >+	char subtype[MAXGENRELEN];
+>> >+
+>> >+	/* MAX_IPOPTLEN is maximum if all options are NOPs or EOLs */
+>> >+	struct ipt_osf_opt opt[MAX_IPOPTLEN];
+>> >+};
+>> 
+>> Are you sure it is safe to use arch-dependent types like 'int'?
+>
+>I would be very surprised if Linux will ever run on weird arch where int
+>is not 32 bits.
 
-Eric
+If GCC had a switch to compile with I16 or I64, I could test,
+but it does not. 'long', as used in the netfilter includes,
+already bit people in pre-2.6.19, and nowadays we have that compat
+crap thing in place.. Just don't take any chance, and go the safe
+route with uint32_t.
+
+>> >+config IP_NF_MATCH_OSF
+>> >+	tristate '"osf" match support'
+>> >+	depends on NETFILTER_ADVANCED && CONNECTOR
+>> >+	help
+>> >+	  Passive OS fingerprint matching module.
+>> >+	  You should download and install rule loading software from
+>> >+	  http://www.ioremap.net/projects/osf
+>> >+
+>> >+	  To compile it as a module, choose M here.  If unsure, say N.
+>> >+
+>> 
+>> Please do use NETFILTER_XT_ and its section.
+>
+>What's this? It does not exist in the net/ipv4/netfilter/Kconfig
+
+net/netfilter/Kconfig: (e.g.)
+
+config NETFILTER_XT_MATCH_COMMENT
+        tristate  '"comment" match support'
+        depends on NETFILTER_ADVANCED
+        ---help---
+
+>> >+static bool ipt_osf_match_packet(const struct sk_buff *skb,
+>> >+		const struct xt_match_param *p)
+>> >+{
+>> >+	struct ipt_osf_info *info = (struct ipt_osf_info *)p->matchinfo;
+>> >+	struct iphdr *ip;
+>> >+	struct tcphdr _tcph, *tcp;
+>> >+	int fmatch = FMATCH_WRONG, fcount = 0;
+>> >+	unsigned int optsize = 0, check_WSS = 0;
+>> >+	u16 window, totlen, mss = 0;
+>> >+	unsigned char df, *optp = NULL, *_optp = NULL;
+>> 
+>> Maybe this should be 'bool df'?
+>
+>Although it is a bit, it is not really a boolean type.
+
+The underlying implementation is not of importance here.
+It behaves like a bool, and that's all what is needed.
+
+>
+>> >+			for (optnum = 0; optnum < f->opt_num; ++optnum) {
+>> >+				if (f->opt[optnum].kind == (*optp)) {
+>> >+					__u32 len = f->opt[optnum].length;
+>> >+					__u8 *optend = optp + len;
+>> >+					int loop_cont = 0;
+>> >+					
+>> >+					fmatch = FMATCH_OK;
+>> >+
+>> >+					switch (*optp) {
+>> >+					case OSFOPT_MSS:
+>> >+						mss = ntohs(*(u16 *)(optp + 2));
+>> 
+>> This needs get_unaligned(), in case someone sends a malicious packet.
+>
+>Hmmm, why is this needed? We dereference linear kernel pointer at
+>proper offset (modulo of the option size).
+
+What if optp is odd?
+
+>> Do this function via
+>> 	.proto = IPPROTO_TCP,
+>> in the osf_match struct instead:
+>
+>Hmm, it is not used in the existing net/ipv4/netfilter modules.
+
+net/ipv4/netfilter/ is about the most dusted place in Netfilter-land.
+Take a grep in net/netfilter/ ;-)
