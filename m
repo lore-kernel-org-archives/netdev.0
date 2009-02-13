@@ -1,83 +1,55 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: IRDA: mcs7780.c
-Date: Fri, 13 Feb 2009 14:14:17 +0100
-Message-ID: <49957229.9060401@gmail.com>
-References: <1234514947203.juha_motorsportcom.12982.AOyeEm8k4zVzAxDijub1SA@luukku.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH 4/6] igb: misc cleanup to combine one if
+	statement and set last_rx
+Date: Fri, 13 Feb 2009 13:23:23 +0000
+Message-ID: <1234531403.3110.3.camel@achroite>
+References: <20090213041654.3848.39227.stgit@lost.foo-projects.org>
+	 <20090213041804.3848.73723.stgit@lost.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: =?ISO-8859-1?Q?Juha_Lepp=E4nen?= <juha_motorsportcom@luukku.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
+	gospo@redhat.com, Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:25046 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760131AbZBMNOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 08:14:22 -0500
-Received: by ey-out-2122.google.com with SMTP id 25so142474eya.37
-        for <netdev@vger.kernel.org>; Fri, 13 Feb 2009 05:14:18 -0800 (PST)
-In-Reply-To: <1234514947203.juha_motorsportcom.12982.AOyeEm8k4zVzAxDijub1SA@luukku.com>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:54113 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753911AbZBMNXm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 08:23:42 -0500
+In-Reply-To: <20090213041804.3848.73723.stgit@lost.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Juha Lepp=E4nen wrote:
-> Hi,
->=20
-> In recent patch to file
->=20
-> drivers/net/irda/mcs7780.c
+On Thu, 2009-02-12 at 20:18 -0800, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This patch combines a pair of if statements into one and adds a line to
+> update netdev->last_rx.
+[...]
 
-That's this one:
-http://www.spinics.net/lists/netdev/msg88746.html
+You shouldn't need to update last_rx any more:
 
-[PATCH] IRDA: cnt is off by 1
+commit 6cf3f41e6c08bca6641a695449791c38a25f35ff
+Author: Jay Vosburgh <fubar@us.ibm.com>
+Date:   Mon Nov 3 18:16:50 2008 -0800
 
-> I noticed when checking the code around the patch ...
-> In worst case do {...} while loop is executed
-> 101 times --> mcs_get_reg() is executed 101 times...
-> But rval is checked only 100 times.
+    bonding, net: Move last_rx update into bonding recv logic
+    
+        The only user of the net_device->last_rx field is bonding.
+    This patch adds a conditional update of last_rx to the bonding special
+    logic in skb_bond_should_drop, causing last_rx to only be updated when
+    the ARP monitor is running.
+    
+        This frees network device drivers from the necessity of
+    updating last_rx, which can have cache line thrash issues.
+    
+    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Right, thanks.
+Ben.
 
-> If you change the order of the && expressions inside while () to
->=20
-> -        } while(cnt++ < 100 && (rval & MCS_IRINTX));
-> +        } while((rval & MCS_IRINTX) && cnt++ < 100);
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-> If you also want exactly 100 maximum mcs_get_reg()
-> tries ( now it is 101 ) ...
-
-I don't think it really matters, does it?
-
-> Happy hacking,
->=20
-> Mr. Juha Lepp=E4nen
-> Kuopio, Finland
-
-You too.
-
------------------------------->8----------------8<---------------------=
----------
-If no prior break occurs, cnt reaches 101 after the loop, so we are sti=
-ll able
-to change speed when cnt has become 100.
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index 7eafdca..8fdfb5a 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -583,9 +583,9 @@ static int mcs_speed_change(struct mcs_cb *mcs)
-=20
- 	do {
- 		mcs_get_reg(mcs, MCS_RESV_REG, &rval);
--	} while(cnt++ < 100 && (rval & MCS_IRINTX));
-+	} while((rval & MCS_IRINTX) && cnt++ < 100);
-=20
--	if(cnt >=3D 100) {
-+	if (cnt > 100) {
- 		IRDA_ERROR("unable to change speed\n");
- 		ret =3D -EIO;
- 		goto error;
