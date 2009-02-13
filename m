@@ -1,32 +1,77 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match (iptables part)
-Date: Fri, 13 Feb 2009 15:52:15 +0300
-Message-ID: <20090213125215.GC23879@ioremap.net>
-References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121922280.20367@fbirervta.pbzchgretzou.qr>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] Fix link test for e1000 and e1000e when
+	iface is down
+Date: Fri, 13 Feb 2009 04:52:52 -0800
+Message-ID: <9929d2390902130452mcfe1473k73af8f9c6b36b25b@mail.gmail.com>
+References: <200902101435.58331.adetsch@br.ibm.com>
+	<9929d2390902121710q681f7143i16b5c98001279cc1@mail.gmail.com>
+	<499562C6.3060001@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.00.0902121922280.20367@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: =?UTF-8?Q?Andr=C3=A9_Detsch?= <adetsch@br.ibm.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <499562C6.3060001@br.ibm.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 12, 2009 at 07:26:53PM +0100, Jan Engelhardt (jengelh@medozas.de) wrote:
-> >static void osf_help(void)
-> >{
-> >	printf("OS fingerprint match options:\n"
-> >		"--genre [!] string	Match a OS genre by passive fingerprinting.\n"
-> 
-> The syntax should be  [!] --genre string, that is what most
-> others use. Then the check_inverse call also be removed.
-
-Actually not, it has genre not Linux (Windows, Solaris, HPUX and so on).
-
--- 
-	Evgeniy Polyakov
+T24gRnJpLCBGZWIgMTMsIDIwMDkgYXQgNDowOCBBTSwgQW5kcsOpIERldHNjaCA8YWRldHNjaEBi
+ci5pYm0uY29tPiB3cm90ZToKPiBKZWZmIEtpcnNoZXIgd3JvdGU6Cj4+Cj4+IEkgZ3Vlc3MgdGhp
+cyBjb21lcyBkb3duIHRvIHdoYXQgdGhlIGRlZmluaXRpb24gb2YgYSBMaW5rIHRlc3Qgc2hvdWxk
+Cj4+IGJlIGRvaW5nLiAgTXkgJDAuMDIgaXMgdGhhdCBpdCBzaG91bGQgYmUgdGVzdGluZyBpZiB0
+aGUgaW50ZXJmYWNlIGhhcwo+PiBhIGxpbmssIGluIHdoaWNoIGNhc2UgaWYgeW91IGlmZG93biB0
+aGUgaW50ZXJmYWNlIGJlZm9yZSBydW5uaW5nIHRoZQo+PiBMaW5rIHRlc3QsIEkgd291bGQgZXhw
+ZWN0IGl0IHRvIGZhaWwuCj4+Cj4+IFdpdGggdGhpcyBwYXRjaCwgaWYgeW91IGJyaW5nIGRvd24g
+dGhlIGRldmljZSBhbmQgcnVuIHRoZSBldGh0b29sIGRpYWcKPj4gdGVzdHMsIHRoZSBMaW5rIHRl
+c3Qgd291bGQgY29tZSBiYWNrIGFzIHBhc3Npbmcgd2hpY2ggaXMgc29tZXRoaW5nIEkKPj4gd291
+bGQgbm90IGV4cGVjdC4KPgo+IFdpdGggdGhlIGN1cnJlbnQgY29kZSwgZTEwMDBfcmVzZXQgaXMg
+Y2FsbGVkIGR1cmluZyB0aGUgdGVzdCBhbnl3YXksIHNvCj4gZXRodG9vbCAtdCBmYWlscyBvbmx5
+IHRoZSBmaXJzdCB0aW1lIGl0IGlzIHJ1biAoYWZ0ZXIgaWZjb25maWcgZG93bikuIElzCj4gdGhh
+dCB0aGUgZXhwZWN0ZWQgYmVoYXZpb3IgZm9yIHRoZSB0ZXN0Pwo+Cj4KPiAjIGlmY29uZmlnIGV0
+aDAgdXA7IGlmY29uZmlnIGV0aDAgZG93bjsgZXRodG9vbCAtdCBldGgwCj4KPiBUaGUgdGVzdCBy
+ZXN1bHQgaXMgRkFJTAo+IFRoZSB0ZXN0IGV4dHJhIGluZm86Cj4gUmVnaXN0ZXIgdGVzdCAgKG9m
+ZmxpbmUpICAgICAgICAgMAo+IEVlcHJvbSB0ZXN0ICAgIChvZmZsaW5lKSAgICAgICAgIDAKPiBJ
+bnRlcnJ1cHQgdGVzdCAob2ZmbGluZSkgICAgICAgICAwCj4gTG9vcGJhY2sgdGVzdCAgKG9mZmxp
+bmUpICAgICAgICAgMAo+IExpbmsgdGVzdCAgIChvbi9vZmZsaW5lKSAgICAgICAgIDEKPgo+Cj4g
+IyBldGh0b29sIC10IGV0aDAKPgo+IFRoZSB0ZXN0IHJlc3VsdCBpcyBQQVNTCj4gVGhlIHRlc3Qg
+ZXh0cmEgaW5mbzoKPiBSZWdpc3RlciB0ZXN0ICAob2ZmbGluZSkgICAgICAgICAwCj4gRWVwcm9t
+IHRlc3QgICAgKG9mZmxpbmUpICAgICAgICAgMAo+IEludGVycnVwdCB0ZXN0IChvZmZsaW5lKSAg
+ICAgICAgIDAKPiBMb29wYmFjayB0ZXN0ICAob2ZmbGluZSkgICAgICAgICAwCj4gTGluayB0ZXN0
+ICAgKG9uL29mZmxpbmUpICAgICAgICAgMAo+Cj4KPiBUaGFua3MgZm9yIHRoZSBmZWVkYmFjay4K
+Pgo+IC0tCj4gQW5kcsOpIERldHNjaAo+IEtlcm5lbCBTb2Z0d2FyZSBFbmdpbmVlcgo+IExpbnV4
+IFRlY2hub2xvZ3kgQ2VudGVyIEJyYXppbAo+IC0tCgpZZXMsIHRoaXMgaXMgZXhwZWN0ZWQuCgpX
+ZSB3YW50IHRoZSBMaW5rIHRlc3QgdG8gY29ycmVjdGx5IHJlcG9ydCB3aGV0aGVyIG9yIG5vdCB0
+aGUgaW50ZXJmYWNlCmN1cnJlbnRseSBoYXMgbGluaywgd2hldGhlciBvciBub3QgdGhlIHVzZXIg
+bWFudWFsbHkgZG93bmVkIHRoZQppbnRlcmZhY2UuICBUaGUgcmVhc29uIGZvciByZXNldHRpbmcg
+aXMgYmVjYXVzZSBkdXJpbmcgdGhlIHRlc3RpbmcsCnRoZSBoYXJkd2FyZSBzZXR0aW5ncyBtYXkg
+YmUgY2hhbmdlZCB0byBjb21wbGV0ZSBzdWNoIHRlc3RzIGFzIHRoZQpMb29wYmFjayBhbmQgSW50
+ZXJydXB0IHRlc3RzIHNvIHdlIG5lZWQgdG8gcmVzZXQgdGhlIGhhcmR3YXJlIHNldHRpbmdzCnRv
+IG5vcm1hbCBvcGVyYXRpb24uICBJdCBoYXMgdGhlIGFkZGVkIGJlbmVmaXQsIHRoYXQgaWYgdGhl
+IHVzZXIgaGFkCm5vdCBtYW51YWxseSBkb3duZWQgdGhlIGludGVyZmFjZSwgYW5kIHRoZSBpbnRl
+cmZhY2UgaGFkIGdvbmUgZG93biBmb3IKc29tZSB1bmtub3duIHJlYXNvbiwgdGhlIHJlc2V0IGF0
+dGVtcHRzIHRvIGJyaW5nIHRoZSBpbnRlcmZhY2UgYmFjawp1cC4KCkZvciBhbiBleGFtcGxlLCBp
+ZiB0aGUgbGluayB3ZW50IGRvd24gZm9yIHNvbWUgcmVhc29uIGFuZCB0aGUgdXNlciBoYWQKbm90
+IGRvd25lZCB0aGUgaW50ZXJmYWNlIG1hbnVhbGx5IGFuZCB3ZXJlIHRvIHJ1biB0aGUgZXRodG9v
+bCB0ZXN0cyB0bwpzZWUgd2hhdCB3YXMgd3JvbmcuICBZb3VyIHBhdGNoIHdvdWxkIHJlcG9ydCB0
+aGUgbGluayB0ZXN0IGFzIGEgcGFzcwooaWYgYWZ0ZXIgdGhlIHJlc2V0LCB0aGUgbGluayB3YXMg
+cmUtZXN0YWJsaXNoZWQpLiAgVGhpcyB3b3VsZCBoYXZlCmZhbHNlbHkgcmVwb3J0ZWQgdGhlIExp
+bmsgc3RhdHVzIHdoZW4gdGhlIGV0aHRvb2wgdGVzdHMgd2VyZQppbml0aWF0ZWQuCgotLSAKQ2hl
+ZXJzLApKZWZmCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KT3BlbiBTb3VyY2UgQnVzaW5lc3MgQ29u
+ZmVyZW5jZSAoT1NCQyksIE1hcmNoIDI0LTI1LCAyMDA5LCBTYW4gRnJhbmNpc2NvLCBDQQotT1NC
+QyB0YWNrbGVzIHRoZSBiaWdnZXN0IGlzc3VlIGluIG9wZW4gc291cmNlOiBPcGVuIFNvdXJjaW5n
+IHRoZSBFbnRlcnByaXNlCi1TdHJhdGVnaWVzIHRvIGJvb3N0IGlubm92YXRpb24gYW5kIGN1dCBj
+b3N0cyB3aXRoIG9wZW4gc291cmNlIHBhcnRpY2lwYXRpb24KLVJlY2VpdmUgYSAkNjAwIGRpc2Nv
+dW50IG9mZiB0aGUgcmVnaXN0cmF0aW9uIGZlZSB3aXRoIHRoZSBzb3VyY2UgY29kZTogU0ZBRApo
+dHRwOi8vcC5zZi5uZXQvc2Z1L1hjdk16RjhICl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBs
+aXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMv
+bGlzdGluZm8vZTEwMDAtZGV2ZWwK
