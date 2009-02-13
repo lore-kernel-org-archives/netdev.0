@@ -1,60 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix link test for e1000 and e1000e when
- iface is down
-Date: Thu, 12 Feb 2009 17:17:55 -0800 (PST)
-Message-ID: <20090212.171755.202634487.davem@davemloft.net>
-References: <200902101435.58331.adetsch@br.ibm.com>
-	<9929d2390902121710q681f7143i16b5c98001279cc1@mail.gmail.com>
+From: E-Loan Company London <info@loan.com>
+Subject: 3% Loan Offer Apply Now
+Date: Fri, 13 Feb 2009 03:19:51 +0200 (IST)
+Message-ID: <20090213031951.HCH11493@mas21.bezeqint.net>
+Reply-To: eloanhome2009@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, adetsch@br.ibm.com,
-	netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <9929d2390902121710q681f7143i16b5c98001279cc1@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from omr2.bezeqint.net ([192.115.104.10]:49642 "EHLO
+	omr2.bezeqint.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757990AbZBMBSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 20:18:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 12 Feb 2009 17:10:22 -0800
+Dear Sir/Madam
 
-> On Tue, Feb 10, 2009 at 8:35 AM, Andre Detsch <adetsch@br.ibm.com> wrote:
-> >
-> > When running ethtool -t on an interface that was just
-> > brought down, the link test was failing. That's because
-> > we need to perform a reset on the interface to be able
-> > to check the link status correctly. There is no problem
-> > on doing such reset right before the test, as the link
-> > test routine is prepared to wait for autoneg to complete
-> > if that is the case.
-> >
-> > Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
-> > ---
-> 
-> I guess this comes down to what the definition of a Link test should
-> be doing.  My $0.02 is that it should be testing if the interface has
-> a link, in which case if you ifdown the interface before running the
-> Link test, I would expect it to fail.
-> 
-> With this patch, if you bring down the device and run the ethtool diag
-> tests, the Link test would come back as passing which is something I
-> would not expect.
-> 
-> NAK.
+We Offer Private, Commercial and Personal Loans with very 
+Minimal annual Interest Rates as Low as 3% within a 1year to 
+50 years repayment duration period to any part of the world. 
+We give out loans within the range of $10,000 to 
+$100,000,000 USD.Our loans are well insured for maximum 
+security is our priority.Interested Persons should Should 
+Contact Via Lender's  Name: E-LOAN COMPANY
+Lender's  Email: eloanhome2009@hotmail.com
+BORROWERS INFORMATION:
+Names:..
+Country:..
+Address:.
+Age:..
+Personal Number:..
+Occupation:..
+Sex:..
+Amount Needed:.
+Loan duration:
+Brief description of individual:
 
-I have to agree with Jeff on this one.
+Best Regards
 
-------------------------------------------------------------------------------
-Open Source Business Conference (OSBC), March 24-25, 2009, San Francisco, CA
--OSBC tackles the biggest issue in open source: Open Sourcing the Enterprise
--Strategies to boost innovation and cut costs with open source participation
--Receive a $600 discount off the registration fee with the source code: SFAD
-http://p.sf.net/sfu/XcvMzF8H
+Henninger Stephens
+
+Announcer
+
+Connie Perella
