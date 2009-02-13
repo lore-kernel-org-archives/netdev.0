@@ -1,52 +1,35 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [PATCH] wimax: fix oops in wimax_dev_get_by_genl_info() when looking up non-wimax iface
-Date: Thu, 12 Feb 2009 15:04:52 -0800
-Message-ID: <1234479892-23695-1-git-send-email-inaky@linux.intel.com>
-Cc: netdev@vger.kernel.org
-To: wimax@linuxwimax.org
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH 0/6] mv643xx_eth updates
+Date: Fri, 13 Feb 2009 01:06:15 +0100
+Message-ID: <20090213000615.GJ17914@xi.wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: nico@cam.org
+To: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:11613 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759261AbZBLXEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 18:04:52 -0500
+Received: from xi.wantstofly.org ([80.101.37.227]:42994 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbZBMAGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 19:06:19 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a non-wimax interface is looked up by the stack, a bad pointer is
-returned when the looked-up interface is not found in the list (of
-registered WiMAX interfaces). This causes an oops in the caller when
-trying to use the pointer.
+Two things here:
+- Exporting some functionality that mostly already existed in the
+  driver (interrupt coalescing, etc) to userland via ethtool.
+- Add Kconfig-configurable LRO support.
 
-Fix by properly setting the pointer to NULL if we don't exit from the
-list_for_each() with a found entry.
+I have two more patches:
+1. Set the default rx coal value to something other than zero,
+   since 100us or 200us or 500us all provide very nice performance
+   improvements (especially combined with LRO -- a 1.2GHz ARM with
+   256K of cache can receive line rate gigabit and copy it all to
+   userland with ~70% CPU usage when LRO and rx coalescing are
+   enabled, whereas it does ~80MB/s with 100% CPU usage if those
+   are both off).
+2. Receive into pages (to speed up TCP splice receive).
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- net/wimax/id-table.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/net/wimax/id-table.c b/net/wimax/id-table.c
-index 5e685f7..72273ab 100644
---- a/net/wimax/id-table.c
-+++ b/net/wimax/id-table.c
-@@ -94,12 +94,13 @@ struct wimax_dev *wimax_dev_get_by_genl_info(
- 	list_for_each_entry(wimax_dev, &wimax_id_table, id_table_node) {
- 		if (wimax_dev->net_dev->ifindex == ifindex) {
- 			dev_hold(wimax_dev->net_dev);
--			break;
-+			goto found;
- 		}
- 	}
--	if (wimax_dev == NULL)
--		d_printf(1, NULL, "wimax: no devices found with ifindex %d\n",
--			 ifindex);
-+	wimax_dev = NULL;
-+	d_printf(1, NULL, "wimax: no devices found with ifindex %d\n",
-+		 ifindex);
-+found:
- 	spin_unlock(&wimax_id_table_lock);
- 	d_fnend(3, NULL, "(info %p ifindex %d) = %p\n",
- 		info, ifindex, wimax_dev);
--- 
-1.5.6.5
-
+But (1) still needs some benchmarking to see what the best default
+value would be for a wider range of hardware, and (2) I'm not yet
+happy about.
