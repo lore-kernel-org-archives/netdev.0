@@ -1,55 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next PATCH 4/6] igb: misc cleanup to combine one if
-	statement and set last_rx
-Date: Fri, 13 Feb 2009 13:23:23 +0000
-Message-ID: <1234531403.3110.3.camel@achroite>
-References: <20090213041654.3848.39227.stgit@lost.foo-projects.org>
-	 <20090213041804.3848.73723.stgit@lost.foo-projects.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: Passive OS fingerprint xtables match.
+Date: Fri, 13 Feb 2009 14:51:48 +0100 (CET)
+Message-ID: <alpine.LSU.2.00.0902131448040.9310@fbirervta.pbzchgretzou.qr>
+References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121900520.20367@fbirervta.pbzchgretzou.qr> <20090212185729.GA17896@ioremap.net> <alpine.LSU.2.00.0902122045080.670@fbirervta.pbzchgretzou.qr> <20090213130347.GD23879@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	gospo@redhat.com, Alexander Duyck <alexander.h.duyck@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:54113 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753911AbZBMNXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 08:23:42 -0500
-In-Reply-To: <20090213041804.3848.73723.stgit@lost.foo-projects.org>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:54529 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754891AbZBMNvv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 08:51:51 -0500
+In-Reply-To: <20090213130347.GD23879@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-02-12 at 20:18 -0800, Jeff Kirsher wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch combines a pair of if statements into one and adds a line to
-> update netdev->last_rx.
-[...]
 
-You shouldn't need to update last_rx any more:
+On Friday 2009-02-13 14:03, Evgeniy Polyakov wrote:
+>> >What's this? It does not exist in the net/ipv4/netfilter/Kconfig
+>> 
+>> net/netfilter/Kconfig: (e.g.)
+>> 
+>> config NETFILTER_XT_MATCH_COMMENT
+>>         tristate  '"comment" match support'
+>>         depends on NETFILTER_ADVANCED
+>>         ---help---
+>
+>But I placed OSF into net/ipv4/netfilter/ipt_osf.c, should it be moved
+>into different location?
 
-commit 6cf3f41e6c08bca6641a695449791c38a25f35ff
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Mon Nov 3 18:16:50 2008 -0800
+That would be preferable -> net/netfilter/xt_osf.c.
 
-    bonding, net: Move last_rx update into bonding recv logic
-    
-        The only user of the net_device->last_rx field is bonding.
-    This patch adds a conditional update of last_rx to the bonding special
-    logic in skb_bond_should_drop, causing last_rx to only be updated when
-    the ARP monitor is running.
-    
-        This frees network device drivers from the necessity of
-    updating last_rx, which can have cache line thrash issues.
-    
-    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+>> >> >+					case OSFOPT_MSS:
+>> >> >+						mss = ntohs(*(u16 *)(optp + 2));
+>> >> 
+>> >> This needs get_unaligned(), in case someone sends a malicious packet.
+>> >
+>> >Hmmm, why is this needed? We dereference linear kernel pointer at
+>> >proper offset (modulo of the option size).
+>> 
+>> What if optp is odd?
+>
+>It cant, header is fixed and every option length is also fixed (and its
+>size is checked).
 
-Ben.
+This RFC-compliant ("An option may begin on any octet boundary.")
+option byte stream seems to produce an odd optp value:
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+01 02 04 05 a0 00
 
+or where did I go wrong?
