@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c505: do not set pcb->data.raw beyond its size
-Date: Thu, 12 Feb 2009 16:52:43 -0800 (PST)
-Message-ID: <20090212.165243.42415462.davem@davemloft.net>
-References: <20090211205854.GB2550@ami.dom.local>
-	<4993576C.8080409@gmail.com>
-	<20090212063715.GA4283@ff.dom.local>
+Subject: Re: [PATCH 1/4] bnx2: Update 5706/5708 firmware.
+Date: Thu, 12 Feb 2009 16:55:21 -0800 (PST)
+Message-ID: <20090212.165521.203785177.davem@davemloft.net>
+References: <1234396338-14859-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, philb@gnu.org
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60652
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60656
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754005AbZBMAwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 19:52:49 -0500
-In-Reply-To: <20090212063715.GA4283@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1751328AbZBMAz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 19:55:27 -0500
+In-Reply-To: <1234396338-14859-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Thu, 12 Feb 2009 06:37:15 +0000
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 11 Feb 2009 15:52:15 -0800
 
-> On Wed, Feb 11, 2009 at 11:55:40PM +0100, Roel Kluin wrote:
-> > Many thanks, Jarek,
-> > 
-> > Is this changelog ok?
+> New firmware fixes a data corruption issue when receiving and
+> placing jumbo frames into host buffers.  In some cases, the
+> buffer descriptor is not updated correctly and this will lead
+> to the driver linking the wrong number of pages into the SKB.
 > 
-> Yes, the changelog and patch look OK to me.
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied, thanks everyone.
+I was hesistent to add this and the other firmware update to net-2.6,
+but memory corruption is a very serious issue so applied.
+
