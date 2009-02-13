@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7] qlge: bugfix: Add missing rx buf clean index on
- early exit.
-Date: Thu, 12 Feb 2009 16:39:22 -0800 (PST)
-Message-ID: <20090212.163922.22406530.davem@davemloft.net>
-References: <1234360717-32194-1-git-send-email-ron.mercer@qlogic.com>
-	<1234360717-32194-7-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [PATCH] sun3: print when lance_open() fails
+Date: Thu, 12 Feb 2009 16:40:26 -0800 (PST)
+Message-ID: <20090212.164026.216860195.davem@davemloft.net>
+References: <4992EB41.1030405@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-driver@qlogic.com
-To: ron.mercer@qlogic.com
+Cc: sammy@sammy.net, netdev@vger.kernel.org, akpm@linux-foundation.org
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47170
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47173
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758058AbZBMAj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 19:39:28 -0500
-In-Reply-To: <1234360717-32194-7-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1758995AbZBMAkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 19:40:32 -0500
+In-Reply-To: <4992EB41.1030405@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Wed, 11 Feb 2009 05:58:37 -0800
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Wed, 11 Feb 2009 16:14:09 +0100
 
-> The large receive buffer queue is not properly tracking the current
-> index in the case where an early exit occurs.  This can happen when a
-> page alloc or dma mapping fails.  If this occurs the queue will get
-> out of sync and invalid indexes can be written to the hardware.
+> With while (--i > 0) { ... } i reaches 0; print when lance_open() fails
 > 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
 Applied.
