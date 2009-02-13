@@ -1,34 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wimax: fix oops in wimax_dev_get_by_genl_info() when
- looking up non-wimax iface
-Date: Thu, 12 Feb 2009 17:00:27 -0800 (PST)
-Message-ID: <20090212.170027.225580891.davem@davemloft.net>
-References: <1234479892-23695-1-git-send-email-inaky@linux.intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] Fix link test for e1000 and e1000e when
+	iface is down
+Date: Thu, 12 Feb 2009 17:10:22 -0800
+Message-ID: <9929d2390902121710q681f7143i16b5c98001279cc1@mail.gmail.com>
+References: <200902101435.58331.adetsch@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: wimax@linuxwimax.org, netdev@vger.kernel.org
-To: inaky@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48525
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755152AbZBMBAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 20:00:32 -0500
-In-Reply-To: <1234479892-23695-1-git-send-email-inaky@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Andre Detsch <adetsch@br.ibm.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <200902101435.58331.adetsch@br.ibm.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Date: Thu, 12 Feb 2009 15:04:52 -0800
+On Tue, Feb 10, 2009 at 8:35 AM, Andre Detsch <adetsch@br.ibm.com> wrote:
+>
+> When running ethtool -t on an interface that was just
+> brought down, the link test was failing. That's because
+> we need to perform a reset on the interface to be able
+> to check the link status correctly. There is no problem
+> on doing such reset right before the test, as the link
+> test routine is prepared to wait for autoneg to complete
+> if that is the case.
+>
+> Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
+> ---
 
-> When a non-wimax interface is looked up by the stack, a bad pointer is
-> returned when the looked-up interface is not found in the list (of
-> registered WiMAX interfaces). This causes an oops in the caller when
-> trying to use the pointer.
-> 
-> Fix by properly setting the pointer to NULL if we don't exit from the
-> list_for_each() with a found entry.
-> 
-> Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+I guess this comes down to what the definition of a Link test should
+be doing.  My $0.02 is that it should be testing if the interface has
+a link, in which case if you ifdown the interface before running the
+Link test, I would expect it to fail.
 
-Applied, thanks.
+With this patch, if you bring down the device and run the ethtool diag
+tests, the Link test would come back as passing which is something I
+would not expect.
+
+NAK.
+
+-- 
+Cheers,
+Jeff
+
+------------------------------------------------------------------------------
+Open Source Business Conference (OSBC), March 24-25, 2009, San Francisco, CA
+-OSBC tackles the biggest issue in open source: Open Sourcing the Enterprise
+-Strategies to boost innovation and cut costs with open source participation
+-Receive a $600 discount off the registration fee with the source code: SFAD
+http://p.sf.net/sfu/XcvMzF8H
