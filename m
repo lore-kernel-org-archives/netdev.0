@@ -1,36 +1,32 @@
 From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Fri, 13 Feb 2009 15:49:46 +0300
-Message-ID: <20090213124946.GB23879@ioremap.net>
-References: <20090129172030.GA2189@ioremap.net> <49905531.3030503@trash.net>
+Subject: Re: Passive OS fingerprint xtables match (iptables part)
+Date: Fri, 13 Feb 2009 15:52:15 +0300
+Message-ID: <20090213125215.GC23879@ioremap.net>
+References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121922280.20367@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	Netfilter Development Mailinglist
 	<netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:53406 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752371AbZBMMtt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Feb 2009 07:49:49 -0500
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <49905531.3030503@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0902121922280.20367@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Patrick.
-
-On Mon, Feb 09, 2009 at 05:09:21PM +0100, Patrick McHardy (kaber@trash.net) wrote:
-> Sorry for ignoring this for so long. I really don't have much of an
-> opinion on this except for what I said before:
+On Thu, Feb 12, 2009 at 07:26:53PM +0100, Jan Engelhardt (jengelh@medozas.de) wrote:
+> >static void osf_help(void)
+> >{
+> >	printf("OS fingerprint match options:\n"
+> >		"--genre [!] string	Match a OS genre by passive fingerprinting.\n"
 > 
-> - I would prefer a mechanism built on u32 if possible
+> The syntax should be  [!] --genre string, that is what most
+> others use. Then the check_inverse call also be removed.
 
-u32 actually can not be used here, since it is not possible to implement
-a state machine to match different wildcards for MSS for example. Like
-modulus operation.
+Actually not, it has genre not Linux (Windows, Solaris, HPUX and so on).
 
 -- 
 	Evgeniy Polyakov
