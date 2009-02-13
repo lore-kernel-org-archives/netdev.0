@@ -1,38 +1,140 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: WARNING: at net/core/skbuff.c:154 with tcpdump and ipsec
-Date: Fri, 13 Feb 2009 21:00:14 +0100
-Message-ID: <20090213200014.GB2929@ami.dom.local>
-References: <20090213121424.GA8717@ff.dom.local> <4995C241.1030507@hp.com> <20090213192448.GA2929@ami.dom.local> <4995CD0F.8020307@hp.com>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Security Assessment of the Transmission Control Protocol (TCP)
+Date: Fri, 13 Feb 2009 18:01:16 -0200
+Message-ID: <4995D18C.7010400@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krzysztof Oledzki <ole@ans.pl>,
-	Marco Berizzi <pupilla@hotmail.com>, netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f20.google.com ([209.85.220.20]:49813 "EHLO
-	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751550AbZBMT70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 14:59:26 -0500
-Received: by fxm13 with SMTP id 13so3917207fxm.13
-        for <netdev@vger.kernel.org>; Fri, 13 Feb 2009 11:59:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4995CD0F.8020307@hp.com>
+Received: from PTR.232.216.201.in-addr.arpa ([201.216.232.80]:46255 "EHLO
+	smtp1.xmundo.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752704AbZBMUIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 15:08:39 -0500
+Received: from venus.xmundo.net (venus.xmundo.net [201.216.232.56])
+	by smtp1.xmundo.net (Postfix) with ESMTP id 21B4F6B6792
+	for <netdev@vger.kernel.org>; Fri, 13 Feb 2009 17:01:33 -0300 (ART)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 13, 2009 at 02:42:07PM -0500, Vlad Yasevich wrote:
-...
-> Personally, I think pskb_expand_head should fix the skb->truesize.  This
-> way any subsequent clones will not trigger this warning.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
 
-Personally, I think there is no reason to call skb_truesize_bug() in
-anything but some #ifdef CONFIG_XX_DEBUG, if we ignore these reports
-for so long.
+Hello, folks,
 
-> Another alternative is to audit the pskb_expand_head() usages and adjust
-> truesize in each case needed, which is just ugly.
+I thought this one might be of your interest.
 
-I guess, it's a lot of work to do it right (if it's possible at all).
-Yes, I think about something really ugly here. ;-)
+The United Kingdom's Centre for the Protection of National
+Infrastructure has just released the document "Security Assessment of
+the Transmission Control Protocol (TCP)", on which I have had the
+pleasure to work during the last few years.
 
-Jarek P.
+The motivation to produce this document is explained in the Preface of
+the document as follows:
+
+- ---- cut here ----
+The TCP/IP protocol suite was conceived in an environment that was quite
+different from the hostile environment they currently operate in.
+However, the effectiveness of the protocols led to their early adoption
+in production environments, to the point that to some extent, the
+current world's economy depends on them.
+
+While many textbooks and articles have created the myth that the
+Internet protocols were designed for warfare environments, the top level
+goal for the DARPA Internet Program was the sharing of large service
+machines on the ARPANET. As a result, many protocol specifications focus
+only on the operational aspects of the protocols they specify, and
+overlook their security implications.
+
+While the Internet technology evolved since it early inception, the
+Internet?s building blocks are basically the same core protocols adopted
+by the ARPANET more than two decades ago.
+
+During the last twenty years, many vulnerabilities have been identified
+in the TCP/IP stacks of a number of systems. Some of them were based on
+flaws in some protocol implementations, affecting only a reduced number
+of systems, while others were based in flaws in the protocols
+themselves, affecting virtually every existing implementation. Even in
+the last couple of years, researchers were still working on security
+problems in the core protocols.
+
+The discovery of vulnerabilities in the TCP/IP protocol suite usually
+led to reports being published by a number of CSIRTs (Computer Security
+Incident Response Teams) and vendors, which helped to raise awareness
+about the threats and the best mitigations known at the time the reports
+were published. Unfortunately, this also led to the documentation of the
+discovered protocol vulnerabilities being spread among a large number of
+documents, which are sometimes difficult to identify.
+
+For some reason, much of the effort of the security community on the
+Internet protocols did not result in official documents (RFCs) being
+issued by the IETF (Internet Engineering Task Force). This basically led
+to a situation in which ?known? security problems have not always
+been addressed by all vendors. In addition, in many cases vendors have
+implemented quick ?fixes? to the identified vulnerabilities without a
+careful analysis of their effectiveness and their impact on
+interoperability.
+
+Producing a secure TCP/IP implementation nowadays is a very difficult
+task, in part because of the lack of a single document that serves as a
+security roadmap for the protocols. Implementers are faced with the hard
+task of identifying relevant documentation and differentiating between
+that which provides correct advice, and that which provides misleading
+advice based on inaccurate or wrong assumptions.
+
+There is a clear need for a companion document to the IETF
+specifications that discusses the security aspects and implications of
+the protocols, identifies the existing vulnerabilities, discusses the
+possible countermeasures, and analyses their respective effectiveness.
+
+This document is the result of a security assessment of the IETF
+specifications of the Transmission Control Protocol (TCP), from a
+security point of view. Possible threats are identified and, where
+possible, countermeasures are proposed. Additionally, many
+implementation flaws that have led to security vulnerabilities have been
+referenced in the hope that future implementations will not incur the
+same problems.
+
+This document does not aim to be the final word on the security aspects
+of TCP. On the contrary, it aims to raise awareness about a number of
+TCP vulnerabilities that have been faced in the past, those that are
+currently being faced, and some of those that we may still
+have to deal with in the future.
+
+Feedback from the community is more than encouraged to help this
+document be as accurate as possible and to keep it updated as new
+vulnerabilities are discovered.
+- ---- cut here ----
+
+The document is available at CPNI's web site:
+http://www.cpni.gov.uk/Products/technicalnotes/Feb-09-security-assessment-TCP.aspx
+
+Additionally, I have posted a copy of the document on my personal web
+site: http://www.gont.com.ar
+
+I would like to take the chance to thank NetBSD's Christos Zoulas for
+his contribution in improving this document.
+
+Any comments will be more than welcome.
+
+Kind regards,
+- --
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@acm.org
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+
+
+
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (MingW32)
+
+iQEcBAEBCAAGBQJJldGJAAoJEJbuqe/Qdv/x2m8IANlKiK33YkCI0bcl/Fmxpwc0
+HSD9n8voGooq+/yELD9cnpnzi0mQktz+OmyJz6dA5Du3pDXtPxApXnjEYmokJYDM
+ee7qnGxA/GGbRkQxSxEyAtFHwdQdiIS8guPmoM8paqZLKiGCYdxjoqMCrUa9xhNv
+zj79Zz8iixVNc8FZS9UGDIBYlKRCw/+4ZtLL3SeZhMkFpJa25pu/Vxkv2xm0XzBV
+0++IcIfbMz3s3k1hSG5M+99byX7ejEQWShlQL7nbGZUwPaEfokIpSlJoyMYFzrai
+j4QuxssFkTrPZYb35PHmLajjqaz+JL+Q+EyXvAhT+7oIcqpo0SoA8Uj/KYJBefQ=
+=k1hs
+-----END PGP SIGNATURE-----
