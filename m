@@ -1,102 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Thu, 12 Feb 2009 17:17:18 -0800 (PST)
-Message-ID: <20090212.171718.267960145.davem@davemloft.net>
+Subject: Re: [PATCH] Fix link test for e1000 and e1000e when
+ iface is down
+Date: Thu, 12 Feb 2009 17:17:55 -0800 (PST)
+Message-ID: <20090212.171755.202634487.davem@davemloft.net>
+References: <200902101435.58331.adetsch@br.ibm.com>
+	<9929d2390902121710q681f7143i16b5c98001279cc1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40816
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753737AbZBMBRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 20:17:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, adetsch@br.ibm.com,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <9929d2390902121710q681f7143i16b5c98001279cc1@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-DQpQdXNoaW5nIHRoaXMgcXVpY2tseSB0byBnZXQgdGhlIFNPX0JTRENPTVBBVCBsZWFrIGZpeCBp
-biB0aGVyZS4NClRoZSBibngyIHVwZGF0ZSBsb29rcyBodWdlLCBidXQgdGhhdCdzIGR1ZSB0byBh
-IG1lbW9yeSBjb3JydXB0b3INCnJlcXVpcmluZyBhIGZpcm13YXJlIGZpeC4NCg0KMSkgQ2FuJ3Qg
-dXNlIHBsYWluICJ1MzIiIGluIHVzZXIgZXhwb3J0ZWQgaGVhZGVycywgZml4IGZyb20JDQogICBD
-aHVjayBFYmJlcnQuDQoNCjIpIFdpcmVsZXNzIGZpeGVzIHZpYSBKb2huIExpbnZpbGxlLg0KDQoz
-KSBCTlgyIG1lbW9yeSBjb3JydXB0aW9uIGZpeGVzIGZyb20gTWljaGFlbCBDaGFuLg0KDQo0KSBB
-VE0gZm9yZTIwMCBkcml2ZXIgT09QUyBmaXggb24gZmlybXdhcmUgbG9hZCBmYWlsdXJlLCBmcm9t
-DQogICBNZWVsaXMgUm9vcy4NCg0KNSkgVHdvIHBob25ldCBmaXhlcywgaW5jbHVkaW5nIGEgZG91
-YmxlIGZyZWUgZml4LCBmcm9tDQogICBSw6ltaSBEZW5pcy1Db3VybW9udC4NCg0KNikgU2V2ZXJh
-bCBvZmYtYnktb25lIGJ1ZyBmaXhlcyBmcm9tIFJvZWwgS2x1aW4uDQoNCjcpIFNPX0JTRENPTVBB
-VEUgZ2V0c29ja29wdCBkb2Vzbid0IGluaXRpYWxpemUgdGhlIGJ1ZmZlciBpdA0KICAgcmV0dXJu
-cyB0byB1c2Vyc3BhY2UsIGZpeCBmcm9tIENsw6ltZW50IExlY2lnbmUuDQoNCjgpIFFMR0UgZHJp
-dmVyIGJ1ZyBmaXhlcyBmcm9tIFJvbiBNZXJjZXIuDQoNClBsZWFzZSBwdWxsLCB0aGFua3MgYSBs
-b3QhDQoNClRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQgYjU3OGYzZmNjYTFlNzg2
-MjRkZmI1ZjM1ODc3NmU2MzcxMWQ3ZmRhMjoNCiAgTGludXMgVG9ydmFsZHMgKDEpOg0KICAgICAg
-ICBNZXJnZSBnaXQ6Ly9naXQuaW5mcmFkZWFkLm9yZy91c2Vycy9jYm91L2JhdHRlcnktMi42LjI5
-DQoNCmFyZSBhdmFpbGFibGUgaW4gdGhlIGdpdCByZXBvc2l0b3J5IGF0Og0KDQogIG1hc3Rlci5r
-ZXJuZWwub3JnOi9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0LTIuNi5naXQgbWFz
-dGVyDQoNCkFuZHJldyBNb3J0b24gKDIpOg0KICAgICAgbmV0OiBkb24ndCB1c2UgaW5fYXRvbWlj
-KCkgaW4gZ2ZwX2FueSgpDQogICAgICBEb2N1bWVudGF0aW9uL2Nvbm5lY3Rvci9jbl90ZXN0LmM6
-IGRvbid0IHVzZSBnZnBfYW55KCkNCg0KQm9iIENvcGVsYW5kICgxKToNCiAgICAgIGF0aDVrOiBm
-aXggYmYtPnNrYj09TlVMTCBwYW5pYyBpbiBhdGg1a190YXNrbGV0X3J4DQoNCkNodWNrIEViYmVy
-dCAoMSk6DQogICAgICBwa3Rfc2NoZWQ6IHR5cGUgc2hvdWxkIGJlIF9fdTMyIGluIGhlYWRlcg0K
-DQpDbMOpbWVudCBMZWNpZ25lICgxKToNCiAgICAgIG5ldDogNCBieXRlcyBrZXJuZWwgbWVtb3J5
-IGRpc2Nsb3N1cmUgaW4gU09fQlNEQ09NUEFUIGdzb3B0IHRyeSAjMg0KDQpEaGFuYW5qYXkgUGhh
-ZGtlICgxKToNCiAgICAgIG5ldHhlbjogcmVtb3ZlIHBjaWUgd29ya2Fyb3VuZA0KDQpIaW4tVGFr
-IExldW5nICgyKToNCiAgICAgIHpkMTIxMXJ3OiBhZGRpbmcgMGFjZToweGEyMTEgYXMgYSBaRDEy
-MTEgZGV2aWNlDQogICAgICB6ZDEyMTFydzogdHJlYXQgTUFYSU1fTkVXX1JGKDB4MDgpIGFzIFVX
-MjQ1M19SRigweDA5KSBmb3IgVFAtTGluayBXTjMyMi80MjJHDQoNCkluYWt5IFBlcmV6LUdvbnph
-bGV6ICgxKToNCiAgICAgIHdpbWF4OiBmaXggb29wcyBpbiB3aW1heF9kZXZfZ2V0X2J5X2dlbmxf
-aW5mbygpIHdoZW4gbG9va2luZyB1cCBub24td2ltYXggaWZhY2UNCg0KSm9oYW5uZXMgQmVyZyAo
-MSk6DQogICAgICBtYWM4MDIxMTogcmVzdHJpY3QgdG8gQVAgaW4gb3V0Z29pbmcgaW50ZXJmYWNl
-IGhldXJpc3RpYw0KDQpNZWVsaXMgUm9vcyAoMik6DQogICAgICBmb3JlMjAwOiBmaXggb29wcyBv
-biBmYWlsZWQgZmlybXdhcmUgbG9hZA0KICAgICAgc3VuaG1lOiBGaXggUXVhdHRybyBITUUgaXJx
-IHJlZ2lzdHJhdGlvbiBvbiBwcm9ibGUgZmFpbHVyZXMNCg0KTWljaGFlbCBDaGFuICg0KToNCiAg
-ICAgIGJueDI6IFVwZGF0ZSA1NzA2LzU3MDggZmlybXdhcmUuDQogICAgICBibngyOiBVcGRhdGUg
-NTcwOSBmaXJtd2FyZS4NCiAgICAgIGJueDI6IEZpeCBqdW1ibyBmcmFtZXMgZXJyb3IgaGFuZGxp
-bmcuDQogICAgICBibngyOiBVcGRhdGUgdmVyc2lvbiB0byAxLjkuMiBhbmQgY29weXJpZ2h0Lg0K
-DQpQYXVsaXVzIFphbGVja2FzICgxKToNCiAgICAgIG1kaW8tZ3BpbzogQWRkIG1kYyBwaW4gZGly
-ZWN0aW9uIGluaXRpYWxpemF0aW9uDQoNClJlaW5ldHRlIENoYXRyZSAoMSk6DQogICAgICBpd2x3
-aWZpOiBmaXggc3VzcGVuZC9yZXN1bWUgYW5kIGl0cyB1c2FnZSBvZiBwY2kgc2F2ZWQgc3RhdGUN
-Cg0KUm9lbCBLbHVpbiAoNCk6DQogICAgICBURzM6IGxpbWl0IHJlYWNoZXMgLTENCiAgICAgIHN1
-bjM6IHByaW50IHdoZW4gbGFuY2Vfb3BlbigpIGZhaWxzDQogICAgICBJUkRBOiBjbnQgaXMgb2Zm
-IGJ5IDENCiAgICAgIDNjNTA1OiBkbyBub3Qgc2V0IHBjYi0+ZGF0YS5yYXcgYmV5b25kIGl0cyBz
-aXplDQoNClJvbiBNZXJjZXIgKDcpOg0KICAgICAgcWxnZTogYnVnZml4OiBVc2UgbmV0aWZfcmVj
-ZWl2ZV9za2IoKSBhbmQgdmxhbl9od2FjY2VsX3JlY2VpdmVfc2tiKCkuDQogICAgICBxbGdlOiBi
-dWdmaXg6IEZpeCBmYXRhbCBlcnJvciByZWNvdmVyeSBoYW5nLg0KICAgICAgcWxnZTogYnVnZml4
-OiBBZGQgbWlzc2luZyBwdXRfcGFnZSgpIGNhbGwuDQogICAgICBxbGdlOiBidWdmaXg6IEFkZCBt
-aXNzaW5nIGRldl9rZnJlZV9za2JfYW55KCkgY2FsbC4NCiAgICAgIHFsZ2U6IGJ1Z2ZpeDogRml4
-IFRTTyBicmVha2FnZS4NCiAgICAgIHFsZ2U6IGJ1Z2ZpeDogRml4IFJYIHNjYWxpbmcgdmFsdWVz
-Lg0KICAgICAgcWxnZTogYnVnZml4OiBBZGQgbWlzc2luZyByeCBidWYgY2xlYW4gaW5kZXggb24g
-ZWFybHkgZXhpdC4NCg0KUsOpbWkgRGVuaXMtQ291cm1vbnQgKDIpOg0KICAgICAgUGhvbmV0OiBm
-aXggZG91YmxlIGZyZWUgaW4gR1BSUyBvdXRib3VuZCBwYWNrZXQgZXJyb3IgcGF0aA0KICAgICAg
-UGhvbmV0OiBkbyBub3QgY29tcHV0ZSB1bnVzZWQgdmFsdWUNCg0KWWFuZyBIb25neWFuZyAoMSk6
-DQogICAgICBuZXR4ZW46IGZpeCBjb21waWxlIHdhcmluZyAibGFiZWwg4oCYc2V0XzMyX2JpdF9t
-YXNr4oCZIGRlZmluZWQgYnV0IG5vdCB1c2VkIiBvbiBJQTY0IHBsYXRmb3JtDQoNCiBEb2N1bWVu
-dGF0aW9uL2Nvbm5lY3Rvci9jbl90ZXN0LmMgICAgICAgICAgIHwgICAgNiArLQ0KIGRyaXZlcnMv
-YXRtL2ZvcmUyMDBlLmMgICAgICAgICAgICAgICAgICAgICAgfCAgICA0ICstDQogZHJpdmVycy9u
-ZXQvM2M1MDUuYyAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgMjYgKy0NCiBkcml2ZXJzL25l
-dC9ibngyLmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAzNiArLQ0KIGRyaXZlcnMvbmV0
-L2JueDIuaCAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICAyICstDQogZHJpdmVycy9uZXQv
-Ym54Ml9mdy5oICAgICAgICAgICAgICAgICAgICAgICB8IDg1MTUgKysrKysrKysrKysrKy0tLS0t
-LS0tLS0tLS0NCiBkcml2ZXJzL25ldC9ibngyX2Z3Mi5oICAgICAgICAgICAgICAgICAgICAgIHwg
-ODc5NSArKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0NCiBkcml2ZXJzL25ldC9pcmRhL21jczc3
-ODAuYyAgICAgICAgICAgICAgICAgIHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0L25ldHhlbi9uZXR4
-ZW5fbmljX21haW4uYyAgICAgICAgfCAgIDY2ICstDQogZHJpdmVycy9uZXQvcGh5L21kaW8tZ3Bp
-by5jICAgICAgICAgICAgICAgICB8ICAgIDIgKw0KIGRyaXZlcnMvbmV0L3FsZ2UvcWxnZV9tYWlu
-LmMgICAgICAgICAgICAgICAgfCAgIDM3ICstDQogZHJpdmVycy9uZXQvc3VuM2xhbmNlLmMgICAg
-ICAgICAgICAgICAgICAgICB8ICAgIDIgKy0NCiBkcml2ZXJzL25ldC9zdW5obWUuYyAgICAgICAg
-ICAgICAgICAgICAgICAgIHwgICAzNCArLQ0KIGRyaXZlcnMvbmV0L3RnMy5jICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgfCAgICA0ICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoNWsvYmFz
-ZS5jICAgICAgICAgICB8ICAgODUgKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL2l3
-bC1hZ24uYyAgICAgIHwgICAxNSArLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvaXds
-Mzk0NS1iYXNlLmMgfCAgIDE1ICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvemQxMjExcncvemRf
-cmYuYyAgICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3pkMTIxMXJ3L3pkX3Vz
-Yi5jICAgICAgfCAgICAxICsNCiBpbmNsdWRlL2xpbnV4L3BrdF9zY2hlZC5oICAgICAgICAgICAg
-ICAgICAgIHwgICAgMiArLQ0KIGluY2x1ZGUvbmV0L3NvY2suaCAgICAgICAgICAgICAgICAgICAg
-ICAgICAgfCAgICAyICstDQogbmV0L2NvcmUvc29jay5jICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICB8ICAgIDIgKw0KIG5ldC9tYWM4MDIxMS90eC5jICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgICAyICsNCiBuZXQvcGhvbmV0L3BlcC1ncHJzLmMgICAgICAgICAgICAgICAgICAgICAg
-IHwgICAgMSAtDQogbmV0L3Bob25ldC9wZXAuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
-ICAgIDIgKy0NCiBuZXQvd2ltYXgvaWQtdGFibGUuYyAgICAgICAgICAgICAgICAgICAgICAgIHwg
-ICAgOSArLQ0KIDI2IGZpbGVzIGNoYW5nZWQsIDg3NjcgaW5zZXJ0aW9ucygrKSwgODkwMSBkZWxl
-dGlvbnMoLSkNCg==
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 12 Feb 2009 17:10:22 -0800
+
+> On Tue, Feb 10, 2009 at 8:35 AM, Andre Detsch <adetsch@br.ibm.com> wrote:
+> >
+> > When running ethtool -t on an interface that was just
+> > brought down, the link test was failing. That's because
+> > we need to perform a reset on the interface to be able
+> > to check the link status correctly. There is no problem
+> > on doing such reset right before the test, as the link
+> > test routine is prepared to wait for autoneg to complete
+> > if that is the case.
+> >
+> > Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
+> > ---
+> 
+> I guess this comes down to what the definition of a Link test should
+> be doing.  My $0.02 is that it should be testing if the interface has
+> a link, in which case if you ifdown the interface before running the
+> Link test, I would expect it to fail.
+> 
+> With this patch, if you bring down the device and run the ethtool diag
+> tests, the Link test would come back as passing which is something I
+> would not expect.
+> 
+> NAK.
+
+I have to agree with Jeff on this one.
+
+------------------------------------------------------------------------------
+Open Source Business Conference (OSBC), March 24-25, 2009, San Francisco, CA
+-OSBC tackles the biggest issue in open source: Open Sourcing the Enterprise
+-Strategies to boost innovation and cut costs with open source participation
+-Receive a $600 discount off the registration fee with the source code: SFAD
+http://p.sf.net/sfu/XcvMzF8H
