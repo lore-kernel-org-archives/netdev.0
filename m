@@ -1,35 +1,83 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match (iptables part)
-Date: Fri, 13 Feb 2009 16:12:56 +0300
-Message-ID: <20090213131256.GE23879@ioremap.net>
-References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121922280.20367@fbirervta.pbzchgretzou.qr> <20090213125215.GC23879@ioremap.net> <alpine.LSU.2.00.0902131402460.9310@fbirervta.pbzchgretzou.qr>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: IRDA: mcs7780.c
+Date: Fri, 13 Feb 2009 14:14:17 +0100
+Message-ID: <49957229.9060401@gmail.com>
+References: <1234514947203.juha_motorsportcom.12982.AOyeEm8k4zVzAxDijub1SA@luukku.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.00.0902131402460.9310@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: =?ISO-8859-1?Q?Juha_Lepp=E4nen?= <juha_motorsportcom@luukku.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.24]:25046 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760131AbZBMNOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 08:14:22 -0500
+Received: by ey-out-2122.google.com with SMTP id 25so142474eya.37
+        for <netdev@vger.kernel.org>; Fri, 13 Feb 2009 05:14:18 -0800 (PST)
+In-Reply-To: <1234514947203.juha_motorsportcom.12982.AOyeEm8k4zVzAxDijub1SA@luukku.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 13, 2009 at 02:03:10PM +0100, Jan Engelhardt (jengelh@medozas.de) wrote:
-> >> >	printf("OS fingerprint match options:\n"
-> >> >		"--genre [!] string	Match a OS genre by passive fingerprinting.\n"
-> >> 
-> >> The syntax should be  [!] --genre string, that is what most
-> >> others use. Then the check_inverse call also be removed.
-> >
-> >Actually not, it has genre not Linux (Windows, Solaris, HPUX and so on).
-> 
-> It may not coincide with English grammar, but it is easier to parse.
+Juha Lepp=E4nen wrote:
+> Hi,
+>=20
+> In recent patch to file
+>=20
+> drivers/net/irda/mcs7780.c
 
-'! --genre Linux' means this option was not specified,
-'--genre ! Linux' means everything but Linux.
+That's this one:
+http://www.spinics.net/lists/netdev/msg88746.html
 
--- 
-	Evgeniy Polyakov
+[PATCH] IRDA: cnt is off by 1
+
+> I noticed when checking the code around the patch ...
+> In worst case do {...} while loop is executed
+> 101 times --> mcs_get_reg() is executed 101 times...
+> But rval is checked only 100 times.
+
+Right, thanks.
+
+> If you change the order of the && expressions inside while () to
+>=20
+> -        } while(cnt++ < 100 && (rval & MCS_IRINTX));
+> +        } while((rval & MCS_IRINTX) && cnt++ < 100);
+
+> If you also want exactly 100 maximum mcs_get_reg()
+> tries ( now it is 101 ) ...
+
+I don't think it really matters, does it?
+
+> Happy hacking,
+>=20
+> Mr. Juha Lepp=E4nen
+> Kuopio, Finland
+
+You too.
+
+------------------------------>8----------------8<---------------------=
+---------
+If no prior break occurs, cnt reaches 101 after the loop, so we are sti=
+ll able
+to change speed when cnt has become 100.
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
+index 7eafdca..8fdfb5a 100644
+--- a/drivers/net/irda/mcs7780.c
++++ b/drivers/net/irda/mcs7780.c
+@@ -583,9 +583,9 @@ static int mcs_speed_change(struct mcs_cb *mcs)
+=20
+ 	do {
+ 		mcs_get_reg(mcs, MCS_RESV_REG, &rval);
+-	} while(cnt++ < 100 && (rval & MCS_IRINTX));
++	} while((rval & MCS_IRINTX) && cnt++ < 100);
+=20
+-	if(cnt >=3D 100) {
++	if (cnt > 100) {
+ 		IRDA_ERROR("unable to change speed\n");
+ 		ret =3D -EIO;
+ 		goto error;
