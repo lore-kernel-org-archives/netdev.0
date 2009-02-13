@@ -1,140 +1,134 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Security Assessment of the Transmission Control Protocol (TCP)
-Date: Fri, 13 Feb 2009 18:01:16 -0200
-Message-ID: <4995D18C.7010400@gont.com.ar>
+From: Jeremy Jackson <jerj@coplanar.net>
+Subject: Re: sendfile()? Re: SO_LINGER dead: I get an immediate RST on
+ 2.6.24?
+Date: Fri, 13 Feb 2009 12:02:35 -0500
+Message-ID: <1234544555.28913.451.camel@ragnarok>
+References: <20090111212303.GA8612@outpost.ds9a.nl>
+	 <175f5a0f0901111408s7905e5d9l2155b841f1ac054d@mail.gmail.com>
+	 <20090111224541.GA10848@outpost.ds9a.nl>
+	 <20090111225427.GA7004@ioremap.net>
+	 <20090111230824.GB10848@outpost.ds9a.nl>
+	 <20090111231859.GA8309@ioremap.net>
+	 <20090111235001.536a858d.billfink@mindspring.com>
+	 <Pine.LNX.4.64.0901121111420.24748@wrl-59.cs.helsinki.fi>
+	 <20090113003108.72860b5c.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ilpo.jarvinen@helsinki.fi, Evgeniy Polyakov <zbr@ioremap.net>,
+	bert hubert <bert.hubert@netherlabs.nl>,
+	"H. Willstrand" <h.willstrand@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from PTR.232.216.201.in-addr.arpa ([201.216.232.80]:46255 "EHLO
-	smtp1.xmundo.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752704AbZBMUIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 15:08:39 -0500
-Received: from venus.xmundo.net (venus.xmundo.net [201.216.232.56])
-	by smtp1.xmundo.net (Postfix) with ESMTP id 21B4F6B6792
-	for <netdev@vger.kernel.org>; Fri, 13 Feb 2009 17:01:33 -0300 (ART)
+Received: from titan.coplanar.net ([70.47.139.2]:39567 "EHLO
+	titan.coplanar.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbZBMUof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 15:44:35 -0500
+In-Reply-To: <20090113003108.72860b5c.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA256
+On Tue, 2009-01-13 at 00:31 -0500, Bill Fink wrote:
+> On Mon, 12 Jan 2009, Ilpo J=C3=A4rvinen wrote:
+>=20
+> > On Sun, 11 Jan 2009, Bill Fink wrote:
+> >=20
+> > > On Mon, 12 Jan 2009, Evgeniy Polyakov wrote:
+> > >=20
+> > > > On Mon, Jan 12, 2009 at 12:08:24AM +0100, bert hubert (bert.hub=
+ert@netherlabs.nl) wrote:
+> > > > > I fully understand. Sometimes I have to talk to stupid device=
+s though. What
 
-Hello, folks,
+An excellent article on this subject:
 
-I thought this one might be of your interest.
+http://ds9a.nl/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliabl=
+e.txt
 
-The United Kingdom's Centre for the Protection of National
-Infrastructure has just released the document "Security Assessment of
-the Transmission Control Protocol (TCP)", on which I have had the
-pleasure to work during the last few years.
+"Luckily, it turns out that Linux keeps track of the amount of
+unacknowledged
+data, which can be queried using the SIOCOUTQ ioctl(). Once we see this
+number hit 0, we can be reasonably sure our data reached at least the
+remote
+operating system."
 
-The motivation to produce this document is explained in the Preface of
-the document as follows:
+is this the same as the TCP_INFO getsockopt() ?
 
-- ---- cut here ----
-The TCP/IP protocol suite was conceived in an environment that was quite
-different from the hostile environment they currently operate in.
-However, the effectiveness of the protocols led to their early adoption
-in production environments, to the point that to some extent, the
-current world's economy depends on them.
+if you follow the progression from write(socket_fd, ) ... the data sits
+in
+the socket buffer, and SIOCOUTQ is initially zero.  If the connection
+started with a zero window,
+it could sit like that for a while (sometimes called a "tarpit ?).  But=
+,
+you should still see the data in your socket buffer, yes?
 
-While many textbooks and articles have created the myth that the
-Internet protocols were designed for warfare environments, the top level
-goal for the DARPA Internet Program was the sharing of large service
-machines on the ARPANET. As a result, many protocol specifications focus
-only on the operational aspects of the protocols they specify, and
-overlook their security implications.
+So, I think you want to make sure your socket write buffer is empty
+(converted to unacked data), *then* make sure your unacked data is 0.
 
-While the Internet technology evolved since it early inception, the
-Internet?s building blocks are basically the same core protocols adopted
-by the ARPANET more than two decades ago.
+	write(sock, buffer, 1000000);             // returns 1000000
+	shutdown(sock, SHUT_WR);
+	now wait for SIOCOUTQ to hit 0.
 
-During the last twenty years, many vulnerabilities have been identified
-in the TCP/IP stacks of a number of systems. Some of them were based on
-flaws in some protocol implementations, affecting only a reduced number
-of systems, while others were based in flaws in the protocols
-themselves, affecting virtually every existing implementation. Even in
-the last couple of years, researchers were still working on security
-problems in the core protocols.
-
-The discovery of vulnerabilities in the TCP/IP protocol suite usually
-led to reports being published by a number of CSIRTs (Computer Security
-Incident Response Teams) and vendors, which helped to raise awareness
-about the threats and the best mitigations known at the time the reports
-were published. Unfortunately, this also led to the documentation of the
-discovered protocol vulnerabilities being spread among a large number of
-documents, which are sometimes difficult to identify.
-
-For some reason, much of the effort of the security community on the
-Internet protocols did not result in official documents (RFCs) being
-issued by the IETF (Internet Engineering Task Force). This basically led
-to a situation in which ?known? security problems have not always
-been addressed by all vendors. In addition, in many cases vendors have
-implemented quick ?fixes? to the identified vulnerabilities without a
-careful analysis of their effectiveness and their impact on
-interoperability.
-
-Producing a secure TCP/IP implementation nowadays is a very difficult
-task, in part because of the lack of a single document that serves as a
-security roadmap for the protocols. Implementers are faced with the hard
-task of identifying relevant documentation and differentiating between
-that which provides correct advice, and that which provides misleading
-advice based on inaccurate or wrong assumptions.
-
-There is a clear need for a companion document to the IETF
-specifications that discusses the security aspects and implications of
-the protocols, identifies the existing vulnerabilities, discusses the
-possible countermeasures, and analyses their respective effectiveness.
-
-This document is the result of a security assessment of the IETF
-specifications of the Transmission Control Protocol (TCP), from a
-security point of view. Possible threats are identified and, where
-possible, countermeasures are proposed. Additionally, many
-implementation flaws that have led to security vulnerabilities have been
-referenced in the hope that future implementations will not incur the
-same problems.
-
-This document does not aim to be the final word on the security aspects
-of TCP. On the contrary, it aims to raise awareness about a number of
-TCP vulnerabilities that have been faced in the past, those that are
-currently being faced, and some of those that we may still
-have to deal with in the future.
-
-Feedback from the community is more than encouraged to help this
-document be as accurate as possible and to keep it updated as new
-vulnerabilities are discovered.
-- ---- cut here ----
-
-The document is available at CPNI's web site:
-http://www.cpni.gov.uk/Products/technicalnotes/Feb-09-security-assessment-TCP.aspx
-
-Additionally, I have posted a copy of the document on my personal web
-site: http://www.gont.com.ar
-
-I would like to take the chance to thank NetBSD's Christos Zoulas for
-his contribution in improving this document.
-
-Any comments will be more than welcome.
-
-Kind regards,
-- --
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@acm.org
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+if window is 0, shutdown() would wait until show device sets window > 0
+again, or forever on a tarpitted connection.  Either way, when if/when
+it finishes, you know all data was transmitted, now wait for all of it
+to be ACKed with SIOCOUTQ.
 
 
+> > > > > I do find is the TCP_INFO ioctl, which offers this field in s=
+truct tcp_info:
+> > > > >=20
+> > > > >         __u32   tcpi_unacked;
+> > > > >=20
+> > > > > Which comes from:
+> > > > >=20
+> > > > > struct tcp_sock {
+> > > > > ...
+> > > > >         u32     packets_out;    /* Packets which are "in flig=
+ht"        */
+> > > > > ...
+> > > > > }
+> > > > >=20
+> > > > > If this becomes 0, perhaps this might tell me everything I se=
+nt was acked?
+> > > >=20
+> > > > 0 means that there are noin-flight packets, which is effectivel=
+y number
+> > > > of unacked packets. So if your application waits for this field=
+ to
+> > > > become zero, it will wait for all sent packets to be acked.
+> > >=20
+> > > I use this type of strategy in nuttcp, and it seems to work fine.
+> > > I have a loop with a small delay and a check of tcpi_unacked, and
+> > > break out of the loop if tcpi_unacked becomes 0 or a defined time=
+out
+> > > period has passed.
+> >=20
+> > Checking tcpi_unacked alone won't be reliable. The peer might be sl=
+ow=20
+> > enough to advertize zero window for a short period of time and duri=
+ng=20
+> > that period you would have packets_out zero...
+>=20
+> I'll keep this in mind for the future, although it doesn't seem to
+> be a significant issue in practice.  I use this scheme to try and
+> account for the tcpi_total_retrans for the data stream, so if this
+> corner case was hit, it would mean an under reporting of the total
+> TCP retransmissions for the nuttcp test.
+>=20
+> If I understand you correctly, to hit this corner case, just after
+> the final TCP write, there would have to be no packets in flight
+> together with a zero TCP window.  To make it more bullet-proof, I
+> guess after seeing a zero tcpi_unacked, an additional small delay
+> should be performed, and then rechecking for a zero tcpi_unacked.
+> I don't see anything else obvious (to me anyway) in the tcp_info
+> that would be particularly helpful in handling this.
 
+--=20
+Jeremy Jackson
+Coplanar Networks
+(519)489-4903
+http://www.coplanar.net
+jerj@coplanar.net
 
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (MingW32)
-
-iQEcBAEBCAAGBQJJldGJAAoJEJbuqe/Qdv/x2m8IANlKiK33YkCI0bcl/Fmxpwc0
-HSD9n8voGooq+/yELD9cnpnzi0mQktz+OmyJz6dA5Du3pDXtPxApXnjEYmokJYDM
-ee7qnGxA/GGbRkQxSxEyAtFHwdQdiIS8guPmoM8paqZLKiGCYdxjoqMCrUa9xhNv
-zj79Zz8iixVNc8FZS9UGDIBYlKRCw/+4ZtLL3SeZhMkFpJa25pu/Vxkv2xm0XzBV
-0++IcIfbMz3s3k1hSG5M+99byX7ejEQWShlQL7nbGZUwPaEfokIpSlJoyMYFzrai
-j4QuxssFkTrPZYb35PHmLajjqaz+JL+Q+EyXvAhT+7oIcqpo0SoA8Uj/KYJBefQ=
-=k1hs
------END PGP SIGNATURE-----
