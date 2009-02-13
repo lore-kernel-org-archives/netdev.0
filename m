@@ -1,35 +1,25 @@
-From: Sarah <edge@nb.sympatico.ca>
-Subject: info@lott.org
-Date: Thu, 12 Feb 2009 20:48:44 -0500
-Message-ID: <20090213014844.TGG1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-Reply-To: siemens8@btinternet.com
+From: "txylgiccusnd" <txylgiccusnd@yahoo.com.cn>
+Subject: =?big5?B?vsey36fWs3SwT77Qqmulda1uMTYwMKS4ISE=?=
+Date: Fri, 13 Feb 2009 00:51:30 -0000
+Message-ID: <gn2g6i+hskf@eGroups.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@lott.org>
+Content-Type: text/plain; charset="BIG5"
+Content-Transfer-Encoding: base64
+To: xxxwerpchome@yahoo.com.tw, 6837303@yahoo.com.tw,
+	like56123@yahoo.com.tw, vaskjo@aol.com, edp@dgbas.gov.tw,
+	whiteout0817@yahoo.com.tw, kuoyhjanice@yahoo.com.tw,
+	chienqun@ms66.hinet.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts8.bellnexxia.net ([206.47.199.166]:62185 "EHLO
-	simmts8-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752010AbZBMBsp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2009 20:48:45 -0500
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts8-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090213014844.TGG1670.simmts8-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Thu, 12 Feb 2009 20:48:44 -0500
+Received: from n14d.bullet.sp1.yahoo.com ([69.147.64.237]:44463 "HELO
+	n14d.bullet.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750906AbZBMCXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2009 21:23:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your email ID has been awarded =A3750,000,00 GBP in the Siemens  Promo,=
-Reply us with your info: (agt_bwilliams04@hotmail.com)
+vsey37BPvtCqa691qrqtbqi6u/K2UbbcPwqye6ZisXqms6fzpa2lwaTGqrq/777cISEKptOlQqtL
+qXm1tLnvprOmbrNmISEKq0/D0rDqpd+kar7Hqrqudrjqv8um27/9u3MKq0/D0rDiq+GqQbDIvsnF
+qgqldb3mMTYwMKS4ISEKp7ml/rVMq0+vZKq6sdC+xwq41LLTuc+k5buhqfq90Kv2prkgCmh0dHA6
+Ly95YWhvby56ei50Yy9tZW1vcnkK
 
-Name:....................
-Conntry:.................  =20
-Sex:.....................
-Age: .....................  =20
-Addres:...................
-
-Regards
-Mrs Sarah Wood =20
 
