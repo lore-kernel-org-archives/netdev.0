@@ -1,8 +1,8 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 01/43] drivers/net/at1700.c: fix sparse warning: symbol
-	shadows an earlier one
-Date: Sat, 14 Feb 2009 22:11:55 +0100
-Message-ID: <20090214211144.23489.88144.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 03/43] drivers/net/ni65.c: fix sparse warnings: symbol shadows
+	an earlier one
+Date: Sat, 14 Feb 2009 22:12:23 +0100
+Message-ID: <20090214211218.23489.71130.stgit@vmbox.hanneseder.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,41 +12,64 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f20.google.com ([209.85.220.20]:39192 "EHLO
 	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753537AbZBNVMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:12:00 -0500
+	with ESMTP id S1753854AbZBNVM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:12:28 -0500
 In-Reply-To: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: Move variable declaration to a more inner scope.
+Impact: Remove redundant variable declaration or move them to a more
+inner scope.
 
-Fix this sparse warning:
-  drivers/net/at1700.c:846:21: warning: symbol 'i' shadows an earlier one
-  drivers/net/at1700.c:831:13: originally declared here
+Fix this sparse warnings:
+  drivers/net/ni65.c:900:37: warning: symbol 'p' shadows an earlier one
+  drivers/net/ni65.c:874:21: originally declared here
+  drivers/net/ni65.c:925:21: warning: symbol 'p' shadows an earlier one
+  drivers/net/ni65.c:874:21: originally declared here
+  drivers/net/ni65.c:945:29: warning: symbol 'k' shadows an earlier one
+  drivers/net/ni65.c:926:15: originally declared here
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/at1700.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ni65.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/at1700.c b/drivers/net/at1700.c
-index 72ea6e3..ced7079 100644
---- a/drivers/net/at1700.c
-+++ b/drivers/net/at1700.c
-@@ -828,7 +828,6 @@ set_rx_mode(struct net_device *dev)
- 	struct net_local *lp = netdev_priv(dev);
- 	unsigned char mc_filter[8];		 /* Multicast hash filter */
- 	unsigned long flags;
--	int i;
+diff --git a/drivers/net/ni65.c b/drivers/net/ni65.c
+index 2540572..d769a88 100644
+--- a/drivers/net/ni65.c
++++ b/drivers/net/ni65.c
+@@ -897,7 +897,6 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
  
- 	if (dev->flags & IFF_PROMISC) {
- 		memset(mc_filter, 0xff, sizeof(mc_filter));
-@@ -857,6 +856,7 @@ set_rx_mode(struct net_device *dev)
+ 		if(csr0 & CSR0_ERR)
+ 		{
+-			struct priv *p = dev->ml_priv;
+ 			if(debuglevel > 1)
+ 				printk(KERN_ERR "%s: general error: %04x.\n",dev->name,csr0);
+ 			if(csr0 & CSR0_BABL)
+@@ -922,8 +921,7 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
+  int j;
+  for(j=0;j<RMDNUM;j++)
+  {
+-	struct priv *p = dev->ml_priv;
+-	int i,k,num1,num2;
++	int i, num2;
+ 	for(i=RMDNUM-1;i>0;i--) {
+ 		 num2 = (p->rmdnum + i) & (RMDNUM-1);
+ 		 if(!(p->rmdhead[num2].u.s.status & RCV_OWN))
+@@ -931,6 +929,7 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
+ 	}
  
- 	spin_lock_irqsave (&lp->lock, flags);
- 	if (memcmp(mc_filter, lp->mc_filter, sizeof(mc_filter))) {
-+		int i;
- 		int saved_bank = inw(ioaddr + CONFIG_0);
- 		/* Switch to bank 1 and set the multicast table. */
- 		outw((saved_bank & ~0x0C00) | 0x0480, ioaddr + CONFIG_0);
+ 	if(i) {
++		int k, num1;
+ 		for(k=0;k<RMDNUM;k++) {
+ 			num1 = (p->rmdnum + k) & (RMDNUM-1);
+ 			if(!(p->rmdhead[num1].u.s.status & RCV_OWN))
+@@ -942,7 +941,6 @@ static irqreturn_t ni65_interrupt(int irq, void * dev_id)
+ 		if(debuglevel > 0)
+ 		{
+ 			char buf[256],*buf1;
+-			int k;
+ 			buf1 = buf;
+ 			for(k=0;k<RMDNUM;k++) {
+ 				sprintf(buf1,"%02x ",(p->rmdhead[k].u.s.status)); /* & RCV_OWN) ); */
 
