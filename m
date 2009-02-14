@@ -1,8 +1,8 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 09/43] drivers/net/r6040.c: fix sparse warning: Using plain
-	integer as NULL pointer
-Date: Sat, 14 Feb 2009 22:14:04 +0100
-Message-ID: <20090214211400.23489.24726.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 10/43] drivers/net/s2io.c: fix sparse warning: symbol shadows
+	an earlier one
+Date: Sat, 14 Feb 2009 22:14:31 +0100
+Message-ID: <20090214211423.23489.10245.stgit@vmbox.hanneseder.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,40 +10,35 @@ Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:52585 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754505AbZBNVOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:14:20 -0500
+Received: from mail-fx0-f20.google.com ([209.85.220.20]:48160 "EHLO
+	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754565AbZBNVOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:14:36 -0500
 In-Reply-To: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix this sparse warnings:
-  drivers/net/r6040.c:487:31: warning: Using plain integer as NULL pointer
-  drivers/net/r6040.c:492:31: warning: Using plain integer as NULL pointer
+Impact: Remove redundant inner scope variable.
+
+Fix this sparse warning:
+  drivers/net/s2io.c:7223:21: warning: symbol 'i' shadows an earlier one
+  drivers/net/s2io.c:7184:13: originally declared here
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/r6040.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/s2io.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 3c27a7b..9c95ebe 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -484,12 +484,12 @@ static int r6040_close(struct net_device *dev)
- 	/* Free Descriptor memory */
- 	if (lp->rx_ring) {
- 		pci_free_consistent(pdev, RX_DESC_SIZE, lp->rx_ring, lp->rx_ring_dma);
--		lp->rx_ring = 0;
-+		lp->rx_ring = NULL;
- 	}
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 5cd2291..16868b7 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -7220,7 +7220,6 @@ static int s2io_card_up(struct s2io_nic * sp)
  
- 	if (lp->tx_ring) {
- 		pci_free_consistent(pdev, TX_DESC_SIZE, lp->tx_ring, lp->tx_ring_dma);
--		lp->tx_ring = 0;
-+		lp->tx_ring = NULL;
- 	}
- 
- 	return 0;
+ 	/* Initialise napi */
+ 	if (config->napi) {
+-		int i;
+ 		if (config->intr_type ==  MSI_X) {
+ 			for (i = 0; i < sp->config.rx_ring_num; i++)
+ 				napi_enable(&sp->mac_control.rings[i].napi);
 
