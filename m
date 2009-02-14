@@ -1,81 +1,83 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 33/43] drivers/net/tulip: fix sparse warning: symbol shadows
-	an earlier one
-Date: Sat, 14 Feb 2009 22:47:30 +0100
-Message-ID: <20090214214707.24377.56661.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 34/43] drivers/net/usb: fix sparse warnings: Should it be
+	static?
+Date: Sat, 14 Feb 2009 22:47:47 +0100
+Message-ID: <20090214214738.24377.82100.stgit@vmbox.hanneseder.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754105AbZBNVru@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f167.google.com ([209.85.218.167]:33361 "EHLO
+	mail-bw0-f167.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755193AbZBNVrx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:47:53 -0500
 In-Reply-To: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Impact: Rename a local variable resp. remove a redundant variable and
-while being at it use more unform loop constructs.
+Impact: Make symbols static.
 
-Fix this sparse warning:
-  drivers/net/tulip/de4x5.c:3944:13: warning: symbol 'i' shadows an earlier one
-  drivers/net/tulip/de4x5.c:3938:9: originally declared here
-  drivers/net/tulip/media.c:72:21: warning: symbol 'i' shadows an earlier one
-  drivers/net/tulip/media.c:54:13: originally declared here
-  drivers/net/tulip/media.c:134:21: warning: symbol 'i' shadows an earlier one
-  drivers/net/tulip/media.c:117:13: originally declared here
+Fix this sparse warnings:
+  drivers/net/usb/hso.c:1249:6: warning: symbol 'hso_unthrottle_tasklet' was not declared. Should it be static?
+  drivers/net/usb/hso.c:1268:6: warning: symbol 'hso_unthrottle_workfunc' was not declared. Should it be static?
+  drivers/net/usb/hso.c:1466:5: warning: symbol 'tiocmget_submit_urb' was not declared. Should it be static?
+  drivers/net/usb/smsc95xx.c:62:5: warning: symbol 'turbo_mode' was not declared. Should it be static?
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/tulip/de4x5.c |    4 ++--
- drivers/net/tulip/media.c |    8 +++-----
- 2 files changed, 5 insertions(+), 7 deletions(-)
+ drivers/net/usb/hso.c      |   10 +++++-----
+ drivers/net/usb/smsc95xx.c |    2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
-index 98e8682..6430a2e 100644
---- a/drivers/net/tulip/de4x5.c
-+++ b/drivers/net/tulip/de4x5.c
-@@ -3942,8 +3942,8 @@ PCI_signature(char *name, struct de4x5_private *lp)
- 	strcpy(name, "DE434/5");
- 	return status;
-     } else {                           /* Search for a DEC name in the SROM */
--	int i = *((char *)&lp->srom + 19) * 3;
--	strncpy(name, (char *)&lp->srom + 26 + i, 8);
-+	int tmp = *((char *)&lp->srom + 19) * 3;
-+	strncpy(name, (char *)&lp->srom + 26 + tmp, 8);
-     }
-     name[8] = '\0';
-     for (i=0; i<siglen; i++) {
-diff --git a/drivers/net/tulip/media.c b/drivers/net/tulip/media.c
-index 91cf9c8..daddfa5 100644
---- a/drivers/net/tulip/media.c
-+++ b/drivers/net/tulip/media.c
-@@ -69,11 +69,10 @@ int tulip_mdio_read(struct net_device *dev, int phy_id, int location)
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index e6d62fe..a074c16 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -1246,7 +1246,7 @@ static void hso_std_serial_read_bulk_callback(struct urb *urb)
+  * This needs to be a tasklet otherwise we will
+  * end up recursively calling this function.
+  */
+-void hso_unthrottle_tasklet(struct hso_serial *serial)
++static void hso_unthrottle_tasklet(struct hso_serial *serial)
+ {
+ 	unsigned long flags;
  
- 	spin_lock_irqsave(&tp->mii_lock, flags);
- 	if (tp->chip_id == LC82C168) {
--		int i = 1000;
- 		iowrite32(0x60020000 + (phy_id<<23) + (location<<18), ioaddr + 0xA0);
- 		ioread32(ioaddr + 0xA0);
- 		ioread32(ioaddr + 0xA0);
--		while (--i > 0) {
-+		for (i = 1000; i >= 0; --i) {
- 			barrier();
- 			if ( ! ((retval = ioread32(ioaddr + 0xA0)) & 0x80000000))
- 				break;
-@@ -131,13 +130,12 @@ void tulip_mdio_write(struct net_device *dev, int phy_id, int location, int val)
+@@ -1265,7 +1265,7 @@ static	void hso_unthrottle(struct tty_struct *tty)
+ 	tasklet_hi_schedule(&serial->unthrottle_tasklet);
+ }
  
- 	spin_lock_irqsave(&tp->mii_lock, flags);
- 	if (tp->chip_id == LC82C168) {
--		int i = 1000;
- 		iowrite32(cmd, ioaddr + 0xA0);
--		do {
-+		for (i = 1000; i >= 0; --i) {
- 			barrier();
- 			if ( ! (ioread32(ioaddr + 0xA0) & 0x80000000))
- 				break;
--		} while (--i > 0);
-+		}
- 		spin_unlock_irqrestore(&tp->mii_lock, flags);
- 		return;
- 	}
+-void hso_unthrottle_workfunc(struct work_struct *work)
++static void hso_unthrottle_workfunc(struct work_struct *work)
+ {
+ 	struct hso_serial *serial =
+ 	    container_of(work, struct hso_serial,
+@@ -1464,9 +1464,9 @@ static int hso_serial_chars_in_buffer(struct tty_struct *tty)
+ 
+ 	return chars;
+ }
+-int tiocmget_submit_urb(struct hso_serial *serial,
+-			struct hso_tiocmget  *tiocmget,
+-			struct usb_device *usb)
++static int tiocmget_submit_urb(struct hso_serial *serial,
++			       struct hso_tiocmget *tiocmget,
++			       struct usb_device *usb)
+ {
+ 	int result;
+ 
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 5b0b964..3e6155a 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -58,7 +58,7 @@ struct usb_context {
+ 	struct usbnet *dev;
+ };
+ 
+-int turbo_mode = true;
++static int turbo_mode = true;
+ module_param(turbo_mode, bool, 0644);
+ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
+ 
+
