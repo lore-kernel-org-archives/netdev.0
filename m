@@ -1,44 +1,40 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 24/43] drivers/net/ixgbe: fix sparse warning: Should it be
-	static?
-Date: Sat, 14 Feb 2009 22:38:36 +0100
-Message-ID: <20090214213822.24377.64757.stgit@vmbox.hanneseder.net>
-References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH 08/43] drivers/net/ppp*.c: fix sparse warnings: fix
+	signedness
+Date: Sun, 15 Feb 2009 00:38:48 +0300
+Message-ID: <20090214213848.GF7648@localhost>
+References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net> <20090214211346.23489.96321.stgit@vmbox.hanneseder.net> <20090214212948.GE7648@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Hannes Eder <hannes@hanneseder.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:44740 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752478AbZBNVip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:38:45 -0500
-In-Reply-To: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
+Received: from mail-ew0-f21.google.com ([209.85.219.21]:49450 "EHLO
+	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754081AbZBNVit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:38:49 -0500
+Content-Disposition: inline
+In-Reply-To: <20090214212948.GE7648@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: Make symbol static.
+[Cyrill Gorcunov - Sun, Feb 15, 2009 at 12:29:48AM +0300]
+| [Hannes Eder - Sat, Feb 14, 2009 at 10:13:52PM +0100]
+| | Fix this sparse warnings:
+| |   drivers/net/ppp_generic.c:919:43: warning: incorrect type in argument 1 (different signedness)
+| |   drivers/net/pppoe.c:1195:43: warning: incorrect type in argument 1 (different signedness)
+| |   drivers/net/pppol2tp.c:2666:43: warning: incorrect type in argument 1 (different signedness)
+| | 
+| | Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+| ...
+| 
+| Thanks Hannes,
+| 
+| Acked-by: Cyrill Gorcunov <gorcunov@openvz.org>
+| 
+| 	- Cyrill -
 
-Fix this sparse warning:
-  drivers/net/ixgbe/ixgbe_82598.c:59:5: warning: symbol 'ixgbe_get_pcie_msix_count_82598' was not declared. Should it be static?
+Btw I think the same fix could be applied on
+drivers/net/tun.c (if you have time for :)
 
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
----
- drivers/net/ixgbe/ixgbe_82598.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index 525bd87..51dba1c 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -56,7 +56,7 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
-  *  Read PCIe configuration space, and get the MSI-X vector count from
-  *  the capabilities table.
-  **/
--u16 ixgbe_get_pcie_msix_count_82598(struct ixgbe_hw *hw)
-+static u16 ixgbe_get_pcie_msix_count_82598(struct ixgbe_hw *hw)
- {
- 	struct ixgbe_adapter *adapter = hw->back;
- 	u16 msix_count;
-
+	- Cyrill -
