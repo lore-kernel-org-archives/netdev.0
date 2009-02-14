@@ -1,39 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: WARNING: at net/core/skbuff.c:154 with tcpdump and ipsec
-Date: Fri, 13 Feb 2009 18:24:26 -0800 (PST)
-Message-ID: <20090213.182426.175113018.davem@davemloft.net>
-References: <20090213192448.GA2929@ami.dom.local>
-	<4995CD0F.8020307@hp.com>
-	<20090213200014.GB2929@ami.dom.local>
+From: Sarah <lesamisdescoeurdejesus@bellnet.ca>
+Subject: **Lucky Winner**
+Date: Fri, 13 Feb 2009 22:53:16 -0500
+Message-ID: <20090214035316.UOCU1658.simmts5-srv.bellnexxia.net@simip11-ac.srvr.bell.ca>
+Reply-To: siemens8@btinternet.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, ole@ans.pl, pupilla@hotmail.com,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: lotto.com@bellnet.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47267
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753548AbZBNCYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2009 21:24:33 -0500
-In-Reply-To: <20090213200014.GB2929@ami.dom.local>
+Received: from simmts5.bellnexxia.net ([206.47.199.163]:47053 "EHLO
+	simmts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751409AbZBNDxT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Feb 2009 22:53:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Fri, 13 Feb 2009 21:00:14 +0100
+Your email ID has been awarded =A3750,000,00 GBP in the  Siemens  Promo=
+, Reply us with your info: (agt_bwilliams03@live.com)
 
-> On Fri, Feb 13, 2009 at 02:42:07PM -0500, Vlad Yasevich wrote:
-> ...
-> > Personally, I think pskb_expand_head should fix the skb->truesize.  This
-> > way any subsequent clones will not trigger this warning.
-> 
-> Personally, I think there is no reason to call skb_truesize_bug() in
-> anything but some #ifdef CONFIG_XX_DEBUG, if we ignore these reports
-> for so long.
+Name:....................
+Country:.................  =20
+Sex:.....................
+Age: .....................  =20
+Addres:...................
 
-If skb->sk is non-NULL, fixing up the truesize will corrupt
-socket memory accounting.
+Regards
+Mrs Sarah Wood
 
-Anyways, Herbert and I have talked about %100 removing the
-warning.
