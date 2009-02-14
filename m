@@ -1,7 +1,8 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 08/43] drivers/net/ppp*.c: fix sparse warnings: fix signedness
-Date: Sat, 14 Feb 2009 22:13:52 +0100
-Message-ID: <20090214211346.23489.96321.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 09/43] drivers/net/r6040.c: fix sparse warning: Using plain
+	integer as NULL pointer
+Date: Sat, 14 Feb 2009 22:14:04 +0100
+Message-ID: <20090214211400.23489.24726.stgit@vmbox.hanneseder.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,63 +10,40 @@ Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f20.google.com ([209.85.220.20]:34276 "EHLO
-	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374AbZBNVN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:13:57 -0500
+Received: from mail-bw0-f161.google.com ([209.85.218.161]:52585 "EHLO
+	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754505AbZBNVOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:14:20 -0500
 In-Reply-To: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Fix this sparse warnings:
-  drivers/net/ppp_generic.c:919:43: warning: incorrect type in argument 1 (different signedness)
-  drivers/net/pppoe.c:1195:43: warning: incorrect type in argument 1 (different signedness)
-  drivers/net/pppol2tp.c:2666:43: warning: incorrect type in argument 1 (different signedness)
+  drivers/net/r6040.c:487:31: warning: Using plain integer as NULL pointer
+  drivers/net/r6040.c:492:31: warning: Using plain integer as NULL pointer
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/ppp_generic.c |    2 +-
- drivers/net/pppoe.c       |    2 +-
- drivers/net/pppol2tp.c    |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/r6040.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index fddc849..81e7fcc 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -183,7 +183,7 @@ static atomic_t ppp_unit_count = ATOMIC_INIT(0);
- static atomic_t channel_count = ATOMIC_INIT(0);
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 3c27a7b..9c95ebe 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -484,12 +484,12 @@ static int r6040_close(struct net_device *dev)
+ 	/* Free Descriptor memory */
+ 	if (lp->rx_ring) {
+ 		pci_free_consistent(pdev, RX_DESC_SIZE, lp->rx_ring, lp->rx_ring_dma);
+-		lp->rx_ring = 0;
++		lp->rx_ring = NULL;
+ 	}
  
- /* per-net private data for this module */
--static unsigned int ppp_net_id;
-+static int ppp_net_id;
- struct ppp_net {
- 	/* units to ppp mapping */
- 	struct idr units_idr;
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index af6321d..e2968f0 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -97,7 +97,7 @@ static const struct proto_ops pppoe_ops;
- static struct ppp_channel_ops pppoe_chan_ops;
+ 	if (lp->tx_ring) {
+ 		pci_free_consistent(pdev, TX_DESC_SIZE, lp->tx_ring, lp->tx_ring_dma);
+-		lp->tx_ring = 0;
++		lp->tx_ring = NULL;
+ 	}
  
- /* per-net private data for this module */
--static unsigned int pppoe_net_id;
-+static int pppoe_net_id;
- struct pppoe_net {
- 	/*
- 	 * we could use _single_ hash table for all
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index 1ba0f68..5b07dd8 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -232,7 +232,7 @@ static struct ppp_channel_ops pppol2tp_chan_ops = { pppol2tp_xmit , NULL };
- static struct proto_ops pppol2tp_ops;
- 
- /* per-net private data for this module */
--static unsigned int pppol2tp_net_id;
-+static int pppol2tp_net_id;
- struct pppol2tp_net {
- 	struct list_head pppol2tp_tunnel_list;
- 	rwlock_t pppol2tp_tunnel_list_lock;
+ 	return 0;
 
