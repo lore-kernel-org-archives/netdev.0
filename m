@@ -1,63 +1,81 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 32/43] drivers/net/tulip: fix warning: format not a string
-	literal and no ...
-Date: Sat, 14 Feb 2009 22:46:59 +0100
-Message-ID: <20090214214632.24377.15197.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 33/43] drivers/net/tulip: fix sparse warning: symbol shadows
+	an earlier one
+Date: Sat, 14 Feb 2009 22:47:30 +0100
+Message-ID: <20090214214707.24377.56661.stgit@vmbox.hanneseder.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:58436 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbZBNVrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:47:04 -0500
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754105AbZBNVru@vger.kernel.org>
 In-Reply-To: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Impact: Use 'static const char[]' instead of 'static char[]' and while
-being at it add a KERN_INFO prefix.
+Impact: Rename a local variable resp. remove a redundant variable and
+while being at it use more unform loop constructs.
 
-Fix this warning:
-  drivers/net/tulip/de4x5.c: In function 'de4x5_hw_init':
-  drivers/net/tulip/de4x5.c:1268: warning: format not a string literal and no format arguments
-  drivers/net/tulip/winbond-840.c: In function 'w840_init':
-  drivers/net/tulip/winbond-840.c:1666: warning: format not a string literal and no format arguments
+Fix this sparse warning:
+  drivers/net/tulip/de4x5.c:3944:13: warning: symbol 'i' shadows an earlier one
+  drivers/net/tulip/de4x5.c:3938:9: originally declared here
+  drivers/net/tulip/media.c:72:21: warning: symbol 'i' shadows an earlier one
+  drivers/net/tulip/media.c:54:13: originally declared here
+  drivers/net/tulip/media.c:134:21: warning: symbol 'i' shadows an earlier one
+  drivers/net/tulip/media.c:117:13: originally declared here
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/tulip/de4x5.c       |    3 ++-
- drivers/net/tulip/winbond-840.c |    2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/tulip/de4x5.c |    4 ++--
+ drivers/net/tulip/media.c |    8 +++-----
+ 2 files changed, 5 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
-index 6418f74..98e8682 100644
+index 98e8682..6430a2e 100644
 --- a/drivers/net/tulip/de4x5.c
 +++ b/drivers/net/tulip/de4x5.c
-@@ -479,7 +479,8 @@
+@@ -3942,8 +3942,8 @@ PCI_signature(char *name, struct de4x5_private *lp)
+ 	strcpy(name, "DE434/5");
+ 	return status;
+     } else {                           /* Search for a DEC name in the SROM */
+-	int i = *((char *)&lp->srom + 19) * 3;
+-	strncpy(name, (char *)&lp->srom + 26 + i, 8);
++	int tmp = *((char *)&lp->srom + 19) * 3;
++	strncpy(name, (char *)&lp->srom + 26 + tmp, 8);
+     }
+     name[8] = '\0';
+     for (i=0; i<siglen; i++) {
+diff --git a/drivers/net/tulip/media.c b/drivers/net/tulip/media.c
+index 91cf9c8..daddfa5 100644
+--- a/drivers/net/tulip/media.c
++++ b/drivers/net/tulip/media.c
+@@ -69,11 +69,10 @@ int tulip_mdio_read(struct net_device *dev, int phy_id, int location)
  
- #include "de4x5.h"
+ 	spin_lock_irqsave(&tp->mii_lock, flags);
+ 	if (tp->chip_id == LC82C168) {
+-		int i = 1000;
+ 		iowrite32(0x60020000 + (phy_id<<23) + (location<<18), ioaddr + 0xA0);
+ 		ioread32(ioaddr + 0xA0);
+ 		ioread32(ioaddr + 0xA0);
+-		while (--i > 0) {
++		for (i = 1000; i >= 0; --i) {
+ 			barrier();
+ 			if ( ! ((retval = ioread32(ioaddr + 0xA0)) & 0x80000000))
+ 				break;
+@@ -131,13 +130,12 @@ void tulip_mdio_write(struct net_device *dev, int phy_id, int location, int val)
  
--static char version[] __devinitdata = "de4x5.c:V0.546 2001/02/22 davies@maniac.ultranet.com\n";
-+static const char version[] __devinitdata =
-+	KERN_INFO "de4x5.c:V0.546 2001/02/22 davies@maniac.ultranet.com\n";
- 
- #define c_char const char
- 
-diff --git a/drivers/net/tulip/winbond-840.c b/drivers/net/tulip/winbond-840.c
-index f467bf8..426b7c7 100644
---- a/drivers/net/tulip/winbond-840.c
-+++ b/drivers/net/tulip/winbond-840.c
-@@ -139,7 +139,7 @@ static int full_duplex[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
- #define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer.*/
- 
- /* These identify the driver base version and may not be removed. */
--static char version[] =
-+static const char version[] __initdata =
- KERN_INFO DRV_NAME ".c:v" DRV_VERSION " (2.4 port) " DRV_RELDATE "  Donald Becker <becker@scyld.com>\n"
- KERN_INFO "  http://www.scyld.com/network/drivers.html\n";
- 
-
+ 	spin_lock_irqsave(&tp->mii_lock, flags);
+ 	if (tp->chip_id == LC82C168) {
+-		int i = 1000;
+ 		iowrite32(cmd, ioaddr + 0xA0);
+-		do {
++		for (i = 1000; i >= 0; --i) {
+ 			barrier();
+ 			if ( ! (ioread32(ioaddr + 0xA0) & 0x80000000))
+ 				break;
+-		} while (--i > 0);
++		}
+ 		spin_unlock_irqrestore(&tp->mii_lock, flags);
+ 		return;
+ 	}
