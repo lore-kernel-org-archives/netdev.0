@@ -1,8 +1,8 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 42/43] drivers/net/wireless/ipw2x00: fix sparse warnings: fix
-	signedness
-Date: Sat, 14 Feb 2009 22:50:26 +0100
-Message-ID: <20090214215013.24377.69151.stgit@vmbox.hanneseder.net>
+Subject: [PATCH 41/43] drivers/net/wireless/b43: fix warning: format not a
+	string literal and no ...
+Date: Sat, 14 Feb 2009 22:50:06 +0100
+Message-ID: <20090214214956.24377.19315.stgit@vmbox.hanneseder.net>
 References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,67 +12,42 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f25.google.com ([209.85.220.25]:51560 "EHLO
 	mail-fx0-f25.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755625AbZBNVub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:50:31 -0500
+	with ESMTP id S1755514AbZBNVuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2009 16:50:10 -0500
 In-Reply-To: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix this sparse warnings:
-  drivers/net/wireless/ipw2x00/ipw2100.c:1930:43: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:1938:76: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:1946:67: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:1953:72: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:4071:73: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:4078:43: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:4084:67: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:7141:73: warning: incorrect type in argument 4 (different signedness)
-  drivers/net/wireless/ipw2x00/ipw2100.c:8317:48: warning: incorrect type in argument 4 (different signedness)
+Fix this compilation warning:
+  drivers/net/wireless/b43/main.c: In function 'b43_print_fw_helptext':
+  drivers/net/wireless/b43/main.c:1971: warning: format not a string literal and no format arguments
+  drivers/net/wireless/b43/main.c:1973: warning: format not a string literal and no format arguments
 
 Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 ---
- drivers/net/wireless/ipw2x00/ipw2100.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/wireless/b43/main.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index 9170c23..fc6a0b3 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -1910,7 +1910,8 @@ static void isr_indicate_associated(struct ipw2100_priv *priv, u32 status)
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index dbb8765..7116ab6 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -1961,12 +1961,12 @@ static void b43_release_firmware(struct b43_wldev *dev)
+ 
+ static void b43_print_fw_helptext(struct b43_wl *wl, bool error)
  {
+-	const char *text;
++	const char text[] =
++		"You must go to " \
++		"http://wireless.kernel.org/en/users/Drivers/b43#devicefirmware " \
++		"and download the correct firmware for this driver version. " \
++		"Please carefully read all instructions on this website.\n";
  
- #define MAC_ASSOCIATION_READ_DELAY (HZ)
--	int ret, len, essid_len;
-+	int ret;
-+	unsigned int len, essid_len;
- 	char essid[IW_ESSID_MAX_SIZE];
- 	u32 txrate;
- 	u32 chan;
-@@ -4058,7 +4059,7 @@ static ssize_t show_bssinfo(struct device *d, struct device_attribute *attr,
- 	u8 bssid[ETH_ALEN];
- 	u32 chan = 0;
- 	char *out = buf;
--	int length;
-+	unsigned int length;
- 	int ret;
- 
- 	if (priv->status & STATUS_RF_KILL_MASK)
-@@ -7122,7 +7123,7 @@ static int ipw2100_wx_get_rate(struct net_device *dev,
- {
- 	struct ipw2100_priv *priv = ieee80211_priv(dev);
- 	int val;
--	int len = sizeof(val);
-+	unsigned int len = sizeof(val);
- 	int err = 0;
- 
- 	if (!(priv->status & STATUS_ENABLED) ||
-@@ -8297,7 +8298,7 @@ static void ipw2100_wx_event_work(struct work_struct *work)
- 	struct ipw2100_priv *priv =
- 		container_of(work, struct ipw2100_priv, wx_event_work.work);
- 	union iwreq_data wrqu;
--	int len = ETH_ALEN;
-+	unsigned int len = ETH_ALEN;
- 
- 	if (priv->status & STATUS_STOPPING)
- 		return;
+-	text = "You must go to "
+-	       "http://wireless.kernel.org/en/users/Drivers/b43#devicefirmware "
+-	       "and download the correct firmware for this driver version. "
+-	       "Please carefully read all instructions on this website.\n";
+ 	if (error)
+ 		b43err(wl, text);
+ 	else
 
