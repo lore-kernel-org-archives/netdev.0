@@ -1,110 +1,102 @@
-From: Pantelis Koukousoulas <pktoss@gmail.com>
-Subject: Fwd: [PATCH] b44: Unconditionally enable interrupt routing on reset
-Date: Sun, 15 Feb 2009 16:17:19 +0200
-Message-ID: <1295ed070902150617m2ed1a4b4ja7d2bf471b941f26@mail.gmail.com>
-References: <200811161537.30404.mb@bu3sch.de>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH 02/43] drivers/net/e2100.c: fix sparse warning: symbol
+ shadows	an earlier one
+Date: Sun, 15 Feb 2009 15:04:15 +0100
+Message-ID: <499820DF.5070508@bfs.de>
+References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net> <20090214211203.23489.80420.stgit@vmbox.hanneseder.net>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hannes Eder <hannes@hanneseder.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f20.google.com ([209.85.220.20]:48849 "EHLO
-	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449AbZBOORW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 09:17:22 -0500
-Received: by fxm13 with SMTP id 13so4916373fxm.13
-        for <netdev@vger.kernel.org>; Sun, 15 Feb 2009 06:17:19 -0800 (PST)
-In-Reply-To: <200811161537.30404.mb@bu3sch.de>
+Received: from mx.sz.bfs.de ([194.94.69.70]:60081 "EHLO mx.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751592AbZBOOWW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Feb 2009 09:22:22 -0500
+In-Reply-To: <20090214211203.23489.80420.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
-
-There's been 3 months since the last time this was posted so I assume
-it was somehow lost.
-This patch helps with pxe booting b44 laptops where the BIOS leaves
-the card in a slightly
-broken state causing nfsroot mount to hang indefinitely (due to no
-interrupts coming).
-
-Note that without the patch, one could say that it is the fragility of
-the linux driver code
-that turns a slight BIOS PXE bug into a broken card with no
-interrupts, so the change
-is imho worthy from a correctness point of view (more robust code).
-
-I understand that it is a bit late for this patch to get to 2.6.29
-(although it's been posted
-over 3 months ago at first) but it would be *really* nice if it was at
-least picked up into a
-maintainer tree for the next merge window if possible.
-
-Again, this patch is very straightforward and it has been tested daily
-for the last 3 months
-with no problems whatsoever.
-
-Thanks in advance,
-Pantelis
+Hi Hannes,
+it is ok to replace a fixed boarder with ARRAY_SIZE()
+in this special case i would success the following additional cleanup
+(untestet !!)
 
 
----------- Forwarded message ----------
-From: Michael Buesch <mb@bu3sch.de>
-Date: Sun, Nov 16, 2008 at 4:37 PM
-Subject: [PATCH] b44: Unconditionally enable interrupt routing on reset
-To: Jeff Garzik <jeff@garzik.org>
-Cc: netdev@vger.kernel.org, Pantelis Koukousoulas <pktoss@gmail.com>,
-Gary Zambrano <zambrano@broadcom.com>
+static int set_free_irq(struct net_device *dev)
+{
+ int irqlist[] = {15,11,10,12,5,9,3,4}, i;
+
+        for (i = 0; i < ARRAY_SIZE(irqlist); i++)
+           if (request_irq (irqlist[i], NULL, 0, "bogus", NULL) != -EBUSY) {
+                        dev->irq = irqlist[i];
+                        return 0;
+            }
+        return -1;
+}
+
+....
+
+if (dev->irq < 2) {
+         if ( set_free_irq(dev) < 0) {
+                printk(" unable to get IRQ %d.\n", dev->irq);
+                retval = -EAGAIN;
+                goto out;
+        }
+
+for me this looks more readable.
+
+getting a free interrupt from a list mus be a common problem ? I am not in driver programming
+perhaps such a code is already in place somewhere  ?
+
+comments ?
+
+re,
+ wh
 
 
-Unconditionally setup the IRQ routing on chip reset.
-It's safe to call ssb_pcicore_dev_irqvecs_enable() unconditionally, because
-it has internal checks for redundant calls.
-
-This fixes problems where hardware will not come up properly
-due to quirks in the enable-bit hardware.
-
-Reported-by: Pantelis Koukousoulas <pktoss@gmail.com>
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-
----
-
-I'm not sure if we should push this for 2.6.28.
-This fixes quirks when booting from PXE. So only a minority of
-the b44 users are affected.
-
-Index: wireless-testing/drivers/net/b44.c
-===================================================================
---- wireless-testing.orig/drivers/net/b44.c     2008-11-16
-14:47:06.000000000 +0100
-+++ wireless-testing/drivers/net/b44.c  2008-11-16 15:03:35.000000000 +0100
-@@ -1266,8 +1266,14 @@ static void b44_clear_stats(struct b44 *
- static void b44_chip_reset(struct b44 *bp, int reset_kind)
- {
-       struct ssb_device *sdev = bp->sdev;
-+       bool was_enabled;
-
--       if (ssb_device_is_enabled(bp->sdev)) {
-+       was_enabled = ssb_device_is_enabled(bp->sdev);
-+
-+       ssb_device_enable(bp->sdev, 0);
-+       ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
-+
-+       if (was_enabled) {
-               bw32(bp, B44_RCV_LAZY, 0);
-               bw32(bp, B44_ENET_CTRL, ENET_CTRL_DISABLE);
-               b44_wait_bit(bp, B44_ENET_CTRL, ENET_CTRL_DISABLE, 200, 1);
-@@ -1279,10 +1285,8 @@ static void b44_chip_reset(struct b44 *b
-               }
-               bw32(bp, B44_DMARX_CTRL, 0);
-               bp->rx_prod = bp->rx_cons = 0;
--       } else
--               ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
-+       }
-
--       ssb_device_enable(bp->sdev, 0);
-       b44_clear_stats(bp);
-
-       /*
-
---
-Greetings Michael.
+Hannes Eder schrieb:
+> Impact: Remove redundant inner scope variable and while being at it
+> make use of ARRAY_SIZE instead of a hardcoded number.
+> 
+> Fix this sparse warning:
+>   drivers/net/e2100.c:219:56: warning: symbol 'i' shadows an earlier one
+>   drivers/net/e2100.c:181:13: originally declared here
+> 
+> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+> ---
+>  drivers/net/e2100.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/e2100.c b/drivers/net/e2100.c
+> index b07ba19..d2f6ee1 100644
+> --- a/drivers/net/e2100.c
+> +++ b/drivers/net/e2100.c
+> @@ -216,13 +216,13 @@ static int __init e21_probe1(struct net_device *dev, int ioaddr)
+>  		printk(" %02X", station_addr[i]);
+>  
+>  	if (dev->irq < 2) {
+> -		int irqlist[] = {15,11,10,12,5,9,3,4}, i;
+> -		for (i = 0; i < 8; i++)
+> +		int irqlist[] = {15, 11, 10, 12, 5, 9, 3, 4};
+> +		for (i = 0; i < ARRAY_SIZE(irqlist); i++)
+>  			if (request_irq (irqlist[i], NULL, 0, "bogus", NULL) != -EBUSY) {
+>  				dev->irq = irqlist[i];
+>  				break;
+>  			}
+> -		if (i >= 8) {
+> +		if (i >= ARRAY_SIZE(irqlist)) {
+>  			printk(" unable to get IRQ %d.\n", dev->irq);
+>  			retval = -EAGAIN;
+>  			goto out;
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+> 
