@@ -1,67 +1,110 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [PATCH 16/43] drivers/net/cxgb3: fix sparse warning: symbol shadows
- an earlier one
-Date: Sun, 15 Feb 2009 15:14:09 +0100
-Message-ID: <49982331.4050001@bfs.de>
-References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net> <20090214211557.23489.75670.stgit@vmbox.hanneseder.net>
-Reply-To: wharms@bfs.de
+From: Pantelis Koukousoulas <pktoss@gmail.com>
+Subject: Fwd: [PATCH] b44: Unconditionally enable interrupt routing on reset
+Date: Sun, 15 Feb 2009 16:17:19 +0200
+Message-ID: <1295ed070902150617m2ed1a4b4ja7d2bf471b941f26@mail.gmail.com>
+References: <200811161537.30404.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hannes Eder <hannes@hanneseder.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.sz.bfs.de ([194.94.69.70]:59315 "EHLO mx.sz.bfs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753646AbZBOOO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Feb 2009 09:14:26 -0500
-In-Reply-To: <20090214211557.23489.75670.stgit@vmbox.hanneseder.net>
+Received: from mail-fx0-f20.google.com ([209.85.220.20]:48849 "EHLO
+	mail-fx0-f20.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752449AbZBOORW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 09:17:22 -0500
+Received: by fxm13 with SMTP id 13so4916373fxm.13
+        for <netdev@vger.kernel.org>; Sun, 15 Feb 2009 06:17:19 -0800 (PST)
+In-Reply-To: <200811161537.30404.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi!
+
+There's been 3 months since the last time this was posted so I assume
+it was somehow lost.
+This patch helps with pxe booting b44 laptops where the BIOS leaves
+the card in a slightly
+broken state causing nfsroot mount to hang indefinitely (due to no
+interrupts coming).
+
+Note that without the patch, one could say that it is the fragility of
+the linux driver code
+that turns a slight BIOS PXE bug into a broken card with no
+interrupts, so the change
+is imho worthy from a correctness point of view (more robust code).
+
+I understand that it is a bit late for this patch to get to 2.6.29
+(although it's been posted
+over 3 months ago at first) but it would be *really* nice if it was at
+least picked up into a
+maintainer tree for the next merge window if possible.
+
+Again, this patch is very straightforward and it has been tested daily
+for the last 3 months
+with no problems whatsoever.
+
+Thanks in advance,
+Pantelis
 
 
-Hannes Eder schrieb:
-> Impact: Move variable declaration as close to usage as possible.
-> 
-> Fix this sparse warning:
->   drivers/net/cxgb3/cxgb3_main.c:1586:21: warning: symbol 'cap' shadows an earlier one
-> 
-> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
-> ---
->  drivers/net/cxgb3/cxgb3_main.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-> index f2c7cc3..0f6062a 100644
-> --- a/drivers/net/cxgb3/cxgb3_main.c
-> +++ b/drivers/net/cxgb3/cxgb3_main.c
-> @@ -1565,7 +1565,6 @@ static int speed_duplex_to_caps(int speed, int duplex)
->  
->  static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->  {
-> -	int cap;
->  	struct port_info *p = netdev_priv(dev);
->  	struct link_config *lc = &p->link_config;
->  
-> @@ -1575,7 +1574,7 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->  		 * being requested.
->  		 */
->  		if (cmd->autoneg == AUTONEG_DISABLE) {
-> -			cap = speed_duplex_to_caps(cmd->speed, cmd->duplex);
-> +			int cap = speed_duplex_to_caps(cmd->speed, cmd->duplex);
->  			if (lc->supported & cap)
->  				return 0;
->  		}
-> 
-
-Hello Hannes,
-it seems that "cap" can be dropped completely.
-
-if (lc->supported & speed_duplex_to_caps(cmd->speed, cmd->duplex) )
-	return 0;
+---------- Forwarded message ----------
+From: Michael Buesch <mb@bu3sch.de>
+Date: Sun, Nov 16, 2008 at 4:37 PM
+Subject: [PATCH] b44: Unconditionally enable interrupt routing on reset
+To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, Pantelis Koukousoulas <pktoss@gmail.com>,
+Gary Zambrano <zambrano@broadcom.com>
 
 
-re,
- wh
+Unconditionally setup the IRQ routing on chip reset.
+It's safe to call ssb_pcicore_dev_irqvecs_enable() unconditionally, because
+it has internal checks for redundant calls.
+
+This fixes problems where hardware will not come up properly
+due to quirks in the enable-bit hardware.
+
+Reported-by: Pantelis Koukousoulas <pktoss@gmail.com>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+---
+
+I'm not sure if we should push this for 2.6.28.
+This fixes quirks when booting from PXE. So only a minority of
+the b44 users are affected.
+
+Index: wireless-testing/drivers/net/b44.c
+===================================================================
+--- wireless-testing.orig/drivers/net/b44.c     2008-11-16
+14:47:06.000000000 +0100
++++ wireless-testing/drivers/net/b44.c  2008-11-16 15:03:35.000000000 +0100
+@@ -1266,8 +1266,14 @@ static void b44_clear_stats(struct b44 *
+ static void b44_chip_reset(struct b44 *bp, int reset_kind)
+ {
+       struct ssb_device *sdev = bp->sdev;
++       bool was_enabled;
+
+-       if (ssb_device_is_enabled(bp->sdev)) {
++       was_enabled = ssb_device_is_enabled(bp->sdev);
++
++       ssb_device_enable(bp->sdev, 0);
++       ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
++
++       if (was_enabled) {
+               bw32(bp, B44_RCV_LAZY, 0);
+               bw32(bp, B44_ENET_CTRL, ENET_CTRL_DISABLE);
+               b44_wait_bit(bp, B44_ENET_CTRL, ENET_CTRL_DISABLE, 200, 1);
+@@ -1279,10 +1285,8 @@ static void b44_chip_reset(struct b44 *b
+               }
+               bw32(bp, B44_DMARX_CTRL, 0);
+               bp->rx_prod = bp->rx_cons = 0;
+-       } else
+-               ssb_pcicore_dev_irqvecs_enable(&sdev->bus->pcicore, sdev);
++       }
+
+-       ssb_device_enable(bp->sdev, 0);
+       b44_clear_stats(bp);
+
+       /*
+
+--
+Greetings Michael.
