@@ -1,38 +1,45 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match (iptables part)
-Date: Sun, 15 Feb 2009 20:35:03 +0300
-Message-ID: <20090215173502.GB19556@ioremap.net>
-References: <20090212171245.GA15025@ioremap.net> <alpine.LSU.2.00.0902121922280.20367@fbirervta.pbzchgretzou.qr> <20090213125215.GC23879@ioremap.net> <alpine.LSU.2.00.0902131402460.9310@fbirervta.pbzchgretzou.qr> <20090213131256.GE23879@ioremap.net> <alpine.LSU.2.00.0902131452010.9310@fbirervta.pbzchgretzou.qr>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] ATM: misplaced parentheses?
+Date: Sun, 15 Feb 2009 17:07:12 +0100
+Message-ID: <49983DB0.6040008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.00.0902131452010.9310@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:44697 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752654AbZBOQHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 11:07:14 -0500
+Received: by nf-out-0910.google.com with SMTP id d21so174495nfb.21
+        for <netdev@vger.kernel.org>; Sun, 15 Feb 2009 08:07:13 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 13, 2009 at 02:54:25PM +0100, Jan Engelhardt (jengelh@medozas.de) wrote:
-> >'! --genre Linux' means this option was not specified,
-> >'--genre ! Linux' means everything but Linux.
-> 
-> Well not in iptables. Not specifying an option is represented by 
-> voidness/absence of any string. (E.g. iptables -d 192.168.0.0/16  vs.
-> iptables ! -s 172.16.0.0/12 -d 192.168.0.0/16)
-> Also, (!(--genre == "linux")) is eqv. (--genre != "linux")
-> is equivalent in boolean logic  ;-)
+I think below is what was intended? otherwise we could as well have written:
 
-And that's not what should be :)
-In the code it is intended to be:
-(--genre && (--genre != Linux))
+tmp = (lanai->conf1 & ~CONFIG1_PROMDATA) ||
+	(data & i) ? CONFIG1_PROMDATA : 0;
 
-But I really do not care where to put a '!' sign in the documentation
-string :)
+Does this fix the parsing of the EEPROM?
 
--- 
-	Evgeniy Polyakov
+please review.
+-------------------------->8------------------8<---------------------------
+Fix misplaced parentheses
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/atm/lanai.c b/drivers/atm/lanai.c
+index 144a49f..317fb5a 100644
+--- a/drivers/atm/lanai.c
++++ b/drivers/atm/lanai.c
+@@ -901,7 +901,7 @@ static int __devinit eeprom_read(struct lanai_dev *lanai)
+ 		clock_l(); udelay(5);
+ 		for (i = 128; i != 0; i >>= 1) {   /* write command out */
+ 			tmp = (lanai->conf1 & ~CONFIG1_PROMDATA) |
+-			    (data & i) ? CONFIG1_PROMDATA : 0;
++			    (data & i ? CONFIG1_PROMDATA : 0);
+ 			if (lanai->conf1 != tmp) {
+ 				set_config1(tmp);
+ 				udelay(5);	/* Let new data settle */
