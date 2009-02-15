@@ -1,50 +1,51 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [PATCH] net/mv643xx: don't disable the mib timer too early
-Date: Sun, 15 Feb 2009 10:27:19 +0100
-Message-ID: <20090215092719.GB12280@Chamillionaire.breakpoint.cc>
+From: Hannes Eder <hannes@hanneseder.net>
+Subject: Re: [PATCH 31/43] drivers/net/tokenring: fix sparse warning: cast
+	truncates bits from const value
+Date: Sun, 15 Feb 2009 12:47:42 +0100
+Message-ID: <154e089b0902150347o4e06683dy1c9c02dc2564ea4f@mail.gmail.com>
+References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
+	 <20090214214452.24377.31953.stgit@vmbox.hanneseder.net>
+	 <20090214232448.GR28946@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@marvell.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jay Schulist <jschlst@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:58017 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751512AbZBOJ1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 04:27:20 -0500
-Content-Disposition: inline
+Received: from mail-fx0-f25.google.com ([209.85.220.25]:55616 "EHLO
+	mail-fx0-f25.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582AbZBOLrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 06:47:46 -0500
+In-Reply-To: <20090214232448.GR28946@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-because mib_counters_update() also restarts the timer.
-So the timer is dequeued, the stats are read and then the timer is
-enqueued again. This is okay, unless someone unloads the module.
+On Sun, Feb 15, 2009 at 12:24 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> On Sat, Feb 14, 2009 at 10:46:24PM +0100, Hannes Eder wrote:
+>> Impact: Use '__u16' instead of '__u8', this possibly fixes a bug.
+>>
+>> Fix this sparse warnings:
+>>   drivers/net/tokenring/smctr.c:4410:52: warning: cast truncates bits from constant value (100 becomes 0)
+>>   drivers/net/tokenring/smctr.c:4415:52: warning: cast truncates bits from constant value (400 becomes 0)
+>>   drivers/net/tokenring/smctr.c:4420:52: warning: cast truncates bits from constant value (800 becomes 0)
+>>   drivers/net/tokenring/smctr.c:4425:52: warning: cast truncates bits from constant value (1000 becomes 0)
+>>   drivers/net/tokenring/smctr.c:4430:52: warning: cast truncates bits from constant value (2000 becomes 0)
+>>   drivers/net/tokenring/smctr.c:4435:52: warning: cast truncates bits from constant value (4000 becomes 0)
+>>   drivers/net/tokenring/smctr.c:4440:52: warning: cast truncates bits from constant value (8000 becomes 0)
+>
+> Um, no.  Here's a better question: does *anything* use ->current_ring_status
+> at all?  Answer: no.  Next question: did anything use it in the past?
+> git log -p drivers/net/tokenging/smctr.c in historical trees shows that
+> it had always been defined that way and that it had never been used at
+> all.
+>
+> So how about removing the damn field completely?  Or asking the driver's
+> author what the hell had it been about?
+>
 
-Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
----
- drivers/net/mv643xx_eth.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+I vote for removing the field, I prepare a patch for this.
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 6977abe..3c6847a 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -2213,8 +2213,6 @@ static int mv643xx_eth_stop(struct net_device *dev)
- 	wrlp(mp, INT_MASK, 0x00000000);
- 	rdlp(mp, INT_MASK);
- 
--	del_timer_sync(&mp->mib_counters_timer);
--
- 	napi_disable(&mp->napi);
- 
- 	del_timer_sync(&mp->rx_oom);
-@@ -2226,6 +2224,7 @@ static int mv643xx_eth_stop(struct net_device *dev)
- 	port_reset(mp);
- 	mv643xx_eth_get_stats(dev);
- 	mib_counters_update(mp);
-+	del_timer_sync(&mp->mib_counters_timer);
- 
- 	skb_queue_purge(&mp->rx_recycle);
- 
--- 
-1.6.0.6
+Comments?
 
+-Hannes
