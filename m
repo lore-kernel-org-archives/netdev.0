@@ -1,51 +1,109 @@
 From: Hannes Eder <hannes@hanneseder.net>
-Subject: Re: [PATCH 31/43] drivers/net/tokenring: fix sparse warning: cast
+Subject: [PATCH 31/43 v2] drivers/net/tokenring: fix sparse warning: cast
 	truncates bits from const value
-Date: Sun, 15 Feb 2009 12:47:42 +0100
-Message-ID: <154e089b0902150347o4e06683dy1c9c02dc2564ea4f@mail.gmail.com>
-References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
-	 <20090214214452.24377.31953.stgit@vmbox.hanneseder.net>
-	 <20090214232448.GR28946@ZenIV.linux.org.uk>
+Date: Sun, 15 Feb 2009 13:13:01 +0100
+Message-ID: <20090215121201.26072.42971.stgit@vmbox.hanneseder.net>
+References: <154e089b0902150347o4e06683dy1c9c02dc2564ea4f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Al Viro <viro@zeniv.linux.org.uk>, Jay Schulist <jschlst@samba.org>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jay Schulist <jjschlst@gmail.com>,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f25.google.com ([209.85.220.25]:55616 "EHLO
+Received: from mail-fx0-f25.google.com ([209.85.220.25]:51810 "EHLO
 	mail-fx0-f25.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbZBOLrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 06:47:46 -0500
-In-Reply-To: <20090214232448.GR28946@ZenIV.linux.org.uk>
+	with ESMTP id S1752168AbZBOMNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 07:13:10 -0500
+In-Reply-To: <154e089b0902150347o4e06683dy1c9c02dc2564ea4f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 15, 2009 at 12:24 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Sat, Feb 14, 2009 at 10:46:24PM +0100, Hannes Eder wrote:
->> Impact: Use '__u16' instead of '__u8', this possibly fixes a bug.
->>
->> Fix this sparse warnings:
->>   drivers/net/tokenring/smctr.c:4410:52: warning: cast truncates bits from constant value (100 becomes 0)
->>   drivers/net/tokenring/smctr.c:4415:52: warning: cast truncates bits from constant value (400 becomes 0)
->>   drivers/net/tokenring/smctr.c:4420:52: warning: cast truncates bits from constant value (800 becomes 0)
->>   drivers/net/tokenring/smctr.c:4425:52: warning: cast truncates bits from constant value (1000 becomes 0)
->>   drivers/net/tokenring/smctr.c:4430:52: warning: cast truncates bits from constant value (2000 becomes 0)
->>   drivers/net/tokenring/smctr.c:4435:52: warning: cast truncates bits from constant value (4000 becomes 0)
->>   drivers/net/tokenring/smctr.c:4440:52: warning: cast truncates bits from constant value (8000 becomes 0)
->
-> Um, no.  Here's a better question: does *anything* use ->current_ring_status
-> at all?  Answer: no.  Next question: did anything use it in the past?
-> git log -p drivers/net/tokenging/smctr.c in historical trees shows that
-> it had always been defined that way and that it had never been used at
-> all.
->
-> So how about removing the damn field completely?  Or asking the driver's
-> author what the hell had it been about?
->
+Impact: Remove the write-only field 'current_ring_status' completely.
 
-I vote for removing the field, I prepare a patch for this.
+Fix this sparse warnings:
+  drivers/net/tokenring/smctr.c:4410:52: warning: cast truncates bits from constant value (100 becomes 0)
+  drivers/net/tokenring/smctr.c:4415:52: warning: cast truncates bits from constant value (400 becomes 0)
+  drivers/net/tokenring/smctr.c:4420:52: warning: cast truncates bits from constant value (800 becomes 0)
+  drivers/net/tokenring/smctr.c:4425:52: warning: cast truncates bits from constant value (1000 becomes 0)
+  drivers/net/tokenring/smctr.c:4430:52: warning: cast truncates bits from constant value (2000 becomes 0)
+  drivers/net/tokenring/smctr.c:4435:52: warning: cast truncates bits from constant value (4000 becomes 0)
+  drivers/net/tokenring/smctr.c:4440:52: warning: cast truncates bits from constant value (8000 becomes 0)
 
-Comments?
+Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+---
+ drivers/net/tokenring/smctr.c |   10 ----------
+ drivers/net/tokenring/smctr.h |    1 -
+ 2 files changed, 0 insertions(+), 11 deletions(-)
 
--Hannes
+diff --git a/drivers/net/tokenring/smctr.c b/drivers/net/tokenring/smctr.c
+index 5a3ff20..e66eb8a 100644
+--- a/drivers/net/tokenring/smctr.c
++++ b/drivers/net/tokenring/smctr.c
+@@ -4393,52 +4393,42 @@ static int smctr_ring_status_chg(struct net_device *dev)
+         {
+                 case RING_RECOVERY:
+                         printk(KERN_INFO "%s: Ring Recovery\n", dev->name);
+-                        tp->current_ring_status |= RING_RECOVERY;
+                         break;
+ 
+                 case SINGLE_STATION:
+                         printk(KERN_INFO "%s: Single Statinon\n", dev->name);
+-                        tp->current_ring_status |= SINGLE_STATION;
+                         break;
+ 
+                 case COUNTER_OVERFLOW:
+                         printk(KERN_INFO "%s: Counter Overflow\n", dev->name);
+-                        tp->current_ring_status |= COUNTER_OVERFLOW;
+                         break;
+ 
+                 case REMOVE_RECEIVED:
+                         printk(KERN_INFO "%s: Remove Received\n", dev->name);
+-                        tp->current_ring_status |= REMOVE_RECEIVED;
+                         break;
+ 
+                 case AUTO_REMOVAL_ERROR:
+                         printk(KERN_INFO "%s: Auto Remove Error\n", dev->name);
+-                        tp->current_ring_status |= AUTO_REMOVAL_ERROR;
+                         break;
+ 
+                 case LOBE_WIRE_FAULT:
+                         printk(KERN_INFO "%s: Lobe Wire Fault\n", dev->name);
+-                        tp->current_ring_status |= LOBE_WIRE_FAULT;
+                         break;
+ 
+                 case TRANSMIT_BEACON:
+                         printk(KERN_INFO "%s: Transmit Beacon\n", dev->name);
+-                        tp->current_ring_status |= TRANSMIT_BEACON;
+                         break;
+ 
+                 case SOFT_ERROR:
+                         printk(KERN_INFO "%s: Soft Error\n", dev->name);
+-                        tp->current_ring_status |= SOFT_ERROR;
+                         break;
+ 
+                 case HARD_ERROR:
+                         printk(KERN_INFO "%s: Hard Error\n", dev->name);
+-                        tp->current_ring_status |= HARD_ERROR;
+                         break;
+ 
+                 case SIGNAL_LOSS:
+                         printk(KERN_INFO "%s: Signal Loss\n", dev->name);
+-                        tp->current_ring_status |= SIGNAL_LOSS;
+                         break;
+ 
+                 default:
+diff --git a/drivers/net/tokenring/smctr.h b/drivers/net/tokenring/smctr.h
+index 52df7dd..6e5700a 100644
+--- a/drivers/net/tokenring/smctr.h
++++ b/drivers/net/tokenring/smctr.h
+@@ -977,7 +977,6 @@ typedef struct net_local {
+ 	__u8		monitor_state_ready;
+ 	__u16		ring_status;
+ 	__u8		ring_status_flags;
+-	__u8		current_ring_status;
+ 	__u8		state;
+ 
+ 	__u8		join_state;
+
