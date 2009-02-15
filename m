@@ -1,109 +1,41 @@
-From: Hannes Eder <hannes@hanneseder.net>
-Subject: [PATCH 31/43 v2] drivers/net/tokenring: fix sparse warning: cast
-	truncates bits from const value
-Date: Sun, 15 Feb 2009 13:13:01 +0100
-Message-ID: <20090215121201.26072.42971.stgit@vmbox.hanneseder.net>
-References: <154e089b0902150347o4e06683dy1c9c02dc2564ea4f@mail.gmail.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 09/43] drivers/net/r6040.c: fix sparse warning: Using plain integer as NULL pointer
+Date: Sun, 15 Feb 2009 15:00:06 +0100
+Message-ID: <200902151500.06516.florian@openwrt.org>
+References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net> <20090214211400.23489.24726.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jay Schulist <jjschlst@gmail.com>,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hannes Eder <hannes@hanneseder.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f25.google.com ([209.85.220.25]:51810 "EHLO
-	mail-fx0-f25.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168AbZBOMNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 07:13:10 -0500
-In-Reply-To: <154e089b0902150347o4e06683dy1c9c02dc2564ea4f@mail.gmail.com>
+Received: from mail-bw0-f161.google.com ([209.85.218.161]:43545 "EHLO
+	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752275AbZBOOAQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2009 09:00:16 -0500
+In-Reply-To: <20090214211400.23489.24726.stgit@vmbox.hanneseder.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Impact: Remove the write-only field 'current_ring_status' completely.
+Hello Hannes,
 
-Fix this sparse warnings:
-  drivers/net/tokenring/smctr.c:4410:52: warning: cast truncates bits from constant value (100 becomes 0)
-  drivers/net/tokenring/smctr.c:4415:52: warning: cast truncates bits from constant value (400 becomes 0)
-  drivers/net/tokenring/smctr.c:4420:52: warning: cast truncates bits from constant value (800 becomes 0)
-  drivers/net/tokenring/smctr.c:4425:52: warning: cast truncates bits from constant value (1000 becomes 0)
-  drivers/net/tokenring/smctr.c:4430:52: warning: cast truncates bits from constant value (2000 becomes 0)
-  drivers/net/tokenring/smctr.c:4435:52: warning: cast truncates bits from constant value (4000 becomes 0)
-  drivers/net/tokenring/smctr.c:4440:52: warning: cast truncates bits from constant value (8000 becomes 0)
+Le Saturday 14 February 2009 22:14:04 Hannes Eder, vous avez =C3=A9crit=
+=C2=A0:
+> Fix this sparse warnings:
+>   drivers/net/r6040.c:487:31: warning: Using plain integer as NULL po=
+inter
+>   drivers/net/r6040.c:492:31: warning: Using plain integer as NULL po=
+inter
 
-Signed-off-by: Hannes Eder <hannes@hanneseder.net>
----
- drivers/net/tokenring/smctr.c |   10 ----------
- drivers/net/tokenring/smctr.h |    1 -
- 2 files changed, 0 insertions(+), 11 deletions(-)
+Good catch, thanks.
+>
+> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 
-diff --git a/drivers/net/tokenring/smctr.c b/drivers/net/tokenring/smctr.c
-index 5a3ff20..e66eb8a 100644
---- a/drivers/net/tokenring/smctr.c
-+++ b/drivers/net/tokenring/smctr.c
-@@ -4393,52 +4393,42 @@ static int smctr_ring_status_chg(struct net_device *dev)
-         {
-                 case RING_RECOVERY:
-                         printk(KERN_INFO "%s: Ring Recovery\n", dev->name);
--                        tp->current_ring_status |= RING_RECOVERY;
-                         break;
- 
-                 case SINGLE_STATION:
-                         printk(KERN_INFO "%s: Single Statinon\n", dev->name);
--                        tp->current_ring_status |= SINGLE_STATION;
-                         break;
- 
-                 case COUNTER_OVERFLOW:
-                         printk(KERN_INFO "%s: Counter Overflow\n", dev->name);
--                        tp->current_ring_status |= COUNTER_OVERFLOW;
-                         break;
- 
-                 case REMOVE_RECEIVED:
-                         printk(KERN_INFO "%s: Remove Received\n", dev->name);
--                        tp->current_ring_status |= REMOVE_RECEIVED;
-                         break;
- 
-                 case AUTO_REMOVAL_ERROR:
-                         printk(KERN_INFO "%s: Auto Remove Error\n", dev->name);
--                        tp->current_ring_status |= AUTO_REMOVAL_ERROR;
-                         break;
- 
-                 case LOBE_WIRE_FAULT:
-                         printk(KERN_INFO "%s: Lobe Wire Fault\n", dev->name);
--                        tp->current_ring_status |= LOBE_WIRE_FAULT;
-                         break;
- 
-                 case TRANSMIT_BEACON:
-                         printk(KERN_INFO "%s: Transmit Beacon\n", dev->name);
--                        tp->current_ring_status |= TRANSMIT_BEACON;
-                         break;
- 
-                 case SOFT_ERROR:
-                         printk(KERN_INFO "%s: Soft Error\n", dev->name);
--                        tp->current_ring_status |= SOFT_ERROR;
-                         break;
- 
-                 case HARD_ERROR:
-                         printk(KERN_INFO "%s: Hard Error\n", dev->name);
--                        tp->current_ring_status |= HARD_ERROR;
-                         break;
- 
-                 case SIGNAL_LOSS:
-                         printk(KERN_INFO "%s: Signal Loss\n", dev->name);
--                        tp->current_ring_status |= SIGNAL_LOSS;
-                         break;
- 
-                 default:
-diff --git a/drivers/net/tokenring/smctr.h b/drivers/net/tokenring/smctr.h
-index 52df7dd..6e5700a 100644
---- a/drivers/net/tokenring/smctr.h
-+++ b/drivers/net/tokenring/smctr.h
-@@ -977,7 +977,6 @@ typedef struct net_local {
- 	__u8		monitor_state_ready;
- 	__u16		ring_status;
- 	__u8		ring_status_flags;
--	__u8		current_ring_status;
- 	__u8		state;
- 
- 	__u8		join_state;
-
+Acked-by: Florian Fainelli <florian@openwrt.org>
+--=20
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
