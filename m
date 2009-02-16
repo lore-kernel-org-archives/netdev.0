@@ -1,50 +1,45 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] SMSC: timeout reaches -1
-Date: Mon, 16 Feb 2009 11:21:33 +0100
-Message-ID: <49993E2D.4030103@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [BUG] SNAT sometimes allows packets to pass through unchanged
+Date: Mon, 16 Feb 2009 11:43:27 +0100
+Message-ID: <4999434F.1050101@trash.net>
+References: <Pine.LNX.4.44L0.0902121008050.2388-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: steve.glendinning@smsc.com
+Cc: netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Alan Stern <stern@rowland.harvard.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f21.google.com ([209.85.219.21]:34426 "EHLO
-	mail-ew0-f21.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753319AbZBPKVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 05:21:36 -0500
-Received: by ewy14 with SMTP id 14so1835880ewy.13
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2009 02:21:34 -0800 (PST)
+Received: from stinky.trash.net ([213.144.137.162]:53135 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751271AbZBPKnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 05:43:31 -0500
+In-Reply-To: <Pine.LNX.4.44L0.0902121008050.2388-100000@iolanthe.rowland.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With a postfix decrement timeouts will reach -1 rather than 0, so
-the error path does not appear.
+Alan Stern wrote:
+> On Thu, 12 Feb 2009, Patrick McHardy wrote:
+> 
+>> If the connection has already timed out (from conntracks perspective),
+>> it has lost its state. Unless connection pickup is enabled, the packet 
+>> will be marked as INVALID because it doesn't belong to a connection.
+>> You can control dropping of these packets yourself by adding the
+>> appropriate "-m state --state INVALID" rules.
+> 
+> I tried adding a rule to log these unaccounted-for packets.  Nothing 
+> showed up, even when I could see the packets being sent.
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index 783c1a7..9a78dae 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1624,7 +1624,7 @@ static int smsc911x_eeprom_send_cmd(struct smsc911x_data *pdata, u32 op)
- 	do {
- 		msleep(1);
- 		e2cmd = smsc911x_reg_read(pdata, E2P_CMD);
--	} while ((e2cmd & E2P_CMD_EPC_BUSY_) && (timeout--));
-+	} while ((e2cmd & E2P_CMD_EPC_BUSY_) && (--timeout));
- 
- 	if (!timeout) {
- 		SMSC_TRACE(DRV, "TIMED OUT");
-diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
-index a1e4b38..83938e1 100644
---- a/drivers/net/smsc9420.c
-+++ b/drivers/net/smsc9420.c
-@@ -341,7 +341,7 @@ static int smsc9420_eeprom_send_cmd(struct smsc9420_pdata *pd, u32 op)
- 	do {
- 		msleep(1);
- 		e2cmd = smsc9420_reg_read(pd, E2P_CMD);
--	} while ((e2cmd & E2P_CMD_EPC_BUSY_) && (timeout--));
-+	} while ((e2cmd & E2P_CMD_EPC_BUSY_) && (--timeout));
- 
- 	if (!timeout) {
- 		smsc_info(HW, "TIMED OUT");
+Where (table/chain/position) did you add this rule?
+
+>> That said, there were
+>> some bugs in the past few releases that caused some bad interaction
+>> between TCP and TCP conntrack (not sure anymore which one of both was
+>> to blame). Its possible that this is the root cause for this, so
+>> you might want to consider a kernel update.
+> 
+> It does sound like the result of a bug.  Do you have any pointers to 
+> patches or locations to check in the source?
+
+Sorry, there were quite a few patches and I don't remember which
+ones exactly are related.
