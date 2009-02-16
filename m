@@ -1,30 +1,56 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH 24/43] drivers/net/ixgbe: fix sparse warning: Should it
- be	static?
-Date: Sun, 15 Feb 2009 22:48:51 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.64.0902152248180.31128@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
- <20090214213822.24377.64757.stgit@vmbox.hanneseder.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH NET-NEXT 0/10] hardware time stamping with new fields
+ in shinfo
+Date: Sun, 15 Feb 2009 23:16:26 -0800 (PST)
+Message-ID: <20090215.231626.160752710.davem@davemloft.net>
+References: <1234450670.5914.9.camel@ecld0pohly>
+	<1234450981.5914.11.camel@ecld0pohly>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hannes Eder <hannes@hanneseder.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnstul@us.ibm.com, john.ronciak@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: patrick.ohly@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:64484 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751220AbZBPGs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Feb 2009 01:48:58 -0500
-In-Reply-To: <20090214213822.24377.64757.stgit@vmbox.hanneseder.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42766
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752002AbZBPHQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 02:16:43 -0500
+In-Reply-To: <1234450981.5914.11.camel@ecld0pohly>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Impact: Make symbol static.
-> 
-> Fix this sparse warning:
->   drivers/net/ixgbe/ixgbe_82598.c:59:5: warning: symbol 'ixgbe_get_pcie_msix_count_82598' was not declared. Should it be static?
-> 
-> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Date: Thu, 12 Feb 2009 16:03:01 +0100
 
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> This revision of the patch series transports hardware time stamps from
+> the hardware into user space via additional fields in struct
+> skb_shared_info. It's based on net-next-2.6 as of this morning.
+> 
+> This is the solution that emerged from the discussion of the other
+> approaches suggested before (reuse tstamp, extend skbuff, optional
+> structs): it has the advantage of not touching skbuff and also has the
+> simplest implementation.
+> 
+> The clocksource and timecompare patches have been reviewed by John
+> Stultz. He doesn't mind merging them via the net subtree.
+> 
+> John Ronciak reviewed the igb driver patches. He suggested to merge the
+> patches as they; after all, PTPd already works fine. I just tested again
+> on 32 and 64 bit x86, both with the timestamping example programs as
+> well as with PTPd. Latest patched PTPd is here:
+>         http://github.com/pohly/ptpd/tree/master
+> 
+> The open TODOs in the igb driver will be fixed. We think that this will
+> be easier with the infrastructure and the driver in a regular kernel
+> tree.
+
+Ok, I applied everything and pushed it out to net-next-2.6, let's
+see how this goes :-)
+
+That TX clone wrt. skb_orphan() issue will need a happier solution.
+
+Can you describe that problem in detail?  Maybe someone can come
+up with a way to avoid that stuff.
+
+Thanks.
