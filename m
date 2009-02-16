@@ -1,56 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NET-NEXT 0/10] hardware time stamping with new fields
- in shinfo
-Date: Sun, 15 Feb 2009 23:16:26 -0800 (PST)
-Message-ID: <20090215.231626.160752710.davem@davemloft.net>
-References: <1234450670.5914.9.camel@ecld0pohly>
-	<1234450981.5914.11.camel@ecld0pohly>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.29-rc5: Reported regressions from 2.6.28
+Date: Mon, 16 Feb 2009 07:29:10 +0000
+Message-ID: <20090216072910.GA4763@ff.dom.local>
+References: <juADNmcceYF.A.mdD.Mr0lJB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnstul@us.ibm.com, john.ronciak@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: patrick.ohly@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42766
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752002AbZBPHQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 02:16:43 -0500
-In-Reply-To: <1234450981.5914.11.camel@ecld0pohly>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <juADNmcceYF.A.mdD.Mr0lJB@chimera>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick Ohly <patrick.ohly@intel.com>
-Date: Thu, 12 Feb 2009 16:03:01 +0100
+On 14-02-2009 21:35, Rafael J. Wysocki wrote:
+> This message contains a list of some regressions from 2.6.28, for which there
+> are no fixes in the mainline I know of.  If any of them have been fixed already,
+> please let me know.
+...
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=12615
+> Subject		: boot hangs while bringing up gianfar ethernet
+> Submitter	: Ira Snyder <iws@ovro.caltech.edu>
+> Date		: 2009-01-29 19:41 (17 days old)
+> References	: http://marc.info/?l=linux-kernel&m=123325817201665&w=4
 
-> This revision of the patch series transports hardware time stamps from
-> the hardware into user space via additional fields in struct
-> skb_shared_info. It's based on net-next-2.6 as of this morning.
-> 
-> This is the solution that emerged from the discussion of the other
-> approaches suggested before (reuse tstamp, extend skbuff, optional
-> structs): it has the advantage of not touching skbuff and also has the
-> simplest implementation.
-> 
-> The clocksource and timecompare patches have been reviewed by John
-> Stultz. He doesn't mind merging them via the net subtree.
-> 
-> John Ronciak reviewed the igb driver patches. He suggested to merge the
-> patches as they; after all, PTPd already works fine. I just tested again
-> on 32 and 64 bit x86, both with the timestamping example programs as
-> well as with PTPd. Latest patched PTPd is here:
->         http://github.com/pohly/ptpd/tree/master
-> 
-> The open TODOs in the igb driver will be fixed. We think that this will
-> be easier with the infrastructure and the driver in a regular kernel
-> tree.
+Fixed by:
+commit	8707bdd48ab705a459ac1b12014075a139d1d4f9
+gianfar: Fix boot hangs while bringing up gianfar ethernet
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=8707bdd48ab705a459ac1b12014075a139d1d4f9
 
-Ok, I applied everything and pushed it out to net-next-2.6, let's
-see how this goes :-)
-
-That TX clone wrt. skb_orphan() issue will need a happier solution.
-
-Can you describe that problem in detail?  Maybe someone can come
-up with a way to avoid that stuff.
-
-Thanks.
+Cheers,
+Jarek P.
