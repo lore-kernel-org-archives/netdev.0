@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 6/6] igb: transition driver to only using
- advanced descriptors
-Date: Mon, 16 Feb 2009 00:07:00 -0800 (PST)
-Message-ID: <20090216.000700.98246909.davem@davemloft.net>
-References: <20090213041654.3848.39227.stgit@lost.foo-projects.org>
-	<20090213041847.3848.53705.stgit@lost.foo-projects.org>
+Subject: Re: [PATCH net-next 0/4] sctp: Updates and fixes
+Date: Mon, 16 Feb 2009 00:07:16 -0800 (PST)
+Message-ID: <20090216.000716.118829405.davem@davemloft.net>
+References: <1234550024-30915-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38913
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38917
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754492AbZBPIHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 03:07:16 -0500
-In-Reply-To: <20090213041847.3848.53705.stgit@lost.foo-projects.org>
+	by vger.kernel.org with ESMTP id S1754576AbZBPIHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 03:07:32 -0500
+In-Reply-To: <1234550024-30915-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 12 Feb 2009 20:18:48 -0800
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Fri, 13 Feb 2009 13:33:40 -0500
 
-> Currently the driver uses advanced descriptors for its main functionality,
-> but then uses legacy when testing.  This patch changes this so that
-> advanced descriptors are used throughout and all mentions of legacy
-> descriptors are removed.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Here are some updates and fixes for SCTP:
+>     - Allow disabling of checksum with a module parameter.
+>     - Cleanup the sctp checksum code to get rid of excessive casts
+>     - Fix the exponention RTO update with Heartbeats.
+>     - Preserve socket level options on accept/peeloff.
 
-Applied.
+All applied, thanks Vlad.
