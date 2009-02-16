@@ -1,80 +1,45 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 3/3] netxen: ratelimit error prints
-Date: Mon, 16 Feb 2009 01:18:51 -0800
-Message-ID: <1234775931-18518-4-git-send-email-dhananjay@netxen.com>
-References: <1234775931-18518-1-git-send-email-dhananjay@netxen.com>
-Cc: davem@davemloft.net
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: Correct use of private socket queue and pskb_copy
+Date: Mon, 16 Feb 2009 10:32:42 +0100
+Message-ID: <17e3a8f80902160132m65d2c18dkc70f4bb362a2b7c8@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:48980 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752238AbZBPJS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Feb 2009 04:18:57 -0500
-In-Reply-To: <1234775931-18518-1-git-send-email-dhananjay@netxen.com>
+Received: from mail-bw0-f161.google.com ([209.85.218.161]:62004 "EHLO
+	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756256AbZBPJco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 04:32:44 -0500
+Received: by bwz5 with SMTP id 5so2939509bwz.13
+        for <netdev@vger.kernel.org>; Mon, 16 Feb 2009 01:32:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If for some reason, read from card memory fails the console
-get flooded with failure prints. This patch confines print
-under printk_ratelimit().
+Hello,
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic_hw.c |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
+I am working on a TCP modification that requires private copies of the
+affected SKBs and the memory cannot safely be freed before ACK is
+received. To solve this, I have created a new queue in the
+sock-struct, intialized in sock_init_data and sk_clone, and then use
+the queue in the following order:
 
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 81f55e1..b2f67b9 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -1579,8 +1579,9 @@ netxen_nic_pci_mem_write_128M(struct netxen_adapter *adapter,
- 		}
- 
- 		if (j >= MAX_CTL_CHECK) {
--			printk("%s: %s Fail to write through agent\n",
--					__func__, netxen_nic_driver_name);
-+			if (printk_ratelimit())
-+				dev_err(&adapter->pdev->dev,
-+					"failed to write through agent\n");
- 			ret = -1;
- 			break;
- 		}
-@@ -1637,8 +1638,9 @@ netxen_nic_pci_mem_read_128M(struct netxen_adapter *adapter,
- 		}
- 
- 		if (j >= MAX_CTL_CHECK) {
--			printk(KERN_ERR "%s: %s Fail to read through agent\n",
--					__func__, netxen_nic_driver_name);
-+			if (printk_ratelimit())
-+				dev_err(&adapter->pdev->dev,
-+					"failed to read through agent\n");
- 			break;
- 		}
- 
-@@ -1773,8 +1775,9 @@ netxen_nic_pci_mem_write_2M(struct netxen_adapter *adapter,
- 		}
- 
- 		if (j >= MAX_CTL_CHECK) {
--			printk(KERN_ERR "%s: Fail to write through agent\n",
--					netxen_nic_driver_name);
-+			if (printk_ratelimit())
-+				dev_err(&adapter->pdev->dev,
-+					"failed to write through agent\n");
- 			ret = -1;
- 			break;
- 		}
-@@ -1843,8 +1846,9 @@ netxen_nic_pci_mem_read_2M(struct netxen_adapter *adapter,
- 		}
- 
- 		if (j >= MAX_CTL_CHECK) {
--			printk(KERN_ERR "%s: Fail to read through agent\n",
--					netxen_nic_driver_name);
-+			if (printk_ratelimit())
-+				dev_err(&adapter->pdev->dev,
-+					"failed to read through agent\n");
- 			break;
- 		}
- 
--- 
-1.6.0.2
+* tcp_transmit_skb is called
+* If the skb shall be modified, creates a copy using pskb_copy
+* Modifies the skb and places the copy on "my" queue
+* ACK is received, kernel works through "my" queue and removes SKBs
+that can be removed.
 
+However, there is something I can't figure out and that stops this
+solution from working. After placing the copy of the SKB on the queue,
+after a while I see that its memory is modified. The sequence numbers
+change to corrupted values, next/prev-pointers break and so forth.My
+question is, does anyone have any idea on what modifies the memory or
+what I might have done wrong? As far as I can see, the queue is
+initialized correctly and I have not found anywhere in the code that
+modifies any of the affected areas of the copied SKB (code that is run
+after it is created).
+
+Thanks in advance for any help.
+
+-Kristian
