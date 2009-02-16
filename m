@@ -1,43 +1,37 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] smsc9420: fix another postfixed timeout
-Date: Mon, 16 Feb 2009 07:46:06 +0000
-Message-ID: <1234770366-3572-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Roel Kluin <roel.kluin@gmail.com>,
-	Vlad Lyalikov <vlad.lyalikov@smsc.com>,
-	Ian Saturley <ian.saturley@smsc.com>,
-	David Miller <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] mv643xx_eth updates
+Date: Sun, 15 Feb 2009 23:46:30 -0800 (PST)
+Message-ID: <20090215.234630.202443700.davem@davemloft.net>
+References: <20090213000615.GJ17914@xi.wantstofly.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, nico@cam.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([86.54.240.115]:43423 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753776AbZBPHpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 02:45:47 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58359
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753392AbZBPHqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 02:46:46 -0500
+In-Reply-To: <20090213000615.GJ17914@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roel Kluin recently fixed several instances where variables reach -1,
-but 0 is tested afterwards.  This patch fixes another, so the timeout
-will be correctly detected and a warning printed.
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Fri, 13 Feb 2009 01:06:15 +0100
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/smsc9420.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Two things here:
+> - Exporting some functionality that mostly already existed in the
+>   driver (interrupt coalescing, etc) to userland via ethtool.
+> - Add Kconfig-configurable LRO support.
 
-diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
-index a1e4b38..83938e1 100644
---- a/drivers/net/smsc9420.c
-+++ b/drivers/net/smsc9420.c
-@@ -341,7 +341,7 @@ static int smsc9420_eeprom_send_cmd(struct smsc9420_pdata *pd, u32 op)
- 	do {
- 		msleep(1);
- 		e2cmd = smsc9420_reg_read(pd, E2P_CMD);
--	} while ((e2cmd & E2P_CMD_EPC_BUSY_) && (timeout--));
-+	} while ((e2cmd & E2P_CMD_EPC_BUSY_) && (--timeout));
- 
- 	if (!timeout) {
- 		smsc_info(HW, "TIMED OUT");
--- 
-1.6.0.6
+Applied to net-next-2.6, but I think making LRO support
+Kconfig'able is a terrible precedent to set.
 
+We have an ethtool knob, people can turn it off.
+
+And furthermore, if it is worse in some cases that is
+a bug that we should fix rather than ignore while hiding
+behind some Kconfig option.
+
+Please reconsider...
