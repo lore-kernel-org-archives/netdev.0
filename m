@@ -1,97 +1,101 @@
 From: Anatolij Gustschin <agust@denx.de>
-Subject: [PATCH 1/3] phylib: Basic support for the M88E1121R Marvell chip
-Date: Mon, 16 Feb 2009 21:53:49 +0100
-Message-ID: <1234817631-7981-1-git-send-email-agust@denx.de>
-Cc: Sergei Poselenov <sposelenov@emcraft.com>,
-	Yuri Tikhonov <yur@emcraft.com>,
-	Anatolij Gustschin <agust@denx.de>
+Subject: [PATCH 2/3] phylib: add support for shared PHY interrupts
+Date: Mon, 16 Feb 2009 21:53:50 +0100
+Message-ID: <1234817631-7981-2-git-send-email-agust@denx.de>
+References: <>
+ <1234817631-7981-1-git-send-email-agust@denx.de>
+Cc: Anatolij Gustschin <agust@denx.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:33615 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.9]:39641 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214AbZBPUxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 15:53:54 -0500
-In-Reply-To: <>
-References: <>
+	with ESMTP id S1752407AbZBPUx4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 15:53:56 -0500
+In-Reply-To: <1234817631-7981-1-git-send-email-agust@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Poselenov <sposelenov@emcraft.com>
+Marvell 88E1121R PHY device can be hardware-configured
+to use shared interrupt pin for both PHY ports. This
+patch adds support for shared PHY interrupts to the PHY
+framework to enable support for such PHY configurations.
 
-Signed-off-by: Yuri Tikhonov <yur@emcraft.com>
-Signed-off-by: Sergei Poselenov <sposelenov@emcraft.com>
 Signed-off-by: Anatolij Gustschin <agust@denx.de>
 ---
- drivers/net/phy/marvell.c |   42 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 42 insertions(+), 0 deletions(-)
+ drivers/net/phy/phy.c        |   13 +++++++++++++
+ drivers/net/phy/phy_device.c |    2 ++
+ include/linux/phy.h          |    4 ++++
+ 3 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 4aa5479..1d282b0 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -69,6 +69,12 @@
- #define MII_M1111_COPPER		0
- #define MII_M1111_FIBER			1
- 
-+#define MII_88E1121_PHY_LED_CTRL	16
-+#define MII_88E1121_PHY_LED_PAGE	3
-+#define MII_88E1121_PHY_LED_DEF		0x0030
-+
-+#define MII_88E1121_PHY_PAGE		22
-+
- #define MII_M1011_PHY_STATUS		0x11
- #define MII_M1011_PHY_STATUS_1000	0x8000
- #define MII_M1011_PHY_STATUS_100	0x4000
-@@ -154,6 +160,30 @@ static int marvell_config_aneg(struct phy_device *phydev)
- 	return err;
- }
- 
-+static int m88e1121_config_aneg(struct phy_device *phydev)
-+{
-+	int err, temp;
-+
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_M1011_PHY_SCR,
-+			MII_M1011_PHY_SCR_AUTO_CROSS);
-+	if (err < 0)
-+		return err;
-+
-+	temp = phy_read(phydev, MII_88E1121_PHY_PAGE);
-+
-+	phy_write(phydev, MII_88E1121_PHY_PAGE, MII_88E1121_PHY_LED_PAGE);
-+	phy_write(phydev, MII_88E1121_PHY_LED_CTRL, MII_88E1121_PHY_LED_DEF);
-+	phy_write(phydev, MII_88E1121_PHY_PAGE, temp);
-+
-+	err = genphy_config_aneg(phydev);
-+
-+	return err;
-+}
-+
- static int m88e1111_config_init(struct phy_device *phydev)
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index df4e625..93d387e 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -657,9 +657,17 @@ EXPORT_SYMBOL(phy_stop_interrupts);
+ static void phy_change(struct work_struct *work)
  {
  	int err;
-@@ -416,6 +446,18 @@ static struct phy_driver marvell_drivers[] = {
- 		.driver = { .owner = THIS_MODULE },
- 	},
- 	{
-+		.phy_id = 0x01410cb0,
-+		.phy_id_mask = 0xfffffff0,
-+		.name = "Marvell 88E1121R",
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.config_aneg = &m88e1121_config_aneg,
-+		.read_status = &marvell_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.driver = { .owner = THIS_MODULE },
-+	},
-+	{
- 		.phy_id = 0x01410cd0,
- 		.phy_id_mask = 0xfffffff0,
- 		.name = "Marvell 88E1145",
++	int src;
+ 	struct phy_device *phydev =
+ 		container_of(work, struct phy_device, phy_queue);
+ 
++	if (phydev->drv->flags & PHY_INTERRUPTS_SHARED
++	    && phydev->drv->interrupt_src) {
++		src = phydev->drv->interrupt_src(phydev);
++		if ((src == -1) || (src != phydev->addr))
++			goto ignore;
++	}
++
+ 	err = phy_disable_interrupts(phydev);
+ 
+ 	if (err)
+@@ -688,6 +696,11 @@ static void phy_change(struct work_struct *work)
+ 
+ 	return;
+ 
++ignore:
++	atomic_dec(&phydev->irq_disable);
++	enable_irq(phydev->irq);
++	return;
++
+ irq_enable_err:
+ 	disable_irq(phydev->irq);
+ 	atomic_inc(&phydev->irq_disable);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index e11b03b..dccc445 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -401,6 +401,8 @@ void phy_detach(struct phy_device *phydev)
+ 	 * real driver could be loaded */
+ 	if (phydev->dev.driver == &genphy_driver.driver)
+ 		device_release_driver(&phydev->dev);
++	else if (phydev->drv->remove)
++		phydev->drv->remove(phydev);
+ }
+ EXPORT_SYMBOL(phy_detach);
+ 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 77c4ed6..a844c2a 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -49,6 +49,7 @@
+ 
+ #define PHY_HAS_INTERRUPT	0x00000001
+ #define PHY_HAS_MAGICANEG	0x00000002
++#define PHY_INTERRUPTS_SHARED	0x00000004
+ 
+ /* Interface Mode definitions */
+ typedef enum {
+@@ -389,6 +390,9 @@ struct phy_driver {
+ 	/* Enables or disables interrupts */
+ 	int (*config_intr)(struct phy_device *phydev);
+ 
++	/* Returns interrupt source if interrupt pin is shared */
++	int (*interrupt_src)(struct phy_device *phydev);
++
+ 	/* Clears up any memory if needed */
+ 	void (*remove)(struct phy_device *phydev);
+ 
 -- 
 1.5.4.3
 
