@@ -1,45 +1,76 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Correct use of private socket queue and pskb_copy
-Date: Mon, 16 Feb 2009 10:32:42 +0100
-Message-ID: <17e3a8f80902160132m65d2c18dkc70f4bb362a2b7c8@mail.gmail.com>
+From: Hannes Eder <hannes@hanneseder.net>
+Subject: Re: [PATCH 27/43] drivers/net/sfc: fix sparse warnings: Should it be
+	static?
+Date: Mon, 16 Feb 2009 10:38:26 +0100
+Message-ID: <154e089b0902160138n255616a0xb963dfd990d912b@mail.gmail.com>
+References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
+	 <20090214214111.24377.87888.stgit@vmbox.hanneseder.net>
+	 <20090216003718.GN15266@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:62004 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756256AbZBPJco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 04:32:44 -0500
-Received: by bwz5 with SMTP id 5so2939509bwz.13
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2009 01:32:42 -0800 (PST)
+Received: from mail-bw0-f167.google.com ([209.85.218.167]:48629 "EHLO
+	mail-bw0-f167.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753027AbZBPJi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2009 04:38:29 -0500
+In-Reply-To: <20090216003718.GN15266@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Mon, Feb 16, 2009 at 1:37 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> Hannes Eder wrote:
+>> Impact: Include header file and include the function under the same
+>> condition as in the header file.  If CONFIG_SFS_MTD is not defined
+>> than the functions 'efx_mtd_remove' and 'efx_mtd_rename' are defined
+>> 'static inline' with an empty function body in the header file.
+>>
+>> Fix this sparse warnings:
+>>   drivers/net/sfc/mtd.c:204:6: warning: symbol 'efx_mtd_remove' was not declared. Should it be static?
+>>   drivers/net/sfc/mtd.c:221:6: warning: symbol 'efx_mtd_rename' was not declared. Should it be static?
+>>   drivers/net/sfc/mtd.c:230:5: warning: symbol 'efx_mtd_probe' was not declared. Should it be static?
+>>
+>> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
+>> ---
+>>  drivers/net/sfc/mtd.c |    3 +++
+>>  1 files changed, 3 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/sfc/mtd.c b/drivers/net/sfc/mtd.c
+>> index 665cafb..94c9ed8 100644
+>> --- a/drivers/net/sfc/mtd.c
+>> +++ b/drivers/net/sfc/mtd.c
+>> @@ -15,6 +15,7 @@
+>>  #define EFX_DRIVER_NAME "sfc_mtd"
+>>  #include "net_driver.h"
+>>  #include "spi.h"
+>> +#include "efx.h"
+>>
+>>  #define EFX_SPI_VERIFY_BUF_LEN 16
+>>
+>
+> OK, but...
+>
+>> @@ -201,6 +202,7 @@ static void efx_mtd_sync(struct mtd_info *mtd)
+>>       return;
+>>  }
+>>
+>> +#ifdef CONFIG_SFC_MTD
+>>  void efx_mtd_remove(struct efx_nic *efx)
+>>  {
+>>       if (efx->spi_flash && efx->spi_flash->mtd) {
+>> @@ -266,3 +268,4 @@ int efx_mtd_probe(struct efx_nic *efx)
+>>
+>>       return 0;
+>>  }
+>> +#endif /* CONFIG_SFC_MTD */
+>
+> This is wrong.  The entire file is conditional on CONFIG_SFC_MTD.
 
-I am working on a TCP modification that requires private copies of the
-affected SKBs and the memory cannot safely be freed before ACK is
-received. To solve this, I have created a new queue in the
-sock-struct, intialized in sock_init_data and sk_clone, and then use
-the queue in the following order:
+Even better than. It's actually not wrong, just done twice, so we can
+omit it, thank you Ben. I'll send an update.
 
-* tcp_transmit_skb is called
-* If the skb shall be modified, creates a copy using pskb_copy
-* Modifies the skb and places the copy on "my" queue
-* ACK is received, kernel works through "my" queue and removes SKBs
-that can be removed.
-
-However, there is something I can't figure out and that stops this
-solution from working. After placing the copy of the SKB on the queue,
-after a while I see that its memory is modified. The sequence numbers
-change to corrupted values, next/prev-pointers break and so forth.My
-question is, does anyone have any idea on what modifies the memory or
-what I might have done wrong? As far as I can see, the queue is
-initialized correctly and I have not found anywhere in the code that
-modifies any of the affected areas of the copied SKB (code that is run
-after it is created).
-
-Thanks in advance for any help.
-
--Kristian
+Hannes
