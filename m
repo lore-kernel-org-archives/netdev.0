@@ -1,38 +1,30 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: net.ipv6.conf.INT.accept_ra_rt_info_max_plen defaults to 0
-Date: Mon, 16 Feb 2009 08:31:34 +0200 (EET)
-Message-ID: <alpine.LRH.2.00.0902160827570.28957@netcore.fi>
-References: <alpine.LRH.2.00.0902030632240.7583@netcore.fi>  <20090202.213616.258001767.davem@davemloft.net> <b245135e0902150605q1bbaddc3pa3dd6053e158ae2e@mail.gmail.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH 24/43] drivers/net/ixgbe: fix sparse warning: Should it
+ be	static?
+Date: Sun, 15 Feb 2009 22:48:51 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.64.0902152248180.31128@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20090214210940.23489.95001.stgit@vmbox.hanneseder.net>
+ <20090214213822.24377.64757.stgit@vmbox.hanneseder.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Teran McKinney <sega01@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hannes Eder <hannes@hanneseder.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:55132 "EHLO netcore.fi"
+Received: from mga14.intel.com ([143.182.124.37]:64484 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751029AbZBPGbo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Feb 2009 01:31:44 -0500
-In-Reply-To: <b245135e0902150605q1bbaddc3pa3dd6053e158ae2e@mail.gmail.com>
+	id S1751220AbZBPGs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Feb 2009 01:48:58 -0500
+In-Reply-To: <20090214213822.24377.64757.stgit@vmbox.hanneseder.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Let me add to what DaveM said:
+> Impact: Make symbol static.
+> 
+> Fix this sparse warning:
+>   drivers/net/ixgbe/ixgbe_82598.c:59:5: warning: symbol 'ixgbe_get_pcie_msix_count_82598' was not declared. Should it be static?
+> 
+> Signed-off-by: Hannes Eder <hannes@hanneseder.net>
 
-On Sun, 15 Feb 2009, Teran McKinney wrote:
->> It seems that it is disabled like this by default when
->> accept_ra_rtr_pref is enabled, and that seems pretty reasonable to me.
-
-accept_ra_rtr_pref is about router preferences. 
-accept_ra_rt_info_max_plen is about more specific routes.  They are 
-defined in the same RFC, and probably many implementers implement them 
-at the same time.  However, there is no logical connection between the 
-two, and making the default value of one depend on the default value 
-of the other doesn't seem to make sense to me.
-
-Even if we didn't enable accept_ra_rt_info_max_plen by default, I 
-don't think it should depend on the value of accept_ra_rtr_pref.
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
