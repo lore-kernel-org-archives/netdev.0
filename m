@@ -1,78 +1,63 @@
-From: Andrey Borzenkov <arvidjaar@mail.ru>
-Subject: Re: 2.6.29 regression? Bonding tied to IPV6 in 29-rc5
-Date: Tue, 17 Feb 2009 21:17:14 +0300
-Message-ID: <200902172117.22671.arvidjaar@mail.ru>
-References: <alpine.LFD.2.00.0902131413120.3179@localhost.localdomain> <20090217095232.5da06b9f@werewolf.home> <200902172001.41804.arvidjaar@mail.ru>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH] TG3: &&/|| confusion
+Date: Tue, 17 Feb 2009 10:34:39 -0800
+Message-ID: <20090217183439.GA7201@xw6200.broadcom.net>
+References: <49989494.6010804@gmail.com>
+ <C27F8246C663564A84BB7AB343977242163420407C@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1808985.XiPzYbKinC";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
-	"J.A. =?iso-8859-1?q?Magall=F3n?=" <jamagallon@ono.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>, brian.haley@hp.com
+Cc: "'Roel Kluin'" <roel.kluin@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx71.mail.ru ([94.100.176.85]:53591 "EHLO mx71.mail.ru"
+Received: from mms3.broadcom.com ([216.31.210.19]:4724 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753828AbZBQSRk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Feb 2009 13:17:40 -0500
-In-Reply-To: <200902172001.41804.arvidjaar@mail.ru>
+	id S1752898AbZBQSet (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Feb 2009 13:34:49 -0500
+In-Reply-To: <C27F8246C663564A84BB7AB343977242163420407C@IRVEXCHCCR01.corp.ad.broadcom.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1808985.XiPzYbKinC
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-On 17 of February 2009 20:01:38 Andrey Borzenkov wrote:
-> Forward to bonding and netdev
->
-> On 17 of February 2009 11:52:32 J.A. Magall=F3n wrote:
-> > Hi all...
+On Mon, Feb 16, 2009 at 09:27:19AM -0800, Michael Chan wrote:
+> Roel Kluin wrote:
+> 
+> > phyid Can't be both TG3_PHY_OUI_1 and TG3_PHY_OUI_2 and TG3_PHY_OUI_3.
 > >
-> > Don't know if this is specific for -rc5, I have jumped from 28.4 to
-> > 29-rc5. In this latest kernel, I can not install 'bonding' module
-> > if 'ipv6' is disabled to load via modprobe.conf:
+> > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> > ---
+> > // vi drivers/net/tg3.h +2698
+> > #define TG3_PHY_OUI_1                   0x00206000
+> > #define TG3_PHY_OUI_2                   0x0143bc00
+> > #define TG3_PHY_OUI_3                   0x03625c00
 > >
-> > install ipv6 /bin/true
+> > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> > index 4595962..b080f94 100644
+> > --- a/drivers/net/tg3.c
+> > +++ b/drivers/net/tg3.c
+> > @@ -2237,8 +2237,8 @@ static int tg3_set_power_state(struct
+> > tg3 *tp, pci_power_t state)
+> >                       phyid = phydev->drv->phy_id &
+> > phydev->drv->phy_id_mask;
+> >                       if (phyid != TG3_PHY_ID_BCMAC131) {
+> >                               phyid &= TG3_PHY_OUI_MASK;
+> > -                             if (phyid == TG3_PHY_OUI_1 &&
+> > -                                 phyid == TG3_PHY_OUI_2 &&
+> > +                             if (phyid == TG3_PHY_OUI_1 ||
+> > +                                 phyid == TG3_PHY_OUI_2 ||
+> >                                   phyid == TG3_PHY_OUI_3)
+> >                                       do_low_power = true;
+> >                       }
 > >
-> > Trying bonding gives this dmesg:
 > >
-> > bonding: Unknown symbol ndisc_build_skb
-> > bonding: Unknown symbol in6_dev_finish_destroy
-> > bonding: Unknown symbol ndisc_send_skb
-> > bonding: Unknown symbol unregister_inet6addr_notifier
-> > bonding: Unknown symbol register_inet6addr_notifier
-> >
-> > Commenting the line in modprobe.conf makes things smooth again.
-> > We can not disable ipv6 anymore ?
->
-> If IPv6 is disable in kernel config bonding loads. But I think it is
-> regression, it should be possible to disable IPv6 if not required.
+> 
+> Thanks, this looks good to me, but I need Matt to ACK this patch.
 
-This hard dependency was apparently introduced by this commit:
+Yes.  This is correct.
 
-commit 305d552accae6afb859c493ebc7d98ca3371dae2
-Author: Brian Haley <brian.haley@hp.com>
-Date:   Tue Nov 4 17:51:14 2008 -0800
+Acked-by: Matt Carlson <mcarlson@broadcom.com>
 
-    bonding: send IPv6 neighbor advertisement on failover
-
-
---nextPart1808985.XiPzYbKinC
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkma/zIACgkQR6LMutpd94yilwCcCJeMWWKANMNNS99Kxs5EnTsH
-5q8AnRbFac9FhrOpSq4pYz/wygBP1nlT
-=9Ddh
------END PGP SIGNATURE-----
-
---nextPart1808985.XiPzYbKinC--
