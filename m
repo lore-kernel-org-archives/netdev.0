@@ -1,77 +1,37 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] netxen: only half timeout waited
-Date: Tue, 17 Feb 2009 07:41:35 +0000
-Message-ID: <20090217074135.GB4677@ff.dom.local>
-References: <4999704A.9030004@gmail.com> <20090217073312.GA4677@ff.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: problem with IPoA (CLIP),  NAT, and VLANS
+Date: Tue, 17 Feb 2009 10:03:57 +0100
+Message-ID: <499A7D7D.1090607@trash.net>
+References: <20090216232016.GA4803@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dhananjay@netxen.com, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Roel Kluin <roel.kluin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f167.google.com ([209.85.218.167]:56028 "EHLO
-	mail-bw0-f167.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbZBQHll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 02:41:41 -0500
-Received: by bwz11 with SMTP id 11so1843607bwz.13
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2009 23:41:40 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20090217073312.GA4677@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Karl Hiramoto <karl@hiramoto.org>, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20090216232016.GA4803@ami.dom.local>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 17, 2009 at 07:33:12AM +0000, Jarek Poplawski wrote:
-> On 16-02-2009 14:55, Roel Kluin wrote:
-> > Only half the timeout was waited, due to the double increment, and an error
-> > occurred one too early.
-> > 
-> > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> > ---
-> > diff --git a/drivers/net/netxen/netxen_nic_niu.c b/drivers/net/netxen/netxen_nic_niu.c
-> > index c3b9c83..df3aa08 100644
-> > --- a/drivers/net/netxen/netxen_nic_niu.c
-> > +++ b/drivers/net/netxen/netxen_nic_niu.c
-> > @@ -147,12 +147,11 @@ int netxen_niu_gbe_phy_read(struct netxen_adapter *adapter, long reg,
-> >  					  NETXEN_NIU_GB_MII_MGMT_INDICATE(0),
-> >  					  &status, 4))
-> >  			return -EIO;
-> > -		timeout++;
-> >  	} while ((netxen_get_gb_mii_mgmt_busy(status)
-> >  		  || netxen_get_gb_mii_mgmt_notvalid(status))
-> >  		 && (timeout++ < NETXEN_NIU_PHY_WAITMAX));
-> >  
-> > -	if (timeout < NETXEN_NIU_PHY_WAITMAX) {
-> > +	if (timeout <= NETXEN_NIU_PHY_WAITMAX) {
+Jarek Poplawski wrote:
+> Very nice debugging, but I think your patch doesn't look like enough:
+> 1) it skips copy for cloned skbs,
+> 2) this skb_cow_head() is needed anyway, sometimes.
+> So the real bug should be found in skb_cow_head() or elsewhere.
 > 
-> Roel, very good caches, but IMHO in all such cases changing to
-> ++timeout with 'if (timeout == NETXEN_NIU_PHY_WAITMAX)' where
-
-Hmm... of course 'if (timeout == NETXEN_NIU_PHY_WAITMAX)' for errcode;
-in this particular case: 'if (timeout < NETXEN_NIU_PHY_WAITMAX)' would
-be OK.
-
-Jarek P.
-
-
-> possible, should be really more readable. At least wrt. next similar
-> patches.
+> I attach here 2 patches for testing:
+> 1) skb->mac_header update: it looks like needed, but I don't know if
+>    it matters here,
+> 2) an extention of your patch but with pskb_expand_head() called for
+>    one to one copy.
 > 
-> Thanks,
-> Jarek P.
-> 
-> >  		if (adapter->hw_read_wx(adapter,
-> >  					  NETXEN_NIU_GB_MII_MGMT_STATUS(0),
-> >  					  readval, 4))
-> > @@ -240,11 +239,10 @@ int netxen_niu_gbe_phy_write(struct netxen_adapter *adapter, long reg,
-> >  					  NETXEN_NIU_GB_MII_MGMT_INDICATE(0),
-> >  					  &status, 4))
-> >  			return -EIO;
-> > -		timeout++;
-> >  	} while ((netxen_get_gb_mii_mgmt_busy(status))
-> >  		 && (timeout++ < NETXEN_NIU_PHY_WAITMAX));
-> >  
-> > -	if (timeout < NETXEN_NIU_PHY_WAITMAX)
-> > +	if (timeout <= NETXEN_NIU_PHY_WAITMAX)
-> >  		result = 0;
-> >  	else
-> >  		result = -EIO;
+> BTW, if it's not a big problem it would be nice to try this e.g. on
+> 2.6.29-rc5.
+
+The first patch looks fine. As for the second one, I would like
+to understand why we're seing these packets. The VLAN driver uses
+the original headroom plus the space it needs itself, which suggests
+that the underlying driver specifies an incorrect headroom.
+The driver doesn't appear to be part of the mainline kernel though.
+
