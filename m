@@ -1,45 +1,33 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v2] Re: problem with IPoA (CLIP),  NAT, and VLANS
-Date: Tue, 17 Feb 2009 09:39:08 +0000
-Message-ID: <20090217093908.GB5341@ff.dom.local>
+Subject: Re: problem with IPoA (CLIP),  NAT, and VLANS
+Date: Tue, 17 Feb 2009 09:52:00 +0000
+Message-ID: <20090217095200.GA5538@ff.dom.local>
 References: <20090216232016.GA4803@ami.dom.local> <499A7D7D.1090607@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Karl Hiramoto <karl@hiramoto.org>, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+	netfilter@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.156]:29180 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbZBQJwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 04:52:08 -0500
 Content-Disposition: inline
 In-Reply-To: <499A7D7D.1090607@trash.net>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry:
------------------> take 2: changelog fix only
+On Tue, Feb 17, 2009 at 10:03:57AM +0100, Patrick McHardy wrote:
+...
+> The first patch looks fine. As for the second one, I would like
+> to understand why we're seing these packets. The VLAN driver uses
+> the original headroom plus the space it needs itself, which suggests
+> that the underlying driver specifies an incorrect headroom.
+> The driver doesn't appear to be part of the mainline kernel though.
 
-vlan: Update skb->mac_header in __vlan_put_tag().
+On the other hand, if Karl added his patch it seems this change of
+NET_SKB_PAD isn't enough, and if omitting skb_cow_head() works, then
+the headroom isn't the main problem?
 
-After moving mac addresses in __vlan_put_tag() skb->mac_header needs
-to be updated.
-
-Reported-by: Karl Hiramoto <karl@hiramoto.org>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
-
- include/linux/if_vlan.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index f8ff918..e1ff5b1 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -210,6 +210,7 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, u16 vlan_tci)
- 
- 	/* Move the mac addresses to the beginning of the new header. */
- 	memmove(skb->data, skb->data + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
-+	skb->mac_header -= VLAN_HLEN;
- 
- 	/* first, the ethernet type */
- 	veth->h_vlan_proto = htons(ETH_P_8021Q);
-
+Jarek P.
