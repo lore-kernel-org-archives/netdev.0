@@ -1,44 +1,34 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] atm: add missing parentheses
-Date: Tue, 17 Feb 2009 14:29:30 +0100
-Message-ID: <499ABBBA.6000404@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: problem with IPoA (CLIP),  NAT, and VLANS
+Date: Tue, 17 Feb 2009 13:37:07 +0000
+Message-ID: <20090217133707.GA6802@ff.dom.local>
+References: <20090216232016.GA4803@ami.dom.local> <499AA433.8070308@hiramoto.org> <20090217122052.GB6130@ff.dom.local> <499AB345.3070904@hiramoto.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: chas@cmf.nrl.navy.mil
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Karl Hiramoto <karl@hiramoto.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f161.google.com ([209.85.218.161]:40739 "EHLO
-	mail-bw0-f161.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008AbZBQN3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 08:29:32 -0500
-Received: by bwz5 with SMTP id 5so4038480bwz.13
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2009 05:29:30 -0800 (PST)
+Received: from ug-out-1314.google.com ([66.249.92.172]:51495 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191AbZBQNhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2009 08:37:15 -0500
+Content-Disposition: inline
+In-Reply-To: <499AB345.3070904@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing parentheses
+On Tue, Feb 17, 2009 at 01:53:25PM +0100, Karl Hiramoto wrote:
+> Jarek Poplawski wrote:
+> > On Tue, Feb 17, 2009 at 12:49:07PM +0100, Karl Hiramoto wrote:
+> > ...
+> >   
+> >> A side note:  so far the original patch i sent works in all cases i have
+> >> tested, but fails with tcpdump.   I suspect its because the skb gets cloned.
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
-index 98099f5..60c4513 100644
---- a/drivers/atm/firestream.c
-+++ b/drivers/atm/firestream.c
-@@ -1693,14 +1693,14 @@ static int __devinit fs_init (struct fs_dev *dev)
- 		  | IS_FS50(dev)?SARMODE0_PRPWT_FS50_5: 
- 		                 SARMODE0_PRPWT_FS155_3
- 		  | (1 * SARMODE0_CALSUP_1)
--		  | IS_FS50 (dev)?(0
-+		  | (IS_FS50(dev) ? (0
- 				   | SARMODE0_RXVCS_32
- 				   | SARMODE0_ABRVCS_32 
- 				   | SARMODE0_TXVCS_32):
- 		                  (0
- 				   | SARMODE0_RXVCS_1k
- 				   | SARMODE0_ABRVCS_1k 
--				   | SARMODE0_TXVCS_1k));
-+				   | SARMODE0_TXVCS_1k)));
- 
- 	/* 10ms * 100 is 1 second. That should be enough, as AN3:9 says it takes
- 	   1ms. */
+Hmm... I would like to make sure: if tcpdump breaks it too, then
+we don't need to blame skb_cow_head(), do we? If it's like this then
+it looks like the driver's problem with copied/cloned skbs?! (Maybe
+because some "private" offset is overwritten?)
+
+Jarek P.
